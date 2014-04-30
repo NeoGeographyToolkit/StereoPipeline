@@ -62,6 +62,9 @@ namespace asp {
     return vec;
   }
 
+  boost::filesystem::path make_file_relative_to_dir
+  (boost::filesystem::path const file, boost::filesystem::path const dir);
+  
   // Remove file name extension
   std::string prefix_from_filename(std::string const& filename);
 

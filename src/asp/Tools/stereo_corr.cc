@@ -563,9 +563,11 @@ void stereo_correlation( Options& opt ) {
                           seconds_per_op );
   }
 
-  asp::block_write_gdal_image( opt.out_prefix + "-D.tif",
-                               fullres_disparity, opt,
-                               TerminalProgressCallback("asp", "\t--> Correlation :") );
+  std::string d_file = opt.out_prefix + "-D.tif";
+  vw_out() << "Writing: " << d_file << "\n";
+  asp::block_write_gdal_image(d_file,
+                              fullres_disparity, opt,
+                              TerminalProgressCallback("asp", "\t--> Correlation :") );
 
   vw_out() << "\n[ " << current_posix_time_string()
            << " ] : CORRELATION FINISHED \n";

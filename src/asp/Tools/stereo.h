@@ -84,6 +84,8 @@ namespace asp {
                                       std::string const& left_sub_file,
                                       std::string const& right_sub_file,
                                       float scale);
+  
+  bool skip_image_normalization(Options const& opt);
 
 } // end namespace vw
 

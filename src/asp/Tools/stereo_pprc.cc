@@ -78,56 +78,6 @@ BlobHolder::mask_and_fill_holes( ImageViewRef< PixelGray<float> > const& img,
   return inpaint(thresh_mask.impl(), *m_blobPtr.get(), use_grassfire, default_inpaint_val);
 }
 
-bool is_tif_or_ntf(std::string const& file){
-  return
-    boost::iends_with(boost::to_lower_copy(file), ".tif")
-    ||
-    boost::iends_with(boost::to_lower_copy(file), ".ntf");
-}    
-
-bool skip_image_normalization(Options const& opt ){
-  // Respect user's choice for skipping the normalization of the input
-  // images, if feasible.
-  return
-    stereo_settings().skip_image_normalization                    && 
-    stereo_settings().alignment_method == "none"                  &&
-    stereo_settings().cost_mode == 2                              &&
-    is_tif_or_ntf(opt.in_file1)                                   && 
-    is_tif_or_ntf(opt.in_file2);
-}
-
-fs::path make_file_relative_to_dir(fs::path const file, fs::path const dir) {
-  // Make the specified file to be relative to the specified directory.
-  if (file.has_root_path()){
-    if (file.root_path() != dir.root_path()) {
-      return file;
-    } else {
-      return make_file_relative_to_dir(file.relative_path(), dir.relative_path());
-    }
-  } else {
-    if (dir.has_root_path()) {
-      fs::path file2 = fs::complete(file);
-      return make_file_relative_to_dir(file2.relative_path(), dir.relative_path());
-    } else {
-      typedef fs::path::const_iterator path_iterator;
-      path_iterator file_it = file.begin();
-      path_iterator dir_it = dir.begin();
-      while ( file_it != file.end() && dir_it != dir.end() ) {
-        if (*file_it != *dir_it) break;
-        ++file_it; ++dir_it;
-      }
-      fs::path result;
-      for (; dir_it != dir.end(); ++dir_it) {
-        result /= "..";
-      }
-      for (; file_it != file.end(); ++file_it) {
-        result /= *file_it;
-      }
-      return result;
-    }
-  }
-}
-
 void create_sym_links(std::string const& left_input_file,
                       std::string const& right_input_file,
                       std::string const& out_prefix,
@@ -180,7 +130,7 @@ void stereo_preprocessing( Options& opt ) {
   
   // Normalize the images, unless the user prefers not to.
   std::string left_image_file, right_image_file;
-  bool skip_img_norm = skip_image_normalization(opt);
+  bool skip_img_norm = asp::skip_image_normalization(opt);
   if (skip_img_norm)
     create_sym_links(opt.in_file1, opt.in_file2, opt.out_prefix,
                      left_image_file, right_image_file);
@@ -434,6 +384,31 @@ void stereo_preprocessing( Options& opt ) {
         channel_cast_rescale<uint8>(select_channel(right_sub_image, 1)),
         opt_nopred,
         TerminalProgressCallback("asp", "\t    Sub R Mask: ") );
+  }
+
+  if (skip_img_norm && stereo_settings().subpixel_mode == 2){
+    // If image normalization is not done, we still need to compute the image
+    // stats, to do normalization on the fly in stereo_rfne.
+    // This code is not in stereo_rfne, as that one is meant to be distributed
+    // across multiple machines, so we want the stats to be computed just once,
+    // hence they are done here.
+    vw_out() << "Computing statistics for the un-normalized images.\n";
+    DiskImageView<uint8> left_mask(left_mask_file), right_mask(right_mask_file);
+    ImageViewRef< PixelMask< PixelGray<float> > > left_masked_image
+      = copy_mask(left_image, create_mask(left_mask));
+    ImageViewRef< PixelMask< PixelGray<float> > > right_masked_image
+      = copy_mask(right_image, create_mask(right_mask));
+    Vector4f left_stats  = gather_stats( left_masked_image,  "left" );
+    Vector4f right_stats = gather_stats( right_masked_image, "right" );
+    std::string left_stats_file  = opt.out_prefix+"-lStats.tif";
+    std::string right_stats_file  = opt.out_prefix+"-rStats.tif";
+
+    vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file
+             << std::endl;
+    Vector<float32> left_stats2 = left_stats; // cast
+    Vector<float32> right_stats2 = right_stats; // cast
+    write_vector(left_stats_file, left_stats2);
+    write_vector(right_stats_file,right_stats2);
   }
 }
 

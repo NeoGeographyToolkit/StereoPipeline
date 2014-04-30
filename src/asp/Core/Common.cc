@@ -44,6 +44,38 @@ using namespace vw;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
+// Make the specified file to be relative to the specified directory.
+fs::path asp::make_file_relative_to_dir(fs::path const file, fs::path const dir) {
+  if (file.has_root_path()){
+    if (file.root_path() != dir.root_path()) {
+      return file;
+    } else {
+      return make_file_relative_to_dir(file.relative_path(), dir.relative_path());
+    }
+  } else {
+    if (dir.has_root_path()) {
+      fs::path file2 = fs::complete(file);
+      return make_file_relative_to_dir(file2.relative_path(), dir.relative_path());
+    } else {
+      typedef fs::path::const_iterator path_iterator;
+      path_iterator file_it = file.begin();
+      path_iterator dir_it = dir.begin();
+      while ( file_it != file.end() && dir_it != dir.end() ) {
+        if (*file_it != *dir_it) break;
+        ++file_it; ++dir_it;
+      }
+      fs::path result;
+      for (; dir_it != dir.end(); ++dir_it) {
+        result /= "..";
+      }
+      for (; file_it != file.end(); ++file_it) {
+        result /= *file_it;
+      }
+      return result;
+    }
+  }
+}
+
 // Remove file name extension
 std::string asp::prefix_from_filename(std::string const& filename) {
   std::string result = filename;

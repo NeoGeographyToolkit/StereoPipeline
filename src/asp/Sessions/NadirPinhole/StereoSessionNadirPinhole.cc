@@ -192,36 +192,10 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(
     Rimg = right_masked_image;
   }
 
-  // Apply our normalization options
-  if ( stereo_settings().force_use_entire_range > 0 ) {
-    if ( stereo_settings().individually_normalize > 0 ) {
-      vw_out() << "\t--> Individually normalize images to their respective Min Max\n";
-      Limg = normalize( Limg, left_stats[0], left_stats[1], 0.0, 1.0 );
-      Rimg = normalize( Rimg, right_stats[0], right_stats[1], 0.0, 1.0 );
-    } else {
-      float low = std::min(left_stats[0], right_stats[0]);
-      float hi  = std::max(left_stats[1], right_stats[1]);
-      vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
-      Limg = normalize( Limg, low, hi, 0.0, 1.0 );
-      Rimg = normalize( Rimg, low, hi, 0.0, 1.0 );
-    }
-  } else {
-    if ( stereo_settings().individually_normalize > 0 ) {
-      vw_out() << "\t--> Individually normalize images to their respective 4 std dev window\n";
-      Limg = normalize( Limg, left_stats[2] - 2*left_stats[3],
-                        left_stats[2] + 2*left_stats[3], 0.0, 1.0 );
-      Rimg = normalize( Rimg, right_stats[2] - 2*right_stats[3],
-                        right_stats[2] + 2*right_stats[3], 0.0, 1.0 );
-    } else {
-      float low = std::min(left_stats[2] - 2*left_stats[3],
-                           right_stats[2] - 2*right_stats[3]);
-      float hi  = std::max(left_stats[2] + 2*left_stats[3],
-                           right_stats[2] + 2*right_stats[3]);
-      vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
-      Limg = normalize( Limg, low, hi, 0.0, 1.0 );
-      Rimg = normalize( Rimg, low, hi, 0.0, 1.0 );
-    }
-  }
+  // Apply our normalization options.
+  normalize_images(stereo_settings().force_use_entire_range,
+                   stereo_settings().individually_normalize,
+                   left_stats, right_stats, Limg, Rimg);
 
   // The output no-data value must be < 0 as we scale the images to [0, 1].
   float output_nodata = -32768.0;

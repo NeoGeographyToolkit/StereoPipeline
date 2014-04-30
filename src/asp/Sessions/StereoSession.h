@@ -38,6 +38,74 @@
 
 namespace asp {
 
+  template <class ViewT>
+  vw::Vector4f gather_stats( vw::ImageViewBase<ViewT> const& view_base,
+                             std::string const& tag) {
+    using namespace vw;
+    vw_out(InfoMessage) << "\t--> Computing statistics for the "+tag+" image\n";
+    ViewT image = view_base.impl();
+    int stat_scale = int(ceil(sqrt(float(image.cols())*float(image.rows()) / 1000000)));
+    
+    ChannelAccumulator<vw::math::CDFAccumulator<float> > accumulator;
+    for_each_pixel( subsample( edge_extend(image, ConstantEdgeExtension()),
+                               stat_scale ), accumulator );
+    Vector4f result( accumulator.quantile(0),
+                     accumulator.quantile(1),
+                     accumulator.approximate_mean(),
+                     accumulator.approximate_stddev() );
+    vw_out(InfoMessage) << "\t  " << tag << ": [ lo: " << result[0] << " hi: " << result[1]
+                        << " m: " << result[2] << " s: " << result[3] << " ]\n";
+    return result;
+  }
+
+  template<class ImageT, class VectorT>
+  void normalize_images(bool force_use_entire_range,
+                        bool individually_normalize,
+                        VectorT const& left_stats,
+                        VectorT const& right_stats,
+                        ImageT & Limg, ImageT & Rimg){
+
+    VW_ASSERT(left_stats.size() == 4 && right_stats.size() == 4,
+                  vw::ArgumentErr() << "Expecting a vector of size 4 "
+                  << "in normalize_images()\n");
+    
+    if ( force_use_entire_range > 0 ) {
+      if ( individually_normalize > 0 ) {
+        vw::vw_out() << "\t--> Individually normalize images "
+                     << "to their respective min max\n";
+        Limg = normalize( Limg, left_stats[0], left_stats[1], 0.0, 1.0 );
+        Rimg = normalize( Rimg, right_stats[0], right_stats[1], 0.0, 1.0 );
+      } else {
+        float low = std::min(left_stats[0], right_stats[0]);
+        float hi  = std::max(left_stats[1], right_stats[1]);
+        vw::vw_out() << "\t--> Normalizing globally to: ["
+                     << low << " " << hi << "]\n";
+        Limg = normalize( Limg, low, hi, 0.0, 1.0 );
+        Rimg = normalize( Rimg, low, hi, 0.0, 1.0 );
+      }
+    } else {
+      if ( individually_normalize > 0 ) {
+        vw::vw_out() << "\t--> Individually normalize images "
+                     << "to their respective 4 std dev window\n";
+        Limg = normalize( Limg, left_stats[2] - 2*left_stats[3],
+                          left_stats[2] + 2*left_stats[3], 0.0, 1.0 );
+        Rimg = normalize( Rimg, right_stats[2] - 2*right_stats[3],
+                          right_stats[2] + 2*right_stats[3], 0.0, 1.0 );
+      } else {
+        float low = std::min(left_stats[2] - 2*left_stats[3],
+                             right_stats[2] - 2*right_stats[3]);
+        float hi  = std::max(left_stats[2] + 2*left_stats[3],
+                             right_stats[2] + 2*right_stats[3]);
+        vw::vw_out() << "\t--> Normalizing globally to: ["
+                     << low << " " << hi << "]\n";
+        Limg = normalize( Limg, low, hi, 0.0, 1.0 );
+        Rimg = normalize( Rimg, low, hi, 0.0, 1.0 );
+      }
+    }
+
+    return;
+  }
+  
   // Stereo Sessions define for different missions or satellites how to:
   //   * Initialize, normalize, and align the input imagery
   //   * Extract the camera model
@@ -57,28 +125,6 @@ namespace asp {
       m_left_camera_file, m_right_camera_file, m_out_prefix;
     std::string m_input_dem, m_extra_argument1,
       m_extra_argument2, m_extra_argument3;
-
-    // This should probably be factored into the greater StereoSession
-    // as ISIS Session does something very similar to this.
-    template <class ViewT>
-    vw::Vector4f gather_stats( vw::ImageViewBase<ViewT> const& view_base,
-                               std::string const& tag) {
-      using namespace vw;
-      vw_out(InfoMessage) << "\t--> Computing statistics for the "+tag+" image\n";
-      ViewT image = view_base.impl();
-      int stat_scale = int(ceil(sqrt(float(image.cols())*float(image.rows()) / 1000000)));
-
-      ChannelAccumulator<vw::math::CDFAccumulator<float> > accumulator;
-      for_each_pixel( subsample( edge_extend(image, ConstantEdgeExtension()),
-                                 stat_scale ), accumulator );
-      Vector4f result( accumulator.quantile(0),
-                       accumulator.quantile(1),
-                       accumulator.approximate_mean(),
-                       accumulator.approximate_stddev() );
-      vw_out(InfoMessage) << "\t  " << tag << ": [ lo: " << result[0] << " hi: " << result[1]
-                          << " m: " << result[2] << " s: " << result[3] << " ]\n";
-      return result;
-    }
 
     virtual void initialize (BaseOptions const& options,
                              std::string const& left_image_file,

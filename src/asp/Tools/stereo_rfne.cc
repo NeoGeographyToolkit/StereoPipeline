@@ -280,16 +280,22 @@ per_tile_rfne( ImageViewBase<Image1T> const& left,
 
 void stereo_refinement( Options const& opt ) {
 
-  ImageViewRef<PixelGray<float> > left_disk_image, right_disk_image;
-  ImageViewRef<uint8> right_mask;
+  ImageViewRef<PixelGray<float> > left_image, right_image;
+  ImageViewRef<uint8> left_mask, right_mask;
   ImageViewRef<PixelMask<Vector2i> > integer_disp;
   ImageViewRef<PixelMask<Vector2i> > sub_disp;
   ImageView<Matrix3x3> local_hom;
+  std::string left_image_file  = opt.out_prefix+"-L.tif";
+  std::string right_image_file = opt.out_prefix+"-R.tif";
+  std::string left_mask_file  = opt.out_prefix+"-lMask.tif";
+  std::string right_mask_file = opt.out_prefix+"-rMask.tif";
+
   try {
-    left_disk_image   = DiskImageView< PixelGray<float> >(opt.out_prefix+"-L.tif");
-    right_disk_image  = DiskImageView< PixelGray<float> >(opt.out_prefix+"-R.tif");
-    right_mask        = DiskImageView<uint8>(opt.out_prefix + "-rMask.tif");
-    integer_disp      = DiskImageView< PixelMask<Vector2i> >(opt.out_prefix + "-D.tif");
+    left_image   = DiskImageView< PixelGray<float> >(left_image_file);
+    right_image  = DiskImageView< PixelGray<float> >(right_image_file);
+    left_mask    = DiskImageView<uint8>(left_mask_file);
+    right_mask   = DiskImageView<uint8>(right_mask_file);
+    integer_disp = DiskImageView< PixelMask<Vector2i> >(opt.out_prefix + "-D.tif");
     if ( stereo_settings().seed_mode > 0 &&
          stereo_settings().use_local_homography ){
       sub_disp =
@@ -303,6 +309,29 @@ void stereo_refinement( Options const& opt ) {
     vw_throw( ArgumentErr() << "\nUnable to start at refinement stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n" );
   }
 
+  bool skip_img_norm = asp::skip_image_normalization(opt);
+  if (skip_img_norm && stereo_settings().subpixel_mode == 2){
+    // Images were not normalized in pre-processing. Must do so now
+    // as bayes_em_subpixel assumes them to be normalized.
+    ImageViewRef< PixelMask< PixelGray<float> > > Limg
+      = copy_mask(left_image, create_mask(left_mask));
+    ImageViewRef< PixelMask< PixelGray<float> > > Rimg
+      = copy_mask(right_image, create_mask(right_mask));
+    
+    Vector<float32> left_stats, right_stats;
+    std::string left_stats_file  = opt.out_prefix+"-lStats.tif";
+    std::string right_stats_file  = opt.out_prefix+"-rStats.tif";
+    vw_out() << "Reading: " << left_stats_file << ' ' << right_stats_file
+             << std::endl;
+    read_vector(left_stats,  left_stats_file);
+    read_vector(right_stats, right_stats_file);
+    normalize_images(stereo_settings().force_use_entire_range,
+                     stereo_settings().individually_normalize,
+                     left_stats, right_stats, Limg, Rimg);
+    left_image  = apply_mask(Limg);
+    right_image = apply_mask(Rimg);
+  }
+
   // The whole goal of this block it to go through the motions of
   // refining disparity solely for the purpose of printing
   // the relevant messages.
@@ -312,12 +341,14 @@ void stereo_refinement( Options const& opt ) {
   refine_disparity(left_dummy, right_dummy, dummy_disp, opt, verbose);
 
   ImageViewRef< PixelMask<Vector2f> > refined_disp
-    = per_tile_rfne(left_disk_image, right_disk_image, right_mask,
+    = per_tile_rfne(left_image, right_image, right_mask,
                     integer_disp, sub_disp, local_hom, opt);
 
-  asp::block_write_gdal_image( opt.out_prefix + "-RD.tif",
-                               refined_disp, opt,
-                               TerminalProgressCallback("asp", "\t--> Refinement :") );
+  std::string rd_file = opt.out_prefix + "-RD.tif";
+  vw_out() << "Writing: " << rd_file << "\n";
+  asp::block_write_gdal_image(rd_file,
+                              refined_disp, opt,
+                              TerminalProgressCallback("asp", "\t--> Refinement :") );
 }
 
 int main(int argc, char* argv[]) {

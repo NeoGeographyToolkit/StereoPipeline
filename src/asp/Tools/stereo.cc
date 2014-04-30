@@ -605,4 +605,22 @@ namespace asp {
     return search_range;
   }
 
+  bool is_tif_or_ntf(std::string const& file){
+    return
+      boost::iends_with(boost::to_lower_copy(file), ".tif")
+      ||
+      boost::iends_with(boost::to_lower_copy(file), ".ntf");
+  }    
+  
+  bool skip_image_normalization(Options const& opt ){
+    // Respect user's choice for skipping the normalization of the input
+    // images, if feasible.
+    return
+      stereo_settings().skip_image_normalization                    && 
+      stereo_settings().alignment_method == "none"                  &&
+      stereo_settings().cost_mode == 2                              &&
+      is_tif_or_ntf(opt.in_file1)                                   && 
+      is_tif_or_ntf(opt.in_file2);
+  }
+
 } // end namespace asp
