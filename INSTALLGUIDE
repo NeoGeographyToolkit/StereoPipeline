@@ -68,13 +68,12 @@ sudo yum -y install gcc-c++ gcc-gfortran tcsh libtool autoconf    \
 
 2. Base dependencies - MAC
 
-First install Macports (http://www.macports.org/) if you do not
-already have it.
+First install Homebrew or Macports, if you do not already have it.
 
 Next you need the following packages:
 
 libtool
-git-core
+git
 subversion
 xz
 
@@ -82,17 +81,6 @@ If you are using OSX 10.7 Lion, you will need to manually install the
 OSX 10.5 SDK. This is required for building against ISIS since they
 currently only have a 10.5 version of their binary.  See instructions
 here: http://lunokhod.org/?p=269
-
-Next you need to compile a copy of GNU Coreutils.  The following
-instructions should do so:
-
-cd ~/packages
-wget http://ftp.gnu.org/gnu/coreutils/coreutils-8.16.tar.xz
-xz -d coreutils-8.16.tar.xz
-tar xfv coreutils-8.16.tar
-cd coreutils-8.16
-./configure --prefix $PWD/build
-make install -j 8
 
 3. Invoking Binary Builder
 
@@ -104,10 +92,6 @@ cd ~; mkdir projects; cd projects
 git clone https://github.com/NeoGeographyToolkit/BinaryBuilder.git
 cd BinaryBuilder
 ./build.py
-
-MAC USERS: The last line needs to specify the path to the coreutils
-you installed earlier:
-./build.py --coreutils ~/packages/coreutils-8.16/build/bin
 
 Due to the amount of code that must be downloaded and built,
 BinaryBuilder will take quite a while to finish.  If you see the

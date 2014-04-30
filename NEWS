@@ -15,8 +15,8 @@
 
   - stereo_pprc
      * Added the --skip-image-normalization option (for non-ISIS 
-       images), it can help with reducing the size of data on disk
-       and performance.
+       images and alignment-method none), it can help with reducing
+       the size of data on disk and performance.
 
   - stereo_fltr:
      * Hole-filling is disabled by default in stereo_fltr. It is 
