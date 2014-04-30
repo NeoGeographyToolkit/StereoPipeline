@@ -96,6 +96,38 @@ bool skip_image_normalization(Options const& opt ){
     is_tif_or_ntf(opt.in_file2);
 }
 
+fs::path make_file_relative_to_dir(fs::path const file, fs::path const dir) {
+  // Make the specified file to be relative to the specified directory.
+  if (file.has_root_path()){
+    if (file.root_path() != dir.root_path()) {
+      return file;
+    } else {
+      return make_file_relative_to_dir(file.relative_path(), dir.relative_path());
+    }
+  } else {
+    if (dir.has_root_path()) {
+      fs::path file2 = fs::complete(file);
+      return make_file_relative_to_dir(file2.relative_path(), dir.relative_path());
+    } else {
+      typedef fs::path::const_iterator path_iterator;
+      path_iterator file_it = file.begin();
+      path_iterator dir_it = dir.begin();
+      while ( file_it != file.end() && dir_it != dir.end() ) {
+        if (*file_it != *dir_it) break;
+        ++file_it; ++dir_it;
+      }
+      fs::path result;
+      for (; dir_it != dir.end(); ++dir_it) {
+        result /= "..";
+      }
+      for (; file_it != file.end(); ++file_it) {
+        result /= *file_it;
+      }
+      return result;
+    }
+  }
+}
+
 void create_sym_links(std::string const& left_input_file,
                       std::string const& right_input_file,
                       std::string const& out_prefix,
@@ -103,28 +135,39 @@ void create_sym_links(std::string const& left_input_file,
                       std::string & right_output_file) {
 
   // Instead of writing L.tif and R.tif, just create sym links from
-  // input left and right images.
+  // input left and right images. Creating symbolic links can be tricky.
   
   vw_out(WarningMessage) << "Skipping image normalization.\n";
     
   left_output_file  = out_prefix+"-L.tif";
   right_output_file = out_prefix+"-R.tif";
-
-  // We prefer absolute paths for robustness, although this of course
-  // can break things if files are copied to a different file system.
-  fs::path left_img_abs_path  = fs::complete(left_input_file);
-  fs::path right_img_abs_path = fs::complete(right_input_file);
+  std::string cmd1, cmd2;
+  fs::path out_prefix_path(out_prefix);
+  fs::path left_rel_in, right_rel_in;
+  if (out_prefix_path.has_parent_path()) {
+    fs::path rundir = out_prefix_path.parent_path();
+    cmd1 = "cd " + rundir.string() + "; ";
+    cmd2 = "; cd " +  fs::canonical(".").string(); 
+    left_rel_in  = make_file_relative_to_dir(fs::path(left_input_file),  rundir);
+    right_rel_in = make_file_relative_to_dir(fs::path(right_input_file), rundir);
+  }else{
+    left_rel_in  = fs::path(left_input_file);
+    right_rel_in = fs::path(right_input_file);
+  }
   
+  std::string left_rel_out = fs::path(left_output_file).filename().string();
+  std::string right_rel_out = fs::path(right_output_file).filename().string();
+
   std::string cmd;
   if (!fs::exists(left_output_file)){
-    cmd = "ln -s " + left_img_abs_path.string() + " " + left_output_file;
+    cmd = cmd1 + "ln -s " + left_rel_in.string() + " " + left_rel_out + cmd2;
     vw_out() << cmd << std::endl;
     int ret = system(cmd.c_str());
     VW_ASSERT( ret == 0,
                ArgumentErr() << "Failed to execute: " << cmd << "\n" );
   }
   if (!fs::exists(right_output_file)){
-    cmd = "ln -s " + right_img_abs_path.string() + " " + right_output_file;
+    cmd = cmd1 + "ln -s " + right_rel_in.string() + " " + right_rel_out + cmd2;
     vw_out() << cmd << std::endl;
     int ret = system(cmd.c_str());
     VW_ASSERT( ret == 0,
