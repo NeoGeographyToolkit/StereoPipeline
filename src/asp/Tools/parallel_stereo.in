@@ -154,8 +154,7 @@ def build_vrt( settings, postfix, tile_postfix, **kw ):
     # Do gdalinfo on the file to get metadata
     args=[goodFilename]
     sep = "="
-    verbose = False
-    gdal_settings=run_and_parse_output( "gdalinfo", args, sep, verbose )
+    gdal_settings=run_and_parse_output( "gdalinfo", args, sep, opt.verbose )
 
     # Extract the data type (e.g., Float32 or Float64)
     data_type = "Float32"

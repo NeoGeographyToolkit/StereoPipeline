@@ -75,16 +75,14 @@ int main( int argc, char* argv[] ) {
     vw_out() << "right_image_size," << right_image_size.x() << ","
              << right_image_size.y() << std::endl;
 
-    Vector2 trans_left_image_size;
-    if ( fs::exists(opt.out_prefix+"-L.tif") ){
-      trans_left_image_size = file_image_size(opt.out_prefix+"-L.tif");
-    }
-
     std::string trans_left_image = opt.out_prefix+"-L.tif";
     std::string trans_right_image = opt.out_prefix+"-R.tif";
     vw_out() << "trans_left_image,"  << trans_left_image  << std::endl;
     vw_out() << "trans_right_image," << trans_right_image << std::endl;
 
+    Vector2 trans_left_image_size;
+    if ( fs::exists(trans_left_image) )
+      trans_left_image_size = file_image_size(trans_left_image);
     vw_out() << "trans_left_image_size," << trans_left_image_size.x() << ","
              << trans_left_image_size.y() << std::endl;
 
