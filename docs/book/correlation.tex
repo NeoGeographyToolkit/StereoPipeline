@@ -365,6 +365,12 @@ match can be found using the affine, noise-adapted window.  Hence,
 this sub-pixel algorithm is able to significantly improve upon the
 results to yield a high quality, high resolution result.
 
+Another option when run time is important is \texttt{subpixel-mode 3}: 
+the simple affine correlator.  This is essentially the Bayes EM mode 
+with the noise correction features removed in order to decrease the
+required run time.  In data sets with little noise this mode can yield 
+results similar to Bayes EM mode in approximately one fifth the time.
+
 \section{Triangulation}
 
 When running an ISIS session, the Stereo Pipeline uses geometric

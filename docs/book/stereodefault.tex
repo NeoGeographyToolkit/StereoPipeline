@@ -251,21 +251,23 @@ value will result in no timeout enforcement.
 \begin{description}
 
 \item[subpixel-mode \textnormal{\small{(= 0,1,2,3)}} (default = 1)] \hfill \\
-  This parameter selects the subpixel correlation method. These
-  algorithms are arranged in order of decreasing speed and increasing
-  quality. Parabola subpixel is very fast but will produce results
-  that are only slightly more accurate than those produced by the
-  initialization step. Bayes EM (mode 2) is very slow but offers the
-  best quality. When tuning {\tt stereo.default} parameters, it is
-  expedient to start out using parabola subpixel as a ``draft mode.''
-  When the results are looking good with parabola subpixel, then they
-  will look even better with subpixel mode 2.
+  This parameter selects the subpixel correlation method. Parabola subpixel 
+  is very fast but will produce results that are only slightly more accurate
+   than those produced by the initialization step. Bayes EM (mode 2) 
+  is very slow but offers the best quality. When tuning {\tt stereo.default} 
+  parameters, it is expedient to start out using parabola subpixel as a 
+  ``draft mode.'' When the results are looking good with parabola subpixel, 
+  then they  will look even better with subpixel mode 2.  For inputs with 
+  little noise, the affine method (subpixel mode 3) may produce results
+  equivalent to Bayes EM in a shorter time.
 
   \begin{description}
     \item[0 - no subpixel refinement]
     \item[1 - parabola fitting ]
     \item[2 - affine adaptive window, Bayes EM weighting ]
-    \item[3 - affine adaptive window, Bayes EM with Gamma Noise Distribution (experimental) ]
+    \item[3 - affine window ]
+    \item[4 - Lucas-Kanade method (experimental)]
+    \item[5 - affine adaptive window, Bayes EM with Gamma Noise Distribution (experimental) ]
   \end{description}
 
   For a visual comparison of the quality of these subpixel modes,

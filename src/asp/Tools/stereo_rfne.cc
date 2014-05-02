@@ -48,6 +48,7 @@ refine_disparity(Image1T const& left_image,
 
   if (stereo_settings().subpixel_mode == 0) {
     // Do nothing
+
   } else if (stereo_settings().subpixel_mode == 1) {
     // Parabola
     if (verbose) vw_out() << "\t--> Using parabola subpixel mode.\n";
@@ -78,6 +79,7 @@ refine_disparity(Image1T const& left_image,
                            PreFilter(),
                            stereo_settings().subpixel_kernel );
     }
+
   } else if (stereo_settings().subpixel_mode == 2) {
     // Bayes EM
     if (verbose){
@@ -94,6 +96,36 @@ refine_disparity(Image1T const& left_image,
                          stereo_settings().subpixel_max_levels );
 
   } else if (stereo_settings().subpixel_mode == 3) {
+    // Fast affine
+    if (verbose){
+      vw_out() << "\t--> Using affine subpixel mode\n";
+      vw_out() << "\t--> Forcing use of LOG filter with "
+               << stereo_settings().slogW << " sigma blur.\n";
+    }
+    typedef stereo::LaplacianOfGaussian PreFilter;
+    refined_disp =
+      affine_subpixel( integer_disp,
+                       left_image, right_image,
+                       PreFilter(stereo_settings().slogW),
+                       stereo_settings().subpixel_kernel,
+                       stereo_settings().subpixel_max_levels );
+
+  } else if (stereo_settings().subpixel_mode == 4) {
+    // Lucas-Kanade
+    if (verbose){
+      vw_out() << "\t--> Using Lucas-Kanade subpixel mode\n";
+      vw_out() << "\t--> Forcing use of LOG filter with "
+               << stereo_settings().slogW << " sigma blur.\n";
+    }
+    typedef stereo::LaplacianOfGaussian PreFilter;
+    refined_disp =
+      lk_subpixel( integer_disp,
+                   left_image, right_image,
+                   PreFilter(stereo_settings().slogW),
+                   stereo_settings().subpixel_kernel,
+                   stereo_settings().subpixel_max_levels );
+
+  } else if (stereo_settings().subpixel_mode == 5) {
     // Affine and Bayes subpixel refinement always use the
     // LogPreprocessingFilter...
     if (verbose){

@@ -17,6 +17,13 @@
      * Added the --skip-image-normalization option (for non-ISIS 
        images and alignment-method none), it can help with reducing
        the size of data on disk and performance.
+       
+  - stereo_rfne
+     * Added new affine subpixel refinement mode when 
+       --subpixel-mode = 3. This mode sacrifices the error resistance
+       of Bayes EM mode in exchange for reduced computation time.
+       For some data sets this can perform as well as Bayes EM in
+       about one fifth the time.
 
   - stereo_fltr:
      * Hole-filling is disabled by default in stereo_fltr. It is 

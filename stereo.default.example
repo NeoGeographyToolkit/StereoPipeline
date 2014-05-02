@@ -52,6 +52,7 @@ corr-kernel 21 21
 # 0 - disable subpixel correlation (fastest)
 # 1 - parabola fitting (draft mode - not as accurate)
 # 2 - affine adaptive window, bayes EM weighting (slower, but much more accurate)
+# 3 - affine window, (intermediate speed, results similar to bayes EM)
 subpixel-mode 1
 
 # Subpixel step: correlation kernel size

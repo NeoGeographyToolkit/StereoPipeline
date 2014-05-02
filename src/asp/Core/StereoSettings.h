@@ -113,10 +113,12 @@ namespace asp {
     int    corr_timeout;              // Correlation timeout for a tile, in seconds
 
     // Subpixel Options
-    vw::uint16 subpixel_mode;         // 0 = parabola fitting
-                                      // 1 = affine, robust weighting
+    vw::uint16 subpixel_mode;         // 0 = none
+                                      // 1 = parabola fitting
                                       // 2 = affine, bayes weighting
-                                      // 3 = affine, bayes EM weighting
+                                      // 3 = affine
+                                      // 4 = Lucas-Kanade
+                                      // 5 = affine, bayes EM weighting
     vw::Vector2i subpixel_kernel;     // Subpixel correlation kernel
     bool disable_h_subpixel, disable_v_subpixel;
     vw::uint16 subpixel_max_levels;   // Max pyramid levels to process. 0 hits only once.
