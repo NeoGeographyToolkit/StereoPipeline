@@ -105,6 +105,10 @@ if(Qt4_FOUND)
 endif(Qt4_FOUND)
 message("--------------------------------------------------------------")
 
+# Get ISIS libraries
+set(ISIS_FOUND)
+set(ISIS_LIBRARIES ${BASESYSTEM_INSTALL_DIR}/lib/libisis3.so)
+
 # Get NAIF includes (Needed for reading/writing SPICE data)
 set(NAIF_FOUND True)
 set(NAIF_INCLUDE_DIRS ${BASESYSTEM_INSTALL_DIR}/include/naif/)
@@ -128,11 +132,13 @@ include_directories("${NAIF_INCLUDE_DIRS}")
 set(PROTOBUF_FOUND)
 set(PROTOBUF_INCLUDE_DIR ${BASESYSTEM_INSTALL_DIR}/include   )
 set(PROTOBUF_LIBRARY     ${BASESYSTEM_INSTALL_DIR}/lib/libprotobuf.so)
-#include_directories("${PROTOBUF_INCLUDE_DIR}")
 include_directories(${PROTOBUF_INCLUDE_DIR})
 
 
-
+set(EIGEN_FOUND)
+set(EIGEN_INCLUDE_DIR ${BASESYSTEM_INSTALL_DIR}/include/eigen3   )
+#set(EIGEN_LIBRARY     ${BASESYSTEM_INSTALL_DIR}/lib/libprotobuf.so)
+include_directories(${EIGEN_INCLUDE_DIR})
 
 
 # Look for more required packages
@@ -261,9 +267,10 @@ message("--------------------------------------------------------------")
 #TODO: Handle .lo files!
 
 # --- SP_CONTROLNETTK ------------------------------------------------------------
-get_all_source_files( "ControlNetTK"       SP_CONTROLNETTK_SRC_FILES)
-get_all_source_files( "ControlNetTK/tests" SP_CONTROLNETTK_TEST_FILES)
-set(SP_CONTROLNETTK_LIB_DEPENDENCIES SpCore)
+# There is no library here, it is one header and some applications
+#get_all_source_files( "ControlNetTK"       SP_CONTROLNETTK_SRC_FILES)
+#get_all_source_files( "ControlNetTK/tests" SP_CONTROLNETTK_TEST_FILES)
+#set(SP_CONTROLNETTK_LIB_DEPENDENCIES SpCore)
 
 
 # --- SP_CORE ------------------------------------------------------------
@@ -282,9 +289,10 @@ get_all_source_files( "MPI/tests" SP_MPI_TEST_FILES)
 set(SP_MPI_LIB_DEPENDENCIES SpCore)
 
 # --- SP_SESSIONS ------------------------------------------------------------
-get_all_source_files( "Sessions"       SP_MPI_SRC_FILES)
+# This code is more complicated and is specified in the lower level file
+#get_all_source_files( "Sessions"       SP_MPI_SRC_FILES)
 get_all_source_files( "Sessions/tests" SP_MPI_TEST_FILES)
-set(SP_MPI_LIB_DEPENDENCIES SpCore)
+set(SP_SESSIONS_LIB_DEPENDENCIES SpCore SpIsisIO)
 
 
 # --- SP_SPICEIO ------------------------------------------------------------

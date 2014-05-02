@@ -24,13 +24,15 @@ endfunction(get_all_source_files)
 
 # Function to add a library to the project.
 # - This is called in each library folder directory.
-function( add_library_wrapper libName fileList testFileList)
+function( add_library_wrapper libName fileList testFileList libDependencies)
 
   # Set up the library
   add_library(${libName} ${fileList})
 
   set_target_properties("${libName}" PROPERTIES LINKER_LANGUAGE CXX)   
  
+  message("Library ${libName} has dependencies: ${libDependencies}")
+  target_link_libraries("${libName}" ${libDependencies}) 
   
 endfunction( add_library_wrapper )
 

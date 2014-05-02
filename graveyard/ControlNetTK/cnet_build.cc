@@ -31,6 +31,7 @@ using namespace vw::ba;
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
+#include <asp/IsisIO/Equation.h>
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/IsisIO/IsisAdjustCameraModel.h>
 using namespace vw::camera;
