@@ -25,9 +25,8 @@ set(FULL_LIBRARY_LIST
 #add_executable(bundle_adjust bundle_adjust.cc) 
 #target_link_libraries(bundle_adjust ${FULL_LIBRARY_LIST}) 
 
-# TODO: Need OSG
-#add_executable(bundlevis bundlevis.cc) 
-#target_link_libraries(bundlevis ${FULL_LIBRARY_LIST}) 
+add_executable(bundlevis bundlevis.cc) 
+target_link_libraries(bundlevis ${FULL_LIBRARY_LIST} ${OPENSCENEGRAPH_LIBRARIES})
 
 add_executable(dem_geoid dem_geoid.cc) 
 target_link_libraries(dem_geoid ${FULL_LIBRARY_LIST}) 
@@ -69,13 +68,11 @@ target_link_libraries(pc_align ${FULL_LIBRARY_LIST} ${LIBPOINTMATCHER_LIBRARY})
 add_executable(point2dem point2dem.cc) 
 target_link_libraries(point2dem ${FULL_LIBRARY_LIST}) 
 
-# TODO: Need LAS library!
-#add_executable(point2las point2las.cc) 
-#target_link_libraries(point2las ${FULL_LIBRARY_LIST}) 
+add_executable(point2las point2las.cc) 
+target_link_libraries(point2las ${FULL_LIBRARY_LIST} ${LIBLAS_LIBRARY}) 
 
-# TODO: Need OSG
-#add_executable(point2mesh point2mesh.cc) 
-#target_link_libraries(point2mesh ${FULL_LIBRARY_LIST}) 
+add_executable(point2mesh point2mesh.cc) 
+target_link_libraries(point2mesh ${FULL_LIBRARY_LIST} ${OPENSCENEGRAPH_LIBRARIES})
 
 add_executable(rpc_gen rpc_gen.cc) 
 target_link_libraries(rpc_gen ${FULL_LIBRARY_LIST}) 
