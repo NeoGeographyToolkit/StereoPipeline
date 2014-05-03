@@ -141,6 +141,11 @@ set(EIGEN_INCLUDE_DIR ${BASESYSTEM_INSTALL_DIR}/include/eigen3   )
 include_directories(${EIGEN_INCLUDE_DIR})
 
 
+set(LIBPOINTMATCHER_FOUND)
+set(LIBPOINTMATCHER_INCLUDE_DIR ${BASESYSTEM_INSTALL_DIR}/include/   )
+set(LIBPOINTMATCHER_LIBRARY     ${BASESYSTEM_INSTALL_DIR}/lib/libpointmatcher.so)
+include_directories(${LIBPOINTMATCHER_INCLUDE_DIR})
+
 # Look for more required packages
 set(HAVE_PKG_LAPACK LAPACK_FOUND)
 set(LAPACK_LIBRARIES   ${BASESYSTEM_INSTALL_DIR}/lib/liblapack.so
@@ -156,39 +161,38 @@ set(JPEG_FOUND True)
 set(JPEG_LIBRARIES   ${BASESYSTEM_INSTALL_DIR}/lib/libjpeg.so)
 #set(JPEG_LIBRARY     ${BASESYSTEM_INSTALL_DIR}/lib/)
 set(JPEG_INCLUDE_DIR ${BASESYSTEM_INSTALL_DIR}/include/)
-
-set(HAVE_PKG_JPEG JPEG_FOUND)
+#set(HAVE_PKG_JPEG JPEG_FOUND)
 if(JPEG_FOUND)
   message("Found JPEG " ${JPEG_LIBRARY})
 endif()
 
 find_package(PNG REQUIRED)
-set(HAVE_PKG_PNG PNG_FOUND)
+#set(HAVE_PKG_PNG PNG_FOUND)
 if(PNGFOUND)
   message("Found PNG " ${PNG_LIBRARY})
 endif()
 
 find_package(TIFF REQUIRED)
-set(HAVE_PKG_TIFF TIFF_FOUND)
+#set(HAVE_PKG_TIFF TIFF_FOUND)
 if(TIFF_FOUND)
   message("Found TIFF " ${TIFF_LIBRARY})
 endif()
 
 find_package(GDAL REQUIRED)
-set(HAVE_PKG_GDAL GDAL_FOUND)
+#set(HAVE_PKG_GDAL GDAL_FOUND)
 if(GDAL_FOUND)
   message("Found GDAL at " ${GDAL_LIBRARY})
   include_directories(${GDAL_INCLUDE_DIR})
 endif()
 
 find_package(Protobuf REQUIRED)
-set(HAVE_PKG_PROTOBUF PROTOBUF_FOUND)
+#set(HAVE_PKG_PROTOBUF PROTOBUF_FOUND)
 if(PROTOBUF_FOUND)
   message("Found PROTOBUF " ${PROTOBUF_LIBRARY})
 endif()
 
 find_package(PythonLibs REQUIRED)
-set(HAVE_PKG_PYTHONLIBS PYTHONLIBS_FOUND)
+#set(HAVE_PKG_PYTHONLIBS PYTHONLIBS_FOUND)
 if(PYTHONLIBS_FOUND)
   message("Found PYTHONLIBS " ${PYTHON_LIBRARIES})
 endif()
@@ -205,6 +209,15 @@ set(OPENEXR_LIBRARIES   ${BASESYSTEM_INSTALL_DIR}/lib/libIlmImf.so
                         ${BASESYSTEM_INSTALL_DIR}/lib/libIlmThread.so )
 set(OPENEXR_INCLUDE_DIR ${BASESYSTEM_INSTALL_DIR}/include/OpenEXR)
 include_directories("${OPENEXR_INCLUDE_DIR}")
+
+
+#set(HAVE_PKG_OPENMP)
+find_package(OpenMP)
+if(OPENMP_FOUND)
+  message("Found OPENMP")
+  SET( CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}   ${OpenMP_C_FLAGS}" )
+  SET( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}" )
+endif()
 
 
 set(HAVE_PKG_OPENCV)

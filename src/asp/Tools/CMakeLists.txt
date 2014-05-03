@@ -63,9 +63,8 @@ target_link_libraries(orbitviz ${FULL_LIBRARY_LIST})
 add_executable(orthoproject orthoproject.cc) 
 target_link_libraries(orthoproject ${FULL_LIBRARY_LIST}) 
 
-# Missing omp_set_num_threads !!!!!!!!!!!!!!!!!!!!!!!1
-#add_executable(pc_align pc_align.cc) 
-#target_link_libraries(pc_align ${FULL_LIBRARY_LIST}) 
+add_executable(pc_align pc_align.cc) 
+target_link_libraries(pc_align ${FULL_LIBRARY_LIST} ${LIBPOINTMATCHER_LIBRARY}) 
 
 add_executable(point2dem point2dem.cc) 
 target_link_libraries(point2dem ${FULL_LIBRARY_LIST}) 
