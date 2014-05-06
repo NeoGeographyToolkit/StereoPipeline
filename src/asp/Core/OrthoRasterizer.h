@@ -410,11 +410,11 @@ namespace vw { namespace cartography {
         // Multiply by the outlier factor
         m_error_cutoff = factor*error_percentile;
         VW_OUT(DebugMessage,"asp") << "Automatic triangulation error cutoff is "
-                                   << m_error_cutoff << "\n";
+                                   << m_error_cutoff << " meters.\n";
       }else if (max_valid_triangulation_error > 0.0){
         m_error_cutoff = max_valid_triangulation_error;
         VW_OUT(DebugMessage,"asp") << "Manual triangulation error cutoff is "
-                                   << m_error_cutoff << "\n";
+                                   << m_error_cutoff << " meters.\n";
       }
       
       return;
