@@ -31,8 +31,23 @@ function( add_library_wrapper libName fileList testFileList libDependencies)
 
   set_target_properties("${libName}" PROPERTIES LINKER_LANGUAGE CXX)   
  
-  message("Library ${libName} has dependencies: ${libDependencies}")
+  #message("Library ${libName} has dependencies: ${libDependencies}")
   target_link_libraries("${libName}" ${libDependencies}) 
+  
+  
+  # Add unit test for each test file given
+  foreach(f ${testFileList})
+  
+    get_filename_component(FILENAME ${f} NAME_WE) # Get file name without extension
+    set(executableName "${FILENAME}_unit_test")   # Generate a name for the executable   
+    add_executable( ${executableName} ${f} )      # Add executable with this file
+
+    # Link test executable against current library, gtest, and gtest_main
+    target_link_libraries(${executableName} gtest "${libName}" ${GTEST_BOTH_LIBRARIES})
+    
+    add_test(${executableName} ${executableName})  
+  endforeach(f)
+  
   
 endfunction( add_library_wrapper )
 

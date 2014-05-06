@@ -255,6 +255,13 @@ if(CAIROMM_FOUND)
   include_directories("${CAIROMM_INCLUDE_DIR}")
 endif()
 
+find_package(GTest REQUIRED)
+if(GTEST_FOUND)
+  message("Found GTest")
+  include_directories(${GTEST_INCLUDE_DIR})
+endif()
+
+
 #TODO: Look for each of these installations!
 set(HAVE_PKG_HDF)
 set(HAVE_PKG_RABBITMQ_C)
