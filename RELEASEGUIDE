@@ -9,8 +9,10 @@ Inside ASP's configure.ac, remove "_post" and increment version number
 on the AC_INIT line. Do not do this for VisionWorkbench, as that
 library has its own versioning.
 
-2.) Update ISIS Version in README (get it from the "version" file in
-the ASP release tarball).
+2.) Update the ISIS version to the latest:
+ - In BinaryBuilder/Packages.py (chksum variable), to force 
+   ISIS to recompile as part of the nightly build.
+ - In StereoPipeline/README
 
 3.) Update NEWS
 
