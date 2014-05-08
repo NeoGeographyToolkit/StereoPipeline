@@ -388,7 +388,8 @@ int main( int argc, char* argv[] ) {
 
     // Compute output image size in pixels using bounding box in output projected space
     BBox2i target_image_size = target_georef.point_to_pixel_bbox( cam_box );
-
+    target_image_size.min() = Vector2(0, 0); // we count on this transform_nodata
+    
     vw_out() << "Cropping to projected coordinates: " << cam_box << std::endl;
 
     // Shrink output image BB if an output image BB was passed in
