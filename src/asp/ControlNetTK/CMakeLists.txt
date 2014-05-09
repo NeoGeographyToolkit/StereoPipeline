@@ -20,6 +20,11 @@ set(CNTK_LIBRARY_LIST
 
 #TODO: Turn them off when components are not present
 
+# Add python tools
+INSTALL(FILES "pairlist_all.py"    DESTINATION bin)
+INSTALL(FILES "pairlist_degree.py" DESTINATION bin)
+INSTALL(FILES "pairlist_seq.py"    DESTINATION bin)
+
 add_executable(cnet_build cnet_build.cc) 
 target_link_libraries(cnet_build ${CNTK_LIBRARY_LIST}) 
 

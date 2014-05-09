@@ -1,6 +1,10 @@
 
 # Add path for custom modules
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}" )
+message("Module path = ${CMAKE_MODULE_PATH}")
+
+#===============================================================================
+# Configuration options
 
 
 # --- Directory paths ---
@@ -26,7 +30,15 @@ set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} "${BASESYSTEM_INSTALL_DIR}")
 # Libraries use paths like "asp/blah/blah.h" so we just need to add this one include path
 include_directories( ../ )
 
-# TODO: Reuse code from the Vision Workbench CMAKE code
+# --- Custom options ---
+option(BUILD_SHARED_LIBS "Produce shared libraries." TRUE)
+
+# --- Fixed options ---
+set(Boost_USE_STATIC_LIBS   OFF)
+set(Boost_USE_MULTITHREADED ON )
+set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 #==================================================================================
 # Find dependencies
@@ -255,11 +267,6 @@ if(CAIROMM_FOUND)
   include_directories("${CAIROMM_INCLUDE_DIR}")
 endif()
 
-find_package(GTest REQUIRED)
-if(GTEST_FOUND)
-  message("Found GTest")
-  include_directories(${GTEST_INCLUDE_DIR})
-endif()
 
 
 #TODO: Look for each of these installations!
@@ -275,18 +282,21 @@ set(ENABLE_EXCEPTIONS True)
 
 
 message("--------------------------------------------------------------")
-message("Listing all include directories...")
-get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
-foreach(dir ${dirs})
-  message(STATUS "dir='${dir}'")
+#message("Listing all include directories...")
+#get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
+#foreach(dir ${dirs})
+#  message(STATUS "dir='${dir}'")
+#endforeach()
+#message("--------------------------------------------------------------")
+
+# Add all the header files at the top level to the install command
+get_all_source_files("." MAIN_HEADER_FILES)
+foreach(f ${MAIN_HEADER_FILES})
+  INSTALL(FILES ${f} DESTINATION include/asp)
 endforeach()
-message("--------------------------------------------------------------")
-
-
 
 #=========================================================================
 # Define each of the libaries
-#TODO: Handle .lo files!
 
 # --- SP_CONTROLNETTK ------------------------------------------------------------
 # There is no library here, it is one header and some applications
@@ -322,6 +332,22 @@ get_all_source_files( "SpiceIO"       SP_SPICEIO_SRC_FILES)
 get_all_source_files( "SpiceIO/tests" SP_SPICEIO_TEST_FILES)
 set(SP_SPICEIO_LIB_DEPENDENCIES SpCore)
 
+#=========================================================================
+
+# TODO: Don't just use this for all tools
+set(FULL_LIBRARY_LIST
+	${LAPACK_LIBRARIES} 
+	${JPEG_LIBRARIES} 
+	${GDAL_LIBRARY}
+	${PROJ4_LIBRARY}
+	${VISIONWORKBENCH_LIBRARIES}	
+	${ISIS_LIBRARIES}
+    SpCore
+    SpIsisIO
+    SpSpiceIO
+    SpSessions
+	${Boost_LIBRARIES} 
+)
 
 
 #=========================================================================
@@ -338,8 +364,6 @@ add_subdirectory(Tools)
 
 
 #=========================================================================
-# Define targets
-
 # Targets are defined in /tools/CMakeLists.txt
 
 
