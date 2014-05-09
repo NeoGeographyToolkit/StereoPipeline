@@ -38,7 +38,7 @@ More details are provided in section \ref{visualising}.
 
 \section{Preparing the Data}
 
-The dataset that is used in the tutorial and examples below is a
+The data set that is used in the tutorial and examples below is a
 pair of Mars Orbital Camera (\ac{MOC}) \citep{1992JGR....97.7699M,2001JGR...10623429M}
 images whose \ac{PDS} Product IDs are M01/00115 and E02/01461.
 This data can be downloaded from the PDS directly, or they can be
@@ -666,7 +666,7 @@ dataset. Yet this is not a problem since we can use ICP as it works
 best, and then simply invert the alignment transform and apply it to the
 ASP point cloud so that it aligns to the accurately positioned dataset.
 
-The \texttt{pc\_align} tool requires another input, an apriori guess for
+The \texttt{pc\_align} tool requires another input, an a priori guess for
 the maximum displacement we expect to see as result of alignment, that
 is, by how much the points will move when the alignment transform is
 applied. If not known, a large (but not unreasonably so) number can be
@@ -684,7 +684,7 @@ Here is how \texttt{pc\_align} can be called.
 \hfill
 \begin{minipage}{2in}
 \caption[pc-align comparison]{
-Example of using \texttt{pc\_align} to align a DEM obtaind using stereo
+Example of using \texttt{pc\_align} to align a DEM obtained using stereo
 from CTX images to a set of MOLA tracks. The MOLA points are colored by the offset error
 initially (left) and after pc align was applied (right)
 to the terrain model. The red dots indicate
@@ -838,7 +838,7 @@ Digital Globe's aerial images.
 The camera information for Digital Globe images is contained in an XML
 file for each image. In addition to the exact linear camera model, the
 XML file also has its RPC approximation. In this chapter we will focus
-only on procesing data using the linear camera model.  For more detail
+only on processing data using the linear camera model.  For more detail
 on RPC camera models we refer to section \ref{rpc} on page
 \pageref{rpc}, which discusses processing GeoEye imagery which comes
 only with RPC coefficients.
@@ -888,7 +888,7 @@ and create an appropriate camera file
     > dg_mosaic 12FEB12053305*TIF --output-prefix 12FEB12053305 --reduce-percent 50
 \end{verbatim}
 
-and anologously for the second set. See section \ref{dgmosaic} for more
+and analogously for the second set. See section \ref{dgmosaic} for more
 details. The \texttt{stereo} program can use either the original or the mosaicked images.
 
 Since we are ingesting these images raw, it is strongly recommended that
@@ -937,7 +937,7 @@ given camera image onto a pre-determined low-resolution DEM without
 holes.
 
 ASP will then perform correlation on the map-projected images, and,
-before doing triagulation will internally project back the image pixels
+before doing triangulation will internally project back the image pixels
 onto the original camera locations, precisely reversing the
 transformation done with \texttt{mapproject}.
 

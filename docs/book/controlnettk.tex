@@ -73,7 +73,7 @@ example. This is to limit the number of detected interest points so
 that the next step doesn't take too long.
 
 Matching is calculated pairwise. There are many ways to do this, but
-the simplists is just a brute force permutation of all possible
+the simplest is just a brute force permutation of all possible
 combinations. Here's how:
 
 \begin{verbatim}
@@ -87,7 +87,7 @@ sequential by name.
   > pairlist_seq.py *.tif | xargs -n2 -P 10 ipmatch -r homography
 \end{verbatim}
 
-Though for large datasets it doesn't seem approriate to compare all
+Though for large data sets it doesn't seem appropriate to compare all
 images to each other as the physically don't see each other in
 anyway. A good way of reducing the matches is by deciding to only
 calculate matches between images that are separated by no more than a

@@ -102,8 +102,8 @@ distribution.
 
   \begin{description}
     \item[0 - None]
-    \item[1 - Subtracted Mean] - This takes a preferrably large
-      gaussian kernel and subtracts its value from the input
+    \item[1 - Subtracted Mean] - This takes a preferably large
+      Gaussian kernel and subtracts its value from the input
       image. This effectively reduces low frequency content in the
       image. The result is correlation that is immune to translations
       in image intensity.
@@ -278,7 +278,7 @@ value will result in no timeout enforcement.
   the subpixel correlation kernel. It is advantageous to keep this
   small for parabola fitting in order to resolve finer
   details. However for the Bayes EM methods, keep the kernel slightly
-  larger. Those methods weight the kernel with a gaussian
+  larger. Those methods weight the kernel with a Gaussian
   distribution, thus the effective area is small than the kernel size
   defined here.
 

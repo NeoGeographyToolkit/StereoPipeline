@@ -14,7 +14,7 @@ This document describes a testing plan for the LMMP stereo module.
 
 \begin{itemize}
 \item {\bf Option 1:} Short term, if ground truth data (Apollo Panoramic images) is available (Feb 15). Let the predicted horizontal and vertical
-      disparity map for the $k$th image be denoted as ${\bf P}_{k, h}(i,j)$ and ${\bf P}_{k, v}(i,j)$  respectively with the corresponding ground truth dispariy map ${\bf T}_{k, h}(i,j)$ and ${\bf T}_{k, v}(i,j)$ for all pixels $(i,j)$. 
+      disparity map for the $k$th image be denoted as ${\bf P}_{k, h}(i,j)$ and ${\bf P}_{k, v}(i,j)$  respectively with the corresponding ground truth disparity map ${\bf T}_{k, h}(i,j)$ and ${\bf T}_{k, v}(i,j)$ for all pixels $(i,j)$. 
 
 The ${\bf average}$ ${\bf error}$ is 
       ${\bf E} =\frac{1}{K}\sum_k\frac{\sum_{ij} (P_{k,v}(i,j)-T_{k,v}(i,j))^2 + (P_{k,h}(i,j)-T_{k,h}(i,j))^2}{N_{k,pred}} $ where $N_{k,pred}$ 
@@ -24,7 +24,7 @@ The ${\bf average}$ ${\bf error}$ is
       The ${\bf average}$ ${\bf coverage}$ ${\bf C}$ measures the number of pixels for which the disparity is determined: 
 ${\bf C} = \frac{1}{K}\sum_k\frac{N_{k,pred}}{N_{k,true}}$, where $N_{k, true}$ is the resolution of the ground truth images.
   
-     The goal is to have a small average error ${\bf E}$ and large avearge coverage ${\bf C}$ measures.
+     The goal is to have a small average error ${\bf E}$ and large average coverage ${\bf C}$ measures.
 
 \item {\bf Option 2:} Very short term, before the ground truth data is made available (Jan 15th).
                     Compute the ${\bf E}$ measure using existing synthetic ground truth data, and the ${\bf C}$ 
