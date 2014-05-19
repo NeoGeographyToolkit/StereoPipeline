@@ -481,6 +481,14 @@ You can proceed to make a mesh or a \ac{DEM} by processing
 
 Figure \ref {p19-disparity} shows the outputs of \texttt{disparitydebug}.
 
+And a note on performance. If \texttt{stereo\_corr} takes unreasonably
+long, perhaps it encountered a portion of the image where, due to noise
+(such as clouds, shadows, etc.) the determined search range is much
+larger than what it should be. The option \texttt{-\/-corr-timeout \textit{integer}}
+can be used to limit how long each 1024$\times$1024 pixel tile can take.
+A good value here could be 300 (seconds), or more if your terrain is expected
+to have large height variations.
+
 \section{Visualizing and Manipulating the Results}
 \label{visualising}
 
