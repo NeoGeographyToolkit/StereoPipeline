@@ -445,6 +445,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-max-valid-triangulation-error \textit{float(=0)}} & Manual outlier removal. Points with triangulation error larger than this (in meters) are removed from the cloud. \\ \hline
 \texttt{-\/-remove-outliers  \textit{[default: false]}} & Turn on automatic outlier removal based on triangulation error. See also: remove-outliers-params. \\ \hline
 \texttt{-\/-remove-outliers-params  \textit{pct (float) factor (float) [default: 75.0 3.0]}} & Points with triangulation error larger than pct-th percentile times factor will be removed as outliers. \\ \hline
+\texttt{-\/-save-lon-lat-height-cloud-only \textit{[default: false]}} & Skip creating the DEM, just convert the cloud to longitude, latitude, height above datum, and save it.\\ \hline
 \texttt{-\/-use-surface-sampling \textit{[default: false]}} & Use the older algorithm, interpret the point cloud as a surface made up of triangles and sample it (prone to aliasing).\\ \hline
 \texttt{-\/-fsaa  \textit{float(=3)}} & Oversampling amount to perform antialiasing. Obsolete, can be used only in conjunction with \texttt{-\/-use-surface-sampling}. \\ \hline
 \texttt{-\/-threads \textit{int(=0)}} & Select the number of processors (threads) to use.\\ \hline

@@ -81,7 +81,7 @@ struct Options : asp::BaseOptions {
   Vector2 remove_outliers_params;
   double max_valid_triangulation_error;
   double search_radius_factor;
-  bool use_surface_sampling;
+  bool save_llh_only, use_surface_sampling;
   
   // Output
   std::string  out_prefix, output_file_type;
@@ -144,6 +144,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("orthoimage", po::value(&opt.texture_filename), "Write an orthoimage based on the texture file given as an argument to this command line option.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
     ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file.")
+    ("save-lon-lat-height-cloud-only", po::bool_switch(&opt.save_llh_only)->default_value(false),
+     "Skip creating the DEM, just convert the cloud to longitude, latitude, height above datum, and save it.")
     ("errorimage", po::bool_switch(&opt.do_error)->default_value(false), "Write a triangulation intersection error image.")
     ("hole-fill-mode", po::value(&opt.hole_fill_mode)->default_value(1), "Choose the algorithm to fill holes. [1: Interpolate based on valid values in four directions: left, right, up, and down (fast). 2: Weighted average of all valid pixels within a window of size hole-fill-len (slow).")
     ("hole-fill-num-smooth-iter", po::value(&opt.hole_fill_num_smooth_iter)->default_value(4), "How many times to iterate to smooth the result of hole-filling with a Gaussian kernel.")
@@ -407,6 +409,19 @@ bool read_user_datum( Options const& opt,
 
 namespace asp{
 
+  // If the third component of a vector is NaN, assign to it the given
+  // no-data value. 
+  struct NaN2NoData: public ReturnFixedType<Vector3> {
+    NaN2NoData(float nodata_val):m_nodata_val(nodata_val){}
+    float m_nodata_val;
+    Vector3 operator() (Vector3 const& vec) const {
+      if (boost::math::isnan(vec.z()))
+        return Vector3(m_nodata_val, m_nodata_val, m_nodata_val); // invalid
+      else
+        return vec; // valid
+    }
+  };
+  
   // Take a given point xyz and the error at that point. Convert the
   // error to the NED (North-East-Down) coordinate system.
   struct ErrorToNED : public ReturnFixedType<Vector3> {
@@ -439,11 +454,9 @@ namespace asp{
     std::string output_file = opt.out_prefix + "-" + imgName + "." + opt.output_file_type;
     vw_out() << "Writing: " << output_file << "\n";
     if ( opt.output_file_type == "tif" ) {
-      boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( output_file, img, opt) );
-      rsrc->set_nodata_write( opt.nodata_value );
-      write_georeference( *rsrc, georef );
-      block_write_image( *rsrc, img,
-                         TerminalProgressCallback("asp", imgName + ": ") );
+      block_write_gdal_image(output_file, img, georef, opt.nodata_value, opt,
+                             TerminalProgressCallback("asp", imgName + ": ")
+                             );
     } else {
       asp::write_gdal_georeferenced_image(output_file, img, georef, opt,
                                           TerminalProgressCallback("asp", imgName + ":") );
@@ -914,6 +927,8 @@ int main( int argc, char *argv[] ) {
     vw_out(DebugMessage,"asp") << "Statistics time: " << sw1.elapsed_seconds()
                                << std::endl;
 
+    // Estimate the maximum value of the error channel in case we would
+    // like to remove outliers.
     ImageViewRef<double> error_image;
     double estim_max_error = 0.0;
     if (opt.remove_outliers || opt.max_valid_triangulation_error > 0.0){
@@ -950,6 +965,25 @@ int main( int argc, char *argv[] ) {
         vw_out(DebugMessage,"asp") << "Triangulation error range estimation time: "
                                    << sw2.elapsed_seconds() << std::endl;
       }
+    }
+
+    if (opt.save_llh_only){
+      float nodata;
+      if (opt.has_nodata_value)
+        nodata = opt.nodata_value;
+      else
+        nodata = -32768;
+      std::string llh_file = opt.out_prefix + "-LLH.tif";
+      vw_out() << "Writing: " << llh_file << "\n";
+      block_write_gdal_image(llh_file,
+                             per_pixel_filter
+                             (recenter_longitude(cartesian_to_geodetic(point_image,georef),
+                                                 avg_lon),
+                              asp::NaN2NoData(nodata)),
+                             nodata, opt,
+                             TerminalProgressCallback("asp","Lon-lat-height: ")
+                             );
+      return 0;
     }
     
     // We trade off readability here to avoid ImageViewRef dereferences
