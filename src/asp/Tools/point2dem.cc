@@ -410,7 +410,7 @@ bool read_user_datum( Options const& opt,
 namespace asp{
 
   // If the third component of a vector is NaN, assign to it the given
-  // no-data value. 
+  // no-data value
   struct NaN2NoData: public ReturnFixedType<Vector3> {
     NaN2NoData(float nodata_val):m_nodata_val(nodata_val){}
     float m_nodata_val;
@@ -976,10 +976,11 @@ int main( int argc, char *argv[] ) {
       std::string llh_file = opt.out_prefix + "-LLH.tif";
       vw_out() << "Writing: " << llh_file << "\n";
       block_write_gdal_image(llh_file,
-                             per_pixel_filter
-                             (recenter_longitude(cartesian_to_geodetic(point_image,georef),
-                                                 avg_lon),
-                              asp::NaN2NoData(nodata)),
+                             channel_cast<float>
+                             (per_pixel_filter
+                              (recenter_longitude(cartesian_to_geodetic(point_image,georef),
+                                                  avg_lon),
+                               asp::NaN2NoData(nodata))),
                              nodata, opt,
                              TerminalProgressCallback("asp","Lon-lat-height: ")
                              );
