@@ -21,6 +21,7 @@
 
 #include <asp/Core/Macros.h>
 #include <asp/Tools/bundle_adjust.h>
+#include <asp/Sessions/StereoSession.h>
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
@@ -53,7 +54,7 @@ sort_out_gcps( std::vector<std::string>& image_files ) {
 
 struct Options : public asp::BaseOptions {
   std::vector<std::string> image_files, gcp_files;
-  std::string cnet_file, stereosession_type, ba_type;
+  std::string cnet_file, stereo_session_string, ba_type;
 
   double lambda, robust_outlier_threshold;
   int report_level, min_matches, max_iterations;
@@ -133,7 +134,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Load a control network from a file")
     ("bundle-adjuster", po::value(&opt.ba_type)->default_value("RobustSparse"),
      "Choose a robust cost function from [PseudoHuber, Huber, L1, L2, Cauchy]")
-    ("session-type,t", po::value(&opt.stereosession_type)->default_value("isis"),
+    ("session-type,t", po::value(&opt.stereo_session_string)->default_value("isis"),
      "Select the stereo session type to use for processing.")
     ("lambda,l", po::value(&opt.lambda)->default_value(-1),
      "Set the initial value of the LM parameter lambda")
@@ -164,7 +165,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
               << usage << general_options );
   opt.gcp_files = sort_out_gcps( opt.image_files );
   opt.save_iteration = vm.count("save-iteration-data");
-  boost::to_lower( opt.stereosession_type );
+  boost::to_lower( opt.stereo_session_string );
   boost::to_lower( opt.ba_type );
   if ( !( opt.ba_type == "ref" ||
           opt.ba_type == "sparse" ||
@@ -191,11 +192,9 @@ int main(int argc, char* argv[]) {
 
     // Read in the camera model and image info for the input images.
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-    SessionPtr session(asp::StereoSession::create(opt.stereosession_type));
-
-    if (opt.stereosession_type == "pinhole")
-      stereo_settings().keypoint_alignment = true;
-
+    SessionPtr session(asp::StereoSession::create(opt.stereo_session_string,
+                                                  opt));
+    
     {
       TerminalProgressCallback progress("asp","Camera Models:");
       progress.report_progress(0);
@@ -203,7 +202,7 @@ int main(int argc, char* argv[]) {
       BOOST_FOREACH( std::string const& input, opt.image_files ) {
         progress.report_incremental_progress(tpc_inc);
         vw_out(DebugMessage,"asp") << "Loading: " << input << "\n";
-        if (opt.stereosession_type == "pinhole")
+        if (opt.stereo_session_string == "pinhole")
           opt.camera_models.push_back(session->camera_model(input,input));
         else
           opt.camera_models.push_back(session->camera_model(input));
@@ -221,8 +220,8 @@ int main(int argc, char* argv[]) {
 
       opt.cnet->write_binary("control");
     } else  {
-      std::cout << "Loading control network from file: "
-                << opt.cnet_file << "\n";
+      vw_out() << "Loading control network from file: "
+               << opt.cnet_file << "\n";
 
       // Deciding which Control Network we have
       std::vector<std::string> tokens;
