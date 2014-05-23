@@ -33,6 +33,39 @@
 
 namespace vw {
 
+  bool read_user_datum(double semi_major, double semi_minor,
+                       std::string const& reference_spheroid,
+                       cartography::Datum& datum ) {
+    // Select a cartographic datum. There are several hard coded datums
+    // that can be used here, or the user can specify their own.
+    if ( reference_spheroid != "" ) {
+      if (reference_spheroid == "mars") {
+        datum.set_well_known_datum("D_MARS");
+        vw_out() << "\t--> Re-referencing altitude values using standard MOLA\n";
+      } else if (reference_spheroid == "moon") {
+        datum.set_well_known_datum("D_MOON");
+        vw_out() << "\t--> Re-referencing altitude values using standard lunar\n";
+      } else if (reference_spheroid == "earth") {
+        vw_out() << "\t--> Re-referencing altitude values using WGS84\n";
+      } else {
+        vw_throw( ArgumentErr() << "\t--> Unknown reference spheriod: "
+                  << reference_spheroid
+                  << ". Current options are [ earth, moon, mars ]\nExiting." );
+      }
+      vw_out() << "\t    Axes [" << datum.semi_major_axis() << " " << datum.semi_minor_axis() << "] meters\n";
+    } else if (semi_major != 0 && semi_minor != 0) {
+      vw_out() << "\t--> Re-referencing altitude values to user supplied datum.\n"
+               << "\t    Semi-major: " << semi_major << "  Semi-minor: " << semi_minor << "\n";
+      datum = cartography::Datum("User Specified Datum",
+                                 "User Specified Spheroid",
+                                 "Reference Meridian",
+                                 semi_major, semi_minor, 0.0);
+    } else {
+      return false;
+    }
+    return true;
+  }
+  
   // Erases a file suffix if one exists and returns the base string
   std::string prefix_from_pointcloud_filename(std::string const& filename) {
     std::string result = filename;

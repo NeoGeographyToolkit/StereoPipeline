@@ -421,9 +421,9 @@ Options & Description \\ \hline \hline
 \texttt{-\/-kappa-rotation \textit{float(=0)}} & Set a rotation angle kappa. \\ \hline
 \hline
 \texttt{-\/-t\_srs \textit{string}} & Target spatial reference set. This mimics the GDAL option used on their tools. \\ \hline
-\texttt{-\/-reference-spheroid|-r moon|mars} & Set a reference surface to a hard coded value. This will override manually set datum information. \\ \hline
-\texttt{-\/-semi-major-axis \textit{float(=0)}} & Set the dimensions of the datum in meters.\\ \hline
-\texttt{-\/-semi-minor-axis \textit{float(=0)}} & Set the dimensions of the datum in meters.\\ \hline
+\texttt{-\/-reference-spheroid|-r earth|moon|mars} & Set the reference spheroid. This will override manually set datum information. \\ \hline
+\texttt{-\/-semi-major-axis \textit{float(=0)}} & Explicitly set the datum semi-major axis in meters.\\ \hline
+\texttt{-\/-semi-minor-axis \textit{float(=0)}} & Explicitly set the datum semi-minor axis in meters.\\ \hline
 \texttt{-\/-sinusoidal} & Save using a sinusoidal projection. \\ \hline
 \texttt{-\/-mercator} & Save using a Mercator projection. \\ \hline
 \texttt{-\/-transverse-mercator} & Save using transverse Mercator projection. \\ \hline
@@ -766,6 +766,7 @@ public LAS format for interchange of 3-dimensional point cloud data.
 \hline
 Options & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message.\\ \hline
+\texttt{-\/-reference-spheroid|-r earth|moon|mars} & Set the reference spheroid. This will create a las file in reference to the spheroid. \\ \hline
 \texttt{-\/-compressed} &
 Compress using laszip. \\ \hline
 \texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix. \\ \hline

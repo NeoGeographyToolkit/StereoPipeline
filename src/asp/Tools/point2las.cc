@@ -46,18 +46,22 @@ namespace vw {
 
 struct Options : asp::BaseOptions {
   // Input
+  std::string reference_spheroid;
   std::string pointcloud_filename;
   bool compressed;
   // Output
   std::string out_prefix;
+  Options() : compressed(false){}
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::options_description general_options("General Options");
   general_options.add_options()
-    ("compressed,c", "Compress using laszip.")
-    ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.");
+    ("compressed,c", po::bool_switch(&opt.compressed)->default_value(false)->implicit_value(true),
+     "Compress using laszip.")
+    ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
+    ("reference-spheroid,r", po::value(&opt.reference_spheroid),"Set the reference spheroid [ earth, moon, mars]. This will create a las file in reference to the spheroid.");
 
   general_options.add( asp::BaseOptionsDescription(opt) );
 
@@ -81,13 +85,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     opt.out_prefix =
       asp::prefix_from_filename( opt.pointcloud_filename );
 
+  boost::to_lower( opt.reference_spheroid );
+
   // Create the output directory 
   asp::create_out_dir(opt.out_prefix);
   
   // Turn on logging to file
   asp::log_to_file(argc, argv, "", opt.out_prefix);
-
-  opt.compressed = vm.count("compressed");
 
 }
 
@@ -124,6 +128,19 @@ int main( int argc, char *argv[] ) {
     header.SetScale(scale[0], scale[1], scale[2]);
     header.SetOffset(offset[0], offset[1], offset[2]);
 
+    // Save the las file in respect to a reference spheroid if provided
+    // by the user.
+    cartography::Datum user_datum;
+    bool have_user_datum = read_user_datum(0, 0,
+                                           opt.reference_spheroid, user_datum);
+    if (have_user_datum){
+      liblas::SpatialReference ref;
+      std::string target_srs = "+proj=longlat " + user_datum.proj4_str();
+      ref.SetFromUserInput(target_srs);
+      vw_out() << "Setting SRS to '" << target_srs << "'"<< std::endl;
+      header.SetSRS(ref);
+    }
+    
     std::string lasFile;
     header.SetCompressed(opt.compressed);
     if (opt.compressed){
