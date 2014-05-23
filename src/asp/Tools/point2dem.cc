@@ -81,7 +81,7 @@ struct Options : asp::BaseOptions {
   Vector2 remove_outliers_params;
   double max_valid_triangulation_error;
   double search_radius_factor;
-  bool save_llh_only, use_surface_sampling;
+  bool use_surface_sampling;
   
   // Output
   std::string  out_prefix, output_file_type;
@@ -144,8 +144,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("orthoimage", po::value(&opt.texture_filename), "Write an orthoimage based on the texture file given as an argument to this command line option.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
     ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file.")
-    ("save-lon-lat-height-cloud-only", po::bool_switch(&opt.save_llh_only)->default_value(false),
-     "Skip creating the DEM, just convert the cloud to longitude, latitude, height above datum, and save it.")
     ("errorimage", po::bool_switch(&opt.do_error)->default_value(false), "Write a triangulation intersection error image.")
     ("hole-fill-mode", po::value(&opt.hole_fill_mode)->default_value(1), "Choose the algorithm to fill holes. [1: Interpolate based on valid values in four directions: left, right, up, and down (fast). 2: Weighted average of all valid pixels within a window of size hole-fill-len (slow).")
     ("hole-fill-num-smooth-iter", po::value(&opt.hole_fill_num_smooth_iter)->default_value(4), "How many times to iterate to smooth the result of hole-filling with a Gaussian kernel.")
@@ -967,26 +965,6 @@ int main( int argc, char *argv[] ) {
       }
     }
 
-    if (opt.save_llh_only){
-      float nodata;
-      if (opt.has_nodata_value)
-        nodata = opt.nodata_value;
-      else
-        nodata = -32768;
-      std::string llh_file = opt.out_prefix + "-LLH.tif";
-      vw_out() << "Writing: " << llh_file << "\n";
-      block_write_gdal_image(llh_file,
-                             channel_cast<float>
-                             (per_pixel_filter
-                              (recenter_longitude(cartesian_to_geodetic(point_image,georef),
-                                                  avg_lon),
-                               asp::NaN2NoData(nodata))),
-                             nodata, opt,
-                             TerminalProgressCallback("asp","Lon-lat-height: ")
-                             );
-      return 0;
-    }
-    
     // We trade off readability here to avoid ImageViewRef dereferences
     if (opt.x_offset != 0 || opt.y_offset != 0 || opt.z_offset != 0) {
       vw_out() << "\t--> Applying offset: " << opt.x_offset
