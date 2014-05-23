@@ -176,7 +176,6 @@ fi
 AX_PKG(THREADS, [BOOST_THREAD], [], [])
 
 AX_PKG(M, [], [-lm], [math.h])
-AX_PKG(PROJ4, [M], [-lproj], [proj_api.h])
 
 AX_PKG_ONE_OF(LAPACK,
   APPLE_LAPACK,
@@ -211,13 +210,15 @@ if test x"$PROTOC" = "xno" && test x"$HAVE_PKG_PROTOBUF" = "xyes"; then
   AC_MSG_ERROR([cannot find protoc used by protobuf])
 fi
 AX_PKG(FLANN,      [], [-lflann_cpp],[flann/flann.hpp])
-AX_PKG(GDAL, [], [-lgdal], [gdal.h])
-
 AX_PKG(Z, [], [-lz])
+AX_PKG(JPEG, [], [-ljpeg], [stdio.h jpeglib.h]) # jpeglib.h requires stdio.h to have been included
+AX_PKG(TIFF, [Z JPEG], [-ltiff], [tiff.h])
+AX_PKG(PROJ4, [M], [-lproj], [proj_api.h])
+AX_PKG(GEOTIFF, [PROJ4 JPEG], [-lgeotiff -ltiff])
+AX_PKG(GDAL, [GEOTIFF], [-lgdal], [gdal.h])
 
 AX_PKG(ILMBASE, [M Z PTHREADS], [-lImath -lHalf -lIex -lIlmThread], [Iex.h], [OpenEXR])
 AX_PKG(OPENEXR, [ILMBASE], [-lIlmImf], [ImfOutputFile.h], [OpenEXR])
-AX_PKG(JPEG, [], [-ljpeg], [stdio.h jpeglib.h]) # jpeglib.h requires stdio.h to have been included
 
 # Vision Workbench Core
 AX_PKG(VW_CORE,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS LAPACK], [-lvwCore],   [vw/Core/Log.h] )
@@ -339,10 +340,6 @@ AX_PKG(SUITESPARSE, [], [-lsuitesparseconfig], [SuiteSparse_config.h])
 AX_PKG(AMD, [], [-lamd], [], [], [], [], [SUITESPARSE])
 AX_PKG(COLAMD, [], [-lcolamd], [], [], [], [], [SUITESPARSE])
 AX_PKG(CHOLMOD, [AMD COLAMD LAPACK], [-lcholmod])
-AX_PKG_ONE_OF(TIFF,
-    STANDALONE_TIFF, [AX_PKG(STANDALONE_TIFF, [Z], [-ltiff])],
-    TIFF_NEEDS_JPEG, [AX_PKG(TIFF_NEEDS_JPEG, [Z], [-ljpeg -ltiff])])
-
 AX_PKG_ONE_OF(SUPERLU,
     SUPERLU_STATIC, [AX_PKG(SUPERLU_STATIC, [LAPACK], [-lyou_should_override_me])],
     SUPERLU_PLAIN,  [AX_PKG(SUPERLU_PLAIN,  [LAPACK], [-lsuperlu], [])],
