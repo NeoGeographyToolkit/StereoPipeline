@@ -326,7 +326,7 @@ AX_PKG_ONE_OF(GSL,
 
 AX_PKG(CURL,    [], [-lcurl], [curl/curl.h])
 AX_PKG(LASZIP,  [], [-llaszip], [laszip/laszip.hpp])
-AX_PKG(LIBLAS,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS LASZIP], [-llas], [liblas/liblas.hpp])
+AX_PKG(LIBLAS,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS LASZIP GDAL], [-llas], [liblas/liblas.hpp])
 
 # The GEOID dependency is data, not software. Must have it here to be
 # able to pass a flag with the data location to the programs using
