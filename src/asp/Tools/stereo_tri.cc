@@ -22,6 +22,7 @@
 #include <asp/Tools/stereo.h>
 #include <asp/Sessions/RPC/RPCModel.h>
 #include <asp/Sessions/RPC/RPCStereoModel.h>
+#include <asp/Core/BundleAdjustUtils.h>
 #include <vw/Cartography.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/Stereo/StereoView.h>
@@ -380,27 +381,29 @@ void stereo_triangulation( Options const& opt ) {
     boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
     opt.session->camera_models(camera_model1, camera_model2);
 
-#if HAVE_PKG_VW_BUNDLEADJUSTMENT
+#if ASP_HAVE_PKG_VW_BUNDLEADJUSTMENT
     // If the user has generated a set of position and pose
     // corrections using the bundle_adjust program, we read them in
     // here and incorporate them into our camera model.
     Vector3 position_correction;
     Quaternion<double> pose_correction;
-    if (fs::exists(fs::path(in_file1).replace_extension("adjust"))) {
-      read_adjustments(fs::path(in_file1).replace_extension("adjust").string(),
+    if (fs::exists(fs::path(opt.in_file1).replace_extension("adjust"))) {
+      read_adjustments(fs::path(opt.in_file1).replace_extension("adjust").string(),
                        position_correction, pose_correction);
       camera_model1 =
-        boost::shared_ptr<CameraModel>(new AdjustedCameraModel(camera_model1,
-                                                               position_correction,
-                                                               pose_correction));
+        boost::shared_ptr<camera::CameraModel>
+        (new camera::AdjustedCameraModel(camera_model1,
+                                         position_correction,
+                                         pose_correction));
     }
-    if (fs::exists(fs::path(in_file2).replace_extension("adjust"))) {
-      read_adjustments(fs::path(in_file2).replace_extension("adjust").string(),
+    if (fs::exists(fs::path(opt.in_file2).replace_extension("adjust"))) {
+      read_adjustments(fs::path(opt.in_file2).replace_extension("adjust").string(),
                        position_correction, pose_correction);
       camera_model2 =
-        boost::shared_ptr<CameraModel>(new AdjustedCameraModel(camera_model2,
-                                                               position_correction,
-                                                               pose_correction));
+        boost::shared_ptr<camera::CameraModel>
+        (new camera::AdjustedCameraModel(camera_model2,
+                                         position_correction,
+                                         pose_correction));
     }
 #endif
 
