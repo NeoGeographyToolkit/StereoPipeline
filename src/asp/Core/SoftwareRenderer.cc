@@ -111,6 +111,8 @@ struct Color
     case 4:
       r = color[0]; g = color[1]; b = color[2]; a = color[3];
       return;
+    default:
+      r = 0.0; g = 0.0; b = 0.0; a = 1.0;
     }
   }
   RealT r, g, b, a;
