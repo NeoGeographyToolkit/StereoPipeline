@@ -61,7 +61,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("compressed,c", po::bool_switch(&opt.compressed)->default_value(false)->implicit_value(true),
      "Compress using laszip.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
-    ("reference-spheroid,r", po::value(&opt.reference_spheroid),"Set the reference spheroid [ earth, moon, mars]. This will create a las file in reference to the spheroid.");
+    ("reference-spheroid,r", po::value(&opt.reference_spheroid),"Set the reference spheroid [ earth, moon, mars]. This will create a geo-referenced las file in respect to the spheroid.");
 
   general_options.add( asp::BaseOptionsDescription(opt) );
 
