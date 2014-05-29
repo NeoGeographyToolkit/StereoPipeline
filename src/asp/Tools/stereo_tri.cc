@@ -456,12 +456,12 @@ void stereo_triangulation( Options const& opt ) {
     }
 
     // Compute the point cloud center, unless done by now
-    Vector3 cloud_center;
+    Vector3 cloud_center = Vector3();
     if (!stereo_settings().save_double_precision_point_cloud){
       std::string cloud_center_file = opt.out_prefix + "-PC-center.txt";
       if (!read_point(cloud_center_file, cloud_center)){
         cloud_center = find_point_cloud_center(opt.raster_tile_size,
-                                        point_cloud);
+                                               point_cloud);
         write_point(cloud_center_file, cloud_center);
       }
     }

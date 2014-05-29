@@ -371,7 +371,7 @@ namespace asp {
                                       = vw::ProgressCallback::dummy_instance() ) {
 
 
-    if (shift != vw::Vector3()){
+    if (norm_2(shift) > 1e+6){ // Round pixels only for bodies > 1000 km radius
       boost::scoped_ptr<vw::DiskImageResourceGDAL>
         rsrc( build_gdal_rsrc( filename,
                                vw::channel_cast<float>(image.impl()),
@@ -403,7 +403,7 @@ namespace asp {
                                 = vw::ProgressCallback::dummy_instance() ) {
 
 
-    if (shift != vw::Vector3()){
+    if (norm_2(shift) > 1e+6){ // Round pixels only for bodies > 1000 km radius
       boost::scoped_ptr<vw::DiskImageResourceGDAL>
         rsrc( build_gdal_rsrc( filename,
                                vw::channel_cast<float>(image.impl()),
