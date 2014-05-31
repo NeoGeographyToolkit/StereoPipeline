@@ -1,8 +1,14 @@
 *** RELEASE 2.4.1, Upcoming! ***
 
+  - stereo_tri
+    * Bugfix for MER cameras
+ 
   - point2las
     * LAS files can be saved in geo-referenced format in respect 
       to a specified datum (option --reference-spheroid).
+ 
+  - point2dem
+    * Bugfix, longitude could be off by 360 degrees.
  
 *** RELEASE 2.4.0, 28 April, 2014 ***
 
