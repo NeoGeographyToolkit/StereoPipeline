@@ -340,6 +340,8 @@ AX_PKG(SUITESPARSE, [], [-lsuitesparseconfig], [SuiteSparse_config.h])
 AX_PKG(AMD, [], [-lamd], [], [], [], [], [SUITESPARSE])
 AX_PKG(COLAMD, [], [-lcolamd], [], [], [], [], [SUITESPARSE])
 AX_PKG(CHOLMOD, [AMD COLAMD LAPACK], [-lcholmod])
+AX_PKG(GLOG,    [], [-lglog], [glog/logging.h])
+AX_PKG(CERES, [CHOLMOD GLOG], [-lceres], [ceres/ceres.h])
 AX_PKG_ONE_OF(SUPERLU,
     SUPERLU_STATIC, [AX_PKG(SUPERLU_STATIC, [LAPACK], [-lyou_should_override_me])],
     SUPERLU_PLAIN,  [AX_PKG(SUPERLU_PLAIN,  [LAPACK], [-lsuperlu], [])],
@@ -411,7 +413,7 @@ AX_MODULE(MPI,      [src/asp/MPI],      [],                  no,  [VW_BUNDLEADJU
 
 # Tools
 AX_APP(PC_ALIGN,         [src/asp/Tools], yes, [CORE LIBPOINTMATCHER LIBNABO YAML])
-AX_APP(BUNDLEADJUST,     [src/asp/Tools], no,  [VW_BUNDLEADJUSTMENT SESSIONS])
+AX_APP(BUNDLEADJUST,     [src/asp/Tools], no,  [VW_BUNDLEADJUSTMENT SESSIONS CERES])
 AX_APP(BUNDLEVIS,        [src/asp/Tools], no,  [OPENSCENEGRAPH VW_BUNDLEADJUSTMENT CORE])
 AX_APP(DEMPROFILE,       [src/asp/Tools], no,  [CORE])
 AX_APP(DISPARITYDEBUG,   [src/asp/Tools], yes, [CORE])
