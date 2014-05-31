@@ -38,9 +38,11 @@
 // Bundle adjustment functor
 class BundleAdjustmentModel : public vw::ba::ModelBase<BundleAdjustmentModel, 6, 3> {
 
+public:
   typedef vw::Vector<double,6> camera_vector_t;
   typedef vw::Vector<double,3> point_vector_t;
 
+private:
   std::vector<boost::shared_ptr<vw::camera::CameraModel> > m_cameras;
   boost::shared_ptr<vw::ba::ControlNetwork> m_network;
 
@@ -61,8 +63,8 @@ public:
     for (unsigned i = 0; i < network->size(); ++i)
       m_num_pixel_observations += (*network)[i].size();
 
-    // Set up the b vectors, storing the initial values.
-    // a vector however just starts out zero
+    // Set up the 'b' vectors, storing the initial values.
+    // The 'a' vectors however just start out zero.
     for (unsigned i = 0; i < network->size(); ++i) {
       b[i] = (*m_network)[i].position();
       b_target[i] = b[i];

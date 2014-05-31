@@ -22,7 +22,8 @@
 #include <asp/Core/Macros.h>
 #include <asp/Tools/bundle_adjust.h>
 #include <asp/Sessions/StereoSession.h>
-
+#include <ceres/ceres.h>
+#include <ceres/loss_function.h>
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -65,12 +66,164 @@ struct Options : public asp::BaseOptions {
   std::vector<boost::shared_ptr<CameraModel> > camera_models;
 };
 
+// Ceres cost function. Templated by the BundleAdjust model. We pass
+// in the observation, the model, and the current camera and point
+// indices. The result is the residual, the difference in the
+// observation and the projection of the point into the camera.
+template<class ModelT>
+struct BaReprojectionError {
+  BaReprojectionError(double observed_x, double observed_y, ModelT * const ba_model,
+                      size_t icam, size_t ipt)
+    : m_observed_x(observed_x),
+      m_observed_y(observed_y),
+      m_ba_model(ba_model),
+      m_icam(icam), m_ipt(ipt){}
+
+  template <typename T>
+  bool operator()(const T* const camera,
+                  const T* const point,
+                  T* residuals) const {
+
+    try{
+      size_t num_cameras = m_ba_model->num_cameras();
+      size_t num_points  = m_ba_model->num_points();
+      VW_ASSERT(m_icam < num_cameras,
+                ArgumentErr() << "Out of bounds in the number of cameras");
+      VW_ASSERT(m_ipt < num_points,
+                ArgumentErr() << "Out of bounds in the number of points");
+
+      // Copy the input data to structures expected by the BA model
+      typename ModelT::camera_vector_t camera_vec;
+      typename ModelT::point_vector_t  point_vec;
+      for (size_t c = 0; c < camera_vec.size(); c++) camera_vec[c] = (double)camera[c];
+      for (size_t p = 0; p < point_vec.size(); p++)  point_vec[p]  = (double)point[p];
+
+      // Project the current point into the current camera
+      Vector2 prediction = (*m_ba_model)(m_ipt, m_icam, camera_vec, point_vec);
+      
+      // The error is the difference between the predicted and observed position.
+      residuals[0] = prediction[0] - m_observed_x;
+      residuals[1] = prediction[1] - m_observed_y;
+
+    } catch (const camera::PixelToRayErr& e) {
+      // Failed to project into the camera
+      residuals[0] = T(0);
+      residuals[1] = T(0);
+    }
+    
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(double observed_x,
+                                     double observed_y,
+                                     ModelT * const ba_model,
+                                     size_t icam, size_t ipt // camera and point indices
+                                     ) {
+    //return (new ceres::AutoDiffCostFunction<BaReprojectionError, 2, ModelT::camera_params_n, ModelT::point_params_n>(new BaReprojectionError(observed_x, observed_y, ba_model, icam, ipt)));
+    return (new ceres::NumericDiffCostFunction<BaReprojectionError, ceres::CENTRAL, 2, ModelT::camera_params_n, ModelT::point_params_n>(new BaReprojectionError(observed_x, observed_y, ba_model, icam, ipt)));
+    
+  }
+  
+  double m_observed_x;
+  double m_observed_y;
+  ModelT * const m_ba_model;
+  size_t m_icam, m_ipt;
+};
+
+// Use Ceres to do bundle adjustment. The camera and point variables
+// are stored in arrays.  The projection of point into camera is
+// accomplished by interfacing with the bundle adjustment model. In
+// the future this class can be bypassed.
+template <class ModelT>
+void do_ba_ceres(Options const& opt ) {
+
+  ModelT ba_model(opt.camera_models, opt.cnet);
+
+  ControlNetwork & cnet = *(ba_model.control_network().get());
+  CameraRelationNetwork<JFeature> crn;
+  crn.read_controlnetwork(cnet);
+
+  size_t num_camera_params = ModelT::camera_params_n;
+  size_t num_point_params  = ModelT::point_params_n;
+  size_t num_cameras       = ba_model.num_cameras();
+  size_t num_points        = ba_model.num_points();
+
+  // The camera adjustment and point variables concatenated into
+  // vectors. The camera adjustments start as 0. The points come from
+  // the network.
+  std::vector<double> cameras_vec(num_cameras*num_camera_params, 0.0);
+  double* cameras = &cameras_vec[0];
+  std::vector<double> points_vec(num_points*num_point_params, 0.0);
+  for (size_t p = 0; p < num_points; p++){
+    for (int q = 0; q < num_point_params; q++){
+      points_vec[p*num_point_params + q] = (*opt.cnet)[p].position()[q];
+    }
+  }
+  double* points = &points_vec[0];
+
+  // Set up the cost function
+  ceres::Problem problem;
+  typedef CameraNode<JFeature>::iterator crn_iter;
+  for ( size_t icam = 0; icam < crn.size(); icam++ ) {
+    for ( crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++ ) {
+
+      // The index of the 3D point
+      size_t ipt = (**fiter).m_point_id; 
+
+      VW_ASSERT(icam < num_cameras,
+                ArgumentErr() << "Out of bounds in the number of cameras");
+      VW_ASSERT(ipt < num_points,
+                ArgumentErr() << "Out of bounds in the number of points");
+
+      // The observed value for the projection of point with index ipt into
+      // the camera with index icam.
+      Vector2 observation = (**fiter).m_location;
+      
+      ceres::CostFunction* cost_function =
+        BaReprojectionError<ModelT>::Create(observation[0], observation[1],
+                                            &ba_model, icam, ipt);
+
+      // If enabled use Huber's loss function.
+      bool robustify = false;
+      ceres::LossFunction* loss_function = robustify ? new ceres::HuberLoss(1.0) : NULL;
+
+      // Each observation correponds to a pair of a camera and a point
+      // which are identified by indices icam and ipt respectively.
+      double * camera = cameras + num_camera_params * icam;
+      double * point  = points  + num_point_params  * ipt;
+      problem.AddResidualBlock(cost_function, loss_function, camera, point);
+      
+    }
+  }
+
+  // Solve the problem
+  ceres::Solver::Options options;
+  options.gradient_tolerance = 1e-16;
+  options.function_tolerance = 1e-16;
+  ceres::Solver::Summary summary;
+  ceres::Solve(options, &problem, &summary);
+  std::cout << summary.FullReport() << "\n";
+
+  // Save the camera info to disk
+  for (size_t i = 0; i < num_cameras; i++){
+    typename ModelT::camera_vector_t cam;
+    for (int c = 0; c < cam.size(); c++) cam[c] = cameras_vec[i*num_camera_params + c];
+    ba_model.set_A_parameters(i, cam);
+    ba_model.write_adjustment(i,
+                              fs::path(opt.image_files[i]).replace_extension("adjust").string() );
+  }  
+}
+
 template <class AdjusterT>
 void do_ba( typename  AdjusterT::cost_type const& cost_function,
             Options const& opt ) {
-  BundleAdjustmentModel ba_model(opt.camera_models, opt.cnet);
-  AdjusterT bundle_adjuster(ba_model, cost_function, false, false);
 
+  typedef typename AdjusterT::model_type ModelT;
+  ModelT ba_model(opt.camera_models, opt.cnet);
+  AdjusterT bundle_adjuster(ba_model, cost_function, false, false);
+  
   if ( opt.lambda > 0 )
     bundle_adjuster.set_lambda( opt.lambda );
 
@@ -170,9 +323,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if ( !( opt.ba_type == "ref" ||
           opt.ba_type == "sparse" ||
           opt.ba_type == "robustref" ||
-          opt.ba_type == "robustsparse" ) )
+          opt.ba_type == "robustsparse" ||
+          opt.ba_type == "ceres"
+          ) )
     vw_throw( ArgumentErr() << "Unknown bundle adjustment version: " << opt.ba_type
-              << ". Options are : [Ref, Sparse, RobustRef, RobustSparse]\n" );
+              << ". Options are : [Ref, Sparse, RobustRef, RobustSparse, Ceres]\n" );
 }
 
 int main(int argc, char* argv[]) {
@@ -250,6 +405,8 @@ int main(int argc, char* argv[]) {
         do_ba<AdjustRobustRef< ModelType,L2Error> >( L2Error(), opt );
       } else if ( opt.ba_type == "robustsparse" ) {
         do_ba<AdjustRobustSparse< ModelType,L2Error> >( L2Error(), opt );
+      } else if ( opt.ba_type == "ceres" ) {
+        do_ba_ceres<ModelType>( opt );
       }
     }
 
