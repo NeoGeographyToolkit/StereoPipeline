@@ -406,7 +406,7 @@ namespace asp {
       // why this check may fail. For example, the top left pixel
       // might not be valid on a map projected image. But notify the
       // user anyway.
-      vw_out(WarningMessage) << e.what() << std::endl;
+      vw_out(DebugMessage,"asp") << e.what() << std::endl;
     }
         
   }
