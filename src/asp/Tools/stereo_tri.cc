@@ -387,8 +387,10 @@ void stereo_triangulation( Options const& opt ) {
     // here and incorporate them into our camera model.
     Vector3 position_correction;
     Quaternion<double> pose_correction;
-    if (fs::exists(fs::path(opt.in_file1).replace_extension("adjust"))) {
-      read_adjustments(fs::path(opt.in_file1).replace_extension("adjust").string(),
+    fs::path adjust_file1 = fs::path(opt.in_file1).replace_extension("adjust");
+    if (fs::exists(adjust_file1)) {
+      vw_out() << "Using adjusted left camera model: " << adjust_file1.string() << std::endl;
+      read_adjustments(adjust_file1.string(),
                        position_correction, pose_correction);
       camera_model1 =
         boost::shared_ptr<camera::CameraModel>
@@ -396,8 +398,10 @@ void stereo_triangulation( Options const& opt ) {
                                          position_correction,
                                          pose_correction));
     }
-    if (fs::exists(fs::path(opt.in_file2).replace_extension("adjust"))) {
-      read_adjustments(fs::path(opt.in_file2).replace_extension("adjust").string(),
+    fs::path adjust_file2 = fs::path(opt.in_file2).replace_extension("adjust");
+    if (fs::exists(adjust_file2)) {
+      vw_out() << "Using adjusted right camera model: " << adjust_file2.string() << std::endl;
+      read_adjustments(adjust_file2.string(),
                        position_correction, pose_correction);
       camera_model2 =
         boost::shared_ptr<camera::CameraModel>
