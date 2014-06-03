@@ -170,9 +170,8 @@ def main():
 
         # Need to put these together to keep ISIS from calling the GUI
         cam2map_cmd = ' '.join(cam2map)
-        if( options.dryrun ):
-            print cam2map_cmd
-        else:
+        print cam2map_cmd
+        if( not options.dryrun ):
             code = subprocess.call(cam2map_cmd, shell=True)
             if not code == 0:
                 raise Exception('ProcessError', 'Non zero return code ('+str(code)+')')
@@ -181,9 +180,8 @@ def main():
         cam2map[1] = 'from=' + args[1]
         cam2map[2] = 'to='+ mapfile( args[1], options.suffix )
         cam2map_cmd = ' '.join(cam2map)
-        if( options.dryrun ):
-            print cam2map_cmd
-        else:
+        print cam2map_cmd
+        if( not options.dryrun ):
             code = subprocess.call(cam2map_cmd, shell=True)
             if not code == 0:
                 raise Exception('ProcessError', 'Non zero return code ('+str(code)+')')
