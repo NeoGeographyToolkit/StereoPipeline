@@ -55,9 +55,9 @@ sort_out_gcps( std::vector<std::string>& image_files ) {
 
 struct Options : public asp::BaseOptions {
   std::vector<std::string> image_files, gcp_files;
-  std::string cnet_file, stereo_session_string, ba_type;
-
-  double lambda, robust_outlier_threshold;
+  std::string cnet_file, stereo_session_string, cost_function, ba_type;
+  
+  double lambda, robust_threshold;
   int report_level, min_matches, max_iterations;
 
   bool save_iteration;
@@ -107,8 +107,9 @@ struct BaReprojectionError {
 
     } catch (const camera::PixelToRayErr& e) {
       // Failed to project into the camera
-      residuals[0] = T(0);
-      residuals[1] = T(0);
+      residuals[0] = T(1e+20);
+      residuals[1] = T(1e+20);
+      return false;
     }
     
     return true;
@@ -157,7 +158,7 @@ void do_ba_ceres(Options const& opt ) {
   double* cameras = &cameras_vec[0];
   std::vector<double> points_vec(num_points*num_point_params, 0.0);
   for (size_t p = 0; p < num_points; p++){
-    for (int q = 0; q < num_point_params; q++){
+    for (size_t q = 0; q < num_point_params; q++){
       points_vec[p*num_point_params + q] = (*opt.cnet)[p].position()[q];
     }
   }
@@ -186,9 +187,17 @@ void do_ba_ceres(Options const& opt ) {
                                             &ba_model, icam, ipt);
 
       // If enabled use Huber's loss function.
-      bool robustify = false;
-      ceres::LossFunction* loss_function = robustify ? new ceres::HuberLoss(1.0) : NULL;
-
+      double th = opt.robust_threshold;
+      ceres::LossFunction* loss_function;
+      if      ( opt.cost_function == "l2"     ) loss_function = NULL;
+      else if ( opt.cost_function == "huber"  ) loss_function = new ceres::HuberLoss(th);
+      else if ( opt.cost_function == "cauchy" ) loss_function = new ceres::CauchyLoss(th);
+      else if ( opt.cost_function == "l1"     ) loss_function = new ceres::SoftLOneLoss(th);
+      else{
+        vw_throw( ArgumentErr() << "Unknown cost function: " << opt.cost_function
+                  << " used with solver: " << opt.ba_type << ".\n" );
+      }
+      
       // Each observation correponds to a pair of a camera and a point
       // which are identified by indices icam and ipt respectively.
       double * camera = cameras + num_camera_params * icam;
@@ -202,6 +211,18 @@ void do_ba_ceres(Options const& opt ) {
   ceres::Solver::Options options;
   options.gradient_tolerance = 1e-16;
   options.function_tolerance = 1e-16;
+
+  options.max_num_iterations = opt.max_iterations;
+  options.minimizer_progress_to_stdout = true;
+  options.num_threads = 1; //FLAGS_num_threads;
+  //options.eta = 1e-3; // FLAGS_eta;
+//   options->max_solver_time_in_seconds = FLAGS_max_solver_time;
+//   options->use_nonmonotonic_steps = FLAGS_nonmonotonic_steps;
+//   if (FLAGS_line_search) {
+//     options->minimizer_type = ceres::LINE_SEARCH;
+//   }
+
+  
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
   std::cout << summary.FullReport() << "\n";
@@ -209,7 +230,7 @@ void do_ba_ceres(Options const& opt ) {
   // Save the camera info to disk
   for (size_t i = 0; i < num_cameras; i++){
     typename ModelT::camera_vector_t cam;
-    for (int c = 0; c < cam.size(); c++) cam[c] = cameras_vec[i*num_camera_params + c];
+    for (size_t c = 0; c < cam.size(); c++) cam[c] = cameras_vec[i*num_camera_params + c];
     ba_model.set_A_parameters(i, cam);
     ba_model.write_adjustment(i,
                               fs::path(opt.image_files[i]).replace_extension("adjust").string() );
@@ -217,8 +238,8 @@ void do_ba_ceres(Options const& opt ) {
 }
 
 template <class AdjusterT>
-void do_ba( typename  AdjusterT::cost_type const& cost_function,
-            Options const& opt ) {
+void do_ba(typename AdjusterT::cost_type const& cost_function,
+           Options const& opt ) {
 
   typedef typename AdjusterT::model_type ModelT;
   ModelT ba_model(opt.camera_models, opt.cnet);
@@ -280,22 +301,40 @@ void do_ba( typename  AdjusterT::cost_type const& cost_function,
     ba_model.write_adjustment(i, fs::path(opt.image_files[i]).replace_extension("adjust").string() );
 }
 
+// Use given cost function. Switch based on solver.
+template<class ModelType, class CostFunType>
+void do_ba_costfun(CostFunType const& cost_fun, Options const& opt){
+  if ( opt.ba_type == "ceres" ) {
+    do_ba_ceres<ModelType>( opt );
+  } else if ( opt.ba_type == "robustsparse" ) {
+    do_ba<AdjustRobustSparse< ModelType,CostFunType> >( cost_fun, opt );
+  } else if ( opt.ba_type == "robustref" ) {
+    do_ba<AdjustRobustRef< ModelType,CostFunType> >( cost_fun, opt );
+  } else if ( opt.ba_type == "sparse" ) {
+    do_ba<AdjustSparse< ModelType, CostFunType > >( cost_fun, opt );
+  }else if ( opt.ba_type == "ref" ) {
+    do_ba<AdjustRef< ModelType, CostFunType > >( cost_fun, opt );
+  }
+}
+
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
     ("cnet,c", po::value(&opt.cnet_file),
-     "Load a control network from a file")
-    ("bundle-adjuster", po::value(&opt.ba_type)->default_value("RobustSparse"),
-     "Choose a robust cost function from [PseudoHuber, Huber, L1, L2, Cauchy]")
+     "Load a control network from a file.")
+    ("cost-function", po::value(&opt.cost_function)->default_value("L2"),
+     "Choose a robust cost function from [PseudoHuber, Huber, L1, L2, Cauchy].")
+    ("bundle-adjuster", po::value(&opt.ba_type)->default_value("Ceres"),
+     "Choose a solver from [Ceres, RobustSparse, RobustRef, Sparse, Ref].")
     ("session-type,t", po::value(&opt.stereo_session_string)->default_value("isis"),
      "Select the stereo session type to use for processing.")
     ("lambda,l", po::value(&opt.lambda)->default_value(-1),
-     "Set the initial value of the LM parameter lambda")
-    ("robust-threshold", po::value(&opt.robust_outlier_threshold)->default_value(10.0),
+     "Set the initial value of the LM parameter lambda.")
+    ("robust-threshold", po::value(&opt.robust_threshold)->default_value(1.0),
      "Set the threshold for robust cost functions.")
     ("min-matches", po::value(&opt.min_matches)->default_value(30),
      "Set the minimum  number of matches between images that will be considered.")
-    ("max-iterations", po::value(&opt.max_iterations)->default_value(25), "Set the maximum number of iterations.")
+    ("max-iterations", po::value(&opt.max_iterations)->default_value(100), "Set the maximum number of iterations.")
     ("report-level,r",po::value(&opt.report_level)->default_value(10),
      "Changes the detail of the Bundle Adjustment Report")
     ("save-iteration-data,s", "Saves all camera information between iterations to iterCameraParam.txt, it also saves point locations for all iterations in iterPointsParam.txt.");
@@ -320,14 +359,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   opt.save_iteration = vm.count("save-iteration-data");
   boost::to_lower( opt.stereo_session_string );
   boost::to_lower( opt.ba_type );
-  if ( !( opt.ba_type == "ref" ||
-          opt.ba_type == "sparse" ||
-          opt.ba_type == "robustref" ||
+  boost::to_lower( opt.cost_function );
+  if ( !( opt.ba_type == "ceres"        ||
           opt.ba_type == "robustsparse" ||
-          opt.ba_type == "ceres"
+          opt.ba_type == "robustref"    ||
+          opt.ba_type == "sparse"       ||
+          opt.ba_type == "ref" 
           ) )
     vw_throw( ArgumentErr() << "Unknown bundle adjustment version: " << opt.ba_type
-              << ". Options are : [Ref, Sparse, RobustRef, RobustSparse, Ceres]\n" );
+              << ". Options are: [Ceres, RobustSparse, RobustRef, Sparse, Ref]\n" );
 }
 
 int main(int argc, char* argv[]) {
@@ -392,23 +432,22 @@ int main(int argc, char* argv[]) {
                   << tokens.back() << "\"." );
       }
     }
-
-    // Switching based on cost function
-    {
-      typedef BundleAdjustmentModel ModelType;
-
-      if ( opt.ba_type == "ref" ) {
-        do_ba<AdjustRef< ModelType, L2Error > >( L2Error(), opt );
-      } else if ( opt.ba_type == "sparse" ) {
-        do_ba<AdjustSparse< ModelType, L2Error > >( L2Error(), opt );
-      } else if ( opt.ba_type == "robustref" ) {
-        do_ba<AdjustRobustRef< ModelType,L2Error> >( L2Error(), opt );
-      } else if ( opt.ba_type == "robustsparse" ) {
-        do_ba<AdjustRobustSparse< ModelType,L2Error> >( L2Error(), opt );
-      } else if ( opt.ba_type == "ceres" ) {
-        do_ba_ceres<ModelType>( opt );
-      }
+    
+    typedef BundleAdjustmentModel ModelType;
+    if ( opt.cost_function == "pseudohuber" ) {
+      do_ba_costfun<ModelType, PseudoHuberError>( PseudoHuberError(opt.robust_threshold), opt );
+    } else if ( opt.cost_function == "huber" ) {
+      do_ba_costfun<ModelType, HuberError>( HuberError(opt.robust_threshold), opt );
+    } else if ( opt.cost_function == "l1" ) {
+      do_ba_costfun<ModelType, L1Error>( L1Error(), opt );
+    } else if ( opt.cost_function == "l2" ) {
+      do_ba_costfun<ModelType, L2Error>( L2Error(), opt );
+    } else if ( opt.cost_function == "cauchy" ) {
+      do_ba_costfun<ModelType, CauchyError>( CauchyError(opt.robust_threshold), opt );
+    }else{
+      vw_throw( ArgumentErr() << "Unknown cost function: " << opt.cost_function
+                << ". Options are: PseudoHuber, Huber, L1, L2, Cauchy.\n" );
     }
-
+      
   } ASP_STANDARD_CATCHES;
 }
