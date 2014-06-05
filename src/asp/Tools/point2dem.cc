@@ -217,6 +217,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (opt.ortho_hole_fill_len < 0)
     vw_throw( ArgumentErr() << "The value of "
               << "--orthoimage-hole-fill-len must not be negative.\n");
+  if (opt.texture_filename.empty() && opt.ortho_hole_fill_len > 0) {
+    vw_out(WarningMessage) << "The value of --orthoimage-hole-fill-len"
+                           << " is positive, but orthoimage generation was not requested.\n";
+  }
+  
   double pct = opt.remove_outliers_params[0], factor = opt.remove_outliers_params[1];
   if (pct <= 0 || pct >= 100 || factor <= 0.0){
     vw_throw( ArgumentErr() << "Invalid values were provided for remove-outliers-params.\n");
