@@ -300,7 +300,7 @@ def sprawn_to_nodes(step, settings, args):
     f.close()
 
     # Use GNU parallel with given number of processes.
-    cmd = ['parallel', '-u', '-P', str(procs), '-a', tmpFile.name]
+    cmd = ['parallel', '--env', 'PATH', '-u', '-P', str(procs), '-a', tmpFile.name]
     if which(cmd[0]) is None:
         raise Exception('Need GNU Parallel to distribute the jobs.')
 
