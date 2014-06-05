@@ -119,7 +119,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("alignment-method", po::value(&opt.alignment_method)->default_value("point-to-plane"), "The type of iterative closest point method to use. [point-to-plane, point-to-point]")
     ("highest-accuracy", po::bool_switch(&opt.highest_accuracy)->default_value(false)->implicit_value(true),
      "Compute with highest accuracy for point-to-plane (can be much slower).")
-    ("csv-format", po::value(&opt.csv_format_str)->default_value(""), "Specify the format of input CSV files as a list of entries column_index:column_type (indices start from 1). Examples: '1:x 2:y 3:z', '5:lon 6:lat 7:radius_m', '3:lat 2:lon 1:height_above_datum'. Can also use radius_km for column_type.")
+    ("csv-format", po::value(&opt.csv_format_str)->default_value(""), "Specify the format of input CSV files as a list of entries column_index:column_type (indices start from 1). Examples: '1:x 2:y 3:z', '5:lon 6:lat 7:radius_m', '3:lat 2:lon 1:height_above_datum', 'utm:47N 1:easting 2:northing 3:height_above_datum'. Can also use radius_km for column_type.")
     ("datum", po::value(&opt.datum)->default_value(""), "Use this datum for CSV files instead of auto-detecting it. [WGS_1984, D_MOON (radius is assumed to be 1737400 meters), D_MARS (radius is assumed to be 33916190 meters), etc.]")
     ("semi-major-axis", po::value(&opt.semi_major)->default_value(0), "Explicitly set the datum semi-major axis in meters.")
     ("semi-minor-axis", po::value(&opt.semi_minor)->default_value(0), "Explicitly set the datum semi-minor axis in meters.")
@@ -216,8 +216,38 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
 }
 
+void parse_utm(string const& utm, int & zone, bool & north){
+  
+  // Parse the string 58N
+
+  // Initialize
+  zone = -1; north = false;
+  
+  string a, b;
+  for (int s = 0; s < (int)utm.size(); s++){
+    if (utm[s] >= '0' && utm[s] <= '9'){
+      a += utm[s];
+    }else{
+      b = utm[s];
+      break;
+    }
+  }
+
+  if (a == "" || b == "")
+    vw_throw(ArgumentErr() << "Could not parse UTM string: '" << utm << "'\n");
+  
+  zone = atoi(a.c_str());
+  if (b == "n" || b == "N"){
+    north = true;
+  }else if (b == "s" || b == "S"){
+    north = false;
+  }else
+    vw_throw(ArgumentErr() << "Could not parse UTM string: '" << utm << "'\n");
+}
+
 enum CsvFormat{
-  XYZ, HEIGHT_LAT_LON, LAT_LON_RADIUS_M, LAT_LON_RADIUS_KM
+  XYZ, HEIGHT_LAT_LON, LAT_LON_RADIUS_M, LAT_LON_RADIUS_KM,
+  UTM_EASTING_HEIGHT_NORTHING
 };
 
 struct CsvConv{
@@ -227,7 +257,10 @@ struct CsvConv{
   int lon_index, lat_index; 
   string csv_format_str;
   CsvFormat format;
-  CsvConv():lon_index(-1), lat_index(-1), format(XYZ){}
+  int utm_zone;
+  bool utm_north;
+  CsvConv():lon_index(-1), lat_index(-1), format(XYZ), utm_zone(-1),
+            utm_north(false){}
 };
 
 void parse_csv_format(string const& csv_format_str, CsvConv & C){
@@ -247,10 +280,23 @@ void parse_csv_format(string const& csv_format_str, CsvConv & C){
   boost::replace_all(local, ":", " ");
   boost::replace_all(local, ",", " ");
   istringstream is(local);
+
+  // The case of utm: "utm:23N 1:x 2:y 3:height_above_datum"
+  string str;
+  is >> str;
+  if (str == "utm"){
+    is >> str;
+    parse_utm(str, C.utm_zone, C.utm_north);
+  }else{
+    // Go back to the original string
+    is.clear();
+    is.str(local);
+  }
+  
   int col1, col2, col3;
   string name1, name2, name3;
   if (! (is >> col1 >> name1 >> col2 >> name2 >> col3 >> name3) )
-    vw_throw(ArgumentErr() << "Could not parse: ': " << csv_format_str
+    vw_throw(ArgumentErr() << "Could not parse: '" << csv_format_str
              << "'\n");
 
   col1--;
@@ -308,6 +354,11 @@ void parse_csv_format(string const& csv_format_str, CsvConv & C){
             sorted_names[1] == "lat" &&
             sorted_names[2] == "lon"){
     C.format = HEIGHT_LAT_LON;
+  }else if (C.utm_zone >= 0 && 
+            sorted_names[0] == "easting" &&
+            sorted_names[1] == "height_above_datum" &&
+            sorted_names[2] == "northing"){
+    C.format = UTM_EASTING_HEIGHT_NORTHING;
   }else{
     vw_throw( ArgumentErr() << "Cannot understand the csv format string: "
               << csv_format_str << ".\n" );
@@ -316,7 +367,7 @@ void parse_csv_format(string const& csv_format_str, CsvConv & C){
 }
 
 Vector3 csv_to_cartesian(Vector3 const& csv,
-                         Datum const& datum,
+                         GeoReference const& geo,
                          CsvConv const& C){
   
   // Convert values read from a csv file (in the same order as in the file)
@@ -339,22 +390,31 @@ Vector3 csv_to_cartesian(Vector3 const& csv,
 
   Vector3 llh = ordered_csv, xyz;
   
-  if (C.format == HEIGHT_LAT_LON){
-    std::swap(llh[0], llh[2]); // lon, lat, height
-    xyz = datum.geodetic_to_cartesian(llh);
+  if (C.format == UTM_EASTING_HEIGHT_NORTHING){
+
+    // go from easting, height, northing to lon, lat
+    Vector2 ll = geo.point_to_lonlat(Vector2(ordered_csv[0], ordered_csv[2]));
+    llh = Vector3(ll[0], ll[1], ordered_csv[1]); // now lon, lat, height
+    xyz = geo.datum().geodetic_to_cartesian(llh);
+    
+  }else if (C.format == HEIGHT_LAT_LON){
+
+    std::swap(llh[0], llh[2]); // now lon, lat, height
+    xyz = geo.datum().geodetic_to_cartesian(llh);
+    
   }else{
 
     // Handle LAT_LON_RADIUS_M and LAT_LON_RADIUS_KM
 
-    std::swap(llh[0], llh[1]); // lon, lat, radius_(k)m
+    std::swap(llh[0], llh[1]); // now lon, lat, radius_(k)m
 
     if (C.format == LAT_LON_RADIUS_KM){
-      llh[2] *= 1000.0; // lon, lat, radius_m
+      llh[2] *= 1000.0; // now lon, lat, radius_m
     }
 
     // Now we have lon, lat, radius_m
-    Vector3 tmp = llh; tmp[2] = 0; // lon, lat, 0
-    xyz = datum.geodetic_to_cartesian( tmp );
+    Vector3 tmp = llh; tmp[2] = 0; // now lon, lat, 0
+    xyz = geo.datum().geodetic_to_cartesian( tmp );
 
     // Update the radius
     xyz = llh[2]*(xyz/norm_2(xyz));
@@ -364,7 +424,7 @@ Vector3 csv_to_cartesian(Vector3 const& csv,
 }
 
 Vector3 cartesian_to_csv(Vector3 const& xyz,
-                         Datum const& datum,
+                         GeoReference const& geo,
                          double mean_longitude,
                          CsvConv const& C){
 
@@ -374,14 +434,21 @@ Vector3 cartesian_to_csv(Vector3 const& xyz,
   Vector3 csv;
   if (C.format == XYZ){
     csv = xyz; // order is x, y, z
+    
   }else{
     
     // Must assert here that the datum was specified.
   
-    Vector3 llh = datum.cartesian_to_geodetic(xyz);         // lon-lat-height
+    Vector3 llh = geo.datum().cartesian_to_geodetic(xyz);   // lon-lat-height
     llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjust
-    
-    if (C.format == HEIGHT_LAT_LON){
+
+    if (C.format == UTM_EASTING_HEIGHT_NORTHING){
+      
+      // go from lon, lat to easting, northing
+      Vector2 en = geo.lonlat_to_point(Vector2(llh[0], llh[1]));
+      csv = Vector3(en[0], llh[2], en[1]); // order is easting, height, northing
+      
+    }else if (C.format == HEIGHT_LAT_LON){
 
       std::swap(llh[0], llh[2]); // order is height, lat, lon
       csv = llh;
@@ -396,9 +463,9 @@ Vector3 cartesian_to_csv(Vector3 const& xyz,
       if (C.format == LAT_LON_RADIUS_KM){
         llh[2] /= 1000.0; // order is lat, lon, radius_km
       }
+      csv = llh;
     }
-
-    csv = llh;
+    
   }
   
   // Now we have the csv fields, but they are in the order
@@ -440,18 +507,18 @@ void read_datum(Options& opt, CsvConv& csv_conv, Datum& datum){
   // Set up the datum, need it to read CSV files.
 
   // First, get the datum from the DEM if available.
-  std::string dem_file = "";
+  string dem_file = "";
   if ( get_file_type(opt.reference) == "DEM" )
     dem_file = opt.reference;
   else if ( get_file_type(opt.source) == "DEM" )
     dem_file = opt.source;
   if (dem_file != ""){
-    GeoReference georef;
-    bool is_good = cartography::read_georeference( georef, dem_file );
+    GeoReference geo;
+    bool is_good = cartography::read_georeference( geo, dem_file );
     if (!is_good) vw_throw(ArgumentErr() << "DEM: " << dem_file
                            << " does not have a georeference.\n");
-    datum = georef.datum();
-    vw_out() << "Detected datum from " << dem_file << ": " << datum << std::endl;
+    datum = geo.datum();
+    vw_out() << "Detected datum from " << dem_file << ":\n" << datum << std::endl;
   }
 
   // A lot of care is needed below.
@@ -494,15 +561,15 @@ void read_datum(Options& opt, CsvConv& csv_conv, Datum& datum){
 }
 
 vw::Vector3 cartesian_to_geodetic_adj(vw::cartography::GeoReference const&
-                                      georef, vw::Vector3 xyz
+                                      geo, vw::Vector3 xyz
                                       ){
   
   // cartesian_to_geodetic() returns longitude between -180 and 180.
   // Sometimes this is 360 degrees less than what desired,
   // so here we do an adjustment.
   // To do: This may not be perfectly fool-proof.
-  vw::Vector3 G = georef.datum().cartesian_to_geodetic(xyz);
-  Vector2 ll = georef.pixel_to_lonlat(Vector2(0, 0));
+  vw::Vector3 G = geo.datum().cartesian_to_geodetic(xyz);
+  Vector2 ll = geo.pixel_to_lonlat(Vector2(0, 0));
   G(0) += 360*round((ll[0] - G(0))/360.0);
   return G;
 }
@@ -594,7 +661,7 @@ int load_csv_aux(string const& file_name,
                  bool verbose,
                  bool calc_shift,
                  Vector3 & shift,
-                 Datum const& datum,
+                 GeoReference const& geo,
                  CsvConv const& C,
                  bool & is_lola_rdr_format,
                  double & mean_longitude,
@@ -663,7 +730,7 @@ int load_csv_aux(string const& file_name,
   }
   
   if (is_lola_rdr_format &&
-      datum.semi_major_axis() != datum.semi_minor_axis() ){
+      geo.datum().semi_major_axis() != geo.datum().semi_minor_axis() ){
     vw_throw( ArgumentErr() << "The CSV file was detected to be in the"
               << " LOLA RDR format, yet the datum semi-axes are not equal "
               << "as expected for the Moon.\n" );
@@ -730,7 +797,7 @@ int load_csv_aux(string const& file_name,
       }
       is_first_line = false;
 
-      xyz = csv_to_cartesian(vals, datum, C);
+      xyz = csv_to_cartesian(vals, geo, C);
 
       // Decide if the point is in the box. Also save for the future
       // the longitude of the point, we'll use it to compute the mean
@@ -740,7 +807,7 @@ int load_csv_aux(string const& file_name,
         lon = vals[C.lon_index];
         lat = vals[C.lat_index];
       }else{
-        Vector3 llh = datum.cartesian_to_geodetic(xyz);
+        Vector3 llh = geo.datum().cartesian_to_geodetic(xyz);
         lon = llh[0];
         lat = llh[1];
       }
@@ -777,7 +844,7 @@ int load_csv_aux(string const& file_name,
       if (!lonlat_box.empty() && !lonlat_box.contains(Vector2(lon, lat))) continue;
 
       Vector3 llh( lon, lat, height );
-      xyz = datum.geodetic_to_cartesian( llh );
+      xyz = geo.datum().geodetic_to_cartesian( llh );
       if ( xyz == Vector3() || !(xyz == xyz) ) continue; // invalid and NaN check
 
     }else{
@@ -829,7 +896,7 @@ int load_csv_aux(string const& file_name,
 
       Vector3 lonlatrad( lon, lat, 0 );
 
-      xyz = datum.geodetic_to_cartesian( lonlatrad );
+      xyz = geo.datum().geodetic_to_cartesian( lonlatrad );
       if ( xyz == Vector3() || !(xyz == xyz) ) continue; // invalid and NaN check
 
       // Adjust the point so that it is at the right distance from
@@ -877,7 +944,7 @@ void load_csv(string const& file_name,
                  bool verbose,
                  bool calc_shift,
                  Vector3 & shift,
-                 Datum const& datum,
+                 GeoReference const& geo,
                  CsvConv const& C,
                  bool & is_lola_rdr_format,
                  double & mean_longitude,
@@ -887,7 +954,7 @@ void load_csv(string const& file_name,
   int num_total_points = load_csv_aux<T>(file_name, num_points_to_load,  
                                          lonlat_box, verbose,  
                                          calc_shift, shift,  
-                                         datum, C, is_lola_rdr_format,  
+                                         geo, C, is_lola_rdr_format,  
                                          mean_longitude, data
                                          );
 
@@ -900,7 +967,7 @@ void load_csv(string const& file_name,
     load_csv_aux<T>(file_name, num_total_points, lonlat_box,
                     false, // Skip repeating same messages
                     calc_shift, shift,  
-                    datum, C, is_lola_rdr_format,  
+                    geo, C, is_lola_rdr_format,  
                     mean_longitude, data
                     );
   }
@@ -923,8 +990,8 @@ void load_dem(string const& file_name,
   data.features.conservativeResize(DIM+1, num_points_to_load);
   data.featureLabels = form_labels<T>(DIM);
 
-  cartography::GeoReference dem_georef;
-  bool is_good = cartography::read_georeference( dem_georef, file_name );
+  cartography::GeoReference dem_geo;
+  bool is_good = cartography::read_georeference( dem_geo, file_name );
   if (!is_good) vw_throw(ArgumentErr() << "DEM: " << file_name
                          << " does not have a georeference.\n");
 
@@ -937,10 +1004,10 @@ void load_dem(string const& file_name,
   // Load only points within lonlat_box
   BBox2i pix_box;
   if (!lonlat_box.empty()){
-    pix_box.grow(dem_georef.lonlat_to_pixel(lonlat_box.min()));
-    pix_box.grow(dem_georef.lonlat_to_pixel(lonlat_box.max()));
-    pix_box.grow(dem_georef.lonlat_to_pixel(Vector2(lonlat_box.min().x(), lonlat_box.max().y())));
-    pix_box.grow(dem_georef.lonlat_to_pixel(Vector2(lonlat_box.max().x(), lonlat_box.min().y())));
+    pix_box.grow(dem_geo.lonlat_to_pixel(lonlat_box.min()));
+    pix_box.grow(dem_geo.lonlat_to_pixel(lonlat_box.max()));
+    pix_box.grow(dem_geo.lonlat_to_pixel(Vector2(lonlat_box.min().x(), lonlat_box.max().y())));
+    pix_box.grow(dem_geo.lonlat_to_pixel(Vector2(lonlat_box.max().x(), lonlat_box.min().y())));
     pix_box.expand(1); // to counteract casting to int
     pix_box.crop(bounding_box(dem));
   }
@@ -962,13 +1029,13 @@ void load_dem(string const& file_name,
 
       if (dem(i, j) == nodata) continue;
 
-      Vector2 lonlat = dem_georef.pixel_to_lonlat( Vector2(i,j) );
+      Vector2 lonlat = dem_geo.pixel_to_lonlat( Vector2(i,j) );
 
       // Skip points outside the given box
       if (!lonlat_box.empty() && !lonlat_box.contains(lonlat)) continue;
       
       Vector3 llh( lonlat.x(), lonlat.y(), dem(i,j) );
-      Vector3 xyz = dem_georef.datum().geodetic_to_cartesian( llh );
+      Vector3 xyz = dem_geo.datum().geodetic_to_cartesian( llh );
       if ( xyz == Vector3() || !(xyz == xyz) ) continue; // invalid and NaN check
 
       if (calc_shift && !shift_was_calc){
@@ -995,7 +1062,7 @@ int64 load_pc_aux(string const& file_name,
                   BBox2 const& lonlat_box,
                   bool calc_shift,
                   Vector3 & shift,
-                  Datum const& datum,
+                  GeoReference const& geo,
                   typename PointMatcher<T>::DataPoints & data
                   ){
   
@@ -1028,7 +1095,7 @@ int64 load_pc_aux(string const& file_name,
       }
       
       // Skip points outside the given box
-      Vector3 llh = datum.cartesian_to_geodetic(xyz);
+      Vector3 llh = geo.datum().cartesian_to_geodetic(xyz);
       if (!lonlat_box.empty() && !lonlat_box.contains(subvector(llh, 0, 2)))
           continue;
       
@@ -1051,12 +1118,13 @@ void load_pc(string const& file_name,
                  BBox2 const& lonlat_box,
                  bool calc_shift,
                  Vector3 & shift,
-                 Datum const& datum,
+                 GeoReference const& geo,
                  typename PointMatcher<T>::DataPoints & data
                  ){
 
-  int64 num_total_points = load_pc_aux<T>(file_name, num_points_to_load, lonlat_box,  
-                                          calc_shift, shift, datum, data);
+  int64 num_total_points = load_pc_aux<T>(file_name, num_points_to_load,
+                                          lonlat_box, calc_shift, shift,
+                                          geo, data);
   
   int num_loaded_points = data.features.cols();
   if (!lonlat_box.empty()                    &&
@@ -1067,7 +1135,7 @@ void load_pc(string const& file_name,
     // out of memory.
     num_points_to_load = std::max(4*num_points_to_load, 10000000);
     load_pc_aux<T>(file_name, num_points_to_load, lonlat_box,  
-                   calc_shift, shift, datum, data);
+                   calc_shift, shift, geo, data);
   }
   
 }
@@ -1079,7 +1147,7 @@ void load_file(string const& file_name,
                BBox2 const& lonlat_box,
                bool calc_shift,
                Vector3 & shift,
-               Datum const& datum,
+               GeoReference const& geo,
                CsvConv const& csv_conv,
                bool & is_lola_rdr_format,
                double & mean_longitude,
@@ -1100,11 +1168,11 @@ void load_file(string const& file_name,
                 calc_shift, shift, data);
   else if (file_type == "PC")
     load_pc<T>(file_name, num_points_to_load, lonlat_box, calc_shift, shift,
-               datum, data);
+               geo, data);
   else if (file_type == "CSV"){
     bool verbose = true;
     load_csv<T>(file_name, num_points_to_load, lonlat_box, verbose,
-                calc_shift, shift, datum, csv_conv, is_lola_rdr_format,
+                calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
                 mean_longitude, data
                 );
   }else
@@ -1118,7 +1186,7 @@ void load_file(string const& file_name,
 // Calculate the lon-lat bounding box of the points and bias it based
 // on max displacement (which is in meters). This is used to throw
 // away points in the other cloud which are not within this box.
-BBox2 calc_extended_lonlat_bbox(Datum const& D,
+BBox2 calc_extended_lonlat_bbox(GeoReference const& geo,
                                 int num_sample_pts,
                                 CsvConv const& C,
                                 string const& file_name,
@@ -1127,7 +1195,7 @@ BBox2 calc_extended_lonlat_bbox(Datum const& D,
   // If the user does not want to use the max-displacement parameter,
   // or if there is no datum to use to convert to/from lon/lat,
   // there is not much we can do.
-  if (max_disp < 0.0 || D.name() == UNSPECIFIED_DATUM)
+  if (max_disp < 0.0 || geo.datum().name() == UNSPECIFIED_DATUM)
     return BBox2();
   
   validateFile(file_name);
@@ -1143,7 +1211,7 @@ BBox2 calc_extended_lonlat_bbox(Datum const& D,
   // Load a sample of points, hopefully enough to estimate the box
   // reliably.
   load_file<RealT>(file_name, num_sample_pts, dummy_box,
-                   calc_shift, shift, D, C, is_lola_rdr_format,
+                   calc_shift, shift, geo, C, is_lola_rdr_format,
                    mean_longitude, verbose, points
                    );
 
@@ -1159,7 +1227,7 @@ BBox2 calc_extended_lonlat_bbox(Datum const& D,
       for (int y = -1; y <= 1; y += 2){
         for (int z = -1; z <= 1; z += 2){
           Vector3 q = p + Vector3(x, y, z)*max_disp;
-          Vector3 llh = D.cartesian_to_geodetic(q);
+          Vector3 llh = geo.datum().cartesian_to_geodetic(q);
           llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjust
           box.grow(subvector(llh, 0, 2));
         }
@@ -1235,7 +1303,7 @@ void calc_stats(string label, PointMatcher<RealT>::Matrix const& dists){
   double p16 = errs[std::min(len-1, (int)round(len*0.16))];
   double p50 = errs[std::min(len-1, (int)round(len*0.50))];
   double p84 = errs[std::min(len-1, (int)round(len*0.84))];
-  vw_out() << label << ": error percentile:"
+  vw_out() << label << ": error percentile of smallest errors:"
            << " 16%: " << p16 << ", 50%: " << p50 << ", 84%: " << p84 << endl;
 
   double a25 = calc_mean(errs, len/4),   a50  = calc_mean(errs, len/2);
@@ -1340,7 +1408,7 @@ void save_errors(DP const& point_cloud,
                  PointMatcher<RealT>::Matrix const& errors,
                  string const& output_file,
                  Vector3 const& shift,
-                 Datum const& datum,
+                 GeoReference const& geo,
                  CsvConv const& C,
                  bool is_lola_rdr_format,
                  double mean_longitude
@@ -1381,12 +1449,12 @@ void save_errors(DP const& point_cloud,
 
     if (C.csv_format_str != ""){
       
-      Vector3 csv = cartesian_to_csv(P, datum, mean_longitude, C);
+      Vector3 csv = cartesian_to_csv(P, geo, mean_longitude, C);
       outfile << csv[0] << ',' << csv[1] << ',' << csv[2]
               << "," << errors(0, col) << endl;
       
     }else{
-      Vector3 llh = datum.cartesian_to_geodetic(P); // lon-lat-height
+      Vector3 llh = geo.datum().cartesian_to_geodetic(P); // lon-lat-height
       llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjustment
       
       if (is_lola_rdr_format)
@@ -1441,7 +1509,7 @@ void save_trans_point_cloud_n(Options const& opt,
 void save_trans_point_cloud(Options const& opt,
                             string input_file,
                             string out_prefix,
-                            Datum const& datum,
+                            GeoReference const& geo,
                             CsvConv const& C,
                             PointMatcher<RealT>::Matrix const& T
                             ){
@@ -1463,8 +1531,8 @@ void save_trans_point_cloud(Options const& opt,
 
   if (file_type == "DEM"){
 
-    cartography::GeoReference dem_georef;
-    bool is_good = cartography::read_georeference( dem_georef, input_file );
+    cartography::GeoReference dem_geo;
+    bool is_good = cartography::read_georeference( dem_geo, input_file );
     if (!is_good) vw_throw(ArgumentErr() << "DEM: " << input_file
                            << " does not have a georeference.\n");
 
@@ -1476,8 +1544,8 @@ void save_trans_point_cloud(Options const& opt,
 
     ImageViewRef<Vector3> point_cloud =
       geodetic_to_cartesian( dem_to_geodetic( create_mask(dem, nodata),
-                                              dem_georef ),
-                             dem_georef.datum() );
+                                              dem_geo ),
+                             dem_geo.datum() );
     asp::block_write_gdal_image(output_file,
                                 per_pixel_filter(point_cloud, TransformPC(T)),
                                 opt,
@@ -1516,7 +1584,7 @@ void save_trans_point_cloud(Options const& opt,
     DP point_cloud;
     load_csv<RealT>(input_file, numeric_limits<int>::max(),
                     empty_box, verbose, calc_shift, shift,
-                    datum, C, is_lola_rdr_format,
+                    geo, C, is_lola_rdr_format,
                     mean_longitude, point_cloud
                     );
 
@@ -1554,11 +1622,11 @@ void save_trans_point_cloud(Options const& opt,
       
       if (C.csv_format_str != ""){
         
-        Vector3 csv = cartesian_to_csv(P, datum, mean_longitude, C);
+        Vector3 csv = cartesian_to_csv(P, geo, mean_longitude, C);
         outfile << csv[0] << ',' << csv[1] << ',' << csv[2] << endl;
         
       }else{
-        Vector3 llh = datum.cartesian_to_geodetic(P); // lon-lat-height
+        Vector3 llh = geo.datum().cartesian_to_geodetic(P); // lon-lat-height
         llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjustment
         
         if (is_lola_rdr_format)
@@ -1575,7 +1643,7 @@ void save_trans_point_cloud(Options const& opt,
 
 }
 
-void debug_save_point_cloud(DP const& point_cloud, Datum const& datum,
+void debug_save_point_cloud(DP const& point_cloud, GeoReference const& geo,
                             Vector3 const& shift,
                             string const& output_file){
 
@@ -1591,7 +1659,7 @@ void debug_save_point_cloud(DP const& point_cloud, Datum const& datum,
     for (int row = 0; row < DIM; row++)
       P[row] = point_cloud.features(row, col) + shift[row];
 
-    Vector3 llh = datum.cartesian_to_geodetic(P); // lon-lat-height
+    Vector3 llh = geo.datum().cartesian_to_geodetic(P); // lon-lat-height
     outfile << llh[1] << ',' << llh[0] << ',' << llh[2] << endl;
   }
 }
@@ -1612,13 +1680,22 @@ int main( int argc, char *argv[] ) {
                  << opt.num_threads << endl;
     omp_set_num_threads(opt.num_threads);
 
-    CsvConv csv_conv;
+    CsvConv C;
     if (opt.csv_format_str != "")
-      parse_csv_format(opt.csv_format_str, csv_conv);
+      parse_csv_format(opt.csv_format_str, C);
     
     Datum datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
                 "Reference Meridian", 1, 1, 0);
-    read_datum(opt, csv_conv, datum);
+    read_datum(opt, C, datum);
+    GeoReference geo(datum);
+    if (C.format == UTM_EASTING_HEIGHT_NORTHING){
+      try{
+        geo.set_UTM(C.utm_zone, C.utm_north);
+      } catch ( const std::exception& e ) {
+        vw_throw(ArgumentErr() << "Detected error: " << e.what()
+                 << "\nPlease check if you are using an Earth datum.\n");
+      }
+    }
     
     // We will use ref_box to bound the source points, and vice-versa. 
     // Decide how many samples to pick to estimate these boxes.
@@ -1628,10 +1705,10 @@ int main( int argc, char *argv[] ) {
                                   std::max(opt.max_num_source_points,
                                            opt.max_num_reference_points)/4);
     BBox2 ref_box, source_box;
-    ref_box = calc_extended_lonlat_bbox(datum, num_sample_pts,
-                                        csv_conv, opt.reference, opt.max_disp);
-    source_box = calc_extended_lonlat_bbox(datum, num_sample_pts,
-                                           csv_conv, opt.source, opt.max_disp);
+    ref_box = calc_extended_lonlat_bbox(geo, num_sample_pts,
+                                        C, opt.reference, opt.max_disp);
+    source_box = calc_extended_lonlat_bbox(geo, num_sample_pts,
+                                           C, opt.source, opt.max_disp);
     // If ref points are offset by 360 degrees in longitude in respect to
     // source points, adjust the ref box to be aligned with the source points,
     // and vice versa.
@@ -1664,7 +1741,7 @@ int main( int argc, char *argv[] ) {
     DP ref;
     load_file<RealT>(opt.reference, opt.max_num_reference_points,
                      source_box, // source box is used to bound reference
-                     calc_shift, shift, datum, csv_conv, is_lola_rdr_format,
+                     calc_shift, shift, geo, C, is_lola_rdr_format,
                      mean_ref_longitude, opt.verbose, ref);
     sw1.stop();
     if (opt.verbose) vw_out() << "Loading the reference point cloud took "
@@ -1683,7 +1760,7 @@ int main( int argc, char *argv[] ) {
     DP source;
     load_file<RealT>(opt.source, num_source_pts,
                      ref_box, // ref box is used to bound source
-                     calc_shift, shift, datum, csv_conv, is_lola_rdr_format,
+                     calc_shift, shift, geo, C, is_lola_rdr_format,
                      mean_source_longitude, opt.verbose, source);
     sw2.stop();
     if (opt.verbose) vw_out() << "Loading the source point cloud took "
@@ -1789,7 +1866,7 @@ int main( int argc, char *argv[] ) {
     calc_max_displacment(source, trans_source);
     Vector3 source_ctr_vec, source_ctr_llh;
     Vector3 trans_xyz, trans_ned, trans_llh;
-    calc_translation_vec(source, trans_source, shift, datum,
+    calc_translation_vec(source, trans_source, shift, geo.datum(),
                          source_ctr_vec, source_ctr_llh,
                          trans_xyz, trans_ned, trans_llh);
     
@@ -1846,19 +1923,19 @@ int main( int argc, char *argv[] ) {
     if (opt.save_trans_ref){
       string trans_ref_prefix = opt.out_prefix + "-trans_reference";
       save_trans_point_cloud(opt, opt.reference, trans_ref_prefix,
-                             datum, csv_conv, globalT.inverse());
+                             geo, C, globalT.inverse());
     }
     
     if (opt.save_trans_source){
       string trans_source_prefix = opt.out_prefix + "-trans_source";
       save_trans_point_cloud(opt, opt.source, trans_source_prefix,
-                             datum, csv_conv, globalT);
+                             geo, C, globalT);
     }
     
     save_errors(source, beg_errors,  opt.out_prefix + "-beg_errors.csv",
-                shift, datum, csv_conv, is_lola_rdr_format, mean_source_longitude);
+                shift, geo, C, is_lola_rdr_format, mean_source_longitude);
     save_errors(trans_source, end_errors,  opt.out_prefix + "-end_errors.csv",
-                shift, datum, csv_conv, is_lola_rdr_format, mean_source_longitude);
+                shift, geo, C, is_lola_rdr_format, mean_source_longitude);
 
     if (opt.verbose) vw_out() << "Writing: " << opt.out_prefix
       + "-iterationInfo.csv" << std::endl;

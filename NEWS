@@ -9,6 +9,10 @@
  
   - point2dem
     * Bugfix, longitude could be off by 360 degrees.
+
+  - pc_align:
+    * Ability to read and write CSV files having UTM data (easting,
+      northing, height above datum).
  
 *** RELEASE 2.4.0, 28 April, 2014 ***
 

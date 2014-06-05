@@ -825,11 +825,17 @@ memory and processing time.
 The input point clouds can be in one of several formats: ASP's point
 cloud format, DEMs as GeoTiff files, or plain-text CSV files (with .csv
 or .txt extension). By default, CSV files are expected to have on each
-line the latitude and longitude (in degrees), and the height above the datum
-(in meters), separated by commas or spaces, with an optional header
-line. Alternatively, the user can specify the format of the CSV file via
-the \texttt{-\/-csv-format} option. The tool can also auto-detect the
-LOLA RDR PointPerRow format.
+line the latitude and longitude (in degrees), and the height above the
+datum (in meters), separated by commas or spaces, with an optional
+header line. Alternatively, the user can specify the format of the CSV
+file via the \texttt{-\/-csv-format} option. Entries in the CSV file can
+then be (in any order) (a) longitude, latitude (in degrees), height
+above datum (in meters), (b) longitude, latitude, distance from planet
+center (in meters or km), (c) easting, northing and height above datum
+in UTM coordinates (in meters), (d) Cartesian coordiates (x, y, z)
+measured from planet center (in meters). The precise syntax is described
+in the table below. The tool can also auto-detect the LOLA RDR
+PointPerRow format.
 
 If none of the input files are a DEM, from which the datum can be
 inferred, and the input files are not in Cartesian coordinates, the
@@ -940,9 +946,10 @@ output) CSV files as a list of entries column\_index:column\_type
 system with origin at planet center is assumed, with the units being in
 meters), '5:lon 6:lat 7:radius\_m' (longitude and latitude are in
 degrees, the radius is measured in meters from planet center), '3:lat
-2:lon 1:height\_above\_datum' (the height above datum is in meters). Can
-also use radius\_km for column\_type, when it is again measured from
-planet center. \\ \hline
+2:lon 1:height\_above\_datum', 'utm:47N 1:easting 2:northing
+3:height\_above\_datum' (the height above datum is in meters). Can also
+use radius\_km for column\_type, when it is again measured from planet
+center. \\ \hline
 
 \texttt{-\/-config-file \textit{file.yaml}} & This is an advanced
 option. Read the alignment parameters from a configuration file, in the
