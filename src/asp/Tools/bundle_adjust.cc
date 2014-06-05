@@ -35,26 +35,45 @@ using namespace vw::ba;
 #include <asp/IsisIO/DiskImageResourceIsis.h>
 #endif
 
-// This sifts out from a vector of strings, a listing of GCPs.  This
-// should be useful for those programs who accept their data in a mass
-// input vector.
+// Given a vector of strings, identify and store separately the the
+// list of GCPs. This should be useful for those programs who accept
+// their data in a mass input vector.
 std::vector<std::string>
 sort_out_gcps( std::vector<std::string>& image_files ) {
   std::vector<std::string> gcp_files;
   std::vector<std::string>::iterator it = image_files.begin();
   while ( it != image_files.end() ) {
-    if ( boost::iends_with(*it, ".gcp") ){
+    if ( boost::iends_with(boost::to_lower_copy(*it), ".gcp") ){
       gcp_files.push_back( *it );
       it = image_files.erase( it );
     } else
       it++;
   }
-
+  
   return gcp_files;
 }
 
+// Given a vector of strings, identify and store separately the list
+// of camera models.
+std::vector<std::string>
+sort_out_cameras( std::vector<std::string>& image_files ) {
+  std::vector<std::string> cam_files;
+  std::vector<std::string>::iterator it = image_files.begin();
+  while ( it != image_files.end() ) {
+    if (asp::has_cam_extension( *it ) ||
+        boost::iends_with(boost::to_lower_copy(*it), ".xml")
+        ){
+      cam_files.push_back( *it );
+      it = image_files.erase( it );
+    } else
+      it++;
+  }
+  
+  return cam_files;
+}
+
 struct Options : public asp::BaseOptions {
-  std::vector<std::string> image_files, gcp_files;
+  std::vector<std::string> image_files, camera_files, gcp_files;
   std::string cnet_file, stereo_session_string, cost_function, ba_type;
   
   double lambda, robust_threshold;
@@ -198,7 +217,7 @@ void do_ba_ceres(Options const& opt ) {
                   << " used with solver: " << opt.ba_type << ".\n" );
       }
       
-      // Each observation correponds to a pair of a camera and a point
+      // Each observation corresponds to a pair of a camera and a point
       // which are identified by indices icam and ipt respectively.
       double * camera = cameras + num_camera_params * icam;
       double * point  = points  + num_point_params  * ipt;
@@ -326,8 +345,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Choose a robust cost function from [PseudoHuber, Huber, L1, L2, Cauchy].")
     ("bundle-adjuster", po::value(&opt.ba_type)->default_value("Ceres"),
      "Choose a solver from [Ceres, RobustSparse, RobustRef, Sparse, Ref].")
-    ("session-type,t", po::value(&opt.stereo_session_string)->default_value("isis"),
-     "Select the stereo session type to use for processing.")
+    ("session-type,t", po::value(&opt.stereo_session_string)->default_value(""),
+     "Select the stereo session type to use for processing. [options: pinhole isis dg rpc]")
     ("lambda,l", po::value(&opt.lambda)->default_value(-1),
      "Set the initial value of the LM parameter lambda.")
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(1.0),
@@ -347,7 +366,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("input-files", -1);
 
-  std::string usage("[options] <image filenames> ...");
+  std::string usage("[options] <images cameras> ...");
   po::variables_map vm =
     asp::check_command_line(argc, argv, opt, general_options, general_options,
                             positional, positional_desc, usage);
@@ -356,6 +375,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "Missing input cube files!\n"
               << usage << general_options );
   opt.gcp_files = sort_out_gcps( opt.image_files );
+  opt.camera_files = sort_out_cameras( opt.image_files );
+
   opt.save_iteration = vm.count("save-iteration-data");
   boost::to_lower( opt.stereo_session_string );
   boost::to_lower( opt.ba_type );
@@ -372,39 +393,42 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
 int main(int argc, char* argv[]) {
 
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-  // Register the Isis file handler with the Vision Workbench
-  // DiskImageResource system.
-  DiskImageResource::register_file_type(".cub",
-                                        DiskImageResourceIsis::type_static(),
-                                        &DiskImageResourceIsis::construct_open,
-                                        &DiskImageResourceIsis::construct_create);
-#endif
-
   Options opt;
   try {
     handle_arguments( argc, argv, opt );
 
-    // Read in the camera model and image info for the input images.
-    typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-    SessionPtr session(asp::StereoSession::create(opt.stereo_session_string,
-                                                  opt));
-    
-    {
-      TerminalProgressCallback progress("asp","Camera Models:");
-      progress.report_progress(0);
-      double tpc_inc = 1/double(opt.image_files.size());
-      BOOST_FOREACH( std::string const& input, opt.image_files ) {
-        progress.report_incremental_progress(tpc_inc);
-        vw_out(DebugMessage,"asp") << "Loading: " << input << "\n";
-        if (opt.stereo_session_string == "pinhole")
-          opt.camera_models.push_back(session->camera_model(input,input));
-        else
-          opt.camera_models.push_back(session->camera_model(input));
-      }
-      progress.report_finished();
+    // Create the stereo session. Try to auto-guess the session type.
+    if (opt.image_files.size() <= 1)
+      vw_throw( ArgumentErr() << "Must have at least two image "
+                << "files to do bundle adjustment.\n" );
+
+    // If there are no camera files, then the image files have the
+    // camera information.
+    if (opt.camera_files.empty()){
+      for (int i = 0; i < (int)opt.image_files.size(); i++)
+        opt.camera_files.push_back("");
     }
 
+    // Sanity check
+    if (opt.image_files.size() != opt.camera_files.size())
+      vw_throw( ArgumentErr() << "Must have as many cameras as we have images.\n" );
+
+    // Create the stereo session. This will attempt to identify the
+    // session type.
+    typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
+    SessionPtr session(asp::StereoSession::create(opt.stereo_session_string, opt,
+                                                  opt.image_files[0], opt.image_files[1],
+                                                  opt.camera_files[0], opt.camera_files[1]
+                                                  ));
+    
+    // Read in the camera model and image info for the input images.
+    for (int i = 0; i < (int)opt.image_files.size(); i++){
+      vw_out(DebugMessage,"asp") << "Loading: "
+                                 << opt.image_files[i] << ' '
+                                 << opt.camera_files[i] << "\n";
+      opt.camera_models.push_back(session->camera_model(opt.image_files[i],opt.camera_files[i]));
+    }
+    
     opt.cnet.reset( new ControlNetwork("BundleAdjust") );
     if ( opt.cnet_file.empty() ) {
       build_control_network( (*opt.cnet), opt.camera_models,
