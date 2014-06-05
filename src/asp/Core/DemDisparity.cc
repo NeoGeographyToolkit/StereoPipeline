@@ -29,7 +29,6 @@
 #include <vw/InterestPoint/MatrixIO.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/DemDisparity.h>
-#include <asp/Sessions/StereoSession.h>
 
 #include <boost/filesystem/operations.hpp>
 namespace fs = boost::filesystem;
@@ -287,7 +286,8 @@ namespace asp {
 
   void produce_dem_disparity( Options & opt,
                               boost::shared_ptr<camera::CameraModel> left_camera_model,
-                              boost::shared_ptr<camera::CameraModel> right_camera_model
+                              boost::shared_ptr<camera::CameraModel> right_camera_model,
+                              std::string session_name
                               ) {
 
     // Use a DEM to get the low-res disparity
@@ -363,7 +363,7 @@ namespace asp {
                       );
     std::string disparity_file = opt.out_prefix + "-D_sub.tif";
     vw_out() << "Writing low-resolution disparity: " << disparity_file << "\n";
-    if ( opt.session->name() == "isis" ){
+    if ( session_name == "isis" ){
       // ISIS does not support multi-threading
       boost::scoped_ptr<DiskImageResource> drsrc( asp::build_gdal_rsrc( disparity_file,
                                                                         lowres_disparity, opt ) );
