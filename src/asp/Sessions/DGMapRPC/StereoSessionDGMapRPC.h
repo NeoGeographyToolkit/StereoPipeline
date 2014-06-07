@@ -70,10 +70,13 @@ namespace asp {
 
     virtual std::string name() const { return "dgmaprpc"; }
 
-    // Allows specialization of how matches are captured.
-    virtual bool ip_matching( std::string const& match_filename,
-                              double left_nodata_value,
-                              double right_nodata_value );
+    // Specialization for how interest points are found
+    virtual bool ip_matching(std::string const& input_file1,
+                             std::string const& input_file2,
+                             float nodata1, float nodata2,
+                             std::string const& match_filename,
+                             vw::camera::CameraModel* cam1,
+                             vw::camera::CameraModel* cam2);
 
     // For reversing the arithmetic applied in preprocessing plus the
     // map projection.

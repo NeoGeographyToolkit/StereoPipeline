@@ -54,8 +54,34 @@ StereoSessionNadirPinhole::tx_right() const {
   return right_tx_type( tx );
 }
 
-void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(
-                                                            std::string const& left_input_file,
+bool StereoSessionNadirPinhole::ip_matching(std::string const& input_file1,
+                                            std::string const& input_file2,
+                                            float nodata1, float nodata2,
+                                            std::string const& match_filename,
+                                            vw::camera::CameraModel* cam1,
+                                            vw::camera::CameraModel* cam2){
+  
+  if (fs::exists(match_filename)) {
+    vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
+    return true;
+  }
+  
+  DiskImageView<float> image1( input_file1 ), image2( input_file2 );
+  bool inlier =
+    ip_matching_w_alignment( cam1, cam2,
+                             image1, image2, 
+                             cartography::Datum("WGS84"), match_filename,
+                             nodata1, nodata2);
+  
+  if ( !inlier ) {
+    fs::remove( match_filename );
+    vw_throw( IOErr() << "Unable to match left and right images." );
+  }
+  
+  return inlier;
+}
+
+void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(std::string const& left_input_file,
                                                             std::string const& right_input_file,
                                                             std::string &left_output_file,
                                                             std::string &right_output_file) {
@@ -134,26 +160,16 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(
     std::string match_filename
       = ip::match_filename(m_out_prefix, left_input_file, right_input_file);
 
-    if (!fs::exists(match_filename)) {
-      boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
-      camera_models( left_cam, right_cam );
-
-      bool inlier =
-        ip_matching_w_alignment( left_cam.get(), right_cam.get(),
-                                 left_disk_image, right_disk_image,
-                                 cartography::Datum("WGS84"), match_filename,
-                                 left_nodata_value, right_nodata_value );
-      if ( !inlier ) {
-        fs::remove( match_filename );
-        vw_throw( IOErr() << "Unable to match left and right images." );
-      }
-    } else{
-      vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
-    }
-
+    boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
+    camera_models( left_cam, right_cam );
+    ip_matching(left_input_file, right_input_file,
+                left_nodata_value, right_nodata_value, match_filename,
+                left_cam.get(), right_cam.get()
+                );
+    
     std::vector<ip::InterestPoint> left_ip, right_ip;
     ip::read_binary_match_file( match_filename, left_ip, right_ip  );
-
+    
     Matrix<double> align_left_matrix = math::identity_matrix<3>(),
       align_right_matrix = math::identity_matrix<3>();
     if ( stereo_settings().alignment_method == "homography" ) {

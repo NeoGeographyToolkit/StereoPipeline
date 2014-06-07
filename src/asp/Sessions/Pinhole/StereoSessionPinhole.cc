@@ -45,101 +45,48 @@ namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
-// Helper function for determing image alignment.
-//
-// This expects image intensities to be between 0 and 1.0. If you
-// know the range before hand will be 0.25 to 0.75, you can give a
-// helping hand by setting the gain_guess parameter to 2.0 in that
-// case.
-template <class ImageT1, class ImageT2>
-vw::Matrix3x3
-determine_image_align( std::string const& out_prefix,
-                       std::string const& input_file1,
-                       std::string const& input_file2,
-                       vw::ImageViewBase<ImageT1> const& input1,
-                       vw::ImageViewBase<ImageT2> const& input2,
-                       double nodata1 = std::numeric_limits<double>::quiet_NaN(),
-                       double nodata2 = std::numeric_limits<double>::quiet_NaN(),
-                       float gain_guess = 1.0 ) {
-  namespace fs = boost::filesystem;
-  using namespace vw;
-
-  ImageT1 const& image1 = input1.impl();
-  ImageT2 const& image2 = input2.impl();
-  std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
-  std::string match_filename
-    = ip::match_filename(out_prefix, input_file1, input_file2);
-
+bool asp::StereoSessionPinhole::ip_matching(std::string const& input_file1,
+                                            std::string const& input_file2,
+                                            float nodata1, float nodata2,
+                                            std::string const& match_filename,
+                                            vw::camera::CameraModel* cam1,
+                                            vw::camera::CameraModel* cam2){
+  
   if ( fs::exists( match_filename ) ) {
-    // Is there a match file linking these 2 image?
+    vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
+    return true;
+  }
 
-    vw_out() << "\t--> Found cached interest point match file: "
-             << match_filename << "\n";
-    read_binary_match_file( match_filename,
-                            matched_ip1, matched_ip2 );
+  // Load the unmodified images
+  DiskImageView<float> image1( input_file1 ), image2( input_file2 );
 
-    // Fitting a matrix immediately (no RANSAC)
-    vw::math::HomographyFittingFunctor fitting;
-    remove_duplicates( matched_ip1, matched_ip2 );
-    std::vector<Vector3> list1 = iplist_to_vectorlist(matched_ip1);
-    std::vector<Vector3> list2 = iplist_to_vectorlist(matched_ip2);
-    vw::math::AffineFittingFunctor aff_fit;
-    Matrix<double> seed = aff_fit( list2, list1 );
-    Matrix<double> align = fitting( list2, list1, seed );  // LMA optimization second
-    vw_out() << "\tFit = " << align << std::endl;
-    return align;
+  // Worst case, no interest point operations have been performed before
+  vw_out() << "\t--> Locating Interest Points\n";
+  ip::InterestPointList ip1, ip2;
+  asp::detect_ip( ip1, ip2, image1, image2,
+                  nodata1, nodata2 );
+  
+  if ( ip1.size() > 10000 ) {
+    ip1.sort(); ip1.resize(10000);
+  }
+  if ( ip2.size() > 10000 ) {
+    ip2.sort(); ip2.resize(10000);
+  }
+  
+  std::vector<ip::InterestPoint> ip1_copy, ip2_copy;
+  for (InterestPointList::iterator iter = ip1.begin(); iter != ip1.end(); ++iter)
+    ip1_copy.push_back(*iter);
+  for (InterestPointList::iterator iter = ip2.begin(); iter != ip2.end(); ++iter)
+    ip2_copy.push_back(*iter);
+  
+  vw_out() << "\t--> Matching interest points\n";
+  ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(0.5);
+  std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
 
-  } else {
+  matcher(ip1_copy, ip2_copy,
+          matched_ip1, matched_ip2,
+          TerminalProgressCallback( "asp", "\t    Matching: "));
 
-    // Next best thing.. VWIPs?
-    std::vector<ip::InterestPoint> ip1_copy, ip2_copy;
-    std::string ip1_filename, ip2_filename;
-    ip::ip_filenames(out_prefix, input_file1, input_file2,
-                     ip1_filename, ip2_filename);
-    if ( fs::exists( ip1_filename ) &&
-         fs::exists( ip2_filename ) ) {
-      // Found VWIPs already done before
-      vw_out() << "\t--> Found cached interest point files: "
-               << ip1_filename << "\n"
-               << "\t                                       "
-               << ip2_filename << "\n";
-      ip1_copy = ip::read_binary_ip_file( ip1_filename );
-      ip2_copy = ip::read_binary_ip_file( ip2_filename );
-
-    } else {
-      // Worst case, no interest point operations have been performed before
-      vw_out() << "\t--> Locating Interest Points\n";
-      ip::InterestPointList ip1, ip2;
-      asp::detect_ip( ip1, ip2, image1, image2,
-                      nodata1, nodata2 );
-
-      if ( ip1.size() > 10000 ) {
-        ip1.sort(); ip1.resize(10000);
-      }
-      if ( ip2.size() > 10000 ) {
-        ip2.sort(); ip2.resize(10000);
-      }
-
-      // Writing out the results
-      vw_out() << "\t    Caching interest points: "
-               << ip1_filename << ", "
-               << ip2_filename << "\n";
-      ip::write_binary_ip_file(ip1_filename, ip1);
-      ip::write_binary_ip_file(ip2_filename, ip2);
-
-      // Reading back into the vector interestpoint format
-      ip1_copy = ip::read_binary_ip_file( ip1_filename );
-      ip2_copy = ip::read_binary_ip_file( ip2_filename );
-    }
-
-    vw_out() << "\t--> Matching interest points\n";
-    ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(0.5);
-
-    matcher(ip1_copy, ip2_copy,
-            matched_ip1, matched_ip2,
-            TerminalProgressCallback( "asp", "\t    Matching: "));
-
-  } // End matching
 
   vw_out(InfoMessage) << "\t--> " << matched_ip1.size()
                       << " putative matches.\n";
@@ -159,8 +106,6 @@ determine_image_align( std::string const& out_prefix,
     vw::math::RandomSampleConsensus<vw::math::HomographyFittingFunctor, vw::math::InterestPointErrorMetric> ransac( vw::math::HomographyFittingFunctor(), vw::math::InterestPointErrorMetric(), 100, 10, ransac_ip1.size()/2, true);
     T = ransac( ransac_ip2, ransac_ip1 );
     indices = ransac.inlier_indices(T, ransac_ip2, ransac_ip1 );
-    vw_out(DebugMessage,"asp") << "\t--> AlignMatrix: " << T << std::endl;
-
   } catch (...) {
     vw_out(WarningMessage,"console") << "Automatic Alignment Failed! Proceed with caution...\n";
     T = vw::math::identity_matrix<3>();
@@ -181,6 +126,46 @@ determine_image_align( std::string const& out_prefix,
 
   write_binary_match_file( match_filename,
                            matched_ip1, matched_ip2);
+
+  return true;
+}
+
+// Helper function for determining image alignment.
+vw::Matrix3x3
+asp::StereoSessionPinhole::determine_image_align( std::string const& out_prefix,
+                                                  std::string const& input_file1,
+                                                  std::string const& input_file2,
+                                                  float nodata1, float nodata2) {
+  namespace fs = boost::filesystem;
+  using namespace vw;
+
+  std::string match_filename
+    = ip::match_filename(out_prefix, input_file1, input_file2);
+  ip_matching(input_file1, input_file2,  
+              nodata1, nodata2,  
+              match_filename,  
+              NULL, NULL);
+  
+  std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
+  read_binary_match_file( match_filename,
+                          matched_ip1, matched_ip2 );
+  
+  // Get the matrix using RANSAC
+  std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1);
+  std::vector<Vector3> ransac_ip2 = iplist_to_vectorlist(matched_ip2);
+  Matrix<double> T;
+  try {
+    
+    vw::math::RandomSampleConsensus<vw::math::HomographyFittingFunctor, vw::math::InterestPointErrorMetric> ransac( vw::math::HomographyFittingFunctor(), vw::math::InterestPointErrorMetric(), 100, 10, ransac_ip1.size()/2, true);
+    T = ransac( ransac_ip2, ransac_ip1 );
+    std::vector<size_t> indices = ransac.inlier_indices(T, ransac_ip2, ransac_ip1 );
+    vw_out(DebugMessage,"asp") << "\t--> AlignMatrix: " << T << std::endl;
+
+  } catch (...) {
+    vw_out(WarningMessage,"console") << "Automatic Alignment Failed! Proceed with caution...\n";
+    T = vw::math::identity_matrix<3>();
+  }
+  
   return T;
 }
 
@@ -356,19 +341,10 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& left_i
 
   } else if ( stereo_settings().alignment_method == "homography" ) {
 
-    float low = std::min(left_stats[0], right_stats[0]);
-    float hi  = std::max(left_stats[1], right_stats[1]);
-    float gain_guess = 1.0f / (hi - low);
-    if ( gain_guess < 1.0f )
-      gain_guess = 1.0f;
-
-    // Note: Here we use the original images, without mask
     Matrix<double> align_matrix =
       determine_image_align( m_out_prefix,
                              left_input_file, right_input_file,
-                             left_disk_image, right_disk_image,
-                             left_nodata_value, right_nodata_value,
-                             gain_guess );
+                             left_nodata_value, right_nodata_value);
     write_matrix( m_out_prefix + "-align-R.exr", align_matrix );
 
     // Applying alignment transform

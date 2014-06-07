@@ -417,6 +417,7 @@ namespace asp {
     }
     matched_ip2 = buffer;
 
+    vw_out() << "Writing: " << output_name << std::endl;
     ip::write_binary_match_file( output_name, matched_ip1, matched_ip2 );
 
     return true;
@@ -438,6 +439,9 @@ namespace asp {
                                 vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)) ) {
 
     using namespace vw;
+
+    VW_OUT( DebugMessage, "asp" ) << "Performing IP matching with alignment " << std::endl;
+
     BBox2i box1 = bounding_box(image1.impl()), box2 = bounding_box(image2.impl());
 
     // Homography is defined in the original camera coordinates

@@ -51,7 +51,9 @@ namespace asp {
     // to get a camera pointer, and there we don't parse stereo.default
     disable_correct_velocity_aberration = false;
 
-    max_valid_triangulation_error = std::numeric_limits<double>::quiet_NaN();
+    double nan = std::numeric_limits<double>::quiet_NaN();
+    nodata_value = nan;
+    max_valid_triangulation_error = nan;
   }
 
   // Define our options that are available

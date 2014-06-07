@@ -46,6 +46,14 @@ namespace asp {
     left_tx_type tx_left() const;
     right_tx_type tx_right() const;
 
+    // Specialization for how interest points are found
+    virtual bool ip_matching(std::string const& input_file1,
+                             std::string const& input_file2,
+                             float nodata1, float nodata2,
+                             std::string const& match_filename,
+                             vw::camera::CameraModel* cam1,
+                             vw::camera::CameraModel* cam2);
+
     // Stage 1: Preprocessing
     //
     // Pre file is a pair of images.            ( ImageView<PixelT> )
@@ -56,6 +64,13 @@ namespace asp {
                                         std::string &right_output_file);
 
     static StereoSession* construct() { return new StereoSessionPinhole; }
+
+ private:
+    // Helper function for determining image alignment.
+    vw::Matrix3x3 determine_image_align( std::string const& out_prefix,
+                                         std::string const& input_file1,
+                                         std::string const& input_file2,
+                                         float nodata1, float nodata2);
   };
 
 }

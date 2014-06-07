@@ -221,6 +221,40 @@ StereoSessionIsis::tx_right() const {
   return right_tx_type( tx );
 }
 
+bool asp::StereoSessionIsis::ip_matching(std::string const& input_file1,
+                                         std::string const& input_file2,
+                                         float nodata1, float nodata2,
+                                         std::string const& match_filename,
+                                         vw::camera::CameraModel* cam1,
+                                         vw::camera::CameraModel* cam2){
+
+  if (fs::exists(match_filename)) {
+    vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
+    return true;
+  }
+  
+  DiskImageView<float> image1( input_file1 ), image2( input_file2 );
+
+  IsisCameraModel * isis_cam = dynamic_cast<IsisCameraModel*>(cam1);
+  VW_ASSERT( isis_cam != NULL,
+             ArgumentErr() << "StereoSessionISIS: Invalid left camera.\n" );
+  Vector3 radii = isis_cam->target_radii();
+  cartography::Datum datum("","","", (radii[0] + radii[1]) / 2, radii[2], 0);
+  
+  bool inlier =
+    ip_matching_w_alignment( cam1, cam2,
+                             image1, image2, 
+                             datum, match_filename,
+                             nodata1, nodata2);
+  
+  if ( !inlier ) {
+    fs::remove( match_filename );
+    vw_throw( IOErr() << "Unable to match left and right images." );
+  }
+
+  return inlier;
+}
+
 void
 asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& left_input_file,
                                                std::string const& right_input_file,
@@ -287,32 +321,14 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& left_input_fil
     std::string match_filename
       = ip::match_filename(m_out_prefix, left_input_file, right_input_file);
 
-    if (!fs::exists(match_filename)) {
-      boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
-      camera_models( left_cam, right_cam );
-
-      boost::shared_ptr<IsisCameraModel> isis_cam =
-        boost::dynamic_pointer_cast<IsisCameraModel>(left_cam);
-      VW_ASSERT( isis_cam.get() != NULL,
-               ArgumentErr() << "StereoSessionISIS: Invalid left camera.\n" );
-      Vector3 radii = isis_cam->target_radii();
-      cartography::Datum datum("","","", (radii[0] + radii[1]) / 2, radii[2], 0);
-
-      bool inlier =
-        ip_matching_w_alignment( left_cam.get(), right_cam.get(),
-                                 left_disk_image, right_disk_image,
-                                 datum, match_filename,
-                                 left_nodata_value, right_nodata_value);
-      if ( !inlier ) {
-        fs::remove( match_filename );
-        vw_throw( IOErr() << "Unable to match left and right images." );
-      }
-    }else{
-      vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
-    }
+    boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
+    camera_models( left_cam, right_cam );
+    ip_matching(left_input_file, right_input_file,
+                left_nodata_value, right_nodata_value, match_filename,
+                left_cam.get(), right_cam.get());
 
     std::vector<ip::InterestPoint> left_ip, right_ip;
-    ip::read_binary_match_file( match_filename, left_ip, right_ip  );
+    ip::read_binary_match_file( match_filename, left_ip, right_ip );
 
     if ( stereo_settings().alignment_method == "homography" ) {
       left_size =

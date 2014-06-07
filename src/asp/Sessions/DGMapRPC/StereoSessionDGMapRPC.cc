@@ -64,13 +64,16 @@ void StereoSessionDGMapRPC::initialize(BaseOptions const& options,
   // actually projects into the DEM. (?)
 }
 
-bool StereoSessionDGMapRPC::ip_matching( std::string const& match_filename,
-                                         double left_nodata_value,
-                                         double right_nodata_value ) {
-
+bool StereoSessionDGMapRPC::ip_matching(std::string const& input_file1,
+                                        std::string const& input_file2,
+                                        float nodata1, float nodata2,
+                                        std::string const& match_filename,
+                                        vw::camera::CameraModel* cam1,
+                                        vw::camera::CameraModel* cam2){
+  
   // This code will never be reached, since for map-projected images we never
   // perform homography or affineepipolar alignment.
-
+  
   // In fact, it is very hard to write this function properly, since
   // the Map2CamTrans class which needs to be used here is not thread
   // safe and cannot operate on randomly accessed pixels, it must be

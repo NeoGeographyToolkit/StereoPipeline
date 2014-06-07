@@ -42,11 +42,13 @@ namespace asp {
 
     virtual std::string name() const { return "dg"; }
 
-    // Allows specialization of how matches are captured. Important
-    // for StereoSessionDGMapRPC.
-    virtual bool ip_matching( std::string const& match_filename,
-                              double left_nodata_value,
-                              double right_nodata_value );
+    // Specialization for how interest points are found
+    virtual bool ip_matching(std::string const& input_file1,
+                             std::string const& input_file2,
+                             float nodata1, float nodata2,
+                             std::string const& match_filename,
+                             vw::camera::CameraModel* cam1,
+                             vw::camera::CameraModel* cam2);
 
     // For reversing our arithmetic applied in preprocessing.
     typedef vw::HomographyTransform left_tx_type;

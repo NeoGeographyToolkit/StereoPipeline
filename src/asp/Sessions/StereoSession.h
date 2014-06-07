@@ -167,6 +167,14 @@ namespace asp {
     // Method to help determine what session we actually have
     virtual std::string name() const = 0;
 
+    // Specialization for how interest points are found
+    virtual bool ip_matching(std::string const& input_file1,
+                             std::string const& input_file2,
+                             float nodata1, float nodata2,
+                             std::string const& match_filename,
+                             vw::camera::CameraModel* cam1,
+                             vw::camera::CameraModel* cam2) = 0;
+
     // Stage 1: Preprocessing
     //
     // Pre file is a pair of images.            ( ImageView<PixelT> )
