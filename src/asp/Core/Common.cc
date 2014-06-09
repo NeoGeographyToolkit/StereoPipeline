@@ -44,6 +44,11 @@ using namespace vw;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
+// Convert dir1/image1.cub to out-prefix-image1.adjust
+std::string asp::bundle_adjust_file_name(std::string const& prefix, std::string const& input_img){
+  return prefix + "-" + fs::path(input_img).stem().string() + ".adjust";
+}
+
 // Make the specified file to be relative to the specified directory.
 fs::path asp::make_file_relative_to_dir(fs::path const file, fs::path const dir) {
   if (file.has_root_path()){

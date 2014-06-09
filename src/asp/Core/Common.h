@@ -62,6 +62,8 @@ namespace asp {
     return vec;
   }
 
+  std::string bundle_adjust_file_name(std::string const& prefix, std::string const& input_img);
+
   boost::filesystem::path make_file_relative_to_dir
   (boost::filesystem::path const file, boost::filesystem::path const dir);
   

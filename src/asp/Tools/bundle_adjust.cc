@@ -74,7 +74,7 @@ sort_out_cameras( std::vector<std::string>& image_files ) {
 
 struct Options : public asp::BaseOptions {
   std::vector<std::string> image_files, camera_files, gcp_files;
-  std::string cnet_file, stereo_session_string, cost_function, ba_type;
+  std::string cnet_file, out_prefix, stereo_session_string, cost_function, ba_type;
   
   double lambda, robust_threshold;
   int report_level, min_matches, max_iterations;
@@ -157,9 +157,7 @@ struct BaReprojectionError {
 // accomplished by interfacing with the bundle adjustment model. In
 // the future this class can be bypassed.
 template <class ModelT>
-void do_ba_ceres(Options const& opt ) {
-
-  ModelT ba_model(opt.camera_models, opt.cnet);
+void do_ba_ceres(ModelT & ba_model, Options const& opt ) {
 
   ControlNetwork & cnet = *(ba_model.control_network().get());
   CameraRelationNetwork<JFeature> crn;
@@ -246,22 +244,19 @@ void do_ba_ceres(Options const& opt ) {
   ceres::Solve(options, &problem, &summary);
   std::cout << summary.FullReport() << "\n";
 
-  // Save the camera info to disk
+  // Save the camera info back to the ba_model so we can save it to disk later
   for (size_t i = 0; i < num_cameras; i++){
     typename ModelT::camera_vector_t cam;
     for (size_t c = 0; c < cam.size(); c++) cam[c] = cameras_vec[i*num_camera_params + c];
     ba_model.set_A_parameters(i, cam);
-    ba_model.write_adjustment(i,
-                              fs::path(opt.image_files[i]).replace_extension("adjust").string() );
   }  
 }
 
 template <class AdjusterT>
-void do_ba(typename AdjusterT::cost_type const& cost_function,
-           Options const& opt ) {
+void do_ba(typename AdjusterT::model_type & ba_model,
+           typename AdjusterT::cost_type const& cost_function,
+           Options const& opt) {
 
-  typedef typename AdjusterT::model_type ModelT;
-  ModelT ba_model(opt.camera_models, opt.cnet);
   AdjusterT bundle_adjuster(ba_model, cost_function, false, false);
   
   if ( opt.lambda > 0 )
@@ -316,24 +311,34 @@ void do_ba(typename AdjusterT::cost_type const& cost_function,
   }
   reporter.end_tie_in();
 
-  for (unsigned i=0; i < ba_model.num_cameras(); ++i)
-    ba_model.write_adjustment(i, fs::path(opt.image_files[i]).replace_extension("adjust").string() );
 }
 
 // Use given cost function. Switch based on solver.
 template<class ModelType, class CostFunType>
 void do_ba_costfun(CostFunType const& cost_fun, Options const& opt){
+
+  ModelType ba_model(opt.camera_models, opt.cnet);
+  
   if ( opt.ba_type == "ceres" ) {
-    do_ba_ceres<ModelType>( opt );
+    do_ba_ceres<ModelType>(ba_model, opt);
   } else if ( opt.ba_type == "robustsparse" ) {
-    do_ba<AdjustRobustSparse< ModelType,CostFunType> >( cost_fun, opt );
+    do_ba<AdjustRobustSparse< ModelType,CostFunType> >(ba_model, cost_fun, opt);
   } else if ( opt.ba_type == "robustref" ) {
-    do_ba<AdjustRobustRef< ModelType,CostFunType> >( cost_fun, opt );
+    do_ba<AdjustRobustRef< ModelType,CostFunType> >(ba_model, cost_fun, opt);
   } else if ( opt.ba_type == "sparse" ) {
-    do_ba<AdjustSparse< ModelType, CostFunType > >( cost_fun, opt );
+    do_ba<AdjustSparse< ModelType, CostFunType > >(ba_model, cost_fun, opt);
   }else if ( opt.ba_type == "ref" ) {
-    do_ba<AdjustRef< ModelType, CostFunType > >( cost_fun, opt );
+    do_ba<AdjustRef< ModelType, CostFunType > >(ba_model, cost_fun, opt);
   }
+
+  // Save the models to disk
+  for (unsigned i=0; i < ba_model.num_cameras(); ++i){
+    std::string adjust_file = asp::bundle_adjust_file_name(opt.out_prefix,
+                                                           opt.image_files[i]);
+    vw_out() << "Writing: " << adjust_file << std::endl;
+    ba_model.write_adjustment(i, adjust_file);
+  }
+  
 }
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
@@ -347,6 +352,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Choose a solver from [Ceres, RobustSparse, RobustRef, Sparse, Ref].")
     ("session-type,t", po::value(&opt.stereo_session_string)->default_value(""),
      "Select the stereo session type to use for processing. [options: pinhole isis dg rpc]")
+    ("output-prefix,o", po::value(&opt.out_prefix), "Prefix for output filenames.")
+
     ("lambda,l", po::value(&opt.lambda)->default_value(-1),
      "Set the initial value of the LM parameter lambda.")
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(1.0),
@@ -366,17 +373,23 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("input-files", -1);
 
-  std::string usage("[options] <images cameras> ...");
+  std::string usage("[options] <images> <cameras>");
   po::variables_map vm =
     asp::check_command_line(argc, argv, opt, general_options, general_options,
                             positional, positional_desc, usage);
 
   if ( opt.image_files.empty() )
-    vw_throw( ArgumentErr() << "Missing input cube files!\n"
+    vw_throw( ArgumentErr() << "Missing input image files.\n"
               << usage << general_options );
   opt.gcp_files = sort_out_gcps( opt.image_files );
   opt.camera_files = sort_out_cameras( opt.image_files );
 
+  if ( opt.out_prefix.empty() )
+    vw_throw( ArgumentErr() << "Missing output prefix." );
+
+  // Create the output directory 
+  asp::create_out_dir(opt.out_prefix);
+    
   opt.save_iteration = vm.count("save-iteration-data");
   boost::to_lower( opt.stereo_session_string );
   boost::to_lower( opt.ba_type );
@@ -397,47 +410,71 @@ int main(int argc, char* argv[]) {
   try {
     handle_arguments( argc, argv, opt );
 
+    int num_images = opt.image_files.size();
     // Create the stereo session. Try to auto-guess the session type.
-    if (opt.image_files.size() <= 1)
+    if (num_images <= 1)
       vw_throw( ArgumentErr() << "Must have at least two image "
                 << "files to do bundle adjustment.\n" );
 
     // If there are no camera files, then the image files have the
     // camera information.
     if (opt.camera_files.empty()){
-      for (int i = 0; i < (int)opt.image_files.size(); i++)
+      for (int i = 0; i < num_images; i++)
         opt.camera_files.push_back("");
     }
 
     // Sanity check
-    if (opt.image_files.size() != opt.camera_files.size())
-      vw_throw( ArgumentErr() << "Must have as many cameras as we have images.\n" );
+    if (num_images != (int)opt.camera_files.size())
+      vw_throw(ArgumentErr() << "Must have as many cameras as we have images.\n");
 
     // Create the stereo session. This will attempt to identify the
     // session type.
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-    SessionPtr session(asp::StereoSession::create(opt.stereo_session_string, opt,
-                                                  opt.image_files[0], opt.image_files[1],
-                                                  opt.camera_files[0], opt.camera_files[1]
-                                                  ));
+    SessionPtr session
+      (asp::StereoSession::create(opt.stereo_session_string, opt,
+                                  opt.image_files[0], opt.image_files[1],
+                                  opt.camera_files[0], opt.camera_files[1],
+                                  opt.out_prefix
+                                  ));
     
     // Read in the camera model and image info for the input images.
-    for (int i = 0; i < (int)opt.image_files.size(); i++){
+    for (int i = 0; i < num_images; i++){
       vw_out(DebugMessage,"asp") << "Loading: "
                                  << opt.image_files[i] << ' '
                                  << opt.camera_files[i] << "\n";
-      opt.camera_models.push_back(session->camera_model(opt.image_files[i],opt.camera_files[i]));
+      opt.camera_models.push_back(session->camera_model(opt.image_files[i],
+                                                        opt.camera_files[i]));
+    }
+
+    // Create the match points
+    for (int i = 0; i < num_images; i++){
+      for (int j = i+1; j < num_images; j++){
+        std::string image1 = opt.image_files[i];
+        std::string image2 = opt.image_files[j];
+        std::string match_filename
+          = ip::match_filename(opt.out_prefix, image1, image2);
+        boost::shared_ptr<DiskImageResource>
+          rsrc1( DiskImageResource::open(image1) ),
+          rsrc2( DiskImageResource::open(image2) );
+        float nodata1, nodata2;
+        session->get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
+        session->ip_matching( image1, image2, nodata1, nodata2, match_filename,
+                              opt.camera_models[i].get(), opt.camera_models[j].get());
+      }
     }
     
     opt.cnet.reset( new ControlNetwork("BundleAdjust") );
     if ( opt.cnet_file.empty() ) {
       build_control_network( (*opt.cnet), opt.camera_models,
                              opt.image_files,
-                             opt.min_matches );
+                             opt.min_matches,
+                             std::vector<std::string>(),
+                             opt.out_prefix
+                             );
       add_ground_control_points( (*opt.cnet), opt.image_files,
                                  opt.gcp_files.begin(), opt.gcp_files.end() );
 
-      opt.cnet->write_binary("control");
+      opt.cnet->write_binary(opt.out_prefix + "-control");
     } else  {
       vw_out() << "Loading control network from file: "
                << opt.cnet_file << "\n";
