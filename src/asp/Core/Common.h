@@ -359,6 +359,10 @@ namespace asp {
   // use for rounding a number with few digits in binary.
   const double APPROX_ONE_MM = 1.0/1024.0;
 
+  // Don't round pixels for bodies of radius smaller than this
+  // in meters.
+  const double MIN_RADIUS_FOR_ROUNDING = 1e+6; // 1000 km
+  
   // Block write image while subtracting a given value from all pixels
   // and casting the result to float, while rounding to nearest mm.
   template <class ImageT>
@@ -371,7 +375,8 @@ namespace asp {
                                       = vw::ProgressCallback::dummy_instance() ) {
 
 
-    if (norm_2(shift) > 1e+6){ // Round pixels only for bodies > 1000 km radius
+    // Don't round pixels for bodies of small radius
+    if (norm_2(shift) > MIN_RADIUS_FOR_ROUNDING){ 
       boost::scoped_ptr<vw::DiskImageResourceGDAL>
         rsrc( build_gdal_rsrc( filename,
                                vw::channel_cast<float>(image.impl()),
@@ -403,7 +408,8 @@ namespace asp {
                                 = vw::ProgressCallback::dummy_instance() ) {
 
 
-    if (norm_2(shift) > 1e+6){ // Round pixels only for bodies > 1000 km radius
+    // Don't round pixels for bodies of small radius
+    if (norm_2(shift) > MIN_RADIUS_FOR_ROUNDING){ 
       boost::scoped_ptr<vw::DiskImageResourceGDAL>
         rsrc( build_gdal_rsrc( filename,
                                vw::channel_cast<float>(image.impl()),

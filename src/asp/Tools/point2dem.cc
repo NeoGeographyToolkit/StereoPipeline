@@ -515,11 +515,13 @@ namespace asp{
 
     RoundImagePixelsSkipNoData(double scale, double nodata):m_scale(scale),
                                                             m_nodata(nodata){
-      VW_ASSERT( m_scale > 0.0,
-                 vw::ArgumentErr() << "Scale must be positive.");
     }
 
     PixelT operator() (PixelT const& pt) const {
+
+      // We will pass in m_scale = 0 if we don't want rounding to happen.
+      if (m_scale <= 0)
+        return pt;
 
       // Skip given pixel if any channels are nodata
       int num_channels = PixelNumChannels<PixelT>::value;
@@ -667,6 +669,12 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
 
   vw_out() << "\nOutput georeference: \n\t" << georef << std::endl;
 
+  // Do not round the DEM heights for small bodies
+  if (georef.datum().semi_major_axis() <= asp::MIN_RADIUS_FOR_ROUNDING ||
+      georef.datum().semi_minor_axis() <= asp::MIN_RADIUS_FOR_ROUNDING){
+    opt.rounding_error = 0.0;
+  }
+    
   // We will first generate the DEM with holes, and then fill them later,
   // rather than filling holes in the cloud first. This is faster.
   rasterizer.set_hole_fill_len(0);
