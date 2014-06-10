@@ -20,6 +20,7 @@
 #include <vw/Math/BBox.h>
 #include <vw/FileIO/DiskImageResource.h>
 #include <asp/Core/Common.h>
+#include <asp/Core/StereoSettings.h>
 
 #include <map>
 #include <sstream>
@@ -229,6 +230,25 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
                          std::string & usage_comment,
                          bool allow_unregistered ) {
 
+  {  
+    // This is a bugfix. Ensure that stereo_settings() is
+    // pre-populated for every single ASP application, not just for
+    // stereo. For example, any application which uses the
+    // StereoSession, such as mapproject, bundle_adjust, etc., needs
+    // stereo_settings() to be well-defined.
+    po::options_description l_opts("");
+    l_opts.add( asp::generate_config_file_options( opt ) );
+    po::variables_map l_vm;
+    try {
+      int l_argc = 1; const char* l_argv[] = {""};
+      po::store( po::command_line_parser( l_argc, l_argv ).options(l_opts).style( po::command_line_style::unix_style ).run(), l_vm );
+      po::notify( l_vm );
+    } catch (po::error const& e) {
+      vw::vw_throw( vw::ArgumentErr() << "Error parsing input:\n"
+                    << e.what() << "\n" << l_opts );
+    }
+  }
+  
   // Finish filling in the usage_comment.
   std::ostringstream ostr;
   ostr << "Usage: " << argv[0] << " " << usage_comment << "\n\n";

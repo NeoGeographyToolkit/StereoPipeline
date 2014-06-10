@@ -1,8 +1,15 @@
 *** RELEASE 2.4.1, Upcoming! ***
 
-  - stereo_tri
-    * Bugfix for MER cameras
+  - Added a new tool, bundle_adjust, which uses Google's ceres-solver
+    to solve for adjusted camera positions and orientations. Works
+    for n images and cameras, for all camera types supported by ASP. 
  
+  - stereo_tri
+    * Bugfixes for MER cameras
+    * Added the option --bundle-adjust-prefix to read adjusted
+      camera models obtained by previously running bundle_adjust with
+      this output prefix.
+
   - point2las
     * LAS files can be saved in geo-referenced format in respect 
       to a specified datum (option --reference-spheroid).

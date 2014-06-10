@@ -382,32 +382,45 @@ void stereo_triangulation( Options const& opt ) {
     opt.session->camera_models(camera_model1, camera_model2);
 
 #if ASP_HAVE_PKG_VW_BUNDLEADJUSTMENT
-    // If the user has generated a set of position and pose
-    // corrections using the bundle_adjust program, we read them in
-    // here and incorporate them into our camera model.
-    Vector3 position_correction;
-    Quaternion<double> pose_correction;
-    fs::path adjust_file1 = fs::path(opt.in_file1).replace_extension("adjust");
-    if (fs::exists(adjust_file1)) {
-      vw_out() << "Using adjusted left camera model: " << adjust_file1.string() << std::endl;
-      read_adjustments(adjust_file1.string(),
-                       position_correction, pose_correction);
-      camera_model1 =
-        boost::shared_ptr<camera::CameraModel>
-        (new camera::AdjustedCameraModel(camera_model1,
-                                         position_correction,
-                                         pose_correction));
-    }
-    fs::path adjust_file2 = fs::path(opt.in_file2).replace_extension("adjust");
-    if (fs::exists(adjust_file2)) {
-      vw_out() << "Using adjusted right camera model: " << adjust_file2.string() << std::endl;
-      read_adjustments(adjust_file2.string(),
-                       position_correction, pose_correction);
-      camera_model2 =
-        boost::shared_ptr<camera::CameraModel>
-        (new camera::AdjustedCameraModel(camera_model2,
-                                         position_correction,
-                                         pose_correction));
+    std::string ba_pref = stereo_settings().bundle_adjust_prefix;
+    if (ba_pref != ""){
+
+      // If the user has generated a set of position and pose
+      // corrections using the bundle_adjust program, we read them in
+      // here and incorporate them into our camera model.
+      Vector3 position_correction;
+      Quaternion<double> pose_correction;
+      // Left adjusted camera
+      std::string adjust_file1 = asp::bundle_adjust_file_name(ba_pref,
+                                                             opt.in_file1);
+      if (fs::exists(adjust_file1)) {
+        vw_out() << "Using adjusted left camera model: "
+                 << adjust_file1 << std::endl;
+        read_adjustments(adjust_file1, position_correction, pose_correction);
+        camera_model1 =
+          boost::shared_ptr<camera::CameraModel>
+          (new camera::AdjustedCameraModel(camera_model1,
+                                           position_correction,
+                                           pose_correction));
+      }else
+        vw_throw(InputErr() << "Missing adjusted camera model: " <<
+                 adjust_file1 << ".\n");
+
+      // Right adjusted camera
+      std::string adjust_file2 = asp::bundle_adjust_file_name(ba_pref,
+                                                              opt.in_file2);
+      if (fs::exists(adjust_file2)) {
+        vw_out() << "Using adjusted right camera model: "
+                 << adjust_file2 << std::endl;
+        read_adjustments(adjust_file2, position_correction, pose_correction);
+        camera_model2 =
+          boost::shared_ptr<camera::CameraModel>
+          (new camera::AdjustedCameraModel(camera_model2,
+                                           position_correction,
+                                           pose_correction));
+      }else
+        vw_throw(InputErr() << "Missing adjusted camera model: " <<
+                 adjust_file2 << ".\n");
     }
 #endif
 

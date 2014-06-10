@@ -230,26 +230,35 @@ void do_ba_ceres(ModelT & ba_model, Options const& opt ) {
   options.function_tolerance = 1e-16;
 
   options.max_num_iterations = opt.max_iterations;
-  options.minimizer_progress_to_stdout = true;
+  options.minimizer_progress_to_stdout = (opt.report_level >= vw::ba::ReportFile);
   options.num_threads = 1; //FLAGS_num_threads;
+  options.linear_solver_type = ceres::SPARSE_SCHUR;
+  //options.ordering_type = ceres::SCHUR;
   //options.eta = 1e-3; // FLAGS_eta;
-//   options->max_solver_time_in_seconds = FLAGS_max_solver_time;
-//   options->use_nonmonotonic_steps = FLAGS_nonmonotonic_steps;
-//   if (FLAGS_line_search) {
-//     options->minimizer_type = ceres::LINE_SEARCH;
-//   }
+  //options->max_solver_time_in_seconds = FLAGS_max_solver_time;
+  //options->use_nonmonotonic_steps = FLAGS_nonmonotonic_steps;
+  //if (FLAGS_line_search) {
+  //  options->minimizer_type = ceres::LINE_SEARCH;
+  //}
 
-  
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
-  std::cout << summary.FullReport() << "\n";
-
+  vw_out() << summary.FullReport() << "\n";
+  if (summary.termination_type == ceres::NO_CONVERGENCE){
+    // Print a clarifying message, so the user does not think that
+    // the algorithm failed. 
+    vw_out() << "Found a valid solution, but did not reach the actual minimum."
+             << std::endl;
+  }
+  
   // Save the camera info back to the ba_model so we can save it to disk later
   for (size_t i = 0; i < num_cameras; i++){
     typename ModelT::camera_vector_t cam;
-    for (size_t c = 0; c < cam.size(); c++) cam[c] = cameras_vec[i*num_camera_params + c];
+    for (size_t c = 0; c < cam.size(); c++)
+      cam[c] = cameras_vec[i*num_camera_params + c];
     ba_model.set_A_parameters(i, cam);
-  }  
+  }
+  
 }
 
 template <class AdjusterT>
@@ -262,14 +271,19 @@ void do_ba(typename AdjusterT::model_type & ba_model,
   if ( opt.lambda > 0 )
     bundle_adjuster.set_lambda( opt.lambda );
 
+  std::string iterCameraFile = opt.out_prefix + "iterCameraParam.txt";
+  std::string iterPointsFile = opt.out_prefix + "iterPointsParam.txt";
+  
   //Clearing the monitoring text files to be used for saving camera params
   if (opt.save_iteration){
-    fs::remove("iterCameraParam.txt");
-    fs::remove("iterPointsParam.txt");
+    fs::remove(iterCameraFile);
+    fs::remove(iterPointsFile);
 
     // Write the starting locations
-    ba_model.bundlevis_cameras_append("iterCameraParam.txt");
-    ba_model.bundlevis_points_append("iterPointsParam.txt");
+    std::cout << "Writing: " << iterCameraFile << std::endl;
+    std::cout << "Writing: " << iterPointsFile << std::endl;
+    ba_model.bundlevis_cameras_append(iterCameraFile);
+    ba_model.bundlevis_points_append(iterPointsFile);
   }
 
   BundleAdjustReport<AdjusterT >
@@ -301,8 +315,8 @@ void do_ba(typename AdjusterT::model_type & ba_model,
 
     // Writing Current Camera Parameters to file for later reading
     if (opt.save_iteration) {
-      ba_model.bundlevis_cameras_append("iterCameraParam.txt");
-      ba_model.bundlevis_points_append("iterPointsParam.txt");
+      ba_model.bundlevis_cameras_append(iterCameraFile);
+      ba_model.bundlevis_points_append(iterPointsFile);
     }
     if ( overall_delta == 0 )
       no_improvement_count++;
@@ -345,9 +359,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
     ("cnet,c", po::value(&opt.cnet_file),
-     "Load a control network from a file.")
-    ("cost-function", po::value(&opt.cost_function)->default_value("L2"),
-     "Choose a robust cost function from [PseudoHuber, Huber, L1, L2, Cauchy].")
+     "Load a control network from a file (optional).")
+    ("cost-function", po::value(&opt.cost_function)->default_value("Cauchy"),
+     "Choose a robust cost function from [Cauchy, PseudoHuber, Huber, L1, L2].")
     ("bundle-adjuster", po::value(&opt.ba_type)->default_value("Ceres"),
      "Choose a solver from [Ceres, RobustSparse, RobustRef, Sparse, Ref].")
     ("session-type,t", po::value(&opt.stereo_session_string)->default_value(""),
@@ -356,14 +370,14 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
     ("lambda,l", po::value(&opt.lambda)->default_value(-1),
      "Set the initial value of the LM parameter lambda.")
-    ("robust-threshold", po::value(&opt.robust_threshold)->default_value(1.0),
+    ("robust-threshold", po::value(&opt.robust_threshold)->default_value(0.5),
      "Set the threshold for robust cost functions.")
     ("min-matches", po::value(&opt.min_matches)->default_value(30),
      "Set the minimum  number of matches between images that will be considered.")
     ("max-iterations", po::value(&opt.max_iterations)->default_value(100), "Set the maximum number of iterations.")
     ("report-level,r",po::value(&opt.report_level)->default_value(10),
-     "Changes the detail of the Bundle Adjustment Report")
-    ("save-iteration-data,s", "Saves all camera information between iterations to iterCameraParam.txt, it also saves point locations for all iterations in iterPointsParam.txt.");
+     "Use a value >= 20 to get incresingly more verbose output.")
+    ("save-iteration-data,s", "Saves all camera information between iterations to output-prefix-iterCameraParam.txt, it also saves point locations for all iterations in output-prefix-iterPointsParam.txt.");
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
@@ -390,6 +404,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   // Create the output directory 
   asp::create_out_dir(opt.out_prefix);
     
+  // Turn on logging to file
+  asp::log_to_file(argc, argv, "", opt.out_prefix);
+
   opt.save_iteration = vm.count("save-iteration-data");
   boost::to_lower( opt.stereo_session_string );
   boost::to_lower( opt.ba_type );
@@ -473,7 +490,7 @@ int main(int argc, char* argv[]) {
                              );
       add_ground_control_points( (*opt.cnet), opt.image_files,
                                  opt.gcp_files.begin(), opt.gcp_files.end() );
-
+      
       opt.cnet->write_binary(opt.out_prefix + "-control");
     } else  {
       vw_out() << "Loading control network from file: "
@@ -495,7 +512,9 @@ int main(int argc, char* argv[]) {
     }
     
     typedef BundleAdjustmentModel ModelType;
-    if ( opt.cost_function == "pseudohuber" ) {
+    if ( opt.cost_function == "cauchy" ) {
+      do_ba_costfun<ModelType, CauchyError>( CauchyError(opt.robust_threshold), opt );
+    }else if ( opt.cost_function == "pseudohuber" ) {
       do_ba_costfun<ModelType, PseudoHuberError>( PseudoHuberError(opt.robust_threshold), opt );
     } else if ( opt.cost_function == "huber" ) {
       do_ba_costfun<ModelType, HuberError>( HuberError(opt.robust_threshold), opt );
@@ -503,11 +522,9 @@ int main(int argc, char* argv[]) {
       do_ba_costfun<ModelType, L1Error>( L1Error(), opt );
     } else if ( opt.cost_function == "l2" ) {
       do_ba_costfun<ModelType, L2Error>( L2Error(), opt );
-    } else if ( opt.cost_function == "cauchy" ) {
-      do_ba_costfun<ModelType, CauchyError>( CauchyError(opt.robust_threshold), opt );
     }else{
       vw_throw( ArgumentErr() << "Unknown cost function: " << opt.cost_function
-                << ". Options are: PseudoHuber, Huber, L1, L2, Cauchy.\n" );
+                << ". Options are: Cauchy, PseudoHuber, Huber, L1, L2.\n" );
     }
       
   } ASP_STANDARD_CATCHES;
