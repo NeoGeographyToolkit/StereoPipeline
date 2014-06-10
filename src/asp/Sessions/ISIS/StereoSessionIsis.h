@@ -26,10 +26,10 @@
 #include <asp/asp_config.h>
 #include <vw/Stereo/StereoModel.h>
 
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+
 // Isis Headers
 #include <SpecialPixel.h>
-
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
 
 namespace asp {
 
@@ -163,7 +163,7 @@ namespace asp {
                              std::string const& match_filename,
                              vw::camera::CameraModel* cam1,
                              vw::camera::CameraModel* cam2);
-    
+
     // Stage 1: Preprocessing
     //
     // Pre file is a pair of images.            ( ImageView<PixelT> )
