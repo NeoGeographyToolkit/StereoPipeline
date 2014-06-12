@@ -488,7 +488,9 @@ string get_file_type(string const& file_name){
   boost::filesystem::path path(file_name);
   string ext = boost::filesystem::extension(path);
   boost::algorithm::to_lower(ext);
-  if (boost::iequals(ext, ".tif") || boost::iequals(ext, ".ntf")){
+  if (boost::iequals(ext, ".csv") || boost::iequals(ext, ".txt")){
+    return "CSV";
+  }else{
     int nc = asp::get_num_channels(file_name);
     if (nc == 1)
       return "DEM";
@@ -496,10 +498,7 @@ string get_file_type(string const& file_name){
       return "PC";
     vw_throw(ArgumentErr() << "File: " << file_name
              << " is neither a point cloud nor a DEM.\n");
-  }else if (boost::iequals(ext, ".csv") || boost::iequals(ext, ".txt")){
-    return "CSV";
-  }
-  vw_throw( ArgumentErr() << "Unknown file type: " << file_name << "\n" );
+  }    
 }
 
 void read_datum(Options& opt, CsvConv& csv_conv, Datum& datum){
