@@ -353,7 +353,18 @@ namespace asp {
                   << "The images were map-projected with another option "
                   << "than -t rpc.\n");
       }
-      
+    }
+    
+    if (stereo_settings().corr_kernel[0]%2 == 0 ||
+        stereo_settings().corr_kernel[1]%2 == 0 ){
+      vw_throw( ArgumentErr()
+                << "The entries of corr-kernel must be odd numbers.\n");
+    }
+    
+    if (stereo_settings().subpixel_kernel[0]%2 == 0 ||
+        stereo_settings().subpixel_kernel[1]%2 == 0 ){
+      vw_throw( ArgumentErr()
+                << "The entries of subpixel-kernel must be odd numbers.\n");
     }
     
     // Camera checks
