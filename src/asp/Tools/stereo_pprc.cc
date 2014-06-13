@@ -414,15 +414,15 @@ void stereo_preprocessing( Options& opt ) {
 
 int main(int argc, char* argv[]) {
 
-  vw_out() << "\n[ " << current_posix_time_string()
-           << " ] : Stage 0 --> PREPROCESSING \n";
-  
   stereo_register_sessions();
   Options opt;
   try {
     handle_arguments( argc, argv, opt,
                       PreProcessingDescription() );
 
+    vw_out() << "\n[ " << current_posix_time_string()
+             << " ] : Stage 0 --> PREPROCESSING \n";
+    
     // Internal Processes
     //---------------------------------------------------------
     vw_out() << "Using \"" << opt.stereo_default_filename << "\"\n";

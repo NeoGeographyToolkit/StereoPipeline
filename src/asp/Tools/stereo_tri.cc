@@ -525,9 +525,6 @@ void stereo_triangulation( Options const& opt ) {
 
 int main( int argc, char* argv[] ) {
 
-  vw_out() << "\n[ " << current_posix_time_string()
-           << " ] : Stage 4 --> TRIANGULATION \n";
-
   stereo_register_sessions();
 
   Options opt;
@@ -540,6 +537,9 @@ int main( int argc, char* argv[] ) {
     int ts = Options::tri_tile_size();
     opt.raster_tile_size = Vector2i(ts, ts);
 
+    vw_out() << "\n[ " << current_posix_time_string()
+             << " ] : Stage 4 --> TRIANGULATION \n";
+    
     // Internal Processes
     //---------------------------------------------------------
 #define INSTANTIATE(T,NAME) if ( opt.session->name() == NAME ) { stereo_triangulation<T>(opt); }

@@ -384,8 +384,6 @@ void stereo_refinement( Options const& opt ) {
 
 int main(int argc, char* argv[]) {
 
-  vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 2 --> REFINEMENT \n";
-
   stereo_register_sessions();
   Options opt;
   try {
@@ -397,12 +395,13 @@ int main(int argc, char* argv[]) {
     int ts = Options::rfne_tile_size();
     opt.raster_tile_size = Vector2i(ts, ts);
 
+    vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 2 --> REFINEMENT \n";
+
     // Internal Processes
     //---------------------------------------------------------
     stereo_refinement( opt );
 
-    vw_out() << "\n[ " << current_posix_time_string()
-             << " ] : REFINEMENT FINISHED \n";
+    vw_out() << "\n[ " << current_posix_time_string() << " ] : REFINEMENT FINISHED \n";
 
   } ASP_STANDARD_CATCHES;
 
