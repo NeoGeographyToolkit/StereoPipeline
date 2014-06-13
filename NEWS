@@ -20,7 +20,8 @@
   - pc_align:
     * Ability to read and write CSV files having UTM data (easting,
       northing, height above datum).
- 
+    * Read DEMs in the ISIS cube format.
+
 *** RELEASE 2.4.0, 28 April, 2014 ***
 
   - Added wv_correct, a tool for correcting artifacts in Digital Globe
