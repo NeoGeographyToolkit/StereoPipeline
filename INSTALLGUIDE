@@ -30,8 +30,7 @@ The following packages need to be installed in order to build Stereo
 Pipeline:
 
 Python (version >= 2.6.1)
-g++ (version >= 4.4.7)
-gfortran 
+g++, gfortran (version >= 4.4.7)
 csh
 libtool
 autoconf
@@ -64,8 +63,12 @@ sudo yum -y install gcc-c++ gcc-gfortran tcsh libtool autoconf    \
   libXext-devel libXmu libXmu-devel libXi-devel mesa-libGL-devel  \
   freeglut-devel 
 
-(If your git install fails, you may need to enable the EPEL repository.)
+If your git install fails on Red Hat, you may need to enable the EPEL
+repository.
 
+It is important to check that the gcc, g++, and gfortran versions
+are as above.
+ 
 2. Base dependencies - MAC
 
 First install Homebrew or Macports, if you do not already have it.
