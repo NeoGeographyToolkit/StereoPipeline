@@ -38,6 +38,13 @@
 
 namespace vw { namespace cartography {
 
+  class compare_bboxes { // simple comparison function
+  public:
+    bool operator()(const BBox2i A, const BBox2i B) {
+      return ( A.min().x() < B.min().x() );
+    }
+  };
+  
   // If the third component of a vector is NaN, mask that vector as invalid
   template<class VectorT>
   struct NaN2Mask: public ReturnFixedType< PixelMask<VectorT> > {
@@ -449,7 +456,9 @@ namespace vw { namespace cartography {
     inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
 
       BBox2i bbox_1 = bbox;
-      bbox_1.expand(5); // bugfix, ensure we see enough beyond current tile
+      
+      // bugfix, ensure we see enough beyond current tile
+      bbox_1.expand((int)ceil(std::max(m_search_radius_factor, 5.0)));
       
       // Used to find which polygons are actually in the draw space.
       BBox3 local_3d_bbox = pixel_to_point_bbox(bbox_1);
@@ -509,16 +518,36 @@ namespace vw { namespace cartography {
         point2grid.Clear(min_val);
       }
       
-      // From the box in the DEM pixel space, get the box in the point
-      // cloud pixel space.
+      // For each block in the DEM space intersecting local_3d_bbox,
+      // find the corresponding block in the point cloud space.  We
+      // use here a map since we'd like to group together the point
+      // cloud blocks which fall within the same 256 x 256 block, to
+      // do their union instead of them individually, for reasons of
+      // speed.
+      std::map<BBox2i, BBox2i, compare_bboxes> blocks_map;
       BBox2i point_image_boundary;
       std::vector<double> cx, cy; // box centers in the point cloud pixel space
       BOOST_FOREACH( BBoxPair const& boundary,
                      m_point_image_boundaries ) {
         if (! local_3d_bbox.intersects(boundary.first) ) continue;
-        point_image_boundary.grow( boundary.second );
-        cx.push_back((boundary.second.min().x()+boundary.second.max().x())/2.0);
-        cy.push_back((boundary.second.min().y()+boundary.second.max().y())/2.0);
+
+        BBox2i pc_block = boundary.second;
+        
+        BBox2i snapped_block;
+        snapped_block.min()
+          = m_block_size*floor(pc_block.min()/double(m_block_size));
+        snapped_block.max()
+          = m_block_size*ceil(pc_block.max()/double(m_block_size));
+        std::map<BBox2i, BBox2i, compare_bboxes>::iterator it = blocks_map.find(snapped_block);
+        if (it != blocks_map.end() ){
+          (it->second).grow(pc_block);
+        }else{
+          blocks_map.insert(std::pair<BBox2, BBox2>(snapped_block, pc_block));
+        }
+
+        point_image_boundary.grow( pc_block );
+        cx.push_back((pc_block.min().x()+pc_block.max().x())/2.0);
+        cy.push_back((pc_block.min().y()+pc_block.max().y())/2.0);
       }
 
       // In some cases, the memory usage blows up due to noisy points
@@ -546,7 +575,7 @@ namespace vw { namespace cartography {
         smaller_boundary.expand(1); // to compensate for casting to int above
         point_image_boundary.crop(smaller_boundary);
       }
-      
+
       if ( point_image_boundary.empty() ){
         if (m_use_surface_sampling){
           return CropView<ImageView<pixel_type> >( render_buffer,
@@ -560,47 +589,47 @@ namespace vw { namespace cartography {
                                                           cols(), rows()) );
         }
       }
-
-      int bias = 5; // This minimum bias is a bugfix, to see enough data
-      if (!m_use_surface_sampling){
-        // Bias to ensure we see enough points to average
-        bias = std::max(bias, (int)ceil(2.0*search_radius/min_spacing));
-      }
-      point_image_boundary.expand(bias);
-      point_image_boundary.crop(vw::bounding_box(m_point_image));
-
-      // If point_image_boundary is big, subdivide it into blocks
+      
+      // If blocks are too big, subdivide them to save on memory
       // to save on memory.
       int max_tile_size = 512; 
       std::vector<BBox2i> blocks;
-      if (point_image_boundary.width()  >= 2*max_tile_size ||
-          point_image_boundary.height() >= 2*max_tile_size
-          ){
-        BBox2i tile_box;
-        tile_box.min()
-          = m_block_size*floor(point_image_boundary.min()/double(m_block_size));
-        tile_box.max()
-          = m_block_size*ceil(point_image_boundary.max()/double(m_block_size));
-        blocks =
-          image_blocks( tile_box, max_tile_size, max_tile_size);
-      }else{
-        blocks.push_back(point_image_boundary);
-      }
+      for (std::map<BBox2i, BBox2i, compare_bboxes>::iterator it = blocks_map.begin();
+           it != blocks_map.end(); it++){
 
+        BBox2i block = it->second;
+        block.crop(point_image_boundary); // part of the fix for large memory usage above
+        
+        if (block.width()  >= 2*max_tile_size ||
+            block.height() >= 2*max_tile_size
+            ){
+          std::vector<BBox2i> local_blocks =
+            image_blocks( block, max_tile_size, max_tile_size);
+          for (int k = 0; k < (int)local_blocks.size(); k++){
+            blocks.push_back(local_blocks[k]);
+          }
+        }else{
+          blocks.push_back(block);
+        }
+      }
+      
       // This is very important. When doing surface sampling, for each
       // pixel we need to see its next up and right neighbors.
       int d = (int)m_use_surface_sampling;
       
       for (int i = 0; i < (int)blocks.size(); i++){
 
-        blocks[i].max() += Vector2i(d, d);
-        blocks[i].crop(point_image_boundary);
+        BBox2i block = blocks[i];
+        if (block.empty()) continue;
+
+        block.max() += Vector2i(d, d);
+        block.crop(vw::bounding_box(m_point_image));
         
         // Pull a copy of the input image in memory
         ImageView<typename ImageT::pixel_type> point_copy;
 
         if (m_hole_fill_len == 0)
-          point_copy = crop(m_point_image, blocks[i] );
+          point_copy = crop(m_point_image, block );
         else
           point_copy = crop(per_pixel_filter
                             (fill_holes
@@ -610,13 +639,13 @@ namespace vw { namespace cartography {
                               m_hole_fill_mode, m_hole_fill_num_smooth_iter,
                               m_hole_fill_len),
                              Mask2NaN<typename ImageT::pixel_type>()),
-                            blocks[i]);
+                            block);
         
-        ImageView<float> texture_copy = crop(m_texture, blocks[i] );
+        ImageView<float> texture_copy = crop(m_texture, block );
 
         ImageView<float> error_copy;
         if (m_error_cutoff >= 0.0)
-          error_copy = crop(m_error_image, blocks[i] );
+          error_copy = crop(m_error_image, block );
         
         typedef typename ImageView<typename ImageT::pixel_type>::pixel_accessor
           PointAcc;
