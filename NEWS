@@ -16,6 +16,7 @@
  
   - point2dem
     * Bugfix, longitude could be off by 360 degrees.
+    * Robustness to large jumps in point cloud values.
 
   - pc_align:
     * Ability to read and write CSV files having UTM data (easting,
