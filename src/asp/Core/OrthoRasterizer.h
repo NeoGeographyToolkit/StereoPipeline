@@ -121,7 +121,7 @@ namespace vw { namespace cartography {
     // We could actually use a quadtree here .. but this should be a
     // good enough improvement.
     typedef std::pair<BBox3, BBox2i> BBoxPair;
-    std::vector<BBoxPair > m_point_image_boundaries;
+    std::vector<BBoxPair> m_point_image_boundaries;
     // These boundaries describe a point cloud 3D boundaries and then
     // their location in the the point cloud image. These boxes are
     // overlapping in the pc image X/Y domain to insure that
@@ -519,14 +519,12 @@ namespace vw { namespace cartography {
       }
       
       // For each block in the DEM space intersecting local_3d_bbox,
-      // find the corresponding block in the point cloud space.  We
+      // find the corresponding blocks in the point cloud space.  We
       // use here a map since we'd like to group together the point
-      // cloud blocks which fall within the same 256 x 256 block, to
-      // do their union instead of them individually, for reasons of
+      // cloud blocks which fall within the same 256 x 256 tile, to do
+      // their union instead of them individually, for reasons of
       // speed.
       std::map<BBox2i, BBox2i, compare_bboxes> blocks_map;
-      BBox2i point_image_boundary;
-      std::vector<double> cx, cy; // box centers in the point cloud pixel space
       BOOST_FOREACH( BBoxPair const& boundary,
                      m_point_image_boundaries ) {
         if (! local_3d_bbox.intersects(boundary.first) ) continue;
@@ -545,38 +543,9 @@ namespace vw { namespace cartography {
           blocks_map.insert(std::pair<BBox2, BBox2>(snapped_block, pc_block));
         }
 
-        point_image_boundary.grow( pc_block );
-        cx.push_back((pc_block.min().x()+pc_block.max().x())/2.0);
-        cy.push_back((pc_block.min().y()+pc_block.max().y())/2.0);
       }
 
-      // In some cases, the memory usage blows up due to noisy points
-      // in the cloud. Then, roughly estimate how much of the input
-      // point cloud region we need to see for the given DEM tile, and
-      // multiply that region by a factor of FACTOR. Place that region
-      // at the median of the centers of the boxes used to grow the
-      // image boundary earlier, and intersect that with the current
-      // box. This will not kick in unless point_image_boundary
-      // estimated above is grossly larger than what it should be.
-      int FACTOR = 3;
-      double min_spacing = std::min(m_default_spacing_x, m_default_spacing_y);
-      Vector2 estim = FACTOR*Vector2(local_3d_bbox.width()/min_spacing,
-                                     local_3d_bbox.height()/min_spacing);
-      if (!cx.empty() &&
-          (point_image_boundary.width()  > estim[0] ||
-           point_image_boundary.height() > estim[1])
-          ){
-        std::sort(cx.begin(), cx.end());
-        std::sort(cy.begin(), cy.end());
-        int midx = (int)round(cx[cx.size()/2]);
-        int midy = (int)round(cy[cy.size()/2]);
-        BBox2i smaller_boundary(midx - estim[0]/2, midy - estim[1]/2,
-                                estim[0], estim[1] );
-        smaller_boundary.expand(1); // to compensate for casting to int above
-        point_image_boundary.crop(smaller_boundary);
-      }
-
-      if ( point_image_boundary.empty() ){
+      if ( blocks_map.empty() ){
         if (m_use_surface_sampling){
           return CropView<ImageView<pixel_type> >( render_buffer,
                                                    BBox2i(-bbox_1.min().x(),
@@ -590,37 +559,14 @@ namespace vw { namespace cartography {
         }
       }
       
-      // If blocks are too big, subdivide them to save on memory
-      // to save on memory.
-      int max_tile_size = 512; 
-      std::vector<BBox2i> blocks;
-      for (std::map<BBox2i, BBox2i, compare_bboxes>::iterator it = blocks_map.begin();
-           it != blocks_map.end(); it++){
-
-        BBox2i block = it->second;
-        block.crop(point_image_boundary); // part of the fix for large memory usage above
-        
-        if (block.width()  >= 2*max_tile_size ||
-            block.height() >= 2*max_tile_size
-            ){
-          std::vector<BBox2i> local_blocks =
-            image_blocks( block, max_tile_size, max_tile_size);
-          for (int k = 0; k < (int)local_blocks.size(); k++){
-            blocks.push_back(local_blocks[k]);
-          }
-        }else{
-          blocks.push_back(block);
-        }
-      }
-      
       // This is very important. When doing surface sampling, for each
       // pixel we need to see its next up and right neighbors.
       int d = (int)m_use_surface_sampling;
       
-      for (int i = 0; i < (int)blocks.size(); i++){
-
-        BBox2i block = blocks[i];
-        if (block.empty()) continue;
+      for (std::map<BBox2i, BBox2i, compare_bboxes>::iterator it = blocks_map.begin();
+           it != blocks_map.end(); it++){
+        
+        BBox2i block = it->second;
 
         block.max() += Vector2i(d, d);
         block.crop(vw::bounding_box(m_point_image));
