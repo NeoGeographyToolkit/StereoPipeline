@@ -296,7 +296,6 @@ def sprawn_to_nodes(step, settings, args):
     tmpFile = tempfile.NamedTemporaryFile(delete=True, dir='.')
     f = open(tmpFile.name, 'w')
     for i in range(len(tiles)):
-        print("--writing: ", i, tmpFile.name)
         f.write("%d\n" % i)
     f.close()
 
