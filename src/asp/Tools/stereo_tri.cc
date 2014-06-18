@@ -86,61 +86,6 @@ namespace asp{
 
 }
 
-// class LargeTriErrorFilter
-// Input: A vector, representing a point in a point cloud. First three
-// elements of the vector are the xyz coordinates of the
-// point. Subsequent elements are the triangulation error, either as a
-// scalar (the norm of the error) or as a vector (the error itself).
-// Output: The same point if the triangulation error is <=
-// max_valid_triangulation_error, and the zero vector otherwise.
-
-class LargeTriErrorFilter: public vw::UnaryReturnSameType {
-private:
-
-  double m_max_valid_triangulation_error;
-
-public:
-  LargeTriErrorFilter(double max_valid_triangulation_error): m_max_valid_triangulation_error(max_valid_triangulation_error){
-    VW_ASSERT(m_max_valid_triangulation_error > 0,
-              vw::ArgumentErr() << "LargeTriErrorFilter: max-valid-triangulation error must be positive.");
-  }
-
-  // A version without triangulation error
-  template <class ElemT>
-  Vector<ElemT,3> operator() (Vector<ElemT,3> const& pix) const {
-    return pix;
-  }
-
-  // A version with norm of triangulation error
-  template <class ElemT>
-  Vector<ElemT,4> operator() (Vector<ElemT,4> const& pix) const {
-    if (subvector(pix,0,3) != Vector<ElemT,3>() ) {
-      double err = norm_2(subvector(pix,3,pix.size() - 3));
-      if (err > m_max_valid_triangulation_error) {
-        return Vector<ElemT,4>();
-      } else {
-        return pix;
-      }
-    }
-    return Vector<ElemT,4>();
-  }
-  
-  // A version with 3D triangulation error
-  template <class ElemT>
-  Vector<ElemT,6> operator() (Vector<ElemT,6> const& pix) const {
-    if (subvector(pix,0,3) != Vector<ElemT,3>() ) {
-      double err = norm_2(subvector(pix,3,pix.size() - 3));
-      if (err > m_max_valid_triangulation_error) {
-        return Vector<ElemT,6>();
-      } else {
-        return pix;
-      }
-    }
-    return Vector<ElemT,6>();
-  }
-    
-};
-
 template <class DisparityImageT, class TX1T, class TX2T, class StereoModelT>
 class StereoTXAndErrorView : public ImageViewBase<StereoTXAndErrorView<DisparityImageT, TX1T, TX2T, StereoModelT> >
 {
@@ -487,11 +432,6 @@ void stereo_triangulation( Options const& opt ) {
       return;
     }
 
-    double min_tri_err = stereo_settings().max_valid_triangulation_error;
-    if (min_tri_err > 0)
-      point_cloud = per_pixel_filter(point_cloud,
-                                     LargeTriErrorFilter(min_tri_err));
-    
     // We are supposed to do the triangulation in trans_crop_win only.
     // So force rasterization in that box only using crop(), then pad
     // with zeros, as we want to have the point cloud to have the same
