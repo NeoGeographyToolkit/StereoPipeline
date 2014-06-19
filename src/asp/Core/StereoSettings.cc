@@ -206,8 +206,8 @@ namespace asp {
                                             "Use rigorous least squares triangulation process. This is slow for ISIS processes.")
       ("bundle-adjust-prefix", po::value(&global.bundle_adjust_prefix),
        "Use the camera adjustments obtained by previously running bundle_adjust with this output prefix.")
-      ("point-cloud-rounding-error",        po::value(&global.point_cloud_rounding_error)->default_value(asp::APPROX_ONE_MM),
-                                            "How much to round the output point cloud values, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")
+      ("point-cloud-rounding-error",        po::value(&global.point_cloud_rounding_error)->default_value(0.0),
+                                            "How much to round the output point cloud values, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. Default: 1/2^10 for Earth and proportionally less for smaller bodies.")
       ("save-double-precision-point-cloud", po::bool_switch(&global.save_double_precision_point_cloud)->default_value(false)->implicit_value(true),
                                             "Save the final point cloud in double precision rather than bringing the points closer to origin and saving as float (marginally more precision at twice the storage).")
       ("compute-point-cloud-center-only",   po::bool_switch(&global.compute_point_cloud_center_only)->default_value(false)->implicit_value(true),
