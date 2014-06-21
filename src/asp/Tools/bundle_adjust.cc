@@ -85,19 +85,20 @@ struct Options : public asp::BaseOptions {
   std::vector<boost::shared_ptr<CameraModel> > camera_models;
 };
 
-// Ceres cost function. Templated by the BundleAdjust model. We pass
+// A ceres cost function. Templated by the BundleAdjust model. We pass
 // in the observation, the model, and the current camera and point
 // indices. The result is the residual, the difference in the
-// observation and the projection of the point into the camera.
+// observation and the projection of the point into the camera,
+// normalized by pixel_sigma.
 template<class ModelT>
 struct BaReprojectionError {
-  BaReprojectionError(double observed_x, double observed_y, ModelT * const ba_model,
-                      size_t icam, size_t ipt)
-    : m_observed_x(observed_x),
-      m_observed_y(observed_y),
-      m_ba_model(ba_model),
-      m_icam(icam), m_ipt(ipt){}
-
+  BaReprojectionError(Vector2 const& observation, Vector2 const& pixel_sigma,
+                      ModelT * const ba_model, size_t icam, size_t ipt):
+    m_observation(observation),
+    m_pixel_sigma(pixel_sigma),
+    m_ba_model(ba_model),
+    m_icam(icam), m_ipt(ipt){}
+  
   template <typename T>
   bool operator()(const T* const camera,
                   const T* const point,
@@ -114,15 +115,18 @@ struct BaReprojectionError {
       // Copy the input data to structures expected by the BA model
       typename ModelT::camera_vector_t camera_vec;
       typename ModelT::point_vector_t  point_vec;
-      for (size_t c = 0; c < camera_vec.size(); c++) camera_vec[c] = (double)camera[c];
-      for (size_t p = 0; p < point_vec.size(); p++)  point_vec[p]  = (double)point[p];
+      for (size_t c = 0; c < camera_vec.size(); c++)
+        camera_vec[c] = (double)camera[c];
+      for (size_t p = 0; p < point_vec.size(); p++)
+        point_vec[p]  = (double)point[p];
 
       // Project the current point into the current camera
       Vector2 prediction = (*m_ba_model)(m_ipt, m_icam, camera_vec, point_vec);
       
-      // The error is the difference between the predicted and observed position.
-      residuals[0] = prediction[0] - m_observed_x;
-      residuals[1] = prediction[1] - m_observed_y;
+      // The error is the difference between the predicted and observed position,
+      // normalized by sigma.
+      residuals[0] = (prediction[0] - m_observation[0])/m_pixel_sigma[0];
+      residuals[1] = (prediction[1] - m_observation[1])/m_pixel_sigma[1];
 
     } catch (const camera::PixelToRayErr& e) {
       // Failed to project into the camera
@@ -136,28 +140,73 @@ struct BaReprojectionError {
 
   // Factory to hide the construction of the CostFunction object from
   // the client code.
-  static ceres::CostFunction* Create(double observed_x,
-                                     double observed_y,
+  static ceres::CostFunction* Create(Vector2 const& observation,
+                                     Vector2 const& pixel_sigma,
                                      ModelT * const ba_model,
-                                     size_t icam, size_t ipt // camera and point indices
-                                     ) {
-    //return (new ceres::AutoDiffCostFunction<BaReprojectionError, 2, ModelT::camera_params_n, ModelT::point_params_n>(new BaReprojectionError(observed_x, observed_y, ba_model, icam, ipt)));
-    return (new ceres::NumericDiffCostFunction<BaReprojectionError, ceres::CENTRAL, 2, ModelT::camera_params_n, ModelT::point_params_n>(new BaReprojectionError(observed_x, observed_y, ba_model, icam, ipt)));
+                                     size_t icam, // camera index
+                                     size_t ipt // point index
+                                     ){
+    return (new ceres::NumericDiffCostFunction<BaReprojectionError, ceres::CENTRAL, 2, ModelT::camera_params_n, ModelT::point_params_n>(new BaReprojectionError(observation, pixel_sigma, ba_model, icam, ipt)));
     
   }
   
-  double m_observed_x;
-  double m_observed_y;
+  Vector2 m_observation;
+  Vector2 m_pixel_sigma;
   ModelT * const m_ba_model;
   size_t m_icam, m_ipt;
 };
+
+// A ceres cost function. The residual is the difference between the
+// observed 3D point and the current (floating) 3D point, normalized by
+// xyz_sigma. Used only for ground control points.
+struct XYZError {
+  XYZError(Vector3 const& observation, Vector3 const& xyz_sigma):
+    m_observation(observation), m_xyz_sigma(xyz_sigma){}
+  
+  template <typename T>
+  bool operator()(const T* const point, T* residuals) const {
+    for (size_t p = 0; p < m_observation.size(); p++)
+      residuals[p] = ((double)point[p] - m_observation[p])/m_xyz_sigma[p];
+    
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(Vector3 const& observation,
+                                     Vector3 const& xyz_sigma){
+    return (new ceres::NumericDiffCostFunction<XYZError, ceres::CENTRAL, 3, 3>(new XYZError(observation, xyz_sigma)));
+    
+  }
+  
+  Vector3 m_observation;
+  Vector3 m_xyz_sigma;
+};
+
+ceres::LossFunction* get_loss_function(Options const& opt ){
+  double th = opt.robust_threshold;
+  ceres::LossFunction* loss_function;
+  if      ( opt.cost_function == "l2"     )
+    loss_function = NULL;
+  else if ( opt.cost_function == "huber"  )
+    loss_function = new ceres::HuberLoss(th);
+  else if ( opt.cost_function == "cauchy" )
+    loss_function = new ceres::CauchyLoss(th);
+  else if ( opt.cost_function == "l1"     )
+    loss_function = new ceres::SoftLOneLoss(th);
+  else{
+    vw_throw( ArgumentErr() << "Unknown cost function: " << opt.cost_function
+              << " used with solver: " << opt.ba_type << ".\n" );
+  }
+  return loss_function;
+}
 
 // Use Ceres to do bundle adjustment. The camera and point variables
 // are stored in arrays.  The projection of point into camera is
 // accomplished by interfacing with the bundle adjustment model. In
 // the future this class can be bypassed.
 template <class ModelT>
-void do_ba_ceres(ModelT & ba_model, Options const& opt ) {
+void do_ba_ceres(ModelT & ba_model, Options const& opt ){
 
   ControlNetwork & cnet = *(ba_model.control_network().get());
   CameraRelationNetwork<JFeature> crn;
@@ -174,15 +223,20 @@ void do_ba_ceres(ModelT & ba_model, Options const& opt ) {
   std::vector<double> cameras_vec(num_cameras*num_camera_params, 0.0);
   double* cameras = &cameras_vec[0];
   std::vector<double> points_vec(num_points*num_point_params, 0.0);
-  for (size_t p = 0; p < num_points; p++){
+  for (size_t ipt = 0; ipt < num_points; ipt++){
     for (size_t q = 0; q < num_point_params; q++){
-      points_vec[p*num_point_params + q] = (*opt.cnet)[p].position()[q];
+      points_vec[ipt*num_point_params + q] = cnet[ipt].position()[q];
     }
   }
   double* points = &points_vec[0];
 
-  // Set up the cost function
+  // This copy of the points will not change during optimization,
+  // they are the observations.
+  std::vector<double> points_obs = points_vec;
+  
   ceres::Problem problem;
+  
+  // Add the cost function component for difference of pixel observations
   typedef CameraNode<JFeature>::iterator crn_iter;
   for ( size_t icam = 0; icam < crn.size(); icam++ ) {
     for ( crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++ ) {
@@ -198,23 +252,14 @@ void do_ba_ceres(ModelT & ba_model, Options const& opt ) {
       // The observed value for the projection of point with index ipt into
       // the camera with index icam.
       Vector2 observation = (**fiter).m_location;
+      Vector2 pixel_sigma = (**fiter).m_scale;
       
       ceres::CostFunction* cost_function =
-        BaReprojectionError<ModelT>::Create(observation[0], observation[1],
+        BaReprojectionError<ModelT>::Create(observation, pixel_sigma,
                                             &ba_model, icam, ipt);
 
-      // If enabled use Huber's loss function.
-      double th = opt.robust_threshold;
-      ceres::LossFunction* loss_function;
-      if      ( opt.cost_function == "l2"     ) loss_function = NULL;
-      else if ( opt.cost_function == "huber"  ) loss_function = new ceres::HuberLoss(th);
-      else if ( opt.cost_function == "cauchy" ) loss_function = new ceres::CauchyLoss(th);
-      else if ( opt.cost_function == "l1"     ) loss_function = new ceres::SoftLOneLoss(th);
-      else{
-        vw_throw( ArgumentErr() << "Unknown cost function: " << opt.cost_function
-                  << " used with solver: " << opt.ba_type << ".\n" );
-      }
-      
+      ceres::LossFunction* loss_function = get_loss_function(opt);
+
       // Each observation corresponds to a pair of a camera and a point
       // which are identified by indices icam and ipt respectively.
       double * camera = cameras + num_camera_params * icam;
@@ -224,6 +269,22 @@ void do_ba_ceres(ModelT & ba_model, Options const& opt ) {
     }
   }
 
+  // Add ground control points
+  for (size_t ipt = 0; ipt < num_points; ipt++){
+    if (cnet[ipt].type() != ControlPoint::GroundControlPoint) continue;
+
+    Vector3 observation = cnet[ipt].position();
+    Vector3 xyz_sigma = cnet[ipt].sigma();
+
+    ceres::CostFunction* cost_function =
+      XYZError::Create(observation, xyz_sigma);
+    
+    ceres::LossFunction* loss_function = get_loss_function(opt);
+    
+    double * point  = points  + num_point_params  * ipt;
+    problem.AddResidualBlock(cost_function, loss_function, point);
+  }
+  
   // Solve the problem
   ceres::Solver::Options options;
   options.gradient_tolerance = 1e-16;
