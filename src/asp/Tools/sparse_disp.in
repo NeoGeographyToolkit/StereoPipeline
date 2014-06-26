@@ -987,7 +987,7 @@ def main():
     over a wide search window (size xsearch by ysearch).  Based on matches from
     this coarse grid, estimate an epipolar vector (the largest eigenvector of
     the disparity vectors) and a tolerance for disparities to be parallel to
-    this vector.
+    this vector (use max (16 pix, 90th percentile of differeces)).
 
     Next, refine points for which the range of disparities among the
     neighbors are larger than tolerance refine_tol.  Refinement consists
@@ -1136,16 +1136,6 @@ def main():
     s_ny=options.s_ny
     t_pixels=options.t_pixels
 
-    if options.epipolar_axis is not None:
-        ep_vec_initial=np.zeros([1,2])
-        ep_vec_initial[options.epipolar_axis]=1.
-        if options.epipolar_axis==0:
-            s_ny=np.min([s_ny, s_nx/10.]);
-        else:
-            s_nx=np.min([s_nx, s_ny/10.]);
-    else:
-        ep_vec_initial=None
-
     out_dir=os.path.dirname(output_prefix)
     if len(out_dir)==0: out_dir='.'
     if not os.path.exists(out_dir): os.mkdir(out_dir)
@@ -1214,7 +1204,6 @@ def main():
 
 
     # make sparse matrices for storing dx and dy values, store initial values
-    im_shape=[ftm.Ny, ftm.Nx]
     dx_mat=coo_matrix((dxy[good,0],(xy[good,1],xy[good,0])), shape=im_shape).tocsr()
     dy_mat=coo_matrix((dxy[good,1],(xy[good,1],xy[good,0])), shape=im_shape).tocsr()
     C_mat=coo_matrix(((C[good]).ravel(), (xy[good,1], xy[good,0])), shape=im_shape).tocsr()
@@ -1228,7 +1217,7 @@ def main():
 
     dxy_score=nbhd_range(np.arange(0, all_pts.shape[0]), dx_mat, dy_mat, tri, pt_dict)
     refine_pts=np.arange(0, xy_list.shape[0] )
-    # define the pattern of pixel centers to refineat each steps.  Duplicates
+    # define the pattern of pixel centers to refine at each steps.  Duplicates
     # will be deleted.
     refine_x=np.array([-1.,  0.,  1., -1.,  1., -1., 0., 1.])
     refine_y=np.array([-1., -1., -1.,  0.,  0.,  1., 1., 1.]);
@@ -1241,7 +1230,6 @@ def main():
             recalc_nbhd_range=True
             break
         # add neighbors of the last set of points to the list
-        #sc=plt.scatter(all_pts[refine_pts,0], all_pts[refine_pts,1], c=dxy_score[:,1]-dxy_score[:,0]); plt.axis('equal'); plt.colorbar(sc)
         new_x=(np.tile(all_pts[refine_pts, 0], [8,1]).transpose()+refine_x*delta_x).ravel()
         new_y=(np.tile(all_pts[refine_pts, 1], [8,1]).transpose()+refine_y*delta_x).ravel()
         # the search range for the new points is set based on the min and max of the dxy_scores of the refined points
@@ -1250,16 +1238,14 @@ def main():
                        np.tile(dxy_score[:,2], [8,1]).transpose().ravel(),
                        np.tile(dxy_score[:,3], [8,1]).transpose().ravel()]).transpose()
 
-        # define min and max pt indices
-        x_lims=np.array([1, im_shape[1]-1])
-        y_lims=np.array([1, im_shape[0]-1])
-        # clamp range of x and y to these indices
+        # clamp range of x and y to min and max pt indices
         new_x[new_x > x_lims[1]]=x_lims[1]
         new_x[new_x < 0 ]=x_lims[0]
         new_y[new_y > y_lims[1]]=y_lims[1]
         new_y[new_y < 0 ]=y_lims[0]
 
-        not_dups=np.squeeze(np.array(C_mat[new_y, new_x]==0))
+        # new points should have zero entries in C_mat
+        not_dups=np.squeeze(np.array(C_mat[new_y, new_x]<=0))
         new_xy=np.c_[new_x[not_dups], new_y[not_dups]]
         uRows, new_xy=unique_rows(new_xy)
         new_dxy_score=new_dxy_score[uRows,:]
@@ -1301,11 +1287,11 @@ def main():
         dx_mat=dx_mat+coo_matrix((new_dxy[good,0], [new_xy[good,1], new_xy[good,0]]), im_shape).tocsr()
         dy_mat=dy_mat+coo_matrix((new_dxy[good,1], [new_xy[good,1], new_xy[good,0]]), im_shape).tocsr()
         C_mat=C_mat+coo_matrix(((new_C[good]).ravel(), [new_xy[good,1], new_xy[good,0]]), im_shape).tocsr()
+        # mark points that did not return good matches with a 1
         bad_mask_mat = bad_mask_mat + coo_matrix((1*np.ones_like(new_xy_bad[:,0]), (new_xy_bad[:,1], new_xy_bad[:,0])), shape=im_shape).tocsr()
+        # mark points that failed the epipolar test with a 2
         bad=~good
         bad_mask_mat = bad_mask_mat + coo_matrix((2*np.ones_like(new_xy[bad,1]), (new_xy[bad,1], new_xy[bad,0])), shape=im_shape).tocsr()
-
-        #ID_new_pts=lil_matrix((np.ones_like(new_dxy[good,0]), [new_xy[good,1], new_xy[good,0]]), im_shape).tocsr()
 
         all_pts=np.c_[C_mat.nonzero()];
         all_pts=all_pts[:,[1,0]];
@@ -1332,6 +1318,7 @@ def main():
             C_mat=C_mat.tolil()
             C_mat[all_pts[bad,1], all_pts[bad,0]]=0
             C_mat=C_mat.tocsr()
+            # mark points that failed the d(disparity)/d(dist) test with a 4
             bad_mask_mat = bad_mask_mat + coo_matrix((4*np.ones_like(all_pts[bad,1]), (all_pts[bad,1], all_pts[bad,0])), shape=im_shape).tocsr()
 
             all_pts=np.c_[C_mat.nonzero()][:,[1,0]]
@@ -1441,6 +1428,10 @@ def main():
     dx=dx_mat[all_pts[:,1], all_pts[:,0]].transpose()
     dy=dy_mat[all_pts[:,1], all_pts[:,0]].transpose()
     C=C_mat[all_pts[:,1], all_pts[:,0]].transpose()
+
+    if DOPLOT:
+        plt.figure()
+        plt.scatter(all_pts[:,0], all_pts[:,1], c=np.array(dy).ravel(), lw=0); plt.colorbar();
 
     # transform the pixel centers to map coordinates
     GT = ftm.GT_S
