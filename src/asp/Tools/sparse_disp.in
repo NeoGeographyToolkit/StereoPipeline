@@ -483,22 +483,23 @@ def run_one_block(t_pixels, KW, min_template_sigma, Xc, Yc,
         TM=TemplateMatch(TT1)
         result=TM(SS1)
         if result is None:
-            #warnings.warn('run_one_block: TemplateMatch returned None at xc=%d, yc=%d' % (Xc, Yc))
-            return(-3., Xc, Yc, 0., np.NaN, np.NaN)
+            warnings.warn('run_one_block: low-res TemplateMatch returned None at xc=%d, yc=%d' % (Xc, Yc))
+        else:
+            result=result[np.int(t_pixels/4):np.int(s_ny/2-t_pixels/4), np.int(t_pixels/4):np.int(s_nx/2-t_pixels/4)]
+            ijC = 2*(np.array(np.unravel_index(np.argmax(result), result.shape))-[result.shape[0]/2., result.shape[1]/2.]).astype(int)
 
-        result=result[(t_pixels/4):(s_ny/2-t_pixels/4), (t_pixels/4):(s_nx/2-t_pixels/4)]
-        ijC = 2*(np.array(np.unravel_index(np.argmax(result), result.shape))-[result.shape[0]/2., result.shape[1]/2.]).astype(int)
-
-        t_xr=np.array(ijC[1]+[-t_pixels/2-16, t_pixels/2+16]+SS.shape[1]/2, dtype=np.int16)
-        t_yr=np.array(ijC[0]+[-t_pixels/2-16, t_pixels/2+16]+SS.shape[0]/2, dtype=np.int16)
-        if t_xr[0] >= 0 and t_yr[0] >= 0 and t_xr[1] <= SS.shape[1] and t_yr[1] <= SS.shape[0] :
-            dx0=dx0+ijC[1]
-            dy0=dy0+ijC[0]
-            SS=SS[t_yr[0]:t_yr[1], t_xr[0]:t_xr[1]]
+            t_xr=np.array(ijC[1]+[-t_pixels/2-16, t_pixels/2+16]+SS.shape[1]/2, dtype=np.int16)
+            t_yr=np.array(ijC[0]+[-t_pixels/2-16, t_pixels/2+16]+SS.shape[0]/2, dtype=np.int16)
+            if t_xr[0] >= 0 and t_yr[0] >= 0 and t_xr[1] <= SS.shape[1] and t_yr[1] <= SS.shape[0] :
+                dx0=dx0+ijC[1]
+                dy0=dy0+ijC[0]
+                SS=SS[t_yr[0]:t_yr[1], t_xr[0]:t_xr[1]]
 
     TM=TemplateMatch(TT)
     result=TM(SS)
-
+    if result is None:
+        warnings.warn('run_one_block: full-res TemplateMatch returned None at xc=%d, yc=%d' % (Xc, Yc))
+        return(-3., Xc, Yc, 0., np.NaN, np.NaN)
     # trim off edges of result
     result=result[(t_pixels/2):(SS.shape[0]-t_pixels/2),
                   (t_pixels/2):(SS.shape[1]-t_pixels/2)]
