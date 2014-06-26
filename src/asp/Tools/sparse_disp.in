@@ -1146,6 +1146,11 @@ def main():
     #initialize the matcher object
     ftm=fft_matcher(T_file, S_file, options.processes, options.user_nodata)
 
+    # define min and max pt indices
+    im_shape=[ftm.Ny, ftm.Nx]
+    x_lims=np.array([1, im_shape[1]-1])
+    y_lims=np.array([1, im_shape[0]-1])
+
     # define the initial search points
     edge_pad=np.array([s_nx/4.+t_pixels/2, s_ny/4.+t_pixels/2])
     XC=np.arange(ftm.T_c0c1[0]+edge_pad[0], ftm.T_c0c1[1]-edge_pad[0], options.coarse_skip)
