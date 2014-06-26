@@ -805,7 +805,7 @@ def test_epipolar(dxy_0, ep_vec, dxy, tol):
     good=(delta < tol) | (delta < 0.02 * disp_mag )
     return good, delta
 
-def est_epipolar_vec(dxy, C, C_tol, ep_vec_initial, F_use):
+def est_epipolar_vec(dxy, C, C_tol, F_use):
     """
     given a set of offsets and correlation values:
         For those point with  C>C_tol, find the median offset and the
@@ -814,8 +814,6 @@ def est_epipolar_vec(dxy, C, C_tol, ep_vec_initial, F_use):
         assumed to be the epipolar vector.
 
     """
-    if ep_vec_initial is not None:
-        return ep_vec_initial, np.zeros([1,2])
 
     good=C.ravel() > C_tol
     if ~np.any(good):
@@ -834,6 +832,76 @@ def est_epipolar_vec(dxy, C, C_tol, ep_vec_initial, F_use):
     vals, vecs=np.linalg.eig(np.dot(dxy_0.transpose(), dxy_0))
     biggest_vec=vecs[:,np.argmax(abs(vals)) ]
     return biggest_vec, dxy_ctr
+
+def vrange(A):
+    out=np.array([np.min(A), np.max(A)])
+    return out
+
+def in_box(xy, x0, y0, W):
+    good=np.logical_and( np.logical_and(xy[:,0] >= x0-W/2. ,   xy[:,0] < x0+W/2.),
+                               np.logical_and(xy[:,1] >= y0-W/2.,  xy[:,1] < y0+W/2))
+    return good
+
+def local_ep_test( xy, dxy, C, global_ep_ctr=None,  global_ep_vec=None, Lgrid=5000., N_min=200, C_tol=0.4):
+
+    all_good=np.zeros_like(dxy[:,0], dtype='bool')
+    if np.None(C.ravel()>C_tol):
+        return all_good
+    if global_ep_vec is not None:
+        [good_global, delta_global]=test_epipolar(global_ep_ctr, global_ep_vec, dxy, 64)
+        delta_p68_global=ss.scoreatpercentile(delta_global[C.ravel()>C_tol], 68.)
+        global_tol=np.minimum(64, 3.*delta_p68_global)
+    XR=vrange( xy[:,0] )
+    YR=vrange( xy[:,1] )
+    xg=np.arange(XR[0]+0.5*Lgrid, XR[1]+0.5*Lgrid, Lgrid)
+    yg=np.arange(YR[0]+0.5*Lgrid, YR[1]+0.5*Lgrid, Lgrid)
+    N_min=np.minimum(N_min, xy.shape[0])
+
+    N_total_good_C=np.sum(C>=C_tol)
+    for rr in range(0,len(yg)):
+        for cc in range(0,len(xg)):
+            W=Lgrid;
+            els_to_test=in_box(xy, xg[cc], yg[rr], W)
+            els=els_to_test.copy()
+            N=np.sum(els)
+            if N==0: # no els to test
+                continue
+            NgoodC=np.sum(C[els]>=C_tol)
+            while NgoodC < N_min and NgoodC < N_total_good_C:
+                # if there aren't enough points in this tile, double the area searched
+                W=W*np.sqrt(2.)
+                els= in_box(xy, xg[cc], yg[rr], W)
+                NgoodC=np.sum(C[els]>C_tol)
+            # estimate the ep vec for this tile
+            [ep_vec, ep_ctr]=est_epipolar_vec(dxy[els,:], C[els], C_tol, 0.90)
+            if ep_vec is None:
+                if global_ep_vec is not None:
+                    [good, delta]=test_epipolar(global_ep_ctr, global_ep_vec, dxy[els,:], global_tol)
+                    all_good[els_to_test]=good
+                    continue
+                else:
+                    all_good[els_to_test]=False
+                    continue
+            [good, delta]=test_epipolar(ep_ctr, ep_vec, dxy[els,:], 64)
+            delta_p68=ss.scoreatpercentile(delta[C[els].ravel()>C_tol], 68.)
+            if global_ep_vec is not None:
+                [good_global, delta_global]=test_epipolar(global_ep_ctr, global_ep_vec, dxy[els,:], 64)
+                delta_p68_global=ss.scoreatpercentile(delta_global[C[els].ravel()>C_tol], 68.)
+                # check if the global EP vector gives a sharper distribution
+                if delta_p68_global < 0.75*delta_p68:
+                    print "using global"
+                    delta_p68=delta_p68_global
+                    ep_ctr=global_ep_ctr
+                    ep_vec=global_ep_vec
+            ep_tol=np.minimum(64, np.maximum(2, delta_p68*3.))
+            #print "rr=%d cc=%d, ep_vec=[%f, %f], delta_p68=%f, ep_tol=%f, W=%f, NgoodC=%d" % (rr, cc, ep_vec[0], ep_vec[1], delta_p68,  ep_tol, W, NgoodC)
+            # now that we've established the ep vector for this tile, use it to test the points inside the tile
+            [good, delta]=test_epipolar(ep_ctr, ep_vec, dxy[els_to_test, :], ep_tol)
+            all_good[els_to_test]=good
+
+    f_all_good=np.mean(all_good[np.isfinite(all_good)])
+    print "local epipolar filtering accepted %f percent of points" % (f_all_good*100.)
+    return all_good
 
 def img_interpolate_linear( x, y, I, GT, nodata_val=np.NaN):
     result=np.zeros_like(x)+nodata_val
@@ -977,12 +1045,14 @@ def main():
                       help="The number of processes to use (%default)")
     parser.add_option("--no_epipolar_fltr", action="store_false", dest="epipolar_fltr", 
                       help="Disable filtering of disparities by distance from epipolar vector")
-    parser.add_option("-e", "--epipolar_axis", dest="epipolar_axis", default=None, type="int",
-                      help="If set, specify the axis that is epipolar 0=x, 1=y (%default)")
     parser.add_option("-n", "--nodata-value", dest="user_nodata", default=None, type="int",
                       help="The no-data value (pixel values <= nodata are not not used. (%default)")
     parser.add_option("-w", "--fill-dist", dest="fill_dist", default=1000., type="float",
                       help="Fill in gaps of this size or more with smoothed values. (%default)")
+    parser.add_option("-S", "--spread_scale", dest="spread_scale", default=1., type="float",
+                      help="scale the spread values by this number before writing D-sub_spread. (%default)")
+    parser.add_option("--local_epipolar", dest="local_EP", action="store_true",
+                      help="Use a local epipolar filter (disables global filter)")
     parser.add_option("-D", "--Debug", dest="Debug", default=False, action="store_true",
                       help="Output deugging info and text file of correlation-estimate points")
     (options, args) = parser.parse_args()
@@ -1107,24 +1177,42 @@ def main():
     dxy0=np.dot(np.c_[np.ones_like(XY0[:,0])], D_origin*[1, -1])
     dxy_score=np.c_[dxy0[:,0]-s_nx/2., dxy0[:,0]+s_nx/2, dxy0[:,1]-s_ny/2, dxy0[:,1]+s_ny/2]
     xy, dxy, C, xy_bad_mask = search_new_pts(XY0, dxy_score, t_pixels, ftm, min_template_sigma=options.sigma_t_min, mask=in_mask)
-
-    if options.epipolar_fltr:
+    if np.sum(C>C_tol) < 4 and ( options.epipolar_fltr or options.local_EP ):
+        print "Warning: initial search of %d points found only %d points with C > %f, exiting" % (C.shape[0], np.sum(C>C_tol), C_tol)
+        exit(1)
+    if options.epipolar_fltr or options.local_EP:
         # run the epipolar fit, establish a tolerance, run again
-        ep_vec, dxy_ctr=est_epipolar_vec(dxy, C, C_tol, ep_vec_initial, F_ep_pts_to_use)
+        ep_vec, dxy_ctr=est_epipolar_vec(dxy, C, C_tol, F_ep_pts_to_use)
         good, ep_dist=test_epipolar(dxy_ctr, ep_vec, dxy, ep_tol_max)
-        ep_fperc=ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], ep_fperc_lim)
-        ep_tol=np.minimum(ep_tol_max,np.maximum(ep_tol_min, ep_fperc))
+        ep_f90=ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], 90)
+        ep_tol=np.minimum(ep_tol_max,np.maximum(ep_tol_min, ep_f90))
+        if options.Debug:
+            print " ---First estimate of global ep vec is (%f,%f), tol=%f, ep_dist_f90=%f" % (ep_vec[0], ep_vec[1], ep_tol, ep_f90)
+
         # run fit again if any points were marked as bad in the first epipolar test
-        if ep_vec_initial is not None and np.any(~good):
-            ep_vec, dxy_ctr=est_epipolar_vec(dxy[good,:], C[good,:], C_tol, None, F_ep_pts_to_use)
-            ep_fperc=ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], ep_fperc_lim)
-            ep_tol=np.minimum(ep_tol_max,np.maximum(ep_tol_min, ep_fperc))
+        if  np.any(~good):
+            ep_vec, dxy_ctr=est_epipolar_vec(dxy[good,:], C[good,:], C_tol, F_ep_pts_to_use)
+            ep_f90= ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], 90)
+            ep_tol=np.minimum(ep_tol_max,np.maximum(ep_tol_min, ep_f90))
             good, ep_dist=test_epipolar(dxy_ctr, ep_vec, dxy, ep_tol)
-        print " --- ep vec estimated at(%f,%f), tol=%f, ep_dist_fperc=%f" % (ep_vec[0], ep_vec[1], ep_tol, ep_fperc)
-    else:
+            if options.Debug:
+                print " ---Refined global ep vec estimated at(%f,%f), tol=%f, ep_dist_f90=%f" % (ep_vec[0], ep_vec[1], ep_tol, ep_f90)
+
+
+    if options.epipolar_fltr is False:
         #Create boolean array with True for all values in dx
         good = (dxy != np.nan)[:,0]
-    
+        if options.Debug:
+            print "---ignoring global epipolar filter"
+
+    if options.local_EP:
+        good=local_ep_test(xy, dxy, C, global_ep_vec=ep_vec, global_ep_ctr=dxy_ctr, N_min=np.minimum(200, xy.shape[0]), C_tol=C_tol)
+        if DOPLOT:
+            plt.figure(1);
+            #plt.plot(xy[:,0], xy[:,1],'ko')
+            plt.scatter(xy[good,0], xy[good,1], c=dxy[good,1], lw=0); plt.colorbar();
+
+
     # make sparse matrices for storing dx and dy values, store initial values
     im_shape=[ftm.Ny, ftm.Nx]
     dx_mat=coo_matrix((dxy[good,0],(xy[good,1],xy[good,0])), shape=im_shape).tocsr()
@@ -1185,9 +1273,29 @@ def main():
 
         if options.epipolar_fltr:
             good, ep_dist=test_epipolar(dxy_ctr, ep_vec, new_dxy, ep_tol)
-            print "    searched %d points, found %d good matches" % (N_search, np.sum(good) )
         else:
             good = (new_dxy != np.nan)[:,0]
+        if options.local_EP:
+            this_xy=np.c_[C_mat.nonzero()]
+            this_xy=this_xy[:,[1,0]]
+            this_dxy=np.array(np.c_[dx_mat[this_xy[:,1], this_xy[:,0]].transpose(), dy_mat[this_xy[:,1], this_xy[:,0]].transpose()])
+            this_C=np.array(C_mat[this_xy[:,1], this_xy[:,0]]).ravel()
+            this_good=this_C>0
+
+            this_xy=np.append(this_xy[this_good,:], new_xy, 0)
+            this_dxy=np.append(this_dxy[this_good,:], new_dxy, 0)
+            this_C=np.append(this_C[this_good], np.array(new_C).ravel(), 0)
+
+            new=np.append(np.zeros_like(this_C[this_good]), np.ones_like(np.array(new_C).ravel()), 0)
+            all_good_ep=local_ep_test(this_xy, this_dxy, this_C, global_ep_vec=ep_vec, global_ep_ctr=dxy_ctr, N_min=np.minimum(200, xy.shape[0]), C_tol=C_tol)
+            good=all_good_ep[new==1]
+            if DOPLOT:
+                plt.figure();
+                #plt.plot(this_xy[:,0], this_xy[:,1],'ko')
+                plt.scatter(this_xy[all_good_ep,0], this_xy[all_good_ep,1], c=this_dxy[all_good_ep,1], lw=0); plt.colorbar();
+
+
+        print "    searched %d points, found %d good matches" % (N_search, np.sum(good) )
 
         # add the new points to the sparse matrix of tested points
         dx_mat=dx_mat+coo_matrix((new_dxy[good,0], [new_xy[good,1], new_xy[good,0]]), im_shape).tocsr()
@@ -1203,14 +1311,14 @@ def main():
         all_pts=all_pts[:,[1,0]];
         # extract the dx and dy values, re-estimate the ep vector
         dxy=np.array(np.c_[dx_mat[all_pts[:,1], all_pts[:,0]].transpose(), dy_mat[all_pts[:,1], all_pts[:,0]].transpose()])
-        C= np.array(C_mat[all_pts[:,1], all_pts[:,0]].transpose())
+        C= np.array(C_mat[all_pts[:,1], all_pts[:,0]]).ravel()
+        good=C>0
+        dxy=dxy[good,:]
+        C=C[good]
+        all_pts=all_pts[good,:]
 
-        #Refine the epipolar vector and tolerance estimate
-        if options.epipolar_fltr and ep_vec_initial is not None:
-            ep_vec, dxy_ctr=est_epipolar_vec(dxy, C, C_tol)
-            junk, ep_dist=test_epipolar(dxy_ctr, ep_vec, dxy, ep_tol)
-            ep_fperc= ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], ep_fperc_lim)
-            ep_tol=np.minimum(ep_tol_max,np.maximum(ep_tol_min, ep_fperc))
+        if options.epipolar_fltr:
+            ep_vec, dxy_ctr=est_epipolar_vec(dxy, C, C_tol, 0.90)
 
         # triangulate all the good points so far
         tri=sp.Delaunay(all_pts)
@@ -1226,8 +1334,11 @@ def main():
             C_mat=C_mat.tocsr()
             bad_mask_mat = bad_mask_mat + coo_matrix((4*np.ones_like(all_pts[bad,1]), (all_pts[bad,1], all_pts[bad,0])), shape=im_shape).tocsr()
 
-            all_pts=np.c_[C_mat.nonzero()]
-            all_pts=all_pts[:,[1,0]];
+            all_pts=np.c_[C_mat.nonzero()][:,[1,0]]
+            C= np.array(C_mat[all_pts[:,1], all_pts[:,0]]).ravel()
+            good=C>0
+            all_pts=all_pts[good,:];
+            C=C[good]
             tri=sp.Delaunay(all_pts)
             pt_dict=make_pt_2_neighbors(tri)
             dxy_score = nbhd_range(range(all_pts.shape[0]), dx_mat, dy_mat, tri, pt_dict)
@@ -1239,7 +1350,7 @@ def main():
         test_pts=np.arange(0, all_pts.shape[0])
         # test the new points and their neighbors for convergence
         to_refine=np.logical_or((dxy_score[:,1]-dxy_score[:,0]>options.refine_tol), (dxy_score[:,3]-dxy_score[:,2]) > options.refine_tol)
-        refine_pts=test_pts[to_refine,:]
+        refine_pts=test_pts[to_refine]
         dxy_score=dxy_score[to_refine,:]
         # N.B.  we can often end up refining more points than we searched on the
         # last round, because points from previous rounds can get marked for
@@ -1247,8 +1358,13 @@ def main():
         print "    found %d points to refine" %  len(refine_pts)
 
     if recalc_nbhd_range:
-        all_pts=np.c_[C_mat.nonzero()];
-        all_pts=all_pts[:,[1,0]];
+        all_pts=np.c_[C_mat.nonzero()][:,[1,0]];
+        C= np.array(C_mat[all_pts[:,1], all_pts[:,0]]).ravel()
+        good=C>0
+        all_pts=all_pts[good,:]
+        C=C(good);
+        tri=sp.Delaunay(all_pts)
+        pt_dict=make_pt_2_neighbors(tri)
         dxy_score = nbhd_range(range(all_pts.shape[0]), dx_mat, dy_mat, tri, pt_dict)
 
     if use_maximum_disparity_cluster_test:
@@ -1332,7 +1448,7 @@ def main():
     projection = ftm.T_ds.GetProjection()
     xy=np.c_[GT[0]+all_pts[:,0]*GT[1]+all_pts[:,1]*GT[2], GT[3]+all_pts[:,0]*GT[4]+all_pts[:,1]*GT[5]]
     out=np.c_[xy, dx , dy , C, dxy_score[:,1]-dxy_score[:,0]+options.output_pad, dxy_score[:,3]-dxy_score[:,2]+options.output_pad]
-#    # spit out the good and bad masks
+    # spit out the good and bad masks
     good_xy=np.c_[C_mat.nonzero()][:,[1, 0]]
     good_xy=np.c_[GT[0]+good_xy[:,0]*GT[1]+good_xy[:,1]*GT[2], GT[3]+good_xy[:,0]*GT[4]+good_xy[:,1]*GT[5]]
     bad_xy=np.c_[bad_mask_mat.nonzero()][:,[1, 0]]
@@ -1432,7 +1548,8 @@ def main():
                 if options.Debug:
                     print " ...based on %d points" % np.sum(ii)
                 if (np.amax(out[ii,0])-np.amin(out[ii,0]) > 0) and (np.amax(out[ii,1])-np.amin(out[ii,1]) > 0 ) :
-                    grid_disp(xg_sub, yg_sub, out[ii,0:2], out[ii,2], out[ii,3], out[ii,5], out[ii,6], options.fill_dist, s_nx, dispDs, spreadDs, options.output_scale, cr_out)
+                    # grid the disparities, scaling the spread by options.spread_scale (default=1)
+                    grid_disp(xg_sub, yg_sub, out[ii,0:2], out[ii,2], out[ii,3], out[ii,5]*options.spread_scale, out[ii,6]*options.spread_scale, options.fill_dist, s_nx, dispDs, spreadDs, options.output_scale, cr_out)
 
         for Ds in (dispDs, spreadDs):
             Ds.SetGeoTransform(tuple(GT1))
