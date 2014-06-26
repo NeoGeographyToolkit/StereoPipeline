@@ -375,7 +375,7 @@ def ndpad(a,npad=None,padval=0):
     b = np.ones(padsize,a.dtype)*padval
 
     # construct an N-dimensional list of slice objects
-    ind = [slice(np.floor(npad[dd]),a.shape[dd]+np.floor(npad[dd])) for dd in xrange(a.ndim)]
+    ind = [slice(np.int(npad[dd]),np.int(a.shape[dd]+np.floor(npad[dd]))) for dd in xrange(a.ndim)]
 
     # fill in the non-pad part of the array
     b[ind] = a
@@ -428,10 +428,10 @@ def procrustes(a,target,side='both',padval=0):
         for dd in xrange(a.ndim):
             if a.shape[dd] > target[dd]:
                 diff = (a.shape[dd]-target[dd])/2.
-                aind[dd] = slice(np.floor(diff),a.shape[dd]-np.ceil(diff))
+                aind[dd] = slice(np.int(diff),np.int(a.shape[dd]-np.ceil(diff)))
             elif a.shape[dd] < target[dd]:
                 diff = (target[dd]-a.shape[dd])/2.
-                bind[dd] = slice(np.floor(diff),target[dd]-np.ceil(diff))
+                bind[dd] = slice(np.int(diff),np.int(target[dd]-np.ceil(diff)))
 
     else:
         raise Exception('Invalid choice of pad type: %s' %side)
@@ -475,7 +475,7 @@ def run_one_block(t_pixels, KW, min_template_sigma, Xc, Yc,
 
     # run the feature match.
     TT=T_filt[KW:t_pixels+KW, KW:t_pixels+KW]
-    SS=S_filt[KW:s_ny+KW, KW:s_nx+KW]
+    SS=S_filt[KW:np.int(s_ny)+KW, KW:np.int(s_nx)+KW]
     # If the search image is large, do an initial search at 2x lower resolution
     if (SS.shape[0] > 32+TT.shape[0]) or (SS.shape[1] >32+TT.shape[1]):
         TT1=TT[1:-1:2, 1:-1:2]
