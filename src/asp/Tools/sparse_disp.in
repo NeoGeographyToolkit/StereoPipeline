@@ -845,7 +845,7 @@ def in_box(xy, x0, y0, W):
 def local_ep_test( xy, dxy, C, global_ep_ctr=None,  global_ep_vec=None, Lgrid=5000., N_min=200, C_tol=0.4):
 
     all_good=np.zeros_like(dxy[:,0], dtype='bool')
-    if np.None(C.ravel()>C_tol):
+    if ~np.any(C.ravel()>C_tol):
         return all_good
     if global_ep_vec is not None:
         [good_global, delta_global]=test_epipolar(global_ep_ctr, global_ep_vec, dxy, 64)
