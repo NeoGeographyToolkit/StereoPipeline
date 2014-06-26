@@ -966,11 +966,9 @@ def main():
     parser.add_option("-p","--output_pad",dest="output_pad", default=2, type="int",
                       help="pad the output search range by this amount (%default)")
     parser.add_option("-s", "--sigma_t_min", dest="sigma_t_min",  default=0., type="float",
-                       help="matches will not be calculated if the standard deviation of the template is less than this value (%default)")
-    parser.add_option("-R", "--R_lim_min", dest="R_lim_min",  default=32., type="float",
-                       help="The minimum-neighbor-disparity parameter is set to the maximum of this parameter and the 98th percentile of all minimum neighbor disparities.\n  Points whose neighbors have a minimum disparity range larger than this parameter will be removed (%default)")
-    parser.add_option("-l", "--R_lim_max", dest="R_lim_max",  default=128., type="float",
-                       help="The minimum-neighbor-disparity parameter is set to the minimum of this parameter and the 98th percentile of all minimum neighbor disparities.\n  Points whose neighbors have a minimum disparity range larger than this parameter will be removed (%default)")
+                      help="matches will not be calculated if the standard deviation of the template is less than this value (%default)")
+    parser.add_option("-E", "--Exhaustive", dest="Exhaustive", action="store_true", 
+                      help="If set, output disparity maps will include low-quality (C<0.3) matches that are not spatially clustered (minimum disparity difference to nearest neighbors < max(64, 90th percentile of high-quality matches)).  By default these matches are deleted before gridding.  This option may be needed in rugged terrain or for low-quality images")
     parser.add_option("-m", "--mask_file", dest="mask_file", default=None, type="string",
                       help="if specified, use this geotif mask file to reject template-image points that should not be searched (1=search, 0=don't)")
     parser.add_option("-M", "--Max_disp_range", dest="M_max",  default=64., type="float",
@@ -1003,12 +1001,29 @@ def main():
         in_mask=None
 
     #undocumented options#
+    C_tol=0.25  # minimum quality for strong matches, used in defining the epipolar vector estimate and in rejecting weak matches in the use_minimum_disparity_differences test.
     F_ep_pts_to_use=0.9
-    ep_fperc_lim=95
-    ep_tol_max=64
+    ep_tol_max=32
     ep_tol_min=4
     dxy_slope_tol=3.0
-    C_tol=0.4  # minimum quality needed in defining the epipolar vector estimate
+    min_npts = 8  #Minimum number of coarse points in any dimension
+    MDC_lim_min=64  # if using the maximum-disparity-cluster test, set the threshold to at least this value
+    MDC_lim_max=256 # if using the maximum-disparity-cluster test, set the threshold to at least this value
+
+    DOPLOT=False
+    if options.Exhaustive:
+        use_maximum_disparity_cluster_test=False
+    else:
+        use_maximum_disparity_cluster_test=True
+        if options.Debug: 
+            print "Using MDC test"
+ 
+    if DOPLOT:
+        import matplotlib.pyplot as plt
+
+    # if we're using local_EP we're not filtering based on the global EP filter
+    if options.local_EP:
+        options.epipolar_fltr=False
 
     T_file = args[0]
     S_file = args[1]
@@ -1236,31 +1251,61 @@ def main():
         all_pts=all_pts[:,[1,0]];
         dxy_score = nbhd_range(range(all_pts.shape[0]), dx_mat, dy_mat, tri, pt_dict)
 
-    # delete the 1% of matches with the greatest disparity range
-    R_dx=dxy_score[:,1]-dxy_score[:,0]
-    R_dy=dxy_score[:,3]-dxy_score[:,2]
+    if use_maximum_disparity_cluster_test:
+        #  This test calculates the 90th percentiles of the minimum disparity spread between each point and its nearest neighbor.  The 90th percentile of these spreads for the high-quality matches (C>0.3) is used as a filter on the low-quality matches (C<0.3), deleting those whose disparity spread is greater than the threshold.  This is useful in deleting low-quality matches
+        R_dx=dxy_score[:,1]-dxy_score[:,0]
+        R_dy=dxy_score[:,3]-dxy_score[:,2]
 
-    R_dx_mat=coo_matrix((R_dx, [all_pts[:,1], all_pts[:,0]]), im_shape).tocsr()
-    R_dy_mat=coo_matrix((R_dy, [all_pts[:,1], all_pts[:,0]]), im_shape).tocsr()
-    R_dxy_score=nbhd_range(range(all_pts.shape[0]), R_dx_mat, R_dy_mat, tri, pt_dict)
-    P99=(ss.scoreatpercentile(R_dxy_score[:,0], 99), ss.scoreatpercentile(R_dxy_score[:,2], 99))
-    R_max = np.maximum(P99, options.R_lim_min)
-    R_max = np.minimum(R_max, options.R_lim_max)
-    bad_xy=all_pts[np.logical_or((R_dxy_score[:,0] > R_max[0]) ,  (R_dxy_score[:,2] > R_max[1])),:]
-    bad_mask_mat = bad_mask_mat + coo_matrix((8*np.ones_like(bad_xy[:,1]), (bad_xy[:,1], bad_xy[:,0])), shape=im_shape).tocsr()
-    if options.Debug:
-        print "rejecting %d detected outliers using the minimum-disparity-difference test with R_max = %f, %f" % (bad_xy.shape[0], R_max[0], R_max[1])
-    # delete the bad value, convert dx dy, and C to lil matrices
-    C_mat=C_mat.tolil()
-    dx_mat=dx_mat.tolil()
-    dy_mat=dy_mat.tolil()
-    for bad in bad_xy:
-        dx_mat[bad[1], bad[0]]=0
-        dy_mat[bad[1], bad[0]]=0
-        C_mat[bad[1], bad[0]]=0
-    C_mat=C_mat.tocsr()
-    dx_mat=dx_mat.tocsr()
-    dy_mat=dy_mat.tocsr()
+        R_dx_mat=coo_matrix((R_dx, [all_pts[:, 1], all_pts[:,0]]), im_shape).tocsr()
+        R_dy_mat=coo_matrix((R_dy, [all_pts[:,1], all_pts[:,0]]), im_shape).tocsr()
+        R_dxy_score=nbhd_range(range(all_pts.shape[0]), R_dx_mat, R_dy_mat, tri, pt_dict)
+        P_high=(ss.scoreatpercentile(R_dxy_score[C>C_tol,0], 90), ss.scoreatpercentile(R_dxy_score[C>C_tol,2], 90))
+        R_max = np.maximum(P_high, MDC_lim_min)
+        R_max = np.minimum(R_max, MDC_lim_max)
+        bad_xy=all_pts[np.logical_and(C<C_tol, np.logical_or((R_dxy_score[:,0] > R_max[0]) ,  (R_dxy_score[:,2] > R_max[1]))),:]
+        # mark points that failed the min_delta_disparity test with an 8
+        bad_mask_mat = bad_mask_mat + coo_matrix((8*np.ones_like(bad_xy[:,1]), (bad_xy[:,1], bad_xy[:,0])), shape=im_shape).tocsr()
+        if options.Debug:
+            print "rejecting %d detected outliers using the minimum-disparity-difference test with R_max = %f, %f" % (bad_xy.shape[0], R_max[0], R_max[1])
+        # delete the bad values, convert dx dy, and C to lil matrices
+        C_mat=C_mat.tolil()
+        dx_mat=dx_mat.tolil()
+        dy_mat=dy_mat.tolil()
+        for bad in bad_xy:
+            dx_mat[bad[1], bad[0]]=0
+            dy_mat[bad[1], bad[0]]=0
+            C_mat[bad[1], bad[0]]=0
+        C_mat=C_mat.tocsr()
+        dx_mat=dx_mat.tocsr()
+        dy_mat=dy_mat.tocsr()
+
+    if options.local_EP:
+        this_xy=np.c_[C_mat.nonzero()]
+        this_xy=this_xy[:,[1,0]]
+        this_C= np.array(C_mat[this_xy[:,1], this_xy[:,0]]).ravel()
+        this_good=this_C>0
+        this_xy=this_xy[this_good,:];
+        this_C=this_C[this_good]
+        this_dxy=np.array(np.c_[dx_mat[this_xy[:,1], this_xy[:,0]].transpose(), dy_mat[this_xy[:,1], this_xy[:,0]].transpose()])
+        good_ep=local_ep_test(this_xy, this_dxy, this_C, global_ep_vec=ep_vec, global_ep_ctr=dxy_ctr, N_min=np.minimum(200, this_xy.shape[0]), C_tol=C_tol)
+        bad_xy=this_xy[~good_ep]
+        bad_mask_mat = bad_mask_mat + coo_matrix((2*np.ones_like(bad_xy[:,1]), (bad_xy[:,1], bad_xy[:,0])), shape=im_shape).tocsr()
+
+        #delete bad values
+        C_mat=C_mat.tolil()
+        dx_mat=dx_mat.tolil()
+        dy_mat=dy_mat.tolil()
+        for bad in bad_xy:
+            dx_mat[bad[1], bad[0]]=0
+            dy_mat[bad[1], bad[0]]=0
+            C_mat[bad[1], bad[0]]=0
+        C_mat=C_mat.tocsr()
+        dx_mat=dx_mat.tocsr()
+        dy_mat=dy_mat.tocsr()
+        if options.Debug:
+            print "final pass of local EP test rejects %d outliers" % bad_xy.shape[0]
+
+    # harvest the point locations from C
     all_pts=np.c_[C_mat.nonzero()];
     all_pts=all_pts[:,[1,0]];
     # triangulate all the good points so far
