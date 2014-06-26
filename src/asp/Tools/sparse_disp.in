@@ -477,7 +477,7 @@ def run_one_block(t_pixels, KW, min_template_sigma, Xc, Yc,
     TT=T_filt[KW:t_pixels+KW, KW:t_pixels+KW]
     SS=S_filt[KW:np.int(s_ny)+KW, KW:np.int(s_nx)+KW]
     # If the search image is large, do an initial search at 2x lower resolution
-    if (SS.shape[0] > 32+TT.shape[0]) or (SS.shape[1] >32+TT.shape[1]):
+    if (SS.shape[0] >= 2.*TT.shape[0]) or (SS.shape[1] >=2.*TT.shape[1]):
         TT1=TT[1:-1:2, 1:-1:2]
         SS1=SS[1:-1:2, 1:-1:2]
         TM=TemplateMatch(TT1)
@@ -817,9 +817,15 @@ def est_epipolar_vec(dxy, C, C_tol, ep_vec_initial, F_use):
     if ep_vec_initial is not None:
         return ep_vec_initial, np.zeros([1,2])
 
+    good=C.ravel() > C_tol
+    if ~np.any(good):
+        return None, None
+    C=C[good]
+
+    dxy=dxy[good,:]
     P_use=100*np.array([(1-F_use)/2., (F_use+1.)/2.])
     ctr_vals=(dxy[:,0] >= ss.scoreatpercentile(dxy[:,0], P_use[0])) & (dxy[:,0] <= ss.scoreatpercentile(dxy[:,0], P_use[1])) & (dxy[:,1] >= ss.scoreatpercentile(dxy[:,1], P_use[0])) & (dxy[:,1] <= ss.scoreatpercentile(dxy[:,1], P_use[1]))
-    good=ctr_vals & np.array(C.ravel()>C_tol, dtype=bool)
+    good=ctr_vals
     dxy1=np.array(dxy[good.ravel(),:])
     dxy_ctr=np.array([np.median(dxy1[:,0]), np.median(dxy1[:,1])])
     dxy_0=dxy1.copy()
