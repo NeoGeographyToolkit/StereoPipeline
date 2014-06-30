@@ -306,7 +306,7 @@ def read_xml( filename, options):
     htbox = BBox()
     ll_corners = []
 
-    # The longitude-lattitude box. Note: Later when we create
+    # The longitude-latitude box. Note: Later when we create
     # the adjusted box we will traverse the corners in
     # exactly the same order as here, so this and that
     # code blocks must be kept consistent.
@@ -332,7 +332,7 @@ def read_xml( filename, options):
         ll_corners.append([lllon, lllat])
     except Exception, e:
         raise Exception('InputError', "File " + filename
-                        + " lacks longitude/lattitude information.")
+                        + " lacks longitude/latitude information.")
 
     if not options.skip_rpc_gen:
         # The height range, [ht_min, ht_max]. We store it as a 2D box
