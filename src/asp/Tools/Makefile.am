@@ -86,12 +86,6 @@ if MAKE_APP_DEM_GEOID
   dem_geoid_LDADD = $(APP_DEM_GEOID_LIBS)
 endif
 
-if MAKE_APP_ISISADJUST
-  bin_PROGRAMS += isis_adjust
-  isis_adjust_SOURCES = isis_adjust.cc isis_adjust.h
-  isis_adjust_LDADD = $(APP_ISISADJUST_LIBS)
-endif
-
 if MAKE_APP_BUNDLEVIS
   bin_PROGRAMS += bundlevis
   bundlevis_SOURCES = bundlevis.cc bundlevis.h
@@ -146,18 +140,6 @@ if MAKE_APP_HSVMERGE
   bin_PROGRAMS += hsv_merge
   hsv_merge_SOURCES = hsv_merge.cc
   hsv_merge_LDADD = $(APP_HSVMERGE_LIBS)
-endif
-
-if MAKE_APP_ISISADJUSTCAMERAERR
-  bin_PROGRAMS += isis_adjust_camera_err
-  isis_adjust_camera_err_SOURCES = isis_adjust_camera_err.cc
-  isis_adjust_camera_err_LDADD   = $(APP_ISISADJUSTCAMERAERR_LIBS)
-endif
-
-if MAKE_APP_ISISADJUSTCNETCLIP
-  bin_PROGRAMS += isis_adjust_cnet_clip
-  isis_adjust_cnet_clip_SOURCES = isis_adjust_cnet_clip.cc
-  isis_adjust_cnet_clip_LDADD   = $(APP_ISISADJUSTCNETCLIP_LIBS)
 endif
 
 if MAKE_APP_MER2CAMERA

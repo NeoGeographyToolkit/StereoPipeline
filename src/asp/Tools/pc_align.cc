@@ -524,7 +524,7 @@ void read_datum(Options& opt, CsvConv& csv_conv, Datum& datum){
   if (opt.datum != ""){
     // If the user set the datum, use it.
     datum.set_well_known_datum(opt.datum);
-    vw_out() << "Will use user-specified datum (for CSV files): "
+    vw_out() << "Will use datum (for CSV files): "
              << datum << std::endl;
   }else if (opt.semi_major > 0 && opt.semi_minor > 0){
     // Otherwise, if the user set the semi-axes, use that.

@@ -419,9 +419,6 @@ AX_APP(DEMPROFILE,       [src/asp/Tools], no,  [CORE])
 AX_APP(DISPARITYDEBUG,   [src/asp/Tools], yes, [CORE])
 AX_APP(GEODIFF,          [src/asp/Tools], no,  [CORE])
 AX_APP(HSVMERGE,         [src/asp/Tools], yes, [CORE])
-AX_APP(ISISADJUST,       [src/asp/Tools], yes, [VW_BUNDLEADJUSTMENT ISISIO CORE])
-AX_APP(ISISADJUSTCAMERAERR, [src/asp/Tools], no, [VW_BUNDLEADJUSTMENT ISISIO CORE])
-AX_APP(ISISADJUSTCNETCLIP, [src/asp/Tools], no,[VW_BUNDLEADJUSTMENT ISISIO CORE])
 AX_APP(LRONACJITREG,     [src/asp/Tools], yes, [CORE VW_STEREO VW_INTEREST_POINT])
 AX_APP(MER2CAMERA,       [src/asp/Tools], yes, [CORE])
 AX_APP(ORBITVIZ,         [src/asp/Tools], yes, [SESSIONS])
@@ -438,9 +435,6 @@ AX_APP(TIF_MOSAIC,       [src/asp/Tools], yes, [CORE])
 AX_APP(STEREO,           [src/asp/Tools], yes, [SESSIONS])
 AX_APP(WV_CORRECT,       [src/asp/Tools], yes, [SESSIONS])
 
-# Toolkits (like module, but doesn't build a library)
-AX_MODULE(CONTROLNETTK, [src/asp/ControlNetTK], [], no, [VW_BUNDLEADJUSTMENT CORE ISISIO], [BOOST])
-
 # These are here (instead of inside the APP macro where they belong)
 # for backwards compatability with older versions of automake.
 AM_CONDITIONAL(MAKE_MODULE_CORE, [test "$MAKE_MODULE_CORE" = "yes"])
@@ -448,7 +442,6 @@ AM_CONDITIONAL(MAKE_MODULE_ISISIO, [test "$MAKE_MODULE_ISISIO" = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_SPICEIO, [test "$MAKE_MODULE_SPICEIO" = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_SESSIONS, [test "$MAKE_MODULE_SESSIONS" = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_MPI, [test "$MAKE_MODULE_MPI" = "yes"])
-AM_CONDITIONAL(MAKE_MODULE_CONTROLNETTK, [test "$MAKE_MODULE_CONTROLNETTK" = "yes"])
 
 AM_CONDITIONAL(MAKE_APP_PC_ALIGN, [test "$MAKE_APP_PC_ALIGN" = "yes"])
 AM_CONDITIONAL(MAKE_APP_BUNDLEADJUST, [test "$MAKE_APP_BUNDLEADJUST" = "yes"])
@@ -457,9 +450,6 @@ AM_CONDITIONAL(MAKE_APP_DEMPROFILE, [test "$MAKE_APP_DEMPROFILE" = "yes"])
 AM_CONDITIONAL(MAKE_APP_DISPARITYDEBUG, [test "$MAKE_APP_DISPARITYDEBUG" = "yes"])
 AM_CONDITIONAL(MAKE_APP_GEODIFF, [test "$MAKE_APP_GEODIFF" = "yes"])
 AM_CONDITIONAL(MAKE_APP_HSVMERGE, [test "$MAKE_APP_HSVMERGE" = "yes"])
-AM_CONDITIONAL(MAKE_APP_ISISADJUST, [test "$MAKE_APP_ISISADJUST" = "yes"])
-AM_CONDITIONAL(MAKE_APP_ISISADJUSTCAMERAERR, [test "$MAKE_APP_ISISADJUSTCAMERAERR" = "yes"])
-AM_CONDITIONAL(MAKE_APP_ISISADJUSTCNETCLIP, [test "$MAKE_APP_ISISADJUSTCNETCLIP" = "yes"])
 AM_CONDITIONAL(MAKE_APP_LRONACJITREG, [test "$MAKE_APP_LRONACJITREG" == "yes"])
 AM_CONDITIONAL(MAKE_APP_MER2CAMERA, [test "$MAKE_APP_MER2CAMERA" = "yes"])
 AM_CONDITIONAL(MAKE_APP_ORBITVIZ, [test "$MAKE_APP_ORBITVIZ" = "yes"])
@@ -509,7 +499,6 @@ AC_CONFIG_FILES([                        \
   Makefile                               \
   data/Makefile                          \
   src/Makefile                           \
-  src/asp/ControlNetTK/Makefile          \
   src/asp/Core/Makefile                  \
   src/asp/Core/tests/Makefile            \
   src/asp/IsisIO/Makefile                \
