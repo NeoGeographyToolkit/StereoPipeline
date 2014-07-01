@@ -250,6 +250,120 @@ use per node. \\ \hline
 \texttt{-\/-threads-singleprocess \textit{integer}} & The number of threads to use when running a single process (for pre-processing and filtering).\\ \hline
 \end{longtable}
 
+\newpage
+\section{bundle\_adjust}
+\label{bundleadjust}
+
+The \texttt{bundle\_adjust} program performs bundle adjustment on a
+given set of images and cameras. An introduction to bundle adjustment
+can be found in chapter \ref{ch:bundle_adjustment}.
+
+This tool can use several algoriths for bundle adjustment, the default is
+to use Google's Ceres Solver (\url{http://ceres-solver.org/}).
+
+Usage:
+\begin{verbatim}
+  bundle_adjust <images> <cameras> <optional ground control points> \
+    -o <output prefix> [options]
+\end{verbatim}
+
+Example (for ISIS):
+\begin{verbatim}
+  bundle_adjust file1.cub file2.cub file3.cub -o results/run
+\end{verbatim}
+
+Example (for Digital Globe Earth data, using ground control points):
+\begin{verbatim}
+  bundle_adjust file1.tif file2.tif file1.xml file2.xml gcp_file.gcp \
+    --datum WGS_1984 -o results/run
+\end{verbatim}
+
+\begin{longtable}{|l|p{7.5cm}|}
+\caption{Command-line options for bundle\_adjust}
+\label{tbl:bundleadjust}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Option & Description \\ \hline \hline
+\texttt{-\/-help|-h} & Display the help message. \\ \hline
+%\texttt{-\/-threads \textit{integer(=0)}} & Set the number of threads to use. 0 means use as many threads as there are cores.\\ \hline
+
+\texttt{-\/-output-prefix|-o \textit{filename}} & Prefix for output filenames. \\ \hline
+
+\texttt{-\/-bundle-adjuster \textit{arg [default: Ceres]}} & Choose a solver from:
+Ceres, RobustSparse, RobustRef, Sparse, Ref. \\ \hline
+
+\texttt{-\/-cost-function \textit{arg [default: Cauchy]}} & Choose a cost function
+from: Cauchy, PseudoHuber, Huber, L1, L2. \\ \hline
+
+\texttt{-\/-robust-threshold \textit{float(=0.5)}} & Set the threshold for robust
+cost functions.\\ \hline
+
+\texttt{-\/-datum \textit{string}} & Use this datum (needed only if ground control
+points are used). [WGS\_1984, D\_MOON (radius is assumed to be 1737400 meters), D\_MARS 
+(radius is assumed to be 33916190 meters), etc.] \\ \hline
+
+\texttt{-\/-semi-major-axis \textit{double}} & Explicitly set the datum semi-major axis
+in meters (needed only if ground control points are used).\\ \hline
+\texttt{-\/-semi-minor-axis \textit{double}} & Explicitly set the datum semi-minor axis
+in meters (needed only if ground control points are used).\\ \hline
+
+\texttt{-\/-session-type|-t pinhole|isis|dg|rpc} & Select the stereo
+session type to use for processing. Usually the program can select this
+automatically by the file extension.\\ \hline
+
+\texttt{-\/-min-matches \textit{integer(=30)}} & Set the minimum number of matches
+between images that will be considered. \\ \hline
+
+\texttt{-\/-max-iterations \textit{integer(=100)}} & Set the maximum number of 
+iterations. \\ \hline
+
+\texttt{-\/-lambda \textit{float}} & Set the initial value of the LM parameter 
+lambda (ignored for the Ceres solver).\\ \hline
+
+\texttt{-\/-report-level|-r \textit{integer=(10)}} & Use a value >= 20 to 
+get increasingly more verbose output. \\ \hline
+\end{longtable}
+
+The \texttt{bundle\_adjust} program will save the obtained adjustments
+(rotation and translation) for each camera in plain text files whose
+names start with the specified output prefix. This prefix can then be
+passed to \texttt{stereo} via the option
+\texttt{-\/-bundle-adjust-prefix}.
+
+A number of plain-text files containing ground control points can be
+passed as input to \texttt{bundle\_adjust}. Such a file must end with a
+.gcp extension, and contain one ground control point per line. Each line
+must have the following fields:
+\begin{itemize}
+\item ground control point id (integer)
+\item latitude (in degrees)
+\item longitude (in degrees)
+\item height above datum (in meters), with the datum itself specified separately
+\item $x, y, z$ standard deviations (three positive floating point
+  numbers, smaller values suggest more reliable measurements) 
+\end{itemize}
+
+On the same line, for each image in which the ground control point is
+visible, there should be:
+
+\begin{itemize}
+\item image file name
+\item column index in image (float)
+\item row index in image (float)
+\item column and row standard deviations (two positive floating point
+  numbers, smaller values suggest more reliable measurements) 
+\end{itemize}
+
+The fields can be separated by spaces or commas. Here is a sample representation
+of a ground control point measurement:
+
+\begin{verbatim}
+5 23.7 160.1 427.1 1.0 1.0 1.0 image1.tif 124.5 19.7 1.0 1.0 image2.tif 254.3 73.9 1.0 1.0
+\end{verbatim}
+
 \section{disparitydebug}
 \label{disparitydebug}
 
@@ -781,7 +895,7 @@ Compress using laszip. \\ \hline
 This tool can be used to align two point clouds using Point-to-Plane or
 Point-to-Point Iterative Closest Point (ICP). It uses the
 \texttt{libpointmatcher} library~\cite{Pomerleau12comp}
-(https://github.com/ethz-asl/libpointmatcher).
+(\url{https://github.com/ethz-asl/libpointmatcher}).
 
 Several important things need to be kept in mind if \texttt{pc\_align} is to be
 used successfully and give accurate results, as described below.
@@ -934,7 +1048,7 @@ Maximum number of (randomly picked) reference points to use. \\ \hline
 \texttt{-\/-alignment-method \textit{default: point-to-plane}} & The type of iterative closest point
 method to use. [point-to-plane, point-to-point]\\ \hline
 \texttt{-\/-highest-accuracy} & Compute with highest accuracy for point-to-plane (can be much slower). \\ \hline
-\texttt{-\/-datum \textit{}} & Use this datum for CSV files. [WGS\_1984, D\_MOON (radius is assumed to be 1737400 meters), D\_MARS (radius is assumed to be 33916190 meters), etc.] \\ \hline
+\texttt{-\/-datum \textit{string}} & Use this datum for CSV files. [WGS\_1984, D\_MOON (radius is assumed to be 1737400 meters), D\_MARS (radius is assumed to be 33916190 meters), etc.] \\ \hline
 
 
 \texttt{-\/-semi-major-axis \textit{double}} & Explicitly set the datum semi-major axis in meters.\\ \hline

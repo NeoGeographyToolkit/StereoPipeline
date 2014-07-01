@@ -1,6 +1,8 @@
 \chapter{Bundle Adjustment}
 \label{ch:bundle_adjustment}
 
+\section{Overview}
+
 \newenvironment{myindentpar}[1]
                {\begin{list}{}
                    {\setlength{\leftmargin}{#1}}
@@ -16,16 +18,15 @@ If they're not corrected, these uncertainties will result in
 systematic errors in the overall position and slope of the \ac{DEM}.
 Severe distortions can occur as well, resulting in twisted or ``taco
 shaped'' \acp{DEM}, though in most cases these effects are quite
-subtle and hard to detect. In the worse case, such as with old mission
+subtle and hard to detect. In the worst case, such as with old mission
 data like Voyager or Apollo, these gross camera misalignments can
 prohibit Stereo Pipeline's internal interest point matcher and block
 auto search range detection.
 
-USGS's \ac{ISIS} software contains a suite of tools for correcting camera
-position and orientation errors for their cameras using a process
-called \emph{bundle adjustment}. Bundle adjustment is the process of
-simultaneously adjusting the properties of many cameras and the 3D
-locations of the objects they see in order to minimize the error
+Errors in camera position and orientation can be corrected using a
+process called \emph{bundle adjustment}. Bundle adjustment is the
+process of simultaneously adjusting the properties of many cameras and
+the 3D locations of the objects they see in order to minimize the error
 between the estimated, back-projected pixel location of the 3D objects
 and their actual measured location in the captured images.
 
@@ -81,30 +82,39 @@ against outside DEMs from sources such as laser altimeters. Hand
 picked \acp{GCP} are the only way for \ac{ASP} to register to those
 types of sources.
 
-\subsection{A Deeper Understanding}
+\section{Bundle adjustment using ASP}
 
-In bundle adjustment the position and orientation of each camera
+Recently, Stereo Pipeline started providing its own bundle adjustment
+tool, named \texttt{bundle\_adjust}. Its usage is described in section
+\ref{bundleadjust}.
+
+\section{Bundle adjustment using ISIS}
+
+In what follows we describe how to do bundle adjustment using
+\ac{ISIS}'s toolchain. It also serves to describe bundle adjustment in more
+detail, which is applicable to other bundle adjustment tools as well,
+including Stereo Pipeline's own tool. 
+
+In bundle adjustment, the position and orientation of each camera
 station are determined jointly with the 3D position of a set of image
 tie-points points chosen in the overlapping regions between
 images. Tie points, like they sound, tie individual camera images
 together. Their physical manifestation would be a rock or small crater
 than can be observed across multiple images.
 
-Tie-points can be automatically extracted using Vision Workbench's
-Interest Point module, \ac{ISIS}'s \texttt{autoseed} and \texttt{pointreg},
-or through a number of outside methods such as the famous
-SURF\citep{surf08}. We'll be discussing the method of gathering these
-measurements using \ac{ISIS}'s tool chain. Creating a collection of tie
-points, {\it called a control network}, is a three step process. First, a
-general geographic layout of the points must be decided upon. This is
-traditionally just a grid layout that has some spacing that allows for
-about a 20-30 measurements to be made per image. This decided upon grid
-shows up in slightly different projected locations each image due to
-their slight misalignments. The second step is have an automatic
-registration algorithm try to find the same feature in all images using
-the prior grid as a starting location. The third step is to manually
-verify all measurements visually, checking to insure that each
-measurement is looking at the same feature.
+Tie-points are automatically extracted using \ac{ISIS}'s
+\texttt{autoseed} and \texttt{pointreg} (alternatively one could use a
+number of outside methods such as the famous SURF\citep{surf08}).
+Creating a collection of tie points, {\it called a control network}, is
+a three step process. First, a general geographic layout of the points
+must be decided upon. This is traditionally just a grid layout that has
+some spacing that allows for about a 20-30 measurements to be made per
+image. This decided upon grid shows up in slightly different projected
+locations each image due to their slight misalignments. The second step
+is have an automatic registration algorithm try to find the same feature
+in all images using the prior grid as a starting location. The third
+step is to manually verify all measurements visually, checking to insure
+that each measurement is looking at the same feature.
 
 \begin{figure}[b!]
   \begin{center}
@@ -162,21 +172,14 @@ However, the algorithm will also terminate when the number of
 iterations becomes too large, in which case bundle adjustment may or
 may not have finished refining the parameters of the cameras.
 
-\section{Performing bundle adjustment with USGS's ISIS}
-
-Ames Stereo Pipeline at one point provided its own bundle adjustment
-utilities but at this point it is of our opinion that they not be used
-for general use. USGS's \ac{ISIS} bundle adjustment software has
-improved and gets more regular service than we could hope to provide.
+\subsection{Tutorial: Processing Mars Orbital Camera Imagery}
+\label{sec:ba_example}
 
 This tutorial for ISIS's bundle adjustment tools is taken from
 \cite{lunokhod:controlnetwork} and \cite{lunokhod:gcp}. These tools
 are not a product of NASA nor the authors of Stereo Pipeline. They
 were created by USGS and their documentation is available at
 \cite{isis:documentation}.
-
-\subsection{Processing Mars Orbital Camera Imagery}
-\label{sec:ba_example}
 
 What follows is an example of bundle adjustment using two \ac{MOC}
 images of Hrad Vallis. We use images E02/01461 and M01/00115, the same

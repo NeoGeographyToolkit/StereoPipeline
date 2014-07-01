@@ -80,9 +80,16 @@ struct Options : public asp::BaseOptions {
   int report_level, min_matches, max_iterations;
 
   bool save_iteration;
+  std::string datum_str;
+  double semi_major, semi_minor;
 
   boost::shared_ptr<ControlNetwork> cnet;
   std::vector<boost::shared_ptr<CameraModel> > camera_models;
+  cartography::Datum datum;
+
+  // Make sure all values are initialized, even though they will be over-written later.
+  Options():lambda(-1.0), robust_threshold(0), report_level(0), min_matches(0),
+            max_iterations(0), save_iteration(false), semi_major(0), semi_minor(0){}
 };
 
 // A ceres cost function. Templated by the BundleAdjust model. We pass
@@ -419,26 +426,31 @@ void do_ba_costfun(CostFunType const& cost_fun, Options const& opt){
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("cnet,c", po::value(&opt.cnet_file),
-     "Load a control network from a file (optional).")
-    ("cost-function", po::value(&opt.cost_function)->default_value("Cauchy"),
-     "Choose a robust cost function from [Cauchy, PseudoHuber, Huber, L1, L2].")
-    ("bundle-adjuster", po::value(&opt.ba_type)->default_value("Ceres"),
-     "Choose a solver from [Ceres, RobustSparse, RobustRef, Sparse, Ref].")
-    ("session-type,t", po::value(&opt.stereo_session_string)->default_value(""),
-     "Select the stereo session type to use for processing. [options: pinhole isis dg rpc]")
+//     ("cnet,c", po::value(&opt.cnet_file),
+//      "Load a control network from a file (optional).")
     ("output-prefix,o", po::value(&opt.out_prefix), "Prefix for output filenames.")
-
-    ("lambda,l", po::value(&opt.lambda)->default_value(-1),
-     "Set the initial value of the LM parameter lambda.")
+    ("bundle-adjuster", po::value(&opt.ba_type)->default_value("Ceres"),
+     "Choose a solver from: Ceres, RobustSparse, RobustRef, Sparse, Ref.")
+    ("cost-function", po::value(&opt.cost_function)->default_value("Cauchy"),
+     "Choose a cost function from: Cauchy, PseudoHuber, Huber, L1, L2.")
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(0.5),
      "Set the threshold for robust cost functions.")
+    ("datum", po::value(&opt.datum_str)->default_value(""), "Use this datum (needed only if ground control points are used). [WGS_1984, D_MOON (radius is assumed to be 1737400 meters), D_MARS (radius is assumed to be 33916190 meters), etc.]")
+    ("semi-major-axis", po::value(&opt.semi_major)->default_value(0),
+     "Explicitly set the datum semi-major axis in meters (needed only if ground control points are used).")
+    ("semi-minor-axis", po::value(&opt.semi_minor)->default_value(0),
+     "Explicitly set the datum semi-minor axis in meters (needed only if ground control points are used).")
+    ("session-type,t", po::value(&opt.stereo_session_string)->default_value(""),
+     "Select the stereo session type to use for processing. Options: pinhole isis dg rpc. Usually the program can select this automatically by the file extension.")
     ("min-matches", po::value(&opt.min_matches)->default_value(30),
      "Set the minimum  number of matches between images that will be considered.")
-    ("max-iterations", po::value(&opt.max_iterations)->default_value(100), "Set the maximum number of iterations.")
+    ("max-iterations", po::value(&opt.max_iterations)->default_value(100),
+     "Set the maximum number of iterations.")
+    ("lambda,l", po::value(&opt.lambda)->default_value(-1),
+     "Set the initial value of the LM parameter lambda (ignored for the Ceres solver).")
     ("report-level,r",po::value(&opt.report_level)->default_value(10),
-     "Use a value >= 20 to get incresingly more verbose output.")
-    ("save-iteration-data,s", "Saves all camera information between iterations to output-prefix-iterCameraParam.txt, it also saves point locations for all iterations in output-prefix-iterPointsParam.txt.");
+     "Use a value >= 20 to get increasingly more verbose output.");
+//     ("save-iteration-data,s", "Saves all camera information between iterations to output-prefix-iterCameraParam.txt, it also saves point locations for all iterations in output-prefix-iterPointsParam.txt.");
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
@@ -448,7 +460,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("input-files", -1);
 
-  std::string usage("[options] <images> <cameras>");
+  std::string usage("<images> <cameras> <optional ground control points> -o <output prefix> [options]");
   po::variables_map vm =
     asp::check_command_line(argc, argv, opt, general_options, general_options,
                             positional, positional_desc, usage);
@@ -459,6 +471,25 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   opt.gcp_files = sort_out_gcps( opt.image_files );
   opt.camera_files = sort_out_cameras( opt.image_files );
 
+  
+  if (!opt.gcp_files.empty()){
+    // Need to read the datum if we have gcps.
+    if (opt.datum_str != ""){
+      // If the user set the datum, use it.
+      opt.datum.set_well_known_datum(opt.datum_str);
+    }else if (opt.semi_major > 0 && opt.semi_minor > 0){
+      // Otherwise, if the user set the semi-axes, use that.
+      opt.datum = cartography::Datum("User Specified Datum", "User Specified Spheroid",
+                                     "Reference Meridian",
+                                     opt.semi_major, opt.semi_minor, 0.0);
+    }else{
+      vw_throw( ArgumentErr() << "When ground control points are used, "
+                << "the datum must be specified." );
+    }
+    vw_out() << "Will use datum: " << opt.datum << std::endl;
+    
+  }
+  
   if ( opt.out_prefix.empty() )
     vw_throw( ArgumentErr() << "Missing output prefix." );
 
@@ -550,7 +581,9 @@ int main(int argc, char* argv[]) {
                              opt.out_prefix
                              );
       add_ground_control_points( (*opt.cnet), opt.image_files,
-                                 opt.gcp_files.begin(), opt.gcp_files.end() );
+                                 opt.gcp_files.begin(), opt.gcp_files.end(),
+                                 opt.datum
+                                 );
       
       opt.cnet->write_binary(opt.out_prefix + "-control");
     } else  {
