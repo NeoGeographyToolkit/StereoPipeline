@@ -375,7 +375,7 @@ def ndpad(a,npad=None,padval=0):
     b = np.ones(padsize,a.dtype)*padval
 
     # construct an N-dimensional list of slice objects
-    ind = [slice(np.int(npad[dd]),np.int(a.shape[dd]+np.floor(npad[dd]))) for dd in xrange(a.ndim)]
+    ind = [slice(np.floor(npad[dd]),a.shape[dd]+np.floor(npad[dd])) for dd in xrange(a.ndim)]
 
     # fill in the non-pad part of the array
     b[ind] = a
@@ -428,10 +428,10 @@ def procrustes(a,target,side='both',padval=0):
         for dd in xrange(a.ndim):
             if a.shape[dd] > target[dd]:
                 diff = (a.shape[dd]-target[dd])/2.
-                aind[dd] = slice(np.int(diff),np.int(a.shape[dd]-np.ceil(diff)))
+                aind[dd] = slice(np.floor(diff),a.shape[dd]-np.ceil(diff))
             elif a.shape[dd] < target[dd]:
                 diff = (target[dd]-a.shape[dd])/2.
-                bind[dd] = slice(np.int(diff),np.int(target[dd]-np.ceil(diff)))
+                bind[dd] = slice(np.floor(diff),target[dd]-np.ceil(diff))
 
     else:
         raise Exception('Invalid choice of pad type: %s' %side)
@@ -475,31 +475,30 @@ def run_one_block(t_pixels, KW, min_template_sigma, Xc, Yc,
 
     # run the feature match.
     TT=T_filt[KW:t_pixels+KW, KW:t_pixels+KW]
-    SS=S_filt[KW:np.int(s_ny)+KW, KW:np.int(s_nx)+KW]
+    SS=S_filt[KW:s_ny+KW, KW:s_nx+KW]
     # If the search image is large, do an initial search at 2x lower resolution
-    if (SS.shape[0] >= 2.*TT.shape[0]) or (SS.shape[1] >=2.*TT.shape[1]):
+    if (SS.shape[0] > 32+TT.shape[0]) or (SS.shape[1] >32+TT.shape[1]):
         TT1=TT[1:-1:2, 1:-1:2]
         SS1=SS[1:-1:2, 1:-1:2]
         TM=TemplateMatch(TT1)
         result=TM(SS1)
         if result is None:
-            warnings.warn('run_one_block: low-res TemplateMatch returned None at xc=%d, yc=%d' % (Xc, Yc))
-        else:
-            result=result[np.int(t_pixels/4):np.int(s_ny/2-t_pixels/4), np.int(t_pixels/4):np.int(s_nx/2-t_pixels/4)]
-            ijC = 2*(np.array(np.unravel_index(np.argmax(result), result.shape))-[result.shape[0]/2., result.shape[1]/2.]).astype(int)
+            #warnings.warn('run_one_block: TemplateMatch returned None at xc=%d, yc=%d' % (Xc, Yc))
+            return(-3., Xc, Yc, 0., np.NaN, np.NaN)
 
-            t_xr=np.array(ijC[1]+[-t_pixels/2-16, t_pixels/2+16]+SS.shape[1]/2, dtype=np.int16)
-            t_yr=np.array(ijC[0]+[-t_pixels/2-16, t_pixels/2+16]+SS.shape[0]/2, dtype=np.int16)
-            if t_xr[0] >= 0 and t_yr[0] >= 0 and t_xr[1] <= SS.shape[1] and t_yr[1] <= SS.shape[0] :
-                dx0=dx0+ijC[1]
-                dy0=dy0+ijC[0]
-                SS=SS[t_yr[0]:t_yr[1], t_xr[0]:t_xr[1]]
+        result=result[(t_pixels/4):(s_ny/2-t_pixels/4), (t_pixels/4):(s_nx/2-t_pixels/4)]
+        ijC = 2*(np.array(np.unravel_index(np.argmax(result), result.shape))-[result.shape[0]/2., result.shape[1]/2.]).astype(int)
+
+        t_xr=np.array(ijC[1]+[-t_pixels/2-16, t_pixels/2+16]+SS.shape[1]/2, dtype=np.int16)
+        t_yr=np.array(ijC[0]+[-t_pixels/2-16, t_pixels/2+16]+SS.shape[0]/2, dtype=np.int16)
+        if t_xr[0] >= 0 and t_yr[0] >= 0 and t_xr[1] <= SS.shape[1] and t_yr[1] <= SS.shape[0] :
+            dx0=dx0+ijC[1]
+            dy0=dy0+ijC[0]
+            SS=SS[t_yr[0]:t_yr[1], t_xr[0]:t_xr[1]]
 
     TM=TemplateMatch(TT)
     result=TM(SS)
-    if result is None:
-        warnings.warn('run_one_block: full-res TemplateMatch returned None at xc=%d, yc=%d' % (Xc, Yc))
-        return(-3., Xc, Yc, 0., np.NaN, np.NaN)
+
     # trim off edges of result
     result=result[(t_pixels/2):(SS.shape[0]-t_pixels/2),
                   (t_pixels/2):(SS.shape[1]-t_pixels/2)]
@@ -805,7 +804,7 @@ def test_epipolar(dxy_0, ep_vec, dxy, tol):
     good=(delta < tol) | (delta < 0.02 * disp_mag )
     return good, delta
 
-def est_epipolar_vec(dxy, C, C_tol, F_use):
+def est_epipolar_vec(dxy, C, C_tol, ep_vec_initial, F_use):
     """
     given a set of offsets and correlation values:
         For those point with  C>C_tol, find the median offset and the
@@ -814,16 +813,12 @@ def est_epipolar_vec(dxy, C, C_tol, F_use):
         assumed to be the epipolar vector.
 
     """
+    if ep_vec_initial is not None:
+        return ep_vec_initial, np.zeros([1,2])
 
-    good=C.ravel() > C_tol
-    if ~np.any(good):
-        return None, None
-    C=C[good]
-
-    dxy=dxy[good,:]
     P_use=100*np.array([(1-F_use)/2., (F_use+1.)/2.])
     ctr_vals=(dxy[:,0] >= ss.scoreatpercentile(dxy[:,0], P_use[0])) & (dxy[:,0] <= ss.scoreatpercentile(dxy[:,0], P_use[1])) & (dxy[:,1] >= ss.scoreatpercentile(dxy[:,1], P_use[0])) & (dxy[:,1] <= ss.scoreatpercentile(dxy[:,1], P_use[1]))
-    good=ctr_vals
+    good=ctr_vals & np.array(C.ravel()>C_tol, dtype=bool)
     dxy1=np.array(dxy[good.ravel(),:])
     dxy_ctr=np.array([np.median(dxy1[:,0]), np.median(dxy1[:,1])])
     dxy_0=dxy1.copy()
@@ -832,76 +827,6 @@ def est_epipolar_vec(dxy, C, C_tol, F_use):
     vals, vecs=np.linalg.eig(np.dot(dxy_0.transpose(), dxy_0))
     biggest_vec=vecs[:,np.argmax(abs(vals)) ]
     return biggest_vec, dxy_ctr
-
-def vrange(A):
-    out=np.array([np.min(A), np.max(A)])
-    return out
-
-def in_box(xy, x0, y0, W):
-    good=np.logical_and( np.logical_and(xy[:,0] >= x0-W/2. ,   xy[:,0] < x0+W/2.),
-                               np.logical_and(xy[:,1] >= y0-W/2.,  xy[:,1] < y0+W/2))
-    return good
-
-def local_ep_test( xy, dxy, C, global_ep_ctr=None,  global_ep_vec=None, Lgrid=5000., N_min=200, C_tol=0.4):
-
-    all_good=np.zeros_like(dxy[:,0], dtype='bool')
-    if ~np.any(C.ravel()>C_tol):
-        return all_good
-    if global_ep_vec is not None:
-        [good_global, delta_global]=test_epipolar(global_ep_ctr, global_ep_vec, dxy, 64)
-        delta_p68_global=ss.scoreatpercentile(delta_global[C.ravel()>C_tol], 68.)
-        global_tol=np.minimum(64, 3.*delta_p68_global)
-    XR=vrange( xy[:,0] )
-    YR=vrange( xy[:,1] )
-    xg=np.arange(XR[0]+0.5*Lgrid, XR[1]+0.5*Lgrid, Lgrid)
-    yg=np.arange(YR[0]+0.5*Lgrid, YR[1]+0.5*Lgrid, Lgrid)
-    N_min=np.minimum(N_min, xy.shape[0])
-
-    N_total_good_C=np.sum(C>=C_tol)
-    for rr in range(0,len(yg)):
-        for cc in range(0,len(xg)):
-            W=Lgrid;
-            els_to_test=in_box(xy, xg[cc], yg[rr], W)
-            els=els_to_test.copy()
-            N=np.sum(els)
-            if N==0: # no els to test
-                continue
-            NgoodC=np.sum(C[els]>=C_tol)
-            while NgoodC < N_min and NgoodC < N_total_good_C:
-                # if there aren't enough points in this tile, double the area searched
-                W=W*np.sqrt(2.)
-                els= in_box(xy, xg[cc], yg[rr], W)
-                NgoodC=np.sum(C[els]>C_tol)
-            # estimate the ep vec for this tile
-            [ep_vec, ep_ctr]=est_epipolar_vec(dxy[els,:], C[els], C_tol, 0.90)
-            if ep_vec is None:
-                if global_ep_vec is not None:
-                    [good, delta]=test_epipolar(global_ep_ctr, global_ep_vec, dxy[els,:], global_tol)
-                    all_good[els_to_test]=good
-                    continue
-                else:
-                    all_good[els_to_test]=False
-                    continue
-            [good, delta]=test_epipolar(ep_ctr, ep_vec, dxy[els,:], 64)
-            delta_p68=ss.scoreatpercentile(delta[C[els].ravel()>C_tol], 68.)
-            if global_ep_vec is not None:
-                [good_global, delta_global]=test_epipolar(global_ep_ctr, global_ep_vec, dxy[els,:], 64)
-                delta_p68_global=ss.scoreatpercentile(delta_global[C[els].ravel()>C_tol], 68.)
-                # check if the global EP vector gives a sharper distribution
-                if delta_p68_global < 0.75*delta_p68:
-                    print "using global"
-                    delta_p68=delta_p68_global
-                    ep_ctr=global_ep_ctr
-                    ep_vec=global_ep_vec
-            ep_tol=np.minimum(64, np.maximum(2, delta_p68*3.))
-            #print "rr=%d cc=%d, ep_vec=[%f, %f], delta_p68=%f, ep_tol=%f, W=%f, NgoodC=%d" % (rr, cc, ep_vec[0], ep_vec[1], delta_p68,  ep_tol, W, NgoodC)
-            # now that we've established the ep vector for this tile, use it to test the points inside the tile
-            [good, delta]=test_epipolar(ep_ctr, ep_vec, dxy[els_to_test, :], ep_tol)
-            all_good[els_to_test]=good
-
-    f_all_good=np.mean(all_good[np.isfinite(all_good)])
-    print "local epipolar filtering accepted %f percent of points" % (f_all_good*100.)
-    return all_good
 
 def img_interpolate_linear( x, y, I, GT, nodata_val=np.NaN):
     result=np.zeros_like(x)+nodata_val
@@ -1034,9 +959,11 @@ def main():
     parser.add_option("-p","--output_pad",dest="output_pad", default=2, type="int",
                       help="pad the output search range by this amount (%default)")
     parser.add_option("-s", "--sigma_t_min", dest="sigma_t_min",  default=0., type="float",
-                      help="matches will not be calculated if the standard deviation of the template is less than this value (%default)")
-    parser.add_option("-E", "--Exhaustive", dest="Exhaustive", action="store_true", 
-                      help="If set, output disparity maps will include low-quality (C<0.3) matches that are not spatially clustered (minimum disparity difference to nearest neighbors < max(64, 90th percentile of high-quality matches)).  By default these matches are deleted before gridding.  This option may be needed in rugged terrain or for low-quality images")
+                       help="matches will not be calculated if the standard deviation of the template is less than this value (%default)")
+    parser.add_option("-R", "--R_lim_min", dest="R_lim_min",  default=32., type="float",
+                       help="The minimum-neighbor-disparity parameter is set to the maximum of this parameter and the 98th percentile of all minimum neighbor disparities.\n  Points whose neighbors have a minimum disparity range larger than this parameter will be removed (%default)")
+    parser.add_option("-l", "--R_lim_max", dest="R_lim_max",  default=128., type="float",
+                       help="The minimum-neighbor-disparity parameter is set to the minimum of this parameter and the 98th percentile of all minimum neighbor disparities.\n  Points whose neighbors have a minimum disparity range larger than this parameter will be removed (%default)")
     parser.add_option("-m", "--mask_file", dest="mask_file", default=None, type="string",
                       help="if specified, use this geotif mask file to reject template-image points that should not be searched (1=search, 0=don't)")
     parser.add_option("-M", "--Max_disp_range", dest="M_max",  default=64., type="float",
@@ -1045,14 +972,12 @@ def main():
                       help="The number of processes to use (%default)")
     parser.add_option("--no_epipolar_fltr", action="store_false", dest="epipolar_fltr", 
                       help="Disable filtering of disparities by distance from epipolar vector")
+    parser.add_option("-e", "--epipolar_axis", dest="epipolar_axis", default=None, type="int",
+                      help="If set, specify the axis that is epipolar 0=x, 1=y (%default)")
     parser.add_option("-n", "--nodata-value", dest="user_nodata", default=None, type="int",
                       help="The no-data value (pixel values <= nodata are not not used. (%default)")
     parser.add_option("-w", "--fill-dist", dest="fill_dist", default=1000., type="float",
                       help="Fill in gaps of this size or more with smoothed values. (%default)")
-    parser.add_option("-S", "--spread_scale", dest="spread_scale", default=1., type="float",
-                      help="scale the spread values by this number before writing D-sub_spread. (%default)")
-    parser.add_option("--local_epipolar", dest="local_EP", action="store_true",
-                      help="Use a local epipolar filter (disables global filter)")
     parser.add_option("-D", "--Debug", dest="Debug", default=False, action="store_true",
                       help="Output deugging info and text file of correlation-estimate points")
     (options, args) = parser.parse_args()
@@ -1071,29 +996,11 @@ def main():
         in_mask=None
 
     #undocumented options#
-    C_tol=0.25  # minimum quality for strong matches, used in defining the epipolar vector estimate and in rejecting weak matches in the use_minimum_disparity_differences test.
     F_ep_pts_to_use=0.9
-    ep_tol_max=32
+    ep_tol_max=24
     ep_tol_min=4
     dxy_slope_tol=3.0
-    min_npts = 8  #Minimum number of coarse points in any dimension
-    MDC_lim_min=64  # if using the maximum-disparity-cluster test, set the threshold to at least this value
-    MDC_lim_max=256 # if using the maximum-disparity-cluster test, set the threshold to at least this value
-
-    DOPLOT=False
-    if options.Exhaustive:
-        use_maximum_disparity_cluster_test=False
-    else:
-        use_maximum_disparity_cluster_test=True
-        if options.Debug: 
-            print "Using MDC test"
- 
-    if DOPLOT:
-        import matplotlib.pyplot as plt
-
-    # if we're using local_EP we're not filtering based on the global EP filter
-    if options.local_EP:
-        options.epipolar_fltr=False
+    C_tol=0.4  # minimum quality needed in defining the epipolar vector estimate
 
     T_file = args[0]
     S_file = args[1]
@@ -1136,6 +1043,16 @@ def main():
     s_ny=options.s_ny
     t_pixels=options.t_pixels
 
+    if options.epipolar_axis is not None:
+        ep_vec_initial=np.zeros([1,2])
+        ep_vec_initial[options.epipolar_axis]=1.
+        if options.epipolar_axis==0:
+            s_ny=np.min([s_ny, s_nx/10.]);
+        else:
+            s_nx=np.min([s_nx, s_ny/10.]);
+    else:
+        ep_vec_initial=None
+
     out_dir=os.path.dirname(output_prefix)
     if len(out_dir)==0: out_dir='.'
     if not os.path.exists(out_dir): os.mkdir(out_dir)
@@ -1145,11 +1062,6 @@ def main():
 
     #initialize the matcher object
     ftm=fft_matcher(T_file, S_file, options.processes, options.user_nodata)
-
-    # define min and max pt indices
-    im_shape=[ftm.Ny, ftm.Nx]
-    x_lims=np.array([1, im_shape[1]-1])
-    y_lims=np.array([1, im_shape[0]-1])
 
     # define the initial search points
     edge_pad=np.array([s_nx/4.+t_pixels/2, s_ny/4.+t_pixels/2])
@@ -1172,43 +1084,26 @@ def main():
     dxy0=np.dot(np.c_[np.ones_like(XY0[:,0])], D_origin*[1, -1])
     dxy_score=np.c_[dxy0[:,0]-s_nx/2., dxy0[:,0]+s_nx/2, dxy0[:,1]-s_ny/2, dxy0[:,1]+s_ny/2]
     xy, dxy, C, xy_bad_mask = search_new_pts(XY0, dxy_score, t_pixels, ftm, min_template_sigma=options.sigma_t_min, mask=in_mask)
-    if np.sum(C>C_tol) < 4 and ( options.epipolar_fltr or options.local_EP ):
-        print "Warning: initial search of %d points found only %d points with C > %f, exiting" % (C.shape[0], np.sum(C>C_tol), C_tol)
-        exit(1)
-    if options.epipolar_fltr or options.local_EP:
+
+    if options.epipolar_fltr:
         # run the epipolar fit, establish a tolerance, run again
-        ep_vec, dxy_ctr=est_epipolar_vec(dxy, C, C_tol, F_ep_pts_to_use)
-        good, ep_dist=test_epipolar(dxy_ctr, ep_vec, dxy, ep_tol_max)
+        ep_vec, dxy_ctr=est_epipolar_vec(dxy, C, C_tol, ep_vec_initial, F_ep_pts_to_use)
+        good, ep_dist=test_epipolar(dxy_ctr, ep_vec, dxy, 32)
         ep_f90=ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], 90)
         ep_tol=np.minimum(ep_tol_max,np.maximum(ep_tol_min, ep_f90))
-        if options.Debug:
-            print " ---First estimate of global ep vec is (%f,%f), tol=%f, ep_dist_f90=%f" % (ep_vec[0], ep_vec[1], ep_tol, ep_f90)
-
         # run fit again if any points were marked as bad in the first epipolar test
-        if  np.any(~good):
-            ep_vec, dxy_ctr=est_epipolar_vec(dxy[good,:], C[good,:], C_tol, F_ep_pts_to_use)
+        if ep_vec_initial is not None and np.any(~good):
+            ep_vec, dxy_ctr=est_epipolar_vec(dxy[good,:], C[good,:], C_tol, None, F_ep_pts_to_use)
             ep_f90= ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], 90)
             ep_tol=np.minimum(ep_tol_max,np.maximum(ep_tol_min, ep_f90))
             good, ep_dist=test_epipolar(dxy_ctr, ep_vec, dxy, ep_tol)
-            if options.Debug:
-                print " ---Refined global ep vec estimated at(%f,%f), tol=%f, ep_dist_f90=%f" % (ep_vec[0], ep_vec[1], ep_tol, ep_f90)
-
-
-    if options.epipolar_fltr is False:
+        print " --- ep vec estimated at(%f,%f), tol=%f, ep_dist_f90=%f" % (ep_vec[0], ep_vec[1], ep_tol, ep_f90)
+    else:
         #Create boolean array with True for all values in dx
         good = (dxy != np.nan)[:,0]
-        if options.Debug:
-            print "---ignoring global epipolar filter"
-
-    if options.local_EP:
-        good=local_ep_test(xy, dxy, C, global_ep_vec=ep_vec, global_ep_ctr=dxy_ctr, N_min=np.minimum(200, xy.shape[0]), C_tol=C_tol)
-        if DOPLOT:
-            plt.figure(1);
-            #plt.plot(xy[:,0], xy[:,1],'ko')
-            plt.scatter(xy[good,0], xy[good,1], c=dxy[good,1], lw=0); plt.colorbar();
-
-
+    
     # make sparse matrices for storing dx and dy values, store initial values
+    im_shape=[ftm.Ny, ftm.Nx]
     dx_mat=coo_matrix((dxy[good,0],(xy[good,1],xy[good,0])), shape=im_shape).tocsr()
     dy_mat=coo_matrix((dxy[good,1],(xy[good,1],xy[good,0])), shape=im_shape).tocsr()
     C_mat=coo_matrix(((C[good]).ravel(), (xy[good,1], xy[good,0])), shape=im_shape).tocsr()
@@ -1222,7 +1117,7 @@ def main():
 
     dxy_score=nbhd_range(np.arange(0, all_pts.shape[0]), dx_mat, dy_mat, tri, pt_dict)
     refine_pts=np.arange(0, xy_list.shape[0] )
-    # define the pattern of pixel centers to refine at each steps.  Duplicates
+    # define the pattern of pixel centers to refineat each steps.  Duplicates
     # will be deleted.
     refine_x=np.array([-1.,  0.,  1., -1.,  1., -1., 0., 1.])
     refine_y=np.array([-1., -1., -1.,  0.,  0.,  1., 1., 1.]);
@@ -1235,6 +1130,7 @@ def main():
             recalc_nbhd_range=True
             break
         # add neighbors of the last set of points to the list
+        #sc=plt.scatter(all_pts[refine_pts,0], all_pts[refine_pts,1], c=dxy_score[:,1]-dxy_score[:,0]); plt.axis('equal'); plt.colorbar(sc)
         new_x=(np.tile(all_pts[refine_pts, 0], [8,1]).transpose()+refine_x*delta_x).ravel()
         new_y=(np.tile(all_pts[refine_pts, 1], [8,1]).transpose()+refine_y*delta_x).ravel()
         # the search range for the new points is set based on the min and max of the dxy_scores of the refined points
@@ -1243,14 +1139,16 @@ def main():
                        np.tile(dxy_score[:,2], [8,1]).transpose().ravel(),
                        np.tile(dxy_score[:,3], [8,1]).transpose().ravel()]).transpose()
 
-        # clamp range of x and y to min and max pt indices
+        # define min and max pt indices
+        x_lims=np.array([1, im_shape[1]-1])
+        y_lims=np.array([1, im_shape[0]-1])
+        # clamp range of x and y to these indices
         new_x[new_x > x_lims[1]]=x_lims[1]
         new_x[new_x < 0 ]=x_lims[0]
         new_y[new_y > y_lims[1]]=y_lims[1]
         new_y[new_y < 0 ]=y_lims[0]
 
-        # new points should have zero entries in C_mat
-        not_dups=np.squeeze(np.array(C_mat[new_y, new_x]<=0))
+        not_dups=np.squeeze(np.array(C_mat[new_y, new_x]==0))
         new_xy=np.c_[new_x[not_dups], new_y[not_dups]]
         uRows, new_xy=unique_rows(new_xy)
         new_dxy_score=new_dxy_score[uRows,:]
@@ -1264,52 +1162,28 @@ def main():
 
         if options.epipolar_fltr:
             good, ep_dist=test_epipolar(dxy_ctr, ep_vec, new_dxy, ep_tol)
+            print "    searched %d points, found %d good matches" % (N_search, np.sum(good) )
         else:
             good = (new_dxy != np.nan)[:,0]
-        if options.local_EP:
-            this_xy=np.c_[C_mat.nonzero()]
-            this_xy=this_xy[:,[1,0]]
-            this_dxy=np.array(np.c_[dx_mat[this_xy[:,1], this_xy[:,0]].transpose(), dy_mat[this_xy[:,1], this_xy[:,0]].transpose()])
-            this_C=np.array(C_mat[this_xy[:,1], this_xy[:,0]]).ravel()
-            this_good=this_C>0
-
-            this_xy=np.append(this_xy[this_good,:], new_xy, 0)
-            this_dxy=np.append(this_dxy[this_good,:], new_dxy, 0)
-            this_C=np.append(this_C[this_good], np.array(new_C).ravel(), 0)
-
-            new=np.append(np.zeros_like(this_C[this_good]), np.ones_like(np.array(new_C).ravel()), 0)
-            all_good_ep=local_ep_test(this_xy, this_dxy, this_C, global_ep_vec=ep_vec, global_ep_ctr=dxy_ctr, N_min=np.minimum(200, xy.shape[0]), C_tol=C_tol)
-            good=all_good_ep[new==1]
-            if DOPLOT:
-                plt.figure();
-                #plt.plot(this_xy[:,0], this_xy[:,1],'ko')
-                plt.scatter(this_xy[all_good_ep,0], this_xy[all_good_ep,1], c=this_dxy[all_good_ep,1], lw=0); plt.colorbar();
-
-
-        print "    searched %d points, found %d good matches" % (N_search, np.sum(good) )
 
         # add the new points to the sparse matrix of tested points
         dx_mat=dx_mat+coo_matrix((new_dxy[good,0], [new_xy[good,1], new_xy[good,0]]), im_shape).tocsr()
         dy_mat=dy_mat+coo_matrix((new_dxy[good,1], [new_xy[good,1], new_xy[good,0]]), im_shape).tocsr()
         C_mat=C_mat+coo_matrix(((new_C[good]).ravel(), [new_xy[good,1], new_xy[good,0]]), im_shape).tocsr()
-        # mark points that did not return good matches with a 1
         bad_mask_mat = bad_mask_mat + coo_matrix((1*np.ones_like(new_xy_bad[:,0]), (new_xy_bad[:,1], new_xy_bad[:,0])), shape=im_shape).tocsr()
-        # mark points that failed the epipolar test with a 2
         bad=~good
         bad_mask_mat = bad_mask_mat + coo_matrix((2*np.ones_like(new_xy[bad,1]), (new_xy[bad,1], new_xy[bad,0])), shape=im_shape).tocsr()
+
+        #ID_new_pts=lil_matrix((np.ones_like(new_dxy[good,0]), [new_xy[good,1], new_xy[good,0]]), im_shape).tocsr()
 
         all_pts=np.c_[C_mat.nonzero()];
         all_pts=all_pts[:,[1,0]];
         # extract the dx and dy values, re-estimate the ep vector
         dxy=np.array(np.c_[dx_mat[all_pts[:,1], all_pts[:,0]].transpose(), dy_mat[all_pts[:,1], all_pts[:,0]].transpose()])
-        C= np.array(C_mat[all_pts[:,1], all_pts[:,0]]).ravel()
-        good=C>0
-        dxy=dxy[good,:]
-        C=C[good]
-        all_pts=all_pts[good,:]
+        C= np.array(C_mat[all_pts[:,1], all_pts[:,0]].transpose())
 
-        if options.epipolar_fltr:
-            ep_vec, dxy_ctr=est_epipolar_vec(dxy, C, C_tol, 0.90)
+        if options.epipolar_fltr and ep_vec_initial is not None:
+            ep_vec, dxy_ctr=est_epipolar_vec(dxy, C, C_tol)
 
         # triangulate all the good points so far
         tri=sp.Delaunay(all_pts)
@@ -1323,14 +1197,10 @@ def main():
             C_mat=C_mat.tolil()
             C_mat[all_pts[bad,1], all_pts[bad,0]]=0
             C_mat=C_mat.tocsr()
-            # mark points that failed the d(disparity)/d(dist) test with a 4
             bad_mask_mat = bad_mask_mat + coo_matrix((4*np.ones_like(all_pts[bad,1]), (all_pts[bad,1], all_pts[bad,0])), shape=im_shape).tocsr()
 
-            all_pts=np.c_[C_mat.nonzero()][:,[1,0]]
-            C= np.array(C_mat[all_pts[:,1], all_pts[:,0]]).ravel()
-            good=C>0
-            all_pts=all_pts[good,:];
-            C=C[good]
+            all_pts=np.c_[C_mat.nonzero()]
+            all_pts=all_pts[:,[1,0]];
             tri=sp.Delaunay(all_pts)
             pt_dict=make_pt_2_neighbors(tri)
             dxy_score = nbhd_range(range(all_pts.shape[0]), dx_mat, dy_mat, tri, pt_dict)
@@ -1342,7 +1212,7 @@ def main():
         test_pts=np.arange(0, all_pts.shape[0])
         # test the new points and their neighbors for convergence
         to_refine=np.logical_or((dxy_score[:,1]-dxy_score[:,0]>options.refine_tol), (dxy_score[:,3]-dxy_score[:,2]) > options.refine_tol)
-        refine_pts=test_pts[to_refine]
+        refine_pts=test_pts[to_refine,:]
         dxy_score=dxy_score[to_refine,:]
         # N.B.  we can often end up refining more points than we searched on the
         # last round, because points from previous rounds can get marked for
@@ -1350,70 +1220,35 @@ def main():
         print "    found %d points to refine" %  len(refine_pts)
 
     if recalc_nbhd_range:
-        all_pts=np.c_[C_mat.nonzero()][:,[1,0]];
-        C= np.array(C_mat[all_pts[:,1], all_pts[:,0]]).ravel()
-        good=C>0
-        all_pts=all_pts[good,:]
-        C=C(good);
-        tri=sp.Delaunay(all_pts)
-        pt_dict=make_pt_2_neighbors(tri)
+        all_pts=np.c_[C_mat.nonzero()];
+        all_pts=all_pts[:,[1,0]];
         dxy_score = nbhd_range(range(all_pts.shape[0]), dx_mat, dy_mat, tri, pt_dict)
 
-    if use_maximum_disparity_cluster_test:
-        #  This test calculates the 90th percentiles of the minimum disparity spread between each point and its nearest neighbor.  The 90th percentile of these spreads for the high-quality matches (C>0.3) is used as a filter on the low-quality matches (C<0.3), deleting those whose disparity spread is greater than the threshold.  This is useful in deleting low-quality matches
-        R_dx=dxy_score[:,1]-dxy_score[:,0]
-        R_dy=dxy_score[:,3]-dxy_score[:,2]
+    # delete the 1% of matches with the greatest disparity range
+    R_dx=dxy_score[:,1]-dxy_score[:,0]
+    R_dy=dxy_score[:,3]-dxy_score[:,2]
 
-        R_dx_mat=coo_matrix((R_dx, [all_pts[:, 1], all_pts[:,0]]), im_shape).tocsr()
-        R_dy_mat=coo_matrix((R_dy, [all_pts[:,1], all_pts[:,0]]), im_shape).tocsr()
-        R_dxy_score=nbhd_range(range(all_pts.shape[0]), R_dx_mat, R_dy_mat, tri, pt_dict)
-        P_high=(ss.scoreatpercentile(R_dxy_score[C>C_tol,0], 90), ss.scoreatpercentile(R_dxy_score[C>C_tol,2], 90))
-        R_max = np.maximum(P_high, MDC_lim_min)
-        R_max = np.minimum(R_max, MDC_lim_max)
-        bad_xy=all_pts[np.logical_and(C<C_tol, np.logical_or((R_dxy_score[:,0] > R_max[0]) ,  (R_dxy_score[:,2] > R_max[1]))),:]
-        # mark points that failed the min_delta_disparity test with an 8
-        bad_mask_mat = bad_mask_mat + coo_matrix((8*np.ones_like(bad_xy[:,1]), (bad_xy[:,1], bad_xy[:,0])), shape=im_shape).tocsr()
-        if options.Debug:
-            print "rejecting %d detected outliers using the minimum-disparity-difference test with R_max = %f, %f" % (bad_xy.shape[0], R_max[0], R_max[1])
-        # delete the bad values, convert dx dy, and C to lil matrices
-        C_mat=C_mat.tolil()
-        dx_mat=dx_mat.tolil()
-        dy_mat=dy_mat.tolil()
-        for bad in bad_xy:
-            dx_mat[bad[1], bad[0]]=0
-            dy_mat[bad[1], bad[0]]=0
-            C_mat[bad[1], bad[0]]=0
-        C_mat=C_mat.tocsr()
-        dx_mat=dx_mat.tocsr()
-        dy_mat=dy_mat.tocsr()
-
-    if options.local_EP:
-        this_xy=np.c_[C_mat.nonzero()]
-        this_xy=this_xy[:,[1,0]]
-        this_C= np.array(C_mat[this_xy[:,1], this_xy[:,0]]).ravel()
-        this_good=this_C>0
-        this_xy=this_xy[this_good,:];
-        this_C=this_C[this_good]
-        this_dxy=np.array(np.c_[dx_mat[this_xy[:,1], this_xy[:,0]].transpose(), dy_mat[this_xy[:,1], this_xy[:,0]].transpose()])
-        good_ep=local_ep_test(this_xy, this_dxy, this_C, global_ep_vec=ep_vec, global_ep_ctr=dxy_ctr, N_min=np.minimum(200, this_xy.shape[0]), C_tol=C_tol)
-        bad_xy=this_xy[~good_ep]
-        bad_mask_mat = bad_mask_mat + coo_matrix((2*np.ones_like(bad_xy[:,1]), (bad_xy[:,1], bad_xy[:,0])), shape=im_shape).tocsr()
-
-        #delete bad values
-        C_mat=C_mat.tolil()
-        dx_mat=dx_mat.tolil()
-        dy_mat=dy_mat.tolil()
-        for bad in bad_xy:
-            dx_mat[bad[1], bad[0]]=0
-            dy_mat[bad[1], bad[0]]=0
-            C_mat[bad[1], bad[0]]=0
-        C_mat=C_mat.tocsr()
-        dx_mat=dx_mat.tocsr()
-        dy_mat=dy_mat.tocsr()
-        if options.Debug:
-            print "final pass of local EP test rejects %d outliers" % bad_xy.shape[0]
-
-    # harvest the point locations from C
+    R_dx_mat=coo_matrix((R_dx, [all_pts[:,1], all_pts[:,0]]), im_shape).tocsr()
+    R_dy_mat=coo_matrix((R_dy, [all_pts[:,1], all_pts[:,0]]), im_shape).tocsr()
+    R_dxy_score=nbhd_range(range(all_pts.shape[0]), R_dx_mat, R_dy_mat, tri, pt_dict)
+    P99=(ss.scoreatpercentile(R_dxy_score[:,0], 99), ss.scoreatpercentile(R_dxy_score[:,2], 99))
+    R_max = np.maximum(P99, options.R_lim_min)
+    R_max = np.minimum(R_max, options.R_lim_max)
+    bad_xy=all_pts[np.logical_or((R_dxy_score[:,0] > R_max[0]) ,  (R_dxy_score[:,2] > R_max[1])),:]
+    bad_mask_mat = bad_mask_mat + coo_matrix((8*np.ones_like(bad_xy[:,1]), (bad_xy[:,1], bad_xy[:,0])), shape=im_shape).tocsr()
+    if options.Debug:
+        print "rejecting %d detected outliers using the minimum-disparity-difference test with R_max = %f, %f" % (bad_xy.shape[0], R_max[0], R_max[1])
+    # delete the bad value, convert dx dy, and C to lil matrices
+    C_mat=C_mat.tolil()
+    dx_mat=dx_mat.tolil()
+    dy_mat=dy_mat.tolil()
+    for bad in bad_xy:
+        dx_mat[bad[1], bad[0]]=0
+        dy_mat[bad[1], bad[0]]=0
+        C_mat[bad[1], bad[0]]=0
+    C_mat=C_mat.tocsr()
+    dx_mat=dx_mat.tocsr()
+    dy_mat=dy_mat.tocsr()
     all_pts=np.c_[C_mat.nonzero()];
     all_pts=all_pts[:,[1,0]];
     # triangulate all the good points so far
@@ -1434,17 +1269,13 @@ def main():
     dy=dy_mat[all_pts[:,1], all_pts[:,0]].transpose()
     C=C_mat[all_pts[:,1], all_pts[:,0]].transpose()
 
-    if DOPLOT:
-        plt.figure()
-        plt.scatter(all_pts[:,0], all_pts[:,1], c=np.array(dy).ravel(), lw=0); plt.colorbar();
-
     # transform the pixel centers to map coordinates
     GT = ftm.GT_S
     driver = ftm.T_ds.GetDriver()
     projection = ftm.T_ds.GetProjection()
     xy=np.c_[GT[0]+all_pts[:,0]*GT[1]+all_pts[:,1]*GT[2], GT[3]+all_pts[:,0]*GT[4]+all_pts[:,1]*GT[5]]
     out=np.c_[xy, dx , dy , C, dxy_score[:,1]-dxy_score[:,0]+options.output_pad, dxy_score[:,3]-dxy_score[:,2]+options.output_pad]
-    # spit out the good and bad masks
+#    # spit out the good and bad masks
     good_xy=np.c_[C_mat.nonzero()][:,[1, 0]]
     good_xy=np.c_[GT[0]+good_xy[:,0]*GT[1]+good_xy[:,1]*GT[2], GT[3]+good_xy[:,0]*GT[4]+good_xy[:,1]*GT[5]]
     bad_xy=np.c_[bad_mask_mat.nonzero()][:,[1, 0]]
@@ -1544,8 +1375,7 @@ def main():
                 if options.Debug:
                     print " ...based on %d points" % np.sum(ii)
                 if (np.amax(out[ii,0])-np.amin(out[ii,0]) > 0) and (np.amax(out[ii,1])-np.amin(out[ii,1]) > 0 ) :
-                    # grid the disparities, scaling the spread by options.spread_scale (default=1)
-                    grid_disp(xg_sub, yg_sub, out[ii,0:2], out[ii,2], out[ii,3], out[ii,5]*options.spread_scale, out[ii,6]*options.spread_scale, options.fill_dist, s_nx, dispDs, spreadDs, options.output_scale, cr_out)
+                    grid_disp(xg_sub, yg_sub, out[ii,0:2], out[ii,2], out[ii,3], out[ii,5], out[ii,6], options.fill_dist, s_nx, dispDs, spreadDs, options.output_scale, cr_out)
 
         for Ds in (dispDs, spreadDs):
             Ds.SetGeoTransform(tuple(GT1))
