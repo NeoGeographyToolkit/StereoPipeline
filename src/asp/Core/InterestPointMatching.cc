@@ -155,8 +155,14 @@ namespace asp {
     FifoWorkQueue matching_queue;
     Mutex camera_mutex;
 
-    // Jobs set to 2x the number of cores. This is just incase all jobs are not equal.
+    // Jobs set to 2x the number of cores. This is just incase all
+    // jobs are not equal.
     size_t number_of_jobs = vw_settings().default_num_threads() * 2;
+
+    // Robustness fix
+    if (ip1_size < number_of_jobs)
+      number_of_jobs = ip1_size;
+
     IPListIter start_it = ip1.begin();
     std::vector<size_t>::iterator output_it = output_indices.begin();
 
