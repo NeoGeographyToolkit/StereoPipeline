@@ -166,7 +166,7 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
     BlobIndexThreaded smallHoleIndex( invert_mask( inputview.impl() ),
                                       stereo_settings().fill_hole_max_size,
                                       vw::vw_settings().default_tile_size(),
-                                      opt.num_threads
+                                      vw::vw_settings().default_num_threads()
                                       );
     vw_out() << "\t    * Identified " << smallHoleIndex.num_blobs() << " holes\n";
     bool use_grassfire = true;
