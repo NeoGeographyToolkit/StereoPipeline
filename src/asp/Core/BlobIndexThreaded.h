@@ -368,32 +368,45 @@ class BlobIndexThreaded {
   template <class SourceT>
   BlobIndexThreaded( vw::ImageViewBase<SourceT> const& src,
                      vw::int32 const& max_area = 0,
-                     vw::int32 const& tile_size = vw::vw_settings().default_tile_size() )
+                     vw::int32 const& tile_size
+                     = vw::vw_settings().default_tile_size(),
+                     vw::int32 const& num_threads
+                     = vw::vw_settings().default_num_threads()
+                     )
     : m_max_area(max_area), m_tile_size(tile_size) {
-
+    
+    std::vector<vw::BBox2i> bboxes =
+      image_blocks( src.impl(), m_tile_size, m_tile_size );
     // User needs to remember to give a pixel mask'd input
-    {
+    typedef blob::BlobIndexTask<SourceT> task_type;
+    if (bboxes.size() > 1){
       vw::Stopwatch sw;
       sw.start();
-      vw::FifoWorkQueue queue(vw::vw_settings().default_num_threads());
-      typedef blob::BlobIndexTask<SourceT> task_type;
-
-      std::vector<vw::BBox2i> bboxes =
-        image_blocks( src.impl(), m_tile_size, m_tile_size );
+      vw::FifoWorkQueue queue(num_threads);
+      
       for ( size_t i = 0; i < bboxes.size(); ++i ) {
-        boost::shared_ptr<task_type> task(new task_type(src, bboxes[i], m_insert_mutex,
+        boost::shared_ptr<task_type> task(new task_type(src, bboxes[i],
+                                                        m_insert_mutex,
                                                         m_c_blob, m_blob_bbox,
                                                         i, m_max_area ));
         queue.add_task(task);
       }
       queue.join_all();
-
+      
       sw.stop();
       vw_out(vw::DebugMessage,"inpaint") << "Blob detection took " << sw.elapsed_seconds() << "s\n";
+      consolidate( vw::Vector2i( src.impl().cols(), src.impl().rows() ),
+                   vw::Vector2i( m_tile_size, m_tile_size ) );
+    }else if (bboxes.size() == 1){
+      // This is a special case when we want to fill in holes
+      // in a single small image.
+      boost::shared_ptr<task_type> task(new task_type(src, bboxes[0],
+                                                      m_insert_mutex,
+                                                      m_c_blob, m_blob_bbox,
+                                                      0, m_max_area ));
+      (*task.get())();
     }
-
-    consolidate( vw::Vector2i( src.impl().cols(), src.impl().rows() ),
-                 vw::Vector2i( m_tile_size, m_tile_size ) );
+    
 
     // Cull blobs that are too big.
     if ( m_max_area > 0 ) {

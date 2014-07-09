@@ -35,6 +35,69 @@ namespace vw {
   template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
 }
 
+// Erode blobs from given image by iterating through tiles, biasing
+// each tile by a factor of blob size, removing blobs in the tile,
+// then shrinking the tile back. The bias is necessary to help avoid
+// fragmenting (and then unnecessarily removing) blobs.
+template <class ImageT>
+class PerTileErode: public ImageViewBase<PerTileErode<ImageT> >{
+  ImageT m_img;
+public:
+  PerTileErode( ImageViewBase<ImageT>   const& img):
+    m_img(img.impl()){}
+
+  // Image View interface
+  typedef typename ImageT::pixel_type pixel_type;
+  typedef pixel_type result_type;
+  typedef ProceduralPixelAccessor<PerTileErode> pixel_accessor;
+
+  inline int32 cols  () const { return m_img.cols(); }
+  inline int32 rows  () const { return m_img.rows(); }
+  inline int32 planes() const { return 1; }
+
+  inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
+
+  inline pixel_type operator()( double /*i*/, double /*j*/, int32 /*p*/ = 0 ) const {
+    vw_throw(NoImplErr() << "PerTileErode::operator()(...) is not implemented");
+    return pixel_type();
+  }
+
+  typedef CropView<ImageView<pixel_type> > prerasterize_type;
+  inline prerasterize_type prerasterize(BBox2i const& bbox) const {
+
+    int area = stereo_settings().erode_max_size;
+
+    // We look a beyond the current tile, to avoid cutting blobs
+    // if possible. Skinny blobs will be cut though.
+    int bias = 2*int(ceil(sqrt(double(area))));
+    
+    BBox2i bbox2 = bbox;
+    bbox2.expand(bias);
+    bbox2.crop(bounding_box(m_img));
+    ImageView<pixel_type> tile_img = crop(m_img, bbox2);
+
+    int tile_size = std::max(bbox2.width(), bbox2.height()); // don't subsplit
+    BlobIndexThreaded smallBlobIndex(tile_img, area, tile_size);
+    ImageView<pixel_type> clean_tile_img = applyErodeView(tile_img,
+                                                          smallBlobIndex);
+    return prerasterize_type(clean_tile_img,
+                             -bbox2.min().x(), -bbox2.min().y(),
+                             cols(), rows() );
+  }
+
+  template <class DestT>
+  inline void rasterize(DestT const& dest, BBox2i bbox) const {
+    vw::rasterize(prerasterize(bbox), dest, bbox);
+  }
+};
+
+template <class ImageT>
+PerTileErode<ImageT>
+per_tile_erode( ImageViewBase<ImageT> const& img) {
+  typedef PerTileErode<ImageT> return_type;
+  return return_type( img.impl() );
+}
+
 // Run several cleanup passes with desired cleanup mode.
 template <class ViewT>
 struct MultipleDisparityCleanUp {
@@ -92,6 +155,8 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
   
   bool removeSmallBlobs = (stereo_settings().erode_max_size > 0);
 
+  std::string outF = opt.out_prefix + "-F.tif";
+    
   // Fill holes
   if(stereo_settings().enable_fill_holes) {
     // Generate a list of blobs below a maximum size
@@ -99,7 +164,10 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
     //    and produces a single blob list for the entire image.
     vw_out() << "\t--> Filling holes with inpainting method.\n";
     BlobIndexThreaded smallHoleIndex( invert_mask( inputview.impl() ),
-                                      stereo_settings().fill_hole_max_size );
+                                      stereo_settings().fill_hole_max_size,
+                                      vw::vw_settings().default_tile_size(),
+                                      opt.num_threads
+                                      );
     vw_out() << "\t    * Identified " << smallHoleIndex.num_blobs() << " holes\n";
     bool use_grassfire = true;
     typename ImageT::pixel_type default_inpaint_val;
@@ -107,69 +175,43 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
 
     if (!removeSmallBlobs) { // Skip small blob removal
       // Write out the image to disk, filling in the blobs in the process
-      asp::block_write_gdal_image( opt.out_prefix + "-F.tif",
+      vw_out() << "Writing: " << outF << std::endl;
+      asp::block_write_gdal_image( outF,
                                    inpaint(inputview.impl(), smallHoleIndex,
                                            use_grassfire, default_inpaint_val),
                                    opt, TerminalProgressCallback
                                    ("asp","\t--> Filtering: ") );
     }
     else { // Add small blob removal step
-      // Get a list of small blobs, almost identical to how the fill holes
-      vw_out() << "\t--> Removing small blobs.\n";
-      BlobIndexThreaded smallBlobIndex( inputview.impl(), stereo_settings().erode_max_size );
-      vw_out() << "\t    * Identified " << smallBlobIndex.num_blobs() << " small blobs\n";
-
-
-      // Set locations from the hole-filling step that are inside the blobs to be removed.
-      // - Otherwise small holes in the removed blobs will be filled in, leaving mini-blobs!
-      std::list<blob::BlobCompressed> fullBlobList;
-      BlobIndexThreaded::blob_iterator blobIter, holeIter;
-      // Loop through blobs
-      for (blobIter=smallBlobIndex.begin(); blobIter!=smallBlobIndex.end();
-           ++blobIter) {
-        fullBlobList.push_back(*blobIter);
-        // Loop through holes
-        for (holeIter=smallHoleIndex.begin(); holeIter!=smallHoleIndex.end(); ++holeIter) {
-          // If this hole is completely contained in this blob
-          if ( blobIter->bounding_box().contains(holeIter->bounding_box()) ) {
-            // Add that hole as a blob to remove
-            fullBlobList.push_back(*holeIter);
-            //std::cout << "Removing hole in blob with " << blobIter->num_rows() << " lines." << std::endl;
-          }
-        } // End hole loop
-      } // End blob loop
-
-
       // Write out the image to disk, filling in and removing blobs in the process
       // - Blob removal is done second to make sure inner-blob holes are removed.
-      asp::block_write_gdal_image( opt.out_prefix + "-F.tif",
-                                   applyErodeView(inpaint(inputview.impl(),
-                                                          smallHoleIndex,
-                                                          use_grassfire,
-                                                          default_inpaint_val),
-                                                  fullBlobList),
-                                   opt, TerminalProgressCallback
+      vw_out() << "Writing: " << outF << std::endl;
+      asp::block_write_gdal_image( outF,
+                                   per_tile_erode
+                                   (inpaint(inputview.impl(),
+                                            smallHoleIndex,
+                                            use_grassfire,
+                                            default_inpaint_val)
+                                    ), opt, TerminalProgressCallback
                                    ("asp","\t--> Filtering: ") );
     }
-
+    
   } else { // No hole filling
     if (!removeSmallBlobs) { // Skip small blob removal
-      asp::block_write_gdal_image( opt.out_prefix + "-F.tif",
-                                       inputview.impl(), opt,
-                                       TerminalProgressCallback("asp", "\t--> Filtering: ") );
+      vw_out() << "Writing: " << outF << std::endl;
+      asp::block_write_gdal_image( outF, inputview.impl(), opt,
+                                   TerminalProgressCallback
+                                   ("asp", "\t--> Filtering: ") );
     }
     else { // Add small blob removal step
-      // Get a list of small blobs, almost identical to how the fill holes
       vw_out() << "\t--> Removing small blobs.\n";
-      BlobIndexThreaded smallBlobIndex( inputview.impl(), stereo_settings().erode_max_size );
-      vw_out() << "\t    * Identified " << smallBlobIndex.num_blobs() << " small blobs\n";
-
       // Write out the image to disk, removing the blobs in the process
-      asp::block_write_gdal_image( opt.out_prefix + "-F.tif",
-                                   applyErodeView(inputview.impl(), smallBlobIndex),
-                                   opt, TerminalProgressCallback("asp","\t--> Filtering: ") );
+      vw_out() << "Writing: " << outF << std::endl;
+      asp::block_write_gdal_image(outF, per_tile_erode(inputview.impl()),
+                                  opt, TerminalProgressCallback
+                                  ("asp","\t--> Filtering: ") );
     }
-
+    
   } // End no hole filling case
 }
 
@@ -230,7 +272,10 @@ void stereo_filtering( Options& opt ) {
       // The crash happens inside Boost Graph when dealing with
       // large number of blobs.
       BlobIndexThreaded bindex( filtered_disparity,
-                                stereo_settings().erode_max_size );
+                                stereo_settings().erode_max_size,
+                                vw::vw_settings().default_tile_size(),
+                                vw::vw_settings().default_num_threads()
+                                );
       vw_out() << "\t    * Eroding " << bindex.num_blobs() << " islands\n";
       write_good_pixel_and_filtered
         ( ErodeView<ImageViewRef<PixelMask<Vector2f> > >(filtered_disparity,
