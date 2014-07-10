@@ -682,6 +682,7 @@ int load_csv_aux(string const& file_name,
   int num_total_points = 0;
   string line;
   while ( getline(file, line, '\n') ){
+    if (line.empty()) continue; // skip empty lines
     if (line[0] == '#') continue; // Skip lines starting with comments
     num_total_points++;
   }
@@ -698,6 +699,7 @@ int load_csv_aux(string const& file_name,
   // Peek at first line and see how many elements it has
   line = "";
   while ( getline(file, line, '\n') ){
+    if (line.empty()) continue; // skip empty lines
     if (line[0] != '#') break; // found a valid line
   }
   file.clear(); file.seekg(0, ios_base::beg); // go back to start of file
@@ -742,6 +744,7 @@ int load_csv_aux(string const& file_name,
   line = "";
   while ( getline(file, line, '\n') ){
     
+    if (line.empty()) continue; // skip empty lines
     if (line[0] == '#') continue; // Skip lines starting with comments
 
     double r = (double)std::rand()/(double)RAND_MAX;
