@@ -31,6 +31,8 @@ using namespace vw::cartography;
 #include <asp/Core/Common.h>
 #include <asp/Sessions/DG/StereoSessionDG.h>
 #include <asp/Sessions/DG/XML.h>
+#include <asp/asp_config.h>
+#include <asp/Core/BundleAdjustUtils.h>
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -40,7 +42,8 @@ typedef PixelMask<float> PMaskT;
 
 struct Options : asp::BaseOptions {
   // Input
-  std::string dem_file, image_file, camera_model_file, output_file, stereo_session;
+  std::string dem_file, image_file, camera_model_file, output_file, stereo_session,
+    bundle_adjust_prefix;
   bool isQuery;
 
   // Settings
@@ -70,8 +73,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("t_projwin",        po::value(&opt.target_projwin),
      "Selects a subwindow from the source image for copying, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.")
     ("t_pixelwin",       po::value(&opt.target_pixelwin),
-      "Selects a subwindow from the source image for copying, with the corners given in georeferenced pixel coordinates (xmin ymin xmax ymax). Max is exclusive.");
-
+     "Selects a subwindow from the source image for copying, with the corners given in georeferenced pixel coordinates (xmin ymin xmax ymax). Max is exclusive.")
+    ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
+     "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.");
+    
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
@@ -251,7 +256,7 @@ int main( int argc, char* argv[] ) {
       // information is contained within the image file and what is in
       // the camera file is actually the output file.
       opt.output_file = opt.camera_model_file;
-      opt.camera_model_file.clear();
+      opt.camera_model_file = opt.image_file;
     }
     if ( opt.output_file.empty() )
       vw_throw( ArgumentErr() << "Missing output filename.\n" );
@@ -260,6 +265,33 @@ int main( int argc, char* argv[] ) {
     boost::shared_ptr<camera::CameraModel> camera_model =
       session->camera_model(opt.image_file, opt.camera_model_file);
 
+#if ASP_HAVE_PKG_VW_BUNDLEADJUSTMENT
+    std::string ba_pref = opt.bundle_adjust_prefix;
+    if (ba_pref != ""){
+      
+      // If the user has generated a set of position and pose
+      // corrections using the bundle_adjust program, we read them in
+      // here and incorporate them into our camera model.
+      Vector3 position_correction;
+      Quaternion<double> pose_correction;
+      // Left adjusted camera
+      std::string adjust_file = asp::bundle_adjust_file_name(ba_pref,
+                                                             opt.image_file);
+      if (fs::exists(adjust_file)) {
+        vw_out() << "Using adjusted camera model: "
+                 << adjust_file << std::endl;
+        read_adjustments(adjust_file, position_correction, pose_correction);
+        camera_model =
+          boost::shared_ptr<camera::CameraModel>
+          (new camera::AdjustedCameraModel(camera_model,
+                                           position_correction,
+                                           pose_correction));
+      }else
+        vw_throw(InputErr() << "Missing adjusted camera model: " <<
+                 adjust_file << ".\n");
+    }
+#endif
+      
     // Safety check that the users are not trying to map project map projected images.
     {
       GeoReference dummy_georef;

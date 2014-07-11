@@ -699,6 +699,9 @@ degree. \\ \hline
 \texttt{-\/-session-type|-t pinhole|isis|rpc} & Select the stereo
 session type to use for processing. Choose 'rpc' if it is desired to later do stereo with the 'dg' session. \\ \hline
 \texttt{-\/-t\_projwin \textit{xmin ymin xmax ymax}} & Selects a subwindow from the source image for copying, with the corners given in georeferenced coordinates. Max is exclusive. \\ \hline
+\texttt{-\/-bundle-adjust-prefix \textit{string}} & Use the camera
+adjustment obtained by previously running bundle\_adjust with this
+output prefix. \\ \hline
 \texttt{-\/-threads \textit{int(=0)}} & Select the number of processors (threads) to use.\\ \hline
 \texttt{-\/-no-bigtiff} & Tell GDAL to not create bigtiffs.\\ \hline
 \texttt{-\/-tif-compress None|LZW|Deflate|Packbits} & TIFF compression method.\\ \hline
