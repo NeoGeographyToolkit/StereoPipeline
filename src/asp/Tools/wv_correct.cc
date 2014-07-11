@@ -75,21 +75,11 @@ namespace vw {
 
 struct Options : asp::BaseOptions {
   std::string camera_image_file, camera_model_file, output_image; 
-  double xoffset, yoffset, period, shift;
-  Options(){
-    xoffset = yoffset = period = shift = std::numeric_limits<double>::quiet_NaN();
-  }
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   
   po::options_description general_options("");
-  general_options.add_options()
-    ("xoffset", po::value(&opt.xoffset), "Specify the CCD offset correction to apply in the x direction (optional).")
-    ("yoffset", po::value(&opt.yoffset), "Specify the CCD offset correction to apply in the y direction (optional).")
-    ("period", po::value(&opt.period), "Specify the period of CCD artifacts (optional).")
-    ("shift", po::value(&opt.shift), "Specify how much to add to the period to get the location of the first CCD artifact (optional).")
-    ;
   general_options.add( asp::BaseOptionsDescription(opt) );
   
   po::options_description positional("");
@@ -322,17 +312,6 @@ int main( int argc, char *argv[] ) {
         yoffset = 0.3725;
       }
     }
-
-    // Apply user's overrides, if any
-    if (!boost::math::isnan(opt.xoffset)) xoffset = opt.xoffset;
-    if (!boost::math::isnan(opt.yoffset)) yoffset = opt.yoffset;
-    if (!boost::math::isnan(opt.period))  period  = opt.period;
-    if (!boost::math::isnan(opt.shift))   shift   = opt.shift;
-
-    vw_out() << "Using x offset: " << xoffset << std::endl;
-    vw_out() << "Using y offset: " << yoffset << std::endl;
-    vw_out() << "Using period:   " << period  << std::endl;
-    vw_out() << "Using shift:    " << shift   << std::endl;
 
     // Adjust for detector pitch
     period = period*(8.0e-3/det_pitch);
