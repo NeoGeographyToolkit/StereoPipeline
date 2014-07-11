@@ -117,19 +117,30 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   
 }
 
-void get_offsets(bool is_wv01, bool is_forward, std::vector<double> & off){
+void arr_to_vec(double arr[], int len, vector<double> & vec){
+  vec.clear();
+  for (int i = 0; i < len; i++) vec.push_back(arr[i]);
+}
 
-  // Get a sequence of CCD offsets (they will later be scaled).
-  // We need this primarily for WV01 cameras, as there the offsets
-  // don't follow a simple pattern.
-  off.clear();
+void get_offsets(bool is_wv01, bool is_forward,
+                 std::vector<double> & posx, std::vector<double> & ccdx,
+                 std::vector<double> & posy, std::vector<double> & ccdy
+                 ){
+
+  // Here we tabulate all ccds offsets and their column pixel positions.
   if (!is_wv01){
-    double o[] = {1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1};
-    for (int i = 0; i < (int)(sizeof(o)/sizeof(double)); i++) off.push_back(o[i]);
   }else{
-    //double o[] = {1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 0.5, -0.5, 0.5, -0.5, 0, 0, 0, 0, 0, 0, 0, 0.5, -0.5, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1}; // good!
-    double o[] = {1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 0.5, -1, 0.5, -0.5, -0.5, -0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1};
-    for (int i = 0; i < (int)(sizeof(o)/sizeof(double)); i++) off.push_back(o[i]);
+    double posx_arr[] = {6.2900000000000000e+02,1.3570000000000000e+03,2.0190000000000000e+03,2.7690000000000000e+03,3.4720000000000000e+03,4.1790000000000000e+03,4.8670000000000000e+03,5.5680000000000000e+03,6.2730000000000000e+03,6.9730000000000000e+03,7.6250000000000000e+03,8.3790000000000000e+03,9.0910000000000000e+03,9.7920000000000000e+03,1.0499000000000000e+04,1.1204000000000000e+04,1.1911000000000000e+04,1.2620000000000000e+04,1.3332000000000000e+04,1.4040000000000000e+04,1.4750000000000000e+04,1.5459000000000000e+04,1.6170000000000000e+04,1.6879000000000000e+04,1.7591000000000000e+04,1.8300000000000000e+04,1.9008000000000000e+04,1.9720000000000000e+04,2.0426000000000000e+04,2.1141000000000000e+04,2.1848000000000000e+04,2.2559000000000000e+04,2.3271000000000000e+04,2.3977000000000000e+04,2.4682000000000000e+04,2.5419000000000000e+04,2.6095000000000000e+04,2.6803000000000000e+04,2.7446000000000000e+04,2.8302000000000000e+04,2.8908000000000000e+04,2.9608000000000000e+04,3.0313000000000000e+04,3.1009000000000000e+04,3.1705000000000000e+04,3.2406000000000000e+04,3.3100000000000000e+04,3.3792000000000000e+04,3.4483000000000000e+04};
+    arr_to_vec(posx_arr, sizeof(posx_arr)/sizeof(double), posx);
+    
+    double ccdx_arr[] = {6.7322551801454480e-02,5.5941279131803634e-02,-6.3757124794674186e-02,-6.8350222655965132e-02,1.7691659140427704e-01,-6.5546000611674385e-02,6.3907733085781446e-02,-9.4966625926268172e-02,9.4161850926099605e-02,-1.0542259530055144e-01,-8.1558061694499709e-02,-6.3956300595019416e-02,4.1564490770397769e-02,-6.0005436499402910e-02,2.7687811096602116e-01,-6.7650615566507560e-02,8.9531829438824359e-02,-7.5787800987529685e-02,6.0918450645685199e-02,-4.9435252430723518e-02,7.8217062959282352e-02,-9.4972312086564092e-02,6.8771948144368461e-02,-5.5916563953937647e-02,2.5576397858317801e-01,-6.2953016311800947e-02,4.5986274236245760e-02,-5.2151312380337433e-02,3.5461672386768096e-02,-7.8840968976700190e-02,5.8279888571948685e-02,-5.6318493405969880e-02,-2.3130788594668883e-02,-2.5727892445735229e-02,6.7618551931374907e-02,-3.2635798235672329e-02,-6.7421171442540700e-02,8.6289010551310996e-02,-4.2940282592809562e-02,-6.7487297331515511e-02,-1.6954569447987194e-01,1.5768945188280239e-01,-1.3197137444641416e-01,2.2044168881490209e-01,-1.7686345973293444e-01,2.8571073037673689e-01,-2.5204743971722710e-01,2.9477986650443111e-01,-3.1357641656875035e-01};
+    arr_to_vec(ccdx_arr, sizeof(ccdx_arr)/sizeof(double), ccdx);
+
+    double posy_arr[] ={5.5700000000000000e+02,1.3840000000000000e+03,2.0790000000000000e+03,2.7720000000000000e+03,4.9010000000000000e+03,5.6020000000000000e+03,6.8740000000000000e+03,7.6810000000000000e+03,8.3770000000000000e+03,9.0860000000000000e+03,9.7910000000000000e+03,1.0500000000000000e+04,1.1206000000000000e+04,1.1914000000000000e+04,1.2623000000000000e+04,1.3331000000000000e+04,1.4041000000000000e+04,1.4749000000000000e+04,1.5459000000000000e+04,1.6170000000000000e+04,1.6881000000000000e+04,1.7590000000000000e+04,1.8301000000000000e+04,1.9011000000000000e+04,1.9722000000000000e+04,2.0431000000000000e+04,2.1140000000000000e+04,2.1851000000000000e+04,2.2558000000000000e+04,2.3267000000000000e+04,2.3976000000000000e+04,2.4682000000000000e+04,2.5388000000000000e+04,2.6094000000000000e+04,2.6800000000000000e+04,2.7503000000000000e+04,2.8206000000000000e+04,2.8909000000000000e+04,2.9611000000000000e+04,3.0309000000000000e+04,3.1009000000000000e+04,3.1707000000000000e+04,3.2401000000000000e+04,3.3098000000000000e+04,3.3791000000000000e+04,3.4482000000000000e+04};
+    arr_to_vec(posy_arr, sizeof(posy_arr)/sizeof(double), posy);
+
+    double ccdy_arr[] = {5.2874163366164850e-02,1.4813114779561809e-01,-1.3228522060801995e-01,5.1229840789382905e-02,4.1734055216619194e-02,-3.4922349728371403e-02,2.3489411511399848e-02,8.0756339158257071e-02,-4.1430846518602682e-02,1.3825891634375403e-01,-1.0281921942927558e-01,1.8102049531293241e-01,-1.4505660180914340e-01,1.8186344173432878e-01,-1.8620316464758269e-01,1.9090650984864999e-01,-2.8086787970093174e-01,2.7066109799278149e-01,-2.2564204861733023e-01,3.2153128507658019e-01,-2.5708859257733496e-01,2.6364737894970347e-01,-2.8693208660602365e-01,2.7970516529790845e-01,-3.5311023659542107e-01,3.4701280163120907e-01,-3.1032664634310730e-01,3.5125263768893017e-01,-3.3322268782288833e-01,3.6955614181826035e-01,-3.3683473663931718e-01,3.2182908581461295e-01,-2.8261547868377229e-01,3.4742873160768417e-01,-2.9435215444692314e-01,3.0697747027458971e-01,-2.9547216462701609e-01,3.2267414829365171e-01,-3.4291155301037418e-01,2.8631768612226638e-01,-2.6625338683543259e-01,3.4282658200878574e-01,-2.5735046181265991e-01,2.6016063755950836e-01,-2.7861330621270186e-01,2.4248759221995142e-01};
+    arr_to_vec(ccdy_arr, sizeof(ccdy_arr)/sizeof(double), ccdy);
   }
   
 }
@@ -139,6 +150,8 @@ class WVCorrectView: public ImageViewBase< WVCorrectView<ImageT> >{
   ImageT m_img;
   bool m_is_wv01, m_is_forward;
   double m_shift, m_period, m_xoffset, m_yoffset;
+  std::vector<double> m_posx, m_ccdx, m_posy, m_ccdy;
+
   typedef typename ImageT::pixel_type PixelT;
 
 public:
@@ -146,7 +159,12 @@ public:
                  double shift, double period, double xoffset, double yoffset):
     m_img(img), m_is_wv01(is_wv01), m_is_forward(is_forward),
     m_shift(shift), m_period(period),
-    m_xoffset(xoffset), m_yoffset(yoffset){}
+    m_xoffset(xoffset), m_yoffset(yoffset){
+
+    get_offsets(m_is_wv01, m_is_forward,  
+                m_posx, m_ccdx, m_posy, m_ccdy);
+    
+  }
   
   typedef PixelT pixel_type;
   typedef PixelT result_type;
@@ -166,9 +184,6 @@ public:
   typedef CropView<ImageView<pixel_type> > prerasterize_type;
   inline prerasterize_type prerasterize(BBox2i const& bbox) const {
 
-    vector<double> off;
-    get_offsets(m_is_wv01, m_is_forward, off);
-    
     // Need to see a bit more of the input image for the purpose
     // of interpolation.
     int bias = (int)ceil(std::max(std::abs(m_xoffset), std::abs(m_yoffset)))
@@ -181,10 +196,11 @@ public:
     InterpolationView<EdgeExtensionView< ImageView<result_type>, ConstantEdgeExtension >, BilinearInterpolation> interp_img
       = interpolate(cropped_img, BilinearInterpolation(),
                     ConstantEdgeExtension());
+
     
     ImageView<result_type> tile(bbox.width(), bbox.height());
     for (int col = bbox.min().x(); col < bbox.max().x(); col++){
-
+      
       // The sign of CCD offsets alternates as one moves along the image
       // columns. As such, at "even" blocks, the offsets accumulated so
       // far cancel each other, so we need to correct the "odd" blocks
@@ -197,20 +213,22 @@ public:
       }
 
       // Special treatment for WV01
-      if (m_is_wv01){
-        if (!m_is_forward){
-          // Use a list of tabulated values to find the y offsets
-          double sum = 0;
-          int noff = off.size();
-          for (int k = 0; k < std::min(noff, block_index); k++) sum += off[k];
-          valy = -m_yoffset*sum;
-        }else{
-          // Just set the early y offsets to 0
-          double s = 8000;
-          s = m_period*floor((s - m_shift)/m_period) + m_shift;
-          if (col < s)
-            valy = 0;
+      if (m_is_wv01 && m_is_forward){
+        
+        valx = 0.0;
+        for (size_t t = 0; t < m_ccdx.size(); t++){
+          if (m_posx[t] < col){
+            valx -= m_ccdx[t];
+          }
         }
+        
+        valy = 0.0;
+        for (size_t t = 0; t < m_ccdy.size(); t++){
+          if (m_posy[t] < col){
+            valy -= m_ccdy[t];
+          }
+        }
+        
       }
       
       for (int row = bbox.min().y(); row < bbox.max().y(); row++){
@@ -325,7 +343,7 @@ int main( int argc, char *argv[] ) {
     }else{
       xoffset = -xoffset;
     }
-    
+
     DiskImageView<float> input_img(opt.camera_image_file);
     bool has_nodata = false;
     double nodata = numeric_limits<double>::quiet_NaN();
