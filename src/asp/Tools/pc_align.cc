@@ -120,7 +120,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("highest-accuracy", po::bool_switch(&opt.highest_accuracy)->default_value(false)->implicit_value(true),
      "Compute with highest accuracy for point-to-plane (can be much slower).")
     ("csv-format", po::value(&opt.csv_format_str)->default_value(""), "Specify the format of input CSV files as a list of entries column_index:column_type (indices start from 1). Examples: '1:x 2:y 3:z', '5:lon 6:lat 7:radius_m', '3:lat 2:lon 1:height_above_datum', 'utm:47N 1:easting 2:northing 3:height_above_datum'. Can also use radius_km for column_type.")
-    ("datum", po::value(&opt.datum)->default_value(""), "Use this datum for CSV files instead of auto-detecting it. [WGS_1984, D_MOON (radius is assumed to be 1737400 meters), D_MARS (radius is assumed to be 33916190 meters), etc.]")
+    ("datum", po::value(&opt.datum)->default_value(""), "Use this datum for CSV files instead of auto-detecting it. [WGS_1984, D_MOON (radius is assumed to be 1,737,400 meters), D_MARS (radius is assumed to be 3,396,190 meters), etc.]")
     ("semi-major-axis", po::value(&opt.semi_major)->default_value(0), "Explicitly set the datum semi-major axis in meters.")
     ("semi-minor-axis", po::value(&opt.semi_minor)->default_value(0), "Explicitly set the datum semi-minor axis in meters.")
     ("config-file", po::value(&opt.config_file)->default_value(""),

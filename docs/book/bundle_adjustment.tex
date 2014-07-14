@@ -14,7 +14,7 @@
 
 Satellite position and orientation errors have a direct effect on the
 accuracy of digital elevation models produced by the Stereo Pipeline.
-If they're not corrected, these uncertainties will result in
+If they are not corrected, these uncertainties will result in
 systematic errors in the overall position and slope of the \ac{DEM}.
 Severe distortions can occur as well, resulting in twisted or ``taco
 shaped'' \acp{DEM}, though in most cases these effects are quite
@@ -27,11 +27,11 @@ Errors in camera position and orientation can be corrected using a
 process called \emph{bundle adjustment}. Bundle adjustment is the
 process of simultaneously adjusting the properties of many cameras and
 the 3D locations of the objects they see in order to minimize the error
-between the estimated, back-projected pixel location of the 3D objects
-and their actual measured location in the captured images.
+between the estimated, back-projected pixel locations of the 3D objects
+and their actual measured locations in the captured images.
 
-That complex process can be boiled down to this simple idea: bundle
-adjustment ensures that observations in multiple different images of a
+This complex process can be boiled down to this simple idea: bundle
+adjustment ensures that the observations in multiple images of a
 single ground feature are self-consistent. If they are not consistent,
 then the position and orientation of the cameras as well as the 3D
 position of the feature must be adjusted until they are.  This
@@ -98,7 +98,7 @@ including Stereo Pipeline's own tool.
 In bundle adjustment, the position and orientation of each camera
 station are determined jointly with the 3D position of a set of image
 tie-points points chosen in the overlapping regions between
-images. Tie points, like they sound, tie individual camera images
+images. Tie points, as suggested by the name, tie individual camera images
 together. Their physical manifestation would be a rock or small crater
 than can be observed across multiple images.
 
@@ -367,7 +367,7 @@ the correct camera geometry, no extra information needs to be given to
 \texttt{stereo} since it is already contained in the file. In the
 event a mistake has been made, \texttt{spiceinit} will overwrite the
 spice data inside a cube file and provide the original uncorrected
-camera pointings.
+camera pointing.
 
 \begin{verbatim}
   ISIS 3> stereo E0201461.cub M0100115.cub bundled/bundled

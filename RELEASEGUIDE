@@ -64,11 +64,7 @@ file. Read the entire documentation.
 8.) Test on both Linux and Mac if point2mesh works and if the 
     'osgviewer' included with the release can load it. 
 
-9.) Rename the builds to follow the release convention. This 
-requires removing the timestamp from tarball name, which can be
-done with the script BinaryBuilder/auto_build/rm_timestamp.sh.
-
-10.) Copy the new builds and documentation to the release area at
+9.) Copy the new builds and documentation to the release area at
 /byss/docroot/stereopipeline/binaries and update the website, at
 https://ti.arc.nasa.gov/cms/ (SG can give permissions to edit the
 pages under /tech/asr/intelligent-robotics/ngt). Update:
@@ -79,18 +75,17 @@ pages under /tech/asr/intelligent-robotics/ngt). Update:
    * Source code release link
    * Documentation link
 
-11.) Ask fellow ASP developers to do some tests and review the
+10.) Ask fellow ASP developers to do some tests and review the
 documentation.
 
-12.) Send an announcement of the new release to the mailing list, at
+11.) Send an announcement of the new release to the mailing list, at
 stereo-pipeline@lists.nasa.gov, listing the changes specified in NEWS.
 
-13.) Modify the build system:
+12.) Modify the build system:
 
 Inside ASP's configure.ac, append "_post" to version number in AC_INIT
 line.
 
-14.) Reflect any changes in release policy by modifying this document.
+13.) Reflect any changes in release policy by modifying this document.
 
-15.) Commit changes.
-
+14.) Commit changes.

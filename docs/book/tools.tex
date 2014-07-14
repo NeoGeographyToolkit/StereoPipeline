@@ -258,7 +258,7 @@ The \texttt{bundle\_adjust} program performs bundle adjustment on a
 given set of images and cameras. An introduction to bundle adjustment
 can be found in chapter \ref{ch:bundle_adjustment}.
 
-This tool can use several algoriths for bundle adjustment, the default is
+This tool can use several algorithms for bundle adjustment, the default is
 to use Google's Ceres Solver (\url{http://ceres-solver.org/}).
 
 Usage:
@@ -292,22 +292,22 @@ Option & Description \\ \hline \hline
 
 \texttt{-\/-output-prefix|-o \textit{filename}} & Prefix for output filenames. \\ \hline
 
-\texttt{-\/-bundle-adjuster \textit{arg [default: Ceres]}} & Choose a solver from:
+\texttt{-\/-bundle-adjuster \textit{string [default: Ceres]}} & Choose a solver from:
 Ceres, RobustSparse, RobustRef, Sparse, Ref. \\ \hline
 
-\texttt{-\/-cost-function \textit{arg [default: Cauchy]}} & Choose a cost function
+\texttt{-\/-cost-function \textit{string [default: Cauchy]}} & Choose a cost function
 from: Cauchy, PseudoHuber, Huber, L1, L2. \\ \hline
 
 \texttt{-\/-robust-threshold \textit{float(=0.5)}} & Set the threshold for robust
 cost functions.\\ \hline
 
 \texttt{-\/-datum \textit{string}} & Use this datum (needed only if ground control
-points are used). [WGS\_1984, D\_MOON (radius is assumed to be 1737400 meters), D\_MARS 
-(radius is assumed to be 33916190 meters), etc.] \\ \hline
+points are used). Options: WGS\_1984, D\_MOON (radius is assumed to be 1,737,400 meters), D\_MARS 
+(radius is assumed to be 3,396,190 meters), etc.  \\ \hline
 
-\texttt{-\/-semi-major-axis \textit{double}} & Explicitly set the datum semi-major axis
+\texttt{-\/-semi-major-axis \textit{float}} & Explicitly set the datum semi-major axis
 in meters (needed only if ground control points are used).\\ \hline
-\texttt{-\/-semi-minor-axis \textit{double}} & Explicitly set the datum semi-minor axis
+\texttt{-\/-semi-minor-axis \textit{float}} & Explicitly set the datum semi-minor axis
 in meters (needed only if ground control points are used).\\ \hline
 
 \texttt{-\/-session-type|-t pinhole|isis|dg|rpc} & Select the stereo
@@ -549,7 +549,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-proj-lon \textit{float}} & The center of projection longitude (if applicable). \\ \hline
 \texttt{-\/-proj-scale \textit{float}} & The projection scale (if applicable). \\ \hline
 \texttt{-\/-dem-spacing|-s \textit{float(=0)}} & Set the output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically. \\ \hline
-\texttt{-\/-search-radius-factor \textit{double(=$0$)}} & Multiply this factor by \texttt{dem-spacing} to get the search radius. The DEM height at a given grid point is obtained as a weighted average of heights of all points in the cloud within search radius of the grid point, with the weights given by a Gaussian. Default search radius: max(\texttt{dem-spacing}, default\_dem\_spacing), so the default factor is about 1.\\ \hline
+\texttt{-\/-search-radius-factor \textit{float(=$0$)}} & Multiply this factor by \texttt{dem-spacing} to get the search radius. The DEM height at a given grid point is obtained as a weighted average of heights of all points in the cloud within search radius of the grid point, with the weights given by a Gaussian. Default search radius: max(\texttt{dem-spacing}, default\_dem\_spacing), so the default factor is about 1.\\ \hline
 \texttt{-\/-rounding-error \textit{float(=$1/2^{10}$=$0.0009765625$)}} & How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. \\ \hline
 \texttt{-\/-dem-hole-fill-len \textit{int(=0)}} &  Maximum dimensions of a hole in the output DEM to fill in, in pixels. \\ \hline
 \texttt{-\/-orthoimage-hole-fill-len \textit{int(=0)}} & Maximum dimensions of a hole in the output orthoimage to fill in, in pixels. \\ \hline
@@ -631,21 +631,17 @@ model.
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\texttt{-\/-help|-h} & Display the help message\\ \hline
-\texttt{-\/-simplify-mesh \textit{float}} & Run OSG Simplifier on mesh, 1.0 = 100\% \\ \hline
+\texttt{-\/-help|-h} & Display the help message.\\ \hline
+\texttt{-\/-simplify-mesh \textit{float}} & Run OSG Simplifier on mesh, 1.0 = 100\%. \\ \hline
 \texttt{-\/-smooth-mesh} & Run OSG Smoother on mesh \\ \hline
 \texttt{-\/-use-delaunay} & Uses the delaunay triangulator to create a surface from the point cloud. This is not recommended for point clouds with noise issues. \\ \hline
-\texttt{-\/-step|-s \textit{integer(=10)}} & Sampling step size for mesher. \\ \hline
-\texttt{-\/-input-file \textit{pointcloud-file}} & Explicitly specify the input file \\ \hline
-\texttt{-\/-texture-file \textit{texture-file}} & Explicitly specify the texture file \\ \hline
-\texttt{-\/-output-prefix|-o \textit{output-prefix}} & Specify the output prefix \\ \hline
-\texttt{-\/-output-filetype|-t \textit{type(=ive)}} & Specify the output file type \\ \hline
-\texttt{-\/-enable-lighting|-l} & Enables shades and lighting on the mesh \\ \hline
+\texttt{-\/-step|-s \textit{integer(=10)}} & Sampling step size for the mesher. \\ \hline
+\texttt{-\/-input-file \textit{pointcloud-file}} & Explicitly specify the input file. \\ \hline
+\texttt{-\/-output-prefix|-o \textit{output-prefix}} & Specify the output prefix. \\ \hline
+\texttt{-\/-texture-file \textit{texture-file}} & Explicitly specify the texture file. \\ \hline
+\texttt{-\/-output-filetype|-t \textit{type(=ive)}} & Specify the output file type. \\ \hline
+\texttt{-\/-enable-lighting|-l} & Enables shades and lighting on the mesh. \\ \hline
 \texttt{-\/-center} & Center the model around the origin. Use this option if you are experiencing numerical precision issues. \\ \hline
-\texttt{-\/-rotation-order \textit{order(=xyz)}} & Set the order of an euler angle rotation applied to the 3D points prior to DEM rasterization \\ \hline
-\texttt{-\/-phi-rotation \textit{float(=0)}} & Set a rotation angle phi \\ \hline
-\texttt{-\/-omega-rotation \textit{float(=0)}} & Set a rotation angle omega \\ \hline
-\texttt{-\/-kappa-rotation \textit{float(=0)}} & Set a rotation angle kappa \\ \hline
 \end{longtable}
 
 \section{mapproject}
@@ -687,7 +683,7 @@ mapproject -t isis DEM.tif image.cub camera.isis_adjust \
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\texttt{-\/-nodata-value \textit{double(=-32768)}} & No-data value to use unless specified in the input image. \\ \hline
+\texttt{-\/-nodata-value \textit{float(=-32768)}} & No-data value to use unless specified in the input image. \\ \hline
 \texttt{-\/-t\_srs} & Target spatial reference set. This mimics the GDAL
 option. If not provided use the one from the DEM. \\ \hline
 \texttt{-\/-tr \textit{float}} & Set the output file resolution in target
@@ -831,7 +827,7 @@ file, and create the appropriate combined camera XML file.
 Digital Globe camera files contain, in addition to the original camera
 models, their RPC approximations (section
 \ref{rpc}). \texttt{dg\_mosaic} outputs both types of combined
-models. The combined RPC model can be used to map-project the mosaiced
+models. The combined RPC model can be used to map-project the mosaicked
 images with the goal of computing stereo from them (section
 \ref{mapproj}).
 
@@ -949,7 +945,7 @@ file via the \texttt{-\/-csv-format} option. Entries in the CSV file can
 then be (in any order) (a) longitude, latitude (in degrees), height
 above datum (in meters), (b) longitude, latitude, distance from planet
 center (in meters or km), (c) easting, northing and height above datum
-in UTM coordinates (in meters), (d) Cartesian coordiates (x, y, z)
+in UTM coordinates (in meters), (d) Cartesian coordinates (x, y, z)
 measured from planet center (in meters). The precise syntax is described
 in the table below. The tool can also auto-detect the LOLA RDR
 PointPerRow format.
@@ -1034,13 +1030,13 @@ Options & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message.\\ \hline
 \texttt{-\/-threads \textit{integer(=0)}} & Set the number threads to
 use. 0 means use the default as set by OpenMP. Only some parts of the algorithm are multi-threaded.\\ \hline
-\texttt{-\/-initial-transform \textit{arg}} &
+\texttt{-\/-initial-transform \textit{string}} &
 The file containing the rotation + translation transform to be used as an
 initial guess. It can come from a previous run of the tool. \\ \hline
 \texttt{-\/-num-iterations \textit{default: 1000}} &  Maximum number of iterations. \\ \hline
 \texttt{-\/-diff-rotation-error \textit{default: $10^{-8}$}} & Change in rotation amount below which the algorithm will stop (if translation error is also below bound), in degrees. \\ \hline
 \texttt{-\/-diff-translation-error \textit{default: $10^{-3}$}} & Change in translation amount below which the algorithm will stop (if rotation error is also below bound), in meters. \\ \hline
-\texttt{-\/-max-displacement \textit{arg}} & Maximum expected
+\texttt{-\/-max-displacement \textit{float}} & Maximum expected
 displacement of source points as result of alignment, in meters (after
 the initial guess transform is applied to the source points). Used
 for removing gross outliers in the source (movable) point cloud.\\ \hline
@@ -1051,13 +1047,13 @@ Maximum number of (randomly picked) reference points to use. \\ \hline
 \texttt{-\/-alignment-method \textit{default: point-to-plane}} & The type of iterative closest point
 method to use. [point-to-plane, point-to-point]\\ \hline
 \texttt{-\/-highest-accuracy} & Compute with highest accuracy for point-to-plane (can be much slower). \\ \hline
-\texttt{-\/-datum \textit{string}} & Use this datum for CSV files. [WGS\_1984, D\_MOON (radius is assumed to be 1737400 meters), D\_MARS (radius is assumed to be 33916190 meters), etc.] \\ \hline
+\texttt{-\/-datum \textit{string}} & Use this datum for CSV files. [WGS\_1984, D\_MOON (radius is assumed to be 1,737,400 meters), D\_MARS (radius is assumed to be 3,396,190 meters), etc.] \\ \hline
 
 
-\texttt{-\/-semi-major-axis \textit{double}} & Explicitly set the datum semi-major axis in meters.\\ \hline
-\texttt{-\/-semi-minor-axis \textit{double}} & Explicitly set the datum semi-minor axis in meters.\\ \hline
+\texttt{-\/-semi-major-axis \textit{float}} & Explicitly set the datum semi-major axis in meters.\\ \hline
+\texttt{-\/-semi-minor-axis \textit{float}} & Explicitly set the datum semi-minor axis in meters.\\ \hline
 
-\texttt{-\/-csv-format \textit{arg}} & Specify the format of input (and
+\texttt{-\/-csv-format \textit{string}} & Specify the format of input (and
 output) CSV files as a list of entries column\_index:column\_type
 (indices start from 1). Examples: '1:x 2:y 3:z' (a Cartesian coordinate
 system with origin at planet center is assumed, with the units being in
