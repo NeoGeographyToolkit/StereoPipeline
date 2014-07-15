@@ -5,7 +5,7 @@
     for n images and cameras, for all camera types supported by ASP. 
 
   - wv_correct
-    * Improved corrrections for WV01 images of TDI 16.
+    * Improved corrections for WV01 images of TDI 16.
 
   - stereo_rfne
     * Performance bugfix when the integer disparity is noisy.
