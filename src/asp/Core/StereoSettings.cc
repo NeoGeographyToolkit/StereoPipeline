@@ -90,7 +90,7 @@ namespace asp {
       ("corr-seed-mode",         po::value(&global.seed_mode)->default_value(1),
                                  "Correlation seed strategy. [0 None, 1 Use low-res disparity from stereo, 2 Use low-res disparity from provided DEM (see disparity-estimation-dem), 3 Use low-res disparity produced by sparse_disp (in development)]")
       ("corr-sub-seed-percent",  po::value(&global.seed_percent_pad)->default_value(0.25),
-                                 "Percent fudge factor for disparity seed's search range")
+                                 "Percent fudge factor for disparity seed's search range.")
       ("cost-mode",              po::value(&global.cost_mode)->default_value(2),
                                  "Correlation cost metric. [0 Absolute, 1 Squared, 2 Normalized Cross Correlation]")
       ("xcorr-threshold",        po::value(&global.xcorr_threshold)->default_value(2),
@@ -116,12 +116,12 @@ namespace asp {
     // Do not add default values here. They may override the values set
     // earlier for these variables.
     backwards_compat_options.add_options()
-      ("h-kernel",   po::value(&global.corr_kernel[0]       ), "Correlation kernel width"     )
-      ("v-kernel",   po::value(&global.corr_kernel[1]       ), "Correlation kernel height"    )
-      ("h-corr-min", po::value(&global.search_range.min()[0]), "Correlation window size min x")
-      ("h-corr-max", po::value(&global.search_range.max()[0]), "Correlation window size max x")
-      ("v-corr-min", po::value(&global.search_range.min()[1]), "Correlation window size min y")
-      ("v-corr-max", po::value(&global.search_range.max()[1]), "Correlation window size max y");
+      ("h-kernel",   po::value(&global.corr_kernel[0]       ), "Correlation kernel width.")
+      ("v-kernel",   po::value(&global.corr_kernel[1]       ), "Correlation kernel height.")
+      ("h-corr-min", po::value(&global.search_range.min()[0]), "Correlation window size min x.")
+      ("h-corr-max", po::value(&global.search_range.max()[0]), "Correlation window size max x.")
+      ("v-corr-min", po::value(&global.search_range.min()[1]), "Correlation window size min y.")
+      ("v-corr-max", po::value(&global.search_range.max()[1]), "Correlation window size max y.");
     (*this).add( backwards_compat_options );
   }
 
@@ -142,17 +142,17 @@ namespace asp {
     po::options_description experimental_subpixel_options("Experimental Subpixel Options");
     experimental_subpixel_options.add_options()
       ("subpixel-em-iter",        po::value(&global.subpixel_em_iter)->default_value(15),
-                                  "Maximum number of EM iterations for EMSubpixelCorrelator")
+                                  "Maximum number of EM iterations for EMSubpixelCorrelator.")
       ("subpixel-affine-iter",    po::value(&global.subpixel_affine_iter)->default_value(5),
-                                  "Maximum number of affine optimization iterations for EMSubpixelCorrelator")
+                                  "Maximum number of affine optimization iterations for EMSubpixelCorrelator.")
       ("subpixel-pyramid-levels", po::value(&global.subpixel_pyramid_levels)->default_value(3),
-                                  "Number of pyramid levels for EMSubpixelCorrelator");
+                                  "Number of pyramid levels for EMSubpixelCorrelator.");
     (*this).add( experimental_subpixel_options );
 
     po::options_description backwards_compat_options("Aliased backwards compatibility options");
     backwards_compat_options.add_options()
-      ("subpixel-h-kernel", po::value(&global.subpixel_kernel[0]), "Subpixel kernel width")
-      ("subpixel-v-kernel", po::value(&global.subpixel_kernel[1]), "Subpixel kernel height");
+      ("subpixel-h-kernel", po::value(&global.subpixel_kernel[0]), "Subpixel kernel width.")
+      ("subpixel-v-kernel", po::value(&global.subpixel_kernel[1]), "Subpixel kernel height.");
     (*this).add( backwards_compat_options );
   }
 
@@ -162,23 +162,23 @@ namespace asp {
       ("filter-mode",         po::value(&global.filter_mode)->default_value(1),
                               "Disparity filter mode. [0 None, 1 Use mean difference to neighbors (invalidates fewer pixels), 2 Use thresholds (invalidates more pixels)]")
       ("rm-half-kernel",      po::value(&global.rm_half_kernel)->default_value(Vector2i(5,5), "5 5"),
-                              "Low confidence pixel removal kernel (half sized)")
+                              "Low confidence pixel removal kernel (half sized).")
       ("max-mean-diff",       po::value(&global.max_mean_diff)->default_value(3),
-                              "Maximum difference between current pixel disparity and mean disparity of neighbors to still keep current disparity (for filter mode 1)")
+                              "Maximum difference between current pixel disparity and mean disparity of neighbors to still keep current disparity (for filter mode 1).")
       ("rm-min-matches",      po::value(&global.rm_min_matches)->default_value(60),
-                              "Minimum number of pixels to be matched to keep sample (for filter mode 2)")
+                              "Minimum number of pixels to be matched to keep sample (for filter mode 2).")
       ("rm-threshold",        po::value(&global.rm_threshold)->default_value(3),
-                              "Maximum distance between samples to be considered still matched (for filter mode 2)")
+                              "Maximum distance between samples to be considered still matched (for filter mode 2).")
       ("rm-cleanup-passes",   po::value(&global.rm_cleanup_passes)->default_value(1),
-                              "Number of passes for cleanup during the post-processing phase")
+                              "Number of passes for cleanup during the post-processing phase.")
       ("enable-fill-holes",   po::bool_switch(&global.enable_fill_holes)->default_value(false)->implicit_value(true),
                               "Enable filling of holes in disparity using an inpainting method. Obsolete. It is suggested to use instead point2dem's analogous functionality.")
       ("disable-fill-holes",  po::bool_switch(&global.disable_fill_holes)->default_value(false)->implicit_value(true),
-                              "Disable filling of holes using an inpainting method")
+                              "Disable filling of holes using an inpainting method. Ignored and obsolete. To be removed in future versions of the software.")
       ("fill-holes-max-size", po::value(&global.fill_hole_max_size)->default_value(100000),
-                              "Holes with no more pixels than this number should be filled in")
+                              "Holes with no more pixels than this number should be filled in.")
       ("erode-max-size",      po::value(&global.erode_max_size)->default_value(0),
-                              "Isolated blobs with no more pixels than this number should be removed")
+                              "Isolated blobs with no more pixels than this number should be removed.")
       ("mask-flatfield",      po::bool_switch(&global.mask_flatfield)->default_value(false)->implicit_value(true),
                               "Mask dust found on the sensor or film. (For use with Apollo Metric Cameras only!)");
 
@@ -186,8 +186,8 @@ namespace asp {
     // Do not add default values here. They may override the values set
     // earlier for these variables.
     backwards_compat_options.add_options()
-      ("rm-h-half-kern", po::value(&global.rm_half_kernel[0]), "Filter kernel half width" )
-      ("rm-v-half-kern", po::value(&global.rm_half_kernel[1]), "Filter kernel half height");
+      ("rm-h-half-kern", po::value(&global.rm_half_kernel[0]), "Filter kernel half width.")
+      ("rm-v-half-kern", po::value(&global.rm_half_kernel[1]), "Filter kernel half height.");
     (*this).add( backwards_compat_options );
   }
 
