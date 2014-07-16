@@ -253,10 +253,14 @@ namespace asp {
 
     // Sanity check for max_valid_triangulation_error
     if ( stereo_settings().max_valid_triangulation_error <= 0 ){
-      vw_throw( ArgumentErr() << "The maximum valid triangulation error must be positive.\n" );
+      vw_throw( ArgumentErr() << "The maximum valid triangulation error "
+                << "must be positive.\n" );
     }
     if ( stereo_settings().max_valid_triangulation_error > 0 ){
-      vw_throw( ArgumentErr() << "The --max-valid-triangulation-error was moved to point2dem. Alternatively, the point2dem --remove-outliers option can be used for automatic detection of maximum triangulation error.\n" );
+      vw_throw( ArgumentErr() << "The --max-valid-triangulation-error was moved "
+                << "to point2dem. Alternatively, the point2dem --remove-outliers "
+                << "option can be used for automatic detection of maximum "
+                << "triangulation error.\n" );
     }
     
     // Seed mode valid values
@@ -327,9 +331,9 @@ namespace asp {
 
     // No alignment must be set for map-projected images.
     if ( stereo_settings().alignment_method != "none" && !opt.input_dem.empty() ) {
-      vw_throw( ArgumentErr()
-                << "For map-projected images, the alignment-method "
-                << "needs to be 'none'.\n");
+      stereo_settings().alignment_method = "none";
+      vw_out(WarningMessage) << "Changing the alignment method to 'none' "
+                             << "as the images are map-projected." << std::endl;
     }
     
     // Ensure that we are not accidentally doing stereo with
