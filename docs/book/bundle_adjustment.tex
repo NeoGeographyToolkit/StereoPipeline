@@ -22,6 +22,17 @@ subtle and hard to detect. In the worst case, such as with old mission
 data like Voyager or Apollo, these gross camera misalignments can
 prohibit Stereo Pipeline's internal interest point matcher and block
 auto search range detection.
+\begin{figure}[bt]
+  \centering
+  \includegraphics[width=8cm]{images/ba_orig}
+  \includegraphics[width=8cm]{images/ba_adjusted}
+  \caption{Bundle adjustment is illustrated here using a color-mapped,
+    hill-shaded DEM mosaic from Apollo 15, Orbit 33, imagery. (a)
+    Prior to bundle adjustment, large discontinuities can exist between
+    overlapping DEMs made from different images. (b) After bundle
+    adjustment, DEM alignment errors are minimized, and no longer visible.}
+  \label{fig:bundle_adjustment}
+\end{figure}
 
 Errors in camera position and orientation can be corrected using a
 process called \emph{bundle adjustment}. Bundle adjustment is the
@@ -41,18 +52,6 @@ images.  Bundle adjustment is very powerful and versatile: it can
 operate on just two overlapping images, or on thousands. It is also a
 dangerous tool. Careful consideration is required to insure and
 verify that the solution does represent reality.
-
-\begin{figure}[bt]
-  \centering
-  \includegraphics[width=8cm]{images/ba_orig}
-  \includegraphics[width=8cm]{images/ba_adjusted}
-  \caption{Bundle adjustment is illustrated here using a color-mapped,
-    hill-shaded DEM mosaic from Apollo 15, Orbit 33, imagery. (a)
-    Prior to bundle adjustment, large discontinuities can exist between
-    overlapping DEMs made from different images. (b) After bundle
-    adjustment, DEM alignment errors are minimized, and no longer visible.}
-  \label{fig:bundle_adjustment}
-\end{figure}
 
 Bundle adjustment can also take advantage of \acp{GCP}, which are
 3D locations of features that are known a priori (often by measuring
@@ -83,10 +82,42 @@ picked \acp{GCP} are the only way for \ac{ASP} to register to those
 types of sources.
 
 \section{Bundle adjustment using ASP}
+\label{baasp}
 
 Recently, Stereo Pipeline started providing its own bundle adjustment
 tool, named \texttt{bundle\_adjust}. Its usage is described in section
-\ref{bundleadjust}.
+\ref{bundleadjust}. 
+
+Here is an example of using this tool on a couple of Apollo 15 images,
+and its effect on decreasing the stereo triangulation error. 
+
+\begin{figure}[h!]
+\centering
+  \includegraphics[width=3.0in]{images/examples/before_ba.jpg}
+  \includegraphics[width=3.0in]{images/examples/after_ba.jpg}
+\caption{Illustration of the triangulation error map for a pair of
+  images before (left) and after (right) using Stereo Pipeline's
+  \texttt{bundle\_adjust}. Red and black colors suggest higher error.}
+\label{fig:asp-ba-example}
+\end{figure}
+
+Running \texttt{stereo} without using the bundle-adjusted camera models.
+\begin{verbatim}
+  stereo AS15-M-1134.cub AS15-M-1135.cub run_noadjust/run
+\end{verbatim}
+
+Performing bundle adjustment.
+\begin{verbatim}
+  bundle_adjust AS15-M-1134.cub AS15-M-1135.cub -o run_ba/run
+\end{verbatim}
+
+Running stereo while using the bundle-adjusted camera models.
+\begin{verbatim}
+  stereo AS15-M-1134.cub AS15-M-1135.cub run_adjust/run \
+    --bundle-adjust-prefix run_ba/run
+\end{verbatim}
+
+A comparison of the two ways of doing stereo is shown in figure \ref{fig:asp-ba-example}.
 
 \section{Bundle adjustment using ISIS}
 
