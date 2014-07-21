@@ -41,51 +41,6 @@ namespace vw {
   template<> struct PixelFormatID<Vector<float, 2> > { static const PixelFormatEnum value = VW_PIXEL_GENERIC_2_CHANNEL; };
 }
 
-namespace asp{
-
-  // ImageView operator that takes the last three elements of a vector
-  // (the error part) and replaces them with the norm of that 3-vector.
-  struct PointAndErrorNorm : public ReturnFixedType<Vector4> {
-    Vector4 operator() (Vector6 const& pt) const {
-      Vector4 result;
-      subvector(result,0,3) = subvector(pt,0,3);
-      result[3] = norm_2(subvector(pt,3,3));
-      return result;
-    }
-  };
-  template <class ImageT>
-  UnaryPerPixelView<ImageT, PointAndErrorNorm>
-  inline point_and_error_norm( ImageViewBase<ImageT> const& image ) {
-    return UnaryPerPixelView<ImageT, PointAndErrorNorm>( image.impl(),
-                                                         PointAndErrorNorm() );
-  }
-
-  template <class ImageT>
-  void save_point_cloud(Vector3 const& shift,
-                        ImageT const& point_cloud, Options const& opt){
-
-    std::string point_cloud_file = opt.out_prefix + "-PC.tif";
-    vw_out() << "Writing point cloud: " << point_cloud_file << "\n";
-
-    if ( opt.session->name() == "isis" ){
-      // ISIS does not support multi-threading
-      asp::write_approx_gdal_image
-        ( point_cloud_file, shift,
-          stereo_settings().point_cloud_rounding_error,
-          point_cloud, opt,
-          TerminalProgressCallback("asp", "\t--> Triangulating: "));
-    }else{
-      asp::block_write_approx_gdal_image
-        ( point_cloud_file, shift,
-          stereo_settings().point_cloud_rounding_error,
-          point_cloud, opt,
-          TerminalProgressCallback("asp", "\t--> Triangulating: "));
-    }
-
-  }
-
-}
-
 template <class DisparityImageT, class TX1T, class TX2T, class StereoModelT>
 class StereoTXAndErrorView : public ImageViewBase<StereoTXAndErrorView<DisparityImageT, TX1T, TX2T, StereoModelT> >
 {
@@ -206,82 +161,6 @@ private:
 
 };
 
-Vector3 find_approx_points_median(std::vector<Vector3> const& points){
-
-  // Find the median of the x coordinates of points, then of y, then of
-  // z. Perturb the median a bit to ensure it is never exactly on top
-  // of a real point, as in such a case after subtraction of that
-  // point from median we'd get the zero vector which by convention
-  // is invalid.
-
-  if (points.empty()) return Vector3();
-
-  Vector3 median;
-  std::vector<double> V(points.size());
-  for (int i = 0; i < (int)median.size(); i++){
-    for (int p = 0; p < (int)points.size(); p++) V[p] = points[p][i];
-    std::sort(V.begin(), V.end());
-    median[i] = V[points.size()/2];
-
-    median[i] += median[i]*1e-10*rand()/double(RAND_MAX);
-  }
-
-  return median;
-}
-
-Vector3 find_point_cloud_center(Vector2i const& tile_size,
-                                ImageViewRef<Vector6> const& point_cloud){
-
-  // Compute the point cloud in a tile around the center of the
-  // cloud. Find the median of all the points in that cloud.  That
-  // will be the cloud center. If the tile is too small, spiral away
-  // from the center adding other tiles.  Keep the tiles aligned to a
-  // multiple of tile_size, for consistency with how the point cloud
-  // is written to disk later on.
-
-  int numx = (int)ceil(point_cloud.cols()/double(tile_size[0]));
-  int numy = (int)ceil(point_cloud.rows()/double(tile_size[1]));
-
-  std::vector<Vector3> points;
-  for (int r = 0; r <= std::max(numx/2, numy/2); r++){
-    // We are now on the boundary of the square of size 2*r with
-    // center at (numx/2, numy/2). Iterate over that boundary.
-    for (int x = numx/2-r; x <= numx/2+r; x++){
-      for (int y = numy/2-r; y <= numy/2+r; y++){
-        if ( x != numx/2-r && x != numx/2+r &&
-             y != numy/2-r && y != numy/2+r) continue; // skip inner points
-        if (x < 0 || y < 0 || x >= numx || y >= numy) continue; // out of bounds
-
-        BBox2i box(x*tile_size[0], y*tile_size[1], tile_size[0], tile_size[1]);
-        box.crop(bounding_box(point_cloud));
-
-        // Crop to the cloud area actually having points
-        box.crop(stereo_settings().trans_crop_win);
-        
-        // Triangulate in the existing box
-        ImageView<Vector6> cropped_cloud = crop(point_cloud, box);
-        for (int px = 0; px < cropped_cloud.cols(); px++){
-          for (int py = 0; py < cropped_cloud.rows(); py++){
-            Vector3 xyz = subvector(cropped_cloud(px, py), 0, 3);
-            if (xyz == Vector3()) continue;
-            points.push_back(xyz);
-          }
-        }
-        
-        // Stop if we have enough points to do a reliable mean estimation
-        if (points.size() > 100)
-          return find_approx_points_median(points);
-        
-      }
-      
-    }
-  }
-
-  // Have to use what we've got
-  return find_approx_points_median(points);
-}
-
-
 template <class DisparityT, class TX1T, class TX2T, class StereoModelT>
 StereoTXAndErrorView<DisparityT, TX1T, TX2T, StereoModelT>
 stereo_error_triangulate( ImageViewBase<DisparityT> const& disparity,
@@ -291,26 +170,146 @@ stereo_error_triangulate( ImageViewBase<DisparityT> const& disparity,
   return result_type( disparity.impl(), tx1, tx2, model );
 }
 
-bool read_point(std::string const& file, Vector3 & point){
+namespace asp{
 
-  point = Vector3();
+  // ImageView operator that takes the last three elements of a vector
+  // (the error part) and replaces them with the norm of that 3-vector.
+  struct PointAndErrorNorm : public ReturnFixedType<Vector4> {
+    Vector4 operator() (Vector6 const& pt) const {
+      Vector4 result;
+      subvector(result,0,3) = subvector(pt,0,3);
+      result[3] = norm_2(subvector(pt,3,3));
+      return result;
+    }
+  };
+  template <class ImageT>
+  UnaryPerPixelView<ImageT, PointAndErrorNorm>
+  inline point_and_error_norm( ImageViewBase<ImageT> const& image ) {
+    return UnaryPerPixelView<ImageT, PointAndErrorNorm>( image.impl(),
+                                                         PointAndErrorNorm() );
+  }
+
+  template <class ImageT>
+  void save_point_cloud(Vector3 const& shift,
+                        ImageT const& point_cloud, Options const& opt){
+
+    std::string point_cloud_file = opt.out_prefix + "-PC.tif";
+    vw_out() << "Writing point cloud: " << point_cloud_file << "\n";
+
+    if ( opt.session->name() == "isis" ){
+      // ISIS does not support multi-threading
+      asp::write_approx_gdal_image
+        ( point_cloud_file, shift,
+          stereo_settings().point_cloud_rounding_error,
+          point_cloud, opt,
+          TerminalProgressCallback("asp", "\t--> Triangulating: "));
+    }else{
+      asp::block_write_approx_gdal_image
+        ( point_cloud_file, shift,
+          stereo_settings().point_cloud_rounding_error,
+          point_cloud, opt,
+          TerminalProgressCallback("asp", "\t--> Triangulating: "));
+    }
+
+  }
+
+  Vector3 find_approx_points_median(std::vector<Vector3> const& points){
+
+    // Find the median of the x coordinates of points, then of y, then of
+    // z. Perturb the median a bit to ensure it is never exactly on top
+    // of a real point, as in such a case after subtraction of that
+    // point from median we'd get the zero vector which by convention
+    // is invalid.
+
+    if (points.empty()) return Vector3();
+
+    Vector3 median;
+    std::vector<double> V(points.size());
+    for (int i = 0; i < (int)median.size(); i++){
+      for (int p = 0; p < (int)points.size(); p++) V[p] = points[p][i];
+      std::sort(V.begin(), V.end());
+      median[i] = V[points.size()/2];
+
+      median[i] += median[i]*1e-10*rand()/double(RAND_MAX);
+    }
+
+    return median;
+  }
+
+  Vector3 find_point_cloud_center(Vector2i const& tile_size,
+                                  ImageViewRef<Vector6> const& point_cloud){
+
+    // Compute the point cloud in a tile around the center of the
+    // cloud. Find the median of all the points in that cloud.  That
+    // will be the cloud center. If the tile is too small, spiral away
+    // from the center adding other tiles.  Keep the tiles aligned to a
+    // multiple of tile_size, for consistency with how the point cloud
+    // is written to disk later on.
+
+    int numx = (int)ceil(point_cloud.cols()/double(tile_size[0]));
+    int numy = (int)ceil(point_cloud.rows()/double(tile_size[1]));
+
+    std::vector<Vector3> points;
+    for (int r = 0; r <= std::max(numx/2, numy/2); r++){
+      // We are now on the boundary of the square of size 2*r with
+      // center at (numx/2, numy/2). Iterate over that boundary.
+      for (int x = numx/2-r; x <= numx/2+r; x++){
+        for (int y = numy/2-r; y <= numy/2+r; y++){
+          if ( x != numx/2-r && x != numx/2+r &&
+               y != numy/2-r && y != numy/2+r) continue; // skip inner points
+          if (x < 0 || y < 0 || x >= numx || y >= numy) continue; // out of bounds
+
+          BBox2i box(x*tile_size[0], y*tile_size[1], tile_size[0], tile_size[1]);
+          box.crop(bounding_box(point_cloud));
+
+          // Crop to the cloud area actually having points
+          box.crop(stereo_settings().trans_crop_win);
+        
+          // Triangulate in the existing box
+          ImageView<Vector6> cropped_cloud = crop(point_cloud, box);
+          for (int px = 0; px < cropped_cloud.cols(); px++){
+            for (int py = 0; py < cropped_cloud.rows(); py++){
+              Vector3 xyz = subvector(cropped_cloud(px, py), 0, 3);
+              if (xyz == Vector3()) continue;
+              points.push_back(xyz);
+            }
+          }
+        
+          // Stop if we have enough points to do a reliable mean estimation
+          if (points.size() > 100)
+            return find_approx_points_median(points);
+        
+        }
+      
+      }
+    }
+
+    // Have to use what we've got
+    return find_approx_points_median(points);
+  }
+
+  bool read_point(std::string const& file, Vector3 & point){
+
+    point = Vector3();
   
-  std::ifstream fh(file.c_str());
-  if (!fh.good()) return false;
+    std::ifstream fh(file.c_str());
+    if (!fh.good()) return false;
 
-  for (int c = 0; c < (int)point.size(); c++)
-    if (! (fh >> point[c]) ) return false;
+    for (int c = 0; c < (int)point.size(); c++)
+      if (! (fh >> point[c]) ) return false;
 
-  return true;
-}
+    return true;
+  }
 
-void write_point(std::string const& file, Vector3 const& point){
+  void write_point(std::string const& file, Vector3 const& point){
 
-  std::ofstream fh(file.c_str());
-  fh.precision(18); // precision(16) is not enough
-  for (int c = 0; c < (int)point.size(); c++)
-    fh << point[c] << " ";
-  fh << std::endl;
+    std::ofstream fh(file.c_str());
+    fh.precision(18); // precision(16) is not enough
+    for (int c = 0; c < (int)point.size(); c++)
+      fh << point[c] << " ";
+    fh << std::endl;
+
+  }
 
 }
 
