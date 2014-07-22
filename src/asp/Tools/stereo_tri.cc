@@ -41,12 +41,12 @@ namespace vw {
   template<> struct PixelFormatID<Vector<float, 2> > { static const PixelFormatEnum value = VW_PIXEL_GENERIC_2_CHANNEL; };
 }
 
-template <class DisparityImageT, class TX1T, class TX2T, class StereoModelT>
-class StereoTXAndErrorView : public ImageViewBase<StereoTXAndErrorView<DisparityImageT, TX1T, TX2T, StereoModelT> >
+template <class DisparityImageT, class TXT, class StereoModelT>
+class StereoTXAndErrorView : public ImageViewBase<StereoTXAndErrorView<DisparityImageT, TXT, StereoModelT> >
 {
   DisparityImageT m_disparity_map;
-  TX1T m_tx1;
-  TX2T m_tx2;
+  TXT m_tx1;
+  TXT m_tx2;
   StereoModelT m_stereo_model;
 
   typedef typename DisparityImageT::pixel_type DPixelT;
@@ -58,7 +58,7 @@ public:
   typedef ProceduralPixelAccessor<StereoTXAndErrorView> pixel_accessor;
 
   StereoTXAndErrorView( ImageViewBase<DisparityImageT> const& disparity_map,
-                        TX1T const& tx1, TX2T const& tx2,
+                        TXT const& tx1, TXT const& tx2,
                         StereoModelT const& stereo_model) :
     m_disparity_map(disparity_map.impl()), m_tx1(tx1), m_tx2(tx2),
     m_stereo_model(stereo_model) {}
@@ -82,7 +82,7 @@ public:
   }
 
   typedef StereoTXAndErrorView<CropView<ImageView<DPixelT> >,
-                               TX1T, TX2T, StereoModelT> prerasterize_type;
+                               TXT, StereoModelT> prerasterize_type;
   inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
     return PreRasterHelper( bbox, m_tx1, m_tx2 );
   }
@@ -161,12 +161,12 @@ private:
 
 };
 
-template <class DisparityT, class TX1T, class TX2T, class StereoModelT>
-StereoTXAndErrorView<DisparityT, TX1T, TX2T, StereoModelT>
+template <class DisparityT, class TXT, class StereoModelT>
+StereoTXAndErrorView<DisparityT, TXT, StereoModelT>
 stereo_error_triangulate( ImageViewBase<DisparityT> const& disparity,
-                          TX1T const& tx1, TX2T const& tx2,
+                          TXT const& tx1, TXT const& tx2,
                           StereoModelT const& model ) {
-  typedef StereoTXAndErrorView<DisparityT, TX1T, TX2T, StereoModelT> result_type;
+  typedef StereoTXAndErrorView<DisparityT, TXT, StereoModelT> result_type;
   return result_type( disparity.impl(), tx1, tx2, model );
 }
 
@@ -397,25 +397,15 @@ void stereo_triangulation( Options const& opt ) {
     
     // Apply radius function and stereo model in one go
     vw_out() << "\t--> Generating a 3D point cloud.   " << std::endl;
-    ImageViewRef<Vector6> point_cloud;
-    if ( stereo_settings().use_least_squares ) {
-      StereoModelT stereo_model( camera_model1.get(), camera_model2.get(), true );
-      point_cloud =
-        per_pixel_filter(
-          stereo_error_triangulate( disparity_map,
-                                    boost::dynamic_pointer_cast<SessionT>(opt.session)->tx_left(),
-                                    boost::dynamic_pointer_cast<SessionT>(opt.session)->tx_right(),
-                                    stereo_model ), universe_radius_func );
-    } else {
-      StereoModelT stereo_model( camera_model1.get(), camera_model2.get(), false );
-      point_cloud =
-        per_pixel_filter(
-          stereo_error_triangulate( disparity_map,
-                                    boost::dynamic_pointer_cast<SessionT>(opt.session)->tx_left(),
-                                    boost::dynamic_pointer_cast<SessionT>(opt.session)->tx_right(),
-                                    stereo_model ), universe_radius_func );
-    }
-
+    StereoModelT stereo_model( camera_model1.get(), camera_model2.get(),
+                               stereo_settings().use_least_squares );
+    boost::shared_ptr<SessionT> sPtr = boost::dynamic_pointer_cast<SessionT>(opt.session);
+    ImageViewRef<Vector6> point_cloud
+      = per_pixel_filter
+      (stereo_error_triangulate( disparity_map,
+                                 sPtr->tx_left(), sPtr->tx_right(),
+                                 stereo_model ), universe_radius_func );
+    
     // Compute the point cloud center, unless done by now
     Vector3 cloud_center = Vector3();
     if (!stereo_settings().save_double_precision_point_cloud){
