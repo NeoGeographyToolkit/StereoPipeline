@@ -41,12 +41,12 @@ namespace vw {
     if ( reference_spheroid != "" ) {
       if (reference_spheroid == "mars") {
         datum.set_well_known_datum("D_MARS");
-        vw_out() << "\t--> Re-referencing altitude values using standard MOLA\n";
+        vw_out() << "\t--> Re-referencing altitude values using a Mars spheroid\n";
       } else if (reference_spheroid == "moon") {
         datum.set_well_known_datum("D_MOON");
-        vw_out() << "\t--> Re-referencing altitude values using standard lunar\n";
+        vw_out() << "\t--> Re-referencing altitude values using a Lunar spheroid\n";
       } else if (reference_spheroid == "earth") {
-        vw_out() << "\t--> Re-referencing altitude values using WGS84\n";
+        vw_out() << "\t--> Re-referencing altitude values using the Earth WGS84 spheroid\n";
       } else {
         vw_throw( ArgumentErr() << "\t--> Unknown reference spheriod: "
                   << reference_spheroid
