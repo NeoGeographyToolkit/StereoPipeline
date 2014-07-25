@@ -25,25 +25,8 @@
 // right image blocks which are as tall is the entire image (each
 // block comes from an individual CCD image sensor). Blocks are
 // slightly misplaced in respect to each other by some unknown
-// subpixel offset. The goal of this tool is to locate these CCD
-// artifact boundary locations, and undo the offsets.
-// 
-
-// Observations:
-// 1. The CCD artifact locations are periodic, but the starting offset
-//    is not positioned at exactly one period. It is less by one fixed
-//    value which we name 'shift'.  
-// 2. There are CCD offsets in both x and y at each location.
-// 3. The magnitude of all CCD offsets in x is the same, but their sign
-//    alternates. The same is true in y.
-// 4. The period of CCD offsets is inversely proportional to the detector
-//    pitch.
-// 5. The CCD offsets are pretty consistent among all images of given
-//    scan direction (forward or reverse).
-// We used all these and a lot of images to heuristically find the
-// period and offset of the artifacts, and the 'shift' value. We
-// correct these below. We allow the user to override the value of CCD
-// offsets if desired.
+// subpixel offsets. We use tabulated values for the offsets and their
+// locations to undo them.
 
 #include <vw/FileIO.h>
 #include <vw/Image.h>
@@ -98,9 +81,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     asp::check_command_line( argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage );
 
-  if ( !vm.count("camera-image") || !vm.count("camera-model") || !vm.count("output-image") )
-    vw_throw( ArgumentErr() << "Requires <camera-image>, <camera-model> and <output-image> "
-              << "in order to proceed.\n\n"
+  if ( !vm.count("camera-image") || !vm.count("camera-model") ||
+       !vm.count("output-image") )
+    vw_throw( ArgumentErr() << "Requires <camera-image>, <camera-model> "
+              << "and <output-image> in order to proceed.\n\n"
               << usage << general_options );
 
   asp::create_out_dir(opt.output_image);
@@ -125,6 +109,7 @@ void get_offsets(int tdi, bool is_wv01, bool is_forward,
   ccdy.clear();
   
   // Here we tabulate all ccds offsets and their column pixel positions.
+  
   if (!is_wv01){
     
     // Do WV02
@@ -450,19 +435,17 @@ class WVCorrectView: public ImageViewBase< WVCorrectView<ImageT> >{
   ImageT m_img;
   int m_tdi;
   bool m_is_wv01, m_is_forward;
-  double m_pitch_ratio, m_shift, m_period, m_xoffset, m_yoffset;
+  double m_pitch_ratio;
   std::vector<double> m_posx, m_ccdx, m_posy, m_ccdy;
 
   typedef typename ImageT::pixel_type PixelT;
 
 public:
   WVCorrectView( ImageT const& img, int tdi, bool is_wv01, bool is_forward,
-                 double pitch_ratio, double shift, double period,
-                 double xoffset, double yoffset):
+                 double pitch_ratio):
     m_img(img), m_tdi(tdi), m_is_wv01(is_wv01), m_is_forward(is_forward),
-    m_pitch_ratio(pitch_ratio), m_shift(shift), m_period(period),
-    m_xoffset(xoffset), m_yoffset(yoffset){
-
+    m_pitch_ratio(pitch_ratio){
+    
     get_offsets(m_tdi, m_is_wv01, m_is_forward,  
                 m_posx, m_ccdx, m_posy, m_ccdy);
 
@@ -496,8 +479,8 @@ public:
 
     // Need to see a bit more of the input image for the purpose
     // of interpolation.
-    int bias = (int)ceil(std::max(std::abs(m_xoffset), std::abs(m_yoffset)))
-      + BilinearInterpolation::pixel_buffer + 1;
+    int max_offset = 5; // CCD offsets are always under 1 pix
+    int bias = BilinearInterpolation::pixel_buffer + max_offset;
     BBox2i biased_box = bbox;
     biased_box.expand(bias);
     biased_box.crop(bounding_box(m_img));
@@ -511,19 +494,9 @@ public:
     
     ImageView<result_type> tile(bbox.width(), bbox.height());
     for (int col = bbox.min().x(); col < bbox.max().x(); col++){
-      
-      // The sign of CCD offsets alternates as one moves along the image
-      // columns. As such, at "even" blocks, the offsets accumulated so
-      // far cancel each other, so we need to correct the "odd" blocks
-      // only.
-      int block_index = (int)floor((col - m_shift)/m_period);
-      double valx = 0, valy = 0;
-      if (block_index % 2 == 1){
-        valx = -m_xoffset;
-        valy = -m_yoffset;
-      }
 
-      // Overwrite the artifacts with custom versions if available
+      // Accumulate the corrections up to the current column
+      double valx = 0, valy = 0;
       if (m_ccdx.size() > 0){
         valx = 0.0;
         for (size_t t = 0; t < m_ccdx.size(); t++){
@@ -558,10 +531,8 @@ public:
 template <class ImageT>
 WVCorrectView<ImageT> wv_correct(ImageT const& img,
                                  int tdi, bool is_wv01, bool is_forward,
-                                 double pitch_ratio, double shift,
-                                 double period, double xoffset, double yoffset){
-  return WVCorrectView<ImageT>(img, tdi, is_wv01, is_forward, pitch_ratio,
-                               shift, period, xoffset, yoffset);
+                                 double pitch_ratio){
+  return WVCorrectView<ImageT>(img, tdi, is_wv01, is_forward, pitch_ratio);
 }
 
 int main( int argc, char *argv[] ) {
@@ -602,45 +573,11 @@ int main( int argc, char *argv[] ) {
       vw_throw( ArgumentErr() << e.what() );
     }
 
-    bool is_forward = (scan_dir == "forward");
-    
-    // Defaults, depending on satellite and scan direction
-    double xoffset, yoffset, period, shift;
     bool is_wv01 = (sat_id == "WV01");
-    if (is_wv01){
-      if (is_forward){
-        period = 0;
-        shift  = 0;
-        xoffset = 0;
-        yoffset = 0;
-      }else{
-        period  = 0;
-        shift   = 0;
-        xoffset = 0;
-        yoffset = 0;
-      }
-    }else{
-      period = 705;
-      shift  = -35.0;
-      if (is_forward){
-        xoffset = 0.2842;
-        yoffset = 0.2369;
-      }else{
-        xoffset = 0.3396;
-        yoffset = 0.3725;
-      }
-    }
+    bool is_forward = (scan_dir == "forward");
 
     // Adjust for detector pitch
     double pitch_ratio = 8.0e-3/det_pitch;
-    period = period*pitch_ratio;
-    
-    // Internal sign adjustments
-    if (is_forward){
-      yoffset = -yoffset;
-    }else{
-      xoffset = -xoffset;
-    }
 
     DiskImageView<float> input_img(opt.camera_image_file);
     bool has_nodata = false;
@@ -659,8 +596,7 @@ int main( int argc, char *argv[] ) {
                                   (wv_correct(create_mask(input_img,
                                                           nodata),
                                               tdi, is_wv01, is_forward,
-                                              pitch_ratio, shift, period,
-                                              xoffset, yoffset),
+                                              pitch_ratio),
                                    nodata),
                                   nodata, opt,
                                   TerminalProgressCallback("asp", "\t-->: "));
@@ -668,8 +604,7 @@ int main( int argc, char *argv[] ) {
       asp::block_write_gdal_image(opt.output_image,
                                   wv_correct(input_img,
                                              tdi, is_wv01, is_forward,
-                                             pitch_ratio, shift, period,
-                                             xoffset, yoffset),
+                                             pitch_ratio),
                                   opt,
                                   TerminalProgressCallback("asp", "\t-->: "));
     }
