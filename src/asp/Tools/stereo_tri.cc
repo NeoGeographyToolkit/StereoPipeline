@@ -73,7 +73,11 @@ public:
     if ( is_valid(m_disparity_map(i,j,p)) ) {
       Vector3 error;
       pixel_type result;
-      subvector(result,0,3) = StereoModelHelper( i, j, m_disparity_map(i,j,p), error );
+      subvector(result,0,3)
+        = m_stereo_model(m_tx1.reverse( Vector2(i,j) ),
+                         m_tx2.reverse( Vector2(i,j)
+                                        + stereo::DispHelper(m_disparity_map(i,j,p)) ),
+                         error);
       subvector(result,3,3) = error;
       return result;
     }
@@ -89,33 +93,6 @@ public:
   template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const { vw::rasterize( prerasterize(bbox), dest, bbox ); }
 
 private:
-
-  template <class T>
-  inline typename boost::enable_if<IsScalar<T>,Vector3>::type
-  StereoModelHelper( size_t i, size_t j, T const& disparity, Vector3& error ) const {
-    return m_stereo_model( m_tx1.reverse( Vector2(i,j) ),
-                           m_tx2.reverse( Vector2(T(i) + disparity, j) ), error );
-  }
-
-  template <class T>
-  inline typename boost::enable_if_c<IsCompound<T>::value && (CompoundNumChannels<typename UnmaskedPixelType<T>::type>::value == 1),Vector3>::type
-  StereoModelHelper( size_t i, size_t j, T const& disparity, Vector3& error ) const {
-    return m_stereo_model( m_tx1.reverse( Vector2(i,j) ),
-                           m_tx2.reverse( Vector2(float(i)+disparity, j) ), error );
-  }
-
-  template <class T>
-  inline typename boost::enable_if_c<IsCompound<T>::value && (CompoundNumChannels<typename UnmaskedPixelType<T>::type>::value != 1),Vector3>::type
-  StereoModelHelper( size_t i, size_t j, T const& disparity, Vector3& error ) const {
-    if ( !is_valid( disparity ) ){
-      return Vector3(); // out of bounds
-    }
-
-    return m_stereo_model( m_tx1.reverse( Vector2(i,j) ),
-                           m_tx2.reverse( Vector2( double(i) + disparity[0],
-                                                   double(j) + disparity[1] ) ),
-                           error );
-  }
 
   template <class T1, class T2>
   typename boost::disable_if< boost::mpl::and_<boost::is_same<T1,StereoSessionDGMapRPC::left_tx_type>,
