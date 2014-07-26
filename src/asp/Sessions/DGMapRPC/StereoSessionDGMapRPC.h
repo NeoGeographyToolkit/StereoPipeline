@@ -63,10 +63,7 @@ namespace asp {
                             std::string const& left_camera_file,
                             std::string const& right_camera_file,
                             std::string const& out_prefix,
-                            std::string const& input_dem,
-                            std::string const& extra_argument1,
-                            std::string const& extra_argument2,
-                            std::string const& extra_argument3);
+                            std::string const& input_dem);
 
     virtual std::string name() const { return "dgmaprpc"; }
 

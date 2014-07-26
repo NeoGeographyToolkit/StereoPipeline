@@ -67,10 +67,7 @@ namespace asp {
                                   std::string const& left_camera_file,
                                   std::string const& right_camera_file,
                                   std::string const& out_prefix,
-                                  std::string const& input_dem,
-                                  std::string const& extra_argument1,
-                                  std::string const& extra_argument2,
-                                  std::string const& extra_argument3) {
+                                  std::string const& input_dem) {
     m_options = options;
     m_left_image_file = left_image_file;
     m_right_image_file = right_image_file;
@@ -78,9 +75,6 @@ namespace asp {
     m_right_camera_file = right_camera_file;
     m_out_prefix = out_prefix;
     m_input_dem = input_dem;
-    m_extra_argument1 = extra_argument1;
-    m_extra_argument2 = extra_argument2;
-    m_extra_argument3 = extra_argument3;
   }
 
   static void register_default_session_types() {
@@ -104,10 +98,7 @@ namespace asp {
                                         std::string const& left_camera_file,
                                         std::string const& right_camera_file,
                                         std::string const& out_prefix,
-                                        std::string const& input_dem,
-                                        std::string const& extra_argument1,
-                                        std::string const& extra_argument2,
-                                        std::string const& extra_argument3) {
+                                        std::string const& input_dem) {
     register_default_session_types();
 
     // Known user session types are:
@@ -175,8 +166,7 @@ namespace asp {
         session_new->initialize( options,
                                  left_image_file, right_image_file,
                                  left_camera_file, right_camera_file,
-                                 out_prefix, input_dem, extra_argument1,
-                                 extra_argument2, extra_argument3 );
+                                 out_prefix, input_dem );
         session_type = session_new->name(); // we count on this in the caller
         return session_new;
       }

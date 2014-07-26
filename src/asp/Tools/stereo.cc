@@ -106,10 +106,7 @@ namespace asp {
       ("left-camera-model", po::value(&opt.cam_file1), "Left Camera Model File")
       ("right-camera-model", po::value(&opt.cam_file2), "Right Camera Model File")
       ("output-prefix", po::value(&opt.out_prefix), "Prefix for output filenames")
-      ("input-dem", po::value(&opt.input_dem), "Input DEM")
-      ("extra-argument1", po::value(&opt.extra_argument1), "Extra Argument 1")
-      ("extra-argument2", po::value(&opt.extra_argument2), "Extra Argument 2")
-      ("extra-argument3", po::value(&opt.extra_argument3), "Extra Argument 3");
+      ("input-dem", po::value(&opt.input_dem), "Input DEM");
 
     po::positional_options_description positional_desc;
     positional_desc.add("left-input-image", 1);
@@ -118,9 +115,6 @@ namespace asp {
     positional_desc.add("right-camera-model", 1);
     positional_desc.add("output-prefix", 1);
     positional_desc.add("input-dem", 1);
-    positional_desc.add("extra-argument1", 1);
-    positional_desc.add("extra-argument2", 1);
-    positional_desc.add("extra-argument3", 1);
 
     std::string usage("[options] <Left_input_image> <Right_input_image> [Left_camera_file] [Right_camera_file] <output_file_prefix> [DEM]\n  Extensions are automaticaly added to the output files.\n  Camera model arguments may be optional for some stereo session types (e.g., isis).\n  Stereo parameters should be set in the stereo.default file.");
     po::variables_map vm =
@@ -219,10 +213,7 @@ namespace asp {
                                                   opt.in_file2,
                                                   opt.cam_file1, opt.cam_file2,
                                                   opt.out_prefix,
-                                                  opt.input_dem,
-                                                  opt.extra_argument1,
-                                                  opt.extra_argument2,
-                                                  opt.extra_argument3) );
+                                                  opt.input_dem) );
     user_safety_checks(opt);
 
     // The last thing we do before we get started is to copy the

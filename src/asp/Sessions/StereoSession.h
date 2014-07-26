@@ -123,8 +123,7 @@ namespace asp {
     asp::BaseOptions m_options;
     std::string m_left_image_file, m_right_image_file,
       m_left_camera_file, m_right_camera_file, m_out_prefix;
-    std::string m_input_dem, m_extra_argument1,
-      m_extra_argument2, m_extra_argument3;
+    std::string m_input_dem;
 
     virtual void initialize (BaseOptions const& options,
                              std::string const& left_image_file,
@@ -132,10 +131,7 @@ namespace asp {
                              std::string const& left_camera_file,
                              std::string const& right_camera_file,
                              std::string const& out_prefix,
-                             std::string const& input_dem,
-                             std::string const& extra_argument1,
-                             std::string const& extra_argument2,
-                             std::string const& extra_argument3);
+                             std::string const& input_dem);
 
   public:
     virtual ~StereoSession() {}
@@ -148,10 +144,7 @@ namespace asp {
                                   std::string const& left_camera_file = "",
                                   std::string const& right_camera_file = "",
                                   std::string const& out_prefix = "",
-                                  std::string const& input_dem = "",
-                                  std::string const& extra_argument1 = "",
-                                  std::string const& extra_argument2 = "",
-                                  std::string const& extra_argument3 = "");
+                                  std::string const& input_dem = "");
     typedef StereoSession* (*construct_func)();
     static void register_session_type( std::string const& id, construct_func func);
 

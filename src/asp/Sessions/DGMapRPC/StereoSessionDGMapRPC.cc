@@ -36,15 +36,11 @@ void StereoSessionDGMapRPC::initialize(BaseOptions const& options,
                                        std::string const& left_camera_file,
                                        std::string const& right_camera_file,
                                        std::string const& out_prefix,
-                                       std::string const& input_dem,
-                                       std::string const& extra_argument1,
-                                       std::string const& extra_argument2,
-                                       std::string const& extra_argument3 ) {
+                                       std::string const& input_dem) {
   StereoSessionDG::initialize( options, left_image_file,
                                right_image_file, left_camera_file,
                                right_camera_file, out_prefix,
-                               input_dem, extra_argument1,
-                               extra_argument2, extra_argument3 );
+                               input_dem);
 
   // Verify that we can read the camera models
   m_left_model = boost::shared_ptr<RPCModel>(StereoSessionRPC::read_rpc_model(left_image_file, left_camera_file));

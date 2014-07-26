@@ -296,8 +296,6 @@ void stereo_triangulation( Options const& opt ) {
   typedef ImageViewRef<PixelMask<Vector2f> > PVImageT;
   typedef typename SessionT::stereo_model_type StereoModelT;
   try {
-    PVImageT disparity_map =
-      opt.session->pre_pointcloud_hook(opt.out_prefix+"-F.tif");
 
     boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
     opt.session->camera_models(camera_model1, camera_model2);
@@ -377,6 +375,8 @@ void stereo_triangulation( Options const& opt ) {
     StereoModelT stereo_model( camera_model1.get(), camera_model2.get(),
                                stereo_settings().use_least_squares );
     boost::shared_ptr<SessionT> sPtr = boost::dynamic_pointer_cast<SessionT>(opt.session);
+    PVImageT disparity_map =
+      opt.session->pre_pointcloud_hook(opt.out_prefix+"-F.tif");
     ImageViewRef<Vector6> point_cloud
       = per_pixel_filter
       (stereo_error_triangulate( disparity_map,
