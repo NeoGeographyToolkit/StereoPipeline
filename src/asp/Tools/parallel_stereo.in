@@ -35,7 +35,7 @@ os.environ["PATH"] = libexec_path + os.pathsep + os.environ["PATH"]
 job_pool  = [] # currently running jobs
 
 # The ids of individual stereo steps
-s_pprc = 0; s_corr = 1; s_rfne = 2; s_fltr = 3; s_tri = 4; s_mosaic = 5
+s_pprc = 0; s_corr = 1; s_rfne = 2; s_fltr = 3; s_tri = 4
 
 def produce_tiles( settings, tile_w, tile_h ):
     image_size = settings["trans_left_image_size"]
@@ -132,7 +132,10 @@ def rename_files( settings, postfix_in, postfix_out, **kw ):
 def build_vrt( settings, postfix, tile_postfix, **kw ):
 
     image_size = settings["trans_left_image_size"]
-    f = open(settings['out_prefix'][0]+postfix,'w')
+    
+    vrt_file = settings['out_prefix'][0]+postfix
+    print("Writing: " + vrt_file)
+    f = open(vrt_file,'w')
     f.write("<VRTDataset rasterXSize=\"%i\" rasterYSize=\"%i\">\n" % (int(image_size[0]),int(image_size[1])) )
 
     tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h )
@@ -418,13 +421,13 @@ if __name__ == '__main__':
                  type='int', 
                  help='The number of threads to use when running a single process (PPRC and FLTR).')
     p.add_option('--corr-seed-mode',       dest='seed_mode', default=None,
-                 help='Correlation seed strategy. See stereo_pprc for options.',
+                 help='Correlation seed strategy. See stereo_corr for options.',
                  type='int')
     p.add_option('-e', '--entry-point',    dest='entry_point', default=0,
-                 help='Stereo Pipeline entry point (an integer from 0-5).',
+                 help='Stereo Pipeline entry point (an integer from 0-4).',
                  type='int')
-    p.add_option('--stop-point',           dest='stop_point',  default=6,
-                 help='Stereo Pipeline stop point (an integer from 1-6).',
+    p.add_option('--stop-point',           dest='stop_point',  default=5,
+                 help='Stereo Pipeline stop point (an integer from 1-5).',
                  type='int')
     p.add_option('--job-size-w',           dest='job_size_w',  default=2048,
                  help='Pixel width of input image tile for a single process.',
@@ -584,13 +587,7 @@ if __name__ == '__main__':
             single_run('stereo_tri',  l_args, msg='%d: Triangulation' % step)
             create_subproject_dirs( settings ) # symlink cloud center
             sprawn_to_nodes(step, settings, self_args)
-
-        # Point cloud mosaic.
-        step = s_mosaic
-        if ( opt.entry_point <= step ):
-            if ( opt.stop_point <= step ): sys.exit()
-            create_subproject_dirs( settings )
-            build_vrt( settings, "-PC.tif", "-PC.tif" )
+            build_vrt( settings, "-PC.tif", "-PC.tif" ) # mosaic
 
     else:
 

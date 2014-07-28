@@ -44,7 +44,7 @@ if __name__ == '__main__':
     p.add_option('-s', '--stereo-file',    dest='filename',    default='./stereo.default',
                  help='Explicitly specify the stereo.default file to use. [default: ./stereo.default]')
     p.add_option('--corr-seed-mode',    dest='seed_mode', default=None, 
-                 help='Correlation seed strategy. See stereo_pprc for options.', type='int')
+                 help='Correlation seed strategy. See stereo_corr for options.', type='int')
     p.add_option('-e', '--entry-point',    dest='entry_point', default=0,
                  help='Pipeline entry point (an integer from 0-4)', type='int')
     p.add_option('--no-bigtiff',           dest='no_bigtiff',  default=False, action='store_true',
