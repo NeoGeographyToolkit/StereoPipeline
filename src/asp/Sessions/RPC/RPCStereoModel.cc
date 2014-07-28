@@ -71,38 +71,37 @@ namespace asp {
         pix2 == vw::camera::CameraModel::invalid_pixel()
         ) return Vector3();
     
-    const RPCModel *rpc_model1 = dynamic_cast<const RPCModel*>(m_camera1);
-    const RPCModel *rpc_model2 = dynamic_cast<const RPCModel*>(m_camera2);
-
-    if (rpc_model1 == NULL || rpc_model2 == NULL){
-      VW_OUT(ErrorMessage) << "RPC camera models expected.\n";
-      return Vector3();
-    }
-
     try {
+      
+      const RPCModel *rpc_model1 = dynamic_cast<const RPCModel*>(m_camera1);
+      const RPCModel *rpc_model2 = dynamic_cast<const RPCModel*>(m_camera2);
+      
+      if (rpc_model1 == NULL || rpc_model2 == NULL){
+        VW_OUT(ErrorMessage) << "RPC camera models expected.\n";
+        return Vector3();
+      }
       
       Vector3 origin1, vec1, origin2, vec2;
       rpc_model1->point_and_dir(pix1, origin1, vec1);
       rpc_model2->point_and_dir(pix2, origin2, vec2);
-
+      
       if (are_nearly_parallel(vec1, vec2)){
         return Vector3();
       }
-
       Vector3 result = triangulate_point(origin1, vec1,
                                          origin2, vec2,
                                          errorVec);
-
+      
       if ( m_least_squares ){
-
+        
         // Refine triangulation
-
+        
         detail::RPCTriangulateLMA model(rpc_model1, rpc_model2);
         Vector4 objective( pix1[0], pix1[1], pix2[0], pix2[1] );
         int status = 0;
-
+        
         Vector3 initialGeodetic = rpc_model1->datum().cartesian_to_geodetic(result);
-
+        
         // To do: Find good values for the numbers controlling the convergence
         Vector3 finalGeodetic = levenberg_marquardt( model, initialGeodetic,
                                                      objective, status, 1e-3, 1e-6, 10 );
@@ -110,9 +109,9 @@ namespace asp {
         if ( status > 0 )
           result = rpc_model1->datum().geodetic_to_cartesian(finalGeodetic);
       }
-
+      
       return result;
-
+      
     } catch (...) {}
     return Vector3();
   }
