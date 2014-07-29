@@ -31,15 +31,15 @@ int main( int argc, char* argv[] ) {
   stereo_register_sessions();
   Options opt;
   try {
+
+    // Below, CorrelationDescription() would work just as well
+    // as anything else. Just need to pass something.
+    bool allow_unregistered = false;
+    std::vector<std::string> unregistered;
     handle_arguments( argc, argv, opt,
-                      CorrelationDescription() ); // Doesn't really
-                                                  // apply here
-                                                  // ... but who's
-                                                  // looking. This
-                                                  // application
-                                                  // should only be
-                                                  // called by a
-                                                  // python script.
+                      CorrelationDescription(),
+                      allow_unregistered, unregistered );
+    
     vw_out() << "in_file1," << opt.in_file1 << std::endl;
     vw_out() << "in_file2," << opt.in_file2 << std::endl;
     vw_out() << "cam_file1," << opt.cam_file1 << std::endl;

@@ -323,9 +323,12 @@ int main(int argc, char* argv[]) {
   stereo_register_sessions();
   Options opt;
   try {
+    bool allow_unregistered = false;
+    std::vector<std::string> unregistered;
     handle_arguments( argc, argv, opt,
-                      FilteringDescription() );
-
+                      FilteringDescription(),
+                      allow_unregistered, unregistered );
+    
     // Internal Processes
     //---------------------------------------------------------
     stereo_filtering( opt );

@@ -174,9 +174,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   positional_desc.add("input-file", 1);
 
   std::string usage("[options] <point-cloud>");
+  bool allow_unregistered = false;
+  std::vector<std::string> unregistered;
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options, general_options,
-                             positional, positional_desc, usage );
+                             positional, positional_desc, usage,
+                             allow_unregistered, unregistered );
 
   // A fix to the unfortunate fact that the user can specify the DEM
   // spacing in two ways on the command line.

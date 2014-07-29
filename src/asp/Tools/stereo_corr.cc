@@ -579,9 +579,12 @@ int main(int argc, char* argv[]) {
   stereo_register_sessions();
   Options opt;
   try {
+    bool allow_unregistered = false;
+    std::vector<std::string> unregistered;
     handle_arguments( argc, argv, opt,
-                      CorrelationDescription() );
-
+                      CorrelationDescription(),
+                      allow_unregistered, unregistered );
+    
     // Integer correlator requires large tiles
     //---------------------------------------------------------
     int ts = Options::corr_tile_size();

@@ -417,8 +417,11 @@ int main(int argc, char* argv[]) {
   stereo_register_sessions();
   Options opt;
   try {
+    bool allow_unregistered = false;
+    std::vector<std::string> unregistered;
     handle_arguments( argc, argv, opt,
-                      PreProcessingDescription() );
+                      PreProcessingDescription(),
+                      allow_unregistered, unregistered );
 
     vw_out() << "\n[ " << current_posix_time_string()
              << " ] : Stage 0 --> PREPROCESSING \n";

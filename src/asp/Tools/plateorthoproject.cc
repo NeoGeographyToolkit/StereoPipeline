@@ -86,9 +86,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   p.add("output-url",1);
 
   std::string usage("<input-plate> <camera-image> <camera-model> <output-plate> [options]");
+  bool allow_unregistered = false;
+  std::vector<std::string> unregistered;
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options, general_options,
-                             hidden_options, p, usage );
+                             hidden_options, p, usage,
+                             allow_unregistered, unregistered );
 
   if ( opt.input_url.empty() ||
        opt.camera_image.empty() || opt.camera_model.empty() )

@@ -71,7 +71,9 @@ namespace asp {
   // Parse input command line arguments
   void handle_arguments( int argc, char *argv[], Options& opt,
                          boost::program_options::options_description const&
-                         additional_options);
+                         additional_options,
+                         bool allow_unregistered, 
+                         std::vector<std::string> & unregistered);
 
   // Register Session types
   void stereo_register_sessions();

@@ -77,7 +77,10 @@ namespace asp {
   // Parse input command line arguments
   void handle_arguments( int argc, char *argv[], Options& opt,
                          boost::program_options::options_description const&
-                         additional_options ) {
+                         additional_options,
+                         bool allow_unregistered, 
+                         std::vector<std::string> & unregistered
+                         ) {
 
     po::options_description general_options_sub("");
     general_options_sub.add_options()
@@ -119,13 +122,17 @@ namespace asp {
     std::string usage("[options] <Left_input_image> <Right_input_image> [Left_camera_file] [Right_camera_file] <output_file_prefix> [DEM]\n  Extensions are automaticaly added to the output files.\n  Camera model arguments may be optional for some stereo session types (e.g., isis).\n  Stereo parameters should be set in the stereo.default file.");
     po::variables_map vm =
       asp::check_command_line( argc, argv, opt, general_options, all_general_options,
-                               positional_options, positional_desc, usage, false );
+                               positional_options, positional_desc, usage, 
+                               allow_unregistered, unregistered );
 
-    if (!vm.count("left-input-image") || !vm.count("right-input-image") ||
-        !vm.count("left-camera-model") )
+
+    // If we allow unregistered options, the logic below won't apply correctly.
+    if (allow_unregistered) return;
+      
+    if ( opt.in_file1.empty() || opt.in_file2.empty() || opt.cam_file1.empty()  )
       vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n"
                 << usage << general_options );
-
+    
     // Read the config file
     try {
       po::options_description cfg_options;

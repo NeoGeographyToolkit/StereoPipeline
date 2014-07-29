@@ -244,7 +244,8 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
                          po::options_description const& positional_options,
                          po::positional_options_description const& positional_desc,
                          std::string & usage_comment,
-                         bool allow_unregistered ) {
+                         bool allow_unregistered, std::vector<std::string> & unregistered
+                         ) {
 
   {  
     // This is a bugfix. Ensure that stereo_settings() is
@@ -264,6 +265,8 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
                     << e.what() << "\n" << l_opts );
     }
   }
+
+  unregistered.clear();
   
   // Finish filling in the usage_comment.
   std::ostringstream ostr;
@@ -282,7 +285,9 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
     all_options.add(all_public_options).add(positional_options);
 
     if ( allow_unregistered ) {
-      po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).allow_unregistered().style( po::command_line_style::unix_style ).run(), vm );
+      po::parsed_options parsed = po::command_line_parser( argc, argv ).options(all_options).allow_unregistered().style( po::command_line_style::unix_style ).run();
+      unregistered = collect_unrecognized(parsed.options, po::include_positional);
+      po::store( parsed, vm );
     } else {
       po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).style( po::command_line_style::unix_style ).run(), vm );
     }
@@ -292,6 +297,7 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
     vw::vw_throw( vw::ArgumentErr() << "Error parsing input:\n"
                   << e.what() << "\n" << usage_comment << public_options );
   }
+
   // We really don't want to use BIGTIFF unless we have to. It's
   // hard to find viewers for bigtiff.
   if ( vm.count("no-bigtiff") ) {
@@ -299,8 +305,10 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
   } else {
     opt.gdal_options["BIGTIFF"] = "IF_SAFER";
   }
+  
   if ( vm.count("help") )
     vw::vw_throw( vw::ArgumentErr() << usage_comment << public_options );
+
   if ( vm.count("version") ) {
     std::ostringstream ostr;
     ostr << ASP_PACKAGE_STRING  << "\n";
@@ -319,11 +327,13 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
     ostr << "  Proj.4 " << PJ_VERSION << "\n";
     vw::vw_throw( vw::ArgumentErr() << ostr.str() );
   }
+  
   if ( opt.num_threads != 0 ) {
     vw::vw_out() << "\t--> Setting number of processing threads to: "
                  << opt.num_threads << std::endl;
     vw::vw_settings().set_default_num_threads(opt.num_threads);
   }
+  
   boost::algorithm::to_upper( opt.tif_compress );
   boost::algorithm::trim( opt.tif_compress );
   VW_ASSERT( opt.tif_compress == "NONE" || opt.tif_compress == "LZW" ||

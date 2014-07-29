@@ -87,9 +87,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   positional_desc.add("input-files", -1);
 
   std::string usage("[options] <input image> <input camera model> <...and repeat...>\nNote: All cameras and their images must be of the same session type. Camera models only can be used as input for stereo sessions pinhole and isis.");
+  bool allow_unregistered = false;
+  std::vector<std::string> unregistered;
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options, general_options,
-                             positional, positional_desc, usage );
+                             positional, positional_desc, usage,
+                             allow_unregistered, unregistered  );
 
   // Determining if feed only camera model
   if ( opt.input_files.size() == 1 )

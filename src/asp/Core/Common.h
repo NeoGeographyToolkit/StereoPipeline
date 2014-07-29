@@ -129,7 +129,8 @@ namespace asp {
                       boost::program_options::options_description const& positional_options,
                       boost::program_options::positional_options_description const& positional_desc,
                       std::string & usage_comment,
-                      bool allow_unregistered = false );
+                      bool allow_unregistered, std::vector<std::string> & unregistered
+                      );
 
   bool has_cam_extension( std::string const& input );
 

@@ -93,9 +93,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   positional_desc.add("output-file", 1);
 
   std::string usage("[options] <dem> <camera-image> <camera-model> <output>");
+  bool allow_unregistered = false;
+  std::vector<std::string> unregistered;
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options, general_options,
-                             positional, positional_desc, usage );
+                             positional, positional_desc, usage,
+                             allow_unregistered, unregistered );
 
   if ( !vm.count("dem") || !vm.count("camera-image") || !vm.count("camera-model") )
     vw_throw( ArgumentErr() << usage << general_options );

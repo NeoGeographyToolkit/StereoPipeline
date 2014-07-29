@@ -387,9 +387,12 @@ int main(int argc, char* argv[]) {
   stereo_register_sessions();
   Options opt;
   try {
+    bool allow_unregistered = false;
+    std::vector<std::string> unregistered;
     handle_arguments( argc, argv, opt,
-                      SubpixelDescription() );
-
+                      SubpixelDescription(),
+                      allow_unregistered, unregistered  );
+    
     // Subpixel refinement uses smaller tiles.
     //---------------------------------------------------------
     int ts = Options::rfne_tile_size();

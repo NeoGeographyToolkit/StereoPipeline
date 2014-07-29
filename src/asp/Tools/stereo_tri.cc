@@ -435,8 +435,11 @@ int main( int argc, char* argv[] ) {
 
   Options opt;
   try {
+    bool allow_unregistered = false;
+    std::vector<std::string> unregistered;
     handle_arguments( argc, argv, opt,
-                      TriangulationDescription() );
+                      TriangulationDescription(),
+                      allow_unregistered, unregistered);
 
     // Triangulation uses small tiles.
     //---------------------------------------------------------

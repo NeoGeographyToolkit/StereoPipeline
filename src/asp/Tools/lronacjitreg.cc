@@ -167,9 +167,12 @@ bool handle_arguments(int argc, char* argv[],
   
 
   std::string usage("[options] <left> <right>");
+  bool allow_unregistered = false;
+  std::vector<std::string> unregistered;
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options, general_options,
-                             positional, positional_desc, usage );
+                             positional, positional_desc, usage,
+                             allow_unregistered, unregistered  );
 
   if ( !vm.count("left") || !vm.count("right") )
     vw_throw( ArgumentErr() << "Requires <left> and <right> input in order to proceed.\n\n"
