@@ -35,41 +35,25 @@ using namespace vw::ba;
 #include <asp/IsisIO/DiskImageResourceIsis.h>
 #endif
 
-// Given a vector of strings, identify and store separately the the
-// list of GCPs. This should be useful for those programs who accept
-// their data in a mass input vector.
-std::vector<std::string>
-sort_out_gcps( std::vector<std::string>& image_files ) {
-  std::vector<std::string> gcp_files;
-  std::vector<std::string>::iterator it = image_files.begin();
-  while ( it != image_files.end() ) {
-    if ( boost::iends_with(boost::to_lower_copy(*it), ".gcp") ){
-      gcp_files.push_back( *it );
-      it = image_files.erase( it );
-    } else
-      it++;
-  }
+namespace asp{
   
-  return gcp_files;
-}
-
-// Given a vector of strings, identify and store separately the list
-// of camera models.
-std::vector<std::string>
-sort_out_cameras( std::vector<std::string>& image_files ) {
-  std::vector<std::string> cam_files;
-  std::vector<std::string>::iterator it = image_files.begin();
-  while ( it != image_files.end() ) {
-    if (asp::has_cam_extension( *it ) ||
-        boost::iends_with(boost::to_lower_copy(*it), ".xml")
-        ){
-      cam_files.push_back( *it );
-      it = image_files.erase( it );
-    } else
+  // Given a vector of strings, identify and store separately the the
+  // list of GCPs. This should be useful for those programs who accept
+  // their data in a mass input vector.
+  std::vector<std::string>
+  extract_gcps( std::vector<std::string>& image_files ) {
+    std::vector<std::string> gcp_files;
+    std::vector<std::string>::iterator it = image_files.begin();
+    while ( it != image_files.end() ) {
+      if ( boost::iends_with(boost::to_lower_copy(*it), ".gcp") ){
+        gcp_files.push_back( *it );
+        it = image_files.erase( it );
+      } else
       it++;
+    }
+    
+    return gcp_files;
   }
-  
-  return cam_files;
 }
 
 struct Options : public asp::BaseOptions {
@@ -471,9 +455,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if ( opt.image_files.empty() )
     vw_throw( ArgumentErr() << "Missing input image files.\n"
               << usage << general_options );
-  opt.gcp_files = sort_out_gcps( opt.image_files );
-  opt.camera_files = sort_out_cameras( opt.image_files );
-
+  opt.gcp_files = asp::extract_gcps( opt.image_files );
+  opt.camera_files = asp::extract_cameras( opt.image_files );
   
   if (!opt.gcp_files.empty()){
     // Need to read the datum if we have gcps.

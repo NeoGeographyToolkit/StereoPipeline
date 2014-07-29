@@ -45,8 +45,28 @@ using namespace vw;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
+// Given a vector of strings, identify and store separately the list
+// of camera models.
+std::vector<std::string>
+asp::extract_cameras( std::vector<std::string>& image_files ) {
+  std::vector<std::string> cam_files;
+  std::vector<std::string>::iterator it = image_files.begin();
+  while ( it != image_files.end() ) {
+    if (asp::has_cam_extension( *it ) ||
+        boost::iends_with(boost::to_lower_copy(*it), ".xml")
+        ){
+      cam_files.push_back( *it );
+      it = image_files.erase( it );
+    } else
+      it++;
+  }
+  
+  return cam_files;
+}
+
 // Convert dir1/image1.cub to out-prefix-image1.adjust
-std::string asp::bundle_adjust_file_name(std::string const& prefix, std::string const& input_img){
+std::string asp::bundle_adjust_file_name(std::string const& prefix,
+                                         std::string const& input_img){
   return prefix + "-" + fs::path(input_img).stem().string() + ".adjust";
 }
 
@@ -244,7 +264,8 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
                          po::options_description const& positional_options,
                          po::positional_options_description const& positional_desc,
                          std::string & usage_comment,
-                         bool allow_unregistered, std::vector<std::string> & unregistered
+                         bool allow_unregistered,
+                         std::vector<std::string> & unregistered
                          ) {
 
   {  

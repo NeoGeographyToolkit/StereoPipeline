@@ -149,6 +149,135 @@ stereo_error_triangulate( ImageViewBase<DisparityT> const& disparity,
 
 namespace asp{
 
+  void parse_multiview(int argc, char* argv[],
+                       boost::program_options::options_description const&
+                       additional_options,
+                       std::string & output_prefix,
+                       std::vector<Options> & opt_vec){
+
+    // If a stereo program is invoked as:
+  
+    // prog <images> <cameras> <output-prefix> [<input_dem>] <other options>
+
+    // with the number of images is n >= 2, create n-1 individual
+    // Options entries, corresponding to stereo pairs between the first
+    // image and each of subsequent images.
+
+    // First reset the outputs
+    output_prefix.clear();
+    opt_vec.clear();
+
+    // Extract the images/cameras/output prefix, and perhaps the input DEM
+    std::vector<std::string> files;
+    bool allow_unregistered = true;
+    Options opt;
+    handle_arguments(argc, argv, opt, additional_options,
+                     allow_unregistered, files);
+
+    // Store the elements in argv which are not files or output prefix.
+    // Note that argv[0] is the program name.
+    std::set<std::string> file_set; 
+    for (int s = 0; s < (int)files.size(); s++)
+      file_set.insert(files[s]);
+    std::vector<std::string> options;
+    for (int s = 1; s < argc; s++){
+      if (file_set.find(argv[s]) == file_set.end())
+        options.push_back(argv[s]);
+    }
+  
+    // Separate the cameras from the other files
+    std::vector<std::string> cameras = asp::extract_cameras( files );
+
+    if (files.size() < 3)
+      vw_throw( ArgumentErr() << "Missing all of the correct input files.\n" );
+
+    // Find the input DEM, if any
+    std::string input_dem;
+    bool has_georef = false;
+    try{
+      cartography::GeoReference georef;
+      has_georef = read_georeference( georef, files.back() );
+    }catch(...){}
+    if (has_georef){
+      input_dem = files.back();
+      files.pop_back();
+    }else{
+      input_dem = "";
+    }
+
+    // Find the output prefix
+    output_prefix = files.back();
+    files.pop_back();
+
+    if (fs::exists(output_prefix))
+      vw_out(WarningMessage) << "It appears that the output prefix "
+                             << "exists as a file: " << output_prefix
+                             << ". Perhaps this was not intended." << std::endl;
+    
+    if (files.size() != cameras.size() && !cameras.empty())
+      vw_throw( ArgumentErr() << "Expecting the number of images and cameras to agree.\n" );
+    
+    int num_pairs = (int)files.size() - 1;
+    if (num_pairs <= 0)
+      vw_throw( ArgumentErr() << "Insufficient number of images provided.\n" );
+    
+    std::string prog_name = argv[0];
+
+    // Generate the stereo command for each of the pairs made up of the first
+    // image and each subsequent image, with corresponding cameras.
+    for (int p = 1; p <= num_pairs; p++){
+      std::vector<std::string> cmd;
+
+      cmd.push_back(prog_name);
+
+      // The command line options go first
+      for (int t = 0; t < (int)options.size(); t++)
+        cmd.push_back(options[t]);
+    
+      cmd.push_back(files[0]); // left image
+      cmd.push_back(files[p]); // right image
+
+      if (!cameras.empty()){
+        cmd.push_back(cameras[0]); // left camera
+        cmd.push_back(cameras[p]); // right camera
+      }
+
+      std::string local_prefix = output_prefix;
+      if (num_pairs > 1){
+        // Need to have a separate output prefix for each pair
+        std::ostringstream os;
+        os << local_prefix << "-pair" << p << "/" << p;
+        local_prefix = os.str();
+      }
+      cmd.push_back(local_prefix);
+
+      if (!input_dem.empty())
+        cmd.push_back(input_dem);
+
+      // Create a local argc and argv for the given stereo pair and
+      // parse them.
+      int largc = cmd.size();
+      std::vector<char*> largv;
+      for (int t = 0; t < largc; t++)
+        largv.push_back((char*)cmd[t].c_str());
+      Options opt;
+      bool allow_unregistered = false;
+      std::vector<std::string> unregistered;
+      handle_arguments( largc, &largv[0], opt,
+                        additional_options,
+                        allow_unregistered, unregistered);
+      opt_vec.push_back(opt);
+    
+    }
+
+    if (num_pairs > 1 && stereo_settings().alignment_method != "none" &&
+        stereo_settings().alignment_method != "homography"
+        )
+      vw_throw(InputErr() << "For multi-view stereo, only alignment "
+               << "method of none or homography is supported.\n");
+  
+  }
+
   // ImageView operator that takes the last three elements of a vector
   // (the error part) and replaces them with the norm of that 3-vector.
   struct PointAndErrorNorm : public ReturnFixedType<Vector4> {
@@ -291,14 +420,15 @@ namespace asp{
 }
 
 template <class SessionT>
-void stereo_triangulation( Options const& opt ) {
+void stereo_triangulation( std::string const& output_prefix,
+                           std::vector<Options> const& opt ) {
 
   typedef ImageViewRef<PixelMask<Vector2f> > PVImageT;
   typedef typename SessionT::stereo_model_type StereoModelT;
   try {
 
     boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
-    opt.session->camera_models(camera_model1, camera_model2);
+    opt[0].session->camera_models(camera_model1, camera_model2);
 
 #if ASP_HAVE_PKG_VW_BUNDLEADJUSTMENT
     std::string ba_pref = stereo_settings().bundle_adjust_prefix;
@@ -311,7 +441,7 @@ void stereo_triangulation( Options const& opt ) {
       Quaternion<double> pose_correction;
       // Left adjusted camera
       std::string adjust_file1 = asp::bundle_adjust_file_name(ba_pref,
-                                                             opt.in_file1);
+                                                             opt[0].in_file1);
       if (fs::exists(adjust_file1)) {
         vw_out() << "Using adjusted left camera model: "
                  << adjust_file1 << std::endl;
@@ -327,7 +457,7 @@ void stereo_triangulation( Options const& opt ) {
 
       // Right adjusted camera
       std::string adjust_file2 = asp::bundle_adjust_file_name(ba_pref,
-                                                              opt.in_file2);
+                                                              opt[0].in_file2);
       if (fs::exists(adjust_file2)) {
         vw_out() << "Using adjusted right camera model: "
                  << adjust_file2 << std::endl;
@@ -353,8 +483,9 @@ void stereo_triangulation( Options const& opt ) {
     stereo::UniverseRadiusFunc universe_radius_func(Vector3(),0,0);
     try{
       if ( stereo_settings().universe_center == "camera" ) {
-        if (opt.session->name() == "rpc")
-          vw_throw(InputErr() << "Stereo with RPC cameras cannot have the camera as the universe center.\n");
+        if (opt[0].session->name() == "rpc")
+          vw_throw(InputErr() << "Stereo with RPC cameras cannot "
+                   << "have the camera as the universe center.\n");
         
         universe_radius_func =
           stereo::UniverseRadiusFunc(camera_model1->camera_center(Vector2()),
@@ -367,16 +498,19 @@ void stereo_triangulation( Options const& opt ) {
                                      stereo_settings().far_universe_radius);
       }
     }catch(...){
-      vw_out(WarningMessage) << "Could not find the camera center. Will not be able to filter triangulated points by radius.\n";
+      vw_out(WarningMessage) << "Could not find the camera center. "
+                             << "Will not be able to filter triangulated "
+                             << "points by radius.\n";
     }
     
     // Apply radius function and stereo model in one go
-    vw_out() << "\t--> Generating a 3D point cloud.   " << std::endl;
+    vw_out() << "\t--> Generating a 3D point cloud." << std::endl;
     StereoModelT stereo_model( camera_model1.get(), camera_model2.get(),
                                stereo_settings().use_least_squares );
-    boost::shared_ptr<SessionT> sPtr = boost::dynamic_pointer_cast<SessionT>(opt.session);
-    PVImageT disparity_map =
-      opt.session->pre_pointcloud_hook(opt.out_prefix+"-F.tif");
+    boost::shared_ptr<SessionT> sPtr
+      = boost::dynamic_pointer_cast<SessionT>(opt[0].session);
+    PVImageT disparity_map
+      = opt[0].session->pre_pointcloud_hook(opt[0].out_prefix+"-F.tif");
     ImageViewRef<Vector6> point_cloud
       = per_pixel_filter
       (stereo_error_triangulate( disparity_map,
@@ -386,9 +520,9 @@ void stereo_triangulation( Options const& opt ) {
     // Compute the point cloud center, unless done by now
     Vector3 cloud_center = Vector3();
     if (!stereo_settings().save_double_precision_point_cloud){
-      std::string cloud_center_file = opt.out_prefix + "-PC-center.txt";
+      std::string cloud_center_file = opt[0].out_prefix + "-PC-center.txt";
       if (!read_point(cloud_center_file, cloud_center)){
-        cloud_center = find_point_cloud_center(opt.raster_tile_size,
+        cloud_center = find_point_cloud_center(opt[0].raster_tile_size,
                                                point_cloud);
         write_point(cloud_center_file, cloud_center);
       }
@@ -409,14 +543,14 @@ void stereo_triangulation( Options const& opt ) {
       save_point_cloud(cloud_center,
                        crop(edge_extend(crop_pc, ZeroEdgeExtension()),
                             bounding_box(point_cloud) - cbox.min()),
-                       opt);
+                       opt[0]);
     }else{
       ImageViewRef<Vector4> crop_pc
         = crop(point_and_error_norm(point_cloud), cbox);
       save_point_cloud(cloud_center,
                        crop(edge_extend(crop_pc, ZeroEdgeExtension()),
                             bounding_box(point_cloud) - cbox.min()),
-                       opt);
+                       opt[0]);
     }
 
     // Must print this at the end, as it contains statistics on the number of
@@ -433,34 +567,37 @@ int main( int argc, char* argv[] ) {
 
   stereo_register_sessions();
 
-  Options opt;
   try {
-    bool allow_unregistered = false;
-    std::vector<std::string> unregistered;
-    handle_arguments( argc, argv, opt,
-                      TriangulationDescription(),
-                      allow_unregistered, unregistered);
 
+    // Unlike other stereo executables, triangulation can handle multiple images
+    // and cameras.
+    std::vector<Options> opt_vec;
+    std::string output_prefix;
+    asp::parse_multiview(argc, argv, TriangulationDescription(), output_prefix, opt_vec);
+    
     // Triangulation uses small tiles.
     //---------------------------------------------------------
     int ts = Options::tri_tile_size();
-    opt.raster_tile_size = Vector2i(ts, ts);
+    for (int s = 0; s < (int)opt_vec.size(); s++){
+      opt_vec[s].raster_tile_size = Vector2i(ts, ts);
+    }
 
     vw_out() << "\n[ " << current_posix_time_string()
              << " ] : Stage 4 --> TRIANGULATION \n";
     
     // Internal Processes
     //---------------------------------------------------------
-#define INSTANTIATE(T,NAME) if ( opt.session->name() == NAME ) { stereo_triangulation<T>(opt); }
+#define INSTANTIATE(T,NAME) if ( opt_vec[0].session->name() == NAME ) { \
+      stereo_triangulation<T>(output_prefix, opt_vec); }
 
-    INSTANTIATE(StereoSessionPinhole,"pinhole");
-    INSTANTIATE(StereoSessionNadirPinhole,"nadirpinhole");
+    INSTANTIATE(StereoSessionPinhole, "pinhole");
+    INSTANTIATE(StereoSessionNadirPinhole, "nadirpinhole");
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-    INSTANTIATE(StereoSessionIsis,"isis");
+    INSTANTIATE(StereoSessionIsis, "isis");
 #endif
-    INSTANTIATE(StereoSessionRPC,"rpc");
-    INSTANTIATE(StereoSessionDG,"dg");
-    INSTANTIATE(StereoSessionDGMapRPC,"dgmaprpc");
+    INSTANTIATE(StereoSessionRPC, "rpc");
+    INSTANTIATE(StereoSessionDG, "dg");
+    INSTANTIATE(StereoSessionDGMapRPC, "dgmaprpc");
 
 #undef INSTANTIATE
 

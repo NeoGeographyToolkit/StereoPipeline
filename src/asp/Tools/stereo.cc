@@ -125,7 +125,6 @@ namespace asp {
                                positional_options, positional_desc, usage, 
                                allow_unregistered, unregistered );
 
-
     // If we allow unregistered options, the logic below won't apply correctly.
     if (allow_unregistered) return;
       
