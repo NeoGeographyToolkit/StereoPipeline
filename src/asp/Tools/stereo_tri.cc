@@ -46,6 +46,7 @@ template <class DisparityImageT, class TXT, class StereoModelT>
 class StereoTXAndErrorView : public ImageViewBase<StereoTXAndErrorView<DisparityImageT, TXT, StereoModelT> >
 {
   DisparityImageT m_disparity_map;
+  vector<TXT> m_transforms;
   TXT m_tx1;
   TXT m_tx2;
   StereoModelT m_stereo_model;
@@ -59,9 +60,11 @@ public:
   typedef ProceduralPixelAccessor<StereoTXAndErrorView> pixel_accessor;
 
   StereoTXAndErrorView( DisparityImageT const& disparity_map,
+                        vector<TXT> const& transforms,
                         TXT const& tx1, TXT const& tx2,
                         StereoModelT const& stereo_model) :
-    m_disparity_map(disparity_map), m_tx1(tx1), m_tx2(tx2),
+    m_disparity_map(disparity_map), m_transforms(transforms),
+    m_tx1(tx1), m_tx2(tx2),
     m_stereo_model(stereo_model) {}
 
   inline int32 cols() const { return m_disparity_map.cols(); }
@@ -75,8 +78,8 @@ public:
       Vector3 error;
       pixel_type result;
       subvector(result,0,3)
-        = m_stereo_model(m_tx1.reverse( Vector2(i,j) ),
-                         m_tx2.reverse( Vector2(i,j)
+        = m_stereo_model(m_transforms[0].reverse( Vector2(i,j) ),
+                         m_transforms[1].reverse( Vector2(i,j)
                                         + stereo::DispHelper(m_disparity_map(i,j,p)) ),
                          error);
       subvector(result,3,3) = error;
@@ -89,30 +92,29 @@ public:
   typedef StereoTXAndErrorView<CropView<ImageView<DPixelT> >,
                                TXT, StereoModelT> prerasterize_type;
   inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
-    return PreRasterHelper( bbox, m_tx1, m_tx2 );
+    return PreRasterHelper( bbox, m_transforms, m_tx1, m_tx2 );
   }
   template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const { vw::rasterize( prerasterize(bbox), dest, bbox ); }
 
 private:
 
-  template <class T1, class T2>
-  typename boost::disable_if< boost::mpl::and_<boost::is_same<T1,StereoSessionDGMapRPC::tx_type>,
-                                               boost::is_same<T2,StereoSessionDGMapRPC::tx_type> >,
-                              prerasterize_type>::type
-  PreRasterHelper( BBox2i const& bbox, T1 const& tx1, T2 const& tx2 ) const {
+  template <class T>
+  typename boost::disable_if<boost::is_same<T,StereoSessionDGMapRPC::tx_type>, prerasterize_type>::type
+  PreRasterHelper( BBox2i const& bbox, vector<T> const& transforms,
+                   T const& tx1, T const& tx2 ) const {
     // General Case
     ImageView<DPixelT> disparity_preraster( crop( m_disparity_map, bbox ) );
 
-    return prerasterize_type( crop( disparity_preraster, -bbox.min().x(), -bbox.min().y(),
+    return prerasterize_type( crop( disparity_preraster,
+                                    -bbox.min().x(), -bbox.min().y(),
                                     cols(), rows() ),
-                              tx1, tx2, m_stereo_model );
+                              transforms, tx1, tx2, m_stereo_model );
   }
 
-  template <class T1, class T2>
-  typename boost::enable_if< boost::mpl::and_<boost::is_same<T1,StereoSessionDGMapRPC::tx_type>,
-                                              boost::is_same<T2,StereoSessionDGMapRPC::tx_type> >,
-                             prerasterize_type>::type
-  PreRasterHelper( BBox2i const& bbox, T1 const& tx1, T2 const& tx2 ) const {
+  template <class T>
+  typename boost::enable_if<boost::is_same<T,StereoSessionDGMapRPC::tx_type>, prerasterize_type>::type
+  PreRasterHelper( BBox2i const& bbox, vector<T> const& transforms,
+                   T const& tx1, T const& tx2 ) const {
     // RPC Map Transform needs to be explicitly copied and told to
     // cache for performance.
     ImageView<DPixelT> disparity_preraster( crop( m_disparity_map, bbox ) );
@@ -129,13 +131,15 @@ private:
     // transforms so we are not having a race condition with setting
     // the cache in both transforms while the other threads want to do
     // the same.
-    T1 tx1_copy = tx1;
-    T2 tx2_copy = tx2;
-    tx1_copy.tx1.reverse_bbox( bbox );
-    tx2_copy.tx1.reverse_bbox( right_bbox );
+    vector<T> transforms_copy = transforms;
+    T tx1_copy = tx1;
+    T tx2_copy = tx2;
+    transforms_copy[0].tx1.reverse_bbox( bbox );
+    transforms_copy[1].tx1.reverse_bbox( right_bbox );
 
-    return prerasterize_type( crop(disparity_preraster,-bbox.min().x(),-bbox.min().y(),cols(),rows()),
-                              tx1_copy, tx2_copy, m_stereo_model );
+    return prerasterize_type( crop(disparity_preraster,-bbox.min().x(),
+                                   -bbox.min().y(),cols(),rows()),
+                              transforms_copy, tx1_copy, tx2_copy, m_stereo_model );
   }
 
 };
@@ -143,10 +147,11 @@ private:
 template <class DisparityT, class TXT, class StereoModelT>
 StereoTXAndErrorView<DisparityT, TXT, StereoModelT>
 stereo_error_triangulate( vector<DisparityT> const& disparities,
-                          TXT const& tx1, TXT const& tx2,
+                          vector<TXT> const& transforms,
                           StereoModelT const& model ) {
   typedef StereoTXAndErrorView<DisparityT, TXT, StereoModelT> result_type;
-  return result_type( disparities[0], tx1, tx2, model );
+  return result_type( disparities[0], transforms,
+                      transforms[0], transforms[1], model );
 }
 
 namespace asp{
@@ -427,21 +432,29 @@ void stereo_triangulation( string const& output_prefix,
 
   typedef ImageViewRef<PixelMask<Vector2f> > PVImageT;
   typedef typename SessionT::stereo_model_type StereoModelT;
+  
   try {
 
-    // Collect the cameras. The left image is the same in all n-1 stereo
-    // pairs forming the n images multiview system. Same for cameras.
+    // Collect the images and cameras. The left image is the same in
+    // all n-1 stereo pairs forming the n images multiview
+    // system. Same for cameras.
     vector<string> images;
     vector< boost::shared_ptr<camera::CameraModel> > cameras;
+    vector<typename SessionT::tx_type> transforms;
     for (int p = 0; p < (int)opt_vec.size(); p++){
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
       opt_vec[p].session->camera_models(camera_model1, camera_model2);
+      boost::shared_ptr<SessionT> sPtr
+        = boost::dynamic_pointer_cast<SessionT>(opt_vec[p].session);
+      
       if (p == 0){
         images.push_back(opt_vec[p].in_file1);
         cameras.push_back(camera_model1);
+        transforms.push_back(sPtr->tx_left());
       }
       images.push_back(opt_vec[p].in_file2);
       cameras.push_back(camera_model2);
+      transforms.push_back(sPtr->tx_right());      
     }
     
 #if ASP_HAVE_PKG_VW_BUNDLEADJUSTMENT
@@ -514,8 +527,7 @@ void stereo_triangulation( string const& output_prefix,
     }
     ImageViewRef<Vector6> point_cloud
       = per_pixel_filter
-      (stereo_error_triangulate( disparity_maps,
-                                 sPtr->tx_left(), sPtr->tx_right(),
+      (stereo_error_triangulate( disparity_maps, transforms, 
                                  stereo_model ), universe_radius_func );
     
     // Compute the point cloud center, unless done by now
