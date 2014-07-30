@@ -150,11 +150,10 @@ namespace asp {
 
     virtual std::string name() const { return "isis"; }
 
-    typedef vw::HomographyTransform left_tx_type;
-    typedef vw::HomographyTransform right_tx_type;
+    typedef vw::HomographyTransform tx_type;
     typedef vw::stereo::StereoModel stereo_model_type;
-    left_tx_type tx_left() const;
-    right_tx_type tx_right() const;
+    tx_type tx_left() const;
+    tx_type tx_right() const;
 
     // Specialization for how interest points are found
     virtual bool ip_matching(std::string const& input_file1,

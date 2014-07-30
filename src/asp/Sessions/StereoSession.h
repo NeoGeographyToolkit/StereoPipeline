@@ -113,10 +113,9 @@ namespace asp {
   //
   // All Stereo Session childs must define the following which are not
   // available in the the parent:
-  //   typedef VWTransform left_tx_type;
-  //   left_tx_type tx_left( void ) const;
-  //   typedef VWTransform right_tx_type;
-  //   right_tx_type tx_right( void ) const;
+  //   typedef VWTransform tx_type;
+  //   tx_type tx_left( void ) const;
+  //   tx_type tx_right( void ) const;
   //   typedef VWStereoModel stereo_model_type;
   class StereoSession {
   protected:

@@ -253,19 +253,19 @@ asp::StereoSessionPinhole::camera_model(std::string const& /*image_file*/,
   return boost::shared_ptr<vw::camera::CameraModel>(); // Never reached
 }
 
-asp::StereoSessionPinhole::left_tx_type
+asp::StereoSessionPinhole::tx_type
 asp::StereoSessionPinhole::tx_left() const {
-  return left_tx_type( math::identity_matrix<3>() );
+  return tx_type( math::identity_matrix<3>() );
 }
 
-asp::StereoSessionPinhole::right_tx_type
+asp::StereoSessionPinhole::tx_type
 asp::StereoSessionPinhole::tx_right() const {
   if ( stereo_settings().alignment_method == "homography" ) {
     Matrix<double> align_matrix;
     read_matrix( align_matrix, m_out_prefix + "-align-R.exr" );
-    return right_tx_type( align_matrix );
+    return tx_type( align_matrix );
   }
-  return right_tx_type( math::identity_matrix<3>() );
+  return tx_type( math::identity_matrix<3>() );
 }
 
 void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& left_input_file,

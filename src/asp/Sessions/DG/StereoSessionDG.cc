@@ -205,24 +205,24 @@ namespace asp {
     return inlier;
   }
   
-  StereoSessionDG::left_tx_type
+  StereoSessionDG::tx_type
   StereoSessionDG::tx_left() const {
     Matrix<double> tx = math::identity_matrix<3>();
     if ( stereo_settings().alignment_method == "homography" ||
          stereo_settings().alignment_method == "affineepipolar" ) {
       read_matrix( tx, m_out_prefix + "-align-L.exr" );
     }
-    return left_tx_type( tx );
+    return tx_type( tx );
   }
 
-  StereoSessionDG::right_tx_type
+  StereoSessionDG::tx_type
   StereoSessionDG::tx_right() const {
     Matrix<double> tx = math::identity_matrix<3>();
     if ( stereo_settings().alignment_method == "homography" ||
          stereo_settings().alignment_method == "affineepipolar" ) {
       read_matrix( tx, m_out_prefix + "-align-R.exr" );
     }
-    return right_tx_type( tx );
+    return tx_type( tx );
   }
 
   void StereoSessionDG::pre_preprocessing_hook(std::string const& left_input_file,

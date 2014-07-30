@@ -54,10 +54,10 @@ TYPED_TEST_CASE( InstantiationTest, SessionTypes );
 TYPED_TEST( InstantiationTest, Typedefs ) {
   try {
     // Verify object for left transform
-    typename TestFixture::SessionT::left_tx_type left_tx =
+    typename TestFixture::SessionT::tx_type left_tx =
       this->session.tx_left();
     // Verify object for right transform
-    typename TestFixture::SessionT::right_tx_type right_tx =
+    typename TestFixture::SessionT::tx_type right_tx =
       this->session.tx_right();
     // Verify object for stereo model
     typename TestFixture::SessionT::stereo_model_type stereo_model();

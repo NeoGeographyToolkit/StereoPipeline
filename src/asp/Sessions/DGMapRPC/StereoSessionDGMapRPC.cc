@@ -78,7 +78,7 @@ bool StereoSessionDGMapRPC::ip_matching(std::string const& input_file1,
   vw_throw( ArgumentErr() << "StereoSessionDGMapRPC: IP matching is not implemented as no alignment is applied to map-projected images.");
 }
 
-StereoSessionDGMapRPC::left_tx_type
+StereoSessionDGMapRPC::tx_type
 StereoSessionDGMapRPC::tx_left() const {
   Matrix<double> tx = math::identity_matrix<3>();
   if ( stereo_settings().alignment_method == "homography" ||
@@ -105,14 +105,14 @@ StereoSessionDGMapRPC::tx_left() const {
   // This composes the two transforms as it is possible to do
   // homography and affineepipolar alignment options with map
   // projected imagery.
-  return left_tx_type( cartography::Map2CamTrans
+  return tx_type( cartography::Map2CamTrans
                        (m_left_model.get(),
                         image_georef, dem_georef, dem_rsrc,
                         Vector2(img.cols(), img.rows()), call_from_mapproject),
                        HomographyTransform(tx) );
 }
 
-StereoSessionDGMapRPC::right_tx_type
+StereoSessionDGMapRPC::tx_type
 StereoSessionDGMapRPC::tx_right() const {
   Matrix<double> tx = math::identity_matrix<3>();
   if ( stereo_settings().alignment_method == "homography" ||
@@ -139,7 +139,7 @@ StereoSessionDGMapRPC::tx_right() const {
   // This composes the two transforms as it is possible to do
   // homography and affineepipolar alignment options with map
   // projected imagery.
-  return right_tx_type( cartography::Map2CamTrans
+  return tx_type( cartography::Map2CamTrans
                         (m_right_model.get(),
                          image_georef, dem_georef, dem_rsrc,
                          Vector2(img.cols(), img.rows()), call_from_mapproject),

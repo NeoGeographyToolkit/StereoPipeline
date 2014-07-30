@@ -96,8 +96,8 @@ public:
 private:
 
   template <class T1, class T2>
-  typename boost::disable_if< boost::mpl::and_<boost::is_same<T1,StereoSessionDGMapRPC::left_tx_type>,
-                                               boost::is_same<T2,StereoSessionDGMapRPC::right_tx_type> >,
+  typename boost::disable_if< boost::mpl::and_<boost::is_same<T1,StereoSessionDGMapRPC::tx_type>,
+                                               boost::is_same<T2,StereoSessionDGMapRPC::tx_type> >,
                               prerasterize_type>::type
   PreRasterHelper( BBox2i const& bbox, T1 const& tx1, T2 const& tx2 ) const {
     // General Case
@@ -109,8 +109,8 @@ private:
   }
 
   template <class T1, class T2>
-  typename boost::enable_if< boost::mpl::and_<boost::is_same<T1,StereoSessionDGMapRPC::left_tx_type>,
-                                              boost::is_same<T2,StereoSessionDGMapRPC::right_tx_type> >,
+  typename boost::enable_if< boost::mpl::and_<boost::is_same<T1,StereoSessionDGMapRPC::tx_type>,
+                                              boost::is_same<T2,StereoSessionDGMapRPC::tx_type> >,
                              prerasterize_type>::type
   PreRasterHelper( BBox2i const& bbox, T1 const& tx1, T2 const& tx2 ) const {
     // RPC Map Transform needs to be explicitly copied and told to
@@ -420,7 +420,7 @@ namespace asp{
   }
 
 }
-// Must remove a lot of assumptions throughout the code, read very carefully!!!
+
 template <class SessionT>
 void stereo_triangulation( string const& output_prefix,
                            vector<Options> const& opt_vec ) {

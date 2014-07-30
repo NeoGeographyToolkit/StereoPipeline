@@ -34,24 +34,24 @@ using namespace vw;
 using namespace asp;
 using namespace vw::camera;
 
-StereoSessionNadirPinhole::left_tx_type
+StereoSessionNadirPinhole::tx_type
 StereoSessionNadirPinhole::tx_left() const {
   Matrix<double> tx = math::identity_matrix<3>();
   if ( stereo_settings().alignment_method == "homography" ||
        stereo_settings().alignment_method == "affineepipolar" ) {
     read_matrix( tx, m_out_prefix + "-align-L.exr" );
   }
-  return left_tx_type( tx );
+  return tx_type( tx );
 }
 
-StereoSessionNadirPinhole::right_tx_type
+StereoSessionNadirPinhole::tx_type
 StereoSessionNadirPinhole::tx_right() const {
   Matrix<double> tx = math::identity_matrix<3>();
   if ( stereo_settings().alignment_method == "homography" ||
        stereo_settings().alignment_method == "affineepipolar" ) {
     read_matrix( tx, m_out_prefix + "-align-R.exr" );
   }
-  return right_tx_type( tx );
+  return tx_type( tx );
 }
 
 bool StereoSessionNadirPinhole::ip_matching(std::string const& input_file1,

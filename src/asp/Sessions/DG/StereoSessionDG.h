@@ -51,11 +51,10 @@ namespace asp {
                              vw::camera::CameraModel* cam2);
 
     // For reversing our arithmetic applied in preprocessing.
-    typedef vw::HomographyTransform left_tx_type;
-    typedef vw::HomographyTransform right_tx_type;
+    typedef vw::HomographyTransform tx_type;
     typedef vw::stereo::StereoModel stereo_model_type;
-    left_tx_type tx_left() const;
-    right_tx_type tx_right() const;
+    tx_type tx_left() const;
+    tx_type tx_right() const;
 
     // Stage 1: Preprocessing
     //

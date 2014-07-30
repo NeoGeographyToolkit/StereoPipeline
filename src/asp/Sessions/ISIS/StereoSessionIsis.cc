@@ -201,24 +201,24 @@ void write_preprocessed_isis_image( BaseOptions const& opt,
 
 }
 
-StereoSessionIsis::left_tx_type
+StereoSessionIsis::tx_type
 StereoSessionIsis::tx_left() const {
   Matrix<double> tx = math::identity_matrix<3>();
   if ( stereo_settings().alignment_method == "homography" ||
        stereo_settings().alignment_method == "affineepipolar" ) {
     read_matrix( tx, m_out_prefix + "-align-L.exr" );
   }
-  return left_tx_type( tx );
+  return tx_type( tx );
 }
 
-StereoSessionIsis::right_tx_type
+StereoSessionIsis::tx_type
 StereoSessionIsis::tx_right() const {
   Matrix<double> tx = math::identity_matrix<3>();
   if ( stereo_settings().alignment_method == "homography" ||
        stereo_settings().alignment_method == "affineepipolar" ) {
     read_matrix( tx, m_out_prefix + "-align-R.exr" );
   }
-  return right_tx_type( tx );
+  return tx_type( tx );
 }
 
 bool asp::StereoSessionIsis::ip_matching(std::string const& input_file1,
