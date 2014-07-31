@@ -27,6 +27,7 @@
 #include <asp/Sessions/RPC/RPCStereoModel.h>
 
 using namespace vw;
+using namespace std;
 namespace asp {
 
   namespace detail {
@@ -58,60 +59,61 @@ namespace asp {
     };
   }
 
-  Vector3 RPCStereoModel::operator()(std::vector<Vector2> const& pixVec,
+  Vector3 RPCStereoModel::operator()(vector<Vector2> const& pixVec,
                                      Vector3& errorVec) const {
 
     // Note: This is a re-implementation of StereoModel::operator().
-
-    VW_ASSERT(pixVec.size() == m_cameras.size(),
+    
+    int num_cams = m_cameras.size();
+    VW_ASSERT((int)pixVec.size() == num_cams,
               vw::ArgumentErr() << "the number of rays must match "
               << "the number of cameras.\n");
     
     errorVec = Vector3();
 
     // Check for NaN and invalid pixels
-    if (pixVec[0] != pixVec[0] || pixVec[1] != pixVec[1]) return Vector3();
-    if (pixVec[0] == vw::camera::CameraModel::invalid_pixel() ||
-        pixVec[1] == vw::camera::CameraModel::invalid_pixel()
-        ) return Vector3();
+    for (int p = 0; p < num_cams; p++){
+      if (pixVec[p] != pixVec[p] ||
+          pixVec[p] == camera::CameraModel::invalid_pixel() ) return Vector3();
+    }
     
     try {
-      
-      const RPCModel *rpc_model1 = dynamic_cast<const RPCModel*>(m_cameras[0]);
-      const RPCModel *rpc_model2 = dynamic_cast<const RPCModel*>(m_cameras[1]);
-      
-      if (rpc_model1 == NULL || rpc_model2 == NULL){
-        VW_OUT(ErrorMessage) << "RPC camera models expected.\n";
-        return Vector3();
+
+      vector<const RPCModel*> rpc_cams(num_cams);
+      vector<Vector3> camDirs(num_cams), camCtrs(num_cams);
+      for (int p = 0; p < num_cams; p++){
+        const RPCModel *rpc_cam = dynamic_cast<const RPCModel*>(m_cameras[p]);
+        VW_ASSERT(rpc_cam != NULL,
+                  vw::ArgumentErr() << "Camera models are not RPC.\n");
+        rpc_cam->point_and_dir(pixVec[p], camCtrs[p], camDirs[p]);
+        rpc_cams[p] = rpc_cam;
       }
       
-      Vector3 origin1, vec1, origin2, vec2;
-      rpc_model1->point_and_dir(pixVec[0], origin1, vec1);
-      rpc_model2->point_and_dir(pixVec[1], origin2, vec2);
+      if (are_nearly_parallel(camDirs)) return Vector3();
       
-      if (are_nearly_parallel(vec1, vec2)){
-        return Vector3();
-      }
-      Vector3 result = triangulate_point(origin1, vec1,
-                                         origin2, vec2,
-                                         errorVec);
+      Vector3 result = triangulate_point(camDirs, camCtrs, errorVec);
       
       if ( m_least_squares ){
         
         // Refine triangulation
+
+        if (num_cams != 2)
+          vw::vw_throw(vw::NoImplErr() << "Least squares refinement is not "
+                       << "implemented for multi-view stereo.");
         
-        detail::RPCTriangulateLMA model(rpc_model1, rpc_model2);
+        detail::RPCTriangulateLMA model(rpc_cams[0], rpc_cams[1]);
         Vector4 objective(pixVec[0][0], pixVec[0][1], pixVec[1][0], pixVec[1][1]);
         int status = 0;
         
-        Vector3 initialGeodetic = rpc_model1->datum().cartesian_to_geodetic(result);
+        Vector3 initialGeodetic = rpc_cams[0]->datum().cartesian_to_geodetic(result);
         
         // To do: Find good values for the numbers controlling the convergence
-        Vector3 finalGeodetic = levenberg_marquardt( model, initialGeodetic,
-                                                     objective, status, 1e-3, 1e-6, 10 );
-
+        Vector3 finalGeodetic
+          = levenberg_marquardt( model, initialGeodetic,
+                                 objective, status, 1e-3, 1e-6, 10 );
+        
         if ( status > 0 )
-          result = rpc_model1->datum().geodetic_to_cartesian(finalGeodetic);
+          result = rpc_cams[0]->datum().geodetic_to_cartesian(finalGeodetic);
       }
       
       return result;
