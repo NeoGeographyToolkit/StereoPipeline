@@ -97,17 +97,12 @@ StereoSessionDGMapRPC::tx_left() const {
   bool call_from_mapproject = false;
   DiskImageView<float> img(m_left_image_file);
   
-  // Load DEM rsrc. Map2CamTrans is casting to float internally
-  // no matter what the original type of the DEM file was.
-  boost::shared_ptr<DiskImageResource>
-    dem_rsrc( DiskImageResource::open( m_input_dem ) );
-
   // This composes the two transforms as it is possible to do
   // homography and affineepipolar alignment options with map
   // projected imagery.
   return tx_type( cartography::Map2CamTrans
                        (m_left_model.get(),
-                        image_georef, dem_georef, dem_rsrc,
+                        image_georef, dem_georef, m_input_dem,
                         Vector2(img.cols(), img.rows()), call_from_mapproject),
                        HomographyTransform(tx) );
 }
@@ -131,17 +126,12 @@ StereoSessionDGMapRPC::tx_right() const {
   bool call_from_mapproject = false;
   DiskImageView<float> img(m_right_image_file);
   
-  // Load DEM rsrc. Map2CamTrans is casting to float internally
-  // no matter what the original type of the DEM file was.
-  boost::shared_ptr<DiskImageResource>
-    dem_rsrc( DiskImageResource::open( m_input_dem ) );
-
   // This composes the two transforms as it is possible to do
   // homography and affineepipolar alignment options with map
   // projected imagery.
   return tx_type( cartography::Map2CamTrans
                         (m_right_model.get(),
-                         image_georef, dem_georef, dem_rsrc,
+                         image_georef, dem_georef, m_input_dem,
                          Vector2(img.cols(), img.rows()), call_from_mapproject),
                         HomographyTransform(tx) );
 }

@@ -307,46 +307,20 @@ int main( int argc, char* argv[] ) {
     // Load the DEM
     GeoReference dem_georef;
     ImageViewRef<PMaskT> dem;
-    boost::shared_ptr<DiskImageResource> dem_rsrc;
-
-    if ( fs::path(opt.dem_file).extension() == "" ) {
-      // This option allows the user to just project directly unto to
-      // the datum. This seems like a stop gap. This should be
-      // addressed after a rewrite of this tool.
-      //
-      // Valid values are well known Datums like D_MOON D_MARS WGS84 and so on.
-      Vector3 llr_camera_loc =
-        XYZtoLonLatRadFunctor::apply
-        ( camera_model->camera_center(Vector2()) );
-      if ( llr_camera_loc[0] < 0 ) llr_camera_loc[0] += 360;
-
-      dem_georef =
-        GeoReference(Datum(opt.dem_file),
-                     Matrix3x3(1, 0,
-                               (llr_camera_loc[0] < 90 ||
-                                llr_camera_loc[0] > 270) ? -180 : 0,
-                               0, -1, 90, 0, 0, 1) );
-      dem = constant_view(PMaskT(0), 360, 180 );
-      vw_out() << "\t--> Using flat datum \"" << opt.dem_file
-               << "\" as elevation model.\n";
-
-    }else{ // User has provided a DEM to use.
-      bool has_georef = read_georeference(dem_georef, opt.dem_file);
-      if (!has_georef)
-        vw_throw( ArgumentErr() << "There is no georeference information in: "
-                  << opt.dem_file << ".\n" );
-
-      dem_rsrc = boost::shared_ptr<DiskImageResource>
-        ( DiskImageResource::open( opt.dem_file ) );
-
-      // If we have a nodata value, create a mask.
-      DiskImageView<float> dem_disk_image(dem_rsrc);
-      if (dem_rsrc->has_nodata_read()){
-        dem = create_mask(dem_disk_image, dem_rsrc->nodata_read());
-      }else{
-        dem = pixel_cast<PMaskT>(dem_disk_image);
-      }
-
+    bool has_georef = read_georeference(dem_georef, opt.dem_file);
+    if (!has_georef)
+      vw_throw( ArgumentErr() << "There is no georeference information in: "
+                << opt.dem_file << ".\n" );
+    
+    boost::shared_ptr<DiskImageResource> dem_rsrc
+      ( DiskImageResource::open( opt.dem_file ) );
+    
+    // If we have a nodata value, create a mask.
+    DiskImageView<float> dem_disk_image(opt.dem_file);
+    if (dem_rsrc->has_nodata_read()){
+      dem = create_mask(dem_disk_image, dem_rsrc->nodata_read());
+    }else{
+      dem = pixel_cast<PMaskT>(dem_disk_image);
     }
 
     // Find the target resolution based on mpp or ppd if provided. Do
@@ -410,7 +384,9 @@ int main( int argc, char* argv[] ) {
 
     // Second pass
     first_pass = false;
-    ImageViewRef<PMaskT> trans_dem // Transformed view indexes DEM based on target georeference
+    
+    // Transformed view indexes DEM based on target georeference
+    ImageViewRef<PMaskT> trans_dem 
       = geo_transform(dem, dem_georef, target_georef,
                       ValueEdgeExtension<PMaskT>(PMaskT()),
                       BilinearInterpolation());
@@ -473,7 +449,7 @@ int main( int argc, char* argv[] ) {
                               ( // Converts coordinates in DEM
                                 // georeference to camera pixels
                                camera_model.get(), target_georef,
-                               dem_georef, dem_rsrc, image_size,
+                               dem_georef, opt.dem_file, image_size,
                                call_from_mapproject
                                ),
                               target_image_size.width(),
