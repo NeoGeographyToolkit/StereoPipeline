@@ -58,23 +58,27 @@ namespace asp {
     };
   }
 
-  Vector3 RPCStereoModel::operator()(Vector2 const& pix1, Vector2 const& pix2,
+  Vector3 RPCStereoModel::operator()(std::vector<Vector2> const& pixVec,
                                      Vector3& errorVec) const {
 
     // Note: This is a re-implementation of StereoModel::operator().
 
+    VW_ASSERT(pixVec.size() == m_cameras.size(),
+              vw::ArgumentErr() << "the number of rays must match "
+              << "the number of cameras.\n");
+    
     errorVec = Vector3();
 
     // Check for NaN and invalid pixels
-    if (pix1 != pix1 || pix2 != pix2) return Vector3();
-    if (pix1 == vw::camera::CameraModel::invalid_pixel() ||
-        pix2 == vw::camera::CameraModel::invalid_pixel()
+    if (pixVec[0] != pixVec[0] || pixVec[1] != pixVec[1]) return Vector3();
+    if (pixVec[0] == vw::camera::CameraModel::invalid_pixel() ||
+        pixVec[1] == vw::camera::CameraModel::invalid_pixel()
         ) return Vector3();
     
     try {
       
-      const RPCModel *rpc_model1 = dynamic_cast<const RPCModel*>(m_camera1);
-      const RPCModel *rpc_model2 = dynamic_cast<const RPCModel*>(m_camera2);
+      const RPCModel *rpc_model1 = dynamic_cast<const RPCModel*>(m_cameras[0]);
+      const RPCModel *rpc_model2 = dynamic_cast<const RPCModel*>(m_cameras[1]);
       
       if (rpc_model1 == NULL || rpc_model2 == NULL){
         VW_OUT(ErrorMessage) << "RPC camera models expected.\n";
@@ -82,8 +86,8 @@ namespace asp {
       }
       
       Vector3 origin1, vec1, origin2, vec2;
-      rpc_model1->point_and_dir(pix1, origin1, vec1);
-      rpc_model2->point_and_dir(pix2, origin2, vec2);
+      rpc_model1->point_and_dir(pixVec[0], origin1, vec1);
+      rpc_model2->point_and_dir(pixVec[1], origin2, vec2);
       
       if (are_nearly_parallel(vec1, vec2)){
         return Vector3();
@@ -97,7 +101,7 @@ namespace asp {
         // Refine triangulation
         
         detail::RPCTriangulateLMA model(rpc_model1, rpc_model2);
-        Vector4 objective( pix1[0], pix1[1], pix2[0], pix2[1] );
+        Vector4 objective(pixVec[0][0], pixVec[0][1], pixVec[1][0], pixVec[1][1]);
         int status = 0;
         
         Vector3 initialGeodetic = rpc_model1->datum().cartesian_to_geodetic(result);
@@ -116,12 +120,10 @@ namespace asp {
     return Vector3();
   }
 
-  Vector3 RPCStereoModel::operator()(Vector2 const& pix1, Vector2 const& pix2,
+  Vector3 RPCStereoModel::operator()(vw::Vector2 const& pix1,
+                                     vw::Vector2 const& pix2,
                                      double& error ) const {
-    Vector3 errorVec;
-    Vector3 result = RPCStereoModel::operator()(pix1, pix2, errorVec);
-    error = norm_2(errorVec);
-    return result;
+    return StereoModel::operator()(pix1, pix2, error);
   }
   
 } // namespace asp

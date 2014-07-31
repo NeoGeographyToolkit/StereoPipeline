@@ -67,7 +67,7 @@ TEST(StereoSessionDGMapRPC, TransformCycle) {
   StereoSessionDGMapRPC session;
   session.initialize( opt, left_image_name, right_image_name,
                       "dg_example1.xml", "dg_example4.xml",
-                      "debug/debug", lowres_dem_name, "", "", "" );
+                      "debug/debug", lowres_dem_name);
   RPCXML left_xml, right_xml;
   left_xml.read_from_file( "dg_example1.xml" );
   right_xml.read_from_file( "dg_example4.xml" );

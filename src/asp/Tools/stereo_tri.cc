@@ -83,20 +83,25 @@ public:
   inline pixel_accessor origin() const { return pixel_accessor(*this); }
 
   inline result_type operator()( size_t i, size_t j, size_t p=0 ) const {
-    if ( is_valid(m_disparity_maps[0](i,j,p)) ) {
-      Vector3 error;
-      pixel_type result;
-      subvector(result,0,3)
-        = m_stereo_model
-        (m_transforms[0].reverse( Vector2(i,j) ),
-         m_transforms[1].reverse( Vector2(i,j)
-                                  + stereo::DispHelper(m_disparity_maps[0](i,j,p)) ),
-         error);
-      subvector(result,3,3) = error;
-      return result;
+
+    vector<Vector2> pixVec;
+    pixVec.push_back( m_transforms[0].reverse(Vector2(i,j)) );
+    for (int c = 0; c < (int)m_disparity_maps.size(); c++){
+      Vector2 pix;
+      DPixelT disp = m_disparity_maps[c](i,j,p);
+      if (is_valid(disp))
+        pix = m_transforms[c+1].reverse( Vector2(i,j) + stereo::DispHelper(disp) );
+      else
+        pix = Vector2(std::numeric_limits<double>::quiet_NaN(),
+                      std::numeric_limits<double>::quiet_NaN());
+      pixVec.push_back(pix);
     }
-    // For missing pixels in the disparity map, we return a null 3D position.
-    return pixel_type();
+    
+    Vector3 errorVec;
+    pixel_type result;
+    subvector(result,0,3) = m_stereo_model(pixVec, errorVec);
+    subvector(result,3,3) = errorVec;
+    return result;
   }
 
   typedef StereoTXAndErrorView<ImageViewRef<DPixelT>, TXT, StereoModelT> prerasterize_type;
@@ -547,16 +552,21 @@ void stereo_triangulation( string const& output_prefix,
                              << "points by radius.\n";
     }
     
-    // Apply radius function and stereo model in one go
-    vw_out() << "\t--> Generating a 3D point cloud." << endl;
-    StereoModelT stereo_model( cameras[0].get(), cameras[1].get(),
-                               stereo_settings().use_least_squares );
+
+    // Strip the smart pointers and form the stereo model
+    std::vector<const vw::camera::CameraModel *> camera_ptrs;
+    for (int c = 0; c < (int)cameras.size(); c++)
+      camera_ptrs.push_back(cameras[c].get());
+    StereoModelT stereo_model( camera_ptrs, stereo_settings().use_least_squares );
     
     vector<PVImageT> disparity_maps;
     for (int p = 0; p < (int)opt_vec.size(); p++){
       disparity_maps.push_back
         (opt_vec[p].session->pre_pointcloud_hook(opt_vec[p].out_prefix+"-F.tif")); 
     }
+
+    // Apply radius function and stereo model in one go
+    vw_out() << "\t--> Generating a 3D point cloud." << endl;
     ImageViewRef<Vector6> point_cloud
       = per_pixel_filter
       (stereo_error_triangulate( disparity_maps, transforms, 
