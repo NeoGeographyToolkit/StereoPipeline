@@ -71,26 +71,36 @@ namespace asp {
     
     errorVec = Vector3();
 
-    // Check for NaN and invalid pixels
-    for (int p = 0; p < num_cams; p++){
-      if (pixVec[p] != pixVec[p] ||
-          pixVec[p] == camera::CameraModel::invalid_pixel() ) return Vector3();
-    }
-    
     try {
 
-      vector<const RPCModel*> rpc_cams(num_cams);
       vector<Vector3> camDirs(num_cams), camCtrs(num_cams);
+      vector<const RPCModel*> rpc_cams(num_cams);
+      camDirs.clear(); camCtrs.clear(); rpc_cams.clear();
+      
+      // Pick the valid rays
       for (int p = 0; p < num_cams; p++){
+        
         const RPCModel *rpc_cam = dynamic_cast<const RPCModel*>(m_cameras[p]);
         VW_ASSERT(rpc_cam != NULL,
                   vw::ArgumentErr() << "Camera models are not RPC.\n");
-        rpc_cam->point_and_dir(pixVec[p], camCtrs[p], camDirs[p]);
-        rpc_cams[p] = rpc_cam;
+        rpc_cams.push_back(rpc_cam);
+
+        Vector2 pix = pixVec[p];
+        if (pix != pix || // i.e., NaN
+            pix == camera::CameraModel::invalid_pixel() ) continue;
+        
+        Vector3 ctr, dir;
+        rpc_cam->point_and_dir(pix, ctr, dir);
+        camDirs.push_back(dir);
+        camCtrs.push_back(ctr);
       }
       
-      if (are_nearly_parallel(camDirs)) return Vector3();
+      // Not enough valid rays
+      if (camDirs.size() < 2) return Vector3();
       
+      if (are_nearly_parallel(m_least_squares, camDirs)) return Vector3();
+      
+      // Determine range by triangulation
       Vector3 result = triangulate_point(camDirs, camCtrs, errorVec);
       
       if ( m_least_squares ){
@@ -105,7 +115,8 @@ namespace asp {
         Vector4 objective(pixVec[0][0], pixVec[0][1], pixVec[1][0], pixVec[1][1]);
         int status = 0;
         
-        Vector3 initialGeodetic = rpc_cams[0]->datum().cartesian_to_geodetic(result);
+        Vector3 initialGeodetic
+          = rpc_cams[0]->datum().cartesian_to_geodetic(result);
         
         // To do: Find good values for the numbers controlling the convergence
         Vector3 finalGeodetic

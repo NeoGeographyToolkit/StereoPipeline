@@ -84,9 +84,10 @@ public:
 
   inline result_type operator()( size_t i, size_t j, size_t p=0 ) const {
 
-    vector<Vector2> pixVec;
-    pixVec.push_back( m_transforms[0].reverse(Vector2(i,j)) );
-    for (int c = 0; c < (int)m_disparity_maps.size(); c++){
+    int num_disp = m_disparity_maps.size();
+    vector<Vector2> pixVec(num_disp + 1);
+    pixVec[0] = m_transforms[0].reverse(Vector2(i,j));
+    for (int c = 0; c < num_disp; c++){
       Vector2 pix;
       DPixelT disp = m_disparity_maps[c](i,j,p);
       if (is_valid(disp))
@@ -94,7 +95,7 @@ public:
       else
         pix = Vector2(std::numeric_limits<double>::quiet_NaN(),
                       std::numeric_limits<double>::quiet_NaN());
-      pixVec.push_back(pix);
+      pixVec[c+1] = pix;
     }
     
     Vector3 errorVec;
@@ -495,6 +496,8 @@ void stereo_triangulation( string const& output_prefix,
       cameras.push_back(camera_model2);
       transforms.push_back(sPtr->tx_right());      
     }
+
+    int num_cams = cameras.size();
     
 #if ASP_HAVE_PKG_VW_BUNDLEADJUSTMENT
     // If the user has generated a set of position and pose
@@ -502,7 +505,7 @@ void stereo_triangulation( string const& output_prefix,
     // here and incorporate them into our camera models.
     string ba_pref = stereo_settings().bundle_adjust_prefix;
     if (ba_pref != ""){
-      for (int c = 0; c < (int)cameras.size(); c++){
+      for (int c = 0; c < num_cams; c++){
         Vector3 position_correction;
         Quaternion<double> pose_correction;
         string adjust_file = asp::bundle_adjust_file_name(ba_pref, images[c]);
@@ -555,7 +558,7 @@ void stereo_triangulation( string const& output_prefix,
 
     // Strip the smart pointers and form the stereo model
     std::vector<const vw::camera::CameraModel *> camera_ptrs;
-    for (int c = 0; c < (int)cameras.size(); c++)
+    for (int c = 0; c < num_cams; c++)
       camera_ptrs.push_back(cameras[c].get());
     StereoModelT stereo_model( camera_ptrs, stereo_settings().use_least_squares );
     
@@ -594,6 +597,12 @@ void stereo_triangulation( string const& output_prefix,
     BBox2i cbox = stereo_settings().trans_crop_win;
     string point_cloud_file = output_prefix + "-PC.tif";
     if (stereo_settings().compute_error_vector){
+
+      if (num_cams > 2)
+        vw_out(WarningMessage) << "For more than two cameras, the error "
+                               << "vector between rays is not meaningful. "
+                               << "Setting it to (err_len, 0, 0)." << endl;
+      
       ImageViewRef<Vector6> crop_pc = crop(point_cloud, cbox);
       save_point_cloud(cloud_center,
                        crop(edge_extend(crop_pc, ZeroEdgeExtension()),
