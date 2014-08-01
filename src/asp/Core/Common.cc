@@ -124,7 +124,7 @@ void asp::create_out_dir(std::string out_prefix){
     if (!fs::is_directory(out_prefix_path.parent_path())) {
       vw_out() << "\nCreating output directory: "
                << out_prefix_path.parent_path() << std::endl;
-      fs::create_directory(out_prefix_path.parent_path());
+      fs::create_directories(out_prefix_path.parent_path());
     }
   }
 
@@ -166,6 +166,18 @@ int asp::get_num_channels(std::string filename){
   return num_channels*num_planes;
 }
 
+std::string asp::extract_prog_name(std::string const& prog_str){
+
+  // Get program name without path and leading 'lt-'.
+  std::string prog_name = fs::basename(fs::path(prog_str));
+  std::string pref = "lt-";
+  size_t lp = pref.size();
+  if (prog_name.size() >= lp && prog_name.substr(0, lp) == pref)
+    prog_name = prog_name.substr(lp, prog_name.size() - lp);
+
+  return prog_name;
+}
+
 void asp::log_to_file(int argc, char *argv[],
                       std::string stereo_default_filename,
                       std::string out_prefix){
@@ -185,12 +197,7 @@ void asp::log_to_file(int argc, char *argv[],
     }
   }
   
-  // Get program name without leading 'lt-'
-  std::string prog_name = fs::basename(fs::path(std::string(argv[0])));
-  std::string pref = "lt-";
-  size_t lp = pref.size();
-  if (prog_name.size() >= lp && prog_name.substr(0, lp) == pref)
-    prog_name = prog_name.substr(lp, prog_name.size() - lp);
+  std::string prog_name = extract_prog_name(argv[0]);
   
   // Create the log file and open it in write mode
   std::ostringstream os;

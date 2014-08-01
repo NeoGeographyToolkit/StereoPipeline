@@ -83,6 +83,13 @@ namespace asp {
   template <int k, int m, int n>
   struct SelectPoints : public vw::ReturnFixedType< vw::Vector<double, m> > {
     vw::Vector<double, m> operator() (vw::Vector<double, n> const& pt) const {
+      if (k+m > n){
+        // Pad the vector pt with zeros if we are trying to read from it
+        // more than what it has.
+        vw::Vector<double, k+m> v;
+        subvector(v, 0, n) = pt;
+        return subvector(v,k,m);
+      }
       return subvector(pt,k,m);
     }
   };
@@ -101,6 +108,9 @@ namespace asp {
   // Run a system command and append the output to a given file
   void run_cmd_app_to_file(std::string cmd, std::string file);
   
+  // Get program name without path and leading 'lt-'.
+  std::string extract_prog_name(std::string const& prog_str);
+
   // Write logs to a file
   void log_to_file(int argc, char *argv[],
                    std::string stereo_default_filename,
