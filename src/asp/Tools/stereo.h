@@ -68,6 +68,14 @@ namespace asp {
   // Transform the crop window to be in reference to L.tif
   vw::BBox2i transformed_crop_win(Options const& opt);
 
+  // Parse the command line options for multi-view stereo
+  void parse_multiview(int argc, char* argv[],
+                       boost::program_options::options_description const&
+                       additional_options,
+                       bool verbose, 
+                       std::string & output_prefix,
+                       std::vector<Options> & opt_vec);
+
   // Parse input command line arguments
   void handle_arguments( int argc, char *argv[], Options& opt,
                          boost::program_options::options_description const&

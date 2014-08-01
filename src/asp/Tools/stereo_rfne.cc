@@ -31,6 +31,7 @@
 using namespace vw;
 using namespace vw::stereo;
 using namespace asp;
+using namespace std;
 
 namespace vw {
   template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
@@ -71,7 +72,7 @@ refine_disparity(Image1T const& left_image,
                            PreFilter(stereo_settings().slogW),
                            stereo_settings().subpixel_kernel );
     } else {
-      if (verbose) vw_out() << "\t--> NO preprocessing" << std::endl;
+      if (verbose) vw_out() << "\t--> NO preprocessing" << endl;
       typedef stereo::NullOperation PreFilter;
       refined_disp =
         parabola_subpixel( integer_disp,
@@ -130,9 +131,9 @@ refine_disparity(Image1T const& left_image,
     // LogPreprocessingFilter...
     if (verbose){
       vw_out() << "\t--> Using EM Subpixel mode "
-               << stereo_settings().subpixel_mode << std::endl;
+               << stereo_settings().subpixel_mode << endl;
       vw_out() << "\t--> Mode 3 does internal preprocessing;"
-               << " settings will be ignored. " << std::endl;
+               << " settings will be ignored. " << endl;
     }
 
     typedef stereo::EMSubpixelCorrelatorView<float32> EMCorrelator;
@@ -167,7 +168,7 @@ refine_disparity(Image1T const& left_image,
                        EMCorrelator::ExtractDisparityFunctor());
   } else {
     if (verbose) {
-      vw_out() << "\t--> Invalid Subpixel mode selection: " << stereo_settings().subpixel_mode << std::endl;
+      vw_out() << "\t--> Invalid Subpixel mode selection: " << stereo_settings().subpixel_mode << endl;
       vw_out() << "\t--> Doing nothing\n";
     }
   }
@@ -317,10 +318,10 @@ void stereo_refinement( Options const& opt ) {
   ImageViewRef<PixelMask<Vector2i> > integer_disp;
   ImageViewRef<PixelMask<Vector2i> > sub_disp;
   ImageView<Matrix3x3> local_hom;
-  std::string left_image_file  = opt.out_prefix+"-L.tif";
-  std::string right_image_file = opt.out_prefix+"-R.tif";
-  std::string left_mask_file  = opt.out_prefix+"-lMask.tif";
-  std::string right_mask_file = opt.out_prefix+"-rMask.tif";
+  string left_image_file  = opt.out_prefix+"-L.tif";
+  string right_image_file = opt.out_prefix+"-R.tif";
+  string left_mask_file  = opt.out_prefix+"-lMask.tif";
+  string right_mask_file = opt.out_prefix+"-rMask.tif";
 
   try {
     left_image   = DiskImageView< PixelGray<float> >(left_image_file);
@@ -332,7 +333,7 @@ void stereo_refinement( Options const& opt ) {
          stereo_settings().use_local_homography ){
       sub_disp = DiskImageView<PixelMask<Vector2i> >(opt.out_prefix+"-D_sub.tif");
 
-      std::string local_hom_file = opt.out_prefix + "-local_hom.txt";
+      string local_hom_file = opt.out_prefix + "-local_hom.txt";
       read_local_homographies(local_hom_file, local_hom);
     }
 
@@ -350,10 +351,9 @@ void stereo_refinement( Options const& opt ) {
       = copy_mask(right_image, create_mask(right_mask));
     
     Vector<float32> left_stats, right_stats;
-    std::string left_stats_file  = opt.out_prefix+"-lStats.tif";
-    std::string right_stats_file  = opt.out_prefix+"-rStats.tif";
-    vw_out() << "Reading: " << left_stats_file << ' ' << right_stats_file
-             << std::endl;
+    string left_stats_file  = opt.out_prefix+"-lStats.tif";
+    string right_stats_file  = opt.out_prefix+"-rStats.tif";
+    vw_out() << "Reading: " << left_stats_file << ' ' << right_stats_file << endl;
     read_vector(left_stats,  left_stats_file);
     read_vector(right_stats, right_stats_file);
     normalize_images(stereo_settings().force_use_entire_range,
@@ -375,7 +375,7 @@ void stereo_refinement( Options const& opt ) {
     = per_tile_rfne(left_image, right_image, right_mask,
                     integer_disp, sub_disp, local_hom, opt);
 
-  std::string rd_file = opt.out_prefix + "-RD.tif";
+  string rd_file = opt.out_prefix + "-RD.tif";
   vw_out() << "Writing: " << rd_file << "\n";
   asp::block_write_gdal_image(rd_file,
                               refined_disp, opt,
@@ -384,27 +384,31 @@ void stereo_refinement( Options const& opt ) {
 
 int main(int argc, char* argv[]) {
 
-  stereo_register_sessions();
-  Options opt;
   try {
-    bool allow_unregistered = false;
-    std::vector<std::string> unregistered;
-    handle_arguments( argc, argv, opt,
-                      SubpixelDescription(),
-                      allow_unregistered, unregistered  );
+
+    vw_out() << "\n[ " << current_posix_time_string()
+             << " ] : Stage 2 --> REFINEMENT \n";
+
+    stereo_register_sessions();
     
+    bool verbose = false;
+    vector<Options> opt_vec;
+    string output_prefix;
+    asp::parse_multiview(argc, argv, SubpixelDescription(),
+                         verbose, output_prefix, opt_vec);
+    Options opt = opt_vec[0];
+
     // Subpixel refinement uses smaller tiles.
     //---------------------------------------------------------
     int ts = Options::rfne_tile_size();
     opt.raster_tile_size = Vector2i(ts, ts);
 
-    vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 2 --> REFINEMENT \n";
-
     // Internal Processes
     //---------------------------------------------------------
     stereo_refinement( opt );
 
-    vw_out() << "\n[ " << current_posix_time_string() << " ] : REFINEMENT FINISHED \n";
+    vw_out() << "\n[ " << current_posix_time_string()
+             << " ] : REFINEMENT FINISHED \n";
 
   } ASP_STANDARD_CATCHES;
 

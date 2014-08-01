@@ -33,6 +33,7 @@
 using namespace vw;
 using namespace vw::stereo;
 using namespace asp;
+using namespace std;
 
 namespace vw {
   template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
@@ -126,7 +127,7 @@ void lowres_correlation( Options & opt ) {
   } else {
 
     // Match file between the input files
-    std::string match_filename
+    string match_filename
       = ip::match_filename(opt.out_prefix, opt.in_file1, opt.in_file2);
 
     if (!fs::exists(match_filename)) {
@@ -151,7 +152,7 @@ void lowres_correlation( Options & opt ) {
                                  sub_scale );
     } else {
       // There exists a matchfile out there.
-      std::vector<ip::InterestPoint> ip1, ip2;
+      vector<ip::InterestPoint> ip1, ip2;
       ip::read_binary_match_file( match_filename, ip1, ip2 );
 
       Matrix<double> align_left_matrix  = math::identity_matrix<3>();
@@ -171,7 +172,8 @@ void lowres_correlation( Options & opt ) {
       }
       stereo_settings().search_range = grow_bbox_to_int( search_range );
     }
-    vw_out() << "\t--> Detected search range: " << stereo_settings().search_range << "\n";
+    vw_out() << "\t--> Detected search range: "
+             << stereo_settings().search_range << "\n";
   }
 
   DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
@@ -181,7 +183,7 @@ void lowres_correlation( Options & opt ) {
   if ( stereo_settings().seed_mode > 0 ) {
     // Reuse prior existing D_sub if it exists
     bool rebuild = false;
-    std::string sub_disp_file = opt.out_prefix+"-D_sub.tif";
+    string sub_disp_file = opt.out_prefix+"-D_sub.tif";
     try {
       vw_log().console_log().rule_set().add_rule(-1,"fileio");
       DiskImageView<PixelMask<Vector2i> > test(sub_disp_file);
@@ -198,12 +200,13 @@ void lowres_correlation( Options & opt ) {
     if ( rebuild )
       produce_lowres_disparity( opt );
     else
-      vw_out() << "\t--> Using cached low-resolution disparity: " << sub_disp_file << "\n";
+      vw_out() << "\t--> Using cached low-resolution disparity: "
+               << sub_disp_file << "\n";
   }
 
   // Create the local homographies based on D_sub
   if (stereo_settings().seed_mode > 0 && stereo_settings().use_local_homography){
-    std::string local_hom_file = opt.out_prefix + "-local_hom.txt";
+    string local_hom_file = opt.out_prefix + "-local_hom.txt";
     try {
       ImageView<Matrix3x3> local_hom;
       read_local_homographies(local_hom_file, local_hom);
@@ -251,13 +254,13 @@ public:
                         Vector2i const& kernel_size,
                         stereo::CostFunctionType cost_mode,
                         int corr_timeout, double seconds_per_op) :
-    m_left_image    (left_image.impl()),  m_right_image    (right_image.impl    ()),
-    m_left_mask     (left_mask.impl ()),  m_right_mask     (right_mask.impl     ()),
-    m_sub_disp      (sub_disp.impl  ()),  m_sub_disp_spread(sub_disp_spread.impl()),
-    m_local_hom     (local_hom), m_preproc_func( filter.impl() ),
+    m_left_image(left_image.impl()), m_right_image(right_image.impl()),
+    m_left_mask(left_mask.impl()), m_right_mask(right_mask.impl()),
+    m_sub_disp(sub_disp.impl()), m_sub_disp_spread(sub_disp_spread.impl()),
+    m_local_hom(local_hom), m_preproc_func( filter.impl() ),
     m_trans_crop_win(trans_crop_win),
-    m_kernel_size   (kernel_size),  m_cost_mode(cost_mode),
-    m_corr_timeout  (corr_timeout), m_seconds_per_op(seconds_per_op){
+    m_kernel_size(kernel_size),  m_cost_mode(cost_mode),
+    m_corr_timeout(corr_timeout), m_seconds_per_op(seconds_per_op){
     m_upscale_factor[0] = double(m_left_image.cols()) / m_sub_disp.cols();
     m_upscale_factor[1] = double(m_left_image.rows()) / m_sub_disp.rows();
     m_seed_bbox = bounding_box( m_sub_disp );
@@ -274,8 +277,9 @@ public:
 
   inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
 
-  inline pixel_type operator()( double /*i*/, double /*j*/, int32 /*p*/ = 0 ) const {
-    vw_throw(NoImplErr() << "SeededCorrelatorView::operator()(...) is not implemented");
+  inline pixel_type operator()(double /*i*/, double /*j*/, int32 /*p*/ = 0) const {
+    vw_throw(NoImplErr()
+             << "SeededCorrelatorView::operator()(...) is not implemented");
     return pixel_type();
   }
 
@@ -340,7 +344,8 @@ public:
                                  lowres_hom, disparity_in_box));
       }
 
-      bool has_sub_disp_spread = ( m_sub_disp_spread.cols() != 0 && m_sub_disp_spread.rows() != 0 );
+      bool has_sub_disp_spread = ( m_sub_disp_spread.cols() != 0 &&
+                                   m_sub_disp_spread.rows() != 0 );
 
       // Sanity check: If m_sub_disp_spread was provided, it better have
       // the same size as sub_disp.
@@ -474,17 +479,17 @@ void stereo_correlation( Options& opt ) {
   // Provide the user with some feedback of what we are actually going
   // to use.
   vw_out()   << "\t--------------------------------------------------\n";
-  vw_out()   << "\t   Kernel Size:    " << stereo_settings().corr_kernel << std::endl;
+  vw_out()   << "\t   Kernel Size:    " << stereo_settings().corr_kernel << endl;
   if ( stereo_settings().seed_mode > 0 )
     vw_out() << "\t   Refined Search: "
-             << stereo_settings().search_range << std::endl;
+             << stereo_settings().search_range << endl;
   else
     vw_out() << "\t   Search Range:   "
-             << stereo_settings().search_range << std::endl;
-  vw_out()   << "\t   Cost Mode:      " << stereo_settings().cost_mode << std::endl;
-  vw_out(DebugMessage) << "\t   XCorr Threshold: " << stereo_settings().xcorr_threshold << std::endl;
-  vw_out(DebugMessage) << "\t   Prefilter:       " << stereo_settings().pre_filter_mode << std::endl;
-  vw_out(DebugMessage) << "\t   Prefilter Size:  " << stereo_settings().slogW << std::endl;
+             << stereo_settings().search_range << endl;
+  vw_out()   << "\t   Cost Mode:      " << stereo_settings().cost_mode << endl;
+  vw_out(DebugMessage) << "\t   XCorr Threshold: " << stereo_settings().xcorr_threshold << endl;
+  vw_out(DebugMessage) << "\t   Prefilter:       " << stereo_settings().pre_filter_mode << endl;
+  vw_out(DebugMessage) << "\t   Prefilter Size:  " << stereo_settings().slogW << endl;
   vw_out() << "\t--------------------------------------------------\n";
 
   // Load up for the actual native resolution processing
@@ -514,7 +519,7 @@ void stereo_correlation( Options& opt ) {
 
   ImageView<Matrix3x3> local_hom;
   if ( stereo_settings().seed_mode > 0 && stereo_settings().use_local_homography ){
-    std::string local_hom_file = opt.out_prefix + "-local_hom.txt";
+    string local_hom_file = opt.out_prefix + "-local_hom.txt";
     read_local_homographies(local_hom_file, local_hom);
   }
 
@@ -554,7 +559,7 @@ void stereo_correlation( Options& opt ) {
                           trans_crop_win, kernel_size, cost_mode, corr_timeout,
                           seconds_per_op );
   } else {
-    vw_out() << "\t--> Using NO pre-processing filter." << std::endl;
+    vw_out() << "\t--> Using NO pre-processing filter." << endl;
     fullres_disparity =
       seeded_correlation( left_disk_image, right_disk_image, Lmask, Rmask,
                           sub_disp, sub_disp_spread, local_hom,
@@ -563,7 +568,7 @@ void stereo_correlation( Options& opt ) {
                           seconds_per_op );
   }
 
-  std::string d_file = opt.out_prefix + "-D.tif";
+  string d_file = opt.out_prefix + "-D.tif";
   vw_out() << "Writing: " << d_file << "\n";
   asp::block_write_gdal_image(d_file,
                               fullres_disparity, opt,
@@ -576,14 +581,16 @@ void stereo_correlation( Options& opt ) {
 
 int main(int argc, char* argv[]) {
 
-  stereo_register_sessions();
-  Options opt;
   try {
-    bool allow_unregistered = false;
-    std::vector<std::string> unregistered;
-    handle_arguments( argc, argv, opt,
-                      CorrelationDescription(),
-                      allow_unregistered, unregistered );
+
+    stereo_register_sessions();
+    
+    bool verbose = false;
+    vector<Options> opt_vec;
+    string output_prefix;
+    asp::parse_multiview(argc, argv, CorrelationDescription(),
+                         verbose, output_prefix, opt_vec);
+    Options opt = opt_vec[0];
     
     // Integer correlator requires large tiles
     //---------------------------------------------------------

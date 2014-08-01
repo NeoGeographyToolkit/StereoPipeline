@@ -30,6 +30,7 @@
 
 using namespace vw;
 using namespace asp;
+using namespace std;
 
 namespace vw {
   template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
@@ -76,7 +77,7 @@ public:
     bbox2.crop(bounding_box(m_img));
     ImageView<pixel_type> tile_img = crop(m_img, bbox2);
 
-    int tile_size = std::max(bbox2.width(), bbox2.height()); // don't subsplit
+    int tile_size = max(bbox2.width(), bbox2.height()); // don't subsplit
     BlobIndexThreaded smallBlobIndex(tile_img, area, tile_size);
     ImageView<pixel_type> clean_tile_img = applyErodeView(tile_img,
                                                           smallBlobIndex);
@@ -136,7 +137,7 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
   // Write Good Pixel Map
   // Sub-sampling so that the user can actually view it.
   float sub_scale =
-    float( std::min( inputview.impl().cols(),
+    float( min( inputview.impl().cols(),
                      inputview.impl().rows() ) ) / 2048.0;
   
   asp::block_write_gdal_image
@@ -155,7 +156,7 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
   
   bool removeSmallBlobs = (stereo_settings().erode_max_size > 0);
 
-  std::string outF = opt.out_prefix + "-F.tif";
+  string outF = opt.out_prefix + "-F.tif";
     
   // Fill holes
   if(stereo_settings().enable_fill_holes) {
@@ -175,7 +176,7 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
 
     if (!removeSmallBlobs) { // Skip small blob removal
       // Write out the image to disk, filling in the blobs in the process
-      vw_out() << "Writing: " << outF << std::endl;
+      vw_out() << "Writing: " << outF << endl;
       asp::block_write_gdal_image( outF,
                                    inpaint(inputview.impl(), smallHoleIndex,
                                            use_grassfire, default_inpaint_val),
@@ -185,7 +186,7 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
     else { // Add small blob removal step
       // Write out the image to disk, filling in and removing blobs in the process
       // - Blob removal is done second to make sure inner-blob holes are removed.
-      vw_out() << "Writing: " << outF << std::endl;
+      vw_out() << "Writing: " << outF << endl;
       asp::block_write_gdal_image( outF,
                                    per_tile_erode
                                    (inpaint(inputview.impl(),
@@ -198,7 +199,7 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
     
   } else { // No hole filling
     if (!removeSmallBlobs) { // Skip small blob removal
-      vw_out() << "Writing: " << outF << std::endl;
+      vw_out() << "Writing: " << outF << endl;
       asp::block_write_gdal_image( outF, inputview.impl(), opt,
                                    TerminalProgressCallback
                                    ("asp", "\t--> Filtering: ") );
@@ -206,7 +207,7 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
     else { // Add small blob removal step
       vw_out() << "\t--> Removing small blobs.\n";
       // Write out the image to disk, removing the blobs in the process
-      vw_out() << "Writing: " << outF << std::endl;
+      vw_out() << "Writing: " << outF << endl;
       asp::block_write_gdal_image(outF, per_tile_erode(inputview.impl()),
                                   opt, TerminalProgressCallback
                                   ("asp","\t--> Filtering: ") );
@@ -217,7 +218,7 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
 
 void stereo_filtering( Options& opt ) {
 
-  std::string post_correlation_fname;
+  string post_correlation_fname;
   opt.session->pre_filtering_hook(opt.out_prefix+"-RD.tif",
                                   post_correlation_fname);
 
@@ -310,32 +311,35 @@ void stereo_filtering( Options& opt ) {
 
 int main(int argc, char* argv[]) {
 
-  vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 3 --> FILTERING \n";
-
-  // This is probably the right place in which to warn the user about
-  // new hole filling behavior.
-  vw_out(WarningMessage)
-    << "Hole-filling is disabled by default in stereo_fltr. "
-    << "It is suggested to use instead point2dem's analogous "
-    << "functionality. It can be re-enabled using "
-    << "--enable-fill-holes." << std::endl;
-  
-  stereo_register_sessions();
-  Options opt;
   try {
-    bool allow_unregistered = false;
-    std::vector<std::string> unregistered;
-    handle_arguments( argc, argv, opt,
-                      FilteringDescription(),
-                      allow_unregistered, unregistered );
+
+    vw_out() << "\n[ " << current_posix_time_string()
+             << " ] : Stage 3 --> FILTERING \n";
+    
+    // This is probably the right place in which to warn the user about
+    // new hole filling behavior.
+    vw_out(WarningMessage)
+      << "Hole-filling is disabled by default in stereo_fltr. "
+      << "It is suggested to use instead point2dem's analogous "
+      << "functionality. It can be re-enabled using "
+      << "--enable-fill-holes." << endl;
+    
+    stereo_register_sessions();
+    
+    bool verbose = false;
+    vector<Options> opt_vec;
+    string output_prefix;
+    asp::parse_multiview(argc, argv, FilteringDescription(),
+                         verbose, output_prefix, opt_vec);
+    Options opt = opt_vec[0];
     
     // Internal Processes
     //---------------------------------------------------------
     stereo_filtering( opt );
-
+    
     vw_out() << "\n[ " << current_posix_time_string()
              << " ] : FILTERING FINISHED \n";
-
+    
   } ASP_STANDARD_CATCHES;
 
   return 0;

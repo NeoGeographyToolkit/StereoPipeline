@@ -29,6 +29,7 @@
 
 using namespace vw;
 using namespace asp;
+using namespace std;
 
 namespace vw {
   template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
@@ -78,11 +79,11 @@ BlobHolder::mask_and_fill_holes( ImageViewRef< PixelGray<float> > const& img,
   return inpaint(thresh_mask.impl(), *m_blobPtr.get(), use_grassfire, default_inpaint_val);
 }
 
-void create_sym_links(std::string const& left_input_file,
-                      std::string const& right_input_file,
-                      std::string const& out_prefix,
-                      std::string & left_output_file,
-                      std::string & right_output_file) {
+void create_sym_links(string const& left_input_file,
+                      string const& right_input_file,
+                      string const& out_prefix,
+                      string & left_output_file,
+                      string & right_output_file) {
 
   // Instead of writing L.tif and R.tif, just create sym links from
   // input left and right images. Creating symbolic links can be tricky.
@@ -91,7 +92,7 @@ void create_sym_links(std::string const& left_input_file,
     
   left_output_file  = out_prefix+"-L.tif";
   right_output_file = out_prefix+"-R.tif";
-  std::string cmd1, cmd2;
+  string cmd1, cmd2;
   fs::path out_prefix_path(out_prefix);
   fs::path left_rel_in, right_rel_in;
   if (out_prefix_path.has_parent_path()) {
@@ -105,20 +106,20 @@ void create_sym_links(std::string const& left_input_file,
     right_rel_in = fs::path(right_input_file);
   }
   
-  std::string left_rel_out = fs::path(left_output_file).filename().string();
-  std::string right_rel_out = fs::path(right_output_file).filename().string();
+  string left_rel_out = fs::path(left_output_file).filename().string();
+  string right_rel_out = fs::path(right_output_file).filename().string();
 
-  std::string cmd;
+  string cmd;
   if (!fs::exists(left_output_file)){
     cmd = cmd1 + "ln -s " + left_rel_in.string() + " " + left_rel_out + cmd2;
-    vw_out() << cmd << std::endl;
+    vw_out() << cmd << endl;
     int ret = system(cmd.c_str());
     VW_ASSERT( ret == 0,
                ArgumentErr() << "Failed to execute: " << cmd << "\n" );
   }
   if (!fs::exists(right_output_file)){
     cmd = cmd1 + "ln -s " + right_rel_in.string() + " " + right_rel_out + cmd2;
-    vw_out() << cmd << std::endl;
+    vw_out() << cmd << endl;
     int ret = system(cmd.c_str());
     VW_ASSERT( ret == 0,
                ArgumentErr() << "Failed to execute: " << cmd << "\n" );
@@ -129,7 +130,7 @@ void create_sym_links(std::string const& left_input_file,
 void stereo_preprocessing( Options& opt ) {
   
   // Normalize the images, unless the user prefers not to.
-  std::string left_image_file, right_image_file;
+  string left_image_file, right_image_file;
   bool skip_img_norm = asp::skip_image_normalization(opt);
   if (skip_img_norm)
     create_sym_links(opt.in_file1, opt.in_file2, opt.out_prefix,
@@ -146,8 +147,8 @@ void stereo_preprocessing( Options& opt ) {
   DiskImageView<PixelGray<float> > left_image( left_rsrc ),
                                    right_image( right_rsrc );
 
-  std::string left_mask_file  = opt.out_prefix+"-lMask.tif";
-  std::string right_mask_file = opt.out_prefix+"-rMask.tif";
+  string left_mask_file  = opt.out_prefix+"-lMask.tif";
+  string right_mask_file = opt.out_prefix+"-rMask.tif";
   bool rebuild = false;
   try {
     vw_log().console_log().rule_set().add_rule(-1,"fileio");
@@ -181,8 +182,8 @@ void stereo_preprocessing( Options& opt ) {
                   asp::threaded_edge_mask(right_image,0,0,1024));
 
     // Read the no-data values of L.tif and R.tif.
-    float left_nodata_value  = std::numeric_limits<float>::quiet_NaN();
-    float right_nodata_value = std::numeric_limits<float>::quiet_NaN();
+    float left_nodata_value  = numeric_limits<float>::quiet_NaN();
+    float right_nodata_value = numeric_limits<float>::quiet_NaN();
     if ( left_rsrc->has_nodata_read() )
       left_nodata_value  = left_rsrc->nodata_read();
     if ( right_rsrc->has_nodata_read() )
@@ -193,7 +194,7 @@ void stereo_preprocessing( Options& opt ) {
     // input images, and the user wants to use a custom no-data value,
     // this is the time to apply it.
     if (skip_img_norm &&
-        !std::isnan(stereo_settings().nodata_value)
+        !isnan(stereo_settings().nodata_value)
         ){
       left_nodata_value = stereo_settings().nodata_value;
       right_nodata_value = stereo_settings().nodata_value;
@@ -208,27 +209,27 @@ void stereo_preprocessing( Options& opt ) {
                                                           right_nodata_value));
 
     // Invalidate pixels below (normalized) threshold. This is experimental.
-    double left_threshold  = std::numeric_limits<double>::quiet_NaN();
-    double right_threshold = std::numeric_limits<double>::quiet_NaN();
+    double left_threshold  = numeric_limits<double>::quiet_NaN();
+    double right_threshold = numeric_limits<double>::quiet_NaN();
     double nodata_fraction = stereo_settings().nodata_pixel_percentage/100.0;
     double nodata_factor   = stereo_settings().nodata_optimal_threshold_factor;
     if ( skip_img_norm &&
-         ((!std::isnan(nodata_fraction)) || (!std::isnan(nodata_factor))) ){
+         ((!isnan(nodata_fraction)) || (!isnan(nodata_factor))) ){
       vw_throw( ArgumentErr()
                 << "\nCannot skip image normalization while attempting "
                 << "to apply a normalized threshold.\n");
     }
-    if ( (!std::isnan(nodata_fraction)) && (!std::isnan(nodata_factor)) ){
+    if ( (!isnan(nodata_fraction)) && (!isnan(nodata_factor)) ){
       vw_throw( ArgumentErr()
                 << "\nCannot set both nodata-pixel-percentage and "
                 << "nodata-optimal-threshold-factor at the same time.\n");
     }
-    if ( !std::isnan(nodata_factor) ){
+    if ( !isnan(nodata_factor) ){
       // Find the black pixels threshold using Otsu's optimal threshold method.
       left_threshold  = nodata_factor*optimal_threshold(left_image);
       right_threshold = nodata_factor*optimal_threshold(right_image);
     }
-    if ( !std::isnan(nodata_fraction) ){
+    if ( !isnan(nodata_fraction) ){
       // Declare a fixed proportion of low-value pixels to be no-data.
       math::CDFAccumulator< PixelGray<float> > left_cdf(1024, 1024), right_cdf(1024, 1024);
       for_each_pixel( left_image, left_cdf );
@@ -240,7 +241,7 @@ void stereo_preprocessing( Options& opt ) {
     // The blob holders must not go out of scope while masks are being written.
     BlobHolder LB, RB;
 
-    if ( !std::isnan(left_threshold) && !std::isnan(right_threshold) ){
+    if ( !isnan(left_threshold) && !isnan(right_threshold) ){
       ImageViewRef< PixelMask<uint8> > left_thresh_mask
         = LB.mask_and_fill_holes(left_image, left_threshold);
       left_mask = intersect_mask(left_mask, left_thresh_mask);
@@ -288,14 +289,14 @@ void stereo_preprocessing( Options& opt ) {
 
     sw.stop();
     vw_out(DebugMessage,"asp") << "Mask creation elapsed time: "
-                               << sw.elapsed_seconds() << " s." << std::endl;
+                               << sw.elapsed_seconds() << " s." << endl;
 
   } // End creating masks
 
-  std::string lsub = opt.out_prefix+"-L_sub.tif";
-  std::string rsub = opt.out_prefix+"-R_sub.tif";
-  std::string lmsub = opt.out_prefix+"-lMask_sub.tif";
-  std::string rmsub = opt.out_prefix+"-rMask_sub.tif";
+  string lsub = opt.out_prefix+"-L_sub.tif";
+  string rsub = opt.out_prefix+"-R_sub.tif";
+  string lmsub = opt.out_prefix+"-lMask_sub.tif";
+  string rmsub = opt.out_prefix+"-rMask_sub.tif";
   try {
     // This confusing try catch is to see if the subsampled images
     // actually have content.
@@ -400,11 +401,10 @@ void stereo_preprocessing( Options& opt ) {
       = copy_mask(right_image, create_mask(right_mask));
     Vector4f left_stats  = gather_stats( left_masked_image,  "left" );
     Vector4f right_stats = gather_stats( right_masked_image, "right" );
-    std::string left_stats_file  = opt.out_prefix+"-lStats.tif";
-    std::string right_stats_file  = opt.out_prefix+"-rStats.tif";
+    string left_stats_file  = opt.out_prefix+"-lStats.tif";
+    string right_stats_file  = opt.out_prefix+"-rStats.tif";
 
-    vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file
-             << std::endl;
+    vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << endl;
     Vector<float32> left_stats2 = left_stats; // cast
     Vector<float32> right_stats2 = right_stats; // cast
     write_vector(left_stats_file, left_stats2);
@@ -414,17 +414,18 @@ void stereo_preprocessing( Options& opt ) {
 
 int main(int argc, char* argv[]) {
 
-  stereo_register_sessions();
-  Options opt;
   try {
-    bool allow_unregistered = false;
-    std::vector<std::string> unregistered;
-    handle_arguments( argc, argv, opt,
-                      PreProcessingDescription(),
-                      allow_unregistered, unregistered );
-
     vw_out() << "\n[ " << current_posix_time_string()
              << " ] : Stage 0 --> PREPROCESSING \n";
+    
+    stereo_register_sessions();
+    
+    bool verbose = false;
+    vector<Options> opt_vec;
+    string output_prefix;
+    asp::parse_multiview(argc, argv, PreProcessingDescription(),
+                         verbose, output_prefix, opt_vec);
+    Options opt = opt_vec[0];
     
     // Internal Processes
     //---------------------------------------------------------

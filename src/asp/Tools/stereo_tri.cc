@@ -196,135 +196,6 @@ stereo_error_triangulate( vector<DisparityT> const& disparities,
 
 namespace asp{
 
-  void parse_multiview(int argc, char* argv[],
-                       boost::program_options::options_description const&
-                       additional_options,
-                       string & output_prefix,
-                       vector<Options> & opt_vec){
-
-    // If a stereo program is invoked as:
-  
-    // prog <images> <cameras> <output-prefix> [<input_dem>] <other options>
-
-    // with the number of images n >= 2, create n-1 individual
-    // Options entries, corresponding to n-1 stereo pairs between the
-    // first image and each of the subsequent images.
-
-    // First reset the outputs
-    output_prefix.clear();
-    opt_vec.clear();
-
-    // Extract the images/cameras/output prefix, and perhaps the input DEM
-    vector<string> files;
-    bool allow_unregistered = true;
-    Options opt;
-    handle_arguments(argc, argv, opt, additional_options,
-                     allow_unregistered, files);
-
-    // Store the elements in argv which are not files or output prefix.
-    // Note that argv[0] is the program name.
-    set<string> file_set; 
-    for (int s = 0; s < (int)files.size(); s++)
-      file_set.insert(files[s]);
-    vector<string> options;
-    for (int s = 1; s < argc; s++){
-      if (file_set.find(argv[s]) == file_set.end())
-        options.push_back(argv[s]);
-    }
-  
-    // Separate the cameras from the other files
-    vector<string> cameras = asp::extract_cameras( files );
-
-    if (files.size() < 3)
-      vw_throw( ArgumentErr() << "Missing all of the correct input files.\n" );
-
-    // Find the input DEM, if any
-    string input_dem;
-    bool has_georef = false;
-    try{
-      cartography::GeoReference georef;
-      has_georef = read_georeference( georef, files.back() );
-    }catch(...){}
-    if (has_georef){
-      input_dem = files.back();
-      files.pop_back();
-    }else{
-      input_dem = "";
-    }
-
-    // Find the output prefix
-    output_prefix = files.back();
-    files.pop_back();
-
-    if (fs::exists(output_prefix))
-      vw_out(WarningMessage) << "It appears that the output prefix "
-                             << "exists as a file: " << output_prefix
-                             << ". Perhaps this was not intended." << endl;
-    
-    if (files.size() != cameras.size() && !cameras.empty())
-      vw_throw( ArgumentErr() << "Expecting the number of images and cameras to agree.\n" );
-    
-    int num_pairs = (int)files.size() - 1;
-    if (num_pairs <= 0)
-      vw_throw( ArgumentErr() << "Insufficient number of images provided.\n" );
-    
-    string prog_name = argv[0];
-
-    // Generate the stereo command for each of the pairs made up of the first
-    // image and each subsequent image, with corresponding cameras.
-    for (int p = 1; p <= num_pairs; p++){
-      
-      vector<string> cmd;
-      cmd.push_back(prog_name);
-
-      // The command line options go first
-      for (int t = 0; t < (int)options.size(); t++)
-        cmd.push_back(options[t]);
-    
-      cmd.push_back(files[0]); // left image
-      cmd.push_back(files[p]); // right image
-
-      if (!cameras.empty()){
-        cmd.push_back(cameras[0]); // left camera
-        cmd.push_back(cameras[p]); // right camera
-      }
-
-      string local_prefix = output_prefix;
-      if (num_pairs > 1){
-        // Need to have a separate output prefix for each pair
-        ostringstream os;
-        os << local_prefix << "-pair" << p << "/" << p;
-        local_prefix = os.str();
-      }
-      cmd.push_back(local_prefix);
-
-      if (!input_dem.empty())
-        cmd.push_back(input_dem);
-
-      // Create a local argc and argv for the given stereo pair and
-      // parse them.
-      int largc = cmd.size();
-      vector<char*> largv;
-      for (int t = 0; t < largc; t++)
-        largv.push_back((char*)cmd[t].c_str());
-      Options opt;
-      bool allow_unregistered = false;
-      vector<string> unregistered;
-      handle_arguments( largc, &largv[0], opt,
-                        additional_options,
-                        allow_unregistered, unregistered);
-      opt_vec.push_back(opt);
-    
-    }
-
-    if (num_pairs > 1 && stereo_settings().alignment_method != "none" &&
-        stereo_settings().alignment_method != "homography"
-        )
-      vw_throw(InputErr() << "For multi-view stereo, only alignment "
-               << "method of none or homography is supported.\n");
-  
-  }
-
   // ImageView operator that takes the last three elements of a vector
   // (the error part) and replaces them with the norm of that 3-vector.
   struct PointAndErrorNorm : public ReturnFixedType<Vector4> {
@@ -630,16 +501,20 @@ void stereo_triangulation( string const& output_prefix,
 
 int main( int argc, char* argv[] ) {
 
-  stereo_register_sessions();
-
   try {
+
+    vw_out() << "\n[ " << current_posix_time_string()
+             << " ] : Stage 4 --> TRIANGULATION \n";
+
+    stereo_register_sessions();
 
     // Unlike other stereo executables, triangulation can handle
     // multiple images and cameras. 
+    bool verbose = false;
     vector<Options> opt_vec;
     string output_prefix;
     asp::parse_multiview(argc, argv, TriangulationDescription(),
-                         output_prefix, opt_vec);
+                         verbose, output_prefix, opt_vec);
     
     // Triangulation uses small tiles.
     //---------------------------------------------------------
@@ -647,9 +522,6 @@ int main( int argc, char* argv[] ) {
     for (int s = 0; s < (int)opt_vec.size(); s++)
       opt_vec[s].raster_tile_size = Vector2i(ts, ts);
 
-    vw_out() << "\n[ " << current_posix_time_string()
-             << " ] : Stage 4 --> TRIANGULATION \n";
-    
     // Internal Processes
     //---------------------------------------------------------
 #define INSTANTIATE(T,NAME) if ( opt_vec[0].session->name() == NAME ) { \

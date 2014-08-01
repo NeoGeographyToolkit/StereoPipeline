@@ -33,6 +33,7 @@
 
 using namespace vw;
 using namespace vw::cartography;
+using namespace std;
 
 namespace asp {
 
@@ -74,12 +75,163 @@ namespace asp {
     return b;
   }
 
+  void parse_multiview(int argc, char* argv[],
+                       boost::program_options::options_description const&
+                       additional_options,
+                       bool verbose,
+                       string & output_prefix,
+                       vector<Options> & opt_vec){
+
+    // If a stereo program is invoked as:
+  
+    // prog <images> <cameras> <output-prefix> [<input_dem>] <other options>
+
+    // with the number of images n >= 2, create n-1 individual
+    // Options entries, corresponding to n-1 stereo pairs between the
+    // first image and each of the subsequent images.
+
+    // First reset the outputs
+    output_prefix.clear();
+    opt_vec.clear();
+
+    // Extract the images/cameras/output prefix, and perhaps the input DEM
+    vector<string> files;
+    bool allow_unregistered = true;
+    Options opt;
+    handle_arguments(argc, argv, opt, additional_options,
+                     allow_unregistered, files);
+
+    // Store the elements in argv which are not files or output prefix.
+    // Note that argv[0] is the program name.
+    set<string> file_set; 
+    for (int s = 0; s < (int)files.size(); s++)
+      file_set.insert(files[s]);
+    vector<string> options;
+    for (int s = 1; s < argc; s++){
+      if (file_set.find(argv[s]) == file_set.end())
+        options.push_back(argv[s]);
+    }
+  
+    // Separate the cameras from the other files
+    vector<string> cameras = asp::extract_cameras( files );
+
+    if (files.size() < 3)
+      vw_throw( ArgumentErr() << "Missing all of the correct input files.\n" );
+
+    // Find the input DEM, if any
+    string input_dem;
+    bool has_georef = false;
+    try{
+      cartography::GeoReference georef;
+      has_georef = read_georeference( georef, files.back() );
+    }catch(...){}
+    if (has_georef){
+      input_dem = files.back();
+      files.pop_back();
+    }else{
+      input_dem = "";
+    }
+
+    // Find the output prefix
+    output_prefix = files.back();
+    files.pop_back();
+
+    if (fs::exists(output_prefix))
+      vw_out(WarningMessage) << "It appears that the output prefix "
+                             << "exists as a file: " << output_prefix
+                             << ". Perhaps this was not intended." << endl;
+    
+    if (files.size() != cameras.size() && !cameras.empty())
+      vw_throw( ArgumentErr() << "Expecting the number of images and cameras to agree.\n" );
+    
+    int num_pairs = (int)files.size() - 1;
+    if (num_pairs <= 0)
+      vw_throw( ArgumentErr() << "Insufficient number of images provided.\n" );
+    
+    // Needed for stereo_parse
+    if (verbose)
+      vw_out() << "num_stereo_pairs," << num_pairs << std::endl;
+    
+    std::string prog_name = extract_prog_name(argv[0]);
+
+    // Generate the stereo command for each of the pairs made up of the first
+    // image and each subsequent image, with corresponding cameras.
+    for (int p = 1; p <= num_pairs; p++){
+      
+      vector<string> cmd;
+      cmd.push_back(prog_name);
+
+      // The command line options go first
+      for (int t = 0; t < (int)options.size(); t++)
+        cmd.push_back(options[t]);
+    
+      cmd.push_back(files[0]); // left image
+      cmd.push_back(files[p]); // right image
+
+      if (!cameras.empty()){
+        cmd.push_back(cameras[0]); // left camera
+        cmd.push_back(cameras[p]); // right camera
+      }
+
+      string local_prefix = output_prefix;
+      if (num_pairs > 1){
+        // Need to have a separate output prefix for each pair
+        ostringstream os;
+        os << local_prefix << "-pair" << p << "/" << p;
+        local_prefix = os.str();
+      }
+      cmd.push_back(local_prefix);
+
+      if (!input_dem.empty())
+        cmd.push_back(input_dem);
+
+      // Create a local argc and argv for the given stereo pair and
+      // parse them.
+      int largc = cmd.size();
+      vector<char*> largv;
+      for (int t = 0; t < largc; t++)
+        largv.push_back((char*)cmd[t].c_str());
+      Options opt;
+      bool allow_unregistered = false;
+      vector<string> unregistered;
+      handle_arguments( largc, &largv[0], opt,
+                        additional_options,
+                        allow_unregistered, unregistered);
+      opt_vec.push_back(opt);
+
+      if (verbose){
+        // Needed for stereo_parse 
+        vw_out() << "multiview_command_" << p << ", ";
+        for (int t = 0; t < largc; t++)
+          vw_out() << cmd[t] << " ";
+        vw_out() << std::endl;
+      }
+      
+    }
+
+    if (num_pairs > 1 && prog_name != "stereo_parse" && prog_name != "stereo_tri")
+      vw_throw( ArgumentErr() << "The executable " << prog_name
+                << " is not meant to be used directly with more than two images. "
+                << "Use instead the stereo/parallel_stereo scripts with "
+                << "desired entry points.\n" );
+    
+    if (num_pairs > 1 && stereo_settings().alignment_method != "none" &&
+        stereo_settings().alignment_method != "homography"){
+      vw_out(WarningMessage)
+        << "For multi-view stereo, only alignment method of none or homography "
+        << "is supported. Changing alignment method from "
+        << stereo_settings().alignment_method << " to homography.\n";
+      stereo_settings().alignment_method = "homography";
+    }
+    
+  }
+
   // Parse input command line arguments
   void handle_arguments( int argc, char *argv[], Options& opt,
                          boost::program_options::options_description const&
                          additional_options,
                          bool allow_unregistered, 
-                         std::vector<std::string> & unregistered
+                         vector<string> & unregistered
                          ) {
 
     po::options_description general_options_sub("");
@@ -119,10 +271,11 @@ namespace asp {
     positional_desc.add("output-prefix", 1);
     positional_desc.add("input-dem", 1);
 
-    std::string usage("[options] <Left_input_image> <Right_input_image> [Left_camera_file] [Right_camera_file] <output_file_prefix> [DEM]\n  Extensions are automaticaly added to the output files.\n  Camera model arguments may be optional for some stereo session types (e.g., isis).\n  Stereo parameters should be set in the stereo.default file.");
+    string usage("[options] <Left_input_image> <Right_input_image> [Left_camera_file] [Right_camera_file] <output_file_prefix> [DEM]\n  Extensions are automaticaly added to the output files.\n  Camera model arguments may be optional for some stereo session types (e.g., isis).\n  Stereo parameters should be set in the stereo.default file.");
     po::variables_map vm =
-      asp::check_command_line( argc, argv, opt, general_options, all_general_options,
-                               positional_options, positional_desc, usage, 
+      asp::check_command_line( argc, argv, opt, general_options,
+                               all_general_options, positional_options,
+                               positional_desc, usage, 
                                allow_unregistered, unregistered );
 
     // If we allow unregistered options, the logic below won't apply correctly.
@@ -330,15 +483,15 @@ namespace asp {
     if ( stereo_settings().alignment_method != "none" && !opt.input_dem.empty() ) {
       stereo_settings().alignment_method = "none";
       vw_out(WarningMessage) << "Changing the alignment method to 'none' "
-                             << "as the images are map-projected." << std::endl;
+                             << "as the images are map-projected." << endl;
     }
     
     // Ensure that we are not accidentally doing stereo with
     // images map-projected with other camera model than 'rpc'.
     if (!opt.input_dem.empty()){
       
-      std::string cam_tag = "CAMERA_MODEL_TYPE";
-      std::string l_cam_type, r_cam_type;
+      string cam_tag = "CAMERA_MODEL_TYPE";
+      string l_cam_type, r_cam_type;
       boost::shared_ptr<vw::DiskImageResource> l_rsrc
         ( new vw::DiskImageResourceGDAL(opt.in_file1) );
       vw::cartography::read_header_string(*l_rsrc.get(), cam_tag, l_cam_type);
@@ -413,12 +566,12 @@ namespace asp {
           << "\tyour input models as most likely stereo won't\n"
           << "\tbe able to triangulate.\n";
       }
-    } catch ( const std::exception& e ) {                
+    } catch ( const exception& e ) {                
       // Don't throw an error here. There are legitimate reasons as to
       // why this check may fail. For example, the top left pixel
       // might not be valid on a map projected image. But notify the
       // user anyway.
-      vw_out(DebugMessage,"asp") << e.what() << std::endl;
+      vw_out(DebugMessage,"asp") << e.what() << endl;
     }
         
   }
@@ -426,21 +579,21 @@ namespace asp {
   // approximate search range
   //  Find interest points and grow them into a search range
   BBox2i
-  approximate_search_range(std::string const& out_prefix,
-                           std::string const& left_sub_file,
-                           std::string const& right_sub_file,
+  approximate_search_range(string const& out_prefix,
+                           string const& left_sub_file,
+                           string const& right_sub_file,
                            float scale ) {
 
     typedef PixelGray<float32> PixelT;
     vw_out() << "\t--> Using interest points to determine search window.\n";
-    std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
+    vector<ip::InterestPoint> matched_ip1, matched_ip2;
     float i_scale = 1.0/scale;
 
-    std::string left_ip_file, right_ip_file;
+    string left_ip_file, right_ip_file;
     ip::ip_filenames(out_prefix, left_sub_file, right_sub_file,
                      left_ip_file, right_ip_file);
 
-    std::string match_filename
+    string match_filename
       = ip::match_filename(out_prefix, left_sub_file, right_sub_file);
 
     // Building / Loading Interest point data
@@ -451,7 +604,7 @@ namespace asp {
 
     } else {
 
-      std::vector<ip::InterestPoint> ip1_copy, ip2_copy;
+      vector<ip::InterestPoint> ip1_copy, ip2_copy;
 
       if ( !fs::exists(left_ip_file) ||
            !fs::exists(right_ip_file) ) {
@@ -465,8 +618,8 @@ namespace asp {
 
         // Read the no-data values written to disk previously when
         // the normalized left and right sub-images were created.
-        float left_nodata_value = std::numeric_limits<float>::quiet_NaN();
-        float right_nodata_value = std::numeric_limits<float>::quiet_NaN();
+        float left_nodata_value = numeric_limits<float>::quiet_NaN();
+        float right_nodata_value = numeric_limits<float>::quiet_NaN();
         if ( left_rsrc->has_nodata_read()  ) left_nodata_value  = left_rsrc->nodata_read();
         if ( right_rsrc->has_nodata_read() ) right_nodata_value = right_rsrc->nodata_read();
 
@@ -474,7 +627,7 @@ namespace asp {
         DiskImageView<PixelT> right_sub_image( right_rsrc );
         // Interest Point module detector code.
         float ipgain = 0.07;
-        std::list<ip::InterestPoint> ip1, ip2;
+        list<ip::InterestPoint> ip1, ip2;
         vw_out() << "\t    * Processing for Interest Points.\n";
         while ( ip1.size() < 1500 || ip2.size() < 1500 ) {
           ip1.clear(); ip2.clear();
@@ -525,7 +678,7 @@ namespace asp {
         BOOST_FOREACH( ip::InterestPoint& ip, ip1 ) ip.orientation = 0;
         BOOST_FOREACH( ip::InterestPoint& ip, ip2 ) ip.orientation = 0;
 
-        vw_out() << "\t    * Building descriptors..." << std::flush;
+        vw_out() << "\t    * Building descriptors..." << flush;
         ip::SGradDescriptorGenerator descriptor;
         if ( boost::math::isnan(left_nodata_value) )
           describe_interest_points( left_sub_image, descriptor, ip1 );
@@ -540,7 +693,7 @@ namespace asp {
 
         // Writing out the results
         vw_out() << "\t    * Caching interest points: "
-                 << left_ip_file << " & " << right_ip_file << std::endl;
+                 << left_ip_file << " & " << right_ip_file << endl;
         ip::write_binary_ip_file( left_ip_file, ip1 );
         ip::write_binary_ip_file( right_ip_file, ip2 );
 
@@ -559,10 +712,10 @@ namespace asp {
 
       vw_out() << "\t    * Rejecting outliers using RANSAC.\n";
       ip::remove_duplicates(matched_ip1, matched_ip2);
-      std::vector<Vector3>
+      vector<Vector3>
         ransac_ip1 = ip::iplist_to_vectorlist(matched_ip1),
         ransac_ip2 = ip::iplist_to_vectorlist(matched_ip2);
-      std::vector<size_t> indices;
+      vector<size_t> indices;
 
       try {
         // Figure out the inlier threshold .. it should be about 3% of
@@ -576,9 +729,9 @@ namespace asp {
         math::RandomSampleConsensus<math::HomographyFittingFunctor,math::InterestPointErrorMetric>
           ransac( math::HomographyFittingFunctor(), math::InterestPointErrorMetric(), 100, inlier_threshold, ransac_ip1.size()/2, true );
         Matrix<double> trans = ransac( ransac_ip1, ransac_ip2 );
-        vw_out(DebugMessage,"asp") << "\t    * Ransac Result: " << trans << std::endl;
+        vw_out(DebugMessage,"asp") << "\t    * Ransac Result: " << trans << endl;
         vw_out(DebugMessage,"asp") << "\t      inlier thresh: "
-                                   << inlier_threshold << " px" << std::endl;
+                                   << inlier_threshold << " px" << endl;
         indices = ransac.inlier_indices(trans, ransac_ip1, ransac_ip2 );
       } catch ( vw::math::RANSACErr const& e ) {
         vw_out() << "-------------------------------WARNING---------------------------------\n";
@@ -589,7 +742,7 @@ namespace asp {
       }
 
       { // Keeping only inliers
-        std::vector<ip::InterestPoint> inlier_ip1, inlier_ip2;
+        vector<ip::InterestPoint> inlier_ip1, inlier_ip2;
         for ( size_t i = 0; i < indices.size(); i++ ) {
           inlier_ip1.push_back( matched_ip1[indices[i]] );
           inlier_ip2.push_back( matched_ip2[indices[i]] );
@@ -610,14 +763,14 @@ namespace asp {
       acc_y(i_scale * ( matched_ip2[i].y - matched_ip1[i].y ));
     }
     Vector2f mean( ba::mean(acc_x), ba::mean(acc_y) );
-    vw_out(DebugMessage,"asp") << "Mean search is : " << mean << std::endl;
+    vw_out(DebugMessage,"asp") << "Mean search is : " << mean << endl;
     Vector2f stddev( sqrt(ba::variance(acc_x)), sqrt(ba::variance(acc_y)) );
     BBox2i search_range( mean - 2.5*stddev,
                          mean + 2.5*stddev );
     return search_range;
   }
 
-  bool is_tif_or_ntf(std::string const& file){
+  bool is_tif_or_ntf(string const& file){
     return
       boost::iends_with(boost::to_lower_copy(file), ".tif")
       ||
