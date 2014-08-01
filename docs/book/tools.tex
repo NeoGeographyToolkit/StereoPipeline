@@ -55,7 +55,10 @@ Option & Description \\ \hline \hline
 \texttt{-\/-session-type|-t pinhole|isis|dg|rpc} & Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension.\\ \hline
 \texttt{-\/-stereo-file|-s \textit{filename(=./stereo.default)}} & Define the stereo.default file to use\\ \hline
 \texttt{-\/-left-image-crop-win \textit{xoff yoff xsize ysize}}  & Do stereo in a subregion of the left image [default: use the entire image].\\ \hline
-\texttt{-\/-entry-point|-e 1|2|3|4} & Stereo Pipeline entry point \\ \hline
+\texttt{-\/-entry-point|-e integer(=0 to 4)} & Stereo Pipeline entry
+point (start at this stage). \\ \hline
+\texttt{-\/-stop-point|-e integer(=1 to 5)} & Stereo Pipeline stop point
+(stop at the stage {\it right before} this value). \\ \hline
 \texttt{-\/-corr-seed-mode integer(=0 to 3)} & Correlation seed strategy
 (section \ref{corr_section}). \\ \hline
 \end{longtable}
@@ -193,8 +196,7 @@ point (start at this stage). \\ \hline
 \texttt{-\/-stop-point|-e integer(=1 to 5)} & Stereo Pipeline stop point
 (stop at the stage {\it right before} this value). \\ \hline
 \texttt{-\/-corr-seed-mode integer(=0 to 3)} & Correlation seed strategy
-(section \ref{corr_section}). This needs to be set on the command line
-as the script invokes different executables depending on its value. \\ \hline
+(section \ref{corr_section}). \\ \hline
 \end{longtable}
 
 \subsection{Advanced usage}

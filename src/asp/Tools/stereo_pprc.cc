@@ -426,7 +426,7 @@ int main(int argc, char* argv[]) {
     asp::parse_multiview(argc, argv, PreProcessingDescription(),
                          verbose, output_prefix, opt_vec);
     Options opt = opt_vec[0];
-    
+
     // Internal Processes
     //---------------------------------------------------------
     vw_out() << "Using \"" << opt.stereo_default_filename << "\"\n";

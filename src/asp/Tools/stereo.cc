@@ -201,9 +201,9 @@ namespace asp {
 
       if (verbose){
         // Needed for stereo_parse 
-        vw_out() << "multiview_command_" << p << ", ";
-        for (int t = 0; t < largc; t++)
-          vw_out() << cmd[t] << " ";
+        vw_out() << "multiview_command_" << p << ",";
+        for (int t = 0; t < largc-1; t++) vw_out() << cmd[t] << ",";
+        if (largc > 0)                    vw_out() << cmd[largc-1];
         vw_out() << std::endl;
       }
       
@@ -217,11 +217,19 @@ namespace asp {
     
     if (num_pairs > 1 && stereo_settings().alignment_method != "none" &&
         stereo_settings().alignment_method != "homography"){
-      vw_out(WarningMessage)
-        << "For multi-view stereo, only alignment method of none or homography "
-        << "is supported. Changing alignment method from "
-        << stereo_settings().alignment_method << " to homography.\n";
-      stereo_settings().alignment_method = "homography";
+      if (input_dem == ""){
+        vw_out(WarningMessage)
+          << "For multi-view stereo, only alignment method of none or homography "
+          << "is supported. Changing alignment method from "
+          << stereo_settings().alignment_method << " to homography.\n";
+        stereo_settings().alignment_method = "homography";
+      }else{
+        vw_out(WarningMessage)
+          << "For multi-view stereo, only alignment method of none or homography "
+          << "is supported. Changing alignment method from "
+          << stereo_settings().alignment_method << " to none.\n";
+        stereo_settings().alignment_method = "none";
+      }
     }
     
   }

@@ -47,6 +47,9 @@ if __name__ == '__main__':
                  help='Correlation seed strategy. See stereo_corr for options.', type='int')
     p.add_option('-e', '--entry-point',    dest='entry_point', default=0,
                  help='Pipeline entry point (an integer from 0-4)', type='int')
+    p.add_option('--stop-point',           dest='stop_point',  default=5,
+                 help='Stereo Pipeline stop point (an integer from 1-5).',
+                 type='int')
     p.add_option('--no-bigtiff',           dest='no_bigtiff',  default=False, action='store_true',
                  help='Tell GDAL to not create bigtiffs.')
     p.add_option('--sparse-disp-options', dest='sparse_disp_options',
@@ -89,17 +92,36 @@ if __name__ == '__main__':
     args=unescape_vals(args)
 
     try:
-        if ( opt.entry_point <= 0 ):
-            run('stereo_pprc', args, opt, msg = '0: Preprocessing')
-        if ( opt.entry_point <= 1 ):
+        
+        sep = ","
+        settings=run_and_parse_output( "stereo_parse", args, sep, opt.verbose )
+        num_pairs = int(settings['num_stereo_pairs'][0])
+        if num_pairs > 1 and opt.entry_point < Step.tri:
+            run_multiview(__file__, args, opt.entry_point,
+                          opt.stop_point, opt.verbose, settings)
+            sys.exit(0)
+        
+        step = Step.pprc
+        if ( opt.entry_point <= step ):
+            if ( opt.stop_point <= step ): sys.exit()
+            run('stereo_pprc', args, opt, msg='%d: Preprocessing' % step)
+        step = Step.corr
+        if ( opt.entry_point <= step ):
+            if ( opt.stop_point <= step ): sys.exit()
             if ( opt.seed_mode == 3 ):
                 run_sparse_disp(args, opt)
-            run('stereo_corr', args, opt, msg = '1: Correlation')
-        if ( opt.entry_point <= 2 ):
-            run('stereo_rfne', args, opt, msg = '2: Refinement')
-        if ( opt.entry_point <= 3 ):
-            run('stereo_fltr', args, opt, msg = '3: Filtering')
-        if ( opt.entry_point <= 4 ):
-            run('stereo_tri',  args, opt, msg = '4: Triangulation')
+            run('stereo_corr', args, opt, msg='%d: Correlation' % step)
+        step = Step.rfne
+        if ( opt.entry_point <= step ):
+            if ( opt.stop_point <= step ): sys.exit()
+            run('stereo_rfne', args, opt, msg='%d: Refinement' % step)
+        step = Step.fltr
+        if ( opt.entry_point <= step ):
+            if ( opt.stop_point <= step ): sys.exit()
+            run('stereo_fltr', args, opt, msg='%d: Filtering' % step)
+        step = Step.tri
+        if ( opt.entry_point <= step ):
+            if ( opt.stop_point <= step ): sys.exit()
+            run('stereo_tri',  args, opt, msg='%d: Triangulation' % step)
     except Exception, e:
             die(e)

@@ -34,9 +34,6 @@ os.environ["PATH"] = libexec_path + os.pathsep + os.environ["PATH"]
 
 job_pool  = [] # currently running jobs
 
-# The ids of individual stereo steps
-s_pprc = 0; s_corr = 1; s_rfne = 2; s_fltr = 3; s_tri = 4
-
 def produce_tiles( settings, tile_w, tile_h ):
     image_size = settings["trans_left_image_size"]
     tiles_nx = int(math.ceil( float(image_size[0]) / tile_w ))
@@ -239,11 +236,11 @@ def get_best_procs_threads(step, settings):
     # We assume all machines have the same number of CPUs (cores)
     num_cpus = get_num_cpus()
 
-    if step == s_corr:
+    if step == Step.corr:
         tile_size = int(settings['corr_tile_size'][0])
-    elif step == s_rfne:
+    elif step == Step.rfne:
         tile_size = int(settings['rfne_tile_size'][0])
-    elif step == s_tri:
+    elif step == Step.tri:
         tile_size = int(settings['tri_tile_size'][0])
     else:
         raise Exception('Stereo step %d must be executed on a single machine.' \
@@ -257,7 +254,7 @@ def get_best_procs_threads(step, settings):
 
     # For triangulation, we need to consider the case of ISIS cameras
     # when we must use 1 thread no matter what.
-    if step == s_tri:
+    if step == Step.tri:
         cam_info = " ".join(settings['in_file1'] + settings['in_file2'] + \
                             settings['cam_file1'] + settings['cam_file2'])
         m = re.search('\\.cub\\b', cam_info, re.IGNORECASE)
@@ -322,12 +319,7 @@ def sprawn_to_nodes(step, settings, args):
     args_str += " --tile-id {}"
     cmd += [args_str]
 
-    if opt.verbose:
-        print(" ".join(cmd))
-
-    code = subprocess.call(cmd)
-    if code != 0:
-        raise Exception('parallel_stereo call for step ' + str(start) + ' failed')
+    generic_run(cmd, opt.verbose)
 
 # Launch jobs on the current machine
 def parallel_run(bin, args, settings, tiles, **kw):
@@ -378,9 +370,9 @@ def single_run(bin, args, **kw):
     if opt.dryrun:
         print '%s' % ' '.join(call)
         return
+    if opt.verbose:
+        print '%s' % ' '.join(call)
     try:
-        if opt.verbose:
-            print '%s' % ' '.join(call)
         code = subprocess.call(call)
     except OSError, e:
         raise Exception('%s: %s' % (binpath, e))
@@ -534,8 +526,9 @@ if __name__ == '__main__':
         wipe_option(self_args, '--stop-point', 1)
 
         # Preprocessing
-        step = s_pprc
+        step = Step.pprc
         if ( opt.entry_point <= step ):
+            if ( opt.stop_point <= step ): sys.exit()
             single_run('stereo_pprc', args, msg='%d: Preprocessing' % step)
             create_subproject_dirs( settings ) # symlink L.tif, etc
             # Now the left is defined. Regather the settings
@@ -544,7 +537,7 @@ if __name__ == '__main__':
                                            opt.verbose )
 
         # Correlation. First do low-res.
-        step = s_corr
+        step = Step.corr
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ): sys.exit()
             if ( opt.seed_mode == 3 ):
@@ -564,14 +557,14 @@ if __name__ == '__main__':
             create_subproject_dirs( settings ) # symlink D.tif
 
         # Refinement
-        step = s_rfne
+        step = Step.rfne
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ): sys.exit()
             create_subproject_dirs( settings )
             sprawn_to_nodes(step, settings, self_args)
 
         # Filtering
-        step = s_fltr
+        step = Step.fltr
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ): sys.exit()
             build_vrt( settings, "-RD.tif", "-RD.tif" )
@@ -579,7 +572,7 @@ if __name__ == '__main__':
             create_subproject_dirs( settings ) # symlink F.tif
 
         # Triangulation. First compute the point cloud center.
-        step = s_tri
+        step = Step.tri
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ): sys.exit()
             l_args = args[:] # deep copy
@@ -605,13 +598,13 @@ if __name__ == '__main__':
             max_index = opt.tile_id + 1
             tiles = tiles[min_index:max_index]
 
-            if ( opt.entry_point == s_corr ):
+            if ( opt.entry_point == Step.corr ):
                 parallel_run('stereo_corr', args, settings, tiles,
                              msg='%d: Correlation' % opt.entry_point)
-            if ( opt.entry_point == s_rfne ):
+            if ( opt.entry_point == Step.rfne ):
                 parallel_run('stereo_rfne', args, settings, tiles,
                              msg='%d: Refinement' % opt.entry_point)
-            if ( opt.entry_point == s_tri ):
+            if ( opt.entry_point == Step.tri ):
                 parallel_run('stereo_tri', args, settings, tiles,
                              msg='%d: Triangulation' % opt.entry_point)
 
