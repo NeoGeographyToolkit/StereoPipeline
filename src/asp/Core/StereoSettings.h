@@ -83,6 +83,7 @@ namespace asp {
     double nodata_optimal_threshold_factor; // Pixels with values less than this factor times the optimal Otsu threshold
                                             // are treated as no-data
     bool   skip_image_normalization;        // Skip the step of normalizing the values of input images and removing nodata-pixels. Create instead symbolic links to original images.
+    bool   part_of_multiview_run;           // If the current run is part of a larger multiview run
     
     // Correlation Options
     float slogW;                      // Preprocessing filter width

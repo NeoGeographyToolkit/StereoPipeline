@@ -81,7 +81,8 @@ bool StereoSessionNadirPinhole::ip_matching(std::string const& input_file1,
   return inlier;
 }
 
-void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(std::string const& left_input_file,
+void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_image_size,
+                                                            std::string const& left_input_file,
                                                             std::string const& right_input_file,
                                                             std::string &left_output_file,
                                                             std::string &right_output_file) {
@@ -174,7 +175,8 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(std::string const& l
       align_right_matrix = math::identity_matrix<3>();
     if ( stereo_settings().alignment_method == "homography" ) {
       left_size =
-        homography_rectification( left_size, right_size, left_ip, right_ip,
+        homography_rectification( adjust_left_image_size,
+                                  left_size, right_size, left_ip, right_ip,
                                   align_left_matrix, align_right_matrix );
       vw_out() << "\t--> Aligning right image to left using matrices:\n"
                << "\t      " << align_left_matrix << "\n"

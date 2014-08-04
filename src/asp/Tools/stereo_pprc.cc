@@ -127,7 +127,7 @@ void create_sym_links(string const& left_input_file,
 
 }
 
-void stereo_preprocessing( Options& opt ) {
+void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
   
   // Normalize the images, unless the user prefers not to.
   string left_image_file, right_image_file;
@@ -136,7 +136,8 @@ void stereo_preprocessing( Options& opt ) {
     create_sym_links(opt.in_file1, opt.in_file2, opt.out_prefix,
                      left_image_file, right_image_file);
   else
-    opt.session->pre_preprocessing_hook(opt.in_file1, opt.in_file2,
+    opt.session->pre_preprocessing_hook(adjust_left_image_size,
+                                        opt.in_file1, opt.in_file2,
                                         left_image_file, right_image_file);
 
   boost::shared_ptr<DiskImageResource>
@@ -427,10 +428,16 @@ int main(int argc, char* argv[]) {
                          verbose, output_prefix, opt_vec);
     Options opt = opt_vec[0];
 
+    // We will not adjust the left image size for multiview,
+    // as then each stereo pair will have its left image of
+    // variable size, which is not desirable.
+    bool adjust_left_image_size = (opt_vec.size() == 1 &&
+                                   !stereo_settings().part_of_multiview_run);
+      
     // Internal Processes
     //---------------------------------------------------------
     vw_out() << "Using \"" << opt.stereo_default_filename << "\"\n";
-    stereo_preprocessing( opt );
+    stereo_preprocessing(adjust_left_image_size, opt );
 
     vw_out() << "\n[ " << current_posix_time_string()
              << " ] : PREPROCESSING FINISHED \n";

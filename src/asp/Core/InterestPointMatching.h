@@ -125,7 +125,8 @@ namespace asp {
   // transform is actually just a translation that sets origin to the
   // shared corner of left and right.
   vw::Vector2i
-  homography_rectification( vw::Vector2i const& left_size,
+  homography_rectification( bool adjust_left_image_size,
+                            vw::Vector2i const& left_size,
                             vw::Vector2i const& right_size,
                             std::vector<vw::ip::InterestPoint> const& left_ip,
                             std::vector<vw::ip::InterestPoint> const& right_ip,
@@ -480,8 +481,10 @@ namespace asp {
 
     std::vector<ip::InterestPoint> ip1_copy, ip2_copy;
     ip::read_binary_match_file( output_name, ip1_copy, ip2_copy );
+    bool adjust_left_image_size = true;
     Matrix<double> matrix1, matrix2;
-    homography_rectification( raster_box.size(), raster_box.size(),
+    homography_rectification( adjust_left_image_size,
+                              raster_box.size(), raster_box.size(),
                               ip1_copy, ip2_copy, matrix1, matrix2 );
     if ( sum(abs(submatrix(rough_homography,0,0,2,2) - submatrix(matrix2,0,0,2,2))) > 4 ) {
       VW_OUT( DebugMessage, "asp" ) << "Post homography has largely different scale and skew from rough fit. Post solution is " << matrix2 << "\n";

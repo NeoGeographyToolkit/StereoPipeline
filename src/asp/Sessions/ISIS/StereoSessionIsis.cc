@@ -256,7 +256,8 @@ bool asp::StereoSessionIsis::ip_matching(std::string const& input_file1,
 }
 
 void
-asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& left_input_file,
+asp::StereoSessionIsis::pre_preprocessing_hook(bool adjust_left_image_size,
+                                               std::string const& left_input_file,
                                                std::string const& right_input_file,
                                                std::string & left_output_file,
                                                std::string & right_output_file) {
@@ -332,8 +333,9 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& left_input_fil
 
     if ( stereo_settings().alignment_method == "homography" ) {
       left_size =
-        homography_rectification( left_size, right_size, left_ip, right_ip,
-                                  align_left_matrix, align_right_matrix );
+        homography_rectification(adjust_left_image_size,
+                                 left_size, right_size, left_ip, right_ip,
+                                 align_left_matrix, align_right_matrix );
       vw_out() << "\t--> Aligning right image to left using matrices:\n"
                << "\t      " << align_left_matrix << "\n"
                << "\t      " << align_right_matrix << "\n";

@@ -147,7 +147,44 @@ namespace asp {
     int num_pairs = (int)files.size() - 1;
     if (num_pairs <= 0)
       vw_throw( ArgumentErr() << "Insufficient number of images provided.\n" );
+
+    // Must signal to the children runs that they are part of a multiview run
+    if (num_pairs > 1){
+      std::string opt_str = "--part-of-multiview-run";
+      vector<string>::iterator it = find(options.begin(), options.end(), opt_str);
+      if (it == options.end()) options.push_back(opt_str);
+    }
     
+    // Multiview is very picky about alignment method
+    if ( (num_pairs > 1 || stereo_settings().part_of_multiview_run) &&
+         stereo_settings().alignment_method != "none"               &&
+        stereo_settings().alignment_method != "homography"){
+
+      std::string new_alignment;
+      if (input_dem == "")
+        new_alignment = "homography";
+      else
+        new_alignment = "none";
+      
+      vw_out(WarningMessage)
+        << "For multi-view stereo, only alignment method of none or homography "
+        << "is supported. Changing alignment method from "
+        << stereo_settings().alignment_method << " to " << new_alignment << ".\n";
+      stereo_settings().alignment_method = new_alignment;
+
+      // Set this for future runs as well
+      std::string align_opt = "--alignment-method";
+      vector<string>::iterator it = find(options.begin(), options.end(), align_opt);
+      if (it != options.end() && it + 1 != options.end()){
+        // Modify existing alignment
+        *(it+1) = new_alignment;
+      }else{
+        // Set new alignment
+        options.push_back(align_opt);
+        options.push_back(new_alignment);
+      }
+     }
+
     // Needed for stereo_parse
     if (verbose)
       vw_out() << "num_stereo_pairs," << num_pairs << std::endl;
@@ -215,22 +252,6 @@ namespace asp {
                 << "Use instead the stereo/parallel_stereo scripts with "
                 << "desired entry points.\n" );
     
-    if (num_pairs > 1 && stereo_settings().alignment_method != "none" &&
-        stereo_settings().alignment_method != "homography"){
-      if (input_dem == ""){
-        vw_out(WarningMessage)
-          << "For multi-view stereo, only alignment method of none or homography "
-          << "is supported. Changing alignment method from "
-          << stereo_settings().alignment_method << " to homography.\n";
-        stereo_settings().alignment_method = "homography";
-      }else{
-        vw_out(WarningMessage)
-          << "For multi-view stereo, only alignment method of none or homography "
-          << "is supported. Changing alignment method from "
-          << stereo_settings().alignment_method << " to none.\n";
-        stereo_settings().alignment_method = "none";
-      }
-    }
     
   }
 

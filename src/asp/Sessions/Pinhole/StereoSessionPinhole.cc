@@ -268,7 +268,8 @@ asp::StereoSessionPinhole::tx_right() const {
   return tx_type( math::identity_matrix<3>() );
 }
 
-void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& left_input_file,
+void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_size,
+                                                       std::string const& left_input_file,
                                                        std::string const& right_input_file,
                                                        std::string &left_output_file,
                                                        std::string &right_output_file) {

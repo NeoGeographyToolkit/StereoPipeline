@@ -225,7 +225,8 @@ namespace asp {
     return tx_type( tx );
   }
 
-  void StereoSessionDG::pre_preprocessing_hook(std::string const& left_input_file,
+  void StereoSessionDG::pre_preprocessing_hook(bool adjust_left_image_size,
+                                               std::string const& left_input_file,
                                                std::string const& right_input_file,
                                                std::string &left_output_file,
                                                std::string &right_output_file) {
@@ -298,7 +299,8 @@ namespace asp {
 
       if ( stereo_settings().alignment_method == "homography" ) {
         left_size =
-          homography_rectification( left_size, right_size, left_ip, right_ip,
+          homography_rectification( adjust_left_image_size,
+                                    left_size, right_size, left_ip, right_ip,
                                     align_left_matrix, align_right_matrix );
         vw_out() << "\t--> Aligning right image to left using matrices:\n"
                  << "\t      " << align_left_matrix << "\n"

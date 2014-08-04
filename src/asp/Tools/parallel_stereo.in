@@ -380,8 +380,8 @@ def single_run(bin, args, **kw):
         raise Exception('Stereo step ' + kw['msg'] + ' failed')
 
 if __name__ == '__main__':
-    usage = '''parallel_stereo [options] <Left_input_image> <Right_input_image>
-              [Left_camera_file] [Right_camera_file] <output_file_prefix> [DEM]
+    usage = '''parallel_stereo [options] <images> [<cameras>]
+                  <output_file_prefix> [DEM]
         Extensions are automaticaly added to the output files.
         Camera model arguments may be optional for some stereo
         session types (e.g. isis). Stereo parameters should be
@@ -518,6 +518,13 @@ if __name__ == '__main__':
         # copies of itself on other machines. This block will only do
         # actual work when we hit a non-multiprocess step like PPRC or
         # FLTR.
+
+        # Invoke itself for multiview if appropriate
+        num_pairs = int(settings['num_stereo_pairs'][0])
+        if num_pairs > 1 and opt.entry_point < Step.tri:
+            run_multiview(__file__, args, opt.entry_point,
+                          opt.stop_point, opt.verbose, settings)
+            sys.exit(0)
 
         # Wipe options which we will override.
         self_args = sys.argv # shallow copy

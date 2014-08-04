@@ -110,7 +110,9 @@ namespace asp {
     try {
       Matrix<double> left_matrix, right_matrix;
       BBox2i image_size = bounding_box(disparity);
-      homography_rectification( image_size.size(), image_size.size(),
+      bool adjust_left_image_size = true;
+      homography_rectification( adjust_left_image_size,
+                                image_size.size(), image_size.size(),
                                 left_ip, right_ip, left_matrix, right_matrix );
       // Undoing the shift in origin.
       right_matrix(0,2) -= left_matrix(0,2);

@@ -515,6 +515,16 @@ int main( int argc, char* argv[] ) {
     string output_prefix;
     asp::parse_multiview(argc, argv, TriangulationDescription(),
                          verbose, output_prefix, opt_vec);
+
+    // Keep only those stereo pairs for which filtered disparity exists
+    vector<Options> opt_vec_new;
+    for (int p = 0; p < (int)opt_vec.size(); p++){
+      if (fs::exists(opt_vec[p].out_prefix+"-F.tif"))
+        opt_vec_new.push_back(opt_vec[p]);
+    }
+    opt_vec = opt_vec_new;
+    if (opt_vec.empty())
+      vw_throw( ArgumentErr() << "No valid F.tif files found.\n" );
     
     // Triangulation uses small tiles.
     //---------------------------------------------------------

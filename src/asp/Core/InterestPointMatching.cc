@@ -279,7 +279,8 @@ namespace asp {
   }
 
   Vector2i
-  homography_rectification( Vector2i const& left_size,
+  homography_rectification( bool adjust_left_image_size,
+                            Vector2i const& left_size,
                             Vector2i const& right_size,
                             std::vector<ip::InterestPoint> const& left_ip,
                             std::vector<ip::InterestPoint> const& right_ip,
@@ -315,26 +316,31 @@ namespace asp {
     output_bbox.grow( Vector2i(left_size.x(),0) );
     output_bbox.grow( Vector2i(0,left_size.y()) );
     output_bbox.grow( left_size );
-    Vector3 temp = right_matrix*Vector3(0,0,1);
-    temp /= temp.z();
-    right_bbox.grow( subvector(temp,0,2) );
-    temp = right_matrix*Vector3(right_size.x(),0,1);
-    temp /= temp.z();
-    right_bbox.grow( subvector(temp,0,2) );
-    temp = right_matrix*Vector3(0,right_size.y(),1);
-    temp /= temp.z();
-    right_bbox.grow( subvector(temp,0,2) );
-    temp = right_matrix*Vector3(right_size.x(),right_size.y(),1);
-    temp /= temp.z();
-    right_bbox.grow( subvector(temp,0,2) );
-    output_bbox.crop( right_bbox );
 
-    //  Move the ideal render size to be aligned up with origin
-    left_matrix(0,2) -= output_bbox.min().x();
-    right_matrix(0,2) -= output_bbox.min().x();
-    left_matrix(1,2) -= output_bbox.min().y();
-    right_matrix(1,2) -= output_bbox.min().y();
+    if (adjust_left_image_size){
 
+      Vector3 temp = right_matrix*Vector3(0,0,1);
+      temp /= temp.z();
+      right_bbox.grow( subvector(temp,0,2) );
+      temp = right_matrix*Vector3(right_size.x(),0,1);
+      temp /= temp.z();
+      right_bbox.grow( subvector(temp,0,2) );
+      temp = right_matrix*Vector3(0,right_size.y(),1);
+      temp /= temp.z();
+      right_bbox.grow( subvector(temp,0,2) );
+      temp = right_matrix*Vector3(right_size.x(),right_size.y(),1);
+      temp /= temp.z();
+      right_bbox.grow( subvector(temp,0,2) );
+      
+      output_bbox.crop( right_bbox );
+
+      //  Move the ideal render size to be aligned up with origin
+      left_matrix(0,2) -= output_bbox.min().x();
+      right_matrix(0,2) -= output_bbox.min().x();
+      left_matrix(1,2) -= output_bbox.min().y();
+      right_matrix(1,2) -= output_bbox.min().y();
+    }
+    
     return Vector2i( output_bbox.width(), output_bbox.height() );
   }
 

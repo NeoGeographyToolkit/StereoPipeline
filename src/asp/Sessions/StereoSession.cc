@@ -192,7 +192,8 @@ namespace asp {
   }
 
   // Processing Hooks. The default is to do nothing.
-  void StereoSession::pre_preprocessing_hook(std::string const& input_file1,
+  void StereoSession::pre_preprocessing_hook(bool adjust_left_image_size,
+                                             std::string const& input_file1,
                                              std::string const& input_file2,
                                              std::string &output_file1,
                                              std::string &output_file2) {
