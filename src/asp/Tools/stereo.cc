@@ -301,7 +301,7 @@ namespace asp {
     positional_desc.add("output-prefix", 1);
     positional_desc.add("input-dem", 1);
 
-    string usage("[options] <Left_input_image> <Right_input_image> [Left_camera_file] [Right_camera_file] <output_file_prefix> [DEM]\n  Extensions are automaticaly added to the output files.\n  Camera model arguments may be optional for some stereo session types (e.g., isis).\n  Stereo parameters should be set in the stereo.default file.");
+    string usage("[options] <images> [<cameras>] <output_file_prefix> [DEM]\n  Extensions are automaticaly added to the output files.\n  Camera model arguments may be optional for some stereo session types (e.g., isis).\n  Stereo parameters should be set in the stereo.default file.");
     po::variables_map vm =
       asp::check_command_line( argc, argv, opt, general_options,
                                all_general_options, positional_options,

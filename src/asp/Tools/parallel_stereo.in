@@ -128,7 +128,6 @@ def rename_files( settings, postfix_in, postfix_out, **kw ):
         if os.path.isfile(filename_in) and not os.path.islink(filename_in):
             os.rename(filename_in, filename_out)
 
-
 def create_symlinks_for_multiview(settings, opt):
 
     # Running parallel_stereo for each pair in a mutiview run
@@ -136,7 +135,7 @@ def create_symlinks_for_multiview(settings, opt):
     # out-prefix-pair2/2-4096_4096_1629_1629/4096_4096_1629_1629-F.tif
     # To run parallel_stereo for tri, we expect this at
     # out-prefix-4096_4096_1629_1629/4096_4096_1629_1629-pair2/2-F.tif
-    # Perform this via sym links.
+    # Create the latter as a sym link.
 
     create_subproject_dirs( settings ) # symlink L.tif, etc
     

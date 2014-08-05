@@ -21,8 +21,22 @@ or a DEM using \texttt{point2mesh} (section \ref{point2mesh}) and
 
 Usage:
 \begin{verbatim}
-  ISIS 3> stereo [options] left_input_image right_input_image output_file_prefix
+  ISIS 3> stereo [options] <images> [<cameras>] output_file_prefix
 \end{verbatim}
+
+Example (for ISIS):
+\begin{verbatim}
+  stereo file1.cub file2.cub results/run
+\end{verbatim}
+For ISIS, a .cub file has both image and camera information, as such
+no separate camera files are specified.
+
+Example (for Digital Globe Earth images):
+\begin{verbatim}
+  stereo file1.tif file2.tif file1.xml file2.xml results/run
+\end{verbatim}
+
+Multiple input images are also supported (section \ref{multiview}).
 
 This tool is is primarily designed to process USGS ISIS \texttt{.cub}
 files and Digital Globe data. However, Stereo Pipeline

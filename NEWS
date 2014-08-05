@@ -1,3 +1,16 @@
+*** RELEASE 2.4.2, Upcoming! ***
+
+ - stereo and parallel_stereo
+   * Can handle multiple input images (multi-view stereo). The first
+     image is set as reference, disparities are computed from it 
+     to the other ones, and joint triangulation is performed.   
+     
+ - wv_correct:
+    * Corrects TDI of 16, 48, 56, and 64 (forward and reverse scan
+      directions) for WV01, TDI of 8 (forward only) for WV01, and TDI
+      of 16, 48, 64 (forward and reverse scan directions) for
+      WV02. Returns uncorrected images in other cases.
+
 *** RELEASE 2.4.1, 12 July, 2014 ***
 
   - Added a new tool, bundle_adjust, which uses Google's ceres-solver
