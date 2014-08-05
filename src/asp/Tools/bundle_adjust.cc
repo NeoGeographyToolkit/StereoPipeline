@@ -553,8 +553,13 @@ int main(int argc, char* argv[]) {
           rsrc2( DiskImageResource::open(image2) );
         float nodata1, nodata2;
         session->get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
-        session->ip_matching( image1, image2, nodata1, nodata2, match_filename,
-                              opt.camera_models[i].get(), opt.camera_models[j].get());
+        try{
+          // IP matching may not succeed for all pairs
+          session->ip_matching( image1, image2, nodata1, nodata2, match_filename,
+                                opt.camera_models[i].get(), opt.camera_models[j].get());
+        } catch ( const std::exception& e ) {
+          vw_out(WarningMessage) << e.what() << std::endl;
+        }
       }
     }
     
