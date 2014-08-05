@@ -17,7 +17,7 @@
 # __END_LICENSE__
 
 
-import sys, optparse, subprocess, re, os, time
+import sys, optparse, subprocess, re, os, time, glob
 import os.path as P
 
 class Step:
@@ -211,6 +211,12 @@ def run_sparse_disp(args, opt):
 
     run('sparse_disp', sparse_args, opt, msg='1: Low-res correlation with sparse_disp')
 
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError:
+        pass
+
 def get_num_cpus():
     
     import sys
@@ -240,6 +246,20 @@ def parse_corr_seed_mode(filename):
 
     return mode
 
+def get_prog_version(prog):
+    try:
+        p = subprocess.Popen([prog,"--version"], stdout=subprocess.PIPE)
+        out, err = p.communicate()
+    except:
+        raise Exception("Could not find: " + prog)
+    if p.returncode != 0:
+        raise Exception("Checking " + prog + " version caused errors")
+
+    m = re.match("^.*? ([\d\.]+)", out)
+    if not m:
+        raise Exception("Could not find " + prog + " version")
+    return m.group(1)
+
 def run_multiview(prog_name, args, entry_point, stop_point,
                   verbose, settings):
 
@@ -259,26 +279,28 @@ def run_multiview(prog_name, args, entry_point, stop_point,
     python_path = sys.executable
 
     # Run all steps but tri
-    for s in settings:
+    for s in sorted(settings.keys()):
+        
         m = re.match('multiview_command', s)
-        if m:
-            local_args = settings[s][:]
-            local_args[0] = prog_name 
-            local_entry = entry_point
-            local_stop = stop_point
-            if local_stop > Step.tri:
-                local_stop = Step.tri
-            local_args.extend(['--entry-point', str(local_entry)])
-            local_args.extend(['--stop-point', str(local_stop)])
-            if verbose:
-                local_args.extend(['--verbose'])
-            cmd = [python_path]
-            cmd = [python_path] + local_args
-            # Go on even if some of the runs fail
-            try:
-                generic_run(cmd, verbose)
-            except:
-                 pass
+        if not m: continue
+
+        local_args = settings[s][:]
+        local_args[0] = prog_name 
+        local_entry = entry_point
+        local_stop = stop_point
+        if local_stop > Step.tri:
+            local_stop = Step.tri
+        local_args.extend(['--entry-point', str(local_entry)])
+        local_args.extend(['--stop-point', str(local_stop)])
+        if verbose:
+            local_args.extend(['--verbose'])
+        cmd = [python_path]
+        cmd = [python_path] + local_args
+        # Go on even if some of the runs fail
+        try:
+            generic_run(cmd, verbose)
+        except:
+            pass
 
     # Run tri
     local_args = [prog_name]
@@ -291,4 +313,22 @@ def run_multiview(prog_name, args, entry_point, stop_point,
         local_args.extend(['--verbose'])
     cmd = [python_path] + local_args
     generic_run(cmd, verbose)
+
+    # Here we ensure that in the run directory
+    # the L.tif file is present, by sym-linking
+    # from the subdirectory of one of the pairs.
+    # It is nice to have L.tif for when we later
+    # do point2dem PC.tif --orthoimage L.tif
+
+    # The code below amounts to:
+    # ln -s out_prefix-pair1/1-L.tif out_prefix-L.tif
+    out_prefix = settings['out_prefix'][0]
+    sym_f = out_prefix + '-L.tif'
+    if not os.path.lexists(sym_f):
+        files = glob.glob(out_prefix + '-pair*/*-L.tif')
+        if len(files) > 0:
+            f = files[0]
+            run_dir = os.path.dirname(out_prefix)
+            rel_f = os.path.relpath(f, run_dir)
+            os.symlink(rel_f, sym_f)
 

@@ -188,15 +188,9 @@ void asp::log_to_file(int argc, char *argv[],
   if (out_prefix == "")
     vw::vw_throw( vw::ArgumentErr() << "Output prefix was not set.\n");
 
-  // Check that the output directory exists
-  fs::path out_prefix_path(out_prefix);
-  if (out_prefix_path.has_parent_path()) {
-    if (!fs::is_directory(out_prefix_path.parent_path())) {
-      vw::vw_throw( vw::ArgumentErr() << "Directory does not exist: "
-                    << out_prefix_path.parent_path() << "\n");
-    }
-  }
-  
+  // Create the output directory if not present
+  asp::create_out_dir(out_prefix);
+
   std::string prog_name = extract_prog_name(argv[0]);
   
   // Create the log file and open it in write mode

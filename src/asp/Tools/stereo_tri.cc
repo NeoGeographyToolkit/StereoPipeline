@@ -516,6 +516,13 @@ int main( int argc, char* argv[] ) {
     asp::parse_multiview(argc, argv, TriangulationDescription(),
                          verbose, output_prefix, opt_vec);
 
+    if (opt_vec.size() > 1){
+      // For multiview, turn on logging to file in the run directory
+      // in output_prefix, not just in individual subdirectories.
+      asp::log_to_file(argc, argv, opt_vec[0].stereo_default_filename,
+                       output_prefix);
+    }
+    
     // Keep only those stereo pairs for which filtered disparity exists
     vector<Options> opt_vec_new;
     for (int p = 0; p < (int)opt_vec.size(); p++){

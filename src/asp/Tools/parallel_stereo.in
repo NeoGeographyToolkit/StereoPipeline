@@ -16,7 +16,6 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-
 import sys, optparse, subprocess, re, os, math, time, tempfile, glob,\
        shutil, math
 import os.path as P
@@ -32,8 +31,15 @@ from stereo_utils import * # must be after the path is altered above
 # Prepend to system PATH
 os.environ["PATH"] = libexec_path + os.pathsep + os.environ["PATH"]
 
+# We will not symlink PC.tif and RD.tif which will be vrts,
+# and neither the log files
+skip_symlink_expr = '^.*?-(PC\.tif|RD\.tif|log.*?\.txt)$'
+
 job_pool  = [] # currently running jobs
 
+def tile_dir(prefix, tile):
+    return prefix + '-' + tile.name_str()
+    
 def produce_tiles( settings, tile_w, tile_h ):
     image_size = settings["trans_left_image_size"]
     tiles_nx = int(math.ceil( float(image_size[0]) / tile_w ))
@@ -93,39 +99,78 @@ def create_subproject_dirs( settings, **kw ):
     
     for tile in produce_tiles( settings, opt.job_size_w, opt.job_size_h ):
         out_prefix = settings['out_prefix'][0]
-        subproject_dir = out_prefix + tile.name_str()
+        subproject_dir = tile_dir(out_prefix, tile)
         tile_prefix = subproject_dir + "/" + tile.name_str() 
         if opt.dryrun:
             print "mkdir -p %s" % subproject_dir
             print "soft linking via %s %s" % (tile_prefix, out_prefix)
         else:
-            try:
-                os.mkdir( subproject_dir )
-            except OSError, e:
-                pass
+            mkdir_p(subproject_dir)
 
             files = glob.glob(out_prefix + '*')
             for f in files:
                 if os.path.isdir(f): continue
-                sym_f = f.replace(out_prefix, tile_prefix)
-                relative_f = os.path.relpath(f, subproject_dir)
-                if not os.path.lexists(sym_f):
-                    m1 = re.match('^.*?-(PC|RD).tif$', relative_f)
-                    m2 = re.match('^.*?-log.*?.txt$', relative_f) # skip logs
-                    if not m1 and not m2:
-                        os.symlink(relative_f, sym_f)
+                rel_src = os.path.relpath(f, subproject_dir)
+                m = re.match(skip_symlink_expr, rel_src)
+                if m: continue # won't sym link certain patterns
+                dst_f = f.replace(out_prefix, tile_prefix)
+                if os.path.lexists(dst_f): continue
+                os.symlink(rel_src, dst_f)
 
 def rename_files( settings, postfix_in, postfix_out, **kw ):
 
     # Rename tile_dir/file_in.tif to tile_dir/file2.tif
     tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h )
     for tile in tiles:
-        directory = settings['out_prefix'][0] + tile.name_str()
+        directory = tile_dir(settings['out_prefix'][0], tile)
         filename_in  = directory + "/" + tile.name_str() + postfix_in
         filename_out = directory + "/" + tile.name_str() + postfix_out
         if os.path.isfile(filename_in) and not os.path.islink(filename_in):
             os.rename(filename_in, filename_out)
-                
+
+
+def create_symlinks_for_multiview(settings, opt):
+
+    # Running parallel_stereo for each pair in a mutiview run
+    # creates files like:
+    # out-prefix-pair2/2-4096_4096_1629_1629/4096_4096_1629_1629-F.tif
+    # To run parallel_stereo for tri, we expect this at
+    # out-prefix-4096_4096_1629_1629/4096_4096_1629_1629-pair2/2-F.tif
+    # Perform this via sym links.
+
+    create_subproject_dirs( settings ) # symlink L.tif, etc
+    
+    tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h )
+    for s in sorted(settings.keys()):
+        m = re.match('multiview_command', s)
+        if not m: continue
+        local_settings=run_and_parse_output( "stereo_parse", settings[s][1:],
+                                             sep, opt.verbose )
+        local_prefix = local_settings['out_prefix'][0]
+        m = re.match('^(.*?)-pair(\d+)\/', local_prefix)
+        if not m: continue
+        base_prefix = m.group(1)
+        index = str(m.group(2))
+        for tile in tiles:
+            tile_str = tile.name_str()
+            src_pref = tile_dir(base_prefix + '-pair' + index + '/' + index, tile) + '/' + tile_str
+            dst_dir = tile_dir(base_prefix, tile) + '/' + tile_str + '-pair' + index
+            mkdir_p(dst_dir)
+
+            dst_pref = dst_dir + '/' + index
+            files = glob.glob(src_pref + '*')
+            for f in files:
+                m = re.match(skip_symlink_expr, f) 
+                if m: continue # won't sym link certain patterns
+                m = re.match('^' + src_pref + '(.*?)$', f)
+                if not m: continue
+                suff = m.group(1)
+                src_f = src_pref + suff
+                dst_f = dst_pref + suff
+                rel_src = os.path.relpath(src_f, dst_dir)
+                if os.path.lexists(dst_f): continue
+                os.symlink(rel_src, dst_f)
+    
 def build_vrt( settings, postfix, tile_postfix, **kw ):
 
     image_size = settings["trans_left_image_size"]
@@ -133,7 +178,8 @@ def build_vrt( settings, postfix, tile_postfix, **kw ):
     vrt_file = settings['out_prefix'][0]+postfix
     print("Writing: " + vrt_file)
     f = open(vrt_file,'w')
-    f.write("<VRTDataset rasterXSize=\"%i\" rasterYSize=\"%i\">\n" % (int(image_size[0]),int(image_size[1])) )
+    f.write("<VRTDataset rasterXSize=\"%i\" rasterYSize=\"%i\">\n" %
+            (int(image_size[0]),int(image_size[1])) )
 
     tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h )
 
@@ -143,7 +189,7 @@ def build_vrt( settings, postfix, tile_postfix, **kw ):
     # does not have holes.
     goodFilename = ""
     for tile in tiles:
-        directory = settings['out_prefix'][0] + tile.name_str()
+        directory = tile_dir(settings['out_prefix'][0], tile)
         filename  = directory + "/" + tile.name_str() + tile_postfix
         if os.path.isfile(filename):
             goodFilename = filename
@@ -186,7 +232,7 @@ def build_vrt( settings, postfix, tile_postfix, **kw ):
                 (data_type,b) )
 
         for tile in tiles:
-            directory = settings['out_prefix'][0] + tile.name_str()
+            directory = tile_dir(settings['out_prefix'][0], tile)
             filename  = directory + "/" + tile.name_str() + tile_postfix
 
             if not os.path.isfile(filename): filename = goodFilename
@@ -209,8 +255,8 @@ def get_num_nodes(nodes_list):
     if nodes_list is None:
         return 1 # local machine
 
-    # Count the number of nodes without repetition
-    # (need this for Pleiades).
+    # Count the number of nodes without repetition (need this for
+    # Pleiades).
     nodes = {}
     num_nodes = 0
     try:
@@ -342,8 +388,8 @@ def parallel_run(bin, args, settings, tiles, **kw):
             crop_str = crop_box.crop_str()
 
             cmd = call+crop_str
-            cmd[cmd.index( settings['out_prefix'][0] )]                  \
-                           = settings['out_prefix'][0] + tile.name_str() \
+            cmd[cmd.index( settings['out_prefix'][0] )]                \
+                           = tile_dir(settings['out_prefix'][0], tile) \
                            + "/" + tile.name_str()
             if opt.dryrun:
                 print " ".join(cmd)
@@ -459,6 +505,12 @@ if __name__ == '__main__':
         p.print_help()
         die('\nERROR: Missing input files', code=2)
 
+    # This error will never be reached for users of our packaged final
+    # product as that one bundles 'parallel' with it.
+    ver = get_prog_version('parallel')
+    if ver < '2013':
+        die("Expecting a version of GNU parallel from at least 2013.")
+
     if opt.threads_single is None:
         opt.threads_single = get_num_cpus()
 
@@ -518,13 +570,17 @@ if __name__ == '__main__':
         # copies of itself on other machines. This block will only do
         # actual work when we hit a non-multiprocess step like PPRC or
         # FLTR.
-
-        # Invoke itself for multiview if appropriate
+          
         num_pairs = int(settings['num_stereo_pairs'][0])
-        if num_pairs > 1 and opt.entry_point < Step.tri:
-            run_multiview(__file__, args, opt.entry_point,
-                          opt.stop_point, opt.verbose, settings)
-            sys.exit(0)
+        if num_pairs > 1:
+            # Invoke itself for multivew
+            if opt.entry_point < Step.tri:
+                run_multiview(__file__, args, opt.entry_point,
+                              opt.stop_point, opt.verbose, settings)
+                sys.exit(0)
+            else:
+                # We will arrive here after invoking itself for multivew
+                create_symlinks_for_multiview(settings, opt)
 
         # Wipe options which we will override.
         self_args = sys.argv # shallow copy
