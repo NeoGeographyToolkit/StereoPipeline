@@ -35,7 +35,7 @@ os.environ["PATH"] = libexec_path + os.pathsep + os.environ["PATH"]
 # and neither the log files
 skip_symlink_expr = '^.*?-(PC\.tif|RD\.tif|log.*?\.txt)$'
 
-job_pool  = [] # currently running jobs
+job_pool = [] # currently running jobs
 
 def tile_dir(prefix, tile):
     return prefix + '-' + tile.name_str()
@@ -119,7 +119,7 @@ def create_subproject_dirs( settings, **kw ):
 
 def rename_files( settings, postfix_in, postfix_out, **kw ):
 
-    # Rename tile_dir/file_in.tif to tile_dir/file2.tif
+    # Rename tile_dir/file_in.tif to tile_dir/file_out.tif
     tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h )
     for tile in tiles:
         directory = tile_dir(settings['out_prefix'][0], tile)
