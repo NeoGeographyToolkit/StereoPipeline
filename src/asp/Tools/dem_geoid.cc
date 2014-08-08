@@ -297,14 +297,14 @@ int main( int argc, char *argv[] ) {
     string datum_name = dem_georef.datum().name();
     string lname = boost::to_lower_copy(datum_name);
     string geoid_file;
-    bool is_wgs84 = false;
+    bool is_wgs84 = false, is_mola = false;
     if ( lname == "wgs_1984" || lname == "wgs 1984" || lname == "wgs1984" ||
          lname == "wgs84" || lname == "world geodetic system 1984" ){
       is_wgs84 = true;
     }else if (lname == "north_american_datum_1983"){
       geoid_file = "navd88.tif";
     }else if (lname == "d_mars"){
-      geoid_file = "mola_areoid.tif";
+      is_mola = true;
     }else if ( fabs( dem_georef.datum().semi_major_axis() - 6378137.0 ) < 500.0){
       // Guess Earth
       vw_out(WarningMessage) << "Unknown datum: " << datum_name << ". Guessing: WGS_1984.\n";
@@ -312,7 +312,7 @@ int main( int argc, char *argv[] ) {
     }else if ( fabs( dem_georef.datum().semi_major_axis() - 3396190.0) < 500.0){
       // Guess Mars
       vw_out(WarningMessage) << "Unknown datum: " << datum_name << ". Guessing: D_MARS.\n";
-      geoid_file = "mola_areoid.tif";
+      is_mola = true;
     }else{
       vw_throw( ArgumentErr() << "Cannot apply geoid adjustment to DEM relative to datum: "
                 << datum_name << "\n");
@@ -324,13 +324,16 @@ int main( int argc, char *argv[] ) {
         is_egm2008 = true;
         geoid_file = "egm2008.jp2";
       }else if (opt.geoid == "egm96" || opt.geoid == "")
-        geoid_file = "egm96-5.tif";
+        geoid_file = "egm96-5.jp2";
       else
         vw_throw( ArgumentErr() << "Unsupported value for geoid: " << opt.geoid << "\n");
     }else if (opt.geoid != "")
       vw_throw( ArgumentErr() << "The geoid value: " << opt.geoid
                 << " is applicable only for the WGS_1984 datum.\n");
-                
+
+    if (is_mola)
+      geoid_file = "mola_areoid.tif";
+      
     geoid_file = get_geoid_full_path(geoid_file);
     vw_out() << "Adjusting the DEM using the geoid: " << geoid_file << endl;
 
@@ -345,6 +348,34 @@ int main( int argc, char *argv[] ) {
     GeoReference geoid_georef;
     read_georeference(geoid_georef, geoid_rsrc);
 
+    
+    if (is_wgs84 && !is_egm2008){
+      // Convert the egm96 int16 JPEG2000-encoded geoid to float.
+      double a = 0, b = 65534, c= -108, d = 86, s = (d-c)/(b-a);
+      for (int col = 0; col < geoid_img.cols(); col++){
+        for (int row = 0; row < geoid_img.rows(); row++){
+          geoid_img(col, row) = s*(geoid_img(col, row) - a) + c;
+        }
+      }
+    }
+    
+    // The EGM2008 case is special. Then, we don't do bicubic interpolation into 
+    // geoid_img, rather, we invoke some Fortran routine, which gives more accurate results.
+    // And we scale the int16 JPEG2000-encoded geoid to float. 
+    vector<double> egm2008_grid;
+    if (is_egm2008){
+      double a = 0,  b = 65534, c = -107, d = 86, s = (d-c)/(b-a);
+      int nr = geoid_img.rows(), nc = geoid_img.cols();
+      egm2008_grid.resize(nr*nc);
+      for (int col = 0; col < nc; col++){
+        for (int row = 0; row < nr; row++){
+          double val = geoid_img(col, row);
+          val = s*(val - a) + c;
+          egm2008_grid[row + col*nr] = val; // that is, egm2008_grid(row, col) = val;
+        }
+      }
+    }
+    
     // Need to apply an extra correction if the datum radius of the geoid is different
     // than the datum radius of the DEM to correct. We do this only if the datum is
     // a sphere, such on mars, as otherwise a uniform correction won't work.
@@ -365,23 +396,6 @@ int main( int argc, char *argv[] ) {
                              << "axis lengths differ.\n";
     }
 
-    // The EGM2008 case is special. Then, we don't do bicubic interpolation into 
-    // geoid_img, rather, we invoke some Fortran routine, which gives more accurate results.
-    // And we scale the int16 JPEG2000-encoded geoid to float. 
-    vector<double> egm2008_grid;
-    if (is_egm2008){
-      double a = 0,  b = 65534, c = -107, d = 86, s = (d-c)/(b-a);
-      int nr = geoid_img.rows(), nc = geoid_img.cols();
-      egm2008_grid.resize(nr*nc);
-      for (int col = 0; col < nc; col++){
-        for (int row = 0; row < nr; row++){
-          double val = geoid_img(col, row);
-          val = s*(val - a) + c;
-          egm2008_grid[row + col*nr] = val; // that is, egm2008_grid(row, col) = val;
-        }
-      }
-    }
-    
     ImageViewRef<PixelMask<double> > geoid
       = interpolate(create_mask( pixel_cast<double>(geoid_img), geoid_nodata_val ),
                     BicubicInterpolation(), ZeroEdgeExtension());
