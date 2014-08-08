@@ -294,7 +294,6 @@ def run_multiview(prog_name, args, entry_point, stop_point,
         local_args.extend(['--stop-point', str(local_stop)])
         if verbose:
             local_args.extend(['--verbose'])
-        cmd = [python_path]
         cmd = [python_path] + local_args
         # Go on even if some of the runs fail
         try:
