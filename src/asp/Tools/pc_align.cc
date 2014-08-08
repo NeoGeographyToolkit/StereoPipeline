@@ -563,8 +563,7 @@ void read_datum(Options& opt, CsvConv& csv_conv, Datum& datum){
 }
 
 vw::Vector3 cartesian_to_geodetic_adj(vw::cartography::GeoReference const&
-                                      geo, vw::Vector3 xyz
-                                      ){
+                                      geo, vw::Vector3 xyz){
   
   // cartesian_to_geodetic() returns longitude between -180 and 180.
   // Sometimes this is 360 degrees less than what desired,
@@ -967,8 +966,8 @@ void load_csv(string const& file_name,
   if (!lonlat_box.empty()                    &&
       num_loaded_points < num_points_to_load &&
       num_loaded_points < num_total_points){
-    // We loaded too few points. Just load them all, as CSV files are not too large,
-    // we will drop extraneous points later.
+    // We loaded too few points. Just load them all, as CSV files are
+    // not too large, we will drop extraneous points later.
     load_csv_aux<T>(file_name, num_total_points, lonlat_box,
                     false, // Skip repeating same messages
                     calc_shift, shift,  
@@ -1081,7 +1080,8 @@ int64 load_pc_aux(string const& file_name,
 
   // We will randomly pick or not a point with probability load_ratio
   int64 num_total_points = point_cloud.cols()*point_cloud.rows();
-  double load_ratio = (double)num_points_to_load/std::max(1.0, (double)num_total_points);
+  double load_ratio
+    = (double)num_points_to_load/std::max(1.0, (double)num_total_points);
 
   bool shift_was_calc = false;
   int64 points_count = 0;
