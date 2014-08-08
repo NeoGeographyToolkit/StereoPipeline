@@ -83,6 +83,7 @@ endif
 if MAKE_APP_DEM_GEOID
   bin_PROGRAMS += dem_geoid
   dem_geoid_SOURCES = dem_geoid.cc
+  dem_geoid_LDFLAGS = $(PKG_GEOID_LDFLAGS) $(AM_LDFLAGS)
   dem_geoid_LDADD = $(APP_DEM_GEOID_LIBS)
 endif
 

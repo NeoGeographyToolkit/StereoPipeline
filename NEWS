@@ -1,11 +1,14 @@
 *** RELEASE 2.4.2, Upcoming! ***
 
+ - dem_geoid
+   * Support the EGM2008 geoid.
+
  - stereo and parallel_stereo
    * Can handle multiple input images (multi-view stereo). The first
      image is set as reference, disparities are computed from it 
      to the other ones, and joint triangulation is performed.   
      
- - wv_correct:
+ - wv_correct
     * Corrects TDI of 16, 48, 56, and 64 (forward and reverse scan
       directions) for WV01, TDI of 8 (forward only) for WV01, and TDI
       of 16, 48, 64 (forward and reverse scan directions) for
@@ -43,7 +46,7 @@
     * Bugfix, longitude could be off by 360 degrees.
     * Robustness to large jumps in point cloud values.
 
-  - pc_align:
+  - pc_align
     * Ability to read and write CSV files having UTM data (easting,
       northing, height above datum).
     * Read DEMs in the ISIS cube format.

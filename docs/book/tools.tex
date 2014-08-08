@@ -805,8 +805,12 @@ adjustment simply subtracts from the DEM height the geoid height
 (correcting, if need be, for differences in dimensions between the DEM
 and geoid datum ellipsoids).
 
-Two geoids and one areoid are supported. The Earth geoids are: EGM96, referenced to the WGS84 datum ellipsoid (\url{http://earth-info.nga.mil/GandG/wgs84/gravitymod/egm96/egm96.html})
-and NAVD88, referenced to the NAD83 datum ellipsoid (\url{http://www.ngs.noaa.gov/GEOID/GEOID09/}).
+Three geoids and one areoid are supported. The Earth geoids are: EGM96
+and EGM2008, relative to the WGS84 datum ellipsoid
+(\url{http://earth-info.nga.mil/GandG/wgs84/gravitymod/egm96/egm96.html},
+\url{http://earth-info.nga.mil/GandG/wgs84/gravitymod/egm2008/egm08_wgs84.html})
+and NAVD88, relative to the NAD83 datum ellipsoid
+(\url{http://www.ngs.noaa.gov/GEOID/GEOID09/}).
 
 The Mars areoid is MOLA MEGDR
 (\url{http://geo.pds.nasa.gov/missions/mgs/megdr.html}). When importing
@@ -824,11 +828,13 @@ relative to the Mars radius of 3,396,000~m.
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\texttt{-\/-help|-h} & Display the help message\\ \hline
-\texttt{-\/-nodata-value \textit{integer(=-32768)}} & The value of no-data pixels, unless specified in the DEM \\ \hline
-\texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix \\ \hline
-\texttt{-\/-double} & Output using double precision (64 bit) instead of float (32 bit)\\ \hline
-\texttt{-\/-reverse-adjustment} & Go from DEM relative to the geoid/areoid to DEM relative to the datum ellipsoid\\ \hline
+\texttt{-\/-help|-h} & Display the help message.\\ \hline
+\texttt{-\/-nodata-value \textit{integer(=-32768)}} & The value of no-data pixels, unless specified in the DEM. \\ \hline
+\texttt{-\/-geoid \textit{string}} & Specify the geoid to use for Earth WGS84 DEMs. 
+                               Options: EGM96, EGM2008. Default: EGM96. \\ \hline
+\texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix. \\ \hline
+\texttt{-\/-double} & Output using double precision (64 bit) instead of float (32 bit).\\ \hline
+\texttt{-\/-reverse-adjustment} & Go from DEM relative to the geoid/areoid to DEM relative to the datum ellipsoid.\\ \hline
 \end{longtable}
 
 \section{dg\_mosaic}
