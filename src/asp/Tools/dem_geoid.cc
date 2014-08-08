@@ -322,7 +322,7 @@ int main( int argc, char *argv[] ) {
     if (is_wgs84){
       if (opt.geoid == "egm2008"){
         is_egm2008 = true;
-        geoid_file = "egm2008.tif";
+        geoid_file = "egm2008.jp2";
       }else if (opt.geoid == "egm96" || opt.geoid == "")
         geoid_file = "egm96-5.tif";
       else
@@ -367,13 +367,17 @@ int main( int argc, char *argv[] ) {
 
     // The EGM2008 case is special. Then, we don't do bicubic interpolation into 
     // geoid_img, rather, we invoke some Fortran routine, which gives more accurate results.
+    // And we scale the int16 JPEG2000-encoded geoid to float. 
     vector<double> egm2008_grid;
     if (is_egm2008){
+      double a = 0,  b = 65534, c = -107, d = 86, s = (d-c)/(b-a);
       int nr = geoid_img.rows(), nc = geoid_img.cols();
       egm2008_grid.resize(nr*nc);
       for (int col = 0; col < nc; col++){
         for (int row = 0; row < nr; row++){
-          egm2008_grid[row + col*nr] = geoid_img(col, row); // that is, egm2008_grid(row, col);
+          double val = geoid_img(col, row);
+          val = s*(val - a) + c;
+          egm2008_grid[row + col*nr] = val; // that is, egm2008_grid(row, col) = val;
         }
       }
     }
