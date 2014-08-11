@@ -1086,7 +1086,12 @@ int64 load_pc_aux(string const& file_name,
   bool shift_was_calc = false;
   int64 points_count = 0;
   for (int j = 0; j < point_cloud.rows(); j++ ) {
+
+    if (points_count >= num_points_to_load) break;
+    
     for ( int i = 0; i < point_cloud.cols(); i++ ) {
+      
+      if (points_count >= num_points_to_load) break;
 
       double r = (double)std::rand()/(double)RAND_MAX;
       if (r > load_ratio) continue;
@@ -1109,7 +1114,6 @@ int64 load_pc_aux(string const& file_name,
       data.features(DIM, points_count) = 1;
 
       points_count++;
-      if (points_count >= num_points_to_load) break;
     }
   }
   data.features.conservativeResize(Eigen::NoChange, points_count);

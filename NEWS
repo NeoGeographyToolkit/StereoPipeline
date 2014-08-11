@@ -19,6 +19,9 @@
       of 16, 48, 64 (forward and reverse scan directions) for
       WV02. Returns uncorrected images in other cases.
 
+ - pc_align
+    * Bug fix for very large clouds.  
+ 
 *** RELEASE 2.4.1, 12 July, 2014 ***
 
   - Added a new tool, bundle_adjust, which uses Google's ceres-solver
