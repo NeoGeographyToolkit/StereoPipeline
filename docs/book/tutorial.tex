@@ -1027,12 +1027,12 @@ other \texttt{stereo} parameters can be found in section
 
 \section{Handling CCD Boundary Artifacts}
 
-Digital Globe World View images may exhibit, especially at low TDI
-\cite{digital-globe:camera}, slight subpixel artifacts which manifest
-themselves as discontinuities in the 3D terrain obtained using ASP. We
-provide a tool named \texttt{wv\_correct} which can largely correct such
-artifacts for World View-1 and World View-2 images for TDI of 16 (when
-artifacts are most pronounced). It can be invoked as follows:
+Digital Globe World View images \cite{digital-globe:camera} may exhibit
+slight subpixel artifacts which manifest themselves as discontinuities
+in the 3D terrain obtained using ASP. We provide a tool named
+\texttt{wv\_correct} which can largely correct such artifacts for World 
+View-1 and World View-2 images for most TDI. It can be invoked as
+follows:
 
 \begin{verbatim}
     > wv_correct WV02_image.ntf WV02_image.xml WV02_image_out.tif
@@ -1049,7 +1049,7 @@ using it is in Figure \ref{fig:ccd-artifact-example}.
 \centering
   \includegraphics[width=3.0in]{images/examples/ccd_before.png}
   \includegraphics[width=3.0in]{images/examples/ccd_after.png}
-\caption{Example of a hillshaded terrain obtained using stereo without (left) and with (right) CCD boundary artifact corrections applied using \texttt{wv\_correct}.}
+\caption{Example of a hill-shaded terrain obtained using stereo without (left) and with (right) CCD boundary artifact corrections applied using \texttt{wv\_correct}.}
 \label{fig:ccd-artifact-example}
 \end{figure}
 

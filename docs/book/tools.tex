@@ -1103,17 +1103,17 @@ format expected by libpointmatcher, over-riding the command-line options.\\ \hli
 An image taken by one of Digital Globe's World View satellite cameras is
 formed of several blocks as tall as the image, mosaicked from left to
 right, with each block coming from an individual CCD sensor
-\cite{digital-globe:camera}. Particularly with images at TDI 16 (see the
-above reference for the definitions), the image blocks are offset in
+\cite{digital-globe:camera}. Either due to imperfections in the camera
+or in the subsequent processing, the image blocks are offset in
 respect to each other in both row and column directions by a subpixel
 amount. These so-called {\it CCD boundary artifacts} are not visible in
-the images, but manifest themselves very strongly in the the DEMs
+the images, but manifest themselves as discontinuities in the the DEMs
 obtained with ASP.
  
 The tool named \texttt{wv\_correct} is able to significantly attenuate
 these artifacts (see Figure~\ref{fig:ccd-artifact-example} in the
 Digital Globe tutorial for an example). This tool should be used on raw
-Digital Globe images, so before calling \texttt{dg\_mosaic} and
+Digital Globe images, that is, before calling \texttt{dg\_mosaic} and
 \texttt{mapproject}. 
 
 It is important to note that both the positions of the CCD offsets and
@@ -1121,10 +1121,13 @@ the offset amounts were determined empirically, without knowledge of
 Digital Globe's mosaicking process; this explains why we are not able to
 remove these artifacts completely. 
 
-Presently, \texttt{wv\_correct} only works only when TDI is 16 (at which
-the artifacts are most pronounced). In the future we expect to expand
-the range of images the tool can correct and also improve the correction
-accuracy.
+Presently, \texttt{wv\_correct} works for WV01 images for TDI of 16, 32,
+48, 56 and 64, and for WV02 images for TDI of 16, 48, and 64 (both the
+forward and reverse scan directions for both cameras). In addition, the WV01
+TDI 8 forward scan direction is supported. These are by far the most
+often encountered TDI. We plan to extend the tool to support other TDI
+when we get more such data to be able to compute the corrections. For
+now, instead, the un-corrected images are returned by the tool.
 
 \medskip
 
