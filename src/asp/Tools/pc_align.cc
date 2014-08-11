@@ -656,18 +656,12 @@ void random_pc_subsample(int m, typename PointMatcher<T>::DataPoints& points){
 }
 
 template<typename T>
-int load_csv_aux(string const& file_name,
-                 int num_points_to_load,
-                 BBox2 const& lonlat_box,
-                 bool verbose,
-                 bool calc_shift,
-                 Vector3 & shift,
-                 GeoReference const& geo,
-                 CsvConv const& C,
-                 bool & is_lola_rdr_format,
-                 double & mean_longitude,
-                 typename PointMatcher<T>::DataPoints & data
-              ){
+int load_csv_aux(string const& file_name, int num_points_to_load,
+                 BBox2 const& lonlat_box, bool verbose,
+                 bool calc_shift, Vector3 & shift,
+                 GeoReference const& geo, CsvConv const& C,
+                 bool & is_lola_rdr_format, double & mean_longitude,
+                 typename PointMatcher<T>::DataPoints & data){
   
   validateFile(file_name);
 
@@ -691,9 +685,11 @@ int load_csv_aux(string const& file_name,
   file.clear(); file.seekg(0, ios_base::beg); // go back to start of file
 
   // We will randomly pick or not a point with probability load_ratio
-  double load_ratio = (double)num_points_to_load/std::max(1.0, (double)num_total_points);
+  double load_ratio
+    = (double)num_points_to_load/std::max(1.0, (double)num_total_points);
 
-  data.features.conservativeResize(DIM+1, std::min(num_points_to_load, num_total_points));
+  data.features.conservativeResize(DIM+1, std::min(num_points_to_load,
+                                                   num_total_points));
   data.featureLabels = form_labels<T>(DIM);
 
   char sep[] = ", \t";
@@ -745,6 +741,8 @@ int load_csv_aux(string const& file_name,
   mean_longitude = 0.0;
   line = "";
   while ( getline(file, line, '\n') ){
+    
+    if (points_count >= num_points_to_load) break;
     
     if (line.empty()) continue; // skip empty lines
     if (line[0] == '#') continue; // Skip lines starting with comments
@@ -816,7 +814,8 @@ int load_csv_aux(string const& file_name,
         lat = llh[1];
       }
       // Skip points outside the given box
-      if (!lonlat_box.empty() && !lonlat_box.contains(Vector2(lon, lat))) continue;
+      if (!lonlat_box.empty() && !lonlat_box.contains(Vector2(lon, lat)))
+        continue;
       
     }else if (!is_lola_rdr_format){
 
@@ -845,7 +844,8 @@ int load_csv_aux(string const& file_name,
       is_first_line = false;
 
       // Skip points outside the given box
-      if (!lonlat_box.empty() && !lonlat_box.contains(Vector2(lon, lat))) continue;
+      if (!lonlat_box.empty() && !lonlat_box.contains(Vector2(lon, lat)))
+        continue;
 
       Vector3 llh( lon, lat, height );
       xyz = geo.datum().geodetic_to_cartesian( llh );
@@ -896,7 +896,8 @@ int load_csv_aux(string const& file_name,
       if (is_invalid) continue;
 
       // Skip points outside the given box
-      if (!lonlat_box.empty() && !lonlat_box.contains(Vector2(lon, lat))) continue;
+      if (!lonlat_box.empty() && !lonlat_box.contains(Vector2(lon, lat)))
+        continue;
 
       Vector3 lonlatrad( lon, lat, 0 );
 
@@ -929,9 +930,6 @@ int load_csv_aux(string const& file_name,
     if (lon < -360.0 || lon > 2*360.0)
       vw_throw(ArgumentErr() << "Invalid longitude value: "
                << lon << " in " << file_name << "\n");
-
-  if (points_count >= num_points_to_load) break;
-
   }
   data.features.conservativeResize(Eigen::NoChange, points_count);
 
@@ -981,13 +979,10 @@ void load_csv(string const& file_name,
 
 // Load a DEM
 template<typename T>
-void load_dem(string const& file_name,
-              int num_points_to_load,
-              BBox2 const& lonlat_box,
-              bool calc_shift,
-              Vector3 & shift,
-              typename PointMatcher<T>::DataPoints & data
-              ){
+void load_dem(bool verbose, string const& file_name,
+              int num_points_to_load, BBox2 const& lonlat_box,
+              bool calc_shift, Vector3 & shift,
+              typename PointMatcher<T>::DataPoints & data){
 
   validateFile(file_name);
 
@@ -1010,8 +1005,10 @@ void load_dem(string const& file_name,
   if (!lonlat_box.empty()){
     pix_box.grow(dem_geo.lonlat_to_pixel(lonlat_box.min()));
     pix_box.grow(dem_geo.lonlat_to_pixel(lonlat_box.max()));
-    pix_box.grow(dem_geo.lonlat_to_pixel(Vector2(lonlat_box.min().x(), lonlat_box.max().y())));
-    pix_box.grow(dem_geo.lonlat_to_pixel(Vector2(lonlat_box.max().x(), lonlat_box.min().y())));
+    pix_box.grow(dem_geo.lonlat_to_pixel(Vector2(lonlat_box.min().x(),
+                                                 lonlat_box.max().y())));
+    pix_box.grow(dem_geo.lonlat_to_pixel(Vector2(lonlat_box.max().x(),
+                                                 lonlat_box.min().y())));
     pix_box.expand(1); // to counteract casting to int
     pix_box.crop(bounding_box(dem));
   }
@@ -1025,8 +1022,15 @@ void load_dem(string const& file_name,
   bool shift_was_calc = false;
   int points_count = 0;
 
+  TerminalProgressCallback tpc("asp", "\t--> ");
+  double inc_amount = 1.0 / double(pix_box.width() );
+  if (verbose) tpc.report_progress(0);
+  
   for (int i = pix_box.min().x(); i < pix_box.max().x(); i++ ) {
+    if (points_count >= num_points_to_load) break;
+
     for (int j = pix_box.min().y(); j < pix_box.max().y(); j++ ) {
+      if (points_count >= num_points_to_load) break;
       
       double r = (double)std::rand()/(double)RAND_MAX;
       if (r > load_ratio) continue;
@@ -1052,16 +1056,19 @@ void load_dem(string const& file_name,
       data.features(DIM, points_count) = 1;
 
       points_count++;
-      if (points_count >= num_points_to_load) break;
     }
-
+    
+    if (verbose) tpc.report_incremental_progress( inc_amount );
   }
+  if (verbose) tpc.report_finished();
+  
   data.features.conservativeResize(Eigen::NoChange, points_count);
 
 }
 
 template<typename T>
-int64 load_pc_aux(string const& file_name,
+int64 load_pc_aux(bool verbose,
+                  string const& file_name,
                   int num_points_to_load,
                   BBox2 const& lonlat_box,
                   bool calc_shift,
@@ -1085,6 +1092,11 @@ int64 load_pc_aux(string const& file_name,
 
   bool shift_was_calc = false;
   int64 points_count = 0;
+
+  TerminalProgressCallback tpc("asp", "\t--> ");
+  double inc_amount = 1.0 / double(point_cloud.rows() );
+  if (verbose) tpc.report_progress(0);
+  
   for (int j = 0; j < point_cloud.rows(); j++ ) {
 
     if (points_count >= num_points_to_load) break;
@@ -1115,23 +1127,28 @@ int64 load_pc_aux(string const& file_name,
 
       points_count++;
     }
+    if (verbose) tpc.report_incremental_progress( inc_amount );
   }
+  if (verbose) tpc.report_finished();
+
   data.features.conservativeResize(Eigen::NoChange, points_count);
   
   return num_total_points;
 }
 
 template<typename T>
-void load_pc(string const& file_name,
-                 int num_points_to_load,
-                 BBox2 const& lonlat_box,
-                 bool calc_shift,
-                 Vector3 & shift,
-                 GeoReference const& geo,
-                 typename PointMatcher<T>::DataPoints & data
-                 ){
-
-  int64 num_total_points = load_pc_aux<T>(file_name, num_points_to_load,
+void load_pc(bool verbose,
+             string const& file_name,
+             int num_points_to_load,
+             BBox2 const& lonlat_box,
+             bool calc_shift,
+             Vector3 & shift,
+             GeoReference const& geo,
+             typename PointMatcher<T>::DataPoints & data
+             ){
+  
+  int64 num_total_points = load_pc_aux<T>(verbose,
+                                          file_name, num_points_to_load,
                                           lonlat_box, calc_shift, shift,
                                           geo, data);
   
@@ -1143,7 +1160,10 @@ void load_pc(string const& file_name,
     // We loaded too few points. Try harder. Need some care here as to not run
     // out of memory.
     num_points_to_load = std::max(4*num_points_to_load, 10000000);
-    load_pc_aux<T>(file_name, num_points_to_load, lonlat_box,  
+    if (verbose)
+      vw_out() << "Too few points were loaded. Trying again." << endl;
+    load_pc_aux<T>(verbose,
+                   file_name, num_points_to_load, lonlat_box,  
                    calc_shift, shift, geo, data);
   }
   
@@ -1161,8 +1181,7 @@ void load_file(string const& file_name,
                bool & is_lola_rdr_format,
                double & mean_longitude,
                bool verbose,
-               typename PointMatcher<T>::DataPoints & data
-               ){
+               typename PointMatcher<T>::DataPoints & data){
 
   if (verbose)
     vw_out() << "Reading: " << file_name << endl;
@@ -1173,10 +1192,12 @@ void load_file(string const& file_name,
   
   string file_type = get_file_type(file_name);
   if (file_type == "DEM")
-    load_dem<T>(file_name, num_points_to_load, lonlat_box,
+    load_dem<T>(verbose,
+                file_name, num_points_to_load, lonlat_box,
                 calc_shift, shift, data);
   else if (file_type == "PC")
-    load_pc<T>(file_name, num_points_to_load, lonlat_box, calc_shift, shift,
+    load_pc<T>(verbose,
+               file_name, num_points_to_load, lonlat_box, calc_shift, shift,
                geo, data);
   else if (file_type == "CSV"){
     bool verbose = true;
