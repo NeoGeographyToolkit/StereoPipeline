@@ -71,7 +71,7 @@ namespace isis {
 
   private:
 
-    // Custom Fuctions
+    // Custom Functions
     mutable vw::Vector2 m_c_location;
     mutable vw::Vector3 m_center;
     mutable vw::Quat m_pose;

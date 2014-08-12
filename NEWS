@@ -20,7 +20,8 @@
       WV02. Returns uncorrected images in other cases.
 
  - pc_align
-    * Bug fix for very large clouds.  
+    * Fix a crash for very large clouds.  
+    * Use a progress bar when loading data.
  
 *** RELEASE 2.4.1, 12 July, 2014 ***
 
