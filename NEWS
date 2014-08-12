@@ -1,5 +1,10 @@
 *** RELEASE 2.4.2, Upcoming! ***
 
+ - ASP can perform multi-view stereo (using both the stereo and
+     parallel_stereo tools). The first image is set as reference,
+     disparities are computed from it to the other ones, and joint
+     triangulation is performed.
+
  - dem_geoid
    * Support the EGM2008 geoid. The geoid surface across all Earth
      is computed with an error of less than 1.5 cm compared to the
@@ -8,11 +13,6 @@
    * Converted the EGM geoids shipped with ASP to INT16 and JPEG2000,
      resulting in size reduction of more than 10x. 
 
- - stereo and parallel_stereo
-   * Can handle multiple input images (multi-view stereo). The first
-     image is set as reference, disparities are computed from it 
-     to the other ones, and joint triangulation is performed.   
-     
  - wv_correct
     * Corrects TDI of 16, 48, 56, and 64 (forward and reverse scan
       directions) for WV01, TDI of 8 (forward only) for WV01, and TDI
