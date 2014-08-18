@@ -109,11 +109,10 @@ void do_disparity_visualization(Options& opt) {
       get_disparity_range(subsample(crop(disk_disparity_map, roiToUse),
                                     subsample_amt > 1 ? subsample_amt : 1));
 
-  vw_out() << "\t    Horizontal - [" << opt.normalization_range.min().x()
+  vw_out() << "\t    Horizontal: [" << opt.normalization_range.min().x()
            << " " << opt.normalization_range.max().x() << "]    Vertical: ["
            << opt.normalization_range.min().y() << " "
            << opt.normalization_range.max().y() << "]\n";
-
 
   // Generate value-normalized copies of the H and V channels
   typedef typename PixelChannelType<PixelT>::type ChannelT;
