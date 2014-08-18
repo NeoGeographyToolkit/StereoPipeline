@@ -947,6 +947,8 @@ int main( int argc, char *argv[] ) {
         sw2.stop();
         vw_out(DebugMessage,"asp") << "Triangulation error range estimation time: "
                                    << sw2.elapsed_seconds() << std::endl;
+        vw_out() << "Estimated max valid triangulation error: "
+                 << estim_max_error << std::endl;
       }
     }
 
