@@ -18,7 +18,6 @@
 
 /// \file stereo_rfne.cc
 ///
-//#define USE_GRAPHICS
 
 #include <asp/Tools/stereo.h>
 #include <vw/Stereo/PreFilter.h>

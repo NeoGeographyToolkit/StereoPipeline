@@ -81,7 +81,8 @@ namespace asp {
                          boost::program_options::options_description const&
                          additional_options,
                          bool allow_unregistered, 
-                         std::vector<std::string> & unregistered);
+                         std::vector<std::string> & unregistered,
+                         std::string & usage);
 
   // Register Session types
   void stereo_register_sessions();

@@ -98,8 +98,9 @@ namespace asp {
     vector<string> files;
     bool allow_unregistered = true;
     Options opt;
+    std::string usage;
     handle_arguments(argc, argv, opt, additional_options,
-                     allow_unregistered, files);
+                     allow_unregistered, files, usage);
 
     // Store the elements in argv which are not files or output prefix.
     // Note that argv[0] is the program name.
@@ -116,7 +117,8 @@ namespace asp {
     vector<string> cameras = asp::extract_cameras( files );
 
     if (files.size() < 3)
-      vw_throw( ArgumentErr() << "Missing all of the correct input files.\n" );
+      vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n"
+                << usage );
 
     // Find the input DEM, if any
     string input_dem;
@@ -142,7 +144,8 @@ namespace asp {
                              << ". Perhaps this was not intended." << endl;
     
     if (files.size() != cameras.size() && !cameras.empty())
-      vw_throw( ArgumentErr() << "Expecting the number of images and cameras to agree.\n" );
+      vw_throw( ArgumentErr() << "Expecting the number of images and "
+                << "cameras to agree.\n" );
     
     int num_pairs = (int)files.size() - 1;
     if (num_pairs <= 0)
@@ -231,9 +234,8 @@ namespace asp {
       Options opt;
       bool allow_unregistered = false;
       vector<string> unregistered;
-      handle_arguments( largc, &largv[0], opt,
-                        additional_options,
-                        allow_unregistered, unregistered);
+      handle_arguments( largc, &largv[0], opt, additional_options,
+                        allow_unregistered, unregistered, usage);
       opt_vec.push_back(opt);
 
       if (verbose){
@@ -260,9 +262,8 @@ namespace asp {
   void handle_arguments( int argc, char *argv[], Options& opt,
                          boost::program_options::options_description const&
                          additional_options,
-                         bool allow_unregistered, 
-                         vector<string> & unregistered
-                         ) {
+                         bool allow_unregistered, vector<string> & unregistered,
+                         std::string & usage ){
 
     po::options_description general_options_sub("");
     general_options_sub.add_options()
@@ -301,20 +302,13 @@ namespace asp {
     positional_desc.add("output-prefix", 1);
     positional_desc.add("input-dem", 1);
 
-    string usage("[options] <images> [<cameras>] <output_file_prefix> [DEM]\n  Extensions are automaticaly added to the output files.\n  Camera model arguments may be optional for some stereo session types (e.g., isis).\n  Stereo parameters should be set in the stereo.default file.");
+    usage = "[options] <images> [<cameras>] <output_file_prefix> [DEM]\n  Extensions are automaticaly added to the output files.\n  Camera model arguments may be optional for some stereo session types (e.g., isis).\n  Stereo parameters should be set in the stereo.default file.";
     po::variables_map vm =
       asp::check_command_line( argc, argv, opt, general_options,
                                all_general_options, positional_options,
                                positional_desc, usage, 
                                allow_unregistered, unregistered );
 
-    // If we allow unregistered options, the logic below won't apply correctly.
-    if (allow_unregistered) return;
-      
-    if ( opt.in_file1.empty() || opt.in_file2.empty() || opt.cam_file1.empty()  )
-      vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n"
-                << usage << general_options );
-    
     // Read the config file
     try {
       po::options_description cfg_options;
@@ -335,6 +329,18 @@ namespace asp {
     }
     asp::stereo_settings().validate();
 
+    // Add the options to the usage
+    std::ostringstream os;
+    os << usage << general_options;
+    usage = os.str();
+    
+    // If we allow unregistered options, the logic below won't apply correctly.
+    if (allow_unregistered) return;
+
+    if ( opt.in_file1.empty() || opt.in_file2.empty() || opt.cam_file1.empty()  )
+      vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n"
+                << usage );
+    
     /// There are 3 valid methods of input into this application
     /// 1.) <image1> <image2> <cam1> <cam2> <prefix> <dem>
     /// 2.) <image1> <image2> <cam1> <cam2> <prefix>

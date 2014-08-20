@@ -97,6 +97,10 @@ def run_and_parse_output(cmd, args, sep, verbose, **kw ):
         raise Exception('Failed executing: ' + " ".join(call))
     data = {}
     for line in stdout.split('\n'):
+
+        # Print warning messages to stdout
+        if re.match("^Warning", line): print(line)
+            
         if sep in line:
             keywords = line.split(sep)
             for index, item in enumerate(keywords):

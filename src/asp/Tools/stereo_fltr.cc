@@ -18,8 +18,6 @@
 
 /// \file stereo_fltr.cc
 ///
-//#define USE_GRAPHICS
-
 #include <asp/Tools/stereo.h>
 #include <vw/Stereo/DisparityMap.h>
 
@@ -267,7 +265,7 @@ void stereo_filtering( Options& opt ) {
       }
       
       // This is only turned on for apollo. Blob detection doesn't
-      // work to great when tracking a whole lot of spots. HiRISE
+      // work too great when tracking a whole lot of spots. HiRISE
       // seems to keep breaking this so I've keep it turned off.
       //
       // The crash happens inside Boost Graph when dealing with

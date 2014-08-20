@@ -117,7 +117,9 @@ namespace asp {
         actual_session_type = "pinhole";
       }
       if ( boost::iends_with(boost::to_lower_copy(left_image_file), ".cub") ||
-           boost::iends_with(boost::to_lower_copy(right_image_file), ".cub") ) {
+           boost::iends_with(boost::to_lower_copy(right_image_file), ".cub") ||
+           boost::iends_with(boost::to_lower_copy(left_camera_file), ".cub") ||
+           boost::iends_with(boost::to_lower_copy(right_camera_file), ".cub") ) {
         actual_session_type = "isis";
       }
       if (boost::iends_with(boost::to_lower_copy(left_camera_file), ".xml") ||

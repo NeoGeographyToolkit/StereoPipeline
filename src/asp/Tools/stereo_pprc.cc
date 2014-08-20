@@ -18,8 +18,6 @@
 
 /// \file stereo_pprc.cc
 ///
-//#define USE_GRAPHICS
-
 #include <asp/Tools/stereo.h>
 #include <asp/Core/ThreadedEdgeMask.h>
 #include <asp/Core/InpaintView.h>
@@ -194,9 +192,7 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
     // skipped image normalization, so we are still using the original
     // input images, and the user wants to use a custom no-data value,
     // this is the time to apply it.
-    if (skip_img_norm &&
-        !isnan(stereo_settings().nodata_value)
-        ){
+    if (skip_img_norm && !isnan(stereo_settings().nodata_value)){
       left_nodata_value = stereo_settings().nodata_value;
       right_nodata_value = stereo_settings().nodata_value;
     }
@@ -232,7 +228,8 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
     }
     if ( !isnan(nodata_fraction) ){
       // Declare a fixed proportion of low-value pixels to be no-data.
-      math::CDFAccumulator< PixelGray<float> > left_cdf(1024, 1024), right_cdf(1024, 1024);
+      math::CDFAccumulator< PixelGray<float> > left_cdf(1024, 1024),
+        right_cdf(1024, 1024);
       for_each_pixel( left_image, left_cdf );
       for_each_pixel( right_image, right_cdf );
       left_threshold  = left_cdf.quantile(nodata_fraction);
@@ -307,8 +304,8 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
     DiskImageView<uint8>             testrm(rmsub);
     vw_out() << "\t--> Using cached subsampled images.\n";
   } catch (vw::Exception const& e) {
-    // Produce subsampled images, these will be used later for Auto
-    // search range. They're also a handy debug tool.
+    // Produce subsampled images, these will be used later for auto
+    // search range detection.
     double s = 1500.0;
     float sub_scale =
       sqrt(s * s / (float(left_image.cols()) * float(left_image.rows())));
@@ -333,7 +330,7 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
       sub_tile_size = vw_settings().default_tile_size();
 
     vw_out() << "\t--> Creating previews. Subsampling by " << sub_scale
-             << " by using " << sub_tile_size << " tile size and "
+             << " by using a tile of size " << sub_tile_size << " and "
              << sub_threads << " threads.\n";
 
     // Resample the images and the masks. We must use the masks when
