@@ -240,9 +240,10 @@ bool asp::StereoSessionIsis::ip_matching(std::string const& input_file1,
              ArgumentErr() << "StereoSessionISIS: Invalid left camera.\n" );
   Vector3 radii = isis_cam->target_radii();
   cartography::Datum datum("","","", (radii[0] + radii[1]) / 2, radii[2], 0);
-  
+
+  bool single_threaded_camera = true;
   bool inlier =
-    ip_matching_w_alignment( cam1, cam2,
+    ip_matching_w_alignment( single_threaded_camera, cam1, cam2,
                              image1, image2, 
                              datum, match_filename,
                              nodata1, nodata2);

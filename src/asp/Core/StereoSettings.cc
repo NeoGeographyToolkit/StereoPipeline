@@ -352,8 +352,7 @@ namespace asp {
       const po::option_description& d = *options[i];
 
         if (d.long_name().empty())
-          boost::throw_exception(
-                                 po::error("long name required for config file"));
+          boost::throw_exception(po::error("long name required for config file"));
 
         allowed_options.insert(d.long_name());
       }
@@ -368,11 +367,12 @@ namespace asp {
   }
 
   po::basic_parsed_options<char>
-  parse_asp_config_file( std::string const& filename,
+  parse_asp_config_file( bool print_warning,
+                        std::string const& filename,
                          const po::options_description& desc,
                          bool allow_unregistered ) {
     std::basic_ifstream<char> strm(filename.c_str());
-    if (!strm) {
+    if (!strm && print_warning) {
       vw_out(WarningMessage)
         << "Stereo file: " << filename << " could not be found. "
         << "Will use default settings and command line options only."

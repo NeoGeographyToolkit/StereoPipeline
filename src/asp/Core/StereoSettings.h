@@ -194,7 +194,8 @@ namespace asp {
                          bool allow_unregistered = false );
 
   boost::program_options::basic_parsed_options<char>
-  parse_asp_config_file( std::string const&,
+  parse_asp_config_file( bool print_warning,
+                         std::string const&,
                          const boost::program_options::options_description&,
                          bool allow_unregistered = false );
 

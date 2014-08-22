@@ -41,11 +41,13 @@ namespace asp {
   // threshold. The remaining 2 or then selected to be a match if
   // their distance meets the other threshold.
   class EpipolarLinePointMatcher {
+    bool m_single_threaded_camera;
     double m_threshold, m_epipolar_threshold;
     vw::cartography::Datum m_datum;
 
   public:
-    EpipolarLinePointMatcher( double threshold, double epipolar_threshold,
+    EpipolarLinePointMatcher( bool single_threaded_camera,
+                              double threshold, double epipolar_threshold,
                               vw::cartography::Datum const& datum );
 
     // This only returns the indicies
@@ -309,7 +311,8 @@ namespace asp {
   // the images that that camera data doesn't know about. (ie
   // scaling).
   template <class Image1T, class Image2T>
-  bool ip_matching( vw::camera::CameraModel* cam1,
+  bool ip_matching( bool single_threaded_camera,
+                    vw::camera::CameraModel* cam1,
                     vw::camera::CameraModel* cam2,
                     vw::ImageViewBase<Image1T> const& image1,
                     vw::ImageViewBase<Image2T> const& image2,
@@ -334,7 +337,9 @@ namespace asp {
     // Match interest points forward/backward .. constraining on epipolar line
     std::vector<size_t> forward_match, backward_match;
     vw_out() << "\t--> Matching interest points" << std::endl;
-    EpipolarLinePointMatcher matcher( 0.5, norm_2(Vector2(image1.impl().cols(),image1.impl().rows()))/20, datum );
+    EpipolarLinePointMatcher matcher(single_threaded_camera, 
+                                     0.5, norm_2(Vector2(image1.impl().cols(),
+                                                         image1.impl().rows()))/20, datum );
     vw_out() << "\t    Matching Forward" << std::endl;
     matcher( ip1, ip2, cam1, cam2, left_tx, right_tx, forward_match );
     vw_out() << "\t    Matching Backward" << std::endl;
@@ -429,7 +434,8 @@ namespace asp {
   // apply a homogrpahy to make right image like left image. This is
   // useful so that both images have similar scale and similar affine qualities.
   template <class Image1T, class Image2T>
-  bool ip_matching_w_alignment( vw::camera::CameraModel* cam1,
+  bool ip_matching_w_alignment( bool single_threaded_camera,
+                                vw::camera::CameraModel* cam1,
                                 vw::camera::CameraModel* cam2,
                                 vw::ImageViewBase<Image1T> const& image1,
                                 vw::ImageViewBase<Image2T> const& image2,
@@ -474,7 +480,8 @@ namespace asp {
     // next step. Using anything else will interpolate nodata values
     // and stop them from being masked out.
     bool inlier =
-      ip_matching( cam1, cam2, image1.impl(),
+      ip_matching( single_threaded_camera,
+                   cam1, cam2, image1.impl(),
                    crop(transform(image2.impl(), compose(tx, inverse(right_tx)),
                                   ValueEdgeExtension<typename Image2T::pixel_type>(boost::math::isnan(nodata2) ? 0 : nodata2),
                                   NearestPixelInterpolation()), raster_box),

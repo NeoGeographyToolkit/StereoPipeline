@@ -26,9 +26,11 @@ using namespace vw;
 
 namespace asp {
 
-  EpipolarLinePointMatcher::EpipolarLinePointMatcher( double threshold, double epipolar_threshold,
+  EpipolarLinePointMatcher::EpipolarLinePointMatcher( bool single_threaded_camera,
+                                                      double threshold, double epipolar_threshold,
                                                       vw::cartography::Datum const& datum ) :
-    m_threshold(threshold), m_epipolar_threshold(epipolar_threshold), m_datum(datum) {}
+    m_single_threaded_camera(single_threaded_camera), m_threshold(threshold),
+    m_epipolar_threshold(epipolar_threshold), m_datum(datum) {}
 
   Vector3 EpipolarLinePointMatcher::epipolar_line( Vector2 const& feature,
                                                    cartography::Datum const& datum,
@@ -75,6 +77,7 @@ namespace asp {
 
   class EpipolarLineMatchTask : public Task, private boost::noncopyable {
     typedef ip::InterestPointList::const_iterator IPListIter;
+    bool m_single_threaded_camera;
     math::FLANNTree<float>& m_tree;
     IPListIter m_start, m_end;
     ip::InterestPointList const& m_ip_other;
@@ -84,7 +87,8 @@ namespace asp {
     Mutex& m_camera_mutex;
     std::vector<size_t>::iterator m_output;
   public:
-    EpipolarLineMatchTask( math::FLANNTree<float>& tree,
+    EpipolarLineMatchTask( bool single_threaded_camera,
+                           math::FLANNTree<float>& tree,
                            ip::InterestPointList::const_iterator start,
                            ip::InterestPointList::const_iterator end,
                            ip::InterestPointList const& ip2,
@@ -95,6 +99,7 @@ namespace asp {
                            EpipolarLinePointMatcher const& matcher,
                            Mutex& camera_mutex,
                            std::vector<size_t>::iterator output ) :
+      m_single_threaded_camera(single_threaded_camera),
       m_tree(tree), m_start(start), m_end(end), m_ip_other(ip2),
       m_cam1(cam1), m_cam2(cam2), m_tx1(tx1), m_tx2(tx2),
       m_matcher( matcher ), m_camera_mutex(camera_mutex), m_output(output) {}
@@ -110,9 +115,12 @@ namespace asp {
         Vector3 line_eq;
 
         bool found_epipolar;
-        {
-          // Can't assume the camera is thread safe (ISIS)
+        if (m_single_threaded_camera){
+          // ISIS camera is single-threaded
           Mutex::Lock lock( m_camera_mutex );
+          line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, m_cam1, m_cam2,
+                                             found_epipolar);
+        }else{
           line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, m_cam1, m_cam2,
                                              found_epipolar);
         }
@@ -195,7 +203,8 @@ namespace asp {
       IPListIter end_it = start_it;
       std::advance( end_it, ip1_size / number_of_jobs );
       boost::shared_ptr<Task>
-        match_task( new EpipolarLineMatchTask( kd, start_it, end_it,
+        match_task( new EpipolarLineMatchTask( m_single_threaded_camera,
+                                               kd, start_it, end_it,
                                                ip2, cam1, cam2, tx1, tx2, *this,
                                                camera_mutex, output_it ) );
       matching_queue.add_task( match_task );
@@ -203,7 +212,8 @@ namespace asp {
       std::advance( output_it, ip1_size / number_of_jobs );
     }
     boost::shared_ptr<Task>
-      match_task( new EpipolarLineMatchTask( kd, start_it, ip1.end(),
+      match_task( new EpipolarLineMatchTask( m_single_threaded_camera,
+                                             kd, start_it, ip1.end(),
                                              ip2, cam1, cam2, tx1, tx2, *this,
                                              camera_mutex, output_it ) );
     matching_queue.add_task( match_task );

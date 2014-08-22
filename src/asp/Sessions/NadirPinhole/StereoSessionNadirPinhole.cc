@@ -65,10 +65,11 @@ bool StereoSessionNadirPinhole::ip_matching(std::string const& input_file1,
     vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
     return true;
   }
-  
+
   DiskImageView<float> image1( input_file1 ), image2( input_file2 );
+  bool single_threaded_camera = false;
   bool inlier =
-    ip_matching_w_alignment( cam1, cam2,
+    ip_matching_w_alignment( single_threaded_camera, cam1, cam2,
                              image1, image2, 
                              cartography::Datum("WGS84"), match_filename,
                              nodata1, nodata2);
