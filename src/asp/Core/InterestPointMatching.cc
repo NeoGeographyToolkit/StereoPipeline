@@ -33,7 +33,10 @@ namespace asp {
   Vector3 EpipolarLinePointMatcher::epipolar_line( Vector2 const& feature,
                                                    cartography::Datum const& datum,
                                                    camera::CameraModel* cam_ip,
-                                                   camera::CameraModel* cam_obj ) {
+                                                   camera::CameraModel* cam_obj,
+                                                   bool & success) {
+    success = true;
+    
     Vector3 p0 = cartography::datum_intersection( datum, cam_ip, feature );
     Vector3 p1 = p0 + 10*cam_ip->pixel_to_vector( feature );
     Vector2 ep0 = cam_obj->point_to_pixel( p0 );
@@ -44,7 +47,22 @@ namespace asp {
     matrix(0,1) = ep0.y();
     matrix(1,0) = ep1.x();
     matrix(1,1) = ep1.y();
-    return select_col(nullspace( matrix ),0);
+
+    if (matrix != matrix){
+      // Failed to intersect the datum, got back NaN values.
+      // This is a bugfix.
+      success = false;
+      return Vector3();
+    }
+    
+    Matrix<double> nsp = nullspace( matrix );
+    if (nsp.cols() <= 0 || nsp.rows() <= 0){
+      // Failed to find the nullspace
+      success = false;
+      return Vector3();
+    }
+
+    return select_col(nsp,0);
   }
 
   double EpipolarLinePointMatcher::distance_point_line( Vector3 const& line,
@@ -82,33 +100,40 @@ namespace asp {
       m_matcher( matcher ), m_camera_mutex(camera_mutex), m_output(output) {}
 
     void operator()() {
-      Vector<int> indices(10);
-      Vector<float> distances(10);
+
+      const size_t num = 10;
+      Vector<int> indices(num);
+      Vector<float> distances(num);
 
       for ( IPListIter ip = m_start; ip != m_end; ip++ ) {
         Vector2 ip_org_coord = m_tx1.reverse( Vector2( ip->x, ip->y ) );
         Vector3 line_eq;
 
-        // Can't assume the camera is thread safe (ISIS)
+        bool found_epipolar;
         {
+          // Can't assume the camera is thread safe (ISIS)
           Mutex::Lock lock( m_camera_mutex );
-          line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, m_cam1, m_cam2 );
+          line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, m_cam1, m_cam2,
+                                             found_epipolar);
         }
-
+        
         std::vector<std::pair<float,int> > kept_indices;
-        kept_indices.reserve(10);
-        m_tree.knn_search( ip->descriptor, indices, distances, 10 );
-
-        for ( size_t i = 0; i < 10; i++ ) {
+        kept_indices.reserve(num);
+        m_tree.knn_search( ip->descriptor, indices, distances, num );
+        
+        for ( size_t i = 0; i < num; i++ ) {
           IPListIter ip2_it = m_ip_other.begin();
           std::advance( ip2_it, indices[i] );
-          Vector2 ip2_org_coord = m_tx2.reverse( Vector2( ip2_it->x, ip2_it->y ) );
-          double distance = m_matcher.distance_point_line( line_eq, ip2_org_coord );
-          if ( distance < m_matcher.m_epipolar_threshold ) {
-            kept_indices.push_back( std::pair<float,int>( distances[i], indices[i] ) );
+          
+          if (found_epipolar){
+            Vector2 ip2_org_coord = m_tx2.reverse( Vector2( ip2_it->x, ip2_it->y ) );
+            double distance = m_matcher.distance_point_line( line_eq, ip2_org_coord );
+            if ( distance < m_matcher.m_epipolar_threshold ) {
+              kept_indices.push_back( std::pair<float,int>( distances[i], indices[i] ) );
+            }
           }
         }
-
+        
         if ( ( kept_indices.size() > 2 &&
                kept_indices[0].first < m_matcher.m_threshold * kept_indices[1].first ) ||
              kept_indices.size() == 1 ){

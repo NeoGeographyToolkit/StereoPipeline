@@ -62,7 +62,8 @@ namespace asp {
     static vw::Vector3 epipolar_line( vw::Vector2 const& feature,
                                       vw::cartography::Datum const& datum,
                                       vw::camera::CameraModel* cam_ip,
-                                      vw::camera::CameraModel* cam_obj );
+                                      vw::camera::CameraModel* cam_obj,
+                                      bool & success);
 
     // Calculate distance between a line of equation ax + by + c = 0
     static double distance_point_line( vw::Vector3 const& line,
@@ -338,7 +339,7 @@ namespace asp {
     matcher( ip1, ip2, cam1, cam2, left_tx, right_tx, forward_match );
     vw_out() << "\t    Matching Backward" << std::endl;
     matcher( ip2, ip1, cam2, cam1, right_tx, left_tx, backward_match );
-
+    
     // Perform circle consistency check
     size_t valid_count = 0;
     const size_t NULL_INDEX = (size_t)(-1);
