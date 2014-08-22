@@ -350,7 +350,7 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
     vw::vw_throw( vw::ArgumentErr() << ostr.str() );
   }
   
-  if ( opt.num_threads != 0 ) {
+  if ( opt.num_threads != 0 && allow_unregistered) {
     vw::vw_out() << "\t--> Setting number of processing threads to: "
                  << opt.num_threads << std::endl;
     vw::vw_settings().set_default_num_threads(opt.num_threads);

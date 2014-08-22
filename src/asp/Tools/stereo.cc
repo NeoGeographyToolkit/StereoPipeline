@@ -320,7 +320,8 @@ namespace asp {
 
       // Append the options from the config file. Do not overwrite the
       // options already set on the command line.
-      po::store(parse_asp_config_file(opt.stereo_default_filename,
+      po::store(parse_asp_config_file(allow_unregistered,
+                                      opt.stereo_default_filename,
                                       cfg_options), vm);
       po::notify( vm );
     } catch ( po::error const& e ) {
