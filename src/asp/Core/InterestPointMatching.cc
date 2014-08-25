@@ -40,6 +40,13 @@ namespace asp {
     success = true;
     
     Vector3 p0 = cartography::datum_intersection( datum, cam_ip, feature );
+
+    if (p0 == Vector3()){
+      // No intersection
+      success = false;
+      return Vector3();
+    }
+    
     Vector3 p1 = p0 + 10*cam_ip->pixel_to_vector( feature );
     Vector2 ep0 = cam_obj->point_to_pixel( p0 );
     Vector2 ep1 = cam_obj->point_to_pixel( p1 );
@@ -51,8 +58,7 @@ namespace asp {
     matrix(1,1) = ep1.y();
 
     if (matrix != matrix){
-      // Failed to intersect the datum, got back NaN values.
-      // This is a bugfix.
+      // Got back NaN values. Can't proceed.
       success = false;
       return Vector3();
     }
