@@ -5,6 +5,13 @@
      disparities are computed from it to the other ones, and joint
      triangulation is performed.
 
+ - stereo
+   * Fix a crash in interest point matching for a planetoid flyby
+     testcase.
+
+ - bundle_adjust
+   * Use multiple-threads for non-ISIS sessions.
+
  - dem_geoid
    * Support the EGM2008 geoid. The geoid surface across all Earth
      is computed with an error of less than 1.5 cm compared to the

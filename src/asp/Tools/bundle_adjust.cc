@@ -283,7 +283,12 @@ void do_ba_ceres(ModelT & ba_model, Options const& opt ){
 
   options.max_num_iterations = opt.max_iterations;
   options.minimizer_progress_to_stdout = (opt.report_level >= vw::ba::ReportFile);
-  options.num_threads = 1; //FLAGS_num_threads;
+
+  if (opt.stereo_session_string == "isis")
+    options.num_threads = 1;
+  else
+    options.num_threads = opt.num_threads;
+  
   options.linear_solver_type = ceres::SPARSE_SCHUR;
   //options.ordering_type = ceres::SCHUR;
   //options.eta = 1e-3; // FLAGS_eta;
