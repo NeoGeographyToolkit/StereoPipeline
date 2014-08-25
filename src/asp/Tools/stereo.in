@@ -98,7 +98,8 @@ if __name__ == '__main__':
         # Invoke itself for multiview if appropriate
         num_pairs = int(settings['num_stereo_pairs'][0])
         if num_pairs > 1 and opt.entry_point < Step.tri:
-            run_multiview(__file__, args, opt.entry_point,
+            extra_args = []
+            run_multiview(__file__, args, extra_args, opt.entry_point,
                           opt.stop_point, opt.verbose, settings)
             sys.exit(0)
         

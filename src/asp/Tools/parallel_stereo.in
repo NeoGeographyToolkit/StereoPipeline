@@ -568,23 +568,37 @@ if __name__ == '__main__':
         # copies of itself on other machines. This block will only do
         # actual work when we hit a non-multiprocess step like PPRC or
         # FLTR.
-          
-        num_pairs = int(settings['num_stereo_pairs'][0])
-        if num_pairs > 1:
-            # Invoke itself for multivew
-            if opt.entry_point < Step.tri:
-                run_multiview(__file__, args, opt.entry_point,
-                              opt.stop_point, opt.verbose, settings)
-                sys.exit(0)
-            else:
-                # We will arrive here after invoking itself for multivew
-                create_symlinks_for_multiview(settings, opt)
 
         # Wipe options which we will override.
         self_args = sys.argv # shallow copy
         wipe_option(self_args, '-e', 1)
         wipe_option(self_args, '--entry-point', 1)
         wipe_option(self_args, '--stop-point', 1)
+
+        num_pairs = int(settings['num_stereo_pairs'][0])
+        if num_pairs > 1:
+
+            # Bugfix: avoid confusing the logic below
+            wipe_option(self_args, '-s', 1)
+            self_args.extend(['--stereo-file', opt.filename])
+
+            # Find the options used by parallel_stereo which are not
+            # passed to the stereo executables.
+            extra_args = []
+            for arg in self_args[1:]:
+                if arg not in args: extra_args.append(arg)
+
+            # Invoke itself for multivew
+            if opt.entry_point < Step.tri:
+                run_multiview(__file__, args, extra_args, opt.entry_point,
+                              opt.stop_point, opt.verbose, settings)
+                # Everything is done.
+                sys.exit(0)
+            else:
+                # We will arrive here after this script invokes itself
+                # for multivew.  Set up the directories and run
+                # Step.tri.
+                create_symlinks_for_multiview(settings, opt)
 
         # Preprocessing
         step = Step.pprc
