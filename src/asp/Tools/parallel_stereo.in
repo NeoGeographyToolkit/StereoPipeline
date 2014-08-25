@@ -499,6 +499,7 @@ if __name__ == '__main__':
 
     global opt
     (opt, args) = p.parse_args()
+    args=unescape_vals(args) # to do: somehow, merge into the above call
 
     if not args and not opt.version:
         p.print_help()
@@ -553,8 +554,6 @@ if __name__ == '__main__':
 
     if opt.version:
         args.append('-v')
-
-    args=unescape_vals(args)
 
     args_sub = args[:] # deep copy
     args_sub.extend(['--compute-low-res-disparity-only'])
