@@ -458,7 +458,7 @@ namespace asp {
 
     // Local homography needs D_sub
     if ( stereo_settings().seed_mode == 0 &&
-         stereo_settings().use_local_homography ){
+         stereo_settings().corr_mode == 1 ) {
       vw_throw( ArgumentErr() << "Cannot use local homography without "
                 << "computing low-resolution disparity.\n");
     }

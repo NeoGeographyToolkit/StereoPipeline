@@ -19,16 +19,17 @@
 /// \file stereo_corr.cc
 ///
 
+#include <asp/Core/DemDisparity.h>
+#include <asp/Core/LocalHomography.h>
+#include <asp/Core/MappingPyramidCorrelationView.h>
 #include <asp/Tools/stereo.h>
-#include <vw/InterestPoint.h>
 #include <boost/accumulators/accumulators.hpp>
 #include <boost/accumulators/statistics.hpp>
-#include <vw/Stereo/PreFilter.h>
+#include <vw/InterestPoint.h>
 #include <vw/Stereo/CorrelationView.h>
 #include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/DisparityMap.h>
-#include <asp/Core/DemDisparity.h>
-#include <asp/Core/LocalHomography.h>
+#include <vw/Stereo/PreFilter.h>
 
 using namespace vw;
 using namespace vw::stereo;
@@ -91,7 +92,7 @@ void produce_lowres_disparity( Options & opt ) {
         ), opt,
        TerminalProgressCallback("asp", "\t--> Low-resolution disparity:")
        );
-    
+
   }else if ( stereo_settings().seed_mode == 2 ) {
     // Use a DEM to get the low-res disparity
     boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
@@ -205,7 +206,7 @@ void lowres_correlation( Options & opt ) {
   }
 
   // Create the local homographies based on D_sub
-  if (stereo_settings().seed_mode > 0 && stereo_settings().use_local_homography){
+  if (stereo_settings().seed_mode > 0 && stereo_settings().corr_mode == 1){
     string local_hom_file = opt.out_prefix + "-local_hom.txt";
     try {
       ImageView<Matrix3x3> local_hom;
@@ -299,8 +300,8 @@ public:
     CropView<ImageView<pixel_type> > disparity = prerasterize_helper(bbox);
 
     // Set to invalid the disparity outside m_trans_crop_win.
-    for (int col = bbox.min().x(); col < bbox.max().x(); col++){
-      for (int row = bbox.min().y(); row < bbox.max().y(); row++){
+    for (int row = bbox.min().y(); row < bbox.max().y(); row++){
+      for (int col = bbox.min().x(); col < bbox.max().x(); col++){
         if (!m_trans_crop_win.contains(Vector2(col, row))){
           disparity(col, row) = pixel_type();
         }
@@ -312,7 +313,7 @@ public:
 
   inline prerasterize_type prerasterize_helper(BBox2i const& bbox) const {
 
-    bool use_local_homography = stereo_settings().use_local_homography;
+    bool use_local_homography = (stereo_settings().corr_mode == 1);
 
     Matrix<double> lowres_hom  = math::identity_matrix<3>();
     Matrix<double> fullres_hom = math::identity_matrix<3>();
@@ -417,26 +418,33 @@ public:
                                     << stereo_settings().search_range << "\n";
     }
 
-    if (use_local_homography){
-      typedef stereo::PyramidCorrelationView<Image1T, ImageViewRef<typename Image2T::pixel_type>, Mask1T,ImageViewRef<typename Mask2T::pixel_type>, PProcT> CorrView;
-      CorrView corr_view( m_left_image,   right_trans_img,
-                          m_left_mask,    right_trans_mask,
-                          m_preproc_func, local_search_range,
-                          m_kernel_size,  m_cost_mode,
-                          m_corr_timeout, m_seconds_per_op,
-                          stereo_settings().xcorr_threshold,
-                          stereo_settings().corr_max_levels );
-      return corr_view.prerasterize(bbox);
-    }else{
-      typedef stereo::PyramidCorrelationView<Image1T, Image2T, Mask1T, Mask2T, PProcT> CorrView;
-      CorrView corr_view( m_left_image,   m_right_image,
-                          m_left_mask,    m_right_mask,
-                          m_preproc_func, local_search_range,
-                          m_kernel_size,  m_cost_mode,
-                          m_corr_timeout, m_seconds_per_op,
-                          stereo_settings().xcorr_threshold,
-                          stereo_settings().corr_max_levels );
-      return corr_view.prerasterize(bbox);
+    if (stereo_settings().corr_mode == 0) {
+      return stereo::pyramid_correlate
+        ( m_left_image,   m_right_image,
+          m_left_mask,    m_right_mask,
+          m_preproc_func, local_search_range,
+          m_kernel_size,  m_cost_mode,
+          m_corr_timeout, m_seconds_per_op,
+          stereo_settings().xcorr_threshold,
+          stereo_settings().corr_max_levels ).prerasterize(bbox);
+    } else if (stereo_settings().corr_mode == 1) {
+      return stereo::pyramid_correlate
+        ( m_left_image,   right_trans_img,
+          m_left_mask,    right_trans_mask,
+          m_preproc_func, local_search_range,
+          m_kernel_size,  m_cost_mode,
+          m_corr_timeout, m_seconds_per_op,
+          stereo_settings().xcorr_threshold,
+          stereo_settings().corr_max_levels ).prerasterize(bbox);
+    } else if (stereo_settings().corr_mode == 2) {
+      return asp::mapping_pyramid_correlate
+        ( m_left_image,   m_right_image,
+          m_left_mask,    m_right_mask,
+          m_preproc_func, local_search_range,
+          m_kernel_size,  m_cost_mode,
+          stereo_settings().xcorr_threshold ).prerasterize(bbox);
+    } else {
+      vw_throw(ArgumentErr() << "\nIncorrect value for 'corr-mode' option.");
     }
   }
 
@@ -518,7 +526,7 @@ void stereo_correlation( Options& opt ) {
   }
 
   ImageView<Matrix3x3> local_hom;
-  if ( stereo_settings().seed_mode > 0 && stereo_settings().use_local_homography ){
+  if ( stereo_settings().seed_mode > 0 && stereo_settings().corr_mode == 1){
     string local_hom_file = opt.out_prefix + "-local_hom.txt";
     read_local_homographies(local_hom_file, local_hom);
   }

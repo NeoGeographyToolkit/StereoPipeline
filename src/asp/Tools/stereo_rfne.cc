@@ -19,13 +19,13 @@
 /// \file stereo_rfne.cc
 ///
 
-#include <asp/Tools/stereo.h>
-#include <vw/Stereo/PreFilter.h>
-#include <vw/Stereo/CostFunctions.h>
-#include <vw/Stereo/SubpixelView.h>
-#include <vw/Stereo/EMSubpixelCorrelatorView.h>
 #include <asp/Core/LocalHomography.h>
+#include <asp/Tools/stereo.h>
+#include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/DisparityMap.h>
+#include <vw/Stereo/EMSubpixelCorrelatorView.h>
+#include <vw/Stereo/PreFilter.h>
+#include <vw/Stereo/SubpixelView.h>
 
 using namespace vw;
 using namespace vw::stereo;
@@ -239,7 +239,7 @@ public:
 
     ImageView<pixel_type> tile_disparity;
     bool verbose = false;
-    if (stereo_settings().seed_mode > 0 && stereo_settings().use_local_homography){
+    if (stereo_settings().seed_mode > 0 && stereo_settings().corr_mode == 1){
 
       int ts = Options::corr_tile_size();
       Matrix<double>  lowres_hom
@@ -329,7 +329,7 @@ void stereo_refinement( Options const& opt ) {
     right_mask   = DiskImageView<uint8>(right_mask_file);
     integer_disp = DiskImageView< PixelMask<Vector2i> >(opt.out_prefix + "-D.tif");
     if ( stereo_settings().seed_mode > 0 &&
-         stereo_settings().use_local_homography ){
+         stereo_settings().corr_mode == 1 ){
       sub_disp = DiskImageView<PixelMask<Vector2i> >(opt.out_prefix+"-D_sub.tif");
 
       string local_hom_file = opt.out_prefix + "-local_hom.txt";
@@ -348,7 +348,7 @@ void stereo_refinement( Options const& opt ) {
       = copy_mask(left_image, create_mask(left_mask));
     ImageViewRef< PixelMask< PixelGray<float> > > Rimg
       = copy_mask(right_image, create_mask(right_mask));
-    
+
     Vector<float32> left_stats, right_stats;
     string left_stats_file  = opt.out_prefix+"-lStats.tif";
     string right_stats_file  = opt.out_prefix+"-rStats.tif";
