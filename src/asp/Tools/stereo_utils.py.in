@@ -213,7 +213,8 @@ def run_sparse_disp(args, opt):
         if num_threads > 0:
             sparse_args += ['--processes', str(num_threads)]
 
-    run('sparse_disp', sparse_args, opt, msg='1: Low-res correlation with sparse_disp')
+    run('sparse_disp', sparse_args, opt,
+        msg='%d: Low-res correlation with sparse_disp' % Step.corr)
 
 def mkdir_p(path):
     try:
