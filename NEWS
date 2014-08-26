@@ -6,7 +6,7 @@
      triangulation is performed.
 
  - stereo
-   * Fix a crash in interest point matching for a planetoid flyby
+   * Fix a crash in interest point matching for a small body flyby
      testcase.
 
  - bundle_adjust
