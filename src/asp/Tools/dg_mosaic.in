@@ -228,7 +228,7 @@ def find_combined_box(A, B):
     return get_corners(A, B, max_indices)
 
 
-def adjust_camera_corners(BAND_P, all_ll_corners):
+def adjust_camera_corners(BAND, all_ll_corners):
 
     # The lon-lat box for the combined camera is the union of the
     # lon-lat boxes for all the cameras.
@@ -237,29 +237,43 @@ def adjust_camera_corners(BAND_P, all_ll_corners):
     # them.
     wipe_tags = set(["ULHAE", "URHAE","LRHAE","LLHAE"]);
     tags = []
-    for i in range(len(BAND_P)):
-        tag = BAND_P[i].tag
+    for i in range(len(BAND)):
+        tag = BAND[i].tag
         tags.append(tag)
     for tag in tags:
         if tag in wipe_tags:
-            BAND_P.remove( BAND_P.find (tag) )
+            BAND.remove( BAND.find (tag) )
 
+    if len(all_ll_corners) == 0: return # no data
+    
     # Each camera is a rectangle. Find the rough bounding box of all rectangles.
     out_corners = []
     for corner_vec in all_ll_corners:
         out_corners = find_combined_box(out_corners, corner_vec)
 
-    BAND_P.find("ULLON").text = str(out_corners[0][0])
-    BAND_P.find("ULLAT").text = str(out_corners[0][1])
+    BAND.find("ULLON").text = str(out_corners[0][0])
+    BAND.find("ULLAT").text = str(out_corners[0][1])
 
-    BAND_P.find("URLON").text = str(out_corners[1][0])
-    BAND_P.find("URLAT").text = str(out_corners[1][1])
+    BAND.find("URLON").text = str(out_corners[1][0])
+    BAND.find("URLAT").text = str(out_corners[1][1])
 
-    BAND_P.find("LRLON").text = str(out_corners[2][0])
-    BAND_P.find("LRLAT").text = str(out_corners[2][1])
+    BAND.find("LRLON").text = str(out_corners[2][0])
+    BAND.find("LRLAT").text = str(out_corners[2][1])
 
-    BAND_P.find("LLLON").text = str(out_corners[3][0])
-    BAND_P.find("LLLAT").text = str(out_corners[3][1])
+    BAND.find("LLLON").text = str(out_corners[3][0])
+    BAND.find("LLLAT").text = str(out_corners[3][1])
+
+def find_band(node):
+    if node.find("BAND_P") is not None:
+        # Panchromatic
+        BAND = node.find("BAND_P")
+    elif node.find("BAND_B") is not None:
+        # Multispectral
+        BAND = node.find("BAND_B")
+    else:
+        raise Exception('InputError', "Could not find either "
+                        + "BAND_P or BAND_B tags in the XML files.")
+    return BAND
 
 # Provide the image files that make up the composite. We assume the XML
 # files are in the same directory and end with extension ".xml" or ".XML".
@@ -306,33 +320,35 @@ def read_xml( filename, options):
     htbox = BBox()
     ll_corners = []
 
+    BAND = find_band(IMD)
+        
     # The longitude-latitude box. Note: Later when we create
     # the adjusted box we will traverse the corners in
     # exactly the same order as here, so this and that
     # code blocks must be kept consistent.
     try:
-        ullon = float(IMD.find("BAND_P").find("ULLON").text)
-        ullat = float(IMD.find("BAND_P").find("ULLAT").text)
+        ullon = float(BAND.find("ULLON").text)
+        ullat = float(BAND.find("ULLAT").text)
         llbox.add_point([ullon, ullat])
         ll_corners.append([ullon, ullat])
 
-        urlon = float(IMD.find("BAND_P").find("URLON").text)
-        urlat = float(IMD.find("BAND_P").find("URLAT").text)
+        urlon = float(BAND.find("URLON").text)
+        urlat = float(BAND.find("URLAT").text)
         llbox.add_point([urlon, urlat])
         ll_corners.append([urlon, urlat])
 
-        lrlon = float(IMD.find("BAND_P").find("LRLON").text)
-        lrlat = float(IMD.find("BAND_P").find("LRLAT").text)
+        lrlon = float(BAND.find("LRLON").text)
+        lrlat = float(BAND.find("LRLAT").text)
         llbox.add_point([lrlon, lrlat])
         ll_corners.append([lrlon, lrlat])
 
-        lllon = float(IMD.find("BAND_P").find("LLLON").text)
-        lllat = float(IMD.find("BAND_P").find("LLLAT").text)
+        lllon = float(BAND.find("LLLON").text)
+        lllat = float(BAND.find("LLLAT").text)
         llbox.add_point([lllon, lllat])
         ll_corners.append([lllon, lllat])
     except Exception, e:
-        raise Exception('InputError', "File " + filename
-                        + " lacks longitude/latitude information.")
+        print("Warning: File " + filename
+              + " lacks longitude/latitude information.")
 
     if not options.skip_rpc_gen:
         # The height range, [ht_min, ht_max]. We store it as a 2D box
@@ -347,7 +363,8 @@ def read_xml( filename, options):
             raise Exception('InputError', "File " + filename
                             + " lacks RPC model information.")
 
-    DET_ARRAY = GEO.find("DETECTOR_MOUNTING").find("BAND_P").find("DETECTOR_ARRAY")
+    BAND      = find_band(GEO.find("DETECTOR_MOUNTING"))
+    DET_ARRAY = BAND.find("DETECTOR_ARRAY")
     pitch     = float(DET_ARRAY.find("DETPITCH").text)
     originx   = DET_ARRAY.find("DETORIGINX").text
     pd        = GEO.find("PRINCIPAL_DISTANCE").find("PD").text
@@ -482,8 +499,8 @@ def main():
                 '--output-prefix option', code=2)
         out_dir=os.path.dirname(options.output_prefix)
         if len(out_dir)==0: out_dir='.'
-        if not os.path.exists(out_dir): os.mkdir(out_dir)
-
+        if not os.path.exists(out_dir): os.makedirs(out_dir)
+        
         # Do a couple of passes at parsing the xml files and
         # extracting and combining the data. At the second pass, the
         # files (stored in args) and all other data will be in the
@@ -628,7 +645,8 @@ def main():
 
         if not options.skip_rpc_gen:
             # Find the best-fitting RPC coefficients.
-            temp_xml_file = tempfile.NamedTemporaryFile(suffix = ".xml", dir = ".");
+            temp_xml_file = tempfile.NamedTemporaryFile(suffix = ".xml",
+                                                        dir = out_dir)
             tree.write(temp_xml_file.name)
             rpc_cmd = "rpc_gen"
             rpc_args = ['--penalty-weight', str(options.penalty_weight),
@@ -672,8 +690,7 @@ def main():
         if root.find("TIL")   != None: root.remove( root.find("TIL") )
 
         # Adjust image corners
-        if imd.find("BAND_P") != None:
-            adjust_camera_corners(imd.find("BAND_P"), all_ll_corners)
+        adjust_camera_corners(find_band(imd), all_ll_corners)
 
         # Adjust avg gsd tags and wipe other tags
         set_or_wipe_image_tags(root.find("IMD").find("IMAGE"),
@@ -697,7 +714,8 @@ def main():
         scale_xml_element(image.find("AVGLINERATE"), scale)
         scale_xml_element(image.find("EXPOSUREDURATION"), 1.0/scale)
         # Update Detector Pitch
-        pitch = root.find("GEO").find("DETECTOR_MOUNTING").find("BAND_P").find("DETECTOR_ARRAY").find("DETPITCH")
+        BAND = find_band(root.find("GEO").find("DETECTOR_MOUNTING"))
+        pitch = BAND.find("DETECTOR_ARRAY").find("DETPITCH")
         scale_xml_element(pitch, 1.0/scale)
         # Scale the RPC model
         if not options.skip_rpc_gen:
