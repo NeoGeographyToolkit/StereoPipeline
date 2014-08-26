@@ -263,17 +263,21 @@ def adjust_camera_corners(BAND, all_ll_corners):
     BAND.find("LLLON").text = str(out_corners[3][0])
     BAND.find("LLLAT").text = str(out_corners[3][1])
 
-def find_band(node):
-    if node.find("BAND_P") is not None:
-        # Panchromatic
-        BAND = node.find("BAND_P")
-    elif node.find("BAND_B") is not None:
-        # Multispectral
-        BAND = node.find("BAND_B")
-    else:
-        raise Exception('InputError', "Could not find either "
-                        + "BAND_P or BAND_B tags in the XML files.")
-    return BAND
+def find_bands(node):
+
+    # Extract the bands at the current node. Usually we have
+    # panchromatic data, that corresponds to BAND_P. The
+    # other ones are for multispectral data.
+    bands = []
+    for b in ["BAND_P", "BAND_B", "BAND_G", "BAND_R", "BAND_N"]:
+        p = node.find(b)
+        if p is not None:
+            bands.append(p)
+
+    if len(bands) == 0:
+        raise Exception('InputError', "XML files lack information on bands.")
+
+    return bands
 
 # Provide the image files that make up the composite. We assume the XML
 # files are in the same directory and end with extension ".xml" or ".XML".
@@ -320,36 +324,44 @@ def read_xml( filename, options):
     htbox = BBox()
     ll_corners = []
 
-    BAND = find_band(IMD)
+    for band in find_bands(IMD):
         
-    # The longitude-latitude box. Note: Later when we create
-    # the adjusted box we will traverse the corners in
-    # exactly the same order as here, so this and that
-    # code blocks must be kept consistent.
-    try:
-        ullon = float(BAND.find("ULLON").text)
-        ullat = float(BAND.find("ULLAT").text)
-        llbox.add_point([ullon, ullat])
-        ll_corners.append([ullon, ullat])
-
-        urlon = float(BAND.find("URLON").text)
-        urlat = float(BAND.find("URLAT").text)
-        llbox.add_point([urlon, urlat])
-        ll_corners.append([urlon, urlat])
-
-        lrlon = float(BAND.find("LRLON").text)
-        lrlat = float(BAND.find("LRLAT").text)
-        llbox.add_point([lrlon, lrlat])
-        ll_corners.append([lrlon, lrlat])
-
-        lllon = float(BAND.find("LLLON").text)
-        lllat = float(BAND.find("LLLAT").text)
-        llbox.add_point([lllon, lllat])
-        ll_corners.append([lllon, lllat])
-    except Exception, e:
-        print("Warning: File " + filename
-              + " lacks longitude/latitude information.")
-
+      # The longitude-latitude box. Note: Later when we create
+      # the adjusted box we will traverse the corners in
+      # exactly the same order as here, so this and that
+      # code blocks must be kept consistent.
+      # Verify that all bands have the same corners
+      try:
+          ll_corners_curr = []
+          ullon = float(band.find("ULLON").text)
+          ullat = float(band.find("ULLAT").text)
+          llbox.add_point([ullon, ullat])
+          ll_corners_curr.append([ullon, ullat])
+          
+          urlon = float(band.find("URLON").text)
+          urlat = float(band.find("URLAT").text)
+          llbox.add_point([urlon, urlat])
+          ll_corners_curr.append([urlon, urlat])
+          
+          lrlon = float(band.find("LRLON").text)
+          lrlat = float(band.find("LRLAT").text)
+          llbox.add_point([lrlon, lrlat])
+          ll_corners_curr.append([lrlon, lrlat])
+          
+          lllon = float(band.find("LLLON").text)
+          lllat = float(band.find("LLLAT").text)
+          llbox.add_point([lllon, lllat])
+          ll_corners_curr.append([lllon, lllat])
+      except Exception, e:
+          print("Warning: File " + filename
+                + " lacks longitude/latitude information.")
+          
+      if len(ll_corners) == 0:
+          ll_corners = ll_corners_curr
+      if ll_corners != ll_corners_curr:
+          raise Exception('InputError', "File " + filename
+                          + " has multiple bands with inconsistent LON/LAT info.")
+      
     if not options.skip_rpc_gen:
         # The height range, [ht_min, ht_max]. We store it as a 2D box
         # as to not create an interval class.
@@ -363,12 +375,22 @@ def read_xml( filename, options):
             raise Exception('InputError', "File " + filename
                             + " lacks RPC model information.")
 
-    BAND      = find_band(GEO.find("DETECTOR_MOUNTING"))
-    DET_ARRAY = BAND.find("DETECTOR_ARRAY")
-    pitch     = float(DET_ARRAY.find("DETPITCH").text)
-    originx   = DET_ARRAY.find("DETORIGINX").text
-    pd        = GEO.find("PRINCIPAL_DISTANCE").find("PD").text
+    # Get the pitch, originx, and pd. Verify that all bands are consistent.
+    pitch = None; originx = None; pd = None
+    for band in find_bands(GEO.find("DETECTOR_MOUNTING")):
+        DET_ARRAY      = band.find("DETECTOR_ARRAY")
+        curr_pitch     = float(DET_ARRAY.find("DETPITCH").text)
+        curr_originx   = DET_ARRAY.find("DETORIGINX").text
+        curr_pd        = GEO.find("PRINCIPAL_DISTANCE").find("PD").text
 
+        if pitch   is None: pitch   = curr_pitch
+        if originx is None: originx = curr_originx
+        if pd      is None: pd      = curr_pd
+
+        if pitch != curr_pitch or originx != curr_originx or pd != curr_pd:
+            raise Exception('InputError', "File " + filename
+                            + " has inconsistent info across bands.")
+            
     # Note: We concatenate all eph values into one single array,
     # the proper structure would be an array of arrays.
     eph_list = []
@@ -690,14 +712,15 @@ def main():
         if root.find("TIL")   != None: root.remove( root.find("TIL") )
 
         # Adjust image corners
-        adjust_camera_corners(find_band(imd), all_ll_corners)
+        for band in find_bands(imd):
+            adjust_camera_corners(band, all_ll_corners)
 
         # Adjust avg gsd tags and wipe other tags
         set_or_wipe_image_tags(root.find("IMD").find("IMAGE"),
                                avg_meanproductgsd, avg_meancollectedgsd)
 
         # Scale the xml file
-        # Update NumRows and NumColumns
+        # Update NUMROWS and NUMCOLUMNS
         nrows = int(boundary.height() * scale)
         ncols = int(boundary.width()  * scale)
         imd = root.find("IMD")
@@ -713,9 +736,16 @@ def main():
             tlc_item.text = " ".join(tokens)
         scale_xml_element(image.find("AVGLINERATE"), scale)
         scale_xml_element(image.find("EXPOSUREDURATION"), 1.0/scale)
-        # Update Detector Pitch
-        BAND = find_band(root.find("GEO").find("DETECTOR_MOUNTING"))
-        pitch = BAND.find("DETECTOR_ARRAY").find("DETPITCH")
+        # Update detector pitch. Verify that pitch is consistent
+        # accross multiple bands.
+        pitch = None
+        for band in find_bands(root.find("GEO").find("DETECTOR_MOUNTING")):
+            curr_pitch = band.find("DETECTOR_ARRAY").find("DETPITCH")
+            if pitch is None: pitch = curr_pitch
+            if pitch.text != curr_pitch.text:
+                raise Exception('InputError', "File " + xml_name(filename)
+                                + " has inconsistent pitch info across bands.")
+        
         scale_xml_element(pitch, 1.0/scale)
         # Scale the RPC model
         if not options.skip_rpc_gen:
