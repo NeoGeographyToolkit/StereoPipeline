@@ -349,12 +349,15 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
     ostr << "  Proj.4 " << PJ_VERSION << "\n";
     vw::vw_throw( vw::ArgumentErr() << ostr.str() );
   }
-  
-  if ( opt.num_threads != 0 && allow_unregistered) {
-    vw::vw_out() << "\t--> Setting number of processing threads to: "
+
+  // If the user did not set the number of threads, use what is set in
+  // .vwrc.
+  if (opt.num_threads <= 0)
+    opt.num_threads = vw_settings().default_num_threads();
+
+  vw::vw_out() << "\t--> Setting number of processing threads to: "
                  << opt.num_threads << std::endl;
-    vw::vw_settings().set_default_num_threads(opt.num_threads);
-  }
+  vw::vw_settings().set_default_num_threads(opt.num_threads);
   
   boost::algorithm::to_upper( opt.tif_compress );
   boost::algorithm::trim( opt.tif_compress );
