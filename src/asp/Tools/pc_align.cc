@@ -1704,10 +1704,6 @@ int main( int argc, char *argv[] ) {
     handle_arguments( argc, argv, opt );
 
     // Set the number of threads for OpenMP
-    if (opt.num_threads == 0)
-      opt.num_threads = vw_settings().default_num_threads();
-    vw::vw_out() << "\t--> Setting the number of processing threads to: "
-                 << opt.num_threads << endl;
     omp_set_num_threads(opt.num_threads);
 
     CsvConv C;
