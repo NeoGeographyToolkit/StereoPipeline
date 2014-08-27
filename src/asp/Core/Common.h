@@ -120,7 +120,7 @@ namespace asp {
   struct BaseOptions {
     vw::DiskImageResourceGDAL::Options gdal_options;
     vw::Vector2i raster_tile_size;
-    vw::uint32 num_threads;
+    vw::int32 num_threads;
     std::string cache_dir;
     std::string tif_compress;
     static int corr_tile_size() { return 1024; } // Tile size for correlation
