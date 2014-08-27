@@ -385,7 +385,7 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
         TerminalProgressCallback("asp", "\t    Sub R Mask: ") );
   }
 
-  if (skip_img_norm && stereo_settings().subpixel_mode == 2){
+  if (skip_img_norm && stereo_settings().subpixel_mode == AFFINE_BAYES) {
     // If image normalization is not done, we still need to compute the image
     // stats, to do normalization on the fly in stereo_rfne.
     // This code is not in stereo_rfne, as that one is meant to be distributed

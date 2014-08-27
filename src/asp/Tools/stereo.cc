@@ -451,20 +451,20 @@ namespace asp {
     }
     
     // Seed mode valid values
-    if ( stereo_settings().seed_mode > 3 ){
+    if ( stereo_settings().seed_mode > SPARSE_DISP ){
       vw_throw( ArgumentErr() << "Invalid value for seed-mode: "
                 << stereo_settings().seed_mode << ".\n" );
     }
 
     // Local homography needs D_sub
-    if ( stereo_settings().seed_mode == 0 &&
-         stereo_settings().corr_mode == 1 ) {
+    if ( stereo_settings().seed_mode == NO_SEED &&
+         stereo_settings().corr_mode == LOCAL_HOMOGRAPHY ) {
       vw_throw( ArgumentErr() << "Cannot use local homography without "
                 << "computing low-resolution disparity.\n");
     }
 
     // D_sub from DEM needs a positive disparity_estimation_dem_error
-    if (stereo_settings().seed_mode == 2 &&
+    if (stereo_settings().seed_mode == DEM_SEED &&
         stereo_settings().disparity_estimation_dem_error <= 0.0){
       vw_throw( ArgumentErr()
                 << "For seed-mode 2, the value of disparity-estimation-dem-error"
@@ -472,14 +472,14 @@ namespace asp {
     }
         
     // D_sub from DEM needs a DEM
-    if (stereo_settings().seed_mode == 2 &&
+    if (stereo_settings().seed_mode == DEM_SEED &&
         stereo_settings().disparity_estimation_dem.empty() ){
       vw_throw( ArgumentErr()
                 << "For seed-mode 2, an input DEM must be provided.\n" );
     }
 
     // D_sub from DEM does not work with map-projected images
-    if ( !opt.input_dem.empty() && stereo_settings().seed_mode == 2 )
+    if ( !opt.input_dem.empty() && stereo_settings().seed_mode == DEM_SEED )
       vw_throw( NoImplErr() << "Computation of low-resolution disparity from "
                 << "DEM is not implemented for map-projected images.\n");
 
@@ -820,7 +820,7 @@ namespace asp {
     return
       stereo_settings().skip_image_normalization                    && 
       stereo_settings().alignment_method == "none"                  &&
-      stereo_settings().cost_mode == 2                              &&
+      stereo_settings().cost_mode == NCC                            &&
       is_tif_or_ntf(opt.in_file1)                                   && 
       is_tif_or_ntf(opt.in_file2);
   }

@@ -57,6 +57,29 @@ namespace asp {
   boost::program_options::options_description
   generate_config_file_options( asp::BaseOptions& opt );
 
+  // Enum values for Prefilter Mode, Seed Mode, Cost Mode, Correlation
+  // Mode, Subpixel Modes
+  enum {NO_PREFILTER = 0,
+        GAUSSIAN_BLUR = 1,
+        LOG_FILTER = 2,
+        SLOG_FILTER = 3};
+  enum {NO_SEED = 0,
+        STEREO_SEED = 1,
+        DEM_SEED = 2,
+        SPARSE_DISP = 3};
+  enum {ABS_DIFFERENCE = 0,
+        SQUARE_DIFFERENCE = 1,
+        NCC = 2};
+  enum {PYRAMID = 0,
+        LOCAL_HOMOGRAPHY = 1,
+        MAPPING = 2};
+  enum {NO_SUBPIXEL = 0,
+        PARABOLA = 1,
+        AFFINE_BAYES = 2,
+        AFFINE = 3,
+        LUCAS_KANADE = 4,
+        AFFINE_BAYES_EM = 5};
+
   // Structure holding variables
   class StereoSettings {
   public:
