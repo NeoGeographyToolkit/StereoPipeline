@@ -71,9 +71,11 @@ struct Options : public asp::BaseOptions {
   std::vector<boost::shared_ptr<CameraModel> > camera_models;
   cartography::Datum datum;
 
-  // Make sure all values are initialized, even though they will be over-written later.
+  // Make sure all values are initialized, even though they will be
+  // over-written later.
   Options():lambda(-1.0), robust_threshold(0), report_level(0), min_matches(0),
-            max_iterations(0), save_iteration(false), semi_major(0), semi_minor(0){}
+            max_iterations(0), save_iteration(false), semi_major(0),
+            semi_minor(0){}
 };
 
 // A ceres cost function. Templated by the BundleAdjust model. We pass
@@ -275,7 +277,7 @@ void do_ba_ceres(ModelT & ba_model, Options const& opt ){
     double * point  = points  + num_point_params  * ipt;
     problem.AddResidualBlock(cost_function, loss_function, point);
   }
-  
+
   // Solve the problem
   ceres::Solver::Options options;
   options.gradient_tolerance = 1e-16;
@@ -412,6 +414,56 @@ void do_ba_costfun(CostFunType const& cost_fun, Options const& opt){
   
 }
 
+void save_cnet_as_csv(Options& opt, std::string const& cnetFile){
+
+  // Save the input control network in the csv file format used by ground
+  // control points.
+
+  // We assume here that the user has specified the datum.
+  
+  vw_out() << "Writing: " << cnetFile << std::endl;
+
+  std::ofstream ofs(cnetFile.c_str());
+  ofs.precision(17);
+
+  int count = 0;
+  ControlNetwork & cnet = *opt.cnet.get();
+  for ( ControlNetwork::const_iterator iter = cnet.begin();
+        iter != cnet.end(); ++iter ) {
+
+    // If to dump only gcp
+    //if ( (*iter).type() != ControlPoint::GroundControlPoint ) continue;
+
+    count++;
+    
+    // lon,lat,height
+    Vector3 llr = opt.datum.cartesian_to_geodetic((*iter).position());
+    
+    // convert to lat,lon,height
+    std::swap(llr[0], llr[1]);
+
+    Vector3 sigma = (*iter).sigma();
+    
+    ofs << count  << ' ' << llr[0] << ' ' << llr[1] << ' ' << llr[2] << ' ';
+    ofs << sigma[0]  << ' ' << sigma[1] << ' ' << sigma[2] << ' ';
+    
+    for ( ControlPoint::const_iterator measure = (*iter).begin();
+          measure != (*iter).end(); ++measure ) {
+      
+      ofs << opt.image_files[measure->image_id()] << ' '
+          << measure->position()[0] << ' ' << measure->position()[1] << ' '
+          << measure->sigma()[0]    << ' ' << measure->sigma()[1];
+      
+      if ( measure+1 != (*iter).end())
+        ofs << ' ';
+      else
+        ofs << std::endl;
+    }
+  }
+
+  return;
+}
+
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
@@ -470,7 +522,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
       opt.datum.set_well_known_datum(opt.datum_str);
     }else if (opt.semi_major > 0 && opt.semi_minor > 0){
       // Otherwise, if the user set the semi-axes, use that.
-      opt.datum = cartography::Datum("User Specified Datum", "User Specified Spheroid",
+      opt.datum = cartography::Datum("User Specified Datum",
+                                     "User Specified Spheroid",
                                      "Reference Meridian",
                                      opt.semi_major, opt.semi_minor, 0.0);
     }else{
@@ -574,14 +627,14 @@ int main(int argc, char* argv[]) {
                              opt.image_files,
                              opt.min_matches,
                              std::vector<std::string>(),
-                             opt.out_prefix
-                             );
+                             opt.out_prefix);
       add_ground_control_points( (*opt.cnet), opt.image_files,
                                  opt.gcp_files.begin(), opt.gcp_files.end(),
-                                 opt.datum
-                                 );
+                                 opt.datum);
       
       opt.cnet->write_binary(opt.out_prefix + "-control");
+      //save_cnet_as_csv(opt, opt.out_prefix + "-cnet.csv");
+      
     } else  {
       vw_out() << "Loading control network from file: "
                << opt.cnet_file << "\n";
