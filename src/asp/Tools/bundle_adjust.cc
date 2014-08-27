@@ -139,7 +139,10 @@ struct BaReprojectionError {
                                      size_t icam, // camera index
                                      size_t ipt // point index
                                      ){
-    return (new ceres::NumericDiffCostFunction<BaReprojectionError, ceres::CENTRAL, 2, ModelT::camera_params_n, ModelT::point_params_n>(new BaReprojectionError(observation, pixel_sigma, ba_model, icam, ipt)));
+    return (new ceres::NumericDiffCostFunction<BaReprojectionError,
+            ceres::CENTRAL, 2, ModelT::camera_params_n, ModelT::point_params_n>
+            (new BaReprojectionError(observation, pixel_sigma,
+                                     ba_model, icam, ipt)));
     
   }
   
@@ -168,7 +171,8 @@ struct XYZError {
   // the client code.
   static ceres::CostFunction* Create(Vector3 const& observation,
                                      Vector3 const& xyz_sigma){
-    return (new ceres::NumericDiffCostFunction<XYZError, ceres::CENTRAL, 3, 3>(new XYZError(observation, xyz_sigma)));
+    return (new ceres::NumericDiffCostFunction<XYZError, ceres::CENTRAL, 3, 3>
+            (new XYZError(observation, xyz_sigma)));
     
   }
   
@@ -386,34 +390,6 @@ void do_ba(typename AdjusterT::model_type & ba_model,
 
 }
 
-// Use given cost function. Switch based on solver.
-template<class ModelType, class CostFunType>
-void do_ba_costfun(CostFunType const& cost_fun, Options const& opt){
-
-  ModelType ba_model(opt.camera_models, opt.cnet);
-  
-  if ( opt.ba_type == "ceres" ) {
-    do_ba_ceres<ModelType>(ba_model, opt);
-  } else if ( opt.ba_type == "robustsparse" ) {
-    do_ba<AdjustRobustSparse< ModelType,CostFunType> >(ba_model, cost_fun, opt);
-  } else if ( opt.ba_type == "robustref" ) {
-    do_ba<AdjustRobustRef< ModelType,CostFunType> >(ba_model, cost_fun, opt);
-  } else if ( opt.ba_type == "sparse" ) {
-    do_ba<AdjustSparse< ModelType, CostFunType > >(ba_model, cost_fun, opt);
-  }else if ( opt.ba_type == "ref" ) {
-    do_ba<AdjustRef< ModelType, CostFunType > >(ba_model, cost_fun, opt);
-  }
-
-  // Save the models to disk
-  for (unsigned i=0; i < ba_model.num_cameras(); ++i){
-    std::string adjust_file = asp::bundle_adjust_file_name(opt.out_prefix,
-                                                           opt.image_files[i]);
-    vw_out() << "Writing: " << adjust_file << std::endl;
-    ba_model.write_adjustment(i, adjust_file);
-  }
-  
-}
-
 void save_cnet_as_csv(Options& opt, std::string const& cnetFile){
 
   // Save the input control network in the csv file format used by ground
@@ -462,6 +438,58 @@ void save_cnet_as_csv(Options& opt, std::string const& cnetFile){
   }
 
   return;
+}
+
+// Use given cost function. Switch based on solver.
+template<class ModelType, class CostFunType>
+void do_ba_costfun(CostFunType const& cost_fun, Options const& opt){
+
+  ModelType ba_model(opt.camera_models, opt.cnet);
+  
+  if ( opt.ba_type == "ceres" ) {
+    do_ba_ceres<ModelType>(ba_model, opt);
+  } else if ( opt.ba_type == "robustsparse" ) {
+    do_ba<AdjustRobustSparse< ModelType,CostFunType> >(ba_model, cost_fun, opt);
+  } else if ( opt.ba_type == "robustref" ) {
+    do_ba<AdjustRobustRef< ModelType,CostFunType> >(ba_model, cost_fun, opt);
+  } else if ( opt.ba_type == "sparse" ) {
+    do_ba<AdjustSparse< ModelType, CostFunType > >(ba_model, cost_fun, opt);
+  }else if ( opt.ba_type == "ref" ) {
+    do_ba<AdjustRef< ModelType, CostFunType > >(ba_model, cost_fun, opt);
+  }
+
+  // Save the models to disk
+  for (unsigned i=0; i < ba_model.num_cameras(); ++i){
+    std::string adjust_file = asp::bundle_adjust_file_name(opt.out_prefix,
+                                                           opt.image_files[i]);
+    vw_out() << "Writing: " << adjust_file << std::endl;
+    ba_model.write_adjustment(i, adjust_file);
+  }
+  
+}
+
+// Do BA with given model. Switch based on cost function. 
+template<class ModelType>
+void do_ba_with_model(Options const& opt){
+  
+  if ( opt.cost_function == "cauchy" ) {
+    do_ba_costfun<ModelType, CauchyError>
+      (CauchyError(opt.robust_threshold), opt);
+  }else if ( opt.cost_function == "pseudohuber" ) {
+    do_ba_costfun<ModelType, PseudoHuberError>
+      (PseudoHuberError(opt.robust_threshold), opt );
+  } else if ( opt.cost_function == "huber" ) {
+    do_ba_costfun<ModelType, HuberError>
+      (HuberError(opt.robust_threshold), opt );
+  } else if ( opt.cost_function == "l1" ) {
+    do_ba_costfun<ModelType, L1Error>( L1Error(), opt );
+  } else if ( opt.cost_function == "l2" ) {
+    do_ba_costfun<ModelType, L2Error>( L2Error(), opt );
+  }else{
+    vw_throw( ArgumentErr() << "Unknown cost function: " << opt.cost_function
+              << ". Options are: Cauchy, PseudoHuber, Huber, L1, L2.\n" );
+  }
+  
 }
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
@@ -655,20 +683,7 @@ int main(int argc, char* argv[]) {
     }
     
     typedef BundleAdjustmentModel ModelType;
-    if ( opt.cost_function == "cauchy" ) {
-      do_ba_costfun<ModelType, CauchyError>( CauchyError(opt.robust_threshold), opt );
-    }else if ( opt.cost_function == "pseudohuber" ) {
-      do_ba_costfun<ModelType, PseudoHuberError>( PseudoHuberError(opt.robust_threshold), opt );
-    } else if ( opt.cost_function == "huber" ) {
-      do_ba_costfun<ModelType, HuberError>( HuberError(opt.robust_threshold), opt );
-    } else if ( opt.cost_function == "l1" ) {
-      do_ba_costfun<ModelType, L1Error>( L1Error(), opt );
-    } else if ( opt.cost_function == "l2" ) {
-      do_ba_costfun<ModelType, L2Error>( L2Error(), opt );
-    }else{
-      vw_throw( ArgumentErr() << "Unknown cost function: " << opt.cost_function
-                << ". Options are: Cauchy, PseudoHuber, Huber, L1, L2.\n" );
-    }
+    do_ba_with_model<ModelType>(opt);
       
   } ASP_STANDARD_CATCHES;
 }
