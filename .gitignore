@@ -134,6 +134,7 @@ src/asp/Tools/stereo_rfne
 src/asp/Tools/stereo_tri
 src/asp/Tools/tif_mosaic
 src/asp/Tools/time_trials
+src/asp/Tools/wv_correct
 
 # Control Network Toolkit
 src/asp/ControlNetTK/reduce_match

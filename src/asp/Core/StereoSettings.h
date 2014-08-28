@@ -57,6 +57,29 @@ namespace asp {
   boost::program_options::options_description
   generate_config_file_options( asp::BaseOptions& opt );
 
+  // Enum values for Prefilter Mode, Seed Mode, Cost Mode, Correlation
+  // Mode, Subpixel Modes
+  enum {NO_PREFILTER = 0,
+        GAUSSIAN_BLUR = 1,
+        LOG_FILTER = 2,
+        SLOG_FILTER = 3};
+  enum {NO_SEED = 0,
+        STEREO_SEED = 1,
+        DEM_SEED = 2,
+        SPARSE_DISP = 3};
+  enum {ABS_DIFFERENCE = 0,
+        SQUARE_DIFFERENCE = 1,
+        NCC = 2};
+  enum {PYRAMID = 0,
+        LOCAL_HOMOGRAPHY = 1,
+        MAPPING = 2};
+  enum {NO_SUBPIXEL = 0,
+        PARABOLA = 1,
+        AFFINE_BAYES = 2,
+        AFFINE = 3,
+        LUCAS_KANADE = 4,
+        AFFINE_BAYES_EM = 5};
+
   // Structure holding variables
   class StereoSettings {
   public:
@@ -84,7 +107,7 @@ namespace asp {
                                             // are treated as no-data
     bool   skip_image_normalization;        // Skip the step of normalizing the values of input images and removing nodata-pixels. Create instead symbolic links to original images.
     bool   part_of_multiview_run;           // If the current run is part of a larger multiview run
-    
+
     // Correlation Options
     float slogW;                      // Preprocessing filter width
     vw::uint16 pre_filter_mode;       // 0 = None
@@ -110,7 +133,9 @@ namespace asp {
     bool compute_low_res_disparity_only;      // Skip the full-resolution disparity computation
     std::string disparity_estimation_dem;     // DEM to use in estimating the low-resolution disparity
     double disparity_estimation_dem_error; // Error (in meters) of the disparity estimation DEM
-    bool   use_local_homography;      // Apply a local homography in each tile
+    vw::uint16 corr_mode;             // 0 = Pyramid Correlator
+                                      // 1 = Pyramid Correlator / Local Homography
+                                      // 2 = Mapping Correlator
     int    corr_timeout;              // Correlation timeout for a tile, in seconds
 
     // Subpixel Options

@@ -19,13 +19,13 @@
 /// \file stereo_rfne.cc
 ///
 
-#include <asp/Tools/stereo.h>
-#include <vw/Stereo/PreFilter.h>
-#include <vw/Stereo/CostFunctions.h>
-#include <vw/Stereo/SubpixelView.h>
-#include <vw/Stereo/EMSubpixelCorrelatorView.h>
 #include <asp/Core/LocalHomography.h>
+#include <asp/Tools/stereo.h>
+#include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/DisparityMap.h>
+#include <vw/Stereo/EMSubpixelCorrelatorView.h>
+#include <vw/Stereo/PreFilter.h>
+#include <vw/Stereo/SubpixelView.h>
 
 using namespace vw;
 using namespace vw::stereo;
@@ -46,13 +46,13 @@ refine_disparity(Image1T const& left_image,
   ImageViewRef<PixelMask<Vector2f> > refined_disp =
     pixel_cast<PixelMask<Vector2f> >(integer_disp);
 
-  if (stereo_settings().subpixel_mode == 0) {
+  if (stereo_settings().subpixel_mode == NO_SUBPIXEL) {
     // Do nothing
 
-  } else if (stereo_settings().subpixel_mode == 1) {
+  } else if (stereo_settings().subpixel_mode == PARABOLA) {
     // Parabola
     if (verbose) vw_out() << "\t--> Using parabola subpixel mode.\n";
-    if (stereo_settings().pre_filter_mode == 2) {
+    if (stereo_settings().pre_filter_mode == LOG_FILTER) {
       if (verbose) vw_out() << "\t--> Using LOG pre-processing filter with "
                             << stereo_settings().slogW << " sigma blur.\n";
       typedef stereo::LaplacianOfGaussian PreFilter;
@@ -61,7 +61,7 @@ refine_disparity(Image1T const& left_image,
                            left_image, right_image,
                            PreFilter(stereo_settings().slogW),
                            stereo_settings().subpixel_kernel );
-    } else if (stereo_settings().pre_filter_mode == 1) {
+    } else if (stereo_settings().pre_filter_mode == GAUSSIAN_BLUR) {
       if (verbose)  vw_out() << "\t--> Using Subtracted Mean pre-processing filter with "
                              << stereo_settings().slogW << " sigma blur.\n";
       typedef stereo::SubtractedMean PreFilter;
@@ -80,7 +80,7 @@ refine_disparity(Image1T const& left_image,
                            stereo_settings().subpixel_kernel );
     }
 
-  } else if (stereo_settings().subpixel_mode == 2) {
+  } else if (stereo_settings().subpixel_mode == AFFINE_BAYES) {
     // Bayes EM
     if (verbose){
       vw_out() << "\t--> Using affine adaptive subpixel mode\n";
@@ -95,7 +95,7 @@ refine_disparity(Image1T const& left_image,
                          stereo_settings().subpixel_kernel,
                          stereo_settings().subpixel_max_levels );
 
-  } else if (stereo_settings().subpixel_mode == 3) {
+  } else if (stereo_settings().subpixel_mode == AFFINE) {
     // Fast affine
     if (verbose){
       vw_out() << "\t--> Using affine subpixel mode\n";
@@ -110,7 +110,7 @@ refine_disparity(Image1T const& left_image,
                        stereo_settings().subpixel_kernel,
                        stereo_settings().subpixel_max_levels );
 
-  } else if (stereo_settings().subpixel_mode == 4) {
+  } else if (stereo_settings().subpixel_mode == LUCAS_KANADE) {
     // Lucas-Kanade
     if (verbose){
       vw_out() << "\t--> Using Lucas-Kanade subpixel mode\n";
@@ -125,7 +125,7 @@ refine_disparity(Image1T const& left_image,
                    stereo_settings().subpixel_kernel,
                    stereo_settings().subpixel_max_levels );
 
-  } else if (stereo_settings().subpixel_mode == 5) {
+  } else if (stereo_settings().subpixel_mode == AFFINE_BAYES_EM) {
     // Affine and Bayes subpixel refinement always use the
     // LogPreprocessingFilter...
     if (verbose){
@@ -239,7 +239,7 @@ public:
 
     ImageView<pixel_type> tile_disparity;
     bool verbose = false;
-    if (stereo_settings().seed_mode > 0 && stereo_settings().use_local_homography){
+    if (stereo_settings().seed_mode > 0 && stereo_settings().corr_mode == 1){
 
       int ts = Options::corr_tile_size();
       Matrix<double>  lowres_hom
@@ -329,7 +329,7 @@ void stereo_refinement( Options const& opt ) {
     right_mask   = DiskImageView<uint8>(right_mask_file);
     integer_disp = DiskImageView< PixelMask<Vector2i> >(opt.out_prefix + "-D.tif");
     if ( stereo_settings().seed_mode > 0 &&
-         stereo_settings().use_local_homography ){
+         stereo_settings().corr_mode == 1 ){
       sub_disp = DiskImageView<PixelMask<Vector2i> >(opt.out_prefix+"-D_sub.tif");
 
       string local_hom_file = opt.out_prefix + "-local_hom.txt";
@@ -341,14 +341,14 @@ void stereo_refinement( Options const& opt ) {
   }
 
   bool skip_img_norm = asp::skip_image_normalization(opt);
-  if (skip_img_norm && stereo_settings().subpixel_mode == 2){
+  if (skip_img_norm && stereo_settings().subpixel_mode == AFFINE_BAYES){
     // Images were not normalized in pre-processing. Must do so now
     // as bayes_em_subpixel assumes them to be normalized.
     ImageViewRef< PixelMask< PixelGray<float> > > Limg
       = copy_mask(left_image, create_mask(left_mask));
     ImageViewRef< PixelMask< PixelGray<float> > > Rimg
       = copy_mask(right_image, create_mask(right_mask));
-    
+
     Vector<float32> left_stats, right_stats;
     string left_stats_file  = opt.out_prefix+"-lStats.tif";
     string right_stats_file  = opt.out_prefix+"-rStats.tif";

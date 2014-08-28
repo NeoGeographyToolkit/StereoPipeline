@@ -109,8 +109,8 @@ namespace asp {
                                  "DEM to use in estimating the low-resolution disparity (when corr-seed-mode is 2).")
       ("disparity-estimation-dem-error", po::value(&global.disparity_estimation_dem_error)->default_value(0.0),
                                  "Error (in meters) of the disparity estimation DEM.")
-      ("use-local-homography",   po::bool_switch(&global.use_local_homography)->default_value(false)->implicit_value(true),
-                                 "Apply a local homography in each tile.")
+      ("corr-mode",              po::value(&global.corr_mode)->default_value(0),
+                                 "Correlation algorithm. [0 Pyramid, 1 Pyramid / Local Homography, 2 Mapping]")
       ("corr-timeout",           po::value(&global.corr_timeout)->default_value(0),
                                  "Correlation timeout for a tile, in seconds. [default: no timeout]");
 

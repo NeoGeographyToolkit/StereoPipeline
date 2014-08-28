@@ -23,6 +23,7 @@
 #define __LOCAL_DISPARITY_H__
 
 #include <vw/Image/ImageView.h>
+#include <vw/Math/Matrix.h>
 #include <vector>
 
 // Forward declaration
