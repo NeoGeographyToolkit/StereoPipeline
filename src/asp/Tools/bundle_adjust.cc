@@ -24,6 +24,7 @@
 #include <asp/Sessions/StereoSession.h>
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
+
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -31,9 +32,7 @@ using namespace vw;
 using namespace vw::camera;
 using namespace vw::ba;
 
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-#include <asp/IsisIO/DiskImageResourceIsis.h>
-#endif
+std::string UNSPECIFIED_DATUM = "unspecified_datum";
 
 namespace asp{
   
@@ -49,12 +48,22 @@ namespace asp{
         gcp_files.push_back( *it );
         it = image_files.erase( it );
       } else
-      it++;
+        it++;
     }
     
     return gcp_files;
   }
-}
+
+  bool images_are_cubes(std::vector<std::string>& image_files){
+    bool are_cubes = true;
+    for (int i = 0; i < (int)image_files.size(); i++){
+      if ( ! boost::iends_with(boost::to_lower_copy(image_files[i]), ".cub") )
+        are_cubes = false;
+    }
+    return are_cubes;
+  }
+
+} // end namespace asp
 
 struct Options : public asp::BaseOptions {
   std::vector<std::string> image_files, camera_files, gcp_files;
@@ -63,20 +72,104 @@ struct Options : public asp::BaseOptions {
   double lambda, robust_threshold;
   int report_level, min_matches, max_iterations;
 
-  bool save_iteration;
+  bool save_iteration, have_input_cams;
   std::string datum_str;
   double semi_major, semi_minor;
-
+  
   boost::shared_ptr<ControlNetwork> cnet;
   std::vector<boost::shared_ptr<CameraModel> > camera_models;
   cartography::Datum datum;
-
+  
   // Make sure all values are initialized, even though they will be
   // over-written later.
   Options():lambda(-1.0), robust_threshold(0), report_level(0), min_matches(0),
-            max_iterations(0), save_iteration(false), semi_major(0),
-            semi_minor(0){}
+            max_iterations(0), save_iteration(false), have_input_cams(true),
+            semi_major(0), semi_minor(0), 
+            datum(cartography::Datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
+                                     "Reference Meridian", 1, 1, 0)){}
 };
+
+
+template<class ModelT>
+typename boost::disable_if<boost::is_same<ModelT,BAPinholeModel>,void>::type
+update_cnet_and_init_cams(ModelT & ba_model, Options & opt,
+                          ControlNetwork& cnet,
+                          std::vector<double> & cameras_vec,
+                          std::vector<double> & intrinsics_vec){
+  // Do nothing, need this as part of the interface
+}
+
+template<class ModelT>
+typename boost::enable_if<boost::is_same<ModelT,BAPinholeModel>,void>::type
+update_cnet_and_init_cams(ModelT & ba_model, Options & opt,
+                          ControlNetwork& cnet,
+                          std::vector<double> & cameras_vec,
+                          std::vector<double> & intrinsics_vec){
+  
+  // This function should be called when no input cameras were
+  // provided. We set initial guesses for the control point
+  // positions and for the (pinhole) cameras.
+
+  if (opt.have_input_cams) return;
+
+  // If gcp were given, initialize all non-gcp control points to the
+  // average of the gcp. Otherwise, just use an arbitrary point on the
+  // equator.
+  int num_gcp = 0;
+  Vector3 sum;
+  for (int ipt = 0; ipt < (int)cnet.size(); ipt++){
+    if (cnet[ipt].type() != ControlPoint::GroundControlPoint) continue;
+    sum += cnet[ipt].position();
+    num_gcp++;
+  }
+  Vector3 controlPt;
+  if (num_gcp > 0){
+    controlPt = sum/num_gcp;
+  }else{
+    if (opt.datum.name() == UNSPECIFIED_DATUM)
+      vw_throw( ArgumentErr() << "No datum was specified.\n");
+    controlPt = opt.datum.geodetic_to_cartesian(Vector3(0, 0, 0));
+  }
+  for (int ipt = 0; ipt < (int)cnet.size(); ipt++){
+    if (cnet[ipt].type() == ControlPoint::GroundControlPoint) continue;
+    cnet[ipt].set_position(controlPt);
+  }
+
+  size_t num_camera_params = ModelT::camera_params_n;
+  
+  // Init the pinhole cameras. We put them above ground, close to each
+  // other, and pointing down.
+
+  double cameras_to_ground_dist = 100000; // 100 km, hard-coded for now
+  Vector3 highPt = controlPt
+    + cameras_to_ground_dist*controlPt/norm_2(controlPt);
+  Vector3 offset(highPt[1], -highPt[0], 0); // perpendicular to highPt
+  offset = (cameras_to_ground_dist/100)*offset/norm_2(offset);
+  for (int icam = 0; icam < (int)opt.camera_models.size(); icam++){
+    
+    // Camera centers
+    Vector3 camCtr = highPt + (2*icam-1)*offset;
+
+    // Camera pose
+    Vector3 llh = opt.datum.cartesian_to_geodetic(camCtr);
+    Matrix3x3 M = opt.datum.lonlat_to_ned_matrix(subvector(llh, 0, 2));
+    Quaternion<double> camPose(transpose(M)); // why transpose?
+    Vector3 camAxis = camPose.axis_angle();
+
+    // Copy to cameras_vec
+    Vector<double, ModelT::camera_params_n> a;
+    subvector(a, 0, 3) = camCtr; 
+    subvector(a, 3, 3) = ModelT::pose_scale*camAxis; 
+    for (size_t q = 0; q < num_camera_params; q++)
+      cameras_vec[icam*num_camera_params + q] = a[q];
+
+    // Intrinsics
+    intrinsics_vec[0] = -100; // Focal length. Why it turns out negative?
+    intrinsics_vec[1] = 1000; // Pixel offset in x
+    intrinsics_vec[2] = 1000; // Pixel offset in y 
+  }
+
+}
 
 // A ceres cost function. Templated by the BundleAdjust model. We pass
 // in the observation, the model, and the current camera and point
@@ -93,11 +186,11 @@ struct BaReprojectionError {
     m_icam(icam), m_ipt(ipt){}
   
   template <typename T>
-  bool operator()(const T* const camera,
-                  const T* const point,
+  bool operator()(const T* const camera, const T* const point,
                   T* residuals) const {
 
     try{
+
       size_t num_cameras = m_ba_model->num_cameras();
       size_t num_points  = m_ba_model->num_points();
       VW_ASSERT(m_icam < num_cameras,
@@ -106,15 +199,17 @@ struct BaReprojectionError {
                 ArgumentErr() << "Out of bounds in the number of points");
 
       // Copy the input data to structures expected by the BA model
-      typename ModelT::camera_vector_t camera_vec;
+      typename ModelT::camera_vector_t cam_vec;
+      int cam_len = cam_vec.size();
+      for (int c = 0; c < cam_len; c++)
+        cam_vec[c] = (double)camera[c];
+      
       typename ModelT::point_vector_t  point_vec;
-      for (size_t c = 0; c < camera_vec.size(); c++)
-        camera_vec[c] = (double)camera[c];
       for (size_t p = 0; p < point_vec.size(); p++)
         point_vec[p]  = (double)point[p];
 
       // Project the current point into the current camera
-      Vector2 prediction = (*m_ba_model)(m_ipt, m_icam, camera_vec, point_vec);
+      Vector2 prediction = (*m_ba_model)(m_ipt, m_icam, cam_vec, point_vec);
       
       // The error is the difference between the predicted and observed position,
       // normalized by sigma.
@@ -142,6 +237,81 @@ struct BaReprojectionError {
     return (new ceres::NumericDiffCostFunction<BaReprojectionError,
             ceres::CENTRAL, 2, ModelT::camera_params_n, ModelT::point_params_n>
             (new BaReprojectionError(observation, pixel_sigma,
+                                     ba_model, icam, ipt)));
+    
+  }
+  
+  Vector2 m_observation;
+  Vector2 m_pixel_sigma;
+  ModelT * const m_ba_model;
+  size_t m_icam, m_ipt;
+};
+
+// A ceres cost function. Here we float a pinhole camera's intrinsic
+// and extrinsic parameters. The result is the residual, the
+// difference in the observation and the projection of the point into
+// the camera, normalized by pixel_sigma.
+template<class ModelT>
+struct BaPinholeError {
+  BaPinholeError(Vector2 const& observation, Vector2 const& pixel_sigma,
+                      ModelT * const ba_model, size_t icam, size_t ipt):
+    m_observation(observation),
+    m_pixel_sigma(pixel_sigma),
+    m_ba_model(ba_model),
+    m_icam(icam), m_ipt(ipt){}
+  
+  template <typename T>
+  bool operator()(const T* const camera,
+                  const T* const point,
+                  const T* const intrinsic,
+                  T* residuals) const {
+
+    try{
+
+      size_t num_cameras = m_ba_model->num_cameras();
+      size_t num_points  = m_ba_model->num_points();
+      VW_ASSERT(m_icam < num_cameras,
+                ArgumentErr() << "Out of bounds in the number of cameras");
+      VW_ASSERT(m_ipt < num_points,
+                ArgumentErr() << "Out of bounds in the number of points");
+
+      // Copy the input data to structures expected by the BA model
+      typename ModelT::camera_intr_vector_t cam_intr_vec;
+      asp::concat_extrinsics_intrinsics<ModelT>(camera, intrinsic, cam_intr_vec);
+      typename ModelT::point_vector_t  point_vec;
+      for (size_t p = 0; p < point_vec.size(); p++)
+        point_vec[p]  = (double)point[p];
+
+      // Project the current point into the current camera
+      Vector2 prediction = (*m_ba_model)(m_ipt, m_icam, cam_intr_vec, point_vec);
+      
+      // The error is the difference between the predicted and observed position,
+      // normalized by sigma.
+      residuals[0] = (prediction[0] - m_observation[0])/m_pixel_sigma[0];
+      residuals[1] = (prediction[1] - m_observation[1])/m_pixel_sigma[1];
+
+    } catch (const camera::PixelToRayErr& e) {
+      // Failed to project into the camera
+      residuals[0] = T(1e+20);
+      residuals[1] = T(1e+20);
+      return false;
+    }
+    
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(Vector2 const& observation,
+                                     Vector2 const& pixel_sigma,
+                                     ModelT * const ba_model,
+                                     size_t icam, // camera index
+                                     size_t ipt // point index
+                                     ){
+    return (new ceres::NumericDiffCostFunction<BaPinholeError,
+            ceres::CENTRAL, 2, ModelT::camera_params_n, ModelT::point_params_n,
+            ModelT::intrinsic_params_n>
+            (new BaPinholeError(observation, pixel_sigma,
                                      ba_model, icam, ipt)));
     
   }
@@ -180,6 +350,41 @@ struct XYZError {
   Vector3 m_xyz_sigma;
 };
 
+// A ceres cost function. The residual is the difference between the
+// original camera center and the current (floating) camera center.
+// This cost function prevents the cameras from straying too far from
+// their starting point.
+template<class ModelT>
+struct CamCtrError {
+  typedef typename ModelT::camera_vector_t CamVecT;
+
+  CamCtrError(CamVecT const& orig_cam_vec): m_orig_cam_vec(orig_cam_vec){}
+
+  template <typename T>
+  bool operator()(const T* const cam_vec, T* residuals) const {
+
+    // Note that we give zero weight to the components corresponding
+    // to the rotation, we don't restrict that here.
+    for (size_t p = 0; p < 3; p++)
+      residuals[p] = 1e-6*(cam_vec[p] - m_orig_cam_vec[p]);
+    for (size_t p = 3; p < m_orig_cam_vec.size(); p++)
+      residuals[p] = 0.0;
+
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(CamVecT const& orig_cam_vec){
+    return (new ceres::NumericDiffCostFunction<CamCtrError, ceres::CENTRAL,
+            ModelT::camera_params_n, ModelT::camera_params_n>
+            (new CamCtrError(orig_cam_vec)));
+    
+  }
+  
+  CamVecT m_orig_cam_vec;
+};
+
 ceres::LossFunction* get_loss_function(Options const& opt ){
   double th = opt.robust_threshold;
   ceres::LossFunction* loss_function;
@@ -198,27 +403,71 @@ ceres::LossFunction* get_loss_function(Options const& opt ){
   return loss_function;
 }
 
+// Add residual block without floating intrinsics
+template<class ModelT>
+typename boost::disable_if<boost::is_same<ModelT,BAPinholeModel>,void>::type
+add_residual_block(ModelT & ba_model,
+                   Vector2 const& observation, Vector2 const& pixel_sigma,
+                   size_t icam, size_t ipt, 
+                   double * camera, double * point, double * intrinsics,
+                   ceres::LossFunction* loss_function,
+                   ceres::Problem & problem){
+  
+  ceres::CostFunction* cost_function = 
+    BaReprojectionError<ModelT>::Create(observation, pixel_sigma,
+                                        &ba_model, icam, ipt);
+  problem.AddResidualBlock(cost_function, loss_function, camera, point);
+  
+}
+
+// Add residual block floating the intrinsics
+template<class ModelT>
+typename boost::enable_if<boost::is_same<ModelT,BAPinholeModel>,void>::type
+add_residual_block(ModelT & ba_model,
+                   Vector2 const& observation, Vector2 const& pixel_sigma,
+                   size_t icam, size_t ipt, 
+                   double * camera, double * point, double * intrinsics,
+                   ceres::LossFunction* loss_function,
+                   ceres::Problem & problem){
+  
+  ceres::CostFunction* cost_function = 
+    BaPinholeError<ModelT>::Create(observation, pixel_sigma,
+                                   &ba_model, icam, ipt);
+  problem.AddResidualBlock(cost_function, loss_function, camera,
+                           point, intrinsics);
+  
+}
+                          
 // Use Ceres to do bundle adjustment. The camera and point variables
 // are stored in arrays.  The projection of point into camera is
 // accomplished by interfacing with the bundle adjustment model. In
 // the future this class can be bypassed.
 template <class ModelT>
-void do_ba_ceres(ModelT & ba_model, Options const& opt ){
+void do_ba_ceres(ModelT & ba_model, Options& opt ){
 
   ControlNetwork & cnet = *(ba_model.control_network().get());
-  CameraRelationNetwork<JFeature> crn;
-  crn.read_controlnetwork(cnet);
 
-  size_t num_camera_params = ModelT::camera_params_n;
-  size_t num_point_params  = ModelT::point_params_n;
-  size_t num_cameras       = ba_model.num_cameras();
-  size_t num_points        = ba_model.num_points();
+  size_t num_camera_params    = ModelT::camera_params_n;
+  size_t num_point_params     = ModelT::point_params_n;
+  size_t num_intrinsic_params = ModelT::intrinsic_params_n;
+  size_t num_cameras          = ba_model.num_cameras();
+  size_t num_points           = ba_model.num_points();
 
   // The camera adjustment and point variables concatenated into
   // vectors. The camera adjustments start as 0. The points come from
   // the network.
   std::vector<double> cameras_vec(num_cameras*num_camera_params, 0.0);
+  std::vector<double> intrinsics_vec(num_intrinsic_params, 0.0);
+
+  update_cnet_and_init_cams(ba_model, opt, (*opt.cnet), cameras_vec, intrinsics_vec);
+
+  // Camera extrinsics and intrinsics
   double* cameras = &cameras_vec[0];
+  double * intrinsics = NULL;
+  if (num_intrinsic_params > 0)
+    intrinsics = &intrinsics_vec[0];
+
+  // Points
   std::vector<double> points_vec(num_points*num_point_params, 0.0);
   for (size_t ipt = 0; ipt < num_points; ipt++){
     for (size_t q = 0; q < num_point_params; q++){
@@ -227,17 +476,16 @@ void do_ba_ceres(ModelT & ba_model, Options const& opt ){
   }
   double* points = &points_vec[0];
 
-  // This copy of the points will not change during optimization,
-  // they are the observations.
-  std::vector<double> points_obs = points_vec;
-  
   ceres::Problem problem;
+
+  CameraRelationNetwork<JFeature> crn;
+  crn.read_controlnetwork(cnet);
   
   // Add the cost function component for difference of pixel observations
   typedef CameraNode<JFeature>::iterator crn_iter;
   for ( size_t icam = 0; icam < crn.size(); icam++ ) {
-    for ( crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++ ) {
-
+    for ( crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++ ){
+      
       // The index of the 3D point
       size_t ipt = (**fiter).m_point_id; 
 
@@ -251,17 +499,15 @@ void do_ba_ceres(ModelT & ba_model, Options const& opt ){
       Vector2 observation = (**fiter).m_location;
       Vector2 pixel_sigma = (**fiter).m_scale;
       
-      ceres::CostFunction* cost_function =
-        BaReprojectionError<ModelT>::Create(observation, pixel_sigma,
-                                            &ba_model, icam, ipt);
+      // Each observation corresponds to a pair of a camera and a point
+      // which are identified by indices icam and ipt respectively.
+      double * camera = cameras + icam * num_camera_params;
+      double * point  = points  + ipt * num_point_params;
 
       ceres::LossFunction* loss_function = get_loss_function(opt);
 
-      // Each observation corresponds to a pair of a camera and a point
-      // which are identified by indices icam and ipt respectively.
-      double * camera = cameras + num_camera_params * icam;
-      double * point  = points  + num_point_params  * ipt;
-      problem.AddResidualBlock(cost_function, loss_function, camera, point);
+      add_residual_block(ba_model, observation, pixel_sigma, icam, ipt,
+                         camera, point, intrinsics, loss_function, problem);
       
     }
   }
@@ -278,7 +524,7 @@ void do_ba_ceres(ModelT & ba_model, Options const& opt ){
     
     ceres::LossFunction* loss_function = get_loss_function(opt);
     
-    double * point  = points  + num_point_params  * ipt;
+    double * point  = points  + ipt * num_point_params;
     problem.AddResidualBlock(cost_function, loss_function, point);
   }
 
@@ -286,7 +532,6 @@ void do_ba_ceres(ModelT & ba_model, Options const& opt ){
   ceres::Solver::Options options;
   options.gradient_tolerance = 1e-16;
   options.function_tolerance = 1e-16;
-
   options.max_num_iterations = opt.max_iterations;
   options.minimizer_progress_to_stdout = (opt.report_level >= vw::ba::ReportFile);
 
@@ -314,12 +559,14 @@ void do_ba_ceres(ModelT & ba_model, Options const& opt ){
              << std::endl;
   }
   
-  // Save the camera info back to the ba_model so we can save it to disk later
-  for (size_t i = 0; i < num_cameras; i++){
-    typename ModelT::camera_vector_t cam;
-    for (size_t c = 0; c < cam.size(); c++)
-      cam[c] = cameras_vec[i*num_camera_params + c];
-    ba_model.set_A_parameters(i, cam);
+  // Copy the latest version of the optimized variables into
+  // ba_model. Need this to be able to save the model to disk later.
+  typename ModelT::camera_intr_vector_t concat;
+  for (size_t icam = 0; icam < num_cameras; icam++){
+    asp::concat_extrinsics_intrinsics<ModelT>(&cameras_vec[icam*num_camera_params],
+                                              intrinsics,
+                                              concat); // output goes here
+    ba_model.set_A_parameters(icam, concat);
   }
   
 }
@@ -343,13 +590,13 @@ void do_ba(typename AdjusterT::model_type & ba_model,
     fs::remove(iterPointsFile);
 
     // Write the starting locations
-    std::cout << "Writing: " << iterCameraFile << std::endl;
-    std::cout << "Writing: " << iterPointsFile << std::endl;
+    vw_out() << "Writing: " << iterCameraFile << std::endl;
+    vw_out() << "Writing: " << iterPointsFile << std::endl;
     ba_model.bundlevis_cameras_append(iterCameraFile);
     ba_model.bundlevis_points_append(iterPointsFile);
   }
 
-  BundleAdjustReport<AdjusterT >
+  BundleAdjustReport<AdjusterT>
     reporter( "Bundle Adjust", ba_model, bundle_adjuster,
               opt.report_level );
 
@@ -395,10 +642,11 @@ void save_cnet_as_csv(Options& opt, std::string const& cnetFile){
   // Save the input control network in the csv file format used by ground
   // control points.
 
-  // We assume here that the user has specified the datum.
-  
+  if (opt.datum.name() == UNSPECIFIED_DATUM)
+    vw_throw( ArgumentErr() << "No datum was specified. "
+              << "Cannot save control network as csv.\n" );
+    
   vw_out() << "Writing: " << cnetFile << std::endl;
-
   std::ofstream ofs(cnetFile.c_str());
   ofs.precision(17);
 
@@ -442,7 +690,7 @@ void save_cnet_as_csv(Options& opt, std::string const& cnetFile){
 
 // Use given cost function. Switch based on solver.
 template<class ModelType, class CostFunType>
-void do_ba_costfun(CostFunType const& cost_fun, Options const& opt){
+void do_ba_costfun(CostFunType const& cost_fun, Options& opt){
 
   ModelType ba_model(opt.camera_models, opt.cnet);
   
@@ -459,18 +707,18 @@ void do_ba_costfun(CostFunType const& cost_fun, Options const& opt){
   }
 
   // Save the models to disk
-  for (unsigned i=0; i < ba_model.num_cameras(); ++i){
+  for (size_t icam = 0; icam < ba_model.num_cameras(); icam++){
     std::string adjust_file = asp::bundle_adjust_file_name(opt.out_prefix,
-                                                           opt.image_files[i]);
+                                                           opt.image_files[icam]);
     vw_out() << "Writing: " << adjust_file << std::endl;
-    ba_model.write_adjustment(i, adjust_file);
+    ba_model.write_adjustment(icam, adjust_file);
   }
   
 }
 
 // Do BA with given model. Switch based on cost function. 
 template<class ModelType>
-void do_ba_with_model(Options const& opt){
+void do_ba_with_model(Options& opt){
   
   if ( opt.cost_function == "cauchy" ) {
     do_ba_costfun<ModelType, CauchyError>
@@ -542,8 +790,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
               << usage << general_options );
   opt.gcp_files = asp::extract_gcps( opt.image_files );
   opt.camera_files = asp::extract_cameras( opt.image_files );
+
+  // See if we start with initial cameras or no cameras
+  opt.have_input_cams
+    = (!opt.camera_files.empty()) || asp::images_are_cubes(opt.image_files);
   
-  if (!opt.gcp_files.empty()){
+  if (!opt.gcp_files.empty() || !opt.have_input_cams){
     // Need to read the datum if we have gcps.
     if (opt.datum_str != ""){
       // If the user set the datum, use it.
@@ -555,16 +807,23 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                                      "Reference Meridian",
                                      opt.semi_major, opt.semi_minor, 0.0);
     }else{
-      vw_throw( ArgumentErr() << "When ground control points are used, "
-                << "the datum must be specified." );
+      if (!opt.gcp_files.empty())
+        vw_throw( ArgumentErr() << "When ground control points are used, "
+                  << "the datum must be specified.\n"
+                  << usage << general_options );
+      else if (!opt.have_input_cams)
+        vw_throw( ArgumentErr() << "When there is no input camera information, "
+                  << "the datum must be specified.\n"
+                  << usage << general_options );
     }
     vw_out() << "Will use datum: " << opt.datum << std::endl;
     
   }
-  
-  if ( opt.out_prefix.empty() )
-    vw_throw( ArgumentErr() << "Missing output prefix." );
 
+  if ( opt.out_prefix.empty() )
+    vw_throw( ArgumentErr() << "Missing output prefix.\n"
+              << usage << general_options  );
+  
   // Create the output directory 
   asp::create_out_dir(opt.out_prefix);
     
@@ -608,6 +867,15 @@ int main(int argc, char* argv[]) {
     if (num_images != (int)opt.camera_files.size())
       vw_throw(ArgumentErr() << "Must have as many cameras as we have images.\n");
 
+    if (!opt.have_input_cams){
+      if (opt.stereo_session_string != "" && opt.stereo_session_string != "pinhole"){
+        vw_throw( ArgumentErr()
+                  << "No input cameras were provided. "
+                  << "The only supported stereo session is Pinhole.\n");
+      }
+      opt.stereo_session_string = "pinhole";
+    }
+
     // Create the stereo session. This will attempt to identify the
     // session type.
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
@@ -623,8 +891,16 @@ int main(int argc, char* argv[]) {
       vw_out(DebugMessage,"asp") << "Loading: "
                                  << opt.image_files[i] << ' '
                                  << opt.camera_files[i] << "\n";
-      opt.camera_models.push_back(session->camera_model(opt.image_files[i],
-                                                        opt.camera_files[i]));
+      if (opt.have_input_cams){
+        opt.camera_models.push_back(session->camera_model(opt.image_files[i],
+                                                          opt.camera_files[i]));
+      }
+      else{
+        // Create new cameras from scratch. These are just
+        // placeholders, we won't use them.
+        opt.camera_models.push_back(boost::shared_ptr<vw::camera::CameraModel>
+                                    (new PinholeModel()));
+      }  
     }
 
     // Create the match points
@@ -641,9 +917,10 @@ int main(int argc, char* argv[]) {
         session->get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
         try{
           // IP matching may not succeed for all pairs
-          session->ip_matching( image1, image2, nodata1, nodata2, match_filename,
-                                opt.camera_models[i].get(), opt.camera_models[j].get());
-        } catch ( const std::exception& e ) {
+          session->ip_matching(image1, image2, nodata1, nodata2, match_filename,
+                               opt.camera_models[i].get(),
+                               opt.camera_models[j].get());
+        } catch ( const std::exception& e ){
           vw_out(WarningMessage) << e.what() << std::endl;
         }
       }
@@ -651,16 +928,16 @@ int main(int argc, char* argv[]) {
     
     opt.cnet.reset( new ControlNetwork("BundleAdjust") );
     if ( opt.cnet_file.empty() ) {
-      build_control_network( (*opt.cnet), opt.camera_models,
-                             opt.image_files,
-                             opt.min_matches,
-                             std::vector<std::string>(),
+      build_control_network( opt.have_input_cams,
+                             (*opt.cnet), opt.camera_models,
+                             opt.image_files, opt.min_matches,
                              opt.out_prefix);
-      add_ground_control_points( (*opt.cnet), opt.image_files,
-                                 opt.gcp_files.begin(), opt.gcp_files.end(),
-                                 opt.datum);
-      
-      opt.cnet->write_binary(opt.out_prefix + "-control");
+      if (opt.have_input_cams)
+        add_ground_control_points( (*opt.cnet), opt.image_files,
+                                   opt.gcp_files.begin(), opt.gcp_files.end(),
+                                   opt.datum);
+
+      //opt.cnet->write_binary(opt.out_prefix + "-control");
       //save_cnet_as_csv(opt, opt.out_prefix + "-cnet.csv");
       
     } else  {
@@ -681,9 +958,27 @@ int main(int argc, char* argv[]) {
                   << tokens.back() << "\"." );
       }
     }
-    
-    typedef BundleAdjustmentModel ModelType;
-    do_ba_with_model<ModelType>(opt);
+
+    if (opt.have_input_cams)
+      do_ba_with_model<BundleAdjustmentModel>(opt);
+    else{
+
+      BAPinholeModel ba_model(opt.camera_models, opt.cnet);
+
+      // Create new camera models from scratch
+      do_ba_ceres<BAPinholeModel>(ba_model, opt);
       
+      // Save the camera models to disk
+      std::vector<std::string> cam_files;
+      for (int icam = 0; icam < (int)opt.camera_models.size(); icam++){
+        std::string cam_file
+          = asp::bundle_adjust_file_name(opt.out_prefix, opt.image_files[icam]);
+        cam_file = fs::path(cam_file).replace_extension("pinhole").string();
+        cam_files.push_back(cam_file);
+      }
+      ba_model.write_camera_models(cam_files);
+      
+    }
+    
   } ASP_STANDARD_CATCHES;
 }

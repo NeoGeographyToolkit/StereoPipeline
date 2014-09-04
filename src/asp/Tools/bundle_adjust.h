@@ -25,6 +25,7 @@
 #include <boost/filesystem/fstream.hpp>
 
 #include <vw/Camera/CAHVORModel.h>
+#include <vw/Camera/PinholeModel.h>
 #include <vw/BundleAdjustment.h>
 #include <vw/Math.h>
 
@@ -35,25 +36,53 @@
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/StereoSettings.h>
 
+namespace asp{
+  template<class camera_vector_t>
+  void parse_camera_parameters(camera_vector_t a_j,
+                               vw::Vector3 &position_correction,
+                               vw::Quat &pose_correction) {
+    position_correction = subvector(a_j, 0, 3);
+    pose_correction = axis_angle_to_quaternion( subvector(a_j,3,3) );
+  }
+
+  template<class ModelT>
+  void concat_extrinsics_intrinsics(const double* const extrinsics,
+                                    const double* const intrinsics, 
+                                    typename ModelT::camera_intr_vector_t & concat){
+    int intr_len = ModelT::intrinsic_params_n, cam_len = ModelT::camera_params_n;
+    for (int c = 0; c < cam_len; c++)
+      concat[c] = extrinsics[c];
+    for (int i = 0; i < intr_len; i++)
+      concat[cam_len + i] = intrinsics[i];
+  }
+  
+}
+
 // Bundle adjustment functor
-class BundleAdjustmentModel : public vw::ba::ModelBase<BundleAdjustmentModel, 6, 3> {
+class BundleAdjustmentModel:
+  public vw::ba::ModelBase<BundleAdjustmentModel, 6, 3> {
 
 public:
-  typedef vw::Vector<double,6> camera_vector_t;
-  typedef vw::Vector<double,3> point_vector_t;
-
+  typedef vw::Vector<double,camera_params_n> camera_vector_t;
+  typedef vw::Vector<double,point_params_n> point_vector_t;
+  typedef boost::shared_ptr<vw::camera::CameraModel> cam_ptr_t;
+  // No intrinsic params
+  const static size_t intrinsic_params_n = 0;
+  typedef vw::Vector<double,intrinsic_params_n> intrinsic_vector_t;
+  typedef vw::Vector<double,camera_params_n
+                     +intrinsic_params_n> camera_intr_vector_t;
 private:
-  std::vector<boost::shared_ptr<vw::camera::CameraModel> > m_cameras;
+  std::vector<cam_ptr_t> m_cameras;
   boost::shared_ptr<vw::ba::ControlNetwork> m_network;
 
-  std::vector<camera_vector_t> a;
+  std::vector<camera_intr_vector_t> a;
   std::vector<point_vector_t> b;
   std::vector<camera_vector_t> a_target;
   std::vector<point_vector_t> b_target;
   int m_num_pixel_observations;
 
 public:
-  BundleAdjustmentModel(std::vector<boost::shared_ptr<vw::camera::CameraModel> > const& cameras,
+  BundleAdjustmentModel(std::vector<cam_ptr_t> const& cameras,
                         boost::shared_ptr<vw::ba::ControlNetwork> network) :
     m_cameras(cameras), m_network(network), a(cameras.size()),
     b(network->size()), a_target(cameras.size()), b_target(network->size()) {
@@ -74,7 +103,7 @@ public:
   // Return a reference to the camera and point parameters.
   camera_vector_t A_parameters(int j) const { return a[j]; }
   point_vector_t B_parameters(int i) const { return b[i]; }
-  void set_A_parameters(int j, camera_vector_t const& a_j) {
+  void set_A_parameters(int j, camera_intr_vector_t const& a_j) {
     a[j] = a_j;
   }
   void set_B_parameters(int i, point_vector_t const& b_i) {
@@ -112,23 +141,16 @@ public:
     return result;
   }
 
-  void parse_camera_parameters(camera_vector_t a_j,
-                               vw::Vector3 &position_correction,
-                               vw::Quat &pose_correction) const {
-    position_correction = subvector(a_j, 0, 3);
-    pose_correction = axis_angle_to_quaternion( subvector(a_j,3,3) );
-  }
-
   // Given the 'a' vector (camera model parameters) for the j'th
   // image, and the 'b' vector (3D point location) for the i'th
   // point, return the location of b_i on imager j in pixel
   // coordinates.
   vw::Vector2 operator() ( unsigned /*i*/, unsigned j,
                            camera_vector_t const& a_j,
-                           point_vector_t const& b_i ) const {
+                           point_vector_t const& b_i) const {
     vw::Vector3 position_correction;
     vw::Quat pose_correction;
-    parse_camera_parameters(a_j, position_correction, pose_correction);
+    asp::parse_camera_parameters(a_j, position_correction, pose_correction);
     vw::camera::AdjustedCameraModel cam(m_cameras[j],
                                         position_correction,
                                         pose_correction);
@@ -138,18 +160,17 @@ public:
   void write_adjustment(int j, std::string const& filename) const {
     vw::Vector3 position_correction;
     vw::Quat pose_correction;
-    parse_camera_parameters(a[j], position_correction, pose_correction);
+    asp::parse_camera_parameters(a[j], position_correction, pose_correction);
     write_adjustments(filename, position_correction, pose_correction);
   }
 
-  std::vector<boost::shared_ptr<vw::camera::CameraModel> >
-  adjusted_cameras() const {
-    std::vector<boost::shared_ptr<vw::camera::CameraModel> > result(m_cameras.size());
+  std::vector<cam_ptr_t> adjusted_cameras() const {
+    std::vector<cam_ptr_t> result(m_cameras.size());
     for (unsigned j = 0; j < result.size(); ++j) {
       vw::Vector3 position_correction;
       vw::Quat pose_correction;
-      parse_camera_parameters(a[j], position_correction, pose_correction);
-      result[j] = boost::shared_ptr<vw::camera::CameraModel>( new vw::camera::AdjustedCameraModel( m_cameras[j], position_correction, pose_correction ) );
+      asp::parse_camera_parameters(a[j], position_correction, pose_correction);
+      result[j] = cam_ptr_t( new vw::camera::AdjustedCameraModel( m_cameras[j], position_correction, pose_correction ) );
     }
     return result;
   }
@@ -184,7 +205,7 @@ public:
     for ( unsigned j = 0; j < a.size(); j++ ) {
       vw::Vector3 position_correction;
       vw::Quat pose_correction;
-      parse_camera_parameters(a[j], position_correction, pose_correction);
+      asp::parse_camera_parameters(a[j], position_correction, pose_correction);
       vw::camera::AdjustedCameraModel cam(m_cameras[j],
                                           position_correction,
                                           pose_correction);
@@ -207,4 +228,90 @@ public:
   }
 };
 
-#endif//__ASP_TOOLS_BUNDLEADJUST_H__
+// Model to be used to float all parameters of a pinhole model.  There
+// are 6 camera parameters, corresponding to: camera center (3), and 
+// camera orientation (3). Also there are three intrinsic parameters:
+// focal length (1), and pixel offsets (2), which are shared
+// among the cameras.
+class BAPinholeModel:
+  public vw::ba::ModelBase<BAPinholeModel, 6, 3> {
+
+public:
+  typedef vw::Vector<double,camera_params_n> camera_vector_t;
+  typedef vw::Vector<double,point_params_n> point_vector_t;
+  typedef boost::shared_ptr<vw::camera::CameraModel> cam_ptr_t;
+  // Three intrinsic params
+  const static size_t intrinsic_params_n = 3;
+  typedef vw::Vector<double,intrinsic_params_n> intrinsic_vector_t;
+  typedef vw::Vector<double,camera_params_n
+                     +intrinsic_params_n> camera_intr_vector_t;
+  // Need this scale to force the rotations to not change that wildly
+  // when determining pinhole cameras from scratch.
+  const static double pose_scale = 1.0e+6;
+private:
+  std::vector<cam_ptr_t> m_cameras;
+  boost::shared_ptr<vw::ba::ControlNetwork> m_network;
+  std::vector<camera_intr_vector_t> a;
+
+public:
+  BAPinholeModel(std::vector<cam_ptr_t> const& cameras,
+                 boost::shared_ptr<vw::ba::ControlNetwork> network) :
+    m_cameras(cameras), m_network(network), a(cameras.size()){}
+
+  unsigned num_cameras() const { return m_cameras.size(); }
+  unsigned num_points() const { return m_network->size(); }
+
+  void set_A_parameters(int j, camera_intr_vector_t const& a_j) {
+    // Set the camera parameters.
+    a[j] = a_j;
+  }
+  
+  vw::camera::PinholeModel get_pinhole_model(camera_intr_vector_t const& a){
+    
+    camera_intr_vector_t b = a;
+
+    // Undo the scale of the rotation variables
+    subvector(b,3,3) /= pose_scale;
+
+    vw::Vector3 position;
+    vw::Quat pose;
+    asp::parse_camera_parameters(b, position, pose);
+
+    return vw::camera::PinholeModel(position,
+                                    pose.rotation_matrix(),
+                                    b[6], b[6],  // focal lengths
+                                    b[7], b[8]); // pixel offsets
+  }
+  
+  // Given the 'a' vector (camera model parameters) for the j'th
+  // image, and the 'b' vector (3D point location) for the i'th
+  // point, return the location of b_i on imager j in pixel
+  // coordinates.
+  vw::Vector2 operator() ( unsigned /*i*/, unsigned j,
+                           camera_intr_vector_t const& a_j,
+                           point_vector_t const& b_i) {
+
+    return get_pinhole_model(a_j).point_to_pixel(b_i);
+  }
+
+  // Give access to the control network
+  boost::shared_ptr<vw::ba::ControlNetwork> control_network() const {
+    return m_network;
+  }
+
+  void write_camera_models(std::vector<std::string> const& cam_files){
+    
+    VW_ASSERT(cam_files.size() == a.size(),
+                  vw::ArgumentErr() << "Must have as many camera files as cameras.\n");
+    
+    for (int icam = 0; icam < (int)cam_files.size(); icam++){
+      vw::vw_out() << "Writing: " << cam_files[icam] << std::endl;        
+      get_pinhole_model(a[icam]).write(cam_files[icam]);
+    }
+    
+  }
+  
+
+};
+
+#endif
