@@ -355,8 +355,11 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
   if (opt.num_threads <= 0)
     opt.num_threads = vw_settings().default_num_threads();
 
-  vw::vw_out() << "\t--> Setting number of processing threads to: "
+  // This is needed for stereo, to help avoid duplicating this message.
+  if (!allow_unregistered)
+    vw::vw_out() << "\t--> Setting number of processing threads to: "
                  << opt.num_threads << std::endl;
+  
   vw::vw_settings().set_default_num_threads(opt.num_threads);
   
   boost::algorithm::to_upper( opt.tif_compress );
