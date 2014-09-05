@@ -53,6 +53,7 @@
 #include <vw/Cartography/Datum.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Cartography/PointImageManipulation.h>
+#include <vw/FileIO/DiskImageUtils.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
 
@@ -494,7 +495,7 @@ string get_file_type(string const& file_name){
   if (boost::iequals(ext, ".csv") || boost::iequals(ext, ".txt")){
     return "CSV";
   }else{
-    int nc = asp::get_num_channels(file_name);
+    int nc = get_num_channels(file_name);
     if (nc == 1)
       return "DEM";
     if (nc >= 3)
@@ -1585,7 +1586,7 @@ void save_trans_point_cloud(Options const& opt,
 
     // Need this logic because we cannot open an image
     // with n channels without knowing n beforehand.
-    int nc = asp::get_num_channels(input_file);
+    int nc = get_num_channels(input_file);
     switch(nc){
     case 3:
       save_trans_point_cloud_n<3>(opt, input_file, output_file, T);

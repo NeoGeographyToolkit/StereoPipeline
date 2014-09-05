@@ -158,14 +158,6 @@ void asp::run_cmd_app_to_file(std::string cmd, std::string file){
   system(full_cmd.c_str());
 }
 
-// Find how many channels/bands are in a given image
-int asp::get_num_channels(std::string filename){
-  boost::scoped_ptr<vw::SrcImageResource> src(vw::DiskImageResource::open(filename));
-  int num_channels = src->channels();
-  int num_planes   = src->planes();
-  return num_channels*num_planes;
-}
-
 std::string asp::extract_prog_name(std::string const& prog_str){
 
   // Get program name without path and leading 'lt-'.

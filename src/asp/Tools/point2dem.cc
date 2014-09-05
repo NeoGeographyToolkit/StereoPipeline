@@ -29,6 +29,7 @@ using namespace vw::cartography;
 namespace po = boost::program_options;
 
 #include <vw/Core/Stopwatch.h>
+#include <vw/FileIO/DiskImageUtils.h>
 
 #if defined(VW_HAVE_PKG_GDAL) && VW_HAVE_PKG_GDAL==1
 #include "ogr_spatialref.h"
@@ -713,7 +714,7 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
 
   // Write triangulation error image if requested
   if ( opt.do_error ) {
-    int num_channels = asp::get_num_channels(opt.pointcloud_filename);
+    int num_channels = get_num_channels(opt.pointcloud_filename);
 
     if (num_channels == 4){
       // The error is a scalar.
@@ -915,15 +916,20 @@ int main( int argc, char *argv[] ) {
     ImageViewRef<double> error_image;
     double estim_max_error = 0.0;
     if (opt.remove_outliers || opt.max_valid_triangulation_error > 0.0){
-      int num_channels = asp::get_num_channels(opt.pointcloud_filename);
+      int num_channels = get_num_channels(opt.pointcloud_filename);
+      int beg_err_ch = 3;// errors start at this channel
       if (num_channels == 4){
-        error_image = per_pixel_filter(asp::select_points<3, 1, 4>
-                                       (DiskImageView<Vector4>(opt.pointcloud_filename)),
-                                       asp::VectorNorm< Vector<double, 1> >());
+        const int num_err_ch = 1;
+        error_image
+          = per_pixel_filter(read_channels<num_err_ch, double>
+                             (opt.pointcloud_filename, beg_err_ch),
+                             asp::VectorNorm< Vector<double, num_err_ch> >());
       }else if (num_channels == 6){
-        error_image = per_pixel_filter(asp::select_points<3, 3, 6>
-                                       (DiskImageView<Vector6>(opt.pointcloud_filename)),
-                                       asp::VectorNorm< Vector<double, 3> >());
+        const int num_err_ch = 3;
+        error_image
+          = per_pixel_filter(read_channels<num_err_ch, double>
+                             (opt.pointcloud_filename, beg_err_ch),
+                             asp::VectorNorm< Vector<double, num_err_ch> >());
       }else{
         vw_throw( ArgumentErr() << "The point cloud file must have 4 or 6 bands "
                   << "to be able to remove outliers.\n");
