@@ -22,6 +22,7 @@
 #include <vw/Image.h>
 #include <vw/Cartography.h>
 #include <vw/Math.h>
+#include <vw/FileIO/DiskImageUtils.h>
 using namespace vw;
 
 #include <asp/Core/Common.h>
@@ -30,34 +31,58 @@ namespace po = boost::program_options;
 
 #include <limits>
 
+namespace vw {
+  template<> struct PixelFormatID<Vector<uint16, 1> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_1_CHANNEL; };
+  template<> struct PixelFormatID<Vector<uint16, 4> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_4_CHANNEL; };
+  template<> struct PixelFormatID<Vector<float, 1> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_1_CHANNEL; };
+  template<> struct PixelFormatID<Vector<float, 4> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_4_CHANNEL; };
+  template<> struct PixelFormatID<Vector<double, 1> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_1_CHANNEL; };
+  template<> struct PixelFormatID<Vector<double, 4> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_4_CHANNEL; };
+}
+
 struct ImageData{
   std::string src_file;
-  DiskImageView<float> src_img;
+  int band;
+  ImageViewRef<float> src_img;
   BBox2 src_box, dst_box;
   double nodata_value;
   AffineTransform transform; // Transform from src_box to dst_box.
 
-  ImageData(std::string const& src_file_in,
+  ImageData(std::string const& src_file_in, int band_in,
             BBox2 const& src_box_in, BBox2 const& dst_box_in,
             bool has_input_nodata_value, double input_nodata_value
             ):
-    src_file(src_file_in), src_img(src_file),
-    src_box(src_box_in), dst_box(dst_box_in), nodata_value(0.0),
+    src_file(src_file_in), band(band_in), src_box(src_box_in), dst_box(dst_box_in),
+    nodata_value(0.0),
     transform(AffineTransform(Matrix2x2(dst_box.width()/src_box.width(),0,
                                         0,dst_box.height()/src_box.height()),
                               dst_box.min() - src_box.min())) {
 
+    int num_bands = get_num_channels(src_file);
+    if (num_bands == 1){
+      src_img = DiskImageView<float>(src_file);
+    }else{
+      // Multi-band image. Pick the desired band. In principle, this
+      // block can handle the above case as well. We do it this way
+      // because reading multi-band images is a fragile process in
+      // ASP, so if we know for sure that just one band is present,
+      // don't come here.
+      int channel = band - 1;  // In VW, bands start from 0, not 1.
+      src_img = select_channel(read_channels<1, float>(src_file, channel), 0);
+    }
+    
     // Read nodata-value from disk, if available. Overwrite with
     // user-provided nodata-value if given.
     DiskImageResourceGDAL in_rsrc(src_file);
     if ( in_rsrc.has_nodata_read() ) nodata_value = in_rsrc.nodata_read();
     if (has_input_nodata_value) nodata_value = input_nodata_value;
-    
+
   }
 };
 
-void parseImgData(std::string data, int& dst_cols, int& dst_rows,
+void parseImgData(std::string data, int band, 
                   bool has_input_nodata_value, double input_nodata_value,
+                  int& dst_cols, int& dst_rows,
                   std::vector<ImageData> & img_data){
 
   // Extract the tif files to mosaic, their dimensions, and for each
@@ -81,11 +106,25 @@ void parseImgData(std::string data, int& dst_cols, int& dst_rows,
   std::string src_file;
   double src_lenx, src_leny, dst_minx, dst_miny, dst_lenx, dst_leny;
   BBox2 src_box, dst_box;
+  bool warned_about_bands = false;
   while( is >> src_file >> src_lenx >> src_leny >> dst_minx >> dst_miny
          >> dst_lenx >> dst_leny){
     src_box = BBox2(0,        0,        src_lenx, src_leny);
     dst_box = BBox2(dst_minx, dst_miny, dst_lenx, dst_leny);
-    img_data.push_back(ImageData(src_file, src_box, dst_box, has_input_nodata_value, input_nodata_value));
+
+    // If the user did not specify the band to use (band == 0), and there is
+    // more than one band, use the first band but warn the user about it.
+    if (!warned_about_bands){
+      int num_bands = get_num_channels(src_file);
+      if (num_bands > 1 && band <= 0)
+        vw_out(vw::WarningMessage) << "Input images have " << num_bands
+                                   << " bands. Will use the first band only.\n"; 
+      band = std::max(band, 1);
+      warned_about_bands = true;
+    }
+    
+    img_data.push_back(ImageData(src_file, band, src_box, dst_box,
+                                 has_input_nodata_value, input_nodata_value));
   }
 
   for (int k = (int)img_data.size()-1; k >= 0; k--){
@@ -139,7 +178,8 @@ public:
   TifMosaicView(int dst_cols, int dst_rows, std::vector<ImageData> & img_data,
             double scale, double output_nodata_value):
     m_dst_cols((int)(scale*dst_cols)), m_dst_rows((int)(scale*dst_rows)),
-    m_img_data(img_data), m_scale(scale), m_output_nodata_value(output_nodata_value){}
+    m_img_data(img_data), m_scale(scale),
+    m_output_nodata_value(output_nodata_value){}
 
   typedef float pixel_type;
   typedef pixel_type result_type;
@@ -187,8 +227,8 @@ public:
       box = grow_bbox_to_int(box);
       box.crop(bounding_box(m_img_data[k].src_img));
       if (box.empty()) continue;
-      src_vec[k] = ( box );                          // Recording active area of the tile
-      box.expand( extra ); // Expanding so Interpolation doesn't reach outside image
+      src_vec[k] = ( box ); // Recording active area of the tile
+      box.expand( extra );  // Expanding to help interpolation
       crop_vec[k] =
         InterpT(create_mask_less_or_equal
                 (crop(edge_extend(m_img_data[k].src_img, ConstantEdgeExtension()),
@@ -244,9 +284,10 @@ public:
 
 struct Options : asp::BaseOptions {
   std::string img_data, output_image;
+  int band;
   bool has_input_nodata_value, has_output_nodata_value;
   double percent, input_nodata_value, output_nodata_value;
-  Options(): has_input_nodata_value(false), has_output_nodata_value(false),
+  Options(): band(0), has_input_nodata_value(false), has_output_nodata_value(false),
              input_nodata_value(std::numeric_limits<double>::quiet_NaN()),
              output_nodata_value(std::numeric_limits<double>::quiet_NaN()){}
 };
@@ -259,6 +300,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Information on the images to mosaic.")
     ("output-image,o", po::value(&opt.output_image)->default_value(""),
      "Specify the output image.")
+    ("band", po::value(&opt.band), "Which band to use (for multi-spectral images).")
     ("input-nodata-value", po::value(&opt.input_nodata_value),
      "Nodata value to use on input; input pixel values less than or equal to this are considered invalid.")
     ("output-nodata-value", po::value(&opt.output_nodata_value),
@@ -305,9 +347,9 @@ int main( int argc, char *argv[] ) {
 
     int dst_cols, dst_rows;
     std::vector<ImageData> img_data;
-    parseImgData(opt.img_data, dst_cols, dst_rows,
+    parseImgData(opt.img_data, opt.band,
                  opt.has_input_nodata_value, opt.input_nodata_value,
-                 img_data);
+                 dst_cols, dst_rows, img_data);
     if ( dst_cols <= 0 || dst_rows <= 0 || img_data.empty() )
       vw_throw( ArgumentErr() << "Invalid input data.\n");
 

@@ -459,7 +459,7 @@ def main():
 
     try:
         try:
-            usage = '''dg_mosaic [--help][--gdal-dir dir] <all ntf or tif files that make up the observation>
+            usage = '''dg_mosaic [--help] <all ntf or tif files that make up the observation>
 
   [ASP [@]ASP_VERSION[@]]'''
 
@@ -469,14 +469,15 @@ def main():
             parser.set_defaults(gdaldir="")
             parser.set_defaults(reduce_percent=100.0)
             parser.set_defaults(output_prefix="")
+            parser.set_defaults(band=0)
             parser.set_defaults(input_nodata_value=None)
             parser.set_defaults(output_nodata_value=None)
-            parser.add_option("--gdal-dir", dest="gdaldir",
-                              help="Directory where the GDAL tools are. If not provided, we get them from the environment.")
             parser.add_option("--reduce-percent", dest="reduce_percent", type="float",
                               help="Render a reduced resolution image and xml based on this percentage.")
             parser.add_option("--output-prefix", dest="output_prefix", type="str",
                               help="The prefix for the output .tif and .xml files.")
+            parser.add_option("--band", dest="band", type="int", 
+                              help="Which band to use (for multi-spectral images).")
             parser.add_option("--input-nodata-value", dest="input_nodata_value", type="float",
                               help="Nodata value to use on input; input pixel values less than or equal to this are considered invalid.")
             parser.add_option("--output-nodata-value", dest="output_nodata_value", type="float",
@@ -494,6 +495,8 @@ def main():
                               help="Make the calculations, but just print out the commands.")
             parser.add_option("-v", "--verbose", dest="verbose",
                               action="store_true", help="Increase verbosity.")
+            # This option is obsolete. We now ship gdal_translate with ASP.
+            parser.add_option("--gdal-dir", dest="gdaldir", help=optparse.SUPPRESS_HELP)
             # Debug option. Skip the part where we create the tif file,
             # that is quite time-consuming.
             parser.add_option('--skip-tif-gen', dest='skip_tif_gen', default=False,
@@ -646,6 +649,10 @@ def main():
         scale = options.reduce_percent / 100.0
         suffix = ".r" + str(options.reduce_percent)
 
+        # The band to output
+        if options.band > 0:
+            suffix += ".b" + str(options.band)
+            
         # Write a composite scaled XML file. We first create the xml at
         # the original resolution and then we scale it.
         tree = ET.parse(xml_name(args[0]))
@@ -780,6 +787,7 @@ def main():
             mosaic_cmd = "tif_mosaic"
             mosaic_args = ['--threads', str(4),
                            '--output-image', tif_file,
+                           '--band', str(options.band),
                            '--reduce-percent', str(options.reduce_percent),
                            '--image-data', tif_mosaic_opts]
             if options.input_nodata_value is not None:

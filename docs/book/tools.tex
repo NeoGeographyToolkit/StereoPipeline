@@ -869,8 +869,6 @@ mosaics (with the camera files modified accordingly).
 \hline
 Options & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message.\\ \hline
-\texttt{-\/-gdal-dir \textit{directory}} &
-Directory where the GDAL tools are. If not provided, we get them from the environment. \\ \hline
 \texttt{-\/-reduce-percent \textit{integer(=100)}} &
 Render a reduced resolution image and XML based on this percentage. \\ \hline
 \texttt{-\/-skip-rpc-gen \textit{[default: false]}} &
@@ -878,6 +876,7 @@ Skip RPC model generation.\\ \hline
 \texttt{-\/-rpc-penalty-weight \textit{float(=0.1)}} &
 The weight to use to penalize higher order RPC coefficients when generating the combined RPC model. Higher penalty weight results in smaller such coefficients.\\ \hline
 \texttt{-\/-output-prefix \textit{string}} & The prefix for the output .tif and .xml files. \\ \hline
+\texttt{-\/-band \textit{integer}} & Which band to use (for multi-spectral images). \\ \hline
 \texttt{-\/-input-nodata-value \textit{float}} & Nodata value to use on input; input pixel values less than or equal to this are considered invalid. \\ \hline
 \texttt{-\/-output-nodata-value \textit{float}} & Nodata value to use on output. \\ \hline
 
