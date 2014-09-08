@@ -44,10 +44,16 @@ if MAKE_APP_STEREO
   stereo_tri_SOURCES      = stereo_tri.cc stereo.cc
 endif
 
-if MAKE_APP_BUNDLEADJUST
+if MAKE_APP_BUNDLE_ADJUST
   bin_PROGRAMS += bundle_adjust
   bundle_adjust_SOURCES = bundle_adjust.cc bundle_adjust.h
-  bundle_adjust_LDADD = $(APP_BUNDLEADJUST_LIBS)
+  bundle_adjust_LDADD = $(APP_BUNDLE_ADJUST_LIBS)
+endif
+
+if MAKE_APP_DEM_MOSAIC
+  bin_PROGRAMS += dem_mosaic
+  dem_mosaic_SOURCES = dem_mosaic.cc
+  dem_mosaic_LDADD   = $(APP_DEM_MOSAIC_LIBS)
 endif
 
 if MAKE_APP_ORBITVIZ
@@ -155,6 +161,16 @@ if MAKE_APP_MAPPROJECT
   mapproject_LDADD   = $(APP_MAPPROJECT_LIBS)
 endif
 
+if MAKE_APP_LRONACJITREG
+  bin_PROGRAMS += lronacjitreg # not in libexec as to get a script wrapper
+  lronacjitreg_LDADD = $(APP_LRONACJITREG_LIBS)
+  lronacjitreg_SOURCES = lronacjitreg.cc
+  bin_SCRIPTS  += lronac2mosaic.py
+endif
+
+# Auxiliary tools in libexec
+##############################################################################
+
 if MAKE_APP_RPC_GEN
   libexec_PROGRAMS += rpc_gen
   rpc_gen_SOURCES = rpc_gen.cc
@@ -165,13 +181,6 @@ if MAKE_APP_TIF_MOSAIC
   libexec_PROGRAMS += tif_mosaic
   tif_mosaic_SOURCES = tif_mosaic.cc
   tif_mosaic_LDADD   = $(APP_TIF_MOSAIC_LIBS)
-endif
-
-if MAKE_APP_LRONACJITREG
-  bin_PROGRAMS += lronacjitreg # not in libexec as to get a script wrapper
-  lronacjitreg_LDADD = $(APP_LRONACJITREG_LIBS)
-  lronacjitreg_SOURCES = lronacjitreg.cc
-  bin_SCRIPTS  += lronac2mosaic.py
 endif
 
 # Scripts

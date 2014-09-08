@@ -97,6 +97,7 @@ src/asp/Tools/bundle_adjust
 src/asp/Tools/bundlevis
 src/asp/Tools/dem_adjust
 src/asp/Tools/dem_geoid
+src/asp/Tools/dem_mosaic
 src/asp/Tools/dem_profile
 src/asp/Tools/dg_mosaic
 src/asp/Tools/disparitydebug
