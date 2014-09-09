@@ -37,8 +37,6 @@
 // Add unit tests.
 // To do: Get rid of GetImageCorners and ModelParams!
 
-#define USE_GRASSFIRE 1
-
 #include <iostream>
 #include <fstream>
 #include <iomanip>
@@ -68,41 +66,38 @@ namespace po = boost::program_options;
 #include <boost/filesystem/convenience.hpp>
 namespace fs = boost::filesystem;
 
-#if USE_GRASSFIRE
-typedef PixelGrayA<float> DemPixelT;
-#else
-typedef float DemPixelT;
-#endif
+typedef float RealT; // Use double for debugging
+typedef PixelGrayA<RealT> RealGrayA;
 
+// To do: Wipe this!
 struct ModelParams {
   std::string inputFilename; 
 };
 
-void listTifsInDir(const std::string & dirName,
-                   std::vector<std::string> & tifsInDir
-                   ){
-  
-  tifsInDir.clear();
+// Function for highlighting spots of data
+template<class PixelT>
+class NotNoDataFunctor {
+  typedef typename CompoundChannelType<PixelT>::type channel_type;
+  channel_type m_nodata;
+  typedef ChannelRange<channel_type> range_type;
+public:
+  NotNoDataFunctor( channel_type nodata ) : m_nodata(nodata) {}
 
-  fs::path dir(dirName);
-  if ( !fs::exists(dirName) || !fs::is_directory(dirName ) ) return;
+  template <class Args> struct result {
+    typedef channel_type type;
+  };
 
-  fs::directory_iterator end_iter; // default construction yields past-the-end
-  for  ( fs::directory_iterator dir_iter(dirName); dir_iter != end_iter; ++dir_iter)
-    {
-      if (! fs::is_regular_file(dir_iter->status()) ) continue;
-      std::string fileName = (*dir_iter).path().string();
-      int len = fileName.size();
-      if (len >= 4 && fileName.substr(len - 4, 4) == ".tif"){
-        //std::cout << "Now adding " << fileName << std::endl;
-        tifsInDir.push_back( fileName );
-      }
-    }
+  inline channel_type operator()( channel_type const& val ) const {
+    return (val != m_nodata && !isnan(val))? range_type::max() : range_type::min();
+  }
+};
 
-  // Sort the files in lexicographic order
-  std::sort(tifsInDir.begin(), tifsInDir.end());
-
-  return;
+template <class ImageT, class NoDataT>
+UnaryPerPixelView<ImageT,UnaryCompoundFunctor<NotNoDataFunctor<typename ImageT::pixel_type>, typename ImageT::pixel_type>  >
+inline notnodata( ImageViewBase<ImageT> const& image, NoDataT nodata ) {
+  typedef UnaryCompoundFunctor<NotNoDataFunctor<typename ImageT::pixel_type>, typename ImageT::pixel_type> func_type;
+  func_type func( nodata );
+  return UnaryPerPixelView<ImageT,func_type>( image.impl(), func );
 }
 
 Vector4 ComputeGeoBoundary(cartography::GeoReference Geo, int width, int height){
@@ -116,19 +111,19 @@ Vector4 ComputeGeoBoundary(cartography::GeoReference Geo, int width, int height)
   Vector2 rightBottomPixel(width-1, height-1);
   Vector2 rightBottomLonLat = Geo.pixel_to_lonlat(rightBottomPixel);
 
-  float minLon = leftTopLonLat(0);
-  float minLat = leftTopLonLat(1);
-  float maxLon = rightBottomLonLat(0);
-  float maxLat = rightBottomLonLat(1);
+  double minLon = leftTopLonLat(0);
+  double minLat = leftTopLonLat(1);
+  double maxLon = rightBottomLonLat(0);
+  double maxLat = rightBottomLonLat(1);
 
   if (maxLat<minLat){
-    float temp = minLat;
+    double temp = minLat;
     minLat = maxLat;
     maxLat = temp;
   }
 
   if (maxLon<minLon){
-    float temp = minLon;
+    double temp = minLon;
     minLon = maxLon;
     maxLon = temp;
   }
@@ -147,131 +142,71 @@ Vector4 getImageCorners(std::string imageFile){
   // Get the four corners of an image, that is the lon-lat coordinates of
   // the pixels in the image corners.
 
-  // Note: Below we assume that the image is uint8. In fact, for the
-  // purpose of calculation of corners the type of the image being
+  // Note: Below we assume that the image is float. In fact, for the
+  // purpose of calculation of corners, the type of the image being
   // read does not matter.
-  DiskImageView<PixelMask<PixelGray<uint8> > >  image(imageFile);
+  DiskImageView<float> image(imageFile);
 
   GeoReference imageGeo;
   bool is_good = read_georeference(imageGeo, imageFile);
   if (!is_good){
-    std::cerr << "No georeference found in " << imageFile << std::endl;
-    exit(1);
+    vw_throw(ArgumentErr() << "No georeference found in " << imageFile << ".\n");
   }
   Vector4 imageCorners = ComputeGeoBoundary(imageGeo, image.cols(), image.rows());
   return imageCorners;
 }
 
-bool boxesOverlap(const Vector4 & box1Corners, const Vector4 & box2Corners){
-
-  int lonOverlap = 0;
-  int latOverlap = 0;
-
-  if (box1Corners(0) > box1Corners(1) || box2Corners(0) > box2Corners(1))
-    {
-      std::cout << "ERROR: Must never happen: " << __FILE__ << " at line " << __LINE__ << std::endl;
-      exit(1);
-    }
-
-  if ( std::max(box1Corners(0), box2Corners(0)) < std::min(box1Corners(1), box2Corners(1)) )
-    {
-      lonOverlap = 1;
-    }
-
-  if (box1Corners(2) > box1Corners(3) || box2Corners(2) > box2Corners(3))
-    {
-      std::cout << "ERROR: Must never happen: " << __FILE__ << " at line " << __LINE__ << std::endl;
-      exit(1);
-    }
-
-  if ( std::max(box1Corners(2), box2Corners(2)) < std::min(box1Corners(3), box2Corners(3)) )
-    {
-      latOverlap = 1;
-    }
-
-  return (lonOverlap == 1 && latOverlap == 1);
-
-}
-
-void listTifsInDirOverlappingWithBox(const std::string & dirName,
-                                                 Vector4 & boxCorners,
-                                                 const std::string & outputListName){
-
-  std::vector<std::string> tifsInDir;
-  listTifsInDir(dirName, tifsInDir);
-
-  ofstream fh(outputListName.c_str());
-  if (!fh) {
-    std::cerr << "ERROR: listTifsInDirOverlappingWithBox: can't open " << outputListName
-              << " for writing" << std::endl;
-    exit(1);
-  }
-
-  fh.precision(20);
-  for (int fileIter = 0; fileIter < (int)tifsInDir.size(); fileIter++){
-    const std::string & currFile = tifsInDir[fileIter];
-    Vector4 currCorners = getImageCorners(currFile);
-    if (!boxesOverlap(currCorners, boxCorners)) continue;
-    fh << 1 << " " << currFile << " " << currCorners(0) << " " << currCorners(1) << " " <<
-      currCorners(2) << " " << currCorners(3) << std::endl;
-  }
-  fh.close();
-
-  return;
-}
-
 class DemMosaicView: public ImageViewBase<DemMosaicView>{
   int m_cols, m_rows;
-  bool m_use_no_weights, m_stack_dems;
+  bool m_draft_mode;
   vector<ModelParams> & m_modelParamsArray;
-  vector< DiskImageView<DemPixelT> > const& m_images;
+  vector< DiskImageView<RealT> > const& m_images;
   vector<cartography::GeoReference> const& m_georefs; 
   cartography::GeoReference m_out_georef;
-  vector<double> m_nodata_values;
-  double m_out_nodata_value;
+  vector<RealT> m_nodata_values;
+  RealT m_out_nodata_value;
 
 public:
-  DemMosaicView(int cols, int rows, bool use_no_weights, bool stack_dems,
+  DemMosaicView(int cols, int rows, bool draft_mode,
                 vector<ModelParams> & modelParamsArray,
-                vector< DiskImageView<DemPixelT> > const& images,
+                vector< DiskImageView<RealT> > const& images,
                 vector<cartography::GeoReference> const& georefs,
                 cartography::GeoReference const& out_georef,
-                vector<double> const& nodata_values, double out_nodata_value):
+                vector<RealT> const& nodata_values, RealT out_nodata_value):
     m_cols(cols), m_rows(rows),
-    m_use_no_weights(use_no_weights), m_stack_dems(stack_dems),
+    m_draft_mode(draft_mode),
     m_modelParamsArray(modelParamsArray),
     m_images(images), m_georefs(georefs),
     m_out_georef(out_georef), m_nodata_values(nodata_values),
     m_out_nodata_value(out_nodata_value){}
   
-  typedef float pixel_type;
+  typedef RealT pixel_type;
   typedef pixel_type result_type;
-  typedef PixelMask<float> masked_pixel_type;
   typedef ProceduralPixelAccessor<DemMosaicView> pixel_accessor;
   
-  inline int32 cols() const { return m_cols; }
-  inline int32 rows() const { return m_rows; }
-  inline int32 planes() const { return 1; }
+  inline int cols() const { return m_cols; }
+  inline int rows() const { return m_rows; }
+  inline int planes() const { return 1; }
   
   inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
 
-  inline pixel_type operator()( double/*i*/, double/*j*/, int32/*p*/ = 0 ) const {
+  inline pixel_type operator()( double/*i*/, double/*j*/, int/*p*/ = 0 ) const {
     vw_throw(NoImplErr() << "DemMosaicView::operator()(...) is not implemented");
     return pixel_type();
   }
-
+  
   typedef CropView<ImageView<pixel_type> > prerasterize_type;
   inline prerasterize_type prerasterize(BBox2i const& bbox) const {
-
+    
     ImageView<pixel_type> tile(bbox.width(), bbox.height());
-    ImageView<float>      weights(bbox.width(), bbox.height());
+    ImageView<RealT>      weights(bbox.width(), bbox.height());
     fill( tile, m_out_nodata_value );
     fill( weights, 0.0 );
-
+    
     for (int dem_iter = 0; dem_iter < (int)m_modelParamsArray.size(); dem_iter++){
-
+      
       cartography::GeoReference georef = m_georefs[dem_iter];
-      ImageViewRef<DemPixelT> curr_disk_dem = m_images[dem_iter];
+      ImageViewRef<RealT> curr_disk_dem = m_images[dem_iter];
       double nodata_value = m_nodata_values[dem_iter];
       
       // The tile corners as pixels in curr_dem
@@ -286,17 +221,32 @@ public:
       curr_box.expand(BilinearInterpolation::pixel_buffer + 1);
       curr_box.crop(bounding_box(curr_disk_dem));
       if (curr_box.empty()) continue;
-            
-      // Read the whole chunk into memory, to speed things up
-      ImageView<DemPixelT> curr_dem = crop(curr_disk_dem, curr_box);
-#if USE_GRASSFIRE
-      ImageViewRef<DemPixelT> interp_dem
+
+      // Use grassfire weights for smooth blending
+      ImageView<int> distance =
+        grassfire(notnodata(curr_disk_dem, nodata_value));
+                  
+      int feather_max = max_pixel_value( distance );
+      int feather_min = 0;
+      if (feather_max < 1) feather_max = 1; // extra precaution
+      
+      // Make the weights have values between 0 and 1.
+      ImageViewRef<RealT> norm_dist;
+      norm_dist = pixel_cast<RealT>(1.0 / (feather_max - feather_min) *
+                                    clamp(pixel_cast<RealT>(distance) - feather_min,
+                                          0.0, feather_max - feather_min));
+      
+      // Create a crop of the DEM, and let the weights be the alpha channel.
+      ImageView<RealGrayA> curr_dem = crop(curr_disk_dem, curr_box);
+      ImageView<RealT> crop_dist = crop(norm_dist, curr_box);
+      for (int col = 0; col < curr_dem.cols(); col++){
+        for (int row = 0; row < curr_dem.rows(); row++){
+          curr_dem(col, row).a() = crop_dist(col, row);
+        }
+      }
+      
+      ImageViewRef<RealGrayA> interp_dem
         = interpolate(curr_dem, BilinearInterpolation(), ConstantEdgeExtension());
-#else
-      ImageViewRef< PixelMask<DemPixelT> > interp_dem
-      = interpolate(create_mask(curr_dem, nodata_value),
-                    BilinearInterpolation(), ConstantEdgeExtension());
-#endif
       
       for (int c = 0; c < bbox.width(); c++){
         for (int r = 0; r < bbox.height(); r++){
@@ -306,9 +256,18 @@ public:
           double x = in_pix[0] - curr_box.min().x();
           double y = in_pix[1] - curr_box.min().y();
           // below must use x <= cols()-1 as x is double
-          if (x >= 0 && x <= interp_dem.cols()-1 &&
-              y >= 0 && y <= interp_dem.rows()-1 ){
-#if USE_GRASSFIRE
+          bool is_good = (x >= 0 && x <= curr_dem.cols()-1 &&
+                          y >= 0 && y <= curr_dem.rows()-1 );
+          if (!is_good) continue;
+
+          int i0 = round(x), j0 = round(y);
+          double tol = 1e-6;
+          RealGrayA pval;
+          if (fabs(x-i0) < tol && fabs(y-j0) < tol){
+            // We are at an integer pixel, save for numerical error.
+            // Just borrow pixel's value, and don't interpolate.
+            pval = curr_dem(i0, j0);
+          }else{
             // If we have weights of 0, that means there are invalid pixels,
             // so skip this point.
             int i = (int)floor(x), j = (int)floor(y);
@@ -318,36 +277,32 @@ public:
                 curr_dem(i+1, j+1).a() <= 0
                 )continue;
             
-            DemPixelT pval = interp_dem(x, y);
-            double val = pval.v();
-            double wt = pval.a();
-#else
-            PixelMask<DemPixelT> pval = interp_dem(x, y);
-            if (! is_valid(pval)) continue;
-            double val = pval.child();
-            double wt = ComputeLineWeightsHV(in_pix,
-                                             m_modelParamsArray[dem_iter]);
-#endif
-            if (wt <= 0) continue;
-            if (m_use_no_weights || m_stack_dems) wt = 1.0; // so weights are only 0 or 1.
-            if ( tile(c, r) == m_out_nodata_value || isnan(tile(c, r)) )
-              tile(c, r) = 0;
-            if (!m_stack_dems){
-              // Combine the values
-              tile(c, r) += wt*val;
-              weights(c, r) += wt;
-            }else{
-              // Use just the last value
-              tile(c, r) = wt*val;
-              weights(c, r) = wt;
-            }
-            
+            pval = interp_dem(x, y);
           }
+          double val = pval.v();
+          double wt = pval.a();
+          
+          if (wt <= 0) continue;
+
+          // Initialize the tile if not done already
+          if ( tile(c, r) == m_out_nodata_value || isnan(tile(c, r)) )
+            tile(c, r) = 0;
+          
+          if (!m_draft_mode){
+            // Combine the values
+            tile(c, r) += wt*val;
+            weights(c, r) += wt;
+          }else{
+            // Use just the last value
+            tile(c, r) = val;
+            weights(c, r) = 1;
+          }
+          
         }
       }
       
     } // end iterating over DEMs
-
+    
     // Divide by the weights
     int num_valid_pixels = 0;
     for (int c = 0; c < bbox.width(); c++){
@@ -359,8 +314,6 @@ public:
       }
     }
 
-//     vw_out() << "Num valid pixels in " << bbox  << ' ' << num_valid_pixels
-//              << std::endl;
     return prerasterize_type(tile, -bbox.min().x(), -bbox.min().y(),
                              cols(), rows() );
   }
@@ -372,11 +325,13 @@ public:
 };
 
 struct Options : asp::BaseOptions {
-  bool use_no_weights, stack_dems;
+  bool draft_mode;
   string dem_list_file, out_prefix;
-  double mpp, tr, out_nodata_value;
+  double mpp, tr;
+  bool has_out_nodata;
+  RealT out_nodata_value;
   int tile_size, tile_index;
-  Options():out_nodata_value(std::numeric_limits<float>::quiet_NaN()){}
+  Options():has_out_nodata(false){}
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
@@ -394,12 +349,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("tile-index", po::value<int>(&opt.tile_index)->default_value(0),
      "The index of the tile to save in the list of tiles (starting from zero). If called with given tile size, and no tile index, the tool will print out how many tiles are there.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
-    ("output-nodata-value", po::value<double>(&opt.out_nodata_value),
+    ("output-nodata-value", po::value<RealT>(&opt.out_nodata_value),
      "No-data value to use on output. If not specified, use the one from the first DEM to be mosaicked.")
-    ("use-no-weights", po::bool_switch(&opt.use_no_weights)->default_value(false),
-     "Average the DEMs to mosaic without using weights (the result is not as smooth).")
-    ("stack-dems", po::bool_switch(&opt.stack_dems)->default_value(false),
-     "Stack each DEM on top of the previous one, without attempting to combine their values (the result is less smooth).")
+    ("draft-mode", po::bool_switch(&opt.draft_mode)->default_value(false),
+     "Put the DEMs together without blending them (the result is less smooth).")
     ("threads", po::value<int>(&opt.num_threads),
      "Number of threads to use.")
     ("help,h", "Display this help message.");
@@ -440,10 +393,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw(ArgumentErr() << "The index of the tile to save must be set "
              << "and non-negative.\n"
               << usage << general_options );
-  if (opt.use_no_weights && opt.stack_dems){
-    vw_throw(ArgumentErr() << "At most one of --use-no-weights and --stack-dems must be set.\n"
-              << usage << general_options );
-  }
 
   // Create the output directory 
   asp::create_out_dir(opt.out_prefix);
@@ -451,6 +400,14 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   // Turn on logging to file
   asp::log_to_file(argc, argv, "", opt.out_prefix);
 
+  if (!vm.count("output-nodata-value")){
+    // Set a default out_nodata_value, but remember that this is
+    // set internally, not by the user.
+    opt.has_out_nodata = false;
+    opt.out_nodata_value= -numeric_limits<RealT>::max();
+  }else
+    opt.has_out_nodata = true;
+  
 }
 
 int main( int argc, char *argv[] ) {
@@ -464,7 +421,6 @@ int main( int argc, char *argv[] ) {
     std::vector<std::string> dem_files;
     {
       ifstream is(opt.dem_list_file.c_str());
-      std::cout << "list is " << opt.dem_list_file << std::endl;
       string file;
       while (is >> file) dem_files.push_back(file);
       if (dem_files.empty())
@@ -473,10 +429,11 @@ int main( int argc, char *argv[] ) {
     }
     
     // Read nodata from first DEM, unless the user chooses to specify it.
-    if (std::isnan(opt.out_nodata_value)){
+    if (!opt.has_out_nodata){
       DiskImageResourceGDAL in_rsrc(dem_files[0]);
-      if ( in_rsrc.has_nodata_read() ) opt.out_nodata_value = in_rsrc.nodata_read();
+      if (in_rsrc.has_nodata_read()) opt.out_nodata_value = in_rsrc.nodata_read();
     }
+    vw_out() << "Using output no-data value: " << opt.out_nodata_value << endl;
     
     // Find the lon-lat bounding box of all DEMs
     double big = numeric_limits<double>::max();
@@ -493,10 +450,9 @@ int main( int argc, char *argv[] ) {
     // Form the georef. The georef of the first DEM is used as initial guess.
     cartography::GeoReference out_georef;
     bool is_good = read_georeference(out_georef, dem_files[0]);
-    if (!is_good){
-      std::cerr << "No georeference found in " << dem_files[0] << std::endl;
-      exit(1);
-    }
+    if (!is_good)
+      vw_throw(ArgumentErr() << "No georeference found in " << dem_files[0] << ".\n");
+
     double spacing = opt.tr;
     if (opt.mpp > 0.0){
       // First convert meters per pixel to degrees per pixel using
@@ -518,53 +474,33 @@ int main( int argc, char *argv[] ) {
     // Set the lower-left corner
     Vector2 beg_pix = out_georef.lonlat_to_pixel(Vector2(ll_bbox[0], ll_bbox[3]));
     out_georef = crop(out_georef, beg_pix[0], beg_pix[1]);
-    std::cout << "Output georeference:\n" << out_georef << std::endl;
-    
+
     // Image size
     Vector2 end_pix = out_georef.lonlat_to_pixel(Vector2(ll_bbox[1], ll_bbox[2]));
-    int cols = (int)ceil(end_pix[0]);
-    int rows = (int)ceil(end_pix[1]);
-
+    int cols = (int)round(end_pix[0]) + 1; // end_pix is the last pix in the image
+    int rows = (int)round(end_pix[1]) + 1;
+    
     // Compute the weights, and store the no-data values, pointers
     // to images, and georeferences (for speed).
     vector<ModelParams> modelParamsArray;
-    vector<double> nodata_values;
-    vector< DiskImageView<DemPixelT> > images;
+    vector<RealT> nodata_values;
+    vector< DiskImageView<RealT> > images;
     vector< cartography::GeoReference > georefs;
     for (int dem_iter = 0; dem_iter < (int)dem_files.size(); dem_iter++){
       modelParamsArray.push_back(ModelParams());
       modelParamsArray[dem_iter].inputFilename = dem_files[dem_iter];
-      images.push_back(DiskImageView<DemPixelT>( dem_files[dem_iter] ));
+      images.push_back(DiskImageView<RealT>( dem_files[dem_iter] ));
 
-#if USE_GRASSFIRE
-#else
-      ComputeDEMCenterLines(modelParamsArray[dem_iter]);
-#endif
       cartography::GeoReference geo;
       bool is_good = read_georeference(geo, dem_files[dem_iter]);
-      if (!is_good){
-        std::cerr << "No georeference found in " << dem_files[dem_iter]
-                  << std::endl;
-        exit(1);
-      }
+      if (!is_good)
+        vw_throw(ArgumentErr() << "No georeference found in " << dem_files[dem_iter] << ".\n");
       georefs.push_back(geo);
       
       double curr_nodata_value = opt.out_nodata_value;
       DiskImageResourceGDAL in_rsrc(dem_files[dem_iter]);
       if ( in_rsrc.has_nodata_read() ) curr_nodata_value = in_rsrc.nodata_read();
       nodata_values.push_back(curr_nodata_value);
-
-#if USE_GRASSFIRE
-      boost::scoped_ptr<vw::SrcImageResource> src(vw::DiskImageResource::open(dem_files[dem_iter]));
-      int num_channels = src->channels();
-      int num_planes   = src->planes();
-      if (num_channels*num_planes != 2){
-        std::cerr << "Need to have an alpha channel with the grassfire weights in "
-                  << dem_files[dem_iter] << std::endl;
-        exit(1);
-      }
-#endif
-
     }
 
     // Form the mosaic and write it to disk
@@ -592,25 +528,16 @@ int main( int argc, char *argv[] ) {
     ostringstream os; os << opt.out_prefix << "-tile-" << opt.tile_index << ".tif";
     std::string dem_tile = os.str();
 
-    // fix here!!!!
-    DiskImageResourceGDAL::Options gdal_options;
-    gdal_options["COMPRESS"] = "LZW";
-    ImageViewRef<float> out_dem
-      = crop(DemMosaicView(cols, rows, opt.use_no_weights, opt.stack_dems,
+    ImageViewRef<RealT> out_dem
+      = crop(DemMosaicView(cols, rows, opt.draft_mode,
                            modelParamsArray, images, georefs,
                            out_georef, nodata_values, opt.out_nodata_value),
              tile_box);
     vw_out() << "Writing: " << dem_tile << std::endl;
-    DiskImageResourceGDAL rsrc(dem_tile, out_dem.format(), Vector2i(256, 256),
-                               gdal_options);
-    if (!isnan(opt.out_nodata_value))
-      rsrc.set_nodata_write(opt.out_nodata_value);
     cartography::GeoReference crop_georef
       = crop(out_georef, tile_box.min().x(), tile_box.min().y());
-    
-    write_georeference(rsrc, crop_georef);
-    block_write_image(rsrc, out_dem, TerminalProgressCallback("{Core}",
-                                                              "Processing:"));
+    block_write_gdal_image(dem_tile, out_dem, crop_georef, opt.out_nodata_value,
+                           opt, TerminalProgressCallback("asp", ""));
 
   } ASP_STANDARD_CATCHES;
   
