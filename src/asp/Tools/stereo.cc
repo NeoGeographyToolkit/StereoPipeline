@@ -142,6 +142,19 @@ namespace asp {
       vw_out(WarningMessage) << "It appears that the output prefix "
                              << "exists as a file: " << output_prefix
                              << ". Perhaps this was not intended." << endl;
+
+    // Verify that the images and cameras exist, otherwise GDAL prints
+    // funny messages later.
+    for (int i = 0; i < (int)files.size(); i++){
+      if (!fs::exists(files[i]))
+        vw_throw( ArgumentErr() << "Cannot find the image file: " << files[i]
+                  << ".\n" );
+    }
+    for (int i = 0; i < (int)cameras.size(); i++){
+      if (!fs::exists(cameras[i]))
+        vw_throw( ArgumentErr() << "Cannot find the camera file: " << cameras[i]
+                  << ".\n" );
+    }
     
     if (files.size() != cameras.size() && !cameras.empty())
       vw_throw( ArgumentErr() << "Expecting the number of images and "
