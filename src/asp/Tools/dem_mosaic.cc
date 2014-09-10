@@ -92,62 +92,6 @@ inline notnodata( ImageViewBase<ImageT> const& image, NoDataT nodata ) {
   return UnaryPerPixelView<ImageT,func_type>( image.impl(), func );
 }
 
-Vector4 ComputeGeoBoundary(cartography::GeoReference Geo, int width, int height){
-
-  // Get the lonlat coordinates of the four pixels corners of the image.
-
-  Vector4 corners;
-  Vector2 leftTopPixel(0,0);
-  Vector2 leftTopLonLat = Geo.pixel_to_lonlat(leftTopPixel);
-
-  Vector2 rightBottomPixel(width-1, height-1);
-  Vector2 rightBottomLonLat = Geo.pixel_to_lonlat(rightBottomPixel);
-
-  double minLon = leftTopLonLat(0);
-  double minLat = leftTopLonLat(1);
-  double maxLon = rightBottomLonLat(0);
-  double maxLat = rightBottomLonLat(1);
-
-  if (maxLat<minLat){
-    double temp = minLat;
-    minLat = maxLat;
-    maxLat = temp;
-  }
-
-  if (maxLon<minLon){
-    double temp = minLon;
-    minLon = maxLon;
-    maxLon = temp;
-  }
-
-  corners(0) = minLon;
-  corners(1) = maxLon;
-  corners(2) = minLat;
-  corners(3) = maxLat;
-
-  return corners;
-}
-
-
-Vector4 getImageCorners(std::string imageFile){
-
-  // Get the four corners of an image, that is the lon-lat coordinates of
-  // the pixels in the image corners.
-
-  // Note: Below we assume that the image is float. In fact, for the
-  // purpose of calculation of corners, the type of the image being
-  // read does not matter.
-  DiskImageView<float> image(imageFile);
-
-  GeoReference imageGeo;
-  bool is_good = read_georeference(imageGeo, imageFile);
-  if (!is_good){
-    vw_throw(ArgumentErr() << "No georeference found in " << imageFile << ".\n");
-  }
-  Vector4 imageCorners = ComputeGeoBoundary(imageGeo, image.cols(), image.rows());
-  return imageCorners;
-}
-
 class DemMosaicView: public ImageViewBase<DemMosaicView>{
   int m_cols, m_rows, m_erode_len, m_blending_len;
   bool m_draft_mode;
@@ -203,14 +147,16 @@ public:
       double nodata_value = m_nodata_values[dem_iter];
       
       // The tile corners as pixels in curr_dem
-      Vector2 b = georef.lonlat_to_pixel
-        (m_out_georef.pixel_to_lonlat(bbox.min()));
-      Vector2 e = georef.lonlat_to_pixel
-        (m_out_georef.pixel_to_lonlat(bbox.max()));
-      if (b[0] > e[0]) std::swap(b[0], e[0]);
-      if (b[1] > e[1]) std::swap(b[1], e[1]);
-      b = floor(b); e = ceil(e);
-      BBox2i local_box(b[0], b[1], e[0] - b[0], e[1] - b[1]);
+      BBox2 local_box;
+      BBox2 b = m_out_georef.pixel_to_lonlat_bbox(bbox);
+      Vector2 cr[] = {b.min(), b.max(), Vector2(b.min().x(), b.max().y()),
+                      Vector2(b.max().x(), b.min().y())};
+      for (int icr = 0; icr < (int)(sizeof(cr)/sizeof(Vector2)); icr++)
+        local_box.grow( georef.lonlat_to_pixel(cr[icr]) );
+      local_box.min() = floor(local_box.min());
+      local_box.max() = ceil(local_box.max());
+
+      // Grow to account for blending and erosion length, etc.
       local_box.expand(m_erode_len + m_blending_len + BilinearInterpolation::pixel_buffer + 1);
       local_box.crop(bounding_box(disk_dem));
       if (local_box.empty()) continue;
@@ -223,6 +169,7 @@ public:
       ImageView<RealT> local_wts =
         grassfire(notnodata(select_channel(dem, 0), nodata_value));
 
+      // Dump the weights
       //std::ostringstream os;
       //os << "weights_" << dem_iter << ".tif";
       //std::cout << "Writing: " << os.str() << std::endl;
@@ -411,7 +358,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     opt.out_nodata_value= -numeric_limits<RealT>::max();
   }else
     opt.has_out_nodata = true;
-  
+
 }
 
 int main( int argc, char *argv[] ) {
@@ -439,57 +386,13 @@ int main( int argc, char *argv[] ) {
     }
     vw_out() << "Using output no-data value: " << opt.out_nodata_value << endl;
     
-    // Find the lon-lat bounding box of all DEMs
-    double big = numeric_limits<double>::max();
-    Vector4 ll_bbox(big, -big, big, -big);
-    for (int dem_iter = 0; dem_iter < (int)dem_files.size(); dem_iter++){
-      std::string curr_file = dem_files[dem_iter];
-      Vector4 corners = getImageCorners(curr_file);
-      ll_bbox[0] = std::min(ll_bbox[0], corners[0]);
-      ll_bbox[1] = std::max(ll_bbox[1], corners[1]);
-      ll_bbox[2] = std::min(ll_bbox[2], corners[2]);
-      ll_bbox[3] = std::max(ll_bbox[3], corners[3]);
-    }
-
-    // Form the georef. The georef of the first DEM is used as initial guess.
-    cartography::GeoReference out_georef;
-    bool is_good = read_georeference(out_georef, dem_files[0]);
-    if (!is_good)
-      vw_throw(ArgumentErr() << "No georeference found in " << dem_files[0] << ".\n");
-
-    double spacing = opt.tr;
-    if (opt.mpp > 0.0){
-      // First convert meters per pixel to degrees per pixel using
-      // the datum radius.
-      spacing = 360.0*opt.mpp/( 2*M_PI*out_georef.datum().semi_major_axis() );
-      // Next, wipe the georef altogether, as we will use lon-lat.
-      out_georef.set_geographic();
-    }
-
-    // Use desired spacing if user-specified
-    if (spacing > 0.0){
-      Matrix<double,3,3> transform = out_georef.transform();
-      transform.set_identity();
-      transform(0, 0) = spacing;
-      transform(1, 1) = -spacing;
-      out_georef.set_transform(transform);
-    }
-    
-    // Set the lower-left corner
-    Vector2 beg_pix = out_georef.lonlat_to_pixel(Vector2(ll_bbox[0], ll_bbox[3]));
-    out_georef = crop(out_georef, beg_pix[0], beg_pix[1]);
-
-    // Image size
-    Vector2 end_pix = out_georef.lonlat_to_pixel(Vector2(ll_bbox[1], ll_bbox[2]));
-    int cols = (int)round(end_pix[0]) + 1; // end_pix is the last pix in the image
-    int rows = (int)round(end_pix[1]) + 1;
-    
-    // Compute the weights, and store the no-data values, pointers
-    // to images, and georeferences (for speed).
+    // Store the no-data values, pointers to images, and georeferences
+    // (for speed). Find the lon-lat bounding box of all DEMs.
     vector<ModelParams> modelParamsArray;
     vector<RealT> nodata_values;
     vector< DiskImageView<RealT> > images;
     vector< cartography::GeoReference > georefs;
+    BBox2 mosaic_bbox;
     for (int dem_iter = 0; dem_iter < (int)dem_files.size(); dem_iter++){
       modelParamsArray.push_back(ModelParams());
       modelParamsArray[dem_iter].inputFilename = dem_files[dem_iter];
@@ -505,8 +408,43 @@ int main( int argc, char *argv[] ) {
       DiskImageResourceGDAL in_rsrc(dem_files[dem_iter]);
       if ( in_rsrc.has_nodata_read() ) curr_nodata_value = in_rsrc.nodata_read();
       nodata_values.push_back(curr_nodata_value);
-    }
 
+      mosaic_bbox.grow(georefs[dem_iter].lonlat_bounding_box
+                       (DiskImageView<RealT>(dem_files[dem_iter])));
+    }
+    
+    // Form the georef. The georef of the first DEM is used as initial guess.
+    cartography::GeoReference out_georef = georefs[0];
+    double spacing = opt.tr;
+    if (opt.mpp > 0.0){
+      // First convert meters per pixel to degrees per pixel using
+      // the datum radius.
+      spacing = 360.0*opt.mpp/( 2*M_PI*out_georef.datum().semi_major_axis() );
+      // Next, wipe the georef altogether, as we will use lon-lat.
+      out_georef.set_geographic();
+    }
+    // Use desired spacing if user-specified
+    if (spacing > 0.0){
+      Matrix<double,3,3> transform = out_georef.transform();
+      transform.set_identity();
+      transform(0, 0) = spacing;
+      transform(1, 1) = -spacing;
+      out_georef.set_transform(transform);
+    }
+    
+    // Set the lower-left corner
+    Vector2 beg_pix = out_georef.lonlat_to_pixel(Vector2(mosaic_bbox.min().x(),
+                                                         mosaic_bbox.max().y()));
+
+    out_georef = crop(out_georef, beg_pix[0], beg_pix[1]);
+
+    // Image size
+    Vector2 end_pix = out_georef.lonlat_to_pixel(Vector2(mosaic_bbox.max().x(),
+                                                         mosaic_bbox.min().y()));
+    
+    int cols = (int)round(end_pix[0]); // end_pix is the last pix in the image
+    int rows = (int)round(end_pix[1]);
+    
     // Form the mosaic and write it to disk
     vw_out()<< "The size of the mosaic is " << cols << " x " << rows
             << " pixels.\n";
