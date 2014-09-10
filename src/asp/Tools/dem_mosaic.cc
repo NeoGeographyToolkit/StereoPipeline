@@ -19,10 +19,6 @@
 ///
 
 // A tool to mosaic and blend DEMs, and output the mosaic as tiles.
-// Unless USE_GRASSFIRE is set to 0 below, it expects DEMs to have an
-// alpha channel with the grassfire weights, which are used for
-// blending the DEMs. Such a DEM can be obtained from a regular DEM
-// using the VisionWorkbench grassfirealpha command.
 
 // Note 1: In practice, the tool may be more efficient if the entire
 // mosaic is written out as one single large image, rather than being
@@ -32,10 +28,6 @@
 
 // Note 2: The tool can be high on memory usage, so processes for
 // individual tiles may need to be run on separate machines.
-
-// To do:
-// Add unit tests.
-// To do: Get rid of GetImageCorners and ModelParams!
 
 #include <iostream>
 #include <fstream>
@@ -157,7 +149,7 @@ Vector4 getImageCorners(std::string imageFile){
 }
 
 class DemMosaicView: public ImageViewBase<DemMosaicView>{
-  int m_cols, m_rows;
+  int m_cols, m_rows, m_erode_len, m_blending_len;
   bool m_draft_mode;
   vector<ModelParams> & m_modelParamsArray;
   vector< DiskImageView<RealT> > const& m_images;
@@ -167,14 +159,15 @@ class DemMosaicView: public ImageViewBase<DemMosaicView>{
   RealT m_out_nodata_value;
 
 public:
-  DemMosaicView(int cols, int rows, bool draft_mode,
+  DemMosaicView(int cols, int rows, int erode_len, int blending_len,
+                bool draft_mode,
                 vector<ModelParams> & modelParamsArray,
                 vector< DiskImageView<RealT> > const& images,
                 vector<cartography::GeoReference> const& georefs,
                 cartography::GeoReference const& out_georef,
                 vector<RealT> const& nodata_values, RealT out_nodata_value):
-    m_cols(cols), m_rows(rows),
-    m_draft_mode(draft_mode),
+    m_cols(cols), m_rows(rows), m_erode_len(erode_len),
+    m_blending_len(blending_len), m_draft_mode(draft_mode),
     m_modelParamsArray(modelParamsArray),
     m_images(images), m_georefs(georefs),
     m_out_georef(out_georef), m_nodata_values(nodata_values),
@@ -197,7 +190,7 @@ public:
   
   typedef CropView<ImageView<pixel_type> > prerasterize_type;
   inline prerasterize_type prerasterize(BBox2i const& bbox) const {
-    
+
     ImageView<pixel_type> tile(bbox.width(), bbox.height());
     ImageView<RealT>      weights(bbox.width(), bbox.height());
     fill( tile, m_out_nodata_value );
@@ -206,7 +199,7 @@ public:
     for (int dem_iter = 0; dem_iter < (int)m_modelParamsArray.size(); dem_iter++){
       
       cartography::GeoReference georef = m_georefs[dem_iter];
-      ImageViewRef<RealT> curr_disk_dem = m_images[dem_iter];
+      ImageViewRef<RealT> disk_dem = m_images[dem_iter];
       double nodata_value = m_nodata_values[dem_iter];
       
       // The tile corners as pixels in curr_dem
@@ -217,47 +210,52 @@ public:
       if (b[0] > e[0]) std::swap(b[0], e[0]);
       if (b[1] > e[1]) std::swap(b[1], e[1]);
       b = floor(b); e = ceil(e);
-      BBox2i curr_box(b[0], b[1], e[0] - b[0], e[1] - b[1]);
-      curr_box.expand(BilinearInterpolation::pixel_buffer + 1);
-      curr_box.crop(bounding_box(curr_disk_dem));
-      if (curr_box.empty()) continue;
+      BBox2i local_box(b[0], b[1], e[0] - b[0], e[1] - b[1]);
+      local_box.expand(m_erode_len + m_blending_len + BilinearInterpolation::pixel_buffer + 1);
+      local_box.crop(bounding_box(disk_dem));
+      if (local_box.empty()) continue;
+
+      // Crop the disk dem to a 2-channel in-memory image. First channel
+      // is the image pixels, second will be the grassfire weights.
+      ImageView<RealGrayA> dem = crop(disk_dem, local_box);
 
       // Use grassfire weights for smooth blending
-      ImageView<int> distance =
-        grassfire(notnodata(curr_disk_dem, nodata_value));
-                  
-      int feather_max = max_pixel_value( distance );
-      int feather_min = 0;
-      if (feather_max < 1) feather_max = 1; // extra precaution
+      ImageView<RealT> local_wts =
+        grassfire(notnodata(select_channel(dem, 0), nodata_value));
+
+      //std::ostringstream os;
+      //os << "weights_" << dem_iter << ".tif";
+      //std::cout << "Writing: " << os.str() << std::endl;
+      //block_write_gdal_image(os.str(), local_wts, georef, -100,
+      //                       asp::BaseOptions(), TerminalProgressCallback("asp", ""));
+
+      int max_cutoff = max_pixel_value(local_wts);
+      int min_cutoff = m_erode_len;
+      if (max_cutoff <= min_cutoff) max_cutoff = min_cutoff + 1; // extra precaution
       
-      // Make the weights have values between 0 and 1.
-      ImageViewRef<RealT> norm_dist;
-      norm_dist = pixel_cast<RealT>(1.0 / (feather_max - feather_min) *
-                                    clamp(pixel_cast<RealT>(distance) - feather_min,
-                                          0.0, feather_max - feather_min));
-      
+      // Erode
+      local_wts = clamp(local_wts - min_cutoff, 0.0, max_cutoff - min_cutoff);
+    
       // Create a crop of the DEM, and let the weights be the alpha channel.
-      ImageView<RealGrayA> curr_dem = crop(curr_disk_dem, curr_box);
-      ImageView<RealT> crop_dist = crop(norm_dist, curr_box);
-      for (int col = 0; col < curr_dem.cols(); col++){
-        for (int row = 0; row < curr_dem.rows(); row++){
-          curr_dem(col, row).a() = crop_dist(col, row);
+      for (int col = 0; col < dem.cols(); col++){
+        for (int row = 0; row < dem.rows(); row++){
+          dem(col, row).a() = local_wts(col, row);
         }
       }
       
       ImageViewRef<RealGrayA> interp_dem
-        = interpolate(curr_dem, BilinearInterpolation(), ConstantEdgeExtension());
+        = interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
       
       for (int c = 0; c < bbox.width(); c++){
         for (int r = 0; r < bbox.height(); r++){
           Vector2 out_pix(c +  bbox.min().x(), r +  bbox.min().y());
           Vector2 in_pix = georef.lonlat_to_pixel
             (m_out_georef.pixel_to_lonlat(out_pix));
-          double x = in_pix[0] - curr_box.min().x();
-          double y = in_pix[1] - curr_box.min().y();
+          double x = in_pix[0] - local_box.min().x();
+          double y = in_pix[1] - local_box.min().y();
           // below must use x <= cols()-1 as x is double
-          bool is_good = (x >= 0 && x <= curr_dem.cols()-1 &&
-                          y >= 0 && y <= curr_dem.rows()-1 );
+          bool is_good = (x >= 0 && x <= dem.cols()-1 &&
+                          y >= 0 && y <= dem.rows()-1 );
           if (!is_good) continue;
 
           int i0 = round(x), j0 = round(y);
@@ -266,17 +264,13 @@ public:
           if (fabs(x-i0) < tol && fabs(y-j0) < tol){
             // We are at an integer pixel, save for numerical error.
             // Just borrow pixel's value, and don't interpolate.
-            pval = curr_dem(i0, j0);
+            pval = dem(i0, j0);
           }else{
             // If we have weights of 0, that means there are invalid pixels,
             // so skip this point.
             int i = (int)floor(x), j = (int)floor(y);
-            if (curr_dem(i,   j  ).a() <= 0 ||
-                curr_dem(i+1, j  ).a() <= 0 ||
-                curr_dem(i,   j+1).a() <= 0 ||
-                curr_dem(i+1, j+1).a() <= 0
-                )continue;
-            
+            if (dem(i,   j  ).a() <= 0 || dem(i+1, j  ).a() <= 0 ||
+                dem(i,   j+1).a() <= 0 || dem(i+1, j+1).a() <= 0)continue;
             pval = interp_dem(x, y);
           }
           double val = pval.v();
@@ -330,7 +324,7 @@ struct Options : asp::BaseOptions {
   double mpp, tr;
   bool has_out_nodata;
   RealT out_nodata_value;
-  int tile_size, tile_index;
+  int tile_size, tile_index, erode_len, blending_len;
   Options():has_out_nodata(false){}
 };
 
@@ -343,7 +337,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("tr", po::value(&opt.tr)->default_value(0.0),
      "Output DEM resolution in target georeferenced units per pixel. If not specified, use the same resolution as the first DEM to be mosaicked.")
     ("mpp", po::value<double>(&opt.mpp)->default_value(0.0),
-     "Output DEM resolution in meters per pixel (at the equator). If not specified, use the same resolution as the first DEM to be mosaicked.")
+     "Output DEM resolution in meters per pixel (at the equator). If specified, the longlat projection will be used. If not specified, use the same resolution as the first DEM to be mosaicked.")
     ("tile-size", po::value<int>(&opt.tile_size)->default_value(1000000),
      "The maximum size of output DEM tile files to write, in pixels.")
     ("tile-index", po::value<int>(&opt.tile_index)->default_value(0),
@@ -351,6 +345,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
     ("output-nodata-value", po::value<RealT>(&opt.out_nodata_value),
      "No-data value to use on output. If not specified, use the one from the first DEM to be mosaicked.")
+    ("erode-length", po::value<int>(&opt.erode_len)->default_value(0),
+     "Erode input DEMs by this many pixels at boundary and holes before mosacking them.")
+    ("blending-length", po::value<int>(&opt.blending_len)->default_value(200),
+     "Larger values of this number (measured in input DEM pixels) may result in smoother blending while using more memory and computing time.")
     ("draft-mode", po::bool_switch(&opt.draft_mode)->default_value(false),
      "Put the DEMs together without blending them (the result is less smooth).")
     ("threads", po::value<int>(&opt.num_threads),
@@ -385,6 +383,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (opt.num_threads == 0)
     vw_throw(ArgumentErr() << "The number of threads must be set and "
              << "positive.\n" << usage << general_options );
+  if (opt.erode_len < 0)
+    vw_throw(ArgumentErr() << "The erode length must not be negative.\n"
+             << usage << general_options );
+  if (opt.blending_len < 0)
+    vw_throw(ArgumentErr() << "The blending length must not be negative.\n"
+             << usage << general_options );
   if (opt.tile_size <= 0)
     vw_throw(ArgumentErr() << "The size of a tile in pixels must "
              << "be set and positive.\n"
@@ -528,11 +532,21 @@ int main( int argc, char *argv[] ) {
     ostringstream os; os << opt.out_prefix << "-tile-" << opt.tile_index << ".tif";
     std::string dem_tile = os.str();
 
-    ImageViewRef<RealT> out_dem
-      = crop(DemMosaicView(cols, rows, opt.draft_mode,
-                           modelParamsArray, images, georefs,
-                           out_georef, nodata_values, opt.out_nodata_value),
-             tile_box);
+    // The next power of 2 >= 4*(blending_len + erode_len). We want to make the blocks
+    // big, to reduce overhead from blending_len and erode_len, but not so big
+    // that it may not fit in memory.
+    int block_size = ( 1 << (int)ceil(log(4.0*max(1, opt.erode_len + opt.blending_len))/log(2.0)) );
+    block_size = std::max(block_size, 256); // don't make them too small though
+    
+    // We use block_cache to create process larger blocks than the default 256 x 256.
+    ImageViewRef<RealT> out_dem = 
+      block_cache(crop(DemMosaicView(cols, rows, opt.erode_len, opt.blending_len,
+                                     opt.draft_mode,
+                                     modelParamsArray, images, georefs,
+                                     out_georef, nodata_values, opt.out_nodata_value),
+                       tile_box),
+                  Vector2(block_size, block_size), opt.num_threads);
+    
     vw_out() << "Writing: " << dem_tile << std::endl;
     cartography::GeoReference crop_georef
       = crop(out_georef, tile_box.min().x(), tile_box.min().y());
