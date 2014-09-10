@@ -61,11 +61,6 @@ namespace fs = boost::filesystem;
 typedef float RealT; // Use double for debugging
 typedef PixelGrayA<RealT> RealGrayA;
 
-// To do: Wipe this!
-struct ModelParams {
-  std::string inputFilename; 
-};
-
 // Function for highlighting spots of data
 template<class PixelT>
 class NotNoDataFunctor {
@@ -95,7 +90,6 @@ inline notnodata( ImageViewBase<ImageT> const& image, NoDataT nodata ) {
 class DemMosaicView: public ImageViewBase<DemMosaicView>{
   int m_cols, m_rows, m_erode_len, m_blending_len;
   bool m_draft_mode;
-  vector<ModelParams> & m_modelParamsArray;
   vector< DiskImageView<RealT> > const& m_images;
   vector<cartography::GeoReference> const& m_georefs; 
   cartography::GeoReference m_out_georef;
@@ -105,14 +99,12 @@ class DemMosaicView: public ImageViewBase<DemMosaicView>{
 public:
   DemMosaicView(int cols, int rows, int erode_len, int blending_len,
                 bool draft_mode,
-                vector<ModelParams> & modelParamsArray,
                 vector< DiskImageView<RealT> > const& images,
                 vector<cartography::GeoReference> const& georefs,
                 cartography::GeoReference const& out_georef,
                 vector<RealT> const& nodata_values, RealT out_nodata_value):
     m_cols(cols), m_rows(rows), m_erode_len(erode_len),
     m_blending_len(blending_len), m_draft_mode(draft_mode),
-    m_modelParamsArray(modelParamsArray),
     m_images(images), m_georefs(georefs),
     m_out_georef(out_georef), m_nodata_values(nodata_values),
     m_out_nodata_value(out_nodata_value){}
@@ -140,7 +132,7 @@ public:
     fill( tile, m_out_nodata_value );
     fill( weights, 0.0 );
     
-    for (int dem_iter = 0; dem_iter < (int)m_modelParamsArray.size(); dem_iter++){
+    for (int dem_iter = 0; dem_iter < (int)m_images.size(); dem_iter++){
       
       cartography::GeoReference georef = m_georefs[dem_iter];
       ImageViewRef<RealT> disk_dem = m_images[dem_iter];
@@ -280,22 +272,22 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("Options");
   general_options.add_options()
     ("dem-list-file,l", po::value<string>(&opt.dem_list_file),
-     "List of DEM files to mosaic, one per line.")
+     "Text file listing the DEM files to mosaic, one per line.")
+    ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
+    ("tile-size", po::value<int>(&opt.tile_size)->default_value(1000000),
+     "The maximum size of output DEM tile files to write, in pixels.")
+    ("tile-index", po::value<int>(&opt.tile_index)->default_value(0),
+     "The index of the tile to save (starting from zero). When this program is invoked, it will print  out how many tiles are there.")
+    ("erode-length", po::value<int>(&opt.erode_len)->default_value(0),
+     "Erode input DEMs by this many pixels at boundary and hole edges before mosacking them.")
+    ("blending-length", po::value<int>(&opt.blending_len)->default_value(200),
+     "Larger values of this number (measured in input DEM pixels) may result in smoother blending while using more memory and computing time.")
     ("tr", po::value(&opt.tr)->default_value(0.0),
      "Output DEM resolution in target georeferenced units per pixel. If not specified, use the same resolution as the first DEM to be mosaicked.")
     ("mpp", po::value<double>(&opt.mpp)->default_value(0.0),
      "Output DEM resolution in meters per pixel (at the equator). If specified, the longlat projection will be used. If not specified, use the same resolution as the first DEM to be mosaicked.")
-    ("tile-size", po::value<int>(&opt.tile_size)->default_value(1000000),
-     "The maximum size of output DEM tile files to write, in pixels.")
-    ("tile-index", po::value<int>(&opt.tile_index)->default_value(0),
-     "The index of the tile to save in the list of tiles (starting from zero). If called with given tile size, and no tile index, the tool will print out how many tiles are there.")
-    ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
     ("output-nodata-value", po::value<RealT>(&opt.out_nodata_value),
      "No-data value to use on output. If not specified, use the one from the first DEM to be mosaicked.")
-    ("erode-length", po::value<int>(&opt.erode_len)->default_value(0),
-     "Erode input DEMs by this many pixels at boundary and holes before mosacking them.")
-    ("blending-length", po::value<int>(&opt.blending_len)->default_value(200),
-     "Larger values of this number (measured in input DEM pixels) may result in smoother blending while using more memory and computing time.")
     ("draft-mode", po::bool_switch(&opt.draft_mode)->default_value(false),
      "Put the DEMs together without blending them (the result is less smooth).")
     ("threads", po::value<int>(&opt.num_threads),
@@ -388,14 +380,15 @@ int main( int argc, char *argv[] ) {
     
     // Store the no-data values, pointers to images, and georeferences
     // (for speed). Find the lon-lat bounding box of all DEMs.
-    vector<ModelParams> modelParamsArray;
+    vw_out() << "Reading the input DEMs.\n";
+    TerminalProgressCallback tpc("", "\t--> ");
+    tpc.report_progress(0);
+    double inc_amount = 1.0 / double(dem_files.size() );
     vector<RealT> nodata_values;
     vector< DiskImageView<RealT> > images;
     vector< cartography::GeoReference > georefs;
     BBox2 mosaic_bbox;
     for (int dem_iter = 0; dem_iter < (int)dem_files.size(); dem_iter++){
-      modelParamsArray.push_back(ModelParams());
-      modelParamsArray[dem_iter].inputFilename = dem_files[dem_iter];
       images.push_back(DiskImageView<RealT>( dem_files[dem_iter] ));
 
       cartography::GeoReference geo;
@@ -411,9 +404,12 @@ int main( int argc, char *argv[] ) {
 
       mosaic_bbox.grow(georefs[dem_iter].lonlat_bounding_box
                        (DiskImageView<RealT>(dem_files[dem_iter])));
+      tpc.report_incremental_progress( inc_amount );
     }
+    tpc.report_finished();
     
-    // Form the georef. The georef of the first DEM is used as initial guess.
+    // Form the mosaic georef. The georef of the first DEM is used as
+    // initial guess.
     cartography::GeoReference out_georef = georefs[0];
     double spacing = opt.tr;
     if (opt.mpp > 0.0){
@@ -479,8 +475,7 @@ int main( int argc, char *argv[] ) {
     // We use block_cache to create process larger blocks than the default 256 x 256.
     ImageViewRef<RealT> out_dem = 
       block_cache(crop(DemMosaicView(cols, rows, opt.erode_len, opt.blending_len,
-                                     opt.draft_mode,
-                                     modelParamsArray, images, georefs,
+                                     opt.draft_mode, images, georefs,
                                      out_georef, nodata_values, opt.out_nodata_value),
                        tile_box),
                   Vector2(block_size, block_size), opt.num_threads);
@@ -489,7 +484,7 @@ int main( int argc, char *argv[] ) {
     cartography::GeoReference crop_georef
       = crop(out_georef, tile_box.min().x(), tile_box.min().y());
     block_write_gdal_image(dem_tile, out_dem, crop_georef, opt.out_nodata_value,
-                           opt, TerminalProgressCallback("asp", ""));
+                           opt, TerminalProgressCallback("asp", "\t--> "));
 
   } ASP_STANDARD_CATCHES;
   
