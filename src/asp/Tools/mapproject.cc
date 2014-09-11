@@ -36,8 +36,6 @@ using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-#include "ogr_spatialref.h"
-
 typedef PixelMask<float> PMaskT;
 
 struct Options : asp::BaseOptions {
@@ -350,21 +348,12 @@ int main( int argc, char* argv[] ) {
     // original camera model.
     GeoReference target_georef = dem_georef;
 
-    if (opt.target_srs_string != ""){ // User specified the proj4 string for the output georeference
-      boost::replace_first(opt.target_srs_string,
-                           "IAU2000:","DICT:IAU2000.wkt,");
-      VW_OUT(DebugMessage,"asp") << "Asking GDAL to decipher: \""
-                                 << opt.target_srs_string << "\"\n";
-      OGRSpatialReference gdal_spatial_ref;
-      if (gdal_spatial_ref.SetFromUserInput( opt.target_srs_string.c_str() ))
-        vw_throw( ArgumentErr() << "Failed to parse: \"" << opt.target_srs_string
-                  << "\"." );
-      char *wkt = NULL;
-      gdal_spatial_ref.exportToWkt( &wkt );
-      std::string wkt_string(wkt);
-      delete[] wkt;
-      target_georef.set_wkt( wkt_string );
-      // Note target_georef still has the transform from the DEM even if everything else has changed
+    // User specified the proj4 string for the output georeference
+    if (opt.target_srs_string != ""){
+      bool have_user_datum = false;
+      Datum user_datum;
+      asp::set_srs_string(opt.target_srs_string, have_user_datum,
+                          user_datum, target_georef);
     }
 
     // We compute the target_georef and camera box in two passes,

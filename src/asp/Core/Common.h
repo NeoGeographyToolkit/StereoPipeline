@@ -122,6 +122,10 @@ namespace asp {
 
   vw::Vector2i file_image_size( std::string const& input );
 
+  void set_srs_string(std::string srs_string, bool have_user_datum,
+                      vw::cartography::Datum const& user_datum,
+                      vw::cartography::GeoReference & georef);
+
   template <class ImageT>
   vw::DiskImageResourceGDAL*
   build_gdal_rsrc( const std::string &filename,
