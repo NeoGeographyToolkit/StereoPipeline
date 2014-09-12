@@ -550,7 +550,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-omega-rotation \textit{float(=0)}} & Set a rotation angle omega. \\ \hline
 \texttt{-\/-kappa-rotation \textit{float(=0)}} & Set a rotation angle kappa. \\ \hline
 \hline
-\texttt{-\/-t\_srs \textit{string}} & Target spatial reference set. This mimics the GDAL option used on their tools. \\ \hline
+\texttt{-\/-t\_srs \textit{string}} & Specify the projection (PROJ.4 string). \\ \hline
 \texttt{-\/-reference-spheroid|-r earth|moon|mars} & Set the reference spheroid. This will override manually set datum information. \\ \hline
 \texttt{-\/-semi-major-axis \textit{float(=0)}} & Explicitly set the datum semi-major axis in meters.\\ \hline
 \texttt{-\/-semi-minor-axis \textit{float(=0)}} & Explicitly set the datum semi-minor axis in meters.\\ \hline
@@ -700,8 +700,7 @@ mapproject -t isis DEM.tif image.cub camera.isis_adjust \
 \hline
 Options & Description \\ \hline \hline
 \texttt{-\/-nodata-value \textit{float(=-32768)}} & No-data value to use unless specified in the input image. \\ \hline
-\texttt{-\/-t\_srs} & Target spatial reference set. This mimics the GDAL
-option. If not provided use the one from the DEM. \\ \hline
+\texttt{-\/-t\_srs} & Specify the projection (PROJ.4 string). If not provided, use the one from the DEM. \\ \hline
 \texttt{-\/-tr \textit{float}} & Set the output file resolution in target
   georeferenced units per pixel. \\ \hline
 \texttt{-\/-mpp \textit{float}} & Set the output file resolution in meters per
@@ -722,6 +721,13 @@ output prefix. \\ \hline
 \end{longtable}
 
 \clearpage
+
+\section{dem\_mosaic}
+\label{demmosaic}
+
+The program \texttt{dem\_mosaic} takes as input a list of DEM files, optionally erodes pixels at the boundaries, and creates a mosaic, smoothly blending the DEMs wherey they overlap.
+
+The tool can reproject the DEMs during mosacking, with the projection specified using the 
 
 \section{orbitviz}
 \label{orbitviz}

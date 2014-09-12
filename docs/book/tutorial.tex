@@ -4,6 +4,7 @@
 \definecolor{lgray}{gray}{0.95}
 
 \section{Quick Start}
+\label{quickstart}
 
 The Stereo Pipeline package contains command-line programs that
 convert a stereo pair in ISIS {\em cube} format into a 3D ``point
@@ -19,8 +20,14 @@ models in a mostly automatic way.  To create a point cloud file, you
 simply pass two image files to the \texttt{stereo} command:
 
 \begin{verbatim}
-  ISIS 3> stereo left_input_image right_input_image stereo-output
+  ISIS 3> stereo left_input_image.cub right_input_image.cub stereo-output
 \end{verbatim}
+
+The string \texttt{stereo-output} is an arbitrary output prefix string, 
+that is used when generating names for \texttt{stereo} output files. For
+example, it can be set to \texttt{results/output}, in which case all output
+files will be in the \texttt{results} directory and start with the
+prefix \texttt{output}.
 
 See section \ref{running-stereo} for a more detailed discussion. 
  
@@ -92,18 +99,28 @@ processing.
 \subsection{Aligning Images}
 \label{sec:AligningImages}
 
-The images also need to be rectified (or aligned).  There are many ways
-to do this (for example, by setting \texttt{alignment-method} in
-\texttt{stereo}'s \texttt{stereo.default} file, as described in section
-\ref{settingoptionsinstereodefault}).  The most straightforward process
-is to align the images by map-projecting them in \ac{ISIS}.  This
-example continues with the files from above, \texttt{E0201461.cub} and
-\texttt{M010015.cub}.
+Once the .cub files are obtained, it is possible to run stereo right away,
+as 
+\begin{verbatim}
+  ISIS 3> stereo E0201461.cub M0100115.cub    \
+            --alignment-method affineepipolar \
+            -s stereo.default.example results/output
+\end{verbatim}
 
-This section describes the theory behind doing each of these steps,
-but we also provide the \texttt{cam2map4stereo.py} program (page
-\pageref{cam2map4stereo}) which performs these steps automatically
-for you.
+In this case, the first thing \texttt{stereo} does is to internally
+align (or rectify the images), which helps with finding stereo matches
+Here we have used \texttt{affineepipolar} alignment.  Another option is
+to use \texttt{homography} alignment, as described in section
+\ref{settingoptionsinstereodefault}.
+
+Alternatively, the images can be aligned externally, by map-projecting
+them in \ac{ISIS}. External alignment can sometimes give better results
+than the simple internal alignment described earlier, especially if the
+images are taken from very different perspectives, or if the curvature
+of the planet/body being imaged is non-negligible. We will now describe
+how to do this alignment, but we also provide the
+\texttt{cam2map4stereo.py} program (page \pageref{cam2map4stereo}) which
+performs this work automatically for you.
 
 The \ac{ISIS} \texttt{cam2map} program will map-project these images:
 
@@ -359,15 +376,9 @@ Here is how the \texttt{stereo} program is invoked:
             -s stereo.default.example results/output
 \end{verbatim}
 
-\noindent
-That last option (\texttt{results/output}) is a prefix that
-is used when generating names for \texttt{stereo} output files.  In
-this case the first part is \texttt{results/}, which causes the
-program to generate results in that directory with filenames that start
-with \texttt{output}. If instead that last text was just
-\texttt{output}, it would have created a collection of files
-that start with \texttt{output} in the {\em same} directory as
-the input files.
+As mentioned in section \ref{quickstart}, the string
+\texttt{results/output} is arbitrary, and in this case we will 
+simply make all outputs go to the \texttt{results} directory.
 
 When \texttt{stereo} finishes, it will have produced a point cloud
 image. Section \ref{visualising} describes how to convert it to a
