@@ -57,7 +57,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("nodata-value",     po::value(&opt.nodata_value)->default_value(-32768),
      "No-data value to use unless specified in the input image.")
     ("t_srs",            po::value(&opt.target_srs_string)->default_value(""),
-     "Target spatial reference set. This mimics the GDAL option. If not provided use the one from the DEM.")
+     "Specify the projection (PROJ.4 string). If not provided, use the one from the DEM.")
     ("tr",               po::value(&opt.target_resolution)->default_value(NaN),
      "Set the output file resolution in target georeferenced units per pixel.")
     ("mpp",              po::value(&opt.mpp)->default_value(NaN),

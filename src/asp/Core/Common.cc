@@ -262,8 +262,7 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
                          po::positional_options_description const& positional_desc,
                          std::string & usage_comment,
                          bool allow_unregistered,
-                         std::vector<std::string> & unregistered
-                         ) {
+                         std::vector<std::string> & unregistered) {
 
   {  
     // This is a bugfix. Ensure that stereo_settings() is
@@ -409,8 +408,6 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
     }
   }
   
-  VW_OUT(DebugMessage,"asp") << "Asking GDAL to decipher: \""
-                             << srs_string << "\"\n";
   OGRSpatialReference gdal_spatial_ref;
   if (gdal_spatial_ref.SetFromUserInput( srs_string.c_str() ))
     vw_throw( ArgumentErr() << "Failed to parse: \"" << srs_string << "\"." );

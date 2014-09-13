@@ -107,7 +107,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::options_description projection_options("Projection options");
   projection_options.add_options()
-    ("t_srs", po::value(&opt.target_srs_string), "Target spatial reference set. This mimicks the gdal option.")
+    ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
+     "Specify the projection (PROJ.4 string).")
     ("t_projwin", po::value(&opt.target_projwin), "Selects a subwindow from the source image for copying but with the corners given in georeferenced coordinates. Max is exclusive.")
     ("dem-spacing,s", po::value(&dem_spacing1)->default_value(0.0),
      "Set output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically. This is the same as the --tr option.")
