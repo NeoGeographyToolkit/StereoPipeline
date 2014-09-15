@@ -59,7 +59,6 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 typedef double RealT; // Use double for debugging
-typedef PixelGrayA<RealT> RealGrayA;
 
 // This is used for various tolerances
 double g_tol = 1e-6;
@@ -89,6 +88,17 @@ inline notnodata( ImageViewBase<ImageT> const& image, NoDataT nodata ) {
   func_type func( nodata );
   return UnaryPerPixelView<ImageT,func_type>( image.impl(), func );
 }
+
+// Set nodata pixels to 0 and valid data pixels to something big.
+template<class PixelT>
+struct BigOrZero: public ReturnFixedType<PixelT> {
+  PixelT m_nodata;
+  BigOrZero(PixelT nodata):m_nodata(nodata){}
+  double operator() (PixelT const& pix) const {
+    if (pix != m_nodata) return 1e+8;
+    return 0;
+  }
+};
 
 BBox2 point_to_pixel_bbox_nogrow(GeoReference const& georef, BBox2 const& ptbox){
 
@@ -168,15 +178,18 @@ public:
   typedef CropView<ImageView<pixel_type> > prerasterize_type;
   inline prerasterize_type prerasterize(BBox2i const& bbox) const {
 
-    ImageView<pixel_type> tile(bbox.width(), bbox.height());
-    ImageView<RealT>      weights(bbox.width(), bbox.height());
+    // We will do all computations in double precision, regardless
+    // of the precision of the inputs, for increased accuracy.
+    typedef PixelGrayA<double> RealGrayA;
+    ImageView<double> tile(bbox.width(), bbox.height());
+    ImageView<double> weights(bbox.width(), bbox.height());
     fill( tile, m_out_nodata_value );
     fill( weights, 0.0 );
     
     for (int dem_iter = 0; dem_iter < (int)m_images.size(); dem_iter++){
       
       GeoReference georef = m_georefs[dem_iter];
-      ImageViewRef<RealT> disk_dem = m_images[dem_iter];
+      ImageViewRef<double> disk_dem = pixel_cast<double>(m_images[dem_iter]);
       double nodata_value = m_nodata_values[dem_iter];
 
       // It is very important that all computations be done below in
@@ -199,8 +212,13 @@ public:
       ImageView<RealGrayA> dem = crop(disk_dem, pix_box);
 
       // Use grassfire weights for smooth blending
-      ImageView<RealT> local_wts =
-        grassfire(notnodata(select_channel(dem, 0), nodata_value));
+      ImageView<double> local_wts;
+      if (m_draft_mode)
+        local_wts = per_pixel_filter(select_channel(dem, 0),
+                                     BigOrZero<double>(nodata_value));
+      else
+        local_wts = grassfire(notnodata(select_channel(dem, 0),
+                                        nodata_value));
 
       // Dump the weights
       //std::ostringstream os;
@@ -232,22 +250,32 @@ public:
           Vector2 out_pix(c +  bbox.min().x(), r +  bbox.min().y());
           Vector2 in_pix = georef.point_to_pixel
             (m_out_georef.pixel_to_point(out_pix));
+
           double x = in_pix[0] - pix_box.min().x();
           double y = in_pix[1] - pix_box.min().y();
-          // below must use x <= cols()-1 as x is double
-          bool is_good = (x >= 0 && x <= dem.cols()-1 &&
-                          y >= 0 && y <= dem.rows()-1 );
-          if (!is_good) continue;
+          RealGrayA pval;
 
           int i0 = round(x), j0 = round(y);
-          RealGrayA pval;
-          if (fabs(x-i0) < g_tol && fabs(y-j0) < g_tol){
-            // We are at an integer pixel, save for numerical error.
-            // Just borrow pixel's value, and don't interpolate.
-            // Interpolation can result in invalid pixels if the
-            // current pixel is valid but its neighbors are not.
+          if (fabs(x-i0) < g_tol && fabs(y-j0) < g_tol &&
+              (i0 >= 0 && i0 <= dem.cols()-1 &&
+               j0 >= 0 && j0 <= dem.rows()-1) ){
+
+            // A lot of care is needed here. We are at an integer
+            // pixel, save for numerical error. Just borrow pixel's
+            // value, and don't interpolate. Interpolation can result
+            // in invalid pixels if the current pixel is valid but its
+            // neighbors are not. It can also make it appear is if the
+            // current point is out of bounds while in fact it is
+            // barely so.
             pval = dem(i0, j0);
+            
           }else{
+            
+            // below must use x <= cols()-1 as x is double
+            bool is_good = (x >= 0 && x <= dem.cols()-1 &&
+                            y >= 0 && y <= dem.rows()-1);
+            if (!is_good) continue;
+
             // If we have weights of 0, that means there are invalid
             // pixels, so skip this point.
             int i = (int)floor(x), j = (int)floor(y);
@@ -290,7 +318,7 @@ public:
       }
     }
 
-    return prerasterize_type(tile, -bbox.min().x(), -bbox.min().y(),
+    return prerasterize_type(pixel_cast<RealT>(tile), -bbox.min().x(), -bbox.min().y(),
                              cols(), rows() );
   }
 
@@ -317,11 +345,11 @@ struct Options : asp::BaseOptions {
   bool draft_mode;
   string dem_list_file, out_prefix, target_srs_string;
   vector<string> dem_files;
-  double mpp, tr;
+  double mpp, tr, geo_tile_size;
   bool has_out_nodata;
   RealT out_nodata_value;
   int tile_size, tile_index, erode_len, blending_len;
-  Options():has_out_nodata(false){}
+  Options(): geo_tile_size(0), has_out_nodata(false), tile_index(-1){}
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
@@ -333,8 +361,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
     ("tile-size", po::value<int>(&opt.tile_size)->default_value(1000000),
      "The maximum size of output DEM tile files to write, in pixels.")
-    ("tile-index", po::value<int>(&opt.tile_index)->default_value(0),
-     "The index of the tile to save (starting from zero). When this program is invoked, it will print  out how many tiles are there.")
+    ("tile-index", po::value<int>(&opt.tile_index),
+     "The index of the tile to save (starting from zero). When this program is invoked, it will print  out how many tiles are there. Default: save all tiles.")
     ("erode-length", po::value<int>(&opt.erode_len)->default_value(0),
      "Erode input DEMs by this many pixels at boundary and hole edges before mosacking them.")
     ("blending-length", po::value<int>(&opt.blending_len)->default_value(200),
@@ -343,6 +371,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Output DEM resolution in target georeferenced units per pixel. If not specified, use the same resolution as the first DEM to be mosaicked.")
     ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
      "Specify the projection (PROJ.4 string). If not provided, use the one from the first DEM to be mosaicked.")
+    ("georef-tile-size", po::value<double>(&opt.geo_tile_size),
+     "Set the tile size in georeferenced (projected) units (e.g., degrees or meters).")
     ("output-nodata-value", po::value<RealT>(&opt.out_nodata_value),
      "No-data value to use on output. If not specified, use the one from the first DEM to be mosaicked.")
     ("draft-mode", po::bool_switch(&opt.draft_mode)->default_value(false),
@@ -386,9 +416,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw(ArgumentErr() << "The size of a tile in pixels must "
              << "be set and positive.\n"
               << usage << general_options );
-  if (opt.tile_index < 0)
-    vw_throw(ArgumentErr() << "The index of the tile to save must be set "
-             << "and non-negative.\n"
+  if (opt.draft_mode && opt.erode_len > 0)
+    vw_throw(ArgumentErr() << "Cannot erode pixels in draft mode.\n"
+             << usage << general_options );
+  if (opt.geo_tile_size < 0)
+    vw_throw(ArgumentErr() << "The size of a tile in georeferenced units must "
+             << "not be negative.\n"
               << usage << general_options );
 
   // Read the DEMs
@@ -462,6 +495,7 @@ int main( int argc, char *argv[] ) {
                << "Changing the projection was requested. The output DEM "
                << "resolution must be specified via the --tr option.\n");
     }
+
     if (opt.target_srs_string != ""){
       // Set the srs string into georef.
       bool have_user_datum = false;
@@ -477,7 +511,14 @@ int main( int argc, char *argv[] ) {
       transform(0, 0) = spacing;
       transform(1, 1) = -spacing;
       out_georef.set_transform(transform);
+    }else
+      spacing = out_georef.transform()(0, 0);
+
+    if (opt.geo_tile_size > 0){
+      opt.tile_size = (int)round(opt.geo_tile_size/spacing);
+      vw_out() << "Tile size in pixels: " << opt.tile_size << "\n";
     }
+    opt.tile_size = std::max(opt.tile_size, 1);
     
     // Store the no-data values, pointers to images, and georeferences
     // (for speed). Find the bounding box of all DEMs in the projected
@@ -564,19 +605,6 @@ int main( int argc, char *argv[] ) {
     vw_out() << "Number of tiles: " << num_tiles_x << " x "
              << num_tiles_y << " = " << num_tiles << std::endl;
 
-    if (opt.tile_index < 0 || opt.tile_index >= num_tiles){
-      vw_out() << "Tile with index: " << opt.tile_index << " is out of bounds."
-               << std::endl;
-      return 0;
-    }
-    int tile_index_y = opt.tile_index / num_tiles_y;
-    int tile_index_x = opt.tile_index - tile_index_y*num_tiles_y;
-    BBox2i tile_box(tile_index_x*opt.tile_size, tile_index_y*opt.tile_size,
-                    opt.tile_size, opt.tile_size);
-    tile_box.crop(BBox2i(0, 0, cols, rows));
-    ostringstream os; os << opt.out_prefix << "-tile-" << opt.tile_index << ".tif";
-    std::string dem_tile = os.str();
-
     // The next power of 2 >= 4*(blending_len + erode_len). We want to
     // make the blocks big, to reduce overhead from blending_len and
     // erode_len, but not so big that it may not fit in memory.
@@ -584,21 +612,51 @@ int main( int argc, char *argv[] ) {
                                                   + opt.blending_len))/log(2.0)) );
     block_size = std::max(block_size, 256); // don't make them too small though
     
-    // We use block_cache to rasterize tiles of size block_size.
-    ImageViewRef<RealT> out_dem = 
-      block_cache(crop(DemMosaicView(cols, rows, opt.erode_len, opt.blending_len,
-                                     opt.draft_mode, images, georefs,
-                                     out_georef, nodata_values,
-                                     opt.out_nodata_value),
-                       tile_box),
-                  Vector2(block_size, block_size), opt.num_threads);
-    
-    vw_out() << "Writing: " << dem_tile << std::endl;
-    GeoReference crop_georef
-      = crop(out_georef, tile_box.min().x(), tile_box.min().y());
-    block_write_gdal_image(dem_tile, out_dem, crop_georef, opt.out_nodata_value,
-                           opt, TerminalProgressCallback("asp", "\t--> "));
 
+    if (opt.tile_index >= num_tiles){
+      vw_out() << "Tile with index: " << opt.tile_index << " is out of bounds."
+               << std::endl;
+      return 0;
+    }
+
+    // See if to save all tiles, or an individual tile.
+    int start_tile = opt.tile_index, end_tile = opt.tile_index + 1;
+    if (opt.tile_index < 0){
+      start_tile = 0;
+      end_tile = num_tiles;
+    }
+    
+    for (int tile_id = start_tile; tile_id < end_tile; tile_id++){
+      
+      int tile_index_y = tile_id / num_tiles_y;
+      int tile_index_x = tile_id - tile_index_y*num_tiles_y;
+      BBox2i tile_box(tile_index_x*opt.tile_size, tile_index_y*opt.tile_size,
+                      opt.tile_size, opt.tile_size);
+      tile_box.crop(BBox2i(0, 0, cols, rows));
+      ostringstream os; os << opt.out_prefix << "-tile-" << tile_id << ".tif";
+      std::string dem_tile = os.str();
+      
+      // We use block_cache to rasterize tiles of size block_size.
+      ImageViewRef<RealT> out_dem = 
+        block_cache(crop(DemMosaicView(cols, rows, opt.erode_len, opt.blending_len,
+                                       opt.draft_mode, images, georefs,
+                                       out_georef, nodata_values,
+                                       opt.out_nodata_value),
+                         tile_box),
+                    Vector2(block_size, block_size), opt.num_threads);
+
+      if (out_dem.cols() == 0 || out_dem.rows() == 0){
+        vw_out() << "Skip writing empty image: " << dem_tile << std::endl;
+        continue;
+      }
+      
+      vw_out() << "Writing: " << dem_tile << std::endl;
+      GeoReference crop_georef
+        = crop(out_georef, tile_box.min().x(), tile_box.min().y());
+      block_write_gdal_image(dem_tile, out_dem, crop_georef, opt.out_nodata_value,
+                             opt, TerminalProgressCallback("asp", "\t--> "));
+    }
+    
   } ASP_STANDARD_CATCHES;
   
   return 0;
