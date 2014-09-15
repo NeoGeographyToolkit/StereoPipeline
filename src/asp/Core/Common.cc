@@ -354,7 +354,9 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
   if (!allow_unregistered)
     vw::vw_out() << "\t--> Setting number of processing threads to: "
                  << opt.num_threads << std::endl;
-  
+
+  // Here we ensure that opt.num_threads and default_num_threads()
+  // are consistent among themselves.
   vw::vw_settings().set_default_num_threads(opt.num_threads);
   
   boost::algorithm::to_upper( opt.tif_compress );

@@ -69,9 +69,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
      "Select the stereo session type to use for processing. Choose 'rpc' if it is desired to later do stereo with the 'dg' session. [options: pinhole isis rpc]")
     ("t_projwin",        po::value(&opt.target_projwin),
-     "Selects a subwindow from the source image for copying, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.")
+     "Limit the map-projected image to this region, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.")
     ("t_pixelwin",       po::value(&opt.target_pixelwin),
-     "Selects a subwindow from the source image for copying, with the corners given in georeferenced pixel coordinates (xmin ymin xmax ymax). Max is exclusive.")
+     "Limit the map-projected image to this region, with the corners given in pixels (xmin ymin xmax ymax). Max is exclusive.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.");
     
