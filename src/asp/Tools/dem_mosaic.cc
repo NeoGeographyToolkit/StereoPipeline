@@ -58,7 +58,7 @@ namespace po = boost::program_options;
 #include <boost/filesystem/convenience.hpp>
 namespace fs = boost::filesystem;
 
-typedef float RealT; // Use double for debugging
+typedef double RealT; // Use double for debugging
 typedef PixelGrayA<RealT> RealGrayA;
 
 // This is used for various tolerances
@@ -90,10 +90,13 @@ inline notnodata( ImageViewBase<ImageT> const& image, NoDataT nodata ) {
   return UnaryPerPixelView<ImageT,func_type>( image.impl(), func );
 }
 
-BBox2 point_to_pixel_bbox(GeoReference const& georef, BBox2 const& ptbox){
+BBox2 point_to_pixel_bbox_nogrow(GeoReference const& georef, BBox2 const& ptbox){
 
   // Given the corners in the projected space, find the pixel corners.
-
+  // This differs from the point_to_pixel_bbox() function in
+  // GeoReferenceBase.cc in that in the latter the box is grown to
+  // int. Here we prefer finer control.
+  
   BBox2 pix_box;
   Vector2 cr[] = {ptbox.min(), ptbox.max(),
                   Vector2(ptbox.min().x(), ptbox.max().y()),
@@ -103,22 +106,43 @@ BBox2 point_to_pixel_bbox(GeoReference const& georef, BBox2 const& ptbox){
 
   return pix_box;
 }
-  
+
+BBox2 lonlat_to_pixel_bbox_with_adjustment(GeoReference const& georef,
+                                           BBox2 lonlat_box){
+
+  // Sometimes a lon-lat box if offset by 360 degrees, in that case we
+  // need to fix it before we find the pixel box.
+  Vector2 cr = georef.pixel_to_lonlat(Vector2(0, 0));
+  int shift = (int)round( (cr[0] - (lonlat_box.min().x()  + lonlat_box.max().x())/2.0 )/360.0 );
+  lonlat_box += Vector2(360.0, 0)*shift;
+
+  return  georef.lonlat_to_pixel_bbox(lonlat_box, 1000);
+}
+
+GeoReference read_georef(std::string const& file){
+  // Read a georef, and check for success
+  GeoReference geo;
+  bool is_good = read_georeference(geo, file);
+  if (!is_good)
+    vw_throw(ArgumentErr() << "No georeference found in " << file << ".\n");
+  return geo;
+}
+
 class DemMosaicView: public ImageViewBase<DemMosaicView>{
   int m_cols, m_rows, m_erode_len, m_blending_len;
   bool m_draft_mode;
-  vector< DiskImageView<RealT> > const& m_images;
-  vector<cartography::GeoReference> const& m_georefs; 
-  cartography::GeoReference m_out_georef;
+  vector< ImageViewRef<RealT> > const& m_images;
+  vector<GeoReference> const& m_georefs; 
+  GeoReference m_out_georef;
   vector<RealT> m_nodata_values;
   RealT m_out_nodata_value;
 
 public:
   DemMosaicView(int cols, int rows, int erode_len, int blending_len,
                 bool draft_mode,
-                vector< DiskImageView<RealT> > const& images,
-                vector<cartography::GeoReference> const& georefs,
-                cartography::GeoReference const& out_georef,
+                vector< ImageViewRef<RealT> > const& images,
+                vector<GeoReference> const& georefs,
+                GeoReference const& out_georef,
                 vector<RealT> const& nodata_values, RealT out_nodata_value):
     m_cols(cols), m_rows(rows), m_erode_len(erode_len),
     m_blending_len(blending_len), m_draft_mode(draft_mode),
@@ -151,13 +175,17 @@ public:
     
     for (int dem_iter = 0; dem_iter < (int)m_images.size(); dem_iter++){
       
-      cartography::GeoReference georef = m_georefs[dem_iter];
+      GeoReference georef = m_georefs[dem_iter];
       ImageViewRef<RealT> disk_dem = m_images[dem_iter];
       double nodata_value = m_nodata_values[dem_iter];
+
+      // It is very important that all computations be done below in
+      // point units the projected space, rather than in lon-lat. The
+      // latter can break down badly around poles.
       
       // The tile corners as pixels in curr_dem
       BBox2 point_box = m_out_georef.pixel_to_point_bbox(bbox);
-      BBox2 pix_box = point_to_pixel_bbox(georef, point_box);
+      BBox2 pix_box = point_to_pixel_bbox_nogrow(georef, point_box);
       pix_box.min() = floor(pix_box.min());
       pix_box.max() = ceil(pix_box.max());
 
@@ -184,12 +212,12 @@ public:
 
       int max_cutoff = max_pixel_value(local_wts);
       int min_cutoff = m_erode_len;
-      if (max_cutoff <= min_cutoff) max_cutoff = min_cutoff + 1; // extra precaution
+      if (max_cutoff <= min_cutoff) max_cutoff = min_cutoff + 1; // precaution
       
       // Erode
       local_wts = clamp(local_wts - min_cutoff, 0.0, max_cutoff - min_cutoff);
     
-      // Create a crop of the DEM, and let the weights be the alpha channel.
+      // Set the weights in the alpha channel
       for (int col = 0; col < dem.cols(); col++){
         for (int row = 0; row < dem.rows(); row++){
           dem(col, row).a() = local_wts(col, row);
@@ -223,8 +251,8 @@ public:
             // If we have weights of 0, that means there are invalid
             // pixels, so skip this point.
             int i = (int)floor(x), j = (int)floor(y);
-            if (dem(i,   j  ).a() <= 0 || dem(i+1, j  ).a() <= 0 ||
-                dem(i,   j+1).a() <= 0 || dem(i+1, j+1).a() <= 0)continue;
+            if (dem(i, j  ).a() <= 0 || dem(i+1, j  ).a() <= 0 ||
+                dem(i, j+1).a() <= 0 || dem(i+1, j+1).a() <= 0) continue;
             pval = interp_dem(x, y);
           }
           double val = pval.v();
@@ -272,9 +300,23 @@ public:
   }
 };
 
+std::string processed_proj4(std::string const& srs){
+  // Apparently functionally identical proj4 strings can differ in
+  // subtle ways, such as an extra space, etc. For that reason, must
+  // parse and process any srs string before comparing it with another
+  // string.
+  GeoReference georef;
+  bool have_user_datum = false;
+  Datum user_datum;
+  asp::set_srs_string(srs,
+                      have_user_datum, user_datum, georef);
+  return georef.proj4_str();
+}
+
 struct Options : asp::BaseOptions {
   bool draft_mode;
-  string dem_list_file, out_prefix;
+  string dem_list_file, out_prefix, target_srs_string;
+  vector<string> dem_files;
   double mpp, tr;
   bool has_out_nodata;
   RealT out_nodata_value;
@@ -299,6 +341,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Larger values of this number (measured in input DEM pixels) may result in smoother blending while using more memory and computing time.")
     ("tr", po::value(&opt.tr)->default_value(0.0),
      "Output DEM resolution in target georeferenced units per pixel. If not specified, use the same resolution as the first DEM to be mosaicked.")
+    ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
+     "Specify the projection (PROJ.4 string). If not provided, use the one from the first DEM to be mosaicked.")
     ("output-nodata-value", po::value<RealT>(&opt.out_nodata_value),
      "No-data value to use on output. If not specified, use the one from the first DEM to be mosaicked.")
     ("draft-mode", po::bool_switch(&opt.draft_mode)->default_value(false),
@@ -314,18 +358,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description positional("");
   po::positional_options_description positional_desc;
     
-  std::string usage("[options] -l dems_list.txt -o output_file_prefix");
-  bool allow_unregistered = false;
+  std::string usage("[options] <dem files or -l dem_file_list.txt> -o output_file_prefix");
+  bool allow_unregistered = true;
   std::vector<std::string> unregistered;
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage,
                              allow_unregistered, unregistered );
 
-  // Error checking
-  if (opt.dem_list_file == "")
-    vw_throw(ArgumentErr() << "No list of DEMs was specified.\n"
-              << usage << general_options );
+  // Error checking  
   if (opt.mpp > 0.0 && opt.tr > 0.0)
     vw_throw(ArgumentErr() << "Just one of the --mpp and --tr options needs to be set.\n"
               << usage << general_options );
@@ -350,6 +391,32 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
              << "and non-negative.\n"
               << usage << general_options );
 
+  // Read the DEMs
+  if (opt.dem_list_file != ""){
+
+    // Get them from a list
+    
+    if (!unregistered.empty())
+      vw_throw(ArgumentErr() << "The DEMs were specified via a list. There were however "
+               << "extraneous files or options passed in.\n"
+               << usage << general_options );
+    
+    ifstream is(opt.dem_list_file.c_str());
+    string file;
+    while (is >> file) opt.dem_files.push_back(file);
+    if (opt.dem_files.empty())
+      vw_throw(ArgumentErr() << "No DEM files to mosaic.\n");
+    is.close();
+
+  }else{
+
+    // Get them from the command line
+    if (unregistered.empty())
+      vw_throw(ArgumentErr() << "No input DEMs were specified..\n"
+               << usage << general_options );
+    opt.dem_files = unregistered;
+  }
+  
   // Create the output directory 
   asp::create_out_dir(opt.out_prefix);
   
@@ -373,60 +440,36 @@ int main( int argc, char *argv[] ) {
     
     handle_arguments( argc, argv, opt );
 
-    // Read the DEMs to mosaic
-    std::vector<std::string> dem_files;
-    {
-      ifstream is(opt.dem_list_file.c_str());
-      string file;
-      while (is >> file) dem_files.push_back(file);
-      if (dem_files.empty())
-        vw_throw(ArgumentErr() << "No DEM files to mosaic.\n");
-      is.close();
-    }
-    
     // Read nodata from first DEM, unless the user chooses to specify it.
     if (!opt.has_out_nodata){
-      DiskImageResourceGDAL in_rsrc(dem_files[0]);
+      DiskImageResourceGDAL in_rsrc(opt.dem_files[0]);
       if (in_rsrc.has_nodata_read()) opt.out_nodata_value = in_rsrc.nodata_read();
     }
     vw_out() << "Using output no-data value: " << opt.out_nodata_value << endl;
-    
-    // Store the no-data values, pointers to images, and georeferences
-    // (for speed). Find the bounding box of all DEMs in the projected
-    // space.
-    vw_out() << "Reading the input DEMs.\n";
-    TerminalProgressCallback tpc("", "\t--> ");
-    tpc.report_progress(0);
-    double inc_amount = 1.0 / double(dem_files.size() );
-    vector<RealT> nodata_values;
-    vector< DiskImageView<RealT> > images;
-    vector< cartography::GeoReference > georefs;
-    BBox2 mosaic_bbox;
-    for (int dem_iter = 0; dem_iter < (int)dem_files.size(); dem_iter++){
-      images.push_back(DiskImageView<RealT>( dem_files[dem_iter] ));
-
-      cartography::GeoReference geo;
-      bool is_good = read_georeference(geo, dem_files[dem_iter]);
-      if (!is_good)
-        vw_throw(ArgumentErr() << "No georeference found in "
-                 << dem_files[dem_iter] << ".\n");
-      georefs.push_back(geo);
-      
-      double curr_nodata_value = opt.out_nodata_value;
-      DiskImageResourceGDAL in_rsrc(dem_files[dem_iter]);
-      if ( in_rsrc.has_nodata_read() ) curr_nodata_value = in_rsrc.nodata_read();
-      nodata_values.push_back(curr_nodata_value);
-
-      mosaic_bbox.grow(georefs[dem_iter].bounding_box
-                       (DiskImageView<RealT>(dem_files[dem_iter])));
-      tpc.report_incremental_progress( inc_amount );
-    }
-    tpc.report_finished();
 
     // Form the mosaic georef. The georef of the first DEM is used as
-    // initial guess.
-    cartography::GeoReference out_georef = georefs[0];
+    // initial guess unless user wants to change the resolution and
+    // projection.
+    if (opt.target_srs_string != "")
+      opt.target_srs_string = processed_proj4(opt.target_srs_string);
+      
+    GeoReference out_georef = read_georef(opt.dem_files[0]);
     double spacing = opt.tr;
+    if (opt.target_srs_string != ""                     &&
+        opt.target_srs_string != out_georef.proj4_str() &&
+        spacing <= 0 ){
+      vw_throw(ArgumentErr()
+               << "Changing the projection was requested. The output DEM "
+               << "resolution must be specified via the --tr option.\n");
+    }
+    if (opt.target_srs_string != ""){
+      // Set the srs string into georef.
+      bool have_user_datum = false;
+      Datum user_datum;
+      asp::set_srs_string(opt.target_srs_string,
+                          have_user_datum, user_datum, out_georef);
+    }
+    
     // Use desired spacing if user-specified
     if (spacing > 0.0){
       Matrix<double,3,3> transform = out_georef.transform();
@@ -435,21 +478,75 @@ int main( int argc, char *argv[] ) {
       transform(1, 1) = -spacing;
       out_georef.set_transform(transform);
     }
+    
+    // Store the no-data values, pointers to images, and georeferences
+    // (for speed). Find the bounding box of all DEMs in the projected
+    // space.
+    vw_out() << "Reading the input DEMs.\n";
+    TerminalProgressCallback tpc("", "\t--> ");
+    tpc.report_progress(0);
+    double inc_amount = 1.0 / double(opt.dem_files.size() );
+    vector<RealT> nodata_values;
+    vector< ImageViewRef<RealT> > images;
+    vector< GeoReference > georefs;
+    BBox2 mosaic_bbox;
+    for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++){
+      
+      double curr_nodata_value = opt.out_nodata_value;
+      DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
+      if ( in_rsrc.has_nodata_read() ) curr_nodata_value = in_rsrc.nodata_read();
+      nodata_values.push_back(curr_nodata_value);
 
-    // Set the lower-left corner.
-    // Note: The position of the corner is somewhat arbitrary.
-    // If the corner is actually very close to an integer number,
-    // we assume it should in fact be integer but got moved a bit
-    // due to numerical error. Then we set it to integer. This ensures
-    // that when we mosaic a single DEM we get its corners to be the
-    // same as the originals rather than moved by a slight offset.
-    BBox2 pixel_box = point_to_pixel_bbox(out_georef, mosaic_bbox);
+      GeoReference georef = read_georef(opt.dem_files[dem_iter]);
+      if (out_georef.proj4_str() == georef.proj4_str()){
+        images.push_back(DiskImageView<RealT>( opt.dem_files[dem_iter] ));
+      }else{
+        // Need to reproject and change the reference.
+        GeoReference oldgeo = georef;
+        GeoReference newgeo = out_georef;
+        
+        DiskImageView<RealT> img(opt.dem_files[dem_iter]);
+        BBox2 imgbox = bounding_box(img);
+        BBox2 lonlat_box = oldgeo.pixel_to_lonlat_bbox(imgbox);
+        BBox2 pixbox = lonlat_to_pixel_bbox_with_adjustment(newgeo, lonlat_box);
+        newgeo = crop(newgeo, pixbox.min().x(), pixbox.min().y());
+
+        cartography::GeoTransform trans(oldgeo, newgeo);
+        BBox2 output_bbox = trans.forward_bbox( imgbox );
+        typedef PixelMask<RealT> PMaskT;
+        
+        ImageViewRef<RealT> trans_img
+          = apply_mask
+          (crop( transform( create_mask(img, curr_nodata_value), trans,
+                            ValueEdgeExtension<PMaskT>(PMaskT()), BilinearInterpolation() ),
+                 output_bbox ),
+           curr_nodata_value);
+        
+        images.push_back(trans_img);
+        georef = newgeo;
+      }
+      georefs.push_back(georef);
+      
+      mosaic_bbox.grow(georefs[dem_iter].bounding_box(images[dem_iter]));
+      tpc.report_incremental_progress( inc_amount );
+    }
+    tpc.report_finished();
+
+
+    // Set the lower-left corner. Note: The position of the corner is
+    // somewhat arbitrary. If the corner is actually very close to an
+    // integer number, we assume it should in fact be integer but got
+    // moved a bit due to numerical error. Then we set it to
+    // integer. This ensures that when we mosaic a single DEM we get
+    // its corners to be the same as the originals rather than moved
+    // by a slight offset.
+    BBox2 pixel_box = point_to_pixel_bbox_nogrow(out_georef, mosaic_bbox);
     Vector2 beg_pix = pixel_box.min();
     if (norm_2(beg_pix - round(beg_pix)) < g_tol ) beg_pix = round(beg_pix);
     out_georef = crop(out_georef, beg_pix[0], beg_pix[1]);
 
     // Image size
-    pixel_box = point_to_pixel_bbox(out_georef, mosaic_bbox);
+    pixel_box = point_to_pixel_bbox_nogrow(out_georef, mosaic_bbox);
     Vector2 end_pix = pixel_box.max();
     
     int cols = (int)round(end_pix[0]); // end_pix is the last pix in the image
@@ -497,7 +594,7 @@ int main( int argc, char *argv[] ) {
                   Vector2(block_size, block_size), opt.num_threads);
     
     vw_out() << "Writing: " << dem_tile << std::endl;
-    cartography::GeoReference crop_georef
+    GeoReference crop_georef
       = crop(out_georef, tile_box.min().x(), tile_box.min().y());
     block_write_gdal_image(dem_tile, out_dem, crop_georef, opt.out_nodata_value,
                            opt, TerminalProgressCallback("asp", "\t--> "));
