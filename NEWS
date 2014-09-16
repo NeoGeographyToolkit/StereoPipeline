@@ -5,6 +5,9 @@
      disparities are computed from it to the other ones, and joint
      triangulation is performed.
 
+ - Added a new tool, dem_mosaic, for mosaicking a large number of 
+   DEMs, with erosion at boundary, smooth blending, and tiled output.
+
  - dg_mosaic:
    * Support for multi-band (multi-spectral) images. Use --band <num>
      to pick a band to mosaic.

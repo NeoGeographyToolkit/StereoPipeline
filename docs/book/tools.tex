@@ -660,152 +660,93 @@ Options & Description \\ \hline \hline
 \texttt{-\/-center} & Center the model around the origin. Use this option if you are experiencing numerical precision issues. \\ \hline
 \end{longtable}
 
-\section{mapproject}
-\label{mapproject}
-
-The tool \texttt{mapproject} is used to map-project a camera image onto
-a DEM. The obtained images can be used, for example, to visualize how
-camera images would look when projected onto the ground obtained by
-doing stereo of these images (ideally, if there were no correlation or
-triangulation error, the images would project perfectly). The tool can
-also be used to compute stereo from the obtained map-projected images;
-this functionality is currently supported only with RPC models (section
-\ref{mapproj}).
-
-\texttt{mapproject} supersedes the older
-\texttt{orthoproject} tool, which could map-project only with ISIS and
-pinhole camera models (the latter program is still being kept for a few
-releases for backward compatibility). We ported all features of
-\texttt{orthoproject} except for projecting of vector imagery (for
-example, RGB pixel data).
-
-\texttt{mapproject} is single-threaded for ISIS cameras, this is due to
-the limitations of ISIS. At some point this tool will be able to
-distribute itself using multiple processes to work around this limitation.
-
-
-Example:
-\begin{verbatim}
-mapproject -t isis DEM.tif image.cub camera.isis_adjust \
-         output-IMG.tif --ppd 256
-\end{verbatim}
-
-\begin{longtable}{|l|p{10cm}|}
-\caption{Command-line options for mapproject}
-\label{tbl:mapproject}
-\endfirsthead
-\endhead
-\endfoot
-\endlastfoot
-\hline
-Options & Description \\ \hline \hline
-\texttt{-\/-nodata-value \textit{float(=-32768)}} & No-data value to use unless specified in the input image. \\ \hline
-\texttt{-\/-t\_srs} & Specify the projection (PROJ.4 string). If not provided, use the one from the DEM. \\ \hline
-\texttt{-\/-tr \textit{float}} & Set the output file resolution in target
-  georeferenced units per pixel. \\ \hline
-\texttt{-\/-mpp \textit{float}} & Set the output file resolution in meters per
-pixel. \\ \hline
-\texttt{-\/-ppd \textit{float}} & Set the output file resolution in pixels per
-degree. \\ \hline
-\texttt{-\/-session-type|-t pinhole|isis|rpc} & Select the stereo
-session type to use for processing. Choose 'rpc' if it is desired to later do stereo with the 'dg' session. \\ \hline
-\texttt{-\/-t\_projwin \textit{xmin ymin xmax ymax}} & Limit the map-projected image to this region, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive. \\ \hline
-\texttt{-\/-t\_pixelwin \textit{xmin ymin xmax ymax}} & Limit the map-projected image to this region, with the corners given in pixels (xmin ymin xmax ymax). Max is exclusive. \\ \hline
-\texttt{-\/-bundle-adjust-prefix \textit{string}} & Use the camera
-adjustment obtained by previously running bundle\_adjust with this
-output prefix. \\ \hline
-\texttt{-\/-threads \textit{int(=0)}} & Select the number of processors (threads) to use.\\ \hline
-\texttt{-\/-no-bigtiff} & Tell GDAL to not create bigtiffs.\\ \hline
-\texttt{-\/-tif-compress None|LZW|Deflate|Packbits} & TIFF compression method.\\ \hline
-\texttt{-\/-cache-dir \textit{directory(=/tmp)}} & Folder for temporary files. Normally this need not be changed.\\ \hline
-\texttt{-\/-help|-h} & Display the help message. \\ \hline
-\end{longtable}
-
 \clearpage
 
 \section{dem\_mosaic}
 \label{demmosaic}
 
 The program \texttt{dem\_mosaic} takes as input a list of DEM files,
-optionally erodes pixels at the boundaries, and creates a mosaic,
-blending the DEMs wherey they overlap.
+optionally erodes pixels at the DEM boundaries, and creates a mosaic,
+blending the DEMs where they overlap.
 
-Output prefix. All tiles will be output-prefix-tile-<num>.tif. If,
-for example, the output prefix is results/output, all the tiles will be
-in the results directory.
+Usage:
+\begin{verbatim}
+  dem_mosaic [options] <dem files or -l dem_files_list.txt> -o output_file_prefix
+\end{verbatim}
+
+The input DEMs can either be set on the command line, or if too
+many, they can be listed in a text file (one per line) and that file can
+be passed to the tool.
+
+The output mosaic is written as non-overlapping tiles with desired tile
+size, with the size set either in pixels or in georeferenced (projected)
+units. The default tile size is large enough that normally the entire
+mosaic is saved as one tile.
+
+Individual tiles can be saved via the \texttt{-\/-tile-index} option
+(the tool displays the total number of tiles when it is being run). As
+such, separate processes can be invoked for individual tiles, for
+increased robustness and perhaps speed.
+
+The output mosaic tiles will be named <output prefix>-tile-<tile index>.tif,
+where <output prefix> is an arbitrary string. For example, if it is 
+set to \texttt{results/output}, all the tiles will be in the
+\texttt{results} directory. 
 
 By the default, the output mosaicked DEM will use the same grid size and
 projection as the first input DEM. These can be changed via the
 \texttt{-\/-tr} and \texttt{-\/-t\_srs} options.
 
-
-\section{orbitviz}
-\label{orbitviz}
-
-Produces a Google Earth \ac{KML} file useful for visualizing camera
-position. The input for this tool is one or more \texttt{*.cub} files.
-
-\begin{figure}[!b]
-  \begin{center}
-  \includegraphics[width=6in]{images/orbitviz_ge_result.png}
-  \end{center}
-  \caption{ Example of a \ac{KML} visualization produced with {\tt
-      orbitviz} depicting camera locations for the Apollo 15 Metric
-    Camera during orbit 33 of the Apollo command module.}
-  \label{fig:orbitviz_example}
-\end{figure}
-
 \begin{longtable}{|l|p{10cm}|}
-\caption{Command-line options for orbitviz}
-\label{tbl:orbitviz}
+\caption{Command-line options for dem\_mosaic}
+\label{tbl:demmosaic}
 \endfirsthead
 \endhead
 \endfoot
 \endlastfoot
 \hline
-Options & Description \\ \hline \hline
-\texttt{-\/-help|-h} & Display the help message\\ \hline
-\texttt{-\/-output|-o \textit{filename(=orbit.kml)}} & Specifies the output file name \\ \hline
-\texttt{-\/-scale|-s \textit{float(=1)}} & Scale the size of the coordinate axes by this amount. Ex: To scale axis sizes up to earth size, use 3.66 \\ \hline
-\texttt{-\/-use\_path\_to\_dae\_model|-u \textit{fullpath}} & Use this dae model to represent camera location. \emph{Google Sketch up can create these.} \\ \hline
-\end{longtable}
+Options & Description \\ 
+\hline \hline
 
-\clearpage
-
-\section{cam2map4stereo.py}
-\label{cam2map4stereo}
-
-This program takes similar arguments as the ISIS3 \texttt{cam2map} program,
-but takes two input images.  With no arguments, the program determines
-the minimum overlap of the two images, and the worst common resolution,
-and then map-projects the two images to this identical area and resolution.
-
-The detailed reasons for doing this, and a manual step-by-step walkthrough of
-what \texttt{cam2map4stereo.py} does is provided in the discussion on aligning images on page \pageref{sec:AligningImages}.
-
-The \texttt{cam2map4stereo.py} is also useful for selecting a subsection and/or reduced resolution portion of the full image.  You can inspect a raw camera geometry image in qview after you have run \texttt{spiceinit} on it, select the latitude and longitude ranges, and then use \texttt{cam2map4stereo.py}'s \texttt{-\/-lat}, \texttt{-\/-lon}, and optionally \texttt{-\/-resolution} options to pick out just the part you want.
-
-Use the \texttt{-\/-dry-run} option the first few times to get an idea of what \texttt{cam2map4stereo.py} does for you.
-
-\begin{longtable}{|l|p{10cm}|}
-\caption{Command-line options for cam2map4stereo.py}
-\label{tbl:bundlevis}
-\endfirsthead
-\endhead
-\endfoot
-\endlastfoot
-\hline
-Options & Description \\ \hline \hline
-\texttt{-\/-help|-h} & Display the help message. \\ \hline
-\texttt{-\/-manual} & Read the manual. \\ \hline
-\texttt{-\/-map=\textit{MAP}|-m \textit{MAP}} & The mapfile to use for \texttt{cam2map}. \\ \hline
-\texttt{-\/-pixres=\textit{PIXRES}|-p \textit{PIXRES}} & The pixel resolution mode to use for \texttt{cam2map}. \\ \hline
-\texttt{-\/-resolution=\textit{RESOLUTION}|-r \textit{RESOLUTION}} & Resolution of the final map for \texttt{cam2map}. \\ \hline
-\texttt{-\/-interp=\textit{INTERP}|-i \textit{INTERP}} & Pixel interpolation scheme for \texttt{cam2map}. \\ \hline
-\texttt{-\/-lat=\textit{LAT}|-a \textit{LAT}} & Latitude range for \texttt{cam2map}, where \texttt{LAT} is of the form \textit{min:max}.  So to specify a latitude range between -5 and 10 degrees, it would look like \texttt{-\/-lat=-5:10}. \\ \hline
-\texttt{-\/-lon=\textit{LON}|-o \textit{LON}} & Longitude range for \texttt{cam2map}, where \texttt{LON} is of the form \textit{min:max}.  So to specify a longitude range between 45 and 47 degrees, it would look like \texttt{-\/-lon=40:47}. \\ \hline
-\texttt{-\/-dry-run|-n} & Make calculations, and print the \texttt{cam2map} command that would be executed, but don't actually run it.\\ \hline
-\texttt{-\/-suffix|-s} & Suffix that gets inserted in the output file names, defaults to `map'.\\ \hline
+\texttt{-l | -\/-dem-list-file \textit{string}}  &
+Text file listing the DEM files to mosaic, one per line.
+\\ \hline
+\texttt{-o | -\/-output-prefix  \textit{string} } &
+Specify the output prefix.
+\\ \hline
+\texttt{-\/-tile-size \textit{integer(=1000000)}} &
+The maximum size of output DEM tile files to write, in pixels.
+\\ \hline
+\texttt{-\/-tile-index \textit{integer}} &
+The index of the tile to save (starting from zero). When this program is invoked, it will print  out how many tiles are there. Default: save all tiles.
+\\ \hline
+\texttt{-\/-erode-length \textit{integer(=0)} }  &
+Erode input DEMs by this many pixels at boundary and hole edges before mosaicking them.
+\\ \hline
+\texttt{-\/-blending-length \textit{integer(=200)}} &
+Larger values of this number (measured in input DEM pixels) may result
+in smoother blending while using more memory and computing time. 
+\\ \hline
+\texttt{-\/-tr \textit{double}  } & 
+Output DEM resolution in target georeferenced units per pixel. Default: use the same resolution as the first DEM to be mosaicked.
+\\ \hline
+\texttt{-\/-t\_srs \textit{string} } &
+Specify the projection (PROJ.4 string). Default: use the one from the first DEM to be mosaicked.
+\\ \hline
+\texttt{-\/-georef-tile-size \textit{double}} &
+Set the tile size in georeferenced (projected) units (e.g., degrees or meters).
+\\ \hline
+\texttt{-\/-output-nodata-value \textit{double}} &
+No-data value to use on output. Default: use the one from the first DEM to be mosaicked.
+\\ \hline
+\texttt{-\/-draft-mode } 
+& Put the DEMs together without blending them (the result is less smooth).
+\\ \hline
+\texttt{-\/-threads \textit{integer}} 
+& Set the number of threads to use.
+\\ \hline
+\texttt{-\/-help|-h} & Display the help message.
+\\ \hline
 \end{longtable}
 
 \clearpage
@@ -899,6 +840,143 @@ The weight to use to penalize higher order RPC coefficients when generating the 
 \texttt{-\/-preview } & Render a small 8 bit png of the input for preview. \\ \hline
 \texttt{-\/- \textit{dry-run|-n}} & Make calculations, but just print out the commands. \\ \hline
 \end{longtable}
+
+\clearpage
+
+\section{mapproject}
+\label{mapproject}
+
+The tool \texttt{mapproject} is used to map-project a camera image onto
+a DEM. The obtained images can be used, for example, to visualize how
+camera images would look when projected onto the ground obtained by
+doing stereo of these images (ideally, if there were no correlation or
+triangulation error, the images would project perfectly). The tool can
+also be used to compute stereo from the obtained map-projected images;
+this functionality is currently supported only with RPC models (section
+\ref{mapproj}).
+
+\texttt{mapproject} supersedes the older
+\texttt{orthoproject} tool, which could map-project only with ISIS and
+pinhole camera models (the latter program is still being kept for a few
+releases for backward compatibility). We ported all features of
+\texttt{orthoproject} except for projecting of vector imagery (for
+example, RGB pixel data).
+
+\texttt{mapproject} is single-threaded for ISIS cameras, this is due to
+the limitations of ISIS. At some point this tool will be able to
+distribute itself using multiple processes to work around this limitation.
+
+
+Example:
+\begin{verbatim}
+mapproject -t isis DEM.tif image.cub camera.isis_adjust \
+         output-IMG.tif --ppd 256
+\end{verbatim}
+
+\begin{longtable}{|l|p{10cm}|}
+\caption{Command-line options for mapproject}
+\label{tbl:mapproject}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Options & Description \\ \hline \hline
+\texttt{-\/-nodata-value \textit{float(=-32768)}} & No-data value to use unless specified in the input image. \\ \hline
+\texttt{-\/-t\_srs} & Specify the projection (PROJ.4 string). If not provided, use the one from the DEM. \\ \hline
+\texttt{-\/-tr \textit{float}} & Set the output file resolution in target
+  georeferenced units per pixel. \\ \hline
+\texttt{-\/-mpp \textit{float}} & Set the output file resolution in meters per
+pixel. \\ \hline
+\texttt{-\/-ppd \textit{float}} & Set the output file resolution in pixels per
+degree. \\ \hline
+\texttt{-\/-session-type|-t pinhole|isis|rpc} & Select the stereo
+session type to use for processing. Choose 'rpc' if it is desired to later do stereo with the 'dg' session. \\ \hline
+\texttt{-\/-t\_projwin \textit{xmin ymin xmax ymax}} & Limit the map-projected image to this region, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive. \\ \hline
+\texttt{-\/-t\_pixelwin \textit{xmin ymin xmax ymax}} & Limit the map-projected image to this region, with the corners given in pixels (xmin ymin xmax ymax). Max is exclusive. \\ \hline
+\texttt{-\/-bundle-adjust-prefix \textit{string}} & Use the camera
+adjustment obtained by previously running bundle\_adjust with this
+output prefix. \\ \hline
+\texttt{-\/-threads \textit{int(=0)}} & Select the number of processors (threads) to use.\\ \hline
+\texttt{-\/-no-bigtiff} & Tell GDAL to not create bigtiffs.\\ \hline
+\texttt{-\/-tif-compress None|LZW|Deflate|Packbits} & TIFF compression method.\\ \hline
+\texttt{-\/-cache-dir \textit{directory(=/tmp)}} & Folder for temporary files. Normally this need not be changed.\\ \hline
+\texttt{-\/-help|-h} & Display the help message. \\ \hline
+\end{longtable}
+
+\clearpage
+
+
+\section{orbitviz}
+\label{orbitviz}
+
+Produces a Google Earth \ac{KML} file useful for visualizing camera
+position. The input for this tool is one or more \texttt{*.cub} files.
+
+\begin{figure}[!b]
+  \begin{center}
+  \includegraphics[width=6in]{images/orbitviz_ge_result.png}
+  \end{center}
+  \caption{ Example of a \ac{KML} visualization produced with {\tt
+      orbitviz} depicting camera locations for the Apollo 15 Metric
+    Camera during orbit 33 of the Apollo command module.}
+  \label{fig:orbitviz_example}
+\end{figure}
+
+\begin{longtable}{|l|p{10cm}|}
+\caption{Command-line options for orbitviz}
+\label{tbl:orbitviz}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Options & Description \\ \hline \hline
+\texttt{-\/-help|-h} & Display the help message\\ \hline
+\texttt{-\/-output|-o \textit{filename(=orbit.kml)}} & Specifies the output file name \\ \hline
+\texttt{-\/-scale|-s \textit{float(=1)}} & Scale the size of the coordinate axes by this amount. Ex: To scale axis sizes up to earth size, use 3.66 \\ \hline
+\texttt{-\/-use\_path\_to\_dae\_model|-u \textit{fullpath}} & Use this dae model to represent camera location. \emph{Google Sketch up can create these.} \\ \hline
+\end{longtable}
+
+\clearpage
+
+\section{cam2map4stereo.py}
+\label{cam2map4stereo}
+
+This program takes similar arguments as the ISIS3 \texttt{cam2map} program,
+but takes two input images.  With no arguments, the program determines
+the minimum overlap of the two images, and the worst common resolution,
+and then map-projects the two images to this identical area and resolution.
+
+The detailed reasons for doing this, and a manual step-by-step walkthrough of
+what \texttt{cam2map4stereo.py} does is provided in the discussion on aligning images on page \pageref{sec:AligningImages}.
+
+The \texttt{cam2map4stereo.py} is also useful for selecting a subsection and/or reduced resolution portion of the full image.  You can inspect a raw camera geometry image in qview after you have run \texttt{spiceinit} on it, select the latitude and longitude ranges, and then use \texttt{cam2map4stereo.py}'s \texttt{-\/-lat}, \texttt{-\/-lon}, and optionally \texttt{-\/-resolution} options to pick out just the part you want.
+
+Use the \texttt{-\/-dry-run} option the first few times to get an idea of what \texttt{cam2map4stereo.py} does for you.
+
+\begin{longtable}{|l|p{10cm}|}
+\caption{Command-line options for cam2map4stereo.py}
+\label{tbl:bundlevis}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Options & Description \\ \hline \hline
+\texttt{-\/-help|-h} & Display the help message. \\ \hline
+\texttt{-\/-manual} & Read the manual. \\ \hline
+\texttt{-\/-map=\textit{MAP}|-m \textit{MAP}} & The mapfile to use for \texttt{cam2map}. \\ \hline
+\texttt{-\/-pixres=\textit{PIXRES}|-p \textit{PIXRES}} & The pixel resolution mode to use for \texttt{cam2map}. \\ \hline
+\texttt{-\/-resolution=\textit{RESOLUTION}|-r \textit{RESOLUTION}} & Resolution of the final map for \texttt{cam2map}. \\ \hline
+\texttt{-\/-interp=\textit{INTERP}|-i \textit{INTERP}} & Pixel interpolation scheme for \texttt{cam2map}. \\ \hline
+\texttt{-\/-lat=\textit{LAT}|-a \textit{LAT}} & Latitude range for \texttt{cam2map}, where \texttt{LAT} is of the form \textit{min:max}.  So to specify a latitude range between -5 and 10 degrees, it would look like \texttt{-\/-lat=-5:10}. \\ \hline
+\texttt{-\/-lon=\textit{LON}|-o \textit{LON}} & Longitude range for \texttt{cam2map}, where \texttt{LON} is of the form \textit{min:max}.  So to specify a longitude range between 45 and 47 degrees, it would look like \texttt{-\/-lon=40:47}. \\ \hline
+\texttt{-\/-dry-run|-n} & Make calculations, and print the \texttt{cam2map} command that would be executed, but don't actually run it.\\ \hline
+\texttt{-\/-suffix|-s} & Suffix that gets inserted in the output file names, defaults to `map'.\\ \hline
+\end{longtable}
+
+\clearpage
 
 \section{point2las}
 \label{point2las}

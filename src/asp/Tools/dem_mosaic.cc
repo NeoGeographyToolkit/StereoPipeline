@@ -58,7 +58,7 @@ namespace po = boost::program_options;
 #include <boost/filesystem/convenience.hpp>
 namespace fs = boost::filesystem;
 
-typedef double RealT; // Use double for debugging
+typedef float RealT; // Use double for debugging
 
 // This is used for various tolerances
 double g_tol = 1e-6;
@@ -163,7 +163,7 @@ public:
     // Sanity check, see if datums differ, then the tool won't work
     for (int i = 0; i < (int)m_georefs.size(); i++){
       if (m_georefs[i].datum().name() != m_out_georef.datum().name()){
-        vw_throw(NoImplErr() << "Mosacking of DEMs with different datums is not implemented.");
+        vw_throw(NoImplErr() << "Mosaicking of DEMs with different datums is not implemented.");
       }
     }
     
@@ -338,11 +338,11 @@ struct Options : asp::BaseOptions {
   bool draft_mode;
   string dem_list_file, out_prefix, target_srs_string;
   vector<string> dem_files;
-  double mpp, tr, geo_tile_size;
+  double tr, geo_tile_size;
   bool has_out_nodata;
   RealT out_nodata_value;
   int tile_size, tile_index, erode_len, blending_len;
-  Options(): geo_tile_size(0), has_out_nodata(false), tile_index(-1){}
+  Options(): tr(0), geo_tile_size(0), has_out_nodata(false), tile_index(-1){}
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
@@ -357,17 +357,17 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("tile-index", po::value<int>(&opt.tile_index),
      "The index of the tile to save (starting from zero). When this program is invoked, it will print  out how many tiles are there. Default: save all tiles.")
     ("erode-length", po::value<int>(&opt.erode_len)->default_value(0),
-     "Erode input DEMs by this many pixels at boundary and hole edges before mosacking them.")
+     "Erode input DEMs by this many pixels at boundary and hole edges before mosaicking them.")
     ("blending-length", po::value<int>(&opt.blending_len)->default_value(200),
      "Larger values of this number (measured in input DEM pixels) may result in smoother blending while using more memory and computing time.")
-    ("tr", po::value(&opt.tr)->default_value(0.0),
-     "Output DEM resolution in target georeferenced units per pixel. If not specified, use the same resolution as the first DEM to be mosaicked.")
+    ("tr", po::value(&opt.tr),
+     "Output DEM resolution in target georeferenced units per pixel. Default: use the same resolution as the first DEM to be mosaicked.")
     ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
-     "Specify the projection (PROJ.4 string). If not provided, use the one from the first DEM to be mosaicked.")
+     "Specify the projection (PROJ.4 string). Default: use the one from the first DEM to be mosaicked.")
     ("georef-tile-size", po::value<double>(&opt.geo_tile_size),
      "Set the tile size in georeferenced (projected) units (e.g., degrees or meters).")
     ("output-nodata-value", po::value<RealT>(&opt.out_nodata_value),
-     "No-data value to use on output. If not specified, use the one from the first DEM to be mosaicked.")
+     "No-data value to use on output. Default: use the one from the first DEM to be mosaicked.")
     ("draft-mode", po::bool_switch(&opt.draft_mode)->default_value(false),
      "Put the DEMs together without blending them (the result is less smooth).")
     ("threads", po::value<int>(&opt.num_threads),
@@ -381,7 +381,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description positional("");
   po::positional_options_description positional_desc;
     
-  std::string usage("[options] <dem files or -l dem_file_list.txt> -o output_file_prefix");
+  std::string usage("[options] <dem files or -l dem_files_list.txt> -o output_file_prefix");
   bool allow_unregistered = true;
   std::vector<std::string> unregistered;
   po::variables_map vm =
@@ -390,7 +390,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                              allow_unregistered, unregistered );
 
   // Error checking  
-  if (opt.mpp > 0.0 && opt.tr > 0.0)
+  if (opt.tr > 0.0)
     vw_throw(ArgumentErr() << "Just one of the --mpp and --tr options needs to be set.\n"
               << usage << general_options );
   if (opt.out_prefix == "")
