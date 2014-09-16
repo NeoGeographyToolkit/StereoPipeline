@@ -117,18 +117,6 @@ BBox2 point_to_pixel_bbox_nogrow(GeoReference const& georef, BBox2 const& ptbox)
   return pix_box;
 }
 
-BBox2 lonlat_to_pixel_bbox_with_adjustment(GeoReference const& georef,
-                                           BBox2 lonlat_box){
-
-  // Sometimes a lon-lat box if offset by 360 degrees, in that case we
-  // need to fix it before we find the pixel box.
-  Vector2 cr = georef.pixel_to_lonlat(Vector2(0, 0));
-  int shift = (int)round( (cr[0] - (lonlat_box.min().x()  + lonlat_box.max().x())/2.0 )/360.0 );
-  lonlat_box += Vector2(360.0, 0)*shift;
-
-  return  georef.lonlat_to_pixel_bbox(lonlat_box, 1000);
-}
-
 GeoReference read_georef(std::string const& file){
   // Read a georef, and check for success
   GeoReference geo;
@@ -136,6 +124,18 @@ GeoReference read_georef(std::string const& file){
   if (!is_good)
     vw_throw(ArgumentErr() << "No georeference found in " << file << ".\n");
   return geo;
+}
+
+std::string processed_proj4(std::string const& srs){
+  // Apparently functionally identical proj4 strings can differ in
+  // subtle ways, such as an extra space, etc. For that reason, must
+  // parse and process any srs string before comparing it with another
+  // string.
+  GeoReference georef;
+  bool have_user_datum = false;
+  Datum user_datum;
+  asp::set_srs_string(srs, have_user_datum, user_datum, georef);
+  return georef.proj4_str();
 }
 
 class DemMosaicView: public ImageViewBase<DemMosaicView>{
@@ -146,7 +146,7 @@ class DemMosaicView: public ImageViewBase<DemMosaicView>{
   GeoReference m_out_georef;
   vector<RealT> m_nodata_values;
   RealT m_out_nodata_value;
-
+  
 public:
   DemMosaicView(int cols, int rows, int erode_len, int blending_len,
                 bool draft_mode,
@@ -158,7 +158,16 @@ public:
     m_blending_len(blending_len), m_draft_mode(draft_mode),
     m_images(images), m_georefs(georefs),
     m_out_georef(out_georef), m_nodata_values(nodata_values),
-    m_out_nodata_value(out_nodata_value){}
+    m_out_nodata_value(out_nodata_value){
+
+    // Sanity check, see if datums differ, then the tool won't work
+    for (int i = 0; i < (int)m_georefs.size(); i++){
+      if (m_georefs[i].datum().name() != m_out_georef.datum().name()){
+        vw_throw(NoImplErr() << "Mosacking of DEMs with different datums is not implemented.");
+      }
+    }
+    
+  }
   
   typedef RealT pixel_type;
   typedef pixel_type result_type;
@@ -192,24 +201,20 @@ public:
       ImageViewRef<double> disk_dem = pixel_cast<double>(m_images[dem_iter]);
       double nodata_value = m_nodata_values[dem_iter];
 
-      // It is very important that all computations be done below in
-      // point units the projected space, rather than in lon-lat. The
-      // latter can break down badly around poles.
-      
-      // The tile corners as pixels in curr_dem
-      BBox2 point_box = m_out_georef.pixel_to_point_bbox(bbox);
-      BBox2 pix_box = point_to_pixel_bbox_nogrow(georef, point_box);
-      pix_box.min() = floor(pix_box.min());
-      pix_box.max() = ceil(pix_box.max());
+      // The GeoTransform will hide the messy details of conversions
+      // from pixels to points and lon-lat.
+      GeoTransform geotrans(georef, m_out_georef);
 
+      BBox2 in_box = geotrans.reverse_bbox(bbox);
+      
       // Grow to account for blending and erosion length, etc.
-      pix_box.expand(m_erode_len + m_blending_len + BilinearInterpolation::pixel_buffer + 1);
-      pix_box.crop(bounding_box(disk_dem));
-      if (pix_box.empty()) continue;
+      in_box.expand(m_erode_len + m_blending_len + BilinearInterpolation::pixel_buffer + 1);
+      in_box.crop(bounding_box(disk_dem));
+      if (in_box.empty()) continue;
 
       // Crop the disk dem to a 2-channel in-memory image. First channel
       // is the image pixels, second will be the grassfire weights.
-      ImageView<RealGrayA> dem = crop(disk_dem, pix_box);
+      ImageView<RealGrayA> dem = crop(disk_dem, in_box);
 
       // Use grassfire weights for smooth blending
       ImageView<double> local_wts;
@@ -247,12 +252,12 @@ public:
       
       for (int c = 0; c < bbox.width(); c++){
         for (int r = 0; r < bbox.height(); r++){
-          Vector2 out_pix(c +  bbox.min().x(), r +  bbox.min().y());
-          Vector2 in_pix = georef.point_to_pixel
-            (m_out_georef.pixel_to_point(out_pix));
 
-          double x = in_pix[0] - pix_box.min().x();
-          double y = in_pix[1] - pix_box.min().y();
+          Vector2 out_pix(c +  bbox.min().x(), r +  bbox.min().y());
+          Vector2 in_pix = geotrans.reverse(out_pix);
+
+          double x = in_pix[0] - in_box.min().x();
+          double y = in_pix[1] - in_box.min().y();
           RealGrayA pval;
 
           int i0 = round(x), j0 = round(y);
@@ -318,7 +323,8 @@ public:
       }
     }
 
-    return prerasterize_type(pixel_cast<RealT>(tile), -bbox.min().x(), -bbox.min().y(),
+    return prerasterize_type(pixel_cast<RealT>(tile),
+                             -bbox.min().x(), -bbox.min().y(),
                              cols(), rows() );
   }
 
@@ -327,19 +333,6 @@ public:
     vw::rasterize(prerasterize(bbox), dest, bbox);
   }
 };
-
-std::string processed_proj4(std::string const& srs){
-  // Apparently functionally identical proj4 strings can differ in
-  // subtle ways, such as an extra space, etc. For that reason, must
-  // parse and process any srs string before comparing it with another
-  // string.
-  GeoReference georef;
-  bool have_user_datum = false;
-  Datum user_datum;
-  asp::set_srs_string(srs,
-                      have_user_datum, user_datum, georef);
-  return georef.proj4_str();
-}
 
 struct Options : asp::BaseOptions {
   bool draft_mode;
@@ -488,8 +481,8 @@ int main( int argc, char *argv[] ) {
       
     GeoReference out_georef = read_georef(opt.dem_files[0]);
     double spacing = opt.tr;
-    if (opt.target_srs_string != ""                     &&
-        opt.target_srs_string != out_georef.proj4_str() &&
+    if (opt.target_srs_string != ""                                      &&
+        opt.target_srs_string != processed_proj4(out_georef.proj4_str()) &&
         spacing <= 0 ){
       vw_throw(ArgumentErr()
                << "Changing the projection was requested. The output DEM "
@@ -514,6 +507,7 @@ int main( int argc, char *argv[] ) {
     }else
       spacing = out_georef.transform()(0, 0);
 
+    // if the user specified the tile size in georeferenced units.
     if (opt.geo_tile_size > 0){
       opt.tile_size = (int)round(opt.geo_tile_size/spacing);
       vw_out() << "Tile size in pixels: " << opt.tile_size << "\n";
@@ -536,39 +530,32 @@ int main( int argc, char *argv[] ) {
       double curr_nodata_value = opt.out_nodata_value;
       DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
       if ( in_rsrc.has_nodata_read() ) curr_nodata_value = in_rsrc.nodata_read();
-      nodata_values.push_back(curr_nodata_value);
-
       GeoReference georef = read_georef(opt.dem_files[dem_iter]);
-      if (out_georef.proj4_str() == georef.proj4_str()){
-        images.push_back(DiskImageView<RealT>( opt.dem_files[dem_iter] ));
-      }else{
-        // Need to reproject and change the reference.
-        GeoReference oldgeo = georef;
-        GeoReference newgeo = out_georef;
-        
-        DiskImageView<RealT> img(opt.dem_files[dem_iter]);
-        BBox2 imgbox = bounding_box(img);
-        BBox2 lonlat_box = oldgeo.pixel_to_lonlat_bbox(imgbox);
-        BBox2 pixbox = lonlat_to_pixel_bbox_with_adjustment(newgeo, lonlat_box);
-        newgeo = crop(newgeo, pixbox.min().x(), pixbox.min().y());
+      DiskImageView<RealT> img(opt.dem_files[dem_iter]);
 
-        cartography::GeoTransform trans(oldgeo, newgeo);
-        BBox2 output_bbox = trans.forward_bbox( imgbox );
-        typedef PixelMask<RealT> PMaskT;
-        
-        ImageViewRef<RealT> trans_img
-          = apply_mask
-          (crop( transform( create_mask(img, curr_nodata_value), trans,
-                            ValueEdgeExtension<PMaskT>(PMaskT()), BilinearInterpolation() ),
-                 output_bbox ),
-           curr_nodata_value);
-        
-        images.push_back(trans_img);
-        georef = newgeo;
+      if (out_georef.proj4_str() == georef.proj4_str()){ 
+        mosaic_bbox.grow(georef.bounding_box(img));
+      }else{
+
+        // Compute the bounding box of the current image
+        // in projected coordinates of the mosaic.
+        BBox2 imgbox = bounding_box(img);
+        BBox2 lonlat_box = georef.pixel_to_lonlat_bbox(imgbox);
+
+        // Must compensate for the fact that the lonlat
+        // of the two images can differ by 360 degrees.
+        Vector2 old_orgin = georef.pixel_to_lonlat(Vector2(0, 0));
+        Vector2 new_orgin = out_georef.pixel_to_lonlat(Vector2(0, 0));
+        Vector2 offset( 360.0*round( (new_orgin[0] - old_orgin[0])/360.0 ), 0.0 );
+        lonlat_box += offset;
+        BBox2 proj_box = out_georef.lonlat_to_point_bbox(lonlat_box);
+        mosaic_bbox.grow(proj_box);
       }
+      
+      nodata_values.push_back(curr_nodata_value);
+      images.push_back(img);
       georefs.push_back(georef);
       
-      mosaic_bbox.grow(georefs[dem_iter].bounding_box(images[dem_iter]));
       tpc.report_incremental_progress( inc_amount );
     }
     tpc.report_finished();
@@ -597,14 +584,6 @@ int main( int argc, char *argv[] ) {
     vw_out()<< "The size of the mosaic is " << cols << " x " << rows
             << " pixels.\n";
 
-    int num_tiles_x = (int)ceil((double)cols/double(opt.tile_size));
-    if (num_tiles_x <= 0) num_tiles_x = 1;
-    int num_tiles_y = (int)ceil((double)rows/double(opt.tile_size));
-    if (num_tiles_y <= 0) num_tiles_y = 1;
-    int num_tiles = num_tiles_x*num_tiles_y;
-    vw_out() << "Number of tiles: " << num_tiles_x << " x "
-             << num_tiles_y << " = " << num_tiles << std::endl;
-
     // The next power of 2 >= 4*(blending_len + erode_len). We want to
     // make the blocks big, to reduce overhead from blending_len and
     // erode_len, but not so big that it may not fit in memory.
@@ -612,6 +591,13 @@ int main( int argc, char *argv[] ) {
                                                   + opt.blending_len))/log(2.0)) );
     block_size = std::max(block_size, 256); // don't make them too small though
     
+    int num_tiles_x = (int)ceil((double)cols/double(opt.tile_size));
+    if (num_tiles_x <= 0) num_tiles_x = 1;
+    int num_tiles_y = (int)ceil((double)rows/double(opt.tile_size));
+    if (num_tiles_y <= 0) num_tiles_y = 1;
+    int num_tiles = num_tiles_x*num_tiles_y;
+    vw_out() << "Number of tiles: " << num_tiles_x << " x "
+             << num_tiles_y << " = " << num_tiles << std::endl;
 
     if (opt.tile_index >= num_tiles){
       vw_out() << "Tile with index: " << opt.tile_index << " is out of bounds."
@@ -628,8 +614,8 @@ int main( int argc, char *argv[] ) {
     
     for (int tile_id = start_tile; tile_id < end_tile; tile_id++){
       
-      int tile_index_y = tile_id / num_tiles_y;
-      int tile_index_x = tile_id - tile_index_y*num_tiles_y;
+      int tile_index_y = tile_id / num_tiles_x;
+      int tile_index_x = tile_id - tile_index_y*num_tiles_x;
       BBox2i tile_box(tile_index_x*opt.tile_size, tile_index_y*opt.tile_size,
                       opt.tile_size, opt.tile_size);
       tile_box.crop(BBox2i(0, 0, cols, rows));
@@ -645,11 +631,6 @@ int main( int argc, char *argv[] ) {
                          tile_box),
                     Vector2(block_size, block_size), opt.num_threads);
 
-      if (out_dem.cols() == 0 || out_dem.rows() == 0){
-        vw_out() << "Skip writing empty image: " << dem_tile << std::endl;
-        continue;
-      }
-      
       vw_out() << "Writing: " << dem_tile << std::endl;
       GeoReference crop_georef
         = crop(out_georef, tile_box.min().x(), tile_box.min().y());
