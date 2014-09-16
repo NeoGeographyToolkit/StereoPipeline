@@ -95,7 +95,7 @@ struct BigOrZero: public ReturnFixedType<PixelT> {
   PixelT m_nodata;
   BigOrZero(PixelT nodata):m_nodata(nodata){}
   double operator() (PixelT const& pix) const {
-    if (pix != m_nodata) return 1e+8;
+    if (pix != m_nodata && !isnan(pix)) return 1e+8;
     return 0;
   }
 };
@@ -149,8 +149,7 @@ class DemMosaicView: public ImageViewBase<DemMosaicView>{
   
 public:
   DemMosaicView(int cols, int rows, int erode_len, int blending_len,
-                bool draft_mode,
-                vector< ImageViewRef<RealT> > const& images,
+                bool draft_mode, vector< ImageViewRef<RealT> > const& images,
                 vector<GeoReference> const& georefs,
                 GeoReference const& out_georef,
                 vector<RealT> const& nodata_values, RealT out_nodata_value):
@@ -208,7 +207,8 @@ public:
       BBox2 in_box = geotrans.reverse_bbox(bbox);
       
       // Grow to account for blending and erosion length, etc.
-      in_box.expand(m_erode_len + m_blending_len + BilinearInterpolation::pixel_buffer + 1);
+      in_box.expand(m_erode_len + m_blending_len
+                    + BilinearInterpolation::pixel_buffer + 1);
       in_box.crop(bounding_box(disk_dem));
       if (in_box.empty()) continue;
 
@@ -342,6 +342,7 @@ struct Options : asp::BaseOptions {
   bool has_out_nodata;
   RealT out_nodata_value;
   int tile_size, tile_index, erode_len, blending_len;
+  BBox2 target_projwin;
   Options(): tr(0), geo_tile_size(0), has_out_nodata(false), tile_index(-1){}
 };
 
@@ -363,7 +364,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("tr", po::value(&opt.tr),
      "Output DEM resolution in target georeferenced units per pixel. Default: use the same resolution as the first DEM to be mosaicked.")
     ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
-     "Specify the projection (PROJ.4 string). Default: use the one from the first DEM to be mosaicked.")
+     "Specify the output projection (PROJ.4 string). Default: use the one from the first DEM to be mosaicked.")
+    ("t_projwin", po::value(&opt.target_projwin),
+     "Limit the mosaic to this region, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.")
     ("georef-tile-size", po::value<double>(&opt.geo_tile_size),
      "Set the tile size in georeferenced (projected) units (e.g., degrees or meters).")
     ("output-nodata-value", po::value<RealT>(&opt.out_nodata_value),
@@ -390,9 +393,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                              allow_unregistered, unregistered );
 
   // Error checking  
-  if (opt.tr > 0.0)
-    vw_throw(ArgumentErr() << "Just one of the --mpp and --tr options needs to be set.\n"
-              << usage << general_options );
   if (opt.out_prefix == "")
     vw_throw(ArgumentErr() << "No output prefix was specified.\n"
               << usage << general_options );
@@ -560,6 +560,9 @@ int main( int argc, char *argv[] ) {
     }
     tpc.report_finished();
 
+    // If to create the mosaic only in a given region
+    if (opt.target_projwin != BBox2())
+      mosaic_bbox.crop(opt.target_projwin);
 
     // Set the lower-left corner. Note: The position of the corner is
     // somewhat arbitrary. If the corner is actually very close to an
@@ -623,14 +626,14 @@ int main( int argc, char *argv[] ) {
       std::string dem_tile = os.str();
       
       // We use block_cache to rasterize tiles of size block_size.
-      ImageViewRef<RealT> out_dem = 
-        block_cache(crop(DemMosaicView(cols, rows, opt.erode_len, opt.blending_len,
-                                       opt.draft_mode, images, georefs,
-                                       out_georef, nodata_values,
-                                       opt.out_nodata_value),
-                         tile_box),
-                    Vector2(block_size, block_size), opt.num_threads);
-
+      ImageViewRef<RealT> out_dem = block_cache
+        (crop(DemMosaicView(cols, rows, opt.erode_len, opt.blending_len,
+                            opt.draft_mode, images, georefs,
+                            out_georef, nodata_values,
+                            opt.out_nodata_value),
+              tile_box),
+         Vector2(block_size, block_size), opt.num_threads);
+      
       vw_out() << "Writing: " << dem_tile << std::endl;
       GeoReference crop_georef
         = crop(out_georef, tile_box.min().x(), tile_box.min().y());

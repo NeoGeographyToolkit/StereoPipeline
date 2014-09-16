@@ -380,44 +380,6 @@ of a ground control point measurement:
 5 23.7 160.1 427.1 1.0 1.0 1.0 image1.tif 124.5 19.7 1.0 1.0 image2.tif 254.3 73.9 1.0 1.0
 \end{verbatim}
 
-\section{disparitydebug}
-\label{disparitydebug}
-
-The \texttt{disparitydebug} program produces output images for
-debugging disparity images created from \verb#stereo#. The {\tt
-stereo} tool produces several different versions of the disparity
-map; the most important ending with extensions \verb#*-D.tif# and
-\verb#*-F.tif#. (see Appendix \ref{chapter:outputfiles} for more
-information.)  These raw disparity map files can be useful for
-debugging because they contain raw disparity values as measured by
-the correlator; however they cannot be directly visualized or opened
-in a conventional image browser.  The \verb#disparitydebug# tool
-converts a single disparity map file into two normalized TIFF image
-files (\verb#*-H.tif# and \verb#*-V.tif#, containing the horizontal
-and vertical, or line and sample, components of disparity, respectively)
-that can be viewed using any image display program.
-
-The {\tt disparitydebug} program will also print out the range of
-disparity values in a disparity map, that can serve as useful summary
-statistics when tuning the search range settings in the
-{\tt stereo.default} file.
-
-\begin{longtable}{|l|p{10cm}|}
-\caption{Command-line options for disparitydebug}
-\label{tbl:disparitydebug}
-\endfirsthead
-\endhead
-\endfoot
-\endlastfoot
-\hline
-Options & Description \\ \hline \hline
-\texttt{-\/-help|-h} & Display the help message\\ \hline
-\texttt{-\/-input-file \textit{filename}} & Explicitly specify the input file \\ \hline
-\texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix \\ \hline
-\texttt{-\/-output-filetype|-t \textit{type(=tif)}} & Specify the outfile type \\ \hline
-\texttt{-\/-float-pixels} & Save the resulting debug images as 32 bit floating point files (if supported by the selected file type) \\ \hline
-\end{longtable}
-
 %--------------------------------------------------------------------------
 %                           VISUALIZATION TOOLS
 %--------------------------------------------------------------------------
@@ -731,7 +693,10 @@ in smoother blending while using more memory and computing time.
 Output DEM resolution in target georeferenced units per pixel. Default: use the same resolution as the first DEM to be mosaicked.
 \\ \hline
 \texttt{-\/-t\_srs \textit{string} } &
-Specify the projection (PROJ.4 string). Default: use the one from the first DEM to be mosaicked.
+Specify the output projection (PROJ.4 string). Default: use the one from the first DEM to be mosaicked.
+\\ \hline
+\texttt{-\/-t\_projwin \textit{xmin ymin xmax ymax} } &
+Limit the mosaic to this region, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.
 \\ \hline
 \texttt{-\/-georef-tile-size \textit{double}} &
 Set the tile size in georeferenced (projected) units (e.g., degrees or meters).
@@ -906,6 +871,43 @@ output prefix. \\ \hline
 
 \clearpage
 
+\section{disparitydebug}
+\label{disparitydebug}
+
+The \texttt{disparitydebug} program produces output images for
+debugging disparity images created from \verb#stereo#. The {\tt
+stereo} tool produces several different versions of the disparity
+map; the most important ending with extensions \verb#*-D.tif# and
+\verb#*-F.tif#. (see Appendix \ref{chapter:outputfiles} for more
+information.)  These raw disparity map files can be useful for
+debugging because they contain raw disparity values as measured by
+the correlator; however they cannot be directly visualized or opened
+in a conventional image browser.  The \verb#disparitydebug# tool
+converts a single disparity map file into two normalized TIFF image
+files (\verb#*-H.tif# and \verb#*-V.tif#, containing the horizontal
+and vertical, or line and sample, components of disparity, respectively)
+that can be viewed using any image display program.
+
+The {\tt disparitydebug} program will also print out the range of
+disparity values in a disparity map, that can serve as useful summary
+statistics when tuning the search range settings in the
+{\tt stereo.default} file.
+
+\begin{longtable}{|l|p{10cm}|}
+\caption{Command-line options for disparitydebug}
+\label{tbl:disparitydebug}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Options & Description \\ \hline \hline
+\texttt{-\/-help|-h} & Display the help message\\ \hline
+\texttt{-\/-input-file \textit{filename}} & Explicitly specify the input file \\ \hline
+\texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix \\ \hline
+\texttt{-\/-output-filetype|-t \textit{type(=tif)}} & Specify the outfile type \\ \hline
+\texttt{-\/-float-pixels} & Save the resulting debug images as 32 bit floating point files (if supported by the selected file type) \\ \hline
+\end{longtable}
 
 \section{orbitviz}
 \label{orbitviz}
