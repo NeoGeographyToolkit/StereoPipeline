@@ -8,7 +8,7 @@
  - Added a new tool, dem_mosaic, for mosaicking a large number of 
    DEMs, with erosion at boundary, smooth blending, and tiled output.
 
- - dg_mosaic:
+ - dg_mosaic
    * Support for multi-band (multi-spectral) images. Use --band <num>
      to pick a band to mosaic.
       
@@ -16,6 +16,10 @@
    * Fix a crash in interest point matching for a small body flyby
      testcase.
 
+ - point2dem
+   * Take as input n clouds and optionally n texture files, create a
+     single DEM/orthoimage.
+ 
  - bundle_adjust
    * Use multiple-threads for non-ISIS sessions.
 

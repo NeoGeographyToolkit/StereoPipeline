@@ -29,6 +29,7 @@ using namespace vw::cartography;
 namespace po = boost::program_options;
 
 #include <vw/Core/Stopwatch.h>
+#include <vw/Mosaic/ImageComposite.h>
 #include <vw/FileIO/DiskImageUtils.h>
 
 #include <boost/math/special_functions/fpclassify.hpp>
@@ -55,7 +56,7 @@ enum ProjectionType {
 
 struct Options : asp::BaseOptions {
   // Input
-  std::string pointcloud_filename, texture_filename;
+  std::vector<std::string> pointcloud_files, texture_files;
 
   // Settings
   float dem_spacing, nodata_value;
@@ -67,7 +68,7 @@ struct Options : asp::BaseOptions {
   double x_offset, y_offset, z_offset;
   size_t utm_zone;
   ProjectionType projection;
-  bool has_nodata_value, has_alpha, do_normalize, do_error, no_dem;
+  bool has_nodata_value, has_alpha, do_normalize, do_ortho, do_error, no_dem;
   double rounding_error;
   std::string target_srs_string;
   BBox2 target_projwin;
@@ -90,6 +91,59 @@ struct Options : asp::BaseOptions {
               hole_fill_mode(1), hole_fill_num_smooth_iter(4),
               dem_hole_fill_len(0), ortho_hole_fill_len(0){}
 };
+
+void parse_input_clouds_textures(std::vector<std::string> const& files,
+                                 std::string const& usage,
+                                 po::options_description const& general_options,
+                                 Options& opt ) {
+
+  // The files will be input point clouds, and if opt.do_ortho is
+  // true, also texture files. If texture files are present, there
+  // must be one for each point cloud, and each cloud must have the
+  // same dimensions as its texture file.
+
+  int num = files.size();
+  if (num == 0)
+    vw_throw( ArgumentErr() << "Missing input point clouds.\n"
+              << usage << general_options );
+  
+  int beg_clouds = 0, beg_textures = num, end_textures = num;
+  if (opt.do_ortho){
+
+    if (num <= 1)
+      vw_throw( ArgumentErr() << "Missing input texture files.\n"
+                << usage << general_options );
+
+    if (num%2 != 0)
+      vw_throw( ArgumentErr()
+                << "There must be as many texture files as input point clouds.\n"
+                << usage << general_options );
+    
+    beg_textures = num/2;
+  }
+
+  for (int i = beg_clouds; i < beg_textures; i++)
+    opt.pointcloud_files.push_back(files[i]);
+  for (int i = beg_textures; i < end_textures; i++)
+    opt.texture_files.push_back(files[i]);
+
+  if (opt.do_ortho){
+    for (int i = 0; i < (int)opt.pointcloud_files.size(); i++){
+      // Here we ignore that a point cloud file may have many channels.
+      // We just want to verify that the cloud file and texture file
+      // have the same number of rows and columns.
+      DiskImageView<float> cloud(opt.pointcloud_files[i]);
+      DiskImageView<float> texture(opt.texture_files[i]);
+      if ( cloud.cols() != texture.cols() || cloud.rows() != texture.rows() ){
+        vw_throw( ArgumentErr() << "Point cloud " << opt.pointcloud_files[i]
+                  << " and texture file " << opt.texture_files[i]
+                  << " do not have the same dimensions.\n");
+        
+      }
+    }
+  }
+  
+}
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
 
@@ -139,7 +193,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Create images that have an alpha channel.")
     ("normalized,n", po::bool_switch(&opt.do_normalize)->default_value(false),
      "Also write a normalized version of the DEM (for debugging).")
-    ("orthoimage", po::value(&opt.texture_filename), "Write an orthoimage based on the texture file given as an argument to this command line option.")
+    ("orthoimage", po::bool_switch(&opt.do_ortho)->default_value(false), "Write an orthoimage based on the texture files passed in as inputs (after the point clouds).")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
     ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file.")
     ("errorimage", po::bool_switch(&opt.do_error)->default_value(false), "Write a triangulation intersection error image.")
@@ -165,20 +219,20 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
-  positional.add_options()
-    ("input-file", po::value(&opt.pointcloud_filename), "Input Point Cloud");
 
   po::positional_options_description positional_desc;
   positional_desc.add("input-file", 1);
 
-  std::string usage("[options] <point-cloud>");
-  bool allow_unregistered = false;
+  std::string usage("[options] <point-clouds> [ --orthoimage <textures> ]");
+  bool allow_unregistered = true;
   std::vector<std::string> unregistered;
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage,
                              allow_unregistered, unregistered );
 
+  parse_input_clouds_textures(unregistered, usage, general_options, opt);
+  
   // A fix to the unfortunate fact that the user can specify the DEM
   // spacing in two ways on the command line.
   if (dem_spacing1 < 0.0 || dem_spacing2 < 0.0 ){
@@ -192,12 +246,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   }
   opt.dem_spacing = std::max(dem_spacing1, dem_spacing2);
 
-  if ( opt.pointcloud_filename.empty() )
-    vw_throw( ArgumentErr() << "Missing point cloud.\n"
-              << usage << general_options );
   if ( opt.out_prefix.empty() )
     opt.out_prefix =
-      prefix_from_pointcloud_filename( opt.pointcloud_filename );
+      prefix_from_pointcloud_filename( opt.pointcloud_files[0] );
 
   if (opt.use_surface_sampling){
     vw_out(WarningMessage) << "The --use-surface-sampling option invokes the old algorithm and is obsolete, it will be removed in future versions." << std::endl;
@@ -218,7 +269,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (opt.ortho_hole_fill_len < 0)
     vw_throw( ArgumentErr() << "The value of "
               << "--orthoimage-hole-fill-len must not be negative.\n");
-  if (opt.texture_filename.empty() && opt.ortho_hole_fill_len > 0) {
+  if ( !opt.do_ortho && opt.ortho_hole_fill_len > 0) {
     vw_throw( ArgumentErr() << "The value of --orthoimage-hole-fill-len"
               << " is positive, but orthoimage generation was not requested.\n");
   }
@@ -590,17 +641,110 @@ namespace asp{
     
   };
 
-}
+  // Read a texture file
+  template<class PixelT>
+  typename boost::enable_if<boost::is_same<PixelT, PixelGray<float> >, ImageViewRef<PixelT> >::type
+  read_file(std::string const& file){
+    return DiskImageView<PixelT>(file);
+  }
+  
+  // Read a point cloud file
+  template<class PixelT>
+  typename boost::disable_if<boost::is_same<PixelT, PixelGray<float> >, ImageViewRef<PixelT> >::type
+  read_file(std::string const& file){
+    return asp::read_cloud< math::VectorSize<PixelT>::value >(file);
+  }
+
+  // Read given files and form an image composite.
+  template<class PixelT>
+  ImageViewRef<PixelT> form_composite(std::vector<std::string> const & files){
+    
+    VW_ASSERT(files.size() >= 1, 
+              ArgumentErr() << "Expecting at least one file.\n");
+    
+    // We will use this composite in OrthoRasterizerView, where we
+    // will break it into sub-blocks. We don't want a sub-block to see
+    // portions of more than one image in the composite, as that will
+    // be bad for performance (it will think the subblock has a huge
+    // range of values). Hence, we will separate the images in the
+    // composite by an amount which will sufficiently isolate them.
+    int spacing = OrthoRasterizerView<PixelT, ImageView<PixelT> >::m_max_subblock_size;
+
+    vw::mosaic::ImageComposite<PixelT> C;
+    C.set_draft_mode(true); // images will be disjoint, no need for fancy stuff
+
+    for (int i = 0; i < (int)files.size(); i++){
+
+      ImageViewRef<PixelT> I = read_file<PixelT>(files[i]);
+
+      // We will stack the images in the composite side by side. Images which
+      // are wider than tall will be transposed.
+      if (I.rows() < I.cols()) I = transpose(I);
+      
+      int start = C.cols();
+      if (i > 0){
+        // Insert the spacing
+        start = spacing*(int)ceil(double(start)/spacing) + spacing;
+      }
+      C.insert(I, start, 0);
+      
+    }
+    
+    return C;
+    
+  }
+
+  template<int num_ch>
+  ImageViewRef<double> error_norm(std::vector<std::string> const& pc_files){
+
+    // Read the error channels from the point clouds, and take their norm
+    
+    VW_ASSERT(pc_files.size() >= 1, 
+              ArgumentErr() << "Expecting at least one file.\n");
+    
+    const int beg_ech = 3; // errors start at this channel
+    const int num_ech = num_ch - beg_ech; // number of error channels
+    ImageViewRef< Vector<double, num_ch> > point_disk_image
+      = asp::form_composite<Vector<double, num_ch> >(pc_files);
+    ImageViewRef< Vector<double, num_ech> > error_channels =
+      select_channels<num_ech, num_ch, double>(point_disk_image, beg_ech);
+    
+    return per_pixel_filter(error_channels,
+                            asp::VectorNorm< Vector<double, num_ech> >());
+  }
+
+  int num_channels(std::vector<std::string> const& pc_files){
+
+    // Find the number of channels in the point clouds.
+    // If the point clouds have inconsistent number of channels,
+    // return the minimum of 3 and the minimum number of channels.
+    // This will be used to flag that we cannot reliable extract the
+    // error channels, which start at channel 4.
+    
+    VW_ASSERT(pc_files.size() >= 1, 
+              ArgumentErr() << "Expecting at least one file.\n");
+
+    int num_channels0 = get_num_channels(pc_files[0]);
+    int min_num_channels = num_channels0;
+    for (int i = 1; i < (int)pc_files.size(); i++){
+      int num_channels = get_num_channels(pc_files[i]);
+      min_num_channels = std::min(min_num_channels, num_channels);
+      if (num_channels != num_channels0)
+        min_num_channels = std::min(min_num_channels, 3);
+    }
+    return min_num_channels;
+  }
+  
+} // end namespace asp
 
 template <class ViewT>
 void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
                                 Options& opt,
                                 cartography::GeoReference& georef,
-                                ImageViewRef<double> const& error_image, double estim_max_error
-                                ) {
+                                ImageViewRef<double> const& error_image,
+                                double estim_max_error) {
   Stopwatch sw1;
   sw1.start();
-
   OrthoRasterizerView<PixelGray<float>, ViewT >
     rasterizer(proj_point_input.impl(), select_channel(proj_point_input.impl(),2),
                opt.dem_spacing, opt.search_radius_factor, opt.use_surface_sampling,
@@ -682,7 +826,6 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
   
   ImageViewRef<PixelGray<float> > rasterizer_fsaa =
     generate_fsaa_raster( rasterizer, opt );
-  vw_out()<< "Creating output file that is " << bounding_box(rasterizer_fsaa).size() << " px.\n";
 
   // Write out the DEM. We've set the texture to be the height.
   Vector2 tile_size(vw_settings().default_tile_size(),
@@ -703,6 +846,9 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
                                   opt.dem_hole_fill_len),
                        opt.nodata_value);
     }
+
+    vw_out()<< "Creating output file that is " << bounding_box(dem).size() << " px.\n";
+    
     save_image(opt, dem, georef, "DEM");
     sw2.stop();
     vw_out(DebugMessage,"asp") << "DEM render time: "
@@ -711,11 +857,12 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
 
   // Write triangulation error image if requested
   if ( opt.do_error ) {
-    int num_channels = get_num_channels(opt.pointcloud_filename);
+    int num_channels = asp::num_channels(opt.pointcloud_files);
 
     if (num_channels == 4){
       // The error is a scalar.
-      DiskImageView<Vector4> point_disk_image(opt.pointcloud_filename);
+      ImageViewRef<Vector4> point_disk_image
+        = asp::form_composite<Vector4>(opt.pointcloud_files);
       ImageViewRef<double> error_channel = select_channel(point_disk_image,3);
       rasterizer.set_texture( error_channel );
       rasterizer.set_hole_fill_len(0);
@@ -728,7 +875,8 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
     }else if (num_channels == 6){
       // The error is a 3D vector. Convert it to NED coordinate system,
       // and rasterize it.
-      DiskImageView<Vector6> point_disk_image(opt.pointcloud_filename);
+      ImageViewRef<Vector6> point_disk_image
+        = asp::form_composite<Vector6>(opt.pointcloud_files);
       ImageViewRef<Vector3> ned_err = asp::error_to_NED(point_disk_image, georef);
       std::vector< ImageViewRef<PixelGray<float> > >  rasterized(3);
       for (int ch_index = 0; ch_index < 3; ch_index++){
@@ -749,16 +897,17 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
     }else{
       // Note: We don't throw here. We still would like to write the
       // DRG (below) even if we can't write the error image.
-      vw_out() << "The point cloud file must have 4 or 6 bands to be "
-               << "able to process the intersection error.\n";
+      vw_out() << "The point cloud files must have an equal number of channels which "
+               << "must be 4 or 6 to be able to process the intersection error.\n";
     }
   }
 
   // Write DRG if the user requested and provided a texture file
-  if (!opt.texture_filename.empty()) {
+  if (opt.do_ortho) {
     Stopwatch sw3;
     sw3.start();
-    DiskImageView<PixelGray<float> > texture(opt.texture_filename);
+    ImageViewRef<PixelGray<float> > texture
+      = asp::form_composite< PixelGray<float> >(opt.texture_files);
     rasterizer.set_texture(texture);
     rasterizer.set_hole_fill_len(opt.ortho_hole_fill_len);
     rasterizer_fsaa =
@@ -791,7 +940,7 @@ int main( int argc, char *argv[] ) {
     handle_arguments( argc, argv, opt );
 
     ImageViewRef<Vector3> point_image
-      = asp::read_cloud<3>(opt.pointcloud_filename);
+      = asp::form_composite<Vector3>(opt.pointcloud_files);
 
     // Apply an (optional) rotation to the 3D points before building the mesh.
     if (opt.phi_rot != 0 || opt.omega_rot != 0 || opt.kappa_rot != 0) {
@@ -881,25 +1030,18 @@ int main( int argc, char *argv[] ) {
     ImageViewRef<double> error_image;
     double estim_max_error = 0.0;
     if (opt.remove_outliers || opt.max_valid_triangulation_error > 0.0){
-      int num_channels = get_num_channels(opt.pointcloud_filename);
-      int beg_err_ch = 3;// errors start at this channel
-      if (num_channels == 4){
-        const int num_err_ch = 1;
-        error_image
-          = per_pixel_filter(read_channels<num_err_ch, double>
-                             (opt.pointcloud_filename, beg_err_ch),
-                             asp::VectorNorm< Vector<double, num_err_ch> >());
-      }else if (num_channels == 6){
-        const int num_err_ch = 3;
-        error_image
-          = per_pixel_filter(read_channels<num_err_ch, double>
-                             (opt.pointcloud_filename, beg_err_ch),
-                             asp::VectorNorm< Vector<double, num_err_ch> >());
-      }else{
-        vw_throw( ArgumentErr() << "The point cloud file must have 4 or 6 bands "
-                  << "to be able to remove outliers.\n");
+      int num_channels = asp::num_channels(opt.pointcloud_files);
+      if (num_channels == 4)
+        error_image = asp::error_norm<4>(opt.pointcloud_files);
+      else if (num_channels == 6)
+        error_image = asp::error_norm<6>(opt.pointcloud_files);
+      else{
+        vw_out() << "The point cloud files must have an equal number of channels which "
+                 << "must be 4 or 6 to be able to remove outliers.\n";
+        opt.remove_outliers = false;
+        opt.max_valid_triangulation_error = 0.0;
       }
-
+      
       if (opt.remove_outliers){
         // Get a somewhat dense sampling of the error image to get an idea
         // of what the distribution of errors is. This will be refined

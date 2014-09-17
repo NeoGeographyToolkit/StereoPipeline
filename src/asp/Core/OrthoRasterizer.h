@@ -273,6 +273,7 @@ namespace vw { namespace cartography {
     typedef PixelT pixel_type;
     typedef const PixelT result_type;
     typedef ProceduralPixelAccessor<OrthoRasterizerView> pixel_accessor;
+    static const int m_max_subblock_size = 128; // is used in point2dem and below
 
     template <class TextureViewT>
     OrthoRasterizerView(ImageT point_image, TextureViewT texture, double spacing,
@@ -322,7 +323,7 @@ namespace vw { namespace cartography {
       sub_block_size = std::max(1, sub_block_size);
       sub_block_size = int(round(pow(2.0, floor(log(sub_block_size)/log(2.0)))));
       sub_block_size = std::max(16, sub_block_size);
-      sub_block_size = std::min(128, sub_block_size);
+      sub_block_size = std::min(m_max_subblock_size, sub_block_size);
       std::vector<BBox2i> blocks =
         image_blocks( m_point_image, m_block_size, m_block_size );
 
@@ -494,7 +495,7 @@ namespace vw { namespace cartography {
                                         local_3d_bbox.min().y(),
                                         m_spacing, m_default_spacing,
                                         search_radius);
-      
+
       // Set up the default color value
       double min_val = 0.0;
       if (m_use_alpha) {
