@@ -326,7 +326,7 @@ namespace asp {
     vw::ImageViewRef< vw::Vector<double, m> > out_image
       = vw::read_channels<m, double>(filename, 0);
 
-    // Subtract the point cloud shift from the several first channels
+    // Add the shift back to the first several channels.
     if (shift != vw::Vector3())
       out_image = subtract_shift(out_image, -shift);
     

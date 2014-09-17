@@ -350,11 +350,14 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
   if (opt.num_threads <= 0)
     opt.num_threads = vw_settings().default_num_threads();
 
-  // This is needed for stereo, to help avoid duplicating this message.
-  if (!allow_unregistered)
+  // Print the message below just once per process.
+  static bool verbose = true;
+  if (verbose){
     vw::vw_out() << "\t--> Setting number of processing threads to: "
                  << opt.num_threads << std::endl;
-
+    verbose = false;
+  }
+  
   // Here we ensure that opt.num_threads and default_num_threads()
   // are consistent among themselves.
   vw::vw_settings().set_default_num_threads(opt.num_threads);

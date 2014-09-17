@@ -388,7 +388,7 @@ of a ground control point measurement:
 \label{point2dem}
 
 The \texttt{point2dem} program produces a GeoTIFF terrain model or/and
-an orthographic image from a point cloud image produced by the {\tt
+an orthographic image from a set of point cloud images produced by the {\tt
   stereo} command.
 
 Example:\\
@@ -416,6 +416,11 @@ simple cylindrical map-projection. We also passed an option to
 automatically detect and remove outliers in the output DEM based
 on triangulation error.
 
+Multiple point clouds can be passed as inputs, to be combined into a
+single \ac{DEM}. If it is desired to use the \texttt{-\/-orthoimage}
+option as above, the clouds need to be specified first, followed by the
+\texttt{L.tif} images.
+ 
 \subsection{Comparing with MOLA Data}
 
 When comparing the output of \texttt{point2dem} to laser altimeter
@@ -499,7 +504,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-nodata-value \textit{float(=min-z)}} & Explicitly set the default missing pixel value. By default, the minimum z value in the model is used. \\ \hline
 \texttt{-\/-use-alpha} & Create images that have an alpha channel. \\ \hline
 \texttt{-\/-normalized|-n} & Also write a normalized version of the \ac{DEM} (for debugging). \\ \hline
-\texttt{-\/-orthoimage \textit{texture-file}} & Write an orthoimage based on the texture file given as an argument to this command line option. \\ \hline
+\texttt{-\/-orthoimage} & Write an orthoimage based on the texture files passed in as inputs (after the point clouds). \\ \hline
 \texttt{-\/-errorimage} & Write an additional image whose values represent the triangulation error in meters. \\ \hline
 \texttt{-\/-output-prefix|-o \textit{output-prefix}} & Specify the output prefix. \\ \hline
 \texttt{-\/-output-filetype|-t \textit{type(=tif)}} & Specify the output file type. \\ \hline
