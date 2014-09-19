@@ -668,7 +668,7 @@ namespace asp{
     // be bad for performance (it will think the subblock has a huge
     // range of values). Hence, we will separate the images in the
     // composite by an amount which will sufficiently isolate them.
-    int spacing = OrthoRasterizerView<PixelT, ImageView<PixelT> >::m_max_subblock_size;
+    int spacing = OrthoRasterizerView<PixelT, ImageView<PixelT> >::max_subblock_size();
 
     vw::mosaic::ImageComposite<PixelT> C;
     C.set_draft_mode(true); // images will be disjoint, no need for fancy stuff
@@ -679,6 +679,8 @@ namespace asp{
 
       // We will stack the images in the composite side by side. Images which
       // are wider than tall will be transposed.
+      // To do: A more efficient approach would be to also stack one
+      // image on top of each other, if some images are not too tall.
       if (I.rows() < I.cols()) I = transpose(I);
       
       int start = C.cols();

@@ -138,7 +138,7 @@ namespace vw { namespace cartography {
       return output;
     }
     
-    // Task to parallelize the generation of bounding boxes
+    // Task to parallelize the generation of bounding boxes for each block. 
     template <class ViewT>
     class SubBlockBoundaryTask : public Task, private boost::noncopyable {
       ViewT m_view;
@@ -273,7 +273,7 @@ namespace vw { namespace cartography {
     typedef PixelT pixel_type;
     typedef const PixelT result_type;
     typedef ProceduralPixelAccessor<OrthoRasterizerView> pixel_accessor;
-    static const int m_max_subblock_size = 128; // is used in point2dem and below
+    static int max_subblock_size(){ return 128;} // is used in point2dem and below
 
     template <class TextureViewT>
     OrthoRasterizerView(ImageT point_image, TextureViewT texture, double spacing,
@@ -323,10 +323,13 @@ namespace vw { namespace cartography {
       sub_block_size = std::max(1, sub_block_size);
       sub_block_size = int(round(pow(2.0, floor(log(sub_block_size)/log(2.0)))));
       sub_block_size = std::max(16, sub_block_size);
-      sub_block_size = std::min(m_max_subblock_size, sub_block_size);
+      sub_block_size = std::min(max_subblock_size(), sub_block_size);
       std::vector<BBox2i> blocks =
         image_blocks( m_point_image, m_block_size, m_block_size );
 
+      // Find the bounding box of each subblock, stored in
+      // m_point_image_boundaries, together with other info by
+      // searching through the image.
       FifoWorkQueue queue( vw_settings().default_num_threads() );
       typedef SubBlockBoundaryTask<ImageT> task_type;
       Mutex mutex;
