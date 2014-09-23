@@ -109,7 +109,7 @@ int main( int argc, char *argv[] ) {
     handle_arguments( argc, argv, opt );
 
     ImageViewRef<Vector3> point_image = asp::read_cloud<3>(opt.pointcloud_filename);
-    BBox3 cloud_bbox = pointcloud_bbox(point_image);
+    BBox3 cloud_bbox = asp::pointcloud_bbox(point_image);
 
     // The las format stores the values as 32 bit integers. So, for a
     // given point, we store round((point-offset)/scale), as well as

@@ -28,6 +28,7 @@
 #include <math.h>
 
 //VisionWorkbench & ASP
+#include <vw/Image/Transform.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
@@ -505,12 +506,12 @@ int main( int argc, char *argv[] ){
 
     // Centering Option (helpful if you are experiencing round-off error...)
     if (opt.center) {
-      BBox3 bbox = pointcloud_bbox(point_image);
+      BBox3 bbox = asp::pointcloud_bbox(point_image);
       vw_out() << "\t--> Centering model around the origin.\n";
       vw_out() << "\t    Initial point image bounding box: " << bbox << "\n";
       Vector3 midpoint = (bbox.max() + bbox.min()) / 2.0;
       vw_out() << "\t    Midpoint: " << midpoint << "\n";
-      point_image = point_image_offset(point_image, -midpoint);
+      point_image = asp::point_image_offset(point_image, -midpoint);
     }
 
     {
