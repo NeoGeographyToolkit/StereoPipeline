@@ -95,6 +95,7 @@ void Point2Grid::AddPoint(double x, double y, double z){
 
       if (m_weights(ix, iy) == 0) m_buffer(ix, iy) = 0.0;
       double wt = m_sampled_gauss[(int)round(dist/m_dx)];
+      if (wt <= 0) continue;
       m_buffer(ix, iy)  += z*wt;
       m_weights(ix, iy) += wt;
     }
