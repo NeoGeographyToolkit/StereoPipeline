@@ -156,8 +156,12 @@ namespace vw {
     // Compute bounding box
     BBox3 result;
     typename ViewT::pixel_accessor row_acc = point_image.impl().origin();
+    vw_out() << "Computing the point cloud bounding box.\n";
+    TerminalProgressCallback progress_bar("asp","");
+
     for( int32 row=0; row < point_image.impl().rows(); ++row ) {
       typename ViewT::pixel_accessor col_acc = row_acc;
+      progress_bar.report_fractional_progress(row, point_image.impl().rows());
       for( int32 col=0; col < point_image.impl().cols(); ++col ) {
         if (*col_acc != Vector3())
           result.grow(*col_acc);
@@ -165,6 +169,8 @@ namespace vw {
       }
       row_acc.next_row();
     }
+    progress_bar.report_finished();
+    
     return result;
   }
 
