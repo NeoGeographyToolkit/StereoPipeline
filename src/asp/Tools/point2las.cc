@@ -27,7 +27,7 @@
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
-#include <asp/Tools/point2dem.h> // We share common functions with point2dem
+#include <asp/Core/PointUtils.h>
 
 #include <vw/FileIO.h>
 #include <vw/Image.h>
@@ -134,8 +134,8 @@ int main( int argc, char *argv[] ) {
     // Save the las file in respect to a reference spheroid if provided
     // by the user.
     cartography::Datum user_datum;
-    bool have_user_datum = read_user_datum(0, 0,
-                                           opt.reference_spheroid, user_datum);
+    bool have_user_datum
+      = asp::read_user_datum(0, 0, opt.reference_spheroid, user_datum);
     if (have_user_datum){
       liblas::SpatialReference ref;
       std::string target_srs = "+proj=longlat " + user_datum.proj4_str();
@@ -157,7 +157,7 @@ int main( int argc, char *argv[] ) {
     ofs.open(lasFile.c_str(), std::ios::out | std::ios::binary);
     liblas::Writer writer(ofs, header);
 
-    TerminalProgressCallback progress_bar("asp","LAS: ");
+    TerminalProgressCallback progress_bar("asp","");
     for (int row = 0; row < point_image.rows(); row++){
       progress_bar.report_fractional_progress(row, point_image.rows());
       for (int col = 0; col < point_image.cols(); col++){

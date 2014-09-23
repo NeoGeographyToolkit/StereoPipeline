@@ -28,7 +28,7 @@
 #include <math.h>
 
 //VisionWorkbench & ASP
-#include <asp/Tools/point2dem.h> // We share common functions with point2dem
+#include <asp/Core/PointUtils.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 using namespace vw;
@@ -178,7 +178,7 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image,
   std::string tex_file;
   if ( opt.texture_file_name.size() ) {
     DiskImageView<PixelGray<uint8> > previous_texture(opt.texture_file_name);
-    tex_file = prefix_from_pointcloud_filename(opt.output_prefix) + "-tex";
+    tex_file = asp::prefix_from_pointcloud_filename(opt.output_prefix) + "-tex";
     if (point_image.impl().cols() > 4096 ||
         point_image.impl().rows() > 4096 ) {
       vw_out() << "Resampling to reduce texture size:\n";
@@ -473,7 +473,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
               << usage << general_options );
   if ( opt.output_prefix.empty() )
     opt.output_prefix =
-      prefix_from_pointcloud_filename( opt.pointcloud_filename );
+      asp::prefix_from_pointcloud_filename( opt.pointcloud_filename );
 
   // Create the output directory 
   asp::create_out_dir(opt.output_prefix);
