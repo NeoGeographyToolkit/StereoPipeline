@@ -590,8 +590,7 @@ int main( int argc, char *argv[] ) {
     // The next power of 2 >= 4*(blending_len + erode_len). We want to
     // make the blocks big, to reduce overhead from blending_len and
     // erode_len, but not so big that it may not fit in memory.
-    int block_size = ( 1 << (int)ceil(log(4.0*max(1, opt.erode_len
-                                                  + opt.blending_len))/log(2.0)) );
+    int block_size = nextpow2(4.0*(opt.erode_len + opt.blending_len));
     block_size = std::max(block_size, 256); // don't make them too small though
     
     int num_tiles_x = (int)ceil((double)cols/double(opt.tile_size));
