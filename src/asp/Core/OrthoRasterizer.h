@@ -27,14 +27,16 @@
 #include <vw/Image/Manipulation.h>
 #include <vw/Image/Algorithms.h>
 #include <vw/Image/BlockRasterize.h>
+#include <vw/Core/ThreadPool.h>
 #include <vw/Math/Vector.h>
 #include <vw/Math/BBox.h>
+#include <vw/Math/Statistics.h>
 
 #include <asp/Core/SoftwareRenderer.h>
-
 #include <asp/Core/Point2Grid.h>
 #include <boost/foreach.hpp>
 #include <boost/math/special_functions/next.hpp>
+#include <valarray>
 
 namespace vw { namespace cartography {
 
@@ -228,12 +230,15 @@ namespace vw { namespace cartography {
               }
             }
           }
-          if ( !pts_bdbox.empty() ) {
+
+          if ( pts_bdbox.min().x() <= pts_bdbox.max().x() &&
+               pts_bdbox.min().y() <= pts_bdbox.max().y() ) {
+            // pts_bdbox has at least one point. A box of just one      
+            // point is considered empty by VW. For that reason,
+            // grow this box to make it definitely non-empty. 
             // Note: for local_union, which will end up contributing
             // to the global bounding box, we don't use the float_next
-            // gimmick, as we need the precise box. That is useful
-            // though for the individual boxes, to better do
-            // intersections later.
+            // gimmick, as we need the precise box. 
             local_union.grow( pts_bdbox );
             pts_bdbox.max()[0] = boost::math::float_next(pts_bdbox.max()[0]);
             pts_bdbox.max()[1] = boost::math::float_next(pts_bdbox.max()[1]);
@@ -350,7 +355,7 @@ namespace vw { namespace cartography {
         vw_throw( ArgumentErr() <<
                   "OrthoRasterize: Input point cloud is empty!\n" );
       VW_OUT(DebugMessage,"asp") << "Point cloud boundary is " << m_bbox << "\n";
-      
+
       // Find the width and height of the median point cloud
       // pixel in projected coordinates.
       int len = m_point_image_boundaries.size();
@@ -472,7 +477,7 @@ namespace vw { namespace cartography {
       if (m_use_surface_sampling){
         render_buffer.set_size(bbox_1.width(), bbox_1.height());
       }
-      
+
       // Setup a software renderer and the orthographic view matrix
       vw::stereo::SoftwareRenderer renderer(bbox_1.width(),
                                             bbox_1.height(),
@@ -706,6 +711,7 @@ namespace vw { namespace cartography {
       }
       
     }
+
     double spacing() { return m_spacing; }
 
     // We may set m_hole_fill_len > 0 only during orthoimage generation
