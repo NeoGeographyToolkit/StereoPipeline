@@ -220,9 +220,12 @@ AX_PKG(GDAL, [GEOTIFF], [-lgdal], [gdal.h])
 AX_PKG(ILMBASE, [M Z PTHREADS], [-lImath -lHalf -lIex -lIlmThread], [Iex.h], [OpenEXR])
 AX_PKG(OPENEXR, [ILMBASE], [-lIlmImf], [ImfOutputFile.h], [OpenEXR])
 
+AX_PKG(LASZIP,  [], [-llaszip], [laszip/laszip.hpp])
+AX_PKG(LIBLAS,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS LASZIP GDAL], [-llas], [liblas/liblas.hpp])
 # Vision Workbench Core
 AX_PKG(VW_CORE,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS LAPACK], [-lvwCore],   [vw/Core/Log.h] )
 AX_PKG(VW_MATH,  [VW_CORE],                   [-lvwMath],   [vw/Math/LinearAlgebra.h], [], [], [], [FLANN])
+
 AX_PKG(VW_IMAGE, [VW_CORE],                   [-lvwImage],  [vw/Image/ImageView.h])
 AX_PKG(VW_FILEIO,[VW_IMAGE Z OPENEXR GDAL BOOST_SYSTEM BOOST_FILESYSTEM],     [-lvwFileIO], [vw/FileIO/DiskImageResourceOpenEXR.h vw/FileIO/DiskImageResourceGDAL.h])
 AX_PKG(VW_TOOLS, [VW_FILEIO VW_IMAGE VW_MATH VW_CORE BOOST_FILESYSTEM BOOST_PROGRAM_OPTIONS THREADS], [-lvwTools], [vw/tools/Common.h])
@@ -326,8 +329,6 @@ AX_PKG_ONE_OF(GSL,
     GSL_NEEDBLAS, [AX_PKG(GSL_NEEDBLAS, [LAPACK], [-lgsl -lgslcblas])])
 
 AX_PKG(CURL,    [], [-lcurl], [curl/curl.h])
-AX_PKG(LASZIP,  [], [-llaszip], [laszip/laszip.hpp])
-AX_PKG(LIBLAS,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS LASZIP GDAL], [-llas], [liblas/liblas.hpp])
 
 # The GEOID dependency is data, not software. Must have it here to be
 # able to pass a flag with the data location to the programs using
@@ -405,7 +406,7 @@ AX_GROUP_PKG(BOOST_MOST, [BOOST_DATETIME BOOST_IOSTREAMS BOOST])
 AX_GROUP_PKG(VW_ALL,     [VW_CARTOGRAPHY VW_STEREO VW_CAMERA VW_INTEREST_POINT VW])
 
 # Module
-AX_MODULE(CORE,     [src/asp/Core],     [libaspCore.la],     yes, [], [VW_ALL BOOST_MOST], [LAPACK])
+AX_MODULE(CORE,     [src/asp/Core],     [libaspCore.la],     yes, [], [VW_ALL BOOST_MOST LASZIP LIBLAS], [LAPACK])
 AX_MODULE(SPICEIO,  [src/asp/SpiceIO],  [libaspSpiceIO.la],  yes, [], [VW BOOST_MOST SPICE])
 AX_MODULE(ISISIO,   [src/asp/IsisIO],   [libaspIsisIO.la],   yes, [], [ISIS VW_CARTOGRAPHY BOOST])
 AX_MODULE(SESSIONS, [src/asp/Sessions], [libaspSessions.la], yes, [CORE], [XERCESC], [ISISIO SPICEIO ])
@@ -425,9 +426,9 @@ AX_APP(MER2CAMERA,       [src/asp/Tools], yes, [CORE])
 AX_APP(ORBITVIZ,         [src/asp/Tools], yes, [SESSIONS])
 AX_APP(ORTHOPROJECT,     [src/asp/Tools], yes, [SESSIONS])
 AX_APP(PLATEORTHOPROJECT,[src/asp/Tools], no,  [VW_PLATE CORE SESSIONS ISISIO])
-AX_APP(POINT2DEM,        [src/asp/Tools], yes, [LASZIP LIBLAS CORE GDAL])
+AX_APP(POINT2DEM,        [src/asp/Tools], yes, [CORE GDAL])
 AX_APP(POINT2MESH,       [src/asp/Tools], yes, [OPENSCENEGRAPH CORE])
-AX_APP(POINT2LAS,        [src/asp/Tools], no,  [LASZIP LIBLAS CORE])
+AX_APP(POINT2LAS,        [src/asp/Tools], no,  [CORE])
 AX_APP(DEM_GEOID,        [src/asp/Tools], no,  [GEOID CORE])
 AX_APP(RESULTS,          [src/asp/Tools], no,  [ISISIO])
 AX_APP(MAPPROJECT,       [src/asp/Tools], yes, [SESSIONS GDAL])
