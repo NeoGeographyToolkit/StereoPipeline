@@ -288,6 +288,7 @@ namespace vw { namespace cartography {
                         bool remove_outliers, Vector2 const& remove_outliers_params,
                         ImageViewRef<double> const& error_image, double estim_max_error,
                         double max_valid_triangulation_error,
+                        bool has_las_or_csv,
                         const ProgressCallback& progress):
       // Ensure all members are initiated, even if to temporary values
       m_point_image(point_image), m_texture(ImageView<float>(1,1)),
@@ -356,10 +357,11 @@ namespace vw { namespace cartography {
                   "OrthoRasterize: Input point cloud is empty!\n" );
       VW_OUT(DebugMessage,"asp") << "Point cloud boundary is " << m_bbox << "\n";
 
-      // Find the width and height of the median point cloud
-      // pixel in projected coordinates.
+      // Find the width and height of the median point cloud pixel in
+      // projected coordinates. For las or csv files, this approach
+      // does not work.
       int len = m_point_image_boundaries.size();
-      {
+      if (!has_las_or_csv){
         // This vectors can be large, so don't keep them for too long
         std::vector<double> vx, vy;
         vx.reserve(len); vx.clear();
@@ -377,7 +379,7 @@ namespace vw { namespace cartography {
           m_default_spacing_y = vy[(int)(0.5*len)];
         }
       }
-
+      
       // This must happen after the bounding box was computed, but
       // before setting the spacing.
       if (m_use_surface_sampling){
@@ -717,6 +719,13 @@ namespace vw { namespace cartography {
     // We may set m_hole_fill_len > 0 only during orthoimage generation
     void set_hole_fill_len(int hole_fill_len){
 
+      // Need this check, as sometimes m_default_spacing which we use
+      // below may not be set.
+      if (hole_fill_len == 0){
+        m_hole_fill_len = 0;
+        return;
+      }
+      
       // Important: the hole fill len was set in DEM pixels. We convert it
       // here to point cloud pixels, as what we will fill is holes
       // in the point cloud before creating the image.

@@ -48,19 +48,21 @@ class Las2Tif:
   int m_block_size;
   bool m_have_georef;
   GeoReference m_georef;
-
+  
 public:
 
   typedef PixelT pixel_type;
   typedef PixelT result_type;
   typedef ProceduralPixelAccessor<Las2Tif> pixel_accessor;
   
-  Las2Tif(liblas::Reader & reader, int num_rows, int block_size):
-    m_reader(reader),
-    m_rows( block_size*std::max(1, (int)ceil(double(num_rows)/block_size)) ),
-    m_block_size(block_size){
+  Las2Tif(liblas::Reader & reader, int num_rows, int tile_len, int block_size):
+    m_reader(reader), m_block_size(block_size){
     
     liblas::Header const& header = m_reader.GetHeader();
+    int num_points = header.GetPointRecordsCount();
+    m_rows = tile_len*std::max(1, (int)ceil(double(num_rows)/tile_len));
+    m_cols = (int)ceil(double(num_points)/m_rows);
+    m_cols = tile_len*std::max(1, (int)ceil(double(m_cols)/tile_len));
     
     std::string wkt = header.GetSRS().GetWKT();
     m_have_georef = false;
@@ -69,10 +71,6 @@ public:
       m_georef.set_wkt(wkt);
     }
 
-    int num_points = header.GetPointRecordsCount();
-    m_cols = (int)ceil(double(num_points)/m_rows);
-    m_cols = m_block_size*std::max(1, (int)ceil(double(m_cols)/m_block_size));
-    
   }
 
   inline int32 cols() const { return m_cols; }
@@ -96,24 +94,26 @@ public:
     int num_rows = bbox.height();
     
     VW_ASSERT(num_rows % m_block_size == 0 && num_cols % m_block_size == 0,
-              ArgumentErr() << "Expecting the number of rows "
+              ArgumentErr() << "Las2Tif: Expecting the number of rows "
               << "to be a multiple of the block size.\n");
     
-    int num_pts = num_cols*num_rows;
+    int max_num_pts_to_read = num_cols*num_rows;
     int count = 0;
-    PointBuffer in(num_pts); in.clear();
+    PointBuffer in;
     std::vector<PointBuffer> outVec;
     while (m_reader.ReadNextPoint()){
       liblas::Point const& p = m_reader.GetPoint();
       in.push_back(Vector3(p.GetX(), p.GetY(), p.GetZ()));
       count++;
-      if (count >= num_pts) break;
+      if (count >= max_num_pts_to_read) break;
     }
-    num_pts = in.size();
     
-    ImageView<Vector3> Img(num_cols, num_rows);
-    Chipper(in, m_block_size, m_have_georef, m_georef, Img);
-
+    ImageView<Vector3> Img;
+    Chipper(in, m_block_size, m_have_georef, m_georef, num_cols, num_rows, Img);
+    
+    VW_ASSERT(num_cols == Img.cols() && num_rows == Img.rows(),
+              ArgumentErr() << "Las2Tif: Size mis-match.\n");
+    
     return crop( Img, -bbox.min().x(), -bbox.min().y(), cols(), rows() );
     
   }
@@ -125,29 +125,88 @@ public:
   
 };
 
-std::string asp::read_las_file(std::string const& file, int num_rows, int block_size){
-    
+void asp::las_to_tif(std::string const& las_file,
+                     std::string const& pc_file,
+                     int num_rows, int block_size){
+  
+  // We will fetch a chunk of the las file of area tile_len x
+  // tile_len, split it into bins of spatially close points, and write
+  // it to disk as a tile in a vector tif image. The bigger the tile
+  // size, the more likely the binning will be more efficient. But big
+  // tiles use a lot of memory.
+  int tile_len = 2048;
+  Vector2 tile_size(tile_len, tile_len);
+  
   std::ifstream ifs;
-  ifs.open(file.c_str(), std::ios::in | std::ios::binary);
+  ifs.open(las_file.c_str(), std::ios::in | std::ios::binary);
   liblas::ReaderFactory f;
   liblas::Reader reader = f.CreateWithStream(ifs);
 
-  // We will fetch a chunk of the las file of area tile_size, split it
-  // into bins of spatially close points, and write it to disk.
-  // the bigger the tile size, the more likely the binning will be
-  // more efficient.
-  Vector2 tile_size(2048, 2048);
-  int num_threads = 1; // Must use a thread only, as we read the las file serially.
-  ImageViewRef<Vector3> Img = block_cache
-    (Las2Tif< ImageView<Vector3> > (reader, num_rows, block_size),
-     tile_size, num_threads);
-
-  // Writing with single-thread
-  std::string outfile = "pc.tif";
+  // Must use a thread only, as we read the las file serially.
+  int num_threads = 1;
+  ImageViewRef<Vector3> Img
+    = Las2Tif< ImageView<Vector3> > (reader, num_rows, tile_len, block_size);
+  
   asp::BaseOptions opt;
-  std::cout << "--Writing: " << outfile << std::endl;
-  vw::write_image(outfile, Img, TerminalProgressCallback
-                              ("asp", "\t--> Good Pxl Map: ") );
-  return outfile;
+  opt.gdal_options["COMPRESS"] = "LZW";  
+  opt.raster_tile_size = tile_size; // Force tiles of this size
+  vw_out() << "Writing temporary file: " << pc_file << std::endl;
+  // This writer will use a single thread only
+  asp::write_gdal_image(pc_file, Img, opt, TerminalProgressCallback("asp", "\t--> ") );
 }
   
+bool asp::read_user_datum(double semi_major, double semi_minor,
+                          std::string const& reference_spheroid,
+                          cartography::Datum& datum ) {
+  // Select a cartographic datum. There are several hard coded datums
+  // that can be used here, or the user can specify their own.
+  if ( reference_spheroid != "" ) {
+    if (reference_spheroid == "mars") {
+      datum.set_well_known_datum("D_MARS");
+      vw_out() << "\t--> Re-referencing altitude values using a Mars spheroid\n";
+    } else if (reference_spheroid == "moon") {
+      datum.set_well_known_datum("D_MOON");
+      vw_out() << "\t--> Re-referencing altitude values using a Lunar spheroid\n";
+    } else if (reference_spheroid == "earth") {
+      vw_out() << "\t--> Re-referencing altitude values using the Earth WGS84 spheroid\n";
+    } else {
+      vw_throw( ArgumentErr() << "\t--> Unknown reference spheriod: "
+                << reference_spheroid
+                << ". Current options are [ earth, moon, mars ]\nExiting." );
+    }
+    vw_out() << "\t    Axes [" << datum.semi_major_axis() << " " << datum.semi_minor_axis() << "] meters\n";
+  } else if (semi_major != 0 && semi_minor != 0) {
+    vw_out() << "\t--> Re-referencing altitude values to user supplied datum.\n"
+             << "\t    Semi-major: " << semi_major << "  Semi-minor: " << semi_minor << "\n";
+    datum = cartography::Datum("User Specified Datum",
+                               "User Specified Spheroid",
+                               "Reference Meridian",
+                               semi_major, semi_minor, 0.0);
+  } else {
+    return false;
+  }
+  return true;
+}
+  
+// Erases a file suffix if one exists and returns the base string
+std::string asp::prefix_from_pointcloud_filename(std::string const& filename) {
+  std::string result = filename;
+  
+  // First case: filenames that match <prefix>-PC.<suffix>
+  int index = result.rfind("-PC.");
+  if (index != -1) {
+    result.erase(index, result.size());
+    return result;
+  }
+    
+  // Second case: filenames that match <prefix>.<suffix>
+  index = result.rfind(".");
+  if (index != -1) {
+    result.erase(index, result.size());
+    return result;
+  }
+
+  // No match
+  return result;
+}
+

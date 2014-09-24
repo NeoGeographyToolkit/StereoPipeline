@@ -18,21 +18,25 @@
 
 /// \file point2dem.cc
 ///
-#include <asp/Tools/point2dem.h>
 
-using namespace vw;
-using namespace vw::cartography;
+#include <asp/Core/PointUtils.h>
 #include <asp/Core/OrthoRasterizer.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/AntiAliasing.h>
-namespace po = boost::program_options;
 
 #include <vw/Core/Stopwatch.h>
 #include <vw/Mosaic/ImageComposite.h>
 #include <vw/FileIO/DiskImageUtils.h>
+#include <vw/Math/EulerAngles.h>
+#include <vw/Cartography/PointImageManipulation.h>
 
 #include <boost/math/special_functions/fpclassify.hpp>
+
+using namespace vw;
+using namespace vw::cartography;
+namespace po = boost::program_options;
+namespace fs = boost::filesystem;
 
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
@@ -80,18 +84,28 @@ struct Options : asp::BaseOptions {
   double max_valid_triangulation_error;
   double search_radius_factor;
   bool use_surface_sampling;
+  bool has_las_or_csv;
   
   // Output
   std::string  out_prefix, output_file_type;
 
   // Defaults that the user doesn't need to see. (The Magic behind the
   // curtain).
-  Options() : nodata_value(std::numeric_limits<float>::quiet_NaN()),
+  Options() : dem_spacing(0), nodata_value(std::numeric_limits<float>::quiet_NaN()),
               semi_major(0), semi_minor(0), fsaa(1), 
               hole_fill_mode(1), hole_fill_num_smooth_iter(4),
-              dem_hole_fill_len(0), ortho_hole_fill_len(0){}
+              dem_hole_fill_len(0), ortho_hole_fill_len(0),
+              remove_outliers(false), max_valid_triangulation_error(0),
+              search_radius_factor(0),  use_surface_sampling(false),
+              has_las_or_csv(false){}
 };
 
+bool is_las_or_csv(std::string const& file){
+  std::string lfile = boost::to_lower_copy(file);
+  return (boost::iends_with(lfile, ".las")  || boost::iends_with(lfile, ".laz")  ||
+          boost::iends_with(lfile, ".csv")  || boost::iends_with(lfile, ".txt")  );
+}
+    
 void parse_input_clouds_textures(std::vector<std::string> const& files,
                                  std::string const& usage,
                                  po::options_description const& general_options,
@@ -127,6 +141,15 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
   for (int i = beg_textures; i < end_textures; i++)
     opt.texture_files.push_back(files[i]);
 
+  // Must have this check here before we start assuming all input files
+  // are tif.
+  opt.has_las_or_csv = false;
+  for (int i = 0; i < (int)files.size(); i++)
+    opt.has_las_or_csv = opt.has_las_or_csv || is_las_or_csv(files[i]); 
+  if (opt.has_las_or_csv && opt.do_ortho)
+    vw_throw( ArgumentErr() << "Cannot create orthoimages if "
+              << "point clouds are csv or las.\n" );
+
   if (opt.do_ortho){
     for (int i = 0; i < (int)opt.pointcloud_files.size(); i++){
       // Here we ignore that a point cloud file may have many channels.
@@ -143,6 +166,62 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
     }
   }
   
+}
+
+void las_or_csv_to_tif(Options& opt, std::vector<std::string> & tmp_tifs){
+
+  // Convert any LAS or CSV files to ASP tif files. We do some binning
+  // to make the spatial data more localized, to improve performance.
+  // We will later wipe these temporary tifs.
+
+  // There are situations in which some files will already be tif, and
+  // others will be LAS or CSV. When we convert the latter to tif,
+  // we'd like to be able to match the number of rows of the existing
+  // tif files, so later when we concatenate all these files from left
+  // to right for the purpose of creating the DEM, we waste little
+  // space.
+
+  int num_rows = 0;
+  int num_files = opt.pointcloud_files.size();
+  for (int i = 0; i < num_files; i++){
+    if (is_las_or_csv(opt.pointcloud_files[i])) continue;
+    DiskImageView<float> img(opt.pointcloud_files[i]);
+    num_rows = std::max(num_rows, img.rows());
+  }
+
+  if (num_rows == 0)
+    num_rows = 10240; // default num rows for las and csv files
+  
+  // This is very important. For efficiency later, we don't want to create blocks
+  // smaller than what OrthoImageView will use later.
+  int block_size = OrthoRasterizerView<double, ImageView<double> >::max_subblock_size();
+
+  for (int i = 0; i < num_files; i++){
+    
+    if (!is_las_or_csv(opt.pointcloud_files[i])) continue;
+    std::string in_file = opt.pointcloud_files[i];
+    std::string stem = fs::path( in_file ).stem().string();
+    std::string suffix;
+    if (opt.out_prefix.find(stem) != std::string::npos) suffix = ".tif";
+    else                                                suffix = "-" + stem + ".tif";
+    std::string out_file = opt.out_prefix + "-tmp" + suffix;
+
+    // Handle the case when the output file may exist
+    for (int count = 0; count < 1000; count++){
+      if (!fs::exists(out_file)) break;
+      // File exists, try a different name
+      vw_out() << "File exists: " << out_file << std::endl;
+      std::ostringstream os; os << count;
+      out_file = opt.out_prefix + "-tmp-" + os.str() + suffix;
+    }
+    if (fs::exists(out_file))
+      vw_throw( ArgumentErr() << "Too many attempts at creating a temporary file.\n");
+
+    asp::las_to_tif(in_file, out_file, num_rows, block_size);
+    opt.pointcloud_files[i] = out_file; // so we can use it instead of the las file
+    tmp_tifs.push_back(out_file); // so we can wipe it later
+  }
+
 }
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
@@ -246,13 +325,24 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   }
   opt.dem_spacing = std::max(dem_spacing1, dem_spacing2);
 
+  if (opt.has_las_or_csv && opt.dem_spacing <= 0){
+    vw_throw( ArgumentErr() << "When inputs are LAS or CSV files, the "
+              << "output DEM resolution must be set.\n" );
+  }
+  
   if ( opt.out_prefix.empty() )
     opt.out_prefix =
-      prefix_from_pointcloud_filename( opt.pointcloud_files[0] );
+      asp::prefix_from_pointcloud_filename( opt.pointcloud_files[0] );
 
   if (opt.use_surface_sampling){
-    vw_out(WarningMessage) << "The --use-surface-sampling option invokes the old algorithm and is obsolete, it will be removed in future versions." << std::endl;
+    vw_out(WarningMessage)
+      << "The --use-surface-sampling option invokes the old algorithm and "
+      << "is obsolete, it will be removed in future versions.\n";
   }
+
+  if (opt.use_surface_sampling && opt.has_las_or_csv)
+    vw_throw( ArgumentErr() << "Cannot use surface "
+              << "sampling with LAS or CSV files.\n" );
 
   if (opt.fsaa != 1 && !opt.use_surface_sampling){
     vw_throw( ArgumentErr() << "The --fsaa option is obsolete. It can be used only with the --use-surface-sampling option which invokes the old algorithm.\n" << usage << general_options );
@@ -754,6 +844,7 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
                opt.hole_fill_mode, opt.hole_fill_num_smooth_iter,
                opt.remove_outliers, opt.remove_outliers_params,
                error_image, estim_max_error, opt.max_valid_triangulation_error,
+               opt.has_las_or_csv,
                TerminalProgressCallback("asp","QuadTree: ") );
 
   sw1.stop();
@@ -941,6 +1032,10 @@ int main( int argc, char *argv[] ) {
   try {
     handle_arguments( argc, argv, opt );
 
+    // Convert any input LAS or CSV files to ASP's point cloud tif format
+    std::vector<std::string> tmp_tifs;
+    las_or_csv_to_tif(opt, tmp_tifs);
+    
     ImageViewRef<Vector3> point_image
       = asp::form_composite<Vector3>(opt.pointcloud_files);
 
@@ -950,7 +1045,7 @@ int main( int argc, char *argv[] ) {
                << "      Angles: " << opt.phi_rot << "   "
                << opt.omega_rot << "  " << opt.kappa_rot << "\n";
       point_image =
-        point_transform(point_image, math::euler_to_rotation_matrix
+        asp::point_transform(point_image, math::euler_to_rotation_matrix
                         (opt.phi_rot, opt.omega_rot,opt.kappa_rot, opt.rot_order));
     }
 
@@ -973,7 +1068,8 @@ int main( int argc, char *argv[] ) {
     if (opt.target_srs_string.empty()) {
 
       cartography::Datum datum;
-      if ( read_user_datum(opt.semi_major, opt.semi_minor, opt.reference_spheroid, datum) )
+      if ( asp::read_user_datum(opt.semi_major, opt.semi_minor,
+                                opt.reference_spheroid, datum) )
         georef.set_datum( datum );
 
       switch( opt.projection ) {
@@ -1000,8 +1096,8 @@ int main( int argc, char *argv[] ) {
       // string. If they did ... read it and convert to a proj4 string
       // so GDAL won't default to WGS84.
       cartography::Datum user_datum;
-      bool have_user_datum = read_user_datum(opt.semi_major, opt.semi_minor,
-                                             opt.reference_spheroid, user_datum);
+      bool have_user_datum = asp::read_user_datum(opt.semi_major, opt.semi_minor,
+                                                  opt.reference_spheroid, user_datum);
 
       // Set the srs string into georef.
       asp::set_srs_string(opt.target_srs_string, have_user_datum, user_datum, georef);
@@ -1073,8 +1169,8 @@ int main( int argc, char *argv[] ) {
                << " " << opt.y_offset << " " << opt.z_offset << "\n";
       do_software_rasterization
         (geodetic_to_point
-         (point_image_offset
-          (recenter_longitude(cartesian_to_geodetic(point_image,georef),
+         (asp::point_image_offset
+          (asp::recenter_longitude(cartesian_to_geodetic(point_image,georef),
                               avg_lon),
            Vector3(opt.x_offset,
                    opt.y_offset,
@@ -1083,11 +1179,15 @@ int main( int argc, char *argv[] ) {
     } else {
       do_software_rasterization
         (geodetic_to_point
-         (recenter_longitude
+         (asp::recenter_longitude
           (cartesian_to_geodetic(point_image,georef), avg_lon),georef),
          opt, georef, error_image, estim_max_error);
     }
 
+    // Wipe the temporary files
+    for (int i = 0; i < (int)tmp_tifs.size(); i++)
+      if (fs::exists(tmp_tifs[i])) fs::remove(tmp_tifs[i]);
+    
   } ASP_STANDARD_CATCHES;
 
   return 0;
