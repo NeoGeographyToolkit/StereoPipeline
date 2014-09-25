@@ -285,8 +285,8 @@ namespace asp{
     typedef ProceduralPixelAccessor<OrthoRasterizerView> pixel_accessor;
     static int max_subblock_size(){ return 128;} // is used in point2dem and below
 
-    template <class TextureViewT>
-    OrthoRasterizerView(ImageRefVecT point_image, TextureViewT texture, double spacing,
+    OrthoRasterizerView(ImageRefVecT point_image, ImageViewRef<double> texture,
+                        double spacing,
                         double search_radius_factor, bool use_surface_sampling,
                         int pc_tile_size, int hole_fill_mode,
                         int hole_fill_num_smooth_iter,
