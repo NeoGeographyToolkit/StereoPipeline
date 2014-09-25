@@ -59,7 +59,7 @@ public:
     m_reader(reader), m_block_size(block_size){
     
     liblas::Header const& header = m_reader.GetHeader();
-    int num_points = header.GetPointRecordsCount();
+    boost::uint64_t num_points = header.GetPointRecordsCount();
     m_rows = tile_len*std::max(1, (int)ceil(double(num_rows)/tile_len));
     m_cols = (int)ceil(double(num_points)/m_rows);
     m_cols = tile_len*std::max(1, (int)ceil(double(m_cols)/tile_len));
@@ -125,6 +125,70 @@ public:
   
 };
 
+bool asp::is_las(std::string const& file){
+  std::string lfile = boost::to_lower_copy(file);
+  return (boost::iends_with(lfile, ".las")  || boost::iends_with(lfile, ".laz"));
+}
+
+bool asp::is_csv(std::string const& file){
+  std::string lfile = boost::to_lower_copy(file);
+  return ( boost::iends_with(lfile, ".csv")  || boost::iends_with(lfile, ".txt")  );
+}
+
+bool asp::is_las_or_csv(std::string const& file){
+  return asp::is_las(file) || is_csv(file);
+}
+
+bool asp::georef_from_las(std::string const& las_file,
+                          vw::cartography::GeoReference & georef){
+
+  // Initialize
+  georef = GeoReference();
+
+  if (!is_las(las_file)) return false;
+    
+  std::ifstream ifs;
+  ifs.open(las_file.c_str(), std::ios::in | std::ios::binary);
+  liblas::ReaderFactory f;
+  liblas::Reader reader = f.CreateWithStream(ifs);
+  liblas::Header const& header = reader.GetHeader();
+
+  std::string wkt = header.GetSRS().GetWKT();
+  if (wkt == "")
+    return false;
+    
+  georef.set_wkt(wkt);
+  return true;
+}
+
+bool asp::georef_from_las(std::vector<std::string> const& las_files,
+                          vw::cartography::GeoReference & georef){
+
+  // Get the georeference from the first las file
+
+  // Initialize
+  georef = GeoReference();
+
+  for (int i = 0; i < (int)las_files.size(); i++){
+    GeoReference local_georef;
+    if (asp::georef_from_las(las_files[i], local_georef)){
+      georef = local_georef;
+      return true;
+    }
+  }
+
+  return false;
+}
+
+boost::uint64_t asp::las_file_size(std::string const& las_file){
+  std::ifstream ifs;
+  ifs.open(las_file.c_str(), std::ios::in | std::ios::binary);
+  liblas::ReaderFactory f;
+  liblas::Reader reader = f.CreateWithStream(ifs);
+  liblas::Header const& header = reader.GetHeader();
+  return header.GetPointRecordsCount();
+}
+                       
 void asp::las_to_tif(std::string const& las_file,
                      std::string const& pc_file,
                      int num_rows, int block_size){
@@ -142,8 +206,6 @@ void asp::las_to_tif(std::string const& las_file,
   liblas::ReaderFactory f;
   liblas::Reader reader = f.CreateWithStream(ifs);
 
-  // Must use a thread only, as we read the las file serially.
-  int num_threads = 1;
   ImageViewRef<Vector3> Img
     = Las2Tif< ImageView<Vector3> > (reader, num_rows, tile_len, block_size);
   
@@ -151,7 +213,7 @@ void asp::las_to_tif(std::string const& las_file,
   opt.gdal_options["COMPRESS"] = "LZW";  
   opt.raster_tile_size = tile_size; // Force tiles of this size
   vw_out() << "Writing temporary file: " << pc_file << std::endl;
-  // This writer will use a single thread only
+  // Must use a thread only, as we read the las file serially.
   asp::write_gdal_image(pc_file, Img, opt, TerminalProgressCallback("asp", "\t--> ") );
 }
   

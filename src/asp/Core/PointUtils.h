@@ -25,10 +25,29 @@
 #include <vw/Core/Functors.h>
 #include <vw/Image/PerPixelViews.h>
 #include <vw/Math/Vector.h>
-#include <vw/Cartography/Datum.h>
+#include <vw/Math/Matrix.h>
+
+namespace vw{
+  namespace cartography{
+    class Datum;
+    class GeoReference;
+  }
+}
 
 namespace asp {
 
+  bool is_las(std::string const& file);
+  bool is_csv(std::string const& file);
+  bool is_las_or_csv(std::string const& file);
+  
+  bool georef_from_las(std::string const& las_file,
+                       vw::cartography::GeoReference & georef);
+
+  bool georef_from_las(std::vector<std::string> const& las_files,
+                       vw::cartography::GeoReference & georef);
+
+  boost::uint64_t las_file_size(std::string const& las_file);
+    
   void las_to_tif(std::string const& las_file,
                   std::string const& pc_file,
                   int num_rows, int block_size);

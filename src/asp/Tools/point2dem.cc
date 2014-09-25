@@ -100,12 +100,6 @@ struct Options : asp::BaseOptions {
               has_las_or_csv(false){}
 };
 
-bool is_las_or_csv(std::string const& file){
-  std::string lfile = boost::to_lower_copy(file);
-  return (boost::iends_with(lfile, ".las")  || boost::iends_with(lfile, ".laz")  ||
-          boost::iends_with(lfile, ".csv")  || boost::iends_with(lfile, ".txt")  );
-}
-    
 void parse_input_clouds_textures(std::vector<std::string> const& files,
                                  std::string const& usage,
                                  po::options_description const& general_options,
@@ -145,10 +139,10 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
   // are tif.
   opt.has_las_or_csv = false;
   for (int i = 0; i < (int)files.size(); i++)
-    opt.has_las_or_csv = opt.has_las_or_csv || is_las_or_csv(files[i]); 
+    opt.has_las_or_csv = opt.has_las_or_csv || asp::is_las_or_csv(files[i]); 
   if (opt.has_las_or_csv && opt.do_ortho)
     vw_throw( ArgumentErr() << "Cannot create orthoimages if "
-              << "point clouds are csv or las.\n" );
+              << "point clouds are LAS or CSV.\n" );
 
   if (opt.do_ortho){
     for (int i = 0; i < (int)opt.pointcloud_files.size(); i++){
@@ -174,23 +168,34 @@ void las_or_csv_to_tif(Options& opt, std::vector<std::string> & tmp_tifs){
   // to make the spatial data more localized, to improve performance.
   // We will later wipe these temporary tifs.
 
+  if (!opt.has_las_or_csv) return;
+
+  Stopwatch sw;
+  sw.start();
+  
   // There are situations in which some files will already be tif, and
   // others will be LAS or CSV. When we convert the latter to tif,
   // we'd like to be able to match the number of rows of the existing
   // tif files, so later when we concatenate all these files from left
   // to right for the purpose of creating the DEM, we waste little
   // space.
-
   int num_rows = 0;
   int num_files = opt.pointcloud_files.size();
   for (int i = 0; i < num_files; i++){
-    if (is_las_or_csv(opt.pointcloud_files[i])) continue;
+    if (asp::is_las_or_csv(opt.pointcloud_files[i])) continue;
     DiskImageView<float> img(opt.pointcloud_files[i]);
     num_rows = std::max(num_rows, img.rows());
   }
 
-  if (num_rows == 0)
-    num_rows = 10240; // default num rows for las and csv files
+  // No tif files exist. Find a reasonable value for the number of rows.
+  if (num_rows == 0){
+    boost::uint64_t max_num_pts = 0; 
+    for (int i = 0; i < num_files; i++){
+      if (!asp::is_las_or_csv(opt.pointcloud_files[i])) continue;
+      max_num_pts = std::max(max_num_pts, asp::las_file_size(opt.pointcloud_files[i]));    
+    }
+    num_rows = (int)ceil(sqrt(double(max_num_pts)));
+  }
   
   // This is very important. For efficiency later, we don't want to create blocks
   // smaller than what OrthoImageView will use later.
@@ -198,7 +203,7 @@ void las_or_csv_to_tif(Options& opt, std::vector<std::string> & tmp_tifs){
 
   for (int i = 0; i < num_files; i++){
     
-    if (!is_las_or_csv(opt.pointcloud_files[i])) continue;
+    if (!asp::is_las_or_csv(opt.pointcloud_files[i])) continue;
     std::string in_file = opt.pointcloud_files[i];
     std::string stem = fs::path( in_file ).stem().string();
     std::string suffix;
@@ -222,6 +227,10 @@ void las_or_csv_to_tif(Options& opt, std::vector<std::string> & tmp_tifs){
     tmp_tifs.push_back(out_file); // so we can wipe it later
   }
 
+  sw.stop();
+  vw_out(DebugMessage,"asp") << "LAS or CSV to TIF conversion time: " << sw.elapsed_seconds()
+                             << std::endl;
+  
 }
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
@@ -244,9 +253,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Specify the projection (PROJ.4 string).")
     ("t_projwin", po::value(&opt.target_projwin), "Selects a subwindow from the source image for copying but with the corners given in georeferenced coordinates. Max is exclusive.")
     ("dem-spacing,s", po::value(&dem_spacing1)->default_value(0.0),
-     "Set output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically. This is the same as the --tr option.")
+     "Set output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically (except for LAS and CSV files). This is the same as the --tr option.")
     ("tr", po::value(&dem_spacing2)->default_value(0.0),
-     "Set output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically. This is the same as the --dem-spacing option.")
+     "Set output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically (except for LAS and CSV files). This is the same as the --dem-spacing option.")
     ("reference-spheroid,r", po::value(&opt.reference_spheroid),"Set the reference spheroid [ earth, moon, mars]. This will override manually set datum information.")
     ("semi-major-axis", po::value(&opt.semi_major)->default_value(0), "Explicitly set the datum semi-major axis in meters.")
     ("semi-minor-axis", po::value(&opt.semi_minor)->default_value(0), "Explicitly set the datum semi-minor axis in meters.")
@@ -1032,10 +1041,14 @@ int main( int argc, char *argv[] ) {
   try {
     handle_arguments( argc, argv, opt );
 
+    // Extract georef info from las files before we convert them.
+    GeoReference las_georef;
+    bool has_las_georef = asp::georef_from_las(opt.pointcloud_files, las_georef);
+    
     // Convert any input LAS or CSV files to ASP's point cloud tif format
     std::vector<std::string> tmp_tifs;
     las_or_csv_to_tif(opt, tmp_tifs);
-    
+
     ImageViewRef<Vector3> point_image
       = asp::form_composite<Vector3>(opt.pointcloud_files);
 
@@ -1071,7 +1084,7 @@ int main( int argc, char *argv[] ) {
       if ( asp::read_user_datum(opt.semi_major, opt.semi_minor,
                                 opt.reference_spheroid, datum) )
         georef.set_datum( datum );
-
+      
       switch( opt.projection ) {
       case SINUSOIDAL:
         georef.set_sinusoidal(opt.proj_lon); break;
@@ -1088,8 +1101,11 @@ int main( int argc, char *argv[] ) {
       case UTM:
         georef.set_UTM( opt.utm_zone ); break;
       default: // Handles plate carree
+        if (has_las_georef)
+          georef = las_georef;
         break;
       }
+      
     } else {
 
       // See if the user specified the datum outside of the target srs

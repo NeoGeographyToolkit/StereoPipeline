@@ -388,8 +388,8 @@ of a ground control point measurement:
 \label{point2dem}
 
 The \texttt{point2dem} program produces a GeoTIFF terrain model or/and
-an orthographic image from a set of point cloud images produced by the {\tt
-  stereo} command.
+an orthographic image from a set of point clouds. The clouds can be
+created by the {\tt stereo} command, or be in LAS or CSV format.
 
 Example:\\
 \hspace*{2em}\texttt{point2dem \textit{output-prefix}-PC.tif -o stereo/filename -r moon $\backslash$} \\
@@ -419,8 +419,13 @@ on triangulation error.
 Multiple point clouds can be passed as inputs, to be combined into a
 single \ac{DEM}. If it is desired to use the \texttt{-\/-orthoimage}
 option as above, the clouds need to be specified first, followed by the
-\texttt{L.tif} images.
- 
+\texttt{L.tif} images. Here is an example, which combines together LAS
+and CSV point clouds together with an output file from {\tt stereo}:
+\begin{verbatim}
+  point2dem in1.las in2.csv output-prefix-PC.tif -o combined \
+    --dem-spacing 0.001 --nodata-value -32768
+\end{verbatim}
+
 \subsection{Comparing with MOLA Data}
 
 When comparing the output of \texttt{point2dem} to laser altimeter
@@ -491,6 +496,27 @@ model down to the scale you want.
 If you attempt to derive science results from an ASP-produced terrain model
 with the default DEM spacing, expect serious questions from reviewers.
 
+\subsection{Using with LAS or CSV Clouds}
+
+The \texttt{point2dem} program can take as inputs point clouds in LAS
+and CSV formats. These differ from point clouds created by stereo by
+being, in general, not uniformly distributed.  It is suggested that the
+user pick carefully the output resolution for such files
+(\texttt{-\/-dem-spacing}). If the output DEM turns out to be sparse,
+the output resolution could be increased, or one could experiment with
+increasing the value of \texttt{-\/-search-radius-factor}, which will
+fill in small gaps in the output DEM by searching further for points in
+the input clouds.
+
+It is expected that LAS files have spatial reference information, such
+as WKT data. Otherwise it is assumed that the points are raw $x,y,z$
+values in meters in reference to the planet center.
+ 
+Unless the output projection is explictely set when invoking \texttt{point2dem},
+the one from the first LAS file will be used.
+
+For LAS or CSV clouds, it is not possible to generate intersection error
+maps or ortho images.
 
 \begin{longtable}{|p{8cm}|p{9cm}|}
 \caption{Command-line options for point2dem}
@@ -531,7 +557,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-proj-lat \textit{float}} & The center of projection latitude (if applicable). \\ \hline
 \texttt{-\/-proj-lon \textit{float}} & The center of projection longitude (if applicable). \\ \hline
 \texttt{-\/-proj-scale \textit{float}} & The projection scale (if applicable). \\ \hline
-\texttt{-\/-dem-spacing|-s \textit{float(=0)}} & Set the output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically. \\ \hline
+\texttt{-\/-dem-spacing|-s \textit{float(=0)}} & Set the output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically (except for LAS and CSV files). \\ \hline
 \texttt{-\/-search-radius-factor \textit{float(=$0$)}} & Multiply this factor by \texttt{dem-spacing} to get the search radius. The DEM height at a given grid point is obtained as a weighted average of heights of all points in the cloud within search radius of the grid point, with the weights given by a Gaussian. Default search radius: max(\texttt{dem-spacing}, default\_dem\_spacing), so the default factor is about 1.\\ \hline
 \texttt{-\/-rounding-error \textit{float(=$1/2^{10}$=$0.0009765625$)}} & How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. \\ \hline
 \texttt{-\/-dem-hole-fill-len \textit{int(=0)}} &  Maximum dimensions of a hole in the output DEM to fill in, in pixels. \\ \hline
