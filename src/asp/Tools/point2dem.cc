@@ -199,7 +199,7 @@ void las_or_csv_to_tif(Options& opt, std::vector<std::string> & tmp_tifs){
   
   // This is very important. For efficiency later, we don't want to create blocks
   // smaller than what OrthoImageView will use later.
-  int block_size = OrthoRasterizerView<double, ImageView<double> >::max_subblock_size();
+  int block_size = asp::OrthoRasterizerView::max_subblock_size();
 
   for (int i = 0; i < num_files; i++){
     
@@ -472,7 +472,7 @@ fill_nodata_with_avg( ImageViewBase<ImgT> const& img,
 }
 
 template <class ImageT>
-ImageViewRef<PixelGray<float> >
+ImageViewRef< PixelGray<float> >
 generate_fsaa_raster( ImageViewBase<ImageT> const& rasterizer,
                       Options const& opt ) {
   // This probably needs a lanczos filter. Sinc filter is the ideal
@@ -483,9 +483,9 @@ generate_fsaa_raster( ImageViewBase<ImageT> const& rasterizer,
   float fsaa_sigma = 1.0f * float(opt.fsaa)/2.0f;
   int kernel_size = vw::compute_kernel_size(fsaa_sigma);
   
-  ImageViewRef<PixelGray<float> > rasterizer_fsaa;
+  ImageViewRef< PixelGray<float> > rasterizer_fsaa;
   if ( opt.target_projwin != BBox2() ) {
-    typedef ValueEdgeExtension<PixelGray<float> > ValExtend;
+    typedef ValueEdgeExtension< PixelGray<float> > ValExtend;
     if ( opt.fsaa > 1 ) {
       // subsample .. samples from the corner.
       rasterizer_fsaa =
@@ -767,7 +767,7 @@ namespace asp{
     // be bad for performance (it will think the subblock has a huge
     // range of values). Hence, we will separate the images in the
     // composite by an amount which will sufficiently isolate them.
-    int spacing = OrthoRasterizerView<PixelT, ImageView<PixelT> >::max_subblock_size();
+    int spacing = asp::OrthoRasterizerView::max_subblock_size();
 
     vw::mosaic::ImageComposite<PixelT> C;
     C.set_draft_mode(true); // images will be disjoint, no need for fancy stuff
@@ -838,15 +838,14 @@ namespace asp{
   
 } // end namespace asp
 
-template <class ViewT>
-void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
+void do_software_rasterization( const ImageViewRef<Vector3>& proj_point_input,
                                 Options& opt,
                                 cartography::GeoReference& georef,
                                 ImageViewRef<double> const& error_image,
                                 double estim_max_error) {
   Stopwatch sw1;
   sw1.start();
-  OrthoRasterizerView<PixelGray<float>, ViewT >
+  asp::OrthoRasterizerView
     rasterizer(proj_point_input.impl(), select_channel(proj_point_input.impl(),2),
                opt.dem_spacing, opt.search_radius_factor, opt.use_surface_sampling,
                Options::tri_tile_size(), // to efficiently process the cloud
@@ -926,7 +925,7 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
   // rather than filling holes in the cloud first. This is faster.
   rasterizer.set_hole_fill_len(0);
   
-  ImageViewRef<PixelGray<float> > rasterizer_fsaa =
+  ImageViewRef< PixelGray<float> > rasterizer_fsaa =
     generate_fsaa_raster( rasterizer, opt );
 
   // Write out the DEM. We've set the texture to be the height.
@@ -949,7 +948,8 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
                        opt.nodata_value);
     }
 
-    vw_out()<< "Creating output file that is " << bounding_box(dem).size() << " px.\n";
+    vw_out()<< "Creating output file that is " << bounding_box(dem).size()
+            << " px.\n";
     
     save_image(opt, dem, georef, "DEM");
     sw2.stop();
@@ -980,7 +980,7 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
       ImageViewRef<Vector6> point_disk_image
         = asp::form_composite<Vector6>(opt.pointcloud_files);
       ImageViewRef<Vector3> ned_err = asp::error_to_NED(point_disk_image, georef);
-      std::vector< ImageViewRef<PixelGray<float> > >  rasterized(3);
+      std::vector< ImageViewRef< PixelGray<float> > >  rasterized(3);
       for (int ch_index = 0; ch_index < 3; ch_index++){
         ImageViewRef<double> ch = select_channel(ned_err, ch_index);
         rasterizer.set_texture(ch);
@@ -1008,7 +1008,7 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
   if (opt.do_ortho) {
     Stopwatch sw3;
     sw3.start();
-    ImageViewRef<PixelGray<float> > texture
+    ImageViewRef< PixelGray<float> > texture
       = asp::form_composite< PixelGray<float> >(opt.texture_files);
     rasterizer.set_texture(texture);
     rasterizer.set_hole_fill_len(opt.ortho_hole_fill_len);
@@ -1022,7 +1022,7 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
 
   // Write out a normalized version of the DEM, if requested (for debugging)
   if (opt.do_normalize) {
-    DiskImageView<PixelGray<float> >
+    DiskImageView< PixelGray<float> >
       dem_image(opt.out_prefix + "-DEM." + opt.output_file_type);
     save_image(opt,
                apply_mask

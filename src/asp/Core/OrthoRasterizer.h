@@ -31,6 +31,7 @@
 #include <vw/Math/Vector.h>
 #include <vw/Math/BBox.h>
 #include <vw/Math/Statistics.h>
+#include <vw/Image/Filter.h>
 
 #include <asp/Core/SoftwareRenderer.h>
 #include <asp/Core/Point2Grid.h>
@@ -38,8 +39,14 @@
 #include <boost/math/special_functions/next.hpp>
 #include <valarray>
 
-namespace vw { namespace cartography {
+namespace asp{
 
+  using namespace vw;
+  using namespace vw::cartography;
+
+  typedef PixelGray<float> PixelGrayF;
+  typedef ImageViewRef<Vector3> ImageRefVecT;
+  
   class compare_bboxes { // simple comparison function
   public:
     bool operator()(const BBox2i A, const BBox2i B) {
@@ -71,14 +78,11 @@ namespace vw { namespace cartography {
     }
   };
 
-  template <class ImageT>
   void dump_image(std::string const& prefix, BBox2i const& box,
-                  ImageT const& I){
+                  ImageRefVecT const& I){
 
-    // Crop the image to the given box and save to a file.
-    
-    typedef typename ImageT::pixel_type PixelT;
-
+    //Crop the image to the given box and save to a file.
+  
     std::ostringstream os;
     os << prefix << "_" << box.min().x() << "_" << box.min().y()
        << " " << box.width() << " " << box.height() << ".csv";
@@ -87,10 +91,12 @@ namespace vw { namespace cartography {
     std::ofstream of(file.c_str());
     of.precision(18);
 
-    ImageView<PixelT> crop_img = crop(I, box.crop(bounding_box(I)));
+    BBox2i lbox = box;
+    lbox.crop(bounding_box(I));
+    ImageView<Vector3> crop_img = crop(I, lbox);
     for (int col = 0; col < crop_img.cols(); col++){
       for (int row = 0; row < crop_img.rows(); row++){
-        PixelT p = crop_img(col, row);
+        Vector3 p = crop_img(col, row);
         if (boost::math::isnan(p.z())) continue;
         of << p.x() << ' ' << p.y()  << ' ' << p.z() << std::endl;
       }
@@ -98,10 +104,144 @@ namespace vw { namespace cartography {
     of.close();
   }
 
-  template <class PixelT, class ImageT>
+  typedef std::pair<BBox3, BBox2i> BBoxPair;
+  
+  // Task to parallelize the generation of bounding boxes for each block. 
+  class SubBlockBoundaryTask : public Task, private boost::noncopyable {
+    ImageRefVecT m_view;
+    int m_sub_block_size;
+    BBox2i m_image_bbox;
+    BBox3& m_global_bbox;
+    std::vector<BBoxPair>& m_point_image_boundaries;
+    ImageViewRef<double> const& m_error_image;
+    double m_estim_max_error; // used for automatic outlier removal
+    std::vector<double> & m_errors_hist;
+    double m_max_valid_triangulation_error; // used for manual outlier removal
+    Mutex& m_mutex;
+    const ProgressCallback& m_progress;
+    float m_inc_amt;
+
+    // This is growing a bbox of points in point projection and Z
+    // values which are altitude.
+    struct GrowBBoxAccumulator {
+      BBox3 bbox;
+      void operator()( Vector3 const& v ) {
+        if ( !boost::math::isnan(v.z()) )
+          bbox.grow(v);
+      }
+    };
+
+    struct ErrorHistAccumulator{
+      std::vector<double> & m_hist;
+      double m_max_val;
+      ErrorHistAccumulator(std::vector<double>& hist, double max_val):
+        m_hist(hist), m_max_val(max_val){}
+      void operator()(double err){
+        if (err == 0) return; // null errors come from invalid pixels
+        int len = m_hist.size();
+        int k = round((len-1)*std::min(err, m_max_val)/m_max_val);
+        m_hist[k]++;
+      }
+    };
+      
+  public:
+    SubBlockBoundaryTask( ImageRefVecT const& view,
+                          int sub_block_size,
+                          BBox2i const& image_bbox,
+                          BBox3& global_bbox, std::vector<BBoxPair>& boundaries,
+                          ImageViewRef<double> const& error_image, double estim_max_error,
+                          std::vector<double> & errors_hist,
+                          double max_valid_triangulation_error,
+                          Mutex& mutex, const ProgressCallback& progress, float inc_amt ) :
+      m_view(view.impl()), m_sub_block_size(sub_block_size),
+      m_image_bbox(image_bbox),
+      m_global_bbox(global_bbox), m_point_image_boundaries( boundaries ),
+      m_error_image(error_image), m_estim_max_error(estim_max_error),
+      m_errors_hist(errors_hist), m_max_valid_triangulation_error(max_valid_triangulation_error),
+      m_mutex( mutex ), m_progress( progress ), m_inc_amt( inc_amt ) {}
+    void operator()() {
+      ImageView<Vector3 > local_image =
+        crop( m_view, m_image_bbox );
+
+      bool remove_outliers = (!m_errors_hist.empty());
+      ImageView<double> local_error;
+      if (remove_outliers || m_max_valid_triangulation_error > 0.0)
+        local_error = crop( m_error_image, m_image_bbox );
+
+      // Further subdivide into boundaries so
+      // that prerasterize will only query what it needs.
+      std::vector<BBox2i> blocks =
+        image_blocks( m_image_bbox, m_sub_block_size, m_sub_block_size );
+      BBox3 local_union;
+      std::list<BBoxPair> solutions;
+      std::vector<double> local_hist(m_errors_hist.size(), 0);
+      for ( size_t i = 0; i < blocks.size(); i++ ) {
+        BBox3 pts_bdbox;
+        ImageView<Vector3 > local_image2 =
+          crop( local_image, blocks[i] - m_image_bbox.min() );
+        if (m_max_valid_triangulation_error <= 0){
+          GrowBBoxAccumulator accum;
+          for_each_pixel( local_image2, accum );
+          pts_bdbox = accum.bbox;
+        }else{
+          // Skip points with error > m_max_valid_triangulation_error
+          ImageView<double> local_error2 =
+            crop( local_error, blocks[i] - m_image_bbox.min() );
+          for (int col = 0; col < local_image2.cols(); col++){
+            for (int row = 0; row < local_image2.rows(); row++){
+              if (boost::math::isnan(local_image2(col, row).z())) continue;
+              if (local_error2(col, row) > m_max_valid_triangulation_error) continue;
+              pts_bdbox.grow(local_image2(col, row));
+            }
+          }
+        }
+
+        if ( pts_bdbox.min().x() <= pts_bdbox.max().x() &&
+             pts_bdbox.min().y() <= pts_bdbox.max().y() ) {
+          // pts_bdbox has at least one point. A box of just one      
+          // point is considered empty by VW. For that reason,
+          // grow this box to make it definitely non-empty. 
+          // Note: for local_union, which will end up contributing
+          // to the global bounding box, we don't use the float_next
+          // gimmick, as we need the precise box. 
+          local_union.grow( pts_bdbox );
+          pts_bdbox.max()[0] = boost::math::float_next(pts_bdbox.max()[0]);
+          pts_bdbox.max()[1] = boost::math::float_next(pts_bdbox.max()[1]);
+          solutions.push_back( std::make_pair( pts_bdbox, blocks[i] ) );
+        }
+
+        if (remove_outliers){
+          ErrorHistAccumulator error_accum(local_hist, m_estim_max_error);
+          for_each_pixel( crop( local_error, blocks[i] - m_image_bbox.min() ),
+                          error_accum );
+
+        }
+          
+      }
+
+      // Append to the global list of boxes and expand the point
+      // cloud bounding box.
+      if ( local_union != BBox3() ) {
+        Mutex::Lock lock( m_mutex );
+        for ( std::list<BBoxPair>::const_iterator it = solutions.begin();
+              it != solutions.end(); it++ ) {
+          m_point_image_boundaries.push_back( *it );
+        }
+
+        m_global_bbox.grow( local_union );
+
+        if (remove_outliers)
+          for (int i = 0; i < (int)m_errors_hist.size(); i++)
+            m_errors_hist[i] += local_hist[i];
+          
+        m_progress.report_incremental_progress( m_inc_amt );
+      }
+    }
+  };
+
   class OrthoRasterizerView:
-    public ImageViewBase<OrthoRasterizerView<PixelT, ImageT> > {
-    ImageT m_point_image;
+    public ImageViewBase<OrthoRasterizerView> {
+    ImageRefVecT m_point_image;
     ImageViewRef<float> m_texture;
     BBox3 m_bbox;             // bounding box of point cloud
     double m_spacing;         // point cloud units (usually m or deg) per pixel
@@ -122,7 +262,6 @@ namespace vw { namespace cartography {
     
     // We could actually use a quadtree here .. but this should be a
     // good enough improvement.
-    typedef std::pair<BBox3, BBox2i> BBoxPair;
     std::vector<BBoxPair> m_point_image_boundaries;
     // These boundaries describe a point cloud 3D boundaries and then
     // their location in the the point cloud image. These boxes are
@@ -140,148 +279,14 @@ namespace vw { namespace cartography {
       return output;
     }
     
-    // Task to parallelize the generation of bounding boxes for each block. 
-    template <class ViewT>
-    class SubBlockBoundaryTask : public Task, private boost::noncopyable {
-      ViewT m_view;
-      int m_sub_block_size;
-      BBox2i m_image_bbox;
-      BBox3& m_global_bbox;
-      std::vector<BBoxPair>& m_point_image_boundaries;
-      ImageViewRef<double> const& m_error_image;
-      double m_estim_max_error; // used for automatic outlier removal
-      std::vector<double> & m_errors_hist;
-      double m_max_valid_triangulation_error; // used for manual outlier removal
-      Mutex& m_mutex;
-      const ProgressCallback& m_progress;
-      float m_inc_amt;
-
-      // This is growing a bbox of points in point projection and Z
-      // values which are altitude.
-      struct GrowBBoxAccumulator {
-        BBox3 bbox;
-        void operator()( typename ViewT::pixel_type const& v ) {
-          if ( !boost::math::isnan(v.z()) )
-            bbox.grow(v);
-        }
-      };
-
-      struct ErrorHistAccumulator{
-        std::vector<double> & m_hist;
-        double m_max_val;
-        ErrorHistAccumulator(std::vector<double>& hist, double max_val):
-          m_hist(hist), m_max_val(max_val){}
-        void operator()(double err){
-          if (err == 0) return; // null errors come from invalid pixels
-          int len = m_hist.size();
-          int k = round((len-1)*std::min(err, m_max_val)/m_max_val);
-          m_hist[k]++;
-        }
-      };
-      
-    public:
-      SubBlockBoundaryTask( ImageViewBase<ViewT> const& view,
-                            int sub_block_size,
-                            BBox2i const& image_bbox,
-                            BBox3& global_bbox, std::vector<BBoxPair>& boundaries,
-                            ImageViewRef<double> const& error_image, double estim_max_error,
-                            std::vector<double> & errors_hist,
-                            double max_valid_triangulation_error,
-                            Mutex& mutex, const ProgressCallback& progress, float inc_amt ) :
-        m_view(view.impl()), m_sub_block_size(sub_block_size),
-        m_image_bbox(image_bbox),
-        m_global_bbox(global_bbox), m_point_image_boundaries( boundaries ),
-        m_error_image(error_image), m_estim_max_error(estim_max_error),
-        m_errors_hist(errors_hist), m_max_valid_triangulation_error(max_valid_triangulation_error),
-        m_mutex( mutex ), m_progress( progress ), m_inc_amt( inc_amt ) {}
-      void operator()() {
-        ImageView< typename ViewT::pixel_type > local_image =
-          crop( m_view, m_image_bbox );
-
-        bool remove_outliers = (!m_errors_hist.empty());
-        ImageView<double> local_error;
-        if (remove_outliers || m_max_valid_triangulation_error > 0.0)
-          local_error = crop( m_error_image, m_image_bbox );
-
-        // Further subdivide into boundaries so
-        // that prerasterize will only query what it needs.
-        std::vector<BBox2i> blocks =
-          image_blocks( m_image_bbox, m_sub_block_size, m_sub_block_size );
-        BBox3 local_union;
-        std::list<BBoxPair> solutions;
-        std::vector<double> local_hist(m_errors_hist.size(), 0);
-        for ( size_t i = 0; i < blocks.size(); i++ ) {
-          BBox3 pts_bdbox;
-          ImageView< typename ViewT::pixel_type > local_image2 =
-            crop( local_image, blocks[i] - m_image_bbox.min() );
-          if (m_max_valid_triangulation_error <= 0){
-            GrowBBoxAccumulator accum;
-            for_each_pixel( local_image2, accum );
-            pts_bdbox = accum.bbox;
-          }else{
-            // Skip points with error > m_max_valid_triangulation_error
-            ImageView<double> local_error2 =
-              crop( local_error, blocks[i] - m_image_bbox.min() );
-            for (int col = 0; col < local_image2.cols(); col++){
-              for (int row = 0; row < local_image2.rows(); row++){
-                if (boost::math::isnan(local_image2(col, row).z())) continue;
-                if (local_error2(col, row) > m_max_valid_triangulation_error) continue;
-                pts_bdbox.grow(local_image2(col, row));
-              }
-            }
-          }
-
-          if ( pts_bdbox.min().x() <= pts_bdbox.max().x() &&
-               pts_bdbox.min().y() <= pts_bdbox.max().y() ) {
-            // pts_bdbox has at least one point. A box of just one      
-            // point is considered empty by VW. For that reason,
-            // grow this box to make it definitely non-empty. 
-            // Note: for local_union, which will end up contributing
-            // to the global bounding box, we don't use the float_next
-            // gimmick, as we need the precise box. 
-            local_union.grow( pts_bdbox );
-            pts_bdbox.max()[0] = boost::math::float_next(pts_bdbox.max()[0]);
-            pts_bdbox.max()[1] = boost::math::float_next(pts_bdbox.max()[1]);
-            solutions.push_back( std::make_pair( pts_bdbox, blocks[i] ) );
-          }
-
-          if (remove_outliers){
-            ErrorHistAccumulator error_accum(local_hist, m_estim_max_error);
-            for_each_pixel( crop( local_error, blocks[i] - m_image_bbox.min() ),
-                            error_accum );
-
-          }
-          
-        }
-
-        // Append to the global list of boxes and expand the point
-        // cloud bounding box.
-        if ( local_union != BBox3() ) {
-          Mutex::Lock lock( m_mutex );
-          for ( std::list<BBoxPair>::const_iterator it = solutions.begin();
-                it != solutions.end(); it++ ) {
-            m_point_image_boundaries.push_back( *it );
-          }
-
-          m_global_bbox.grow( local_union );
-
-          if (remove_outliers)
-            for (int i = 0; i < (int)m_errors_hist.size(); i++)
-              m_errors_hist[i] += local_hist[i];
-          
-          m_progress.report_incremental_progress( m_inc_amt );
-        }
-      }
-    };
-
   public:
-    typedef PixelT pixel_type;
-    typedef const PixelT result_type;
+    typedef PixelGrayF pixel_type;
+    typedef const PixelGrayF result_type;
     typedef ProceduralPixelAccessor<OrthoRasterizerView> pixel_accessor;
     static int max_subblock_size(){ return 128;} // is used in point2dem and below
 
     template <class TextureViewT>
-    OrthoRasterizerView(ImageT point_image, TextureViewT texture, double spacing,
+    OrthoRasterizerView(ImageRefVecT point_image, TextureViewT texture, double spacing,
                         double search_radius_factor, bool use_surface_sampling,
                         int pc_tile_size, int hole_fill_mode,
                         int hole_fill_num_smooth_iter,
@@ -337,7 +342,7 @@ namespace vw { namespace cartography {
       // m_point_image_boundaries, together with other info by
       // searching through the image.
       FifoWorkQueue queue( vw_settings().default_num_threads() );
-      typedef SubBlockBoundaryTask<ImageT> task_type;
+      typedef SubBlockBoundaryTask task_type;
       Mutex mutex;
       float inc_amt = 1.0 / float(blocks.size());
       for ( size_t i = 0; i < blocks.size(); i++ ) {
@@ -583,7 +588,7 @@ namespace vw { namespace cartography {
         block.crop(vw::bounding_box(m_point_image));
         
         // Pull a copy of the input image in memory
-        ImageView<typename ImageT::pixel_type> point_copy;
+        ImageView<Vector3> point_copy;
 
         if (m_hole_fill_len == 0)
           point_copy = crop(m_point_image, block );
@@ -592,10 +597,10 @@ namespace vw { namespace cartography {
                             (fill_holes
                              (per_pixel_filter
                               (m_point_image,
-                               NaN2Mask<typename ImageT::pixel_type>()),
+                               NaN2Mask<Vector3>()),
                               m_hole_fill_mode, m_hole_fill_num_smooth_iter,
                               m_hole_fill_len),
-                             Mask2NaN<typename ImageT::pixel_type>()),
+                             Mask2NaN<Vector3>()),
                             block);
         
         ImageView<float> texture_copy = crop(m_texture, block );
@@ -604,7 +609,7 @@ namespace vw { namespace cartography {
         if (m_error_cutoff >= 0.0)
           error_copy = crop(m_error_image, block );
         
-        typedef typename ImageView<typename ImageT::pixel_type>::pixel_accessor
+        typedef ImageView<Vector3>::pixel_accessor
           PointAcc;
         PointAcc row_acc = point_copy.origin();
         for ( int32 row = 0; row < point_copy.rows()-d; ++row ) {
@@ -677,7 +682,7 @@ namespace vw { namespace cartography {
       // We also introduce transparent pixels into the result where
       // necessary.
       // To do: Here can do flipping in place.
-      ImageView<PixelT> result;
+      ImageView<PixelGrayF> result;
       if (m_use_surface_sampling)
         result = flip_vertical(render_buffer);
       else
@@ -804,4 +809,4 @@ namespace vw { namespace cartography {
     
   };
   
-}} // namespace vw::cartography
+} // namespace asp
