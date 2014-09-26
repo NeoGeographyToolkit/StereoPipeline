@@ -19,7 +19,7 @@
  - point2dem
    * Take as input n clouds and optionally n texture files, create a
      single DEM/orthoimage.
-   * Take as input LAS files.
+   * Take as input LAS and CSV files.
 
  - bundle_adjust
    * Use multiple-threads for non-ISIS sessions.

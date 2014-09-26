@@ -503,10 +503,10 @@ and CSV formats. These differ from point clouds created by stereo by
 being, in general, not uniformly distributed.  It is suggested that the
 user pick carefully the output resolution for such files
 (\texttt{-\/-dem-spacing}). If the output DEM turns out to be sparse,
-the output resolution could be increased, or one could experiment with
-increasing the value of \texttt{-\/-search-radius-factor}, which will
-fill in small gaps in the output DEM by searching further for points in
-the input clouds.
+the spacing could be increased, or one could experiment with increasing
+the value of \texttt{-\/-search-radius-factor}, which will fill in small
+gaps in the output DEM by searching further for points in the input
+clouds.
 
 It is expected that the input LAS files have spatial reference
 information, such as WKT data. Otherwise it is assumed that the points
