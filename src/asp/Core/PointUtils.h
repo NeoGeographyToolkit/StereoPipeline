@@ -64,8 +64,7 @@ namespace asp {
   // Utilities for processing csv files
   enum CsvFormat{
     XYZ, HEIGHT_LAT_LON, LAT_LON_RADIUS_M,
-    LAT_LON_RADIUS_KM, UTM_EASTING_HEIGHT_NORTHING
-  };
+    LAT_LON_RADIUS_KM, EASTING_HEIGHT_NORTHING};
 
   struct CsvConv{
     std::map<std::string,int> name2col;
@@ -104,7 +103,7 @@ namespace asp {
   
   bool is_valid_csv_line(std::string const& line);
 
-  int num_points_in_csv_file(std::string const& file);
+  boost::uint64_t csv_file_size(std::string const& file);
   
   // Erases a file suffix if one exists and returns the base string
   std::string prefix_from_pointcloud_filename(std::string const& filename);

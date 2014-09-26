@@ -94,7 +94,8 @@ namespace asp{
     /// to point image pixels.
     template <class TextureViewT>
     void set_texture(TextureViewT texture) {
-      VW_ASSERT(texture.impl().cols() == m_point_image.cols() && texture.impl().rows() == m_point_image.rows(),
+      VW_ASSERT(texture.impl().cols() == m_point_image.cols() &&
+                texture.impl().rows() == m_point_image.rows(),
                 ArgumentErr() << "Orthorasterizer: set_texture() failed."
                 << " Texture dimensions must match point image dimensions.");
       m_texture = channel_cast<float>(channels_to_planes(texture.impl()));

@@ -92,11 +92,14 @@ namespace asp{
               asp::CsvConv const& csv_conv, 
               GeoReference const& georef)
       : m_csv_file(csv_file), m_csv_conv(csv_conv),
-        m_is_first_line(false), m_has_valid_point(false){
+        m_is_first_line(true), m_has_valid_point(false){
 
-      m_have_georef = true;
+      // We will convert from projected space to xyz, unless points
+      // are already in this format.
+      m_have_georef = (m_csv_conv.format != asp::XYZ);
+      
       m_georef      = georef;
-      m_num_points  = asp::num_points_in_csv_file(m_csv_file);
+      m_num_points  = asp::csv_file_size(m_csv_file);
 
       m_ifs = new std::ifstream ( m_csv_file.c_str() );
       if ( !*m_ifs ) {
@@ -130,8 +133,9 @@ namespace asp{
       // Will return projected point and height or xyz
       bool return_point_height = true;
       m_curr_point = asp::csv_to_cartesian_or_point_height(vals, m_georef,
-                                                           m_csv_conv, return_point_height);
-      
+                                                           m_csv_conv,
+                                                           return_point_height);
+
       return m_has_valid_point;
     }
     
@@ -498,7 +502,7 @@ void asp::parse_csv_format(std::string const& csv_format_str, asp::CsvConv & C){
             sorted_names[0] == "easting" &&
             sorted_names[1] == "height_above_datum" &&
             sorted_names[2] == "northing"){
-    C.format = asp::UTM_EASTING_HEIGHT_NORTHING;
+    C.format = asp::EASTING_HEIGHT_NORTHING;
   }else{
     vw_throw( ArgumentErr() << "Cannot understand the csv format string: "
               << csv_format_str << ".\n" );
@@ -586,7 +590,7 @@ Vector3 asp::csv_to_cartesian_or_point_height(Vector3 const& csv,
 
   Vector3 xyz;
   
-  if (C.format == asp::UTM_EASTING_HEIGHT_NORTHING){
+  if (C.format == asp::EASTING_HEIGHT_NORTHING){
 
     // go from easting, height, northing to easting, northing, height
     Vector3 point_height = Vector3(ordered_csv[0], ordered_csv[2], ordered_csv[1]); 
@@ -644,7 +648,7 @@ Vector3 asp::cartesian_to_csv(Vector3 const& xyz,
     Vector3 llh = geo.datum().cartesian_to_geodetic(xyz);   // lon-lat-height
     llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjust
 
-    if (C.format == asp::UTM_EASTING_HEIGHT_NORTHING){
+    if (C.format == asp::EASTING_HEIGHT_NORTHING){
       
       // go from lon, lat to easting, northing
       Vector2 en = geo.lonlat_to_point(Vector2(llh[0], llh[1]));
@@ -690,7 +694,7 @@ bool asp::is_valid_csv_line(std::string const& line){
   return (!line.empty()) && (line[0] != '#');
 }
 
-int asp::num_points_in_csv_file(std::string const& file){
+boost::uint64_t asp::csv_file_size(std::string const& file){
 
   std::ifstream fh( file.c_str() );
   if( !fh )

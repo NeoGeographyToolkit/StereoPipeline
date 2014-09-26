@@ -401,7 +401,7 @@ int load_csv_aux(string const& file_name, int num_points_to_load,
 
   is_lola_rdr_format = false;
 
-  int num_total_points = asp::num_points_in_csv_file(file_name);
+  int num_total_points = asp::csv_file_size(file_name);
 
   std::string sep_str = asp::csv_separator();
   const char* sep = sep_str.c_str();
@@ -1402,7 +1402,7 @@ int main( int argc, char *argv[] ) {
                 "Reference Meridian", 1, 1, 0);
     read_datum(opt, C, datum);
     GeoReference geo(datum);
-    if (C.format == asp::UTM_EASTING_HEIGHT_NORTHING){
+    if (C.format == asp::EASTING_HEIGHT_NORTHING){
       try{
         geo.set_UTM(C.utm_zone, C.utm_north);
       } catch ( const std::exception& e ) {

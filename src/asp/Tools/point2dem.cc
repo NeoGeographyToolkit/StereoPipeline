@@ -174,37 +174,9 @@ void las_or_csv_to_tifs(Options& opt, vw::cartography::GeoReference const& geore
 
   Stopwatch sw;
   sw.start();
-  
-  // There are situations in which some files will already be tif, and
-  // others will be LAS or CSV. When we convert the latter to tif,
-  // we'd like to be able to match the number of rows of the existing
-  // tif files, so later when we concatenate all these files from left
-  // to right for the purpose of creating the DEM, we waste little
-  // space.
-  int num_rows = 0;
-  int num_files = opt.pointcloud_files.size();
-  for (int i = 0; i < num_files; i++){
-    if (asp::is_las_or_csv(opt.pointcloud_files[i])) continue;
-    DiskImageView<float> img(opt.pointcloud_files[i]);
-    num_rows = std::max(num_rows, img.rows());
-  }
-
-  // No tif files exist. Find a reasonable value for the number of rows.
-  if (num_rows == 0){
-    boost::uint64_t max_num_pts = 0; 
-    for (int i = 0; i < num_files; i++){
-      if (!asp::is_las_or_csv(opt.pointcloud_files[i])) continue;
-      max_num_pts = std::max(max_num_pts,
-                             asp::las_file_size(opt.pointcloud_files[i]));    
-    }
-    num_rows = (int)ceil(sqrt(double(max_num_pts)));
-  }
-  
-  // This is very important. For efficiency later, we don't want to create blocks
-  // smaller than what OrthoImageView will use later.
-  int block_size = asp::OrthoRasterizerView::max_subblock_size();
 
   // Error checking for CSV
+  int num_files = opt.pointcloud_files.size();
   for (int i = 0; i < num_files; i++){
     if (!asp::is_csv(opt.pointcloud_files[i])) continue;
     if (opt.csv_format_str == "")
@@ -221,7 +193,7 @@ void las_or_csv_to_tifs(Options& opt, vw::cartography::GeoReference const& geore
   GeoReference csv_georef = georef;
   asp::CsvConv csv_conv;
   asp::parse_csv_format(opt.csv_format_str, csv_conv);
-  if (csv_conv.format == asp::UTM_EASTING_HEIGHT_NORTHING){
+  if (csv_conv.format == asp::EASTING_HEIGHT_NORTHING){
     try{
       csv_georef.set_UTM(csv_conv.utm_zone, csv_conv.utm_north);
     } catch ( const std::exception& e ) {
@@ -229,6 +201,36 @@ void las_or_csv_to_tifs(Options& opt, vw::cartography::GeoReference const& geore
                << "\nPlease check if you are using an Earth datum.\n");
     }
   }
+
+  // There are situations in which some files will already be tif, and
+  // others will be LAS or CSV. When we convert the latter to tif,
+  // we'd like to be able to match the number of rows of the existing
+  // tif files, so later when we concatenate all these files from left
+  // to right for the purpose of creating the DEM, we waste little
+  // space.
+  int num_rows = 0;
+  for (int i = 0; i < num_files; i++){
+    if (asp::is_las_or_csv(opt.pointcloud_files[i])) continue;
+    DiskImageView<float> img(opt.pointcloud_files[i]);
+    num_rows = std::max(num_rows, img.rows());
+  }
+
+  // No tif files exist. Find a reasonable value for the number of rows.
+  if (num_rows == 0){
+    boost::uint64_t max_num_pts = 0; 
+    for (int i = 0; i < num_files; i++){
+      std::string file = opt.pointcloud_files[i];
+      if (asp::is_las(file))
+        max_num_pts = std::max(max_num_pts, asp::las_file_size(file));    
+      if (asp::is_csv(file))
+        max_num_pts = std::max(max_num_pts, asp::csv_file_size(file));    
+    }
+    num_rows = std::max(1, (int)ceil(sqrt(double(max_num_pts))));
+  }
+  
+  // This is very important. For efficiency later, we don't want to create blocks
+  // smaller than what OrthoImageView will use later.
+  int block_size = asp::OrthoRasterizerView::max_subblock_size();
 
   for (int i = 0; i < num_files; i++){
     
