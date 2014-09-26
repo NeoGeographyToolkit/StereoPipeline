@@ -518,6 +518,8 @@ the one from the first LAS file will be used.
 For LAS or CSV clouds, it is not possible to generate intersection error
 maps or ortho images.
 
+For CSV clouds, the option \texttt{-\/-csv-format} must be set.
+
 \begin{longtable}{|p{8cm}|p{9cm}|}
 \caption{Command-line options for point2dem}
 \label{tbl:point2dem}
@@ -559,6 +561,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-proj-scale \textit{float}} & The projection scale (if applicable). \\ \hline
 \texttt{-\/-dem-spacing|-s \textit{float(=0)}} & Set the output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically (except for LAS and CSV files). \\ \hline
 \texttt{-\/-search-radius-factor \textit{float(=$0$)}} & Multiply this factor by \texttt{dem-spacing} to get the search radius. The DEM height at a given grid point is obtained as a weighted average of heights of all points in the cloud within search radius of the grid point, with the weights given by a Gaussian. Default search radius: max(\texttt{dem-spacing}, default\_dem\_spacing), so the default factor is about 1.\\ \hline
+\texttt{-\/-csv-format \textit{string}} & Specify the format of input CSV files as a list of entries column\_index:column\_type (indices start from 1). Examples: '1:x 2:y 3:z' (a Cartesian coordinate system with origin at planet center is assumed, with the units being in meters), '5:lon 6:lat 7:radius\_m' (longitude and latitude are in degrees, the radius is measured in meters from planet center), '3:lat 2:lon 1:height\_above\_datum', 'utm:47N 1:easting 2:northing 3:height\_above\_datum' (the height above datum is in meters). Can also use radius\_km for column\_type, when it is again measured from planet center. \\ \hline
 \texttt{-\/-rounding-error \textit{float(=$1/2^{10}$=$0.0009765625$)}} & How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. \\ \hline
 \texttt{-\/-dem-hole-fill-len \textit{int(=0)}} &  Maximum dimensions of a hole in the output DEM to fill in, in pixels. \\ \hline
 \texttt{-\/-orthoimage-hole-fill-len \textit{int(=0)}} & Maximum dimensions of a hole in the output orthoimage to fill in, in pixels. \\ \hline

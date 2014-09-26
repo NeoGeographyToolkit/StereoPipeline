@@ -56,6 +56,7 @@
 #include <vw/FileIO/DiskImageUtils.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
+#include <asp/Core/PointUtils.h>
 
 #include <limits>
 #include <cstring>
@@ -120,7 +121,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("alignment-method", po::value(&opt.alignment_method)->default_value("point-to-plane"), "The type of iterative closest point method to use. [point-to-plane, point-to-point]")
     ("highest-accuracy", po::bool_switch(&opt.highest_accuracy)->default_value(false)->implicit_value(true),
      "Compute with highest accuracy for point-to-plane (can be much slower).")
-    ("csv-format", po::value(&opt.csv_format_str)->default_value(""), "Specify the format of input CSV files as a list of entries column_index:column_type (indices start from 1). Examples: '1:x 2:y 3:z', '5:lon 6:lat 7:radius_m', '3:lat 2:lon 1:height_above_datum', 'utm:47N 1:easting 2:northing 3:height_above_datum'. Can also use radius_km for column_type.")
+    ("csv-format", po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
     ("datum", po::value(&opt.datum)->default_value(""), "Use this datum for CSV files instead of auto-detecting it. [WGS_1984, D_MOON (radius is assumed to be 1,737,400 meters), D_MARS (radius is assumed to be 3,396,190 meters), etc.]")
     ("semi-major-axis", po::value(&opt.semi_major)->default_value(0), "Explicitly set the datum semi-major axis in meters.")
     ("semi-minor-axis", po::value(&opt.semi_minor)->default_value(0), "Explicitly set the datum semi-minor axis in meters.")
@@ -220,273 +221,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
 }
 
-void parse_utm(string const& utm, int & zone, bool & north){
-  
-  // Parse the string 58N
-
-  // Initialize
-  zone = -1; north = false;
-  
-  string a, b;
-  for (int s = 0; s < (int)utm.size(); s++){
-    if (utm[s] >= '0' && utm[s] <= '9'){
-      a += utm[s];
-    }else{
-      b = utm[s];
-      break;
-    }
-  }
-
-  if (a == "" || b == "")
-    vw_throw(ArgumentErr() << "Could not parse UTM string: '" << utm << "'\n");
-  
-  zone = atoi(a.c_str());
-  if (b == "n" || b == "N"){
-    north = true;
-  }else if (b == "s" || b == "S"){
-    north = false;
-  }else
-    vw_throw(ArgumentErr() << "Could not parse UTM string: '" << utm << "'\n");
-}
-
-enum CsvFormat{
-  XYZ, HEIGHT_LAT_LON, LAT_LON_RADIUS_M, LAT_LON_RADIUS_KM,
-  UTM_EASTING_HEIGHT_NORTHING
-};
-
-struct CsvConv{
-  map<string,int> name2col;
-  map<int, string> col2name;
-  map<int, int> col2sort;
-  int lon_index, lat_index; 
-  string csv_format_str;
-  CsvFormat format;
-  int utm_zone;
-  bool utm_north;
-  CsvConv():lon_index(-1), lat_index(-1), format(XYZ), utm_zone(-1),
-            utm_north(false){}
-};
-
-void parse_csv_format(string const& csv_format_str, CsvConv & C){
-
-  // Parse the CSV format string and build the data structure which
-  // will enable to convert from CSV to Cartesian and vice-versa.
-
-  C = CsvConv(); // reset
-  
-  C.csv_format_str = csv_format_str;
-  
-  string local = csv_format_str;
-  boost::algorithm::to_lower(local);
-
-  if (local == "") return;
-    
-  boost::replace_all(local, ":", " ");
-  boost::replace_all(local, ",", " ");
-  istringstream is(local);
-
-  // The case of utm: "utm:23N 1:x 2:y 3:height_above_datum"
-  string str;
-  is >> str;
-  if (str == "utm"){
-    is >> str;
-    parse_utm(str, C.utm_zone, C.utm_north);
-  }else{
-    // Go back to the original string
-    is.clear();
-    is.str(local);
-  }
-  
-  int col1, col2, col3;
-  string name1, name2, name3;
-  if (! (is >> col1 >> name1 >> col2 >> name2 >> col3 >> name3) )
-    vw_throw(ArgumentErr() << "Could not parse: '" << csv_format_str
-             << "'\n");
-
-  col1--;
-  col2--;
-  col3--;
-  if (col1 < 0 || col2 < 0 || col3 < 0)
-    vw_throw(ArgumentErr() << "The column indices must be positive in: '"
-             << csv_format_str << "'\n");
-  
-  if (col1 == col2 || col1 == col3 || col2 == col3 )
-    vw_throw(ArgumentErr() << "The column indices must be distinct in: '"
-             << csv_format_str << "'\n");
-
-  C.name2col[name1] = col1;
-  C.name2col[name2] = col2;
-  C.name2col[name3] = col3;
-
-  // For each column index to read, map to corresponding column name
-  C.col2name[col1] = name1;
-  C.col2name[col2] = name2;
-  C.col2name[col3] = name3;
-
-  // Find the position of the longitude field
-  int k = 0;
-  for (map<int, string>::iterator it = C.col2name.begin();
-       it != C.col2name.end() ; it++){
-    if (it->second == "lon") C.lon_index = k;
-    if (it->second == "lat") C.lat_index = k;
-    k++;
-  }
-  
-  // Find the position of a column after the columns are sorted
-  // alphabetically.
-  vector<string> sorted_names;  
-  int count = 0;
-  for (map<string, int>::iterator it = C.name2col.begin();
-       it != C.name2col.end() ; it++){
-    sorted_names.push_back(it->first);
-    C.col2sort[it->second] = count;
-    count++;
-  }
-
-  if (sorted_names[0] == "x" && sorted_names[1] == "y"
-      && sorted_names[2] == "z"){
-    C.format = XYZ;
-  }else if (sorted_names[0] == "lat" &&
-            sorted_names[1] == "lon" &&
-            sorted_names[2] == "radius_m"){
-    C.format = LAT_LON_RADIUS_M;
-  }else if (sorted_names[0] == "lat" &&
-            sorted_names[1] == "lon" &&
-            sorted_names[2] == "radius_km"){
-    C.format = LAT_LON_RADIUS_KM;
-  }else if (sorted_names[0] == "height_above_datum" &&
-            sorted_names[1] == "lat" &&
-            sorted_names[2] == "lon"){
-    C.format = HEIGHT_LAT_LON;
-  }else if (C.utm_zone >= 0 && 
-            sorted_names[0] == "easting" &&
-            sorted_names[1] == "height_above_datum" &&
-            sorted_names[2] == "northing"){
-    C.format = UTM_EASTING_HEIGHT_NORTHING;
-  }else{
-    vw_throw( ArgumentErr() << "Cannot understand the csv format string: "
-              << csv_format_str << ".\n" );
-  }
-  
-}
-
-Vector3 csv_to_cartesian(Vector3 const& csv,
-                         GeoReference const& geo,
-                         CsvConv const& C){
-  
-  // Convert values read from a csv file (in the same order as in the file)
-  // to a Cartesian point.
-
-  // Convert the entries from the order they were in the csv file to
-  // the order in which the names of the entries are sorted
-  // alphabetically (e.g., in order height_above_datum, lat, lon).
-  Vector3 ordered_csv;
-  int count = 0;
-  for (map<int, int>::const_iterator it = C.col2sort.begin();
-       it != C.col2sort.end(); it++){
-    ordered_csv[it->second] = csv[count];
-    count++;
-  }
-
-  if (C.format == XYZ){
-    return ordered_csv; // already as xyz
-  }
-
-  Vector3 llh = ordered_csv, xyz;
-  
-  if (C.format == UTM_EASTING_HEIGHT_NORTHING){
-
-    // go from easting, height, northing to lon, lat
-    Vector2 ll = geo.point_to_lonlat(Vector2(ordered_csv[0], ordered_csv[2]));
-    llh = Vector3(ll[0], ll[1], ordered_csv[1]); // now lon, lat, height
-    xyz = geo.datum().geodetic_to_cartesian(llh);
-    
-  }else if (C.format == HEIGHT_LAT_LON){
-
-    std::swap(llh[0], llh[2]); // now lon, lat, height
-    xyz = geo.datum().geodetic_to_cartesian(llh);
-    
-  }else{
-
-    // Handle LAT_LON_RADIUS_M and LAT_LON_RADIUS_KM
-
-    std::swap(llh[0], llh[1]); // now lon, lat, radius_(k)m
-
-    if (C.format == LAT_LON_RADIUS_KM){
-      llh[2] *= 1000.0; // now lon, lat, radius_m
-    }
-
-    // Now we have lon, lat, radius_m
-    Vector3 tmp = llh; tmp[2] = 0; // now lon, lat, 0
-    xyz = geo.datum().geodetic_to_cartesian( tmp );
-
-    // Update the radius
-    xyz = llh[2]*(xyz/norm_2(xyz));
-  }
-
-  return xyz;
-}
-
-Vector3 cartesian_to_csv(Vector3 const& xyz,
-                         GeoReference const& geo,
-                         double mean_longitude,
-                         CsvConv const& C){
-
-  // Convert an xyz point to the fields we can write in a CSV file, in
-  // the same order as in the input CSV file.
-
-  Vector3 csv;
-  if (C.format == XYZ){
-    csv = xyz; // order is x, y, z
-    
-  }else{
-    
-    // Must assert here that the datum was specified.
-  
-    Vector3 llh = geo.datum().cartesian_to_geodetic(xyz);   // lon-lat-height
-    llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjust
-
-    if (C.format == UTM_EASTING_HEIGHT_NORTHING){
-      
-      // go from lon, lat to easting, northing
-      Vector2 en = geo.lonlat_to_point(Vector2(llh[0], llh[1]));
-      csv = Vector3(en[0], llh[2], en[1]); // order is easting, height, northing
-      
-    }else if (C.format == HEIGHT_LAT_LON){
-
-      std::swap(llh[0], llh[2]); // order is height, lat, lon
-      csv = llh;
-
-    }else{
-      
-      // Handle LAT_LON_RADIUS_M and LAT_LON_RADIUS_KM
-      std::swap(llh[0], llh[1]); // order is lat, lon, height
-      
-      llh[2] = norm_2(xyz); // order is lat, lon, radius_m
-      
-      if (C.format == LAT_LON_RADIUS_KM){
-        llh[2] /= 1000.0; // order is lat, lon, radius_km
-      }
-      csv = llh;
-    }
-    
-  }
-  
-  // Now we have the csv fields, but they are in the order
-  // corresponding to the sorted column names. Need to put them
-  // in the same order as they were in the file originally.
-
-  Vector3 csv2;
-  int count = 0;
-  for (map<int, int>::const_iterator it = C.col2sort.begin();
-       it != C.col2sort.end(); it++){
-    csv2[count] = csv[it->second];
-    count++;
-  }
-
-  return csv2;
-}
-
 string get_file_type(string const& file_name){
 
   boost::filesystem::path path(file_name);
@@ -505,7 +239,7 @@ string get_file_type(string const& file_name){
   }    
 }
 
-void read_datum(Options& opt, CsvConv& csv_conv, Datum& datum){
+void read_datum(Options& opt, asp::CsvConv& csv_conv, Datum& datum){
     
   // Set up the datum, need it to read CSV files.
 
@@ -537,8 +271,7 @@ void read_datum(Options& opt, CsvConv& csv_conv, Datum& datum){
                   opt.semi_major, opt.semi_minor, 0.0);
     vw_out() << "Will use datum (for CSV files): " << datum << std::endl;
   }else if (dem_file == "" &&
-            (opt.csv_format_str == "" || csv_conv.format != XYZ)
-            ){
+            (opt.csv_format_str == "" || csv_conv.format != asp::XYZ) ){
     // There is no DEM to read the datum from, and the user either
     // did not specify the CSV format (then we set it to lat, lon,
     // height), or it is specified as containing lat, lon, rather
@@ -660,7 +393,7 @@ template<typename T>
 int load_csv_aux(string const& file_name, int num_points_to_load,
                  BBox2 const& lonlat_box, bool verbose,
                  bool calc_shift, Vector3 & shift,
-                 GeoReference const& geo, CsvConv const& C,
+                 GeoReference const& geo, asp::CsvConv const& C,
                  bool & is_lola_rdr_format, double & mean_longitude,
                  typename PointMatcher<T>::DataPoints & data){
   
@@ -668,22 +401,17 @@ int load_csv_aux(string const& file_name, int num_points_to_load,
 
   is_lola_rdr_format = false;
 
+  int num_total_points = asp::num_points_in_csv_file(file_name);
+
+  std::string sep_str = asp::csv_separator();
+  const char* sep = sep_str.c_str();
+  
   const int bufSize = 1024;
   char temp[bufSize];
   ifstream file( file_name.c_str() );
   if( !file ) {
     vw_throw( vw::IOErr() << "Unable to open file \"" << file_name << "\"" );
   }
-
-  // Find how many lines are in the file
-  int num_total_points = 0;
-  string line;
-  while ( getline(file, line, '\n') ){
-    if (line.empty()) continue; // skip empty lines
-    if (line[0] == '#') continue; // Skip lines starting with comments
-    num_total_points++;
-  }
-  file.clear(); file.seekg(0, ios_base::beg); // go back to start of file
 
   // We will randomly pick or not a point with probability load_ratio
   double load_ratio
@@ -693,14 +421,11 @@ int load_csv_aux(string const& file_name, int num_points_to_load,
                                                    num_total_points));
   data.featureLabels = form_labels<T>(DIM);
 
-  char sep[] = ", \t";
-
-  // Peek at first line and see how many elements it has
-  line = "";
-  while ( getline(file, line, '\n') ){
-    if (line.empty()) continue; // skip empty lines
-    if (line[0] != '#') break; // found a valid line
-  }
+  // Peek at the first valid line and see how many elements it has
+  string line;
+  while ( getline(file, line, '\n') )
+    if (asp::is_valid_csv_line(line)) break;
+  
   file.clear(); file.seekg(0, ios_base::beg); // go back to start of file
   strncpy(temp, line.c_str(), bufSize);
   const char* token = strtok (temp, sep);
@@ -744,9 +469,8 @@ int load_csv_aux(string const& file_name, int num_points_to_load,
   while ( getline(file, line, '\n') ){
     
     if (points_count >= num_points_to_load) break;
-    
-    if (line.empty()) continue; // skip empty lines
-    if (line[0] == '#') continue; // Skip lines starting with comments
+
+    if (!asp::is_valid_csv_line(line)) continue;
 
     double r = (double)std::rand()/(double)RAND_MAX;
     if (r > load_ratio) continue;
@@ -758,49 +482,14 @@ int load_csv_aux(string const& file_name, int num_points_to_load,
     double lon = 0.0, lat = 0.0;
     
     if (C.csv_format_str != ""){
-      // Parse a custom CSV file
-      strncpy(temp, line.c_str(), bufSize);
 
-      int col_index = -1;
-      int num_read = 0;
+      // Parse custom CSV file with given format string
+      bool success;
+      Vector3 vals = asp::parse_csv_line(is_first_line, success, line, C);
+      if (!success) continue;
       
-      char * ptr = temp;
-      Vector3 vals;
-      bool success = true;
-      while(1){
-        
-        col_index++;
-        const char* token = strtok(ptr, sep); ptr = NULL; 
-        if ( token == NULL ) break; // no more tokens
-        if ( num_read >= 3 ) break; // read enough numbers
-
-        // Look only at indices we are supposed to read
-        if (C.col2name.find(col_index) == C.col2name.end()) continue;
-
-        double val;
-        int flag = sscanf(token, "%lg", &val);
-        if (flag == 0){
-          success = false;
-          break;
-        }
-        vals[num_read] = val;
-        num_read++;
-      }
-
-      if (num_read != (int)vals.size()) success = false;
-
-      // Be prepared for the fact that the first line may be the header.
-      if (!success){
-        if (!is_first_line){
-          vw_throw( vw::IOErr() << "Failed to read line: " << line << "\n" );
-        }else{
-          is_first_line = false;
-          continue;
-        }
-      }
-      is_first_line = false;
-
-      xyz = csv_to_cartesian(vals, geo, C);
+      bool return_point_height = false; // will return xyz
+      xyz = asp::csv_to_cartesian_or_point_height(vals, geo, C, return_point_height);
 
       // Decide if the point is in the box. Also save for the future
       // the longitude of the point, we'll use it to compute the mean
@@ -948,11 +637,10 @@ void load_csv(string const& file_name,
                  bool calc_shift,
                  Vector3 & shift,
                  GeoReference const& geo,
-                 CsvConv const& C,
+                 asp::CsvConv const& C,
                  bool & is_lola_rdr_format,
                  double & mean_longitude,
-                 typename PointMatcher<T>::DataPoints & data
-              ){
+                 typename PointMatcher<T>::DataPoints & data){
 
   int num_total_points = load_csv_aux<T>(file_name, num_points_to_load,  
                                          lonlat_box, verbose,  
@@ -1178,7 +866,7 @@ void load_file(string const& file_name,
                bool calc_shift,
                Vector3 & shift,
                GeoReference const& geo,
-               CsvConv const& csv_conv,
+               asp::CsvConv const& csv_conv,
                bool & is_lola_rdr_format,
                double & mean_longitude,
                bool verbose,
@@ -1219,7 +907,7 @@ void load_file(string const& file_name,
 // away points in the other cloud which are not within this box.
 BBox2 calc_extended_lonlat_bbox(GeoReference const& geo,
                                 int num_sample_pts,
-                                CsvConv const& C,
+                                asp::CsvConv const& C,
                                 string const& file_name,
                                 double max_disp){
 
@@ -1440,7 +1128,7 @@ void save_errors(DP const& point_cloud,
                  string const& output_file,
                  Vector3 const& shift,
                  GeoReference const& geo,
-                 CsvConv const& C,
+                 asp::CsvConv const& C,
                  bool is_lola_rdr_format,
                  double mean_longitude
                  ){
@@ -1541,7 +1229,7 @@ void save_trans_point_cloud(Options const& opt,
                             string input_file,
                             string out_prefix,
                             GeoReference const& geo,
-                            CsvConv const& C,
+                            asp::CsvConv const& C,
                             PointMatcher<RealT>::Matrix const& T
                             ){
 
@@ -1707,15 +1395,14 @@ int main( int argc, char *argv[] ) {
     // Set the number of threads for OpenMP
     omp_set_num_threads(opt.num_threads);
 
-    CsvConv C;
-    if (opt.csv_format_str != "")
-      parse_csv_format(opt.csv_format_str, C);
+    asp::CsvConv C;
+    parse_csv_format(opt.csv_format_str, C);
     
     Datum datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
                 "Reference Meridian", 1, 1, 0);
     read_datum(opt, C, datum);
     GeoReference geo(datum);
-    if (C.format == UTM_EASTING_HEIGHT_NORTHING){
+    if (C.format == asp::UTM_EASTING_HEIGHT_NORTHING){
       try{
         geo.set_UTM(C.utm_zone, C.utm_north);
       } catch ( const std::exception& e ) {

@@ -48,14 +48,64 @@ namespace asp {
 
   boost::uint64_t las_file_size(std::string const& las_file);
     
-  void las_to_tif(std::string const& las_file,
-                  std::string const& pc_file,
-                  int num_rows, int block_size);
-  
   bool read_user_datum(double semi_major, double semi_minor,
                        std::string const& reference_spheroid,
                        vw::cartography::Datum& datum );
 
+  void parse_utm_str(std::string const& utm, int & zone, bool & north);
+
+  inline std::string csv_separator(){ return ", \t"; }
+
+  // Need this for pc_align and point2dem
+  inline std::string csv_opt_caption(){
+    return "Specify the format of input CSV files as a list of entries column_index:column_type (indices start from 1). Examples: '1:x 2:y 3:z', '5:lon 6:lat 7:radius_m', '3:lat 2:lon 1:height_above_datum', 'utm:47N 1:easting 2:northing 3:height_above_datum'. Can also use radius_km for column_type.";
+  }
+  
+  // Utilities for processing csv files
+  enum CsvFormat{
+    XYZ, HEIGHT_LAT_LON, LAT_LON_RADIUS_M,
+    LAT_LON_RADIUS_KM, UTM_EASTING_HEIGHT_NORTHING
+  };
+
+  struct CsvConv{
+    std::map<std::string,int> name2col;
+    std::map<int, std::string> col2name;
+    std::map<int, int> col2sort;
+    int lon_index, lat_index; 
+    std::string csv_format_str;
+    CsvFormat format;
+    int utm_zone;
+    bool utm_north;
+    CsvConv():lon_index(-1), lat_index(-1), format(XYZ), utm_zone(-1),
+              utm_north(false){}
+  };
+
+  void las_or_csv_to_tif(std::string const& in_file,
+                         std::string const& out_file,
+                         int num_rows, int block_size,
+                         vw::cartography::GeoReference const& csv_georef,
+                         asp::CsvConv const& csv_conv);
+  
+  void parse_csv_format(std::string const& csv_format_str, CsvConv & C);
+  
+  vw::Vector3 parse_csv_line(bool & is_first_line, bool & success,
+                             std::string const& line,
+                             asp::CsvConv const& csv_conv);
+
+  vw::Vector3 csv_to_cartesian_or_point_height(vw::Vector3 const& csv,
+                                               vw::cartography::GeoReference const& geo,
+                                               CsvConv const& C,
+                                               bool return_point_height);
+
+  vw::Vector3 cartesian_to_csv(vw::Vector3 const& xyz,
+                               vw::cartography::GeoReference const& geo,
+                               double mean_longitude,
+                               CsvConv const& C);
+  
+  bool is_valid_csv_line(std::string const& line);
+
+  int num_points_in_csv_file(std::string const& file);
+  
   // Erases a file suffix if one exists and returns the base string
   std::string prefix_from_pointcloud_filename(std::string const& filename);
 

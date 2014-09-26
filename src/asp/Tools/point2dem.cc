@@ -82,6 +82,7 @@ struct Options : asp::BaseOptions {
   bool remove_outliers;
   Vector2 remove_outliers_params;
   double max_valid_triangulation_error;
+  std::string csv_format_str;
   double search_radius_factor;
   bool use_surface_sampling;
   bool has_las_or_csv;
@@ -162,7 +163,8 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
   
 }
 
-void las_or_csv_to_tif(Options& opt, std::vector<std::string> & tmp_tifs){
+void las_or_csv_to_tifs(Options& opt, vw::cartography::GeoReference const& georef,
+                        std::vector<std::string> & tmp_tifs){
 
   // Convert any LAS or CSV files to ASP tif files. We do some binning
   // to make the spatial data more localized, to improve performance.
@@ -192,7 +194,8 @@ void las_or_csv_to_tif(Options& opt, std::vector<std::string> & tmp_tifs){
     boost::uint64_t max_num_pts = 0; 
     for (int i = 0; i < num_files; i++){
       if (!asp::is_las_or_csv(opt.pointcloud_files[i])) continue;
-      max_num_pts = std::max(max_num_pts, asp::las_file_size(opt.pointcloud_files[i]));    
+      max_num_pts = std::max(max_num_pts,
+                             asp::las_file_size(opt.pointcloud_files[i]));    
     }
     num_rows = (int)ceil(sqrt(double(max_num_pts)));
   }
@@ -201,14 +204,42 @@ void las_or_csv_to_tif(Options& opt, std::vector<std::string> & tmp_tifs){
   // smaller than what OrthoImageView will use later.
   int block_size = asp::OrthoRasterizerView::max_subblock_size();
 
+  // Error checking for CSV
+  for (int i = 0; i < num_files; i++){
+    if (!asp::is_csv(opt.pointcloud_files[i])) continue;
+    if (opt.csv_format_str == "")
+      vw_throw(ArgumentErr() << "CSV files were passed in, but the "
+               << "CSV format string was not set.\n");
+    if (opt.reference_spheroid == "" &&
+        ( opt.semi_major <= 0 || opt.semi_minor <= 0) )
+      vw_throw( ArgumentErr() << "Cannot detect the planet. "
+                << "Please specify it via --reference-spheroid or "
+                << "--semi-major-axis and --semi-minor-axis.\n" );
+  }
+  
+  // Set the georef for CSV files
+  GeoReference csv_georef = georef;
+  asp::CsvConv csv_conv;
+  asp::parse_csv_format(opt.csv_format_str, csv_conv);
+  if (csv_conv.format == asp::UTM_EASTING_HEIGHT_NORTHING){
+    try{
+      csv_georef.set_UTM(csv_conv.utm_zone, csv_conv.utm_north);
+    } catch ( const std::exception& e ) {
+      vw_throw(ArgumentErr() << "Detected error: " << e.what()
+               << "\nPlease check if you are using an Earth datum.\n");
+    }
+  }
+
   for (int i = 0; i < num_files; i++){
     
     if (!asp::is_las_or_csv(opt.pointcloud_files[i])) continue;
     std::string in_file = opt.pointcloud_files[i];
     std::string stem = fs::path( in_file ).stem().string();
     std::string suffix;
-    if (opt.out_prefix.find(stem) != std::string::npos) suffix = ".tif";
-    else                                                suffix = "-" + stem + ".tif";
+    if (opt.out_prefix.find(stem) != std::string::npos)
+      suffix = ".tif";
+    else
+      suffix = "-" + stem + ".tif";
     std::string out_file = opt.out_prefix + "-tmp" + suffix;
 
     // Handle the case when the output file may exist
@@ -220,16 +251,18 @@ void las_or_csv_to_tif(Options& opt, std::vector<std::string> & tmp_tifs){
       out_file = opt.out_prefix + "-tmp-" + os.str() + suffix;
     }
     if (fs::exists(out_file))
-      vw_throw( ArgumentErr() << "Too many attempts at creating a temporary file.\n");
+      vw_throw( ArgumentErr()
+                << "Too many attempts at creating a temporary file.\n");
 
-    asp::las_to_tif(in_file, out_file, num_rows, block_size);
+    asp::las_or_csv_to_tif(in_file, out_file, num_rows, block_size,
+                           csv_georef, csv_conv);
     opt.pointcloud_files[i] = out_file; // so we can use it instead of the las file
     tmp_tifs.push_back(out_file); // so we can wipe it later
   }
 
   sw.stop();
-  vw_out(DebugMessage,"asp") << "LAS or CSV to TIF conversion time: " << sw.elapsed_seconds()
-                             << std::endl;
+  vw_out(DebugMessage,"asp")
+    << "LAS or CSV to TIF conversion time: " << sw.elapsed_seconds() << std::endl;
   
 }
 
@@ -293,6 +326,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Turn on automatic outlier removal based on triangulation error. See also: remove-outliers-params.")
     ("remove-outliers-params", po::value(&opt.remove_outliers_params)->default_value(Vector2(75.0, 3.0), "pct factor"), "Points with triangulation error larger than pct-th percentile times factor will be removed as outliers. [default: pct=75.0, factor=3.0]")
     ("max-valid-triangulation-error", po::value(&opt.max_valid_triangulation_error)->default_value(0), "Manual outlier removal. Points with triangulation error larger than this (in meters) are removed from the cloud.")
+    ("csv-format", po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
     ("rounding-error", po::value(&opt.rounding_error)->default_value(asp::APPROX_ONE_MM),
      "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")
     ("search-radius-factor", po::value(&opt.search_radius_factor)->default_value(0.0),
@@ -1041,27 +1075,10 @@ int main( int argc, char *argv[] ) {
   try {
     handle_arguments( argc, argv, opt );
 
-    // Extract georef info from las files before we convert them.
+    // Extract georef info from las files before converting them to ASP clouds.
     GeoReference las_georef;
     bool has_las_georef = asp::georef_from_las(opt.pointcloud_files, las_georef);
     
-    // Convert any input LAS or CSV files to ASP's point cloud tif format
-    std::vector<std::string> tmp_tifs;
-    las_or_csv_to_tif(opt, tmp_tifs);
-
-    ImageViewRef<Vector3> point_image
-      = asp::form_composite<Vector3>(opt.pointcloud_files);
-
-    // Apply an (optional) rotation to the 3D points before building the mesh.
-    if (opt.phi_rot != 0 || opt.omega_rot != 0 || opt.kappa_rot != 0) {
-      vw_out() << "\t--> Applying rotation sequence: " << opt.rot_order
-               << "      Angles: " << opt.phi_rot << "   "
-               << opt.omega_rot << "  " << opt.kappa_rot << "\n";
-      point_image =
-        asp::point_transform(point_image, math::euler_to_rotation_matrix
-                        (opt.phi_rot, opt.omega_rot,opt.kappa_rot, opt.rot_order));
-    }
-
     // Set up the georeferencing information.  We specify everything
     // here except for the affine transform, which is defined later once
     // we know the bounds of the orthorasterizer view.  However, we can
@@ -1101,8 +1118,7 @@ int main( int argc, char *argv[] ) {
       case UTM:
         georef.set_UTM( opt.utm_zone ); break;
       default: // Handles plate carree
-        if (has_las_georef)
-          georef = las_georef;
+        if (has_las_georef) georef = las_georef; // copy from las georef if present
         break;
       }
       
@@ -1113,10 +1129,29 @@ int main( int argc, char *argv[] ) {
       // so GDAL won't default to WGS84.
       cartography::Datum user_datum;
       bool have_user_datum = asp::read_user_datum(opt.semi_major, opt.semi_minor,
-                                                  opt.reference_spheroid, user_datum);
+                                                  opt.reference_spheroid,
+                                                  user_datum);
 
       // Set the srs string into georef.
-      asp::set_srs_string(opt.target_srs_string, have_user_datum, user_datum, georef);
+      asp::set_srs_string(opt.target_srs_string,
+                          have_user_datum, user_datum, georef);
+    }
+
+    // Convert any input LAS or CSV files to ASP's point cloud tif format
+    std::vector<std::string> tmp_tifs;
+    las_or_csv_to_tifs(opt, georef, tmp_tifs);
+
+    ImageViewRef<Vector3> point_image
+      = asp::form_composite<Vector3>(opt.pointcloud_files);
+
+    // Apply an (optional) rotation to the 3D points before building the mesh.
+    if (opt.phi_rot != 0 || opt.omega_rot != 0 || opt.kappa_rot != 0) {
+      vw_out() << "\t--> Applying rotation sequence: " << opt.rot_order
+               << "      Angles: " << opt.phi_rot << "   "
+               << opt.omega_rot << "  " << opt.kappa_rot << "\n";
+      point_image =
+        asp::point_transform(point_image, math::euler_to_rotation_matrix
+                        (opt.phi_rot, opt.omega_rot,opt.kappa_rot, opt.rot_order));
     }
 
     // Determine if we should be using a longitude range between
