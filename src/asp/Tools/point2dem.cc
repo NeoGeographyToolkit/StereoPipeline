@@ -257,7 +257,7 @@ void las_or_csv_to_tifs(Options& opt, vw::cartography::GeoReference const& geore
                 << "Too many attempts at creating a temporary file.\n");
 
     asp::las_or_csv_to_tif(in_file, out_file, num_rows, block_size,
-                           csv_georef, csv_conv);
+                           &opt, csv_georef, csv_conv);
     opt.pointcloud_files[i] = out_file; // so we can use it instead of the las file
     tmp_tifs.push_back(out_file); // so we can wipe it later
   }

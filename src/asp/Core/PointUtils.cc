@@ -299,6 +299,7 @@ boost::uint64_t asp::las_file_size(std::string const& las_file){
 void asp::las_or_csv_to_tif(std::string const& in_file,
                             std::string const& out_file,
                             int num_rows, int block_size,
+                            asp::BaseOptions * opt, 
                             vw::cartography::GeoReference const& csv_georef,
                             asp::CsvConv const& csv_conv){
   
@@ -310,9 +311,6 @@ void asp::las_or_csv_to_tif(std::string const& in_file,
   int tile_len = 2048;
   Vector2 tile_size(tile_len, tile_len);
   
-  asp::BaseOptions opt;
-  opt.gdal_options["COMPRESS"] = "LZW";  
-  opt.raster_tile_size = tile_size; // Force tiles of this size
   vw_out() << "Writing temporary file: " << out_file << std::endl;
 
   if (asp::is_csv(in_file)){
@@ -324,7 +322,7 @@ void asp::las_or_csv_to_tif(std::string const& in_file,
                                                   tile_len, block_size);
 
     // Must use a thread only, as we read the las file serially.
-    asp::write_gdal_image(out_file, Img, opt, TerminalProgressCallback("asp", "\t--> ") );
+    asp::write_gdal_image(out_file, Img, *opt, TerminalProgressCallback("asp", "\t--> ") );
 
   }else if (asp::is_las(in_file)){
 
@@ -338,7 +336,7 @@ void asp::las_or_csv_to_tif(std::string const& in_file,
                                                   tile_len, block_size);
     
     // Must use a thread only, as we read the las file serially.
-    asp::write_gdal_image(out_file, Img, opt, TerminalProgressCallback("asp", "\t--> ") );
+    asp::write_gdal_image(out_file, Img, *opt, TerminalProgressCallback("asp", "\t--> ") );
   }else
     vw_throw( ArgumentErr() << "Unknown file type: " << in_file << "\n");
   

@@ -36,6 +36,8 @@ namespace vw{
 
 namespace asp {
 
+  class BaseOptions;
+  
   bool is_las(std::string const& file);
   bool is_csv(std::string const& file);
   bool is_las_or_csv(std::string const& file);
@@ -82,9 +84,10 @@ namespace asp {
   void las_or_csv_to_tif(std::string const& in_file,
                          std::string const& out_file,
                          int num_rows, int block_size,
+                         asp::BaseOptions * opt, 
                          vw::cartography::GeoReference const& csv_georef,
                          asp::CsvConv const& csv_conv);
-  
+
   void parse_csv_format(std::string const& csv_format_str, CsvConv & C);
   
   vw::Vector3 parse_csv_line(bool & is_first_line, bool & success,
