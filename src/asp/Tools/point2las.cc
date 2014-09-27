@@ -157,9 +157,9 @@ int main( int argc, char *argv[] ) {
     ofs.open(lasFile.c_str(), std::ios::out | std::ios::binary);
     liblas::Writer writer(ofs, header);
 
-    TerminalProgressCallback progress_bar("asp","");
+    TerminalProgressCallback tpc("asp", "\t--> ");
     for (int row = 0; row < point_image.rows(); row++){
-      progress_bar.report_fractional_progress(row, point_image.rows());
+      tpc.report_fractional_progress(row, point_image.rows());
       for (int col = 0; col < point_image.cols(); col++){
 
         Vector3 point = point_image(col, row);
@@ -178,7 +178,7 @@ int main( int argc, char *argv[] ) {
 
       }
     }
-    progress_bar.report_finished();
+    tpc.report_finished();
 
   } ASP_STANDARD_CATCHES;
 

@@ -44,7 +44,7 @@ namespace asp{
 
   public:
     boost::uint64_t m_num_points;
-    bool m_have_georef;
+    bool m_has_georef;
     GeoReference m_georef;
     virtual bool ReadNextPoint() = 0;
     virtual Vector3 GetPoint() = 0;
@@ -59,11 +59,11 @@ namespace asp{
     LasReader(liblas::Reader & reader):m_reader(reader){
       liblas::Header const& header = m_reader.GetHeader();
       m_num_points = header.GetPointRecordsCount();
-      
+
       std::string wkt = header.GetSRS().GetWKT();
-      m_have_georef = false;
+      m_has_georef = false;
       if (wkt != ""){
-        m_have_georef = true;
+        m_has_georef = true;
         m_georef.set_wkt(wkt);
       }
     }
@@ -96,7 +96,7 @@ namespace asp{
 
       // We will convert from projected space to xyz, unless points
       // are already in this format.
-      m_have_georef = (m_csv_conv.format != asp::XYZ);
+      m_has_georef = (m_csv_conv.format != asp::XYZ);
       
       m_georef      = georef;
       m_num_points  = asp::csv_file_size(m_csv_file);
@@ -213,7 +213,7 @@ namespace asp{
       }
     
       ImageView<Vector3> Img;
-      Chipper(in, m_block_size, m_reader->m_have_georef, m_reader->m_georef,
+      Chipper(in, m_block_size, m_reader->m_has_georef, m_reader->m_georef,
               num_cols, num_rows, Img);
     
       VW_ASSERT(num_cols == Img.cols() && num_rows == Img.rows(),
@@ -249,11 +249,12 @@ bool asp::is_las_or_csv(std::string const& file){
 bool asp::georef_from_las(std::string const& las_file,
                           vw::cartography::GeoReference & georef){
 
+  if (!is_las(las_file))
+    vw_throw( ArgumentErr() << "Not a LAS file: " << las_file << "\n");
+  
   // Initialize
   georef = GeoReference();
 
-  if (!is_las(las_file)) return false;
-    
   std::ifstream ifs;
   ifs.open(las_file.c_str(), std::ios::in | std::ios::binary);
   liblas::ReaderFactory f;
@@ -268,7 +269,7 @@ bool asp::georef_from_las(std::string const& las_file,
   return true;
 }
 
-bool asp::georef_from_las(std::vector<std::string> const& las_files,
+bool asp::georef_from_las(std::vector<std::string> const& files,
                           vw::cartography::GeoReference & georef){
 
   // Get the georeference from the first las file
@@ -276,9 +277,10 @@ bool asp::georef_from_las(std::vector<std::string> const& las_files,
   // Initialize
   georef = GeoReference();
 
-  for (int i = 0; i < (int)las_files.size(); i++){
+  for (int i = 0; i < (int)files.size(); i++){
     GeoReference local_georef;
-    if (asp::georef_from_las(las_files[i], local_georef)){
+    if (!is_las(files[i])) continue;
+    if (asp::georef_from_las(files[i], local_georef)){
       georef = local_georef;
       return true;
     }

@@ -45,7 +45,7 @@ namespace asp {
   bool georef_from_las(std::string const& las_file,
                        vw::cartography::GeoReference & georef);
 
-  bool georef_from_las(std::vector<std::string> const& las_files,
+  bool georef_from_las(std::vector<std::string> const& files,
                        vw::cartography::GeoReference & georef);
 
   boost::uint64_t las_file_size(std::string const& las_file);
@@ -180,8 +180,8 @@ namespace asp {
     vw::BBox3 result;
     typename ViewT::pixel_accessor row_acc = point_image.impl().origin();
     vw::vw_out() << "Computing the point cloud bounding box.\n";
-    vw::TerminalProgressCallback progress_bar("asp","");
-
+    vw::TerminalProgressCallback progress_bar("asp", "\t--> ");
+    
     for (int row=0; row < point_image.impl().rows(); ++row ) {
       typename ViewT::pixel_accessor col_acc = row_acc;
       progress_bar.report_fractional_progress(row, point_image.impl().rows());

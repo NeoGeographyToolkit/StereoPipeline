@@ -1087,7 +1087,8 @@ time, but may result in better alignment, at the expense of using more
 memory and processing time.
 
 The input point clouds can be in one of several formats: ASP's point
-cloud format, DEMs as GeoTiff or ISIS cub files, or plain-text CSV files (with .csv
+cloud format, DEMs as GeoTiff or ISIS cub files, LAS files,
+or plain-text CSV files (with .csv
 or .txt extension). By default, CSV files are expected to have on each
 line the latitude and longitude (in degrees), and the height above the
 datum (in meters), separated by commas or spaces, with an optional
@@ -1096,7 +1097,7 @@ file via the \texttt{-\/-csv-format} option. Entries in the CSV file can
 then be (in any order) (a) longitude, latitude (in degrees), height
 above datum (in meters), (b) longitude, latitude, distance from planet
 center (in meters or km), (c) easting, northing and height above datum
-in UTM coordinates (in meters), (d) Cartesian coordinates (x, y, z)
+in UTM coordinates (in meters), (d) Cartesian coordinates $(x, y, z)$
 measured from planet center (in meters). The precise syntax is described
 in the table below. The tool can also auto-detect the LOLA RDR
 PointPerRow format.
@@ -1165,7 +1166,10 @@ fine-tune the stopping criteria.
 \medskip
 
 Usage:\\
-\hspace*{2em}\texttt{pc\_align -\/-max-displacement arg [other options] <reference cloud> <source cloud>}
+\begin{verbatim}
+  pc_align  --max-displacement arg [other options] <reference cloud> <source cloud> \
+    -o <output prefix>}
+\end{verbatim}
 
 \medskip
 
