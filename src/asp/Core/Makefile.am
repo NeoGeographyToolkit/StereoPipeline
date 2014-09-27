@@ -35,7 +35,7 @@ include_HEADERS = BlobIndexThreaded.h StereoSettings.h SparseView.h      \
                   Common.h ThreadedEdgeMask.h GaussianClustering.h       \
                   IntegralAutoGainDetector.h InterestPointMatching.h     \
                   DemDisparity.h LocalHomography.h AffineEpipolar.h      \
-                  Point2Grid.h OrthoRasterizer.h PointUtils.h
+                  Point2Grid.h PointUtils.h
 
 
 libaspCore_la_SOURCES = BlobIndexThreaded.cc Common.cc MedianFilter.cc   \
