@@ -684,14 +684,22 @@ Individual tiles can be saved via the \texttt{-\/-tile-index} option
 such, separate processes can be invoked for individual tiles, for
 increased robustness and perhaps speed.
 
-The output mosaic tiles will be named <output prefix>-tile-<tile index>.tif,
-where <output prefix> is an arbitrary string. For example, if it is 
-set to \texttt{results/output}, all the tiles will be in the
-\texttt{results} directory. 
+The output mosaic tiles will be named <output prefix>-tile-<tile
+index>.tif, where <output prefix> is an arbitrary string. For example,
+if it is set to \texttt{results/output}, all the tiles will be in the
+\texttt{results} directory. The tile names will be adjusted accordingly
+if one of the \texttt{-\/-first}, \texttt{-\/-last}, \texttt{-\/-min},
+etc. options is invoked (see below).
 
 By the default, the output mosaicked DEM will use the same grid size and
 projection as the first input DEM. These can be changed via the
 \texttt{-\/-tr} and \texttt{-\/-t\_srs} options.
+
+Instead of blending, \texttt{dem\_mosaic} can compute the image of
+first, last, minimum, maximum, mean, median, and count of all
+encountered valid DEM heights at output grid points. For the
+``first'' and ``last'' operations, we use the order in which DEMs
+were passed in.
 
 \begin{longtable}{|l|p{10cm}|}
 \caption{Command-line options for dem\_mosaic}
@@ -738,10 +746,36 @@ Set the tile size in georeferenced (projected) units (e.g., degrees or meters).
 \texttt{-\/-output-nodata-value \textit{double}} &
 No-data value to use on output. Default: use the one from the first DEM to be mosaicked.
 \\ \hline
-\texttt{-\/-draft-mode } 
-& Put the DEMs together without blending them (the result is less smooth).
+
+\texttt{-\/-first} 
+& Keep the first encountered DEM value (in the input order).
 \\ \hline
-\texttt{-\/-threads \textit{integer}} 
+
+\texttt{-\/-last} 
+& Keep the last encountered DEM value (in the input order).
+\\ \hline
+
+\texttt{-\/-min} 
+& Keep the smallest encountered DEM value.
+\\ \hline
+
+\texttt{-\/-max} 
+& Keep the largest encountered DEM value.
+\\ \hline
+
+\texttt{-\/-mean} 
+& Find the mean DEM value.
+\\ \hline
+
+\texttt{-\/-median} 
+& Find the median DEM value (this can be memory-intensive, fewer threads are suggested).
+\\ \hline
+
+\texttt{-\/-count} 
+& Find the image of counts of DEM values.
+\\ \hline
+
+\texttt{-\/-threads \textit{integer(=4)}} 
 & Set the number of threads to use.
 \\ \hline
 \texttt{-\/-help|-h} & Display the help message.
