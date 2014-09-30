@@ -310,11 +310,16 @@ void asp::las_or_csv_to_tif(std::string const& in_file,
   // it to disk as a tile in a vector tif image. The bigger the tile
   // size, the more likely the binning will be more efficient. But big
   // tiles use a lot of memory.
-  int tile_len = 2048;
+
+  // To do: Study performance for large files when this number changes
+  int tile_len = 2048; 
   Vector2 tile_size(tile_len, tile_len);
   
   vw_out() << "Writing temporary file: " << out_file << std::endl;
 
+  Vector2 original_tile_size = opt->raster_tile_size;
+  opt->raster_tile_size = tile_size;
+  
   if (asp::is_csv(in_file)){
 
     boost::shared_ptr<asp::CsvReader> csvReaderPtr
@@ -341,6 +346,9 @@ void asp::las_or_csv_to_tif(std::string const& in_file,
     asp::write_gdal_image(out_file, Img, *opt, TerminalProgressCallback("asp", "\t--> ") );
   }else
     vw_throw( ArgumentErr() << "Unknown file type: " << in_file << "\n");
+
+  // Restore the original tile size
+  opt->raster_tile_size = original_tile_size;
   
 }
   
