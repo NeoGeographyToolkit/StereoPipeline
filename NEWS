@@ -21,6 +21,8 @@
    * Take as input n clouds and optionally n texture files, create a
      single DEM/orthoimage.
    * Take as input LAS and CSV files.
+   * Fix a bug in the interplay of hole-filling and outlier removal
+     for orthoimage creation.
 
  - bundle_adjust
    * Use multiple-threads for non-ISIS sessions.
