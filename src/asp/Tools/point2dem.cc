@@ -116,6 +116,21 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
     vw_throw( ArgumentErr() << "Missing input point clouds.\n"
               << usage << general_options );
   
+  // Ensure there were no unrecognized options
+  for (int i = 0; i < num; i++){
+    if (!files[i].empty() && files[i][0] == '-'){
+      vw_throw( ArgumentErr() << "Unrecognized option: " << files[i] << ".\n"
+                << usage << general_options );
+    }
+  }
+
+  // Ensure that files exist
+  for (int i = 0; i < num; i++){
+    if (!fs::exists(files[i])){
+      vw_throw( ArgumentErr() << "File does not exist: " << files[i] << ".\n" );
+    }
+  }
+  
   int beg_clouds = 0, beg_textures = num, end_textures = num;
   if (opt.do_ortho){
 
