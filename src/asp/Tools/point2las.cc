@@ -32,6 +32,7 @@
 #include <vw/FileIO.h>
 #include <vw/Image.h>
 #include <vw/Math.h>
+#include <vw/Cartography/PointImageManipulation.h>
 
 using namespace vw;
 namespace po = boost::program_options;
@@ -47,7 +48,7 @@ namespace vw {
 struct Options : asp::BaseOptions {
   // Input
   std::string reference_spheroid;
-  std::string pointcloud_filename;
+  std::string pointcloud_file;
   bool compressed;
   // Output
   std::string out_prefix;
@@ -67,7 +68,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::options_description positional("");
   positional.add_options()
-    ("input-file", po::value(&opt.pointcloud_filename), "Input Point Cloud");
+    ("input-file", po::value(&opt.pointcloud_file), "Input Point Cloud");
 
   po::positional_options_description positional_desc;
   positional_desc.add("input-file", 1);
@@ -80,13 +81,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                              positional, positional_desc, usage,
                              allow_unregistered, unregistered );
 
-  if ( opt.pointcloud_filename.empty() )
+  if ( opt.pointcloud_file.empty() )
     vw_throw( ArgumentErr() << "Missing point cloud.\n"
               << usage << general_options );
 
   if ( opt.out_prefix.empty() )
     opt.out_prefix =
-      asp::prefix_from_filename( opt.pointcloud_filename );
+      asp::prefix_from_filename( opt.pointcloud_file );
 
   boost::to_lower( opt.reference_spheroid );
 
@@ -108,8 +109,26 @@ int main( int argc, char *argv[] ) {
   try {
     handle_arguments( argc, argv, opt );
 
-    ImageViewRef<Vector3> point_image = asp::read_cloud<3>(opt.pointcloud_filename);
-    BBox3 cloud_bbox = asp::pointcloud_bbox(point_image);
+    // Save the las file in respect to a reference spheroid if provided
+    // by the user.
+    liblas::Header header;
+    cartography::Datum datum;
+    bool have_user_datum
+      = asp::read_user_datum(0, 0, opt.reference_spheroid, datum);
+    if (have_user_datum){
+      liblas::SpatialReference ref;
+      std::string target_srs = "+proj=longlat " + datum.proj4_str();
+      ref.SetFromUserInput(target_srs);
+      vw_out() << "Setting SRS to '" << target_srs << "'"<< std::endl;
+      header.SetSRS(ref);
+    }
+
+    bool is_geodetic = have_user_datum;
+    ImageViewRef<Vector3> point_image = asp::read_cloud<3>(opt.pointcloud_file);
+    if (is_geodetic)
+      point_image = cartesian_to_geodetic(point_image, datum);
+    
+    BBox3 cloud_bbox = asp::pointcloud_bbox(point_image, is_geodetic);
 
     // The las format stores the values as 32 bit integers. So, for a
     // given point, we store round((point-offset)/scale), as well as
@@ -125,32 +144,17 @@ int main( int argc, char *argv[] ) {
       if (scale[i] <= 0.0) scale[i] = 1.0e-16; // avoid degeneracy
     }
 
-    liblas::Header header;
     // The line below causes trouble with compression in libLAS-1.7.0.
     //header.SetDataFormatId(liblas::ePointFormat1);
     header.SetScale(scale[0], scale[1], scale[2]);
     header.SetOffset(offset[0], offset[1], offset[2]);
 
-    // Save the las file in respect to a reference spheroid if provided
-    // by the user.
-    cartography::Datum user_datum;
-    bool have_user_datum
-      = asp::read_user_datum(0, 0, opt.reference_spheroid, user_datum);
-    if (have_user_datum){
-      liblas::SpatialReference ref;
-      std::string target_srs = "+proj=longlat " + user_datum.proj4_str();
-      ref.SetFromUserInput(target_srs);
-      vw_out() << "Setting SRS to '" << target_srs << "'"<< std::endl;
-      header.SetSRS(ref);
-    }
-    
     std::string lasFile;
     header.SetCompressed(opt.compressed);
-    if (opt.compressed){
+    if (opt.compressed)
       lasFile = opt.out_prefix + ".laz";
-    }else{
+    else
       lasFile = opt.out_prefix + ".las";
-    }
 
     vw_out() << "Writing LAS file: " << lasFile + "\n";
     std::ofstream ofs;
@@ -163,8 +167,12 @@ int main( int argc, char *argv[] ) {
       for (int col = 0; col < point_image.cols(); col++){
 
         Vector3 point = point_image(col, row);
-        if ( point == Vector3() ) continue; // skip no-data points
 
+        // Skip no-data points
+        bool is_good = ( (!is_geodetic && point != vw::Vector3()) ||
+                         (is_geodetic  && !boost::math::isnan(point.z())) );
+        if (!is_good) continue;
+          
 #if 0
         // For comparison later with las2txt.
         std::cout.precision(16);

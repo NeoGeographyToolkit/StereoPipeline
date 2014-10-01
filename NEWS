@@ -46,6 +46,9 @@
     * Use a progress bar when loading data.
     * Support LAS files on input and output.
 
+ - point2las
+    * Bugfix when saving las files in respect to a datum.
+
 *** RELEASE 2.4.1, 12 July, 2014 ***
 
   - Added a new tool, bundle_adjust, which uses Google's ceres-solver

@@ -24,6 +24,7 @@
 #include <asp/Core/Common.h>
 #include <asp/Core/PointUtils.h>
 #include <vw/Cartography/Chipper.h>
+#include <boost/math/special_functions/fpclassify.hpp>
 
 using namespace vw;
 using namespace vw::cartography;
@@ -740,3 +741,27 @@ std::string asp::prefix_from_pointcloud_filename(std::string const& filename) {
   return result;
 }
 
+// Compute bounding box of the given cloud. If is_geodetic is false,
+// that means a cloud of raw xyz cartesian values, then Vector3()
+// signifies no-data. If is_geodetic is true, no-data is suggested
+// by having the z component of the point be NaN.
+vw::BBox3 asp::pointcloud_bbox(vw::ImageViewRef<vw::Vector3> const& point_image,
+                               bool is_geodetic) {
+  
+  vw::BBox3 result;
+  vw::vw_out() << "Computing the point cloud bounding box.\n";
+  vw::TerminalProgressCallback progress_bar("asp", "\t--> ");
+  
+  for (int row=0; row < point_image.rows(); ++row ) {
+    progress_bar.report_fractional_progress(row, point_image.rows());
+    for (int col=0; col < point_image.cols(); ++col ) {
+      vw::Vector3 pt = point_image(col, row);
+      if ( (!is_geodetic && pt != vw::Vector3()) ||
+           (is_geodetic  &&  !boost::math::isnan(pt.z())) )
+        result.grow(pt);
+    }
+  }
+  progress_bar.report_finished();
+  
+  return result;
+}

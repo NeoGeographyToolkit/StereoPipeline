@@ -506,7 +506,8 @@ int main( int argc, char *argv[] ){
 
     // Centering Option (helpful if you are experiencing round-off error...)
     if (opt.center) {
-      BBox3 bbox = asp::pointcloud_bbox(point_image);
+      bool is_geodetic = false; // raw xyz values
+      BBox3 bbox = asp::pointcloud_bbox(point_image, is_geodetic);
       vw_out() << "\t--> Centering model around the origin.\n";
       vw_out() << "\t    Initial point image bounding box: " << bbox << "\n";
       Vector3 midpoint = (bbox.max() + bbox.min()) / 2.0;

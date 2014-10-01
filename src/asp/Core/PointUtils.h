@@ -26,6 +26,7 @@
 #include <vw/Image/PerPixelViews.h>
 #include <vw/Math/Vector.h>
 #include <vw/Math/Matrix.h>
+#include <vw/Image/ImageViewRef.h>
 
 namespace vw{
   namespace cartography{
@@ -169,34 +170,10 @@ namespace asp {
     return vw::UnaryPerPixelView<ImageT, PointTransFunc>(image.impl(),
                                                          PointTransFunc(t));
   }
-
-  // Helper function that extracts the bounding box of a point cloud. It
-  // skips the point Vector3(), which, being at the center of the
-  // planet, is an invalid point.
-
-  template <class ViewT>
-  vw::BBox3 pointcloud_bbox(vw::ImageViewBase<ViewT> const& point_image) {
-    // Compute bounding box
-    vw::BBox3 result;
-    typename ViewT::pixel_accessor row_acc = point_image.impl().origin();
-    vw::vw_out() << "Computing the point cloud bounding box.\n";
-    vw::TerminalProgressCallback progress_bar("asp", "\t--> ");
-    
-    for (int row=0; row < point_image.impl().rows(); ++row ) {
-      typename ViewT::pixel_accessor col_acc = row_acc;
-      progress_bar.report_fractional_progress(row, point_image.impl().rows());
-      for (int col=0; col < point_image.impl().cols(); ++col ) {
-        if (*col_acc != vw::Vector3())
-          result.grow(*col_acc);
-        col_acc.next_col();
-      }
-      row_acc.next_row();
-    }
-    progress_bar.report_finished();
-    
-    return result;
-  }
   
-}  
+  vw::BBox3 pointcloud_bbox(vw::ImageViewRef<vw::Vector3> const& point_image,
+                            bool is_geodetic);
+  
+} 
 
 #endif

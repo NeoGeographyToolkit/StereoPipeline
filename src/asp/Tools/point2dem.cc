@@ -1106,18 +1106,20 @@ int main( int argc, char *argv[] ) {
 
     // If the data was left in cartesian coordinates, we need to give
     // the DEM a projection that uses some physical units (meters),
-    // rather than lon, lat.  This is actually mainly for compatibility
-    // with Viz, and it's sort of a hack, but it's left in for the time
-    // being.
-    //
-    // Otherwise, we honor the user's requested projection and convert
-    // the points if necessary.
+    // rather than lon, lat. Otherwise, we honor the user's requested
+    // projection and convert the points if necessary.
+    
+    // See if the user specified the datum outside of the target srs
+    // string. 
+    cartography::Datum user_datum;
+    bool have_user_datum = asp::read_user_datum(opt.semi_major, opt.semi_minor,
+                                                opt.reference_spheroid,
+                                                user_datum);
+    
     if (opt.target_srs_string.empty()) {
-
-      cartography::Datum datum;
-      if ( asp::read_user_datum(opt.semi_major, opt.semi_minor,
-                                opt.reference_spheroid, datum) )
-        georef.set_datum( datum );
+      
+      if ( have_user_datum )
+        georef.set_datum( user_datum );
       
       switch( opt.projection ) {
       case SINUSOIDAL:
@@ -1140,14 +1142,6 @@ int main( int argc, char *argv[] ) {
       }
       
     } else {
-
-      // See if the user specified the datum outside of the target srs
-      // string. If they did ... read it and convert to a proj4 string
-      // so GDAL won't default to WGS84.
-      cartography::Datum user_datum;
-      bool have_user_datum = asp::read_user_datum(opt.semi_major, opt.semi_minor,
-                                                  opt.reference_spheroid,
-                                                  user_datum);
 
       // Set the srs string into georef.
       asp::set_srs_string(opt.target_srs_string,
