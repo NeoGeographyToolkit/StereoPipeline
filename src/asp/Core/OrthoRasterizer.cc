@@ -50,7 +50,7 @@ namespace asp{
       return ( A.min().x() < B.min().x() );
     }
   };
-  
+
   // If the third component of a vector is NaN, mask that vector as invalid
   template<class VectorT>
   struct NaN2Mask: public ReturnFixedType< PixelMask<VectorT> > {
@@ -235,6 +235,29 @@ namespace asp{
   };
 
 
+  void mark_outliers(ImageView<Vector3> & image, ImageViewRef<double> const& errors,
+                     double error_cutoff, BBox2i const& box){
+
+    // Mask as NaN points above triangulation error
+    if (error_cutoff < 0) return; // nothing to do
+
+    double nan = std::numeric_limits<double>::quiet_NaN();
+    ImageView<float> error_copy = crop(errors, box);
+
+    VW_ASSERT(image.cols() == error_copy.cols() &&
+              image.rows() == error_copy.rows(), 
+              ArgumentErr() << "Size mis-match in mark_outliers().");
+    
+    for (int col = 0; col < image.cols(); col++){
+      for (int row = 0; row < image.rows(); row++){
+        if ( error_copy(col, row) > error_cutoff ){
+          image(col, row).z() = nan;
+        }
+      }
+    }
+    
+  }
+  
   OrthoRasterizerView::OrthoRasterizerView
   (ImageViewRef<Vector3> point_image, ImageViewRef<double> texture,
    double spacing,
@@ -515,7 +538,7 @@ namespace asp{
     // This is very important. When doing surface sampling, for each
     // pixel we need to see its next up and right neighbors.
     int d = (int)m_use_surface_sampling;
-      
+
     for (std::map<BBox2i, BBox2i, compare_bboxes>::iterator it = blocks_map.begin();
          it != blocks_map.end(); it++){
         
@@ -524,28 +547,29 @@ namespace asp{
       block.max() += Vector2i(d, d);
       block.crop(vw::bounding_box(m_point_image));
         
-      // Pull a copy of the input image in memory
-      ImageView<Vector3> point_copy;
+      // Pull a copy of the input image in memory.  Expand the image
+      // to be able to see a bit beyond when filling holes.
+      BBox2i biased_block = block;
+      biased_block.expand(m_hole_fill_len);
+      biased_block.crop(vw::bounding_box(m_point_image));
+      ImageView<Vector3> point_copy = crop(m_point_image, biased_block);
+      
+      mark_outliers(point_copy, m_error_image, m_error_cutoff, biased_block);
 
-      if (m_hole_fill_len == 0)
-        point_copy = crop(m_point_image, block );
-      else
-        point_copy = crop(per_pixel_filter
-                          (fill_holes
-                           (per_pixel_filter
-                            (m_point_image,
-                             NaN2Mask<Vector3>()),
-                            m_hole_fill_mode, m_hole_fill_num_smooth_iter,
-                            m_hole_fill_len),
-                           Mask2NaN<Vector3>()),
-                          block);
-        
+      if (m_hole_fill_len > 0)
+        point_copy = per_pixel_filter(fill_holes(per_pixel_filter
+                                                 (point_copy,
+                                                  NaN2Mask<Vector3>()),
+                                                 m_hole_fill_mode,
+                                                 m_hole_fill_num_smooth_iter,
+                                                 m_hole_fill_len),
+                                      Mask2NaN<Vector3>());
+      
+      // Crop back to the area of interest
+      point_copy = crop(point_copy, block - biased_block.min());
+      
       ImageView<float> texture_copy = crop(m_texture, block );
 
-      ImageView<float> error_copy;
-      if (m_error_cutoff >= 0.0)
-        error_copy = crop(m_error_image, block );
-        
       typedef ImageView<Vector3>::pixel_accessor
         PointAcc;
       PointAcc row_acc = point_copy.origin();
@@ -593,11 +617,6 @@ namespace asp{
               
           }else{
             // The new engine
-
-            // Skip points above triangulation error
-            if ( m_error_cutoff >= 0.0 && error_copy(col, row) > m_error_cutoff )
-              continue;
-
             if ( !boost::math::isnan(point_copy(col, row).z()) ){
               point2grid.AddPoint(point_copy(col, row).x(),
                                   point_copy(col, row).y(),
