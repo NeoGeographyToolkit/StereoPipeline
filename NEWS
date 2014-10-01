@@ -23,6 +23,10 @@
    * Take as input LAS and CSV files.
    * Fix a bug in the interplay of hole-filling and outlier removal
      for orthoimage creation.
+   * Ensure that the DEM grid is always at integer multiples of the
+     grid size. This way, two DEMs with overlapping grids of the same
+     size will be exactly on top of each other, minimizing interpolation
+     error in subsequent mosaicking.
 
  - bundle_adjust
    * Use multiple-threads for non-ISIS sessions.
@@ -45,9 +49,6 @@
     * Fix a crash for very large clouds.  
     * Use a progress bar when loading data.
     * Support LAS files on input and output.
-
- - point2las
-    * Bugfix when saving las files in respect to a datum.
 
 *** RELEASE 2.4.1, 12 July, 2014 ***
 

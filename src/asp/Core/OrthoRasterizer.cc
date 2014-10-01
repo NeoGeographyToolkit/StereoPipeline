@@ -382,6 +382,13 @@ namespace asp{
     this->set_spacing(spacing);
     VW_OUT(DebugMessage,"asp") << "Pixel spacing is " << m_spacing << " pnt/px\n";
 
+    // We will snap the box so that its corners are integer multiples
+    // of the grid size. This ensures that any two DEMs
+    // with the same grid size and overlapping grids have those
+    // grids match perfectly.
+    m_bbox.min() = m_spacing*floor(m_bbox.min()/m_spacing);
+    m_bbox.max() = m_spacing*ceil(m_bbox.max()/m_spacing);
+    
     if (remove_outliers){
       // Find the outlier cutoff from the histogram of all errors.
       // The cutoff is the outlier factor times the percentile
