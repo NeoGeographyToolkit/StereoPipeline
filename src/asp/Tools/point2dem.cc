@@ -1220,7 +1220,8 @@ int main( int argc, char *argv[] ) {
           PixelAccumulator<asp::ErrorRangeEstimAccum> error_accum;
           for_each_pixel( subsample(error_image, subsample_amt),
                           error_accum,
-                          TerminalProgressCallback("asp","Triangulation error range estimation: ") );
+                          TerminalProgressCallback
+                          ("asp","Triangulation error range estimation: ") );
           if (error_accum.size() > 0){
             success = true;
             estim_max_error = error_accum.value(opt.remove_outliers_params);
@@ -1228,7 +1229,7 @@ int main( int argc, char *argv[] ) {
           sw2.stop();
           vw_out(DebugMessage,"asp") << "Triangulation error range estimation time: "
                                      << sw2.elapsed_seconds() << std::endl;
-          if (success) break;
+          if (success || subsample_amt == 1) break;
         }
       }
     }
