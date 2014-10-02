@@ -1,9 +1,9 @@
 *** RELEASE 2.4.2, Upcoming! ***
 
- - ASP can perform multi-view stereo (using both the stereo and
-     parallel_stereo tools). The first image is set as reference,
-     disparities are computed from it to the other ones, and joint
-     triangulation is performed.
+ - ASP can perform multi-view triangulation (using both the
+     stereo and parallel_stereo tools). The first image is set
+     as reference, disparities are computed from it to the other 
+     ones, and joint triangulation is performed.
 
  - Added a new tool, dem_mosaic, for mosaicking a large number of 
    DEMs, with erosion at boundary, smooth blending, and tiled output.
@@ -20,7 +20,7 @@
  - point2dem
    * Take as input n clouds and optionally n texture files, create a
      single DEM/orthoimage.
-   * Take as input LAS and CSV files.
+   * Take as input LAS and CSV files in addition to ASP's PC format.
    * Fix a bug in the interplay of hole-filling and outlier removal
      for orthoimage creation.
    * Ensure that the DEM grid is always at integer multiples of the
@@ -53,7 +53,12 @@
     * Support LAS files on input and output.
 
  - point2las
-    * Bugfix when saving las files in respect to a datum.
+    * Bugfix when saving LAS files in respect to a datum.
+
+ - Documentation
+    * Move the non-ISIS-specific tutorial sections onto its own
+      chapter, to be read by both ISIS and Earth users. Updates and
+      cleanup.
 
 *** RELEASE 2.4.1, 12 July, 2014 ***
 
