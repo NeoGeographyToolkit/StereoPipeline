@@ -79,7 +79,7 @@ struct Options : asp::BaseOptions {
   BBox2i target_projwin_pixels;
   int fsaa, hole_fill_mode, hole_fill_num_smooth_iter,
     dem_hole_fill_len, ortho_hole_fill_len;
-  bool remove_outliers;
+  bool remove_outliers_with_pct;
   Vector2 remove_outliers_params;
   double max_valid_triangulation_error;
   std::string csv_format_str;
@@ -96,7 +96,7 @@ struct Options : asp::BaseOptions {
               semi_major(0), semi_minor(0), fsaa(1), 
               hole_fill_mode(1), hole_fill_num_smooth_iter(4),
               dem_hole_fill_len(0), ortho_hole_fill_len(0),
-              remove_outliers(false), max_valid_triangulation_error(0),
+              remove_outliers_with_pct(true), max_valid_triangulation_error(0),
               search_radius_factor(0),  use_surface_sampling(false),
               has_las_or_csv(false){}
 };
@@ -197,11 +197,6 @@ void las_or_csv_to_tifs(Options& opt, vw::cartography::GeoReference const& geore
     if (opt.csv_format_str == "")
       vw_throw(ArgumentErr() << "CSV files were passed in, but the "
                << "CSV format string was not set.\n");
-    if (opt.reference_spheroid == "" &&
-        ( opt.semi_major <= 0 || opt.semi_minor <= 0) )
-      vw_throw( ArgumentErr() << "Cannot detect the planet. "
-                << "Please specify it via --reference-spheroid or "
-                << "--semi-major-axis and --semi-minor-axis.\n" );
   }
   
   // Set the georef for CSV files
@@ -339,10 +334,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("hole-fill-num-smooth-iter", po::value(&opt.hole_fill_num_smooth_iter)->default_value(4), "How many times to iterate to smooth the result of hole-filling with a Gaussian kernel.")
     ("dem-hole-fill-len", po::value(&opt.dem_hole_fill_len)->default_value(0), "Maximum dimensions of a hole in the output DEM to fill in, in pixels.")
     ("orthoimage-hole-fill-len", po::value(&opt.ortho_hole_fill_len)->default_value(0), "Maximum dimensions of a hole in the output orthoimage to fill in, in pixels.")
-    ("remove-outliers", po::bool_switch(&opt.remove_outliers)->default_value(false),
-     "Turn on automatic outlier removal based on triangulation error. See also: remove-outliers-params.")
-    ("remove-outliers-params", po::value(&opt.remove_outliers_params)->default_value(Vector2(75.0, 3.0), "pct factor"), "Points with triangulation error larger than pct-th percentile times factor will be removed as outliers. [default: pct=75.0, factor=3.0]")
-    ("max-valid-triangulation-error", po::value(&opt.max_valid_triangulation_error)->default_value(0), "Manual outlier removal. Points with triangulation error larger than this (in meters) are removed from the cloud.")
+    ("remove-outliers", po::bool_switch(&opt.remove_outliers_with_pct)->default_value(true),
+     "Turn on outlier removal based on percentage of triangulation error. Obsolete, as this is the default.")
+    ("remove-outliers-params", po::value(&opt.remove_outliers_params)->default_value(Vector2(75.0, 3.0), "pct factor"), "Outlier removal based on percentage. Points with triangulation error larger than pct-th percentile times factor will be removed as outliers. [default: pct=75.0, factor=3.0]")
+    ("max-valid-triangulation-error", po::value(&opt.max_valid_triangulation_error)->default_value(0), "Outlier removal based on threshold. Points with triangulation error larger than this (in meters) will be removed from the cloud.")
     ("csv-format", po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
     ("rounding-error", po::value(&opt.rounding_error)->default_value(asp::APPROX_ONE_MM),
      "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")
@@ -423,13 +418,16 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "The value of --orthoimage-hole-fill-len"
               << " is positive, but orthoimage generation was not requested.\n");
   }
-  
+
   double pct = opt.remove_outliers_params[0], factor = opt.remove_outliers_params[1];
-  if (pct <= 0 || pct >= 100 || factor <= 0.0){
+  if (pct <= 0 || pct > 100 || factor <= 0.0){
     vw_throw( ArgumentErr() << "Invalid values were provided for remove-outliers-params.\n");
   }
-  if (opt.remove_outliers && opt.max_valid_triangulation_error > 0.0){
-    vw_throw( ArgumentErr() << "Cannot have both automatic (--remove-outliers) and manual (--max-valid-triangulation-error) outlier removal at the same time.\n");
+
+  if (opt.max_valid_triangulation_error > 0){
+    // Since the user passed in a threshold, will use that to rm
+    // outliers, instead of using the percentage.
+    opt.remove_outliers_with_pct = false;
   }
   
   // Create the output directory 
@@ -767,6 +765,10 @@ namespace asp{
       if (value > 0)
         m_vals.push_back(value);
     }
+
+    int size(){
+      return m_vals.size();
+    }
     
     value_type value(Vector2 const& remove_outliers_params){
       VW_ASSERT(!m_vals.empty(), ArgumentErr() << "ErrorRangeEstimAccum: no valid samples");
@@ -784,7 +786,7 @@ namespace asp{
       int len = m_vals.size();
       double pct = remove_outliers_params[0]/100.0; // e.g., 0.75
       double factor = remove_outliers_params[1];
-      int k = (int)(pct*len);
+      int k = std::min(len-1, (int)(pct*len));
       double val = m_vals[k]*factor*4.0;
       return val;
     }
@@ -901,7 +903,7 @@ void do_software_rasterization( const ImageViewRef<Vector3>& proj_point_input,
                opt.dem_spacing, opt.search_radius_factor, opt.use_surface_sampling,
                Options::tri_tile_size(), // to efficiently process the cloud
                opt.hole_fill_mode, opt.hole_fill_num_smooth_iter,
-               opt.remove_outliers, opt.remove_outliers_params,
+               opt.remove_outliers_with_pct, opt.remove_outliers_params,
                error_image, estim_max_error, opt.max_valid_triangulation_error,
                opt.has_las_or_csv,
                TerminalProgressCallback("asp","QuadTree: ") );
@@ -1096,6 +1098,12 @@ int main( int argc, char *argv[] ) {
     GeoReference las_georef;
     bool has_las_georef = asp::georef_from_las(opt.pointcloud_files, las_georef);
     
+    // See if the user specified the datum outside of the srs string
+    cartography::Datum user_datum;
+    bool have_user_datum = asp::read_user_datum(opt.semi_major, opt.semi_minor,
+                                                opt.reference_spheroid,
+                                                user_datum);
+
     // Set up the georeferencing information.  We specify everything
     // here except for the affine transform, which is defined later once
     // we know the bounds of the orthorasterizer view.  However, we can
@@ -1108,17 +1116,9 @@ int main( int argc, char *argv[] ) {
     // the DEM a projection that uses some physical units (meters),
     // rather than lon, lat. Otherwise, we honor the user's requested
     // projection and convert the points if necessary.
-    
-    // See if the user specified the datum outside of the target srs
-    // string. 
-    cartography::Datum user_datum;
-    bool have_user_datum = asp::read_user_datum(opt.semi_major, opt.semi_minor,
-                                                opt.reference_spheroid,
-                                                user_datum);
-    
     if (opt.target_srs_string.empty()) {
-      
-      if ( have_user_datum )
+
+      if (have_user_datum)
         georef.set_datum( user_datum );
       
       switch( opt.projection ) {
@@ -1189,7 +1189,7 @@ int main( int argc, char *argv[] ) {
     // like to remove outliers.
     ImageViewRef<double> error_image;
     double estim_max_error = 0.0;
-    if (opt.remove_outliers || opt.max_valid_triangulation_error > 0.0){
+    if (opt.remove_outliers_with_pct || opt.max_valid_triangulation_error > 0.0){
       int num_channels = asp::num_channels(opt.pointcloud_files);
       if (num_channels == 4)
         error_image = asp::error_norm<4>(opt.pointcloud_files);
@@ -1198,30 +1198,38 @@ int main( int argc, char *argv[] ) {
       else{
         vw_out() << "The point cloud files must have an equal number of channels which "
                  << "must be 4 or 6 to be able to remove outliers.\n";
-        opt.remove_outliers = false;
+        opt.remove_outliers_with_pct = false;
         opt.max_valid_triangulation_error = 0.0;
       }
       
-      if (opt.remove_outliers){
+      if (opt.remove_outliers_with_pct && opt.max_valid_triangulation_error == 0.0){
         // Get a somewhat dense sampling of the error image to get an idea
         // of what the distribution of errors is. This will be refined
-        // later using a histogram approach and using all points.
-        int32 subsample_amt = int32(norm_2(Vector2(point_image.cols(),
-                                                   point_image.rows()))/128.0);
-        if (subsample_amt < 1 ) subsample_amt = 1;
-        
-        Stopwatch sw2;
-        sw2.start();
-        PixelAccumulator<asp::ErrorRangeEstimAccum> error_accum;
-        for_each_pixel( subsample(error_image, subsample_amt),
-                        error_accum,
-                        TerminalProgressCallback("asp","Triangulation error range estimation: ") );
-        estim_max_error = error_accum.value(opt.remove_outliers_params);
-        sw2.stop();
-        vw_out(DebugMessage,"asp") << "Triangulation error range estimation time: "
-                                   << sw2.elapsed_seconds() << std::endl;
-        vw_out() << "Estimated max valid triangulation error: "
-                 << estim_max_error << std::endl;
+        // later using a histogram approach and using all points. Do
+        // several attempts if the sampling is too coarse.
+        bool success = false;
+        for (int count = 7; count <= 18; count++){
+
+          double sample = (1 << count);
+          int32 subsample_amt = int32(norm_2(Vector2(point_image.cols(),
+                                                     point_image.rows()))/sample);
+          if (subsample_amt < 1 ) subsample_amt = 1;
+          
+          Stopwatch sw2;
+          sw2.start();
+          PixelAccumulator<asp::ErrorRangeEstimAccum> error_accum;
+          for_each_pixel( subsample(error_image, subsample_amt),
+                          error_accum,
+                          TerminalProgressCallback("asp","Triangulation error range estimation: ") );
+          if (error_accum.size() > 0){
+            success = true;
+            estim_max_error = error_accum.value(opt.remove_outliers_params);
+          }
+          sw2.stop();
+          vw_out(DebugMessage,"asp") << "Triangulation error range estimation time: "
+                                     << sw2.elapsed_seconds() << std::endl;
+          if (success) break;
+        }
       }
     }
 

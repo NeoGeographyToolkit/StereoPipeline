@@ -109,9 +109,9 @@ namespace asp{
     BBox3& m_global_bbox;
     std::vector<BBoxPair>& m_point_image_boundaries;
     ImageViewRef<double> const& m_error_image;
-    double m_estim_max_error; // used for automatic outlier removal
+    double m_estim_max_error; // used for outlier removal based on percentage
     std::vector<double> & m_errors_hist;
-    double m_max_valid_triangulation_error; // used for manual outlier removal
+    double m_max_valid_triangulation_error; // used for outlier removal based on thresh
     Mutex& m_mutex;
     const ProgressCallback& m_progress;
     float m_inc_amt;
@@ -158,9 +158,9 @@ namespace asp{
       ImageView<Vector3 > local_image =
         crop( m_view, m_image_bbox );
 
-      bool remove_outliers = (!m_errors_hist.empty());
+      bool remove_outliers_with_pct = (!m_errors_hist.empty());
       ImageView<double> local_error;
-      if (remove_outliers || m_max_valid_triangulation_error > 0.0)
+      if (remove_outliers_with_pct || m_max_valid_triangulation_error > 0.0)
         local_error = crop( m_error_image, m_image_bbox );
 
       // Further subdivide into boundaries so
@@ -205,7 +205,7 @@ namespace asp{
           solutions.push_back( std::make_pair( pts_bdbox, blocks[i] ) );
         }
 
-        if (remove_outliers){
+        if (remove_outliers_with_pct){
           ErrorHistAccumulator error_accum(local_hist, m_estim_max_error);
           for_each_pixel( crop( local_error, blocks[i] - m_image_bbox.min() ),
                           error_accum );
@@ -225,7 +225,7 @@ namespace asp{
 
         m_global_bbox.grow( local_union );
 
-        if (remove_outliers)
+        if (remove_outliers_with_pct)
           for (int i = 0; i < (int)m_errors_hist.size(); i++)
             m_errors_hist[i] += local_hist[i];
           
@@ -264,7 +264,7 @@ namespace asp{
    double search_radius_factor, bool use_surface_sampling,
    int pc_tile_size, int hole_fill_mode,
    int hole_fill_num_smooth_iter,
-   bool remove_outliers, Vector2 const& remove_outliers_params,
+   bool remove_outliers_with_pct, Vector2 const& remove_outliers_params,
    ImageViewRef<double> const& error_image, double estim_max_error,
    double max_valid_triangulation_error,
    bool has_las_or_csv,
@@ -293,7 +293,7 @@ namespace asp{
     
     int num_bins = 1024;
     std::vector<double> errors_hist;
-    if (remove_outliers){
+    if (remove_outliers_with_pct){
       // Need to compute the histogram of all errors in the error image
       errors_hist = std::vector<double>(num_bins, 0.0);
     }
@@ -389,7 +389,7 @@ namespace asp{
     m_bbox.min() = m_spacing*floor(m_bbox.min()/m_spacing);
     m_bbox.max() = m_spacing*ceil(m_bbox.max()/m_spacing);
     
-    if (remove_outliers){
+    if (remove_outliers_with_pct){
       // Find the outlier cutoff from the histogram of all errors.
       // The cutoff is the outlier factor times the percentile
       // of the errors.

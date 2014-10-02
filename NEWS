@@ -27,7 +27,9 @@
      grid size. This way, two DEMs with overlapping grids of the same
      size will be exactly on top of each other, minimizing interpolation
      error in subsequent mosaicking.
-
+   * Outlier removal is on by default. Can be disabled by setting 
+     the percentage in --remove-outliers-params to 100.
+ 
  - bundle_adjust
    * Use multiple-threads for non-ISIS sessions.
 

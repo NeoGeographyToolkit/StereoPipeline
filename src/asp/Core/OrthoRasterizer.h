@@ -80,7 +80,7 @@ namespace asp{
                         double search_radius_factor, bool use_surface_sampling,
                         int pc_tile_size, int hole_fill_mode,
                         int hole_fill_num_smooth_iter,
-                        bool remove_outliers,
+                        bool remove_outliers_with_pct,
                         Vector2 const& remove_outliers_params,
                         ImageViewRef<double> const& error_image,
                         double estim_max_error,
