@@ -61,12 +61,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("roi", po::value(&opt.roi)->default_value(BBox2(0,0,0,0), "auto"),
      "Region of interest. Specify in format: xmin,ymin,xmax,ymax.")
     ("output-prefix,o", po::value(&opt.output_prefix), "Specify the output prefix.")
-    ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file");
+    ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file type.");
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
-    ("input-file", po::value(&opt.input_file_name), "Input disparity map");
+    ("input-file", po::value(&opt.input_file_name), "Input disparity map.");
 
   po::positional_options_description positional_desc;
   positional_desc.add("input-file", 1);
