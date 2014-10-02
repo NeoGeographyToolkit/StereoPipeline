@@ -32,6 +32,11 @@
  
  - bundle_adjust
    * Use multiple-threads for non-ISIS sessions.
+   * Added the parameter --overlap-limit <num> to limit the number 
+     of subsequent images to search for matches to the current image.
+   * Added the parameter --camera-weight <val>, to set the weight to
+     give to the constraint that the camera positions/orientations
+     stay close to the original values (only for the Ceres solver).
 
  - dem_geoid
    * Support the EGM2008 geoid. The geoid surface across all Earth

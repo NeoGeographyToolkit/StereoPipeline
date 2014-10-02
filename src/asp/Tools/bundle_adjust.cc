@@ -69,8 +69,8 @@ struct Options : public asp::BaseOptions {
   std::vector<std::string> image_files, camera_files, gcp_files;
   std::string cnet_file, out_prefix, stereo_session_string, cost_function, ba_type;
   
-  double lambda, robust_threshold;
-  int report_level, min_matches, max_iterations;
+  double lambda, camera_weight, robust_threshold;
+  int report_level, min_matches, max_iterations, overlap_limit;
 
   bool save_iteration, have_input_cams;
   std::string datum_str;
@@ -82,8 +82,8 @@ struct Options : public asp::BaseOptions {
   
   // Make sure all values are initialized, even though they will be
   // over-written later.
-  Options():lambda(-1.0), robust_threshold(0), report_level(0), min_matches(0),
-            max_iterations(0), save_iteration(false), have_input_cams(true),
+  Options():lambda(-1.0), camera_weight(0), robust_threshold(0), report_level(0), min_matches(0),
+            max_iterations(0), overlap_limit(0), save_iteration(false), have_input_cams(true),
             semi_major(0), semi_minor(0), 
             datum(cartography::Datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
                                      "Reference Meridian", 1, 1, 0)){}
@@ -355,34 +355,35 @@ struct XYZError {
 // This cost function prevents the cameras from straying too far from
 // their starting point.
 template<class ModelT>
-struct CamCtrError {
+struct CamError {
   typedef typename ModelT::camera_vector_t CamVecT;
 
-  CamCtrError(CamVecT const& orig_cam_vec): m_orig_cam_vec(orig_cam_vec){}
+  CamError(CamVecT const& orig_cam, double weight):
+    m_orig_cam(orig_cam), m_weight(weight){}
 
   template <typename T>
   bool operator()(const T* const cam_vec, T* residuals) const {
 
-    // Note that we give zero weight to the components corresponding
-    // to the rotation, we don't restrict that here.
+    // Note that we allow the position to vary more than the orientation.
     for (size_t p = 0; p < 3; p++)
-      residuals[p] = 1e-6*(cam_vec[p] - m_orig_cam_vec[p]);
-    for (size_t p = 3; p < m_orig_cam_vec.size(); p++)
-      residuals[p] = 0.0;
+      residuals[p] = 1e-6*m_weight*(cam_vec[p] - m_orig_cam[p]);
+    for (size_t p = 3; p < m_orig_cam.size(); p++)
+      residuals[p] = m_weight*(cam_vec[p] - m_orig_cam[p]);
 
     return true;
   }
 
   // Factory to hide the construction of the CostFunction object from
   // the client code.
-  static ceres::CostFunction* Create(CamVecT const& orig_cam_vec){
-    return (new ceres::NumericDiffCostFunction<CamCtrError, ceres::CENTRAL,
+  static ceres::CostFunction* Create(CamVecT const& orig_cam, double weight){
+    return (new ceres::NumericDiffCostFunction<CamError, ceres::CENTRAL,
             ModelT::camera_params_n, ModelT::camera_params_n>
-            (new CamCtrError(orig_cam_vec)));
+            (new CamError(orig_cam, weight)));
     
   }
   
-  CamVecT m_orig_cam_vec;
+  CamVecT m_orig_cam;
+  double m_weight;
 };
 
 ceres::LossFunction* get_loss_function(Options const& opt ){
@@ -476,6 +477,9 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
   }
   double* points = &points_vec[0];
 
+  // The camera positions and orientations before we float them
+  std::vector<double> orig_cameras_vec = cameras_vec;
+  
   ceres::Problem problem;
 
   CameraRelationNetwork<JFeature> crn;
@@ -528,6 +532,24 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
     problem.AddResidualBlock(cost_function, loss_function, point);
   }
 
+  // Add camera constraints
+  if (opt.camera_weight > 0){
+    for (size_t icam = 0; icam < num_cameras; icam++){
+      
+      typename ModelT::camera_vector_t orig_cam;
+      for (size_t q = 0; q < num_camera_params; q++)
+        orig_cam[q] = orig_cameras_vec[icam * num_camera_params + q];
+      
+      ceres::CostFunction* cost_function =
+        CamError<ModelT>::Create(orig_cam, opt.camera_weight);
+      
+      ceres::LossFunction* loss_function = get_loss_function(opt);
+      
+      double * camera  = cameras  + icam * num_camera_params;
+      problem.AddResidualBlock(cost_function, loss_function, camera);
+    }
+  }
+  
   // Solve the problem
   ceres::Solver::Options options;
   options.gradient_tolerance = 1e-16;
@@ -763,6 +785,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Set the minimum  number of matches between images that will be considered.")
     ("max-iterations", po::value(&opt.max_iterations)->default_value(100),
      "Set the maximum number of iterations.")
+    ("overlap-limit", po::value(&opt.overlap_limit)->default_value(3),
+     "Limit the number of subsequent images to search for matches to the current image to this value.")
+    ("camera-weight", po::value(&opt.camera_weight)->default_value(1.0),
+     "The weight to give to the constraint that the camera positions/orientations stay close to the original values (only for the Ceres solver).")
     ("lambda,l", po::value(&opt.lambda)->default_value(-1),
      "Set the initial value of the LM parameter lambda (ignored for the Ceres solver).")
     ("report-level,r",po::value(&opt.report_level)->default_value(10),
@@ -790,6 +816,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
               << usage << general_options );
   opt.gcp_files = asp::extract_gcps( opt.image_files );
   opt.camera_files = asp::extract_cameras( opt.image_files );
+  
+  if ( opt.overlap_limit <= 0 )
+    vw_throw( ArgumentErr() << "Must allow search for matches between "
+              << "at least each image and its subsequent one.\n"
+              << usage << general_options );
+  
+  if ( opt.camera_weight < 0.0 )
+    vw_throw( ArgumentErr() << "The camera weight must be non-negative.\n"
+              << usage << general_options );
 
   // See if we start with initial cameras or no cameras
   opt.have_input_cams
@@ -905,7 +940,7 @@ int main(int argc, char* argv[]) {
 
     // Create the match points
     for (int i = 0; i < num_images; i++){
-      for (int j = i+1; j < num_images; j++){
+      for (int j = i+1; j <= std::min(num_images-1, i+opt.overlap_limit); j++){
         std::string image1 = opt.image_files[i];
         std::string image2 = opt.image_files[j];
         std::string match_filename

@@ -68,7 +68,7 @@ Option & Description \\ \hline \hline
 \texttt{-\/-threads \textit{integer(=0)}} & Set the number of threads to use. 0 means use as many threads as there are cores.\\ \hline
 \texttt{-\/-session-type|-t pinhole|isis|dg|rpc} & Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension.\\ \hline
 \texttt{-\/-stereo-file|-s \textit{filename(=./stereo.default)}} & Define the stereo.default file to use\\ \hline
-\texttt{-\/-left-image-crop-win \textit{xoff yoff xsize ysize}}  & Do stereo in a subregion of the left image [default: use the entire image].\\ \hline
+\texttt{-\/-left-image-crop-win \textit{xoff yoff xsize ysize}}  & Do stereo in a sub-region of the left image [default: use the entire image].\\ \hline
 \texttt{-\/-entry-point|-e integer(=0 to 4)} & Stereo Pipeline entry
 point (start at this stage). \\ \hline
 \texttt{-\/-stop-point|-e integer(=1 to 5)} & Stereo Pipeline stop point
@@ -272,7 +272,8 @@ use per node. \\ \hline
 
 The \texttt{bundle\_adjust} program performs bundle adjustment on a
 given set of images and cameras. An introduction to bundle adjustment
-can be found in chapter \ref{ch:bundle_adjustment}.
+can be found in chapter \ref{ch:bundle_adjustment}, with an example of
+how to use this program in section \ref{baasp}.
 
 This tool can use several algorithms for bundle adjustment, the default is
 to use Google's Ceres Solver (\url{http://ceres-solver.org/}).
@@ -294,6 +295,9 @@ Example (for Digital Globe Earth data, using ground control points):
     --datum WGS_1984 -o results/run
 \end{verbatim}
 
+The \texttt{stereo} program can then be told to use the adjusted cameras
+via the option \texttt{-\/-bundle-adjust-prefix}.
+
 \begin{longtable}{|l|p{7.5cm}|}
 \caption{Command-line options for bundle\_adjust}
 \label{tbl:bundleadjust}
@@ -304,7 +308,6 @@ Example (for Digital Globe Earth data, using ground control points):
 \hline
 Option & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message. \\ \hline
-%\texttt{-\/-threads \textit{integer(=0)}} & Set the number of threads to use. 0 means use as many threads as there are cores.\\ \hline
 
 \texttt{-\/-output-prefix|-o \textit{filename}} & Prefix for output filenames. \\ \hline
 
@@ -314,16 +317,16 @@ Ceres, RobustSparse, RobustRef, Sparse, Ref. \\ \hline
 \texttt{-\/-cost-function \textit{string [default: Cauchy]}} & Choose a cost function
 from: Cauchy, PseudoHuber, Huber, L1, L2. \\ \hline
 
-\texttt{-\/-robust-threshold \textit{float(=0.5)}} & Set the threshold for robust
+\texttt{-\/-robust-threshold \textit{double(=0.5)}} & Set the threshold for robust
 cost functions.\\ \hline
 
 \texttt{-\/-datum \textit{string}} & Use this datum (needed only if ground control
 points are used). Options: WGS\_1984, D\_MOON (radius is assumed to be 1,737,400 meters), D\_MARS 
 (radius is assumed to be 3,396,190 meters), etc.  \\ \hline
 
-\texttt{-\/-semi-major-axis \textit{float}} & Explicitly set the datum semi-major axis
+\texttt{-\/-semi-major-axis \textit{double}} & Explicitly set the datum semi-major axis
 in meters (needed only if ground control points are used).\\ \hline
-\texttt{-\/-semi-minor-axis \textit{float}} & Explicitly set the datum semi-minor axis
+\texttt{-\/-semi-minor-axis \textit{double}} & Explicitly set the datum semi-minor axis
 in meters (needed only if ground control points are used).\\ \hline
 
 \texttt{-\/-session-type|-t pinhole|isis|dg|rpc} & Select the stereo
@@ -333,11 +336,23 @@ automatically by the file extension.\\ \hline
 \texttt{-\/-min-matches \textit{integer(=30)}} & Set the minimum number of matches
 between images that will be considered. \\ \hline
 
-\texttt{-\/-max-iterations \textit{integer(=100)}} & Set the maximum number of 
-iterations. \\ \hline
+\texttt{-\/-max-iterations \textit{integer(=100)}} & Set the maximum
+number of iterations. \\ \hline
 
-\texttt{-\/-lambda \textit{float}} & Set the initial value of the LM parameter 
+\texttt{-\/-overlap-limit \textit{integer(=3)}} & Limit the number of
+subsequent images to search for matches to the current image to this
+value.  \\ \hline
+
+\texttt{-\/-camera-weight \textit{double(=1.0)}} & 
+The weight to give to the constraint that the
+camera positions/orientations stay close to 
+the original values (only for the Ceres solver).
+\\ \hline
+
+\texttt{-\/-lambda \textit{double}} & Set the initial value of the LM parameter 
 lambda (ignored for the Ceres solver).\\ \hline
+
+\texttt{-\/-threads \textit{integer(=0)}} & Set the number threads to use. 0 means use the default defined in the program or in the .vwrc file.\\ \hline
 
 \texttt{-\/-report-level|-r \textit{integer=(10)}} & Use a value >= 20 to 
 get increasingly more verbose output. \\ \hline
@@ -970,7 +985,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message\\ \hline
 \texttt{-\/-input-file \textit{filename}} & Explicitly specify the input file \\ \hline
 \texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix \\ \hline
-\texttt{-\/-output-filetype|-t \textit{type(=tif)}} & Specify the outfile type \\ \hline
+\texttt{-\/-output-filetype|-t \textit{type(=tif)}} & Specify the output file type \\ \hline
 \texttt{-\/-float-pixels} & Save the resulting debug images as 32 bit floating point files (if supported by the selected file type) \\ \hline
 \end{longtable}
 
@@ -1065,7 +1080,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-compressed} &
 Compress using laszip. \\ \hline
 \texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix. \\ \hline
-\texttt{-\/-threads \textit{integer(=0)}} & Set the number threads to use. 0 means use default defined in the program or in the .vwrc file.\\ \hline
+\texttt{-\/-threads \textit{integer(=0)}} & Set the number threads to use. 0 means use the default defined in the program or in the .vwrc file.\\ \hline
 \texttt{-\/-tif-compress None|LZW|Deflate|Packbits} & TIFF compression method.\\ \hline
 \texttt{-\/-cache-dir \textit{directory(=/tmp)}} & Folder for temporary files. Normally this need not be changed.\\ \hline
 \end{longtable}
@@ -1118,7 +1133,7 @@ time, but may result in better alignment, at the expense of using more
 memory and processing time.
 
 The input point clouds can be in one of several formats: ASP's point
-cloud format, DEMs as GeoTiff or ISIS cub files, LAS files,
+cloud format, DEMs as GeoTIFF or ISIS cub files, LAS files,
 or plain-text CSV files (with .csv
 or .txt extension). By default, CSV files are expected to have on each
 line the latitude and longitude (in degrees), and the height above the
@@ -1310,7 +1325,7 @@ Usage:\\
 Options & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message.\\ \hline
 \texttt{-\/-threads \textit{integer(=0)}} & Set the number threads to
-use. 0 means use default defined in the program or in the .vwrc file. \\ \hline
+use. 0 means use the default defined in the program or in the .vwrc file. \\ \hline
 \end{longtable}
 
 \section{lronac2mosaic.py}
