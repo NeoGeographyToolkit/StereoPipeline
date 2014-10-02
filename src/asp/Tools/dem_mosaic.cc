@@ -665,7 +665,8 @@ int main( int argc, char *argv[] ) {
     // erode_len, but not so big that it may not fit in memory.
     int block_size = nextpow2(4.0*(opt.erode_len + opt.blending_len));
     block_size = std::max(block_size, 256); // don't make them too small though
-    
+    opt.raster_tile_size = Vector2(block_size, block_size); // disk block size
+
     int num_tiles_x = (int)ceil((double)cols/double(opt.tile_size));
     if (num_tiles_x <= 0) num_tiles_x = 1;
     int num_tiles_y = (int)ceil((double)rows/double(opt.tile_size));
@@ -699,11 +700,10 @@ int main( int argc, char *argv[] ) {
       std::string dem_tile = os.str();
       
       // We use block_cache to rasterize tiles of size block_size.
-      ImageViewRef<RealT> out_dem = block_cache
-        (crop(DemMosaicView(cols, rows, opt, images, georefs,
-                            out_georef, nodata_values),
-              tile_box),
-         Vector2(block_size, block_size), opt.num_threads);
+      ImageViewRef<RealT> out_dem
+        = crop(DemMosaicView(cols, rows, opt, images, georefs,
+                             out_georef, nodata_values),
+               tile_box);
       
       vw_out() << "Writing: " << dem_tile << std::endl;
       GeoReference crop_georef
