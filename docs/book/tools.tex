@@ -788,7 +788,7 @@ No-data value to use on output. Default: use the one from the first DEM to be mo
 \\ \hline
 
 \texttt{-\/-count} 
-& Each pixel is set to the number of DEMs available at that pixel.
+& Each pixel is set to the number of valid DEM heights at that pixel.
 \\ \hline
 
 \texttt{-\/-threads \textit{integer(=4)}} 
@@ -1109,7 +1109,7 @@ transform, and can output the reference point cloud transformed to match
 the source and vice-versa).
 
 In many typical applications, the source and reference point clouds are
-already roughly aligned but the source point cloud may cover a larger
+already roughly aligned, but the source point cloud may cover a larger
 area than the reference. The user should provide to \texttt{pc\_align}
 the expected maximum distance (displacement) source points may move by
 as result of alignment, using the option
@@ -1127,13 +1127,13 @@ source point clouds to perform the alignment. The amount of memory and
 processing time used by \texttt{pc\_align} is directly proportional to
 these numbers.
 
-Normally Point-to-Plane ICP is more accurate than Point-to-Point but
+Normally Point-to-Plane ICP is more accurate than Point-to-Point, but
 the latter can be good enough if the input point clouds have small
 alignment errors and it is faster and uses less memory as well.  The
 tool also accepts an option named \texttt{-\/-highest-accuracy} which
 will compute the normals for Point-to-Plane ICP at all points rather
 than about a tenth of them. This option is not necessary most of the
-time but may result in better alignment at the expense of using more
+time, but may result in better alignment at the expense of using more
 memory and processing time.
 
 The input point clouds can be in one of several formats: ASP's point
@@ -1153,8 +1153,8 @@ in the table below. The tool can also auto-detect the LOLA RDR
 PointPerRow format.
 
 If none of the input files are a DEM from which the datum can be
-inferred and the input files are not in Cartesian coordinates, the
-datum needs to be specified via the \texttt{-\/-datum} option or by
+inferred, and the input files are not in Cartesian coordinates, the
+datum needs to be specified via the \texttt{-\/-datum} option, or by
 setting \texttt{-\/-semi-major-axis} and \texttt{-\/-semi-minor-axis}.
 
 The transform obtained by \texttt{pc\_align} is output to a file as a
@@ -1196,8 +1196,8 @@ The program prints to screen and saves to a log file the 16th, 50th, and
 84th error percentiles as well as the means of the smallest 25\%, 50\%,
 75\%, and 100\% of the errors.
 
-By default when \texttt{pc\_align} discards outliers during the
-computation of the alignment transform it keeps the 75\% of the points
+By default, when \texttt{pc\_align} discards outliers during the
+computation of the alignment transform, it keeps the 75\% of the points
 with the smallest errors. As such, a way of judging the effectiveness of
 the tool is to look at the mean of the smallest 75\% of the errors
 before and after alignment.
@@ -1205,7 +1205,7 @@ before and after alignment.
 The transformed input point clouds can also be saved to disk if
 desired. If an input point cloud is in CSV or ASP point cloud format,
 the output transformed cloud will be in the same format. If the input is
-a DEM the output will be an ASP point cloud since a gridded point
+a DEM, the output will be an ASP point cloud, since a gridded point
 cloud may not stay so after a 3D transform. The \texttt{point2dem}
 program can be used to resample the obtained point cloud back to a DEM.
 

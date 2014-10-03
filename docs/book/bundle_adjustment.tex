@@ -16,7 +16,7 @@ Satellite position and orientation errors have a direct effect on the
 accuracy of digital elevation models produced by the Stereo Pipeline.
 If they are not corrected, these uncertainties will result in
 systematic errors in the overall position and slope of the \ac{DEM}.
-Severe distortions can occur as well, resulting in a twisted or ``taco
+Severe distortions can occur as well, resulting in twisted or ``taco
 shaped'' \acp{DEM}, though in most cases these effects are quite
 subtle and hard to detect. In the worst case, such as with old mission
 data like Voyager or Apollo, these gross camera misalignments can
@@ -77,8 +77,8 @@ way to co-register your \acp{DEM} with other existing data sets and
 geodetic control networks.
 
 At the moment however, Bundle Adjustment does not automatically work
-against outside \acp{DEM} from sources such as laser altimeters. Hand
-picked \acp{GCP} are the only way for \ac{ASP} to register to those
+against outside \acp{DEM} from sources such as laser altimeters. 
+Hand-picked \acp{GCP} are the only way for \ac{ASP} to register to those
 types of sources.
 
 \section{Bundle adjustment using ASP}
@@ -141,7 +141,7 @@ a three step process. First, a general geographic layout of the points
 must be decided upon. This is traditionally just a grid layout that has
 some spacing that allows for about 20-30 measurements to be made per
 image. This shows up in slightly different projected
-locations each image due to their slight misalignments. The second step
+locations in each image due to their slight misalignments. The second step
 is to have an automatic registration algorithm try to find the same feature
 in all images using the prior grid as a starting location. The third
 step is to manually verify all measurements visually, checking to insure
@@ -191,7 +191,7 @@ error metric as ${\bf \epsilon} = \sum_k(X_k^{gcp}-X_k)^2$ to
 constrain these points to known locations in the planetary coordinate
 frame. A physical example of a ground control point could be the
 location of a lander that has a well known location. \acp{GCP} could also be
-hand picked points against a highly regarded and prior existing map
+hand-picked points against a highly regarded and prior existing map
 such as the THEMIS Global Mosaic or the LRO-WAC Global Mosaic.
 
 Like other iterative optimization methods, there are several

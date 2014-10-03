@@ -535,7 +535,7 @@ only. If invoked on multi-spectral data, it will quietly process the
 first band and ignore the rest. To use one of the other
 bands it can be singled out by invoking \texttt{dg\_mosaic}
 (section \ref{rawdg}) with the \texttt{-\/-band <num>} option. We have
-evaluated ASP with Digital Globe's multi-spectral images but
+evaluated ASP with Digital Globe's multi-spectral images, but
 support for it is still experimental. We recommend using the
 panchromatic imagery whenever possible.
 
@@ -796,7 +796,7 @@ file, is computed as twice the mean of distances from the optimally
 computed intersection point to the individual rays. For two rays, this
 agrees with the intersection error for two-view stereo which is defined
 as the minimal distance between rays. For multi-view stereo this error
-is much less amenable to interpretation as for two-view stereo since the
+is much less amenable to interpretation as for two-view stereo, since the
 number of valid rays corresponding to a given feature can vary across
 the image, which results in discontinuities in the intersection error.
 
@@ -885,7 +885,7 @@ You can proceed to make a mesh or a \ac{DEM} by processing
 Figure \ref {p19-disparity} shows the outputs of \texttt{disparitydebug}.
 
 And a note on performance. If \texttt{stereo\_corr} takes unreasonably
-long it may have encountered a portion of the image where, due to noise
+long, it may have encountered a portion of the image where, due to noise
 (such as clouds, shadows, etc.) the determined search range is much
 larger than what it should be. The option \texttt{-\/-corr-timeout \textit{integer}}
 can be used to limit how long each 1024$\times$1024 pixel tile can take.
@@ -1080,7 +1080,7 @@ Under the hood, \texttt{pc\_align} uses the Iterative Closest Point
 algorithm (ICP) (both the point-to-plane and point-to-point flavors are supported).
 
 The \texttt{pc\_align} tool requires another input, an a priori guess for
-the maximum displacement we expect to see as result of alignment, i.e. 
+the maximum displacement we expect to see as result of alignment, i.e., 
 by how much the points are allowed to move when the alignment transform is
 applied. If not known, a large (but not unreasonably so) number can be
 specified. It is used to remove most of the points in the source
