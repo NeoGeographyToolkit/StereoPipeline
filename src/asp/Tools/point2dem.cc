@@ -353,19 +353,25 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
-
+  positional.add_options()
+    ("input-files", po::value< std::vector<std::string> >(), "Input files");
+    
   po::positional_options_description positional_desc;
-  positional_desc.add("input-file", 1);
+  positional_desc.add("input-files", -1);
 
   std::string usage("[options] <point-clouds> [ --orthoimage <textures> ]");
-  bool allow_unregistered = true;
+  bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage,
                              allow_unregistered, unregistered );
 
-  parse_input_clouds_textures(unregistered, usage, general_options, opt);
+  if (vm.count("input-files") == 0)
+    vw_throw( ArgumentErr() << "Missing input point clouds.\n"
+              << usage << general_options );
+  std::vector<std::string> input_files = vm["input-files"].as< std::vector<std::string> >();
+  parse_input_clouds_textures(input_files, usage, general_options, opt);
   
   // A fix to the unfortunate fact that the user can specify the DEM
   // spacing in two ways on the command line.

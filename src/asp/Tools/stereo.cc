@@ -96,14 +96,26 @@ namespace asp {
 
     // Extract the images/cameras/output prefix, and perhaps the input DEM
     vector<string> files;
-    bool allow_unregistered = true;
+    bool is_multiview = true;
     Options opt;
     std::string usage;
     handle_arguments(argc, argv, opt, additional_options,
-                     allow_unregistered, files, usage);
-
-    // Store the elements in argv which are not files or output prefix.
-    // Note that argv[0] is the program name.
+                     is_multiview, files, usage);
+    
+    // If a file shows up more than once as input, that will confuse
+    // the logic at the next step, so forbid that.
+    map<string, int> vals;
+    for (int s = 1; s < argc; s++) vals[argv[s]]++;
+    for (int s = 0; s < (int)files.size(); s++){
+      if (vals[files[s]] > 1){ 
+        vw_throw( ArgumentErr() << "The following input argument shows up more than "
+                  << "once and hence cannot be parsed correctly: "
+                  << files[s] << ".\n\n" << usage );
+      }
+    }
+    
+    // Store the options and their values (that is, not the input
+    // files).
     set<string> file_set; 
     for (int s = 0; s < (int)files.size(); s++)
       file_set.insert(files[s]);
@@ -245,10 +257,10 @@ namespace asp {
       for (int t = 0; t < largc; t++)
         largv.push_back((char*)cmd[t].c_str());
       Options opt;
-      bool allow_unregistered = false;
-      vector<string> unregistered;
+      bool is_multiview = false;
+      vector<string> files;
       handle_arguments( largc, &largv[0], opt, additional_options,
-                        allow_unregistered, unregistered, usage);
+                        is_multiview, files, usage);
       opt_vec.push_back(opt);
 
       if (verbose){
@@ -275,7 +287,7 @@ namespace asp {
   void handle_arguments( int argc, char *argv[], Options& opt,
                          boost::program_options::options_description const&
                          additional_options,
-                         bool allow_unregistered, vector<string> & unregistered,
+                         bool is_multiview, vector<string> & input_files,
                          std::string & usage ){
 
     po::options_description general_options_sub("");
@@ -299,23 +311,34 @@ namespace asp {
     all_general_options.add( generate_config_file_options( opt ) );
 
     po::options_description positional_options("");
-    positional_options.add_options()
-      ("left-input-image", po::value(&opt.in_file1), "Left Input Image")
-      ("right-input-image", po::value(&opt.in_file2), "Right Input Image")
-      ("left-camera-model", po::value(&opt.cam_file1), "Left Camera Model File")
-      ("right-camera-model", po::value(&opt.cam_file2), "Right Camera Model File")
-      ("output-prefix", po::value(&opt.out_prefix), "Prefix for output filenames")
-      ("input-dem", po::value(&opt.input_dem), "Input DEM");
-
     po::positional_options_description positional_desc;
-    positional_desc.add("left-input-image", 1);
-    positional_desc.add("right-input-image", 1);
-    positional_desc.add("left-camera-model", 1);
-    positional_desc.add("right-camera-model", 1);
-    positional_desc.add("output-prefix", 1);
-    positional_desc.add("input-dem", 1);
-
+    if (is_multiview){
+      // The number of input files could be huge. Just store them in a vector,
+      // we'll parse them in the caller.
+      positional_options.add_options()
+        ("input-files", po::value< std::vector<std::string> >(), "Input files");
+      positional_desc.add("input-files", -1);
+    }else{
+      // Two-view, have left and right.
+      positional_options.add_options()
+        ("left-input-image", po::value(&opt.in_file1), "Left input image")
+        ("right-input-image", po::value(&opt.in_file2), "Right input image")
+        ("left-camera-model", po::value(&opt.cam_file1), "Left camera model file")
+        ("right-camera-model", po::value(&opt.cam_file2), "Right camera model file")
+        ("output-prefix", po::value(&opt.out_prefix), "Prefix for output filenames")
+        ("input-dem", po::value(&opt.input_dem), "Input DEM");
+      
+      positional_desc.add("left-input-image", 1);
+      positional_desc.add("right-input-image", 1);
+      positional_desc.add("left-camera-model", 1);
+      positional_desc.add("right-camera-model", 1);
+      positional_desc.add("output-prefix", 1);
+      positional_desc.add("input-dem", 1);
+    }
+    
     usage = "[options] <images> [<cameras>] <output_file_prefix> [DEM]\n  Extensions are automaticaly added to the output files.\n  Camera model arguments may be optional for some stereo session types (e.g., isis).\n  Stereo parameters should be set in the stereo.default file.";
+    bool allow_unregistered = false;
+    std::vector<std::string> unregistered;
     po::variables_map vm =
       asp::check_command_line( argc, argv, opt, general_options,
                                all_general_options, positional_options,
@@ -333,7 +356,8 @@ namespace asp {
 
       // Append the options from the config file. Do not overwrite the
       // options already set on the command line.
-      po::store(parse_asp_config_file(allow_unregistered,
+      bool print_warnings = is_multiview; // print warnings just first time
+      po::store(parse_asp_config_file(print_warnings,
                                       opt.stereo_default_filename,
                                       cfg_options), vm);
       po::notify( vm );
@@ -348,8 +372,14 @@ namespace asp {
     os << usage << general_options;
     usage = os.str();
     
-    // If we allow unregistered options, the logic below won't apply correctly.
-    if (allow_unregistered) return;
+    // For multiview, just store the files and return
+    if (is_multiview){
+      if (vm.count("input-files") == 0)
+        vw_throw( ArgumentErr() << "Missing input point clouds.\n"
+                  << usage << general_options );
+      input_files = vm["input-files"].as< std::vector<std::string> >();
+      return;
+    }
 
     if ( opt.in_file1.empty() || opt.in_file2.empty() || opt.cam_file1.empty()  )
       vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n"
