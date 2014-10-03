@@ -16,7 +16,9 @@
       
  - stereo
    * Bugfix in interest point matching in certain circumstances.
-
+   * Set the correlation timeout to 300 seconds. This is generous
+     and ensures runs don't stall. 
+ 
  - point2dem
    * Take as input n clouds and optionally n texture files, create a
      single DEM/orthoimage.
