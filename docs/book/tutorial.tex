@@ -368,8 +368,8 @@ model to perform it.
 
 The hardest part of this whole process is getting the input
 low-resolution DEM. In this example we will use a variant of NASA
-SRTM data with no holes. Other choices might be GMTED2010 or USGS's NED
-data.
+SRTM data with no holes. Other choices might be GMTED2010, USGS's NED
+data, or NGA's DTED data.
 
 It is important to note that ASP expects the input low-resolution DEM to
 be in reference to a datum ellipsoid, such as WGS84 or NAD83. If the DEM
@@ -380,14 +380,14 @@ final output ASP DEM to be in reference to a geoid, if desired.)
 
 Not applying this conversion might not properly negate the parallax
 seen between the two images, though it will not corrupt the
-triangulation results. In other words, sometimes one may get by
-ignoring the vertical datums on the input but we do not recommend
+triangulation results. In other words, sometimes one may be able to
+ignore the vertical datums on the input but we do not recommend
 doing that. Also, you should note that the geoheader attached to those
-types of files usually do not describe the vertical datum they
+types of files usually does not describe the vertical datum they
 used. That can only be understood by careful reading of your
 provider's documents.
 
-In this example we use as input low-resolution DEM the file
+In this example we use as an input low-resolution DEM the file
 \texttt{srtm\_53\_07.tif}, a 90 meter resolution tile from the CGIAR-CSI
 modification of the original NASA SRTM product \cite{cgiar:srtm90m}.
 The NASA SRTM square for this example spot in India is N26E080.
@@ -478,7 +478,7 @@ are created, the disparity map
 disparity map is refined using increasingly higher-resolution versions
 of the input images (section \ref{d-sub}).
 
-This approach usually works quite well for rocky terrain, but may fail
+This approach usually works quite well for rocky terrain but may fail
 for snowy landscapes, whose only features may be small-scale
 grooves or ridges sculpted by wind (so-called {\it zastrugi}) that
 disappear at low resolution.
@@ -486,7 +486,7 @@ disappear at low resolution.
 Stereo Pipeline handles such terrains by using a tool named
 \texttt{sparse\_disp} to create
 \texttt{\textit{output\_prefix}-D\_sub.tif} at full resolution, yet only
-at a sparse set of pixels, for reasons of speed. This
+at a sparse set of pixels for reasons of speed. This
 low-resolution disparity is then refined as earlier using a pyramid
 approach.
 
@@ -532,10 +532,10 @@ In addition to panchromatic (grayscale) imagery, the Digital Globe
 satellites also produce lower-resolution multi-spectral (multi-band)
 images. Stereo Pipeline is designed to process single-band images
 only. If invoked on multi-spectral data, it will quietly process the
-first band and ignore the rest. If desired to use one of the other
-bands, it can be first singled out by invoking \texttt{dg\_mosaic}
+first band and ignore the rest. To use one of the other
+bands it can be singled out by invoking \texttt{dg\_mosaic}
 (section \ref{rawdg}) with the \texttt{-\/-band <num>} option. We have
-evaluated using ASP with Digital Globe's multi-spectral images, yet
+evaluated ASP with Digital Globe's multi-spectral images but
 support for it is still experimental. We recommend using the
 panchromatic imagery whenever possible.
 
@@ -612,7 +612,7 @@ pixels square)}. A pixel in the left image will be matched to a pixel in
 the right image by comparing the windows of this size centered at them.
 
 Making the kernel sizes smaller, such as $15 \times 15$, or even $11
-\times 11,$ may resolve better more complex features, such as steep
+\times 11,$ may improve results on more complex features, such as steep
 cliffs, at the expense of perhaps introducing more false matches or
 noise.
 
@@ -623,7 +623,7 @@ A highly critical parameter in \ac{ASP} is the value of
 \texttt{stereo} performs parabola subpixel refinement, which is very
 fast but not very accurate. When set to 2, it produces very accurate
 results, but it is about an order of magnitude slower. When set to 3,
-the accuracy and results will be somewhere in between the other methods.
+the accuracy and speed will be somewhere in between the other methods.
 
 The fifth line sets the kernel size to use during subpixel refinement
 \textit{(also 21 pixels square)}.
@@ -639,7 +639,7 @@ adding the option:
 \end{verbatim}
 
 The exact values to use with this option you'll have to discover
-yourself. The numbers right of the \texttt{corr-search} represents the
+yourself. The numbers right of \texttt{corr-search} represent the
 horizontal minimum boundary, vertical minimum boundary, horizontal
 maximum boundary, and finally the horizontal maximum boundary.
 
@@ -738,7 +738,7 @@ subpixel mode from the command line.
 
 \subsection{Stereo on Multiple Machines}
 
-If the input images are really large, it may desirable to distribute the
+If the input images are really large it may desirable to distribute the
 work over several computing nodes. ASP provides a tool named
 \texttt{parallel\_stereo} for that purpose. Its usage is described in section
 \ref{parallel}.
@@ -746,29 +746,29 @@ work over several computing nodes. ASP provides a tool named
 \subsection{Multi-View Stereo}
 \label{multiview}
 
-ASP does not support full multi-view stereo, in which a feature is
-correlated simultaneously across multiple images. It offers however,
+ASP does not support full multi-view stereo in which a feature is
+correlated simultaneously across multiple images. However, it does offer
 several approaches of combining the results of processing multiple
 images into one single terrain model. In any of the scenarios described below,
 it may be helpful to first bundle-adjust the images (section \ref{baasp}).
 
-Given several images, at the simplest, pairwise stereo with generation
-of multiple point clouds and DEMs can be performed (section
-\ref{builddem}), then the DEMs can be combined with \texttt{dem\_mosaic}
+Given several images, the most basic method is to perform pairwise stereo and
+ generate one point cloud and one DEM for each pair (section
+\ref{builddem}), then combine the DEMs with \texttt{dem\_mosaic}
 (section \ref{demmosaic}).
 
 Alternatively, multiple point clouds can be created, and then a single
-DEM can be output with \texttt{point2dem} (section \ref{point2dem}).
+DEM can be created with \texttt{point2dem} (section \ref{point2dem}).
 In both of these approaches, the point clouds could be first registered
 to a trusted dataset using \texttt{pc\_align} before creating
 terrain models (section \ref{pc-align-example}).
 
 Lastly, the \texttt{stereo} command can be invoked with multiple
-images. To this approach we will devote the rest of this section. In
-this scenario, the first image is set as reference, disparities are
-computed from it to the other ones, and joint triangulation is
-performed, using the method from \cite{slabaugh2001optimal}. A single
-point cloud is output, with one 3D point for each pixel in the first
+images. The rest of this section describes this approach. In
+this scenario, the first image is set as reference, then disparities are
+computed from it to the other ones, and then joint triangulation is
+performed using the method from \cite{slabaugh2001optimal}. A single
+point cloud is generated with one 3D point for each pixel in the first
 image. The inputs to multi-view stereo and its output point cloud can be
 handled in the same way as for two-view stereo (e.g., inputs can be
 map-projected, the output can be converted to a DEM, etc.).
@@ -788,15 +788,15 @@ The \texttt{parallel\_stereo} tool can also be used with multiple images
 (section \ref{parallel}).
 
 If the images are in a sequence, one of the images in the middle of the
-sequence can be used as a reference (so needs to be passed to the tools
+sequence can be used as a reference (so it needs to be passed to the tools
 as the first image).
 
-The rays intersection error, that is, the fourth band in the point cloud
+The ray intersection error, the fourth band in the point cloud
 file, is computed as twice the mean of distances from the optimally
 computed intersection point to the individual rays. For two rays, this
-agrees with the intersection error for two-view stereo, which is defined
-as the minimal distance between rays. For multi-view stereo, this error
-is much less amenable to interpretation as for two-view stereo, as the
+agrees with the intersection error for two-view stereo which is defined
+as the minimal distance between rays. For multi-view stereo this error
+is much less amenable to interpretation as for two-view stereo since the
 number of valid rays corresponding to a given feature can vary across
 the image, which results in discontinuities in the intersection error.
 
@@ -885,11 +885,11 @@ You can proceed to make a mesh or a \ac{DEM} by processing
 Figure \ref {p19-disparity} shows the outputs of \texttt{disparitydebug}.
 
 And a note on performance. If \texttt{stereo\_corr} takes unreasonably
-long, perhaps it encountered a portion of the image where, due to noise
+long it may have encountered a portion of the image where, due to noise
 (such as clouds, shadows, etc.) the determined search range is much
 larger than what it should be. The option \texttt{-\/-corr-timeout \textit{integer}}
 can be used to limit how long each 1024$\times$1024 pixel tile can take.
-A good value here could be 300 (seconds), or more if your terrain is expected
+A good value here could be 300 (seconds) or more if your terrain is expected
 to have large height variations.
 
 \section{Visualizing and Manipulating the Results}
@@ -1064,8 +1064,8 @@ sometimes noisy) can be eroded using the \texttt{dem\_mosaic} tool
 
 \subsection{Alignment to Point Clouds From a Different Source}
 \label{pc-align-example}
-Often times, the 3D terrain models output by \texttt{stereo} (point
-clouds and DEMs) can be intrinsically quite accurate, yet their actual
+Often the 3D terrain models output by \texttt{stereo} (point
+clouds and DEMs) can be intrinsically quite accurate yet their actual
 position on the planet may be off by several meters or several
 kilometers, depending on the spacecraft. This can result from small
 errors in the position and orientation of the satellite cameras taking
@@ -1080,8 +1080,8 @@ Under the hood, \texttt{pc\_align} uses the Iterative Closest Point
 algorithm (ICP) (both the point-to-plane and point-to-point flavors are supported).
 
 The \texttt{pc\_align} tool requires another input, an a priori guess for
-the maximum displacement we expect to see as result of alignment, that
-is, by how much the points will move when the alignment transform is
+the maximum displacement we expect to see as result of alignment, i.e. 
+by how much the points are allowed to move when the alignment transform is
 applied. If not known, a large (but not unreasonably so) number can be
 specified. It is used to remove most of the points in the source
 (movable) point cloud which have no chance of having a corresponding
@@ -1156,7 +1156,7 @@ and/or shaded relief images.
 To create a colorized version of the \ac{DEM}, you need only specify
 the \ac{DEM} file to use. The colormap is applied to the full range of
 the DEM, which is computed automatically.  Alternatively you can
-specific your own min and max range for the color map.
+specify your own min and max range for the color map.
 
 \begin{verbatim}
   >  colormap results/output-DEM.tif -o hrad-colorized.tif

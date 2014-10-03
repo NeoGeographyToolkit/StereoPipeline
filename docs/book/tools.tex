@@ -52,7 +52,7 @@ and \texttt{out-PC.tif}.  To keep the Stereo Pipeline results organized
 in sub-directories, we recommend using an output prefix like
 `\texttt{results-10-12-09/out}' for \texttt{\textit{output\_file\_prefix}}.  The
 \texttt{stereo} program will create a directory called
-\texttt{results-10-12-09/out} and place files named \texttt{out-L.tif},
+\texttt{results-10-12-09/} and place files named \texttt{out-L.tif},
 \texttt{out-PC.tif}, etc. in that directory.
 
 \begin{longtable}{|l|p{7.5cm}|}
@@ -153,12 +153,16 @@ documents all options for the individual sub-programs.
 
 The \texttt{parallel\_stereo} program is a modification of
 \texttt{stereo} designed to distribute the stereo processing over
-multiple computing nodes. It uses GNU Parallel to manage the jobs, which
-is distributed together with Stereo Pipeline. It expects that all nodes
-can connect to each other using ssh without password.
+multiple computing nodes. It uses GNU Parallel to manage the jobs, a tool which
+is distributed along with Stereo Pipeline. It expects that all nodes
+can connect to each other using ssh without password. \texttt{parallel\_stereo} 
+can also be useful when processing extraterrestial data on a single computer.
+This is because ISIS camera models are restricted to a single thread, but 
+\texttt{parallel\_stereo} can run multiple processes in parallel to reduce
+computation times.
 
-At the simplest, it can be invoked exactly like stereo, being passed
-in addition the list of nodes to use.
+At the simplest, \texttt{parallel\_stereo} can be invoked exactly like stereo, 
+with the addition of the list of nodes to use (if using multiple nodes).
 
 \begin{verbatim}
 parallel_stereo --nodes-list machines.txt <other stereo options>
@@ -170,12 +174,12 @@ variable. For example, on NASA's Pleiades Supercomputer, which uses the
 Portable Batch System (PBS), the list of nodes can be retrieved as
 \$PBS\_NODEFILE.
 
-It is important to note that, when invoking this tool, only stages 1, 2,
+It is important to note that when invoking this tool only stages 1, 2,
 and 4 of stereo (section \ref{stereo_dec}) are spread over multiple
 machines, with stages 0 and 3 using just one node, as they require
 global knowledge of the data. In addition, not all stages of stereo
-benefit equally from parallelization, most likely to gain are stages 1
-and 2 (correlation and refinement), which are the most computationally
+benefit equally from parallelization. Most likely to gain are stages 1
+and 2 (correlation and refinement) which are the most computationally
 expensive.
 
 For these reasons, while \texttt{parallel\_stereo} can be called to do
@@ -275,7 +279,7 @@ given set of images and cameras. An introduction to bundle adjustment
 can be found in chapter \ref{ch:bundle_adjustment}, with an example of
 how to use this program in section \ref{baasp}.
 
-This tool can use several algorithms for bundle adjustment, the default is
+This tool can use several algorithms for bundle adjustment. The default is
 to use Google's Ceres Solver (\url{http://ceres-solver.org/}).
 
 Usage:
@@ -378,7 +382,7 @@ must have the following fields:
 \end{itemize}
 
 On the same line, for each image in which the ground control point is
-visible, there should be:
+visible there should be:
 
 \begin{itemize}
 \item image file name
@@ -402,7 +406,7 @@ of a ground control point measurement:
 \section{point2dem}
 \label{point2dem}
 
-The \texttt{point2dem} program produces a GeoTIFF terrain model or/and
+The \texttt{point2dem} program produces a GeoTIFF terrain model and/or
 an orthographic image from a set of point clouds. The clouds can be
 created by the {\tt stereo} command, or be in LAS or CSV format.
 
@@ -476,19 +480,19 @@ reference spheroid to being relative to the MOLA Areoid.
 \subsection{Post Spacing}
 
 Recall that \texttt{stereo} creates a point cloud file as its output
-that you need to use \texttt{point2dem} on to create a GeoTIFF that
+and that you need to use \texttt{point2dem} on to create a GeoTIFF that
 you can use in other tools.  The point cloud file is the result of
 taking the image-to-image matches (which were created from the
 kernel sizes you specified, and the subpixel versions of the same,
 if used) and projecting them out into space from the cameras, and
 arriving at a point in real world coordinates.  Since \texttt{stereo} does
 this for every pixel in the input images, the \emph{default} value that
-\texttt{point2dem} uses (if you don't specify anything explicitly) is: the
+\texttt{point2dem} uses (if you don't specify anything explicitly) is the
 input image scale, because there's an `answer' in the point cloud
 file for each pixel in the original image.
 
 However, as you may suspect, this is probably not the best value to
-use, because there really isn't that much `information' in the data.
+use because there really isn't that much `information' in the data.
 The true `resolution' of the output model is dependent on a whole
 bunch of things (like the kernel sizes you choose to use) but also can
 vary from place to place in the image depending on the texture.
@@ -502,12 +506,12 @@ larger post-spacings on output, you're averaging more point data (that
 is probably spatially correlated anyway) together.
 
 So you can either use the \texttt{-\/-dem-spacing} argument to
-\texttt{point2dem} to do that directly, or feel free to use your
+\texttt{point2dem} to do that directly, or you can use your
 favorite averaging algorithm to reduce the \texttt{point2dem}-created
 model down to the scale you want.
 
 If you attempt to derive science results from an ASP-produced terrain model
-with the default DEM spacing, expect serious questions from reviewers.
+with the default \ac{DEM} spacing, expect serious questions from reviewers.
 
 \subsection{Using with LAS or CSV Clouds}
 
@@ -515,23 +519,23 @@ The \texttt{point2dem} program can take as inputs point clouds in LAS
 and CSV formats. These differ from point clouds created by stereo by
 being, in general, not uniformly distributed.  It is suggested that the
 user pick carefully the output resolution for such files
-(\texttt{-\/-dem-spacing}). If the output DEM turns out to be sparse,
+(\texttt{-\/-dem-spacing}). If the output \ac{DEM} turns out to be sparse,
 the spacing could be increased, or one could experiment with increasing
 the value of \texttt{-\/-search-radius-factor}, which will fill in small
-gaps in the output DEM by searching further for points in the input
+gaps in the output \ac{DEM} by searching further for points in the input
 clouds.
 
 It is expected that the input LAS files have spatial reference
-information, such as WKT data. Otherwise it is assumed that the points
+information such as WKT data. Otherwise it is assumed that the points
 are raw $x,y,z$ values in meters in reference to the planet center.
  
-Unless the output projection is explicitly set when invoking \texttt{point2dem},
+Unless the output projection is explicitly set when invoking \texttt{point2dem}
 the one from the first LAS file will be used.
 
-For LAS or CSV clouds, it is not possible to generate intersection error
+For LAS or CSV clouds it is not possible to generate intersection error
 maps or ortho images.
 
-For CSV clouds, the option \texttt{-\/-csv-format} must be set.
+For CSV clouds the option \texttt{-\/-csv-format} must be set.
 
 \begin{longtable}{|p{8cm}|p{9cm}|}
 \caption{Command-line options for point2dem}
@@ -673,17 +677,17 @@ Options & Description \\ \hline \hline
 \section{dem\_mosaic}
 \label{demmosaic}
 
-The program \texttt{dem\_mosaic} takes as input a list of DEM files,
-optionally erodes pixels at the DEM boundaries, and creates a mosaic,
-blending the DEMs where they overlap.
+The program \texttt{dem\_mosaic} takes as input a list of \ac{DEM} files,
+optionally erodes pixels at the \ac{DEM} boundaries, and creates a mosaic,
+blending the \acp{DEM} where they overlap.
 
 Usage:
 \begin{verbatim}
   dem_mosaic [options] <dem files or -l dem_files_list.txt> -o output_file_prefix
 \end{verbatim}
 
-The input DEMs can either be set on the command line, or if too
-many, they can be listed in a text file (one per line) and that file can
+The input \ac{DEM} can either be set on the command line, or if there are too
+many they can be listed in a text file (one per line) and that file can
 be passed to the tool.
 
 The output mosaic is written as non-overlapping tiles with desired tile
@@ -693,7 +697,7 @@ mosaic is saved as one tile.
 
 Individual tiles can be saved via the \texttt{-\/-tile-index} option
 (the tool displays the total number of tiles when it is being run). As
-such, separate processes can be invoked for individual tiles, for
+such, separate processes can be invoked for individual tiles for
 increased robustness and perhaps speed.
 
 The output mosaic tiles will be named <output prefix>-tile-<tile
@@ -703,14 +707,14 @@ if it is set to \texttt{results/output}, all the tiles will be in the
 if one of the \texttt{-\/-first}, \texttt{-\/-last}, \texttt{-\/-min},
 etc. options is invoked (see below).
 
-By the default, the output mosaicked DEM will use the same grid size and
-projection as the first input DEM. These can be changed via the
+By the default, the output mosaicked \ac{DEM} will use the same grid size and
+projection as the first input \ac{DEM}. These can be changed via the
 \texttt{-\/-tr} and \texttt{-\/-t\_srs} options.
 
 Instead of blending, \texttt{dem\_mosaic} can compute the image of
 first, last, minimum, maximum, mean, median, and count of all
-encountered valid DEM heights at output grid points. For the
-``first'' and ``last'' operations, we use the order in which DEMs
+encountered valid \ac{DEM} heights at output grid points. For the
+``first'' and ``last'' operations, we use the order in which \acp{DEM}
 were passed in.
 
 \begin{longtable}{|l|p{10cm}|}
@@ -784,7 +788,7 @@ No-data value to use on output. Default: use the one from the first DEM to be mo
 \\ \hline
 
 \texttt{-\/-count} 
-& Find the image of counts of DEM values.
+& Each pixel is set to the number of DEMs available at that pixel.
 \\ \hline
 
 \texttt{-\/-threads \textit{integer(=4)}} 
@@ -799,7 +803,7 @@ No-data value to use on output. Default: use the one from the first DEM to be mo
 \section{dem\_geoid}
 \label{demgeoid}
 
-This tool takes as input a DEM whose height values are relative to the
+This tool takes as input a \ac{DEM} whose height values are relative to the
 datum ellipsoid, and adjusts those values to be relative to the
 equipotential surface of the planet (geoid on Earth, and areoid on
 Mars). The program can also apply the reverse of this adjustment. The
@@ -855,7 +859,7 @@ models. The combined RPC model can be used to map-project the mosaicked
 images with the goal of computing stereo from them (section
 \ref{mapproj}).
 
-The tool needs to be applied twice, for each of the left and right image sets.
+The tool needs to be applied twice, for both the left and right image sets.
 
 \texttt{dg\_mosaic} can also reduce the image resolution while creating the
 mosaics (with the camera files modified accordingly).
@@ -907,7 +911,7 @@ releases for backward compatibility). We ported all features of
 \texttt{orthoproject} except for projecting of vector imagery (for
 example, RGB pixel data).
 
-\texttt{mapproject} is single-threaded for ISIS cameras, this is due to
+\texttt{mapproject} is single-threaded for ISIS cameras due to
 the limitations of ISIS. At some point this tool will be able to
 distribute itself using multiple processes to work around this limitation.
 
@@ -1082,7 +1086,7 @@ Compress using laszip. \\ \hline
 \texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix. \\ \hline
 \texttt{-\/-threads \textit{integer(=0)}} & Set the number threads to use. 0 means use the default defined in the program or in the .vwrc file.\\ \hline
 \texttt{-\/-tif-compress None|LZW|Deflate|Packbits} & TIFF compression method.\\ \hline
-\texttt{-\/-cache-dir \textit{directory(=/tmp)}} & Folder for temporary files. Normally this need not be changed.\\ \hline
+\texttt{-\/-cache-dir \textit{directory(=/tmp)}} & Folder for temporary files. Normally this does not need to be changed.\\ \hline
 \end{longtable}
 
 \section{pc\_align}
@@ -1105,7 +1109,7 @@ transform, and can output the reference point cloud transformed to match
 the source and vice-versa).
 
 In many typical applications, the source and reference point clouds are
-already roughly aligned, but the source point cloud may cover a larger
+already roughly aligned but the source point cloud may cover a larger
 area than the reference. The user should provide to \texttt{pc\_align}
 the expected maximum distance (displacement) source points may move by
 as result of alignment, using the option
@@ -1123,13 +1127,13 @@ source point clouds to perform the alignment. The amount of memory and
 processing time used by \texttt{pc\_align} is directly proportional to
 these numbers.
 
-Normally Point-to-Plane ICP is more accurate than Point-to-Point, but
+Normally Point-to-Plane ICP is more accurate than Point-to-Point but
 the latter can be good enough if the input point clouds have small
-alignment errors, and it is faster and uses less memory as well.  The
-tool also accepts an option named \texttt{-\/-highest-accuracy}, when it
+alignment errors and it is faster and uses less memory as well.  The
+tool also accepts an option named \texttt{-\/-highest-accuracy} which
 will compute the normals for Point-to-Plane ICP at all points rather
 than about a tenth of them. This option is not necessary most of the
-time, but may result in better alignment, at the expense of using more
+time but may result in better alignment at the expense of using more
 memory and processing time.
 
 The input point clouds can be in one of several formats: ASP's point
@@ -1137,7 +1141,7 @@ cloud format, DEMs as GeoTIFF or ISIS cub files, LAS files,
 or plain-text CSV files (with .csv
 or .txt extension). By default, CSV files are expected to have on each
 line the latitude and longitude (in degrees), and the height above the
-datum (in meters), separated by commas or spaces, with an optional
+datum (in meters), separated by commas or spaces with an optional
 header line. Alternatively, the user can specify the format of the CSV
 file via the \texttt{-\/-csv-format} option. Entries in the CSV file can
 then be (in any order) (a) longitude, latitude (in degrees), height
@@ -1148,14 +1152,14 @@ measured from planet center (in meters). The precise syntax is described
 in the table below. The tool can also auto-detect the LOLA RDR
 PointPerRow format.
 
-If none of the input files are a DEM, from which the datum can be
-inferred, and the input files are not in Cartesian coordinates, the
-datum needs to be specified via the \texttt{-\/-datum} option, or by
+If none of the input files are a DEM from which the datum can be
+inferred and the input files are not in Cartesian coordinates, the
+datum needs to be specified via the \texttt{-\/-datum} option or by
 setting \texttt{-\/-semi-major-axis} and \texttt{-\/-semi-minor-axis}.
 
 The transform obtained by \texttt{pc\_align} is output to a file as a
-$4\times 4$ matrix, with the upper-left $3\times 3$ submatrix being the
-rotation, and the top three elements of the right-most column being the
+$4\times 4$ matrix with the upper-left $3\times 3$ submatrix being the
+rotation and the top three elements of the right-most column being the
 translation. This transform, if applied to the source point cloud, will
 bring it in alignment with the reference point cloud. The transform
 assumes the 3D Cartesian coordinate system with the origin at the planet
@@ -1170,15 +1174,15 @@ coordinates with the origin at the planet center, (b) Local
 North-East-Down coordinates at the centroid of the original source
 points, and (c) Latitude-Longitude-Height differences between the two
 centroids. If the effect of the transform is small (e.g., the points
-moved by at most several hundred meters), then the representation in the
-form (b) above is most amenable to interpretation, as it is in respect
+moved by at most several hundred meters) then the representation in the
+form (b) above is most amenable to interpretation as it is in respect
 to cardinal directions and height above ground if standing at a point on
 the planet surface.
 
 The rotation + transform itself, with its origin at the center of the planet,
 can result in large movements on the planet surface even for small angles
-of rotation, as such both its rotation and translation components may not
-be amenable to good interpretation.
+of rotation. Because of this it may be difficult to interpret both its rotation 
+and translation components.
 
 The tool outputs to CSV files the lists of errors together with their
 locations in the source point cloud, before and after the alignment of
@@ -1189,11 +1193,11 @@ output CSV files is the same as of input CSV files, or as given by
 input files are not saved on output.
 
 The program prints to screen and saves to a log file the 16th, 50th, and
-84th error percentiles, as well as the means of the smallest 25\%, 50\%,
+84th error percentiles as well as the means of the smallest 25\%, 50\%,
 75\%, and 100\% of the errors.
 
-By default, when \texttt{pc\_align} discards outliers during the
-computation of the alignment transform, it keeps the 75\% of the points
+By default when \texttt{pc\_align} discards outliers during the
+computation of the alignment transform it keeps the 75\% of the points
 with the smallest errors. As such, a way of judging the effectiveness of
 the tool is to look at the mean of the smallest 75\% of the errors
 before and after alignment.
@@ -1201,12 +1205,12 @@ before and after alignment.
 The transformed input point clouds can also be saved to disk if
 desired. If an input point cloud is in CSV or ASP point cloud format,
 the output transformed cloud will be in the same format. If the input is
-a DEM, the output will be an ASP point cloud, since a gridded point
+a DEM the output will be an ASP point cloud since a gridded point
 cloud may not stay so after a 3D transform. The \texttt{point2dem}
 program can be used to resample the obtained point cloud back to a DEM.
 
 The convergence history for \texttt{pc\_align} (the translation and
-rotation change at each iteration) is saved to disk, and can be used to
+rotation change at each iteration) is saved to disk and can be used to
 fine-tune the stopping criteria.
 
 \medskip
@@ -1283,21 +1287,21 @@ An image taken by one of Digital Globe's World View satellite cameras is
 formed of several blocks as tall as the image, mosaicked from left to
 right, with each block coming from an individual CCD sensor
 \cite{digital-globe:camera}. Either due to imperfections in the camera
-or in the subsequent processing, the image blocks are offset in
+or in the subsequent processing the image blocks are offset in
 respect to each other in both row and column directions by a subpixel
 amount. These so-called {\it CCD boundary artifacts} are not visible in
-the images, but manifest themselves as discontinuities in the the DEMs
+the images but manifest themselves as discontinuities in the the DEMs
 obtained with ASP.
  
 The tool named \texttt{wv\_correct} is able to significantly attenuate
 these artifacts (see Figure~\ref{fig:ccd-artifact-example} in the
 Digital Globe tutorial for an example). This tool should be used on raw
-Digital Globe images, that is, before calling \texttt{dg\_mosaic} and
+Digital Globe images before calling \texttt{dg\_mosaic} and
 \texttt{mapproject}. 
 
 It is important to note that both the positions of the CCD offsets and
-the offset amounts were determined empirically, without knowledge of
-Digital Globe's mosaicking process; this explains why we are not able to
+the offset amounts were determined empirically without knowledge of
+Digital Globe's mosaicking process; this is why we are not able to
 remove these artifacts completely. 
 
 Presently, \texttt{wv\_correct} works for WV01 images for TDI of 16, 32,
