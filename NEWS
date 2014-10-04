@@ -1,4 +1,4 @@
-*** RELEASE 2.4.2, Upcoming! ***
+*** RELEASE 2.4.2, October 6, 2014 ***
 
  - ASP can perform multi-view triangulation (using both the
      stereo and parallel_stereo tools). The first image is set

@@ -9,28 +9,29 @@ Inside ASP's configure.ac, remove "_post" and increment version number
 on the AC_INIT line. Do not do this for VisionWorkbench, as that
 library has its own versioning.
 
-2.) Update the ISIS version to the latest:
- - In BinaryBuilder/Packages.py (chksum variable), to force 
+2.) Get the latest ISIS from the USGS web site. Then update the
+    version in:
+ - BinaryBuilder/Packages.py (chksum variable), to force 
    ISIS to recompile as part of the nightly build.
- - In StereoPipeline/README
+ - StereoPipeline/README
 
 3.) Update NEWS
 
-4.) Commit and tag release in repo. Example: 
+4.) Commit and tag release in ASP repo. Example: 
 
-  git tag v2.4.1 
+  git tag v2.4.2 
 
 Push the tags to the remote server with: 
 
- git push origin v2.4.1 # commit to your branch
- git push god    v2.4.1 # commit to main branch
+ git push origin v2.4.2 # commit to your branch
+ git push god    v2.4.2 # commit to main branch
 
 If more commits were made and it is desired to apply this tag to a
 different commit, first remove the exiting tag with:
 
-  git tag -d v2.4.1
-  git push origin :refs/tags/v2.4.1
-  git push god    :refs/tags/v2.4.1
+  git tag -d v2.4.2
+  git push origin :refs/tags/v2.4.2
+  git push god    :refs/tags/v2.4.2
 
 5.) Build and package the software and documentation:
 
