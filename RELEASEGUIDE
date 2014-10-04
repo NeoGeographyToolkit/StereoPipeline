@@ -9,15 +9,50 @@ Inside ASP's configure.ac, remove "_post" and increment version number
 on the AC_INIT line. Do not do this for VisionWorkbench, as that
 library has its own versioning.
 
-2.) Get the latest ISIS from the USGS web site. Then update the
-    version in:
- - BinaryBuilder/Packages.py (chksum variable), to force 
-   ISIS to recompile as part of the nightly build.
- - StereoPipeline/README
+2.) Look up the latest ISIS version and update it in
+    StereoPipeline/README.
 
-3.) Update NEWS
+3.) Update NEWS. 
 
-4.) Commit and tag release in ASP repo. Example: 
+4.) Read and update the documentation.
+
+5.) Commit all changes.
+
+6.) Build and package the software and documentation:
+
+  - Modify BinaryBuilder to deal with any changes in dependencies.
+  - Build the dependenices, see BinaryBuilder/README, section 3.B, 
+    part 1.
+  - Ensure that the latest ISIS gets built.
+  - Build the documentation in StereoPipeline/docs/book. Must do
+    make distclean at the top level first, to force that the ASP
+    version gets updated.
+  - Greatly reduce the size of the pdf with:
+    gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/ebook \
+       -dNOPAUSE -dQUIET -dBATCH -sOutputFile=output.pdf asp_book.pdf
+    (this only works with some version of gs, such as on lunokhod1).
+  - Copy the obtained pdf file to BinaryBuilder/dist-add/asp_book.pdf.
+  - Build the ASP release tarball, see BinaryBuilder/README,
+    section 3.B, part 2.
+
+7.) Test all binary releases on different machines by running
+    StereoPipelineTest.
+
+NOTE: Steps 6 and 7 are done automatically by running on lunokhod1
+the script
+
+  $HOME/projects/BinaryBuilder/auto_build/launch_master.sh
+
+The resulting release tarballs will go to BinaryBuilder/asp_tarballs.
+
+8.) Check that the ASP version is correct in the documentation
+    file and that the documentation is searchable (this is a bug in
+    some gs versions).
+
+9.) Test on both Linux and Mac if point2mesh works and if the 
+    'osgviewer' included with the release can load it. 
+
+10.) Commit and tag the release in the ASP repo. Example: 
 
   git tag v2.4.2 
 
@@ -33,39 +68,7 @@ different commit, first remove the exiting tag with:
   git push origin :refs/tags/v2.4.2
   git push god    :refs/tags/v2.4.2
 
-5.) Build and package the software and documentation:
-
-  - Modify BinaryBuilder to deal with any changes in dependencies.
-  - Build the dependenices, see BinaryBuilder/README, section 3.B, 
-    part 1.
-  - Build the documentation in StereoPipeline/docs/book. Must do
-    make distclean at the top level first, to force that the ASP
-    version gets updated.
-  - Greatly reduce the size of the pdf with:
-    gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/ebook \
-       -dNOPAUSE -dQUIET -dBATCH -sOutputFile=output.pdf asp_book.pdf
-    (this only works with newer version of gs, such as on zula).
-  - Copy the obtained pdf file to BinaryBuilder/dist-add/asp_book.pdf.
-  - Build the ASP release tarball, see BinaryBuilder/README,
-    section 3.B, part 2.
-
-6.) Test all binary releases on different machines by running
-    StereoPipelineTest.
-
-NOTE: Steps 5 to 6 are done automatically by running on lunokhod1
-the script
-
-  $HOME/projects/BinaryBuilder/auto_build/launch_master.sh
-
-The resulting release tarballs will go to BinaryBuilder/asp_tarballs.
-
-7.) Check that the ASP version is correct in the documentation
-file. Read the entire documentation.
-
-8.) Test on both Linux and Mac if point2mesh works and if the 
-    'osgviewer' included with the release can load it. 
-
-9.) Copy the new builds and documentation to the release area at
+11.) Copy the new builds and documentation to the release area at
 /byss/docroot/stereopipeline/binaries and update the website, at
 https://ti.arc.nasa.gov/cms/ (SG can give permissions to edit the
 pages under /tech/asr/intelligent-robotics/ngt). Update:
@@ -76,17 +79,17 @@ pages under /tech/asr/intelligent-robotics/ngt). Update:
    * Source code release link
    * Documentation link
 
-10.) Ask fellow ASP developers to do some tests and review the
+12.) Ask fellow ASP developers to do some tests and review the
 documentation.
 
-11.) Send an announcement of the new release to the mailing list, at
+13.) Send an announcement of the new release to the mailing list, at
 stereo-pipeline@lists.nasa.gov, listing the changes specified in NEWS.
 
-12.) Modify the build system:
+14.) Modify the build system:
 
 Inside ASP's configure.ac, append "_post" to version number in AC_INIT
 line.
 
-13.) Reflect any changes in release policy by modifying this document.
+15.) Reflect any changes in release policy by modifying this document.
 
-14.) Commit changes.
+16.) Commit changes.
