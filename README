@@ -37,7 +37,7 @@ products of scientific interest such as map projected and mosaicked
 imagery.
 
 This version of the Stereo Pipeline is tested against ISIS version
-3.4.6. The Stereo Pipeline binary distribution requires this
+3.4.7. The Stereo Pipeline binary distribution requires this
 version.  The source distribution recommends this version, but may
 work with other versions.
 
