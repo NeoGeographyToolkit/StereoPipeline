@@ -16,7 +16,7 @@
       
  - stereo
    * Bugfix in interest point matching in certain circumstances.
-   * Set the correlation timeout to 300 seconds. This is generous
+   * Set the correlation timeout to 600 seconds. This is generous
      and ensures runs don't stall. 
  
  - point2dem
