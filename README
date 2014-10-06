@@ -21,25 +21,17 @@ soon follow. Check this website for the latest updates.
 
 B. Stereo Pipeline
 
-The NASA Ames Stereo Pipeline (ASP) is a suite of automated geodesy &
-stereogrammetry tools designed for processing planetary imagery captured
-from orbiting and landed robotic explorers on other planets. It was
-designed to process stereo imagery captured by NASA spacecraft and
-produce cartographic products including digital elevation models (DEMs),
-ortho-projected imagery, and 3D models. These data products are suitable
-for science analysis, mission planning, and public outreach.
+The NASA Ames Stereo Pipeline (ASP) is a suite of free and open source
+automated geodesy and stereogrammetry tools designed for processing
+planetary and Earth imagery captured from satellites and robotic
+rovers. It produces cartographic products, including digital elevation
+models (DEMs), ortho-projected imagery, and 3D models. These data
+products are suitable for science analysis, mission planning, and
+public outreach.
 
-This version of the Stereo Pipeline is designed as an add-on to an
-existing installation of the USGS Integrated Software for Imagers and
-Spectrometers (ISIS). ISIS is widely used in the planetary science
-community for processing raw spacecraft imagery into high level data
-products of scientific interest such as map projected and mosaicked
-imagery.
-
-This version of the Stereo Pipeline is tested against ISIS version
-3.4.7. The Stereo Pipeline binary distribution requires this
-version.  The source distribution recommends this version, but may
-work with other versions.
+Please install USGS ISIS version 3.4.7 if you would like to process
+NASA non-terrestrial imagery. Users wishing to process Digital Globe,
+GeoEye, or perspective imagery do not need to download anything else.
 
 ************************************************************************
 2. LICENSE (see COPYING for the full text)
@@ -100,12 +92,12 @@ the NGT user mailing list:
 To subscribe to this list, send an empty email message with the subject
 'subscribe' (without the quotes) to
 
-  stereo-pipeline@lists.nasa.gov
+  stereo-pipeline-request@lists.nasa.gov
 
 To contact the lead developers and project manager directly, send mail
 to:
 
-  stereo-pipeline@lists.nasa.gov
+  stereo-pipeline-owner@lists.nasa.gov
 
 Please do NOT use this second list for technical inquiries, which
 should all be sent to the main stereo-pipeline list above.
