@@ -4,6 +4,9 @@
    * Fixed a slight discrepancy in the value of the semi-minor axis in
      the WGS84 and NAD83 datum implementations.
 
+ - point2las
+   * Added the ability to specify a custom projection (PROJ.4 string).
+
 *** RELEASE 2.4.2, October 6, 2014 ***
 
  - ASP can perform multi-view triangulation (using both the

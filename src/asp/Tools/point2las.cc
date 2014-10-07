@@ -49,6 +49,7 @@ struct Options : asp::BaseOptions {
   // Input
   std::string reference_spheroid;
   std::string pointcloud_file;
+  std::string target_srs_string;
   bool compressed;
   // Output
   std::string out_prefix;
@@ -62,7 +63,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("compressed,c", po::bool_switch(&opt.compressed)->default_value(false)->implicit_value(true),
      "Compress using laszip.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
-    ("reference-spheroid,r", po::value(&opt.reference_spheroid),"Set the reference spheroid [ earth, moon, mars]. This will create a geo-referenced las file in respect to the spheroid.");
+    ("reference-spheroid,r", po::value(&opt.reference_spheroid),"Set the reference spheroid [Earth, Moon, Mars]. This will create a geo-referenced LAS file in respect to the spheroid. For Earth, the WGS84 datum is used.")
+    ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
+     "Specify a custom projection (PROJ.4 string).");
 
   general_options.add( asp::BaseOptionsDescription(opt) );
 
@@ -115,15 +118,26 @@ int main( int argc, char *argv[] ) {
     cartography::Datum datum;
     bool have_user_datum
       = asp::read_user_datum(0, 0, opt.reference_spheroid, datum);
-    if (have_user_datum){
+
+    bool is_geodetic = false;
+    if (have_user_datum || !opt.target_srs_string.empty()){
+
+      cartography::GeoReference georef;
+      // Set the srs string into georef.
+      asp::set_srs_string(opt.target_srs_string,
+                          have_user_datum, datum, georef);
       liblas::SpatialReference ref;
-      std::string target_srs = "+proj=longlat " + datum.proj4_str();
+      std::string target_srs = georef.proj4_str();
+      target_srs += " " + georef.datum().proj4_str();
+
       ref.SetFromUserInput(target_srs);
-      vw_out() << "Setting SRS to '" << target_srs << "'"<< std::endl;
+      vw_out() << "Using projection string: '" << target_srs << "'"<< std::endl;
       header.SetSRS(ref);
+      
+      is_geodetic = true;
+      datum = georef.datum();
     }
 
-    bool is_geodetic = have_user_datum;
     ImageViewRef<Vector3> point_image = asp::read_cloud<3>(opt.pointcloud_file);
     if (is_geodetic)
       point_image = cartesian_to_geodetic(point_image, datum);

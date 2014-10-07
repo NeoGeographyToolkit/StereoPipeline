@@ -1080,7 +1080,8 @@ public LAS format for interchange of 3-dimensional point cloud data.
 \hline
 Options & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message.\\ \hline
-\texttt{-\/-reference-spheroid|-r Earth|Moon|Mars} & Set the reference spheroid. This will create a geo-referenced las file in respect to the spheroid. \\ \hline
+\texttt{-\/-reference-spheroid|-r Earth|Moon|Mars} & "Set the reference spheroid [Earth, Moon, Mars]. This will create a geo-referenced LAS file in respect to the spheroid. For Earth, the WGS84 datum is used. \\ \hline
+\texttt{-\/-t\_srs \textit{string}} & Specify a custom projection (PROJ.4 string). \\ \hline
 \texttt{-\/-compressed} &
 Compress using laszip. \\ \hline
 \texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix. \\ \hline
