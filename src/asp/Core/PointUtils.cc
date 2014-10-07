@@ -370,11 +370,11 @@ bool asp::read_user_datum(double semi_major, double semi_minor,
     } else {
       vw_throw( ArgumentErr() << "\t--> Unknown reference spheriod: "
                 << reference_spheroid
-                << ". Current options are [ earth, moon, mars ]\nExiting." );
+                << ". Current options are [Earth, Moon, Mars].\nExiting." );
     }
     vw_out() << "\t    Axes [" << datum.semi_major_axis() << " "
              << datum.semi_minor_axis() << "] meters\n";
-  } else if (semi_major != 0 && semi_minor != 0) {
+  } else if (semi_major > 0 && semi_minor > 0) {
     vw_out() << "\t--> Re-referencing altitude values to user supplied datum.\n"
              << "\t    Semi-major: " << semi_major << "  Semi-minor: " << semi_minor << "\n";
     datum = cartography::Datum("User Specified Datum",

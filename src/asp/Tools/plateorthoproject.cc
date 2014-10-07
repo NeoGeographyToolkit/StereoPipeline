@@ -67,7 +67,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Output transaction ID to use. If not provided, one will be solved for.")
     ("mode,m", po::value(&opt.output_mode)->default_value("equi"), "Output mode [toast, equi, polar]")
     ("mask", po::value(&opt.mask_image), "Input single channel image with same aspect ratio as camera image whose pixel with maximum value define valid pixels from projection.")
-    ("datum,d", po::value(&opt.datum)->default_value("earth"), "Datum to use [earth, moon, mars].")
+    ("datum,d", po::value(&opt.datum)->default_value("Earth"), "Datum to use [Earth, Moon, Mars].")
     ("session-type,t", po::value(&opt.session),
      "Select the stereo session type to use for processing. [Options are pinhole, isis, ...]");
   general_options.add( asp::BaseOptionsDescription(opt) );

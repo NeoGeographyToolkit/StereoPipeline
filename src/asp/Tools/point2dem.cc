@@ -301,7 +301,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Set output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically (except for LAS and CSV files). This is the same as the --tr option.")
     ("tr", po::value(&dem_spacing2)->default_value(0.0),
      "Set output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically (except for LAS and CSV files). This is the same as the --dem-spacing option.")
-    ("reference-spheroid,r", po::value(&opt.reference_spheroid),"Set the reference spheroid [ earth, moon, mars]. This will override manually set datum information.")
+    ("reference-spheroid,r", po::value(&opt.reference_spheroid),"Set the reference spheroid [Earth, Moon, Mars]. This will override manually set datum information.")
     ("semi-major-axis", po::value(&opt.semi_major)->default_value(0), "Explicitly set the datum semi-major axis in meters.")
     ("semi-minor-axis", po::value(&opt.semi_minor)->default_value(0), "Explicitly set the datum semi-minor axis in meters.")
     ("sinusoidal", "Save using a sinusoidal projection.")

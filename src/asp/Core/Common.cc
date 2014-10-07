@@ -404,15 +404,13 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
   // User convenience, convert 'IAU2000:' to 'DICT:IAU2000.wkt,'
   boost::replace_first(srs_string,
                        "IAU2000:","DICT:IAU2000.wkt,");
-  
-  if ( have_user_datum ) {
-    if ( boost::starts_with(srs_string,"+proj") ) {
-          srs_string += " " + user_datum.proj4_str();
-    } else {
-      vw_throw(ArgumentErr() << "Can't specify a reference sphere when using target srs string that already specifies a datum." );
-    }
-  }
-  
+
+  if (srs_string == "")
+    srs_string = "+proj=longlat";
+
+  if ( have_user_datum )
+    srs_string += " " + user_datum.proj4_str();
+    
   OGRSpatialReference gdal_spatial_ref;
   if (gdal_spatial_ref.SetFromUserInput( srs_string.c_str() ))
     vw_throw( ArgumentErr() << "Failed to parse: \"" << srs_string << "\"." );
@@ -427,7 +425,7 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
   // the names of the datum are there.
   if ( have_user_datum )
     georef.set_datum( user_datum );
-  
+
 #else
   vw_throw( NoImplErr() << "Target SRS option is not available without GDAL support. Please rebuild VW and ASP with GDAL." );
 #endif
