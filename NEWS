@@ -7,6 +7,10 @@
  - point2las
    * Added the ability to specify a custom projection (PROJ.4 string).
 
+ - dem_mosaic
+   * Write GeoTIFF files with blocks of size 256 x 256 as those
+     are faster to process with GDAL tools.
+
 *** RELEASE 2.4.2, October 6, 2014 ***
 
  - ASP can perform multi-view triangulation (using both the

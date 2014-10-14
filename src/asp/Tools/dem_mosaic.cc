@@ -436,7 +436,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("median", po::bool_switch(&opt.median)->default_value(false),
      "Find the median DEM value (this can be memory-intensive, fewer threads are suggested).")
     ("count", po::bool_switch(&opt.count)->default_value(false),
-     "Find the image of counts of DEM values.")
+     "Each pixel is set to the number of valid DEM heights at that pixel.")
     ("georef-tile-size", po::value<double>(&opt.geo_tile_size),
      "Set the tile size in georeferenced (projected) units (e.g., degrees or meters).")
     ("output-nodata-value", po::value<RealT>(&opt.out_nodata_value),
@@ -665,7 +665,6 @@ int main( int argc, char *argv[] ) {
     // erode_len, but not so big that it may not fit in memory.
     int block_size = nextpow2(4.0*(opt.erode_len + opt.blending_len));
     block_size = std::max(block_size, 256); // don't make them too small though
-    opt.raster_tile_size = Vector2(block_size, block_size); // disk block size
 
     int num_tiles_x = (int)ceil((double)cols/double(opt.tile_size));
     if (num_tiles_x <= 0) num_tiles_x = 1;
@@ -706,10 +705,24 @@ int main( int argc, char *argv[] ) {
                tile_box);
       
       vw_out() << "Writing: " << dem_tile << std::endl;
+      opt.raster_tile_size = Vector2(block_size, block_size); // disk block size
       GeoReference crop_georef
         = crop(out_georef, tile_box.min().x(), tile_box.min().y());
       block_write_gdal_image(dem_tile, out_dem, crop_georef, opt.out_nodata_value,
                              opt, TerminalProgressCallback("asp", "\t--> "));
+
+      // We wrote big blocks, as then there's less overhead.
+      // But those hare had to manipulate with gdal_translate.
+      if (opt.raster_tile_size[0] != 256){
+        std::string tmp_tile = fs::path(dem_tile).replace_extension(".tmp.tif").string();
+        fs::rename(dem_tile, tmp_tile);
+        DiskImageView<RealT> tmp_dem(tmp_tile);
+        opt.raster_tile_size = Vector2(256, 256); // disk block size
+        vw_out() << "Re-writing with blocks of size: " << opt.raster_tile_size[0] << std::endl;
+        block_write_gdal_image(dem_tile, tmp_dem, crop_georef, opt.out_nodata_value,
+                               opt, TerminalProgressCallback("asp", "\t--> "));
+        fs::remove(tmp_tile);
+      }
     }
     
   } ASP_STANDARD_CATCHES;
