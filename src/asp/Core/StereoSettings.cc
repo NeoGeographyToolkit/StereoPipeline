@@ -111,7 +111,7 @@ namespace asp {
                                  "Error (in meters) of the disparity estimation DEM.")
       ("use-local-homography",   po::bool_switch(&global.use_local_homography)->default_value(false)->implicit_value(true),
                                  "Apply a local homography in each tile.")
-      ("corr-timeout",           po::value(&global.corr_timeout)->default_value(600),
+      ("corr-timeout",           po::value(&global.corr_timeout)->default_value(1800),
                                  "Correlation timeout for a tile, in seconds. [default: no timeout]");
 
     po::options_description backwards_compat_options("Aliased backwards compatibility options");

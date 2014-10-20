@@ -1,5 +1,8 @@
 *** RELEASE 2.4.4, upcoming! ***
 
+ - stereo
+   * Increase the default correlation timeout to 1800 seconds.
+
  - point2dem
    * Fixed a slight discrepancy in the value of the semi-minor axis in
      the WGS84 and NAD83 datum implementations.
