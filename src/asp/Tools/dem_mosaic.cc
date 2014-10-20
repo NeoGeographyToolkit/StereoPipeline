@@ -716,7 +716,7 @@ int main( int argc, char *argv[] ) {
                              opt, TerminalProgressCallback("asp", "\t--> "));
 
       // We wrote big blocks, as then there's less overhead.
-      // But those hare had to manipulate with gdal_translate.
+      // But those are hard to manipulate with gdal_translate.
       if (opt.raster_tile_size[0] != 256){
         std::string tmp_tile = fs::path(dem_tile).replace_extension(".tmp.tif").string();
         fs::rename(dem_tile, tmp_tile);
