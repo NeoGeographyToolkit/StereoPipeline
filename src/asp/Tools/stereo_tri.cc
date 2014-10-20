@@ -420,12 +420,12 @@ void stereo_triangulation( string const& output_prefix,
                                      stereo_settings().near_universe_radius,
                                      stereo_settings().far_universe_radius);
       }
-    }catch(...){
+    } catch (std::exception &e) {
+      std::cout << e.what() << std::endl;
       vw_out(WarningMessage) << "Could not find the camera center. "
                              << "Will not be able to filter triangulated "
                              << "points by radius.\n";
     }
-    
 
     // Strip the smart pointers and form the stereo model
     std::vector<const vw::camera::CameraModel *> camera_ptrs;
