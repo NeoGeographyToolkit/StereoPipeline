@@ -241,7 +241,12 @@ public:
       in_box.expand(m_opt.erode_len + m_opt.blending_len
                     + BilinearInterpolation::pixel_buffer + 1);
       in_box.crop(bounding_box(disk_dem));
-      if (in_box.empty()) continue;
+      if (in_box.width() == 1 || in_box.height() == 1){
+        // Grassfire likes to have width of at least 2
+        in_box.expand(1);
+        in_box.crop(bounding_box(disk_dem));
+      }
+      if (in_box.width() <= 1 || in_box.height() <= 1) continue;
 
       if (m_opt.median){
         // Must use a blank tile each time
@@ -256,7 +261,6 @@ public:
       // Use grassfire weights for smooth blending
       ImageView<double> local_wts = grassfire(notnodata(select_channel(dem, 0),
                                                         nodata_value));
-      
       // Dump the weights
       //std::ostringstream os;
       //os << "weights_" << dem_iter << ".tif";
@@ -475,7 +479,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
              << usage << general_options );
   if (opt.tile_size <= 0)
     vw_throw(ArgumentErr() << "The size of a tile in pixels must "
-             << "be set and positive.\n"
+             << "be positive.\n"
              << usage << general_options );
 
   int noblend = no_blend(opt);
