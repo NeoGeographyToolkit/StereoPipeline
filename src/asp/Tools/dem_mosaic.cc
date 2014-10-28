@@ -135,7 +135,7 @@ std::string processed_proj4(std::string const& srs){
   bool have_user_datum = false;
   Datum user_datum;
   asp::set_srs_string(srs, have_user_datum, user_datum, georef);
-  return georef.proj4_str();
+  return georef.overall_proj4_str();
 }
 
 struct Options : asp::BaseOptions {
@@ -189,10 +189,12 @@ public:
     // Sanity check, see if datums differ, then the tool won't work
     for (int i = 0; i < (int)m_georefs.size(); i++){
       if (m_georefs[i].datum().name() != m_out_georef.datum().name()){
-        vw_throw(NoImplErr() << "Mosaicking of DEMs with different datums is not implemented.");
+        vw_throw(NoImplErr() << "Mosaicking of DEMs with different datums "
+                 << "is not implemented. Datums encountered:\n"
+                 << m_georefs[i].datum() << "\n"
+                 <<  m_out_georef.datum() << "\n");
       }
     }
-    
   }
   
   typedef RealT pixel_type;
@@ -558,8 +560,8 @@ int main( int argc, char *argv[] ) {
       
     GeoReference out_georef = read_georef(opt.dem_files[0]);
     double spacing = opt.tr;
-    if (opt.target_srs_string != ""                                      &&
-        opt.target_srs_string != processed_proj4(out_georef.proj4_str()) &&
+    if (opt.target_srs_string != ""                                              &&
+        opt.target_srs_string != processed_proj4(out_georef.overall_proj4_str()) &&
         spacing <= 0 ){
       vw_throw(ArgumentErr()
                << "Changing the projection was requested. The output DEM "
@@ -572,6 +574,17 @@ int main( int argc, char *argv[] ) {
       Datum user_datum;
       asp::set_srs_string(opt.target_srs_string,
                           have_user_datum, user_datum, out_georef);
+    }
+
+    // Bugfix: steal the datum and its name from the input, if the output
+    // datum name is unknown.
+    if (out_georef.datum().name() == "unknown"){
+      GeoReference georef = read_georef(opt.dem_files[0]);
+      if (out_georef.datum().semi_major_axis() == georef.datum().semi_major_axis() &&
+          out_georef.datum().semi_minor_axis() == georef.datum().semi_minor_axis() ){
+        vw_out() << "Using the datum: " << georef.datum() << std::endl;
+        out_georef.set_datum(georef.datum());
+      }
     }
     
     // Use desired spacing if user-specified
@@ -610,7 +623,7 @@ int main( int argc, char *argv[] ) {
       GeoReference georef = read_georef(opt.dem_files[dem_iter]);
       DiskImageView<RealT> img(opt.dem_files[dem_iter]);
 
-      if (out_georef.proj4_str() == georef.proj4_str()){ 
+      if (out_georef.overall_proj4_str() == georef.overall_proj4_str()){ 
         mosaic_bbox.grow(georef.bounding_box(img));
       }else{
 
