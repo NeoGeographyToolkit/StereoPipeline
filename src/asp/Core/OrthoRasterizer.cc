@@ -286,7 +286,46 @@ namespace asp{
     } // end passes
     
   }
-  
+
+  void filter_by_median(ImageView<Vector3> & image, Vector2 const& median_filter_params){
+    
+    // If the point cloud height at the current point differs by more
+    // than the given threshold from the median of heights in the
+    // window of given size centered at the point, remove it as an
+    // outlier.
+ 
+    int half = median_filter_params[0]/2; // half window size
+    double thresh = median_filter_params[1];
+    if (half <= 0 || thresh <= 0) return;
+    
+    int nc = image.cols(), nr = image.rows(); // shorten
+    double nan = std::numeric_limits<double>::quiet_NaN();
+    
+    ImageView<Vector3> image_out = copy(image);
+    
+    for (int col = 0; col < image.cols(); col++){
+      for (int row = 0; row < image.rows(); row++){
+        
+        if (boost::math::isnan(image(col, row).z()))
+          continue;
+        
+        std::vector<double> vals;
+        for (int c = std::max(col-half, 0); c <= std::min(col+half, nc-1); c++){
+          for (int r = std::max(row-half, 0); r <= std::min(row+half, nr-1); r++){
+            if (boost::math::isnan(image(c, r).z())) continue;
+            vals.push_back(image(c, r).z());
+          }
+        }
+        double median = vw::math::destructive_median(vals);
+        if (fabs(median - image(col, row).z()) > thresh){
+          image_out(col, row).z() = nan;
+        }
+      }
+    }
+    
+    image = copy(image_out);
+  }
+
   OrthoRasterizerView::OrthoRasterizerView
   (ImageViewRef<Vector3> point_image, ImageViewRef<double> texture,
    double spacing,
@@ -296,8 +335,7 @@ namespace asp{
    bool remove_outliers_with_pct, Vector2 const& remove_outliers_params,
    ImageViewRef<double> const& error_image, double estim_max_error,
    double max_valid_triangulation_error,
-   int erode_len,
-   bool has_las_or_csv,
+   Vector2 median_filter_params, bool has_las_or_csv,
    const ProgressCallback& progress):
     // Ensure all members are initiated, even if to temporary values
     m_point_image(point_image), m_texture(ImageView<float>(1,1)),
@@ -310,7 +348,7 @@ namespace asp{
     m_block_size(pc_tile_size),
     m_hole_fill_mode(hole_fill_mode),
     m_hole_fill_num_smooth_iter(hole_fill_num_smooth_iter), m_hole_fill_len(0),
-    m_error_image(error_image), m_error_cutoff(-1.0), m_erode_len(erode_len){
+    m_error_image(error_image), m_error_cutoff(-1.0), m_median_filter_params(median_filter_params){
     
     set_texture(texture.impl());
     
@@ -587,12 +625,12 @@ namespace asp{
       // Pull a copy of the input image in memory.  Expand the image
       // to be able to see a bit beyond when filling holes.
       BBox2i biased_block = block;
-      biased_block.expand(std::max(m_hole_fill_len, m_erode_len));
+      biased_block.expand(std::max(m_hole_fill_len, (int)m_median_filter_params[0]/2));
       biased_block.crop(vw::bounding_box(m_point_image));
       ImageView<Vector3> point_copy = crop(m_point_image, biased_block);
       
       mark_outliers(point_copy, m_error_image, m_error_cutoff, biased_block);
-      erode_image(point_copy, m_erode_len);
+      filter_by_median(point_copy, m_median_filter_params);
 
       if (m_hole_fill_len > 0)
         point_copy = per_pixel_filter(fill_holes(per_pixel_filter

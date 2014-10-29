@@ -82,7 +82,7 @@ struct Options : asp::BaseOptions {
   bool remove_outliers_with_pct;
   Vector2 remove_outliers_params;
   double max_valid_triangulation_error;
-  int erode_len;
+  Vector2 median_filter_params;
   std::string csv_format_str;
   double search_radius_factor;
   bool use_surface_sampling;
@@ -98,7 +98,7 @@ struct Options : asp::BaseOptions {
               hole_fill_mode(1), hole_fill_num_smooth_iter(4),
               dem_hole_fill_len(0), ortho_hole_fill_len(0),
               remove_outliers_with_pct(true), max_valid_triangulation_error(0),
-              erode_len(0), search_radius_factor(0),  use_surface_sampling(false),
+              search_radius_factor(0),  use_surface_sampling(false),
               has_las_or_csv(false){}
 };
 
@@ -339,7 +339,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Turn on outlier removal based on percentage of triangulation error. Obsolete, as this is the default.")
     ("remove-outliers-params", po::value(&opt.remove_outliers_params)->default_value(Vector2(75.0, 3.0), "pct factor"), "Outlier removal based on percentage. Points with triangulation error larger than pct-th percentile times factor will be removed as outliers. [default: pct=75.0, factor=3.0]")
     ("max-valid-triangulation-error", po::value(&opt.max_valid_triangulation_error)->default_value(0), "Outlier removal based on threshold. Points with triangulation error larger than this (in meters) will be removed from the cloud.")
-    ("num-erode-cloud-pixels", po::value(&opt.erode_len)->default_value(0), "Erode this many pixels around no-data values from the point cloud before creating the DEM (after outliers are removed).")
+    ("median-filter-params", po::value(&opt.median_filter_params)->default_value(Vector2(0, 0), "size threshold"), "If the point cloud height at the current point differs by more than the given threshold from the median of heights in the window of given size centered at the point, remove it as an outlier.")
     ("csv-format", po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
     ("rounding-error", po::value(&opt.rounding_error)->default_value(asp::APPROX_ONE_MM),
      "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")
@@ -913,7 +913,7 @@ void do_software_rasterization( const ImageViewRef<Vector3>& proj_point_input,
                opt.hole_fill_mode, opt.hole_fill_num_smooth_iter,
                opt.remove_outliers_with_pct, opt.remove_outliers_params,
                error_image, estim_max_error, opt.max_valid_triangulation_error,
-               opt.erode_len, opt.has_las_or_csv,
+               opt.median_filter_params, opt.has_las_or_csv,
                TerminalProgressCallback("asp","QuadTree: ") );
 
   sw1.stop();
