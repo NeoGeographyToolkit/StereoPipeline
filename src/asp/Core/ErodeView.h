@@ -32,9 +32,6 @@
 // ASP
 #include <asp/Core/BlobIndexThreaded.h>
 
-
-
-
 //TODO: This could be moved somewhere (maybe to crop()) and used in other locations.
 
 /// Rasterize a selected portion of the input image, then wrap it so
