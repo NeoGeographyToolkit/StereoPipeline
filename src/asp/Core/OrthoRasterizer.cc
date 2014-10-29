@@ -258,6 +258,35 @@ namespace asp{
     
   }
   
+  void erode_image(ImageView<Vector3> & image, int erode_len){
+
+    // Erode this many pixels around invalid pixels
+    
+    if (erode_len <= 0) return;
+
+    int nc = image.cols(), nr = image.rows(); // shorten
+    double nan = std::numeric_limits<double>::quiet_NaN();
+    
+    for (int pass = 0; pass < erode_len; pass++){
+      ImageView<Vector3> eroded = copy(image);
+      
+      for (int col = 0; col < image.cols(); col++){
+        for (int row = 0; row < image.rows(); row++){
+          
+          for (int c = std::max(col-1, 0); c <= std::min(col+1, nc-1); c++){
+            for (int r = std::max(row-1, 0); r <= std::min(row+1, nr-1); r++){
+              if (boost::math::isnan(image(c, r).z()))
+                eroded(col, row).z() = nan; 
+            }
+          }
+        }
+      }
+      
+      image = copy(eroded);
+    } // end passes
+    
+  }
+  
   OrthoRasterizerView::OrthoRasterizerView
   (ImageViewRef<Vector3> point_image, ImageViewRef<double> texture,
    double spacing,
@@ -267,6 +296,7 @@ namespace asp{
    bool remove_outliers_with_pct, Vector2 const& remove_outliers_params,
    ImageViewRef<double> const& error_image, double estim_max_error,
    double max_valid_triangulation_error,
+   int erode_len,
    bool has_las_or_csv,
    const ProgressCallback& progress):
     // Ensure all members are initiated, even if to temporary values
@@ -280,7 +310,7 @@ namespace asp{
     m_block_size(pc_tile_size),
     m_hole_fill_mode(hole_fill_mode),
     m_hole_fill_num_smooth_iter(hole_fill_num_smooth_iter), m_hole_fill_len(0),
-    m_error_image(error_image), m_error_cutoff(-1.0) {
+    m_error_image(error_image), m_error_cutoff(-1.0), m_erode_len(erode_len){
     
     set_texture(texture.impl());
     
@@ -557,11 +587,12 @@ namespace asp{
       // Pull a copy of the input image in memory.  Expand the image
       // to be able to see a bit beyond when filling holes.
       BBox2i biased_block = block;
-      biased_block.expand(m_hole_fill_len);
+      biased_block.expand(std::max(m_hole_fill_len, m_erode_len));
       biased_block.crop(vw::bounding_box(m_point_image));
       ImageView<Vector3> point_copy = crop(m_point_image, biased_block);
       
       mark_outliers(point_copy, m_error_image, m_error_cutoff, biased_block);
+      erode_image(point_copy, m_erode_len);
 
       if (m_hole_fill_len > 0)
         point_copy = per_pixel_filter(fill_holes(per_pixel_filter

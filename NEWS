@@ -6,13 +6,16 @@
  - point2dem
    * Fixed a slight discrepancy in the value of the semi-minor axis in
      the WGS84 and NAD83 datum implementations.
+   * Added the option --num-erode-cloud-pixels <num> to erode this many 
+     pixels in the input point cloud before creating the DEM (to help
+     with removing outliers towards boundary).
 
  - point2las
    * Added the ability to specify a custom projection (PROJ.4 string).
 
  - dem_mosaic
    * Write GeoTIFF files with blocks of size 256 x 256 as those
-     are faster to process with GDAL tools.
+     may be faster to process with GDAL tools.
    * Bug fix when the tool is used to re-project.
 
 *** RELEASE 2.4.2, October 6, 2014 ***

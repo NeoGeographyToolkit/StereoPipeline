@@ -82,6 +82,7 @@ struct Options : asp::BaseOptions {
   bool remove_outliers_with_pct;
   Vector2 remove_outliers_params;
   double max_valid_triangulation_error;
+  int erode_len;
   std::string csv_format_str;
   double search_radius_factor;
   bool use_surface_sampling;
@@ -97,7 +98,7 @@ struct Options : asp::BaseOptions {
               hole_fill_mode(1), hole_fill_num_smooth_iter(4),
               dem_hole_fill_len(0), ortho_hole_fill_len(0),
               remove_outliers_with_pct(true), max_valid_triangulation_error(0),
-              search_radius_factor(0),  use_surface_sampling(false),
+              erode_len(0), search_radius_factor(0),  use_surface_sampling(false),
               has_las_or_csv(false){}
 };
 
@@ -338,6 +339,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Turn on outlier removal based on percentage of triangulation error. Obsolete, as this is the default.")
     ("remove-outliers-params", po::value(&opt.remove_outliers_params)->default_value(Vector2(75.0, 3.0), "pct factor"), "Outlier removal based on percentage. Points with triangulation error larger than pct-th percentile times factor will be removed as outliers. [default: pct=75.0, factor=3.0]")
     ("max-valid-triangulation-error", po::value(&opt.max_valid_triangulation_error)->default_value(0), "Outlier removal based on threshold. Points with triangulation error larger than this (in meters) will be removed from the cloud.")
+    ("num-erode-cloud-pixels", po::value(&opt.erode_len)->default_value(0), "Erode this many pixels around no-data values from the point cloud before creating the DEM (after outliers are removed).")
     ("csv-format", po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
     ("rounding-error", po::value(&opt.rounding_error)->default_value(asp::APPROX_ONE_MM),
      "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")
@@ -911,7 +913,7 @@ void do_software_rasterization( const ImageViewRef<Vector3>& proj_point_input,
                opt.hole_fill_mode, opt.hole_fill_num_smooth_iter,
                opt.remove_outliers_with_pct, opt.remove_outliers_params,
                error_image, estim_max_error, opt.max_valid_triangulation_error,
-               opt.has_las_or_csv,
+               opt.erode_len, opt.has_las_or_csv,
                TerminalProgressCallback("asp","QuadTree: ") );
 
   sw1.stop();
@@ -1161,6 +1163,40 @@ int main( int argc, char *argv[] ) {
     ImageViewRef<Vector3> point_image
       = asp::form_composite<Vector3>(opt.pointcloud_files);
 
+#if 0
+    ImageView<Vector3> img = cartesian_to_geodetic(point_image,georef);
+    ImageView<double> slopes(img.cols(), img.rows()), heights(img.cols(), img.rows());
+    for (int col = 1; col < img.cols()-1; col++){
+      for (int row = 1; row < img.rows()-1; row++){
+        double slope = 0;
+        int count = 0;
+        for (int i = -1; i <= 1; i+=3){// tmp!
+          for (int j = -1; j <= 1; j+=3){// tmp!
+            Vector3 P = img(col, row);
+            Vector3 Q = img(col + i, row + j);
+            if (boost::math::isnan(P.z()) || boost::math::isnan(Q.z())) continue;
+            double x = norm_2(subvector(P-Q, 0, 2));
+            if (x==0) continue;
+            double y = norm_2(subvector(P-Q, 2, 1));
+            slope += y/x;
+            count++;
+          } 
+        }
+        if (count > 0) slope /= count;
+        slopes(col, row) = slope;
+        heights(col, row) = img(col, row).x();
+      }
+    }
+    
+    std::string file = "slopes.tif";
+    std::cout << "Writing: " << file << std::endl;
+    block_write_gdal_image(file, slopes, opt, TerminalProgressCallback("asp", ": "));
+
+    file = "heights.tif";
+    std::cout << "Writing: " << file << std::endl;
+    block_write_gdal_image(file, heights, opt, TerminalProgressCallback("asp", ": "));
+#endif
+    
     // Apply an (optional) rotation to the 3D points before building the mesh.
     if (opt.phi_rot != 0 || opt.omega_rot != 0 || opt.kappa_rot != 0) {
       vw_out() << "\t--> Applying rotation sequence: " << opt.rot_order

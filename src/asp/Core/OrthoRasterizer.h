@@ -56,6 +56,7 @@ namespace asp{
     int m_hole_fill_len;
     ImageViewRef<double> const& m_error_image;
     double m_error_cutoff;
+    int m_erode_len;
     
     // We could actually use a quadtree here .. but this should be a
     // good enough improvement.
@@ -85,6 +86,7 @@ namespace asp{
                         ImageViewRef<double> const& error_image,
                         double estim_max_error,
                         double max_valid_triangulation_error,
+                        int erode_len,
                         bool has_las_or_csv,
                         const ProgressCallback& progress);
     
