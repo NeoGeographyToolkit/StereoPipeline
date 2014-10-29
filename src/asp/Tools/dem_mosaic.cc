@@ -146,7 +146,7 @@ struct Options : asp::BaseOptions {
   RealT out_nodata_value;
   int tile_size, tile_index, erode_len, blending_len;
   bool first, last, min, max, mean, median, count;
-  BBox2 target_projwin;
+  BBox2 projwin;
   Options(): tr(0), geo_tile_size(0), has_out_nodata(false), tile_index(-1),
              first(false), last(false), min(false), max(false), 
              mean(false), median(false), count(false){}
@@ -427,7 +427,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Output DEM resolution in target georeferenced units per pixel. Default: use the same resolution as the first DEM to be mosaicked.")
     ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
      "Specify the output projection (PROJ.4 string). Default: use the one from the first DEM to be mosaicked.")
-    ("t_projwin", po::value(&opt.target_projwin),
+    ("t_projwin", po::value(&opt.projwin),
      "Limit the mosaic to this region, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.")
     ("first", po::bool_switch(&opt.first)->default_value(false),
      "Keep the first encountered DEM value (in the input order).")
@@ -496,6 +496,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
              << "not be negative.\n"
               << usage << general_options );
 
+  // For compatibility with the GDAL tools, allow the min and max to be reversed.
+  if (opt.projwin.min().x() > opt.projwin.max().x())
+    std::swap(opt.projwin.min().x(), opt.projwin.max().x());
+  if (opt.projwin.min().y() > opt.projwin.max().y())
+    std::swap(opt.projwin.min().y(), opt.projwin.max().y());
+  
   // Read the DEMs
   if (opt.dem_list_file != ""){
 
@@ -651,8 +657,8 @@ int main( int argc, char *argv[] ) {
     tpc.report_finished();
 
     // If to create the mosaic only in a given region
-    if (opt.target_projwin != BBox2())
-      mosaic_bbox.crop(opt.target_projwin);
+    if (opt.projwin != BBox2())
+      mosaic_bbox.crop(opt.projwin);
 
     // Set the lower-left corner. Note: The position of the corner is
     // somewhat arbitrary. If the corner is actually very close to an
