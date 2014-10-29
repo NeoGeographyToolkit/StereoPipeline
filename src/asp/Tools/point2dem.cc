@@ -374,6 +374,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
               << usage << general_options );
   std::vector<std::string> input_files = vm["input-files"].as< std::vector<std::string> >();
   parse_input_clouds_textures(input_files, usage, general_options, opt);
+
+  if (opt.has_las_or_csv && opt.median_filter_params[0] > 0 &&
+      opt.median_filter_params[1] > 0){
+    vw_throw( ArgumentErr() << "Median-based filtering cannot handle CSV or LAS files.\n"
+              << usage << general_options );
+  }
   
   // A fix to the unfortunate fact that the user can specify the DEM
   // spacing in two ways on the command line.
@@ -1163,40 +1169,6 @@ int main( int argc, char *argv[] ) {
     ImageViewRef<Vector3> point_image
       = asp::form_composite<Vector3>(opt.pointcloud_files);
 
-#if 0
-    ImageView<Vector3> img = cartesian_to_geodetic(point_image,georef);
-    ImageView<double> slopes(img.cols(), img.rows()), heights(img.cols(), img.rows());
-    for (int col = 1; col < img.cols()-1; col++){
-      for (int row = 1; row < img.rows()-1; row++){
-        double slope = 0;
-        int count = 0;
-        for (int i = -1; i <= 1; i+=3){// tmp!
-          for (int j = -1; j <= 1; j+=3){// tmp!
-            Vector3 P = img(col, row);
-            Vector3 Q = img(col + i, row + j);
-            if (boost::math::isnan(P.z()) || boost::math::isnan(Q.z())) continue;
-            double x = norm_2(subvector(P-Q, 0, 2));
-            if (x==0) continue;
-            double y = norm_2(subvector(P-Q, 2, 1));
-            slope += y/x;
-            count++;
-          } 
-        }
-        if (count > 0) slope /= count;
-        slopes(col, row) = slope;
-        heights(col, row) = img(col, row).x();
-      }
-    }
-    
-    std::string file = "slopes.tif";
-    std::cout << "Writing: " << file << std::endl;
-    block_write_gdal_image(file, slopes, opt, TerminalProgressCallback("asp", ": "));
-
-    file = "heights.tif";
-    std::cout << "Writing: " << file << std::endl;
-    block_write_gdal_image(file, heights, opt, TerminalProgressCallback("asp", ": "));
-#endif
-    
     // Apply an (optional) rotation to the 3D points before building the mesh.
     if (opt.phi_rot != 0 || opt.omega_rot != 0 || opt.kappa_rot != 0) {
       vw_out() << "\t--> Applying rotation sequence: " << opt.rot_order
