@@ -33,6 +33,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Common.h>
 #include <asp/Sessions/ISIS/PhotometricOutlier.h>
+namespace fs = boost::filesystem;
 
 using namespace vw;
 using namespace asp;
@@ -46,6 +47,12 @@ void asp::photometric_outlier_rejection( BaseOptions const& opt,
   DiskImageView<PixelGray<float> > right_disk_image(prefix+"-R.tif");
   DiskImageView<PixelMask<Vector2f> > disparity_disk_image( input_disparity );
   stereo::DisparityTransform trans( disparity_disk_image );
+
+  if (!fs::is_directory(opt.cache_dir)) {
+    vw_out() << "\nCreating cache directory: " << opt.cache_dir << std::endl;
+    fs::create_directories(opt.cache_dir);
+  }
+  
   DiskCacheImageView<PixelGray<float> >
     right_proj( transform( right_disk_image, trans, ZeroEdgeExtension() ), "tif", TerminalProgressCallback("asp","Projecting R:"), opt.cache_dir);
 
