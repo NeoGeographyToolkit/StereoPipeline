@@ -339,7 +339,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Turn on outlier removal based on percentage of triangulation error. Obsolete, as this is the default.")
     ("remove-outliers-params", po::value(&opt.remove_outliers_params)->default_value(Vector2(75.0, 3.0), "pct factor"), "Outlier removal based on percentage. Points with triangulation error larger than pct-th percentile times factor will be removed as outliers. [default: pct=75.0, factor=3.0]")
     ("max-valid-triangulation-error", po::value(&opt.max_valid_triangulation_error)->default_value(0), "Outlier removal based on threshold. Points with triangulation error larger than this (in meters) will be removed from the cloud.")
-    ("median-filter-params", po::value(&opt.median_filter_params)->default_value(Vector2(0, 0), "size threshold"), "If the point cloud height at the current point differs by more than the given threshold from the median of heights in the window of given size centered at the point, remove it as an outlier.")
+    ("median-filter-params", po::value(&opt.median_filter_params)->default_value(Vector2(0, 0), "window_size threshold"), "If the point cloud height at the current point differs by more than the given threshold from the median of heights in the window of given size centered at the point, remove it as an outlier.")
     ("csv-format", po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
     ("rounding-error", po::value(&opt.rounding_error)->default_value(asp::APPROX_ONE_MM),
      "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")

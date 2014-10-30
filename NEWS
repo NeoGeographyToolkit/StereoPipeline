@@ -17,6 +17,9 @@
      may be faster to process with GDAL tools.
    * Bug fix when the tool is used to re-project.
 
+ - image2qtree
+   * Bug fixes.
+ 
 *** RELEASE 2.4.2, October 6, 2014 ***
 
  - ASP can perform multi-view triangulation (using both the
