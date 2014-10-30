@@ -962,6 +962,7 @@ void do_software_rasterization( const ImageViewRef<Vector3>& proj_point_input,
     // values on target projwin so that it aligns with a pixel value.
     opt.target_projwin_pixels =
       georef.point_to_pixel_bbox( opt.target_projwin );
+    opt.target_projwin_pixels.crop(bounding_box(rasterizer.impl()));
     opt.target_projwin =
       georef.pixel_to_point_bbox( opt.target_projwin_pixels );
     transform(0,2) = opt.target_projwin.min().x();
