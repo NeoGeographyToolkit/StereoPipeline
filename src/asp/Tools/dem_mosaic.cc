@@ -144,11 +144,11 @@ struct Options : asp::BaseOptions {
   double tr, geo_tile_size;
   bool has_out_nodata;
   RealT out_nodata_value;
-  int tile_size, tile_index, erode_len, blending_len, weights_exp;
+  int tile_size, tile_index, erode_len, blending_len, weights_blur_sigma, weights_exp;
   bool first, last, min, max, mean, median, count;
   BBox2 projwin;
   Options(): tr(0), geo_tile_size(0), has_out_nodata(false), tile_index(-1),
-             erode_len(0), blending_len(0), weights_exp(1), 
+             erode_len(0), blending_len(0), weights_blur_sigma(0), weights_exp(0),
              first(false), last(false), min(false), max(false), 
              mean(false), median(false), count(false){}
 };
@@ -264,25 +264,44 @@ public:
       // Use grassfire weights for smooth blending
       ImageView<double> local_wts = grassfire(notnodata(select_channel(dem, 0),
                                                         nodata_value));
-      // Dump the weights
-      //std::ostringstream os;
-      //os << "weights_" << dem_iter << ".tif";
-      //std::cout << "Writing: " << os.str() << std::endl;
-      //block_write_gdal_image(os.str(), local_wts, georef, -100,
-      //                       asp::BaseOptions(),
-      //                       TerminalProgressCallback("asp", ""));
-
       int max_cutoff = max_pixel_value(local_wts);
       int min_cutoff = m_opt.erode_len;
       if (max_cutoff <= min_cutoff) max_cutoff = min_cutoff + 1; // precaution
       
       // Erode
       local_wts = clamp(local_wts - min_cutoff, 0.0, max_cutoff - min_cutoff);
-    
+
+      // Blur the weights. However, where the weights are now zero, they must stay
+      // at zero.
+      ImageView<double> blurred_wts = gaussian_filter(local_wts, m_opt.weights_blur_sigma);
+      for (int col = 0; col < dem.cols(); col++){
+        for (int row = 0; row < dem.rows(); row++){
+          if (local_wts(col, row) > 0)
+            local_wts(col, row) = blurred_wts(col, row);
+        }
+      }
+        
+      // Raise to the power
+      for (int col = 0; col < dem.cols(); col++){
+        for (int row = 0; row < dem.rows(); row++){
+          local_wts(col, row) = pow(local_wts(col, row), m_opt.weights_exp);
+        }
+      }
+
+#if 0
+      // Dump the weights
+      std::ostringstream os;
+      os << "weights_" << dem_iter << ".tif";
+      std::cout << "Writing: " << os.str() << std::endl;
+      block_write_gdal_image(os.str(), local_wts, georef, -100,
+                             asp::BaseOptions(),
+                             TerminalProgressCallback("asp", ""));
+#endif
+      
       // Set the weights in the alpha channel
       for (int col = 0; col < dem.cols(); col++){
         for (int row = 0; row < dem.rows(); row++){
-          dem(col, row).a() = pow(local_wts(col, row), m_opt.weights_exp);
+          dem(col, row).a() = local_wts(col, row);
         }
       }
       
@@ -430,6 +449,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Specify the output projection (PROJ.4 string). Default: use the one from the first DEM to be mosaicked.")
     ("t_projwin", po::value(&opt.projwin),
      "Limit the mosaic to this region, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.")
+    ("weights-blur-sigma", po::value<int>(&opt.weights_blur_sigma)->default_value(5),
+     "The standard deviation of the Gaussian used to blur the weights. Higher value results in smoother weights and blending.")
     ("weights-exponent", po::value<int>(&opt.weights_exp)->default_value(1),
      "The weights used to blend the DEMs should increase away from the boundary as a power with this exponent.")
     ("first", po::bool_switch(&opt.first)->default_value(false),
@@ -504,6 +525,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     std::swap(opt.projwin.min().x(), opt.projwin.max().x());
   if (opt.projwin.min().y() > opt.projwin.max().y())
     std::swap(opt.projwin.min().y(), opt.projwin.max().y());
+
+  if (opt.weights_blur_sigma <= 0)
+    vw_throw(ArgumentErr() << "The standard deviation used for blurring must be positive.\n"
+             << usage << general_options );
 
   if (opt.weights_exp <= 0)
     vw_throw(ArgumentErr() << "The weights exponent must be positive.\n"

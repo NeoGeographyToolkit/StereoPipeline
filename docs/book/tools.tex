@@ -758,6 +758,9 @@ Specify the output projection (PROJ.4 string). Default: use the one from the fir
 \texttt{-\/-t\_projwin \textit{xmin ymin xmax ymax} } &
 Limit the mosaic to this region, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.
 \\ \hline
+\texttt{-\/-weights-blur-sigma \textit{integer (=5)} } &
+The standard deviation of the Gaussian used to blur the weights. Higher value results in smoother weights and blending.
+\\ \hline
 \texttt{-\/-weights-exponent \textit{integer (=1)} } &
 The weights used to blend the DEMs should increase away from the boundary as a power with this exponent.
 \\ \hline
