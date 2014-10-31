@@ -144,10 +144,11 @@ struct Options : asp::BaseOptions {
   double tr, geo_tile_size;
   bool has_out_nodata;
   RealT out_nodata_value;
-  int tile_size, tile_index, erode_len, blending_len;
+  int tile_size, tile_index, erode_len, blending_len, weights_exp;
   bool first, last, min, max, mean, median, count;
   BBox2 projwin;
   Options(): tr(0), geo_tile_size(0), has_out_nodata(false), tile_index(-1),
+             erode_len(0), blending_len(0), weights_exp(1), 
              first(false), last(false), min(false), max(false), 
              mean(false), median(false), count(false){}
 };
@@ -281,7 +282,7 @@ public:
       // Set the weights in the alpha channel
       for (int col = 0; col < dem.cols(); col++){
         for (int row = 0; row < dem.rows(); row++){
-          dem(col, row).a() = local_wts(col, row);
+          dem(col, row).a() = pow(local_wts(col, row), m_opt.weights_exp);
         }
       }
       
@@ -420,7 +421,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("tile-index", po::value<int>(&opt.tile_index),
      "The index of the tile to save (starting from zero). When this program is invoked, it will print  out how many tiles are there. Default: save all tiles.")
     ("erode-length", po::value<int>(&opt.erode_len)->default_value(0),
-     "Erode input DEMs by this many pixels at boundary and hole edges before mosaicking them.")
+     "Erode input DEMs by this many pixels at boundary before mosaicking them.")
     ("blending-length", po::value<int>(&opt.blending_len)->default_value(200),
      "Larger values of this number (measured in input DEM pixels) may result in smoother blending while using more memory and computing time.")
     ("tr", po::value(&opt.tr),
@@ -429,6 +430,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Specify the output projection (PROJ.4 string). Default: use the one from the first DEM to be mosaicked.")
     ("t_projwin", po::value(&opt.projwin),
      "Limit the mosaic to this region, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.")
+    ("weights-exponent", po::value<int>(&opt.weights_exp)->default_value(1),
+     "The weights used to blend the DEMs should increase as a power with this exponent.")
     ("first", po::bool_switch(&opt.first)->default_value(false),
      "Keep the first encountered DEM value (in the input order).")
     ("last", po::bool_switch(&opt.last)->default_value(false),
@@ -501,6 +504,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     std::swap(opt.projwin.min().x(), opt.projwin.max().x());
   if (opt.projwin.min().y() > opt.projwin.max().y())
     std::swap(opt.projwin.min().y(), opt.projwin.max().y());
+
+  if (opt.weights_exp <= 0)
+    vw_throw(ArgumentErr() << "The weights exponent must be positive.\n"
+             << usage << general_options );
   
   // Read the DEMs
   if (opt.dem_list_file != ""){
@@ -508,8 +515,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     // Get them from a list
     
     if (!unregistered.empty())
-      vw_throw(ArgumentErr() << "The DEMs were specified via a list. There were however "
-               << "extraneous files or options passed in.\n"
+      vw_throw(ArgumentErr() << "The DEMs were specified via a list. "
+               << "There were however extraneous files or options passed in.\n"
                << usage << general_options );
     
     ifstream is(opt.dem_list_file.c_str());
@@ -621,6 +628,7 @@ int main( int argc, char *argv[] ) {
     vector< ImageViewRef<RealT> > images;
     vector< GeoReference > georefs;
     BBox2 mosaic_bbox;
+    vector<BBox2> dem_bboxes; 
     for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++){
       
       double curr_nodata_value = opt.out_nodata_value;
@@ -629,8 +637,10 @@ int main( int argc, char *argv[] ) {
       GeoReference georef = read_georef(opt.dem_files[dem_iter]);
       DiskImageView<RealT> img(opt.dem_files[dem_iter]);
 
-      if (out_georef.overall_proj4_str() == georef.overall_proj4_str()){ 
-        mosaic_bbox.grow(georef.bounding_box(img));
+      if (out_georef.overall_proj4_str() == georef.overall_proj4_str()){
+        BBox2 proj_box = georef.bounding_box(img);
+        mosaic_bbox.grow(proj_box);
+        dem_bboxes.push_back(proj_box);
       }else{
 
         // Compute the bounding box of the current image
@@ -646,6 +656,7 @@ int main( int argc, char *argv[] ) {
         lonlat_box += offset;
         BBox2 proj_box = out_georef.lonlat_to_point_bbox(lonlat_box);
         mosaic_bbox.grow(proj_box);
+        dem_bboxes.push_back(proj_box);
       }
       
       nodata_values.push_back(curr_nodata_value);
@@ -660,6 +671,16 @@ int main( int argc, char *argv[] ) {
     if (opt.projwin != BBox2())
       mosaic_bbox.crop(opt.projwin);
 
+    // Display which DEMs will end up being used for the current box
+    if (opt.projwin != BBox2()){
+      for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++){
+        BBox2 box = dem_bboxes[dem_iter];
+        box.crop(mosaic_bbox);
+        if (!box.empty())
+          vw_out() << "Using: " << opt.dem_files[dem_iter] << std::endl;
+      }
+    }
+    
     // Set the lower-left corner. Note: The position of the corner is
     // somewhat arbitrary. If the corner is actually very close to an
     // integer number, we assume it should in fact be integer but got

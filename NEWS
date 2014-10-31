@@ -18,6 +18,8 @@
    * Write GeoTIFF files with blocks of size 256 x 256 as those
      may be faster to process with GDAL tools.
    * Bug fix when the tool is used to re-project.
+   * Added the option --weight-exponent <num>, to allow weights
+     to increase faster than linearly.
 
  - image2qtree
    * Bug fixes.

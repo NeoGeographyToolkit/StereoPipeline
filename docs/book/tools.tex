@@ -758,6 +758,9 @@ Specify the output projection (PROJ.4 string). Default: use the one from the fir
 \texttt{-\/-t\_projwin \textit{xmin ymin xmax ymax} } &
 Limit the mosaic to this region, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.
 \\ \hline
+\texttt{-\/-weights-exponent \textit{integer (=1)} } &
+The weights used to blend the DEMs should increase as a power with this exponent.
+\\ \hline
 \texttt{-\/-georef-tile-size \textit{double}} &
 Set the tile size in georeferenced (projected) units (e.g., degrees or meters).
 \\ \hline
