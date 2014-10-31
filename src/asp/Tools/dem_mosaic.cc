@@ -431,7 +431,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("t_projwin", po::value(&opt.projwin),
      "Limit the mosaic to this region, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.")
     ("weights-exponent", po::value<int>(&opt.weights_exp)->default_value(1),
-     "The weights used to blend the DEMs should increase as a power with this exponent.")
+     "The weights used to blend the DEMs should increase away from the boundary as a power with this exponent.")
     ("first", po::bool_switch(&opt.first)->default_value(false),
      "Keep the first encountered DEM value (in the input order).")
     ("last", po::bool_switch(&opt.last)->default_value(false),
