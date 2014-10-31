@@ -57,6 +57,7 @@ namespace asp{
     ImageViewRef<double> const& m_error_image;
     double m_error_cutoff;
     Vector2 m_median_filter_params;
+    int m_erode_len;
     
     // We could actually use a quadtree here .. but this should be a
     // good enough improvement.
@@ -87,6 +88,7 @@ namespace asp{
                         double estim_max_error,
                         double max_valid_triangulation_error,
                         Vector2 median_filter_params,
+                        int erode_len,
                         bool has_las_or_csv,
                         const ProgressCallback& progress);
     

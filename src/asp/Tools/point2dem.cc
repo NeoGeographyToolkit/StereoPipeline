@@ -83,6 +83,7 @@ struct Options : asp::BaseOptions {
   Vector2 remove_outliers_params;
   double max_valid_triangulation_error;
   Vector2 median_filter_params;
+  int erode_len;
   std::string csv_format_str;
   double search_radius_factor;
   bool use_surface_sampling;
@@ -98,7 +99,7 @@ struct Options : asp::BaseOptions {
               hole_fill_mode(1), hole_fill_num_smooth_iter(4),
               dem_hole_fill_len(0), ortho_hole_fill_len(0),
               remove_outliers_with_pct(true), max_valid_triangulation_error(0),
-              search_radius_factor(0),  use_surface_sampling(false),
+              erode_len(0), search_radius_factor(0), use_surface_sampling(false),
               has_las_or_csv(false){}
 };
 
@@ -340,6 +341,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("remove-outliers-params", po::value(&opt.remove_outliers_params)->default_value(Vector2(75.0, 3.0), "pct factor"), "Outlier removal based on percentage. Points with triangulation error larger than pct-th percentile times factor will be removed as outliers. [default: pct=75.0, factor=3.0]")
     ("max-valid-triangulation-error", po::value(&opt.max_valid_triangulation_error)->default_value(0), "Outlier removal based on threshold. Points with triangulation error larger than this (in meters) will be removed from the cloud.")
     ("median-filter-params", po::value(&opt.median_filter_params)->default_value(Vector2(0, 0), "window_size threshold"), "If the point cloud height at the current point differs by more than the given threshold from the median of heights in the window of given size centered at the point, remove it as an outlier.")
+    ("erode-length", po::value<int>(&opt.erode_len)->default_value(0),
+     "Erode input point clouds by this many pixels at boundary (after outliers are removed, but before filling in holes).")
     ("csv-format", po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
     ("rounding-error", po::value(&opt.rounding_error)->default_value(asp::APPROX_ONE_MM),
      "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")
@@ -375,17 +378,28 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   std::vector<std::string> input_files = vm["input-files"].as< std::vector<std::string> >();
   parse_input_clouds_textures(input_files, usage, general_options, opt);
 
+  if (opt.median_filter_params[0] < 0 || opt.median_filter_params[1] < 0){
+    vw_throw( ArgumentErr() << "The parameters for median-based filtering "
+              << "must be non-negative.\n"
+              << usage << general_options );
+  }
+  
   if (opt.has_las_or_csv && opt.median_filter_params[0] > 0 &&
       opt.median_filter_params[1] > 0){
     vw_throw( ArgumentErr() << "Median-based filtering cannot handle CSV or LAS files.\n"
               << usage << general_options );
   }
   
+  if (opt.erode_len < 0){
+    vw_throw( ArgumentErr() << "Erode length must be non-negative.\n"
+              << usage << general_options );
+  }
+
   // A fix to the unfortunate fact that the user can specify the DEM
   // spacing in two ways on the command line.
   if (dem_spacing1 < 0.0 || dem_spacing2 < 0.0 ){
     // Note: Zero spacing means we'll set it internally.
-    vw_throw( ArgumentErr() << "The DEM spacing cannot be negative.\n"
+    vw_throw( ArgumentErr() << "The DEM spacing must be non-negative.\n"
               << usage << general_options );
   }
   if (dem_spacing1 != 0 && dem_spacing2 != 0){
@@ -421,13 +435,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "The value of --hole-fill-mode must be 1 or 2.\n");
   if (opt.hole_fill_num_smooth_iter < 0)
     vw_throw( ArgumentErr() << "The value of "
-              << "--hole-fill-num-smooth-iter must not be negative.\n");
+              << "--hole-fill-num-smooth-iter must be non-negative.\n");
   if (opt.dem_hole_fill_len < 0)
     vw_throw( ArgumentErr() << "The value of "
-              << "--dem-hole-fill-len must not be negative.\n");
+              << "--dem-hole-fill-len must be non-negative.\n");
   if (opt.ortho_hole_fill_len < 0)
     vw_throw( ArgumentErr() << "The value of "
-              << "--orthoimage-hole-fill-len must not be negative.\n");
+              << "--orthoimage-hole-fill-len must be non-negative.\n");
   if ( !opt.do_ortho && opt.ortho_hole_fill_len > 0) {
     vw_throw( ArgumentErr() << "The value of --orthoimage-hole-fill-len"
               << " is positive, but orthoimage generation was not requested.\n");
@@ -919,7 +933,7 @@ void do_software_rasterization( const ImageViewRef<Vector3>& proj_point_input,
                opt.hole_fill_mode, opt.hole_fill_num_smooth_iter,
                opt.remove_outliers_with_pct, opt.remove_outliers_params,
                error_image, estim_max_error, opt.max_valid_triangulation_error,
-               opt.median_filter_params, opt.has_las_or_csv,
+               opt.median_filter_params, opt.erode_len, opt.has_las_or_csv,
                TerminalProgressCallback("asp","QuadTree: ") );
 
   sw1.stop();

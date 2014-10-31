@@ -8,6 +8,8 @@
      the WGS84 and NAD83 datum implementations.
    * Added the option --median-filter-params <window size> <threshold> to
      remove outliers using a median filter.
+   * Added the option --erode-length <num> to erode pixels from point cloud 
+     boundary (after outliers are removed, but before filling in holes).
 
  - point2las
    * Added the ability to specify a custom projection (PROJ.4 string).
