@@ -420,6 +420,30 @@ class BlobIndexThreaded {
     }
   }
 
+  void wipe_big_blobs(int max_size){
+
+    // Wipe blobs bigger than this size.
+    //Keep the bounding boxes up-to-date.
+
+    m_blob_bbox.clear();
+    
+    for ( std::deque<blob::BlobCompressed>::iterator iter = m_c_blob.begin();
+          iter != m_c_blob.end(); iter++ ) {
+
+      vw::BBox2i blob_bbox = iter->bounding_box();
+      
+      if ( blob_bbox.width() > max_size ||
+           blob_bbox.height() > max_size) {
+        iter = m_c_blob.erase( iter );
+        iter--;
+      }else{
+        m_blob_bbox.push_back(blob_bbox);
+      }
+      
+    }
+    
+  }
+  
   // Access for the users
   vw::uint32 num_blobs() const;
   void blob( vw::uint32 const& index,
