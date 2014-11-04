@@ -47,6 +47,7 @@ using namespace std;
 #include <vw/Math.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
+#include <asp/Core/InpaintView.h>
 
 using namespace vw;
 using namespace vw::cartography;
@@ -144,11 +145,11 @@ struct Options : asp::BaseOptions {
   double tr, geo_tile_size;
   bool has_out_nodata;
   RealT out_nodata_value;
-  int tile_size, tile_index, erode_len, blending_len, weights_blur_sigma, weights_exp;
+  int tile_size, tile_index, erode_len, blending_len, hole_fill_len, weights_blur_sigma, weights_exp;
   bool first, last, min, max, mean, median, count;
   BBox2 projwin;
   Options(): tr(0), geo_tile_size(0), has_out_nodata(false), tile_index(-1),
-             erode_len(0), blending_len(0), weights_blur_sigma(0), weights_exp(0),
+             erode_len(0), blending_len(0), hole_fill_len(0), weights_blur_sigma(0), weights_exp(0),
              first(false), last(false), min(false), max(false), 
              mean(false), median(false), count(false){}
 };
@@ -241,7 +242,7 @@ public:
       BBox2 in_box = geotrans.reverse_bbox(bbox);
       
       // Grow to account for blending and erosion length, etc.
-      in_box.expand(m_opt.erode_len + m_opt.blending_len
+      in_box.expand(m_opt.erode_len + m_opt.blending_len + m_opt.hole_fill_len
                     + BilinearInterpolation::pixel_buffer + 1);
       in_box.crop(bounding_box(disk_dem));
       if (in_box.width() == 1 || in_box.height() == 1){
@@ -417,6 +418,14 @@ public:
       }
     }
 
+    // Fill holes
+    if (m_opt.hole_fill_len > 0){
+      tile = apply_mask
+        (asp::fill_holes_grass
+         (create_mask(tile, m_opt.out_nodata_value), m_opt.hole_fill_len),
+         m_opt.out_nodata_value);
+    }
+    
     return prerasterize_type(pixel_cast<RealT>(tile),
                              -bbox.min().x(), -bbox.min().y(),
                              cols(), rows() );
@@ -443,6 +452,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Erode input DEMs by this many pixels at boundary before mosaicking them.")
     ("blending-length", po::value<int>(&opt.blending_len)->default_value(200),
      "Larger values of this number (measured in input DEM pixels) may result in smoother blending while using more memory and computing time.")
+    ("hole-fill-len", po::value(&opt.hole_fill_len)->default_value(0), "Maximum dimensions of a hole in the output DEM to fill in, in pixels.")
     ("tr", po::value(&opt.tr),
      "Output DEM resolution in target georeferenced units per pixel. Default: use the same resolution as the first DEM to be mosaicked.")
     ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
@@ -502,6 +512,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
              << usage << general_options );
   if (opt.blending_len < 0)
     vw_throw(ArgumentErr() << "The blending length must not be negative.\n"
+             << usage << general_options );
+  if (opt.hole_fill_len < 0)
+    vw_throw(ArgumentErr() << "The hole fill length must not be negative.\n"
              << usage << general_options );
   if (opt.tile_size <= 0)
     vw_throw(ArgumentErr() << "The size of a tile in pixels must "
@@ -729,10 +742,11 @@ int main( int argc, char *argv[] ) {
     vw_out()<< "The size of the mosaic is " << cols << " x " << rows
             << " pixels.\n";
 
-    // The next power of 2 >= 4*(blending_len + erode_len). We want to
-    // make the blocks big, to reduce overhead from blending_len and
-    // erode_len, but not so big that it may not fit in memory.
-    int block_size = nextpow2(4.0*(opt.erode_len + opt.blending_len));
+    int bias = opt.erode_len + opt.blending_len + opt.hole_fill_len;
+    // The next power of 2 >= 4*bias. We want to make the blocks big,
+    // to reduce overhead from this bias, but not so big that it may
+    // not fit in memory.
+    int block_size = nextpow2(4.0*bias);
     block_size = std::max(block_size, 256); // don't make them too small though
 
     int num_tiles_x = (int)ceil((double)cols/double(opt.tile_size));
