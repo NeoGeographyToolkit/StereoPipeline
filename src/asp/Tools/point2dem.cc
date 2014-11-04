@@ -24,6 +24,7 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/AntiAliasing.h>
+#include <asp/Core/InpaintView.h>
 
 #include <vw/Core/Stopwatch.h>
 #include <vw/Mosaic/ImageComposite.h>
@@ -77,8 +78,7 @@ struct Options : asp::BaseOptions {
   std::string target_srs_string;
   BBox2 target_projwin;
   BBox2i target_projwin_pixels;
-  int fsaa, hole_fill_mode, hole_fill_num_smooth_iter,
-    dem_hole_fill_len, ortho_hole_fill_len;
+  int fsaa, dem_hole_fill_len, ortho_hole_fill_len;
   bool remove_outliers_with_pct;
   Vector2 remove_outliers_params;
   double max_valid_triangulation_error;
@@ -96,7 +96,6 @@ struct Options : asp::BaseOptions {
   // curtain).
   Options() : dem_spacing(0), nodata_value(std::numeric_limits<float>::quiet_NaN()),
               semi_major(0), semi_minor(0), fsaa(1), 
-              hole_fill_mode(1), hole_fill_num_smooth_iter(4),
               dem_hole_fill_len(0), ortho_hole_fill_len(0),
               remove_outliers_with_pct(true), max_valid_triangulation_error(0),
               erode_len(0), search_radius_factor(0), use_surface_sampling(false),
@@ -332,8 +331,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
     ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file.")
     ("errorimage", po::bool_switch(&opt.do_error)->default_value(false), "Write a triangulation intersection error image.")
-    ("hole-fill-mode", po::value(&opt.hole_fill_mode)->default_value(1), "Choose the algorithm to fill holes. [1: Interpolate based on valid values in four directions: left, right, up, and down (fast). 2: Weighted average of all valid pixels within a window of size hole-fill-len (slow).")
-    ("hole-fill-num-smooth-iter", po::value(&opt.hole_fill_num_smooth_iter)->default_value(4), "How many times to iterate to smooth the result of hole-filling with a Gaussian kernel.")
     ("dem-hole-fill-len", po::value(&opt.dem_hole_fill_len)->default_value(0), "Maximum dimensions of a hole in the output DEM to fill in, in pixels.")
     ("orthoimage-hole-fill-len", po::value(&opt.ortho_hole_fill_len)->default_value(0), "Maximum dimensions of a hole in the output orthoimage to fill in, in pixels.")
     ("remove-outliers", po::bool_switch(&opt.remove_outliers_with_pct)->default_value(true),
@@ -431,11 +428,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "The --fsaa option is obsolete. It can be used only with the --use-surface-sampling option which invokes the old algorithm.\n" << usage << general_options );
   }
   
-  if (opt.hole_fill_mode != 1 && opt.hole_fill_mode != 2)
-    vw_throw( ArgumentErr() << "The value of --hole-fill-mode must be 1 or 2.\n");
-  if (opt.hole_fill_num_smooth_iter < 0)
-    vw_throw( ArgumentErr() << "The value of "
-              << "--hole-fill-num-smooth-iter must be non-negative.\n");
   if (opt.dem_hole_fill_len < 0)
     vw_throw( ArgumentErr() << "The value of "
               << "--dem-hole-fill-len must be non-negative.\n");
@@ -930,7 +922,6 @@ void do_software_rasterization( const ImageViewRef<Vector3>& proj_point_input,
     rasterizer(proj_point_input.impl(), select_channel(proj_point_input.impl(),2),
                opt.dem_spacing, opt.search_radius_factor, opt.use_surface_sampling,
                Options::tri_tile_size(), // to efficiently process the cloud
-               opt.hole_fill_mode, opt.hole_fill_num_smooth_iter,
                opt.remove_outliers_with_pct, opt.remove_outliers_params,
                error_image, estim_max_error, opt.max_valid_triangulation_error,
                opt.median_filter_params, opt.erode_len, opt.has_las_or_csv,
@@ -1019,17 +1010,18 @@ void do_software_rasterization( const ImageViewRef<Vector3>& proj_point_input,
     ImageViewRef< PixelGray<float> > dem
       = asp::round_image_pixels_skip_nodata(rasterizer_fsaa, opt.rounding_error,
                                             opt.nodata_value);
-    if (opt.dem_hole_fill_len > 0){
-      // Note that we first cache the tiles of the rasterized DEM, and fill holes
-      // later. This greatly improves the performance.
-      dem = apply_mask(fill_holes(create_mask
-                                  (block_cache(dem, tile_size, opt.num_threads),
-                                   opt.nodata_value),
-                                  opt.hole_fill_mode, opt.hole_fill_num_smooth_iter,
-                                  opt.dem_hole_fill_len),
-                       opt.nodata_value);
-    }
 
+    if (opt.dem_hole_fill_len > 0){
+      // Note that we first cache the tiles of the rasterized DEM, and
+      // fill holes later. This greatly improves the performance.
+      dem = apply_mask
+        (asp::fill_holes_grass(create_mask
+                               (block_cache(dem, tile_size, opt.num_threads),
+                                opt.nodata_value),
+                               opt.dem_hole_fill_len),
+         opt.nodata_value);
+    }
+    
     vw_out()<< "Creating output file that is " << bounding_box(dem).size()
             << " px.\n";
     

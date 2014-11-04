@@ -31,6 +31,7 @@
 #include <vw/Core/Stopwatch.h>
 #include <vw/Image/Algorithms.h>
 #include <vw/Image/ImageViewBase.h>
+#include <vw/Image/MaskViews.h>
 
 // ASP
 #include <asp/Core/BlobIndexThreaded.h>
@@ -163,13 +164,13 @@ namespace asp {
   public:
     typedef typename vw::UnmaskedPixelType<typename ViewT::pixel_type>::type sparse_type;
     typedef typename ViewT::pixel_type pixel_type;
-    typedef typename ViewT::pixel_type result_type; // We can't return references
+    typedef pixel_type result_type; // We can't return references
     typedef vw::ProceduralPixelAccessor<InpaintView<ViewT> > pixel_accessor;
 
     InpaintView( vw::ImageViewBase<ViewT> const& image,
                  BlobIndexThreaded const& bindex,
                  bool use_grassfire,
-                 typename ViewT::pixel_type default_inpaint_val):
+                 pixel_type default_inpaint_val):
       m_child(image.impl()), m_bindex(bindex),
       m_use_grassfire(use_grassfire), m_default_inpaint_val(default_inpaint_val) {}
 
@@ -183,7 +184,7 @@ namespace asp {
       vw_throw( vw::NoImplErr() << "Per pixel access is not provided for InpaintView" );
     }
 
-    typedef typename vw::CropView<vw::ImageView<typename ViewT::pixel_type> > inner_pre_type;
+    typedef vw::CropView<vw::ImageView<pixel_type> > inner_pre_type;
     typedef SparseCompositeView<inner_pre_type> prerasterize_type;
     inline prerasterize_type prerasterize( vw::BBox2i const& bbox ) const {
       using namespace vw;
@@ -206,7 +207,7 @@ namespace asp {
 
       // Generate sparse view that will hold background data and all the patches.
       inner_pre_type preraster =
-        crop(ImageView<typename ViewT::pixel_type>(crop(m_child,bbox_expanded)),
+        crop(ImageView<pixel_type>(crop(m_child,bbox_expanded)),
              -bbox_expanded.min().x(), -bbox_expanded.min().y(), cols(), rows());
       SparseCompositeView<inner_pre_type> patched_view( preraster );
 
@@ -236,6 +237,82 @@ namespace asp {
     return InpaintView<SourceT>(src, bindex, use_grassfire, default_inpaint_val);
   }
 
+  // Fill holes using grassfire. The input image is expected to be a PixelMask,
+  // with the pixels in the holes being invalid.
+  template <class ImageT>
+  class FillHolesGrass: public vw::ImageViewBase< FillHolesGrass<ImageT> >{
+    ImageT m_img;
+    int m_hole_fill_len;
+  
+  public:
+    FillHolesGrass(ImageT const& img, int hole_fill_len):
+      m_img(img), m_hole_fill_len(hole_fill_len){}
+    
+    typedef typename ImageT::pixel_type pixel_type;
+    typedef pixel_type result_type;
+    typedef vw::ProceduralPixelAccessor< FillHolesGrass<ImageT> > pixel_accessor;
+    
+    inline int cols() const { return m_img.cols(); }
+    inline int rows() const { return m_img.rows(); }
+    inline int planes() const { return 1; }
+  
+    inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
+
+    inline pixel_type operator()( double/*i*/, double/*j*/, int/*p*/ = 0 ) const {
+      vw_throw(vw::NoImplErr() << "FillHolesGrass::operator() is not implemented");
+      return pixel_type();
+    }
+  
+    typedef vw::CropView<vw::ImageView<pixel_type> > prerasterize_type;
+    inline prerasterize_type prerasterize(vw::BBox2i const& bbox) const {
+
+      using namespace vw;
+
+      // Must see m_hole_fill_len beyond current tile if we are to fill
+      // holes of this size in the tile.
+      BBox2i biased_box = bbox;
+      biased_box.expand(m_hole_fill_len);
+      biased_box.crop(bounding_box(m_img));
+
+      // Pull the relevant chunk into memory
+      ImageView<pixel_type> tile = crop(m_img, biased_box);
+      
+      int area = m_hole_fill_len * m_hole_fill_len;
+      
+      // Pick a large number here, to avoid the tile being broken up into
+      // sub-tiles for processing.
+      int tile_size = std::max(tile.cols(), tile.rows()); 
+  
+      // Use just one thread for this operation, since there are many such
+      // operations running simultaneously already.
+      int num_threads = 1;
+      
+      // Find the holes, wipe holes bigger than the spec
+      BlobIndexThreaded blob_index( invert_mask(tile),
+                                    area, tile_size, num_threads);
+      blob_index.wipe_big_blobs(m_hole_fill_len);
+
+      // Fill the holes
+      bool use_grassfire = true;
+      pixel_type default_inpaint_val;
+      return prerasterize_type(inpaint(tile, blob_index, use_grassfire,
+                                       default_inpaint_val),
+                               -biased_box.min().x(), -biased_box.min().y(),
+                               cols(), rows() );
+    }
+    
+    template <class DestT>
+    inline void rasterize(DestT const& dest, vw::BBox2i bbox) const {
+      vw::rasterize(prerasterize(bbox), dest, bbox);
+    }
+  };
+
+  template <class ImageT>
+  inline FillHolesGrass<ImageT>
+  fill_holes_grass(ImageT const& img, int hole_fill_len) {
+    return FillHolesGrass<ImageT>(img, hole_fill_len);
+  }
+  
 } //end namespace asp
 
 #endif//__INPAINTVIEW_H__

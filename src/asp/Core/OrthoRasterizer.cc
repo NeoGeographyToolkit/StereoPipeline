@@ -38,6 +38,7 @@
 #include <boost/foreach.hpp>
 #include <boost/math/special_functions/next.hpp>
 #include <asp/Core/OrthoRasterizer.h>
+#include <asp/Core/InpaintView.h>
 #include <valarray>
 
 namespace asp{
@@ -329,9 +330,7 @@ namespace asp{
   OrthoRasterizerView::OrthoRasterizerView
   (ImageViewRef<Vector3> point_image, ImageViewRef<double> texture,
    double spacing,
-   double search_radius_factor, bool use_surface_sampling,
-   int pc_tile_size, int hole_fill_mode,
-   int hole_fill_num_smooth_iter,
+   double search_radius_factor, bool use_surface_sampling, int pc_tile_size,
    bool remove_outliers_with_pct, Vector2 const& remove_outliers_params,
    ImageViewRef<double> const& error_image, double estim_max_error,
    double max_valid_triangulation_error,
@@ -346,8 +345,7 @@ namespace asp{
     m_default_value(0),
     m_minz_as_default(true), m_use_alpha(false),
     m_block_size(pc_tile_size),
-    m_hole_fill_mode(hole_fill_mode),
-    m_hole_fill_num_smooth_iter(hole_fill_num_smooth_iter), m_hole_fill_len(0),
+    m_hole_fill_len(0),
     m_error_image(error_image), m_error_cutoff(-1.0),
     m_median_filter_params(median_filter_params), m_erode_len(erode_len){
     
@@ -636,12 +634,10 @@ namespace asp{
       erode_image(point_copy, m_erode_len);
 
       if (m_hole_fill_len > 0)
-        point_copy = per_pixel_filter(fill_holes(per_pixel_filter
-                                                 (point_copy,
-                                                  NaN2Mask<Vector3>()),
-                                                 m_hole_fill_mode,
-                                                 m_hole_fill_num_smooth_iter,
-                                                 m_hole_fill_len),
+        point_copy = per_pixel_filter(asp::fill_holes_grass
+                                      (per_pixel_filter(point_copy,
+                                                        NaN2Mask<Vector3>()),
+                                       m_hole_fill_len),
                                       Mask2NaN<Vector3>());
       
       // Crop back to the area of interest

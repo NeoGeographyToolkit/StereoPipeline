@@ -51,8 +51,6 @@ namespace asp{
     bool m_minz_as_default;
     bool m_use_alpha;
     int m_block_size;
-    int m_hole_fill_mode;
-    int m_hole_fill_num_smooth_iter;
     int m_hole_fill_len;
     ImageViewRef<double> const& m_error_image;
     double m_error_cutoff;
@@ -80,9 +78,7 @@ namespace asp{
                         ImageViewRef<double> texture,
                         double spacing,
                         double search_radius_factor, bool use_surface_sampling,
-                        int pc_tile_size, int hole_fill_mode,
-                        int hole_fill_num_smooth_iter,
-                        bool remove_outliers_with_pct,
+                        int pc_tile_size, bool remove_outliers_with_pct,
                         Vector2 const& remove_outliers_params,
                         ImageViewRef<double> const& error_image,
                         double estim_max_error,

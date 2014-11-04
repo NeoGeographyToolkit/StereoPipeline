@@ -10,6 +10,8 @@
      remove outliers using a median filter.
    * Added the option --erode-length <num> to erode pixels from point cloud 
      boundary (after outliers are removed, but before filling in holes).
+   * Improved hole-filling, and removed the --hole-fill-mode and 
+     --hole-fill-num-smooth-iter, as there's only one algorithm now. 
 
  - point2las
    * Added the ability to specify a custom projection (PROJ.4 string).
@@ -22,6 +24,7 @@
      weights to be blurred by a gaussian to increase their smoothless.
    * Added the option --weight-exponent <num>, to allow weights
      to increase faster than linearly.
+   * Added the ability to fill holes in the output mosaic.
 
  - image2qtree
    * Bug fixes.
