@@ -94,7 +94,7 @@ code will start the build of Stereo Pipeline in the directory
 cd ~; mkdir projects; cd projects
 git clone https://github.com/NeoGeographyToolkit/BinaryBuilder.git
 cd BinaryBuilder
-./build.py
+./build.py --download-dir tarballs --build-root build_asp
 
 Due to the amount of code that must be downloaded and built,
 BinaryBuilder will take quite a while to finish.  If you see the
@@ -106,8 +106,7 @@ missing.
 If the build failed and you need to restart it after finding a fix,
 use the following command:
 
-./build.py --resume
-
+./build.py --download-dir tarballs --build-root build_asp --resume
 
 Once the build is successful you should make a distribution tarball to
 store the completed build. Do so using the following command from the

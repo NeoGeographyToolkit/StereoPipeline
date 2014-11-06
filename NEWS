@@ -1,4 +1,4 @@
-*** RELEASE 2.4.4, upcoming! ***
+*** RELEASE 2.4.3, upcoming! ***
 
  - stereo
    * Increase the default correlation timeout to 1800 seconds.
