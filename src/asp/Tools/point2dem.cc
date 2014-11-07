@@ -132,25 +132,24 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
     }
   }
   
-  int beg_clouds = 0, beg_textures = num, end_textures = num;
   if (opt.do_ortho){
-
     if (num <= 1)
       vw_throw( ArgumentErr() << "Missing input texture files.\n"
                 << usage << general_options );
-
     if (num%2 != 0)
       vw_throw( ArgumentErr()
                 << "There must be as many texture files as input point clouds.\n"
                 << usage << general_options );
-    
-    beg_textures = num/2;
   }
 
-  for (int i = beg_clouds; i < beg_textures; i++)
-    opt.pointcloud_files.push_back(files[i]);
-  for (int i = beg_textures; i < end_textures; i++)
-    opt.texture_files.push_back(files[i]);
+  // Separate the input point clouds from the textures
+  opt.pointcloud_files.clear(); opt.texture_files.clear();
+  for (int i = 0; i < num; i++){
+    if (asp::is_las_or_csv(files[i]) || get_num_channels(files[i]) >= 3)
+      opt.pointcloud_files.push_back(files[i]);
+    else
+      opt.texture_files.push_back(files[i]);
+  }
 
   // Must have this check here before we start assuming all input files
   // are tif.
@@ -162,6 +161,11 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
               << "point clouds are LAS or CSV.\n" );
 
   if (opt.do_ortho){
+
+    if (opt.pointcloud_files.size() != opt.texture_files.size())
+      vw_throw( ArgumentErr() << "There must be as many input point clouds "
+                << "as texture files to be able to create orthoimages.\n");
+    
     for (int i = 0; i < (int)opt.pointcloud_files.size(); i++){
       // Here we ignore that a point cloud file may have many channels.
       // We just want to verify that the cloud file and texture file
