@@ -23,19 +23,19 @@ simply pass two image files to the \texttt{stereo} command:
   ISIS 3> stereo left_input_image.cub right_input_image.cub stereo-output
 \end{verbatim}
 
-The string \texttt{stereo-output} is an arbitrary output prefix, 
+The string \texttt{stereo-output} is an arbitrary output prefix,
 it is used when generating names for \texttt{stereo} output files. For
 example, it can be set to \texttt{results/output}, in which case all output
 files will be in the \texttt{results} directory and start with the
 prefix \texttt{output}.
 
-See section \ref{running-stereo} for a more detailed discussion. 
- 
+See section \ref{running-stereo} for a more detailed discussion.
+
 You can then make a visualizable mesh or a \ac{DEM} file with the following
 commands (the \texttt{\textit{stereo-output}-PC.tif} and
 \texttt{\textit{stereo-output}-L.tif} files are created by the
 \texttt{stereo} program above):
- 
+
 \begin{verbatim}
   ISIS 3> point2mesh stereo-output-PC.tif stereo-output-L.tif
   ISIS 3> point2dem  stereo-output-PC.tif
@@ -103,7 +103,7 @@ similarly, using the ISIS tools specific to them.
 \label{sec:AligningImages}
 
 Once the .cub files are obtained, it is possible to run stereo right away,
-as 
+as
 \begin{verbatim}
   ISIS 3> stereo E0201461.cub M0100115.cub    \
             --alignment-method affineepipolar \
@@ -176,7 +176,7 @@ So in the above example, after \texttt{mocproc} with \texttt{Mapping=
 
 \begin{verbatim}
   ISIS 3> camrange from=M0100115.cub
-           ... lots of camrange output omitted ... 
+           ... lots of camrange output omitted ...
   Group = UniversalGroundRange
     LatitudeType       = Planetocentric
     LongitudeDirection = PositiveEast
@@ -186,7 +186,7 @@ So in the above example, after \texttt{mocproc} with \texttt{Mapping=
     MinimumLongitude   = 141.50666207418
     MaximumLongitude   = 141.62534719278
   End_Group
-           ... more output of camrange omitted ... 
+           ... more output of camrange omitted ...
 \end{verbatim}
 
 \begin{verbatim}
@@ -201,7 +201,7 @@ So in the above example, after \texttt{mocproc} with \texttt{Mapping=
     MinimumLongitude   = 141.48853937384
     MaximumLongitude   = 141.62919740048
   End_Group
-           ... more output of camrange omitted ... 
+           ... more output of camrange omitted ...
 \end{verbatim}
 
 Now compare the boundaries of the two above and determine the intersection to use as the boundaries for \texttt{cam2map}:
@@ -295,7 +295,7 @@ will find a directory titled\newline
 \texttt{052783824050\_01\_P001\_PAN}. It has a
 lot of files and many of them contain redundant information just
 displayed in different formats. We are interested only in the TIF or NTF
-imagery and the similarly named XML files. 
+imagery and the similarly named XML files.
 
 Further investigation of the files downloaded will show that there are
 in fact 4 image files. This is because Digital Globe breaks down a
@@ -304,7 +304,7 @@ reasons. These files have a pattern string of ``\_R[N]C1-'', where N
 increments for every subframe of the full observation. The tool named
 \texttt{dg\_mosaic} can be used to mosaic (and optionally reduce the
 resolution of) such a set of sub-observations into a single image file
-and create an appropriate camera file 
+and create an appropriate camera file
 
 \begin{verbatim}
     > dg_mosaic 12FEB12053305*TIF --output-prefix 12FEB12053305 --reduce-percent 50
@@ -334,7 +334,7 @@ you use affine epipolar alignment to reduce the search range. The
 \label{fig:dg-nomap-example}
 \end{figure}
 
-Above, we have used \texttt{subpixel-mode 1} which is less accurate but reasonably fast. 
+Above, we have used \texttt{subpixel-mode 1} which is less accurate but reasonably fast.
 More details about how to set this and other \texttt{stereo} parameters can be found
 in section \ref{settingoptionsinstereodefault}.
 
@@ -369,7 +369,11 @@ model to perform it.
 The hardest part of this whole process is getting the input
 low-resolution DEM. In this example we will use a variant of NASA
 SRTM data with no holes. Other choices might be GMTED2010, USGS's NED
-data, or NGA's DTED data.
+data, or NGA's DTED data. Alternatively, a DEM can be obtained from a
+previous ASP run. In such a run, subpixel mode may be set to parabola,
+for speed, then the DEM could be down-sampled and have its holes filled
+by using \texttt{point2dem} with appropriate settings for the grid size,
+erode length, search radius factor, and hole-filling length.
 
 It is important to note that ASP expects the input low-resolution DEM to
 be in reference to a datum ellipsoid, such as WGS84 or NAD83. If the DEM
@@ -444,7 +448,7 @@ other \texttt{stereo} parameters can be found in section
 Digital Globe World View images \cite{digital-globe:camera} may exhibit
 slight subpixel artifacts which manifest themselves as discontinuities
 in the 3D terrain obtained using ASP. We provide a tool named
-\texttt{wv\_correct} which can largely correct such artifacts for World 
+\texttt{wv\_correct} which can largely correct such artifacts for World
 View-1 and World View-2 images for most TDI. It can be invoked as
 follows:
 
@@ -455,7 +459,7 @@ follows:
 The corrected images can be used just as the originals, and the camera models
 do not change. So one can mosaic them, perform map-projection, do
 stereo, etc.
- 
+
 This tool is described in section \ref{wvcorrect}, and an example of
 using it is in Figure \ref{fig:ccd-artifact-example}.
 
@@ -473,7 +477,7 @@ using it is in Figure \ref{fig:ccd-artifact-example}.
 
 Stereo Pipeline's approach to performing correlation is a two-step
 pyramid algorithm, in which low-resolution versions of the input images
-are created, the disparity map 
+are created, the disparity map
 (\texttt{\textit{output\_prefix}-D\_sub.tif}) is found, and then this
 disparity map is refined using increasingly higher-resolution versions
 of the input images (section \ref{d-sub}).
@@ -520,7 +524,7 @@ be distributed with Stereo Pipeline as they depend on the version of
 Python installed on your system.
 
 We provide a script which will download and compile the dependencies of
-this tool for your platform. The script and instructions are at 
+this tool for your platform. The script and instructions are at
 
 \begin{quote}
 \indent \href{https://github.com/NeoGeographyToolkit/BinaryBuilder/tree/master/build\_python\_modules}{https://github.com/NeoGeographyToolkit/BinaryBuilder/tree/master/build\_python\_modules}
@@ -583,7 +587,7 @@ trimmed version of the important values in that file.
         subpixel-kernel 21 21
 \end{verbatim}
 
-All these options can be overridden from the command line, as described 
+All these options can be overridden from the command line, as described
 in section \ref{cmdline}.
 
 \subsubsection*{Alignment Method}
@@ -592,8 +596,8 @@ The most important line in \texttt{stereo.default} is the
 first one, specifying the alignment method. For raw images, alignment is
 always necessary, as the left and right images are from different
 perspectives. Several alignment methods are supported, including
-\texttt{affineepipolar} and \texttt{homography} (see section 
-\ref{stereo-default-preprocessing} for details). 
+\texttt{affineepipolar} and \texttt{homography} (see section
+\ref{stereo-default-preprocessing} for details).
 
 Alternatively, stereo can be performed with map-projected images
 (section \ref{sec:AligningImages} for ISIS and section \ref{mapproj} for
@@ -708,7 +712,7 @@ For Digital Globe imagery the cameras need to be specified separately:
 \end{verbatim}
 
 As stated in section \ref{quickstart}, the string
-\texttt{results/output} is arbitrary, and in this case we will 
+\texttt{results/output} is arbitrary, and in this case we will
 simply make all outputs go to the \texttt{results} directory.
 
 When \texttt{stereo} finishes, it will have produced a point cloud
@@ -716,7 +720,7 @@ image. Section \ref{visualising} describes how to convert it to a
 digital elevation model (DEM) or other formats.
 
 The \texttt{stereo} command can also take multiple input images, performing
-multi-view stereo (section \ref{multiview}). 
+multi-view stereo (section \ref{multiview}).
 
 \subsection{Specifying Settings on the Command Line}
 \label{cmdline}
@@ -932,7 +936,7 @@ The image displayed by \texttt{osgviewer} is shown in figure \ref{p19-osg}.
 When the \texttt{osgviewer} program starts, you may want to toggle the
 lighting with the `L' key, toggle texturing with the 'T' key, and
 toggle wireframe mode with the 'W'.  Press '?' to see a variety of
-other interactive options. 
+other interactive options.
 
 \subsection{Building a Digital Elevation Model}
 \label{builddem}
@@ -1004,7 +1008,7 @@ complete documentation is in section \ref{point2dem}.
 \caption[P19 Normalized DEM and Orthophoto]{
     \label{p19-norm_ortho}
 	The image on the left is a normalized DEM (generated using
-        \texttt{point2dem}'s 
+        \texttt{point2dem}'s
         \texttt{-n} option), which shows low terrain values as black
         and high terrain values as white.  The image on the right is
         the left input image projected onto the DEM (created using the
@@ -1080,7 +1084,7 @@ Under the hood, \texttt{pc\_align} uses the Iterative Closest Point
 algorithm (ICP) (both the point-to-plane and point-to-point flavors are supported).
 
 The \texttt{pc\_align} tool requires another input, an a priori guess for
-the maximum displacement we expect to see as result of alignment, i.e., 
+the maximum displacement we expect to see as result of alignment, i.e.,
 by how much the points are allowed to move when the alignment transform is
 applied. If not known, a large (but not unreasonably so) number can be
 specified. It is used to remove most of the points in the source
@@ -1132,7 +1136,7 @@ convert this DEM to be relative to a geoid/areoid on Earth/Mars
 respectively. Example usage:
 
 \begin {verbatim}
-  >  dem_geoid results/output-DEM.tif 
+  >  dem_geoid results/output-DEM.tif
 \end{verbatim}
 
 \subsection{Converting to the LAS Format}
@@ -1144,12 +1148,12 @@ format for the interchange of 3-dimensional point cloud data. The tool
 \ref{point2las}). Example usage:
 
 \begin {verbatim}
-  >  point2las --compressed -r Earth results/output-PC.tif 
+  >  point2las --compressed -r Earth results/output-PC.tif
 \end{verbatim}
 
 \subsection{Generating Color Hillshade Maps}
 
-Once you have generated a \ac{DEM} file, you can use the 
+Once you have generated a \ac{DEM} file, you can use the
 \texttt{colormap} and \texttt{hillshade} tools to create colorized
 and/or shaded relief images.
 
@@ -1200,7 +1204,7 @@ remote server over the Internet.
 
 The \texttt{image2qtree} program can only be used on 8-bit image files
 with georeferencing information (e.g. grayscale or RGB GeoTIFF
-images). In this example, it can be used to process 
+images). In this example, it can be used to process
 
 \texttt{results/output-DEM-normalized.tif}, \texttt{results/output-DRG.tif}, \texttt{hrad-shaded.tif}, \\
 \texttt{hrad-colorized.tif}, and \texttt{hrad-shaded-colorized.tif}.
@@ -1225,4 +1229,3 @@ Figure \ref{hrad-kml} shows the obtained KML files in Google Earth.
         The colorized hillshade DEM as a KML overlay.  }
 \end{center}
 \end{figure}
-

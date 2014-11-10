@@ -36,11 +36,11 @@ namespace vw {
 }
 
 namespace asp{
-  
+
   // Classes to read points from CSV and LAS files one point at a
   // time. We basically implement an interface for CSV files
   // mimicking the existing interface for las files in liblas.
-  
+
   class BaseReader{
 
   public:
@@ -68,16 +68,16 @@ namespace asp{
         m_georef.set_wkt(wkt);
       }
     }
-    
+
     virtual bool ReadNextPoint(){
       return m_reader.ReadNextPoint();
     }
-    
+
     virtual Vector3 GetPoint(){
       liblas::Point const& p = m_reader.GetPoint();
       return Vector3(p.GetX(), p.GetY(), p.GetZ());
     }
-    
+
   };
 
   class CsvReader: public BaseReader{
@@ -90,7 +90,7 @@ namespace asp{
   public:
 
     CsvReader(std::string const & csv_file,
-              asp::CsvConv const& csv_conv, 
+              asp::CsvConv const& csv_conv,
               GeoReference const& georef)
       : m_csv_file(csv_file), m_csv_conv(csv_conv),
         m_is_first_line(true), m_has_valid_point(false){
@@ -98,7 +98,7 @@ namespace asp{
       // We will convert from projected space to xyz, unless points
       // are already in this format.
       m_has_georef = (m_csv_conv.format != asp::XYZ);
-      
+
       m_georef      = georef;
       m_num_points  = asp::csv_file_size(m_csv_file);
 
@@ -109,9 +109,9 @@ namespace asp{
 
       VW_ASSERT(m_csv_conv.csv_format_str != "",
                 ArgumentErr() << "CsvReader: The CSV format was not specified.\n");
-      
+
     }
-    
+
     virtual bool ReadNextPoint(){
 
       std::string line;
@@ -122,15 +122,15 @@ namespace asp{
       // pass did not succeed or if we try two passes more than once.
 
       for (int i = 0; i < 2; i++){
-        
+
         m_has_valid_point = getline(*m_ifs, line, '\n');
         if (!m_has_valid_point) return m_has_valid_point; // reached end of file
-        
+
         bool success;
         vals = asp::parse_csv_line(m_is_first_line, success, line, m_csv_conv);
         if (success) break;
       }
-      
+
       // Will return projected point and height or xyz
       bool return_point_height = true;
       m_curr_point = asp::csv_to_cartesian_or_point_height(vals, m_georef,
@@ -139,7 +139,7 @@ namespace asp{
 
       return m_has_valid_point;
     }
-    
+
     virtual Vector3 GetPoint(){
       return m_curr_point;
     }
@@ -148,7 +148,7 @@ namespace asp{
       delete m_ifs;
       m_ifs = NULL;
     }
-    
+
   };
 
   // Create a point cloud image from a las file. The image will be
@@ -163,16 +163,16 @@ namespace asp{
     asp::BaseReader * m_reader;
     int m_rows, m_cols;
     int m_block_size;
-  
+
   public:
 
     typedef PixelT pixel_type;
     typedef PixelT result_type;
     typedef ProceduralPixelAccessor<LasOrCsvToTif> pixel_accessor;
-  
+
     LasOrCsvToTif(asp::BaseReader * reader, int num_rows, int tile_len, int block_size):
       m_reader(reader), m_block_size(block_size){
-    
+
       boost::uint64_t num_points = m_reader->m_num_points;
       m_rows = tile_len*std::max(1, (int)ceil(double(num_rows)/tile_len));
       m_cols = (int)ceil(double(num_points)/m_rows);
@@ -195,14 +195,14 @@ namespace asp{
     inline prerasterize_type prerasterize( BBox2i const& bbox ) const{
 
       // Read a chunk of the las file, and store it in the current tile.
-    
+
       int num_cols = bbox.width();
       int num_rows = bbox.height();
-    
+
       VW_ASSERT(num_rows % m_block_size == 0 && num_cols % m_block_size == 0,
                 ArgumentErr() << "LasOrCsvToTif: Expecting the number of rows "
                 << "to be a multiple of the block size.\n");
-    
+
       int max_num_pts_to_read = num_cols*num_rows;
       int count = 0;
       PointBuffer in;
@@ -212,25 +212,25 @@ namespace asp{
         count++;
         if (count >= max_num_pts_to_read) break;
       }
-    
+
       ImageView<Vector3> Img;
       Chipper(in, m_block_size, m_reader->m_has_georef, m_reader->m_georef,
               num_cols, num_rows, Img);
-    
+
       VW_ASSERT(num_cols == Img.cols() && num_rows == Img.rows(),
                 ArgumentErr() << "LasOrCsvToTif: Size mis-match.\n");
-    
+
       return crop( Img, -bbox.min().x(), -bbox.min().y(), cols(), rows() );
-    
+
     }
-  
+
     template <class DestT>
     inline void rasterize( DestT const& dest, BBox2i const& bbox ) const {
       vw::rasterize( prerasterize(bbox), dest, bbox );
     }
-  
+
   };
-  
+
 } // namespace asp
 
 bool asp::is_las(std::string const& file){
@@ -252,7 +252,7 @@ bool asp::georef_from_las(std::string const& las_file,
 
   if (!is_las(las_file))
     vw_throw( ArgumentErr() << "Not a LAS file: " << las_file << "\n");
-  
+
   // Initialize
   georef = GeoReference();
 
@@ -265,7 +265,7 @@ bool asp::georef_from_las(std::string const& las_file,
   std::string wkt = header.GetSRS().GetWKT();
   if (wkt == "")
     return false;
-    
+
   georef.set_wkt(wkt);
   return true;
 }
@@ -298,14 +298,14 @@ boost::uint64_t asp::las_file_size(std::string const& las_file){
   liblas::Header const& header = reader.GetHeader();
   return header.GetPointRecordsCount();
 }
-                       
+
 void asp::las_or_csv_to_tif(std::string const& in_file,
                             std::string const& out_file,
                             int num_rows, int block_size,
-                            asp::BaseOptions * opt, 
+                            asp::BaseOptions * opt,
                             vw::cartography::GeoReference const& csv_georef,
                             asp::CsvConv const& csv_conv){
-  
+
   // We will fetch a chunk of the las file of area tile_len x
   // tile_len, split it into bins of spatially close points, and write
   // it to disk as a tile in a vector tif image. The bigger the tile
@@ -313,14 +313,14 @@ void asp::las_or_csv_to_tif(std::string const& in_file,
   // tiles use a lot of memory.
 
   // To do: Study performance for large files when this number changes
-  int tile_len = 2048; 
+  int tile_len = 2048;
   Vector2 tile_size(tile_len, tile_len);
-  
+
   vw_out() << "Writing temporary file: " << out_file << std::endl;
 
   Vector2 original_tile_size = opt->raster_tile_size;
   opt->raster_tile_size = tile_size;
-  
+
   if (asp::is_csv(in_file)){
 
     boost::shared_ptr<asp::CsvReader> csvReaderPtr
@@ -342,7 +342,7 @@ void asp::las_or_csv_to_tif(std::string const& in_file,
     ImageViewRef<Vector3> Img
       = asp::LasOrCsvToTif< ImageView<Vector3> > (lasReaderPtr.get(), num_rows,
                                                   tile_len, block_size);
-    
+
     // Must use a thread only, as we read the las file serially.
     asp::write_gdal_image(out_file, Img, *opt, TerminalProgressCallback("asp", "\t--> ") );
   }else
@@ -350,9 +350,9 @@ void asp::las_or_csv_to_tif(std::string const& in_file,
 
   // Restore the original tile size
   opt->raster_tile_size = original_tile_size;
-  
+
 }
-  
+
 bool asp::read_user_datum(double semi_major, double semi_minor,
                           std::string const& reference_spheroid,
                           cartography::Datum& datum ) {
@@ -388,12 +388,12 @@ bool asp::read_user_datum(double semi_major, double semi_minor,
 }
 
 void asp::parse_utm_str(std::string const& utm, int & zone, bool & north){
-  
+
   // Parse the string 58N
 
   // Initialize
   zone = -1; north = false;
-  
+
   std::string a, b;
   for (int s = 0; s < (int)utm.size(); s++){
     if (utm[s] >= '0' && utm[s] <= '9'){
@@ -406,7 +406,7 @@ void asp::parse_utm_str(std::string const& utm, int & zone, bool & north){
 
   if (a == "" || b == "")
     vw_throw(ArgumentErr() << "Could not parse UTM string: '" << utm << "'\n");
-  
+
   zone = atoi(a.c_str());
   if (b == "n" || b == "N"){
     north = true;
@@ -422,14 +422,14 @@ void asp::parse_csv_format(std::string const& csv_format_str, asp::CsvConv & C){
   // will enable to convert from CSV to Cartesian and vice-versa.
 
   C = asp::CsvConv(); // reset
-  
+
   C.csv_format_str = csv_format_str;
-  
+
   std::string local = csv_format_str;
   boost::algorithm::to_lower(local);
 
   if (local == "") return;
-    
+
   boost::replace_all(local, ":", " ");
   boost::replace_all(local, ",", " ");
   std::istringstream is(local);
@@ -445,7 +445,7 @@ void asp::parse_csv_format(std::string const& csv_format_str, asp::CsvConv & C){
     is.clear();
     is.str(local);
   }
-  
+
   int col1, col2, col3;
   std::string name1, name2, name3;
   if (! (is >> col1 >> name1 >> col2 >> name2 >> col3 >> name3) )
@@ -458,7 +458,7 @@ void asp::parse_csv_format(std::string const& csv_format_str, asp::CsvConv & C){
   if (col1 < 0 || col2 < 0 || col3 < 0)
     vw_throw(ArgumentErr() << "The column indices must be positive in: '"
              << csv_format_str << "'\n");
-  
+
   if (col1 == col2 || col1 == col3 || col2 == col3 )
     vw_throw(ArgumentErr() << "The column indices must be distinct in: '"
              << csv_format_str << "'\n");
@@ -480,10 +480,10 @@ void asp::parse_csv_format(std::string const& csv_format_str, asp::CsvConv & C){
     if (it->second == "lat") C.lat_index = k;
     k++;
   }
-  
+
   // Find the position of a column after the columns are sorted
   // alphabetically.
-  std::vector<std::string> sorted_names;  
+  std::vector<std::string> sorted_names;
   int count = 0;
   for (std::map<std::string, int>::iterator it = C.name2col.begin();
        it != C.name2col.end() ; it++){
@@ -507,7 +507,7 @@ void asp::parse_csv_format(std::string const& csv_format_str, asp::CsvConv & C){
             sorted_names[1] == "lat" &&
             sorted_names[2] == "lon"){
     C.format = asp::HEIGHT_LAT_LON;
-  }else if (C.utm_zone >= 0 && 
+  }else if (C.utm_zone >= 0 &&
             sorted_names[0] == "easting" &&
             sorted_names[1] == "height_above_datum" &&
             sorted_names[2] == "northing"){
@@ -516,33 +516,33 @@ void asp::parse_csv_format(std::string const& csv_format_str, asp::CsvConv & C){
     vw_throw( ArgumentErr() << "Cannot understand the csv format string: "
               << csv_format_str << ".\n" );
   }
-  
+
 }
 
 vw::Vector3 asp::parse_csv_line(bool & is_first_line, bool & success,
                                 std::string const& line,
                                 asp::CsvConv const& csv_conv){
-  
+
   // Parse a CSV file line in given format
 
   success = true;
-  
+
   const int bufSize = 1024;
   char temp[bufSize];
 
   std::string sep = asp::csv_separator();
-  
+
   strncpy(temp, line.c_str(), bufSize);
 
   int col_index = -1;
   int num_read = 0;
-      
+
   char * ptr = temp;
   Vector3 vals;
   while(1){
-        
+
     col_index++;
-    const char* token = strtok(ptr, sep.c_str()); ptr = NULL; 
+    const char* token = strtok(ptr, sep.c_str()); ptr = NULL;
     if ( token == NULL ) break; // no more tokens
     if ( num_read >= 3 ) break; // read enough numbers
 
@@ -568,7 +568,7 @@ vw::Vector3 asp::parse_csv_line(bool & is_first_line, bool & success,
       vw_throw( vw::IOErr() << "Failed to read line: " << line << "\n" );
     }
   }
-  
+
   is_first_line = false;
   return vals;
 }
@@ -577,11 +577,11 @@ Vector3 asp::csv_to_cartesian_or_point_height(Vector3 const& csv,
                                               GeoReference const& geo,
                                               asp::CsvConv const& C,
                                               bool return_point_height){
-  
+
   // Convert values read from a csv file (in the same order as in the file)
   // to a Cartesian point. If return_point_height is true, and the csv point is not
   // in xyz format, return instead the projected point and height above datum.
-  
+
   // Convert the entries from the order they were in the csv file to
   // the order in which the names of the entries are sorted
   // alphabetically (e.g., in order height_above_datum, lat, lon).
@@ -595,14 +595,14 @@ Vector3 asp::csv_to_cartesian_or_point_height(Vector3 const& csv,
 
   if (C.format == asp::XYZ)
     return ordered_csv; // already as xyz
-  
+
 
   Vector3 xyz;
-  
+
   if (C.format == asp::EASTING_HEIGHT_NORTHING){
 
     // go from easting, height, northing to easting, northing, height
-    Vector3 point_height = Vector3(ordered_csv[0], ordered_csv[2], ordered_csv[1]); 
+    Vector3 point_height = Vector3(ordered_csv[0], ordered_csv[2], ordered_csv[1]);
     if (return_point_height) return point_height;
 
     Vector2 ll = geo.point_to_lonlat(Vector2(point_height[0], point_height[1]));
@@ -632,7 +632,7 @@ Vector3 asp::csv_to_cartesian_or_point_height(Vector3 const& csv,
     xyz = ordered_csv[2]*(xyz/norm_2(xyz));
 
     if (return_point_height) return geo.datum().cartesian_to_geodetic( xyz );
-    
+
   }
 
   return xyz;
@@ -649,40 +649,40 @@ Vector3 asp::cartesian_to_csv(Vector3 const& xyz,
   Vector3 csv;
   if (C.format == asp::XYZ){
     csv = xyz; // order is x, y, z
-    
+
   }else{
-    
+
     // Must assert here that the datum was specified.
-  
+
     Vector3 llh = geo.datum().cartesian_to_geodetic(xyz);   // lon-lat-height
     llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjust
 
     if (C.format == asp::EASTING_HEIGHT_NORTHING){
-      
+
       // go from lon, lat to easting, northing
       Vector2 en = geo.lonlat_to_point(Vector2(llh[0], llh[1]));
       csv = Vector3(en[0], llh[2], en[1]); // order is easting, height, northing
-      
+
     }else if (C.format == asp::HEIGHT_LAT_LON){
 
       std::swap(llh[0], llh[2]); // order is height, lat, lon
       csv = llh;
 
     }else{
-      
+
       // Handle asp::LAT_LON_RADIUS_M and asp::LAT_LON_RADIUS_KM
       std::swap(llh[0], llh[1]); // order is lat, lon, height
-      
+
       llh[2] = norm_2(xyz); // order is lat, lon, radius_m
-      
+
       if (C.format == asp::LAT_LON_RADIUS_KM){
         llh[2] /= 1000.0; // order is lat, lon, radius_km
       }
       csv = llh;
     }
-    
+
   }
-  
+
   // Now we have the csv fields, but they are in the order
   // corresponding to the sorted column names. Need to put them
   // in the same order as they were in the file originally.
@@ -722,14 +722,14 @@ boost::uint64_t asp::csv_file_size(std::string const& file){
 // Erases a file suffix if one exists and returns the base string
 std::string asp::prefix_from_pointcloud_filename(std::string const& filename) {
   std::string result = filename;
-  
+
   // First case: filenames that match <prefix>-PC.<suffix>
   int index = result.rfind("-PC.");
   if (index != -1) {
     result.erase(index, result.size());
     return result;
   }
-    
+
   // Second case: filenames that match <prefix>.<suffix>
   index = result.rfind(".");
   if (index != -1) {
@@ -747,11 +747,11 @@ std::string asp::prefix_from_pointcloud_filename(std::string const& filename) {
 // by having the z component of the point be NaN.
 vw::BBox3 asp::pointcloud_bbox(vw::ImageViewRef<vw::Vector3> const& point_image,
                                bool is_geodetic) {
-  
+
   vw::BBox3 result;
   vw::vw_out() << "Computing the point cloud bounding box.\n";
   vw::TerminalProgressCallback progress_bar("asp", "\t--> ");
-  
+
   for (int row=0; row < point_image.rows(); ++row ) {
     progress_bar.report_fractional_progress(row, point_image.rows());
     for (int col=0; col < point_image.cols(); ++col ) {
@@ -762,6 +762,6 @@ vw::BBox3 asp::pointcloud_bbox(vw::ImageViewRef<vw::Vector3> const& point_image,
     }
   }
   progress_bar.report_finished();
-  
+
   return result;
 }

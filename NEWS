@@ -12,6 +12,7 @@
      boundary (after outliers are removed, but before filling in holes).
    * Improved hole-filling, and removed the --hole-fill-mode and 
      --hole-fill-num-smooth-iter, as there's only one algorithm now. 
+   * Improved performance when large holes are to be filled.
 
  - point2las
    * Added the ability to specify a custom projection (PROJ.4 string).

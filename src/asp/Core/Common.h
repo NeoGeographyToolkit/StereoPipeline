@@ -64,12 +64,12 @@ namespace asp {
   }
 
   std::vector<std::string> extract_cameras( std::vector<std::string>& image_files );
-  
+
   std::string bundle_adjust_file_name(std::string const& prefix, std::string const& input_img);
 
   boost::filesystem::path make_file_relative_to_dir
   (boost::filesystem::path const file, boost::filesystem::path const dir);
-  
+
   // Remove file name extension
   std::string prefix_from_filename(std::string const& filename);
 
@@ -81,7 +81,7 @@ namespace asp {
 
   // Run a system command and append the output to a given file
   void run_cmd_app_to_file(std::string cmd, std::string file);
-  
+
   // Get program name without path and leading 'lt-'.
   std::string extract_prog_name(std::string const& prog_str);
 
@@ -89,7 +89,7 @@ namespace asp {
   void log_to_file(int argc, char *argv[],
                    std::string stereo_default_filename,
                    std::string output_prefix);
-  
+
   // Standard Options
   struct BaseOptions {
     vw::DiskImageResourceGDAL::Options gdal_options;
@@ -157,7 +157,7 @@ namespace asp {
     for (std::map<std::string, std::string>::iterator i = keywords.begin();
          i != keywords.end(); i++){
       vw::cartography::write_header_string(*rsrc, i->first, i->second);
-    }    
+    }
     vw::cartography::write_georeference(*rsrc, georef);
     vw::block_write_image( *rsrc, image.impl(), progress_callback );
   }
@@ -192,8 +192,8 @@ namespace asp {
     for (std::map<std::string, std::string>::iterator i = keywords.begin();
          i != keywords.end(); i++){
       vw::cartography::write_header_string(*rsrc, i->first, i->second);
-    }    
-    
+    }
+
     vw::cartography::write_georeference(*rsrc, georef);
     vw::block_write_image( *rsrc, image.impl(), progress_callback );
   }
@@ -213,7 +213,7 @@ namespace asp {
     for (std::map<std::string, std::string>::iterator i = keywords.begin();
          i != keywords.end(); i++){
       vw::cartography::write_header_string(*rsrc, i->first, i->second);
-    }    
+    }
     vw::cartography::write_georeference(*rsrc, georef);
     vw::write_image( *rsrc, image.impl(), progress_callback );
   }
@@ -233,7 +233,7 @@ namespace asp {
     for (std::map<std::string, std::string>::iterator i = keywords.begin();
          i != keywords.end(); i++){
       vw::cartography::write_header_string(*rsrc, i->first, i->second);
-    }    
+    }
     vw::cartography::write_georeference(*rsrc, georef);
     vw::write_image( *rsrc, image.impl(), progress_callback );
   }
@@ -312,7 +312,7 @@ namespace asp {
   // back.
   template<int m>
   vw::ImageViewRef< vw::Vector<double, m> > read_cloud(std::string const& filename){
-    
+
     vw::Vector3 shift;
     std::string shift_str;
     boost::shared_ptr<vw::DiskImageResource> rsrc
@@ -328,7 +328,7 @@ namespace asp {
     // Add the shift back to the first several channels.
     if (shift != vw::Vector3())
       out_image = subtract_shift(out_image, -shift);
-    
+
     return out_image;
   }
 
@@ -346,7 +346,7 @@ namespace asp {
   // inverse power of 2, 1/2^10 for Earth and proportionally less for
   // smaller bodies.
   double get_rounding_error(vw::Vector3 const& shift, double rounding_error);
-  
+
   // Block write image while subtracting a given value from all pixels
   // and casting the result to float, while rounding to nearest mm.
   template <class ImageT>
@@ -360,7 +360,7 @@ namespace asp {
 
 
     // Don't round pixels for bodies of small radius
-    if (norm_2(shift) > 0){ 
+    if (norm_2(shift) > 0){
       boost::scoped_ptr<vw::DiskImageResourceGDAL>
         rsrc( build_gdal_rsrc( filename,
                                vw::channel_cast<float>(image.impl()),
@@ -394,7 +394,7 @@ namespace asp {
 
 
     // Don't round pixels for bodies of small radius
-    if (norm_2(shift) > 0){ 
+    if (norm_2(shift) > 0){
       boost::scoped_ptr<vw::DiskImageResourceGDAL>
         rsrc( build_gdal_rsrc( filename,
                                vw::channel_cast<float>(image.impl()),
@@ -412,6 +412,36 @@ namespace asp {
         rsrc( build_gdal_rsrc( filename, image, opt ) );
       vw::write_image( *rsrc, image.impl(), progress_callback );
     }
+  }
+
+  // Often times, we'd like to save an image to disk by using big
+  // blocks, for performance reasons, then re-write it with desired
+  // blocks.
+  template <class ImageT, class NoDataT>
+  void save_with_temp_big_blocks(int big_block_size,
+                                 const std::string &filename,
+                                 vw::ImageViewBase<ImageT> const& img,
+                                 vw::cartography::GeoReference const& georef,
+                                 NoDataT nodata,
+                                 BaseOptions & opt,
+                                 vw::ProgressCallback const& tpc){
+    
+    vw::Vector2 orig_block_size = opt.raster_tile_size;
+    opt.raster_tile_size = vw::Vector2(big_block_size, big_block_size);
+    block_write_gdal_image(filename, img, georef, nodata, opt, tpc);
+
+    if (opt.raster_tile_size != orig_block_size){
+      std::string tmp_file
+        = boost::filesystem::path(filename).replace_extension(".tmp.tif").string();
+      boost::filesystem::rename(filename, tmp_file);
+      vw::DiskImageView<typename ImageT::pixel_type> tmp_img(tmp_file);
+      opt.raster_tile_size = orig_block_size;
+      vw::vw_out() << "Re-writing with blocks of size: "
+                   << opt.raster_tile_size[0] << " x " << opt.raster_tile_size[1] << std::endl;
+      asp::block_write_gdal_image(filename, tmp_img, georef, nodata, opt, tpc);
+      boost::filesystem::remove(tmp_file);
+    }
+    return;
   }
 
 } // namespace asp
