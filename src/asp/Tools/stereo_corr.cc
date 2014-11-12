@@ -77,6 +77,7 @@ void produce_lowres_disparity( Options & opt ) {
     if (corr_timeout > 0)
       seconds_per_op = calc_seconds_per_op(cost_mode, left_sub,
                                            right_sub, kernel_size);
+
     asp::block_write_gdal_image
       (opt.out_prefix + "-D_sub.tif",
        rm_outliers_using_thresh
@@ -87,11 +88,23 @@ void produce_lowres_disparity( Options & opt ) {
          search_range, kernel_size, cost_mode,
          corr_timeout, seconds_per_op,
          stereo_settings().xcorr_threshold, stereo_settings().corr_max_levels),
-        1, 1, 2.0, 0.5
+        // To do: all these hard-coded values must be replaced with
+        // appropriate params from user's stereo.default, for
+        // consistency with how disparity is filtered in stereo_fltr,
+        // when invoking disparity_cleanup_using_thresh.
+        1, 1, // in stereo.default we have 5 5
+        // Changing below the hard-coded value from 2.0 to using a
+        // param.  The default value will still be 2.0 but is now
+        // modifiable. Need to get rid of the 2.0/3.0 factor and
+        // study how it affects the result.
+        stereo_settings().rm_threshold*2.0/3.0,
+        // Another change of hard-coded value to param. Get rid of 0.5/0.6
+        // and study the effect.
+        (stereo_settings().rm_min_matches/100.0)*0.5/0.6
         ), opt,
        TerminalProgressCallback("asp", "\t--> Low-resolution disparity:")
        );
-    
+
   }else if ( stereo_settings().seed_mode == 2 ) {
     // Use a DEM to get the low-res disparity
     boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
@@ -584,14 +597,14 @@ int main(int argc, char* argv[]) {
   try {
 
     stereo_register_sessions();
-    
+
     bool verbose = false;
     vector<Options> opt_vec;
     string output_prefix;
     asp::parse_multiview(argc, argv, CorrelationDescription(),
                          verbose, output_prefix, opt_vec);
     Options opt = opt_vec[0];
-    
+
     // Integer correlator requires large tiles
     //---------------------------------------------------------
     int ts = Options::corr_tile_size();
