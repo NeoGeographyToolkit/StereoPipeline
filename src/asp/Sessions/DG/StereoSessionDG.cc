@@ -134,7 +134,7 @@ namespace asp {
     // additional rotation to the camera frame so X is the horizontal
     // direction to the picture and +Y points down the image (in the
     // direction of flight).
-    Quat sensor_coordinate = math::euler_xyz_to_quaternion(Vector3(0,0,geo.detector_rotation * M_PI/180.0 - M_PI/2));
+    Quat sensor_coordinate = math::euler_xyz_to_quaternion(Vector3(0,0,geo.detector_rotation /* *M_PI/180.0 */ - M_PI/2));
     for ( size_t i = 0; i < eph.position_vec.size(); i++ ) {
       eph.position_vec[i] += att.quat_vec[i].rotate( geo.perspective_center );
       att.quat_vec[i] = att.quat_vec[i] * geo.camera_attitude * sensor_coordinate;
@@ -184,28 +184,28 @@ namespace asp {
                                     std::string const& match_filename,
                                     vw::camera::CameraModel* cam1,
                                     vw::camera::CameraModel* cam2){
-    
+
     if (fs::exists(match_filename)) {
       vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
       return true;
     }
-    
+
     DiskImageView<float> image1( input_file1 ), image2( input_file2 );
     bool single_threaded_camera = false;
     bool inlier =
       ip_matching_w_alignment( single_threaded_camera, cam1, cam2,
-                               image1, image2, 
+                               image1, image2,
                                cartography::Datum("WGS84"), match_filename,
                                nodata1, nodata2);
-    
+
     if ( !inlier ) {
       fs::remove( match_filename );
       vw_throw( IOErr() << "Unable to match left and right images." );
     }
-    
+
     return inlier;
   }
-  
+
   StereoSessionDG::tx_type
   StereoSessionDG::tx_left() const {
     Matrix<double> tx = math::identity_matrix<3>();
@@ -289,7 +289,7 @@ namespace asp {
                   left_nodata_value, right_nodata_value, match_filename,
                   left_cam.get(), right_cam.get()
                   );
-      
+
       std::vector<ip::InterestPoint> left_ip, right_ip;
       ip::read_binary_match_file( match_filename, left_ip, right_ip  );
       Matrix<double> align_left_matrix = math::identity_matrix<3>(),
