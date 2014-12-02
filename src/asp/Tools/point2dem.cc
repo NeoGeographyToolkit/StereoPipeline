@@ -341,7 +341,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Turn on outlier removal based on percentage of triangulation error. Obsolete, as this is the default.")
     ("remove-outliers-params", po::value(&opt.remove_outliers_params)->default_value(Vector2(75.0, 3.0), "pct factor"), "Outlier removal based on percentage. Points with triangulation error larger than pct-th percentile times factor will be removed as outliers. [default: pct=75.0, factor=3.0]")
     ("max-valid-triangulation-error", po::value(&opt.max_valid_triangulation_error)->default_value(0), "Outlier removal based on threshold. Points with triangulation error larger than this (in meters) will be removed from the cloud.")
-    ("median-filter-params", po::value(&opt.median_filter_params)->default_value(Vector2(0, 0), "window_size threshold"), "If the point cloud height at the current point differs by more than the given threshold from the median of heights in the window of given size centered at the point, remove it as an outlier.")
+    ("median-filter-params", po::value(&opt.median_filter_params)->default_value(Vector2(0, 0), "window_size threshold"), "If the point cloud height at the current point differs by more than the given threshold from the median of heights in the window of given size centered at the point, remove it as an outlier. Use for example 11 and 40.0.")
     ("erode-length", po::value<int>(&opt.erode_len)->default_value(0),
      "Erode input point clouds by this many pixels at boundary (after outliers are removed, but before filling in holes).")
     ("csv-format", po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
@@ -656,10 +656,10 @@ namespace asp{
     if (hole_fill_len > 512)
       vw_out(WarningMessage)
         << "Detected large hole-fill length. Memory usage and run-time may go up.\n";
-    
+
     int block_size = nextpow2(2.0*hole_fill_len);
     block_size = std::max(256, block_size);
-    
+
     std::string output_file = opt.out_prefix + "-" + imgName + "."
       + opt.output_file_type;
     vw_out() << "Writing: " << output_file << "\n";
