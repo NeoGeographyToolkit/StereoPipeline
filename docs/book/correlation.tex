@@ -40,18 +40,18 @@ Chapter~\ref{ch:bundle_adjustment}.
 
 Next, the left and right images are roughly aligned using one of the four
 methods: (1) a homography transform of the right image based on
-automated tie-point measurements, (2) Affine epipolar transform of both
+automated tie-point measurements, (2) an affine epipolar transform of both
 the left and right images (also based on tie-point measurements as earlier),
 the effect of which is equivalent to rotating
 the original cameras which took the pictures, (3) a 3D rotation that achieves
 epipolar rectification {\it(only implemented for Pinhole sessions for
-  missions like MER or K10)} or (4) map-projection of both the left
+  missions like MER or K10 -- see sections \ref{mer:example} and \ref{k10:example})} or (4) map-projection of both the left
 and right images using the \ac{ISIS} \texttt{cam2map} command, or
 through \texttt{mapproject} for Digital Globe and GeoEye images (see
 section \ref{mapproj} for the latter).
 The first three options can be applied automatically by the Stereo
 Pipeline when the \texttt{alignment-method} variable in the
-\texttt{stereo.default} file is set to \texttt{affineepipolar}, 
+\texttt{stereo.default} file is set to \texttt{affineepipolar},
 \texttt{homography}, or \texttt{epipolar}, respectively.
 
 The latter option, running {\tt cam2map}, {\tt cam2map4stereo.py}, or
@@ -365,10 +365,10 @@ match can be found using the affine, noise-adapted window.  Hence,
 this sub-pixel algorithm is able to significantly improve upon the
 results to yield a high quality, high resolution result.
 
-Another option when run time is important is \texttt{subpixel-mode 3}: 
-the simple affine correlator.  This is essentially the Bayes EM mode 
+Another option when run time is important is \texttt{subpixel-mode 3}:
+the simple affine correlator.  This is essentially the Bayes EM mode
 with the noise correction features removed in order to decrease the
-required run time.  In data sets with little noise this mode can yield 
+required run time.  In data sets with little noise this mode can yield
 results similar to Bayes EM mode in approximately one fifth the time.
 
 \section{Triangulation}
@@ -467,4 +467,3 @@ still be bad. A map of the triangulation error should only be
 interpreted as a relative measurement. Where small areas are found
 with high triangulation error came from correlation mistakes and
 large areas of error came from camera model inadequacies.
-

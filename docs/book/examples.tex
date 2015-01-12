@@ -220,6 +220,9 @@ with the extension \texttt{.mos\_hijitreged.norm.cub}.  Be warned that
 the operations carried out by \texttt{hiedr2mosaic.py} can take many
 hours to complete on the very large HiRISE images.
 
+An example of using ASP with HiRISE data is included in the
+\texttt{examples/HiRISE} directory (just type 'make' there).
+
 \subsection{Columbia Hills}
 
 %% \begin{tabular}{ l r c r c}
@@ -289,7 +292,8 @@ the time spent in triangulation. For all cases using linescan cameras,
 triangulation of map-projected images is 10x slower than
 non-map-projected images.
 
-This example is distributed in the \texttt{examples/CTX} directory.
+This example is distributed in the \texttt{examples/CTX} directory (type
+'make' there to run it).
 
 \begin{figure}[b!]
 \centering
@@ -389,26 +393,29 @@ generally well with all MOC-NA pairs. Just set \texttt{alignment-method}
 to \texttt{none} when using map-projected imagery. If the images are not
 map-projected, use \texttt{homography} or \texttt{affineepipolar}.
 
-\section{Mars Exploration Rovers MER}
+\section{Mars Exploration Rovers}\label{mer:example}
 
-The MER rovers have several cameras on board and they all seem to have
-a stereo pair. With ASP you are able to process the PANCAM, NAVCAM,
-and HAZCAM camera imagery. ISIS has no telemetry or camera intrinsic
-supports for these images. That however is not a problem as their raw
-imagery contains the cameras' information in JPL's CAHV, CAHVOR, and
-CHAVORE formats.
+The Mars Exploration Rovers (MER) have several cameras on board
+and they all seem to have a stereo pair. With ASP you are able to
+process the PANCAM, NAVCAM, and HAZCAM camera imagery. ISIS has no
+telemetry or camera intrinsic supports for these images. That however is
+not a problem as their raw imagery contains the cameras' information in
+JPL's CAHV, CAHVOR, and CHAVORE formats.
 
 These cameras are all variations of a simple pinhole camera model so
-they are processed with ASP in the \texttt{PINHOLE} session instead of
+they are processed with ASP in the \texttt{Pinhole} session instead of
 the usual \texttt{ISIS}. ASP only supports creating of point
 clouds. \emph{The *-PC.tif is a raw point cloud with the first 3
   channels being XYZ in the rover site's coordinate frame}. We don't
 support the creation of DEMs from these images and that is left as an
 exercise for the user.
 
+An example of using ASP with MER data is included in the
+\texttt{examples/MER} directory (just type 'make' there).
+
 \subsection{PANCAM, NAVCAM, HAZCAM}
 
-All of these cameras are processed the same way. I'll be showing 3D
+All of these cameras are processed the same way. We'll be showing 3D
 processing of the front hazard cams. The only new things in the
 pipeline is the new executable \texttt{mer2camera} along with the use
 of \texttt{alignment-method epipolar}. This example is also provided
@@ -457,6 +464,16 @@ or are extremely far away.
     far-universe-radius 80.0
 \end{Verbatim}
 \end{minipage}\end{center}
+
+\clearpage
+\section{K10}\label{k10:example}
+
+K10 is an Earth-based research rover within the Intelligent
+Robotics Group at NASA Ames, the group ASP developers belong to. The
+cameras on this rover use a simple Pinhole model. The use of ASP with
+these cameras is illustrated in the \texttt{examples/K10} directory
+(just type 'make' there).  Just as for the MER datatset (section
+\ref{mer:example}), only the creation of a point cloud is supported.
 
 \clearpage
 \section{Lunar Reconnaissance Orbiter LROC NAC}
@@ -844,7 +861,7 @@ For this example, we downloaded the images
 
 \begin{center}
 \texttt{FC21A0010191\_11286212239F1T.IMG} and
-\texttt{FC21A0010192\_11286212639F1T.IMG} 
+\texttt{FC21A0010192\_11286212639F1T.IMG}
 \end{center}
 
 which show the Cornelia
