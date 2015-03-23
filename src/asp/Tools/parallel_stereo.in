@@ -39,7 +39,7 @@ job_pool = [] # currently running jobs
 
 def tile_dir(prefix, tile):
     return prefix + '-' + tile.name_str()
-    
+
 def produce_tiles( settings, tile_w, tile_h ):
     image_size = settings["trans_left_image_size"]
     tiles_nx = int(math.ceil( float(image_size[0]) / tile_w ))
@@ -96,11 +96,11 @@ def create_subproject_dirs( settings, **kw ):
     # creating symbolic links to actual files in parent run directory.
     # Don't symlink to RD.tif or PC.tif as those will be files which
     # actually need to be created in each subdirectory.
-    
+
     for tile in produce_tiles( settings, opt.job_size_w, opt.job_size_h ):
         out_prefix = settings['out_prefix'][0]
         subproject_dir = tile_dir(out_prefix, tile)
-        tile_prefix = subproject_dir + "/" + tile.name_str() 
+        tile_prefix = subproject_dir + "/" + tile.name_str()
         if opt.dryrun:
             print "mkdir -p %s" % subproject_dir
             print "soft linking via %s %s" % (tile_prefix, out_prefix)
@@ -138,7 +138,7 @@ def create_symlinks_for_multiview(settings, opt):
     # Create the latter as a sym link.
 
     create_subproject_dirs( settings ) # symlink L.tif, etc
-    
+
     tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h )
     for s in sorted(settings.keys()):
         m = re.match('multiview_command', s)
@@ -159,7 +159,7 @@ def create_symlinks_for_multiview(settings, opt):
             dst_pref = dst_dir + '/' + index
             files = glob.glob(src_pref + '*')
             for f in files:
-                m = re.match(skip_symlink_expr, f) 
+                m = re.match(skip_symlink_expr, f)
                 if m: continue # won't sym link certain patterns
                 m = re.match('^' + src_pref + '(.*?)$', f)
                 if not m: continue
@@ -169,11 +169,11 @@ def create_symlinks_for_multiview(settings, opt):
                 rel_src = os.path.relpath(src_f, dst_dir)
                 if os.path.lexists(dst_f): continue
                 os.symlink(rel_src, dst_f)
-    
+
 def build_vrt( settings, postfix, tile_postfix, **kw ):
 
     image_size = settings["trans_left_image_size"]
-    
+
     vrt_file = settings['out_prefix'][0]+postfix
     print("Writing: " + vrt_file)
     f = open(vrt_file,'w')
@@ -211,7 +211,7 @@ def build_vrt( settings, postfix, tile_postfix, **kw ):
             break
 
     # Find how many bands are in the file
-    num_bands = 0    
+    num_bands = 0
     for s in gdal_settings:
         m = re.match('^.*?Band\s+(\d+)', s)
         if m:
@@ -290,7 +290,7 @@ def get_best_procs_threads(step, settings):
     else:
         raise Exception('Stereo step %d must be executed on a single machine.' \
                         % step)
-    
+
     # We use the observation that each tile uses one thread,
     # so we need to find how many tiles are in the given job.
     num_threads = int(opt.job_size_w*opt.job_size_h/tile_size/tile_size)
@@ -326,7 +326,7 @@ def sprawn_to_nodes(step, settings, args):
     else:
         procs = opt.processes
         threads = opt.threads_multi
-        
+
     wipe_option(args, '--processes', 1)
     wipe_option(args, '--threads-multiprocess', 1)
     args.extend(['--processes', str(procs)])
@@ -455,7 +455,7 @@ if __name__ == '__main__':
     p.add_option('--threads-multiprocess', dest='threads_multi', default=None,
                  type='int', help='The number of threads to use per process.')
     p.add_option('--threads-singleprocess',dest='threads_single', default=None,
-                 type='int', 
+                 type='int',
                  help='The number of threads to use when running a single process (PPRC and FLTR).')
     p.add_option('--corr-seed-mode',       dest='seed_mode', default=None,
                  help='Correlation seed strategy. See stereo_corr for options.',
@@ -524,7 +524,7 @@ if __name__ == '__main__':
     args.extend(['--corr-seed-mode', str(opt.seed_mode)])
 
     args.extend(['--stereo-file', opt.filename])
-    
+
     if opt.tile_id is None:
         # When the script is started, set some options from the
         # environment which we will pass to the scripts we sprawn
