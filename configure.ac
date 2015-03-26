@@ -271,6 +271,8 @@ AX_PKG_ONE_OF(SPICE,
     SPICE_SUBDIR, [AX_PKG(SPICE_SUBDIR, [], [-lcspice], [SpiceUsr.h SpiceZfc.h], [naif])],
     SPICE_TOP,    [AX_PKG(SPICE_TOP,    [], [-lcspice], [SpiceUsr.h SpiceZfc.h])])
 
+AX_PKG(DSK, [SPICE], [-lcdsk], [])
+
 if test "$HAVE_PKG_QT" = no; then
     ENABLE_QT_QMAKE=no
 fi
@@ -352,9 +354,9 @@ AX_PKG_ONE_OF(KAKADU,
     KAKADU_63_JOIN, [AX_PKG(KAKADU_63_JOIN, [], [-lkdu_a63R])])
 
 if test x"$host_vendor" = "xapple"; then
-    AX_PKG(ISIS3RDPARTY, [LAPACK GSL QWT GEOS SPICE XERCESC PROTOBUF CHOLMOD GEOTIFF TIFF],        [],[],[],[],[],[KAKADU])
+    AX_PKG(ISIS3RDPARTY, [LAPACK GSL QWT GEOS DSK SPICE XERCESC PROTOBUF CHOLMOD GEOTIFF TIFF],        [],[],[],[],[],[KAKADU])
 else
-    AX_PKG(ISIS3RDPARTY, [LAPACK GSL QWT GEOS SPICE XERCESC SUPERLU PROTOBUF CHOLMOD GEOTIFF TIFF],[],[],[],[],[],[KAKADU])
+    AX_PKG(ISIS3RDPARTY, [LAPACK GSL QWT GEOS DSK SPICE XERCESC SUPERLU PROTOBUF CHOLMOD GEOTIFF TIFF],[],[],[],[],[],[KAKADU])
 fi
 
 AX_PKG(ISIS, [ISIS3RDPARTY QT], [-lisis3], [SpecialPixel.h])
@@ -390,6 +392,7 @@ LDFLAGS="$old_LDFLAGS"
 
 # These are here (instead of inside the PKG macro where they belong)
 # for backwards compatability with older versions of automake.
+AM_CONDITIONAL(HAVE_PKG_DSK, [test "$HAVE_PKG_DSK" = "yes"])
 AM_CONDITIONAL(HAVE_PKG_SPICE, [test "$HAVE_PKG_SPICE" = "yes"])
 AM_CONDITIONAL(HAVE_PKG_ISIS, [test "$HAVE_PKG_ISIS" = "yes"])
 AM_CONDITIONAL(HAVE_PKG_OPENSCENEGRAPH, [test "$HAVE_PKG_OPENSCENEGRAPH" = "yes"])
