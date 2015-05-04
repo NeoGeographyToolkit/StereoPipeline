@@ -1,5 +1,8 @@
 *** RELEASE 2.4.3, upcoming! ***
 
+ - General
+   * Upgraded to ISIS 3.4.9.
+
  - stereo
    * Increase the default correlation timeout to 1800 seconds.
 
@@ -29,6 +32,10 @@
 
  - image2qtree
    * Bug fixes.
+ 
+ - cam2map4stereo.py
+   * Create temporary files in current directory, to avoid access
+     issues to system directories.
  
 *** RELEASE 2.4.2, October 6, 2014 ***
 

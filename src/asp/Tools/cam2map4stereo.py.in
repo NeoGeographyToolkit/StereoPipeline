@@ -61,13 +61,14 @@ def mapfile( cube, suffix ):
             raise MapExists( mapname )
 
     return mapname
-	
+
 
 def camrange( cube ):
     # run camrange on cube
     info = ImgInfo();
     try:
-        tmpfile = tempfile.NamedTemporaryFile(prefix="camrange",suffix=".txt",mode="w")
+        tmpfile = tempfile.NamedTemporaryFile(dir='.', prefix="camrange",
+                                              suffix=".txt", mode="w")
         cmd = 'camrange from= '+ cube +' to= '+ tmpfile.name
 
         print 'Running ' + cmd
@@ -105,18 +106,18 @@ def main():
                               help="The mapfile to use for cam2map.")
             parser.add_option("-p", "--pixres", dest="pixres",
                               help="The pixel resolution mode to use for cam2map.")
-            parser.add_option("-r", "--resolution", dest="resolution", 
+            parser.add_option("-r", "--resolution", dest="resolution",
                               help="Resolution of final map for cam2map.")
-            parser.add_option("-i", "--interp", dest="interp", 
+            parser.add_option("-i", "--interp", dest="interp",
                               help="Pixel interpolation scheme for cam2map.")
-            parser.add_option("-a", "--lat", dest="lat", 
+            parser.add_option("-a", "--lat", dest="lat",
                               help="Latitude range for cam2map where LAT is minlat:maxlat.")
-            parser.add_option("-o", "--lon", dest="lon", 
+            parser.add_option("-o", "--lon", dest="lon",
                               help="Longitude range for cam2map where LON is minlon:maxlon.")
-            parser.add_option("-s", "--suffix", dest="suffix", 
+            parser.add_option("-s", "--suffix", dest="suffix",
                               help="Suffix that gets inserted in the output file names.")
-            parser.add_option("-n", "--dry-run", dest="dryrun", 
-                              action="store_true", 
+            parser.add_option("-n", "--dry-run", dest="dryrun",
+                              action="store_true",
                               help="Make calculations, but print cam2map command, but don't actually run it.")
 
             (options, args) = parser.parse_args()
@@ -131,7 +132,7 @@ def main():
         image2 = camrange( args[1] )
 
         mapout = ImgInfo()
-        
+
         mapout.minlat = max( image1.minlat, image2.minlat )
         mapout.maxlat = min( image1.maxlat, image2.maxlat )
         mapout.minlon = max( image1.minlon, image2.minlon )
@@ -147,7 +148,7 @@ def main():
             lonrange = options.lon.split(':')
             if lonrange[0]: mapout.minlon = lonrange[0]
             if lonrange[1]: mapout.maxlon = lonrange[1]
-        
+
         # call cam2map with the arguments
 
         cam2map = ['cam2map', 'from=' + args[0], 'to='+ mapfile( args[0], options.suffix )]
@@ -165,8 +166,8 @@ def main():
         cam2map.append( 'maxlat=' + mapout.maxlat )
         cam2map.append( 'minlon=' + mapout.minlon )
         cam2map.append( 'maxlon=' + mapout.maxlon )
-    
-        # Run for first image 
+
+        # Run for first image
 
         # Need to put these together to keep ISIS from calling the GUI
         cam2map_cmd = ' '.join(cam2map)
@@ -176,7 +177,7 @@ def main():
             if not code == 0:
                 raise Exception('ProcessError', 'Non zero return code ('+str(code)+')')
 
-        # Run for second image  
+        # Run for second image
         cam2map[1] = 'from=' + args[1]
         cam2map[2] = 'to='+ mapfile( args[1], options.suffix )
         cam2map_cmd = ' '.join(cam2map)
@@ -185,7 +186,7 @@ def main():
             code = subprocess.call(cam2map_cmd, shell=True)
             if not code == 0:
                 raise Exception('ProcessError', 'Non zero return code ('+str(code)+')')
-        
+
         print "Finished"
         return 0
 
