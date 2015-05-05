@@ -38,8 +38,7 @@ namespace asp {
   boost::shared_ptr<camera::CameraModel>
   StereoSessionRPC::camera_model(std::string const& image_file,
                                  std::string const& camera_file ) {
-    return boost::shared_ptr<camera::CameraModel>(read_rpc_model(image_file,
-                                                                 camera_file));
+    return boost::shared_ptr<camera::CameraModel>(read_rpc_model(image_file, camera_file));
   }
 
   // Helper function to read RPC models.

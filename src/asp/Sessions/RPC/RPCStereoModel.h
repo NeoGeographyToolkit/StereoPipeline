@@ -22,6 +22,7 @@
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Stereo/StereoModel.h>
 
+// TODO: Why not just include the file in the .h file?
 // forward declaration
 namespace vw {
   namespace camera {
@@ -31,6 +32,7 @@ namespace vw {
 
 namespace asp {
 
+  /// Derived StereoModel class implementing the RPC camera model.
   class RPCStereoModel: public vw::stereo::StereoModel {
 
   public:
@@ -41,6 +43,7 @@ namespace asp {
     RPCStereoModel(std::vector<const vw::camera::CameraModel *> const& cameras,
                    bool least_squares_refine = false):
       vw::stereo::StereoModel(cameras, least_squares_refine){}
+      
     RPCStereoModel(vw::camera::CameraModel const* camera_model1,
                    vw::camera::CameraModel const* camera_model2,
                    bool least_squares_refine = false):
@@ -51,12 +54,11 @@ namespace asp {
     //------------------------------------------------------------------
     
     // Note: This is a re-implementation of StereoModel::operator().
-    virtual vw::Vector3 operator()(std::vector<vw::Vector2> const& pixVec,
-                                   vw::Vector3& errorVec ) const;
+    virtual vw::Vector3 operator()(std::vector<vw::Vector2> const& pixVec, vw::Vector3& errorVec ) const;
 
     virtual vw::Vector3 operator()(vw::Vector2 const& pix1,
                                    vw::Vector2 const& pix2,
-                                   double& error ) const;
+                                   double& error) const;
   };
   
 } // namespace asp

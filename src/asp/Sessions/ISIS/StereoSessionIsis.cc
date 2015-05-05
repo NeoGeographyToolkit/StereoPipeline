@@ -139,7 +139,7 @@ void write_preprocessed_isis_image( BaseOptions const& opt,
                                     std::string const& out_file,
                                     std::string const& tag,
                                     float isis_lo, float isis_hi,
-                                    float out_lo, float out_hi,
+                                    float out_lo,  float out_hi,
                                     Matrix<double> const& matrix,
                                     Vector2i const& crop_size ) {
 
@@ -201,6 +201,8 @@ void write_preprocessed_isis_image( BaseOptions const& opt,
 
 }
 
+// TODO: This is identical to the DG-derived class functions!
+
 StereoSessionIsis::tx_type
 StereoSessionIsis::tx_left() const {
   Matrix<double> tx = math::identity_matrix<3>();
@@ -235,18 +237,17 @@ bool asp::StereoSessionIsis::ip_matching(std::string const& input_file1,
   
   DiskImageView<float> image1( input_file1 ), image2( input_file2 );
 
+  // ??? --> Constructing this datum is the only difference with the DG version.
   IsisCameraModel * isis_cam = dynamic_cast<IsisCameraModel*>(cam1);
-  VW_ASSERT( isis_cam != NULL,
-             ArgumentErr() << "StereoSessionISIS: Invalid left camera.\n" );
+  VW_ASSERT(isis_cam != NULL, ArgumentErr() << "StereoSessionISIS: Invalid left camera.\n");
   Vector3 radii = isis_cam->target_radii();
   cartography::Datum datum("","","", (radii[0] + radii[1]) / 2, radii[2], 0);
 
   bool single_threaded_camera = true;
-  bool inlier =
-    ip_matching_w_alignment( single_threaded_camera, cam1, cam2,
-                             image1, image2, 
-                             datum, match_filename,
-                             nodata1, nodata2);
+  bool inlier = ip_matching_w_alignment(single_threaded_camera, cam1, cam2,
+                                        image1, image2, 
+                                        datum, match_filename,
+                                        nodata1, nodata2);
   
   if ( !inlier ) {
     fs::remove( match_filename );
@@ -255,6 +256,8 @@ bool asp::StereoSessionIsis::ip_matching(std::string const& input_file1,
 
   return inlier;
 }
+
+// TODO: Can we share more code with the DG implementation?
 
 void
 asp::StereoSessionIsis::pre_preprocessing_hook(bool adjust_left_image_size,
@@ -281,26 +284,26 @@ asp::StereoSessionIsis::pre_preprocessing_hook(bool adjust_left_image_size,
     }
   }
 
-  boost::shared_ptr<DiskImageResource> left_rsrc( DiskImageResource::open(left_input_file) ),
-    right_rsrc( DiskImageResource::open(right_input_file) );
+  boost::shared_ptr<DiskImageResource> left_rsrc (DiskImageResource::open(left_input_file )),
+                                       right_rsrc(DiskImageResource::open(right_input_file));
 
   float left_nodata_value, right_nodata_value;
   get_nodata_values(left_rsrc, right_rsrc, left_nodata_value, right_nodata_value);
 
   // Load the unmodified images
-  DiskImageView<float> left_disk_image( left_rsrc ), right_disk_image( right_rsrc );
+  DiskImageView<float> left_disk_image(left_rsrc), right_disk_image(right_rsrc);
 
   // Mask the pixels outside of the isis range and <= nodata.
   float left_lo, left_hi, right_lo, right_hi;
 
   boost::shared_ptr<DiskImageResourceIsis>
-    left_isis_rsrc(new DiskImageResourceIsis(left_input_file)),
+    left_isis_rsrc (new DiskImageResourceIsis(left_input_file )),
     right_isis_rsrc(new DiskImageResourceIsis(right_input_file));
 
   // Getting left image size. Later alignment options can choose to
   // change this parameters. (Affine Epipolar).
-  Vector2i left_size = file_image_size( left_input_file ),
-    right_size = file_image_size( right_input_file );
+  Vector2i left_size  = file_image_size(left_input_file ),
+           right_size = file_image_size(right_input_file);
 
   // These variables will be true if we reduce the valid range for ISIS images
   // using the nodata value provided by the user.
@@ -324,10 +327,10 @@ asp::StereoSessionIsis::pre_preprocessing_hook(bool adjust_left_image_size,
       = ip::match_filename(m_out_prefix, left_input_file, right_input_file);
 
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
-    camera_models( left_cam, right_cam );
-    ip_matching(left_input_file, right_input_file,
+    camera_models(left_cam, right_cam);
+    ip_matching(left_input_file,   right_input_file,
                 left_nodata_value, right_nodata_value, match_filename,
-                left_cam.get(), right_cam.get());
+                left_cam.get(),    right_cam.get());
 
     std::vector<ip::InterestPoint> left_ip, right_ip;
     ip::read_binary_match_file( match_filename, left_ip, right_ip );

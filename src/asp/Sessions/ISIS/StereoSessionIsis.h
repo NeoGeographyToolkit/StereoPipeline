@@ -35,8 +35,7 @@ namespace asp {
 
   //  IsisSpecialPixelFunc
   //
-  /// Replace ISIS missing data values with a pixel value of your
-  /// choice.
+  /// Replace ISIS missing data values with a pixel value of your choice.
   template <class PixelT>
   class IsisSpecialPixelFunc: public vw::UnaryReturnSameType {
     PixelT m_replacement_low;
@@ -48,6 +47,8 @@ namespace asp {
 
   public:
     IsisSpecialPixelFunc(PixelT const& pix_l, PixelT const& pix_h, PixelT const& pix_n) : m_replacement_low(pix_l), m_replacement_high(pix_h), m_replacement_null(pix_n) {}
+
+    // TODO: What is all this helper stuff??
 
     // Helper to determine special across different channel types
     template <typename ChannelT, typename T = void>
@@ -133,13 +134,14 @@ namespace asp {
   template <class ViewT>
   vw::UnaryPerPixelView<ViewT, IsisSpecialPixelFunc<typename ViewT::pixel_type> >
   remove_isis_special_pixels(vw::ImageViewBase<ViewT> &image,
-                             typename ViewT::pixel_type r_low = typename ViewT::pixel_type(),
+                             typename ViewT::pixel_type r_low  = typename ViewT::pixel_type(),
                              typename ViewT::pixel_type r_high = typename ViewT::pixel_type(),
                              typename ViewT::pixel_type r_null = typename ViewT::pixel_type()) {
     return vw::per_pixel_filter(image.impl(),
                                 IsisSpecialPixelFunc<typename ViewT::pixel_type>(r_low,r_high,r_null));
   }
 
+  /// Derived StereoSession class for ISIS images.
   class StereoSessionIsis : public StereoSession {
   public:
     virtual ~StereoSessionIsis() {}
@@ -152,10 +154,10 @@ namespace asp {
 
     typedef vw::HomographyTransform tx_type;
     typedef vw::stereo::StereoModel stereo_model_type;
-    tx_type tx_left() const;
+    tx_type tx_left () const;
     tx_type tx_right() const;
 
-    // Specialization for how interest points are found
+    /// Specialization for how interest points are found
     virtual bool ip_matching(std::string const& input_file1,
                              std::string const& input_file2,
                              float nodata1, float nodata2,
@@ -163,26 +165,27 @@ namespace asp {
                              vw::camera::CameraModel* cam1,
                              vw::camera::CameraModel* cam2);
 
-    // Stage 1: Preprocessing
-    //
+    /// Stage 1: Preprocessing
+    ///
     // Pre file is a pair of images.            ( ImageView<PixelT> )
     virtual void pre_preprocessing_hook(bool adjust_left_image_size,
                                         std::string const& left_input_file,
                                         std::string const& right_input_file,
-                                        std::string &left_output_file,
-                                        std::string &right_output_file);
+                                        std::string      & left_output_file,
+                                        std::string      & right_output_file);
 
-    // Stage 2: Correlation
-    //
-    // Pre file is a pair of grayscale images.  ( ImageView<PixelGray<float> > )
-    // Post file is a disparity map.            ( ImageView<PixelDisparity> > )
+    /// Stage 2: Correlation
+    ///
+    /// Pre file is a pair of grayscale images.  ( ImageView<PixelGray<float> > )
+    /// Post file is a disparity map.            ( ImageView<PixelDisparity> > )
     virtual void pre_filtering_hook(std::string const& input_file,
-                                    std::string & output_file);
+                                    std::string      & output_file);
 
-    // Stage 4: Point cloud generation
+    /// Stage 4: Point cloud generation
     virtual vw::ImageViewRef<vw::PixelMask<vw::Vector2f> >
     pre_pointcloud_hook(std::string const& input_file);
 
+    /// Simple factory function.
     static StereoSession* construct() { return new StereoSessionIsis; }
 
   };

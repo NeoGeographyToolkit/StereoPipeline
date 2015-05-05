@@ -18,8 +18,7 @@
 
 /// \file StereoSessionDG.h
 ///
-/// This a session to hopefully support Digital Globe images from
-/// Quickbird and World View.
+/// This a session to support Digital Globe images from Quickbird and World View.
 
 #ifndef __STEREO_SESSION_DG_H__
 #define __STEREO_SESSION_DG_H__
@@ -29,20 +28,21 @@
 
 namespace asp {
 
+  /// StereoSession implementation for Digital Globe images.
   class StereoSessionDG : public StereoSession {
 
   public:
     StereoSessionDG();
     virtual ~StereoSessionDG();
 
-    // Produces a camera model from the images
+    /// Produces a camera model from the images
     virtual boost::shared_ptr<vw::camera::CameraModel>
-    camera_model( std::string const& image_file,
-                  std::string const& camera_file = "" );
+      camera_model(std::string const& image_file,
+                   std::string const& camera_file = "");
 
     virtual std::string name() const { return "dg"; }
 
-    // Specialization for how interest points are found
+    /// Specialization for how interest points are found
     virtual bool ip_matching(std::string const& input_file1,
                              std::string const& input_file2,
                              float nodata1, float nodata2,
@@ -50,22 +50,25 @@ namespace asp {
                              vw::camera::CameraModel* cam1,
                              vw::camera::CameraModel* cam2);
 
-    // For reversing our arithmetic applied in preprocessing.
+    /// For reversing our arithmetic applied in preprocessing.
     typedef vw::HomographyTransform tx_type;
     typedef vw::stereo::StereoModel stereo_model_type;
-    tx_type tx_left() const;
+    tx_type tx_left () const;
     tx_type tx_right() const;
 
-    // Stage 1: Preprocessing
-    //
-    // Pre file is a pair of images.            ( ImageView<PixelT> )
-    // Post file is a pair of grayscale images. ( ImageView<PixelGray<float> > )
+    /// Stage 1: Preprocessing
+    ///
+    /// Pre file is a pair of images.            ( ImageView<PixelT> )
+    /// Post file is a pair of grayscale images. ( ImageView<PixelGray<float> > )
     virtual void pre_preprocessing_hook(bool adjust_left_image_size,
                                         std::string const& left_input_file,
                                         std::string const& right_input_file,
-                                        std::string &left_output_file,
-                                        std::string &right_output_file);
+                                        std::string      & left_output_file,
+                                        std::string      & right_output_file);
 
+    // TODO: Where is all the actual functionality being defined??
+
+    /// Simple factory function
     static StereoSession* construct() { return new StereoSessionDG; }
   };
 

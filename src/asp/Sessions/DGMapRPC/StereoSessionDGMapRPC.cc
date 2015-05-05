@@ -37,22 +37,21 @@ void StereoSessionDGMapRPC::initialize(BaseOptions const& options,
                                        std::string const& right_camera_file,
                                        std::string const& out_prefix,
                                        std::string const& input_dem) {
+  // Initialize the base class
   StereoSessionDG::initialize( options, left_image_file,
                                right_image_file, left_camera_file,
                                right_camera_file, out_prefix,
                                input_dem);
 
   // Verify that we can read the camera models
-  m_left_model = boost::shared_ptr<RPCModel>(StereoSessionRPC::read_rpc_model(left_image_file, left_camera_file));
-  m_right_model = boost::shared_ptr<RPCModel> (StereoSessionRPC::read_rpc_model(right_image_file, right_camera_file));
+  m_left_model  = boost::shared_ptr<RPCModel>(StereoSessionRPC::read_rpc_model(left_image_file,  left_camera_file ));
+  m_right_model = boost::shared_ptr<RPCModel>(StereoSessionRPC::read_rpc_model(right_image_file, right_camera_file));
   VW_ASSERT( m_left_model.get() && m_right_model.get(),
              ArgumentErr() << "StereoSessionDGMapRPC: Unable to locate RPC inside input files." );
   
-  // Double check that we can read the DEM and that it has
-  // cartographic information.
-  VW_ASSERT( !input_dem.empty(),
-             InputErr() << "StereoSessionDGMapRPC : Require input DEM" );
-  if ( !fs::exists( input_dem ) )
+  // Double check that we can read the DEM and that it has cartographic information.
+  VW_ASSERT(!input_dem.empty(), InputErr() << "StereoSessionDGMapRPC : Require input DEM" );
+  if (!fs::exists(input_dem))
     vw_throw( ArgumentErr() << "StereoSessionDGMapRPC: DEM \"" << input_dem
               << "\" does not exist." );
 
@@ -80,31 +79,30 @@ bool StereoSessionDGMapRPC::ip_matching(std::string const& input_file1,
 
 StereoSessionDGMapRPC::tx_type
 StereoSessionDGMapRPC::tx_left() const {
+
   Matrix<double> tx = math::identity_matrix<3>();
-  if ( stereo_settings().alignment_method == "homography" ||
+  if ( stereo_settings().alignment_method == "homography"    ||
        stereo_settings().alignment_method == "affineepipolar" ) {
     read_matrix( tx, m_out_prefix + "-align-L.exr" );
   }
 
   cartography::GeoReference dem_georef, image_georef;
-  if (!read_georeference( dem_georef, m_input_dem ) )
-    vw_throw( ArgumentErr() << "The DEM \"" << m_input_dem
-              << "\" lacks georeferencing information.");
-  if (!read_georeference( image_georef, m_left_image_file ) )
-    vw_throw( ArgumentErr() << "The image \"" << m_left_image_file
-              << "\" lacks georeferencing information.");
+  if (!read_georeference(dem_georef, m_input_dem) )
+    vw_throw( ArgumentErr() << "The DEM \"" << m_input_dem << "\" lacks georeferencing information.");
+  if (!read_georeference(image_georef, m_left_image_file) )
+    vw_throw( ArgumentErr() << "The image \"" << m_left_image_file << "\" lacks georeferencing information.");
 
   bool call_from_mapproject = false;
   DiskImageView<float> img(m_left_image_file);
   
   // This composes the two transforms as it is possible to do
-  // homography and affineepipolar alignment options with map
-  // projected imagery.
-  return tx_type( cartography::Map2CamTrans
+  // homography and affineepipolar alignment options with map projected imagery.
+  return tx_type(cartography::Map2CamTrans
                        (m_left_model.get(),
                         image_georef, dem_georef, m_input_dem,
                         Vector2(img.cols(), img.rows()), call_from_mapproject),
-                       HomographyTransform(tx) );
+                        HomographyTransform(tx) 
+                       );
 }
 
 StereoSessionDGMapRPC::tx_type
@@ -116,22 +114,20 @@ StereoSessionDGMapRPC::tx_right() const {
   }
 
   cartography::GeoReference dem_georef, image_georef;
-  if (!read_georeference( dem_georef, m_input_dem ) )
-    vw_throw( ArgumentErr() << "The DEM \"" << m_input_dem
-              << "\" lacks georeferencing information.");
-  if (!read_georeference( image_georef, m_right_image_file ) )
-    vw_throw( ArgumentErr() << "The image \"" << m_right_image_file
-              << "\" lacks georeferencing information.");
+  if (!read_georeference(dem_georef, m_input_dem) )
+    vw_throw( ArgumentErr() << "The DEM \"" << m_input_dem << "\" lacks georeferencing information.");
+  if (!read_georeference(image_georef, m_right_image_file) )
+    vw_throw( ArgumentErr() << "The image \"" << m_right_image_file << "\" lacks georeferencing information.");
 
   bool call_from_mapproject = false;
   DiskImageView<float> img(m_right_image_file);
   
   // This composes the two transforms as it is possible to do
-  // homography and affineepipolar alignment options with map
-  // projected imagery.
-  return tx_type( cartography::Map2CamTrans
+  // homography and affineepipolar alignment options with map projected imagery.
+  return tx_type(cartography::Map2CamTrans
                         (m_right_model.get(),
                          image_georef, dem_georef, m_input_dem,
                          Vector2(img.cols(), img.rows()), call_from_mapproject),
-                        HomographyTransform(tx) );
+                         HomographyTransform(tx) 
+                        );
 }

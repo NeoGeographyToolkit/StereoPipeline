@@ -16,12 +16,16 @@
 // __END_LICENSE__
 
 
-// RPC model and triangulation. Following the paper:
+/// RPC model and triangulation. Following the paper:
 
-// Jacek Grodecki, Gene Dial and James Lutes, "Mathematical Model for
-// 3D Feature Extraction from Multiple Satellite Images Described by
-// RPCs." Proceedings of ASPRS 2004 Conference, Denver, Colorado, May,
-// 2004.
+/// Jacek Grodecki, Gene Dial and James Lutes, "Mathematical Model for
+/// 3D Feature Extraction from Multiple Satellite Images Described by
+/// RPCs." Proceedings of ASPRS 2004 Conference, Denver, Colorado, May,
+/// 2004.
+
+/// Digital Globe images (and others) often include an RPC camera model 
+/// definition.  The RPC model is less complicated than the full Digital 
+/// Globe camera model.
 
 #ifndef __STEREO_SESSION_RPC_MODEL_H__
 #define __STEREO_SESSION_RPC_MODEL_H__

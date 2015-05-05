@@ -447,6 +447,7 @@ namespace asp {
                 << usage << general_options );
     }
 
+    // The StereoSession call automatically determines the type of object to create from the input parameters.
     opt.session.reset( asp::StereoSession::create(opt.stereo_session_string,// i/o
                                                   opt, opt.in_file1,
                                                   opt.in_file2,

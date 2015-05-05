@@ -57,8 +57,9 @@ namespace vw {
   template<> struct PixelFormatID<Vector2f>  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_2_CHANNEL; };
 }
 
-// Helper class for converting to floating point seconds based on a
-// given reference.
+// TODO: Move the Boost time functions!
+
+// Helper class for converting to floating point seconds based on a given reference.
 class SecondsFrom {
   pt::ptime m_reference;
 public:
@@ -72,19 +73,18 @@ public:
 
 namespace asp {
 
+  /// Wrapper around boost::posix_time::time_from_string()
   pt::ptime parse_time(std::string str){
     try{
       return pt::time_from_string(str);
     }catch(...){
-      vw_throw(ArgumentErr() << "Failed to parse time from string: "
-               << str << "\n");
+      vw_throw(ArgumentErr() << "Failed to parse time from string: " << str << "\n");
     }
-    return pt::time_from_string(str); // never reached
+    return pt::time_from_string(str); // Never reached!
   }
 
 
-  // These are initializers and closers for Xercesc since we use it to
-  // read our RPC models.
+  // These are initializers and closers for Xercesc since we use it to read our (XML) RPC models.
   StereoSessionDG::StereoSessionDG() {
     XMLPlatformUtils::Initialize();
   }
@@ -98,42 +98,40 @@ namespace asp {
   StereoSessionDG::camera_model( std::string const& /*image_file*/,
                                  std::string const& camera_file ) {
 
+    // Parse the Digital Globe XML file
     GeometricXML geo;
-    AttitudeXML att;
+    AttitudeXML  att;
     EphemerisXML eph;
-    ImageXML img;
-    RPCXML rpc;
+    ImageXML     img;
+    RPCXML       rpc;
     read_xml( camera_file, geo, att, eph, img, rpc );
 
     // Convert measurements in millimeters to pixels.
     geo.principal_distance /= geo.detector_pixel_pitch;
-    geo.detector_origin /= geo.detector_pixel_pitch;
+    geo.detector_origin    /= geo.detector_pixel_pitch;
 
     bool correct_velocity_aberration = !stereo_settings().disable_correct_velocity_aberration;
 
     // Convert all time measurements to something that boost::date_time can read.
-    boost::replace_all( eph.start_time, "T", " " );
-    boost::replace_all( img.tlc_start_time, "T", " " );
+    boost::replace_all( eph.start_time,            "T", " " );
+    boost::replace_all( img.tlc_start_time,        "T", " " );
     boost::replace_all( img.first_line_start_time, "T", " " );
-    boost::replace_all( att.start_time, "T", " " );
+    boost::replace_all( att.start_time,            "T", " " );
 
     // Convert UTC time measurements to line measurements. Ephemeris
-    // start time will be our reference frame to calculate seconds
-    // against.
+    // start time will be our reference frame to calculate seconds against.
     SecondsFrom convert( parse_time( eph.start_time ) );
 
-    // I'm going make the assumption that EPH and ATT are sampled at the
-    // same rate and time.
+    // I'm going make the assumption that EPH and ATT are sampled at the same rate and time.
     VW_ASSERT( eph.position_vec.size() == att.quat_vec.size(),
                MathErr() << "Ephemeris and Attitude don't have the same number of samples." );
     VW_ASSERT( eph.start_time == att.start_time && eph.time_interval == att.time_interval,
                MathErr() << "Ephemeris and Attitude don't seem to sample with the same t0 or dt." );
 
-    // Convert ephemeris to be position of camera. Change attitude to be
+    // Convert ephemeris to be position of camera. Change attitude to
     // be the rotation from camera frame to world frame. We also add an
     // additional rotation to the camera frame so X is the horizontal
-    // direction to the picture and +Y points down the image (in the
-    // direction of flight).
+    // direction to the picture and +Y points down the image (in the direction of flight).
     Quat sensor_coordinate = math::euler_xyz_to_quaternion(Vector3(0,0,geo.detector_rotation /* *M_PI/180.0 */ - M_PI/2));
     for ( size_t i = 0; i < eph.position_vec.size(); i++ ) {
       eph.position_vec[i] += att.quat_vec[i].rotate( geo.perspective_center );
@@ -141,8 +139,7 @@ namespace asp {
     }
 
     // Load up the time interpolation class. If the TLCList only has
-    // one entry ... then we have to manually drop in the slope and
-    // offset.
+    // one entry ... then we have to manually drop in the slope and offset.
     if ( img.tlc_vec.size() == 1 ) {
       double direction = 1;
       if ( boost::to_lower_copy( img.scan_direction ) !=
@@ -166,18 +163,20 @@ namespace asp {
     double at0 = convert( parse_time( att.start_time ) );
     double edt = eph.time_interval;
     double adt = att.time_interval;
-    return result_type(new camera_type(camera::PiecewiseAPositionInterpolation(eph.position_vec, eph.velocity_vec,
-                                                                               et0, edt ),
+    return result_type(new camera_type(camera::PiecewiseAPositionInterpolation(eph.position_vec, eph.velocity_vec, et0, edt ),
                                        camera::LinearPiecewisePositionInterpolation(eph.velocity_vec, et0, edt),
                                        camera::SLERPPoseInterpolation(att.quat_vec, at0, adt),
                                        tlc_time_interpolation, img.image_size,
                                        subvector(inverse(sensor_coordinate).rotate(Vector3(geo.detector_origin[0],
-                                                                                           geo.detector_origin[1],
-                                                                                           0)), 0, 2),
+                                                                                           geo.detector_origin[1], 
+                                                                                           0)
+                                                                                  ), 
+                                                 0, 2),
                                        geo.principal_distance, correct_velocity_aberration)
                       );
-  }
+  } // End function camera_model()
 
+  // TODO: Should this be the default implementation?
   bool StereoSessionDG::ip_matching(std::string const& input_file1,
                                     std::string const& input_file2,
                                     float nodata1, float nodata2,
@@ -190,22 +189,23 @@ namespace asp {
       return true;
     }
 
-    DiskImageView<float> image1( input_file1 ), image2( input_file2 );
+    DiskImageView<float> image1(input_file1), image2(input_file2);
     bool single_threaded_camera = false;
-    bool inlier =
-      ip_matching_w_alignment( single_threaded_camera, cam1, cam2,
-                               image1, image2,
-                               cartography::Datum("WGS84"), match_filename,
-                               nodata1, nodata2);
+    bool inlier = ip_matching_w_alignment(single_threaded_camera, cam1, cam2,
+                                          image1, image2,
+                                          cartography::Datum("WGS84"), match_filename,
+                                          nodata1, nodata2);
 
-    if ( !inlier ) {
+    if (!inlier) {
       fs::remove( match_filename );
       vw_throw( IOErr() << "Unable to match left and right images." );
     }
 
     return inlier;
-  }
+  } // End function ip_matching()
 
+  // TODO: Should these be the default TX implementations?
+  
   StereoSessionDG::tx_type
   StereoSessionDG::tx_left() const {
     Matrix<double> tx = math::identity_matrix<3>();
@@ -231,16 +231,26 @@ namespace asp {
                                                std::string const& right_input_file,
                                                std::string &left_output_file,
                                                std::string &right_output_file) {
+    // Get input image handles
+    boost::shared_ptr<DiskImageResource>
+      left_rsrc (DiskImageResource::open(m_left_image_file )),
+      right_rsrc(DiskImageResource::open(m_right_image_file));
+
+    float left_nodata_value, right_nodata_value;
+    get_nodata_values(left_rsrc, right_rsrc, left_nodata_value, right_nodata_value);
+
+    // Load the unmodified images
+    DiskImageView<float> left_disk_image(left_rsrc), right_disk_image(right_rsrc);
 
     // Filenames of normalized images
-    left_output_file = m_out_prefix + "-L.tif";
+    left_output_file  = m_out_prefix + "-L.tif";
     right_output_file = m_out_prefix + "-R.tif";
 
-    // If these files already exist, don't bother writting them again.
+    // Check if the output files already exist
     bool rebuild = false;
     try {
-      vw_log().console_log().rule_set().add_rule(-1,"fileio");
-      DiskImageView<float> test_left(left_output_file);
+      vw_log().console_log().rule_set().add_rule(-1, "fileio");
+      DiskImageView<float> test_left (left_output_file );
       DiskImageView<float> test_right(right_output_file);
       vw_settings().reload_config();
     } catch (vw::IOErr const& e) {
@@ -252,74 +262,71 @@ namespace asp {
       rebuild = true;
     }
 
-    if (!rebuild) {
+    if (!rebuild) { // The output files already exist so we are finished!
       vw_out() << "\t--> Using cached L and R files.\n";
       return;
     }
 
-    boost::shared_ptr<DiskImageResource>
-      left_rsrc( DiskImageResource::open(m_left_image_file) ),
-      right_rsrc( DiskImageResource::open(m_right_image_file) );
-
-    float left_nodata_value, right_nodata_value;
-    get_nodata_values(left_rsrc, right_rsrc, left_nodata_value, right_nodata_value);
-
-    // Load the unmodified images
-    DiskImageView<float> left_disk_image( left_rsrc ), right_disk_image( right_rsrc );
-
+    // Set up image masks
     ImageViewRef< PixelMask<float> > left_masked_image
       = create_mask_less_or_equal(left_disk_image, left_nodata_value);
     ImageViewRef< PixelMask<float> > right_masked_image
       = create_mask_less_or_equal(right_disk_image, right_nodata_value);
 
+    // TODO: Shift this down to where we use the statistics
+    // Compute input image statistics
     Vector4f left_stats  = gather_stats( left_masked_image,  "left" );
-    Vector4f right_stats = gather_stats( right_masked_image, "right" );
+    Vector4f right_stats = gather_stats( right_masked_image, "right");
 
     ImageViewRef< PixelMask<float> > Limg, Rimg;
     std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
 
     if ( stereo_settings().alignment_method == "homography" ||
          stereo_settings().alignment_method == "affineepipolar" ) {
-      std::string match_filename
-        = ip::match_filename(m_out_prefix, left_input_file, right_input_file);
+      // Define the file name containing IP match information.
+      std::string match_filename = ip::match_filename(m_out_prefix, left_input_file, right_input_file);
 
+      // Detect matching interest points between the left and right input images.
+      // - The output is written directly to file!
       boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
-      camera_models( left_cam, right_cam );
-      ip_matching(left_input_file, right_input_file,
+      camera_models( left_cam, right_cam ); // Fetch the camera models.
+      ip_matching(left_input_file,   right_input_file,
                   left_nodata_value, right_nodata_value, match_filename,
-                  left_cam.get(), right_cam.get()
+                  left_cam.get(),    right_cam.get()
                   );
 
+      // Load the interest points results from the file we just wrote.
       std::vector<ip::InterestPoint> left_ip, right_ip;
-      ip::read_binary_match_file( match_filename, left_ip, right_ip  );
-      Matrix<double> align_left_matrix = math::identity_matrix<3>(),
-        align_right_matrix = math::identity_matrix<3>();
+      ip::read_binary_match_file(match_filename, left_ip, right_ip);
 
-      Vector2i left_size = file_image_size( left_input_file ),
-        right_size = file_image_size( right_input_file );
+      // Initialize alignment matrices and get the input image sizes.      
+      Matrix<double> align_left_matrix  = math::identity_matrix<3>(),
+                     align_right_matrix = math::identity_matrix<3>();
+      Vector2i left_size  = file_image_size(left_input_file ),
+               right_size = file_image_size(right_input_file);
 
+      // Compute the appropriate alignment matrix based on the input points
       if ( stereo_settings().alignment_method == "homography" ) {
-        left_size =
-          homography_rectification( adjust_left_image_size,
-                                    left_size, right_size, left_ip, right_ip,
-                                    align_left_matrix, align_right_matrix );
+        left_size = homography_rectification(adjust_left_image_size,
+                                             left_size,         right_size, 
+                                             left_ip,           right_ip,
+                                             align_left_matrix, align_right_matrix);
         vw_out() << "\t--> Aligning right image to left using matrices:\n"
-                 << "\t      " << align_left_matrix << "\n"
+                 << "\t      " << align_left_matrix  << "\n"
                  << "\t      " << align_right_matrix << "\n";
       } else {
-        left_size =
-          affine_epipolar_rectification( left_size, right_size,
-                                         left_ip, right_ip,
-                                         align_left_matrix,
-                                         align_right_matrix );
+        left_size = affine_epipolar_rectification(left_size,         right_size,
+                                                  left_ip,           right_ip,
+                                                  align_left_matrix, align_right_matrix);
         vw_out() << "\t--> Aligning left and right images using affine matrices:\n"
-                 << "\t      " << submatrix(align_left_matrix,0,0,2,3) << "\n"
+                 << "\t      " << submatrix(align_left_matrix, 0,0,2,3) << "\n"
                  << "\t      " << submatrix(align_right_matrix,0,0,2,3) << "\n";
       }
-      write_matrix( m_out_prefix + "-align-L.exr", align_left_matrix );
-      write_matrix( m_out_prefix + "-align-R.exr", align_right_matrix );
+      // Write out both computed matrices to disk
+      write_matrix(m_out_prefix + "-align-L.exr", align_left_matrix );
+      write_matrix(m_out_prefix + "-align-R.exr", align_right_matrix);
 
-      // Applying alignment transform
+      // Apply the alignment transform to both input images
       Limg = transform(left_masked_image,
                        HomographyTransform(align_left_matrix),
                        left_size.x(), left_size.y() );
@@ -329,7 +336,7 @@ namespace asp {
     } else if ( stereo_settings().alignment_method == "epipolar" ) {
       vw_throw( NoImplErr() << "StereoSessionDG does not support epipolar rectification" );
     } else {
-      // Do nothing just provide the original files.
+      // No alignment, just provide the original files.
       Limg = left_masked_image;
       Rimg = right_masked_image;
     }
@@ -346,20 +353,21 @@ namespace asp {
     asp::BaseOptions options = m_options;
     options.gdal_options["PREDICTOR"] = "1";
 
+    // The left image is written out with no alignment warping.
     vw_out() << "\t--> Writing pre-aligned images.\n";
     block_write_gdal_image( left_output_file, apply_mask(Limg, output_nodata),
                             output_nodata, options,
                             TerminalProgressCallback("asp","\t  L:  ") );
 
-    if ( stereo_settings().alignment_method == "none" )
+    if ( stereo_settings().alignment_method == "none" ) // Write out the right image with no warping.
       block_write_gdal_image( right_output_file, apply_mask(Rimg, output_nodata),
                               output_nodata, options,
                               TerminalProgressCallback("asp","\t  R:  ") );
-    else
+    else // Write out the right image warped to align with the left image.
       block_write_gdal_image( right_output_file,
                               apply_mask(crop(edge_extend(Rimg, ConstantEdgeExtension()), bounding_box(Limg)), output_nodata),
                               output_nodata, options,
                               TerminalProgressCallback("asp","\t  R:  ") );
-  }
+  } // End function pre_preprocessing_hook
 
-}
+} // End namespace asp
