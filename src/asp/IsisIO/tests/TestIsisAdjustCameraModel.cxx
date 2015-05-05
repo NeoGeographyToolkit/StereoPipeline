@@ -73,6 +73,13 @@ protected:
 };
 
 TEST_F(IsisAdjustCameraTest, NoFunctions) {
+
+  if (!asp::isis::IsisEnv()) {
+    vw_out() << "ISISROOT or ISIS3DATA was not set. ISIS unit tests won't be run."
+             << std::endl;
+    return;
+  }
+
   BOOST_FOREACH( std::string const& cube, files ) {
     boost::shared_ptr<BaseEquation> blank( new PolyEquation(0) );
     IsisAdjustCameraModel cam( cube, blank, blank );
@@ -118,6 +125,12 @@ TEST_F(IsisAdjustCameraTest, NoFunctions) {
 }
 
 TEST_F(IsisAdjustCameraTest, PolyFunctions) {
+  if (!asp::isis::IsisEnv()) {
+    vw_out() << "ISISROOT or ISIS3DATA was not set. ISIS unit tests won't be run."
+             << std::endl;
+    return;
+  }
+
   BOOST_FOREACH( std::string const& cube, files ) {
     boost::shared_ptr<BaseEquation> position( new PolyEquation(1) );
     (*position)[0] = 1000;
@@ -151,6 +164,11 @@ TEST_F(IsisAdjustCameraTest, PolyFunctions) {
 }
 
 TEST_F(IsisAdjustCameraTest, RPNFunctions) {
+  if (!asp::isis::IsisEnv()) {
+    vw_out() << "ISISROOT or ISIS3DATA was not set. ISIS unit tests won't be run."
+             << std::endl;
+    return;
+  }
   BOOST_FOREACH( std::string const& cube, files ) {
     std::string xpos_eq = "t 2 * 100 / 99 +";
     std::string ypos_eq = "t .8 * 1000 -";

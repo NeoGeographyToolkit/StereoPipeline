@@ -88,6 +88,7 @@ namespace isis {
   // -------------------------------------------------------
   std::ostream& operator<<( std::ostream& os, IsisInterface* i );
 
+  bool IsisEnv();
 }}
 
 #endif//__ASP_ISIS_INTERFACE_H__

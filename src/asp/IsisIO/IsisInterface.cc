@@ -129,3 +129,12 @@ std::ostream& asp::isis::operator<<( std::ostream& os, IsisInterface* i ) {
        << "Center=" << i->camera_center() << " )";
     return os;
 }
+
+// Check if ISISROOT and ISIS3DATA was set
+bool asp::isis::IsisEnv() {
+  char * isisroot_ptr = getenv("ISISROOT");
+  char * isisdata_ptr = getenv("ISIS3DATA");
+  if (isisroot_ptr == NULL || isisdata_ptr == NULL)
+    return false;
+  return true;
+}

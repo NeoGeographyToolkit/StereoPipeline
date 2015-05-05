@@ -55,6 +55,11 @@ Vector2 generate_random( int const& xsize,
 }
 
 TEST(IsisCameraModel, mapprojected) {
+  if (!asp::isis::IsisEnv()) {
+    vw_out() << "ISISROOT or ISIS3DATA was not set. ISIS unit tests won't be run."
+             << std::endl;
+    return;
+  }
   std::string file("E0201461.tiny.cub");
   Isis::FileName cubefile( file.c_str() );
   Isis::Pvl label;
@@ -105,6 +110,12 @@ TEST(IsisCameraModel, groundmap_chk) {
   // Run two methods ..
   // solve for vector out with and without the groundmap solution
   // prove that they get the same values
+
+  if (!asp::isis::IsisEnv()) {
+    vw_out() << "ISISROOT or ISIS3DATA was not set. ISIS unit tests won't be run."
+             << std::endl;
+    return;
+  }
 
   std::vector<std::string> files;
   files.push_back("E1701676.reduce.cub"); // Linescan
@@ -202,6 +213,12 @@ TEST(IsisCameraModel, groundmap_chk) {
 }
 
 TEST(IsisCameraModel, camera_model) {
+  if (!asp::isis::IsisEnv()) {
+    vw_out() << "ISISROOT or ISIS3DATA was not set. ISIS unit tests won't be run."
+             << std::endl;
+    return;
+  }
+
   // Circle Check
   std::vector<std::string> files;
   files.push_back("E1701676.reduce.cub");
