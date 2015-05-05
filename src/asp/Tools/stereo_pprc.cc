@@ -133,25 +133,25 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
   if (skip_img_norm)
     create_sym_links(opt.in_file1, opt.in_file2, opt.out_prefix,
                      left_image_file, right_image_file);
-  else
+  else // Perform image normalization
     opt.session->pre_preprocessing_hook(adjust_left_image_size,
-                                        opt.in_file1, opt.in_file2,
+                                        opt.in_file1,    opt.in_file2,
                                         left_image_file, right_image_file);
 
   boost::shared_ptr<DiskImageResource>
-    left_rsrc( DiskImageResource::open(left_image_file) ),
-    right_rsrc( DiskImageResource::open(right_image_file) );
+    left_rsr c(DiskImageResource::open(left_image_file )),
+    right_rsrc(DiskImageResource::open(right_image_file));
 
   // Load the normalized images.
-  DiskImageView<PixelGray<float> > left_image( left_rsrc ),
-                                   right_image( right_rsrc );
+  DiskImageView<PixelGray<float> > left_image (left_rsrc ),
+                                   right_image(right_rsrc);
 
   string left_mask_file  = opt.out_prefix+"-lMask.tif";
   string right_mask_file = opt.out_prefix+"-rMask.tif";
   bool rebuild = false;
   try {
     vw_log().console_log().rule_set().add_rule(-1,"fileio");
-    DiskImageView<PixelGray<uint8> > testa(left_mask_file);
+    DiskImageView<PixelGray<uint8> > testa(left_mask_file );
     DiskImageView<PixelGray<uint8> > testb(right_mask_file);
     vw_settings().reload_config();
   } catch (vw::IOErr const& e) {
@@ -193,7 +193,7 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
     // input images, and the user wants to use a custom no-data value,
     // this is the time to apply it.
     if (skip_img_norm && !isnan(stereo_settings().nodata_value)){
-      left_nodata_value = stereo_settings().nodata_value;
+      left_nodata_value  = stereo_settings().nodata_value;
       right_nodata_value = stereo_settings().nodata_value;
     }
     
@@ -210,29 +210,26 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
     double right_threshold = numeric_limits<double>::quiet_NaN();
     double nodata_fraction = stereo_settings().nodata_pixel_percentage/100.0;
     double nodata_factor   = stereo_settings().nodata_optimal_threshold_factor;
-    if ( skip_img_norm &&
-         ((!isnan(nodata_fraction)) || (!isnan(nodata_factor))) ){
-      vw_throw( ArgumentErr()
-                << "\nCannot skip image normalization while attempting "
-                << "to apply a normalized threshold.\n");
+    if ( skip_img_norm && ((!isnan(nodata_fraction)) || (!isnan(nodata_factor))) ){
+      vw_throw( ArgumentErr() << "\nCannot skip image normalization while attempting "
+                              << "to apply a normalized threshold.\n");
     }
     if ( (!isnan(nodata_fraction)) && (!isnan(nodata_factor)) ){
-      vw_throw( ArgumentErr()
-                << "\nCannot set both nodata-pixel-percentage and "
-                << "nodata-optimal-threshold-factor at the same time.\n");
+      vw_throw( ArgumentErr() << "\nCannot set both nodata-pixel-percentage and "
+                              << "nodata-optimal-threshold-factor at the same time.\n");
     }
     if ( !isnan(nodata_factor) ){
       // Find the black pixels threshold using Otsu's optimal threshold method.
-      left_threshold  = nodata_factor*optimal_threshold(left_image);
+      left_threshold  = nodata_factor*optimal_threshold(left_image );
       right_threshold = nodata_factor*optimal_threshold(right_image);
     }
     if ( !isnan(nodata_fraction) ){
       // Declare a fixed proportion of low-value pixels to be no-data.
-      math::CDFAccumulator< PixelGray<float> > left_cdf(1024, 1024),
-        right_cdf(1024, 1024);
-      for_each_pixel( left_image, left_cdf );
-      for_each_pixel( right_image, right_cdf );
-      left_threshold  = left_cdf.quantile(nodata_fraction);
+      math::CDFAccumulator< PixelGray<float> > left_cdf (1024, 1024),
+                                               right_cdf(1024, 1024);
+      for_each_pixel(left_image,  left_cdf );
+      for_each_pixel(right_image, right_cdf);
+      left_threshold  = left_cdf.quantile (nodata_fraction);
       right_threshold = right_cdf.quantile(nodata_fraction);
     }
 
@@ -240,11 +237,9 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
     BlobHolder LB, RB;
 
     if ( !isnan(left_threshold) && !isnan(right_threshold) ){
-      ImageViewRef< PixelMask<uint8> > left_thresh_mask
-        = LB.mask_and_fill_holes(left_image, left_threshold);
-      left_mask = intersect_mask(left_mask, left_thresh_mask);
-      ImageViewRef< PixelMask<uint8> > right_thresh_mask
-        = RB.mask_and_fill_holes(right_image, right_threshold);
+      ImageViewRef< PixelMask<uint8> > left_thresh_mask  = LB.mask_and_fill_holes(left_image,  left_threshold);
+      ImageViewRef< PixelMask<uint8> > right_thresh_mask = RB.mask_and_fill_holes(right_image, right_threshold);
+      left_mask  = intersect_mask(left_mask,  left_thresh_mask );
       right_mask = intersect_mask(right_mask, right_thresh_mask);
     }
 
@@ -260,29 +255,31 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
       ImageViewRef< PixelMask<uint8> > warped_left_mask // Left image mask transformed into right coordinates
         = crop(vw::cartography::geo_transform
                (left_mask, left_georef, right_georef,
-                ConstantEdgeExtension(),NearestPixelInterpolation()),
-               bounding_box(right_mask));
+                ConstantEdgeExtension(),NearestPixelInterpolation()
+               ),
+               bounding_box(right_mask)
+              );
       ImageViewRef< PixelMask<uint8> > warped_right_mask // Right image mask transformed into left coordinates
         = crop(vw::cartography::geo_transform
                (right_mask, right_georef, left_georef,
-                ConstantEdgeExtension(), NearestPixelInterpolation()),
-               bounding_box(left_mask) );
+                ConstantEdgeExtension(), NearestPixelInterpolation()
+               ),
+               bounding_box(left_mask) 
+              );
 
-      asp::block_write_gdal_image
-        ( left_mask_file,
-          apply_mask(intersect_mask(left_mask, warped_right_mask)),
-          opt, TerminalProgressCallback("asp", "\t    Mask L: ") );
-      asp::block_write_gdal_image
-        ( right_mask_file,
-          apply_mask(intersect_mask(right_mask, warped_left_mask)),
-          opt, TerminalProgressCallback("asp", "\t    Mask R: ") );
-    }else{
-      asp::block_write_gdal_image( left_mask_file, apply_mask(left_mask), opt,
-                                   TerminalProgressCallback("asp",
-                                                            "\t    Mask L: ") );
-      asp::block_write_gdal_image( right_mask_file, apply_mask(right_mask), opt,
-                                   TerminalProgressCallback("asp",
-                                                            "\t    Mask R: ") );
+      asp::block_write_gdal_image(left_mask_file,
+                                  apply_mask(intersect_mask(left_mask, warped_right_mask)),
+                                  opt, TerminalProgressCallback("asp", "\t    Mask L: ") 
+                                 );
+      asp::block_write_gdal_image(right_mask_file,
+                                  apply_mask(intersect_mask(right_mask, warped_left_mask)),
+                                  opt, TerminalProgressCallback("asp", "\t    Mask R: ") 
+                                 );
+    }else{ // No left and right georef
+      asp::block_write_gdal_image(left_mask_file, apply_mask(left_mask), opt,
+                                  TerminalProgressCallback("asp\t    Mask L: "));
+      asp::block_write_gdal_image(right_mask_file, apply_mask(right_mask), opt,
+                                  TerminalProgressCallback("asp\t    Mask R: "));
     }
 
     sw.stop();
@@ -291,15 +288,15 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
 
   } // End creating masks
 
-  string lsub = opt.out_prefix+"-L_sub.tif";
-  string rsub = opt.out_prefix+"-R_sub.tif";
+
+  string lsub  = opt.out_prefix+"-L_sub.tif";
+  string rsub  = opt.out_prefix+"-R_sub.tif";
   string lmsub = opt.out_prefix+"-lMask_sub.tif";
   string rmsub = opt.out_prefix+"-rMask_sub.tif";
   try {
-    // This confusing try catch is to see if the subsampled images
-    // actually have content.
-    DiskImageView<PixelGray<float> > testl(lsub);
-    DiskImageView<PixelGray<float> > testr(rsub);
+    // This confusing try catch is to see if the subsampled images actually have content.
+    DiskImageView<PixelGray<float> > testl (lsub );
+    DiskImageView<PixelGray<float> > testr (rsub );
     DiskImageView<uint8>             testlm(lmsub);
     DiskImageView<uint8>             testrm(rmsub);
     vw_out() << "\t--> Using cached subsampled images.\n";
@@ -307,12 +304,11 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
     // Produce subsampled images, these will be used later for auto
     // search range detection.
     double s = 1500.0;
-    float sub_scale =
-      sqrt(s * s / (float(left_image.cols()) * float(left_image.rows())));
-    sub_scale +=
-      sqrt(s * s / (float(right_image.cols()) * float(right_image.rows())));
+    float sub_scale = sqrt(s * s / (float(left_image.cols ()) * float(left_image.rows ())))
+                    + sqrt(s * s / (float(right_image.cols()) * float(right_image.rows())));
     sub_scale /= 2;
-    if ( sub_scale > 0.6 ) sub_scale = 0.6;
+    if ( sub_scale > 0.6 ) // ???
+      sub_scale = 0.6;
 
     // Solving for the number of threads and the tile size to use for
     // subsampling while only using 500 MiB of memory. (The cache code
@@ -321,12 +317,12 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
     // and greater than or equal to 64 px.
     uint32 sub_threads = vw_settings().default_num_threads() + 1;
     uint32 tile_power = 0;
-    while ( tile_power < 6 && sub_threads > 1) {
+    while (tile_power < 6 && sub_threads > 1) {
       sub_threads--;
       tile_power = boost::numeric_cast<uint32>( log10(500e6*sub_scale*sub_scale/(4.0*float(sub_threads)))/(2*log10(2)));
     }
     uint32 sub_tile_size = 1u << tile_power;
-    if ( sub_tile_size > vw_settings().default_tile_size() )
+    if (sub_tile_size > vw_settings().default_tile_size())
       sub_tile_size = vw_settings().default_tile_size();
 
     vw_out() << "\t--> Creating previews. Subsampling by " << sub_scale
@@ -334,11 +330,9 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
              << sub_threads << " threads.\n";
 
     // Resample the images and the masks. We must use the masks when
-    // resampling the images to interpolate correctly around invalid
-    // pixels.
+    // resampling the images to interpolate correctly around invalid pixels.
 
-    // The output no-data value must be < 0 as the images are scaled
-    // to around [0, 1].
+    // The output no-data value must be < 0 as the images are scaled to around [0, 1].
     float output_nodata = -32768.0;
 
     DiskImageView<uint8> left_mask(left_mask_file), right_mask(right_mask_file);
@@ -356,9 +350,15 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
       // When we heavily reduce the image size, super sampling seems
       // like the best approach. The method below should be equivalent.
       left_sub_image
-        = block_rasterize(cache_tile_aware_render(resample_aa( copy_mask(left_image,create_mask(left_mask)), sub_scale), Vector2i(256,256) * sub_scale), sub_tile_size, sub_threads);
+        = block_rasterize(cache_tile_aware_render(resample_aa(copy_mask(left_image,create_mask(left_mask)), 
+                                                              sub_scale), 
+                                                  Vector2i(256,256) * sub_scale), 
+                          sub_tile_size, sub_threads);
       right_sub_image
-        = block_rasterize(cache_tile_aware_render(resample_aa( copy_mask(right_image,create_mask(right_mask)), sub_scale), Vector2i(256,256) * sub_scale), sub_tile_size, sub_threads);
+        = block_rasterize(cache_tile_aware_render(resample_aa(copy_mask(right_image,create_mask(right_mask)), 
+                                                              sub_scale), 
+                                                  Vector2i(256,256) * sub_scale), 
+                          sub_tile_size, sub_threads);
     }
 
     // Enforce no predictor in compression, it works badly with sub-images
@@ -383,7 +383,7 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
         channel_cast_rescale<uint8>(select_channel(right_sub_image, 1)),
         opt_nopred,
         TerminalProgressCallback("asp", "\t    Sub R Mask: ") );
-  }
+  } // End try/catch to see if the subsampled images have content
 
   if (skip_img_norm && stereo_settings().subpixel_mode == 2){
     // If image normalization is not done, we still need to compute the image
@@ -403,18 +403,17 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
     string right_stats_file  = opt.out_prefix+"-rStats.tif";
 
     vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << endl;
-    Vector<float32> left_stats2 = left_stats; // cast
+    Vector<float32> left_stats2  = left_stats;  // cast
     Vector<float32> right_stats2 = right_stats; // cast
-    write_vector(left_stats_file, left_stats2);
-    write_vector(right_stats_file,right_stats2);
+    write_vector(left_stats_file,  left_stats2 );
+    write_vector(right_stats_file, right_stats2);
   }
-}
+} // End function stereo_preprocessing
 
 int main(int argc, char* argv[]) {
 
   try {
-    vw_out() << "\n[ " << current_posix_time_string()
-             << " ] : Stage 0 --> PREPROCESSING \n";
+    vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 0 --> PREPROCESSING \n";
     
     stereo_register_sessions();
     
@@ -436,8 +435,7 @@ int main(int argc, char* argv[]) {
     vw_out() << "Using \"" << opt.stereo_default_filename << "\"\n";
     stereo_preprocessing(adjust_left_image_size, opt );
 
-    vw_out() << "\n[ " << current_posix_time_string()
-             << " ] : PREPROCESSING FINISHED \n";
+    vw_out() << "\n[ " << current_posix_time_string() << " ] : PREPROCESSING FINISHED \n";
 
   } ASP_STANDARD_CATCHES;
 

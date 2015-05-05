@@ -151,26 +151,22 @@ namespace asp {
     files.pop_back();
 
     if (fs::exists(output_prefix))
-      vw_out(WarningMessage) << "It appears that the output prefix "
-                             << "exists as a file: " << output_prefix
+      vw_out(WarningMessage) << "It appears that the output prefix exists as a file: " << output_prefix
                              << ". Perhaps this was not intended." << endl;
 
     // Verify that the images and cameras exist, otherwise GDAL prints
     // funny messages later.
     for (int i = 0; i < (int)files.size(); i++){
       if (!fs::exists(files[i]))
-        vw_throw( ArgumentErr() << "Cannot find the image file: " << files[i]
-                  << ".\n" );
+        vw_throw( ArgumentErr() << "Cannot find the image file: " << files[i] << ".\n" );
     }
     for (int i = 0; i < (int)cameras.size(); i++){
       if (!fs::exists(cameras[i]))
-        vw_throw( ArgumentErr() << "Cannot find the camera file: " << cameras[i]
-                  << ".\n" );
+        vw_throw( ArgumentErr() << "Cannot find the camera file: " << cameras[i] << ".\n" );
     }
     
     if (files.size() != cameras.size() && !cameras.empty())
-      vw_throw( ArgumentErr() << "Expecting the number of images and "
-                << "cameras to agree.\n" );
+      vw_throw( ArgumentErr() << "Expecting the number of images and cameras to agree.\n" );
     
     int num_pairs = (int)files.size() - 1;
     if (num_pairs <= 0)
@@ -186,7 +182,7 @@ namespace asp {
     // Multiview is very picky about alignment method
     if ( (num_pairs > 1 || stereo_settings().part_of_multiview_run) &&
          stereo_settings().alignment_method != "none"               &&
-        stereo_settings().alignment_method != "homography"){
+         stereo_settings().alignment_method != "homography"){
 
       std::string new_alignment;
       if (input_dem == "")
@@ -277,10 +273,8 @@ namespace asp {
     if (num_pairs > 1 && prog_name != "stereo_parse" && prog_name != "stereo_tri")
       vw_throw( ArgumentErr() << "The executable " << prog_name
                 << " is not meant to be used directly with more than two images. "
-                << "Use instead the stereo/parallel_stereo scripts with "
-                << "desired entry points.\n" );
-    
-    
+                << "Use instead the stereo/parallel_stereo scripts with desired entry points.\n" );
+
   }
 
   // Parse input command line arguments
@@ -321,12 +315,12 @@ namespace asp {
     }else{
       // Two-view, have left and right.
       positional_options.add_options()
-        ("left-input-image", po::value(&opt.in_file1), "Left input image")
-        ("right-input-image", po::value(&opt.in_file2), "Right input image")
-        ("left-camera-model", po::value(&opt.cam_file1), "Left camera model file")
-        ("right-camera-model", po::value(&opt.cam_file2), "Right camera model file")
-        ("output-prefix", po::value(&opt.out_prefix), "Prefix for output filenames")
-        ("input-dem", po::value(&opt.input_dem), "Input DEM");
+        ("left-input-image",   po::value(&opt.in_file1),   "Left input image")
+        ("right-input-image",  po::value(&opt.in_file2),   "Right input image")
+        ("left-camera-model",  po::value(&opt.cam_file1),  "Left camera model file")
+        ("right-camera-model", po::value(&opt.cam_file2),  "Right camera model file")
+        ("output-prefix",      po::value(&opt.out_prefix), "Prefix for output filenames")
+        ("input-dem",          po::value(&opt.input_dem),  "Input DEM");
       
       positional_desc.add("left-input-image", 1);
       positional_desc.add("right-input-image", 1);

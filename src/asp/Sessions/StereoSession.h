@@ -111,15 +111,6 @@ namespace asp {
   ///   * Initialize, normalize, and align the input imagery
   ///   * Extract the camera model
   ///   * Custom code needed for correlation, filtering, and triangulation.
-  ///
-  /// All Stereo Session childs must define the following which are not
-  /// available in the the parent:
-  ///   typedef VWStereoModel stereo_model_type;
-  ///   typedef VWTransform   tx_type;
-  ///   tx_type tx_left (void) const;
-  ///   tx_type tx_right(void) const;
-  // TODO: Why are these not present in the base class?
-  
   class StereoSession {
   protected:
     asp::BaseOptions m_options;
@@ -160,6 +151,7 @@ namespace asp {
     ///   and run when the first StereoSession is created.
     static void register_session_type( std::string const& id, construct_func func);
 
+    // Now that we handle multiple input cameras, is this function even still valid?
     /// Helper function that retrieves both cameras.
     virtual void camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
                                boost::shared_ptr<vw::camera::CameraModel> &cam2);
@@ -180,6 +172,11 @@ namespace asp {
                              vw::camera::CameraModel* cam1,
                              vw::camera::CameraModel* cam2) = 0;
 
+    // All Stereo Session children must define the following which are not defined in the the parent:
+    //   typedef VWStereoModel stereo_model_type;
+    //   typedef VWTransform   tx_type; ///< Transform from image coordinates on disk to original untransformed image pixels.
+    //   tx_type tx_left (void) const;  // For the left and right cameras
+    //   tx_type tx_right(void) const;
 
     // All of the "hook" functions below have default implementations that just copy the inputs to the outputs!
 

@@ -30,9 +30,18 @@
 
 namespace asp {
  
+  
+  /*TODO:
+     This class has a lot of code dedicated to handling alignment + map projection, but we don't even allow
+     alignment with map projected images! (The map projection should take care of the alignment)
+     
+     All this extra handling is not needed and we can greatly simplify this class without
+     losing any functionality.
+  */
+  
   class RPCModel;
 
-  // Specialize CompositionTransform that allows passing of BBox so Map2CamTrans can cache itself.
+  /// Specialize CompositionTransform that allows passing of BBox so Map2CamTrans can cache itself.
   template <class Tx1T, class Tx2T>
   class CompositionTransformPassBBox : public vw::TransformBase<CompositionTransformPassBBox<Tx1T,Tx2T> > {
   public:
@@ -41,14 +50,19 @@ namespace asp {
     Tx1T tx1; // Be sure to copy!
     Tx2T tx2; // public so that we can invoke caching manually for Map2CamTrans
 
+    // Forward and reverse chained transforms
     inline vw::Vector2 forward(vw::Vector2 const& p) const { return tx1.forward( tx2.forward( p ) ); }
     inline vw::Vector2 reverse(vw::Vector2 const& p) const { return tx2.reverse( tx1.reverse( p ) ); }
 
+    // Reverse bbox transform chained
     inline vw::BBox2i reverse_bbox( vw::BBox2i const& bbox ) const {
       return this->tx2.reverse_bbox(this->tx1.reverse_bbox(bbox));
     }
   };
 
+  
+  
+  
   /// Specialization of the StereoSessionDG class to use map-projected inputs with the RPC sensor model.
   class StereoSessionDGMapRPC : public StereoSessionDG {
   public:
@@ -75,7 +89,10 @@ namespace asp {
                              vw::camera::CameraModel* cam1,
                              vw::camera::CameraModel* cam2);
 
-    // For reversing the arithmetic applied in preprocessing plus the map projection.
+    /// Transforms from pixel coordinates on disk to original unwarped image coordinates.
+    /// - For reversing the arithmetic applied in preprocessing plus the map projection.
+    /// - This combines the homography/affineEpipolar transform with the map-to-camera transform
+    ///   so that we can recover the original image pixels from a warped map projected image.
     typedef CompositionTransformPassBBox<vw::cartography::Map2CamTrans,vw::HomographyTransform> tx_type;
     typedef vw::stereo::StereoModel stereo_model_type;
     tx_type tx_left () const;

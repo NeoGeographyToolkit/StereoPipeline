@@ -38,10 +38,10 @@ void StereoSessionDGMapRPC::initialize(BaseOptions const& options,
                                        std::string const& out_prefix,
                                        std::string const& input_dem) {
   // Initialize the base class
-  StereoSessionDG::initialize( options, left_image_file,
-                               right_image_file, left_camera_file,
-                               right_camera_file, out_prefix,
-                               input_dem);
+  StereoSessionDG::initialize(options, 
+                              left_image_file,  right_image_file, 
+                              left_camera_file, right_camera_file, 
+                              out_prefix, input_dem);
 
   // Verify that we can read the camera models
   m_left_model  = boost::shared_ptr<RPCModel>(StereoSessionRPC::read_rpc_model(left_image_file,  left_camera_file ));
@@ -52,8 +52,7 @@ void StereoSessionDGMapRPC::initialize(BaseOptions const& options,
   // Double check that we can read the DEM and that it has cartographic information.
   VW_ASSERT(!input_dem.empty(), InputErr() << "StereoSessionDGMapRPC : Require input DEM" );
   if (!fs::exists(input_dem))
-    vw_throw( ArgumentErr() << "StereoSessionDGMapRPC: DEM \"" << input_dem
-              << "\" does not exist." );
+    vw_throw( ArgumentErr() << "StereoSessionDGMapRPC: DEM \"" << input_dem << "\" does not exist." );
 
   // Verify that center of our lonlat boundaries from the RPC models
   // actually projects into the DEM. (?)
@@ -77,15 +76,19 @@ bool StereoSessionDGMapRPC::ip_matching(std::string const& input_file1,
   vw_throw( ArgumentErr() << "StereoSessionDGMapRPC: IP matching is not implemented as no alignment is applied to map-projected images.");
 }
 
+
+// TODO: Are these functions generalizable to any map projected input image?
+
 StereoSessionDGMapRPC::tx_type
 StereoSessionDGMapRPC::tx_left() const {
 
-  Matrix<double> tx = math::identity_matrix<3>();
+  Matrix<double> tx_align = math::identity_matrix<3>();
   if ( stereo_settings().alignment_method == "homography"    ||
        stereo_settings().alignment_method == "affineepipolar" ) {
-    read_matrix( tx, m_out_prefix + "-align-L.exr" );
+    read_matrix( tx_align, m_out_prefix + "-align-L.exr" );
   }
 
+  // Read in data necessary for the Map2CamTrans object
   cartography::GeoReference dem_georef, image_georef;
   if (!read_georeference(dem_georef, m_input_dem) )
     vw_throw( ArgumentErr() << "The DEM \"" << m_input_dem << "\" lacks georeferencing information.");
@@ -97,22 +100,25 @@ StereoSessionDGMapRPC::tx_left() const {
   
   // This composes the two transforms as it is possible to do
   // homography and affineepipolar alignment options with map projected imagery.
-  return tx_type(cartography::Map2CamTrans
-                       (m_left_model.get(),
-                        image_georef, dem_georef, m_input_dem,
-                        Vector2(img.cols(), img.rows()), call_from_mapproject),
-                        HomographyTransform(tx) 
-                       );
+  return tx_type(cartography::Map2CamTrans(m_left_model.get(),
+                                           image_georef, dem_georef, m_input_dem,
+                                           Vector2(img.cols(), img.rows()), 
+                                           call_from_mapproject
+                                          ),
+                 HomographyTransform(tx_align) 
+                );
 }
 
 StereoSessionDGMapRPC::tx_type
 StereoSessionDGMapRPC::tx_right() const {
-  Matrix<double> tx = math::identity_matrix<3>();
+  
+  Matrix<double> tx_align = math::identity_matrix<3>();
   if ( stereo_settings().alignment_method == "homography" ||
        stereo_settings().alignment_method == "affineepipolar" ) {
-    read_matrix( tx, m_out_prefix + "-align-R.exr" );
+    read_matrix( tx_align, m_out_prefix + "-align-R.exr" );
   }
 
+  // Read in data necessary for the Map2CamTrans object
   cartography::GeoReference dem_georef, image_georef;
   if (!read_georeference(dem_georef, m_input_dem) )
     vw_throw( ArgumentErr() << "The DEM \"" << m_input_dem << "\" lacks georeferencing information.");
@@ -124,10 +130,11 @@ StereoSessionDGMapRPC::tx_right() const {
   
   // This composes the two transforms as it is possible to do
   // homography and affineepipolar alignment options with map projected imagery.
-  return tx_type(cartography::Map2CamTrans
-                        (m_right_model.get(),
-                         image_georef, dem_georef, m_input_dem,
-                         Vector2(img.cols(), img.rows()), call_from_mapproject),
-                         HomographyTransform(tx) 
-                        );
+  return tx_type(cartography::Map2CamTrans(m_right_model.get(),
+                                           image_georef, dem_georef, m_input_dem,
+                                           Vector2(img.cols(), img.rows()), 
+                                           call_from_mapproject
+                                          ),
+                 HomographyTransform(tx_align) 
+                );
 }

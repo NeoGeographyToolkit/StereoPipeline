@@ -41,7 +41,7 @@ namespace asp {
     // For reversing our arithmetic applied in preprocessing.
     typedef vw::HomographyTransform tx_type;
     typedef vw::stereo::StereoModel stereo_model_type;
-    tx_type tx_left() const;
+    tx_type tx_left () const;
     tx_type tx_right() const;
 
     // Specialization for how interest points are found
@@ -56,8 +56,8 @@ namespace asp {
     virtual void pre_preprocessing_hook( bool adjust_left_image_size,
                                          std::string const& left_input_file,
                                          std::string const& right_input_file,
-                                         std::string &left_output_file,
-                                         std::string &right_output_file);
+                                         std::string      & left_output_file,
+                                         std::string      & right_output_file);
 
     static StereoSession* construct() { return new StereoSessionNadirPinhole; }
   };

@@ -68,11 +68,10 @@ bool StereoSessionNadirPinhole::ip_matching(std::string const& input_file1,
 
   DiskImageView<float> image1( input_file1 ), image2( input_file2 );
   bool single_threaded_camera = false;
-  bool inlier =
-    ip_matching_w_alignment( single_threaded_camera, cam1, cam2,
-                             image1, image2, 
-                             cartography::Datum("WGS84"), match_filename,
-                             nodata1, nodata2);
+  bool inlier = ip_matching_w_alignment(single_threaded_camera, cam1, cam2,
+                                        image1, image2, 
+                                        cartography::Datum("WGS84"), match_filename,
+                                        nodata1, nodata2);
   
   if ( !inlier ) {
     fs::remove( match_filename );
@@ -82,14 +81,16 @@ bool StereoSessionNadirPinhole::ip_matching(std::string const& input_file1,
   return inlier;
 }
 
+//TODO: How much duplicate code is there with the regular Pinhole class?
+
 void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_image_size,
                                                             std::string const& left_input_file,
                                                             std::string const& right_input_file,
-                                                            std::string &left_output_file,
-                                                            std::string &right_output_file) {
+                                                            std::string      & left_output_file,
+                                                            std::string      & right_output_file) {
   boost::shared_ptr<DiskImageResource>
-    left_rsrc( DiskImageResource::open(m_left_image_file) ),
-    right_rsrc( DiskImageResource::open(m_right_image_file) );
+    left_rsrc (DiskImageResource::open(m_left_image_file )),
+    right_rsrc(DiskImageResource::open(m_right_image_file));
 
   float left_nodata_value, right_nodata_value;
   get_nodata_values(left_rsrc, right_rsrc, left_nodata_value, right_nodata_value);
@@ -97,13 +98,11 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
   // Load the unmodified images
   DiskImageView<float> left_disk_image( left_rsrc ), right_disk_image( right_rsrc );
 
-  ImageViewRef< PixelMask<float> > left_masked_image
-    = create_mask_less_or_equal(left_disk_image, left_nodata_value);
-  ImageViewRef< PixelMask<float> > right_masked_image
-    = create_mask_less_or_equal(right_disk_image, right_nodata_value);
+  ImageViewRef< PixelMask<float> > left_masked_image  = create_mask_less_or_equal(left_disk_image,  left_nodata_value);
+  ImageViewRef< PixelMask<float> > right_masked_image = create_mask_less_or_equal(right_disk_image, right_nodata_value);
 
-  Vector4f left_stats  = gather_stats( left_masked_image,  "left" );
-  Vector4f right_stats = gather_stats( right_masked_image, "right" );
+  Vector4f left_stats  = gather_stats(left_masked_image,  "left" );
+  Vector4f right_stats = gather_stats(right_masked_image, "right");
 
   ImageViewRef< PixelMask<float> > Limg, Rimg;
   std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
@@ -113,11 +112,9 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
     vw_out() << "\t--> Performing epipolar alignment\n";
 
     // Load the two images and fetch the two camera models
-    boost::shared_ptr<camera::CameraModel> left_camera =
-      this->camera_model(left_input_file, m_left_camera_file);
-    boost::shared_ptr<camera::CameraModel> right_camera =
-      this->camera_model(right_input_file, m_right_camera_file);
-    CAHVModel* left_epipolar_cahv = dynamic_cast<CAHVModel*>(&(*left_camera));
+    boost::shared_ptr<camera::CameraModel> left_camera  = this->camera_model(left_input_file,  m_left_camera_file );
+    boost::shared_ptr<camera::CameraModel> right_camera = this->camera_model(right_input_file, m_right_camera_file);
+    CAHVModel* left_epipolar_cahv  = dynamic_cast<CAHVModel*>(&(*left_camera));
     CAHVModel* right_epipolar_cahv = dynamic_cast<CAHVModel*>(&(*right_camera));
 
     // Remove lens distortion and create epipolar rectified images.
@@ -156,15 +153,14 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
               stereo_settings().alignment_method == "affineepipolar" ) {
     // Getting left image size. Later alignment options can choose to
     // change this parameters. (Affine Epipolar).
-    Vector2i left_size = file_image_size( left_input_file ),
-      right_size = file_image_size( right_input_file );
+    Vector2i left_size  = file_image_size(left_input_file ),
+             right_size = file_image_size(right_input_file);
 
-    std::string match_filename
-      = ip::match_filename(m_out_prefix, left_input_file, right_input_file);
+    std::string match_filename = ip::match_filename(m_out_prefix, left_input_file, right_input_file);
 
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
     camera_models( left_cam, right_cam );
-    ip_matching(left_input_file, right_input_file,
+    ip_matching(left_input_file,   right_input_file,
                 left_nodata_value, right_nodata_value, match_filename,
                 left_cam.get(), right_cam.get()
                 );
@@ -172,29 +168,27 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
     std::vector<ip::InterestPoint> left_ip, right_ip;
     ip::read_binary_match_file( match_filename, left_ip, right_ip  );
     
-    Matrix<double> align_left_matrix = math::identity_matrix<3>(),
-      align_right_matrix = math::identity_matrix<3>();
+    Matrix<double> align_left_matrix  = math::identity_matrix<3>(),
+                   align_right_matrix = math::identity_matrix<3>();
     if ( stereo_settings().alignment_method == "homography" ) {
-      left_size =
-        homography_rectification( adjust_left_image_size,
-                                  left_size, right_size, left_ip, right_ip,
-                                  align_left_matrix, align_right_matrix );
+      left_size = homography_rectification(adjust_left_image_size,
+                                           left_size, right_size, left_ip, right_ip,
+                                           align_left_matrix, align_right_matrix );
       vw_out() << "\t--> Aligning right image to left using matrices:\n"
-               << "\t      " << align_left_matrix << "\n"
+               << "\t      " << align_left_matrix  << "\n"
                << "\t      " << align_right_matrix << "\n";
     } else {
-      left_size =
-        affine_epipolar_rectification( left_size, right_size,
-                                       left_ip, right_ip,
-                                       align_left_matrix,
-                                       align_right_matrix );
+      left_size = affine_epipolar_rectification(left_size, right_size,
+                                                left_ip,   right_ip,
+                                                align_left_matrix,
+                                                align_right_matrix );
 
       vw_out() << "\t--> Aligning left and right images using affine matrices:\n"
-               << "\t      " << submatrix(align_left_matrix,0,0,2,3) << "\n"
+               << "\t      " << submatrix(align_left_matrix, 0,0,2,3) << "\n"
                << "\t      " << submatrix(align_right_matrix,0,0,2,3) << "\n";
     }
-    write_matrix( m_out_prefix + "-align-L.exr", align_left_matrix );
-    write_matrix( m_out_prefix + "-align-R.exr", align_right_matrix );
+    write_matrix(m_out_prefix + "-align-L.exr", align_left_matrix );
+    write_matrix(m_out_prefix + "-align-R.exr", align_right_matrix);
     right_size = left_size; // Because the images are now aligned
                             // .. they are the same size.
 
@@ -223,7 +217,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
   asp::BaseOptions options = m_options;
   options.gdal_options["PREDICTOR"] = "1";
 
-  left_output_file = m_out_prefix + "-L.tif";
+  left_output_file  = m_out_prefix + "-L.tif";
   right_output_file = m_out_prefix + "-R.tif";
   vw_out() << "\t--> Writing pre-aligned images.\n";
   block_write_gdal_image( left_output_file, apply_mask(Limg, output_nodata),

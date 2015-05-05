@@ -92,13 +92,14 @@ find_ideal_isis_range(DiskImageView<float> const& image,
     // The new lower bound is the next floating point number > nodata_value.
     will_apply_user_nodata = true;
     isis_lo = boost::math::float_next(nodata_value);
-    if (isis_hi < isis_lo) isis_hi = isis_lo;
+    if (isis_hi < isis_lo) 
+      isis_hi = isis_lo;
   }
 
   ImageViewRef< PixelMask<float> > masked_image = create_mask(image, isis_lo, isis_hi);
 
-  // Calculating statistics. We subsample the images so statistics
-  // only does about a million samples.
+  // TODO: Is this same process a function in DG?
+  // Calculating statistics. We subsample the images so statistics only does about a million samples.
   float isis_mean, isis_std;
   {
     vw_out(InfoMessage) << "\t--> Computing statistics for the "+tag+" image\n";
@@ -107,8 +108,8 @@ find_ideal_isis_range(DiskImageView<float> const& image,
     for_each_pixel(subsample(edge_extend(masked_image, ConstantEdgeExtension()),
                              stat_scale ),
                    accumulator );
-    isis_lo = accumulator.quantile(0);
-    isis_hi = accumulator.quantile(1);
+    isis_lo   = accumulator.quantile(0);
+    isis_hi   = accumulator.quantile(1);
     isis_mean = accumulator.approximate_mean();
     isis_std  = accumulator.approximate_stddev();
 
@@ -265,13 +266,13 @@ asp::StereoSessionIsis::pre_preprocessing_hook(bool adjust_left_image_size,
                                                std::string const& right_input_file,
                                                std::string & left_output_file,
                                                std::string & right_output_file) {
-  left_output_file = m_out_prefix + "-L.tif";
+  left_output_file  = m_out_prefix + "-L.tif";
   right_output_file = m_out_prefix + "-R.tif";
 
   if ( fs::exists(left_output_file) && fs::exists(right_output_file) ) {
     try {
       vw_log().console_log().rule_set().add_rule(-1,"fileio");
-      DiskImageView<PixelGray<float32> > out_left(left_output_file);
+      DiskImageView<PixelGray<float32> > out_left (left_output_file );
       DiskImageView<PixelGray<float32> > out_right(right_output_file);
       vw_out(InfoMessage) << "\t--> Using cached normalized input images.\n";
       vw_settings().reload_config();
@@ -323,8 +324,7 @@ asp::StereoSessionIsis::pre_preprocessing_hook(bool adjust_left_image_size,
     align_right_matrix = math::identity_matrix<3>();
   if ( stereo_settings().alignment_method == "homography" ||
        stereo_settings().alignment_method == "affineepipolar" ) {
-    std::string match_filename
-      = ip::match_filename(m_out_prefix, left_input_file, right_input_file);
+    std::string match_filename = ip::match_filename(m_out_prefix, left_input_file, right_input_file);
 
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
     camera_models(left_cam, right_cam);
@@ -333,28 +333,26 @@ asp::StereoSessionIsis::pre_preprocessing_hook(bool adjust_left_image_size,
                 left_cam.get(),    right_cam.get());
 
     std::vector<ip::InterestPoint> left_ip, right_ip;
-    ip::read_binary_match_file( match_filename, left_ip, right_ip );
+    ip::read_binary_match_file(match_filename, left_ip, right_ip);
 
     if ( stereo_settings().alignment_method == "homography" ) {
-      left_size =
-        homography_rectification(adjust_left_image_size,
-                                 left_size, right_size, left_ip, right_ip,
-                                 align_left_matrix, align_right_matrix );
+      left_size = homography_rectification(adjust_left_image_size,
+                                           left_size, right_size, left_ip, right_ip,
+                                           align_left_matrix, align_right_matrix );
       vw_out() << "\t--> Aligning right image to left using matrices:\n"
-               << "\t      " << align_left_matrix << "\n"
+               << "\t      " << align_left_matrix  << "\n"
                << "\t      " << align_right_matrix << "\n";
     } else {
-      left_size =
-        affine_epipolar_rectification( left_size, right_size,
-                                       left_ip, right_ip,
-                                       align_left_matrix,
-                                       align_right_matrix );
+      left_size = affine_epipolar_rectification(left_size, right_size,
+                                                left_ip,   right_ip,
+                                                align_left_matrix,
+                                                align_right_matrix);
       vw_out() << "\t--> Aligning left and right images using affine matrices:\n"
-               << "\t      " << submatrix(align_left_matrix,0,0,2,3) << "\n"
+               << "\t      " << submatrix(align_left_matrix ,0,0,2,3) << "\n"
                << "\t      " << submatrix(align_right_matrix,0,0,2,3) << "\n";
     }
     write_matrix( m_out_prefix + "-align-L.exr", align_left_matrix );
-    write_matrix( m_out_prefix + "-align-R.exr", align_right_matrix );
+    write_matrix( m_out_prefix + "-align-R.exr", align_right_matrix);
     right_size = left_size; // Because the images are now aligned
                             // .. they are the same size.
   } else if ( stereo_settings().alignment_method == "epipolar" ) {
@@ -400,14 +398,11 @@ inline std::string write_shadow_mask( BaseOptions const& opt,
   // processed have a range somewhere between -32000 and +32000. -ZMM
   DiskImageView<PixelGray<float> > disk_image( input_image );
   DiskImageView<uint8> disk_mask( output_prefix + mask_postfix );
-  ImageViewRef<uint8> mask =
-    apply_mask(intersect_mask(create_mask(disk_mask),
-                              create_mask(threshold(disk_image,-25000,0,1.0))));
-  std::string output_mask =
-    output_prefix+mask_postfix.substr(0,mask_postfix.size()-4)+"Debug.tif";
+  ImageViewRef<uint8> mask = apply_mask(intersect_mask(create_mask(disk_mask),
+                                        create_mask(threshold(disk_image,-25000,0,1.0))));
+  std::string output_mask = output_prefix+mask_postfix.substr(0,mask_postfix.size()-4)+"Debug.tif";
 
-  block_write_gdal_image( output_mask, mask, opt,
-                          TerminalProgressCallback("asp","\t  Shadow:") );
+  block_write_gdal_image(output_mask, mask, opt, TerminalProgressCallback("asp","\t  Shadow:"));
   return output_mask;
 }
 
@@ -417,7 +412,7 @@ inline std::string write_shadow_mask( BaseOptions const& opt,
 // Post file is a disparity map.            ( ImageView<PixelMask<Vector2f> > )
 void
 asp::StereoSessionIsis::pre_filtering_hook(std::string const& input_file,
-                                           std::string & output_file) {
+                                           std::string      & output_file) {
   output_file = input_file;
 
   if (stereo_settings().mask_flatfield) {
@@ -428,31 +423,22 @@ asp::StereoSessionIsis::pre_filtering_hook(std::string const& input_file,
     vw_out() << "\t--> Masking pixels that are less than 0.0.  (NOTE: Use this option with Apollo Metric Camera frames only!)\n";
     output_file = m_out_prefix + "-R-masked.exr";
 
-    std::string shadowLmask_name =
-      write_shadow_mask( m_options, m_out_prefix, m_left_image_file,
-                         "-lMask.tif" );
-    std::string shadowRmask_name =
-      write_shadow_mask( m_options, m_out_prefix, m_right_image_file,
-                         "-rMask.tif" );
+    std::string shadowLmask_name = write_shadow_mask(m_options, m_out_prefix, m_left_image_file,  "-lMask.tif");
+    std::string shadowRmask_name = write_shadow_mask(m_options, m_out_prefix, m_right_image_file, "-rMask.tif");
 
-    DiskImageView<uint8> shadowLmask( shadowLmask_name );
-    DiskImageView<uint8> shadowRmask( shadowRmask_name );
+    DiskImageView<uint8> shadowLmask(shadowLmask_name);
+    DiskImageView<uint8> shadowRmask(shadowRmask_name);
 
     DiskImageView<PixelMask<Vector2f> > disparity_disk_image(input_file);
-    ImageViewRef<PixelMask<Vector2f> > disparity_map =
-      stereo::disparity_mask(disparity_disk_image,
-                             shadowLmask, shadowRmask );
+    ImageViewRef <PixelMask<Vector2f> > disparity_map = stereo::disparity_mask(disparity_disk_image, shadowLmask, shadowRmask);
 
     DiskImageResourceOpenEXR disparity_map_rsrc(output_file, disparity_map.format() );
-    Vector2i block_size(std::min<size_t>(vw_settings().default_tile_size(),
-                                         disparity_map.cols()),
-                        std::min<size_t>(vw_settings().default_tile_size(),
-                                         disparity_map.rows()));
+    Vector2i block_size(std::min<size_t>(vw_settings().default_tile_size(), disparity_map.cols()),
+                        std::min<size_t>(vw_settings().default_tile_size(), disparity_map.rows()));
     disparity_map_rsrc.set_block_write_size(block_size);
-    block_write_image( disparity_map_rsrc, disparity_map,
-                       TerminalProgressCallback( "asp", "\t--> Saving Mask :") );
+    block_write_image(disparity_map_rsrc, disparity_map, TerminalProgressCallback( "asp", "\t--> Saving Mask :"));
   }
-}
+} // End function pre_filtering_hook()
 
 // Reverse any pre-alignment that was done to the disparity.
 ImageViewRef<PixelMask<Vector2f> >
@@ -465,12 +451,11 @@ asp::StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file) {
     // (use at your own risk)
     // ****************************************************
     vw_out() << "\t--> Masking pixels that appear to be dust.  (NOTE: Use this option with Apollo Metric Camera frames only!)\n";
-    photometric_outlier_rejection( m_options, m_out_prefix, input_file,
-                                   dust_result, stereo_settings().corr_kernel[0] );
+    photometric_outlier_rejection(m_options, m_out_prefix, input_file,
+                                  dust_result, stereo_settings().corr_kernel[0]);
   }
-
   return DiskImageView<PixelMask<Vector2f> >(dust_result);
-}
+} // End function pre_pointcloud_hook(
 
 boost::shared_ptr<vw::camera::CameraModel>
 asp::StereoSessionIsis::camera_model(std::string const& image_file,
@@ -479,17 +464,15 @@ asp::StereoSessionIsis::camera_model(std::string const& image_file,
   if (boost::ends_with(boost::to_lower_copy(camera_file), ".isis_adjust")){
     // Creating Equations for the files
     std::ifstream input( camera_file.c_str() );
-    boost::shared_ptr<asp::BaseEquation> posF = read_equation( input );
-    boost::shared_ptr<asp::BaseEquation> poseF = read_equation( input );
+    boost::shared_ptr<asp::BaseEquation> posF  = read_equation(input);
+    boost::shared_ptr<asp::BaseEquation> poseF = read_equation(input);
     input.close();
 
     // Finally creating camera model
-    return boost::shared_ptr<camera::CameraModel>(new IsisAdjustCameraModel( image_file, posF, poseF ));
-
+    return boost::shared_ptr<camera::CameraModel>(new IsisAdjustCameraModel(image_file, posF, poseF));
   } else {
     return boost::shared_ptr<camera::CameraModel>(new IsisCameraModel(image_file));
   }
-
-}
+} // End function camera_model()
 
 #endif  // ASP_HAVE_PKG_ISISIO

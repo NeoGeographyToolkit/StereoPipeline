@@ -253,6 +253,8 @@ asp::StereoSessionPinhole::camera_model(std::string const& /*image_file*/,
   return boost::shared_ptr<vw::camera::CameraModel>(); // Never reached
 }
 
+// TODO: Should these functions be the same as DG and Nadir?
+
 asp::StereoSessionPinhole::tx_type
 asp::StereoSessionPinhole::tx_left() const {
   return tx_type( math::identity_matrix<3>() );
@@ -299,22 +301,20 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
   }
 
   boost::shared_ptr<DiskImageResource>
-    left_rsrc( DiskImageResource::open(m_left_image_file) ),
-    right_rsrc( DiskImageResource::open(m_right_image_file) );
+    left_rsrc (DiskImageResource::open(m_left_image_file )),
+    right_rsrc(DiskImageResource::open(m_right_image_file));
 
   float left_nodata_value, right_nodata_value;
   get_nodata_values(left_rsrc, right_rsrc, left_nodata_value, right_nodata_value);
 
   // Load the unmodified images
-  DiskImageView<float> left_disk_image( left_rsrc ), right_disk_image( right_rsrc );
+  DiskImageView<float> left_disk_image(left_rsrc), right_disk_image(right_rsrc);
 
-  ImageViewRef< PixelMask<float> > left_masked_image
-    = create_mask_less_or_equal(left_disk_image, left_nodata_value);
-  ImageViewRef< PixelMask<float> > right_masked_image
-    = create_mask_less_or_equal(right_disk_image, right_nodata_value);
+  ImageViewRef< PixelMask<float> > left_masked_image  = create_mask_less_or_equal(left_disk_image,  left_nodata_value);
+  ImageViewRef< PixelMask<float> > right_masked_image = create_mask_less_or_equal(right_disk_image, right_nodata_value);
 
-  Vector4f left_stats  = gather_stats( left_masked_image,  "left" );
-  Vector4f right_stats = gather_stats( right_masked_image, "right" );
+  Vector4f left_stats  = gather_stats(left_masked_image,  "left" );
+  Vector4f right_stats = gather_stats(right_masked_image, "right");
 
   ImageViewRef< PixelMask<float> > Limg, Rimg;
   std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
@@ -324,39 +324,36 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
     vw_out() << "\t--> Performing epipolar alignment\n";
 
     // Load the two images and fetch the two camera models
-    boost::shared_ptr<camera::CameraModel> left_camera =
-      this->camera_model(left_input_file, m_left_camera_file);
-    boost::shared_ptr<camera::CameraModel> right_camera =
-      this->camera_model(right_input_file, m_right_camera_file);
-    CAHVModel* left_epipolar_cahv = dynamic_cast<CAHVModel*>(&(*left_camera));
+    boost::shared_ptr<camera::CameraModel> left_camera  = this->camera_model(left_input_file,  m_left_camera_file);
+    boost::shared_ptr<camera::CameraModel> right_camera = this->camera_model(right_input_file, m_right_camera_file);
+    CAHVModel* left_epipolar_cahv  = dynamic_cast<CAHVModel*>(&(*left_camera ));
     CAHVModel* right_epipolar_cahv = dynamic_cast<CAHVModel*>(&(*right_camera));
 
     // Remove lens distortion and create epipolar rectified images.
     if (boost::ends_with(lcase_file, ".cahvore")) {
       CAHVOREModel left_cahvore(m_left_camera_file);
       CAHVOREModel right_cahvore(m_right_camera_file);
-      Limg = transform(left_masked_image, CameraTransform<CAHVOREModel, CAHVModel>(left_cahvore, *left_epipolar_cahv));
-
+      Limg = transform(left_masked_image,  CameraTransform<CAHVOREModel, CAHVModel>(left_cahvore,  *left_epipolar_cahv ));
       Rimg = transform(right_masked_image, CameraTransform<CAHVOREModel, CAHVModel>(right_cahvore, *right_epipolar_cahv));
     } else if (boost::ends_with(lcase_file, ".cahvor") ||
                boost::ends_with(lcase_file, ".cmod") ) {
-      CAHVORModel left_cahvor(m_left_camera_file);
+      CAHVORModel left_cahvor (m_left_camera_file);
       CAHVORModel right_cahvor(m_right_camera_file);
-      Limg = transform(left_masked_image, CameraTransform<CAHVORModel, CAHVModel>(left_cahvor, *left_epipolar_cahv));
+      Limg = transform(left_masked_image,  CameraTransform<CAHVORModel, CAHVModel>(left_cahvor,  *left_epipolar_cahv ));
       Rimg = transform(right_masked_image, CameraTransform<CAHVORModel, CAHVModel>(right_cahvor, *right_epipolar_cahv));
 
     } else if ( boost::ends_with(lcase_file, ".cahv") ||
                 boost::ends_with(lcase_file, ".pin" )) {
-      CAHVModel left_cahv(m_left_camera_file);
+      CAHVModel left_cahv (m_left_camera_file);
       CAHVModel right_cahv(m_right_camera_file);
-      Limg = transform(left_masked_image, CameraTransform<CAHVModel, CAHVModel>(left_cahv, *left_epipolar_cahv));
+      Limg = transform(left_masked_image,  CameraTransform<CAHVModel, CAHVModel>(left_cahv,  *left_epipolar_cahv ));
       Rimg = transform(right_masked_image, CameraTransform<CAHVModel, CAHVModel>(right_cahv, *right_epipolar_cahv));
 
     } else if ( boost::ends_with(lcase_file, ".pinhole") ||
                 boost::ends_with(lcase_file, ".tsai") ) {
-      PinholeModel left_pin(m_left_camera_file);
+      PinholeModel left_pin (m_left_camera_file);
       PinholeModel right_pin(m_right_camera_file);
-      Limg = transform(left_masked_image, CameraTransform<PinholeModel, CAHVModel>(left_pin, *left_epipolar_cahv));
+      Limg = transform(left_masked_image,  CameraTransform<PinholeModel, CAHVModel>(left_pin,  *left_epipolar_cahv ));
       Rimg = transform(right_masked_image, CameraTransform<PinholeModel, CAHVModel>(right_pin, *right_epipolar_cahv));
 
     } else {
@@ -365,10 +362,9 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
 
   } else if ( stereo_settings().alignment_method == "homography" ) {
 
-    Matrix<double> align_matrix =
-      determine_image_align( m_out_prefix,
-                             left_input_file, right_input_file,
-                             left_nodata_value, right_nodata_value);
+    Matrix<double> align_matrix = determine_image_align(m_out_prefix,
+                                                        left_input_file,   right_input_file,
+                                                        left_nodata_value, right_nodata_value);
     write_matrix( m_out_prefix + "-align-R.exr", align_matrix );
 
     // Applying alignment transform
@@ -395,6 +391,11 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
   asp::BaseOptions options = m_options;
   options.gdal_options["PREDICTOR"] = "1";
 
+<<<<<<< HEAD
+=======
+  left_output_file  = m_out_prefix + "-L.tif";
+  right_output_file = m_out_prefix + "-R.tif";
+>>>>>>> More StereoSession cleanup
   vw_out() << "\t--> Writing pre-aligned images.\n";
   block_write_gdal_image( left_output_file, apply_mask(Limg, output_nodata),
                           output_nodata, options,

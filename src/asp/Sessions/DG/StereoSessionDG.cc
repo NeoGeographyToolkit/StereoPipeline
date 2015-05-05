@@ -204,8 +204,8 @@ namespace asp {
     return inlier;
   } // End function ip_matching()
 
+
   // TODO: Should these be the default TX implementations?
-  
   StereoSessionDG::tx_type
   StereoSessionDG::tx_left() const {
     Matrix<double> tx = math::identity_matrix<3>();
@@ -268,15 +268,13 @@ namespace asp {
     }
 
     // Set up image masks
-    ImageViewRef< PixelMask<float> > left_masked_image
-      = create_mask_less_or_equal(left_disk_image, left_nodata_value);
-    ImageViewRef< PixelMask<float> > right_masked_image
-      = create_mask_less_or_equal(right_disk_image, right_nodata_value);
+    ImageViewRef< PixelMask<float> > left_masked_image  = create_mask_less_or_equal(left_disk_image,  left_nodata_value);
+    ImageViewRef< PixelMask<float> > right_masked_image = create_mask_less_or_equal(right_disk_image, right_nodata_value);
 
     // TODO: Shift this down to where we use the statistics
     // Compute input image statistics
-    Vector4f left_stats  = gather_stats( left_masked_image,  "left" );
-    Vector4f right_stats = gather_stats( right_masked_image, "right");
+    Vector4f left_stats  = gather_stats(left_masked_image,  "left" );
+    Vector4f right_stats = gather_stats(right_masked_image, "right");
 
     ImageViewRef< PixelMask<float> > Limg, Rimg;
     std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
@@ -289,11 +287,11 @@ namespace asp {
       // Detect matching interest points between the left and right input images.
       // - The output is written directly to file!
       boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
-      camera_models( left_cam, right_cam ); // Fetch the camera models.
+      camera_models(left_cam, right_cam); // Fetch the camera models.
       ip_matching(left_input_file,   right_input_file,
                   left_nodata_value, right_nodata_value, match_filename,
                   left_cam.get(),    right_cam.get()
-                  );
+                 );
 
       // Load the interest points results from the file we just wrote.
       std::vector<ip::InterestPoint> left_ip, right_ip;

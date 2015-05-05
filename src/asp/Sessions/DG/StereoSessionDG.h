@@ -50,7 +50,8 @@ namespace asp {
                              vw::camera::CameraModel* cam1,
                              vw::camera::CameraModel* cam2);
 
-    /// For reversing our arithmetic applied in preprocessing.
+    /// Transforms from pixel coordinates on disk to original unwarped image coordinates.
+    /// - For reversing our arithmetic applied in preprocessing.
     typedef vw::HomographyTransform tx_type;
     typedef vw::stereo::StereoModel stereo_model_type;
     tx_type tx_left () const;
