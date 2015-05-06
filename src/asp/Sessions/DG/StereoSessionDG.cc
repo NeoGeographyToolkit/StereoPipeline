@@ -232,16 +232,6 @@ namespace asp {
                                                std::string &left_output_file,
                                                std::string &right_output_file) {
 
-    boost::shared_ptr<DiskImageResource>
-      left_rsrc( DiskImageResource::open(m_left_image_file) ),
-      right_rsrc( DiskImageResource::open(m_right_image_file) );
-
-    float left_nodata_value, right_nodata_value;
-    get_nodata_values(left_rsrc, right_rsrc, left_nodata_value, right_nodata_value);
-
-    // Load the unmodified images
-    DiskImageView<float> left_disk_image( left_rsrc ), right_disk_image( right_rsrc );
-
     // Filenames of normalized images
     left_output_file = m_out_prefix + "-L.tif";
     right_output_file = m_out_prefix + "-R.tif";
@@ -266,6 +256,16 @@ namespace asp {
       vw_out() << "\t--> Using cached L and R files.\n";
       return;
     }
+
+    boost::shared_ptr<DiskImageResource>
+      left_rsrc( DiskImageResource::open(m_left_image_file) ),
+      right_rsrc( DiskImageResource::open(m_right_image_file) );
+
+    float left_nodata_value, right_nodata_value;
+    get_nodata_values(left_rsrc, right_rsrc, left_nodata_value, right_nodata_value);
+
+    // Load the unmodified images
+    DiskImageView<float> left_disk_image( left_rsrc ), right_disk_image( right_rsrc );
 
     ImageViewRef< PixelMask<float> > left_masked_image
       = create_mask_less_or_equal(left_disk_image, left_nodata_value);

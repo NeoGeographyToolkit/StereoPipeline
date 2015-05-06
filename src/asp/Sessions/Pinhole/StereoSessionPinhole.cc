@@ -51,7 +51,7 @@ bool asp::StereoSessionPinhole::ip_matching(std::string const& input_file1,
                                             std::string const& match_filename,
                                             vw::camera::CameraModel* cam1,
                                             vw::camera::CameraModel* cam2){
-  
+
   if ( fs::exists( match_filename ) ) {
     vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
     return true;
@@ -65,20 +65,20 @@ bool asp::StereoSessionPinhole::ip_matching(std::string const& input_file1,
   ip::InterestPointList ip1, ip2;
   asp::detect_ip( ip1, ip2, image1, image2,
                   nodata1, nodata2 );
-  
+
   if ( ip1.size() > 10000 ) {
     ip1.sort(); ip1.resize(10000);
   }
   if ( ip2.size() > 10000 ) {
     ip2.sort(); ip2.resize(10000);
   }
-  
+
   std::vector<ip::InterestPoint> ip1_copy, ip2_copy;
   for (InterestPointList::iterator iter = ip1.begin(); iter != ip1.end(); ++iter)
     ip1_copy.push_back(*iter);
   for (InterestPointList::iterator iter = ip2.begin(); iter != ip2.end(); ++iter)
     ip2_copy.push_back(*iter);
-  
+
   vw_out() << "\t--> Matching interest points\n";
   ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(0.5);
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
@@ -141,21 +141,21 @@ asp::StereoSessionPinhole::determine_image_align( std::string const& out_prefix,
 
   std::string match_filename
     = ip::match_filename(out_prefix, input_file1, input_file2);
-  ip_matching(input_file1, input_file2,  
-              nodata1, nodata2,  
-              match_filename,  
+  ip_matching(input_file1, input_file2,
+              nodata1, nodata2,
+              match_filename,
               NULL, NULL);
-  
+
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
   read_binary_match_file( match_filename,
                           matched_ip1, matched_ip2 );
-  
+
   // Get the matrix using RANSAC
   std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1);
   std::vector<Vector3> ransac_ip2 = iplist_to_vectorlist(matched_ip2);
   Matrix<double> T;
   try {
-    
+
     vw::math::RandomSampleConsensus<vw::math::HomographyFittingFunctor, vw::math::InterestPointErrorMetric> ransac( vw::math::HomographyFittingFunctor(), vw::math::InterestPointErrorMetric(), 100, 10, ransac_ip1.size()/2, true);
     T = ransac( ransac_ip2, ransac_ip1 );
     std::vector<size_t> indices = ransac.inlier_indices(T, ransac_ip2, ransac_ip1 );
@@ -165,7 +165,7 @@ asp::StereoSessionPinhole::determine_image_align( std::string const& out_prefix,
     vw_out(WarningMessage,"console") << "Automatic Alignment Failed! Proceed with caution...\n";
     T = vw::math::identity_matrix<3>();
   }
-  
+
   return T;
 }
 
@@ -274,6 +274,29 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
                                                        std::string &left_output_file,
                                                        std::string &right_output_file) {
 
+  left_output_file = m_out_prefix + "-L.tif";
+  right_output_file = m_out_prefix + "-R.tif";
+
+  // If these files already exist, don't bother writting them again.
+  bool rebuild = false;
+  try {
+    vw_log().console_log().rule_set().add_rule(-1,"fileio");
+    DiskImageView<float> test_left(left_output_file);
+    DiskImageView<float> test_right(right_output_file);
+    vw_settings().reload_config();
+  } catch (vw::IOErr const& e) {
+    vw_settings().reload_config();
+    rebuild = true;
+  } catch (vw::ArgumentErr const& e ) {
+    // Throws on a corrupted file.
+    vw_settings().reload_config();
+    rebuild = true;
+  }
+
+  if (!rebuild) {
+    vw_out() << "\t--> Using cached L and R files.\n";
+    return;
+  }
 
   boost::shared_ptr<DiskImageResource>
     left_rsrc( DiskImageResource::open(m_left_image_file) ),
@@ -372,8 +395,6 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
   asp::BaseOptions options = m_options;
   options.gdal_options["PREDICTOR"] = "1";
 
-  left_output_file = m_out_prefix + "-L.tif";
-  right_output_file = m_out_prefix + "-R.tif";
   vw_out() << "\t--> Writing pre-aligned images.\n";
   block_write_gdal_image( left_output_file, apply_mask(Limg, output_nodata),
                           output_nodata, options,
