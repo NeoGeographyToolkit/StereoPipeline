@@ -41,6 +41,31 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
                                                             std::string const& right_input_file,
                                                             std::string      & left_output_file,
                                                             std::string      & right_output_file) {
+
+  left_output_file  = m_out_prefix + "-L.tif";
+  right_output_file = m_out_prefix + "-R.tif";
+
+  // If these files already exist, don't bother writting them again.
+  bool rebuild = false;
+  try {
+    vw_log().console_log().rule_set().add_rule(-1,"fileio");
+    DiskImageView<float> test_left(left_output_file);
+    DiskImageView<float> test_right(right_output_file);
+    vw_settings().reload_config();
+  } catch (vw::IOErr const& e) {
+    vw_settings().reload_config();
+    rebuild = true;
+  } catch (vw::ArgumentErr const& e ) {
+    // Throws on a corrupted file.
+    vw_settings().reload_config();
+    rebuild = true;
+  }
+
+  if (!rebuild) {
+    vw_out() << "\t--> Using cached L and R files.\n";
+    return;
+  }
+
   boost::shared_ptr<DiskImageResource>
     left_rsrc (DiskImageResource::open(m_left_image_file )),
     right_rsrc(DiskImageResource::open(m_right_image_file));
@@ -116,12 +141,13 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
                 left_nodata_value, right_nodata_value, match_filename,
                 left_cam.get(), right_cam.get()
                 );
-    
+
     std::vector<ip::InterestPoint> left_ip, right_ip;
     ip::read_binary_match_file( match_filename, left_ip, right_ip  );
     
     Matrix<double> align_left_matrix  = math::identity_matrix<3>(),
                    align_right_matrix = math::identity_matrix<3>();
+    
     if ( stereo_settings().alignment_method == "homography" ) {
       left_size = homography_rectification(adjust_left_image_size,
                                            left_size, right_size, left_ip, right_ip,
@@ -169,8 +195,6 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
   asp::BaseOptions options = m_options;
   options.gdal_options["PREDICTOR"] = "1";
 
-  left_output_file  = m_out_prefix + "-L.tif";
-  right_output_file = m_out_prefix + "-R.tif";
   vw_out() << "\t--> Writing pre-aligned images.\n";
   block_write_gdal_image( left_output_file, apply_mask(Limg, output_nodata),
                           output_nodata, options,
