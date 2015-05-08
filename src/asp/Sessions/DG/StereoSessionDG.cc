@@ -97,112 +97,8 @@ namespace asp {
   boost::shared_ptr<camera::CameraModel>
   StereoSessionDG::camera_model( std::string const& /*image_file*/,
                                  std::string const& camera_file ) {
-
-    // Parse the Digital Globe XML file
-    GeometricXML geo;
-    AttitudeXML  att;
-    EphemerisXML eph;
-    ImageXML     img;
-    RPCXML       rpc;
-    read_xml( camera_file, geo, att, eph, img, rpc );
-
-    // Convert measurements in millimeters to pixels.
-    geo.principal_distance /= geo.detector_pixel_pitch;
-    geo.detector_origin    /= geo.detector_pixel_pitch;
-
-    bool correct_velocity_aberration = !stereo_settings().disable_correct_velocity_aberration;
-
-    // Convert all time measurements to something that boost::date_time can read.
-    boost::replace_all( eph.start_time,            "T", " " );
-    boost::replace_all( img.tlc_start_time,        "T", " " );
-    boost::replace_all( img.first_line_start_time, "T", " " );
-    boost::replace_all( att.start_time,            "T", " " );
-
-    // Convert UTC time measurements to line measurements. Ephemeris
-    // start time will be our reference frame to calculate seconds against.
-    SecondsFrom convert( parse_time( eph.start_time ) );
-
-    // I'm going make the assumption that EPH and ATT are sampled at the same rate and time.
-    VW_ASSERT( eph.position_vec.size() == att.quat_vec.size(),
-               MathErr() << "Ephemeris and Attitude don't have the same number of samples." );
-    VW_ASSERT( eph.start_time == att.start_time && eph.time_interval == att.time_interval,
-               MathErr() << "Ephemeris and Attitude don't seem to sample with the same t0 or dt." );
-
-    // Convert ephemeris to be position of camera. Change attitude to
-    // be the rotation from camera frame to world frame. We also add an
-    // additional rotation to the camera frame so X is the horizontal
-    // direction to the picture and +Y points down the image (in the direction of flight).
-    Quat sensor_coordinate = math::euler_xyz_to_quaternion(Vector3(0,0,geo.detector_rotation /* *M_PI/180.0 */ - M_PI/2));
-    for ( size_t i = 0; i < eph.position_vec.size(); i++ ) {
-      eph.position_vec[i] += att.quat_vec[i].rotate( geo.perspective_center );
-      att.quat_vec[i] = att.quat_vec[i] * geo.camera_attitude * sensor_coordinate;
-    }
-
-    // Load up the time interpolation class. If the TLCList only has
-    // one entry ... then we have to manually drop in the slope and offset.
-    if ( img.tlc_vec.size() == 1 ) {
-      double direction = 1;
-      if ( boost::to_lower_copy( img.scan_direction ) !=
-           "forward" ) {
-        direction = -1;
-      }
-      img.tlc_vec.push_back( std::make_pair(img.tlc_vec.front().first +
-                                            img.avg_line_rate, direction) );
-    }
-
-    // Build the TLCTimeInterpolation object and do a quick sanity check.
-    camera::TLCTimeInterpolation tlc_time_interpolation( img.tlc_vec,
-                                                         convert( parse_time( img.tlc_start_time ) ) );
-    VW_ASSERT( fabs( convert( parse_time( img.first_line_start_time ) ) -
-                     tlc_time_interpolation( 0 ) ) < fabs( 1.0 / (10.0 * img.avg_line_rate ) ),
-               MathErr() << "First Line Time and output from TLC lookup table do not agree of the ephemeris time for the first line of the image." );
-
-    typedef LinescanDGModel<camera::PiecewiseAPositionInterpolation, camera::LinearPiecewisePositionInterpolation, camera::SLERPPoseInterpolation, camera::TLCTimeInterpolation> camera_type;
-    typedef boost::shared_ptr<camera::CameraModel> result_type;
-    double et0 = convert( parse_time( eph.start_time ) );
-    double at0 = convert( parse_time( att.start_time ) );
-    double edt = eph.time_interval;
-    double adt = att.time_interval;
-    return result_type(new camera_type(camera::PiecewiseAPositionInterpolation(eph.position_vec, eph.velocity_vec, et0, edt ),
-                                       camera::LinearPiecewisePositionInterpolation(eph.velocity_vec, et0, edt),
-                                       camera::SLERPPoseInterpolation(att.quat_vec, at0, adt),
-                                       tlc_time_interpolation, img.image_size,
-                                       subvector(inverse(sensor_coordinate).rotate(Vector3(geo.detector_origin[0],
-                                                                                           geo.detector_origin[1], 
-                                                                                           0)
-                                                                                  ), 
-                                                 0, 2),
-                                       geo.principal_distance, correct_velocity_aberration)
-                      );
+    return load_dg_camera_model(camera_file); // Call the standalone function
   } // End function camera_model()
-
-  // TODO: Should this be the default implementation?
-  bool StereoSessionDG::ip_matching(std::string const& input_file1,
-                                    std::string const& input_file2,
-                                    float nodata1, float nodata2,
-                                    std::string const& match_filename,
-                                    vw::camera::CameraModel* cam1,
-                                    vw::camera::CameraModel* cam2){
-
-    if (fs::exists(match_filename)) {
-      vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
-      return true;
-    }
-
-    DiskImageView<float> image1(input_file1), image2(input_file2);
-    bool single_threaded_camera = false;
-    bool inlier = ip_matching_w_alignment(single_threaded_camera, cam1, cam2,
-                                          image1, image2,
-                                          cartography::Datum("WGS84"), match_filename,
-                                          nodata1, nodata2);
-
-    if (!inlier) {
-      fs::remove( match_filename );
-      vw_throw( IOErr() << "Unable to match left and right images." );
-    }
-
-    return inlier;
-  } // End function ip_matching()
 
 
   // TODO: Should these be the default TX implementations?
@@ -367,5 +263,91 @@ namespace asp {
                               output_nodata, options,
                               TerminalProgressCallback("asp","\t  R:  ") );
   } // End function pre_preprocessing_hook
+
+//-------------------------------------------------------------------------------------
+
+boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model(std::string const& camera_file)
+{
+
+    // Parse the Digital Globe XML file
+    GeometricXML geo;
+    AttitudeXML  att;
+    EphemerisXML eph;
+    ImageXML     img;
+    RPCXML       rpc;
+    read_xml( camera_file, geo, att, eph, img, rpc );
+
+    // Convert measurements in millimeters to pixels.
+    geo.principal_distance /= geo.detector_pixel_pitch;
+    geo.detector_origin    /= geo.detector_pixel_pitch;
+
+    bool correct_velocity_aberration = !stereo_settings().disable_correct_velocity_aberration;
+
+    // Convert all time measurements to something that boost::date_time can read.
+    boost::replace_all( eph.start_time,            "T", " " );
+    boost::replace_all( img.tlc_start_time,        "T", " " );
+    boost::replace_all( img.first_line_start_time, "T", " " );
+    boost::replace_all( att.start_time,            "T", " " );
+
+    // Convert UTC time measurements to line measurements. Ephemeris
+    // start time will be our reference frame to calculate seconds against.
+    SecondsFrom convert( parse_time( eph.start_time ) );
+
+    // I'm going make the assumption that EPH and ATT are sampled at the same rate and time.
+    VW_ASSERT( eph.position_vec.size() == att.quat_vec.size(),
+               MathErr() << "Ephemeris and Attitude don't have the same number of samples." );
+    VW_ASSERT( eph.start_time == att.start_time && eph.time_interval == att.time_interval,
+               MathErr() << "Ephemeris and Attitude don't seem to sample with the same t0 or dt." );
+
+    // Convert ephemeris to be position of camera. Change attitude to
+    // be the rotation from camera frame to world frame. We also add an
+    // additional rotation to the camera frame so X is the horizontal
+    // direction to the picture and +Y points down the image (in the direction of flight).
+    Quat sensor_coordinate = math::euler_xyz_to_quaternion(Vector3(0,0,geo.detector_rotation /* *M_PI/180.0 */ - M_PI/2));
+    for ( size_t i = 0; i < eph.position_vec.size(); i++ ) {
+      eph.position_vec[i] += att.quat_vec[i].rotate( geo.perspective_center );
+      att.quat_vec[i] = att.quat_vec[i] * geo.camera_attitude * sensor_coordinate;
+    }
+
+    // Load up the time interpolation class. If the TLCList only has
+    // one entry ... then we have to manually drop in the slope and offset.
+    if ( img.tlc_vec.size() == 1 ) {
+      double direction = 1;
+      if ( boost::to_lower_copy( img.scan_direction ) !=
+           "forward" ) {
+        direction = -1;
+      }
+      img.tlc_vec.push_back( std::make_pair(img.tlc_vec.front().first +
+                                            img.avg_line_rate, direction) );
+    }
+
+    // Build the TLCTimeInterpolation object and do a quick sanity check.
+    camera::TLCTimeInterpolation tlc_time_interpolation( img.tlc_vec,
+                                                         convert( parse_time( img.tlc_start_time ) ) );
+    VW_ASSERT( fabs( convert( parse_time( img.first_line_start_time ) ) -
+                     tlc_time_interpolation( 0 ) ) < fabs( 1.0 / (10.0 * img.avg_line_rate ) ),
+               MathErr() << "First Line Time and output from TLC lookup table do not agree of the ephemeris time for the first line of the image." );
+
+    typedef LinescanDGModel<camera::PiecewiseAPositionInterpolation, camera::LinearPiecewisePositionInterpolation, camera::SLERPPoseInterpolation, camera::TLCTimeInterpolation> camera_type;
+    typedef boost::shared_ptr<camera::CameraModel> result_type;
+    double et0 = convert( parse_time( eph.start_time ) );
+    double at0 = convert( parse_time( att.start_time ) );
+    double edt = eph.time_interval;
+    double adt = att.time_interval;
+    return result_type(new camera_type(camera::PiecewiseAPositionInterpolation(eph.position_vec, eph.velocity_vec, et0, edt ),
+                                       camera::LinearPiecewisePositionInterpolation(eph.velocity_vec, et0, edt),
+                                       camera::SLERPPoseInterpolation(att.quat_vec, at0, adt),
+                                       tlc_time_interpolation, img.image_size,
+                                       subvector(inverse(sensor_coordinate).rotate(Vector3(geo.detector_origin[0],
+                                                                                           geo.detector_origin[1], 
+                                                                                           0)
+                                                                                  ), 
+                                                 0, 2),
+                                       geo.principal_distance, correct_velocity_aberration)
+                      );
+}
+
+
+
 
 } // End namespace asp

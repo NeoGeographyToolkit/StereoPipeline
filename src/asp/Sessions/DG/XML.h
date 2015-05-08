@@ -38,13 +38,13 @@ namespace asp {
   // Forward declare so that we can cut down on the headers.
   class RPCModel;
 
-  // Objects that represent read data from XML. These also provide a
-  // storage structure for modification later on.
+  /// Objects that represent read data from XML. These also provide a
+  /// storage structure for modification later on.
   class ImageXML : public XMLBase {
 
-    void parse_meta( xercesc::DOMElement* node );
-    void parse_band_p( xercesc::DOMElement* node );
-    void parse_tlc_list( xercesc::DOMElement* node );
+    void parse_meta      ( xercesc::DOMElement* node );
+    void parse_band_p    ( xercesc::DOMElement* node );
+    void parse_tlc_list  ( xercesc::DOMElement* node );
     void parse_image_size( xercesc::DOMElement* node );
 
   public:
@@ -67,27 +67,27 @@ namespace asp {
     void parse_principal_distance( xercesc::DOMElement* node );
     void parse_optical_distortion( xercesc::DOMElement* node );
     void parse_perspective_center( xercesc::DOMElement* node );
-    void parse_camera_attitude( xercesc::DOMElement* node );
-    void parse_detector_mounting( xercesc::DOMElement* node );
+    void parse_camera_attitude   ( xercesc::DOMElement* node );
+    void parse_detector_mounting ( xercesc::DOMElement* node );
 
   public:
     GeometricXML();
 
     void parse( xercesc::DOMElement* node );
 
-    double principal_distance;   // mm
-    vw::int32 optical_polyorder;
+    double      principal_distance;   // mm
+    vw::int32   optical_polyorder;
     vw::Vector<double> optical_a, optical_b; // Don't currently support these
     vw::Vector3 perspective_center;  // meters in spacecraft frame
-    vw::Quat camera_attitude;
+    vw::Quat    camera_attitude;
     vw::Vector2 detector_origin;     // mm
-    double detector_rotation;    // degrees about Z+ in camera frame
-    double detector_pixel_pitch; // mm
+    double      detector_rotation;    // degrees about Z+ in camera frame
+    double      detector_pixel_pitch; // mm
   };
 
   class EphemerisXML : public XMLBase {
 
-    void parse_meta( xercesc::DOMElement* node );
+    void parse_meta    ( xercesc::DOMElement* node );
     void parse_eph_list( xercesc::DOMElement* node );
 
   public:
@@ -117,14 +117,14 @@ namespace asp {
     std::vector<vw::Vector<double,10> > covariance_vec;
   };
 
-  // Reads from Digital Globe XML format
+  /// Reads from Digital Globe XML format
   class RPCXML : public XMLBase {
     boost::scoped_ptr<RPCModel> m_rpc;
     void parse_vector( xercesc::DOMElement* node,
                        vw::Vector<double,20> & vec );
 
-    void parse_rpb( xercesc::DOMElement* node ); // Digital Globe XML
-    void parse_rational_function_model( xercesc::DOMElement* node ); // Pleiades / Astrium
+    void parse_rpb( xercesc::DOMElement* node ); /// Digital Globe XML
+    void parse_rational_function_model( xercesc::DOMElement* node ); /// Pleiades / Astrium
 
   public:
     RPCXML();
@@ -136,14 +136,13 @@ namespace asp {
   };
 
   // Helper functions to allow us to fill the objects. This doesn't
-  // really help with code reuse but I think it makes it easer to
-  // read.
+  // really help with code reuse but I think it makes it easer to read.
   void read_xml( std::string const& filename,
                  GeometricXML& geo,
-                 AttitudeXML& att,
+                 AttitudeXML & att,
                  EphemerisXML& eph,
-                 ImageXML& img,
-                 RPCXML& rpc );
+                 ImageXML    & img,
+                 RPCXML      & rpc );
   vw::Vector2i xml_image_size( std::string const& filename );
 
 } //end namespace asp

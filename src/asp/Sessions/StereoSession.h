@@ -128,7 +128,7 @@ namespace asp {
         - Choose None, Homog, Affine, or Map
         - For map, also choose sensor model type.  Currently only RPC is supported.
       - IP matching 
-        - Virtual, bost classes can use the same default.
+        - Virtual, but classes can use the same default.
         - Need a get_datum() virtual function for it though.
       - Camera model loading
         - Choose DG, RPC, Pinhole, or ISIS.
@@ -193,7 +193,6 @@ namespace asp {
     ///   and run when the first StereoSession is created.
     static void register_session_type( std::string const& id, construct_func func);
 
-    // Now that we handle multiple input cameras, is this function even still valid?
     /// Helper function that retrieves both cameras.
     virtual void camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
                                boost::shared_ptr<vw::camera::CameraModel> &cam2);
@@ -212,7 +211,10 @@ namespace asp {
                              float nodata1, float nodata2,
                              std::string const& match_filename,
                              vw::camera::CameraModel* cam1,
-                             vw::camera::CameraModel* cam2) = 0;
+                             vw::camera::CameraModel* cam2);
+
+    /// Returns the target datum to use for a given camera model
+    virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam) const { return vw::cartography::Datum("WGS84"); }
 
     // All Stereo Session children must define the following which are not defined in the the parent:
     //   typedef VWStereoModel stereo_model_type;
@@ -272,6 +274,7 @@ namespace asp {
                            float & left_nodata_value,
                            float & right_nodata_value);
   };
+
 
 } // end namespace asp
 

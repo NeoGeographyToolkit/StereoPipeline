@@ -42,14 +42,6 @@ namespace asp {
 
     virtual std::string name() const { return "dg"; }
 
-    /// Specialization for how interest points are found
-    virtual bool ip_matching(std::string const& input_file1,
-                             std::string const& input_file2,
-                             float nodata1, float nodata2,
-                             std::string const& match_filename,
-                             vw::camera::CameraModel* cam1,
-                             vw::camera::CameraModel* cam2);
-
     /// Transforms from pixel coordinates on disk to original unwarped image coordinates.
     /// - For reversing our arithmetic applied in preprocessing.
     typedef vw::HomographyTransform tx_type;
@@ -73,6 +65,11 @@ namespace asp {
     static StereoSession* construct() { return new StereoSessionDG; }
   };
 
-}
+  /// Load a Digital Globe camera model from an XML file
+  /// - Probably need to call XMLPlatformUtils::Initialize() before using this function.
+  boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model(std::string const& camera_file);
+
+
+} // End namespace asp
 
 #endif//__STEREO_SESSION_DG_H__

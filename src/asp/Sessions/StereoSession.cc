@@ -196,9 +196,37 @@ namespace asp {
 
 
 
+  // A default IP matching implementation that derived classes can uses
+  bool StereoSession::ip_matching(std::string const& input_file1,
+                                  std::string const& input_file2,
+                                  float nodata1, float nodata2,
+                                  std::string const& match_filename,
+                                  vw::camera::CameraModel* cam1,
+                                  vw::camera::CameraModel* cam2){
 
-  // TODO: Should we even bother with all this empty default code??
-  
+    if (boost::filesystem::exists(match_filename)) {
+      vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
+      return true;
+    }
+    
+    DiskImageView<float> image1(input_file1), image2(input_file2);
+    cartography::Datum datum = this->get_datum(cam1);
+
+    bool single_threaded_camera = true;
+    bool inlier = ip_matching_w_alignment(single_threaded_camera, cam1, cam2,
+                                          image1, image2, 
+                                          datum, match_filename,
+                                          nodata1, nodata2);
+    if (!inlier) {
+      boost::filesystem::remove(match_filename);
+      vw_throw(IOErr() << "Unable to match left and right images.");
+    }
+    return inlier;
+  }
+
+
+
+
 
   // Default implementation of this function.  Derived classes will probably override this.
   void StereoSession::camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
@@ -285,5 +313,6 @@ namespace asp {
 
     return;
   }
+  
+} // End namespace asp
 
-}

@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 
-// This is header shouldn't be included by any other headers since it
+// This header shouldn't be included by any other headers since it
 // brings in a bunch of Xerces Headers. This way I can limit the
 // spread of those headers and objects.
 
@@ -37,18 +37,18 @@
 
 namespace asp {
 
-  // XML parsing base that provides tools for verifying that we read
-  // everything we were expecting.
+  /// XML parsing base that provides tools for verifying that we read
+  /// everything we were expecting.
   class XMLBase {
     vw::uint8 m_num_arguments;
     vw::int32 m_checksum;
     vw::int32 m_good;
 
   protected:
-    // Used to check off that one of the arguments has been read.
+    /// Used to check off that one of the arguments has been read.
     void check_argument( vw::uint8 arg );
 
-    // Helper function to convert XML text to binary value we want.
+    /// Helper function to convert XML text to binary value we want.
     template <class T>
     void cast_xmlch( const XMLCh* ch, T& dst) {
       char* text = xercesc::XMLString::transcode(ch);
@@ -61,8 +61,7 @@ namespace asp {
       xercesc::XMLString::release( &text );
     }
 
-    // Helper function to retreive a node via string and verify that
-    // only one exists.
+    /// Helper function to retreive a node via string and verify that only one exists.
     template <class T>
     T* get_node( xercesc::DOMElement* element, std::string const& tag ) {
       XMLCh* tag_c =

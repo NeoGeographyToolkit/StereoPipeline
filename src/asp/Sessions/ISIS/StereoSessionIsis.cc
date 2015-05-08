@@ -224,38 +224,13 @@ StereoSessionIsis::tx_right() const {
   return tx_type( tx );
 }
 
-bool asp::StereoSessionIsis::ip_matching(std::string const& input_file1,
-                                         std::string const& input_file2,
-                                         float nodata1, float nodata2,
-                                         std::string const& match_filename,
-                                         vw::camera::CameraModel* cam1,
-                                         vw::camera::CameraModel* cam2){
-
-  if (fs::exists(match_filename)) {
-    vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
-    return true;
-  }
-  
-  DiskImageView<float> image1( input_file1 ), image2( input_file2 );
-
-  // ??? --> Constructing this datum is the only difference with the DG version!
-  IsisCameraModel * isis_cam = dynamic_cast<IsisCameraModel*>(cam1);
+vw::cartography::Datum asp::StereoSessionIsis::get_datum(const vw::camera::CameraModel* cam) const
+{
+  const IsisCameraModel * isis_cam = dynamic_cast<const IsisCameraModel*>(cam);
   VW_ASSERT(isis_cam != NULL, ArgumentErr() << "StereoSessionISIS: Invalid left camera.\n");
   Vector3 radii = isis_cam->target_radii();
   cartography::Datum datum("","","", (radii[0] + radii[1]) / 2, radii[2], 0);
-
-  bool single_threaded_camera = true;
-  bool inlier = ip_matching_w_alignment(single_threaded_camera, cam1, cam2,
-                                        image1, image2, 
-                                        datum, match_filename,
-                                        nodata1, nodata2);
-  
-  if ( !inlier ) {
-    fs::remove( match_filename );
-    vw_throw( IOErr() << "Unable to match left and right images." );
-  }
-
-  return inlier;
+  return datum;
 }
 
 // TODO: Can we share more code with the DG implementation?
@@ -458,9 +433,12 @@ asp::StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file) {
   return DiskImageView<PixelMask<Vector2f> >(dust_result);
 } // End function pre_pointcloud_hook(
 
+
+
+// General function for loading an ISIS camera model
 boost::shared_ptr<vw::camera::CameraModel>
-asp::StereoSessionIsis::camera_model(std::string const& image_file,
-                                     std::string const& camera_file) {
+load_isis_camera_model(std::string const& image_file,
+                       std::string const& camera_file) {
 
   if (boost::ends_with(boost::to_lower_copy(camera_file), ".isis_adjust")){
     // Creating Equations for the files
@@ -474,6 +452,21 @@ asp::StereoSessionIsis::camera_model(std::string const& image_file,
   } else {
     return boost::shared_ptr<camera::CameraModel>(new IsisCameraModel(image_file));
   }
+} // End function load_isis_camera_model()
+
+
+boost::shared_ptr<vw::camera::CameraModel>
+asp::StereoSessionIsis::camera_model(std::string const& image_file,
+                                     std::string const& camera_file) {
+  return load_isis_camera_model(image_file, camera_file); // Just call the standalone function
 } // End function camera_model()
+
+
+
+
+
+
+
+
 
 #endif  // ASP_HAVE_PKG_ISISIO

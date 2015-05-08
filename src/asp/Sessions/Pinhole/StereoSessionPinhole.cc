@@ -174,11 +174,11 @@ asp::StereoSessionPinhole::camera_model(std::string const& /*image_file*/,
                                         std::string const& camera_file) {
   if ( stereo_settings().alignment_method == "epipolar" ) {
     // Load the image
-    DiskImageView<float> left_image(m_left_image_file);
+    DiskImageView<float> left_image (m_left_image_file );
     DiskImageView<float> right_image(m_right_image_file);
 
-    Vector2i left_image_size( left_image.cols(), left_image.rows() ),
-      right_image_size( right_image.cols(), right_image.rows() );
+    Vector2i left_image_size (left_image.cols(),  left_image.rows() ),
+             right_image_size(right_image.cols(), right_image.rows());
 
     bool is_left_camera = true;
     if (camera_file == m_left_camera_file)
@@ -192,37 +192,33 @@ asp::StereoSessionPinhole::camera_model(std::string const& /*image_file*/,
     std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
     CAHVModel left_cahv, right_cahv;
     if (boost::ends_with(lcase_file, ".cahvore") ) {
-      CAHVOREModel left_cahvore(m_left_camera_file);
+      CAHVOREModel left_cahvore (m_left_camera_file );
       CAHVOREModel right_cahvore(m_right_camera_file);
-      left_cahv =
-        linearize_camera(left_cahvore, left_image_size, left_image_size);
-      right_cahv =
-        linearize_camera(right_cahvore, right_image_size, right_image_size);
+      left_cahv  = linearize_camera(left_cahvore,  left_image_size,  left_image_size);
+      right_cahv = linearize_camera(right_cahvore, right_image_size, right_image_size);
     } else if (boost::ends_with(lcase_file, ".cahvor")  ||
-               boost::ends_with(lcase_file, ".cmod") ) {
-      CAHVORModel left_cahvor(m_left_camera_file);
+               boost::ends_with(lcase_file, ".cmod"  )   ) {
+      CAHVORModel left_cahvor (m_left_camera_file );
       CAHVORModel right_cahvor(m_right_camera_file);
-      left_cahv =
-        linearize_camera(left_cahvor, left_image_size, left_image_size);
-      right_cahv =
-        linearize_camera(right_cahvor, right_image_size, right_image_size);
+      left_cahv  = linearize_camera(left_cahvor,  left_image_size,  left_image_size);
+      right_cahv = linearize_camera(right_cahvor, right_image_size, right_image_size);
     } else if ( boost::ends_with(lcase_file, ".cahv") ||
                 boost::ends_with(lcase_file, ".pin" )) {
-      left_cahv = CAHVModel(m_left_camera_file);
+      left_cahv  = CAHVModel(m_left_camera_file );
       right_cahv = CAHVModel(m_right_camera_file);
 
     } else if ( boost::ends_with(lcase_file, ".pinhole") ||
-                boost::ends_with(lcase_file, ".tsai") ) {
-      PinholeModel left_pin(m_left_camera_file);
+                boost::ends_with(lcase_file, ".tsai"   )   ) {
+      PinholeModel left_pin (m_left_camera_file );
       PinholeModel right_pin(m_right_camera_file);
-      left_cahv = linearize_camera(left_pin);
+      left_cahv  = linearize_camera(left_pin );
       right_cahv = linearize_camera(right_pin);
     } else {
       vw_throw(ArgumentErr() << "PinholeStereoSession: unsupported camera file type.\n");
     }
 
     // Create epipolar recitified camera views
-    boost::shared_ptr<CAHVModel> epipolar_left_cahv(new CAHVModel);
+    boost::shared_ptr<CAHVModel> epipolar_left_cahv (new CAHVModel);
     boost::shared_ptr<CAHVModel> epipolar_right_cahv(new CAHVModel);
     epipolar(left_cahv, right_cahv, *epipolar_left_cahv, *epipolar_right_cahv);
 
@@ -230,26 +226,24 @@ asp::StereoSessionPinhole::camera_model(std::string const& /*image_file*/,
       return epipolar_left_cahv;
     else
       return epipolar_right_cahv;
-  } else {
+  } else { // Not epipolar
     // Keypoint alignment and everything else just gets camera models
     std::string lcase_file = boost::to_lower_copy(camera_file);
     if (boost::ends_with(lcase_file,".cahvore") ) {
       return boost::shared_ptr<vw::camera::CameraModel>( new CAHVOREModel(camera_file) );
     } else if (boost::ends_with(lcase_file,".cahvor") ||
-               boost::ends_with(lcase_file,".cmod") ) {
+               boost::ends_with(lcase_file,".cmod"  )   ) {
       return boost::shared_ptr<vw::camera::CameraModel>( new CAHVORModel(camera_file) );
     } else if ( boost::ends_with(lcase_file,".cahv") ||
-                boost::ends_with(lcase_file,".pin") ) {
+                boost::ends_with(lcase_file,".pin" )   ) {
       return boost::shared_ptr<vw::camera::CameraModel>( new CAHVModel(camera_file) );
     } else if ( boost::ends_with(lcase_file,".pinhole") ||
-                boost::ends_with(lcase_file,".tsai") ) {
-      return boost::shared_ptr<vw::camera::CameraModel> ( new PinholeModel(camera_file) );
+                boost::ends_with(lcase_file,".tsai"   )   ) {
+      return boost::shared_ptr<vw::camera::CameraModel>( new PinholeModel(camera_file) );
     } else {
       vw_throw(ArgumentErr() << "PinholeStereoSession: unsupported camera file type.\n");
     }
-
-
-  }
+  } // End not epipolar case
   return boost::shared_ptr<vw::camera::CameraModel>(); // Never reached
 }
 
@@ -273,10 +267,10 @@ asp::StereoSessionPinhole::tx_right() const {
 void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_size,
                                                        std::string const& left_input_file,
                                                        std::string const& right_input_file,
-                                                       std::string &left_output_file,
-                                                       std::string &right_output_file) {
+                                                       std::string      & left_output_file,
+                                                       std::string      & right_output_file) {
 
-  left_output_file = m_out_prefix + "-L.tif";
+  left_output_file  = m_out_prefix + "-L.tif";
   right_output_file = m_out_prefix + "-R.tif";
 
   // If these files already exist, don't bother writting them again.

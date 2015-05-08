@@ -157,13 +157,8 @@ namespace asp {
     tx_type tx_left () const;
     tx_type tx_right() const;
 
-    /// Specialization for how interest points are found
-    virtual bool ip_matching(std::string const& input_file1,
-                             std::string const& input_file2,
-                             float nodata1, float nodata2,
-                             std::string const& match_filename,
-                             vw::camera::CameraModel* cam1,
-                             vw::camera::CameraModel* cam2);
+    /// Returns the target datum to use for a given camera model
+    virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam) const;
 
     /// Stage 1: Preprocessing
     ///
