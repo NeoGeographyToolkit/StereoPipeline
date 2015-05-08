@@ -19,6 +19,8 @@
 /// \file dem_geoid.cc
 ///
 
+/// Fortran function declaration from the "geoid" mini external library that Oleg
+///   created in BinaryBuilder.
 extern "C" {
   void egm2008_call_interp_(int* nriw2, int* nciw2, double* grid,
                             double* flon, double* flat, double* val);

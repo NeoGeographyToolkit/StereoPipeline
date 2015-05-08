@@ -37,7 +37,7 @@
 
 namespace asp {
 
-  // Pack a Vector into a string
+  /// Pack a Vector into a string
   template <class VecT>
   std::string vec_to_str(VecT const& vec){
 
@@ -49,7 +49,7 @@ namespace asp {
     return oss.str();
   }
 
-  // Extract a string into a Vector of given size.
+  /// Extract a string into a Vector of given size.
   template<class VecT>
   VecT str_to_vec(std::string const& str){
 
@@ -70,40 +70,40 @@ namespace asp {
   boost::filesystem::path make_file_relative_to_dir
   (boost::filesystem::path const file, boost::filesystem::path const dir);
 
-  // Remove file name extension
+  /// Remove file name extension
   std::string prefix_from_filename(std::string const& filename);
 
-  // Print time function
+  /// Print time function
   std::string current_posix_time_string();
 
-  // If prefix is "dir/out", create directory "dir"
+  /// If prefix is "dir/out", create directory "dir"
   void create_out_dir(std::string out_prefix);
 
-  // Run a system command and append the output to a given file
+  /// Run a system command and append the output to a given file
   void run_cmd_app_to_file(std::string cmd, std::string file);
 
-  // Get program name without path and leading 'lt-'.
+  /// Get program name without path and leading 'lt-'.
   std::string extract_prog_name(std::string const& prog_str);
 
-  // Write logs to a file
+  /// Write logs to a file
   void log_to_file(int argc, char *argv[],
                    std::string stereo_default_filename,
                    std::string output_prefix);
 
-  // Standard Options
+  /// Standard Options
   struct BaseOptions {
     vw::DiskImageResourceGDAL::Options gdal_options;
     vw::Vector2i raster_tile_size;
-    vw::int32 num_threads;
-    std::string cache_dir;
-    std::string tif_compress;
-    static int corr_tile_size() { return 1024; } // Tile size for correlation
-    static int rfne_tile_size() { return 256;  } // Tile size for refinement
-    static int tri_tile_size()  { return 256;  } // Tile size for tri/point cloud
+    vw::int32    num_threads;
+    std::string  cache_dir;
+    std::string  tif_compress;
+    static int   corr_tile_size() { return 1024; } // Tile size for correlation
+    static int   rfne_tile_size() { return 256;  } // Tile size for refinement
+    static int   tri_tile_size()  { return 256;  } // Tile size for tri/point cloud
     BaseOptions();
   };
 
-  // An object to let Program Options know about our standard options
+  /// An object to let Program Options know about our standard options
   struct BaseOptionsDescription : public boost::program_options::options_description {
     BaseOptionsDescription( BaseOptions& opt);
   };

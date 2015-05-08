@@ -25,6 +25,8 @@
 #include <asp/Sessions/DG/StereoSessionDG.h>
 #include <asp/Sessions/RPC/RPCStereoModel.h>
 
+// TODO: Should not derive from DG!  RPC is used for non-DG files!
+
 namespace asp {
 
   // TODO: Why not just include this in the .h file?

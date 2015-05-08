@@ -66,7 +66,8 @@ namespace asp {
     static StereoSession* construct() { return new StereoSessionPinhole; }
 
  private:
-    // Helper function for determining image alignment.
+    /// Helper function for determining image alignment.
+    /// - Only used in pre_preprocessing_hook()
     vw::Matrix3x3 determine_image_align( std::string const& out_prefix,
                                          std::string const& input_file1,
                                          std::string const& input_file2,

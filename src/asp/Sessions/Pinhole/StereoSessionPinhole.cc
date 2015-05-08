@@ -391,11 +391,9 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
   asp::BaseOptions options = m_options;
   options.gdal_options["PREDICTOR"] = "1";
 
-<<<<<<< HEAD
-=======
+
   left_output_file  = m_out_prefix + "-L.tif";
   right_output_file = m_out_prefix + "-R.tif";
->>>>>>> More StereoSession cleanup
   vw_out() << "\t--> Writing pre-aligned images.\n";
   block_write_gdal_image( left_output_file, apply_mask(Limg, output_nodata),
                           output_nodata, options,

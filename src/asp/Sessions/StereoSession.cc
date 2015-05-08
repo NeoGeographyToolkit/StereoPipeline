@@ -98,16 +98,19 @@ namespace asp {
 #endif
   }
 
+  // TODO: Update this code to handle the new input options!
+
   // TODO: Maybe most of the logic in this function should be somewhere else?
   //       Maybe a new StereoSessionFactory file.
-  StereoSession* StereoSession::create( std::string & session_type, // in-out variable
-                                        BaseOptions const& options,
-                                        std::string const& left_image_file,
-                                        std::string const& right_image_file,
-                                        std::string const& left_camera_file,
-                                        std::string const& right_camera_file,
-                                        std::string const& out_prefix,
-                                        std::string const& input_dem) {                                 
+  // This is called from stereo.cc line 436
+  StereoSession* StereoSession::create(std::string      & session_type, // in-out variable
+                                       BaseOptions const& options,
+                                       std::string const& left_image_file,
+                                       std::string const& right_image_file,
+                                       std::string const& left_camera_file,
+                                       std::string const& right_camera_file,
+                                       std::string const& out_prefix,
+                                       std::string const& input_dem) {
     // Register all known StereoSession types  
     register_default_session_types(); 
 
@@ -120,16 +123,15 @@ namespace asp {
     // Try to guess the session if not provided
     std::string actual_session_type = session_type;
     boost::to_lower(actual_session_type);
-    if ( actual_session_type.empty() ) {
-      
-      if ( asp::has_cam_extension(left_camera_file ) ||
-           asp::has_cam_extension(right_camera_file)   ) {
+    if (actual_session_type.empty()) {
+      if (asp::has_cam_extension(left_camera_file ) ||
+          asp::has_cam_extension(right_camera_file)   ) {
         actual_session_type = "pinhole";
       }
-      if ( boost::iends_with(boost::to_lower_copy(left_image_file  ), ".cub") ||
-           boost::iends_with(boost::to_lower_copy(right_image_file ), ".cub") ||
-           boost::iends_with(boost::to_lower_copy(left_camera_file ), ".cub") ||
-           boost::iends_with(boost::to_lower_copy(right_camera_file), ".cub") ) {
+      if (boost::iends_with(boost::to_lower_copy(left_image_file  ), ".cub") ||
+          boost::iends_with(boost::to_lower_copy(right_image_file ), ".cub") ||
+          boost::iends_with(boost::to_lower_copy(left_camera_file ), ".cub") ||
+          boost::iends_with(boost::to_lower_copy(right_camera_file), ".cub") ) {
         actual_session_type = "isis";
       }
       if (boost::iends_with(boost::to_lower_copy(left_camera_file ), ".xml") ||
@@ -138,39 +140,39 @@ namespace asp {
       }
     }
     
-    if ( !input_dem.empty() && actual_session_type == "dg" ) {
+    if (!input_dem.empty() && actual_session_type == "dg") {
       // User says DG .. but also gives a DEM.
       actual_session_type = "dgmaprpc";
       VW_OUT(DebugMessage,"asp") << "Changing session type to: dgmaprpc" << std::endl;
     }
     
     try {
-      if ( actual_session_type.empty() ) {
+      if (actual_session_type.empty()) {
         // RPC can be in the main file or it can be in the camera file.
         // DG sessions are always RPC sessions because they contain that
         //   as an extra camera model. Thus this RPC check must happen last.
         StereoSessionRPC session;
         boost::shared_ptr<camera::CameraModel>
-          left_model  = session.camera_model( left_image_file,  left_camera_file ),
-          right_model = session.camera_model( right_image_file, right_camera_file );
+          left_model  = session.camera_model(left_image_file,  left_camera_file ),
+          right_model = session.camera_model(right_image_file, right_camera_file);
         actual_session_type = "rpc";
       }
-    } catch ( vw::NotFoundErr const& e ) {
+    } catch (vw::NotFoundErr const& e) {
       // If it throws, it wasn't RPC
-    } catch ( ... ) {
+    } catch (...) {
       // It didn't even have XML!
     }
 
     // We should know the session type by now.
-    VW_ASSERT( !actual_session_type.empty(),
-               ArgumentErr() << "Could not determine stereo session type. "
-               << "Please set it explicitly using the -t switch.\n"
-               << "Options include: [pinhole isis dg rpc].\n" );
+    VW_ASSERT(!actual_session_type.empty(),
+              ArgumentErr() << "Could not determine stereo session type. "
+              << "Please set it explicitly using the -t switch.\n"
+              << "Options include: [pinhole isis dg rpc].\n");
     VW_OUT(DebugMessage,"asp") << "Using session: " << actual_session_type << std::endl;
     
-    if( stereo_session_construct_map ) {
+    if(stereo_session_construct_map) {
       // Search for the specified session type in the static list of registered types
-      ConstructMapType::const_iterator i = stereo_session_construct_map->find( actual_session_type );
+      ConstructMapType::const_iterator i = stereo_session_construct_map->find(actual_session_type);
       if( i != stereo_session_construct_map->end() ) { // If we found the session
         StereoSession* session_new = i->second(); // Call the constructor function
         session_new->initialize( options,         // Initialize the new object
@@ -182,7 +184,7 @@ namespace asp {
       }
     }
     // If we got here then we do not recognize the specified session type!
-    vw_throw( vw::NoImplErr() << "Unsuppported stereo session type: " << session_type );
+    vw_throw(vw::NoImplErr() << "Unsuppported stereo session type: " << session_type);
     return 0; // never reached
   }
 

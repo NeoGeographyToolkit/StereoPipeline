@@ -238,7 +238,7 @@ bool asp::StereoSessionIsis::ip_matching(std::string const& input_file1,
   
   DiskImageView<float> image1( input_file1 ), image2( input_file2 );
 
-  // ??? --> Constructing this datum is the only difference with the DG version.
+  // ??? --> Constructing this datum is the only difference with the DG version!
   IsisCameraModel * isis_cam = dynamic_cast<IsisCameraModel*>(cam1);
   VW_ASSERT(isis_cam != NULL, ArgumentErr() << "StereoSessionISIS: Invalid left camera.\n");
   Vector3 radii = isis_cam->target_radii();
@@ -390,6 +390,7 @@ asp::StereoSessionIsis::pre_preprocessing_hook(bool adjust_left_image_size,
   }
 }
 
+// Only used with mask_flatfield option?
 inline std::string write_shadow_mask( BaseOptions const& opt,
                                       std::string const& output_prefix,
                                       std::string const& input_image,

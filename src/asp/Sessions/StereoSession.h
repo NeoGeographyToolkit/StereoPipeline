@@ -107,6 +107,48 @@ namespace asp {
   
   
   
+  /*
+    Components:
+     - Image file loading = Handled entirely in the hooks?
+     - Camera model loading -> RPC, Pinhole, NadirPinhole, DG, ISIS.
+     - IP matching = Only used for Homography and Affine-Epipolar alignment.
+                   = Looks like there are only two main types, Pinhole and DG/ISIS.
+                     Pinhole is more complicated to support non-nadir cameras.
+     - Disk to source image transforms = Governed by alignment and map projection
+              = Options are None, Homography, Affine-Epipolar, and Map-Project(RPC).
+     - Pre/Post processing hooks = Only used in a few places.
+                                 = Should be source specific, but there is a lot of overlap!
+                                 
+    Notes:
+     - Both Pinhole classes mean something specific?
+     - DG means GeoTiff? Change the class name?
+
+    > Additions to the base class:
+      - Disk to source transforms
+        - Choose None, Homog, Affine, or Map
+        - For map, also choose sensor model type.  Currently only RPC is supported.
+      - IP matching 
+        - Virtual, bost classes can use the same default.
+        - Need a get_datum() virtual function for it though.
+      - Camera model loading
+        - Choose DG, RPC, Pinhole, or ISIS.
+      
+    > Keep these derived classes: DG(rename), ISIS, Pinhole, NadirPinhole
+      - The derived classes need to verify compatible options.
+        - For example, most derived classes only work with one sensor model.
+      - Keep hooks
+      - Pinhole can override the default IP matching function.
+      
+    > Remove these derived classes:
+     - DGMapRPC --> Use DG
+     - RPC      --> Use DG
+      
+    > Later look for shared hook code.
+     
+  */
+  
+  
+  
   /// Stereo Sessions define for different missions or satellites how to:
   ///   * Initialize, normalize, and align the input imagery
   ///   * Extract the camera model
@@ -133,14 +175,14 @@ namespace asp {
     virtual ~StereoSession() {}
 
     /// Methods for registering and creating stereo sessions.
-    static StereoSession* create( std::string & session_type, // in-out variable
-                                  BaseOptions const& options,
-                                  std::string const& left_image_file   = "",
-                                  std::string const& right_image_file  = "",
-                                  std::string const& left_camera_file  = "",
-                                  std::string const& right_camera_file = "",
-                                  std::string const& out_prefix        = "",
-                                  std::string const& input_dem         = "");
+    static StereoSession* create(std::string & session_type, // in-out variable
+                                 BaseOptions const& options,
+                                 std::string const& left_image_file   = "",
+                                 std::string const& right_image_file  = "",
+                                 std::string const& left_camera_file  = "",
+                                 std::string const& right_camera_file = "",
+                                 std::string const& out_prefix        = "",
+                                 std::string const& input_dem         = "");
     
     /// Simple typedef of a factory function that creates a StereoSession instance
     typedef StereoSession* (*construct_func)();

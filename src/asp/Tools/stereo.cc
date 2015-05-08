@@ -114,8 +114,7 @@ namespace asp {
       }
     }
     
-    // Store the options and their values (that is, not the input
-    // files).
+    // Store the options and their values (that is, not the input files).
     set<string> file_set; 
     for (int s = 0; s < (int)files.size(); s++)
       file_set.insert(files[s]);
@@ -129,8 +128,7 @@ namespace asp {
     vector<string> cameras = asp::extract_cameras( files );
 
     if (files.size() < 3)
-      vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n"
-                << usage );
+      vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n" << usage );
 
     // Find the input DEM, if any
     string input_dem;
@@ -158,25 +156,26 @@ namespace asp {
     // funny messages later.
     for (int i = 0; i < (int)files.size(); i++){
       if (!fs::exists(files[i]))
-        vw_throw( ArgumentErr() << "Cannot find the image file: " << files[i] << ".\n" );
+        vw_throw(ArgumentErr() << "Cannot find the image file: " << files[i] << ".\n");
     }
     for (int i = 0; i < (int)cameras.size(); i++){
       if (!fs::exists(cameras[i]))
-        vw_throw( ArgumentErr() << "Cannot find the camera file: " << cameras[i] << ".\n" );
+        vw_throw(ArgumentErr() << "Cannot find the camera file: " << cameras[i] << ".\n");
     }
     
     if (files.size() != cameras.size() && !cameras.empty())
-      vw_throw( ArgumentErr() << "Expecting the number of images and cameras to agree.\n" );
+      vw_throw(ArgumentErr() << "Expecting the number of images and cameras to agree.\n");
     
     int num_pairs = (int)files.size() - 1;
     if (num_pairs <= 0)
-      vw_throw( ArgumentErr() << "Insufficient number of images provided.\n" );
+      vw_throw(ArgumentErr() << "Insufficient number of images provided.\n");
 
     // Must signal to the children runs that they are part of a multiview run
     if (num_pairs > 1){
       std::string opt_str = "--part-of-multiview-run";
       vector<string>::iterator it = find(options.begin(), options.end(), opt_str);
-      if (it == options.end()) options.push_back(opt_str);
+      if (it == options.end()) 
+        options.push_back(opt_str);
     }
     
     // Multiview is very picky about alignment method
@@ -246,8 +245,7 @@ namespace asp {
       if (!input_dem.empty())
         cmd.push_back(input_dem);
 
-      // Create a local argc and argv for the given stereo pair and
-      // parse them.
+      // Create a local argc and argv for the given stereo pair and parse them.
       int largc = cmd.size();
       vector<char*> largv;
       for (int t = 0; t < largc; t++)
@@ -286,9 +284,14 @@ namespace asp {
 
     po::options_description general_options_sub("");
     general_options_sub.add_options()
-      ("session-type,t", po::value(&opt.stereo_session_string), "Select the stereo session type to use for processing. [options: pinhole isis dg rpc]")
-      ("stereo-file,s", po::value(&opt.stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
-      ("left-image-crop-win", po::value(&opt.left_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"), "Do stereo in a subregion of the left image [default: use the entire image].");
+      ("session-type,t",      po::value(&opt.stereo_session_string), 
+                              "Select the stereo session type to use for processing. [options: pinhole isis dg rpc]")
+      ("sensor-model,m",      po::value(&opt.stereo_sensor_model_string), 
+                              "Override the default sensor model for the session type. [options: rpc]")
+      ("stereo-file,s",       po::value(&opt.stereo_default_filename)->default_value("./stereo.default"), 
+                              "Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
+      ("left-image-crop-win", po::value(&opt.left_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"),
+                              "Do stereo in a subregion of the left image [default: use the entire image].");
 
     // We distinguish between all_general_options, which is all the
     // options we must parse, even if we don't need some of them, and
@@ -296,13 +299,13 @@ namespace asp {
     // current tool, and for which we also print the help message.
 
     po::options_description general_options("");
-    general_options.add ( general_options_sub );
-    general_options.add( additional_options );
-    general_options.add( asp::BaseOptionsDescription(opt) );
+    general_options.add(general_options_sub);
+    general_options.add(additional_options);
+    general_options.add(asp::BaseOptionsDescription(opt));
 
     po::options_description all_general_options("");
-    all_general_options.add ( general_options_sub );
-    all_general_options.add( generate_config_file_options( opt ) );
+    all_general_options.add(general_options_sub );
+    all_general_options.add(generate_config_file_options(opt));
 
     po::options_description positional_options("");
     po::positional_options_description positional_desc;
@@ -322,31 +325,30 @@ namespace asp {
         ("output-prefix",      po::value(&opt.out_prefix), "Prefix for output filenames")
         ("input-dem",          po::value(&opt.input_dem),  "Input DEM");
       
-      positional_desc.add("left-input-image", 1);
-      positional_desc.add("right-input-image", 1);
-      positional_desc.add("left-camera-model", 1);
+      positional_desc.add("left-input-image",   1);
+      positional_desc.add("right-input-image",  1);
+      positional_desc.add("left-camera-model",  1);
       positional_desc.add("right-camera-model", 1);
-      positional_desc.add("output-prefix", 1);
-      positional_desc.add("input-dem", 1);
+      positional_desc.add("output-prefix",      1);
+      positional_desc.add("input-dem",          1);
     }
     
     usage = "[options] <images> [<cameras>] <output_file_prefix> [DEM]\n  Extensions are automaticaly added to the output files.\n  Camera model arguments may be optional for some stereo session types (e.g., isis).\n  Stereo parameters should be set in the stereo.default file.";
     bool allow_unregistered = false;
     std::vector<std::string> unregistered;
-    po::variables_map vm =
-      asp::check_command_line( argc, argv, opt, general_options,
-                               all_general_options, positional_options,
-                               positional_desc, usage, 
-                               allow_unregistered, unregistered );
+    po::variables_map vm = asp::check_command_line(argc, argv, opt, general_options,
+                                                   all_general_options, positional_options,
+                                                   positional_desc, usage, 
+                                                   allow_unregistered, unregistered);
 
     // Read the config file
     try {
       po::options_description cfg_options;
-      cfg_options.add( positional_options ); // The user can specify the
+      cfg_options.add(positional_options); // The user can specify the
                                              // positional input from the
                                              // stereo.default if they want
                                              // to.
-      cfg_options.add( generate_config_file_options( opt ) );
+      cfg_options.add(generate_config_file_options(opt));
 
       // Append the options from the config file. Do not overwrite the
       // options already set on the command line.
@@ -354,10 +356,9 @@ namespace asp {
       po::store(parse_asp_config_file(print_warnings,
                                       opt.stereo_default_filename,
                                       cfg_options), vm);
-      po::notify( vm );
-    } catch ( po::error const& e ) {
-      vw::vw_throw( vw::ArgumentErr() << "Error parsing configuration file:\n"
-                    << e.what() << "\n" );
+      po::notify(vm);
+    } catch (po::error const& e) {
+      vw::vw_throw(vw::ArgumentErr() << "Error parsing configuration file:\n" << e.what() << "\n");
     }
     asp::stereo_settings().validate();
 
@@ -369,40 +370,33 @@ namespace asp {
     // For multiview, just store the files and return
     if (is_multiview){
       if (vm.count("input-files") == 0)
-        vw_throw( ArgumentErr() << "Missing input point clouds.\n"
-                  << usage << general_options );
+        vw_throw(ArgumentErr() << "Missing input point clouds.\n" << usage << general_options);
       input_files = vm["input-files"].as< std::vector<std::string> >();
       return;
     }
 
-    if ( opt.in_file1.empty() || opt.in_file2.empty() || opt.cam_file1.empty()  )
-      vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n"
-                << usage );
+    if (opt.in_file1.empty() || opt.in_file2.empty() || opt.cam_file1.empty())
+      vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n" << usage );
     
-    /// There are 3 valid methods of input into this application
-    /// 1.) <image1> <image2> <cam1> <cam2> <prefix> <dem>
-    /// 2.) <image1> <image2> <cam1> <cam2> <prefix>
-    /// 3.) <image1> <image2> <prefix>
+    // There are 3 valid methods of input into this application
+    // 1.) <image1> <image2> <cam1> <cam2> <prefix> <dem>
+    // 2.) <image1> <image2> <cam1> <cam2> <prefix>
+    // 3.) <image1> <image2> <prefix>
 
-    /// Correcting for Case 3:
+    // Correcting for Case 3:
     bool this_is_case3 = false;
-    if ( opt.out_prefix.empty() && opt.cam_file2.empty() ) {
+    if (opt.out_prefix.empty() && opt.cam_file2.empty()) {
       opt.out_prefix = opt.cam_file1;
       opt.cam_file1.clear();
       this_is_case3 = true;
     }
 
-    /// Error checking
-    if ( opt.out_prefix.empty() )
-      vw_throw( ArgumentErr() << "Missing output prefix" );
-    if ( opt.in_file1.empty() )
-      vw_throw( ArgumentErr() << "Missing left input image" );
-    if ( opt.in_file2.empty() )
-      vw_throw( ArgumentErr() << "Missing right input image" );
-    if ( !this_is_case3 && opt.cam_file1.empty() )
-      vw_throw( ArgumentErr() << "Missing left camera file" );
-    if ( !this_is_case3 && opt.cam_file2.empty() )
-      vw_throw( ArgumentErr() << "Missing right camera file" );
+    // Error checking
+    if (opt.out_prefix.empty())                  vw_throw(ArgumentErr() << "Missing output prefix"    );
+    if (opt.in_file1.empty())                    vw_throw(ArgumentErr() << "Missing left input image" );
+    if (opt.in_file2.empty())                    vw_throw(ArgumentErr() << "Missing right input image");
+    if (!this_is_case3 && opt.cam_file1.empty()) vw_throw(ArgumentErr() << "Missing left camera file" );
+    if (!this_is_case3 && opt.cam_file2.empty()) vw_throw(ArgumentErr() << "Missing right camera file");
 
     // Create the output directory 
     asp::create_out_dir(opt.out_prefix);
@@ -434,29 +428,28 @@ namespace asp {
     }
 
     // Sanity check
-    if (stereo_settings().trans_crop_win.width() <= 0  ||
+    if (stereo_settings().trans_crop_win.width () <= 0 ||
         stereo_settings().trans_crop_win.height() <= 0 ){
 
-      vw_throw( ArgumentErr() << "Invalid region for doing stereo.\n\n"
-                << usage << general_options );
+      vw_throw(ArgumentErr() << "Invalid region for doing stereo.\n\n" << usage << general_options );
     }
 
     // The StereoSession call automatically determines the type of object to create from the input parameters.
-    opt.session.reset( asp::StereoSession::create(opt.stereo_session_string,// i/o
-                                                  opt, opt.in_file1,
-                                                  opt.in_file2,
-                                                  opt.cam_file1, opt.cam_file2,
-                                                  opt.out_prefix,
-                                                  opt.input_dem) );
+    opt.session.reset(asp::StereoSession::create(opt.stereo_session_string,// i/o
+                                                 opt, opt.in_file1,
+                                                 opt.in_file2,
+                                                 opt.cam_file1, opt.cam_file2,
+                                                 opt.out_prefix,
+                                                 opt.input_dem));
     user_safety_checks(opt);
 
     // The last thing we do before we get started is to copy the
     // stereo.default settings over into the results directory so that
     // we have a record of the most recent stereo.default that was used
     // with this data set.
-    asp::stereo_settings().write_copy( argc, argv,
-                                       opt.stereo_default_filename,
-                                       opt.out_prefix + "-stereo.default" );
+    asp::stereo_settings().write_copy(argc, argv,
+                                      opt.stereo_default_filename,
+                                      opt.out_prefix + "-stereo.default");
   }
 
   // Register Session types
@@ -477,11 +470,10 @@ namespace asp {
     // Error checking
 
     // Sanity check for max_valid_triangulation_error
-    if ( stereo_settings().max_valid_triangulation_error <= 0 ){
-      vw_throw( ArgumentErr() << "The maximum valid triangulation error "
-                << "must be positive.\n" );
+    if (stereo_settings().max_valid_triangulation_error <= 0){
+      vw_throw( ArgumentErr() << "The maximum valid triangulation error must be positive.\n" );
     }
-    if ( stereo_settings().max_valid_triangulation_error > 0 ){
+    if (stereo_settings().max_valid_triangulation_error > 0){
       vw_throw( ArgumentErr() << "The --max-valid-triangulation-error was moved "
                 << "to point2dem. Alternatively, the point2dem --remove-outliers "
                 << "option can be used for automatic detection of maximum "
@@ -489,14 +481,13 @@ namespace asp {
     }
     
     // Seed mode valid values
-    if ( stereo_settings().seed_mode > 3 ){
-      vw_throw( ArgumentErr() << "Invalid value for seed-mode: "
-                << stereo_settings().seed_mode << ".\n" );
+    if (stereo_settings().seed_mode > 3){
+      vw_throw(ArgumentErr() << "Invalid value for seed-mode: " << stereo_settings().seed_mode << ".\n");
     }
 
     // Local homography needs D_sub
-    if ( stereo_settings().seed_mode == 0 &&
-         stereo_settings().use_local_homography ){
+    if (stereo_settings().seed_mode == 0 &&
+        stereo_settings().use_local_homography){
       vw_throw( ArgumentErr() << "Cannot use local homography without "
                 << "computing low-resolution disparity.\n");
     }
@@ -511,89 +502,81 @@ namespace asp {
         
     // D_sub from DEM needs a DEM
     if (stereo_settings().seed_mode == 2 &&
-        stereo_settings().disparity_estimation_dem.empty() ){
+        stereo_settings().disparity_estimation_dem.empty()){
       vw_throw( ArgumentErr()
                 << "For seed-mode 2, an input DEM must be provided.\n" );
     }
 
     // D_sub from DEM does not work with map-projected images
-    if ( !opt.input_dem.empty() && stereo_settings().seed_mode == 2 )
+    if (!opt.input_dem.empty() && stereo_settings().seed_mode == 2)
       vw_throw( NoImplErr() << "Computation of low-resolution disparity from "
                 << "DEM is not implemented for map-projected images.\n");
 
     // Must use map-projected images if input DEM is provided
     GeoReference georef1, georef2;
-    bool has_georef1 = read_georeference( georef1, opt.in_file1 );
-    bool has_georef2 = read_georeference( georef2, opt.in_file2 );
-    if ( !opt.input_dem.empty() && (!has_georef1 || !has_georef2)){
+    bool has_georef1 = read_georeference(georef1, opt.in_file1);
+    bool has_georef2 = read_georeference(georef2, opt.in_file2);
+    if (!opt.input_dem.empty() && (!has_georef1 || !has_georef2)){
       vw_throw( ArgumentErr() << "The images are not map-projected, "
                 << "cannot use the provided DEM: " << opt.input_dem << "\n");
     }
 
-    // If the images are map-projected, they need to use the same
-    // projection.
-    if ( !opt.input_dem.empty() &&
-         georef1.overall_proj4_str() != georef2.overall_proj4_str() ){
+    // If the images are map-projected, they need to use the same projection.
+    if (!opt.input_dem.empty() &&
+        georef1.overall_proj4_str() != georef2.overall_proj4_str()){
       vw_throw( ArgumentErr() << "The left and right images "
                 << "must use the same projection.\n");
     }
     
     // If images are map-projected, need an input DEM
-    if ( (opt.session->name() == "dg" || opt.session->name() == "dgmaprpc" ) &&
-         has_georef1 && has_georef2 && opt.input_dem.empty() ) {
+    if ((opt.session->name() == "dg" || opt.session->name() == "dgmaprpc" ) &&
+         has_georef1 && has_georef2 && opt.input_dem.empty()) {
       vw_out(WarningMessage) << "It appears that the input images are "
                              << "map-projected. In that case a DEM needs to be "
                              << "provided for stereo to give correct results.\n";
     }
-
+/*
     // We did not implement stereo using map-projected images with dem
     // on anything except "dg" and "dgmaprpc" sessions.
-    if ( !opt.input_dem.empty() && opt.session->name() != "dg"
-         && opt.session->name() != "dgmaprpc" ) {
-      vw_throw( ArgumentErr() << "Cannot use map-projected images with "
-                << "a session of type: " << opt.session->name() << ".\n");
+    if (!opt.input_dem.empty() && opt.session->name() != "dg"
+        && opt.session->name() != "dgmaprpc") {
+      vw_throw(ArgumentErr() << "Cannot use map-projected images with a session of type: " 
+                             << opt.session->name() << ".\n");
     }
-
+*/
     // No alignment must be set for map-projected images.
-    if ( stereo_settings().alignment_method != "none" && !opt.input_dem.empty() ) {
+    if (stereo_settings().alignment_method != "none" && !opt.input_dem.empty()) {
       stereo_settings().alignment_method = "none";
       vw_out(WarningMessage) << "Changing the alignment method to 'none' "
                              << "as the images are map-projected." << endl;
     }
     
+//TODO: Can we ease this restriction?    
     // Ensure that we are not accidentally doing stereo with
     // images map-projected with other camera model than 'rpc'.
     if (!opt.input_dem.empty()){
       
       string cam_tag = "CAMERA_MODEL_TYPE";
       string l_cam_type, r_cam_type;
-      boost::shared_ptr<vw::DiskImageResource> l_rsrc
-        ( new vw::DiskImageResourceGDAL(opt.in_file1) );
+      boost::shared_ptr<vw::DiskImageResource> l_rsrc(new vw::DiskImageResourceGDAL(opt.in_file1));
       vw::cartography::read_header_string(*l_rsrc.get(), cam_tag, l_cam_type);
-      boost::shared_ptr<vw::DiskImageResource> r_rsrc
-        ( new vw::DiskImageResourceGDAL(opt.in_file2) );
+      boost::shared_ptr<vw::DiskImageResource> r_rsrc(new vw::DiskImageResourceGDAL(opt.in_file2));
       vw::cartography::read_header_string(*r_rsrc.get(), cam_tag, r_cam_type);
         
-      if ( (l_cam_type != "" && l_cam_type != "rpc")
-           ||
-           (r_cam_type != "" && r_cam_type != "rpc")             
-           ){
-        vw_throw( ArgumentErr()
-                  << "The images were map-projected with another option "
-                  << "than -t rpc.\n");
+      if ((l_cam_type != "" && l_cam_type != "rpc") ||
+          (r_cam_type != "" && r_cam_type != "rpc")   ){
+        vw_throw(ArgumentErr() << "The images were map-projected with another option than -t rpc.\n");
       }
     }
     
     if (stereo_settings().corr_kernel[0]%2 == 0 ||
-        stereo_settings().corr_kernel[1]%2 == 0 ){
-      vw_throw( ArgumentErr()
-                << "The entries of corr-kernel must be odd numbers.\n");
+        stereo_settings().corr_kernel[1]%2 == 0   ){
+      vw_throw(ArgumentErr() << "The entries of corr-kernel must be odd numbers.\n");
     }
     
     if (stereo_settings().subpixel_kernel[0]%2 == 0 ||
-        stereo_settings().subpixel_kernel[1]%2 == 0 ){
-      vw_throw( ArgumentErr()
-                << "The entries of subpixel-kernel must be odd numbers.\n");
+        stereo_settings().subpixel_kernel[1]%2 == 0   ){
+      vw_throw(ArgumentErr() << "The entries of subpixel-kernel must be odd numbers.\n");
     }
     
     // Camera checks
@@ -614,26 +597,23 @@ namespace asp {
           << "\tto triangulate or perform epipolar rectification.\n";
 
       // Developer friendly help
-      VW_OUT(DebugMessage,"asp") << "Camera 1 location: " << cam1_ctr << "\n"
-                                 << "   in Lon Lat Rad: " << cartography::xyz_to_lon_lat_radius(cam1_ctr) << "\n";
-      VW_OUT(DebugMessage,"asp") << "Camera 2 location: " << cam2_ctr << "\n"
-                                 << "   in Lon Lat Rad: " << cartography::xyz_to_lon_lat_radius(cam2_ctr) << "\n";
+      VW_OUT(DebugMessage,"asp") << "Camera 1 location: "     << cam1_ctr << "\n"
+                                 << "   in Lon Lat Rad: "     << cartography::xyz_to_lon_lat_radius(cam1_ctr) << "\n";
+      VW_OUT(DebugMessage,"asp") << "Camera 2 location: "     << cam2_ctr << "\n"
+                                 << "   in Lon Lat Rad: "     << cartography::xyz_to_lon_lat_radius(cam2_ctr) << "\n";
       VW_OUT(DebugMessage,"asp") << "Camera 1 Pointing Dir: " << cam1_vec << "\n"
                                  << "      dot against pos: " << dot_prod(cam1_vec, cam1_ctr) << "\n";
       VW_OUT(DebugMessage,"asp") << "Camera 2 Pointing Dir: " << cam2_vec << "\n"
                                  << "      dot against pos: " << dot_prod(cam2_vec, cam2_ctr) << "\n";
 
       // Can cameras triangulate to point at something in front of them?
-      stereo::StereoModel model( camera_model1.get(), camera_model2.get() );
+      stereo::StereoModel model(camera_model1.get(), camera_model2.get());
       double error;
-      Vector3 point = model( Vector2(), Vector2(), error );
-      if ( point != Vector3() // triangulation succeeded
-           && (
-               dot_prod( cam1_vec, point - cam1_ctr ) < 0
-               ||
-               dot_prod( cam2_vec, point - cam2_ctr ) < 0
-               )
-           ){
+      Vector3 point = model(Vector2(), Vector2(), error);
+      if (point != Vector3() // triangulation succeeded
+          && ((dot_prod(cam1_vec, point - cam1_ctr) < 0) ||
+              (dot_prod(cam2_vec, point - cam2_ctr) < 0)   )
+          ){
         vw_out(WarningMessage)
           << "Your cameras appear not to be pointing at the same location!\n"
           << "\tA test vector triangulated backwards through\n"
@@ -641,7 +621,7 @@ namespace asp {
           << "\tyour input models as most likely stereo won't\n"
           << "\tbe able to triangulate.\n";
       }
-    } catch ( const exception& e ) {                
+    } catch (const exception& e) {                
       // Don't throw an error here. There are legitimate reasons as to
       // why this check may fail. For example, the top left pixel
       // might not be valid on a map projected image. But notify the
@@ -657,7 +637,7 @@ namespace asp {
   approximate_search_range(string const& out_prefix,
                            string const& left_sub_file,
                            string const& right_sub_file,
-                           float scale ) {
+                           float scale) {
 
     typedef PixelGray<float32> PixelT;
     vw_out() << "\t--> Using interest points to determine search window.\n";
@@ -665,14 +645,12 @@ namespace asp {
     float i_scale = 1.0/scale;
 
     string left_ip_file, right_ip_file;
-    ip::ip_filenames(out_prefix, left_sub_file, right_sub_file,
-                     left_ip_file, right_ip_file);
+    ip::ip_filenames(out_prefix, left_sub_file, right_sub_file, left_ip_file, right_ip_file);
 
-    string match_filename
-      = ip::match_filename(out_prefix, left_sub_file, right_sub_file);
+    string match_filename = ip::match_filename(out_prefix, left_sub_file, right_sub_file);
 
     // Building / Loading Interest point data
-    if ( fs::exists(match_filename) ) {
+    if (fs::exists(match_filename)) {
 
       vw_out() << "\t    * Using cached match file: " << match_filename << "\n";
       ip::read_binary_match_file(match_filename, matched_ip1, matched_ip2);
@@ -681,67 +659,67 @@ namespace asp {
 
       vector<ip::InterestPoint> ip1_copy, ip2_copy;
 
-      if ( !fs::exists(left_ip_file) ||
-           !fs::exists(right_ip_file) ) {
+      if ( !fs::exists(left_ip_file) || !fs::exists(right_ip_file) ) {
 
         // Worst case, no interest point operations have been performed before
         vw_out() << "\t    * Locating Interest Points\n";
 
         boost::shared_ptr<DiskImageResource>
-          left_rsrc( DiskImageResource::open(left_sub_file) ),
-          right_rsrc( DiskImageResource::open(right_sub_file) );
+          left_rsrc (DiskImageResource::open(left_sub_file )),
+          right_rsrc(DiskImageResource::open(right_sub_file));
 
         // Read the no-data values written to disk previously when
         // the normalized left and right sub-images were created.
-        float left_nodata_value = numeric_limits<float>::quiet_NaN();
+        float left_nodata_value  = numeric_limits<float>::quiet_NaN();
         float right_nodata_value = numeric_limits<float>::quiet_NaN();
-        if ( left_rsrc->has_nodata_read()  ) left_nodata_value  = left_rsrc->nodata_read();
-        if ( right_rsrc->has_nodata_read() ) right_nodata_value = right_rsrc->nodata_read();
+        if (left_rsrc->has_nodata_read ()) left_nodata_value  = left_rsrc->nodata_read();
+        if (right_rsrc->has_nodata_read()) right_nodata_value = right_rsrc->nodata_read();
 
-        DiskImageView<PixelT> left_sub_image ( left_rsrc );
-        DiskImageView<PixelT> right_sub_image( right_rsrc );
+        DiskImageView<PixelT> left_sub_image (left_rsrc );
+        DiskImageView<PixelT> right_sub_image(right_rsrc);
         // Interest Point module detector code.
         float ipgain = 0.07;
         list<ip::InterestPoint> ip1, ip2;
         vw_out() << "\t    * Processing for Interest Points.\n";
-        while ( ip1.size() < 1500 || ip2.size() < 1500 ) {
-          ip1.clear(); ip2.clear();
+        while (ip1.size() < 1500 || ip2.size() < 1500) {
+          ip1.clear(); 
+          ip2.clear();
 
-          ip::OBALoGInterestOperator interest_operator( ipgain );
-          ip::IntegralInterestPointDetector<ip::OBALoGInterestOperator> detector( interest_operator, 0 );
+          ip::OBALoGInterestOperator interest_operator(ipgain);
+          ip::IntegralInterestPointDetector<ip::OBALoGInterestOperator> detector(interest_operator, 0);
 
-          if ( boost::math::isnan(left_nodata_value) )
-            ip1 = detect_interest_points( left_sub_image, detector );
+          if (boost::math::isnan(left_nodata_value))
+            ip1 = detect_interest_points(left_sub_image, detector);
           else
-            ip1 = detect_interest_points( apply_mask(create_mask_less_or_equal(left_sub_image,left_nodata_value)), detector );
+            ip1 = detect_interest_points(apply_mask(create_mask_less_or_equal(left_sub_image,left_nodata_value)), detector);
 
-          if ( boost::math::isnan(right_nodata_value) )
-            ip2 = detect_interest_points( right_sub_image, detector );
+          if (boost::math::isnan(right_nodata_value))
+            ip2 = detect_interest_points(right_sub_image, detector);
           else
-            ip2 = detect_interest_points( apply_mask(create_mask_less_or_equal(right_sub_image,right_nodata_value)), detector );
+            ip2 = detect_interest_points(apply_mask(create_mask_less_or_equal(right_sub_image,right_nodata_value)), detector);
 
-          if ( !boost::math::isnan(left_nodata_value) )
-            remove_ip_near_nodata( left_sub_image, left_nodata_value, ip1 );
+          if (!boost::math::isnan(left_nodata_value))
+            remove_ip_near_nodata( left_sub_image, left_nodata_value, ip1);
 
-          if ( !boost::math::isnan(right_nodata_value) )
-            remove_ip_near_nodata( right_sub_image, right_nodata_value, ip2 );
+          if (!boost::math::isnan(right_nodata_value))
+            remove_ip_near_nodata(right_sub_image, right_nodata_value, ip2);
 
           ipgain *= 0.75;
-          if ( ipgain < 1e-2 ) {
+          if (ipgain < 1e-2) {
             vw_out() << "\t    * Unable to find desirable amount of Interest Points.\n";
             break;
           }
         }
 
-        if ( ip1.size() < 8 || ip2.size() < 8 )
+        if (ip1.size() < 8 || ip2.size() < 8)
           vw_throw( InputErr() << "Unable to extract interest points from input images ["
                     << left_sub_file << "," << right_sub_file << "]! Unable to continue." );
 
         // Making sure we don't exceed 3000 points
-        if ( ip1.size() > 3000 ) {
+        if (ip1.size() > 3000) {
           ip1.sort(); ip1.resize(3000);
         }
-        if ( ip2.size() > 3000 ) {
+        if (ip2.size() > 3000) {
           ip2.sort(); ip2.resize(3000);
         }
 
@@ -750,46 +728,44 @@ namespace asp {
         //
         // This is no loss as images at this point are already aligned
         // since the dense correlator is not rotation-invariant.
-        BOOST_FOREACH( ip::InterestPoint& ip, ip1 ) ip.orientation = 0;
-        BOOST_FOREACH( ip::InterestPoint& ip, ip2 ) ip.orientation = 0;
+        BOOST_FOREACH(ip::InterestPoint& ip, ip1) ip.orientation = 0;
+        BOOST_FOREACH(ip::InterestPoint& ip, ip2) ip.orientation = 0;
 
         vw_out() << "\t    * Building descriptors..." << flush;
         ip::SGradDescriptorGenerator descriptor;
-        if ( boost::math::isnan(left_nodata_value) )
-          describe_interest_points( left_sub_image, descriptor, ip1 );
+        if (boost::math::isnan(left_nodata_value))
+          describe_interest_points(left_sub_image, descriptor, ip1);
         else
-          describe_interest_points( apply_mask(create_mask_less_or_equal(left_sub_image,left_nodata_value)), descriptor, ip1 );
-        if ( boost::math::isnan(right_nodata_value) )
-          describe_interest_points( right_sub_image, descriptor, ip2 );
+          describe_interest_points(apply_mask(create_mask_less_or_equal(left_sub_image,left_nodata_value)), descriptor, ip1);
+        if (boost::math::isnan(right_nodata_value))
+          describe_interest_points(right_sub_image, descriptor, ip2);
         else
-          describe_interest_points( apply_mask(create_mask_less_or_equal(right_sub_image,right_nodata_value)), descriptor, ip2 );
+          describe_interest_points(apply_mask(create_mask_less_or_equal(right_sub_image,right_nodata_value)), descriptor, ip2);
 
         vw_out() << "done.\n";
 
         // Writing out the results
-        vw_out() << "\t    * Caching interest points: "
-                 << left_ip_file << " & " << right_ip_file << endl;
-        ip::write_binary_ip_file( left_ip_file, ip1 );
-        ip::write_binary_ip_file( right_ip_file, ip2 );
+        vw_out() << "\t    * Caching interest points: " << left_ip_file << " & " << right_ip_file << endl;
+        ip::write_binary_ip_file(left_ip_file,  ip1);
+        ip::write_binary_ip_file(right_ip_file, ip2);
 
       }
 
       vw_out() << "\t    * Using cached IPs.\n";
-      ip1_copy = ip::read_binary_ip_file(left_ip_file);
+      ip1_copy = ip::read_binary_ip_file(left_ip_file );
       ip2_copy = ip::read_binary_ip_file(right_ip_file);
 
       vw_out() << "\t    * Matching interest points\n";
       ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(0.6);
 
       matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2,
-              TerminalProgressCallback( "asp", "\t    Matching: "));
+              TerminalProgressCallback("asp", "\t    Matching: "));
       vw_out(InfoMessage) << "\t    " << matched_ip1.size() << " putative matches.\n";
 
       vw_out() << "\t    * Rejecting outliers using RANSAC.\n";
       ip::remove_duplicates(matched_ip1, matched_ip2);
-      vector<Vector3>
-        ransac_ip1 = ip::iplist_to_vectorlist(matched_ip1),
-        ransac_ip2 = ip::iplist_to_vectorlist(matched_ip2);
+      vector<Vector3> ransac_ip1 = ip::iplist_to_vectorlist(matched_ip1),
+                      ransac_ip2 = ip::iplist_to_vectorlist(matched_ip2);
       vector<size_t> indices;
 
       try {
@@ -798,17 +774,17 @@ namespace asp {
         // pulling from experience that an inlier threshold of 30
         // worked best for 1024^2 AMC imagery.
         float inlier_threshold =
-          0.0075 * ( sum( file_image_size( left_sub_file ) ) +
-                     sum( file_image_size( right_sub_file ) ) );
+          0.0075 * (sum(file_image_size(left_sub_file )) +
+                    sum(file_image_size(right_sub_file)) );
 
         math::RandomSampleConsensus<math::HomographyFittingFunctor,math::InterestPointErrorMetric>
-          ransac( math::HomographyFittingFunctor(), math::InterestPointErrorMetric(), 100, inlier_threshold, ransac_ip1.size()/2, true );
-        Matrix<double> trans = ransac( ransac_ip1, ransac_ip2 );
+          ransac(math::HomographyFittingFunctor(), math::InterestPointErrorMetric(), 100, inlier_threshold, ransac_ip1.size()/2, true);
+        Matrix<double> trans = ransac(ransac_ip1, ransac_ip2);
         vw_out(DebugMessage,"asp") << "\t    * Ransac Result: " << trans << endl;
         vw_out(DebugMessage,"asp") << "\t      inlier thresh: "
                                    << inlier_threshold << " px" << endl;
-        indices = ransac.inlier_indices(trans, ransac_ip1, ransac_ip2 );
-      } catch ( vw::math::RANSACErr const& e ) {
+        indices = ransac.inlier_indices(trans, ransac_ip1, ransac_ip2);
+      } catch (vw::math::RANSACErr const& e) {
         vw_out() << "-------------------------------WARNING---------------------------------\n";
         vw_out() << "\t    RANSAC failed! Unable to auto detect search range.\n\n";
         vw_out() << "\t    Please proceed cautiously!\n";
@@ -818,9 +794,9 @@ namespace asp {
 
       { // Keeping only inliers
         vector<ip::InterestPoint> inlier_ip1, inlier_ip2;
-        for ( size_t i = 0; i < indices.size(); i++ ) {
-          inlier_ip1.push_back( matched_ip1[indices[i]] );
-          inlier_ip2.push_back( matched_ip2[indices[i]] );
+        for (size_t i = 0; i < indices.size(); i++) {
+          inlier_ip1.push_back(matched_ip1[indices[i]]);
+          inlier_ip2.push_back(matched_ip2[indices[i]]);
         }
         matched_ip1 = inlier_ip1;
         matched_ip2 = inlier_ip2;
@@ -834,33 +810,30 @@ namespace asp {
     namespace ba = boost::accumulators;
     ba::accumulator_set<float, ba::stats<ba::tag::variance> > acc_x, acc_y;
     for (size_t i = 0; i < matched_ip1.size(); i++) {
-      acc_x(i_scale * ( matched_ip2[i].x - matched_ip1[i].x ));
-      acc_y(i_scale * ( matched_ip2[i].y - matched_ip1[i].y ));
+      acc_x(i_scale * (matched_ip2[i].x - matched_ip1[i].x));
+      acc_y(i_scale * (matched_ip2[i].y - matched_ip1[i].y));
     }
     Vector2f mean( ba::mean(acc_x), ba::mean(acc_y) );
     vw_out(DebugMessage,"asp") << "Mean search is : " << mean << endl;
-    Vector2f stddev( sqrt(ba::variance(acc_x)), sqrt(ba::variance(acc_y)) );
-    BBox2i search_range( mean - 2.5*stddev,
-                         mean + 2.5*stddev );
+    Vector2f stddev(sqrt(ba::variance(acc_x)), sqrt(ba::variance(acc_y)));
+    BBox2i search_range(mean - 2.5*stddev,
+                        mean + 2.5*stddev);
     return search_range;
   }
 
   bool is_tif_or_ntf(string const& file){
-    return
-      boost::iends_with(boost::to_lower_copy(file), ".tif")
-      ||
-      boost::iends_with(boost::to_lower_copy(file), ".ntf");
+    return (boost::iends_with(boost::to_lower_copy(file), ".tif") ||
+            boost::iends_with(boost::to_lower_copy(file), ".ntf")   );
   }    
   
   bool skip_image_normalization(Options const& opt ){
     // Respect user's choice for skipping the normalization of the input
     // images, if feasible.
-    return
-      stereo_settings().skip_image_normalization                    && 
-      stereo_settings().alignment_method == "none"                  &&
-      stereo_settings().cost_mode == 2                              &&
-      is_tif_or_ntf(opt.in_file1)                                   && 
-      is_tif_or_ntf(opt.in_file2);
+    return(stereo_settings().skip_image_normalization   && 
+           stereo_settings().alignment_method == "none" &&
+           stereo_settings().cost_mode == 2             &&
+           is_tif_or_ntf(opt.in_file1)                  && 
+           is_tif_or_ntf(opt.in_file2));
   }
 
 } // end namespace asp

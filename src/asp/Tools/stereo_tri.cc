@@ -152,7 +152,7 @@ private:
     // transforms so we are not having a race condition with setting
     // the cache in both transforms while the other threads want to do the same.
     vector<T> transforms_copy = transforms;
-    transforms_copy[0].tx1.reverse_bbox(bbox); // As a side effect this call makes transforms_copy create a local cache we want later 
+    transforms_copy[0].reverse_bbox(bbox); // As a side effect this call makes transforms_copy create a local cache we want later 
     
     if (transforms_copy.size() != m_disparity_maps.size() + 1){
       vw_throw( ArgumentErr() << "In multi-view triangulation, "
@@ -177,7 +177,7 @@ private:
       right_bbox.max() += disparity_range.size();
 
       // Also cache the data for subsequent transforms
-      transforms_copy[p+1].tx1.reverse_bbox(right_bbox); // As a side effect this call makes transforms_copy create a local cache we want later
+      transforms_copy[p+1].reverse_bbox(right_bbox); // As a side effect this call makes transforms_copy create a local cache we want later
     }
     
     return prerasterize_type(disparity_cropviews, transforms_copy, m_stereo_model );
@@ -498,8 +498,7 @@ int main( int argc, char* argv[] ) {
 
   try {
 
-    vw_out() << "\n[ " << current_posix_time_string()
-             << " ] : Stage 4 --> TRIANGULATION \n";
+    vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 4 --> TRIANGULATION \n";
 
     stereo_register_sessions();
 
@@ -538,6 +537,7 @@ int main( int argc, char* argv[] ) {
 #define INSTANTIATE(T,NAME) if ( opt_vec[0].session->name() == NAME ) { \
       stereo_triangulation<T>(output_prefix, opt_vec); }
 
+    // TODO: Update with removed classes
     INSTANTIATE(StereoSessionPinhole,      "pinhole");
     INSTANTIATE(StereoSessionNadirPinhole, "nadirpinhole");
     INSTANTIATE(StereoSessionRPC,          "rpc");

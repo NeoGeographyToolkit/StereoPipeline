@@ -40,7 +40,8 @@ namespace asp {
   */
   
   class RPCModel;
-
+/*
+  // TODO: Delete this class, just use Map2CamTrans!
   /// Specialize CompositionTransform that allows passing of BBox so Map2CamTrans can cache itself.
   template <class Tx1T, class Tx2T>
   class CompositionTransformPassBBox : public vw::TransformBase<CompositionTransformPassBBox<Tx1T,Tx2T> > {
@@ -59,7 +60,7 @@ namespace asp {
       return this->tx2.reverse_bbox(this->tx1.reverse_bbox(bbox));
     }
   };
-
+*/
   
   
   
@@ -69,6 +70,7 @@ namespace asp {
     StereoSessionDGMapRPC(){};
     virtual ~StereoSessionDGMapRPC(){};
 
+    
     /// Initializer verifies that the input is map projected
     virtual void initialize(BaseOptions const& options,
                             std::string const& left_image_file,
@@ -80,8 +82,8 @@ namespace asp {
 
     virtual std::string name() const { return "dgmaprpc"; }
 
-    /// Specialization for how interest points are found
-    /// - Ths function is intentionally not implemented!
+    /// Disable this function 
+    /// - IP matching is not needed because alignment is not supported for map projected images!
     virtual bool ip_matching(std::string const& input_file1,
                              std::string const& input_file2,
                              float nodata1, float nodata2,
@@ -93,15 +95,16 @@ namespace asp {
     /// - For reversing the arithmetic applied in preprocessing plus the map projection.
     /// - This combines the homography/affineEpipolar transform with the map-to-camera transform
     ///   so that we can recover the original image pixels from a warped map projected image.
-    typedef CompositionTransformPassBBox<vw::cartography::Map2CamTrans,vw::HomographyTransform> tx_type;
-    typedef vw::stereo::StereoModel stereo_model_type;
+    typedef vw::cartography::Map2CamTrans tx_type;
+    typedef vw::stereo::StereoModel       stereo_model_type;
     tx_type tx_left () const;
     tx_type tx_right() const;
 
     static StereoSession* construct() { return new StereoSessionDGMapRPC; }
 
     // TODO: Why is this public?
-    /// RPC camera models used only in the tx_left and tx_right functions??
+    /// RPC camera models used only in the tx_left and tx_right functions.
+    /// - Read in initialize()
     boost::shared_ptr<RPCModel> m_left_model, m_right_model;
   };
 

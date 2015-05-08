@@ -139,7 +139,7 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
                                         left_image_file, right_image_file);
 
   boost::shared_ptr<DiskImageResource>
-    left_rsr c(DiskImageResource::open(left_image_file )),
+    left_rsrc (DiskImageResource::open(left_image_file )),
     right_rsrc(DiskImageResource::open(right_image_file));
 
   // Load the normalized images.
@@ -276,10 +276,12 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
                                   opt, TerminalProgressCallback("asp", "\t    Mask R: ") 
                                  );
     }else{ // No left and right georef
-      asp::block_write_gdal_image(left_mask_file, apply_mask(left_mask), opt,
-                                  TerminalProgressCallback("asp\t    Mask L: "));
-      asp::block_write_gdal_image(right_mask_file, apply_mask(right_mask), opt,
-                                  TerminalProgressCallback("asp\t    Mask R: "));
+      asp::block_write_gdal_image( left_mask_file, apply_mask(left_mask), opt,
+                                    TerminalProgressCallback("asp",
+                                    "\t Mask L: ") );
+      asp::block_write_gdal_image( right_mask_file, apply_mask(right_mask), opt,
+                                    TerminalProgressCallback("asp",
+                                    "\t Mask R: ") );
     }
 
     sw.stop();

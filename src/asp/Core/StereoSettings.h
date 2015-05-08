@@ -30,14 +30,18 @@ namespace asp {
 
   class StereoSession; // Forward declaration
 
-  // 'Global Scoped' Variables
+  /// 'Global Scoped' Variables
   struct Options : asp::BaseOptions {
     // Input
-    std::string in_file1, in_file2, cam_file1, cam_file2,
-      input_dem, extra_argument1, extra_argument2, extra_argument3;
+    std::string in_file1,  in_file2, 
+                cam_file1, cam_file2,
+                input_dem, 
+                extra_argument1, extra_argument2, extra_argument3;
 
     // Settings
-    std::string stereo_session_string, stereo_default_filename;
+    std::string stereo_session_string, 
+                stereo_default_filename,
+                stereo_sensor_model_string;
     boost::shared_ptr<asp::StereoSession> session; // Used to extract cameras
     // Note: Below we use BBox2 rather than BBox2i to not choke on float inputs.
     vw::BBox2 left_image_crop_win;                 // For stereo in a region
@@ -57,7 +61,7 @@ namespace asp {
   boost::program_options::options_description
   generate_config_file_options( asp::BaseOptions& opt );
 
-  // Structure holding variables
+  /// Structure holding variables
   class StereoSettings {
   public:
     StereoSettings();
@@ -167,11 +171,10 @@ namespace asp {
 
   /// Return the singleton instance of the stereo setting structure.
   /// The stereo settings struct is created the first time this method
-  /// is invoked.  You must *always* access the stereo settings
-  /// through this function.
+  /// is invoked.  You must *always* access the stereo settings through this function.
   StereoSettings& stereo_settings();
 
-  // Custom readers for Boost Program Options
+  /// Custom readers for Boost Program Options
   class asp_config_file_iterator : public boost::program_options::detail::common_config_file_iterator {
     boost::shared_ptr<std::basic_istream<char> > is;
   private:
@@ -187,7 +190,7 @@ namespace asp {
                              bool allow_unregistered = false);
   };
 
-  // Custom Parsers for ASP's stereo.default files
+  /// Custom Parsers for ASP's stereo.default files
   boost::program_options::basic_parsed_options<char>
   parse_asp_config_file( std::basic_istream<char>&,
                          const boost::program_options::options_description&,
