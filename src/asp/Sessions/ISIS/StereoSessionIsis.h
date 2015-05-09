@@ -22,7 +22,7 @@
 #ifndef __STEREO_SESSION_ISIS_H__
 #define __STEREO_SESSION_ISIS_H__
 
-#include <asp/Sessions/StereoSession.h>
+#include <asp/Sessions/StereoSessionConcrete.h>
 #include <asp/asp_config.h>
 #include <vw/Stereo/StereoModel.h>
 
@@ -142,20 +142,11 @@ namespace asp {
   }
 
   /// Derived StereoSession class for ISIS images.
-  class StereoSessionIsis : public StereoSession {
+  class StereoSessionIsis : public StereoSessionConcrete<DISKTRANSFORM_TYPE_MATRIX, STEREOMODEL_TYPE_ISIS> {
   public:
     virtual ~StereoSessionIsis() {}
 
-    virtual boost::shared_ptr<vw::camera::CameraModel>
-    camera_model(std::string const& image_file,
-                 std::string const& camera_file = "");
-
     virtual std::string name() const { return "isis"; }
-
-    typedef vw::HomographyTransform tx_type;
-    typedef vw::stereo::StereoModel stereo_model_type;
-    tx_type tx_left () const;
-    tx_type tx_right() const;
 
     /// Returns the target datum to use for a given camera model
     virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam) const;

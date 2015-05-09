@@ -202,28 +202,6 @@ void write_preprocessed_isis_image( BaseOptions const& opt,
 
 }
 
-// TODO: This is identical to the DG-derived class functions!
-
-StereoSessionIsis::tx_type
-StereoSessionIsis::tx_left() const {
-  Matrix<double> tx = math::identity_matrix<3>();
-  if ( stereo_settings().alignment_method == "homography" ||
-       stereo_settings().alignment_method == "affineepipolar" ) {
-    read_matrix( tx, m_out_prefix + "-align-L.exr" );
-  }
-  return tx_type( tx );
-}
-
-StereoSessionIsis::tx_type
-StereoSessionIsis::tx_right() const {
-  Matrix<double> tx = math::identity_matrix<3>();
-  if ( stereo_settings().alignment_method == "homography" ||
-       stereo_settings().alignment_method == "affineepipolar" ) {
-    read_matrix( tx, m_out_prefix + "-align-R.exr" );
-  }
-  return tx_type( tx );
-}
-
 vw::cartography::Datum asp::StereoSessionIsis::get_datum(const vw::camera::CameraModel* cam) const
 {
   const IsisCameraModel * isis_cam = dynamic_cast<const IsisCameraModel*>(cam);
@@ -432,34 +410,6 @@ asp::StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file) {
   }
   return DiskImageView<PixelMask<Vector2f> >(dust_result);
 } // End function pre_pointcloud_hook(
-
-
-
-// General function for loading an ISIS camera model
-boost::shared_ptr<vw::camera::CameraModel>
-load_isis_camera_model(std::string const& image_file,
-                       std::string const& camera_file) {
-
-  if (boost::ends_with(boost::to_lower_copy(camera_file), ".isis_adjust")){
-    // Creating Equations for the files
-    std::ifstream input( camera_file.c_str() );
-    boost::shared_ptr<asp::BaseEquation> posF  = read_equation(input);
-    boost::shared_ptr<asp::BaseEquation> poseF = read_equation(input);
-    input.close();
-
-    // Finally creating camera model
-    return boost::shared_ptr<camera::CameraModel>(new IsisAdjustCameraModel(image_file, posF, poseF));
-  } else {
-    return boost::shared_ptr<camera::CameraModel>(new IsisCameraModel(image_file));
-  }
-} // End function load_isis_camera_model()
-
-
-boost::shared_ptr<vw::camera::CameraModel>
-asp::StereoSessionIsis::camera_model(std::string const& image_file,
-                                     std::string const& camera_file) {
-  return load_isis_camera_model(image_file, camera_file); // Just call the standalone function
-} // End function camera_model()
 
 
 
