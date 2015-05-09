@@ -33,7 +33,7 @@ namespace fs = boost::filesystem;
 using namespace vw;
 using namespace asp;
 using namespace vw::camera;
-
+/*
 StereoSessionNadirPinhole::tx_type
 StereoSessionNadirPinhole::tx_left() const {
   Matrix<double> tx = math::identity_matrix<3>();
@@ -53,7 +53,8 @@ StereoSessionNadirPinhole::tx_right() const {
   }
   return tx_type( tx );
 }
-
+*/
+/*
 // Go back from Pinhole IP matching to the base class IP matching
 bool StereoSessionNadirPinhole::ip_matching(std::string const& input_file1,
                                             std::string const& input_file2,
@@ -63,7 +64,7 @@ bool StereoSessionNadirPinhole::ip_matching(std::string const& input_file1,
                                             vw::camera::CameraModel* cam2){
   return StereoSession::ip_matching(input_file1, input_file2, nodata1, nodata2,
                                     match_filename, cam1, cam2);
-  /*
+  
   if (fs::exists(match_filename)) {
     vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
     return true;
@@ -81,9 +82,9 @@ bool StereoSessionNadirPinhole::ip_matching(std::string const& input_file1,
     vw_throw( IOErr() << "Unable to match left and right images." );
   }
   
-  return inlier;*/
+  return inlier;
 }
-
+*/
 //TODO: There is a lot of duplicate code here with the Pinhole class. Why the differences?
 
 void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_image_size,

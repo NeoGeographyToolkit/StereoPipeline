@@ -20,26 +20,24 @@
 ///
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>
-#include <vw/Math/Vector.h>
+#include <vw/Math.h>
+#include <vw/Camera.h>
 //#include <vw/Image/ImageViewRef.h>
 //#include <vw/Image/PixelMask.h>
 //#include <vw/Image/PixelTypeInfo.h>
 //#include <vw/FileIO/DiskImageResource.h>
 //#include <vw/FileIO/DiskImageView.h>
 
+
+#include <vw/Image/ImageViewRef.h>
+#include <vw/Image/MaskViews.h>
+#include <vw/Stereo/DisparityMap.h>
+
 #include <asp/asp_config.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Common.h>
 
-//#include <asp/Sessions/StereoSessionConcrete.h>
 
-// TODO: Remove these
-//#include <asp/Sessions/DG/StereoSessionDG.h>
-//#include <asp/Sessions/DGMapRPC/StereoSessionDGMapRPC.h>
-//#include <asp/Sessions/ISIS/StereoSessionIsis.h>
-//#include <asp/Sessions/NadirPinhole/StereoSessionNadirPinhole.h>
-//#include <asp/Sessions/Pinhole/StereoSessionPinhole.h>
-//#include <asp/Sessions/RPC/StereoSessionRPC.h>
 
 #include <asp/Sessions/RPC/RPCModel.h>
 
@@ -76,6 +74,8 @@
 #include <asp/Sessions/DG/XML.h>
 
 using namespace vw;
+
+using namespace vw::camera; // For the Pinhole load function
 
 namespace asp {
 
@@ -400,8 +400,8 @@ boost::shared_ptr<vw::camera::CameraModel>
 StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model(Int2Type<STEREOMODEL_TYPE_PINHOLE>, 
                                                                               std::string const& image_file, 
                                                                               std::string const& camera_file) {
-  return boost::shared_ptr<vw::camera::CameraModel>();
-/*
+  //return boost::shared_ptr<vw::camera::CameraModel>();
+
   if ( stereo_settings().alignment_method == "epipolar" ) {
     // Load the image
     DiskImageView<float> left_image (m_left_image_file );
@@ -475,7 +475,7 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model(In
     }
   } // End not epipolar case
   return boost::shared_ptr<vw::camera::CameraModel>(); // Never reached
-*/
+
 }
 
 
@@ -504,9 +504,6 @@ template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
 StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_left(Int2Type<DISKTRANSFORM_TYPE_MATRIX>) const {
-
-  vw_out() << "DEBUG: tx_left()\n";
-
   Matrix<double> tx = math::identity_matrix<3>();
   if ( stereo_settings().alignment_method == "homography" ||
        stereo_settings().alignment_method == "affineepipolar" ) {
@@ -525,6 +522,28 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DI
   }
   return tx_type( tx );
 }
+
+
+template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
+          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
+typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
+StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_left(Int2Type<DISKTRANSFORM_TYPE_MATRIX_RIGHT>) const {
+  Matrix<double> tx = math::identity_matrix<3>();
+  return tx_type( tx );
+}
+template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
+          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
+typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
+StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DISKTRANSFORM_TYPE_MATRIX_RIGHT>) const {
+  Matrix<double> tx = math::identity_matrix<3>();
+  if ( stereo_settings().alignment_method == "homography" ||
+       stereo_settings().alignment_method == "affineepipolar" ) {
+    read_matrix( tx, m_out_prefix + "-align-R.exr" );
+  }
+  return tx_type( tx );
+}
+
+
 
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>

@@ -53,8 +53,9 @@ namespace asp {
   /// List of disk transform options
   enum STEREOSESSION_DISKTRANSFORM_TYPE
   {
-    DISKTRANSFORM_TYPE_MATRIX      = 0, // Covers Homography, Affine-Epipolar, and None.
-    DISKTRANSFORM_TYPE_MAP_PROJECT = 1
+    DISKTRANSFORM_TYPE_MATRIX       = 0, // Covers Homography, Affine-Epipolar, and None.
+    DISKTRANSFORM_TYPE_MATRIX_RIGHT = 1, // As Matrix, but only for the right image.
+    DISKTRANSFORM_TYPE_MAP_PROJECT  = 2
   };
   /// List of stereo model options
   enum STEREOSESSION_STEREOMODEL_TYPE
@@ -83,11 +84,12 @@ namespace asp {
   /// Define the currently used names
   template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE, // Transform from disk pixels to sensor pixels
             STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE  > struct NameFromTypes       { static std::string name(){return("StereoSessionConcrete");} };
-  template <> struct NameFromTypes<DISKTRANSFORM_TYPE_MATRIX,      STEREOMODEL_TYPE_ISIS   > { static std::string name(){return("isis"     );} };
-  template <> struct NameFromTypes<DISKTRANSFORM_TYPE_MATRIX,      STEREOMODEL_TYPE_PINHOLE> { static std::string name(){return("pinhole"  );} }; // NadirPinhole needs to override
-  template <> struct NameFromTypes<DISKTRANSFORM_TYPE_MATRIX,      STEREOMODEL_TYPE_DG     > { static std::string name(){return("dg"       );} };
-  template <> struct NameFromTypes<DISKTRANSFORM_TYPE_MAP_PROJECT, STEREOMODEL_TYPE_DG     > { static std::string name(){return("dgmaprpc" );} };
-  template <> struct NameFromTypes<DISKTRANSFORM_TYPE_MAP_PROJECT, STEREOMODEL_TYPE_RPC    > { static std::string name(){return("rpcmaprpc");} };
+  template <> struct NameFromTypes<DISKTRANSFORM_TYPE_MATRIX,       STEREOMODEL_TYPE_ISIS   > { static std::string name(){return("isis"        );} };
+  template <> struct NameFromTypes<DISKTRANSFORM_TYPE_MATRIX_RIGHT, STEREOMODEL_TYPE_PINHOLE> { static std::string name(){return("pinhole"     );} };
+  template <> struct NameFromTypes<DISKTRANSFORM_TYPE_MATRIX,       STEREOMODEL_TYPE_PINHOLE> { static std::string name(){return("nadirpinhole");} };
+  template <> struct NameFromTypes<DISKTRANSFORM_TYPE_MATRIX,       STEREOMODEL_TYPE_DG     > { static std::string name(){return("dg"          );} };
+  template <> struct NameFromTypes<DISKTRANSFORM_TYPE_MAP_PROJECT,  STEREOMODEL_TYPE_DG     > { static std::string name(){return("dgmaprpc"    );} };
+  template <> struct NameFromTypes<DISKTRANSFORM_TYPE_MAP_PROJECT,  STEREOMODEL_TYPE_RPC    > { static std::string name(){return("rpcmaprpc"   );} };
 
   // TODO: Conversion functions from input strings
 
@@ -165,11 +167,13 @@ namespace asp {
     boost::shared_ptr<vw::camera::CameraModel> load_camera_model(Int2Type<STEREOMODEL_TYPE_RPC    >, std::string const& image_file, std::string const& camera_file="");
 
     // Specializations of disk transform method
-    tx_type tx_left (Int2Type<DISKTRANSFORM_TYPE_MATRIX     >) const;
-    tx_type tx_left (Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT>) const;
+    tx_type tx_left (Int2Type<DISKTRANSFORM_TYPE_MATRIX      >) const;
+    tx_type tx_left (Int2Type<DISKTRANSFORM_TYPE_MATRIX_RIGHT>) const;
+    tx_type tx_left (Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT >) const;
     
-    tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MATRIX     >) const;
-    tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT>) const;
+    tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MATRIX      >) const;
+    tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MATRIX_RIGHT>) const;
+    tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT >) const;
 
 
   };

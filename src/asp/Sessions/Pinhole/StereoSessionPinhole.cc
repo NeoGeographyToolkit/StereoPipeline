@@ -168,9 +168,9 @@ asp::StereoSessionPinhole::determine_image_align( std::string const& out_prefix,
 
   return T;
 }
-
+/*
 boost::shared_ptr<vw::camera::CameraModel>
-asp::StereoSessionPinhole::camera_model(std::string const& /*image_file*/,
+asp::StereoSessionPinhole::camera_model(std::string const& /*image_file*//*,
                                         std::string const& camera_file) {
   if ( stereo_settings().alignment_method == "epipolar" ) {
     // Load the image
@@ -246,9 +246,9 @@ asp::StereoSessionPinhole::camera_model(std::string const& /*image_file*/,
   } // End not epipolar case
   return boost::shared_ptr<vw::camera::CameraModel>(); // Never reached
 }
-
+*/
 // TODO: Should these functions be the same as DG and Nadir?
-
+/*
 asp::StereoSessionPinhole::tx_type
 asp::StereoSessionPinhole::tx_left() const {
   return tx_type( math::identity_matrix<3>() );
@@ -263,7 +263,7 @@ asp::StereoSessionPinhole::tx_right() const {
   }
   return tx_type( math::identity_matrix<3>() );
 }
-
+*/
 void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_size,
                                                        std::string const& left_input_file,
                                                        std::string const& right_input_file,
