@@ -27,6 +27,7 @@
 #include <vw/Stereo/DisparityMap.h>
 #include <asp/Tools/stereo.h>
 #include <asp/Sessions/RPC/RPCModel.h>
+#include <asp/Sessions/StereoSessionFactory.h>
 
 #include <boost/accumulators/accumulators.hpp>
 #include <boost/accumulators/statistics.hpp>
@@ -435,12 +436,10 @@ namespace asp {
     }
 
     // The StereoSession call automatically determines the type of object to create from the input parameters.
-    opt.session.reset(asp::StereoSession::create(opt.stereo_session_string,// i/o
-                                                 opt, opt.in_file1,
-                                                 opt.in_file2,
-                                                 opt.cam_file1, opt.cam_file2,
-                                                 opt.out_prefix,
-                                                 opt.input_dem));
+    opt.session.reset(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,// i/o
+                                                        opt.in_file1,   opt.in_file2,
+                                                        opt.cam_file1,  opt.cam_file2,
+                                                        opt.out_prefix, opt.input_dem));
     user_safety_checks(opt);
 
     // The last thing we do before we get started is to copy the

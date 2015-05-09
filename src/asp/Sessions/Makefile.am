@@ -22,9 +22,11 @@
 
 if MAKE_MODULE_SESSIONS
 
-include_HEADERS = StereoSession.h
+include_HEADERS = StereoSession.h StereoSessionFactory.h
+# StereoSessionConcrete.h
+# StereoSessionConcrete.cc
 
-libaspSessions_la_SOURCES = StereoSession.cc				\
+libaspSessions_la_SOURCES = StereoSession.cc 				\
 Pinhole/StereoSessionPinhole.cc DG/StereoSessionDG.cc DG/XMLBase.cc	\
 DG/XML.cc RPC/StereoSessionRPC.cc RPC/RPCStereoModel.cc			\
 RPC/RPCModel.cc RPC/RPCModelGen.cc		\

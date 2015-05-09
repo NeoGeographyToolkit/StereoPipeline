@@ -21,7 +21,7 @@
 
 #include <asp/Core/Macros.h>
 #include <asp/Tools/bundle_adjust.h>
-#include <asp/Sessions/StereoSession.h>
+#include <asp/Sessions.h>
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
 
@@ -915,11 +915,11 @@ int main(int argc, char* argv[]) {
     // session type.
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
     SessionPtr session
-      (asp::StereoSession::create(opt.stereo_session_string, opt,
-                                  opt.image_files[0], opt.image_files[1],
-                                  opt.camera_files[0], opt.camera_files[1],
-                                  opt.out_prefix
-                                  ));
+      (asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
+                                         opt.image_files[0], opt.image_files[1],
+                                         opt.camera_files[0], opt.camera_files[1],
+                                         opt.out_prefix
+                                         ));
     
     // Read in the camera model and image info for the input images.
     for (int i = 0; i < num_images; i++){

@@ -38,6 +38,8 @@
 #include <asp/Sessions/NadirPinhole/StereoSessionNadirPinhole.h>
 #include <asp/Sessions/Pinhole/StereoSessionPinhole.h>
 #include <asp/Sessions/RPC/StereoSessionRPC.h>
+#include <asp/Sessions/StereoSessionConcrete.h>
+
 #include <asp/Sessions/StereoSession.h>
 
 #include <map>
@@ -48,11 +50,6 @@
 
 using namespace vw;
 
-/// This creates an anonymous namespace where the lookup table for stereo sessions lives.
-namespace {
-  typedef std::map<std::string, asp::StereoSession::construct_func> ConstructMapType;
-  ConstructMapType *stereo_session_construct_map = 0;
-}
 
 /// Allows FileIO to correctly read/write these pixel types
 namespace vw {
@@ -79,122 +76,6 @@ namespace asp {
     m_out_prefix        = out_prefix;
     m_input_dem         = input_dem;
   }
-
-  /// Register all known StereoSession types the first time this is called.
-  static void register_default_session_types() {
-    // Only resgister the sessions once.
-    static bool already = false;
-    if (already) 
-      return;
-    already = true;
-    
-    StereoSession::register_session_type( "dg",           &StereoSessionDG::construct           );
-    StereoSession::register_session_type( "dgmaprpc",     &StereoSessionDGMapRPC::construct     );
-    StereoSession::register_session_type( "nadirpinhole", &StereoSessionNadirPinhole::construct );
-    StereoSession::register_session_type( "pinhole",      &StereoSessionPinhole::construct      );
-    StereoSession::register_session_type( "rpc",          &StereoSessionRPC::construct          );
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-    asp::StereoSession::register_session_type( "isis", &asp::StereoSessionIsis::construct);
-#endif
-  }
-
-  // TODO: Update this code to handle the new input options!
-
-  // TODO: Maybe most of the logic in this function should be somewhere else?
-  //       Maybe a new StereoSessionFactory file.
-  // This is called from stereo.cc line 436
-  StereoSession* StereoSession::create(std::string      & session_type, // in-out variable
-                                       BaseOptions const& options,
-                                       std::string const& left_image_file,
-                                       std::string const& right_image_file,
-                                       std::string const& left_camera_file,
-                                       std::string const& right_camera_file,
-                                       std::string const& out_prefix,
-                                       std::string const& input_dem) {
-    // Register all known StereoSession types  
-    register_default_session_types(); 
-
-    // Known user session types are:
-    // DG, RPC, ISIS, Pinhole, NadirPinhole
-    //
-    // Hidden sessions are:
-    // DGMapRPC, Blank (Guessing)
-
-    // Try to guess the session if not provided
-    std::string actual_session_type = session_type;
-    boost::to_lower(actual_session_type);
-    if (actual_session_type.empty()) {
-      if (asp::has_cam_extension(left_camera_file ) ||
-          asp::has_cam_extension(right_camera_file)   ) {
-        actual_session_type = "pinhole";
-      }
-      if (boost::iends_with(boost::to_lower_copy(left_image_file  ), ".cub") ||
-          boost::iends_with(boost::to_lower_copy(right_image_file ), ".cub") ||
-          boost::iends_with(boost::to_lower_copy(left_camera_file ), ".cub") ||
-          boost::iends_with(boost::to_lower_copy(right_camera_file), ".cub") ) {
-        actual_session_type = "isis";
-      }
-      if (boost::iends_with(boost::to_lower_copy(left_camera_file ), ".xml") ||
-          boost::iends_with(boost::to_lower_copy(right_camera_file), ".xml") ) {
-        actual_session_type = "dg";
-      }
-    }
-    
-    if (!input_dem.empty() && actual_session_type == "dg") {
-      // User says DG .. but also gives a DEM.
-      actual_session_type = "dgmaprpc";
-      VW_OUT(DebugMessage,"asp") << "Changing session type to: dgmaprpc" << std::endl;
-    }
-    
-    try {
-      if (actual_session_type.empty()) {
-        // RPC can be in the main file or it can be in the camera file.
-        // DG sessions are always RPC sessions because they contain that
-        //   as an extra camera model. Thus this RPC check must happen last.
-        StereoSessionRPC session;
-        boost::shared_ptr<camera::CameraModel>
-          left_model  = session.camera_model(left_image_file,  left_camera_file ),
-          right_model = session.camera_model(right_image_file, right_camera_file);
-        actual_session_type = "rpc";
-      }
-    } catch (vw::NotFoundErr const& e) {
-      // If it throws, it wasn't RPC
-    } catch (...) {
-      // It didn't even have XML!
-    }
-
-    // We should know the session type by now.
-    VW_ASSERT(!actual_session_type.empty(),
-              ArgumentErr() << "Could not determine stereo session type. "
-              << "Please set it explicitly using the -t switch.\n"
-              << "Options include: [pinhole isis dg rpc].\n");
-    VW_OUT(DebugMessage,"asp") << "Using session: " << actual_session_type << std::endl;
-    
-    if(stereo_session_construct_map) {
-      // Search for the specified session type in the static list of registered types
-      ConstructMapType::const_iterator i = stereo_session_construct_map->find(actual_session_type);
-      if( i != stereo_session_construct_map->end() ) { // If we found the session
-        StereoSession* session_new = i->second(); // Call the constructor function
-        session_new->initialize( options,         // Initialize the new object
-                                 left_image_file,  right_image_file,
-                                 left_camera_file, right_camera_file,
-                                 out_prefix, input_dem );
-        session_type = session_new->name();
-        return session_new;
-      }
-    }
-    // If we got here then we do not recognize the specified session type!
-    vw_throw(vw::NoImplErr() << "Unsuppported stereo session type: " << session_type);
-    return 0; // never reached
-  }
-
-  void StereoSession::register_session_type( std::string const& id, StereoSession::construct_func func) {
-    if(!stereo_session_construct_map)
-      stereo_session_construct_map = new ConstructMapType();
-    stereo_session_construct_map->insert( std::make_pair( id, func ) );
-  }
-
-
 
   // A default IP matching implementation that derived classes can uses
   bool StereoSession::ip_matching(std::string const& input_file1,
@@ -223,8 +104,6 @@ namespace asp {
     }
     return inlier;
   }
-
-
 
 
 

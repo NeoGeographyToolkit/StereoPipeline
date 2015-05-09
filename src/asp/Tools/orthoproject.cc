@@ -298,12 +298,12 @@ int main(int argc, char* argv[]) {
     // missions.  Hence, we create two identical camera models, but
     // only one is used.
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-    SessionPtr session( asp::StereoSession::create(opt.stereo_session, // in-out
-                                                   opt,
-                                                   opt.image_file, opt.image_file,
-                                                   opt.camera_model_file,
-                                                   opt.camera_model_file,
-                                                   opt.output_file) );
+    SessionPtr session( asp::StereoSessionFactory::create(opt.stereo_session, // in-out
+                                                           opt,
+                                                           opt.image_file, opt.image_file,
+                                                           opt.camera_model_file,
+                                                           opt.camera_model_file,
+                                                           opt.output_file) );
 
     if (session->name() == "isis" && opt.output_file.empty() ){
       // The user did not provide an output file. Then the camera

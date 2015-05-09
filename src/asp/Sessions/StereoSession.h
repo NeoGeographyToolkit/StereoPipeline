@@ -147,13 +147,15 @@ namespace asp {
      
   */
   
-  
+  // Forward declare this class for constructing StereoSession objects
+  class StereoSessionFactory;
   
   /// Stereo Sessions define for different missions or satellites how to:
   ///   * Initialize, normalize, and align the input imagery
   ///   * Extract the camera model
   ///   * Custom code needed for correlation, filtering, and triangulation.
   class StereoSession {
+    friend class StereoSessionFactory; // Needed so the factory can call initialize()
   protected:
     asp::BaseOptions m_options;
     std::string      m_left_image_file, 
@@ -174,24 +176,8 @@ namespace asp {
   public:
     virtual ~StereoSession() {}
 
-    /// Methods for registering and creating stereo sessions.
-    static StereoSession* create(std::string & session_type, // in-out variable
-                                 BaseOptions const& options,
-                                 std::string const& left_image_file   = "",
-                                 std::string const& right_image_file  = "",
-                                 std::string const& left_camera_file  = "",
-                                 std::string const& right_camera_file = "",
-                                 std::string const& out_prefix        = "",
-                                 std::string const& input_dem         = "");
-    
     /// Simple typedef of a factory function that creates a StereoSession instance
     typedef StereoSession* (*construct_func)();
-    
-    /// Define a type of stereo session object with the function call to create it.
-    /// - These are stored in a static variable defined in the cpp file.
-    /// - A list containing all the current session types is hardcoded in the cpp file
-    ///   and run when the first StereoSession is created.
-    static void register_session_type( std::string const& id, construct_func func);
 
     /// Helper function that retrieves both cameras.
     virtual void camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,

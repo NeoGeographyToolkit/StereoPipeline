@@ -29,6 +29,7 @@ using namespace vw::cartography;
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
+#include <asp/Sessions.h>
 #include <asp/Sessions/DG/StereoSessionDG.h>
 #include <asp/Sessions/DG/XML.h>
 #include <asp/asp_config.h>
@@ -240,17 +241,16 @@ int main( int argc, char* argv[] ) {
     // We create a stereo session where both of the cameras and images
     // are the same, because we want to take advantage of the stereo
     // pipeline's ability to generate camera models for various
-    // missions.  Hence, we create two identical camera models, but
-    // only one is used.
+    // missions.  Hence, we create two identical camera models, but only one is used.
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-    SessionPtr session( asp::StereoSession::create(opt.stereo_session, // in-out
-                                                   opt,
-                                                   opt.image_file, opt.image_file,
-                                                   opt.camera_model_file,
-                                                   opt.camera_model_file,
-                                                   opt.output_file,
-                                                   opt.dem_file
-                                                   ) );
+    SessionPtr session( asp::StereoSessionFactory::create(opt.stereo_session, // in-out
+                                                          opt,
+                                                          opt.image_file, opt.image_file,
+                                                          opt.camera_model_file,
+                                                          opt.camera_model_file,
+                                                          opt.output_file,
+                                                          opt.dem_file
+                                                          ) );
 
     if (session->name() == "isis" && opt.output_file.empty() ){
       // The user did not provide an output file. Then the camera
