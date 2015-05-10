@@ -24,7 +24,8 @@
 #ifndef __STEREO_SESSION_DGMAPRPC_H__
 #define __STEREO_SESSION_DGMAPRPC_H__
 
-#include <asp/Sessions/DG/StereoSessionDG.h>
+//#include <asp/Sessions/DG/StereoSessionDG.h>
+#include <asp/Sessions/StereoSessionConcrete.h>
 #include <vw/Cartography/Map2CamTrans.h>
 #include <vw/Image/Transform.h>
 
@@ -39,38 +40,16 @@ namespace asp {
      losing any functionality.
   */
   
-  class RPCModel;
-/*
-  // TODO: Delete this class, just use Map2CamTrans!
-  /// Specialize CompositionTransform that allows passing of BBox so Map2CamTrans can cache itself.
-  template <class Tx1T, class Tx2T>
-  class CompositionTransformPassBBox : public vw::TransformBase<CompositionTransformPassBBox<Tx1T,Tx2T> > {
-  public:
-    CompositionTransformPassBBox(Tx1T const& tx1, Tx2T const& tx2) : tx1(tx1), tx2(tx2) {}
-
-    Tx1T tx1; // Be sure to copy!
-    Tx2T tx2; // public so that we can invoke caching manually for Map2CamTrans
-
-    // Forward and reverse chained transforms
-    inline vw::Vector2 forward(vw::Vector2 const& p) const { return tx1.forward( tx2.forward( p ) ); }
-    inline vw::Vector2 reverse(vw::Vector2 const& p) const { return tx2.reverse( tx1.reverse( p ) ); }
-
-    // Reverse bbox transform chained
-    inline vw::BBox2i reverse_bbox( vw::BBox2i const& bbox ) const {
-      return this->tx2.reverse_bbox(this->tx1.reverse_bbox(bbox));
-    }
-  };
-*/
-  
+  //class RPCModel; 
   
   
   /// Specialization of the StereoSessionDG class to use map-projected inputs with the RPC sensor model.
-  class StereoSessionDGMapRPC : public StereoSessionDG {
+  class StereoSessionDGMapRPC : public StereoSessionConcrete<DISKTRANSFORM_TYPE_MAP_PROJECT, STEREOMODEL_TYPE_DG> {//StereoSessionDG {
   public:
     StereoSessionDGMapRPC(){};
     virtual ~StereoSessionDGMapRPC(){};
 
-    
+    /*
     /// Initializer verifies that the input is map projected
     virtual void initialize(BaseOptions const& options,
                             std::string const& left_image_file,
@@ -79,7 +58,7 @@ namespace asp {
                             std::string const& right_camera_file,
                             std::string const& out_prefix,
                             std::string const& input_dem);
-
+*/
     virtual std::string name() const { return "dgmaprpc"; }
 
     /// Disable this function 
@@ -90,7 +69,7 @@ namespace asp {
                              std::string const& match_filename,
                              vw::camera::CameraModel* cam1,
                              vw::camera::CameraModel* cam2);
-
+/*
     /// Transforms from pixel coordinates on disk to original unwarped image coordinates.
     /// - For reversing the arithmetic applied in preprocessing plus the map projection.
     /// - This combines the homography/affineEpipolar transform with the map-to-camera transform
@@ -99,13 +78,14 @@ namespace asp {
     typedef vw::stereo::StereoModel       stereo_model_type;
     tx_type tx_left () const;
     tx_type tx_right() const;
-
+*/
     static StereoSession* construct() { return new StereoSessionDGMapRPC; }
-
+/*
     // TODO: Why is this public?
     /// RPC camera models used only in the tx_left and tx_right functions.
     /// - Read in initialize()
     boost::shared_ptr<RPCModel> m_left_model, m_right_model;
+*/
   };
 
 }

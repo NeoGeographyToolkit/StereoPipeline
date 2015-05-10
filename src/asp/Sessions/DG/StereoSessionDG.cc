@@ -57,33 +57,10 @@ namespace vw {
   template<> struct PixelFormatID<Vector2f>  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_2_CHANNEL; };
 }
 
-// TODO: Move the Boost time functions!
-
-// Helper class for converting to floating point seconds based on a given reference.
-class SecondsFrom {
-  pt::ptime m_reference;
-public:
-  SecondsFrom( pt::ptime const& time ) : m_reference(time) {}
-
-  double operator()( pt::ptime const& time ) const {
-    return double( (time - m_reference).total_microseconds() ) / 1e6;
-  }
-};
-
 
 namespace asp {
 
-  /// Wrapper around boost::posix_time::time_from_string()
-  pt::ptime parse_time(std::string str){
-    try{
-      return pt::time_from_string(str);
-    }catch(...){
-      vw_throw(ArgumentErr() << "Failed to parse time from string: " << str << "\n");
-    }
-    return pt::time_from_string(str); // Never reached!
-  }
-
-
+/*
   // These are initializers and closers for Xercesc since we use it to read our (XML) RPC models.
   StereoSessionDG::StereoSessionDG() {
     XMLPlatformUtils::Initialize();
@@ -95,7 +72,7 @@ namespace asp {
 
   // Provide our camera model
   boost::shared_ptr<camera::CameraModel>
-  StereoSessionDG::camera_model( std::string const& /*image_file*/,
+  StereoSessionDG::camera_model( std::string const& /*image_file*//*,
                                  std::string const& camera_file ) {
     return load_dg_camera_model(camera_file); // Call the standalone function
   } // End function camera_model()
@@ -121,7 +98,7 @@ namespace asp {
     }
     return tx_type( tx );
   }
-
+*/
   void StereoSessionDG::pre_preprocessing_hook(bool adjust_left_image_size,
                                                std::string const& left_input_file,
                                                std::string const& right_input_file,
@@ -266,6 +243,31 @@ namespace asp {
 
 //-------------------------------------------------------------------------------------
 
+
+/*
+// TODO: Move the Boost time functions!
+
+// Helper class for converting to floating point seconds based on a given reference.
+class SecondsFrom {
+  pt::ptime m_reference;
+public:
+  SecondsFrom( pt::ptime const& time ) : m_reference(time) {}
+
+  double operator()( pt::ptime const& time ) const {
+    return double( (time - m_reference).total_microseconds() ) / 1e6;
+  }
+};
+
+/// Wrapper around boost::posix_time::time_from_string()
+pt::ptime parse_time(std::string str){
+  try{
+    return pt::time_from_string(str);
+  }catch(...){
+    vw_throw(ArgumentErr() << "Failed to parse time from string: " << str << "\n");
+  }
+  return pt::time_from_string(str); // Never reached!
+}
+
 boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model(std::string const& camera_file)
 {
 
@@ -303,7 +305,7 @@ boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model(std::string cons
     // be the rotation from camera frame to world frame. We also add an
     // additional rotation to the camera frame so X is the horizontal
     // direction to the picture and +Y points down the image (in the direction of flight).
-    Quat sensor_coordinate = math::euler_xyz_to_quaternion(Vector3(0,0,geo.detector_rotation /* *M_PI/180.0 */ - M_PI/2));
+    Quat sensor_coordinate = math::euler_xyz_to_quaternion(Vector3(0,0,geo.detector_rotation /* *M_PI/180.0 *//* - M_PI/2));
     for ( size_t i = 0; i < eph.position_vec.size(); i++ ) {
       eph.position_vec[i] += att.quat_vec[i].rotate( geo.perspective_center );
       att.quat_vec[i] = att.quat_vec[i] * geo.camera_attitude * sensor_coordinate;
@@ -345,7 +347,7 @@ boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model(std::string cons
                                                  0, 2),
                                        geo.principal_distance, correct_velocity_aberration)
                       );
-}
+}*/
 
 
 

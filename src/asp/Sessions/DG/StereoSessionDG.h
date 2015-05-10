@@ -23,15 +23,16 @@
 #ifndef __STEREO_SESSION_DG_H__
 #define __STEREO_SESSION_DG_H__
 
-#include <asp/Sessions/StereoSession.h>
+//#include <asp/Sessions/StereoSession.h>
+#include <asp/Sessions/StereoSessionConcrete.h>
 #include <vw/Stereo/StereoModel.h>
 
 namespace asp {
 
   /// StereoSession implementation for Digital Globe images.
-  class StereoSessionDG : public StereoSession {
+  class StereoSessionDG : public StereoSessionConcrete<DISKTRANSFORM_TYPE_MATRIX, STEREOMODEL_TYPE_DG> { //StereoSession {
 
-  public:
+  public:/*
     StereoSessionDG();
     virtual ~StereoSessionDG();
 
@@ -39,16 +40,16 @@ namespace asp {
     virtual boost::shared_ptr<vw::camera::CameraModel>
       camera_model(std::string const& image_file,
                    std::string const& camera_file = "");
-
+*/
     virtual std::string name() const { return "dg"; }
-
+/*
     /// Transforms from pixel coordinates on disk to original unwarped image coordinates.
     /// - For reversing our arithmetic applied in preprocessing.
     typedef vw::HomographyTransform tx_type;
     typedef vw::stereo::StereoModel stereo_model_type;
     tx_type tx_left () const;
     tx_type tx_right() const;
-
+*/
     /// Stage 1: Preprocessing
     ///
     /// Pre file is a pair of images.            ( ImageView<PixelT> )
@@ -64,11 +65,11 @@ namespace asp {
     /// Simple factory function
     static StereoSession* construct() { return new StereoSessionDG; }
   };
-
+/*
   /// Load a Digital Globe camera model from an XML file
   /// - Probably need to call XMLPlatformUtils::Initialize() before using this function.
   boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model(std::string const& camera_file);
-
+*/
 
 } // End namespace asp
 

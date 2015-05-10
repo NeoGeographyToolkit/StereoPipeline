@@ -110,7 +110,7 @@ namespace asp {
 
     StereoSessionConcrete();
     virtual ~StereoSessionConcrete();
-/*
+
     /// Verify that the inputs needed by the template configuration are selected
     /// - Derived classes should call this before initializing their own behavior.
     virtual void initialize(BaseOptions const& options,
@@ -120,7 +120,7 @@ namespace asp {
                             std::string const& right_camera_file,
                             std::string const& out_prefix,
                             std::string const& input_dem);
-*/
+
 /*
     /// This class guesses the name but derived classes may still need to override.
     virtual std::string name() const { return NameFromTypes<DISKTRANSFORM_TYPE, STEREOMODEL_TYPE>::name(); }
@@ -157,8 +157,9 @@ namespace asp {
     void init_sensor_model(Int2Type<STEREOMODEL_TYPE_RPC    >) {} // ditto.
 
     // Init calls for the chosen disk transform
-    void init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MATRIX     >) {}
-    void init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT>); // Needs to load the map_proj_models
+    void init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MATRIX      >) {}
+    void init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MATRIX_RIGHT>) {}
+    void init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT >); // Needs to load the map_proj_models
 
     // Specializations of camera_model for each of the different model types
     boost::shared_ptr<vw::camera::CameraModel> load_camera_model(Int2Type<STEREOMODEL_TYPE_PINHOLE>, std::string const& image_file, std::string const& camera_file="");

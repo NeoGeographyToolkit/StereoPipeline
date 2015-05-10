@@ -85,17 +85,17 @@ namespace asp {
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::StereoSessionConcrete() {
-  //xercesc::XMLPlatformUtils::Initialize();
+  xercesc::XMLPlatformUtils::Initialize();
 }
 
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::~StereoSessionConcrete() {
-  //xercesc::XMLPlatformUtils::Terminate();
+  xercesc::XMLPlatformUtils::Terminate();
 }
 
 
-/*
+
 // Overwrite this function so we can insert additional init code
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
@@ -119,7 +119,7 @@ void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
   init_disk_transform(Int2Type<DISKTRANSFORM_TYPE>());
 
 }
-*/
+
 
 
 
@@ -155,15 +155,15 @@ inline RPCModel* read_rpc_model(std::string const& image_file,
 
 
 
-/*
+
 // TODO: Move this!
 /// Helper class for converting to floating point seconds based on a given reference.
 class SecondsFrom {
   boost::posix_time::ptime m_reference;
 public:
-  SecondsFrom( boost::posix_time::ptime const& time ) : m_reference(time) {}
+  inline SecondsFrom( boost::posix_time::ptime const& time ) : m_reference(time) {}
 
-  double operator()( boost::posix_time::ptime const& time ) const {
+  inline double operator()( boost::posix_time::ptime const& time ) const {
     return double( (time - m_reference).total_microseconds() ) / 1e6;
   }
 };
@@ -177,8 +177,8 @@ inline boost::posix_time::ptime parse_time(std::string str){
   }
   return boost::posix_time::time_from_string(str); // Never reached!
 }
-*/
-/*
+
+
 inline boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model(std::string const& camera_file)
 {
   // Parse the Digital Globe XML file
@@ -262,7 +262,7 @@ inline boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model(std::stri
                     );
 } // End function load_dg_camera_model()
 
-*/
+
 
 
 
@@ -381,8 +381,8 @@ boost::shared_ptr<vw::camera::CameraModel>
 StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model(Int2Type<STEREOMODEL_TYPE_DG>, 
                                                                               std::string const& image_file, 
                                                                               std::string const& camera_file) {
-  //return load_dg_camera_model(camera_file); // Call the standalone function
-  return boost::shared_ptr<vw::camera::CameraModel>(); //DEBUG
+  return load_dg_camera_model(camera_file); // Call the standalone function
+  //return boost::shared_ptr<vw::camera::CameraModel>(); //DEBUG
 }
 
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
@@ -400,8 +400,6 @@ boost::shared_ptr<vw::camera::CameraModel>
 StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model(Int2Type<STEREOMODEL_TYPE_PINHOLE>, 
                                                                               std::string const& image_file, 
                                                                               std::string const& camera_file) {
-  //return boost::shared_ptr<vw::camera::CameraModel>();
-
   if ( stereo_settings().alignment_method == "epipolar" ) {
     // Load the image
     DiskImageView<float> left_image (m_left_image_file );

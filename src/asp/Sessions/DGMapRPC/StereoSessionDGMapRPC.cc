@@ -28,7 +28,7 @@
 using namespace vw;
 using namespace asp;
 namespace fs = boost::filesystem;
-
+/*
 // Initializer to determine what kind of input we have.
 void StereoSessionDGMapRPC::initialize(BaseOptions const& options,
                                        std::string const& left_image_file,
@@ -57,7 +57,7 @@ void StereoSessionDGMapRPC::initialize(BaseOptions const& options,
   // Verify that center of our lonlat boundaries from the RPC models
   // actually projects into the DEM. (?)
 }
-
+*/
 bool StereoSessionDGMapRPC::ip_matching(std::string const& input_file1,
                                         std::string const& input_file2,
                                         float nodata1, float nodata2,
@@ -76,7 +76,7 @@ bool StereoSessionDGMapRPC::ip_matching(std::string const& input_file1,
   vw_throw( ArgumentErr() << "StereoSessionDGMapRPC: IP matching is not implemented as no alignment is applied to map-projected images.");
 }
 
-
+/*
 // TODO: Are these functions generalizable to any map projected input image?
 
 StereoSessionDGMapRPC::tx_type
@@ -86,7 +86,7 @@ StereoSessionDGMapRPC::tx_left() const {
   if ( stereo_settings().alignment_method == "homography"    ||
        stereo_settings().alignment_method == "affineepipolar" ) {
     read_matrix( tx_align, m_out_prefix + "-align-L.exr" );
-  }*/
+  }*//*
 
   // Read in data necessary for the Map2CamTrans object
   cartography::GeoReference dem_georef, image_georef;
@@ -111,7 +111,7 @@ StereoSessionDGMapRPC::tx_left() const {
                                            call_from_mapproject
                                           ),
                  HomographyTransform(tx_align) 
-                );*/
+                );*//*
 }
 
 StereoSessionDGMapRPC::tx_type
@@ -121,7 +121,7 @@ StereoSessionDGMapRPC::tx_right() const {
   if ( stereo_settings().alignment_method == "homography" ||
        stereo_settings().alignment_method == "affineepipolar" ) {
     read_matrix( tx_align, m_out_prefix + "-align-R.exr" );
-  }*/
+  }*//*
 
   // Read in data necessary for the Map2CamTrans object
   cartography::GeoReference dem_georef, image_georef;
@@ -147,5 +147,5 @@ StereoSessionDGMapRPC::tx_right() const {
                                            call_from_mapproject
                                           ),
                  HomographyTransform(tx_align) 
-                );*/
-}
+                );*//*
+}*/

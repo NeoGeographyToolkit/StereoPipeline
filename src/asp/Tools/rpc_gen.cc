@@ -39,7 +39,7 @@ using namespace vw;
 using namespace asp;
 using namespace xercesc;
 
-struct Options : asp::BaseOptions {
+struct RPC_gen_Options : asp::BaseOptions {
   // Input
   std::string camera_model;
   // Settings
@@ -47,7 +47,7 @@ struct Options : asp::BaseOptions {
   BBox3 lon_lat_height_box;
 };
 
-void handle_arguments( int argc, char *argv[], Options& opt ) {
+void handle_arguments( int argc, char *argv[], RPC_gen_Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
     ("penalty-weight", po::value(&opt.penalty_weight)->default_value(0.1),
@@ -87,7 +87,7 @@ void print_vec(std::string const& name, Vector<double> const& vals){
 
 int main( int argc, char* argv[] ) {
 
-  Options opt;
+  RPC_gen_Options opt;
   try {
     handle_arguments( argc, argv, opt );
 
