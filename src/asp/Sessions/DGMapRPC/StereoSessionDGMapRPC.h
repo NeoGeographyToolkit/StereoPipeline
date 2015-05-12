@@ -24,8 +24,8 @@
 #ifndef __STEREO_SESSION_DGMAPRPC_H__
 #define __STEREO_SESSION_DGMAPRPC_H__
 
-//#include <asp/Sessions/DG/StereoSessionDG.h>
 #include <asp/Sessions/StereoSessionConcrete.h>
+#include <asp/Sessions/DG/StereoSessionDG.h>
 #include <vw/Cartography/Map2CamTrans.h>
 #include <vw/Image/Transform.h>
 
@@ -44,7 +44,7 @@ namespace asp {
   
   
   /// Specialization of the StereoSessionDG class to use map-projected inputs with the RPC sensor model.
-  class StereoSessionDGMapRPC : public StereoSessionConcrete<DISKTRANSFORM_TYPE_MAP_PROJECT, STEREOMODEL_TYPE_DG> {//StereoSessionDG {
+  class StereoSessionDGMapRPC : public StereoSessionGdal<DISKTRANSFORM_TYPE_MAP_PROJECT, STEREOMODEL_TYPE_DG>  { //StereoSessionDG {
   public:
     StereoSessionDGMapRPC(){};
     virtual ~StereoSessionDGMapRPC(){};
@@ -60,7 +60,7 @@ namespace asp {
                             std::string const& input_dem);
 */
     virtual std::string name() const { return "dgmaprpc"; }
-
+/*
     /// Disable this function 
     /// - IP matching is not needed because alignment is not supported for map projected images!
     virtual bool ip_matching(std::string const& input_file1,
@@ -69,6 +69,7 @@ namespace asp {
                              std::string const& match_filename,
                              vw::camera::CameraModel* cam1,
                              vw::camera::CameraModel* cam2);
+*/
 /*
     /// Transforms from pixel coordinates on disk to original unwarped image coordinates.
     /// - For reversing the arithmetic applied in preprocessing plus the map projection.

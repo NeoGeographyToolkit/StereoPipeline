@@ -120,8 +120,26 @@ void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
 
 }
 
+// For non map projected inputs, keep the same default function as the base class.  Otherwise throw!
+template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
+          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
+inline bool StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
+ip_matching(std::string const& input_file1,
+            std::string const& input_file2,
+            float nodata1, float nodata2,
+            std::string const& match_filename,
+            vw::camera::CameraModel* cam1,
+            vw::camera::CameraModel* cam2)
+{
+  if (IsTypeMapProjected<DISKTRANSFORM_TYPE>::value) {
+    vw_throw( vw::ArgumentErr() << "StereoSessionConcrete: IP matching is not implemented as no alignment is applied to map-projected images.");
+    return false;
+  }
+  else // Inputs are not map projected
+    return StereoSession::ip_matching(input_file1, input_file2, nodata1, nodata2, match_filename, cam1, cam2);
+}
 
-
+//---------------------------------------------------------------------------
 
 // Helper function to read RPC models. TODO MOVE THIS!!!!!!!!!!!!!!!!!!
 inline RPCModel* read_rpc_model(std::string const& image_file,
@@ -533,12 +551,12 @@ template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
 StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DISKTRANSFORM_TYPE_MATRIX_RIGHT>) const {
-  Matrix<double> tx = math::identity_matrix<3>();
-  if ( stereo_settings().alignment_method == "homography" ||
-       stereo_settings().alignment_method == "affineepipolar" ) {
-    read_matrix( tx, m_out_prefix + "-align-R.exr" );
+  if ( stereo_settings().alignment_method == "homography" ) {
+    Matrix<double> align_matrix;
+    read_matrix( align_matrix, m_out_prefix + "-align-R.exr" );
+    return tx_type( align_matrix );
   }
-  return tx_type( tx );
+  return tx_type( math::identity_matrix<3>() );
 }
 
 

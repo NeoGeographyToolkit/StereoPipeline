@@ -98,12 +98,13 @@ namespace asp {
     }
     return tx_type( tx );
   }
-*/
-  void StereoSessionDG::pre_preprocessing_hook(bool adjust_left_image_size,
-                                               std::string const& left_input_file,
-                                               std::string const& right_input_file,
-                                               std::string &left_output_file,
-                                               std::string &right_output_file) {
+*//*
+  template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE>
+  inline void StereoSessionDG<DISKTRANSFORM_TYPE>::pre_preprocessing_hook(bool adjust_left_image_size,
+                                                                   std::string const& left_input_file,
+                                                                   std::string const& right_input_file,
+                                                                   std::string &left_output_file,
+                                                                   std::string &right_output_file) {
     // Get input image handles
     boost::shared_ptr<DiskImageResource>
       left_rsrc (DiskImageResource::open(m_left_image_file )),
@@ -240,7 +241,7 @@ namespace asp {
                               output_nodata, options,
                               TerminalProgressCallback("asp","\t  R:  ") );
   } // End function pre_preprocessing_hook
-
+*/
 //-------------------------------------------------------------------------------------
 
 

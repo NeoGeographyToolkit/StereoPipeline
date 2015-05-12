@@ -33,7 +33,7 @@ using namespace vw;
 using namespace asp;
 
 namespace asp {
-
+/*
   // Provide our camera model
   boost::shared_ptr<camera::CameraModel>
   StereoSessionRPC::camera_model(std::string const& image_file,
@@ -67,4 +67,5 @@ namespace asp {
     }
     return rpc_model;
   }
+*/
 } // namespace asp

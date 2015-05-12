@@ -368,7 +368,7 @@ void stereo_triangulation( string          const& output_prefix,
       
       boost::shared_ptr<SessionT> sPtr = boost::dynamic_pointer_cast<SessionT>(opt_vec[p].session);
       
-      if (p == 0){
+      if (p == 0){ // The first image is the "left" image for all pairs.
         images.push_back(opt_vec[p].in_file1);
         cameras.push_back(camera_model1);
         transforms.push_back(sPtr->tx_left());
@@ -536,6 +536,10 @@ int main( int argc, char* argv[] ) {
     //---------------------------------------------------------
 #define INSTANTIATE(T,NAME) if ( opt_vec[0].session->name() == NAME ) { \
       stereo_triangulation<T>(output_prefix, opt_vec); }
+
+
+    vw_out() << opt_vec[0].session->name() << " <<--- Input session name! \n";
+    vw_out() << stereo_settings().alignment_method <<" <<-- Alignment method!\n";
 
     // TODO: Update with removed classes
     INSTANTIATE(StereoSessionPinhole,      "pinhole");

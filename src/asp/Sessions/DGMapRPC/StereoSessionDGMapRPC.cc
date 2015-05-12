@@ -58,6 +58,7 @@ void StereoSessionDGMapRPC::initialize(BaseOptions const& options,
   // actually projects into the DEM. (?)
 }
 */
+/*
 bool StereoSessionDGMapRPC::ip_matching(std::string const& input_file1,
                                         std::string const& input_file2,
                                         float nodata1, float nodata2,
@@ -75,7 +76,7 @@ bool StereoSessionDGMapRPC::ip_matching(std::string const& input_file1,
   // that transform.
   vw_throw( ArgumentErr() << "StereoSessionDGMapRPC: IP matching is not implemented as no alignment is applied to map-projected images.");
 }
-
+*/
 /*
 // TODO: Are these functions generalizable to any map projected input image?
 

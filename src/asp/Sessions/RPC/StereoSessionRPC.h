@@ -31,32 +31,30 @@ namespace asp {
 
   // TODO: Why not just include this in the .h file?
   // Forward declaration
-  class RPCModel;
-
-  // TODO: Do not derive this from DG?
-  //   Currently this is really a "DG_using_RPC_model" class.
+//  class RPCModel;
 
   /// Derived StereoSession class using the RPC camera model.
-  class StereoSessionRPC : public StereoSessionDG {
+  class StereoSessionRPC : public StereoSessionGdal<DISKTRANSFORM_TYPE_MATRIX, STEREOMODEL_TYPE_RPC> {
   public:
     StereoSessionRPC(){};
     virtual ~StereoSessionRPC(){};
-
+/*
     // Produces a camera model from the images
     virtual boost::shared_ptr<vw::camera::CameraModel>
     camera_model( std::string const& image_file,
                   std::string const& camera_file);
-
+*/
     virtual std::string name() const { return "rpc"; }
 
-    typedef asp::RPCStereoModel stereo_model_type;
+    //typedef asp::RPCStereoModel stereo_model_type;
 
     /// Simple factory function.
     static StereoSession* construct() { return new StereoSessionRPC; }
-
+/*
     /// Load an RPC camera model from an image file / camera file pair.
     static RPCModel* read_rpc_model( std::string const& image_file,
                                      std::string const& camera_file );
+*/
   };
 
 } // namespace asp

@@ -318,34 +318,34 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
     vw_out() << "\t--> Performing epipolar alignment\n";
 
     // Load the two images and fetch the two camera models
-    boost::shared_ptr<camera::CameraModel> left_camera  = this->camera_model(left_input_file,  m_left_camera_file);
+    boost::shared_ptr<camera::CameraModel> left_camera  = this->camera_model(left_input_file,  m_left_camera_file );
     boost::shared_ptr<camera::CameraModel> right_camera = this->camera_model(right_input_file, m_right_camera_file);
     CAHVModel* left_epipolar_cahv  = dynamic_cast<CAHVModel*>(&(*left_camera ));
     CAHVModel* right_epipolar_cahv = dynamic_cast<CAHVModel*>(&(*right_camera));
 
     // Remove lens distortion and create epipolar rectified images.
     if (boost::ends_with(lcase_file, ".cahvore")) {
-      CAHVOREModel left_cahvore(m_left_camera_file);
+      CAHVOREModel left_cahvore(m_left_camera_file );
       CAHVOREModel right_cahvore(m_right_camera_file);
       Limg = transform(left_masked_image,  CameraTransform<CAHVOREModel, CAHVModel>(left_cahvore,  *left_epipolar_cahv ));
       Rimg = transform(right_masked_image, CameraTransform<CAHVOREModel, CAHVModel>(right_cahvore, *right_epipolar_cahv));
     } else if (boost::ends_with(lcase_file, ".cahvor") ||
                boost::ends_with(lcase_file, ".cmod") ) {
-      CAHVORModel left_cahvor (m_left_camera_file);
+      CAHVORModel left_cahvor (m_left_camera_file );
       CAHVORModel right_cahvor(m_right_camera_file);
       Limg = transform(left_masked_image,  CameraTransform<CAHVORModel, CAHVModel>(left_cahvor,  *left_epipolar_cahv ));
       Rimg = transform(right_masked_image, CameraTransform<CAHVORModel, CAHVModel>(right_cahvor, *right_epipolar_cahv));
 
     } else if ( boost::ends_with(lcase_file, ".cahv") ||
                 boost::ends_with(lcase_file, ".pin" )) {
-      CAHVModel left_cahv (m_left_camera_file);
+      CAHVModel left_cahv (m_left_camera_file );
       CAHVModel right_cahv(m_right_camera_file);
       Limg = transform(left_masked_image,  CameraTransform<CAHVModel, CAHVModel>(left_cahv,  *left_epipolar_cahv ));
       Rimg = transform(right_masked_image, CameraTransform<CAHVModel, CAHVModel>(right_cahv, *right_epipolar_cahv));
 
     } else if ( boost::ends_with(lcase_file, ".pinhole") ||
                 boost::ends_with(lcase_file, ".tsai") ) {
-      PinholeModel left_pin (m_left_camera_file);
+      PinholeModel left_pin (m_left_camera_file );
       PinholeModel right_pin(m_right_camera_file);
       Limg = transform(left_masked_image,  CameraTransform<PinholeModel, CAHVModel>(left_pin,  *left_epipolar_cahv ));
       Rimg = transform(right_masked_image, CameraTransform<PinholeModel, CAHVModel>(right_pin, *right_epipolar_cahv));
@@ -355,6 +355,8 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
     }
 
   } else if ( stereo_settings().alignment_method == "homography" ) {
+
+    vw_out() << "\t--> Performing homography alignment\n";
 
     Matrix<double> align_matrix = determine_image_align(m_out_prefix,
                                                         left_input_file,   right_input_file,

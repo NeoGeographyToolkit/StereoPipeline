@@ -54,7 +54,7 @@ namespace asp {
   enum STEREOSESSION_DISKTRANSFORM_TYPE
   {
     DISKTRANSFORM_TYPE_MATRIX       = 0, // Covers Homography, Affine-Epipolar, and None.
-    DISKTRANSFORM_TYPE_MATRIX_RIGHT = 1, // As Matrix, but only for the right image.
+    DISKTRANSFORM_TYPE_MATRIX_RIGHT = 1, // As Matrix, but only homography and only for the right image.
     DISKTRANSFORM_TYPE_MAP_PROJECT  = 2
   };
   /// List of stereo model options
@@ -73,13 +73,19 @@ namespace asp {
   };
 
 
-  /// Unitily for converting DISKTRANSFORM_TYPE into the corresponding class
+  /// Utility for converting DISKTRANSFORM_TYPE into the corresponding class
   template <STEREOSESSION_DISKTRANSFORM_TYPE T> struct DiskTransformType2Class { typedef vw::HomographyTransform       type; };
   template <> struct DiskTransformType2Class<DISKTRANSFORM_TYPE_MAP_PROJECT>   { typedef vw::cartography::Map2CamTrans type; };
 
-  /// Unitily for converting STEREOMODEL_TYPE into the corresponding class
+  /// Utility for converting STEREOMODEL_TYPE into the corresponding class
   template <STEREOSESSION_STEREOMODEL_TYPE T> struct StereoModelType2Class { typedef vw::stereo::StereoModel    type; };
   template <> struct StereoModelType2Class<STEREOMODEL_TYPE_RPC>           { typedef asp::RPCStereoModel type; };
+
+  /// Utility returns true if our inputs are map projected.
+  //template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE> struct IsTypeMapProjected { static bool value(){return false;} };
+  //template <> struct IsTypeMapProjected<DISKTRANSFORM_TYPE_MAP_PROJECT> { static bool value(){return true;} };
+  template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE> struct IsTypeMapProjected { static const bool value=false; };
+  template <> struct IsTypeMapProjected<DISKTRANSFORM_TYPE_MAP_PROJECT> { static const bool value=true; };
 
   /// Define the currently used names
   template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE, // Transform from disk pixels to sensor pixels
@@ -121,6 +127,15 @@ namespace asp {
                             std::string const& out_prefix,
                             std::string const& input_dem);
 
+
+    /// Override the default ip_matching implementation so it just throws if we are using DISKTRANSFORM_TYPE_MAP_PROJECT
+    inline virtual bool ip_matching(std::string const& input_file1,
+                                    std::string const& input_file2,
+                                    float nodata1, float nodata2,
+                                    std::string const& match_filename,
+                                    vw::camera::CameraModel* cam1,
+                                    vw::camera::CameraModel* cam2);
+
 /*
     /// This class guesses the name but derived classes may still need to override.
     virtual std::string name() const { return NameFromTypes<DISKTRANSFORM_TYPE, STEREOMODEL_TYPE>::name(); }
@@ -153,8 +168,8 @@ namespace asp {
     // Init calls for the chosen stereo model
     void init_sensor_model(Int2Type<STEREOMODEL_TYPE_PINHOLE>) {}
     void init_sensor_model(Int2Type<STEREOMODEL_TYPE_ISIS   >) {}
-    void init_sensor_model(Int2Type<STEREOMODEL_TYPE_DG     >) {} // Currently being lazy and doing init in senser model load!
-    void init_sensor_model(Int2Type<STEREOMODEL_TYPE_RPC    >) {} // ditto.
+    void init_sensor_model(Int2Type<STEREOMODEL_TYPE_DG     >) {}
+    void init_sensor_model(Int2Type<STEREOMODEL_TYPE_RPC    >) {}
 
     // Init calls for the chosen disk transform
     void init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MATRIX      >) {}
@@ -175,7 +190,6 @@ namespace asp {
     tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MATRIX      >) const;
     tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MATRIX_RIGHT>) const;
     tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT >) const;
-
 
   };
 
