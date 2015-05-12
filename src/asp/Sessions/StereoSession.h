@@ -96,7 +96,7 @@ namespace asp {
         Rimg = normalize( Rimg, right_min, right_max, 0.0, 1.0 );
       } else { // Normalize using the same stats
         float low = std::min(left_min, right_min);
-        float hi  = std::max(left_min, right_min);
+        float hi  = std::max(left_max, right_max);
         vw::vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
         Limg = normalize( Limg, low, hi, 0.0, 1.0 );
         Rimg = normalize( Rimg, low, hi, 0.0, 1.0 );
