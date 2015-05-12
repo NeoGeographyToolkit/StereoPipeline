@@ -21,21 +21,7 @@
 
 #ifndef __STEREO_SESSION_CONCRETE_H__
 #define __STEREO_SESSION_CONCRETE_H__
-/*
-#include <vw/Image/ImageViewBase.h>
-#include <vw/Image/ImageViewRef.h>
 
-
-#include <vw/Math/Functors.h>
-#include <vw/Math/Geometry.h>
-#include <vw/InterestPoint.h>
-
-#include <boost/shared_ptr.hpp>
-#include <boost/filesystem/operations.hpp>
-
-#include <asp/Core/Common.h>
-#include <asp/Core/InterestPointMatching.h>
-*/
 
 #include <vw/Cartography.h>
 #include <vw/Geometry.h>
@@ -55,7 +41,7 @@ namespace asp {
   {
     DISKTRANSFORM_TYPE_MATRIX       = 0, // Covers Homography, Affine-Epipolar, and None.
     DISKTRANSFORM_TYPE_MATRIX_RIGHT = 1, // As Matrix, but only homography and only for the right image.
-    DISKTRANSFORM_TYPE_MAP_PROJECT  = 2
+    DISKTRANSFORM_TYPE_MAP_PROJECT  = 2  // Currently only RPC map project but this can be expanded.
   };
   /// List of stereo model options
   enum STEREOSESSION_STEREOMODEL_TYPE

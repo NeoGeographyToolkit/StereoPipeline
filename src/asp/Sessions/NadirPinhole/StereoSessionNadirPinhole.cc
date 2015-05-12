@@ -33,58 +33,7 @@ namespace fs = boost::filesystem;
 using namespace vw;
 using namespace asp;
 using namespace vw::camera;
-/*
-StereoSessionNadirPinhole::tx_type
-StereoSessionNadirPinhole::tx_left() const {
-  Matrix<double> tx = math::identity_matrix<3>();
-  if ( stereo_settings().alignment_method == "homography" ||
-       stereo_settings().alignment_method == "affineepipolar" ) {
-    read_matrix( tx, m_out_prefix + "-align-L.exr" );
-  }
-  return tx_type( tx );
-}
 
-StereoSessionNadirPinhole::tx_type
-StereoSessionNadirPinhole::tx_right() const {
-  Matrix<double> tx = math::identity_matrix<3>();
-  if ( stereo_settings().alignment_method == "homography" ||
-       stereo_settings().alignment_method == "affineepipolar" ) {
-    read_matrix( tx, m_out_prefix + "-align-R.exr" );
-  }
-  return tx_type( tx );
-}
-*/
-/*
-// Go back from Pinhole IP matching to the base class IP matching
-bool StereoSessionNadirPinhole::ip_matching(std::string const& input_file1,
-                                            std::string const& input_file2,
-                                            float nodata1, float nodata2,
-                                            std::string const& match_filename,
-                                            vw::camera::CameraModel* cam1,
-                                            vw::camera::CameraModel* cam2){
-  return StereoSession::ip_matching(input_file1, input_file2, nodata1, nodata2,
-                                    match_filename, cam1, cam2);
-  
-  if (fs::exists(match_filename)) {
-    vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
-    return true;
-  }
-
-  DiskImageView<float> image1( input_file1 ), image2( input_file2 );
-  bool single_threaded_camera = false;
-  bool inlier = ip_matching_w_alignment(single_threaded_camera, cam1, cam2,
-                                        image1, image2, 
-                                        cartography::Datum("WGS84"), match_filename,
-                                        nodata1, nodata2);
-  
-  if ( !inlier ) {
-    fs::remove( match_filename );
-    vw_throw( IOErr() << "Unable to match left and right images." );
-  }
-  
-  return inlier;
-}
-*/
 //TODO: There is a lot of duplicate code here with the Pinhole class. Why the differences?
 
 void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_image_size,

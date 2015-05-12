@@ -29,22 +29,11 @@ namespace asp {
 
   class StereoSessionPinhole : public StereoSessionConcrete<DISKTRANSFORM_TYPE_MATRIX_RIGHT, STEREOMODEL_TYPE_PINHOLE>{//StereoSession {
   public:
-
+    StereoSessionPinhole() {}
     virtual ~StereoSessionPinhole() {}
-/*
-    // Correct lens distortion and epipolar-rectify the images
-    virtual boost::shared_ptr<vw::camera::CameraModel>
-    camera_model(std::string const& image_file,
-                 std::string const& camera_file = "");
-*/
+
     virtual std::string name() const { return "pinhole"; }
-/*
-    // For reversing our arithmetic applied in preprocessing.
-    typedef vw::HomographyTransform tx_type;
-    typedef vw::stereo::StereoModel stereo_model_type;
-    tx_type tx_left() const;
-    tx_type tx_right() const;
-*/
+
     // Specialization for how interest points are found
     virtual bool ip_matching(std::string const& input_file1,
                              std::string const& input_file2,

@@ -47,21 +47,9 @@ namespace asp {
   public:
     StereoSessionGdal(){}
     virtual ~StereoSessionGdal(){}
-/*
-    /// Produces a camera model from the images
-    virtual boost::shared_ptr<vw::camera::CameraModel>
-      camera_model(std::string const& image_file,
-                   std::string const& camera_file = "");
-*/
+
     virtual std::string name() const { return "dg"; }
-/*
-    /// Transforms from pixel coordinates on disk to original unwarped image coordinates.
-    /// - For reversing our arithmetic applied in preprocessing.
-    typedef vw::HomographyTransform tx_type;
-    typedef vw::stereo::StereoModel stereo_model_type;
-    tx_type tx_left () const;
-    tx_type tx_right() const;
-*/
+
     /// Stage 1: Preprocessing
     ///
     /// Pre file is a pair of images.            ( ImageView<PixelT> )
@@ -72,25 +60,16 @@ namespace asp {
                                         std::string      & left_output_file,
                                         std::string      & right_output_file);
 
-    // TODO: Where is all the actual functionality being defined??
-
     /// Simple factory function
     static StereoSession* construct() { return new StereoSessionGdal<DISKTRANSFORM_TYPE, STEREOMODEL_TYPE>; }
   };
-/*
-  /// Load a Digital Globe camera model from an XML file
-  /// - Probably need to call XMLPlatformUtils::Initialize() before using this function.
-  boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model(std::string const& camera_file);
-*/
-
-
 
   /// StereoSession implementation for Digital Globe images.
   typedef StereoSessionGdal<DISKTRANSFORM_TYPE_MATRIX, STEREOMODEL_TYPE_DG> StereoSessionDG;
 
 
 //====================================================================================================
-
+// Function definitions
 
 
 
@@ -239,18 +218,6 @@ namespace asp {
                               output_nodata, options,
                               TerminalProgressCallback("asp","\t  R:  ") );
   } // End function pre_preprocessing_hook
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

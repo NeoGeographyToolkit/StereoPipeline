@@ -37,22 +37,7 @@ namespace asp {
     virtual ~StereoSessionNadirPinhole() {}
 
     virtual std::string name() const { return "nadirpinhole"; }
-/*
-    // For reversing our arithmetic applied in preprocessing.
-    typedef vw::HomographyTransform tx_type;
-    typedef vw::stereo::StereoModel stereo_model_type;
-    tx_type tx_left () const;
-    tx_type tx_right() const;
-*/
-/*
-    // Specialization for how interest points are found
-    virtual bool ip_matching(std::string const& input_file1,
-                             std::string const& input_file2,
-                             float nodata1, float nodata2,
-                             std::string const& match_filename,
-                             vw::camera::CameraModel* cam1,
-                             vw::camera::CameraModel* cam2);
-*/
+
     // Stage 1: Preprocessing
     virtual void pre_preprocessing_hook( bool adjust_left_image_size,
                                          std::string const& left_input_file,

@@ -22,11 +22,6 @@
 #include <vw/Core/Log.h>
 #include <vw/Math.h>
 #include <vw/Camera.h>
-//#include <vw/Image/ImageViewRef.h>
-//#include <vw/Image/PixelMask.h>
-//#include <vw/Image/PixelTypeInfo.h>
-//#include <vw/FileIO/DiskImageResource.h>
-//#include <vw/FileIO/DiskImageView.h>
 
 
 #include <vw/Image/ImageViewRef.h>
@@ -47,16 +42,9 @@
 
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/IsisIO/IsisAdjustCameraModel.h>
-//#include <asp/IsisIO/DiskImageResourceIsis.h>
 #include <asp/IsisIO/Equation.h>
 
-/*
-// TODO: Remove these
-#include <asp/IsisIO/IsisCameraModel.h>
-#include <asp/IsisIO/IsisAdjustCameraModel.h>
-#include <asp/IsisIO/DiskImageResourceIsis.h>
-#include <asp/IsisIO/Equation.h>
-*/
+
 #include <map>
 #include <utility>
 #include <string>
@@ -167,10 +155,6 @@ inline RPCModel* read_rpc_model(std::string const& image_file,
   }
   return rpc_model;
 }
-
-
-
-
 
 
 

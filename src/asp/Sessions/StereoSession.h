@@ -106,47 +106,7 @@ namespace asp {
   }
   
   
-  
-  /*
-    Components:
-     - Image file loading = Handled entirely in the hooks?
-     - Camera model loading -> RPC, Pinhole, NadirPinhole, DG, ISIS.
-     - IP matching = Only used for Homography and Affine-Epipolar alignment.
-                   = Looks like there are only two main types, Pinhole and DG/ISIS.
-                     Pinhole is more complicated to support non-nadir cameras.
-     - Disk to source image transforms = Governed by alignment and map projection
-              = Options are None, Homography, Affine-Epipolar, and Map-Project(RPC).
-     - Pre/Post processing hooks = Only used in a few places.
-                                 = Should be source specific, but there is a lot of overlap!
-                                 
-    Notes:
-     - Both Pinhole classes mean something specific?
-     - DG means GeoTiff? Change the class name?
-
-    > Additions to the base class:
-      - Disk to source transforms
-        - Choose None, Homog, Affine, or Map
-        - For map, also choose sensor model type.  Currently only RPC is supported.
-      - IP matching 
-        - Virtual, but classes can use the same default.
-        - Need a get_datum() virtual function for it though.
-      - Camera model loading
-        - Choose DG, RPC, Pinhole, or ISIS.
-      
-    > Keep these derived classes: DG(rename), ISIS, Pinhole, NadirPinhole
-      - The derived classes need to verify compatible options.
-        - For example, most derived classes only work with one sensor model.
-      - Keep hooks
-      - Pinhole can override the default IP matching function.
-      
-    > Remove these derived classes:
-     - DGMapRPC --> Use DG
-     - RPC      --> Use DG
-      
-    > Later look for shared hook code.
-     
-  */
-  
+   
   // Forward declare this class for constructing StereoSession objects
   class StereoSessionFactory;
   
