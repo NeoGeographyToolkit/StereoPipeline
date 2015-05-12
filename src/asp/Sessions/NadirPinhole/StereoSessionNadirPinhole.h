@@ -32,7 +32,7 @@
 
 namespace asp {
 
-  class StereoSessionNadirPinhole : public StereoSessionConcrete<DISKTRANSFORM_TYPE_MATRIX, STEREOMODEL_TYPE_PINHOLE>{//StereoSessionPinhole {
+  class StereoSessionNadirPinhole : public StereoSessionConcrete<DISKTRANSFORM_TYPE_MATRIX, STEREOMODEL_TYPE_PINHOLE>{
   public:
     virtual ~StereoSessionNadirPinhole() {}
 

@@ -286,9 +286,7 @@ namespace asp {
     po::options_description general_options_sub("");
     general_options_sub.add_options()
       ("session-type,t",      po::value(&opt.stereo_session_string), 
-                              "Select the stereo session type to use for processing. [options: pinhole isis dg rpc]")
-      ("sensor-model,m",      po::value(&opt.stereo_sensor_model_string), 
-                              "Override the default sensor model for the session type. [options: rpc]")
+                              "Select the stereo session type to use for processing. [options: pinhole isis dg rpc dgmaprpc rpcmaprpc]")
       ("stereo-file,s",       po::value(&opt.stereo_default_filename)->default_value("./stereo.default"), 
                               "Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
       ("left-image-crop-win", po::value(&opt.left_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"),
@@ -528,21 +526,21 @@ namespace asp {
     }
     
     // If images are map-projected, need an input DEM
-    if ((opt.session->name() == "dg" || opt.session->name() == "dgmaprpc" ) &&
+    if ((opt.session->name() == "dg" || opt.session->name() == "dgmaprpc" || opt.session->name() == "rpcmaprpc") &&
          has_georef1 && has_georef2 && opt.input_dem.empty()) {
       vw_out(WarningMessage) << "It appears that the input images are "
                              << "map-projected. In that case a DEM needs to be "
                              << "provided for stereo to give correct results.\n";
     }
-/*
+
     // We did not implement stereo using map-projected images with dem
-    // on anything except "dg" and "dgmaprpc" sessions.
+    // on anything except "dg", "dgmaprpc", and "rpcmaprpc" sessions.
     if (!opt.input_dem.empty() && opt.session->name() != "dg"
-        && opt.session->name() != "dgmaprpc") {
+        && opt.session->name() != "dgmaprpc" && opt.session->name() != "rpcmaprpc") {
       vw_throw(ArgumentErr() << "Cannot use map-projected images with a session of type: " 
                              << opt.session->name() << ".\n");
     }
-*/
+
     // No alignment must be set for map-projected images.
     if (stereo_settings().alignment_method != "none" && !opt.input_dem.empty()) {
       stereo_settings().alignment_method = "none";

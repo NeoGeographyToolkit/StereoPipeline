@@ -320,10 +320,8 @@ load_isis_camera_model(std::string const& image_file,
     input.close();
 
     // Finally creating camera model
-    vw_out() << "DEBUG: loading ISIS adjusted\n";
     return boost::shared_ptr<vw::camera::CameraModel>(new camera::IsisAdjustCameraModel(image_file, posF, poseF));
   } else {
-    vw_out() << "DEBUG: loading ISIS camera\n";
     return boost::shared_ptr<vw::camera::CameraModel>(new camera::IsisCameraModel(image_file));
   }
 } // End function load_isis_camera_model()

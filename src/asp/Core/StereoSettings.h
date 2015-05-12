@@ -40,8 +40,7 @@ namespace asp {
 
     // Settings
     std::string stereo_session_string, 
-                stereo_default_filename,
-                stereo_sensor_model_string;
+                stereo_default_filename;
     boost::shared_ptr<asp::StereoSession> session; // Used to extract cameras
     // Note: Below we use BBox2 rather than BBox2i to not choke on float inputs.
     vw::BBox2 left_image_crop_win;                 // For stereo in a region

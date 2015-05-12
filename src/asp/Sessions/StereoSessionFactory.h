@@ -30,7 +30,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Common.h>
 
-#include <asp/Sessions/StereoSession.h>
+//#include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/DG/StereoSessionDG.h>
 #include <asp/Sessions/DGMapRPC/StereoSessionDGMapRPC.h>
 #include <asp/Sessions/ISIS/StereoSessionIsis.h>
@@ -43,8 +43,7 @@ namespace asp {
 
   class StereoSessionFactory {
   public:
-    /// Given the input arguments, selects the correct type of StereoSession
-    ///  and initializen it.
+    /// Given the input arguments, selects the correct type of StereoSession and initializes it.
     static inline StereoSession* create(std::string & session_type, // in-out variable
                                  BaseOptions const& options,
                                  std::string const& left_image_file   = "",
@@ -145,12 +144,13 @@ namespace asp {
           else
             if (actual_session_type == "rpc")
               session_new = StereoSessionRPC::construct();
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
             else
-              if (actual_session_type == "isis")
-                session_new = StereoSessionIsis::construct();
+              if (actual_session_type == "rpcmaprpc")
+                session_new = StereoSessionRPCMapRPC::construct();
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
               else
-                VW_OUT(vw::DebugMessage,"asp") << "No session match!: " << actual_session_type << std::endl;
+                if (actual_session_type == "isis")
+                  session_new = StereoSessionIsis::construct();
 #endif
     if (session_new == 0)
       vw_throw(vw::NoImplErr() << "Unsuppported stereo session type: " << session_type);

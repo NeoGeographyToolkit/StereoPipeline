@@ -27,7 +27,7 @@
 
 namespace asp {
 
-  class StereoSessionPinhole : public StereoSessionConcrete<DISKTRANSFORM_TYPE_MATRIX_RIGHT, STEREOMODEL_TYPE_PINHOLE>{//StereoSession {
+  class StereoSessionPinhole : public StereoSessionConcrete<DISKTRANSFORM_TYPE_MATRIX_RIGHT, STEREOMODEL_TYPE_PINHOLE>{
   public:
     StereoSessionPinhole() {}
     virtual ~StereoSessionPinhole() {}

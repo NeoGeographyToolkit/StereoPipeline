@@ -45,8 +45,7 @@ namespace fs = boost::filesystem;
 
 // Boost headers
 #include <boost/thread/xtime.hpp>
-// Posix time is not fully supported in the version of Boost for RHEL
-// Workstation 4
+// Posix time is not fully supported in the version of Boost for RHEL Workstation 4
 #ifdef __APPLE__
 #include <boost/date_time/posix_time/posix_time.hpp>
 #else

@@ -537,18 +537,14 @@ int main( int argc, char* argv[] ) {
 #define INSTANTIATE(T,NAME) if ( opt_vec[0].session->name() == NAME ) { \
       stereo_triangulation<T>(output_prefix, opt_vec); }
 
-
-    vw_out() << opt_vec[0].session->name() << " <<--- Input session name! \n";
-    vw_out() << stereo_settings().alignment_method <<" <<-- Alignment method!\n";
-
-    // TODO: Update with removed classes
-    INSTANTIATE(StereoSessionPinhole,      "pinhole");
+    INSTANTIATE(StereoSessionPinhole,      "pinhole"     );
     INSTANTIATE(StereoSessionNadirPinhole, "nadirpinhole");
-    INSTANTIATE(StereoSessionRPC,          "rpc");
-    INSTANTIATE(StereoSessionDG,           "dg");
-    INSTANTIATE(StereoSessionDGMapRPC,     "dgmaprpc");
+    INSTANTIATE(StereoSessionRPC,          "rpc"         );
+    INSTANTIATE(StereoSessionDG,           "dg"          );
+    INSTANTIATE(StereoSessionDGMapRPC,     "dgmaprpc"    );
+    INSTANTIATE(StereoSessionRPCMapRPC,    "rpcmaprpc"   );
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-    INSTANTIATE(StereoSessionIsis,         "isis");
+    INSTANTIATE(StereoSessionIsis,         "isis"        );
 #endif
     
 #undef INSTANTIATE

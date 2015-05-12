@@ -18,12 +18,6 @@
 
 /// \file StereoSessionDGMapRPC.cc
 ///
-#include <asp/Core/StereoSettings.h>
-#include <asp/Core/InterestPointMatching.h>
-#include <asp/Sessions/RPC/RPCModel.h>
-#include <asp/Sessions/RPC/StereoSessionRPC.h>
-#include <asp/Sessions/DGMapRPC/StereoSessionDGMapRPC.h>
-#include <asp/Sessions/DG/XML.h>
 
 
 

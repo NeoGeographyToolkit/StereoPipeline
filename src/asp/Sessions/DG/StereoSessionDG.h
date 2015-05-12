@@ -42,7 +42,7 @@ namespace asp {
   /// - This class adds a "preprocessing hook" which aligns and normalizes the images using the specified methods.
   template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
             STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
-  class StereoSessionGdal : public StereoSessionConcrete<DISKTRANSFORM_TYPE, STEREOMODEL_TYPE> { //StereoSession {
+  class StereoSessionGdal : public StereoSessionConcrete<DISKTRANSFORM_TYPE, STEREOMODEL_TYPE> {
 
   public:
     StereoSessionGdal(){}

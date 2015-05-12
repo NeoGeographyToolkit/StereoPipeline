@@ -40,7 +40,7 @@ if __name__ == '__main__':
     p.add_option('--threads',              dest='threads', default=0, type='int',
                  help='Set the number of threads to use. 0 means use as many threads as there are cores.')
     p.add_option('-t', '--session-type',   dest='session',
-                 help='Select the stereo session type to use for processing. [options: pinhole isis dg rpc]')
+                 help='Select the stereo session type to use for processing. [options: pinhole isis dg rpc dgmaprpc rpcmaprpc]')
     p.add_option('-s', '--stereo-file',    dest='filename',    default='./stereo.default',
                  help='Explicitly specify the stereo.default file to use. [default: ./stereo.default]')
     p.add_option('--corr-seed-mode',    dest='seed_mode', default=None, 

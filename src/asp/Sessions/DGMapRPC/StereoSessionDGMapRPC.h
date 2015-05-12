@@ -32,8 +32,8 @@
 namespace asp {
  
     
-  /// Specialization of the StereoSessionDG class to use map-projected inputs with the RPC sensor model.
-  class StereoSessionDGMapRPC : public StereoSessionGdal<DISKTRANSFORM_TYPE_MAP_PROJECT, STEREOMODEL_TYPE_DG>  { //StereoSessionDG {
+  /// Specialization of the StereoSessionGDAL class to use (RPC) map-projected inputs with the DG sensor model.
+  class StereoSessionDGMapRPC : public StereoSessionGdal<DISKTRANSFORM_TYPE_MAP_PROJECT, STEREOMODEL_TYPE_DG>  {
   public:
     StereoSessionDGMapRPC(){};
     virtual ~StereoSessionDGMapRPC(){};
@@ -41,6 +41,20 @@ namespace asp {
     virtual std::string name() const { return "dgmaprpc"; }
 
     static StereoSession* construct() { return new StereoSessionDGMapRPC; }
+
+  };
+
+
+
+  /// Specialization of the StereoSessionGDAL class to use (RPC) map-projected inputs with the RPC sensor model.
+  class StereoSessionRPCMapRPC : public StereoSessionGdal<DISKTRANSFORM_TYPE_MAP_PROJECT, STEREOMODEL_TYPE_RPC>  {
+  public:
+    StereoSessionRPCMapRPC(){};
+    virtual ~StereoSessionRPCMapRPC(){};
+
+    virtual std::string name() const { return "rpcmaprpc"; }
+
+    static StereoSession* construct() { return new StereoSessionRPCMapRPC; }
 
   };
 
