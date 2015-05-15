@@ -237,10 +237,11 @@ distribution.
   This flag, if provided, enables using local homography during
   correlation, as described in Section \ref{sec:local_hom}.
 
-\item[corr-timeout \textnormal{\small{(= \emph{integer})}} (default = 300)]\hfill \\
+\item[corr-timeout \textnormal{\small{(= \emph{integer})}} (default = 1800)]\hfill \\
 
   Correlation timeout for an image tile, in seconds. A non-positive
-value will result in no timeout enforcement.
+value will result in no timeout enforcement. A value of 600 seconds
+should be sufficient in most cases.
 
 \end{description}
 
@@ -251,13 +252,13 @@ value will result in no timeout enforcement.
 \begin{description}
 
 \item[subpixel-mode \textnormal{\small{(= 0,1,2,3)}} (default = 1)] \hfill \\
-  This parameter selects the subpixel correlation method. Parabola subpixel 
+  This parameter selects the subpixel correlation method. Parabola subpixel
   is very fast but will produce results that are only slightly more accurate
-   than those produced by the initialization step. Bayes EM (mode 2) 
-  is very slow but offers the best quality. When tuning {\tt stereo.default} 
-  parameters, it is expedient to start out using parabola subpixel as a 
-  ``draft mode.'' When the results are looking good with parabola subpixel, 
-  then they  will look even better with subpixel mode 2.  For inputs with 
+   than those produced by the initialization step. Bayes EM (mode 2)
+  is very slow but offers the best quality. When tuning {\tt stereo.default}
+  parameters, it is expedient to start out using parabola subpixel as a
+  ``draft mode.'' When the results are looking good with parabola subpixel,
+  then they  will look even better with subpixel mode 2.  For inputs with
   little noise, the affine method (subpixel mode 3) may produce results
   equivalent to Bayes EM in a shorter time.
 
@@ -303,10 +304,10 @@ mean those pixels within the window of half-size of
 \texttt{rm-half-kernel} centered at the current pixel.
   \begin{description}
     \item[0] - No filtering.
-    \item[1] - Filter by discarding pixels at which disparity differs from mean disparity of neighbors by more than \texttt{max-mean-diff}. 
-    \item[2] - Filter by discarding pixels at which percentage of neighboring disparities that are within \texttt{rm-threshold} of current disparity is less than \texttt{rm-min-matches}. 
+    \item[1] - Filter by discarding pixels at which disparity differs from mean disparity of neighbors by more than \texttt{max-mean-diff}.
+    \item[2] - Filter by discarding pixels at which percentage of neighboring disparities that are within \texttt{rm-threshold} of current disparity is less than \texttt{rm-min-matches}.
   \end{description}
- 
+
 \item[rm-half-kernel \textnormal{\small{(= \emph{integer integer})}} (default = 5 5)] \hfill \\
   This setting adjusts the behavior of an outlier rejection scheme
   that ``erodes'' isolated regions of pixels in the disparity map that
