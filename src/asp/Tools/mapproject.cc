@@ -124,10 +124,18 @@ void write_parallel_cond( std::string              const& filename,
                           Options                  const& opt,
                           TerminalProgressCallback const& tpc ) {
 
+  // TODO: Relying on StereoSession to handle this mapproject stuff is problematic!
   // Save the session type. Later in stereo we will check that we use
   // only images written by mapproject with the -t rpc session.
+  // - Write the type of sensor model used, not the underlying session class.
+  std::string session_type = opt.stereo_session;
+  if (session_type == "isismapisis")
+    session_type = "isis";
+  if (session_type == "rpcmaprpc")
+    session_type = "rpc";
+
   std::map<std::string, std::string> keywords;
-  keywords["CAMERA_MODEL_TYPE" ] = opt.stereo_session;
+  keywords["CAMERA_MODEL_TYPE" ] = session_type;
 
   // ISIS is not thread safe so we must switch out base on what the session is.
 
@@ -181,7 +189,8 @@ void calc_target_geom(// Inputs
   }
 
   // Use auto-calculated ground resolution if that option was selected
-  if (calc_target_res) opt.target_resolution = auto_res;
+  if (calc_target_res) 
+    opt.target_resolution = auto_res;
 
   // If an image bounding box (projected coordinates) was passed in,
   //  override the camera's view on the ground with the custom box.
@@ -252,11 +261,12 @@ int main( int argc, char* argv[] ) {
                                                           opt.dem_file
                                                           ) );
 
+    // TODO: Take car of this in handle_arguments?
     if (session->name() == "isis" && opt.output_file.empty() ){
       // The user did not provide an output file. Then the camera
       // information is contained within the image file and what is in
       // the camera file is actually the output file.
-      opt.output_file = opt.camera_model_file;
+      opt.output_file       = opt.camera_model_file;
       opt.camera_model_file = opt.image_file;
     }
     if ( opt.output_file.empty() )
@@ -307,11 +317,9 @@ int main( int argc, char* argv[] ) {
     ImageViewRef<PMaskT> dem;
     bool has_georef = read_georeference(dem_georef, opt.dem_file);
     if (!has_georef)
-      vw_throw( ArgumentErr() << "There is no georeference information in: "
-                << opt.dem_file << ".\n" );
+      vw_throw( ArgumentErr() << "There is no georeference information in: " << opt.dem_file << ".\n" );
     
-    boost::shared_ptr<DiskImageResource> dem_rsrc
-      ( DiskImageResource::open( opt.dem_file ) );
+    boost::shared_ptr<DiskImageResource> dem_rsrc(DiskImageResource::open(opt.dem_file));
     
     // If we have a nodata value, create a mask.
     DiskImageView<float> dem_disk_image(opt.dem_file);
@@ -323,11 +331,9 @@ int main( int argc, char* argv[] ) {
 
     // Find the target resolution based on mpp or ppd if provided. Do
     // the math to convert pixel-per-degree to meter-per-pixel and vice-versa.
-    int sum = (!std::isnan(opt.target_resolution)) + (!std::isnan(opt.mpp))
-      + (!std::isnan(opt.ppd));
+    int sum = (!std::isnan(opt.target_resolution)) + (!std::isnan(opt.mpp)) + (!std::isnan(opt.ppd));
     if (sum >= 2){
-      vw_throw( ArgumentErr() << "Must specify at most one of the options: "
-                << "--tr, --mpp, --ppd.\n" );
+      vw_throw( ArgumentErr() << "Must specify at most one of the options: --tr, --mpp, --ppd.\n" );
     }
     double radius = dem_georef.datum().semi_major_axis();
     if ( !std::isnan(opt.mpp) ){ // Meters per pixel was set
@@ -344,25 +350,23 @@ int main( int argc, char* argv[] ) {
       }
     }
 
-    // Read projection. Work out output bounding box in points using
-    // original camera model.
+    // Read projection. Work out output bounding box in points using original camera model.
     GeoReference target_georef = dem_georef;
 
     // User specified the proj4 string for the output georeference
     if (opt.target_srs_string != ""){
-      bool have_user_datum = false;
+      bool  have_user_datum = false;
       Datum user_datum;
-      asp::set_srs_string(opt.target_srs_string, have_user_datum,
-                          user_datum, target_georef);
+      asp::set_srs_string(opt.target_srs_string, have_user_datum, user_datum, target_georef);
     }
 
     // We compute the target_georef and camera box in two passes,
     // first in the DEM coordinate system and we rotate it to target's
     // coordinate system (which makes it grow), and then we tighten it
     // in target's coordinate system.
-    bool calc_target_res = std::isnan(opt.target_resolution);
-    Vector2i image_size = asp::file_image_size( opt.image_file );
-    BBox2 cam_box;
+    bool     calc_target_res = std::isnan(opt.target_resolution);
+    Vector2i image_size      = asp::file_image_size(opt.image_file);
+    BBox2    cam_box;
     // First pass
     bool first_pass = true;
     calc_target_geom(// Inputs
@@ -370,6 +374,8 @@ int main( int argc, char* argv[] ) {
                      dem, dem_georef,
                      // Outputs
                      opt, cam_box, target_georef);
+
+    vw_out() << "Calculated initial projected space bounding box: " << cam_box << std::endl;
 
     // Second pass
     first_pass = false;
@@ -385,6 +391,8 @@ int main( int argc, char* argv[] ) {
                      trans_dem, target_georef,
                      // Outputs
                      opt, cam_box, target_georef);
+
+    vw_out() << "Refined projected space bounding box: " << cam_box << std::endl;
 
     // Compute output image size in pixels using bounding box in output projected space
     BBox2i target_image_size = target_georef.point_to_pixel_bbox( cam_box );

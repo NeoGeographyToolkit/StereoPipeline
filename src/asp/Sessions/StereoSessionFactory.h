@@ -96,11 +96,23 @@ namespace asp {
         actual_session_type = "dg";
       }
     }
-    
+
     if (!input_dem.empty() && actual_session_type == "dg") {
       // User says DG .. but also gives a DEM.
       actual_session_type = "dgmaprpc";
       VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: dgmaprpc" << std::endl;
+    }
+
+    if (!input_dem.empty() && actual_session_type == "rpc") {
+      // User says RPC .. but also gives a DEM.
+      actual_session_type = "rpcmaprpc";
+      VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: rpcmaprpc" << std::endl;
+    }
+
+    if (!input_dem.empty() && actual_session_type == "isis") {
+      // User says ISIS .. but also gives a DEM.
+      actual_session_type = "isismapisis";
+      VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: isismapisis" << std::endl;
     }
 
     try {
@@ -151,6 +163,9 @@ namespace asp {
               else
                 if (actual_session_type == "isis")
                   session_new = StereoSessionIsis::construct();
+                else
+                  if (actual_session_type == "isismapisis")
+                    session_new = StereoSessionIsisMapIsis::construct();
 #endif
     if (session_new == 0)
       vw_throw(vw::NoImplErr() << "Unsuppported stereo session type: " << session_type);

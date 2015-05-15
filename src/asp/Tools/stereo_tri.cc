@@ -545,6 +545,7 @@ int main( int argc, char* argv[] ) {
     INSTANTIATE(StereoSessionRPCMapRPC,    "rpcmaprpc"   );
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
     INSTANTIATE(StereoSessionIsis,         "isis"        );
+    INSTANTIATE(StereoSessionIsisMapIsis,  "isismapisis" );
 #endif
     
 #undef INSTANTIATE

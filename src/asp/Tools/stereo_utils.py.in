@@ -66,8 +66,7 @@ class PassThroughOptionParser(optparse.OptionParser):
 # Execute a given command stored in the libexec directory and parse
 # its output. The output format is expected to be lines of
 # comma-separated values.  The first value on each line becomes the
-# output variable name, the other values are read into the array of
-# variable values.
+# output variable name, the other values are read into the array of variable values.
 def run_and_parse_output(cmd, args, sep, verbose, **kw ):
     libexecpath = P.join(kw.get('path', P.dirname(P.abspath(__file__))), '..',\
                          'libexec', cmd)
@@ -289,14 +288,14 @@ def run_multiview(prog_name, args, extra_args, entry_point, stop_point,
         m = re.match('multiview_command', s)
         if not m: continue
 
-        local_args = settings[s][:]
+        local_args    = settings[s][:]
         local_args[0] = prog_name 
-        local_entry = entry_point
-        local_stop = stop_point
+        local_entry   = entry_point
+        local_stop    = stop_point
         if local_stop > Step.tri:
             local_stop = Step.tri
         local_args.extend(['--entry-point', str(local_entry)])
-        local_args.extend(['--stop-point', str(local_stop)])
+        local_args.extend(['--stop-point',  str(local_stop)])
         local_args.extend(extra_args)
         cmd = [python_path] + local_args
         # Go on even if some of the runs fail
@@ -306,10 +305,10 @@ def run_multiview(prog_name, args, extra_args, entry_point, stop_point,
             pass
 
     # Run tri
-    local_args = [prog_name]
+    local_args  = [prog_name]
     local_args.extend(args)
     local_entry = Step.tri
-    local_stop = stop_point
+    local_stop  = stop_point
     local_args.extend(['--entry-point', str(local_entry)])
     local_args.extend(['--stop-point', str(local_stop)])
     local_args.extend(extra_args)
@@ -325,12 +324,12 @@ def run_multiview(prog_name, args, extra_args, entry_point, stop_point,
     # The code below amounts to:
     # ln -s out_prefix-pair1/1-L.tif out_prefix-L.tif
     out_prefix = settings['out_prefix'][0]
-    sym_f = out_prefix + '-L.tif'
+    sym_f      = out_prefix + '-L.tif'
     if not os.path.lexists(sym_f):
         files = glob.glob(out_prefix + '-pair*/*-L.tif')
         if len(files) > 0:
             f = files[0]
             run_dir = os.path.dirname(out_prefix)
-            rel_f = os.path.relpath(f, run_dir)
+            rel_f   = os.path.relpath(f, run_dir)
             os.symlink(rel_f, sym_f)
 

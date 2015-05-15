@@ -63,12 +63,31 @@ namespace asp {
     return vec;
   }
 
+  /// Given a vector of strings, identify and store separately the list of camera models.
   std::vector<std::string> extract_cameras( std::vector<std::string>& image_files );
+
+
+  /// Returns the file extension of a path
+  std::string get_extension(std::string const& input);
+
+  /// Returns true if the file has an extension which can contain a camera model
+  bool has_cam_extension( std::string const& input );
+
+  /// Returns true if the file has an extension which can contain an image
+  bool has_image_extension( std::string const& input );
+
+  /// Parse the list of files specified as positional arguments on the command lin
+  bool parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
+                                 std::vector<std::string>       &image_paths,
+                                 std::vector<std::string>       &camera_paths,
+                                 std::string                    &prefix,
+                                 std::string                    &dem_path);
+
 
   std::string bundle_adjust_file_name(std::string const& prefix, std::string const& input_img);
 
-  boost::filesystem::path make_file_relative_to_dir
-  (boost::filesystem::path const file, boost::filesystem::path const dir);
+  boost::filesystem::path make_file_relative_to_dir(boost::filesystem::path const file, 
+                                                    boost::filesystem::path const dir);
 
   /// Remove file name extension
   std::string prefix_from_filename(std::string const& filename);
@@ -117,7 +136,7 @@ namespace asp {
                       std::string & usage_comment,
                       bool allow_unregistered, std::vector<std::string> & unregistered);
 
-  bool has_cam_extension( std::string const& input );
+
 
   vw::Vector2i file_image_size( std::string const& input );
 

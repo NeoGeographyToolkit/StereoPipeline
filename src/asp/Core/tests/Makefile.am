@@ -24,6 +24,7 @@ if MAKE_MODULE_CORE
 
 TestAntiAliasing_SOURCES       = TestAntiAliasing.cxx
 TestBlobIndexThreaded_SOURCES  = TestBlobIndexThreaded.cxx
+TestCommon_SOURCES             = TestCommon.cxx
 TestErodeView_SOURCES          = TestErodeView.cxx
 TestGaussianClustering_SOURCES = TestGaussianClustering.cxx
 TestIntegralAutoGainDetector_SOURCES = TestIntegralAutoGainDetector.cxx
@@ -33,7 +34,7 @@ TestSoftwareRenderer_SOURCES   = TestSoftwareRenderer.cxx
 
 TESTS = TestErodeView TestBlobIndexThreaded TestThreadedEdgeMask \
         TestGaussianClustering TestInterestPointMatching         \
-        TestSoftwareRenderer TestAntiAliasing TestIntegralAutoGainDetector
+        TestSoftwareRenderer TestAntiAliasing TestIntegralAutoGainDetector TestCommon
 
 endif
 

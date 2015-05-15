@@ -29,16 +29,12 @@
 #include <vw/Stereo/DisparityMap.h>
 
 #include <asp/asp_config.h>
-#include <asp/Core/StereoSettings.h>
+//#include <asp/Core/StereoSettings.h>
 #include <asp/Core/Common.h>
-
-
 
 #include <asp/Sessions/RPC/RPCModel.h>
 
 #include <xercesc/util/PlatformUtils.hpp>
-
-
 
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/IsisIO/IsisAdjustCameraModel.h>
@@ -183,6 +179,8 @@ inline boost::posix_time::ptime parse_time(std::string str){
 
 inline boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model(std::string const& camera_file)
 {
+  vw_out() << "DEBUG - Loading DG camera file: " << camera_file << std::endl;
+
   // Parse the Digital Globe XML file
   GeometricXML geo;
   AttitudeXML  att;
@@ -267,6 +265,29 @@ inline boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model(std::stri
 
 
 
+//TODO: Move this!
+// General function for loading an ISIS camera model
+inline boost::shared_ptr<vw::camera::CameraModel>
+load_isis_camera_model(std::string const& image_file,
+                       std::string const& camera_file) { 
+
+  if (boost::ends_with(boost::to_lower_copy(camera_file), ".isis_adjust")){
+    vw_out() << "DEBUG - Loading ISIS adjust camera file: " << camera_file << std::endl;
+
+    // Creating Equations for the files
+    std::ifstream input( camera_file.c_str() );
+    boost::shared_ptr<BaseEquation> posF  = read_equation(input);
+    boost::shared_ptr<BaseEquation> poseF = read_equation(input);
+    input.close();
+
+    // Finally creating camera model
+    return boost::shared_ptr<vw::camera::CameraModel>(new camera::IsisAdjustCameraModel(image_file, posF, poseF));
+  } else {
+    vw_out() << "DEBUG - Loading ISIS camera file: " << camera_file << std::endl;
+    return boost::shared_ptr<vw::camera::CameraModel>(new camera::IsisCameraModel(camera_file));
+  }
+} // End function load_isis_camera_model()
+
 
 
 
@@ -274,13 +295,11 @@ inline boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model(std::stri
 //==========================================================================
 
 
-
-
 /// Checks the DEM and loads the RPC camera models
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
-       init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT>) {
+       init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC>) {
   
   // Verify that we can read the camera models
   // - In the future we can support other types of models here.
@@ -291,11 +310,33 @@ void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
              ArgumentErr() << "StereoSessionConcrete: Unable to locate RPC inside input files." );
   
   // Double check that we can read the DEM and that it has cartographic information.
-  VW_ASSERT(!m_input_dem.empty(), InputErr() << "StereoSessionDGMapRPC : Require input DEM" );
+  VW_ASSERT(!m_input_dem.empty(), InputErr() << "StereoSessionConcrete : Require input DEM" );
   if (!boost::filesystem::exists(m_input_dem))
     vw_throw( ArgumentErr() << "StereoSessionConcrete: DEM \"" << m_input_dem << "\" does not exist." );
 
 }
+
+/// Checks the DEM and loads the RPC camera models
+template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
+          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
+void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
+       init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS>) {
+
+  // Verify that we can read the camera models
+  // - In the future we can support other types of models here.
+  m_left_map_proj_model  = load_isis_camera_model(m_left_image_file,  m_left_camera_file );
+  m_right_map_proj_model = load_isis_camera_model(m_right_image_file, m_right_camera_file);
+
+  VW_ASSERT( m_left_map_proj_model.get() && m_right_map_proj_model.get(),
+             ArgumentErr() << "StereoSessionConcrete: Unable to locate ISIS model inside input files." );
+  
+  // Double check that we can read the DEM and that it has cartographic information.
+  VW_ASSERT(!m_input_dem.empty(), InputErr() << "StereoSessionConcrete : Require input DEM" );
+  if (!boost::filesystem::exists(m_input_dem))
+    vw_throw( ArgumentErr() << "StereoSessionConcrete: DEM \"" << m_input_dem << "\" does not exist." );
+
+}
+
 
 
 // TODO: Do we need those weird vw enum things?
@@ -303,28 +344,6 @@ void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
 
 //----------------------------------------------------------------------------------------------
 // Code for reading different camera models
-
-// ---> Move these helper functions!
-
-//TODO: Move this!
-// General function for loading an ISIS camera model
-inline boost::shared_ptr<vw::camera::CameraModel>
-load_isis_camera_model(std::string const& image_file,
-                       std::string const& camera_file) {
-
-  if (boost::ends_with(boost::to_lower_copy(camera_file), ".isis_adjust")){
-    // Creating Equations for the files
-    std::ifstream input( camera_file.c_str() );
-    boost::shared_ptr<BaseEquation> posF  = read_equation(input);
-    boost::shared_ptr<BaseEquation> poseF = read_equation(input);
-    input.close();
-
-    // Finally creating camera model
-    return boost::shared_ptr<vw::camera::CameraModel>(new camera::IsisAdjustCameraModel(image_file, posF, poseF));
-  } else {
-    return boost::shared_ptr<vw::camera::CameraModel>(new camera::IsisCameraModel(image_file));
-  }
-} // End function load_isis_camera_model()
 
 
 // TODO: Move this function somewhere else!
@@ -359,7 +378,10 @@ template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
 boost::shared_ptr<vw::camera::CameraModel>
 StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::camera_model(std::string const& image_file,
                                                                          std::string const& camera_file) {
-  return load_camera_model(Int2Type<STEREOMODEL_TYPE>(), image_file, camera_file);
+  if (camera_file == "") // No camera file provided, use the image file.
+    return load_camera_model(Int2Type<STEREOMODEL_TYPE>(), image_file, image_file);
+  else // Camera file provided
+    return load_camera_model(Int2Type<STEREOMODEL_TYPE>(), image_file, camera_file);
 }
 
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
@@ -368,7 +390,6 @@ boost::shared_ptr<vw::camera::CameraModel>
 StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model(Int2Type<STEREOMODEL_TYPE_ISIS>, 
                                                                               std::string const& image_file, 
                                                                               std::string const& camera_file) {
-
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
   return load_isis_camera_model(image_file, camera_file); // Just call the standalone function
 #endif
@@ -382,7 +403,6 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model(In
                                                                               std::string const& image_file, 
                                                                               std::string const& camera_file) {
   return load_dg_camera_model(camera_file); // Call the standalone function
-  //return boost::shared_ptr<vw::camera::CameraModel>(); //DEBUG
 }
 
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
@@ -546,17 +566,28 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DI
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
-StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_left(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT>) const {
+StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_left(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC>) const {
   return getTransformFromMapProject(m_input_dem, m_left_image_file, m_left_map_proj_model);
 }
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
-StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT>) const {
+StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC>) const {
   return getTransformFromMapProject(m_input_dem, m_right_image_file, m_right_map_proj_model);
 }
 
-
+template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
+          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
+typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
+StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_left(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS>) const {
+  return getTransformFromMapProject(m_input_dem, m_left_image_file, m_left_map_proj_model);
+}
+template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
+          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
+typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
+StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS>) const {
+  return getTransformFromMapProject(m_input_dem, m_right_image_file, m_right_map_proj_model);
+}
 
 
 

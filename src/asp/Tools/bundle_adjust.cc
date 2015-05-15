@@ -193,10 +193,8 @@ struct BaReprojectionError {
 
       size_t num_cameras = m_ba_model->num_cameras();
       size_t num_points  = m_ba_model->num_points();
-      VW_ASSERT(m_icam < num_cameras,
-                ArgumentErr() << "Out of bounds in the number of cameras");
-      VW_ASSERT(m_ipt < num_points,
-                ArgumentErr() << "Out of bounds in the number of points");
+      VW_ASSERT(m_icam < num_cameras, ArgumentErr() << "Out of bounds in the number of cameras");
+      VW_ASSERT(m_ipt  < num_points , ArgumentErr() << "Out of bounds in the number of points" );
 
       // Copy the input data to structures expected by the BA model
       typename ModelT::camera_vector_t cam_vec;
@@ -270,10 +268,8 @@ struct BaPinholeError {
 
       size_t num_cameras = m_ba_model->num_cameras();
       size_t num_points  = m_ba_model->num_points();
-      VW_ASSERT(m_icam < num_cameras,
-                ArgumentErr() << "Out of bounds in the number of cameras");
-      VW_ASSERT(m_ipt < num_points,
-                ArgumentErr() << "Out of bounds in the number of points");
+      VW_ASSERT(m_icam < num_cameras, ArgumentErr() << "Out of bounds in the number of cameras");
+      VW_ASSERT(m_ipt  < num_points , ArgumentErr() << "Out of bounds in the number of points" );
 
       // Copy the input data to structures expected by the BA model
       typename ModelT::camera_intr_vector_t cam_intr_vec;
@@ -493,10 +489,8 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
       // The index of the 3D point
       size_t ipt = (**fiter).m_point_id; 
 
-      VW_ASSERT(icam < num_cameras,
-                ArgumentErr() << "Out of bounds in the number of cameras");
-      VW_ASSERT(ipt < num_points,
-                ArgumentErr() << "Out of bounds in the number of points");
+      VW_ASSERT(icam < num_cameras, ArgumentErr() << "Out of bounds in the number of cameras");
+      VW_ASSERT(ipt < num_points,   ArgumentErr() << "Out of bounds in the number of points");
 
       // The observed value for the projection of point with index ipt into
       // the camera with index icam.
@@ -506,7 +500,7 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
       // Each observation corresponds to a pair of a camera and a point
       // which are identified by indices icam and ipt respectively.
       double * camera = cameras + icam * num_camera_params;
-      double * point  = points  + ipt * num_point_params;
+      double * point  = points  + ipt  * num_point_params;
 
       ceres::LossFunction* loss_function = get_loss_function(opt);
 
@@ -521,10 +515,9 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
     if (cnet[ipt].type() != ControlPoint::GroundControlPoint) continue;
 
     Vector3 observation = cnet[ipt].position();
-    Vector3 xyz_sigma = cnet[ipt].sigma();
+    Vector3 xyz_sigma   = cnet[ipt].sigma();
 
-    ceres::CostFunction* cost_function =
-      XYZError::Create(observation, xyz_sigma);
+    ceres::CostFunction* cost_function = XYZError::Create(observation, xyz_sigma);
     
     ceres::LossFunction* loss_function = get_loss_function(opt);
     
@@ -540,8 +533,7 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
       for (size_t q = 0; q < num_camera_params; q++)
         orig_cam[q] = orig_cameras_vec[icam * num_camera_params + q];
       
-      ceres::CostFunction* cost_function =
-        CamError<ModelT>::Create(orig_cam, opt.camera_weight);
+      ceres::CostFunction* cost_function = CamError<ModelT>::Create(orig_cam, opt.camera_weight);
       
       ceres::LossFunction* loss_function = get_loss_function(opt);
       
@@ -575,10 +567,8 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
   ceres::Solve(options, &problem, &summary);
   vw_out() << summary.FullReport() << "\n";
   if (summary.termination_type == ceres::NO_CONVERGENCE){
-    // Print a clarifying message, so the user does not think that
-    // the algorithm failed. 
-    vw_out() << "Found a valid solution, but did not reach the actual minimum."
-             << std::endl;
+    // Print a clarifying message, so the user does not think that the algorithm failed. 
+    vw_out() << "Found a valid solution, but did not reach the actual minimum." << std::endl;
   }
   
   // Copy the latest version of the optimized variables into
@@ -618,13 +608,11 @@ void do_ba(typename AdjusterT::model_type & ba_model,
     ba_model.bundlevis_points_append(iterPointsFile);
   }
 
-  BundleAdjustReport<AdjusterT>
-    reporter( "Bundle Adjust", ba_model, bundle_adjuster,
-              opt.report_level );
+  BundleAdjustReport<AdjusterT> reporter( "Bundle Adjust", ba_model, bundle_adjuster, opt.report_level );
 
   double abs_tol = 1e10, rel_tol=1e10;
   double overall_delta = 2;
-  int no_improvement_count = 0;
+  int    no_improvement_count = 0;
   while ( true ) {
     // Determine if it is time to quit
     if ( bundle_adjuster.iterations() >= opt.max_iterations ) {
@@ -637,8 +625,7 @@ void do_ba(typename AdjusterT::model_type & ba_model,
       reporter() << "Triggered 'Rel Tol " << rel_tol << " < 1e-10'\n";
       break;
     } else if ( no_improvement_count > 4 ) {
-      reporter() << "Triggered break, unable to improve after "
-                 << no_improvement_count << " iterations\n";
+      reporter() << "Triggered break, unable to improve after " << no_improvement_count << " iterations\n";
       break;
     }
 
@@ -690,7 +677,7 @@ void save_cnet_as_csv(Options& opt, std::string const& cnetFile){
 
     Vector3 sigma = (*iter).sigma();
     
-    ofs << count  << ' ' << llr[0] << ' ' << llr[1] << ' ' << llr[2] << ' ';
+    ofs << count     << ' ' << llr  [0] << ' ' << llr  [1] << ' ' << llr[2] << ' ';
     ofs << sigma[0]  << ' ' << sigma[1] << ' ' << sigma[2] << ' ';
     
     for ( ControlPoint::const_iterator measure = (*iter).begin();
@@ -730,8 +717,7 @@ void do_ba_costfun(CostFunType const& cost_fun, Options& opt){
 
   // Save the models to disk
   for (size_t icam = 0; icam < ba_model.num_cameras(); icam++){
-    std::string adjust_file = asp::bundle_adjust_file_name(opt.out_prefix,
-                                                           opt.image_files[icam]);
+    std::string adjust_file = asp::bundle_adjust_file_name(opt.out_prefix, opt.image_files[icam]);
     vw_out() << "Writing: " << adjust_file << std::endl;
     ba_model.write_adjustment(icam, adjust_file);
   }
@@ -743,14 +729,11 @@ template<class ModelType>
 void do_ba_with_model(Options& opt){
   
   if ( opt.cost_function == "cauchy" ) {
-    do_ba_costfun<ModelType, CauchyError>
-      (CauchyError(opt.robust_threshold), opt);
+    do_ba_costfun<ModelType, CauchyError>(CauchyError(opt.robust_threshold), opt);
   }else if ( opt.cost_function == "pseudohuber" ) {
-    do_ba_costfun<ModelType, PseudoHuberError>
-      (PseudoHuberError(opt.robust_threshold), opt );
+    do_ba_costfun<ModelType, PseudoHuberError>(PseudoHuberError(opt.robust_threshold), opt );
   } else if ( opt.cost_function == "huber" ) {
-    do_ba_costfun<ModelType, HuberError>
-      (HuberError(opt.robust_threshold), opt );
+    do_ba_costfun<ModelType, HuberError>(HuberError(opt.robust_threshold), opt );
   } else if ( opt.cost_function == "l1" ) {
     do_ba_costfun<ModelType, L1Error>( L1Error(), opt );
   } else if ( opt.cost_function == "l2" ) {
@@ -762,37 +745,72 @@ void do_ba_with_model(Options& opt){
   
 }
 
+// TODO: Clean up the command line parsing and unify it with other modules!
+
+/// Custom list for bundle_adjust
+bool has_cam_extension_bundle_adjust( std::string const& input ) {
+  std::string ext = asp::get_extension(input);
+  if ( ext == ".cahvor"  || ext == ".cahv"    ||
+       ext == ".pin"     || ext == ".pinhole" ||
+       ext == ".tsai"    || ext == ".cmod"    ||
+       ext == ".cahvore")
+    return true;
+  return false;
+}
+
+/// Given a vector of strings, identify and store separately the list of camera models.
+std::vector<std::string>
+extract_cameras_bundle_adjust( std::vector<std::string>& image_files ) {
+  std::vector<std::string> cam_files;
+  std::vector<std::string>::iterator it = image_files.begin();
+  while ( it != image_files.end() ) {
+    if (has_cam_extension_bundle_adjust( *it ) ||
+        boost::iends_with(boost::to_lower_copy(*it), ".xml")
+        ){
+      cam_files.push_back( *it );
+      it = image_files.erase( it );
+    } else
+      it++;
+  }
+  
+  return cam_files;
+}
+
+
+
+
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
 //     ("cnet,c", po::value(&opt.cnet_file),
 //      "Load a control network from a file (optional).")
-    ("output-prefix,o", po::value(&opt.out_prefix), "Prefix for output filenames.")
-    ("bundle-adjuster", po::value(&opt.ba_type)->default_value("Ceres"),
-     "Choose a solver from: Ceres, RobustSparse, RobustRef, Sparse, Ref.")
-    ("cost-function", po::value(&opt.cost_function)->default_value("Cauchy"),
-     "Choose a cost function from: Cauchy, PseudoHuber, Huber, L1, L2.")
+    ("output-prefix,o",  po::value(&opt.out_prefix), "Prefix for output filenames.")
+    ("bundle-adjuster",  po::value(&opt.ba_type)->default_value("Ceres"),
+                        "Choose a solver from: Ceres, RobustSparse, RobustRef, Sparse, Ref.")
+    ("cost-function",    po::value(&opt.cost_function)->default_value("Cauchy"),
+                         "Choose a cost function from: Cauchy, PseudoHuber, Huber, L1, L2.")
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(0.5),
-     "Set the threshold for robust cost functions.")
-    ("datum", po::value(&opt.datum_str)->default_value(""), "Use this datum (needed only if ground control points are used). [WGS_1984, D_MOON (radius is assumed to be 1,737,400 meters), D_MARS (radius is assumed to be 3,396,190 meters), etc.]")
-    ("semi-major-axis", po::value(&opt.semi_major)->default_value(0),
-     "Explicitly set the datum semi-major axis in meters (needed only if ground control points are used).")
-    ("semi-minor-axis", po::value(&opt.semi_minor)->default_value(0),
-     "Explicitly set the datum semi-minor axis in meters (needed only if ground control points are used).")
-    ("session-type,t", po::value(&opt.stereo_session_string)->default_value(""),
-     "Select the stereo session type to use for processing. Options: pinhole isis dg rpc. Usually the program can select this automatically by the file extension.")
-    ("min-matches", po::value(&opt.min_matches)->default_value(30),
-     "Set the minimum  number of matches between images that will be considered.")
-    ("max-iterations", po::value(&opt.max_iterations)->default_value(100),
-     "Set the maximum number of iterations.")
-    ("overlap-limit", po::value(&opt.overlap_limit)->default_value(3),
-     "Limit the number of subsequent images to search for matches to the current image to this value.")
-    ("camera-weight", po::value(&opt.camera_weight)->default_value(1.0),
-     "The weight to give to the constraint that the camera positions/orientations stay close to the original values (only for the Ceres solver).")
-    ("lambda,l", po::value(&opt.lambda)->default_value(-1),
-     "Set the initial value of the LM parameter lambda (ignored for the Ceres solver).")
-    ("report-level,r",po::value(&opt.report_level)->default_value(10),
-     "Use a value >= 20 to get increasingly more verbose output.");
+                         "Set the threshold for robust cost functions.")
+    ("datum",            po::value(&opt.datum_str)->default_value(""), 
+                         "Use this datum (needed only if ground control points are used). [WGS_1984, D_MOON (radius is assumed to be 1,737,400 meters), D_MARS (radius is assumed to be 3,396,190 meters), etc.]")
+                         ("semi-major-axis",  po::value(&opt.semi_major)->default_value(0),
+                         "Explicitly set the datum semi-major axis in meters (needed only if ground control points are used).")
+    ("semi-minor-axis",  po::value(&opt.semi_minor)->default_value(0),
+                         "Explicitly set the datum semi-minor axis in meters (needed only if ground control points are used).")
+    ("session-type,t",   po::value(&opt.stereo_session_string)->default_value(""),
+                         "Select the stereo session type to use for processing. Options: pinhole isis dg rpc. Usually the program can select this automatically by the file extension.")
+    ("min-matches",      po::value(&opt.min_matches)->default_value(30),
+                         "Set the minimum  number of matches between images that will be considered.")
+    ("max-iterations",   po::value(&opt.max_iterations)->default_value(100),
+                         "Set the maximum number of iterations.")
+    ("overlap-limit",    po::value(&opt.overlap_limit)->default_value(3),
+                         "Limit the number of subsequent images to search for matches to the current image to this value.")
+    ("camera-weight",    po::value(&opt.camera_weight)->default_value(1.0),
+                         "The weight to give to the constraint that the camera positions/orientations stay close to the original values (only for the Ceres solver).")
+    ("lambda,l",         po::value(&opt.lambda)->default_value(-1),
+                         "Set the initial value of the LM parameter lambda (ignored for the Ceres solver).")
+    ("report-level,r",   po::value(&opt.report_level)->default_value(10),
+                         "Use a value >= 20 to get increasingly more verbose output.");
 //     ("save-iteration-data,s", "Saves all camera information between iterations to output-prefix-iterCameraParam.txt, it also saves point locations for all iterations in output-prefix-iterPointsParam.txt.");
   general_options.add( asp::BaseOptionsDescription(opt) );
 
@@ -814,21 +832,18 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if ( opt.image_files.empty() )
     vw_throw( ArgumentErr() << "Missing input image files.\n"
               << usage << general_options );
-  opt.gcp_files = asp::extract_gcps( opt.image_files );
-  opt.camera_files = asp::extract_cameras( opt.image_files );
+  opt.gcp_files    = asp::extract_gcps( opt.image_files );
+  opt.camera_files = extract_cameras_bundle_adjust( opt.image_files );
   
   if ( opt.overlap_limit <= 0 )
     vw_throw( ArgumentErr() << "Must allow search for matches between "
-              << "at least each image and its subsequent one.\n"
-              << usage << general_options );
+              << "at least each image and its subsequent one.\n" << usage << general_options );
   
   if ( opt.camera_weight < 0.0 )
-    vw_throw( ArgumentErr() << "The camera weight must be non-negative.\n"
-              << usage << general_options );
+    vw_throw( ArgumentErr() << "The camera weight must be non-negative.\n" << usage << general_options );
 
   // See if we start with initial cameras or no cameras
-  opt.have_input_cams
-    = (!opt.camera_files.empty()) || asp::images_are_cubes(opt.image_files);
+  opt.have_input_cams = (!opt.camera_files.empty()) || asp::images_are_cubes(opt.image_files);
   
   if (!opt.gcp_files.empty() || !opt.have_input_cams){
     // Need to read the datum if we have gcps.
@@ -844,12 +859,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     }else{
       if (!opt.gcp_files.empty())
         vw_throw( ArgumentErr() << "When ground control points are used, "
-                  << "the datum must be specified.\n"
-                  << usage << general_options );
+                                << "the datum must be specified.\n" << usage << general_options );
       else if (!opt.have_input_cams)
         vw_throw( ArgumentErr() << "When there is no input camera information, "
-                  << "the datum must be specified.\n"
-                  << usage << general_options );
+                                << "the datum must be specified.\n" << usage << general_options );
     }
     vw_out() << "Will use datum: " << opt.datum << std::endl;
     
@@ -876,7 +889,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
           opt.ba_type == "ref" 
           ) )
     vw_throw( ArgumentErr() << "Unknown bundle adjustment version: " << opt.ba_type
-              << ". Options are: [Ceres, RobustSparse, RobustRef, Sparse, Ref]\n" );
+                            << ". Options are: [Ceres, RobustSparse, RobustRef, Sparse, Ref]\n" );
 }
 
 int main(int argc, char* argv[]) {
@@ -888,11 +901,9 @@ int main(int argc, char* argv[]) {
     int num_images = opt.image_files.size();
     // Create the stereo session. Try to auto-guess the session type.
     if (num_images <= 1)
-      vw_throw( ArgumentErr() << "Must have at least two image "
-                << "files to do bundle adjustment.\n" );
+      vw_throw( ArgumentErr() << "Must have at least two image files to do bundle adjustment.\n" );
 
-    // If there are no camera files, then the image files have the
-    // camera information.
+    // If there are no camera files, then the image files have the camera information.
     if (opt.camera_files.empty()){
       for (int i = 0; i < num_images; i++)
         opt.camera_files.push_back("");
@@ -904,9 +915,8 @@ int main(int argc, char* argv[]) {
 
     if (!opt.have_input_cams){
       if (opt.stereo_session_string != "" && opt.stereo_session_string != "pinhole"){
-        vw_throw( ArgumentErr()
-                  << "No input cameras were provided. "
-                  << "The only supported stereo session is Pinhole.\n");
+        vw_throw( ArgumentErr() << "No input cameras were provided. "
+                                << "The only supported stereo session is Pinhole.\n");
       }
       opt.stereo_session_string = "pinhole";
     }
@@ -914,20 +924,18 @@ int main(int argc, char* argv[]) {
     // Create the stereo session. This will attempt to identify the
     // session type.
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-    SessionPtr session
-      (asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
-                                         opt.image_files[0], opt.image_files[1],
-                                         opt.camera_files[0], opt.camera_files[1],
-                                         opt.out_prefix
-                                         ));
+    SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
+                                                         opt.image_files [0], opt.image_files [1],
+                                                         opt.camera_files[0], opt.camera_files[1],
+                                                         opt.out_prefix
+                                                         ));
     
     // Read in the camera model and image info for the input images.
     for (int i = 0; i < num_images; i++){
-      vw_out(DebugMessage,"asp") << "Loading: "
-                                 << opt.image_files[i] << ' '
-                                 << opt.camera_files[i] << "\n";
+      vw_out(DebugMessage,"asp") << "Loading: " << opt.image_files [i] << ' '
+                                                << opt.camera_files[i] << "\n";
       if (opt.have_input_cams){
-        opt.camera_models.push_back(session->camera_model(opt.image_files[i],
+        opt.camera_models.push_back(session->camera_model(opt.image_files [i],
                                                           opt.camera_files[i]));
       }
       else{
@@ -1006,8 +1014,7 @@ int main(int argc, char* argv[]) {
       // Save the camera models to disk
       std::vector<std::string> cam_files;
       for (int icam = 0; icam < (int)opt.camera_models.size(); icam++){
-        std::string cam_file
-          = asp::bundle_adjust_file_name(opt.out_prefix, opt.image_files[icam]);
+        std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix, opt.image_files[icam]);
         cam_file = fs::path(cam_file).replace_extension("pinhole").string();
         cam_files.push_back(cam_file);
       }

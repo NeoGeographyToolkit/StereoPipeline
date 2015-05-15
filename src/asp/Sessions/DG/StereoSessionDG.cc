@@ -27,7 +27,7 @@
 #include <vw/Math/Matrix.h>
 #include <vw/Cartography/Datum.h>
 
-#include <asp/Core/StereoSettings.h>
+//#include <asp/Core/StereoSettings.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Sessions/DG/LinescanDGModel.h>

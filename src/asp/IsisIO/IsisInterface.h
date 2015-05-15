@@ -56,18 +56,14 @@ namespace isis {
     // them to be customized for the type of camera so that they are
     // fast and not too full of conditionals.
 
-    virtual vw::Vector2
-      point_to_pixel( vw::Vector3 const& point ) const = 0;
-    virtual vw::Vector3
-      pixel_to_vector( vw::Vector2 const& pix ) const = 0;
-    virtual vw::Vector3
-      camera_center( vw::Vector2 const& pix = vw::Vector2() ) const = 0;
-    virtual vw::Quat
-      camera_pose( vw::Vector2 const& pix = vw::Vector2() ) const = 0;
+    virtual vw::Vector2 point_to_pixel ( vw::Vector3 const& point               ) const = 0;
+    virtual vw::Vector3 pixel_to_vector( vw::Vector2 const& pix                 ) const = 0;
+    virtual vw::Vector3 camera_center  ( vw::Vector2 const& pix = vw::Vector2() ) const = 0;
+    virtual vw::Quat    camera_pose    ( vw::Vector2 const& pix = vw::Vector2() ) const = 0;
 
     // General information
     //------------------------------------------------------
-    int lines() const;
+    int lines  () const;
     int samples() const;
     std::string serial_number() const;
     double ephemeris_time( vw::Vector2 const& pix ) const;

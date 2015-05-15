@@ -16,10 +16,9 @@
 // __END_LICENSE__
 
 
-/// \file DiskImageResourceDDD.h
+/// \file DiskImageResourceIsis.h
 ///
-/// Provides support for Malin Space Science System's DDD image file
-/// format.
+/// Provides support for ISIS image files.
 ///
 #ifndef __VW_FILEIO_DISK_IMAGE_RESOUCE_ISIS_H__
 #define __VW_FILEIO_DISK_IMAGE_RESOUCE_ISIS_H__
@@ -51,20 +50,20 @@ namespace vw {
     static std::string type_static() { return "ISIS"; }
     virtual std::string type() { return type_static(); }
 
-    virtual bool has_block_write()  const {return false;}
+    virtual bool has_block_write () const {return false;}
     virtual bool has_nodata_write() const {return false;}
-    virtual bool has_block_read()   const {return true;}
-    virtual bool has_nodata_read()  const {return true;}
+    virtual bool has_block_read  () const {return true; }
+    virtual bool has_nodata_read () const {return true; }
 
     virtual Vector2i block_read_size() const;
 
-    virtual void read(ImageBuffer const& dest, BBox2i const& bbox) const;
+    virtual void read (ImageBuffer const& dest, BBox2i const& bbox) const;
     virtual void write(ImageBuffer const& dest, BBox2i const& bbox);
     virtual void flush() {}
     //    std::string query(std::string const& key) const;
     void open(std::string const& filename);
     void create(std::string const& filename, ImageFormat const& format);
-    static DiskImageResource* construct_open(std::string const& filename);
+    static DiskImageResource* construct_open  (std::string const& filename);
     static DiskImageResource* construct_create(std::string const& filename,
                                                ImageFormat const& format);
 
@@ -73,7 +72,7 @@ namespace vw {
     // Note: Isis has many types of invalid pixels. If creating a mask
     // of valid pixels, please use only pixels within the valid range
     // provided in the functions below.
-    double nodata_read() const;
+    double nodata_read  () const;
     double valid_minimum() const;
     double valid_maximum() const;
 
@@ -83,8 +82,8 @@ namespace vw {
   private:
     boost::shared_ptr<Isis::Cube> m_cube;
     std::string m_filename;
-    int m_bytes_per_pixel;
-    Vector2i m_native_block_size;
+    int         m_bytes_per_pixel;
+    Vector2i    m_native_block_size;
   };
 
 } // namespace vw

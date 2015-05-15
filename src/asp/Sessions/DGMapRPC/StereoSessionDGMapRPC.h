@@ -33,7 +33,7 @@ namespace asp {
  
     
   /// Specialization of the StereoSessionGDAL class to use (RPC) map-projected inputs with the DG sensor model.
-  class StereoSessionDGMapRPC : public StereoSessionGdal<DISKTRANSFORM_TYPE_MAP_PROJECT, STEREOMODEL_TYPE_DG>  {
+  class StereoSessionDGMapRPC : public StereoSessionGdal<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC, STEREOMODEL_TYPE_DG>  {
   public:
     StereoSessionDGMapRPC(){};
     virtual ~StereoSessionDGMapRPC(){};
@@ -41,13 +41,12 @@ namespace asp {
     virtual std::string name() const { return "dgmaprpc"; }
 
     static StereoSession* construct() { return new StereoSessionDGMapRPC; }
-
   };
 
 
 
   /// Specialization of the StereoSessionGDAL class to use (RPC) map-projected inputs with the RPC sensor model.
-  class StereoSessionRPCMapRPC : public StereoSessionGdal<DISKTRANSFORM_TYPE_MAP_PROJECT, STEREOMODEL_TYPE_RPC>  {
+  class StereoSessionRPCMapRPC : public StereoSessionGdal<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC, STEREOMODEL_TYPE_RPC>  {
   public:
     StereoSessionRPCMapRPC(){};
     virtual ~StereoSessionRPCMapRPC(){};
@@ -55,8 +54,24 @@ namespace asp {
     virtual std::string name() const { return "rpcmaprpc"; }
 
     static StereoSession* construct() { return new StereoSessionRPCMapRPC; }
-
   };
+
+
+  /// Specialization of the StereoSessionGDAL class to use (RPC) map-projected inputs with the DG sensor model.
+  class StereoSessionIsisMapIsis : public StereoSessionGdal<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS, STEREOMODEL_TYPE_ISIS>  {
+  public:
+    StereoSessionIsisMapIsis(){
+      // Supporting this option (or anything else ISIS specific) requires more class refactoring!
+      if (stereo_settings().mask_flatfield)
+        vw_throw( NoImplErr() << "StereoSessionIsisMapIsis does not support mask_flatfield" );
+    };
+    virtual ~StereoSessionIsisMapIsis(){};
+
+    virtual std::string name() const { return "isismapisis"; }
+
+    static StereoSession* construct() { return new StereoSessionIsisMapIsis; }
+  };
+
 
 }
 

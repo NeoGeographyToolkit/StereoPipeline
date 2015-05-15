@@ -76,6 +76,9 @@ namespace asp {
     return b;
   }
 
+
+
+
   void parse_multiview(int argc, char* argv[],
                        boost::program_options::options_description const&
                        additional_options,
@@ -91,6 +94,10 @@ namespace asp {
     // Options entries, corresponding to n-1 stereo pairs between the
     // first image and each of the subsequent images.
 
+    //vw_out() << "DEBUG - parse_multiview inputs:" << std::endl;
+    //for (int i=0; i<argc; ++i)
+    //  vw_out() << argv[i] << std::endl;
+
     // First reset the outputs
     output_prefix.clear();
     opt_vec.clear();
@@ -100,13 +107,22 @@ namespace asp {
     bool is_multiview = true;
     Options opt;
     std::string usage;
+    vw_out() << "DEBUG - First handle_arguments call" << std::endl;
     handle_arguments(argc, argv, opt, additional_options,
                      is_multiview, files, usage);
     
+    vw_out() << "DEBUG - Detected files:" << std::endl; // This gets the prefix too
+    for (size_t i=0; i<files.size(); ++i)
+      vw_out() << files[i] << std::endl;
+
+    if (files.size() < 3)
+      vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n" << usage );
+
     // If a file shows up more than once as input, that will confuse
     // the logic at the next step, so forbid that.
     map<string, int> vals;
-    for (int s = 1; s < argc; s++) vals[argv[s]]++;
+    for (int s = 1; s < argc; s++) 
+      vals[argv[s]]++;
     for (int s = 0; s < (int)files.size(); s++){
       if (vals[files[s]] > 1){ 
         vw_throw( ArgumentErr() << "The following input argument shows up more than "
@@ -125,49 +141,51 @@ namespace asp {
         options.push_back(argv[s]);
     }
   
-    // Separate the cameras from the other files
-    vector<string> cameras = asp::extract_cameras( files );
+    vw_out() << "DEBUG - Detected options:" << std::endl; // includes all parts of all options
+    for (size_t i=0; i<options.size(); ++i)
+      vw_out() << options[i] << std::endl;
 
-    if (files.size() < 3)
+    vw_out() << "DEBUG - Detected files:" << std::endl; // This gets the prefix too
+    for (size_t i=0; i<files.size(); ++i)
+      vw_out() << files[i] << std::endl;
+
+
+    // Extract all the positional elements
+    vector<string> images, cameras;
+    string input_dem;
+    if (!parse_multiview_cmd_files(files, images, cameras, output_prefix, input_dem))
       vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n" << usage );
 
-    // Find the input DEM, if any
-    string input_dem;
-    bool has_georef = false;
-    try{
-      cartography::GeoReference georef;
-      has_georef = read_georeference( georef, files.back() );
-    }catch(...){}
-    if (has_georef){
-      input_dem = files.back();
-      files.pop_back();
-    }else{
-      input_dem = "";
-    }
 
-    // Find the output prefix
-    output_prefix = files.back();
-    files.pop_back();
+    vw_out() << "DEBUG - Detected output prefix:" << output_prefix <<  std::endl;
+
+    vw_out() << "DEBUG - Detected images:" << std::endl; // This gets the prefix too
+    for (size_t i=0; i<images.size(); ++i)
+      vw_out() << images[i] << std::endl;
+  
+    vw_out() << "DEBUG - Detected cameras:" << std::endl; 
+    for (size_t i=0; i<cameras.size(); ++i)
+      vw_out() << cameras[i] << std::endl;
+
 
     if (fs::exists(output_prefix))
       vw_out(WarningMessage) << "It appears that the output prefix exists as a file: " << output_prefix
                              << ". Perhaps this was not intended." << endl;
 
-    // Verify that the images and cameras exist, otherwise GDAL prints
-    // funny messages later.
-    for (int i = 0; i < (int)files.size(); i++){
-      if (!fs::exists(files[i]))
-        vw_throw(ArgumentErr() << "Cannot find the image file: " << files[i] << ".\n");
+    // Verify that the images and cameras exist, otherwise GDAL prints funny messages later.
+    for (int i = 0; i < (int)images.size(); i++){
+      if (!fs::exists(images[i]))
+        vw_throw(ArgumentErr() << "Cannot find the image file: " << images[i] << ".\n");
     }
     for (int i = 0; i < (int)cameras.size(); i++){
       if (!fs::exists(cameras[i]))
         vw_throw(ArgumentErr() << "Cannot find the camera file: " << cameras[i] << ".\n");
     }
     
-    if (files.size() != cameras.size() && !cameras.empty())
+    if (images.size() != cameras.size() && !cameras.empty())
       vw_throw(ArgumentErr() << "Expecting the number of images and cameras to agree.\n");
     
-    int num_pairs = (int)files.size() - 1;
+    int num_pairs = (int)images.size() - 1;
     if (num_pairs <= 0)
       vw_throw(ArgumentErr() << "Insufficient number of images provided.\n");
 
@@ -213,6 +231,8 @@ namespace asp {
     if (verbose)
       vw_out() << "num_stereo_pairs," << num_pairs << std::endl;
     
+    vw_out() << "DEBUG - Starting pairs loop" << std::endl;
+
     std::string prog_name = extract_prog_name(argv[0]);
 
     // Generate the stereo command for each of the pairs made up of the first
@@ -226,12 +246,15 @@ namespace asp {
       for (int t = 0; t < (int)options.size(); t++)
         cmd.push_back(options[t]);
     
-      cmd.push_back(files[0]); // left image
-      cmd.push_back(files[p]); // right image
+      cmd.push_back(images[0]); // left image
+      cmd.push_back(images[p]); // right image
 
       if (!cameras.empty()){
-        cmd.push_back(cameras[0]); // left camera
-        cmd.push_back(cameras[p]); // right camera
+        // Don't append the camera names if they are the same as the image names
+        if ((images[0] != cameras[0]) && (images[p] != cameras[p])){
+          cmd.push_back(cameras[0]); // left camera
+          cmd.push_back(cameras[p]); // right camera
+        }
       }
 
       string local_prefix = output_prefix;
@@ -262,8 +285,10 @@ namespace asp {
         // Needed for stereo_parse 
         int big = 10000; // helps keep things in order in the python script
         vw_out() << "multiview_command_" << big + p << ",";
-        for (int t = 0; t < largc-1; t++) vw_out() << cmd[t] << ",";
-        if (largc > 0)                    vw_out() << cmd[largc-1];
+        for (int t = 0; t < largc-1; t++) 
+          vw_out() << cmd[t] << ",";
+        if (largc > 0)                    
+          vw_out() << cmd[largc-1];
         vw_out() << std::endl;
       }
       
@@ -286,7 +311,7 @@ namespace asp {
     po::options_description general_options_sub("");
     general_options_sub.add_options()
       ("session-type,t",      po::value(&opt.stereo_session_string), 
-                              "Select the stereo session type to use for processing. [options: pinhole isis dg rpc dgmaprpc rpcmaprpc]")
+                              "Select the stereo session type to use for processing. [options: pinhole isis dg rpc]")
       ("stereo-file,s",       po::value(&opt.stereo_default_filename)->default_value("./stereo.default"), 
                               "Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
       ("left-image-crop-win", po::value(&opt.left_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"),
@@ -453,8 +478,7 @@ namespace asp {
   void stereo_register_sessions() {
 
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-    // Register the Isis file handler with the Vision Workbench
-    // DiskImageResource system.
+    // Register the Isis file handler with the Vision Workbench DiskImageResource system.
     DiskImageResource::register_file_type(".cub",
                                           DiskImageResourceIsis::type_static(),
                                           &DiskImageResourceIsis::construct_open,
@@ -525,9 +549,10 @@ namespace asp {
                 << "must use the same projection.\n");
     }
     
+    //TODO: Clean up these conditional using some kind of enum system
+
     // If images are map-projected, need an input DEM
-    if ((opt.session->name() == "dg" || opt.session->name() == "dgmaprpc" || opt.session->name() == "rpcmaprpc") &&
-         has_georef1 && has_georef2 && opt.input_dem.empty()) {
+    if (has_georef1 && has_georef2 && opt.input_dem.empty()) {
       vw_out(WarningMessage) << "It appears that the input images are "
                              << "map-projected. In that case a DEM needs to be "
                              << "provided for stereo to give correct results.\n";
@@ -535,8 +560,9 @@ namespace asp {
 
     // We did not implement stereo using map-projected images with dem
     // on anything except "dg", "dgmaprpc", and "rpcmaprpc" sessions.
-    if (!opt.input_dem.empty() && opt.session->name() != "dg"
-        && opt.session->name() != "dgmaprpc" && opt.session->name() != "rpcmaprpc") {
+    if (!opt.input_dem.empty() && opt.session->name() != "dg" && opt.session->name() != "isis"
+        && opt.session->name() != "dgmaprpc" && opt.session->name() != "rpcmaprpc"
+        && opt.session->name() != "isismapisis") {
       vw_throw(ArgumentErr() << "Cannot use map-projected images with a session of type: " 
                              << opt.session->name() << ".\n");
     }
@@ -547,8 +573,7 @@ namespace asp {
       vw_out(WarningMessage) << "Changing the alignment method to 'none' "
                              << "as the images are map-projected." << endl;
     }
-    
-//TODO: Can we ease this restriction?    
+/*  TODO: Make sure we check the types at some point!
     // Ensure that we are not accidentally doing stereo with
     // images map-projected with other camera model than 'rpc'.
     if (!opt.input_dem.empty()){
@@ -565,7 +590,7 @@ namespace asp {
         vw_throw(ArgumentErr() << "The images were map-projected with another option than -t rpc.\n");
       }
     }
-    
+*/
     if (stereo_settings().corr_kernel[0]%2 == 0 ||
         stereo_settings().corr_kernel[1]%2 == 0   ){
       vw_throw(ArgumentErr() << "The entries of corr-kernel must be odd numbers.\n");

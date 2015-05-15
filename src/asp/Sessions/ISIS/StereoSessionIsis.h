@@ -141,10 +141,14 @@ namespace asp {
                                 IsisSpecialPixelFunc<typename ViewT::pixel_type>(r_low,r_high,r_null));
   }
 
+
+
   /// Derived StereoSession class for ISIS images.
-  class StereoSessionIsis : public StereoSessionConcrete<DISKTRANSFORM_TYPE_MATRIX, STEREOMODEL_TYPE_ISIS> {
+  template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE>
+  class StereoSessionIsisBase : public StereoSessionConcrete<DISKTRANSFORM_TYPE, STEREOMODEL_TYPE_ISIS> {
   public:
-    virtual ~StereoSessionIsis() {}
+    StereoSessionIsisBase() {}
+    virtual ~StereoSessionIsisBase() {}
 
     virtual std::string name() const { return "isis"; }
 
@@ -172,11 +176,25 @@ namespace asp {
     pre_pointcloud_hook(std::string const& input_file);
 
     /// Simple factory function.
-    static StereoSession* construct() { return new StereoSessionIsis; }
+    static StereoSession* construct() { return new StereoSessionIsisBase<DISKTRANSFORM_TYPE>; }
 
   };
 
+
+  /// Specialization of the StereoSessionGDAL class to use (RPC) map-projected inputs with the DG sensor model.
+  class StereoSessionIsis : public StereoSessionIsisBase<DISKTRANSFORM_TYPE_MATRIX>  {
+  public:
+    StereoSessionIsis(){};
+    virtual ~StereoSessionIsis(){};
+
+    virtual std::string name() const { return "isis"; }
+
+    static StereoSession* construct() { return new StereoSessionIsis; }
+  };
+
 } // end namespace asp
+
+#include <asp/Sessions/ISIS/StereoSessionIsis.tcc>
 
 #endif  // ASP_HAVE_PKG_ISISIO
 

@@ -82,11 +82,15 @@ namespace asp {
                            std::string const& right_input_file,
                            std::string &left_output_file,
                            std::string &right_output_file) {
+
+    vw_out() << "DEBUG - Loading GDAL preprocessing image file: " << left_input_file << std::endl;
+
     // Get input image handles
     boost::shared_ptr<DiskImageResource>
       left_rsrc (DiskImageResource::open(this->m_left_image_file )),
       right_rsrc(DiskImageResource::open(this->m_right_image_file));
 
+    // Retrieve nodata values
     float left_nodata_value, right_nodata_value;
     this->get_nodata_values(left_rsrc, right_rsrc, left_nodata_value, right_nodata_value);
 
@@ -130,6 +134,7 @@ namespace asp {
     ImageViewRef< PixelMask<float> > Limg, Rimg;
     std::string lcase_file = boost::to_lower_copy(this->m_left_camera_file);
 
+    // Image alignment block - Generate aligned versions of the input images according to the options.
     if ( stereo_settings().alignment_method == "homography" ||
          stereo_settings().alignment_method == "affineepipolar" ) {
       // Define the file name containing IP match information.

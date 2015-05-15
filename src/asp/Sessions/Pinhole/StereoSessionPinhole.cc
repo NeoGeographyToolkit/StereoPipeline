@@ -19,7 +19,7 @@
 /// \file StereoSessionPinhole.cc
 ///
 
-#include <asp/Core/StereoSettings.h>
+//#include <asp/Core/StereoSettings.h>
 #include <asp/Sessions/Pinhole/StereoSessionPinhole.h>
 
 #include <vw/Math/BBox.h>

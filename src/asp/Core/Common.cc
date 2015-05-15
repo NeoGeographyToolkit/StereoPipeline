@@ -49,8 +49,7 @@ using namespace vw;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-// Given a vector of strings, identify and store separately the list
-// of camera models.
+/// Given a vector of strings, identify and store separately the list of camera models.
 std::vector<std::string>
 asp::extract_cameras( std::vector<std::string>& image_files ) {
   std::vector<std::string> cam_files;
@@ -66,6 +65,119 @@ asp::extract_cameras( std::vector<std::string>& image_files ) {
   }
   
   return cam_files;
+}
+
+std::string asp::get_extension( std::string const& input ) {
+  boost::filesystem::path ipath( input );
+  std::string ext = ipath.extension().string();
+  return ext;
+}
+
+bool asp::has_cam_extension( std::string const& input ) {
+  std::string ext = get_extension(input);
+  if ( ext == ".cahvor"  || ext == ".cahv"    ||
+       ext == ".pin"     || ext == ".pinhole" ||
+       ext == ".tsai"    || ext == ".cmod"    ||
+       ext == ".cahvore" || ext == ".cub"     ||
+       ext == "xml"      )
+    return true;
+  return false;
+}
+
+
+bool asp::has_image_extension( std::string const& input ) {
+  std::string ext = get_extension(input);
+  if ( ext == ".tif"  || ext == ".tiff" ||
+       ext == ".png"  || ext == ".jpeg" ||
+       ext == ".jpg"  || ext == ".jp2"  ||
+       ext == ".img"  || ext == ".cub"    )
+    return true;
+  return false;
+}
+
+
+/// Parse the list of files specified as positional arguments on the command lin
+bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
+                                    std::vector<std::string>       &image_paths,
+                                    std::vector<std::string>       &camera_paths,
+                                    std::string                    &prefix,
+                                    std::string                    &dem_path){
+  // Init outputs
+  image_paths.clear();
+  camera_paths.clear();
+  prefix   = "";
+  dem_path = "";
+
+  // The format is:  <N image paths> [N camera model paths] <output prefix> [input DEM path]
+
+  // Find the input DEM, if any
+  std::vector<std::string> files = filesIn; // Make a local copy to work with
+  std::string input_dem;
+  bool has_georef = false;
+  try{ // Just try to load the last file path as a dem
+    cartography::GeoReference georef;
+    has_georef = read_georeference( georef, files.back() );
+  }catch(...){}
+  if (has_georef){ // I guess it worked!
+    dem_path = files.back();
+    files.pop_back();
+  }else{ // We tried to load the prefix, there is no dem.
+    dem_path = "";
+  }
+
+  //vw_out() << "DEBUG - Detected files:" << std::endl; // This gets the prefix too
+  //for (size_t i=0; i<files.size(); ++i)
+  //  vw_out() << files[i] << std::endl;
+
+  if (files.size() < 3) // Check for the minimum number of files
+    return false;
+
+  // Find the output prefix
+  prefix = files.back(); // Dem, if present, was already popped off the back.
+  files.pop_back();
+
+  // Now there are N images and possibly N camera paths
+  // - Need to figure out of the camera paths are there!
+
+  // If there is an odd number of files then this is easy
+  bool has_camera_paths = (files.size() % 2 == 0);
+  // Otherwise we need to do more checks
+  if (has_camera_paths) {
+    //int  num_image_files     = 0;
+    //int  num_camera_files    = 0; 
+    bool multiple_extensions = false;
+
+    for (size_t i=0; i<files.size(); ++i) {
+      //if (has_image_extension(files[i]))
+      //  num_image_files++;
+      //if (has_camera_extension(files[i]))
+      //  num_camera_files++;
+      std::string ext = get_extension(files[i]);
+      if (ext != get_extension(files[0]))
+        multiple_extensions = true;
+    }
+
+    //if (num_image_files < files.size()) // Must be camera files
+    //  break;
+    if (!multiple_extensions) 
+      has_camera_paths = false; // Two types of files, some must be camera files.
+
+  } // End check for camera file prescence
+
+
+  if (has_camera_paths) { // Move the cameras out of the files vector
+    const size_t half = files.size()/2;
+    camera_paths.resize(half);
+    for (size_t i=0; i<half; ++i) {
+      camera_paths[half-i-1] = files.back();
+      files.pop_back();
+    }
+  }
+  else // camera_paths = image_paths
+    camera_paths = files;
+  image_paths = files;
+
+  return true;
 }
 
 // Convert dir1/image1.cub to out-prefix-image1.adjust
@@ -281,7 +393,7 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
       vw::vw_throw( vw::ArgumentErr() << "Error parsing input:\n"
                     << e.what() << "\n" << l_opts );
     }
-  }
+  } // End bugfix.
 
   unregistered.clear();
   
@@ -373,16 +485,6 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
   return vm;
 }
 
-bool asp::has_cam_extension( std::string const& input ) {
-  boost::filesystem::path ipath( input );
-  std::string ext = ipath.extension().string();
-  if ( ext == ".cahvor" || ext == ".cahv" ||
-       ext == ".pin" || ext == ".pinhole" ||
-       ext == ".tsai" || ext == ".cmod" ||
-       ext == ".cahvore" )
-    return true;
-  return false;
-}
 
 Vector2i asp::file_image_size( std::string const& input ) {
   boost::scoped_ptr<SrcImageResource>

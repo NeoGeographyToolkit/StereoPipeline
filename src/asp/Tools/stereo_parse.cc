@@ -41,21 +41,21 @@ int main( int argc, char* argv[] ) {
                          verbose, output_prefix, opt_vec);
     Options opt = opt_vec[0];
     
-    vw_out() << "in_file1," << opt.in_file1 << endl;
-    vw_out() << "in_file2," << opt.in_file2 << endl;
-    vw_out() << "cam_file1," << opt.cam_file1 << endl;
-    vw_out() << "cam_file2," << opt.cam_file2 << endl;
-    vw_out() << "input_dem," << opt.input_dem << endl;
+    vw_out() << "in_file1,"        << opt.in_file1        << endl;
+    vw_out() << "in_file2,"        << opt.in_file2        << endl;
+    vw_out() << "cam_file1,"       << opt.cam_file1       << endl;
+    vw_out() << "cam_file2,"       << opt.cam_file2       << endl;
+    vw_out() << "input_dem,"       << opt.input_dem       << endl;
     vw_out() << "extra_argument1," << opt.extra_argument1 << endl;
     vw_out() << "extra_argument2," << opt.extra_argument2 << endl;
     vw_out() << "extra_argument3," << opt.extra_argument3 << endl;
 
-    vw_out() << "stereo_session_string," << opt.stereo_session_string << endl;
-    vw_out() << "stereo_default_filename," << opt.stereo_default_filename << endl;
-    vw_out() << "left_image_crop_win," << opt.left_image_crop_win.min().x() << ","
+    vw_out() << "stereo_session_string,"   << opt.stereo_session_string         << endl;
+    vw_out() << "stereo_default_filename," << opt.stereo_default_filename       << endl;
+    vw_out() << "left_image_crop_win,"     << opt.left_image_crop_win.min().x() << ","
              << opt.left_image_crop_win.min().y() << ","
-             << opt.left_image_crop_win.width() << ","
-             << opt.left_image_crop_win.height() << endl;
+             << opt.left_image_crop_win.width()   << ","
+             << opt.left_image_crop_win.height()  << endl;
 
     // The executable may have been called with both
     // --left-image-crop-win box and -trans-crop-win box. We on
@@ -64,19 +64,17 @@ int main( int argc, char* argv[] ) {
     BBox2i transformed_window = transformed_crop_win(opt);
     vw_out() << "transformed_window," << transformed_window.min().x() << ","
              << transformed_window.min().y() << ","
-             << transformed_window.width() << ","
-             << transformed_window.height() << endl;
+             << transformed_window.width()   << ","
+             << transformed_window.height()  << endl;
 
     vw_out() << "out_prefix," << output_prefix << endl;
 
     Vector2i left_image_size = file_image_size( opt.in_file1 ),
-      right_image_size = file_image_size( opt.in_file2 );
-    vw_out() << "left_image_size," << left_image_size.x() << ","
-             << left_image_size.y() << endl;
-    vw_out() << "right_image_size," << right_image_size.x() << ","
-             << right_image_size.y() << endl;
+             right_image_size = file_image_size( opt.in_file2 );
+    vw_out() << "left_image_size,"  << left_image_size.x()  << "," << left_image_size.y()  << endl;
+    vw_out() << "right_image_size," << right_image_size.x() << "," << right_image_size.y() << endl;
 
-    string trans_left_image = opt.out_prefix+"-L.tif";
+    string trans_left_image  = opt.out_prefix+"-L.tif";
     string trans_right_image = opt.out_prefix+"-R.tif";
     vw_out() << "trans_left_image,"  << trans_left_image  << endl;
     vw_out() << "trans_right_image," << trans_right_image << endl;
@@ -84,8 +82,7 @@ int main( int argc, char* argv[] ) {
     Vector2 trans_left_image_size;
     if ( fs::exists(trans_left_image) )
       trans_left_image_size = file_image_size(trans_left_image);
-    vw_out() << "trans_left_image_size," << trans_left_image_size.x() << ","
-             << trans_left_image_size.y() << endl;
+    vw_out() << "trans_left_image_size," << trans_left_image_size.x() << "," << trans_left_image_size.y() << endl;
 
     
     vw_out() << "corr_tile_size," << Options::corr_tile_size() << endl;
