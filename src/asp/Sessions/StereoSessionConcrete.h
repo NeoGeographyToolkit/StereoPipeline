@@ -70,8 +70,6 @@ namespace asp {
   template <> struct StereoModelType2Class<STEREOMODEL_TYPE_RPC>           { typedef asp::RPCStereoModel type; };
 
   /// Utility returns true if our inputs are map projected.
-  //template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE> struct IsTypeMapProjected { static bool value(){return false;} };
-  //template <> struct IsTypeMapProjected<DISKTRANSFORM_TYPE_MAP_PROJECT> { static bool value(){return true;} };
   template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE> struct IsTypeMapProjected { static const bool value=false; };
   template <> struct IsTypeMapProjected<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC > { static const bool value=true; };
   template <> struct IsTypeMapProjected<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS> { static const bool value=true; };
@@ -106,6 +104,8 @@ namespace asp {
 
     StereoSessionConcrete();
     virtual ~StereoSessionConcrete();
+
+    static bool isMapProjected() { return IsTypeMapProjected<DISKTRANSFORM_TYPE>::value; }
 
     /// Verify that the inputs needed by the template configuration are selected
     /// - Derived classes should call this before initializing their own behavior.

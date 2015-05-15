@@ -134,8 +134,7 @@ IsisInterfaceLineScan::point_to_pixel( Vector3 const& point ) const {
                                                          status );
 
   // Make sure we found ideal time
-  VW_ASSERT( status > 0,
-             MathErr() << " Unable to project point into linescan camera " );
+  VW_ASSERT( status > 0, MathErr() << " Unable to project point into linescan camera " );
 
   // Converting now to pixel
   m_camera->setTime(Isis::iTime( solution_e[0] ));

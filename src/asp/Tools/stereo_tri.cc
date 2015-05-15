@@ -50,7 +50,7 @@ class StereoTXAndErrorView : public ImageViewBase<StereoTXAndErrorView<Disparity
   vector<DisparityImageT> m_disparity_maps;
   vector<TXT>  m_transforms; // e.g., map-projection or homography to undo
   StereoModelT m_stereo_model;
-
+  bool         m_is_map_projected;
   typedef typename DisparityImageT::pixel_type DPixelT;
 
 public:
@@ -62,10 +62,12 @@ public:
   /// Constructor
   StereoTXAndErrorView( vector<DisparityImageT> const& disparity_maps,
                         vector<TXT>             const& transforms,
-                        StereoModelT            const& stereo_model) :
+                        StereoModelT            const& stereo_model,
+                        bool is_map_projected) :
     m_disparity_maps(disparity_maps), 
     m_transforms(transforms),
-    m_stereo_model(stereo_model) {
+    m_stereo_model(stereo_model),
+    m_is_map_projected(is_map_projected) {
 
     // Sanity check
     for (int p = 1; p < (int)m_disparity_maps.size(); p++){
@@ -118,33 +120,27 @@ public:
   }
   
 private:
-  
-  /// Use this version of the function EXCEPT for DGMapRPC session type.
-  template <class T>
-  typename boost::disable_if<boost::is_same<T,StereoSessionDGMapRPC::tx_type>, prerasterize_type>::type
-  PreRasterHelper( BBox2i const& bbox, vector<T> const& transforms ) const {
 
-    // We explicitly bring in-memory the disparities for the current box
-    // to speed up processing later, and then we pretend this is the entire
-    // image by virtually enlarging it using a CropView. 
-    vector< ImageViewRef<DPixelT> > disparity_cropviews;
-    for (int p = 0; p < (int)m_disparity_maps.size(); p++){
-      ImageView<DPixelT> clip( crop( m_disparity_maps[p], bbox ) );
-      ImageViewRef<DPixelT> cropview_clip = crop(clip, -bbox.min().x(), -bbox.min().y(), cols(), rows() );
-      disparity_cropviews.push_back(cropview_clip);
-    }
-
-    return prerasterize_type(disparity_cropviews, transforms, m_stereo_model);
-  } // End function PreRasterHelper()
-
-  // TODO: Why is this not handled by an "if" statement?
-
-  // TODO: Use this version for any map projected input
-  /// Use this version of the function ONLY for DGMapRPC session type.
   /// RPC Map Transform needs to be explicitly copied and told to cache for performance.
   template <class T>
-  typename boost::enable_if<boost::is_same<T,StereoSessionDGMapRPC::tx_type>, prerasterize_type>::type
-  PreRasterHelper( BBox2i const& bbox, vector<T> const& transforms) const {
+  prerasterize_type PreRasterHelper( BBox2i const& bbox, vector<T> const& transforms) const {
+
+    // Code for NON-MAP-PROJECTED session types.
+    if (m_is_map_projected == false) {
+      // We explicitly bring in-memory the disparities for the current box
+      // to speed up processing later, and then we pretend this is the entire
+      // image by virtually enlarging it using a CropView. 
+      vector< ImageViewRef<DPixelT> > disparity_cropviews;
+      for (int p = 0; p < (int)m_disparity_maps.size(); p++){
+        ImageView<DPixelT> clip( crop( m_disparity_maps[p], bbox ) );
+        ImageViewRef<DPixelT> cropview_clip = crop(clip, -bbox.min().x(), -bbox.min().y(), cols(), rows() );
+        disparity_cropviews.push_back(cropview_clip);
+      }
+
+      return prerasterize_type(disparity_cropviews, transforms, m_stereo_model, m_is_map_projected);
+    }
+
+    // Code for MAP-PROJECTED session types.
 
     // This is to help any transforms (right now just Map2CamTrans)
     // that must cache their side data. Normally this would happen if
@@ -180,7 +176,7 @@ private:
       transforms_copy[p+1].reverse_bbox(right_bbox); // As a side effect this call makes transforms_copy create a local cache we want later
     }
     
-    return prerasterize_type(disparity_cropviews, transforms_copy, m_stereo_model );
+    return prerasterize_type(disparity_cropviews, transforms_copy, m_stereo_model, m_is_map_projected);
   } // End function PreRasterHelper() DGMapRPC version
 
 }; // End class StereoTXAndErrorView
@@ -190,10 +186,11 @@ template <class DisparityT, class TXT, class StereoModelT>
 StereoTXAndErrorView<DisparityT, TXT, StereoModelT>
 stereo_error_triangulate( vector<DisparityT> const& disparities,
                           vector<TXT>        const& transforms,
-                          StereoModelT       const& model ) {
+                          StereoModelT       const& model,
+                          bool is_map_projected ) {
 
   typedef StereoTXAndErrorView<DisparityT, TXT, StereoModelT> result_type;
-  return result_type( disparities, transforms, model );
+  return result_type( disparities, transforms, model, is_map_projected );
 }
 
 
@@ -226,7 +223,8 @@ namespace asp{
 
     vw_out() << "Writing point cloud: " << point_cloud_file << "\n";
 
-    if ( opt.session->name() == "isis" ){
+    // TODO: Replace this with with a function call!
+    if ( (opt.session->name() == "isis") || (opt.session->name() == "isismapisis")){
       // ISIS does not support multi-threading
       asp::write_approx_gdal_image
         ( point_cloud_file, shift,
@@ -353,6 +351,8 @@ void stereo_triangulation( string          const& output_prefix,
   typedef          ImageViewRef<PixelMask<Vector2f> >  PVImageT;
   typedef typename SessionT::stereo_model_type         StereoModelT;
   
+  const bool is_map_projected = SessionT::isMapProjected();
+
   try { // Outer try/catch
 
     // Collect the images, cameras, and transforms. The left image is
@@ -440,7 +440,7 @@ void stereo_triangulation( string          const& output_prefix,
     // Apply radius function and stereo model in one go
     vw_out() << "\t--> Generating a 3D point cloud." << endl;
     ImageViewRef<Vector6> point_cloud = per_pixel_filter
-                                            (stereo_error_triangulate(disparity_maps, transforms, stereo_model), 
+                                            (stereo_error_triangulate(disparity_maps, transforms, stereo_model, is_map_projected), 
                                              universe_radius_func);
     
     // Compute the point cloud center, unless done by now
