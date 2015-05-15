@@ -537,12 +537,13 @@ int main( int argc, char* argv[] ) {
 #define INSTANTIATE(T,NAME) if ( opt_vec[0].session->name() == NAME ) { \
       stereo_triangulation<T>(output_prefix, opt_vec); }
 
-    INSTANTIATE(StereoSessionPinhole,      "pinhole"     );
-    INSTANTIATE(StereoSessionNadirPinhole, "nadirpinhole");
-    INSTANTIATE(StereoSessionRPC,          "rpc"         );
-    INSTANTIATE(StereoSessionDG,           "dg"          );
-    INSTANTIATE(StereoSessionDGMapRPC,     "dgmaprpc"    );
-    INSTANTIATE(StereoSessionRPCMapRPC,    "rpcmaprpc"   );
+    INSTANTIATE(StereoSessionPinhole,           "pinhole"     );
+    INSTANTIATE(StereoSessionNadirPinhole,      "nadirpinhole");
+    INSTANTIATE(StereoSessionRPC,               "rpc"         );
+    INSTANTIATE(StereoSessionDG,                "dg"          );
+    INSTANTIATE(StereoSessionDGMapRPC,          "dgmaprpc"    );
+    INSTANTIATE(StereoSessionRPCMapRPC,         "rpcmaprpc"   );
+    INSTANTIATE(StereoSessionPinholeMapPinhole, "pinholemappinhole"   );
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
     INSTANTIATE(StereoSessionIsis,         "isis"        );
     INSTANTIATE(StereoSessionIsisMapIsis,  "isismapisis" );

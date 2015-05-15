@@ -57,7 +57,10 @@ namespace asp {
   };
 
 
-  /// Specialization of the StereoSessionGDAL class to use (RPC) map-projected inputs with the DG sensor model.
+  // TODO: Clean things up so there are not ISIS and PINHOLE classes that are not actually used by these classes!
+
+
+  /// Specialization of the StereoSessionGDAL class to use (ISIS) map-projected inputs with the ISIS sensor model.
   class StereoSessionIsisMapIsis : public StereoSessionGdal<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS, STEREOMODEL_TYPE_ISIS>  {
   public:
     StereoSessionIsisMapIsis(){
@@ -72,6 +75,16 @@ namespace asp {
     static StereoSession* construct() { return new StereoSessionIsisMapIsis; }
   };
 
+  /// Specialization of the StereoSessionGDAL class to use (PINHOLE) map-projected inputs with the PINHOLE sensor model.
+  class StereoSessionPinholeMapPinhole : public StereoSessionGdal<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE, STEREOMODEL_TYPE_PINHOLE>{
+  public:
+    StereoSessionPinholeMapPinhole() {}
+    virtual ~StereoSessionPinholeMapPinhole() {}
+
+    virtual std::string name() const { return "pinholemappinhole"; }
+
+    static StereoSession* construct() { return new StereoSessionPinholeMapPinhole; }
+  };
 
 }
 

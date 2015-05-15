@@ -39,10 +39,11 @@ namespace asp {
   /// List of disk transform options
   enum STEREOSESSION_DISKTRANSFORM_TYPE
   {
-    DISKTRANSFORM_TYPE_MATRIX           = 0,  // Covers Homography, Affine-Epipolar, and None.
-    DISKTRANSFORM_TYPE_MATRIX_RIGHT     = 1,  // As Matrix, but only homography and only for the right image.
-    DISKTRANSFORM_TYPE_MAP_PROJECT_RPC  = 2,  // RPC map projected image
-    DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS = 3   // ISIS map projected image
+    DISKTRANSFORM_TYPE_MATRIX              = 0,  // Covers Homography, Affine-Epipolar, and None.
+    DISKTRANSFORM_TYPE_MATRIX_RIGHT        = 1,  // As Matrix, but only homography and only for the right image.
+    DISKTRANSFORM_TYPE_MAP_PROJECT_RPC     = 2,  // RPC map projected image
+    DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS    = 3,  // ISIS map projected image
+    DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE = 4   // Pinhole map projected image
   };
   /// List of stereo model options
   enum STEREOSESSION_STEREOMODEL_TYPE
@@ -61,18 +62,20 @@ namespace asp {
 
 
   /// Utility for converting DISKTRANSFORM_TYPE into the corresponding class
-  template <STEREOSESSION_DISKTRANSFORM_TYPE T> struct DiskTransformType2Class    { typedef vw::HomographyTransform       type; };
-  template <> struct DiskTransformType2Class<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC > { typedef vw::cartography::Map2CamTrans type; };
-  template <> struct DiskTransformType2Class<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS> { typedef vw::cartography::Map2CamTrans type; };
+  template <STEREOSESSION_DISKTRANSFORM_TYPE T> struct DiskTransformType2Class       { typedef vw::HomographyTransform       type; };
+  template <> struct DiskTransformType2Class<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC    > { typedef vw::cartography::Map2CamTrans type; };
+  template <> struct DiskTransformType2Class<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS   > { typedef vw::cartography::Map2CamTrans type; };
+  template <> struct DiskTransformType2Class<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE> { typedef vw::cartography::Map2CamTrans type; };
 
   /// Utility for converting STEREOMODEL_TYPE into the corresponding class
-  template <STEREOSESSION_STEREOMODEL_TYPE T> struct StereoModelType2Class { typedef vw::stereo::StereoModel    type; };
-  template <> struct StereoModelType2Class<STEREOMODEL_TYPE_RPC>           { typedef asp::RPCStereoModel type; };
+  template <STEREOSESSION_STEREOMODEL_TYPE T> struct StereoModelType2Class { typedef vw::stereo::StereoModel type; };
+  template <> struct StereoModelType2Class<STEREOMODEL_TYPE_RPC>           { typedef asp::RPCStereoModel     type; };
 
   /// Utility returns true if our inputs are map projected.
   template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE> struct IsTypeMapProjected { static const bool value=false; };
-  template <> struct IsTypeMapProjected<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC > { static const bool value=true; };
-  template <> struct IsTypeMapProjected<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS> { static const bool value=true; };
+  template <> struct IsTypeMapProjected<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC    > { static const bool value=true; };
+  template <> struct IsTypeMapProjected<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS   > { static const bool value=true; };
+  template <> struct IsTypeMapProjected<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE> { static const bool value=true; };
 /*
   /// Define the currently used names
   template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE, // Transform from disk pixels to sensor pixels
@@ -162,10 +165,11 @@ namespace asp {
     void init_sensor_model(Int2Type<STEREOMODEL_TYPE_RPC    >) {}
 
     // Init calls for the chosen disk transform
-    void init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MATRIX          >) {}
-    void init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MATRIX_RIGHT    >) {}
-    void init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC >); // Needs to load the map_proj_models
-    void init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS>); // Needs to load the map_proj_models
+    void init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MATRIX             >) {}
+    void init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MATRIX_RIGHT       >) {}
+    void init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC    >); // Needs to load the map_proj_models
+    void init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS   >); // Needs to load the map_proj_models
+    void init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE>); // Needs to load the map_proj_models
 
     // Specializations of camera_model for each of the different model types
     boost::shared_ptr<vw::camera::CameraModel> load_camera_model(Int2Type<STEREOMODEL_TYPE_PINHOLE>, std::string const& image_file, std::string const& camera_file="");
@@ -174,15 +178,17 @@ namespace asp {
     boost::shared_ptr<vw::camera::CameraModel> load_camera_model(Int2Type<STEREOMODEL_TYPE_RPC    >, std::string const& image_file, std::string const& camera_file="");
 
     // Specializations of disk transform method
-    tx_type tx_left (Int2Type<DISKTRANSFORM_TYPE_MATRIX          >) const;
-    tx_type tx_left (Int2Type<DISKTRANSFORM_TYPE_MATRIX_RIGHT    >) const;
-    tx_type tx_left (Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC >) const;
-    tx_type tx_left (Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS>) const;
+    tx_type tx_left (Int2Type<DISKTRANSFORM_TYPE_MATRIX             >) const;
+    tx_type tx_left (Int2Type<DISKTRANSFORM_TYPE_MATRIX_RIGHT       >) const;
+    tx_type tx_left (Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC    >) const;
+    tx_type tx_left (Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS   >) const;
+    tx_type tx_left (Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE>) const;
     
-    tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MATRIX          >) const;
-    tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MATRIX_RIGHT    >) const;
-    tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC >) const;
-    tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS>) const;
+    tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MATRIX             >) const;
+    tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MATRIX_RIGHT       >) const;
+    tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC    >) const;
+    tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS   >) const;
+    tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE>) const;
 
   };
 

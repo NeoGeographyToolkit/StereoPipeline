@@ -47,6 +47,7 @@ namespace asp {
 
     static StereoSession* construct() { return new StereoSessionNadirPinhole; }
   };
+
 }
 
 #endif//__STEREO_SESSION_NADIR_PINHOLE_H__

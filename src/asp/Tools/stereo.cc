@@ -107,13 +107,13 @@ namespace asp {
     bool is_multiview = true;
     Options opt;
     std::string usage;
-    vw_out() << "DEBUG - First handle_arguments call" << std::endl;
+    //vw_out() << "DEBUG - First handle_arguments call" << std::endl;
     handle_arguments(argc, argv, opt, additional_options,
                      is_multiview, files, usage);
     
-    vw_out() << "DEBUG - Detected files:" << std::endl; // This gets the prefix too
-    for (size_t i=0; i<files.size(); ++i)
-      vw_out() << files[i] << std::endl;
+    //vw_out() << "DEBUG - Detected files:" << std::endl; // This gets the prefix too
+    //for (size_t i=0; i<files.size(); ++i)
+    //  vw_out() << files[i] << std::endl;
 
     if (files.size() < 3)
       vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n" << usage );
@@ -141,13 +141,13 @@ namespace asp {
         options.push_back(argv[s]);
     }
   
-    vw_out() << "DEBUG - Detected options:" << std::endl; // includes all parts of all options
-    for (size_t i=0; i<options.size(); ++i)
-      vw_out() << options[i] << std::endl;
+    //vw_out() << "DEBUG - Detected options:" << std::endl; // includes all parts of all options
+    //for (size_t i=0; i<options.size(); ++i)
+    //  vw_out() << options[i] << std::endl;
 
-    vw_out() << "DEBUG - Detected files:" << std::endl; // This gets the prefix too
-    for (size_t i=0; i<files.size(); ++i)
-      vw_out() << files[i] << std::endl;
+    //vw_out() << "DEBUG - Detected files:" << std::endl; // This gets the prefix too
+    //for (size_t i=0; i<files.size(); ++i)
+    // vw_out() << files[i] << std::endl;
 
 
     // Extract all the positional elements
@@ -157,15 +157,15 @@ namespace asp {
       vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n" << usage );
 
 
-    vw_out() << "DEBUG - Detected output prefix:" << output_prefix <<  std::endl;
+    //vw_out() << "DEBUG - Detected output prefix:" << output_prefix <<  std::endl;
 
-    vw_out() << "DEBUG - Detected images:" << std::endl; // This gets the prefix too
-    for (size_t i=0; i<images.size(); ++i)
-      vw_out() << images[i] << std::endl;
+    //vw_out() << "DEBUG - Detected images:" << std::endl; // This gets the prefix too
+    //for (size_t i=0; i<images.size(); ++i)
+    //  vw_out() << images[i] << std::endl;
   
-    vw_out() << "DEBUG - Detected cameras:" << std::endl; 
-    for (size_t i=0; i<cameras.size(); ++i)
-      vw_out() << cameras[i] << std::endl;
+    //vw_out() << "DEBUG - Detected cameras:" << std::endl; 
+    //for (size_t i=0; i<cameras.size(); ++i)
+    //  vw_out() << cameras[i] << std::endl;
 
 
     if (fs::exists(output_prefix))
@@ -231,7 +231,7 @@ namespace asp {
     if (verbose)
       vw_out() << "num_stereo_pairs," << num_pairs << std::endl;
     
-    vw_out() << "DEBUG - Starting pairs loop" << std::endl;
+    //vw_out() << "DEBUG - Starting pairs loop" << std::endl;
 
     std::string prog_name = extract_prog_name(argv[0]);
 
@@ -558,11 +558,13 @@ namespace asp {
                              << "provided for stereo to give correct results.\n";
     }
 
+    // TODO: Clean this up using session function calls!
+
     // We did not implement stereo using map-projected images with dem
     // on anything except "dg", "dgmaprpc", and "rpcmaprpc" sessions.
-    if (!opt.input_dem.empty() && opt.session->name() != "dg" && opt.session->name() != "isis"
+    if (!opt.input_dem.empty() && opt.session->name() != "dg" && opt.session->name() != "isis" && opt.session->name() != "pinhole"
         && opt.session->name() != "dgmaprpc" && opt.session->name() != "rpcmaprpc"
-        && opt.session->name() != "isismapisis") {
+        && opt.session->name() != "isismapisis" && opt.session->name() != "pinholemappinhole") {
       vw_throw(ArgumentErr() << "Cannot use map-projected images with a session of type: " 
                              << opt.session->name() << ".\n");
     }

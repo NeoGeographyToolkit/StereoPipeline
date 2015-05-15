@@ -292,6 +292,29 @@ load_isis_camera_model(std::string const& image_file,
 
 
 
+// TODO: Move this somewhere
+inline boost::shared_ptr<vw::camera::CameraModel> load_pinhole_camera_model(std::string const& camera_file) {
+
+  // Keypoint alignment and everything else just gets camera models
+  std::string lcase_file = boost::to_lower_copy(camera_file);
+  if (boost::ends_with(lcase_file,".cahvore") ) {
+    return boost::shared_ptr<vw::camera::CameraModel>( new CAHVOREModel(camera_file) );
+  } else if (boost::ends_with(lcase_file,".cahvor") ||
+             boost::ends_with(lcase_file,".cmod"  )   ) {
+    return boost::shared_ptr<vw::camera::CameraModel>( new CAHVORModel(camera_file) );
+  } else if ( boost::ends_with(lcase_file,".cahv") ||
+              boost::ends_with(lcase_file,".pin" )   ) {
+    return boost::shared_ptr<vw::camera::CameraModel>( new CAHVModel(camera_file) );
+  } else if ( boost::ends_with(lcase_file,".pinhole") ||
+              boost::ends_with(lcase_file,".tsai"   )   ) {
+    return boost::shared_ptr<vw::camera::CameraModel>( new PinholeModel(camera_file) );
+  } else {
+    vw_throw(ArgumentErr() << "PinholeStereoSession: unsupported camera file type.\n");
+  }
+
+}
+
+
 //==========================================================================
 
 
@@ -302,7 +325,6 @@ void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
        init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC>) {
   
   // Verify that we can read the camera models
-  // - In the future we can support other types of models here.
   m_left_map_proj_model  = boost::shared_ptr<asp::RPCModel>(read_rpc_model(m_left_image_file,  m_left_camera_file ));
   m_right_map_proj_model = boost::shared_ptr<asp::RPCModel>(read_rpc_model(m_right_image_file, m_right_camera_file));
 
@@ -316,14 +338,13 @@ void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
 
 }
 
-/// Checks the DEM and loads the RPC camera models
+/// Checks the DEM and loads the ISIS camera models
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
        init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS>) {
 
   // Verify that we can read the camera models
-  // - In the future we can support other types of models here.
   m_left_map_proj_model  = load_isis_camera_model(m_left_image_file,  m_left_camera_file );
   m_right_map_proj_model = load_isis_camera_model(m_right_image_file, m_right_camera_file);
 
@@ -337,6 +358,26 @@ void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
 
 }
 
+
+/// Checks the DEM and loads the pinhole camera models
+template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
+          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
+void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
+       init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE>) {
+
+  // Verify that we can read the camera models
+  m_left_map_proj_model  = load_pinhole_camera_model(m_left_camera_file );
+  m_right_map_proj_model = load_pinhole_camera_model(m_right_camera_file);
+
+  VW_ASSERT( m_left_map_proj_model.get() && m_right_map_proj_model.get(),
+             ArgumentErr() << "StereoSessionConcrete: Unable to locate Pinhole model inside input files." );
+  
+  // Double check that we can read the DEM and that it has cartographic information.
+  VW_ASSERT(!m_input_dem.empty(), InputErr() << "StereoSessionConcrete : Require input DEM" );
+  if (!boost::filesystem::exists(m_input_dem))
+    vw_throw( ArgumentErr() << "StereoSessionConcrete: DEM \"" << m_input_dem << "\" does not exist." );
+
+}
 
 
 // TODO: Do we need those weird vw enum things?
@@ -428,6 +469,7 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model(In
     Vector2i left_image_size (left_image.cols(),  left_image.rows() ),
              right_image_size(right_image.cols(), right_image.rows());
 
+    // TODO: Why is this needed?  We want to make this a static function!
     bool is_left_camera = true;
     if (camera_file == m_left_camera_file)
       is_left_camera = true;
@@ -474,25 +516,9 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model(In
       return epipolar_left_cahv;
     else
       return epipolar_right_cahv;
-  } else { // Not epipolar
-    // Keypoint alignment and everything else just gets camera models
-    std::string lcase_file = boost::to_lower_copy(camera_file);
-    if (boost::ends_with(lcase_file,".cahvore") ) {
-      return boost::shared_ptr<vw::camera::CameraModel>( new CAHVOREModel(camera_file) );
-    } else if (boost::ends_with(lcase_file,".cahvor") ||
-               boost::ends_with(lcase_file,".cmod"  )   ) {
-      return boost::shared_ptr<vw::camera::CameraModel>( new CAHVORModel(camera_file) );
-    } else if ( boost::ends_with(lcase_file,".cahv") ||
-                boost::ends_with(lcase_file,".pin" )   ) {
-      return boost::shared_ptr<vw::camera::CameraModel>( new CAHVModel(camera_file) );
-    } else if ( boost::ends_with(lcase_file,".pinhole") ||
-                boost::ends_with(lcase_file,".tsai"   )   ) {
-      return boost::shared_ptr<vw::camera::CameraModel>( new PinholeModel(camera_file) );
-    } else {
-      vw_throw(ArgumentErr() << "PinholeStereoSession: unsupported camera file type.\n");
-    }
+  } else { // Not epipolar, just load the camera model.
+    return load_pinhole_camera_model(camera_file);
   } // End not epipolar case
-  return boost::shared_ptr<vw::camera::CameraModel>(); // Never reached
 
 }
 
@@ -562,7 +588,7 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DI
 }
 
 
-
+//TODO: Consolidate all these map projected functions which are identical
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
@@ -590,7 +616,19 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DI
 }
 
 
+template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
+          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
+typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
+StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_left(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE>) const {
+  return getTransformFromMapProject(m_input_dem, m_left_image_file, m_left_map_proj_model);
+}
+template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
+          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
+typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
+StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE>) const {
+  return getTransformFromMapProject(m_input_dem, m_right_image_file, m_right_map_proj_model);
+}  
 
-  
+
 } // End namespace asp
 

@@ -81,7 +81,7 @@ namespace asp {
     std::string actual_session_type = session_type;
     boost::to_lower(actual_session_type);
     if (actual_session_type.empty()) {
-      if (asp::has_cam_extension(left_camera_file ) ||
+      if (asp::has_cam_extension(left_camera_file ) || // TODO: Fix this dangerous code!
           asp::has_cam_extension(right_camera_file)   ) {
         actual_session_type = "pinhole";
       }
@@ -107,6 +107,12 @@ namespace asp {
       // User says RPC .. but also gives a DEM.
       actual_session_type = "rpcmaprpc";
       VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: rpcmaprpc" << std::endl;
+    }
+
+    if (!input_dem.empty() && actual_session_type == "pinhole") {
+      // User says PINHOLE .. but also gives a DEM.
+      actual_session_type = "pinholemappinhole";
+      VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: pinholemappinhole" << std::endl;
     }
 
     if (!input_dem.empty() && actual_session_type == "isis") {
@@ -159,13 +165,16 @@ namespace asp {
             else
               if (actual_session_type == "rpcmaprpc")
                 session_new = StereoSessionRPCMapRPC::construct();
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
               else
-                if (actual_session_type == "isis")
-                  session_new = StereoSessionIsis::construct();
+                if (actual_session_type == "pinholemappinhole")
+                  session_new = StereoSessionPinholeMapPinhole::construct();
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
                 else
-                  if (actual_session_type == "isismapisis")
-                    session_new = StereoSessionIsisMapIsis::construct();
+                  if (actual_session_type == "isis")
+                    session_new = StereoSessionIsis::construct();
+                  else
+                    if (actual_session_type == "isismapisis")
+                      session_new = StereoSessionIsisMapIsis::construct();
 #endif
     if (session_new == 0)
       vw_throw(vw::NoImplErr() << "Unsuppported stereo session type: " << session_type);
