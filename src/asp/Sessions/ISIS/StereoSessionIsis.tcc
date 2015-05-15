@@ -281,14 +281,16 @@ pre_preprocessing_hook(bool adjust_left_image_size,
                             will_apply_user_nodata_right, right_lo, right_hi);
 
   // Handle mutual normalization if requested
+  float left_lo_out =left_lo,  left_hi_out =left_hi, 
+        right_lo_out=right_lo, right_hi_out=right_hi;
   if (stereo_settings().individually_normalize == 0 ) {
     float mutual_lo = std::min(left_lo, right_lo);  // Find the outer range of both files
     float mutual_hi = std::max(left_hi, right_hi);
     vw_out() << "\t--> Normalizing globally to: ["<<mutual_lo<<" "<<mutual_hi<<"]\n";
-    left_lo  = mutual_lo;  // Set the individual hi/lo values to the mutual values
-    left_hi  = mutual_hi;
-    right_lo = mutual_lo;  
-    right_hi = mutual_hi;
+    left_lo_out  = mutual_lo;  // Set the individual hi/lo values to the mutual values
+    left_hi_out  = mutual_hi;
+    right_lo_out = mutual_lo;  
+    right_hi_out = mutual_hi;
   }
   else
     vw_out() << "\t--> Individually normalizing.\n";
@@ -347,11 +349,11 @@ pre_preprocessing_hook(bool adjust_left_image_size,
   // Write output images
   write_preprocessed_isis_image( options, will_apply_user_nodata,
                                  left_masked_image, left_output_file, "left",
-                                 left_lo, left_hi, left_lo, left_hi,
+                                 left_lo, left_hi, left_lo_out, left_hi_out,
                                  align_left_matrix, left_size );
   write_preprocessed_isis_image( options, will_apply_user_nodata,
                                  right_masked_image, right_output_file, "right",
-                                 right_lo, right_hi, right_lo, right_hi,
+                                 right_lo, right_hi, right_lo_out, right_hi_out,
                                  align_right_matrix, right_size );
 }
 
