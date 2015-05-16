@@ -175,8 +175,8 @@ double RPNEquation::evaluate( std::vector<std::string>& commands,
 //-----------------------------------------------------
 void RPNEquation::write( std::ofstream &f ) {
   for ( int i = 0; i < 3; i++ ) {
-    std::vector<std::string>* eq_ptr;
-    std::vector<double>* cs_ptr;
+    std::vector<std::string>* eq_ptr = NULL;
+    std::vector<double>* cs_ptr = NULL;
     switch(i) {
     case 0:
       eq_ptr = &m_x_eq;
