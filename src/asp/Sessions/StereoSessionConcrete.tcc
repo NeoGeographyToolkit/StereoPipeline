@@ -272,7 +272,7 @@ load_isis_camera_model(std::string const& image_file,
                        std::string const& camera_file) { 
 
   if (boost::ends_with(boost::to_lower_copy(camera_file), ".isis_adjust")){
-    vw_out() << "DEBUG - Loading ISIS adjust camera file: " << camera_file << std::endl;
+    //vw_out() << "DEBUG - Loading ISIS adjust camera file: " << camera_file << std::endl;
 
     // Creating Equations for the files
     std::ifstream input( camera_file.c_str() );
@@ -283,7 +283,7 @@ load_isis_camera_model(std::string const& image_file,
     // Finally creating camera model
     return boost::shared_ptr<vw::camera::CameraModel>(new camera::IsisAdjustCameraModel(image_file, posF, poseF));
   } else {
-    vw_out() << "DEBUG - Loading ISIS camera file: " << camera_file << std::endl;
+    //vw_out() << "DEBUG - Loading ISIS camera file: " << camera_file << std::endl;
     return boost::shared_ptr<vw::camera::CameraModel>(new camera::IsisCameraModel(camera_file));
   }
 } // End function load_isis_camera_model()
