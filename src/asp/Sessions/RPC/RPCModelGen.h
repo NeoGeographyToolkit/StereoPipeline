@@ -40,8 +40,12 @@ namespace asp {
   /// Find the best-fitting RPC coefficients for the camera transform
   /// mapping a set of normalized geodetics to a set of normalized pixel values.
   class RpcSolveLMA : public vw::math::LeastSquaresModelBase<RpcSolveLMA> {
-    vw::Vector<double> m_normalizedGeodetics, m_normalizedPixels;
-    double m_wt;
+    
+    /// The normalized values are in the -1 to 1 range.
+    vw::Vector<double> m_normalizedGeodetics, 
+                       m_normalizedPixels;
+    double             m_wt; ///< The penalty weight, k in the reference paper.
+    
   public:
     typedef vw::Vector<double> result_type;   // normalized pixels
     typedef result_type        domain_type;   // RPC coefficients
@@ -66,19 +70,26 @@ namespace asp {
       // Add the penalization terms to the output,
       // see the note later in the code.
 
+      // Unpack all the RPC model coefficients from the input vector C
       RPCModel::CoeffVec lineNum, lineDen, sampNum, sampDen;
       unpackCoeffs(C, lineNum, lineDen, sampNum, sampDen);
 
-      int numPts = m_normalizedGeodetics.size()/3;
-
+      // Initialize the output vector
+      int numPts = m_normalizedGeodetics.size()/RPCModel::GEODETIC_COORD_SIZE;
       result_type result;
       result.set_size(m_normalizedPixels.size());
+      
+      // Loop through each test point
       for (int i = 0; i < numPts; i++){
-        vw::Vector3 G = subvector(m_normalizedGeodetics, 3*i, 3);
-        // Note that we normalize the cost function by numPts.
-        subvector(result, 2*i, 2)
-          = RPCModel::normalized_geodetic_to_normalized_pixel
-          (G, lineNum, lineDen, sampNum, sampDen)/numPts;
+        // Unpack the normalized Geodetic coordinate
+        vw::Vector3 G = subvector(m_normalizedGeodetics, RPCModel::GEODETIC_COORD_SIZE*i, RPCModel::GEODETIC_COORD_SIZE);
+        
+        // Project the normalized geodetic coordinate into the RPC camera to get a normalized pixel
+        vw::Vector3 pxn = RPCModel::normalized_geodetic_to_normalized_pixel(G, lineNum, lineDen, sampNum, sampDen);
+             
+        // Pack the normalized pixel into the output result vector
+        // - Note that we normalize the cost function by numPts, same as in rpc_gen.cc
+        subvector(result, RPCModel::IMAGE_COORD_SIZE*i, RPCModel::IMAGE_COORD_SIZE) = pxn/numPts
       }
 
       // There are 4*20 - 2 = 78 coefficients we optimize. Of those, 2

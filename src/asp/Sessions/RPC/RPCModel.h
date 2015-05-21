@@ -48,6 +48,12 @@ namespace asp {
 
   public:
 
+    // These integers show up in a lot of RPC code
+    static const int GEODETIC_COORD_SIZE = 3;
+    static const int IMAGE_COORD_SIZE    = 2;
+
+    static const int NUM_RPC_COEFFS = 78; // Total number of RPC coefficients
+
     typedef vw::Vector<double,20> CoeffVec;
 
     RPCModel( std::string const& filename );

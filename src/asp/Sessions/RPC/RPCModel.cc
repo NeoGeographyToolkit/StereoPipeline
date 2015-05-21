@@ -60,8 +60,8 @@ namespace asp {
     m_xy_offset = Vector2(gdal_rpc.dfSAMP_OFF,   gdal_rpc.dfLINE_OFF);
     m_xy_scale  = Vector2(gdal_rpc.dfSAMP_SCALE, gdal_rpc.dfLINE_SCALE);
 
-    m_line_num_coeff =   CoeffVec(gdal_rpc.adfLINE_NUM_COEFF);
-    m_line_den_coeff =   CoeffVec(gdal_rpc.adfLINE_DEN_COEFF);
+    m_line_num_coeff   = CoeffVec(gdal_rpc.adfLINE_NUM_COEFF);
+    m_line_den_coeff   = CoeffVec(gdal_rpc.adfLINE_DEN_COEFF);
     m_sample_num_coeff = CoeffVec(gdal_rpc.adfSAMP_NUM_COEFF);
     m_sample_den_coeff = CoeffVec(gdal_rpc.adfSAMP_DEN_COEFF);
   }
@@ -75,6 +75,7 @@ namespace asp {
     initialize( resource );
   }
 
+  // The constructor just copies all of the input data
   RPCModel::RPCModel( cartography::Datum const& datum,
                       Vector<double,20> const& line_num_coeff,
                       Vector<double,20> const& line_den_coeff,
@@ -84,11 +85,16 @@ namespace asp {
                       Vector2           const& xy_scale,
                       Vector3           const& lonlatheight_offset,
                       Vector3           const& lonlatheight_scale ) :
-  m_datum(datum), m_line_num_coeff(line_num_coeff),
-    m_line_den_coeff(line_den_coeff), m_sample_num_coeff(samp_num_coeff),
-    m_sample_den_coeff(samp_den_coeff), m_xy_offset(xy_offset),
-    m_xy_scale(xy_scale), m_lonlatheight_offset(lonlatheight_offset),
+    m_datum(datum), 
+    m_line_num_coeff(line_num_coeff),
+    m_line_den_coeff(line_den_coeff), 
+    m_sample_num_coeff(samp_num_coeff),
+    m_sample_den_coeff(samp_den_coeff), 
+    m_xy_offset(xy_offset),
+    m_xy_scale(xy_scale), 
+    m_lonlatheight_offset(lonlatheight_offset),
     m_lonlatheight_scale(lonlatheight_scale) {}
+    
 
   // All of these implementations are largely inspired by the GDAL
   // code. We don't use the GDAL code unfortunately because they don't
@@ -269,13 +275,10 @@ namespace asp {
 
     CoeffVec term = calculate_terms( normalized_geodetic );
 
-    CoeffVec Qs = quotient_Jacobian(sample_num_coeff(),
-                                    sample_den_coeff(), term );
-    CoeffVec Ql = quotient_Jacobian(line_num_coeff(),
-                                    line_den_coeff(), term );
-    Matrix<double, 20, 3> MN =
-      terms_Jacobian3( normalized_geodetic ) *
-      normalization_Jacobian( m_lonlatheight_scale );
+    CoeffVec Qs = quotient_Jacobian(sample_num_coeff(), sample_den_coeff(), term );
+    CoeffVec Ql = quotient_Jacobian(line_num_coeff(),   line_den_coeff(),   term );
+    Matrix<double, 20, 3> MN = terms_Jacobian3( normalized_geodetic ) *
+                                normalization_Jacobian( m_lonlatheight_scale );
 
     Matrix<double, 2, 3> J;
     select_row( J, 0 ) = m_xy_scale[0] * transpose( Qs ) * MN;
@@ -286,23 +289,20 @@ namespace asp {
 
   Matrix<double, 2, 2> RPCModel::normalized_geodetic_to_pixel_Jacobian( Vector3 const& normalized_geodetic ) const {
 
-    // This function is different from geodetic_to_pixel_Jacobian() in
-    // several respects:
+    // This function is different from geodetic_to_pixel_Jacobian() in several respects:
 
     // 1. The input is the normalized geodetic, and the derivatives
-    // are in respect to the normalized geodetic as well.
+    //    are in respect to the normalized geodetic as well.
 
     // 2. The derivatives are taken only in respect to the first two
-    // variables (normalized lon and lat, no height).
+    //    variables (normalized lon and lat, no height).
 
     // 3. The output is in normalized pixels (see m_xy_scale and m_xy_offset).
 
     CoeffVec term = calculate_terms( normalized_geodetic );
 
-    CoeffVec Qs = quotient_Jacobian(sample_num_coeff(),
-                                    sample_den_coeff(), term );
-    CoeffVec Ql = quotient_Jacobian(line_num_coeff(),
-                                    line_den_coeff(), term );
+    CoeffVec Qs = quotient_Jacobian(sample_num_coeff(), sample_den_coeff(), term );
+    CoeffVec Ql = quotient_Jacobian(line_num_coeff(),   line_den_coeff(),   term );
 
     Matrix<double, 20, 2> Jt = terms_Jacobian2( normalized_geodetic );
 
@@ -414,7 +414,7 @@ namespace asp {
     Vector3 geo_up = Vector3(lonlat_up[0], lonlat_up[1], height_up);
     Vector3 geo_dn = Vector3(lonlat_dn[0], lonlat_dn[1], height_dn);
 
-    P            = m_datum.geodetic_to_cartesian( geo_up );
+            P    = m_datum.geodetic_to_cartesian( geo_up );
     Vector3 P_dn = m_datum.geodetic_to_cartesian( geo_dn );
 
     dir = normalize(P_dn - P);
@@ -439,15 +439,15 @@ namespace asp {
   }
 
   std::ostream& operator<<(std::ostream& os, const RPCModel& rpc) {
-    os << "RPC Model:" << std::endl
-       << "Line Numerator: " << rpc.line_num_coeff() << std::endl
-       << "Line Denominator: " << rpc.line_den_coeff() << std::endl
-       << "Samp Numerator: " << rpc.sample_num_coeff() << std::endl
-       << "Samp Denominator: " << rpc.sample_den_coeff() << std::endl
-       << "XY Offset: " << rpc.xy_offset() << std::endl
-       << "XY Scale: " << rpc.xy_scale() << std::endl
-       << "Geodetic Offset: " << rpc.lonlatheight_offset() << std::endl
-       << "Geodetic Scale: " << rpc.lonlatheight_scale();
+    os << "RPC Model:"         << std::endl
+       << "Line Numerator: "   << rpc.line_num_coeff()      << std::endl
+       << "Line Denominator: " << rpc.line_den_coeff()      << std::endl
+       << "Samp Numerator: "   << rpc.sample_num_coeff()    << std::endl
+       << "Samp Denominator: " << rpc.sample_den_coeff()    << std::endl
+       << "XY Offset: "        << rpc.xy_offset()           << std::endl
+       << "XY Scale: "         << rpc.xy_scale()            << std::endl
+       << "Geodetic Offset: "  << rpc.lonlatheight_offset() << std::endl
+       << "Geodetic Scale: "   << rpc.lonlatheight_scale();
     return os;
   }
 }

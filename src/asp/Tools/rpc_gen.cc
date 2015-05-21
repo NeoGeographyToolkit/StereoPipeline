@@ -101,8 +101,7 @@ int main( int argc, char* argv[] ) {
     // Load up the Digital Globe camera model from the camera file
     XMLPlatformUtils::Initialize();
     StereoSessionDG session;
-    boost::shared_ptr<camera::CameraModel>
-      cam_dg( session.camera_model("", opt.camera_model) );
+    boost::shared_ptr<camera::CameraModel> cam_dg( session.camera_model("", opt.camera_model) );
 
     // Load up the RPC camera model from the camera file
     RPCXML xml;
@@ -115,10 +114,10 @@ int main( int argc, char* argv[] ) {
     //   zero to one range centered on the center coordinate/pixel.
     Vector3 min_llh_coord = opt.lon_lat_height_box.min();
     Vector3 max_llh_coord = opt.lon_lat_height_box.max();
-    Vector3 llh_scale     = (max_llh_coord - min_llh_coord)/2.0;
-    Vector3 llh_offset    = (max_llh_coord + min_llh_coord)/2.0;
-    Vector2 xy_scale      = image_size/2.0;
-    Vector2 xy_offset     = image_size/2.0;
+    Vector3 llh_scale     = (max_llh_coord - min_llh_coord)/2.0; // half range
+    Vector3 llh_offset    = (max_llh_coord + min_llh_coord)/2.0; // center point
+    Vector2 uv_scale      = image_size/2.0; // half range
+    Vector2 uv_offset     = image_size/2.0; // center point
 
     // Number of points in x and y at which we will optimize the RPC
     // model. Using 10 or 20 points gives roughly similar results.
@@ -130,37 +129,49 @@ int main( int argc, char* argv[] ) {
     // See comment about penalization in class RpcSolveLMA().
     int numExtraTerms = 64;
 
+    // Initialize normalized data storage
     Vector<double> normalizedGeodetics;
-    normalizedGeodetics.set_size(3*num_total_pts);
+    normalizedGeodetics.set_size(RPCModel::GEODETIC_COORD_SIZE*num_total_pts);
     Vector<double> normalizedPixels;
-    normalizedPixels.set_size(2*num_total_pts + numExtraTerms);
+    normalizedPixels.set_size(RPCModel::IMAGE_COORD_SIZE*num_total_pts + numExtraTerms);
     for (int i = 0; i < (int)normalizedPixels.size(); i++)
       normalizedPixels[i] = 0.0;
 
+    // Loop through all test points and generate the "correct" pairs / training data
+    //  using the trusted DG camera model.
     int count = 0;
     for (int x = 0; x < num_pts; x++){
       for (int y = 0; y < num_pts; y++){
         for (int z = 0; z < num_pts; z++){
 
+          // Test points are evenly spaced through the x/y/z -1 <> 1 range
           Vector3 U( x/(num_pts - 1.0), 
                      y/(num_pts - 1.0), 
                      z/(num_pts - 1.0) );
-                  U = 2*U - Vector3(1, 1, 1); // in the box [-1, 1]^3.
+                  U = 2.0*U - Vector3(1, 1, 1); // in the box [-1, 1]^3.
 
+          // Linear conversion from x/y/z to lat/lon/height
           Vector3 G   = elem_prod(U, llh_scale) + llh_offset; // geodetic
+          
+          // Convert from geodetic to geocentric coordinates
           Vector3 P   = cam_rpc->datum().geodetic_to_cartesian(G); // xyz
+          
+          // Project the GCC coordinate into the DG camera model
           Vector2 pxg = cam_dg->point_to_pixel(P);
-          Vector2 pxn = elem_quot(pxg - xy_offset, xy_scale);
+          
+          // Normalize the pixel to -1 <> 1 range
+          Vector2 pxn = elem_quot(pxg - uv_offset, uv_scale);
 
           // It is a useful exercise to compare DG and RPC cameras
           //Vector2 pxr = cam_rpc->point_to_pixel(P);
           //std::cout << U << ' ' << P << ' ' << pxg << ' ' << pxr  << ' '
           //          << norm_2(pxg-pxr)<< std::endl;
 
-          subvector(normalizedGeodetics, 3*count, 3) = U;
 
-          // Note that we normalize the error vector below
-          subvector(normalizedPixels, 2*count, 2) = pxn/num_total_pts;
+          // Note that we normalize the error vector below          
+          // TODO: Why is pxn divided here?
+          subvector(normalizedGeodetics, RPCModel::GEODETIC_COORD_SIZE*count, RPCModel::GEODETIC_COORD_SIZE) = U;
+          subvector(normalizedPixels,    RPCModel::IMAGE_COORD_SIZE   *count, RPCModel::IMAGE_COORD_SIZE   ) = pxn/num_total_pts;
 
           count++;
 
@@ -168,11 +179,17 @@ int main( int argc, char* argv[] ) {
       } // End y loop
     } // End x loop
 
-    RpcSolveLMA lma_model (normalizedGeodetics, normalizedPixels,
-                           opt.penalty_weight);
+    // Initialize a specialized least squares solver object and load the input data
+    RpcSolveLMA lma_model (normalizedGeodetics, normalizedPixels, opt.penalty_weight);
+    
+    // Initialize a zero vector of RPC model coefficients
     int status;
-    Vector<double> start; start.set_size(78);
-    for (int i = 0; i < (int)start.size(); i++) start[i] = 0.0;
+    Vector<double> start; 
+    start.set_size(RPCModel::NUM_RPC_COEFFS);
+    for (int i = 0; i < (int)start.size(); i++) 
+      start[i] = 0.0;
+    
+    // Use the L-M solver to optimize the RPC model coefficient values.
     Vector<double> solution =
       math::levenberg_marquardt( lma_model, start, normalizedPixels, status,
                                  1e-16, 1e-16, 1e3 );
@@ -180,8 +197,8 @@ int main( int argc, char* argv[] ) {
     // Dump the output to stdout, to be parsed by python
     RPCModel::CoeffVec line_num, line_den, samp_num, samp_den;
     unpackCoeffs(solution, line_num, line_den, samp_num, samp_den);
-    print_vec("xy_scale",   xy_scale  );
-    print_vec("xy_offset",  xy_offset );
+    print_vec("uv_scale",   uv_scale  );
+    print_vec("uv_offset",  uv_offset );
     print_vec("llh_scale",  llh_scale );
     print_vec("llh_offset", llh_offset);
     print_vec("line_num",   line_num  );
