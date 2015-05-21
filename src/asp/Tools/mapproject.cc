@@ -133,6 +133,8 @@ void write_parallel_cond( std::string              const& filename,
     session_type = "isis";
   if (session_type == "rpcmaprpc")
     session_type = "rpc";
+  if (session_type == "pinholemappinhole")
+    session_type = "pinhole";
 
   std::map<std::string, std::string> keywords;
   keywords["CAMERA_MODEL_TYPE" ] = session_type;
@@ -141,7 +143,7 @@ void write_parallel_cond( std::string              const& filename,
 
   vw_out() << "Writing: " << filename << "\n";
   if (has_nodata){
-    if ( opt.stereo_session == "isis" ) {
+    if ( session_type == "isis" ) {
       asp::write_gdal_georeferenced_image(filename, image.impl(), georef,
                                           nodata_val, opt, tpc, keywords);
     } else {
@@ -149,7 +151,7 @@ void write_parallel_cond( std::string              const& filename,
                                   nodata_val, opt, tpc, keywords);
     }
   }else{ // Does not have nodata
-    if ( opt.stereo_session == "isis" ) {
+    if ( session_type == "isis" ) {
       asp::write_gdal_georeferenced_image(filename, image.impl(), georef,
                                           opt, tpc, keywords);
     } else {
@@ -161,7 +163,7 @@ void write_parallel_cond( std::string              const& filename,
 }
 
 
-
+/*
 /// Intersections that take in account DEM topography
   /// - Returns a bounding box in Georeference coordinate system (projected if available)
   ///    containing everything visible in the camera image.
@@ -219,9 +221,9 @@ void write_parallel_cond( std::string              const& filename,
     scale = functor.scale/double(step_amount);
     return functor.box;
   }
+*/
 
-
-
+/*
  /// Constructor initializes class with DEM, camera model, etc.
 template <class DEMImageT>
 Vector3 projOnePoint( Vector2 const& pixel, 
@@ -261,7 +263,7 @@ Vector3 projOnePoint( Vector2 const& pixel,
    //std::cout << "point = " << point << std::endl;
   return llh;
 }
-
+*/
 
 
 Vector2 demPixToCamPix(Vector2i const& dem_pixel,
@@ -307,8 +309,10 @@ void expandBboxToContainCornerIntersections(boost::shared_ptr<camera::CameraMode
       Vector2 cam_pixel = demPixToCamPix(dem_pixel, camera_model, dem, dem_georef);
       if ( (cam_pixel.x() >= 0)              && (cam_pixel.y() > 0) &&
            (cam_pixel.x() <  image_size.x()) && (cam_pixel.y() < image_size.y()) ) {
-        Vector2 lonlat    = dem_georef.point_to_lonlat(dem_georef.pixel_to_point(dem_pixel));
+        //Vector2 lonlat    = dem_georef.point_to_lonlat(dem_georef.pixel_to_point(dem_pixel));
+        Vector2 lonlat    = dem_georef.pixel_to_point(dem_pixel);
         cam_box.grow(lonlat);
+        vw_out() << "Grow --> " << lonlat  << std::endl;
       }
       else
         vw_out() << "Miss! "  << std::endl;
@@ -336,7 +340,8 @@ void calc_target_geom(// Inputs
   // - auto_res is an estimate of the ground resolution visible by the camera.
   //   This is in a unit defined by dem_georef and also might not be meters.
   float auto_res;
-  cam_box = camera_bbox_custom(dem, dem_georef, camera_model,
+  cam_box = camera_bbox(dem, dem_georef, camera_model,
+  //cam_box = camera_bbox_custom(dem, dem_georef, camera_model,
                         image_size.x(), image_size.y(), auto_res);
 
   vw_out() << "\ncam_box calc1:\n" << cam_box << std::endl;
@@ -432,30 +437,36 @@ int main( int argc, char* argv[] ) {
 
   Options opt;
   try {
+    vw_out() << "\nhandling args...\n"        << std::endl;
     handle_arguments( argc, argv, opt );
+
+    // TODO: Using a stereosession object here is badwrong!
 
     // We create a stereo session where both of the cameras and images
     // are the same, because we want to take advantage of the stereo
     // pipeline's ability to generate camera models for various
     // missions.  Hence, we create two identical camera models, but only one is used.
+    vw_out() << "\nrunning factory...\n"        << std::endl;
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
     SessionPtr session( asp::StereoSessionFactory::create(opt.stereo_session, // in-out
                                                           opt,
-                                                          opt.image_file, opt.image_file,
+                                                          opt.image_file, opt.image_file, // The same file is passed in twice
                                                           opt.camera_model_file,
                                                           opt.camera_model_file,
                                                           opt.output_file,
-                                                          opt.dem_file
-                                                          ) );
-
-    // TODO: Take car of this in handle_arguments?
-    if (session->name() == "isis" && opt.output_file.empty() ){
+                                                          opt.dem_file,
+                                                          false) ); // Do not allow promotion from normal to map projected session types!!!!
+    vw_out() << "\n\nsession_name:\n"        << session->name() << std::endl;
+    // TODO: Take care of this in handle_arguments?
+    if ((session->name() == "isis" || session->name() == "isismapisis") 
+          && opt.output_file.empty() ){
       // The user did not provide an output file. Then the camera
       // information is contained within the image file and what is in
       // the camera file is actually the output file.
       opt.output_file       = opt.camera_model_file;
       opt.camera_model_file = opt.image_file;
     }
+    vw_out() << "\n\nsession_name:\n"        << session->name() << std::endl;
     if ( opt.output_file.empty() )
       vw_throw( ArgumentErr() << "Missing output filename.\n" );
 

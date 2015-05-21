@@ -747,16 +747,6 @@ void do_ba_with_model(Options& opt){
 
 // TODO: Clean up the command line parsing and unify it with other modules!
 
-/// Custom list for bundle_adjust
-bool has_cam_extension_bundle_adjust( std::string const& input ) {
-  std::string ext = asp::get_extension(input);
-  if ( ext == ".cahvor"  || ext == ".cahv"    ||
-       ext == ".pin"     || ext == ".pinhole" ||
-       ext == ".tsai"    || ext == ".cmod"    ||
-       ext == ".cahvore")
-    return true;
-  return false;
-}
 
 /// Given a vector of strings, identify and store separately the list of camera models.
 std::vector<std::string>
@@ -764,7 +754,7 @@ extract_cameras_bundle_adjust( std::vector<std::string>& image_files ) {
   std::vector<std::string> cam_files;
   std::vector<std::string>::iterator it = image_files.begin();
   while ( it != image_files.end() ) {
-    if (has_cam_extension_bundle_adjust( *it ) ||
+    if (has_pinhole_extension_bundle_adjust( *it ) ||
         boost::iends_with(boost::to_lower_copy(*it), ".xml")
         ){
       cam_files.push_back( *it );

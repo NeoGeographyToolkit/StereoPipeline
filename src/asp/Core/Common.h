@@ -63,15 +63,21 @@ namespace asp {
     return vec;
   }
 
-  /// Given a vector of strings, identify and store separately the list of camera models.
-  std::vector<std::string> extract_cameras( std::vector<std::string>& image_files );
+  // TODO: This function is too dangerous to live!
+  ///// Given a vector of strings, identify and store separately the list of camera models.
+  //std::vector<std::string> extract_cameras( std::vector<std::string>& image_files );
 
 
   /// Returns the file extension of a path
   std::string get_extension(std::string const& input);
 
+  // TODO: Move or avoid these functions!
+
   /// Returns true if the file has an extension which can contain a camera model
   bool has_cam_extension( std::string const& input );
+
+  /// Returns true if the file has an extension which can contain a pinhole camera model
+  bool has_pinhole_extension( std::string const& input );
 
   /// Returns true if the file has an extension which can contain an image
   bool has_image_extension( std::string const& input );

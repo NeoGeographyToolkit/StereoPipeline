@@ -48,7 +48,7 @@
 using namespace vw;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
-
+/*
 /// Given a vector of strings, identify and store separately the list of camera models.
 std::vector<std::string>
 asp::extract_cameras( std::vector<std::string>& image_files ) {
@@ -66,7 +66,7 @@ asp::extract_cameras( std::vector<std::string>& image_files ) {
   
   return cam_files;
 }
-
+*/
 std::string asp::get_extension( std::string const& input ) {
   boost::filesystem::path ipath( input );
   std::string ext = ipath.extension().string();
@@ -75,11 +75,18 @@ std::string asp::get_extension( std::string const& input ) {
 
 bool asp::has_cam_extension( std::string const& input ) {
   std::string ext = get_extension(input);
+  if ( has_pinhole_extension(input) ||
+      ext == ".cub" || ext == "xml"      )
+    return true;
+  return false;
+}
+
+bool asp::has_pinhole_extension( std::string const& input ) {
+  std::string ext = get_extension(input);
   if ( ext == ".cahvor"  || ext == ".cahv"    ||
        ext == ".pin"     || ext == ".pinhole" ||
        ext == ".tsai"    || ext == ".cmod"    ||
-       ext == ".cahvore" || ext == ".cub"     ||
-       ext == "xml"      )
+       ext == ".cahvore")
     return true;
   return false;
 }

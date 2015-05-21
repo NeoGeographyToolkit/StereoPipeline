@@ -51,7 +51,8 @@ namespace asp {
                                  std::string const& left_camera_file  = "",
                                  std::string const& right_camera_file = "",
                                  std::string const& out_prefix        = "",
-                                 std::string const& input_dem         = "");
+                                 std::string const& input_dem         = "",
+                                 const bool allow_map_promote=true); // If true, allow isis to become isismapisis based on dem availability
 
   private:
     StereoSessionFactory() {} // Prevent construction of static-only class
@@ -69,7 +70,8 @@ namespace asp {
                                               std::string const& left_camera_file,
                                               std::string const& right_camera_file,
                                               std::string const& out_prefix,
-                                              std::string const& input_dem) {
+                                              std::string const& input_dem,
+                                              const bool allow_map_promote) {
 
     // Known user session types are:
     // DG, RPC, ISIS, Pinhole, NadirPinhole
@@ -81,8 +83,8 @@ namespace asp {
     std::string actual_session_type = session_type;
     boost::to_lower(actual_session_type);
     if (actual_session_type.empty()) {
-      if (asp::has_cam_extension(left_camera_file ) || // TODO: Fix this dangerous code!
-          asp::has_cam_extension(right_camera_file)   ) {
+      if (asp::has_pinhole_extension(left_camera_file ) || // TODO: Fix this dangerous code!
+          asp::has_pinhole_extension(right_camera_file)   ) {
         actual_session_type = "pinhole";
       }
       if (boost::iends_with(boost::to_lower_copy(left_image_file  ), ".cub") ||
@@ -97,29 +99,28 @@ namespace asp {
       }
     }
 
-    if (!input_dem.empty() && actual_session_type == "dg") {
-      // User says DG .. but also gives a DEM.
-      actual_session_type = "dgmaprpc";
-      VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: dgmaprpc" << std::endl;
-    }
-
-    if (!input_dem.empty() && actual_session_type == "rpc") {
-      // User says RPC .. but also gives a DEM.
-      actual_session_type = "rpcmaprpc";
-      VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: rpcmaprpc" << std::endl;
-    }
-
-    if (!input_dem.empty() && actual_session_type == "pinhole") {
-      // User says PINHOLE .. but also gives a DEM.
-      actual_session_type = "pinholemappinhole";
-      VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: pinholemappinhole" << std::endl;
-    }
-
-    if (!input_dem.empty() && actual_session_type == "isis") {
-      // User says ISIS .. but also gives a DEM.
-      actual_session_type = "isismapisis";
-      VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: isismapisis" << std::endl;
-    }
+    if (allow_map_promote) {
+      if (!input_dem.empty() && actual_session_type == "dg") {
+        // User says DG .. but also gives a DEM.
+        actual_session_type = "dgmaprpc";
+        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: dgmaprpc" << std::endl;
+      }
+      if (!input_dem.empty() && actual_session_type == "rpc") {
+        // User says RPC .. but also gives a DEM.
+        actual_session_type = "rpcmaprpc";
+        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: rpcmaprpc" << std::endl;
+      }
+      if (!input_dem.empty() && actual_session_type == "pinhole") {
+        // User says PINHOLE .. but also gives a DEM.
+        actual_session_type = "pinholemappinhole";
+        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: pinholemappinhole" << std::endl;
+      }
+      if (!input_dem.empty() && actual_session_type == "isis") {
+        // User says ISIS .. but also gives a DEM.
+        actual_session_type = "isismapisis";
+        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: isismapisis" << std::endl;
+      }
+    } // End map promotion section
 
     try {
       if (actual_session_type.empty()) {
