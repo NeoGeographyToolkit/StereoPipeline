@@ -754,7 +754,7 @@ extract_cameras_bundle_adjust( std::vector<std::string>& image_files ) {
   std::vector<std::string> cam_files;
   std::vector<std::string>::iterator it = image_files.begin();
   while ( it != image_files.end() ) {
-    if (has_pinhole_extension_bundle_adjust( *it ) ||
+    if (asp::has_pinhole_extension( *it ) ||
         boost::iends_with(boost::to_lower_copy(*it), ".xml")
         ){
       cam_files.push_back( *it );

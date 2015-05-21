@@ -163,130 +163,20 @@ void write_parallel_cond( std::string              const& filename,
 }
 
 
-/*
-/// Intersections that take in account DEM topography
-  /// - Returns a bounding box in Georeference coordinate system (projected if available)
-  ///    containing everything visible in the camera image.
-  /// - Computes "scale" which is the estimated ground resolution of the camera.
-  ///    This is in GeoReference measurement units (not necessarily meters!)
-  template< class DEMImageT >
-  BBox2 camera_bbox_custom( ImageViewBase<DEMImageT> const& dem_image,
-                     GeoReference const& georef,
-                     boost::shared_ptr<vw::camera::CameraModel> camera_model,
-                     int32 cols, int32 rows, float &scale ) {
-
-    // To do: Integrate the almost identical functions camera_bbox() in
-    // CameraBBox.h and CameraBBox.cc. One of them uses a DEM and the
-    // second one does not.
-
-    // Testing to see if we should be centering on zero
-    bool center_on_zero = true;
-    Vector3 camera_llr = // Compute lon/lat/radius of camera center
-      XYZtoLonLatRadFunctor::apply(camera_model->camera_center(Vector2()));
-    if ( camera_llr[0] < -90 ||
-         camera_llr[0] > 90 )
-      center_on_zero = false;
-
-    int32 step_amount = 1;//(2*cols+2*rows)/100;
-    step_amount = std::min(step_amount, cols/4); // must have at least several points per column
-    step_amount = std::min(step_amount, rows/4); // must have at least several points per row
-    step_amount = std::max(step_amount, 1);      // step amount must be > 0
-
-    // Construct helper class with DEM and camera information.
-    vw::cartography::detail::CameraDEMBBoxHelper<DEMImageT> functor( dem_image, georef, camera_model,
-                                                    center_on_zero );
-
-    // Running the edges. Note: The last valid point on a
-    // BresenhamLine is the last point before the endpoint.
-    vw::cartography::detail::bresenham_apply( BresenhamLine(0,0,cols,0), // Left to right across the top side
-                     step_amount, functor );
-    functor.last_valid = false;
-    vw::cartography::detail::bresenham_apply( BresenhamLine(cols-1,0,cols-1,rows), // Top to bottom down the right side
-                     step_amount, functor );
-    functor.last_valid = false;
-    vw::cartography::detail::bresenham_apply( BresenhamLine(cols-1,rows-1,0,rows-1), // Right to left across the bottom side
-                     step_amount, functor );
-    functor.last_valid = false;
-    vw::cartography::detail::bresenham_apply( BresenhamLine(0,rows-1,0,0), // Bottom to top up the left side
-                     step_amount, functor );
-    functor.last_valid = false;
-
-    // Running once through the center
-    vw::cartography::detail::bresenham_apply( BresenhamLine(0,0,cols,rows), // Top left corner diagonal down to bottom right corner
-                     step_amount, functor );
-
-    // Estimate the smallest distance between adjacent points on the bounding box edges
-    // - This is perhaps the finest resolution of the image.
-    // - The units for this value are defined by the GeoReference and can be something weird!
-    scale = functor.scale/double(step_amount);
-    return functor.box;
-  }
-*/
-
-/*
- /// Constructor initializes class with DEM, camera model, etc.
-template <class DEMImageT>
-Vector3 projOnePoint( Vector2 const& pixel, 
-                   ImageViewBase<DEMImageT> const& dem_image,
-                     GeoReference const& georef,
-                     boost::shared_ptr<camera::CameraModel> camera,
-                     bool center=false )
-{
-
-
-        bool   has_intersection;
-        bool   treat_nodata_as_zero = true; // Intersect with datum if no dem
-        double height_error_tol = 1e-3;   // error in DEM height
-        double max_abs_tol      = 1e-14;  // abs cost function change b/w iters
-        double max_rel_tol      = 1e-14;
-        int    num_max_iter     = 100;
-        Vector3 xyz_guess       = Vector3();
-        Vector3 camera_ctr = camera->camera_center(pixel);  // Get ray from this pixel
-        Vector3 camera_vec = camera->pixel_to_vector(pixel);
-        Vector3 xyz // Use iterative solver call to compute an intersection of the pixel with the DEM
-          = camera_pixel_to_dem_xyz(camera_ctr, camera_vec,
-                                    dem_image.impl(), georef,
-                                    treat_nodata_as_zero,
-                                    has_intersection,
-                                    height_error_tol, max_abs_tol, max_rel_tol,
-                                    num_max_iter, xyz_guess
-                                   );
-
-  if (!has_intersection)
-    return;
- 
-        // Use the datum to convert GCC coordinate to lon/lat/height and to a projected coordinate system
-        Vector3 llh   = georef.datum().cartesian_to_geodetic(xyz);
-        Vector2 point = georef.lonlat_to_point( Vector2(llh.x(), llh.y()) );
-
-   //std::cout << "llh   = " << llh << std::endl;
-   //std::cout << "point = " << point << std::endl;
-  return llh;
-}
-*/
-
-
 Vector2 demPixToCamPix(Vector2i const& dem_pixel,
                       boost::shared_ptr<camera::CameraModel> const& camera_model,
                       ImageViewRef<PMaskT> const& dem,
                       GeoReference const &dem_georef)
 {
   Vector2 lonlat = dem_georef.point_to_lonlat(dem_georef.pixel_to_point(dem_pixel));
-
-vw_out() << "lonlat = " << lonlat << std::endl;
-
+  //vw_out() << "lonlat = " << lonlat << std::endl;
   PMaskT height = dem(dem_pixel[0], dem_pixel[1]);
-
   Vector3 xyz = dem_georef.datum().geodetic_to_cartesian
                     (Vector3(lonlat[0], lonlat[1], height.child()));
-
-vw_out() << "xyz = " << xyz << std::endl;
-
-  // Throws if the projection fails
+  //vw_out() << "xyz = " << xyz << std::endl;
+  // Throws if the projection fails ???
   Vector2i camera_pixel = camera_model->point_to_pixel(xyz);
-
-vw_out() << "camera_pixel = " << camera_pixel << std::endl;
-
+  //vw_out() << "camera_pixel = " << camera_pixel << std::endl;
   return camera_pixel;
 }
 
@@ -312,12 +202,12 @@ void expandBboxToContainCornerIntersections(boost::shared_ptr<camera::CameraMode
         //Vector2 lonlat    = dem_georef.point_to_lonlat(dem_georef.pixel_to_point(dem_pixel));
         Vector2 lonlat    = dem_georef.pixel_to_point(dem_pixel);
         cam_box.grow(lonlat);
-        vw_out() << "Grow --> " << lonlat  << std::endl;
+        //vw_out() << "Grow --> " << lonlat  << std::endl;
       }
-      else
-        vw_out() << "Miss! "  << std::endl;
+      //else
+      //  vw_out() << "Miss! "  << std::endl;
     }catch(...){
-      vw_out() << "Bad projection! "  << std::endl;
+      //vw_out() << "Bad projection! "  << std::endl;
     } // If a point failed to project
   }
 }
@@ -341,25 +231,9 @@ void calc_target_geom(// Inputs
   //   This is in a unit defined by dem_georef and also might not be meters.
   float auto_res;
   cam_box = camera_bbox(dem, dem_georef, camera_model,
-  //cam_box = camera_bbox_custom(dem, dem_georef, camera_model,
                         image_size.x(), image_size.y(), auto_res);
 
-  vw_out() << "\ncam_box calc1:\n" << cam_box << std::endl;
-
-/*
-  Vector2 pixel(0,0);
-  projOnePoint(pixel, dem, dem_georef, camera_model);
-
-  pixel = Vector2(image_size.x()-1, 0);
-  projOnePoint(pixel, dem, dem_georef, camera_model);
-
-  pixel = Vector2(image_size.x()-1, image_size.y()-1);
-  projOnePoint(pixel, dem, dem_georef, camera_model);
-
-  pixel = Vector2(0, image_size.y()-1);
-  projOnePoint(pixel, dem, dem_georef, camera_model);
-
-*/
+  //vw_out() << "\ncam_box calc1:\n" << cam_box << std::endl;
 
   // Project the four corners of the DEM into the camera; if any of them intersect, 
   //  expand the bbox to include their coordinates
@@ -367,7 +241,7 @@ void calc_target_geom(// Inputs
 
   // TODO: This takes care of the map being too small, but why is it too large?
 
-  vw_out() << "\ncam_box calc dem expanded:\n" << cam_box << std::endl;
+  //vw_out() << "\ncam_box calc dem expanded:\n" << cam_box << std::endl;
 
   if (first_pass){
     // Convert bounding box from dem_georef coordinate system to
@@ -375,7 +249,7 @@ void calc_target_geom(// Inputs
     cam_box = target_georef.lonlat_to_point_bbox
       (dem_georef.point_to_lonlat_bbox(cam_box));
 
-    vw_out() << "\ncam_box calc trans:\n" << cam_box << std::endl;
+    //vw_out() << "\ncam_box calc trans:\n" << cam_box << std::endl;
   }
 
   // Use auto-calculated ground resolution if that option was selected
@@ -408,7 +282,7 @@ void calc_target_geom(// Inputs
   int output_height = (int)round(cam_box.height()  / s);
   cam_box = s * BBox2(min_x, min_y, output_width, output_height);
 
-  vw_out() << "\ncam_box calc scaled:\n" << cam_box << std::endl;
+  //vw_out() << "\ncam_box calc scaled:\n" << cam_box << std::endl;
 
 
   // This transform is from pixel to projected coordinates
@@ -437,7 +311,7 @@ int main( int argc, char* argv[] ) {
 
   Options opt;
   try {
-    vw_out() << "\nhandling args...\n"        << std::endl;
+
     handle_arguments( argc, argv, opt );
 
     // TODO: Using a stereosession object here is badwrong!
@@ -446,7 +320,6 @@ int main( int argc, char* argv[] ) {
     // are the same, because we want to take advantage of the stereo
     // pipeline's ability to generate camera models for various
     // missions.  Hence, we create two identical camera models, but only one is used.
-    vw_out() << "\nrunning factory...\n"        << std::endl;
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
     SessionPtr session( asp::StereoSessionFactory::create(opt.stereo_session, // in-out
                                                           opt,
@@ -456,8 +329,7 @@ int main( int argc, char* argv[] ) {
                                                           opt.output_file,
                                                           opt.dem_file,
                                                           false) ); // Do not allow promotion from normal to map projected session types!!!!
-    vw_out() << "\n\nsession_name:\n"        << session->name() << std::endl;
-    // TODO: Take care of this in handle_arguments?
+    // TODO: Take care of this in handle_argumensests?
     if ((session->name() == "isis" || session->name() == "isismapisis") 
           && opt.output_file.empty() ){
       // The user did not provide an output file. Then the camera
@@ -466,7 +338,6 @@ int main( int argc, char* argv[] ) {
       opt.output_file       = opt.camera_model_file;
       opt.camera_model_file = opt.image_file;
     }
-    vw_out() << "\n\nsession_name:\n"        << session->name() << std::endl;
     if ( opt.output_file.empty() )
       vw_throw( ArgumentErr() << "Missing output filename.\n" );
 
@@ -560,8 +431,8 @@ int main( int argc, char* argv[] ) {
 
 
 
-    vw_out() << "\n\nDEM georeference:\n"        << dem_georef << std::endl;
-    vw_out() << "\nTARGET georeference:\n"        << target_georef << std::endl;
+    //vw_out() << "\n\nDEM georeference:\n"        << dem_georef << std::endl;
+    //vw_out() << "\nTARGET georeference:\n"        << target_georef << std::endl;
 
 
     // We compute the target_georef and camera box in two passes,
@@ -582,7 +453,7 @@ int main( int argc, char* argv[] ) {
     vw_out() << "Calculated initial projected space bounding box: " << cam_box << std::endl;
 
 
-    vw_out() << "\nTARGET georeference 2:\n"        << target_georef << std::endl;
+    //vw_out() << "\nTARGET georeference 2:\n"        << target_georef << std::endl;
 
     // Second pass
     first_pass = false;
@@ -605,7 +476,7 @@ int main( int argc, char* argv[] ) {
     BBox2i target_image_size = target_georef.point_to_pixel_bbox( cam_box );
     target_image_size.min() = Vector2(0, 0); // we count on this transform_nodata
     
-    vw_out() << "Cropping to projected coordinates: " << cam_box << std::endl;
+    //vw_out() << "Cropping to projected coordinates: " << cam_box << std::endl;
 
     // Shrink output image BB if an output image BB was passed in
     GeoReference croppedGeoRef  = target_georef;
