@@ -80,10 +80,10 @@ namespace asp {
                       Vector<double,20> const& line_den_coeff,
                       Vector<double,20> const& samp_num_coeff,
                       Vector<double,20> const& samp_den_coeff,
-                      Vector2 const& xy_offset,
-                      Vector2 const& xy_scale,
-                      Vector3 const& lonlatheight_offset,
-                      Vector3 const& lonlatheight_scale ) :
+                      Vector2           const& xy_offset,
+                      Vector2           const& xy_scale,
+                      Vector3           const& lonlatheight_offset,
+                      Vector3           const& lonlatheight_scale ) :
   m_datum(datum), m_line_num_coeff(line_num_coeff),
     m_line_den_coeff(line_den_coeff), m_sample_num_coeff(samp_num_coeff),
     m_sample_den_coeff(samp_den_coeff), m_xy_offset(xy_offset),
@@ -391,10 +391,8 @@ namespace asp {
 
     }
 
-    Vector2 lonlat
-      = elem_prod( normalized_lonlat,
-                   subvector(m_lonlatheight_scale, 0, 2) )
-      + subvector(m_lonlatheight_offset, 0, 2);
+    Vector2 lonlat = elem_prod( normalized_lonlat, subvector(m_lonlatheight_scale, 0, 2) )
+                    + subvector(m_lonlatheight_offset, 0, 2);
 
     return lonlat;
 

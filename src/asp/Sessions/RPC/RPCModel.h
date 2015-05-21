@@ -53,10 +53,10 @@ namespace asp {
     RPCModel( std::string const& filename );
     RPCModel( vw::DiskImageResourceGDAL* resource );
     RPCModel( vw::cartography::Datum const& datum,
-              CoeffVec const& line_num_coeff,
-              CoeffVec const& line_den_coeff,
-              CoeffVec const& samp_num_coeff,
-              CoeffVec const& samp_den_coeff,
+              CoeffVec    const& line_num_coeff,
+              CoeffVec    const& line_den_coeff,
+              CoeffVec    const& samp_num_coeff,
+              CoeffVec    const& samp_den_coeff,
               vw::Vector2 const& xy_offset,
               vw::Vector2 const& xy_scale,
               vw::Vector3 const& lonlatheight_offset,
@@ -68,31 +68,31 @@ namespace asp {
     // Standard Access Methods. The concept of camera_center does not
     // apply well to RPC, we just return an arbitrary point on the
     // ray.
-    virtual vw::Vector2 point_to_pixel( vw::Vector3 const& point ) const;
-    virtual vw::Vector3 pixel_to_vector( vw::Vector2 const& pix ) const;
-    virtual vw::Vector3 camera_center( vw::Vector2 const& pix ) const;
+    virtual vw::Vector2 point_to_pixel ( vw::Vector3 const& point ) const;
+    virtual vw::Vector3 pixel_to_vector( vw::Vector2 const& pix   ) const;
+    virtual vw::Vector3 camera_center  ( vw::Vector2 const& pix   ) const;
 
     static vw::Vector2 normalized_geodetic_to_normalized_pixel
-    (vw::Vector3 const& normalized_geodetic,
-     CoeffVec const& line_num_coeff, CoeffVec const& line_den_coeff,
-     CoeffVec const& sample_num_coeff, CoeffVec const& sample_den_coeff
-     );
+      (vw::Vector3 const& normalized_geodetic,
+       CoeffVec    const& line_num_coeff,   CoeffVec const& line_den_coeff,
+       CoeffVec    const& sample_num_coeff, CoeffVec const& sample_den_coeff
+       );
 
     vw::Vector2 normalized_geodetic_to_normalized_pixel
-    ( vw::Vector3 const& normalized_geodetic ) const;
+      ( vw::Vector3 const& normalized_geodetic ) const;
 
     vw::Vector2 geodetic_to_pixel( vw::Vector3 const& geodetic ) const;
 
     // Access to constants
-    vw::cartography::Datum const& datum() const { return m_datum; }
-    CoeffVec const& line_num_coeff() const   { return m_line_num_coeff; }
-    CoeffVec const& line_den_coeff() const   { return m_line_den_coeff; }
-    CoeffVec const& sample_num_coeff() const { return m_sample_num_coeff; }
-    CoeffVec const& sample_den_coeff() const { return m_sample_den_coeff; }
-    vw::Vector2 const& xy_offset() const     { return m_xy_offset; }
-    vw::Vector2 const& xy_scale() const      { return m_xy_scale; }
+    vw::cartography::Datum const& datum   () const { return m_datum; }
+    CoeffVec    const& line_num_coeff     () const { return m_line_num_coeff;   }
+    CoeffVec    const& line_den_coeff     () const { return m_line_den_coeff;   }
+    CoeffVec    const& sample_num_coeff   () const { return m_sample_num_coeff; }
+    CoeffVec    const& sample_den_coeff   () const { return m_sample_den_coeff; }
+    vw::Vector2 const& xy_offset          () const { return m_xy_offset; }
+    vw::Vector2 const& xy_scale           () const { return m_xy_scale;  }
     vw::Vector3 const& lonlatheight_offset() const { return m_lonlatheight_offset; }
-    vw::Vector3 const& lonlatheight_scale() const  { return m_lonlatheight_scale; }
+    vw::Vector3 const& lonlatheight_scale () const { return m_lonlatheight_scale;  }
 
     // Helper methods used for triangulation and projection
     static CoeffVec calculate_terms( vw::Vector3 const& normalized_geodetic );
@@ -103,7 +103,7 @@ namespace asp {
     static vw::Matrix3x3 normalization_Jacobian(vw::Vector3 const& q);
 
     vw::Matrix<double, 2, 3> geodetic_to_pixel_Jacobian (vw::Vector3 const& geodetic ) const;
-    vw::Matrix<double, 2, 3> geodetic_to_pixel_numerical_Jacobian(vw::Vector3 const& geodetic, double tol) const;
+    vw::Matrix<double, 2, 3> geodetic_to_pixel_numerical_Jacobian (vw::Vector3 const& geodetic, double tol) const;
     vw::Matrix<double, 2, 2> normalized_geodetic_to_pixel_Jacobian(vw::Vector3 const& normalized_geodetic ) const;
     vw::Vector2 image_to_ground(vw::Vector2 const& pixel, double height,
                                 vw::Vector2 lonlat_guess = vw::Vector2(0.0, 0.0)) const;
@@ -114,8 +114,8 @@ namespace asp {
     vw::cartography::Datum m_datum;
 
     // Scaling parameters
-    CoeffVec m_line_num_coeff, m_line_den_coeff,
-      m_sample_num_coeff, m_sample_den_coeff;
+    CoeffVec    m_line_num_coeff,   m_line_den_coeff,
+                m_sample_num_coeff, m_sample_den_coeff;
     vw::Vector2 m_xy_offset;
     vw::Vector2 m_xy_scale;
     vw::Vector3 m_lonlatheight_offset;

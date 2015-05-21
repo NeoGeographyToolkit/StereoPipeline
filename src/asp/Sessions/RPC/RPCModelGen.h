@@ -25,27 +25,29 @@
 
 namespace asp {
 
+  /// Unpack the 78 RPC coefficients from one long vector into four seperate vectors.
   void unpackCoeffs(vw::Vector<double> const& C,
                     RPCModel::CoeffVec& lineNum, RPCModel::CoeffVec& lineDen,
                     RPCModel::CoeffVec& sampNum, RPCModel::CoeffVec& sampDen
                     );
 
+  /// Pack the 78 RPC coefficients from four seperate vectors into one long vector.
   void packCoeffs( RPCModel::CoeffVec const& lineNum, RPCModel::CoeffVec const& lineDen,
                    RPCModel::CoeffVec const& sampNum, RPCModel::CoeffVec const& sampDen,
                    vw::Vector<double> & C
                    );
 
-  // Find the best-fitting RPC coefficients for the camera transform
-  // mapping a set of normalized geodetics to a set of normalized
-  // pixel values.
+  /// Find the best-fitting RPC coefficients for the camera transform
+  /// mapping a set of normalized geodetics to a set of normalized pixel values.
   class RpcSolveLMA : public vw::math::LeastSquaresModelBase<RpcSolveLMA> {
     vw::Vector<double> m_normalizedGeodetics, m_normalizedPixels;
     double m_wt;
   public:
-    typedef vw::Vector<double> result_type; // normalized pixels
-    typedef result_type domain_type;        // RPC coefficients
+    typedef vw::Vector<double> result_type;   // normalized pixels
+    typedef result_type        domain_type;   // RPC coefficients
     typedef vw::Matrix<double> jacobian_type;
 
+    /// Instantiate the solver with a set of GDC <--> Pixel pairs.
     RpcSolveLMA( const vw::Vector<double>& normalizedGeodetics,
                  const vw::Vector<double>& normalizedPixels,
                  double penaltyWeight
@@ -54,6 +56,7 @@ namespace asp {
       m_normalizedPixels(normalizedPixels),
       m_wt(penaltyWeight){}
 
+    /// Given a set of RPC coefficients, compute the projected pixels.
     inline result_type operator()( domain_type const& C ) const {
 
       // The input is the RPC coefficients, packed in a vector.
