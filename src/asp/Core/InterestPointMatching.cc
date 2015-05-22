@@ -434,7 +434,7 @@ namespace asp {
       //for (size_t i=0; i<error_samples.size(); ++i)
       //  vw_out() << matched_ip1[i].x << ", " << matched_ip1[i].y << ", " << error_samples[i] << std::endl;
 
-      vw_out() << "\t    Unable to find inlier cluster, keeping best 70% of points.\n"
+      vw_out() << "\t    Unable to find inlier cluster, keeping best 70% of points.\n";
 
       // Instead of failing, take our best guess at which points are inliers
       // - Sort the error, then find an approximate percentile.
@@ -442,7 +442,9 @@ namespace asp {
       std::vector<double> sorted_error(error_samples);
       std::sort(sorted_error.begin(), sorted_error.end());
       size_t last_good_index = static_cast<double>(sorted_error.size()) * CUTOFF_PERCENTILE;
-      double cutoff_value = sorted_error[last_good_index]; 
+      double cutoff_value = 0;
+	  if (last_good_index < sorted_error.size())
+		  cutoff_value = sorted_error[last_good_index]; 
 
       // Treat all points below the new cutoff_value as inliers
       std::list<size_t> filtered_indices;
