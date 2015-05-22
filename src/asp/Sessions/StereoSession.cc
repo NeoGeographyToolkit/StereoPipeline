@@ -68,7 +68,7 @@ namespace asp {
     m_input_dem         = input_dem;
   }
 
-  // A default IP matching implementation that derived classes can uses
+  // A default IP matching implementation that derived classes can use
   bool StereoSession::ip_matching(std::string const& input_file1,
                                   std::string const& input_file2,
                                   float nodata1, float nodata2,

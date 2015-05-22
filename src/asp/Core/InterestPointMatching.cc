@@ -24,6 +24,9 @@
 
 using namespace vw;
 
+
+
+
 namespace asp {
 
   EpipolarLinePointMatcher::EpipolarLinePointMatcher( bool single_threaded_camera,
@@ -83,15 +86,15 @@ namespace asp {
 
   class EpipolarLineMatchTask : public Task, private boost::noncopyable {
     typedef ip::InterestPointList::const_iterator IPListIter;
-    bool m_single_threaded_camera;
-    math::FLANNTree<float>& m_tree;
-    IPListIter m_start, m_end;
-    ip::InterestPointList const& m_ip_other;
-    camera::CameraModel *m_cam1, *m_cam2;
-    TransformRef m_tx1, m_tx2;
+    bool                            m_single_threaded_camera;
+    math::FLANNTree<float>&         m_tree;
+    IPListIter                      m_start, m_end;
+    ip::InterestPointList const&    m_ip_other;
+    camera::CameraModel            *m_cam1, *m_cam2;
+    TransformRef                    m_tx1, m_tx2;
     EpipolarLinePointMatcher const& m_matcher;
-    Mutex& m_camera_mutex;
-    std::vector<size_t>::iterator m_output;
+    Mutex&                          m_camera_mutex;
+    std::vector<size_t>::iterator   m_output;
   public:
     EpipolarLineMatchTask( bool single_threaded_camera,
                            math::FLANNTree<float>& tree,
@@ -426,8 +429,34 @@ namespace asp {
 
     // Determine if we just wrote nothing but outliers (the variance
     // on triangulation is too high).
-    if ( error_clusters.front().second[0] > 1e6 )
-      return false;
+    if ( error_clusters.front().second[0] > 1e6 ) {
+      //vw_out() << "DEBUG Dumping error samples:" << std::endl;
+      //for (size_t i=0; i<error_samples.size(); ++i)
+      //  vw_out() << matched_ip1[i].x << ", " << matched_ip1[i].y << ", " << error_samples[i] << std::endl;
+
+      vw_out() << "\t    Unable to find inlier cluster, keeping best 70% of points.\n"
+
+      // Instead of failing, take our best guess at which points are inliers
+      // - Sort the error, then find an approximate percentile.
+      const double CUTOFF_PERCENTILE = 0.7;
+      std::vector<double> sorted_error(error_samples);
+      std::sort(sorted_error.begin(), sorted_error.end());
+      size_t last_good_index = static_cast<double>(sorted_error.size()) * CUTOFF_PERCENTILE;
+      double cutoff_value = sorted_error[last_good_index]; 
+
+      // Treat all points below the new cutoff_value as inliers
+      std::list<size_t> filtered_indices;
+      size_t c=0;
+      for ( std::list<size_t>::iterator i = valid_indices.begin();
+          i != valid_indices.end(); i++ ) 
+      {
+        if (error_samples[c] < cutoff_value)
+          filtered_indices.push_back(*i);
+        ++c;
+      }
+      valid_indices = filtered_indices;
+      return true;
+    }
 
     vw_out() << "\t    Inlier cluster:\n"
              << "\t      Triangulation Err: " << error_clusters.front().first[0]
@@ -443,7 +472,7 @@ namespace asp {
     for ( std::list<size_t>::iterator i = valid_indices.begin();
           i != valid_indices.end(); i++ ) {
       double err_diff_front = error_samples[error_idx]-error_clusters.front().first[0];
-      double err_diff_back = error_samples[error_idx]-error_clusters.back().first[0];
+      double err_diff_back  = error_samples[error_idx]-error_clusters.back().first[0];
 
       if (
           !((escalar1 * exp( (-err_diff_front * err_diff_front) * escalar3 ) ) >

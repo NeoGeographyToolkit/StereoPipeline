@@ -241,7 +241,7 @@ pre_preprocessing_hook(bool adjust_left_image_size,
 //TODO: What kind of images should be loaded here? Cube files or ASP generated tiff files?
 //      Might need to change all this code for map projected inputs!!!
 
-  vw_out() << "DEBUG - Loading ISIS image file: " << left_input_file << std::endl;
+  //vw_out() << "DEBUG - Loading ISIS image file: " << left_input_file << std::endl;
   /// For this to work the ISIS type must be registered with the DiskImageResource class.
   /// - This happens in "stereo.cc", so these calls will create DiskImageResourceIsis objects.
   boost::shared_ptr<DiskImageResource> left_rsrc (DiskImageResource::open(left_input_file )),
@@ -254,7 +254,7 @@ pre_preprocessing_hook(bool adjust_left_image_size,
   // Load the unmodified images
   DiskImageView<float> left_disk_image(left_rsrc), right_disk_image(right_rsrc);
 
-  vw_out() << "DEBUG - Loading ISIS image file again: " << left_input_file << std::endl;
+  //vw_out() << "DEBUG - Loading ISIS image file again: " << left_input_file << std::endl;
   // Get handles to the input images which are explicitly ISIS typed
   // TODO: Should use a dynamic pointer cast to do this!
   boost::shared_ptr<DiskImageResourceIsis>
