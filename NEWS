@@ -1,10 +1,16 @@
 *** RELEASE 2.4.3, upcoming! ***
 
+ - Greatly improved coverage and accuracy for areas with steep slopes
+   for ISIS, RPC and Pinhole cameras by using map-projected images
+  (previously available only for Digital Globel images). See section ???
+   in the documentation. 
+ 
  - General
    * Upgraded to ISIS 3.4.9.
 
  - stereo
    * Increase the default correlation timeout to 1800 seconds.
+   * Fix failure in interest point matching in certain circumstances.
 
  - point2dem
    * Fixed a slight discrepancy in the value of the semi-minor axis in
