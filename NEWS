@@ -2,7 +2,7 @@
 
  - Greatly improved coverage and accuracy for areas with steep slopes
    for ISIS, RPC and Pinhole cameras by using map-projected images
-  (previously available only for Digital Globel images). See section ???
+   (previously available only for Digital Globe images). See section ???
    in the documentation. 
  
  - General
@@ -42,6 +42,9 @@
  - cam2map4stereo.py
    * Create temporary files in current directory, to avoid access
      issues to system directories.
+
+ - bundle_adjust
+   * Bug fixes.
  
 *** RELEASE 2.4.2, October 6, 2014 ***
 
