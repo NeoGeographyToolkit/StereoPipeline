@@ -214,7 +214,7 @@ struct BaReprojectionError {
       residuals[0] = (prediction[0] - m_observation[0])/m_pixel_sigma[0];
       residuals[1] = (prediction[1] - m_observation[1])/m_pixel_sigma[1];
 
-    } catch (const camera::PixelToRayErr& e) {
+    } catch (const camera::PointToPixelErr& e) {
       // Failed to project into the camera
       residuals[0] = T(1e+20);
       residuals[1] = T(1e+20);
@@ -286,7 +286,7 @@ struct BaPinholeError {
       residuals[0] = (prediction[0] - m_observation[0])/m_pixel_sigma[0];
       residuals[1] = (prediction[1] - m_observation[1])/m_pixel_sigma[1];
 
-    } catch (const camera::PixelToRayErr& e) {
+    } catch (const camera::PointToPixelErr& e) {
       // Failed to project into the camera
       residuals[0] = T(1e+20);
       residuals[1] = T(1e+20);

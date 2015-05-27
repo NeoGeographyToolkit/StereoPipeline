@@ -19,6 +19,7 @@
 #include <vw/Math/Vector.h>
 #include <vw/Math/Matrix.h>
 #include <vw/Math/LevenbergMarquardt.h>
+#include <vw/Camera/CameraModel.h>
 #include <asp/IsisIO/IsisAdjustCameraModel.h>
 #include <asp/IsisIO/BaseEquation.h>
 
@@ -123,12 +124,12 @@ Vector2 IsisAdjustCameraModel::point_to_pixel( Vector3 const& point ) const {
 
     // Make sure we found ideal time
     VW_ASSERT( status > 0,
-               MathErr() << " Unable to project point into linescan camera " );
+               vw::camera::PointToPixelErr() << " Unable to project point into linescan camera " );
 
     // Converting now to pixel
     m_camera->setTime( Isis::iTime( solution_e[0] ) );
   } else if ( m_camera->GetCameraType() != 0 ) {
-    vw_throw( NoImplErr() << "IsisAdjustCameraModel::point_to_pixel does not support any cmaeras other than LineScane and Frame" );
+    vw_throw( NoImplErr() << "IsisAdjustCameraModel::point_to_pixel does not support any cameras other than LineScane and Frame" );
   }
 
   // Pulling out camera position for current time
