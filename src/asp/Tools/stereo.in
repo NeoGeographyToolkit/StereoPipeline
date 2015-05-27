@@ -18,6 +18,11 @@
 
 
 import sys, optparse, subprocess, re
+
+if sys.version_info < (2, 6, 0):
+    print('\nERROR: Must use Python 2.6 or greater.')
+    sys.exit(1)
+
 import os.path as P
 libexec_path = sys.path[0] + '/../libexec'
 sys.path.insert(0, libexec_path) # prepend to Python path
@@ -43,7 +48,7 @@ if __name__ == '__main__':
                  help='Select the stereo session type to use for processing. [options: pinhole isis dg rpc]')
     p.add_option('-s', '--stereo-file',    dest='filename',    default='./stereo.default',
                  help='Explicitly specify the stereo.default file to use. [default: ./stereo.default]')
-    p.add_option('--corr-seed-mode',    dest='seed_mode', default=None, 
+    p.add_option('--corr-seed-mode',    dest='seed_mode', default=None,
                  help='Correlation seed strategy. See stereo_corr for options.', type='int')
     p.add_option('-e', '--entry-point',    dest='entry_point', default=0,
                  help='Pipeline entry point (an integer from 0-4)', type='int')
@@ -81,7 +86,7 @@ if __name__ == '__main__':
         opt.seed_mode = 1
     # Pass it to the subprocesses
     args.extend(['--corr-seed-mode', str(opt.seed_mode)])
-        
+
     if opt.session is not None:
         args.extend(['--session-type', opt.session])
     if opt.no_bigtiff:
@@ -92,9 +97,9 @@ if __name__ == '__main__':
 
     sep = ","
     settings=run_and_parse_output( "stereo_parse", args, sep, opt.verbose )
-    
+
     try:
-        
+
         # Invoke itself for multiview if appropriate
         num_pairs = int(settings['num_stereo_pairs'][0])
         if num_pairs > 1 and opt.entry_point < Step.tri:
@@ -103,7 +108,7 @@ if __name__ == '__main__':
             run_multiview(__file__, args, extra_args, opt.entry_point,
                           opt.stop_point, opt.verbose, settings)
             sys.exit(0)
-        
+
         step = Step.pprc
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ): sys.exit()
