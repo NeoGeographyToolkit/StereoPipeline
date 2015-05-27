@@ -44,7 +44,7 @@
      issues to system directories.
 
  - bundle_adjust
-   * Bug fixes.
+   * Bug fix in handling situtations when a point cannot get projected into the camera.
  
 *** RELEASE 2.4.2, October 6, 2014 ***
 
