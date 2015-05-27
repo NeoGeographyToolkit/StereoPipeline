@@ -21,6 +21,11 @@
 # that way. This change would need very careful testing.
 
 import os, sys, string, subprocess, math, re, optparse, time, copy, tempfile
+
+if sys.version_info < (2, 6, 0):
+    print('\nERROR: Must use Python 2.6 or greater.')
+    sys.exit(1)
+
 from datetime import datetime, timedelta
 libexec_path = sys.path[0] + '/../libexec'
 sys.path.insert(0, libexec_path) # prepend to Python path
@@ -137,7 +142,7 @@ class StrBox:
     def __init__(self, img_str, box):
         self.img_str = img_str
         self.box     = box
-        
+
 def minyCompare(P, Q):
     return int(round(P.box.miny - Q.box.miny))
 def sort_by_miny(imgVec, boxVec):
@@ -191,7 +196,7 @@ def get_corners(A, B, indices):
             C.append(A[i])
         else:
             C.append(B[i])
-            
+
     return C
 
 def signed_triangle_area(P, Q, R):
@@ -210,7 +215,7 @@ def find_combined_box(A, B):
     if len(A) == 0: return B
     if len(A) != 4 or len(B) != 4:
         raise Exception('Error', "A box is supposed to have 4 corners.")
-        
+
     max_area = 0
     max_indices = []
     for a in range(2):
@@ -224,7 +229,7 @@ def find_combined_box(A, B):
                     if area > max_area:
                         max_area = area
                         max_indices = indices
-                        
+
     return get_corners(A, B, max_indices)
 
 
@@ -245,7 +250,7 @@ def adjust_camera_corners(BAND, all_ll_corners):
             BAND.remove( BAND.find (tag) )
 
     if len(all_ll_corners) == 0: return # no data
-    
+
     # Each camera is a rectangle. Find the rough bounding box of all rectangles.
     out_corners = []
     for corner_vec in all_ll_corners:
@@ -315,7 +320,7 @@ def read_xml( filename, options):
         meancollectedgsd = float(IMAGE.find("MEANCOLLECTEDGSD").text)
     else:
         meancollectedgsd = None
-        
+
     image_size = []
     image_size.append( int(IMD.find("NUMCOLUMNS").text) )
     image_size.append( int(IMD.find("NUMROWS").text) )
@@ -325,7 +330,7 @@ def read_xml( filename, options):
     ll_corners = []
 
     for band in find_bands(IMD):
-        
+
       # The longitude-latitude box. Note: Later when we create
       # the adjusted box we will traverse the corners in
       # exactly the same order as here, so this and that
@@ -337,17 +342,17 @@ def read_xml( filename, options):
           ullat = float(band.find("ULLAT").text)
           llbox.add_point([ullon, ullat])
           ll_corners_curr.append([ullon, ullat])
-          
+
           urlon = float(band.find("URLON").text)
           urlat = float(band.find("URLAT").text)
           llbox.add_point([urlon, urlat])
           ll_corners_curr.append([urlon, urlat])
-          
+
           lrlon = float(band.find("LRLON").text)
           lrlat = float(band.find("LRLAT").text)
           llbox.add_point([lrlon, lrlat])
           ll_corners_curr.append([lrlon, lrlat])
-          
+
           lllon = float(band.find("LLLON").text)
           lllat = float(band.find("LLLAT").text)
           llbox.add_point([lllon, lllat])
@@ -355,13 +360,13 @@ def read_xml( filename, options):
       except Exception, e:
           print("Warning: File " + filename
                 + " lacks longitude/latitude information.")
-          
+
       if len(ll_corners) == 0:
           ll_corners = ll_corners_curr
       if ll_corners != ll_corners_curr:
           raise Exception('InputError', "File " + filename
                           + " has multiple bands with inconsistent LON/LAT info.")
-      
+
     if not options.skip_rpc_gen:
         # The height range, [ht_min, ht_max]. We store it as a 2D box
         # as to not create an interval class.
@@ -390,7 +395,7 @@ def read_xml( filename, options):
         if pitch != curr_pitch or originx != curr_originx or pd != curr_pd:
             raise Exception('InputError', "File " + filename
                             + " has inconsistent info across bands.")
-            
+
     # Note: We concatenate all eph values into one single array,
     # the proper structure would be an array of arrays.
     eph_list = []
@@ -476,7 +481,7 @@ def main():
                               help="Render a reduced resolution image and xml based on this percentage.")
             parser.add_option("--output-prefix", dest="output_prefix", type="str",
                               help="The prefix for the output .tif and .xml files.")
-            parser.add_option("--band", dest="band", type="int", 
+            parser.add_option("--band", dest="band", type="int",
                               help="Which band to use (for multi-spectral images).")
             parser.add_option("--input-nodata-value", dest="input_nodata_value", type="float",
                               help="Nodata value to use on input; input pixel values less than or equal to this are considered invalid.")
@@ -525,7 +530,7 @@ def main():
         out_dir=os.path.dirname(options.output_prefix)
         if len(out_dir)==0: out_dir='.'
         if not os.path.exists(out_dir): os.makedirs(out_dir)
-        
+
         # Do a couple of passes at parsing the xml files and
         # extracting and combining the data. At the second pass, the
         # files (stored in args) and all other data will be in the
@@ -591,7 +596,7 @@ def main():
 
                 shiftx = 0
                 shifty = tlc_pixel_lookup(ref_tlctime, ref_tlclist, firstlinetime)
-                
+
                 # We compensate for the fact that different images
                 # may have different physical pixel sizes.
                 pitch_ratio = pitch/ref_pitch
@@ -631,11 +636,11 @@ def main():
             # image, etc.  This is a bug fix for the situation when some
             # images have a black area at the bottom.
             s_args = sort_by_miny(args, placements)
-            
+
             if it == 0:
                 args = s_args[:] # deep copy
         # End passes
-        
+
         # Dummy check: Look for duplicate files that will insert at
         # same location. Files that do this would be the R?C1 variants
         # that have the same XML file due to download errors or
@@ -652,7 +657,7 @@ def main():
         # The band to output
         if options.band > 0:
             suffix += ".b" + str(options.band)
-            
+
         # Write a composite scaled XML file. We first create the xml at
         # the original resolution and then we scale it.
         tree = ET.parse(xml_name(args[0]))
@@ -752,7 +757,7 @@ def main():
             if pitch.text != curr_pitch.text:
                 raise Exception('InputError', "File " + xml_name(filename)
                                 + " has inconsistent pitch info across bands.")
-        
+
         scale_xml_element(pitch, 1.0/scale)
         # Scale the RPC model
         if not options.skip_rpc_gen:
@@ -782,7 +787,7 @@ def main():
                                    placements[i].minx, placements[i].miny,
                                    placements[i].width(), placements[i].height()
                                 ) )
-                
+
             tif_file = options.output_prefix + suffix + ".tif";
             mosaic_cmd = "tif_mosaic"
             mosaic_args = ['--threads', str(4),
