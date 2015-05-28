@@ -30,7 +30,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Common.h>
 
-//#include <asp/Sessions/StereoSession.h>
+
 #include <asp/Sessions/DG/StereoSessionDG.h>
 #include <asp/Sessions/DGMapRPC/StereoSessionDGMapRPC.h>
 #include <asp/Sessions/ISIS/StereoSessionIsis.h>
@@ -44,7 +44,7 @@ namespace asp {
   class StereoSessionFactory {
   public:
     /// Given the input arguments, selects the correct type of StereoSession and initializes it.
-    static inline StereoSession* create(std::string & session_type, // in-out variable
+    static StereoSession* create(std::string & session_type, // in-out variable
                                  BaseOptions const& options,
                                  std::string const& left_image_file   = "",
                                  std::string const& right_image_file  = "",
@@ -63,15 +63,15 @@ namespace asp {
 // Function definitions
 
   // This is called from stereo.cc line 436
-  StereoSession* StereoSessionFactory::create(std::string      & session_type, // in-out variable
-                                              BaseOptions const& options,
-                                              std::string const& left_image_file,
-                                              std::string const& right_image_file,
-                                              std::string const& left_camera_file,
-                                              std::string const& right_camera_file,
-                                              std::string const& out_prefix,
-                                              std::string const& input_dem,
-                                              const bool allow_map_promote) {
+  inline StereoSession* StereoSessionFactory::create(std::string      & session_type, // in-out variable
+                                                     BaseOptions const& options,
+                                                     std::string const& left_image_file,
+                                                     std::string const& right_image_file,
+                                                     std::string const& left_camera_file,
+                                                     std::string const& right_camera_file,
+                                                     std::string const& out_prefix,
+                                                     std::string const& input_dem,
+                                                     const bool allow_map_promote) {
 
     // Known user session types are:
     // DG, RPC, ISIS, Pinhole, NadirPinhole
@@ -186,7 +186,7 @@ namespace asp {
                              out_prefix, input_dem );
     session_type = session_new->name();
     return session_new;
-  }
+  } // End function create()
 
 
 

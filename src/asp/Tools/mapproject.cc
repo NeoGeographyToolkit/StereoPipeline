@@ -314,7 +314,7 @@ int main( int argc, char* argv[] ) {
 
     handle_arguments( argc, argv, opt );
 
-    // TODO: Using a stereosession object here is badwrong!
+    // TODO: Replace this using the new CameraModelLoader functions
 
     // We create a stereo session where both of the cameras and images
     // are the same, because we want to take advantage of the stereo

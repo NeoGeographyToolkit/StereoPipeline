@@ -22,9 +22,7 @@
 
 if MAKE_MODULE_SESSIONS
 
-include_HEADERS = StereoSession.h StereoSessionFactory.h
-# StereoSessionConcrete.h
-# StereoSessionConcrete.cc
+include_HEADERS = StereoSession.h StereoSessionFactory.h StereoSessionConcrete.h CameraModelLoader.h
 
 libaspSessions_la_SOURCES = StereoSession.cc 				\
 Pinhole/StereoSessionPinhole.cc DG/StereoSessionDG.cc DG/XMLBase.cc	\

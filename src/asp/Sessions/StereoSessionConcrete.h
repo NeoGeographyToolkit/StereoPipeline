@@ -31,6 +31,7 @@
 
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/RPC/RPCStereoModel.h>
+#include <asp/Sessions/CameraModelLoader.h>
 
 namespace asp {
 
@@ -105,8 +106,8 @@ namespace asp {
 
   public: // Functions
 
-    StereoSessionConcrete();
-    virtual ~StereoSessionConcrete();
+    StereoSessionConcrete() {}
+    virtual ~StereoSessionConcrete() {}
 
     static bool isMapProjected() { return IsTypeMapProjected<DISKTRANSFORM_TYPE>::value; }
 
@@ -152,6 +153,9 @@ namespace asp {
     static StereoSession* construct() { return new StereoSessionConcrete<DISKTRANSFORM_TYPE, STEREOMODEL_TYPE>; }
 */
   private: // Variables
+
+    /// Object to handle camera model loading
+    CameraModelLoader m_camera_loader;
 
     /// Storage for the camera models used to map project the input images.
     boost::shared_ptr<vw::camera::CameraModel> m_left_map_proj_model, m_right_map_proj_model;
