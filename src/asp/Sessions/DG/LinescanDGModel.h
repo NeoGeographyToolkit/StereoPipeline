@@ -31,7 +31,7 @@
 namespace asp {
 
   // This is potentially a more generic line scan camera model that
-  // allows a offset ine the line direction. This also allows a
+  // allows an offset in the line direction. This also allows a
   // different function for evaluating time for a specific line
   // location.
   //
@@ -266,6 +266,13 @@ namespace asp {
     }
 
   };
+
+  /// Currently this is the only variant of this we ever use
+  typedef LinescanDGModel<vw::camera::PiecewiseAPositionInterpolation, 
+                          vw::camera::LinearPiecewisePositionInterpolation, 
+                          vw::camera::SLERPPoseInterpolation, 
+                          vw::camera::TLCTimeInterpolation> DGCameraModel;
+
 
 }      // namespace asp
 

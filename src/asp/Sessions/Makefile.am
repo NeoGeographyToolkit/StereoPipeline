@@ -34,7 +34,7 @@ libaspSessions_la_LIBADD = @MODULE_SESSIONS_LIBS@
 
 lib_LTLIBRARIES = libaspSessions.la
 
-SUBDIRS = . NadirPinhole Pinhole DG DGMapRPC tests
+SUBDIRS = . NadirPinhole Pinhole RPC DG DGMapRPC tests
 
 if HAVE_PKG_ISIS
 SUBDIRS += ISIS

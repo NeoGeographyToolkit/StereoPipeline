@@ -63,15 +63,17 @@ namespace asp {
   class CameraModelLoader {
   public:
 
+    typedef boost::shared_ptr<vw::camera::CameraModel> CameraModelPtr;
+
     // Setup/teardown code is handled here
     CameraModelLoader();
     ~CameraModelLoader();
 
     // Camera model loading functions
-    boost::shared_ptr<vw::camera::CameraModel> load_rpc_camera_model    (std::string const& path) const;
-    boost::shared_ptr<vw::camera::CameraModel> load_dg_camera_model     (std::string const& path) const;
-    boost::shared_ptr<vw::camera::CameraModel> load_pinhole_camera_model(std::string const& path) const;
-    boost::shared_ptr<vw::camera::CameraModel> load_isis_camera_model   (std::string const& path,
+    boost::shared_ptr<asp::RPCModel> load_rpc_camera_model    (std::string const& path) const;
+    CameraModelPtr load_dg_camera_model     (std::string const& path) const;
+    CameraModelPtr load_pinhole_camera_model(std::string const& path) const;
+    CameraModelPtr load_isis_camera_model   (std::string const& path,
                                                                          std::string const& adjust_path="") const;
 
   }; // End class StereoSessionFactory
@@ -92,7 +94,7 @@ inline CameraModelLoader::~CameraModelLoader()
 
 
 /// Load an RPC camera file
-inline boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_rpc_camera_model(std::string const& path) const
+inline boost::shared_ptr<asp::RPCModel> CameraModelLoader::load_rpc_camera_model(std::string const& path) const
 {
   // Try the default loading method
   RPCModel* rpc_model = NULL;
@@ -109,7 +111,7 @@ inline boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_rpc_ca
 
   // We don't catch an error here because the user will need to
   // know of a failure at this point.
-  return boost::shared_ptr<vw::camera::CameraModel>(rpc_model);
+  return boost::shared_ptr<asp::RPCModel>(rpc_model);
 }
 
 
@@ -201,25 +203,21 @@ inline boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_dg_cam
                    tlc_time_interpolation( 0 ) ) < fabs( 1.0 / (10.0 * img.avg_line_rate ) ),
              vw::MathErr() << "First Line Time and output from TLC lookup table do not agree of the ephemeris time for the first line of the image." );
 
-  typedef LinescanDGModel<vw::camera::PiecewiseAPositionInterpolation, 
-                          vw::camera::LinearPiecewisePositionInterpolation, 
-                          vw::camera::SLERPPoseInterpolation, 
-                          vw::camera::TLCTimeInterpolation> camera_type;
-  typedef boost::shared_ptr<vw::camera::CameraModel> result_type;
+  
   double et0 = convert( parse_time( eph.start_time ) );
   double at0 = convert( parse_time( att.start_time ) );
   double edt = eph.time_interval;
   double adt = att.time_interval;
-  return result_type(new camera_type(vw::camera::PiecewiseAPositionInterpolation(eph.position_vec, eph.velocity_vec, et0, edt ),
-                                     vw::camera::LinearPiecewisePositionInterpolation(eph.velocity_vec, et0, edt),
-                                     vw::camera::SLERPPoseInterpolation(att.quat_vec, at0, adt),
-                                     tlc_time_interpolation, img.image_size,
-                                     subvector(inverse(sensor_coordinate).rotate(vw::Vector3(geo.detector_origin[0],
-                                                                                             geo.detector_origin[1], 
-                                                                                             0)
-                                                                                ), 
-                                               0, 2),
-                                     geo.principal_distance, correct_velocity_aberration)
+  return CameraModelPtr(new DGCameraModel(vw::camera::PiecewiseAPositionInterpolation(eph.position_vec, eph.velocity_vec, et0, edt ),
+                                          vw::camera::LinearPiecewisePositionInterpolation(eph.velocity_vec, et0, edt),
+                                          vw::camera::SLERPPoseInterpolation(att.quat_vec, at0, adt),
+                                          tlc_time_interpolation, img.image_size,
+                                          subvector(inverse(sensor_coordinate).rotate(vw::Vector3(geo.detector_origin[0],
+                                                                                                  geo.detector_origin[1], 
+                                                                                                  0)
+                                                                                     ), 
+                                                    0, 2),
+                                          geo.principal_distance, correct_velocity_aberration)
                     );
 } // End function load_dg_camera_model()
 
@@ -232,16 +230,16 @@ inline boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_pinhol
   // Keypoint alignment and everything else just gets camera models
   std::string lcase_file = boost::to_lower_copy(path);
   if (boost::ends_with(lcase_file,".cahvore") ) {
-    return boost::shared_ptr<vw::camera::CameraModel>( new vw::camera::CAHVOREModel(path) );
+    return CameraModelPtr( new vw::camera::CAHVOREModel(path) );
   } else if (boost::ends_with(lcase_file,".cahvor") ||
              boost::ends_with(lcase_file,".cmod"  )   ) {
-    return boost::shared_ptr<vw::camera::CameraModel>( new vw::camera::CAHVORModel(path) );
+    return CameraModelPtr( new vw::camera::CAHVORModel(path) );
   } else if ( boost::ends_with(lcase_file,".cahv") ||
               boost::ends_with(lcase_file,".pin" )   ) {
-    return boost::shared_ptr<vw::camera::CameraModel>( new vw::camera::CAHVModel(path) );
+    return CameraModelPtr( new vw::camera::CAHVModel(path) );
   } else if ( boost::ends_with(lcase_file,".pinhole") ||
               boost::ends_with(lcase_file,".tsai"   )   ) {
-    return boost::shared_ptr<vw::camera::CameraModel>( new vw::camera::PinholeModel(path) );
+    return CameraModelPtr( new vw::camera::PinholeModel(path) );
   } else {
     vw::vw_throw(vw::ArgumentErr() << "PinholeStereoSession: unsupported camera file type.\n");
   }
@@ -264,10 +262,10 @@ inline boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_isis_c
     input.close();
 
     // Finally creating camera model
-    return boost::shared_ptr<vw::camera::CameraModel>(new vw::camera::IsisAdjustCameraModel(path, posF, poseF));
+    return CameraModelPtr(new vw::camera::IsisAdjustCameraModel(path, posF, poseF));
   } else {
     //vw_out() << "DEBUG - Loading ISIS camera file: " << camera_file << std::endl;
-    return boost::shared_ptr<vw::camera::CameraModel>(new vw::camera::IsisCameraModel(path));
+    return CameraModelPtr(new vw::camera::IsisCameraModel(path));
   }
 #endif
   // If ISIS was not enabled in the build, just throw an exception.

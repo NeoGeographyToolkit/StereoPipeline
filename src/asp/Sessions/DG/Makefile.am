@@ -20,7 +20,7 @@
 # sources
 #########################################################################
 
-include_HEADERS = StereoSessionDG.h XMLBase.h XML.h
+include_HEADERS = StereoSessionDG.h XMLBase.h XML.h LinescanDGModel.h
 
 #########################################################################
 # general
