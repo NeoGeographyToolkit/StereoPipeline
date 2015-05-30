@@ -70,11 +70,11 @@ namespace asp {
     ~CameraModelLoader();
 
     // Camera model loading functions
-    boost::shared_ptr<asp::RPCModel> load_rpc_camera_model    (std::string const& path) const;
+    boost::shared_ptr<asp::RPCModel> load_rpc_camera_model(std::string const& path) const;
     CameraModelPtr load_dg_camera_model     (std::string const& path) const;
     CameraModelPtr load_pinhole_camera_model(std::string const& path) const;
     CameraModelPtr load_isis_camera_model   (std::string const& path,
-                                                                         std::string const& adjust_path="") const;
+                                             std::string const& adjust_path="") const;
 
   }; // End class StereoSessionFactory
 
@@ -99,14 +99,14 @@ inline boost::shared_ptr<asp::RPCModel> CameraModelLoader::load_rpc_camera_model
   // Try the default loading method
   RPCModel* rpc_model = NULL;
   try {
-    rpc_model = new RPCModel(path);
+    // The default loading method failed, try the backup method.
+    RPCXML rpc_xml; // This is for reading XML files
+    rpc_xml.read_from_file(path);
+    rpc_model = new RPCModel(*rpc_xml.rpc_ptr()); // Copy the value
   } catch (...) {}
   if (!rpc_model)
   {
-    // The default loading method failed, try the backup method.
-    RPCXML rpc_xml;
-    rpc_xml.read_from_file(path);
-    rpc_model = new RPCModel(*rpc_xml.rpc_ptr()); // Copy the value
+    rpc_model = new RPCModel(path); // This is for reading .tif files
   }
 
   // We don't catch an error here because the user will need to

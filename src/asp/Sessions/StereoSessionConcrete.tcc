@@ -243,11 +243,12 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model(In
                                                                               std::string const& camera_file) {
   // We don't know where the camera model is so try both files
   try {
-    return m_camera_loader.load_rpc_camera_model(image_file);
+    if (camera_file != "")
+      return m_camera_loader.load_rpc_camera_model(camera_file);
   }
   catch(...) {}
   try {
-    return m_camera_loader.load_rpc_camera_model(camera_file);
+    return m_camera_loader.load_rpc_camera_model(image_file);
   }
   catch(...) {}
   // Raise a custom exception if both failed
