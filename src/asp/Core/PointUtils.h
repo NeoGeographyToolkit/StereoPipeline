@@ -39,6 +39,25 @@ namespace asp {
 
   class BaseOptions;
 
+  // Utilities for processing csv files
+  enum CsvFormat{
+    XYZ, HEIGHT_LAT_LON, LAT_LON_RADIUS_M,
+    LAT_LON_RADIUS_KM, EASTING_HEIGHT_NORTHING};
+
+  struct CsvConv{
+    std::map<std::string,int> name2col;
+    std::map<int, std::string> col2name;
+    std::map<int, int> col2sort;
+    int lon_index, lat_index;
+    std::string csv_format_str;
+    std::string csv_proj4_str;
+    CsvFormat format;
+    int utm_zone;
+    bool utm_north;
+    CsvConv():lon_index(-1), lat_index(-1), format(XYZ), utm_zone(-1),
+              utm_north(false){}
+  };
+
   bool is_las(std::string const& file);
   bool is_csv(std::string const& file);
   bool is_las_or_csv(std::string const& file);
@@ -55,32 +74,17 @@ namespace asp {
                        std::string const& reference_spheroid,
                        vw::cartography::Datum& datum );
 
+  void handle_easting_northing(asp::CsvConv const& csv_conv,
+                               vw::cartography::GeoReference & georef);
+
   void parse_utm_str(std::string const& utm, int & zone, bool & north);
 
   inline std::string csv_separator(){ return ", \t"; }
 
   // Need this for pc_align and point2dem
   inline std::string csv_opt_caption(){
-    return "Specify the format of input CSV files as a list of entries column_index:column_type (indices start from 1). Examples: '1:x 2:y 3:z', '5:lon 6:lat 7:radius_m', '3:lat 2:lon 1:height_above_datum', 'utm:47N 1:easting 2:northing 3:height_above_datum'. Can also use radius_km for column_type.";
+    return "Specify the format of input CSV files as a list of entries column_index:column_type (indices start from 1). Examples: '1:x 2:y 3:z', '5:lon 6:lat 7:radius_m', '3:lat 2:lon 1:height_above_datum', '1:easting 2:northing 3:height_above_datum' (need to set --csv-proj4). Can also use radius_km for column_type.";
   }
-
-  // Utilities for processing csv files
-  enum CsvFormat{
-    XYZ, HEIGHT_LAT_LON, LAT_LON_RADIUS_M,
-    LAT_LON_RADIUS_KM, EASTING_HEIGHT_NORTHING};
-
-  struct CsvConv{
-    std::map<std::string,int> name2col;
-    std::map<int, std::string> col2name;
-    std::map<int, int> col2sort;
-    int lon_index, lat_index;
-    std::string csv_format_str;
-    CsvFormat format;
-    int utm_zone;
-    bool utm_north;
-    CsvConv():lon_index(-1), lat_index(-1), format(XYZ), utm_zone(-1),
-              utm_north(false){}
-  };
 
   void las_or_csv_to_tif(std::string const& in_file,
                          std::string const& out_file,
@@ -89,7 +93,9 @@ namespace asp {
                          vw::cartography::GeoReference const& csv_georef,
                          asp::CsvConv const& csv_conv);
 
-  void parse_csv_format(std::string const& csv_format_str, CsvConv & C);
+  void parse_csv_format(std::string const& csv_format_str,
+                        std::string const& csv_proj4_str,
+                        CsvConv & C);
 
   vw::Vector3 parse_csv_line(bool & is_first_line, bool & success,
                              std::string const& line,

@@ -1,10 +1,10 @@
 *** RELEASE 2.4.3, upcoming! ***
 
- - Greatly improved coverage and accuracy for areas with steep slopes
+- Greatly improved coverage and accuracy for areas with steep slopes
    for ISIS, RPC and Pinhole cameras by using map-projected images
    (previously available only for Digital Globe images). See section ???
    in the documentation. 
- 
+
  - General
    * Upgraded to ISIS 3.4.9.
 
@@ -22,6 +22,14 @@
    * Improved hole-filling, and removed the --hole-fill-mode and 
      --hole-fill-num-smooth-iter, as there's only one algorithm now. 
    * Improved performance when large holes are to be filled.
+   * Can create DEM from a point cloud stored in a CSV file containging
+     easting, northing, and height above datum (the PROJ.4 string
+     needed to interpret these numbers should be set with --csv-proj4).
+
+ - pc_align
+   * Can ingest CSV files containging easting, northing, and height
+   * above datum (the PROJ.4 string needed to interpret these numbers
+   * should be set with --csv-proj4).
 
  - point2las
    * Added the ability to specify a custom projection (PROJ.4 string).
@@ -36,15 +44,15 @@
      to increase faster than linearly.
    * Added the ability to fill holes in the output mosaic.
 
+ - bundle_adjust
+    * Bug fix in handling situtations when a point cannot get projected into the camera.
+
  - image2qtree
    * Bug fixes.
  
  - cam2map4stereo.py
    * Create temporary files in current directory, to avoid access
      issues to system directories.
-
- - bundle_adjust
-   * Bug fix in handling situtations when a point cannot get projected into the camera.
  
 *** RELEASE 2.4.2, October 6, 2014 ***
 
@@ -337,7 +345,7 @@ SESSIONS
  - Added RPC processing session.
  - DG sessions now use bicubic interpolation for map projection arithmetic.
  - Fixed bug in case where DG XML file had single TLC entry.
- - DG sessions now applies velocity abberation corrections.
+ - DG sessions now applies velocity aberration corrections.
 
 TOOLS
  - Have point2dem use correct nodata value when writting DRGs.

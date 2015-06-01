@@ -95,7 +95,7 @@ namespace vw {
 
 struct Options : public asp::BaseOptions {
   // Input
-  string reference, source, init_transform_file, alignment_method, config_file, datum, csv_format_str;
+  string reference, source, init_transform_file, alignment_method, config_file, datum, csv_format_str, csv_proj4_str;
   PointMatcher<RealT>::Matrix init_transform;
   int num_iter, max_num_reference_points, max_num_source_points;
   double diff_translation_err, diff_rotation_err, max_disp, outlier_ratio;
@@ -123,6 +123,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("highest-accuracy", po::bool_switch(&opt.highest_accuracy)->default_value(false)->implicit_value(true),
      "Compute with highest accuracy for point-to-plane (can be much slower).")
     ("csv-format", po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
+    ("csv-proj4", po::value(&opt.csv_proj4_str)->default_value(""),
+     "The PROJ.4 string to use to interpret the entries in input CSV files.")
     ("datum", po::value(&opt.datum)->default_value(""), "Use this datum for CSV files instead of auto-detecting it. [WGS_1984, D_MOON (radius is assumed to be 1,737,400 meters), D_MARS (radius is assumed to be 3,396,190 meters), etc.]")
     ("semi-major-axis", po::value(&opt.semi_major)->default_value(0), "Explicitly set the datum semi-major axis in meters.")
     ("semi-minor-axis", po::value(&opt.semi_minor)->default_value(0), "Explicitly set the datum semi-minor axis in meters.")
@@ -177,28 +179,28 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   if ( (opt.semi_major != 0 && opt.semi_minor == 0)
        ||
-       (opt.semi_minor != 0 && opt.semi_major == 0)       
+       (opt.semi_minor != 0 && opt.semi_major == 0)
        ){
 
     vw_throw( ArgumentErr() << "One of the semi-major or semi-minor axes"
               << " was specified, but not the other one.\n"
               << usage << general_options );
   }
-  
+
   if (opt.semi_major < 0 || opt.semi_minor < 0){
     vw_throw( ArgumentErr() << "The semi-major and semi-minor axes cannot "
               << "be negative.\n" << usage << general_options );
   }
-  
+
   if (opt.datum != "" && opt.semi_major != 0 && opt.semi_minor != 0 ){
     vw_throw( ArgumentErr() << "Both the datum string and datum semi-axes were "
               << "specified. At most one needs to be set.\n"
               << usage << general_options );
   }
-  
-  // Create the output directory 
+
+  // Create the output directory
   asp::create_out_dir(opt.out_prefix);
-  
+
   // Turn on logging to file
   asp::log_to_file(argc, argv, "", opt.out_prefix);
 
@@ -226,7 +228,7 @@ string get_file_type(string const& file_name){
 
   if (asp::is_csv(file_name))
     return "CSV";
-  
+
   if (asp::is_las(file_name))
     return "LAS";
 
@@ -243,7 +245,7 @@ string get_file_type(string const& file_name){
 }
 
 void read_datum(Options& opt, asp::CsvConv& csv_conv, Datum& datum){
-    
+
   // Set up the datum, need it to read CSV files.
 
   // First, get the datum from the DEM if available.
@@ -279,7 +281,7 @@ void read_datum(Options& opt, asp::CsvConv& csv_conv, Datum& datum){
       vw_out() << "Detected datum from " << las_file << ":\n" << datum << std::endl;
     }
   }
-  
+
   // A lot of care is needed below.
   if (opt.datum != ""){
     // If the user set the datum, use it.
@@ -292,13 +294,13 @@ void read_datum(Options& opt, asp::CsvConv& csv_conv, Datum& datum){
                   "Reference Meridian",
                   opt.semi_major, opt.semi_minor, 0.0);
     vw_out() << "Will use datum (for CSV files): " << datum << std::endl;
-  }else if (dem_file == "" && las_file == "" && 
+  }else if (dem_file == "" && las_file == "" &&
             (opt.csv_format_str == "" || csv_conv.format != asp::XYZ) ){
     // There is no DEM/LAS to read the datum from, and the user either
     // did not specify the CSV format (then we set it to lat, lon,
     // height), or it is specified as containing lat, lon, rather
     // than xyz.
-    bool has_csv = ( get_file_type(opt.reference) == "CSV" ) || 
+    bool has_csv = ( get_file_type(opt.reference) == "CSV" ) ||
       ( get_file_type(opt.source) == "CSV" );
     if (has_csv){
       // We are in trouble, will not be able to convert input lat,
@@ -311,7 +313,7 @@ void read_datum(Options& opt, asp::CsvConv& csv_conv, Datum& datum){
       vw_out() << "No datum specified. Will write output CSV files "
                << "in the x,y,z format." << std::endl;
       opt.csv_format_str = "1:x 2:y 3:z";
-      parse_csv_format(opt.csv_format_str, csv_conv);
+      parse_csv_format(opt.csv_format_str, opt.csv_proj4_str, csv_conv);
     }
   }
 
@@ -320,7 +322,7 @@ void read_datum(Options& opt, asp::CsvConv& csv_conv, Datum& datum){
 
 vw::Vector3 cartesian_to_geodetic_adj(vw::cartography::GeoReference const&
                                       geo, vw::Vector3 xyz){
-  
+
   // cartesian_to_geodetic() returns longitude between -180 and 180.
   // Sometimes this is 360 degrees less than what desired,
   // so here we do an adjustment.
@@ -418,7 +420,7 @@ int load_csv_aux(string const& file_name, int num_points_to_load,
                  GeoReference const& geo, asp::CsvConv const& C,
                  bool & is_lola_rdr_format, double & mean_longitude,
                  typename PointMatcher<T>::DataPoints & data){
-  
+
   validateFile(file_name);
 
   is_lola_rdr_format = false;
@@ -427,7 +429,7 @@ int load_csv_aux(string const& file_name, int num_points_to_load,
 
   std::string sep_str = asp::csv_separator();
   const char* sep = sep_str.c_str();
-  
+
   const int bufSize = 1024;
   char temp[bufSize];
   ifstream file( file_name.c_str() );
@@ -447,7 +449,7 @@ int load_csv_aux(string const& file_name, int num_points_to_load,
   string line;
   while ( getline(file, line, '\n') )
     if (asp::is_valid_csv_line(line)) break;
-  
+
   file.clear(); file.seekg(0, ios_base::beg); // go back to start of file
   strncpy(temp, line.c_str(), bufSize);
   const char* token = strtok (temp, sep);
@@ -475,7 +477,7 @@ int load_csv_aux(string const& file_name, int num_points_to_load,
                  << "format.\n";
     }
   }
-  
+
   if (is_lola_rdr_format &&
       geo.datum().semi_major_axis() != geo.datum().semi_minor_axis() ){
     vw_throw( ArgumentErr() << "The CSV file was detected to be in the"
@@ -489,7 +491,7 @@ int load_csv_aux(string const& file_name, int num_points_to_load,
   mean_longitude = 0.0;
   line = "";
   while ( getline(file, line, '\n') ){
-    
+
     if (points_count >= num_points_to_load) break;
 
     if (!asp::is_valid_csv_line(line)) continue;
@@ -502,14 +504,14 @@ int load_csv_aux(string const& file_name, int num_points_to_load,
 
     Vector3 xyz;
     double lon = 0.0, lat = 0.0;
-    
+
     if (C.csv_format_str != ""){
 
       // Parse custom CSV file with given format string
       bool success;
       Vector3 vals = asp::parse_csv_line(is_first_line, success, line, C);
       if (!success) continue;
-      
+
       bool return_point_height = false; // will return xyz
       xyz = asp::csv_to_cartesian_or_point_height(vals, geo, C, return_point_height);
 
@@ -528,12 +530,12 @@ int load_csv_aux(string const& file_name, int num_points_to_load,
       // Skip points outside the given box
       if (!lonlat_box.empty() && !lonlat_box.contains(Vector2(lon, lat)))
         continue;
-      
+
     }else if (!is_lola_rdr_format){
 
       // lat,lon,height format
       double lat, height;
-      
+
       strncpy(temp, line.c_str(), bufSize);
       const char* token = strtok(temp, sep); null_check(token, line);
       int ret = sscanf(token, "%lg", &lat);
@@ -572,7 +574,7 @@ int load_csv_aux(string const& file_name, int num_points_to_load,
 
       int year, month, day, hour, min;
       double lat, rad, sec, is_invalid;
-      
+
       strncpy(temp, line.c_str(), bufSize);
       const char* token = strtok(temp, sep); null_check(token, line);
 
@@ -664,10 +666,10 @@ void load_csv(string const& file_name,
                  double & mean_longitude,
                  typename PointMatcher<T>::DataPoints & data){
 
-  int num_total_points = load_csv_aux<T>(file_name, num_points_to_load,  
-                                         lonlat_box, verbose,  
-                                         calc_shift, shift,  
-                                         geo, C, is_lola_rdr_format,  
+  int num_total_points = load_csv_aux<T>(file_name, num_points_to_load,
+                                         lonlat_box, verbose,
+                                         calc_shift, shift,
+                                         geo, C, is_lola_rdr_format,
                                          mean_longitude, data
                                          );
 
@@ -679,13 +681,13 @@ void load_csv(string const& file_name,
     // not too large, we will drop extraneous points later.
     load_csv_aux<T>(file_name, num_total_points, lonlat_box,
                     false, // Skip repeating same messages
-                    calc_shift, shift,  
-                    geo, C, is_lola_rdr_format,  
+                    calc_shift, shift,
+                    geo, C, is_lola_rdr_format,
                     mean_longitude, data
                     );
   }
-  
-  return;  
+
+  return;
 }
 
 // Load a DEM
@@ -736,13 +738,13 @@ void load_dem(bool verbose, string const& file_name,
   TerminalProgressCallback tpc("asp", "\t--> ");
   double inc_amount = 1.0 / double(pix_box.width() );
   if (verbose) tpc.report_progress(0);
-  
+
   for (int i = pix_box.min().x(); i < pix_box.max().x(); i++ ) {
     if (points_count >= num_points_to_load) break;
 
     for (int j = pix_box.min().y(); j < pix_box.max().y(); j++ ) {
       if (points_count >= num_points_to_load) break;
-      
+
       double r = (double)std::rand()/(double)RAND_MAX;
       if (r > load_ratio) continue;
 
@@ -752,7 +754,7 @@ void load_dem(bool verbose, string const& file_name,
 
       // Skip points outside the given box
       if (!lonlat_box.empty() && !lonlat_box.contains(lonlat)) continue;
-      
+
       Vector3 llh( lonlat.x(), lonlat.y(), dem(i,j) );
       Vector3 xyz = dem_geo.datum().geodetic_to_cartesian( llh );
       if ( xyz == Vector3() || !(xyz == xyz) ) continue; // invalid and NaN check
@@ -768,11 +770,11 @@ void load_dem(bool verbose, string const& file_name,
 
       points_count++;
     }
-    
+
     if (verbose) tpc.report_incremental_progress( inc_amount );
   }
   if (verbose) tpc.report_finished();
-  
+
   data.features.conservativeResize(Eigen::NoChange, points_count);
 
 }
@@ -786,7 +788,7 @@ int64 load_pc_aux(bool verbose,
                   Vector3 & shift,
                   GeoReference const& geo,
                   typename PointMatcher<T>::DataPoints & data){
-  
+
   validateFile(file_name);
 
   data.features.conservativeResize(DIM+1, num_points_to_load);
@@ -806,13 +808,13 @@ int64 load_pc_aux(bool verbose,
   TerminalProgressCallback tpc("asp", "\t--> ");
   double inc_amount = 1.0 / double(point_cloud.rows() );
   if (verbose) tpc.report_progress(0);
-  
+
   for (int j = 0; j < point_cloud.rows(); j++ ) {
 
     if (points_count >= num_points_to_load) break;
-    
+
     for ( int i = 0; i < point_cloud.cols(); i++ ) {
-      
+
       if (points_count >= num_points_to_load) break;
 
       double r = (double)std::rand()/(double)RAND_MAX;
@@ -825,14 +827,14 @@ int64 load_pc_aux(bool verbose,
         shift = xyz;
         shift_was_calc = true;
       }
-      
+
       // Skip points outside the given box
       if (!lonlat_box.empty()){
         Vector3 llh = geo.datum().cartesian_to_geodetic(xyz);
         if ( !lonlat_box.contains(subvector(llh, 0, 2)))
           continue;
       }
-      
+
       for (int row = 0; row < DIM; row++)
         data.features(row, points_count) = xyz[row] - shift[row];
       data.features(DIM, points_count) = 1;
@@ -844,7 +846,7 @@ int64 load_pc_aux(bool verbose,
   if (verbose) tpc.report_finished();
 
   data.features.conservativeResize(Eigen::NoChange, points_count);
-  
+
   return num_total_points;
 }
 
@@ -857,7 +859,7 @@ int64 load_las_aux(bool verbose,
                   Vector3 & shift,
                   GeoReference const& geo,
                   typename PointMatcher<T>::DataPoints & data){
-  
+
   validateFile(file_name);
 
   data.features.conservativeResize(DIM+1, num_points_to_load);
@@ -865,7 +867,7 @@ int64 load_las_aux(bool verbose,
 
   GeoReference las_georef;
   bool has_georef = asp::georef_from_las(file_name, las_georef);
-  
+
   std::ifstream ifs;
   ifs.open(file_name.c_str(), std::ios::in | std::ios::binary);
   liblas::ReaderFactory f;
@@ -878,13 +880,13 @@ int64 load_las_aux(bool verbose,
 
   bool shift_was_calc = false;
   int64 points_count = 0;
-  
+
   TerminalProgressCallback tpc("asp", "\t--> ");
   int hundred = 100;
   int spacing = num_total_points/hundred;
   double inc_amount = 1.0 / hundred;
   if (verbose) tpc.report_progress(0);
-  
+
   while (reader.ReadNextPoint()){
 
     if (points_count >= num_points_to_load) break;
@@ -898,32 +900,32 @@ int64 load_las_aux(bool verbose,
       Vector2 ll = las_georef.point_to_lonlat(subvector(xyz, 0, 2));
       xyz = las_georef.datum().geodetic_to_cartesian(Vector3(ll[0], ll[1], xyz[2]));
     }
-    
+
     if (calc_shift && !shift_was_calc){
       shift = xyz;
       shift_was_calc = true;
     }
-    
+
     // Skip points outside the given box
     if (!lonlat_box.empty()){
       Vector3 llh = geo.datum().cartesian_to_geodetic(xyz);
       if ( !lonlat_box.contains(subvector(llh, 0, 2)))
         continue;
     }
-    
+
     for (int row = 0; row < DIM; row++)
       data.features(row, points_count) = xyz[row] - shift[row];
     data.features(DIM, points_count) = 1;
-    
+
     if (verbose && points_count%spacing == 0) tpc.report_incremental_progress( inc_amount );
 
     points_count++;
   }
-  
+
   if (verbose) tpc.report_finished();
 
   data.features.conservativeResize(Eigen::NoChange, points_count);
-  
+
   return num_total_points;
 }
 
@@ -937,27 +939,27 @@ void load_pc(bool verbose,
              GeoReference const& geo,
              typename PointMatcher<T>::DataPoints & data
              ){
-  
+
   int64 num_total_points = load_pc_aux<T>(verbose,
                                           file_name, num_points_to_load,
                                           lonlat_box, calc_shift, shift,
                                           geo, data);
-  
+
   int num_loaded_points = data.features.cols();
   if (!lonlat_box.empty()                    &&
       num_loaded_points < num_points_to_load &&
       num_loaded_points < num_total_points){
-    
+
     // We loaded too few points. Try harder. Need some care here as to not run
     // out of memory.
     num_points_to_load = std::max(4*num_points_to_load, 10000000);
     if (verbose)
       vw_out() << "Too few points were loaded. Trying again." << endl;
     load_pc_aux<T>(verbose,
-                   file_name, num_points_to_load, lonlat_box,  
+                   file_name, num_points_to_load, lonlat_box,
                    calc_shift, shift, geo, data);
   }
-  
+
 }
 
 template<typename T>
@@ -970,27 +972,27 @@ void load_las(bool verbose,
              GeoReference const& geo,
              typename PointMatcher<T>::DataPoints & data
              ){
-  
+
   int64 num_total_points = load_las_aux<T>(verbose,
                                           file_name, num_points_to_load,
                                           lonlat_box, calc_shift, shift,
                                           geo, data);
-  
+
   int num_loaded_points = data.features.cols();
   if (!lonlat_box.empty()                    &&
       num_loaded_points < num_points_to_load &&
       num_loaded_points < num_total_points){
-    
+
     // We loaded too few points. Try harder. Need some care here as to not run
     // out of memory.
     num_points_to_load = std::max(4*num_points_to_load, 10000000);
     if (verbose)
       vw_out() << "Too few points were loaded. Trying again." << endl;
     load_las_aux<T>(verbose,
-                   file_name, num_points_to_load, lonlat_box,  
+                   file_name, num_points_to_load, lonlat_box,
                    calc_shift, shift, geo, data);
   }
-  
+
 }
 
 // Load file from disk and convert to libpointmatcher's format
@@ -1013,7 +1015,7 @@ void load_file(string const& file_name,
   // We will over-write this below for CSV and DEM files where
   // longitude is available.
   mean_longitude = 0.0;
-  
+
   string file_type = get_file_type(file_name);
   if (file_type == "DEM")
     load_dem<T>(verbose,
@@ -1055,7 +1057,7 @@ BBox2 calc_extended_lonlat_bbox(GeoReference const& geo,
   // there is not much we can do.
   if (max_disp < 0.0 || geo.datum().name() == UNSPECIFIED_DATUM)
     return BBox2();
-  
+
   validateFile(file_name);
   PointMatcher<RealT>::DataPoints points;
 
@@ -1090,7 +1092,7 @@ BBox2 calc_extended_lonlat_bbox(GeoReference const& geo,
       }
     }
   }
-  
+
   return box;
 }
 
@@ -1159,12 +1161,12 @@ void calc_stats(string label, PointMatcher<RealT>::Matrix const& dists){
   double p16 = errs[std::min(len-1, (int)round(len*0.16))];
   double p50 = errs[std::min(len-1, (int)round(len*0.50))];
   double p84 = errs[std::min(len-1, (int)round(len*0.84))];
-  vw_out() << label << ": error percentile of smallest errors:"
+  vw_out() << label << ": error percentile of smallest errors (meters):"
            << " 16%: " << p16 << ", 50%: " << p50 << ", 84%: " << p84 << endl;
 
   double a25 = calc_mean(errs, len/4),   a50  = calc_mean(errs, len/2);
   double a75 = calc_mean(errs, 3*len/4), a100 = calc_mean(errs, len);
-  vw_out() << label << ": mean of smallest errors:"
+  vw_out() << label << ": mean of smallest errors (meters):"
            << " 25%: " << a25 << ", 50%: " << a50
            << ", 75%: " << a75 << ", 100%: " << a100 << endl;
 }
@@ -1174,7 +1176,7 @@ void dump_llh(string const& file, Datum const& datum,
 
   vw_out() << "Writing: " << data.features.cols()
            << " points to " << file << std::endl;
-  
+
   ofstream fs(file.c_str());
   fs.precision(20);
   for (int c = 0; c < data.features.cols(); c++){
@@ -1217,12 +1219,12 @@ void calc_translation_vec(DP const& source, DP const& trans_source,
                           Vector3 & trans_xyz,
                           Vector3 & trans_ned,
                           Vector3 & trans_llh){
-  
+
   Eigen::VectorXd source_ctr
     = source.features.rowwise().sum() / source.features.cols();
   Eigen::VectorXd trans_source_ctr
     = trans_source.features.rowwise().sum() / trans_source.features.cols();
-  
+
   Vector3 trans_source_ctr_vec;
   for (int row = 0; row < DIM; row++){
     source_ctr_vec[row]       = source_ctr(row, 0);
@@ -1232,7 +1234,7 @@ void calc_translation_vec(DP const& source, DP const& trans_source,
   // Make these vectors in reference to the center of the planet
   source_ctr_vec       += shift;
   trans_source_ctr_vec += shift;
-  
+
   trans_xyz = trans_source_ctr_vec - source_ctr_vec;
 
   source_ctr_llh = datum.cartesian_to_geodetic(source_ctr_vec);
@@ -1295,7 +1297,7 @@ void save_errors(DP const& point_cloud,
     else
       outfile << "# latitude,longitude,height above datum (meters),error (meters)" << endl;
   }
-  
+
   int numPts = point_cloud.features.cols();
   for(int col = 0; col < numPts; col++){
 
@@ -1304,15 +1306,15 @@ void save_errors(DP const& point_cloud,
       P[row] = point_cloud.features(row, col) + shift[row];
 
     if (C.csv_format_str != ""){
-      
+
       Vector3 csv = cartesian_to_csv(P, geo, mean_longitude, C);
       outfile << csv[0] << ',' << csv[1] << ',' << csv[2]
               << "," << errors(0, col) << endl;
-      
+
     }else{
       Vector3 llh = geo.datum().cartesian_to_geodetic(P); // lon-lat-height
       llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjustment
-      
+
       if (is_lola_rdr_format)
         outfile << llh[0] << ',' << llh[1] << ',' << norm_2(P)/1000.0
                 << "," << errors(0, col) << endl;
@@ -1326,7 +1328,7 @@ void save_errors(DP const& point_cloud,
 
 namespace asp{
   Vector3 apply_transform(PointMatcher<RealT>::Matrix const& T, Vector3 const& P){
-    
+
     Eigen::VectorXd V(4);
     V[0] = P[0]; V[1] = P[1]; V[2] = P[2]; V[3] = 1;
     V = T*V;
@@ -1347,7 +1349,7 @@ struct TransformPC: public UnaryReturnSameType {
 
     if (xyz == Vector3())
       return P; // invalid point
-    
+
     Vector3 Q = asp::apply_transform(m_T, xyz);
     subvector(P, 0, 3) = Q;
 
@@ -1413,7 +1415,7 @@ void save_trans_point_cloud(Options const& opt,
                                 per_pixel_filter(point_cloud, TransformPC(T)),
                                 opt,
                                 TerminalProgressCallback("asp", "\t--> "));
-    
+
   }else if (file_type == "PC"){
 
     // Need this logic because we cannot open an image
@@ -1456,7 +1458,7 @@ void save_trans_point_cloud(Options const& opt,
     double inc_amount = 1.0 / hundred;
     int64 count = 0;
     while (reader.ReadNextPoint()){
-      
+
       liblas::Point const& in_las_pt = reader.GetPoint();
       Vector3 P(in_las_pt.GetX(), in_las_pt.GetY(), in_las_pt.GetZ());
       if (has_georef){
@@ -1475,9 +1477,9 @@ void save_trans_point_cloud(Options const& opt,
       liblas::Point out_las_pt(&header);
       out_las_pt.SetCoordinates(P[0], P[1], P[2]);
       writer.WritePoint(out_las_pt);
-      
+
       if (count%spacing == 0) tpc.report_incremental_progress( inc_amount );
-      
+
       count++;
     }
     tpc.report_finished();
@@ -1500,7 +1502,7 @@ void save_trans_point_cloud(Options const& opt,
 
     ofstream outfile( output_file.c_str() );
     outfile.precision(16);
-    
+
     // Write the header line
     if (C.csv_format_str != ""){
       outfile << "# ";
@@ -1515,45 +1517,45 @@ void save_trans_point_cloud(Options const& opt,
       else
         outfile << "# latitude,longitude,height above datum (meters)" << endl;
     }
-    
+
     int numPts = point_cloud.features.cols();
     TerminalProgressCallback tpc("asp", "\t--> ");
     int hundred = 100;
     int spacing = numPts/hundred;
     double inc_amount = 1.0 / hundred;
     for (int col = 0; col < numPts; col++){
-      
+
       Eigen::VectorXd V(DIM + 1);
       for (int row = 0; row < DIM; row++)
         V[row] = point_cloud.features(row, col) + shift[row];
       V[DIM] = 1;
-      
+
       // Apply the transform
       V = T*V;
-      
+
       Vector3 P;
       for (int row = 0; row < DIM; row++) P[row] = V[row];
-      
+
       if (C.csv_format_str != ""){
-        
+
         Vector3 csv = cartesian_to_csv(P, geo, mean_longitude, C);
         outfile << csv[0] << ',' << csv[1] << ',' << csv[2] << endl;
-        
+
       }else{
         Vector3 llh = geo.datum().cartesian_to_geodetic(P); // lon-lat-height
         llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjustment
-        
+
         if (is_lola_rdr_format)
           outfile << llh[0] << ',' << llh[1] << ',' << norm_2(P)/1000.0 << endl;
         else
           outfile << llh[1] << ',' << llh[0] << ',' << llh[2] << endl;
       }
-      
+
       if (col%spacing == 0) tpc.report_incremental_progress( inc_amount );
     }
     tpc.report_finished();
     outfile.close();
-    
+
   }else{
     vw_throw( ArgumentErr() << "Unknown file type: " << input_file << "\n" );
   }
@@ -1594,22 +1596,17 @@ int main( int argc, char *argv[] ) {
     omp_set_num_threads(opt.num_threads);
 
     asp::CsvConv C;
-    parse_csv_format(opt.csv_format_str, C);
-    
+    parse_csv_format(opt.csv_format_str, opt.csv_proj4_str, C);
+
     Datum datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
                 "Reference Meridian", 1, 1, 0);
     read_datum(opt, C, datum);
     GeoReference geo(datum);
-    if (C.format == asp::EASTING_HEIGHT_NORTHING){
-      try{
-        geo.set_UTM(C.utm_zone, C.utm_north);
-      } catch ( const std::exception& e ) {
-        vw_throw(ArgumentErr() << "Detected error: " << e.what()
-                 << "\nPlease check if you are using an Earth datum.\n");
-      }
-    }
-    
-    // We will use ref_box to bound the source points, and vice-versa. 
+
+    // Set user's csv_proj4_str if specified
+    asp::handle_easting_northing(C, geo);
+
+    // We will use ref_box to bound the source points, and vice-versa.
     // Decide how many samples to pick to estimate these boxes.
     Stopwatch sw0;
     sw0.start();
@@ -1638,10 +1635,10 @@ int main( int argc, char *argv[] ) {
                               << "of bounding boxes of the reference"
                               << " and source points took "
                               << sw0.elapsed_seconds() << " [s]" << endl;
-    
+
     // Load the point clouds. We will shift both point clouds by the
     // centroid of the first one to bring them closer to origin.
-    
+
     // Load the subsampled reference point cloud.
     Vector3 shift;
     bool calc_shift = true;
@@ -1677,7 +1674,7 @@ int main( int argc, char *argv[] ) {
     sw2.stop();
     if (opt.verbose) vw_out() << "Loading the source point cloud took "
                               << sw2.elapsed_seconds() << " [s]" << endl;
-    
+
     // So far we shifted by first point in first point cloud to reduce
     // the magnitude of all loaded points. Now that we have loaded all
     // points, shift one more time, to place the centroid of the
@@ -1720,14 +1717,14 @@ int main( int argc, char *argv[] ) {
       if (opt.verbose) vw_out() << "Filter gross outliers took "
                                 << sw4.elapsed_seconds() << " [s]" << endl;
     }
-    
+
     random_pc_subsample<RealT>(opt.max_num_source_points, source);
     vw_out() << "Reducing number of source points to " << source.features.cols()
              << endl;
 
     //dump_llh("ref.csv", datum, ref,    shift);
     //dump_llh("src.csv", datum, source, shift);
-    
+
     // Calculate the errors before doing ICP
     Stopwatch sw5;
     sw5.start();
@@ -1781,7 +1778,7 @@ int main( int argc, char *argv[] ) {
     calc_translation_vec(source, trans_source, shift, geo.datum(),
                          source_ctr_vec, source_ctr_llh,
                          trans_xyz, trans_ned, trans_llh);
-    
+
     // Calculate the errors after doing ICP
     PointMatcher<RealT>::Matrix end_errors;
     Stopwatch sw7;
@@ -1807,7 +1804,7 @@ int main( int argc, char *argv[] ) {
     std::swap(source_ctr_llh[0], source_ctr_llh[1]);
     vw_out() << "Centroid of source points (lat,lon,z): " << source_ctr_llh << std::endl;
     vw_out() << std::endl;
-    
+
     vw_out() << "Translation vector (Cartesian, meters): " << trans_xyz << std::endl;
     vw_out() << "Translation vector (North-East-Down, meters): "
          << trans_ned << std::endl;
@@ -1817,7 +1814,7 @@ int main( int argc, char *argv[] ) {
     std::swap(trans_llh[0], trans_llh[1]);
     vw_out() << "Translation vector (lat,lon,z): " << trans_llh << std::endl;
     vw_out() << std::endl;
-    
+
     Matrix3x3 rot;
     for (int r = 0; r < DIM; r++) for (int c = 0; c < DIM; c++)
       rot(r, c) = globalT(r, c);
@@ -1827,7 +1824,7 @@ int main( int argc, char *argv[] ) {
     vw_out() << "Axis of rotation and angle (degrees): "
          << axis_angles/norm_2(axis_angles) << ' '
          << norm_2(axis_angles) << endl;
-    
+
     Stopwatch sw8;
     sw8.start();
     save_transforms(opt, globalT);
@@ -1837,13 +1834,13 @@ int main( int argc, char *argv[] ) {
       save_trans_point_cloud(opt, opt.reference, trans_ref_prefix,
                              geo, C, globalT.inverse());
     }
-    
+
     if (opt.save_trans_source){
       string trans_source_prefix = opt.out_prefix + "-trans_source";
       save_trans_point_cloud(opt, opt.source, trans_source_prefix,
                              geo, C, globalT);
     }
-    
+
     save_errors(source, beg_errors,  opt.out_prefix + "-beg_errors.csv",
                 shift, geo, C, is_lola_rdr_format, mean_source_longitude);
     save_errors(trans_source, end_errors,  opt.out_prefix + "-end_errors.csv",
@@ -1851,7 +1848,7 @@ int main( int argc, char *argv[] ) {
 
     if (opt.verbose) vw_out() << "Writing: " << opt.out_prefix
       + "-iterationInfo.csv" << std::endl;
-    
+
     sw8.stop();
     if (opt.verbose) vw_out() << "Saving to disk took "
                               << sw8.elapsed_seconds() << " [s]" << endl;

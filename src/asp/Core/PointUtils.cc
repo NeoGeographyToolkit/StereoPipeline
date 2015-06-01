@@ -387,6 +387,36 @@ bool asp::read_user_datum(double semi_major, double semi_minor,
   return true;
 }
 
+void asp::handle_easting_northing(asp::CsvConv const& csv_conv,
+                                  vw::cartography::GeoReference & georef){
+
+  // If the user passed in a csv file containing easting, northing, height
+  // above datum, and either a utm zone or a custom proj4 string,
+  // pass that info into the georeference for the purpose of converting
+  // later from easting and northing to lon and lat.
+
+  if (csv_conv.format != asp::EASTING_HEIGHT_NORTHING)
+    return; // nothing to do
+
+  if (csv_conv.utm_zone >= 0) {
+    try{
+      georef.set_UTM(csv_conv.utm_zone, csv_conv.utm_north);
+    } catch ( const std::exception& e ) {
+      vw_throw(ArgumentErr() << "Detected error: " << e.what()
+               << "\nPlease check if you are using an Earth datum.\n");
+    }
+  } else if (csv_conv.csv_proj4_str != "") {
+    bool have_user_datum = false;
+    Datum user_datum;
+    asp::set_srs_string(csv_conv.csv_proj4_str,
+                        have_user_datum, user_datum, georef);
+
+  }else{
+    vw_throw( ArgumentErr() << "When a CSV file has easting and northing, the PROJ.4 string must be set via --csv_proj4.\n" );
+  }
+
+}
+
 void asp::parse_utm_str(std::string const& utm, int & zone, bool & north){
 
   // Parse the string 58N
@@ -416,7 +446,9 @@ void asp::parse_utm_str(std::string const& utm, int & zone, bool & north){
     vw_throw(ArgumentErr() << "Could not parse UTM string: '" << utm << "'\n");
 }
 
-void asp::parse_csv_format(std::string const& csv_format_str, asp::CsvConv & C){
+void asp::parse_csv_format(std::string const& csv_format_str,
+                           std::string const& csv_proj4_str,
+                           asp::CsvConv & C){
 
   // Parse the CSV format string and build the data structure which
   // will enable to convert from CSV to Cartesian and vice-versa.
@@ -424,6 +456,7 @@ void asp::parse_csv_format(std::string const& csv_format_str, asp::CsvConv & C){
   C = asp::CsvConv(); // reset
 
   C.csv_format_str = csv_format_str;
+  C.csv_proj4_str = csv_proj4_str;
 
   std::string local = csv_format_str;
   boost::algorithm::to_lower(local);
@@ -504,11 +537,10 @@ void asp::parse_csv_format(std::string const& csv_format_str, asp::CsvConv & C){
             sorted_names[2] == "radius_km"){
     C.format = asp::LAT_LON_RADIUS_KM;
   }else if (sorted_names[0] == "height_above_datum" &&
-            sorted_names[1] == "lat" &&
+            sorted_names[1] == "lat"                &&
             sorted_names[2] == "lon"){
     C.format = asp::HEIGHT_LAT_LON;
-  }else if (C.utm_zone >= 0 &&
-            sorted_names[0] == "easting" &&
+  }else if (sorted_names[0] == "easting"            &&
             sorted_names[1] == "height_above_datum" &&
             sorted_names[2] == "northing"){
     C.format = asp::EASTING_HEIGHT_NORTHING;
