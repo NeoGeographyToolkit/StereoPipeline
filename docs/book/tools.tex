@@ -1417,8 +1417,7 @@ Options & Description \\ \hline \hline
 \section{{\tt colormap}}
 \label{sec:colormap}
 
-The \verb#colormap# tool visualizes the data encoded in a DEM by reading in a DEM and writing a corresponding 
-color-coded height image. 
+The \verb#colormap# tool reads a DEM and writes a corresponding color-coded height image that can be used for visualization.
 
 
 \medskip
@@ -1438,19 +1437,15 @@ Usage:\\
 \endlastfoot
 \hline
 Option & Description \\ \hline \hline
-\verb#--help# & Display a help message \\ \hline
-\verb#-s [ --shaded-relief-file ] arg# & Specify a shaded relief image (grayscale) to apply to the colorized image \\ \hline
-\verb#-o [ --output-file ] arg# & Specify the output file \\ \hline
-\verb#--colormap-style arg# & Specify a file to describe the color output. 
-It is similar to the file used by gdaldem. Alternately, use 'binary-red-blue' 
-for a custom binary map. If not set the default jet colormap will be used. \\ \hline
-\verb#--nodata-value arg# & Remap the DEM default value to the min altitude value \\ \hline
-\verb#--min arg# & Minimum height of the color map \\ \hline
-\verb#--max arg# & Maximum height of the color map \\ \hline
-\verb#--moon# & Set the min and max height to good values for the moon. \\ \hline
-\verb#--mars# & Set the min and max height to good values for mars. \\ \hline
-\verb#--legend# & Generate an unlabeled legend, saved as "legend.png" \\ \hline
+\verb#--help# & Display a help message. \\ \hline
+\verb#-s [ --shaded-relief-file ] arg# & Specify a shaded relief image (grayscale) to apply to the colorized image. \\ \hline
+\verb#-o [ --output-file ] arg# & Specify the output file. \\ \hline
+\verb#--colormap-style arg# & Specify the colormap style. Options: jet (default), binary-red-blue, or the name of a file having the colormap, similar to the file used by gdaldem. \\ \hline
+\verb#--nodata-value arg# & Remap the DEM default value to the min altitude value. \\ \hline
+\verb#--min arg# & Minimum height of the color map. \\ \hline
+\verb#--max arg# & Maximum height of the color map. \\ \hline
+\verb#--moon# & Set the min and max height to good values for the Moon. \\ \hline
+\verb#--mars# & Set the min and max height to good values for Mars. \\ \hline
+\verb#--legend# & Generate an unlabeled legend, saved as "legend.png". \\ \hline
 
 \end{longtable}
-
-
