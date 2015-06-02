@@ -1,6 +1,6 @@
 *** RELEASE 2.4.3, upcoming! ***
 
-- Greatly improved coverage and accuracy for areas with steep slopes
+-  Greatly improved coverage and accuracy for areas with steep slopes
    for ISIS, RPC and Pinhole cameras by using map-projected images
    (previously available only for Digital Globe images). See section ???
    in the documentation. 
@@ -28,8 +28,8 @@
 
  - pc_align
    * Can ingest CSV files containging easting, northing, and height
-   * above datum (the PROJ.4 string needed to interpret these numbers
-   * should be set with --csv-proj4).
+     above datum (the PROJ.4 string needed to interpret these numbers
+     should be set with --csv-proj4).
 
  - point2las
    * Added the ability to specify a custom projection (PROJ.4 string).
