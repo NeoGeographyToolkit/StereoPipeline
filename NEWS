@@ -54,6 +54,10 @@
    * Create temporary files in current directory, to avoid access
      issues to system directories.
  
+ - colormap
+   * Added a new colormap option based on the paper "Diverging Color Maps for Scientific Visualization",
+     available here: http://www.sandia.gov/~kmorel/documents/ColorMaps/
+
 *** RELEASE 2.4.2, October 6, 2014 ***
 
  - ASP can perform multi-view triangulation (using both the
