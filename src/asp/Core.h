@@ -18,10 +18,11 @@
 
 /// \file Core.h
 ///
-#include <asp/asp_config.h>
-
 #ifndef __ASP_CORE_H__
 #define __ASP_CORE_H__
+
+#include <vw/config.h> // must come before asp_config.h, defines VW_BOOST_VERSION
+#include <asp/asp_config.h>
 
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Macros.h>

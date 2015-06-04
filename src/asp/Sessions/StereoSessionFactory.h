@@ -26,10 +26,8 @@
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>
 
-#include <asp/asp_config.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Common.h>
-
 
 #include <asp/Sessions/DG/StereoSessionDG.h>
 #include <asp/Sessions/DGMapRPC/StereoSessionDGMapRPC.h>
@@ -56,7 +54,7 @@ namespace asp {
 
   private:
     StereoSessionFactory() {} // Prevent construction of static-only class
-    
+
   }; // End class StereoSessionFactory
 
 //======================================================================================
@@ -145,7 +143,7 @@ namespace asp {
               << "Please set it explicitly using the -t switch.\n"
               << "Options include: [pinhole isis dg rpc].\n");
     VW_OUT(vw::DebugMessage,"asp") << "Using session: " << actual_session_type << std::endl;
-    
+
     // Compare the current session name to all recognized types
     // - Only one of these will ever get triggered
     StereoSession* session_new = 0;

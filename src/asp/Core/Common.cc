@@ -28,8 +28,6 @@
 #include <vector>
 #include <unistd.h>
 
-#include <vw/config.h>
-#include <asp/asp_config.h>
 #include <gdal_version.h>
 #include <proj_api.h>
 
@@ -63,7 +61,7 @@ asp::extract_cameras( std::vector<std::string>& image_files ) {
     } else
       it++;
   }
-  
+
   return cam_files;
 }
 */
@@ -151,7 +149,7 @@ bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
   // Otherwise we need to do more checks
   if (has_camera_paths) {
     //int  num_image_files     = 0;
-    //int  num_camera_files    = 0; 
+    //int  num_camera_files    = 0;
     bool multiple_extensions = false;
 
     for (size_t i=0; i<files.size(); ++i) {
@@ -166,7 +164,7 @@ bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
 
     //if (num_image_files < files.size()) // Must be camera files
     //  break;
-    if (!multiple_extensions) 
+    if (!multiple_extensions)
       has_camera_paths = false; // Two types of files, some must be camera files.
 
   } // End check for camera file prescence
@@ -259,10 +257,10 @@ void asp::create_out_dir(std::string out_prefix){
 // inverse power of 2, 1/2^10 for Earth and proportionally less for
 // smaller bodies.
 double asp::get_rounding_error(vw::Vector3 const& shift, double rounding_error){
-  
+
   // Do nothing if the user specified it.
   if (rounding_error > 0.0) return rounding_error;
-  
+
   double len = norm_2(shift);
   VW_ASSERT(len > 0,  vw::ArgumentErr() << "Expecting positive length in get_rounding_error().");
   rounding_error = 1.5e-10*len;
@@ -307,7 +305,7 @@ void asp::log_to_file(int argc, char *argv[],
   asp::create_out_dir(out_prefix);
 
   std::string prog_name = extract_prog_name(argv[0]);
-  
+
   // Create the log file and open it in write mode
   std::ostringstream os;
   int pid = getpid();
@@ -335,7 +333,7 @@ void asp::log_to_file(int argc, char *argv[],
     asp::run_cmd_app_to_file(cmd, log_file);
   }
   asp::run_cmd_app_to_file("cat ~/.vwrc 2>/dev/null", log_file);
-    
+
   // Copy all the info going to the console to log_file as well,
   // except the progress bar.
   boost::shared_ptr<vw::LogInstance> current_log( new vw::LogInstance(log_file) );
@@ -383,7 +381,7 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
                          bool allow_unregistered,
                          std::vector<std::string> & unregistered) {
 
-  {  
+  {
     // This is a bugfix. Ensure that stereo_settings() is
     // pre-populated for every single ASP application, not just for
     // stereo. For example, any application which uses the
@@ -403,7 +401,7 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
   } // End bugfix.
 
   unregistered.clear();
-  
+
   // Finish filling in the usage_comment.
   std::ostringstream ostr;
   ostr << "Usage: " << argv[0] << " " << usage_comment << "\n\n";
@@ -441,7 +439,7 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
   } else {
     opt.gdal_options["BIGTIFF"] = "IF_SAFER";
   }
-  
+
   if ( vm.count("help") )
     vw::vw_throw( vw::ArgumentErr() << usage_comment << public_options );
 
@@ -476,11 +474,11 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
                  << opt.num_threads << std::endl;
     verbose = false;
   }
-  
+
   // Here we ensure that opt.num_threads and default_num_threads()
   // are consistent among themselves.
   vw::vw_settings().set_default_num_threads(opt.num_threads);
-  
+
   boost::algorithm::to_upper( opt.tif_compress );
   boost::algorithm::trim( opt.tif_compress );
   VW_ASSERT( opt.tif_compress == "NONE" || opt.tif_compress == "LZW" ||
@@ -506,7 +504,7 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
 
   // Set srs_string into given georef. Note that this may leave the
   // georef's affine transform inconsistent.
-  
+
   // Use the target_srs_string
 #if defined(VW_HAVE_PKG_GDAL) && VW_HAVE_PKG_GDAL==1
 
@@ -519,7 +517,7 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
 
   if ( have_user_datum )
     srs_string += " " + user_datum.proj4_str();
-    
+
   OGRSpatialReference gdal_spatial_ref;
   if (gdal_spatial_ref.SetFromUserInput( srs_string.c_str() ))
     vw_throw( ArgumentErr() << "Failed to parse: \"" << srs_string << "\"." );
@@ -528,7 +526,7 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
   srs_string = wkt;
   delete[] wkt;
   georef.set_wkt(srs_string);
-  
+
   // Re-apply the user's datum. The important values were already
   // there (major/minor axis), we're just re-applying to make sure
   // the names of the datum are there.
@@ -538,7 +536,7 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
 #else
   vw_throw( NoImplErr() << "Target SRS option is not available without GDAL support. Please rebuild VW and ASP with GDAL." );
 #endif
-  
+
 }
 
 namespace boost {
@@ -716,5 +714,5 @@ namespace program_options {
       boost::throw_exception(validation_error(validation_error::invalid_option_value));
     }
   }
-  
+
 }}

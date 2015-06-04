@@ -27,7 +27,6 @@
 #include <vw/FileIO/DiskImageResource.h>
 #include <vw/FileIO/DiskImageView.h>
 
-#include <asp/asp_config.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Common.h>
 
@@ -80,13 +79,13 @@ namespace asp {
       vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
       return true;
     }
-    
+
     DiskImageView<float> image1(input_file1), image2(input_file2);
     cartography::Datum datum = this->get_datum(cam1);
 
     bool single_threaded_camera = true;
     bool inlier = ip_matching_w_alignment(single_threaded_camera, cam1, cam2,
-                                          image1, image2, 
+                                          image1, image2,
                                           datum, match_filename,
                                           nodata1, nodata2);
     if (!inlier) {
@@ -168,7 +167,7 @@ namespace asp {
     right_nodata_value = std::numeric_limits<float>::quiet_NaN();
     if (left_rsrc->has_nodata_read ()) left_nodata_value  = left_rsrc->nodata_read();
     if (right_rsrc->has_nodata_read()) right_nodata_value = right_rsrc->nodata_read();
-    
+
     float opt_nodata = stereo_settings().nodata_value;
     if (!std::isnan(opt_nodata)){
 
@@ -183,6 +182,5 @@ namespace asp {
 
     return;
   }
-  
-} // End namespace asp
 
+} // End namespace asp

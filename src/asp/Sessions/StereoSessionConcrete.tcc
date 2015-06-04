@@ -22,23 +22,15 @@
 #include <vw/Core/Log.h>
 #include <vw/Math.h>
 #include <vw/Camera.h>
-
-
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Image/MaskViews.h>
 #include <vw/Stereo/DisparityMap.h>
 
-#include <asp/asp_config.h>
 #include <asp/Core/Common.h>
-
-//#include <asp/Sessions/RPC/RPCModel.h>
-
-//#include <xercesc/util/PlatformUtils.hpp>
 
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/IsisIO/IsisAdjustCameraModel.h>
 #include <asp/IsisIO/Equation.h>
-
 
 #include <map>
 #include <utility>
@@ -46,11 +38,7 @@
 #include <ostream>
 #include <limits>
 
-
-
-
 using namespace vw;
-
 using namespace vw::camera; // For the Pinhole load function
 
 namespace asp {
@@ -69,9 +57,9 @@ void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
              std::string const& input_dem) {
 
   // Initialize the base class
-  StereoSession::initialize(options, 
-                            left_image_file,  right_image_file, 
-                            left_camera_file, right_camera_file, 
+  StereoSession::initialize(options,
+                            left_image_file,  right_image_file,
+                            left_camera_file, right_camera_file,
                             out_prefix, input_dem);
 
   // Do any other initalization steps needed
@@ -109,14 +97,14 @@ template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
        init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC>) {
-  
+
   // Verify that we can read the camera models
   m_left_map_proj_model  = load_camera_model(Int2Type<STEREOMODEL_TYPE_RPC>(), m_left_image_file,  m_left_camera_file );
   m_right_map_proj_model = load_camera_model(Int2Type<STEREOMODEL_TYPE_RPC>(), m_right_image_file, m_right_camera_file);
 
   VW_ASSERT( m_left_map_proj_model.get() && m_right_map_proj_model.get(),
              ArgumentErr() << "StereoSessionConcrete: Unable to locate RPC inside input files." );
-  
+
   // Double check that we can read the DEM and that it has cartographic information.
   VW_ASSERT(!m_input_dem.empty(), InputErr() << "StereoSessionConcrete : Require input DEM" );
   if (!boost::filesystem::exists(m_input_dem))
@@ -136,7 +124,7 @@ void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
 
   VW_ASSERT( m_left_map_proj_model.get() && m_right_map_proj_model.get(),
              ArgumentErr() << "StereoSessionConcrete: Unable to locate ISIS model inside input files." );
-  
+
   // Double check that we can read the DEM and that it has cartographic information.
   VW_ASSERT(!m_input_dem.empty(), InputErr() << "StereoSessionConcrete : Require input DEM" );
   if (!boost::filesystem::exists(m_input_dem))
@@ -157,7 +145,7 @@ void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
 
   VW_ASSERT( m_left_map_proj_model.get() && m_right_map_proj_model.get(),
              ArgumentErr() << "StereoSessionConcrete: Unable to locate Pinhole model inside input files." );
-  
+
   // Double check that we can read the DEM and that it has cartographic information.
   VW_ASSERT(!m_input_dem.empty(), InputErr() << "StereoSessionConcrete : Require input DEM" );
   if (!boost::filesystem::exists(m_input_dem))
@@ -191,7 +179,7 @@ getTransformFromMapProject(const std::string &input_dem_path,
   DiskImageView<float> img(img_file_path);
   return cartography::Map2CamTrans(map_proj_model_ptr.get(),
                                    image_georef, dem_georef, input_dem_path,
-                                   Vector2(img.cols(), img.rows()), 
+                                   Vector2(img.cols(), img.rows()),
                                    call_from_mapproject);
 }
 
@@ -213,13 +201,13 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::camera_model(std::st
 
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
-boost::shared_ptr<vw::camera::CameraModel> 
-StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model(Int2Type<STEREOMODEL_TYPE_ISIS>, 
-                                                                              std::string const& image_file, 
+boost::shared_ptr<vw::camera::CameraModel>
+StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model(Int2Type<STEREOMODEL_TYPE_ISIS>,
+                                                                              std::string const& image_file,
                                                                               std::string const& camera_file) {
   // We have to do a check here to make sure we pass the files in the correct order
   if (boost::ends_with(boost::to_lower_copy(camera_file), ".isis_adjust")) {
-    return m_camera_loader.load_isis_camera_model(image_file, camera_file); 
+    return m_camera_loader.load_isis_camera_model(image_file, camera_file);
   }
   else {
     return m_camera_loader.load_isis_camera_model(camera_file);
@@ -228,18 +216,18 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model(In
 
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
-boost::shared_ptr<vw::camera::CameraModel> 
-StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model(Int2Type<STEREOMODEL_TYPE_DG>, 
-                                                                              std::string const& image_file, 
+boost::shared_ptr<vw::camera::CameraModel>
+StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model(Int2Type<STEREOMODEL_TYPE_DG>,
+                                                                              std::string const& image_file,
                                                                               std::string const& camera_file) {
   return m_camera_loader.load_dg_camera_model(camera_file);
 }
 
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
-boost::shared_ptr<vw::camera::CameraModel> 
-StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model(Int2Type<STEREOMODEL_TYPE_RPC>, 
-                                                                              std::string const& image_file, 
+boost::shared_ptr<vw::camera::CameraModel>
+StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model(Int2Type<STEREOMODEL_TYPE_RPC>,
+                                                                              std::string const& image_file,
                                                                               std::string const& camera_file) {
   // We don't know where the camera model is so try both files
   try {
@@ -258,9 +246,9 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model(In
 // The PINHOLE function unfortunately needs to be written out here.
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
-boost::shared_ptr<vw::camera::CameraModel> 
-StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model(Int2Type<STEREOMODEL_TYPE_PINHOLE>, 
-                                                                              std::string const& image_file, 
+boost::shared_ptr<vw::camera::CameraModel>
+StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model(Int2Type<STEREOMODEL_TYPE_PINHOLE>,
+                                                                              std::string const& image_file,
                                                                               std::string const& camera_file) {
   if ( stereo_settings().alignment_method == "epipolar" ) {
     // Load the image
@@ -428,8 +416,7 @@ template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
 typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
 StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE>) const {
   return getTransformFromMapProject(m_input_dem, m_right_image_file, m_right_map_proj_model);
-}  
+}
 
 
 } // End namespace asp
-

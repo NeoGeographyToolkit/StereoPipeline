@@ -23,7 +23,6 @@
 #define __STEREO_SESSION_ISIS_H__
 
 #include <asp/Sessions/StereoSessionConcrete.h>
-#include <asp/asp_config.h>
 #include <vw/Stereo/StereoModel.h>
 
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1

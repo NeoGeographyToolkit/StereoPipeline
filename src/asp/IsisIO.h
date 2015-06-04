@@ -19,6 +19,7 @@
 #ifndef __ASP_ISIS_IO_H__
 #define __ASP_ISIS_IO_H__
 
+#include <vw/config.h> // must come before asp_config.h, defines VW_BOOST_VERSION
 #include <asp/asp_config.h>
 
 #include <asp/IsisIO/BaseEquation.h>

@@ -22,6 +22,9 @@
 #ifndef __ASP_CORE_COMMON_H__
 #define __ASP_CORE_COMMON_H__
 
+#include <vw/config.h> // must come before asp_config.h, defines VW_BOOST_VERSION
+#include <asp/asp_config.h>
+
 #include <boost/program_options.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/shared_ptr.hpp>
@@ -92,7 +95,7 @@ namespace asp {
 
   std::string bundle_adjust_file_name(std::string const& prefix, std::string const& input_img);
 
-  boost::filesystem::path make_file_relative_to_dir(boost::filesystem::path const file, 
+  boost::filesystem::path make_file_relative_to_dir(boost::filesystem::path const file,
                                                     boost::filesystem::path const dir);
 
   /// Remove file name extension
@@ -450,7 +453,7 @@ namespace asp {
                                  NoDataT nodata,
                                  BaseOptions & opt,
                                  vw::ProgressCallback const& tpc){
-    
+
     vw::Vector2 orig_block_size = opt.raster_tile_size;
     opt.raster_tile_size = vw::Vector2(big_block_size, big_block_size);
     block_write_gdal_image(filename, img, georef, nodata, opt, tpc);

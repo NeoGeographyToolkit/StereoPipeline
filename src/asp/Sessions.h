@@ -16,9 +16,8 @@
 // __END_LICENSE__
 
 
-/// \file stereo.cc
+/// \file Sessions.h
 ///
-#include <asp/asp_config.h>
 
 #include <asp/Sessions/StereoSession.h>
 

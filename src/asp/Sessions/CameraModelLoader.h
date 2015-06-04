@@ -27,7 +27,6 @@
 #include <vw/Core/Log.h>
 #include <vw/Camera.h>
 
-#include <asp/asp_config.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Common.h>
 
@@ -118,7 +117,7 @@ inline boost::shared_ptr<asp::RPCModel> CameraModelLoader::load_rpc_camera_model
 
 // TODO: Move this!
 /// Helper class for converting to floating point seconds based on a given reference.
-class SecondsFrom 
+class SecondsFrom
 {
   boost::posix_time::ptime m_reference;
 public:
@@ -203,7 +202,7 @@ inline boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_dg_cam
                    tlc_time_interpolation( 0 ) ) < fabs( 1.0 / (10.0 * img.avg_line_rate ) ),
              vw::MathErr() << "First Line Time and output from TLC lookup table do not agree of the ephemeris time for the first line of the image." );
 
-  
+
   double et0 = convert( parse_time( eph.start_time ) );
   double at0 = convert( parse_time( att.start_time ) );
   double edt = eph.time_interval;
@@ -213,9 +212,9 @@ inline boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_dg_cam
                                           vw::camera::SLERPPoseInterpolation(att.quat_vec, at0, adt),
                                           tlc_time_interpolation, img.image_size,
                                           subvector(inverse(sensor_coordinate).rotate(vw::Vector3(geo.detector_origin[0],
-                                                                                                  geo.detector_origin[1], 
+                                                                                                  geo.detector_origin[1],
                                                                                                   0)
-                                                                                     ), 
+                                                                                     ),
                                                     0, 2),
                                           geo.principal_distance, correct_velocity_aberration)
                     );
@@ -250,7 +249,7 @@ inline boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_pinhol
 /// - Also accepts an optional sensor adjustment file path.
 inline boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_isis_camera_model(std::string const& path,
                                                                                             std::string const& adjust_path) const
-{ 
+{
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
   if (boost::ends_with(boost::to_lower_copy(adjust_path), ".isis_adjust")){
     //vw_out() << "DEBUG - Loading ISIS adjust camera file: " << camera_file << std::endl;
