@@ -72,8 +72,7 @@ namespace asp {
     virtual ~RPCModel() {}
 
     // Standard Access Methods. The concept of camera_center does not
-    // apply well to RPC, we just return an arbitrary point on the
-    // ray.
+    // apply well to RPC, we just return an arbitrary point on the ray.
     virtual vw::Vector2 point_to_pixel ( vw::Vector3 const& point ) const;
     virtual vw::Vector3 pixel_to_vector( vw::Vector2 const& pix   ) const;
     virtual vw::Vector3 camera_center  ( vw::Vector2 const& pix   ) const;
@@ -82,7 +81,7 @@ namespace asp {
       (vw::Vector3 const& normalized_geodetic,
        CoeffVec    const& line_num_coeff,   CoeffVec const& line_den_coeff,
        CoeffVec    const& sample_num_coeff, CoeffVec const& sample_den_coeff
-       );
+      );
 
     vw::Vector2 normalized_geodetic_to_normalized_pixel
       ( vw::Vector3 const& normalized_geodetic ) const;
@@ -90,13 +89,13 @@ namespace asp {
     vw::Vector2 geodetic_to_pixel( vw::Vector3 const& geodetic ) const;
 
     // Access to constants
-    vw::cartography::Datum const& datum   () const { return m_datum; }
-    CoeffVec    const& line_num_coeff     () const { return m_line_num_coeff;   }
-    CoeffVec    const& line_den_coeff     () const { return m_line_den_coeff;   }
-    CoeffVec    const& sample_num_coeff   () const { return m_sample_num_coeff; }
-    CoeffVec    const& sample_den_coeff   () const { return m_sample_den_coeff; }
-    vw::Vector2 const& xy_offset          () const { return m_xy_offset; }
-    vw::Vector2 const& xy_scale           () const { return m_xy_scale;  }
+    vw::cartography::Datum const& datum   () const { return m_datum;               }
+    CoeffVec    const& line_num_coeff     () const { return m_line_num_coeff;      }
+    CoeffVec    const& line_den_coeff     () const { return m_line_den_coeff;      }
+    CoeffVec    const& sample_num_coeff   () const { return m_sample_num_coeff;    }
+    CoeffVec    const& sample_den_coeff   () const { return m_sample_den_coeff;    }
+    vw::Vector2 const& xy_offset          () const { return m_xy_offset;           }
+    vw::Vector2 const& xy_scale           () const { return m_xy_scale;            }
     vw::Vector3 const& lonlatheight_offset() const { return m_lonlatheight_offset; }
     vw::Vector3 const& lonlatheight_scale () const { return m_lonlatheight_scale;  }
 

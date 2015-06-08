@@ -126,16 +126,13 @@ int main( int argc, char* argv[] ) {
     int num_pts = 20; // The number of points per axis
     int num_total_pts = num_pts*num_pts*num_pts;
 
-    // See comment about penalization in class RpcSolveLMA().
-    int numExtraTerms = 64;
-
     // Initialize normalized data storage
     Vector<double> normalizedGeodetics;
     normalizedGeodetics.set_size(RPCModel::GEODETIC_COORD_SIZE*num_total_pts);
     Vector<double> normalizedPixels;
-    normalizedPixels.set_size(RPCModel::IMAGE_COORD_SIZE*num_total_pts + numExtraTerms);
+    normalizedPixels.set_size(RPCModel::IMAGE_COORD_SIZE*num_total_pts + RpcSolveLMA::NUM_PENALTY_TERMS);
     for (int i = 0; i < (int)normalizedPixels.size(); i++)
-      normalizedPixels[i] = 0.0;
+      normalizedPixels[i] = 0.0; // Important: The extra penalty terms are all set to zero here.
 
     // Loop through all test points and generate the "correct" pairs / training data
     //  using the trusted DG camera model.

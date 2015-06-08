@@ -43,10 +43,14 @@ namespace asp {
     
     /// The normalized values are in the -1 to 1 range.
     vw::Vector<double> m_normalizedGeodetics, 
-                       m_normalizedPixels;
+                       m_normalizedPixels; ///< Also contains the extra penalty terms
     double             m_wt; ///< The penalty weight, k in the reference paper.
     
   public:
+   
+    // For applying penalty weighting per the Hartley paper.
+    static const int NUM_PENALTY_TERMS = 64;
+  
     typedef vw::Vector<double> result_type;   // normalized pixels
     typedef result_type        domain_type;   // RPC coefficients
     typedef vw::Matrix<double> jacobian_type;
@@ -98,7 +102,8 @@ namespace asp {
       // such coefficient c, a term K*c in the cost function vector,
       // where K is a large number. This will penalize large values in
       // the higher degree coefficients.
-      int count = 2*numPts;
+      // - These values are attached to the end of the output vector
+      int count = RPCModel::IMAGE_COORD_SIZE*numPts; 
       for (int i = 4; i < (int)lineNum.size(); i++) result[count++] = m_wt*lineNum[i];
       for (int i = 4; i < (int)lineDen.size(); i++) result[count++] = m_wt*lineDen[i];
       for (int i = 4; i < (int)sampNum.size(); i++) result[count++] = m_wt*sampNum[i];
