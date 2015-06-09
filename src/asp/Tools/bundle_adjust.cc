@@ -791,7 +791,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                          "Select the stereo session type to use for processing. Options: pinhole isis dg rpc. Usually the program can select this automatically by the file extension.")
     ("min-matches",      po::value(&opt.min_matches)->default_value(30),
                          "Set the minimum  number of matches between images that will be considered.")
-    ("max-iterations",   po::value(&opt.max_iterations)->default_value(100),
+    ("max-iterations",   po::value(&opt.max_iterations)->default_value(1000),
                          "Set the maximum number of iterations.")
     ("overlap-limit",    po::value(&opt.overlap_limit)->default_value(3),
                          "Limit the number of subsequent images to search for matches to the current image to this value.")
