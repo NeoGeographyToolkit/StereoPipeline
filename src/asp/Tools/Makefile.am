@@ -50,6 +50,12 @@ if MAKE_APP_BUNDLE_ADJUST
   bundle_adjust_LDADD = $(APP_BUNDLE_ADJUST_LIBS)
 endif
 
+if MAKE_APP_SFS
+  bin_PROGRAMS += sfs
+  sfs_SOURCES = sfs.cc
+  sfs_LDADD = $(APP_SFS_LIBS)
+endif
+
 if MAKE_APP_DEM_MOSAIC
   bin_PROGRAMS += dem_mosaic
   dem_mosaic_SOURCES = dem_mosaic.cc

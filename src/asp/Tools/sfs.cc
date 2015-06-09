@@ -18,10 +18,32 @@
 
 /// \file sfs.cc
 
+// Turn off warnings from boost and other packages
+#if defined(__GNUC__) || defined(__GNUG__)
+#define LOCAL_GCC_VERSION (__GNUC__ * 10000                    \
+                           + __GNUC_MINOR__ * 100              \
+                           + __GNUC_PATCHLEVEL__)
+#if LOCAL_GCC_VERSION >= 40600
+#pragma GCC diagnostic push
+#endif
+#if LOCAL_GCC_VERSION >= 40202
+#pragma GCC diagnostic ignored "-Wunused-local-typedefs"
+#endif
+#endif
+
 #include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
 #include <asp/Sessions.h>
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
+
+#if defined(__GNUC__) || defined(__GNUG__)
+#if LOCAL_GCC_VERSION >= 40600
+#pragma GCC diagnostic pop
+#endif
+#undef LOCAL_GCC_VERSION
+#endif
+
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
@@ -30,12 +52,26 @@ using namespace vw;
 using namespace vw::camera;
 using namespace vw::cartography;
 
-// TODO: Move this out of here.
-bool readNoDEMDataVal(std::string DEMFile, double & noDEMDataValue){
+typedef InterpolationView<ImageViewRef<float>, BilinearInterpolation> BilinearInterpT;
+
+// TODO: Find a good automatic value for the smoothness weight.
+// TODO: Investigate the sign of the normal.
+// TODO: Loop over all images when doing sfs.
+// TODO: Shadow threshold needs detection.
+// TODO: Check that we are within image boundaries when interpolating.
+// TODO: Radiometric calibration of images.
+// TODO: Handle the case when the DEM has no-data values.
+// TODO: Add various kind of loss function.
+// TODO: Study the normal computation formula.
+// TODO: Move some code to Core.
+// TODO: Make it work with non-ISIS cameras.
+// TODO: Clean up some of the classes, not all members are needed.
+
+bool readNoDEMDataVal(std::string DEMFile, double & nodata_val){
 
   boost::scoped_ptr<SrcImageResource> rsrc( DiskImageResource::open(DEMFile) );
   if ( rsrc->has_nodata_read() ){
-    noDEMDataValue = rsrc->nodata_read();
+    nodata_val = rsrc->nodata_read();
     return true;
   }
 
@@ -79,7 +115,7 @@ struct GlobalParams{
   int saveWeights, computeWeightsSum, useNormalizedCostFun;
   int maxNumIter;
   int computeErrors;
-  int noDEMDataValue;
+  int nodata_val;
   int forceMosaic; // see the description in reconstruct.cc
 };
 
@@ -287,12 +323,12 @@ computeLunarLambertianReflectanceFromNormal(Vector3 const& sunPos, Vector3 const
 
 double
 ComputeReflectance(Vector3 const& normal, Vector3 const& xyz,
-                               ModelParams const& input_img_params,
-                               GlobalParams const& globalParams,
-                               double & phaseAngle) {
+                   ModelParams const& input_img_params,
+                   GlobalParams const& global_params,
+                   double & phase_angle) {
   double input_img_reflectance;
 
-  switch ( globalParams.reflectanceType )
+  switch ( global_params.reflectanceType )
     {
     case LUNAR_LAMBERT:
       //printf("Lunar Lambert\n");
@@ -300,9 +336,9 @@ ComputeReflectance(Vector3 const& normal, Vector3 const& xyz,
         = computeLunarLambertianReflectanceFromNormal(input_img_params.sunPosition,
                                                       input_img_params.spacecraftPosition,
                                                       xyz,  normal,
-                                                      globalParams.phaseCoeffC1,
-                                                      globalParams.phaseCoeffC2,
-                                                      phaseAngle // output
+                                                      global_params.phaseCoeffC1,
+                                                      global_params.phaseCoeffC2,
+                                                      phase_angle // output
                                                       );
       break;
     case LAMBERT:
@@ -321,69 +357,68 @@ ComputeReflectance(Vector3 const& normal, Vector3 const& xyz,
 }
 
 void computeReflectanceAtPixel(int x, int y,
-                               ImageView<PixelGray<double> > const& DEMTile,
-                               cartography::GeoReference const& DEMGeo,
-                               double noDEMDataValue,
+                               ImageView<double> const& dem,
+                               cartography::GeoReference const& geo,
+                               double nodata_val,
                                ModelParams const& input_img_params,
-                               GlobalParams const& globalParams,
+                               GlobalParams const& global_params,
                                bool savePhaseAngle,
                                double &outputReflectance,
-                               double & phaseAngle) {
+                               double & phase_angle) {
 
   // We assume 1<= x and 1 <= y
 
   outputReflectance = 0.0;
-  if (savePhaseAngle) phaseAngle = std::numeric_limits<double>::quiet_NaN();
+  if (savePhaseAngle) phase_angle = std::numeric_limits<double>::quiet_NaN();
 
   if (x <= 0 || y <= 0) return;
 
-  Vector2 lonlat = DEMGeo.pixel_to_lonlat(Vector2(x, y));
-  double   h      = DEMTile(x, y);
-  if (h == noDEMDataValue) return;;
+  Vector2 lonlat = geo.pixel_to_lonlat(Vector2(x, y));
+  double   h      = dem(x, y);
+  if (h == nodata_val) return;;
   Vector3 lonlat3(lonlat(0), lonlat(1), h);
-  Vector3 base = DEMGeo.datum().geodetic_to_cartesian(lonlat3);
+  Vector3 base = geo.datum().geodetic_to_cartesian(lonlat3);
 
-  lonlat = DEMGeo.pixel_to_lonlat(Vector2(x-1, y));
-  h      = DEMTile(x-1, y);
-  if (h == noDEMDataValue) return;;
+  lonlat = geo.pixel_to_lonlat(Vector2(x-1, y));
+  h      = dem(x-1, y);
+  if (h == nodata_val) return;;
   lonlat3 = Vector3(lonlat(0), lonlat(1), h);
-  Vector3 x1 = DEMGeo.datum().geodetic_to_cartesian(lonlat3);
+  Vector3 x1 = geo.datum().geodetic_to_cartesian(lonlat3);
 
-  lonlat = DEMGeo.pixel_to_lonlat(Vector2(x, y-1));
-  h      = DEMTile(x, y-1);
-  if (h == noDEMDataValue) return;;
+  lonlat = geo.pixel_to_lonlat(Vector2(x, y-1));
+  h      = dem(x, y-1);
+  if (h == nodata_val) return;;
   lonlat3 = Vector3(lonlat(0), lonlat(1), h);
-  Vector3 y1 = DEMGeo.datum().geodetic_to_cartesian(lonlat3);
+  Vector3 y1 = geo.datum().geodetic_to_cartesian(lonlat3);
 
   Vector3 dx = base - x1;
   Vector3 dy = base - y1;
   Vector3 normal = -normalize(cross_prod(dx, dy));
 
-  outputReflectance = ComputeReflectance(normal, base, input_img_params, globalParams, phaseAngle);
+  outputReflectance = ComputeReflectance(normal, base, input_img_params,
+                                         global_params, phase_angle);
 }
 
-void computeReflectanceAux(ImageView<PixelGray<double> > const& DEMTile,
-                           cartography::GeoReference const& DEMGeo,
-                           double noDEMDataValue,
+void computeReflectanceAux(ImageView<double> const& dem,
+                           cartography::GeoReference const& geo,
+                           double nodata_val,
                            ModelParams const& input_img_params,
-                           GlobalParams const& globalParams,
-                           ImageView<PixelMask<PixelGray<double> > >& outputReflectance,
+                           GlobalParams const& global_params,
+                           ImageView<PixelMask<double> >& outputReflectance,
                            bool savePhaseAngle,
-                           ImageView<PixelMask<PixelGray<double> > >& phaseAngle) {
+                           ImageView<PixelMask<double> >& phase_angle) {
 
-  //std::cout << "---sun        " << input_img_params.sunPosition << std::endl;
-  //std::cout << "---spacecraft " << input_img_params.spacecraftPosition << std::endl;
-  outputReflectance.set_size(DEMTile.cols(), DEMTile.rows());
-  if (savePhaseAngle) phaseAngle.set_size(DEMTile.cols(), DEMTile.rows());
+  outputReflectance.set_size(dem.cols(), dem.rows());
+  if (savePhaseAngle) phase_angle.set_size(dem.cols(), dem.rows());
 
   for (int y = 1; y < (int)outputReflectance.rows(); y++) {
     for (int x = 1; x < (int)outputReflectance.cols(); x++) {
 
-      double outputReflectanceVal, phaseAngleVal;
-      computeReflectanceAtPixel(x, y, DEMTile, DEMGeo, noDEMDataValue, input_img_params, globalParams, savePhaseAngle, outputReflectanceVal, phaseAngleVal);
+      double outputReflectanceVal, phase_angleVal;
+      computeReflectanceAtPixel(x, y, dem, geo, nodata_val, input_img_params, global_params, savePhaseAngle, outputReflectanceVal, phase_angleVal);
 
       outputReflectance(x, y) = outputReflectanceVal;
-      if (savePhaseAngle) phaseAngle(x, y) = phaseAngleVal;
+      if (savePhaseAngle) phase_angle(x, y) = phase_angleVal;
     }
   }
 
@@ -400,10 +435,170 @@ std::string getFirstElevenCharsFromFileName(std::string fileName){
   return fileName.substr(0, 11);
 }
 
+// Discrepancy between scaled intensity and reflectance.
+// sum | (I + A[1])/A[0] - R |^2.
+struct IntensityError {
+  IntensityError(int col, int row,
+                 ImageView<double> const& dem,
+                 cartography::GeoReference const& geo,
+                 GlobalParams const& global_params,
+                 std::vector<ModelParams> & model_params, // const?
+                 std::vector<BilinearInterpT> const& images,
+                 std::vector<boost::shared_ptr<CameraModel> > const& cameras,
+                 double grid_size, double nodata_val):
+    m_col(col), m_row(row), m_dem(dem), m_geo(geo),
+    m_global_params(global_params),
+    m_model_params(model_params),
+    m_images(images), m_cameras(cameras),
+    m_grid_size(grid_size), m_nodata_val(nodata_val) {}
+
+  // See SmoothnessError() for the definitions of tl, top, tr, etc.
+  template <typename T>
+  bool operator()(const T* const A,
+                  const T* const tl,   const T* const top,    const T* const tr,
+                  const T* const left, const T* const center, const T* const right,
+                  const T* const bl,   const T* const bottom, const T* const br,
+                  T* residuals) const {
+
+    // Default residuals
+    residuals[0] = T(1e+20);
+
+    try{
+
+      // TODO: Investigate various ways of finding the normal.
+
+      // The xyz position at the center grid point
+      Vector2 lonlat = m_geo.pixel_to_lonlat(Vector2(m_col, m_row));
+      double h = center[0];
+      if (h == m_nodata_val) return false;
+      Vector3 lonlat3 = Vector3(lonlat(0), lonlat(1), h);
+      Vector3 base = m_geo.datum().geodetic_to_cartesian(lonlat3);
+
+      // The xyz position at the right grid point
+      lonlat = m_geo.pixel_to_lonlat(Vector2(m_col+1, m_row));
+      h = right[0];
+      if (h == m_nodata_val) return false;
+      lonlat3 = Vector3(lonlat(0), lonlat(1), h);
+      Vector3 right = m_geo.datum().geodetic_to_cartesian(lonlat3);
+
+      // The xyz position at the top grid point
+      lonlat = m_geo.pixel_to_lonlat(Vector2(m_col, m_row+1));
+      h = top[0];
+      if (h == m_nodata_val) return false;
+      lonlat3 = Vector3(lonlat(0), lonlat(1), h);
+      Vector3 top = m_geo.datum().geodetic_to_cartesian(lonlat3);
+
+      // TODO: Study the sign of the normal.
+      Vector3 dx = right - base;
+      Vector3 dy = top - base;
+      Vector3 normal = -normalize(cross_prod(dx, dy));
+
+      // TODO: Must iterate over all images below.
+      double phase_angle;
+      double output_reflectance
+        = ComputeReflectance(normal, base, m_model_params[0],
+                             m_global_params, phase_angle);
+
+      Vector2 pix = m_cameras[0]->point_to_pixel(base);
+      residuals[0] = ( m_images[0](pix[0], pix[1]) + A[1] ) / A[0] - output_reflectance;
+
+    } catch (const camera::PointToPixelErr& e) {
+      return false;
+    }
+
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(int col, int row,
+                                     ImageView<double> const& dem,
+                                     vw::cartography::GeoReference const& geo,
+                                     GlobalParams const& global_params,
+                                     std::vector<ModelParams> & model_params,
+                                     std::vector<BilinearInterpT> & images,
+                                     std::vector<boost::shared_ptr<CameraModel> > & cameras,
+                                     double grid_size, double nodata_val){
+    return (new ceres::NumericDiffCostFunction<IntensityError,
+            ceres::CENTRAL, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1>
+            (new IntensityError(col, row, dem, geo, global_params, model_params,
+                                images, cameras, grid_size, nodata_val)));
+  }
+
+  int m_col, m_row;
+  ImageView<double>                            const & m_dem;           // alias
+  cartography::GeoReference                    const & m_geo;           // alias
+  GlobalParams                                 const&  m_global_params; // alias
+  std::vector<ModelParams>                     const & m_model_params;  // alias
+  std::vector<BilinearInterpT>                 const & m_images;        // alias
+  std::vector<boost::shared_ptr<CameraModel> > const & m_cameras;       // alias
+  double m_grid_size, m_nodata_val;
+};
+
+
+// The smoothness error is the sum of squares of
+// the 4 second order partial derivatives, with a weight:
+// error = smoothness_weight * ( u_xx^2 + u_xy^2 + u_yx^2 + u_yy^2 )
+
+// We will use finite differences to compute these.
+// Consider a grid point and its neighbors, 9 points in all.
+//
+// tl   = u(c-1, r+1)  top    = u(c, r+1) tr    = u(c+1,r+1)
+// left = u(c-1, r  )  center = u(c, r  ) right = u(c+1,r  )
+// bl   = u(c-1, r-1)  bottom = u(c, r-1) br    = u(c+1,r-1)
+//
+// See https://en.wikipedia.org/wiki/Finite_difference
+// for the obtained formulas.
+
+struct SmoothnessError {
+  SmoothnessError(double smoothness_weight, double grid_size):
+    m_smoothness_weight(smoothness_weight),
+    m_grid_size(grid_size) {}
+
+  template <typename T>
+  bool operator()(const T* const tl,   const T* const top,    const T* const tr,
+                  const T* const left, const T* const center, const T* const right,
+                  const T* const bl,   const T* const bottom, const T* const br,
+                  T* residuals) const {
+    try{
+
+      T gs = m_grid_size * m_grid_size;
+      residuals[0] = (left[0] + right[0] - 2*center[0])/gs;     // u_xx
+      residuals[1] = (tr[0] + bl[0] - tl[0] - br[0] ) /4.0/gs;  // u_xy
+      residuals[2] = residuals[1];                              // u_yx
+      residuals[3] = (top[0] + bottom[0] - 2*center[0])/gs;     // u_yy
+
+      for (int i = 0; i < 4; i++)
+        residuals[i] *= m_smoothness_weight;
+
+    } catch (const camera::PointToPixelErr& e) {
+      // Failed to compute the residuals
+      residuals[0] = T(1e+20);
+      residuals[1] = T(1e+20);
+      residuals[2] = T(1e+20);
+      residuals[3] = T(1e+20);
+      return false;
+    }
+
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(double smoothness_weight, double grid_size){
+    return (new ceres::NumericDiffCostFunction<SmoothnessError,
+            ceres::CENTRAL, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1>
+            (new SmoothnessError(smoothness_weight, grid_size)));
+  }
+
+  double m_smoothness_weight, m_grid_size;
+};
+
 struct Options : public asp::BaseOptions {
-  std::string input_dem, meta_dir, out_prefix;
+  std::string input_dem, meta_dir, out_prefix, stereo_session_string;
   std::vector<std::string> input_images;
   int max_iterations;
+  double smoothness_weight;
   Options():max_iterations(0) {};
 
 };
@@ -418,7 +613,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("output-prefix,o", po::value(&opt.out_prefix),
      "Prefix for output filenames.")
     ("max-iterations,n", po::value(&opt.max_iterations)->default_value(100),
-     "Set the maximum number of iterations.");
+     "Set the maximum number of iterations.")
+    ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(1.0),
+     "A larger value will result in a smoother solution.");
 
   general_options.add( asp::BaseOptionsDescription(opt) );
 
@@ -449,12 +646,16 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "Missing output prefix.\n"
               << usage << general_options );
 
-  if (opt.max_iterations <= 0)
-    vw_throw( ArgumentErr() << "The number of iterations must be positive.\n"
+  if (opt.max_iterations < 0)
+    vw_throw( ArgumentErr() << "The number of iterations must be non-negative.\n"
               << usage << general_options );
 
+  if (opt.input_images.empty())
   vw_throw( ArgumentErr() << "Missing input images.\n"
             << usage << general_options );
+
+  // Create the output directory
+  asp::create_out_dir(opt.out_prefix);
 }
 
 int main(int argc, char* argv[]) {
@@ -463,51 +664,42 @@ int main(int argc, char* argv[]) {
   try {
     handle_arguments( argc, argv, opt );
 
-    std::cout << "input dem " << opt.input_dem << std::endl;
-    std::cout << "meta dir " << opt.meta_dir << std::endl;
-    std::cout << "out prefix " << opt.out_prefix << std::endl;
-    std::cout << "max iter " << opt.max_iterations << std::endl;
-    std::cout << "input images ";
-    for (size_t i = 0; i < opt.input_images.size(); i++)
-      std::cout << opt.input_images[i] << " ";
-    std::cout << std::endl;
-
-    ImageView<PixelGray<double> > DEMTile
-      = copy(DiskImageView<PixelGray<float> >(opt.input_dem));
-    GeoReference DEMGeo;
-    if (!read_georeference(DEMGeo, opt.input_dem))
+    ImageView<double> dem
+      = copy(DiskImageView< PixelGray<float> >(opt.input_dem) );
+    GeoReference geo;
+    if (!read_georeference(geo, opt.input_dem))
       vw_throw( ArgumentErr() << "The input DEM has no georeference.\n" );
 
-    double DEMnodata = -32768;
-    if (readNoDEMDataVal(opt.input_dem, DEMnodata)){
-      std::cout << "Found DEM nodata value: " << DEMnodata << std::endl;
+    double nodata_val = -32768;
+    if (readNoDEMDataVal(opt.input_dem, nodata_val)){
+      std::cout << "Found DEM nodata value: " << nodata_val << std::endl;
     }
 
-    GlobalParams globalParams;
-    globalParams.sunPosFile = opt.meta_dir + "/sunpos.txt";
-    globalParams.spacecraftPosFile = opt.meta_dir + "/spacecraftpos.txt";
-    globalParams.reflectanceType = LUNAR_LAMBERT;
-    globalParams.phaseCoeffC1    = 1.383488;
-    globalParams.phaseCoeffC2    = 0.501149;
-    //PrintGlobalParams(globalParams);
+    GlobalParams global_params;
+    global_params.sunPosFile = opt.meta_dir + "/sunpos.txt";
+    global_params.spacecraftPosFile = opt.meta_dir + "/spacecraftpos.txt";
+    global_params.reflectanceType = LUNAR_LAMBERT;
+    global_params.phaseCoeffC1    = 1.383488;
+    global_params.phaseCoeffC2    = 0.501149;
+    //PrintGlobalParams(global_params);
 
 
     std::map<std::string, Vector3> sunPositions;
     std::map<std::string, Vector3> spacecraftPositions;
-    ReadSunOrSpacecraftPosition(globalParams.sunPosFile, // Input
-                              sunPositions             // Output
+    ReadSunOrSpacecraftPosition(global_params.sunPosFile, // Input
+                                sunPositions             // Output
                                 );
-    ReadSunOrSpacecraftPosition(globalParams.spacecraftPosFile, // Input
-                                spacecraftPositions             // Output
+    ReadSunOrSpacecraftPosition(global_params.spacecraftPosFile, // Input
+                                spacecraftPositions              // Output
                                 );
 
-    std::vector<ModelParams> modelParamsArray;
+    std::vector<ModelParams> model_params;
     std::cout.precision(18);
-    modelParamsArray.resize(opt.input_images.size());
+    model_params.resize(opt.input_images.size());
     for (int k = 0; k < (int)opt.input_images.size(); k++){
       std::string prefix = getFirstElevenCharsFromFileName(opt.input_images[k]);
 
-      modelParamsArray[k].inputFilename = opt.input_images[k];
+      model_params[k].inputFilename = opt.input_images[k];
 
       if ( sunPositions.find(prefix) == sunPositions.end()){
         std::cerr << "Could not find the sun position for the image file: "
@@ -515,9 +707,9 @@ int main(int argc, char* argv[]) {
         exit(1);
       }
       // Go from kilometers to meters
-      modelParamsArray[k].sunPosition = 1000*sunPositions[prefix];
-      std::cout << "sun position: " <<  modelParamsArray[k].inputFilename
-                << ' ' <<  modelParamsArray[k].sunPosition << std::endl;
+      model_params[k].sunPosition = 1000*sunPositions[prefix];
+      std::cout << "sun position: " <<  model_params[k].inputFilename
+                << ' ' <<  model_params[k].sunPosition << std::endl;
 
       if (spacecraftPositions.find(prefix) == spacecraftPositions.end()){
         std::cerr << "Could not find the spacecraft position for the DRG file: "
@@ -525,10 +717,129 @@ int main(int argc, char* argv[]) {
         exit(1);
       }
       // Go from kilometers to meters
-      modelParamsArray[k].spacecraftPosition = 1000*spacecraftPositions[prefix];
-      std::cout << "spacecraft position: " <<  modelParamsArray[k].inputFilename
-                << ' ' <<  modelParamsArray[k].spacecraftPosition << std::endl;
+      model_params[k].spacecraftPosition = 1000*spacecraftPositions[prefix];
+      std::cout << "spacecraft position: " <<  model_params[k].inputFilename
+                << ' ' <<  model_params[k].spacecraftPosition << std::endl;
     }
+
+
+    std::vector<boost::shared_ptr<CameraModel> > cameras;
+    typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
+    SessionPtr session(asp::StereoSessionFactory::create
+                       (opt.stereo_session_string, opt,
+                        opt.input_images[0], opt.input_images[0],
+                        opt.input_images[0], opt.input_images[0],
+                        opt.out_prefix));
+
+    // Read in the camera models for the input images.
+    int num_images = opt.input_images.size();
+    for (int i = 0; i < num_images; i++){
+      vw_out(DebugMessage,"asp") << "Loading: " << opt.input_images[i] << ' '
+                                                << opt.input_images[i] << "\n";
+      cameras.push_back(session->camera_model(opt.input_images[i],
+                                              opt.input_images[i]));
+    }
+
+    // Images with bilinear interpolation
+    std::vector<BilinearInterpT> interp_images;
+    for (int i = 0; i < num_images; i++){
+      interp_images.push_back(BilinearInterpT(DiskImageView<float>(opt.input_images[i])));
+    }
+
+    Vector2 ul = geo.pixel_to_point(Vector2(0, 0));
+    int ncols = dem.cols(), nrows = dem.rows();
+    Vector2 lr = geo.pixel_to_point(Vector2(ncols-1, nrows-1));
+    double grid_size = norm_2(ul - lr)/norm_2(Vector2(ncols-1, nrows-1));
+
+    // Intensity error is
+    // sum | (I + A[1])/A[0] - R |^2.
+    // TODO: What are good values here.
+    double A[2];
+    double mn =  -32752.000, mx = 32767.000;
+    A[1] = -mn; A[0] = (mx - mn);
+
+    // Add a residual block for every grid point not at the boundary
+    ceres::Problem problem;
+    for (int col = 1; col < ncols-1; col++) {
+      for (int row = 1; row < nrows-1; row++) {
+
+        // Intensity error
+        ceres::CostFunction* cost_function1 =
+          IntensityError::Create(col, row, dem, geo,
+                                 global_params, model_params, interp_images,
+                                 cameras, grid_size, nodata_val);
+        ceres::LossFunction* loss_function1 = NULL;
+        problem.AddResidualBlock(cost_function1, loss_function1,
+                                 A,
+                                 &dem(col-1, row+1), &dem(col, row+1), // tl, top
+                                 &dem(col+1, row+1),                   // tr
+                                 &dem(col-1, row  ), &dem(col, row  ), // left, ctr
+                                 &dem(col+1, row  ),                   // right
+                                 &dem(col-1, row-1), &dem(col, row-1), // bl, bot
+                                 &dem(col+1, row-1));                  // br
+
+        // Smoothness penalty
+        ceres::LossFunction* loss_function2 = NULL;
+        ceres::CostFunction* cost_function2 =
+          SmoothnessError::Create(opt.smoothness_weight, grid_size);
+        problem.AddResidualBlock(cost_function2, loss_function2,
+                                 &dem(col-1, row+1), &dem(col, row+1),
+                                 &dem(col+1, row+1),
+                                 &dem(col-1, row  ), &dem(col, row  ),
+                                 &dem(col+1, row  ),
+                                 &dem(col-1, row-1), &dem(col, row-1),
+                                 &dem(col+1, row-1));
+
+        // Variables at the boundary must be fixed
+        if (col==1) {
+          // left boundary
+          problem.SetParameterBlockConstant(&dem(col-1, row-1));
+          problem.SetParameterBlockConstant(&dem(col-1, row));
+          problem.SetParameterBlockConstant(&dem(col-1, row+1));
+        }
+        if (row==1) {
+          // bottom boundary
+          problem.SetParameterBlockConstant(&dem(col-1, row-1));
+          problem.SetParameterBlockConstant(&dem(col,   row-1));
+          problem.SetParameterBlockConstant(&dem(col+1, row-1));
+        }
+        if (col==ncols-2) {
+          // right boundary
+          problem.SetParameterBlockConstant(&dem(col+1, row-1));
+          problem.SetParameterBlockConstant(&dem(col+1, row));
+          problem.SetParameterBlockConstant(&dem(col+1, row+1));
+        }
+        if (row==nrows-2) {
+          // top boundary
+          problem.SetParameterBlockConstant(&dem(col-1, row+1));
+          problem.SetParameterBlockConstant(&dem(col,   row+1));
+          problem.SetParameterBlockConstant(&dem(col+1, row+1));
+        }
+
+      }
+    }
+
+    // Temporarily fix the scale and shift coefficients
+    problem.SetParameterBlockConstant(A);
+
+    ceres::Solver::Options options;
+    options.gradient_tolerance = 1e-16;
+    options.function_tolerance = 1e-16;
+    options.max_num_iterations = opt.max_iterations;
+    options.minimizer_progress_to_stdout = 1;
+
+    options.num_threads = opt.num_threads;
+
+    options.linear_solver_type = ceres::SPARSE_SCHUR;
+
+    ceres::Solver::Summary summary;
+    ceres::Solve(options, &problem, &summary);
+    vw_out() << summary.FullReport() << "\n";
+
+    std::string out_dem_file = opt.out_prefix + "-final-DEM.tif";
+    vw_out() << "Writing: " << out_dem_file << std::endl;
+    TerminalProgressCallback tpc("asp", ": ");
+    block_write_gdal_image(out_dem_file, dem, geo, nodata_val, opt, tpc);
 
   } ASP_STANDARD_CATCHES;
 }
