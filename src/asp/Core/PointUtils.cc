@@ -131,7 +131,10 @@ namespace asp{
         if (success) break;
       }
 
-      // Will return projected point and height or xyz
+      // Will return projected point and height or xyz. We really
+      // prefer projected points, as then the chipper will have an
+      // easier time grouping spatially points close together, as it
+      // operates the first two coordinates.
       bool return_point_height = true;
       m_curr_point = asp::csv_to_cartesian_or_point_height(vals, m_georef,
                                                            m_csv_conv,
