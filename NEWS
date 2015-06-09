@@ -7,6 +7,7 @@
 
  - General
    * Upgraded to ISIS 3.4.9.
+   * Oldest supported OSX release is 10.8.
 
  - stereo
    * Increase the default correlation timeout to 1800 seconds.
