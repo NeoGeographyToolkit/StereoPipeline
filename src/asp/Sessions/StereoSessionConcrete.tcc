@@ -240,7 +240,7 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model(In
   }
   catch(...) {}
   // Raise a custom exception if both failed
-  vw_throw(ArgumentErr() << "Unable to load RPC model from either:.\n" << image_file
+  vw_throw(ArgumentErr() << "Unable to load RPC model from either:\n" << image_file
                          << " or:\n" << camera_file);
 }
 // The PINHOLE function unfortunately needs to be written out here.

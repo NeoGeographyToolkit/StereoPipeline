@@ -23,21 +23,23 @@
 #define __STEREO_SESSION_CAMERAMODELLOADER_H__
 
 
+#include <vw/Camera.h>
+#include <vw/Camera/Extrinsics.h>
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>
-#include <vw/Camera.h>
-
-#include <asp/Core/StereoSettings.h>
-#include <asp/Core/Common.h>
-
-#include <asp/Sessions/RPC/RPCModel.h>
-
+#include <vw/Math/EulerAngles.h>
+#include <vw/Math/Matrix.h>
 #include <xercesc/util/PlatformUtils.hpp>
 
-#include <asp/IsisIO/IsisCameraModel.h>
-#include <asp/IsisIO/IsisAdjustCameraModel.h>
+#include <asp/Core/Common.h>
+#include <asp/Core/StereoSettings.h>
 #include <asp/IsisIO/Equation.h>
-
+#include <asp/IsisIO/IsisAdjustCameraModel.h>
+#include <asp/IsisIO/IsisCameraModel.h>
+#include <asp/Sessions/DG/LinescanDGModel.h>
+#include <asp/Sessions/DG/XML.h>
+#include <asp/Sessions/RPC/RPCModel.h>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 #include <map>
 #include <utility>
@@ -45,19 +47,10 @@
 #include <ostream>
 #include <limits>
 
-
-// For the DG loader
-#include <vw/Math/EulerAngles.h>
-#include <vw/Math/Matrix.h>
-#include <asp/Core/StereoSettings.h>
-#include <vw/Camera/Extrinsics.h>
-#include <boost/date_time/posix_time/posix_time.hpp>
-#include <asp/Sessions/DG/LinescanDGModel.h>
-#include <asp/Sessions/DG/XML.h>
-
-
-
 namespace asp {
+
+  // !!! This class is not meant to be invoked directly !!!
+  // Use instead the interface load_camera_model in StereoSessionConcrete.tcc.
 
   class CameraModelLoader {
   public:
