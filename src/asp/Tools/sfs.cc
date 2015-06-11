@@ -125,7 +125,7 @@ struct ModelParams {
 
   vw::Vector2 cameraParams; //currently not used
   vw::Vector3 sunPosition; //relative to the center of the Moon
-  vw::Vector3 spacecraftPosition;//relative to the center of the planet
+  vw::Vector3 cameraPosition;//relative to the center of the planet
 
   std::vector<int> hCenterLine;
   std::vector<int> hMaxDistArray;
@@ -334,7 +334,7 @@ ComputeReflectance(Vector3 const& normal, Vector3 const& xyz,
       //printf("Lunar Lambert\n");
       input_img_reflectance
         = computeLunarLambertianReflectanceFromNormal(input_img_params.sunPosition,
-                                                      input_img_params.spacecraftPosition,
+                                                      input_img_params.cameraPosition,
                                                       xyz,  normal,
                                                       global_params.phaseCoeffC1,
                                                       global_params.phaseCoeffC2,
@@ -423,16 +423,6 @@ void computeReflectanceAux(ImageView<double> const& dem,
   }
 
   return;
-}
-
-std::string getFirstElevenCharsFromFileName(std::string fileName){
-
-  // Out of path/to/AS15-M-1723_1724-DEM.tif extract the 11 characters
-  // "AS15-M-1723".
-  int index = fileName.rfind("/");
-  if (index != -1) fileName.erase(0, index + 1);
-
-  return fileName.substr(0, 11);
 }
 
 // Discrepancy between scaled intensity and reflectance.
@@ -683,45 +673,7 @@ int main(int argc, char* argv[]) {
     global_params.phaseCoeffC2    = 0.501149;
     //PrintGlobalParams(global_params);
 
-
-    std::map<std::string, Vector3> sunPositions;
-    std::map<std::string, Vector3> spacecraftPositions;
-    ReadSunOrSpacecraftPosition(global_params.sunPosFile, // Input
-                                sunPositions             // Output
-                                );
-    ReadSunOrSpacecraftPosition(global_params.spacecraftPosFile, // Input
-                                spacecraftPositions              // Output
-                                );
-
-    std::vector<ModelParams> model_params;
-    std::cout.precision(18);
-    model_params.resize(opt.input_images.size());
-    for (int k = 0; k < (int)opt.input_images.size(); k++){
-      std::string prefix = getFirstElevenCharsFromFileName(opt.input_images[k]);
-
-      model_params[k].inputFilename = opt.input_images[k];
-
-      if ( sunPositions.find(prefix) == sunPositions.end()){
-        std::cerr << "Could not find the sun position for the image file: "
-                  << opt.input_images[k] << std::endl;
-        exit(1);
-      }
-      // Go from kilometers to meters
-      model_params[k].sunPosition = 1000*sunPositions[prefix];
-      std::cout << "sun position: " <<  model_params[k].inputFilename
-                << ' ' <<  model_params[k].sunPosition << std::endl;
-
-      if (spacecraftPositions.find(prefix) == spacecraftPositions.end()){
-        std::cerr << "Could not find the spacecraft position for the DRG file: "
-                  << opt.input_images[k] << std::endl;
-        exit(1);
-      }
-      // Go from kilometers to meters
-      model_params[k].spacecraftPosition = 1000*spacecraftPositions[prefix];
-      std::cout << "spacecraft position: " <<  model_params[k].inputFilename
-                << ' ' <<  model_params[k].spacecraftPosition << std::endl;
-    }
-
+    int num_images = opt.input_images.size();
 
     std::vector<boost::shared_ptr<CameraModel> > cameras;
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
@@ -732,12 +684,23 @@ int main(int argc, char* argv[]) {
                         opt.out_prefix));
 
     // Read in the camera models for the input images.
-    int num_images = opt.input_images.size();
     for (int i = 0; i < num_images; i++){
       vw_out(DebugMessage,"asp") << "Loading: " << opt.input_images[i] << ' '
-                                                << opt.input_images[i] << "\n";
+                                 << opt.input_images[i] << "\n";
       cameras.push_back(session->camera_model(opt.input_images[i],
                                               opt.input_images[i]));
+    }
+
+    // Get the sun and camera positions from the ISIS cube
+    std::vector<ModelParams> model_params;
+    model_params.resize(num_images);
+    for (int i = 0; i < num_images; i++){
+      model_params[i].sunPosition
+        = static_cast<IsisCameraModel*>(cameras[i].get())->sun_position();
+      model_params[i].cameraPosition
+        = static_cast<IsisCameraModel*>(cameras[i].get())->camera_center();
+      std::cout << "sun position: " << model_params[i].sunPosition << std::endl;
+      std::cout << "camera position: " << model_params[i].cameraPosition << std::endl;
     }
 
     // Images with bilinear interpolation
