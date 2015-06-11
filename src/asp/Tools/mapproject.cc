@@ -371,13 +371,15 @@ int main( int argc, char* argv[] ) {
     }
 #endif
 
-    // Safety check that the users are not trying to map project map projected images.
     {
+      // Safety check that the users are not trying to map project map
+      // projected images.
       GeoReference dummy_georef;
-      VW_ASSERT( !read_georeference( dummy_georef, opt.image_file ),
-                 ArgumentErr() << "Your input camera image is already map "
-                 << "projected. The expected input is required to be "
-                 << "unprojected or raw camera imagery." );
+      bool has_georef = read_georeference( dummy_georef, opt.image_file );
+      if (has_georef)
+        vw_out(WarningMessage) << "Your input camera image is already map-"
+                               << "projected. The expected input is required "
+                               << "to be unprojected or raw camera imagery.\n";
     }
 
     // Load the DEM
