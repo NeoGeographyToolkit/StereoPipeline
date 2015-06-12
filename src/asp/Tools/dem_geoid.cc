@@ -19,8 +19,10 @@
 /// \file dem_geoid.cc
 ///
 
-/// Fortran function declaration from the "geoid" mini external library that Oleg
-///   created in BinaryBuilder.
+/// Fortran function declaration from the "geoid" mini external library
+/// compiled using Binary Builder.
+/// TODO: Must put this into a C++ header file in that library, and include
+/// that header file here. Must also make sure that header file gets installed.
 extern "C" {
   void egm2008_call_interp_(int* nriw2, int* nciw2, double* grid,
                             double* flon, double* flat, double* val);
@@ -116,14 +118,14 @@ public:
       if (!is_valid(interp_val)) return m_nodata_val;
       geoid_height = interp_val.child();
     }
-      
+
     geoid_height += m_correction;
-    
+
     result_type     height_above_ellipsoid = m_img(col, row, p);
     double          direction              = m_reverse_adjustment?-1:1;
     // See the note in the main program about the formula below
     result_type height_above_geoid         = height_above_ellipsoid - direction*geoid_height;
-    
+
     return height_above_geoid;
   }
 
@@ -217,22 +219,22 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
     asp::check_command_line( argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage,
                              allow_unregistered, unregistered);
-  
+
   if ( opt.dem_name.empty() )
     vw_throw( ArgumentErr() << "Requires <dem> in order to proceed.\n\n"
               << usage << general_options );
 
   boost::to_lower(opt.geoid);
-    
+
   if ( opt.out_prefix.empty() )
     opt.out_prefix = fs::path(opt.dem_name).stem().string();
-  
-  // Create the output directory 
+
+  // Create the output directory
   asp::create_out_dir(opt.out_prefix);
-  
+
   // Turn on logging to file
   asp::log_to_file(argc, argv, "", opt.out_prefix);
-  
+
 }
 
 // Given a DEM, with each height value relative to the datum
@@ -335,7 +337,7 @@ int main( int argc, char *argv[] ) {
 
     if (is_mola)
       geoid_file = "mola_areoid.tif";
-      
+
     geoid_file = get_geoid_full_path(geoid_file);
     vw_out() << "Adjusting the DEM using the geoid: " << geoid_file << endl;
 
@@ -350,7 +352,7 @@ int main( int argc, char *argv[] ) {
     GeoReference geoid_georef;
     read_georeference(geoid_georef, geoid_rsrc);
 
-    
+
     if (is_wgs84 && !is_egm2008){
       // Convert the egm96 int16 JPEG2000-encoded geoid to float.
       double a = 0, b = 65534, c= -108, d = 86, s = (d-c)/(b-a);
@@ -360,10 +362,10 @@ int main( int argc, char *argv[] ) {
         }
       }
     }
-    
-    // The EGM2008 case is special. Then, we don't do bicubic interpolation into 
+
+    // The EGM2008 case is special. Then, we don't do bicubic interpolation into
     // geoid_img, rather, we invoke some Fortran routine, which gives more accurate results.
-    // And we scale the int16 JPEG2000-encoded geoid to float. 
+    // And we scale the int16 JPEG2000-encoded geoid to float.
     vector<double> egm2008_grid;
     if (is_egm2008){
       double a = 0,  b = 65534, c = -107, d = 86, s = (d-c)/(b-a);
@@ -377,7 +379,7 @@ int main( int argc, char *argv[] ) {
         }
       }
     }
-    
+
     // Need to apply an extra correction if the datum radius of the geoid is different
     // than the datum radius of the DEM to correct. We do this only if the datum is
     // a sphere, such on mars, as otherwise a uniform correction won't work.
