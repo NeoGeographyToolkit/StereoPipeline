@@ -244,21 +244,7 @@ inline boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_isis_c
                                                                                             std::string const& adjust_path) const
 {
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-  if (boost::ends_with(boost::to_lower_copy(adjust_path), ".isis_adjust")){
-    //vw_out() << "DEBUG - Loading ISIS adjust camera file: " << camera_file << std::endl;
-
-    // Creating Equations for the files
-    std::ifstream input( adjust_path.c_str() );
-    boost::shared_ptr<BaseEquation> posF  = read_equation(input);
-    boost::shared_ptr<BaseEquation> poseF = read_equation(input);
-    input.close();
-
-    // Finally creating camera model
-    return CameraModelPtr(new vw::camera::IsisAdjustCameraModel(path, posF, poseF));
-  } else {
-    //vw_out() << "DEBUG - Loading ISIS camera file: " << camera_file << std::endl;
-    return CameraModelPtr(new vw::camera::IsisCameraModel(path));
-  }
+  return CameraModelPtr(new vw::camera::IsisCameraModel(path));
 #endif
   // If ISIS was not enabled in the build, just throw an exception.
   vw::vw_throw( vw::NoImplErr() << "\nCannot load ISIS files because ISIS was not enabled in the build!.\n");
