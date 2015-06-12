@@ -75,7 +75,12 @@ namespace asp {
                                   vw::camera::CameraModel* cam1,
                                   vw::camera::CameraModel* cam2){
 
-    if (boost::filesystem::exists(match_filename)) {
+    bool crop_left_and_right =
+      ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
+      ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
+
+    // If we crop the images we must always create new matching files
+    if (!crop_left_and_right && boost::filesystem::exists(match_filename)) {
       vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
       return true;
     }

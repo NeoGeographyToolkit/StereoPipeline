@@ -55,7 +55,13 @@ bool asp::StereoSessionPinhole::ip_matching(std::string const& input_file1,
                                             vw::camera::CameraModel* cam1,
                                             vw::camera::CameraModel* cam2){
 
-  if ( fs::exists( match_filename ) ) {
+  // If we crop the images, we must regenerate each time the match
+  // files.
+  bool crop_left_and_right =
+    ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
+    ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
+
+  if ( !crop_left_and_right && fs::exists( match_filename ) ) {
     vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
     return true;
   }

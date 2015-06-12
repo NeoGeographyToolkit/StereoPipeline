@@ -143,10 +143,15 @@ void lowres_correlation( Options & opt ) {
     string match_filename
       = ip::match_filename(opt.out_prefix, opt.in_file1, opt.in_file2);
 
-    if (!fs::exists(match_filename)) {
-      // If there is not any match files for the input image. Let's
-      // gather some IP quickly from the low resolution images. This
-      // routine should only run for:
+    bool crop_left_and_right =
+      ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
+      ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
+
+    if (!fs::exists(match_filename) || crop_left_and_right) {
+      // If there is no match file for the input images, or if we
+      // are cropping images, case in which we must always recreate
+      // the matches, gather some IP from the low resolution
+      // images. This routine should only run for:
       //   Pinhole + Epipolar
       //   Pinhole + None
       //   DG + None
@@ -194,8 +199,14 @@ void lowres_correlation( Options & opt ) {
 
   // Performing disparity on sub images
   if ( stereo_settings().seed_mode > 0 ) {
-    // Reuse prior existing D_sub if it exists
-    bool rebuild = false;
+    // Reuse prior existing D_sub if it exists, unless we
+    // are cropping the images each time.
+
+    bool crop_left_and_right =
+      ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
+      ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
+    bool rebuild = crop_left_and_right;
+
     string sub_disp_file = opt.out_prefix+"-D_sub.tif";
     try {
       vw_log().console_log().rule_set().add_rule(-1,"fileio");

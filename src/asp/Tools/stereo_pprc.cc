@@ -85,9 +85,9 @@ void create_sym_links(string const& left_input_file,
 
   // Instead of writing L.tif and R.tif, just create sym links from
   // input left and right images. Creating symbolic links can be tricky.
-  
+
   vw_out(WarningMessage) << "Skipping image normalization.\n";
-    
+
   left_output_file  = out_prefix+"-L.tif";
   right_output_file = out_prefix+"-R.tif";
   string cmd1, cmd2;
@@ -96,14 +96,14 @@ void create_sym_links(string const& left_input_file,
   if (out_prefix_path.has_parent_path()) {
     fs::path rundir = out_prefix_path.parent_path();
     cmd1 = "cd " + rundir.string() + "; ";
-    cmd2 = "; cd " +  fs::canonical(".").string(); 
+    cmd2 = "; cd " +  fs::canonical(".").string();
     left_rel_in  = make_file_relative_to_dir(fs::path(left_input_file),  rundir);
     right_rel_in = make_file_relative_to_dir(fs::path(right_input_file), rundir);
   }else{
     left_rel_in  = fs::path(left_input_file);
     right_rel_in = fs::path(right_input_file);
   }
-  
+
   string left_rel_out = fs::path(left_output_file).filename().string();
   string right_rel_out = fs::path(right_output_file).filename().string();
 
@@ -126,7 +126,7 @@ void create_sym_links(string const& left_input_file,
 }
 
 void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
-  
+
   // Normalize the images, unless the user prefers not to.
   string left_image_file, right_image_file;
   bool skip_img_norm = asp::skip_image_normalization(opt);
@@ -146,9 +146,15 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
   DiskImageView<PixelGray<float> > left_image (left_rsrc ),
                                    right_image(right_rsrc);
 
+  // If we crop the images, we must always rebuild the masks
+  // and subsample the images and masks.
+  bool crop_left_and_right =
+    ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
+    ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
+
   string left_mask_file  = opt.out_prefix+"-lMask.tif";
   string right_mask_file = opt.out_prefix+"-rMask.tif";
-  bool rebuild = false;
+  bool rebuild = crop_left_and_right;
   try {
     vw_log().console_log().rule_set().add_rule(-1,"fileio");
     DiskImageView<PixelGray<uint8> > testa(left_mask_file );
@@ -196,8 +202,8 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
       left_nodata_value  = stereo_settings().nodata_value;
       right_nodata_value = stereo_settings().nodata_value;
     }
-    
-    // Mask no-data pixels. 
+
+    // Mask no-data pixels.
     left_mask = intersect_mask(left_mask,
                                create_mask_less_or_equal(left_image,
                                                          left_nodata_value));
@@ -264,16 +270,16 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
                (right_mask, right_georef, left_georef,
                 ConstantEdgeExtension(), NearestPixelInterpolation()
                ),
-               bounding_box(left_mask) 
+               bounding_box(left_mask)
               );
 
       asp::block_write_gdal_image(left_mask_file,
                                   apply_mask(intersect_mask(left_mask, warped_right_mask)),
-                                  opt, TerminalProgressCallback("asp", "\t    Mask L: ") 
+                                  opt, TerminalProgressCallback("asp", "\t    Mask L: ")
                                  );
       asp::block_write_gdal_image(right_mask_file,
                                   apply_mask(intersect_mask(right_mask, warped_left_mask)),
-                                  opt, TerminalProgressCallback("asp", "\t    Mask R: ") 
+                                  opt, TerminalProgressCallback("asp", "\t    Mask R: ")
                                  );
     }else{ // No left and right georef
       asp::block_write_gdal_image( left_mask_file, apply_mask(left_mask), opt,
@@ -295,6 +301,10 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
   string rsub  = opt.out_prefix+"-R_sub.tif";
   string lmsub = opt.out_prefix+"-lMask_sub.tif";
   string rmsub = opt.out_prefix+"-rMask_sub.tif";
+
+  // We must always redo the subsampling if we are allowed to crop the images
+  rebuild = crop_left_and_right;
+
   try {
     // This confusing try catch is to see if the subsampled images actually have content.
     DiskImageView<PixelGray<float> > testl (lsub );
@@ -303,6 +313,10 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
     DiskImageView<uint8>             testrm(rmsub);
     vw_out() << "\t--> Using cached subsampled images.\n";
   } catch (vw::Exception const& e) {
+    rebuild = true;
+  }
+
+  if (rebuild) {
     // Produce subsampled images, these will be used later for auto
     // search range detection.
     double s = 1500.0;
@@ -352,14 +366,14 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
       // When we heavily reduce the image size, super sampling seems
       // like the best approach. The method below should be equivalent.
       left_sub_image
-        = block_rasterize(cache_tile_aware_render(resample_aa(copy_mask(left_image,create_mask(left_mask)), 
-                                                              sub_scale), 
-                                                  Vector2i(256,256) * sub_scale), 
+        = block_rasterize(cache_tile_aware_render(resample_aa(copy_mask(left_image,create_mask(left_mask)),
+                                                              sub_scale),
+                                                  Vector2i(256,256) * sub_scale),
                           sub_tile_size, sub_threads);
       right_sub_image
-        = block_rasterize(cache_tile_aware_render(resample_aa(copy_mask(right_image,create_mask(right_mask)), 
-                                                              sub_scale), 
-                                                  Vector2i(256,256) * sub_scale), 
+        = block_rasterize(cache_tile_aware_render(resample_aa(copy_mask(right_image,create_mask(right_mask)),
+                                                              sub_scale),
+                                                  Vector2i(256,256) * sub_scale),
                           sub_tile_size, sub_threads);
     }
 
@@ -386,6 +400,7 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
         opt_nopred,
         TerminalProgressCallback("asp", "\t    Sub R Mask: ") );
   } // End try/catch to see if the subsampled images have content
+
 
   if (skip_img_norm && stereo_settings().subpixel_mode == 2){
     // If image normalization is not done, we still need to compute the image
@@ -416,9 +431,9 @@ int main(int argc, char* argv[]) {
 
   try {
     vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 0 --> PREPROCESSING \n";
-    
+
     stereo_register_sessions();
-    
+
     bool verbose = false;
     vector<Options> opt_vec;
     string output_prefix;
@@ -431,7 +446,7 @@ int main(int argc, char* argv[]) {
     // variable size, which is not desirable.
     bool adjust_left_image_size = (opt_vec.size() == 1 &&
                                    !stereo_settings().part_of_multiview_run);
-      
+
     // Internal Processes
     //---------------------------------------------------------
     vw_out() << "Using \"" << opt.stereo_default_filename << "\"\n";

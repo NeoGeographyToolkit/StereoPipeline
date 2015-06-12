@@ -602,7 +602,8 @@ namespace asp {
       vw_out(WarningMessage) << "Changing the alignment method to 'none' "
                              << "as the images are map-projected." << endl;
     }
-/*  TODO: Make sure we check the types at some point!
+    /*
+    TODO: Make sure we check the types at some point!
     // Ensure that we are not accidentally doing stereo with
     // images map-projected with other camera model than 'rpc'.
     if (!opt.input_dem.empty()){
@@ -700,17 +701,19 @@ namespace asp {
 
     string match_filename = ip::match_filename(out_prefix, left_sub_file, right_sub_file);
 
-    // Building / Loading Interest point data
-    if (fs::exists(match_filename)) {
+    bool crop_left_and_right =
+      ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
+      ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
 
+    // Building / Loading Interest point data
+    if (fs::exists(match_filename) && !crop_left_and_right) {
       vw_out() << "\t    * Using cached match file: " << match_filename << "\n";
       ip::read_binary_match_file(match_filename, matched_ip1, matched_ip2);
-
     } else {
 
       vector<ip::InterestPoint> ip1_copy, ip2_copy;
 
-      if ( !fs::exists(left_ip_file) || !fs::exists(right_ip_file) ) {
+      if ( crop_left_and_right || !fs::exists(left_ip_file) || !fs::exists(right_ip_file) ) {
 
         // Worst case, no interest point operations have been performed before
         vw_out() << "\t    * Locating Interest Points\n";
@@ -878,9 +881,15 @@ namespace asp {
   }
 
   bool skip_image_normalization(Options const& opt ){
+
+    bool crop_left_and_right =
+      ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
+      ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
+
     // Respect user's choice for skipping the normalization of the input
     // images, if feasible.
-    return(stereo_settings().skip_image_normalization   &&
+    return((!crop_left_and_right)                       &&
+           stereo_settings().skip_image_normalization   &&
            stereo_settings().alignment_method == "none" &&
            stereo_settings().cost_mode == 2             &&
            is_tif_or_ntf(opt.in_file1)                  &&

@@ -221,8 +221,14 @@ pre_preprocessing_hook(bool adjust_left_image_size,
   left_output_file  = this->m_out_prefix + "-L.tif";
   right_output_file = this->m_out_prefix + "-R.tif";
 
-  // If the output files already exist, don't recreate them.
-  if ( fs::exists(left_output_file) && fs::exists(right_output_file) ) {
+  bool crop_left_and_right =
+    ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
+    ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
+
+  // If the output files already exist, and we don't crop both left
+  // and right images, then there is nothing to do here.
+  if ( fs::exists(left_output_file) && fs::exists(right_output_file) &&
+       (!crop_left_and_right)) {
     try {
       vw_log().console_log().rule_set().add_rule(-1,"fileio");
       DiskImageView<PixelGray<float32> > out_left (left_output_file );
@@ -243,23 +249,58 @@ pre_preprocessing_hook(bool adjust_left_image_size,
     left_isis_rsrc (new DiskImageResourceIsis(left_input_file )),
     right_isis_rsrc(new DiskImageResourceIsis(right_input_file));
 
-  /// For this to work the ISIS type must be registered with the
-  /// DiskImageResource class.  - This happens in "stereo.cc", so
-  /// these calls will create DiskImageResourceIsis objects.
-  boost::shared_ptr<DiskImageResource> left_rsrc (DiskImageResource::open(left_input_file )),
-                                       right_rsrc(DiskImageResource::open(right_input_file));
-
   // Retrieve nodata values
   float left_nodata_value, right_nodata_value;
-  this->get_nodata_values(left_rsrc, right_rsrc, left_nodata_value, right_nodata_value);
+  {
+    // For this to work the ISIS type must be registered with the
+    // DiskImageResource class.  - This happens in "stereo.cc", so
+    // these calls will create DiskImageResourceIsis objects.
+    boost::shared_ptr<DiskImageResource>
+      left_rsrc (DiskImageResource::open(left_input_file )),
+      right_rsrc(DiskImageResource::open(right_input_file));
+    this->get_nodata_values(left_rsrc, right_rsrc,
+                            left_nodata_value, right_nodata_value);
+  }
 
-  // Load the unmodified images
-  DiskImageView<float> left_disk_image(left_rsrc), right_disk_image(right_rsrc);
+  // Enforce no predictor in compression, it works badly with L.tif and R.tif.
+  asp::BaseOptions options = this->m_options;
+  options.gdal_options["PREDICTOR"] = "1";
 
+  std::string left_cropped_file = left_input_file,
+    right_cropped_file = right_input_file;
+
+  // See if to crop the images
+  if (crop_left_and_right) {
+    // Crop the images, will use them from now on
+    left_cropped_file  = this->m_out_prefix + "-L-cropped.tif";
+    right_cropped_file = this->m_out_prefix + "-R-cropped.tif";
+
+    DiskImageView<float> left_orig_image(left_input_file);
+    stereo_settings().left_image_crop_win.crop(bounding_box(left_orig_image));
+    vw_out() << "\t--> Writing cropped image: " << left_cropped_file << "\n";
+    block_write_gdal_image(left_cropped_file,
+                           crop(left_orig_image,
+                                stereo_settings().left_image_crop_win),
+                           left_nodata_value, options,
+                           TerminalProgressCallback("asp", "\t:  "));
+
+    DiskImageView<float> right_orig_image(right_input_file);
+    stereo_settings().right_image_crop_win.crop(bounding_box(right_orig_image));
+    vw_out() << "\t--> Writing cropped image: " << right_cropped_file << "\n";
+    block_write_gdal_image(right_cropped_file,
+                           crop(right_orig_image,
+                                stereo_settings().right_image_crop_win),
+                           right_nodata_value, options,
+                           TerminalProgressCallback("asp", "\t:  "));
+  }
+
+  // Load the cropped images
+  DiskImageView<float> left_disk_image(left_cropped_file),
+    right_disk_image(right_cropped_file);
 
   // Getting image sizes. Later alignment options can choose to change this parameters. (Affine Epipolar).
-  Vector2i left_size  = file_image_size(left_input_file ),
-           right_size = file_image_size(right_input_file);
+  Vector2i left_size  = file_image_size(left_cropped_file ),
+           right_size = file_image_size(right_cropped_file);
 
   // These variables will be true if we reduce the valid range for ISIS images
   // using the nodata value provided by the user.
@@ -301,12 +342,12 @@ pre_preprocessing_hook(bool adjust_left_image_size,
                  align_right_matrix = math::identity_matrix<3>();
   if ( stereo_settings().alignment_method == "homography" ||
        stereo_settings().alignment_method == "affineepipolar" ) {
-    std::string match_filename = ip::match_filename(this->m_out_prefix, left_input_file, right_input_file);
+    std::string match_filename = ip::match_filename(this->m_out_prefix, left_cropped_file, right_cropped_file);
 
     // Find matching interest points between the two input images
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
     this->camera_models(left_cam, right_cam);
-    this->ip_matching(left_input_file,   right_input_file,
+    this->ip_matching(left_cropped_file,   right_cropped_file,
                       left_nodata_value, right_nodata_value, match_filename,
                       left_cam.get(),    right_cam.get());
     // Read in the interest point data we just wrote to disk
@@ -342,10 +383,6 @@ pre_preprocessing_hook(bool adjust_left_image_size,
 
   // Apply alignment and normalization
   bool will_apply_user_nodata = ( will_apply_user_nodata_left || will_apply_user_nodata_right);
-
-  // Enforce no predictor in compression, it works badly with L.tif and R.tif.
-  asp::BaseOptions options = this->m_options;
-  options.gdal_options["PREDICTOR"] = "1";
 
   // Write output images
   write_preprocessed_isis_image( options, will_apply_user_nodata,
