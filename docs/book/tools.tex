@@ -942,10 +942,13 @@ the limitations of ISIS. At some point this tool will be able to
 distribute itself using multiple processes to work around this limitation.
 
 
-Example:
+Examples:
 \begin{verbatim}
-mapproject -t isis DEM.tif image.cub camera.isis_adjust \
-         output-IMG.tif --ppd 256
+mapproject -t isis DEM.tif image.cub  output-IMG.tif --ppd 256
+\end{verbatim}
+
+\begin{verbatim}
+mapproject -t dg DEM.tif image.tif image.xml output-IMG.tif --tr 20
 \end{verbatim}
 
 \begin{longtable}{|l|p{10cm}|}
