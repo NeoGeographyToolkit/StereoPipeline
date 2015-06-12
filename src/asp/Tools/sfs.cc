@@ -82,8 +82,6 @@ struct GlobalParams{
 
   std::string drgDir;
   std::string demDir;
-  std::string sunPosFile;
-  std::string spacecraftPosFile;
 
   int initialSetup;
   double tileSize;        // in degrees
@@ -585,7 +583,7 @@ struct SmoothnessError {
 };
 
 struct Options : public asp::BaseOptions {
-  std::string input_dem, meta_dir, out_prefix, stereo_session_string;
+  std::string input_dem, out_prefix, stereo_session_string;
   std::vector<std::string> input_images;
   int max_iterations;
   double smoothness_weight;
@@ -598,8 +596,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add_options()
     ("input-dem,i",  po::value(&opt.input_dem),
      "The input DEM to refine using SfS.")
-    ("meta-dir,m",  po::value(&opt.meta_dir),
-     "The directory containing sun and spacecraft position.")
     ("output-prefix,o", po::value(&opt.out_prefix),
      "Prefix for output filenames.")
     ("max-iterations,n", po::value(&opt.max_iterations)->default_value(100),
@@ -616,7 +612,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("input-images", -1);
 
-  std::string usage("-i <input DEM> -m <meta dir> -n <max iterations> -o <output prefix> <images> [other options]");
+  std::string usage("-i <input DEM> -n <max iterations> -o <output prefix> <images> [other options]");
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
@@ -626,10 +622,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   if (opt.input_dem.empty())
     vw_throw( ArgumentErr() << "Missing input DEM.\n"
-              << usage << general_options );
-
-  if (opt.meta_dir.empty())
-    vw_throw( ArgumentErr() << "Missing meta directory.\n"
               << usage << general_options );
 
   if (opt.out_prefix.empty())
@@ -666,8 +658,6 @@ int main(int argc, char* argv[]) {
     }
 
     GlobalParams global_params;
-    global_params.sunPosFile = opt.meta_dir + "/sunpos.txt";
-    global_params.spacecraftPosFile = opt.meta_dir + "/spacecraftpos.txt";
     global_params.reflectanceType = LUNAR_LAMBERT;
     global_params.phaseCoeffC1    = 1.383488;
     global_params.phaseCoeffC2    = 0.501149;
@@ -695,10 +685,12 @@ int main(int argc, char* argv[]) {
     std::vector<ModelParams> model_params;
     model_params.resize(num_images);
     for (int i = 0; i < num_images; i++){
-      model_params[i].sunPosition
-        = static_cast<IsisCameraModel*>(cameras[i].get())->sun_position();
-      model_params[i].cameraPosition
-        = static_cast<IsisCameraModel*>(cameras[i].get())->camera_center();
+      IsisCameraModel* icam = dynamic_cast<IsisCameraModel*>
+        (vw::camera::unadjusted_model(cameras[i].get()));
+      if (icam == NULL)
+        vw_throw( ArgumentErr() << "ISIS camera model expected." );
+      model_params[i].sunPosition    = icam->sun_position();
+      model_params[i].cameraPosition = icam->camera_center();
       std::cout << "sun position: " << model_params[i].sunPosition << std::endl;
       std::cout << "camera position: " << model_params[i].cameraPosition << std::endl;
     }
