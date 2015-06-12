@@ -33,6 +33,7 @@ using namespace vw::cartography;
 #include <asp/Sessions/DG/StereoSessionDG.h>
 #include <asp/Sessions/DG/XML.h>
 #include <asp/Core/BundleAdjustUtils.h>
+#include <asp/Core/StereoSettings.h>
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -113,6 +114,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     opt.stereo_session = "rpc";
   }
 
+  // Need this to be able to load adjusted camera models. That will happen
+  // in the stereo session.
+  asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
 }
 
 template <class ImageT>
@@ -344,36 +348,11 @@ int main( int argc, char* argv[] ) {
     boost::shared_ptr<camera::CameraModel> camera_model =
       session->camera_model(opt.image_file, opt.camera_model_file);
 
-#if ASP_HAVE_PKG_VW_BUNDLEADJUSTMENT
-    std::string ba_pref = opt.bundle_adjust_prefix;
-    if (ba_pref != ""){
-
-      // If the user has generated a set of position and pose
-      // corrections using the bundle_adjust program, we read them in
-      // here and incorporate them into our camera model.
-      Vector3 position_correction;
-      Quaternion<double> pose_correction;
-      // Left adjusted camera
-      std::string adjust_file = asp::bundle_adjust_file_name(ba_pref,
-                                                             opt.image_file);
-      if (fs::exists(adjust_file)) {
-        vw_out() << "Using adjusted camera model: "
-                 << adjust_file << std::endl;
-        read_adjustments(adjust_file, position_correction, pose_correction);
-        camera_model =
-          boost::shared_ptr<camera::CameraModel>
-          (new camera::AdjustedCameraModel(camera_model,
-                                           position_correction,
-                                           pose_correction));
-      }else
-        vw_throw(InputErr() << "Missing adjusted camera model: " <<
-                 adjust_file << ".\n");
-    }
-#endif
-
     {
       // Safety check that the users are not trying to map project map
-      // projected images.
+      // projected images. This should not be an error as sometimes
+      // even raw images have some half-baked georeference attached
+      // to them.
       GeoReference dummy_georef;
       bool has_georef = read_georeference( dummy_georef, opt.image_file );
       if (has_georef)

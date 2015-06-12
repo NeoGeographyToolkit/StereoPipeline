@@ -12,6 +12,8 @@
  - stereo
    * Increase the default correlation timeout to 1800 seconds.
    * Fix failure in interest point matching in certain circumstances.
+   * Use bundle-adjusted models (if provided) at all stages of stereo,
+     not just at triangulation.
 
  - point2dem
    * Fixed a slight discrepancy in the value of the semi-minor axis in
@@ -46,7 +48,8 @@
    * Added the ability to fill holes in the output mosaic.
 
  - bundle_adjust
-    * Bug fix in handling situtations when a point cannot get projected into the camera.
+    * Bug fix in handling situtations when a point cannot get projected
+      into the camera.
 
  - image2qtree
    * Bug fixes.
@@ -56,8 +59,9 @@
      issues to system directories.
  
  - colormap
-   * Added a new colormap option based on the paper "Diverging Color Maps for Scientific Visualization",
-     available here: http://www.sandia.gov/~kmorel/documents/ColorMaps/
+   * Added a new colormap option based on the paper "Diverging Color 
+     Maps for Scientific Visualization" 
+     (http://www.sandia.gov/~kmorel/documents/ColorMaps/)
 
 *** RELEASE 2.4.2, October 6, 2014 ***
 

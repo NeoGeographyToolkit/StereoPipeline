@@ -34,7 +34,8 @@ using namespace vw;
 using namespace asp;
 using namespace vw::camera;
 
-//TODO: There is a lot of duplicate code here with the Pinhole class. Why the differences?
+//TODO: There is a lot of duplicate code here with the Pinhole
+//class. Common functionality must be factored out.
 
 void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_image_size,
                                                             std::string const& left_input_file,
@@ -92,8 +93,8 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
     // Load the two images and fetch the two camera models
     boost::shared_ptr<camera::CameraModel> left_camera  = this->camera_model(left_input_file,  m_left_camera_file );
     boost::shared_ptr<camera::CameraModel> right_camera = this->camera_model(right_input_file, m_right_camera_file);
-    CAHVModel* left_epipolar_cahv  = dynamic_cast<CAHVModel*>(&(*left_camera));
-    CAHVModel* right_epipolar_cahv = dynamic_cast<CAHVModel*>(&(*right_camera));
+    CAHVModel* left_epipolar_cahv  = dynamic_cast<CAHVModel*>(vw::camera::unadjusted_model(&(*left_camera)));
+    CAHVModel* right_epipolar_cahv = dynamic_cast<CAHVModel*>(vw::camera::unadjusted_model(&(*right_camera)));
 
     // Remove lens distortion and create epipolar rectified images.
     if (boost::ends_with(lcase_file, ".cahvore")) {
@@ -144,10 +145,10 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
 
     std::vector<ip::InterestPoint> left_ip, right_ip;
     ip::read_binary_match_file( match_filename, left_ip, right_ip  );
-    
+
     Matrix<double> align_left_matrix  = math::identity_matrix<3>(),
                    align_right_matrix = math::identity_matrix<3>();
-    
+
     if ( stereo_settings().alignment_method == "homography" ) {
       left_size = homography_rectification(adjust_left_image_size,
                                            left_size, right_size, left_ip, right_ip,

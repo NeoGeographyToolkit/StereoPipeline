@@ -88,7 +88,7 @@ find_ideal_isis_range(DiskImageView<float> const& image,
     // The new lower bound is the next floating point number > nodata_value.
     will_apply_user_nodata = true;
     isis_lo = boost::math::float_next(nodata_value);
-    if (isis_hi < isis_lo) 
+    if (isis_hi < isis_lo)
       isis_hi = isis_lo;
   }
 
@@ -193,15 +193,14 @@ void write_preprocessed_isis_image( BaseOptions const& opt,
     vw_out() << "\t--> Writing normalized image: " << out_file << "\n";
     block_write_gdal_image( out_file, applied_image, output_nodata, opt,
                             TerminalProgressCallback("asp", "\t  "+tag+":  "));
-
-
   }
 
 }
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE>
 vw::cartography::Datum StereoSessionIsisBase<DISKTRANSFORM_TYPE>::get_datum(const vw::camera::CameraModel* cam) const
 {
-  const IsisCameraModel * isis_cam = dynamic_cast<const IsisCameraModel*>(cam);
+  const IsisCameraModel * isis_cam
+    = dynamic_cast<const IsisCameraModel*>(vw::camera::unadjusted_model(cam));
   VW_ASSERT(isis_cam != NULL, ArgumentErr() << "StereoSessionISIS: Invalid left camera.\n");
   Vector3 radii = isis_cam->target_radii();
   cartography::Datum datum("","","", (radii[0] + radii[1]) / 2, radii[2], 0);
@@ -210,7 +209,7 @@ vw::cartography::Datum StereoSessionIsisBase<DISKTRANSFORM_TYPE>::get_datum(cons
 
 // TODO: Can we share more code with the DG implementation?
 
-template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE> 
+template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE>
 void StereoSessionIsisBase<DISKTRANSFORM_TYPE>::
 pre_preprocessing_hook(bool adjust_left_image_size,
                        std::string const& left_input_file,
@@ -267,7 +266,7 @@ pre_preprocessing_hook(bool adjust_left_image_size,
 
   // These variables will be true if we reduce the valid range for ISIS images
   // using the nodata value provided by the user.
-  bool will_apply_user_nodata_left  = false, 
+  bool will_apply_user_nodata_left  = false,
        will_apply_user_nodata_right = false;
 
   // TODO: A lot of this normalization code should be shared with the base class!
@@ -281,7 +280,7 @@ pre_preprocessing_hook(bool adjust_left_image_size,
                             will_apply_user_nodata_right, right_lo, right_hi);
 
   // Handle mutual normalization if requested
-  float left_lo_out =left_lo,  left_hi_out =left_hi, 
+  float left_lo_out =left_lo,  left_hi_out =left_hi,
         right_lo_out=right_lo, right_hi_out=right_hi;
   if (stereo_settings().individually_normalize == 0 ) {
     float mutual_lo = std::min(left_lo, right_lo);  // Find the outer range of both files
@@ -289,7 +288,7 @@ pre_preprocessing_hook(bool adjust_left_image_size,
     vw_out() << "\t--> Normalizing globally to: ["<<mutual_lo<<" "<<mutual_hi<<"]\n";
     left_lo_out  = mutual_lo;  // Set the individual hi/lo values to the mutual values
     left_hi_out  = mutual_hi;
-    right_lo_out = mutual_lo;  
+    right_lo_out = mutual_lo;
     right_hi_out = mutual_hi;
   }
   else

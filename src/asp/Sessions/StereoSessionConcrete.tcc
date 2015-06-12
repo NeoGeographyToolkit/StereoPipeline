@@ -15,6 +15,9 @@
 //  limitations under the License.
 // __END_LICENSE__
 
+// TODO: Serious refactoring needed. Most of this code must go to
+// a file named MapProj/StereoSessionMapProj.h. Code specific to
+// pinhole models must go to that session.
 
 /// \file StereoSessionConcrete.tcc
 ///
@@ -31,6 +34,7 @@
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/IsisIO/IsisAdjustCameraModel.h>
 #include <asp/IsisIO/Equation.h>
+#include <asp/Core/BundleAdjustUtils.h>
 
 #include <map>
 #include <utility>
@@ -199,19 +203,34 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::camera_model(std::st
     return load_camera_model(Int2Type<STEREOMODEL_TYPE>(), image_file, camera_file);
 }
 
+// If we have adjusted camera models, load them
+inline  boost::shared_ptr<vw::camera::CameraModel> load_adjusted_model(boost::shared_ptr<camera::CameraModel> cam, std::string const& image_file){
+
+  std::string ba_pref = stereo_settings().bundle_adjust_prefix;
+  if (ba_pref == "")
+    return cam;
+
+  Vector3 position_correction;
+  Quaternion<double> pose_correction;
+  std::string adjust_file = asp::bundle_adjust_file_name(ba_pref, image_file);
+  if (boost::filesystem::exists(adjust_file)) {
+    vw_out() << "Using adjusted camera model: " << adjust_file << std::endl;
+    read_adjustments(adjust_file, position_correction, pose_correction);
+    return boost::shared_ptr<camera::CameraModel>(new camera::AdjustedCameraModel(cam, position_correction, pose_correction));
+  }else {
+    vw_throw(InputErr() << "Missing adjusted camera model: " << adjust_file << ".\n");
+  }
+
+  return cam;
+}
+
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 boost::shared_ptr<vw::camera::CameraModel>
 StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model(Int2Type<STEREOMODEL_TYPE_ISIS>,
                                                                               std::string const& image_file,
                                                                               std::string const& camera_file) {
-  // We have to do a check here to make sure we pass the files in the correct order
-  if (boost::ends_with(boost::to_lower_copy(camera_file), ".isis_adjust")) {
-    return m_camera_loader.load_isis_camera_model(image_file, camera_file);
-  }
-  else {
-    return m_camera_loader.load_isis_camera_model(camera_file);
-  }
+  return load_adjusted_model(m_camera_loader.load_isis_camera_model(camera_file), image_file);
 }
 
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
@@ -220,7 +239,7 @@ boost::shared_ptr<vw::camera::CameraModel>
 StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model(Int2Type<STEREOMODEL_TYPE_DG>,
                                                                               std::string const& image_file,
                                                                               std::string const& camera_file) {
-  return m_camera_loader.load_dg_camera_model(camera_file);
+  return load_adjusted_model(m_camera_loader.load_dg_camera_model(camera_file), image_file);
 }
 
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
@@ -232,11 +251,11 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model(In
   // We don't know where the camera model is so try both files
   try {
     if (camera_file != "")
-      return m_camera_loader.load_rpc_camera_model(camera_file);
+      return load_adjusted_model(m_camera_loader.load_rpc_camera_model(camera_file), image_file);
   }
   catch(...) {}
   try {
-    return m_camera_loader.load_rpc_camera_model(image_file);
+    return load_adjusted_model(m_camera_loader.load_rpc_camera_model(image_file), image_file);
   }
   catch(...) {}
   // Raise a custom exception if both failed
@@ -302,11 +321,11 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model(In
     epipolar(left_cahv, right_cahv, *epipolar_left_cahv, *epipolar_right_cahv);
 
     if (is_left_camera)
-      return epipolar_left_cahv;
+      return load_adjusted_model(epipolar_left_cahv, image_file);
     else
-      return epipolar_right_cahv;
+      return load_adjusted_model(epipolar_right_cahv, image_file);
   } else { // Not epipolar, just load the camera model.
-    return m_camera_loader.load_pinhole_camera_model(camera_file);
+    return load_adjusted_model(m_camera_loader.load_pinhole_camera_model(camera_file), image_file);
   } // End not epipolar case
 
 }

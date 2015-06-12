@@ -386,7 +386,12 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
     // pre-populated for every single ASP application, not just for
     // stereo. For example, any application which uses the
     // StereoSession, such as mapproject, bundle_adjust, etc., needs
-    // stereo_settings() to be well-defined.
+    // stereo_settings() to be well-defined. What is going on below is
+    // the following. The call to generate_config_file_options() sets
+    // defaults for stereo_settings(), and then those are parsed and
+    // stored when po::store is invoked. Note that we don't override
+    // any of the options (yet) from the command line, hence below we
+    // use empty command line options.
     po::options_description l_opts("");
     l_opts.add( asp::generate_config_file_options( opt ) );
     po::variables_map l_vm;

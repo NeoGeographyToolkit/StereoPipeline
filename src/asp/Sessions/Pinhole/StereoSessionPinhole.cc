@@ -40,6 +40,9 @@ using namespace vw;
 using namespace vw::ip;
 using namespace vw::camera;
 
+//TODO: There is a lot of duplicate code here with the Pinhole
+//class. Common functionality must be factored out.
+
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
@@ -225,8 +228,8 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
     // Load the two images and fetch the two camera models
     boost::shared_ptr<camera::CameraModel> left_camera  = this->camera_model(left_input_file,  m_left_camera_file );
     boost::shared_ptr<camera::CameraModel> right_camera = this->camera_model(right_input_file, m_right_camera_file);
-    CAHVModel* left_epipolar_cahv  = dynamic_cast<CAHVModel*>(&(*left_camera ));
-    CAHVModel* right_epipolar_cahv = dynamic_cast<CAHVModel*>(&(*right_camera));
+    CAHVModel* left_epipolar_cahv  = dynamic_cast<CAHVModel*>(vw::camera::unadjusted_model(&(*left_camera )));
+    CAHVModel* right_epipolar_cahv = dynamic_cast<CAHVModel*>(vw::camera::unadjusted_model(&(*right_camera)));
 
     // Remove lens distortion and create epipolar rectified images.
     if (boost::ends_with(lcase_file, ".cahvore")) {

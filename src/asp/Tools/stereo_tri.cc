@@ -32,7 +32,7 @@ using namespace vw;
 using namespace asp;
 using namespace std;
 
-// ??
+// These are used to read and write tif images with vector pixels
 namespace vw {
   typedef Vector<double, 6> Vector6;
   template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
@@ -64,7 +64,7 @@ public:
                         vector<TXT>             const& transforms,
                         StereoModelT            const& stereo_model,
                         bool is_map_projected) :
-    m_disparity_maps(disparity_maps), 
+    m_disparity_maps(disparity_maps),
     m_transforms(transforms),
     m_stereo_model(stereo_model),
     m_is_map_projected(is_map_projected) {
@@ -89,8 +89,8 @@ public:
 
     // For each input image, de-warp the pixel in to the native camera coordinates
     int num_disp = m_disparity_maps.size();
-    vector<Vector2> pixVec(num_disp + 1); 
-    pixVec[0] = m_transforms[0].reverse(Vector2(i,j)); // De-warp "left" pixel 
+    vector<Vector2> pixVec(num_disp + 1);
+    pixVec[0] = m_transforms[0].reverse(Vector2(i,j)); // De-warp "left" pixel
     for (int c = 0; c < num_disp; c++){
       Vector2 pix;
       DPixelT disp = m_disparity_maps[c](i,j,p); // Disparity value at this pixel
@@ -101,7 +101,7 @@ public:
                       std::numeric_limits<double>::quiet_NaN());
       pixVec[c+1] = pix;
     }
-    
+
     // Compute the location of the 3D point observed by each input pixel
     Vector3 errorVec;
     pixel_type result;
@@ -118,7 +118,7 @@ public:
   inline void rasterize( DestT const& dest, BBox2i const& bbox ) const {
     vw::rasterize( prerasterize(bbox), dest, bbox );
   }
-  
+
 private:
 
   /// RPC Map Transform needs to be explicitly copied and told to cache for performance.
@@ -129,7 +129,7 @@ private:
     if (m_is_map_projected == false) {
       // We explicitly bring in-memory the disparities for the current box
       // to speed up processing later, and then we pretend this is the entire
-      // image by virtually enlarging it using a CropView. 
+      // image by virtually enlarging it using a CropView.
       vector< ImageViewRef<DPixelT> > disparity_cropviews;
       for (int p = 0; p < (int)m_disparity_maps.size(); p++){
         ImageView<DPixelT> clip( crop( m_disparity_maps[p], bbox ) );
@@ -148,14 +148,14 @@ private:
     // transforms so we are not having a race condition with setting
     // the cache in both transforms while the other threads want to do the same.
     vector<T> transforms_copy = transforms;
-    transforms_copy[0].reverse_bbox(bbox); // As a side effect this call makes transforms_copy create a local cache we want later 
-    
+    transforms_copy[0].reverse_bbox(bbox); // As a side effect this call makes transforms_copy create a local cache we want later
+
     if (transforms_copy.size() != m_disparity_maps.size() + 1){
       vw_throw( ArgumentErr() << "In multi-view triangulation, "
                 << "the number of disparities must be one less "
                 << "than the number of images." );
     }
-    
+
     vector< ImageViewRef<DPixelT> > disparity_cropviews;
     for (int p = 0; p < (int)m_disparity_maps.size(); p++){
 
@@ -175,7 +175,7 @@ private:
       // Also cache the data for subsequent transforms
       transforms_copy[p+1].reverse_bbox(right_bbox); // As a side effect this call makes transforms_copy create a local cache we want later
     }
-    
+
     return prerasterize_type(disparity_cropviews, transforms_copy, m_stereo_model, m_is_map_projected);
   } // End function PreRasterHelper() DGMapRPC version
 
@@ -198,7 +198,7 @@ stereo_error_triangulate( vector<DisparityT> const& disparities,
 namespace asp{
 
   // TODO: Move some of these functions to a class or something!
-  
+
   // ImageView operator that takes the last three elements of a vector
   // (the error part) and replaces them with the norm of that 3-vector.
   struct PointAndErrorNorm : public ReturnFixedType<Vector4> {
@@ -218,7 +218,7 @@ namespace asp{
 
   template <class ImageT>
   void save_point_cloud(Vector3 const& shift, ImageT const& point_cloud,
-                        string const& point_cloud_file, 
+                        string const& point_cloud_file,
                         Options const& opt){
 
     vw_out() << "Writing point cloud: " << point_cloud_file << "\n";
@@ -292,7 +292,7 @@ namespace asp{
 
           // Crop to the cloud area actually having points
           box.crop(stereo_settings().trans_crop_win);
-        
+
           // Triangulate in the existing box
           ImageView<Vector6> cropped_cloud = crop(point_cloud, box);
           for (int px = 0; px < cropped_cloud.cols(); px++){
@@ -302,13 +302,13 @@ namespace asp{
               points.push_back(xyz);
             }
           }
-        
+
           // Stop if we have enough points to do a reliable mean estimation
           if (points.size() > 100)
             return find_approx_points_median(points);
-        
+
         }
-      
+
       }
     }
 
@@ -319,7 +319,7 @@ namespace asp{
   bool read_point(string const& file, Vector3 & point){
 
     point = Vector3();
-  
+
     ifstream fh(file.c_str());
     if (!fh.good()) return false;
 
@@ -350,7 +350,7 @@ void stereo_triangulation( string          const& output_prefix,
 
   typedef          ImageViewRef<PixelMask<Vector2f> >  PVImageT;
   typedef typename SessionT::stereo_model_type         StereoModelT;
-  
+
   const bool is_map_projected = SessionT::isMapProjected();
 
   try { // Outer try/catch
@@ -362,12 +362,12 @@ void stereo_triangulation( string          const& output_prefix,
     vector< boost::shared_ptr<camera::CameraModel> > cameras;
     vector<typename SessionT::tx_type> transforms;
     for (int p = 0; p < (int)opt_vec.size(); p++){
-      
+
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
       opt_vec[p].session->camera_models(camera_model1, camera_model2);
-      
+
       boost::shared_ptr<SessionT> sPtr = boost::dynamic_pointer_cast<SessionT>(opt_vec[p].session);
-      
+
       if (p == 0){ // The first image is the "left" image for all pairs.
         images.push_back(opt_vec[p].in_file1);
         cameras.push_back(camera_model1);
@@ -375,30 +375,8 @@ void stereo_triangulation( string          const& output_prefix,
       }
       images.push_back(opt_vec[p].in_file2);
       cameras.push_back(camera_model2);
-      transforms.push_back(sPtr->tx_right());      
+      transforms.push_back(sPtr->tx_right());
     }
-
-    int num_cams = cameras.size();
-    
-#if ASP_HAVE_PKG_VW_BUNDLEADJUSTMENT
-    // If the user has generated a set of position and pose
-    // corrections using the bundle_adjust program, we read them in
-    // here and incorporate them into our camera models.
-    string ba_pref = stereo_settings().bundle_adjust_prefix;
-    if (ba_pref != ""){
-      for (int c = 0; c < num_cams; c++){
-        Vector3 position_correction;
-        Quaternion<double> pose_correction;
-        string adjust_file = asp::bundle_adjust_file_name(ba_pref, images[c]);
-        if (fs::exists(adjust_file)) {
-          vw_out() << "Using adjusted left camera model: " << adjust_file << endl;
-          read_adjustments(adjust_file, position_correction, pose_correction);
-        cameras[c] = boost::shared_ptr<camera::CameraModel>(new camera::AdjustedCameraModel(cameras[c], position_correction, pose_correction));
-        }else
-          vw_throw(InputErr() << "Missing adjusted camera model: " << adjust_file << ".\n");
-      } // End for loop
-    } // End if ba_pref
-#endif
 
     // If the distance from the left camera center to a point is
     // greater than the universe radius, we remove that pixel and
@@ -411,7 +389,7 @@ void stereo_triangulation( string          const& output_prefix,
         if (opt_vec[0].session->name() == "rpc")
           vw_throw(InputErr() << "Stereo with RPC cameras cannot "
                    << "have the camera as the universe center.\n");
-        
+
         universe_radius_func = stereo::UniverseRadiusFunc(cameras[0]->camera_center(Vector2()),
                                                           stereo_settings().near_universe_radius,
                                                           stereo_settings().far_universe_radius);
@@ -428,21 +406,22 @@ void stereo_triangulation( string          const& output_prefix,
 
     // Strip the smart pointers and form the stereo model
     std::vector<const vw::camera::CameraModel *> camera_ptrs;
+    int num_cams = cameras.size();
     for (int c = 0; c < num_cams; c++)
       camera_ptrs.push_back(cameras[c].get());
     StereoModelT stereo_model( camera_ptrs, stereo_settings().use_least_squares );
-    
+
     vector<PVImageT> disparity_maps;
     for (int p = 0; p < (int)opt_vec.size(); p++){
-      disparity_maps.push_back(opt_vec[p].session->pre_pointcloud_hook(opt_vec[p].out_prefix+"-F.tif")); 
+      disparity_maps.push_back(opt_vec[p].session->pre_pointcloud_hook(opt_vec[p].out_prefix+"-F.tif"));
     }
 
     // Apply radius function and stereo model in one go
     vw_out() << "\t--> Generating a 3D point cloud." << endl;
     ImageViewRef<Vector6> point_cloud = per_pixel_filter
-                                            (stereo_error_triangulate(disparity_maps, transforms, stereo_model, is_map_projected), 
+                                            (stereo_error_triangulate(disparity_maps, transforms, stereo_model, is_map_projected),
                                              universe_radius_func);
-    
+
     // Compute the point cloud center, unless done by now
     Vector3 cloud_center = Vector3();
     if (!stereo_settings().save_double_precision_point_cloud){
@@ -469,7 +448,7 @@ void stereo_triangulation( string          const& output_prefix,
         vw_out(WarningMessage) << "For more than two cameras, the error "
                                << "vector between rays is not meaningful. "
                                << "Setting it to (err_len, 0, 0)." << endl;
-      
+
       ImageViewRef<Vector6> crop_pc = crop(point_cloud, cbox);
       save_point_cloud(cloud_center,
                        crop(edge_extend(crop_pc, ZeroEdgeExtension()),
@@ -485,7 +464,7 @@ void stereo_triangulation( string          const& output_prefix,
 
     // Must print this at the end, as it contains statistics on the number of rejected points.
     vw_out() << "\t--> " << universe_radius_func;
-    
+
   } catch (IOErr const& e) {
     vw_throw( ArgumentErr() << "\nUnable to start at point cloud stage "
               << "-- could not read input files.\n"
@@ -502,7 +481,7 @@ int main( int argc, char* argv[] ) {
 
     stereo_register_sessions();
 
-    // Unlike other stereo executables, triangulation can handle multiple images and cameras. 
+    // Unlike other stereo executables, triangulation can handle multiple images and cameras.
     bool verbose = false;
     vector<Options> opt_vec;
     string output_prefix;
@@ -515,7 +494,7 @@ int main( int argc, char* argv[] ) {
       asp::log_to_file(argc, argv, opt_vec[0].stereo_default_filename,
                        output_prefix);
     }
-    
+
     // Keep only those stereo pairs for which filtered disparity exists
     vector<Options> opt_vec_new;
     for (int p = 0; p < (int)opt_vec.size(); p++){
@@ -525,7 +504,7 @@ int main( int argc, char* argv[] ) {
     opt_vec = opt_vec_new;
     if (opt_vec.empty())
       vw_throw( ArgumentErr() << "No valid F.tif files found.\n" );
-    
+
     // Triangulation uses small tiles.
     //---------------------------------------------------------
     int ts = Options::tri_tile_size();
@@ -548,7 +527,7 @@ int main( int argc, char* argv[] ) {
     INSTANTIATE(StereoSessionIsis,         "isis"        );
     INSTANTIATE(StereoSessionIsisMapIsis,  "isismapisis" );
 #endif
-    
+
 #undef INSTANTIATE
 
     vw_out() << "\n[ " << current_posix_time_string() << " ] : TRIANGULATION FINISHED \n";
