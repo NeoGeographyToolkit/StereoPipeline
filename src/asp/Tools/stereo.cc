@@ -107,7 +107,6 @@ namespace asp {
     bool is_multiview = true;
     Options opt;
     std::string usage;
-    //vw_out() << "DEBUG - First handle_arguments call" << std::endl;
     handle_arguments(argc, argv, opt, additional_options,
                      is_multiview, files, usage);
 
@@ -457,6 +456,7 @@ namespace asp {
         stereo_settings().trans_crop_win.crop(bounding_box(L_img));
       }
     }else{
+
       // If both left_image_crop_win and right_image_crop_win are
       // specified, we ignore the trans_crop_win window. That because
       // in this case (as can be see in
@@ -471,6 +471,11 @@ namespace asp {
         DiskImageView<PixelGray<float> > L_img(opt.out_prefix+"-L.tif");
         stereo_settings().trans_crop_win = bounding_box(L_img);
       }
+
+      // Ensure the crop windows are valid.
+      DiskImageView<PixelGray<float> > right_image(opt.in_file2);
+      stereo_settings().left_image_crop_win.crop(bounding_box(left_image));
+      stereo_settings().right_image_crop_win.crop(bounding_box(right_image));
     }
 
     // Sanity check

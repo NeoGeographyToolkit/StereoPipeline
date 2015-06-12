@@ -176,10 +176,10 @@ namespace asp {
     void init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE>); // Needs to load the map_proj_models
 
     // Specializations of camera_model for each of the different model types
-    boost::shared_ptr<vw::camera::CameraModel> load_camera_model(Int2Type<STEREOMODEL_TYPE_PINHOLE>, std::string const& image_file, std::string const& camera_file="");
-    boost::shared_ptr<vw::camera::CameraModel> load_camera_model(Int2Type<STEREOMODEL_TYPE_ISIS   >, std::string const& image_file, std::string const& camera_file="");
-    boost::shared_ptr<vw::camera::CameraModel> load_camera_model(Int2Type<STEREOMODEL_TYPE_DG     >, std::string const& image_file, std::string const& camera_file="");
-    boost::shared_ptr<vw::camera::CameraModel> load_camera_model(Int2Type<STEREOMODEL_TYPE_RPC    >, std::string const& image_file, std::string const& camera_file="");
+    boost::shared_ptr<vw::camera::CameraModel> load_camera_model(Int2Type<STEREOMODEL_TYPE_PINHOLE>, std::string const& image_file, std::string const& camera_file);
+    boost::shared_ptr<vw::camera::CameraModel> load_camera_model(Int2Type<STEREOMODEL_TYPE_ISIS   >, std::string const& image_file, std::string const& camera_file);
+    boost::shared_ptr<vw::camera::CameraModel> load_camera_model(Int2Type<STEREOMODEL_TYPE_DG     >, std::string const& image_file, std::string const& camera_file);
+    boost::shared_ptr<vw::camera::CameraModel> load_camera_model(Int2Type<STEREOMODEL_TYPE_RPC    >, std::string const& image_file, std::string const& camera_file);
 
     // Specializations of disk transform method
     tx_type tx_left (Int2Type<DISKTRANSFORM_TYPE_MATRIX             >) const;
@@ -187,7 +187,7 @@ namespace asp {
     tx_type tx_left (Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC    >) const;
     tx_type tx_left (Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS   >) const;
     tx_type tx_left (Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE>) const;
-    
+
     tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MATRIX             >) const;
     tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MATRIX_RIGHT       >) const;
     tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC    >) const;
