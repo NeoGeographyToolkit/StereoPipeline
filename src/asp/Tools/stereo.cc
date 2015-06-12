@@ -41,7 +41,7 @@ namespace asp {
   // Transform the crop window to be in reference to L.tif
   BBox2i transformed_crop_win(Options const& opt){
 
-    BBox2i b = opt.left_image_crop_win;
+    BBox2i b = stereo_settings().left_image_crop_win;
     DiskImageView<PixelGray<float> > left_image(opt.in_file1);
     BBox2i full_box = bounding_box(left_image);
     if (b == BBox2i(0, 0, 0, 0)){
@@ -87,7 +87,7 @@ namespace asp {
                        vector<Options> & opt_vec){
 
     // If a stereo program is invoked as:
-  
+
     // prog <images> <cameras> <output-prefix> [<input_dem>] <other options>
 
     // with the number of images n >= 2, create n-1 individual
@@ -110,7 +110,7 @@ namespace asp {
     //vw_out() << "DEBUG - First handle_arguments call" << std::endl;
     handle_arguments(argc, argv, opt, additional_options,
                      is_multiview, files, usage);
-    
+
     //vw_out() << "DEBUG - Detected files:" << std::endl; // This gets the prefix too
     //for (size_t i=0; i<files.size(); ++i)
     //  vw_out() << files[i] << std::endl;
@@ -121,18 +121,18 @@ namespace asp {
     // If a file shows up more than once as input, that will confuse
     // the logic at the next step, so forbid that.
     map<string, int> vals;
-    for (int s = 1; s < argc; s++) 
+    for (int s = 1; s < argc; s++)
       vals[argv[s]]++;
     for (int s = 0; s < (int)files.size(); s++){
-      if (vals[files[s]] > 1){ 
+      if (vals[files[s]] > 1){
         vw_throw( ArgumentErr() << "The following input argument shows up more than "
                   << "once and hence cannot be parsed correctly: "
                   << files[s] << ".\n\n" << usage );
       }
     }
-    
+
     // Store the options and their values (that is, not the input files).
-    set<string> file_set; 
+    set<string> file_set;
     for (int s = 0; s < (int)files.size(); s++)
       file_set.insert(files[s]);
     vector<string> options;
@@ -140,7 +140,7 @@ namespace asp {
       if (file_set.find(argv[s]) == file_set.end())
         options.push_back(argv[s]);
     }
-  
+
     //vw_out() << "DEBUG - Detected options:" << std::endl; // includes all parts of all options
     //for (size_t i=0; i<options.size(); ++i)
     //  vw_out() << options[i] << std::endl;
@@ -162,8 +162,8 @@ namespace asp {
     //vw_out() << "DEBUG - Detected images:" << std::endl; // This gets the prefix too
     //for (size_t i=0; i<images.size(); ++i)
     //  vw_out() << images[i] << std::endl;
-  
-    //vw_out() << "DEBUG - Detected cameras:" << std::endl; 
+
+    //vw_out() << "DEBUG - Detected cameras:" << std::endl;
     //for (size_t i=0; i<cameras.size(); ++i)
     //  vw_out() << cameras[i] << std::endl;
 
@@ -181,10 +181,10 @@ namespace asp {
       if (!fs::exists(cameras[i]))
         vw_throw(ArgumentErr() << "Cannot find the camera file: " << cameras[i] << ".\n");
     }
-    
+
     if (images.size() != cameras.size() && !cameras.empty())
       vw_throw(ArgumentErr() << "Expecting the number of images and cameras to agree.\n");
-    
+
     int num_pairs = (int)images.size() - 1;
     if (num_pairs <= 0)
       vw_throw(ArgumentErr() << "Insufficient number of images provided.\n");
@@ -193,10 +193,10 @@ namespace asp {
     if (num_pairs > 1){
       std::string opt_str = "--part-of-multiview-run";
       vector<string>::iterator it = find(options.begin(), options.end(), opt_str);
-      if (it == options.end()) 
+      if (it == options.end())
         options.push_back(opt_str);
     }
-    
+
     // Multiview is very picky about alignment method
     if ( (num_pairs > 1 || stereo_settings().part_of_multiview_run) &&
          stereo_settings().alignment_method != "none"               &&
@@ -207,7 +207,7 @@ namespace asp {
         new_alignment = "homography";
       else
         new_alignment = "none";
-      
+
       vw_out(WarningMessage)
         << "For multi-view stereo, only alignment method of none or homography "
         << "is supported. Changing alignment method from "
@@ -230,7 +230,7 @@ namespace asp {
     // Needed for stereo_parse
     if (verbose)
       vw_out() << "num_stereo_pairs," << num_pairs << std::endl;
-    
+
     //vw_out() << "DEBUG - Starting pairs loop" << std::endl;
 
     std::string prog_name = extract_prog_name(argv[0]);
@@ -238,14 +238,14 @@ namespace asp {
     // Generate the stereo command for each of the pairs made up of the first
     // image and each subsequent image, with corresponding cameras.
     for (int p = 1; p <= num_pairs; p++){
-      
+
       vector<string> cmd;
       cmd.push_back(prog_name);
 
       // The command line options go first
       for (int t = 0; t < (int)options.size(); t++)
         cmd.push_back(options[t]);
-    
+
       cmd.push_back(images[0]); // left image
       cmd.push_back(images[p]); // right image
 
@@ -282,16 +282,16 @@ namespace asp {
       opt_vec.push_back(opt);
 
       if (verbose){
-        // Needed for stereo_parse 
+        // Needed for stereo_parse
         int big = 10000; // helps keep things in order in the python script
         vw_out() << "multiview_command_" << big + p << ",";
-        for (int t = 0; t < largc-1; t++) 
+        for (int t = 0; t < largc-1; t++)
           vw_out() << cmd[t] << ",";
-        if (largc > 0)                    
+        if (largc > 0)
           vw_out() << cmd[largc-1];
         vw_out() << std::endl;
       }
-      
+
     }
 
     if (num_pairs > 1 && prog_name != "stereo_parse" && prog_name != "stereo_tri")
@@ -310,12 +310,10 @@ namespace asp {
 
     po::options_description general_options_sub("");
     general_options_sub.add_options()
-      ("session-type,t",      po::value(&opt.stereo_session_string), 
+      ("session-type,t",      po::value(&opt.stereo_session_string),
                               "Select the stereo session type to use for processing. [options: pinhole isis dg rpc]")
-      ("stereo-file,s",       po::value(&opt.stereo_default_filename)->default_value("./stereo.default"), 
-                              "Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
-      ("left-image-crop-win", po::value(&opt.left_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"),
-                              "Do stereo in a subregion of the left image [default: use the entire image].");
+      ("stereo-file,s",       po::value(&opt.stereo_default_filename)->default_value("./stereo.default"),
+       "Explicitly specify the stereo.default file to use. [default: ./stereo.default]");
 
     // We distinguish between all_general_options, which is all the
     // options we must parse, even if we don't need some of them, and
@@ -348,7 +346,7 @@ namespace asp {
         ("right-camera-model", po::value(&opt.cam_file2),  "Right camera model file")
         ("output-prefix",      po::value(&opt.out_prefix), "Prefix for output filenames")
         ("input-dem",          po::value(&opt.input_dem),  "Input DEM");
-      
+
       positional_desc.add("left-input-image",   1);
       positional_desc.add("right-input-image",  1);
       positional_desc.add("left-camera-model",  1);
@@ -356,13 +354,13 @@ namespace asp {
       positional_desc.add("output-prefix",      1);
       positional_desc.add("input-dem",          1);
     }
-    
+
     usage = "[options] <images> [<cameras>] <output_file_prefix> [DEM]\n  Extensions are automaticaly added to the output files.\n  Camera model arguments may be optional for some stereo session types (e.g., isis).\n  Stereo parameters should be set in the stereo.default file.";
     bool allow_unregistered = false;
     std::vector<std::string> unregistered;
     po::variables_map vm = asp::check_command_line(argc, argv, opt, general_options,
                                                    all_general_options, positional_options,
-                                                   positional_desc, usage, 
+                                                   positional_desc, usage,
                                                    allow_unregistered, unregistered);
 
     // Read the config file
@@ -390,7 +388,7 @@ namespace asp {
     std::ostringstream os;
     os << usage << general_options;
     usage = os.str();
-    
+
     // For multiview, just store the files and return
     if (is_multiview){
       if (vm.count("input-files") == 0)
@@ -401,7 +399,7 @@ namespace asp {
 
     if (opt.in_file1.empty() || opt.in_file2.empty() || opt.cam_file1.empty())
       vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n" << usage );
-    
+
     // There are 3 valid methods of input into this application
     // 1.) <image1> <image2> <cam1> <cam2> <prefix> <dem>
     // 2.) <image1> <image2> <cam1> <cam2> <prefix>
@@ -422,12 +420,12 @@ namespace asp {
     if (!this_is_case3 && opt.cam_file1.empty()) vw_throw(ArgumentErr() << "Missing left camera file" );
     if (!this_is_case3 && opt.cam_file2.empty()) vw_throw(ArgumentErr() << "Missing right camera file");
 
-    // Create the output directory 
+    // Create the output directory
     asp::create_out_dir(opt.out_prefix);
 
     // Turn on logging to file
     asp::log_to_file(argc, argv, opt.stereo_default_filename, opt.out_prefix);
-    
+
     // There are two crop win boxes, in respect to original left
     // image, named left_image_crop_win, and in respect to the
     // transformed left image (L.tif), named trans_crop_win. We use
@@ -436,19 +434,43 @@ namespace asp {
 
     // Interpret the the last two coordinates of the crop win boxes as
     // width and height rather than max_x and max_y.
-    BBox2i b = opt.left_image_crop_win;
-    opt.left_image_crop_win = BBox2i(b.min().x(), b.min().y(), b.max().x(), b.max().y());
+    BBox2i b = stereo_settings().left_image_crop_win;
+    stereo_settings().left_image_crop_win = BBox2i(b.min().x(), b.min().y(), b.max().x(), b.max().y());
+    b = stereo_settings().right_image_crop_win;
+    stereo_settings().right_image_crop_win = BBox2i(b.min().x(), b.min().y(), b.max().x(), b.max().y());
     b = stereo_settings().trans_crop_win;
     stereo_settings().trans_crop_win = BBox2i(b.min().x(), b.min().y(), b.max().x(), b.max().y());
 
-    if (stereo_settings().trans_crop_win == BBox2i(0, 0, 0, 0)){
-      stereo_settings().trans_crop_win = transformed_crop_win(opt);
-    }
+    bool crop_left_and_right =
+      ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
+      ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
+    if (!crop_left_and_right) {
+      // The crop window after transforming the left image via
+      // affine epipolar or homography alignment.
+      if (stereo_settings().trans_crop_win == BBox2i(0, 0, 0, 0)){
+        stereo_settings().trans_crop_win = transformed_crop_win(opt);
+      }
 
-    if ( fs::exists(opt.out_prefix+"-L.tif") ){
-      // Intersect with L.tif which is the transformed and processed left image
-      DiskImageView<PixelGray<float> > L_img(opt.out_prefix+"-L.tif");
-      stereo_settings().trans_crop_win.crop(bounding_box(L_img));
+      if ( fs::exists(opt.out_prefix+"-L.tif") ){
+        // Intersect with L.tif which is the transformed and processed left image
+        DiskImageView<PixelGray<float> > L_img(opt.out_prefix+"-L.tif");
+        stereo_settings().trans_crop_win.crop(bounding_box(L_img));
+      }
+    }else{
+      // If both left_image_crop_win and right_image_crop_win are
+      // specified, we ignore the trans_crop_win window. That because
+      // in this case (as can be see in
+      // StereoSession::pre_preprocessing_hook()), we actually
+      // physically crop both images, rather than keeping the full
+      // images and just restricting the domain of computation. As
+      // such, trans_crop_win which refers to a region of the original
+      // left image becomes meaningless.
+      DiskImageView<PixelGray<float> > left_image(opt.in_file1);
+      stereo_settings().trans_crop_win = bounding_box(left_image);
+      if ( fs::exists(opt.out_prefix+"-L.tif") ){
+        DiskImageView<PixelGray<float> > L_img(opt.out_prefix+"-L.tif");
+        stereo_settings().trans_crop_win = bounding_box(L_img);
+      }
     }
 
     // Sanity check
@@ -487,7 +509,7 @@ namespace asp {
   }
 
   void user_safety_checks(Options const& opt){
-    
+
     // Error checking
 
     // Sanity check for max_valid_triangulation_error
@@ -500,7 +522,7 @@ namespace asp {
                 << "option can be used for automatic detection of maximum "
                 << "triangulation error.\n" );
     }
-    
+
     // Seed mode valid values
     if (stereo_settings().seed_mode > 3){
       vw_throw(ArgumentErr() << "Invalid value for seed-mode: " << stereo_settings().seed_mode << ".\n");
@@ -520,7 +542,7 @@ namespace asp {
                 << "For seed-mode 2, the value of disparity-estimation-dem-error"
                 << " must be positive." );
     }
-        
+
     // D_sub from DEM needs a DEM
     if (stereo_settings().seed_mode == 2 &&
         stereo_settings().disparity_estimation_dem.empty()){
@@ -548,7 +570,7 @@ namespace asp {
       vw_throw( ArgumentErr() << "The left and right images "
                 << "must use the same projection.\n");
     }
-    
+
     //TODO: Clean up these conditional using some kind of enum system
 
     // If images are map-projected, need an input DEM
@@ -565,7 +587,7 @@ namespace asp {
     if (!opt.input_dem.empty() && opt.session->name() != "dg" && opt.session->name() != "isis" && opt.session->name() != "pinhole"
         && opt.session->name() != "dgmaprpc" && opt.session->name() != "rpcmaprpc"
         && opt.session->name() != "isismapisis" && opt.session->name() != "pinholemappinhole") {
-      vw_throw(ArgumentErr() << "Cannot use map-projected images with a session of type: " 
+      vw_throw(ArgumentErr() << "Cannot use map-projected images with a session of type: "
                              << opt.session->name() << ".\n");
     }
 
@@ -579,14 +601,14 @@ namespace asp {
     // Ensure that we are not accidentally doing stereo with
     // images map-projected with other camera model than 'rpc'.
     if (!opt.input_dem.empty()){
-      
+
       string cam_tag = "CAMERA_MODEL_TYPE";
       string l_cam_type, r_cam_type;
       boost::shared_ptr<vw::DiskImageResource> l_rsrc(new vw::DiskImageResourceGDAL(opt.in_file1));
       vw::cartography::read_header_string(*l_rsrc.get(), cam_tag, l_cam_type);
       boost::shared_ptr<vw::DiskImageResource> r_rsrc(new vw::DiskImageResourceGDAL(opt.in_file2));
       vw::cartography::read_header_string(*r_rsrc.get(), cam_tag, r_cam_type);
-        
+
       if ((l_cam_type != "" && l_cam_type != "rpc") ||
           (r_cam_type != "" && r_cam_type != "rpc")   ){
         vw_throw(ArgumentErr() << "The images were map-projected with another option than -t rpc.\n");
@@ -597,12 +619,12 @@ namespace asp {
         stereo_settings().corr_kernel[1]%2 == 0   ){
       vw_throw(ArgumentErr() << "The entries of corr-kernel must be odd numbers.\n");
     }
-    
+
     if (stereo_settings().subpixel_kernel[0]%2 == 0 ||
         stereo_settings().subpixel_kernel[1]%2 == 0   ){
       vw_throw(ArgumentErr() << "The entries of subpixel-kernel must be odd numbers.\n");
     }
-    
+
     // Camera checks
     try {
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
@@ -645,14 +667,14 @@ namespace asp {
           << "\tyour input models as most likely stereo won't\n"
           << "\tbe able to triangulate.\n";
       }
-    } catch (const exception& e) {                
+    } catch (const exception& e) {
       // Don't throw an error here. There are legitimate reasons as to
       // why this check may fail. For example, the top left pixel
       // might not be valid on a map projected image. But notify the
       // user anyway.
       vw_out(DebugMessage,"asp") << e.what() << endl;
     }
-        
+
   }
 
   // approximate search range
@@ -706,7 +728,7 @@ namespace asp {
         list<ip::InterestPoint> ip1, ip2;
         vw_out() << "\t    * Processing for Interest Points.\n";
         while (ip1.size() < 1500 || ip2.size() < 1500) {
-          ip1.clear(); 
+          ip1.clear();
           ip2.clear();
 
           ip::OBALoGInterestOperator interest_operator(ipgain);
@@ -848,15 +870,15 @@ namespace asp {
   bool is_tif_or_ntf(string const& file){
     return (boost::iends_with(boost::to_lower_copy(file), ".tif") ||
             boost::iends_with(boost::to_lower_copy(file), ".ntf")   );
-  }    
-  
+  }
+
   bool skip_image_normalization(Options const& opt ){
     // Respect user's choice for skipping the normalization of the input
     // images, if feasible.
-    return(stereo_settings().skip_image_normalization   && 
+    return(stereo_settings().skip_image_normalization   &&
            stereo_settings().alignment_method == "none" &&
            stereo_settings().cost_mode == 2             &&
-           is_tif_or_ntf(opt.in_file1)                  && 
+           is_tif_or_ntf(opt.in_file1)                  &&
            is_tif_or_ntf(opt.in_file2));
   }
 

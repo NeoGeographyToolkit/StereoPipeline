@@ -149,31 +149,23 @@ namespace asp {
     StereoSession* session_new = 0;
     if (actual_session_type == "dg")
       session_new = StereoSessionDG::construct();
-    else
-      if (actual_session_type == "dgmaprpc")
+    else if (actual_session_type == "dgmaprpc")
         session_new = StereoSessionDGMapRPC::construct();
-      else
-        if (actual_session_type == "nadirpinhole")
-          session_new = StereoSessionNadirPinhole::construct();
-        else
-          if (actual_session_type == "pinhole")
-            session_new = StereoSessionPinhole::construct();
-          else
-            if (actual_session_type == "rpc")
-              session_new = StereoSessionRPC::construct();
-            else
-              if (actual_session_type == "rpcmaprpc")
-                session_new = StereoSessionRPCMapRPC::construct();
-              else
-                if (actual_session_type == "pinholemappinhole")
-                  session_new = StereoSessionPinholeMapPinhole::construct();
+    else if (actual_session_type == "nadirpinhole")
+      session_new = StereoSessionNadirPinhole::construct();
+    else if (actual_session_type == "pinhole")
+      session_new = StereoSessionPinhole::construct();
+    else if (actual_session_type == "rpc")
+      session_new = StereoSessionRPC::construct();
+    else if (actual_session_type == "rpcmaprpc")
+      session_new = StereoSessionRPCMapRPC::construct();
+    else if (actual_session_type == "pinholemappinhole")
+      session_new = StereoSessionPinholeMapPinhole::construct();
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-                else
-                  if (actual_session_type == "isis")
-                    session_new = StereoSessionIsis::construct();
-                  else
-                    if (actual_session_type == "isismapisis")
-                      session_new = StereoSessionIsisMapIsis::construct();
+    else if (actual_session_type == "isis")
+      session_new = StereoSessionIsis::construct();
+    else if (actual_session_type == "isismapisis")
+      session_new = StereoSessionIsisMapIsis::construct();
 #endif
     if (session_new == 0)
       vw_throw(vw::NoImplErr() << "Unsuppported stereo session type: " << session_type);

@@ -31,7 +31,6 @@
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Sessions/DG/LinescanDGModel.h>
-#include <asp/Sessions/DG/StereoSessionDG.h>
 #include <asp/Sessions/RPC/RPCModel.h>
 #include <asp/Sessions/DG/XML.h>
 
@@ -83,12 +82,12 @@ namespace asp {
                            std::string &left_output_file,
                            std::string &right_output_file) {
 
-    vw_out() << "DEBUG - Loading GDAL preprocessing image file: " << left_input_file << std::endl;
+    //vw_out() << "DEBUG - Loading GDAL preprocessing image file: " << left_input_file << std::endl;
 
     // Get input image handles
     boost::shared_ptr<DiskImageResource>
-      left_rsrc (DiskImageResource::open(this->m_left_image_file )),
-      right_rsrc(DiskImageResource::open(this->m_right_image_file));
+      left_rsrc (DiskImageResource::open(left_input_file)),
+      right_rsrc(DiskImageResource::open(right_input_file));
 
     // Retrieve nodata values
     float left_nodata_value, right_nodata_value;
@@ -153,7 +152,7 @@ namespace asp {
       std::vector<ip::InterestPoint> left_ip, right_ip;
       ip::read_binary_match_file(match_filename, left_ip, right_ip);
 
-      // Initialize alignment matrices and get the input image sizes.      
+      // Initialize alignment matrices and get the input image sizes.
       Matrix<double> align_left_matrix  = math::identity_matrix<3>(),
                      align_right_matrix = math::identity_matrix<3>();
       Vector2i left_size  = file_image_size(left_input_file ),
@@ -162,7 +161,7 @@ namespace asp {
       // Compute the appropriate alignment matrix based on the input points
       if ( stereo_settings().alignment_method == "homography" ) {
         left_size = homography_rectification(adjust_left_image_size,
-                                             left_size,         right_size, 
+                                             left_size,         right_size,
                                              left_ip,           right_ip,
                                              align_left_matrix, align_right_matrix);
         vw_out() << "\t--> Aligning right image to left using matrices:\n"

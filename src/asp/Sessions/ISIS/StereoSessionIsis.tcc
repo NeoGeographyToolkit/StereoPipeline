@@ -216,6 +216,7 @@ pre_preprocessing_hook(bool adjust_left_image_size,
                        std::string const& right_input_file,
                        std::string      & left_output_file,
                        std::string      & right_output_file) {
+
   // Set output file paths
   left_output_file  = this->m_out_prefix + "-L.tif";
   right_output_file = this->m_out_prefix + "-R.tif";
@@ -237,12 +238,14 @@ pre_preprocessing_hook(bool adjust_left_image_size,
     }
   } // End check for existing output files
 
-//TODO: What kind of images should be loaded here? Cube files or ASP generated tiff files?
-//      Might need to change all this code for map projected inputs!!!
+  // Get handles to the input images which are explicitly ISIS typed
+  boost::shared_ptr<DiskImageResourceIsis>
+    left_isis_rsrc (new DiskImageResourceIsis(left_input_file )),
+    right_isis_rsrc(new DiskImageResourceIsis(right_input_file));
 
-  //vw_out() << "DEBUG - Loading ISIS image file: " << left_input_file << std::endl;
-  /// For this to work the ISIS type must be registered with the DiskImageResource class.
-  /// - This happens in "stereo.cc", so these calls will create DiskImageResourceIsis objects.
+  /// For this to work the ISIS type must be registered with the
+  /// DiskImageResource class.  - This happens in "stereo.cc", so
+  /// these calls will create DiskImageResourceIsis objects.
   boost::shared_ptr<DiskImageResource> left_rsrc (DiskImageResource::open(left_input_file )),
                                        right_rsrc(DiskImageResource::open(right_input_file));
 
@@ -253,12 +256,6 @@ pre_preprocessing_hook(bool adjust_left_image_size,
   // Load the unmodified images
   DiskImageView<float> left_disk_image(left_rsrc), right_disk_image(right_rsrc);
 
-  //vw_out() << "DEBUG - Loading ISIS image file again: " << left_input_file << std::endl;
-  // Get handles to the input images which are explicitly ISIS typed
-  // TODO: Should use a dynamic pointer cast to do this!
-  boost::shared_ptr<DiskImageResourceIsis>
-    left_isis_rsrc (new DiskImageResourceIsis(left_input_file )),
-    right_isis_rsrc(new DiskImageResourceIsis(right_input_file));
 
   // Getting image sizes. Later alignment options can choose to change this parameters. (Affine Epipolar).
   Vector2i left_size  = file_image_size(left_input_file ),
@@ -273,28 +270,33 @@ pre_preprocessing_hook(bool adjust_left_image_size,
   // Mask the pixels outside of the isis range and <= nodata.
   float left_lo, left_hi, right_lo, right_hi;
   ImageViewRef< PixelMask <float> > left_masked_image
-    = find_ideal_isis_range(left_disk_image, left_isis_rsrc, left_nodata_value, "left",
-                            will_apply_user_nodata_left, left_lo, left_hi);
+    = find_ideal_isis_range(left_disk_image, left_isis_rsrc, left_nodata_value,
+                            "left", will_apply_user_nodata_left, left_lo, left_hi);
   ImageViewRef< PixelMask <float> > right_masked_image
-    = find_ideal_isis_range(right_disk_image, right_isis_rsrc, right_nodata_value, "right",
-                            will_apply_user_nodata_right, right_lo, right_hi);
+    = find_ideal_isis_range(right_disk_image, right_isis_rsrc, right_nodata_value,
+                            "right", will_apply_user_nodata_right, right_lo,
+                            right_hi);
 
   // Handle mutual normalization if requested
-  float left_lo_out =left_lo,  left_hi_out =left_hi,
-        right_lo_out=right_lo, right_hi_out=right_hi;
+  float left_lo_out = left_lo,  left_hi_out = left_hi,
+        right_lo_out = right_lo, right_hi_out = right_hi;
   if (stereo_settings().individually_normalize == 0 ) {
-    float mutual_lo = std::min(left_lo, right_lo);  // Find the outer range of both files
+    // Find the outer range of both files
+    float mutual_lo = std::min(left_lo, right_lo);
     float mutual_hi = std::max(left_hi, right_hi);
-    vw_out() << "\t--> Normalizing globally to: ["<<mutual_lo<<" "<<mutual_hi<<"]\n";
-    left_lo_out  = mutual_lo;  // Set the individual hi/lo values to the mutual values
+    vw_out() << "\t--> Normalizing globally to: ["
+             <<mutual_lo<<" "<<mutual_hi<<"]\n";
+    // Set the individual hi/lo values to the mutual values
+    left_lo_out  = mutual_lo;
     left_hi_out  = mutual_hi;
     right_lo_out = mutual_lo;
     right_hi_out = mutual_hi;
-  }
-  else
+  } else{
     vw_out() << "\t--> Individually normalizing.\n";
+  }
 
-  // Image alignment block - Generate aligned versions of the input images according to the options.
+  // Image alignment block - Generate aligned versions of the input
+  // images according to the options.
   Matrix<double> align_left_matrix  = math::identity_matrix<3>(),
                  align_right_matrix = math::identity_matrix<3>();
   if ( stereo_settings().alignment_method == "homography" ||

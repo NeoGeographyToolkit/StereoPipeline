@@ -52,10 +52,10 @@ int main( int argc, char* argv[] ) {
 
     vw_out() << "stereo_session_string,"   << opt.stereo_session_string         << endl;
     vw_out() << "stereo_default_filename," << opt.stereo_default_filename       << endl;
-    vw_out() << "left_image_crop_win,"     << opt.left_image_crop_win.min().x() << ","
-             << opt.left_image_crop_win.min().y() << ","
-             << opt.left_image_crop_win.width()   << ","
-             << opt.left_image_crop_win.height()  << endl;
+    vw_out() << "left_image_crop_win,"     << stereo_settings().left_image_crop_win.min().x() << ","
+             << stereo_settings().left_image_crop_win.min().y() << ","
+             << stereo_settings().left_image_crop_win.width()   << ","
+             << stereo_settings().left_image_crop_win.height()  << endl;
 
     // The executable may have been called with both
     // --left-image-crop-win box and -trans-crop-win box. We on

@@ -68,8 +68,8 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
   }
 
   boost::shared_ptr<DiskImageResource>
-    left_rsrc (DiskImageResource::open(m_left_image_file )),
-    right_rsrc(DiskImageResource::open(m_right_image_file));
+    left_rsrc (DiskImageResource::open(left_input_file )),
+    right_rsrc(DiskImageResource::open(right_input_file));
 
   float left_nodata_value, right_nodata_value;
   get_nodata_values(left_rsrc, right_rsrc, left_nodata_value, right_nodata_value);

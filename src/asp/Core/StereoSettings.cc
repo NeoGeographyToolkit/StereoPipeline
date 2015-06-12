@@ -65,7 +65,9 @@ namespace asp {
 
     (*this).add_options()
       ("alignment-method",         po::value(&global.alignment_method)->default_value("affineepipolar"),
-                                   "Rough alignment for input images. [AffineEpipolar, Homography, Epipolar, None]")
+       "Rough alignment for input images. [AffineEpipolar, Homography, Epipolar, None]")
+      ("left-image-crop-win", po::value(&global.left_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"), "Do stereo in a subregion of the left image [default: use the entire image].")
+      ("right-image-crop-win", po::value(&global.right_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"), "Do stereo in a subregion of the right image if specified together with left-image-crop-win [default: use the entire image].")
       ("force-use-entire-range",   po::bool_switch(&global.force_use_entire_range)->default_value(false)->implicit_value(true),
                                    "Normalize images based on the global min and max values from both images. Don't use this option if you are using normalized cross correlation.")
       ("individually-normalize",   po::bool_switch(&global.individually_normalize)->default_value(false)->implicit_value(true),

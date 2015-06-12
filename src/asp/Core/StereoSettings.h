@@ -33,17 +33,15 @@ namespace asp {
   /// 'Global Scoped' Variables
   struct Options : asp::BaseOptions {
     // Input
-    std::string in_file1,  in_file2, 
+    std::string in_file1,  in_file2,
                 cam_file1, cam_file2,
-                input_dem, 
+                input_dem,
                 extra_argument1, extra_argument2, extra_argument3;
 
     // Settings
-    std::string stereo_session_string, 
+    std::string stereo_session_string,
                 stereo_default_filename;
     boost::shared_ptr<asp::StereoSession> session; // Used to extract cameras
-    // Note: Below we use BBox2 rather than BBox2i to not choke on float inputs.
-    vw::BBox2 left_image_crop_win;                 // For stereo in a region
     // Output
     std::string out_prefix;
   };
@@ -76,6 +74,12 @@ namespace asp {
 
     // Preprocessing options
     std::string alignment_method;           // Valid options are: [Homography, Epipolar, None]
+
+    // Note: Below we use BBox2 rather than BBox2i to not choke on float inputs.
+    // Do stereo in given regions only.
+    vw::BBox2 left_image_crop_win;
+    vw::BBox2 right_image_crop_win;
+
     bool   force_use_entire_range;          // Use entire dynamic range of image
     bool   individually_normalize;          // If > 1, normalize the images
                                             //         individually with their
@@ -87,7 +91,7 @@ namespace asp {
                                             // are treated as no-data
     bool   skip_image_normalization;        // Skip the step of normalizing the values of input images and removing nodata-pixels. Create instead symbolic links to original images.
     bool   part_of_multiview_run;           // If the current run is part of a larger multiview run
-    
+
     // Correlation Options
     float slogW;                      // Preprocessing filter width
     vw::uint16 pre_filter_mode;       // 0 = None

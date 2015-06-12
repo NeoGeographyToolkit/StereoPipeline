@@ -72,9 +72,4 @@ namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
-
-
-
-
-
 #endif  // ASP_HAVE_PKG_ISISIO
