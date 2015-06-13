@@ -37,11 +37,12 @@ using namespace vw::camera;
 //TODO: There is a lot of duplicate code here with the Pinhole
 //class. Common functionality must be factored out.
 
-void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_image_size,
-                                                            std::string const& left_input_file,
-                                                            std::string const& right_input_file,
-                                                            std::string      & left_output_file,
-                                                            std::string      & right_output_file) {
+void asp::StereoSessionNadirPinhole::pre_preprocessing_hook
+(bool adjust_left_image_size,
+ std::string const& left_input_file,
+ std::string const& right_input_file,
+ std::string      & left_output_file,
+ std::string      & right_output_file) {
 
   left_output_file  = m_out_prefix + "-L.tif";
   right_output_file = m_out_prefix + "-R.tif";

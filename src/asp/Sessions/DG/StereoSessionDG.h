@@ -67,59 +67,94 @@ namespace asp {
   typedef StereoSessionGdal<DISKTRANSFORM_TYPE_MATRIX, STEREOMODEL_TYPE_DG> StereoSessionDG;
 
 
-//====================================================================================================
 // Function definitions
 
-
-
-
   template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
-            STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
+  STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
   inline void StereoSessionGdal<DISKTRANSFORM_TYPE, STEREOMODEL_TYPE>::
-    pre_preprocessing_hook(bool adjust_left_image_size,
-                           std::string const& left_input_file,
-                           std::string const& right_input_file,
-                           std::string &left_output_file,
-                           std::string &right_output_file) {
+  pre_preprocessing_hook(bool adjust_left_image_size,
+                         std::string const& left_input_file,
+                         std::string const& right_input_file,
+                         std::string &left_output_file,
+                         std::string &right_output_file) {
 
-    //vw_out() << "DEBUG - Loading GDAL preprocessing image file: " << left_input_file << std::endl;
-
-    // Get input image handles
-    boost::shared_ptr<DiskImageResource>
-      left_rsrc (DiskImageResource::open(left_input_file)),
-      right_rsrc(DiskImageResource::open(right_input_file));
-
-    // Retrieve nodata values
-    float left_nodata_value, right_nodata_value;
-    this->get_nodata_values(left_rsrc, right_rsrc, left_nodata_value, right_nodata_value);
-
-    // Load the unmodified images
-    DiskImageView<float> left_disk_image(left_rsrc), right_disk_image(right_rsrc);
-
-    // Filenames of normalized images
+    // Set output file paths
     left_output_file  = this->m_out_prefix + "-L.tif";
     right_output_file = this->m_out_prefix + "-R.tif";
 
-    // Check if the output files already exist
-    bool rebuild = false;
-    try {
-      vw_log().console_log().rule_set().add_rule(-1, "fileio");
-      DiskImageView<float> test_left (left_output_file );
-      DiskImageView<float> test_right(right_output_file);
-      vw_settings().reload_config();
-    } catch (vw::IOErr const& e) {
-      vw_settings().reload_config();
-      rebuild = true;
-    } catch (vw::ArgumentErr const& e ) {
-      // Throws on a corrupted file.
-      vw_settings().reload_config();
-      rebuild = true;
+    bool crop_left_and_right =
+      ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
+      ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
+
+    // If the output files already exist, and we don't crop both left
+    // and right images, then there is nothing to do here.
+    if ( boost::filesystem::exists(left_output_file)  &&
+         boost::filesystem::exists(right_output_file) &&
+         (!crop_left_and_right)) {
+      try {
+        vw_log().console_log().rule_set().add_rule(-1,"fileio");
+        DiskImageView<PixelGray<float32> > out_left (left_output_file );
+        DiskImageView<PixelGray<float32> > out_right(right_output_file);
+        vw_out(InfoMessage) << "\t--> Using cached normalized input images.\n";
+        vw_settings().reload_config();
+        return;
+      } catch (vw::ArgumentErr const& e) {
+        // This throws on a corrupted file.
+        vw_settings().reload_config();
+      } catch (vw::IOErr const& e) {
+        vw_settings().reload_config();
+      }
+    } // End check for existing output files
+
+    // Retrieve nodata values
+    float left_nodata_value, right_nodata_value;
+    {
+      // For this to work the ISIS type must be registered with the
+      // DiskImageResource class.  - This happens in "stereo.cc", so
+      // these calls will create DiskImageResourceIsis objects.
+      boost::shared_ptr<DiskImageResource>
+        left_rsrc (DiskImageResource::open(left_input_file )),
+        right_rsrc(DiskImageResource::open(right_input_file));
+      this->get_nodata_values(left_rsrc, right_rsrc,
+                              left_nodata_value, right_nodata_value);
     }
 
-    if (!rebuild) { // The output files already exist so we are finished!
-      vw_out() << "\t--> Using cached L and R files.\n";
-      return;
+    // Enforce no predictor in compression, it works badly with L.tif and R.tif.
+    asp::BaseOptions options = this->m_options;
+    options.gdal_options["PREDICTOR"] = "1";
+
+    std::string left_cropped_file = left_input_file,
+      right_cropped_file = right_input_file;
+
+    // See if to crop the images
+    if (crop_left_and_right) {
+      // Crop the images, will use them from now on
+      left_cropped_file  = this->m_out_prefix + "-L-cropped.tif";
+      right_cropped_file = this->m_out_prefix + "-R-cropped.tif";
+
+      DiskImageView<float> left_orig_image(left_input_file);
+      stereo_settings().left_image_crop_win.crop(bounding_box(left_orig_image));
+      vw_out() << "\t--> Writing cropped image: " << left_cropped_file << "\n";
+      block_write_gdal_image(left_cropped_file,
+                             crop(left_orig_image,
+                                  stereo_settings().left_image_crop_win),
+                             left_nodata_value, options,
+                             TerminalProgressCallback("asp", "\t:  "));
+
+      DiskImageView<float> right_orig_image(right_input_file);
+      stereo_settings().right_image_crop_win.crop(bounding_box(right_orig_image));
+      vw_out() << "\t--> Writing cropped image: " << right_cropped_file << "\n";
+      block_write_gdal_image(right_cropped_file,
+                             crop(right_orig_image,
+                                  stereo_settings().right_image_crop_win),
+                             right_nodata_value, options,
+                             TerminalProgressCallback("asp", "\t:  "));
     }
+
+
+    // Load the cropped images
+    DiskImageView<float> left_disk_image(left_cropped_file),
+      right_disk_image(right_cropped_file);
 
     // Set up image masks
     ImageViewRef< PixelMask<float> > left_masked_image  = create_mask_less_or_equal(left_disk_image,  left_nodata_value);
@@ -137,13 +172,13 @@ namespace asp {
     if ( stereo_settings().alignment_method == "homography" ||
          stereo_settings().alignment_method == "affineepipolar" ) {
       // Define the file name containing IP match information.
-      std::string match_filename = ip::match_filename(this->m_out_prefix, left_input_file, right_input_file);
+      std::string match_filename = ip::match_filename(this->m_out_prefix, left_cropped_file, right_cropped_file);
 
       // Detect matching interest points between the left and right input images.
       // - The output is written directly to file!
       boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
       this->camera_models(left_cam, right_cam); // Fetch the camera models.
-      this->ip_matching(left_input_file,   right_input_file,
+      this->ip_matching(left_cropped_file,   right_cropped_file,
                         left_nodata_value, right_nodata_value, match_filename,
                         left_cam.get(),    right_cam.get()
                        );
@@ -155,8 +190,8 @@ namespace asp {
       // Initialize alignment matrices and get the input image sizes.
       Matrix<double> align_left_matrix  = math::identity_matrix<3>(),
                      align_right_matrix = math::identity_matrix<3>();
-      Vector2i left_size  = file_image_size(left_input_file ),
-               right_size = file_image_size(right_input_file);
+      Vector2i left_size  = file_image_size(left_cropped_file ),
+               right_size = file_image_size(right_cropped_file);
 
       // Compute the appropriate alignment matrix based on the input points
       if ( stereo_settings().alignment_method == "homography" ) {
@@ -201,10 +236,6 @@ namespace asp {
 
     // The output no-data value must be < 0 as we scale the images to [0, 1].
     float output_nodata = -32768.0;
-
-    // Enforce no predictor in compression, it works badly with L.tif and R.tif.
-    asp::BaseOptions options = this->m_options;
-    options.gdal_options["PREDICTOR"] = "1";
 
     // The left image is written out with no alignment warping.
     vw_out() << "\t--> Writing pre-aligned images.\n";

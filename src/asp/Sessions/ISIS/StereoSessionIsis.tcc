@@ -56,7 +56,6 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/math/special_functions/next.hpp> // boost::float_next
 #include <boost/shared_ptr.hpp>
-namespace fs = boost::filesystem;
 
 #include <algorithm>
 
@@ -227,7 +226,8 @@ pre_preprocessing_hook(bool adjust_left_image_size,
 
   // If the output files already exist, and we don't crop both left
   // and right images, then there is nothing to do here.
-  if ( fs::exists(left_output_file) && fs::exists(right_output_file) &&
+  if ( boost::filesystem::exists(left_output_file)  &&
+       boost::filesystem::exists(right_output_file) &&
        (!crop_left_and_right)) {
     try {
       vw_log().console_log().rule_set().add_rule(-1,"fileio");
