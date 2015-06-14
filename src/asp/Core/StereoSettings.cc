@@ -199,11 +199,11 @@ namespace asp {
     StereoSettings& global = stereo_settings();
     (*this).add_options()
       ("universe-center",                   po::value(&global.universe_center)->default_value("None"),
-                                            "Center for radius measurement thresholding. [Camera, Zero, None]")
+                                            "Center from which to measure the universe radius for the purpose of removing outliers. [Camera, Zero (planet center), None]")
       ("near-universe-radius",              po::value(&global.near_universe_radius)->default_value(0.0),
-                                            "Radius of inner boundary of universe in meters.")
+                                            "Radius of inner boundary of universe in meters (remove points with radius smaller than that).")
       ("far-universe-radius",               po::value(&global.far_universe_radius)->default_value(0.0),
-                                            "Radius of outer boundary of universe in meters.")
+                                            "Radius of outer boundary of universe in meters (remove points with radius larger than that).")
       ("max-valid-triangulation-error",     po::value(&global.max_valid_triangulation_error),
                                             "Points with triangulation error larger than this are removed from the cloud.")
       ("use-least-squares",                 po::bool_switch(&global.use_least_squares)->default_value(false)->implicit_value(true),

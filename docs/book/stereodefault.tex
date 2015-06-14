@@ -377,12 +377,10 @@ functionality.
 \item[near-universe-radius \textnormal{\small{(= \emph{float})}} (default = 0.0)]
 \item[far-universe-radius \textnormal{\small{(= \emph{float})}} (default = 0.0)] \hfill \\
 
-These parameters can be used to filter out triangulated points in
-the 3D point cloud. The points that will be kept are those
-whose distance from the universe center (see below) is between
-\texttt{near-universe-radius} and \texttt{far-universe-radius}, in meters.
-
-\item[bundle-adjust-prefix \textnormal{\small{(= \emph{string})}}] \hfill \\ Use the camera adjustments obtained by previously running bundle\_adjust with this output prefix.
+These parameters can be used to remove outliers from the 3D triangulated
+point cloud. The points that will be kept are those whose distance from
+the universe center (see below) is between \texttt{near-universe-radius}
+and \texttt{far-universe-radius}, in meters.
 
 \item[universe-center \textnormal (default = none)] \hfill \\
 Defines the reference location to use when filtering the output point cloud
@@ -394,6 +392,8 @@ are:
     \item[Camera] - Use the left camera's center as the universe center.
     \item[Zero]   - Use the center of the planet as the universe center.
   \end{description}
+
+\item[bundle-adjust-prefix \textnormal{\small{(= \emph{string})}}] \hfill \\ Use the camera adjustments obtained by previously running bundle\_adjust with this output prefix.
 
 \item[point-cloud-rounding-error \textnormal{\small{(= \emph{double})}}] \hfill \\
 
