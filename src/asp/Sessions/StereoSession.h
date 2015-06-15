@@ -139,6 +139,13 @@ namespace asp {
     /// Simple typedef of a factory function that creates a StereoSession instance
     typedef StereoSession* (*construct_func)();
 
+    // The next set of functions describe characteristics of the derived session class.
+    virtual bool uses_map_projected_inputs() const {return false;}
+    virtual bool requires_input_dem      () const {return false;}
+    virtual bool supports_image_alignment() const {return true; }
+
+
+
     /// Helper function that retrieves both cameras.
     virtual void camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
                                boost::shared_ptr<vw::camera::CameraModel> &cam2);

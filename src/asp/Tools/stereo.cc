@@ -490,6 +490,8 @@ namespace asp {
                                                         opt.in_file1,   opt.in_file2,
                                                         opt.cam_file1,  opt.cam_file2,
                                                         opt.out_prefix, opt.input_dem));
+    // Run a set of checks to make sure the settings are compatible
+    // - Since we already created the session, any errors are fatal.
     user_safety_checks(opt);
 
     // The last thing we do before we get started is to copy the
@@ -516,6 +518,8 @@ namespace asp {
   void user_safety_checks(Options const& opt){
 
     // Error checking
+    
+    const bool dem_provided = !opt.input_dem.empty();
 
     // Sanity check for max_valid_triangulation_error
     if (stereo_settings().max_valid_triangulation_error <= 0){
@@ -544,8 +548,7 @@ namespace asp {
     if (stereo_settings().seed_mode == 2 &&
         stereo_settings().disparity_estimation_dem_error <= 0.0){
       vw_throw( ArgumentErr()
-                << "For seed-mode 2, the value of disparity-estimation-dem-error"
-                << " must be positive." );
+                << "For seed-mode 2, the value of disparity-estimation-dem-error must be positive." );
     }
 
     // D_sub from DEM needs a DEM
@@ -556,7 +559,7 @@ namespace asp {
     }
 
     // D_sub from DEM does not work with map-projected images
-    if (!opt.input_dem.empty() && stereo_settings().seed_mode == 2)
+    if (dem_provided && stereo_settings().seed_mode == 2)
       vw_throw( NoImplErr() << "Computation of low-resolution disparity from "
                 << "DEM is not implemented for map-projected images.\n");
 
@@ -564,13 +567,13 @@ namespace asp {
     GeoReference georef1, georef2;
     bool has_georef1 = read_georeference(georef1, opt.in_file1);
     bool has_georef2 = read_georeference(georef2, opt.in_file2);
-    if (!opt.input_dem.empty() && (!has_georef1 || !has_georef2)){
+    if (dem_provided && (!has_georef1 || !has_georef2)){
       vw_throw( ArgumentErr() << "The images are not map-projected, "
                 << "cannot use the provided DEM: " << opt.input_dem << "\n");
     }
 
     // If the images are map-projected, they need to use the same projection.
-    if (!opt.input_dem.empty() &&
+    if (dem_provided &&
         georef1.overall_proj4_str() != georef2.overall_proj4_str()){
       vw_throw( ArgumentErr() << "The left and right images "
                 << "must use the same projection.\n");
@@ -579,7 +582,7 @@ namespace asp {
     //TODO: Clean up these conditional using some kind of enum system
 
     // If images are map-projected, need an input DEM
-    if (has_georef1 && has_georef2 && opt.input_dem.empty()) {
+    if (has_georef1 && has_georef2 && !dem_provided) {
       vw_out(WarningMessage) << "It appears that the input images are "
                              << "map-projected. In that case a DEM needs to be "
                              << "provided for stereo to give correct results.\n";
@@ -587,17 +590,16 @@ namespace asp {
 
     // TODO: Clean this up using session function calls!
 
-    // We did not implement stereo using map-projected images with dem
-    // on anything except "dg", "dgmaprpc", and "rpcmaprpc" sessions.
-    if (!opt.input_dem.empty() && opt.session->name() != "dg" && opt.session->name() != "isis" && opt.session->name() != "pinhole"
-        && opt.session->name() != "dgmaprpc" && opt.session->name() != "rpcmaprpc"
+    // Check that if the user provided a dem that we are using a map projection method
+    if (dem_provided && 
+        && opt.session->name() != "dgmaprpc"    && opt.session->name() != "rpcmaprpc"
         && opt.session->name() != "isismapisis" && opt.session->name() != "pinholemappinhole") {
       vw_throw(ArgumentErr() << "Cannot use map-projected images with a session of type: "
                              << opt.session->name() << ".\n");
     }
 
     // No alignment must be set for map-projected images.
-    if (stereo_settings().alignment_method != "none" && !opt.input_dem.empty()) {
+    if (stereo_settings().alignment_method != "none" && dem_provided) {
       stereo_settings().alignment_method = "none";
       vw_out(WarningMessage) << "Changing the alignment method to 'none' "
                              << "as the images are map-projected." << endl;

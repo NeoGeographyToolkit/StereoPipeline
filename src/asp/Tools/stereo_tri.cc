@@ -341,7 +341,7 @@ namespace asp{
 
 }
 
-// TODO: Why does this need to be a template function?  There is a Session base class for a reason.
+
 
 /// Main triangulation function
 template <class SessionT>

@@ -52,7 +52,7 @@ namespace fs = boost::filesystem;
 #include <ctime>
 #endif
 
-// The stereo pipeline has several stages, which are enumerated below.
+/// The stereo pipeline has several stages, which are enumerated below.
 enum { PREPROCESSING = 0,
        CORRELATION,
        REFINEMENT,
@@ -64,10 +64,10 @@ enum { PREPROCESSING = 0,
 // Allows FileIO to correctly read/write these pixel types
 namespace asp {
 
-  // Transform the crop window to be in reference to L.tif
+  /// Transform the crop window to be in reference to L.tif
   vw::BBox2i transformed_crop_win(Options const& opt);
 
-  // Parse the command line options for multi-view stereo
+  /// Parse the command line options for multi-view stereo
   void parse_multiview(int argc, char* argv[],
                        boost::program_options::options_description const&
                        additional_options,
@@ -75,7 +75,7 @@ namespace asp {
                        std::string & output_prefix,
                        std::vector<Options> & opt_vec);
 
-  // Parse input command line arguments
+  /// Parse input command line arguments
   void handle_arguments( int argc, char *argv[], Options& opt,
                          boost::program_options::options_description const&
                          additional_options,
@@ -83,13 +83,14 @@ namespace asp {
                          std::vector<std::string> & unregistered,
                          std::string & usage);
 
-  // Register Session types
+  /// Register Session types
   void stereo_register_sessions();
 
-  // Checks for obvious user mistakes
+  /// Checks for obvious user mistakes
+  /// - Throws if any incompatible settings are found.
   void user_safety_checks(Options const& opt);
 
-  // Approximate search range by looking at interest point match file
+  /// Approximate search range by looking at interest point match file
   vw::BBox2i approximate_search_range(std::string const& out_prefix,
                                       std::string const& left_sub_file,
                                       std::string const& right_sub_file,
