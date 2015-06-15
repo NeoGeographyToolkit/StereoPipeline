@@ -47,36 +47,78 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook
   left_output_file  = m_out_prefix + "-L.tif";
   right_output_file = m_out_prefix + "-R.tif";
 
-  // If these files already exist, don't bother writting them again.
-  bool rebuild = false;
-  try {
-    vw_log().console_log().rule_set().add_rule(-1,"fileio");
-    DiskImageView<float> test_left(left_output_file);
-    DiskImageView<float> test_right(right_output_file);
-    vw_settings().reload_config();
-  } catch (vw::IOErr const& e) {
-    vw_settings().reload_config();
-    rebuild = true;
-  } catch (vw::ArgumentErr const& e ) {
-    // Throws on a corrupted file.
-    vw_settings().reload_config();
-    rebuild = true;
-  }
+  bool crop_left_and_right =
+    ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
+    ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
 
-  if (!rebuild) {
-    vw_out() << "\t--> Using cached L and R files.\n";
-    return;
-  }
+  // If the output files already exist, and we don't crop both left
+  // and right images, then there is nothing to do here.
+  if ( boost::filesystem::exists(left_output_file)  &&
+       boost::filesystem::exists(right_output_file) &&
+       (!crop_left_and_right)) {
+    try {
+      vw_log().console_log().rule_set().add_rule(-1,"fileio");
+      DiskImageView<PixelGray<float32> > out_left (left_output_file );
+      DiskImageView<PixelGray<float32> > out_right(right_output_file);
+      vw_out(InfoMessage) << "\t--> Using cached normalized input images.\n";
+      vw_settings().reload_config();
+      return;
+    } catch (vw::ArgumentErr const& e) {
+      // This throws on a corrupted file.
+      vw_settings().reload_config();
+    } catch (vw::IOErr const& e) {
+      vw_settings().reload_config();
+    }
+  } // End check for existing output files
 
-  boost::shared_ptr<DiskImageResource>
-    left_rsrc (DiskImageResource::open(left_input_file )),
-    right_rsrc(DiskImageResource::open(right_input_file));
-
+  // Retrieve nodata values
   float left_nodata_value, right_nodata_value;
-  get_nodata_values(left_rsrc, right_rsrc, left_nodata_value, right_nodata_value);
+  {
+    // For this to work the ISIS type must be registered with the
+    // DiskImageResource class.  - This happens in "stereo.cc", so
+    // these calls will create DiskImageResourceIsis objects.
+    boost::shared_ptr<DiskImageResource>
+      left_rsrc (DiskImageResource::open(left_input_file )),
+      right_rsrc(DiskImageResource::open(right_input_file));
+    this->get_nodata_values(left_rsrc, right_rsrc,
+                            left_nodata_value, right_nodata_value);
+  }
 
-  // Load the unmodified images
-  DiskImageView<float> left_disk_image( left_rsrc ), right_disk_image( right_rsrc );
+  // Enforce no predictor in compression, it works badly with L.tif and R.tif.
+  asp::BaseOptions options = m_options;
+  options.gdal_options["PREDICTOR"] = "1";
+
+  std::string left_cropped_file = left_input_file,
+    right_cropped_file = right_input_file;
+
+  // See if to crop the images
+  if (crop_left_and_right) {
+    // Crop the images, will use them from now on
+    left_cropped_file  = this->m_out_prefix + "-L-cropped.tif";
+    right_cropped_file = this->m_out_prefix + "-R-cropped.tif";
+
+    DiskImageView<float> left_orig_image(left_input_file);
+    stereo_settings().left_image_crop_win.crop(bounding_box(left_orig_image));
+    vw_out() << "\t--> Writing cropped image: " << left_cropped_file << "\n";
+    block_write_gdal_image(left_cropped_file,
+                           crop(left_orig_image,
+                                stereo_settings().left_image_crop_win),
+                           left_nodata_value, options,
+                           TerminalProgressCallback("asp", "\t:  "));
+
+    DiskImageView<float> right_orig_image(right_input_file);
+    stereo_settings().right_image_crop_win.crop(bounding_box(right_orig_image));
+    vw_out() << "\t--> Writing cropped image: " << right_cropped_file << "\n";
+    block_write_gdal_image(right_cropped_file,
+                           crop(right_orig_image,
+                                stereo_settings().right_image_crop_win),
+                           right_nodata_value, options,
+                           TerminalProgressCallback("asp", "\t:  "));
+  }
+
+  // Load the cropped images
+  DiskImageView<float> left_disk_image(left_cropped_file),
+    right_disk_image(right_cropped_file);
 
   ImageViewRef< PixelMask<float> > left_masked_image  = create_mask_less_or_equal(left_disk_image,  left_nodata_value);
   ImageViewRef< PixelMask<float> > right_masked_image = create_mask_less_or_equal(right_disk_image, right_nodata_value);
@@ -92,10 +134,11 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook
     vw_out() << "\t--> Performing epipolar alignment\n";
 
     // Load the two images and fetch the two camera models
-    boost::shared_ptr<camera::CameraModel> left_camera  = this->camera_model(left_input_file,  m_left_camera_file );
-    boost::shared_ptr<camera::CameraModel> right_camera = this->camera_model(right_input_file, m_right_camera_file);
-    CAHVModel* left_epipolar_cahv  = dynamic_cast<CAHVModel*>(vw::camera::unadjusted_model(&(*left_camera)));
-    CAHVModel* right_epipolar_cahv = dynamic_cast<CAHVModel*>(vw::camera::unadjusted_model(&(*right_camera)));
+    boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
+    camera_models( left_cam, right_cam );
+
+    CAHVModel* left_epipolar_cahv  = dynamic_cast<CAHVModel*>(vw::camera::unadjusted_model(&(*left_cam)));
+    CAHVModel* right_epipolar_cahv = dynamic_cast<CAHVModel*>(vw::camera::unadjusted_model(&(*right_cam)));
 
     // Remove lens distortion and create epipolar rectified images.
     if (boost::ends_with(lcase_file, ".cahvore")) {
@@ -132,14 +175,15 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook
               stereo_settings().alignment_method == "affineepipolar" ) {
     // Getting left image size. Later alignment options can choose to
     // change this parameters. (Affine Epipolar).
-    Vector2i left_size  = file_image_size(left_input_file ),
-             right_size = file_image_size(right_input_file);
+    Vector2i left_size  = file_image_size(left_cropped_file ),
+             right_size = file_image_size(right_cropped_file);
 
-    std::string match_filename = ip::match_filename(m_out_prefix, left_input_file, right_input_file);
+    std::string match_filename
+      = ip::match_filename(m_out_prefix, left_cropped_file, right_cropped_file);
 
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
     camera_models( left_cam, right_cam );
-    ip_matching(left_input_file,   right_input_file,
+    ip_matching(left_cropped_file,   right_cropped_file,
                 left_nodata_value, right_nodata_value, match_filename,
                 left_cam.get(), right_cam.get()
                 );
@@ -192,10 +236,6 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook
 
   // The output no-data value must be < 0 as we scale the images to [0, 1].
   float output_nodata = -32768.0;
-
-  // Enforce no predictor in compression, it works badly with L.tif and R.tif.
-  asp::BaseOptions options = m_options;
-  options.gdal_options["PREDICTOR"] = "1";
 
   vw_out() << "\t--> Writing pre-aligned images.\n";
   block_write_gdal_image( left_output_file, apply_mask(Limg, output_nodata),
