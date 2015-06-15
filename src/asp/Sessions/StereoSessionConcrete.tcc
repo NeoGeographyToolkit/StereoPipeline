@@ -144,8 +144,8 @@ void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
        init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE>) {
 
   // Verify that we can read the camera models
-  m_left_map_proj_model  = m_camera_loader.load_pinhole_camera_model(m_left_camera_file );
-  m_right_map_proj_model = m_camera_loader.load_pinhole_camera_model(m_right_camera_file);
+  m_left_map_proj_model  = load_camera_model(Int2Type<STEREOMODEL_TYPE_PINHOLE>(), m_left_image_file,  m_left_camera_file );
+  m_right_map_proj_model = load_camera_model(Int2Type<STEREOMODEL_TYPE_PINHOLE>(), m_right_image_file, m_right_camera_file);
 
   VW_ASSERT( m_left_map_proj_model.get() && m_right_map_proj_model.get(),
              ArgumentErr() << "StereoSessionConcrete: Unable to locate Pinhole model inside input files." );
@@ -186,10 +186,6 @@ getTransformFromMapProject(const std::string &input_dem_path,
                                    Vector2(img.cols(), img.rows()),
                                    call_from_mapproject);
 }
-
-
-
-
 
 // Redirect to the correct function depending on the template parameters
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
@@ -399,10 +395,7 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
 
 }
 
-
-
-
-//----------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Code for handling disk-to-sensor transform
 
 
