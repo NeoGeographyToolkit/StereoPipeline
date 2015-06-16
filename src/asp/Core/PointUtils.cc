@@ -283,7 +283,8 @@ bool asp::georef_from_las(std::vector<std::string> const& files,
 
   for (int i = 0; i < (int)files.size(); i++){
     GeoReference local_georef;
-    if (!is_las(files[i])) continue;
+    if (!is_las(files[i])) 
+      continue;
     if (asp::georef_from_las(files[i], local_georef)){
       georef = local_georef;
       return true;
