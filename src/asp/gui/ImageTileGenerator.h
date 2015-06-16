@@ -16,10 +16,10 @@
 // __END_LICENSE__
 
 
-#ifndef __VW_GUI_IMAGETILEGENERATOR_H__
-#define __VW_GUI_IMAGETILEGENERATOR_H__
+#ifndef __STEREO_GUI_IMAGETILEGENERATOR_H__
+#define __STEREO_GUI_IMAGETILEGENERATOR_H__
 
-#include <vw/gui/TileGenerator.h>
+#include <asp/gui/TileGenerator.h>
 
 namespace vw {
 namespace gui {
@@ -46,5 +46,5 @@ namespace gui {
 
 }} // namespace vw::gui
 
-#endif // __VW_GUI_IMAGETILEGENERATOR_H__
+#endif // __STEREO_GUI_IMAGETILEGENERATOR_H__
 

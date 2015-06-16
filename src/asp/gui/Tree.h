@@ -16,8 +16,8 @@
 // __END_LICENSE__
 
 
-#ifndef __VW_GUI_TREE_H__
-#define __VW_GUI_TREE_H__
+#ifndef __STEREO_GUI_TREE_H__
+#define __STEREO_GUI_TREE_H__
 
 #include <vw/Core/Log.h>
 #include <vw/Core/Exception.h>

@@ -16,8 +16,8 @@
 // __END_LICENSE__
 
 
-#ifndef __VW_GUI_TILEGENERATOR_H__
-#define __VW_GUI_TILEGENERATOR_H__
+#ifndef __STEREO_GUI_TILEGENERATOR_H__
+#define __STEREO_GUI_TILEGENERATOR_H__
 
 #include <vw/Image/PixelTypeInfo.h>
 #include <vw/Image/ImageView.h>
@@ -100,4 +100,3 @@ namespace gui {
 }} // namespace vw::gui
 
 #endif
-

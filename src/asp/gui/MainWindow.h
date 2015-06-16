@@ -46,12 +46,13 @@ namespace gui {
 
   public:
     MainWindow(std::vector<std::string> const& images, std::string const& geom,
-               bool ignore_georef, bool hillshade);
+               bool ignore_georef, bool hillshade, int argc, char ** argv);
     virtual ~MainWindow() {}
 
   private slots:
     void forceQuit(); // Ensure the program shuts down.
     void size_to_fit();
+    void run_stereo();
     void about();
 
   protected:
@@ -78,7 +79,11 @@ namespace gui {
 
     QAction *m_about_action;
     QAction *m_size_to_fit_action;
+    QAction *m_run_stereo_action;
     QAction *m_exit_action;
+
+    int m_argc;
+    char ** m_argv;
   };
 
 }} // namespace vw::gui

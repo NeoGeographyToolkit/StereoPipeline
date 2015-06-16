@@ -20,8 +20,8 @@
 ///
 /// The Vision Workbench image viewer.
 ///
-#ifndef __VW_GUI__MAIN_WIDGET_H__
-#define __VW_GUI_MAIN_WIDGET_H__
+#ifndef __STEREO_GUI__MAIN_WIDGET_H__
+#define __STEREO_GUI_MAIN_WIDGET_H__
 
 // Qt
 #include <QWidget>
@@ -123,6 +123,8 @@ namespace gui {
                bool hillshade);
     virtual ~MainWidget();
 
+    QRect get_crop_win();
+
     // Set a default size for this widget.  This is usually overridden
     // by parent views.
     virtual QSize sizeHint () const { return QSize(500,500); }
@@ -132,6 +134,7 @@ namespace gui {
 
   public slots:
     void size_to_fit();
+
     void showFilesChosenByUser();
 
     void set_nodata_value(double nodata_value) {
@@ -161,12 +164,14 @@ namespace gui {
     void drawImage(QPainter* paint);
     vw::Vector2 world2pixel(vw::Vector2 const& p);
     vw::Vector2 pixel2world(vw::Vector2 const& pix);
+    QRect pixel2world(QRect const& R);
+    QRect world2pixel(QRect const& R);
     vw::BBox2 expand_box_to_keep_aspect_ratio(BBox2 const& box);
     void updateCurrentMousePosition();
 
-    bool m_firstPaintEvent;
-    QRect   m_emptyRubberBand;
-    QRect   m_rubberBand;
+    bool  m_firstPaintEvent;
+    QRect m_emptyRubberBand;
+    QRect m_rubberBand, m_stereoCropWin;
 
     // Use double buffering: draw to a pixmap first, refresh it only
     // if really necessary, and display it when paintEvent is called.
@@ -188,7 +193,7 @@ namespace gui {
 
     // Mouse position
     vw::Vector2 m_curr_pixel_pos, m_curr_world_pos;
-    QPoint m_last_viewport_min, m_mouse_press_pos;
+    QPoint m_last_viewport_min;
 
     // Dimensions and stats
     int m_window_width;  // the width  of the plotting window in screen pixels
@@ -221,4 +226,4 @@ namespace gui {
 
 }} // namespace vw::gui
 
-#endif  // __VW_GUI_MAIN_WIDGET_H__
+#endif  // __STEREO_GUI_MAIN_WIDGET_H__

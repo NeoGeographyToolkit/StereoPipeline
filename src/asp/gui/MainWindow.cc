@@ -21,9 +21,9 @@
 /// The Vision Workbench image viewer main window class.
 ///
 #include <QtGui>
-#include <vw/gui/MainWindow.h>
-#include <vw/gui/MainWidget.h>
-#include <vw/gui/Utils.h>
+#include <asp/gui/MainWindow.h>
+#include <asp/gui/MainWidget.h>
+#include <asp/gui/Utils.h>
 using namespace vw::gui;
 
 #include <vw/config.h>
@@ -38,16 +38,16 @@ namespace po = boost::program_options;
 
 MainWindow::MainWindow(std::vector<std::string> const& images,
                        std::string const& geom,
-                       bool ignore_georef, bool hillshade) :
+                       bool ignore_georef, bool hillshade, int argc,  char ** argv) :
   m_images(images), m_widRatio(0.3), m_main_widget(NULL),
-  m_chooseFiles(NULL) {
+  m_chooseFiles(NULL), m_argc(argc), m_argv(argv) {
 
   int windowWidX, windowWidY;
   extractWindowDims(geom, windowWidX, windowWidY);
   resize(windowWidX, windowWidY);
 
   // Set the window title and add tabs
-  std::string window_title = "Vision Workbench Viewer";
+  std::string window_title = "Stereo GUI";
   this->setWindowTitle(window_title.c_str());
 
   // Set up the basic layout of the window and its menus.
@@ -107,6 +107,12 @@ void MainWindow::create_menus() {
   m_exit_action->setStatusTip(tr("Exit the application"));
   connect(m_exit_action, SIGNAL(triggered()), this, SLOT(forceQuit()));
 
+  // Run stereo
+  m_run_stereo_action = new QAction(tr("Run stereo"), this);
+  m_run_stereo_action->setStatusTip(tr("Run stereo on selected clips."));
+  connect(m_run_stereo_action, SIGNAL(triggered()), this, SLOT(run_stereo()));
+  m_run_stereo_action->setShortcut(tr("R"));
+
   // Size to fit
   m_size_to_fit_action = new QAction(tr("Size to fit"), this);
   m_size_to_fit_action->setStatusTip(tr("Change the view to encompass the images."));
@@ -121,6 +127,10 @@ void MainWindow::create_menus() {
   // File menu
   m_file_menu = menu->addMenu(tr("&File"));
   m_file_menu->addAction(m_exit_action);
+
+  // Run menu
+  m_file_menu = menu->addMenu(tr("&Run"));
+  m_file_menu->addAction(m_run_stereo_action);
 
   // View menu
   menu->addSeparator();
@@ -151,12 +161,49 @@ void MainWindow::size_to_fit(){
     m_main_widget->size_to_fit();
 }
 
+void MainWindow::run_stereo(){
+
+  if (m_left_widget && m_right_widget) {
+    QRect left_win = m_left_widget->get_crop_win();
+    QRect right_win = m_right_widget->get_crop_win();
+
+    int left_x = left_win.x();
+    int left_y = left_win.y();
+    int left_wx = left_win.width();
+    int left_wy = left_win.height();
+
+    int right_x = right_win.x();
+    int right_y = right_win.y();
+    int right_wx = right_win.width();
+    int right_wy = right_win.height();
+
+    std::string run_cmd = "stereo ";
+    for (int i = 1; i < m_argc; i++) {
+      run_cmd += std::string(m_argv[i]) + " ";
+    }
+
+    std::ostringstream os;
+    os << "--left-image-crop-win " << left_x << " " << left_y << " "
+       << left_wx << " " << left_wy << " ";
+    os << "--right-image-crop-win " << right_x << " " << right_y << " "
+       << right_wx << " " << right_wy << " ";
+
+    run_cmd += os.str() + "&";
+
+    std::cout << "Running: " << run_cmd << std::endl;
+    system(run_cmd.c_str());
+    QMessageBox::about(this, tr("Error"), tr("Done running stereo"));
+
+  } else {
+    QMessageBox::about(this, tr("Error"), tr("Not ready to run stereo"));
+  }
+}
+
 void MainWindow::about() {
   std::ostringstream about_text;
-  about_text << "<h3>Vision Workbench Image Viewer (stereo_gui)</h3>"
-             << "<p>Version " << VW_PACKAGE_VERSION << "</p>"
-             << "<p>Copyright &copy; 2014 NASA Ames Research Center</p>";
-  QMessageBox::about(this, tr("About Vision Workbench Viewer"),
+  about_text << "<h3>stereo_gui</h3>"
+             << "<p>Copyright &copy; 2015 NASA Ames Research Center. See the manual for documentation.</p>";
+  QMessageBox::about(this, tr("About stereo_gui"),
                      tr(about_text.str().c_str()));
 
 }

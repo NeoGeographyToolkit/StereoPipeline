@@ -27,7 +27,7 @@
 #include <vw/Core/Exception.h>
 
 using namespace std;
-
+using namespace vw;
 namespace vw {
 
   void extractWindowDims(// inputs
@@ -35,19 +35,19 @@ namespace vw {
                          // outputs
                          int & windowWidX, int & windowWidY
                          ){
-  
+
     // Parse a string in the format '500x600'.
-  
+
     windowWidX = 1200; windowWidY = 800;
 
     char * str = (char*) geom.c_str();
     char * pch;
     char delimiter[] = "x";
-  
+
     pch = strtok (str, delimiter);
     if (pch == NULL) return;
     windowWidX = atoi(pch);
-  
+
     pch = strtok (NULL, delimiter);
     if (pch == NULL) return;
     windowWidY = atoi(pch);
@@ -56,7 +56,7 @@ namespace vw {
       vw_throw( ArgumentErr() << "The window dimensions must be positive. "
                 << "Error parsing: " << geom << "\n");
     }
-  
+
   }
 
 }

@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 
-#include <vw/gui/TestPatternTileGenerator.h>
+#include <asp/gui/TestPatternTileGenerator.h>
 #include <vw/Image/PixelTypes.h>
 #include <vw/Image/ViewImageResource.h>
 

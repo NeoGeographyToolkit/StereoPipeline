@@ -32,7 +32,7 @@
 #include <vw/FileIO.h>
 #include <vw/Math/EulerAngles.h>
 #include <vw/Image/Algorithms.h>
-#include <vw/gui/MainWidget.h>
+#include <asp/gui/MainWidget.h>
 using namespace vw;
 using namespace vw::gui;
 using namespace std;
@@ -142,6 +142,7 @@ void imageData::read(std::string const& image, bool ignore_georef,
 vw::Vector2 vw::gui::QPoint2Vec(QPoint const& qpt) {
   return vw::Vector2(qpt.x(), qpt.y());
 }
+
 QPoint vw::gui::Vec2QPoint(vw::Vector2 const& V) {
   return QPoint(round(V.x()), round(V.y()));
 }
@@ -239,8 +240,10 @@ MainWidget::MainWidget(QWidget *parent,
   installEventFilter(this);
 
   m_firstPaintEvent = true;
-  m_emptyRubberBand = QRect(-10, -10, 0, 0); // off-screen rubberband
+  m_emptyRubberBand = QRect(0, 0, 0, 0);
   m_rubberBand      = m_emptyRubberBand;
+  m_stereoCropWin   = m_emptyRubberBand;
+
   m_mousePrsX = 0; m_mousePrsY = 0;
   m_mouseRelX = 0; m_mouseRelY = 0;
 
@@ -355,6 +358,48 @@ void MainWidget::size_to_fit() {
   refreshPixmap();
 }
 
+vw::Vector2 MainWidget::world2pixel(vw::Vector2 const& p){
+  // Convert a position in the world coordinate system to a pixel value,
+  // relative to the image seen on screen (the origin is an image corner).
+  double x = m_window_width*((p.x() - m_current_view.min().x())
+                             /m_current_view.width());
+  double y = m_window_height*((p.y() - m_current_view.min().y())
+                              /m_current_view.height());
+  return vw::Vector2(x, y);
+}
+
+vw::Vector2 MainWidget::pixel2world(vw::Vector2 const& pix){
+  // Convert a pixel on the screen (the origin is a corner
+  // of the view window) to global world coordinates.
+  double x = m_current_view.min().x()
+    + m_current_view.width() * double(pix.x()) / m_window_width;
+  double y = m_current_view.min().y()
+    + m_current_view.height() * double(pix.y()) / m_window_height;
+  return vw::Vector2(x, y);
+}
+
+QRect MainWidget::pixel2world(QRect const& R) {
+  Vector2 A = pixel2world(Vector2(R.x(), R.y()));
+  Vector2 B = pixel2world(Vector2(R.x() + R.width(),
+                                  R.y() + R.height()));
+  return QRect(A.x(), A.y(), B.x() - A.x(), B.y() - A.y());
+}
+
+QRect MainWidget::world2pixel(QRect const& R) {
+  Vector2 A = world2pixel(Vector2(R.x(), R.y()));
+  Vector2 B = world2pixel(Vector2(R.x() + R.width(),
+                                  R.y() + R.height()));
+  return QRect(A.x(), A.y(), B.x() - A.x(), B.y() - A.y());
+}
+
+// Convert the crop window to original pixel coordinates from
+// pixel coordinates on the screen.
+// TODO: Make pixel2world() do it, to take an input a QRect (or BBox2)
+// and return as output the converted box.
+QRect MainWidget::get_crop_win() {
+  return m_stereoCropWin;
+}
+
 void MainWidget::zoom(double scale) {
 
   updateCurrentMousePosition();
@@ -362,13 +407,10 @@ void MainWidget::zoom(double scale) {
   BBox2 current_view = (m_current_view - m_curr_world_pos) / scale
     + m_curr_world_pos;
 
-  std::cout << "--curr view " << m_current_view << std::endl;
-  std::cout << "--next view " << current_view << std::endl;
-
   if (!current_view.empty()){
   // Check to make sure we haven't hit our zoom limits...
     m_current_view = current_view;
-    refreshPixmap(); // will call paintEvent()
+    refreshPixmap();
   }
 }
 
@@ -456,26 +498,6 @@ void MainWidget::drawImage(QPainter* paint) {
   return;
 }
 
-vw::Vector2 MainWidget::world2pixel(vw::Vector2 const& p){
-  // Convert a position in the world coordinate system to a pixel value,
-  // relative to the image seen on screen (the origin is an image corner).
-  double x = m_window_width*((p.x() - m_current_view.min().x())
-                             /m_current_view.width());
-  double y = m_window_height*((p.y() - m_current_view.min().y())
-                              /m_current_view.height());
-  return vw::Vector2(x, y);
-}
-
-vw::Vector2 MainWidget::pixel2world(vw::Vector2 const& pix){
-  // Convert a pixel on the screen (the origin is a corner
-  // of the view window) to global world coordinates.
-  double x = m_current_view.min().x()
-    + m_current_view.width() * double(pix.x()) / m_window_width;
-  double y = m_current_view.min().y()
-    + m_current_view.height() * double(pix.y()) / m_window_height;
-  return vw::Vector2(x, y);
-}
-
 void MainWidget::updateCurrentMousePosition() {
   m_curr_world_pos = pixel2world(m_curr_pixel_pos);
 }
@@ -508,6 +530,7 @@ void MainWidget::refreshPixmap(){
 
   drawImage(&paint);
 
+  // Invokes MainWidget::PaintEvent().
   update();
 
   return;
@@ -528,34 +551,43 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
   QStylePainter paint(this);
   paint.drawPixmap(0, 0, m_pixmap);
 
-  // Draw the rubberband
+  // Draw the rubberband. We adjust by subtracting 1 from right and
+  // bottom corner below to be consistent with updateRubberBand(), as
+  // rect.bottom() is rect.top() + rect.height()-1.
   QColor fgColor = QColor("red");
   paint.setPen(fgColor);
   paint.drawRect(m_rubberBand.normalized().adjusted(0, 0, -1, -1));
+
+  // Draw the stereo crop window
+  if (m_stereoCropWin != m_emptyRubberBand) {
+    QRect R = world2pixel(m_stereoCropWin);
+    QColor fgColor = QColor("red");
+    paint.setPen(fgColor);
+    paint.drawRect(R.normalized().adjusted(0, 0, -1, -1));
+  }
+
 }
 
-
+// Call paintEvent() on the edges of the rubberband
 void MainWidget::updateRubberBand(QRect & R){
-
   QRect rect = R.normalized();
-  update(rect.left(), rect.top(),    rect.width(), 1             );
-  update(rect.left(), rect.top(),    1,            rect.height() );
-  update(rect.left(), rect.bottom(), rect.width(), 1             );
-  update(rect.right(), rect.top(),   1,            rect.height() );
-
+  if (rect.width() > 0 || rect.height() > 0) {
+    update(rect.left(), rect.top(),    rect.width(), 1             );
+    update(rect.left(), rect.top(),    1,            rect.height() );
+    update(rect.left(), rect.bottom(), rect.width(), 1             );
+    update(rect.right(), rect.top(),   1,            rect.height() );
+  }
   return;
 }
 
 void MainWidget::mousePressEvent(QMouseEvent *event) {
 
-  m_mouse_press_pos = event->pos();
-
   // for rubberband
-  m_mousePrsX = m_mouse_press_pos.x();
-  m_mousePrsY = m_mouse_press_pos.y();
+  m_mousePrsX  = event->pos().x();
+  m_mousePrsY  = event->pos().y();
   m_rubberBand = m_emptyRubberBand;
 
-  m_curr_pixel_pos = QPoint2Vec(m_mouse_press_pos);
+  m_curr_pixel_pos = QPoint2Vec(QPoint(m_mousePrsX, m_mousePrsY));
   m_last_gain = m_gain;     // Store this so the user can do linear
   m_last_offset = m_offset; // and nonlinear steps.
   m_last_gamma = m_gamma;
@@ -612,15 +644,28 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
     QPoint Q = event->pos();
     int x = Q.x(), y = Q.y();
 
-    // Standard Qt rubberband trick. The function updateRubberBand()
-    // is highly confusing. What does it do?
-
+    // Standard Qt rubberband trick. This is highly confusing.  The
+    // explanation for what is going on is the following.  We need to
+    // wipe the old rubberband, and draw a new one.  Hence just the
+    // perimeters of these two rectangles need to be re-painted,
+    // nothing else changes. The first updateRubberBand() call below
+    // schedules that the perimeter of the current rubberband be
+    // repainted, but the actual repainting, and this is the key, WILL
+    // HAPPEN LATER! Then we change m_rubberBand to the new value,
+    // then we schedule the repaint event on the new rubberband.
+    // Continued below.
     updateRubberBand(m_rubberBand);
-
     m_rubberBand = QRect( min(m_mousePrsX, x), min(m_mousePrsY, y),
                           abs(x - m_mousePrsX), abs(y - m_mousePrsY) );
-
     updateRubberBand(m_rubberBand);
+    // Only now, a single call to MainWidget::PaintEvent() happens,
+    // even though it appears from above that two calls could happen
+    // since we requested two updates. This call updates the perimeter
+    // of the old rubberband, in effect wiping it, since the region
+    // occupied by the old rubberband is scheduled to be repainted,
+    // but the rubberband itself is already changed.  It also updates
+    // the perimeter of the new rubberband, and as can be seen in
+    // MainWidget::PaintEvent() the effect is to draw the rubberband.
   }
 
   updateCurrentMousePosition();
@@ -633,8 +678,8 @@ void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
   if (event->buttons() & Qt::RightButton) {
 
     int tol = 5;
-    if (std::abs(mouse_rel_pos.x() - m_mouse_press_pos.x()) < tol &&
-        std::abs(mouse_rel_pos.y() - m_mouse_press_pos.y()) < tol
+    if (std::abs(mouse_rel_pos.x() - m_mousePrsX) < tol &&
+        std::abs(mouse_rel_pos.y() - m_mousePrsY) < tol
         ){
       // If the mouse was released too close to where it was clicked,
       // do nothing.
@@ -643,20 +688,28 @@ void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
 
     // Drag the image along the mouse movement
     m_current_view -= (pixel2world(QPoint2Vec(event->pos())) -
-                       pixel2world(QPoint2Vec(m_mouse_press_pos)));
+                       pixel2world(QPoint2Vec(QPoint(m_mousePrsX, m_mousePrsY))));
 
     refreshPixmap(); // will call paintEvent()
 
+  } else if(event->modifiers() & Qt::ControlModifier){
+
+    // User selects the region to use for stereo
+    m_stereoCropWin = pixel2world(m_rubberBand);
+    std::cout << "Crop window (begx begy widx widy) is "
+              << m_stereoCropWin.x()      << ' '
+              << m_stereoCropWin.y()      << ' '
+              << m_stereoCropWin.width()  << ' '
+              << m_stereoCropWin.height() << std::endl;
+
   } else if (Qt::LeftButton) {
+
+    // Zoom
+
     // Wipe the rubberband
     updateRubberBand(m_rubberBand);
     m_rubberBand = m_emptyRubberBand;
     updateRubberBand(m_rubberBand);
-
-
-    //    m_mouse_press_pos = event->pos();
-    //
-    //m_mousePrsY = m_mouse_press_pos.y();
 
     int mouseRelX = event->pos().x();
     int mouseRelY = event->pos().y();
@@ -668,18 +721,12 @@ void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
       // The window selected with the mouse in world coordinates
       Vector2 A = pixel2world(Vector2(m_mousePrsX, m_mousePrsY));
       Vector2 B = pixel2world(Vector2(mouseRelX, mouseRelY));
-
-      std::cout << "--A is " << A << std::endl;
-      std::cout << "--B-A" << B-A << std::endl;
       BBox2 view = BBox2(A, B);
 
-      std::cout << "--current view: " << m_current_view << std::endl;
-      std::cout << "desired view: " << view << std::endl;
       // Zoom to this window
       m_current_view = expand_box_to_keep_aspect_ratio(view);
 
-      std::cout << "--next view: " << m_current_view << std::endl;
-
+      // Must redraw the entire image
       refreshPixmap();
 
     } else if (mouseRelX < m_mousePrsX && mouseRelY < m_mousePrsY) {
@@ -716,7 +763,6 @@ void MainWidget::wheelEvent(QWheelEvent *event) {
   else if (num_ticks < 0)
     scale = 1-mag;
 
-  std::cout << "--scale is " << scale << std::endl;
   zoom(scale);
 
   m_curr_pixel_pos = QPoint2Vec(event->pos());

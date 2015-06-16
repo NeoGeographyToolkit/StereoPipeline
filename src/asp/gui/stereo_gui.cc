@@ -38,7 +38,7 @@ namespace po = boost::program_options;
 #include <vw/FileIO.h>
 using namespace vw;
 
-#include <vw/gui/MainWindow.h>
+#include <asp/gui/MainWindow.h>
 
 // Allows FileIO to correctly read/write unusual pixel types
 namespace vw {
@@ -82,17 +82,17 @@ int main(int argc, char *argv[]) {
 
   po::options_description all_options;
   all_options.add(visible_options);
-  
+
   // Parse and store options
   po::variables_map vm;
   po::parsed_options parsed = po::command_line_parser( argc, argv ).options(all_options).allow_unregistered().run();
   po::store(parsed, vm );
 
   std::vector<std::string> images
-    = po::collect_unrecognized(parsed.options, 
+    = po::collect_unrecognized(parsed.options,
                                po::include_positional);
   po::notify( vm );
- 
+
   // If the command line wasn't properly formed or the user requested
   // help, we print an usage message.
   if( vm.count("help") || images.empty() ) {
@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
 
   // Start up the Qt GUI
   QApplication app(argc, argv);
-  vw::gui::MainWindow main_window(images, geom, ignore_georef, hillshade);
+  vw::gui::MainWindow main_window(images, geom, ignore_georef, hillshade, argc, argv);
   main_window.show();
   try {
     app.exec();
@@ -115,4 +115,3 @@ int main(int argc, char *argv[]) {
 
   return 0;
 }
-

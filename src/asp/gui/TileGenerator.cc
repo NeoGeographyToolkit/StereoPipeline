@@ -16,19 +16,11 @@
 // __END_LICENSE__
 
 
-#include <vw/gui/TileGenerator.h>
-#include <vw/gui/ImageTileGenerator.h>
-#include <vw/gui/TestPatternTileGenerator.h>
+#include <asp/gui/TileGenerator.h>
+#include <asp/gui/ImageTileGenerator.h>
 
 #include <vw/Core/Debugging.h>
 #include <boost/filesystem/convenience.hpp>
-
-#if HAVE_PKG_VW_PLATE
-#include <vw/Plate/HTTPUtils.h>
-#include <vw/gui/WebTileGenerator.h>
-#include <vw/gui/PlatefileTileGenerator.h>
-using namespace vw::platefile;
-#endif
 
 namespace fs = boost::filesystem;
 

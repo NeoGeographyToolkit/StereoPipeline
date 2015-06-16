@@ -413,7 +413,7 @@ AX_MODULE(SPICEIO,  [src/asp/SpiceIO],  [libaspSpiceIO.la],  yes, [], [VW BOOST_
 AX_MODULE(ISISIO,   [src/asp/IsisIO],   [libaspIsisIO.la],   yes, [], [ISIS VW_CARTOGRAPHY BOOST])
 AX_MODULE(SESSIONS, [src/asp/Sessions], [libaspSessions.la], yes, [CORE], [XERCESC], [ISISIO SPICEIO ])
 AX_MODULE(MPI,      [src/asp/MPI],      [],                  no,  [VW_BUNDLEADJUSTMENT ISISIO CORE], [BOOST_SERIALIZATION BOOST_MPI OPEN_MPI VW_ALL])
-AX_MODULE(GUI,      [src/asp/gui],      [],                  yes, [VW], [QT BOOST_PROGRAM_OPTIONS], [])
+AX_MODULE(GUI,      [src/asp/gui],      [],                  yes, [VW], [VW_ALL QT BOOST_PROGRAM_OPTIONS], [])
 
 # Tools
 AX_APP(PC_ALIGN,         [src/asp/Tools], yes, [CORE LIBPOINTMATCHER LIBNABO YAML])
@@ -440,6 +440,7 @@ AX_APP(RPC_GEN,          [src/asp/Tools], yes, [SESSIONS])
 AX_APP(TIF_MOSAIC,       [src/asp/Tools], yes, [CORE])
 AX_APP(STEREO,           [src/asp/Tools], yes, [SESSIONS])
 AX_APP(WV_CORRECT,       [src/asp/Tools], yes, [SESSIONS])
+AX_APP(STEREO_GUI,       [src/asp/gui],   yes, [GUI])
 
 # These are here (instead of inside the APP macro where they belong)
 # for backwards compatability with older versions of automake.
@@ -475,6 +476,7 @@ AM_CONDITIONAL(MAKE_APP_TIF_MOSAIC, [test "$MAKE_APP_TIF_MOSAIC" = "yes"])
 AM_CONDITIONAL(MAKE_APP_STEREO, [test "$MAKE_APP_STEREO" = "yes"])
 AM_CONDITIONAL(MAKE_APP_STEREOGUI, [test "$MAKE_APP_STEREOGUI" = "yes"])
 AM_CONDITIONAL(MAKE_APP_WV_CORRECT, [test "$MAKE_APP_WV_CORRECT" = "yes"])
+AM_CONDITIONAL(MAKE_APP_STEREO_GUI, [test "$MAKE_APP_STEREO_GUI" = "yes"])
 
 ##################################################
 # final processing

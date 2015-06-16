@@ -29,7 +29,6 @@ noinst_HEADERS =                \
   MainWidget.h                  \
   ImageTileGenerator.h          \
   MainWindow.h                  \
-  TextureCache.h                \
   TileGenerator.h               \
   Tree.h                        \
   Utils.h
@@ -39,7 +38,6 @@ stereo_gui_SOURCES =            \
   MainWidget.cc                 \
   ImageTileGenerator.cc         \
   MainWindow.cc                 \
-  TextureCache.cc               \
   TileGenerator.cc              \
   Utils.cc                      \
   stereo_gui.cc
@@ -48,7 +46,7 @@ BUILT_SOURCES =                 \
   MainWidget.moc.cc             \
   MainWindow.moc.cc
 
-stereo_gui_LDADD    = @PKG_GUI_LIBS@ @PKG_CARTOGRAPHY_LIBS@
+stereo_gui_LDADD = @PKG_GUI_LIBS@
 
 bin_PROGRAMS = stereo_gui
 
@@ -58,9 +56,9 @@ endif
 # general
 ########################################################################
 
-AM_CPPFLAGS = @VW_CPPFLAGS@ @PKG_GUI_CPPFLAGS@
-AM_LDFLAGS = @VW_LDFLAGS@
+AM_CPPFLAGS = @ASP_CPPFLAGS@ @PKG_GUI_CPPFLAGS@
+AM_LDFLAGS  = @ASP_LDFLAGS@
 
-includedir = $(prefix)/include/vw
+includedir = $(prefix)/include/asp/gui
 
 include $(top_srcdir)/config/rules.mak
