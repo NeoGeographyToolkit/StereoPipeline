@@ -188,7 +188,7 @@ void MainWindow::run_stereo(){
     os << "--right-image-crop-win " << right_x << " " << right_y << " "
        << right_wx << " " << right_wy << " ";
 
-    run_cmd += os.str() + "&";
+    run_cmd += os.str();
 
     std::cout << "Running: " << run_cmd << std::endl;
     system(run_cmd.c_str());
