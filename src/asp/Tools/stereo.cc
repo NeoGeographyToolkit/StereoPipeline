@@ -591,7 +591,7 @@ namespace asp {
     // TODO: Clean this up using session function calls!
 
     // Check that if the user provided a dem that we are using a map projection method
-    if (dem_provided && 
+    if (dem_provided 
         && opt.session->name() != "dgmaprpc"    && opt.session->name() != "rpcmaprpc"
         && opt.session->name() != "isismapisis" && opt.session->name() != "pinholemappinhole") {
       vw_throw(ArgumentErr() << "Cannot use map-projected images with a session of type: "

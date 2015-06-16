@@ -112,9 +112,6 @@ namespace asp {
     // Static copies of some of the characteristic functions defined in the base class.
     static bool isMapProjected() { return IsTypeMapProjected<DISKTRANSFORM_TYPE>::value; }
 
-    static bool supports_image_alignment() {
-
-
     /// Verify that the inputs needed by the template configuration are selected
     /// - Derived classes should call this before initializing their own behavior.
     virtual void initialize(BaseOptions const& options,
