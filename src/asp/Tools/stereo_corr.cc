@@ -180,12 +180,24 @@ void lowres_correlation( Options & opt ) {
       if ( fs::exists(opt.out_prefix+"-align-R.exr") )
         read_matrix(align_right_matrix, opt.out_prefix + "-align-R.exr");
 
+      Vector2 left_size  = file_image_size( opt.out_prefix+"-L.tif" );
+      Vector2 right_size = file_image_size( opt.out_prefix+"-R.tif" );
+
       BBox2 search_range;
       for ( size_t i = 0; i < ip1.size(); i++ ) {
         Vector3 r = align_right_matrix * Vector3(ip2[i].x, ip2[i].y, 1);
         Vector3 l = align_left_matrix  * Vector3(ip1[i].x, ip1[i].y, 1);
+
+        // Don't divide by 0
+        if (l[2] == 0 || r[2] == 0) continue;
+
         r /= r[2];
         l /= l[2];
+
+        // Bugfix: skip obvious outliers, points way out there
+        if (std::abs(l[0]) > 2*left_size[0]   || std::abs(l[1]) > 2*left_size[1]  ||
+            std::abs(r[0]) > 2*right_size[0]  || std::abs(r[1]) > 2*right_size[1] ) continue;
+
         search_range.grow( subvector(r,0,2) - subvector(l,0,2) );
       }
       stereo_settings().search_range = grow_bbox_to_int( search_range );
