@@ -121,6 +121,9 @@ struct Options : public asp::BaseOptions {
   string out_prefix;
   
   Options() : max_disp(-1.0), verbose(true){}
+  
+  /// Return true if the reference file is a DEM file
+  bool reference_file_is_dem() const { return (get_file_type(this->reference) == "DEM"); }
 };
 
 
@@ -189,20 +192,18 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                              allow_unregistered, unregistered );
 
   if ( opt.reference.empty() || opt.source.empty() )
-    vw_throw( ArgumentErr() << "Missing input files.\n"
-              << usage << general_options );
+    vw_throw( ArgumentErr() << "Missing input files.\n" << usage << general_options );
 
   if ( opt.out_prefix.empty() )
-    vw_throw( ArgumentErr() << "Missing output prefix.\n"
-              << usage << general_options );
+    vw_throw( ArgumentErr() << "Missing output prefix.\n" << usage << general_options );
 
   if ( opt.max_disp == 0.0 )
     vw_throw( ArgumentErr() << "The max-displacement option was not set. Use -1 if it is desired not to use it.\n"
-              << usage << general_options );
+                            << usage << general_options );
 
   if ( opt.num_iter < 0 )
     vw_throw( ArgumentErr() << "The number of iterations must be non-negative.\n"
-              << usage << general_options );
+                            << usage << general_options );
 
   if ( (opt.semi_major != 0 && opt.semi_minor == 0) ||
        (opt.semi_minor != 0 && opt.semi_major == 0)
@@ -263,8 +264,8 @@ void read_datum(Options& opt, asp::CsvConv& csv_conv, Datum& datum){
   if (dem_file != ""){
     GeoReference geo;
     bool is_good = cartography::read_georeference( geo, dem_file );
-    if (!is_good) vw_throw(ArgumentErr() << "DEM: " << dem_file
-                           << " does not have a georeference.\n");
+    if (!is_good) 
+      vw_throw(ArgumentErr() << "DEM: " << dem_file << " does not have a georeference.\n");
     datum = geo.datum();
     vw_out() << "Detected datum from " << dem_file << ":\n" << datum << std::endl;
   }
@@ -307,7 +308,7 @@ void read_datum(Options& opt, asp::CsvConv& csv_conv, Datum& datum){
     // height), or it is specified as containing lat, lon, rather
     // than xyz.
     bool has_csv = ( get_file_type(opt.reference) == "CSV" ) ||
-      ( get_file_type(opt.source) == "CSV" );
+                   ( get_file_type(opt.source   ) == "CSV" );
     if (has_csv){
       // We are in trouble, will not be able to convert input lat,
       // lon, to xyz.
@@ -329,19 +330,23 @@ void read_datum(Options& opt, asp::CsvConv& csv_conv, Datum& datum){
 /// Compute output statistics for pc_align
 void calc_stats(string label, PointMatcher<RealT>::Matrix const& dists){
 
+  VW_ASSERT(dists.rows() == 1,
+            LogicErr() << "Expecting only one row.");
+
   vector<double> errs(dists.cols()*dists.rows());
   int count = 0;
   for (int col = 0; col < dists.cols(); col++){
-    for (int row = 0; row < dists.rows(); row++){
-      errs[count] = dists(row, col);
-      count++;
-    }
+    //for (int row = 0; row < dists.rows(); row++){
+    errs[count] = dists(0, col);
+    count++;
+    //}
   }
   sort(errs.begin(), errs.end());
 
   int len = errs.size();
   vw_out() << "Number of errors: " << len << endl;
-  if (len == 0) return;
+  if (len == 0) 
+    return;
 
   double p16 = errs[std::min(len-1, (int)round(len*0.16))];
   double p50 = errs[std::min(len-1, (int)round(len*0.50))];
@@ -349,7 +354,7 @@ void calc_stats(string label, PointMatcher<RealT>::Matrix const& dists){
   vw_out() << label << ": error percentile of smallest errors (meters):"
            << " 16%: " << p16 << ", 50%: " << p50 << ", 84%: " << p84 << endl;
 
-  double a25 = calc_mean(errs, len/4),   a50  = calc_mean(errs, len/2);
+  double a25 = calc_mean(errs,   len/4), a50  = calc_mean(errs, len/2);
   double a75 = calc_mean(errs, 3*len/4), a100 = calc_mean(errs, len);
   vw_out() << label << ": mean of smallest errors (meters):"
            << " 25%: " << a25 << ", 50%: " << a50
@@ -397,6 +402,17 @@ void save_transforms(Options const& opt,
 }
 
 
+/// Extracts the full GCC coordinate of a single point from a LibPointMatcher point cloud.
+/// - The shift converts from the normalized coordinate to the actual GCC coordinate.
+/// - No bounds checking is performed on the point index.
+Vector3 get_cloud_gcc_coord(DP const& point_cloud, vw::Vector3 const& shift, int index) {
+  Vector3 gcc_coord;
+  for (int row = 0; row < DIM; ++row)
+     gcc_coord[row] = point_cloud.features(row, index) + shift[row];
+  return gcc_coord;
+}
+
+
 /// Save the lon, lat, radius/height, and error. Use a format
 /// consistent with the input CSV format.
 void save_errors(DP const& point_cloud,
@@ -433,10 +449,8 @@ void save_errors(DP const& point_cloud,
   }
 
   int numPts = point_cloud.features.cols();
-  for(int col = 0; col < numPts; col++){
-    Vector3 P;
-    for (int row = 0; row < DIM; row++)
-      P[row] = point_cloud.features(row, col) + shift[row];
+  for(int col = 0; col < numPts; col++){     
+    Vector3 P = get_cloud_gcc_coord(point_cloud, shift, col);
 
     if (C.csv_format_str != ""){
       Vector3 csv = cartesian_to_csv(P, geo, mean_longitude, C);
@@ -470,15 +484,164 @@ void debug_save_point_cloud(DP const& point_cloud, GeoReference const& geo,
   outfile.precision(16);
 
   for(int col = 0; col < numPts; col++){
-
-    Vector3 P;
-    for (int row = 0; row < DIM; row++)
-      P[row] = point_cloud.features(row, col) + shift[row];
+    Vector3 P = get_cloud_gcc_coord(point_cloud, shift, col);
 
     Vector3 llh = geo.datum().cartesian_to_geodetic(P); // lon-lat-height
     outfile << llh[1] << ',' << llh[0] << ',' << llh[2] << endl;
   }
 }
+
+/// Like PM::ICP::filterGrossOutliersAndCalcErrors, except comparing to a DEM instead.
+/// - The point cloud is in GCC coordinates with point_cloud_shift subtracted from each point.
+/// - The output is put in the "errors" vector for each point.
+/// - If there is a problem computing the point error, a very large number is used as a flag.
+void calcErrorsWithDem(DP          const& point_cloud,
+                       vw::Vector3 const& point_cloud_shift,
+                       vw::cartography::GeoReference        const& georef, 
+                       vw::ImageViewRef< PixelMask<float> > const& dem,
+                       std::vector<double> &errors) {
+  const double BIG_NUMBER = 1e+300; // Flag indicating no match found in the DEM
+
+  // Initialize output error storage
+  const int num_pts = point_cloud.features.cols();  
+  errors.resize(num_pts);
+  
+  // Loop through every point in the point cloud
+  double dem_height_here;
+  for(int i=0; i<num_pts; ++i){
+    // Extract and un-shift the point to get the real GCC coordinate
+    Vector3 gcc_coord = get_cloud_gcc_coord(point_cloud, point_cloud_shift, i);
+
+    // Convert from GDC to GCC
+    Vector3 llh = georef.datum().cartesian_to_geodetic(gcc_coord); // lon-lat-height
+    
+    // Interpolate the point at this location
+    if (!interp_dem_height(dem, georef, llh, dem_height_here)) {
+      // If we did not intersect the DEM, record a flag error value here.
+      errors[i] = BIG_NUMBER;
+    }
+    else { // Success, the error is the absolute height difference
+      errors[i] = std::abs(llh[2] - dem_height_here);
+    }
+    
+  } // End loop through all points
+
+}
+
+// TODO: Replace with a more LPM aware function for speed!
+/// Filters out all points from point_cloud with an error entry higher than cutoff
+void filterPointsByError(DP & point_cloud, PointMatcher<RealT>::Matrix &errors, double cutoff) {
+
+  DP input_copy = point_cloud; // Make a copy of the input DP object
+
+  // Init LPM data structure
+  const int input_point_count = point_cloud.features.cols();
+  if (errors.cols() != input_point_count)
+    vw_throw( LogicErr() << "Error: error size does not match point count size!\n");
+  point_cloud.features.conservativeResize(DIM+1, input_point_count);
+  point_cloud.featureLabels = form_labels<double>(DIM);
+
+  // Loop through all the input points and copy them to the output if they pass the test
+  int points_count = 0;
+  for (int col = 0; col < input_point_count; ++col) {
+
+    if (errors(0,col) > cutoff)
+      continue; // Error too high, don't add this point
+
+    // Copy this point to the output LPM structure
+    for (int row = 0; row < DIM; row++)
+      point_cloud.features(row, points_count) = input_copy.features(row, col);
+    point_cloud.features(DIM, points_count) = 1; // Extend to be a homogenous coordinate
+    ++points_count; // Update output point count
+
+  } // End loop through points
+
+  // Finalize the LPM data structure
+  point_cloud.features.conservativeResize(Eigen::NoChange, points_count);
+
+}
+
+// Note: The LPM matrix type used to store errors only ever has a single row.
+
+/// Updates an LPM error matrix to use the DEM-based error for each point if it is lower.
+void update_best_error(std::vector<double>         const& dem_errors,
+                       PointMatcher<RealT>::Matrix      & lpm_errors) {
+  int num_points = lpm_errors.cols();
+  if (dem_errors.size() != static_cast<size_t>(num_points))
+    vw_throw( LogicErr() << "Error: error size does not match point count size!\n");
+
+  vw_out() << "Updating error...\n";
+
+  // Loop through points
+  for(int col = 0; col < num_points; col++){
+    // Use the DEM error if it is less
+    if (dem_errors[col] < lpm_errors(0,col))
+      lpm_errors(0, col) = dem_errors[col];
+    vw_out() << "DEM error = " << dem_errors[col] << ", LPM error = " << lpm_errors(0,col) << std::endl;
+  }
+  
+}
+
+
+/// Compute the distance from source_point_cloud to the reference points.
+double compute_registration_error(DP          const& ref_point_cloud,
+                                  DP               & source_point_cloud, // Should not be modified
+                                  PM::ICP          & pm_icp_object, // Must already be initialized
+                                  vw::Vector3 const& shift,
+                                  vw::cartography::GeoReference        const& dem_georef,
+                                  vw::ImageViewRef< PixelMask<float> > const& dem_ref,
+                                  Options const& opt,
+                                  PointMatcher<RealT>::Matrix &error_matrix) { 
+  Stopwatch sw;
+  sw.start();
+  
+  // Always start by computing the error using LPM
+  const double BIG_NUMBER = 1e+300; // A big number to make sure no points are filtered!
+  pm_icp_object.filterGrossOutliersAndCalcErrors(ref_point_cloud, BIG_NUMBER,
+                                                 source_point_cloud, error_matrix);
+  
+  if (opt.reference_file_is_dem()) {
+    // Compute the distance from each point to the DEM
+    std::vector<double> dem_errors;
+    calcErrorsWithDem(source_point_cloud, shift, dem_georef, dem_ref, dem_errors);
+
+    // For each point use the lower of the two calculated errors.
+    update_best_error(dem_errors, error_matrix);
+    
+    // We compute the error in two passes for two reasons:
+    // 1 - Get the most accurate distance for each point in all cases.
+    // 2 - Help fill in distances where the DEM has holes.
+  }
+
+  sw.stop();
+  return sw.elapsed_seconds();
+}
+
+/// Points in source_point_cloud farther than opt.max_disp from the reference cloud are deleted.
+void filter_source_cloud(DP          const& ref_point_cloud,
+                         DP               & source_point_cloud,
+                         PM::ICP          & pm_icp_object, // Must already be initialized
+                         vw::Vector3 const& shift,
+                         vw::cartography::GeoReference        const& dem_georef,
+                         vw::ImageViewRef< PixelMask<float> > const& dem_ref,
+                         Options const& opt) {
+
+  // Filter gross outliers
+  Stopwatch sw;
+  sw.start();
+
+  // Compute the registration error using the best available means
+  PointMatcher<RealT>::Matrix error_matrix;
+  compute_registration_error(ref_point_cloud, source_point_cloud, pm_icp_object, shift,
+                             dem_georef, dem_ref, opt, error_matrix);
+
+  filterPointsByError(source_point_cloud, error_matrix, opt.max_disp);
+
+  sw.stop();
+  if (opt.verbose) 
+    vw_out() << "Filter gross outliers took " << sw.elapsed_seconds() << " [s]" << endl;
+}
+
 
 //====================================================================================================
 
@@ -512,134 +675,165 @@ int main( int argc, char *argv[] ) {
     int num_sample_pts = std::max(4000000,
                                   std::max(opt.max_num_source_points,
                                            opt.max_num_reference_points)/4);
+    // Compute GDC bounding box of the source and reference clouds
     BBox2 ref_box, source_box;
-    ref_box = calc_extended_lonlat_bbox(geo, num_sample_pts,
-                                        C, opt.reference, opt.max_disp);
-    source_box = calc_extended_lonlat_bbox(geo, num_sample_pts,
-                                           C, opt.source, opt.max_disp);
+    ref_box    = calc_extended_lonlat_bbox(geo, num_sample_pts, C, opt.reference, opt.max_disp);
+    source_box = calc_extended_lonlat_bbox(geo, num_sample_pts, C, opt.source,    opt.max_disp);
+    
     // If ref points are offset by 360 degrees in longitude in respect to
-    // source points, adjust the ref box to be aligned with the source points,
-    // and vice versa.
+    // source points, adjust the ref box to be aligned with the source points, and vice versa.
     double lon_offset = 0.0;
     if (!ref_box.empty() && !source_box.empty()){
-      lon_offset = (source_box.min().x() + source_box.max().x())/2.0
-        - (ref_box.min().x() + ref_box.max().x())/2.0;
+      // Compute the longitude offset
+      double source_mean_lon = (source_box.min().x() + source_box.max().x())/2.0;
+      double ref_mean_lon    = (ref_box.min().x()    + ref_box.max().x()   )/2.0;
+      lon_offset = source_mean_lon - ref_mean_lon;
       lon_offset = 360.0*round(lon_offset/360.0);
+      // Apply to both bounding boxes
       ref_box    += Vector2(lon_offset, 0);
-      ref_box.crop(source_box); source_box.crop(ref_box); // common area
+      ref_box.crop(source_box); 
+      source_box.crop(ref_box); // common area
       source_box -= Vector2(lon_offset, 0);
     }
     sw0.stop();
-    if (opt.verbose) vw_out() << "Determination of the intersection "
-                              << "of bounding boxes of the reference"
-                              << " and source points took "
-                              << sw0.elapsed_seconds() << " [s]" << endl;
+    if (opt.verbose) 
+      vw_out() << "Determination of the intersection of bounding boxes of the reference"
+               << " and source points took " << sw0.elapsed_seconds() << " [s]" << endl;
 
     // Load the point clouds. We will shift both point clouds by the
     // centroid of the first one to bring them closer to origin.
 
     // Load the subsampled reference point cloud.
     Vector3 shift;
-    bool calc_shift = true;
-    bool is_lola_rdr_format = false;     // may get overwritten
+    bool   calc_shift = true; // Shift points so the first point is (0,0,0)
+    bool   is_lola_rdr_format = false;   // may get overwritten
     double mean_ref_longitude    = 0.0;  // may get overwritten
     double mean_source_longitude = 0.0;  // may get overwritten
     Stopwatch sw1;
     sw1.start();
-    DP ref;
+    DP ref_point_cloud; 
     load_file<RealT>(opt.reference, opt.max_num_reference_points,
                      source_box, // source box is used to bound reference
                      calc_shift, shift, geo, C, is_lola_rdr_format,
-                     mean_ref_longitude, opt.verbose, ref);
+                     mean_ref_longitude, opt.verbose, ref_point_cloud);
     sw1.stop();
-    if (opt.verbose) vw_out() << "Loading the reference point cloud took "
-                              << sw1.elapsed_seconds() << " [s]" << endl;
-    //ref.save(outputBaseFile + "_ref.vtk");
+    if (opt.verbose) 
+      vw_out() << "Loading the reference point cloud took "
+               << sw1.elapsed_seconds() << " [s]" << endl;
+    //ref_point_cloud.save(outputBaseFile + "_ref.vtk");
 
     // Load the subsampled source point cloud. If the user wants
     // to filter gross outliers in the source points based on
     // max_disp, load a lot more points than asked, filter based on
     // max_disp, then resample to the number desired by the user.
     int num_source_pts = opt.max_num_source_points;
-    if (opt.max_disp > 0.0) num_source_pts = max(num_source_pts, 50000000);
-    calc_shift = false;
+    if (opt.max_disp > 0.0) 
+      num_source_pts = max(num_source_pts, 50000000);
+    calc_shift = false; // Use the same shift used for the reference point cloud
     Stopwatch sw2;
     sw2.start();
-    DP source;
+    DP source_point_cloud;
     load_file<RealT>(opt.source, num_source_pts,
                      ref_box, // ref box is used to bound source
                      calc_shift, shift, geo, C, is_lola_rdr_format,
-                     mean_source_longitude, opt.verbose, source);
+                     mean_source_longitude, opt.verbose, source_point_cloud);
     sw2.stop();
-    if (opt.verbose) vw_out() << "Loading the source point cloud took "
-                              << sw2.elapsed_seconds() << " [s]" << endl;
+    if (opt.verbose) 
+      vw_out() << "Loading the source point cloud took "
+               << sw2.elapsed_seconds() << " [s]" << endl;
 
-    // So far we shifted by first point in first point cloud to reduce
+    // So far we shifted by first point in reference point cloud to reduce
     // the magnitude of all loaded points. Now that we have loaded all
     // points, shift one more time, to place the centroid of the
     // reference at the origin.
     // Note: If this code is ever converting to using floats,
     // the operation below needs to be re-implemented to be accurate.
-    int numRefPts = ref.features.cols();
-    Eigen::VectorXd meanRef = ref.features.rowwise().sum() / numRefPts;
-    ref.features.topRows(DIM).colwise()    -= meanRef.head(DIM);
-    source.features.topRows(DIM).colwise() -= meanRef.head(DIM);
-    for (int row = 0; row < DIM; row++) shift[row] += meanRef(row);
-    if (opt.verbose) vw_out() << "Data shifted internally by subtracting: "
-                              << shift << std::endl;
-
+    int numRefPts = ref_point_cloud.features.cols();
+    Eigen::VectorXd meanRef = ref_point_cloud.features.rowwise().sum() / numRefPts;
+    ref_point_cloud.features.topRows(DIM).colwise()    -= meanRef.head(DIM);
+    source_point_cloud.features.topRows(DIM).colwise() -= meanRef.head(DIM);
+    for (int row = 0; row < DIM; row++) 
+      shift[row] += meanRef(row); // Update the shift variable as well as the points
+    if (opt.verbose) 
+      vw_out() << "Data shifted internally by subtracting: " << shift << std::endl;
 
     // The point clouds are shifted, so shift the initial transform as well.
     PointMatcher<RealT>::Matrix initT = apply_shift(opt.init_transform, shift);
 
+    // TODO: If we use DEM comparison, need to remember this shift!!!
+
+    // If the reference point cloud came from a DEM, also load the data in DEM format.
+    cartography::GeoReference dem_georef;    
+    vw::ImageViewRef< PixelMask<float> > reference_dem_ref;
+    if (opt.reference_file_is_dem()) {
+      // Load the dem, then wrap it inside an ImageViewRef object.
+      // - This is done because the actual DEM type cannot be created without being initialized.
+      InterpolationReadyDem reference_dem(load_interpolation_ready_dem(opt.reference, dem_georef));
+      reference_dem_ref.reset(reference_dem);
+    } 
+
+    // Now all of the input data is loaded.
+
+
     // Filter the reference and initialize the reference tree
+    double elapsed_time;
     PM::ICP icp;
     Stopwatch sw3;
     sw3.start();
-    icp.initRefTree(ref, opt.alignment_method, opt.highest_accuracy,
-                    false /*opt.verbose*/);
+    icp.initRefTree(ref_point_cloud, opt.alignment_method, opt.highest_accuracy, false /*opt.verbose*/);
     sw3.stop();
-    if (opt.verbose) vw_out() << "Reference point cloud processing took "
-                              << sw3.elapsed_seconds() << " [s]" << endl;
+    if (opt.verbose) 
+      vw_out() << "Reference point cloud processing took " << sw3.elapsed_seconds() << " [s]" << endl;
 
     // Apply the initial guess transform to the source point cloud.
-    icp.transformations.apply(source, initT);
+    icp.transformations.apply(source_point_cloud, initT);
 
     PointMatcher<RealT>::Matrix beg_errors;
     if (opt.max_disp > 0.0){
       // Filter gross outliers
+/*      
       Stopwatch sw4;
       sw4.start();
-      icp.filterGrossOutliersAndCalcErrors(ref, opt.max_disp*opt.max_disp,
-                                            source, beg_errors); //in-out
+      // Points in source_point_cloud further than opt.max_disp from ref_point_cloud are deleted!
+      icp.filterGrossOutliersAndCalcErrors(ref_point_cloud, opt.max_disp*opt.max_disp,
+                                            source_point_cloud, beg_errors); //in-out
       sw4.stop();
-      if (opt.verbose) vw_out() << "Filter gross outliers took "
-                                << sw4.elapsed_seconds() << " [s]" << endl;
+      if (opt.verbose) 
+        vw_out() << "Filter gross outliers took " << sw4.elapsed_seconds() << " [s]" << endl;
+*/               
+      filter_source_cloud(ref_point_cloud, source_point_cloud, icp,
+                          shift, dem_georef, reference_dem_ref, opt);
     }
 
-    random_pc_subsample<RealT>(opt.max_num_source_points, source);
-    vw_out() << "Reducing number of source points to " << source.features.cols()
-             << endl;
+    random_pc_subsample<RealT>(opt.max_num_source_points, source_point_cloud);
+    vw_out() << "Reducing number of source points to " << source_point_cloud.features.cols() << endl;
 
-    //dump_llh("ref.csv", datum, ref,    shift);
+    //dump_llh("ref.csv", datum, ref_point_cloud,    shift);
     //dump_llh("src.csv", datum, source, shift);
 
+/*
     // Calculate the errors before doing ICP
     Stopwatch sw5;
     sw5.start();
-    double big = 1e+300;
-    icp.filterGrossOutliersAndCalcErrors(ref, big,
-                                          source, beg_errors); //in-out
+    const double BIG_NUMBER = 1e+300;
+    icp.filterGrossOutliersAndCalcErrors(ref_point_cloud, BIG_NUMBER,
+                                          source_point_cloud, beg_errors); //in-out
     calc_stats("Input", beg_errors);
     sw5.stop();
     if (opt.verbose) vw_out() << "Initial error computation took "
                               << sw5.elapsed_seconds() << " [s]" << endl;
+*/
+    elapsed_time = compute_registration_error(ref_point_cloud, source_point_cloud, icp,
+                                              shift, dem_georef, reference_dem_ref, opt, beg_errors);
+    calc_stats("Input", beg_errors);
+    if (opt.verbose) 
+      vw_out() << "Initial error computation took " << elapsed_time << " [s]" << endl;
+
 
     // Compute the transformation to align the source to reference.
     Stopwatch sw6;
     sw6.start();
-    PointMatcher<RealT>::Matrix Id
-      = PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1);
+    PointMatcher<RealT>::Matrix Id = PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1);
     if (opt.config_file == ""){
       // Read the options from the command line
       icp.setParams(opt.out_prefix, opt.num_iter, opt.outlier_ratio,
@@ -657,37 +851,44 @@ int main( int argc, char *argv[] ) {
     // We bypass calling ICP if the user explicitely asks for 0 iterations.
     PointMatcher<RealT>::Matrix T = Id;
     if (opt.num_iter > 0){
-      T = icp(source, ref, Id,
+      T = icp(source_point_cloud, ref_point_cloud, Id,
               opt.compute_translation_only);
       vw_out() << "Match ratio: "
                << icp.errorMinimizer->getWeightedPointUsedRatio() << endl;
     }
     sw6.stop();
-    if (opt.verbose) vw_out() << "ICP took "
-                              << sw6.elapsed_seconds() << " [s]" << endl;
+    if (opt.verbose) 
+      vw_out() << "ICP took " << sw6.elapsed_seconds() << " [s]" << endl;
 
     // Transform the source to make it close to reference.
-    DP trans_source(source);
-    icp.transformations.apply(trans_source, T);
+    DP trans_source_point_cloud(source_point_cloud);
+    icp.transformations.apply(trans_source_point_cloud, T);
 
     // Calculate by how much points move as result of T
-    calc_max_displacment(source, trans_source);
+    calc_max_displacment(source_point_cloud, trans_source_point_cloud);
     Vector3 source_ctr_vec, source_ctr_llh;
     Vector3 trans_xyz, trans_ned, trans_llh;
-    calc_translation_vec(source, trans_source, shift, geo.datum(),
+    calc_translation_vec(source_point_cloud, trans_source_point_cloud, shift, geo.datum(),
                          source_ctr_vec, source_ctr_llh,
                          trans_xyz, trans_ned, trans_llh);
 
-    // Calculate the errors after doing ICP
+    // For each point, compute the distance to the nearest reference point.
     PointMatcher<RealT>::Matrix end_errors;
+    /*
     Stopwatch sw7;
     sw7.start();
-    icp.filterGrossOutliersAndCalcErrors(ref, big,
-                                          trans_source, end_errors); // in-out
+    icp.filterGrossOutliersAndCalcErrors(ref_point_cloud, BIG_NUMBER,
+                                          trans_source_point_cloud, end_errors); // in-out
     calc_stats("Output", end_errors);
     sw7.stop();
-    if (opt.verbose) vw_out() << "Final error computation took "
-                              << sw7.elapsed_seconds() << " [s]" << endl;
+    if (opt.verbose) 
+      vw_out() << "Final error computation took " << sw7.elapsed_seconds() << " [s]" << endl;
+*/
+    elapsed_time = compute_registration_error(ref_point_cloud, trans_source_point_cloud, icp,
+                                              shift, dem_georef, reference_dem_ref, opt, end_errors);
+    calc_stats("Output", end_errors);
+    if (opt.verbose) 
+      vw_out() << "Final error computation took " << elapsed_time << " [s]" << endl;
 
     // We must apply to T the initial guess transform
     PointMatcher<RealT>::Matrix combinedT = T*initT;
@@ -697,7 +898,7 @@ int main( int argc, char *argv[] ) {
 
     // Print statistics
     vw_out() << "Alignment transform (rotation + translation, "
-         << "origin is planet center):" << endl << globalT << endl;
+             << "origin is planet center):" << endl << globalT << endl;
     vw_out() << "Centroid of source points (Cartesian, meters): " << source_ctr_vec << std::endl;
     // Swap lat and lon, as we want to print lat first
     std::swap(source_ctr_llh[0], source_ctr_llh[1]);
@@ -706,17 +907,18 @@ int main( int argc, char *argv[] ) {
 
     vw_out() << "Translation vector (Cartesian, meters): " << trans_xyz << std::endl;
     vw_out() << "Translation vector (North-East-Down, meters): "
-         << trans_ned << std::endl;
+             << trans_ned << std::endl;
     vw_out() << "Translation vector magnitude (meters): " << norm_2(trans_xyz)
-         << std::endl;
+             << std::endl;
     // Swap lat and lon, as we want to print lat first
     std::swap(trans_llh[0], trans_llh[1]);
     vw_out() << "Translation vector (lat,lon,z): " << trans_llh << std::endl;
     vw_out() << std::endl;
 
     Matrix3x3 rot;
-    for (int r = 0; r < DIM; r++) for (int c = 0; c < DIM; c++)
-      rot(r, c) = globalT(r, c);
+    for (int r = 0; r < DIM; r++) 
+      for (int c = 0; c < DIM; c++)
+        rot(r, c) = globalT(r, c);
     Vector3 euler_angles = math::rotation_matrix_to_euler_xyz(rot) * 180/M_PI;
     Vector3 axis_angles = math::matrix_to_axis_angle(rot) * 180/M_PI;
     vw_out() << "Euler angles (degrees): " << euler_angles  << endl;
@@ -740,9 +942,9 @@ int main( int argc, char *argv[] ) {
                              geo, C, globalT);
     }
 
-    save_errors(source, beg_errors,  opt.out_prefix + "-beg_errors.csv",
+    save_errors(source_point_cloud, beg_errors,  opt.out_prefix + "-beg_errors.csv",
                 shift, geo, C, is_lola_rdr_format, mean_source_longitude);
-    save_errors(trans_source, end_errors,  opt.out_prefix + "-end_errors.csv",
+    save_errors(trans_source_point_cloud, end_errors,  opt.out_prefix + "-end_errors.csv",
                 shift, geo, C, is_lola_rdr_format, mean_source_longitude);
 
     if (opt.verbose) vw_out() << "Writing: " << opt.out_prefix
