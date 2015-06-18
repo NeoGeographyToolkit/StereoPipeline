@@ -33,6 +33,9 @@
    * Can ingest CSV files containging easting, northing, and height
      above datum (the PROJ.4 string needed to interpret these numbers
      should be set with --csv-proj4).
+   * Now computes initial error, final error, and max_disp removal using
+     the distance to the reference DEM if the reference input is in fact
+     a DEM.  You can use the old behavior with the --no-dem-distances flag.
 
  - point2las
    * Added the ability to specify a custom projection (PROJ.4 string).

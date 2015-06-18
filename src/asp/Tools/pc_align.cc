@@ -166,7 +166,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                                  "Specify the output prefix.")
     ("compute-translation-only", po::bool_switch(&opt.compute_translation_only)->default_value(false)->implicit_value(true),
                                  "Compute the transform from source to reference point cloud as a translation only (no rotation).")
-    ("no_dem_distances",         po::bool_switch(&opt.dont_use_dem_distances)->default_value(false)->implicit_value(true),
+    ("no-dem-distances",         po::bool_switch(&opt.dont_use_dem_distances)->default_value(false)->implicit_value(true),
                                  "Never use dem distances for error measurement, only measure to points.")
     ("save-transformed-source-points", po::bool_switch(&opt.save_trans_source)->default_value(false)->implicit_value(true),
                                   "Apply the obtained transform to the source points so they match the reference points and save them.")
@@ -546,7 +546,7 @@ void filterPointsByError(DP & point_cloud, PointMatcher<RealT>::Matrix &errors, 
   for (int col = 0; col < input_point_count; ++col) {
 
     if (errors(0,col) > cutoff) {
-      vw_out() << "Throwing out point " << col << " for having error " << errors(0,col) << "\n";
+      //vw_out() << "Throwing out point " << col << " for having error " << errors(0,col) << "\n";
       continue; // Error too high, don't add this point
     }
 
@@ -571,8 +571,7 @@ void update_best_error(std::vector<double>         const& dem_errors,
   int num_points = lpm_errors.cols();
   if (dem_errors.size() != static_cast<size_t>(num_points))
     vw_throw( LogicErr() << "Error: error size does not match point count size!\n");
-
-  vw_out() << "Updating error...\n";
+  //vw_out() << "Updating error...\n";
 
   // Loop through points
   for(int col = 0; col < num_points; col++){
