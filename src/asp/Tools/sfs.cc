@@ -52,6 +52,10 @@ using namespace vw;
 using namespace vw::camera;
 using namespace vw::cartography;
 
+// Keep track of how many times we printed an error.
+// This is not thread-safe, but should not matter much.
+int g_errorCount = 0;
+
 typedef InterpolationView<ImageViewRef<float>, BilinearInterpolation> BilinearInterpT;
 
 // TODO: Find a good automatic value for the smoothness weight.
@@ -68,15 +72,44 @@ typedef InterpolationView<ImageViewRef<float>, BilinearInterpolation> BilinearIn
 // TODO: Clean up some of the classes, not all members are needed.
 
 bool readNoDEMDataVal(std::string DEMFile, double & nodata_val){
-
   boost::scoped_ptr<SrcImageResource> rsrc( DiskImageResource::open(DEMFile) );
   if ( rsrc->has_nodata_read() ){
     nodata_val = rsrc->nodata_read();
     return true;
   }
-
   return false;
 }
+
+// Compute mean and standard deviation of an image
+template <class ImageT>
+void compute_image_stats(ImageT const& I, double & mean, double & stdev){
+  mean  = 0;
+  stdev = 0;
+  double sum = 0.0, sum2 = 0.0, count = 0.0;
+  for (int col = 0; col < I.cols(); col++){
+    for (int row = 0; row < I.rows(); row++){
+      if (!is_valid(I(col, row))) continue;
+      count++;
+      double val = I(col, row);
+      sum += val;
+      sum2 += val*val;
+    }
+  }
+
+  if (count > 0){
+    mean = sum/count;
+    stdev = sqrt( sum2/count - mean*mean );
+  }
+
+}
+
+struct Options : public asp::BaseOptions {
+  std::string input_dem, out_prefix, stereo_session_string;
+  std::vector<std::string> input_images;
+  int max_iterations;
+  double smoothness_weight;
+  Options():max_iterations(0) {};
+};
 
 struct GlobalParams{
 
@@ -354,91 +387,193 @@ ComputeReflectance(Vector3 const& normal, Vector3 const& xyz,
   return input_img_reflectance;
 }
 
-void computeReflectanceAtPixel(int x, int y,
-                               ImageView<double> const& dem,
-                               cartography::GeoReference const& geo,
-                               double nodata_val,
-                               ModelParams const& input_img_params,
-                               GlobalParams const& global_params,
-                               bool savePhaseAngle,
-                               double &outputReflectance,
-                               double & phase_angle) {
+bool computeReflectanceAndIntensity(double center_h, double right_h, double top_h,
+                                    int col, int row,
+                                    ImageView<double> const& dem,
+                                    cartography::GeoReference const& geo,
+                                    double nodata_val,
+                                    const double * A,
+                                    ModelParams const& model_params,
+                                    GlobalParams const& global_params,
+                                    BilinearInterpT const & image,
+                                    boost::shared_ptr<CameraModel> const & camera,
+                                    double &reflectance, double & intensity) {
 
-  // We assume 1<= x and 1 <= y
+  // Set output values
+  reflectance = 0;
+  intensity   = 0;
 
-  outputReflectance = 0.0;
-  if (savePhaseAngle) phase_angle = std::numeric_limits<double>::quiet_NaN();
+  if (col >= dem.cols() - 1 || row >= dem.rows() - 1) return false;
 
-  if (x <= 0 || y <= 0) return;
+  // TODO: Investigate various ways of finding the normal.
 
-  Vector2 lonlat = geo.pixel_to_lonlat(Vector2(x, y));
-  double   h      = dem(x, y);
-  if (h == nodata_val) return;;
-  Vector3 lonlat3(lonlat(0), lonlat(1), h);
+  // The xyz position at the center grid point
+  Vector2 lonlat = geo.pixel_to_lonlat(Vector2(col, row));
+  double h = center_h;
+  if (h == nodata_val && g_errorCount == 0) {
+    vw_out(ErrorMessage) << "sfs cannot handle DEMs with no-data.\n";
+    g_errorCount++;
+    return false;
+  }
+
+  Vector3 lonlat3 = Vector3(lonlat(0), lonlat(1), h);
   Vector3 base = geo.datum().geodetic_to_cartesian(lonlat3);
 
-  lonlat = geo.pixel_to_lonlat(Vector2(x-1, y));
-  h      = dem(x-1, y);
-  if (h == nodata_val) return;;
+  // The xyz position at the right grid point
+  lonlat = geo.pixel_to_lonlat(Vector2(col+1, row));
+  h = right_h;
+  if (h == nodata_val && g_errorCount == 0) {
+    vw_out(ErrorMessage) << "sfs cannot handle DEMs with no-data.\n";
+    g_errorCount++;
+    return false;
+  }
   lonlat3 = Vector3(lonlat(0), lonlat(1), h);
-  Vector3 x1 = geo.datum().geodetic_to_cartesian(lonlat3);
+  Vector3 right = geo.datum().geodetic_to_cartesian(lonlat3);
 
-  lonlat = geo.pixel_to_lonlat(Vector2(x, y-1));
-  h      = dem(x, y-1);
-  if (h == nodata_val) return;;
+  // The xyz position at the top grid point
+  lonlat = geo.pixel_to_lonlat(Vector2(col, row+1));
+  h = top_h;
+  if (h == nodata_val && g_errorCount == 0) {
+    vw_out(ErrorMessage) << "sfs cannot handle DEMs with no-data.\n";
+    g_errorCount++;
+    return false;
+  }
   lonlat3 = Vector3(lonlat(0), lonlat(1), h);
-  Vector3 y1 = geo.datum().geodetic_to_cartesian(lonlat3);
+  Vector3 top = geo.datum().geodetic_to_cartesian(lonlat3);
 
-  Vector3 dx = base - x1;
-  Vector3 dy = base - y1;
+  // TODO: Study the sign of the normal.
+  Vector3 dx = right - base;
+  Vector3 dy = top - base;
   Vector3 normal = -normalize(cross_prod(dx, dy));
 
-  outputReflectance = ComputeReflectance(normal, base, input_img_params,
-                                         global_params, phase_angle);
+  // TODO: Must iterate over all images below.
+  double phase_angle;
+  reflectance = ComputeReflectance(normal, base, model_params,
+                                   global_params, phase_angle);
+
+  Vector2 pix = camera->point_to_pixel(base);
+
+  // Check for out of range
+  if (pix[0] < 0 || pix[0] >= image.cols()-1) return false;
+  if (pix[1] < 0 || pix[1] >= image.rows()-1) return false;
+
+  intensity = image(pix[0], pix[1]);
+
+  return true;
 }
 
-void computeReflectanceAux(ImageView<double> const& dem,
-                           cartography::GeoReference const& geo,
-                           double nodata_val,
-                           ModelParams const& input_img_params,
-                           GlobalParams const& global_params,
-                           ImageView<PixelMask<double> >& outputReflectance,
-                           bool savePhaseAngle,
-                           ImageView<PixelMask<double> >& phase_angle) {
+void computeReflectanceAndIntensity(ImageView<double> const& dem,
+                                    cartography::GeoReference const& geo,
+                                    double nodata_val,
+                                    double * A,
+                                    ModelParams const& model_params,
+                                    GlobalParams const& global_params,
+                                    BilinearInterpT const & image,
+                                    boost::shared_ptr<CameraModel> const & camera,
+                                    ImageView<double> & reflectance,
+                                    ImageView<double> & intensity) {
 
-  outputReflectance.set_size(dem.cols(), dem.rows());
-  if (savePhaseAngle) phase_angle.set_size(dem.cols(), dem.rows());
+  reflectance.set_size(dem.cols(), dem.rows());
+  intensity.set_size(dem.cols(), dem.rows());
 
-  for (int y = 1; y < (int)outputReflectance.rows(); y++) {
-    for (int x = 1; x < (int)outputReflectance.cols(); x++) {
-
-      double outputReflectanceVal, phase_angleVal;
-      computeReflectanceAtPixel(x, y, dem, geo, nodata_val, input_img_params, global_params, savePhaseAngle, outputReflectanceVal, phase_angleVal);
-
-      outputReflectance(x, y) = outputReflectanceVal;
-      if (savePhaseAngle) phase_angle(x, y) = phase_angleVal;
+  for (int col = 0; col < dem.cols()-1; col++) {
+    for (int row = 0; row < dem.rows()-1; row++) {
+      computeReflectanceAndIntensity(dem(col, row), dem(col+1, row), dem(col, row+1),
+                                     col, row, dem,  geo,
+                                     nodata_val, A, model_params, global_params,
+                                     image, camera,
+                                     reflectance(col, row), intensity(col, row));
     }
   }
 
   return;
 }
 
+// A function to invoke at every iteration of ceres.
+// We need a lot of global variables to do something useful.
+int                                            g_iter = -1;
+Options                                      * g_opt;
+ImageView<double>                            * g_dem;
+cartography::GeoReference                    * g_geo;
+GlobalParams                                 * g_global_params;
+std::vector<ModelParams>                     * g_model_params;
+std::vector<BilinearInterpT>                 * g_interp_images;
+std::vector<boost::shared_ptr<CameraModel> > * g_cameras;
+double                                       * g_nodata_val;
+double                                       * g_A;
+
+class SfsCallback: public ceres::IterationCallback {
+public:
+  virtual ceres::CallbackReturnType operator()
+    (const ceres::IterationSummary& summary) {
+
+    g_iter++;
+
+    std::cout << "Finished iteration: " << g_iter << std::endl;
+
+    std::ostringstream os;
+    os << g_iter;
+    std::string iter_str = os.str();
+
+    std::string out_dem_file = g_opt->out_prefix + "-final-DEM-"
+      + iter_str + ".tif";
+    vw_out() << "Writing: " << out_dem_file << std::endl;
+    TerminalProgressCallback tpc("asp", ": ");
+    block_write_gdal_image(out_dem_file, *g_dem, *g_geo, *g_nodata_val, *g_opt, tpc);
+
+    ImageView<double> reflectance, intensity;
+
+    // Compute reflectance and intensity with optimized DEM
+    computeReflectanceAndIntensity(*g_dem, *g_geo,  *g_nodata_val, g_A,
+                                   (*g_model_params)[0], *g_global_params,
+                                   (*g_interp_images)[0], (*g_cameras)[0],
+                                   reflectance, intensity);
+
+    std::string out_intensity_file = g_opt->out_prefix + "-measured-intensity-"
+      + iter_str + ".tif";
+    vw_out() << "Writing: " << out_intensity_file << std::endl;
+    block_write_gdal_image(out_intensity_file, intensity, *g_geo, 0, *g_opt, tpc);
+
+    // Find the simulated intensity
+    for (int col = 0; col < reflectance.cols(); col++) {
+      for (int row = 0; row < reflectance.rows(); row++) {
+        reflectance(col, row) = g_A[0]*reflectance(col, row) + g_A[1];
+      }
+    }
+
+    std::string out_reflectance_file = g_opt->out_prefix + "-computed-intensity-"
+      + iter_str + ".tif";
+    vw_out() << "Writing: " << out_reflectance_file << std::endl;
+    block_write_gdal_image(out_reflectance_file, reflectance, *g_geo, 0, *g_opt, tpc);
+
+    double imgmean, imgstdev, refmean, refstdev;
+    compute_image_stats(intensity, imgmean, imgstdev);
+    compute_image_stats(reflectance, refmean, refstdev);
+
+    std::cout << "img mean and std: " << imgmean << ' ' << imgstdev << std::endl;
+    std::cout << "ref mean and std: " << refmean << ' ' << refstdev << std::endl;
+
+
+    return ceres::SOLVER_CONTINUE;
+  }
+};
+
+
 // Discrepancy between scaled intensity and reflectance.
-// sum | (I + A[1])/A[0] - R |^2.
+// sum | (I - A[0]*reflectance - A[1] |^2
 struct IntensityError {
   IntensityError(int col, int row,
                  ImageView<double> const& dem,
                  cartography::GeoReference const& geo,
                  GlobalParams const& global_params,
-                 std::vector<ModelParams> & model_params, // const?
-                 std::vector<BilinearInterpT> const& images,
-                 std::vector<boost::shared_ptr<CameraModel> > const& cameras,
-                 double grid_size, double nodata_val):
+                 ModelParams const& model_params,
+                 BilinearInterpT const& image,
+                 boost::shared_ptr<CameraModel> const& camera,
+                 double nodata_val):
     m_col(col), m_row(row), m_dem(dem), m_geo(geo),
     m_global_params(global_params),
     m_model_params(model_params),
-    m_images(images), m_cameras(cameras),
-    m_grid_size(grid_size), m_nodata_val(nodata_val) {}
+    m_image(image), m_camera(camera), m_nodata_val(nodata_val) {}
 
   // See SmoothnessError() for the definitions of tl, top, tr, etc.
   template <typename T>
@@ -450,51 +585,26 @@ struct IntensityError {
 
     // Default residuals
     residuals[0] = T(1e+20);
-
+    bool success = false;
     try{
 
-      // TODO: Investigate various ways of finding the normal.
+      double reflectance, intensity;
+      success =
+        computeReflectanceAndIntensity(center[0], right[0], top[0],
+                                       m_col, m_row,  m_dem,
+                                       m_geo,  m_nodata_val, A,
+                                       m_model_params,  m_global_params,
+                                       m_image, m_camera,
+                                       reflectance, intensity);
 
-      // The xyz position at the center grid point
-      Vector2 lonlat = m_geo.pixel_to_lonlat(Vector2(m_col, m_row));
-      double h = center[0];
-      if (h == m_nodata_val) return false;
-      Vector3 lonlat3 = Vector3(lonlat(0), lonlat(1), h);
-      Vector3 base = m_geo.datum().geodetic_to_cartesian(lonlat3);
-
-      // The xyz position at the right grid point
-      lonlat = m_geo.pixel_to_lonlat(Vector2(m_col+1, m_row));
-      h = right[0];
-      if (h == m_nodata_val) return false;
-      lonlat3 = Vector3(lonlat(0), lonlat(1), h);
-      Vector3 right = m_geo.datum().geodetic_to_cartesian(lonlat3);
-
-      // The xyz position at the top grid point
-      lonlat = m_geo.pixel_to_lonlat(Vector2(m_col, m_row+1));
-      h = top[0];
-      if (h == m_nodata_val) return false;
-      lonlat3 = Vector3(lonlat(0), lonlat(1), h);
-      Vector3 top = m_geo.datum().geodetic_to_cartesian(lonlat3);
-
-      // TODO: Study the sign of the normal.
-      Vector3 dx = right - base;
-      Vector3 dy = top - base;
-      Vector3 normal = -normalize(cross_prod(dx, dy));
-
-      // TODO: Must iterate over all images below.
-      double phase_angle;
-      double output_reflectance
-        = ComputeReflectance(normal, base, m_model_params[0],
-                             m_global_params, phase_angle);
-
-      Vector2 pix = m_cameras[0]->point_to_pixel(base);
-      residuals[0] = ( m_images[0](pix[0], pix[1]) + A[1] ) / A[0] - output_reflectance;
+      if (success)
+        residuals[0] = intensity - A[0]*reflectance - A[1];
 
     } catch (const camera::PointToPixelErr& e) {
       return false;
     }
 
-    return true;
+    return success;
   }
 
   // Factory to hide the construction of the CostFunction object from
@@ -503,24 +613,24 @@ struct IntensityError {
                                      ImageView<double> const& dem,
                                      vw::cartography::GeoReference const& geo,
                                      GlobalParams const& global_params,
-                                     std::vector<ModelParams> & model_params,
-                                     std::vector<BilinearInterpT> & images,
-                                     std::vector<boost::shared_ptr<CameraModel> > & cameras,
-                                     double grid_size, double nodata_val){
+                                     ModelParams const& model_params,
+                                     BilinearInterpT const& image,
+                                     boost::shared_ptr<CameraModel> const& camera,
+                                     double nodata_val){
     return (new ceres::NumericDiffCostFunction<IntensityError,
             ceres::CENTRAL, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1>
             (new IntensityError(col, row, dem, geo, global_params, model_params,
-                                images, cameras, grid_size, nodata_val)));
+                                image, camera, nodata_val)));
   }
 
   int m_col, m_row;
-  ImageView<double>                            const & m_dem;           // alias
-  cartography::GeoReference                    const & m_geo;           // alias
-  GlobalParams                                 const&  m_global_params; // alias
-  std::vector<ModelParams>                     const & m_model_params;  // alias
-  std::vector<BilinearInterpT>                 const & m_images;        // alias
-  std::vector<boost::shared_ptr<CameraModel> > const & m_cameras;       // alias
-  double m_grid_size, m_nodata_val;
+  ImageView<double>                 const & m_dem;           // alias
+  cartography::GeoReference         const & m_geo;           // alias
+  GlobalParams                      const & m_global_params; // alias
+  ModelParams                       const & m_model_params;  // alias
+  BilinearInterpT                   const & m_image;         // alias
+  boost::shared_ptr<CameraModel>    const & m_camera;        // alias
+  double m_nodata_val;
 };
 
 
@@ -580,15 +690,6 @@ struct SmoothnessError {
   }
 
   double m_smoothness_weight, m_grid_size;
-};
-
-struct Options : public asp::BaseOptions {
-  std::string input_dem, out_prefix, stereo_session_string;
-  std::vector<std::string> input_images;
-  int max_iterations;
-  double smoothness_weight;
-  Options():max_iterations(0) {};
-
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
@@ -706,12 +807,26 @@ int main(int argc, char* argv[]) {
     Vector2 lr = geo.pixel_to_point(Vector2(ncols-1, nrows-1));
     double grid_size = norm_2(ul - lr)/norm_2(Vector2(ncols-1, nrows-1));
 
+    std::cout << "Grid size in degrees is " << grid_size << std::endl;
+    std::cout << "num cols and rows is " << ncols << ' ' << nrows << std::endl;
+
     // Intensity error is
-    // sum | (I + A[1])/A[0] - R |^2.
-    // TODO: What are good values here.
+    // sum | (I - A[0]*reflectance - A[1]|^2.
+    // Estimate in advance A[0] and A[1] and keep them fixed.
     double A[2];
-    double mn =  -32752.000, mx = 32767.000;
-    A[1] = -mn; A[0] = (mx - mn);
+    ImageView<double> reflectance, intensity;
+    computeReflectanceAndIntensity(dem, geo,  nodata_val, A,
+                                   model_params[0], global_params,
+                                   interp_images[0], cameras[0],
+                                   reflectance, intensity);
+
+    double imgmean, imgstdev, refmean, refstdev;
+    compute_image_stats(intensity, imgmean, imgstdev);
+    compute_image_stats(reflectance, refmean, refstdev);
+    A[0] = imgstdev/refstdev;
+    A[1] = imgmean - A[0]*refmean;
+    std::cout << "Albedo params A[0] and A[1] are " << A[0] << ' ' << A[1] << std::endl;
+
 
     // Add a residual block for every grid point not at the boundary
     ceres::Problem problem;
@@ -721,8 +836,8 @@ int main(int argc, char* argv[]) {
         // Intensity error
         ceres::CostFunction* cost_function1 =
           IntensityError::Create(col, row, dem, geo,
-                                 global_params, model_params, interp_images,
-                                 cameras, grid_size, nodata_val);
+                                 global_params, model_params[0], interp_images[0],
+                                 cameras[0], nodata_val);
         ceres::LossFunction* loss_function1 = NULL;
         problem.AddResidualBlock(cost_function1, loss_function1,
                                  A,
@@ -782,19 +897,29 @@ int main(int argc, char* argv[]) {
     options.function_tolerance = 1e-16;
     options.max_num_iterations = opt.max_iterations;
     options.minimizer_progress_to_stdout = 1;
-
     options.num_threads = opt.num_threads;
-
     options.linear_solver_type = ceres::SPARSE_SCHUR;
 
+    // Use a callback function at every iteration
+    SfsCallback callback;
+    options.callbacks.push_back(&callback);
+    options.update_state_every_iteration = true;
+
+    // A bunch of global variables to use in the callback
+    g_opt           = &opt;
+    g_dem           = &dem;
+    g_geo           = &geo;
+    g_global_params = &global_params;
+    g_model_params  = &model_params;
+    g_interp_images = &interp_images;
+    g_cameras       = &cameras;
+    g_nodata_val    = &nodata_val;
+    g_A             = A;
+
+    // Solve the problem
     ceres::Solver::Summary summary;
     ceres::Solve(options, &problem, &summary);
     vw_out() << summary.FullReport() << "\n";
-
-    std::string out_dem_file = opt.out_prefix + "-final-DEM.tif";
-    vw_out() << "Writing: " << out_dem_file << std::endl;
-    TerminalProgressCallback tpc("asp", ": ");
-    block_write_gdal_image(out_dem_file, dem, geo, nodata_val, opt, tpc);
 
   } ASP_STANDARD_CATCHES;
 }
