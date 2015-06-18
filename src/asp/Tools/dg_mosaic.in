@@ -233,21 +233,20 @@ def find_combined_box(A, B):
     return get_corners(A, B, max_indices)
 
 
-def adjust_camera_corners(BAND, all_ll_corners):
+def adjust_camera_corners(BAND, all_ll_corners, ref_htbox):
 
     # The lon-lat box for the combined camera is the union of the
     # lon-lat boxes for all the cameras.
 
-    # Wipe unneeded tags. For that, first store the tags, then wipe
-    # them.
-    wipe_tags = set(["ULHAE", "URHAE","LRHAE","LLHAE"]);
+#    # Wipe unneeded tags. For that, first store the tags, then wipe them.
+#    wipe_tags = set(["ULHAE", "URHAE","LRHAE","LLHAE"]);
     tags = []
     for i in range(len(BAND)):
         tag = BAND[i].tag
         tags.append(tag)
-    for tag in tags:
-        if tag in wipe_tags:
-            BAND.remove( BAND.find (tag) )
+#    for tag in tags:
+#        if tag in wipe_tags:
+#            BAND.remove( BAND.find (tag) )
 
     if len(all_ll_corners) == 0: return # no data
 
@@ -256,17 +255,24 @@ def adjust_camera_corners(BAND, all_ll_corners):
     for corner_vec in all_ll_corners:
         out_corners = find_combined_box(out_corners, corner_vec)
 
+    # Each point has a height term -> Just set it to the mean of the input height bounds
+    out_height = (ref_htbox.minx+ref_htbox.maxx)/2.0
+
     BAND.find("ULLON").text = str(out_corners[0][0])
     BAND.find("ULLAT").text = str(out_corners[0][1])
+    BAND.find("ULHAE").text = str(out_height)
 
     BAND.find("URLON").text = str(out_corners[1][0])
     BAND.find("URLAT").text = str(out_corners[1][1])
+    BAND.find("URHAE").text = str(out_height)
 
     BAND.find("LRLON").text = str(out_corners[2][0])
     BAND.find("LRLAT").text = str(out_corners[2][1])
+    BAND.find("LRHAE").text = str(out_height)
 
     BAND.find("LLLON").text = str(out_corners[3][0])
     BAND.find("LLLAT").text = str(out_corners[3][1])
+    BAND.find("LLHAE").text = str(out_height)
 
 def find_bands(node):
 
@@ -371,7 +377,7 @@ def read_xml( filename, options):
         # The height range, [ht_min, ht_max]. We store it as a 2D box
         # as to not create an interval class.
         try:
-            ht_scale = float(RPB.find("IMAGE").find("HEIGHTSCALE").text)
+            ht_scale  = float(RPB.find("IMAGE").find("HEIGHTSCALE").text)
             ht_offset = float(RPB.find("IMAGE").find("HEIGHTOFFSET").text)
             min_ht = -ht_scale + ht_offset
             max_ht =  ht_scale + ht_offset
@@ -574,8 +580,7 @@ def main():
 
                 [tlctime, tlclist, firstlinetime, image_size, pitch, originx, pd,
                  eph_list, att_list, llbox, htbox, ll_corners,
-                 meanproductgsd, meancollectedgsd] \
-                 = read_xml( xml_name(filename), options )
+                 meanproductgsd, meancollectedgsd] = read_xml( xml_name(filename), options )
                 all_ll_corners.append(ll_corners)
 
                 # Sanity checks
@@ -639,7 +644,7 @@ def main():
 
             if it == 0:
                 args = s_args[:] # deep copy
-        # End passes
+        # End passes loop
 
         # Dummy check: Look for duplicate files that will insert at
         # same location. Files that do this would be the R?C1 variants
@@ -666,11 +671,11 @@ def main():
         imd.find("NUMROWS").text = str(int(boundary.height()))
         imd.find("NUMCOLUMNS").text = str(int(boundary.width()))
         for tlc_item in imd.find("IMAGE").find("TLCLISTList").findall("TLCLIST"):
-            tokens = tlc_item.text.strip().split(' ')
-            tokens[0] = str(float(tokens[0])- boundary.miny)
+            tokens        = tlc_item.text.strip().split(' ')
+            tokens[0]     = str(float(tokens[0])- boundary.miny)
             tlc_item.text = " ".join(tokens)
         first_line_item = root.find("IMD").find("IMAGE").find("FIRSTLINETIME")
-        tlc_lookup = tlc_time_lookup( ref_tlctime, ref_tlclist, boundary.miny )
+        tlc_lookup      = tlc_time_lookup( ref_tlctime, ref_tlclist, boundary.miny )
         # The verbose operation below is needed for python 2.4
         first_line_item.text = tlc_lookup.strftime("%Y-%m-%dT%H:%M:%S") + '.' \
                                + format_microsec(str(tlc_lookup.microsecond)) + "Z"
@@ -684,6 +689,7 @@ def main():
             tree.write(temp_xml_file.name)
             rpc_cmd = "rpc_gen"
             rpc_args = ['--penalty-weight', str(options.penalty_weight),
+                        '--output-prefix', options.output_prefix,
                         '--lon-lat-height-box',
                         str(ref_llbox.minx), str(ref_llbox.miny),
                         str(ref_htbox.minx), str(ref_llbox.maxx),
@@ -696,11 +702,11 @@ def main():
                 if RPI.find("ERRBIAS") != None: RPI.remove( RPI.find ("ERRBIAS") )
                 if RPI.find("ERRRAND") != None: RPI.remove( RPI.find ("ERRRAND") )
 
-                RPI.find("SAMPSCALE").text    = rpc_model["xy_scale"][0]
-                RPI.find("LINESCALE").text    = rpc_model["xy_scale"][1]
+                RPI.find("SAMPSCALE").text    = rpc_model["uv_scale"][0]
+                RPI.find("LINESCALE").text    = rpc_model["uv_scale"][1]
 
-                RPI.find("SAMPOFFSET").text   = rpc_model["xy_offset"][0]
-                RPI.find("LINEOFFSET").text   = rpc_model["xy_offset"][1]
+                RPI.find("SAMPOFFSET").text   = rpc_model["uv_offset"][0]
+                RPI.find("LINEOFFSET").text   = rpc_model["uv_offset"][1]
 
                 RPI.find("LONGSCALE").text    = rpc_model["llh_scale"][0]
                 RPI.find("LATSCALE").text     = rpc_model["llh_scale"][1]
@@ -715,6 +721,7 @@ def main():
                 RPI.find("SAMPNUMCOEFList").find("SAMPNUMCOEF").text = " ".join(rpc_model["samp_num"])
                 RPI.find("SAMPDENCOEFList").find("SAMPDENCOEF").text = " ".join(rpc_model["samp_den"])
             except Exception, e:
+                print 'Caught exception: ' + str(e)
                 raise Exception('InputError', "File " + args[0] +
                                 " lacks complete RPC model information.")
         else:
@@ -725,7 +732,7 @@ def main():
 
         # Adjust image corners
         for band in find_bands(imd):
-            adjust_camera_corners(band, all_ll_corners)
+            adjust_camera_corners(band, all_ll_corners, ref_htbox)
 
         # Adjust avg gsd tags and wipe other tags
         set_or_wipe_image_tags(root.find("IMD").find("IMAGE"),

@@ -91,12 +91,11 @@ inline boost::shared_ptr<asp::RPCModel> CameraModelLoader::load_rpc_camera_model
   // Try the default loading method
   RPCModel* rpc_model = NULL;
   try {
-    // The default loading method failed, try the backup method.
     RPCXML rpc_xml; // This is for reading XML files
     rpc_xml.read_from_file(path);
     rpc_model = new RPCModel(*rpc_xml.rpc_ptr()); // Copy the value
-  } catch (...) {}
-  if (!rpc_model)
+  } catch (...) {} 
+  if (!rpc_model) // The default loading method failed, try the backup method.
   {
     rpc_model = new RPCModel(path); // This is for reading .tif files
   }

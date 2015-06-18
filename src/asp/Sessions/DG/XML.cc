@@ -414,6 +414,13 @@ void asp::RPCXML::read_from_file( std::string const& name ) {
     vw_throw( ArgumentErr() << "XML file \"" << name << "\" is invalid.\n" );
   }
 
+  // Try to parse the bounding box but keep going if we fail.
+  //try {
+    parse_bbox(elementRoot);
+  //}catch(...){
+  //  VW_OUT(vw::DebugMessage, "asp") << "RPCXML: Warning -> Unable to parse the bounding box" << std::endl;
+  //}
+
   try {
     parse_rpb( get_node<DOMElement>( elementRoot, "RPB" ) );
     return;
@@ -426,7 +433,38 @@ void asp::RPCXML::read_from_file( std::string const& name ) {
   } catch ( vw::IOErr const& e ) {
     // Possibly Rational_Function_Model doesn't work
   }
+
   vw_throw( vw::NotFoundErr() << "Couldn't find RPB or Rational_Function_Model tag inside XML file." );
+}
+
+void asp::RPCXML::parse_bbox( xercesc::DOMElement* root_node ) {
+  // Now read the bounding box
+  DOMElement* imd_node  = get_node<DOMElement>( root_node, "IMD" );
+  DOMElement* bbox_node = get_node<DOMElement>( imd_node,  "BAND_P" );
+  // Start by initializing the box with the first point
+  Vector3 point;
+  cast_xmlch( get_node<DOMElement>( bbox_node, "ULLON" )->getTextContent(), point.x() );
+  cast_xmlch( get_node<DOMElement>( bbox_node, "ULLAT" )->getTextContent(), point.y() );
+  cast_xmlch( get_node<DOMElement>( bbox_node, "ULHAE" )->getTextContent(), point.z() );
+  m_lat_lon_height_box.min() = point;
+  m_lat_lon_height_box.max() = point;
+  VW_OUT(vw::DebugMessage, "asp") << "RPCXML: point = " << point<< std::endl;
+  // Expand to contain the other points
+  cast_xmlch( get_node<DOMElement>( bbox_node, "URLON" )->getTextContent(), point.x() );
+  cast_xmlch( get_node<DOMElement>( bbox_node, "URLAT" )->getTextContent(), point.y() );
+  cast_xmlch( get_node<DOMElement>( bbox_node, "URHAE" )->getTextContent(), point.z() );
+  m_lat_lon_height_box.grow(point);
+  VW_OUT(vw::DebugMessage, "asp") << "RPCXML: point = " << point<< std::endl;
+  cast_xmlch( get_node<DOMElement>( bbox_node, "LLLON" )->getTextContent(), point.x() );
+  cast_xmlch( get_node<DOMElement>( bbox_node, "LLLAT" )->getTextContent(), point.y() );
+  cast_xmlch( get_node<DOMElement>( bbox_node, "LLHAE" )->getTextContent(), point.z() );
+  m_lat_lon_height_box.grow(point);
+  VW_OUT(vw::DebugMessage, "asp") << "RPCXML: point = " << point<< std::endl;
+  cast_xmlch( get_node<DOMElement>( bbox_node, "LRLON" )->getTextContent(), point.x() );
+  cast_xmlch( get_node<DOMElement>( bbox_node, "LRLAT" )->getTextContent(), point.y() );
+  cast_xmlch( get_node<DOMElement>( bbox_node, "LRHAE" )->getTextContent(), point.z() );
+  m_lat_lon_height_box.grow(point);
+  VW_OUT(vw::DebugMessage, "asp") << "RPCXML: point = " << point<< std::endl;
 }
 
 void asp::RPCXML::parse_rpb( xercesc::DOMElement* node ) {
@@ -438,55 +476,40 @@ void asp::RPCXML::parse_rpb( xercesc::DOMElement* node ) {
   Vector3 geodetic_offset, geodetic_scale;
 
   // Painfully extract from the XML
-  cast_xmlch( get_node<DOMElement>( image, "SAMPOFFSET" )->getTextContent(),
-              xy_offset.x() );
-  cast_xmlch( get_node<DOMElement>( image, "LINEOFFSET" )->getTextContent(),
-              xy_offset.y() );
-  cast_xmlch( get_node<DOMElement>( image, "SAMPSCALE" )->getTextContent(),
-              xy_scale.x() );
-  cast_xmlch( get_node<DOMElement>( image, "LINESCALE" )->getTextContent(),
-              xy_scale.y() );
-  cast_xmlch( get_node<DOMElement>( image, "LONGOFFSET" )->getTextContent(),
-              geodetic_offset.x() );
-  cast_xmlch( get_node<DOMElement>( image, "LATOFFSET" )->getTextContent(),
-              geodetic_offset.y() );
-  cast_xmlch( get_node<DOMElement>( image, "HEIGHTOFFSET" )->getTextContent(),
-              geodetic_offset.z() );
-  cast_xmlch( get_node<DOMElement>( image, "LONGSCALE" )->getTextContent(),
-              geodetic_scale.x() );
-  cast_xmlch( get_node<DOMElement>( image, "LATSCALE" )->getTextContent(),
-              geodetic_scale.y() );
-  cast_xmlch( get_node<DOMElement>( image, "HEIGHTSCALE" )->getTextContent(),
-              geodetic_scale.z() );
+  cast_xmlch( get_node<DOMElement>( image, "SAMPOFFSET"   )->getTextContent(), xy_offset.x()       );
+  cast_xmlch( get_node<DOMElement>( image, "LINEOFFSET"   )->getTextContent(), xy_offset.y()       );
+  cast_xmlch( get_node<DOMElement>( image, "SAMPSCALE"    )->getTextContent(), xy_scale.x()        );
+  cast_xmlch( get_node<DOMElement>( image, "LINESCALE"    )->getTextContent(), xy_scale.y()        );
+  cast_xmlch( get_node<DOMElement>( image, "LONGOFFSET"   )->getTextContent(), geodetic_offset.x() );
+  cast_xmlch( get_node<DOMElement>( image, "LATOFFSET"    )->getTextContent(), geodetic_offset.y() );
+  cast_xmlch( get_node<DOMElement>( image, "HEIGHTOFFSET" )->getTextContent(), geodetic_offset.z() );
+  cast_xmlch( get_node<DOMElement>( image, "LONGSCALE"    )->getTextContent(), geodetic_scale.x()  );
+  cast_xmlch( get_node<DOMElement>( image, "LATSCALE"     )->getTextContent(), geodetic_scale.y()  );
+  cast_xmlch( get_node<DOMElement>( image, "HEIGHTSCALE"  )->getTextContent(), geodetic_scale.z()  );
   check_argument(0);
-  parse_vector( get_node<DOMElement>(get_node<DOMElement>( image, "LINENUMCOEFList" ), "LINENUMCOEF" ),
-                line_num_coeff );
-  parse_vector( get_node<DOMElement>(get_node<DOMElement>( image, "LINEDENCOEFList" ), "LINEDENCOEF" ),
-                line_den_coeff );
-  parse_vector( get_node<DOMElement>(get_node<DOMElement>( image, "SAMPNUMCOEFList" ), "SAMPNUMCOEF" ),
-                samp_num_coeff );
-  parse_vector( get_node<DOMElement>(get_node<DOMElement>( image, "SAMPDENCOEFList" ), "SAMPDENCOEF" ),
-                samp_den_coeff );
+  parse_vector(get_node<DOMElement>(get_node<DOMElement>(image, "LINENUMCOEFList"), "LINENUMCOEF"), line_num_coeff);
+  parse_vector(get_node<DOMElement>(get_node<DOMElement>(image, "LINEDENCOEFList"), "LINEDENCOEF"), line_den_coeff);
+  parse_vector(get_node<DOMElement>(get_node<DOMElement>(image, "SAMPNUMCOEFList"), "SAMPNUMCOEF"), samp_num_coeff);
+  parse_vector(get_node<DOMElement>(get_node<DOMElement>(image, "SAMPDENCOEFList"), "SAMPDENCOEF"), samp_den_coeff);
   check_argument(1);
 
   // Push into the RPC Model so that it is easier to work with
   //
   // The choice of using the WGS84 datum comes from Digital Globe's
   // QuickBird Imagery Products : Products Guide. Section 11.1 makes a
-  // blanket statement that all heights are meters against the WGS 84
-  // ellipsoid.
+  // blanket statement that all heights are meters against the WGS 84 ellipsoid.
   m_rpc.reset( new RPCModel( cartography::Datum("WGS84"),
                              line_num_coeff, line_den_coeff,
                              samp_num_coeff, samp_den_coeff,
                              xy_offset, xy_scale,
                              geodetic_offset, geodetic_scale ) );
+
 }
 
 void asp::RPCXML::parse_rational_function_model( xercesc::DOMElement* node ) {
   DOMElement* inverse_model =
     get_node<DOMElement>( node, "Inverse_Model" ); // Inverse model
-                                                   // takes ground to
-                                                   // image.
+                                                   // takes ground to image.
   DOMElement* rfmvalidity  = get_node<DOMElement>( node, "RFM_Validity" );
 
   // Pieces that will go into the RPC Model
@@ -665,7 +688,12 @@ vw::Vector2i asp::xml_image_size( std::string const& filename ){
 }
 
 asp::RPCModel* asp::RPCXML::rpc_ptr() const {
-  VW_ASSERT( m_rpc.get(),
-             LogicErr() << "read_from_file or parse needs to be called first before an RPCModel is ready" );
+  VW_ASSERT( m_rpc.get(), LogicErr() << "read_from_file or parse needs to be called first before an RPCModel is ready" );
   return m_rpc.get();
 }
+
+vw::BBox3 asp::RPCXML::get_lon_lat_height_box() const {
+  return m_lat_lon_height_box;
+}
+
+

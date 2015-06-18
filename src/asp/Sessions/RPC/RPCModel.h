@@ -99,6 +99,9 @@ namespace asp {
     vw::Vector3 const& lonlatheight_offset() const { return m_lonlatheight_offset; }
     vw::Vector3 const& lonlatheight_scale () const { return m_lonlatheight_scale;  }
 
+    /// Returns a vector containing the order of each of the terms a CoeffVec applies to.
+    static vw::Vector<int,20> get_coeff_order();
+
     // Helper methods used for triangulation and projection
     static CoeffVec calculate_terms( vw::Vector3 const& normalized_geodetic );
     static vw::Matrix<double, 20, 2> terms_Jacobian2( vw::Vector3 const& normalized_geodetic );

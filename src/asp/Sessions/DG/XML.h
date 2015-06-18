@@ -24,8 +24,10 @@
 #define __STEREO_SESSION_DG_XML_H__
 
 #include <vw/Core/FundamentalTypes.h>
+#include <vw/Core/Log.h>
 #include <vw/Math/Vector.h>
 #include <vw/Math/Quaternion.h>
+#include <vw/Math/BBox.h>
 #include <asp/Sessions/DG/XMLBase.h>
 
 #include <vector>
@@ -120,19 +122,25 @@ namespace asp {
   /// Reads from Digital Globe XML format
   class RPCXML : public XMLBase {
     boost::scoped_ptr<RPCModel> m_rpc;
+    vw::BBox3 m_lat_lon_height_box;
+
     void parse_vector( xercesc::DOMElement* node,
                        vw::Vector<double,20> & vec );
 
-    void parse_rpb( xercesc::DOMElement* node ); /// Digital Globe XML
-    void parse_rational_function_model( xercesc::DOMElement* node ); /// Pleiades / Astrium
+    void parse_rpb( xercesc::DOMElement* node ); ///< Digital Globe XML
+    void parse_rational_function_model( xercesc::DOMElement* node ); ///< Pleiades / Astrium
+
+    void parse_bbox( xercesc::DOMElement* node ); ///< Read the valid sensor model bounds
 
   public:
     RPCXML();
-
     void read_from_file( std::string const& name );
     void parse( xercesc::DOMElement* node ) { parse_rpb( node ); }
 
+    /// Return a pointer to the loaded RPC model.
     RPCModel* rpc_ptr() const;
+    /// Get the GDC bounding box that the RPC model is valid for.
+    vw::BBox3 get_lon_lat_height_box() const;
   };
 
   // Helper functions to allow us to fill the objects. This doesn't

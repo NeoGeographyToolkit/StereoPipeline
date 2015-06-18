@@ -172,6 +172,14 @@ namespace asp {
     return result;
   }
 
+  vw::Vector<int,20> RPCModel::get_coeff_order() {
+    vw::Vector<int,20> result;
+    for (int i= 0; i< 3; ++i) result[i] = 1;
+    for (int i= 3; i<10; ++i) result[i] = 2;
+    for (int i=10; i<20; ++i) result[i] = 3;
+    return result;
+  }
+
   vw::Matrix<double, 20, 2> RPCModel::terms_Jacobian2( vw::Vector3 const& normalized_geodetic ) {
     // Partial derivatives of the terms returned by the
     // calculate_terms() function in respect to the first two
