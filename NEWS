@@ -7,7 +7,8 @@
 
 -  Added stereo_gui, a GUI tool having the same interface as stereo, that
    can be used to visualize both input images, select regions of interest,
-   and run stereo only on those regions. 
+   and run stereo only on those regions. Based on Michael Broxton's vwv
+   tool. 
 
  - Misc.
    * Added gdalinfo and gdal_translate to the tools in the bin
