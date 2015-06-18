@@ -23,6 +23,7 @@
 
 #include <string>
 #include <vector>
+#include <boost/filesystem/path.hpp>
 
 // Qt
 #include <QtGui>
@@ -36,6 +37,85 @@
 using namespace vw;
 using namespace vw::gui;
 using namespace std;
+
+// A class to manage very large images and their subsampled versions
+// in a pyramid. The most recently accessed tiles are cached in memory.
+#include <asp/Core/AntiAliasing.h>
+template <class T>
+class DiskImagePyramid {
+
+  DiskImagePyramid(std::string const& img_file,
+                   int top_image_max_pix,
+                   int subsample
+                   ): m_subsample(subsample),
+                      m_top_image_max_pix(top_image_max_pix){
+
+    m_pyramid.push_back(DiskImageView<T>(img_file));
+    m_pyramid_files.push_back(img_file);
+    m_scales.push_back(1);
+
+    if (subsample < 2) {
+      vw_throw( ArgumentErr() << "Must subsample by a factor of at least 2.\n");
+    }
+
+    int level = 0;
+    int scale = 1;
+    std::cout << "--curr size is " << m_pyramid[level].cols() << ' '
+              << m_pyramid[level].rows() << std::endl;
+
+    while (double(m_pyramid[level].cols())*double(m_pyramid[level].rows()) >
+           m_top_image_max_pix ){
+
+      boost::filesystem::path p(img_file);
+      std::string stem = p.stem();
+      std::ostringstream os;
+
+      scale *= subsample;
+      os << stem << "_sub" << scale << ".tif";
+      std::string curr_file = os.str();
+
+      if (level == 0) {
+        vw_out() << "Detected large image: " << img_file  << "." << std::endl;
+        vw_out() << "Will construct an image pyramid on disk."  << std::endl;
+      }
+      vw_out() << "Writing: " << curr_file << std::endl;
+
+      // TODO: resample_aa is a hacky thingy. Need to understand
+      // what is a good way of resampling.
+      write_image(curr_file, asp::resample_aa(m_pyramid[level], 1.0/subsample));
+
+      m_pyramid_files.push_back(curr_file);
+      m_pyramid.push_back(DiskImageView<T>(curr_file));
+      m_scales.push_back(scale);
+
+      level++;
+
+      std::cout << "--curr size is " << m_pyramid[level].cols() << ' '
+                << m_pyramid[level].rows() << std::endl;
+
+
+    }
+  }
+
+  // The subsample factor to go to the next level of the pyramid
+  // (must be >= 2).
+  int m_subsample;
+
+  // The maxiumum number of pixels in the coarsest level of
+  // the pyramid (keep on downsampling until getting to this number
+  // or under it).
+  int m_top_image_max_pix;
+
+  //  The pyramid. Largest images come earlier.
+  std::vector< ImageViewRef<T> > m_pyramid;
+
+  // The files (stored on disk) containing the images in the pyramid.
+  std::vector<std::string> m_pyramid_files;
+
+  std::vector<int> m_scales;
+
+};
+
 
 void popUp(std::string msg){
   QMessageBox msgBox;
@@ -82,6 +162,9 @@ void imageData::read(std::string const& image, bool ignore_georef,
                      bool hillshade){
   name = image;
   img = DiskImageView<float>(name);
+
+  // Turn off handing georef, the code is not ready for that
+  ignore_georef = true;
 
   if (ignore_georef)
     has_georef = false;

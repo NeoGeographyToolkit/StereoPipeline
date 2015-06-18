@@ -23,8 +23,6 @@
 # 'make clean' should get rid of any QT meta-object compiled files.
 CLEANFILES = *.moc.cc
 
-if ENABLE_EXCEPTIONS
-
 noinst_HEADERS =                \
   MainWidget.h                  \
   ImageTileGenerator.h          \
@@ -49,8 +47,6 @@ BUILT_SOURCES =                 \
 stereo_gui_LDADD = @PKG_GUI_LIBS@
 
 bin_PROGRAMS = stereo_gui
-
-endif
 
 ########################################################################
 # general
