@@ -84,20 +84,6 @@ vw::Vector3 cartesian_to_geodetic_adj(vw::cartography::GeoReference const&
   return G;
 }
 
-double dem_height_diff(vw::Vector3 const& xyz, vw::cartography::GeoReference const& dem_georef,
-                       vw::ImageView<float> const& dem, double nodata){
-
-  vw::Vector3 llh = cartesian_to_geodetic_adj(dem_georef, xyz);
-  vw::Vector2 pix = dem_georef.lonlat_to_pixel(subvector(llh, 0, 2));
-  int c = (int)round(pix[0]), r = (int)round(pix[1]);
-  if (c < 0 || c >= dem.cols() || r < 0 || r >= dem.rows() || dem(c, r) == nodata){
-    //vw::vw_out() << "nval: " << llh[0] << ' ' << llh[1] << std::endl;
-    return std::numeric_limits<double>::quiet_NaN();
-  }
-  //vw::vw_out() << "yval: " << llh[0] << ' ' << llh[1] << std::endl;
-  return std::abs(llh[2] - dem(c, r));
-}
-
 void null_check(const char* token, std::string const& line){
   if (token == NULL)
     vw_throw( vw::IOErr() << "Failed to read line: " << line << "\n" );
@@ -1161,8 +1147,54 @@ void save_trans_point_cloud(asp::BaseOptions const& opt,
   }else{
     vw_throw( vw::ArgumentErr() << "Unknown file type: " << input_file << "\n" );
   }
+} // end save_trans_point_cloud
 
+
+
+InterpolationReadyDem load_interpolation_ready_dem(std::string                  const& dem_path,
+                                                   vw::cartography::GeoReference     & georef) {
+  // Load the georeference from the DEM
+  bool is_good = vw::cartography::read_georeference( georef, dem_path );
+  if (!is_good) 
+    vw::vw_throw(vw::ArgumentErr() << "DEM: " << dem_path << " does not have a georeference.\n");
+
+  // Set up file handle to the DEM and read the nodata value
+  vw::DiskImageView<float> dem(dem_path);
+  double nodata = std::numeric_limits<double>::quiet_NaN();
+  boost::shared_ptr<vw::DiskImageResource> dem_rsrc( new vw::DiskImageResourceGDAL(dem_path) );
+  if (dem_rsrc->has_nodata_read()) 
+    nodata = dem_rsrc->nodata_read();
+
+  // Set up interpolation + mask view of the DEM
+  vw::ImageViewRef< vw::PixelMask<float> > masked_dem = create_mask(dem, nodata);
+  return InterpolationReadyDem(interpolate(masked_dem));
 }
+
+
+bool interp_dem_height(vw::ImageViewRef< vw::PixelMask<float> > const& dem,
+                       vw::cartography::GeoReference const & georef,
+                       vw::Vector3                   const & lonlat,
+                       double                              & dem_height) {
+  // Convert the lon/lat location into a pixel in the DEM.
+  vw::Vector2 pix = georef.lonlat_to_pixel(subvector(lonlat, 0, 2));
+  double c = pix[0], 
+         r = pix[1];
+         
+  // Quit if the pixel falls outside the DEM.
+  if (c < 0 || c >= dem.cols()-1 || // TODO: This ought to be an image class function
+      r < 0 || r >= dem.rows()-1 )
+    return false;
+
+  // Interpolate the DEM height at the pixel location
+  vw::PixelMask<float> v = dem(c, r);
+  if (!is_valid(v)) 
+    return false;
+    
+  dem_height = v.child();
+  return true;
+}
+
+
 
 
 

@@ -66,6 +66,14 @@
 
 #include <pointmatcher/PointMatcher.h>
 
+/*
+  This file contains helper functions for the pc_align tool.
+  
+  Some of these could probably be moved elsewhere, but many of them depend on
+  libpointmatcher object types.
+*/
+
+
 
 
 typedef double RealT; // We will use doubles in libpointmatcher.
@@ -91,12 +99,6 @@ std::string get_file_type(std::string const& file_name);
 /// To do: This may not be perfectly fool-proof.
 vw::Vector3 cartesian_to_geodetic_adj(vw::cartography::GeoReference const&
                                       geo, vw::Vector3 xyz);
-/*
-/// Interpolates a cartesion location in a DEM, interpolates the DEM value,
-/// and returns the absolute height difference from the DEM.
-double dem_height_diff(vw::Vector3 const& xyz, vw::cartography::GeoReference const& dem_georef,
-                       vw::ImageView<float> const& dem, double nodata);
-*/
 
 /// Generate libpointmatcher compatible labels.
 template<typename T>
@@ -297,7 +299,6 @@ void save_trans_point_cloud_n(asp::BaseOptions const& opt,
 
 //=======================================================================================
 // Stuff pulled up from point_to_dem_dist in the Tools repository.
-// - Once it is tested, move it to a final destination!
 
 
 /// A type for interpolation from a masked DEM object.
@@ -305,56 +306,16 @@ typedef vw::InterpolationView< vw::EdgeExtensionView< vw::ImageViewRef< vw::Pixe
                                                       vw::ConstantEdgeExtension>, 
                                vw::BilinearInterpolation> InterpolationReadyDem;
 
-
 /// Get ready to interpolate points on a DEM existing on disk.
 InterpolationReadyDem load_interpolation_ready_dem(std::string                  const& dem_path,
-                                                   vw::cartography::GeoReference     & georef) {
-  // Load the georeference from the DEM
-  bool is_good = vw::cartography::read_georeference( georef, dem_path );
-  if (!is_good) 
-    vw::vw_throw(vw::ArgumentErr() << "DEM: " << dem_path << " does not have a georeference.\n");
-
-  // Set up file handle to the DEM and read the nodata value
-  vw::DiskImageView<float> dem(dem_path);
-  double nodata = std::numeric_limits<double>::quiet_NaN();
-  boost::shared_ptr<vw::DiskImageResource> dem_rsrc( new vw::DiskImageResourceGDAL(dem_path) );
-  if (dem_rsrc->has_nodata_read()) 
-    nodata = dem_rsrc->nodata_read();
-
-  // Set up interpolation + mask view of the DEM
-  vw::ImageViewRef< vw::PixelMask<float> > masked_dem = create_mask(dem, nodata);
-  return InterpolationReadyDem(interpolate(masked_dem));
-}
-
-
-
+                                                   vw::cartography::GeoReference     & georef);
 
 /// Interpolates the DEM height at the input coordinate.
 /// - Returns false if the coordinate falls outside the valid DEM area.
 bool interp_dem_height(vw::ImageViewRef< vw::PixelMask<float> > const& dem,
                        vw::cartography::GeoReference const & georef,
                        vw::Vector3                   const & lonlat,
-                       double                              & dem_height) {
-  // Convert the lon/lat location into a pixel in the DEM.
-  vw::Vector2 pix = georef.lonlat_to_pixel(subvector(lonlat, 0, 2));
-  double c = pix[0], 
-         r = pix[1];
-         
-  // Quit if the pixel falls outside the DEM.
-  if (c < 0 || c >= dem.cols()-1 || // TODO: This ought to be an image class function
-      r < 0 || r >= dem.rows()-1 )
-    return false;
-
-  // Interpolate the DEM height at the pixel location
-  vw::PixelMask<float> v = dem(c, r);
-  if (!is_valid(v)) 
-    return false;
-    
-  dem_height = v.child();
-  return true;
-}
-
-
+                       double                              & dem_height);
 
 
 

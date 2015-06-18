@@ -112,6 +112,7 @@ struct Options : public asp::BaseOptions {
          semi_major, 
          semi_minor;
   bool   compute_translation_only, 
+         dont_use_dem_distances,
          save_trans_source, 
          save_trans_ref, 
          highest_accuracy, 
@@ -122,8 +123,8 @@ struct Options : public asp::BaseOptions {
   
   Options() : max_disp(-1.0), verbose(true){}
   
-  /// Return true if the reference file is a DEM file
-  bool reference_file_is_dem() const { return (get_file_type(this->reference) == "DEM"); }
+  /// Return true if the reference file is a DEM file and this option is not disabled
+  bool use_dem_distances() const { return ( (get_file_type(this->reference) == "DEM") && !dont_use_dem_distances); }
 };
 
 
@@ -165,6 +166,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                                  "Specify the output prefix.")
     ("compute-translation-only", po::bool_switch(&opt.compute_translation_only)->default_value(false)->implicit_value(true),
                                  "Compute the transform from source to reference point cloud as a translation only (no rotation).")
+    ("no_dem_distances",         po::bool_switch(&opt.dont_use_dem_distances)->default_value(false)->implicit_value(true),
+                                 "Never use dem distances for error measurement, only measure to points.")
     ("save-transformed-source-points", po::bool_switch(&opt.save_trans_source)->default_value(false)->implicit_value(true),
                                   "Apply the obtained transform to the source points so they match the reference points and save them.")
     ("save-inv-transformed-reference-points", po::bool_switch(&opt.save_trans_ref)->default_value(false)->implicit_value(true),
@@ -305,13 +308,11 @@ void read_datum(Options& opt, asp::CsvConv& csv_conv, Datum& datum){
             (opt.csv_format_str == "" || csv_conv.format != asp::XYZ) ){
     // There is no DEM/LAS to read the datum from, and the user either
     // did not specify the CSV format (then we set it to lat, lon,
-    // height), or it is specified as containing lat, lon, rather
-    // than xyz.
+    // height), or it is specified as containing lat, lon, rather than xyz.
     bool has_csv = ( get_file_type(opt.reference) == "CSV" ) ||
                    ( get_file_type(opt.source   ) == "CSV" );
     if (has_csv){
-      // We are in trouble, will not be able to convert input lat,
-      // lon, to xyz.
+      // We are in trouble, will not be able to convert input lat, lon, to xyz.
       vw_throw( ArgumentErr() << "Cannot detect the datum. "
                               << "Please specify it via --datum or "
                               << "--semi-major-axis and --semi-minor-axis.\n" );
@@ -528,7 +529,6 @@ void calcErrorsWithDem(DP          const& point_cloud,
 
 }
 
-// TODO: Replace with a more LPM aware function for speed!
 /// Filters out all points from point_cloud with an error entry higher than cutoff
 void filterPointsByError(DP & point_cloud, PointMatcher<RealT>::Matrix &errors, double cutoff) {
 
@@ -545,8 +545,10 @@ void filterPointsByError(DP & point_cloud, PointMatcher<RealT>::Matrix &errors, 
   int points_count = 0;
   for (int col = 0; col < input_point_count; ++col) {
 
-    if (errors(0,col) > cutoff)
+    if (errors(0,col) > cutoff) {
+      vw_out() << "Throwing out point " << col << " for having error " << errors(0,col) << "\n";
       continue; // Error too high, don't add this point
+    }
 
     // Copy this point to the output LPM structure
     for (int row = 0; row < DIM; row++)
@@ -575,9 +577,10 @@ void update_best_error(std::vector<double>         const& dem_errors,
   // Loop through points
   for(int col = 0; col < num_points; col++){
     // Use the DEM error if it is less
-    if (dem_errors[col] < lpm_errors(0,col))
+    if (dem_errors[col] < lpm_errors(0,col)) {
+      //vw_out() << "DEM error = " << dem_errors[col] << ", LPM error = " << lpm_errors(0,col) << std::endl;
       lpm_errors(0, col) = dem_errors[col];
-    vw_out() << "DEM error = " << dem_errors[col] << ", LPM error = " << lpm_errors(0,col) << std::endl;
+    }
   }
   
 }
@@ -600,7 +603,7 @@ double compute_registration_error(DP          const& ref_point_cloud,
   pm_icp_object.filterGrossOutliersAndCalcErrors(ref_point_cloud, BIG_NUMBER,
                                                  source_point_cloud, error_matrix);
   
-  if (opt.reference_file_is_dem()) {
+  if (opt.use_dem_distances()) {
     // Compute the distance from each point to the DEM
     std::vector<double> dem_errors;
     calcErrorsWithDem(source_point_cloud, shift, dem_georef, dem_ref, dem_errors);
@@ -630,12 +633,18 @@ void filter_source_cloud(DP          const& ref_point_cloud,
   Stopwatch sw;
   sw.start();
 
-  // Compute the registration error using the best available means
   PointMatcher<RealT>::Matrix error_matrix;
-  compute_registration_error(ref_point_cloud, source_point_cloud, pm_icp_object, shift,
-                             dem_georef, dem_ref, opt, error_matrix);
+  if (opt.use_dem_distances()) {
+    // Compute the registration error using the best available means
+    compute_registration_error(ref_point_cloud, source_point_cloud, pm_icp_object, shift,
+                               dem_georef, dem_ref, opt, error_matrix);
 
-  filterPointsByError(source_point_cloud, error_matrix, opt.max_disp);
+    filterPointsByError(source_point_cloud, error_matrix, opt.max_disp);
+  } else { // LPM only method  
+      // Points in source_point_cloud further than opt.max_disp from ref_point_cloud are deleted!
+      pm_icp_object.filterGrossOutliersAndCalcErrors(ref_point_cloud, opt.max_disp*opt.max_disp,
+                                                     source_point_cloud, error_matrix);
+  }
 
   sw.stop();
   if (opt.verbose) 
@@ -760,12 +769,10 @@ int main( int argc, char *argv[] ) {
     // The point clouds are shifted, so shift the initial transform as well.
     PointMatcher<RealT>::Matrix initT = apply_shift(opt.init_transform, shift);
 
-    // TODO: If we use DEM comparison, need to remember this shift!!!
-
     // If the reference point cloud came from a DEM, also load the data in DEM format.
     cartography::GeoReference dem_georef;    
     vw::ImageViewRef< PixelMask<float> > reference_dem_ref;
-    if (opt.reference_file_is_dem()) {
+    if (opt.use_dem_distances()) {
       // Load the dem, then wrap it inside an ImageViewRef object.
       // - This is done because the actual DEM type cannot be created without being initialized.
       InterpolationReadyDem reference_dem(load_interpolation_ready_dem(opt.reference, dem_georef));
@@ -791,16 +798,6 @@ int main( int argc, char *argv[] ) {
     PointMatcher<RealT>::Matrix beg_errors;
     if (opt.max_disp > 0.0){
       // Filter gross outliers
-/*      
-      Stopwatch sw4;
-      sw4.start();
-      // Points in source_point_cloud further than opt.max_disp from ref_point_cloud are deleted!
-      icp.filterGrossOutliersAndCalcErrors(ref_point_cloud, opt.max_disp*opt.max_disp,
-                                            source_point_cloud, beg_errors); //in-out
-      sw4.stop();
-      if (opt.verbose) 
-        vw_out() << "Filter gross outliers took " << sw4.elapsed_seconds() << " [s]" << endl;
-*/               
       filter_source_cloud(ref_point_cloud, source_point_cloud, icp,
                           shift, dem_georef, reference_dem_ref, opt);
     }
@@ -811,18 +808,6 @@ int main( int argc, char *argv[] ) {
     //dump_llh("ref.csv", datum, ref_point_cloud,    shift);
     //dump_llh("src.csv", datum, source, shift);
 
-/*
-    // Calculate the errors before doing ICP
-    Stopwatch sw5;
-    sw5.start();
-    const double BIG_NUMBER = 1e+300;
-    icp.filterGrossOutliersAndCalcErrors(ref_point_cloud, BIG_NUMBER,
-                                          source_point_cloud, beg_errors); //in-out
-    calc_stats("Input", beg_errors);
-    sw5.stop();
-    if (opt.verbose) vw_out() << "Initial error computation took "
-                              << sw5.elapsed_seconds() << " [s]" << endl;
-*/
     elapsed_time = compute_registration_error(ref_point_cloud, source_point_cloud, icp,
                                               shift, dem_georef, reference_dem_ref, opt, beg_errors);
     calc_stats("Input", beg_errors);
@@ -831,8 +816,8 @@ int main( int argc, char *argv[] ) {
 
 
     // Compute the transformation to align the source to reference.
-    Stopwatch sw6;
-    sw6.start();
+    Stopwatch sw4;
+    sw4.start();
     PointMatcher<RealT>::Matrix Id = PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1);
     if (opt.config_file == ""){
       // Read the options from the command line
@@ -856,9 +841,9 @@ int main( int argc, char *argv[] ) {
       vw_out() << "Match ratio: "
                << icp.errorMinimizer->getWeightedPointUsedRatio() << endl;
     }
-    sw6.stop();
+    sw4.stop();
     if (opt.verbose) 
-      vw_out() << "ICP took " << sw6.elapsed_seconds() << " [s]" << endl;
+      vw_out() << "ICP took " << sw4.elapsed_seconds() << " [s]" << endl;
 
     // Transform the source to make it close to reference.
     DP trans_source_point_cloud(source_point_cloud);
@@ -874,16 +859,6 @@ int main( int argc, char *argv[] ) {
 
     // For each point, compute the distance to the nearest reference point.
     PointMatcher<RealT>::Matrix end_errors;
-    /*
-    Stopwatch sw7;
-    sw7.start();
-    icp.filterGrossOutliersAndCalcErrors(ref_point_cloud, BIG_NUMBER,
-                                          trans_source_point_cloud, end_errors); // in-out
-    calc_stats("Output", end_errors);
-    sw7.stop();
-    if (opt.verbose) 
-      vw_out() << "Final error computation took " << sw7.elapsed_seconds() << " [s]" << endl;
-*/
     elapsed_time = compute_registration_error(ref_point_cloud, trans_source_point_cloud, icp,
                                               shift, dem_georef, reference_dem_ref, opt, end_errors);
     calc_stats("Output", end_errors);
@@ -926,8 +901,8 @@ int main( int argc, char *argv[] ) {
              << axis_angles/norm_2(axis_angles) << ' '
              << norm_2(axis_angles) << endl;
 
-    Stopwatch sw8;
-    sw8.start();
+    Stopwatch sw5;
+    sw5.start();
     save_transforms(opt, globalT);
 
     if (opt.save_trans_ref){
@@ -950,9 +925,9 @@ int main( int argc, char *argv[] ) {
     if (opt.verbose) vw_out() << "Writing: " << opt.out_prefix
       + "-iterationInfo.csv" << std::endl;
 
-    sw8.stop();
+    sw5.stop();
     if (opt.verbose) vw_out() << "Saving to disk took "
-                              << sw8.elapsed_seconds() << " [s]" << endl;
+                              << sw5.elapsed_seconds() << " [s]" << endl;
 
   } ASP_STANDARD_CATCHES;
 
