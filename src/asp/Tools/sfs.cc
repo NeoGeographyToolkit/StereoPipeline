@@ -550,9 +550,8 @@ public:
     compute_image_stats(intensity, imgmean, imgstdev);
     compute_image_stats(reflectance, refmean, refstdev);
 
-    std::cout << "img mean and std: " << imgmean << ' ' << imgstdev << std::endl;
-    std::cout << "ref mean and std: " << refmean << ' ' << refstdev << std::endl;
-
+    std::cout << "image mean and std: " << imgmean << ' ' << imgstdev << std::endl;
+    std::cout << "refl  mean and std: " << refmean << ' ' << refstdev << std::endl;
 
     return ceres::SOLVER_CONTINUE;
   }
@@ -649,9 +648,9 @@ struct IntensityError {
 // for the obtained formulas.
 
 struct SmoothnessError {
-  SmoothnessError(double smoothness_weight, double grid_size):
+  SmoothnessError(double smoothness_weight, double grid_x, double grid_y):
     m_smoothness_weight(smoothness_weight),
-    m_grid_size(grid_size) {}
+    m_grid_x(grid_x), m_grid_y(grid_y) {}
 
   template <typename T>
   bool operator()(const T* const tl,   const T* const top,    const T* const tr,
@@ -660,11 +659,10 @@ struct SmoothnessError {
                   T* residuals) const {
     try{
 
-      T gs = m_grid_size * m_grid_size;
-      residuals[0] = (left[0] + right[0] - 2*center[0])/gs;     // u_xx
-      residuals[1] = (tr[0] + bl[0] - tl[0] - br[0] ) /4.0/gs;  // u_xy
-      residuals[2] = residuals[1];                              // u_yx
-      residuals[3] = (top[0] + bottom[0] - 2*center[0])/gs;     // u_yy
+      residuals[0] = (left[0] + right[0] - 2*center[0])/m_grid_x/m_grid_x;     // u_xx
+      residuals[1] = (tr[0] + bl[0] - tl[0] - br[0] ) /4.0/m_grid_x/m_grid_y;  // u_xy
+      residuals[2] = residuals[1];                                             // u_yx
+      residuals[3] = (top[0] + bottom[0] - 2*center[0])/m_grid_y/m_grid_y;     // u_yy
 
       for (int i = 0; i < 4; i++)
         residuals[i] *= m_smoothness_weight;
@@ -683,14 +681,68 @@ struct SmoothnessError {
 
   // Factory to hide the construction of the CostFunction object from
   // the client code.
-  static ceres::CostFunction* Create(double smoothness_weight, double grid_size){
+  static ceres::CostFunction* Create(double smoothness_weight, double grid_x, double grid_y){
     return (new ceres::NumericDiffCostFunction<SmoothnessError,
             ceres::CENTRAL, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1>
-            (new SmoothnessError(smoothness_weight, grid_size)));
+            (new SmoothnessError(smoothness_weight, grid_x, grid_y)));
   }
 
-  double m_smoothness_weight, m_grid_size;
+  double m_smoothness_weight, m_grid_x, m_grid_y;
 };
+
+// Given a DEM, estimate the median grid size in x and in y in meters.
+// Given that the DEM heights are in meters as well, having these grid sizes
+// will make it possible to handle heights and grids in same units.
+void compute_grid_sizes_in_meters(ImageView<double> const& dem, GeoReference const& geo,
+                                  double nodata_val, double & grid_x, double & grid_y){
+
+  // Initialize the outputs
+  grid_x = 0; grid_y = 0;
+
+  // Estimate the median height
+  std::vector<double> heights;
+  for (int col = 0; col < dem.cols(); col++) {
+    for (int row = 0; row < dem.rows(); row++) {
+      double h = dem(col, row);
+      if (h == nodata_val) continue;
+      heights.push_back(h);
+    }
+  }
+  std::sort(heights.begin(), heights.end());
+  double median_height = 0.0;
+  if (!heights.empty())
+    median_height = heights[heights.size()/2];
+
+  // Find the grid sizes by estimating the Euclidean distances
+  // between points of a DEM at constant height.
+  std::vector<double> grid_x_vec, grid_y_vec;
+  for (int col = 0; col < dem.cols()-1; col++) {
+    for (int row = 0; row < dem.rows()-1; row++) {
+
+      // The xyz position at the center grid point
+      Vector2 lonlat = geo.pixel_to_lonlat(Vector2(col, row));
+      Vector3 lonlat3 = Vector3(lonlat(0), lonlat(1), median_height);
+      Vector3 base = geo.datum().geodetic_to_cartesian(lonlat3);
+
+      // The xyz position at the right grid point
+      lonlat = geo.pixel_to_lonlat(Vector2(col+1, row));
+      lonlat3 = Vector3(lonlat(0), lonlat(1), median_height);
+      Vector3 right = geo.datum().geodetic_to_cartesian(lonlat3);
+
+      // The xyz position at the top grid point
+      lonlat = geo.pixel_to_lonlat(Vector2(col, row+1));
+      lonlat3 = Vector3(lonlat(0), lonlat(1), median_height);
+      Vector3 top = geo.datum().geodetic_to_cartesian(lonlat3);
+
+      grid_x_vec.push_back(norm_2(right-base));
+      grid_y_vec.push_back(norm_2(top-base));
+    }
+  }
+
+  // Median grid size
+  if (!grid_x_vec.empty()) grid_x = grid_x_vec[grid_x_vec.size()/2];
+  if (!grid_y_vec.empty()) grid_y = grid_y_vec[grid_y_vec.size()/2];
+}
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
@@ -802,13 +854,11 @@ int main(int argc, char* argv[]) {
       interp_images.push_back(BilinearInterpT(DiskImageView<float>(opt.input_images[i])));
     }
 
-    Vector2 ul = geo.pixel_to_point(Vector2(0, 0));
-    int ncols = dem.cols(), nrows = dem.rows();
-    Vector2 lr = geo.pixel_to_point(Vector2(ncols-1, nrows-1));
-    double grid_size = norm_2(ul - lr)/norm_2(Vector2(ncols-1, nrows-1));
-
-    std::cout << "Grid size in degrees is " << grid_size << std::endl;
-    std::cout << "num cols and rows is " << ncols << ' ' << nrows << std::endl;
+    // Find the grid sizes in meters. Note that dem heights are in
+    // meters too, so we treat both horizontal and vertical
+    // measurements in same units.
+    double grid_x, grid_y;
+    compute_grid_sizes_in_meters(dem, geo, nodata_val, grid_x, grid_y);
 
     // Intensity error is
     // sum | (I - A[0]*reflectance - A[1]|^2.
@@ -830,6 +880,8 @@ int main(int argc, char* argv[]) {
 
     // Add a residual block for every grid point not at the boundary
     ceres::Problem problem;
+    int ncols = dem.cols(), nrows = dem.rows();
+    std::cout << "num cols and rows is " << ncols << ' ' << nrows << std::endl;
     for (int col = 1; col < ncols-1; col++) {
       for (int row = 1; row < nrows-1; row++) {
 
@@ -851,7 +903,7 @@ int main(int argc, char* argv[]) {
         // Smoothness penalty
         ceres::LossFunction* loss_function2 = NULL;
         ceres::CostFunction* cost_function2 =
-          SmoothnessError::Create(opt.smoothness_weight, grid_size);
+          SmoothnessError::Create(opt.smoothness_weight, grid_x, grid_y);
         problem.AddResidualBlock(cost_function2, loss_function2,
                                  &dem(col-1, row+1), &dem(col, row+1),
                                  &dem(col+1, row+1),
