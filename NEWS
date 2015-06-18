@@ -1,20 +1,35 @@
 *** RELEASE 2.4.3, upcoming! ***
 
--  Greatly improved speed, coverage, and accuracy for areas with steep slopes
+-  Improved speed, coverage, and accuracy for areas with steep slopes
    for ISIS, RPC and Pinhole cameras by implementing stereo using images 
-   map-projected onto an existing DEM (functionality previously available only 
-   for Digital Globe images). See section ??? in the documentation. 
+   map-projected onto an existing DEM (functionality previously available
+   only for Digital Globe images). See section ??? in the documentation. 
 
- - General
-   * Upgraded to ISIS 3.4.9.
-   * Oldest supported OSX release is 10.8.
+-  Added stereo_gui, a GUI tool having the same interface as stereo, that
+   can be used to visualize both input images, select regions of interest,
+   and run stereo only on those regions. 
+
+ - Misc.
+   * Added gdalinfo and gdal_translate to the tools in the bin
+   * directory. These executables are compiled with JPEG2000 support
+   * and can handle NTF images.
+   * Upgraded to ISIS 3.4.9.6185.
+   * Oldest supported OSX version is 10.8.
 
  - stereo
    * Increase the default correlation timeout to 1800 seconds.
    * Fix failure in interest point matching in certain circumstances.
    * Use bundle-adjusted models (if provided) at all stages of stereo,
      not just at triangulation.
-
+   * Added --right-image-crop-win in addition to --left-image-crop-win.
+     If both are specified, stereo crops both images to desired regions
+     before running stereo (this is different from when only 
+     --left-image-crop-win is specified, as then no actual cropping 
+     happens, the domain of computation is just restricted to the desired
+     area). This new option does not work with parallel_stereo or 
+     map-projected images. 
+   * Bugfix, remove outliers during search range determination.
+ 
  - point2dem
    * Fixed a slight discrepancy in the value of the semi-minor axis in
      the WGS84 and NAD83 datum implementations.
@@ -38,7 +53,8 @@
      a DEM.  You can use the old behavior with the --no-dem-distances flag.
 
  - point2las
-   * Added the ability to specify a custom projection (PROJ.4 string).
+   * Added the ability to specify a custom projection (PROJ.4 string)
+     for output LAS files.
 
  - dem_mosaic
    * Write GeoTIFF files with blocks of size 256 x 256 as those
