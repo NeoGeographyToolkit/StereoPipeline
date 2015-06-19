@@ -515,7 +515,7 @@ public:
     os << g_iter;
     std::string iter_str = os.str();
 
-    std::string out_dem_file = g_opt->out_prefix + "-final-DEM-"
+    std::string out_dem_file = g_opt->out_prefix + "-final-DEM-iter"
       + iter_str + ".tif";
     vw_out() << "Writing: " << out_dem_file << std::endl;
     TerminalProgressCallback tpc("asp", ": ");
@@ -529,7 +529,7 @@ public:
                                    (*g_interp_images)[0], (*g_cameras)[0],
                                    reflectance, intensity);
 
-    std::string out_intensity_file = g_opt->out_prefix + "-measured-intensity-"
+    std::string out_intensity_file = g_opt->out_prefix + "-measured-intensity-iter"
       + iter_str + ".tif";
     vw_out() << "Writing: " << out_intensity_file << std::endl;
     block_write_gdal_image(out_intensity_file, intensity, *g_geo, 0, *g_opt, tpc);
@@ -541,7 +541,7 @@ public:
       }
     }
 
-    std::string out_reflectance_file = g_opt->out_prefix + "-computed-intensity-"
+    std::string out_reflectance_file = g_opt->out_prefix + "-computed-intensity-iter"
       + iter_str + ".tif";
     vw_out() << "Writing: " << out_reflectance_file << std::endl;
     block_write_gdal_image(out_reflectance_file, reflectance, *g_geo, 0, *g_opt, tpc);
@@ -859,6 +859,7 @@ int main(int argc, char* argv[]) {
     // measurements in same units.
     double grid_x, grid_y;
     compute_grid_sizes_in_meters(dem, geo, nodata_val, grid_x, grid_y);
+    vw_out() << "grid in x and y in meters: " << grid_x << ' ' << grid_y << std::endl;
 
     // Intensity error is
     // sum | (I - A[0]*reflectance - A[1]|^2.
@@ -877,6 +878,8 @@ int main(int argc, char* argv[]) {
     A[1] = imgmean - A[0]*refmean;
     std::cout << "Albedo params A[0] and A[1] are " << A[0] << ' ' << A[1] << std::endl;
 
+    std::cout << "image mean - 2*stdev = " << imgmean - 2*imgstdev << std::endl;
+    std::cout << "image mean + 2*stdev = " << imgmean + 2*imgstdev << std::endl;
 
     // Add a residual block for every grid point not at the boundary
     ceres::Problem problem;
