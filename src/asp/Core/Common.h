@@ -118,6 +118,9 @@ namespace asp {
                    std::string stereo_default_filename,
                    std::string output_prefix);
 
+  // Get no-data value if available
+  bool read_nodata_val(std::string const& file, double & nodata_val);
+
   /// Standard Options
   struct BaseOptions {
     vw::DiskImageResourceGDAL::Options gdal_options;
