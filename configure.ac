@@ -413,7 +413,7 @@ AX_MODULE(SPICEIO,  [src/asp/SpiceIO],  [libaspSpiceIO.la],  yes, [], [VW BOOST_
 AX_MODULE(ISISIO,   [src/asp/IsisIO],   [libaspIsisIO.la],   yes, [], [ISIS VW_CARTOGRAPHY BOOST])
 AX_MODULE(SESSIONS, [src/asp/Sessions], [libaspSessions.la], yes, [CORE], [XERCESC], [ISISIO SPICEIO ])
 AX_MODULE(MPI,      [src/asp/MPI],      [],                  no,  [VW_BUNDLEADJUSTMENT ISISIO CORE], [BOOST_SERIALIZATION BOOST_MPI OPEN_MPI VW_ALL])
-AX_MODULE(GUI,      [src/asp/gui],      [],                  yes, [VW], [VW_ALL QT BOOST_PROGRAM_OPTIONS], [])
+AX_MODULE(GUI,      [src/asp/gui],      [],                  yes, [CORE VW], [VW_ALL QT BOOST_PROGRAM_OPTIONS], [])
 
 # Tools
 AX_APP(PC_ALIGN,         [src/asp/Tools], yes, [CORE LIBPOINTMATCHER LIBNABO YAML])

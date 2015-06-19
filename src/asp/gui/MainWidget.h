@@ -16,12 +16,20 @@
 // __END_LICENSE__
 
 
-/// \file stereo_gui_MainWidget.h
+/// \file MainWidget.h
 ///
-/// The Vision Workbench image viewer.
+/// A widget showing an image.
 ///
 #ifndef __STEREO_GUI__MAIN_WIDGET_H__
 #define __STEREO_GUI_MAIN_WIDGET_H__
+
+#include <string>
+#include <vector>
+#include <list>
+#include <set>
+
+#include <boost/filesystem/path.hpp>
+#include <boost/filesystem.hpp>
 
 // Qt
 #include <QWidget>
@@ -41,11 +49,9 @@
 #include <vw/Math/Vector.h>
 #include <vw/Cartography/GeoReference.h>
 
-// STL
-#include <string>
-#include <vector>
-#include <list>
-#include <set>
+// ASP
+#include <asp/Core/Common.h>
+#include <asp/Core/AntiAliasing.h>
 
 class QMouseEvent;
 class QWheelEvent;
@@ -53,8 +59,173 @@ class QPoint;
 class QResizeEvent;
 class QTableWidget;
 
-namespace vw {
-namespace gui {
+namespace vw { namespace gui {
+
+
+// A class to manage very large images and their subsampled versions
+// in a pyramid. The most recently accessed tiles are cached in memory.
+template <class PixelT>
+class DiskImagePyramid : public ImageViewBase<DiskImagePyramid<PixelT> > {
+
+public:
+  typedef typename DiskImageView<PixelT>::pixel_type pixel_type;
+  typedef typename DiskImageView<PixelT>::result_type result_type;
+  typedef typename DiskImageView<PixelT>::pixel_accessor pixel_accessor;
+
+  // Constructor
+  DiskImagePyramid(std::string const& img_file = "",
+                   int top_image_max_pix = 1000*1000,
+                   int subsample = 2
+                   ): m_subsample(subsample),
+                      m_top_image_max_pix(top_image_max_pix){
+
+    if (img_file == "")
+      return;
+
+    m_pyramid.push_back(vw::DiskImageView<PixelT>(img_file));
+    m_pyramid_files.push_back(img_file);
+    m_scales.push_back(1);
+
+    if (subsample < 2) {
+      vw_throw( ArgumentErr() << "Must subsample by a factor of at least 2.\n");
+    }
+
+    if (top_image_max_pix < 4) {
+      vw_throw( ArgumentErr() << "The image at the top of the pyramid must "
+                << "be at least 2x2 in size.\n");
+    }
+
+    int level = 0;
+    int scale = 1;
+    while (double(m_pyramid[level].cols())*double(m_pyramid[level].rows()) >
+           m_top_image_max_pix ){
+
+      // The name of the file at the current scale
+      boost::filesystem::path p(img_file);
+      std::string stem = p.stem().string();
+      std::ostringstream os;
+      scale *= subsample;
+      os << stem << "_sub" << scale << ".tif";
+      std::string curr_file = os.str();
+
+      if (level == 0) {
+        vw_out() << "Detected large image: " << img_file  << "." << std::endl;
+        vw_out() << "Will construct an image pyramid on disk."  << std::endl;
+      }
+
+      // Get the nodata value
+      double nodata_val;
+      if (!asp::read_nodata_val(img_file, nodata_val)){
+        nodata_val = -FLT_MAX;
+      }
+
+      // Resample the image at the current pyramid level.
+      // TODO: resample_aa is a hacky thingy. Need to understand
+      // what is a good way of resampling.
+      ImageViewRef< PixelMask<PixelT> > masked
+        = create_mask(m_pyramid[level], nodata_val);
+      double sub_scale = 1.0/subsample;
+      int tile_size = 256;
+      int sub_threads = 1;
+      ImageViewRef< PixelMask<PixelT> > resampled
+        = block_rasterize
+        (asp::cache_tile_aware_render(asp::resample_aa(masked, sub_scale),
+                                      Vector2i(tile_size,tile_size) * sub_scale),
+         tile_size, sub_threads);
+      ImageViewRef<PixelT> unmasked = apply_mask(resampled, nodata_val);
+
+      // If the file exists, and has the right size, don't write it again
+      bool will_write = true;
+      if (boost::filesystem::exists(curr_file)) {
+        DiskImageView<float> tmp(curr_file);
+        if (tmp.cols() == unmasked.cols() && tmp.rows() == unmasked.rows()) {
+          will_write = false;
+        }
+      }
+
+      if (will_write) {
+        TerminalProgressCallback tpc("asp", ": ");
+        asp::BaseOptions opt;
+        vw_out() << "Writing: " << curr_file << std::endl;
+        asp::block_write_gdal_image(curr_file, unmasked, nodata_val, opt, tpc);
+      }else{
+        vw_out() << "Using existing subsampled image: " << curr_file << std::endl;
+      }
+
+      // Note that m_pyramid contains a handle to DiskImageView.
+      // DiskImageView's implementation will make it possible
+      // cache in memory the most recently used tiles of all
+      // the images in the pyramid.
+      m_pyramid_files.push_back(curr_file);
+      m_pyramid.push_back(vw::DiskImageView<PixelT>(curr_file));
+      m_scales.push_back(scale);
+
+      level++;
+    }
+  }
+
+  // Given a region (at full resolution) and a scale factor,
+  // return the portion of the image in the region, subsampled
+  // by a factor no more than the input scale factor.
+  // Also return the precise subsample factor used and the
+  // region at that scale level.
+  void getImageClip(double scale_in, vw::BBox2i region_in,
+                    ImageView<PixelT> & clip_out, double & scale_out,
+                    vw::BBox2i & region_out) {
+
+    if (m_pyramid.empty())
+      vw_throw( ArgumentErr() << "Uninitialized image pyramid.\n");
+
+    // Find the right pyramid level to use
+    int level = 0;
+    while (1) {
+      if (level+1 >= (int)m_scales.size()) break; // last level
+      if (m_scales[level+1] > scale_in)  break; // too coarse
+      level++;
+    }
+
+    vw_out() << "Reading: " << m_pyramid_files[level] << std::endl;
+
+    region_in.crop(bounding_box(m_pyramid[0]));
+    scale_out = m_scales[level];
+    region_out = region_in/scale_out;
+    region_out.crop(bounding_box(m_pyramid[level]));
+    clip_out = crop(m_pyramid[level], region_out);
+  }
+
+  ~DiskImagePyramid() {}
+
+  int32 cols() const { return m_pyramid[0].cols(); }
+  int32 rows() const { return m_pyramid[0].rows(); }
+  int32 planes() const { return m_pyramid[0].planes(); }
+
+  pixel_accessor origin() const { return m_pyramid[0].origin(); }
+  result_type operator()( int32 x, int32 y, int32 p = 0 ) const { return m_pyramid[0](x,y,p); }
+
+  typedef typename DiskImageView<PixelT>::prerasterize_type prerasterize_type;
+  prerasterize_type prerasterize( BBox2i const& bbox ) const { return m_pyramid[0].prerasterize( bbox ); }
+  template <class DestT> void rasterize( DestT const& dest, BBox2i const& bbox ) const { m_pyramid[0].rasterize( dest, bbox ); }
+
+  ImageViewRef<PixelT> bottom() { return m_pyramid[0]; }
+
+private:
+  // The subsample factor to go to the next level of the pyramid
+  // (must be >= 2).
+  int m_subsample;
+
+  // The maxiumum number of pixels in the coarsest level of
+  // the pyramid (keep on downsampling until getting to this number
+  // or under it).
+  int m_top_image_max_pix;
+
+  //  The pyramid. Largest images come earlier.
+  std::vector< vw::ImageViewRef<PixelT> > m_pyramid;
+
+  // The files (stored on disk) containing the images in the pyramid.
+  std::vector<std::string> m_pyramid_files;
+
+  std::vector<int> m_scales;
+};
 
   // A class to keep all data associated with an image file
   struct imageData{
@@ -62,9 +233,8 @@ namespace gui {
     bool has_georef;
     vw::cartography::GeoReference georef;
     BBox2 bbox;
-    ImageView<float> img;
+    DiskImagePyramid<float> img;
     double nodata_val;
-    double min_val, max_val;
     void read(std::string const& image, bool ignore_georef,
               bool hillshade);
   };
@@ -109,13 +279,13 @@ namespace gui {
     static QString selectFilesTag(){ return ""; }
   private:
     QTableWidget * m_filesTable;
-  private slots:
+                                                      private slots:
   };
 
   class MainWidget : public QWidget {
     Q_OBJECT
 
-    public:
+  public:
 
     // Constructors/Destructor
     MainWidget(QWidget *parent, std::vector<std::string> const& images,
@@ -131,7 +301,6 @@ namespace gui {
 
     // Image Manipulation Methods
     void zoom(double scale);
-
   public slots:
     void size_to_fit();
 
@@ -162,10 +331,10 @@ namespace gui {
   private:
     // Drawing is driven by QPaintEvents, which call out to drawImage()
     void drawImage(QPainter* paint);
-    vw::Vector2 world2pixel(vw::Vector2 const& p);
-    vw::Vector2 pixel2world(vw::Vector2 const& pix);
-    QRect pixel2world(QRect const& R);
-    QRect world2pixel(QRect const& R);
+    vw::Vector2 world2screen(vw::Vector2 const& p);
+    vw::Vector2 screen2world(vw::Vector2 const& pix);
+    QRect world2screen(QRect const& R);
+    QRect screen2world(QRect const& R);
     vw::BBox2 expand_box_to_keep_aspect_ratio(BBox2 const& box);
     void updateCurrentMousePosition();
 

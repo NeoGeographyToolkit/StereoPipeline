@@ -72,6 +72,11 @@ MainWindow::MainWindow(std::vector<std::string> const& images,
 #else
     // for doing stereo
     std::vector<std::string> left_images, right_images;
+    // TODO: Verify that these are valid images.
+    // TODO: Invoke here asp's handle_arguments().
+    if (images.size() < 2) {
+      vw_throw( ArgumentErr() << "Stereo must use two images.\n");
+    }
     left_images.push_back(images[0]);
     right_images.push_back(images[1]);
     m_left_widget = new MainWidget(centralFrame, left_images, m_chooseFiles,

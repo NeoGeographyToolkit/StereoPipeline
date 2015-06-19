@@ -23,9 +23,6 @@
 
 #include <string>
 #include <vector>
-#include <boost/filesystem/path.hpp>
-
-// Qt
 #include <QtGui>
 
 // Vision Workbench
@@ -34,88 +31,10 @@
 #include <vw/Math/EulerAngles.h>
 #include <vw/Image/Algorithms.h>
 #include <asp/gui/MainWidget.h>
+
 using namespace vw;
 using namespace vw::gui;
 using namespace std;
-
-// A class to manage very large images and their subsampled versions
-// in a pyramid. The most recently accessed tiles are cached in memory.
-#include <asp/Core/AntiAliasing.h>
-template <class T>
-class DiskImagePyramid {
-
-  DiskImagePyramid(std::string const& img_file,
-                   int top_image_max_pix,
-                   int subsample
-                   ): m_subsample(subsample),
-                      m_top_image_max_pix(top_image_max_pix){
-
-    m_pyramid.push_back(DiskImageView<T>(img_file));
-    m_pyramid_files.push_back(img_file);
-    m_scales.push_back(1);
-
-    if (subsample < 2) {
-      vw_throw( ArgumentErr() << "Must subsample by a factor of at least 2.\n");
-    }
-
-    int level = 0;
-    int scale = 1;
-    std::cout << "--curr size is " << m_pyramid[level].cols() << ' '
-              << m_pyramid[level].rows() << std::endl;
-
-    while (double(m_pyramid[level].cols())*double(m_pyramid[level].rows()) >
-           m_top_image_max_pix ){
-
-      boost::filesystem::path p(img_file);
-      std::string stem = p.stem();
-      std::ostringstream os;
-
-      scale *= subsample;
-      os << stem << "_sub" << scale << ".tif";
-      std::string curr_file = os.str();
-
-      if (level == 0) {
-        vw_out() << "Detected large image: " << img_file  << "." << std::endl;
-        vw_out() << "Will construct an image pyramid on disk."  << std::endl;
-      }
-      vw_out() << "Writing: " << curr_file << std::endl;
-
-      // TODO: resample_aa is a hacky thingy. Need to understand
-      // what is a good way of resampling.
-      write_image(curr_file, asp::resample_aa(m_pyramid[level], 1.0/subsample));
-
-      m_pyramid_files.push_back(curr_file);
-      m_pyramid.push_back(DiskImageView<T>(curr_file));
-      m_scales.push_back(scale);
-
-      level++;
-
-      std::cout << "--curr size is " << m_pyramid[level].cols() << ' '
-                << m_pyramid[level].rows() << std::endl;
-
-
-    }
-  }
-
-  // The subsample factor to go to the next level of the pyramid
-  // (must be >= 2).
-  int m_subsample;
-
-  // The maxiumum number of pixels in the coarsest level of
-  // the pyramid (keep on downsampling until getting to this number
-  // or under it).
-  int m_top_image_max_pix;
-
-  //  The pyramid. Largest images come earlier.
-  std::vector< ImageViewRef<T> > m_pyramid;
-
-  // The files (stored on disk) containing the images in the pyramid.
-  std::vector<std::string> m_pyramid_files;
-
-  std::vector<int> m_scales;
-
-};
-
 
 void popUp(std::string msg){
   QMessageBox msgBox;
@@ -161,7 +80,10 @@ void do_hillshade(cartography::GeoReference const& georef,
 void imageData::read(std::string const& image, bool ignore_georef,
                      bool hillshade){
   name = image;
-  img = DiskImageView<float>(name);
+
+  int top_image_max_pix = 1000*1000;
+  int subsample = 4;
+  img = DiskImagePyramid<float>(name, top_image_max_pix, subsample);
 
   // Turn off handing georef, the code is not ready for that
   ignore_georef = true;
@@ -182,43 +104,13 @@ void imageData::read(std::string const& image, bool ignore_georef,
     nodata_val = rsrc->nodata_read();
   }
 
-  // Find the min and max values in an image
-  ChannelTypeEnum channel_type = rsrc->channel_type();
-  if(channel_type == VW_CHANNEL_UINT8){
-
-    min_val = 0;
-    max_val = 255;
-  }else{
-
-    min_val = FLT_MAX;
-    max_val = -FLT_MAX;
-    for (int col = 0; col < img.cols(); col++){
-      for (int row = 0; row < img.rows(); row++){
-        if (img(col, row) <= nodata_val) continue;
-        if (img(col, row) < min_val) min_val = img(col, row);
-        if (img(col, row) > max_val) max_val = img(col, row);
-      }
-    }
-    if (min_val >= max_val)
-      max_val = min_val + 1.0;
-  }
-
   if (hillshade){
     if (!has_georef){
       popUp("Cannot create hillshade if the image has no georeference.");
       exit(1);
     }
-    do_hillshade(georef, img, nodata_val);
-
-  }else{
-
-    // Normalize to 0 - 255, taking into account the nodata_val
-    for (int col = 0; col < img.cols(); col++){
-      for (int row = 0; row < img.rows(); row++){
-        img(col, row) = round(255*(std::max(double(img(col, row)), min_val)
-                                   - min_val)/(max_val-min_val));
-      }
-    }
+    // Turning off this code for now, more work needed.
+    //do_hillshade(georef, img.bottom(), nodata_val);
   }
 }
 
@@ -438,12 +330,25 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
 
 void MainWidget::size_to_fit() {
   m_current_view = expand_box_to_keep_aspect_ratio(m_images_box);
-  refreshPixmap();
+
+  // If this is the first time we draw the image, so right when
+  // we started, invoke update() which will invoke paintEvent().
+  // That one will not only call refreshPixmap() but will
+  // also mark that it did so. This is a bit confusing, but it is
+  // necessary since otherwise Qt will first call this function,
+  // invoking refreshPixmap(), then will call update() one more time
+  // invoking needlessly refreshPixmap() again, which is expensive.
+  if (m_firstPaintEvent){
+    update();
+  }else {
+    refreshPixmap();
+  }
 }
 
-vw::Vector2 MainWidget::world2pixel(vw::Vector2 const& p){
-  // Convert a position in the world coordinate system to a pixel value,
-  // relative to the image seen on screen (the origin is an image corner).
+vw::Vector2 MainWidget::world2screen(vw::Vector2 const& p){
+  // Convert a position in the world coordinate system to a pixel
+  // position as seen on screen (the screen origin is the
+  // visible upper-left corner of the widget).
   double x = m_window_width*((p.x() - m_current_view.min().x())
                              /m_current_view.width());
   double y = m_window_height*((p.y() - m_current_view.min().y())
@@ -451,9 +356,8 @@ vw::Vector2 MainWidget::world2pixel(vw::Vector2 const& p){
   return vw::Vector2(x, y);
 }
 
-vw::Vector2 MainWidget::pixel2world(vw::Vector2 const& pix){
-  // Convert a pixel on the screen (the origin is a corner
-  // of the view window) to global world coordinates.
+vw::Vector2 MainWidget::screen2world(vw::Vector2 const& pix){
+  // Convert a pixel on the screen to world coordinates.
   double x = m_current_view.min().x()
     + m_current_view.width() * double(pix.x()) / m_window_width;
   double y = m_current_view.min().y()
@@ -461,23 +365,23 @@ vw::Vector2 MainWidget::pixel2world(vw::Vector2 const& pix){
   return vw::Vector2(x, y);
 }
 
-QRect MainWidget::pixel2world(QRect const& R) {
-  Vector2 A = pixel2world(Vector2(R.x(), R.y()));
-  Vector2 B = pixel2world(Vector2(R.x() + R.width(),
+QRect MainWidget::screen2world(QRect const& R) {
+  Vector2 A = screen2world(Vector2(R.x(), R.y()));
+  Vector2 B = screen2world(Vector2(R.x() + R.width(),
                                   R.y() + R.height()));
   return QRect(A.x(), A.y(), B.x() - A.x(), B.y() - A.y());
 }
 
-QRect MainWidget::world2pixel(QRect const& R) {
-  Vector2 A = world2pixel(Vector2(R.x(), R.y()));
-  Vector2 B = world2pixel(Vector2(R.x() + R.width(),
+QRect MainWidget::world2screen(QRect const& R) {
+  Vector2 A = world2screen(Vector2(R.x(), R.y()));
+  Vector2 B = world2screen(Vector2(R.x() + R.width(),
                                   R.y() + R.height()));
   return QRect(A.x(), A.y(), B.x() - A.x(), B.y() - A.y());
 }
 
 // Convert the crop window to original pixel coordinates from
 // pixel coordinates on the screen.
-// TODO: Make pixel2world() do it, to take an input a QRect (or BBox2)
+// TODO: Make screen2world() do it, to take an input a QRect (or BBox2)
 // and return as output the converted box.
 QRect MainWidget::get_crop_win() {
   return m_stereoCropWin;
@@ -523,9 +427,9 @@ void MainWidget::drawImage(QPainter* paint) {
     image_box.crop(m_images[i].bbox);
 
     // See where it fits on the screen
-    BBox2i pixel_box;
-    pixel_box.grow(round(world2pixel(image_box.min())));
-    pixel_box.grow(round(world2pixel(image_box.max())));
+    BBox2i screen_box;
+    screen_box.grow(round(world2screen(image_box.min())));
+    screen_box.grow(round(world2screen(image_box.max())));
 
     QImage qimg;
     if (m_images[i].has_georef){
@@ -533,18 +437,18 @@ void MainWidget::drawImage(QPainter* paint) {
       // to lonlat, then to image pixels. We need to do a flip in
       // y since in lonlat space the origin is in lower-left corner.
 
-      ImageView<float> & img = m_images[i].img;
-      qimg = QImage(pixel_box.width(), pixel_box.height(), QImage::Format_RGB888);
-      int len = pixel_box.max().y() - pixel_box.min().y() - 1;
-      for (int x = pixel_box.min().x(); x < pixel_box.max().x(); x++){
-        for (int y = pixel_box.min().y(); y < pixel_box.max().y(); y++){
-          Vector2 lonlat = pixel2world(Vector2(x, y));
+      ImageView<float> img = m_images[i].img.bottom();
+      qimg = QImage(screen_box.width(), screen_box.height(), QImage::Format_RGB888);
+      int len = screen_box.max().y() - screen_box.min().y() - 1;
+      for (int x = screen_box.min().x(); x < screen_box.max().x(); x++){
+        for (int y = screen_box.min().y(); y < screen_box.max().y(); y++){
+          Vector2 lonlat = screen2world(Vector2(x, y));
           Vector2 p = round(m_images[i].georef.lonlat_to_pixel(lonlat));
           if (p[0] >= 0 && p[0] < img.cols() &&
               p[1] >= 0 && p[1] < img.rows() ){
             float v = img(p[0], p[1]); // is it better to interp?
-            qimg.setPixel(x-pixel_box.min().x(),
-                          len - (y-pixel_box.min().y()), // flip pixels in y
+            qimg.setPixel(x-screen_box.min().x(),
+                          len - (y-screen_box.min().y()), // flip pixels in y
                           qRgb(v, v, v));
           }
         }
@@ -552,28 +456,65 @@ void MainWidget::drawImage(QPainter* paint) {
 
       // flip pixel box in y
       QRect v = this->geometry();
-      int a = pixel_box.min().y() - v.y();
-      int b = v.y() + v.height() - pixel_box.max().y();
-      pixel_box.min().y() = pixel_box.min().y() + b - a;
-      pixel_box.max().y() = pixel_box.max().y() + b - a;
+      int a = screen_box.min().y() - v.y();
+      int b = v.y() + v.height() - screen_box.max().y();
+      screen_box.min().y() = screen_box.min().y() + b - a;
+      screen_box.max().y() = screen_box.max().y() + b - a;
 
-      QRect rect(pixel_box.min().x(),
-                 pixel_box.min().y(),
-                 pixel_box.width(), pixel_box.height());
+      QRect rect(screen_box.min().x(),
+                 screen_box.min().y(),
+                 screen_box.width(), screen_box.height());
       paint->drawImage (rect, qimg);
 
     }else{
-      // image_box is in image pixel domain.
-      ImageView<float> img = crop(m_images[i].img, image_box);
-      qimg = QImage(img.cols(), img.rows(), QImage::Format_RGB888);
-      for (int x = 0; x < img.cols(); x++) {
-        for (int y = 0; y < img.rows(); y++) {
-          qimg.setPixel(x, y, qRgb(img(x, y), img(x, y), img(x, y)));
+
+      // This is a regular image, no georeference.
+      // image_box is in the image pixel domain.
+
+
+      // Since the image portion contained in image_box could be huge,
+      // but the screen area small, render a sub-sampled version of
+      // the image for speed.
+      // Convert to double before multiplication, to avoid overflow
+      // when multiplying large integers.
+      double scale = sqrt((1.0*image_box.width()) * image_box.height())/
+        std::max(1.0, sqrt((1.0*screen_box.width()) * screen_box.height()));
+      ImageView<float> clip;
+      double scale_out;
+      BBox2i region_out;
+      m_images[i].img.getImageClip(scale, image_box, clip,
+                                   scale_out, region_out);
+
+      // Normalize to 0 - 255, taking into account the nodata_val
+      double min_val = FLT_MAX;
+      double max_val = -FLT_MAX;
+      for (int col = 0; col < clip.cols(); col++){
+        for (int row = 0; row < clip.rows(); row++){
+          if (clip(col, row) <= m_images[i].nodata_val) continue;
+          if (clip(col, row) < min_val) min_val = clip(col, row);
+          if (clip(col, row) > max_val) max_val = clip(col, row);
+        }
+      }
+      if (min_val >= max_val)
+        max_val = min_val + 1.0;
+      for (int col = 0; col < clip.cols(); col++){
+        for (int row = 0; row < clip.rows(); row++){
+          clip(col, row) = round(255*(std::max(double(clip(col, row)), min_val)
+                                      - min_val)/(max_val-min_val));
         }
       }
 
-      QRect rect(pixel_box.min().x(), pixel_box.min().y(),
-                 pixel_box.width(), pixel_box.height());
+      // Convert to Qt grayscale
+      qimg = QImage(clip.cols(), clip.rows(), QImage::Format_RGB888);
+      for (int x = 0; x < clip.cols(); x++) {
+        for (int y = 0; y < clip.rows(); y++) {
+          qimg.setPixel(x, y, qRgb(clip(x, y), clip(x, y), clip(x, y)));
+        }
+      }
+
+      // Draw on screen
+      QRect rect(screen_box.min().x(), screen_box.min().y(),
+                 screen_box.width(), screen_box.height());
       paint->drawImage (rect, qimg);
     }
   }
@@ -582,7 +523,7 @@ void MainWidget::drawImage(QPainter* paint) {
 }
 
 void MainWidget::updateCurrentMousePosition() {
-  m_curr_world_pos = pixel2world(m_curr_pixel_pos);
+  m_curr_world_pos = screen2world(m_curr_pixel_pos);
 }
 
 // --------------------------------------------------------------
@@ -611,7 +552,7 @@ void MainWidget::refreshPixmap(){
   //F.setStyleStrategy(QFont::NoAntialias);
   //paint.setFont(F);
 
-  drawImage(&paint);
+  MainWidget::drawImage(&paint);
 
   // Invokes MainWidget::PaintEvent().
   update();
@@ -643,7 +584,7 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
 
   // Draw the stereo crop window
   if (m_stereoCropWin != m_emptyRubberBand) {
-    QRect R = world2pixel(m_stereoCropWin);
+    QRect R = world2screen(m_stereoCropWin);
     QColor fgColor = QColor("red");
     paint.setPen(fgColor);
     paint.drawRect(R.normalized().adjusted(0, 0, -1, -1));
@@ -770,20 +711,20 @@ void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
     }
 
     // Drag the image along the mouse movement
-    m_current_view -= (pixel2world(QPoint2Vec(event->pos())) -
-                       pixel2world(QPoint2Vec(QPoint(m_mousePrsX, m_mousePrsY))));
+    m_current_view -= (screen2world(QPoint2Vec(event->pos())) -
+                       screen2world(QPoint2Vec(QPoint(m_mousePrsX, m_mousePrsY))));
 
     refreshPixmap(); // will call paintEvent()
 
   } else if(event->modifiers() & Qt::ControlModifier){
 
     // User selects the region to use for stereo
-    m_stereoCropWin = pixel2world(m_rubberBand);
-    std::cout << "Crop window (begx begy widx widy) is "
-              << m_stereoCropWin.x()      << ' '
-              << m_stereoCropWin.y()      << ' '
-              << m_stereoCropWin.width()  << ' '
-              << m_stereoCropWin.height() << std::endl;
+    m_stereoCropWin = screen2world(m_rubberBand);
+    vw_out() << "Crop window (begx begy widx widy) is "
+             << m_stereoCropWin.x()      << ' '
+             << m_stereoCropWin.y()      << ' '
+             << m_stereoCropWin.width()  << ' '
+             << m_stereoCropWin.height() << std::endl;
 
   } else if (Qt::LeftButton) {
 
@@ -802,8 +743,8 @@ void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
       // Dragging the mouse from upper-left to lower-right zooms in
 
       // The window selected with the mouse in world coordinates
-      Vector2 A = pixel2world(Vector2(m_mousePrsX, m_mousePrsY));
-      Vector2 B = pixel2world(Vector2(mouseRelX, mouseRelY));
+      Vector2 A = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
+      Vector2 B = screen2world(Vector2(mouseRelX, mouseRelY));
       BBox2 view = BBox2(A, B);
 
       // Zoom to this window
