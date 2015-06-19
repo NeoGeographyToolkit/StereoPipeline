@@ -201,8 +201,7 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::camera_model(std::st
 
 // If both left-image-crop-win and right-image-crop win are specified,
 // we crop the images to these boxes, and hence the need to keep
-// the upper-left corners of the crop windows to handle the cameras
-// correctly.
+// the upper-left corners of the crop windows to handle the cameras correctly.
 inline vw::Vector2 camera_pixel_offset(std::string const& input_dem,
                                        std::string const& left_image_file,
                                        std::string const& right_image_file,
@@ -232,14 +231,16 @@ inline vw::Vector2 camera_pixel_offset(std::string const& input_dem,
 
 // If we have adjusted camera models, load them. The adjustment
 // may be in the rotation matrix, camera center, or pixel offset.
-inline  boost::shared_ptr<vw::camera::CameraModel> load_adjusted_model(boost::shared_ptr<camera::CameraModel> cam, std::string const& image_file, vw::Vector2 const& pixel_offset){
+inline  boost::shared_ptr<vw::camera::CameraModel> 
+load_adjusted_model(boost::shared_ptr<camera::CameraModel> cam, 
+                    std::string const& image_file, vw::Vector2 const& pixel_offset){
 
   std::string ba_pref = stereo_settings().bundle_adjust_prefix;
   if (ba_pref == "" && pixel_offset == vw::Vector2())
     return cam;
 
   Vector3 position_correction;
-  Quaternion<double> pose_correction = Quat(math::identity_matrix<3>());;
+  Quaternion<double> pose_correction = Quat(math::identity_matrix<3>());
 
   if (ba_pref != "") {
     std::string adjust_file = asp::bundle_adjust_file_name(ba_pref, image_file);
@@ -251,46 +252,38 @@ inline  boost::shared_ptr<vw::camera::CameraModel> load_adjusted_model(boost::sh
     }
   }
 
-  return boost::shared_ptr<camera::CameraModel>(new camera::AdjustedCameraModel(cam, position_correction, pose_correction, pixel_offset));
+  return boost::shared_ptr<camera::CameraModel>(new vw::camera::AdjustedCameraModel(cam, position_correction, pose_correction, pixel_offset));
 }
 
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 boost::shared_ptr<vw::camera::CameraModel>
 StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
-(Int2Type<STEREOMODEL_TYPE_ISIS>,
- std::string const& image_file,
- std::string const& camera_file){
+(Int2Type<STEREOMODEL_TYPE_ISIS>, std::string const& image_file, std::string const& camera_file){
   vw::Vector2 pixel_offset = camera_pixel_offset(m_input_dem,
                                                  m_left_image_file,
                                                  m_right_image_file,
                                                  image_file);
-  return load_adjusted_model(m_camera_loader.load_isis_camera_model(camera_file),
-                             image_file, pixel_offset);
+  return load_adjusted_model(m_camera_loader.load_isis_camera_model(camera_file), image_file, pixel_offset);
 }
 
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 boost::shared_ptr<vw::camera::CameraModel>
 StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
-(Int2Type<STEREOMODEL_TYPE_DG>,
- std::string const& image_file,
- std::string const& camera_file) {
+(Int2Type<STEREOMODEL_TYPE_DG>, std::string const& image_file, std::string const& camera_file) {
   vw::Vector2 pixel_offset = camera_pixel_offset(m_input_dem,
                                                  m_left_image_file,
                                                  m_right_image_file,
                                                  image_file);
-  return load_adjusted_model(m_camera_loader.load_dg_camera_model(camera_file),
-                             image_file, pixel_offset);
+  return load_adjusted_model(m_camera_loader.load_dg_camera_model(camera_file), image_file, pixel_offset);
 }
 
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 boost::shared_ptr<vw::camera::CameraModel>
 StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
-(Int2Type<STEREOMODEL_TYPE_RPC>,
- std::string const& image_file,
- std::string const& camera_file) {
+(Int2Type<STEREOMODEL_TYPE_RPC>, std::string const& image_file, std::string const& camera_file) {
 
   // We don't know where the camera model is so try both files
 
@@ -302,14 +295,12 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
   try {
     if (camera_file != "")
       return
-        load_adjusted_model(m_camera_loader.load_rpc_camera_model(camera_file),
-                            image_file, pixel_offset);
+        load_adjusted_model(m_camera_loader.load_rpc_camera_model(camera_file), image_file, pixel_offset);
   }
   catch(...) {}
   try {
     return
-      load_adjusted_model(m_camera_loader.load_rpc_camera_model(image_file),
-                          image_file, pixel_offset);
+      load_adjusted_model(m_camera_loader.load_rpc_camera_model(image_file), image_file, pixel_offset);
   }
   catch(...) {}
   // Raise a custom exception if both failed
@@ -321,9 +312,7 @@ template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 boost::shared_ptr<vw::camera::CameraModel>
 StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
-(Int2Type<STEREOMODEL_TYPE_PINHOLE>,
- std::string const& image_file,
- std::string const& camera_file) {
+(Int2Type<STEREOMODEL_TYPE_PINHOLE>, std::string const& image_file, std::string const& camera_file) {
 
   vw::Vector2 pixel_offset = camera_pixel_offset(m_input_dem,
                                                  m_left_image_file,

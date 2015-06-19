@@ -409,7 +409,7 @@ void asp::handle_easting_northing(asp::CsvConv const& csv_conv,
       georef.set_UTM(csv_conv.utm_zone, csv_conv.utm_north);
     } catch ( const std::exception& e ) {
       vw_throw(ArgumentErr() << "Detected error: " << e.what()
-               << "\nPlease check if you are using an Earth datum.\n");
+                             << "\nPlease check if you are using an Earth datum.\n");
     }
   } else if (csv_conv.csv_proj4_str != "") {
     bool have_user_datum = false;
@@ -462,12 +462,13 @@ void asp::parse_csv_format(std::string const& csv_format_str,
   C = asp::CsvConv(); // reset
 
   C.csv_format_str = csv_format_str;
-  C.csv_proj4_str = csv_proj4_str;
+  C.csv_proj4_str  = csv_proj4_str;
 
   std::string local = csv_format_str;
   boost::algorithm::to_lower(local);
 
-  if (local == "") return;
+  if (local == "") 
+    return;
 
   boost::replace_all(local, ":", " ");
   boost::replace_all(local, ",", " ");
@@ -488,19 +489,18 @@ void asp::parse_csv_format(std::string const& csv_format_str,
   int col1, col2, col3;
   std::string name1, name2, name3;
   if (! (is >> col1 >> name1 >> col2 >> name2 >> col3 >> name3) )
-    vw_throw(ArgumentErr() << "Could not parse: '" << csv_format_str
-             << "'\n");
+    vw_throw(ArgumentErr() << "Could not parse: '" << csv_format_str << "'\n");
 
   col1--;
   col2--;
   col3--;
   if (col1 < 0 || col2 < 0 || col3 < 0)
     vw_throw(ArgumentErr() << "The column indices must be positive in: '"
-             << csv_format_str << "'\n");
+                           << csv_format_str << "'\n");
 
   if (col1 == col2 || col1 == col3 || col2 == col3 )
     vw_throw(ArgumentErr() << "The column indices must be distinct in: '"
-             << csv_format_str << "'\n");
+                           << csv_format_str << "'\n");
 
   C.name2col[name1] = col1;
   C.name2col[name2] = col2;
@@ -513,8 +513,7 @@ void asp::parse_csv_format(std::string const& csv_format_str,
 
   // Find the position of the longitude field
   int k = 0;
-  for (std::map<int, std::string>::iterator it = C.col2name.begin();
-       it != C.col2name.end() ; it++){
+  for (std::map<int, std::string>::iterator it = C.col2name.begin(); it != C.col2name.end() ; it++){
     if (it->second == "lon") C.lon_index = k;
     if (it->second == "lat") C.lat_index = k;
     k++;
@@ -524,15 +523,13 @@ void asp::parse_csv_format(std::string const& csv_format_str,
   // alphabetically.
   std::vector<std::string> sorted_names;
   int count = 0;
-  for (std::map<std::string, int>::iterator it = C.name2col.begin();
-       it != C.name2col.end() ; it++){
+  for (std::map<std::string, int>::iterator it = C.name2col.begin(); it != C.name2col.end() ; it++){
     sorted_names.push_back(it->first);
     C.col2sort[it->second] = count;
     count++;
   }
 
-  if (sorted_names[0] == "x" && sorted_names[1] == "y"
-      && sorted_names[2] == "z"){
+  if (sorted_names[0] == "x" && sorted_names[1] == "y" && sorted_names[2] == "z"){
     C.format = asp::XYZ;
   }else if (sorted_names[0] == "lat" &&
             sorted_names[1] == "lon" &&
@@ -552,7 +549,7 @@ void asp::parse_csv_format(std::string const& csv_format_str,
     C.format = asp::EASTING_HEIGHT_NORTHING;
   }else{
     vw_throw( ArgumentErr() << "Cannot understand the csv format string: "
-              << csv_format_str << ".\n" );
+                            << csv_format_str << ".\n" );
   }
 
 }

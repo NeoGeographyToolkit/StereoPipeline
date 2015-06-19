@@ -186,7 +186,9 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
 /// Convert any LAS or CSV files to ASP tif files. We do some binning
 /// to make the spatial data more localized, to improve performance.
 /// - We will later wipe these temporary tifs.
-void las_or_csv_to_tifs(Options& opt, std::vector<std::string> & tmp_tifs){
+void las_or_csv_to_tifs(Options& opt,  
+                        bool have_user_datum, cartography::Datum const& user_datum, 
+                        std::vector<std::string> & tmp_tifs){
                         
   if (!opt.has_las_or_csv) 
     return;
@@ -213,7 +215,9 @@ void las_or_csv_to_tifs(Options& opt, std::vector<std::string> & tmp_tifs){
   asp::parse_csv_format(opt.csv_format_str, opt.csv_proj4_str, csv_conv); // Modifies csv_conv
 
   // Set the georef for CSV files
-  GeoReference csv_georef;// = georef;
+  GeoReference csv_georef;
+  if (have_user_datum)
+    csv_georef.set_datum(user_datum);
 
   // Set user's csv_proj4_str if specified
   asp::handle_easting_northing(csv_conv, csv_georef); // Modifies csv_georef
@@ -1205,9 +1209,10 @@ int main( int argc, char *argv[] ) {
     }
 
     // Convert any input LAS or CSV files to ASP's point cloud tif format
-    // - Should all be XYZ format
+    // - The user's datum inputs apply to the input CSV files.
+    // - Should all be XYZ format when finished
     std::vector<std::string> tmp_tifs;
-    las_or_csv_to_tifs(opt, tmp_tifs);
+    las_or_csv_to_tifs(opt, have_user_datum, user_datum, tmp_tifs);
 
     // Generate a merged xyz point cloud consisting of all inputs
     // - By this point each input exists in tif format.

@@ -47,15 +47,15 @@ namespace asp {
     LAT_LON_RADIUS_KM, EASTING_HEIGHT_NORTHING};
 
   struct CsvConv{
-    std::map<std::string,int> name2col;
+    std::map<std::string,int>  name2col;
     std::map<int, std::string> col2name;
-    std::map<int, int> col2sort;
-    int lon_index, lat_index;
+    std::map<int, int>         col2sort;
+    int         lon_index, lat_index;
     std::string csv_format_str;
     std::string csv_proj4_str;
-    CsvFormat format;
-    int utm_zone;
-    bool utm_north;
+    CsvFormat   format;
+    int         utm_zone;
+    bool        utm_north;
     CsvConv():lon_index(-1), lat_index(-1), format(XYZ), utm_zone(-1),
               utm_north(false){}
   };
