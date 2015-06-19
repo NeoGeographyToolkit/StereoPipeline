@@ -71,15 +71,6 @@ typedef InterpolationView<ImageViewRef<float>, BilinearInterpolation> BilinearIn
 // TODO: Make it work with non-ISIS cameras.
 // TODO: Clean up some of the classes, not all members are needed.
 
-bool readNoDEMDataVal(std::string DEMFile, double & nodata_val){
-  boost::scoped_ptr<SrcImageResource> rsrc( DiskImageResource::open(DEMFile) );
-  if ( rsrc->has_nodata_read() ){
-    nodata_val = rsrc->nodata_read();
-    return true;
-  }
-  return false;
-}
-
 // Compute mean and standard deviation of an image
 template <class ImageT>
 void compute_image_stats(ImageT const& I, double & mean, double & stdev){
@@ -806,7 +797,7 @@ int main(int argc, char* argv[]) {
       vw_throw( ArgumentErr() << "The input DEM has no georeference.\n" );
 
     double nodata_val = -32768;
-    if (readNoDEMDataVal(opt.input_dem, nodata_val)){
+    if (asp::read_nodata_val(opt.input_dem, nodata_val)){
       std::cout << "Found DEM nodata value: " << nodata_val << std::endl;
     }
 
