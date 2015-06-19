@@ -154,43 +154,45 @@ namespace asp{
 
   };
 
-  // Create a point cloud image from a las file. The image will be
-  // created block by block, when it needs to be written to disk. It is
-  // important that the writer invoking this image be single-threaded,
-  // as we read from the las file sequentially.
-
+  /// Create a point cloud image from a las file. The image will be
+  /// created block by block, when it needs to be written to disk. It is
+  /// important that the writer invoking this image be single-threaded,
+  /// as we read from the las file sequentially.
   template <class ImageT>
-  class LasOrCsvToTif:
-    public ImageViewBase< LasOrCsvToTif<ImageT> > {
+  class LasOrCsvToTif_Class : public ImageViewBase< LasOrCsvToTif_Class<ImageT> > {
+    
     typedef typename ImageT::pixel_type PixelT;
+    
     asp::BaseReader * m_reader;
-    int m_rows, m_cols;
+    int m_rows, m_cols; // These are pixel sizes, not tile counts.
     int m_block_size;
 
   public:
 
     typedef PixelT pixel_type;
     typedef PixelT result_type;
-    typedef ProceduralPixelAccessor<LasOrCsvToTif> pixel_accessor;
+    typedef ProceduralPixelAccessor<LasOrCsvToTif_Class> pixel_accessor;
 
-    LasOrCsvToTif(asp::BaseReader * reader, int num_rows, int tile_len, int block_size):
+    LasOrCsvToTif_Class(asp::BaseReader * reader, int num_rows, int tile_len, int block_size):
       m_reader(reader), m_block_size(block_size){
 
       boost::uint64_t num_points = m_reader->m_num_points;
-      m_rows = tile_len*std::max(1, (int)ceil(double(num_rows)/tile_len));
-      m_cols = (int)ceil(double(num_points)/m_rows);
-      m_cols = tile_len*std::max(1, (int)ceil(double(m_cols)/tile_len));
+      int num_row_tiles = std::max(1, (int)ceil(double(num_rows)/tile_len));
+      m_rows = tile_len*num_row_tiles;
+      
+      int points_per_row = (int)ceil(double(num_points)/m_rows);
+      int num_col_tiles  = std::max(1, (int)ceil(double(points_per_row)/tile_len));
+      m_cols = tile_len*num_col_tiles;
     }
 
-    inline int32 cols() const { return m_cols; }
-    inline int32 rows() const { return m_rows; }
+    inline int32 cols  () const { return m_cols; }
+    inline int32 rows  () const { return m_rows; }
     inline int32 planes() const { return 1; }
 
     inline pixel_accessor origin() const { return pixel_accessor(*this); }
 
     inline result_type operator()( size_t i, size_t j, size_t p=0 ) const {
-
-      vw_throw( NoImplErr() << "LasOrCsvToTif::operator(...) has not been implemented.\n");
+      vw_throw( NoImplErr() << "LasOrCsvToTif_Class::operator(...) has not been implemented.\n");
       return result_type();
     }
 
@@ -202,10 +204,11 @@ namespace asp{
       int num_cols = bbox.width();
       int num_rows = bbox.height();
 
-      VW_ASSERT(num_rows % m_block_size == 0 && num_cols % m_block_size == 0,
-                ArgumentErr() << "LasOrCsvToTif: Expecting the number of rows "
-                << "to be a multiple of the block size.\n");
+      VW_ASSERT((num_rows % m_block_size == 0) && (num_cols % m_block_size == 0),
+                ArgumentErr() << "LasOrCsvToTif_Class: Expecting the number of rows "
+                              << "to be a multiple of the block size.\n");
 
+      // Read the specified number of points from the file
       int max_num_pts_to_read = num_cols*num_rows;
       int count = 0;
       PointBuffer in;
@@ -213,15 +216,16 @@ namespace asp{
       while (m_reader->ReadNextPoint()){
         in.push_back(m_reader->GetPoint());
         count++;
-        if (count >= max_num_pts_to_read) break;
+        if (count >= max_num_pts_to_read) 
+          break;
       }
 
+      // ??
       ImageView<Vector3> Img;
-      Chipper(in, m_block_size, m_reader->m_has_georef, m_reader->m_georef,
-              num_cols, num_rows, Img);
+      Chipper(in, m_block_size, m_reader->m_has_georef, m_reader->m_georef, num_cols, num_rows, Img);
 
       VW_ASSERT(num_cols == Img.cols() && num_rows == Img.rows(),
-                ArgumentErr() << "LasOrCsvToTif: Size mis-match.\n");
+                ArgumentErr() << "LasOrCsvToTif_Class: Size mis-match.\n");
 
       return crop( Img, -bbox.min().x(), -bbox.min().y(), cols(), rows() );
 
@@ -310,33 +314,32 @@ void asp::las_or_csv_to_tif(std::string const& in_file,
                             vw::cartography::GeoReference const& csv_georef,
                             asp::CsvConv const& csv_conv){
 
-  // We will fetch a chunk of the las file of area tile_len x
-  // tile_len, split it into bins of spatially close points, and write
+  // We will fetch a chunk of the las file of area TILE_LEN x
+  // TILE_LEN, split it into bins of spatially close points, and write
   // it to disk as a tile in a vector tif image. The bigger the tile
   // size, the more likely the binning will be more efficient. But big
   // tiles use a lot of memory.
 
   // To do: Study performance for large files when this number changes
-  int tile_len = 2048;
-  Vector2 tile_size(tile_len, tile_len);
+  const int TILE_LEN = 2048;
+  Vector2 tile_size(TILE_LEN, TILE_LEN);
 
   vw_out() << "Writing temporary file: " << out_file << std::endl;
 
+  // Temporarily change the raster tile size
   Vector2 original_tile_size = opt->raster_tile_size;
   opt->raster_tile_size = tile_size;
 
-  if (asp::is_csv(in_file)){
+  if (asp::is_csv(in_file)){ // CSV
 
-    boost::shared_ptr<asp::CsvReader> csvReaderPtr
-      ( new asp::CsvReader(in_file, csv_conv, csv_georef) );
+    boost::shared_ptr<asp::CsvReader> csvReaderPtr( new asp::CsvReader(in_file, csv_conv, csv_georef) );
     ImageViewRef<Vector3> Img
-      = asp::LasOrCsvToTif< ImageView<Vector3> > (csvReaderPtr.get(), num_rows,
-                                                  tile_len, block_size);
+      = asp::LasOrCsvToTif_Class< ImageView<Vector3> > (csvReaderPtr.get(), num_rows, TILE_LEN, block_size);
 
     // Must use a thread only, as we read the las file serially.
     asp::write_gdal_image(out_file, Img, *opt, TerminalProgressCallback("asp", "\t--> ") );
 
-  }else if (asp::is_las(in_file)){
+  }else if (asp::is_las(in_file)){ // LAS
 
     std::ifstream ifs;
     ifs.open(in_file.c_str(), std::ios::in | std::ios::binary);
@@ -344,8 +347,7 @@ void asp::las_or_csv_to_tif(std::string const& in_file,
     liblas::Reader reader = f.CreateWithStream(ifs);
     boost::shared_ptr<asp::LasReader> lasReaderPtr( new asp::LasReader(reader) );
     ImageViewRef<Vector3> Img
-      = asp::LasOrCsvToTif< ImageView<Vector3> > (lasReaderPtr.get(), num_rows,
-                                                  tile_len, block_size);
+      = asp::LasOrCsvToTif_Class< ImageView<Vector3> > (lasReaderPtr.get(), num_rows, TILE_LEN, block_size);
 
     // Must use a thread only, as we read the las file serially.
     asp::write_gdal_image(out_file, Img, *opt, TerminalProgressCallback("asp", "\t--> ") );
@@ -623,15 +625,13 @@ Vector3 asp::csv_to_cartesian_or_point_height(Vector3 const& csv,
   // alphabetically (e.g., in order height_above_datum, lat, lon).
   Vector3 ordered_csv;
   int count = 0;
-  for (std::map<int, int>::const_iterator it = C.col2sort.begin();
-       it != C.col2sort.end(); it++){
+  for (std::map<int, int>::const_iterator it = C.col2sort.begin(); it != C.col2sort.end(); it++){
     ordered_csv[it->second] = csv[count];
     count++;
   }
 
   if (C.format == asp::XYZ)
     return ordered_csv; // already as xyz
-
 
   Vector3 xyz;
 

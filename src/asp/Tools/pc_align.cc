@@ -291,13 +291,14 @@ void read_datum(Options& opt, asp::CsvConv& csv_conv, Datum& datum){
       vw_out() << "Detected datum from " << las_file << ":\n" << datum << std::endl;
     }
   }
+  // We should have read in the datum from an input file, but check to see if
+  //  we should override it with input parameters.
 
   // A lot of care is needed below.
   if (opt.datum != ""){
     // If the user set the datum, use it.
     datum.set_well_known_datum(opt.datum);
-    vw_out() << "Will use datum (for CSV files): "
-             << datum << std::endl;
+    vw_out() << "Will use datum (for CSV files): "  << datum << std::endl;
   }else if (opt.semi_major > 0 && opt.semi_minor > 0){
     // Otherwise, if the user set the semi-axes, use that.
     datum = Datum("User Specified Datum", "User Specified Spheroid",

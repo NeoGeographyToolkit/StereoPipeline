@@ -98,8 +98,8 @@ namespace asp {
     return "Specify the format of input CSV files as a list of entries column_index:column_type (indices start from 1). Examples: '1:x 2:y 3:z', '5:lon 6:lat 7:radius_m', '3:lat 2:lon 1:height_above_datum', '1:easting 2:northing 3:height_above_datum' (need to set --csv-proj4). Can also use radius_km for column_type.";
   }
 
-  /// Fetch a chunk of the las file of area tile_len x
-  /// tile_len, split it into bins of spatially close points, and write
+  /// Fetch a chunk of the las file of area TILE_LEN x TILE_LEN, 
+  /// split it into bins of spatially close points, and write
   /// it to disk as a tile in a vector tif image.
   void las_or_csv_to_tif(std::string const& in_file,
                          std::string const& out_file,

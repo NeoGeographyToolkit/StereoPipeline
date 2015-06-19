@@ -158,6 +158,9 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
                  bool & is_lola_rdr_format, double & mean_longitude,
                  typename PointMatcher<T>::DataPoints & data){
 
+  // Note: The input CsvConv object is responsible for parsing out the
+  //       type of information contained in the CSV file.
+
   PointMatcherSupport::validateFile(file_name);
 
   is_lola_rdr_format = false;
@@ -177,14 +180,15 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
   // We will randomly pick or not a point with probability load_ratio
   double load_ratio = (double)num_points_to_load/std::max(1.0, (double)num_total_points);
 
-  data.features.conservativeResize(DIM+1, std::min(num_points_to_load,
-                                                   num_total_points));
+  data.features.conservativeResize(DIM+1, std::min(num_points_to_load, num_total_points));
   data.featureLabels = form_labels<T>(DIM);
 
   // Peek at the first valid line and see how many elements it has
   std::string line;
-  while ( getline(file, line, '\n') )
-    if (asp::is_valid_csv_line(line)) break;
+  while ( getline(file, line, '\n') ) {
+    if (asp::is_valid_csv_line(line)) 
+      break;
+  }
 
   file.clear(); file.seekg(0, std::ios_base::beg); // go back to start of file
   strncpy(temp, line.c_str(), bufSize);
@@ -196,21 +200,19 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
   }
   if (numTokens < 3){
     vw_throw( vw::IOErr() << "Expecting at least three fields on each "
-              << "line of file: " << file_name << "\n" );
+                          << "line of file: " << file_name << "\n" );
   }
 
   if (C.csv_format_str == ""){
     if (numTokens > 20){
       is_lola_rdr_format = true;
       if (verbose)
-        vw::vw_out() << "Guessing file " << file_name
-                 << " to be in LOLA RDR PointPerRow format.\n";
+        vw::vw_out() << "Guessing file " << file_name << " to be in LOLA RDR PointPerRow format.\n";
     }else{
       is_lola_rdr_format = false;
       if (verbose)
         vw::vw_out() << "Guessing file " << file_name
-                 << " to be in latitude,longitude,height above datum (meters) "
-                 << "format.\n";
+                     << " to be in latitude,longitude,height above datum (meters) format.\n";
     }
   }
 
@@ -617,6 +619,9 @@ vw::int64 load_las_aux(bool verbose,
 
   vw::cartography::GeoReference las_georef;
   bool has_georef = asp::georef_from_las(file_name, las_georef);
+  if (!has_georef)
+    vw_throw(vw::ArgumentErr() << "LAS: " << file_name
+                               << " does not have a georeference.\n");
 
   std::ifstream ifs;
   ifs.open(file_name.c_str(), std::ios::in | std::ios::binary);

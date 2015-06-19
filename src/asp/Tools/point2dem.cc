@@ -64,33 +64,33 @@ struct Options : asp::BaseOptions {
   std::vector<std::string> pointcloud_files, texture_files;
 
   // Settings
-  float dem_spacing, nodata_value;
-  double semi_major, semi_minor;
+  float       dem_spacing, nodata_value;
+  double      semi_major, semi_minor;
   std::string reference_spheroid;
-  double phi_rot, omega_rot, kappa_rot;
+  double      phi_rot, omega_rot, kappa_rot;
   std::string rot_order;
-  double proj_lat, proj_lon, proj_scale;
-  double x_offset, y_offset, z_offset;
-  size_t utm_zone;
+  double      proj_lat, proj_lon, proj_scale;
+  double      lon_offset, lat_offset, height_offset;
+  size_t      utm_zone;
   ProjectionType projection;
-  bool has_nodata_value, has_alpha, do_normalize, do_ortho, do_error, no_dem;
-  double rounding_error;
+  bool        has_nodata_value, has_alpha, do_normalize, do_ortho, do_error, no_dem;
+  double      rounding_error;
   std::string target_srs_string;
-  BBox2 target_projwin;
-  BBox2i target_projwin_pixels;
-  int fsaa, dem_hole_fill_len, ortho_hole_fill_len;
-  bool remove_outliers_with_pct;
-  Vector2 remove_outliers_params;
-  double max_valid_triangulation_error;
-  Vector2 median_filter_params;
-  int erode_len;
+  BBox2       target_projwin;
+  BBox2i      target_projwin_pixels;
+  int         fsaa, dem_hole_fill_len, ortho_hole_fill_len;
+  bool        remove_outliers_with_pct;
+  Vector2     remove_outliers_params;
+  double      max_valid_triangulation_error;
+  Vector2     median_filter_params;
+  int         erode_len;
   std::string csv_format_str, csv_proj4_str;
-  double search_radius_factor;
-  bool use_surface_sampling;
-  bool has_las_or_csv;
+  double      search_radius_factor;
+  bool        use_surface_sampling;
+  bool        has_las_or_csv;
 
   // Output
-  std::string  out_prefix, output_file_type;
+  std::string out_prefix, output_file_type;
 
   // Defaults that the user doesn't need to see. (The Magic behind the
   // curtain).
@@ -183,14 +183,14 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
 
 }
 
-void las_or_csv_to_tifs(Options& opt, vw::cartography::GeoReference const& georef,
+/// Convert any LAS or CSV files to ASP tif files. We do some binning
+/// to make the spatial data more localized, to improve performance.
+/// - We will later wipe these temporary tifs.
+void las_or_csv_to_tifs(Options& opt,// vw::cartography::GeoReference const& georef,
                         std::vector<std::string> & tmp_tifs){
-
-  // Convert any LAS or CSV files to ASP tif files. We do some binning
-  // to make the spatial data more localized, to improve performance.
-  // We will later wipe these temporary tifs.
-
-  if (!opt.has_las_or_csv) return;
+                        
+  if (!opt.has_las_or_csv) 
+    return;
 
   Stopwatch sw;
   sw.start();
@@ -198,32 +198,41 @@ void las_or_csv_to_tifs(Options& opt, vw::cartography::GeoReference const& geore
   // Error checking for CSV
   int num_files = opt.pointcloud_files.size();
   for (int i = 0; i < num_files; i++){
-    if (!asp::is_csv(opt.pointcloud_files[i])) continue;
+    if (!asp::is_csv(opt.pointcloud_files[i])) 
+      continue;
     if (opt.csv_format_str == "")
       vw_throw(ArgumentErr() << "CSV files were passed in, but the "
-               << "CSV format string was not set.\n");
+                             << "CSV format string was not set.\n");
   }
 
+  // Extract georef info from las files.
+  GeoReference las_georef;
+  bool has_las_georef = asp::georef_from_las(opt.pointcloud_files, las_georef);
+
+  // Configure a CSV converter object according to the input parameters
   asp::CsvConv csv_conv;
-  asp::parse_csv_format(opt.csv_format_str, opt.csv_proj4_str, csv_conv);
+  asp::parse_csv_format(opt.csv_format_str, opt.csv_proj4_str, csv_conv); // Modifies csv_conv
 
   // Set the georef for CSV files
-  GeoReference csv_georef = georef;
+  GeoReference csv_georef;// = georef;
+  
+  vw_out() << "DEBUG: Set CSV georef: " << csv_georef << "\n";
+  vw_out() << "DEBUG: Set LAS georef: " << las_georef << "\n";
 
   // Set user's csv_proj4_str if specified
-  asp::handle_easting_northing(csv_conv, csv_georef);
+  asp::handle_easting_northing(csv_conv, csv_georef); // Modifies csv_georef
 
   // There are situations in which some files will already be tif, and
   // others will be LAS or CSV. When we convert the latter to tif,
   // we'd like to be able to match the number of rows of the existing
   // tif files, so later when we concatenate all these files from left
-  // to right for the purpose of creating the DEM, we waste little
-  // space.
+  // to right for the purpose of creating the DEM, we waste little space.
   int num_rows = 0;
   for (int i = 0; i < num_files; i++){
-    if (asp::is_las_or_csv(opt.pointcloud_files[i])) continue;
+    if (asp::is_las_or_csv(opt.pointcloud_files[i])) 
+      continue;
     DiskImageView<float> img(opt.pointcloud_files[i]);
-    num_rows = std::max(num_rows, img.rows());
+    num_rows = std::max(num_rows, img.rows()); // Record the max number of rows across all input tifs
   }
 
   // No tif files exist. Find a reasonable value for the number of rows.
@@ -231,10 +240,9 @@ void las_or_csv_to_tifs(Options& opt, vw::cartography::GeoReference const& geore
     boost::uint64_t max_num_pts = 0;
     for (int i = 0; i < num_files; i++){
       std::string file = opt.pointcloud_files[i];
-      if (asp::is_las(file))
-        max_num_pts = std::max(max_num_pts, asp::las_file_size(file));
-      if (asp::is_csv(file))
-        max_num_pts = std::max(max_num_pts, asp::csv_file_size(file));
+      if (asp::is_las(file))  max_num_pts = std::max(max_num_pts, asp::las_file_size(file));
+      if (asp::is_csv(file))  max_num_pts = std::max(max_num_pts, asp::csv_file_size(file));
+      // No need to check for other cases; At least one file must be las or csv!
     }
     num_rows = std::max(1, (int)ceil(sqrt(double(max_num_pts))));
   }
@@ -248,9 +256,10 @@ void las_or_csv_to_tifs(Options& opt, vw::cartography::GeoReference const& geore
   // indices.  This is key to fast rasterization later.
   for (int i = 0; i < num_files; i++){
 
-    if (!asp::is_las_or_csv(opt.pointcloud_files[i])) continue;
+    if (!asp::is_las_or_csv(opt.pointcloud_files[i])) // Skip tif files
+      continue;
     std::string in_file = opt.pointcloud_files[i];
-    std::string stem = fs::path( in_file ).stem().string();
+    std::string stem    = fs::path( in_file ).stem().string();
     std::string suffix;
     if (opt.out_prefix.find(stem) != std::string::npos)
       suffix = ".tif";
@@ -259,26 +268,35 @@ void las_or_csv_to_tifs(Options& opt, vw::cartography::GeoReference const& geore
     std::string out_file = opt.out_prefix + "-tmp" + suffix;
 
     // Handle the case when the output file may exist
-    for (int count = 0; count < 1000; count++){
-      if (!fs::exists(out_file)) break;
+    const int NUM_TEMP_NAME_RETRIES = 1000;
+    for (int count = 0; count < NUM_TEMP_NAME_RETRIES; count++){
+      if (!fs::exists(out_file)) 
+        break;
       // File exists, try a different name
       vw_out() << "File exists: " << out_file << std::endl;
       std::ostringstream os; os << count;
       out_file = opt.out_prefix + "-tmp-" + os.str() + suffix;
     }
     if (fs::exists(out_file))
-      vw_throw( ArgumentErr()
-                << "Too many attempts at creating a temporary file.\n");
+      vw_throw( ArgumentErr() << "Too many attempts at creating a temporary file.\n");
 
-    asp::las_or_csv_to_tif(in_file, out_file, num_rows, block_size,
-                           &opt, csv_georef, csv_conv);
+    // TODO: This if statement should not be needed, the function should handle it!
+    // Perform the actual conversion to a tif file
+    if (asp::is_las(in_file)) {
+      if (!has_las_georef)
+        vw_throw( ArgumentErr() << "File " << in_file << " missing georef!\n");
+      asp::las_or_csv_to_tif(in_file, out_file, num_rows, block_size,
+                             &opt, las_georef, csv_conv);
+    } else { // CSV
+      asp::las_or_csv_to_tif(in_file, out_file, num_rows, block_size,
+                             &opt, csv_georef, csv_conv);
+    }
     opt.pointcloud_files[i] = out_file; // so we can use it instead of the las file
     tmp_tifs.push_back(out_file); // so we can wipe it later
   }
 
   sw.stop();
-  vw_out(DebugMessage,"asp")
-    << "LAS or CSV to TIF conversion time: " << sw.elapsed_seconds() << std::endl;
+  vw_out(DebugMessage,"asp") << "LAS or CSV to TIF conversion time: " << sw.elapsed_seconds() << std::endl;
 
 }
 
@@ -288,70 +306,74 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::options_description manipulation_options("Manipulation options");
   manipulation_options.add_options()
-    ("x-offset", po::value(&opt.x_offset)->default_value(0), "Add a horizontal offset to the DEM.")
-    ("y-offset", po::value(&opt.y_offset)->default_value(0), "Add a horizontal offset to the DEM.")
-    ("z-offset", po::value(&opt.z_offset)->default_value(0), "Add a vertical offset to the DEM.")
-    ("rotation-order", po::value(&opt.rot_order)->default_value("xyz"),"Set the order of an Euler angle rotation applied to the 3D points prior to DEM rasterization.")
-    ("phi-rotation", po::value(&opt.phi_rot)->default_value(0),"Set a rotation angle phi.")
+    ("x-offset",       po::value(&opt.lon_offset )->default_value(0),    "Add a horizontal offset to the DEM.")
+    ("y-offset",       po::value(&opt.lat_offset )->default_value(0),    "Add a horizontal offset to the DEM.")
+    ("z-offset",       po::value(&opt.height_offset )->default_value(0),    "Add a vertical offset to the DEM.")
+    ("rotation-order", po::value(&opt.rot_order)->default_value("xyz"), 
+         "Set the order of an Euler angle rotation applied to the 3D points prior to DEM rasterization.")
+    ("phi-rotation",   po::value(&opt.phi_rot  )->default_value(0),"Set a rotation angle phi.")
     ("omega-rotation", po::value(&opt.omega_rot)->default_value(0),"Set a rotation angle omega.")
     ("kappa-rotation", po::value(&opt.kappa_rot)->default_value(0),"Set a rotation angle kappa.");
 
   po::options_description projection_options("Projection options");
   projection_options.add_options()
-    ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
-     "Specify the output projection (PROJ.4 string).")
-    ("t_projwin", po::value(&opt.target_projwin), "Selects a subwindow from the source image for copying but with the corners given in georeferenced coordinates. Max is exclusive.")
+    ("t_srs",         po::value(&opt.target_srs_string)->default_value(""), "Specify the output projection (PROJ.4 string).")
+    ("t_projwin",     po::value(&opt.target_projwin), 
+             "Selects a subwindow from the source image for copying but with the corners given in georeferenced coordinates. Max is exclusive.")
     ("dem-spacing,s", po::value(&dem_spacing1)->default_value(0.0),
-     "Set output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically (except for LAS and CSV files). This is the same as the --tr option.")
-    ("tr", po::value(&dem_spacing2)->default_value(0.0),
-     "Set output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically (except for LAS and CSV files). This is the same as the --dem-spacing option.")
-    ("reference-spheroid,r", po::value(&opt.reference_spheroid),"Set the reference spheroid [Earth, Moon, Mars]. This will override manually set datum information.")
-    ("semi-major-axis", po::value(&opt.semi_major)->default_value(0), "Explicitly set the datum semi-major axis in meters.")
-    ("semi-minor-axis", po::value(&opt.semi_minor)->default_value(0), "Explicitly set the datum semi-minor axis in meters.")
-    ("sinusoidal", "Save using a sinusoidal projection.")
-    ("mercator", "Save using a Mercator projection.")
+             "Set output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically (except for LAS and CSV files). This is the same as the --tr option.")
+    ("tr",            po::value(&dem_spacing2)->default_value(0.0),
+             "Set output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically (except for LAS and CSV files). This is the same as the --dem-spacing option.")
+    ("reference-spheroid,r", po::value(&opt.reference_spheroid),
+            "Set the reference spheroid [Earth, Moon, Mars]. This will override manually set datum information.")
+    ("semi-major-axis",      po::value(&opt.semi_major)->default_value(0), "Explicitly set the datum semi-major axis in meters.")
+    ("semi-minor-axis",      po::value(&opt.semi_minor)->default_value(0), "Explicitly set the datum semi-minor axis in meters.")
+    ("sinusoidal",          "Save using a sinusoidal projection.")
+    ("mercator",            "Save using a Mercator projection.")
     ("transverse-mercator", "Save using a transverse Mercator projection.")
-    ("orthographic", "Save using an orthographic projection.")
-    ("stereographic", "Save using a stereographic projection.")
-    ("lambert-azimuthal", "Save using a Lambert azimuthal projection.")
-    ("utm", po::value(&opt.utm_zone), "Save using a UTM projection with the given zone.")
-    ("proj-lat", po::value(&opt.proj_lat)->default_value(0),
-     "The center of projection latitude (if applicable).")
-    ("proj-lon", po::value(&opt.proj_lon)->default_value(0),
-     "The center of projection longitude (if applicable).")
-    ("proj-scale", po::value(&opt.proj_scale)->default_value(1),
-     "The projection scale (if applicable).");
+    ("orthographic",        "Save using an orthographic projection.")
+    ("stereographic",       "Save using a stereographic projection.")
+    ("lambert-azimuthal",   "Save using a Lambert azimuthal projection.")
+    ("utm",        po::value(&opt.utm_zone),                      "Save using a UTM projection with the given zone.")
+    ("proj-lat",   po::value(&opt.proj_lat)->default_value(0),    "The center of projection latitude (if applicable).")
+    ("proj-lon",   po::value(&opt.proj_lon)->default_value(0),    "The center of projection longitude (if applicable).")
+    ("proj-scale", po::value(&opt.proj_scale)->default_value(1),  "The projection scale (if applicable).");
 
   po::options_description general_options("General Options");
   general_options.add_options()
-    ("nodata-value", po::value(&opt.nodata_value),
-     "Nodata value to use on output. This is the same as default-value.")
-    ("use-alpha", po::bool_switch(&opt.has_alpha)->default_value(false),
-     "Create images that have an alpha channel.")
-    ("normalized,n", po::bool_switch(&opt.do_normalize)->default_value(false),
-     "Also write a normalized version of the DEM (for debugging).")
-    ("orthoimage", po::bool_switch(&opt.do_ortho)->default_value(false), "Write an orthoimage based on the texture files passed in as inputs (after the point clouds).")
-    ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
+    ("nodata-value",      po::value(&opt.nodata_value),
+             "Nodata value to use on output. This is the same as default-value.")
+    ("use-alpha",         po::bool_switch(&opt.has_alpha)->default_value(false),
+             "Create images that have an alpha channel.")
+    ("normalized,n",      po::bool_switch(&opt.do_normalize)->default_value(false),
+             "Also write a normalized version of the DEM (for debugging).")
+    ("orthoimage",        po::bool_switch(&opt.do_ortho)->default_value(false), 
+             "Write an orthoimage based on the texture files passed in as inputs (after the point clouds).")
+    ("output-prefix,o",   po::value(&opt.out_prefix),                             "Specify the output prefix.")
     ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file.")
-    ("errorimage", po::bool_switch(&opt.do_error)->default_value(false), "Write a triangulation intersection error image.")
-    ("dem-hole-fill-len", po::value(&opt.dem_hole_fill_len)->default_value(0), "Maximum dimensions of a hole in the output DEM to fill in, in pixels.")
-    ("orthoimage-hole-fill-len", po::value(&opt.ortho_hole_fill_len)->default_value(0), "Maximum dimensions of a hole in the output orthoimage to fill in, in pixels.")
-    ("remove-outliers", po::bool_switch(&opt.remove_outliers_with_pct)->default_value(true),
-     "Turn on outlier removal based on percentage of triangulation error. Obsolete, as this is the default.")
-    ("remove-outliers-params", po::value(&opt.remove_outliers_params)->default_value(Vector2(75.0, 3.0), "pct factor"), "Outlier removal based on percentage. Points with triangulation error larger than pct-th percentile times factor will be removed as outliers. [default: pct=75.0, factor=3.0]")
-    ("max-valid-triangulation-error", po::value(&opt.max_valid_triangulation_error)->default_value(0), "Outlier removal based on threshold. Points with triangulation error larger than this (in meters) will be removed from the cloud.")
-    ("median-filter-params", po::value(&opt.median_filter_params)->default_value(Vector2(0, 0), "window_size threshold"), "If the point cloud height at the current point differs by more than the given threshold from the median of heights in the window of given size centered at the point, remove it as an outlier. Use for example 11 and 40.0.")
-    ("erode-length", po::value<int>(&opt.erode_len)->default_value(0),
-     "Erode input point clouds by this many pixels at boundary (after outliers are removed, but before filling in holes).")
-    ("csv-format", po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
-    ("csv-proj4", po::value(&opt.csv_proj4_str)->default_value(""), "The PROJ.4 string to use to interpret the entries in input CSV files.")
+    ("errorimage",        po::bool_switch(&opt.do_error)->default_value(false),   "Write a triangulation intersection error image.")
+    ("dem-hole-fill-len", po::value(&opt.dem_hole_fill_len)->default_value(0),    "Maximum dimensions of a hole in the output DEM to fill in, in pixels.")
+    ("orthoimage-hole-fill-len",      po::value(&opt.ortho_hole_fill_len)->default_value(0), 
+            "Maximum dimensions of a hole in the output orthoimage to fill in, in pixels.")
+    ("remove-outliers",               po::bool_switch(&opt.remove_outliers_with_pct)->default_value(true),
+            "Turn on outlier removal based on percentage of triangulation error. Obsolete, as this is the default.")
+    ("remove-outliers-params",        po::value(&opt.remove_outliers_params)->default_value(Vector2(75.0, 3.0), "pct factor"), 
+            "Outlier removal based on percentage. Points with triangulation error larger than pct-th percentile times factor will be removed as outliers. [default: pct=75.0, factor=3.0]")
+    ("max-valid-triangulation-error", po::value(&opt.max_valid_triangulation_error)->default_value(0), 
+            "Outlier removal based on threshold. Points with triangulation error larger than this (in meters) will be removed from the cloud.")
+    ("median-filter-params",          po::value(&opt.median_filter_params)->default_value(Vector2(0, 0), 
+            "window_size threshold"), "If the point cloud height at the current point differs by more than the given threshold from the median of heights in the window of given size centered at the point, remove it as an outlier. Use for example 11 and 40.0.")
+    ("erode-length",   po::value<int>(&opt.erode_len)->default_value(0),
+            "Erode input point clouds by this many pixels at boundary (after outliers are removed, but before filling in holes).")
+    ("csv-format",     po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
+    ("csv-proj4",      po::value(&opt.csv_proj4_str)->default_value(""), "The PROJ.4 string to use to interpret the entries in input CSV files.")
     ("rounding-error", po::value(&opt.rounding_error)->default_value(asp::APPROX_ONE_MM),
-     "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")
+            "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")
     ("search-radius-factor", po::value(&opt.search_radius_factor)->default_value(0.0),
-     "Multiply this factor by dem-spacing to get the search radius. The DEM height at a given grid point is obtained as a weighted average of heights of all points in the cloud within search radius of the grid point, with the weights given by a Gaussian. Default search radius: max(dem-spacing, default_dem_spacing), so the default factor is about 1.")
+             "Multiply this factor by dem-spacing to get the search radius. The DEM height at a given grid point is obtained as a weighted average of heights of all points in the cloud within search radius of the grid point, with the weights given by a Gaussian. Default search radius: max(dem-spacing, default_dem_spacing), so the default factor is about 1.")
     ("use-surface-sampling", po::bool_switch(&opt.use_surface_sampling)->default_value(false),
-     "Use the older algorithm, interpret the point cloud as a surface made up of triangles and interpolate into it (prone to aliasing).")
-    ("fsaa", po::value(&opt.fsaa)->implicit_value(3), "Oversampling amount to perform antialiasing (obsolete).")
+               "Use the older algorithm, interpret the point cloud as a surface made up of triangles and interpolate into it (prone to aliasing).")
+    ("fsaa",   po::value(&opt.fsaa)->implicit_value(3),            "Oversampling amount to perform antialiasing (obsolete).")
     ("no-dem", po::bool_switch(&opt.no_dem)->default_value(false), "Skip writing a DEM.");
 
   general_options.add( manipulation_options );
@@ -461,7 +483,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   asp::log_to_file(argc, argv, "", opt.out_prefix);
 
   boost::to_lower( opt.reference_spheroid );
-  if ( vm.count("sinusoidal") )               opt.projection = SINUSOIDAL;
+  if      ( vm.count("sinusoidal") )          opt.projection = SINUSOIDAL;
   else if ( vm.count("mercator") )            opt.projection = MERCATOR;
   else if ( vm.count("transverse-mercator") ) opt.projection = TRANSVERSEMERCATOR;
   else if ( vm.count("orthographic") )        opt.projection = ORTHOGRAPHIC;
@@ -494,8 +516,8 @@ public:
               ArgumentErr() << "Expecting odd and positive kernel size.");
   }
 
-  inline int32 cols() const { return m_img.cols(); }
-  inline int32 rows() const { return m_img.rows(); }
+  inline int32 cols  () const { return m_img.cols(); }
+  inline int32 rows  () const { return m_img.rows(); }
   inline int32 planes() const { return 1; }
 
   inline pixel_accessor origin() const { return pixel_accessor(*this); }
@@ -510,7 +532,8 @@ public:
     int k2 = m_kernel_size/2, nc = m_img.cols(), nr = m_img.rows();
     for (int c = std::max(0, c0-k2); c <= std::min(nc-1, c0+k2); c++){
       for (int r = std::max(0, r0-k2); r <= std::min(nr-1, r0+k2); r++){
-        if (!is_valid(m_img(c, r))) continue;
+        if (!is_valid(m_img(c, r))) 
+          continue;
         val += m_img(c, r);
         nvalid++;
       }
@@ -628,10 +651,10 @@ namespace asp{
       Vector3 xyz = subvector(pt, 0, 3);
       if (xyz == Vector3()) return Vector3();
 
-      Vector3 err = subvector(pt, 3, 3);
-      Vector3 geo = m_georef.datum().cartesian_to_geodetic(xyz);
-      Matrix3x3 M = m_georef.datum().lonlat_to_ned_matrix(subvector(geo, 0, 2));
-      Vector3 ned_err = M*err;
+      Vector3   err     = subvector(pt, 3, 3);
+      Vector3   geo     = m_georef.datum().cartesian_to_geodetic(xyz);
+      Matrix3x3 M       = m_georef.datum().lonlat_to_ned_matrix(subvector(geo, 0, 2));
+      Vector3   ned_err = M*err;
       return ned_err;
     }
   };
@@ -654,14 +677,12 @@ namespace asp{
     // temporarily with big blocks, and then re-save with small
     // blocks.
     if (hole_fill_len > 512)
-      vw_out(WarningMessage)
-        << "Detected large hole-fill length. Memory usage and run-time may go up.\n";
+      vw_out(WarningMessage) << "Detected large hole-fill length. Memory usage and run-time may go up.\n";
 
     int block_size = nextpow2(2.0*hole_fill_len);
     block_size = std::max(256, block_size);
 
-    std::string output_file = opt.out_prefix + "-" + imgName + "."
-      + opt.output_file_type;
+    std::string output_file = opt.out_prefix + "-" + imgName + "." + opt.output_file_type;
     vw_out() << "Writing: " << output_file << "\n";
     TerminalProgressCallback tpc("asp", imgName + ": ");
     if ( opt.output_file_type == "tif" )
@@ -697,8 +718,8 @@ namespace asp{
       m_image2( image2.impl() ),
       m_image3( image3.impl() ){}
 
-    inline int32 cols() const { return m_image1.cols(); }
-    inline int32 rows() const { return m_image1.rows(); }
+    inline int32 cols  () const { return m_image1.cols(); }
+    inline int32 rows  () const { return m_image1.rows(); }
     inline int32 planes() const { return 1; }
 
     inline pixel_accessor origin() const { return pixel_accessor(*this); }
@@ -820,11 +841,11 @@ namespace asp{
       // largest error, but at least it is is not grossly huge
       // if just a few of the errors are very large.
       std::sort(m_vals.begin(), m_vals.end());
-      int len = m_vals.size();
-      double pct = remove_outliers_params[0]/100.0; // e.g., 0.75
+      int    len    = m_vals.size();
+      double pct    = remove_outliers_params[0]/100.0; // e.g., 0.75
       double factor = remove_outliers_params[1];
-      int k = std::min(len-1, (int)(pct*len));
-      double val = m_vals[k]*factor*4.0;
+      int    k      = std::min(len-1, (int)(pct*len));
+      double val    = m_vals[k]*factor*4.0;
       return val;
     }
 
@@ -848,8 +869,7 @@ namespace asp{
   template<class PixelT>
   ImageViewRef<PixelT> form_composite(std::vector<std::string> const & files){
 
-    VW_ASSERT(files.size() >= 1,
-              ArgumentErr() << "Expecting at least one file.\n");
+    VW_ASSERT(files.size() >= 1, ArgumentErr() << "Expecting at least one file.\n");
 
     // We will use this composite in OrthoRasterizerView, where we
     // will break it into sub-blocks. We don't want a sub-block to see
@@ -859,8 +879,8 @@ namespace asp{
     // composite by an amount which will sufficiently isolate them.
     int spacing = asp::OrthoRasterizerView::max_subblock_size();
 
-    vw::mosaic::ImageComposite<PixelT> C;
-    C.set_draft_mode(true); // images will be disjoint, no need for fancy stuff
+    vw::mosaic::ImageComposite<PixelT> composite_image;
+    composite_image.set_draft_mode(true); // images will be disjoint, no need for fancy stuff
 
     for (int i = 0; i < (int)files.size(); i++){
 
@@ -870,18 +890,20 @@ namespace asp{
       // are wider than tall will be transposed.
       // To do: A more efficient approach would be to also stack one
       // image on top of each other, if some images are not too tall.
-      if (I.rows() < I.cols()) I = transpose(I);
+      // --> Does this code ever get images where rows != cols??
+      if (I.rows() < I.cols()) 
+        I = transpose(I);
 
-      int start = C.cols();
+      int start = composite_image.cols();
       if (i > 0){
         // Insert the spacing
         start = spacing*(int)ceil(double(start)/spacing) + spacing;
       }
-      C.insert(I, start, 0);
+      composite_image.insert(I, start, 0);
 
-    }
+    } // End loop through files
 
-    return C;
+    return composite_image;
 
   }
 
@@ -928,6 +950,7 @@ namespace asp{
 
 } // end namespace asp
 
+/// ?
 void do_software_rasterization( const ImageViewRef<Vector3>& proj_point_input,
                                 Options& opt,
                                 cartography::GeoReference& georef,
@@ -945,8 +968,7 @@ void do_software_rasterization( const ImageViewRef<Vector3>& proj_point_input,
                TerminalProgressCallback("asp","QuadTree: ") );
 
   sw1.stop();
-  vw_out(DebugMessage,"asp") << "Quad time: " << sw1.elapsed_seconds()
-                             << std::endl;
+  vw_out(DebugMessage,"asp") << "Quad time: " << sw1.elapsed_seconds() << std::endl;
 
   if (!opt.has_nodata_value) {
     opt.nodata_value = std::floor(rasterizer.bounding_box().min().z() - 1);
@@ -972,9 +994,10 @@ void do_software_rasterization( const ImageViewRef<Vector3>& proj_point_input,
   // transform here. The generate_fsaa_raster will be responsible
   // for making sure we have the correct pixel crop.
   if ( opt.target_projwin != BBox2() ) {
-    if ( opt.target_projwin.min().y() > opt.target_projwin.max().y() )
+    if ( opt.target_projwin.min().y() > opt.target_projwin.max().y() ) {
       std::swap( opt.target_projwin.min().y(),
                  opt.target_projwin.max().y() );
+    }
     vw_out() << "Cropping to " << opt.target_projwin << " pt. " << std::endl;
     Matrix3x3 transform = georef.transform();
     opt.target_projwin.max().x() -= fabs(transform(0,0));
@@ -982,11 +1005,9 @@ void do_software_rasterization( const ImageViewRef<Vector3>& proj_point_input,
 
     // This math seems a little silly, but we need to fuzz the
     // values on target projwin so that it aligns with a pixel value.
-    opt.target_projwin_pixels =
-      georef.point_to_pixel_bbox( opt.target_projwin );
+    opt.target_projwin_pixels = georef.point_to_pixel_bbox( opt.target_projwin );
     opt.target_projwin_pixels.crop(bounding_box(rasterizer.impl()));
-    opt.target_projwin =
-      georef.pixel_to_point_bbox( opt.target_projwin_pixels );
+    opt.target_projwin = georef.pixel_to_point_bbox( opt.target_projwin_pixels );
     transform(0,2) = opt.target_projwin.min().x();
     transform(1,2) = opt.target_projwin.max().y();
     georef.set_transform( transform );
@@ -995,8 +1016,7 @@ void do_software_rasterization( const ImageViewRef<Vector3>& proj_point_input,
   // Fix have pixel offset required if pixel_interpretation is
   // PixelAsArea. We could have done that earlier ... but it makes
   // the above easier to not think about it.
-  if ( georef.pixel_interpretation() ==
-       cartography::GeoReference::PixelAsArea ) {
+  if ( georef.pixel_interpretation() == cartography::GeoReference::PixelAsArea ) {
     Matrix3x3 transform = georef.transform();
     transform(0,2) -= 0.5 * transform(0,0);
     transform(1,2) -= 0.5 * transform(1,1);
@@ -1056,8 +1076,7 @@ void do_software_rasterization( const ImageViewRef<Vector3>& proj_point_input,
     int hole_fill_len = 0;
     if (num_channels == 4){
       // The error is a scalar.
-      ImageViewRef<Vector4> point_disk_image
-        = asp::form_composite<Vector4>(opt.pointcloud_files);
+      ImageViewRef<Vector4> point_disk_image = asp::form_composite<Vector4>(opt.pointcloud_files);
       ImageViewRef<double> error_channel = select_channel(point_disk_image,3);
       rasterizer.set_texture( error_channel );
       rasterizer.set_hole_fill_len(hole_fill_len);
@@ -1070,8 +1089,7 @@ void do_software_rasterization( const ImageViewRef<Vector3>& proj_point_input,
     }else if (num_channels == 6){
       // The error is a 3D vector. Convert it to NED coordinate system,
       // and rasterize it.
-      ImageViewRef<Vector6> point_disk_image
-        = asp::form_composite<Vector6>(opt.pointcloud_files);
+      ImageViewRef<Vector6> point_disk_image = asp::form_composite<Vector6>(opt.pointcloud_files);
       ImageViewRef<Vector3> ned_err = asp::error_to_NED(point_disk_image, georef);
       std::vector< ImageViewRef< PixelGray<float> > >  rasterized(3);
       for (int ch_index = 0; ch_index < 3; ch_index++){
@@ -1102,8 +1120,7 @@ void do_software_rasterization( const ImageViewRef<Vector3>& proj_point_input,
     int hole_fill_len = opt.ortho_hole_fill_len;
     Stopwatch sw3;
     sw3.start();
-    ImageViewRef< PixelGray<float> > texture
-      = asp::form_composite< PixelGray<float> >(opt.texture_files);
+    ImageViewRef< PixelGray<float> > texture = asp::form_composite< PixelGray<float> >(opt.texture_files);
     rasterizer.set_texture(texture);
     rasterizer.set_hole_fill_len(hole_fill_len);
     rasterizer_fsaa = generate_fsaa_raster( rasterizer, opt );
@@ -1127,7 +1144,7 @@ void do_software_rasterization( const ImageViewRef<Vector3>& proj_point_input,
                            0, 255))),
                georef, hole_fill_len, "DEM-normalized");
   }
-}
+} // End do_software_rasterization
 
 int main( int argc, char *argv[] ) {
 
@@ -1151,7 +1168,7 @@ int main( int argc, char *argv[] ) {
     // still reproject the points in the point image without the affine
     // transform because this projection never requires us to convert to
     // or from pixel space.
-    GeoReference georef;
+    GeoReference output_georef;
 
     // If the user specified a PROJ.4 string to use to interpret the
     // input in CSV files, use the same string to create output DEMs,
@@ -1169,50 +1186,50 @@ int main( int argc, char *argv[] ) {
     if (opt.target_srs_string.empty()) {
 
       if (have_user_datum)
-        georef.set_datum( user_datum );
+        output_georef.set_datum( user_datum );
 
       switch( opt.projection ) {
-      case SINUSOIDAL:
-        georef.set_sinusoidal(opt.proj_lon); break;
-      case MERCATOR:
-        georef.set_mercator(opt.proj_lat,opt.proj_lon,opt.proj_scale); break;
-      case TRANSVERSEMERCATOR:
-        georef.set_transverse_mercator(opt.proj_lat,opt.proj_lon,opt.proj_scale); break;
-      case ORTHOGRAPHIC:
-        georef.set_orthographic(opt.proj_lat,opt.proj_lon); break;
-      case STEREOGRAPHIC:
-        georef.set_stereographic(opt.proj_lat,opt.proj_lon,opt.proj_scale); break;
-      case LAMBERTAZIMUTHAL:
-        georef.set_lambert_azimuthal(opt.proj_lat,opt.proj_lon); break;
-      case UTM:
-        georef.set_UTM( opt.utm_zone ); break;
-      default: // Handles plate carree
-        if (has_las_georef) georef = las_georef; // copy from las georef if present
-        break;
+        case SINUSOIDAL:         output_georef.set_sinusoidal         (              opt.proj_lon                ); break;
+        case MERCATOR:           output_georef.set_mercator           (opt.proj_lat, opt.proj_lon, opt.proj_scale); break;
+        case TRANSVERSEMERCATOR: output_georef.set_transverse_mercator(opt.proj_lat, opt.proj_lon, opt.proj_scale); break;
+        case ORTHOGRAPHIC:       output_georef.set_orthographic       (opt.proj_lat, opt.proj_lon                ); break;
+        case STEREOGRAPHIC:      output_georef.set_stereographic      (opt.proj_lat, opt.proj_lon, opt.proj_scale); break;
+        case LAMBERTAZIMUTHAL:   output_georef.set_lambert_azimuthal  (opt.proj_lat, opt.proj_lon                ); break;
+        case UTM:                output_georef.set_UTM( opt.utm_zone ); break;
+        default: // Handles plate carree
+          if (has_las_georef) 
+            output_georef = las_georef; // copy from las georef if present
+          // Otherwise we use WGS84 datum with geographic projection, the georef default.
+          break;
       }
 
-    } else {
+    } else { // The user specified the target srs_string
 
       // Set the srs string into georef.
-      asp::set_srs_string(opt.target_srs_string,
-                          have_user_datum, user_datum, georef);
+      asp::set_srs_string(opt.target_srs_string, have_user_datum, user_datum, output_georef);
     }
+    
+    vw_out() << "DEBUG: Output georef is: " << output_georef << "\n";
 
     // Convert any input LAS or CSV files to ASP's point cloud tif format
+    // - Should all be XYZ
+    // TODO: We don't want to be using georef here!
     std::vector<std::string> tmp_tifs;
-    las_or_csv_to_tifs(opt, georef, tmp_tifs);
+    las_or_csv_to_tifs(opt,/* output_georef, */tmp_tifs);
 
-    ImageViewRef<Vector3> point_image
-      = asp::form_composite<Vector3>(opt.pointcloud_files);
+    // Generate a merged xyz point cloud consisting of all inputs
+    // - By this point each input exists in tif format.
+    // - Should all be XYZ
+    ImageViewRef<Vector3> point_image = asp::form_composite<Vector3>(opt.pointcloud_files);
 
     // Apply an (optional) rotation to the 3D points before building the mesh.
+    // - TODO: Does this make sense when not using XYZ input data?
     if (opt.phi_rot != 0 || opt.omega_rot != 0 || opt.kappa_rot != 0) {
       vw_out() << "\t--> Applying rotation sequence: " << opt.rot_order
                << "      Angles: " << opt.phi_rot << "   "
                << opt.omega_rot << "  " << opt.kappa_rot << "\n";
-      point_image =
-        asp::point_transform(point_image, math::euler_to_rotation_matrix
-                        (opt.phi_rot, opt.omega_rot,opt.kappa_rot, opt.rot_order));
+      point_image = asp::point_transform(point_image, 
+                                         math::euler_to_rotation_matrix(opt.phi_rot, opt.omega_rot,opt.kappa_rot, opt.rot_order));
     }
 
     // Determine if we should be using a longitude range between
@@ -1224,7 +1241,8 @@ int main( int argc, char *argv[] ) {
     sw1.start();
     int32 subsample_amt = int32(norm_2(Vector2(point_image.cols(),
                                                point_image.rows()))/32.0);
-    if (subsample_amt < 1 ) subsample_amt = 1;
+    if (subsample_amt < 1 ) 
+      subsample_amt = 1;
     PixelAccumulator<MeanAccumulator<Vector3> > mean_accum;
     for_each_pixel( subsample(point_image, subsample_amt),
                     mean_accum,
@@ -1232,8 +1250,7 @@ int main( int argc, char *argv[] ) {
     Vector3 avg_location = mean_accum.value();
     double avg_lon = avg_location.x() >= 0 ? 0 : 180;
     sw1.stop();
-    vw_out(DebugMessage,"asp") << "Statistics time: " << sw1.elapsed_seconds()
-                               << std::endl;
+    vw_out(DebugMessage,"asp") << "Statistics time: " << sw1.elapsed_seconds() << std::endl;
 
     // Estimate the maximum value of the error channel in case we would
     // like to remove outliers.
@@ -1241,14 +1258,13 @@ int main( int argc, char *argv[] ) {
     double estim_max_error = 0.0;
     if (opt.remove_outliers_with_pct || opt.max_valid_triangulation_error > 0.0){
       int num_channels = asp::num_channels(opt.pointcloud_files);
-      if (num_channels == 4)
-        error_image = asp::error_norm<4>(opt.pointcloud_files);
-      else if (num_channels == 6)
-        error_image = asp::error_norm<6>(opt.pointcloud_files);
+      
+      if      (num_channels == 4) error_image = asp::error_norm<4>(opt.pointcloud_files);
+      else if (num_channels == 6) error_image = asp::error_norm<6>(opt.pointcloud_files);
       else{
         vw_out() << "The point cloud files must have an equal number of channels which "
                  << "must be 4 or 6 to be able to remove outliers.\n";
-        opt.remove_outliers_with_pct = false;
+        opt.remove_outliers_with_pct      = false;
         opt.max_valid_triangulation_error = 0.0;
       }
 
@@ -1287,24 +1303,27 @@ int main( int argc, char *argv[] ) {
     }
 
     // We trade off readability here to avoid ImageViewRef dereferences
-    if (opt.x_offset != 0 || opt.y_offset != 0 || opt.z_offset != 0) {
-      vw_out() << "\t--> Applying offset: " << opt.x_offset
-               << " " << opt.y_offset << " " << opt.z_offset << "\n";
+    if (opt.lon_offset != 0 || opt.lat_offset != 0 || opt.height_offset != 0) {
+      vw_out() << "\t--> Applying offset: " << opt.lon_offset
+               << " " << opt.lat_offset << " " << opt.height_offset << "\n";
       do_software_rasterization
-        (geodetic_to_point
-         (asp::point_image_offset
-          (asp::recenter_longitude(cartesian_to_geodetic(point_image,georef),
-                              avg_lon),
-           Vector3(opt.x_offset,
-                   opt.y_offset,
-                   opt.z_offset)),georef),
-         opt, georef, error_image, estim_max_error);
+          (geodetic_to_point  // GDC to XYZ
+              (asp::point_image_offset  // Add user coordinate offset
+                  (asp::recenter_longitude(cartesian_to_geodetic(point_image,output_georef), // XYZ to GDC, then normalize longitude
+                                           avg_lon),
+                   Vector3(opt.lon_offset,
+                           opt.lat_offset,
+                           opt.height_offset)),
+               output_georef),
+           opt, output_georef, error_image, estim_max_error);
     } else {
       do_software_rasterization
-        (geodetic_to_point
-         (asp::recenter_longitude
-          (cartesian_to_geodetic(point_image,georef), avg_lon),georef),
-         opt, georef, error_image, estim_max_error);
+          (geodetic_to_point
+              (asp::recenter_longitude
+                  (cartesian_to_geodetic(point_image, output_georef), 
+                   avg_lon),
+               output_georef),
+          opt, output_georef, error_image, estim_max_error);
     }
 
     // Wipe the temporary files
