@@ -186,8 +186,7 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
 /// Convert any LAS or CSV files to ASP tif files. We do some binning
 /// to make the spatial data more localized, to improve performance.
 /// - We will later wipe these temporary tifs.
-void las_or_csv_to_tifs(Options& opt,// vw::cartography::GeoReference const& georef,
-                        std::vector<std::string> & tmp_tifs){
+void las_or_csv_to_tifs(Options& opt, std::vector<std::string> & tmp_tifs){
                         
   if (!opt.has_las_or_csv) 
     return;
@@ -215,9 +214,6 @@ void las_or_csv_to_tifs(Options& opt,// vw::cartography::GeoReference const& geo
 
   // Set the georef for CSV files
   GeoReference csv_georef;// = georef;
-  
-  vw_out() << "DEBUG: Set CSV georef: " << csv_georef << "\n";
-  vw_out() << "DEBUG: Set LAS georef: " << las_georef << "\n";
 
   // Set user's csv_proj4_str if specified
   asp::handle_easting_northing(csv_conv, csv_georef); // Modifies csv_georef
@@ -397,25 +393,25 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   if (vm.count("input-files") == 0)
     vw_throw( ArgumentErr() << "Missing input point clouds.\n"
-              << usage << general_options );
+                            << usage << general_options );
   std::vector<std::string> input_files = vm["input-files"].as< std::vector<std::string> >();
   parse_input_clouds_textures(input_files, usage, general_options, opt);
 
   if (opt.median_filter_params[0] < 0 || opt.median_filter_params[1] < 0){
     vw_throw( ArgumentErr() << "The parameters for median-based filtering "
-              << "must be non-negative.\n"
-              << usage << general_options );
+                            << "must be non-negative.\n"
+                            << usage << general_options );
   }
 
   if (opt.has_las_or_csv && opt.median_filter_params[0] > 0 &&
       opt.median_filter_params[1] > 0){
     vw_throw( ArgumentErr() << "Median-based filtering cannot handle CSV or LAS files.\n"
-              << usage << general_options );
+                            << usage << general_options );
   }
 
   if (opt.erode_len < 0){
     vw_throw( ArgumentErr() << "Erode length must be non-negative.\n"
-              << usage << general_options );
+                            << usage << general_options );
   }
 
   // A fix to the unfortunate fact that the user can specify the DEM
@@ -423,17 +419,17 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (dem_spacing1 < 0.0 || dem_spacing2 < 0.0 ){
     // Note: Zero spacing means we'll set it internally.
     vw_throw( ArgumentErr() << "The DEM spacing must be non-negative.\n"
-              << usage << general_options );
+                            << usage << general_options );
   }
   if (dem_spacing1 != 0 && dem_spacing2 != 0){
     vw_throw( ArgumentErr() << "The DEM spacing was specified twice.\n"
-              << usage << general_options );
+                            << usage << general_options );
   }
   opt.dem_spacing = std::max(dem_spacing1, dem_spacing2);
 
   if (opt.has_las_or_csv && opt.dem_spacing <= 0){
     vw_throw( ArgumentErr() << "When inputs are LAS or CSV files, the "
-              << "output DEM resolution must be set.\n" );
+                            << "output DEM resolution must be set.\n" );
   }
 
   if ( opt.out_prefix.empty() )
@@ -441,14 +437,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
       asp::prefix_from_pointcloud_filename( opt.pointcloud_files[0] );
 
   if (opt.use_surface_sampling){
-    vw_out(WarningMessage)
-      << "The --use-surface-sampling option invokes the old algorithm and "
-      << "is obsolete, it will be removed in future versions.\n";
+    vw_out(WarningMessage) << "The --use-surface-sampling option invokes the old algorithm and "
+                           << "is obsolete, it will be removed in future versions.\n";
   }
 
   if (opt.use_surface_sampling && opt.has_las_or_csv)
     vw_throw( ArgumentErr() << "Cannot use surface "
-              << "sampling with LAS or CSV files.\n" );
+                            << "sampling with LAS or CSV files.\n" );
 
   if (opt.fsaa != 1 && !opt.use_surface_sampling){
     vw_throw( ArgumentErr() << "The --fsaa option is obsolete. It can be used only with the --use-surface-sampling option which invokes the old algorithm.\n" << usage << general_options );
@@ -456,13 +451,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   if (opt.dem_hole_fill_len < 0)
     vw_throw( ArgumentErr() << "The value of "
-              << "--dem-hole-fill-len must be non-negative.\n");
+                            << "--dem-hole-fill-len must be non-negative.\n");
   if (opt.ortho_hole_fill_len < 0)
     vw_throw( ArgumentErr() << "The value of "
-              << "--orthoimage-hole-fill-len must be non-negative.\n");
+                            << "--orthoimage-hole-fill-len must be non-negative.\n");
   if ( !opt.do_ortho && opt.ortho_hole_fill_len > 0) {
     vw_throw( ArgumentErr() << "The value of --orthoimage-hole-fill-len"
-              << " is positive, but orthoimage generation was not requested.\n");
+                            << " is positive, but orthoimage generation was not requested.\n");
   }
 
   double pct = opt.remove_outliers_params[0], factor = opt.remove_outliers_params[1];
@@ -512,7 +507,7 @@ public:
   FillNoDataWithAvg( ImageViewBase<ImageT> const& img,
                      int kernel_size) :
     m_img(img.impl()), m_kernel_size(kernel_size) {
-    VW_ASSERT(m_kernel_size%2 == 1 && m_kernel_size > 0,
+    VW_ASSERT((m_kernel_size%2 == 1) && (m_kernel_size > 0),
               ArgumentErr() << "Expecting odd and positive kernel size.");
   }
 
@@ -686,14 +681,12 @@ namespace asp{
     vw_out() << "Writing: " << output_file << "\n";
     TerminalProgressCallback tpc("asp", imgName + ": ");
     if ( opt.output_file_type == "tif" )
-      asp::save_with_temp_big_blocks(block_size, output_file, img, georef, opt.nodata_value,
-                                     opt, tpc);
+      asp::save_with_temp_big_blocks(block_size, output_file, img, georef, opt.nodata_value, opt, tpc);
     else
       asp::write_gdal_georeferenced_image(output_file, img, georef, opt, tpc);
   }
 
-  // A class for combining the three channels of errors and finding
-  // their absolute values.
+  // A class for combining the three channels of errors and finding their absolute values.
   template <class ImageT>
   class CombinedView : public ImageViewBase<CombinedView<ImageT> >
   {
@@ -976,8 +969,10 @@ void do_software_rasterization( const ImageViewRef<Vector3>& proj_point_input,
   rasterizer.set_use_minz_as_default(false);
   rasterizer.set_default_value(opt.nodata_value);
 
-  vw_out() << "\t--> DEM spacing: " << rasterizer.spacing() << " pt/px\n";
+  vw_out() << "\t--> DEM spacing: " <<     rasterizer.spacing() << " pt/px\n";
   vw_out() << "\t             or: " << 1.0/rasterizer.spacing() << " px/pt\n";
+
+  // TODO: Maybe put a warning or check here if the size is too big
 
   if (opt.has_alpha)
     rasterizer.set_use_alpha(true);
@@ -1208,22 +1203,17 @@ int main( int argc, char *argv[] ) {
       // Set the srs string into georef.
       asp::set_srs_string(opt.target_srs_string, have_user_datum, user_datum, output_georef);
     }
-    
-    vw_out() << "DEBUG: Output georef is: " << output_georef << "\n";
 
     // Convert any input LAS or CSV files to ASP's point cloud tif format
-    // - Should all be XYZ
-    // TODO: We don't want to be using georef here!
+    // - Should all be XYZ format
     std::vector<std::string> tmp_tifs;
-    las_or_csv_to_tifs(opt,/* output_georef, */tmp_tifs);
+    las_or_csv_to_tifs(opt, tmp_tifs);
 
     // Generate a merged xyz point cloud consisting of all inputs
     // - By this point each input exists in tif format.
-    // - Should all be XYZ
     ImageViewRef<Vector3> point_image = asp::form_composite<Vector3>(opt.pointcloud_files);
 
     // Apply an (optional) rotation to the 3D points before building the mesh.
-    // - TODO: Does this make sense when not using XYZ input data?
     if (opt.phi_rot != 0 || opt.omega_rot != 0 || opt.kappa_rot != 0) {
       vw_out() << "\t--> Applying rotation sequence: " << opt.rot_order
                << "      Angles: " << opt.phi_rot << "   "
