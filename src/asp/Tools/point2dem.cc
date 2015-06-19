@@ -208,7 +208,7 @@ void las_or_csv_to_tifs(Options& opt,
 
   // Extract georef info from las files.
   GeoReference las_georef;
-  bool has_las_georef = asp::georef_from_las(opt.pointcloud_files, las_georef);
+  bool have_las_georef = asp::georef_from_las(opt.pointcloud_files, las_georef);
 
   // Configure a CSV converter object according to the input parameters
   asp::CsvConv csv_conv;
@@ -216,11 +216,16 @@ void las_or_csv_to_tifs(Options& opt,
 
   // Set the georef for CSV files
   GeoReference csv_georef;
-  if (have_user_datum)
-    csv_georef.set_datum(user_datum);
 
   // Set user's csv_proj4_str if specified
   asp::handle_easting_northing(csv_conv, csv_georef); // Modifies csv_georef
+
+  if (have_user_datum) // Force the use of user provided datum info
+    csv_georef.set_datum(user_datum);
+
+  if (!have_las_georef) // If LAS file has no georef, the csv georef is our best guess.
+    las_georef = csv_georef;
+
 
   // There are situations in which some files will already be tif, and
   // others will be LAS or CSV. When we convert the latter to tif,
@@ -283,8 +288,6 @@ void las_or_csv_to_tifs(Options& opt,
     // TODO: This if statement should not be needed, the function should handle it!
     // Perform the actual conversion to a tif file
     if (asp::is_las(in_file)) {
-      if (!has_las_georef)
-        vw_throw( ArgumentErr() << "File " << in_file << " missing georef!\n");
       asp::las_or_csv_to_tif(in_file, out_file, num_rows, block_size,
                              &opt, las_georef, csv_conv);
     } else { // CSV

@@ -773,6 +773,7 @@ int main( int argc, char *argv[] ) {
     cartography::GeoReference dem_georef;    
     vw::ImageViewRef< PixelMask<float> > reference_dem_ref;
     if (opt.use_dem_distances()) {
+      vw_out() << "Loading reference as DEM.." << endl;
       // Load the dem, then wrap it inside an ImageViewRef object.
       // - This is done because the actual DEM type cannot be created without being initialized.
       InterpolationReadyDem reference_dem(load_interpolation_ready_dem(opt.reference, dem_georef));
