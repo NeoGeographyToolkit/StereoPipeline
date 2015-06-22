@@ -438,9 +438,8 @@ AX_APP(RESULTS,          [src/asp/Tools], no,  [ISISIO])
 AX_APP(MAPPROJECT,       [src/asp/Tools], yes, [SESSIONS GDAL])
 AX_APP(RPC_GEN,          [src/asp/Tools], yes, [SESSIONS])
 AX_APP(TIF_MOSAIC,       [src/asp/Tools], yes, [CORE])
-AX_APP(STEREO,           [src/asp/Tools], yes, [SESSIONS])
+AX_APP(STEREO,           [src/asp/Tools], yes, [SESSIONS GUI])
 AX_APP(WV_CORRECT,       [src/asp/Tools], yes, [SESSIONS])
-AX_APP(STEREO_GUI,       [src/asp/Tools], yes, [GUI])
 
 # These are here (instead of inside the APP macro where they belong)
 # for backwards compatability with older versions of automake.

@@ -21,9 +21,9 @@
 /// The Vision Workbench image viewer main window class.
 ///
 #include <QtGui>
-#include <asp/gui/MainWindow.h>
-#include <asp/gui/MainWidget.h>
-#include <asp/gui/Utils.h>
+#include <asp/GUI/MainWindow.h>
+#include <asp/GUI/MainWidget.h>
+#include <asp/GUI/Utils.h>
 using namespace vw::gui;
 
 #include <vw/config.h>
