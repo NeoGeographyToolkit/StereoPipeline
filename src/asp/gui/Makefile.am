@@ -20,10 +20,12 @@
 # sources
 ########################################################################
 
+if MAKE_MODULE_GUI
+
 # 'make clean' should get rid of any QT meta-object compiled files.
 CLEANFILES = *.moc.cc
 
-noinst_HEADERS =                \
+include_HEADERS =               \
   MainWidget.h                  \
   ImageTileGenerator.h          \
   MainWindow.h                  \
@@ -31,30 +33,31 @@ noinst_HEADERS =                \
   Tree.h                        \
   Utils.h
 
-stereo_gui_SOURCES =            \
+BUILT_SOURCES =                 \
+  MainWidget.moc.cc             \
+  MainWindow.moc.cc
+
+libGUI_la_SOURCES =             \
   $(BUILT_SOURCES)              \
   MainWidget.cc                 \
   ImageTileGenerator.cc         \
   MainWindow.cc                 \
   TileGenerator.cc              \
-  Utils.cc                      \
-  stereo_gui.cc
+  Utils.cc
 
-BUILT_SOURCES =                 \
-  MainWidget.moc.cc             \
-  MainWindow.moc.cc
+libGUI_la_LIBADD = @MODULE_ISISIO_LIBS@
 
-stereo_gui_LDADD = @PKG_GUI_LIBS@
+lib_LTLIBRARIES = libGUI.la
 
-bin_PROGRAMS = stereo_gui
+endif
 
 ########################################################################
 # general
 ########################################################################
 
-AM_CPPFLAGS = @ASP_CPPFLAGS@ @PKG_GUI_CPPFLAGS@
+AM_CPPFLAGS = @ASP_CPPFLAGS@
 AM_LDFLAGS  = @ASP_LDFLAGS@
 
-includedir = $(prefix)/include/asp/gui
+includedir = $(prefix)/include/asp/GUI
 
 include $(top_srcdir)/config/rules.mak

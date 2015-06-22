@@ -32,6 +32,7 @@ using namespace vw::gui;
 #include <vw/FileIO/DiskImageResource.h>
 #include <vw/Image/Statistics.h>
 #include <vw/Image/PixelMask.h>
+#include <boost/filesystem/path.hpp>
 
 #include <sstream>
 namespace po = boost::program_options;
@@ -182,7 +183,15 @@ void MainWindow::run_stereo(){
     int right_wx = right_win.width();
     int right_wy = right_win.height();
 
-    std::string run_cmd = "stereo ";
+    // Go from libexec/stereo_gui to bin/stereo.
+    boost::filesystem::path path(m_argv[0]);
+    std::cout << "--path is " << path.string() << std::endl;
+    std::cout << "branch is " << path.branch_path() << std::endl;
+    std::cout << "parent is " << path.parent_path() << std::endl;
+    std::cout << "branch2 is " << path.branch_path().branch_path() << std::endl;
+    std::cout << "parent2 is " << path.parent_path().parent_path() << std::endl;
+    std::string run_cmd = path.parent_path().parent_path().string()
+      + "/bin/stereo ";
     for (int i = 1; i < m_argc; i++) {
       run_cmd += std::string(m_argv[i]) + " ";
     }
@@ -194,6 +203,7 @@ void MainWindow::run_stereo(){
        << right_wx << " " << right_wy << " ";
 
     run_cmd += os.str();
+
 
     std::cout << "Running: " << run_cmd << std::endl;
     system(run_cmd.c_str());
