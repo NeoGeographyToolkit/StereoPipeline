@@ -474,7 +474,6 @@ AM_CONDITIONAL(MAKE_APP_RPC_GEN, [test "$MAKE_APP_RPC_GEN" = "yes"])
 AM_CONDITIONAL(MAKE_APP_TIF_MOSAIC, [test "$MAKE_APP_TIF_MOSAIC" = "yes"])
 AM_CONDITIONAL(MAKE_APP_STEREO, [test "$MAKE_APP_STEREO" = "yes"])
 AM_CONDITIONAL(MAKE_APP_WV_CORRECT, [test "$MAKE_APP_WV_CORRECT" = "yes"])
-AM_CONDITIONAL(MAKE_APP_STEREO_GUI, [test "$MAKE_APP_STEREO_GUI" = "yes"])
 
 ##################################################
 # final processing
