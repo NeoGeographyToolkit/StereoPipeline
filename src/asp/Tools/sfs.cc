@@ -58,7 +58,10 @@ int g_errorCount = 0;
 
 typedef InterpolationView<ImageViewRef<float>, BilinearInterpolation> BilinearInterpT;
 
+// TODO: Make sfs work with bundle adjusted images.
 // TODO: Find a good automatic value for the smoothness weight.
+// TODO: How to change the smoothness weight if resolution changes?
+// How to change the smoothness weight if the number of images changes?
 // TODO: Investigate the sign of the normal.
 // TODO: Loop over all images when doing sfs.
 // TODO: Shadow threshold needs detection.
@@ -383,7 +386,6 @@ bool computeReflectanceAndIntensity(double center_h, double right_h, double top_
                                     ImageView<double> const& dem,
                                     cartography::GeoReference const& geo,
                                     double nodata_val,
-                                    const double * A,
                                     ModelParams const& model_params,
                                     GlobalParams const& global_params,
                                     BilinearInterpT const & image,
@@ -456,7 +458,6 @@ bool computeReflectanceAndIntensity(double center_h, double right_h, double top_
 void computeReflectanceAndIntensity(ImageView<double> const& dem,
                                     cartography::GeoReference const& geo,
                                     double nodata_val,
-                                    double * A,
                                     ModelParams const& model_params,
                                     GlobalParams const& global_params,
                                     BilinearInterpT const & image,
@@ -471,7 +472,7 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
     for (int row = 0; row < dem.rows()-1; row++) {
       computeReflectanceAndIntensity(dem(col, row), dem(col+1, row), dem(col, row+1),
                                      col, row, dem,  geo,
-                                     nodata_val, A, model_params, global_params,
+                                     nodata_val, model_params, global_params,
                                      image, camera,
                                      reflectance(col, row), intensity(col, row));
     }
@@ -512,37 +513,62 @@ public:
     TerminalProgressCallback tpc("asp", ": ");
     block_write_gdal_image(out_dem_file, *g_dem, *g_geo, *g_nodata_val, *g_opt, tpc);
 
-    ImageView<double> reflectance, intensity;
+    // If there's just one image, print reflectance and other things
+    if ((*g_interp_images).size() == 1) {
+      ImageView<double> reflectance, intensity, albedo, computed_intensity;
 
-    // Compute reflectance and intensity with optimized DEM
-    computeReflectanceAndIntensity(*g_dem, *g_geo,  *g_nodata_val, g_A,
-                                   (*g_model_params)[0], *g_global_params,
-                                   (*g_interp_images)[0], (*g_cameras)[0],
-                                   reflectance, intensity);
+      // Compute reflectance and intensity with optimized DEM
+      computeReflectanceAndIntensity(*g_dem, *g_geo,  *g_nodata_val,
+                                     (*g_model_params)[0], *g_global_params,
+                                     (*g_interp_images)[0], (*g_cameras)[0],
+                                     reflectance, intensity);
 
-    std::string out_intensity_file = g_opt->out_prefix + "-measured-intensity-iter"
-      + iter_str + ".tif";
-    vw_out() << "Writing: " << out_intensity_file << std::endl;
-    block_write_gdal_image(out_intensity_file, intensity, *g_geo, 0, *g_opt, tpc);
+      std::string out_intensity_file = g_opt->out_prefix + "-measured-intensity-iter"
+        + iter_str + ".tif";
+      vw_out() << "Writing: " << out_intensity_file << std::endl;
+      block_write_gdal_image(out_intensity_file, intensity, *g_geo, 0, *g_opt, tpc);
 
-    // Find the simulated intensity
-    for (int col = 0; col < reflectance.cols(); col++) {
-      for (int row = 0; row < reflectance.rows(); row++) {
-        reflectance(col, row) = g_A[0]*reflectance(col, row) + g_A[1];
+      std::string out_reflectance_file = g_opt->out_prefix + "-computed-reflectance-iter"
+        + iter_str + ".tif";
+      vw_out() << "Writing: " << out_reflectance_file << std::endl;
+      block_write_gdal_image(out_reflectance_file, reflectance, *g_geo, 0, *g_opt, tpc);
+
+      // Find the simulated normalized albedo, after correcting for reflectance. Ideally
+      // it should be 1.
+      albedo.set_size(reflectance.cols(), reflectance.rows());
+      for (int col = 0; col < albedo.cols(); col++) {
+        for (int row = 0; row < albedo.rows(); row++) {
+          if (reflectance(col, row) == 0)
+            albedo(col, row) = 1;
+          else
+            albedo(col, row) = (intensity(col, row) - g_A[1])/(reflectance(col, row)*g_A[0]);
+        }
       }
+      std::string out_albedo_file = g_opt->out_prefix + "-simulated-albedo-iter" + iter_str + ".tif";
+      vw_out() << "Writing: " << out_albedo_file << std::endl;
+      block_write_gdal_image(out_albedo_file, albedo, *g_geo, 0, *g_opt, tpc);
+
+      // Find the simulated intensity
+      computed_intensity.set_size(reflectance.cols(), reflectance.rows());
+      for (int col = 0; col < computed_intensity.cols(); col++) {
+        for (int row = 0; row < computed_intensity.rows(); row++) {
+          computed_intensity(col, row) = g_A[0]*reflectance(col, row) + g_A[1];
+        }
+      }
+      std::string out_computed_intensity_file = g_opt->out_prefix + "-computed-intensity-iter"
+        + iter_str + ".tif";
+      vw_out() << "Writing: " << out_computed_intensity_file << std::endl;
+      block_write_gdal_image(out_computed_intensity_file, computed_intensity, *g_geo, 0, *g_opt, tpc);
+
+      double imgmean, imgstdev, refmean, refstdev;
+      compute_image_stats(intensity, imgmean, imgstdev);
+      compute_image_stats(computed_intensity, refmean, refstdev);
+
+      std::cout << "meas image mean and std: " << imgmean << ' ' << imgstdev << std::endl;
+      std::cout << "comp image mean and std: " << refmean << ' ' << refstdev << std::endl;
     }
 
-    std::string out_reflectance_file = g_opt->out_prefix + "-computed-intensity-iter"
-      + iter_str + ".tif";
-    vw_out() << "Writing: " << out_reflectance_file << std::endl;
-    block_write_gdal_image(out_reflectance_file, reflectance, *g_geo, 0, *g_opt, tpc);
-
-    double imgmean, imgstdev, refmean, refstdev;
-    compute_image_stats(intensity, imgmean, imgstdev);
-    compute_image_stats(reflectance, refmean, refstdev);
-
-    std::cout << "image mean and std: " << imgmean << ' ' << imgstdev << std::endl;
-    std::cout << "refl  mean and std: " << refmean << ' ' << refstdev << std::endl;
+    std::cout << "Albedo params A[0] and A[1] are " << g_A[0] << ' ' << g_A[1] << std::endl;
 
     return ceres::SOLVER_CONTINUE;
   }
@@ -582,7 +608,7 @@ struct IntensityError {
       success =
         computeReflectanceAndIntensity(center[0], right[0], top[0],
                                        m_col, m_row,  m_dem,
-                                       m_geo,  m_nodata_val, A,
+                                       m_geo,  m_nodata_val,
                                        m_model_params,  m_global_params,
                                        m_image, m_camera,
                                        reflectance, intensity);
@@ -810,17 +836,16 @@ int main(int argc, char* argv[]) {
     int num_images = opt.input_images.size();
 
     std::vector<boost::shared_ptr<CameraModel> > cameras;
-    typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-    SessionPtr session(asp::StereoSessionFactory::create
-                       (opt.stereo_session_string, opt,
-                        opt.input_images[0], opt.input_images[0],
-                        opt.input_images[0], opt.input_images[0],
-                        opt.out_prefix));
-
     // Read in the camera models for the input images.
     for (int i = 0; i < num_images; i++){
-      vw_out(DebugMessage,"asp") << "Loading: " << opt.input_images[i] << ' '
-                                 << opt.input_images[i] << "\n";
+      typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
+      SessionPtr session(asp::StereoSessionFactory::create
+                         (opt.stereo_session_string, opt,
+                          opt.input_images[i], opt.input_images[i],
+                          opt.input_images[i], opt.input_images[i],
+                          opt.out_prefix));
+
+      vw_out(DebugMessage,"asp") << "Loading: " << opt.input_images[i] << "\n";
       cameras.push_back(session->camera_model(opt.input_images[i],
                                               opt.input_images[i]));
     }
@@ -856,21 +881,31 @@ int main(int argc, char* argv[]) {
     // sum | (I - A[0]*reflectance - A[1]|^2.
     // Estimate in advance A[0] and A[1] and keep them fixed.
     double A[2];
-    ImageView<double> reflectance, intensity;
-    computeReflectanceAndIntensity(dem, geo,  nodata_val, A,
-                                   model_params[0], global_params,
-                                   interp_images[0], cameras[0],
-                                   reflectance, intensity);
+    A[0] = A[1] = 0;
+    for (int image_iter = 0; image_iter < num_images; image_iter++) {
+      ImageView<double> reflectance, intensity;
+      computeReflectanceAndIntensity(dem, geo,  nodata_val,
+                                     model_params[image_iter], global_params,
+                                     interp_images[image_iter], cameras[image_iter],
+                                     reflectance, intensity);
 
-    double imgmean, imgstdev, refmean, refstdev;
-    compute_image_stats(intensity, imgmean, imgstdev);
-    compute_image_stats(reflectance, refmean, refstdev);
-    A[0] = imgstdev/refstdev;
-    A[1] = imgmean - A[0]*refmean;
+      double imgmean, imgstdev, refmean, refstdev;
+      compute_image_stats(intensity, imgmean, imgstdev);
+      compute_image_stats(reflectance, refmean, refstdev);
+      std::cout << "image mean - 2*stdev = " << imgmean - 2*imgstdev << std::endl;
+      std::cout << "image mean + 2*stdev = " << imgmean + 2*imgstdev << std::endl;
+
+      double a0, a1;
+      a0 = imgstdev/refstdev;
+      a1 = imgmean - a0*refmean;
+      std::cout << "albedo params for image " << image_iter << ": " << a0 << ' ' << a1 << std::endl;
+      A[0] += a0;
+      A[1] += a1;
+    }
+    A[0] /= num_images;
+    A[1] /= num_images;
+
     std::cout << "Albedo params A[0] and A[1] are " << A[0] << ' ' << A[1] << std::endl;
-
-    std::cout << "image mean - 2*stdev = " << imgmean - 2*imgstdev << std::endl;
-    std::cout << "image mean + 2*stdev = " << imgmean + 2*imgstdev << std::endl;
 
     // Add a residual block for every grid point not at the boundary
     ceres::Problem problem;
@@ -879,26 +914,30 @@ int main(int argc, char* argv[]) {
     for (int col = 1; col < ncols-1; col++) {
       for (int row = 1; row < nrows-1; row++) {
 
-        // Intensity error
-        ceres::CostFunction* cost_function1 =
-          IntensityError::Create(col, row, dem, geo,
-                                 global_params, model_params[0], interp_images[0],
-                                 cameras[0], nodata_val);
-        ceres::LossFunction* loss_function1 = NULL;
-        problem.AddResidualBlock(cost_function1, loss_function1,
-                                 A,
-                                 &dem(col-1, row+1), &dem(col, row+1), // tl, top
-                                 &dem(col+1, row+1),                   // tr
-                                 &dem(col-1, row  ), &dem(col, row  ), // left, ctr
-                                 &dem(col+1, row  ),                   // right
-                                 &dem(col-1, row-1), &dem(col, row-1), // bl, bot
-                                 &dem(col+1, row-1));                  // br
+        // Intensity error for each image
+        for (int image_iter = 0; image_iter < num_images; image_iter++) {
+
+          ceres::CostFunction* cost_function_img =
+            IntensityError::Create(col, row, dem, geo,
+                                   global_params, model_params[image_iter],
+                                   interp_images[image_iter],
+                                   cameras[image_iter], nodata_val);
+          ceres::LossFunction* loss_function_img = NULL;
+          problem.AddResidualBlock(cost_function_img, loss_function_img,
+                                   A,
+                                   &dem(col-1, row+1), &dem(col, row+1), // tl, top
+                                   &dem(col+1, row+1),                   // tr
+                                   &dem(col-1, row  ), &dem(col, row  ), // left, ctr
+                                   &dem(col+1, row  ),                   // right
+                                   &dem(col-1, row-1), &dem(col, row-1), // bl, bot
+                                   &dem(col+1, row-1));                  // br
+        }
 
         // Smoothness penalty
-        ceres::LossFunction* loss_function2 = NULL;
-        ceres::CostFunction* cost_function2 =
+        ceres::LossFunction* loss_function_sm = NULL;
+        ceres::CostFunction* cost_function_sm =
           SmoothnessError::Create(opt.smoothness_weight, grid_x, grid_y);
-        problem.AddResidualBlock(cost_function2, loss_function2,
+        problem.AddResidualBlock(cost_function_sm, loss_function_sm,
                                  &dem(col-1, row+1), &dem(col, row+1),
                                  &dem(col+1, row+1),
                                  &dem(col-1, row  ), &dem(col, row  ),
@@ -935,8 +974,11 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    // Temporarily fix the scale and shift coefficients
-    problem.SetParameterBlockConstant(A);
+    // If there's just one image, don't float the albedo constants,
+    // as the problem is under-determined.
+    if (num_images == 1) {
+      problem.SetParameterBlockConstant(A);
+    }
 
     ceres::Solver::Options options;
     options.gradient_tolerance = 1e-16;
