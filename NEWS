@@ -44,6 +44,8 @@
    * Can create DEM from a point cloud stored in a CSV file containging
      easting, northing, and height above datum (the PROJ.4 string
      needed to interpret these numbers should be set with --csv-proj4).
+   * Fixed bug reading input point files where a different output
+     projection is specified.
 
  - pc_align
    * Can ingest CSV files containging easting, northing, and height
