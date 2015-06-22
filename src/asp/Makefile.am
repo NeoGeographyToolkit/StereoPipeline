@@ -34,7 +34,7 @@ spiceio_headers = SpiceIO.h
 
 tools_subdirs = Tools
 
-gui_subdirs = gui
+gui_subdirs = GUI
 
 mpi_subdirs = MPI
 

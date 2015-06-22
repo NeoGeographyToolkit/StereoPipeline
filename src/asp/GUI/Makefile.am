@@ -37,7 +37,7 @@ BUILT_SOURCES =                 \
   MainWidget.moc.cc             \
   MainWindow.moc.cc
 
-libGUI_la_SOURCES =             \
+libaspGUI_la_SOURCES =          \
   $(BUILT_SOURCES)              \
   MainWidget.cc                 \
   ImageTileGenerator.cc         \
@@ -45,9 +45,9 @@ libGUI_la_SOURCES =             \
   TileGenerator.cc              \
   Utils.cc
 
-libGUI_la_LIBADD = @MODULE_ISISIO_LIBS@
+libaspGUI_la_LIBADD = @MODULE_GUI_LIBS@
 
-lib_LTLIBRARIES = libGUI.la
+lib_LTLIBRARIES = libaspGUI.la
 
 endif
 

@@ -30,7 +30,7 @@
 #include <vw/FileIO.h>
 #include <vw/Math/EulerAngles.h>
 #include <vw/Image/Algorithms.h>
-#include <asp/gui/MainWidget.h>
+#include <asp/GUI/MainWidget.h>
 
 using namespace vw;
 using namespace vw::gui;

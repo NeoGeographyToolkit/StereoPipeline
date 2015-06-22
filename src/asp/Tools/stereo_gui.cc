@@ -18,7 +18,7 @@
 
 /// \file stereo_gui.cc
 ///
-/// The Vision Workbench image viewer.
+/// The ASP GUI program.
 ///
 
 // Qt
@@ -38,7 +38,7 @@ namespace po = boost::program_options;
 #include <vw/FileIO.h>
 using namespace vw;
 
-#include <asp/gui/MainWindow.h>
+#include <asp/GUI/MainWindow.h>
 
 // Allows FileIO to correctly read/write unusual pixel types
 namespace vw {

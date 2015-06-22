@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 
-#include <asp/gui/ImageTileGenerator.h>
+#include <asp/GUI/ImageTileGenerator.h>
 #include <vw/FileIO/DiskImageResource.h>
 #include <vw/Image/ViewImageResource.h>
 #include <vw/Core/Debugging.h>

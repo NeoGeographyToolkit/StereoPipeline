@@ -16,8 +16,8 @@
 // __END_LICENSE__
 
 
-#include <asp/gui/TileGenerator.h>
-#include <asp/gui/ImageTileGenerator.h>
+#include <asp/GUI/TileGenerator.h>
+#include <asp/GUI/ImageTileGenerator.h>
 
 #include <vw/Core/Debugging.h>
 #include <boost/filesystem/convenience.hpp>

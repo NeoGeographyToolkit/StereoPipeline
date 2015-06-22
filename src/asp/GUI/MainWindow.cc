@@ -183,28 +183,17 @@ void MainWindow::run_stereo(){
     int right_wx = right_win.width();
     int right_wy = right_win.height();
 
-    // Go from libexec/stereo_gui to bin/stereo.
-    boost::filesystem::path path(m_argv[0]);
-    std::cout << "--path is " << path.string() << std::endl;
-    std::cout << "branch is " << path.branch_path() << std::endl;
-    std::cout << "parent is " << path.parent_path() << std::endl;
-    std::cout << "branch2 is " << path.branch_path().branch_path() << std::endl;
-    std::cout << "parent2 is " << path.parent_path().parent_path() << std::endl;
-    std::string run_cmd = path.parent_path().parent_path().string()
-      + "/bin/stereo ";
+    // Run stereo
+    std::string run_cmd = "stereo ";
     for (int i = 1; i < m_argc; i++) {
       run_cmd += std::string(m_argv[i]) + " ";
     }
-
     std::ostringstream os;
     os << "--left-image-crop-win " << left_x << " " << left_y << " "
        << left_wx << " " << left_wy << " ";
     os << "--right-image-crop-win " << right_x << " " << right_y << " "
        << right_wx << " " << right_wy << " ";
-
     run_cmd += os.str();
-
-
     std::cout << "Running: " << run_cmd << std::endl;
     system(run_cmd.c_str());
     QMessageBox::about(this, tr("Error"), tr("Done running stereo"));

@@ -19,7 +19,7 @@
 #ifndef __STEREO_GUI_IMAGETILEGENERATOR_H__
 #define __STEREO_GUI_IMAGETILEGENERATOR_H__
 
-#include <asp/gui/TileGenerator.h>
+#include <asp/GUI/TileGenerator.h>
 
 namespace vw {
 namespace gui {
