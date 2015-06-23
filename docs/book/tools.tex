@@ -1161,7 +1161,12 @@ tool also accepts an option named \texttt{-\/-highest-accuracy} which
 will compute the normals for Point-to-Plane ICP at all points rather
 than about a tenth of them. This option is not necessary most of the
 time, but may result in better alignment at the expense of using more
-memory and processing time.
+memory and processing time. If the reference source is a DEM, the 
+tool will compute the initial and final error statistics using the
+distance from each source point to the location on the DEM directly
+beneath it. This measure is also used for gross outlier removal.  If
+you do not wish to use distance to DEM, use the option 
+\texttt{-\/-no-dem-distances}.
 
 The input point clouds can be in one of several formats: ASP's point
 cloud format, DEMs as GeoTIFF or ISIS cub files, LAS files, or
@@ -1290,6 +1295,7 @@ Maximum number of (randomly picked) reference points to use. \\ \hline
 \texttt{-\/-alignment-method \textit{default: point-to-plane}} & The type of iterative closest point
 method to use. [point-to-plane, point-to-point]\\ \hline
 \texttt{-\/-highest-accuracy} & Compute with highest accuracy for point-to-plane (can be much slower). \\ \hline
+\texttt{-\/-no-dem-distances} & Never compute initial and final error terms using a DEM. \\ \hline
 \texttt{-\/-datum \textit{string}} & Use this datum for CSV files. [WGS\_1984, D\_MOON (radius is assumed to be 1,737,400 meters), D\_MARS (radius is assumed to be 3,396,190 meters), etc.] \\ \hline
 
 
