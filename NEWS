@@ -74,6 +74,7 @@
      weights to be blurred by a gaussian to increase their smoothless.
    * Added the option --weight-exponent <num>, to allow weights
      to increase faster than linearly.
+   # Added --stddev option to compute standard deviation.
    * Added the ability to fill holes in the output mosaic.
 
  - bundle_adjust
