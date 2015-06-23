@@ -438,7 +438,8 @@ AX_APP(RESULTS,          [src/asp/Tools], no,  [ISISIO])
 AX_APP(MAPPROJECT,       [src/asp/Tools], yes, [SESSIONS GDAL])
 AX_APP(RPC_GEN,          [src/asp/Tools], yes, [SESSIONS])
 AX_APP(TIF_MOSAIC,       [src/asp/Tools], yes, [CORE])
-AX_APP(STEREO,           [src/asp/Tools], yes, [SESSIONS GUI])
+AX_APP(STEREO,           [src/asp/Tools], yes, [SESSIONS])
+AX_APP(STEREO_GUI,       [src/asp/Tools], yes, [GUI CORE])
 AX_APP(WV_CORRECT,       [src/asp/Tools], yes, [SESSIONS])
 
 # These are here (instead of inside the APP macro where they belong)
@@ -473,6 +474,7 @@ AM_CONDITIONAL(MAKE_APP_MAPPROJECT, [test "$MAKE_APP_MAPPROJECT" = "yes"])
 AM_CONDITIONAL(MAKE_APP_RPC_GEN, [test "$MAKE_APP_RPC_GEN" = "yes"])
 AM_CONDITIONAL(MAKE_APP_TIF_MOSAIC, [test "$MAKE_APP_TIF_MOSAIC" = "yes"])
 AM_CONDITIONAL(MAKE_APP_STEREO, [test "$MAKE_APP_STEREO" = "yes"])
+AM_CONDITIONAL(MAKE_APP_STEREO_GUI, [test "$MAKE_APP_STEREO_GUI" = "yes"])
 AM_CONDITIONAL(MAKE_APP_WV_CORRECT, [test "$MAKE_APP_WV_CORRECT" = "yes"])
 
 ##################################################
