@@ -165,6 +165,10 @@ void MainWindow::forceQuit(){
 void MainWindow::size_to_fit(){
   if (m_main_widget)
     m_main_widget->size_to_fit();
+  if (m_left_widget)
+    m_left_widget->size_to_fit();
+  if (m_right_widget)
+    m_right_widget->size_to_fit();
 }
 
 void MainWindow::run_stereo(){
