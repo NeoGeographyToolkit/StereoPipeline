@@ -51,9 +51,15 @@
    * Can ingest CSV files containging easting, northing, and height
      above datum (the PROJ.4 string needed to interpret these numbers
      should be set with --csv-proj4).
-   * Now computes initial error, final error, and max_disp removal using
-     the distance to the reference DEM if the reference input is in fact
-     a DEM.  You can use the old behavior with the --no-dem-distances flag.
+   * If the reference point cloud is a DEM, the initial and final errors
+     in the statistics, as well as gross outlier removal, are done using
+	 a new distance function. Instead of finding the distance from a 3D 
+	 point to the closest point in the cloud, the 3D point is projected 
+	 onto the datum, its longitude and latitude are found, the height
+	 in the DEM is interpolated, and and the obtained point on the 
+	 DEM is declared to be the closest point. This is more accurate
+	 than the original implementation for coarse DEMs. The old 
+	 approach is available using the --no-dem-distances flag.
 
  - point2las
    * Added the ability to specify a custom projection (PROJ.4 string)
