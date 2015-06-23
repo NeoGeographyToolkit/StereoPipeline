@@ -28,7 +28,7 @@ libexec_PROGRAMS = # Auxiliary C++ executables
 if MAKE_APP_STEREO
   bin_SCRIPTS      += stereo parallel_stereo sparse_disp dg_mosaic
   libexec_SCRIPTS  += stereo_utils.py
-  bin_PROGRAMS     += stereo_corr stereo_fltr stereo_pprc stereo_rfne stereo_tri
+  bin_PROGRAMS     += stereo_corr stereo_fltr stereo_pprc stereo_rfne stereo_tri stereo_gui
   libexec_PROGRAMS += stereo_parse
   stereo_corr_LDADD       = $(APP_STEREO_LIBS)
   stereo_corr_SOURCES     = stereo_corr.cc stereo.cc
@@ -42,14 +42,8 @@ if MAKE_APP_STEREO
   stereo_rfne_SOURCES     = stereo_rfne.cc stereo.cc
   stereo_tri_LDADD        = $(APP_STEREO_LIBS)
   stereo_tri_SOURCES      = stereo_tri.cc stereo.cc
-endif
-
-# Keeo this separate from stereo, otherwise
-# too many libraries accumulate and fails to compile on Mac.
-if MAKE_APP_STEREO_GUI
-  bin_PROGRAMS += stereo_gui
-  stereo_gui_SOURCES = stereo_gui.cc
-  stereo_gui_LDADD   = $(APP_STEREO_GUI_LIBS)
+  stereo_gui_LDADD        = $(APP_STEREO_LIBS)
+  stereo_gui_SOURCES      = stereo_gui.cc stereo.cc
 endif
 
 if MAKE_APP_BUNDLE_ADJUST

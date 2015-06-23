@@ -227,7 +227,7 @@ AX_PKG(VW_CORE,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS LAPACK], [-lvwCore], 
 AX_PKG(VW_MATH,  [VW_CORE],                   [-lvwMath],   [vw/Math/LinearAlgebra.h], [], [], [], [FLANN])
 AX_PKG(VW_IMAGE, [VW_CORE],                   [-lvwImage],  [vw/Image/ImageView.h])
 AX_PKG(VW_FILEIO,[VW_IMAGE Z OPENEXR GDAL BOOST_SYSTEM BOOST_FILESYSTEM],     [-lvwFileIO], [vw/FileIO/DiskImageResourceOpenEXR.h vw/FileIO/DiskImageResourceGDAL.h])
-AX_PKG(VW_TOOLS, [VW_FILEIO VW_IMAGE VW_MATH VW_CORE BOOST_FILESYSTEM BOOST_PROGRAM_OPTIONS THREADS], [-lvwTools], [vw/tools/Common.h])
+AX_PKG(VW_TOOLS, [VW_FILEIO VW_IMAGE VW_MATH VW_CORE], [-lvwTools], [vw/tools/Common.h])
 AX_GROUP_PKG(VW, [VW_TOOLS VW_FILEIO VW_IMAGE VW_MATH VW_CORE])
 
 # Double Check again that VW_FILEIO really was built with the correct 3rdParty.
@@ -408,9 +408,9 @@ AX_GROUP_PKG(BOOST_MOST, [BOOST_DATETIME BOOST_IOSTREAMS BOOST])
 AX_GROUP_PKG(VW_ALL,     [VW_CARTOGRAPHY VW_STEREO VW_CAMERA VW_INTEREST_POINT VW])
 
 # Module
-AX_MODULE(CORE,     [src/asp/Core],     [libaspCore.la],     yes, [], [VW_ALL BOOST_MOST LASZIP LIBLAS], [LAPACK])
-AX_MODULE(SPICEIO,  [src/asp/SpiceIO],  [libaspSpiceIO.la],  yes, [], [VW BOOST_MOST SPICE])
-AX_MODULE(ISISIO,   [src/asp/IsisIO],   [libaspIsisIO.la],   yes, [], [ISIS VW_CARTOGRAPHY BOOST])
+AX_MODULE(CORE,     [src/asp/Core],     [libaspCore.la],     yes, [], [VW_ALL LASZIP LIBLAS], [LAPACK])
+AX_MODULE(SPICEIO,  [src/asp/SpiceIO],  [libaspSpiceIO.la],  yes, [], [VW SPICE])
+AX_MODULE(ISISIO,   [src/asp/IsisIO],   [libaspIsisIO.la],   yes, [], [ISIS VW_CARTOGRAPHY])
 AX_MODULE(SESSIONS, [src/asp/Sessions], [libaspSessions.la], yes, [CORE], [XERCESC], [ISISIO SPICEIO ])
 AX_MODULE(MPI,      [src/asp/MPI],      [],                  no,  [VW_BUNDLEADJUSTMENT ISISIO CORE], [BOOST_SERIALIZATION BOOST_MPI OPEN_MPI VW_ALL])
 AX_MODULE(GUI,      [src/asp/GUI],      [libaspGUI.la],      yes, [CORE], [QT], [])
@@ -438,8 +438,7 @@ AX_APP(RESULTS,          [src/asp/Tools], no,  [ISISIO])
 AX_APP(MAPPROJECT,       [src/asp/Tools], yes, [SESSIONS GDAL])
 AX_APP(RPC_GEN,          [src/asp/Tools], yes, [SESSIONS])
 AX_APP(TIF_MOSAIC,       [src/asp/Tools], yes, [CORE])
-AX_APP(STEREO,           [src/asp/Tools], yes, [SESSIONS])
-AX_APP(STEREO_GUI,       [src/asp/Tools], yes, [GUI])
+AX_APP(STEREO,           [src/asp/Tools], yes, [SESSIONS GUI])
 AX_APP(WV_CORRECT,       [src/asp/Tools], yes, [SESSIONS])
 
 # These are here (instead of inside the APP macro where they belong)
@@ -474,7 +473,6 @@ AM_CONDITIONAL(MAKE_APP_MAPPROJECT, [test "$MAKE_APP_MAPPROJECT" = "yes"])
 AM_CONDITIONAL(MAKE_APP_RPC_GEN, [test "$MAKE_APP_RPC_GEN" = "yes"])
 AM_CONDITIONAL(MAKE_APP_TIF_MOSAIC, [test "$MAKE_APP_TIF_MOSAIC" = "yes"])
 AM_CONDITIONAL(MAKE_APP_STEREO, [test "$MAKE_APP_STEREO" = "yes"])
-AM_CONDITIONAL(MAKE_APP_STEREO_GUI, [test "$MAKE_APP_STEREO_GUI" = "yes"])
 AM_CONDITIONAL(MAKE_APP_WV_CORRECT, [test "$MAKE_APP_WV_CORRECT" = "yes"])
 
 ##################################################
