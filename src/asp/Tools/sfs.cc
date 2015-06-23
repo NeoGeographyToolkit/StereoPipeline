@@ -507,7 +507,7 @@ public:
     os << g_iter;
     std::string iter_str = os.str();
 
-    std::string out_dem_file = g_opt->out_prefix + "-final-DEM-iter"
+    std::string out_dem_file = g_opt->out_prefix + "-DEM-iter"
       + iter_str + ".tif";
     vw_out() << "Writing: " << out_dem_file << std::endl;
     TerminalProgressCallback tpc("asp", ": ");
