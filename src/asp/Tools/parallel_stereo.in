@@ -352,12 +352,18 @@ def sprawn_to_nodes(step, settings, args):
     if opt.nodes_list is not None:
         cmd += ['--sshloginfile', opt.nodes_list]
 
-    # The options which we want GNU parallel to not mess up with.
-    # Put them into a single string.
+    # Add the options which we want GNU parallel to not mess up
+    # with. Put them into a single string. Before that, put in quotes
+    # any quantities having spaces, to avoid issues later.
+    # Don't quote quantities already quoted.
+    args_copy = args[:] # deep copy
+    for index, arg in enumerate(args_copy):
+        if re.search(" ", arg) and arg[0] != '\'':
+            args_copy[index] = '\'' + arg + '\''
     python_path = sys.executable # children must use same Python as parent
     start = step; stop = start + 1
     args_str = python_path + " " + \
-               " ".join(args) + " --entry-point " + str(start) + \
+               " ".join(args_copy) + " --entry-point " + str(start) + \
                " --stop-point " + str(stop) + " --work-dir "  + opt.work_dir
     if opt.isisroot  is not None: args_str += " --isisroot "  + opt.isisroot
     if opt.isis3data is not None: args_str += " --isis3data " + opt.isis3data
