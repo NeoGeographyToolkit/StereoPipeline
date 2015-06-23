@@ -41,12 +41,28 @@ namespace asp {
 
   class BaseOptions;
 
-  // Utilities for processing csv files
-  enum CsvFormat{
-    XYZ, HEIGHT_LAT_LON, LAT_LON_RADIUS_M,
-    LAT_LON_RADIUS_KM, EASTING_HEIGHT_NORTHING};
+/* --> Make this into a real class
+- Handle all easy cases of csv_proj4_string
+- Keep existing case handling
+- Clean up code in point2dem and pc_align
+- Add some new helper functions
 
-  struct CsvConv{
+
+
+*/
+
+
+  /// A Data structure which converts from CSV to Cartesian and vice-versa.
+  class CsvConv{
+
+  public: // Definitions
+
+    // Utilities for processing csv files
+    enum CsvFormat{
+      XYZ, HEIGHT_LAT_LON, LAT_LON_RADIUS_M,
+      LAT_LON_RADIUS_KM, EASTING_HEIGHT_NORTHING};
+  
+  public: // Variables
     std::map<std::string,int>  name2col;
     std::map<int, std::string> col2name;
     std::map<int, int>         col2sort;
@@ -56,9 +72,54 @@ namespace asp {
     CsvFormat   format;
     int         utm_zone;
     bool        utm_north;
-    CsvConv():lon_index(-1), lat_index(-1), format(XYZ), utm_zone(-1),
-              utm_north(false){}
-  };
+    
+    
+  public: // Functions
+    
+    /// Default Constructor, the object is not ready to use.
+    CsvConv() : lon_index(-1), lat_index(-1), format(XYZ), utm_zone(-1),
+                utm_north(false){}
+              
+    /// Initialize using a pair of CSV format strings
+    void parse_csv_format(std::string const& csv_format_str,
+                          std::string const& csv_proj4_str);
+              
+    /// If the user passed in a csv file containing easting, northing, height
+    /// above datum, and either a utm zone or a custom proj4 string,
+    /// pass that info into the georeference for the purpose of converting
+    /// later from easting and northing to lon and lat.
+    void configure_georef(vw::cartography::GeoReference & georef) const;    
+
+    /// Parse a CSV file line in given format
+    vw::Vector3 parse_csv_line(bool & is_first_line, bool & success,
+                               std::string const& line) const;
+
+    /// Convert values read from a csv file (in the same order as in the file)
+    /// to a Cartesian point. If return_point_height is true, and the csv point is not
+    /// in xyz format, return instead the projected point and height above datum.
+    vw::Vector3 csv_to_cartesian_or_point_height(vw::Vector3 const& csv,
+                                                 vw::cartography::GeoReference const& geo,
+                                                 bool return_point_height) const;
+
+    /// Convert an xyz point to the fields we can write in a CSV file, in
+    /// the same order as in the input CSV file.
+    vw::Vector3 cartesian_to_csv(vw::Vector3 const& xyz,
+                                 vw::cartography::GeoReference const& geo,
+                                 double mean_longitude) const;
+              
+  }; // End class CsvConv
+
+
+  /// Fetch a chunk of the las file of area TILE_LEN x TILE_LEN, 
+  /// split it into bins of spatially close points, and write
+  /// it to disk as a tile in a vector tif image.
+  void las_or_csv_to_tif(std::string const& in_file,
+                         std::string const& out_file,
+                         int num_rows, int block_size,
+                         asp::BaseOptions * opt,
+                         vw::cartography::GeoReference const& csv_georef,
+                         asp::CsvConv const& csv_conv);
+
 
   bool is_las       (std::string const& file); ///< Return true if this is a LAS file
   bool is_csv       (std::string const& file); ///< Return true if this is a CSV file
@@ -80,12 +141,7 @@ namespace asp {
                        std::string const& reference_spheroid,
                        vw::cartography::Datum& datum );
 
-  /// If the user passed in a csv file containing easting, northing, height
-  /// above datum, and either a utm zone or a custom proj4 string,
-  /// pass that info into the georeference for the purpose of converting
-  /// later from easting and northing to lon and lat.
-  void handle_easting_northing(asp::CsvConv const& csv_conv,
-                               vw::cartography::GeoReference & georef);
+
 
   /// Parse a UTM string such as "58N"
   void parse_utm_str(std::string const& utm, int & zone, bool & north);
@@ -98,41 +154,7 @@ namespace asp {
     return "Specify the format of input CSV files as a list of entries column_index:column_type (indices start from 1). Examples: '1:x 2:y 3:z', '5:lon 6:lat 7:radius_m', '3:lat 2:lon 1:height_above_datum', '1:easting 2:northing 3:height_above_datum' (need to set --csv-proj4). Can also use radius_km for column_type.";
   }
 
-  /// Fetch a chunk of the las file of area TILE_LEN x TILE_LEN, 
-  /// split it into bins of spatially close points, and write
-  /// it to disk as a tile in a vector tif image.
-  void las_or_csv_to_tif(std::string const& in_file,
-                         std::string const& out_file,
-                         int num_rows, int block_size,
-                         asp::BaseOptions * opt,
-                         vw::cartography::GeoReference const& csv_georef,
-                         asp::CsvConv const& csv_conv);
 
-  /// Parse the CSV format string and build the data structure which
-  /// will enable to convert from CSV to Cartesian and vice-versa.
-  void parse_csv_format(std::string const& csv_format_str,
-                        std::string const& csv_proj4_str,
-                        CsvConv & C);
-
-  /// Parse a CSV file line in given format
-  vw::Vector3 parse_csv_line(bool & is_first_line, bool & success,
-                             std::string const& line,
-                             asp::CsvConv const& csv_conv);
-
-  /// Convert values read from a csv file (in the same order as in the file)
-  /// to a Cartesian point. If return_point_height is true, and the csv point is not
-  /// in xyz format, return instead the projected point and height above datum.
-  vw::Vector3 csv_to_cartesian_or_point_height(vw::Vector3 const& csv,
-                                               vw::cartography::GeoReference const& geo,
-                                               CsvConv const& C,
-                                               bool return_point_height);
-
-  /// Convert an xyz point to the fields we can write in a CSV file, in
-  /// the same order as in the input CSV file.
-  vw::Vector3 cartesian_to_csv(vw::Vector3 const& xyz,
-                               vw::cartography::GeoReference const& geo,
-                               double mean_longitude,
-                               CsvConv const& C);
 
   /// A valid line is not empty and does not start with '#'.
   bool is_valid_csv_line(std::string const& line);

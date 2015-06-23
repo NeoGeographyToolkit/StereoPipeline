@@ -151,7 +151,7 @@ template<typename T>
 int load_csv_aux(std::string const& file_name, int num_points_to_load,
                  vw::BBox2 const& lonlat_box, bool verbose,
                  bool calc_shift, vw::Vector3 & shift,
-                 vw::cartography::GeoReference const& geo, asp::CsvConv const& C,
+                 vw::cartography::GeoReference const& geo, asp::CsvConv const& csv_conv,
                  bool & is_lola_rdr_format, double & mean_longitude,
                  typename PointMatcher<T>::DataPoints & data){
 
@@ -200,7 +200,7 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
                           << "line of file: " << file_name << "\n" );
   }
 
-  if (C.csv_format_str == ""){
+  if (csv_conv.csv_format_str == ""){
     if (numTokens > 20){
       is_lola_rdr_format = true;
       if (verbose)
@@ -242,24 +242,24 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
     vw::Vector3 xyz;
     double lon = 0.0, lat = 0.0;
 
-    if (C.csv_format_str != ""){
+    if (csv_conv.csv_format_str != ""){
 
       // Parse custom CSV file with given format string
       bool success;
-      vw::Vector3 vals = asp::parse_csv_line(is_first_line, success, line, C);
-      if (!success)
+      vw::Vector3 vals = csv_conv.parse_csv_line(is_first_line, success, line);
+      if (!success) 
         continue;
 
       bool return_point_height = false; // will return xyz
-      xyz = asp::csv_to_cartesian_or_point_height(vals, geo, C, return_point_height);
+      xyz = csv_conv.csv_to_cartesian_or_point_height(vals, geo, return_point_height);
 
       // Decide if the point is in the box. Also save for the future
       // the longitude of the point, we'll use it to compute the mean
       // longitude.
-      if (C.lon_index >= 0 && C.lon_index < (int)vals.size() &&
-          C.lat_index >= 0 && C.lat_index < (int)vals.size() ){
-        lon = vals[C.lon_index];
-        lat = vals[C.lat_index];
+      if (csv_conv.lon_index >= 0 && csv_conv.lon_index < (int)vals.size() &&
+          csv_conv.lat_index >= 0 && csv_conv.lat_index < (int)vals.size() ){
+        lon = vals[csv_conv.lon_index];
+        lat = vals[csv_conv.lat_index];
       }else{
         vw::Vector3 llh = geo.datum().cartesian_to_geodetic(xyz);
         lon = llh[0];
@@ -402,7 +402,7 @@ void load_csv(std::string const& file_name,
                  bool calc_shift,
                  vw::Vector3 & shift,
                  vw::cartography::GeoReference const& geo,
-                 asp::CsvConv const& C,
+                 asp::CsvConv const& csv_conv,
                  bool & is_lola_rdr_format,
                  double & mean_longitude,
                  typename PointMatcher<T>::DataPoints & data){
@@ -410,7 +410,7 @@ void load_csv(std::string const& file_name,
   int num_total_points = load_csv_aux<T>(file_name, num_points_to_load,
                                          lonlat_box, verbose,
                                          calc_shift, shift,
-                                         geo, C, is_lola_rdr_format,
+                                         geo, csv_conv, is_lola_rdr_format,
                                          mean_longitude, data
                                          );
 
@@ -423,7 +423,7 @@ void load_csv(std::string const& file_name,
     load_csv_aux<T>(file_name, num_total_points, lonlat_box,
                     false, // Skip repeating same messages
                     calc_shift, shift,
-                    geo, C, is_lola_rdr_format,
+                    geo, csv_conv, is_lola_rdr_format,
                     mean_longitude, data
                     );
   }
@@ -802,7 +802,7 @@ void load_file(std::string const& file_name,
 // away points in the other cloud which are not within this box.
 vw::BBox2 calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
                                 int num_sample_pts,
-                                asp::CsvConv const& C,
+                                asp::CsvConv const& csv_conv,
                                 std::string const& file_name,
                                 double max_disp){
 
@@ -824,7 +824,7 @@ vw::BBox2 calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
   // Load a sample of points, hopefully enough to estimate the box
   // reliably.
   load_file<RealT>(file_name, num_sample_pts, dummy_box,
-                   calc_shift, shift, geo, C, is_lola_rdr_format,
+                   calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
                    mean_longitude, verbose, points);
 
   // Bias the xyz points in several directions by max_disp, then
@@ -976,7 +976,7 @@ void save_trans_point_cloud(asp::BaseOptions const& opt,
                             std::string input_file,
                             std::string out_prefix,
                             vw::cartography::GeoReference const& geo,
-                            asp::CsvConv const& C,
+                            asp::CsvConv const& csv_conv,
                             PointMatcher<RealT>::Matrix const& T){
 
   std::string file_type = get_file_type(input_file);
@@ -1087,17 +1087,17 @@ void save_trans_point_cloud(asp::BaseOptions const& opt,
     DP          point_cloud;
     load_csv<RealT>(input_file, std::numeric_limits<int>::max(),
                     empty_box, verbose, calc_shift, shift,
-                    geo, C, is_lola_rdr_format,
+                    geo, csv_conv, is_lola_rdr_format,
                     mean_longitude, point_cloud);
 
     std::ofstream outfile( output_file.c_str() );
     outfile.precision(16);
 
     // Write the header line
-    if (C.csv_format_str != ""){
+    if (csv_conv.csv_format_str != ""){
       outfile << "# ";
-      for (std::map<int, std::string>::const_iterator it = C.col2name.begin();
-           it != C.col2name.end(); it++){
+      for (std::map<int, std::string>::const_iterator it = csv_conv.col2name.begin();
+           it != csv_conv.col2name.end(); it++){
         outfile << it->second << ",";
       }
       outfile << std::endl;
@@ -1126,9 +1126,9 @@ void save_trans_point_cloud(asp::BaseOptions const& opt,
       vw::Vector3 P;
       for (int row = 0; row < DIM; row++) P[row] = V[row];
 
-      if (C.csv_format_str != ""){
+      if (csv_conv.csv_format_str != ""){
 
-        vw::Vector3 csv = cartesian_to_csv(P, geo, mean_longitude, C);
+        vw::Vector3 csv = csv_conv.cartesian_to_csv(P, geo, mean_longitude);
         outfile << csv[0] << ',' << csv[1] << ',' << csv[2] << std::endl;
 
       }else{

@@ -187,7 +187,7 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
 /// to make the spatial data more localized, to improve performance.
 /// - We will later wipe these temporary tifs.
 void las_or_csv_to_tifs(Options& opt,  
-                        bool have_user_datum, cartography::Datum const& user_datum, 
+                        cartography::Datum const& datum, 
                         std::vector<std::string> & tmp_tifs){
                         
   if (!opt.has_las_or_csv) 
@@ -212,16 +212,15 @@ void las_or_csv_to_tifs(Options& opt,
 
   // Configure a CSV converter object according to the input parameters
   asp::CsvConv csv_conv;
-  asp::parse_csv_format(opt.csv_format_str, opt.csv_proj4_str, csv_conv); // Modifies csv_conv
+  csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_proj4_str); // Modifies csv_conv
 
   // Set the georef for CSV files
   GeoReference csv_georef;
 
   // Set user's csv_proj4_str if specified
-  asp::handle_easting_northing(csv_conv, csv_georef); // Modifies csv_georef
+  csv_conv.configure_georef(csv_georef);
 
-  if (have_user_datum) // Force the use of user provided datum info
-    csv_georef.set_datum(user_datum);
+  csv_georef.set_datum(datum);
 
   if (!have_las_georef) // If LAS file has no georef, the csv georef is our best guess.
     las_georef = csv_georef;
@@ -1204,7 +1203,6 @@ int main( int argc, char *argv[] ) {
           // Otherwise we use WGS84 datum with geographic projection, the georef default.
           break;
       }
-
     } else { // The user specified the target srs_string
 
       // Set the srs string into georef.
@@ -1212,10 +1210,11 @@ int main( int argc, char *argv[] ) {
     }
 
     // Convert any input LAS or CSV files to ASP's point cloud tif format
-    // - The user's datum inputs apply to the input CSV files.
+    // - The output and input datum will match unless the input data files
+    //   themselves specify a different datum.
     // - Should all be XYZ format when finished
     std::vector<std::string> tmp_tifs;
-    las_or_csv_to_tifs(opt, have_user_datum, user_datum, tmp_tifs);
+    las_or_csv_to_tifs(opt, output_georef.datum(), tmp_tifs);
 
     // Generate a merged xyz point cloud consisting of all inputs
     // - By this point each input exists in tif format.

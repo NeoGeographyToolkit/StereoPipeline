@@ -117,7 +117,7 @@ template<typename T>
 int load_csv_aux(std::string const& file_name, int num_points_to_load,
                  vw::BBox2 const& lonlat_box, bool verbose,
                  bool calc_shift, vw::Vector3 & shift,
-                 vw::cartography::GeoReference const& geo, asp::CsvConv const& C,
+                 vw::cartography::GeoReference const& geo, asp::CsvConv const& csv_conv,
                  bool & is_lola_rdr_format, double & mean_longitude,
                  typename PointMatcher<T>::DataPoints & data);
 
@@ -130,7 +130,7 @@ void load_csv(std::string const& file_name,
                  bool calc_shift,
                  vw::Vector3 & shift,
                  vw::cartography::GeoReference const& geo,
-                 asp::CsvConv const& C,
+                 asp::CsvConv const& csv_conv,
                  bool & is_lola_rdr_format,
                  double & mean_longitude,
                  typename PointMatcher<T>::DataPoints & data);
@@ -211,7 +211,7 @@ void load_file(std::string const& file_name,
 /// away points in the other cloud which are not within this box.
 vw::BBox2 calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
                                 int num_sample_pts,
-                                asp::CsvConv const& C,
+                                asp::CsvConv const& csv_conv,
                                 std::string const& file_name,
                                 double max_disp);
 
@@ -279,7 +279,7 @@ void save_trans_point_cloud(asp::BaseOptions const& opt,
                             std::string input_file,
                             std::string out_prefix,
                             vw::cartography::GeoReference const& geo,
-                            asp::CsvConv const& C,
+                            asp::CsvConv const& csv_conv,
                             PointMatcher<RealT>::Matrix const& T);
 
 /// Save a transformed point cloud with N bands

@@ -306,7 +306,7 @@ void read_datum(Options& opt, asp::CsvConv& csv_conv, Datum& datum){
                   opt.semi_major, opt.semi_minor, 0.0);
     vw_out() << "Will use datum (for CSV files): " << datum << std::endl;
   }else if (dem_file == "" && las_file == "" &&
-            (opt.csv_format_str == "" || csv_conv.format != asp::XYZ) ){
+            (opt.csv_format_str == "" || csv_conv.format != asp::CsvConv::XYZ) ){
     // There is no DEM/LAS to read the datum from, and the user either
     // did not specify the CSV format (then we set it to lat, lon,
     // height), or it is specified as containing lat, lon, rather than xyz.
@@ -322,7 +322,7 @@ void read_datum(Options& opt, asp::CsvConv& csv_conv, Datum& datum){
       vw_out() << "No datum specified. Will write output CSV files "
                << "in the x,y,z format." << std::endl;
       opt.csv_format_str = "1:x 2:y 3:z";
-      parse_csv_format(opt.csv_format_str, opt.csv_proj4_str, csv_conv);
+      csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_proj4_str);
     }
   }
 
@@ -422,7 +422,7 @@ void save_errors(DP const& point_cloud,
                  string const& output_file,
                  Vector3 const& shift,
                  GeoReference const& geo,
-                 asp::CsvConv const& C,
+                 asp::CsvConv const& csv_conv,
                  bool is_lola_rdr_format,
                  double mean_longitude
                  ){
@@ -436,10 +436,9 @@ void save_errors(DP const& point_cloud,
   outfile.precision(16);
 
   // Write the header line
-  if (C.csv_format_str != ""){
+  if (csv_conv.csv_format_str != ""){
     outfile << "# ";
-    for (map<int, string>::const_iterator it = C.col2name.begin();
-         it != C.col2name.end(); it++){
+    for (map<int, string>::const_iterator it = csv_conv.col2name.begin(); it != csv_conv.col2name.end(); it++){
       outfile << it->second << ",";
     }
     outfile << "error (meters)" << endl;
@@ -454,8 +453,8 @@ void save_errors(DP const& point_cloud,
   for(int col = 0; col < numPts; col++){
     Vector3 P = get_cloud_gcc_coord(point_cloud, shift, col);
 
-    if (C.csv_format_str != ""){
-      Vector3 csv = cartesian_to_csv(P, geo, mean_longitude, C);
+    if (csv_conv.csv_format_str != ""){
+      Vector3 csv = csv_conv.cartesian_to_csv(P, geo, mean_longitude);
       outfile << csv[0] << ',' << csv[1] << ',' << csv[2]
               << "," << errors(0, col) << endl;
     }else{
@@ -666,16 +665,16 @@ int main( int argc, char *argv[] ) {
     // Set the number of threads for OpenMP
     omp_set_num_threads(opt.num_threads);
 
-    asp::CsvConv C;
-    parse_csv_format(opt.csv_format_str, opt.csv_proj4_str, C);
+    asp::CsvConv csv_conv;
+    csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_proj4_str);
 
     Datum datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
                 "Reference Meridian", 1, 1, 0);
-    read_datum(opt, C, datum);
+    read_datum(opt, csv_conv, datum);
     GeoReference geo(datum);
 
     // Set user's csv_proj4_str if specified
-    asp::handle_easting_northing(C, geo);
+    csv_conv.configure_georef(geo);
 
     // We will use ref_box to bound the source points, and vice-versa.
     // Decide how many samples to pick to estimate these boxes.
@@ -686,9 +685,9 @@ int main( int argc, char *argv[] ) {
                                            opt.max_num_reference_points)/4);
     // Compute GDC bounding box of the source and reference clouds
     BBox2 ref_box, source_box;
-    ref_box    = calc_extended_lonlat_bbox(geo, num_sample_pts, C, opt.reference, opt.max_disp);
-    source_box = calc_extended_lonlat_bbox(geo, num_sample_pts, C, opt.source,    opt.max_disp);
-
+    ref_box    = calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv, opt.reference, opt.max_disp);
+    source_box = calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv, opt.source,    opt.max_disp);
+    
     // If ref points are offset by 360 degrees in longitude in respect to
     // source points, adjust the ref box to be aligned with the source points, and vice versa.
     double lon_offset = 0.0;
@@ -723,7 +722,7 @@ int main( int argc, char *argv[] ) {
     DP ref_point_cloud;
     load_file<RealT>(opt.reference, opt.max_num_reference_points,
                      source_box, // source box is used to bound reference
-                     calc_shift, shift, geo, C, is_lola_rdr_format,
+                     calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
                      mean_ref_longitude, opt.verbose, ref_point_cloud);
     sw1.stop();
     if (opt.verbose)
@@ -744,7 +743,7 @@ int main( int argc, char *argv[] ) {
     DP source_point_cloud;
     load_file<RealT>(opt.source, num_source_pts,
                      ref_box, // ref box is used to bound source
-                     calc_shift, shift, geo, C, is_lola_rdr_format,
+                     calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
                      mean_source_longitude, opt.verbose, source_point_cloud);
     sw2.stop();
     if (opt.verbose)
@@ -909,19 +908,19 @@ int main( int argc, char *argv[] ) {
     if (opt.save_trans_ref){
       string trans_ref_prefix = opt.out_prefix + "-trans_reference";
       save_trans_point_cloud(opt, opt.reference, trans_ref_prefix,
-                             geo, C, globalT.inverse());
+                             geo, csv_conv, globalT.inverse());
     }
 
     if (opt.save_trans_source){
       string trans_source_prefix = opt.out_prefix + "-trans_source";
       save_trans_point_cloud(opt, opt.source, trans_source_prefix,
-                             geo, C, globalT);
+                             geo, csv_conv, globalT);
     }
 
     save_errors(source_point_cloud, beg_errors,  opt.out_prefix + "-beg_errors.csv",
-                shift, geo, C, is_lola_rdr_format, mean_source_longitude);
+                shift, geo, csv_conv, is_lola_rdr_format, mean_source_longitude);
     save_errors(trans_source_point_cloud, end_errors,  opt.out_prefix + "-end_errors.csv",
-                shift, geo, C, is_lola_rdr_format, mean_source_longitude);
+                shift, geo, csv_conv, is_lola_rdr_format, mean_source_longitude);
 
     if (opt.verbose) vw_out() << "Writing: " << opt.out_prefix
       + "-iterationInfo.csv" << std::endl;
