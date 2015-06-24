@@ -913,17 +913,18 @@ int main(int argc, char* argv[]) {
 
     // Create the stereo session. This will attempt to identify the
     // session type.
-    typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-    SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
-                                                         opt.image_files [0], opt.image_files [1],
-                                                         opt.camera_files[0], opt.camera_files[1],
-                                                         opt.out_prefix
-                                                         ));
-
     // Read in the camera model and image info for the input images.
+    typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
     for (int i = 0; i < num_images; i++){
       vw_out(DebugMessage,"asp") << "Loading: " << opt.image_files [i] << ' '
                                                 << opt.camera_files[i] << "\n";
+
+      SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
+                                                           opt.image_files [i], opt.image_files [i],
+                                                           opt.camera_files[i], opt.camera_files[i],
+                                                           opt.out_prefix
+                                                           ));
+
       if (opt.have_input_cams){
         opt.camera_models.push_back(session->camera_model(opt.image_files [i],
                                                           opt.camera_files[i]));
@@ -947,6 +948,11 @@ int main(int argc, char* argv[]) {
           rsrc1( DiskImageResource::open(image1) ),
           rsrc2( DiskImageResource::open(image2) );
         float nodata1, nodata2;
+        SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
+                                                             opt.image_files [i], opt.image_files [j],
+                                                             opt.camera_files[i], opt.camera_files[j],
+                                                             opt.out_prefix
+                                                             ));
         session->get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
         try{
           // IP matching may not succeed for all pairs
