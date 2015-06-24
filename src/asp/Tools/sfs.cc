@@ -58,6 +58,7 @@ int g_errorCount = 0;
 
 typedef InterpolationView<ImageViewRef<float>, BilinearInterpolation> BilinearInterpT;
 
+// TODO: Study phaseCoeffC1, etc.
 // TODO: Make sfs work with bundle adjusted images.
 // TODO: Find a good automatic value for the smoothness weight.
 // TODO: How to change the smoothness weight if resolution changes?
@@ -98,7 +99,7 @@ void compute_image_stats(ImageT const& I, double & mean, double & stdev){
 }
 
 struct Options : public asp::BaseOptions {
-  std::string input_dem, out_prefix, stereo_session_string;
+  std::string input_dem, out_prefix, stereo_session_string, bundle_adjust_prefix;
   std::vector<std::string> input_images;
   int max_iterations;
   double smoothness_weight;
@@ -259,10 +260,10 @@ computeLambertianReflectanceFromNormal(Vector3 sunPos, Vector3 xyz,
 
 
 double
-computeLunarLambertianReflectanceFromNormal(Vector3 const& sunPos, Vector3 const& viewPos, Vector3 const& xyz,
-                                                        Vector3 const& normal, double phaseCoeffC1, double phaseCoeffC2,
-                                                        double & alpha // output
-                                                        ) {
+computeLunarLambertianReflectanceFromNormal
+(Vector3 const& sunPos, Vector3 const& viewPos, Vector3 const& xyz,
+ Vector3 const& normal, double phaseCoeffC1, double phaseCoeffC2,
+ double & alpha) {
 
   double reflectance;
   double L;
@@ -381,7 +382,8 @@ ComputeReflectance(Vector3 const& normal, Vector3 const& xyz,
   return input_img_reflectance;
 }
 
-bool computeReflectanceAndIntensity(double center_h, double right_h, double top_h,
+bool computeReflectanceAndIntensity(double left_h, double center_h, double right_h,
+                                    double bottom_h, double top_h,
                                     int col, int row,
                                     ImageView<double> const& dem,
                                     cartography::GeoReference const& geo,
@@ -423,21 +425,21 @@ bool computeReflectanceAndIntensity(double center_h, double right_h, double top_
   lonlat3 = Vector3(lonlat(0), lonlat(1), h);
   Vector3 right = geo.datum().geodetic_to_cartesian(lonlat3);
 
-  // The xyz position at the top grid point
+  // The xyz position at the bottom grid point
   lonlat = geo.pixel_to_lonlat(Vector2(col, row+1));
-  h = top_h;
+  h = bottom_h;
   if (h == nodata_val && g_errorCount == 0) {
     vw_out(ErrorMessage) << "sfs cannot handle DEMs with no-data.\n";
     g_errorCount++;
     return false;
   }
   lonlat3 = Vector3(lonlat(0), lonlat(1), h);
-  Vector3 top = geo.datum().geodetic_to_cartesian(lonlat3);
+  Vector3 bottom = geo.datum().geodetic_to_cartesian(lonlat3);
 
   // TODO: Study the sign of the normal.
   Vector3 dx = right - base;
-  Vector3 dy = top - base;
-  Vector3 normal = -normalize(cross_prod(dx, dy));
+  Vector3 dy = bottom - base;
+  Vector3 normal = -normalize(cross_prod(dx, dy)); // so normal points up
 
   // TODO: Must iterate over all images below.
   double phase_angle;
@@ -468,9 +470,10 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
   reflectance.set_size(dem.cols(), dem.rows());
   intensity.set_size(dem.cols(), dem.rows());
 
-  for (int col = 0; col < dem.cols()-1; col++) {
-    for (int row = 0; row < dem.rows()-1; row++) {
-      computeReflectanceAndIntensity(dem(col, row), dem(col+1, row), dem(col, row+1),
+  for (int col = 1; col < dem.cols()-1; col++) {
+    for (int row = 1; row < dem.rows()-1; row++) {
+      computeReflectanceAndIntensity(dem(col-1, row), dem(col, row), dem(col+1, row),
+                                     dem(col, row+1), dem(col, row-1),
                                      col, row, dem,  geo,
                                      nodata_val, model_params, global_params,
                                      image, camera,
@@ -591,12 +594,12 @@ struct IntensityError {
     m_model_params(model_params),
     m_image(image), m_camera(camera), m_nodata_val(nodata_val) {}
 
-  // See SmoothnessError() for the definitions of tl, top, tr, etc.
+  // See SmoothnessError() for the definitions of bl, bottom, br, etc.
   template <typename T>
   bool operator()(const T* const A,
-                  const T* const tl,   const T* const top,    const T* const tr,
+                  const T* const bl,   const T* const bottom,    const T* const br,
                   const T* const left, const T* const center, const T* const right,
-                  const T* const bl,   const T* const bottom, const T* const br,
+                  const T* const tl,   const T* const top, const T* const tr,
                   T* residuals) const {
 
     // Default residuals
@@ -606,7 +609,7 @@ struct IntensityError {
 
       double reflectance, intensity;
       success =
-        computeReflectanceAndIntensity(center[0], right[0], top[0],
+        computeReflectanceAndIntensity(left[0], center[0], right[0], bottom[0], top[0],
                                        m_col, m_row,  m_dem,
                                        m_geo,  m_nodata_val,
                                        m_model_params,  m_global_params,
@@ -657,9 +660,9 @@ struct IntensityError {
 // We will use finite differences to compute these.
 // Consider a grid point and its neighbors, 9 points in all.
 //
-// tl   = u(c-1, r+1)  top    = u(c, r+1) tr    = u(c+1,r+1)
+// bl   = u(c-1, r+1)  bottom = u(c, r+1) br    = u(c+1,r+1)
 // left = u(c-1, r  )  center = u(c, r  ) right = u(c+1,r  )
-// bl   = u(c-1, r-1)  bottom = u(c, r-1) br    = u(c+1,r-1)
+// tl   = u(c-1, r-1)  top    = u(c, r-1) tr    = u(c+1,r-1)
 //
 // See https://en.wikipedia.org/wiki/Finite_difference
 // for the obtained formulas.
@@ -670,16 +673,16 @@ struct SmoothnessError {
     m_grid_x(grid_x), m_grid_y(grid_y) {}
 
   template <typename T>
-  bool operator()(const T* const tl,   const T* const top,    const T* const tr,
+  bool operator()(const T* const bl,   const T* const bottom,    const T* const br,
                   const T* const left, const T* const center, const T* const right,
-                  const T* const bl,   const T* const bottom, const T* const br,
+                  const T* const tl,   const T* const top, const T* const tr,
                   T* residuals) const {
     try{
 
       residuals[0] = (left[0] + right[0] - 2*center[0])/m_grid_x/m_grid_x;     // u_xx
-      residuals[1] = (tr[0] + bl[0] - tl[0] - br[0] ) /4.0/m_grid_x/m_grid_y;  // u_xy
+      residuals[1] = (br[0] + tl[0] - bl[0] - tr[0] ) /4.0/m_grid_x/m_grid_y;  // u_xy
       residuals[2] = residuals[1];                                             // u_yx
-      residuals[3] = (top[0] + bottom[0] - 2*center[0])/m_grid_y/m_grid_y;     // u_yy
+      residuals[3] = (bottom[0] + top[0] - 2*center[0])/m_grid_y/m_grid_y;     // u_yy
 
       for (int i = 0; i < 4; i++)
         residuals[i] *= m_smoothness_weight;
@@ -746,13 +749,13 @@ void compute_grid_sizes_in_meters(ImageView<double> const& dem, GeoReference con
       lonlat3 = Vector3(lonlat(0), lonlat(1), median_height);
       Vector3 right = geo.datum().geodetic_to_cartesian(lonlat3);
 
-      // The xyz position at the top grid point
+      // The xyz position at the bottom grid point
       lonlat = geo.pixel_to_lonlat(Vector2(col, row+1));
       lonlat3 = Vector3(lonlat(0), lonlat(1), median_height);
-      Vector3 top = geo.datum().geodetic_to_cartesian(lonlat3);
+      Vector3 bottom = geo.datum().geodetic_to_cartesian(lonlat3);
 
       grid_x_vec.push_back(norm_2(right-base));
-      grid_y_vec.push_back(norm_2(top-base));
+      grid_y_vec.push_back(norm_2(bottom-base));
     }
   }
 
@@ -771,7 +774,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("max-iterations,n", po::value(&opt.max_iterations)->default_value(100),
      "Set the maximum number of iterations.")
     ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(1.0),
-     "A larger value will result in a smoother solution.");
+     "A larger value will result in a smoother solution.")
+    ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
+     "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.");
 
   general_options.add( asp::BaseOptionsDescription(opt) );
 
@@ -805,6 +810,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (opt.input_images.empty())
   vw_throw( ArgumentErr() << "Missing input images.\n"
             << usage << general_options );
+
+  // Need this to be able to load adjusted camera models. That will happen
+  // in the stereo session.
+  asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
 
   // Create the output directory
   asp::create_out_dir(opt.out_prefix);
@@ -925,12 +934,12 @@ int main(int argc, char* argv[]) {
           ceres::LossFunction* loss_function_img = NULL;
           problem.AddResidualBlock(cost_function_img, loss_function_img,
                                    A,
-                                   &dem(col-1, row+1), &dem(col, row+1), // tl, top
-                                   &dem(col+1, row+1),                   // tr
+                                   &dem(col-1, row+1), &dem(col, row+1), // bl, bottom
+                                   &dem(col+1, row+1),                   // br
                                    &dem(col-1, row  ), &dem(col, row  ), // left, ctr
                                    &dem(col+1, row  ),                   // right
-                                   &dem(col-1, row-1), &dem(col, row-1), // bl, bot
-                                   &dem(col+1, row-1));                  // br
+                                   &dem(col-1, row-1), &dem(col, row-1), // tl, top
+                                   &dem(col+1, row-1));                  // tr
         }
 
         // Smoothness penalty
@@ -953,7 +962,7 @@ int main(int argc, char* argv[]) {
           problem.SetParameterBlockConstant(&dem(col-1, row+1));
         }
         if (row==1) {
-          // bottom boundary
+          // top boundary
           problem.SetParameterBlockConstant(&dem(col-1, row-1));
           problem.SetParameterBlockConstant(&dem(col,   row-1));
           problem.SetParameterBlockConstant(&dem(col+1, row-1));
@@ -965,7 +974,7 @@ int main(int argc, char* argv[]) {
           problem.SetParameterBlockConstant(&dem(col+1, row+1));
         }
         if (row==nrows-2) {
-          // top boundary
+          // bottom boundary
           problem.SetParameterBlockConstant(&dem(col-1, row+1));
           problem.SetParameterBlockConstant(&dem(col,   row+1));
           problem.SetParameterBlockConstant(&dem(col+1, row+1));
