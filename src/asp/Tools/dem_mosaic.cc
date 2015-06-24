@@ -237,8 +237,7 @@ public:
     if (m_opt.median) // Store each input seperately
       tiles.reserve(m_images.size());
     if (m_opt.stddev) { // Need one working image
-      tiles.reserve(1);
-      tiles.push_back(copy(tile));
+      tiles.push_back(copy(weights));
     }
 
 
@@ -399,12 +398,13 @@ public:
             tile(c, r)++;
             weights(c, r) += wt;
           }else if (m_opt.stddev){ // Standard Deviation --> Keep running calculation
-            weights(c, r)++;
+            weights(c, r) += 1.0;
             double curr_mean = tiles[0](c,r);
             double delta     = val - curr_mean;
             curr_mean     += delta / weights(c, r);
             tile(c, r)    += delta*(val - curr_mean);
             tiles[0](c,r)  = curr_mean;
+            //vw_out() << "val = " << val << " mean = " << curr_mean << ", tile = " << tile(c, r) << "\n";
           }else if (!noblend){ // Blending --> Weighted average
             tile(c, r) += wt*val;
             weights(c, r) += wt;
