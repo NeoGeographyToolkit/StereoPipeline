@@ -54,12 +54,12 @@ struct RPC_gen_Options : asp::BaseOptions {
 void handle_arguments( int argc, char *argv[], RPC_gen_Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("output-prefix", po::value(&opt.output_prefix)->default_value(""),
-     "Write diagnostic/report files to this location.  If not set then no files will be written.")
-    ("penalty-weight", po::value(&opt.penalty_weight)->default_value(0.1),
-     "Penalty weight to use to keep the higher-order RPC coefficients small. Higher penalty weight results in smaller such coefficients.")
+    ("output-prefix",      po::value(&opt.output_prefix)->default_value(""),
+             "Write diagnostic/report files to this location.  If not set then no files will be written.")
+    ("penalty-weight",     po::value(&opt.penalty_weight)->default_value(0.1),
+             "Penalty weight to use to keep the higher-order RPC coefficients small. Higher penalty weight results in smaller such coefficients.")
     ("lon-lat-height-box", po::value(&opt.lon_lat_height_box)->default_value(BBox3(0,0,0,0,0,0)),
-     "The 3D region in which to solve for the RPC model [lon_min lat_min height_min lon_max lat_max height_max].");
+             "The 3D region in which to solve for the RPC model [lon_min lat_min height_min lon_max lat_max height_max].");
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
@@ -119,13 +119,12 @@ void write_levmar_solver_results(std::string const& output_prefix, int status,
   Vector<double> initial_error     = lma_model.difference(initial_projected, actual_observation);
   Vector<double> final_error       = lma_model.difference(final_projected,   actual_observation);
 
-
   // Log the solver status
   VW_OUT(VerboseDebugMessage, "math") << "rpc_gen: levmar solver status = " << status << std::endl;
   VW_OUT(VerboseDebugMessage, "math") << "rpc_gen: levmar solver initial error norm_2 = " << norm_2(initial_error) << std::endl;
   VW_OUT(VerboseDebugMessage, "math") << "rpc_gen: levmar solver final   error norm_2 = " << norm_2(final_error  ) << std::endl;
 
-  // Dump the values to file
+  //// Dump the values to file
   print_vec_to_file(output_prefix + "_initial_parameters.csv", initial_params);
   print_vec_to_file(output_prefix + "_final_parameters.csv",   final_params);
   print_vec_to_file(output_prefix + "_initial_projected.csv", initial_projected);
@@ -200,7 +199,6 @@ int main( int argc, char* argv[] ) {
     Vector3 min_llh_coord = opt.lon_lat_height_box.min();
     Vector3 max_llh_coord = opt.lon_lat_height_box.max();
 
-
     // Use matched axis scaling for pixels so one axis does not get higher error weighting
     Vector3 llh_scale     = (max_llh_coord - min_llh_coord)/2.0; // half range
     Vector3 llh_offset    = (max_llh_coord + min_llh_coord)/2.0; // center point
@@ -208,26 +206,6 @@ int main( int argc, char* argv[] ) {
     Vector2 uv_scale(pixel_max/2.0, pixel_max/2.0); // The long axis pixel is scaled to 1.0
     Vector2 uv_offset     = image_size/2.0; // center point
 
-/*     
-    // Use seperate scaling by axis
-    Vector3 llh_scale     = (max_llh_coord - min_llh_coord)/2.0; // half range
-    Vector3 llh_offset    = (max_llh_coord + min_llh_coord)/2.0; // center point
-    Vector2 uv_scale      = image_size/2.0; // half range
-    Vector2 uv_offset     = image_size/2.0; // center point
-*/   
-
-    // DEBUG
-    VW_OUT(DebugMessage, "math") << "rpc_gen: Computed llh_scale  = " << llh_scale  << std::endl;
-    VW_OUT(DebugMessage, "math") << "rpc_gen: Computed llh_offset = " << llh_offset << std::endl;
-    VW_OUT(DebugMessage, "math") << "rpc_gen: File     llh_scale  = " << cam_rpc->lonlatheight_scale()  << std::endl;
-    VW_OUT(DebugMessage, "math") << "rpc_gen: File     llh_offset = " << cam_rpc->lonlatheight_offset() << std::endl;
-/*
-    // DEBUG - Try copying these directly from the input file!
-    llh_scale  = cam_rpc->lonlatheight_scale();
-    llh_offset = cam_rpc->lonlatheight_offset();
-    uv_scale   = cam_rpc->xy_scale();
-    uv_offset  = cam_rpc->xy_offset();
-*/
     // Number of points in x and y at which we will optimize the RPC
     // model. Using 10 or 20 points gives roughly similar results.
     // 20 points result in 20^3 input data for optimization, with the
@@ -242,16 +220,6 @@ int main( int argc, char* argv[] ) {
     normalizedPixels.set_size(RPCModel::IMAGE_COORD_SIZE*num_total_pts + RpcSolveLMA::NUM_PENALTY_TERMS);
     for (int i = 0; i < (int)normalizedPixels.size(); i++)
       normalizedPixels[i] = 0.0; // Important: The extra penalty terms are all set to zero here.
-
-   /* // DEBUG
-    Vector<double> startRpc, 
-                   start_line_num_coeff   = cam_rpc->line_num_coeff(),
-                   start_line_den_coeff   = cam_rpc->line_den_coeff(),
-                   start_sample_num_coeff = cam_rpc->sample_num_coeff(),
-                   start_sample_den_coeff = cam_rpc->sample_den_coeff();
-    packCoeffs( start_line_num_coeff,   start_line_den_coeff,
-                start_sample_num_coeff, start_sample_den_coeff, startRpc );
-*/
 
     // Loop through all test points and generate the "correct" pairs / training data
     //  using the trusted DG camera model.
@@ -284,35 +252,21 @@ int main( int argc, char* argv[] ) {
           //std::cout << U << ' ' << P << ' ' << pxg << ' ' << pxr  << ' '
           //          << norm_2(pxg-pxr)<< std::endl;
 
-/*
-          Vector2 pxTest = RPCModel::normalized_geodetic_to_normalized_pixel(U, start_line_num_coeff,   start_line_den_coeff,
-                                                                                start_sample_num_coeff, start_sample_den_coeff);
-          double pxDiff = norm_2(pxn - pxTest);
-          VW_OUT(DebugMessage, "math") << "rpc_gen: pxDiff = " << pxDiff << std::endl;
-*/
-
-          // Note that we normalize the error vector below          
-          // TODO: Why is pxn divided here?
           subvector(normalizedGeodetics, RPCModel::GEODETIC_COORD_SIZE*count, RPCModel::GEODETIC_COORD_SIZE) = U;
-          //subvector(normalizedPixels,    RPCModel::IMAGE_COORD_SIZE   *count, RPCModel::IMAGE_COORD_SIZE   ) = pxn/num_total_pts;
-          subvector(normalizedPixels,    RPCModel::IMAGE_COORD_SIZE   *count, RPCModel::IMAGE_COORD_SIZE   ) = pxn; //DEBUG
-
+          subvector(normalizedPixels,    RPCModel::IMAGE_COORD_SIZE   *count, RPCModel::IMAGE_COORD_SIZE   ) = pxn;
           count++;
 
         } // End z loop
       } // End y loop
     } // End x loop
 
-    // DEBUG: Try out different penalty weights
     double penalty_weight_fraction = opt.penalty_weight; // The percentage of the error that the penalty weights should represent
     double native_penalty_fraction = (double)RpcSolveLMA::NUM_PENALTY_TERMS / (double)normalizedPixels.size(); // Fraction with no adjustment
-    //double native_penalty_fraction = (double)(26*4) / (double)num_total_pts; // Fraction with no adjustment TODO handle variable penalties elsewhere
     double penalty_adjustment      = penalty_weight_fraction / native_penalty_fraction;
 
     VW_OUT(DebugMessage, "math") << "rpc_gen: Computed penalty weight: " << penalty_adjustment<< std::endl;
 
     // Initialize a specialized least squares solver object and load the input data
-    //RpcSolveLMA lma_model (normalizedGeodetics, normalizedPixels, opt.penalty_weight);
     RpcSolveLMA lma_model (normalizedGeodetics, normalizedPixels, penalty_adjustment);
     
     int status;
@@ -326,7 +280,7 @@ int main( int argc, char* argv[] ) {
       startZero[i] = 0.0;
 
     // Use the L-M solver to optimize the RPC model coefficient values.
-    VW_OUT(DebugMessage, "math") << "rpc_gen: Solving with zero seed" << std::endl;
+    //VW_OUT(DebugMessage, "math") << "rpc_gen: Solving with zero seed" << std::endl;
     status = find_solution_from_seed(lma_model, startZero, normalizedPixels, solution, norm_error);
     VW_OUT(DebugMessage, "math") << "rpc_gen: norm_error = " << norm_error << std::endl;
 

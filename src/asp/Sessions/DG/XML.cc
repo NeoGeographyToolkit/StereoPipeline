@@ -415,11 +415,11 @@ void asp::RPCXML::read_from_file( std::string const& name ) {
   }
 
   // Try to parse the bounding box but keep going if we fail.
-  //try {
+  try {
     parse_bbox(elementRoot);
-  //}catch(...){
-  //  VW_OUT(vw::DebugMessage, "asp") << "RPCXML: Warning -> Unable to parse the bounding box" << std::endl;
-  //}
+  }catch(...){
+    VW_OUT(vw::DebugMessage, "asp") << "RPCXML: Warning -> Unable to parse the bounding box" << std::endl;
+  }
 
   try {
     parse_rpb( get_node<DOMElement>( elementRoot, "RPB" ) );
@@ -440,7 +440,12 @@ void asp::RPCXML::read_from_file( std::string const& name ) {
 void asp::RPCXML::parse_bbox( xercesc::DOMElement* root_node ) {
   // Now read the bounding box
   DOMElement* imd_node  = get_node<DOMElement>( root_node, "IMD" );
-  DOMElement* bbox_node = get_node<DOMElement>( imd_node,  "BAND_P" );
+  DOMElement* bbox_node;
+  try {
+    bbox_node = get_node<DOMElement>( imd_node, "BAND_P");
+  } catch (...) { // Try one more channel if we can't find BAND_P
+    bbox_node = get_node<DOMElement>( imd_node, "BAND_R");
+  }
   // Start by initializing the box with the first point
   Vector3 point;
   cast_xmlch( get_node<DOMElement>( bbox_node, "ULLON" )->getTextContent(), point.x() );
@@ -448,23 +453,23 @@ void asp::RPCXML::parse_bbox( xercesc::DOMElement* root_node ) {
   cast_xmlch( get_node<DOMElement>( bbox_node, "ULHAE" )->getTextContent(), point.z() );
   m_lat_lon_height_box.min() = point;
   m_lat_lon_height_box.max() = point;
-  VW_OUT(vw::DebugMessage, "asp") << "RPCXML: point = " << point<< std::endl;
+  //VW_OUT(vw::DebugMessage, "asp") << "RPCXML: point = " << point<< std::endl;
   // Expand to contain the other points
   cast_xmlch( get_node<DOMElement>( bbox_node, "URLON" )->getTextContent(), point.x() );
   cast_xmlch( get_node<DOMElement>( bbox_node, "URLAT" )->getTextContent(), point.y() );
   cast_xmlch( get_node<DOMElement>( bbox_node, "URHAE" )->getTextContent(), point.z() );
   m_lat_lon_height_box.grow(point);
-  VW_OUT(vw::DebugMessage, "asp") << "RPCXML: point = " << point<< std::endl;
+  //VW_OUT(vw::DebugMessage, "asp") << "RPCXML: point = " << point<< std::endl;
   cast_xmlch( get_node<DOMElement>( bbox_node, "LLLON" )->getTextContent(), point.x() );
   cast_xmlch( get_node<DOMElement>( bbox_node, "LLLAT" )->getTextContent(), point.y() );
   cast_xmlch( get_node<DOMElement>( bbox_node, "LLHAE" )->getTextContent(), point.z() );
   m_lat_lon_height_box.grow(point);
-  VW_OUT(vw::DebugMessage, "asp") << "RPCXML: point = " << point<< std::endl;
+  //VW_OUT(vw::DebugMessage, "asp") << "RPCXML: point = " << point<< std::endl;
   cast_xmlch( get_node<DOMElement>( bbox_node, "LRLON" )->getTextContent(), point.x() );
   cast_xmlch( get_node<DOMElement>( bbox_node, "LRLAT" )->getTextContent(), point.y() );
   cast_xmlch( get_node<DOMElement>( bbox_node, "LRHAE" )->getTextContent(), point.z() );
   m_lat_lon_height_box.grow(point);
-  VW_OUT(vw::DebugMessage, "asp") << "RPCXML: point = " << point<< std::endl;
+  //VW_OUT(vw::DebugMessage, "asp") << "RPCXML: point = " << point<< std::endl;
 }
 
 void asp::RPCXML::parse_rpb( xercesc::DOMElement* node ) {

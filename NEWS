@@ -91,6 +91,9 @@
      Maps for Scientific Visualization" 
      (http://www.sandia.gov/~kmorel/documents/ColorMaps/)
 
+ - dg_mosaic
+   * Default penalty weight should now produce a more accurate fit to the dg_model.
+
 *** RELEASE 2.4.2, October 6, 2014 ***
 
  - ASP can perform multi-view triangulation (using both the

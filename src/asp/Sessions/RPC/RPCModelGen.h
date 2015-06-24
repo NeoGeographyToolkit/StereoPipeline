@@ -92,12 +92,8 @@ namespace asp {
         vw::Vector2 pxn = RPCModel::normalized_geodetic_to_normalized_pixel(G, lineNum, lineDen, sampNum, sampDen);
              
         // Pack the normalized pixel into the output result vector
-        // - Note that we normalize the cost function by numPts, same as in rpc_gen.cc
-        //subvector(result, RPCModel::IMAGE_COORD_SIZE*i, RPCModel::IMAGE_COORD_SIZE) = pxn/numPts;
-        subvector(result, RPCModel::IMAGE_COORD_SIZE*i, RPCModel::IMAGE_COORD_SIZE) = pxn; // DEBUG
+        subvector(result, RPCModel::IMAGE_COORD_SIZE*i, RPCModel::IMAGE_COORD_SIZE) = pxn;
 
-
-        //VW_OUT(vw::DebugMessage, "math") << "RPCModelGen: " << G << " ===> " << pxn  << std::endl;
       }
 
       // There are 4*20 - 2 = 78 coefficients we optimize. Of those, 2
@@ -108,23 +104,11 @@ namespace asp {
       // the higher degree coefficients.
       // - These values are attached to the end of the output vector
       int count = RPCModel::IMAGE_COORD_SIZE*numPts; 
-/*
-      for (int i = 4; i < (int)lineNum.size(); i++) result[count++] = m_wt*lineNum[i];
-      for (int i = 4; i < (int)lineDen.size(); i++) result[count++] = m_wt*lineDen[i];
-      for (int i = 4; i < (int)sampNum.size(); i++) result[count++] = m_wt*sampNum[i];
-      for (int i = 4; i < (int)sampDen.size(); i++) result[count++] = m_wt*sampDen[i];
-*/
-
-
-      // DEBUG - Test scaling penalties
       vw::Vector<int,20> coeff_order = RPCModel::get_coeff_order(); // This ranges from 1 to 3
       for (int i = 4; i < (int)lineNum.size(); i++)  result[count++] = m_wt*lineNum[i] * (coeff_order[i]-1);
       for (int i = 4; i < (int)lineDen.size(); i++)  result[count++] = m_wt*lineDen[i] * (coeff_order[i]-1);
       for (int i = 4; i < (int)sampNum.size(); i++)  result[count++] = m_wt*sampNum[i] * (coeff_order[i]-1);
       for (int i = 4; i < (int)sampDen.size(); i++)  result[count++] = m_wt*sampDen[i] * (coeff_order[i]-1);
-
-
-
 
       VW_ASSERT((int)result.size() == count, vw::ArgumentErr() << "Book-keeping error.\n");
 
