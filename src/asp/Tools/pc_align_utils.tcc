@@ -55,11 +55,8 @@ std::string get_file_type(std::string const& file_name){
   if (asp::is_las(file_name))
     return "LAS";
 
-  // Get lowercase file extension
-  boost::filesystem::path path(file_name);
-  std::string ext = boost::filesystem::extension(path);
-  boost::algorithm::to_lower(ext);
-  
+  // Note that any tif, ntf, and cub file with one channel will be
+  // interpreted as a DEM.
   int nc = vw::get_num_channels(file_name);
   if (nc == 1)
     return "DEM";
@@ -186,7 +183,7 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
   // Peek at the first valid line and see how many elements it has
   std::string line;
   while ( getline(file, line, '\n') ) {
-    if (asp::is_valid_csv_line(line)) 
+    if (asp::is_valid_csv_line(line))
       break;
   }
 
@@ -229,14 +226,14 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
   line = "";
   while ( getline(file, line, '\n') ){
 
-    if (points_count >= num_points_to_load) 
+    if (points_count >= num_points_to_load)
       break;
 
-    if (!asp::is_valid_csv_line(line)) 
+    if (!asp::is_valid_csv_line(line))
       continue;
 
     double r = (double)std::rand()/(double)RAND_MAX;
-    if (r > load_ratio) 
+    if (r > load_ratio)
       continue;
 
     // We went with C-style file reading instead of C++ in this instance
@@ -250,7 +247,7 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
       // Parse custom CSV file with given format string
       bool success;
       vw::Vector3 vals = asp::parse_csv_line(is_first_line, success, line, C);
-      if (!success) 
+      if (!success)
         continue;
 
       bool return_point_height = false; // will return xyz
@@ -321,7 +318,7 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
 
       int ret = sscanf(token, "%d-%d-%dT%d:%d:%lg", &year, &month, &day, &hour,
                        &min, &sec);
-      if( year <= 0 ) 
+      if( year <= 0 )
         continue;
 
       token = strtok(NULL, sep); null_check(token, line);
@@ -349,7 +346,7 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
       }
       is_first_line = false;
 
-      if (is_invalid) 
+      if (is_invalid)
         continue;
 
       // Skip points outside the given box
@@ -359,7 +356,7 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
       vw::Vector3 lonlatrad( lon, lat, 0 );
 
       xyz = geo.datum().geodetic_to_cartesian( lonlatrad );
-      if ( xyz == vw::Vector3() || !(xyz == xyz) ) 
+      if ( xyz == vw::Vector3() || !(xyz == xyz) )
         continue; // invalid and NaN check
 
       // Adjust the point so that it is at the right distance from
@@ -448,14 +445,14 @@ void load_dem(bool verbose, std::string const& file_name,
 
   vw::cartography::GeoReference dem_geo;
   bool is_good = vw::cartography::read_georeference( dem_geo, file_name );
-  if (!is_good) 
+  if (!is_good)
     vw_throw(vw::ArgumentErr() << "DEM: " << file_name
                                << " does not have a georeference.\n");
 
   vw::DiskImageView<float> dem(file_name);
   double nodata = std::numeric_limits<double>::quiet_NaN();
   boost::shared_ptr<vw::DiskImageResource> dem_rsrc( new vw::DiskImageResourceGDAL(file_name) );
-  if (dem_rsrc->has_nodata_read()) 
+  if (dem_rsrc->has_nodata_read())
     nodata = dem_rsrc->nodata_read();
 
   // Load only points within lonlat_box
@@ -482,31 +479,31 @@ void load_dem(bool verbose, std::string const& file_name,
 
   vw::TerminalProgressCallback tpc("asp", "\t--> ");
   double inc_amount = 1.0 / double(pix_box.width() );
-  if (verbose) 
+  if (verbose)
     tpc.report_progress(0);
 
   for (int i = pix_box.min().x(); i < pix_box.max().x(); i++ ) {
 
     for (int j = pix_box.min().y(); j < pix_box.max().y(); j++ ) {
-      if (points_count >= num_points_to_load) 
+      if (points_count >= num_points_to_load)
         break;
 
       double r = (double)std::rand()/(double)RAND_MAX;
-      if (r > load_ratio) 
+      if (r > load_ratio)
         continue;
 
-      if (dem(i, j) == nodata) 
+      if (dem(i, j) == nodata)
         continue;
 
       vw::Vector2 lonlat = dem_geo.pixel_to_lonlat( vw::Vector2(i,j) );
 
       // Skip points outside the given box
-      if (!lonlat_box.empty() && !lonlat_box.contains(lonlat)) 
+      if (!lonlat_box.empty() && !lonlat_box.contains(lonlat))
         continue;
 
       vw::Vector3 llh( lonlat.x(), lonlat.y(), dem(i,j) );
       vw::Vector3 xyz = dem_geo.datum().geodetic_to_cartesian( llh );
-      if ( xyz == vw::Vector3() || !(xyz == xyz) ) 
+      if ( xyz == vw::Vector3() || !(xyz == xyz) )
         continue; // invalid and NaN check
 
       if (calc_shift && !shift_was_calc){
@@ -521,10 +518,10 @@ void load_dem(bool verbose, std::string const& file_name,
       points_count++;
     } // end y loop
 
-    if (verbose) 
+    if (verbose)
       tpc.report_incremental_progress( inc_amount );
   } // end x loop
-  if (verbose) 
+  if (verbose)
     tpc.report_finished();
 
   data.features.conservativeResize(Eigen::NoChange, points_count);
@@ -564,15 +561,15 @@ vw::int64 load_pc_aux(bool verbose,
 
     for ( int i = 0; i < point_cloud.cols(); i++ ) {
 
-      if (points_count >= num_points_to_load) 
+      if (points_count >= num_points_to_load)
         break;
 
       double r = (double)std::rand()/(double)RAND_MAX;
-      if (r > load_ratio) 
+      if (r > load_ratio)
         continue;
 
       vw::Vector3 xyz = point_cloud(i, j);
-      if ( xyz == vw::Vector3() || !(xyz == xyz) ) 
+      if ( xyz == vw::Vector3() || !(xyz == xyz) )
         continue; // invalid and NaN check
 
       if (calc_shift && !shift_was_calc){
@@ -644,11 +641,11 @@ vw::int64 load_las_aux(bool verbose,
 
   while (reader.ReadNextPoint()){
 
-    if (points_count >= num_points_to_load) 
+    if (points_count >= num_points_to_load)
       break;
 
     double r = (double)std::rand()/(double)RAND_MAX;
-    if (r > load_ratio) 
+    if (r > load_ratio)
       continue;
 
     liblas::Point const& p = reader.GetPoint();
@@ -958,14 +955,14 @@ namespace asp{
   vw::Vector3 apply_transform(PointMatcher<RealT>::Matrix const& T, vw::Vector3 const& P){
 
     Eigen::VectorXd V(4); // Copy our 3D Vector into a homogenous Eigen Vector
-    V[0] = P[0]; 
-    V[1] = P[1]; 
-    V[2] = P[2]; 
+    V[0] = P[0];
+    V[1] = P[1];
+    V[2] = P[2];
     V[3] = 1;
     V = T*V; // Apply the transform to the new vector
     vw::Vector3 Q; // Copy the transformed Eigen vector back to our 3D vector class
-    Q[0] = V[0]; 
-    Q[1] = V[1]; 
+    Q[0] = V[0];
+    Q[1] = V[1];
     Q[2] = V[2];
     return Q;
   }
@@ -1160,14 +1157,14 @@ InterpolationReadyDem load_interpolation_ready_dem(std::string                  
                                                    vw::cartography::GeoReference     & georef) {
   // Load the georeference from the DEM
   bool is_good = vw::cartography::read_georeference( georef, dem_path );
-  if (!is_good) 
+  if (!is_good)
     vw::vw_throw(vw::ArgumentErr() << "DEM: " << dem_path << " does not have a georeference.\n");
 
   // Set up file handle to the DEM and read the nodata value
   vw::DiskImageView<float> dem(dem_path);
   double nodata = std::numeric_limits<double>::quiet_NaN();
   boost::shared_ptr<vw::DiskImageResource> dem_rsrc( new vw::DiskImageResourceGDAL(dem_path) );
-  if (dem_rsrc->has_nodata_read()) 
+  if (dem_rsrc->has_nodata_read())
     nodata = dem_rsrc->nodata_read();
 
   // Set up interpolation + mask view of the DEM
@@ -1182,9 +1179,9 @@ bool interp_dem_height(vw::ImageViewRef< vw::PixelMask<float> > const& dem,
                        double                              & dem_height) {
   // Convert the lon/lat location into a pixel in the DEM.
   vw::Vector2 pix = georef.lonlat_to_pixel(subvector(lonlat, 0, 2));
-  double c = pix[0], 
+  double c = pix[0],
          r = pix[1];
-         
+
   // Quit if the pixel falls outside the DEM.
   if (c < 0 || c >= dem.cols()-1 || // TODO: This ought to be an image class function
       r < 0 || r >= dem.rows()-1 )
@@ -1192,14 +1189,9 @@ bool interp_dem_height(vw::ImageViewRef< vw::PixelMask<float> > const& dem,
 
   // Interpolate the DEM height at the pixel location
   vw::PixelMask<float> v = dem(c, r);
-  if (!is_valid(v)) 
+  if (!is_valid(v))
     return false;
-    
+
   dem_height = v.child();
   return true;
 }
-
-
-
-
-
