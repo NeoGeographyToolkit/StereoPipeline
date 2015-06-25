@@ -7,8 +7,9 @@
 
 -  Added stereo_gui, a GUI tool having the same interface as stereo, that
    can be used to visualize both input images, select regions of interest,
-   and run stereo only on those regions. Based on Michael Broxton's vwv
-   tool. 
+   and run stereo only on those regions. Can also be used as an image 
+   viewer, if invoked with images only and no stereo options. Based on
+   Michael Broxton's vwv tool. 
 
  - Misc.
    * Added gdalinfo and gdal_translate to the tools in the bin
@@ -35,17 +36,17 @@
    * Fixed a slight discrepancy in the value of the semi-minor axis in
      the WGS84 and NAD83 datum implementations.
    * Added the option --median-filter-params <window size> <threshold> to
-     remove outliers using a median filter.
+     remove spikes using a median filter.
    * Added the option --erode-length <num> to erode pixels from point cloud 
      boundary (after outliers are removed, but before filling in holes).
    * Improved hole-filling, and removed the --hole-fill-mode and 
      --hole-fill-num-smooth-iter, as there's only one algorithm now. 
    * Improved performance when large holes are to be filled.
-   * Can create DEM from a point cloud stored in a CSV file containging
+   * Can create a DEM from point clouds stored in CSV files containging
      easting, northing, and height above datum (the PROJ.4 string
      needed to interpret these numbers should be set with --csv-proj4).
-   * Fixed bug reading input point files where a different output
-     projection is specified.
+   * Fixed a bug in creating DEMs from CSV files when different projections
+     are used on input and output.
 
  - pc_align
    * Can ingest CSV files containging easting, northing, and height
@@ -53,13 +54,13 @@
      should be set with --csv-proj4).
    * If the reference point cloud is a DEM, the initial and final errors
      in the statistics, as well as gross outlier removal, are done using
-	 a new distance function. Instead of finding the distance from a 3D 
-	 point to the closest point in the cloud, the 3D point is projected 
-	 onto the datum, its longitude and latitude are found, the height
-	 in the DEM is interpolated, and and the obtained point on the 
-	 DEM is declared to be the closest point. This is more accurate
-	 than the original implementation for coarse DEMs. The old 
-	 approach is available using the --no-dem-distances flag.
+     a new distance function. Instead of finding the distance from a 3D 
+     point to the closest point in the cloud, the 3D point is projected 
+     onto DEM's datum, its longitude and latitude are found, the
+     height in the DEM is interpolated, and and the obtained point on the 
+     DEM is declared to be the closest point. This is more accurate
+     than the original implementation for coarse DEMs. The old 
+     approach is available using the --no-dem-distances flag.
 
  - point2las
    * Added the ability to specify a custom projection (PROJ.4 string)
@@ -92,7 +93,8 @@
      (http://www.sandia.gov/~kmorel/documents/ColorMaps/)
 
  - dg_mosaic
-   * Default penalty weight should now produce a more accurate fit to the dg_model.
+   * Default penalty weight produces a more accurate fit when creating an 
+     RPC model from a DG model.
 
 *** RELEASE 2.4.2, October 6, 2014 ***
 
