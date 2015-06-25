@@ -419,15 +419,23 @@ public:
 
     } // End iterating over DEMs
 
-    // Divide by the weights in blend, mean, and stddev instances
-    if (!noblend || m_opt.mean || m_opt.stddev){
-      double offset = 0.0;
-      if (m_opt.stddev) // To compute standard deviation we divide by (n-1) instead of n
-        offset = -1.0;
+    // Divide by the weights in blend, mean
+    if (!noblend || m_opt.mean){
       for (int c = 0; c < bbox.width(); c++){ // Iterate over all pixels!
         for (int r = 0; r < bbox.height(); r++){
-          if ( (weights(c, r) + offset) > 0 ){
-            tile(c, r) /= (weights(c, r) + offset);
+          if ( weights(c, r) > 0 )
+            tile(c, r) /= weights(c, r);          
+        } // End row loop
+      } // End col loop
+    } // End dividing case
+
+
+    // Finish stddev calculations
+    if (m_opt.stddev){
+      for (int c = 0; c < bbox.width(); c++){ // Iterate over all pixels!
+        for (int r = 0; r < bbox.height(); r++){
+          if ( weights(c, r) > 1.0 ){
+            tile(c, r) = sqrt( tile(c, r) / (weights(c, r) - 1.0) );
           } else { // Invalid pixel!
             tile(c, r) = m_opt.out_nodata_value;
           }
@@ -435,6 +443,7 @@ public:
         } // End row loop
       } // End col loop
     } // End dividing case
+
 
     // For the median operation, 
     if (m_opt.median){
