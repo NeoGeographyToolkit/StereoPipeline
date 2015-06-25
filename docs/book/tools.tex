@@ -1223,6 +1223,17 @@ The program prints to screen and saves to a log file the 16th, 50th, and
 84th error percentiles as well as the means of the smallest 25\%, 50\%,
 75\%, and 100\% of the errors.
 
+When the reference point cloud is a DEM, a more accurate computation of
+the errors from source points to the reference cloud is used. A source
+point is projected onto the datum of the reference DEM, its longitude
+and latitude are found, then the DEM height at that position is
+interpolated.  That way we determine a ``closest'' point on the
+reference DEM that interprets the DEM not just as a collection of points
+but rather as a polyhedral surface going through those points. These
+errors are what is printed in the statistics. To instead compute
+errors as done for other type of point clouds, use the option
+\texttt{-\/-no-dem-distances}.
+
 By default, when \texttt{pc\_align} discards outliers during the
 computation of the alignment transform, it keeps the 75\% of the points
 with the smallest errors. As such, a way of judging the effectiveness of
@@ -1300,14 +1311,17 @@ measured from planet center. \\ \hline
 interpret the entries in input CSV files, if those entries contain
 easting, northing, and height above datum. \\ \hline
 
-\texttt{-\/-config-file \textit{file.yaml}} & This is an advanced
-option. Read the alignment parameters from a configuration file, in the
-format expected by libpointmatcher, over-riding the command-line options.\\ \hline
 \texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix. \\ \hline
 \texttt{-\/-compute-translation-only} & Compute the transform from source to reference point cloud as a translation only (no rotation). \\ \hline
 \texttt{-\/-save-transformed-source-points} & Apply the obtained transform to the source points so they match the reference points and save them. \\ \hline
 \texttt{ -\/-save-inv-transformed-reference-points} & Apply the inverse of the obtained transform to the reference points so they match the source points and save them.
 \\ \hline
+\texttt{--no-dem-distances} & For reference point clouds that are DEMs, don't take advantage of the fact that it is possible to interpolate into this DEM when finding the closest distance to it from a point in the source cloud (the text above has more detailed information). \\ \hline
+
+\texttt{-\/-config-file \textit{file.yaml}} & This is an advanced
+option. Read the alignment parameters from a configuration file, in the
+format expected by libpointmatcher, over-riding the command-line options.\\ \hline
+
 \end{longtable}
 
 
