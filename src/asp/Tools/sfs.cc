@@ -101,9 +101,9 @@ void compute_image_stats(ImageT const& I, double & mean, double & stdev){
 struct Options : public asp::BaseOptions {
   std::string input_dem, out_prefix, stereo_session_string, bundle_adjust_prefix;
   std::vector<std::string> input_images;
-  int max_iterations;
+  int max_iterations, reflectance_type;
   double smoothness_weight;
-  Options():max_iterations(0) {};
+  Options():max_iterations(0), reflectance_type(0) {};
 };
 
 struct GlobalParams{
@@ -410,9 +410,19 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
     g_errorCount++;
     return false;
   }
-
   Vector3 lonlat3 = Vector3(lonlat(0), lonlat(1), h);
   Vector3 base = geo.datum().geodetic_to_cartesian(lonlat3);
+
+  // The xyz position at the left grid point
+  lonlat = geo.pixel_to_lonlat(Vector2(col-1, row));
+  h = left_h;
+  if (h == nodata_val && g_errorCount == 0) {
+    vw_out(ErrorMessage) << "sfs cannot handle DEMs with no-data.\n";
+    g_errorCount++;
+    return false;
+  }
+  lonlat3 = Vector3(lonlat(0), lonlat(1), h);
+  Vector3 left = geo.datum().geodetic_to_cartesian(lonlat3);
 
   // The xyz position at the right grid point
   lonlat = geo.pixel_to_lonlat(Vector2(col+1, row));
@@ -436,9 +446,26 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   lonlat3 = Vector3(lonlat(0), lonlat(1), h);
   Vector3 bottom = geo.datum().geodetic_to_cartesian(lonlat3);
 
-  // TODO: Study the sign of the normal.
+  // The xyz position at the top grid point
+  lonlat = geo.pixel_to_lonlat(Vector2(col, row-1));
+  h = top_h;
+  if (h == nodata_val && g_errorCount == 0) {
+    vw_out(ErrorMessage) << "sfs cannot handle DEMs with no-data.\n";
+    g_errorCount++;
+    return false;
+  }
+  lonlat3 = Vector3(lonlat(0), lonlat(1), h);
+  Vector3 top = geo.datum().geodetic_to_cartesian(lonlat3);
+
+#if 0
+  // two-point normal
   Vector3 dx = right - base;
   Vector3 dy = bottom - base;
+#else
+  // four-point normal (centered)
+  Vector3 dx = right - left;
+  Vector3 dy = bottom - top;
+#endif
   Vector3 normal = -normalize(cross_prod(dx, dy)); // so normal points up
 
   // TODO: Must iterate over all images below.
@@ -773,6 +800,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Prefix for output filenames.")
     ("max-iterations,n", po::value(&opt.max_iterations)->default_value(100),
      "Set the maximum number of iterations.")
+    ("reflectance-type,n", po::value(&opt.reflectance_type)->default_value(1),
+     "Reflectance type (0 = Lambertian, 1 = Lunar Lambertian).")
     ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(1.0),
      "A larger value will result in a smoother solution.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
@@ -837,9 +866,15 @@ int main(int argc, char* argv[]) {
     }
 
     GlobalParams global_params;
-    global_params.reflectanceType = LUNAR_LAMBERT;
-    global_params.phaseCoeffC1    = 1.383488;
-    global_params.phaseCoeffC2    = 0.501149;
+    if (opt.reflectance_type == 0)
+      global_params.reflectanceType = LAMBERT;
+    else if (opt.reflectance_type == 1)
+      global_params.reflectanceType = LUNAR_LAMBERT;
+    else
+      vw_throw( ArgumentErr() << "Expecting Lambertian or Lunar-Lambertian reflectance." );
+
+    global_params.phaseCoeffC1    = 0; //1.383488;
+    global_params.phaseCoeffC2    = 0; //0.501149;
     //PrintGlobalParams(global_params);
 
     int num_images = opt.input_images.size();
