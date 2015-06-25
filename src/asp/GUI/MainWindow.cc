@@ -75,18 +75,21 @@ MainWindow::MainWindow(std::vector<std::string> const& images,
     std::vector<std::string> left_images, right_images;
     // TODO: Verify that these are valid images.
     // TODO: Invoke here asp's handle_arguments().
-    if (images.size() < 2) {
-      vw_throw( ArgumentErr() << "Stereo must use two images.\n");
-    }
-    left_images.push_back(images[0]);
-    right_images.push_back(images[1]);
+    if (images.size() >= 1)
+      left_images.push_back(images[0]);
+    if (images.size() >= 2)
+      right_images.push_back(images[1]);
+
     m_left_widget = new MainWidget(centralFrame, left_images, m_chooseFiles,
                                    ignore_georef, hillshade);
-    m_right_widget = new MainWidget(centralFrame, right_images, m_chooseFiles,
-                                   ignore_georef, hillshade);
-
     splitter->addWidget(m_left_widget);
-    splitter->addWidget(m_right_widget);
+
+    if (images.size() >= 2) {
+      m_right_widget = new MainWidget(centralFrame, right_images, m_chooseFiles,
+                                      ignore_georef, hillshade);
+      splitter->addWidget(m_right_widget);
+    }
+
 #endif
     QGridLayout *layout = new QGridLayout(centralFrame);
     layout->addWidget (splitter, 0, 0, 0);
