@@ -39,8 +39,10 @@ namespace po = boost::program_options;
 
 MainWindow::MainWindow(std::vector<std::string> const& images,
                        std::string const& geom,
-                       bool ignore_georef, bool hillshade, int argc,  char ** argv) :
+                       bool ignore_georef, bool hillshade,
+                       int argc,  char ** argv) :
   m_images(images), m_widRatio(0.3), m_main_widget(NULL),
+  m_left_widget(NULL), m_right_widget(NULL),
   m_chooseFiles(NULL), m_argc(argc), m_argv(argv) {
 
   int windowWidX, windowWidY;
