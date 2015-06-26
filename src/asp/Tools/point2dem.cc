@@ -314,7 +314,6 @@ void split_number_string(const std::string &input, std::vector<double> &output) 
   double val;
   std::stringstream stream(s);
   while (stream >> val) {
-    vw_out() << "val = " << val << std::endl;
     output.push_back(val);
   }
 }
@@ -436,15 +435,14 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                             << usage << general_options );
   }
 
-  // TODO: Restore double check!
+  if ( (dem_spacing1.size() > 0) && (dem_spacing2.size() > 0) ){
+    vw_throw( ArgumentErr() << "The DEM spacing was specified twice.\n"
+                            << usage << general_options );
+  }
 
   // Consolidate the dem_spacing and tr parameters
-  vw_out() << "D1 = #" << dem_spacing1 << "#" << std::endl;
-  vw_out() << "D2 = #" << dem_spacing2 << "#" << std::endl;
   if (dem_spacing1.size() < dem_spacing2.size())
     dem_spacing1 = dem_spacing2; // Now we can just use dem_spacing1
-
-  vw_out() << dem_spacing1 << std::endl;
 
   // Extract the list of numbers from the input string
   split_number_string(dem_spacing1, opt.dem_spacing);
@@ -460,15 +458,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     }
     if (opt.dem_spacing[i] > 0)
       spacing_provided = true;
-    vw_out() << "#" << opt.dem_spacing[i] << "#, ";
   }
-  //vw_throw( ArgumentErr() << "DEBUG!@!!!!.\n");
-
-  //if (dem_spacing1 != 0 && dem_spacing2 != 0){
-  //  vw_throw( ArgumentErr() << "The DEM spacing was specified twice.\n"
-  //                          << usage << general_options );
-  //}
-  //opt.dem_spacing = std::max(dem_spacing1, dem_spacing2);
 
   if (opt.has_las_or_csv && !spacing_provided){
     vw_throw( ArgumentErr() << "When inputs are LAS or CSV files, the "
@@ -476,8 +466,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   }
 
   if ( opt.out_prefix.empty() )
-    opt.out_prefix =
-      asp::prefix_from_pointcloud_filename( opt.pointcloud_files[0] );
+    opt.out_prefix = asp::prefix_from_pointcloud_filename( opt.pointcloud_files[0] );
 
   if (opt.use_surface_sampling){
     vw_out(WarningMessage) << "The --use-surface-sampling option invokes the old algorithm and "
@@ -712,8 +701,7 @@ namespace asp{
     // the current block.  If the block size is 256, and hole fill len
     // is big, like 512 or 1024, we end up processing a huge block
     // only to save a small center block.  For that reason, save
-    // temporarily with big blocks, and then re-save with small
-    // blocks.
+    // temporarily with big blocks, and then re-save with small blocks.
     if (hole_fill_len > 512)
       vw_out(WarningMessage) << "Detected large hole-fill length. Memory usage and run-time may go up.\n";
 
@@ -1001,6 +989,7 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
   rasterizer.set_use_minz_as_default(false);
   rasterizer.set_default_value(opt.nodata_value);
 
+  vw_out() << "\t-- Starting DEM rasterization --\n";
   vw_out() << "\t--> DEM spacing: " <<     rasterizer.spacing() << " pt/px\n";
   vw_out() << "\t             or: " << 1.0/rasterizer.spacing() << " px/pt\n";
 
@@ -1087,8 +1076,7 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
          opt.nodata_value);
     }
 
-    vw_out()<< "Creating output file that is " << bounding_box(dem).size()
-            << " px.\n";
+    vw_out()<< "Creating output file that is " << bounding_box(dem).size() << " px.\n";
 
     save_image(opt, dem, georef, hole_fill_len, "DEM");
     sw2.stop();
@@ -1174,6 +1162,14 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
 } // End do_software_rasterization
 
 
+// TODO: Move somewhere else
+template <typename T>
+std::string itoa(const T i) {
+  std::stringstream s;
+  s << i;
+  return s.str();
+}
+
 // Wrapper for do_software_rasterization that goes through all spacing values
 void do_software_rasterization_multi_spacing( const ImageViewRef<Vector3>& proj_point_input,
                                               Options& opt,
@@ -1195,6 +1191,8 @@ void do_software_rasterization_multi_spacing( const ImageViewRef<Vector3>& proj_
   sw1.stop();
   vw_out(DebugMessage,"asp") << "Quad time: " << sw1.elapsed_seconds() << std::endl;
 
+  std::string base_out_prefix = opt.out_prefix;
+
   // Call the function for each dem spacing
   for (size_t i=0; i<opt.dem_spacing.size(); ++i) {
     double this_spacing = opt.dem_spacing[i];
@@ -1202,9 +1200,13 @@ void do_software_rasterization_multi_spacing( const ImageViewRef<Vector3>& proj_
     // Required second init step for each spacing
     rasterizer.initialize_spacing(this_spacing);
     
+    // Each spacing gets a variation of the output prefix
+    opt.out_prefix = base_out_prefix + "_" + itoa(i);
     do_software_rasterization( rasterizer, opt, georef,
                                error_image, estim_max_error);
-  } // End loop through spacings                                     
+  } // End loop through spacings   
+                                    
+  opt.out_prefix = base_out_prefix; // Restore the original value
 }
 
 
