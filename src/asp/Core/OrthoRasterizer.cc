@@ -327,9 +327,11 @@ namespace asp{
     
   }
 
+
+
+
   OrthoRasterizerView::OrthoRasterizerView
   (ImageViewRef<Vector3> point_image, ImageViewRef<double> texture,
-   double spacing,
    double search_radius_factor, bool use_surface_sampling, int pc_tile_size,
    bool remove_outliers_with_pct, Vector2 const& remove_outliers_params,
    ImageViewRef<double> const& error_image, double estim_max_error,
@@ -338,7 +340,7 @@ namespace asp{
    const ProgressCallback& progress):
     // Ensure all members are initiated, even if to temporary values
     m_point_image(point_image), m_texture(ImageView<float>(1,1)),
-    m_bbox(BBox3()), m_spacing(0.0), m_default_spacing(0.0),
+    m_bbox(BBox3()), m_snapped_bbox(BBox3()), m_spacing(0.0), m_default_spacing(0.0),
     m_default_spacing_x(0.0), m_default_spacing_y(0.0),
     m_search_radius_factor(search_radius_factor),
     m_use_surface_sampling(use_surface_sampling),
@@ -399,67 +401,13 @@ namespace asp{
     progress.report_finished();
 
     if ( m_bbox.empty() )
-      vw_throw( ArgumentErr() <<
-                "OrthoRasterize: Input point cloud is empty!\n" );
+      vw_throw( ArgumentErr() << "OrthoRasterize: Input point cloud is empty!\n" );
     VW_OUT(DebugMessage,"asp") << "Point cloud boundary is " << m_bbox << "\n";
 
-    // Find the width and height of the median point cloud pixel in
-    // projected coordinates. For las or csv files, this approach
-    // does not work.
-    int len = m_point_image_boundaries.size();
-    if (!has_las_or_csv){
-      // This vectors can be large, so don't keep them for too long
-      std::vector<double> vx, vy;
-      vx.reserve(len); vx.clear();
-      vy.reserve(len); vy.clear();
-      BOOST_FOREACH( BBoxPair const& boundary, m_point_image_boundaries ) {
-        if (boundary.first.empty()) continue;
-        vx.push_back(boundary.first.width() /sub_block_size);
-        vy.push_back(boundary.first.height()/sub_block_size);
-      }
-      std::sort(vx.begin(), vx.end());
-      std::sort(vy.begin(), vy.end());
-      if (len > 0){
-        // Get the median
-        m_default_spacing_x = vx[(int)(0.5*len)];
-        m_default_spacing_y = vy[(int)(0.5*len)];
-      }
-    }
-      
-    // This must happen after the bounding box was computed, but
-    // before setting the spacing.
-    if (m_use_surface_sampling){
-      // Old way
-      BBox3 bbox = bounding_box();
-      double bbox_width = fabs(bbox.max().x() - bbox.min().x());
-      double bbox_height = fabs(bbox.max().y() - bbox.min().y());
-      double input_image_width = m_point_image.cols();
-      double input_image_height = m_point_image.rows();
-      // The formula below is not so good, its output depends strongly
-      // on how many rows and columns are in the point cloud.
-      m_default_spacing
-        = std::max(bbox_width, bbox_height) / std::max(input_image_width,
-                                                       input_image_height);
-    }else{
-      // We choose the coarsest of the two spacings
-      m_default_spacing = std::max(m_default_spacing_x, m_default_spacing_y);
-    }
-      
-    // Set the sampling rate (i.e. spacing between pixels)
-    this->set_spacing(spacing);
-    VW_OUT(DebugMessage,"asp") << "Pixel spacing is " << m_spacing << " pnt/px\n";
-
-    // We will snap the box so that its corners are integer multiples
-    // of the grid size. This ensures that any two DEMs
-    // with the same grid size and overlapping grids have those
-    // grids match perfectly.
-    m_bbox.min() = m_spacing*floor(m_bbox.min()/m_spacing);
-    m_bbox.max() = m_spacing*ceil(m_bbox.max()/m_spacing);
-    
+     
     if (remove_outliers_with_pct){
       // Find the outlier cutoff from the histogram of all errors.
-      // The cutoff is the outlier factor times the percentile
-      // of the errors.
+      // The cutoff is the outlier factor times the percentile of the errors.
       double pct    = remove_outliers_params[0]/100.0; // e.g., 0.75
       double factor = remove_outliers_params[1];       // e.g., 3.0
       int hist_size = errors_hist.size();
@@ -487,18 +435,82 @@ namespace asp{
       vw_out() << "Manual triangulation error cutoff is "
                << m_error_cutoff << " meters.\n";
     }
+    
+
+    // Find the width and height of the median point cloud pixel in
+    // projected coordinates. For las or csv files, this approach
+    // does not work.
+    int len = m_point_image_boundaries.size();
+    if (!has_las_or_csv){
+      // This vectors can be large, so don't keep them for too long
+      std::vector<double> vx, vy;
+      vx.reserve(len); vx.clear();
+      vy.reserve(len); vy.clear();
+      BOOST_FOREACH( BBoxPair const& boundary, m_point_image_boundaries ) {
+        if (boundary.first.empty()) continue;
+        vx.push_back(boundary.first.width() /sub_block_size);
+        vy.push_back(boundary.first.height()/sub_block_size);
+      }
+      std::sort(vx.begin(), vx.end());
+      std::sort(vy.begin(), vy.end());
+      if (len > 0){
+        // Get the median
+        m_default_spacing_x = vx[(int)(0.5*len)];
+        m_default_spacing_y = vy[(int)(0.5*len)];
+      }
+    }
       
     return;
-  }
+  } // End OrthoRasterizerView Constructor
+
+
+  // This is kind of like part 2 of the constructor
+  // - This function finalizes the spacing and generates a spacing-snapped BBox.
+  void OrthoRasterizerView::initialize_spacing(const double spacing) {
+  
+    // This must happen after the bounding box was computed, but
+    // before setting the spacing.
+    if (m_use_surface_sampling){
+      // Old way
+      BBox3 bbox = bounding_box();
+      double bbox_width  = fabs(bbox.max().x() - bbox.min().x());
+      double bbox_height = fabs(bbox.max().y() - bbox.min().y());
+      double input_image_width  = m_point_image.cols();
+      double input_image_height = m_point_image.rows();
+      // The formula below is not so good, its output depends strongly
+      // on how many rows and columns are in the point cloud.
+      m_default_spacing
+        = std::max(bbox_width, bbox_height) / std::max(input_image_width,
+                                                       input_image_height);
+    }else{
+      // We choose the coarsest of the two spacings
+      m_default_spacing = std::max(m_default_spacing_x, m_default_spacing_y);
+    }
+      
+    // Set the sampling rate (i.e. spacing between pixels)
+    this->set_spacing(spacing);
+    VW_OUT(DebugMessage,"asp") << "Pixel spacing is " << m_spacing << " pnt/px\n";
+
+    // We will snap the box so that its corners are integer multiples
+    // of the grid size. This ensures that any two DEMs
+    // with the same grid size and overlapping grids have those
+    // grids match perfectly.
+    m_snapped_bbox = m_bbox;
+    snap_bbox(m_spacing, m_snapped_bbox); // TODO: Class function!
+  
+  } // End function initialize_spacing()
+
+
+
 
   // Function to convert pixel coordinates to the point domain
   BBox3 OrthoRasterizerView::pixel_to_point_bbox( BBox2 const& px ) const {
-    BBox3 output = m_bbox;
+    BBox3 output = m_snapped_bbox;
     int d = (int)m_use_surface_sampling;
-    output.min().x() = m_bbox.min().x() + ((double(px.min().x() - d)) * m_spacing);
-    output.max().x() = m_bbox.min().x() + ((double(px.max().x() - d)) * m_spacing);
-    output.min().y() = m_bbox.min().y() + ((double(rows() - px.max().y() - d)) * m_spacing);
-    output.max().y() = m_bbox.min().y() + ((double(rows() - px.min().y() - d)) * m_spacing);
+    output.min().x() = m_snapped_bbox.min().x() + ((double(px.min().x() - d)) * m_spacing);
+    output.max().x() = m_snapped_bbox.min().x() + ((double(px.max().x() - d)) * m_spacing);
+    output.min().y() = m_snapped_bbox.min().y() + ((double(rows() - px.max().y() - d)) * m_spacing);
+    output.max().y() = m_snapped_bbox.min().y() + ((double(rows() - px.min().y() - d)) * m_spacing);
     return output;
   }
 
@@ -551,7 +563,7 @@ namespace asp{
       // use this dummy value to denote transparency
       min_val = std::numeric_limits<float>::min();
     } else if (m_minz_as_default) {
-      min_val = m_bbox.min().z();
+      min_val = m_snapped_bbox.min().z();
     } else {
       min_val = m_default_value;
     }
@@ -730,8 +742,8 @@ namespace asp{
     geo_transform.set_identity();
     geo_transform(0,0) = m_spacing;
     geo_transform(1,1) = -m_spacing;
-    geo_transform(0,2) = m_bbox.min().x();
-    geo_transform(1,2) = m_bbox.max().y();
+    geo_transform(0,2) = m_snapped_bbox.min().x();
+    geo_transform(1,2) = m_snapped_bbox.max().y();
     return geo_transform;
   }
   

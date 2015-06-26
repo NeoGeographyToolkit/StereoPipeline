@@ -64,7 +64,8 @@ struct Options : asp::BaseOptions {
   std::vector<std::string> pointcloud_files, texture_files;
 
   // Settings
-  float       dem_spacing, nodata_value;
+  std::vector<double> dem_spacing;
+  float       nodata_value;
   double      semi_major, semi_minor;
   std::string reference_spheroid;
   double      phi_rot, omega_rot, kappa_rot;
@@ -92,9 +93,8 @@ struct Options : asp::BaseOptions {
   // Output
   std::string out_prefix, output_file_type;
 
-  // Defaults that the user doesn't need to see. (The Magic behind the
-  // curtain).
-  Options() : dem_spacing(0), nodata_value(std::numeric_limits<float>::quiet_NaN()),
+  // Defaults that the user doesn't need to see. (The Magic behind the curtain).
+  Options() : nodata_value(std::numeric_limits<float>::quiet_NaN()),
               semi_major(0), semi_minor(0), fsaa(1),
               dem_hole_fill_len(0), ortho_hole_fill_len(0),
               remove_outliers_with_pct(true), max_valid_triangulation_error(0),
@@ -302,9 +302,26 @@ void las_or_csv_to_tifs(Options& opt,
 
 }
 
+// TODO: Move this somewhere?
+/// Parses a string containing a list of numbers
+void split_number_string(const std::string &input, std::vector<double> &output) {
+
+  // Get a space delimited string
+  std::string delimiter = " ";
+  std::string s = input;
+  std::replace( s.begin(), s.end(), ',', ' ');
+
+  double val;
+  std::stringstream stream(s);
+  while (stream >> val) {
+    vw_out() << "val = " << val << std::endl;
+    output.push_back(val);
+  }
+}
+
 void handle_arguments( int argc, char *argv[], Options& opt ) {
 
-  float dem_spacing1, dem_spacing2;
+  std::string dem_spacing1, dem_spacing2;
 
   po::options_description manipulation_options("Manipulation options");
   manipulation_options.add_options()
@@ -322,10 +339,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("t_srs",         po::value(&opt.target_srs_string)->default_value(""), "Specify the output projection (PROJ.4 string).")
     ("t_projwin",     po::value(&opt.target_projwin), 
              "Selects a subwindow from the source image for copying but with the corners given in georeferenced coordinates. Max is exclusive.")
-    ("dem-spacing,s", po::value(&dem_spacing1)->default_value(0.0),
-             "Set output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically (except for LAS and CSV files). This is the same as the --tr option.")
-    ("tr",            po::value(&dem_spacing2)->default_value(0.0),
-             "Set output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically (except for LAS and CSV files). This is the same as the --dem-spacing option.")
+    ("dem-spacing,s", po::value(&dem_spacing1)->default_value(""),
+             "Set output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically (except for LAS and CSV files). You can set multiple spacings in quotes to generate multiple output files. This is the same as the --tr option.")
+    ("tr",            po::value(&dem_spacing2)->default_value(""), "This is identical to the --dem-spacing option.")
     ("reference-spheroid,r", po::value(&opt.reference_spheroid),
             "Set the reference spheroid [Earth, Moon, Mars]. This will override manually set datum information.")
     ("semi-major-axis",      po::value(&opt.semi_major)->default_value(0), "Explicitly set the datum semi-major axis in meters.")
@@ -420,20 +436,41 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                             << usage << general_options );
   }
 
-  // A fix to the unfortunate fact that the user can specify the DEM
-  // spacing in two ways on the command line.
-  if (dem_spacing1 < 0.0 || dem_spacing2 < 0.0 ){
-    // Note: Zero spacing means we'll set it internally.
-    vw_throw( ArgumentErr() << "The DEM spacing must be non-negative.\n"
-                            << usage << general_options );
-  }
-  if (dem_spacing1 != 0 && dem_spacing2 != 0){
-    vw_throw( ArgumentErr() << "The DEM spacing was specified twice.\n"
-                            << usage << general_options );
-  }
-  opt.dem_spacing = std::max(dem_spacing1, dem_spacing2);
+  // TODO: Restore double check!
 
-  if (opt.has_las_or_csv && opt.dem_spacing <= 0){
+  // Consolidate the dem_spacing and tr parameters
+  vw_out() << "D1 = #" << dem_spacing1 << "#" << std::endl;
+  vw_out() << "D2 = #" << dem_spacing2 << "#" << std::endl;
+  if (dem_spacing1.size() < dem_spacing2.size())
+    dem_spacing1 = dem_spacing2; // Now we can just use dem_spacing1
+
+  vw_out() << dem_spacing1 << std::endl;
+
+  // Extract the list of numbers from the input string
+  split_number_string(dem_spacing1, opt.dem_spacing);
+  if (opt.dem_spacing.size() == 0)
+    opt.dem_spacing.push_back(0.0); // Make sure we have a number!
+
+  bool spacing_provided = false;
+  for (size_t i=0; i<opt.dem_spacing.size(); ++i) {
+    if (opt.dem_spacing[i] < 0.0){
+      // Note: Zero spacing means we'll set it internally.
+      vw_throw( ArgumentErr() << "The DEM spacing must be non-negative.\n"
+                              << usage << general_options );
+    }
+    if (opt.dem_spacing[i] > 0)
+      spacing_provided = true;
+    vw_out() << "#" << opt.dem_spacing[i] << "#, ";
+  }
+  //vw_throw( ArgumentErr() << "DEBUG!@!!!!.\n");
+
+  //if (dem_spacing1 != 0 && dem_spacing2 != 0){
+  //  vw_throw( ArgumentErr() << "The DEM spacing was specified twice.\n"
+  //                          << usage << general_options );
+  //}
+  //opt.dem_spacing = std::max(dem_spacing1, dem_spacing2);
+
+  if (opt.has_las_or_csv && !spacing_provided){
     vw_throw( ArgumentErr() << "When inputs are LAS or CSV files, the "
                             << "output DEM resolution must be set.\n" );
   }
@@ -949,26 +986,15 @@ namespace asp{
 
 } // end namespace asp
 
+
+
 /// ?
-void do_software_rasterization( const ImageViewRef<Vector3>& proj_point_input,
+void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
                                 Options& opt,
                                 cartography::GeoReference& georef,
                                 ImageViewRef<double> const& error_image,
                                 double estim_max_error) {
-  Stopwatch sw1;
-  sw1.start();
-  asp::OrthoRasterizerView
-    rasterizer(proj_point_input.impl(), select_channel(proj_point_input.impl(),2),
-               opt.dem_spacing, opt.search_radius_factor, opt.use_surface_sampling,
-               Options::tri_tile_size(), // to efficiently process the cloud
-               opt.remove_outliers_with_pct, opt.remove_outliers_params,
-               error_image, estim_max_error, opt.max_valid_triangulation_error,
-               opt.median_filter_params, opt.erode_len, opt.has_las_or_csv,
-               TerminalProgressCallback("asp","QuadTree: ") );
-
-  sw1.stop();
-  vw_out(DebugMessage,"asp") << "Quad time: " << sw1.elapsed_seconds() << std::endl;
-
+                                
   if (!opt.has_nodata_value) {
     opt.nodata_value = std::floor(rasterizer.bounding_box().min().z() - 1);
   }
@@ -1147,6 +1173,43 @@ void do_software_rasterization( const ImageViewRef<Vector3>& proj_point_input,
   }
 } // End do_software_rasterization
 
+
+// Wrapper for do_software_rasterization that goes through all spacing values
+void do_software_rasterization_multi_spacing( const ImageViewRef<Vector3>& proj_point_input,
+                                              Options& opt,
+                                              cartography::GeoReference& georef,
+                                              ImageViewRef<double> const& error_image,
+                                              double estim_max_error) {
+  // Perform the slow initialization that can be shared by all output resolutions
+  Stopwatch sw1;
+  sw1.start();
+  asp::OrthoRasterizerView
+    rasterizer(proj_point_input.impl(), select_channel(proj_point_input.impl(),2),
+               opt.search_radius_factor, opt.use_surface_sampling,
+               Options::tri_tile_size(), // to efficiently process the cloud
+               opt.remove_outliers_with_pct, opt.remove_outliers_params,
+               error_image, estim_max_error, opt.max_valid_triangulation_error,
+               opt.median_filter_params, opt.erode_len, opt.has_las_or_csv,
+               TerminalProgressCallback("asp","QuadTree: ") );
+               
+  sw1.stop();
+  vw_out(DebugMessage,"asp") << "Quad time: " << sw1.elapsed_seconds() << std::endl;
+
+  // Call the function for each dem spacing
+  for (size_t i=0; i<opt.dem_spacing.size(); ++i) {
+    double this_spacing = opt.dem_spacing[i];
+    
+    // Required second init step for each spacing
+    rasterizer.initialize_spacing(this_spacing);
+    
+    do_software_rasterization( rasterizer, opt, georef,
+                               error_image, estim_max_error);
+  } // End loop through spacings                                     
+}
+
+
+//-----------------------------------------------------------------------------------
+
 int main( int argc, char *argv[] ) {
 
   Options opt;
@@ -1303,7 +1366,7 @@ int main( int argc, char *argv[] ) {
     if (opt.lon_offset != 0 || opt.lat_offset != 0 || opt.height_offset != 0) {
       vw_out() << "\t--> Applying offset: " << opt.lon_offset
                << " " << opt.lat_offset << " " << opt.height_offset << "\n";
-      do_software_rasterization
+      do_software_rasterization_multi_spacing
           (geodetic_to_point  // GDC to XYZ
               (asp::point_image_offset  // Add user coordinate offset
                   (asp::recenter_longitude(cartesian_to_geodetic(point_image,output_georef), // XYZ to GDC, then normalize longitude
@@ -1314,7 +1377,7 @@ int main( int argc, char *argv[] ) {
                output_georef),
            opt, output_georef, error_image, estim_max_error);
     } else {
-      do_software_rasterization
+      do_software_rasterization_multi_spacing
           (geodetic_to_point
               (asp::recenter_longitude
                   (cartesian_to_geodetic(point_image, output_georef), 

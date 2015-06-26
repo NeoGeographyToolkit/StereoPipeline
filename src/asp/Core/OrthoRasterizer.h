@@ -36,26 +36,30 @@ namespace asp{
 
   typedef std::pair<BBox3, BBox2i> BBoxPair;
   
+  /// Given a point image and corresponding texture, this class
+  /// bins and averages the point cloud on a regular grid over the [x,y]
+  /// plane of the point image; producing an evenly sampled ortho-image
+  /// with interpolated z values.
   class OrthoRasterizerView:
     public ImageViewBase<OrthoRasterizerView> {
     ImageViewRef<Vector3> m_point_image;
-    ImageViewRef<float> m_texture;
-    BBox3 m_bbox;             // bounding box of point cloud
-    double m_spacing;         // point cloud units (usually m or deg) per pixel
-    double m_default_spacing; // if user did not specify spacing
-    double m_default_spacing_x;
-    double m_default_spacing_y;
-    double m_search_radius_factor;
-    bool m_use_surface_sampling;
-    double m_default_value;
-    bool m_minz_as_default;
-    bool m_use_alpha;
-    int m_block_size;
-    int m_hole_fill_len;
+    ImageViewRef<float>   m_texture;
+    BBox3   m_bbox, m_snapped_bbox; // bounding box of point cloud
+    double  m_spacing;         // point cloud units (usually m or deg) per pixel
+    double  m_default_spacing; // if user did not specify spacing
+    double  m_default_spacing_x;
+    double  m_default_spacing_y;
+    double  m_search_radius_factor;
+    bool    m_use_surface_sampling;
+    double  m_default_value;
+    bool    m_minz_as_default;
+    bool    m_use_alpha;
+    int     m_block_size;
+    int     m_hole_fill_len;
     ImageViewRef<double> const& m_error_image;
-    double m_error_cutoff;
+    double  m_error_cutoff;
     Vector2 m_median_filter_params;
-    int m_erode_len;
+    int     m_erode_len;
     
     // We could actually use a quadtree here .. but this should be a
     // good enough improvement.
@@ -74,19 +78,22 @@ namespace asp{
     typedef ProceduralPixelAccessor<OrthoRasterizerView> pixel_accessor;
     static int max_subblock_size(){ return 128;} // is used in point2dem and below
 
+    /// Constructor.  You must call initialize_spacing before using the object!!
     OrthoRasterizerView(ImageViewRef<Vector3> point_image,
                         ImageViewRef<double> texture,
-                        double spacing,
-                        double search_radius_factor, bool use_surface_sampling,
-                        int pc_tile_size, bool remove_outliers_with_pct,
+                        double  search_radius_factor, bool use_surface_sampling,
+                        int     pc_tile_size, bool remove_outliers_with_pct,
                         Vector2 const& remove_outliers_params,
                         ImageViewRef<double> const& error_image,
-                        double estim_max_error,
-                        double max_valid_triangulation_error,
+                        double  estim_max_error,
+                        double  max_valid_triangulation_error,
                         Vector2 median_filter_params,
-                        int erode_len,
-                        bool has_las_or_csv,
+                        int     erode_len,
+                        bool    has_las_or_csv,
                         const ProgressCallback& progress);
+    
+    /// This must be called before the object can be used!
+    void initialize_spacing(double spacing=0.0);
     
     /// You can change the texture after the class has been
     /// initialized.  The texture image must have the same dimensions
@@ -164,7 +171,7 @@ namespace asp{
       m_hole_fill_len = (int)round((m_spacing/m_default_spacing)*hole_fill_len);
     }
     
-    BBox3 bounding_box() { return m_bbox; }
+    BBox3 bounding_box() const { return m_bbox; }
 
     // Return the affine georeferencing transform.
     vw::Matrix<double,3,3> geo_transform();
@@ -174,6 +181,14 @@ namespace asp{
                                        BBox3 & bbox);
     
   };
+
+  // TODO: Make this a BBox class function!!!
+  /// Snaps the coordinates of a BBox to a grid spacing  
+  template <size_t N>
+  void snap_bbox(const double spacing, BBox<double, N> &bbox ) {
+    bbox.min() = spacing*floor(bbox.min()/spacing);
+    bbox.max() = spacing*ceil (bbox.max()/spacing);
+  }
   
 } // namespace asp
 
