@@ -108,8 +108,8 @@ namespace asp{
       m_texture = channel_cast<float>(channels_to_planes(texture.impl()));
     }
 
-    inline int32 cols() const { return (int) round((fabs(m_bbox.max().x() - m_bbox.min().x()) / m_spacing)) + 1; }
-    inline int32 rows() const { return (int) round((fabs(m_bbox.max().y() - m_bbox.min().y()) / m_spacing)) + 1; }
+    inline int32 cols() const { return (int) round((fabs(m_snapped_bbox.max().x() - m_snapped_bbox.min().x()) / m_spacing)) + 1; }
+    inline int32 rows() const { return (int) round((fabs(m_snapped_bbox.max().y() - m_snapped_bbox.min().y()) / m_spacing)) + 1; }
     
     inline int32 planes() const { return 1; }
 
@@ -171,7 +171,7 @@ namespace asp{
       m_hole_fill_len = (int)round((m_spacing/m_default_spacing)*hole_fill_len);
     }
     
-    BBox3 bounding_box() const { return m_bbox; }
+    BBox3 bounding_box() const { return m_snapped_bbox; }
 
     // Return the affine georeferencing transform.
     vw::Matrix<double,3,3> geo_transform();

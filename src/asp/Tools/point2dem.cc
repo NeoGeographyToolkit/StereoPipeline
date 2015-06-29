@@ -976,7 +976,7 @@ namespace asp{
 
 
 
-/// ?
+/// Do more work!
 void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
                                 Options& opt,
                                 cartography::GeoReference& georef,
@@ -1051,8 +1051,7 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
   // rather than filling holes in the cloud first. This is faster.
   rasterizer.set_hole_fill_len(0);
 
-  ImageViewRef< PixelGray<float> > rasterizer_fsaa =
-    generate_fsaa_raster( rasterizer, opt );
+  ImageViewRef< PixelGray<float> > rasterizer_fsaa = generate_fsaa_raster( rasterizer, opt );
 
   // Write out the DEM. We've set the texture to be the height.
   Vector2 tile_size(vw_settings().default_tile_size(),
@@ -1141,8 +1140,7 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
     rasterizer_fsaa = generate_fsaa_raster( rasterizer, opt );
     save_image(opt, rasterizer_fsaa, georef, hole_fill_len, "DRG");
     sw3.stop();
-    vw_out(DebugMessage,"asp") << "DRG render time: "
-                               << sw3.elapsed_seconds() << std::endl;
+    vw_out(DebugMessage,"asp") << "DRG render time: " << sw3.elapsed_seconds() << std::endl;
   }
 
   // Write out a normalized version of the DEM, if requested (for debugging)
@@ -1201,7 +1199,10 @@ void do_software_rasterization_multi_spacing( const ImageViewRef<Vector3>& proj_
     rasterizer.initialize_spacing(this_spacing);
     
     // Each spacing gets a variation of the output prefix
-    opt.out_prefix = base_out_prefix + "_" + itoa(i);
+    if (i == 0)
+      opt.out_prefix = base_out_prefix;
+    else // Write later iterations to a different path!!
+      opt.out_prefix = base_out_prefix + "_" + itoa(i);
     do_software_rasterization( rasterizer, opt, georef,
                                error_image, estim_max_error);
   } // End loop through spacings   

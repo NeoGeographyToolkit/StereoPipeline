@@ -472,7 +472,7 @@ namespace asp{
     // before setting the spacing.
     if (m_use_surface_sampling){
       // Old way
-      BBox3 bbox = bounding_box();
+      BBox3 bbox = m_bbox;
       double bbox_width  = fabs(bbox.max().x() - bbox.min().x());
       double bbox_height = fabs(bbox.max().y() - bbox.min().y());
       double input_image_width  = m_point_image.cols();
@@ -594,10 +594,8 @@ namespace asp{
       BBox2i pc_block = boundary.second;
         
       BBox2i snapped_block;
-      snapped_block.min()
-        = m_block_size*floor(pc_block.min()/double(m_block_size));
-      snapped_block.max()
-        = m_block_size*ceil(pc_block.max()/double(m_block_size));
+      snapped_block.min() = m_block_size*floor(pc_block.min()/double(m_block_size));
+      snapped_block.max() = m_block_size*ceil( pc_block.max()/double(m_block_size));
       std::map<BBox2i, BBox2i, compare_bboxes>::iterator it = blocks_map.find(snapped_block);
       if (it != blocks_map.end() ){
         (it->second).grow(pc_block);
