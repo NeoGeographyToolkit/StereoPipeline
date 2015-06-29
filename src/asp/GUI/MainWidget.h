@@ -341,6 +341,10 @@ private:
     bool  m_firstPaintEvent;
     QRect m_emptyRubberBand;
     QRect m_rubberBand, m_stereoCropWin;
+    QRect m_stereoCropWinScreen; // in screen coords
+
+    // if we are selecting a crop win to do stereo in
+    bool m_cropWinMode;
 
     // Use double buffering: draw to a pixmap first, refresh it only
     // if really necessary, and display it when paintEvent is called.

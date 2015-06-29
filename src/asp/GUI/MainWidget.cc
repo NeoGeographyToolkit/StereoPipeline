@@ -214,10 +214,12 @@ MainWidget::MainWidget(QWidget *parent,
 
   installEventFilter(this);
 
-  m_firstPaintEvent = true;
-  m_emptyRubberBand = QRect(0, 0, 0, 0);
-  m_rubberBand      = m_emptyRubberBand;
-  m_stereoCropWin   = m_emptyRubberBand;
+  m_firstPaintEvent     = true;
+  m_emptyRubberBand     = QRect(0, 0, 0, 0);
+  m_rubberBand          = m_emptyRubberBand;
+  m_stereoCropWin       = m_emptyRubberBand;
+  m_stereoCropWinScreen = m_emptyRubberBand;
+  m_cropWinMode         = false;
 
   m_mousePrsX = 0; m_mousePrsY = 0;
   m_mouseRelX = 0; m_mouseRelY = 0;
@@ -305,30 +307,24 @@ void MainWidget::showFilesChosenByUser(){
 }
 
 BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
-  BBox2 out_box;
+  BBox2 out_box = box;
   double aspect = double(m_window_width) / m_window_height;
-  double maxdim = std::max(box.width(),box.height());
-  if (box.width() > box.height()) {
-    double width = maxdim;
-    double height = maxdim/aspect;
-    double extra = height - box.height();
-    out_box = BBox2(Vector2(0.0, -extra/2),
-                           Vector2(width, height-extra/2));
-  } else {
-    double width = maxdim*aspect;
-    double height = maxdim;
-    double extra = width - box.width();
-    out_box = BBox2(Vector2(-extra/2, 0.0),
-                           Vector2(width-extra/2, height));
+  if (box.width() / box.height() < aspect) {
+    // Width needs to grow
+    double new_width = box.height() * aspect;
+    double delta = (new_width - box.width())/2.0;
+    out_box.min().x() -= delta; out_box.max().x() += delta;
+  }else if (box.width() / box.height() > aspect) {
+    // Height needs to grow
+    double new_height = box.width() / aspect;
+    double delta = (new_height - box.height())/2.0;
+    out_box.min().y() -= delta; out_box.max().y() += delta;
   }
-
-  // So far we just found the width and height of the current view.
-  // Now place it in the right location.
-  out_box += box.min();
   return out_box;
 }
 
 void MainWidget::size_to_fit() {
+
   m_current_view = expand_box_to_keep_aspect_ratio(m_images_box);
 
   // If this is the first time we draw the image, so right when
@@ -584,12 +580,28 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
 
   // Draw the stereo crop window
   if (m_stereoCropWin != m_emptyRubberBand) {
-    QRect R = world2screen(m_stereoCropWin);
+
+    // Need to be careful here. We have the precise crop window
+    // in screen coordinates. However, if we zoomed, this needs
+    // to be recomuted. We need this gimmicry since
+    // screen2world followed by world2screen may not bring us
+    // precisely where we started due to integer rounding
+    // issues.
+    QRect R = m_stereoCropWinScreen;
+    QRect Rnew = world2screen(m_stereoCropWin);
+    if (std::abs(R.width()  - Rnew.width()) <= 2 &&
+        std::abs(R.height() - Rnew.height()) <= 2 ) {
+      // We did not zoom, so we can still use R
+    }else{
+      // We zoomed.
+      R = Rnew;
+      m_stereoCropWinScreen = Rnew;
+    }
+
     QColor fgColor = QColor("red");
     paint.setPen(fgColor);
     paint.drawRect(R.normalized().adjusted(0, 0, -1, -1));
   }
-
 }
 
 // Call paintEvent() on the edges of the rubberband
@@ -618,6 +630,7 @@ void MainWidget::mousePressEvent(QMouseEvent *event) {
   m_last_viewport_min = QPoint( m_current_view.min().x(),
                                 m_current_view.min().y() );
   updateCurrentMousePosition();
+
 }
 
 void MainWidget::mouseMoveEvent(QMouseEvent *event) {
@@ -690,6 +703,20 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
     // but the rubberband itself is already changed.  It also updates
     // the perimeter of the new rubberband, and as can be seen in
     // MainWidget::PaintEvent() the effect is to draw the rubberband.
+
+    if(event->modifiers() & Qt::ControlModifier){
+      m_cropWinMode = true;
+    }
+
+    if (m_cropWinMode) {
+      // If there is on screen already a crop window, wipe it, as
+      // we are now in the process of creating a new one.
+      updateRubberBand(m_stereoCropWinScreen);
+      m_stereoCropWinScreen = m_emptyRubberBand;
+      m_stereoCropWin = m_emptyRubberBand;
+      updateRubberBand(m_stereoCropWinScreen);
+    }
+
   }
 
   updateCurrentMousePosition();
@@ -698,6 +725,11 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
 void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
 
   QPoint mouse_rel_pos = event->pos();
+
+  if( (event->buttons() & Qt::LeftButton) &&
+      (event->modifiers() & Qt::ControlModifier) ){
+    m_cropWinMode = true;
+  }
 
   if (event->buttons() & Qt::RightButton) {
 
@@ -716,9 +748,10 @@ void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
 
     refreshPixmap(); // will call paintEvent()
 
-  } else if(event->modifiers() & Qt::ControlModifier){
+  } else if(m_cropWinMode){
 
     // User selects the region to use for stereo
+    m_stereoCropWinScreen = m_rubberBand;
     m_stereoCropWin = screen2world(m_rubberBand);
     vw_out() << "Crop window (begx begy widx widy) is "
              << m_stereoCropWin.x()      << ' '
@@ -760,6 +793,10 @@ void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
     }
 
   }
+
+  // At this stage the user is supposed to release the control key, so
+  // we are no longer in crop win mode, even if we were so far.
+  m_cropWinMode = false;
 
   return;
 }
