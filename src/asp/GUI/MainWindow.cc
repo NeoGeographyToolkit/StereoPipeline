@@ -42,7 +42,6 @@ MainWindow::MainWindow(std::vector<std::string> const& images,
                        bool ignore_georef, bool hillshade,
                        int argc,  char ** argv) :
   m_images(images), m_widRatio(0.3), m_main_widget(NULL),
-  m_left_widget(NULL), m_right_widget(NULL),
   m_chooseFiles(NULL), m_argc(argc), m_argv(argv) {
 
   int windowWidX, windowWidY;
@@ -56,51 +55,53 @@ MainWindow::MainWindow(std::vector<std::string> const& images,
   // Set up the basic layout of the window and its menus.
   create_menus();
 
-  if (images.size() > 1){
+  //  if (images.size() > 1){
 
-    // Split the window into two, with the sidebar on the left
+  // Split the window into two, with the sidebar on the left
 
-    QWidget * centralFrame;
-    centralFrame = new QWidget(this);
-    setCentralWidget(centralFrame);
+  QWidget * centralFrame;
+  centralFrame = new QWidget(this);
+  setCentralWidget(centralFrame);
 
-    QSplitter *splitter = new QSplitter(centralFrame);
+  QSplitter *splitter = new QSplitter(centralFrame);
 #if 0
-    m_chooseFiles = new chooseFilesDlg(this);
-    m_chooseFiles->setMaximumSize(int(m_widRatio*size().width()), size().height());
-    m_main_widget = new MainWidget(centralFrame, images, m_chooseFiles,
-                                   ignore_georef, hillshade);
-    splitter->addWidget(m_chooseFiles);
-    splitter->addWidget(m_main_widget);
+  m_chooseFiles = new chooseFilesDlg(this);
+  m_chooseFiles->setMaximumSize(int(m_widRatio*size().width()), size().height());
+  m_main_widget = new MainWidget(centralFrame, images, m_chooseFiles,
+                                 ignore_georef, hillshade);
+  splitter->addWidget(m_chooseFiles);
+  splitter->addWidget(m_main_widget);
 #else
-    // for doing stereo
-    std::vector<std::string> left_images, right_images;
-    // TODO: Verify that these are valid images.
+  // for doing stereo
+  for (size_t i = 0; i < images.size(); i++) {
     // TODO: Invoke here asp's handle_arguments().
-    if (images.size() >= 1)
-      left_images.push_back(images[0]);
-    if (images.size() >= 2)
-      right_images.push_back(images[1]);
-
-    m_left_widget = new MainWidget(centralFrame, left_images, m_chooseFiles,
-                                   ignore_georef, hillshade);
-    splitter->addWidget(m_left_widget);
-
-    if (images.size() >= 2) {
-      m_right_widget = new MainWidget(centralFrame, right_images, m_chooseFiles,
-                                      ignore_georef, hillshade);
-      splitter->addWidget(m_right_widget);
+    // For now we just display all images that are valid.
+    bool is_image = true;
+    try {
+      DiskImageView<float> img(images[i]);
+    }catch(...){
+      is_image = false;
     }
+    if (!is_image) continue;
+    std::vector<std::string> local_images;
+    local_images.push_back(images[i]);
+    MainWidget * widget = new MainWidget(centralFrame, local_images,
+                                         m_chooseFiles,
+                                         ignore_georef, hillshade);
 
-#endif
-    QGridLayout *layout = new QGridLayout(centralFrame);
-    layout->addWidget (splitter, 0, 0, 0);
-    centralFrame->setLayout (layout);
-  }else{
-    // Set up MainWidget
-    m_main_widget = new MainWidget(this, images, NULL, ignore_georef, hillshade);
-    setCentralWidget(m_main_widget);
+    // TODO: When should we de-allocate m_widgets and m_main_widget?
+    m_widgets.push_back(widget);
+    splitter->addWidget(widget);
   }
+#endif
+  QGridLayout *layout = new QGridLayout(centralFrame);
+  layout->addWidget (splitter, 0, 0, 0);
+  centralFrame->setLayout (layout);
+  //   }else{
+  //     // Set up MainWidget
+  //     m_main_widget = new MainWidget(this, images, NULL, ignore_georef, hillshade);
+  //     setCentralWidget(m_main_widget);
+  //   }
 
 }
 
@@ -170,17 +171,17 @@ void MainWindow::forceQuit(){
 void MainWindow::size_to_fit(){
   if (m_main_widget)
     m_main_widget->size_to_fit();
-  if (m_left_widget)
-    m_left_widget->size_to_fit();
-  if (m_right_widget)
-    m_right_widget->size_to_fit();
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (m_widgets[i])
+      m_widgets[i]->size_to_fit();
+  }
 }
 
 void MainWindow::run_stereo(){
 
-  if (m_left_widget && m_right_widget) {
-    QRect left_win = m_left_widget->get_crop_win();
-    QRect right_win = m_right_widget->get_crop_win();
+  if (m_widgets.size() >= 2) {
+    QRect left_win = m_widgets[0]->get_crop_win();
+    QRect right_win = m_widgets[1]->get_crop_win();
 
     int left_x = left_win.x();
     int left_y = left_win.y();

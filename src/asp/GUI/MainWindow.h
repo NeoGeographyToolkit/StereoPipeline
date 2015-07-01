@@ -69,8 +69,7 @@ namespace gui {
     std::vector<std::string> m_images;
     double           m_widRatio;    // ratio of sidebar to entire win wid
     MainWidget     * m_main_widget;
-    MainWidget     * m_left_widget;
-    MainWidget     * m_right_widget;
+    std::vector<MainWidget*>  m_widgets;
     chooseFilesDlg * m_chooseFiles; // left sidebar for selecting files
 
     QMenu *m_file_menu;
