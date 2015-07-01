@@ -706,10 +706,12 @@ struct SmoothnessError {
                   T* residuals) const {
     try{
 
-      residuals[0] = (left[0] + right[0] - 2*center[0])/m_grid_x/m_grid_x;     // u_xx
-      residuals[1] = (br[0] + tl[0] - bl[0] - tr[0] ) /4.0/m_grid_x/m_grid_y;  // u_xy
+      // Normalizing by grid size seems to make the functional more, not less,
+      // sensitive to the actual grid size used.
+      residuals[0] = (left[0] + right[0] - 2*center[0]);// /m_grid_x/m_grid_x;     // u_xx
+      residuals[1] = (br[0] + tl[0] - bl[0] - tr[0] ) /4.0;// /m_grid_x/m_grid_y;  // u_xy
       residuals[2] = residuals[1];                                             // u_yx
-      residuals[3] = (bottom[0] + top[0] - 2*center[0])/m_grid_y/m_grid_y;     // u_yy
+      residuals[3] = (bottom[0] + top[0] - 2*center[0]);// /m_grid_y/m_grid_y;     // u_yy
 
       for (int i = 0; i < 4; i++)
         residuals[i] *= m_smoothness_weight;
