@@ -544,41 +544,46 @@ public:
     block_write_gdal_image(out_dem_file, *g_dem, *g_geo, *g_nodata_val, *g_opt, tpc);
 
     // If there's just one image, print reflectance and other things
-    for (size_t i = 0; i < (*g_interp_images).size(); i++) {
+    for (size_t image_iter = 0; image_iter < (*g_interp_images).size();
+         image_iter++) {
       ImageView<double> reflectance, intensity, albedo, computed_intensity;
 
       std::ostringstream os;
-      os << g_iter << "_img" << i;
+      os << g_iter << "_img" << image_iter;
       std::string iter_str = os.str();
 
     // Compute reflectance and intensity with optimized DEM
       computeReflectanceAndIntensity(*g_dem, *g_geo,  *g_nodata_val,
-                                     (*g_model_params)[i], *g_global_params,
-                                     (*g_interp_images)[i], (*g_cameras)[i],
+                                     (*g_model_params)[image_iter], *g_global_params,
+                                     (*g_interp_images)[image_iter], (*g_cameras)[image_iter],
                                      reflectance, intensity);
 
       std::string out_intensity_file = g_opt->out_prefix + "-measured-intensity-iter"
         + iter_str + ".tif";
       vw_out() << "Writing: " << out_intensity_file << std::endl;
-      block_write_gdal_image(out_intensity_file, intensity, *g_geo, 0, *g_opt, tpc);
+      block_write_gdal_image(out_intensity_file, intensity,
+                             *g_geo, 0, *g_opt, tpc);
 
       std::string out_reflectance_file = g_opt->out_prefix + "-computed-reflectance-iter"
         + iter_str + ".tif";
       vw_out() << "Writing: " << out_reflectance_file << std::endl;
-      block_write_gdal_image(out_reflectance_file, reflectance, *g_geo, 0, *g_opt, tpc);
+      block_write_gdal_image(out_reflectance_file, reflectance,
+                             *g_geo, 0, *g_opt, tpc);
 
-      // Find the simulated normalized albedo, after correcting for reflectance. Ideally
-      // it should be 1.
+      // Find the simulated normalized albedo, after correcting for
+      // reflectance. Ideally it should be 1.
       albedo.set_size(reflectance.cols(), reflectance.rows());
       for (int col = 0; col < albedo.cols(); col++) {
         for (int row = 0; row < albedo.rows(); row++) {
           if (reflectance(col, row) == 0)
             albedo(col, row) = 1;
           else
-            albedo(col, row) = (intensity(col, row) - g_A[1])/(reflectance(col, row)*g_A[0]);
+            albedo(col, row)
+              = intensity(col, row)/(reflectance(col, row)*g_A[image_iter]);
         }
       }
-      std::string out_albedo_file = g_opt->out_prefix + "-simulated-albedo-iter" + iter_str + ".tif";
+      std::string out_albedo_file = g_opt->out_prefix
+        + "-simulated-albedo-iter" + iter_str + ".tif";
       vw_out() << "Writing: " << out_albedo_file << std::endl;
       block_write_gdal_image(out_albedo_file, albedo, *g_geo, 0, *g_opt, tpc);
 
@@ -586,23 +591,28 @@ public:
       computed_intensity.set_size(reflectance.cols(), reflectance.rows());
       for (int col = 0; col < computed_intensity.cols(); col++) {
         for (int row = 0; row < computed_intensity.rows(); row++) {
-          computed_intensity(col, row) = g_A[0]*reflectance(col, row) + g_A[1];
+          computed_intensity(col, row) = g_A[image_iter]*reflectance(col, row);
         }
       }
-      std::string out_computed_intensity_file = g_opt->out_prefix + "-computed-intensity-iter"
+      std::string out_computed_intensity_file = g_opt->out_prefix
+        + "-computed-intensity-iter"
         + iter_str + ".tif";
       vw_out() << "Writing: " << out_computed_intensity_file << std::endl;
-      block_write_gdal_image(out_computed_intensity_file, computed_intensity, *g_geo, 0, *g_opt, tpc);
+      block_write_gdal_image(out_computed_intensity_file, computed_intensity,
+                             *g_geo, 0, *g_opt, tpc);
 
       double imgmean, imgstdev, refmean, refstdev;
       compute_image_stats(intensity, imgmean, imgstdev);
       compute_image_stats(computed_intensity, refmean, refstdev);
 
-      std::cout << "meas image mean and std: " << imgmean << ' ' << imgstdev << std::endl;
-      std::cout << "comp image mean and std: " << refmean << ' ' << refstdev << std::endl;
-    }
+      std::cout << "meas image mean and std: " << imgmean << ' ' << imgstdev
+                << std::endl;
+      std::cout << "comp image mean and std: " << refmean << ' ' << refstdev
+                << std::endl;
 
-    std::cout << "Albedo params A[0] and A[1] are " << g_A[0] << ' ' << g_A[1] << std::endl;
+      std::cout << "Albedo param A " << " for image " << image_iter << ": "
+                << g_A[image_iter] << std::endl;
+    }
 
     return ceres::SOLVER_CONTINUE;
   }
@@ -610,7 +620,7 @@ public:
 
 
 // Discrepancy between scaled intensity and reflectance.
-// sum | (I - A[0]*reflectance - A[1] |^2
+// sum_i | I_i - A[i]*reflectance_i |^2
 struct IntensityError {
   IntensityError(int cam_index,
                  int col, int row,
@@ -642,7 +652,8 @@ struct IntensityError {
 
       double reflectance, intensity;
       success =
-        computeReflectanceAndIntensity(left[0], center[0], right[0], bottom[0], top[0],
+        computeReflectanceAndIntensity(left[0], center[0], right[0],
+                                       bottom[0], top[0],
                                        m_col, m_row,  m_dem,
                                        m_geo,  m_nodata_val,
                                        m_model_params,  m_global_params,
@@ -650,7 +661,7 @@ struct IntensityError {
                                        reflectance, intensity);
 
       if (success)
-        residuals[0] = intensity - A[0]*reflectance - A[1];
+        residuals[0] = intensity - A[m_cam_index]*reflectance;
 
     } catch (const camera::PointToPixelErr& e) {
       return false;
@@ -928,13 +939,12 @@ int main(int argc, char* argv[]) {
     // measurements in same units.
     double grid_x, grid_y;
     compute_grid_sizes_in_meters(dem, geo, nodata_val, grid_x, grid_y);
-    vw_out() << "grid in x and y in meters: " << grid_x << ' ' << grid_y << std::endl;
+    vw_out() << "grid in x and y in meters: "
+             << grid_x << ' ' << grid_y << std::endl;
 
     // Intensity error is
-    // sum | (I - A[0]*reflectance - A[1]|^2.
-    // Estimate in advance A[0] and A[1] and keep them fixed.
-    double A[2];
-    A[0] = A[1] = 0;
+    // sum_i | I_i - A[i]*reflectance_i |^2
+    std::vector<double> A(num_images, 0);
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
       ImageView<double> reflectance, intensity;
       computeReflectanceAndIntensity(dem, geo,  nodata_val,
@@ -947,20 +957,11 @@ int main(int argc, char* argv[]) {
       compute_image_stats(reflectance, refmean, refstdev);
       std::cout << "img mean std: " << imgmean << ' ' << imgstdev << std::endl;
       std::cout << "ref mean std: " << refmean << ' ' << refstdev << std::endl;
-      std::cout << "image mean - 2*stdev = " << imgmean - 2*imgstdev << std::endl;
-      std::cout << "image mean + 2*stdev = " << imgmean + 2*imgstdev << std::endl;
 
-      double a0, a1;
-      a0 = imgstdev/refstdev;
-      a1 = imgmean - a0*refmean;
-      std::cout << "albedo params for image " << image_iter << ": " << a0 << ' ' << a1 << std::endl;
-      A[0] += a0;
-      A[1] += a1;
+      A[image_iter] = imgmean/refmean;
+      std::cout << "albedo for image " << image_iter << ": "
+                <<  A[image_iter] << std::endl;
     }
-    A[0] /= num_images;
-    A[1] /= num_images;
-
-    std::cout << "Albedo params A[0] and A[1] are " << A[0] << ' ' << A[1] << std::endl;
 
     // Add a residual block for every grid point not at the boundary
     ceres::Problem problem;
@@ -979,7 +980,7 @@ int main(int argc, char* argv[]) {
                                    cameras[image_iter], nodata_val);
           ceres::LossFunction* loss_function_img = NULL;
           problem.AddResidualBlock(cost_function_img, loss_function_img,
-                                   A,
+                                   &A[0],
                                    &dem(col-1, row+1), &dem(col, row+1), // bl, bottom
                                    &dem(col+1, row+1),                   // br
                                    &dem(col-1, row  ), &dem(col, row  ), // left, ctr
@@ -1032,7 +1033,7 @@ int main(int argc, char* argv[]) {
     // If there's just one image, don't float the albedo constants,
     // as the problem is under-determined.
     if (num_images == 1) {
-      problem.SetParameterBlockConstant(A);
+      problem.SetParameterBlockConstant(&A[0]);
     }
 
     ceres::Solver::Options options;
@@ -1057,7 +1058,7 @@ int main(int argc, char* argv[]) {
     g_interp_images = &interp_images;
     g_cameras       = &cameras;
     g_nodata_val    = &nodata_val;
-    g_A             = A;
+    g_A             = &A[0];
 
     // Solve the problem
     ceres::Solver::Summary summary;
