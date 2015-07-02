@@ -53,7 +53,7 @@ struct Options : asp::BaseOptions {
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("nodata_value",    po::value(&opt.nodata_value)->default_value(-32768),      "The value of missing pixels in the first dem")
+    ("nodata-value",    po::value(&opt.nodata_value)->default_value(-32768),      "The no-data value to use, unless present in the DEM geoheaders.")
     ("output-prefix,o", po::value(&opt.output_prefix),                            "Specify the output prefix.")
     ("float",           po::bool_switch(&opt.use_float)->default_value(false),    "Output using float (32 bit) instead of using doubles (64 bit).")
     ("absolute",        po::bool_switch(&opt.use_absolute)->default_value(false), "Output the absolute difference as opposed to just the difference.");
@@ -139,7 +139,6 @@ int main( int argc, char *argv[] ) {
         apply_mask(crop(create_mask(dem1_dmg, dem1_nodata), union_bbox) - dem2_trans,
                    opt.nodata_value );
     }
-    
 
     std::string output_file = opt.output_prefix + "-diff.tif";
     vw_out() << "Writing difference: " << output_file << "\n";

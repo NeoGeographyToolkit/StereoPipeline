@@ -93,6 +93,9 @@
      Maps for Scientific Visualization" 
      (http://www.sandia.gov/~kmorel/documents/ColorMaps/)
 
+ - geodiff
+   * This is a new tool for taking the (absolute) difference of two DEMs.
+
  - dg_mosaic
    * Default penalty weight produces a more accurate fit when creating an 
      RPC model from a DG model.
