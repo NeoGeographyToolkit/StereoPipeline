@@ -612,7 +612,8 @@ public:
 // Discrepancy between scaled intensity and reflectance.
 // sum | (I - A[0]*reflectance - A[1] |^2
 struct IntensityError {
-  IntensityError(int col, int row,
+  IntensityError(int cam_index,
+                 int col, int row,
                  ImageView<double> const& dem,
                  cartography::GeoReference const& geo,
                  GlobalParams const& global_params,
@@ -620,6 +621,7 @@ struct IntensityError {
                  BilinearInterpT const& image,
                  boost::shared_ptr<CameraModel> const& camera,
                  double nodata_val):
+    m_cam_index(cam_index),
     m_col(col), m_row(row), m_dem(dem), m_geo(geo),
     m_global_params(global_params),
     m_model_params(model_params),
@@ -659,7 +661,7 @@ struct IntensityError {
 
   // Factory to hide the construction of the CostFunction object from
   // the client code.
-  static ceres::CostFunction* Create(int col, int row,
+  static ceres::CostFunction* Create(int cam_index, int col, int row,
                                      ImageView<double> const& dem,
                                      vw::cartography::GeoReference const& geo,
                                      GlobalParams const& global_params,
@@ -669,11 +671,12 @@ struct IntensityError {
                                      double nodata_val){
     return (new ceres::NumericDiffCostFunction<IntensityError,
             ceres::CENTRAL, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1>
-            (new IntensityError(col, row, dem, geo, global_params, model_params,
+            (new IntensityError(cam_index, col, row, dem, geo,
+                                global_params, model_params,
                                 image, camera, nodata_val)));
   }
 
-  int m_col, m_row;
+  int m_cam_index, m_col, m_row;
   ImageView<double>                 const & m_dem;           // alias
   cartography::GeoReference         const & m_geo;           // alias
   GlobalParams                      const & m_global_params; // alias
@@ -942,6 +945,8 @@ int main(int argc, char* argv[]) {
       double imgmean, imgstdev, refmean, refstdev;
       compute_image_stats(intensity, imgmean, imgstdev);
       compute_image_stats(reflectance, refmean, refstdev);
+      std::cout << "img mean std: " << imgmean << ' ' << imgstdev << std::endl;
+      std::cout << "ref mean std: " << refmean << ' ' << refstdev << std::endl;
       std::cout << "image mean - 2*stdev = " << imgmean - 2*imgstdev << std::endl;
       std::cout << "image mean + 2*stdev = " << imgmean + 2*imgstdev << std::endl;
 
@@ -968,7 +973,7 @@ int main(int argc, char* argv[]) {
         for (int image_iter = 0; image_iter < num_images; image_iter++) {
 
           ceres::CostFunction* cost_function_img =
-            IntensityError::Create(col, row, dem, geo,
+            IntensityError::Create(image_iter, col, row, dem, geo,
                                    global_params, model_params[image_iter],
                                    interp_images[image_iter],
                                    cameras[image_iter], nodata_val);
