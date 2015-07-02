@@ -544,13 +544,17 @@ public:
     block_write_gdal_image(out_dem_file, *g_dem, *g_geo, *g_nodata_val, *g_opt, tpc);
 
     // If there's just one image, print reflectance and other things
-    if ((*g_interp_images).size() == 1) {
+    for (size_t i = 0; i < (*g_interp_images).size(); i++) {
       ImageView<double> reflectance, intensity, albedo, computed_intensity;
 
-      // Compute reflectance and intensity with optimized DEM
+      std::ostringstream os;
+      os << g_iter << "_img" << i;
+      std::string iter_str = os.str();
+
+    // Compute reflectance and intensity with optimized DEM
       computeReflectanceAndIntensity(*g_dem, *g_geo,  *g_nodata_val,
-                                     (*g_model_params)[0], *g_global_params,
-                                     (*g_interp_images)[0], (*g_cameras)[0],
+                                     (*g_model_params)[i], *g_global_params,
+                                     (*g_interp_images)[i], (*g_cameras)[i],
                                      reflectance, intensity);
 
       std::string out_intensity_file = g_opt->out_prefix + "-measured-intensity-iter"
