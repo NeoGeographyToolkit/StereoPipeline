@@ -176,6 +176,12 @@ if MAKE_APP_LRONACJITREG
   bin_SCRIPTS  += lronac2mosaic.py
 endif
 
+# TODO: Integrate fully.
+bin_PROGRAMS += asp_calc
+asp_calc_SOURCES = asp_calc.cc
+asp_calc_LDADD   = $(APP_MAPPROJECT_LIBS) #$(APP_ASP_CALC_LIBS)
+
+
 # Auxiliary tools in libexec
 ##############################################################################
 
