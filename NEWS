@@ -5,18 +5,22 @@
    map-projected onto an existing DEM (functionality previously available
    only for Digital Globe images). See section ??? in the documentation. 
 
--  Added stereo_gui, a GUI tool having the same interface as stereo, that
-   can be used to visualize both input images, select regions of interest,
-   and run stereo only on those regions. Can also be used as an image 
-   viewer, if invoked with images only and no stereo options. Based on
-   Michael Broxton's vwv tool. 
+-  Added stereo_gui, a GUI frontend having the same interface as stereo,
+   that can be used to visualize the input images and run stereo only
+   on desired regions. Doubles as a viewer for very large images with
+   integer or floating-point pixels, including ISIS cubes and DEMs,
+   if invoked with images only and no stereo options. Based on Michael 
+   Broxton's vwv tool.
 
- - Misc.
-   * Added gdalinfo and gdal_translate to the tools in the bin
-   * directory. These executables are compiled with JPEG2000 support
-   * and can handle NTF images.
-   * Upgraded to ISIS 3.4.9.6185.
-   * Oldest supported OSX version is 10.8.
+ - New tools
+   * Added gdalinfo and gdal_translate to the bin directory. These 
+     executables are compiled with JPEG2000 support and can handle NTF
+     images.
+   * Documented the colormap tool. Added a new colormap option based 
+     on the paper "Diverging Color Maps for Scientific Visualization" 
+     (http://www.sandia.gov/~kmorel/documents/ColorMaps/)
+   * Added geodiff, a tool for taking the (absolute) difference of two 
+     DEMs.
 
  - stereo
    * Increase the default correlation timeout to 1800 seconds.
@@ -88,17 +92,13 @@
    * Create temporary files in current directory, to avoid access
      issues to system directories.
  
- - colormap
-   * Added a new colormap option based on the paper "Diverging Color 
-     Maps for Scientific Visualization" 
-     (http://www.sandia.gov/~kmorel/documents/ColorMaps/)
-
- - geodiff
-   * This is a new tool for taking the (absolute) difference of two DEMs.
-
  - dg_mosaic
    * Default penalty weight produces a more accurate fit when creating an 
      RPC model from a DG model.
+
+ - Misc.
+   * Upgraded to ISIS 3.4.9.6185.
+   * Oldest supported OSX version is 10.8.
 
 *** RELEASE 2.4.2, October 6, 2014 ***
 
