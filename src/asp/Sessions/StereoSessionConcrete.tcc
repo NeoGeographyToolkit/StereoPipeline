@@ -160,10 +160,7 @@ void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
 
 // TODO: Do we need those weird vw enum things?
 
-
-//----------------------------------------------------------------------------------------------
 // Code for reading different camera models
-
 
 // TODO: Move this function somewhere else!
 /// Computes a Map2CamTrans given a DEM, image, and a sensor model.
@@ -231,8 +228,8 @@ inline vw::Vector2 camera_pixel_offset(std::string const& input_dem,
 
 // If we have adjusted camera models, load them. The adjustment
 // may be in the rotation matrix, camera center, or pixel offset.
-inline  boost::shared_ptr<vw::camera::CameraModel> 
-load_adjusted_model(boost::shared_ptr<camera::CameraModel> cam, 
+inline  boost::shared_ptr<vw::camera::CameraModel>
+load_adjusted_model(boost::shared_ptr<camera::CameraModel> cam,
                     std::string const& image_file, vw::Vector2 const& pixel_offset){
 
   std::string ba_pref = stereo_settings().bundle_adjust_prefix;

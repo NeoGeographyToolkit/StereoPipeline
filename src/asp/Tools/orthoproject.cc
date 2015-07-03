@@ -105,13 +105,13 @@ void write_parallel_cond( std::string const& filename,
   vw_out() << "Writing: " << filename << "\n";
   if (use_nodata){
     if ( opt.stereo_session == "isis" ) {
-      asp::write_gdal_georeferenced_image(filename, image.impl(), georef, nodata_val, opt, tpc);
+      asp::write_gdal_image(filename, image.impl(), georef, nodata_val, opt, tpc);
     } else {
       asp::block_write_gdal_image(filename, image.impl(), georef, nodata_val, opt, tpc);
     }
   }else{
     if ( opt.stereo_session == "isis" ) {
-      asp::write_gdal_georeferenced_image(filename, image.impl(), georef, opt, tpc);
+      asp::write_gdal_image(filename, image.impl(), georef, opt, tpc);
     } else {
       asp::block_write_gdal_image(filename, image.impl(), georef, opt, tpc);
     }

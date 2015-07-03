@@ -186,11 +186,11 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
 /// Convert any LAS or CSV files to ASP tif files. We do some binning
 /// to make the spatial data more localized, to improve performance.
 /// - We will later wipe these temporary tifs.
-void las_or_csv_to_tifs(Options& opt,  
-                        cartography::Datum const& datum, 
+void las_or_csv_to_tifs(Options& opt,
+                        cartography::Datum const& datum,
                         std::vector<std::string> & tmp_tifs){
-                        
-  if (!opt.has_las_or_csv) 
+
+  if (!opt.has_las_or_csv)
     return;
 
   Stopwatch sw;
@@ -199,7 +199,7 @@ void las_or_csv_to_tifs(Options& opt,
   // Error checking for CSV
   int num_files = opt.pointcloud_files.size();
   for (int i = 0; i < num_files; i++){
-    if (!asp::is_csv(opt.pointcloud_files[i])) 
+    if (!asp::is_csv(opt.pointcloud_files[i]))
       continue;
     if (opt.csv_format_str == "")
       vw_throw(ArgumentErr() << "CSV files were passed in, but the "
@@ -233,7 +233,7 @@ void las_or_csv_to_tifs(Options& opt,
   // to right for the purpose of creating the DEM, we waste little space.
   int num_rows = 0;
   for (int i = 0; i < num_files; i++){
-    if (asp::is_las_or_csv(opt.pointcloud_files[i])) 
+    if (asp::is_las_or_csv(opt.pointcloud_files[i]))
       continue;
     DiskImageView<float> img(opt.pointcloud_files[i]);
     num_rows = std::max(num_rows, img.rows()); // Record the max number of rows across all input tifs
@@ -274,7 +274,7 @@ void las_or_csv_to_tifs(Options& opt,
     // Handle the case when the output file may exist
     const int NUM_TEMP_NAME_RETRIES = 1000;
     for (int count = 0; count < NUM_TEMP_NAME_RETRIES; count++){
-      if (!fs::exists(out_file)) 
+      if (!fs::exists(out_file))
         break;
       // File exists, try a different name
       vw_out() << "File exists: " << out_file << std::endl;
@@ -327,7 +327,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("x-offset",       po::value(&opt.lon_offset )->default_value(0),    "Add a horizontal offset to the DEM.")
     ("y-offset",       po::value(&opt.lat_offset )->default_value(0),    "Add a horizontal offset to the DEM.")
     ("z-offset",       po::value(&opt.height_offset )->default_value(0),    "Add a vertical offset to the DEM.")
-    ("rotation-order", po::value(&opt.rot_order)->default_value("xyz"), 
+    ("rotation-order", po::value(&opt.rot_order)->default_value("xyz"),
          "Set the order of an Euler angle rotation applied to the 3D points prior to DEM rasterization.")
     ("phi-rotation",   po::value(&opt.phi_rot  )->default_value(0),"Set a rotation angle phi.")
     ("omega-rotation", po::value(&opt.omega_rot)->default_value(0),"Set a rotation angle omega.")
@@ -336,7 +336,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description projection_options("Projection options");
   projection_options.add_options()
     ("t_srs",         po::value(&opt.target_srs_string)->default_value(""), "Specify the output projection (PROJ.4 string).")
-    ("t_projwin",     po::value(&opt.target_projwin), 
+    ("t_projwin",     po::value(&opt.target_projwin),
              "Selects a subwindow from the source image for copying but with the corners given in georeferenced coordinates. Max is exclusive.")
     ("dem-spacing,s", po::value(&dem_spacing1)->default_value(""),
              "Set output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically (except for LAS and CSV files). You can set multiple spacings in quotes to generate multiple output files. This is the same as the --tr option.")
@@ -364,21 +364,21 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
              "Create images that have an alpha channel.")
     ("normalized,n",      po::bool_switch(&opt.do_normalize)->default_value(false),
              "Also write a normalized version of the DEM (for debugging).")
-    ("orthoimage",        po::bool_switch(&opt.do_ortho)->default_value(false), 
+    ("orthoimage",        po::bool_switch(&opt.do_ortho)->default_value(false),
              "Write an orthoimage based on the texture files passed in as inputs (after the point clouds).")
     ("output-prefix,o",   po::value(&opt.out_prefix),                             "Specify the output prefix.")
     ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file.")
     ("errorimage",        po::bool_switch(&opt.do_error)->default_value(false),   "Write a triangulation intersection error image.")
     ("dem-hole-fill-len", po::value(&opt.dem_hole_fill_len)->default_value(0),    "Maximum dimensions of a hole in the output DEM to fill in, in pixels.")
-    ("orthoimage-hole-fill-len",      po::value(&opt.ortho_hole_fill_len)->default_value(0), 
+    ("orthoimage-hole-fill-len",      po::value(&opt.ortho_hole_fill_len)->default_value(0),
             "Maximum dimensions of a hole in the output orthoimage to fill in, in pixels.")
     ("remove-outliers",               po::bool_switch(&opt.remove_outliers_with_pct)->default_value(true),
             "Turn on outlier removal based on percentage of triangulation error. Obsolete, as this is the default.")
-    ("remove-outliers-params",        po::value(&opt.remove_outliers_params)->default_value(Vector2(75.0, 3.0), "pct factor"), 
+    ("remove-outliers-params",        po::value(&opt.remove_outliers_params)->default_value(Vector2(75.0, 3.0), "pct factor"),
             "Outlier removal based on percentage. Points with triangulation error larger than pct-th percentile times factor will be removed as outliers. [default: pct=75.0, factor=3.0]")
-    ("max-valid-triangulation-error", po::value(&opt.max_valid_triangulation_error)->default_value(0), 
+    ("max-valid-triangulation-error", po::value(&opt.max_valid_triangulation_error)->default_value(0),
             "Outlier removal based on threshold. Points with triangulation error larger than this (in meters) will be removed from the cloud.")
-    ("median-filter-params",          po::value(&opt.median_filter_params)->default_value(Vector2(0, 0), 
+    ("median-filter-params",          po::value(&opt.median_filter_params)->default_value(Vector2(0, 0),
             "window_size threshold"), "If the point cloud height at the current point differs by more than the given threshold from the median of heights in the window of given size centered at the point, remove it as an outlier. Use for example 11 and 40.0.")
     ("erode-length",   po::value<int>(&opt.erode_len)->default_value(0),
             "Erode input point clouds by this many pixels at boundary (after outliers are removed, but before filling in holes).")
@@ -559,7 +559,7 @@ public:
     int k2 = m_kernel_size/2, nc = m_img.cols(), nr = m_img.rows();
     for (int c = std::max(0, c0-k2); c <= std::min(nc-1, c0+k2); c++){
       for (int r = std::max(0, r0-k2); r <= std::min(nr-1, r0+k2); r++){
-        if (!is_valid(m_img(c, r))) 
+        if (!is_valid(m_img(c, r)))
           continue;
         val += m_img(c, r);
         nvalid++;
@@ -714,10 +714,11 @@ namespace asp{
     if ( opt.output_file_type == "tif" )
       asp::save_with_temp_big_blocks(block_size, output_file, img, georef, opt.nodata_value, opt, tpc);
     else
-      asp::write_gdal_georeferenced_image(output_file, img, georef, opt, tpc);
+      asp::write_gdal_image(output_file, img, georef, opt, tpc);
   }
 
-  // A class for combining the three channels of errors and finding their absolute values.
+  // A class for combining the three channels of errors and finding
+  // their absolute values.
   template <class ImageT>
   class CombinedView : public ImageViewBase<CombinedView<ImageT> >
   {
@@ -915,7 +916,7 @@ namespace asp{
       // To do: A more efficient approach would be to also stack one
       // image on top of each other, if some images are not too tall.
       // --> Does this code ever get images where rows != cols??
-      if (I.rows() < I.cols()) 
+      if (I.rows() < I.cols())
         I = transpose(I);
 
       int start = composite_image.cols();
@@ -982,7 +983,7 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
                                 cartography::GeoReference& georef,
                                 ImageViewRef<double> const& error_image,
                                 double estim_max_error) {
-                                
+
   if (!opt.has_nodata_value) {
     opt.nodata_value = std::floor(rasterizer.bounding_box().min().z() - 1);
   }
@@ -1185,7 +1186,7 @@ void do_software_rasterization_multi_spacing( const ImageViewRef<Vector3>& proj_
                error_image, estim_max_error, opt.max_valid_triangulation_error,
                opt.median_filter_params, opt.erode_len, opt.has_las_or_csv,
                TerminalProgressCallback("asp","QuadTree: ") );
-               
+
   sw1.stop();
   vw_out(DebugMessage,"asp") << "Quad time: " << sw1.elapsed_seconds() << std::endl;
 
@@ -1194,10 +1195,10 @@ void do_software_rasterization_multi_spacing( const ImageViewRef<Vector3>& proj_
   // Call the function for each dem spacing
   for (size_t i=0; i<opt.dem_spacing.size(); ++i) {
     double this_spacing = opt.dem_spacing[i];
-    
+
     // Required second init step for each spacing
     rasterizer.initialize_spacing(this_spacing);
-    
+
     // Each spacing gets a variation of the output prefix
     if (i == 0)
       opt.out_prefix = base_out_prefix;
@@ -1205,8 +1206,8 @@ void do_software_rasterization_multi_spacing( const ImageViewRef<Vector3>& proj_
       opt.out_prefix = base_out_prefix + "_" + itoa(i);
     do_software_rasterization( rasterizer, opt, georef,
                                error_image, estim_max_error);
-  } // End loop through spacings   
-                                    
+  } // End loop through spacings
+
   opt.out_prefix = base_out_prefix; // Restore the original value
 }
 
@@ -1264,7 +1265,7 @@ int main( int argc, char *argv[] ) {
         case LAMBERTAZIMUTHAL:   output_georef.set_lambert_azimuthal  (opt.proj_lat, opt.proj_lon                ); break;
         case UTM:                output_georef.set_UTM( opt.utm_zone ); break;
         default: // Handles plate carree
-          if (has_las_georef) 
+          if (has_las_georef)
             output_georef = las_georef; // copy from las georef if present
           // Otherwise we use WGS84 datum with geographic projection, the georef default.
           break;
@@ -1291,7 +1292,7 @@ int main( int argc, char *argv[] ) {
       vw_out() << "\t--> Applying rotation sequence: " << opt.rot_order
                << "      Angles: " << opt.phi_rot << "   "
                << opt.omega_rot << "  " << opt.kappa_rot << "\n";
-      point_image = asp::point_transform(point_image, 
+      point_image = asp::point_transform(point_image,
                                          math::euler_to_rotation_matrix(opt.phi_rot, opt.omega_rot,opt.kappa_rot, opt.rot_order));
     }
 
@@ -1304,7 +1305,7 @@ int main( int argc, char *argv[] ) {
     sw1.start();
     int32 subsample_amt = int32(norm_2(Vector2(point_image.cols(),
                                                point_image.rows()))/32.0);
-    if (subsample_amt < 1 ) 
+    if (subsample_amt < 1 )
       subsample_amt = 1;
     PixelAccumulator<MeanAccumulator<Vector3> > mean_accum;
     for_each_pixel( subsample(point_image, subsample_amt),
@@ -1321,7 +1322,7 @@ int main( int argc, char *argv[] ) {
     double estim_max_error = 0.0;
     if (opt.remove_outliers_with_pct || opt.max_valid_triangulation_error > 0.0){
       int num_channels = asp::num_channels(opt.pointcloud_files);
-      
+
       if      (num_channels == 4) error_image = asp::error_norm<4>(opt.pointcloud_files);
       else if (num_channels == 6) error_image = asp::error_norm<6>(opt.pointcloud_files);
       else{
@@ -1383,7 +1384,7 @@ int main( int argc, char *argv[] ) {
       do_software_rasterization_multi_spacing
           (geodetic_to_point
               (asp::recenter_longitude
-                  (cartesian_to_geodetic(point_image, output_georef), 
+                  (cartesian_to_geodetic(point_image, output_georef),
                    avg_lon),
                output_georef),
           opt, output_georef, error_image, estim_max_error);

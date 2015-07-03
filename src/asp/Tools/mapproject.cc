@@ -147,16 +147,16 @@ void write_parallel_cond( std::string              const& filename,
   vw_out() << "Writing: " << filename << "\n";
   if (has_nodata){
     if ( session_type == "isis" ) {
-      asp::write_gdal_georeferenced_image(filename, image.impl(), georef,
-                                          nodata_val, opt, tpc, keywords);
+      asp::write_gdal_image(filename, image.impl(), georef,
+                            nodata_val, opt, tpc, keywords);
     } else {
       asp::block_write_gdal_image(filename, image.impl(), georef,
                                   nodata_val, opt, tpc, keywords);
     }
   }else{ // Does not have nodata
     if ( session_type == "isis" ) {
-      asp::write_gdal_georeferenced_image(filename, image.impl(), georef,
-                                          opt, tpc, keywords);
+      asp::write_gdal_image(filename, image.impl(), georef,
+                            opt, tpc, keywords);
     } else {
       asp::block_write_gdal_image(filename, image.impl(), georef,
                                   opt, tpc, keywords);
