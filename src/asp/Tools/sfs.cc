@@ -102,8 +102,9 @@ struct Options : public asp::BaseOptions {
   std::string input_dem, out_prefix, stereo_session_string, bundle_adjust_prefix;
   std::vector<std::string> input_images;
   int max_iterations, reflectance_type;
-  double smoothness_weight;
-  Options():max_iterations(0), reflectance_type(0) {};
+  double smoothness_weight, max_height_change, height_change_weight;
+  Options():max_iterations(0), reflectance_type(0),
+            smoothness_weight(0), max_height_change(0), height_change_weight(0){};
 };
 
 struct GlobalParams{
@@ -748,7 +749,8 @@ struct SmoothnessError {
 
   // Factory to hide the construction of the CostFunction object from
   // the client code.
-  static ceres::CostFunction* Create(double smoothness_weight, double grid_x, double grid_y){
+  static ceres::CostFunction* Create(double smoothness_weight,
+                                     double grid_x, double grid_y){
     return (new ceres::NumericDiffCostFunction<SmoothnessError,
             ceres::CENTRAL, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1>
             (new SmoothnessError(smoothness_weight, grid_x, grid_y)));
@@ -757,11 +759,50 @@ struct SmoothnessError {
   double m_smoothness_weight, m_grid_x, m_grid_y;
 };
 
+// A cost function that will penalize deviating by more than
+// a given value from the original height
+struct HeightChangeError {
+  HeightChangeError(double orig_height, double max_height_change,
+                    double height_change_weight):
+    m_orig_height(orig_height), m_max_height_change(max_height_change),
+    m_height_change_weight(height_change_weight){}
+
+  template <typename T>
+  bool operator()(const T* const center, T* residuals) const {
+
+    double delta = std::abs(center[0] - m_orig_height);
+    if (delta < m_max_height_change) {
+      residuals[0] = T(0);
+    }else{
+      // Use a smooth function here, with a value of 0
+      // when delta == m_max_height_change.
+      double delta2 = delta - m_max_height_change;
+      residuals[0] = T( delta2*delta2*m_height_change_weight );
+    }
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(double orig_height,
+                                     double max_height_change,
+                                     double height_change_weight){
+    return (new ceres::NumericDiffCostFunction<HeightChangeError,
+            ceres::CENTRAL, 1, 1>
+            (new HeightChangeError(orig_height, max_height_change,
+                                   height_change_weight)));
+  }
+
+  double m_orig_height, m_max_height_change, m_height_change_weight;
+};
+
 // Given a DEM, estimate the median grid size in x and in y in meters.
 // Given that the DEM heights are in meters as well, having these grid sizes
 // will make it possible to handle heights and grids in same units.
-void compute_grid_sizes_in_meters(ImageView<double> const& dem, GeoReference const& geo,
-                                  double nodata_val, double & grid_x, double & grid_y){
+void compute_grid_sizes_in_meters(ImageView<double> const& dem,
+                                  GeoReference const& geo,
+                                  double nodata_val,
+                                  double & grid_x, double & grid_y){
 
   // Initialize the outputs
   grid_x = 0; grid_y = 0;
@@ -824,6 +865,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Reflectance type (0 = Lambertian, 1 = Lunar Lambertian).")
     ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(1.0),
      "A larger value will result in a smoother solution.")
+    ("max-height-change", po::value(&opt.max_height_change)->default_value(0),
+     "How much the DEM heights are allowed to differ from the initial guess, in meters. The default is 0, which means this constraint is not applied.")
+    ("height-change-weight", po::value(&opt.height_change_weight)->default_value(0),
+     "How much weight to give to the height change penalty (this penalty will only kick in when the DEM height changes by more than max-height-change).")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.");
 
@@ -874,8 +919,13 @@ int main(int argc, char* argv[]) {
   try {
     handle_arguments( argc, argv, opt );
 
+    // Keep here the DEM that we will modify with SfS.
     ImageView<double> dem
       = copy(DiskImageView< PixelGray<float> >(opt.input_dem) );
+
+    // Keep here the unmodified copy of the DEM
+    ImageView<double> orig_dem = copy(dem);
+
     GeoReference geo;
     if (!read_georeference(geo, opt.input_dem))
       vw_throw( ArgumentErr() << "The input DEM has no georeference.\n" );
@@ -1000,6 +1050,17 @@ int main(int argc, char* argv[]) {
                                  &dem(col+1, row  ),
                                  &dem(col-1, row-1), &dem(col, row-1),
                                  &dem(col+1, row-1));
+
+        // Deviation from prescribed height constraint
+        if (opt.max_height_change > 0 && opt.height_change_weight > 0) {
+          ceres::LossFunction* loss_function_hc = NULL;
+          ceres::CostFunction* cost_function_hc =
+            HeightChangeError::Create(orig_dem(col, row),
+                                      opt.max_height_change,
+                                      opt.height_change_weight);
+          problem.AddResidualBlock(cost_function_hc, loss_function_hc,
+                                   &dem(col, row));
+        }
 
         // Variables at the boundary must be fixed
         if (col==1) {
