@@ -4,10 +4,6 @@ This chapter provides a overview of the various tools that are
 provided as part of the Ames Stereo Pipeline, and a summary of their
 command line options.
 
-%--------------------------------------------------------------------------
-%                                ASP DEBUGGING
-%--------------------------------------------------------------------------
-
 \section{stereo}
 \label{stereo}
 
@@ -145,6 +141,46 @@ used in \texttt{stereo.default}, while being prepended by a double hyphen
 option specified in \texttt{stereo.default}. Chapter \ref{ch:stereodefault}
 documents all options for the individual sub-programs.
 
+\section{stereo\_gui}
+\label{stereo_gui}
+
+The \texttt{stereo\_gui} program is a GUI frontend to \texttt{stereo},
+and has the same command-line options. It displays
+the input images side-by-side. One can zoom in by dragging the
+mouse from upper-left to lower-right, and zoom out via the reverse
+motion (or the mouse wheel can be used). The arrow keys are used for panning.
+
+By pressing the \texttt{Control} key while dragging the mouse, regions
+can be selected in the input images, and then stereo can be run on these
+regions from the menu via Run$\rightarrow$Stereo. The \texttt{stereo}
+command that is invoked (with parameters for the selected regions) will
+be displayed on screen, and can be re-run on a more powerful
+machine/cluster without GUI access.
+
+\begin{figure}[h!]
+\begin{center}
+\includegraphics[width=5in]{images/stereo_gui.jpg}
+\caption[asp\_gui]{An illustration of stereo\_gui. The \texttt{stereo} command
+will be run on the regions selected by red rectangles.}
+\label{asp_gui_fig}
+\end{center}
+\end{figure}
+
+Usage:
+\begin{verbatim}
+  ISIS 3> stereo_gui [options] <images> [<cameras>] output_file_prefix
+\end{verbatim}
+
+This program can be also used as a general-purpose image viewer, being
+able to display side-by-side any number of arbitrarily large images with
+integer and floating-point pixel values, including ISIS .cub files and
+DEMs. In this mode just images need to be passed as inputs, without
+cameras or stereo options. \texttt{stereo\_gui} handles large images by
+building on disk a pyramid of increasingly coarser subsampled images for
+each input image, and displaying the subsampled versions that are
+appropriate for the current level of zoom.
+
+
 \section{parallel\_stereo}
 \label{parallel}
 
@@ -162,7 +198,7 @@ At the simplest, \texttt{parallel\_stereo} can be invoked exactly like stereo,
 with the addition of the list of nodes to use (if using multiple nodes).
 
 \begin{verbatim}
-parallel_stereo --nodes-list machines.txt <other stereo options>
+  parallel_stereo --nodes-list machines.txt <other stereo options>
 \end{verbatim}
 
 If your jobs are launched on a cluster or supercomputer, the name of the
@@ -187,7 +223,7 @@ nodes for stage 4 (triangulation). For example, to invoke the tool
 only for stage 2, one uses the options:
 
 \begin{verbatim}
---entry-point 2 --stop-point 3
+  --entry-point 2 --stop-point 3
 \end{verbatim}
 
 \texttt{parallel\_stereo} accepts the following options (any additional

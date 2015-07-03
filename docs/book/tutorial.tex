@@ -6,13 +6,12 @@
 \section{Quick Start}
 \label{quickstart}
 
-The Stereo Pipeline package contains command-line programs that
-convert a stereo pair in ISIS {\em cube} format into a 3D ``point
-cloud'' image: \texttt{\textit{stereo-output}-PC.tif}.  This is an
-intermediate format that can be passed along to one of several
-programs that convert a point cloud into a mesh for 3D viewing, a
-gridded digital elevation model (DEM) for GIS purposes, or a LAS/LAZ
-point cloud.
+The Stereo Pipeline package contains GUI and command-line programs that
+convert a stereo pair in the ISIS {\em cube} format into a 3D ``point
+cloud'' image.  This is an intermediate format that can be passed along
+to one of several programs that convert a point cloud into a mesh for 3D
+viewing, a gridded digital elevation model (DEM) for GIS purposes, or a
+LAS/LAZ point cloud.
 
 There are a number of ways to fine-tune parameters and analyze the
 results, but ultimately this software suite takes images and builds
@@ -23,13 +22,15 @@ simply pass two image files to the \texttt{stereo} command:
   ISIS 3> stereo left_input_image.cub right_input_image.cub stereo-output
 \end{verbatim}
 
-The string \texttt{stereo-output} is an arbitrary output prefix,
-it is used when generating names for \texttt{stereo} output files. For
-example, it can be set to \texttt{results/output}, in which case all output
-files will be in the \texttt{results} directory and start with the
-prefix \texttt{output}.
+Alternatively, the \texttt{stereo\_gui} frontend can be invoked, with
+the same options, as described in section \ref{stereo_gui}.
 
-See section \ref{running-stereo} for a more detailed discussion.
+The string \texttt{stereo-output} is an arbitrary output prefix, it is
+used when generating names for \texttt{stereo} output files. For
+example, it can be set to \texttt{results/output}, in which case all
+output files will be in the \texttt{results} directory and start with
+the prefix \texttt{output}. See section \ref{running-stereo} for a more
+detailed discussion.
 
 You can then make a visualizable mesh or a \ac{DEM} file with the following
 commands (the \texttt{\textit{stereo-output}-PC.tif} and
@@ -325,6 +326,9 @@ you use affine epipolar alignment to reduce the search range. The
              12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML dg/dg
 \end{verbatim}
 
+Alternatively, the \texttt{stereo\_gui} frontend can be invoked, with
+the same options, as described in section \ref{stereo_gui}.
+
 \begin{figure}[h!]
 \centering
   \includegraphics[width=2.0in]{images/examples/dg/DigitalGlobeContext.png}
@@ -334,9 +338,10 @@ you use affine epipolar alignment to reduce the search range. The
 \label{fig:dg-nomap-example}
 \end{figure}
 
-Above, we have used \texttt{subpixel-mode 1} which is less accurate but reasonably fast.
-More details about how to set this and other \texttt{stereo} parameters can be found
-in section \ref{settingoptionsinstereodefault}.
+Above, we have used \texttt{subpixel-mode 1} which is less accurate but
+reasonably fast.  More details about how to set this and other
+\texttt{stereo} parameters can be found in section
+\ref{settingoptionsinstereodefault}.
 
 It is important to note that we could have performed stereo using the
 approximate RPC model instead of the exact linear camera model (both
@@ -721,6 +726,12 @@ digital elevation model (DEM) or other formats.
 
 The \texttt{stereo} command can also take multiple input images, performing
 multi-view stereo (section \ref{multiview}).
+
+\subsection{Running the GUI Frontend}
+The \texttt{stereo\_gui} program is a GUI frontend to \texttt{stereo}.
+It is invoked with the same options as \texttt{stereo}. It displays
+the input images, and makes it possible to zoom in and select smaller
+regions to run stereo on. The GUI is described in section \ref{stereo_gui}.
 
 \subsection{Specifying Settings on the Command Line}
 \label{cmdline}
