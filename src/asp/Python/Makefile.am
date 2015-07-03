@@ -16,39 +16,36 @@
 # __END_LICENSE__
 
 
-#########################################
+########################################################################
 # sources
-#########################################
+########################################################################
 
-core_subdirs = Core
-core_headers = Core.h
+bin_PROGRAMS =
+bin_SCRIPTS =
+libexec_SCRIPTS =
+libexec_PROGRAMS = # Auxiliary C++ executables
 
-sessions_subdirs = Sessions
-sessions_headers = Sessions.h
+libexec_SCRIPTS  += asp_cmd_utils.py
+libexec_SCRIPTS  += asp_file_utils.py
+libexec_SCRIPTS  += asp_geo_utils.py
+libexec_SCRIPTS  += asp_image_utils.py
+libexec_SCRIPTS  += asp_string_utils.py
+libexec_SCRIPTS  += asp_system_utils.py  
 
-isisio_subdirs = IsisIO
-isisio_headers = IsisIO.h
 
-spiceio_subdirs = SpiceIO
-spiceio_headers = SpiceIO.h
+#all_scripts = $(bin_SCRIPTS)
+all_scripts += $(libexec_SCRIPTS)
+CLEANFILES = $(all_scripts)
 
-gui_subdirs = GUI
+#$(all_scripts): %: %.in
+#	sed 's/\[@\]ASP_VERSION\[@\]/$(VERSION)/g' < $(srcdir)/$< > $@
+#	chmod +x $@
 
-python_subdirs = Python
-tools_subdirs = Tools
+##############################################################################
 
-include_HEADERS = $(core_headers) $(spiceio_headers)            \
-	  $(isisio_headers) $(sessions_headers) asp_config.h
 
-SUBDIRS = $(core_subdirs) $(spiceio_subdirs) $(isisio_subdirs) \
-	  $(sessions_subdirs) $(gui_subdirs) $(python_subdirs) $(tools_subdirs)
+SUBDIRS = .
 
-CLEANFILES = asp_config.h.pre.in~
-
-#########################################
-# general
-#########################################
-
-includedir = $(prefix)/include/asp
+includedir = $(prefix)/include/asp/Python
 
 include $(top_srcdir)/config/rules.mak

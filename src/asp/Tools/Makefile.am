@@ -167,6 +167,7 @@ if MAKE_APP_MAPPROJECT
   bin_PROGRAMS += mapproject
   mapproject_SOURCES = mapproject.cc
   mapproject_LDADD   = $(APP_MAPPROJECT_LIBS)
+  bin_SCRIPTS  += parallel_mapproject.py
 endif
 
 if MAKE_APP_LRONACJITREG
@@ -206,9 +207,9 @@ all_scripts = $(bin_SCRIPTS)
 all_scripts += $(libexec_SCRIPTS)
 CLEANFILES = $(all_scripts)
 
-$(all_scripts): %: %.in
-	sed 's/\[@\]ASP_VERSION\[@\]/$(VERSION)/g' < $(srcdir)/$< > $@
-	chmod +x $@
+#$(all_scripts): %: %.in
+#	sed 's/\[@\]ASP_VERSION\[@\]/$(VERSION)/g' < $(srcdir)/$< > $@
+#	chmod +x $@
 
 ##############################################################################
 
