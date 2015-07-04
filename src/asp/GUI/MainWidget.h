@@ -184,7 +184,7 @@ public:
       level++;
     }
 
-    vw_out() << "Reading: " << m_pyramid_files[level] << std::endl;
+    //vw_out() << "Reading: " << m_pyramid_files[level] << std::endl;
 
     region_in.crop(bounding_box(m_pyramid[0]));
     scale_out = m_scales[level];
@@ -333,15 +333,15 @@ private:
     void drawImage(QPainter* paint);
     vw::Vector2 world2screen(vw::Vector2 const& p);
     vw::Vector2 screen2world(vw::Vector2 const& pix);
-    QRect world2screen(QRect const& R);
-    QRect screen2world(QRect const& R);
-    vw::BBox2 expand_box_to_keep_aspect_ratio(BBox2 const& box);
+    BBox2 world2screen(BBox2 const& R);
+    BBox2 screen2world(BBox2 const& R);
+    vw::BBox2 expand_box_to_keep_aspect_ratio(vw::BBox2 const& box);
     void updateCurrentMousePosition();
 
     bool  m_firstPaintEvent;
     QRect m_emptyRubberBand;
-    QRect m_rubberBand, m_stereoCropWin;
-    QRect m_stereoCropWinScreen; // in screen coords
+    QRect m_rubberBand;
+    BBox2 m_stereoCropWin;
 
     // if we are selecting a crop win to do stereo in
     bool m_cropWinMode;

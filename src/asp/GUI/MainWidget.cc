@@ -36,46 +36,62 @@ using namespace vw;
 using namespace vw::gui;
 using namespace std;
 
-void popUp(std::string msg){
-  QMessageBox msgBox;
-  msgBox.setText(msg.c_str());
-  msgBox.exec();
-  return;
-}
+namespace vw { namespace gui {
 
-void do_hillshade(cartography::GeoReference const& georef,
-                  ImageView<float> & img,
-                  float nodata_val){
+  void popUp(std::string msg){
+    QMessageBox msgBox;
+    msgBox.setText(msg.c_str());
+    msgBox.exec();
+    return;
+  }
 
-  // Copied from hillshade.cc.
+  BBox2 qrect2bbox(QRect const& R){
+    return BBox2( Vector2(R.left(), R.top()), Vector2(R.right(), R.bottom()) );
+  }
 
-  // Select the pixel scale
-  float u_scale, v_scale;
-  u_scale = georef.transform()(0,0);
-  v_scale = georef.transform()(1,1);
+  QRect bbox2qrect(BBox2 const& B){
+    // Need some care here, an empty BBox2 can have its corners
+    // as the largest double, which can cause overflow.
+    if (B.empty()) return QRect();
+    return QRect(round(B.min().x()), round(B.min().y()),
+                 round(B.width()), round(B.height()));
+  }
 
-  int elevation = 45;
-  int azimuth   = 0;
+  void do_hillshade(cartography::GeoReference const& georef,
+                    ImageView<float> & img,
+                    float nodata_val){
 
-  // Set the direction of the light source.
-  Vector3f light_0(1,0,0);
-  Vector3f light
-    = vw::math::euler_to_rotation_matrix(elevation*M_PI/180,
-                                         azimuth*M_PI/180, 0, "yzx") * light_0;
+    // Copied from hillshade.cc.
+
+    // Select the pixel scale
+    float u_scale, v_scale;
+    u_scale = georef.transform()(0,0);
+    v_scale = georef.transform()(1,1);
+
+    int elevation = 45;
+    int azimuth   = 0;
+
+    // Set the direction of the light source.
+    Vector3f light_0(1,0,0);
+    Vector3f light
+      = vw::math::euler_to_rotation_matrix(elevation*M_PI/180,
+                                           azimuth*M_PI/180, 0, "yzx") * light_0;
 
 
-  ImageViewRef<PixelMask<float> > masked_img = create_mask(img, nodata_val);
+    ImageViewRef<PixelMask<float> > masked_img = create_mask(img, nodata_val);
 
-  // The final result is the dot product of the light source with the normals
-  ImageView<PixelMask<uint8> > shaded_image =
-    channel_cast_rescale<uint8>
-    (clamp
-     (dot_prod
-      (compute_normals
-       (masked_img, u_scale, v_scale), light)));
+    // The final result is the dot product of the light source with the normals
+    ImageView<PixelMask<uint8> > shaded_image =
+      channel_cast_rescale<uint8>
+      (clamp
+       (dot_prod
+        (compute_normals
+         (masked_img, u_scale, v_scale), light)));
 
-  img = apply_mask(shaded_image);
-}
+    img = apply_mask(shaded_image);
+  }
+
+}} // namespace vw::gui
 
 void imageData::read(std::string const& image, bool ignore_georef,
                      bool hillshade){
@@ -214,12 +230,10 @@ MainWidget::MainWidget(QWidget *parent,
 
   installEventFilter(this);
 
-  m_firstPaintEvent     = true;
-  m_emptyRubberBand     = QRect(0, 0, 0, 0);
-  m_rubberBand          = m_emptyRubberBand;
-  m_stereoCropWin       = m_emptyRubberBand;
-  m_stereoCropWinScreen = m_emptyRubberBand;
-  m_cropWinMode         = false;
+  m_firstPaintEvent = true;
+  m_emptyRubberBand = QRect(0, 0, 0, 0);
+  m_rubberBand      = m_emptyRubberBand;
+  m_cropWinMode     = false;
 
   m_mousePrsX = 0; m_mousePrsY = 0;
   m_mouseRelX = 0; m_mouseRelY = 0;
@@ -352,27 +366,27 @@ vw::Vector2 MainWidget::world2screen(vw::Vector2 const& p){
   return vw::Vector2(x, y);
 }
 
-vw::Vector2 MainWidget::screen2world(vw::Vector2 const& pix){
+vw::Vector2 MainWidget::screen2world(vw::Vector2 const& p){
   // Convert a pixel on the screen to world coordinates.
   double x = m_current_view.min().x()
-    + m_current_view.width() * double(pix.x()) / m_window_width;
+    + m_current_view.width() * double(p.x()) / m_window_width;
   double y = m_current_view.min().y()
-    + m_current_view.height() * double(pix.y()) / m_window_height;
+    + m_current_view.height() * double(p.y()) / m_window_height;
   return vw::Vector2(x, y);
 }
 
-QRect MainWidget::screen2world(QRect const& R) {
-  Vector2 A = screen2world(Vector2(R.x(), R.y()));
-  Vector2 B = screen2world(Vector2(R.x() + R.width(),
-                                  R.y() + R.height()));
-  return QRect(A.x(), A.y(), B.x() - A.x(), B.y() - A.y());
+BBox2 MainWidget::screen2world(BBox2 const& R) {
+  if (R.empty()) return R;
+  Vector2 A = screen2world(R.min());
+  Vector2 B = screen2world(R.max());
+  return BBox2(A, B);
 }
 
-QRect MainWidget::world2screen(QRect const& R) {
-  Vector2 A = world2screen(Vector2(R.x(), R.y()));
-  Vector2 B = world2screen(Vector2(R.x() + R.width(),
-                                  R.y() + R.height()));
-  return QRect(A.x(), A.y(), B.x() - A.x(), B.y() - A.y());
+BBox2 MainWidget::world2screen(BBox2 const& R) {
+  if (R.empty()) return R;
+  Vector2 A = world2screen(R.min());
+  Vector2 B = world2screen(R.max());
+  return BBox2(A, B);
 }
 
 // Convert the crop window to original pixel coordinates from
@@ -380,7 +394,8 @@ QRect MainWidget::world2screen(QRect const& R) {
 // TODO: Make screen2world() do it, to take an input a QRect (or BBox2)
 // and return as output the converted box.
 QRect MainWidget::get_crop_win() {
-  return m_stereoCropWin;
+  if (m_stereoCropWin.empty()) return QRect();
+  return bbox2qrect(m_stereoCropWin);
 }
 
 void MainWidget::zoom(double scale) {
@@ -571,35 +586,27 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
   QStylePainter paint(this);
   paint.drawPixmap(0, 0, m_pixmap);
 
+  QColor rubberBandColor = QColor("yellow");
+  QColor cropWinColor = QColor("red");
+
+  // We will color the rubberband in the crop win color if we are
+  // in crop win mode.
+  if (m_cropWinMode)
+    paint.setPen(cropWinColor);
+  else
+    paint.setPen(rubberBandColor);
+
   // Draw the rubberband. We adjust by subtracting 1 from right and
   // bottom corner below to be consistent with updateRubberBand(), as
   // rect.bottom() is rect.top() + rect.height()-1.
-  QColor fgColor = QColor("red");
-  paint.setPen(fgColor);
   paint.drawRect(m_rubberBand.normalized().adjusted(0, 0, -1, -1));
 
-  // Draw the stereo crop window
-  if (m_stereoCropWin != m_emptyRubberBand) {
-
-    // Need to be careful here. We have the precise crop window
-    // in screen coordinates. However, if we zoomed, this needs
-    // to be recomuted. We need this gimmicry since
-    // screen2world followed by world2screen may not bring us
-    // precisely where we started due to integer rounding
-    // issues.
-    QRect R = m_stereoCropWinScreen;
-    QRect Rnew = world2screen(m_stereoCropWin);
-    if (std::abs(R.width()  - Rnew.width()) <= 2 &&
-        std::abs(R.height() - Rnew.height()) <= 2 ) {
-      // We did not zoom, so we can still use R
-    }else{
-      // We zoomed.
-      R = Rnew;
-      m_stereoCropWinScreen = Rnew;
-    }
-
-    QColor fgColor = QColor("red");
-    paint.setPen(fgColor);
+  // Draw the stereo crop window.
+  // Note that the stereo crop window may exist independently
+  // of whether the rubberband exists.
+  if (!m_stereoCropWin.empty()) {
+    QRect R = bbox2qrect(world2screen(m_stereoCropWin));
+    paint.setPen(cropWinColor);
     paint.drawRect(R.normalized().adjusted(0, 0, -1, -1));
   }
 }
@@ -678,6 +685,9 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
 
   } else if (event->buttons() & Qt::LeftButton) {
 
+    if(event->modifiers() & Qt::ControlModifier)
+      m_cropWinMode = true;
+
     QPoint Q = event->pos();
     int x = Q.x(), y = Q.y();
 
@@ -704,17 +714,14 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
     // the perimeter of the new rubberband, and as can be seen in
     // MainWidget::PaintEvent() the effect is to draw the rubberband.
 
-    if(event->modifiers() & Qt::ControlModifier){
-      m_cropWinMode = true;
-    }
-
     if (m_cropWinMode) {
       // If there is on screen already a crop window, wipe it, as
       // we are now in the process of creating a new one.
-      updateRubberBand(m_stereoCropWinScreen);
-      m_stereoCropWinScreen = m_emptyRubberBand;
-      m_stereoCropWin = m_emptyRubberBand;
-      updateRubberBand(m_stereoCropWinScreen);
+      QRect R = bbox2qrect(world2screen(m_stereoCropWin));
+      updateRubberBand(R);
+      m_stereoCropWin = BBox2();
+      R = bbox2qrect(world2screen(m_stereoCropWin));
+      updateRubberBand(R);
     }
 
   }
@@ -750,14 +757,29 @@ void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
 
   } else if(m_cropWinMode){
 
-    // User selects the region to use for stereo
-    m_stereoCropWinScreen = m_rubberBand;
-    m_stereoCropWin = screen2world(m_rubberBand);
+    // User selects the region to use for stereo.
+    // Convert it to world coordinates, and round to integer.
+    m_stereoCropWin = screen2world(qrect2bbox(m_rubberBand));
+    m_stereoCropWin.min() = round(m_stereoCropWin.min());
+    m_stereoCropWin.max() = round(m_stereoCropWin.max());
     vw_out() << "Crop window (begx begy widx widy) is "
-             << m_stereoCropWin.x()      << ' '
-             << m_stereoCropWin.y()      << ' '
-             << m_stereoCropWin.width()  << ' '
-             << m_stereoCropWin.height() << std::endl;
+             << m_stereoCropWin.min().x() << ' '
+             << m_stereoCropWin.min().y() << ' '
+             << m_stereoCropWin.width()   << ' '
+             << m_stereoCropWin.height()  << std::endl;
+
+    // Wipe the rubberband, no longer needed.
+    updateRubberBand(m_rubberBand);
+    m_rubberBand = m_emptyRubberBand;
+    updateRubberBand(m_rubberBand);
+
+    // Draw the crop window. This may not be precisely the rubberband
+    // since there is some loss of precision in conversion from
+    // Qrect to BBox2 and back. Note actually that we are not drawing
+    // here, we are scheduling this area to be updated, the drawing
+    // has to happen (with precisely this formula) in PaintEvent().
+    QRect R = bbox2qrect(world2screen(m_stereoCropWin));
+    updateRubberBand(R);
 
   } else if (Qt::LeftButton) {
 
@@ -841,7 +863,39 @@ void MainWidget::keyPressEvent(QKeyEvent *event) {
 
   std::ostringstream s;
 
+  double factor = 0.2;  // We will pan by moving by 20%.
   switch (event->key()) {
+
+    // Pan
+  case Qt::Key_Left: // Pan left
+    m_current_view.min().x() -= m_current_view.width()*factor;
+    refreshPixmap();
+    break;
+  case Qt::Key_Right: // Pan right
+    m_current_view.min().x() += m_current_view.width()*factor;
+    refreshPixmap();
+    break;
+  case Qt::Key_Up: // Pan up
+    m_current_view.min().y() -= m_current_view.height()*factor;
+    refreshPixmap();
+    break;
+  case Qt::Key_Down: // Pan down
+    m_current_view.min().y() += m_current_view.height()*factor;
+    refreshPixmap();
+    break;
+
+    // Zoom out
+  case Qt::Key_Minus:
+  case Qt::Key_Underscore:
+    zoom(0.75);
+    break;
+
+    // Zoom in
+  case Qt::Key_Plus:
+  case Qt::Key_Equal:
+    zoom(1.0/0.75);
+    break;
+
   case Qt::Key_I:  // Toggle bilinear/nearest neighbor interp
     m_bilinear_filter = !m_bilinear_filter;
     break;
@@ -899,4 +953,5 @@ void MainWidget::keyPressEvent(QKeyEvent *event) {
   default:
     QWidget::keyPressEvent(event);
   }
+
 }
