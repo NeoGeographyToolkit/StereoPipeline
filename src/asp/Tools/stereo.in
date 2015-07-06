@@ -24,12 +24,12 @@ if sys.version_info < (2, 6, 0):
     sys.exit(1)
 
 import os.path as P
-libexec_path = sys.path[0] + '/../libexec'
-sys.path.insert(0, libexec_path) # prepend to Python path
+libexecpath = sys.path[0] + '/../libexec'
+sys.path.insert(0, libexecpath) # prepend to Python path
 from stereo_utils import * # must be after the path is altered above
 
 # Prepend to system PATH
-os.environ["PATH"] = libexec_path + os.pathsep + os.environ["PATH"]
+os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
 if __name__ == '__main__':
     usage = '''parallel_stereo [options] <images> [<cameras>]
@@ -112,24 +112,24 @@ if __name__ == '__main__':
         step = Step.pprc
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ): sys.exit()
-            run('stereo_pprc', args, opt, msg='%d: Preprocessing' % step)
+            stereo_run('stereo_pprc', args, opt, msg='%d: Preprocessing' % step)
         step = Step.corr
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ): sys.exit()
             if ( opt.seed_mode == 3 ):
                 run_sparse_disp(args, opt)
-            run('stereo_corr', args, opt, msg='%d: Correlation' % step)
+            stereo_run('stereo_corr', args, opt, msg='%d: Correlation' % step)
         step = Step.rfne
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ): sys.exit()
-            run('stereo_rfne', args, opt, msg='%d: Refinement' % step)
+            stereo_run('stereo_rfne', args, opt, msg='%d: Refinement' % step)
         step = Step.fltr
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ): sys.exit()
-            run('stereo_fltr', args, opt, msg='%d: Filtering' % step)
+            stereo_run('stereo_fltr', args, opt, msg='%d: Filtering' % step)
         step = Step.tri
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ): sys.exit()
-            run('stereo_tri',  args, opt, msg='%d: Triangulation' % step)
+            stereo_run('stereo_tri',  args, opt, msg='%d: Triangulation' % step)
     except Exception, e:
             die(e)

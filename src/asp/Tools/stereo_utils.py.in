@@ -27,7 +27,7 @@ class Step:
     rfne = 2
     fltr = 3
     tri  = 4
-    
+
 # Utilities to ensure that the Python parser does not garble negative
 # integers such as '-365' into '-3'.
 escapeStr='esc_rand_str'
@@ -63,20 +63,60 @@ class PassThroughOptionParser(optparse.OptionParser):
                 else:
                     largs.append(e.opt_str)
 
+# Find if a program is in the path
+def which(program):
+    def is_exe(fpath):
+        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+    fpath, fname = os.path.split(program)
+    if fpath:
+        if is_exe(program):
+            return program
+    else:
+        for path in os.environ["PATH"].split(os.pathsep):
+            path = path.strip('"')
+            exe_file = os.path.join(path, program)
+            if is_exe(exe_file):
+                return exe_file
+
+    return None
+
+# When user-exposed ASP executables are installed, they are in
+# 'bin'. Otherwise, in dev mode, they are in the same dir as __file__.
+def bin_path(prog, **kw):
+    currpath = kw.get('path', P.dirname(P.abspath(__file__)))
+    binpath = P.join(currpath, '..', 'bin', prog)
+    if not os.path.isfile(binpath):
+        binpath = P.join(currpath, prog)
+    return binpath
+
+# When hidden ASP executables are installed, they are in
+# 'libexec'. Otherwise, in dev mode, they are in the same dir as
+# __file__.
+def libexec_path(prog, **kw):
+    currpath = kw.get('path', P.dirname(P.abspath(__file__)))
+    libexecpath = P.join(currpath, '..', 'libexec', prog)
+    if not os.path.isfile(libexecpath):
+        libexecpath = P.join(currpath, prog)
+    if not os.path.isfile(libexecpath):
+        # Could not find prog in libexec either. We will come
+        # here only for executables like gdalinfo that will
+        # be packages in the release, but are not yet
+        # in dev mode. Just print a warning and hope
+        # this tool is somewhere in user's path.
+        print("Could not find: ", libexecpath)
+        libexecpath = which(prog)
+        print("Using instead: ", libexecpath)
+
+    return libexecpath
+
 # Execute a given command stored in the libexec directory and parse
 # its output. The output format is expected to be lines of
 # comma-separated values.  The first value on each line becomes the
-# output variable name, the other values are read into the array of variable values.
+# output variable name, the other values are read into the array of
+# variable values.
 def run_and_parse_output(cmd, args, sep, verbose, **kw ):
-    libexecpath = P.join(kw.get('path', P.dirname(P.abspath(__file__))), '..',\
-                         'libexec', cmd)
-
-    # If we cannot find cmd in libexec, look in the path
-    if not os.path.isfile(libexecpath) or not os.access(libexecpath, os.X_OK):
-        print("Warning: Cannot find: " + libexecpath)
-        libexecpath = which(cmd)
-        print("Warning: Using instead: " + libexecpath)
-
+    libexecpath = libexec_path(cmd)
     call = [libexecpath]
     call.extend(args)
 
@@ -99,7 +139,7 @@ def run_and_parse_output(cmd, args, sep, verbose, **kw ):
 
         # Print warning messages to stdout
         if re.match("^Warning", line): print(line)
-            
+
         if sep in line:
             keywords = line.split(sep)
             for index, item in enumerate(keywords):
@@ -139,24 +179,6 @@ def intersect_boxes(A, B):
     if (C.height < 0): C.height = 0
     return C
 
-# Find if a program is in the path
-def which(program):
-    def is_exe(fpath):
-        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
-
-    fpath, fname = os.path.split(program)
-    if fpath:
-        if is_exe(program):
-            return program
-    else:
-        for path in os.environ["PATH"].split(os.pathsep):
-            path = path.strip('"')
-            exe_file = os.path.join(path, program)
-            if is_exe(exe_file):
-                return exe_file
-
-    return None
-
 # A very simple wrapper around subprocess
 def generic_run(cmd, verbose):
 
@@ -170,10 +192,10 @@ def generic_run(cmd, verbose):
         raise Exception('%s: %s' % (cmd_str, e))
     if code != 0:
             raise Exception('Failed to run: ' + cmd_str)
-    
-def run(bin, args, opt, **kw):
-    
-    binpath = P.join(kw.get('path', P.dirname(P.abspath(__file__))), '..', 'bin', bin)
+
+# Run one of the stereo executables
+def stereo_run(prog, args, opt, **kw):
+    binpath = bin_path(prog)
     call = [binpath]
     call.extend(args)
 
@@ -212,8 +234,8 @@ def run_sparse_disp(args, opt):
         if num_threads > 0:
             sparse_args += ['--processes', str(num_threads)]
 
-    run('sparse_disp', sparse_args, opt,
-        msg='%d: Low-res correlation with sparse_disp' % Step.corr)
+    stereo_run('sparse_disp', sparse_args, opt,
+               msg='%d: Low-res correlation with sparse_disp' % Step.corr)
 
 def mkdir_p(path):
     try:
@@ -222,7 +244,7 @@ def mkdir_p(path):
         pass
 
 def get_num_cpus():
-    
+
     import sys
     if sys.version_info < (2, 6, 0):
         num_cpus = 8
@@ -235,7 +257,7 @@ def get_num_cpus():
 def parse_corr_seed_mode(filename):
 
     mode = None
-    
+
     # Extract corr-seed-mode from filename.
     if not os.path.isfile(filename):
         return mode
@@ -284,12 +306,12 @@ def run_multiview(prog_name, args, extra_args, entry_point, stop_point,
 
     # Run all steps but tri
     for s in sorted(settings.keys()):
-        
+
         m = re.match('multiview_command', s)
         if not m: continue
 
         local_args    = settings[s][:]
-        local_args[0] = prog_name 
+        local_args[0] = prog_name
         local_entry   = entry_point
         local_stop    = stop_point
         if local_stop > Step.tri:
@@ -332,4 +354,3 @@ def run_multiview(prog_name, args, extra_args, entry_point, stop_point,
             run_dir = os.path.dirname(out_prefix)
             rel_f   = os.path.relpath(f, run_dir)
             os.symlink(rel_f, sym_f)
-

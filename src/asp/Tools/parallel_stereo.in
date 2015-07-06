@@ -24,12 +24,12 @@ if sys.version_info < (2, 6, 0):
     print('\nERROR: Must use Python 2.6 or greater.')
     sys.exit(1)
 
-libexec_path = sys.path[0] + '/../libexec'
-sys.path.insert(0, libexec_path) # prepend to Python path
+libexecpath = sys.path[0] + '/../libexec'
+sys.path.insert(0, libexecpath) # prepend to Python path
 from stereo_utils import * # must be after the path is altered above
 
 # Prepend to system PATH
-os.environ["PATH"] = libexec_path + os.pathsep + os.environ["PATH"]
+os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
 # We will not symlink PC.tif and RD.tif which will be vrts,
 # and neither the log files
@@ -373,8 +373,8 @@ def sprawn_to_nodes(step, settings, args):
     generic_run(cmd, opt.verbose)
 
 # Launch jobs on the current machine
-def parallel_run(bin, args, settings, tiles, **kw):
-    binpath = P.join(kw.get('path', P.dirname(P.abspath(__file__))), '..', 'bin', bin)
+def parallel_run(prog, args, settings, tiles, **kw):
+    binpath = bin_path(prog)
     call = [binpath]
     call.extend(args)
 
@@ -407,10 +407,10 @@ def parallel_run(bin, args, settings, tiles, **kw):
     except OSError, e:
         raise Exception('%s: %s' % (binpath, e))
 
-def single_run(bin, args, **kw):
+# Run with one thread
+def single_run(prog, args, **kw):
 
-    binpath = P.join(kw.get('path', P.dirname(P.abspath(__file__))), \
-                     '..', 'bin', bin)
+    binpath = bin_path(prog)
     call = [binpath]
     call.extend(args)
 
