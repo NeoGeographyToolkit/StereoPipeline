@@ -47,7 +47,6 @@
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/IsisIO/IsisCameraModel.h>
-#include <asp/IsisIO/IsisAdjustCameraModel.h>
 #include <asp/IsisIO/DiskImageResourceIsis.h>
 #include <asp/IsisIO/Equation.h>
 #include <asp/Sessions/ISIS/PhotometricOutlier.h>

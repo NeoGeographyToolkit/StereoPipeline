@@ -29,7 +29,6 @@
 
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
 #include <asp/IsisIO/DiskImageResourceIsis.h>
-#include <asp/IsisIO/IsisAdjustCameraModel.h>
 #include <asp/IsisIO/IsisCameraModel.h>
 #endif
 

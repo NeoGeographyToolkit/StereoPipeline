@@ -32,8 +32,6 @@
 #include <asp/Core/Common.h>
 
 #include <asp/IsisIO/IsisCameraModel.h>
-#include <asp/IsisIO/IsisAdjustCameraModel.h>
-#include <asp/IsisIO/Equation.h>
 #include <asp/Core/BundleAdjustUtils.h>
 
 #include <map>

@@ -34,7 +34,6 @@
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/IsisIO/Equation.h>
-#include <asp/IsisIO/IsisAdjustCameraModel.h>
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/Sessions/DG/LinescanDGModel.h>
 #include <asp/Sessions/DG/XML.h>
@@ -94,7 +93,7 @@ inline boost::shared_ptr<asp::RPCModel> CameraModelLoader::load_rpc_camera_model
     RPCXML rpc_xml; // This is for reading XML files
     rpc_xml.read_from_file(path);
     rpc_model = new RPCModel(*rpc_xml.rpc_ptr()); // Copy the value
-  } catch (...) {} 
+  } catch (...) {}
   if (!rpc_model) // The default loading method failed, try the backup method.
   {
     rpc_model = new RPCModel(path); // This is for reading .tif files

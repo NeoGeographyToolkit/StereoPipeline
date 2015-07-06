@@ -24,9 +24,8 @@ if MAKE_MODULE_ISISIO
 
 TestIsisCameraModel_SOURCES       = TestIsisCameraModel.cxx
 TestEphemerisEquations_SOURCES    = TestEphemerisEquations.cxx
-TestIsisAdjustCameraModel_SOURCES = TestIsisAdjustCameraModel.cxx
 
-TESTS = TestIsisCameraModel TestEphemerisEquations TestIsisAdjustCameraModel
+TESTS = TestIsisCameraModel TestEphemerisEquations
 
 endif
 

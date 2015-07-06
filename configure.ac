@@ -412,7 +412,6 @@ AX_MODULE(CORE,     [src/asp/Core],     [libaspCore.la],     yes, [], [VW_ALL LA
 AX_MODULE(SPICEIO,  [src/asp/SpiceIO],  [libaspSpiceIO.la],  yes, [], [VW SPICE])
 AX_MODULE(ISISIO,   [src/asp/IsisIO],   [libaspIsisIO.la],   yes, [], [ISIS VW_CARTOGRAPHY])
 AX_MODULE(SESSIONS, [src/asp/Sessions], [libaspSessions.la], yes, [CORE], [XERCESC], [ISISIO SPICEIO ])
-AX_MODULE(MPI,      [src/asp/MPI],      [],                  no,  [VW_BUNDLEADJUSTMENT ISISIO CORE], [BOOST_SERIALIZATION BOOST_MPI OPEN_MPI VW_ALL])
 AX_MODULE(GUI,      [src/asp/GUI],      [libaspGUI.la],      yes, [CORE], [QT], [])
 
 # Tools
@@ -447,7 +446,6 @@ AM_CONDITIONAL(MAKE_MODULE_CORE,     [test "$MAKE_MODULE_CORE" = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_ISISIO,   [test "$MAKE_MODULE_ISISIO" = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_SPICEIO,  [test "$MAKE_MODULE_SPICEIO" = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_SESSIONS, [test "$MAKE_MODULE_SESSIONS" = "yes"])
-AM_CONDITIONAL(MAKE_MODULE_MPI,      [test "$MAKE_MODULE_MPI" = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_GUI,      [test "$MAKE_MODULE_GUI" = "yes"])
 
 AM_CONDITIONAL(MAKE_APP_PC_ALIGN, [test "$MAKE_APP_PC_ALIGN" = "yes"])
@@ -511,7 +509,6 @@ AC_CONFIG_FILES([                        \
   src/asp/Core/tests/Makefile            \
   src/asp/IsisIO/Makefile                \
   src/asp/IsisIO/tests/Makefile          \
-  src/asp/MPI/Makefile                   \
   src/asp/Makefile                       \
   src/asp/Sessions/DG/Makefile           \
   src/asp/Sessions/DGMapRPC/Makefile     \
