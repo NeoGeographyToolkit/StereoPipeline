@@ -308,6 +308,9 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
                          << " or:\n" << camera_file);
 }
 // The PINHOLE function unfortunately needs to be written out here.
+
+// TODO: Move this uginess to StereoSessionPinhole.
+
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 boost::shared_ptr<vw::camera::CameraModel>

@@ -46,6 +46,9 @@
 #include <ostream>
 #include <limits>
 
+// TODO: Break this up. Each of these functions must go back to their
+// individual Session directories rather than being collected here.
+
 namespace asp {
 
   // !!! This class is not meant to be invoked directly !!!
@@ -61,17 +64,15 @@ namespace asp {
     ~CameraModelLoader();
 
     // Camera model loading functions
+    // All private functions!
     boost::shared_ptr<asp::RPCModel> load_rpc_camera_model(std::string const& path) const;
     CameraModelPtr load_dg_camera_model     (std::string const& path) const;
     CameraModelPtr load_pinhole_camera_model(std::string const& path) const;
-    CameraModelPtr load_isis_camera_model   (std::string const& path,
-                                             std::string const& adjust_path="") const;
+    CameraModelPtr load_isis_camera_model   (std::string const& path) const;
 
   }; // End class StereoSessionFactory
 
-//======================================================================================
 // Function definitions
-
 
 inline CameraModelLoader::CameraModelLoader()
 {
@@ -237,9 +238,7 @@ inline boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_pinhol
 
 
 /// Load an ISIS camera model
-/// - Also accepts an optional sensor adjustment file path.
-inline boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_isis_camera_model(std::string const& path,
-                                                                                            std::string const& adjust_path) const
+inline boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_isis_camera_model(std::string const& path) const
 {
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
   return CameraModelPtr(new vw::camera::IsisCameraModel(path));
