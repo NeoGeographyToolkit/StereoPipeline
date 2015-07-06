@@ -205,7 +205,7 @@ inline vw::Vector2 camera_pixel_offset(std::string const& input_dem,
                                        std::string const& curr_image_file){
 
   // For map-projected images we don't apply a pixel offset.
-  // When we need stereo on cropped images, we just
+  // When we need to do stereo on cropped images, we just
   // crop the images together with their georeferences.
   if (input_dem != "")
     return Vector2();
@@ -245,7 +245,8 @@ load_adjusted_model(boost::shared_ptr<camera::CameraModel> cam,
       vw_out() << "Using adjusted camera model: " << adjust_file << std::endl;
       read_adjustments(adjust_file, position_correction, pose_correction);
     }else {
-      vw_throw(InputErr() << "Missing adjusted camera model: " << adjust_file << ".\n");
+      vw_throw(InputErr() << "Missing adjusted camera model: "
+               << adjust_file << ".\n");
     }
   }
 
@@ -261,7 +262,8 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
                                                  m_left_image_file,
                                                  m_right_image_file,
                                                  image_file);
-  return load_adjusted_model(m_camera_loader.load_isis_camera_model(camera_file), image_file, pixel_offset);
+  return load_adjusted_model(m_camera_loader.load_isis_camera_model(camera_file),
+                             image_file, pixel_offset);
 }
 
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
@@ -273,7 +275,8 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
                                                  m_left_image_file,
                                                  m_right_image_file,
                                                  image_file);
-  return load_adjusted_model(m_camera_loader.load_dg_camera_model(camera_file), image_file, pixel_offset);
+  return load_adjusted_model(m_camera_loader.load_dg_camera_model(camera_file),
+                             image_file, pixel_offset);
 }
 
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
@@ -292,12 +295,14 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
   try {
     if (camera_file != "")
       return
-        load_adjusted_model(m_camera_loader.load_rpc_camera_model(camera_file), image_file, pixel_offset);
+        load_adjusted_model(m_camera_loader.load_rpc_camera_model(camera_file),
+                            image_file, pixel_offset);
   }
   catch(...) {}
   try {
     return
-      load_adjusted_model(m_camera_loader.load_rpc_camera_model(image_file), image_file, pixel_offset);
+      load_adjusted_model(m_camera_loader.load_rpc_camera_model(image_file),
+                          image_file, pixel_offset);
   }
   catch(...) {}
   // Raise a custom exception if both failed
@@ -309,7 +314,8 @@ template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 boost::shared_ptr<vw::camera::CameraModel>
 StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
-(Int2Type<STEREOMODEL_TYPE_PINHOLE>, std::string const& image_file, std::string const& camera_file) {
+(Int2Type<STEREOMODEL_TYPE_PINHOLE>, std::string const& image_file,
+ std::string const& camera_file) {
 
   vw::Vector2 pixel_offset = camera_pixel_offset(m_input_dem,
                                                  m_left_image_file,
@@ -339,14 +345,18 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
     if (boost::ends_with(lcase_file, ".cahvore") ) {
       CAHVOREModel left_cahvore (m_left_camera_file );
       CAHVOREModel right_cahvore(m_right_camera_file);
-      left_cahv  = linearize_camera(left_cahvore,  left_image_size,  left_image_size);
-      right_cahv = linearize_camera(right_cahvore, right_image_size, right_image_size);
+      left_cahv  = linearize_camera(left_cahvore,  left_image_size,
+                                    left_image_size);
+      right_cahv = linearize_camera(right_cahvore, right_image_size,
+                                    right_image_size);
     } else if (boost::ends_with(lcase_file, ".cahvor")  ||
                boost::ends_with(lcase_file, ".cmod"  )   ) {
       CAHVORModel left_cahvor (m_left_camera_file );
       CAHVORModel right_cahvor(m_right_camera_file);
-      left_cahv  = linearize_camera(left_cahvor,  left_image_size,  left_image_size);
-      right_cahv = linearize_camera(right_cahvor, right_image_size, right_image_size);
+      left_cahv  = linearize_camera(left_cahvor,  left_image_size,
+                                    left_image_size);
+      right_cahv = linearize_camera(right_cahvor, right_image_size,
+                                    right_image_size);
     } else if ( boost::ends_with(lcase_file, ".cahv") ||
                 boost::ends_with(lcase_file, ".pin" )) {
       left_cahv  = CAHVModel(m_left_camera_file );

@@ -47,7 +47,7 @@ namespace asp {
     vw_out(InfoMessage) << "\t--> Computing statistics for the "+tag+" image\n";
     ViewT image = view_base.impl();
     int stat_scale = int(ceil(sqrt(float(image.cols())*float(image.rows()) / 1000000)));
-    
+
     ChannelAccumulator<vw::math::CDFAccumulator<float> > accumulator;
     for_each_pixel( subsample( edge_extend(image, ConstantEdgeExtension()),
                                stat_scale ), accumulator );
@@ -65,14 +65,14 @@ namespace asp {
   template<class ImageT, class VectorT>
   void normalize_images(bool force_use_entire_range,
                         bool individually_normalize,
-                        VectorT const& left_stats, 
+                        VectorT const& left_stats,
                         VectorT const& right_stats,
                         ImageT & Limg, ImageT & Rimg){
 
     // These arguments must contain: (min, max, mean, std)
     VW_ASSERT(left_stats.size() == 4 && right_stats.size() == 4,
                   vw::ArgumentErr() << "Expecting a vector of size 4 in normalize_images()\n");
-    
+
     if ( force_use_entire_range > 0 ) {
       if ( individually_normalize > 0 ) {
         vw::vw_out() << "\t--> Individually normalize images to their respective min max\n";
@@ -89,7 +89,7 @@ namespace asp {
       double left_min  = left_stats [2] - 2*left_stats [3];
       double left_max  = left_stats [2] + 2*left_stats [3];
       double right_min = right_stats[2] - 2*right_stats[3];
-      double right_max = right_stats[2] + 2*right_stats[3];      
+      double right_max = right_stats[2] + 2*right_stats[3];
       if ( individually_normalize > 0 ) {
         vw::vw_out() << "\t--> Individually normalize images to their respective 4 std dev window\n";
         Limg = normalize( Limg, left_min,  left_max, 0.0, 1.0 );
@@ -104,12 +104,12 @@ namespace asp {
     }
     return;
   }
-  
-  
-   
+
+
+
   // Forward declare this class for constructing StereoSession objects
   class StereoSessionFactory;
-  
+
   /// Stereo Sessions define for different missions or satellites how to:
   ///   * Initialize, normalize, and align the input imagery
   ///   * Extract the camera model
@@ -118,12 +118,9 @@ namespace asp {
     friend class StereoSessionFactory; // Needed so the factory can call initialize()
   protected:
     asp::BaseOptions m_options;
-    std::string      m_left_image_file, 
-                     m_right_image_file,
-                     m_left_camera_file, 
-                     m_right_camera_file, 
-                     m_out_prefix;
-    std::string      m_input_dem;
+    std::string m_left_image_file, m_right_image_file;
+    std::string m_left_camera_file, m_right_camera_file;
+    std::string m_out_prefix, m_input_dem;
 
     virtual void initialize (BaseOptions const& options,
                              std::string const& left_image_file,

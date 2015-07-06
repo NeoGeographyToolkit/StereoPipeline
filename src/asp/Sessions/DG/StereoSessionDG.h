@@ -123,31 +123,43 @@ namespace asp {
     asp::BaseOptions options = this->m_options;
     options.gdal_options["PREDICTOR"] = "1";
 
-    std::string left_cropped_file = left_input_file,
-      right_cropped_file = right_input_file;
+    std::string left_cropped_file  = left_input_file;
+    std::string right_cropped_file = right_input_file;
 
-    // See if to crop the images
     if (crop_left_and_right) {
-      // Crop the images, will use them from now on
+      // Crop the images, will use them from now on. Crop the georef as
+      // well, if available.
       left_cropped_file  = this->m_out_prefix + "-L-cropped.tif";
       right_cropped_file = this->m_out_prefix + "-R-cropped.tif";
 
+      vw::cartography::GeoReference left_georef, right_georef;
+      bool has_left_georef  = read_georeference(left_georef, left_input_file);
+      bool has_right_georef = read_georeference(right_georef, right_input_file);
+      bool has_nodata = true;
+
       DiskImageView<float> left_orig_image(left_input_file);
-      stereo_settings().left_image_crop_win.crop(bounding_box(left_orig_image));
+      DiskImageView<float> right_orig_image(right_input_file);
+      BBox2i left_win = stereo_settings().left_image_crop_win;
+      BBox2i right_win = stereo_settings().right_image_crop_win;
+      left_win.crop(bounding_box(left_orig_image));
+      right_win.crop(bounding_box(right_orig_image));
+
       vw_out() << "\t--> Writing cropped image: " << left_cropped_file << "\n";
       block_write_gdal_image(left_cropped_file,
-                             crop(left_orig_image,
-                                  stereo_settings().left_image_crop_win),
-                             left_nodata_value, options,
+                             crop(left_orig_image, left_win),
+                             has_left_georef,
+                             crop(left_georef, left_win),
+                             has_nodata, left_nodata_value,
+                             options,
                              TerminalProgressCallback("asp", "\t:  "));
 
-      DiskImageView<float> right_orig_image(right_input_file);
-      stereo_settings().right_image_crop_win.crop(bounding_box(right_orig_image));
       vw_out() << "\t--> Writing cropped image: " << right_cropped_file << "\n";
       block_write_gdal_image(right_cropped_file,
-                             crop(right_orig_image,
-                                  stereo_settings().right_image_crop_win),
-                             right_nodata_value, options,
+                             crop(right_orig_image, right_win),
+                             has_right_georef,
+                             crop(left_georef, left_win),
+                             has_nodata, right_nodata_value,
+                             options,
                              TerminalProgressCallback("asp", "\t:  "));
     }
 
@@ -157,8 +169,10 @@ namespace asp {
       right_disk_image(right_cropped_file);
 
     // Set up image masks
-    ImageViewRef< PixelMask<float> > left_masked_image  = create_mask_less_or_equal(left_disk_image,  left_nodata_value);
-    ImageViewRef< PixelMask<float> > right_masked_image = create_mask_less_or_equal(right_disk_image, right_nodata_value);
+    ImageViewRef< PixelMask<float> > left_masked_image
+      = create_mask_less_or_equal(left_disk_image,  left_nodata_value);
+    ImageViewRef< PixelMask<float> > right_masked_image
+      = create_mask_less_or_equal(right_disk_image, right_nodata_value);
 
     // TODO: Shift this down to where we use the statistics
     // Compute input image statistics
