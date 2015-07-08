@@ -532,7 +532,7 @@ public:
 
     g_iter++;
 
-    std::cout << "Finished iteration: " << g_iter << std::endl;
+    vw_out() << "Finished iteration: " << g_iter << std::endl;
 
     std::ostringstream os;
     os << g_iter;
@@ -606,12 +606,12 @@ public:
       compute_image_stats(intensity, imgmean, imgstdev);
       compute_image_stats(computed_intensity, refmean, refstdev);
 
-      std::cout << "meas image mean and std: " << imgmean << ' ' << imgstdev
+      vw_out() << "meas image mean and std: " << imgmean << ' ' << imgstdev
                 << std::endl;
-      std::cout << "comp image mean and std: " << refmean << ' ' << refstdev
+      vw_out() << "comp image mean and std: " << refmean << ' ' << refstdev
                 << std::endl;
 
-      std::cout << "Albedo param A " << " for image " << image_iter << ": "
+      vw_out() << "Albedo param A " << " for image " << image_iter << ": "
                 << g_A[image_iter] << std::endl;
     }
 
@@ -623,8 +623,7 @@ public:
 // Discrepancy between scaled intensity and reflectance.
 // sum_i | I_i - A[i]*reflectance_i |^2
 struct IntensityError {
-  IntensityError(int cam_index,
-                 int col, int row,
+  IntensityError(int col, int row,
                  ImageView<double> const& dem,
                  cartography::GeoReference const& geo,
                  GlobalParams const& global_params,
@@ -632,7 +631,6 @@ struct IntensityError {
                  BilinearInterpT const& image,
                  boost::shared_ptr<CameraModel> const& camera,
                  double nodata_val):
-    m_cam_index(cam_index),
     m_col(col), m_row(row), m_dem(dem), m_geo(geo),
     m_global_params(global_params),
     m_model_params(model_params),
@@ -660,9 +658,8 @@ struct IntensityError {
                                        m_model_params,  m_global_params,
                                        m_image, m_camera,
                                        reflectance, intensity);
-
       if (success)
-        residuals[0] = intensity - A[m_cam_index]*reflectance;
+        residuals[0] = intensity - A[0]*reflectance;
 
     } catch (const camera::PointToPixelErr& e) {
       return false;
@@ -673,7 +670,7 @@ struct IntensityError {
 
   // Factory to hide the construction of the CostFunction object from
   // the client code.
-  static ceres::CostFunction* Create(int cam_index, int col, int row,
+  static ceres::CostFunction* Create(int col, int row,
                                      ImageView<double> const& dem,
                                      vw::cartography::GeoReference const& geo,
                                      GlobalParams const& global_params,
@@ -682,13 +679,13 @@ struct IntensityError {
                                      boost::shared_ptr<CameraModel> const& camera,
                                      double nodata_val){
     return (new ceres::NumericDiffCostFunction<IntensityError,
-            ceres::CENTRAL, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1>
-            (new IntensityError(cam_index, col, row, dem, geo,
+            ceres::CENTRAL, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1>
+            (new IntensityError(col, row, dem, geo,
                                 global_params, model_params,
                                 image, camera, nodata_val)));
   }
 
-  int m_cam_index, m_col, m_row;
+  int m_col, m_row;
   ImageView<double>                 const & m_dem;           // alias
   cartography::GeoReference         const & m_geo;           // alias
   GlobalParams                      const & m_global_params; // alias
@@ -932,7 +929,7 @@ int main(int argc, char* argv[]) {
 
     double nodata_val = -32768;
     if (asp::read_nodata_val(opt.input_dem, nodata_val)){
-      std::cout << "Found DEM nodata value: " << nodata_val << std::endl;
+      vw_out() << "Found DEM nodata value: " << nodata_val << std::endl;
     }
 
     GlobalParams global_params;
@@ -974,8 +971,8 @@ int main(int argc, char* argv[]) {
         vw_throw( ArgumentErr() << "ISIS camera model expected." );
       model_params[i].sunPosition    = icam->sun_position();
       model_params[i].cameraPosition = icam->camera_center();
-      std::cout << "sun position: " << model_params[i].sunPosition << std::endl;
-      std::cout << "camera position: " << model_params[i].cameraPosition << std::endl;
+      vw_out() << "sun position: " << model_params[i].sunPosition << std::endl;
+      vw_out() << "camera position: " << model_params[i].cameraPosition << std::endl;
     }
 
     // Images with bilinear interpolation
@@ -1005,18 +1002,18 @@ int main(int argc, char* argv[]) {
       double imgmean, imgstdev, refmean, refstdev;
       compute_image_stats(intensity, imgmean, imgstdev);
       compute_image_stats(reflectance, refmean, refstdev);
-      std::cout << "img mean std: " << imgmean << ' ' << imgstdev << std::endl;
-      std::cout << "ref mean std: " << refmean << ' ' << refstdev << std::endl;
+      vw_out() << "img mean std: " << imgmean << ' ' << imgstdev << std::endl;
+      vw_out() << "ref mean std: " << refmean << ' ' << refstdev << std::endl;
 
       A[image_iter] = imgmean/refmean;
-      std::cout << "albedo for image " << image_iter << ": "
+      vw_out() << "albedo for image " << image_iter << ": "
                 <<  A[image_iter] << std::endl;
     }
 
     // Add a residual block for every grid point not at the boundary
     ceres::Problem problem;
     int ncols = dem.cols(), nrows = dem.rows();
-    std::cout << "num cols and rows is " << ncols << ' ' << nrows << std::endl;
+    vw_out() << "num cols and rows is " << ncols << ' ' << nrows << std::endl;
     for (int col = 1; col < ncols-1; col++) {
       for (int row = 1; row < nrows-1; row++) {
 
@@ -1024,19 +1021,24 @@ int main(int argc, char* argv[]) {
         for (int image_iter = 0; image_iter < num_images; image_iter++) {
 
           ceres::CostFunction* cost_function_img =
-            IntensityError::Create(image_iter, col, row, dem, geo,
+            IntensityError::Create(col, row, dem, geo,
                                    global_params, model_params[image_iter],
                                    interp_images[image_iter],
                                    cameras[image_iter], nodata_val);
           ceres::LossFunction* loss_function_img = NULL;
           problem.AddResidualBlock(cost_function_img, loss_function_img,
-                                   &A[0],
+                                   &A[image_iter],
                                    &dem(col-1, row+1), &dem(col, row+1), // bl, bottom
                                    &dem(col+1, row+1),                   // br
                                    &dem(col-1, row  ), &dem(col, row  ), // left, ctr
                                    &dem(col+1, row  ),                   // right
                                    &dem(col-1, row-1), &dem(col, row-1), // tl, top
                                    &dem(col+1, row-1));                  // tr
+
+          // If there's just one image, don't float the albedo constants,
+          // as the problem is under-determined.
+          if (num_images == 1)
+            problem.SetParameterBlockConstant(&A[image_iter]);
         }
 
         // Smoothness penalty
@@ -1063,6 +1065,7 @@ int main(int argc, char* argv[]) {
         }
 
         // Variables at the boundary must be fixed
+        // TODO: Is this necessary if we use a distance constraint anyway?
         if (col==1) {
           // left boundary
           problem.SetParameterBlockConstant(&dem(col-1, row-1));
@@ -1089,12 +1092,6 @@ int main(int argc, char* argv[]) {
         }
 
       }
-    }
-
-    // If there's just one image, don't float the albedo constants,
-    // as the problem is under-determined.
-    if (num_images == 1) {
-      problem.SetParameterBlockConstant(&A[0]);
     }
 
     ceres::Solver::Options options;
