@@ -104,9 +104,9 @@ def libexec_path(prog, **kw):
         # be packages in the release, but are not yet
         # in dev mode. Just print a warning and hope
         # this tool is somewhere in user's path.
-        print("Could not find: ", libexecpath)
+        print("Could not find: " + libexecpath)
         libexecpath = which(prog)
-        print("Using instead: ", libexecpath)
+        print("Using instead: " + libexecpath)
 
     return libexecpath
 
