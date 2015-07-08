@@ -42,6 +42,8 @@ using namespace vw;
 /**
   Program implementing simple calculator functionality for large images.
 
+  TODO: Do we need more channel support?
+
 */
 
 namespace b_s = boost::spirit;
@@ -100,6 +102,26 @@ void tab(int indent)
     std::cout << ' ';
 }
 
+// TODO: Are there pixel functions for these?
+template <typename T>
+T manual_min(const std::vector<T> &vec)
+{
+  T minVal = vec[0];
+  for (size_t i=1; i<vec.size(); ++i)
+    if (vec[i] < minVal)
+      minVal = vec[i];
+  return minVal;
+}
+template <typename T>
+T manual_max(const std::vector<T> &vec)
+{
+  T maxVal = vec[0];
+  for (size_t i=1; i<vec.size(); ++i)
+    if (vec[i] > maxVal)
+      maxVal = vec[i];
+  return maxVal;
+}
+
 
 // This type represents an operation performed on one or more inputs.
 struct calc_operation
@@ -151,15 +173,12 @@ struct calc_operation
     /// Recursive function to eliminate extraneous nodes created by our parsing technique
     void clearEmptyNodes()
     {
-    
-      // Not a pass, recursively call this function on all inputs
+      // Recursively call this function on all inputs
       for (size_t i=0; i<inputs.size(); ++i)
         inputs[i].clearEmptyNodes();
         
-    
       if (opType != OP_pass)
         return;
-        
     
       // Check for errors
       if (inputs.size() != 1)
@@ -167,11 +186,6 @@ struct calc_operation
         std::cout << "ERROR: pass node with " << inputs.size() << " Nodes!\n";
         return;
       }
-      //if (inputs[0].opType != OP_number)
-      //{
-      //  std::cout << "ERROR: pass node with non-number input! " << getTagName(inputs[0].opType) << "\n";
-      //  return;
-      //}
       
       // Replace this node with its input node
       value   = inputs[0].value;
@@ -179,9 +193,47 @@ struct calc_operation
       varName = inputs[0].varName;
       std::vector<calc_operation> temp = inputs[0].inputs;
       inputs = temp;
-        
     }
     
+    /// Apply the operation tree to the input parameters and return a result
+    template <typename T>
+    T applyOperation(const std::vector<T> &params)
+    {
+      // Get the results from each input node.
+      // - This is a recursive call.
+      const size_t numInputs = inputs.size();
+      std::vector<T> inputResults(numInputs);
+      for (size_t i=0; i<numInputs; ++i)
+        inputResults[i] = inputs[i].applyOperation(params);
+    
+      // Now perform the operation for this node
+      switch(opType)
+      {
+        // Unary
+        case OP_number:   return T(value);
+        case OP_variable: if (varName >= params.size())
+                            vw_throw(ArgumentErr() << "Unrecognized variable input!\n");
+                          return params[varName];
+        if (numInputs < 1)
+          vw_throw(LogicErr() << "Insufficient inputs for this operation!\n");
+        case OP_negate:   return T(-1 * inputResults[0]);
+        case OP_abs:      return T(abs(inputResults[0]));
+        // Binary
+        if (numInputs < 2)
+          vw_throw(LogicErr() << "Insufficient inputs for this operation!\n");
+        case OP_add:      return (inputResults[0] + inputResults[1]);
+        case OP_subtract: return (inputResults[0] - inputResults[1]);
+        case OP_divide:   return (inputResults[0] / inputResults[1]);
+        case OP_multiply: return (inputResults[0] * inputResults[1]);
+        case OP_power:    return (pow(inputResults[0], inputResults[1]));
+        // Multi
+        case OP_min:      return manual_min(inputResults); // TODO: Do these functions exist?
+        case OP_max:      return manual_max(inputResults);
+        
+        default:
+          vw_throw(LogicErr() << "Unexpected operation type!\n");
+      }
+    }
 };
 
 
@@ -227,24 +279,7 @@ struct calc_grammar : b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space
      using b_s::qi::_2;
      using b_s::qi::_3;
    
-   
-// EBNF examples:   
-   /*
-expr   -> term [ ('+' | '-') term ]*
-term   -> factor [ ('*' | '/') factor ]*
-factor -> '(' expr ')' | identifier | number
-
-
-expr     -> term [ ('+' | '-') term ]*
-term     -> factor [ ('*' | '/') factor ]*
-factor   -> base [ '^' exponent ]*
-base     -> '(' expr ')' | identifier | number
-exponent -> '(' expr ')' | identifier | number   
-
-// TODO: Add support for more operations: min, max
-
-*/
-   
+      
      // This approach works but it processes expressions right to left!
      // - To get what you want, use parenthesis!
 
@@ -316,33 +351,15 @@ exponent -> '(' expr ')' | identifier | number
 
 
 //=================================================================================
-// - Transfer functions that should be in a VW file somewhere
-
-// Linear Transfer Function
-class LinearTransFunc : public vw::UnaryReturnSameType {
-public:
-  LinearTransFunc() {}
-
-  template <class ArgT>
-  ArgT operator()( ArgT const& value ) const { return value; }
-};
 
 
-//=================================================================================
-
-
-
-
-// TODO: This could be handled with a generic class + a functor.
-//      --> May it already exists somewhere?
-/// Image view class which creates a binary mask image equalling
-///  255 in locations where all of the input images are non-zero.
-/// - The output mask is equal in size to the smallest input image.
+/// Image view class which applies the calc_operation tree to each pixel location.
 template <class ImageT>
 class ImageCalcView : public ImageViewBase<ImageCalcView<ImageT> >
 {
 private:
   std::vector<ImageT> m_image_vec;
+  calc_operation m_operation_tree;
   int m_num_rows;
   int m_num_cols;
 
@@ -352,18 +369,19 @@ public:
   
 
   // Constructor
-  ImageCalcView( std::vector<ImageT> & imageVec/*, CALC_TREE!*/) : m_image_vec(imageVec)
+  ImageCalcView( std::vector<ImageT> & imageVec,
+                 calc_operation const& operation_tree) : m_image_vec(imageVec), m_operation_tree(operation_tree)
   {
     const size_t numImages = imageVec.size();
     VW_ASSERT( (numImages > 0), ArgumentErr() << "ImageAndView: One or more images required!." );
 
-    // Determine the minimum image size
+    // Make sure all images are the same size
     m_num_rows = imageVec[0].rows();
     m_num_cols = imageVec[0].cols();
     for (size_t i=1; i<numImages; ++i)
     {
-      if (imageVec[i].rows() < m_num_rows)  m_num_rows = imageVec[i].rows();
-      if (imageVec[i].cols() < m_num_cols)  m_num_cols = imageVec[i].cols();
+      if ( (imageVec[i].rows() != m_num_rows) || (imageVec[i].cols() != m_num_cols) )
+        vw_throw(ArgumentErr() << "Error: Input images must all be the same size in pixels!");
     }
   }
 
@@ -387,23 +405,28 @@ public:
 
     // Set up for pixel calculations
     size_t num_images = m_image_vec.size();
+    std::vector<pixel_type> input_pixels;
+
+    // Rasterize all the input images at this particular tile
+    std::vector<ImageView<pixel_type> > input_tiles(num_images);
+    for (size_t i=0; i<num_images; ++i)
+    {
+      input_tiles[i] = crop(m_image_vec[i], bbox);
+    }
 
     // Loop through each output pixel and compute each output value
     for (int c = 0; c < bbox.width(); c++)
     {
       for (int r = 0; r < bbox.height(); r++)
       {
-        // Check all of the pixels at this location and perform the AND operation
-        result_type thisPixel;
-        result_type outputPixel;
-        outputPixel[0] = 255;
+        // Fetch all the input pixels for this location
         for (size_t i=0; i<num_images; ++i) 
         {
-
-          //TODO: Do stuff with the calculator tree!
-
+          input_pixels[i] = input_tiles[i](c,r);
         } // End image loop
-        tile(c, r) = outputPixel;
+        
+        // Apply the operation tree to this pixel and store in the output pixel
+        tile(c, r) = m_operation_tree.applyOperation(input_pixels);
       } // End row loop
     } // End column loop
 
@@ -491,12 +514,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
 int main( int argc, char *argv[] ) {
 
-
-  //std::string exp("120");
   std::string exp(argv[1]);
 
   calc_grammar<std::string::const_iterator> grammerParser;
-  //calc_node calcTree;
   calc_operation calcTree;
 
   std::string::const_iterator iter = exp.begin();
@@ -508,12 +528,10 @@ int main( int argc, char *argv[] ) {
     std::cout << "-------------------------\n";
     std::cout << "Parsing succeeded\n";
     std::cout << "-------------------------\n";
-    calcTree.print();
-    std::cout << "----------- pruned --------------\n";
+    //calcTree.print();
+    //std::cout << "----------- pruned --------------\n";
     calcTree.clearEmptyNodes();
     calcTree.print();
-    
-    return 0;
   }
   else
   {
@@ -523,8 +541,15 @@ int main( int argc, char *argv[] ) {
     std::cout << "Parsing failed\n";
     std::cout << "stopped at: \": " << context << "...\"\n";
     std::cout << "-------------------------\n";
-    return 1;
   }
+  
+  std::cout << "Output:" << std::endl;
+  std::vector<double> testVars;
+  testVars.push_back(1.0);
+  testVars.push_back(2.0);
+  testVars.push_back(3.0);
+  double result = calcTree.applyOperation<double>(testVars);
+  std::cout << result << std::endl;
 
   return 0; // DEBUG ==============================
 
@@ -581,7 +606,7 @@ int main( int argc, char *argv[] ) {
 
   vw_out() << "Writing: " << output_path << std::endl;
   cartography::write_georeferenced_image(output_path, 
-                                         ImageCalcView< ImageViewRef<PixelT> >(input_images, CALC),
+                                         ImageCalcView< ImageViewRef<PixelT> >(input_images, calcTree),
                                          georef,
                                          TerminalProgressCallback("bigMaskMaker","Writing:"));
 
