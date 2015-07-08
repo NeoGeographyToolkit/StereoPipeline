@@ -56,8 +56,10 @@ namespace b_s = boost::spirit;
 
 enum OperationType
 {
+  OP_pass,
   // UNARY operations
   OP_number,   // This is a leaf node containing a number.
+  OP_variable,
   OP_negate,
   OP_abs,
   // BINARY operations
@@ -71,6 +73,26 @@ enum OperationType
   OP_max
 };
 
+std::string getTagName(const OperationType o)
+{
+  switch(o)
+  {
+    case OP_pass:     return "PASS";
+    case OP_number:   return "NUMBER";
+    case OP_variable: return "VARIABLE";
+    case OP_negate:   return "NEGATE";
+    case OP_abs:      return "ABS";
+    case OP_add:      return "ADD";
+    case OP_subtract: return "SUBTRACT";
+    case OP_divide:   return "DIVIDE";
+    case OP_multiply: return "MULTIPLY";
+    case OP_power:    return "POWER";
+    case OP_min:      return "MIN";
+    case OP_max:      return "MAX";
+    default:          return "ERROR";
+  }
+}
+
 const int TAB_SIZE = 4;
 void tab(int indent)
 {
@@ -78,125 +100,101 @@ void tab(int indent)
     std::cout << ' ';
 }
 
-struct calc_operation;
-/*
-// Each element of the tree is either a number OR an operation.
-//  The leaf nodes of the tree are all numbers.
-typedef boost::variant<boost::recursive_wrapper<calc_operation>, 
-                       double> calc_node;
-
-// This type represents an operation performed on one or more inputs.
-struct calc_operation
-{
-    OperationType          opType; // The operation to be performed on the children
-    std::vector<calc_node> inputs; // The inputs to the operation
-};
-
-
-// We need to tell fusion about our calc_tree struct
-// to make it a first-class fusion citizen
-BOOST_FUSION_ADAPT_STRUCT(
-    calc_operation,
-    (OperationType, opType)
-    (std::vector<calc_node>, inputs)
-)
-*/
-
 
 // This type represents an operation performed on one or more inputs.
 struct calc_operation
 {
     OperationType               opType; // The operation to be performed on the children
     double value; // If this is a leaf node, the number is stored here.  Ignored unless OP_number.
+    int varName;
     std::vector<calc_operation> inputs; // The inputs to the operation
     
+    calc_operation() : opType(OP_pass) {}
+    
+    /// Recursive function to print out the contents of this object
     void print(const int indent=0)
     {
-      tab(indent);
-      std::cout << "tag: " << opType << std::endl;
-      tab(indent);
-      std::cout << "value: " << value << std::endl;
-      tab(indent);
-      std::cout << '{' << std::endl;
-
-      for (size_t i=0; i<inputs.size(); ++i)
+    
+      if (opType == OP_number)
       {
-        inputs[i].print(indent+TAB_SIZE);
+        tab(indent);
+        std::cout << "Node: " << getTagName(opType) << " = " << value << std::endl;      
+      }
+      else if (opType == OP_variable)
+      {
+        tab(indent);
+        std::cout << "Node: " << getTagName(opType) << " = " << varName << std::endl;      
+      }
+      else
+      { 
+        std::cout << std::endl;
+        tab(indent);
+        std::cout << "tag: " << getTagName(opType) << std::endl;
+        tab(indent);
+        std::cout << "value: " << value << std::endl;
+        tab(indent);
+        std::cout << "varName: " << varName << std::endl;
+        tab(indent);
+        std::cout << '{' << std::endl;
+
+        for (size_t i=0; i<inputs.size(); ++i)
+        {
+          inputs[i].print(indent+TAB_SIZE);
+        }
+
+        tab(indent);
+        std::cout << '}' << std::endl;
       }
 
-      tab(indent);
-      std::cout << '}' << std::endl;
     }
+    
+    /// Recursive function to eliminate extraneous nodes created by our parsing technique
+    void clearEmptyNodes()
+    {
+    
+      // Not a pass, recursively call this function on all inputs
+      for (size_t i=0; i<inputs.size(); ++i)
+        inputs[i].clearEmptyNodes();
+        
+    
+      if (opType != OP_pass)
+        return;
+        
+    
+      // Check for errors
+      if (inputs.size() != 1)
+      {
+        std::cout << "ERROR: pass node with " << inputs.size() << " Nodes!\n";
+        return;
+      }
+      //if (inputs[0].opType != OP_number)
+      //{
+      //  std::cout << "ERROR: pass node with non-number input! " << getTagName(inputs[0].opType) << "\n";
+      //  return;
+      //}
+      
+      // Replace this node with its input node
+      value   = inputs[0].value;
+      opType  = inputs[0].opType;
+      varName = inputs[0].varName;
+      std::vector<calc_operation> temp = inputs[0].inputs;
+      inputs = temp;
+        
+    }
+    
 };
 
 
-// We need to tell fusion about our calc_tree struct
+// We need to tell fusion about our calc_operation struct
 // to make it a first-class fusion citizen
 BOOST_FUSION_ADAPT_STRUCT(
     calc_operation,
     (OperationType, opType)
     (double, value)
+    (int, varName)
     (std::vector<calc_operation>, inputs)
 )
 
-
-//-----------------------------------------------------
-//  Helper classes to print out the mini xml tree
-
-/*
-struct calc_printer
-{
-  calc_printer(int indent = 0) : indent(indent) {}
-
-  void operator()(calc_operation const& node) const;
-
-  int indent;
-};
-
-const int TAB_SIZE = 4;
-struct calc_node_printer : boost::static_visitor<>
-{
-
-  calc_node_printer(int indent = 0)
-    : indent(indent)
-  {
-  }
-
-  void operator()(calc_operation const& node) const
-  {
-    calc_printer printer(indent+TAB_SIZE);
-    printer(node);
-  }
-
-  void operator()(std::string const& text) const
-  {
-    tab(indent+TAB_SIZE);
-    std::cout << "text: \"" << text << '"' << std::endl;
-  }
-
-  int indent;
-};
-
-
-
-void calc_printer::operator()(calc_operation const& node) const
-{
-  tab(indent);
-  std::cout << "tag: " << node.opType << std::endl;
-  tab(indent);
-  std::cout << '{' << std::endl;
-
-  for (size_t i=0; i<node.inputs.size(); ++i)
-  {
-    boost::apply_visitor(calc_node_printer(indent), node.inputs[i]);
-  }
-
-  tab(indent);
-  std::cout << '}' << std::endl;
-}
-*/
-
-//--------------------------------------
 
 
 //================================================================================
@@ -204,59 +202,113 @@ void calc_printer::operator()(calc_operation const& node) const
 
 
 void print(double const& i) { std::cout << i << std::endl; }
+void printYo() { std::cout << "Yo" << std::endl; }
 
 // Helper constants to aid in accessing a calc_operation struct
 const int OP  = 0;
 const int NUM = 1;
-const int IN  = 2;
+const int VAR = 2;
+const int IN  = 3;
 
 template <typename ITER>
-//struct calc_grammar : b_s::qi::grammar<ITER, calc_node(), b_s::ascii::space_type>
 struct calc_grammar : b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space_type>
 {
   // Constructor function
-  calc_grammar() : calc_grammar::base_type(term)
+  calc_grammar() : calc_grammar::base_type(expression)
   {
-   
-     // Defines
+     // Definitions
+     using boost::phoenix::at;
      using boost::phoenix::at_c;
      using boost::phoenix::push_back;
      using b_s::qi::double_;
+     using b_s::qi::int_;
      using b_s::qi::_val;
      using b_s::qi::_1; // This is required to avoid namespace mixups with other Boost modules!
+     using b_s::qi::_2;
+     using b_s::qi::_3;
    
-     // TODO: Add support for more operations!         
-/*
+   
+// EBNF examples:   
+   /*
+expr   -> term [ ('+' | '-') term ]*
+term   -> factor [ ('*' | '/') factor ]*
+factor -> '(' expr ')' | identifier | number
+
+
+expr     -> term [ ('+' | '-') term ]*
+term     -> factor [ ('*' | '/') factor ]*
+factor   -> base [ '^' exponent ]*
+base     -> '(' expr ')' | identifier | number
+exponent -> '(' expr ')' | identifier | number   
+
+// TODO: Add support for more operations: min, max
+
+*/
+   
+     // This approach works but it processes expressions right to left!
+     // - To get what you want, use parenthesis!
+
      // An outer expression
      expression = 
         (term  [push_back(at_c<IN>(_val), _1)] )
-         >> *(  ('+' >> term   [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_add     ]) |  // Addition
-                ('-' >> term   [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_subtract])    // Subtraction
+         >> *(  ('+' >> expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_add     ]) |  // Addition
+                ('-' >> expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_subtract])    // Subtraction
              );
-*/         
+         
      // Middle priority
      term = 
          (factor [push_back(at_c<IN>(_val), _1)]) 
-         >> *( ('*' >> factor      [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_multiply] ) |  // Multiplication
-               ('/' >> factor      [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_divide  ] )    // Subtraction
+         >> *( ('*' >> term [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_multiply] ) |  // Multiplication
+               ('/' >> term [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_divide  ] )    // Subtraction
              );
+
+    // The highest priority
+    // - TODO: An additional layer to prevent double signs?
+    factor = 
+        (double_          [at_c<NUM>(_val)=_1,            at_c<OP>(_val)=OP_number]    ) | // Just a number
+        // The min and max operations take a comma seperated list of expressions
+        ("min(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_min] % ',' > ')') | 
+        ("max(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_max] % ',' > ')') |
+        ( ("pow(" > expression > ',' > expression > ')') 
+                [push_back(at_c<IN>(_val), _1), push_back(at_c<IN>(_val), _2), at_c<OP>(_val)=OP_power] ) |
+        ("abs(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_abs] > ')') | // Absolute value
+        ('(' > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_pass] > ')') | // Something in parenthesis
+        ('-' >> factor    [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_negate]    ) | // Negative sign
+        //('+' >> factor    [handler]      );  // Positive sign 
+        ("var_" > int_ [at_c<VAR>(_val)=_1, at_c<OP>(_val)=OP_variable] ) ;
+        //(b_s::ascii::string  [at_c<VAR>(_val)=_1,  at_c<OP>(_val)=OP_variable]    ) ; // A variable name
+        
+    
+    
+  // This code is for proper left priority parsing, but this approach does not work at all using
+  //  Boost::Spirit!  An entirely new approach is needed but it is not worth the time figuring out.
+/*
+     // Middle priority
+     term =         
+     
+           -( (term >> '*') [push_back(at_c<IN>(_val),  b_s::qi::_0), at_c<OP>(_val)=OP_multiply]// |  // Multiplication
+              //(term >> '/') [push_back(at_c<IN>(_val),  b_s::qi::_0), at_c<OP>(_val)=OP_divide  ] // Division
+            )
+            
+          >> (factor [push_back(at_c<IN>(_val), _1)]); 
 
     // The highest priority
     // - TODO: An additional layer to prevent double signs?
     factor = 
         //(double_          [_val = _1]      );   | // Just a number
         (double_          [at_c<NUM>(_val)=_1, at_c<OP>(_val)=OP_number]); // Just a number
-        /*
-        ('(' > expression [handler] > ')') | // Something in parenthesis
-        ('-' >> factor    [handler]      ) | // Negative sign
-        ('+' >> factor    [handler]      );  // Positive sign */
+        
+        //('(' > expression [handler] > ')') | // Something in parenthesis
+        //('-' >> factor    [handler]      ) | // Negative sign
+        //('+' >> factor    [handler]      );  // Positive sign 
+        
+        */
     
   } // End constructor
   
   
   // Grammer rules
-  //b_s::qi::rule<ITER, calc_node(), b_s::ascii::space_type> expression, term, factor;
-  b_s::qi::rule<ITER, calc_operation(), b_s::ascii::space_type> term, factor;
+  b_s::qi::rule<ITER, calc_operation(), b_s::ascii::space_type> expression, term, factor;
   
   //qi::rule<Iterator, calc_node(), ascii::space_type> argList;
   
@@ -456,9 +508,11 @@ int main( int argc, char *argv[] ) {
     std::cout << "-------------------------\n";
     std::cout << "Parsing succeeded\n";
     std::cout << "-------------------------\n";
-    //CalcPrinter printer;
-    //printer(calcTree);
     calcTree.print();
+    std::cout << "----------- pruned --------------\n";
+    calcTree.clearEmptyNodes();
+    calcTree.print();
+    
     return 0;
   }
   else
