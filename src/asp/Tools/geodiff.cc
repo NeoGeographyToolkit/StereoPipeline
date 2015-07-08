@@ -118,8 +118,8 @@ int main( int argc, char *argv[] ) {
     }
 
     // Generate a bounding box that is the minimum of the two BBox areas
-    BBox2 union_bbox = bounding_box( dem1_dmg );
-    union_bbox.crop(bounding_box( dem2_dmg ));
+    BBox2 crop_box = bounding_box( dem1_dmg );
+    crop_box.crop(dem1_georef.point_to_pixel_bbox(dem2_georef.pixel_to_point_bbox(bounding_box( dem2_dmg ))));
 
     ImageViewRef<PixelMask<double> > dem2_trans =
       crop(geo_transform( per_pixel_filter(dem_to_geodetic( create_mask(dem2_dmg, dem2_nodata),
@@ -127,16 +127,16 @@ int main( int argc, char *argv[] ) {
                                            MGeodeticToMAltitude()),
                           dem2_georef, dem1_georef,
                           ValueEdgeExtension<PixelMask<double> >(PixelMask<double>()) ),
-           union_bbox );
+           crop_box );
 
     ImageViewRef<double> difference;
     if ( opt.use_absolute ) {
       difference =
-        apply_mask(abs(crop(create_mask(dem1_dmg, dem1_nodata), union_bbox) - dem2_trans),
+        apply_mask(abs(crop(create_mask(dem1_dmg, dem1_nodata), crop_box) - dem2_trans),
                    opt.nodata_value );
     } else {
       difference =
-        apply_mask(crop(create_mask(dem1_dmg, dem1_nodata), union_bbox) - dem2_trans,
+        apply_mask(crop(create_mask(dem1_dmg, dem1_nodata), crop_box) - dem2_trans,
                    opt.nodata_value );
     }
 
