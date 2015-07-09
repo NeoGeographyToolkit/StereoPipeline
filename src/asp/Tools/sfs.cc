@@ -102,8 +102,9 @@ struct Options : public asp::BaseOptions {
   std::string input_dem, out_prefix, stereo_session_string, bundle_adjust_prefix;
   std::vector<std::string> input_images;
   int max_iterations, reflectance_type;
+  bool float_albedo;
   double smoothness_weight, max_height_change, height_change_weight;
-  Options():max_iterations(0), reflectance_type(0),
+  Options():max_iterations(0), reflectance_type(0), float_albedo(false),
             smoothness_weight(0), max_height_change(0), height_change_weight(0){};
 };
 
@@ -165,17 +166,6 @@ struct ModelParams {
   int *vMaxDistArrayDEM;
 
   vw::Vector4 corners; // cached bounds to quickly calculate overlap
-
-  /*
-    vector<int> hCenterLine;
-    vector<int> hMaxDistArray;
-    vector<int> hCenterLineDEM;
-    vector<int> hMaxDistArrayDEM;
-    vector<int> vCenterLine;
-    vector<int> vMaxDistArray;
-    vector<int> vCenterLineDEM;
-    vector<int> vMaxDistArrayDEM;
-  */
   std::string infoFilename, DEMFilename, meanDEMFilename,
     var2DEMFilename, reliefFilename, shadowFilename,
     errorFilename, inputFilename, outputFilename,
@@ -188,17 +178,7 @@ struct ModelParams {
     vMaxDistArrayDEM = NULL;
   }
 
-  ~ModelParams(){
-    // Need to deal with copying of these structures properly before deleting
-    // delete[] hCenterLine;       hCenterLine       = NULL;
-    // delete[] hMaxDistArray;     hMaxDistArray     = NULL;
-    // delete[] hCenterLineDEM;    hCenterLineDEM    = NULL;
-    // delete[] hMaxDistArrayDEM;  hMaxDistArrayDEM  = NULL;
-    // delete[] vCenterLine;       vCenterLine       = NULL;
-    // delete[] vMaxDistArray;     vMaxDistArray     = NULL;
-    // delete[] vCenterLineDEM;    vCenterLineDEM    = NULL;
-    // delete[] vMaxDistArrayDEM;  vMaxDistArrayDEM  = NULL;
-  }
+  ~ModelParams(){}
 
 };
 
@@ -523,7 +503,7 @@ std::vector<ModelParams>                     * g_model_params;
 std::vector<BilinearInterpT>                 * g_interp_images;
 std::vector<boost::shared_ptr<CameraModel> > * g_cameras;
 double                                       * g_nodata_val;
-double                                       * g_A;
+double                                       * g_T;
 
 class SfsCallback: public ceres::IterationCallback {
 public:
@@ -547,7 +527,7 @@ public:
     // If there's just one image, print reflectance and other things
     for (size_t image_iter = 0; image_iter < (*g_interp_images).size();
          image_iter++) {
-      ImageView<double> reflectance, intensity, albedo, computed_intensity;
+      ImageView<double> reflectance, intensity, computed_intensity;
 
       std::ostringstream os;
       os << g_iter << "_img" << image_iter;
@@ -571,28 +551,30 @@ public:
       block_write_gdal_image(out_reflectance_file, reflectance,
                              *g_geo, 0, *g_opt, tpc);
 
-      // Find the simulated normalized albedo, after correcting for
+      // Find the measured normalized albedo, after correcting for
       // reflectance. Ideally it should be 1.
-      albedo.set_size(reflectance.cols(), reflectance.rows());
-      for (int col = 0; col < albedo.cols(); col++) {
-        for (int row = 0; row < albedo.rows(); row++) {
+      ImageView<double> measured_albedo;
+      measured_albedo.set_size(reflectance.cols(), reflectance.rows());
+      for (int col = 0; col < measured_albedo.cols(); col++) {
+        for (int row = 0; row < measured_albedo.rows(); row++) {
           if (reflectance(col, row) == 0)
-            albedo(col, row) = 1;
+            measured_albedo(col, row) = 1;
           else
-            albedo(col, row)
-              = intensity(col, row)/(reflectance(col, row)*g_A[image_iter]);
+            measured_albedo(col, row)
+              = intensity(col, row)/(reflectance(col, row)*g_T[image_iter]);
         }
       }
       std::string out_albedo_file = g_opt->out_prefix
-        + "-simulated-albedo-iter" + iter_str + ".tif";
+        + "-measured-albedo-iter" + iter_str + ".tif";
       vw_out() << "Writing: " << out_albedo_file << std::endl;
-      block_write_gdal_image(out_albedo_file, albedo, *g_geo, 0, *g_opt, tpc);
+      block_write_gdal_image(out_albedo_file, measured_albedo,
+                             *g_geo, 0, *g_opt, tpc);
 
       // Find the simulated intensity
       computed_intensity.set_size(reflectance.cols(), reflectance.rows());
       for (int col = 0; col < computed_intensity.cols(); col++) {
         for (int row = 0; row < computed_intensity.rows(); row++) {
-          computed_intensity(col, row) = g_A[image_iter]*reflectance(col, row);
+          computed_intensity(col, row) = g_T[image_iter]*reflectance(col, row);
         }
       }
       std::string out_computed_intensity_file = g_opt->out_prefix
@@ -611,8 +593,8 @@ public:
       vw_out() << "comp image mean and std: " << refmean << ' ' << refstdev
                 << std::endl;
 
-      vw_out() << "Albedo param A " << " for image " << image_iter << ": "
-                << g_A[image_iter] << std::endl;
+      vw_out() << "Transmittance " << " for image " << image_iter << ": "
+                << g_T[image_iter] << std::endl;
     }
 
     return ceres::SOLVER_CONTINUE;
@@ -620,8 +602,8 @@ public:
 };
 
 
-// Discrepancy between scaled intensity and reflectance.
-// sum_i | I_i - A[i]*reflectance_i |^2
+// Discrepancy between measured and simulated intensity.
+// sum_i | I_i - albedo * T[i]*reflectance_i |^2
 struct IntensityError {
   IntensityError(int col, int row,
                  ImageView<double> const& dem,
@@ -636,16 +618,19 @@ struct IntensityError {
     m_model_params(model_params),
     m_image(image), m_camera(camera), m_nodata_val(nodata_val) {}
 
-  // See SmoothnessError() for the definitions of bl, bottom, br, etc.
-  template <typename T>
-  bool operator()(const T* const A,
-                  const T* const bl,   const T* const bottom,    const T* const br,
-                  const T* const left, const T* const center, const T* const right,
-                  const T* const tl,   const T* const top, const T* const tr,
-                  T* residuals) const {
+  // See SmoothnessError() for the definitions of bottom, top, etc.
+  template <typename F>
+  bool operator()(const F* const T,
+                  const F* const left,
+                  const F* const center,
+                  const F* const right,
+                  const F* const bottom,
+                  const F* const top,
+                  // const F* const a, // albedo at pixel
+                  F* residuals) const {
 
     // Default residuals
-    residuals[0] = T(1e+20);
+    residuals[0] = F(1e+20);
     bool success = false;
     try{
 
@@ -659,7 +644,7 @@ struct IntensityError {
                                        m_image, m_camera,
                                        reflectance, intensity);
       if (success)
-        residuals[0] = intensity - A[0]*reflectance;
+        residuals[0] = intensity - T[0]*reflectance;
 
     } catch (const camera::PointToPixelErr& e) {
       return false;
@@ -679,7 +664,7 @@ struct IntensityError {
                                      boost::shared_ptr<CameraModel> const& camera,
                                      double nodata_val){
     return (new ceres::NumericDiffCostFunction<IntensityError,
-            ceres::CENTRAL, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1>
+            ceres::CENTRAL, 1, 1, 1, 1, 1, 1, 1>
             (new IntensityError(col, row, dem, geo,
                                 global_params, model_params,
                                 image, camera, nodata_val)));
@@ -862,6 +847,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Reflectance type (0 = Lambertian, 1 = Lunar Lambertian).")
     ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(1.0),
      "A larger value will result in a smoother solution.")
+    ("float-albedo",   po::bool_switch(&opt.float_albedo)->default_value(false)->implicit_value(true),
+     "Float the albedo for each pixel. Will give incorrect results if only one image is present.")
     ("max-height-change", po::value(&opt.max_height_change)->default_value(0),
      "How much the DEM heights are allowed to differ from the initial guess, in meters. The default is 0, which means this constraint is not applied.")
     ("height-change-weight", po::value(&opt.height_change_weight)->default_value(0),
@@ -908,6 +895,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   // Create the output directory
   asp::create_out_dir(opt.out_prefix);
+
+  if (opt.input_images.size() <=1 && opt.float_albedo)
+    vw_out(WarningMessage) << "Floating albedo is ill-posed for just one image.\n";
 }
 
 int main(int argc, char* argv[]) {
@@ -989,14 +979,16 @@ int main(int argc, char* argv[]) {
     vw_out() << "grid in x and y in meters: "
              << grid_x << ' ' << grid_y << std::endl;
 
-    // Intensity error is
-    // sum_i | I_i - A[i]*reflectance_i |^2
-    std::vector<double> A(num_images, 0);
+    // We have intensity = reflectance*transmittance*albedo.
+    // The albedo is 1 in the first approximation. Find
+    // the transmittance T as mean(intensity)/mean(reflectance).
+    std::vector<double> T(num_images, 0);
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
       ImageView<double> reflectance, intensity;
       computeReflectanceAndIntensity(dem, geo,  nodata_val,
                                      model_params[image_iter], global_params,
-                                     interp_images[image_iter], cameras[image_iter],
+                                     interp_images[image_iter],
+                                     cameras[image_iter],
                                      reflectance, intensity);
 
       double imgmean, imgstdev, refmean, refstdev;
@@ -1005,14 +997,21 @@ int main(int argc, char* argv[]) {
       vw_out() << "img mean std: " << imgmean << ' ' << imgstdev << std::endl;
       vw_out() << "ref mean std: " << refmean << ' ' << refstdev << std::endl;
 
-      A[image_iter] = imgmean/refmean;
-      vw_out() << "albedo for image " << image_iter << ": "
-                <<  A[image_iter] << std::endl;
+      T[image_iter] = imgmean/refmean;
+      vw_out() << "Transmittance for image " << image_iter << ": "
+                <<  T[image_iter] << std::endl;
+    }
+
+    int ncols = dem.cols(), nrows = dem.rows();
+    ImageView<double> albedo(ncols, nrows);
+    for (int col = 0; col < albedo.cols(); col++) {
+      for (int row = 0; row < albedo.rows(); row++) {
+        albedo(col, row) = 1;
+      }
     }
 
     // Add a residual block for every grid point not at the boundary
     ceres::Problem problem;
-    int ncols = dem.cols(), nrows = dem.rows();
     vw_out() << "num cols and rows is " << ncols << ' ' << nrows << std::endl;
     for (int col = 1; col < ncols-1; col++) {
       for (int row = 1; row < nrows-1; row++) {
@@ -1027,18 +1026,28 @@ int main(int argc, char* argv[]) {
                                    cameras[image_iter], nodata_val);
           ceres::LossFunction* loss_function_img = NULL;
           problem.AddResidualBlock(cost_function_img, loss_function_img,
-                                   &A[image_iter],
-                                   &dem(col-1, row+1), &dem(col, row+1), // bl, bottom
-                                   &dem(col+1, row+1),                   // br
-                                   &dem(col-1, row  ), &dem(col, row  ), // left, ctr
-                                   &dem(col+1, row  ),                   // right
-                                   &dem(col-1, row-1), &dem(col, row-1), // tl, top
-                                   &dem(col+1, row-1));                  // tr
+                                   &T[image_iter],    // exposure
+                                   &dem(col-1, row),  // left
+                                   &dem(col, row),    // center
+                                   &dem(col+1, row),  // right
+                                   &dem(col, row+1),  // bottom
+                                   &dem(col, row-1)   // top
+                                   //,&albedo(col, row)
+                                   );                  // albedo
 
-          // If there's just one image, don't float the albedo constants,
-          // as the problem is under-determined.
-          if (num_images == 1)
-            problem.SetParameterBlockConstant(&A[image_iter]);
+          // If there's just one image, don't float the transmittance,
+          // as the problem is under-determined. If we float the
+          // albedo, we will implicitly float the transmittance, hence
+          // keep the transmittance itself fixed.
+          if (num_images == 1 || opt.float_albedo)
+            problem.SetParameterBlockConstant(&T[image_iter]);
+
+          // If to float the albedo
+          //if (!opt.float_albedo)
+          //  problem.SetParameterBlockConstant(&albedo(col, row));
+
+
+          // Fix albedo on the boundary!!!
         }
 
         // Smoothness penalty
@@ -1063,34 +1072,17 @@ int main(int argc, char* argv[]) {
           problem.AddResidualBlock(cost_function_hc, loss_function_hc,
                                    &dem(col, row));
         }
+      }
+    }
 
-        // Variables at the boundary must be fixed
-        // TODO: Is this necessary if we use a distance constraint anyway?
-        if (col==1) {
-          // left boundary
-          problem.SetParameterBlockConstant(&dem(col-1, row-1));
-          problem.SetParameterBlockConstant(&dem(col-1, row));
-          problem.SetParameterBlockConstant(&dem(col-1, row+1));
-        }
-        if (row==1) {
-          // top boundary
-          problem.SetParameterBlockConstant(&dem(col-1, row-1));
-          problem.SetParameterBlockConstant(&dem(col,   row-1));
-          problem.SetParameterBlockConstant(&dem(col+1, row-1));
-        }
-        if (col==ncols-2) {
-          // right boundary
-          problem.SetParameterBlockConstant(&dem(col+1, row-1));
-          problem.SetParameterBlockConstant(&dem(col+1, row));
-          problem.SetParameterBlockConstant(&dem(col+1, row+1));
-        }
-        if (row==nrows-2) {
-          // bottom boundary
-          problem.SetParameterBlockConstant(&dem(col-1, row+1));
-          problem.SetParameterBlockConstant(&dem(col,   row+1));
-          problem.SetParameterBlockConstant(&dem(col+1, row+1));
-        }
-
+    // Variables at the boundary must be fixed.
+    // TODO: Is this necessary for the DEM if we use a distance
+    // constraint anyway?
+    for (int col = 0; col < dem.cols(); col++) {
+      for (int row = 0; row < dem.rows(); row++) {
+        if (col == 0 || col == dem.cols() - 1 ||
+            row == 0 || row == dem.rows() - 1 )
+          problem.SetParameterBlockConstant(&dem(col, row));
       }
     }
 
@@ -1116,7 +1108,7 @@ int main(int argc, char* argv[]) {
     g_interp_images = &interp_images;
     g_cameras       = &cameras;
     g_nodata_val    = &nodata_val;
-    g_A             = &A[0];
+    g_T             = &T[0];
 
     // Solve the problem
     ceres::Solver::Summary summary;
