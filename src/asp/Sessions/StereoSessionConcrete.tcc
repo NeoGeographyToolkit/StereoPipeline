@@ -76,6 +76,7 @@ template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
 inline bool StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
 ip_matching(std::string const& input_file1,
             std::string const& input_file2,
+            int ip_points_per_tile,
             float nodata1, float nodata2,
             std::string const& match_filename,
             vw::camera::CameraModel* cam1,
@@ -86,7 +87,10 @@ ip_matching(std::string const& input_file1,
     return false;
   }
   else // Inputs are not map projected
-    return StereoSession::ip_matching(input_file1, input_file2, nodata1, nodata2, match_filename, cam1, cam2);
+    return StereoSession::ip_matching(input_file1, input_file2,
+                                      ip_points_per_tile,
+                                      nodata1, nodata2,
+                                      match_filename, cam1, cam2);
 }
 
 

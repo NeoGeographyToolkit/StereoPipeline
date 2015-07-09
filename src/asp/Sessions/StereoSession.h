@@ -158,6 +158,7 @@ namespace asp {
     /// Specialization for how interest points are found
     virtual bool ip_matching(std::string const& input_file1,
                              std::string const& input_file2,
+                             int ip_points_per_tile,
                              float nodata1, float nodata2,
                              std::string const& match_filename,
                              vw::camera::CameraModel* cam1,

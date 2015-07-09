@@ -58,7 +58,7 @@ Do stereo in a sub-region of the left image [default: use the entire image].
 \item[right-image-crop-win \textnormal xoff yoff xsize ysize] \hfill \\
 When combined with \texttt{left-image-crop-win}, do stereo in given subregions
 of left and right images. It is important to note that when both of these
-are specified, we explicitely crop the input images to these regions,
+are specified, we explicitly crop the input images to these regions,
 which does not happen when \texttt{left-image-crop-win} alone is specified.
 In that case we use the full images but only restrict the computation
 to the specified region.
@@ -93,6 +93,10 @@ to the specified region.
   can and should be carried out beforehand using ISIS's own utilities.
   This provides the best possible input to the stereo pipeline and
   yields the best stereo matching results.
+
+\item[ip-points-per-tile]  \hfill \\
+How many interest points to detect in each $1024^2$ image tile (default: automatic
+determination).
 
 \item[nodata-value \textnormal (default = none)] \hfill \\
   Pixels with values less than or equal to this number are treated as

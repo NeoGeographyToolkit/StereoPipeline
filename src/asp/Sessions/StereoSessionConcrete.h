@@ -126,6 +126,7 @@ namespace asp {
     /// Override the default ip_matching implementation so it just throws if we are using DISKTRANSFORM_TYPE_MAP_PROJECT
     inline virtual bool ip_matching(std::string const& input_file1,
                                     std::string const& input_file2,
+                                    int ip_points_per_tile,
                                     float nodata1, float nodata2,
                                     std::string const& match_filename,
                                     vw::camera::CameraModel* cam1,
@@ -174,8 +175,8 @@ namespace asp {
 
     /// If we have adjusted camera models, load them. The adjustment
     /// may be in the rotation matrix, camera center, or pixel offset.
-    inline  boost::shared_ptr<vw::camera::CameraModel> 
-    load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam, 
+    inline  boost::shared_ptr<vw::camera::CameraModel>
+    load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
                         std::string const& image_file, vw::Vector2 const& pixel_offset);
 */
 

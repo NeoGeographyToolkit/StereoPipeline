@@ -48,8 +48,11 @@ namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
+// TODO: Need to make this session use the same IP matching code as
+// the other sessions.
 bool asp::StereoSessionPinhole::ip_matching(std::string const& input_file1,
                                             std::string const& input_file2,
+                                            int ip_points_per_tile,
                                             float nodata1, float nodata2,
                                             std::string const& match_filename,
                                             vw::camera::CameraModel* cam1,
@@ -72,7 +75,7 @@ bool asp::StereoSessionPinhole::ip_matching(std::string const& input_file1,
   // Worst case, no interest point operations have been performed before
   vw_out() << "\t--> Locating Interest Points\n";
   ip::InterestPointList ip1, ip2;
-  asp::detect_ip( ip1, ip2, image1, image2,
+  asp::detect_ip( ip1, ip2, image1, image2, ip_points_per_tile,
                   nodata1, nodata2 );
 
   if ( ip1.size() > 10000 ) {
@@ -151,6 +154,7 @@ asp::StereoSessionPinhole::determine_image_align( std::string const& out_prefix,
   std::string match_filename
     = ip::match_filename(out_prefix, input_file1, input_file2);
   ip_matching(input_file1, input_file2,
+              stereo_settings().ip_points_per_tile,
               nodata1, nodata2,
               match_filename,
               NULL, NULL);

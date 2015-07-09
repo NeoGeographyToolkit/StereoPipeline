@@ -84,7 +84,6 @@
  - bundle_adjust
     * Bug fix in handling situtations when a point cannot get projected
       into the camera.
-
  - image2qtree
    * Bug fixes.
  
@@ -99,7 +98,9 @@
  - Misc.
    * Upgraded to ISIS 3.4.9.6185.
    * Oldest supported OSX version is 10.8.
-
+   * For stereo and bundle_adjust, added the option --ip-points-per-tile, 
+     to search for more interest points if the default is insufficient.
+ 
 *** RELEASE 2.4.2, October 6, 2014 ***
 
  - ASP can perform multi-view triangulation (using both the
