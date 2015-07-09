@@ -496,7 +496,7 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
 // We need a lot of global variables to do something useful.
 int                                            g_iter = -1;
 Options                                      * g_opt;
-ImageView<double>                            * g_dem;
+ImageView<double>                            * g_dem, *g_albedo;
 cartography::GeoReference                    * g_geo;
 GlobalParams                                 * g_global_params;
 std::vector<ModelParams>                     * g_model_params;
@@ -522,7 +522,14 @@ public:
       + iter_str + ".tif";
     vw_out() << "Writing: " << out_dem_file << std::endl;
     TerminalProgressCallback tpc("asp", ": ");
-    block_write_gdal_image(out_dem_file, *g_dem, *g_geo, *g_nodata_val, *g_opt, tpc);
+    block_write_gdal_image(out_dem_file, *g_dem, *g_geo, *g_nodata_val,
+                           *g_opt, tpc);
+
+    std::string out_albedo_file = g_opt->out_prefix + "-computed-albedo-iter"
+      + iter_str + ".tif";
+    vw_out() << "Writing: " << out_albedo_file << std::endl;
+    block_write_gdal_image(out_albedo_file, *g_albedo, *g_geo, *g_nodata_val,
+                           *g_opt, tpc);
 
     // If there's just one image, print reflectance and other things
     for (size_t image_iter = 0; image_iter < (*g_interp_images).size();
@@ -530,7 +537,7 @@ public:
       ImageView<double> reflectance, intensity, computed_intensity;
 
       std::ostringstream os;
-      os << g_iter << "_img" << image_iter;
+      os << "-iter" << g_iter << "_img" << image_iter;
       std::string iter_str = os.str();
 
     // Compute reflectance and intensity with optimized DEM
@@ -539,20 +546,20 @@ public:
                                      (*g_interp_images)[image_iter], (*g_cameras)[image_iter],
                                      reflectance, intensity);
 
-      std::string out_intensity_file = g_opt->out_prefix + "-measured-intensity-iter"
+      std::string out_intensity_file = g_opt->out_prefix + "-measured-intensity"
         + iter_str + ".tif";
       vw_out() << "Writing: " << out_intensity_file << std::endl;
       block_write_gdal_image(out_intensity_file, intensity,
                              *g_geo, 0, *g_opt, tpc);
 
-      std::string out_reflectance_file = g_opt->out_prefix + "-computed-reflectance-iter"
+      std::string out_reflectance_file = g_opt->out_prefix + "-computed-reflectance"
         + iter_str + ".tif";
       vw_out() << "Writing: " << out_reflectance_file << std::endl;
       block_write_gdal_image(out_reflectance_file, reflectance,
                              *g_geo, 0, *g_opt, tpc);
 
       // Find the measured normalized albedo, after correcting for
-      // reflectance. Ideally it should be 1.
+      // reflectance.
       ImageView<double> measured_albedo;
       measured_albedo.set_size(reflectance.cols(), reflectance.rows());
       for (int col = 0; col < measured_albedo.cols(); col++) {
@@ -565,20 +572,21 @@ public:
         }
       }
       std::string out_albedo_file = g_opt->out_prefix
-        + "-measured-albedo-iter" + iter_str + ".tif";
+        + "-measured-albedo" + iter_str + ".tif";
       vw_out() << "Writing: " << out_albedo_file << std::endl;
       block_write_gdal_image(out_albedo_file, measured_albedo,
                              *g_geo, 0, *g_opt, tpc);
 
-      // Find the simulated intensity
+      // Find the computed intensity
       computed_intensity.set_size(reflectance.cols(), reflectance.rows());
       for (int col = 0; col < computed_intensity.cols(); col++) {
         for (int row = 0; row < computed_intensity.rows(); row++) {
-          computed_intensity(col, row) = g_T[image_iter]*reflectance(col, row);
+          computed_intensity(col, row)
+            = (*g_albedo)(col, row) * g_T[image_iter] * reflectance(col, row);
         }
       }
       std::string out_computed_intensity_file = g_opt->out_prefix
-        + "-computed-intensity-iter"
+        + "-computed-intensity"
         + iter_str + ".tif";
       vw_out() << "Writing: " << out_computed_intensity_file << std::endl;
       block_write_gdal_image(out_computed_intensity_file, computed_intensity,
@@ -602,7 +610,7 @@ public:
 };
 
 
-// Discrepancy between measured and simulated intensity.
+// Discrepancy between measured and computed intensity.
 // sum_i | I_i - albedo * T[i] * reflectance_i |^2
 struct IntensityError {
   IntensityError(int col, int row,
@@ -1103,6 +1111,7 @@ int main(int argc, char* argv[]) {
     // A bunch of global variables to use in the callback
     g_opt           = &opt;
     g_dem           = &dem;
+    g_albedo        = &albedo;
     g_geo           = &geo;
     g_global_params = &global_params;
     g_model_params  = &model_params;
