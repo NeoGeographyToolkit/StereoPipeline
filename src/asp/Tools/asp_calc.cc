@@ -197,7 +197,7 @@ struct calc_operation
     
     /// Apply the operation tree to the input parameters and return a result
     template <typename T>
-    T applyOperation(const std::vector<T> &params)
+    T applyOperation(const std::vector<T> &params) const
     {
       // Get the results from each input node.
       // - This is a recursive call.
@@ -211,7 +211,7 @@ struct calc_operation
       {
         // Unary
         case OP_number:   return T(value);
-        case OP_variable: if (varName >= params.size())
+        case OP_variable: if (varName >= static_cast<int>(params.size()))
                             vw_throw(ArgumentErr() << "Unrecognized variable input!\n");
                           return params[varName];
         if (numInputs < 1)
@@ -403,9 +403,12 @@ public:
     // Set up the output image tile
     ImageView<result_type> tile(bbox.width(), bbox.height());
 
+    // TODO: Modifications needed to work on multi-channel images!
+
     // Set up for pixel calculations
     size_t num_images = m_image_vec.size();
-    std::vector<pixel_type> input_pixels;
+    //std::vector<pixel_type> input_pixels(num_images);
+    std::vector<double> input_pixels(num_images);
 
     // Rasterize all the input images at this particular tile
     std::vector<ImageView<pixel_type> > input_tiles(num_images);
@@ -419,14 +422,19 @@ public:
     {
       for (int r = 0; r < bbox.height(); r++)
       {
+      
         // Fetch all the input pixels for this location
         for (size_t i=0; i<num_images; ++i) 
         {
-          input_pixels[i] = input_tiles[i](c,r);
+          input_pixels[i] = (input_tiles[i])(c,r)[0];
         } // End image loop
         
         // Apply the operation tree to this pixel and store in the output pixel
-        tile(c, r) = m_operation_tree.applyOperation(input_pixels);
+        double newVal = m_operation_tree.applyOperation<double>(input_pixels);
+        // TODO: This clamping is not working!
+        if (newVal > 255)
+          std::cout << "Newval = " << newVal << " --> " << pixel_cast<pixel_type, double>(newVal) << std::endl;
+        tile(c, r) = pixel_cast<pixel_type, double>(newVal);
       } // End row loop
     } // End column loop
 
@@ -448,19 +456,15 @@ public:
 //======================================================================================================
 
 struct Options {
-  Options() : nodata(-1), feather_min(0), feather_max(255), filter("linear") {}
+  Options() : nodata(-1) {}
   // Input
   std::vector<std::string> input_files;
 
   // Settings
   double nodata;
-  int feather_min, feather_max; // Currently these are always left at the defaults
-  std::string filter;
-  std::string output_filename;
+  std::string calc_string;
+  std::string output_path;
 };
-
-
-
 
 
 
@@ -470,10 +474,18 @@ struct Options {
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   size_t cache_size;
 
+  const std::string calc_string_help =
+    "The operation to be performed on the input images.\n"
+    "Recognized operators: +, -, /, *, (), pow(), abs(), min(), max(), var_0, var_1, ...\n"
+    "Use var_n to refer to the pixel of the n'th input image."
+    "Order of operations is parsed with RIGHT priority, use parenthesis to assure the order you want.\n"
+    "Surround the entire string with double quotes.\n";
+
   po::options_description general_options("");
   general_options.add_options()
     ("nodata-value",      po::value(&opt.nodata), "Value that is nodata in the input image. Not used if input has alpha.")
-    ("output-filename,o", po::value(&opt.output_filename), "Output file name.")
+    ("output-filename,o", po::value(&opt.output_path), "Output file name.")
+    ("calc,c",            po::value(&opt.calc_string), calc_string_help.c_str())
     ("cache",             po::value(&cache_size)->default_value(1024), "Source data cache size, in megabytes.")
     ("help,h",            "Display this help message");
 
@@ -498,12 +510,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " [options] <image-files>\n";
-  boost::to_lower( opt.filter );
 
   if ( vm.count("help") )
     vw_throw( ArgumentErr() << usage.str() << general_options );
   if ( opt.input_files.empty() )
     vw_throw( ArgumentErr() << "Missing input files!\n" << usage.str() << general_options );
+  if ( opt.calc_string.size() == 0)
+    vw_throw( ArgumentErr() << "Missing operation string!\n" << usage.str() << general_options );
 
   // Set the system cache size
   vw_settings().set_system_cache_size( cache_size*1024*1024 );
@@ -514,7 +527,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
 int main( int argc, char *argv[] ) {
 
-  std::string exp(argv[1]);
+  Options opt;
+  handle_arguments( argc, argv, opt );
+
+  std::string exp(opt.calc_string);
 
   calc_grammar<std::string::const_iterator> grammerParser;
   calc_operation calcTree;
@@ -542,7 +558,7 @@ int main( int argc, char *argv[] ) {
     std::cout << "stopped at: \": " << context << "...\"\n";
     std::cout << "-------------------------\n";
   }
-  
+  /*
   std::cout << "Output:" << std::endl;
   std::vector<double> testVars;
   testVars.push_back(1.0);
@@ -550,21 +566,30 @@ int main( int argc, char *argv[] ) {
   testVars.push_back(3.0);
   double result = calcTree.applyOperation<double>(testVars);
   std::cout << result << std::endl;
+  */
+/*
+  typedef PixelGray<double> pixel_type;
+  std::cout << "Output:" << std::endl;
+  std::vector<pixel_type> testVars;
+  testVars.push_back(pixel_type(0.0));
+  testVars.push_back(pixel_type(1.1));
+  testVars.push_back(pixel_type(2.2));
+  double result = calcTree.applyOperation<pixel_type>(testVars);
+  std::cout << result << std::endl;
 
   return 0; // DEBUG ==============================
+*/
 
 
 
-  Options opt;
-  handle_arguments( argc, argv, opt );
 
   // Use a default output path if none provided
   const std::string firstPath = opt.input_files[0];
   vw_out() << "Loading: " << firstPath << "\n";
   size_t pt_idx = firstPath.rfind(".");
   std::string output;
-  if (opt.output_filename.size() != 0)
-    output = opt.output_filename;
+  if (opt.output_path.size() != 0)
+    output = opt.output_path;
   else {
     output = firstPath.substr(0,pt_idx)+"_union";
     output += firstPath.substr(pt_idx,firstPath.size()-pt_idx);
@@ -587,8 +612,8 @@ int main( int argc, char *argv[] ) {
 
     // Determining the format of the input
     SrcImageResource *rsrc = DiskImageResource::open(input);
-    ChannelTypeEnum channel_type = rsrc->channel_type();
-    PixelFormatEnum pixel_format = rsrc->pixel_format();
+    //ChannelTypeEnum channel_type = rsrc->channel_type();
+    //PixelFormatEnum pixel_format = rsrc->pixel_format();
 
     // Check for nodata value in the file
     if ( rsrc->has_nodata_read() ) {
@@ -602,15 +627,12 @@ int main( int argc, char *argv[] ) {
 
   } // loop through input images
 
-/*
 
-  vw_out() << "Writing: " << output_path << std::endl;
-  cartography::write_georeferenced_image(output_path, 
+  vw_out() << "Writing: " << output << std::endl;
+  cartography::write_georeferenced_image(output, 
                                          ImageCalcView< ImageViewRef<PixelT> >(input_images, calcTree),
                                          georef,
-                                         TerminalProgressCallback("bigMaskMaker","Writing:"));
+                                         TerminalProgressCallback("asp_calc","Writing:"));
 
-
-*/
 
 }
