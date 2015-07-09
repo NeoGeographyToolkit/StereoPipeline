@@ -603,7 +603,7 @@ public:
 
 
 // Discrepancy between measured and simulated intensity.
-// sum_i | I_i - albedo * T[i]*reflectance_i |^2
+// sum_i | I_i - albedo * T[i] * reflectance_i |^2
 struct IntensityError {
   IntensityError(int col, int row,
                  ImageView<double> const& dem,
@@ -626,7 +626,7 @@ struct IntensityError {
                   const F* const right,
                   const F* const bottom,
                   const F* const top,
-                  // const F* const a, // albedo at pixel
+                  const F* const a, // albedo at pixel
                   F* residuals) const {
 
     // Default residuals
@@ -644,7 +644,7 @@ struct IntensityError {
                                        m_image, m_camera,
                                        reflectance, intensity);
       if (success)
-        residuals[0] = intensity - T[0]*reflectance;
+        residuals[0] = intensity - a[0]*T[0]*reflectance;
 
     } catch (const camera::PointToPixelErr& e) {
       return false;
@@ -664,7 +664,7 @@ struct IntensityError {
                                      boost::shared_ptr<CameraModel> const& camera,
                                      double nodata_val){
     return (new ceres::NumericDiffCostFunction<IntensityError,
-            ceres::CENTRAL, 1, 1, 1, 1, 1, 1, 1>
+            ceres::CENTRAL, 1, 1, 1, 1, 1, 1, 1, 1>
             (new IntensityError(col, row, dem, geo,
                                 global_params, model_params,
                                 image, camera, nodata_val)));
@@ -897,7 +897,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   asp::create_out_dir(opt.out_prefix);
 
   if (opt.input_images.size() <=1 && opt.float_albedo)
-    vw_out(WarningMessage) << "Floating albedo is ill-posed for just one image.\n";
+    vw_throw(ArgumentErr()
+             << "Floating albedo is ill-posed for just one image.\n");
 }
 
 int main(int argc, char* argv[]) {
@@ -1026,14 +1027,13 @@ int main(int argc, char* argv[]) {
                                    cameras[image_iter], nodata_val);
           ceres::LossFunction* loss_function_img = NULL;
           problem.AddResidualBlock(cost_function_img, loss_function_img,
-                                   &T[image_iter],    // exposure
-                                   &dem(col-1, row),  // left
-                                   &dem(col, row),    // center
-                                   &dem(col+1, row),  // right
-                                   &dem(col, row+1),  // bottom
-                                   &dem(col, row-1)   // top
-                                   //,&albedo(col, row)
-                                   );                  // albedo
+                                   &T[image_iter],     // exposure
+                                   &dem(col-1, row),   // left
+                                   &dem(col, row),     // center
+                                   &dem(col+1, row),   // right
+                                   &dem(col, row+1),   // bottom
+                                   &dem(col, row-1),   // top
+                                   &albedo(col, row)); // albedo
 
           // If there's just one image, don't float the transmittance,
           // as the problem is under-determined. If we float the
@@ -1043,11 +1043,8 @@ int main(int argc, char* argv[]) {
             problem.SetParameterBlockConstant(&T[image_iter]);
 
           // If to float the albedo
-          //if (!opt.float_albedo)
-          //  problem.SetParameterBlockConstant(&albedo(col, row));
-
-
-          // Fix albedo on the boundary!!!
+          if (!opt.float_albedo)
+            problem.SetParameterBlockConstant(&albedo(col, row));
         }
 
         // Smoothness penalty
@@ -1081,8 +1078,9 @@ int main(int argc, char* argv[]) {
     for (int col = 0; col < dem.cols(); col++) {
       for (int row = 0; row < dem.rows(); row++) {
         if (col == 0 || col == dem.cols() - 1 ||
-            row == 0 || row == dem.rows() - 1 )
+            row == 0 || row == dem.rows() - 1 ) {
           problem.SetParameterBlockConstant(&dem(col, row));
+        }
       }
     }
 
@@ -1093,6 +1091,9 @@ int main(int argc, char* argv[]) {
     options.minimizer_progress_to_stdout = 1;
     options.num_threads = opt.num_threads;
     options.linear_solver_type = ceres::SPARSE_SCHUR;
+    if (options.num_threads != 1)
+      vw_throw(ArgumentErr()
+               << "Due to ISIS, only a single thread can be used.\n");
 
     // Use a callback function at every iteration
     SfsCallback callback;
