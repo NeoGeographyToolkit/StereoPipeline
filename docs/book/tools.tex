@@ -590,7 +590,7 @@ used for output DEMs, unless \texttt{-\/-t\_srs} is specified).
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\texttt{-\/-nodata-value \textit{float(=min-z)}} & Explicitly set the default missing pixel value. By default, the minimum z value in the model is used. \\ \hline
+\texttt{-\/-nodata-value \textit{float(=-3.40282347e+38)}} & Set the nodata value. \\ \hline
 \texttt{-\/-use-alpha} & Create images that have an alpha channel. \\ \hline
 \texttt{-\/-normalized|-n} & Also write a normalized version of the \ac{DEM} (for debugging). \\ \hline
 \texttt{-\/-orthoimage} & Write an orthoimage based on the texture files passed in as inputs (after the point clouds). \\ \hline
@@ -615,11 +615,15 @@ Options & Description \\ \hline \hline
 \texttt{-\/-transverse-mercator} & Save using transverse Mercator projection. \\ \hline
 \texttt{-\/-orthographic} & Save using an orthographic projection. \\ \hline
 \texttt{-\/-stereographic} & Save using a stereographic projection. \\ \hline
+\texttt{-\/-oblique-stereographic} & Save using an oblique stereographic projection. \\ \hline
+\texttt{-\/-gnomonic} & Save using a gnomonic projection. \\ \hline
 \texttt{-\/-lambert-azimuthal} & Save using a Lambert azimuthal projection. \\ \hline
 \texttt{-\/-utm \textit{zone}} & Save using a UTM projection with the given zone. \\ \hline
 \texttt{-\/-proj-lat \textit{float}} & The center of projection latitude (if applicable). \\ \hline
 \texttt{-\/-proj-lon \textit{float}} & The center of projection longitude (if applicable). \\ \hline
 \texttt{-\/-proj-scale \textit{float}} & The projection scale (if applicable). \\ \hline
+\texttt{-\/-false-northing \textit{float}} & The projection false northing (if applicable). \\ \hline
+\texttt{-\/-false-easting \textit{float}} & The projection false easting (if applicable). \\ \hline
 \texttt{-\/-dem-spacing|-s \textit{float(=0)}} & Set the output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically (except for LAS and CSV files). \\ \hline
 \texttt{-\/-search-radius-factor \textit{float(=$0$)}} & Multiply this factor by \texttt{dem-spacing} to get the search radius. The DEM height at a given grid point is obtained as a weighted average of heights of all points in the cloud within search radius of the grid point, with the weights given by a Gaussian. Default search radius: max(\texttt{dem-spacing}, default\_dem\_spacing), so the default factor is about 1.\\ \hline
 
@@ -903,7 +907,7 @@ relative to the Mars radius of 3,396,000~m.
 \hline
 Options & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message.\\ \hline
-\texttt{-\/-nodata-value \textit{integer(=-32768)}} & The value of no-data pixels, unless specified in the DEM. \\ \hline
+\texttt{-\/-nodata-value \textit{float(=-32768)}} & The value of no-data pixels, unless specified in the DEM. \\ \hline
 \texttt{-\/-geoid \textit{string}} & Specify the geoid to use for Earth WGS84 DEMs.
                                Options: EGM96, EGM2008. Default: EGM96. \\ \hline
 \texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix. \\ \hline

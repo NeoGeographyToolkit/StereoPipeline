@@ -34,6 +34,8 @@
 
 #include <boost/math/special_functions/fpclassify.hpp>
 
+#include <limits>
+
 using namespace vw;
 using namespace vw::cartography;
 namespace po = boost::program_options;
@@ -54,6 +56,8 @@ enum ProjectionType {
   TRANSVERSEMERCATOR,
   ORTHOGRAPHIC,
   STEREOGRAPHIC,
+  OSTEREOGRAPHIC,
+  GNOMONIC,
   LAMBERTAZIMUTHAL,
   UTM,
   PLATECARREE
@@ -70,11 +74,11 @@ struct Options : asp::BaseOptions {
   std::string reference_spheroid;
   double      phi_rot, omega_rot, kappa_rot;
   std::string rot_order;
-  double      proj_lat, proj_lon, proj_scale;
+  double      proj_lat, proj_lon, proj_scale, false_easting, false_northing;
   double      lon_offset, lat_offset, height_offset;
   size_t      utm_zone;
   ProjectionType projection;
-  bool        has_nodata_value, has_alpha, do_normalize, do_ortho, do_error, no_dem;
+  bool        has_alpha, do_normalize, do_ortho, do_error, no_dem;
   double      rounding_error;
   std::string target_srs_string;
   BBox2       target_projwin;
@@ -93,8 +97,8 @@ struct Options : asp::BaseOptions {
   // Output
   std::string out_prefix, output_file_type;
 
-  // Defaults that the user doesn't need to see. (The Magic behind the curtain).
-  Options() : nodata_value(std::numeric_limits<float>::quiet_NaN()),
+  // Defaults that the user doesn't need to see.
+  Options() : nodata_value(-std::numeric_limits<float>::max()),
               semi_major(0), semi_minor(0), fsaa(1),
               dem_hole_fill_len(0), ortho_hole_fill_len(0),
               remove_outliers_with_pct(true), max_valid_triangulation_error(0),
@@ -350,16 +354,20 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("transverse-mercator", "Save using a transverse Mercator projection.")
     ("orthographic",        "Save using an orthographic projection.")
     ("stereographic",       "Save using a stereographic projection.")
+    ("oblique-stereographic", "Save using an oblique stereographic projection.")
+    ("gnomonic",            "Save using a gnomonic projection.")
     ("lambert-azimuthal",   "Save using a Lambert azimuthal projection.")
     ("utm",        po::value(&opt.utm_zone),                      "Save using a UTM projection with the given zone.")
     ("proj-lat",   po::value(&opt.proj_lat)->default_value(0),    "The center of projection latitude (if applicable).")
     ("proj-lon",   po::value(&opt.proj_lon)->default_value(0),    "The center of projection longitude (if applicable).")
-    ("proj-scale", po::value(&opt.proj_scale)->default_value(1),  "The projection scale (if applicable).");
+    ("proj-scale", po::value(&opt.proj_scale)->default_value(1),  "The projection scale (if applicable).")
+    ("false-easting", po::value(&opt.false_easting)->default_value(0),  "The projection false easting (if applicable).")
+    ("false-northing", po::value(&opt.false_northing)->default_value(0),  "The projection false northing (if applicable).");
 
   po::options_description general_options("General Options");
   general_options.add_options()
-    ("nodata-value",      po::value(&opt.nodata_value),
-             "Nodata value to use on output. This is the same as default-value.")
+    ("nodata-value",      po::value(&opt.nodata_value)->default_value(-std::numeric_limits<float>::max()),
+             "Set the nodata value.")
     ("use-alpha",         po::bool_switch(&opt.has_alpha)->default_value(false),
              "Create images that have an alpha channel.")
     ("normalized,n",      po::bool_switch(&opt.do_normalize)->default_value(false),
@@ -510,15 +518,16 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   asp::log_to_file(argc, argv, "", opt.out_prefix);
 
   boost::to_lower( opt.reference_spheroid );
-  if      ( vm.count("sinusoidal") )          opt.projection = SINUSOIDAL;
-  else if ( vm.count("mercator") )            opt.projection = MERCATOR;
-  else if ( vm.count("transverse-mercator") ) opt.projection = TRANSVERSEMERCATOR;
-  else if ( vm.count("orthographic") )        opt.projection = ORTHOGRAPHIC;
-  else if ( vm.count("stereographic") )       opt.projection = STEREOGRAPHIC;
-  else if ( vm.count("lambert-azimuthal") )   opt.projection = LAMBERTAZIMUTHAL;
-  else if ( vm.count("utm") )                 opt.projection = UTM;
-  else                                        opt.projection = PLATECARREE;
-  opt.has_nodata_value = vm.count("nodata-value");
+  if      ( vm.count("sinusoidal") )           opt.projection = SINUSOIDAL;
+  else if ( vm.count("mercator") )             opt.projection = MERCATOR;
+  else if ( vm.count("transverse-mercator") )  opt.projection = TRANSVERSEMERCATOR;
+  else if ( vm.count("orthographic") )         opt.projection = ORTHOGRAPHIC;
+  else if ( vm.count("stereographic") )        opt.projection = STEREOGRAPHIC;
+  else if ( vm.count("oblique-stereographic")) opt.projection = OSTEREOGRAPHIC;
+  else if ( vm.count("gnomonic") )             opt.projection = GNOMONIC;
+  else if ( vm.count("lambert-azimuthal") )    opt.projection = LAMBERTAZIMUTHAL;
+  else if ( vm.count("utm") )                  opt.projection = UTM;
+  else                                         opt.projection = PLATECARREE;
 }
 
 // If a pixel has invalid data, fill its value with the average of
@@ -984,9 +993,6 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
                                 ImageViewRef<double> const& error_image,
                                 double estim_max_error) {
 
-  if (!opt.has_nodata_value) {
-    opt.nodata_value = std::floor(rasterizer.bounding_box().min().z() - 1);
-  }
   rasterizer.set_use_minz_as_default(false);
   rasterizer.set_default_value(opt.nodata_value);
 
@@ -1257,17 +1263,20 @@ int main( int argc, char *argv[] ) {
         output_georef.set_datum( user_datum );
 
       switch( opt.projection ) {
-        case SINUSOIDAL:         output_georef.set_sinusoidal         (              opt.proj_lon                ); break;
-        case MERCATOR:           output_georef.set_mercator           (opt.proj_lat, opt.proj_lon, opt.proj_scale); break;
-        case TRANSVERSEMERCATOR: output_georef.set_transverse_mercator(opt.proj_lat, opt.proj_lon, opt.proj_scale); break;
-        case ORTHOGRAPHIC:       output_georef.set_orthographic       (opt.proj_lat, opt.proj_lon                ); break;
-        case STEREOGRAPHIC:      output_georef.set_stereographic      (opt.proj_lat, opt.proj_lon, opt.proj_scale); break;
-        case LAMBERTAZIMUTHAL:   output_georef.set_lambert_azimuthal  (opt.proj_lat, opt.proj_lon                ); break;
-        case UTM:                output_georef.set_UTM( opt.utm_zone ); break;
+      case SINUSOIDAL:         output_georef.set_sinusoidal(opt.proj_lon, opt.false_easting, opt.false_northing); break;
+      case MERCATOR:           output_georef.set_mercator(opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
+      case TRANSVERSEMERCATOR: output_georef.set_transverse_mercator(opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
+      case ORTHOGRAPHIC:       output_georef.set_orthographic(opt.proj_lat, opt.proj_lon, opt.false_easting, opt.false_northing); break;
+      case STEREOGRAPHIC:      output_georef.set_stereographic(opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
+      case OSTEREOGRAPHIC:   output_georef.set_oblique_stereographic(opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
+      case GNOMONIC:           output_georef.set_gnomonic(opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
+      case LAMBERTAZIMUTHAL:   output_georef.set_lambert_azimuthal  (opt.proj_lat, opt.proj_lon, opt.false_easting, opt.false_northing); break;
+        case UTM:              output_georef.set_UTM( opt.utm_zone ); break;
         default: // Handles plate carree
           if (has_las_georef)
             output_georef = las_georef; // copy from las georef if present
-          // Otherwise we use WGS84 datum with geographic projection, the georef default.
+          // Otherwise we use WGS84 datum with geographic projection,
+          // the georef default.
           break;
       }
     } else { // The user specified the target srs_string

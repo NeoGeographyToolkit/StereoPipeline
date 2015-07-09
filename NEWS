@@ -46,14 +46,18 @@
    * Improved hole-filling, and removed the --hole-fill-mode and 
      --hole-fill-num-smooth-iter, as there's only one algorithm now. 
    * Improved performance when large holes are to be filled.
-   * Can create a DEM from point clouds stored in CSV files containging
+   * Can create a DEM from point clouds stored in CSV files containing
      easting, northing, and height above datum (the PROJ.4 string
      needed to interpret these numbers should be set with --csv-proj4).
    * Fixed a bug in creating DEMs from CSV files when different projections
      are used on input and output.
-
+   * Expose to user gnomonic and oblique stereographic projections,
+     as well as false easting and false northing (where appicable). 
+     This is a shortcut from using explicitly t_srs for the PROJ.4 string.
+   * The default no-data value is set to the smallest float.
+ 
  - pc_align
-   * Can ingest CSV files containging easting, northing, and height
+   * Can ingest CSV files containing easting, northing, and height
      above datum (the PROJ.4 string needed to interpret these numbers
      should be set with --csv-proj4).
    * If the reference point cloud is a DEM, the initial and final errors
@@ -75,14 +79,14 @@
      may be faster to process with GDAL tools.
    * Bug fix when the tool is used to re-project.
    * Added the option --weights-blur-sigma <num> to allow the blending
-     weights to be blurred by a gaussian to increase their smoothless.
+     weights to be blurred by a Gaussian to increase their smoothness.
    * Added the option --weight-exponent <num>, to allow weights
      to increase faster than linearly.
    # Added --stddev option to compute standard deviation.
    * Added the ability to fill holes in the output mosaic.
 
  - bundle_adjust
-    * Bug fix in handling situtations when a point cannot get projected
+    * Bug fix in handling situations when a point cannot get projected
       into the camera.
  - image2qtree
    * Bug fixes.
@@ -215,7 +219,7 @@
     point2mesh, point2las, and dem_geoid.
   - Added a tutorial for processing Digital Globe Earth imagery
     and expanded the MOC tutorial.
-  - Bug fixes in mosacking of Digital Globe images.
+  - Bug fixes in mosaicking of Digital Globe images.
 
   - parallel_stereo
      * Use dynamic load balancing for improved performance.
@@ -312,7 +316,7 @@ TOOLS
 GENERAL 
 
 
-  - Stereo Pipeline (almost) daily and fully verfied builds for all
+  - Stereo Pipeline (almost) daily and fully verified builds for all
     platforms are available for the adventurous user
     (http://byss.arc.nasa.gov/stereopipeline/daily_build/). When
     requesting support, please provide the output of "stereo --version".
@@ -326,7 +330,7 @@ GENERAL
   - Timeout option added for stereo correlation, preventing
     unreasonably long correlation times for certain image tiles.
 
-  - Subpixel mosaicing in dg_mosaic uses bilinear interpolation
+  - Subpixel mosaicking in dg_mosaic uses bilinear interpolation
     instead of nearest neighbor avoiding artifacts in certain
     situations.
 
@@ -395,7 +399,7 @@ SESSIONS
  - DG sessions now applies velocity aberration corrections.
 
 TOOLS
- - Have point2dem use correct nodata value when writting DRGs.
+ - Have point2dem use correct nodata value when writing DRGs.
  - Fix segfault issue in point2dem due to triangle clipping.
  - Hiedr2mosaic python script now supports missing CCD files and
    start/stop resume on noproj step for bundle adjustment.
@@ -405,7 +409,7 @@ TOOLS
    specific image coordinates.
  - Stereo_pprc accepts nodata-threshold and nodata-percentage options
    for masking (possibly shadows).
- - Stereo command should now correctly call secondary excutables so
+ - Stereo command should now correctly call secondary executables so
    that their dependencies are loaded.
 
 *** RELEASE 2.0.0, 20 JUNE 2012 ***
@@ -479,11 +483,11 @@ TOOLS
  - Mostly added standardized options for settings threads and BigTIFF.
  - Have orthoproject return same type as input plus alpha channel.
  - Improved edge_masking, speeds up stereo_fltr and stereo_pprc.
- - Have cam2map4stereo.py explictly use ISIS's getkey command.
+ - Have cam2map4stereo.py explicitly use ISIS's getkey command.
  - Fix and optimized point2dem. Remove caching and improved rendering
    times. This should fix BigTIFF problems that have been reported.
  - Improve triangulation times slightly when using map projected
-   linescan camers.
+   linescan cameras.
 
 EXAMPLES
  - Added orthoproject, image2qtree, colormap, hillshade examples to MOC.
@@ -533,7 +537,7 @@ VISION WORKBENCH benefits
 
 KNOWN ISSUES
  - OSX seems to do excessive locking during multi-threaded rendering.
-   This problem is non-existant in RHEL5 and is still a mystery.
+   This problem is non-existent in RHEL5 and is still a mystery.
 
 *** RELEASE 1.0.2, 9 DECEMBER 2010 ***
 
@@ -547,7 +551,7 @@ TOOLS
    responses.
  - Stereo is now a python script that call multiple executables.
  - Change correlation progress bar to track total completion.
- - Bundle_Adjust and ISIS_Adjust switch from eulers to quaternions.
+ - Bundle_Adjust and ISIS_Adjust switch from Euler's to quaternions.
  - Bundlevis dropped CAHVOR support. Added progress bar. Converted statistics
    with CDFAccumulator.
  - Point2dem remove excessive rotation call
