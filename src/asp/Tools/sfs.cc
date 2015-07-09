@@ -102,9 +102,10 @@ struct Options : public asp::BaseOptions {
   std::string input_dem, out_prefix, stereo_session_string, bundle_adjust_prefix;
   std::vector<std::string> input_images;
   int max_iterations, reflectance_type;
-  bool float_albedo;
+  bool float_albedo, float_dem_at_boundary;
   double smoothness_weight, max_height_change, height_change_weight;
   Options():max_iterations(0), reflectance_type(0), float_albedo(false),
+            float_dem_at_boundary(false),
             smoothness_weight(0), max_height_change(0), height_change_weight(0){};
 };
 
@@ -857,6 +858,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "A larger value will result in a smoother solution.")
     ("float-albedo",   po::bool_switch(&opt.float_albedo)->default_value(false)->implicit_value(true),
      "Float the albedo for each pixel. Will give incorrect results if only one image is present.")
+    ("float-dem-at-boundary",   po::bool_switch(&opt.float_dem_at_boundary)->default_value(false)->implicit_value(true),
+     "Allow the DEM values at the boundary of the region to also float.")
     ("max-height-change", po::value(&opt.max_height_change)->default_value(0),
      "How much the DEM heights are allowed to differ from the initial guess, in meters. The default is 0, which means this constraint is not applied.")
     ("height-change-weight", po::value(&opt.height_change_weight)->default_value(0),
@@ -907,6 +910,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (opt.input_images.size() <=1 && opt.float_albedo)
     vw_throw(ArgumentErr()
              << "Floating albedo is ill-posed for just one image.\n");
+
+  if (opt.input_images.size() <=1 && opt.float_dem_at_boundary)
+    vw_throw(ArgumentErr()
+             << "Floating the DEM at the boundary is ill-posed for just one image.\n");
 }
 
 int main(int argc, char* argv[]) {
@@ -1083,11 +1090,13 @@ int main(int argc, char* argv[]) {
     // Variables at the boundary must be fixed.
     // TODO: Is this necessary for the DEM if we use a distance
     // constraint anyway?
-    for (int col = 0; col < dem.cols(); col++) {
-      for (int row = 0; row < dem.rows(); row++) {
-        if (col == 0 || col == dem.cols() - 1 ||
-            row == 0 || row == dem.rows() - 1 ) {
-          problem.SetParameterBlockConstant(&dem(col, row));
+    if (!opt.float_dem_at_boundary) {
+      for (int col = 0; col < dem.cols(); col++) {
+        for (int row = 0; row < dem.rows(); row++) {
+          if (col == 0 || col == dem.cols() - 1 ||
+              row == 0 || row == dem.rows() - 1 ) {
+            problem.SetParameterBlockConstant(&dem(col, row));
+          }
         }
       }
     }
