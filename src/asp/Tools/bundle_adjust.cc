@@ -68,7 +68,7 @@ namespace asp{
 struct Options : public asp::BaseOptions {
   std::vector<std::string> image_files, camera_files, gcp_files;
   std::string cnet_file, out_prefix, stereo_session_string, cost_function, ba_type;
-
+  int ip_points_per_tile;
   double lambda, camera_weight, robust_threshold;
   int report_level, min_matches, max_iterations, overlap_limit;
 
@@ -82,7 +82,7 @@ struct Options : public asp::BaseOptions {
 
   // Make sure all values are initialized, even though they will be
   // over-written later.
-  Options():lambda(-1.0), camera_weight(0), robust_threshold(0), report_level(0), min_matches(0),
+  Options(): ip_points_per_tile(0), lambda(-1.0), camera_weight(0), robust_threshold(0), report_level(0), min_matches(0),
             max_iterations(0), overlap_limit(0), save_iteration(false), have_input_cams(true),
             semi_major(0), semi_minor(0),
             datum(cartography::Datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
@@ -797,6 +797,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                          "Limit the number of subsequent images to search for matches to the current image to this value.")
     ("camera-weight",    po::value(&opt.camera_weight)->default_value(1.0),
                          "The weight to give to the constraint that the camera positions/orientations stay close to the original values (only for the Ceres solver).")
+      ("ip-points-per-tile",             po::value(&opt.ip_points_per_tile)->default_value(0),
+                                   "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
+
     ("lambda,l",         po::value(&opt.lambda)->default_value(-1),
                          "Set the initial value of the LM parameter lambda (ignored for the Ceres solver).")
     ("report-level,r",   po::value(&opt.report_level)->default_value(10),
@@ -956,7 +959,9 @@ int main(int argc, char* argv[]) {
         session->get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
         try{
           // IP matching may not succeed for all pairs
-          session->ip_matching(image1, image2, nodata1, nodata2, match_filename,
+          session->ip_matching(image1, image2,
+                               opt.ip_points_per_tile,
+                               nodata1, nodata2, match_filename,
                                opt.camera_models[i].get(),
                                opt.camera_models[j].get());
         } catch ( const std::exception& e ){
@@ -967,10 +972,19 @@ int main(int argc, char* argv[]) {
 
     opt.cnet.reset( new ControlNetwork("BundleAdjust") );
     if ( opt.cnet_file.empty() ) {
-      build_control_network( opt.have_input_cams,
-                             (*opt.cnet), opt.camera_models,
-                             opt.image_files, opt.min_matches,
-                             opt.out_prefix);
+      bool success = build_control_network( opt.have_input_cams,
+                                            (*opt.cnet), opt.camera_models,
+                                            opt.image_files, opt.min_matches,
+                                            opt.out_prefix);
+      if (!success) {
+        vw_out() << "Failed to build a control network. Consider removing "
+                 << "the currently found interest point matches and increasing "
+                 << "the number of interest points per tile using "
+                 << "--ip-points-per-tile.\n";
+        return 1;
+
+      }
+
       if (opt.have_input_cams)
         add_ground_control_points( (*opt.cnet), opt.image_files,
                                    opt.gcp_files.begin(), opt.gcp_files.end(),
