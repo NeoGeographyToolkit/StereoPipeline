@@ -517,8 +517,7 @@ namespace asp {
   }
 
   // Often times, we'd like to save an image to disk by using big
-  // blocks, for performance reasons, then re-write it with desired
-  // blocks.
+  // blocks, for performance reasons, then re-write it with desired blocks.
   template <class ImageT, class NoDataT>
   void save_with_temp_big_blocks(int big_block_size,
                                  const std::string &filename,

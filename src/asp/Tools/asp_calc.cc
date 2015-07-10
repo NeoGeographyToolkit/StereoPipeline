@@ -29,6 +29,8 @@
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Cartography.h>
 
+#include <asp/Core/Common.h>
+
 #include <vector>
 
 #include <boost/program_options.hpp>
@@ -352,42 +354,74 @@ struct calc_grammar : b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space
 
 //=================================================================================
 
+/// Converts a double to another numeric type with min/max value clamping.
+/// - TODO: Replace this with the correct VW function!
+template <typename T>
+T clamp_and_cast(const double val)
+{
+  const T minVal = std::numeric_limits<T>::min();
+  const T maxVal = std::numeric_limits<T>::max();
+  if (val < static_cast<double>(minVal)) return (minVal);
+  if (val > static_cast<double>(maxVal)) return (maxVal);
+  return static_cast<T>(val);
+    
+}
+template <> float  clamp_and_cast<float >(const double val) {return static_cast<float>(val);}
+template <> double clamp_and_cast<double>(const double val) {return val;}
+
+
 
 /// Image view class which applies the calc_operation tree to each pixel location.
 template <class ImageT>
 class ImageCalcView : public ImageViewBase<ImageCalcView<ImageT> >
 {
-private:
-  std::vector<ImageT> m_image_vec;
+public: // Definitions
+  typedef typename ImageT::pixel_type pixel_type;
+  typedef typename ImageT::pixel_type result_type;
+
+private: // Variables
+  std::vector<ImageT    > m_image_vec;
+  std::vector<bool      > m_has_nodata_vec;
+  std::vector<pixel_type> m_nodata_vec;
+  pixel_type m_output_nodata;
   calc_operation m_operation_tree;
   int m_num_rows;
   int m_num_cols;
+  int m_num_channels;
 
-public:
-  typedef typename ImageT::pixel_type pixel_type;
-  typedef typename ImageT::pixel_type result_type;
-  
+public: // Functions
 
   // Constructor
-  ImageCalcView( std::vector<ImageT> & imageVec,
-                 calc_operation const& operation_tree) : m_image_vec(imageVec), m_operation_tree(operation_tree)
+  ImageCalcView( std::vector<ImageT    >      & imageVec,
+                 std::vector<bool      > const& hasNodataVec, 
+                 std::vector<pixel_type> const& nodataVec,  
+                 pixel_type outputNodata,
+                 calc_operation const& operation_tree)
+                  : m_image_vec(imageVec),   m_has_nodata_vec(hasNodataVec),
+                    m_nodata_vec(nodataVec), m_output_nodata(outputNodata),
+                    m_operation_tree(operation_tree)
   {
     const size_t numImages = imageVec.size();
-    VW_ASSERT( (numImages > 0), ArgumentErr() << "ImageAndView: One or more images required!." );
+    VW_ASSERT( (numImages > 0), ArgumentErr() << "ImageCalcView: One or more images required!." );
+    VW_ASSERT( (hasNodataVec.size() == numImages), LogicErr() << "ImageCalcView: Incorrect hasNodata count passed in!." );
+    VW_ASSERT( (nodataVec.size()    == numImages), LogicErr() << "ImageCalcView: Incorrect nodata count passed in!." );
 
     // Make sure all images are the same size
-    m_num_rows = imageVec[0].rows();
-    m_num_cols = imageVec[0].cols();
+    m_num_rows     = imageVec[0].rows();
+    m_num_cols     = imageVec[0].cols();
+    m_num_channels = imageVec[0].planes();
     for (size_t i=1; i<numImages; ++i)
     {
-      if ( (imageVec[i].rows() != m_num_rows) || (imageVec[i].cols() != m_num_cols) )
-        vw_throw(ArgumentErr() << "Error: Input images must all be the same size in pixels!");
+      if ( (imageVec[i].rows()   != m_num_rows    ) || 
+           (imageVec[i].cols()   != m_num_cols    ) || 
+           (imageVec[i].planes() != m_num_channels)   )
+        vw_throw(ArgumentErr() << "Error: Input images must all have the same size and number of channels!");
     }
   }
 
   inline int32 cols  () const { return m_num_cols; }
   inline int32 rows  () const { return m_num_rows; }
-  inline int32 planes() const { return 1; }
+  inline int32 planes() const { return m_num_channels; }
 
   inline result_type operator()( int32 i, int32 j, int32 p=0 ) const 
   { 
@@ -400,15 +434,20 @@ public:
   typedef CropView<ImageView<result_type> > prerasterize_type;
   inline prerasterize_type prerasterize( BBox2i const& bbox ) const 
   { 
+    //typedef typename PixelChannelType<typename pixel_type>::type output_channel_type; // TODO: Why does this not compile?
+    typedef typename ImageChannelType<ImageT>::type output_channel_type;
+   
     // Set up the output image tile
     ImageView<result_type> tile(bbox.width(), bbox.height());
 
-    // TODO: Modifications needed to work on multi-channel images!
+    // TODO: Selectable output type!
+    
+    // TODO: Left to right processing!
 
     // Set up for pixel calculations
-    size_t num_images = m_image_vec.size();
-    //std::vector<pixel_type> input_pixels(num_images);
-    std::vector<double> input_pixels(num_images);
+    const size_t num_images   = m_image_vec.size();
+    std::vector<pixel_type> input_pixels(num_images);
+    std::vector<double    > input_doubles(num_images);
 
     // Rasterize all the input images at this particular tile
     std::vector<ImageView<pixel_type> > input_tiles(num_images);
@@ -422,19 +461,42 @@ public:
     {
       for (int r = 0; r < bbox.height(); r++)
       {
-      
         // Fetch all the input pixels for this location
+        bool isNodata = false;
         for (size_t i=0; i<num_images; ++i) 
         {
-          input_pixels[i] = (input_tiles[i])(c,r)[0];
+          input_pixels[i] = (input_tiles[i])(c,r);
+
+          // If any of the input pixels are nodata, the output is nodata.          
+          if (m_has_nodata_vec[i] && (m_nodata_vec[i] == input_pixels[i]))
+          {
+            isNodata = true;
+            break;
+          }
         } // End image loop
         
-        // Apply the operation tree to this pixel and store in the output pixel
-        double newVal = m_operation_tree.applyOperation<double>(input_pixels);
-        // TODO: This clamping is not working!
-        if (newVal > 255)
-          std::cout << "Newval = " << newVal << " --> " << pixel_cast<pixel_type, double>(newVal) << std::endl;
-        tile(c, r) = pixel_cast<pixel_type, double>(newVal);
+        if (isNodata) // Output is nodata, move on to the next pixel
+        {
+          tile(c, r) = m_output_nodata;
+          continue;
+        }
+
+
+        for (int chan=0; chan<m_num_channels; ++chan)
+        {
+          for (size_t i=0; i<num_images; ++i) 
+          {
+            input_doubles[i] = input_pixels[i][chan];
+          } // End image loop
+          
+          // Apply the operation tree to this pixel and store in the output pixel
+          double newVal = m_operation_tree.applyOperation<double>(input_doubles);
+          //if (newVal > 255)
+          //  std::cout << "Value: " << newVal << " --> " << static_cast<double>(clamp_and_cast<output_channel_type>(newVal)) << "\n";
+          tile(c, r, chan) = clamp_and_cast<output_channel_type>(newVal);
+          
+        } // End channel loop
+        
       } // End row loop
     } // End column loop
 
@@ -455,13 +517,16 @@ public:
 
 //======================================================================================================
 
-struct Options {
-  Options() : nodata(-1) {}
+struct Options : asp::BaseOptions {
+  Options() : out_nodata_value(-1) {}
   // Input
   std::vector<std::string> input_files;
+  bool   has_in_nodata;
+  double in_nodata_value;
 
   // Settings
-  double nodata;
+  bool   has_out_nodata;
+  double out_nodata_value;
   std::string calc_string;
   std::string output_path;
 };
@@ -483,7 +548,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::options_description general_options("");
   general_options.add_options()
-    ("nodata-value",      po::value(&opt.nodata), "Value that is nodata in the input image. Not used if input has alpha.")
+    ("input-nodata-value",  po::value(&opt.in_nodata_value), "Value that is no-data in the input images.")
+    ("output-nodata-value", po::value(&opt.out_nodata_value),
+           "No-data value to use on output.")
     ("output-filename,o", po::value(&opt.output_path), "Output file name.")
     ("calc,c",            po::value(&opt.calc_string), calc_string_help.c_str())
     ("cache",             po::value(&cache_size)->default_value(1024), "Source data cache size, in megabytes.")
@@ -520,6 +587,19 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   // Set the system cache size
   vw_settings().set_system_cache_size( cache_size*1024*1024 );
+
+ // Fill out opt.has_in_nodata and opt.has_out_nodata depending if the user specified these options
+ if (!vm.count("input-nodata-value")){
+    opt.has_in_nodata   = false;
+    opt.in_nodata_value = 0;
+  }else
+    opt.has_in_nodata = true;
+
+ if (!vm.count("output-nodata-value")){
+    opt.has_out_nodata   = false;
+    opt.out_nodata_value = 0;
+  }else
+    opt.has_out_nodata = true;
 
 }
 
@@ -602,8 +682,12 @@ int main( int argc, char *argv[] ) {
   // For now this is always the same
   typedef PixelGray<uint8> PixelT;
   
+  // TODO: Clean up these variable names!
+  
   const size_t numInputFiles = opt.input_files.size();
   std::vector< ImageViewRef<PixelT> > input_images(numInputFiles);
+  std::vector<bool  >                 hasNodataVec(numInputFiles);
+  std::vector<PixelT>                 nodataVec(numInputFiles);
 
   // Loop through each input file
   for (size_t i=0; i<numInputFiles; ++i)
@@ -617,8 +701,19 @@ int main( int argc, char *argv[] ) {
 
     // Check for nodata value in the file
     if ( rsrc->has_nodata_read() ) {
-      opt.nodata = rsrc->nodata_read();
-      std::cout << "\t--> Extracted nodata value from file: " << opt.nodata << ".\n";
+      nodataVec[i] = rsrc->nodata_read();
+      std::cout << "\t--> Extracted nodata value from file: " << nodataVec[i] << ".\n";
+      hasNodataVec[i] = true;
+    }
+    else // File does not specify nodata
+    {
+      if (opt.has_in_nodata) // User has specified a default nodata value
+      {
+        hasNodataVec[i] = true;
+        nodataVec   [i] = PixelT(opt.in_nodata_value);
+      }
+      else // Don't use nodata for this input
+        hasNodataVec[i] = false;
     }
     delete rsrc;
 
@@ -629,10 +724,32 @@ int main( int argc, char *argv[] ) {
 
 
   vw_out() << "Writing: " << output << std::endl;
-  cartography::write_georeferenced_image(output, 
-                                         ImageCalcView< ImageViewRef<PixelT> >(input_images, calcTree),
-                                         georef,
-                                         TerminalProgressCallback("asp_calc","Writing:"));
+  if (opt.has_out_nodata)
+  {
+    asp::block_write_gdal_image( output,
+                                  ImageCalcView< ImageViewRef<PixelT> >(input_images, 
+                                                                       hasNodataVec,
+                                                                       nodataVec,
+                                                                       opt.out_nodata_value,
+                                                                       calcTree),
+                                 georef,
+                                 opt.out_nodata_value,
+                                 opt,
+                                 TerminalProgressCallback("asp_calc","Writing:"));
+  }
+  else // No output nodata value
+  {
+    asp::block_write_gdal_image( output,
+                            ImageCalcView< ImageViewRef<PixelT> >(input_images, 
+                                   hasNodataVec,
+                                   nodataVec,
+                                   opt.out_nodata_value,
+                                   calcTree),
+                           georef,
+                           opt,
+                           TerminalProgressCallback("asp_calc","Writing:"));
+  }
+
 
 
 }
