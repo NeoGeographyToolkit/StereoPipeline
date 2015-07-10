@@ -119,7 +119,7 @@ int main( int argc, char *argv[] ) {
 
     // Generate a bounding box that is the minimum of the two BBox areas
     BBox2 crop_box = bounding_box( dem1_dmg );
-    crop_box.crop(dem1_georef.point_to_pixel_bbox(dem2_georef.pixel_to_point_bbox(bounding_box( dem2_dmg ))));
+    crop_box.crop(dem1_georef.lonlat_to_pixel_bbox(dem2_georef.pixel_to_lonlat_bbox(bounding_box( dem2_dmg ))));
 
     ImageViewRef<PixelMask<double> > dem2_trans =
       crop(geo_transform( per_pixel_filter(dem_to_geodetic( create_mask(dem2_dmg, dem2_nodata),
