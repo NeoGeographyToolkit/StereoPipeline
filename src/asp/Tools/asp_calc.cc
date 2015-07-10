@@ -395,18 +395,18 @@ public: // Functions
 
   // Constructor
   ImageCalcView( std::vector<ImageT>                & imageVec,
-                 std::vector<bool  >           const& hasNodataVec, 
-                 std::vector<input_pixel_type> const& nodataVec,  
+                 std::vector<bool  >           const& has_nodata_vec, 
+                 std::vector<input_pixel_type> const& nodata_vec,  
                  result_type outputNodata,
                  calc_operation const& operation_tree)
-                  : m_image_vec(imageVec),   m_has_nodata_vec(hasNodataVec),
-                    m_nodata_vec(nodataVec), m_output_nodata(outputNodata),
+                  : m_image_vec(imageVec),   m_has_nodata_vec(has_nodata_vec),
+                    m_nodata_vec(nodata_vec), m_output_nodata(outputNodata),
                     m_operation_tree(operation_tree)
   {
     const size_t numImages = imageVec.size();
     VW_ASSERT( (numImages > 0), ArgumentErr() << "ImageCalcView: One or more images required!." );
-    VW_ASSERT( (hasNodataVec.size() == numImages), LogicErr() << "ImageCalcView: Incorrect hasNodata count passed in!." );
-    VW_ASSERT( (nodataVec.size()    == numImages), LogicErr() << "ImageCalcView: Incorrect nodata count passed in!." );
+    VW_ASSERT( (has_nodata_vec.size() == numImages), LogicErr() << "ImageCalcView: Incorrect hasNodata count passed in!." );
+    VW_ASSERT( (nodata_vec.size()    == numImages), LogicErr() << "ImageCalcView: Incorrect nodata count passed in!." );
 
     // Make sure all images are the same size
     m_num_rows     = imageVec[0].rows();
@@ -531,6 +531,21 @@ enum DataType
   DT_FLOAT64 = 6
 };
 
+/// Returns the default nodata value for each data type (just the minimum value)
+double get_default_nodata(const DataType d)
+{
+  switch(d)
+  {
+    case    DT_UINT8  : return 0;
+    case    DT_INT16  : return std::numeric_limits<short>::min();
+    case    DT_UINT16 : return 0;
+    case    DT_INT32  : return std::numeric_limits<int>::min();
+    case    DT_UINT32 : return 0;
+    case    DT_FLOAT32: return std::numeric_limits<float>::min();
+    default :           return std::numeric_limits<double>::min();
+  };
+}
+
 struct Options : asp::BaseOptions {
   Options() : out_nodata_value(-1) {}
   // Input
@@ -617,13 +632,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
  // Fill out opt.has_in_nodata and opt.has_out_nodata depending if the user specified these options
  if (!vm.count("input-nodata-value")){
     opt.has_in_nodata   = false;
-    opt.in_nodata_value = 0;
   }else
     opt.has_in_nodata = true;
 
  if (!vm.count("output-nodata-value")){
     opt.has_out_nodata   = false;
-    opt.out_nodata_value = 0;
+    opt.out_nodata_value = get_default_nodata(opt.output_data_type);
   }else
     opt.has_out_nodata = true;
 
@@ -632,21 +646,21 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 template <typename PixelT, typename OutputT>
 void generate_output(const std::string                         & output_path,
                      const Options                             & opt, 
-                     const calc_operation                      & calcTree,
+                     const calc_operation                      & calc_tree,
                      const vw::cartography::GeoReference       & georef,
                            std::vector< ImageViewRef<PixelT> > & input_images,
-                     const std::vector<bool  >                 & hasNodataVec,
-                     const std::vector<PixelT>                 & nodataVec )
+                     const std::vector<bool  >                 & has_nodata_vec,
+                     const std::vector<PixelT>                 & nodata_vec )
 {
 
-  if (opt.has_out_nodata)
+  if (opt.has_out_nodata) // This is true if user specified or any inputs had nodata
   {
     asp::block_write_gdal_image( output_path,
                                   ImageCalcView< ImageViewRef<PixelT>, OutputT >(input_images, 
-                                                                       hasNodataVec,
-                                                                       nodataVec,
+                                                                       has_nodata_vec,
+                                                                       nodata_vec,
                                                                        opt.out_nodata_value,
-                                                                       calcTree),
+                                                                       calc_tree),
                                  georef,
                                  opt.out_nodata_value,
                                  opt,
@@ -656,10 +670,10 @@ void generate_output(const std::string                         & output_path,
   {
     asp::block_write_gdal_image( output_path,
                             ImageCalcView< ImageViewRef<PixelT>, OutputT >(input_images, 
-                                   hasNodataVec,
-                                   nodataVec,
+                                   has_nodata_vec,
+                                   nodata_vec,
                                    opt.out_nodata_value,
-                                   calcTree),
+                                   calc_tree),
                            georef,
                            opt,
                            TerminalProgressCallback("asp_calc","Writing:"));
@@ -671,7 +685,7 @@ void generate_output(const std::string                         & output_path,
 
 /// This function loads the input images and calls the main processing function
 template <typename PixelT>
-void load_inputs_and_process(const Options &opt, const std::string &output_path, const calc_operation &calcTree)
+void load_inputs_and_process(Options &opt, const std::string &output_path, const calc_operation &calc_tree)
 {
 
   // Read the georef from the first file, they should all have the same value.
@@ -680,8 +694,8 @@ void load_inputs_and_process(const Options &opt, const std::string &output_path,
     
   const size_t numInputFiles = opt.input_files.size();
   std::vector< ImageViewRef<PixelT> > input_images(numInputFiles);
-  std::vector<bool  >                 hasNodataVec(numInputFiles);
-  std::vector<PixelT>                 nodataVec(numInputFiles);
+  std::vector<bool  >                 has_nodata_vec(numInputFiles);
+  std::vector<PixelT>                 nodata_vec(numInputFiles);
 
   // Loop through each input file
   for (size_t i=0; i<numInputFiles; ++i)
@@ -695,19 +709,20 @@ void load_inputs_and_process(const Options &opt, const std::string &output_path,
 
     // Check for nodata value in the file
     if ( rsrc->has_nodata_read() ) {
-      nodataVec[i] = rsrc->nodata_read();
-      std::cout << "\t--> Extracted nodata value from file: " << nodataVec[i] << ".\n";
-      hasNodataVec[i] = true;
+      nodata_vec[i] = rsrc->nodata_read();
+      std::cout << "\t--> Extracted nodata value from file: " << nodata_vec[i] << ".\n";
+      has_nodata_vec[i] = true;
     }
     else // File does not specify nodata
     {
       if (opt.has_in_nodata) // User has specified a default nodata value
       {
-        hasNodataVec[i] = true;
-        nodataVec   [i] = PixelT(opt.in_nodata_value);
+        has_nodata_vec[i]  = true;
+        nodata_vec   [i]  = PixelT(opt.in_nodata_value);
+        opt.has_out_nodata = true; // If any inputs have nodata, the output must have nodata!
       }
       else // Don't use nodata for this input
-        hasNodataVec[i] = false;
+        has_nodata_vec[i] = false;
     }
     delete rsrc;
 
@@ -717,16 +732,16 @@ void load_inputs_and_process(const Options &opt, const std::string &output_path,
   } // loop through input images
 
   // Write out the selected data type
-  vw_out() << "Writing: " << output_path << " with data type " << opt.output_data_type << std::endl;
+  //vw_out() << "Writing: " << output_path << " with data type " << opt.output_data_type << std::endl;
   switch(opt.output_data_type)
   {
-    case    DT_UINT8  : generate_output<PixelT, PixelGray<vw::uint8  > >(output_path, opt, calcTree, georef, input_images, hasNodataVec, nodataVec); break;
-    case    DT_INT16  : generate_output<PixelT, PixelGray<vw::int16  > >(output_path, opt, calcTree, georef, input_images, hasNodataVec, nodataVec); break;
-    case    DT_UINT16 : generate_output<PixelT, PixelGray<vw::uint16 > >(output_path, opt, calcTree, georef, input_images, hasNodataVec, nodataVec); break;
-    case    DT_INT32  : generate_output<PixelT, PixelGray<vw::int32  > >(output_path, opt, calcTree, georef, input_images, hasNodataVec, nodataVec); break;
-    case    DT_UINT32 : generate_output<PixelT, PixelGray<vw::uint32 > >(output_path, opt, calcTree, georef, input_images, hasNodataVec, nodataVec); break;    
-    case    DT_FLOAT32: generate_output<PixelT, PixelGray<vw::float32> >(output_path, opt, calcTree, georef, input_images, hasNodataVec, nodataVec); break;
-    default :           generate_output<PixelT, PixelGray<vw::float64> >(output_path, opt, calcTree, georef, input_images, hasNodataVec, nodataVec); break;
+    case    DT_UINT8  : generate_output<PixelT, PixelGray<vw::uint8  > >(output_path, opt, calc_tree, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case    DT_INT16  : generate_output<PixelT, PixelGray<vw::int16  > >(output_path, opt, calc_tree, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case    DT_UINT16 : generate_output<PixelT, PixelGray<vw::uint16 > >(output_path, opt, calc_tree, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case    DT_INT32  : generate_output<PixelT, PixelGray<vw::int32  > >(output_path, opt, calc_tree, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case    DT_UINT32 : generate_output<PixelT, PixelGray<vw::uint32 > >(output_path, opt, calc_tree, georef, input_images, has_nodata_vec, nodata_vec); break;    
+    case    DT_FLOAT32: generate_output<PixelT, PixelGray<vw::float32> >(output_path, opt, calc_tree, georef, input_images, has_nodata_vec, nodata_vec); break;
+    default :           generate_output<PixelT, PixelGray<vw::float64> >(output_path, opt, calc_tree, georef, input_images, has_nodata_vec, nodata_vec); break;
   };
 
 }
@@ -740,53 +755,32 @@ int main( int argc, char *argv[] ) {
   std::string exp(opt.calc_string);
 
   calc_grammar<std::string::const_iterator> grammerParser;
-  calc_operation calcTree;
+  calc_operation calc_tree;
 
   std::string::const_iterator iter = exp.begin();
   std::string::const_iterator end = exp.end();
-  bool r = phrase_parse(iter, end, grammerParser, boost::spirit::ascii::space, calcTree);
+  bool r = phrase_parse(iter, end, grammerParser, boost::spirit::ascii::space, calc_tree);
 
-  if (r && iter == end)
+  if (r && iter == end) // Successfully parsed the calculation expression
   {
-    std::cout << "-------------------------\n";
-    std::cout << "Parsing succeeded\n";
-    std::cout << "-------------------------\n";
-    //calcTree.print();
-    //std::cout << "----------- pruned --------------\n";
-    calcTree.clearEmptyNodes();
-    calcTree.print();
+    //std::cout << "-------------------------\n";
+    //std::cout << "Parsing succeeded\n";
+    //std::cout << "-------------------------\n";
+    ////calc_tree.print();
+    ////std::cout << "----------- pruned --------------\n";
+    //calc_tree.clearEmptyNodes();
+    //calc_tree.print();
   }
-  else
+  else // Failed to parse the calculation expression
   {
     std::string::const_iterator some = iter+30;
     std::string context(iter, (some>end)?end:some);
     std::cout << "-------------------------\n";
-    std::cout << "Parsing failed\n";
+    std::cout << "Parsing calculation expression failed\n";
     std::cout << "stopped at: \": " << context << "...\"\n";
     std::cout << "-------------------------\n";
+    return -1;
   }
-  /*
-  std::cout << "Output:" << std::endl;
-  std::vector<double> testVars;
-  testVars.push_back(1.0);
-  testVars.push_back(2.0);
-  testVars.push_back(3.0);
-  double result = calcTree.applyOperation<double>(testVars);
-  std::cout << result << std::endl;
-  */
-/*
-  typedef PixelGray<double> pixel_type;
-  std::cout << "Output:" << std::endl;
-  std::vector<pixel_type> testVars;
-  testVars.push_back(pixel_type(0.0));
-  testVars.push_back(pixel_type(1.1));
-  testVars.push_back(pixel_type(2.2));
-  double result = calcTree.applyOperation<pixel_type>(testVars);
-  std::cout << result << std::endl;
-*/
-  //return 0; // DEBUG ==============================
-
-
 
   // Use a default output path if none provided
   const std::string firstPath = opt.input_files[0];
@@ -799,8 +793,6 @@ int main( int argc, char *argv[] ) {
     output_path = firstPath.substr(0,pt_idx)+"_union";
     output_path += firstPath.substr(pt_idx,firstPath.size()-pt_idx);
   }
-
-  // TODO: Clean up variable names!
   
   // Determining the format of the input images (all are assumed to be the same type!)
   SrcImageResource *rsrc = DiskImageResource::open(firstPath);
@@ -811,14 +803,14 @@ int main( int argc, char *argv[] ) {
   // Redirect to another function with the correct template type
   switch(input_data_type)
   {
-    case VW_CHANNEL_INT8   : load_inputs_and_process<PixelGray<vw::int8   > >(opt, output_path, calcTree);  break;
-    case VW_CHANNEL_UINT8  : load_inputs_and_process<PixelGray<vw::uint8  > >(opt, output_path, calcTree);  break;
-    case VW_CHANNEL_INT16  : load_inputs_and_process<PixelGray<vw::int16  > >(opt, output_path, calcTree);  break;
-    case VW_CHANNEL_UINT16 : load_inputs_and_process<PixelGray<vw::uint16 > >(opt, output_path, calcTree);  break;
-    case VW_CHANNEL_INT32  : load_inputs_and_process<PixelGray<vw::int32  > >(opt, output_path, calcTree);  break;
-    case VW_CHANNEL_UINT32 : load_inputs_and_process<PixelGray<vw::uint32 > >(opt, output_path, calcTree);  break;
-    case VW_CHANNEL_FLOAT32: load_inputs_and_process<PixelGray<vw::float32> >(opt, output_path, calcTree);  break;
-    case VW_CHANNEL_FLOAT64: load_inputs_and_process<PixelGray<vw::float64> >(opt, output_path, calcTree);  break;
+    case VW_CHANNEL_INT8   : load_inputs_and_process<PixelGray<vw::int8   > >(opt, output_path, calc_tree);  break;
+    case VW_CHANNEL_UINT8  : load_inputs_and_process<PixelGray<vw::uint8  > >(opt, output_path, calc_tree);  break;
+    case VW_CHANNEL_INT16  : load_inputs_and_process<PixelGray<vw::int16  > >(opt, output_path, calc_tree);  break;
+    case VW_CHANNEL_UINT16 : load_inputs_and_process<PixelGray<vw::uint16 > >(opt, output_path, calc_tree);  break;
+    case VW_CHANNEL_INT32  : load_inputs_and_process<PixelGray<vw::int32  > >(opt, output_path, calc_tree);  break;
+    case VW_CHANNEL_UINT32 : load_inputs_and_process<PixelGray<vw::uint32 > >(opt, output_path, calc_tree);  break;
+    case VW_CHANNEL_FLOAT32: load_inputs_and_process<PixelGray<vw::float32> >(opt, output_path, calc_tree);  break;
+    case VW_CHANNEL_FLOAT64: load_inputs_and_process<PixelGray<vw::float64> >(opt, output_path, calc_tree);  break;
     default : vw_throw(ArgumentErr() << "Input image format " << input_data_type << " is not supported!\n");
   };
 }
