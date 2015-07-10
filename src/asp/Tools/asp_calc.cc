@@ -196,6 +196,7 @@ struct calc_operation
       std::vector<calc_operation> temp = inputs[0].inputs;
       inputs = temp;
     }
+        
     
     /// Apply the operation tree to the input parameters and return a result
     template <typename T>
@@ -276,6 +277,7 @@ struct calc_grammar : b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space
      using boost::phoenix::push_back;
      using b_s::qi::double_;
      using b_s::qi::int_;
+     using b_s::qi::eps;
      using b_s::qi::_val;
      using b_s::qi::_1; // This is required to avoid namespace mixups with other Boost modules!
      using b_s::qi::_2;
@@ -315,37 +317,36 @@ struct calc_grammar : b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space
         ("var_" > int_ [at_c<VAR>(_val)=_1, at_c<OP>(_val)=OP_variable] ) ;
         //(b_s::ascii::string  [at_c<VAR>(_val)=_1,  at_c<OP>(_val)=OP_variable]    ) ; // A variable name
         
-    
+    /*
     
   // This code is for proper left priority parsing, but this approach does not work at all using
   //  Boost::Spirit!  An entirely new approach is needed but it is not worth the time figuring out.
-/*
-     // Middle priority
-     term =         
-     
-           -( (term >> '*') [push_back(at_c<IN>(_val),  b_s::qi::_0), at_c<OP>(_val)=OP_multiply]// |  // Multiplication
-              //(term >> '/') [push_back(at_c<IN>(_val),  b_s::qi::_0), at_c<OP>(_val)=OP_divide  ] // Division
-            )
-            
-          >> (factor [push_back(at_c<IN>(_val), _1)]); 
+
+         
+    // This split-based approach will make the parser visit the parameters in the correct order,
+    // but the current method of each term call returning an OP node won't work.  There will have
+    // to be more of a central authority that keeps adding operations as it encounters them. 
+    
+    term = (factor [push_back(at_c<IN>(_val), _1)])
+            >> (termP [push_back(at_c<IN>(_val), _1)] )
+    termP = 
+
+           ( ('*' >> factor >> termP ) [push_back(at_c<IN>(_val),  b_s::qi::_0), at_c<OP>(_val)=OP_multiply]
+           )
+          | eps;
+
 
     // The highest priority
-    // - TODO: An additional layer to prevent double signs?
     factor = 
-        //(double_          [_val = _1]      );   | // Just a number
-        (double_          [at_c<NUM>(_val)=_1, at_c<OP>(_val)=OP_number]); // Just a number
+        (double_          [at_c<NUM>(_val)=_1, at_c<OP>(_val)=OP_number]); // Just a number       
         
-        //('(' > expression [handler] > ')') | // Something in parenthesis
-        //('-' >> factor    [handler]      ) | // Negative sign
-        //('+' >> factor    [handler]      );  // Positive sign 
         
-        */
-    
+    */
   } // End constructor
   
   
   // Grammer rules
-  b_s::qi::rule<ITER, calc_operation(), b_s::ascii::space_type> expression, term, factor;
+  b_s::qi::rule<ITER, calc_operation(), b_s::ascii::space_type> expression, term, termP, factor;
   
   //qi::rule<Iterator, calc_node(), ascii::space_type> argList;
   
@@ -372,18 +373,19 @@ template <> double clamp_and_cast<double>(const double val) {return val;}
 
 
 /// Image view class which applies the calc_operation tree to each pixel location.
-template <class ImageT>
-class ImageCalcView : public ImageViewBase<ImageCalcView<ImageT> >
+template <class ImageT, typename OutputPixelT>
+class ImageCalcView : public ImageViewBase<ImageCalcView<ImageT, OutputPixelT> >
 {
 public: // Definitions
-  typedef typename ImageT::pixel_type pixel_type;
-  typedef typename ImageT::pixel_type result_type;
+  typedef typename ImageT::pixel_type  input_pixel_type;
+  typedef OutputPixelT pixel_type;  // This is what controls the type of image that is written to disk.
+  typedef OutputPixelT result_type;
 
 private: // Variables
   std::vector<ImageT    > m_image_vec;
   std::vector<bool      > m_has_nodata_vec;
-  std::vector<pixel_type> m_nodata_vec;
-  pixel_type m_output_nodata;
+  std::vector<input_pixel_type> m_nodata_vec;
+  result_type    m_output_nodata;
   calc_operation m_operation_tree;
   int m_num_rows;
   int m_num_cols;
@@ -392,10 +394,10 @@ private: // Variables
 public: // Functions
 
   // Constructor
-  ImageCalcView( std::vector<ImageT    >      & imageVec,
-                 std::vector<bool      > const& hasNodataVec, 
-                 std::vector<pixel_type> const& nodataVec,  
-                 pixel_type outputNodata,
+  ImageCalcView( std::vector<ImageT>                & imageVec,
+                 std::vector<bool  >           const& hasNodataVec, 
+                 std::vector<input_pixel_type> const& nodataVec,  
+                 result_type outputNodata,
                  calc_operation const& operation_tree)
                   : m_image_vec(imageVec),   m_has_nodata_vec(hasNodataVec),
                     m_nodata_vec(nodataVec), m_output_nodata(outputNodata),
@@ -428,29 +430,27 @@ public: // Functions
     return 0; // NOT IMPLEMENTED!
   }
 
-  typedef ProceduralPixelAccessor<ImageCalcView<ImageT> > pixel_accessor;
+  typedef ProceduralPixelAccessor<ImageCalcView<ImageT, OutputPixelT> > pixel_accessor;
   inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
 
   typedef CropView<ImageView<result_type> > prerasterize_type;
   inline prerasterize_type prerasterize( BBox2i const& bbox ) const 
   { 
-    //typedef typename PixelChannelType<typename pixel_type>::type output_channel_type; // TODO: Why does this not compile?
-    typedef typename ImageChannelType<ImageT>::type output_channel_type;
+    //typedef typename PixelChannelType<typename input_pixel_type>::type output_channel_type; // TODO: Why does this not compile?
+    typedef typename ImageChannelType<ImageView<result_type> >::type output_channel_type;
    
     // Set up the output image tile
     ImageView<result_type> tile(bbox.width(), bbox.height());
 
-    // TODO: Selectable output type!
-    
     // TODO: Left to right processing!
 
     // Set up for pixel calculations
-    const size_t num_images   = m_image_vec.size();
-    std::vector<pixel_type> input_pixels(num_images);
-    std::vector<double    > input_doubles(num_images);
+    const size_t num_images = m_image_vec.size();
+    std::vector<input_pixel_type> input_pixels(num_images);
+    std::vector<double>           input_doubles(num_images);
 
     // Rasterize all the input images at this particular tile
-    std::vector<ImageView<pixel_type> > input_tiles(num_images);
+    std::vector<ImageView<input_pixel_type> > input_tiles(num_images);
     for (size_t i=0; i<num_images; ++i)
     {
       input_tiles[i] = crop(m_image_vec[i], bbox);
@@ -507,7 +507,8 @@ public: // Functions
 
   } // End prerasterize function
 
- template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const 
+ template <class DestT> 
+ inline void rasterize( DestT const& dest, BBox2i const& bbox ) const 
  { 
    vw::rasterize( prerasterize(bbox), dest, bbox ); 
  }
@@ -517,6 +518,19 @@ public: // Functions
 
 //======================================================================================================
 
+/// List of possible output data types
+enum DataType
+{
+  DT_UINT8   = 0,
+  DT_UINT16  = 1,
+  DT_UINT32  = 2,
+  //DT_INT8    = 3, // Not supported by GDAL!
+  DT_INT16   = 3,
+  DT_INT32   = 4,
+  DT_FLOAT32 = 5,
+  DT_FLOAT64 = 6
+};
+
 struct Options : asp::BaseOptions {
   Options() : out_nodata_value(-1) {}
   // Input
@@ -525,6 +539,7 @@ struct Options : asp::BaseOptions {
   double in_nodata_value;
 
   // Settings
+  DataType output_data_type;
   bool   has_out_nodata;
   double out_nodata_value;
   std::string calc_string;
@@ -532,27 +547,36 @@ struct Options : asp::BaseOptions {
 };
 
 
-
-
-
 // Handling input
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   size_t cache_size;
 
   const std::string calc_string_help =
-    "The operation to be performed on the input images.\n"
+    "The operation to be performed on the input images.  Input images must all be the same size and type.\n"
+    "Currently only single channel images are supported.\n"
     "Recognized operators: +, -, /, *, (), pow(), abs(), min(), max(), var_0, var_1, ...\n"
     "Use var_n to refer to the pixel of the n'th input image."
     "Order of operations is parsed with RIGHT priority, use parenthesis to assure the order you want.\n"
     "Surround the entire string with double quotes.\n";
 
+  const std::string data_type_string = 
+    "No-data value to use on output.  Enter the integer corresponding to the type you want (default is float64)\n"
+    "  uint8   = 0 \n"
+    "  uint16  = 1 \n"
+    "  uint32  = 2 \n"
+    "  int16   = 3 \n"
+    "  int32   = 4 \n"
+    "  float32 = 5 \n"
+    "  float64 = 6 (default)\n";
+
+  int output_data_type;
   po::options_description general_options("");
   general_options.add_options()
-    ("input-nodata-value",  po::value(&opt.in_nodata_value), "Value that is no-data in the input images.")
-    ("output-nodata-value", po::value(&opt.out_nodata_value),
-           "No-data value to use on output.")
     ("output-filename,o", po::value(&opt.output_path), "Output file name.")
-    ("calc,c",            po::value(&opt.calc_string), calc_string_help.c_str())
+    ("calc,c",            po::value(&opt.calc_string), calc_string_help.c_str())  
+    ("output-data-type,d",  po::value(&output_data_type)->default_value(DT_FLOAT64), data_type_string.c_str())
+    ("input-nodata-value",  po::value(&opt.in_nodata_value), "Value that is no-data in the input images.")
+    ("output-nodata-value", po::value(&opt.out_nodata_value), "Value to use for no-data in the output image.")
     ("cache",             po::value(&cache_size)->default_value(1024), "Source data cache size, in megabytes.")
     ("help,h",            "Display this help message");
 
@@ -588,6 +612,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   // Set the system cache size
   vw_settings().set_system_cache_size( cache_size*1024*1024 );
 
+ opt.output_data_type = static_cast<DataType>(output_data_type);
+
  // Fill out opt.has_in_nodata and opt.has_out_nodata depending if the user specified these options
  if (!vm.count("input-nodata-value")){
     opt.has_in_nodata   = false;
@@ -603,8 +629,109 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
 }
 
+template <typename PixelT, typename OutputT>
+void generate_output(const std::string                         & output_path,
+                     const Options                             & opt, 
+                     const calc_operation                      & calcTree,
+                     const vw::cartography::GeoReference       & georef,
+                           std::vector< ImageViewRef<PixelT> > & input_images,
+                     const std::vector<bool  >                 & hasNodataVec,
+                     const std::vector<PixelT>                 & nodataVec )
+{
+
+  if (opt.has_out_nodata)
+  {
+    asp::block_write_gdal_image( output_path,
+                                  ImageCalcView< ImageViewRef<PixelT>, OutputT >(input_images, 
+                                                                       hasNodataVec,
+                                                                       nodataVec,
+                                                                       opt.out_nodata_value,
+                                                                       calcTree),
+                                 georef,
+                                 opt.out_nodata_value,
+                                 opt,
+                                 TerminalProgressCallback("asp_calc","Writing:"));
+  }
+  else // No output nodata value
+  {
+    asp::block_write_gdal_image( output_path,
+                            ImageCalcView< ImageViewRef<PixelT>, OutputT >(input_images, 
+                                   hasNodataVec,
+                                   nodataVec,
+                                   opt.out_nodata_value,
+                                   calcTree),
+                           georef,
+                           opt,
+                           TerminalProgressCallback("asp_calc","Writing:"));
+  }
+
+}
 
 
+
+/// This function loads the input images and calls the main processing function
+template <typename PixelT>
+void load_inputs_and_process(const Options &opt, const std::string &output_path, const calc_operation &calcTree)
+{
+
+  // Read the georef from the first file, they should all have the same value.
+  vw::cartography::GeoReference georef;
+  vw::cartography::read_georeference(georef, opt.input_files[0]);
+    
+  const size_t numInputFiles = opt.input_files.size();
+  std::vector< ImageViewRef<PixelT> > input_images(numInputFiles);
+  std::vector<bool  >                 hasNodataVec(numInputFiles);
+  std::vector<PixelT>                 nodataVec(numInputFiles);
+
+  // Loop through each input file
+  for (size_t i=0; i<numInputFiles; ++i)
+  {
+    const std::string input = opt.input_files[i];
+
+    // Determining the format of the input
+    SrcImageResource *rsrc = DiskImageResource::open(input);
+    //ChannelTypeEnum channel_type = rsrc->channel_type();
+    //PixelFormatEnum pixel_format = rsrc->pixel_format();
+
+    // Check for nodata value in the file
+    if ( rsrc->has_nodata_read() ) {
+      nodataVec[i] = rsrc->nodata_read();
+      std::cout << "\t--> Extracted nodata value from file: " << nodataVec[i] << ".\n";
+      hasNodataVec[i] = true;
+    }
+    else // File does not specify nodata
+    {
+      if (opt.has_in_nodata) // User has specified a default nodata value
+      {
+        hasNodataVec[i] = true;
+        nodataVec   [i] = PixelT(opt.in_nodata_value);
+      }
+      else // Don't use nodata for this input
+        hasNodataVec[i] = false;
+    }
+    delete rsrc;
+
+    DiskImageView<PixelT> this_disk_image(input);
+    input_images[i] = this_disk_image;
+
+  } // loop through input images
+
+  // Write out the selected data type
+  vw_out() << "Writing: " << output_path << " with data type " << opt.output_data_type << std::endl;
+  switch(opt.output_data_type)
+  {
+    case    DT_UINT8  : generate_output<PixelT, PixelGray<vw::uint8  > >(output_path, opt, calcTree, georef, input_images, hasNodataVec, nodataVec); break;
+    case    DT_INT16  : generate_output<PixelT, PixelGray<vw::int16  > >(output_path, opt, calcTree, georef, input_images, hasNodataVec, nodataVec); break;
+    case    DT_UINT16 : generate_output<PixelT, PixelGray<vw::uint16 > >(output_path, opt, calcTree, georef, input_images, hasNodataVec, nodataVec); break;
+    case    DT_INT32  : generate_output<PixelT, PixelGray<vw::int32  > >(output_path, opt, calcTree, georef, input_images, hasNodataVec, nodataVec); break;
+    case    DT_UINT32 : generate_output<PixelT, PixelGray<vw::uint32 > >(output_path, opt, calcTree, georef, input_images, hasNodataVec, nodataVec); break;    
+    case    DT_FLOAT32: generate_output<PixelT, PixelGray<vw::float32> >(output_path, opt, calcTree, georef, input_images, hasNodataVec, nodataVec); break;
+    default :           generate_output<PixelT, PixelGray<vw::float64> >(output_path, opt, calcTree, georef, input_images, hasNodataVec, nodataVec); break;
+  };
+
+}
+
+/// The main function calls the cmd line parsers and figures out the input image type
 int main( int argc, char *argv[] ) {
 
   Options opt;
@@ -656,10 +783,8 @@ int main( int argc, char *argv[] ) {
   testVars.push_back(pixel_type(2.2));
   double result = calcTree.applyOperation<pixel_type>(testVars);
   std::cout << result << std::endl;
-
-  return 0; // DEBUG ==============================
 */
-
+  //return 0; // DEBUG ==============================
 
 
 
@@ -667,89 +792,43 @@ int main( int argc, char *argv[] ) {
   const std::string firstPath = opt.input_files[0];
   vw_out() << "Loading: " << firstPath << "\n";
   size_t pt_idx = firstPath.rfind(".");
-  std::string output;
+  std::string output_path;
   if (opt.output_path.size() != 0)
-    output = opt.output_path;
+    output_path = opt.output_path;
   else {
-    output = firstPath.substr(0,pt_idx)+"_union";
-    output += firstPath.substr(pt_idx,firstPath.size()-pt_idx);
+    output_path = firstPath.substr(0,pt_idx)+"_union";
+    output_path += firstPath.substr(pt_idx,firstPath.size()-pt_idx);
   }
 
-  // Read the georef from the first file, they should all have the same value.
-  vw::cartography::GeoReference georef;
-  vw::cartography::read_georeference(georef, firstPath);
-
-  // For now this is always the same
-  typedef PixelGray<uint8> PixelT;
+  // TODO: Clean up variable names!
   
-  // TODO: Clean up these variable names!
-  
-  const size_t numInputFiles = opt.input_files.size();
-  std::vector< ImageViewRef<PixelT> > input_images(numInputFiles);
-  std::vector<bool  >                 hasNodataVec(numInputFiles);
-  std::vector<PixelT>                 nodataVec(numInputFiles);
-
-  // Loop through each input file
-  for (size_t i=0; i<numInputFiles; ++i)
+  // Determining the format of the input images (all are assumed to be the same type!)
+  SrcImageResource *rsrc = DiskImageResource::open(firstPath);
+  ChannelTypeEnum input_data_type = rsrc->channel_type();
+  //PixelFormatEnum pixel_format = rsrc->pixel_format();
+  delete rsrc;
+   
+  // Redirect to another function with the correct template type
+  switch(input_data_type)
   {
-    const std::string input = opt.input_files[i];
-
-    // Determining the format of the input
-    SrcImageResource *rsrc = DiskImageResource::open(input);
-    //ChannelTypeEnum channel_type = rsrc->channel_type();
-    //PixelFormatEnum pixel_format = rsrc->pixel_format();
-
-    // Check for nodata value in the file
-    if ( rsrc->has_nodata_read() ) {
-      nodataVec[i] = rsrc->nodata_read();
-      std::cout << "\t--> Extracted nodata value from file: " << nodataVec[i] << ".\n";
-      hasNodataVec[i] = true;
-    }
-    else // File does not specify nodata
-    {
-      if (opt.has_in_nodata) // User has specified a default nodata value
-      {
-        hasNodataVec[i] = true;
-        nodataVec   [i] = PixelT(opt.in_nodata_value);
-      }
-      else // Don't use nodata for this input
-        hasNodataVec[i] = false;
-    }
-    delete rsrc;
-
-    DiskImageView<PixelT> this_disk_image(input);
-    input_images[i] = this_disk_image;
-
-  } // loop through input images
-
-
-  vw_out() << "Writing: " << output << std::endl;
-  if (opt.has_out_nodata)
-  {
-    asp::block_write_gdal_image( output,
-                                  ImageCalcView< ImageViewRef<PixelT> >(input_images, 
-                                                                       hasNodataVec,
-                                                                       nodataVec,
-                                                                       opt.out_nodata_value,
-                                                                       calcTree),
-                                 georef,
-                                 opt.out_nodata_value,
-                                 opt,
-                                 TerminalProgressCallback("asp_calc","Writing:"));
-  }
-  else // No output nodata value
-  {
-    asp::block_write_gdal_image( output,
-                            ImageCalcView< ImageViewRef<PixelT> >(input_images, 
-                                   hasNodataVec,
-                                   nodataVec,
-                                   opt.out_nodata_value,
-                                   calcTree),
-                           georef,
-                           opt,
-                           TerminalProgressCallback("asp_calc","Writing:"));
-  }
-
-
-
+    case VW_CHANNEL_INT8   : load_inputs_and_process<PixelGray<vw::int8   > >(opt, output_path, calcTree);  break;
+    case VW_CHANNEL_UINT8  : load_inputs_and_process<PixelGray<vw::uint8  > >(opt, output_path, calcTree);  break;
+    case VW_CHANNEL_INT16  : load_inputs_and_process<PixelGray<vw::int16  > >(opt, output_path, calcTree);  break;
+    case VW_CHANNEL_UINT16 : load_inputs_and_process<PixelGray<vw::uint16 > >(opt, output_path, calcTree);  break;
+    case VW_CHANNEL_INT32  : load_inputs_and_process<PixelGray<vw::int32  > >(opt, output_path, calcTree);  break;
+    case VW_CHANNEL_UINT32 : load_inputs_and_process<PixelGray<vw::uint32 > >(opt, output_path, calcTree);  break;
+    case VW_CHANNEL_FLOAT32: load_inputs_and_process<PixelGray<vw::float32> >(opt, output_path, calcTree);  break;
+    case VW_CHANNEL_FLOAT64: load_inputs_and_process<PixelGray<vw::float64> >(opt, output_path, calcTree);  break;
+    default : vw_throw(ArgumentErr() << "Input image format " << input_data_type << " is not supported!\n");
+  };
 }
+
+
+
+
+
+
+
+
+
+
