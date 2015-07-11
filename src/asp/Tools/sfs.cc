@@ -102,10 +102,10 @@ struct Options : public asp::BaseOptions {
   std::string input_dem, out_prefix, stereo_session_string, bundle_adjust_prefix;
   std::vector<std::string> input_images;
   int max_iterations, reflectance_type;
-  bool float_albedo, float_dem_at_boundary;
+  bool float_albedo, float_exposure, float_dem_at_boundary;
   double smoothness_weight, max_height_change, height_change_weight;
   Options():max_iterations(0), reflectance_type(0), float_albedo(false),
-            float_dem_at_boundary(false),
+            float_exposure(false), float_dem_at_boundary(false),
             smoothness_weight(0), max_height_change(0), height_change_weight(0){};
 };
 
@@ -602,7 +602,7 @@ public:
       vw_out() << "comp image mean and std: " << refmean << ' ' << refstdev
                 << std::endl;
 
-      vw_out() << "Transmittance " << " for image " << image_iter << ": "
+      vw_out() << "Exposure " << " for image " << image_iter << ": "
                 << g_T[image_iter] << std::endl;
     }
 
@@ -716,12 +716,12 @@ struct SmoothnessError {
                   T* residuals) const {
     try{
 
-      // Normalizing by grid size seems to make the functional more, not less,
+      // Normalize by grid size seems to make the functional less,
       // sensitive to the actual grid size used.
-      residuals[0] = (left[0] + right[0] - 2*center[0]);// /m_grid_x/m_grid_x;     // u_xx
-      residuals[1] = (br[0] + tl[0] - bl[0] - tr[0] ) /4.0;// /m_grid_x/m_grid_y;  // u_xy
-      residuals[2] = residuals[1];                                             // u_yx
-      residuals[3] = (bottom[0] + top[0] - 2*center[0]);// /m_grid_y/m_grid_y;     // u_yy
+      residuals[0] = (left[0] + right[0] - 2*center[0])/m_grid_x/m_grid_x;   // u_xx
+      residuals[1] = (br[0] + tl[0] - bl[0] - tr[0] )/4.0/m_grid_x/m_grid_y; // u_xy
+      residuals[2] = residuals[1];                                           // u_yx
+      residuals[3] = (bottom[0] + top[0] - 2*center[0])/m_grid_y/m_grid_y;   // u_yy
 
       for (int i = 0; i < 4; i++)
         residuals[i] *= m_smoothness_weight;
@@ -854,10 +854,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Set the maximum number of iterations.")
     ("reflectance-type,n", po::value(&opt.reflectance_type)->default_value(1),
      "Reflectance type (0 = Lambertian, 1 = Lunar Lambertian).")
-    ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(1.0),
+    ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(0.04),
      "A larger value will result in a smoother solution.")
     ("float-albedo",   po::bool_switch(&opt.float_albedo)->default_value(false)->implicit_value(true),
      "Float the albedo for each pixel. Will give incorrect results if only one image is present.")
+    ("float-exposure",   po::bool_switch(&opt.float_exposure)->default_value(false)->implicit_value(true),
+     "Float the exposure for each image. Will give incorrect results if only one image is present.")
     ("float-dem-at-boundary",   po::bool_switch(&opt.float_dem_at_boundary)->default_value(false)->implicit_value(true),
      "Allow the DEM values at the boundary of the region to also float.")
     ("max-height-change", po::value(&opt.max_height_change)->default_value(0),
@@ -910,6 +912,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (opt.input_images.size() <=1 && opt.float_albedo)
     vw_throw(ArgumentErr()
              << "Floating albedo is ill-posed for just one image.\n");
+
+  if (opt.input_images.size() <=1 && opt.float_exposure)
+    vw_throw(ArgumentErr()
+             << "Floating exposure is ill-posed for just one image.\n");
 
   if (opt.input_images.size() <=1 && opt.float_dem_at_boundary)
     vw_throw(ArgumentErr()
@@ -995,9 +1001,9 @@ int main(int argc, char* argv[]) {
     vw_out() << "grid in x and y in meters: "
              << grid_x << ' ' << grid_y << std::endl;
 
-    // We have intensity = reflectance*transmittance*albedo.
+    // We have intensity = reflectance*exposure*albedo.
     // The albedo is 1 in the first approximation. Find
-    // the transmittance T as mean(intensity)/mean(reflectance).
+    // the exposure T as mean(intensity)/mean(reflectance).
     std::vector<double> T(num_images, 0);
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
       ImageView<double> reflectance, intensity;
@@ -1014,7 +1020,7 @@ int main(int argc, char* argv[]) {
       vw_out() << "ref mean std: " << refmean << ' ' << refstdev << std::endl;
 
       T[image_iter] = imgmean/refmean;
-      vw_out() << "Transmittance for image " << image_iter << ": "
+      vw_out() << "Exposure for image " << image_iter << ": "
                 <<  T[image_iter] << std::endl;
     }
 
@@ -1050,13 +1056,6 @@ int main(int argc, char* argv[]) {
                                    &dem(col, row-1),   // top
                                    &albedo(col, row)); // albedo
 
-          // If there's just one image, don't float the transmittance,
-          // as the problem is under-determined. If we float the
-          // albedo, we will implicitly float the transmittance, hence
-          // keep the transmittance itself fixed.
-          if (num_images == 1 || opt.float_albedo)
-            problem.SetParameterBlockConstant(&T[image_iter]);
-
           // If to float the albedo
           if (!opt.float_albedo)
             problem.SetParameterBlockConstant(&albedo(col, row));
@@ -1085,6 +1084,15 @@ int main(int argc, char* argv[]) {
                                    &dem(col, row));
         }
       }
+    }
+
+    // If there's just one image, don't float the exposure,
+    // as the problem is under-determined. If we float the
+    // albedo, we will implicitly float the exposure, hence
+    // keep the exposure itself fixed.
+    if (!opt.float_exposure) {
+      for (int image_iter = 0; image_iter < num_images; image_iter++)
+        problem.SetParameterBlockConstant(&T[image_iter]);
     }
 
     // Variables at the boundary must be fixed.
