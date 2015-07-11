@@ -168,6 +168,15 @@ if MAKE_APP_MAPPROJECT
   mapproject_SOURCES = mapproject.cc
   mapproject_LDADD   = $(APP_MAPPROJECT_LIBS)
   bin_SCRIPTS  += parallel_mapproject.py
+  
+  libexec_SCRIPTS  += ../Python/asp_cmd_utils.py
+  libexec_SCRIPTS  += ../Python/asp_file_utils.py
+  libexec_SCRIPTS  += ../Python/asp_geo_utils.py
+  libexec_SCRIPTS  += ../Python/asp_image_utils.py
+  libexec_SCRIPTS  += ../Python/asp_string_utils.py
+  libexec_SCRIPTS  += ../Python/asp_system_utils.py  
+  
+  
 endif
 
 if MAKE_APP_LRONACJITREG
