@@ -414,7 +414,7 @@ AX_MODULE(ISISIO,   [src/asp/IsisIO],   [libaspIsisIO.la],   yes, [], [ISIS VW_C
 AX_MODULE(SESSIONS, [src/asp/Sessions], [libaspSessions.la], yes, [CORE], [XERCESC], [ISISIO SPICEIO ])
 AX_MODULE(GUI,      [src/asp/GUI],      [libaspGUI.la],      yes, [CORE], [QT], [])
 
-# Tools
+# Tools - The yes/no means to enable by default
 AX_APP(PC_ALIGN,         [src/asp/Tools], yes, [CORE LIBPOINTMATCHER LIBNABO YAML])
 AX_APP(BUNDLE_ADJUST,    [src/asp/Tools], yes, [VW_BUNDLEADJUSTMENT SESSIONS CERES])
 AX_APP(BUNDLEVIS,        [src/asp/Tools], yes, [OPENSCENEGRAPH VW_BUNDLEADJUSTMENT CORE])
@@ -439,6 +439,7 @@ AX_APP(RPC_GEN,          [src/asp/Tools], yes, [SESSIONS])
 AX_APP(TIF_MOSAIC,       [src/asp/Tools], yes, [CORE])
 AX_APP(STEREO,           [src/asp/Tools], yes, [SESSIONS GUI])
 AX_APP(WV_CORRECT,       [src/asp/Tools], yes, [SESSIONS])
+AX_APP(IMAGE_CALC,       [src/asp/Tools], yes, [CORE GDAL])
 
 # These are here (instead of inside the APP macro where they belong)
 # for backwards compatability with older versions of automake.
@@ -472,6 +473,7 @@ AM_CONDITIONAL(MAKE_APP_RPC_GEN, [test "$MAKE_APP_RPC_GEN" = "yes"])
 AM_CONDITIONAL(MAKE_APP_TIF_MOSAIC, [test "$MAKE_APP_TIF_MOSAIC" = "yes"])
 AM_CONDITIONAL(MAKE_APP_STEREO, [test "$MAKE_APP_STEREO" = "yes"])
 AM_CONDITIONAL(MAKE_APP_WV_CORRECT, [test "$MAKE_APP_WV_CORRECT" = "yes"])
+AM_CONDITIONAL(MAKE_APP_IMAGE_CALC, [test "$MAKE_APP_IMAGE_CALC" = "yes"])
 
 ##################################################
 # final processing

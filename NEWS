@@ -21,6 +21,8 @@
      (http://www.sandia.gov/~kmorel/documents/ColorMaps/)
    * Added geodiff, a tool for taking the (absolute) difference of two 
      DEMs.
+   * Added image_calc tool for performing simple per-pixel arithmetic
+     operations on one or more images.
 
  - stereo
    * Increase the default correlation timeout to 1800 seconds.
