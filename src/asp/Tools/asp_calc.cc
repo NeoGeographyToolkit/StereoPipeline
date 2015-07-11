@@ -44,8 +44,6 @@ using namespace vw;
 /**
   Program implementing simple calculator functionality for large images.
 
-  TODO: Do we need more channel support?
-
 */
 
 namespace b_s = boost::spirit;
@@ -346,10 +344,8 @@ struct calc_grammar : b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space
   
   
   // Grammer rules
-  b_s::qi::rule<ITER, calc_operation(), b_s::ascii::space_type> expression, term, termP, factor;
-  
-  //qi::rule<Iterator, calc_node(), ascii::space_type> argList;
-  
+  b_s::qi::rule<ITER, calc_operation(), b_s::ascii::space_type> expression, term, factor;
+    
 }; // End struct calc_grammer
 
 
@@ -564,7 +560,6 @@ struct Options : asp::BaseOptions {
 
 // Handling input
 void handle_arguments( int argc, char *argv[], Options& opt ) {
-  size_t cache_size;
 
   const std::string calc_string_help =
     "The operation to be performed on the input images.  Input images must all be the same size and type.\n"
@@ -592,7 +587,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("output-data-type,d",  po::value(&output_data_type)->default_value(DT_FLOAT64), data_type_string.c_str())
     ("input-nodata-value",  po::value(&opt.in_nodata_value), "Value that is no-data in the input images.")
     ("output-nodata-value", po::value(&opt.out_nodata_value), "Value to use for no-data in the output image.")
-    ("cache",             po::value(&cache_size)->default_value(1024), "Source data cache size, in megabytes.")
     ("help,h",            "Display this help message");
 
   po::options_description positional("");
@@ -624,9 +618,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if ( opt.calc_string.size() == 0)
     vw_throw( ArgumentErr() << "Missing operation string!\n" << usage.str() << general_options );
 
-  // Set the system cache size
-  vw_settings().set_system_cache_size( cache_size*1024*1024 );
-
  opt.output_data_type = static_cast<DataType>(output_data_type);
 
  // Fill out opt.has_in_nodata and opt.has_out_nodata depending if the user specified these options
@@ -643,42 +634,27 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
 }
 
+/// This function call is just to clean up the case statement in load_inputs_and_process
 template <typename PixelT, typename OutputT>
 void generate_output(const std::string                         & output_path,
                      const Options                             & opt, 
                      const calc_operation                      & calc_tree,
+                     const bool                                  have_georef,
                      const vw::cartography::GeoReference       & georef,
                            std::vector< ImageViewRef<PixelT> > & input_images,
                      const std::vector<bool  >                 & has_nodata_vec,
                      const std::vector<PixelT>                 & nodata_vec )
 {
-
-  if (opt.has_out_nodata) // This is true if user specified or any inputs had nodata
-  {
-    asp::block_write_gdal_image( output_path,
-                                  ImageCalcView< ImageViewRef<PixelT>, OutputT >(input_images, 
-                                                                       has_nodata_vec,
-                                                                       nodata_vec,
-                                                                       opt.out_nodata_value,
-                                                                       calc_tree),
-                                 georef,
-                                 opt.out_nodata_value,
-                                 opt,
-                                 TerminalProgressCallback("asp_calc","Writing:"));
-  }
-  else // No output nodata value
-  {
-    asp::block_write_gdal_image( output_path,
-                            ImageCalcView< ImageViewRef<PixelT>, OutputT >(input_images, 
-                                   has_nodata_vec,
-                                   nodata_vec,
-                                   opt.out_nodata_value,
-                                   calc_tree),
-                           georef,
-                           opt,
-                           TerminalProgressCallback("asp_calc","Writing:"));
-  }
-
+  asp::block_write_gdal_image( output_path,
+                                ImageCalcView< ImageViewRef<PixelT>, OutputT >(input_images, 
+                                                                     has_nodata_vec,
+                                                                     nodata_vec,
+                                                                     opt.out_nodata_value,
+                                                                     calc_tree),
+                               have_georef, georef,
+                               opt.has_out_nodata, opt.out_nodata_value,
+                               opt,
+                               TerminalProgressCallback("asp_calc","Writing:"));
 }
 
 
@@ -689,18 +665,25 @@ void load_inputs_and_process(Options &opt, const std::string &output_path, const
 {
 
   // Read the georef from the first file, they should all have the same value.
-  vw::cartography::GeoReference georef;
-  vw::cartography::read_georeference(georef, opt.input_files[0]);
-    
   const size_t numInputFiles = opt.input_files.size();
   std::vector< ImageViewRef<PixelT> > input_images(numInputFiles);
   std::vector<bool  >                 has_nodata_vec(numInputFiles);
   std::vector<PixelT>                 nodata_vec(numInputFiles);
 
+  bool have_georef = false;
+  vw::cartography::GeoReference georef;
+
   // Loop through each input file
   for (size_t i=0; i<numInputFiles; ++i)
   {
     const std::string input = opt.input_files[i];
+
+    if (!have_georef)
+    {
+      have_georef = vw::cartography::read_georeference(georef, input);
+      if (have_georef)
+        vw_out() << "\t--> Copying georef from input image " << input << std::endl;
+    } 
 
     // Determining the format of the input
     SrcImageResource *rsrc = DiskImageResource::open(input);
@@ -712,6 +695,7 @@ void load_inputs_and_process(Options &opt, const std::string &output_path, const
       nodata_vec[i] = rsrc->nodata_read();
       std::cout << "\t--> Extracted nodata value from file: " << nodata_vec[i] << ".\n";
       has_nodata_vec[i] = true;
+      opt.has_out_nodata = true; // If any inputs have nodata, the output must have nodata!
     }
     else // File does not specify nodata
     {
@@ -719,7 +703,6 @@ void load_inputs_and_process(Options &opt, const std::string &output_path, const
       {
         has_nodata_vec[i]  = true;
         nodata_vec   [i]  = PixelT(opt.in_nodata_value);
-        opt.has_out_nodata = true; // If any inputs have nodata, the output must have nodata!
       }
       else // Don't use nodata for this input
         has_nodata_vec[i] = false;
@@ -731,17 +714,20 @@ void load_inputs_and_process(Options &opt, const std::string &output_path, const
 
   } // loop through input images
 
+  if (opt.has_out_nodata)
+    vw_out() << "\t--> Writing output nodata value " << opt.out_nodata_value << std::endl;
+
   // Write out the selected data type
   //vw_out() << "Writing: " << output_path << " with data type " << opt.output_data_type << std::endl;
   switch(opt.output_data_type)
   {
-    case    DT_UINT8  : generate_output<PixelT, PixelGray<vw::uint8  > >(output_path, opt, calc_tree, georef, input_images, has_nodata_vec, nodata_vec); break;
-    case    DT_INT16  : generate_output<PixelT, PixelGray<vw::int16  > >(output_path, opt, calc_tree, georef, input_images, has_nodata_vec, nodata_vec); break;
-    case    DT_UINT16 : generate_output<PixelT, PixelGray<vw::uint16 > >(output_path, opt, calc_tree, georef, input_images, has_nodata_vec, nodata_vec); break;
-    case    DT_INT32  : generate_output<PixelT, PixelGray<vw::int32  > >(output_path, opt, calc_tree, georef, input_images, has_nodata_vec, nodata_vec); break;
-    case    DT_UINT32 : generate_output<PixelT, PixelGray<vw::uint32 > >(output_path, opt, calc_tree, georef, input_images, has_nodata_vec, nodata_vec); break;    
-    case    DT_FLOAT32: generate_output<PixelT, PixelGray<vw::float32> >(output_path, opt, calc_tree, georef, input_images, has_nodata_vec, nodata_vec); break;
-    default :           generate_output<PixelT, PixelGray<vw::float64> >(output_path, opt, calc_tree, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case    DT_UINT8  : generate_output<PixelT, PixelGray<vw::uint8  > >(output_path, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case    DT_INT16  : generate_output<PixelT, PixelGray<vw::int16  > >(output_path, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case    DT_UINT16 : generate_output<PixelT, PixelGray<vw::uint16 > >(output_path, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case    DT_INT32  : generate_output<PixelT, PixelGray<vw::int32  > >(output_path, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case    DT_UINT32 : generate_output<PixelT, PixelGray<vw::uint32 > >(output_path, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;    
+    case    DT_FLOAT32: generate_output<PixelT, PixelGray<vw::float32> >(output_path, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    default :           generate_output<PixelT, PixelGray<vw::float64> >(output_path, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
   };
 
 }
@@ -768,7 +754,7 @@ int main( int argc, char *argv[] ) {
     //std::cout << "-------------------------\n";
     ////calc_tree.print();
     ////std::cout << "----------- pruned --------------\n";
-    //calc_tree.clearEmptyNodes();
+    calc_tree.clearEmptyNodes();
     //calc_tree.print();
   }
   else // Failed to parse the calculation expression
@@ -784,7 +770,7 @@ int main( int argc, char *argv[] ) {
 
   // Use a default output path if none provided
   const std::string firstPath = opt.input_files[0];
-  vw_out() << "Loading: " << firstPath << "\n";
+  //vw_out() << "Loading: " << firstPath << "\n";
   size_t pt_idx = firstPath.rfind(".");
   std::string output_path;
   if (opt.output_path.size() != 0)

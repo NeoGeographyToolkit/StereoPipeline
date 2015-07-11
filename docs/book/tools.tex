@@ -1483,6 +1483,52 @@ Options & Description \\ \hline \hline
 
 
 
+
+
+\section{image_calc}
+\label{image_calc}
+
+This tool can be used to perform simple, per-pixel arithmetic on one or more
+input images. An arithmetic operation specified on the command line is parsed
+and applied to each pixel, then the result is written to disk. The tool 
+supports multiple input images but each must be the same size and data type.
+Input images are restricted to one channel.
+
+The following symbols are allowed in the arithmetic string:
++, -, *, /, (), min(), max(), pow(), abs(), and var_N where N is the index
+of one of the input images. An example arithmetic string is:
+"-abs(var_2) + min(58, var_1, var_3) / 2".  The tool respects the normal
+PEMDAS order of operation EXCEPT that it parses equal priority operations
+from right to left, not left to right.  Parenthesis are respected so you can
+always use them to get the exact order you want.
+
+
+\medskip
+
+Usage:\\
+\hspace*{2em}\texttt{image_calc [options] [required calc option] <one or more images files>}
+
+\medskip
+
+\begin{longtable}{|l|p{10cm}|}
+\caption{Command-line options for image_calc}
+\label{tbl:image_calc}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Options & Description \\ \hline \hline
+\texttt{-\/-help} & Display the help message.\\ \hline
+\texttt{-\/-calc|-c} & The arithmetic string in quotes (required).\\ \hline
+\texttt{-\/-output-data-type|-d} & The data type of the output file (default is float32).\\ \hline
+\texttt{-\/-input-nodata-value} & Set an override nodata value for the input images.\\ \hline
+\texttt{-\/-output-nodata-value} & Manually specify a nodata value for the output image (default is data type min).\\ \hline
+\texttt{-\/-output-filename|-o} & Specify the output path instead of using a default.\\ \hline
+\end{longtable}
+
+
+
 \section{{\tt colormap}}
 \label{sec:colormap}
 
