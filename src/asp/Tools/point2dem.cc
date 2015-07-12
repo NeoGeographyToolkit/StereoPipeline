@@ -663,8 +663,7 @@ generate_fsaa_raster( ImageViewBase<ImageT> const& rasterizer,
 
 namespace asp{
 
-  // If the third component of a vector is NaN, assign to it the given
-  // no-data value
+  // If the third component of a vector is NaN, assign to it the given no-data value
   struct NaN2NoData: public ReturnFixedType<Vector3> {
     NaN2NoData(float nodata_val):m_nodata_val(nodata_val){}
     float m_nodata_val;
@@ -993,25 +992,15 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
                                 ImageViewRef<double> const& error_image,
                                 double estim_max_error) {
 
-  rasterizer.set_use_minz_as_default(false);
-  rasterizer.set_default_value(opt.nodata_value);
-
   vw_out() << "\t-- Starting DEM rasterization --\n";
   vw_out() << "\t--> DEM spacing: " <<     rasterizer.spacing() << " pt/px\n";
   vw_out() << "\t             or: " << 1.0/rasterizer.spacing() << " px/pt\n";
 
   // TODO: Maybe put a warning or check here if the size is too big
 
-  if (opt.has_alpha)
-    rasterizer.set_use_alpha(true);
-
   // Now we are ready to specify the affine transform.
   georef.set_transform(rasterizer.geo_transform());
 
-  // If the user requested FSAA .. tell the rasterer to increase
-  // its sampling rate
-  if ( opt.fsaa > 1 )
-    rasterizer.set_spacing( rasterizer.spacing() / double(opt.fsaa) );
 
   // If the user specified the ULLR .. update the georeference
   // transform here. The generate_fsaa_raster will be responsible
@@ -1108,8 +1097,7 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
                                                      opt.nodata_value),
                  georef, hole_fill_len, "IntersectionErr");
     }else if (num_channels == 6){
-      // The error is a 3D vector. Convert it to NED coordinate system,
-      // and rasterize it.
+      // The error is a 3D vector. Convert it to NED coordinate system, and rasterize it.
       ImageViewRef<Vector6> point_disk_image = asp::form_composite<Vector6>(opt.pointcloud_files);
       ImageViewRef<Vector3> ned_err = asp::error_to_NED(point_disk_image, georef);
       std::vector< ImageViewRef< PixelGray<float> > >  rasterized(3);
@@ -1196,6 +1184,11 @@ void do_software_rasterization_multi_spacing( const ImageViewRef<Vector3>& proj_
   sw1.stop();
   vw_out(DebugMessage,"asp") << "Quad time: " << sw1.elapsed_seconds() << std::endl;
 
+  // Perform other rasterizer configuration
+  rasterizer.set_use_alpha(opt.has_alpha);
+  rasterizer.set_use_minz_as_default(false);
+  rasterizer.set_default_value(opt.nodata_value);
+
   std::string base_out_prefix = opt.out_prefix;
 
   // Call the function for each dem spacing
@@ -1204,6 +1197,15 @@ void do_software_rasterization_multi_spacing( const ImageViewRef<Vector3>& proj_
 
     // Required second init step for each spacing
     rasterizer.initialize_spacing(this_spacing);
+
+    // Set nodata value
+    if (!opt.has_nodata_value) {
+      opt.nodata_value = std::floor(rasterizer.bounding_box().min().z() - 1);
+    }
+
+    // If the user requested FSAA .. tell the rasterer to increase its sampling rate
+    if ( opt.fsaa > 1 )
+      rasterizer.set_spacing( rasterizer.spacing() / double(opt.fsaa) );
 
     // Each spacing gets a variation of the output prefix
     if (i == 0)

@@ -129,9 +129,9 @@ namespace asp{
     }
     /// \endcond
 
-    void set_use_alpha(bool val) { m_use_alpha = val; }
-    void set_use_minz_as_default(bool val) { m_minz_as_default = val; }
-    void set_default_value(double val) { m_default_value = val; }
+    void set_use_alpha          (bool   val) { m_use_alpha       = val; }
+    void set_use_minz_as_default(bool   val) { m_minz_as_default = val; }
+    void set_default_value      (double val) { m_default_value   = val; }
     double default_value() {
       if (m_minz_as_default) return m_bbox.min().z();
       else return m_default_value;
