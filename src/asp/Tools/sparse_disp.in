@@ -33,6 +33,8 @@ from scipy.interpolate import griddata
 from multiprocessing import Pool, cpu_count
 from optparse import OptionParser
 
+from stereo_utils.py import get_asp_version
+
 def die(msg, code=-1):
     print >>sys.stderr, msg
     sys.exit(code)
@@ -938,7 +940,7 @@ def main():
 
     usage = '''%prog [options] left_image right_image output_prefix
 
-  [ASP [@]ASP_VERSION[@]]'''
+  ''' + get_asp_version()
 
     parser=OptionParser(usage=usage)
     parser.set_defaults(epipolar_fltr=True)

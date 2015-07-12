@@ -19,6 +19,8 @@
 
 import os, glob, optparse, re, shutil, subprocess, sys, string
 
+from stereo_utils.py import get_asp_version
+
 job_pool = [];
 
 def man(option, opt, value, parser):
@@ -323,7 +325,7 @@ def cubenorm( fromcub, delete=False ):
 def main():
     try:
         try:
-            usage = "usage: hiedr2mosaic.py [--help][--manual][--threads N][--keep][-m match] HiRISE-EDR.IMG-files\n  [ASP [@]ASP_VERSION[@]]"
+            usage = "usage: hiedr2mosaic.py [--help][--manual][--threads N][--keep][-m match] HiRISE-EDR.IMG-files\n  " + get_asp_version()
             parser = optparse.OptionParser(usage=usage)
             parser.set_defaults(delete=True)
             parser.set_defaults(match=5)

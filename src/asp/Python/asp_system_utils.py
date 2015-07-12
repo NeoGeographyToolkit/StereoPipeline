@@ -23,7 +23,6 @@ General system related utilities
 
 import sys, os, re, shutil, subprocess, string, time, errno, multiprocessing
 
-
 def get_num_cpus():
     """Return the number of CPUs on the current machine."""
     

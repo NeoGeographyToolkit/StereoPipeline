@@ -19,13 +19,15 @@
 
 import os, sys, optparse, string, subprocess, math
 
+from stereo_utils.py import get_asp_version
+
 def convert_to_seconds( time ):
     time = time.strip()
     return float(time[:time.find("m")]) * 60.0 + float(time[time.find("m")+1:-1])
 
 def main():
     try:
-        usage = "usage: time_trials [options] command\n  [ASP [@]ASP_VERSION[@]]"
+        usage = "usage: time_trials [options] command\n  " + get_asp_version()
         parser = optparse.OptionParser(usage=usage)
         parser.set_defaults(trials=5)
         parser.add_option("--trials", dest="trials",
@@ -41,37 +43,37 @@ def main():
 
     print "Running command: [%s]" % args[0]
 
-    real_mean = 0.0
+    real_mean   = 0.0
     real_stddev = 0.0
-    user_mean = 0.0
+    user_mean   = 0.0
     user_stddev = 0.0
-    sys_mean = 0.0
-    sys_stddev = 0.0
+    sys_mean    = 0.0
+    sys_stddev  = 0.0
 
     for i in range(0,options.trials):
         print " -> trial %i / %i " % (i+1,options.trials),
         p = subprocess.Popen("( time %s ) 2>&1 | tail -n3 "%args[0] , shell=True, stdout=subprocess.PIPE)
-        output = p.stdout.read().strip().split()
+        output    = p.stdout.read().strip().split()
         real_time = convert_to_seconds( output[1] )
         user_time = convert_to_seconds( output[3] )
-        sys_time =  convert_to_seconds( output[5] )
+        sys_time  = convert_to_seconds( output[5] )
         print "r%.1f, u%.1f, s%.1f" % (real_time, user_time, sys_time)
 
         # Accumulate values
-        real_mean += real_time / float(options.trials)
+        real_mean   += real_time / float(options.trials)
         real_stddev += real_time * real_time  / float(options.trials)
-        user_mean += user_time / float(options.trials)
+        user_mean   += user_time / float(options.trials)
         user_stddev += user_time * user_time  / float(options.trials)
-        sys_mean += sys_time / float(options.trials)
-        sys_stddev += sys_time * sys_time  / float(options.trials)
+        sys_mean    += sys_time / float(options.trials)
+        sys_stddev  += sys_time * sys_time  / float(options.trials)
 
 
     real_stddev = real_stddev - real_mean*real_mean
     real_stddev = math.sqrt(real_stddev)
     user_stddev = user_stddev - user_mean*user_mean
     user_stddev = math.sqrt(user_stddev)
-    sys_stddev = sys_stddev - sys_mean*sys_mean
-    sys_stddev = math.sqrt(sys_stddev)
+    sys_stddev  = sys_stddev - sys_mean*sys_mean
+    sys_stddev  = math.sqrt(sys_stddev)
 
     print
     print "Real:   %.3f +- %.3f" % (real_mean,real_stddev)

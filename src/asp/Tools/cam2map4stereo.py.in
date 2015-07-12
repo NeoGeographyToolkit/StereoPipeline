@@ -19,6 +19,8 @@
 
 import os, optparse, subprocess, sys, tempfile
 
+from stereo_utils.py import get_asp_version
+
 def man(option, opt, value, parser):
     print >>sys.stderr, parser.usage
     print >>sys.stderr, '''\

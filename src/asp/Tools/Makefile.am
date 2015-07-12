@@ -25,6 +25,10 @@ bin_SCRIPTS =
 libexec_SCRIPTS =
 libexec_PROGRAMS = # Auxiliary C++ executables
 
+# Set up the location for the python library files
+pythonlibdir=$(libdir)/python
+pythonlib_DATA= 
+
 if MAKE_APP_STEREO
   bin_SCRIPTS      += stereo parallel_stereo sparse_disp dg_mosaic
   libexec_SCRIPTS  += stereo_utils.py
@@ -167,14 +171,16 @@ if MAKE_APP_MAPPROJECT
   bin_PROGRAMS += mapproject
   mapproject_SOURCES = mapproject.cc
   mapproject_LDADD   = $(APP_MAPPROJECT_LIBS)
+  
+  
   bin_SCRIPTS  += parallel_mapproject.py
   
-  libexec_SCRIPTS  += ../Python/asp_cmd_utils.py
-  libexec_SCRIPTS  += ../Python/asp_file_utils.py
-  libexec_SCRIPTS  += ../Python/asp_geo_utils.py
-  libexec_SCRIPTS  += ../Python/asp_image_utils.py
-  libexec_SCRIPTS  += ../Python/asp_string_utils.py
-  libexec_SCRIPTS  += ../Python/asp_system_utils.py  
+  pythonlib_DATA  += ../Python/asp_cmd_utils.py
+  pythonlib_DATA  += ../Python/asp_file_utils.py
+  pythonlib_DATA  += ../Python/asp_geo_utils.py
+  pythonlib_DATA  += ../Python/asp_image_utils.py
+  pythonlib_DATA  += ../Python/asp_string_utils.py
+  pythonlib_DATA  += ../Python/asp_system_utils.py  
   
   
 endif
@@ -216,9 +222,13 @@ all_scripts = $(bin_SCRIPTS)
 all_scripts += $(libexec_SCRIPTS)
 CLEANFILES = $(all_scripts)
 
-#$(all_scripts): %: %.in
-#	sed 's/\[@\]ASP_VERSION\[@\]/$(VERSION)/g' < $(srcdir)/$< > $@
-#	chmod +x $@
+# $@ = target file name
+# $< = name of first prerequisite
+# %  = matches any non-empty substring
+$(all_scripts): %: %.in
+	sed 's/\[@\]ASP_VERSION\[@\]/$(VERSION)/g' < $(srcdir)/$< > $@
+	chmod +x $@
+
 
 ##############################################################################
 

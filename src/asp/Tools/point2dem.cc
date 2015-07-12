@@ -1198,11 +1198,6 @@ void do_software_rasterization_multi_spacing( const ImageViewRef<Vector3>& proj_
     // Required second init step for each spacing
     rasterizer.initialize_spacing(this_spacing);
 
-    // Set nodata value
-    if (!opt.has_nodata_value) {
-      opt.nodata_value = std::floor(rasterizer.bounding_box().min().z() - 1);
-    }
-
     // If the user requested FSAA .. tell the rasterer to increase its sampling rate
     if ( opt.fsaa > 1 )
       rasterizer.set_spacing( rasterizer.spacing() / double(opt.fsaa) );

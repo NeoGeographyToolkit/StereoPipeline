@@ -20,6 +20,10 @@
 import sys, optparse, subprocess, re, os, time, glob
 import os.path as P
 
+def get_asp_version():
+    '''Returns the current ASP version number'''
+    return get_asp_version()
+
 class Step:
     # The ids of individual stereo steps
     pprc = 0

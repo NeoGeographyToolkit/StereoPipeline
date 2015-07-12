@@ -19,6 +19,9 @@
 
 
 import os, glob, optparse, re, shutil, subprocess, sys, string, time
+
+from stereo_utils.py import get_asp_version
+
 exec_path = sys.path[0]
 os.environ["PATH"] = exec_path + os.pathsep                 + \
                      exec_path + '/../libexec' + os.pathsep + \
@@ -393,7 +396,7 @@ def main():
     try:
         try:
             usage = "usage: lronac2mosaic.py [--help][--manual][--crop][--threads N]" \
-                    "[--keep] LRONAC.IMG-files\n  [ASP [@]ASP_VERSION[@]]"
+                    "[--keep] LRONAC.IMG-files\n  " + get_asp_version()
             parser = optparse.OptionParser(usage=usage)
             parser.set_defaults(delete =True)
             parser.set_defaults(cropAmount=0)
