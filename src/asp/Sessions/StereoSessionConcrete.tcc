@@ -459,31 +459,59 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DI
 }
 
 
+// Return the left and right map-projected images. These are the same
+// as the input images unless it is desired to use cropped images.
+inline std::string left_mapproj(std::string const& left_image,
+                                std::string const& out_prefix){
+  if ( ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
+       ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) ) ){
+    return out_prefix + "-L-cropped.tif";
+  }
+  return left_image;
+}
+inline std::string right_mapproj(std::string const& right_image,
+                                      std::string const& out_prefix){
+  if ( ( stereo_settings().right_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
+       ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) ) ){
+    return out_prefix + "-R-cropped.tif";
+  }
+  return right_image;
+}
+
+
 //TODO: Consolidate all these map projected functions which are identical
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
 StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_left(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC>) const {
-  return getTransformFromMapProject(m_input_dem, m_left_image_file, m_left_map_proj_model);
+  return getTransformFromMapProject(m_input_dem,
+                                    left_mapproj(m_left_image_file, m_out_prefix),
+                                    m_left_map_proj_model);
 }
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
 StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC>) const {
-  return getTransformFromMapProject(m_input_dem, m_right_image_file, m_right_map_proj_model);
+  return getTransformFromMapProject(m_input_dem,
+                                    right_mapproj(m_right_image_file, m_out_prefix),
+                                    m_right_map_proj_model);
 }
 
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
 StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_left(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS>) const {
-  return getTransformFromMapProject(m_input_dem, m_left_image_file, m_left_map_proj_model);
+  return getTransformFromMapProject(m_input_dem,
+                                    left_mapproj(m_left_image_file, m_out_prefix),
+                                    m_left_map_proj_model);
 }
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
 StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS>) const {
-  return getTransformFromMapProject(m_input_dem, m_right_image_file, m_right_map_proj_model);
+  return getTransformFromMapProject(m_input_dem,
+                                    right_mapproj(m_right_image_file, m_out_prefix),
+                                    m_right_map_proj_model);
 }
 
 
@@ -491,13 +519,17 @@ template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
 StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_left(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE>) const {
-  return getTransformFromMapProject(m_input_dem, m_left_image_file, m_left_map_proj_model);
+  return getTransformFromMapProject(m_input_dem,
+                                    left_mapproj(m_left_image_file, m_out_prefix),
+                                    m_left_map_proj_model);
 }
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
 StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE>) const {
-  return getTransformFromMapProject(m_input_dem, m_right_image_file, m_right_map_proj_model);
+  return getTransformFromMapProject(m_input_dem,
+                                    right_mapproj(m_right_image_file, m_out_prefix),
+                                    m_right_map_proj_model);
 }
 
 

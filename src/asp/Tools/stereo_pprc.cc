@@ -249,11 +249,22 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
       right_mask = intersect_mask(right_mask, right_thresh_mask);
     }
 
+    bool crop_left_and_right =
+      ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
+      ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
+    std::string left_cropped_file  = opt.in_file1;
+    std::string right_cropped_file = opt.in_file2;
+    if (crop_left_and_right) {
+      // Use the cropped images.
+      left_cropped_file  = opt.out_prefix + "-L-cropped.tif";
+      right_cropped_file = opt.out_prefix + "-R-cropped.tif";
+    }
+
     // Intersect the left mask with the warped version of the right
     // mask, and vice-versa to reduce noise.
     cartography::GeoReference left_georef, right_georef;
-    bool has_left_georef  = read_georeference(left_georef,  opt.in_file1);
-    bool has_right_georef = read_georeference(right_georef, opt.in_file2);
+    bool has_left_georef  = read_georeference(left_georef,  left_cropped_file);
+    bool has_right_georef = read_georeference(right_georef, right_cropped_file);
 
     vw_out() << "Writing masks: " << left_mask_file << ' '
              << right_mask_file << ".\n";

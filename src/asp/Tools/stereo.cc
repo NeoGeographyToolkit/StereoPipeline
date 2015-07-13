@@ -429,7 +429,8 @@ namespace asp {
     // image, named left_image_crop_win, and in respect to the
     // transformed left image (L.tif), named trans_crop_win. We use
     // the second if available, otherwise we transform and use the
-    // first. The box trans_crop_win is for internal use.
+    // first. The box trans_crop_win is for internal use, invoked
+    // from parallel_stereo.
 
     // Interpret the the last two coordinates of the crop win boxes as
     // width and height rather than max_x and max_y.
@@ -439,6 +440,12 @@ namespace asp {
     stereo_settings().right_image_crop_win = BBox2i(b.min().x(), b.min().y(), b.max().x(), b.max().y());
     b = stereo_settings().trans_crop_win;
     stereo_settings().trans_crop_win = BBox2i(b.min().x(), b.min().y(), b.max().x(), b.max().y());
+
+    // Ensure the crop windows are always contained in the images.
+    DiskImageView<PixelGray<float> > left_image(opt.in_file1);
+    DiskImageView<PixelGray<float> > right_image(opt.in_file2);
+    stereo_settings().left_image_crop_win.crop(bounding_box(left_image));
+    stereo_settings().right_image_crop_win.crop(bounding_box(right_image));
 
     bool crop_left_and_right =
       ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
@@ -458,24 +465,22 @@ namespace asp {
     }else{
 
       // If both left_image_crop_win and right_image_crop_win are
-      // specified, we ignore the trans_crop_win window. That because
-      // in this case (as can be see in
-      // StereoSession::pre_preprocessing_hook()), we actually
+      // specified, as can be see in
+      // StereoSession::pre_preprocessing_hook(), we actually
       // physically crop both images, rather than keeping the full
-      // images and just restricting the domain of computation. As
-      // such, trans_crop_win which refers to a region of the original
-      // left image becomes meaningless.
-      DiskImageView<PixelGray<float> > left_image(opt.in_file1);
-      stereo_settings().trans_crop_win = bounding_box(left_image);
-      if ( fs::exists(opt.out_prefix+"-L.tif") ){
-        DiskImageView<PixelGray<float> > L_img(opt.out_prefix+"-L.tif");
-        stereo_settings().trans_crop_win = bounding_box(L_img);
+      // images and just restricting the domain of computation.  The
+      // trans_crop_win as passed here from parallel_stereo will
+      // already be a tile in the cropped image. So we just use it as
+      // it is. If it is not defined, we set it to the entire cropped
+      // image.
+      if (stereo_settings().trans_crop_win == BBox2i(0, 0, 0, 0)) {
+        DiskImageView<PixelGray<float> > left_image(opt.in_file1);
+        stereo_settings().trans_crop_win = bounding_box(left_image);
+        if ( fs::exists(opt.out_prefix+"-L.tif") ){
+          DiskImageView<PixelGray<float> > L_img(opt.out_prefix+"-L.tif");
+          stereo_settings().trans_crop_win = bounding_box(L_img);
+        }
       }
-
-      // Ensure the crop windows are valid.
-      DiskImageView<PixelGray<float> > right_image(opt.in_file2);
-      stereo_settings().left_image_crop_win.crop(bounding_box(left_image));
-      stereo_settings().right_image_crop_win.crop(bounding_box(right_image));
     }
 
     // Sanity check
@@ -518,7 +523,7 @@ namespace asp {
   void user_safety_checks(Options const& opt){
 
     // Error checking
-    
+
     const bool dem_provided = !opt.input_dem.empty();
 
     // Sanity check for max_valid_triangulation_error
@@ -591,7 +596,7 @@ namespace asp {
     // TODO: Clean this up using session function calls!
 
     // Check that if the user provided a dem that we are using a map projection method
-    if (dem_provided 
+    if (dem_provided
         && opt.session->name() != "dgmaprpc"    && opt.session->name() != "rpcmaprpc"
         && opt.session->name() != "isismapisis" && opt.session->name() != "pinholemappinhole") {
       vw_throw(ArgumentErr() << "Cannot use map-projected images with a session of type: "

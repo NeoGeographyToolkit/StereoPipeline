@@ -77,20 +77,6 @@ namespace asp {
   template <> struct IsTypeMapProjected<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC    > { static const bool value=true; };
   template <> struct IsTypeMapProjected<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS   > { static const bool value=true; };
   template <> struct IsTypeMapProjected<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE> { static const bool value=true; };
-/*
-  /// Define the currently used names
-  template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE, // Transform from disk pixels to sensor pixels
-            STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE  > struct NameFromTypes       { static std::string name(){return("StereoSessionConcrete");} };
-  template <> struct NameFromTypes<DISKTRANSFORM_TYPE_MATRIX,       STEREOMODEL_TYPE_ISIS   > { static std::string name(){return("isis"        );} };
-  template <> struct NameFromTypes<DISKTRANSFORM_TYPE_MATRIX_RIGHT, STEREOMODEL_TYPE_PINHOLE> { static std::string name(){return("pinhole"     );} };
-  template <> struct NameFromTypes<DISKTRANSFORM_TYPE_MATRIX,       STEREOMODEL_TYPE_PINHOLE> { static std::string name(){return("nadirpinhole");} };
-  template <> struct NameFromTypes<DISKTRANSFORM_TYPE_MATRIX,       STEREOMODEL_TYPE_DG     > { static std::string name(){return("dg"          );} };
-  template <> struct NameFromTypes<DISKTRANSFORM_TYPE_MAP_PROJECT,  STEREOMODEL_TYPE_DG     > { static std::string name(){return("dgmaprpc"    );} };
-  template <> struct NameFromTypes<DISKTRANSFORM_TYPE_MAP_PROJECT,  STEREOMODEL_TYPE_RPC    > { static std::string name(){return("rpcmaprpc"   );} };
-  // Currently these are defined in the derived classes
-*/
-  // TODO: Conversion functions from input strings
-
 
   /// Derived class of StereoSession with different configuration options
   /// - This keeps the base class template-free but makes it easier for
@@ -163,22 +149,6 @@ namespace asp {
     boost::shared_ptr<vw::camera::CameraModel> m_left_map_proj_model, m_right_map_proj_model;
 
   private: // Functions
-
-/*  // TODO: Document and maybe move these hidden functions!
-    /// If both left-image-crop-win and right-image-crop win are specified,
-    /// we crop the images to these boxes, and hence the need to keep
-    /// the upper-left corners of the crop windows to handle the cameras correctly.
-    inline vw::Vector2 camera_pixel_offset(std::string const& input_dem,
-                                           std::string const& left_image_file,
-                                           std::string const& right_image_file,
-                                           std::string const& curr_image_file);
-
-    /// If we have adjusted camera models, load them. The adjustment
-    /// may be in the rotation matrix, camera center, or pixel offset.
-    inline  boost::shared_ptr<vw::camera::CameraModel>
-    load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
-                        std::string const& image_file, vw::Vector2 const& pixel_offset);
-*/
 
     // Init calls for the chosen stereo model
     void init_sensor_model(Int2Type<STEREOMODEL_TYPE_PINHOLE>) {}

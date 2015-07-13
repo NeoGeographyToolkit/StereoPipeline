@@ -224,8 +224,7 @@ void calc_target_geom(// Inputs
                       ImageViewRef<PMaskT> const& dem,
                       GeoReference dem_georef, // make copy on purpose
                       // Outputs
-                      Options & opt, BBox2 & cam_box, GeoReference & target_georef
-                      ){
+                      Options & opt, BBox2 & cam_box, GeoReference & target_georef){
 
   // Find the camera bbox and the target resolution unless user-supplied.
   // - This call returns the bounding box of the camera view on the ground.
