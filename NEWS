@@ -21,7 +21,7 @@
      (http://www.sandia.gov/~kmorel/documents/ColorMaps/)
    * Added geodiff, a tool for taking the (absolute) difference of two 
      DEMs.
-   * Added image_calc tool for performing simple per-pixel arithmetic
+   * Added image_calc, a tool for performing simple per-pixel arithmetic
      operations on one or more images.
 
  - stereo
