@@ -102,10 +102,10 @@ struct Options : public asp::BaseOptions {
   std::string input_dem, out_prefix, stereo_session_string, bundle_adjust_prefix;
   std::vector<std::string> input_images;
   int max_iterations, reflectance_type;
-  bool float_albedo, float_exposure, float_dem_at_boundary;
+  bool float_albedo, float_exposure, float_cameras, float_dem_at_boundary;
   double smoothness_weight, max_height_change, height_change_weight;
   Options():max_iterations(0), reflectance_type(0), float_albedo(false),
-            float_exposure(false), float_dem_at_boundary(false),
+            float_exposure(false), float_cameras(false), float_dem_at_boundary(false),
             smoothness_weight(0), max_height_change(0), height_change_weight(0){};
 };
 
@@ -373,7 +373,7 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
                                     ModelParams const& model_params,
                                     GlobalParams const& global_params,
                                     BilinearInterpT const & image,
-                                    boost::shared_ptr<CameraModel> const & camera,
+                                    CameraModel const* camera,
                                     double &reflectance, double & intensity) {
 
   // Set output values
@@ -472,7 +472,7 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
                                     ModelParams const& model_params,
                                     GlobalParams const& global_params,
                                     BilinearInterpT const & image,
-                                    boost::shared_ptr<CameraModel> const & camera,
+                                    CameraModel const* camera,
                                     ImageView<double> & reflectance,
                                     ImageView<double> & intensity) {
 
@@ -505,6 +505,14 @@ std::vector<BilinearInterpT>                 * g_interp_images;
 std::vector<boost::shared_ptr<CameraModel> > * g_cameras;
 double                                       * g_nodata_val;
 double                                       * g_T;
+std::vector<double>                          * g_adjustments;
+
+// When floating the camera position and orientation,
+// multiply the position variables by this number to give
+// it a greater range in searching (it makes more sense to wiggle
+// the camera position by say 1 meter than by a tiny fraction
+// of one millimeter).
+double g_position_scale = 1e+8;
 
 class SfsCallback: public ceres::IterationCallback {
 public:
@@ -541,10 +549,10 @@ public:
       os << "-iter" << g_iter << "_img" << image_iter;
       std::string iter_str = os.str();
 
-    // Compute reflectance and intensity with optimized DEM
+      // Compute reflectance and intensity with optimized DEM
       computeReflectanceAndIntensity(*g_dem, *g_geo,  *g_nodata_val,
                                      (*g_model_params)[image_iter], *g_global_params,
-                                     (*g_interp_images)[image_iter], (*g_cameras)[image_iter],
+                                     (*g_interp_images)[image_iter], (*g_cameras)[image_iter].get(),
                                      reflectance, intensity);
 
       std::string out_intensity_file = g_opt->out_prefix + "-measured-intensity"
@@ -636,12 +644,29 @@ struct IntensityError {
                   const F* const bottom,
                   const F* const top,
                   const F* const a, // albedo at pixel
+                  const F* const adjustments, // camera adjustments
                   F* residuals) const {
 
     // Default residuals
     residuals[0] = F(1e+20);
     bool success = false;
     try{
+
+      // Apply current adjustments to the camera
+      AdjustedCameraModel * adj_cam
+        = dynamic_cast<AdjustedCameraModel*>(m_camera.get());
+      if (adj_cam == NULL)
+        vw_throw( ArgumentErr() << "Expecting adjusted camera.\n");
+      Vector2 pixel_offset;
+      Vector3 axis_angle;
+      Vector3 translation;
+      for (int param_iter = 0; param_iter < 3; param_iter++) {
+        translation[param_iter] = g_position_scale*adjustments[param_iter];
+        axis_angle[param_iter] = adjustments[3 + param_iter];
+      }
+      adj_cam->set_translation(translation);
+      adj_cam->set_axis_angle_rotation(axis_angle);
+      adj_cam->set_pixel_offset(pixel_offset);
 
       double reflectance, intensity;
       success =
@@ -650,7 +675,7 @@ struct IntensityError {
                                        m_col, m_row,  m_dem,
                                        m_geo,  m_nodata_val,
                                        m_model_params,  m_global_params,
-                                       m_image, m_camera,
+                                       m_image, adj_cam,
                                        reflectance, intensity);
       if (success)
         residuals[0] = intensity - a[0]*T[0]*reflectance;
@@ -673,7 +698,7 @@ struct IntensityError {
                                      boost::shared_ptr<CameraModel> const& camera,
                                      double nodata_val){
     return (new ceres::NumericDiffCostFunction<IntensityError,
-            ceres::CENTRAL, 1, 1, 1, 1, 1, 1, 1, 1>
+            ceres::CENTRAL, 1, 1, 1, 1, 1, 1, 1, 1, 6>
             (new IntensityError(col, row, dem, geo,
                                 global_params, model_params,
                                 image, camera, nodata_val)));
@@ -860,6 +885,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Float the albedo for each pixel. Will give incorrect results if only one image is present.")
     ("float-exposure",   po::bool_switch(&opt.float_exposure)->default_value(false)->implicit_value(true),
      "Float the exposure for each image. Will give incorrect results if only one image is present.")
+    ("float-cameras",   po::bool_switch(&opt.float_cameras)->default_value(false)->implicit_value(true),
+     "Float the camera pose for each image except the first one, reducing registration errors.")
     ("float-dem-at-boundary",   po::bool_switch(&opt.float_dem_at_boundary)->default_value(false)->implicit_value(true),
      "Allow the DEM values at the boundary of the region to also float.")
     ("max-height-change", po::value(&opt.max_height_change)->default_value(0),
@@ -960,37 +987,52 @@ int main(int argc, char* argv[]) {
 
     std::vector<boost::shared_ptr<CameraModel> > cameras;
     // Read in the camera models for the input images.
-    for (int i = 0; i < num_images; i++){
+    for (int image_iter = 0; image_iter < num_images; image_iter++){
       typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
       SessionPtr session(asp::StereoSessionFactory::create
                          (opt.stereo_session_string, opt,
-                          opt.input_images[i], opt.input_images[i],
-                          opt.input_images[i], opt.input_images[i],
+                          opt.input_images[image_iter], opt.input_images[image_iter],
+                          opt.input_images[image_iter], opt.input_images[image_iter],
                           opt.out_prefix));
 
-      vw_out(DebugMessage,"asp") << "Loading: " << opt.input_images[i] << "\n";
-      cameras.push_back(session->camera_model(opt.input_images[i],
-                                              opt.input_images[i]));
+      vw_out() << "Loading: " << opt.input_images[image_iter] << "\n";
+      cameras.push_back(session->camera_model(opt.input_images[image_iter],
+                                              opt.input_images[image_iter]));
+    }
+
+    // Since we may float the cameras, ensure our camera models are
+    // always adjustable.
+    for (int image_iter = 0; image_iter < num_images; image_iter++){
+      CameraModel * icam
+        = dynamic_cast<AdjustedCameraModel*>(cameras[image_iter].get());
+      if (icam == NULL) {
+        Vector2 pixel_offset;
+        Vector3 position_correction;
+        Quaternion<double> pose_correction = Quat(math::identity_matrix<3>());
+        cameras[image_iter] = boost::shared_ptr<CameraModel>
+          (new AdjustedCameraModel(cameras[image_iter], position_correction,
+                                   pose_correction, pixel_offset));
+      }
     }
 
     // Get the sun and camera positions from the ISIS cube
     std::vector<ModelParams> model_params;
     model_params.resize(num_images);
-    for (int i = 0; i < num_images; i++){
+    for (int image_iter = 0; image_iter < num_images; image_iter++){
       IsisCameraModel* icam = dynamic_cast<IsisCameraModel*>
-        (vw::camera::unadjusted_model(cameras[i].get()));
+        (unadjusted_model(cameras[image_iter].get()));
       if (icam == NULL)
         vw_throw( ArgumentErr() << "ISIS camera model expected." );
-      model_params[i].sunPosition    = icam->sun_position();
-      model_params[i].cameraPosition = icam->camera_center();
-      vw_out() << "sun position: " << model_params[i].sunPosition << std::endl;
-      vw_out() << "camera position: " << model_params[i].cameraPosition << std::endl;
+      model_params[image_iter].sunPosition    = icam->sun_position();
+      model_params[image_iter].cameraPosition = icam->camera_center();
+      vw_out() << "sun position: " << model_params[image_iter].sunPosition << std::endl;
+      vw_out() << "camera position: " << model_params[image_iter].cameraPosition << std::endl;
     }
 
     // Images with bilinear interpolation
     std::vector<BilinearInterpT> interp_images;
-    for (int i = 0; i < num_images; i++){
-      interp_images.push_back(BilinearInterpT(DiskImageView<float>(opt.input_images[i])));
+    for (int image_iter = 0; image_iter < num_images; image_iter++){
+      interp_images.push_back(BilinearInterpT(DiskImageView<float>(opt.input_images[image_iter])));
     }
 
     // Find the grid sizes in meters. Note that dem heights are in
@@ -1010,7 +1052,7 @@ int main(int argc, char* argv[]) {
       computeReflectanceAndIntensity(dem, geo,  nodata_val,
                                      model_params[image_iter], global_params,
                                      interp_images[image_iter],
-                                     cameras[image_iter],
+                                     cameras[image_iter].get(),
                                      reflectance, intensity);
 
       double imgmean, imgstdev, refmean, refstdev;
@@ -1024,6 +1066,7 @@ int main(int argc, char* argv[]) {
                 <<  T[image_iter] << std::endl;
     }
 
+    // Initial albedo
     int ncols = dem.cols(), nrows = dem.rows();
     ImageView<double> albedo(ncols, nrows);
     for (int col = 0; col < albedo.cols(); col++) {
@@ -1031,6 +1074,25 @@ int main(int argc, char* argv[]) {
         albedo(col, row) = 1;
       }
     }
+
+    // The initial camera adjustments
+    std::vector<double> adjustments(6*num_images, 0);
+    for (int image_iter = 0; image_iter < num_images; image_iter++) {
+      AdjustedCameraModel * icam
+        = dynamic_cast<AdjustedCameraModel*>(cameras[image_iter].get());
+      if (icam == NULL)
+        vw_throw(ArgumentErr() << "Expecting adjusted camera models.\n");
+      Vector3 translation = icam->translation();
+      Vector3 axis_angle = icam->rotation().axis_angle();
+      Vector2 pixel_offset = icam->pixel_offset();
+      if (pixel_offset != Vector2())
+        vw_throw(ArgumentErr() << "Expecting zero pixel offset.\n");
+      for (int param_iter = 0; param_iter < 3; param_iter++) {
+        adjustments[6*image_iter + 0 + param_iter] = translation[param_iter]/g_position_scale;
+        adjustments[6*image_iter + 3 + param_iter] = axis_angle[param_iter];
+      }
+    }
+    g_adjustments = &adjustments;
 
     // Add a residual block for every grid point not at the boundary
     ceres::Problem problem;
@@ -1048,13 +1110,14 @@ int main(int argc, char* argv[]) {
                                    cameras[image_iter], nodata_val);
           ceres::LossFunction* loss_function_img = NULL;
           problem.AddResidualBlock(cost_function_img, loss_function_img,
-                                   &T[image_iter],     // exposure
-                                   &dem(col-1, row),   // left
-                                   &dem(col, row),     // center
-                                   &dem(col+1, row),   // right
-                                   &dem(col, row+1),   // bottom
-                                   &dem(col, row-1),   // top
-                                   &albedo(col, row)); // albedo
+                                   &T[image_iter],              // exposure
+                                   &dem(col-1, row),            // left
+                                   &dem(col, row),              // center
+                                   &dem(col+1, row),            // right
+                                   &dem(col, row+1),            // bottom
+                                   &dem(col, row-1),            // top
+                                   &albedo(col, row),           // albedo
+                                   &adjustments[6*image_iter]); // camera
 
           // If to float the albedo
           if (!opt.float_albedo)
@@ -1093,6 +1156,14 @@ int main(int argc, char* argv[]) {
     if (!opt.float_exposure) {
       for (int image_iter = 0; image_iter < num_images; image_iter++)
         problem.SetParameterBlockConstant(&T[image_iter]);
+    }
+
+    if (!opt.float_cameras) {
+      for (int image_iter = 0; image_iter < num_images; image_iter++)
+        problem.SetParameterBlockConstant(&adjustments[6*image_iter]);
+    }else{
+      // Always fix the first camera, let the other ones conform to it.
+      problem.SetParameterBlockConstant(&adjustments[0]);
     }
 
     // Variables at the boundary must be fixed.
