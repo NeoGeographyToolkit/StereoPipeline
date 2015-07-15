@@ -1001,6 +1001,13 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
   // Now we are ready to specify the affine transform.
   georef.set_transform(rasterizer.geo_transform());
 
+  // If the user requested FSAA, we temporarily increase the
+  // resolution, apply a blur, then resample to the original
+  // resolution. This results in a DEM with less antialiasing.  Note
+  // that the georef above is set with the spacing before resolution
+  // is increased, which will be the final spacing as well.
+  if ( opt.fsaa > 1 )
+    rasterizer.set_spacing( rasterizer.spacing() / double(opt.fsaa) );
 
   // If the user specified the ULLR .. update the georeference
   // transform here. The generate_fsaa_raster will be responsible
@@ -1197,10 +1204,6 @@ void do_software_rasterization_multi_spacing( const ImageViewRef<Vector3>& proj_
 
     // Required second init step for each spacing
     rasterizer.initialize_spacing(this_spacing);
-
-    // If the user requested FSAA .. tell the rasterer to increase its sampling rate
-    if ( opt.fsaa > 1 )
-      rasterizer.set_spacing( rasterizer.spacing() / double(opt.fsaa) );
 
     // Each spacing gets a variation of the output prefix
     if (i == 0)
