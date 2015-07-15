@@ -56,8 +56,7 @@ namespace b_s = boost::spirit;
    store the parsed information.
 */
 
-enum OperationType
-{
+enum OperationType {
   OP_pass,
   // UNARY operations
   OP_number,   // This is a leaf node containing a number.
@@ -75,10 +74,10 @@ enum OperationType
   OP_max
 };
 
-std::string getTagName(const OperationType o)
-{
-  switch(o)
-  {
+std::string getTagName(const OperationType o) {
+
+  switch(o) {
+  
     case OP_pass:     return "PASS";
     case OP_number:   return "NUMBER";
     case OP_variable: return "VARIABLE";
@@ -96,16 +95,16 @@ std::string getTagName(const OperationType o)
 }
 
 const int TAB_SIZE = 4;
-void tab(int indent)
-{
+void tab(int indent) {
+
   for (int i = 0; i < indent; ++i)
     std::cout << ' ';
 }
 
 // TODO: Are there pixel functions for these?
 template <typename T>
-T manual_min(const std::vector<T> &vec)
-{
+T manual_min(const std::vector<T> &vec) {
+
   T minVal = vec[0];
   for (size_t i=1; i<vec.size(); ++i)
     if (vec[i] < minVal)
@@ -113,8 +112,8 @@ T manual_min(const std::vector<T> &vec)
   return minVal;
 }
 template <typename T>
-T manual_max(const std::vector<T> &vec)
-{
+T manual_max(const std::vector<T> &vec) {
+
   T maxVal = vec[0];
   for (size_t i=1; i<vec.size(); ++i)
     if (vec[i] > maxVal)
@@ -124,8 +123,8 @@ T manual_max(const std::vector<T> &vec)
 
 
 // This type represents an operation performed on one or more inputs.
-struct calc_operation
-{
+struct calc_operation {
+
     OperationType               opType; // The operation to be performed on the children
     double value; // If this is a leaf node, the number is stored here.  Ignored unless OP_number.
     int varName;
@@ -134,21 +133,17 @@ struct calc_operation
     calc_operation() : opType(OP_pass) {}
     
     /// Recursive function to print out the contents of this object
-    void print(const int indent=0)
-    {
+    void print(const int indent=0) {
     
-      if (opType == OP_number)
-      {
+      if (opType == OP_number) {
         tab(indent);
         std::cout << "Node: " << getTagName(opType) << " = " << value << std::endl;      
       }
-      else if (opType == OP_variable)
-      {
+      else if (opType == OP_variable) {
         tab(indent);
         std::cout << "Node: " << getTagName(opType) << " = " << varName << std::endl;      
       }
-      else
-      { 
+      else { 
         std::cout << std::endl;
         tab(indent);
         std::cout << "tag: " << getTagName(opType) << std::endl;
@@ -160,9 +155,7 @@ struct calc_operation
         std::cout << '{' << std::endl;
 
         for (size_t i=0; i<inputs.size(); ++i)
-        {
           inputs[i].print(indent+TAB_SIZE);
-        }
 
         tab(indent);
         std::cout << '}' << std::endl;
@@ -171,8 +164,7 @@ struct calc_operation
     }
     
     /// Recursive function to eliminate extraneous nodes created by our parsing technique
-    void clearEmptyNodes()
-    {
+    void clearEmptyNodes() {
       // Recursively call this function on all inputs
       for (size_t i=0; i<inputs.size(); ++i)
         inputs[i].clearEmptyNodes();
@@ -181,8 +173,7 @@ struct calc_operation
         return;
     
       // Check for errors
-      if (inputs.size() != 1)
-      {
+      if (inputs.size() != 1) {
         std::cout << "ERROR: pass node with " << inputs.size() << " Nodes!\n";
         return;
       }
@@ -198,8 +189,7 @@ struct calc_operation
     
     /// Apply the operation tree to the input parameters and return a result
     template <typename T>
-    T applyOperation(const std::vector<T> &params) const
-    {
+    T applyOperation(const std::vector<T> &params) const {
       // Get the results from each input node.
       // - This is a recursive call.
       const size_t numInputs = inputs.size();
@@ -208,8 +198,7 @@ struct calc_operation
         inputResults[i] = inputs[i].applyOperation(params);
     
       // Now perform the operation for this node
-      switch(opType)
-      {
+      switch(opType) {
         // Unary
         case OP_number:   return T(value);
         case OP_variable: if (varName >= static_cast<int>(params.size()))
@@ -264,11 +253,9 @@ const int VAR = 2;
 const int IN  = 3;
 
 template <typename ITER>
-struct calc_grammar : b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space_type>
-{
+struct calc_grammar : b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space_type> {
   // Constructor function
-  calc_grammar() : calc_grammar::base_type(expression)
-  {
+  calc_grammar() : calc_grammar::base_type(expression) {
      // Definitions
      using boost::phoenix::at;
      using boost::phoenix::at_c;
@@ -354,8 +341,8 @@ struct calc_grammar : b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space
 /// Converts a double to another numeric type with min/max value clamping.
 /// - TODO: Replace this with the correct VW function!
 template <typename T>
-T clamp_and_cast(const double val)
-{
+T clamp_and_cast(const double val) {
+
   const T minVal = std::numeric_limits<T>::min();
   const T maxVal = std::numeric_limits<T>::max();
   if (val < static_cast<double>(minVal)) return (minVal);
@@ -370,8 +357,8 @@ template <> double clamp_and_cast<double>(const double val) {return val;}
 
 /// Image view class which applies the calc_operation tree to each pixel location.
 template <class ImageT, typename OutputPixelT>
-class ImageCalcView : public ImageViewBase<ImageCalcView<ImageT, OutputPixelT> >
-{
+class ImageCalcView : public ImageViewBase<ImageCalcView<ImageT, OutputPixelT> > {
+
 public: // Definitions
   typedef typename ImageT::pixel_type  input_pixel_type;
   typedef OutputPixelT pixel_type;  // This is what controls the type of image that is written to disk.
@@ -397,8 +384,7 @@ public: // Functions
                  calc_operation const& operation_tree)
                   : m_image_vec(imageVec),   m_has_nodata_vec(has_nodata_vec),
                     m_nodata_vec(nodata_vec), m_output_nodata(outputNodata),
-                    m_operation_tree(operation_tree)
-  {
+                    m_operation_tree(operation_tree) {
     const size_t numImages = imageVec.size();
     VW_ASSERT( (numImages > 0), ArgumentErr() << "ImageCalcView: One or more images required!." );
     VW_ASSERT( (has_nodata_vec.size() == numImages), LogicErr() << "ImageCalcView: Incorrect hasNodata count passed in!." );
@@ -408,8 +394,7 @@ public: // Functions
     m_num_rows     = imageVec[0].rows();
     m_num_cols     = imageVec[0].cols();
     m_num_channels = imageVec[0].planes();
-    for (size_t i=1; i<numImages; ++i)
-    {
+    for (size_t i=1; i<numImages; ++i) {
       if ( (imageVec[i].rows()   != m_num_rows    ) || 
            (imageVec[i].cols()   != m_num_cols    ) || 
            (imageVec[i].planes() != m_num_channels)   )
@@ -430,8 +415,7 @@ public: // Functions
   inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
 
   typedef CropView<ImageView<result_type> > prerasterize_type;
-  inline prerasterize_type prerasterize( BBox2i const& bbox ) const 
-  { 
+  inline prerasterize_type prerasterize( BBox2i const& bbox ) const { 
     //typedef typename PixelChannelType<typename input_pixel_type>::type output_channel_type; // TODO: Why does this not compile?
     typedef typename ImageChannelType<ImageView<result_type> >::type output_channel_type;
    
@@ -448,40 +432,31 @@ public: // Functions
     // Rasterize all the input images at this particular tile
     std::vector<ImageView<input_pixel_type> > input_tiles(num_images);
     for (size_t i=0; i<num_images; ++i)
-    {
       input_tiles[i] = crop(m_image_vec[i], bbox);
-    }
 
     // Loop through each output pixel and compute each output value
-    for (int c = 0; c < bbox.width(); c++)
-    {
-      for (int r = 0; r < bbox.height(); r++)
-      {
+    for (int c = 0; c < bbox.width(); c++) {
+      for (int r = 0; r < bbox.height(); r++) {
         // Fetch all the input pixels for this location
         bool isNodata = false;
-        for (size_t i=0; i<num_images; ++i) 
-        {
+        for (size_t i=0; i<num_images; ++i) {
           input_pixels[i] = (input_tiles[i])(c,r);
 
           // If any of the input pixels are nodata, the output is nodata.          
-          if (m_has_nodata_vec[i] && (m_nodata_vec[i] == input_pixels[i]))
-          {
+          if (m_has_nodata_vec[i] && (m_nodata_vec[i] == input_pixels[i])) {
             isNodata = true;
             break;
           }
         } // End image loop
         
-        if (isNodata) // Output is nodata, move on to the next pixel
-        {
+        if (isNodata) { // Output is nodata, move on to the next pixel
           tile(c, r) = m_output_nodata;
           continue;
         }
 
 
-        for (int chan=0; chan<m_num_channels; ++chan)
-        {
-          for (size_t i=0; i<num_images; ++i) 
-          {
+        for (int chan=0; chan<m_num_channels; ++chan) {
+          for (size_t i=0; i<num_images; ++i) {
             input_doubles[i] = input_pixels[i][chan];
           } // End image loop
           
@@ -504,8 +479,7 @@ public: // Functions
   } // End prerasterize function
 
  template <class DestT> 
- inline void rasterize( DestT const& dest, BBox2i const& bbox ) const 
- { 
+ inline void rasterize( DestT const& dest, BBox2i const& bbox ) const { 
    vw::rasterize( prerasterize(bbox), dest, bbox ); 
  }
   
@@ -515,8 +489,7 @@ public: // Functions
 //======================================================================================================
 
 /// List of possible output data types
-enum DataType
-{
+enum DataType {
   DT_UINT8   = 0,
   DT_UINT16  = 1,
   DT_UINT32  = 2,
@@ -528,10 +501,8 @@ enum DataType
 };
 
 /// Returns the default nodata value for each data type (just the minimum value)
-double get_default_nodata(const DataType d)
-{
-  switch(d)
-  {
+double get_default_nodata(const DataType d) {
+  switch(d) {
     case    DT_UINT8  : return 0;
     case    DT_INT16  : return std::numeric_limits<short>::min();
     case    DT_UINT16 : return 0;
@@ -643,8 +614,7 @@ void generate_output(const std::string                         & output_path,
                      const vw::cartography::GeoReference       & georef,
                            std::vector< ImageViewRef<PixelT> > & input_images,
                      const std::vector<bool  >                 & has_nodata_vec,
-                     const std::vector<PixelT>                 & nodata_vec )
-{
+                     const std::vector<PixelT>                 & nodata_vec ) {
   asp::block_write_gdal_image( output_path,
                                 ImageCalcView< ImageViewRef<PixelT>, OutputT >(input_images, 
                                                                      has_nodata_vec,
@@ -661,8 +631,7 @@ void generate_output(const std::string                         & output_path,
 
 /// This function loads the input images and calls the main processing function
 template <typename PixelT>
-void load_inputs_and_process(Options &opt, const std::string &output_path, const calc_operation &calc_tree)
-{
+void load_inputs_and_process(Options &opt, const std::string &output_path, const calc_operation &calc_tree) {
 
   // Read the georef from the first file, they should all have the same value.
   const size_t numInputFiles = opt.input_files.size();
@@ -674,19 +643,17 @@ void load_inputs_and_process(Options &opt, const std::string &output_path, const
   vw::cartography::GeoReference georef;
 
   // Loop through each input file
-  for (size_t i=0; i<numInputFiles; ++i)
-  {
+  for (size_t i=0; i<numInputFiles; ++i) {
     const std::string input = opt.input_files[i];
 
-    if (!have_georef)
-    {
+    if (!have_georef) {
       have_georef = vw::cartography::read_georeference(georef, input);
       if (have_georef)
         vw_out() << "\t--> Copying georef from input image " << input << std::endl;
     } 
 
     // Determining the format of the input
-    SrcImageResource *rsrc = DiskImageResource::open(input);
+    boost::scoped_ptr<SrcImageResource> rsrc(DiskImageResource::open(input));
     //ChannelTypeEnum channel_type = rsrc->channel_type();
     //PixelFormatEnum pixel_format = rsrc->pixel_format();
 
@@ -697,17 +664,14 @@ void load_inputs_and_process(Options &opt, const std::string &output_path, const
       has_nodata_vec[i] = true;
       opt.has_out_nodata = true; // If any inputs have nodata, the output must have nodata!
     }
-    else // File does not specify nodata
-    {
-      if (opt.has_in_nodata) // User has specified a default nodata value
-      {
+    else { // File does not specify nodata
+      if (opt.has_in_nodata) { // User has specified a default nodata value
         has_nodata_vec[i]  = true;
         nodata_vec   [i]  = PixelT(opt.in_nodata_value);
       }
       else // Don't use nodata for this input
         has_nodata_vec[i] = false;
     }
-    delete rsrc;
 
     DiskImageView<PixelT> this_disk_image(input);
     input_images[i] = this_disk_image;
@@ -719,8 +683,7 @@ void load_inputs_and_process(Options &opt, const std::string &output_path, const
 
   // Write out the selected data type
   //vw_out() << "Writing: " << output_path << " with data type " << opt.output_data_type << std::endl;
-  switch(opt.output_data_type)
-  {
+  switch(opt.output_data_type) {
     case    DT_UINT8  : generate_output<PixelT, PixelGray<vw::uint8  > >(output_path, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
     case    DT_INT16  : generate_output<PixelT, PixelGray<vw::int16  > >(output_path, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
     case    DT_UINT16 : generate_output<PixelT, PixelGray<vw::uint16 > >(output_path, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
@@ -747,8 +710,7 @@ int main( int argc, char *argv[] ) {
   std::string::const_iterator end = exp.end();
   bool r = phrase_parse(iter, end, grammerParser, boost::spirit::ascii::space, calc_tree);
 
-  if (r && iter == end) // Successfully parsed the calculation expression
-  {
+  if (r && iter == end) {// Successfully parsed the calculation expression
     //std::cout << "-------------------------\n";
     //std::cout << "Parsing succeeded\n";
     //std::cout << "-------------------------\n";
@@ -757,8 +719,7 @@ int main( int argc, char *argv[] ) {
     calc_tree.clearEmptyNodes();
     //calc_tree.print();
   }
-  else // Failed to parse the calculation expression
-  {
+  else { // Failed to parse the calculation expression
     std::string::const_iterator some = iter+30;
     std::string context(iter, (some>end)?end:some);
     std::cout << "-------------------------\n";
@@ -781,14 +742,12 @@ int main( int argc, char *argv[] ) {
   }
   
   // Determining the format of the input images (all are assumed to be the same type!)
-  SrcImageResource *rsrc = DiskImageResource::open(firstPath);
+  boost::scoped_ptr<SrcImageResource> rsrc(DiskImageResource::open(firstPath));
   ChannelTypeEnum input_data_type = rsrc->channel_type();
   //PixelFormatEnum pixel_format = rsrc->pixel_format();
-  delete rsrc;
    
   // Redirect to another function with the correct template type
-  switch(input_data_type)
-  {
+  switch(input_data_type) {
     case VW_CHANNEL_INT8   : load_inputs_and_process<PixelGray<vw::int8   > >(opt, output_path, calc_tree);  break;
     case VW_CHANNEL_UINT8  : load_inputs_and_process<PixelGray<vw::uint8  > >(opt, output_path, calc_tree);  break;
     case VW_CHANNEL_INT16  : load_inputs_and_process<PixelGray<vw::int16  > >(opt, output_path, calc_tree);  break;

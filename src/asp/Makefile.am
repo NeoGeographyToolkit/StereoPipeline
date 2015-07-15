@@ -41,7 +41,7 @@ include_HEADERS = $(core_headers) $(spiceio_headers)            \
 	  $(isisio_headers) $(sessions_headers) asp_config.h
 
 SUBDIRS = $(core_subdirs) $(spiceio_subdirs) $(isisio_subdirs) \
-	  $(sessions_subdirs) $(gui_subdirs)  $(tools_subdirs)
+	  $(sessions_subdirs) $(gui_subdirs)  $(tools_subdirs) 
 #$(python_subdirs)
 CLEANFILES = asp_config.h.pre.in~
 

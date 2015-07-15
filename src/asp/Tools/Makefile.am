@@ -29,6 +29,16 @@ libexec_PROGRAMS = # Auxiliary C++ executables
 pythonlibdir=$(libdir)/python
 pythonlib_DATA= 
 
+# Add the python library files
+# - This should happen in the Python folder, but automake fails when this code is put there.
+pythonlib_DATA  += ../Python/asp_cmd_utils.py
+pythonlib_DATA  += ../Python/asp_file_utils.py
+pythonlib_DATA  += ../Python/asp_geo_utils.py
+pythonlib_DATA  += ../Python/asp_image_utils.py
+pythonlib_DATA  += ../Python/asp_string_utils.py
+pythonlib_DATA  += ../Python/asp_system_utils.py  
+
+
 if MAKE_APP_STEREO
   bin_SCRIPTS      += stereo parallel_stereo sparse_disp dg_mosaic
   libexec_SCRIPTS  += stereo_utils.py
@@ -169,20 +179,9 @@ endif
 
 if MAKE_APP_MAPPROJECT
   bin_PROGRAMS += mapproject
+  bin_SCRIPTS  += parallel_mapproject.py
   mapproject_SOURCES = mapproject.cc
   mapproject_LDADD   = $(APP_MAPPROJECT_LIBS)
-  
-  
-  bin_SCRIPTS  += parallel_mapproject.py
-  
-  pythonlib_DATA  += ../Python/asp_cmd_utils.py
-  pythonlib_DATA  += ../Python/asp_file_utils.py
-  pythonlib_DATA  += ../Python/asp_geo_utils.py
-  pythonlib_DATA  += ../Python/asp_image_utils.py
-  pythonlib_DATA  += ../Python/asp_string_utils.py
-  pythonlib_DATA  += ../Python/asp_system_utils.py  
-  
-  
 endif
 
 if MAKE_APP_LRONACJITREG
@@ -216,8 +215,7 @@ endif
 # Scripts
 ##############################################################################
 
-bin_SCRIPTS += time_trials cam2map4stereo.py \
-	hiedr2mosaic.py
+bin_SCRIPTS += time_trials cam2map4stereo.py hiedr2mosaic.py
 all_scripts = $(bin_SCRIPTS)
 all_scripts += $(libexec_SCRIPTS)
 CLEANFILES = $(all_scripts)
