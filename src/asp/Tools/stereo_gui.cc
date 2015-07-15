@@ -45,6 +45,7 @@ namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
+#if 0
 void print_usage(po::options_description const& visible_options) {
   vw_out() << "\nUsage: stereo_gui [options] <image file> \n";
   vw_out() << "\nHere is a quick list of stereo_gui keybindings:\n\n"
@@ -63,6 +64,9 @@ void print_usage(po::options_description const& visible_options) {
            << "  i - toggle nearest neighbor/bilinear interpolation\n\n";
   vw_out() << visible_options << "<image files>" << std::endl;
 }
+#endif
+
+// Use handle_arguments!
 
 int main(int argc, char *argv[]) {
 
@@ -96,7 +100,7 @@ int main(int argc, char *argv[]) {
   // If the command line wasn't properly formed or the user requested
   // help, we print an usage message.
   if( vm.count("help") || images.empty() ) {
-    print_usage(visible_options);
+    //print_usage(visible_options);
     return 0;
   }
 

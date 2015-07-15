@@ -24,6 +24,7 @@
 #include <string>
 #include <vector>
 #include <QtGui>
+#include <QContextMenuEvent>
 
 // Vision Workbench
 #include <vw/Image.h>
@@ -869,18 +870,22 @@ void MainWidget::keyPressEvent(QKeyEvent *event) {
     // Pan
   case Qt::Key_Left: // Pan left
     m_current_view.min().x() -= m_current_view.width()*factor;
+    m_current_view.max().x() -= m_current_view.width()*factor;
     refreshPixmap();
     break;
   case Qt::Key_Right: // Pan right
     m_current_view.min().x() += m_current_view.width()*factor;
+    m_current_view.max().x() += m_current_view.width()*factor;
     refreshPixmap();
     break;
   case Qt::Key_Up: // Pan up
     m_current_view.min().y() -= m_current_view.height()*factor;
+    m_current_view.max().y() -= m_current_view.height()*factor;
     refreshPixmap();
     break;
   case Qt::Key_Down: // Pan down
     m_current_view.min().y() += m_current_view.height()*factor;
+    m_current_view.max().y() += m_current_view.height()*factor;
     refreshPixmap();
     break;
 
@@ -954,4 +959,81 @@ void MainWidget::keyPressEvent(QKeyEvent *event) {
     QWidget::keyPressEvent(event);
   }
 
+}
+
+void MainWidget::contextMenuEvent(QContextMenuEvent *event){
+
+  int x = event->x(), y = event->y();
+  std::cout << "--right click!!!" << std::endl;
+  std::cout << "--pressed " << x << ' ' << y << std::endl;
+  //pixelToWorldCoords(x, y, m_menuX, m_menuY);
+#if 0
+  QPopupMenu menu(this);
+
+  int id = 1;
+
+  menu.insertItem("Add interest point", this, SLOT(addInterestPoint()));
+  menu.insertItem("Delete interest point", this, SLOT(deleteInterestPoint()));
+
+//   menu.insertItem("Use nm scale", this, SLOT(toggleNmScale()), 0, id);
+//   menu.setItemChecked(id, m_useNmScale);
+  id++;
+
+//   menu.insertItem("Create 45-degree integer polygon", this,
+//                   SLOT(create45DegreeIntPoly()));
+//   menu.insertItem("Create arbitrary polygon", this,
+//                   SLOT(createArbitraryPoly()));
+//   menu.insertItem("Delete polygon (Alt-Shift-Mouse)", this, SLOT(deletePoly()));
+  menu.addSeparator();
+
+
+//   menu.insertItem("Align mode", this, SLOT(toggleAlignMode()), 0, id);
+//   menu.setItemChecked(id, m_alignMode);
+//   id++;
+
+//   if (m_alignMode){
+//     menu.insertItem("Rotate  90 degrees",  this, SLOT(align_rotate90()));
+//     menu.insertItem("Rotate 180 degrees",  this, SLOT(align_rotate180()));
+//     menu.insertItem("Rotate 270 degrees",  this, SLOT(align_rotate270()));
+//     menu.insertItem("Flip against x axis", this, SLOT(align_flip_against_x_axis()));
+//     menu.insertItem("Flip against y axis", this, SLOT(align_flip_against_y_axis()));
+//     menu.insertItem("Guess alignment", this,
+//                     SLOT(performAlignmentOfClosePolys()));
+//   }
+
+//   menu.addSeparator();
+
+//   menu.insertItem("Move polygons (Shift-Mouse)", this,
+//                   SLOT(turnOnMovePolys()), 0, id);
+//   menu.setItemChecked(id, m_movePolys);
+//   id++;
+
+//   menu.insertItem("Move vertices (Shift-Mouse)", this,
+//                   SLOT(turnOnMoveVertices()), 0, id);
+//   menu.setItemChecked(id, m_moveVertices);
+//   id++;
+
+//   menu.insertItem("Move edges (Shift-Mouse)", this,
+//                   SLOT(turnOnMoveEdges()), 0, id);
+//   menu.setItemChecked(id, m_moveEdges);
+//   id++;
+
+//   menu.insertItem("Insert vertex on edge", this, SLOT(insertVertex()));
+//   menu.insertItem("Delete vertex",         this, SLOT(deleteVertex()));
+//   menu.insertItem("Copy polygon",          this, SLOT(copyPoly()));
+//   menu.insertItem("Paste polygon",         this, SLOT(pastePoly()));
+//   menu.insertItem("Reverse orientation",   this, SLOT(reversePoly()));
+
+  menu.exec(event->globalPos());
+
+#endif
+  return;
+}
+
+void MainWidget::addInterestPoint(){
+  std::cout << "--add ip" << std::endl;
+}
+
+void MainWidget::deleteInterestPoint(){
+  std::cout << "--delete ip" << std::endl;
 }

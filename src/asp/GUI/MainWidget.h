@@ -58,6 +58,7 @@ class QWheelEvent;
 class QPoint;
 class QResizeEvent;
 class QTableWidget;
+class QContextMenuEvent;
 
 namespace vw { namespace gui {
 
@@ -311,6 +312,9 @@ private:
       m_use_nodata = 1;
     }
 
+    void addInterestPoint();
+    void deleteInterestPoint();
+
   protected:
 
     // Setup
@@ -327,6 +331,7 @@ private:
     void enterEvent(QEvent *event);
     void leaveEvent(QEvent *event);
     void keyPressEvent(QKeyEvent *event);
+    void contextMenuEvent(QContextMenuEvent *event);
 
   private:
     // Drawing is driven by QPaintEvents, which call out to drawImage()
