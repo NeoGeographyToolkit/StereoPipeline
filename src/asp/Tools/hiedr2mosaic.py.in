@@ -19,7 +19,9 @@
 
 import os, glob, optparse, re, shutil, subprocess, sys, string
 
-from stereo_utils.py import get_asp_version
+libexecpath = sys.path[0] + '/../libexec'
+sys.path.insert(0, libexecpath) # prepend to Python path
+from stereo_utils import get_asp_version
 
 job_pool = [];
 

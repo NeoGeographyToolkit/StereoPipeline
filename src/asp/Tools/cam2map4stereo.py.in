@@ -19,7 +19,9 @@
 
 import os, optparse, subprocess, sys, tempfile
 
-from stereo_utils.py import get_asp_version
+libexecpath = sys.path[0] + '/../libexec'
+sys.path.insert(0, libexecpath) # prepend to Python path
+from stereo_utils import get_asp_version
 
 def man(option, opt, value, parser):
     print >>sys.stderr, parser.usage
