@@ -223,7 +223,14 @@ namespace asp {
       ;
   }
 
-  DGDescription::DGDescription() : po::options_description("DG Options") {
+  GUIDescription::GUIDescription() : po::options_description("GUI Options") {
+    StereoSettings& global = stereo_settings();
+    (*this).add_options()
+      ("window-size",  po::value(&global.window_size)->default_value(Vector2i(1200,800),"1200 800"),
+       "The width and height of the GUI window in pixels.");
+  }
+
+       DGDescription::DGDescription() : po::options_description("DG Options") {
     StereoSettings& global = stereo_settings();
     (*this).add_options()
       ("disable-correct-velocity-aberration", po::bool_switch(&global.disable_correct_velocity_aberration)->default_value(false)->implicit_value(true),
@@ -245,6 +252,7 @@ namespace asp {
     cfg_options.add( SubpixelDescription()      );
     cfg_options.add( FilteringDescription()     );
     cfg_options.add( TriangulationDescription() );
+    cfg_options.add( GUIDescription()           );
     cfg_options.add( DGDescription()            );
     cfg_options.add( UndocOptsDescription()     );
 

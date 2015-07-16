@@ -52,6 +52,7 @@ namespace asp {
   struct SubpixelDescription      : public boost::program_options::options_description { SubpixelDescription     (); };
   struct FilteringDescription     : public boost::program_options::options_description { FilteringDescription    (); };
   struct TriangulationDescription : public boost::program_options::options_description { TriangulationDescription(); };
+  struct GUIDescription : public boost::program_options::options_description { GUIDescription(); };
   struct DGDescription            : public boost::program_options::options_description { DGDescription           (); };
   struct UndocOptsDescription     : public boost::program_options::options_description { UndocOptsDescription    (); };
 
@@ -164,6 +165,9 @@ namespace asp {
     double point_cloud_rounding_error;// How much to round the output point cloud values
     bool   compute_point_cloud_center_only; // Only compute the center of triangulated point cloud and exit.
     bool   compute_error_vector;      // Compute the triangulation error vector, not just its length
+
+    // stereo_gui options
+    vw::Vector2i window_size; // The size of the GUI window
 
     // DG Options
     bool disable_correct_velocity_aberration;
