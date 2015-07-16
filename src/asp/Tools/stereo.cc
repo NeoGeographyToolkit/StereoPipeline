@@ -140,9 +140,9 @@ namespace asp {
       vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n" << usage );
 
     if (fs::exists(output_prefix))
-      vw_out(WarningMessage) << "It appears that the output prefix exists as a file: "
-                             << output_prefix
-                             << ". Perhaps this was not intended." << endl;
+      vw_out(WarningMessage)
+        << "It appears that the output prefix exists as a file: "
+        << output_prefix << ". Perhaps this was not intended." << endl;
 
     // Verify that the images and cameras exist, otherwise GDAL prints funny messages later.
     for (int i = 0; i < (int)images.size(); i++){
