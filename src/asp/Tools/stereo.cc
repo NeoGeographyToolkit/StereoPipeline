@@ -76,9 +76,6 @@ namespace asp {
     return b;
   }
 
-
-
-
   void parse_multiview(int argc, char* argv[],
                        boost::program_options::options_description const&
                        additional_options,
@@ -110,10 +107,6 @@ namespace asp {
     handle_arguments(argc, argv, opt, additional_options,
                      is_multiview, files, usage);
 
-    //vw_out() << "DEBUG - Detected files:" << std::endl; // This gets the prefix too
-    //for (size_t i=0; i<files.size(); ++i)
-    //  vw_out() << files[i] << std::endl;
-
     if (files.size() < 3)
       vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n" << usage );
 
@@ -140,35 +133,15 @@ namespace asp {
         options.push_back(argv[s]);
     }
 
-    //vw_out() << "DEBUG - Detected options:" << std::endl; // includes all parts of all options
-    //for (size_t i=0; i<options.size(); ++i)
-    //  vw_out() << options[i] << std::endl;
-
-    //vw_out() << "DEBUG - Detected files:" << std::endl; // This gets the prefix too
-    //for (size_t i=0; i<files.size(); ++i)
-    // vw_out() << files[i] << std::endl;
-
-
     // Extract all the positional elements
     vector<string> images, cameras;
     string input_dem;
     if (!parse_multiview_cmd_files(files, images, cameras, output_prefix, input_dem))
       vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n" << usage );
 
-
-    //vw_out() << "DEBUG - Detected output prefix:" << output_prefix <<  std::endl;
-
-    //vw_out() << "DEBUG - Detected images:" << std::endl; // This gets the prefix too
-    //for (size_t i=0; i<images.size(); ++i)
-    //  vw_out() << images[i] << std::endl;
-
-    //vw_out() << "DEBUG - Detected cameras:" << std::endl;
-    //for (size_t i=0; i<cameras.size(); ++i)
-    //  vw_out() << cameras[i] << std::endl;
-
-
     if (fs::exists(output_prefix))
-      vw_out(WarningMessage) << "It appears that the output prefix exists as a file: " << output_prefix
+      vw_out(WarningMessage) << "It appears that the output prefix exists as a file: "
+                             << output_prefix
                              << ". Perhaps this was not intended." << endl;
 
     // Verify that the images and cameras exist, otherwise GDAL prints funny messages later.
@@ -391,7 +364,7 @@ namespace asp {
     // For multiview, just store the files and return
     if (is_multiview){
       if (vm.count("input-files") == 0)
-        vw_throw(ArgumentErr() << "Missing input point clouds.\n" << usage << general_options);
+        vw_throw(ArgumentErr() << "Missing input arguments.\n" << usage );
       input_files = vm["input-files"].as< std::vector<std::string> >();
       return;
     }

@@ -341,8 +341,6 @@ namespace asp{
 
 }
 
-
-
 /// Main triangulation function
 template <class SessionT>
 void stereo_triangulation( string          const& output_prefix,

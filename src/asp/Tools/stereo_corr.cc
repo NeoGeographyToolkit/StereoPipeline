@@ -19,7 +19,6 @@
 /// \file stereo_corr.cc
 ///
 
-#include <asp/Tools/stereo.h>
 #include <vw/InterestPoint.h>
 #include <boost/accumulators/accumulators.hpp>
 #include <boost/accumulators/statistics.hpp>
@@ -27,6 +26,7 @@
 #include <vw/Stereo/CorrelationView.h>
 #include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/DisparityMap.h>
+#include <asp/Tools/stereo.h>
 #include <asp/Core/DemDisparity.h>
 #include <asp/Core/LocalHomography.h>
 
