@@ -59,6 +59,7 @@ class QPoint;
 class QResizeEvent;
 class QTableWidget;
 class QContextMenuEvent;
+class QMenu;
 
 namespace vw { namespace gui {
 
@@ -333,15 +334,13 @@ private:
     void keyPressEvent(QKeyEvent *event);
     void contextMenuEvent(QContextMenuEvent *event);
 
+  private slots:
+
+//   void contextMenuRequested(QPoint point){
+//     m_ContextMenu->popup(mapToGlobal(point));
+//   };
+
   private:
-    // Drawing is driven by QPaintEvents, which call out to drawImage()
-    void drawImage(QPainter* paint);
-    vw::Vector2 world2screen(vw::Vector2 const& p);
-    vw::Vector2 screen2world(vw::Vector2 const& pix);
-    BBox2 world2screen(BBox2 const& R);
-    BBox2 screen2world(BBox2 const& R);
-    vw::BBox2 expand_box_to_keep_aspect_ratio(vw::BBox2 const& box);
-    void updateCurrentMousePosition();
 
     bool  m_firstPaintEvent;
     QRect m_emptyRubberBand;
@@ -396,8 +395,22 @@ private:
     chooseFilesDlg  *     m_chooseFilesDlg;
     std::set<std::string> m_filesToHide;
 
+    // Mouse press and release position
     int m_mousePrsX,  m_mousePrsY, m_mouseRelX,  m_mouseRelY;
 
+    // Right-click context menu
+    QMenu * m_ContextMenu;
+    QAction* m_addInterestPoint;
+    QAction* m_deleteInterestPoint;
+
+    // Drawing is driven by QPaintEvent, which calls out to drawImage()
+    void drawImage(QPainter* paint);
+    vw::Vector2 world2screen(vw::Vector2 const& p);
+    vw::Vector2 screen2world(vw::Vector2 const& pix);
+    BBox2 world2screen(BBox2 const& R);
+    BBox2 screen2world(BBox2 const& R);
+    vw::BBox2 expand_box_to_keep_aspect_ratio(vw::BBox2 const& box);
+    void updateCurrentMousePosition();
     void updateRubberBand(QRect & R);
     void refreshPixmap();
   };

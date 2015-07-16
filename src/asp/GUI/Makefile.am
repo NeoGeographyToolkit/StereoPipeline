@@ -30,8 +30,7 @@ include_HEADERS =               \
   ImageTileGenerator.h          \
   MainWindow.h                  \
   TileGenerator.h               \
-  Tree.h                        \
-  Utils.h
+  Tree.h
 
 BUILT_SOURCES =                 \
   MainWidget.moc.cc             \
@@ -42,8 +41,7 @@ libaspGUI_la_SOURCES =          \
   MainWidget.cc                 \
   ImageTileGenerator.cc         \
   MainWindow.cc                 \
-  TileGenerator.cc              \
-  Utils.cc
+  TileGenerator.cc
 
 libaspGUI_la_LIBADD = @MODULE_GUI_LIBS@
 

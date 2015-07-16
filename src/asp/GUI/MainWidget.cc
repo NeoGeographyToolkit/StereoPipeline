@@ -286,6 +286,13 @@ MainWidget::MainWidget(QWidget *parent,
     m_chooseFilesDlg->chooseFiles(m_images);
   }
 
+  // Right-click context menu
+  m_ContextMenu = new QMenu();
+  //setContextMenuPolicy(Qt::CustomContextMenu);
+  m_addInterestPoint    = m_ContextMenu->addAction("Add interest point");
+  m_deleteInterestPoint = m_ContextMenu->addAction("Delete interest point");
+  connect(m_addInterestPoint,    SIGNAL(triggered()),this,SLOT(addInterestPoint()));
+  connect(m_deleteInterestPoint, SIGNAL(triggered()),this,SLOT(deleteInterestPoint()));
 }
 
 
@@ -967,6 +974,11 @@ void MainWidget::contextMenuEvent(QContextMenuEvent *event){
   std::cout << "--right click!!!" << std::endl;
   std::cout << "--pressed " << x << ' ' << y << std::endl;
   //pixelToWorldCoords(x, y, m_menuX, m_menuY);
+
+  m_ContextMenu->popup(mapToGlobal(QPoint(x,y)));
+
+  //m_pContextMenu = new QMenu();
+
 #if 0
   QPopupMenu menu(this);
 

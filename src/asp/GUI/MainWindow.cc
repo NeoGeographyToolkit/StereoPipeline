@@ -38,15 +38,15 @@ using namespace vw::gui;
 namespace po = boost::program_options;
 
 MainWindow::MainWindow(std::vector<std::string> const& images,
-                       std::string const& geom,
+                       std::string const& output_prefix,
+                       vw::Vector2i const& window_size,
                        bool ignore_georef, bool hillshade,
                        int argc,  char ** argv) :
-  m_images(images), m_widRatio(0.3), m_main_widget(NULL),
+  m_images(images), m_output_prefix(output_prefix),
+  m_widRatio(0.3), m_main_widget(NULL),
   m_chooseFiles(NULL), m_argc(argc), m_argv(argv) {
 
-  int windowWidX, windowWidY;
-  extractWindowDims(geom, windowWidX, windowWidY);
-  resize(windowWidX, windowWidY);
+  resize(window_size[0], window_size[1]);
 
   // Set the window title and add tabs
   std::string window_title = "Stereo GUI";

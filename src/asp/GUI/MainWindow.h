@@ -30,13 +30,15 @@
 // Boost
 #include <boost/program_options.hpp>
 
+#include <vw/Math/Vector.h>
+
 // Forward declarations
 class QAction;
 class QLabel;
 class QTabWidget;
 
 namespace vw {
-namespace gui {
+  namespace gui {
 
   class MainWidget;
   class chooseFilesDlg;
@@ -45,7 +47,9 @@ namespace gui {
     Q_OBJECT
 
   public:
-    MainWindow(std::vector<std::string> const& images, std::string const& geom,
+    MainWindow(std::vector<std::string> const& images,
+               std::string const& output_prefix,
+               vw::Vector2i const& window_size,
                bool ignore_georef, bool hillshade, int argc, char ** argv);
     virtual ~MainWindow() {}
 
@@ -67,6 +71,7 @@ namespace gui {
     void closeEvent (QCloseEvent *);
 
     std::vector<std::string> m_images;
+    std::string m_output_prefix;
     double           m_widRatio;    // ratio of sidebar to entire win wid
     MainWidget     * m_main_widget;
     std::vector<MainWidget*>  m_widgets;
