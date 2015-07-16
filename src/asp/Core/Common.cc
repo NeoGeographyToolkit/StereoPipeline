@@ -68,6 +68,7 @@ asp::extract_cameras( std::vector<std::string>& image_files ) {
 std::string asp::get_extension( std::string const& input ) {
   boost::filesystem::path ipath( input );
   std::string ext = ipath.extension().string();
+  boost::algorithm::to_lower(ext);
   return ext;
 }
 
@@ -92,7 +93,7 @@ bool asp::has_pinhole_extension( std::string const& input ) {
 
 bool asp::has_image_extension( std::string const& input ) {
   std::string ext = get_extension(input);
-  if ( ext == ".tif"  || ext == ".tiff" ||
+  if ( ext == ".tif"  || ext == ".tiff" || ext == ".ntf" ||
        ext == ".png"  || ext == ".jpeg" ||
        ext == ".jpg"  || ext == ".jp2"  ||
        ext == ".img"  || ext == ".cub"    )
@@ -130,15 +131,21 @@ bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
     dem_path = "";
   }
 
-  //vw_out() << "DEBUG - Detected files:" << std::endl; // This gets the prefix too
-  //for (size_t i=0; i<files.size(); ++i)
-  //  vw_out() << files[i] << std::endl;
-
   if (files.size() < 3) // Check for the minimum number of files
     return false;
 
   // Find the output prefix
   prefix = files.back(); // Dem, if present, was already popped off the back.
+
+  // An output prefix cannot be an image or a camera
+  if (asp::has_image_extension(prefix) || asp::has_cam_extension(prefix)) {
+    prefix = "";
+    std::cout << "--prefix is, and has extension: " << prefix << std::endl;
+    return false;
+  }else{
+    std::cout << "prefix is, no image extension" << prefix << std::endl;
+  }
+
   files.pop_back();
 
   // Now there are N images and possibly N camera paths
@@ -262,7 +269,8 @@ double asp::get_rounding_error(vw::Vector3 const& shift, double rounding_error){
   if (rounding_error > 0.0) return rounding_error;
 
   double len = norm_2(shift);
-  VW_ASSERT(len > 0,  vw::ArgumentErr() << "Expecting positive length in get_rounding_error().");
+  VW_ASSERT(len > 0,  vw::ArgumentErr()
+            << "Expecting positive length in get_rounding_error().");
   rounding_error = 1.5e-10*len;
     rounding_error = pow(2.0, round(log(rounding_error)/log(2.0)) );
     return rounding_error;
@@ -350,7 +358,6 @@ bool asp::read_nodata_val(std::string const& file, double & nodata_val){
   }
   return false;
 }
-
 
 asp::BaseOptions::BaseOptions() {
 #if defined(VW_HAS_BIGTIFF) && VW_HAS_BIGTIFF == 1
