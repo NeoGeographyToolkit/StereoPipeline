@@ -52,7 +52,7 @@ namespace asp {
   struct SubpixelDescription      : public boost::program_options::options_description { SubpixelDescription     (); };
   struct FilteringDescription     : public boost::program_options::options_description { FilteringDescription    (); };
   struct TriangulationDescription : public boost::program_options::options_description { TriangulationDescription(); };
-  struct GUIDescription : public boost::program_options::options_description { GUIDescription(); };
+  struct GUIDescription           : public boost::program_options::options_description { GUIDescription(); };
   struct DGDescription            : public boost::program_options::options_description { DGDescription           (); };
   struct UndocOptsDescription     : public boost::program_options::options_description { UndocOptsDescription    (); };
 

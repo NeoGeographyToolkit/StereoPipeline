@@ -230,7 +230,7 @@ namespace asp {
        "The width and height of the GUI window in pixels.");
   }
 
-       DGDescription::DGDescription() : po::options_description("DG Options") {
+  DGDescription::DGDescription() : po::options_description("DG Options") {
     StereoSettings& global = stereo_settings();
     (*this).add_options()
       ("disable-correct-velocity-aberration", po::bool_switch(&global.disable_correct_velocity_aberration)->default_value(false)->implicit_value(true),
