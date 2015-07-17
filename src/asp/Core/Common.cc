@@ -350,15 +350,6 @@ void asp::log_to_file(int argc, char *argv[],
   vw_log().add(current_log);
 }
 
-bool asp::read_nodata_val(std::string const& file, double & nodata_val){
-  boost::scoped_ptr<SrcImageResource> rsrc( DiskImageResource::open(file) );
-  if ( rsrc->has_nodata_read() ){
-    nodata_val = rsrc->nodata_read();
-    return true;
-  }
-  return false;
-}
-
 asp::BaseOptions::BaseOptions() {
 #if defined(VW_HAS_BIGTIFF) && VW_HAS_BIGTIFF == 1
   gdal_options["COMPRESS"] = "LZW";

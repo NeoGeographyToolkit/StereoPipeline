@@ -118,8 +118,17 @@ namespace asp {
                    std::string stereo_default_filename,
                    std::string output_prefix);
 
-  // Get no-data value if available
-  bool read_nodata_val(std::string const& file, double & nodata_val);
+  // Get no-data value if available. Usually this field is float.
+  template<class T>
+  bool read_nodata_val(std::string const& file, T & nodata_val){
+    boost::scoped_ptr<vw::SrcImageResource>
+      rsrc(vw::DiskImageResource::open(file));
+    if ( rsrc->has_nodata_read() ){
+      nodata_val = rsrc->nodata_read();
+      return true;
+    }
+    return false;
+  }
 
   /// Standard Options
   struct BaseOptions {
