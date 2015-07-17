@@ -34,6 +34,7 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Sessions.h>
+#include <vw/Image/MaskViews.h>
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
 
@@ -44,7 +45,6 @@
 #undef LOCAL_GCC_VERSION
 #endif
 
-
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -52,14 +52,12 @@ using namespace vw;
 using namespace vw::camera;
 using namespace vw::cartography;
 
-// Keep track of how many times we printed an error.
-// This is not thread-safe, but should not matter much.
-int g_errorCount = 0;
+typedef InterpolationView<ImageViewRef< PixelMask<float> >, BilinearInterpolation> BilinearInterpT;
 
-typedef InterpolationView<ImageViewRef<float>, BilinearInterpolation> BilinearInterpT;
-
+// TODO: Study the effect of using bicubic interpolation.
+// TODO: Handle situations when image values are no-data via a pixel mask.
+// --- we must use everywhere a pixel mask of intensities and reflections.
 // TODO: Study phaseCoeffC1, etc.
-// TODO: Make sfs work with bundle adjusted images.
 // TODO: Find a good automatic value for the smoothness weight.
 // TODO: How to change the smoothness weight if resolution changes?
 // How to change the smoothness weight if the number of images changes?
@@ -105,82 +103,23 @@ struct Options : public asp::BaseOptions {
   bool float_albedo, float_exposure, float_cameras, float_dem_at_boundary;
   double smoothness_weight, max_height_change, height_change_weight;
   Options():max_iterations(0), reflectance_type(0), float_albedo(false),
-            float_exposure(false), float_cameras(false), float_dem_at_boundary(false),
-            smoothness_weight(0), max_height_change(0), height_change_weight(0){};
+            float_exposure(false), float_cameras(false),
+            float_dem_at_boundary(false), smoothness_weight(0),
+            max_height_change(0), height_change_weight(0){};
 };
 
 struct GlobalParams{
-
-  std::string drgDir;
-  std::string demDir;
-
-  int initialSetup;
-  double tileSize;        // in degrees
-  int pixelPadding;      // in pixels
-  vw::Vector4 simulationBox; // lonMin, lonMax, latMin, latMax (If not present the entire albedo will be simulated)
-
   int reflectanceType;
-  int initDEM;
-  int initExposure;
-  int initAlbedo;
-  int shadowType;
-
-  double shadowThresh;
-
-  //double exposureInitRefValue;//this will be removed
-  //int exposureInitRefIndex;//this will be removed
-  double TRConst;
-  int updateAlbedo, updateExposure, updateHeight;
-
-  // Two parameters used in the formula for the reflectance
+  // Two parameters used in the formula for the Lunar-Lambertian
+  // reflectance
   double phaseCoeffC1, phaseCoeffC2;
-  // Update the components of the coefficients phaseCoeffC1 and
-  // phaseCoeffC2 for each tile.
-  int updateTilePhaseCoeffs;
-  // Update the phase coefficients by combining the results from all tiles
-  int updatePhaseCoeffs;
-
-  int useWeights;
-  int saveWeights, computeWeightsSum, useNormalizedCostFun;
-  int maxNumIter;
-  int computeErrors;
-  int nodata_val;
-  int forceMosaic; // see the description in reconstruct.cc
 };
 
 struct ModelParams {
-
-  double   exposureTime;
-
-  vw::Vector2 cameraParams; //currently not used
   vw::Vector3 sunPosition; //relative to the center of the Moon
   vw::Vector3 cameraPosition;//relative to the center of the planet
-
-  std::vector<int> hCenterLine;
-  std::vector<int> hMaxDistArray;
-  std::vector<int> vCenterLine;
-  std::vector<int> vMaxDistArray;
-
-  int *hCenterLineDEM;
-  int *hMaxDistArrayDEM;
-  int *vCenterLineDEM;
-  int *vMaxDistArrayDEM;
-
-  vw::Vector4 corners; // cached bounds to quickly calculate overlap
-  std::string infoFilename, DEMFilename, meanDEMFilename,
-    var2DEMFilename, reliefFilename, shadowFilename,
-    errorFilename, inputFilename, outputFilename,
-    sfsDEMFilename, errorHeightFilename, weightFilename, exposureFilename;
-
-  ModelParams(){
-    hCenterLineDEM   = NULL;
-    hMaxDistArrayDEM = NULL;
-    vCenterLineDEM   = NULL;
-    vMaxDistArrayDEM = NULL;
-  }
-
+  ModelParams(){}
   ~ModelParams(){}
-
 };
 
 enum {NO_REFL = 0, LAMBERT, LUNAR_LAMBERT};
@@ -369,7 +308,6 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
                                     int col, int row,
                                     ImageView<double> const& dem,
                                     cartography::GeoReference const& geo,
-                                    double nodata_val,
                                     ModelParams const& model_params,
                                     GlobalParams const& global_params,
                                     BilinearInterpT const & image,
@@ -387,55 +325,30 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   // The xyz position at the center grid point
   Vector2 lonlat = geo.pixel_to_lonlat(Vector2(col, row));
   double h = center_h;
-  if (h == nodata_val && g_errorCount == 0) {
-    vw_out(ErrorMessage) << "sfs cannot handle DEMs with no-data.\n";
-    g_errorCount++;
-    return false;
-  }
   Vector3 lonlat3 = Vector3(lonlat(0), lonlat(1), h);
   Vector3 base = geo.datum().geodetic_to_cartesian(lonlat3);
 
   // The xyz position at the left grid point
   lonlat = geo.pixel_to_lonlat(Vector2(col-1, row));
   h = left_h;
-  if (h == nodata_val && g_errorCount == 0) {
-    vw_out(ErrorMessage) << "sfs cannot handle DEMs with no-data.\n";
-    g_errorCount++;
-    return false;
-  }
   lonlat3 = Vector3(lonlat(0), lonlat(1), h);
   Vector3 left = geo.datum().geodetic_to_cartesian(lonlat3);
 
   // The xyz position at the right grid point
   lonlat = geo.pixel_to_lonlat(Vector2(col+1, row));
   h = right_h;
-  if (h == nodata_val && g_errorCount == 0) {
-    vw_out(ErrorMessage) << "sfs cannot handle DEMs with no-data.\n";
-    g_errorCount++;
-    return false;
-  }
   lonlat3 = Vector3(lonlat(0), lonlat(1), h);
   Vector3 right = geo.datum().geodetic_to_cartesian(lonlat3);
 
   // The xyz position at the bottom grid point
   lonlat = geo.pixel_to_lonlat(Vector2(col, row+1));
   h = bottom_h;
-  if (h == nodata_val && g_errorCount == 0) {
-    vw_out(ErrorMessage) << "sfs cannot handle DEMs with no-data.\n";
-    g_errorCount++;
-    return false;
-  }
   lonlat3 = Vector3(lonlat(0), lonlat(1), h);
   Vector3 bottom = geo.datum().geodetic_to_cartesian(lonlat3);
 
   // The xyz position at the top grid point
   lonlat = geo.pixel_to_lonlat(Vector2(col, row-1));
   h = top_h;
-  if (h == nodata_val && g_errorCount == 0) {
-    vw_out(ErrorMessage) << "sfs cannot handle DEMs with no-data.\n";
-    g_errorCount++;
-    return false;
-  }
   lonlat3 = Vector3(lonlat(0), lonlat(1), h);
   Vector3 top = geo.datum().geodetic_to_cartesian(lonlat3);
 
@@ -458,17 +371,27 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   Vector2 pix = camera->point_to_pixel(base);
 
   // Check for out of range
-  if (pix[0] < 0 || pix[0] >= image.cols()-1) return false;
-  if (pix[1] < 0 || pix[1] >= image.rows()-1) return false;
+  if (pix[0] < 0 || pix[0] >= image.cols()-1 ||
+      pix[1] < 0 || pix[1] >= image.rows()-1) {
+    reflectance = 0;
+    intensity   = 0;
+    return false;
+  }
 
-  intensity = image(pix[0], pix[1]);
+  PixelMask<float> mi = image(pix[0], pix[1]);
+  if (!is_valid(mi)) {
+    intensity = 0;
+    reflectance = 0;
+    return false;
+  }
+
+  intensity = mi.child();
 
   return true;
 }
 
 void computeReflectanceAndIntensity(ImageView<double> const& dem,
                                     cartography::GeoReference const& geo,
-                                    double nodata_val,
                                     ModelParams const& model_params,
                                     GlobalParams const& global_params,
                                     BilinearInterpT const & image,
@@ -481,10 +404,11 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
 
   for (int col = 1; col < dem.cols()-1; col++) {
     for (int row = 1; row < dem.rows()-1; row++) {
-      computeReflectanceAndIntensity(dem(col-1, row), dem(col, row), dem(col+1, row),
+      computeReflectanceAndIntensity(dem(col-1, row), dem(col, row),
+                                     dem(col+1, row),
                                      dem(col, row+1), dem(col, row-1),
                                      col, row, dem,  geo,
-                                     nodata_val, model_params, global_params,
+                                     model_params, global_params,
                                      image, camera,
                                      reflectance(col, row), intensity(col, row));
     }
@@ -503,7 +427,7 @@ GlobalParams                                 * g_global_params;
 std::vector<ModelParams>                     * g_model_params;
 std::vector<BilinearInterpT>                 * g_interp_images;
 std::vector<boost::shared_ptr<CameraModel> > * g_cameras;
-double                                       * g_nodata_val;
+float                                        * g_nodata_val;
 double                                       * g_T;
 std::vector<double>                          * g_adjustments;
 
@@ -550,7 +474,7 @@ public:
       std::string iter_str = os.str();
 
       // Compute reflectance and intensity with optimized DEM
-      computeReflectanceAndIntensity(*g_dem, *g_geo,  *g_nodata_val,
+      computeReflectanceAndIntensity(*g_dem, *g_geo,
                                      (*g_model_params)[image_iter], *g_global_params,
                                      (*g_interp_images)[image_iter], (*g_cameras)[image_iter].get(),
                                      reflectance, intensity);
@@ -628,12 +552,11 @@ struct IntensityError {
                  GlobalParams const& global_params,
                  ModelParams const& model_params,
                  BilinearInterpT const& image,
-                 boost::shared_ptr<CameraModel> const& camera,
-                 double nodata_val):
+                 boost::shared_ptr<CameraModel> const& camera):
     m_col(col), m_row(row), m_dem(dem), m_geo(geo),
     m_global_params(global_params),
     m_model_params(model_params),
-    m_image(image), m_camera(camera), m_nodata_val(nodata_val) {}
+    m_image(image), m_camera(camera) {}
 
   // See SmoothnessError() for the definitions of bottom, top, etc.
   template <typename F>
@@ -673,7 +596,7 @@ struct IntensityError {
         computeReflectanceAndIntensity(left[0], center[0], right[0],
                                        bottom[0], top[0],
                                        m_col, m_row,  m_dem,
-                                       m_geo,  m_nodata_val,
+                                       m_geo,
                                        m_model_params,  m_global_params,
                                        m_image, adj_cam,
                                        reflectance, intensity);
@@ -695,13 +618,12 @@ struct IntensityError {
                                      GlobalParams const& global_params,
                                      ModelParams const& model_params,
                                      BilinearInterpT const& image,
-                                     boost::shared_ptr<CameraModel> const& camera,
-                                     double nodata_val){
+                                     boost::shared_ptr<CameraModel> const& camera){
     return (new ceres::NumericDiffCostFunction<IntensityError,
             ceres::CENTRAL, 1, 1, 1, 1, 1, 1, 1, 1, 6>
             (new IntensityError(col, row, dem, geo,
                                 global_params, model_params,
-                                image, camera, nodata_val)));
+                                image, camera)));
   }
 
   int m_col, m_row;
@@ -711,7 +633,6 @@ struct IntensityError {
   ModelParams                       const & m_model_params;  // alias
   BilinearInterpT                   const & m_image;         // alias
   boost::shared_ptr<CameraModel>    const & m_camera;        // alias
-  double m_nodata_val;
 };
 
 
@@ -877,7 +798,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Prefix for output filenames.")
     ("max-iterations,n", po::value(&opt.max_iterations)->default_value(100),
      "Set the maximum number of iterations.")
-    ("reflectance-type,n", po::value(&opt.reflectance_type)->default_value(1),
+    ("reflectance-type", po::value(&opt.reflectance_type)->default_value(1),
      "Reflectance type (0 = Lambertian, 1 = Lunar Lambertian).")
     ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(0.04),
      "A larger value will result in a smoother solution.")
@@ -955,9 +876,37 @@ int main(int argc, char* argv[]) {
   try {
     handle_arguments( argc, argv, opt );
 
-    // Keep here the DEM that we will modify with SfS.
-    ImageView<double> dem
-      = copy(DiskImageView< PixelGray<float> >(opt.input_dem) );
+    // Read the DEM and its no-data as float, the way it is stored on
+    // disk.  We don't cast to double right way, since odd things may
+    // happen when converting float to double, so handle the no-data
+    // first, and only later cast.
+    ImageView<float> float_dem
+      = copy(DiskImageView<float>(opt.input_dem) );
+    float nodata_val = -std::numeric_limits<float>::max();
+    if (asp::read_nodata_val(opt.input_dem, nodata_val)){
+      vw_out() << "Found DEM nodata value: " << nodata_val << std::endl;
+    }
+    // Replace no-data values with the mean of valid values
+    double mean = 0, num = 0;
+    for (int col = 0; col < float_dem.cols(); col++) {
+      for (int row = 0; row < float_dem.rows(); row++) {
+        if (float_dem(col, row) != nodata_val) {
+          mean += float_dem(col, row);
+          num += 1;
+        }
+      }
+    }
+    if (num > 0) mean /= num;
+    for (int col = 0; col < float_dem.cols(); col++) {
+      for (int row = 0; row < float_dem.rows(); row++) {
+        if (float_dem(col, row) == nodata_val) {
+          float_dem(col, row) = mean;
+        }
+      }
+    }
+
+    // Now convert to double
+    ImageView<double> dem = copy(float_dem);
 
     // Keep here the unmodified copy of the DEM
     ImageView<double> orig_dem = copy(dem);
@@ -965,11 +914,6 @@ int main(int argc, char* argv[]) {
     GeoReference geo;
     if (!read_georeference(geo, opt.input_dem))
       vw_throw( ArgumentErr() << "The input DEM has no georeference.\n" );
-
-    double nodata_val = -32768;
-    if (asp::read_nodata_val(opt.input_dem, nodata_val)){
-      vw_out() << "Found DEM nodata value: " << nodata_val << std::endl;
-    }
 
     GlobalParams global_params;
     if (opt.reflectance_type == 0)
@@ -1032,7 +976,16 @@ int main(int argc, char* argv[]) {
     // Images with bilinear interpolation
     std::vector<BilinearInterpT> interp_images;
     for (int image_iter = 0; image_iter < num_images; image_iter++){
-      interp_images.push_back(BilinearInterpT(DiskImageView<float>(opt.input_images[image_iter])));
+      float img_nodata_val = -std::numeric_limits<float>::max();
+      std::string img_file = opt.input_images[image_iter];
+      if (asp::read_nodata_val(img_file, img_nodata_val)){
+        std::cout.precision(20);
+        vw_out() << "Found image " << image_iter << " nodata value: "
+                 << img_nodata_val << std::endl;
+      }
+      interp_images.push_back(BilinearInterpT
+                              (create_mask(DiskImageView<float>(img_file),
+                                           img_nodata_val)));
     }
 
     // Find the grid sizes in meters. Note that dem heights are in
@@ -1049,8 +1002,8 @@ int main(int argc, char* argv[]) {
     std::vector<double> T(num_images, 0);
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
       ImageView<double> reflectance, intensity;
-      computeReflectanceAndIntensity(dem, geo,  nodata_val,
-                                     model_params[image_iter], global_params,
+      computeReflectanceAndIntensity(dem, geo, model_params[image_iter],
+                                     global_params,
                                      interp_images[image_iter],
                                      cameras[image_iter].get(),
                                      reflectance, intensity);
@@ -1107,7 +1060,7 @@ int main(int argc, char* argv[]) {
             IntensityError::Create(col, row, dem, geo,
                                    global_params, model_params[image_iter],
                                    interp_images[image_iter],
-                                   cameras[image_iter], nodata_val);
+                                   cameras[image_iter]);
           ceres::LossFunction* loss_function_img = NULL;
           problem.AddResidualBlock(cost_function_img, loss_function_img,
                                    &T[image_iter],              // exposure
