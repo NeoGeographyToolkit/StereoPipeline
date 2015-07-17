@@ -139,7 +139,7 @@ void lowres_correlation( Options & opt ) {
     // Do nothing as low-res disparity is already done by sparse_disp
   } else {
 
-    // Match file between the input files
+    // Define the file name containing IP match information.
     string match_filename
       = ip::match_filename(opt.out_prefix, opt.in_file1, opt.in_file2);
 

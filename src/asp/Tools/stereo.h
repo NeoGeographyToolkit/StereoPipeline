@@ -71,7 +71,7 @@ namespace asp {
   void parse_multiview(int argc, char* argv[],
                        boost::program_options::options_description const&
                        additional_options,
-                       bool verbose, 
+                       bool verbose,
                        std::string & output_prefix,
                        std::vector<Options> & opt_vec);
 
@@ -79,7 +79,7 @@ namespace asp {
   void handle_arguments( int argc, char *argv[], Options& opt,
                          boost::program_options::options_description const&
                          additional_options,
-                         bool allow_unregistered, 
+                         bool allow_unregistered,
                          std::vector<std::string> & unregistered,
                          std::string & usage);
 
@@ -95,7 +95,7 @@ namespace asp {
                                       std::string const& left_sub_file,
                                       std::string const& right_sub_file,
                                       float scale);
-  
+
   bool skip_image_normalization(Options const& opt);
 
 } // end namespace vw

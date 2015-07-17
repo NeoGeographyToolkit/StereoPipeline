@@ -341,7 +341,11 @@ pre_preprocessing_hook(bool adjust_left_image_size,
                  align_right_matrix = math::identity_matrix<3>();
   if ( stereo_settings().alignment_method == "homography" ||
        stereo_settings().alignment_method == "affineepipolar" ) {
-    std::string match_filename = ip::match_filename(this->m_out_prefix, left_cropped_file, right_cropped_file);
+
+    // Define the file name containing IP match information.
+    std::string match_filename = ip::match_filename(this->m_out_prefix,
+                                                    left_cropped_file,
+                                                    right_cropped_file);
 
     // Find matching interest points between the two input images
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;

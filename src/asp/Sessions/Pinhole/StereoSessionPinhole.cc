@@ -144,10 +144,10 @@ bool asp::StereoSessionPinhole::ip_matching(std::string const& input_file1,
 
 // Helper function for determining image alignment.
 vw::Matrix3x3
-asp::StereoSessionPinhole::determine_image_align( std::string const& out_prefix,
-                                                  std::string const& input_file1,
-                                                  std::string const& input_file2,
-                                                  float nodata1, float nodata2) {
+asp::StereoSessionPinhole::determine_image_align(std::string const& out_prefix,
+                                                 std::string const& input_file1,
+                                                 std::string const& input_file2,
+                                                 float nodata1, float nodata2) {
   namespace fs = boost::filesystem;
   using namespace vw;
 

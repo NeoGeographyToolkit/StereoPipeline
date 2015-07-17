@@ -666,7 +666,7 @@ namespace asp {
   // approximate search range
   //  Find interest points and grow them into a search range
   BBox2i
-  approximate_search_range(string const& out_prefix,
+  approximate_search_range(std::string const& out_prefix,
                            string const& left_sub_file,
                            string const& right_sub_file,
                            float scale) {

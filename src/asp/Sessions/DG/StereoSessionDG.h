@@ -182,11 +182,14 @@ namespace asp {
     ImageViewRef< PixelMask<float> > Limg, Rimg;
     std::string lcase_file = boost::to_lower_copy(this->m_left_camera_file);
 
-    // Image alignment block - Generate aligned versions of the input images according to the options.
+    // Image alignment block - Generate aligned versions of the input
+    // images according to the options.
     if ( stereo_settings().alignment_method == "homography" ||
          stereo_settings().alignment_method == "affineepipolar" ) {
       // Define the file name containing IP match information.
-      std::string match_filename = ip::match_filename(this->m_out_prefix, left_cropped_file, right_cropped_file);
+      std::string match_filename = ip::match_filename(this->m_out_prefix,
+                                                      left_cropped_file,
+                                                      right_cropped_file);
 
       // Detect matching interest points between the left and right input images.
       // - The output is written directly to file!
