@@ -266,7 +266,8 @@ namespace asp {
 
     }
 
-    if (num_pairs > 1 && prog_name != "stereo_parse" && prog_name != "stereo_tri")
+    if (num_pairs > 1 && prog_name != "stereo_parse" &&
+        prog_name != "stereo_tri" && prog_name != "stereo_gui")
       vw_throw( ArgumentErr() << "The executable " << prog_name
                 << " is not meant to be used directly with more than two images. "
                 << "Use instead the stereo/parallel_stereo scripts with desired entry points.\n" );

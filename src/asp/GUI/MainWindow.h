@@ -31,6 +31,7 @@
 #include <boost/program_options.hpp>
 
 #include <vw/Math/Vector.h>
+#include <vw/InterestPoint/InterestData.h>
 
 // Forward declarations
 class QAction;
@@ -55,7 +56,10 @@ namespace vw {
 
   private slots:
     void forceQuit(); // Ensure the program shuts down.
-    void size_to_fit();
+    void sizeToFit();
+    void viewMatches();
+    void hideMatches();
+    void saveMatches();
     void run_stereo();
     void about();
 
@@ -79,15 +83,22 @@ namespace vw {
 
     QMenu *m_file_menu;
     QMenu *m_view_menu;
+    QMenu *m_matches_menu;
     QMenu *m_help_menu;
 
     QAction *m_about_action;
-    QAction *m_size_to_fit_action;
+    QAction *m_sizeToFit_action;
+    QAction *m_viewMatches_action;
+    QAction *m_hideMatches_action;
+    QAction *m_saveMatches_action;
     QAction *m_run_stereo_action;
     QAction *m_exit_action;
 
     int m_argc;
     char ** m_argv;
+    bool m_matches_were_loaded;
+    std::vector<std::vector<vw::ip::InterestPoint> > m_matches;
+
   };
 
 }} // namespace vw::gui

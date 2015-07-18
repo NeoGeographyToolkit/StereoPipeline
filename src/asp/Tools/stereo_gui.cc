@@ -65,34 +65,21 @@ int main(int argc, char* argv[]) {
       }
 
     }catch (std::exception& e){
-
-      // The tool was invoked as an image viewer.
+      // The tool was invoked as an image viewer. Just read in any files
+      // that look like images.
+      output_prefix = ""; // mark that we did not find valid stereo options
       for (int i = 1; i < argc; i++) {
         std::string image = argv[i];
-
-        // See if this image is valid
-        if ( image != "" && image[0] != '-') {
-          if (!fs::exists(image)) {
-            vw_throw(ArgumentErr() << "Invalid input arguments. Either stereo options "
-                     << "were not provided, or, if invoked as a viewer only, "
-                     << "not all input images are present.\n" );
-          }
+        bool is_image = true;
+        try { DiskImageView<float> tmp(image); }
+        catch(...){ is_image = false;}
+        if (is_image)
           images.push_back(image);
-        }
       }
 
       // Presumably the tool was invoked with no options.
       if (images.empty())
         vw_throw(ArgumentErr() << e.what() << "\n");
-
-    }
-
-    std::cout << "---out prefix is " << output_prefix << std::endl;
-    std::cout << "--window size is " << stereo_settings().window_size << std::endl;
-
-
-    for (size_t i = 0; i < images.size(); i++) {
-      std::cout << "image is " << images[i] << std::endl;
     }
 
     // TODO: Expose these as options and fix the current broken

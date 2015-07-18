@@ -32,6 +32,8 @@ using namespace vw::gui;
 #include <vw/FileIO/DiskImageResource.h>
 #include <vw/Image/Statistics.h>
 #include <vw/Image/PixelMask.h>
+#include <vw/InterestPoint/InterestData.h>
+#include <vw/InterestPoint/Matcher.h>
 #include <boost/filesystem/path.hpp>
 
 #include <sstream>
@@ -54,6 +56,10 @@ MainWindow::MainWindow(std::vector<std::string> const& images,
 
   // Set up the basic layout of the window and its menus.
   create_menus();
+
+  m_matches_were_loaded = false;
+  m_matches.clear();
+  m_matches.resize(m_images.size());
 
   //  if (images.size() > 1){
 
@@ -85,13 +91,19 @@ MainWindow::MainWindow(std::vector<std::string> const& images,
     if (!is_image) continue;
     std::vector<std::string> local_images;
     local_images.push_back(images[i]);
-    MainWidget * widget = new MainWidget(centralFrame, local_images,
+    MainWidget * widget = new MainWidget(centralFrame,
+                                         i, m_output_prefix,
+                                         local_images, m_matches,
                                          m_chooseFiles,
                                          ignore_georef, hillshade);
 
     // TODO: When should we de-allocate m_widgets and m_main_widget?
     m_widgets.push_back(widget);
     splitter->addWidget(widget);
+
+    // Intercept this widget's request to view (or refresh) the matches in all
+    // the widgets, not just this one's.
+    connect(widget, SIGNAL(refreshAllMatches()), this, SLOT(viewMatches()));
   }
 #endif
   QGridLayout *layout = new QGridLayout(centralFrame);
@@ -126,10 +138,25 @@ void MainWindow::create_menus() {
   m_run_stereo_action->setShortcut(tr("R"));
 
   // Size to fit
-  m_size_to_fit_action = new QAction(tr("Size to fit"), this);
-  m_size_to_fit_action->setStatusTip(tr("Change the view to encompass the images."));
-  connect(m_size_to_fit_action, SIGNAL(triggered()), this, SLOT(size_to_fit()));
-  m_size_to_fit_action->setShortcut(tr("F"));
+  m_sizeToFit_action = new QAction(tr("Size to fit"), this);
+  m_sizeToFit_action->setStatusTip(tr("Change the view to encompass the images."));
+  connect(m_sizeToFit_action, SIGNAL(triggered()), this, SLOT(sizeToFit()));
+  m_sizeToFit_action->setShortcut(tr("F"));
+
+  m_viewMatches_action = new QAction(tr("Show IP matches"), this);
+  m_viewMatches_action->setStatusTip(tr("View interest point matches."));
+  connect(m_viewMatches_action, SIGNAL(triggered()), this, SLOT(viewMatches()));
+  m_viewMatches_action->setShortcut(tr("M"));
+
+  m_hideMatches_action = new QAction(tr("Hide IP matches"), this);
+  m_hideMatches_action->setStatusTip(tr("Hide interest point matches."));
+  connect(m_hideMatches_action, SIGNAL(triggered()), this, SLOT(hideMatches()));
+  m_hideMatches_action->setShortcut(tr("M"));
+
+  m_saveMatches_action = new QAction(tr("Save IP matches"), this);
+  m_saveMatches_action->setStatusTip(tr("Save interest point matches."));
+  connect(m_saveMatches_action, SIGNAL(triggered()), this, SLOT(saveMatches()));
+  m_saveMatches_action->setShortcut(tr("S"));
 
   // The About Box
   m_about_action = new QAction(tr("About stereo_gui"), this);
@@ -145,12 +172,16 @@ void MainWindow::create_menus() {
   m_file_menu->addAction(m_run_stereo_action);
 
   // View menu
-  menu->addSeparator();
   m_view_menu = menu->addMenu(tr("&View"));
-  m_view_menu->addAction(m_size_to_fit_action);
+  m_view_menu->addAction(m_sizeToFit_action);
+
+  // Matches menu
+  m_matches_menu = menu->addMenu(tr("&IP matches"));
+  m_matches_menu->addAction(m_viewMatches_action);
+  m_matches_menu->addAction(m_hideMatches_action);
+  m_matches_menu->addAction(m_saveMatches_action);
 
   // Help menu
-  menu->addSeparator();
   m_help_menu = menu->addMenu(tr("&Help"));
   m_help_menu->addAction(m_about_action);
 }
@@ -168,14 +199,113 @@ void MainWindow::forceQuit(){
   exit(0); // A fix for an older buggy version of Qt
 }
 
-void MainWindow::size_to_fit(){
+void MainWindow::sizeToFit(){
   if (m_main_widget)
-    m_main_widget->size_to_fit();
+    m_main_widget->sizeToFit();
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (m_widgets[i])
-      m_widgets[i]->size_to_fit();
+      m_widgets[i]->sizeToFit();
   }
 }
+
+void MainWindow::viewMatches(){
+
+  // We will load the matches just once, as we later will add/delete matches manually
+  if (!m_matches_were_loaded && (!m_matches.empty()) && m_matches[0].empty()) {
+
+    if (m_output_prefix == "" ) {
+      popUp("Output prefix was not set. Cannot view matches.");
+      return;
+    }
+
+    m_matches_were_loaded = true;
+    m_matches.clear();
+    m_matches.resize(m_images.size());
+
+    // All images must have the same number of matches to be able to view them
+    int num_matches = -1;
+
+    for (int i = 0; i < int(m_images.size()); i++) {
+      for (int j = int(i+1); j < int(m_images.size()); j++) {
+        string match_filename
+          = vw::ip::match_filename(m_output_prefix, m_images[i], m_images[j]);
+        vw_out() << "Loading " << match_filename << std::endl;
+        try {
+          ip::read_binary_match_file( match_filename, m_matches[i], m_matches[j]);
+
+          if (num_matches < 0)
+            num_matches = m_matches[i].size();
+
+          if (num_matches != int(m_matches[i].size()) ||
+              num_matches != int(m_matches[j].size()) ) {
+            m_matches.clear();
+            m_matches.resize(m_images.size());
+            popUp(std::string("All image must have the same number of matching ")
+                  + "interest point to be able to display them.");
+            return;
+          }
+
+        }catch(...){
+          m_matches.clear();
+          m_matches.resize(m_images.size());
+          popUp("Could not read matches file: " + match_filename);
+          return;
+        }
+      }
+    }
+
+    if (m_matches.empty() || m_matches[0].empty()) {
+      popUp("Could not load any matches");
+      return;
+    }
+  }
+
+  bool hide = false;
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (m_widgets[i]) m_widgets[i]->viewMatches(hide);
+  }
+
+  m_matches_were_loaded = true;
+}
+
+void MainWindow::hideMatches(){
+  bool hide = true;
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (m_widgets[i]) m_widgets[i]->viewMatches(hide);
+  }
+}
+
+void MainWindow::saveMatches(){
+
+  if (m_output_prefix == "") {
+    popUp("Output prefix was not set. Cannot save matches.");
+    return;
+  }
+
+  // Sanity check
+  for (int i = 0; i < int(m_matches.size()); i++) {
+    if (m_matches[0].size() != m_matches[i].size()) {
+      popUp("Cannot save matches. Must have the same number of matches in each image.");
+      return;
+    }
+  }
+
+  for (int i = 0; i < int(m_images.size()); i++) {
+    for (int j = int(i+1); j < int(m_images.size()); j++) {
+      string match_filename
+        = vw::ip::match_filename(m_output_prefix, m_images[i], m_images[j]);
+      try {
+        vw_out() << "Writing: " << match_filename << std::endl;
+        ip::write_binary_match_file(match_filename, m_matches[i], m_matches[j]);
+      }catch(...){
+        popUp("Failed to save matches.");
+      }
+    }
+  }
+
+  m_matches_were_loaded = true;
+}
+
 
 void MainWindow::run_stereo(){
 
@@ -204,7 +334,7 @@ void MainWindow::run_stereo(){
     os << "--right-image-crop-win " << right_x << " " << right_y << " "
        << right_wx << " " << right_wy << " ";
     run_cmd += os.str();
-    std::cout << "Running: " << run_cmd << std::endl;
+    vw_out() << "Running: " << run_cmd << std::endl;
     system(run_cmd.c_str());
     QMessageBox::about(this, tr("Error"), tr("Done running stereo"));
 

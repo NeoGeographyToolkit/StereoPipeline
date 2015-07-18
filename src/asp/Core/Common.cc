@@ -140,10 +140,7 @@ bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
   // An output prefix cannot be an image or a camera
   if (asp::has_image_extension(prefix) || asp::has_cam_extension(prefix)) {
     prefix = "";
-    std::cout << "--prefix is, and has extension: " << prefix << std::endl;
     return false;
-  }else{
-    std::cout << "prefix is, no image extension" << prefix << std::endl;
   }
 
   files.pop_back();

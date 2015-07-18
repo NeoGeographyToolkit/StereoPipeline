@@ -48,6 +48,7 @@
 #include <vw/Math/BBox.h>
 #include <vw/Math/Vector.h>
 #include <vw/Cartography/GeoReference.h>
+#include <vw/InterestPoint/InterestData.h>
 
 // ASP
 #include <asp/Core/Common.h>
@@ -63,6 +64,8 @@ class QMenu;
 
 namespace vw { namespace gui {
 
+  // Pop-up a window with given message
+  void popUp(std::string msg);
 
 // A class to manage very large images and their subsampled versions
 // in a pyramid. The most recently accessed tiles are cached in memory.
@@ -290,7 +293,11 @@ private:
   public:
 
     // Constructors/Destructor
-    MainWidget(QWidget *parent, std::vector<std::string> const& images,
+    MainWidget(QWidget *parent,
+               int image_id,
+               std::string const& output_prefix,
+               std::vector<std::string> const& images,
+               std::vector<std::vector<ip::InterestPoint> > & matches,
                chooseFilesDlg * chooseFiles, bool ignore_georef,
                bool hillshade);
     virtual ~MainWidget();
@@ -303,9 +310,13 @@ private:
 
     // Image Manipulation Methods
     void zoom(double scale);
-  public slots:
-    void size_to_fit();
+    void viewMatches(bool hide);
 
+  signals:
+    void refreshAllMatches();
+
+  public slots:
+    void sizeToFit();
     void showFilesChosenByUser();
 
     void set_nodata_value(double nodata_value) {
@@ -313,8 +324,8 @@ private:
       m_use_nodata = 1;
     }
 
-    void addInterestPoint();
-    void deleteInterestPoint();
+    void addMatchPoint();
+    void deleteMatchPoint();
 
   protected:
 
@@ -334,13 +345,20 @@ private:
     void keyPressEvent(QKeyEvent *event);
     void contextMenuEvent(QContextMenuEvent *event);
 
-  private slots:
-
-//   void contextMenuRequested(QPoint point){
-//     m_ContextMenu->popup(mapToGlobal(point));
-//   };
-
   private:
+
+    // Choose which files to hide/show in the GUI
+    chooseFilesDlg  *     m_chooseFilesDlg;
+    std::set<std::string> m_filesToHide;
+
+    int m_image_id;
+
+    std::string m_output_prefix;
+
+    // Note that this is an alias
+    std::vector<std::vector<vw::ip::InterestPoint> > & m_matches;
+
+    bool m_hideMatches;
 
     bool  m_firstPaintEvent;
     QRect m_emptyRubberBand;
@@ -391,17 +409,13 @@ private:
     int m_colorize_display;
     int m_hillshade_display;
 
-    // Choose which files to hide/show in the GUI
-    chooseFilesDlg  *     m_chooseFilesDlg;
-    std::set<std::string> m_filesToHide;
-
     // Mouse press and release position
     int m_mousePrsX,  m_mousePrsY, m_mouseRelX,  m_mouseRelY;
 
     // Right-click context menu
     QMenu * m_ContextMenu;
-    QAction* m_addInterestPoint;
-    QAction* m_deleteInterestPoint;
+    QAction* m_addMatchPoint;
+    QAction* m_deleteMatchPoint;
 
     // Drawing is driven by QPaintEvent, which calls out to drawImage()
     void drawImage(QPainter* paint);

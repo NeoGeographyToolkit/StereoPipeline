@@ -223,11 +223,15 @@ void chooseFilesDlg::chooseFiles(const std::vector<imageData> & images){
 // --------------------------------------------------------------
 
 MainWidget::MainWidget(QWidget *parent,
+                       int image_id,
+                       std::string const& output_prefix,
                        std::vector<std::string> const& images,
+                       std::vector<std::vector<vw::ip::InterestPoint> > & matches,
                        chooseFilesDlg * chooseFiles,
                        bool ignore_georef,
                        bool hillshade)
-  : QWidget(parent), m_chooseFilesDlg(chooseFiles){
+  : QWidget(parent), m_chooseFilesDlg(chooseFiles),
+    m_image_id(image_id), m_output_prefix(output_prefix), m_matches(matches), m_hideMatches(true) {
 
   installEventFilter(this);
 
@@ -289,10 +293,10 @@ MainWidget::MainWidget(QWidget *parent,
   // Right-click context menu
   m_ContextMenu = new QMenu();
   //setContextMenuPolicy(Qt::CustomContextMenu);
-  m_addInterestPoint    = m_ContextMenu->addAction("Add interest point");
-  m_deleteInterestPoint = m_ContextMenu->addAction("Delete interest point");
-  connect(m_addInterestPoint,    SIGNAL(triggered()),this,SLOT(addInterestPoint()));
-  connect(m_deleteInterestPoint, SIGNAL(triggered()),this,SLOT(deleteInterestPoint()));
+  m_addMatchPoint    = m_ContextMenu->addAction("Add match point");
+  m_deleteMatchPoint = m_ContextMenu->addAction("Delete match point");
+  connect(m_addMatchPoint,    SIGNAL(triggered()),this,SLOT(addMatchPoint()));
+  connect(m_deleteMatchPoint, SIGNAL(triggered()),this,SLOT(deleteMatchPoint()));
 }
 
 
@@ -345,7 +349,7 @@ BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
   return out_box;
 }
 
-void MainWidget::size_to_fit() {
+void MainWidget::sizeToFit() {
 
   m_current_view = expand_box_to_keep_aspect_ratio(m_images_box);
 
@@ -424,7 +428,7 @@ void MainWidget::resizeEvent(QResizeEvent*){
   QRect v       = this->geometry();
   m_window_width = v.width();
   m_window_height = v.height();
-  size_to_fit();
+  sizeToFit();
   return;
 }
 
@@ -480,8 +484,7 @@ void MainWidget::drawImage(QPainter* paint) {
       screen_box.min().y() = screen_box.min().y() + b - a;
       screen_box.max().y() = screen_box.max().y() + b - a;
 
-      QRect rect(screen_box.min().x(),
-                 screen_box.min().y(),
+      QRect rect(screen_box.min().x(), screen_box.min().y(),
                  screen_box.width(), screen_box.height());
       paint->drawImage (rect, qimg);
 
@@ -531,11 +534,32 @@ void MainWidget::drawImage(QPainter* paint) {
         }
       }
 
-      // Draw on screen
+      // Draw on image screen
       QRect rect(screen_box.min().x(), screen_box.min().y(),
                  screen_box.width(), screen_box.height());
       paint->drawImage (rect, qimg);
     }
+
+    // Draw interest point matches
+    if (m_image_id < int(m_matches.size()) && !m_hideMatches) {
+      QColor ipColor = QColor("red");
+      QRect rect(screen_box.min().x(), screen_box.min().y(),
+                 screen_box.width(), screen_box.height());
+      paint->setPen(ipColor);
+      paint->setBrush(Qt::NoBrush);
+
+      std::vector<vw::ip::InterestPoint> & ip = m_matches[m_image_id];
+      for (size_t ip_iter = 0; ip_iter < ip.size(); ip_iter++) {
+        double x = ip[ip_iter].x;
+        double y = ip[ip_iter].y;
+        Vector2 P = world2screen(Vector2(x, y));
+        QPoint Q(P.x(), P.y());
+
+        if (!rect.contains(Q)) continue;
+        paint->drawEllipse(Q, 2, 2);
+      }
+    }
+
   }
 
   return;
@@ -636,6 +660,7 @@ void MainWidget::mousePressEvent(QMouseEvent *event) {
   // for rubberband
   m_mousePrsX  = event->pos().x();
   m_mousePrsY  = event->pos().y();
+
   m_rubberBand = m_emptyRubberBand;
 
   m_curr_pixel_pos = QPoint2Vec(QPoint(m_mousePrsX, m_mousePrsY));
@@ -971,81 +996,101 @@ void MainWidget::keyPressEvent(QKeyEvent *event) {
 void MainWidget::contextMenuEvent(QContextMenuEvent *event){
 
   int x = event->x(), y = event->y();
-  std::cout << "--right click!!!" << std::endl;
-  std::cout << "--pressed " << x << ' ' << y << std::endl;
-  //pixelToWorldCoords(x, y, m_menuX, m_menuY);
-
+  m_mousePrsX = x;
+  m_mousePrsY = y;
   m_ContextMenu->popup(mapToGlobal(QPoint(x,y)));
-
-  //m_pContextMenu = new QMenu();
-
-#if 0
-  QPopupMenu menu(this);
-
-  int id = 1;
-
-  menu.insertItem("Add interest point", this, SLOT(addInterestPoint()));
-  menu.insertItem("Delete interest point", this, SLOT(deleteInterestPoint()));
-
-//   menu.insertItem("Use nm scale", this, SLOT(toggleNmScale()), 0, id);
-//   menu.setItemChecked(id, m_useNmScale);
-  id++;
-
-//   menu.insertItem("Create 45-degree integer polygon", this,
-//                   SLOT(create45DegreeIntPoly()));
-//   menu.insertItem("Create arbitrary polygon", this,
-//                   SLOT(createArbitraryPoly()));
-//   menu.insertItem("Delete polygon (Alt-Shift-Mouse)", this, SLOT(deletePoly()));
-  menu.addSeparator();
-
-
-//   menu.insertItem("Align mode", this, SLOT(toggleAlignMode()), 0, id);
-//   menu.setItemChecked(id, m_alignMode);
-//   id++;
-
-//   if (m_alignMode){
-//     menu.insertItem("Rotate  90 degrees",  this, SLOT(align_rotate90()));
-//     menu.insertItem("Rotate 180 degrees",  this, SLOT(align_rotate180()));
-//     menu.insertItem("Rotate 270 degrees",  this, SLOT(align_rotate270()));
-//     menu.insertItem("Flip against x axis", this, SLOT(align_flip_against_x_axis()));
-//     menu.insertItem("Flip against y axis", this, SLOT(align_flip_against_y_axis()));
-//     menu.insertItem("Guess alignment", this,
-//                     SLOT(performAlignmentOfClosePolys()));
-//   }
-
-//   menu.addSeparator();
-
-//   menu.insertItem("Move polygons (Shift-Mouse)", this,
-//                   SLOT(turnOnMovePolys()), 0, id);
-//   menu.setItemChecked(id, m_movePolys);
-//   id++;
-
-//   menu.insertItem("Move vertices (Shift-Mouse)", this,
-//                   SLOT(turnOnMoveVertices()), 0, id);
-//   menu.setItemChecked(id, m_moveVertices);
-//   id++;
-
-//   menu.insertItem("Move edges (Shift-Mouse)", this,
-//                   SLOT(turnOnMoveEdges()), 0, id);
-//   menu.setItemChecked(id, m_moveEdges);
-//   id++;
-
-//   menu.insertItem("Insert vertex on edge", this, SLOT(insertVertex()));
-//   menu.insertItem("Delete vertex",         this, SLOT(deleteVertex()));
-//   menu.insertItem("Copy polygon",          this, SLOT(copyPoly()));
-//   menu.insertItem("Paste polygon",         this, SLOT(pastePoly()));
-//   menu.insertItem("Reverse orientation",   this, SLOT(reversePoly()));
-
-  menu.exec(event->globalPos());
-
-#endif
   return;
 }
 
-void MainWidget::addInterestPoint(){
-  std::cout << "--add ip" << std::endl;
+void MainWidget::viewMatches(bool hide){
+  m_hideMatches = hide;
+  refreshPixmap();
 }
 
-void MainWidget::deleteInterestPoint(){
-  std::cout << "--delete ip" << std::endl;
+void MainWidget::addMatchPoint(){
+
+  if (m_output_prefix == "") {
+    popUp("Output prefix was not set. Cannot add matches.");
+    return;
+  }
+  if (m_image_id >= (int)m_matches.size()) {
+    popUp("Number of existing matches is corrupted. Cannot add matches.");
+    return;
+  }
+
+  // We will start with an interest point in the left-most image,
+  // and add matches to it in the other images.
+  int curr_pts = m_matches[m_image_id].size();
+  bool is_good = true;
+  for (int i = 0; i < m_image_id; i++) {
+    if (int(m_matches[i].size()) != curr_pts+1) {
+      is_good = false;
+    }
+  }
+  for (int i = m_image_id+1; i < (int)m_matches.size(); i++) {
+    if (int(m_matches[i].size()) != curr_pts) {
+      is_good = false;
+    }
+  }
+
+  if (!is_good) {
+    popUp(std::string("Add matches by adding a point in the left-most ")
+          + "image and corresponding matches in the other images. "
+          + "Cannot add this match.");
+    return;
+  }
+
+  Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
+  ip::InterestPoint ip;
+  ip.x = P.x();
+  ip.y = P.y();
+  m_matches[m_image_id].push_back(ip);
+
+  bool hide = false;
+  viewMatches(hide);
+}
+
+void MainWidget::deleteMatchPoint(){
+
+  // Sanity checks
+  if (m_output_prefix == "") {
+    popUp("Output prefix was not set. Cannot delete matches.");
+    return;
+  }
+  if (m_matches.empty() || m_matches[0].empty()){
+    popUp("No matches to delete.");
+    return;
+  }
+  for (int i = 0; i < int(m_matches.size()); i++) {
+    if (m_matches[0].size() != m_matches[i].size()) {
+      popUp("Cannot delete matches. Must have the same number of matches in each image.");
+      return;
+    }
+  }
+  if (m_image_id >= (int)m_matches.size()) {
+    popUp("Number of existing matches is corrupted. Cannot delete matches.");
+    return;
+  }
+
+  // Delete the closest match to this point.
+  Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
+  double min_dist = std::numeric_limits<double>::max();
+  int min_index = -1;
+  std::vector<vw::ip::InterestPoint> & ip = m_matches[m_image_id]; // alias
+  for (size_t ip_iter = 0; ip_iter < ip.size(); ip_iter++) {
+    Vector2 Q(ip[ip_iter].x, ip[ip_iter].y);
+    double curr_dist = norm_2(Q-P);
+    if (curr_dist < min_dist) {
+      min_dist = curr_dist;
+      min_index = ip_iter;
+    }
+  }
+  if (min_index >= 0) {
+    for (size_t vec_iter = 0; vec_iter < m_matches.size(); vec_iter++) {
+      m_matches[vec_iter].erase(m_matches[vec_iter].begin() + min_index);
+    }
+  }
+
+  // Must refresh the matches in all the images, not just this one
+  emit refreshAllMatches();
 }
