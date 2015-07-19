@@ -31,7 +31,7 @@ int main( int argc, char* argv[] ) {
   try {
 
     stereo_register_sessions();
-    
+
     // Below, TriangulationDescription() would work just as well
     // as anything else. Just need to pass something.
     bool verbose = true;
@@ -40,7 +40,7 @@ int main( int argc, char* argv[] ) {
     asp::parse_multiview(argc, argv, TriangulationDescription(),
                          verbose, output_prefix, opt_vec);
     Options opt = opt_vec[0];
-    
+
     vw_out() << "in_file1,"        << opt.in_file1        << endl;
     vw_out() << "in_file2,"        << opt.in_file2        << endl;
     vw_out() << "cam_file1,"       << opt.cam_file1       << endl;
@@ -57,16 +57,6 @@ int main( int argc, char* argv[] ) {
              << stereo_settings().left_image_crop_win.width()   << ","
              << stereo_settings().left_image_crop_win.height()  << endl;
 
-    // The executable may have been called with both
-    // --left-image-crop-win box and -trans-crop-win box. We on
-    // purpose transform the former, rather than use the later, as
-    // that one could be a small tile and not the whole thing.
-    BBox2i transformed_window = transformed_crop_win(opt);
-    vw_out() << "transformed_window," << transformed_window.min().x() << ","
-             << transformed_window.min().y() << ","
-             << transformed_window.width()   << ","
-             << transformed_window.height()  << endl;
-
     vw_out() << "out_prefix," << output_prefix << endl;
 
     Vector2i left_image_size = file_image_size( opt.in_file1 ),
@@ -78,13 +68,37 @@ int main( int argc, char* argv[] ) {
     string trans_right_image = opt.out_prefix+"-R.tif";
     vw_out() << "trans_left_image,"  << trans_left_image  << endl;
     vw_out() << "trans_right_image," << trans_right_image << endl;
-
     Vector2 trans_left_image_size;
     if ( fs::exists(trans_left_image) )
       trans_left_image_size = file_image_size(trans_left_image);
     vw_out() << "trans_left_image_size," << trans_left_image_size.x() << "," << trans_left_image_size.y() << endl;
 
-    
+
+    // Some care is needed below. The transformed_window will be used
+    // by parallel_stereo to parallelize stereo on a given user-specified
+    // region. If both --left-image-crop-win and --right-image-crop-win
+    // is specified, we already chopped the input images to these windows,
+    // and created L.tif. Hence, we will work on the bd box on L.tif. However,
+    // if just left-image-crop-win was set, we still use the full images,
+    // but just the domain of computation is restricted. Hence we take user's
+    // crop window, transform it to be in the L.tif coordinates, and use
+    // that one.
+    bool crop_left_and_right =
+      ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
+      ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
+    BBox2i transformed_window;
+    if (crop_left_and_right) {
+      transformed_window.min() = Vector2(0, 0);
+      transformed_window.max() = trans_left_image_size;
+    }else{
+      transformed_window = transformed_crop_win(opt);
+    }
+    vw_out() << "transformed_window," << transformed_window.min().x() << ","
+             << transformed_window.min().y() << ","
+             << transformed_window.width()   << ","
+             << transformed_window.height()  << endl;
+
+
     vw_out() << "corr_tile_size," << Options::corr_tile_size() << endl;
     vw_out() << "rfne_tile_size," << Options::rfne_tile_size() << endl;
     vw_out() << "tri_tile_size,"  << Options::tri_tile_size()  << endl;
