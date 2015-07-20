@@ -28,7 +28,8 @@ EXTRA_DIST = \
 	config/rules.mak \
 	config/relicense \
 	data \
-	docs
+	docs \
+	stereo.default.example
 
 dist_doc_DATA = AUTHORS COPYING INSTALLGUIDE NEWS README THIRDPARTYLICENSES
 exampledir = $(docdir)/examples
