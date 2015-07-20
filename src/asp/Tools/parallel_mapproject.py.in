@@ -33,7 +33,8 @@ if sys.version_info < (2, 6, 0):
 # - The path to the script to the system path, so that GNU Parallel can find it.
 # - The path to the ASP python files
 thisPath      = sys.path[0]
-pythonLibPath = thisPath + '/../lib/python'
+pythonLibPath = thisPath + '/../lib/python' # for packaged ASP
+pythonLibPath = thisPath + '/../Python'     # for dev ASP
 
 sys.path.insert(0, thisPath) # prepend to Python path
 sys.path.insert(0, pythonLibPath)
@@ -48,10 +49,10 @@ import asp_file_utils, asp_system_utils, asp_cmd_utils, asp_image_utils
 
 def generateTileName(startX, startY, stopX, stopY):
     """Generate the name of a tile based on its location"""
-    
+
     tileString = 'tile_' + str(startX) + '_' + str(startY) + '_' + str(stopX) + '_' + str(stopY) + '_.tif'
     return tileString
-    
+
 
 def generateTileList(fullWidth, fullHeight, tileSize):
     """Generate a full list of tiles for this image"""
@@ -62,11 +63,11 @@ def generateTileList(fullWidth, fullHeight, tileSize):
     tileList = []
     for r in range(0, numTilesY):
         for c in range(0, numTilesX):
-            
+
             # Starting pixel positions for the tile
             tileStartY = r * tileSize
             tileStartX = c * tileSize
-            
+
             # Determine the size of this tile
             thisWidth  = tileSize
             thisHeight = tileSize
@@ -74,17 +75,17 @@ def generateTileList(fullWidth, fullHeight, tileSize):
                 thisHeight = fullHeight - tileStartY # Height is last remaining pixels
             if (c == numTilesX-1): # If the last col
                 thisWidth  = fullWidth  - tileStartX # Width is last remaining pixels
-            
+
             # Get the end pixels for this tile
             tileStopY  = tileStartY + thisHeight # Stop values are exclusive
             tileStopX  = tileStartX + thisWidth
-            
+
             # Create a name for this tile
             # - Tile format is tile_col_row_width_height_.tif
             tileString = generateTileName(tileStartX, tileStartY, tileStopX, tileStopY)
-            
+
             tileList.append((tileStartX, tileStartY, tileStopX, tileStopY, tileString))
-    
+
     return (numTilesX, numTilesY, tileList)
 
 def handleArguments(args):
@@ -92,7 +93,7 @@ def handleArguments(args):
 
     requiredList = []
     optionsList  = []
-       
+
     # Loop through all entries.
     iterable = iter(range(0, len(args)))
     for i in iterable:
@@ -101,13 +102,13 @@ def handleArguments(args):
             n = args[i+1]
         else:
             n = '-' # This will just cause us to get out of the loop
-        
+
         if asp_cmd_utils.isCmdOption(a):      # This is the start of an option.
             optionsList.append(a)  # Record this entry.
-            
+
             if asp_cmd_utils.isCmdOption(n):  # The next entry is the start of another option so this one has no values.
                 continue
-            
+
             optionsList.append(n)  # Otherwise record the next entry as a value.
             iterable.next()              # Skip the next entry in the loop.
 
@@ -118,10 +119,10 @@ def handleArguments(args):
                 iterable.next()
                 iterable.next()
                 iterable.next()
-        
+
         else: # This is one of the three positional arguments
             requiredList.append(a)
-    
+
     # Return the two lists
     return (requiredList, optionsList)
 
@@ -131,15 +132,15 @@ def writeSingleTile(options):
     # Determine the name of the tile we need to write
     tileName = generateTileName(options.pixelStartX, options.pixelStartY, options.pixelStopX, options.pixelStopY)
     tilePath = os.path.join(options.workDir, tileName)
-       
+
     # Just call the command for a single tile!
     cmd = ['mapproject',  '--t_pixelwin', str(options.pixelStartX), str(options.pixelStartY), str(options.pixelStopX), str(options.pixelStopY),
                                options.demPath, options.imagePath, tilePath]
     cmd = cmd + options.extraArgs # Append other options
     asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
-      
+
     if options.convertTiles: # Make uint8 version of the tile for debugging
-        
+
         tilePathU8 = os.path.splitext(tilePath)[0] + 'U8.tif'
         cmd = ['gdal_translate', '-ot', 'byte', '-scale', tilePath, tilePathU8]
         asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
@@ -172,14 +173,14 @@ def main(argsIn):
 
         parser.add_option("--suppress-output", action="store_true", default=False,
                                                dest="suppressOutput",  help="Suppress output of sub-calls.")
-               
+
         # DEBUG options
         parser.add_option("--keep", action="store_true", dest="keep", default=False,
                                     help="Do not delete the temporary files.")
         parser.add_option("--convert-tiles",  action="store_true", dest="convertTiles",
                                               help="Generate a uint8 version of each tile")
 
-    
+
         # PRIVATE options
         # These specify the tile location to request, bypassing the need to query mapproject.
         parser.add_option('--pixelStartX', dest='pixelStartX', default=None, type='int',
@@ -218,26 +219,26 @@ def main(argsIn):
         raise Usage(msg)
 
     startTime = time.time()
-    
+
     # Determine if this is a main copy or a spawned copy
     spawnedCopy = ( (options.pixelStartX is not None) and (options.pixelStartY is not None) and
                     (options.pixelStopX  is not None) and (options.pixelStopY  is not None) and
                     options.workDir )
-    
+
     if spawnedCopy: # This copy was spawned to process a single tile
-        return writeSingleTile(options) # Just call a function to handle this and then we are done!   
+        return writeSingleTile(options) # Just call a function to handle this and then we are done!
 
     # If the input image is NOT an ISIS image AND we are running on a single machine we can
     #  just use the multi-threading capability of the ordinary mapproject call.
     if (not asp_image_utils.isIsisFile(options.imagePath)) and (not options.nodesListPath):
-        cmd = ['mapproject',  options.imagePath, options.demPath, options.outputPath]    
+        cmd = ['mapproject',  options.imagePath, options.demPath, options.outputPath]
         cmd = cmd + options.extraArgs
         subprocess.call(cmd)
         return 0
 
 
     # Otherwise this is the original called process and there are multiple steps to go through
-    
+
     # Call mapproject on the input data using subprocess and record output
     cmd = ['mapproject',  '--query-projection', options.demPath, options.imagePath, options.outputPath]
     cmd = cmd + options.extraArgs # Append other options
@@ -245,8 +246,8 @@ def main(argsIn):
     projectionInfo, err = p.communicate()
     if not options.suppressOutput:
         print projectionInfo
-    
-        
+
+
     # Now find the image size in the output
     startPos    = projectionInfo.find('Output image bounding box:')
     widthStart  = projectionInfo.find('width:', startPos)
@@ -269,7 +270,7 @@ def main(argsIn):
         outputFolder = './' # Handle calls in same directory
     outputName   = os.path.basename(options.outputPath)
     asp_file_utils.createFolder(outputFolder)
-    
+
     # Make a temporary directory to store the tiles
     if options.workDir:
         tempFolder = options.workDir
@@ -277,14 +278,14 @@ def main(argsIn):
         tempFolder = os.path.join(outputFolder, outputName.replace('.', '_') + '_tiles/')
     asp_file_utils.createFolder(tempFolder)
 
-    
+
     # Generate a text file that contains the boundaries for each tile
     argumentFilePath = os.path.join(tempFolder, 'argumentList.txt')
     argumentFile     = file(argumentFilePath, 'w')
     for tile in tileList:
         argumentFile.write(str(tile[0]) + '\t' + str(tile[1]) + '\t' + str(tile[2]) + '\t' + str(tile[3]) + '\n')
     argumentFile.close()
-    
+
 
     # Indicate to GNU Parallel that there are multiple tab-seperated variables in the text file we just wrote
     parallelArgs = ['--colsep', "\\t"]
@@ -293,27 +294,27 @@ def main(argsIn):
     # If using multiple computers, need to make sure the same program paths are available
     if options.nodesListPath:
         parallelArgs = parallelArgs + ['--env', 'PATH', '--env', 'PYTHONPATH', '--env', 'ISISROOT', '--env', 'ISIS3DATA']
-    
+
     # Get the number of available nodes and CPUs per node
     numNodes = asp_system_utils.getNumNodesInList(options.nodesListPath)
-    
+
     # We assume all machines have the same number of CPUs (cores)
     cpusPerNode = asp_system_utils.get_num_cpus()
-    
+
     # TODO: What is a good number here?
     processesPerCpu = 2
-    
+
     # Set the optimal number of processes if the user did not specify
     if not options.numProcesses:
         options.numProcesses = numNodes * cpusPerNode * processesPerCpu
-        
+
     # Note: mapproject can run with multiple threads on non-ISIS data but we don't use that
     #       functionality here since we call mapproject with one tile at a time.
-        
+
     # No need for more processes than their are tiles!
     if options.numProcesses > numTiles:
         options.numProcesses = numTiles
-    
+
     # Build the command line that will be passed to GNU parallel
     # - The numbers in braces will receive the values from the text file we wrote earlier
     # - The output path used here does not matter since spawned copies compute the correct tile path.
@@ -330,8 +331,8 @@ def main(argsIn):
         commandList = commandList + ['--suppress-output']
     commandList   = commandList + options.extraArgs # Append other options
     commandString = asp_cmd_utils.argListToString(commandList)
-   
-    
+
+
     # Use GNU parallel call to distribute the work across computers
     # - This call will wait until all processes are finished
     asp_system_utils.runInGnuParallel(options.numProcesses, commandString, argumentFilePath, parallelArgs, options.nodesListPath, True)#not options.suppressOutput)
@@ -342,12 +343,12 @@ def main(argsIn):
     cmd = "gdalbuildvrt -resolution highest " + vrtPath + " " + tempFolder + "*_.tif";
     print cmd
     os.system(cmd)
-    
+
     # Convert VRT file to final output file
     cmd = "gdal_translate -co compress=lzw -co bigtiff=yes " + vrtPath + " " + options.outputPath;
     print cmd
     os.system(cmd)
-    
+
     # Clean up temporary files
     if not options.keep:
         asp_file_utils.removeFolderIfExists(tempFolder)
