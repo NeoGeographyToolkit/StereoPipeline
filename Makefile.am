@@ -25,14 +25,12 @@ ACLOCAL_AMFLAGS = -I m4 -I thirdparty/m4
 SUBDIRS = src data
 
 EXTRA_DIST = \
-	INSTALLGUIDE \
 	config/rules.mak \
 	config/relicense \
 	data \
-	docs \
-	stereo.default.example
+	docs
 
-dist_doc_DATA = AUTHORS COPYING README NEWS THIRDPARTYLICENSES
+dist_doc_DATA = AUTHORS COPYING INSTALLGUIDE NEWS README THIRDPARTYLICENSES
 exampledir = $(docdir)/examples
 dist_example_DATA = stereo.default.example
 
