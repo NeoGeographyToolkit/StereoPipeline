@@ -1,12 +1,6 @@
 INSTALLATION AND USE
 
-A. Obtaining the Software
-
-If you are reading this text, you presumably have a copy of the
-software.  However, you can obtain the most recent version from
-  https://github.com/NeoGeographyToolkit/StereoPipeline
-
-B. Installing the Software
+A. Installing the Software
 
 Stereo Pipeline pre-built binaries are available from two locations:
 
@@ -16,13 +10,27 @@ Official releases at:
 Daily builds of the latest development version at:
   http://byss.arc.nasa.gov/stereopipeline/daily_build/
 
-If desired, Stereo Pipeline can be built from source as well. Building
-from source can be difficult, due to the large number of dependencies,
-and the variety of Linux and Mac architectures Stereo Pipeline
-supports. A separate software package called BinaryBuilder will take
-care of setting up the build environment and building the code. We
-describe below what dependencies BinaryBuilder needs and then how to
-invoke it.
+B. Using the Software
+
+When you unpack the Stereo Pipeline tarball, it will contain a copy of
+the documentation in pdf format, a set of command-line tools in the
+"bin/" directory, and other dependencies. The "bin/" directory needs
+to be in your path. See the README file for how to use Stereo
+Pipeline.
+
+C. Installing from Source
+
+If desired, Stereo Pipeline can be built from source code as
+well. The source code is available at 
+
+  https://github.com/NeoGeographyToolkit/StereoPipeline
+
+Building from source can be difficult, due to the large number of
+dependencies, and the variety of Linux and Mac architectures Stereo
+Pipeline supports. A separate software package called BinaryBuilder
+will take care of setting up the build environment and building the
+code. We describe below what dependencies BinaryBuilder needs and then
+how to invoke it.
 
 1. Base dependencies - LINUX
 
@@ -114,10 +122,3 @@ BinaryBuilder directory:
 
 ./make-dist.py last-completed-run/install
 
-C. Using the Software
-
-When you unpack the Stereo Pipeline tarball, it will contain a copy of
-the documentation in pdf format, a set of command-line tools in the
-"bin/" directory, and other dependencies. The "bin/" directory needs
-to be in your path. See the README file for how to use Stereo
-Pipeline.
