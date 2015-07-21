@@ -124,54 +124,16 @@ struct ModelParams {
 
 enum {NO_REFL = 0, LAMBERT, LUNAR_LAMBERT};
 
-void
-ReadSunOrSpacecraftPosition(std::string const& filename,
-                            std::map<std::string, Vector3> & records){
-
-  records.clear();
-
-  std::ifstream infile( filename.c_str() );
-  if ( !infile.is_open() ) {
-    std::cerr << "ERROR: Could not read file: " << filename << std::endl;
-    exit(1);
-  }
-
-  while ( infile.good() ){
-    std::string line, key;
-    Vector3 val;
-    getline (infile, line);
-    std::istringstream lh(line);
-    if (line == "") continue;
-    if (! ( lh >> key >> val[0] >> val[1] >> val[2] ) ){
-      std::cerr << "ERROR: Unable to read from file: " << filename << " the line: '" << line << "'" << std::endl;
-      exit(1);
-    }
-
-    if (records.find(key) != records.end()){
-      std::cerr << "ERROR: Duplicate key: " << key << " in file: " << filename << std::endl;
-      exit(1);
-    }
-
-    records[key] = val;
-  }
-
-  infile.close();
-
-  return;
-}
-
-//computes the Lambertian reflectance model (cosine of the light direction and the normal to the Moon)
-//Vector3  sunpos: the 3D coordinates of the Sun relative to the center of the Moon
-//Vector2 lon_lat is a 2D vector. First element is the longitude and the second the latitude
+// computes the Lambertian reflectance model (cosine of the light
+// direction and the normal to the Moon) Vector3 sunpos: the 3D
+// coordinates of the Sun relative to the center of the Moon Vector2
+// lon_lat is a 2D vector. First element is the longitude and the
+// second the latitude.
 //author Ara Nefian
 double
 computeLambertianReflectanceFromNormal(Vector3 sunPos, Vector3 xyz,
                                        Vector3 normal) {
   double reflectance;
-
-  //Vector3 xyz = get_normal(lon_lat);
-  //printf("xyz[0] = %f, xyz[1] = %f, xyz[2] = %f\n", xyz[0], xyz[1], xyz[2]);
-  // sun coordinates relative to the xyz point on the Moon surface
   Vector3 sunDirection = normalize(sunPos-xyz);
 
   reflectance = sunDirection[0]*normal[0] + sunDirection[1]*normal[1] + sunDirection[2]*normal[2];
@@ -363,13 +325,23 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
 #endif
   Vector3 normal = -normalize(cross_prod(dx, dy)); // so normal points up
 
-  // TODO: Must iterate over all images below.
+  // Update the camera position for the given pixel (camera position
+  // always changes for linescan cameras).
+  ModelParams local_model_params = model_params;
+  Vector2 pix = camera->point_to_pixel(base);
+  try {
+    local_model_params.cameraPosition = camera->camera_center(pix);
+  } catch(...){
+    reflectance.invalidate();
+    intensity.invalidate();
+    return false;
+  }
+
   double phase_angle;
-  reflectance = ComputeReflectance(normal, base, model_params,
+  reflectance = ComputeReflectance(normal, base, local_model_params,
                                    global_params, phase_angle);
   reflectance.validate();
 
-  Vector2 pix = camera->point_to_pixel(base);
 
   // Check for out of range
   if (pix[0] < 0 || pix[0] >= image.cols()-1 ||
@@ -923,6 +895,9 @@ int main(int argc, char* argv[]) {
     // Keep here the unmodified copy of the DEM
     ImageView<double> orig_dem = copy(dem);
 
+    int ncols = dem.cols(), nrows = dem.rows();
+    vw_out() << "DEM cols and rows: " << ncols << " " << nrows << std::endl;
+
     GeoReference geo;
     if (!read_georeference(geo, opt.input_dem))
       vw_throw( ArgumentErr() << "The input DEM has no georeference.\n" );
@@ -933,7 +908,8 @@ int main(int argc, char* argv[]) {
     else if (opt.reflectance_type == 1)
       global_params.reflectanceType = LUNAR_LAMBERT;
     else
-      vw_throw( ArgumentErr() << "Expecting Lambertian or Lunar-Lambertian reflectance." );
+      vw_throw( ArgumentErr()
+                << "Expecting Lambertian or Lunar-Lambertian reflectance." );
 
     global_params.phaseCoeffC1 = 0; //1.383488;
     global_params.phaseCoeffC2 = 0; //0.501149;
@@ -1033,7 +1009,6 @@ int main(int argc, char* argv[]) {
     }
 
     // Initial albedo
-    int ncols = dem.cols(), nrows = dem.rows();
     ImageView<double> albedo(ncols, nrows);
     for (int col = 0; col < albedo.cols(); col++) {
       for (int row = 0; row < albedo.rows(); row++) {
@@ -1063,7 +1038,6 @@ int main(int argc, char* argv[]) {
 
     // Add a residual block for every grid point not at the boundary
     ceres::Problem problem;
-    vw_out() << "num cols and rows is " << ncols << ' ' << nrows << std::endl;
     for (int col = 1; col < ncols-1; col++) {
       for (int row = 1; row < nrows-1; row++) {
 
