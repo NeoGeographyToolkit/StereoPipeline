@@ -1,25 +1,6 @@
 ************************************************************************
-1. INTRODUCTION
 
-A. Neo-Geography Toolkit
-
-The Neo-Geography Toolkit (NGT) is a collection of tools for automated
-processing of geospatial data, including images and maps. It is capable
-of processing raw raster data from remote sensing instruments and
-transforming it into useful cartographic products, such as visible image
-base maps, topographic models, etc. Additionally, components of the NGT
-can perform data processing on extremely large geospatial data sets (up
-to several tens of terabytes) via parallel processing pipelines.
-Finally, it can also transform raw metadata (i.e.  SPICE kernels and PDS
-image labels), vector data (e.g., 2D/3D shape files), and geo-tagged
-data sets into standard NeoGeography data formats, such as KML.  NGT is
-an evolving collection of loosely connected open-source modules designed
-by the NASA Ames Intelligent Robotics Group. Modules of the NGT will be
-released one at a time, as they reach maturity. To date, we have
-completed only one module: the NASA Ames Stereo Pipeline, but more will
-soon follow. Check this website for the latest updates.
-
-B. Stereo Pipeline
+1. Stereo Pipeline
 
 The NASA Ames Stereo Pipeline (ASP) is a suite of free and open source
 automated geodesy and stereogrammetry tools designed for processing
@@ -34,7 +15,14 @@ NASA non-terrestrial imagery. Users wishing to process Digital Globe,
 GeoEye, or perspective imagery do not need to download anything else.
 
 ************************************************************************
-2. LICENSE (see COPYING for the full text)
+2. Download
+
+ASP releases for Linux and OSX can be downloaded at:
+
+http://ti.arc.nasa.gov/tech/asr/intelligent-robotics/ngt/stereo/
+
+************************************************************************
+3. LICENSE (see COPYING for the full text)
 
 A. Copyright and License Summary
 
@@ -42,10 +30,10 @@ Copyright (c) 2009-2012, United States Government as represented by the
 Administrator of the National Aeronautics and Space Administration. All
 rights reserved.
 
-The NGT platform (of which ASP is a part of) is licensed under the
-Apache License, Version 2.0 (the "License"); you may not use this file
-except in compliance with the License. You may obtain a copy of the
-License at http://www.apache.org/licenses/LICENSE-2.0
+ASP is licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License. You
+may obtain a copy of the License at
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -53,7 +41,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-B. Third-Party Libraries
+************************************************************************
+4. Third-Party Libraries
 
 This distribution may include some bundled third-party software as a
 convenience to the user.  This software, located in the "thirdparty/"
@@ -62,12 +51,12 @@ above-mentioned distribution agreement or copyright. Binary releases
 distribute third party software in both the "bin" and "lib"
 directories. See the included documentation for detailed copyright
 and license information for any third-party software or check the
-THIRDPARTYLICENSES file.  In addition, various pieces of the NGT
+THIRDPARTYLICENSES file.  In addition, various pieces of ASP
 depend on additional third-party libraries that the user is expected
 to have installed.
 
 ************************************************************************
-3. DOCUMENTATION
+5. DOCUMENTATION
 
 The primary source of documentation is the Stereo Pipeline Book. The
 binary distribution contains the book, named "asp_book.pdf", and the
@@ -80,12 +69,12 @@ document in PDF format is also available from wherever you obtained this
 package.
 
 ************************************************************************
-4. CONTACTS & CREDITS
+6. CONTACTS & CREDITS
 
 A. Mailing List
 
 All bugs, feature requests, and general discussion should be sent to
-the NGT user mailing list:
+the ASP user mailing list:
 
   stereo-pipeline@lists.nasa.gov
 
@@ -104,7 +93,7 @@ should all be sent to the main stereo-pipeline list above.
 
 B. Credits
 
-The NGT was developed within the Autonomous Systems and
+ASP was developed within the Autonomous Systems and
 Robotics area of the Intelligent Systems Division at NASA's Ames
 Research Center.  It leverages the Intelligent Robotics Group's (IRG)
 extensive experience developing surface reconstruction and tools for
@@ -115,3 +104,25 @@ group, and draws on their experience developing computer vision
 techniques for autonomous vehicle control systems.
 
 See the AUTHORS file for a complete list of developers.
+
+************************************************************************
+7. Neo-Geography Toolkit
+
+ASP is part of the Neo-Geography Toolkit (NGT), a collection of tools
+for automated processing of geospatial data, including images and
+maps. It is capable of processing raw raster data from remote sensing
+instruments and transforming it into useful cartographic products,
+such as visible image base maps, topographic models,
+etc. Additionally, components of the NGT can perform data processing
+on extremely large geospatial data sets (up to several tens of
+terabytes) via parallel processing pipelines.  Finally, it can also
+transform raw metadata (i.e.  SPICE kernels and PDS image labels),
+vector data (e.g., 2D/3D shape files), and geo-tagged data sets into
+standard NeoGeography data formats, such as KML.  NGT is an evolving
+collection of loosely connected open-source modules designed by the
+NASA Ames Intelligent Robotics Group. Modules of the NGT will be
+released one at a time, as they reach maturity. To date, we have
+completed only one module: the NASA Ames Stereo Pipeline, but more
+will soon follow.
+
+
