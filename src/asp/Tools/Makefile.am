@@ -178,10 +178,10 @@ if MAKE_APP_MER2CAMERA
 endif
 
 if MAKE_APP_MAPPROJECT
-  bin_PROGRAMS += mapproject
-  bin_SCRIPTS  += parallel_mapproject.py
-  mapproject_SOURCES = mapproject.cc
-  mapproject_LDADD   = $(APP_MAPPROJECT_LIBS)
+  bin_PROGRAMS += mapproject_single
+  bin_SCRIPTS  += mapproject
+  mapproject_single_SOURCES = mapproject_single.cc
+  mapproject_single_LDADD   = $(APP_MAPPROJECT_LIBS)
 endif
 
 if MAKE_APP_LRONACJITREG
