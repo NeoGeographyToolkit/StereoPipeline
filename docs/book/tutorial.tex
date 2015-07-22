@@ -1371,7 +1371,7 @@ The complete documentation is in section \ref{sec:image2qtree}.
 \end{center}
 \end{figure}
 
-\section{Tips and Tricks}
+\chapter{Tips and Tricks}
 
 Here we summarize, in one place, some insights in how to get the most
 from ASP, particularly the highest quality results in the smallest
@@ -1403,7 +1403,7 @@ to remove artifacts from WorldView images (section
 
 \item Remove noise from the output point cloud. During stereo
 triangulation, points that are further or closer than given distances
-from planet center or camera center can be removed as outliers
+from planet center or left camera center can be removed as outliers
 (section \ref{triangulation_options}). During DEM generation (section
 \ref{point2dem}), points with large triangulation error can be removed
 using \texttt{-\/-remove-outliers-params}. Spikes can be removed with
@@ -1435,7 +1435,7 @@ images.
 \item Photometric calibration can be used to improve the input images
 and hence get higher quality stereo results.
 
+\end{itemize}
+
 We'll be happy to add here more suggestions from community's accumulated
 wisdom on using ASP.
-
-\end{itemize}
