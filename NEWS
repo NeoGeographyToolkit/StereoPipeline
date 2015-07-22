@@ -101,6 +101,7 @@
      issues to system directories.
 
  - mapproject
+   * Can run on multiple machines.
    * Sprawn multiple processes for ISIS images, to improve the speed.
    
  - dg_mosaic
