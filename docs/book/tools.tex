@@ -187,7 +187,7 @@ focus a desired image before using any keys).
 This tool can be used to view interest point matches, such as generated
 by \texttt{bundle\_adjust} and \texttt{stereo} (only if \texttt{stereo}
 was invoked without map-projected images and with homography or affine
-epipolar alignemnt). It can also be used to manually create matches
+epipolar alignment). It can also be used to manually create matches
 (useful in situations when automatic interest point matching fails due
 to large change in illumination) and to delete matches. This functionality
 is only enabled if \texttt{stereo\_gui} is invoked like \texttt{stereo},
@@ -998,10 +998,10 @@ releases for backward compatibility). We ported all features of
 \texttt{orthoproject} except for projecting of vector imagery (for
 example, RGB pixel data).
 
-Any program using ISIS cameras must be single-threaded, due to the
-limitations of ISIS. To overcome this, \texttt{mapproject} when invoked
-for ISIS images sprawns multiple processes, each working on individual
-tiles, then mosaics the results.
+The \texttt{mapproject} tool can be run using multiple processes and can be
+distributed over multiple machines. This is particularly useful for
+ISIS cameras, as in that case any single process must use only one thread
+due to the limitations of ISIS.
 
 Examples:
 \begin{verbatim}
