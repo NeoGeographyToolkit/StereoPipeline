@@ -683,6 +683,7 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
 
   if (event->modifiers() & Qt::AltModifier) {
 
+#if 0
     // TODO: Support other adjustment modes
     m_adjust_mode = TransformAdjustment;
 
@@ -715,6 +716,7 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
       s << "Gamma: " << m_gamma << "\n";
       break;
     }
+#endif
 
   } else if (event->buttons() & Qt::LeftButton) {
 

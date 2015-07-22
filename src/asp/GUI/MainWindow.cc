@@ -140,7 +140,6 @@ void MainWindow::create_menus() {
   m_run_parallel_stereo_action = new QAction(tr("Run parallel_stereo"), this);
   m_run_parallel_stereo_action->setStatusTip(tr("Run parallel_stereo on selected clips."));
   connect(m_run_parallel_stereo_action, SIGNAL(triggered()), this, SLOT(run_parallel_stereo()));
-  m_run_parallel_stereo_action->setShortcut(tr("R"));
 
   // Size to fit
   m_sizeToFit_action = new QAction(tr("Size to fit"), this);
