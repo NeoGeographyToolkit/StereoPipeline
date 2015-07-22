@@ -36,6 +36,10 @@ can work backwards through a map-projection when applying the camera
 model, so the geometric integrity of your images will not be sacrificed
 if you map-project first.
 
+An alternative way of map-projection, that applies to non-ISIS imagery
+as well, is with the \texttt{mapproject} tool (section
+\ref{mapproj-example}).
+
 Excessively noisy images will not correlate well, so images should be
 photometrically calibrated in whatever fashion suits your purposes. If
 there are photometric problems with the images, those photometric
@@ -44,83 +48,6 @@ defects can be misinterpreted as topography.
 Remember, in order for \texttt{stereo} to process stereo pairs in
 \ac{ISIS} cube format, the images must have had SPICE data associated
 by running ISIS's \texttt{spiceinit} program run on them first.
-
-\subsection{Combating Long Run Times}
-
-The factor that predominantly determines running time in the Stereo
-Pipeline is the size of the search space considered by the correlation
-algorithm.  This is set in the \texttt{stereo.default} file using
-the \texttt{corr-search} parameter.  If you comment that parameter out
-(either by putting a `\texttt{\#}' at the beginning of their line or
-deleting them from your \texttt{stereo.default} file), the Stereo
-Pipeline will try to automatically determine the search range for you,
-but this does not always work perfectly.  A spurious bad match can
-lead the pipeline to select a search range that is far too large, and
-performance will suffer as a result.  If you know (or can estimate)
-the range of horizontal and vertical offsets you expect to see between
-the two images, then you may want to try setting the search range
-yourself in your \texttt{stereo.default} using the aforementioned
-parameters.
-
-More generally, here are several strategies that tend to keep the
-search range small and run-times low:
-
-\begin{enumerate}
-
-\item You can instruct ASP to work only on a subregion of the left input
-image (section \ref{stereo}). Run times will be much lower (minutes
-instead of days), and you can quickly tune parameters in the
-\texttt{stereo.default} file before scaling up to the full image.
-
-\item You can use the \texttt{parallel\_stereo} tool to distribute the
-  computations over multiple machines (section \ref{parallel}).
-
-\item A solution specific to ISIS imagery is to crop your stereo pair
-(using the ISIS \texttt{crop} command) to a small region of interest
-within a large stereo pair.
-
-\item The image pair can be subsampled. For ISIS imagery, the ISIS
-\texttt{reduce} command can be used, while for Digital Globe data one
-can invoke the \texttt{dg\_mosaic} tool (section \ref{dgmosaic}). With
-subsampling, you are trading resolution for speed, so this probably only
-makes sense for debugging or ``previewing'' 3D terrain. That said,
-subsampling will tend to increase the signal to noise ratio, so it may
-also be helpful for obtaining 3D terrain out of noisy, low quality images.
-
-These options of cropping or reducing the resolution of the source
-imagery are only easily achieved with ISIS or Digital Globe data. For
-Pinhole or RPC sessions, users may reduce the image size using for
-example GDAL, but then the camera models will need to be adjusted
-manually. This is a unique problem for each camera model and thus will
-not be discussed here.
-
-\item You can map-project the images (section
-\ref{mapproj-example}). For ISIS data the ISIS \texttt{cam2map} command
-or the \texttt{cam2map4stereo.py} program provided with the Stereo
-Pipeline can also be applied. If you project both images into the same
-map-projection and same pixel scale, then they will be aligned modulo
-uncertainty in spacecraft telemetry (typically tens or hundreds of
-meters of error when the image is projected onto the ground).  By
-default \texttt{cam2map} will also project the image onto the local
-elevation model (MOLA or LOLA), which removes the stereo disparity in
-the images that is due to coarse topography.  The resulting image pair
-has only small position offsets and fine 3D detail left to discover, so
-the search range can be kept very small and run times can be improved.
-The Stereo Pipeline will keep track of how these map-projections affect
-the camera model, and take them into account when building up the 3D
-mesh via triangulation.  If you use \texttt{cam2map}, be sure that your
-\texttt{stereo.default}'s \texttt{alignment-method} is set to
-\texttt{none}. Note also that the \texttt{-\/-lat} and \texttt{-\/-lon}
-arguments to \texttt{cam2map4stereo.py} can be used to crop your stereo
-images, and the \texttt{-\/-resolution} argument can be used to
-subsample them.
-\end{enumerate}
-
-If you are working with very large images, we highly recommend
-cropping or subsampling and working with smaller sized images while
-you fine-tune the parameters in the \texttt{stereo.default} file,
-and once you get satisfactory results to apply those parameters to
-the full images.
 
 %% \subsection{Comparing Examples to your System}
 
@@ -478,6 +405,7 @@ these cameras is illustrated in the \texttt{examples/K10} directory
 
 \clearpage
 \section{Lunar Reconnaissance Orbiter LROC NAC}
+\label{lronac-example}
 
 \subsection{Lee-Lincoln Scarp}
 
@@ -833,6 +761,10 @@ is not our objective.
 In case the image files do not contain the RPC models, separate XML
 files having this information need to be provided, as done for Digital
 Globe images (section \ref{rawdg}).
+
+For terrain having steep slopes, we recommend that images be map-projected
+onto an existing DEM before running stereo. This is described in section
+\ref{mapproj-example}.
 
 \subsubsection*{stereo.default}
 
