@@ -94,22 +94,23 @@ example GDAL, but then the camera models will need to be adjusted
 manually. This is a unique problem for each camera model and thus will
 not be discussed here.
 
-\item You can map-project the images. For Digital Globe images one can
-  use \texttt{mapproject} (section \ref{mapproj}), while for ISIS
-  data the ISIS \texttt{cam2map} command or the \texttt{cam2map4stereo.py} program
-provided with the Stereo Pipeline can be applied. If you project both images into the
-same map-projection and same pixel scale, then they will be aligned
-modulo uncertainty in spacecraft telemetry (typically tens or hundreds
-of meters of error when the image is projected onto the ground).  By default
-\texttt{cam2map} will also project the image onto the local elevation
-model (MOLA or LOLA), which removes the stereo disparity in the images
-that is due to coarse topography.  The resulting image pair has only
-small position offsets and fine 3D detail left to discover, so the
-search range can be kept very small and run times can be improved.
-The Stereo Pipeline will keep track of how these map-projections affect the camera model, and take them into account when
-building up the 3D mesh via triangulation.  If you use \texttt{cam2map},
-be sure that your \texttt{stereo.default}'s \texttt{alignment-method} is
-set to \texttt{none}. Note also that the \texttt{-\/-lat} and \texttt{-\/-lon}
+\item You can map-project the images (section
+\ref{mapproj-example}). For ISIS data the ISIS \texttt{cam2map} command
+or the \texttt{cam2map4stereo.py} program provided with the Stereo
+Pipeline can also be applied. If you project both images into the same
+map-projection and same pixel scale, then they will be aligned modulo
+uncertainty in spacecraft telemetry (typically tens or hundreds of
+meters of error when the image is projected onto the ground).  By
+default \texttt{cam2map} will also project the image onto the local
+elevation model (MOLA or LOLA), which removes the stereo disparity in
+the images that is due to coarse topography.  The resulting image pair
+has only small position offsets and fine 3D detail left to discover, so
+the search range can be kept very small and run times can be improved.
+The Stereo Pipeline will keep track of how these map-projections affect
+the camera model, and take them into account when building up the 3D
+mesh via triangulation.  If you use \texttt{cam2map}, be sure that your
+\texttt{stereo.default}'s \texttt{alignment-method} is set to
+\texttt{none}. Note also that the \texttt{-\/-lat} and \texttt{-\/-lon}
 arguments to \texttt{cam2map4stereo.py} can be used to crop your stereo
 images, and the \texttt{-\/-resolution} argument can be used to
 subsample them.
@@ -832,10 +833,6 @@ is not our objective.
 In case the image files do not contain the RPC models, separate XML
 files having this information need to be provided, as done for Digital
 Globe images (section \ref{rawdg}).
-
-Currently, stereo using RPC camera models cannot be performed if the
-input images are map-projected, as it is possible with Digital Globe
-images with linear camera models (section \ref{mapproj}).
 
 \subsubsection*{stereo.default}
 

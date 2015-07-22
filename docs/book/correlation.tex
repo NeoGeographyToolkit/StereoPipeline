@@ -38,21 +38,22 @@ The first optional (but recommended) step in the process is least
 squares Bundle Adjustment, which is described in detail in
 Chapter~\ref{ch:bundle_adjustment}.
 
-Next, the left and right images are roughly aligned using one of the four
-methods: (1) a homography transform of the right image based on
-automated tie-point measurements, (2) an affine epipolar transform of both
-the left and right images (also based on tie-point measurements as earlier),
-the effect of which is equivalent to rotating
-the original cameras which took the pictures, (3) a 3D rotation that achieves
+Next, the left and right images are roughly aligned using one of the
+four methods: (1) a homography transform of the right image based on
+automated tie-point measurements, (2) an affine epipolar transform of
+both the left and right images (also based on tie-point measurements as
+earlier), the effect of which is equivalent to rotating the original
+cameras which took the pictures, (3) a 3D rotation that achieves
 epipolar rectification {\it(only implemented for Pinhole sessions for
-  missions like MER or K10 -- see sections \ref{mer:example} and \ref{k10:example})} or (4) map-projection of both the left
-and right images using the \ac{ISIS} \texttt{cam2map} command, or
-through \texttt{mapproject} for Digital Globe and GeoEye images (see
-section \ref{mapproj} for the latter).
-The first three options can be applied automatically by the Stereo
-Pipeline when the \texttt{alignment-method} variable in the
-\texttt{stereo.default} file is set to \texttt{affineepipolar},
-\texttt{homography}, or \texttt{epipolar}, respectively.
+missions like MER or K10 -- see sections \ref{mer:example} and
+\ref{k10:example})} or (4) map-projection of both the left and right
+images using the \ac{ISIS} \texttt{cam2map} command or through the more
+general \texttt{mapproject} tool that works for any cameras supported by
+ASP (see section \ref{mapproj-example} for the latter).  The first three
+options can be applied automatically by the Stereo Pipeline when the
+\texttt{alignment-method} variable in the \texttt{stereo.default} file
+is set to \texttt{affineepipolar}, \texttt{homography}, or
+\texttt{epipolar}, respectively.
 
 The latter option, running {\tt cam2map}, {\tt cam2map4stereo.py}, or
 {\tt mapproject} must be carried out by the user prior to
@@ -191,12 +192,13 @@ Any large failure in the low-resolution disparity image will be
 detrimental to the performance of the higher resolution disparity. In
 the event that the low-resolution disparity is completely unhelpful, it
 can be skipped by adding \texttt{corr-seed-mode 0} in the
-\texttt{stereo.default} file. This should only be considered in cases
-where the texture in an image is completely lost when subsampled. An
-example would be satellite imagery of fresh snow in the
-Arctic. Alternatively, \texttt{\textit{output\_prefix}-D\_sub.tif} can
-be computed at a sparse set of pixels at full resolution, as described
-in section \ref{sparse-disp}.
+\texttt{stereo.default} file and using a manual search range (section
+\ref{sec:search_range}). This should only be considered in cases where
+the texture in an image is completely lost when subsampled. An example
+would be satellite imagery of fresh snow in the Arctic. Alternatively,
+\texttt{\textit{output\_prefix}-D\_sub.tif} can be computed at a sparse
+set of pixels at full resolution, as described in section
+\ref{sparse-disp}.
 
 An alternative to computing \texttt{\textit{output\_prefix}-D.tif}
 from sub-sampled images (\texttt{corr-seed-mode 1}) or skipping it
@@ -229,7 +231,8 @@ due to a variety of reasons:
   matching performance. This could also be due to failure of the
   preprocessing step in aligning the images. The correlator can not
   match images that are rotated differently from each other or have
-  different scale/resolution.
+  different scale/resolution. Mapprojection is used to at least
+  partially rectifly these issues (section \ref{mapproj-example}).
 \end{itemize}
 
 Bad matches, often called ``blunders'' or ``artifacts'' are also
@@ -250,6 +253,50 @@ are usually also obvious when inspecting these images.  With a good
 intuition for the effects of various {\tt stereo.default} parameters
 and a good intuition for reading the output of {\tt disparitydebug},
 it is possible to quickly identify and address most problems.
+
+\subsection{Search Range Determination}
+\label{sec:search_range} In some circumstances, the low-resolution
+disparity \texttt{D\_sub.tif} may fail to get computed, or it may be
+inaccurate. This can happen for example if only very small features are
+present in the original images, and they disappear during the resampling
+that is necessary to obtain \texttt{D\_sub.tif}. In this case, it is
+possible to set \texttt{corr-seed-mode} to 0, and manually set a search
+range to use for full-resolution correlation via the parameter
+\texttt{corr-search}. In \texttt{stereo.default} this parameter's entry
+will look like:
+
+\begin{verbatim}
+        corr-search -80 -2 20 2
+\end{verbatim}
+
+The exact values to use with this option you'll have to discover
+yourself. The numbers right of \texttt{corr-search} represent the
+horizontal minimum boundary, vertical minimum boundary, horizontal
+maximum boundary, and finally the horizontal maximum boundary within
+which we will search for the disparity during correlation.
+
+It can be tricky to select a good search range for the \texttt{stereo.default} file.
+That's why the best way is to let \texttt{stereo} perform an automated
+guess for the search range. If you find that you can do a
+better estimate of the search range, take look at the intermediate
+disparity images using the \texttt{disparitydebug} program to figure
+out which search directions can be expanded or contracted. The output
+images will clearly show good data or bad data depending on whether
+the search range is correct.
+
+The worst case scenario is to determine the search range manually. For
+example, for ISIS images, both images could be opened in \texttt{qview}
+and the coordinates of points that can be matched visually can be
+compared. Subtract line,sample locations in the first image from the
+coordinates of the same feature in the second image, and this will yield
+offsets that can be used in the search range.  Make several of these
+offset measurements and use them to define a line,sample bounding box,
+then expand this by 50\% and use it for \texttt{corr-search}.  This will
+produce good results in most images.
+
+Also, if you are using an alignment option, you'll instead want to
+make those disparity measurements against the written L.tif and R.tif
+files (see chapter \ref{chapter:outputfiles}) instead of the original input files.
 
 \subsection{Local Homography}
 \label{sec:local_hom}

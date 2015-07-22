@@ -148,7 +148,7 @@ The \texttt{stereo\_gui} program is a GUI frontend to \texttt{stereo},
 and has the same command-line options. It displays
 the input images side-by-side. One can zoom in by dragging the
 mouse from upper-left to lower-right, and zoom out via the reverse
-motion (or the mouse wheel can be used). The arrow keys are used for panning.
+motion.
 
 By pressing the \texttt{Control} key while dragging the mouse, regions
 can be selected in the input images, and then stereo can be run on these
@@ -179,6 +179,19 @@ cameras or stereo options. \texttt{stereo\_gui} handles large images by
 building on disk a pyramid of increasingly coarser subsampled images for
 each input image, and displaying the subsampled versions that are
 appropriate for the current level of zoom.
+
+Additional navigation options are using the mouse wheel or the +/- to
+zoom, and the arrow keys to pan (one should first click to bring into
+focus a desired image before using any keys).
+
+This tool can be used to view interest point matches, such as generated
+by \texttt{bundle\_adjust} and \texttt{stereo} (only if \texttt{stereo}
+was invoked without map-projected images and with homography or affine
+epipolar alignemnt). It can also be used to manually create matches
+(useful in situations when automatic interest point matching fails due
+to large change in illumination) and to delete matches. This functionality
+is only enabled if \texttt{stereo\_gui} is invoked like \texttt{stereo},
+rather than just with images.
 
 
 \section{parallel\_stereo}
@@ -250,6 +263,7 @@ point (start at this stage). \\ \hline
 (section \ref{corr_section}). \\ \hline
 \texttt{-\/-sparse-disp-options \textit{string} } & Options to pass directly
 to sparse\_disp (section \ref{sparse-disp}). \\ \hline
+\texttt{-\/-verbose } & Display the commands being executed. \\ \hline
 \end{longtable}
 
 \subsection{Advanced usage}
@@ -518,6 +532,7 @@ program will convert the DEM height values from being relative to the IAU
 reference spheroid to being relative to the MOLA Areoid.
 
 \subsection{Post Spacing}
+\label{post-spacing}
 
 Recall that \texttt{stereo} creates a point cloud file as its output
 and that you need to use \texttt{point2dem} on to create a GeoTIFF that
@@ -929,7 +944,7 @@ models, their RPC approximations (section
 \ref{rpc}). \texttt{dg\_mosaic} outputs both types of combined
 models. The combined RPC model can be used to map-project the mosaicked
 images with the goal of computing stereo from them (section
-\ref{mapproj}).
+\ref{mapproj-example}).
 
 The tool needs to be applied twice, for both the left and right image sets.
 
@@ -974,7 +989,7 @@ doing stereo of these images (ideally, if there were no correlation or
 triangulation error, the images would project perfectly). The tool can
 also be used to compute stereo from the obtained map-projected images;
 this functionality is currently supported only with RPC models (section
-\ref{mapproj}).
+\ref{mapproj-example}).
 
 \texttt{mapproject} supersedes the older
 \texttt{orthoproject} tool, which could map-project only with ISIS and
@@ -1555,6 +1570,100 @@ Option & Description \\ \hline \hline
 \verb#--mars# & Set the min and max height to good values for Mars. \\ \hline
 \verb#--legend# & Generate an unlabeled legend, saved as "legend.png". \\ \hline
 
+\end{longtable}
+
+
+\section{{\tt image2qtree}}\label{sec:image2qtree}
+
+\verb#image2qtree# turns a georeferenced image (or images) into a quadtree with geographical metadata.  For example, it can output a kml file for viewing in Google Earth.
+
+
+\begin{longtable}{|l|p{7.5cm}|}
+\caption{Command-line options for image2qtree}
+\label{tbl:image2qtree}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Option & Description \\ \hline \hline
+General Options \\ \hline
+\verb#-o [ --output-name ] arg# & Specify the base output directory\\ \hline
+\verb#-q [ --quiet ]# & Quiet output\\ \hline
+\verb#-v [ --verbose ]# & Verbose output\\ \hline
+\verb#--cache arg (=1024)# & Cache size, in megabytes\\ \hline
+\verb#--help# & Display a help message\\ \hline
+
+Input Options\\ \hline
+\verb#--force-wgs84# & Use WGS84 as the input images' geographic coordinate systems, even if they're not (old behavior)\\ \hline
+\verb#--pixel-scale arg (=1)# & Scale factor to apply to pixels\\ \hline
+\verb#--pixel-offset arg (=0)# & Offset to apply to pixels\\ \hline
+\verb#--normalize# & Normalize input images so that their full dynamic range falls in between [0,255]\\ \hline
+
+Output Options\\ \hline
+\verb#-m [ --output-metadata ] arg (=none)# & Specify the output metadata type. One of [kml, tms, uniview, gmap, celestia, none]\\ \hline
+\verb#--file-type arg (=png)# & Output file type\\ \hline
+\verb#--channel-type arg (=uint8)# & Output (and input) channel type. One of [uint8, uint16, int16, float]\\ \hline
+\verb#--module-name arg (=marsds)# & The module where the output will be placed. Ex: marsds for Uniview, or Sol/Mars for Celestia\\ \hline
+\verb#--terrain# & Outputs image files suitable for a Uniview terrain view. Implies output format as PNG, channel type uint16. Uniview only\\ \hline
+\verb#--jpeg-quality arg (=0.75)# & JPEG quality factor (0.0 to 1.0)\\ \hline
+\verb#--png-compression arg (=3)# & PNG compression level (0 to 9)\\ \hline
+\verb#--palette-file arg# & Apply a palette from the given file\\ \hline
+\verb#--palette-scale arg# & Apply a scale factor before applying the palette\\ \hline
+\verb#--palette-offset arg# & Apply an offset before applying the palette\\ \hline
+\verb#--tile-size arg (=256)# & Tile size, in pixels\\ \hline
+\verb#--max-lod-pixels arg (=1024)# & Max LoD in pixels, or -1 for none (kml only)\\ \hline
+\verb#--draw-order-offset arg (=0)# & Offset for the <drawOrder> tag for this overlay (kml only)\\ \hline
+\verb#--composite-multiband # & Composite images using multi-band blending\\ \hline
+\verb#--aspect-ratio arg (=1)# & Pixel aspect ratio (for polar overlays; should be a power of two)\\ \hline
+
+Projection Options\\ \hline
+\verb#--north arg# & The northernmost latitude in degrees\\ \hline
+\verb#--south arg# & The southernmost latitude in degrees\\ \hline
+\verb#--east arg# & The easternmost longitude in degrees\\ \hline
+\verb#--west arg# & The westernmost longitude in degrees\\ \hline
+\verb#--force-wgs84# & Assume the input images' geographic coordinate systems are WGS84, even if they're not (old behavior)\\ \hline
+\verb#--sinusoidal# & Assume a sinusoidal projection\\ \hline
+\verb#--mercator# & Assume a Mercator projection\\ \hline
+\verb#--transverse-mercator# & Assume a transverse Mercator projection\\ \hline
+\verb#--orthographic# & Assume an orthographic projection\\ \hline
+\verb#--stereographic# & Assume a stereographic projection\\ \hline
+\verb#--lambert-azimuthal# & Assume a Lambert azimuthal projection\\ \hline
+\verb#--lambert-conformal-conic# & Assume a Lambert Conformal Conic projection\\ \hline
+\verb#--utm arg# & Assume UTM projection with the given zone\\ \hline
+\verb#--proj-lat arg# & The center of projection latitude (if applicable)\\ \hline
+\verb#--proj-lon arg# & The center of projection longitude (if applicable)\\ \hline
+\verb#--proj-scale arg# & The projection scale (if applicable)\\ \hline
+\verb#--std-parallel1 arg# & Standard parallels for Lambert Conformal Conic projection\\ \hline
+\verb#--std-parallel2 arg# & Standard parallels for Lambert Conformal Conic projection\\ \hline
+\verb#--nudge-x arg# & Nudge the image, in projected coordinates\\ \hline
+\verb#--nudge-y arg# & Nudge the image, in projected coordinates\\ \hline
+\end{longtable}
+
+\section{{\tt hillshade}}\label{sec:hillqshade}
+
+The \verb#hillshade# tool reads in a DEM and outputs an image of that
+DEM as though it were a three-dimensional surface, with every pixel
+shaded as though it were illuminated by a light from a specified
+location.
+
+\begin{longtable}{|l|p{11cm}|}
+\caption{Command-line options for hillshade}
+\label{tbl:hillshade}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Option & Description \\ \hline \hline
+\verb#--help# & Display a help message\\ \hline
+\verb#--input-file arg# & Explicitly specify the input file\\ \hline
+\verb#-o [ --output-file ] arg# & Specify the output file\\ \hline
+\verb#-a [ --azimuth ] arg (=0)# & Sets the direction that the light source is coming from (in degrees).  Zero degrees is to the right, with positive degree counter-clockwise.\\ \hline
+\verb#-e [ --elevation ] arg (=45)# & Set the elevation of the light source (in degrees)\\ \hline
+\verb#-s [ --scale ] arg (=0)# & Set the scale of a pixel (in the same units as the DTM height values\\ \hline
+\verb#--nodata-value arg# & Remap the DEM default value to the min altitude value\\ \hline
+\verb#--blur arg# & Pre-blur the DEM with the specified sigma\\ \hline
 \end{longtable}
 
 \section{geodiff}

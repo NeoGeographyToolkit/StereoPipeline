@@ -23,7 +23,8 @@ simply pass two image files to the \texttt{stereo} command:
 \end{verbatim}
 
 Alternatively, the \texttt{stereo\_gui} frontend can be invoked, with
-the same options, as described in section \ref{stereo_gui}.
+the same options, as described in section \ref{stereo_gui}. This tool
+makes it possible to select small clips on which to run \texttt{stereo}.
 
 The string \texttt{stereo-output} is an arbitrary output prefix, it is
 used when generating names for \texttt{stereo} output files. For
@@ -121,10 +122,14 @@ Alternatively, the images can be aligned externally, by map-projecting
 them in \ac{ISIS}. External alignment can sometimes give better results
 than the simple internal alignment described earlier, especially if the
 images are taken from very different perspectives, or if the curvature
-of the planet/body being imaged is non-negligible. We will now describe
-how to do this alignment, but we also provide the
+of the planet/body being imaged is non-negligible.
+
+
+We will now describe how to do this alignment, but we also provide the
 \texttt{cam2map4stereo.py} program (page \pageref{cam2map4stereo}) which
-performs this work automatically for you.
+performs this work automatically for you. (Also note that ASP has its
+own internal way of map-projecting images, which we believe is preferable.
+That approach is described in section \ref{mappproj-example}.)
 
 The \ac{ISIS} \texttt{cam2map} program will map-project these images:
 
@@ -292,8 +297,7 @@ follow along.
 \label{rawdg}
 
 After you have downloaded the example stereo imagery of India, you
-will find a directory titled\newline
-\texttt{052783824050\_01\_P001\_PAN}. It has a
+will find a directory titled \texttt{052783824050\_01\_P001\_PAN}. It has a
 lot of files and many of them contain redundant information just
 displayed in different formats. We are interested only in the TIF or NTF
 imagery and the similarly named XML files.
@@ -354,101 +358,12 @@ terrains using the two approaches of 5 meters or more.
 \section{Processing Map-Projected Imagery}
 \label{mapproj}
 
-Eventually you will run into Digital Globe imagery that has too much
-parallax to be processed in a reasonable time. (That was not the case
-for Lucknow, India because it is so flat.) We can speed up the result by
-performing stereo on map-projected versions of the images. The
-map-projection is done with a tool named \texttt{mapproject} (section
-\ref{mapproject}). It uses the simplified RPC model contained in the
-camera XML file to project a given camera image onto a pre-determined
-low-resolution DEM without holes.
-
-ASP will then perform correlation on the map-projected images, and,
-before doing triangulation will internally project back the image pixels
-onto the original camera locations, precisely reversing the
-transformation done with \texttt{mapproject}. Since map-projection is a
-temporary pre-processing step, it is of little importance that the DEM
-is low-resolution, or that we use the less accurate (but faster) RPC
-model to perform it.
-
-The hardest part of this whole process is getting the input
-low-resolution DEM. In this example we will use a variant of NASA
-SRTM data with no holes. Other choices might be GMTED2010, USGS's NED
-data, or NGA's DTED data. Alternatively, a DEM can be obtained from a
-previous ASP run. In such a run, subpixel mode may be set to parabola,
-for speed, then the DEM could be down-sampled and have its holes filled
-by using \texttt{point2dem} with appropriate settings for the grid size,
-erode length, search radius factor, and hole-filling length.
-
-It is important to note that ASP expects the input low-resolution DEM to
-be in reference to a datum ellipsoid, such as WGS84 or NAD83. If the DEM
-is in respect to either the EGM96 or NAVD88 geoids, the ASP tool
-\texttt{dem\_geoid} can be used to convert the DEM to WGS84 or NAD83
-(section \ref{demgeoid}). (The same tool can be used to convert back the
-final output ASP DEM to be in reference to a geoid, if desired.)
-
-Not applying this conversion might not properly negate the parallax
-seen between the two images, though it will not corrupt the
-triangulation results. In other words, sometimes one may be able to
-ignore the vertical datums on the input but we do not recommend
-doing that. Also, you should note that the geoheader attached to those
-types of files usually does not describe the vertical datum they
-used. That can only be understood by careful reading of your
-provider's documents.
-
-In this example we use as an input low-resolution DEM the file
-\texttt{srtm\_53\_07.tif}, a 90 meter resolution tile from the CGIAR-CSI
-modification of the original NASA SRTM product \cite{cgiar:srtm90m}.
-The NASA SRTM square for this example spot in India is N26E080.
-
-Below are the commands for map-projecting the input and then running
-through stereo. You can use any projection you like as long as it
-preserves detail in the imagery. Note that the last parameter in the
-stereo call is the input low-resolution DEM.
-
-\begin{figure}[h!]
-\centering
-  \includegraphics[width=2.0in]{images/examples/dg/MappedContext.png}
-  \includegraphics[width=2.0in]{images/examples/dg/MappedCloseUp.png}
-  \includegraphics[width=2.0in]{images/examples/dg/MappedCloseUpDRG.png}
-\caption{Example colorized height map and ortho image output.}
-\label{fig:dg-map-example}
-\end{figure}
-
-\subsubsection*{Commands}
-
-\begin{verbatim}
-    > mapproject --t_srs "+proj=eqc +units=m +datum=WGS84" \
-        --tr 0.5 srtm_53_07.tif                            \
-        12FEB12053305-P1BS_R2C1-052783824050_01_P001.TIF   \
-        12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML   \
-        left_mapped.tif
-    > mapproject --t_srs "+proj=eqc +units=m +datum=WGS84" \
-        --tr 0.5 srtm_53_07.tif                            \
-        12FEB12053341-P1BS_R2C1-052783824050_01_P001.TIF   \
-        12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML   \
-        right_mapped.tif
-    > stereo -t dg --subpixel-mode 1 --alignment-method none  \
-             left_mapped.tif right_mapped.tif                 \
-             12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML \
-             12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML \
-             dg/dg srtm_53_07.tif
-\end{verbatim}
-
-If the \texttt{--t\_srs} option is not specified, it will be read from
-the low-resolution input DEM.
-
-The complete list of options for \texttt{mapproject} is described in
-section \ref{mapproject}.
-
-In the \texttt{stereo} command, we have used \texttt{subpixel-mode 1}
-which is less accurate but reasonably fast. We have also used
-\texttt{alignment-method none}, since the images are map-projected, and
-thus no alignment is necessary. More details about how to set these and
-other \texttt{stereo} parameters can be found in section
-\ref{settingoptionsinstereodefault}.
+ASP computes the highest quality 3D terrain if used with images map-projected
+onto a low-resolution DEM that is used as an initial guess. This process
+is described in section \ref{mapproj-example}.
 
 \section{Handling CCD Boundary Artifacts}
+\label{wvcorrect-example}
 
 Digital Globe World View images \cite{digital-globe:camera} may exhibit
 slight subpixel artifacts which manifest themselves as discontinuities
@@ -477,7 +392,7 @@ using it is in Figure \ref{fig:ccd-artifact-example}.
 \end{figure}
 
 
-\section{Dealing with Terrain Lacking Large Scale Features}
+\section{Dealing with Terrain Lacking Large-Scale Features}
 \label{sparse-disp}
 
 Stereo Pipeline's approach to performing correlation is a two-step
@@ -605,12 +520,11 @@ perspectives. Several alignment methods are supported, including
 \ref{stereo-default-preprocessing} for details).
 
 Alternatively, stereo can be performed with map-projected images
-(section \ref{sec:AligningImages} for ISIS and section \ref{mapproj} for
-Earth imagery). In effect we take a smooth low-resolution terrain and map both
-the left and right raw images onto that terrain. This automatically
-brings both images into the same perspective, and as such, for
-map-projected images the alignment method is always set to
-\texttt{none}.
+(section \ref{mapproj-example}). In effect we take a smooth
+low-resolution terrain and map both the left and right raw images onto
+that terrain. This automatically brings both images into the same
+perspective, and as such, for map-projected images the alignment method
+is always set to \texttt{none}.
 
 \subsubsection*{Correlation Parameters}
 
@@ -647,34 +561,8 @@ adding the option:
         corr-search -80 -2 20 2
 \end{verbatim}
 
-The exact values to use with this option you'll have to discover
-yourself. The numbers right of \texttt{corr-search} represent the
-horizontal minimum boundary, vertical minimum boundary, horizontal
-maximum boundary, and finally the horizontal maximum boundary.
-
-It can be tricky to
-select a good search range for the \texttt{stereo.default} file.
-That's why the best way is to let \texttt{stereo} perform an automated
-guess for the search range. If you find that you can do a
-better estimate of the search range, take look at the intermediate
-disparity images using the \texttt{disparitydebug} program to figure
-out which search directions can be expanded or contracted. The output
-images will clearly show good data or bad data depending on whether
-the search range is correct.
-
-The worst case scenario is to determine the search range manually. For
-example, for ISIS images, both images could be opened in \texttt{qview}
-and the coordinates of points that can be matched visually can be
-compared. Subtract line,sample locations in the first image from the
-coordinates of the same feature in the second image, and this will yield
-offsets that can be used in the search range.  Make several of these
-offset measurements and use them to define a line,sample bounding box,
-then expand this by 50\% and use it for \texttt{corr-search}.  This will
-produce good results in most images.
-
-Also, if you are using an alignment option, you'll instead want to
-make those disparity measurements against the written L.tif and R.tif
-files (see chapter \ref{chapter:outputfiles}) instead of the original input files.
+More details about this option and the inner workings of stereo correlation
+can be found in chapter \ref{ch:correlation}.
 
 \subsection{Performing Stereo Correlation}\label{perform-stereo}
 
@@ -757,6 +645,267 @@ If the input images are really large it may desirable to distribute the
 work over several computing nodes. ASP provides a tool named
 \texttt{parallel\_stereo} for that purpose. Its usage is described in section
 \ref{parallel}.
+
+\subsection{Running Stereo with Map-projected Images}
+\label{mapproj-example}
+
+The way stereo correlation works is by matching a neighborhood of each
+pixel in the left image to a similar neighborhood in the right image.
+This matching process can fail or become unreliable if the two images
+are too different, which can happen for example if the perspectives
+of the two cameras are very different or the underlying terrain has
+steep portions. This will result in ASP producing terrains with noise or
+missing data.
+
+ASP can mitigate this by \texttt{map-projecting} the left and right
+images onto some pre-existing low-resolution smooth terrain model
+without holes, and using the output images to do stereo. In effect, this
+makes the images much more similar and more likely for stereo
+correlation to succeed.
+
+In this mode, ASP in effect does not create a terrain model from scratch,
+but rather uses an existing terrain model as an initial guess, and
+improves on it.
+
+For Earth, an existing terrain model can be, for example, NASA SRTM,
+GMTED2010, USGS's NED data, or NGA's DTED data. There exist pre-made
+terrain models for other planets as well.
+
+Alternatively, a low-resolution smooth DEM can be obtained by running
+ASP itself as described in previous sections. In such a run, subpixel
+mode may be set to parabola (\texttt{subpixel-mode 1}) for speed. To
+make it sufficiently coarse and smooth, the resolution can be set to
+about 40 times coarser than either the default \texttt{point2dem}
+resolution or the resolution of the input images. If the resulting DEM
+turns out to be noisy or have holes, one could change the search radius
+factor, use hole-filling, more aggressive outlier removal, and erosion
+of pixels at the boundary (those tend to be less
+reliable). Alternatively, holes can be filled with \texttt{dem\_mosaic}.
+
+The tool used for map-projecting the images is called
+\texttt{mapproject} (section \ref{mapproject}). It is very important to
+specify correctly the output resolution (the \texttt{-\/-tr} option for
+\texttt{mapproject}) when creating map-projected images. For example, if
+you know that your input images are about 1 meter/pixel, use the same
+number in \texttt{mapproject} (of course, if your projection is in
+degrees, you should convert this value to degrees before using it). If
+the output resolution is not correct, there will be artifacts in the
+stereo results.
+
+Some experimentation on a small area may be necessary to obtain the best
+results.
+
+\subsubsection{Example for ISIS images}
+
+\begin{figure}[h!]
+\centering
+   \includegraphics[width=6.0in]{images/stereo_mapproj.png}
+\caption{A DEM obtained using plain stereo (left) and stereo
+  with map-projected images (right). Their quality will be comparable
+  for relatively flat terrain and the second will be much better for
+  rugged terrain. The right image has some artifacts, but those are limited
+  to areas close to the boundary.}
+\label{fig:mapproj-example}
+\end{figure}
+
+In this example we illustrate how to run stereo with map-projected
+images for ISIS images. We start with LRO NAC Lunar images M1121224102LE
+and M1121209902LE from ASU's LRO NAC web site, http://lroc.sese.asu.edu/. We convert them
+to ISIS cubes using the ISIS tool \texttt{lronac2isis}, then we use the
+ISIS tools \texttt{lronaccal}, \texttt{lrnonacecho}, and
+\texttt{spiceinit} to do radiometric and echo correction and update the
+SPICE kernels. We name the two obtained .cub files \texttt{left.cub} and
+\texttt{right.cub}.
+
+Here we decided to run ASP to create the low-resolution DEM needed for
+map-projection, rather than get them from an external source. For speed,
+we process just a small portion of the images:
+
+\begin{verbatim}
+  parallel_stereo left.cub right.cub            \
+    --left-image-crop-win 1984 11602 4000 5000  \
+    --right-image-crop-win 3111 11027 4000 5000 \
+    --job-size-w 1024 --job-size-h 1024         \
+    --subpixel-mode 1                           \
+    run_nomap/run
+\end{verbatim}
+
+The input images have resolution of about 1 meter, or $3.3 \times
+10^{-5}$ degrees on the Moon. We create the low-resolution DEM using a
+resolution 40 times as coarse, so we use a grid size of $0.0013$ degrees
+(we use degrees since the default \texttt{point2dem} projection invoked
+here is \texttt{longlat}).
+
+\begin{verbatim}
+  point2dem  -r moon --nodata-value -32768 --tr 0.0013 run_nomap/run-PC.tif
+\end{verbatim}
+
+As mentioned earlier, some tweaks to the parameters used by \texttt{point2dem}
+may be necessary for this low-resolution DEM to be smooth enough and
+with no holes.
+
+Next, we map-project the images onto this DEM, using the original resolution
+of $3.3 \times 10^{-5}$ degrees.
+
+\begin{verbatim}
+  mapproject --tr 0.000033 run_nomap/run-DEM.tif left.cub left_proj.tif \
+    --t_projwin 3.6175120 25.5669989 3.6653695 25.4952127
+  mapproject --tr 0.000033 run_nomap/run-DEM.tif right.cub right_proj.tif \
+    --t_projwin 3.6175120 25.5669989 3.6653695 25.4952127
+\end{verbatim}
+
+Notice that we restricted the area of computation using \texttt{-\/-t\_projwin}
+to again make the process faster.
+
+Next, we do stereo with these map-projected images.
+
+\begin{verbatim}
+  parallel_stereo --job-size-w 1024 --job-size-h 1024 \
+    --subpixel-mode 3                                 \
+    left_proj.tif right_proj.tif left.cub right.cub   \
+    run_map/run run_nomap/run-DEM.tif
+\end{verbatim}
+
+Notice that even though we use map-projected images, we still specified
+the original images as the third and fourth arguments. That because we
+need the camera information from those files.  The fifth argument is
+the output prefix, while the sixth is the low-resolution DEM we used for
+map-projection. We have used here \texttt{-\/-subpixel-mode 3} as this
+will be the final point cloud and we want the increased accuracy.
+
+Lastly, we create a DEM at 1 meter resolution:
+\begin{verbatim}
+  point2dem  -r moon --nodata-value -32768 --tr 0.000033 run_map/run-PC.tif
+\end{verbatim}
+Note here that we could have used a coarser resolution for the final
+DEM, such as 4 meters/pixel, since we won't see detail at the level of
+1 meter in this DEM, as the stereo process is lossy. This is
+explained in more detail in section \ref{post-spacing}.
+
+In figure \ref{fig:mapproj-example} we show the effect of using
+map-projected images on accuracy of the final DEM.
+
+It is important to note that we could have map-projected the images
+using the ISIS tool \texttt{cam2map}, as described in section
+\ref{sec:AligningImages}. The current approach could be preferable since
+it allows us to choose the DEM to map-project onto, and it is much faster,
+since ASP's \texttt{mapproject} uses multiple processes, while \texttt{cam2map}
+is restricted to one process and one thread.
+
+\subsubsection{Example for Digital Globe Images}
+\label{dg-mapproj}
+
+In this section we will describe how to run stereo with map-projected
+images for Digital Globe cameras for Earth. The same process can be used
+with very minor modifications for any satellite imagery that uses the
+the RPC camera model. All that is needed is to replace the stereo
+session when invoking \texttt{stereo} below with \texttt{rpcmaprpc} from
+\texttt{dgmaprpc}.
+
+Unlike the previous section, here we will use an external DEM to map-project
+onto, rather than creating our own. We will use a variant of NASA
+SRTM data with no holes. Other choices have been mentioned earlier.
+
+It is important to note that ASP expects the input low-resolution DEM to
+be in reference to a datum ellipsoid, such as WGS84 or NAD83. If the DEM
+is in respect to either the EGM96 or NAVD88 geoids, the ASP tool
+\texttt{dem\_geoid} can be used to convert the DEM to WGS84 or NAD83
+(section \ref{demgeoid}). (The same tool can be used to convert back the
+final output ASP DEM to be in reference to a geoid, if desired.)
+
+Not applying this conversion might not properly negate the parallax
+seen between the two images, though it will not corrupt the
+triangulation results. In other words, sometimes one may be able to
+ignore the vertical datums on the input but we do not recommend
+doing that. Also, you should note that the geoheader attached to those
+types of files usually does not describe the vertical datum they
+used. That can only be understood by careful reading of your
+provider's documents.
+
+In this example we use as an input low-resolution DEM the file
+\texttt{srtm\_53\_07.tif}, a 90 meter resolution tile from the CGIAR-CSI
+modification of the original NASA SRTM product \cite{cgiar:srtm90m}.
+The NASA SRTM square for this example spot in India is N26E080.
+
+Below are the commands for map-projecting the input and then running
+through stereo. You can use any projection you like as long as it
+preserves detail in the imagery. Note that the last parameter in the
+stereo call is the input low-resolution DEM. The dataset is the same
+as the one used in section \ref{rawdg}.
+
+\begin{figure}[h!]
+\centering
+  \includegraphics[width=2.0in]{images/examples/dg/MappedContext.png}
+  \includegraphics[width=2.0in]{images/examples/dg/MappedCloseUp.png}
+  \includegraphics[width=2.0in]{images/examples/dg/MappedCloseUpDRG.png}
+\caption{Example colorized height map and ortho image output.}
+\label{fig:dg-map-example}
+\end{figure}
+
+\subsubsection*{Commands}
+
+\begin{verbatim}
+    mapproject -t rpc --t_srs "+proj=eqc +units=m +datum=WGS84" \
+      --tr 0.5 srtm_53_07.tif                            \
+      12FEB12053305-P1BS_R2C1-052783824050_01_P001.TIF   \
+      12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML   \
+      left_mapped.tif
+    mapproject -t rpc --t_srs "+proj=eqc +units=m +datum=WGS84" \
+      --tr 0.5 srtm_53_07.tif                            \
+      12FEB12053341-P1BS_R2C1-052783824050_01_P001.TIF   \
+      12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML   \
+      right_mapped.tif
+    stereo -t dgmaprpc --subpixel-mode 1 --alignment-method none  \
+           left_mapped.tif right_mapped.tif                 \
+           12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML \
+           12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML \
+           dg/dg srtm_53_07.tif
+\end{verbatim}
+
+If the \texttt{-\/-t\_srs} option is not specified, it will be read from
+the low-resolution input DEM.
+
+The complete list of options for \texttt{mapproject} is described in
+section \ref{mapproject}.
+
+In the \texttt{stereo} command, we have used \texttt{subpixel-mode 1}
+which is less accurate but reasonably fast. We have also used
+\texttt{alignment-method none}, since the images are map-projected, and
+thus no alignment is necessary. More details about how to set these and
+other \texttt{stereo} parameters can be found in section
+\ref{settingoptionsinstereodefault}.
+
+It is important to note here that any Digital Globe camera file has two
+models in it, the exact linescan model (which we name \texttt{DG}), and
+its \texttt{RPC} approximation. Above, we have used the approximate RPC
+model for map-projection, since map-projection is just a pre-processing
+step to make the images more similar to each other, this step will be
+undone during stereo triangulation, and hence using the RPC model is
+good enough, while being much faster than the exact \texttt{DG}
+model. At the stereo stage, we see above that we invoked the
+\texttt{dgmaprpc} session, which suggests that we have used the RPC
+model during map-projection, but we would like to use the accurate DG
+model when performing actual triangulation from the cameras to the
+ground.
+
+For non-Digital Globe images we could have used the same process but
+we'd invoke the \texttt{rpcmaprpc} session during stereo. In fact, this
+is possible for Digital Globe imagery as well, in that case we'll simply
+bypass the accurate linescan model altogether and use the RPC model at
+all stages of the process.
+
+\subsubsection{Pinhole Camera Models}
+
+Map-projected images can also be used with Pinhole camera models. The
+\texttt{mapproject} command needs to be invoked with \texttt{-t
+pinhole}. When invoking \texttt{stereo}, the first two arguments
+should again be the images, followed by the camera models, output
+prefix, and the name of the DEM used for map-projection. The session
+name passed to \texttt{stereo} should be either
+\texttt{pinholemappinhole} or \texttt{pinhole} (the tool is able to
+understand that, since an input DEM was passed in, both of these refer to
+stereo with map-projected images).
+
 
 \subsection{Multi-View Stereo}
 \label{multiview}
@@ -1028,30 +1177,6 @@ complete documentation is in section \ref{point2dem}.
 \hfill
 \end{figure}
 
-\subsection{Fine-Tuning the Results}
-
-There are several options in Stereo Pipeline that, when adjusted, can
-help produce higher quality output.
-
-During the filtering step of stereo (section \ref{stereo_dec}), one can
-choose between several ways of removing outliers, control how much
-hole-filling should take place, if at all, and if to remove small
-isolated regions from the output. This is detailed in section
-\ref{filter_options}. In the latest iterations of ASP, we suggest that
-at this stage only the removal of small regions should take place, while
-outlier removal and hole-filling be delayed until triangulation and 3D
-terrain generation, as described in the next paragraph.
-
-During the triangulation step, erroneous points in the output point
-cloud can be filtered out based on a range of distances from either the
-left camera or the planet center. More details are in section
-\ref{triangulation_options}. When creating a 3D terrain model with
-\texttt{point2dem}, additional customizable outlier removal based on
-triangulation error takes place, and small holes can be filled in the
-DEM itself or the orthoimage. Lastly, boundary DEM pixels (which are
-sometimes noisy) can be eroded using the \texttt{dem\_mosaic} tool
-(section \ref{demmosaic}) whose main purpose is to mosaic DEMs.
-
 % \begin{figure}
 % \begin{center}
 % \includegraphics[width=4in]{images/p19-dems.png}
@@ -1194,6 +1319,9 @@ the \ac{DEM} and the shaded relief file that should be used:
 
 See figure \ref{hrad-color} showing the images obtained with these commands.
 
+The complete documentation for \texttt{colormap} is in section
+\ref{sec:colormap}, and for \texttt{hillshade} in section \ref{sec:hillshade}.
+
 \begin{figure}[b!]
 \begin{center}
 \includegraphics[width=4.7in]{images/p19-colorized-shaded.png}
@@ -1232,6 +1360,8 @@ left image onto the DEM, and the images created earlier with
 
 Figure \ref{hrad-kml} shows the obtained KML files in Google Earth.
 
+The complete documentation is in section \ref{sec:image2qtree}.
+
 \begin{figure}[b!]
 \begin{center}
 \includegraphics[width=6in]{images/p19-googlemars.png}
@@ -1240,3 +1370,54 @@ Figure \ref{hrad-kml} shows the obtained KML files in Google Earth.
         The colorized hillshade DEM as a KML overlay.  }
 \end{center}
 \end{figure}
+
+\section{Tips and Tricks}
+
+Here we summarize, in one place, some insights in how to get the most
+from ASP, particularly the highest quality results in the smallest
+amount of time.
+
+\begin{itemize}
+\item Ask for help or if you have questions. We're always glad to share
+what we know, implement suggestions, and fix issues (section
+\ref{get-help}).
+
+\item Use the GUI (section \ref{stereo_gui}) to get comfortable with ASP on a
+  small region and to tune parameters (section \ref{stereo_gui}).
+
+\item The highest quality results with ASP can be obtained with
+  map-projected images (section \ref{mapproj-example}).
+
+\item Run stereo on multiple machines (section \ref{parallel}).
+
+\item Improve the quality of the inputs to get better outputs.
+Bundle-adjustment can be used to find out the camera positions more
+accurately (section \ref{baasp}). CCD artifact correction can be used
+to remove artifacts from WorldView images (section
+\ref{wvcorrect-example}).
+
+\item Align the output point cloud to some known absolute reference with
+\texttt{pc\_align} (section \ref{pc-align-example}).
+
+\item Remove noise from the output point cloud. During stereo
+triangulation, points that are further or closer than given distances
+from planet center or camera center can be removed as outliers
+(section \ref{triangulation_options}). During DEM generation (section
+\ref{point2dem}), points with large triangulation error can be removed
+using \texttt{-\/-remove-outliers-params}. Spikes can be removed with
+\texttt{-\/-median-filter-params}. Points close to the boundary, that
+tend to be less accurate, can be eroded (\texttt{-\/-erode-length}).
+
+\item Fill holes in output orthoimages for nicer display (also in DEMs),
+during DEM and orthoimage generation with \texttt{point2dem} (section
+\ref{point2dem}). Holes in an existing DEM can also be filled using
+\texttt{dem\_mosaic} (section \ref{demmosaic}).
+
+\item To get good results if the images lack large-scale features (such
+as for ice plains) use a different way to get the low-resolution
+disparity (section \ref{sparse-disp}).
+
+We'll be happy to add here more suggestions from community's accumulated
+wisdom on using ASP.
+
+\end{itemize}

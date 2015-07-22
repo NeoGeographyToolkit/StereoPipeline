@@ -3,18 +3,20 @@
 -  Improved speed, coverage, and accuracy for areas with steep slopes
    for ISIS, RPC and Pinhole cameras by implementing stereo using images 
    map-projected onto an existing DEM (functionality previously available
-   only for Digital Globe images). See section ??? in the documentation. 
+   only for Digital Globe images). Documentation has been added about
+   how to use this mode. 
 
 -  Added stereo_gui, a GUI frontend having the same interface as stereo,
    that can be used to visualize the input images and run stereo only
    on desired regions. Doubles as a viewer for very large images with
    integer or floating-point pixels, including ISIS cubes and DEMs,
-   if invoked with images only and no stereo options. Based on Michael 
-   Broxton's vwv tool.
+   if invoked with images only and no stereo options. It can also be
+   used to view/add/delete interest point matches.  Based on Michael 
+   Broxton's vwv tool. 
 
  - New tools
-   * Added gdalinfo and gdal_translate to the bin directory. These 
-     executables are compiled with JPEG2000 and BigTIFF support, and 
+   * Added gdalinfo, gdal_translate, and gdalbuildvrt to the bin directory.
+     These executables are compiled with JPEG2000 and BigTIFF support, and 
      can handle NTF images.
    * Documented the colormap tool. Added a new colormap option based 
      on the paper "Diverging Color Maps for Scientific Visualization" 
@@ -54,7 +56,7 @@
    * Fixed a bug in creating DEMs from CSV files when different projections
      are used on input and output.
    * Expose to user gnomonic and oblique stereographic projections,
-     as well as false easting and false northing (where appicable). 
+     as well as false easting and false northing (where applicable). 
      This is a shortcut from using explicitly t_srs for the PROJ.4 string.
    * The default no-data value is set to the smallest float.
  
@@ -100,13 +102,18 @@
  - dg_mosaic
    * Default penalty weight produces a more accurate fit when creating an 
      RPC model from a DG model.
+   * Handle the situation when two images to be mosaicked start at the 
+     same output row number.
 
  - Misc.
    * Upgraded to ISIS 3.4.9.6185.
    * Oldest supported OSX version is 10.8.
    * For stereo and bundle_adjust, added the option --ip-points-per-tile, 
      to search for more interest points if the default is insufficient.
- 
+   * Added documentation for image2qtree and hillshade.
+   * Added a documentation section on 'tips and tricks', summarizing 
+     in one place some practices for getting the most out of ASP.
+
 *** RELEASE 2.4.2, October 6, 2014 ***
 
  - ASP can perform multi-view triangulation (using both the
