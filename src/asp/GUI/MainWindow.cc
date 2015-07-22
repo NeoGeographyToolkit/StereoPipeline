@@ -23,7 +23,6 @@
 #include <QtGui>
 #include <asp/GUI/MainWindow.h>
 #include <asp/GUI/MainWidget.h>
-#include <asp/GUI/Utils.h>
 using namespace vw::gui;
 
 #include <vw/config.h>
@@ -137,6 +136,12 @@ void MainWindow::create_menus() {
   connect(m_run_stereo_action, SIGNAL(triggered()), this, SLOT(run_stereo()));
   m_run_stereo_action->setShortcut(tr("R"));
 
+  // Run parallel_stereo
+  m_run_parallel_stereo_action = new QAction(tr("Run parallel_stereo"), this);
+  m_run_parallel_stereo_action->setStatusTip(tr("Run parallel_stereo on selected clips."));
+  connect(m_run_parallel_stereo_action, SIGNAL(triggered()), this, SLOT(run_parallel_stereo()));
+  m_run_parallel_stereo_action->setShortcut(tr("R"));
+
   // Size to fit
   m_sizeToFit_action = new QAction(tr("Size to fit"), this);
   m_sizeToFit_action->setStatusTip(tr("Change the view to encompass the images."));
@@ -170,6 +175,7 @@ void MainWindow::create_menus() {
   // Run menu
   m_file_menu = menu->addMenu(tr("&Run"));
   m_file_menu->addAction(m_run_stereo_action);
+  m_file_menu->addAction(m_run_parallel_stereo_action);
 
   // View menu
   m_view_menu = menu->addMenu(tr("&View"));
@@ -227,7 +233,7 @@ void MainWindow::viewMatches(){
 
     for (int i = 0; i < int(m_images.size()); i++) {
       for (int j = int(i+1); j < int(m_images.size()); j++) {
-        string match_filename
+        std::string match_filename
           = vw::ip::match_filename(m_output_prefix, m_images[i], m_images[j]);
         vw_out() << "Loading " << match_filename << std::endl;
         try {
@@ -292,7 +298,7 @@ void MainWindow::saveMatches(){
 
   for (int i = 0; i < int(m_images.size()); i++) {
     for (int j = int(i+1); j < int(m_images.size()); j++) {
-      string match_filename
+      std::string match_filename
         = vw::ip::match_filename(m_output_prefix, m_images[i], m_images[j]);
       try {
         vw_out() << "Writing: " << match_filename << std::endl;
@@ -307,7 +313,7 @@ void MainWindow::saveMatches(){
 }
 
 
-void MainWindow::run_stereo(){
+void MainWindow::run_stereo_or_parallel_stereo(std::string const& cmd){
 
   if (m_widgets.size() >= 2) {
     QRect left_win = m_widgets[0]->get_crop_win();
@@ -323,8 +329,8 @@ void MainWindow::run_stereo(){
     int right_wx = right_win.width();
     int right_wy = right_win.height();
 
-    // Run stereo
-    std::string run_cmd = "stereo ";
+    // Command
+    std::string run_cmd = cmd + " ";
     for (int i = 1; i < m_argc; i++) {
       run_cmd += std::string(m_argv[i]) + " ";
     }
@@ -341,6 +347,14 @@ void MainWindow::run_stereo(){
   } else {
     QMessageBox::about(this, tr("Error"), tr("Not ready to run stereo"));
   }
+}
+
+void MainWindow::run_stereo(){
+  MainWindow::run_stereo_or_parallel_stereo("stereo");
+}
+
+void MainWindow::run_parallel_stereo(){
+  MainWindow::run_stereo_or_parallel_stereo("parallel_stereo");
 }
 
 void MainWindow::about() {

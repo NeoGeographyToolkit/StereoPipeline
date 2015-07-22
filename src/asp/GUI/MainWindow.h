@@ -61,12 +61,15 @@ namespace vw {
     void hideMatches();
     void saveMatches();
     void run_stereo();
+    void run_parallel_stereo();
     void about();
 
   protected:
     void keyPressEvent(QKeyEvent *event);
 
   private:
+
+    void run_stereo_or_parallel_stereo(std::string const& cmd);
 
     void create_menus();
 
@@ -92,6 +95,7 @@ namespace vw {
     QAction *m_hideMatches_action;
     QAction *m_saveMatches_action;
     QAction *m_run_stereo_action;
+    QAction *m_run_parallel_stereo_action;
     QAction *m_exit_action;
 
     int m_argc;

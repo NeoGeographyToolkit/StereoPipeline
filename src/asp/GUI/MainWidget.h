@@ -388,7 +388,6 @@ private:
 
     // Mouse position
     vw::Vector2 m_curr_pixel_pos, m_curr_world_pos;
-    QPoint m_last_viewport_min;
 
     // Dimensions and stats
     int m_window_width;  // the width  of the plotting window in screen pixels
@@ -399,7 +398,7 @@ private:
     int m_use_nodata;
 
     // Image Parameters
-    vw::BBox2 m_current_view;
+    vw::BBox2 m_current_view, m_last_view;
     double m_gain, m_last_gain;
     double m_offset, m_last_offset;
     double m_gamma, m_last_gamma;

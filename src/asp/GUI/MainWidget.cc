@@ -667,10 +667,10 @@ void MainWidget::mousePressEvent(QMouseEvent *event) {
   m_last_gain = m_gain;     // Store this so the user can do linear
   m_last_offset = m_offset; // and nonlinear steps.
   m_last_gamma = m_gamma;
-  m_last_viewport_min = QPoint( m_current_view.min().x(),
-                                m_current_view.min().y() );
   updateCurrentMousePosition();
 
+  // Need this for panning
+  m_last_view = m_current_view;
 }
 
 void MainWidget::mouseMoveEvent(QMouseEvent *event) {
@@ -681,22 +681,22 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
   double width = m_current_view.width();
   double height = m_current_view.height();
 
-  if (event->buttons() & Qt::RightButton) {
+  if (event->modifiers() & Qt::AltModifier) {
+
+    // TODO: Support other adjustment modes
+    m_adjust_mode = TransformAdjustment;
 
     std::ostringstream s;
     switch (m_adjust_mode) {
-
     case NoAdjustment:
       break;
     case TransformAdjustment:
-      m_current_view.min().x() =
-        m_last_viewport_min.x() - x_diff * width;
-      m_current_view.min().y() =
-        m_last_viewport_min.y() - y_diff * height;
-      m_current_view.max().x() =
-        m_last_viewport_min.x() - x_diff * width + width;
-      m_current_view.max().y() =
-        m_last_viewport_min.y() - y_diff * height + height;
+      m_current_view.min().x() = m_last_view.min().x() + x_diff;
+      m_current_view.max().x() = m_last_view.max().x() + x_diff;
+      m_current_view.min().y() = m_last_view.min().y() + y_diff;
+      m_current_view.max().y() = m_last_view.max().y() + y_diff;
+      refreshPixmap();
+
       break;
 
     case GainAdjustment:
@@ -933,6 +933,7 @@ void MainWidget::keyPressEvent(QKeyEvent *event) {
     zoom(1.0/0.75);
     break;
 
+#if 0
   case Qt::Key_I:  // Toggle bilinear/nearest neighbor interp
     m_bilinear_filter = !m_bilinear_filter;
     break;
@@ -987,6 +988,8 @@ void MainWidget::keyPressEvent(QKeyEvent *event) {
   case Qt::Key_0:  // Display all color channels
     m_display_channel = DisplayRGBA;
     break;
+#endif
+
   default:
     QWidget::keyPressEvent(event);
   }
