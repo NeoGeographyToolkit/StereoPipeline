@@ -998,10 +998,10 @@ releases for backward compatibility). We ported all features of
 \texttt{orthoproject} except for projecting of vector imagery (for
 example, RGB pixel data).
 
-\texttt{mapproject} is single-threaded for ISIS cameras due to
-the limitations of ISIS. At some point this tool will be able to
-distribute itself using multiple processes to work around this limitation.
-
+Any program using ISIS cameras must be single-threaded, due to the
+limitations of ISIS. To overcome this, \texttt{mapproject} when invoked
+for ISIS images sprawns multiple processes, each working on individual
+tiles, then mosaics the results.
 
 Examples:
 \begin{verbatim}

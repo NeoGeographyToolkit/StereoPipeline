@@ -92,13 +92,17 @@
  - bundle_adjust
     * Bug fix in handling situations when a point cannot get projected
       into the camera.
+
  - image2qtree
    * Bug fixes.
  
  - cam2map4stereo.py
    * Create temporary files in current directory, to avoid access
      issues to system directories.
- 
+
+ - mapproject
+   * Sprawn multiple processes for ISIS images, to improve the speed.
+   
  - dg_mosaic
    * Default penalty weight produces a more accurate fit when creating an 
      RPC model from a DG model.
