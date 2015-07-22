@@ -436,6 +436,7 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
     write_vector(left_stats_file,  left_stats2 );
     write_vector(right_stats_file, right_stats2);
   }
+
 } // End function stereo_preprocessing
 
 int main(int argc, char* argv[]) {

@@ -484,6 +484,8 @@ if __name__ == '__main__':
                  action='store_true', help='Display the version of software.')
     p.add_option('-s', '--stereo-file',    dest='filename',    default='./stereo.default',
                  help='Explicitly specify the stereo.default file to use. [default: ./stereo.default]')
+    p.add_option('--verbose', dest='verbose', default=False, action='store_true',
+                 help='Display the commands being executed.')
 
     # Internal variables below.
     # The id of the tile to process, 0 <= tile_id < num_tiles.
@@ -499,8 +501,6 @@ if __name__ == '__main__':
                  help=optparse.SUPPRESS_HELP)
     # Debug options
     p.add_option('--dry-run', dest='dryrun', default=False, action='store_true',
-                 help=optparse.SUPPRESS_HELP)
-    p.add_option('--verbose', dest='verbose', default=False, action='store_true',
                  help=optparse.SUPPRESS_HELP)
 
     global opt
@@ -617,17 +617,24 @@ if __name__ == '__main__':
             settings=run_and_parse_output( "stereo_parse", args, sep,
                                            opt.verbose )
 
-        # Correlation. First do low-res.
+        # Correlation.
         step = Step.corr
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ): sys.exit()
+
+            # First do low-res correlation, this happens just once.
             if ( opt.seed_mode == 3 ):
                 run_sparse_disp(args, opt)
             else:
                 single_run('stereo_corr',
                            args_sub, msg='%d: Low-res correlation' % step)
             create_subproject_dirs( settings ) # symlink D_sub
+
+            # Low-res correlation is done. Run full-res stereo
+            # using multiple processes.
+            self_args.extend(['--skip-low-res-disparity-comp'])
             sprawn_to_nodes(step, settings, self_args)
+
             # Bugfix: When doing refinement for a given tile, we must see
             # the result of correlation for all tiles. To achieve that,
             # rename all correlation tiles to something else,
@@ -656,10 +663,16 @@ if __name__ == '__main__':
         step = Step.tri
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ): sys.exit()
+
+            # First compute the point cloud center. This is done
+            # just once.
             l_args = args[:] # deep copy
             l_args.append('--compute-point-cloud-center-only')
             single_run('stereo_tri',  l_args, msg='%d: Triangulation' % step)
             create_subproject_dirs( settings ) # symlink cloud center
+
+            # Next run triangulation on multiple machines
+            self_args.extend(['--skip-point-cloud-center-comp'])
             sprawn_to_nodes(step, settings, self_args)
             build_vrt( settings, "-PC.tif", "-PC.tif" ) # mosaic
 

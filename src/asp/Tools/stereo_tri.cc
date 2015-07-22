@@ -420,13 +420,23 @@ void stereo_triangulation( string          const& output_prefix,
                                             (stereo_error_triangulate(disparity_maps, transforms, stereo_model, is_map_projected),
                                              universe_radius_func);
 
+    // If we crop the left and right images, at each run we must
+    // recompute the cloud center, as the cropping windows may
+    // have changed.
+    bool crop_left_and_right =
+      ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
+      ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
+
     // Compute the point cloud center, unless done by now
     Vector3 cloud_center = Vector3();
     if (!stereo_settings().save_double_precision_point_cloud){
       string cloud_center_file = output_prefix + "-PC-center.txt";
-      if (!read_point(cloud_center_file, cloud_center)){
-        cloud_center = find_point_cloud_center(opt_vec[0].raster_tile_size, point_cloud);
-        write_point(cloud_center_file, cloud_center);
+      if (!read_point(cloud_center_file, cloud_center) || crop_left_and_right){
+        if (!stereo_settings().skip_point_cloud_center_comp) {
+          cloud_center
+            = find_point_cloud_center(opt_vec[0].raster_tile_size, point_cloud);
+          write_point(cloud_center_file, cloud_center);
+        }
       }
     }
     if (stereo_settings().compute_point_cloud_center_only){

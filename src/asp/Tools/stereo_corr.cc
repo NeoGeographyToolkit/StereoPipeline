@@ -143,15 +143,9 @@ void lowres_correlation( Options & opt ) {
     string match_filename
       = ip::match_filename(opt.out_prefix, opt.in_file1, opt.in_file2);
 
-    bool crop_left_and_right =
-      ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
-      ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
-
-    if (!fs::exists(match_filename) || crop_left_and_right) {
-      // If there is no match file for the input images, or if we
-      // are cropping images, case in which we must always recreate
-      // the matches, gather some IP from the low resolution
-      // images. This routine should only run for:
+    if (!fs::exists(match_filename)) {
+      // If there is no match file for the input images, gather some IP from the
+      // low resolution images. This routine should only run for:
       //   Pinhole + Epipolar
       //   Pinhole + None
       //   DG + None
@@ -211,9 +205,10 @@ void lowres_correlation( Options & opt ) {
 
   // Performing disparity on sub images
   if ( stereo_settings().seed_mode > 0 ) {
-    // Reuse prior existing D_sub if it exists, unless we
-    // are cropping the images each time.
 
+    // Reuse prior existing D_sub if it exists, unless we
+    // are cropping the images each time, when D_sub must
+    // be computed anew each time.
     bool crop_left_and_right =
       ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
       ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
@@ -505,7 +500,8 @@ seeded_correlation( ImageViewBase<Image1T>        const& left,
 
 void stereo_correlation( Options& opt ) {
 
-  lowres_correlation(opt);
+  if (!stereo_settings().skip_low_res_disparity_comp)
+    lowres_correlation(opt);
 
   if (stereo_settings().compute_low_res_disparity_only) return;
 

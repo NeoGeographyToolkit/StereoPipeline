@@ -117,6 +117,7 @@ namespace asp {
     vw::BBox2i   search_range;        // Correlation search range
     vw::uint16   corr_max_levels;     // Max pyramid levels to process. 0 hits only once.
     bool compute_low_res_disparity_only;      // Skip the full-resolution disparity computation
+    bool skip_low_res_disparity_comp;
     std::string disparity_estimation_dem;     // DEM to use in estimating the low-resolution disparity
     double disparity_estimation_dem_error; // Error (in meters) of the disparity estimation DEM
     bool   use_local_homography;      // Apply a local homography in each tile
@@ -163,6 +164,7 @@ namespace asp {
     bool   use_least_squares;         // Use a more rigorous triangulation
     bool   save_double_precision_point_cloud; // Save final point cloud in double precision rather than bringing the points closer to origin and saving as float (marginally more precision at 2x the storage).
     double point_cloud_rounding_error;// How much to round the output point cloud values
+    bool   skip_point_cloud_center_comp;
     bool   compute_point_cloud_center_only; // Only compute the center of triangulated point cloud and exit.
     bool   compute_error_vector;      // Compute the triangulation error vector, not just its length
 
