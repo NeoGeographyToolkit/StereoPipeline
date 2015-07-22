@@ -87,9 +87,9 @@ void print_vec(std::string const& name, Vector<double> const& vals){
   std::cout.precision(16);
   std::cout << name << ",";
   int len = vals.size();
-  for (int i = 0; i < len - 1; i++) 
+  for (int i = 0; i < len - 1; i++)
     std::cout << vals[i] << ",";
-  if (len > 0) 
+  if (len > 0)
     std::cout << vals[len-1];
   std::cout << std::endl;
 }
@@ -99,15 +99,15 @@ void print_vec_to_file(std::string const& path, Vector<double> const& vals) {
   std::ofstream outFile(path.c_str());
   outFile.precision(16);
   int len = vals.size();
-  for (int i = 0; i < len - 1; i++) 
+  for (int i = 0; i < len - 1; i++)
     outFile << vals[i] << std::endl;
-  if (len > 0) 
+  if (len > 0)
     outFile << vals[len-1];
   outFile.close();
-  
+
 }
 
-void write_levmar_solver_results(std::string const& output_prefix, int status, 
+void write_levmar_solver_results(std::string const& output_prefix, int status,
                                  Vector<double> const& initial_params,
                                  Vector<double> const& final_params,
                                  Vector<double> const& actual_observation,
@@ -125,12 +125,12 @@ void write_levmar_solver_results(std::string const& output_prefix, int status,
   VW_OUT(VerboseDebugMessage, "math") << "rpc_gen: levmar solver final   error norm_2 = " << norm_2(final_error  ) << std::endl;
 
   //// Dump the values to file
-  print_vec_to_file(output_prefix + "_initial_parameters.csv", initial_params);
-  print_vec_to_file(output_prefix + "_final_parameters.csv",   final_params);
-  print_vec_to_file(output_prefix + "_initial_projected.csv", initial_projected);
-  print_vec_to_file(output_prefix + "_final_projected.csv",   final_projected);
-  print_vec_to_file(output_prefix + "_initial_error.csv",     initial_error);
-  print_vec_to_file(output_prefix + "_final_error.csv",       final_error);
+  //print_vec_to_file(output_prefix + "_initial_parameters.csv", initial_params);
+  //print_vec_to_file(output_prefix + "_final_parameters.csv",   final_params);
+  //print_vec_to_file(output_prefix + "_initial_projected.csv", initial_projected);
+  //print_vec_to_file(output_prefix + "_final_projected.csv",   final_projected);
+  //print_vec_to_file(output_prefix + "_initial_error.csv",     initial_error);
+  //print_vec_to_file(output_prefix + "_final_error.csv",       final_error);
 
   //// Also add the results to the log
   //VW_OUT(VerboseDebugMessage, "math") << "LM: starting proj  " << initial_projected << std::endl;
@@ -162,7 +162,7 @@ int find_solution_from_seed(RpcSolveLMA    const& lma_model,
 
     // Otherwise the solver converged, return the final error number.
     Vector<double> final_projected = lma_model(final_params);
-    Vector<double> final_error     = lma_model.difference(final_projected, actual_observations);    
+    Vector<double> final_error     = lma_model.difference(final_projected, actual_observations);
     norm_error = norm_2(final_error);
     return status;
 }
@@ -229,21 +229,21 @@ int main( int argc, char* argv[] ) {
         for (int z = 0; z < num_pts; z++){
 
           // Test points are evenly spaced through the x/y/z -1 <> 1 range
-          Vector3 U( x/(num_pts - 1.0), 
-                     y/(num_pts - 1.0), 
+          Vector3 U( x/(num_pts - 1.0),
+                     y/(num_pts - 1.0),
                      z/(num_pts - 1.0) );
                   U = 2.0*U - Vector3(1, 1, 1); // in the box [-1, 1]^3.
 
           // Linear conversion from x/y/z to lat/lon/height
           Vector3 G   = elem_prod(U, llh_scale) + llh_offset; // geodetic
-          
+
           // Convert from geodetic to geocentric coordinates
           Vector3 P   = cam_rpc->datum().geodetic_to_cartesian(G); // xyz
-          
+
           // Project the GCC coordinate into the DG camera model
           Vector2 pxg = cam_dg->point_to_pixel(P);
           //Vector2 pxg = cam_rpc->point_to_pixel(P); // DEBUG -> Try fitting to RPC!
-          
+
           // Normalize the pixel to -1 <> 1 range
           Vector2 pxn = elem_quot(pxg - uv_offset, uv_scale);
 
@@ -268,7 +268,7 @@ int main( int argc, char* argv[] ) {
 
     // Initialize a specialized least squares solver object and load the input data
     RpcSolveLMA lma_model (normalizedGeodetics, normalizedPixels, penalty_adjustment);
-    
+
     int status;
     Vector<double> solution;
     double norm_error;
@@ -276,7 +276,7 @@ int main( int argc, char* argv[] ) {
     // Initialize a zero vector of RPC model coefficients
     Vector<double> startZero;
     startZero.set_size(RPCModel::NUM_RPC_COEFFS);
-    for (int i = 0; i < (int)startZero.size(); i++) 
+    for (int i = 0; i < (int)startZero.size(); i++)
       startZero[i] = 0.0;
 
     // Use the L-M solver to optimize the RPC model coefficient values.
@@ -306,11 +306,3 @@ int main( int argc, char* argv[] ) {
 
   return 0;
 }
-
-
-
-
-
-
-
-
