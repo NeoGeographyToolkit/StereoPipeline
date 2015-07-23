@@ -16,38 +16,25 @@
 # __END_LICENSE__
 
 
-#########################################
+########################################################################
 # sources
-#########################################
+########################################################################
 
-core_subdirs = Core
-core_headers = Core.h
+bin_PROGRAMS =
+bin_SCRIPTS =
+libexec_SCRIPTS = asp_cmd_utils.py asp_file_utils.py asp_geo_utils.py \
+		asp_image_utils.py asp_string_utils.py asp_system_utils.py
 
-sessions_subdirs = Sessions
-sessions_headers = Sessions.h
+all_scripts = $(libexec_SCRIPTS)
+CLEANFILES = $(all_scripts)
 
-isisio_subdirs = IsisIO
-isisio_headers = IsisIO.h
+##############################################################################
 
-spiceio_subdirs = SpiceIO
-spiceio_headers = SpiceIO.h
+AM_CPPFLAGS = @ASP_CPPFLAGS@
+AM_LDFLAGS  = @ASP_LDFLAGS@
 
-gui_subdirs = GUI
-python_subdirs = Python
-tools_subdirs = Tools
+SUBDIRS = .
 
-include_HEADERS = $(core_headers) $(spiceio_headers)            \
-	  $(isisio_headers) $(sessions_headers) asp_config.h
-
-SUBDIRS = $(core_subdirs) $(spiceio_subdirs) $(isisio_subdirs) \
-	  $(sessions_subdirs) $(gui_subdirs) $(python_subdirs) \
-	  $(tools_subdirs)
-CLEANFILES = asp_config.h.pre.in~
-
-#########################################
-# general
-#########################################
-
-includedir = $(prefix)/include/asp
+includedir = $(prefix)/include/asp/Python
 
 include $(top_srcdir)/config/rules.mak

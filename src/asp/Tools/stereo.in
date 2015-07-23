@@ -27,10 +27,8 @@ if sys.version_info < (2, 6, 0):
 # - The path to the script to the system path, so that GNU Parallel can find it.
 # - The path to the ASP python files
 thisPath         = sys.path[0]
-pythonLibPath    = thisPath + '/../lib/python' # for packaged ASP
-pythonDevLibPath = thisPath + '/../Python'     # for dev ASP
+pythonDevLibPath = thisPath + '/../Python'  # for dev ASP
 sys.path.insert(0, thisPath) # prepend to Python path
-sys.path.insert(0, pythonLibPath)
 sys.path.insert(0, pythonDevLibPath)
 
 import os.path as P

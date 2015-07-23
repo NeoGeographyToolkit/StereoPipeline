@@ -413,6 +413,7 @@ AX_MODULE(SPICEIO,  [src/asp/SpiceIO],  [libaspSpiceIO.la],  yes, [], [VW SPICE]
 AX_MODULE(ISISIO,   [src/asp/IsisIO],   [libaspIsisIO.la],   yes, [], [ISIS VW_CARTOGRAPHY])
 AX_MODULE(SESSIONS, [src/asp/Sessions], [libaspSessions.la], yes, [CORE], [XERCESC], [ISISIO SPICEIO ])
 AX_MODULE(GUI,      [src/asp/GUI],      [libaspGUI.la],      yes, [CORE], [QT], [])
+AX_MODULE(PYTHON,   [src/asp/Pyton],    [],                  yes, [],     [],   [])
 
 # Tools - The yes/no means to enable by default
 AX_APP(PC_ALIGN,         [src/asp/Tools], yes, [CORE LIBPOINTMATCHER LIBNABO YAML])
@@ -448,6 +449,7 @@ AM_CONDITIONAL(MAKE_MODULE_ISISIO,   [test "$MAKE_MODULE_ISISIO" = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_SPICEIO,  [test "$MAKE_MODULE_SPICEIO" = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_SESSIONS, [test "$MAKE_MODULE_SESSIONS" = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_GUI,      [test "$MAKE_MODULE_GUI" = "yes"])
+AM_CONDITIONAL(MAKE_MODULE_PYTHON,   [test "$MAKE_MODULE_PYTHON" = "yes"])
 
 AM_CONDITIONAL(MAKE_APP_PC_ALIGN, [test "$MAKE_APP_PC_ALIGN" = "yes"])
 AM_CONDITIONAL(MAKE_APP_BUNDLE_ADJUST, [test "$MAKE_APP_BUNDLE_ADJUST" = "yes"])
@@ -522,6 +524,7 @@ AC_CONFIG_FILES([                        \
   src/asp/Sessions/tests/Makefile        \
   src/asp/SpiceIO/Makefile               \
   src/asp/GUI/Makefile                   \
+  src/asp/Python/Makefile                \
   src/asp/Tools/Makefile
 ])
 

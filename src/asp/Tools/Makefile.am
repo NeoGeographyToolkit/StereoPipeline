@@ -25,20 +25,6 @@ bin_SCRIPTS =
 libexec_SCRIPTS =
 libexec_PROGRAMS = # Auxiliary C++ executables
 
-# Set up the location for the python library files
-pythonlibdir=$(libdir)/python
-pythonlib_DATA= 
-
-# Add the python library files
-# - This should happen in the Python folder, but automake fails when this code is put there.
-pythonlib_DATA  += ../Python/asp_cmd_utils.py
-pythonlib_DATA  += ../Python/asp_file_utils.py
-pythonlib_DATA  += ../Python/asp_geo_utils.py
-pythonlib_DATA  += ../Python/asp_image_utils.py
-pythonlib_DATA  += ../Python/asp_string_utils.py
-pythonlib_DATA  += ../Python/asp_system_utils.py  
-
-
 if MAKE_APP_STEREO
   bin_SCRIPTS      += stereo parallel_stereo sparse_disp dg_mosaic
   libexec_SCRIPTS  += stereo_utils.py
