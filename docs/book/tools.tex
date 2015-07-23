@@ -1001,7 +1001,9 @@ example, RGB pixel data).
 The \texttt{mapproject} tool can be run using multiple processes and can be
 distributed over multiple machines. This is particularly useful for
 ISIS cameras, as in that case any single process must use only one thread
-due to the limitations of ISIS.
+due to the limitations of ISIS.  The tool splits the image up into tiles,
+farms the tiles out to sub-processes, and then merges the tiles into the
+requested output image.
 
 Examples:
 \begin{verbatim}
@@ -1041,6 +1043,11 @@ output prefix. \\ \hline
 \texttt{-\/-tif-compress None|LZW|Deflate|Packbits} & TIFF compression method.\\ \hline
 \texttt{-\/-cache-dir \textit{directory(=/tmp)}} & Folder for temporary files. Normally this need not be changed.\\ \hline
 \texttt{-\/-help|-h} & Display the help message. \\ \hline
+\\ \hline
+\texttt{-\/-num-processes} & Number of parallel processes to use (default program chooses).\\ \hline
+\texttt{-\/-nodes-list} & List of available computing nodes.\\ \hline
+\texttt{-\/-tile-size} & Size of square tiles to break processing up into.\\ \hline
+\texttt{-\/-suppress-output} & Suppress output from sub-processes.\\ \hline
 \end{longtable}
 
 \clearpage
