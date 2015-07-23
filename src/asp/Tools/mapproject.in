@@ -41,7 +41,6 @@ sys.path.insert(0, pythonDevLibPath)
 
 import asp_file_utils, asp_system_utils, asp_cmd_utils, asp_image_utils
 
-
 def generateTileName(startX, startY, stopX, stopY):
     """Generate the name of a tile based on its location"""
 
@@ -129,7 +128,7 @@ def writeSingleTile(options):
     tilePath = os.path.join(options.workDir, tileName)
 
     # Just call the command for a single tile!
-    cmd = ['mapproject_single',  '--t_pixelwin', str(options.pixelStartX), str(options.pixelStartY), 
+    cmd = ['mapproject_single',  '--t_pixelwin', str(options.pixelStartX), str(options.pixelStartY),
                                                  str(options.pixelStopX), str(options.pixelStopY),
                                options.demPath, options.imagePath, options.cameraPath, tilePath]
     cmd = cmd + options.extraArgs # Append other options
@@ -232,7 +231,7 @@ def main(argsIn):
     # If the input image is NOT an ISIS image AND we are running on a single machine we can
     #  just use the multi-threading capability of the ordinary mapproject call.
     if (not asp_image_utils.isIsisFile(options.imagePath)) and (not options.nodesListPath):
-        cmd = ['mapproject_single',  options.demPath, 
+        cmd = ['mapproject_single',  options.demPath,
                 options.imagePath, options.cameraPath, options.outputPath]
         cmd = cmd + options.extraArgs
         subprocess.call(cmd)
@@ -242,7 +241,7 @@ def main(argsIn):
     # Otherwise this is the original called process and there are multiple steps to go through
 
     # Call mapproject on the input data using subprocess and record output
-    cmd = ['mapproject_single',  '--query-projection', options.demPath, 
+    cmd = ['mapproject_single',  '--query-projection', options.demPath,
                 options.imagePath, options.cameraPath, options.outputPath]
     cmd = cmd + options.extraArgs # Append other options
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
@@ -268,13 +267,13 @@ def main(argsIn):
     print 'Splitting into ' + str(numTilesX) + ' by ' + str(numTilesY) + ' tiles.'
     # If there is only going to be one output tile, just use the non-parallel call
     if (numTilesX*numTilesY == 1):
-        cmd = ['mapproject_single',  options.demPath, 
+        cmd = ['mapproject_single',  options.demPath,
                 options.imagePath, options.cameraPath, options.outputPath]
         cmd = cmd + options.extraArgs
         subprocess.call(cmd)
         return 0
-        
-        
+
+
     # Set up output folder
     outputFolder = os.path.dirname(options.outputPath)
     if outputFolder == '':
@@ -329,15 +328,18 @@ def main(argsIn):
     # Build the command line that will be passed to GNU parallel
     # - The numbers in braces will receive the values from the text file we wrote earlier
     # - The output path used here does not matter since spawned copies compute the correct tile path.
-    commandList   = ['python', 'mapproject',  '--pixelStartX', '{1}',
-                                                '--pixelStartY', '{2}',
-                                                '--pixelStopX',  '{3}',
-                                                '--pixelStopY',  '{4}',
-                                                '--threads', '1', # Only use on thread internally, parallel will handle things.
-                                                '--work-dir', tempFolder,
-                                                options.demPath, 
-                                                options.imagePath, options.cameraPath, 
-                                                options.outputPath]
+    python_path = sys.executable # children must use same Python as parent
+    mapproject_path = asp_system_utils.bin_path('mapproject')
+    commandList   = [python_path, mapproject_path,
+                     '--pixelStartX', '{1}',
+                     '--pixelStartY', '{2}',
+                     '--pixelStopX',  '{3}',
+                     '--pixelStopY',  '{4}',
+                     '--threads', '1', # Only use on thread internally, parallel will handle things.
+                     '--work-dir', tempFolder,
+                     options.demPath,
+                     options.imagePath, options.cameraPath,
+                     options.outputPath]
     if options.convertTiles:
         commandList = commandList + ['--convert-tiles']
     if options.suppressOutput:
@@ -354,7 +356,7 @@ def main(argsIn):
     # Build a gdal VRT file which is composed of all the processed tiles
     vrtPath = os.path.join(tempFolder, 'mosaic.vrt')
     cmd = "gdalbuildvrt -resolution highest " + vrtPath + " " + tempFolder + "*_.tif";
-    print cmd
+    print " ".join(cmd)
     os.system(cmd)
 
     # Convert VRT file to final output file
