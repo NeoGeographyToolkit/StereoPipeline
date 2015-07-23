@@ -19,6 +19,7 @@
 
 import sys, optparse, subprocess, re, os, time, glob
 import os.path as P
+from asp_system_utils import *
 
 def get_asp_version():
     '''Returns the current ASP version number'''
@@ -66,53 +67,6 @@ class PassThroughOptionParser(optparse.OptionParser):
                         largs.append(p.group(1))
                 else:
                     largs.append(e.opt_str)
-
-# Find if a program is in the path
-def which(program):
-    def is_exe(fpath):
-        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
-
-    fpath, fname = os.path.split(program)
-    if fpath:
-        if is_exe(program):
-            return program
-    else:
-        for path in os.environ["PATH"].split(os.pathsep):
-            path = path.strip('"')
-            exe_file = os.path.join(path, program)
-            if is_exe(exe_file):
-                return exe_file
-
-    return None
-
-# When user-exposed ASP executables are installed, they are in
-# 'bin'. Otherwise, in dev mode, they are in the same dir as __file__.
-def bin_path(prog, **kw):
-    currpath = kw.get('path', P.dirname(P.abspath(__file__)))
-    binpath = P.join(currpath, '..', 'bin', prog)
-    if not os.path.isfile(binpath):
-        binpath = P.join(currpath, prog)
-    return binpath
-
-# When hidden ASP executables are installed, they are in
-# 'libexec'. Otherwise, in dev mode, they are in the same dir as
-# __file__.
-def libexec_path(prog, **kw):
-    currpath = kw.get('path', P.dirname(P.abspath(__file__)))
-    libexecpath = P.join(currpath, '..', 'libexec', prog)
-    if not os.path.isfile(libexecpath):
-        libexecpath = P.join(currpath, prog)
-    if not os.path.isfile(libexecpath):
-        # Could not find prog in libexec either. We will come
-        # here only for executables like gdalinfo that will
-        # be packages in the release, but are not yet
-        # in dev mode. Just print a warning and hope
-        # this tool is somewhere in user's path.
-        print("Could not find: " + libexecpath)
-        libexecpath = which(prog)
-        print("Using instead: " + libexecpath)
-
-    return libexecpath
 
 # Execute a given command stored in the libexec directory and parse
 # its output. The output format is expected to be lines of
@@ -240,23 +194,6 @@ def run_sparse_disp(args, opt):
 
     stereo_run('sparse_disp', sparse_args, opt,
                msg='%d: Low-res correlation with sparse_disp' % Step.corr)
-
-def mkdir_p(path):
-    try:
-        os.makedirs(path)
-    except OSError:
-        pass
-
-def get_num_cpus():
-
-    import sys
-    if sys.version_info < (2, 6, 0):
-        num_cpus = 8
-    else:
-        from multiprocessing import cpu_count
-        num_cpus = cpu_count()
-
-    return num_cpus
 
 def parse_corr_seed_mode(filename):
 

@@ -22,10 +22,11 @@ General system related utilities
 """
 
 import sys, os, re, shutil, subprocess, string, time, errno, multiprocessing
+import os.path as P
 
 def get_num_cpus():
     """Return the number of CPUs on the current machine."""
-    
+
     import sys
     if sys.version_info < (2, 6, 0):
         num_cpus = 8
@@ -43,7 +44,7 @@ def checkIfToolExists(toolName):
     cmd = ['which', toolName]
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     translateOut, err = p.communicate()
-    
+
 
     # Check if that command failed to find the file
     failString = 'no ' + toolName + ' in ('
@@ -90,20 +91,20 @@ def runInGnuParallel(numParallelProcesses, commandString, argumentFilePath, para
 
     # Use GNU parallel with given number of processes.
     # - Let output be interspersed, read input series from file
-    cmd = ['parallel', '-u', '-a', argumentFilePath]   
+    cmd = ['parallel', '-u', '-a', argumentFilePath]
 
     # Add number of processes if specified (default is one job per CPU core)
     if numParallelProcesses is not None:
         cmd += ['-P', str(numParallelProcesses)]
 
     # Add list of nodes as argument to the parallel tool if it is available
-    if nodeListPath is not None: 
+    if nodeListPath is not None:
         cmd += ['--sshloginfile', nodeListPath]
-        
+
     # Append any additional arguments to parallel
     cmd += parallelArgs
 
-    # Append the actual command we want to call to the GNU Parallel call    
+    # Append the actual command we want to call to the GNU Parallel call
     cmd += [commandString]
 
     if verbose: # Echo the command line call we are about to make
@@ -112,18 +113,61 @@ def runInGnuParallel(numParallelProcesses, commandString, argumentFilePath, para
     returnCode = subprocess.call(cmd)
     return returnCode
 
+# When user-exposed ASP executables are installed, they are in
+# 'bin'. Otherwise, in dev mode, they are in the same dir as __file__.
+def bin_path(prog, **kw):
+    currpath = kw.get('path', P.dirname(P.abspath(__file__)))
+    binpath = P.join(currpath, '..', 'bin', prog)
+    if not P.isfile(binpath):
+        binpath = P.join(currpath, '..', 'Tools', prog)
+    if not P.isfile(binpath):
+        binpath = P.join(currpath, prog)
+    return binpath
 
+# When hidden ASP executables are installed, they are in
+# 'libexec'. Otherwise, in dev mode, they are in the same dir as
+# __file__.
+def libexec_path(prog, **kw):
+    currpath = kw.get('path', P.dirname(P.abspath(__file__)))
+    libexecpath = P.join(currpath, '..', 'libexec', prog)
+    if not P.isfile(libexecpath):
+        libexecpath = P.join(currpath, '..', 'Tools', prog)
+    if not P.isfile(libexecpath):
+        libexecpath = P.join(currpath, prog)
 
+    if not P.isfile(libexecpath):
+        # Could not find prog in libexec either. We will come
+        # here only for executables like gdalinfo that will
+        # be packages in the release, but are not yet
+        # in dev mode. Just print a warning and hope
+        # this tool is somewhere in user's path.
+        print("Could not find: " + libexecpath)
+        libexecpath = which(prog)
+        print("Using instead: " + libexecpath)
 
+    return libexecpath
 
+# Find if a program is in the path
+def which(program):
+    def is_exe(fpath):
+        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
 
+    fpath, fname = os.path.split(program)
+    if fpath:
+        if is_exe(program):
+            return program
+    else:
+        for path in os.environ["PATH"].split(os.pathsep):
+            path = path.strip('"')
+            exe_file = os.path.join(path, program)
+            if is_exe(exe_file):
+                return exe_file
 
+    return None
 
-
-
-
-
-
-
-
-
+# mkdir without throw
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError:
+        pass
