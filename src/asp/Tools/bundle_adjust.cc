@@ -68,8 +68,8 @@ namespace asp{
 struct Options : public asp::BaseOptions {
   std::vector<std::string> image_files, camera_files, gcp_files;
   std::string cnet_file, out_prefix, stereo_session_string, cost_function, ba_type;
-  int ip_points_per_tile;
-  double lambda, camera_weight, robust_threshold;
+  int ip_per_tile;
+  double min_angle, lambda, camera_weight, robust_threshold;
   int report_level, min_matches, max_iterations, overlap_limit;
 
   bool save_iteration, have_input_cams;
@@ -82,7 +82,7 @@ struct Options : public asp::BaseOptions {
 
   // Make sure all values are initialized, even though they will be
   // over-written later.
-  Options(): ip_points_per_tile(0), lambda(-1.0), camera_weight(0), robust_threshold(0), report_level(0), min_matches(0),
+  Options(): ip_per_tile(0), min_angle(0), lambda(-1.0), camera_weight(0), robust_threshold(0), report_level(0), min_matches(0),
             max_iterations(0), overlap_limit(0), save_iteration(false), have_input_cams(true),
             semi_major(0), semi_minor(0),
             datum(cartography::Datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
@@ -797,8 +797,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                          "Limit the number of subsequent images to search for matches to the current image to this value.")
     ("camera-weight",    po::value(&opt.camera_weight)->default_value(1.0),
                          "The weight to give to the constraint that the camera positions/orientations stay close to the original values (only for the Ceres solver).")
-      ("ip-points-per-tile",             po::value(&opt.ip_points_per_tile)->default_value(0),
-                                   "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
+    ("ip-per-tile",             po::value(&opt.ip_per_tile)->default_value(0),
+     "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
+    ("min-triangulation-angle",             po::value(&opt.min_angle)->default_value(0.1),
+     "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.")
 
     ("lambda,l",         po::value(&opt.lambda)->default_value(-1),
                          "Set the initial value of the LM parameter lambda (ignored for the Ceres solver).")
@@ -960,7 +962,7 @@ int main(int argc, char* argv[]) {
         try{
           // IP matching may not succeed for all pairs
           session->ip_matching(image1, image2,
-                               opt.ip_points_per_tile,
+                               opt.ip_per_tile,
                                nodata1, nodata2, match_filename,
                                opt.camera_models[i].get(),
                                opt.camera_models[j].get());
@@ -975,12 +977,13 @@ int main(int argc, char* argv[]) {
       bool success = build_control_network( opt.have_input_cams,
                                             (*opt.cnet), opt.camera_models,
                                             opt.image_files, opt.min_matches,
-                                            opt.out_prefix);
+                                            opt.out_prefix,
+                                            opt.min_angle*(M_PI/180));
       if (!success) {
         vw_out() << "Failed to build a control network. Consider removing "
                  << "the currently found interest point matches and increasing "
                  << "the number of interest points per tile using "
-                 << "--ip-points-per-tile.\n";
+                 << "--ip-per-tile.\n";
         return 1;
 
       }

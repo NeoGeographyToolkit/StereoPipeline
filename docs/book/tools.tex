@@ -402,9 +402,13 @@ camera positions/orientations stay close to
 the original values (only for the Ceres solver).
 \\ \hline
 
-\texttt{-\/-ip-points-per-tile \textit{int}} &
+\texttt{-\/-ip-per-tile \textit{int}} &
 How many interest points to detect in each $1024^2$ image tile (default: automatic
 determination).
+\\ \hline
+
+\texttt{-\/min-triangulation-angle \textit{double(=0.1)}} &
+The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.
 \\ \hline
 
 \texttt{-\/-lambda \textit{double}} & Set the initial value of the LM parameter

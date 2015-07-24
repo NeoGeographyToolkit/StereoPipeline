@@ -186,7 +186,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
     camera_models( left_cam, right_cam );
     ip_matching(left_cropped_file,   right_cropped_file,
-                stereo_settings().ip_points_per_tile,
+                stereo_settings().ip_per_tile,
                 left_nodata_value, right_nodata_value, match_filename,
                 left_cam.get(), right_cam.get() );
 

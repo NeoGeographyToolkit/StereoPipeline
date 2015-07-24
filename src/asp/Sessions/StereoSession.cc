@@ -70,7 +70,7 @@ namespace asp {
   // A default IP matching implementation that derived classes can use
   bool StereoSession::ip_matching(std::string const& input_file1,
                                   std::string const& input_file2,
-                                  int ip_points_per_tile,
+                                  int ip_per_tile,
                                   float nodata1, float nodata2,
                                   std::string const& match_filename,
                                   vw::camera::CameraModel* cam1,
@@ -92,7 +92,7 @@ namespace asp {
     bool single_threaded_camera = true;
     bool inlier = ip_matching_w_alignment(single_threaded_camera, cam1, cam2,
                                           image1, image2,
-                                          ip_points_per_tile,
+                                          ip_per_tile,
                                           datum, match_filename,
                                           nodata1, nodata2);
     if (!inlier) {

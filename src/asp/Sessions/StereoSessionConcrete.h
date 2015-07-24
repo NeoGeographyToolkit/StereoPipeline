@@ -112,7 +112,7 @@ namespace asp {
     /// Override the default ip_matching implementation so it just throws if we are using DISKTRANSFORM_TYPE_MAP_PROJECT
     inline virtual bool ip_matching(std::string const& input_file1,
                                     std::string const& input_file2,
-                                    int ip_points_per_tile,
+                                    int ip_per_tile,
                                     float nodata1, float nodata2,
                                     std::string const& match_filename,
                                     vw::camera::CameraModel* cam1,

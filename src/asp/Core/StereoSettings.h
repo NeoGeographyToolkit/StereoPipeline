@@ -85,7 +85,7 @@ namespace asp {
     bool   individually_normalize;          // If > 1, normalize the images
                                             //         individually with their
                                             //         own hi's and lo's
-    int ip_points_per_tile;                 // How many ip to find in each 1024^2 tile
+    int ip_per_tile;                 // How many ip to find in each 1024^2 tile
     double nodata_value;                    // Pixels with values less than or equal to this number are treated as no-data.
                                             // This overrides the nodata values from input images.
     double nodata_pixel_percentage;         // Percentage of low-value pixels treated as no-data

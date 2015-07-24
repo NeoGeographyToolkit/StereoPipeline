@@ -39,6 +39,8 @@
      area). This new option does not work with parallel_stereo or 
      map-projected images. 
    * Bugfix, remove outliers during search range determination.
+   * Added the option --ip-per-tile, to search for more interest points 
+     if the default is insufficient.
  
  - point2dem
    * Fixed a slight discrepancy in the value of the semi-minor axis in
@@ -92,6 +94,7 @@
  - bundle_adjust
     * Bug fix in handling situations when a point cannot get projected
       into the camera.
+    * Added new parameters, --ip-per-tile and --min-triangulation-angle.
 
  - image2qtree
    * Bug fixes.
@@ -113,8 +116,6 @@
  - Misc.
    * Upgraded to ISIS 3.4.9.6185.
    * Oldest supported OSX version is 10.8.
-   * For stereo and bundle_adjust, added the option --ip-points-per-tile, 
-     to search for more interest points if the default is insufficient.
    * Added documentation for image2qtree and hillshade.
    * Added a documentation section on 'tips and tricks', summarizing 
      in one place some practices for getting the most out of ASP.

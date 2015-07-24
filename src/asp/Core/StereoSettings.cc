@@ -72,7 +72,7 @@ namespace asp {
        "Normalize images based on the global min and max values from both images. Don't use this option if you are using normalized cross correlation.")
       ("individually-normalize",   po::bool_switch(&global.individually_normalize)->default_value(false)->implicit_value(true),
        "Individually normalize the input images between 0.0-1.0 using +- 2.5 sigmas about their mean values.")
-      ("ip-points-per-tile",             po::value(&global.ip_points_per_tile)->default_value(0),
+      ("ip-per-tile",             po::value(&global.ip_per_tile)->default_value(0),
        "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
       ("nodata-value",             po::value(&global.nodata_value)->default_value(nan),
        "Pixels with values less than or equal to this number are treated as no-data. This overrides the no-data values from input images.")

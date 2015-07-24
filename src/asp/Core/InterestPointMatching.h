@@ -203,7 +203,7 @@ namespace asp {
   void detect_ip( List1T& ip1, List2T& ip2,
                   vw::ImageViewBase<Image1T> const& image1,
                   vw::ImageViewBase<Image2T> const& image2,
-                  int ip_points_per_tile,
+                  int ip_per_tile,
                   double nodata1 = std::numeric_limits<double>::quiet_NaN(),
                   double nodata2 = std::numeric_limits<double>::quiet_NaN() ) {
     using namespace vw;
@@ -221,8 +221,8 @@ namespace asp {
     if ( points_per_tile < 50 ) points_per_tile = 50;
 
     // See if to override with manual value
-    if (ip_points_per_tile != 0)
-      points_per_tile = ip_points_per_tile;
+    if (ip_per_tile != 0)
+      points_per_tile = ip_per_tile;
 
     vw_out() << "Using " << points_per_tile
              << " interest points per tile (1024^2 px).\n";
@@ -286,7 +286,7 @@ namespace asp {
                         std::vector<vw::ip::InterestPoint>& matched_ip2,
                         vw::ImageViewBase<Image1T> const& image1,
                         vw::ImageViewBase<Image2T> const& image2,
-                        int ip_points_per_tile,
+                        int ip_per_tile,
                         double nodata1 = std::numeric_limits<double>::quiet_NaN(),
                         double nodata2 = std::numeric_limits<double>::quiet_NaN() ) {
     using namespace vw;
@@ -294,7 +294,7 @@ namespace asp {
     // Detect Interest Points
     ip::InterestPointList ip1, ip2;
     detect_ip( ip1, ip2, image1.impl(), image2.impl(),
-               ip_points_per_tile, nodata1, nodata2 );
+               ip_per_tile, nodata1, nodata2 );
 
     // Match the interset points using the default matcher
     vw_out() << "\t--> Matching interest points\n";
@@ -316,7 +316,7 @@ namespace asp {
   template <class Image1T, class Image2T>
   bool homography_ip_matching( vw::ImageViewBase<Image1T> const& image1,
                                vw::ImageViewBase<Image2T> const& image2,
-                               int ip_points_per_tile,
+                               int ip_per_tile,
                                std::string const& output_name,
                                double nodata1 = std::numeric_limits<double>::quiet_NaN(),
                                double nodata2 = std::numeric_limits<double>::quiet_NaN() ) {
@@ -326,7 +326,7 @@ namespace asp {
     std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
     detect_match_ip( matched_ip1, matched_ip2,
                      image1.impl(), image2.impl(),
-                     ip_points_per_tile,
+                     ip_per_tile,
                      nodata1, nodata2 );
     if ( matched_ip1.size() == 0 || matched_ip2.size() == 0 )
       return false;
@@ -388,7 +388,7 @@ namespace asp {
                     vw::camera::CameraModel* cam2,
                     vw::ImageViewBase<Image1T> const& image1,
                     vw::ImageViewBase<Image2T> const& image2,
-                    int ip_points_per_tile,
+                    int ip_per_tile,
                     vw::cartography::Datum const& datum,
                     std::string const& output_name,
                     double nodata1 = std::numeric_limits<double>::quiet_NaN(),
@@ -401,7 +401,7 @@ namespace asp {
     // Detect interest points
     ip::InterestPointList ip1, ip2;
     detect_ip( ip1, ip2, image1.impl(), image2.impl(),
-               ip_points_per_tile, nodata1, nodata2 );
+               ip_per_tile, nodata1, nodata2 );
     if ( ip1.size() == 0 || ip2.size() == 0 ){
       vw_out() << "Unable to detect interest points." << std::endl;
       return false;
@@ -518,7 +518,7 @@ namespace asp {
                                 vw::camera::CameraModel* cam2,
                                 vw::ImageViewBase<Image1T> const& image1,
                                 vw::ImageViewBase<Image2T> const& image2,
-                                int ip_points_per_tile,
+                                int ip_per_tile,
                                 vw::cartography::Datum const& datum,
                                 std::string const& output_name,
                                 double nodata1 = std::numeric_limits<double>::quiet_NaN(),
@@ -564,7 +564,7 @@ namespace asp {
                    crop(transform(image2.impl(), compose(tx, inverse(right_tx)),
                                   ValueEdgeExtension<typename Image2T::pixel_type>(boost::math::isnan(nodata2) ? 0 : nodata2),
                                   NearestPixelInterpolation()), raster_box),
-                   ip_points_per_tile,
+                   ip_per_tile,
                    datum, output_name, nodata1, nodata2, left_tx, tx );
 
     std::vector<ip::InterestPoint> ip1_copy, ip2_copy;
