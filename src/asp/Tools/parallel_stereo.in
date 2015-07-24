@@ -24,16 +24,14 @@ if sys.version_info < (2, 6, 0):
     print('\nERROR: Must use Python 2.6 or greater.')
     sys.exit(1)
 
-# Add required paths
-# - The path to the script to the system path, so that GNU Parallel can find it.
-# - The path to the ASP python files
-thisPath         = sys.path[0]
-pythonDevLibPath = thisPath + '/../Python'  # for dev ASP
-sys.path.insert(0, thisPath) # prepend to Python path
-sys.path.insert(0, pythonDevLibPath)
+# The path to the ASP python files
+basepath    = sys.path[0]
+pythonpath  = basepath + '/../Python'  # for dev ASP
+libexecpath = basepath + '/../libexec' # for packaged ASP
+sys.path.insert(0, basepath) # prepend to Python path
+sys.path.insert(0, pythonpath)
+sys.path.insert(0, libexecpath)
 
-libexecpath = sys.path[0] + '/../libexec'
-sys.path.insert(0, libexecpath) # prepend to Python path
 from stereo_utils import * # must be after the path is altered above
 
 # Prepend to system PATH

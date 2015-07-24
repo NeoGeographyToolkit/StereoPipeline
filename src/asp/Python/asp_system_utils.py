@@ -171,3 +171,42 @@ def mkdir_p(path):
         os.makedirs(path)
     except OSError:
         pass
+
+# Execute a given command stored in the libexec directory and parse
+# its output. The output format is expected to be lines of
+# comma-separated values.  The first value on each line becomes the
+# output variable name, the other values are read into the array of
+# variable values.
+def run_and_parse_output(cmd, args, sep, verbose, **kw ):
+    libexecpath = libexec_path(cmd)
+    call = [libexecpath]
+    call.extend(args)
+
+    if verbose:
+        print(" ".join(call))
+
+    try:
+        p = subprocess.Popen(call, stdout=subprocess.PIPE)
+    except OSError, e:
+        raise Exception('%s: %s' % (libexecpath, e))
+    (stdout, stderr) = p.communicate()
+
+    p.wait()
+    if p.returncode != 0:
+        print(stdout)
+        print(stderr)
+        raise Exception('Failed executing: ' + " ".join(call))
+    data = {}
+    for line in stdout.split('\n'):
+
+        # Print warning messages to stdout
+        if re.match("^Warning", line): print(line)
+
+        if sep in line:
+            keywords = line.split(sep)
+            for index, item in enumerate(keywords):
+                # Strip whitespace
+                keywords[index] = item.strip(' \t\n\r')
+            data[keywords[0]] = keywords[1:]
+
+    return data
