@@ -164,8 +164,8 @@ if MAKE_APP_MER2CAMERA
 endif
 
 if MAKE_APP_MAPPROJECT
-  bin_PROGRAMS += mapproject_single
-  bin_SCRIPTS  += mapproject
+  libexec_PROGRAMS += mapproject_single
+  libexec_SCRIPTS  += mapproject
   mapproject_single_SOURCES = mapproject_single.cc
   mapproject_single_LDADD   = $(APP_MAPPROJECT_LIBS)
 endif
