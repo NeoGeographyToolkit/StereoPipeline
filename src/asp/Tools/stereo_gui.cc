@@ -72,12 +72,15 @@ int main(int argc, char* argv[]) {
         std::string image = argv[i];
         bool is_image = true;
         try { DiskImageView<float> tmp(image); }
-        catch(...){ is_image = false;}
+        catch(...){
+          vw_out() << "Not a valid image: " << image << "\n";
+          is_image = false;
+        }
         if (is_image)
           images.push_back(image);
       }
 
-      // Presumably the tool was invoked with no options.
+      // Presumably the tool was invoked with no options. Just print the help message.
       if (images.empty())
         vw_throw(ArgumentErr() << e.what() << "\n");
     }
