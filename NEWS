@@ -36,8 +36,7 @@
      before running stereo (this is different from when only 
      --left-image-crop-win is specified, as then no actual cropping 
      happens, the domain of computation is just restricted to the desired
-     area). This new option does not work with parallel_stereo or 
-     map-projected images. 
+     area). 
    * Bugfix, remove outliers during search range determination.
    * Added the option --ip-per-tile, to search for more interest points 
      if the default is insufficient.
