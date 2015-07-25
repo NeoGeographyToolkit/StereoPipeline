@@ -54,6 +54,11 @@ using namespace vw::cartography;
 
 typedef InterpolationView<ImageViewRef< PixelMask<float> >, BilinearInterpolation> BilinearInterpT;
 
+// TODO: Document the bundle adjustment, and if necessary, manual ip selection.
+// Say that if the camera are bundle adjusted, sfs can further improve
+// the camera positions to make the results more self consistent,
+// but this works only if the cameras are reasonably accurate to start with.
+// TODO: Study the effect of reading the images as double as opposed to float.
 // TODO: Study the effect of using bicubic interpolation.
 // TODO: Handle situations when image values are no-data via a pixel mask.
 // --- we must use everywhere a pixel mask of intensities and reflections.
@@ -101,7 +106,7 @@ struct Options : public asp::BaseOptions {
   std::vector<std::string> input_images;
   int max_iterations, reflectance_type;
   bool float_albedo, float_exposure, float_cameras, float_dem_at_boundary;
-  double smoothness_weight, max_height_change, height_change_weight;
+  double smoothness_weight, init_dem_height, max_height_change, height_change_weight;
   Options():max_iterations(0), reflectance_type(0), float_albedo(false),
             float_exposure(false), float_cameras(false),
             float_dem_at_boundary(false), smoothness_weight(0),
@@ -403,7 +408,7 @@ GlobalParams                                 * g_global_params;
 std::vector<ModelParams>                     * g_model_params;
 std::vector<BilinearInterpT>                 * g_interp_images;
 std::vector<boost::shared_ptr<CameraModel> > * g_cameras;
-float                                        * g_nodata_val;
+double                                       * g_nodata_val;
 float                                        * g_img_nodata_val;
 double                                       * g_T;
 std::vector<double>                          * g_adjustments;
@@ -423,6 +428,12 @@ public:
     g_iter++;
 
     vw_out() << "Finished iteration: " << g_iter << std::endl;
+
+    std::cout << "adj: ";
+    for (int s = 0; s < (*g_adjustments).size(); s++) {
+      std::cout << (*g_adjustments)[s] << " ";
+    }
+    std::cout << std::endl;
 
     std::ostringstream os;
     os << g_iter;
@@ -792,6 +803,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Float the exposure for each image. Will give incorrect results if only one image is present.")
     ("float-cameras",   po::bool_switch(&opt.float_cameras)->default_value(false)->implicit_value(true),
      "Float the camera pose for each image except the first one, reducing registration errors.")
+    ("init-dem-height", po::value(&opt.init_dem_height)->default_value(std::numeric_limits<double>::quiet_NaN()),
+     "Use this value as for initial DEM heights. An input DEM still needs to be provided for georeference information.")
     ("float-dem-at-boundary",   po::bool_switch(&opt.float_dem_at_boundary)->default_value(false)->implicit_value(true),
      "Allow the DEM values at the boundary of the region to also float.")
     ("max-height-change", po::value(&opt.max_height_change)->default_value(0),
@@ -860,37 +873,39 @@ int main(int argc, char* argv[]) {
   try {
     handle_arguments( argc, argv, opt );
 
-    // Read the DEM and its no-data as float, the way it is stored on
-    // disk.  We don't cast to double right way, since odd things may
-    // happen when converting float to double, so handle the no-data
-    // first, and only later cast.
-    ImageView<float> float_dem
-      = copy(DiskImageView<float>(opt.input_dem) );
-    float nodata_val = -std::numeric_limits<float>::max();
+    ImageView<double> dem
+      = copy(DiskImageView<double>(opt.input_dem) );
+    double nodata_val = -std::numeric_limits<float>::max(); // note we use a float nodata
     if (asp::read_nodata_val(opt.input_dem, nodata_val)){
       vw_out() << "Found DEM nodata value: " << nodata_val << std::endl;
     }
     // Replace no-data values with the mean of valid values
     double mean = 0, num = 0;
-    for (int col = 0; col < float_dem.cols(); col++) {
-      for (int row = 0; row < float_dem.rows(); row++) {
-        if (float_dem(col, row) != nodata_val) {
-          mean += float_dem(col, row);
+    for (int col = 0; col < dem.cols(); col++) {
+      for (int row = 0; row < dem.rows(); row++) {
+        if (dem(col, row) != nodata_val) {
+          mean += dem(col, row);
           num += 1;
         }
       }
     }
     if (num > 0) mean /= num;
-    for (int col = 0; col < float_dem.cols(); col++) {
-      for (int row = 0; row < float_dem.rows(); row++) {
-        if (float_dem(col, row) == nodata_val) {
-          float_dem(col, row) = mean;
+    for (int col = 0; col < dem.cols(); col++) {
+      for (int row = 0; row < dem.rows(); row++) {
+        if (dem(col, row) == nodata_val) {
+          dem(col, row) = mean;
         }
       }
     }
 
-    // Now convert to double
-    ImageView<double> dem = copy(float_dem);
+    // See if to use a constant init value
+    if (!boost::math::isnan(opt.init_dem_height)) {
+      for (int col = 0; col < dem.cols(); col++) {
+        for (int row = 0; row < dem.rows(); row++) {
+          dem(col, row) = opt.init_dem_height;
+        }
+      }
+    }
 
     // Keep here the unmodified copy of the DEM
     ImageView<double> orig_dem = copy(dem);
