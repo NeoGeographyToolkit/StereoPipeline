@@ -60,8 +60,8 @@ int main(int argc, char* argv[]) {
                            verbose, output_prefix, opt_vec);
       // Extract the images from the options, not the cameras though.
       for (size_t i = 0; i < opt_vec.size(); i++) {
-        if (i == 0) images.push_back(opt_vec[0].in_file1);
-        images.push_back(opt_vec[0].in_file2);
+        if (i == 0) images.push_back(opt_vec[i].in_file1);
+        images.push_back(opt_vec[i].in_file2);
       }
 
     }catch (std::exception& e){
