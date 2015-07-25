@@ -42,7 +42,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 ************************************************************************
-4. Third-Party Libraries
+B. Third-Party Libraries
 
 This distribution may include some bundled third-party software as a
 convenience to the user.  This software, located in the "thirdparty/"
@@ -56,7 +56,7 @@ depend on additional third-party libraries that the user is expected
 to have installed.
 
 ************************************************************************
-5. DOCUMENTATION
+4. DOCUMENTATION
 
 The primary source of documentation is the Stereo Pipeline Book. The
 binary distribution contains the book, named "asp_book.pdf", and the
@@ -69,7 +69,7 @@ document in PDF format is also available from wherever you obtained this
 package.
 
 ************************************************************************
-6. CONTACTS & CREDITS
+5. CONTACTS & CREDITS
 
 A. Mailing List
 
@@ -106,7 +106,7 @@ techniques for autonomous vehicle control systems.
 See the AUTHORS file for a complete list of developers.
 
 ************************************************************************
-7. Neo-Geography Toolkit
+6. Neo-Geography Toolkit
 
 ASP is part of the Neo-Geography Toolkit (NGT), a collection of tools
 for automated processing of geospatial data, including images and
