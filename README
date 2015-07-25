@@ -21,14 +21,19 @@ ASP releases for Linux and OSX can be downloaded at:
 
 http://ti.arc.nasa.gov/tech/asr/intelligent-robotics/ngt/stereo/
 
+The latest development builds (see the NEWS file for the newest
+additions) can be found at:
+
+http://byss.arc.nasa.gov/stereopipeline/daily_build/
+
 ************************************************************************
 3. LICENSE (see COPYING for the full text)
 
 A. Copyright and License Summary
 
-Copyright (c) 2009-2012, United States Government as represented by the
-Administrator of the National Aeronautics and Space Administration. All
-rights reserved.
+Copyright (c) 2009-2012, United States Government as represented by
+the Administrator of the National Aeronautics and Space
+Administration. All rights reserved.
 
 ASP is licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License. You
@@ -37,23 +42,23 @@ http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+implied. See the License for the specific language governing
+permissions and limitations under the License.
 
 ************************************************************************
 B. Third-Party Libraries
 
 This distribution may include some bundled third-party software as a
-convenience to the user.  This software, located in the "thirdparty/"
+convenience to the user. This software, located in the "thirdparty/"
 directory of the source code release, is not covered by the
 above-mentioned distribution agreement or copyright. Binary releases
 distribute third party software in both the "bin" and "lib"
-directories. See the included documentation for detailed copyright
-and license information for any third-party software or check the
-THIRDPARTYLICENSES file.  In addition, various pieces of ASP
-depend on additional third-party libraries that the user is expected
-to have installed.
+directories. See the included documentation for detailed copyright and
+license information for any third-party software or check the
+THIRDPARTYLICENSES file. In addition, various pieces of ASP depend on
+additional third-party libraries that the user is expected to have
+installed.
 
 ************************************************************************
 4. DOCUMENTATION
@@ -63,10 +68,10 @@ binary distribution contains the book, named "asp_book.pdf", and the
 source distribution contains the LaTeX source of the book in the
 docs/book subdirectory.
 
-The book includes a gentle introduction to using the Stereo Pipeline, as
-well as documentation for each of its major processes.  A copy of this
-document in PDF format is also available from wherever you obtained this
-package.
+The book includes a gentle introduction to using the Stereo Pipeline,
+as well as documentation for each of its tools. A copy of this
+document in PDF format is also available from wherever you obtained
+this package.
 
 ************************************************************************
 5. CONTACTS & CREDITS
@@ -78,8 +83,8 @@ the ASP user mailing list:
 
   stereo-pipeline@lists.nasa.gov
 
-To subscribe to this list, send an empty email message with the subject
-'subscribe' (without the quotes) to
+To subscribe to this list, send an empty email message with the
+subject 'subscribe' (without the quotes) to
 
   stereo-pipeline-request@lists.nasa.gov
 
@@ -93,15 +98,15 @@ should all be sent to the main stereo-pipeline list above.
 
 B. Credits
 
-ASP was developed within the Autonomous Systems and
-Robotics area of the Intelligent Systems Division at NASA's Ames
-Research Center.  It leverages the Intelligent Robotics Group's (IRG)
-extensive experience developing surface reconstruction and tools for
-planetary exploration---e.g. the Mars Pathfinder and Mars Exploration
-Rover missions---and rover autonomy.  It has also been developed in
-collaboration with the Adaptive Control and Evolvable Systems (ACES)
-group, and draws on their experience developing computer vision
-techniques for autonomous vehicle control systems.
+ASP was developed within the Autonomous Systems and Robotics area of
+the Intelligent Systems Division at NASA's Ames Research Center. It
+leverages the Intelligent Robotics Group's (IRG) extensive experience
+developing surface reconstruction and tools for planetary exploration,
+e.g., the Mars Pathfinder and Mars Exploration Rover missions, and
+rover autonomy. It has also been developed in collaboration with the
+Adaptive Control and Evolvable Systems (ACES) group, and draws on
+their experience developing computer vision techniques for autonomous
+vehicle control systems.
 
 See the AUTHORS file for a complete list of developers.
 
@@ -112,17 +117,14 @@ ASP is part of the Neo-Geography Toolkit (NGT), a collection of tools
 for automated processing of geospatial data, including images and
 maps. It is capable of processing raw raster data from remote sensing
 instruments and transforming it into useful cartographic products,
-such as visible image base maps, topographic models,
-etc. Additionally, components of the NGT can perform data processing
-on extremely large geospatial data sets (up to several tens of
-terabytes) via parallel processing pipelines.  Finally, it can also
-transform raw metadata (i.e.  SPICE kernels and PDS image labels),
-vector data (e.g., 2D/3D shape files), and geo-tagged data sets into
-standard NeoGeography data formats, such as KML.  NGT is an evolving
-collection of loosely connected open-source modules designed by the
-NASA Ames Intelligent Robotics Group. Modules of the NGT will be
-released one at a time, as they reach maturity. To date, we have
-completed only one module: the NASA Ames Stereo Pipeline, but more
-will soon follow.
-
-
+such as visible image base maps, topographic models, etc.
+Additionally, components of the NGT can perform data processing on
+extremely large geospatial data sets (up to several tens of terabytes)
+via parallel processing pipelines. Finally, it can also transform raw
+metadata (i.e., SPICE kernels and PDS image labels), vector data
+(e.g., 2D/3D shape files), and geo-tagged data sets into standard
+NeoGeography data formats, such as KML. NGT is an evolving collection
+of loosely connected open-source modules designed by the NASA Ames
+Intelligent Robotics Group. Modules of the NGT will be released one at
+a time, as they reach maturity. To date, we have completed only one
+module: the NASA Ames Stereo Pipeline, but more will soon follow.

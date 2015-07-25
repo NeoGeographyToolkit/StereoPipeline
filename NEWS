@@ -15,9 +15,9 @@
    Broxton's vwv tool. 
 
  - New tools
-   * Added gdalinfo, gdal_translate, and gdalbuildvrt to the bin directory.
-     These executables are compiled with JPEG2000 and BigTIFF support, and 
-     can handle NTF images.
+   * Added gdalinfo, gdal_translate, and gdalbuildvrt to the bin
+     directory. These executables are compiled with JPEG2000 and
+     BigTIFF support, and  can handle NTF images.
    * Documented the colormap tool. Added a new colormap option based 
      on the paper "Diverging Color Maps for Scientific Visualization" 
      (http://www.sandia.gov/~kmorel/documents/ColorMaps/)
