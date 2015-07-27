@@ -297,10 +297,15 @@ follow along.
 \label{rawdg}
 
 After you have downloaded the example stereo imagery of India, you
-will find a directory titled \texttt{052783824050\_01\_P001\_PAN}. It has a
-lot of files and many of them contain redundant information just
-displayed in different formats. We are interested only in the TIF or NTF
-imagery and the similarly named XML files.
+will find a directory titled
+
+\begin{verbatim}
+  052783824050_01_P001_PAN
+\end{verbatim}
+
+It has a lot of files and many of them contain redundant information
+just displayed in different formats. We are interested only in the TIF
+or NTF imagery and the similarly named XML files.
 
 Further investigation of the files downloaded will show that there are
 in fact 4 image files. This is because Digital Globe breaks down a
@@ -891,7 +896,7 @@ ground.
 For non-Digital Globe images we could have used the same process but
 we'd invoke the \texttt{rpcmaprpc} session during stereo. In fact, this
 is possible for Digital Globe imagery as well, in that case we'll simply
-bypass the accurate linescan model altogether and use the RPC model at
+bypass the accurate DG linescan model altogether and use the RPC model at
 all stages of the process.
 
 \subsubsection{Pinhole Camera Models}
@@ -910,32 +915,17 @@ stereo with map-projected images).
 \subsection{Multi-View Stereo}
 \label{multiview}
 
-ASP does not support full multi-view stereo in which a feature is
-correlated simultaneously across multiple images. However, it does offer
-several approaches of combining the results of processing multiple
-images into one single terrain model. In any of the scenarios described below,
-it may be helpful to first bundle-adjust the images (section \ref{baasp}).
-
-Given several images, the most basic method is to perform pairwise stereo and
- generate one point cloud and one DEM for each pair (section
-\ref{builddem}), then combine the DEMs with \texttt{dem\_mosaic}
-(section \ref{demmosaic}).
-
-Alternatively, multiple point clouds can be created, and then a single
-DEM can be created with \texttt{point2dem} (section \ref{point2dem}).
-In both of these approaches, the point clouds could be first registered
-to a trusted dataset using \texttt{pc\_align} before creating
-terrain models (section \ref{pc-align-example}).
-
-Lastly, the \texttt{stereo} command can be invoked with multiple
-images. The rest of this section describes this approach. In
-this scenario, the first image is set as reference, then disparities are
-computed from it to the other ones, and then joint triangulation is
-performed using the method from \cite{slabaugh2001optimal}. A single
+ASP supports multi-view stereo at the triangulation stage.  In this
+scenario, the first image is set as reference, disparities are
+computed from it to all the other images, and then joint triangulation
+is performed \cite{slabaugh2001optimal}. A single
 point cloud is generated with one 3D point for each pixel in the first
-image. The inputs to multi-view stereo and its output point cloud can be
+image. The inputs to multi-view stereo and its output point cloud are
 handled in the same way as for two-view stereo (e.g., inputs can be
 map-projected, the output can be converted to a DEM, etc.).
+
+It is suggested that images be bundle-adjusted (section section
+\ref{baasp}) before running multi-view stereo.
 
 Example (for ISIS with three images):
 \begin{verbatim}
@@ -951,9 +941,9 @@ Example (for Digital Globe data with three map-projected images):
 The \texttt{parallel\_stereo} tool can also be used with multiple images
 (section \ref{parallel}).
 
-If the images are in a sequence, one of the images in the middle of the
-sequence can be used as a reference (so it needs to be passed to the tools
-as the first image).
+For a sequence of imges, multi-view stereo can be run several times
+with each image as a reference, and the obtained point clouds combined
+into a single DEM using \texttt{point2dem} (section \ref{point2dem}).
 
 The ray intersection error, the fourth band in the point cloud
 file, is computed as twice the mean of distances from the optimally
@@ -964,6 +954,17 @@ is much less amenable to interpretation as for two-view stereo, since the
 number of valid rays corresponding to a given feature can vary across
 the image, which results in discontinuities in the intersection error.
 
+\subsubsection*{Other ways of combining multiple images}
+
+As an alternative to multi-view stereo, point clouds can be generated
+from multiple stereo pairs, and then a single DEM can be created with
+\texttt{point2dem} (section \ref{builddem}). Or, multiple DEMs
+can be created, then combined into a single DEM with \texttt{dem\_mosaic}
+(section \ref{demmosaic}).
+
+In both of these approaches, the point clouds could be first registered
+to a trusted dataset using \texttt{pc\_align} before creating a combined
+terrain model (section \ref{pc-align-example}).
 
 \subsection{Diagnosing Problems}
 

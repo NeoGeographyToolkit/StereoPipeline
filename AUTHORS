@@ -1,12 +1,8 @@
-This open source version of the Ames Stereo Pipeline (ASP) was
-developed by the Intelligent Robotics Group (IRG), in the Intelligent
-Systems Division at NASA Ames Research Center in Moffett Field, CA. It
-builds on over ten years of IRG experience developing surface
-reconstruction tools for terrestrial robotic field tests and planetary
-exploration.
-
-Credit and thanks go to the following developers for contributing time
-and energy to this effort.
+The Ames Stereo Pipeline (ASP) was developed by the Intelligent
+Robotics Group (IRG), in the Intelligent Systems Division at NASA Ames
+Research Center in Moffett Field, CA. It builds on over ten years of
+IRG experience developing surface reconstruction tools for terrestrial
+robotic field tests and planetary exploration.
 
  - Project Management - 
 Terry Fong (CS)
@@ -23,6 +19,8 @@ Ara Nefian (NASA/CMU)
 Matthew Hancher (NASA)
 Mike Lundy (NASA/SGT)
 Vinh To (NASA/SGT)
+
+- Creator of the original Ames Stereo Pipeline -
 Laurence Edwards (NASA)
 
 - Former Interns -
@@ -41,6 +39,7 @@ Todd Templeton (NASA Intern)
 David Shean (APLUW)
 Benjamin Smith (APLUW)
 
+- Affiliations - 
 CS    - NASA Civil Servant
 CMU   - Carnegie Mellon University
 SGT   - Stinger Ghaffarian Technologies
