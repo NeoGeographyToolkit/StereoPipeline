@@ -225,13 +225,15 @@ void chooseFilesDlg::chooseFiles(const std::vector<imageData> & images){
 MainWidget::MainWidget(QWidget *parent,
                        int image_id,
                        std::string const& output_prefix,
-                       std::vector<std::string> const& images,
+                       std::vector<std::string> const& image_files,
                        std::vector<std::vector<vw::ip::InterestPoint> > & matches,
                        chooseFilesDlg * chooseFiles,
                        bool ignore_georef,
                        bool hillshade)
   : QWidget(parent), m_chooseFilesDlg(chooseFiles),
-    m_image_id(image_id), m_output_prefix(output_prefix), m_matches(matches), m_hideMatches(true) {
+    m_image_id(image_id), m_output_prefix(output_prefix),
+    m_image_files(image_files),
+    m_matches(matches), m_hideMatches(true) {
 
   installEventFilter(this);
 
@@ -270,10 +272,10 @@ MainWidget::MainWidget(QWidget *parent,
   this->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
   this->setFocusPolicy(Qt::ClickFocus);
 
-  int num_images = images.size();
+  int num_images = image_files.size();
   m_images.resize(num_images);
   for (int i = 0; i < num_images; i++){
-    m_images[i].read(images[i], ignore_georef, hillshade);
+    m_images[i].read(image_files[i], ignore_georef, hillshade);
     m_images_box.grow(m_images[i].bbox);
   }
 
@@ -501,38 +503,10 @@ void MainWidget::drawImage(QPainter* paint) {
       // when multiplying large integers.
       double scale = sqrt((1.0*image_box.width()) * image_box.height())/
         std::max(1.0, sqrt((1.0*screen_box.width()) * screen_box.height()));
-      ImageView<float> clip;
       double scale_out;
       BBox2i region_out;
-      m_images[i].img.getImageClip(scale, image_box, clip,
+      m_images[i].img.getImageClip(scale, image_box, qimg,
                                    scale_out, region_out);
-
-      // Normalize to 0 - 255, taking into account the nodata_val
-      double min_val = FLT_MAX;
-      double max_val = -FLT_MAX;
-      for (int col = 0; col < clip.cols(); col++){
-        for (int row = 0; row < clip.rows(); row++){
-          if (clip(col, row) <= m_images[i].nodata_val) continue;
-          if (clip(col, row) < min_val) min_val = clip(col, row);
-          if (clip(col, row) > max_val) max_val = clip(col, row);
-        }
-      }
-      if (min_val >= max_val)
-        max_val = min_val + 1.0;
-      for (int col = 0; col < clip.cols(); col++){
-        for (int row = 0; row < clip.rows(); row++){
-          clip(col, row) = round(255*(std::max(double(clip(col, row)), min_val)
-                                      - min_val)/(max_val-min_val));
-        }
-      }
-
-      // Convert to Qt grayscale
-      qimg = QImage(clip.cols(), clip.rows(), QImage::Format_RGB888);
-      for (int x = 0; x < clip.cols(); x++) {
-        for (int y = 0; y < clip.rows(); y++) {
-          qimg.setPixel(x, y, qRgb(clip(x, y), clip(x, y), clip(x, y)));
-        }
-      }
 
       // Draw on image screen
       QRect rect(screen_box.min().x(), screen_box.min().y(),
@@ -692,12 +666,12 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
     case NoAdjustment:
       break;
     case TransformAdjustment:
+      // This code does not work
       m_current_view.min().x() = m_last_view.min().x() + x_diff;
       m_current_view.max().x() = m_last_view.max().x() + x_diff;
       m_current_view.min().y() = m_last_view.min().y() + y_diff;
       m_current_view.max().y() = m_last_view.max().y() + y_diff;
       refreshPixmap();
-
       break;
 
     case GainAdjustment:
@@ -797,7 +771,9 @@ void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
     m_stereoCropWin = screen2world(qrect2bbox(m_rubberBand));
     m_stereoCropWin.min() = round(m_stereoCropWin.min());
     m_stereoCropWin.max() = round(m_stereoCropWin.max());
-    vw_out() << "Crop window (begx begy widx widy) is "
+    vw_out() << "Crop window for "
+             << m_image_files[0]
+             << " (begx begy widx widy): "
              << m_stereoCropWin.min().x() << ' '
              << m_stereoCropWin.min().y() << ' '
              << m_stereoCropWin.width()   << ' '

@@ -82,7 +82,8 @@ public:
                    int top_image_max_pix = 1000*1000,
                    int subsample = 2
                    ): m_subsample(subsample),
-                      m_top_image_max_pix(top_image_max_pix){
+                      m_top_image_max_pix(top_image_max_pix),
+                      m_nodata_val(-FLT_MAX) {
 
     if (img_file == "")
       return;
@@ -118,17 +119,14 @@ public:
         vw_out() << "Will construct an image pyramid on disk."  << std::endl;
       }
 
-      // Get the nodata value
-      double nodata_val;
-      if (!asp::read_nodata_val(img_file, nodata_val)){
-        nodata_val = -FLT_MAX;
-      }
+      // Get the nodata value, if present
+      asp::read_nodata_val(img_file, m_nodata_val);
 
       // Resample the image at the current pyramid level.
       // TODO: resample_aa is a hacky thingy. Need to understand
       // what is a good way of resampling.
       ImageViewRef< PixelMask<PixelT> > masked
-        = create_mask(m_pyramid[level], nodata_val);
+        = create_mask(m_pyramid[level], m_nodata_val);
       double sub_scale = 1.0/subsample;
       int tile_size = 256;
       int sub_threads = 1;
@@ -137,7 +135,7 @@ public:
         (asp::cache_tile_aware_render(asp::resample_aa(masked, sub_scale),
                                       Vector2i(tile_size,tile_size) * sub_scale),
          tile_size, sub_threads);
-      ImageViewRef<PixelT> unmasked = apply_mask(resampled, nodata_val);
+      ImageViewRef<PixelT> unmasked = apply_mask(resampled, m_nodata_val);
 
       // If the file exists, and has the right size, don't write it again
       bool will_write = true;
@@ -152,7 +150,7 @@ public:
         TerminalProgressCallback tpc("asp", ": ");
         asp::BaseOptions opt;
         vw_out() << "Writing: " << curr_file << std::endl;
-        asp::block_write_gdal_image(curr_file, unmasked, nodata_val, opt, tpc);
+        asp::block_write_gdal_image(curr_file, unmasked, m_nodata_val, opt, tpc);
       }else{
         vw_out() << "Using existing subsampled image: " << curr_file << std::endl;
       }
@@ -169,13 +167,15 @@ public:
     }
   }
 
-  // Given a region (at full resolution) and a scale factor,
-  // return the portion of the image in the region, subsampled
-  // by a factor no more than the input scale factor.
-  // Also return the precise subsample factor used and the
-  // region at that scale level.
+  // Given a region (at full resolution) and a scale factor, compute
+  // the portion of the image in the region, subsampled by a factor no
+  // more than the input scale factor. Convert it to QImage for
+  // display, so in this function we hide the details of how channels
+  // combined to create the QImage. Also return the precise subsample
+  // factor used and the region at that scale level.
   void getImageClip(double scale_in, vw::BBox2i region_in,
-                    ImageView<PixelT> & clip_out, double & scale_out,
+                    QImage & qimg,
+                    double & scale_out,
                     vw::BBox2i & region_out) {
 
     if (m_pyramid.empty())
@@ -195,7 +195,36 @@ public:
     scale_out = m_scales[level];
     region_out = region_in/scale_out;
     region_out.crop(bounding_box(m_pyramid[level]));
-    clip_out = crop(m_pyramid[level], region_out);
+
+    ImageView<PixelT> clip = crop(m_pyramid[level], region_out);
+
+    // Normalize to 0 - 255, taking into account the nodata_val
+    double min_val = FLT_MAX;
+    double max_val = -FLT_MAX;
+    for (int col = 0; col < clip.cols(); col++){
+      for (int row = 0; row < clip.rows(); row++){
+        if (clip(col, row) <= m_nodata_val) continue;
+        if (clip(col, row) < min_val) min_val = clip(col, row);
+        if (clip(col, row) > max_val) max_val = clip(col, row);
+      }
+    }
+    if (min_val >= max_val)
+      max_val = min_val + 1.0;
+    for (int col = 0; col < clip.cols(); col++){
+      for (int row = 0; row < clip.rows(); row++){
+        clip(col, row) = round(255*(std::max(double(clip(col, row)), min_val)
+                                    - min_val)/(max_val-min_val));
+      }
+    }
+
+    // Convert to Qt grayscale
+    qimg = QImage(clip.cols(), clip.rows(), QImage::Format_RGB888);
+    for (int x = 0; x < clip.cols(); x++) {
+      for (int y = 0; y < clip.rows(); y++) {
+        qimg.setPixel(x, y, qRgb(clip(x, y), clip(x, y), clip(x, y)));
+      }
+    }
+
   }
 
   ~DiskImagePyramid() {}
@@ -229,6 +258,7 @@ private:
   // The files (stored on disk) containing the images in the pyramid.
   std::vector<std::string> m_pyramid_files;
 
+  double m_nodata_val;
   std::vector<int> m_scales;
 };
 
@@ -296,7 +326,7 @@ private:
     MainWidget(QWidget *parent,
                int image_id,
                std::string const& output_prefix,
-               std::vector<std::string> const& images,
+               std::vector<std::string> const& image_files,
                std::vector<std::vector<ip::InterestPoint> > & matches,
                chooseFilesDlg * chooseFiles, bool ignore_georef,
                bool hillshade);
@@ -352,8 +382,8 @@ private:
     std::set<std::string> m_filesToHide;
 
     int m_image_id;
-
     std::string m_output_prefix;
+    std::vector<std::string> m_image_files;
 
     // Note that this is an alias
     std::vector<std::vector<vw::ip::InterestPoint> > & m_matches;
