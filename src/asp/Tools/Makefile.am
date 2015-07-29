@@ -127,6 +127,12 @@ if MAKE_APP_PC_ALIGN
   pc_align_LDADD = $(APP_PC_ALIGN_LIBS)
 endif
 
+if MAKE_APP_PC_MERGE
+  bin_PROGRAMS += pc_merge
+  pc_merge_SOURCES = pc_merge.cc
+  pc_merge_LDADD = $(APP_PC_MERGE_LIBS)
+endif
+
 if MAKE_APP_WV_CORRECT
   bin_PROGRAMS += wv_correct
   wv_correct_SOURCES = wv_correct.cc

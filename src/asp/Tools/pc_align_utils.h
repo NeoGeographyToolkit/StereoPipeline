@@ -146,7 +146,7 @@ void load_dem(bool verbose, std::string const& file_name,
               bool calc_shift, vw::Vector3 & shift,
               typename PointMatcher<T>::DataPoints & data);
 
-/// Loads a helper file associated with the Stereo Pipeline point cloud files.
+/// Helper function to load a Stereo Pipeline point cloud files.
 template<typename T>
 vw::int64 load_pc_aux(bool verbose,
                   std::string const& file_name,
@@ -157,7 +157,7 @@ vw::int64 load_pc_aux(bool verbose,
                   vw::cartography::GeoReference const& geo,
                   typename PointMatcher<T>::DataPoints & data);
 
-/// Loads a helper file associated with the LAS files.
+/// Helper function to load a LAS file.
 template<typename T>
 vw::int64 load_las_aux(bool verbose,
                   std::string const& file_name,
@@ -168,7 +168,7 @@ vw::int64 load_las_aux(bool verbose,
                   vw::cartography::GeoReference const& geo,
                   typename PointMatcher<T>::DataPoints & data);
 
-/// Load one of the Stereo Pipeline Point Cloud files
+/// Load one of the Stereo Pipeline Point Cloud files with additional options.
 template<typename T>
 void load_pc(bool verbose,
              std::string const& file_name,
@@ -180,7 +180,7 @@ void load_pc(bool verbose,
              typename PointMatcher<T>::DataPoints & data
              );
 
-/// Load an LAS
+/// Load an LAS file with additional options.
 template<typename T>
 void load_las(bool verbose,
              std::string const& file_name,

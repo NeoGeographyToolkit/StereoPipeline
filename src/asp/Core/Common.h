@@ -420,8 +420,7 @@ namespace asp {
 
   // Given a point cloud with n channels, return the first m channels.
   // We must have 1 <= m <= n <= 6.
-  // If the image was written by subtracting a shift, put that shift
-  // back.
+  // If the image was written by subtracting a shift, put that shift back.
   template<int m>
   vw::ImageViewRef< vw::Vector<double, m> > read_cloud(std::string const& filename){
 
