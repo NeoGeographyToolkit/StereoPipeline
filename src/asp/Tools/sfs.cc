@@ -54,6 +54,12 @@ using namespace vw::cartography;
 
 typedef InterpolationView<ImageViewRef< PixelMask<float> >, BilinearInterpolation> BilinearInterpT;
 
+// TODO: Study if blurring the input images improves the fit.
+// TODO: Add --orthoimage option, and make it clear where the final DEM is.
+// Same for albedo. The other info should be printed only in debug mode.
+// Implement multi-grid for SfS, it should help with bad initial DEM and bad
+// camera alignment.
+// TODO: Save final DEM and final ortho images.
 // TODO: Document the bundle adjustment, and if necessary, manual ip selection.
 // Say that if the camera are bundle adjusted, sfs can further improve
 // the camera positions to make the results more self consistent,
@@ -99,6 +105,94 @@ void compute_image_stats(ImageT const& I, double & mean, double & stdev){
     stdev = sqrt( sum2/count - mean*mean );
   }
 
+}
+
+// Find the points on a given DEM that are occluded by other
+// points of the DEM as viewed from the given point (usually the sun position).
+// Start marching from the point on the DEM towards the point in small
+// increments, until hitting the maximum DEM height.
+bool computeOcclusion(int col, int row, Vector3 & pt,
+                      ImageView<double> const& dem, double maxHt,
+                      double grid_x, double grid_y,
+                      cartography::GeoReference const& geo){
+
+
+  // Here bicubic interpolation won't work. It is easier to interpret
+  // the DEM as piecewise-linear when dealing with rays intersecting
+  // it.
+  InterpolationView<EdgeExtensionView< ImageView<double>, ConstantEdgeExtension >, BilinearInterpolation>
+    interp_dem = interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
+
+  // The xyz position at the center grid point
+  Vector2 dem_llh = geo.pixel_to_lonlat(Vector2(col, row));
+  Vector3 dem_lonlat_height = Vector3(dem_llh(0), dem_llh(1), dem(col, row));
+  Vector3 xyz = geo.datum().geodetic_to_cartesian(dem_lonlat_height);
+
+  // Normalized direction from the view point
+  Vector3 dir = pt - xyz;
+  if (dir == Vector3())
+    return false;
+  dir = dir/norm_2(dir);
+
+  // The projection of dir onto the tangent plane at xyz,
+  // that is, the "horizontal" component at the current sphere surface.
+  Vector3 dir2 = dir - dot_prod(dir, xyz)*xyz/dot_prod(xyz, xyz);
+
+  // Ensure that we advance by at most half a grid point each time
+  double delta = 0.5*std::min(grid_x, grid_y)/std::max(norm_2(dir2), 1e-16);
+
+  // go along the ray. Don't allow the loop to go forever.
+  for (int i = 1; i < 10000000; i++) {
+    Vector3 ray_P = xyz + i * delta * dir;
+    Vector3 ray_llh = geo.datum().cartesian_to_geodetic(ray_P);
+    if (ray_llh[2] > maxHt) {
+      // We're above the terrain, no point in continuing
+      return false;
+    }
+
+    // Compensate for any longitude 360 degree offset, e.g., 270 deg vs -90 deg
+    ray_llh[0] += 360.0*round((dem_llh[0] - ray_llh[0])/360.0);
+
+    Vector2 ray_pix = geo.lonlat_to_pixel(Vector2(ray_llh[0], ray_llh[1]));
+
+    if (ray_pix[0] < 0 || ray_pix[0] > dem.cols() - 1 ||
+        ray_pix[1] < 0 || ray_pix[1] > dem.rows() - 1 ) {
+      return false; // got out of the DEM, no point continuing
+    }
+
+    // Dem height at the current point on the ray
+    double dem_h = interp_dem(ray_pix[0], ray_pix[1]);
+
+    if (ray_llh[2] < dem_h) {
+      // The ray goes under the DEM, we have occlusion!
+      return true;
+    }
+  }
+
+  return false;
+}
+
+void computeOcclusions(Vector3 & pt, ImageView<double> const& dem,
+                       double grid_x, double grid_y,
+                       cartography::GeoReference const& geo,
+                       ImageView<float> & occl){
+
+  // Find the max DEM height
+  double maxHt = -std::numeric_limits<double>::max();
+  for (int col = 0; col < dem.cols(); col++) {
+    for (int row = 0; row < dem.rows(); row++) {
+      if (dem(col, row) > maxHt) {
+        maxHt = dem(col, row);
+      }
+    }
+  }
+
+  occl.set_size(dem.cols(), dem.rows());
+  for (int col = 0; col < dem.cols(); col++) {
+    for (int row = 0; row < dem.rows(); row++) {
+      occl(col, row) = computeOcclusion(col, row, pt, dem,  maxHt, grid_x, grid_y, geo);
+    }
+  }
 }
 
 struct Options : public asp::BaseOptions {
@@ -429,11 +523,11 @@ public:
 
     vw_out() << "Finished iteration: " << g_iter << std::endl;
 
-    std::cout << "adj: ";
-    for (int s = 0; s < (*g_adjustments).size(); s++) {
-      std::cout << (*g_adjustments)[s] << " ";
+    vw_out() << "cam adj: ";
+    for (int s = 0; s < int((*g_adjustments).size()); s++) {
+      vw_out() << (*g_adjustments)[s] << " ";
     }
-    std::cout << std::endl;
+    vw_out() << std::endl;
 
     std::ostringstream os;
     os << g_iter;
@@ -1000,6 +1094,25 @@ int main(int argc, char* argv[]) {
     compute_grid_sizes_in_meters(dem, geo, nodata_val, grid_x, grid_y);
     vw_out() << "grid in x and y in meters: "
              << grid_x << ' ' << grid_y << std::endl;
+
+#if 0
+    // Test the occlusion function
+    for (int image_iter = 0; image_iter < num_images; image_iter++){
+      ImageView<float> occl; // don't use int, scaled weirdly by ASP on reading
+      Vector3 pt = model_params[image_iter].sunPosition;
+      computeOcclusions(pt, dem, grid_x, grid_y,  geo, occl);
+
+      std::ostringstream os;
+      os << image_iter;
+      std::string iter_str = os.str();
+      std::string out_occl_file = opt.out_prefix + "-occl-image"
+        + iter_str + ".tif";
+      vw_out() << "Writing: " << out_occl_file << std::endl;
+
+      TerminalProgressCallback tpc("asp", ": ");
+      block_write_gdal_image(out_occl_file, occl, geo, -1000, opt, tpc);
+    }
+#endif
 
     // We have intensity = reflectance*exposure*albedo.
     // The albedo is 1 in the first approximation. Find
