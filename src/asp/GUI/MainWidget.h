@@ -83,14 +83,10 @@ public:
                    int subsample = 2
                    ): m_subsample(subsample),
                       m_top_image_max_pix(top_image_max_pix),
-                      m_nodata_val(-FLT_MAX) {
+                      m_nodata_val(-std::numeric_limits<double>::max()) {
 
     if (img_file == "")
       return;
-
-    m_pyramid.push_back(vw::DiskImageView<PixelT>(img_file));
-    m_pyramid_files.push_back(img_file);
-    m_scales.push_back(1);
 
     if (subsample < 2) {
       vw_throw( ArgumentErr() << "Must subsample by a factor of at least 2.\n");
@@ -100,6 +96,13 @@ public:
       vw_throw( ArgumentErr() << "The image at the top of the pyramid must "
                 << "be at least 2x2 in size.\n");
     }
+
+    m_pyramid.push_back(vw::DiskImageView<PixelT>(img_file));
+    m_pyramid_files.push_back(img_file);
+    m_scales.push_back(1);
+
+    // Get the nodata value, if present
+    asp::read_nodata_val(img_file, m_nodata_val);
 
     int level = 0;
     int scale = 1;
@@ -118,9 +121,6 @@ public:
         vw_out() << "Detected large image: " << img_file  << "." << std::endl;
         vw_out() << "Will construct an image pyramid on disk."  << std::endl;
       }
-
-      // Get the nodata value, if present
-      asp::read_nodata_val(img_file, m_nodata_val);
 
       // Resample the image at the current pyramid level.
       // TODO: resample_aa is a hacky thingy. Need to understand
@@ -174,9 +174,7 @@ public:
   // combined to create the QImage. Also return the precise subsample
   // factor used and the region at that scale level.
   void getImageClip(double scale_in, vw::BBox2i region_in,
-                    QImage & qimg,
-                    double & scale_out,
-                    vw::BBox2i & region_out) {
+                    QImage & qimg, double & scale_out, vw::BBox2i & region_out) {
 
     if (m_pyramid.empty())
       vw_throw( ArgumentErr() << "Uninitialized image pyramid.\n");
@@ -210,18 +208,13 @@ public:
     }
     if (min_val >= max_val)
       max_val = min_val + 1.0;
+
+    qimg = QImage(clip.cols(), clip.rows(), QImage::Format_RGB888);
     for (int col = 0; col < clip.cols(); col++){
       for (int row = 0; row < clip.rows(); row++){
-        clip(col, row) = round(255*(std::max(double(clip(col, row)), min_val)
-                                    - min_val)/(max_val-min_val));
-      }
-    }
-
-    // Convert to Qt grayscale
-    qimg = QImage(clip.cols(), clip.rows(), QImage::Format_RGB888);
-    for (int x = 0; x < clip.cols(); x++) {
-      for (int y = 0; y < clip.rows(); y++) {
-        qimg.setPixel(x, y, qRgb(clip(x, y), clip(x, y), clip(x, y)));
+        double val = round(255*(std::max(double(clip(col, row)), min_val)
+                                - min_val)/(max_val-min_val));
+        qimg.setPixel(col, row, qRgb(val, val, val));
       }
     }
 
@@ -342,6 +335,8 @@ private:
     void zoom(double scale);
     void viewMatches(bool hide);
 
+    bool shadowThreshMode(bool turnOn) { m_shadow_thresh_mode = turnOn;}
+
   signals:
     void refreshAllMatches();
 
@@ -445,6 +440,9 @@ private:
     QMenu * m_ContextMenu;
     QAction* m_addMatchPoint;
     QAction* m_deleteMatchPoint;
+
+    double m_shadow_thresh;
+    bool m_shadow_thresh_mode;
 
     // Drawing is driven by QPaintEvent, which calls out to drawImage()
     void drawImage(QPainter* paint);

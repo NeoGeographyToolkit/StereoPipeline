@@ -279,6 +279,9 @@ MainWidget::MainWidget(QWidget *parent,
     m_images_box.grow(m_images[i].bbox);
   }
 
+  m_shadow_thresh = -std::numeric_limits<double>::max();
+  m_shadow_thresh_mode = false;
+
   // To do: Warn the user if some images have georef
   // while others don't.
 
@@ -505,8 +508,7 @@ void MainWidget::drawImage(QPainter* paint) {
         std::max(1.0, sqrt((1.0*screen_box.width()) * screen_box.height()));
       double scale_out;
       BBox2i region_out;
-      m_images[i].img.getImageClip(scale, image_box, qimg,
-                                   scale_out, region_out);
+      m_images[i].img.getImageClip(scale, image_box, qimg, scale_out, region_out);
 
       // Draw on image screen
       QRect rect(screen_box.min().x(), screen_box.min().y(),
@@ -648,16 +650,17 @@ void MainWidget::mousePressEvent(QMouseEvent *event) {
 }
 
 void MainWidget::mouseMoveEvent(QMouseEvent *event) {
-  // Diff variables are just the movement of the mouse normalized to
-  // 0.0-1.0;
-  double x_diff = double(event->x() - m_curr_pixel_pos.x()) / m_window_width;
-  double y_diff = double(event->y() - m_curr_pixel_pos.y()) / m_window_height;
-  double width = m_current_view.width();
-  double height = m_current_view.height();
 
   if (event->modifiers() & Qt::AltModifier) {
 
 #if 0
+    // Diff variables are just the movement of the mouse normalized to
+    // 0.0-1.0;
+    double x_diff = double(event->x() - m_curr_pixel_pos.x()) / m_window_width;
+    double y_diff = double(event->y() - m_curr_pixel_pos.y()) / m_window_height;
+    double width = m_current_view.width();
+    double height = m_current_view.height();
+
     // TODO: Support other adjustment modes
     m_adjust_mode = TransformAdjustment;
 
@@ -741,6 +744,34 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
 void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
 
   QPoint mouse_rel_pos = event->pos();
+
+  // If we are in shadow threshold detection mode, and we released
+  // the mouse where we pressed it, that means we want the current
+  // point to be marked as shadow.
+  int tol = 3; // pixels
+  if (m_shadow_thresh_mode &&
+      std::abs(m_mousePrsX - mouse_rel_pos.x()) < tol &&
+      std::abs(m_mousePrsY - mouse_rel_pos.y()) < tol ) {
+
+    if (m_images.size() != 1) {
+      popUp("Must have just one image in each window to do shadow threshold detection.");
+      return;
+    }
+
+    Vector2 p = screen2world(Vector2(mouse_rel_pos.x(), mouse_rel_pos.y()));
+
+    int col = round(p[0]), row = round(p[1]);
+    vw_out() << "Clicked on pixel: " << col << ' ' << row << std::endl;
+
+    if (col >= 0 && row >= 0 && col < m_images[0].img.cols() && row < m_images[0].img.rows() ) {
+      double val = m_images[0].img(col, row);
+      m_shadow_thresh = std::max(m_shadow_thresh, val);
+    }
+    vw_out() << "Shadow threshold for "
+             << m_image_files[0]
+             << ": " << m_shadow_thresh << std::endl;
+    return;
+  }
 
   if( (event->buttons() & Qt::LeftButton) &&
       (event->modifiers() & Qt::ControlModifier) ){

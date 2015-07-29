@@ -162,6 +162,12 @@ void MainWindow::create_menus() {
   connect(m_saveMatches_action, SIGNAL(triggered()), this, SLOT(saveMatches()));
   m_saveMatches_action->setShortcut(tr("S"));
 
+  // Shadow threshold detection
+  m_shadow_action = new QAction(tr("Shadow threshold detection"), this);
+  m_shadow_action->setStatusTip(tr("Shadow threshold detection."));
+  m_shadow_action->setCheckable(true);
+  connect(m_shadow_action, SIGNAL(triggered()), this, SLOT(shadow_threshold_tool()));
+
   // The About Box
   m_about_action = new QAction(tr("About stereo_gui"), this);
   m_about_action->setStatusTip(tr("Show the stereo_gui about box."));
@@ -180,11 +186,9 @@ void MainWindow::create_menus() {
   m_view_menu = menu->addMenu(tr("&View"));
   m_view_menu->addAction(m_sizeToFit_action);
 
-  // Matches menu
-  m_matches_menu = menu->addMenu(tr("&IP matches"));
-  m_matches_menu->addAction(m_viewMatches_action);
-  m_matches_menu->addAction(m_hideMatches_action);
-  m_matches_menu->addAction(m_saveMatches_action);
+  // Tools menu
+  m_tools_menu = menu->addMenu(tr("&Tools"));
+  m_tools_menu->addAction(m_shadow_action);
 
   // Help menu
   m_help_menu = menu->addMenu(tr("&Help"));
@@ -354,6 +358,16 @@ void MainWindow::run_stereo(){
 
 void MainWindow::run_parallel_stereo(){
   MainWindow::run_stereo_or_parallel_stereo("parallel_stereo");
+}
+
+// Toggle on or of the tool for detecting the shadow threshold in images
+void MainWindow::shadow_threshold_tool() {
+  bool on = m_shadow_action->isChecked();
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (m_widgets[i])
+      m_widgets[i]->shadowThreshMode(on);
+  }
+
 }
 
 void MainWindow::about() {
