@@ -140,7 +140,7 @@ public:
       // If the file exists, and has the right size, don't write it again
       bool will_write = true;
       if (boost::filesystem::exists(curr_file)) {
-        DiskImageView<float> tmp(curr_file);
+        DiskImageView<double> tmp(curr_file);
         if (tmp.cols() == unmasked.cols() && tmp.rows() == unmasked.rows()) {
           will_write = false;
         }
@@ -174,6 +174,7 @@ public:
   // combined to create the QImage. Also return the precise subsample
   // factor used and the region at that scale level.
   void getImageClip(double scale_in, vw::BBox2i region_in,
+                    bool highlight_nodata,
                     QImage & qimg, double & scale_out, vw::BBox2i & region_out) {
 
     if (m_pyramid.empty())
@@ -214,7 +215,10 @@ public:
       for (int row = 0; row < clip.rows(); row++){
         double val = round(255*(std::max(double(clip(col, row)), min_val)
                                 - min_val)/(max_val-min_val));
-        qimg.setPixel(col, row, qRgb(val, val, val));
+        if (!highlight_nodata || clip(col, row) > m_nodata_val)
+          qimg.setPixel(col, row, qRgb(val, val, val));
+        else
+          qimg.setPixel(col, row, qRgb(255, 0, 0)); // highlight in red
       }
     }
 
@@ -261,8 +265,7 @@ private:
     bool has_georef;
     vw::cartography::GeoReference georef;
     BBox2 bbox;
-    DiskImagePyramid<float> img;
-    double nodata_val;
+    DiskImagePyramid<double> img;
     void read(std::string const& image, bool ignore_georef,
               bool hillshade);
   };
@@ -335,7 +338,7 @@ private:
     void zoom(double scale);
     void viewMatches(bool hide);
 
-    bool shadowThreshMode(bool turnOn) { m_shadow_thresh_mode = turnOn;}
+    bool shadowThreshMode(bool turnOn) { m_shadow_thresh_calc_mode = turnOn;}
 
   signals:
     void refreshAllMatches();
@@ -343,12 +346,8 @@ private:
   public slots:
     void sizeToFit();
     void showFilesChosenByUser();
-
-    void set_nodata_value(double nodata_value) {
-      m_nodata_value = nodata_value;
-      m_use_nodata = 1;
-    }
-
+    void viewUnthreshImages();
+    void viewThreshImages();
     void addMatchPoint();
     void deleteMatchPoint();
 
@@ -382,8 +381,10 @@ private:
 
     // Note that this is an alias
     std::vector<std::vector<vw::ip::InterestPoint> > & m_matches;
-
     bool m_hideMatches;
+
+    bool m_ignore_georef;
+    bool m_hillshade;
 
     bool  m_firstPaintEvent;
     QRect m_emptyRubberBand;
@@ -403,8 +404,6 @@ private:
     std::vector<imageData> m_images;
     BBox2 m_images_box;
 
-    PixelRGBA<float> m_last_pixel_sample;
-
     // Adjustment mode
     enum AdjustmentMode { NoAdjustment,
                           TransformAdjustment, GainAdjustment,
@@ -417,10 +416,6 @@ private:
     // Dimensions and stats
     int m_window_width;  // the width  of the plotting window in screen pixels
     int m_window_height; // the height of the plotting window in screen pixels
-    vw::float32 m_image_min;
-    vw::float32 m_image_max;
-    vw::float32 m_nodata_value;
-    int m_use_nodata;
 
     // Image Parameters
     vw::BBox2 m_current_view, m_last_view;
@@ -433,8 +428,8 @@ private:
     int m_colorize_display;
     int m_hillshade_display;
 
-    // Mouse press and release position
-    int m_mousePrsX,  m_mousePrsY, m_mouseRelX,  m_mouseRelY;
+    // Mouse press  position
+    int m_mousePrsX,  m_mousePrsY;
 
     // Right-click context menu
     QMenu * m_ContextMenu;
@@ -442,7 +437,9 @@ private:
     QAction* m_deleteMatchPoint;
 
     double m_shadow_thresh;
-    bool m_shadow_thresh_mode;
+    bool m_shadow_thresh_calc_mode;
+    bool m_shadow_thresh_view_mode;
+    std::vector<imageData> m_shadow_thresh_images;
 
     // Drawing is driven by QPaintEvent, which calls out to drawImage()
     void drawImage(QPainter* paint);

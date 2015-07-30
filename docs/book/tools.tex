@@ -145,10 +145,9 @@ documents all options for the individual sub-programs.
 \label{stereo_gui}
 
 The \texttt{stereo\_gui} program is a GUI frontend to \texttt{stereo},
-and has the same command-line options. It displays
-the input images side-by-side. One can zoom in by dragging the
-mouse from upper-left to lower-right, and zoom out via the reverse
-motion.
+and has the same command-line options. It displays the input images
+side-by-side. One can zoom in by dragging the mouse from upper-left to
+lower-right, and zoom out via the reverse motion.
 
 By pressing the \texttt{Control} key while dragging the mouse, regions
 can be selected in the input images, and then stereo can be run on these
@@ -156,6 +155,10 @@ regions from the menu via Run$\rightarrow$Stereo. The \texttt{stereo}
 command that is invoked (with parameters for the selected regions) will
 be displayed on screen, and can be re-run on a more powerful
 machine/cluster without GUI access.
+
+Additional navigation options are using the mouse wheel or the +/- keys to
+zoom, and the arrow keys to pan (one should first click to bring into
+focus a desired image before using any keys).
 
 \begin{figure}[h!]
 \begin{center}
@@ -171,6 +174,8 @@ Usage:
   ISIS 3> stereo_gui [options] <images> [<cameras>] output_file_prefix
 \end{verbatim}
 
+\subsection{Use as an Image Viewer}
+
 This program can be also used as a general-purpose image viewer, being
 able to display side-by-side any number of arbitrarily large images with
 integer and floating-point pixel values, including ISIS .cub files and
@@ -180,18 +185,34 @@ building on disk a pyramid of increasingly coarser subsampled images for
 each input image, and displaying the subsampled versions that are
 appropriate for the current level of zoom.
 
-Additional navigation options are using the mouse wheel or the +/- to
-zoom, and the arrow keys to pan (one should first click to bring into
-focus a desired image before using any keys).
+\subsection{Interest Point Matching Functionality}
 
 This tool can be used to view interest point matches, such as generated
 by \texttt{bundle\_adjust} and \texttt{stereo} (only if \texttt{stereo}
 was invoked without map-projected images and with homography or affine
 epipolar alignment). It can also be used to manually create matches
 (useful in situations when automatic interest point matching fails due
-to large change in illumination) and to delete matches. This functionality
+to large changes in illumination) and to delete matches. This functionality
 is only enabled if \texttt{stereo\_gui} is invoked like \texttt{stereo},
 rather than just with images.
+
+\subsection{Shadow Threshold Detection}
+
+Especially on the Moon, dark shadows can confuse the stereo correlator
+and result in noisy results and long run-times. The \texttt{stereo}
+tool takes an input a no-data value, via the \texttt{-\/-nodata-value}
+option, when pixels of value no more than this are masked as
+invalid.
+
+\texttt{stereo\_gui} can be used to find the shadow threshold for each
+of a given set of images (the smallest of these thresholds can be passed as the
+no-data value to \texttt{stereo}). This can be done by turning on from the menu the
+\texttt{Shadow threshold detection} mode, and then clicking on pixels
+in the shadow. The largest of the chosen pixel values will be set to
+the shadow threshold for each image. To see the images with the pixels
+below the shadow threshold highlighted, select from the menu the
+\texttt{View shadow-thresholded images} option.
+
 
 
 \section{parallel\_stereo}

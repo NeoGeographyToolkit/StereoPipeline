@@ -62,7 +62,9 @@ namespace vw {
     void saveMatches();
     void run_stereo();
     void run_parallel_stereo();
-    void shadow_threshold_tool();
+    void shadowThresholdCalc();
+    void viewThreshImages();
+    void viewUnthreshImages();
     void about();
 
   protected:
@@ -88,11 +90,13 @@ namespace vw {
     QMenu *m_file_menu;
     QMenu *m_view_menu;
     QMenu *m_matches_menu;
-    QMenu *m_tools_menu;
+    QMenu *m_threshold_menu;
     QMenu *m_help_menu;
 
     QAction *m_about_action;
-    QAction *m_shadow_action;
+    QAction *m_shadowCalc_action;
+    QAction *m_viewThreshImages_action;
+    QAction *m_viewUnthreshImages_action;
     QAction *m_sizeToFit_action;
     QAction *m_viewMatches_action;
     QAction *m_hideMatches_action;

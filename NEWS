@@ -11,8 +11,8 @@
    on desired regions. Doubles as a viewer for very large images with
    integer or floating-point pixels, including ISIS cubes and DEMs,
    if invoked with images only and no stereo options. It can also be
-   used to view/add/delete interest point matches.  Based on Michael 
-   Broxton's vwv tool. 
+   used to view/add/delete interest point matches and choosing
+   shadow thresholds for images. Based on Michael Broxton's vwv tool. 
 
  - New tools
    * Added gdalinfo, gdal_translate, and gdalbuildvrt to the bin

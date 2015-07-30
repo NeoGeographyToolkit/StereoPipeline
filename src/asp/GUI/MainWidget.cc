@@ -59,13 +59,13 @@ namespace vw { namespace gui {
   }
 
   void do_hillshade(cartography::GeoReference const& georef,
-                    ImageView<float> & img,
-                    float nodata_val){
+                    ImageView<double> & img,
+                    double nodata_val){
 
     // Copied from hillshade.cc.
 
     // Select the pixel scale
-    float u_scale, v_scale;
+    double u_scale, v_scale;
     u_scale = georef.transform()(0,0);
     v_scale = georef.transform()(1,1);
 
@@ -79,7 +79,7 @@ namespace vw { namespace gui {
                                            azimuth*M_PI/180, 0, "yzx") * light_0;
 
 
-    ImageViewRef<PixelMask<float> > masked_img = create_mask(img, nodata_val);
+    ImageViewRef< PixelMask<double> > masked_img = create_mask(img, nodata_val);
 
     // The final result is the dot product of the light source with the normals
     ImageView<PixelMask<uint8> > shaded_image =
@@ -100,7 +100,7 @@ void imageData::read(std::string const& image, bool ignore_georef,
 
   int top_image_max_pix = 1000*1000;
   int subsample = 4;
-  img = DiskImagePyramid<float>(name, top_image_max_pix, subsample);
+  img = DiskImagePyramid<double>(name, top_image_max_pix, subsample);
 
   // Turn off handing georef, the code is not ready for that
   ignore_georef = true;
@@ -114,12 +114,6 @@ void imageData::read(std::string const& image, bool ignore_georef,
     bbox = georef.lonlat_bounding_box(img); // lonlat box
   else
     bbox = bounding_box(img);               // pixel box
-
-  boost::shared_ptr<DiskImageResource> rsrc(DiskImageResource::open(name));
-  nodata_val = -FLT_MAX;
-  if ( rsrc->has_nodata_read() ) {
-    nodata_val = rsrc->nodata_read();
-  }
 
   if (hillshade){
     if (!has_georef){
@@ -233,7 +227,8 @@ MainWidget::MainWidget(QWidget *parent,
   : QWidget(parent), m_chooseFilesDlg(chooseFiles),
     m_image_id(image_id), m_output_prefix(output_prefix),
     m_image_files(image_files),
-    m_matches(matches), m_hideMatches(true) {
+    m_matches(matches), m_hideMatches(true), m_ignore_georef(ignore_georef),
+    m_hillshade(hillshade) {
 
   installEventFilter(this);
 
@@ -243,13 +238,6 @@ MainWidget::MainWidget(QWidget *parent,
   m_cropWinMode     = false;
 
   m_mousePrsX = 0; m_mousePrsY = 0;
-  m_mouseRelX = 0; m_mouseRelY = 0;
-
-  // Set default values
-  m_nodata_value = 0;
-  m_use_nodata = 0;
-  m_image_min = 0;
-  m_image_max = 1.0;
 
   // Set some reasonable defaults
   m_bilinear_filter = true;
@@ -275,12 +263,13 @@ MainWidget::MainWidget(QWidget *parent,
   int num_images = image_files.size();
   m_images.resize(num_images);
   for (int i = 0; i < num_images; i++){
-    m_images[i].read(image_files[i], ignore_georef, hillshade);
+    m_images[i].read(image_files[i], m_ignore_georef, m_hillshade);
     m_images_box.grow(m_images[i].bbox);
   }
 
   m_shadow_thresh = -std::numeric_limits<double>::max();
-  m_shadow_thresh_mode = false;
+  m_shadow_thresh_calc_mode = false;
+  m_shadow_thresh_view_mode = false;
 
   // To do: Warn the user if some images have georef
   // while others don't.
@@ -370,6 +359,47 @@ void MainWidget::sizeToFit() {
   }else {
     refreshPixmap();
   }
+}
+
+void MainWidget::viewUnthreshImages(){
+  m_shadow_thresh_view_mode = false;
+  refreshPixmap();
+}
+
+void MainWidget::viewThreshImages(){
+  m_shadow_thresh_view_mode = true;
+  int num_images = m_images.size();
+  m_shadow_thresh_images.clear(); // wipe the old copy
+  m_shadow_thresh_images.resize(num_images);
+
+  // Create the thresholded images and save them to disk. We have to do it each
+  // time as perhaps the shadow threshold changed.
+  for (int image_iter = 0; image_iter < num_images; image_iter++) {
+    std::string orig_file = m_image_files[image_iter];
+    double nodata_val = -std::numeric_limits<double>::max();
+    asp::read_nodata_val(orig_file, nodata_val);
+    nodata_val = std::max(nodata_val, m_shadow_thresh);
+
+    ImageViewRef<double> thresh_image
+      = apply_mask(create_mask(DiskImageView<double>(orig_file),
+                               nodata_val), nodata_val);
+
+      // The name of the thresholded file
+    boost::filesystem::path p(orig_file);
+    std::string stem = p.stem().string();
+    std::string thresh_file = stem + "_thresh.tif";
+    vw_out() << "Writing file: " << thresh_file << std::endl;
+
+    TerminalProgressCallback tpc("asp", ": ");
+    asp::BaseOptions opt;
+    vw_out() << "Writing: " << thresh_file << std::endl;
+    asp::block_write_gdal_image(thresh_file, thresh_image, nodata_val, opt, tpc);
+
+    m_shadow_thresh_images[image_iter].read(thresh_file,
+                                            m_ignore_georef, m_hillshade);
+  }
+
+  refreshPixmap();
 }
 
 vw::Vector2 MainWidget::world2screen(vw::Vector2 const& p){
@@ -465,7 +495,7 @@ void MainWidget::drawImage(QPainter* paint) {
       // to lonlat, then to image pixels. We need to do a flip in
       // y since in lonlat space the origin is in lower-left corner.
 
-      ImageView<float> img = m_images[i].img.bottom();
+      ImageView<double> img = m_images[i].img.bottom();
       qimg = QImage(screen_box.width(), screen_box.height(), QImage::Format_RGB888);
       int len = screen_box.max().y() - screen_box.min().y() - 1;
       for (int x = screen_box.min().x(); x < screen_box.max().x(); x++){
@@ -474,7 +504,7 @@ void MainWidget::drawImage(QPainter* paint) {
           Vector2 p = round(m_images[i].georef.lonlat_to_pixel(lonlat));
           if (p[0] >= 0 && p[0] < img.cols() &&
               p[1] >= 0 && p[1] < img.rows() ){
-            float v = img(p[0], p[1]); // is it better to interp?
+            double v = img(p[0], p[1]); // is it better to interp?
             qimg.setPixel(x-screen_box.min().x(),
                           len - (y-screen_box.min().y()), // flip pixels in y
                           qRgb(v, v, v));
@@ -508,7 +538,14 @@ void MainWidget::drawImage(QPainter* paint) {
         std::max(1.0, sqrt((1.0*screen_box.width()) * screen_box.height()));
       double scale_out;
       BBox2i region_out;
-      m_images[i].img.getImageClip(scale, image_box, qimg, scale_out, region_out);
+      bool highlight_nodata = m_shadow_thresh_view_mode;
+      if (m_shadow_thresh_view_mode){
+        m_shadow_thresh_images[i].img.getImageClip(scale, image_box, highlight_nodata,
+                                                   qimg, scale_out, region_out);
+      }else{
+        m_images[i].img.getImageClip(scale, image_box, highlight_nodata,
+                                     qimg, scale_out, region_out);
+      }
 
       // Draw on image screen
       QRect rect(screen_box.min().x(), screen_box.min().y(),
@@ -749,7 +786,7 @@ void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
   // the mouse where we pressed it, that means we want the current
   // point to be marked as shadow.
   int tol = 3; // pixels
-  if (m_shadow_thresh_mode &&
+  if (m_shadow_thresh_calc_mode &&
       std::abs(m_mousePrsX - mouse_rel_pos.x()) < tol &&
       std::abs(m_mousePrsY - mouse_rel_pos.y()) < tol ) {
 

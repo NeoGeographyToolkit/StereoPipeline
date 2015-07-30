@@ -83,7 +83,7 @@ MainWindow::MainWindow(std::vector<std::string> const& images,
     // For now we just display all images that are valid.
     bool is_image = true;
     try {
-      DiskImageView<float> img(images[i]);
+      DiskImageView<double> img(images[i]);
     }catch(...){
       is_image = false;
     }
@@ -162,11 +162,21 @@ void MainWindow::create_menus() {
   connect(m_saveMatches_action, SIGNAL(triggered()), this, SLOT(saveMatches()));
   m_saveMatches_action->setShortcut(tr("S"));
 
-  // Shadow threshold detection
-  m_shadow_action = new QAction(tr("Shadow threshold detection"), this);
-  m_shadow_action->setStatusTip(tr("Shadow threshold detection."));
-  m_shadow_action->setCheckable(true);
-  connect(m_shadow_action, SIGNAL(triggered()), this, SLOT(shadow_threshold_tool()));
+  // Shadow threshold calculation
+  m_shadowCalc_action = new QAction(tr("Shadow threshold detection"), this);
+  m_shadowCalc_action->setStatusTip(tr("Shadow threshold detection."));
+  m_shadowCalc_action->setCheckable(true);
+  connect(m_shadowCalc_action, SIGNAL(triggered()), this, SLOT(shadowThresholdCalc()));
+
+  // Shadow threshold visualization
+  m_viewThreshImages_action = new QAction(tr("View shadow-thresholded images"), this);
+  m_viewThreshImages_action->setStatusTip(tr("View shadow-thresholded images."));
+  connect(m_viewThreshImages_action, SIGNAL(triggered()), this, SLOT(viewThreshImages()));
+
+  // Shadow threshold visualization
+  m_viewUnthreshImages_action = new QAction(tr("View un-thresholded images"), this);
+  m_viewUnthreshImages_action->setStatusTip(tr("View un-thresholded images."));
+  connect(m_viewUnthreshImages_action, SIGNAL(triggered()), this, SLOT(viewUnthreshImages()));
 
   // The About Box
   m_about_action = new QAction(tr("About stereo_gui"), this);
@@ -186,9 +196,17 @@ void MainWindow::create_menus() {
   m_view_menu = menu->addMenu(tr("&View"));
   m_view_menu->addAction(m_sizeToFit_action);
 
-  // Tools menu
-  m_tools_menu = menu->addMenu(tr("&Tools"));
-  m_tools_menu->addAction(m_shadow_action);
+  // Matches menu
+  m_matches_menu = menu->addMenu(tr("&IP matches"));
+  m_matches_menu->addAction(m_viewMatches_action);
+  m_matches_menu->addAction(m_hideMatches_action);
+  m_matches_menu->addAction(m_saveMatches_action);
+
+  // Threshold menu
+  m_threshold_menu = menu->addMenu(tr("&Threshold"));
+  m_threshold_menu->addAction(m_shadowCalc_action);
+  m_threshold_menu->addAction(m_viewThreshImages_action);
+  m_threshold_menu->addAction(m_viewUnthreshImages_action);
 
   // Help menu
   m_help_menu = menu->addMenu(tr("&Help"));
@@ -361,13 +379,29 @@ void MainWindow::run_parallel_stereo(){
 }
 
 // Toggle on or of the tool for detecting the shadow threshold in images
-void MainWindow::shadow_threshold_tool() {
-  bool on = m_shadow_action->isChecked();
+void MainWindow::shadowThresholdCalc() {
+  bool on = m_shadowCalc_action->isChecked();
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (m_widgets[i])
       m_widgets[i]->shadowThreshMode(on);
   }
 
+}
+
+void MainWindow::viewThreshImages() {
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (m_widgets[i]) {
+      m_widgets[i]->viewThreshImages();
+    }
+  }
+}
+
+void MainWindow::viewUnthreshImages() {
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (m_widgets[i]) {
+      m_widgets[i]->viewUnthreshImages();
+    }
+  }
 }
 
 void MainWindow::about() {
