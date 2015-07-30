@@ -25,6 +25,8 @@
      DEMs.
    * Added image_calc, a tool for performing simple per-pixel arithmetic
      operations on one or more images.
+   * Added pc_merge, a simple tool for concatenating ASP produced
+     point clouds.
 
  - stereo
    * Increase the default correlation timeout to 1800 seconds.

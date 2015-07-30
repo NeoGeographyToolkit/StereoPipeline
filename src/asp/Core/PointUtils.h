@@ -45,17 +45,6 @@ namespace asp {
 
   class BaseOptions;
 
-/* --> Make this into a real class
-- Handle all easy cases of csv_proj4_string
-- Keep existing case handling
-- Clean up code in point2dem and pc_align
-- Add some new helper functions
-
-
-
-*/
-
-
   /// A Data structure which converts from CSV to Cartesian and vice-versa.
   class CsvConv{
 
@@ -333,13 +322,6 @@ vw::ImageViewRef<PixelT> form_point_cloud_composite(std::vector<std::string> con
   return composite_image;
 }
 
-
-
-
 } // End namespace asp
-
-
-
-
 
 #endif

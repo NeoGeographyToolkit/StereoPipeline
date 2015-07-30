@@ -52,16 +52,12 @@ struct Options : asp::BaseOptions {
   std::vector<std::string> pointcloud_files;
 
   // Settings
-  //float nodata_value;
   bool  write_double;  ///< If true, output file is double instead of float
 
   // Output
   std::string out_path;
 
-  // Defaults that the user doesn't need to see.
-  Options() : //nodata_value(-std::numeric_limits<float>::max()), 
-              write_double(false)
-             {}
+  Options() : write_double(false) {}
 };
 
 
@@ -69,9 +65,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::options_description general_options("General Options");
   general_options.add_options()
-    //("nodata-value",      po::value(&opt.nodata_value)->default_value(-std::numeric_limits<float>::max()),
-    //         "Set the nodata value.")
-    ("output-path,o",   po::value(&opt.out_path),                             "Specify the output path.")
+    ("output-path,o",   po::value(&opt.out_path)->default_value(""),       "Specify the output path.")
     ("write-double,d", po::value(&opt.write_double)->default_value(false), "Write a double precision output file.");
 
   general_options.add( asp::BaseOptionsDescription(opt) );
@@ -96,9 +90,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                             << usage << general_options );
   opt.pointcloud_files = vm["input-files"].as< std::vector<std::string> >();
 
-  //// Turn on logging to file
-  //asp::log_to_file(argc, argv, "", opt.out_prefix);
-
+  if (opt.out_path == "")
+    vw_throw( ArgumentErr() << "The output path must be specified!\n"
+                            << usage << general_options );
 
 }
 
@@ -181,8 +175,6 @@ int main( int argc, char *argv[] ) {
 
     // Determine the output shift (if any)
     Vector3 shift = determine_output_shift(opt.pointcloud_files, opt);
-
-    //std::cout << "shift = " << shift << std::endl;
 
     // The code has to branch here depending on the number of channels
     switch (num_channels)
