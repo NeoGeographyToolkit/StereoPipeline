@@ -23,7 +23,7 @@
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
-#include <asp/Core/InpaintView.h>
+#include <asp/Core/OrthoRasterizer.h>
 
 #include <vw/Core/Stopwatch.h>
 #include <vw/Mosaic/ImageComposite.h>
@@ -112,8 +112,8 @@ ImageViewRef<PixelT> form_composite(std::vector<std::string> const & files){
 
   VW_ASSERT(files.size() >= 1, ArgumentErr() << "Expecting at least one file.\n");
 
-  // TODO: Is there any requirement for the spacing?
-  int spacing = 1;
+  // This is the same spacing used by point2dem for improved performance.
+  int spacing = asp::OrthoRasterizerView::max_subblock_size();
 
   vw::mosaic::ImageComposite<PixelT> composite_image;
   composite_image.set_draft_mode(true); // Images will be disjoint, no need for fancy stuff
