@@ -884,61 +884,7 @@ namespace asp{
 
   };
 
-  // Read a texture file
-  template<class PixelT>
-  typename boost::enable_if<boost::is_same<PixelT, PixelGray<float> >, ImageViewRef<PixelT> >::type
-  read_file(std::string const& file){
-    return DiskImageView<PixelT>(file);
-  }
 
-  // Read a point cloud file
-  template<class PixelT>
-  typename boost::disable_if<boost::is_same<PixelT, PixelGray<float> >, ImageViewRef<PixelT> >::type
-  read_file(std::string const& file){
-    return asp::read_cloud< math::VectorSize<PixelT>::value >(file);
-  }
-
-  // Read given files and form an image composite.
-  template<class PixelT>
-  ImageViewRef<PixelT> form_composite(std::vector<std::string> const & files){
-
-    VW_ASSERT(files.size() >= 1, ArgumentErr() << "Expecting at least one file.\n");
-
-    // We will use this composite in OrthoRasterizerView, where we
-    // will break it into sub-blocks. We don't want a sub-block to see
-    // portions of more than one image in the composite, as that will
-    // be bad for performance (it will think the subblock has a huge
-    // range of values). Hence, we will separate the images in the
-    // composite by an amount which will sufficiently isolate them.
-    int spacing = asp::OrthoRasterizerView::max_subblock_size();
-
-    vw::mosaic::ImageComposite<PixelT> composite_image;
-    composite_image.set_draft_mode(true); // images will be disjoint, no need for fancy stuff
-
-    for (int i = 0; i < (int)files.size(); i++){
-
-      ImageViewRef<PixelT> I = read_file<PixelT>(files[i]);
-
-      // We will stack the images in the composite side by side. Images which
-      // are wider than tall will be transposed.
-      // To do: A more efficient approach would be to also stack one
-      // image on top of each other, if some images are not too tall.
-      // --> Does this code ever get images where rows != cols??
-      if (I.rows() < I.cols())
-        I = transpose(I);
-
-      int start = composite_image.cols();
-      if (i > 0){
-        // Insert the spacing
-        start = spacing*(int)ceil(double(start)/spacing) + spacing;
-      }
-      composite_image.insert(I, start, 0);
-
-    } // End loop through files
-
-    return composite_image;
-
-  }
 
   template<int num_ch>
   ImageViewRef<double> error_norm(std::vector<std::string> const& pc_files){
@@ -951,7 +897,8 @@ namespace asp{
     const int beg_ech = 3; // errors start at this channel
     const int num_ech = num_ch - beg_ech; // number of error channels
     ImageViewRef< Vector<double, num_ch> > point_disk_image
-      = asp::form_composite<Vector<double, num_ch> >(pc_files);
+      = asp::form_point_cloud_composite<Vector<double, num_ch> >(pc_files, 
+                                  asp::OrthoRasterizerView::max_subblock_size());
     ImageViewRef< Vector<double, num_ech> > error_channels =
       select_channels<num_ech, num_ch, double>(point_disk_image, beg_ech);
 
@@ -1093,7 +1040,8 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
     int hole_fill_len = 0;
     if (num_channels == 4){
       // The error is a scalar.
-      ImageViewRef<Vector4> point_disk_image = asp::form_composite<Vector4>(opt.pointcloud_files);
+      ImageViewRef<Vector4> point_disk_image = asp::form_point_cloud_composite<Vector4>(opt.pointcloud_files, 
+                                                            asp::OrthoRasterizerView::max_subblock_size());
       ImageViewRef<double> error_channel = select_channel(point_disk_image,3);
       rasterizer.set_texture( error_channel );
       rasterizer.set_hole_fill_len(hole_fill_len);
@@ -1105,7 +1053,8 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
                  georef, hole_fill_len, "IntersectionErr");
     }else if (num_channels == 6){
       // The error is a 3D vector. Convert it to NED coordinate system, and rasterize it.
-      ImageViewRef<Vector6> point_disk_image = asp::form_composite<Vector6>(opt.pointcloud_files);
+      ImageViewRef<Vector6> point_disk_image = asp::form_point_cloud_composite<Vector6>(opt.pointcloud_files, 
+                                                            asp::OrthoRasterizerView::max_subblock_size());
       ImageViewRef<Vector3> ned_err = asp::error_to_NED(point_disk_image, georef);
       std::vector< ImageViewRef< PixelGray<float> > >  rasterized(3);
       for (int ch_index = 0; ch_index < 3; ch_index++){
@@ -1136,7 +1085,8 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
     int hole_fill_len = opt.ortho_hole_fill_len;
     Stopwatch sw3;
     sw3.start();
-    ImageViewRef< PixelGray<float> > texture = asp::form_composite< PixelGray<float> >(opt.texture_files);
+    ImageViewRef< PixelGray<float> > texture = asp::form_point_cloud_composite< PixelGray<float> >(opt.texture_files,
+                                                          asp::OrthoRasterizerView::max_subblock_size());
     rasterizer.set_texture(texture);
     rasterizer.set_hole_fill_len(hole_fill_len);
     rasterizer_fsaa = generate_fsaa_raster( rasterizer, opt );
@@ -1294,7 +1244,8 @@ int main( int argc, char *argv[] ) {
 
     // Generate a merged xyz point cloud consisting of all inputs
     // - By this point each input exists in tif format.
-    ImageViewRef<Vector3> point_image = asp::form_composite<Vector3>(opt.pointcloud_files);
+    ImageViewRef<Vector3> point_image = asp::form_point_cloud_composite<Vector3>(opt.pointcloud_files,              
+                                                  asp::OrthoRasterizerView::max_subblock_size());
 
     // Apply an (optional) rotation to the 3D points before building the mesh.
     if (opt.phi_rot != 0 || opt.omega_rot != 0 || opt.kappa_rot != 0) {

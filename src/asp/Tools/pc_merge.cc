@@ -20,9 +20,9 @@
 ///
 /// A simple tool to merge multiple point cloud files into a single file.
 
-#include <asp/Core/PointUtils.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
+#include <asp/Core/PointUtils.h>
 #include <asp/Core/OrthoRasterizer.h>
 
 #include <vw/Core/Stopwatch.h>
@@ -103,46 +103,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 }
 
 
-/// Read given files and form an image composite.
-/// - Each input point cloud is a 2d arrangement of 3d points.
-/// - This function combines them into a simple patchwork mosaic without
-///   regard for the actual xyz values of the points.
-template<class PixelT>
-ImageViewRef<PixelT> form_composite(std::vector<std::string> const & files){
-
-  VW_ASSERT(files.size() >= 1, ArgumentErr() << "Expecting at least one file.\n");
-
-  // This is the same spacing used by point2dem for improved performance.
-  int spacing = asp::OrthoRasterizerView::max_subblock_size();
-
-  vw::mosaic::ImageComposite<PixelT> composite_image;
-  composite_image.set_draft_mode(true); // Images will be disjoint, no need for fancy stuff
-
-  for (int i = 0; i < (int)files.size(); i++){
-
-    ImageViewRef<PixelT> I = asp::read_cloud< math::VectorSize<PixelT>::value >(files[i]);
-
-    // We will stack the images in the composite side by side. Images which
-    // are wider than tall will be transposed.
-    // To do: A more efficient approach would be to also stack one
-    // image on top of each other, if some images are not too tall.
-    // --> Does this code ever get images where rows != cols??
-    if (I.rows() < I.cols())
-      I = transpose(I);
-
-    int start = composite_image.cols();
-    if (i > 0){
-      // Insert the spacing
-      start = spacing*(int)ceil(double(start)/spacing) + spacing;
-    }
-    composite_image.insert(I, start, 0);
-
-  } // End loop through files
-
-  return composite_image;
-}
-
-
 /// Throws if the input point clouds do not have the same number of channels.
 /// - Returns the number of channels.
 int check_num_channels(std::vector<std::string> const& pc_files){
@@ -168,47 +128,44 @@ Vector3 determine_output_shift(std::vector<std::string> const& pc_files, Options
   // As an approximation, compute the mean shift vector of the input files.
   // - If none of the input files have a shift, the output file will be written as a double.
   vw::Vector3 shift(0,0,0), shiftIn;
+  double shift_count = 0;
   for (size_t i=0; i<pc_files.size(); ++i) {
     // Read in the shift from each cloud and accumulate them
     std::string shift_str;
     boost::shared_ptr<vw::DiskImageResource> rsrc( new vw::DiskImageResourceGDAL(pc_files[i]) );
-    if (vw::cartography::read_header_string(*rsrc.get(), asp::POINT_OFFSET, shift_str)){
+    if (vw::cartography::read_header_string(*rsrc.get(), asp::ASP_POINT_OFFSET_TAG_STR, shift_str)){
       //std::cout << "shift string = " << shift_str << std::endl;
       shift += asp::str_to_vec<vw::Vector3>(shift_str);
+      shift_count += 1.0;
     }
   }
+  if (shift_count < 0.9) // If no shifts read, don't use a shift.
+    return Vector3(0,0,0);
+  
   // Compute the mean shift
   // - It would be more accurate to weight the shift according to the number of input points
-  shift /= static_cast<double>(pc_files.size());
+  shift /= shift_count;
   return shift;
 }
 
-/// Write the merged point cloud to disk using the selected options.
-template <class ImageT>
-void save_point_cloud(Vector3     const& shift, 
-                      ImageT      const& point_cloud,
-                      std::string const& point_cloud_file,
-                      Options     const& opt){
 
-  vw_out() << "Writing point cloud: " << point_cloud_file << "\n";
+// Do the actual work of loading, merging, and saving the point clouds
+template <class PixelT>
+void do_work(Vector3 const& shift, Options const& opt) {
+  // The spacing is selected to be compatible with the point2dem convention.
+  const int spacing = asp::OrthoRasterizerView::max_subblock_size();
+  ImageViewRef<PixelT> merged_cloud = asp::form_point_cloud_composite<PixelT>(opt.pointcloud_files, spacing);
+  
+  vw_out() << "Writing point cloud: " << opt.out_path << "\n";
 
   // If shift != zero then this will cast the output data to type float.
   //  Otherwise it will keep its data type.
   double point_cloud_rounding_error = 0.0;
   asp::block_write_approx_gdal_image
-    ( point_cloud_file, shift,
+    ( opt.out_path, shift,
       point_cloud_rounding_error,
-      point_cloud, opt,
+      merged_cloud, opt,
       TerminalProgressCallback("asp", "\t--> Merging: "));
-
-}
-
-// Do the actual work of loading, merging, and saving the point clouds
-template <class PixelT>
-void do_work(Vector3 const& shift, Options const& opt) {
-
-  ImageViewRef<PixelT> merged_cloud = form_composite<PixelT>(opt.pointcloud_files);
-  save_point_cloud(shift, merged_cloud, opt.out_path, opt);
 }
 
 //-----------------------------------------------------------------------------------

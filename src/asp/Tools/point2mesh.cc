@@ -501,8 +501,7 @@ int main( int argc, char *argv[] ){
     handle_arguments( argc, argv, opt );
 
     // Loading point cloud
-    ImageViewRef<Vector3> point_image
-      = asp::read_cloud<3>(opt.pointcloud_filename);
+    ImageViewRef<Vector3> point_image = asp::read_asp_point_cloud<3>(opt.pointcloud_filename);
 
     // Centering Option (helpful if you are experiencing round-off error...)
     if (opt.center) {

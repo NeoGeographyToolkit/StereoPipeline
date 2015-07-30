@@ -29,6 +29,10 @@
 #include <vw/Math/Vector.h>
 #include <vw/Math/Matrix.h>
 #include <vw/Image/ImageViewRef.h>
+#include <vw/Mosaic/ImageComposite.h>
+#include <vw/FileIO/DiskImageUtils.h>
+
+#include <asp/Core/Common.h>
 
 namespace vw{
   namespace cartography{
@@ -166,6 +170,40 @@ namespace asp {
   std::string prefix_from_pointcloud_filename(std::string const& filename);
 
 
+  /// Read a point cloud file in the format written by ASP.
+  /// Given a point cloud with n channels, return the first m channels.
+  /// We must have 1 <= m <= n <= 6.
+  /// If the image was written by subtracting a shift, put that shift back.
+  template<int m>
+  vw::ImageViewRef< vw::Vector<double, m> > read_asp_point_cloud(std::string const& filename);
+
+
+  /// Hide these functions from external users
+  namespace point_utils_private {
+
+    // These two functions choose between two possible inputs for the form_point_cloud_composite function.
+
+    /// Read a texture file
+    template<class PixelT>
+    typename boost::enable_if<boost::is_same<PixelT, vw::PixelGray<float> >, vw::ImageViewRef<PixelT> >::type
+    read_point_cloud_compatible_file(std::string const& file){
+      return vw::DiskImageView<PixelT>(file);
+    }
+    /// Read a point cloud file
+    template<class PixelT>
+    typename boost::disable_if<boost::is_same<PixelT, vw::PixelGray<float> >, vw::ImageViewRef<PixelT> >::type
+    read_point_cloud_compatible_file(std::string const& file){
+      return asp::read_asp_point_cloud< vw::math::VectorSize<PixelT>::value >(file);
+    }
+    
+  } // end namespace point_utils_private
+
+  /// Read multiple image files pack them into a single patchwork tiled image.
+  /// - Relies on the vw::mosaic::ImageComposite class.
+  template<class PixelT>
+  inline vw::ImageViewRef<PixelT> form_point_cloud_composite(std::vector<std::string> const & files, int spacing=0);
+
+
   // Apply an offset to the points in the PointImage
   class PointOffsetFunc : public vw::UnaryReturnSameType {
     vw::Vector3 m_offset;
@@ -235,6 +273,73 @@ namespace asp {
                             bool is_geodetic);
 
 
+//===================================================================================
+// Template function definitions
+
+template<int m>
+vw::ImageViewRef< vw::Vector<double, m> > read_asp_point_cloud(std::string const& filename){
+
+  vw::Vector3 shift;
+  std::string shift_str;
+  boost::shared_ptr<vw::DiskImageResource> rsrc
+    ( new vw::DiskImageResourceGDAL(filename) );
+  if (vw::cartography::read_header_string(*rsrc.get(), asp::ASP_POINT_OFFSET_TAG_STR, shift_str)){
+    shift = str_to_vec<vw::Vector3>(shift_str);
+  }
+
+  // Read the first m channels
+  vw::ImageViewRef< vw::Vector<double, m> > out_image
+    = vw::read_channels<m, double>(filename, 0);
+
+  // Add the shift back to the first several channels.
+  if (shift != vw::Vector3())
+    out_image = subtract_shift(out_image, -shift);
+
+  return out_image;
 }
+
+
+/// Read given files and form an image composite.
+template<class PixelT>
+vw::ImageViewRef<PixelT> form_point_cloud_composite(std::vector<std::string> const & files,
+                                                    int spacing){
+
+  VW_ASSERT(files.size() >= 1, vw::ArgumentErr() << "Expecting at least one file.\n");
+
+  vw::mosaic::ImageComposite<PixelT> composite_image;
+  composite_image.set_draft_mode(true); // images will be disjoint, no need for fancy stuff
+
+  for (int i = 0; i < (int)files.size(); i++){
+
+    vw::ImageViewRef<PixelT> I = point_utils_private::read_point_cloud_compatible_file<PixelT>(files[i]);
+
+    // We will stack the images in the composite side by side. Images which
+    // are wider than tall will be transposed.
+    // To do: A more efficient approach would be to also stack one
+    // image on top of each other, if some images are not too tall.
+    // --> Does this code ever get images where rows != cols??
+    if (I.rows() < I.cols())
+      I = transpose(I);
+
+    int start = composite_image.cols();
+    if (i > 0){
+      // Insert the spacing
+      start = spacing*(int)ceil(double(start)/spacing) + spacing;
+    }
+    composite_image.insert(I, start, 0);
+
+  } // End loop through files
+
+  return composite_image;
+}
+
+
+
+
+} // End namespace asp
+
+
+
+
 
 #endif

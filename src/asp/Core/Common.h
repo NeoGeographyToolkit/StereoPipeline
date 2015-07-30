@@ -42,29 +42,11 @@ namespace asp {
 
   /// Pack a Vector into a string
   template <class VecT>
-  std::string vec_to_str(VecT const& vec){
-
-    std::ostringstream oss;
-    oss.precision(16);
-    for (int i = 0; i < (int)vec.size(); i++)
-      oss << vec[i] << " ";
-
-    return oss.str();
-  }
+  std::string vec_to_str(VecT const& vec);
 
   /// Extract a string into a Vector of given size.
   template<class VecT>
-  VecT str_to_vec(std::string const& str){
-
-    VecT vec;
-    std::istringstream iss(str);
-    for (int i = 0; i < (int)vec.size(); i++){
-      if (! (iss >> vec[i]) )
-        vw::vw_throw( vw::ArgumentErr() << "Could not extract xyz point from: "
-                      << str << "\n");
-    }
-    return vec;
-  }
+  VecT str_to_vec(std::string const& str);
 
   // TODO: This function is too dangerous to live!
   ///// Given a vector of strings, identify and store separately the list of camera models.
@@ -118,17 +100,9 @@ namespace asp {
                    std::string stereo_default_filename,
                    std::string output_prefix);
 
-  // Get no-data value if available. Usually this field is float.
+  /// Get no-data value if available. Usually this field is float.
   template<class T>
-  bool read_nodata_val(std::string const& file, T & nodata_val){
-    boost::scoped_ptr<vw::SrcImageResource>
-      rsrc(vw::DiskImageResource::open(file));
-    if ( rsrc->has_nodata_read() ){
-      nodata_val = rsrc->nodata_read();
-      return true;
-    }
-    return false;
-  }
+  bool read_nodata_val(std::string const& file, T & nodata_val);
 
   /// Standard Options
   struct BaseOptions {
@@ -165,6 +139,14 @@ namespace asp {
                       vw::cartography::Datum const& user_datum,
                       vw::cartography::GeoReference & georef);
 
+  //---------------------------------------------------------------------------
+  // Functions for writing GDAL images - multithreaded.
+
+  /// String we use in ASP written point cloud files to indicate that an offset
+  ///  has been subtracted out from the points.
+  // Note: We use this constant in the python code as well
+  const std::string ASP_POINT_OFFSET_TAG_STR = "POINT_OFFSET";
+
   template <class ImageT>
   vw::DiskImageResourceGDAL*
   build_gdal_rsrc( const std::string &filename,
@@ -174,8 +156,8 @@ namespace asp {
                                          opt.raster_tile_size, opt.gdal_options);
   }
 
-  // Multi-threaded block write image with, if available, nodata, georef, and
-  // keywords to geoheader.
+  /// Multi-threaded block write image with, if available, nodata, georef, and
+  /// keywords to geoheader.
   template <class ImageT, class NoDataT>
   void block_write_gdal_image(const std::string &filename,
                               vw::ImageViewBase<ImageT> const& image,
@@ -186,25 +168,9 @@ namespace asp {
                               vw::ProgressCallback const& progress_callback =
                               vw::ProgressCallback::dummy_instance(),
                               std::map<std::string, std::string> const& keywords =
-                              std::map<std::string, std::string>() ) {
+                              std::map<std::string, std::string>() );
 
-    boost::scoped_ptr<vw::DiskImageResourceGDAL>
-      rsrc( build_gdal_rsrc( filename, image, opt ) );
-
-    if (has_nodata)
-      rsrc->set_nodata_write(nodata);
-
-    for (std::map<std::string, std::string>::const_iterator i = keywords.begin();
-         i != keywords.end(); i++)
-      vw::cartography::write_header_string(*rsrc, i->first, i->second);
-
-    if (has_georef)
-      vw::cartography::write_georeference(*rsrc, georef);
-
-    vw::block_write_image( *rsrc, image.impl(), progress_callback );
-  }
-
-  // Block write image without georef and nodata.
+  /// Block write image without georef and nodata.
   template <class ImageT>
   void block_write_gdal_image(const std::string &filename,
                               vw::ImageViewBase<ImageT> const& image,
@@ -212,17 +178,9 @@ namespace asp {
                               vw::ProgressCallback const& progress_callback =
                               vw::ProgressCallback::dummy_instance(),
                               std::map<std::string, std::string> const& keywords =
-                              std::map<std::string, std::string>() ) {
-    bool has_nodata = false;
-    bool has_georef = false;
-    float nodata = std::numeric_limits<float>::quiet_NaN();
-    vw::cartography::GeoReference georef;
-    block_write_gdal_image(filename, image, has_georef, georef,
-                           has_nodata, nodata, opt,
-                           progress_callback, keywords);
-  }
+                              std::map<std::string, std::string>() );
 
-  // Block write image with georef and keywords to geoheader.
+  /// Block write image with georef and keywords to geoheader.
   template <class ImageT>
   void block_write_gdal_image(const std::string &filename,
                               vw::ImageViewBase<ImageT> const& image,
@@ -231,17 +189,9 @@ namespace asp {
                               vw::ProgressCallback const& progress_callback =
                               vw::ProgressCallback::dummy_instance(),
                               std::map<std::string, std::string> const& keywords =
-                              std::map<std::string, std::string>() ) {
+                              std::map<std::string, std::string>() );
 
-    bool has_georef = true;
-    bool has_nodata = false;
-    float nodata = std::numeric_limits<float>::quiet_NaN();
-    block_write_gdal_image(filename, image, has_georef, georef,
-                           has_nodata, nodata, opt,
-                           progress_callback, keywords);
-  }
-
-  // Block write image with nodata.
+  /// Block write image with nodata.
   template <class ImageT, class NoDataT>
   void block_write_gdal_image(const std::string &filename,
                               vw::ImageViewBase<ImageT> const& image,
@@ -250,16 +200,9 @@ namespace asp {
                               vw::ProgressCallback const& progress_callback =
                               vw::ProgressCallback::dummy_instance(),
                               std::map<std::string, std::string> const& keywords =
-                              std::map<std::string, std::string>() ) {
-    bool has_nodata = true;
-    bool has_georef = false;
-    vw::cartography::GeoReference georef;
-    block_write_gdal_image(filename, image, has_georef, georef,
-                           has_nodata, nodata, opt,
-                           progress_callback, keywords);
-  }
+                              std::map<std::string, std::string>() );
 
-  // Block write image with nodata, georef, and keywords to geoheader.
+  /// Block write image with nodata, georef, and keywords to geoheader.
   template <class ImageT, class NoDataT>
   void block_write_gdal_image(const std::string &filename,
                               vw::ImageViewBase<ImageT> const& image,
@@ -269,19 +212,13 @@ namespace asp {
                               vw::ProgressCallback const& progress_callback =
                               vw::ProgressCallback::dummy_instance(),
                               std::map<std::string, std::string> const& keywords =
-                              std::map<std::string, std::string>() ) {
-    bool has_georef = true;
-    bool has_nodata = true;
-    block_write_gdal_image(filename, image, has_georef, georef,
-                           has_nodata, nodata, opt, progress_callback,
-                           keywords);
-  }
+                              std::map<std::string, std::string>() );
 
-  // Single-threaded write functions.
-
-  // Single-threaded write image with, if available, nodata, georef, and
-  // keywords to geoheader.
-
+  //---------------------------------------------------------------------------
+  // Functions for writing GDAL images - single threaded.
+  
+  /// Single-threaded write image with, if available, nodata, georef, and
+  /// keywords to geoheader.
   template <class ImageT, class NoDataT>
   void write_gdal_image(const std::string &filename,
                         vw::ImageViewBase<ImageT> const& image,
@@ -292,26 +229,10 @@ namespace asp {
                         vw::ProgressCallback const& progress_callback
                         = vw::ProgressCallback::dummy_instance(),
                         std::map<std::string, std::string> const& keywords
-                        = std::map<std::string, std::string>() ) {
-
-    boost::scoped_ptr<vw::DiskImageResourceGDAL>
-      rsrc( build_gdal_rsrc( filename, image, opt ) );
-
-    if (has_nodata)
-      rsrc->set_nodata_write(nodata);
-
-    for (std::map<std::string, std::string>::const_iterator i = keywords.begin();
-         i != keywords.end(); i++)
-      vw::cartography::write_header_string(*rsrc, i->first, i->second);
-
-    if (has_georef)
-      vw::cartography::write_georeference(*rsrc, georef);
-
-    vw::write_image( *rsrc, image.impl(), progress_callback );
-  }
+                        = std::map<std::string, std::string>() );
 
 
-  // Single-threaded write image with georef and keywords to geoheader.
+  /// Single-threaded write image with georef and keywords to geoheader.
   template <class ImageT>
   void write_gdal_image(const std::string &filename,
                         vw::ImageViewBase<ImageT> const& image,
@@ -320,18 +241,9 @@ namespace asp {
                         vw::ProgressCallback const& progress_callback
                         = vw::ProgressCallback::dummy_instance(),
                         std::map<std::string, std::string> const& keywords
-                        = std::map<std::string, std::string>() ) {
+                        = std::map<std::string, std::string>() );
 
-    bool has_georef = true;
-    bool has_nodata = false;
-    float nodata = std::numeric_limits<float>::quiet_NaN();
-
-    write_gdal_image(filename, image, has_georef, georef,
-                     has_nodata, nodata, opt, progress_callback,
-                     keywords);
-  }
-
-  // Single-threaded write image with georef, nodata, and keywords to geoheader.
+  /// Single-threaded write image with georef, nodata, and keywords to geoheader.
   template <class ImageT, class NoDataT>
   void write_gdal_image(const std::string &filename,
                         vw::ImageViewBase<ImageT> const& image,
@@ -341,16 +253,9 @@ namespace asp {
                         vw::ProgressCallback const& progress_callback
                         = vw::ProgressCallback::dummy_instance(),
                         std::map<std::string, std::string> const& keywords
-                        = std::map<std::string, std::string>() ) {
+                        = std::map<std::string, std::string>() );
 
-    bool has_georef = true;
-    bool has_nodata = true;
-    write_gdal_image(filename, image, has_georef, georef,
-                     has_nodata, nodata, opt, progress_callback,
-                     keywords);
-  }
-
-  // Single-threaded write image.
+  /// Single-threaded write image.
   template <class ImageT>
   void write_gdal_image(const std::string &filename,
                         vw::ImageViewBase<ImageT> const& image,
@@ -358,23 +263,17 @@ namespace asp {
                         vw::ProgressCallback const& progress_callback
                         = vw::ProgressCallback::dummy_instance(),
                         std::map<std::string, std::string> const& keywords
-                        = std::map<std::string, std::string>() ) {
-
-    bool has_nodata = false;
-    bool has_georef = false;
-    float nodata = std::numeric_limits<float>::quiet_NaN();
-    vw::cartography::GeoReference georef;
-    write_gdal_image(filename, image, has_georef, georef,
-                     has_nodata, nodata, opt, progress_callback,
-                     keywords);
-  }
-
+                        = std::map<std::string, std::string>() );
+                        
+                        
+  //---------------------------------------------------------------------------
+                        
   // Specialized functions for reading/writing images with a shift.
   // The shift is meant to bring the pixel values closer to origin,
   // with goal of saving the pixels as float instead of double.
 
-  // Subtract a given shift from first 3 components of given vector image.
-  // Skip pixels for which the first 3 components are (0, 0, 0).
+  /// Subtract a given shift from first 3 components of given vector image.
+  /// Skip pixels for which the first 3 components are (0, 0, 0).
   template <class VecT>
   struct SubtractShift: public vw::ReturnFixedType<VecT> {
     vw::Vector3 m_shift;
@@ -395,7 +294,7 @@ namespace asp {
       ( image.impl(), SubtractShift<typename ImageT::pixel_type>(shift) );
   }
 
-  // Round pixels in given image to multiple of given rounding_error.
+  /// Round pixels in given image to multiple of given rounding_error.
   template <class VecT>
   struct RoundImagePixels: public vw::ReturnFixedType<VecT> {
     double m_rounding_error;
@@ -415,51 +314,22 @@ namespace asp {
       ( image.impl(), RoundImagePixels<typename ImageT::pixel_type>(rounding_error) );
   }
 
-  // Note: We use this constant in the python code as well
-  const std::string POINT_OFFSET = "POINT_OFFSET";
 
-  // Given a point cloud with n channels, return the first m channels.
-  // We must have 1 <= m <= n <= 6.
-  // If the image was written by subtracting a shift, put that shift back.
-  template<int m>
-  vw::ImageViewRef< vw::Vector<double, m> > read_cloud(std::string const& filename){
-
-    vw::Vector3 shift;
-    std::string shift_str;
-    boost::shared_ptr<vw::DiskImageResource> rsrc
-      ( new vw::DiskImageResourceGDAL(filename) );
-    if (vw::cartography::read_header_string(*rsrc.get(), POINT_OFFSET, shift_str)){
-      shift = str_to_vec<vw::Vector3>(shift_str);
-    }
-
-    // Read the first m channels
-    vw::ImageViewRef< vw::Vector<double, m> > out_image
-      = vw::read_channels<m, double>(filename, 0);
-
-    // Add the shift back to the first several channels.
-    if (shift != vw::Vector3())
-      out_image = subtract_shift(out_image, -shift);
-
-    return out_image;
-  }
-
-  // To help with compression, round to about 1mm, but
-  // use for rounding a number with few digits in binary.
+  /// To help with compression, round to about 1mm, but
+  /// use for rounding a number with few digits in binary.
   const double APPROX_ONE_MM = 1.0/1024.0;
 
-  // Don't round pixels in point2dem for bodies of radius smaller than
-  // this in meters. Do it though in stereo_tri, see
-  // get_rounding_error().
+  /// Don't round pixels in point2dem for bodies of radius smaller than
+  /// this in meters. Do it though in stereo_tri, see get_rounding_error().
   const double MIN_RADIUS_FOR_ROUNDING = 1e+6; // 1000 km
 
-  // Unless user-specified, compute the rounding error for a given
-  // planet (a point on whose surface is given by 'shift'). Return an
-  // inverse power of 2, 1/2^10 for Earth and proportionally less for
-  // smaller bodies.
+  /// Unless user-specified, compute the rounding error for a given
+  /// planet (a point on whose surface is given by 'shift'). Return an
+  /// inverse power of 2, 1/2^10 for Earth and proportionally less for smaller bodies.
   double get_rounding_error(vw::Vector3 const& shift, double rounding_error);
 
-  // Block write image while subtracting a given value from all pixels
-  // and casting the result to float, while rounding to nearest mm.
+  /// Block write image while subtracting a given value from all pixels
+  /// and casting the result to float, while rounding to nearest mm.
   template <class ImageT>
   void block_write_approx_gdal_image( const std::string &filename,
                                       vw::Vector3 const& shift,
@@ -467,33 +337,10 @@ namespace asp {
                                       vw::ImageViewBase<ImageT> const& image,
                                       BaseOptions const& opt,
                                       vw::ProgressCallback const& progress_callback
-                                      = vw::ProgressCallback::dummy_instance() ) {
+                                      = vw::ProgressCallback::dummy_instance() );
 
-
-    // Don't round pixels for bodies of small radius
-    if (norm_2(shift) > 0){
-      boost::scoped_ptr<vw::DiskImageResourceGDAL>
-        rsrc( build_gdal_rsrc( filename,
-                               vw::channel_cast<float>(image.impl()),
-                               opt));
-      vw::cartography::write_header_string(*rsrc, POINT_OFFSET, vec_to_str(shift));
-      vw::block_write_image( *rsrc,
-                             vw::channel_cast<float>
-                             (round_image_pixels(subtract_shift(image.impl(),
-                                                                shift),
-                                                 get_rounding_error(shift, rounding_error)
-                                                 )),
-                             progress_callback );
-    }else{
-      boost::scoped_ptr<vw::DiskImageResourceGDAL>
-        rsrc( build_gdal_rsrc( filename, image, opt ) );
-      vw::block_write_image( *rsrc, image.impl(), progress_callback );
-    }
-
-  }
-
-  // Single-threaded write image while subtracting a given value from
-  // all pixels and casting the result to float.
+  /// Single-threaded write image while subtracting a given value from
+  /// all pixels and casting the result to float.
   template <class ImageT>
   void write_approx_gdal_image(const std::string &filename,
                                vw::Vector3 const& shift,
@@ -501,31 +348,10 @@ namespace asp {
                                vw::ImageViewBase<ImageT> const& image,
                                BaseOptions const& opt,
                                vw::ProgressCallback const& progress_callback
-                               = vw::ProgressCallback::dummy_instance() ) {
+                               = vw::ProgressCallback::dummy_instance() );
 
-    // Don't round pixels for bodies of small radius
-    if (norm_2(shift) > 0){
-      boost::scoped_ptr<vw::DiskImageResourceGDAL>
-        rsrc( build_gdal_rsrc( filename,
-                               vw::channel_cast<float>(image.impl()),
-                               opt ) );
-      vw::cartography::write_header_string(*rsrc, POINT_OFFSET, vec_to_str(shift));
-      vw::write_image( *rsrc,
-                       vw::channel_cast<float>
-                       (round_image_pixels(subtract_shift(image.impl(),
-                                                          shift),
-                                           get_rounding_error(shift, rounding_error)
-                                           )),
-                       progress_callback );
-    }else{
-      boost::scoped_ptr<vw::DiskImageResourceGDAL>
-        rsrc( build_gdal_rsrc( filename, image, opt ) );
-      vw::write_image( *rsrc, image.impl(), progress_callback );
-    }
-  }
-
-  // Often times, we'd like to save an image to disk by using big
-  // blocks, for performance reasons, then re-write it with desired blocks.
+  /// Often times, we'd like to save an image to disk by using big
+  /// blocks, for performance reasons, then re-write it with desired blocks.
   template <class ImageT, class NoDataT>
   void save_with_temp_big_blocks(int big_block_size,
                                  const std::string &filename,
@@ -533,27 +359,9 @@ namespace asp {
                                  vw::cartography::GeoReference const& georef,
                                  NoDataT nodata,
                                  BaseOptions & opt,
-                                 vw::ProgressCallback const& tpc){
+                                 vw::ProgressCallback const& tpc);
 
-    vw::Vector2 orig_block_size = opt.raster_tile_size;
-    opt.raster_tile_size = vw::Vector2(big_block_size, big_block_size);
-    block_write_gdal_image(filename, img, georef, nodata, opt, tpc);
-
-    if (opt.raster_tile_size != orig_block_size){
-      std::string tmp_file
-        = boost::filesystem::path(filename).replace_extension(".tmp.tif").string();
-      boost::filesystem::rename(filename, tmp_file);
-      vw::DiskImageView<typename ImageT::pixel_type> tmp_img(tmp_file);
-      opt.raster_tile_size = orig_block_size;
-      vw::vw_out() << "Re-writing with blocks of size: "
-                   << opt.raster_tile_size[0] << " x " << opt.raster_tile_size[1] << std::endl;
-      asp::block_write_gdal_image(filename, tmp_img, georef, nodata, opt, tpc);
-      boost::filesystem::remove(tmp_file);
-    }
-    return;
-  }
-
-} // namespace asp
+} // end namespace asp
 
 // Custom Boost Program Options validators for VW/ASP types
 namespace boost {
@@ -626,7 +434,10 @@ namespace program_options {
                  const std::vector<std::string>& values,
                  vw::BBox3*, long );
 
-}}
+} // end namespace program_options
+} // end nampspace boost
 
+
+#include "Common.tcc"
 
 #endif//__ASP_CORE_COMMON_H__

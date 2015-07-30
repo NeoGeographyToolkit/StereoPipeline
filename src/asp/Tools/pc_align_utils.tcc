@@ -544,7 +544,7 @@ vw::int64 load_pc_aux(bool verbose,
   data.featureLabels = form_labels<T>(DIM);
 
   // To do: Is it faster to to do for_each?
-  vw::ImageViewRef<vw::Vector3> point_cloud = asp::read_cloud<DIM>(file_name);
+  vw::ImageViewRef<vw::Vector3> point_cloud = asp::read_asp_point_cloud<DIM>(file_name);
 
   // We will randomly pick or not a point with probability load_ratio
   vw::int64 num_total_points = point_cloud.cols()*point_cloud.rows();

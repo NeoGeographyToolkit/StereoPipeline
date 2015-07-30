@@ -289,7 +289,7 @@ void save_trans_point_cloud_n(asp::BaseOptions const& opt,
                               std::string output_file,
                               PointMatcher<RealT>::Matrix const& T){
 
-  vw::ImageViewRef< vw::Vector<double, n> > point_cloud = asp::read_cloud<n>(input_file);
+  vw::ImageViewRef< vw::Vector<double, n> > point_cloud = asp::read_asp_point_cloud<n>(input_file);
   asp::block_write_gdal_image(output_file,
                               per_pixel_filter(point_cloud, TransformPC(T)),
                               opt,

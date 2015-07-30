@@ -138,7 +138,7 @@ int main( int argc, char *argv[] ) {
       datum = georef.datum();
     }
 
-    ImageViewRef<Vector3> point_image = asp::read_cloud<3>(opt.pointcloud_file);
+    ImageViewRef<Vector3> point_image = asp::read_asp_point_cloud<3>(opt.pointcloud_file);
     if (is_geodetic)
       point_image = cartesian_to_geodetic(point_image, datum);
     
