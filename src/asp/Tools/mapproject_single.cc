@@ -216,12 +216,13 @@ void expandBboxToContainCornerIntersections(boost::shared_ptr<camera::CameraMode
         //Vector2 lonlat    = dem_georef.point_to_lonlat(dem_georef.pixel_to_point(dem_pixel));
         // Expand the ground bbox to contain in
         bbox_on_ground.grow(groundLoc);
-        vw_out() << "Grow --> " << groundLoc  << std::endl;
+        //vw_out() << "Grow --> " << groundLoc  << std::endl;
       }
-      else
-        vw_out() << "Miss! "  << std::endl;
+      else{
+        //vw_out() << "Miss! "  << std::endl;
+      }
     }catch(...){
-      vw_out() << "Bad projection! "  << std::endl;
+      //vw_out() << "Bad projection! "  << std::endl;
     } // If a point failed to project
   } // End loop through DEM points
 
@@ -467,13 +468,20 @@ int main( int argc, char* argv[] ) {
     // - The Map2CamTrans we use later won't draw the image outside
     //   the DEM boundaries, so we might as well limit things here.
 
-    // Compute the dem BBox in the output projected space
+    // Compute the dem BBox in the output projected space.
+    // Here we could have used target_georef.lonlat_to_point_bbox(dem_georef.pixel_to_lonlat_bbox)
+    // but that grows the box needlessly big.
     BBox2 dem_bbox;
-    dem_bbox.min() = target_georef.lonlat_to_point( dem_georef.pixel_to_lonlat(Vector2(0,0)) );
-    dem_bbox.max() = dem_bbox.min();
-    dem_bbox.grow(target_georef.lonlat_to_point( dem_georef.pixel_to_lonlat(Vector2(dem.cols()-1, 0           )) ));
-    dem_bbox.grow(target_georef.lonlat_to_point( dem_georef.pixel_to_lonlat(Vector2(0,            dem.rows()-1)) ));
-    dem_bbox.grow(target_georef.lonlat_to_point( dem_georef.pixel_to_lonlat(Vector2(dem.cols()-1, dem.rows()-1)) ));
+    int len = std::max(dem.cols(), dem.rows());
+    for (int i = 0; i <= len; i++) {
+      double r = double(i)/double(std::max(len, 1));
+      // Diagonals of the DEM
+      Vector2i p1 = round(r*Vector2(dem.cols()-1, dem.rows()-1));
+      Vector2i p2 = Vector2i(dem.cols() - 1 - p1[0], p1[1]);
+      dem_bbox.grow(target_georef.lonlat_to_point(dem_georef.pixel_to_lonlat(p1)));
+      dem_bbox.grow(target_georef.lonlat_to_point(dem_georef.pixel_to_lonlat(p2)));
+    }
+
     // Crop the output box to the dem box
     cam_box.crop(dem_bbox);
 
