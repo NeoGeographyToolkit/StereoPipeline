@@ -165,7 +165,7 @@ void write_parallel_cond( std::string              const& filename,
 
 }
 
-
+/// Compute which camera pixel observes a DEM pixel.
 Vector2 demPixToCamPix(Vector2i const& dem_pixel,
                       boost::shared_ptr<camera::CameraModel> const& camera_model,
                       ImageViewRef<PMaskT> const& dem,
@@ -183,11 +183,14 @@ Vector2 demPixToCamPix(Vector2i const& dem_pixel,
   return camera_pixel;
 }
 
+/// Expand the ground BBox to contain all the corners of the DEM if they intersect the camera.
+/// - TODO: This method still does not guarantee all points will be included in the bbox.
+/// - TODO: This should probably take pixel validity into account!
 void expandBboxToContainCornerIntersections(boost::shared_ptr<camera::CameraModel> const& camera_model,
                                             ImageViewRef<PMaskT> const& dem,
                                             GeoReference const &dem_georef,
                                             Vector2i const& image_size,
-                                            BBox2 & cam_box)
+                                            BBox2 & bbox_on_ground)
 {
   // Each of the corners of the DEM
   std::vector<Vector2> dem_pixel_list(4);
@@ -196,23 +199,32 @@ void expandBboxToContainCornerIntersections(boost::shared_ptr<camera::CameraMode
   dem_pixel_list[2] = Vector2(dem.cols()-1, dem.rows()-1);
   dem_pixel_list[3] = Vector2(0,            dem.rows()-1);
 
+  //std::cout << "Dem (row, col): " << dem.rows() <<",  "<< dem.cols() << std::endl;
+
   for (int i=0; i<4; ++i) {
     try{
+      // Project the DEM corner into the input image
       Vector2 dem_pixel = dem_pixel_list[i];
       Vector2 cam_pixel = demPixToCamPix(dem_pixel, camera_model, dem, dem_georef);
+
+      // Get the point on the ground
+      Vector2 groundLoc = dem_georef.pixel_to_point(dem_pixel);
+
+      // If there was in intersection...
       if ( (cam_pixel.x() >= 0)              && (cam_pixel.y() > 0) &&
            (cam_pixel.x() <  image_size.x()) && (cam_pixel.y() < image_size.y()) ) {
         //Vector2 lonlat    = dem_georef.point_to_lonlat(dem_georef.pixel_to_point(dem_pixel));
-        Vector2 lonlat    = dem_georef.pixel_to_point(dem_pixel);
-        cam_box.grow(lonlat);
-        //vw_out() << "Grow --> " << lonlat  << std::endl;
+        // Expand the ground bbox to contain in
+        bbox_on_ground.grow(groundLoc);
+        vw_out() << "Grow --> " << groundLoc  << std::endl;
       }
-      //else
-      //  vw_out() << "Miss! "  << std::endl;
+      else
+        vw_out() << "Miss! "  << std::endl;
     }catch(...){
-      //vw_out() << "Bad projection! "  << std::endl;
+      vw_out() << "Bad projection! "  << std::endl;
     } // If a point failed to project
-  }
+  } // End loop through DEM points
+
 }
 
 /// Compute output georeference to use
@@ -231,17 +243,20 @@ void calc_target_geom(// Inputs
   // - The bounding box is in units defined by dem_georef and might not be meters.
   // - auto_res is an estimate of the ground resolution visible by the camera.
   //   This is in a unit defined by dem_georef and also might not be meters.
+  // - This call WILL intersect pixels outside the dem valid area!
+  // - TODO: Modify this function to optionally disable intersection outside the DEM
   float auto_res;
   cam_box = camera_bbox(dem, dem_georef, camera_model,
                         image_size.x(), image_size.y(), auto_res);
 
   //vw_out() << "\ncam_box calc1:\n" << cam_box << std::endl;
 
-  // Project the four corners of the DEM into the camera; if any of them intersect,
-  //  expand the bbox to include their coordinates
-  expandBboxToContainCornerIntersections(camera_model, dem, dem_georef, image_size, cam_box);
-
-  // TODO: This takes care of the map being too small, but why is it too large?
+  if (first_pass) {
+    // Project the four corners of the DEM into the camera; if any of them intersect,
+    //  expand the bbox to include their coordinates
+    // - This is not valid in the second pass because the dem_georef is no longer accurate!
+    expandBboxToContainCornerIntersections(camera_model, dem, dem_georef, image_size, cam_box);
+  }
 
   //vw_out() << "\ncam_box calc dem expanded:\n" << cam_box << std::endl;
 
@@ -408,8 +423,6 @@ int main( int argc, char* argv[] ) {
       asp::set_srs_string(opt.target_srs_string, have_user_datum, user_datum, target_georef);
     }
 
-
-
     //vw_out() << "\n\nDEM georeference:\n"        << dem_georef << std::endl;
     //vw_out() << "\nTARGET georeference:\n"        << target_georef << std::endl;
 
@@ -428,9 +441,8 @@ int main( int argc, char* argv[] ) {
                      dem, dem_georef,
                      // Outputs
                      opt, cam_box, target_georef);
-
+    // target_georef is now in the output coordinate system and location!
     vw_out() << "Calculated initial projected space bounding box: " << cam_box << std::endl;
-
 
     //vw_out() << "\nTARGET georeference 2:\n"        << target_georef << std::endl;
 
@@ -438,6 +450,7 @@ int main( int argc, char* argv[] ) {
     first_pass = false;
 
     // Transformed view indexes DEM based on target georeference
+    // - Note that the width and height of trans_dem don't make sense!
     ImageViewRef<PMaskT> trans_dem
       = geo_transform(dem, dem_georef, target_georef,
                       ValueEdgeExtension<PMaskT>(PMaskT()),
@@ -448,6 +461,21 @@ int main( int argc, char* argv[] ) {
                      trans_dem, target_georef,
                      // Outputs
                      opt, cam_box, target_georef);
+
+
+    // As a final correction, limit the bbox to the dem area.
+    // - The Map2CamTrans we use later won't draw the image outside
+    //   the DEM boundaries, so we might as well limit things here.
+
+    // Compute the dem BBox in the output projected space
+    BBox2 dem_bbox;
+    dem_bbox.min() = target_georef.lonlat_to_point( dem_georef.pixel_to_lonlat(Vector2(0,0)) );
+    dem_bbox.max() = dem_bbox.min();
+    dem_bbox.grow(target_georef.lonlat_to_point( dem_georef.pixel_to_lonlat(Vector2(dem.cols()-1, 0           )) ));
+    dem_bbox.grow(target_georef.lonlat_to_point( dem_georef.pixel_to_lonlat(Vector2(0,            dem.rows()-1)) ));
+    dem_bbox.grow(target_georef.lonlat_to_point( dem_georef.pixel_to_lonlat(Vector2(dem.cols()-1, dem.rows()-1)) ));
+    // Crop the output box to the dem box
+    cam_box.crop(dem_bbox);
 
     vw_out() << "Refined projected space bounding box: " << cam_box << std::endl;
 
