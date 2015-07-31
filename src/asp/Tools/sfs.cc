@@ -54,6 +54,7 @@ using namespace vw::cartography;
 
 typedef InterpolationView<ImageViewRef< PixelMask<float> >, BilinearInterpolation> BilinearInterpT;
 
+// TODO: How to relax conditions at the boundary to improve the accuracy?
 // TODO: Study if blurring the input images improves the fit.
 // TODO: Add --orthoimage option, and make it clear where the final DEM is.
 // Same for albedo. The other info should be printed only in debug mode.
@@ -105,21 +106,21 @@ void compute_image_stats(ImageT const& I, double & mean, double & stdev){
 
 }
 
-// Find the points on a given DEM that are occluded by other
-// points of the DEM as viewed from the given point (usually the sun position).
-// Start marching from the point on the DEM towards the point in small
-// increments, until hitting the maximum DEM height.
-bool computeOcclusion(int col, int row, Vector3 & pt,
-                      ImageView<double> const& dem, double maxHt,
-                      double grid_x, double grid_y,
-                      cartography::GeoReference const& geo){
-
+// Find the points on a given DEM that are shadowed by other points of
+// the DEM.  Start marching from the point on the DEM on a ray towards
+// the sun in small increments, until hitting the maximum DEM height.
+bool isInShadow(int col, int row, Vector3 & sunPos,
+                ImageView<double> const& dem, double max_dem_height,
+                double grid_x, double grid_y,
+                cartography::GeoReference const& geo){
 
   // Here bicubic interpolation won't work. It is easier to interpret
   // the DEM as piecewise-linear when dealing with rays intersecting
   // it.
-  InterpolationView<EdgeExtensionView< ImageView<double>, ConstantEdgeExtension >, BilinearInterpolation>
-    interp_dem = interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
+  InterpolationView<EdgeExtensionView< ImageView<double>,
+    ConstantEdgeExtension >, BilinearInterpolation>
+    interp_dem = interpolate(dem, BilinearInterpolation(),
+                             ConstantEdgeExtension());
 
   // The xyz position at the center grid point
   Vector2 dem_llh = geo.pixel_to_lonlat(Vector2(col, row));
@@ -127,7 +128,7 @@ bool computeOcclusion(int col, int row, Vector3 & pt,
   Vector3 xyz = geo.datum().geodetic_to_cartesian(dem_lonlat_height);
 
   // Normalized direction from the view point
-  Vector3 dir = pt - xyz;
+  Vector3 dir = sunPos - xyz;
   if (dir == Vector3())
     return false;
   dir = dir/norm_2(dir);
@@ -143,7 +144,7 @@ bool computeOcclusion(int col, int row, Vector3 & pt,
   for (int i = 1; i < 10000000; i++) {
     Vector3 ray_P = xyz + i * delta * dir;
     Vector3 ray_llh = geo.datum().cartesian_to_geodetic(ray_P);
-    if (ray_llh[2] > maxHt) {
+    if (ray_llh[2] > max_dem_height) {
       // We're above the terrain, no point in continuing
       return false;
     }
@@ -162,7 +163,7 @@ bool computeOcclusion(int col, int row, Vector3 & pt,
     double dem_h = interp_dem(ray_pix[0], ray_pix[1]);
 
     if (ray_llh[2] < dem_h) {
-      // The ray goes under the DEM, we have occlusion!
+      // The ray goes under the DEM, so we are in shadow.
       return true;
     }
   }
@@ -170,25 +171,26 @@ bool computeOcclusion(int col, int row, Vector3 & pt,
   return false;
 }
 
-void computeOcclusions(Vector3 & pt, ImageView<double> const& dem,
-                       double grid_x, double grid_y,
-                       cartography::GeoReference const& geo,
-                       ImageView<float> & occl){
+void areInShadow(Vector3 & sunPos, ImageView<double> const& dem,
+                 double grid_x, double grid_y,
+                 cartography::GeoReference const& geo,
+                 ImageView<float> & shadow){
 
   // Find the max DEM height
-  double maxHt = -std::numeric_limits<double>::max();
+  double max_dem_height = -std::numeric_limits<double>::max();
   for (int col = 0; col < dem.cols(); col++) {
     for (int row = 0; row < dem.rows(); row++) {
-      if (dem(col, row) > maxHt) {
-        maxHt = dem(col, row);
+      if (dem(col, row) > max_dem_height) {
+        max_dem_height = dem(col, row);
       }
     }
   }
 
-  occl.set_size(dem.cols(), dem.rows());
+  shadow.set_size(dem.cols(), dem.rows());
   for (int col = 0; col < dem.cols(); col++) {
     for (int row = 0; row < dem.rows(); row++) {
-      occl(col, row) = computeOcclusion(col, row, pt, dem,  maxHt, grid_x, grid_y, geo);
+      shadow(col, row) = isInShadow(col, row, sunPos, dem,
+                                    max_dem_height, grid_x, grid_y, geo);
     }
   }
 }
@@ -200,12 +202,14 @@ struct Options : public asp::BaseOptions {
   std::vector<float> shadow_threshold_vec;
 
   int max_iterations, reflectance_type;
-  bool float_albedo, float_exposure, float_cameras, float_dem_at_boundary;
-  double smoothness_weight, init_dem_height, max_height_change, height_change_weight;
+  bool float_albedo, float_exposure, float_cameras, model_shadows,
+    float_dem_at_boundary;
+  double smoothness_weight, init_dem_height, max_height_change,
+    height_change_weight;
   Options():max_iterations(0), reflectance_type(0), float_albedo(false),
             float_exposure(false), float_cameras(false),
-            float_dem_at_boundary(false), smoothness_weight(0),
-            max_height_change(0), height_change_weight(0){};
+            model_shadows(false), float_dem_at_boundary(false),
+            smoothness_weight(0), max_height_change(0), height_change_weight(0){};
 };
 
 struct GlobalParams{
@@ -369,6 +373,9 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
                                     int col, int row,
                                     ImageView<double> const& dem,
                                     cartography::GeoReference const& geo,
+                                    bool model_shadows,
+                                    double max_dem_height,
+                                    double grid_x, double grid_y,
                                     ModelParams const& model_params,
                                     GlobalParams const& global_params,
                                     BilinearInterpT const & image,
@@ -458,11 +465,27 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
     return false;
   }
 
+
+  if (model_shadows) {
+    bool inShadow = isInShadow(col, row, local_model_params.sunPosition,
+                               dem, max_dem_height, grid_x, grid_y,
+                               geo);
+
+    if (inShadow) {
+      // The reflectance is valid, it is just zero
+      reflectance = 0;
+      reflectance.validate();
+    }
+  }
+
   return true;
 }
 
 void computeReflectanceAndIntensity(ImageView<double> const& dem,
                                     cartography::GeoReference const& geo,
+                                    bool model_shadows,
+                                    double & max_dem_height, // alias
+                                    double grid_x, double grid_y,
                                     ModelParams const& model_params,
                                     GlobalParams const& global_params,
                                     BilinearInterpT const & image,
@@ -470,6 +493,17 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
                                     ImageView< PixelMask<double> > & reflectance,
                                     ImageView< PixelMask<double> > & intensity) {
 
+  // Update max_dem_height
+  max_dem_height = -std::numeric_limits<double>::max();
+  for (int col = 0; col < dem.cols(); col++) {
+    for (int row = 0; row < dem.rows(); row++) {
+      if (dem(col, row) > max_dem_height) {
+        max_dem_height = dem(col, row);
+      }
+    }
+  }
+
+  // Init the reflectance and intensity as invalid
   reflectance.set_size(dem.cols(), dem.rows());
   intensity.set_size(dem.cols(), dem.rows());
   for (int col = 0; col < dem.cols(); col++) {
@@ -485,6 +519,8 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
                                      dem(col+1, row),
                                      dem(col, row+1), dem(col, row-1),
                                      col, row, dem,  geo,
+                                     model_shadows, max_dem_height,
+                                     grid_x, grid_y,
                                      model_params, global_params,
                                      image, camera,
                                      reflectance(col, row), intensity(col, row));
@@ -508,6 +544,9 @@ double                                       * g_nodata_val;
 float                                        * g_img_nodata_val;
 double                                       * g_T;
 std::vector<double>                          * g_adjustments;
+double                                       * g_max_dem_height;
+double                                       * g_grid_x;
+double                                       * g_grid_y;
 
 // When floating the camera position and orientation,
 // multiply the position variables by this number to give
@@ -559,6 +598,9 @@ public:
 
       // Compute reflectance and intensity with optimized DEM
       computeReflectanceAndIntensity(*g_dem, *g_geo,
+                                     g_opt->model_shadows,
+                                     *g_max_dem_height,
+                                     *g_grid_x, *g_grid_y,
                                      (*g_model_params)[image_iter],
                                      *g_global_params,
                                      (*g_interp_images)[image_iter],
@@ -623,7 +665,21 @@ public:
                 << std::endl;
 
       vw_out() << "Exposure " << " for image " << image_iter << ": "
-                << g_T[image_iter] << std::endl;
+               << g_T[image_iter] << std::endl;
+
+#if 0
+      // Dump the points in shadow
+      ImageView<float> shadow; // don't use int, scaled weirdly by ASP on reading
+      Vector3 sunPos = (*g_model_params)[image_iter].sunPosition;
+      areInShadow(sunPos, *g_dem, *g_grid_x, *g_grid_y,  *g_geo, shadow);
+
+      std::string out_shadow_file = g_opt->out_prefix
+        + "-shadow" + iter_str + ".tif";
+      vw_out() << "Writing: " << out_shadow_file << std::endl;
+      block_write_gdal_image(out_shadow_file, shadow, *g_geo,
+                             -std::numeric_limits<float>::max(), *g_opt, tpc);
+#endif
+
     }
 
     return ceres::SOLVER_CONTINUE;
@@ -637,11 +693,16 @@ struct IntensityError {
   IntensityError(int col, int row,
                  ImageView<double> const& dem,
                  cartography::GeoReference const& geo,
+                 bool model_shadows,
+                 double const& max_dem_height, // note: this is an alias
+                 double grid_x, double grid_y,
                  GlobalParams const& global_params,
                  ModelParams const& model_params,
                  BilinearInterpT const& image,
                  boost::shared_ptr<CameraModel> const& camera):
     m_col(col), m_row(row), m_dem(dem), m_geo(geo),
+    m_model_shadows(model_shadows), m_max_dem_height(max_dem_height),
+    m_grid_x(grid_x), m_grid_y(grid_y),
     m_global_params(global_params),
     m_model_params(model_params),
     m_image(image), m_camera(camera) {}
@@ -683,8 +744,9 @@ struct IntensityError {
       bool success =
         computeReflectanceAndIntensity(left[0], center[0], right[0],
                                        bottom[0], top[0],
-                                       m_col, m_row,  m_dem,
-                                       m_geo,
+                                       m_col, m_row,  m_dem, m_geo,
+                                       m_model_shadows, m_max_dem_height,
+                                       m_grid_x, m_grid_y,
                                        m_model_params,  m_global_params,
                                        m_image, adj_cam,
                                        reflectance, intensity);
@@ -706,6 +768,9 @@ struct IntensityError {
   static ceres::CostFunction* Create(int col, int row,
                                      ImageView<double> const& dem,
                                      vw::cartography::GeoReference const& geo,
+                                     bool model_shadows,
+                                     double const& max_dem_height, // alias
+                                     double grid_x, double grid_y,
                                      GlobalParams const& global_params,
                                      ModelParams const& model_params,
                                      BilinearInterpT const& image,
@@ -713,17 +778,22 @@ struct IntensityError {
     return (new ceres::NumericDiffCostFunction<IntensityError,
             ceres::CENTRAL, 1, 1, 1, 1, 1, 1, 1, 1, 6>
             (new IntensityError(col, row, dem, geo,
+                                model_shadows, max_dem_height,
+                                grid_x, grid_y,
                                 global_params, model_params,
                                 image, camera)));
   }
 
   int m_col, m_row;
-  ImageView<double>                 const & m_dem;           // alias
-  cartography::GeoReference         const & m_geo;           // alias
-  GlobalParams                      const & m_global_params; // alias
-  ModelParams                       const & m_model_params;  // alias
-  BilinearInterpT                   const & m_image;         // alias
-  boost::shared_ptr<CameraModel>    const & m_camera;        // alias
+  ImageView<double>                 const & m_dem;            // alias
+  cartography::GeoReference         const & m_geo;            // alias
+  bool                                      m_model_shadows;
+  double                            const & m_max_dem_height; // alias
+  double                                    m_grid_x, m_grid_y;
+  GlobalParams                      const & m_global_params;  // alias
+  ModelParams                       const & m_model_params;   // alias
+  BilinearInterpT                   const & m_image;          // alias
+  boost::shared_ptr<CameraModel>    const & m_camera;         // alias
 };
 
 
@@ -893,14 +963,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Reflectance type (0 = Lambertian, 1 = Lunar Lambertian).")
     ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(0.04),
      "A larger value will result in a smoother solution.")
-    ("shadow-thresholds", po::value(&opt.shadow_thresholds)->default_value(""),
-     "Optional shadow thresholds for the input images (a list of real values in quotes).")
     ("float-albedo",   po::bool_switch(&opt.float_albedo)->default_value(false)->implicit_value(true),
      "Float the albedo for each pixel. Will give incorrect results if only one image is present.")
     ("float-exposure",   po::bool_switch(&opt.float_exposure)->default_value(false)->implicit_value(true),
      "Float the exposure for each image. Will give incorrect results if only one image is present.")
     ("float-cameras",   po::bool_switch(&opt.float_cameras)->default_value(false)->implicit_value(true),
-     "Float the camera pose for each image except the first one, reducing registration errors.")
+     "Float the camera pose for each image except the first one.")
+    ("model-shadows",   po::bool_switch(&opt.model_shadows)->default_value(false)->implicit_value(true),
+     "Model the fact that some points on the DEM are in the shadow.")
+    ("shadow-thresholds", po::value(&opt.shadow_thresholds)->default_value(""),
+     "Optional shadow thresholds for the input images (a list of real values in quotes).")
     ("init-dem-height", po::value(&opt.init_dem_height)->default_value(std::numeric_limits<double>::quiet_NaN()),
      "Use this value as for initial DEM heights. An input DEM still needs to be provided for georeference information.")
     ("float-dem-at-boundary",   po::bool_switch(&opt.float_dem_at_boundary)->default_value(false)->implicit_value(true),
@@ -1125,25 +1197,19 @@ int main(int argc, char* argv[]) {
     compute_grid_sizes_in_meters(dem, geo, nodata_val, grid_x, grid_y);
     vw_out() << "grid in x and y in meters: "
              << grid_x << ' ' << grid_y << std::endl;
+    g_grid_x = &grid_x;
+    g_grid_y = &grid_y;
 
-#if 0
-    // Test the occlusion function
-    for (int image_iter = 0; image_iter < num_images; image_iter++){
-      ImageView<float> occl; // don't use int, scaled weirdly by ASP on reading
-      Vector3 pt = model_params[image_iter].sunPosition;
-      computeOcclusions(pt, dem, grid_x, grid_y,  geo, occl);
-
-      std::ostringstream os;
-      os << image_iter;
-      std::string iter_str = os.str();
-      std::string out_occl_file = opt.out_prefix + "-occl-image"
-        + iter_str + ".tif";
-      vw_out() << "Writing: " << out_occl_file << std::endl;
-
-      TerminalProgressCallback tpc("asp", ": ");
-      block_write_gdal_image(out_occl_file, occl, geo, -1000, opt, tpc);
+    // Find the max DEM height
+    double max_dem_height = -std::numeric_limits<double>::max();
+    for (int col = 0; col < dem.cols(); col++) {
+      for (int row = 0; row < dem.rows(); row++) {
+        if (dem(col, row) > max_dem_height) {
+          max_dem_height = dem(col, row);
+        }
+      }
     }
-#endif
+    g_max_dem_height = &max_dem_height;
 
     // We have intensity = reflectance*exposure*albedo.
     // The albedo is 1 in the first approximation. Find
@@ -1151,7 +1217,10 @@ int main(int argc, char* argv[]) {
     std::vector<double> T(num_images, 0);
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
       ImageView< PixelMask<double> > reflectance, intensity;
-      computeReflectanceAndIntensity(dem, geo, model_params[image_iter],
+      computeReflectanceAndIntensity(dem, geo,
+                                     opt.model_shadows, max_dem_height,
+                                     grid_x, grid_y,
+                                     model_params[image_iter],
                                      global_params,
                                      interp_images[image_iter],
                                      cameras[image_iter].get(),
@@ -1205,6 +1274,8 @@ int main(int argc, char* argv[]) {
 
           ceres::CostFunction* cost_function_img =
             IntensityError::Create(col, row, dem, geo,
+                                   opt.model_shadows, max_dem_height,
+                                   grid_x, grid_y,
                                    global_params, model_params[image_iter],
                                    interp_images[image_iter],
                                    cameras[image_iter]);
