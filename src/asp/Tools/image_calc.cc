@@ -30,6 +30,7 @@
 #include <vw/Cartography.h>
 
 #include <asp/Core/Common.h>
+#include <asp/Core/Macros.h>
 
 #include <vector>
 
@@ -52,7 +53,7 @@ namespace b_s = boost::spirit;
 // - The operations tree structure
 
 /*
-  Boost::Spirit requires the use of some specific Boost types in order to 
+  Boost::Spirit requires the use of some specific Boost types in order to
    store the parsed information.
 */
 
@@ -77,7 +78,7 @@ enum OperationType {
 std::string getTagName(const OperationType o) {
 
   switch(o) {
-  
+
     case OP_pass:     return "PASS";
     case OP_number:   return "NUMBER";
     case OP_variable: return "VARIABLE";
@@ -129,21 +130,21 @@ struct calc_operation {
     double value; // If this is a leaf node, the number is stored here.  Ignored unless OP_number.
     int varName;
     std::vector<calc_operation> inputs; // The inputs to the operation
-    
+
     calc_operation() : opType(OP_pass) {}
-    
+
     /// Recursive function to print out the contents of this object
     void print(const int indent=0) {
-    
+
       if (opType == OP_number) {
         tab(indent);
-        std::cout << "Node: " << getTagName(opType) << " = " << value << std::endl;      
+        std::cout << "Node: " << getTagName(opType) << " = " << value << std::endl;
       }
       else if (opType == OP_variable) {
         tab(indent);
-        std::cout << "Node: " << getTagName(opType) << " = " << varName << std::endl;      
+        std::cout << "Node: " << getTagName(opType) << " = " << varName << std::endl;
       }
-      else { 
+      else {
         std::cout << std::endl;
         tab(indent);
         std::cout << "tag: " << getTagName(opType) << std::endl;
@@ -162,22 +163,22 @@ struct calc_operation {
       }
 
     }
-    
+
     /// Recursive function to eliminate extraneous nodes created by our parsing technique
     void clearEmptyNodes() {
       // Recursively call this function on all inputs
       for (size_t i=0; i<inputs.size(); ++i)
         inputs[i].clearEmptyNodes();
-        
+
       if (opType != OP_pass)
         return;
-    
+
       // Check for errors
       if (inputs.size() != 1) {
         std::cout << "ERROR: pass node with " << inputs.size() << " Nodes!\n";
         return;
       }
-      
+
       // Replace this node with its input node
       value   = inputs[0].value;
       opType  = inputs[0].opType;
@@ -185,8 +186,8 @@ struct calc_operation {
       std::vector<calc_operation> temp = inputs[0].inputs;
       inputs = temp;
     }
-        
-    
+
+
     /// Apply the operation tree to the input parameters and return a result
     template <typename T>
     T applyOperation(const std::vector<T> &params) const {
@@ -196,7 +197,7 @@ struct calc_operation {
       std::vector<T> inputResults(numInputs);
       for (size_t i=0; i<numInputs; ++i)
         inputResults[i] = inputs[i].applyOperation(params);
-    
+
       // Now perform the operation for this node
       switch(opType) {
         // Unary
@@ -219,7 +220,7 @@ struct calc_operation {
         // Multi
         case OP_min:      return manual_min(inputResults); // TODO: Do these functions exist?
         case OP_max:      return manual_max(inputResults);
-        
+
         default:
           vw_throw(LogicErr() << "Unexpected operation type!\n");
       }
@@ -267,54 +268,54 @@ struct calc_grammar : b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space
      using b_s::qi::_1; // This is required to avoid namespace mixups with other Boost modules!
      using b_s::qi::_2;
      using b_s::qi::_3;
-   
-      
+
+
      // This approach works but it processes expressions right to left!
      // - To get what you want, use parenthesis!
 
      // An outer expression
-     expression = 
+     expression =
         (term  [push_back(at_c<IN>(_val), _1)] )
          >> *(  ('+' >> expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_add     ]) |  // Addition
                 ('-' >> expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_subtract])    // Subtraction
              );
-         
+
      // Middle priority
-     term = 
-         (factor [push_back(at_c<IN>(_val), _1)]) 
+     term =
+         (factor [push_back(at_c<IN>(_val), _1)])
          >> *( ('*' >> term [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_multiply] ) |  // Multiplication
                ('/' >> term [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_divide  ] )    // Subtraction
              );
 
     // The highest priority
     // - TODO: An additional layer to prevent double signs?
-    factor = 
+    factor =
         (double_          [at_c<NUM>(_val)=_1,            at_c<OP>(_val)=OP_number]    ) | // Just a number
         // The min and max operations take a comma seperated list of expressions
-        ("min(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_min] % ',' > ')') | 
+        ("min(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_min] % ',' > ')') |
         ("max(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_max] % ',' > ')') |
-        ( ("pow(" > expression > ',' > expression > ')') 
+        ( ("pow(" > expression > ',' > expression > ')')
                 [push_back(at_c<IN>(_val), _1), push_back(at_c<IN>(_val), _2), at_c<OP>(_val)=OP_power] ) |
         ("abs(" > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_abs] > ')') | // Absolute value
         ('(' > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_pass] > ')') | // Something in parenthesis
         ('-' >> factor    [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_negate]    ) | // Negative sign
-        //('+' >> factor    [handler]      );  // Positive sign 
+        //('+' >> factor    [handler]      );  // Positive sign
         ("var_" > int_ [at_c<VAR>(_val)=_1, at_c<OP>(_val)=OP_variable] ) ;
         //(b_s::ascii::string  [at_c<VAR>(_val)=_1,  at_c<OP>(_val)=OP_variable]    ) ; // A variable name
-        
+
     /*
-    
+
   // This code is for proper left priority parsing, but this approach does not work at all using
   //  Boost::Spirit!  An entirely new approach is needed but it is not worth the time figuring out.
 
-         
+
     // This split-based approach will make the parser visit the parameters in the correct order,
     // but the current method of each term call returning an OP node won't work.  There will have
-    // to be more of a central authority that keeps adding operations as it encounters them. 
-    
+    // to be more of a central authority that keeps adding operations as it encounters them.
+
     term = (factor [push_back(at_c<IN>(_val), _1)])
             >> (termP [push_back(at_c<IN>(_val), _1)] )
-    termP = 
+    termP =
 
            ( ('*' >> factor >> termP ) [push_back(at_c<IN>(_val),  b_s::qi::_0), at_c<OP>(_val)=OP_multiply]
            )
@@ -322,17 +323,17 @@ struct calc_grammar : b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space
 
 
     // The highest priority
-    factor = 
-        (double_          [at_c<NUM>(_val)=_1, at_c<OP>(_val)=OP_number]); // Just a number       
-        
-        
+    factor =
+        (double_          [at_c<NUM>(_val)=_1, at_c<OP>(_val)=OP_number]); // Just a number
+
+
     */
   } // End constructor
-  
-  
+
+
   // Grammer rules
   b_s::qi::rule<ITER, calc_operation(), b_s::ascii::space_type> expression, term, factor;
-    
+
 }; // End struct calc_grammer
 
 
@@ -348,7 +349,7 @@ T clamp_and_cast(const double val) {
   if (val < static_cast<double>(minVal)) return (minVal);
   if (val > static_cast<double>(maxVal)) return (maxVal);
   return static_cast<T>(val);
-    
+
 }
 template <> float  clamp_and_cast<float >(const double val) {return static_cast<float>(val);}
 template <> double clamp_and_cast<double>(const double val) {return val;}
@@ -378,8 +379,8 @@ public: // Functions
 
   // Constructor
   ImageCalcView( std::vector<ImageT>                & imageVec,
-                 std::vector<bool  >           const& has_nodata_vec, 
-                 std::vector<input_pixel_type> const& nodata_vec,  
+                 std::vector<bool  >           const& has_nodata_vec,
+                 std::vector<input_pixel_type> const& nodata_vec,
                  result_type outputNodata,
                  calc_operation const& operation_tree)
                   : m_image_vec(imageVec),   m_has_nodata_vec(has_nodata_vec),
@@ -395,8 +396,8 @@ public: // Functions
     m_num_cols     = imageVec[0].cols();
     m_num_channels = imageVec[0].planes();
     for (size_t i=1; i<numImages; ++i) {
-      if ( (imageVec[i].rows()   != m_num_rows    ) || 
-           (imageVec[i].cols()   != m_num_cols    ) || 
+      if ( (imageVec[i].rows()   != m_num_rows    ) ||
+           (imageVec[i].cols()   != m_num_cols    ) ||
            (imageVec[i].planes() != m_num_channels)   )
         vw_throw(ArgumentErr() << "Error: Input images must all have the same size and number of channels!");
     }
@@ -406,8 +407,8 @@ public: // Functions
   inline int32 rows  () const { return m_num_rows; }
   inline int32 planes() const { return m_num_channels; }
 
-  inline result_type operator()( int32 i, int32 j, int32 p=0 ) const 
-  { 
+  inline result_type operator()( int32 i, int32 j, int32 p=0 ) const
+  {
     return 0; // NOT IMPLEMENTED!
   }
 
@@ -415,10 +416,10 @@ public: // Functions
   inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
 
   typedef CropView<ImageView<result_type> > prerasterize_type;
-  inline prerasterize_type prerasterize( BBox2i const& bbox ) const { 
+  inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
     //typedef typename PixelChannelType<typename input_pixel_type>::type output_channel_type; // TODO: Why does this not compile?
     typedef typename ImageChannelType<ImageView<result_type> >::type output_channel_type;
-   
+
     // Set up the output image tile
     ImageView<result_type> tile(bbox.width(), bbox.height());
 
@@ -442,13 +443,13 @@ public: // Functions
         for (size_t i=0; i<num_images; ++i) {
           input_pixels[i] = (input_tiles[i])(c,r);
 
-          // If any of the input pixels are nodata, the output is nodata.          
+          // If any of the input pixels are nodata, the output is nodata.
           if (m_has_nodata_vec[i] && (m_nodata_vec[i] == input_pixels[i])) {
             isNodata = true;
             break;
           }
         } // End image loop
-        
+
         if (isNodata) { // Output is nodata, move on to the next pixel
           tile(c, r) = m_output_nodata;
           continue;
@@ -459,15 +460,15 @@ public: // Functions
           for (size_t i=0; i<num_images; ++i) {
             input_doubles[i] = input_pixels[i][chan];
           } // End image loop
-          
+
           // Apply the operation tree to this pixel and store in the output pixel
           double newVal = m_operation_tree.applyOperation<double>(input_doubles);
           //if (newVal > 255)
           //  std::cout << "Value: " << newVal << " --> " << static_cast<double>(clamp_and_cast<output_channel_type>(newVal)) << "\n";
           tile(c, r, chan) = clamp_and_cast<output_channel_type>(newVal);
-          
+
         } // End channel loop
-        
+
       } // End row loop
     } // End column loop
 
@@ -478,11 +479,11 @@ public: // Functions
 
   } // End prerasterize function
 
- template <class DestT> 
- inline void rasterize( DestT const& dest, BBox2i const& bbox ) const { 
-   vw::rasterize( prerasterize(bbox), dest, bbox ); 
+ template <class DestT>
+ inline void rasterize( DestT const& dest, BBox2i const& bbox ) const {
+   vw::rasterize( prerasterize(bbox), dest, bbox );
  }
-  
+
 }; // End class ImageCalcView
 
 
@@ -540,7 +541,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     "Order of operations is parsed with RIGHT priority, use parenthesis to assure the order you want.\n"
     "Surround the entire string with double quotes.\n";
 
-  const std::string data_type_string = 
+  const std::string data_type_string =
     "No-data value to use on output.  Enter the integer corresponding to the type you want (default is float64)\n"
     "  uint8   = 0 \n"
     "  uint16  = 1 \n"
@@ -554,7 +555,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
     ("output-filename,o", po::value(&opt.output_path), "Output file name.")
-    ("calc,c",            po::value(&opt.calc_string), calc_string_help.c_str())  
+    ("calc,c",            po::value(&opt.calc_string), calc_string_help.c_str())
     ("output-data-type,d",  po::value(&output_data_type)->default_value(DT_FLOAT64), data_type_string.c_str())
     ("input-nodata-value",  po::value(&opt.in_nodata_value), "Value that is no-data in the input images.")
     ("output-nodata-value", po::value(&opt.out_nodata_value), "Value to use for no-data in the output image.")
@@ -608,15 +609,16 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 /// This function call is just to clean up the case statement in load_inputs_and_process
 template <typename PixelT, typename OutputT>
 void generate_output(const std::string                         & output_path,
-                     const Options                             & opt, 
+                     const Options                             & opt,
                      const calc_operation                      & calc_tree,
                      const bool                                  have_georef,
                      const vw::cartography::GeoReference       & georef,
                            std::vector< ImageViewRef<PixelT> > & input_images,
                      const std::vector<bool  >                 & has_nodata_vec,
                      const std::vector<PixelT>                 & nodata_vec ) {
+  vw_out() << "Writing: " << output_path << std::endl;
   asp::block_write_gdal_image( output_path,
-                                ImageCalcView< ImageViewRef<PixelT>, OutputT >(input_images, 
+                                ImageCalcView< ImageViewRef<PixelT>, OutputT >(input_images,
                                                                      has_nodata_vec,
                                                                      nodata_vec,
                                                                      opt.out_nodata_value,
@@ -650,7 +652,7 @@ void load_inputs_and_process(Options &opt, const std::string &output_path, const
       have_georef = vw::cartography::read_georeference(georef, input);
       if (have_georef)
         vw_out() << "\t--> Copying georef from input image " << input << std::endl;
-    } 
+    }
 
     // Determining the format of the input
     boost::scoped_ptr<SrcImageResource> rsrc(DiskImageResource::open(input));
@@ -688,7 +690,7 @@ void load_inputs_and_process(Options &opt, const std::string &output_path, const
     case    DT_INT16  : generate_output<PixelT, PixelGray<vw::int16  > >(output_path, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
     case    DT_UINT16 : generate_output<PixelT, PixelGray<vw::uint16 > >(output_path, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
     case    DT_INT32  : generate_output<PixelT, PixelGray<vw::int32  > >(output_path, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
-    case    DT_UINT32 : generate_output<PixelT, PixelGray<vw::uint32 > >(output_path, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;    
+    case    DT_UINT32 : generate_output<PixelT, PixelGray<vw::uint32 > >(output_path, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
     case    DT_FLOAT32: generate_output<PixelT, PixelGray<vw::float32> >(output_path, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
     default :           generate_output<PixelT, PixelGray<vw::float64> >(output_path, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
   };
@@ -699,55 +701,57 @@ void load_inputs_and_process(Options &opt, const std::string &output_path, const
 int main( int argc, char *argv[] ) {
 
   Options opt;
-  handle_arguments( argc, argv, opt );
+  try {
+    handle_arguments( argc, argv, opt );
+    handle_arguments( argc, argv, opt );
 
-  std::string exp(opt.calc_string);
+    std::string exp(opt.calc_string);
 
-  calc_grammar<std::string::const_iterator> grammerParser;
-  calc_operation calc_tree;
+    calc_grammar<std::string::const_iterator> grammerParser;
+    calc_operation calc_tree;
 
-  std::string::const_iterator iter = exp.begin();
-  std::string::const_iterator end = exp.end();
-  bool r = phrase_parse(iter, end, grammerParser, boost::spirit::ascii::space, calc_tree);
+    std::string::const_iterator iter = exp.begin();
+    std::string::const_iterator end = exp.end();
+    bool r = phrase_parse(iter, end, grammerParser, boost::spirit::ascii::space, calc_tree);
 
-  if (r && iter == end) {// Successfully parsed the calculation expression
-    //std::cout << "-------------------------\n";
-    //std::cout << "Parsing succeeded\n";
-    //std::cout << "-------------------------\n";
-    ////calc_tree.print();
-    ////std::cout << "----------- pruned --------------\n";
-    calc_tree.clearEmptyNodes();
-    //calc_tree.print();
-  }
-  else { // Failed to parse the calculation expression
-    std::string::const_iterator some = iter+30;
-    std::string context(iter, (some>end)?end:some);
-    std::cout << "-------------------------\n";
-    std::cout << "Parsing calculation expression failed\n";
-    std::cout << "stopped at: \": " << context << "...\"\n";
-    std::cout << "-------------------------\n";
-    return -1;
-  }
+    if (r && iter == end) {// Successfully parsed the calculation expression
+      //std::cout << "-------------------------\n";
+      //std::cout << "Parsing succeeded\n";
+      //std::cout << "-------------------------\n";
+      ////calc_tree.print();
+      ////std::cout << "----------- pruned --------------\n";
+      calc_tree.clearEmptyNodes();
+      //calc_tree.print();
+    }
+    else { // Failed to parse the calculation expression
+      std::string::const_iterator some = iter+30;
+      std::string context(iter, (some>end)?end:some);
+      std::cout << "-------------------------\n";
+      std::cout << "Parsing calculation expression failed\n";
+      std::cout << "stopped at: \": " << context << "...\"\n";
+      std::cout << "-------------------------\n";
+      return -1;
+    }
 
-  // Use a default output path if none provided
-  const std::string firstPath = opt.input_files[0];
-  //vw_out() << "Loading: " << firstPath << "\n";
-  size_t pt_idx = firstPath.rfind(".");
-  std::string output_path;
-  if (opt.output_path.size() != 0)
-    output_path = opt.output_path;
-  else {
-    output_path = firstPath.substr(0,pt_idx)+"_union";
-    output_path += firstPath.substr(pt_idx,firstPath.size()-pt_idx);
-  }
-  
-  // Determining the format of the input images (all are assumed to be the same type!)
-  boost::scoped_ptr<SrcImageResource> rsrc(DiskImageResource::open(firstPath));
-  ChannelTypeEnum input_data_type = rsrc->channel_type();
-  //PixelFormatEnum pixel_format = rsrc->pixel_format();
-   
-  // Redirect to another function with the correct template type
-  switch(input_data_type) {
+    // Use a default output path if none provided
+    const std::string firstPath = opt.input_files[0];
+    //vw_out() << "Loading: " << firstPath << "\n";
+    size_t pt_idx = firstPath.rfind(".");
+    std::string output_path;
+    if (opt.output_path.size() != 0)
+      output_path = opt.output_path;
+    else {
+      output_path = firstPath.substr(0,pt_idx)+"_calc";
+      output_path += firstPath.substr(pt_idx,firstPath.size()-pt_idx);
+    }
+
+    // Determining the format of the input images (all are assumed to be the same type!)
+    boost::scoped_ptr<SrcImageResource> rsrc(DiskImageResource::open(firstPath));
+    ChannelTypeEnum input_data_type = rsrc->channel_type();
+    //PixelFormatEnum pixel_format = rsrc->pixel_format();
+
+    // Redirect to another function with the correct template type
+    switch(input_data_type) {
     case VW_CHANNEL_INT8   : load_inputs_and_process<PixelGray<vw::int8   > >(opt, output_path, calc_tree);  break;
     case VW_CHANNEL_UINT8  : load_inputs_and_process<PixelGray<vw::uint8  > >(opt, output_path, calc_tree);  break;
     case VW_CHANNEL_INT16  : load_inputs_and_process<PixelGray<vw::int16  > >(opt, output_path, calc_tree);  break;
@@ -757,15 +761,7 @@ int main( int argc, char *argv[] ) {
     case VW_CHANNEL_FLOAT32: load_inputs_and_process<PixelGray<vw::float32> >(opt, output_path, calc_tree);  break;
     case VW_CHANNEL_FLOAT64: load_inputs_and_process<PixelGray<vw::float64> >(opt, output_path, calc_tree);  break;
     default : vw_throw(ArgumentErr() << "Input image format " << input_data_type << " is not supported!\n");
-  };
+    };
+  } ASP_STANDARD_CATCHES;
+
 }
-
-
-
-
-
-
-
-
-
-
