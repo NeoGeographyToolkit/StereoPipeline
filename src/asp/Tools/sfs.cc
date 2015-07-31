@@ -66,8 +66,6 @@ typedef InterpolationView<ImageViewRef< PixelMask<float> >, BilinearInterpolatio
 // but this works only if the cameras are reasonably accurate to start with.
 // TODO: Study the effect of reading the images as double as opposed to float.
 // TODO: Study the effect of using bicubic interpolation.
-// TODO: Handle situations when image values are no-data via a pixel mask.
-// --- we must use everywhere a pixel mask of intensities and reflections.
 // TODO: Study phaseCoeffC1, etc.
 // TODO: Find a good automatic value for the smoothness weight.
 // TODO: How to change the smoothness weight if resolution changes?
