@@ -171,7 +171,7 @@ endif
 
 if MAKE_APP_MAPPROJECT
   libexec_PROGRAMS += mapproject_single
-  libexec_SCRIPTS  += mapproject
+  bin_SCRIPTS  += mapproject
   mapproject_single_SOURCES = mapproject_single.cc
   mapproject_single_LDADD   = $(APP_MAPPROJECT_LIBS)
 endif
