@@ -79,7 +79,7 @@ namespace vw { namespace gui {
                                            azimuth*M_PI/180, 0, "yzx") * light_0;
 
 
-    ImageViewRef< PixelMask<double> > masked_img = create_mask(img, nodata_val);
+    ImageViewRef< PixelMask<double> > masked_img = create_mask_less_or_equal(img, nodata_val);
 
     // The final result is the dot product of the light source with the normals
     ImageView<PixelMask<uint8> > shaded_image =
@@ -381,7 +381,7 @@ void MainWidget::viewThreshImages(){
     nodata_val = std::max(nodata_val, m_shadow_thresh);
 
     ImageViewRef<double> thresh_image
-      = apply_mask(create_mask(DiskImageView<double>(orig_file),
+      = apply_mask(create_mask_less_or_equal(DiskImageView<double>(orig_file),
                                nodata_val), nodata_val);
 
       // The name of the thresholded file

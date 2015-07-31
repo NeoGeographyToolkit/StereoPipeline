@@ -64,6 +64,8 @@ class QMenu;
 
 namespace vw { namespace gui {
 
+  namespace fs = boost::filesystem;
+
   // Pop-up a window with given message
   void popUp(std::string msg);
 
@@ -78,14 +80,14 @@ public:
   typedef typename DiskImageView<PixelT>::pixel_accessor pixel_accessor;
 
   // Constructor
-  DiskImagePyramid(std::string const& img_file = "",
+  DiskImagePyramid(std::string const& base_file = "",
                    int top_image_max_pix = 1000*1000,
                    int subsample = 2
                    ): m_subsample(subsample),
                       m_top_image_max_pix(top_image_max_pix),
                       m_nodata_val(-std::numeric_limits<double>::max()) {
 
-    if (img_file == "")
+    if (base_file == "")
       return;
 
     if (subsample < 2) {
@@ -97,12 +99,16 @@ public:
                 << "be at least 2x2 in size.\n");
     }
 
-    m_pyramid.push_back(vw::DiskImageView<PixelT>(img_file));
-    m_pyramid_files.push_back(img_file);
+    m_pyramid.push_back(vw::DiskImageView<PixelT>(base_file));
+    m_pyramid_files.push_back(base_file);
     m_scales.push_back(1);
 
     // Get the nodata value, if present
-    asp::read_nodata_val(img_file, m_nodata_val);
+    asp::read_nodata_val(base_file, m_nodata_val);
+
+    fs::path base_path(base_file);
+    std::string base_stem = base_path.stem().string();
+    std::time_t base_time = fs::last_write_time(base_path);
 
     int level = 0;
     int scale = 1;
@@ -110,15 +116,13 @@ public:
            m_top_image_max_pix ){
 
       // The name of the file at the current scale
-      boost::filesystem::path p(img_file);
-      std::string stem = p.stem().string();
       std::ostringstream os;
       scale *= subsample;
-      os << stem << "_sub" << scale << ".tif";
+      os << base_stem << "_sub" << scale << ".tif";
       std::string curr_file = os.str();
 
       if (level == 0) {
-        vw_out() << "Detected large image: " << img_file  << "." << std::endl;
+        vw_out() << "Detected large image: " << base_file  << "." << std::endl;
         vw_out() << "Will construct an image pyramid on disk."  << std::endl;
       }
 
@@ -126,7 +130,7 @@ public:
       // TODO: resample_aa is a hacky thingy. Need to understand
       // what is a good way of resampling.
       ImageViewRef< PixelMask<PixelT> > masked
-        = create_mask(m_pyramid[level], m_nodata_val);
+        = create_mask_less_or_equal(m_pyramid[level], m_nodata_val);
       double sub_scale = 1.0/subsample;
       int tile_size = 256;
       int sub_threads = 1;
@@ -137,11 +141,15 @@ public:
          tile_size, sub_threads);
       ImageViewRef<PixelT> unmasked = apply_mask(resampled, m_nodata_val);
 
-      // If the file exists, and has the right size, don't write it again
+      // If the file exists, and has the right size, and is not too old,
+      // don't write it again
       bool will_write = true;
-      if (boost::filesystem::exists(curr_file)) {
-        DiskImageView<double> tmp(curr_file);
-        if (tmp.cols() == unmasked.cols() && tmp.rows() == unmasked.rows()) {
+      if (fs::exists(curr_file)) {
+        DiskImageView<double> curr(curr_file);
+        fs::path curr_path(curr_file);
+        std::time_t curr_file_time = fs::last_write_time(curr_path);
+        if (curr.cols() == unmasked.cols() && curr.rows() == unmasked.rows() &&
+            curr_file_time > base_time) {
           will_write = false;
         }
       }
@@ -338,7 +346,7 @@ private:
     void zoom(double scale);
     void viewMatches(bool hide);
 
-    bool shadowThreshMode(bool turnOn) { m_shadow_thresh_calc_mode = turnOn;}
+    void setShadowThreshMode(bool turnOn) { m_shadow_thresh_calc_mode = turnOn;}
 
   signals:
     void refreshAllMatches();

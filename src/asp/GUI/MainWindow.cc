@@ -383,7 +383,7 @@ void MainWindow::shadowThresholdCalc() {
   bool on = m_shadowCalc_action->isChecked();
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (m_widgets[i])
-      m_widgets[i]->shadowThreshMode(on);
+      m_widgets[i]->setShadowThreshMode(on);
   }
 
 }
