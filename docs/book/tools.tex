@@ -185,7 +185,7 @@ building on disk a pyramid of increasingly coarser subsampled images for
 each input image, and displaying the subsampled versions that are
 appropriate for the current level of zoom.
 
-\subsection{Interest Point Matching Functionality}
+\subsection{Other Functionality}
 
 This tool can be used to view interest point matches, such as generated
 by \texttt{bundle\_adjust} and \texttt{stereo} (only if \texttt{stereo}
@@ -196,24 +196,13 @@ to large changes in illumination) and to delete matches. This functionality
 is only enabled if \texttt{stereo\_gui} is invoked like \texttt{stereo},
 rather than just with images.
 
-\subsection{Shadow Threshold Detection}
-
-Especially on the Moon, dark shadows can confuse the stereo correlator
-and result in noisy results and long run-times. The \texttt{stereo}
-tool takes an input a no-data value, via the \texttt{-\/-nodata-value}
-option, when pixels of value no more than this are masked as
-invalid.
-
 \texttt{stereo\_gui} can be used to find the shadow threshold for each
-of a given set of images (the smallest of these thresholds can be passed as the
-no-data value to \texttt{stereo}). This can be done by turning on from the menu the
-\texttt{Shadow threshold detection} mode, and then clicking on pixels
-in the shadow. The largest of the chosen pixel values will be set to
-the shadow threshold for each image. To see the images with the pixels
-below the shadow threshold highlighted, select from the menu the
-\texttt{View shadow-thresholded images} option.
-
-
+of a given set of images. This can be done by turning on from the menu
+the \texttt{Shadow threshold detection} mode, and then clicking on
+pixels in the shadow. The largest of the chosen pixel values will be set
+to the shadow threshold for each image and printed to the screen. To see
+the images with the pixels below the shadow threshold highlighted,
+select from the menu the \texttt{View shadow-thresholded images} option.
 
 \section{parallel\_stereo}
 \label{parallel}
