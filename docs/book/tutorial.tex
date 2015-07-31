@@ -682,20 +682,20 @@ mode may be set to parabola (\texttt{subpixel-mode 1}) for speed. To
 make it sufficiently coarse and smooth, the resolution can be set to
 about 40 times coarser than either the default \texttt{point2dem}
 resolution or the resolution of the input images. If the resulting DEM
-turns out to be noisy or have holes, one could change the search radius
-factor, use hole-filling, more aggressive outlier removal, and erosion
-of pixels at the boundary (those tend to be less
-reliable). Alternatively, holes can be filled with \texttt{dem\_mosaic}.
+turns out to be noisy or have holes, one could change in
+\texttt{point2dem} the search radius factor, use hole-filling, invoke more
+aggressive outlier removal, and erode pixels at the boundary (those
+tend to be less reliable). Alternatively, holes can be filled with
+\texttt{dem\_mosaic}.
 
 The tool used for map-projecting the images is called
 \texttt{mapproject} (section \ref{mapproject}). It is very important to
 specify correctly the output resolution (the \texttt{-\/-tr} option for
 \texttt{mapproject}) when creating map-projected images. For example, if
-you know that your input images are about 1 meter/pixel, use the same
-number in \texttt{mapproject} (of course, if your projection is in
-degrees, you should convert this value to degrees before using it). If
-the output resolution is not correct, there will be artifacts in the
-stereo results.
+the input images are about 1 meter/pixel, the same number should be used
+in \texttt{mapproject} (if the desired projection is in degrees, this
+value should be converted to degrees). If the output resolution is not
+correct, there will be artifacts in the stereo results.
 
 Some experimentation on a small area may be necessary to obtain the best
 results.
@@ -715,11 +715,12 @@ results.
 
 In this example we illustrate how to run stereo with map-projected
 images for ISIS images. We start with LRO NAC Lunar images M1121224102LE
-and M1121209902LE from ASU's LRO NAC web site, http://lroc.sese.asu.edu/. We convert them
-to ISIS cubes using the ISIS tool \texttt{lronac2isis}, then we use the
-ISIS tools \texttt{lronaccal}, \texttt{lrnonacecho}, and
-\texttt{spiceinit} to do radiometric and echo correction and update the
-SPICE kernels. We name the two obtained .cub files \texttt{left.cub} and
+and M1121209902LE from ASU's LRO NAC web site,
+http://lroc.sese.asu.edu/. We convert them to ISIS cubes using the ISIS
+program \texttt{lronac2isis}, then we use the ISIS tools
+\texttt{spiceinit}, \texttt{lronaccal}, and \texttt{lrnonacecho} to
+update the SPICE kernels and to do radiometric and echo correction. We
+name the two obtained .cub files \texttt{left.cub} and
 \texttt{right.cub}.
 
 Here we decided to run ASP to create the low-resolution DEM needed for
@@ -893,24 +894,16 @@ model during map-projection, but we would like to use the accurate DG
 model when performing actual triangulation from the cameras to the
 ground.
 
-For non-Digital Globe images we could have used the same process but
-we'd invoke the \texttt{rpcmaprpc} session during stereo. In fact, this
-is possible for Digital Globe imagery as well, in that case we'll simply
-bypass the accurate DG linescan model altogether and use the RPC model at
-all stages of the process.
+\subsubsection{RPC and Pinhole Camera Models}
 
-\subsubsection{Pinhole Camera Models}
-
-Map-projected images can also be used with Pinhole camera models. The
-\texttt{mapproject} command needs to be invoked with \texttt{-t
-pinhole}. When invoking \texttt{stereo}, the first two arguments
-should again be the images, followed by the camera models, output
-prefix, and the name of the DEM used for map-projection. The session
-name passed to \texttt{stereo} should be either
-\texttt{pinholemappinhole} or \texttt{pinhole} (the tool is able to
-understand that, since an input DEM was passed in, both of these refer to
-stereo with map-projected images).
-
+Map-projected images can also be used with RPC and Pinhole camera
+models. The \texttt{mapproject} command needs to be invoked with
+\texttt{-t rpc} and \texttt{-t pinhole} respectively. As earlier, when
+invoking \texttt{stereo} the the first two arguments should be the
+map-projected images, followed by the camera models, output prefix, and
+the name of the DEM used for map-projection. The session name passed to
+\texttt{stereo} should be \texttt{rpcmaprpc} and
+\texttt{pinholemappinhole} respectively.
 
 \subsection{Multi-View Stereo}
 \label{multiview}
@@ -941,7 +934,7 @@ Example (for Digital Globe data with three map-projected images):
 The \texttt{parallel\_stereo} tool can also be used with multiple images
 (section \ref{parallel}).
 
-For a sequence of imges, multi-view stereo can be run several times
+For a sequence of images, multi-view stereo can be run several times
 with each image as a reference, and the obtained point clouds combined
 into a single DEM using \texttt{point2dem} (section \ref{point2dem}).
 
@@ -950,7 +943,7 @@ file, is computed as twice the mean of distances from the optimally
 computed intersection point to the individual rays. For two rays, this
 agrees with the intersection error for two-view stereo which is defined
 as the minimal distance between rays. For multi-view stereo this error
-is much less amenable to interpretation as for two-view stereo, since the
+is much less amenable to interpretation than for two-view stereo, since the
 number of valid rays corresponding to a given feature can vary across
 the image, which results in discontinuities in the intersection error.
 
@@ -962,7 +955,7 @@ from multiple stereo pairs, and then a single DEM can be created with
 can be created, then combined into a single DEM with \texttt{dem\_mosaic}
 (section \ref{demmosaic}).
 
-In both of these approaches, the point clouds could be first registered
+In both of these approaches, the point clouds could be registered
 to a trusted dataset using \texttt{pc\_align} before creating a combined
 terrain model (section \ref{pc-align-example}).
 
