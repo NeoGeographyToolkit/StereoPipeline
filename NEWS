@@ -28,6 +28,10 @@
    * Added pc_merge, a simple tool for concatenating ASP produced
      point clouds.
 
+ - docs
+   * Added a documentation section on 'tips and tricks', summarizing 
+     in one place practices for getting the most out of ASP.
+
  - stereo
    * Increase the default correlation timeout to 1800 seconds.
    * Fix failure in interest point matching in certain circumstances.
@@ -106,8 +110,10 @@
 
  - mapproject
    * Can run on multiple machines.
-   * Sprawn multiple processes for ISIS images, to improve the speed.
-   
+   * Use multiple processes for ISIS images, for a huge speedup.
+   * Bugfix, the mapprojected image should not go much beyond the DEM
+     it is mapprojected onto (where it would have no valid pixels).
+
  - dg_mosaic
    * Default penalty weight produces a more accurate fit when creating an 
      RPC model from a DG model.
@@ -118,8 +124,6 @@
    * Upgraded to ISIS 3.4.9.6185.
    * Oldest supported OSX version is 10.8.
    * Added documentation for image2qtree and hillshade.
-   * Added a documentation section on 'tips and tricks', summarizing 
-     in one place some practices for getting the most out of ASP.
 
 *** RELEASE 2.4.2, October 6, 2014 ***
 
