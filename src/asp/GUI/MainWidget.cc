@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 
-/// \file stereo_gui_MainWidget.cc
+/// \file MainWidget.cc
 ///
 /// The Vision Workbench image viewer.
 ///
@@ -368,6 +368,14 @@ void MainWidget::viewUnthreshImages(){
 
 void MainWidget::viewThreshImages(){
   m_shadow_thresh_view_mode = true;
+
+  if (m_images.size() != 1) {
+    popUp("Must have just one image in each window to be able to view thresholded images.");
+    m_shadow_thresh_view_mode = false;
+    refreshPixmap();
+    return;
+  }
+
   int num_images = m_images.size();
   m_shadow_thresh_images.clear(); // wipe the old copy
   m_shadow_thresh_images.resize(num_images);
@@ -562,6 +570,12 @@ void MainWidget::drawImage(QPainter* paint) {
       paint->setBrush(Qt::NoBrush);
 
       std::vector<vw::ip::InterestPoint> & ip = m_matches[m_image_id];
+
+      if (m_images.size() != 1 && !ip.empty()) {
+        popUp("Must have just one image in each window to view matches.");
+        return;
+      }
+
       for (size_t ip_iter = 0; ip_iter < ip.size(); ip_iter++) {
         double x = ip[ip_iter].x;
         double y = ip[ip_iter].y;
@@ -734,7 +748,7 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
 
   } else if (event->buttons() & Qt::LeftButton) {
 
-    if(event->modifiers() & Qt::ControlModifier)
+    if (event->modifiers() & Qt::ControlModifier)
       m_cropWinMode = true;
 
     QPoint Q = event->pos();
@@ -792,6 +806,8 @@ void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
 
     if (m_images.size() != 1) {
       popUp("Must have just one image in each window to do shadow threshold detection.");
+      m_shadow_thresh_calc_mode = false;
+      refreshPixmap();
       return;
     }
 
@@ -832,7 +848,16 @@ void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
 
     refreshPixmap(); // will call paintEvent()
 
-  } else if(m_cropWinMode){
+  } else if (m_cropWinMode){
+
+    if (m_images.size() != 1) {
+      popUp("Must have just one image in each window to be able to select regions for stereo.");
+      m_cropWinMode = false;
+      m_rubberBand = m_emptyRubberBand;
+      m_stereoCropWin = BBox2();
+      refreshPixmap();
+      return;
+    }
 
     // User selects the region to use for stereo.
     // Convert it to world coordinates, and round to integer.
@@ -1052,6 +1077,13 @@ void MainWidget::contextMenuEvent(QContextMenuEvent *event){
 }
 
 void MainWidget::viewMatches(bool hide){
+  if (m_images.size() != 1) {
+    popUp("Must have just one image in each window to view matches.");
+
+    refreshPixmap();
+    return;
+  }
+
   m_hideMatches = hide;
   refreshPixmap();
 }
@@ -1064,6 +1096,11 @@ void MainWidget::addMatchPoint(){
   }
   if (m_image_id >= (int)m_matches.size()) {
     popUp("Number of existing matches is corrupted. Cannot add matches.");
+    return;
+  }
+
+  if (m_images.size() != 1) {
+    popUp("Must have just one image in each window to add matches.");
     return;
   }
 
@@ -1118,6 +1155,11 @@ void MainWidget::deleteMatchPoint(){
   }
   if (m_image_id >= (int)m_matches.size()) {
     popUp("Number of existing matches is corrupted. Cannot delete matches.");
+    return;
+  }
+
+  if (m_images.size() != 1) {
+    popUp("Must have just one image in each window to delete matches.");
     return;
   }
 

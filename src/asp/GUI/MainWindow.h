@@ -16,9 +16,8 @@
 // __END_LICENSE__
 
 
-/// \file stereo_gui_MainWindow.h
+/// \file MainWindow.h
 ///
-/// The Vision Workbench image viewer main window class.
 ///
 #ifndef __STEREO_GUI_MAINWINDOW_H__
 #define __STEREO_GUI_MAINWINDOW_H__
@@ -50,7 +49,7 @@ namespace vw {
   public:
     MainWindow(std::vector<std::string> const& images,
                std::string const& output_prefix,
-               vw::Vector2i const& window_size,
+               vw::Vector2i const& window_size, bool use_single_window,
                bool ignore_georef, bool hillshade, int argc, char ** argv);
     virtual ~MainWindow() {}
 
@@ -83,7 +82,6 @@ namespace vw {
     std::vector<std::string> m_images;
     std::string m_output_prefix;
     double           m_widRatio;    // ratio of sidebar to entire win wid
-    MainWidget     * m_main_widget;
     std::vector<MainWidget*>  m_widgets;
     chooseFilesDlg * m_chooseFiles; // left sidebar for selecting files
 

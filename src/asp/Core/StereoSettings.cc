@@ -231,7 +231,10 @@ namespace asp {
     StereoSettings& global = stereo_settings();
     (*this).add_options()
       ("window-size",  po::value(&global.window_size)->default_value(Vector2i(1200,800),"1200 800"),
-       "The width and height of the GUI window in pixels.");
+       "The width and height of the GUI window in pixels.")
+      ("use-single-window,w",   po::bool_switch(&global.use_single_window)->default_value(false)->implicit_value(true),
+       "Show all images in the same window (with a dialog to choose among them) rather than side-by-side.");
+
   }
 
   DGDescription::DGDescription() : po::options_description("DG Options") {

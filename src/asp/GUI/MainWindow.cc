@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 
-/// \file stereo_gui_MainWindow.cc
+/// \file MainWindow.cc
 ///
 /// The Vision Workbench image viewer main window class.
 ///
@@ -41,11 +41,11 @@ namespace po = boost::program_options;
 MainWindow::MainWindow(std::vector<std::string> const& images,
                        std::string const& output_prefix,
                        vw::Vector2i const& window_size,
+                       bool use_single_window,
                        bool ignore_georef, bool hillshade,
                        int argc,  char ** argv) :
   m_images(images), m_output_prefix(output_prefix),
-  m_widRatio(0.3), m_main_widget(NULL),
-  m_chooseFiles(NULL), m_argc(argc), m_argv(argv) {
+  m_widRatio(0.3), m_chooseFiles(NULL), m_argc(argc), m_argv(argv) {
 
   resize(window_size[0], window_size[1]);
 
@@ -56,31 +56,9 @@ MainWindow::MainWindow(std::vector<std::string> const& images,
   // Set up the basic layout of the window and its menus.
   create_menus();
 
-  m_matches_were_loaded = false;
-  m_matches.clear();
-  m_matches.resize(m_images.size());
-
-  //  if (images.size() > 1){
-
-  // Split the window into two, with the sidebar on the left
-
-  QWidget * centralFrame;
-  centralFrame = new QWidget(this);
-  setCentralWidget(centralFrame);
-
-  QSplitter *splitter = new QSplitter(centralFrame);
-#if 0
-  m_chooseFiles = new chooseFilesDlg(this);
-  m_chooseFiles->setMaximumSize(int(m_widRatio*size().width()), size().height());
-  m_main_widget = new MainWidget(centralFrame, images, m_chooseFiles,
-                                 ignore_georef, hillshade);
-  splitter->addWidget(m_chooseFiles);
-  splitter->addWidget(m_main_widget);
-#else
-  // for doing stereo
+  // Collect only the valid images
+  m_images.clear();
   for (size_t i = 0; i < images.size(); i++) {
-    // TODO: Invoke here asp's handle_arguments().
-    // For now we just display all images that are valid.
     bool is_image = true;
     try {
       DiskImageView<double> img(images[i]);
@@ -88,32 +66,67 @@ MainWindow::MainWindow(std::vector<std::string> const& images,
       is_image = false;
     }
     if (!is_image) continue;
-    std::vector<std::string> local_images;
-    local_images.push_back(images[i]);
+    m_images.push_back(images[i]);
+  }
+
+  m_widgets.clear();
+  m_matches_were_loaded = false;
+  m_matches.clear();
+  m_matches.resize(m_images.size());
+
+  // Central frame, with a splitter, so we can add multiple widgets
+  QWidget * centralFrame;
+  centralFrame = new QWidget(this);
+  setCentralWidget(centralFrame);
+  QSplitter *splitter = new QSplitter(centralFrame);
+
+  if (use_single_window) {
+    // Put all images in a single window, with a dialog for choosing images if
+    // there's more than one image.
+
+    if (m_images.size() > 1) {
+      m_chooseFiles = new chooseFilesDlg(this);
+      m_chooseFiles->setMaximumSize(int(m_widRatio*size().width()), size().height());
+      splitter->addWidget(m_chooseFiles);
+    }
+
     MainWidget * widget = new MainWidget(centralFrame,
-                                         i, m_output_prefix,
-                                         local_images, m_matches,
+                                         0, m_output_prefix,
+                                         m_images, m_matches,
                                          m_chooseFiles,
                                          ignore_georef, hillshade);
-
-    // TODO: When should we de-allocate m_widgets and m_main_widget?
     m_widgets.push_back(widget);
-    splitter->addWidget(widget);
+
+  } else{
+
+    for (size_t i = 0; i < m_images.size(); i++) {
+      std::vector<std::string> local_images;
+      local_images.push_back(m_images[i]);
+      MainWidget * widget = new MainWidget(centralFrame,
+                                           i, m_output_prefix,
+                                           local_images, m_matches,
+                                           m_chooseFiles,
+                                           ignore_georef, hillshade);
+
+      m_widgets.push_back(widget);
+    }
+  }
+
+  // TODO: When should we de-allocate m_widgets?
+
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+
+    // Add the current widget
+    splitter->addWidget(m_widgets[i]);
 
     // Intercept this widget's request to view (or refresh) the matches in all
     // the widgets, not just this one's.
-    connect(widget, SIGNAL(refreshAllMatches()), this, SLOT(viewMatches()));
+    connect(m_widgets[i], SIGNAL(refreshAllMatches()), this, SLOT(viewMatches()));
   }
-#endif
+
   QGridLayout *layout = new QGridLayout(centralFrame);
   layout->addWidget (splitter, 0, 0, 0);
   centralFrame->setLayout (layout);
-  //   }else{
-  //     // Set up MainWidget
-  //     m_main_widget = new MainWidget(this, images, NULL, ignore_georef, hillshade);
-  //     setCentralWidget(m_main_widget);
-  //   }
-
 }
 
 //********************************************************************
@@ -150,17 +163,14 @@ void MainWindow::create_menus() {
   m_viewMatches_action = new QAction(tr("Show IP matches"), this);
   m_viewMatches_action->setStatusTip(tr("View interest point matches."));
   connect(m_viewMatches_action, SIGNAL(triggered()), this, SLOT(viewMatches()));
-  m_viewMatches_action->setShortcut(tr("M"));
 
   m_hideMatches_action = new QAction(tr("Hide IP matches"), this);
   m_hideMatches_action->setStatusTip(tr("Hide interest point matches."));
   connect(m_hideMatches_action, SIGNAL(triggered()), this, SLOT(hideMatches()));
-  m_hideMatches_action->setShortcut(tr("M"));
 
   m_saveMatches_action = new QAction(tr("Save IP matches"), this);
   m_saveMatches_action->setStatusTip(tr("Save interest point matches."));
   connect(m_saveMatches_action, SIGNAL(triggered()), this, SLOT(saveMatches()));
-  m_saveMatches_action->setShortcut(tr("S"));
 
   // Shadow threshold calculation
   m_shadowCalc_action = new QAction(tr("Shadow threshold detection"), this);
@@ -227,8 +237,6 @@ void MainWindow::forceQuit(){
 }
 
 void MainWindow::sizeToFit(){
-  if (m_main_widget)
-    m_main_widget->sizeToFit();
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (m_widgets[i])
       m_widgets[i]->sizeToFit();

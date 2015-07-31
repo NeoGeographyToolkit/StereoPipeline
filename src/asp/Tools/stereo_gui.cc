@@ -73,7 +73,7 @@ int main(int argc, char* argv[]) {
         bool is_image = true;
         try { DiskImageView<float> tmp(image); }
         catch(...){
-          vw_out() << "Not a valid image: " << image << "\n";
+          //vw_out() << "Not a valid image: " << image << "\n";
           is_image = false;
         }
         if (is_image)
@@ -94,6 +94,7 @@ int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
     vw::gui::MainWindow main_window(images, output_prefix,
                                     stereo_settings().window_size,
+                                    stereo_settings().use_single_window,
                                     ignore_georef, hillshade, argc, argv);
     main_window.show();
     app.exec();

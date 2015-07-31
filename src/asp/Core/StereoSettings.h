@@ -170,6 +170,7 @@ namespace asp {
 
     // stereo_gui options
     vw::Vector2i window_size; // The size of the GUI window
+    bool use_single_window;
 
     // DG Options
     bool disable_correct_velocity_aberration;
