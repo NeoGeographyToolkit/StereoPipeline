@@ -198,6 +198,9 @@ void computeOcclusions(Vector3 & pt, ImageView<double> const& dem,
 struct Options : public asp::BaseOptions {
   std::string input_dem, out_prefix, stereo_session_string, bundle_adjust_prefix;
   std::vector<std::string> input_images;
+  std::string shadow_thresholds;
+  std::vector<float> shadow_threshold_vec;
+
   int max_iterations, reflectance_type;
   bool float_albedo, float_exposure, float_cameras, float_dem_at_boundary;
   double smoothness_weight, init_dem_height, max_height_change, height_change_weight;
@@ -376,8 +379,8 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
                                     PixelMask<double> & intensity) {
 
   // Set output values
-  reflectance.invalidate();
-  intensity.invalidate();
+  reflectance = 0; reflectance.invalidate();
+  intensity = 0;   intensity.invalidate();
 
   if (col >= dem.cols() - 1 || row >= dem.rows() - 1) return false;
 
@@ -431,8 +434,8 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   try {
     local_model_params.cameraPosition = camera->camera_center(pix);
   } catch(...){
-    reflectance.invalidate();
-    intensity.invalidate();
+    reflectance = 0; reflectance.invalidate();
+    intensity = 0;   intensity.invalidate();
     return false;
   }
 
@@ -445,14 +448,15 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   // Check for out of range
   if (pix[0] < 0 || pix[0] >= image.cols()-1 ||
       pix[1] < 0 || pix[1] >= image.rows()-1) {
-    reflectance.invalidate();
-    intensity.invalidate();
+    reflectance = 0; reflectance.invalidate();
+    intensity = 0;   intensity.invalidate();
     return false;
   }
 
   intensity = image(pix[0], pix[1]); // this interpolates
   if (!is_valid(intensity)) {
-    reflectance.invalidate();
+    reflectance = 0; reflectance.invalidate();
+    intensity = 0;   intensity.invalidate();
     return false;
   }
 
@@ -656,9 +660,9 @@ struct IntensityError {
                   const F* const adjustments, // camera adjustments
                   F* residuals) const {
 
-    // Default residuals. Use here a somewhat large number but not
-    // so huge as to skew the computation a lot.
-    residuals[0] = F(100.0);
+    // Default residuals. Using here 0 rather than some big number tuned out to
+    // work better than the alternative.
+    residuals[0] = F(0.0);
     try{
 
       // Apply current adjustments to the camera
@@ -878,7 +882,7 @@ void compute_grid_sizes_in_meters(ImageView<double> const& dem,
   if (!grid_y_vec.empty()) grid_y = grid_y_vec[grid_y_vec.size()/2];
 }
 
-void handle_arguments( int argc, char *argv[], Options& opt ) {
+void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   general_options.add_options()
     ("input-dem,i",  po::value(&opt.input_dem),
@@ -891,6 +895,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Reflectance type (0 = Lambertian, 1 = Lunar Lambertian).")
     ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(0.04),
      "A larger value will result in a smoother solution.")
+    ("shadow-thresholds", po::value(&opt.shadow_thresholds)->default_value(""),
+     "Optional shadow thresholds for the input images (a list of real values in quotes).")
     ("float-albedo",   po::bool_switch(&opt.float_albedo)->default_value(false)->implicit_value(true),
      "Float the albedo for each pixel. Will give incorrect results if only one image is present.")
     ("float-exposure",   po::bool_switch(&opt.float_exposure)->default_value(false)->implicit_value(true),
@@ -941,12 +947,35 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   vw_throw( ArgumentErr() << "Missing input images.\n"
             << usage << general_options );
 
+  // Parse shadow thresholds
+  std::istringstream is(opt.shadow_thresholds);
+  opt.shadow_threshold_vec.clear();
+  float val;
+  while (is >> val){
+    opt.shadow_threshold_vec.push_back(val);
+  }
+
+  if (!opt.shadow_threshold_vec.empty() &&
+      opt.shadow_threshold_vec.size() != opt.input_images.size())
+    vw_throw(ArgumentErr()
+             << "If specified, there must be as many shadow thresholds as images.\n");
+
+  // Default thresholds are the smallest float
+  if (opt.shadow_threshold_vec.empty()) {
+    for (size_t i = 0; i < opt.input_images.size(); i++) {
+      opt.shadow_threshold_vec.push_back(-std::numeric_limits<float>::max());
+    }
+  }
+
   // Need this to be able to load adjusted camera models. That will happen
   // in the stereo session.
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
 
   // Create the output directory
   asp::create_out_dir(opt.out_prefix);
+
+  // Turn on logging to file
+  asp::log_to_file(argc, argv, "", opt.out_prefix);
 
   if (opt.input_images.size() <=1 && opt.float_albedo)
     vw_throw(ArgumentErr()
@@ -959,6 +988,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (opt.input_images.size() <=1 && opt.float_dem_at_boundary)
     vw_throw(ArgumentErr()
              << "Floating the DEM at the boundary is ill-posed for just one image.\n");
+
 }
 
 int main(int argc, char* argv[]) {
@@ -1082,9 +1112,12 @@ int main(int argc, char* argv[]) {
         vw_out() << "Found image " << image_iter << " nodata value: "
                  << img_nodata_val << std::endl;
       }
+      // Model the shadow threshold
+      float shadow_thresh = opt.shadow_threshold_vec[image_iter];
       interp_images.push_back(BilinearInterpT
-                              (create_mask(DiskImageView<float>(img_file),
-                                           img_nodata_val)));
+                              (create_mask_less_or_equal
+                               (DiskImageView<float>(img_file),
+                                std::max(img_nodata_val, shadow_thresh))));
     }
 
     // Find the grid sizes in meters. Note that dem heights are in
