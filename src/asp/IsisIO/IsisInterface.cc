@@ -134,7 +134,9 @@ std::ostream& asp::isis::operator<<( std::ostream& os, IsisInterface* i ) {
 bool asp::isis::IsisEnv() {
   char * isisroot_ptr = getenv("ISISROOT");
   char * isisdata_ptr = getenv("ISIS3DATA");
-  if (isisroot_ptr == NULL || isisdata_ptr == NULL)
+  if (isisroot_ptr == NULL || isisdata_ptr == NULL ||
+      std::string(isisroot_ptr) == "" ||
+      std::string(isisdata_ptr) == "" )
     return false;
   return true;
 }
