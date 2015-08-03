@@ -43,10 +43,45 @@ namespace asp {
 
   StereoSettings& stereo_settings() {
     stereo_settings_once.run( init_stereo_settings );
+
+    // This is a bug fix. Ensure that all members of this class are
+    // always initialized before using them, whether in stereo, other
+    // ASP applications, or the unit tests. What is going on below is
+    // the following. The call to generate_config_file_options()
+    // specifies what the values of the class members should be, then
+    // we parse and initialize them when po::store is invoked. Note
+    // that we don't override any of the options from the command line
+    // (that's done much later), hence below we use empty command line
+    // options.
+    if ( !(*stereo_settings_ptr).initialized_stereo_settings) {
+
+      // This call must happen first, otherwise we get into infinite
+      // recursion.
+      (*stereo_settings_ptr).initialized_stereo_settings = true;
+
+      po::options_description l_opts("");
+      Options opt;
+      l_opts.add( asp::generate_config_file_options( opt ) );
+      po::variables_map l_vm;
+      try {
+        int l_argc = 1; const char* l_argv[] = {""};
+        po::store( po::command_line_parser( l_argc, l_argv ).options(l_opts).style( po::command_line_style::unix_style ).run(), l_vm );
+        po::notify( l_vm );
+      } catch (po::error const& e) {
+        vw::vw_throw( vw::ArgumentErr() << "Error parsing input:\n"
+                      << e.what() << "\n" << l_opts );
+      }
+    }
+
     return *stereo_settings_ptr;
   }
 
   StereoSettings::StereoSettings(){
+
+    // This var will turn to true once all stereo settings were parsed
+    // and all the members of this class are initialized.
+    initialized_stereo_settings = false;
+
     // Must initialize this variable as it is used in mapproject
     // to get a camera pointer, and there we don't parse stereo.default
     disable_correct_velocity_aberration = false;

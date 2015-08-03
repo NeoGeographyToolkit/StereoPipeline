@@ -386,30 +386,6 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
                          bool allow_unregistered,
                          std::vector<std::string> & unregistered) {
 
-  {
-    // This is a bugfix. Ensure that stereo_settings() is
-    // pre-populated for every single ASP application, not just for
-    // stereo. For example, any application which uses the
-    // StereoSession, such as mapproject, bundle_adjust, etc., needs
-    // stereo_settings() to be well-defined. What is going on below is
-    // the following. The call to generate_config_file_options() sets
-    // defaults for stereo_settings(), and then those are parsed and
-    // stored when po::store is invoked. Note that we don't override
-    // any of the options (yet) from the command line, hence below we
-    // use empty command line options.
-    po::options_description l_opts("");
-    l_opts.add( asp::generate_config_file_options( opt ) );
-    po::variables_map l_vm;
-    try {
-      int l_argc = 1; const char* l_argv[] = {""};
-      po::store( po::command_line_parser( l_argc, l_argv ).options(l_opts).style( po::command_line_style::unix_style ).run(), l_vm );
-      po::notify( l_vm );
-    } catch (po::error const& e) {
-      vw::vw_throw( vw::ArgumentErr() << "Error parsing input:\n"
-                    << e.what() << "\n" << l_opts );
-    }
-  } // End bugfix.
-
   unregistered.clear();
 
   // Finish filling in the usage_comment.

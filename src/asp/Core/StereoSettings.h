@@ -178,6 +178,8 @@ namespace asp {
     // Undocumented options
     vw::BBox2i trans_crop_win;        // Left image crop window in respect to L.tif.
 
+    // Internal variable, to ensure we always initialize this class before using it
+    bool initialized_stereo_settings;
   };
 
   /// Return the singleton instance of the stereo setting structure.
