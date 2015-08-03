@@ -23,7 +23,7 @@
 #include <asp/Core/OrthoRasterizer.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
-#include <asp/Core/AntiAliasing.h>
+#include <vw/Image/AntiAliasing.h>
 #include <asp/Core/InpaintView.h>
 
 #include <vw/Core/Stopwatch.h>
@@ -623,7 +623,7 @@ generate_fsaa_raster( ImageViewBase<ImageT> const& rasterizer,
       rasterizer_fsaa =
         crop(edge_extend
              (apply_mask
-              (asp::resample_aa
+              (vw::resample_aa
                (translate
                 (gaussian_filter
                  (fill_nodata_with_avg
@@ -644,7 +644,7 @@ generate_fsaa_raster( ImageViewBase<ImageT> const& rasterizer,
       // subsample .. samples from the corner.
       rasterizer_fsaa =
         apply_mask
-        (asp::resample_aa
+        (vw::resample_aa
          (translate
           (gaussian_filter
            (fill_nodata_with_avg
@@ -897,7 +897,7 @@ namespace asp{
     const int beg_ech = 3; // errors start at this channel
     const int num_ech = num_ch - beg_ech; // number of error channels
     ImageViewRef< Vector<double, num_ch> > point_disk_image
-      = asp::form_point_cloud_composite<Vector<double, num_ch> >(pc_files, 
+      = asp::form_point_cloud_composite<Vector<double, num_ch> >(pc_files,
                                   asp::OrthoRasterizerView::max_subblock_size());
     ImageViewRef< Vector<double, num_ech> > error_channels =
       select_channels<num_ech, num_ch, double>(point_disk_image, beg_ech);
@@ -1040,7 +1040,7 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
     int hole_fill_len = 0;
     if (num_channels == 4){
       // The error is a scalar.
-      ImageViewRef<Vector4> point_disk_image = asp::form_point_cloud_composite<Vector4>(opt.pointcloud_files, 
+      ImageViewRef<Vector4> point_disk_image = asp::form_point_cloud_composite<Vector4>(opt.pointcloud_files,
                                                             asp::OrthoRasterizerView::max_subblock_size());
       ImageViewRef<double> error_channel = select_channel(point_disk_image,3);
       rasterizer.set_texture( error_channel );
@@ -1053,7 +1053,7 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
                  georef, hole_fill_len, "IntersectionErr");
     }else if (num_channels == 6){
       // The error is a 3D vector. Convert it to NED coordinate system, and rasterize it.
-      ImageViewRef<Vector6> point_disk_image = asp::form_point_cloud_composite<Vector6>(opt.pointcloud_files, 
+      ImageViewRef<Vector6> point_disk_image = asp::form_point_cloud_composite<Vector6>(opt.pointcloud_files,
                                                             asp::OrthoRasterizerView::max_subblock_size());
       ImageViewRef<Vector3> ned_err = asp::error_to_NED(point_disk_image, georef);
       std::vector< ImageViewRef< PixelGray<float> > >  rasterized(3);
@@ -1244,7 +1244,7 @@ int main( int argc, char *argv[] ) {
 
     // Generate a merged xyz point cloud consisting of all inputs
     // - By this point each input exists in tif format.
-    ImageViewRef<Vector3> point_image = asp::form_point_cloud_composite<Vector3>(opt.pointcloud_files,              
+    ImageViewRef<Vector3> point_image = asp::form_point_cloud_composite<Vector3>(opt.pointcloud_files,
                                                   asp::OrthoRasterizerView::max_subblock_size());
 
     // Apply an (optional) rotation to the 3D points before building the mesh.

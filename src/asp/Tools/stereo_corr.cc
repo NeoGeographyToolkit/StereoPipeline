@@ -35,10 +35,6 @@ using namespace vw::stereo;
 using namespace asp;
 using namespace std;
 
-namespace vw {
-  template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
-}
-
 void produce_lowres_disparity( Options & opt ) {
 
   DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),

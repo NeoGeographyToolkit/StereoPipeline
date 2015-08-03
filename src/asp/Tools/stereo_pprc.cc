@@ -21,7 +21,7 @@
 #include <asp/Tools/stereo.h>
 #include <asp/Core/ThreadedEdgeMask.h>
 #include <asp/Core/InpaintView.h>
-#include <asp/Core/AntiAliasing.h>
+#include <vw/Image/AntiAliasing.h>
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Math/Functors.h>
 

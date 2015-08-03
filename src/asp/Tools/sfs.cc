@@ -1070,7 +1070,7 @@ int main(int argc, char* argv[]) {
     ImageView<double> dem
       = copy(DiskImageView<double>(opt.input_dem) );
     double nodata_val = -std::numeric_limits<float>::max(); // note we use a float nodata
-    if (asp::read_nodata_val(opt.input_dem, nodata_val)){
+    if (vw::read_nodata_val(opt.input_dem, nodata_val)){
       vw_out() << "Found DEM nodata value: " << nodata_val << std::endl;
     }
     // Replace no-data values with the mean of valid values
@@ -1178,7 +1178,7 @@ int main(int argc, char* argv[]) {
     float img_nodata_val = -std::numeric_limits<float>::max();
     for (int image_iter = 0; image_iter < num_images; image_iter++){
       std::string img_file = opt.input_images[image_iter];
-      if (asp::read_nodata_val(img_file, img_nodata_val)){
+      if (vw::read_nodata_val(img_file, img_nodata_val)){
         vw_out() << "Found image " << image_iter << " nodata value: "
                  << img_nodata_val << std::endl;
       }
