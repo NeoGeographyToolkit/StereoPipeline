@@ -165,7 +165,7 @@ namespace vw { namespace gui {
 
 // A class to manage very large images and their subsampled versions
 // in a pyramid. The most recently accessed tiles are cached in memory.
-  template <class PixelT>
+template <class PixelT>
 class DiskImagePyramid : public ImageViewBase<DiskImagePyramid<PixelT> > {
 
 public:
