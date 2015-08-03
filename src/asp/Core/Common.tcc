@@ -47,19 +47,6 @@ namespace asp {
     return vec;
   }
 
-  // Get no-data value if available. Usually this field is float.
-  template<class T>
-  bool read_nodata_val(std::string const& file, T & nodata_val){
-    boost::scoped_ptr<vw::SrcImageResource>
-      rsrc(vw::DiskImageResource::open(file));
-    if ( rsrc->has_nodata_read() ){
-      nodata_val = rsrc->nodata_read();
-      return true;
-    }
-    return false;
-  }
-
-
   // Multi-threaded block write image with, if available, nodata, georef, and
   // keywords to geoheader.
   template <class ImageT, class NoDataT>
@@ -337,5 +324,3 @@ namespace asp {
   }
 
 } // namespace asp
-
-

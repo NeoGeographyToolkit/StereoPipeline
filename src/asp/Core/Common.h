@@ -100,10 +100,6 @@ namespace asp {
                    std::string stereo_default_filename,
                    std::string output_prefix);
 
-  /// Get no-data value if available. Usually this field is float.
-  template<class T>
-  bool read_nodata_val(std::string const& file, T & nodata_val);
-
   /// Standard Options
   struct BaseOptions {
     vw::DiskImageResourceGDAL::Options gdal_options;
@@ -216,7 +212,7 @@ namespace asp {
 
   //---------------------------------------------------------------------------
   // Functions for writing GDAL images - single threaded.
-  
+
   /// Single-threaded write image with, if available, nodata, georef, and
   /// keywords to geoheader.
   template <class ImageT, class NoDataT>
@@ -264,10 +260,10 @@ namespace asp {
                         = vw::ProgressCallback::dummy_instance(),
                         std::map<std::string, std::string> const& keywords
                         = std::map<std::string, std::string>() );
-                        
-                        
+
+
   //---------------------------------------------------------------------------
-                        
+
   // Specialized functions for reading/writing images with a shift.
   // The shift is meant to bring the pixel values closer to origin,
   // with goal of saving the pixels as float instead of double.
