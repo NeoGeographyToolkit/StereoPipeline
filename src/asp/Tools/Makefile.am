@@ -28,7 +28,7 @@ libexec_PROGRAMS = # Auxiliary C++ executables
 if MAKE_APP_STEREO
   bin_SCRIPTS      += stereo parallel_stereo sparse_disp dg_mosaic
   libexec_SCRIPTS  += stereo_utils.py
-  bin_PROGRAMS     += stereo_corr stereo_fltr stereo_pprc stereo_rfne stereo_tri stereo_gui
+  bin_PROGRAMS     += stereo_corr stereo_fltr stereo_pprc stereo_rfne stereo_tri
   libexec_PROGRAMS += stereo_parse
   stereo_corr_LDADD       = $(APP_STEREO_LIBS)
   stereo_corr_SOURCES     = stereo_corr.cc stereo.cc
@@ -42,8 +42,13 @@ if MAKE_APP_STEREO
   stereo_rfne_SOURCES     = stereo_rfne.cc stereo.cc
   stereo_tri_LDADD        = $(APP_STEREO_LIBS)
   stereo_tri_SOURCES      = stereo_tri.cc stereo.cc
-  stereo_gui_LDADD        = $(APP_STEREO_LIBS)
-  stereo_gui_SOURCES      = stereo_gui.cc stereo.cc
+endif
+
+# The stereo_gui app is separate as it also depends on Qt
+if MAKE_APP_STEREO_GUI
+  bin_PROGRAMS += stereo_gui
+  stereo_gui_SOURCES = stereo_gui.cc stereo.cc
+  stereo_gui_LDADD = $(APP_STEREO_GUI_LIBS)
 endif
 
 if MAKE_APP_BUNDLE_ADJUST
@@ -222,6 +227,7 @@ $(all_scripts): %: %.in
 
 ##############################################################################
 
+# To do: Cleanup below
 AM_CPPFLAGS = @ASP_CPPFLAGS@
 AM_LDFLAGS  = @ASP_LDFLAGS@
 
