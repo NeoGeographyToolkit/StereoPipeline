@@ -30,6 +30,7 @@
 
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/mpl/or.hpp>
 
 // Qt
 #include <QWidget>
@@ -45,6 +46,7 @@
 #include <vw/Image/Statistics.h>
 #include <vw/FileIO/DiskImageResource.h>
 #include <vw/FileIO/DiskImageView.h>
+#include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Math/BBox.h>
 #include <vw/Math/Vector.h>
 #include <vw/Cartography/GeoReference.h>
@@ -52,7 +54,7 @@
 
 // ASP
 #include <asp/Core/Common.h>
-#include <asp/Core/AntiAliasing.h>
+#include <vw/Image/AntiAliasing.h>
 
 class QMouseEvent;
 class QWheelEvent;
@@ -62,6 +64,14 @@ class QTableWidget;
 class QContextMenuEvent;
 class QMenu;
 
+namespace vw {
+  // To be able to write Vector3 images
+  template<> struct PixelFormatID< Vector<vw::uint8, 1> >  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_1_CHANNEL; };
+  template<> struct PixelFormatID< Vector<vw::uint8, 2> >  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_2_CHANNEL; };
+  template<> struct PixelFormatID< Vector<vw::uint8, 3> >  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
+  template<> struct PixelFormatID< Vector<vw::uint8, 4> >  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_4_CHANNEL; };
+}
+
 namespace vw { namespace gui {
 
   namespace fs = boost::filesystem;
@@ -69,9 +79,93 @@ namespace vw { namespace gui {
   // Pop-up a window with given message
   void popUp(std::string msg);
 
+  // The kinds of images we support
+  enum ImgType {UNINIT, CH1_DOUBLE, CH1_UINT8, CH3_UINT8};
+
+  // For multi-channel images we cannot use create_mask_less_or_equal.
+  template<class PixelT>
+
+  typename boost::enable_if< boost::mpl::or_< boost::is_same<PixelT,double>, boost::is_same<PixelT,vw::uint8> >, ImageViewRef< PixelMask<PixelT> > >::type
+ create_custom_mask(ImageViewRef<PixelT> & img, double nodata_val){
+    return create_mask_less_or_equal(img, nodata_val);
+  }
+  template<class PixelT>
+  typename boost::disable_if< boost::mpl::or_< boost::is_same<PixelT,double>, boost::is_same<PixelT,vw::uint8> >, ImageViewRef< PixelMask<PixelT> > >::type
+  create_custom_mask(ImageViewRef<PixelT> & img, double nodata_val){
+    return create_mask(img, nodata_val);
+  }
+
+  // Single-channel images are read into Image<float>, while
+  // multi-channel in Image<Vector>, and we skip reading
+  // extra channels.
+  template<class PixelT>
+  typename boost::enable_if<boost::is_same<PixelT,double>, ImageViewRef<PixelT> >::type
+  custom_read(std::string const& file){
+    return DiskImageView<PixelT>(file);
+  }
+  template<class PixelT>
+  typename boost::disable_if<boost::is_same<PixelT,double>, ImageViewRef<PixelT> >::type
+  custom_read(std::string const& file){
+    return vw::read_channels<vw::math::VectorSize<PixelT>::value, typename PixelT::value_type>(file, 0);
+  }
+
+  // Form a qimage to show on screen. For scalar images, we scale them
+  // and handle the nodata val.  For other types, we use the pixels as
+  // they are.  if there are 3 or more channels, interpret those as
+  // RGB, otherwise create a grayscale image.
+  template<class PixelT>
+  typename boost::enable_if<boost::mpl::or_< boost::is_same<PixelT,double>, boost::is_same<PixelT,vw::uint8> >, void >::type
+  formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
+              ImageView<PixelT> const& clip,
+              QImage & qimg){
+
+    double min_val = std::numeric_limits<double>::max();
+    double max_val = -std::numeric_limits<double>::max();
+    if (scale_pixels) {
+      for (int col = 0; col < clip.cols(); col++){
+        for (int row = 0; row < clip.rows(); row++){
+          if (clip(col, row) <= nodata_val) continue;
+          if (clip(col, row) < min_val) min_val = clip(col, row);
+          if (clip(col, row) > max_val) max_val = clip(col, row);
+        }
+      }
+      if (min_val >= max_val)
+        max_val = min_val + 1.0;
+    }
+
+    qimg = QImage(clip.cols(), clip.rows(), QImage::Format_RGB888);
+    for (int col = 0; col < clip.cols(); col++){
+      for (int row = 0; row < clip.rows(); row++){
+        double val = clip(col, row);
+        if (scale_pixels)
+          val = round(255*(std::max(val, min_val) - min_val)/(max_val-min_val));
+        if (!highlight_nodata || clip(col, row) > nodata_val)
+          qimg.setPixel(col, row, qRgb(val, val, val));
+        else
+          qimg.setPixel(col, row, qRgb(255, 0, 0)); // highlight in red
+      }
+    }
+  }
+  template<class PixelT>
+  typename boost::disable_if<boost::mpl::or_< boost::is_same<PixelT,double>, boost::is_same<PixelT,vw::uint8> >, void >::type
+  formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
+              ImageView<PixelT> const& clip, QImage & qimg){
+
+    qimg = QImage(clip.cols(), clip.rows(), QImage::Format_RGB888);
+    for (int col = 0; col < clip.cols(); col++){
+      for (int row = 0; row < clip.rows(); row++){
+        PixelT v = clip(col, row);
+        if (v.size() >= 3)
+          qimg.setPixel(col, row, qRgb(v[0], v[1], v[2])); // color
+        else
+          qimg.setPixel(col, row, qRgb(v[0], v[0], v[0])); // grayscale
+      }
+    }
+  }
+
 // A class to manage very large images and their subsampled versions
 // in a pyramid. The most recently accessed tiles are cached in memory.
-template <class PixelT>
+  template <class PixelT>
 class DiskImagePyramid : public ImageViewBase<DiskImagePyramid<PixelT> > {
 
 public:
@@ -79,13 +173,15 @@ public:
   typedef typename DiskImageView<PixelT>::result_type result_type;
   typedef typename DiskImageView<PixelT>::pixel_accessor pixel_accessor;
 
-  // Constructor
+  // Constructor. Note that we use NaN as nodata if not available,
+  // that has the effect of not accidentally setting some pixels
+  // to nodata.
   DiskImagePyramid(std::string const& base_file = "",
                    int top_image_max_pix = 1000*1000,
                    int subsample = 2
                    ): m_subsample(subsample),
                       m_top_image_max_pix(top_image_max_pix),
-                      m_nodata_val(-std::numeric_limits<double>::max()) {
+                      m_nodata_val(std::numeric_limits<double>::quiet_NaN()) {
 
     if (base_file == "")
       return;
@@ -99,12 +195,13 @@ public:
                 << "be at least 2x2 in size.\n");
     }
 
-    m_pyramid.push_back(vw::DiskImageView<PixelT>(base_file));
+    m_pyramid.push_back(custom_read<PixelT>(base_file));
+
     m_pyramid_files.push_back(base_file);
     m_scales.push_back(1);
 
     // Get the nodata value, if present
-    asp::read_nodata_val(base_file, m_nodata_val);
+    bool has_nodata = vw::read_nodata_val(base_file, m_nodata_val);
 
     fs::path base_path(base_file);
     std::string base_stem = base_path.stem().string();
@@ -126,20 +223,27 @@ public:
         vw_out() << "Will construct an image pyramid on disk."  << std::endl;
       }
 
-      // Resample the image at the current pyramid level.
-      // TODO: resample_aa is a hacky thingy. Need to understand
-      // what is a good way of resampling.
       ImageViewRef< PixelMask<PixelT> > masked
-        = create_mask_less_or_equal(m_pyramid[level], m_nodata_val);
+        = create_custom_mask(m_pyramid[level], m_nodata_val);
       double sub_scale = 1.0/subsample;
       int tile_size = 256;
       int sub_threads = 1;
-      ImageViewRef< PixelMask<PixelT> > resampled
+
+      // Resample the image at the current pyramid level.
+      // TODO: resample_aa is a hacky thingy. Need to understand
+      // what is a good way of resampling.
+      // Note that below we cast the channels to double for resampling,
+      // then cast back to current pixel type for saving.
+      ImageViewRef<PixelT> unmasked
         = block_rasterize
-        (asp::cache_tile_aware_render(asp::resample_aa(masked, sub_scale),
-                                      Vector2i(tile_size,tile_size) * sub_scale),
+        (vw::cache_tile_aware_render
+         (pixel_cast<PixelT>
+          (apply_mask
+           (vw::resample_aa
+            (channel_cast<double>(masked), sub_scale),
+            m_nodata_val)),
+          Vector2i(tile_size,tile_size) * sub_scale),
          tile_size, sub_threads);
-      ImageViewRef<PixelT> unmasked = apply_mask(resampled, m_nodata_val);
 
       // If the file exists, and has the right size, and is not too old,
       // don't write it again
@@ -156,9 +260,13 @@ public:
 
       if (will_write) {
         TerminalProgressCallback tpc("asp", ": ");
+        bool has_georef = false;
+        vw::cartography::GeoReference georef;
         asp::BaseOptions opt;
         vw_out() << "Writing: " << curr_file << std::endl;
-        asp::block_write_gdal_image(curr_file, unmasked, m_nodata_val, opt, tpc);
+
+        asp::block_write_gdal_image(curr_file, unmasked, has_georef, georef,
+                                    has_nodata, m_nodata_val, opt, tpc);
       }else{
         vw_out() << "Using existing subsampled image: " << curr_file << std::endl;
       }
@@ -182,7 +290,7 @@ public:
   // combined to create the QImage. Also return the precise subsample
   // factor used and the region at that scale level.
   void getImageClip(double scale_in, vw::BBox2i region_in,
-                    bool highlight_nodata,
+                    bool highlight_nodata, bool scale_pixels,
                     QImage & qimg, double & scale_out, vw::BBox2i & region_out) {
 
     if (m_pyramid.empty())
@@ -204,32 +312,7 @@ public:
     region_out.crop(bounding_box(m_pyramid[level]));
 
     ImageView<PixelT> clip = crop(m_pyramid[level], region_out);
-
-    // Normalize to 0 - 255, taking into account the nodata_val
-    double min_val = FLT_MAX;
-    double max_val = -FLT_MAX;
-    for (int col = 0; col < clip.cols(); col++){
-      for (int row = 0; row < clip.rows(); row++){
-        if (clip(col, row) <= m_nodata_val) continue;
-        if (clip(col, row) < min_val) min_val = clip(col, row);
-        if (clip(col, row) > max_val) max_val = clip(col, row);
-      }
-    }
-    if (min_val >= max_val)
-      max_val = min_val + 1.0;
-
-    qimg = QImage(clip.cols(), clip.rows(), QImage::Format_RGB888);
-    for (int col = 0; col < clip.cols(); col++){
-      for (int row = 0; row < clip.rows(); row++){
-        double val = round(255*(std::max(double(clip(col, row)), min_val)
-                                - min_val)/(max_val-min_val));
-        if (!highlight_nodata || clip(col, row) > m_nodata_val)
-          qimg.setPixel(col, row, qRgb(val, val, val));
-        else
-          qimg.setPixel(col, row, qRgb(255, 0, 0)); // highlight in red
-      }
-    }
-
+    formQimage(highlight_nodata, scale_pixels, m_nodata_val, clip, qimg);
   }
 
   ~DiskImagePyramid() {}
@@ -267,13 +350,108 @@ private:
   std::vector<int> m_scales;
 };
 
+  // An image class that supports 1 to 3 channels.  We inherit from
+  // DiskImagePyramid<double> to be able to use some of the
+  // pre-defined member functions for an image class. This class
+  // is not a perfect solution, but there seem to be no easy way
+  // in ASP to handle images with variable numbers of channels.
+  struct DiskImagePyramidMultiChannel: public DiskImagePyramid<double> {
+    DiskImagePyramid<double>  m_img_ch1_double;
+    DiskImagePyramid< Vector<vw::uint8, 1> > m_img_ch1_uint8;
+    DiskImagePyramid< Vector<vw::uint8, 3> > m_img_ch3_uint8;
+    int m_num_channels;
+    int m_rows, m_cols;
+    ImgType m_type; // keeps track of which of the above images we use
+
+    // Constructor
+    DiskImagePyramidMultiChannel(std::string const& base_file = "",
+                                 int top_image_max_pix = 1000*1000,
+                                 int subsample = 2):m_num_channels(0),
+                                                    m_rows(0), m_cols(0),
+                                                    m_type(UNINIT){
+      if (base_file == "") return;
+
+      m_num_channels = get_num_channels(base_file);
+      if (m_num_channels == 1) {
+        // Single channel image with float pixels.
+        m_img_ch1_double = DiskImagePyramid<double>(base_file);
+        m_rows = m_img_ch1_double.rows();
+        m_cols = m_img_ch1_double.cols();
+        m_type = CH1_DOUBLE;
+      }else if (m_num_channels == 2){
+        // uint8 image with an alpha channel. Ignore the alpha channel.
+        m_img_ch1_uint8 = DiskImagePyramid< Vector<vw::uint8, 1> >(base_file);
+        m_num_channels = 1; // we read only 1 channel
+        m_rows = m_img_ch1_uint8.rows();
+        m_cols = m_img_ch1_uint8.cols();
+        m_type = CH1_UINT8;
+      } else if (m_num_channels == 3 || m_num_channels == 4) {
+        // RGB image with three uint8 channels and perhaps an
+        // alpha channel which we ignore.
+        m_img_ch3_uint8 = DiskImagePyramid< Vector<vw::uint8, 3> >(base_file);
+        m_num_channels = 3; // we read only 3 channels
+        m_rows = m_img_ch3_uint8.rows();
+        m_cols = m_img_ch3_uint8.cols();
+        m_type = CH3_UINT8;
+      }else{
+        vw_throw( ArgumentErr() << "Unsupported image with "
+                  << m_num_channels << " bands.\n");
+      }
+    }
+
+    // This function will return a QImage to be shown on screen.
+    // How we create it, depends on the type of image we want
+    // to display.
+    void getImageClip(double scale_in, vw::BBox2i region_in,
+                      bool highlight_nodata,
+                      QImage & qimg, double & scale_out, vw::BBox2i & region_out) {
+
+      bool scale_pixels = (m_type == CH1_DOUBLE);
+
+      if (m_type == CH1_DOUBLE) {
+        m_img_ch1_double.getImageClip(scale_in, region_in,
+                                      highlight_nodata, scale_pixels, qimg,
+                                      scale_out, region_out);
+      } else if (m_type == CH1_UINT8) {
+        m_img_ch1_uint8.getImageClip(scale_in, region_in,
+                                     highlight_nodata, scale_pixels, qimg,
+                                     scale_out, region_out);
+      } else if (m_type == CH3_UINT8) {
+        m_img_ch3_uint8.getImageClip(scale_in, region_in,
+                                     highlight_nodata, scale_pixels, qimg,
+                                      scale_out, region_out);
+      }else{
+        vw_throw( ArgumentErr() << "Unsupported image with "
+                  << m_num_channels << " bands\n");
+      }
+    }
+    int32 cols()   const { return m_cols;  }
+    int32 rows()   const { return m_rows;  }
+    int32 planes() const { return m_num_channels; }
+
+    // This operator will quietly return just the first channel.
+    // The getImageClip() function is what needs to be used
+    // generally.
+    double operator()( int32 x, int32 y, int32 p = 0 ) const {
+      if (m_type == CH1_DOUBLE) {
+        return m_img_ch1_double(x, y, p);
+      }else if (m_type == CH1_UINT8){
+        return m_img_ch1_uint8(x, y, p)[0];
+      }else{
+        vw_throw( ArgumentErr() << "Unsupported image with "
+                  << m_num_channels << " bands\n");
+      }
+      return 0;
+    }
+  };
+
   // A class to keep all data associated with an image file
   struct imageData{
     std::string name;
     bool has_georef;
     vw::cartography::GeoReference georef;
     BBox2 bbox;
-    DiskImagePyramid<double> img;
+    DiskImagePyramidMultiChannel img;
     void read(std::string const& image, bool ignore_georef,
               bool hillshade);
   };

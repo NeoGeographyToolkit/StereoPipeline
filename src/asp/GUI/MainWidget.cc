@@ -18,7 +18,6 @@
 
 /// \file MainWidget.cc
 ///
-/// The Vision Workbench image viewer.
 ///
 
 #include <string>
@@ -26,7 +25,6 @@
 #include <QtGui>
 #include <QContextMenuEvent>
 
-// Vision Workbench
 #include <vw/Image.h>
 #include <vw/FileIO.h>
 #include <vw/Math/EulerAngles.h>
@@ -100,7 +98,7 @@ void imageData::read(std::string const& image, bool ignore_georef,
 
   int top_image_max_pix = 1000*1000;
   int subsample = 4;
-  img = DiskImagePyramid<double>(name, top_image_max_pix, subsample);
+  img = DiskImagePyramidMultiChannel(name, top_image_max_pix, subsample);
 
   // Turn off handing georef, the code is not ready for that
   ignore_georef = true;
@@ -110,10 +108,9 @@ void imageData::read(std::string const& image, bool ignore_georef,
   else
     has_georef = vw::cartography::read_georeference(georef, name);
 
+  bbox = BBox2(0, 0, img.cols(), img.rows());
   if (has_georef)
-    bbox = georef.lonlat_bounding_box(img); // lonlat box
-  else
-    bbox = bounding_box(img);               // pixel box
+    bbox = georef.pixel_to_lonlat_bbox(bbox); // lonlat box
 
   if (hillshade){
     if (!has_georef){
@@ -384,9 +381,17 @@ void MainWidget::viewThreshImages(){
   // time as perhaps the shadow threshold changed.
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
     std::string orig_file = m_image_files[image_iter];
+
     double nodata_val = -std::numeric_limits<double>::max();
-    asp::read_nodata_val(orig_file, nodata_val);
+    vw::read_nodata_val(orig_file, nodata_val);
     nodata_val = std::max(nodata_val, m_shadow_thresh);
+
+    int num_channels = get_num_channels(orig_file);
+    if (num_channels != 1) {
+      popUp("Thresholding makes sense only for single-channel images.");
+      m_shadow_thresh_view_mode = false;
+      return;
+    }
 
     ImageViewRef<double> thresh_image
       = apply_mask(create_mask_less_or_equal(DiskImageView<double>(orig_file),
@@ -502,9 +507,10 @@ void MainWidget::drawImage(QPainter* paint) {
       // image_box is in lonlat domain. Go from screen pixels
       // to lonlat, then to image pixels. We need to do a flip in
       // y since in lonlat space the origin is in lower-left corner.
-
+#if 0
       ImageView<double> img = m_images[i].img.bottom();
-      qimg = QImage(screen_box.width(), screen_box.height(), QImage::Format_RGB888);
+      qimg = QImage(screen_box.width(), screen_box.height(),
+                    QImage::Format_RGB888);
       int len = screen_box.max().y() - screen_box.min().y() - 1;
       for (int x = screen_box.min().x(); x < screen_box.max().x(); x++){
         for (int y = screen_box.min().y(); y < screen_box.max().y(); y++){
@@ -519,6 +525,7 @@ void MainWidget::drawImage(QPainter* paint) {
           }
         }
       }
+#endif
 
       // flip pixel box in y
       QRect v = this->geometry();
@@ -548,10 +555,12 @@ void MainWidget::drawImage(QPainter* paint) {
       BBox2i region_out;
       bool highlight_nodata = m_shadow_thresh_view_mode;
       if (m_shadow_thresh_view_mode){
-        m_shadow_thresh_images[i].img.getImageClip(scale, image_box, highlight_nodata,
+        m_shadow_thresh_images[i].img.getImageClip(scale, image_box,
+                                                   highlight_nodata,
                                                    qimg, scale_out, region_out);
       }else{
-        m_images[i].img.getImageClip(scale, image_box, highlight_nodata,
+        m_images[i].img.getImageClip(scale, image_box,
+                                     highlight_nodata,
                                      qimg, scale_out, region_out);
       }
 
@@ -811,12 +820,19 @@ void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
       return;
     }
 
+    if (m_images[0].img.planes() != 1) {
+      popUp("Thresholding makes sense only for single-channel images.");
+      m_shadow_thresh_calc_mode = false;
+      return;
+    }
+
     Vector2 p = screen2world(Vector2(mouse_rel_pos.x(), mouse_rel_pos.y()));
 
     int col = round(p[0]), row = round(p[1]);
     vw_out() << "Clicked on pixel: " << col << ' ' << row << std::endl;
 
-    if (col >= 0 && row >= 0 && col < m_images[0].img.cols() && row < m_images[0].img.rows() ) {
+    if (col >= 0 && row >= 0 && col < m_images[0].img.cols() &&
+        row < m_images[0].img.rows() ) {
       double val = m_images[0].img(col, row);
       m_shadow_thresh = std::max(m_shadow_thresh, val);
     }
@@ -832,8 +848,6 @@ void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
   }
 
   if (event->buttons() & Qt::RightButton) {
-
-    int tol = 5;
     if (std::abs(mouse_rel_pos.x() - m_mousePrsX) < tol &&
         std::abs(mouse_rel_pos.y() - m_mousePrsY) < tol
         ){

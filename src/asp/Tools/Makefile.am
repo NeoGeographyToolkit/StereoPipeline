@@ -227,7 +227,6 @@ $(all_scripts): %: %.in
 
 ##############################################################################
 
-# To do: Cleanup below
 AM_CPPFLAGS = @ASP_CPPFLAGS@
 AM_LDFLAGS  = @ASP_LDFLAGS@
 
