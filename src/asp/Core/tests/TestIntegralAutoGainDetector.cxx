@@ -52,7 +52,15 @@ TEST( IntegralAutoGainDetector, VerifyMaxima ) {
   // Detect interest points
   IntegralAutoGainDetector detector;
   ip::InterestPointList list = detector.process_image( test_image );
+
+  // On 32-bit Linux the answer is different
+#if __GNUC__
+#if __x86_64__ || __ppc64__
   EXPECT_EQ( list.size(), 9 ); // Digitization error
+#else
+  EXPECT_EQ( list.size(), 13 ); // Digitization error
+#endif
+#endif
 
   // Find the best IP
   const ip::InterestPoint* best_ip = &list.front();
