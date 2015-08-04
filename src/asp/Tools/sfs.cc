@@ -54,6 +54,9 @@ using namespace vw::cartography;
 
 typedef InterpolationView<ImageViewRef< PixelMask<float> >, BilinearInterpolation> BilinearInterpT;
 
+// TODO: If this code becomes multi-threaded, need to keep in mind
+// that camera models are shared and modified, so
+// this may cause problems.
 // TODO: How to relax conditions at the boundary to improve the accuracy?
 // TODO: Study if blurring the input images improves the fit.
 // TODO: Add --orthoimage option, and make it clear where the final DEM is.
@@ -201,13 +204,13 @@ struct Options : public asp::BaseOptions {
   std::string shadow_thresholds;
   std::vector<float> shadow_threshold_vec;
 
-  int max_iterations, reflectance_type;
+  int max_iterations, max_coarse_iterations, reflectance_type, coarse_levels;
   bool float_albedo, float_exposure, float_cameras, model_shadows,
     float_dem_at_boundary;
   double smoothness_weight, init_dem_height, max_height_change,
     height_change_weight;
-  Options():max_iterations(0), reflectance_type(0), float_albedo(false),
-            float_exposure(false), float_cameras(false),
+  Options():max_iterations(0), max_coarse_iterations(0), reflectance_type(0),
+            coarse_levels(0), float_albedo(false), float_exposure(false), float_cameras(false),
             model_shadows(false), float_dem_at_boundary(false),
             smoothness_weight(0), max_height_change(0), height_change_weight(0){};
 };
@@ -533,16 +536,16 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
 // A function to invoke at every iteration of ceres.
 // We need a lot of global variables to do something useful.
 int                                            g_iter = -1;
-Options                                      * g_opt;
+Options                                const * g_opt;
 ImageView<double>                            * g_dem, *g_albedo;
-cartography::GeoReference                    * g_geo;
-GlobalParams                                 * g_global_params;
-std::vector<ModelParams>                     * g_model_params;
-std::vector<BilinearInterpT>                 * g_interp_images;
+cartography::GeoReference              const * g_geo;
+GlobalParams                           const * g_global_params;
+std::vector<ModelParams>               const * g_model_params;
+std::vector<BilinearInterpT>           const * g_interp_images;
 std::vector<boost::shared_ptr<CameraModel> > * g_cameras;
 double                                       * g_nodata_val;
 float                                        * g_img_nodata_val;
-double                                       * g_T;
+double                                       * g_exposures;
 std::vector<double>                          * g_adjustments;
 double                                       * g_max_dem_height;
 double                                       * g_grid_x;
@@ -631,7 +634,7 @@ public:
             measured_albedo(col, row) = 1;
           else
             measured_albedo(col, row)
-              = intensity(col, row)/(reflectance(col, row)*g_T[image_iter]);
+              = intensity(col, row)/(reflectance(col, row)*g_exposures[image_iter]);
         }
       }
       std::string out_albedo_file = g_opt->out_prefix
@@ -645,7 +648,7 @@ public:
       for (int col = 0; col < comp_intensity.cols(); col++) {
         for (int row = 0; row < comp_intensity.rows(); row++) {
           comp_intensity(col, row)
-            = (*g_albedo)(col, row) * g_T[image_iter] * reflectance(col, row);
+            = (*g_albedo)(col, row) * g_exposures[image_iter] * reflectance(col, row);
         }
       }
       std::string out_comp_intensity_file = g_opt->out_prefix
@@ -665,7 +668,7 @@ public:
                 << std::endl;
 
       vw_out() << "Exposure " << " for image " << image_iter << ": "
-               << g_T[image_iter] << std::endl;
+               << g_exposures[image_iter] << std::endl;
 
 #if 0
       // Dump the points in shadow
@@ -688,7 +691,7 @@ public:
 
 
 // Discrepancy between measured and computed intensity.
-// sum_i | I_i - albedo * T[i] * reflectance_i |^2
+// sum_i | I_i - albedo * exposures[i] * reflectance_i |^2
 struct IntensityError {
   IntensityError(int col, int row,
                  ImageView<double> const& dem,
@@ -709,13 +712,13 @@ struct IntensityError {
 
   // See SmoothnessError() for the definitions of bottom, top, etc.
   template <typename F>
-  bool operator()(const F* const T,
+  bool operator()(const F* const exposure,
                   const F* const left,
                   const F* const center,
                   const F* const right,
                   const F* const bottom,
                   const F* const top,
-                  const F* const a, // albedo at pixel
+                  const F* const albedo,
                   const F* const adjustments, // camera adjustments
                   F* residuals) const {
 
@@ -751,7 +754,7 @@ struct IntensityError {
                                        m_image, adj_cam,
                                        reflectance, intensity);
       if (success && is_valid(intensity) && is_valid(reflectance))
-        residuals[0] = (intensity - a[0]*T[0]*reflectance).child();
+        residuals[0] = (intensity - albedo[0]*exposure[0]*reflectance).child();
 
     } catch (const camera::PointToPixelErr& e) {
       // To be able to handle robustly DEMs that extend beyond the camera,
@@ -963,6 +966,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Reflectance type (0 = Lambertian, 1 = Lunar Lambertian).")
     ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(0.04),
      "A larger value will result in a smoother solution.")
+    ("coarse-levels", po::value(&opt.coarse_levels)->default_value(0),
+     "Start with the DEM and images on a grid coarser than the final result by a factor of 2 to this power, then progressively refine it.")
+    ("max-coarse-iterations,n", po::value(&opt.max_coarse_iterations)->default_value(10),
+     "How many iterations to do at levels of resolution coarser than the final result.")
     ("float-albedo",   po::bool_switch(&opt.float_albedo)->default_value(false)->implicit_value(true),
      "Float the albedo for each pixel. Will give incorrect results if only one image is present.")
     ("float-exposure",   po::bool_switch(&opt.float_exposure)->default_value(false)->implicit_value(true),
@@ -1061,6 +1068,167 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
 }
 
+// Run sfs at a given coarseness level
+void run_sfs_level(// Fixed inputs
+                   int num_iterations,  Options & opt,
+                   GeoReference const& geo,
+                   double nodata_val,
+                   std::vector<BilinearInterpT> const& interp_images,
+                   GlobalParams const& global_params,
+                   std::vector<ModelParams> const & model_params,
+                   // Quantities that will float
+                   ImageView<double> & dem,
+                   ImageView<double> & albedo,
+                   std::vector<boost::shared_ptr<CameraModel> > & cameras,
+                   std::vector<double> & exposures,
+                   std::vector<double> & adjustments){
+
+  int num_images = opt.input_images.size();
+
+  // Keep here the unmodified copy of the DEM
+  ImageView<double> orig_dem = copy(dem);
+
+  int ncols = dem.cols(), nrows = dem.rows();
+  vw_out() << "DEM cols and rows: " << ncols << " " << nrows << std::endl;
+
+  // Find the grid sizes in meters. Note that dem heights are in
+  // meters too, so we treat both horizontal and vertical
+  // measurements in same units.
+  double grid_x, grid_y;
+  compute_grid_sizes_in_meters(dem, geo, nodata_val, grid_x, grid_y);
+  vw_out() << "grid in x and y in meters: "
+           << grid_x << ' ' << grid_y << std::endl;
+  g_grid_x = &grid_x;
+  g_grid_y = &grid_y;
+
+  // Find the max DEM height
+  double max_dem_height = -std::numeric_limits<double>::max();
+  for (int col = 0; col < dem.cols(); col++) {
+    for (int row = 0; row < dem.rows(); row++) {
+      if (dem(col, row) > max_dem_height) {
+        max_dem_height = dem(col, row);
+      }
+    }
+  }
+  g_max_dem_height = &max_dem_height;
+
+  // Add a residual block for every grid point not at the boundary
+  ceres::Problem problem;
+  for (int col = 1; col < ncols-1; col++) {
+    for (int row = 1; row < nrows-1; row++) {
+
+      // Intensity error for each image
+      for (int image_iter = 0; image_iter < num_images; image_iter++) {
+
+        ceres::CostFunction* cost_function_img =
+          IntensityError::Create(col, row, dem, geo,
+                                 opt.model_shadows, max_dem_height,
+                                 grid_x, grid_y,
+                                 global_params, model_params[image_iter],
+                                 interp_images[image_iter],
+                                 cameras[image_iter]);
+        ceres::LossFunction* loss_function_img = NULL;
+        problem.AddResidualBlock(cost_function_img, loss_function_img,
+                                 &exposures[image_iter],      // exposure
+                                 &dem(col-1, row),            // left
+                                 &dem(col, row),              // center
+                                 &dem(col+1, row),            // right
+                                 &dem(col, row+1),            // bottom
+                                 &dem(col, row-1),            // top
+                                 &albedo(col, row),           // albedo
+                                 &adjustments[6*image_iter]); // camera
+
+        // If to float the albedo
+        if (!opt.float_albedo)
+          problem.SetParameterBlockConstant(&albedo(col, row));
+      }
+
+      // Smoothness penalty
+      ceres::LossFunction* loss_function_sm = NULL;
+      ceres::CostFunction* cost_function_sm =
+        SmoothnessError::Create(opt.smoothness_weight, grid_x, grid_y);
+      problem.AddResidualBlock(cost_function_sm, loss_function_sm,
+                               &dem(col-1, row+1), &dem(col, row+1),
+                               &dem(col+1, row+1),
+                               &dem(col-1, row  ), &dem(col, row  ),
+                               &dem(col+1, row  ),
+                               &dem(col-1, row-1), &dem(col, row-1),
+                               &dem(col+1, row-1));
+
+      // Deviation from prescribed height constraint
+      if (opt.max_height_change > 0 && opt.height_change_weight > 0) {
+        ceres::LossFunction* loss_function_hc = NULL;
+        ceres::CostFunction* cost_function_hc =
+          HeightChangeError::Create(orig_dem(col, row),
+                                    opt.max_height_change,
+                                    opt.height_change_weight);
+        problem.AddResidualBlock(cost_function_hc, loss_function_hc,
+                                 &dem(col, row));
+      }
+    }
+  }
+
+  // If there's just one image, don't float the exposure,
+  // as the problem is under-determined. If we float the
+  // albedo, we will implicitly float the exposure, hence
+  // keep the exposure itself fixed.
+  if (!opt.float_exposure) {
+    for (int image_iter = 0; image_iter < num_images; image_iter++)
+      problem.SetParameterBlockConstant(&exposures[image_iter]);
+  }
+
+  if (!opt.float_cameras) {
+    for (int image_iter = 0; image_iter < num_images; image_iter++)
+      problem.SetParameterBlockConstant(&adjustments[6*image_iter]);
+  }else{
+    // Always fix the first camera, let the other ones conform to it.
+    problem.SetParameterBlockConstant(&adjustments[0]);
+  }
+
+  // Variables at the boundary must be fixed.
+  if (!opt.float_dem_at_boundary) {
+    for (int col = 0; col < dem.cols(); col++) {
+      for (int row = 0; row < dem.rows(); row++) {
+        if (col == 0 || col == dem.cols() - 1 ||
+            row == 0 || row == dem.rows() - 1 ) {
+          problem.SetParameterBlockConstant(&dem(col, row));
+        }
+      }
+    }
+  }
+
+  ceres::Solver::Options options;
+  options.gradient_tolerance = 1e-16;
+  options.function_tolerance = 1e-16;
+  options.max_num_iterations = num_iterations;
+  options.minimizer_progress_to_stdout = 1;
+  options.num_threads = opt.num_threads;
+  options.linear_solver_type = ceres::SPARSE_SCHUR;
+  if (options.num_threads != 1)
+    vw_throw(ArgumentErr()
+             << "Due to ISIS, only a single thread can be used.\n");
+
+  // Use a callback function at every iteration
+  SfsCallback callback;
+  options.callbacks.push_back(&callback);
+  options.update_state_every_iteration = true;
+
+  // A bunch of global variables to use in the callback
+  g_opt            = &opt;
+  g_dem            = &dem;
+  g_albedo         = &albedo;
+  g_geo            = &geo;
+  g_global_params  = &global_params;
+  g_model_params   = &model_params;
+  g_interp_images  = &interp_images;
+  g_cameras        = &cameras;
+
+  // Solve the problem
+  ceres::Solver::Summary summary;
+  ceres::Solve(options, &problem, &summary);
+  vw_out() << summary.FullReport() << "\n";
+}
+
 int main(int argc, char* argv[]) {
 
   Options opt;
@@ -1073,6 +1241,7 @@ int main(int argc, char* argv[]) {
     if (vw::read_nodata_val(opt.input_dem, nodata_val)){
       vw_out() << "Found DEM nodata value: " << nodata_val << std::endl;
     }
+    g_nodata_val = &nodata_val;
     // Replace no-data values with the mean of valid values
     double mean = 0, num = 0;
     for (int col = 0; col < dem.cols(); col++) {
@@ -1101,32 +1270,14 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    // Keep here the unmodified copy of the DEM
-    ImageView<double> orig_dem = copy(dem);
-
-    int ncols = dem.cols(), nrows = dem.rows();
-    vw_out() << "DEM cols and rows: " << ncols << " " << nrows << std::endl;
-
+    // Read the georeference
     GeoReference geo;
     if (!read_georeference(geo, opt.input_dem))
       vw_throw( ArgumentErr() << "The input DEM has no georeference.\n" );
 
-    GlobalParams global_params;
-    if (opt.reflectance_type == 0)
-      global_params.reflectanceType = LAMBERT;
-    else if (opt.reflectance_type == 1)
-      global_params.reflectanceType = LUNAR_LAMBERT;
-    else
-      vw_throw( ArgumentErr()
-                << "Expecting Lambertian or Lunar-Lambertian reflectance." );
-
-    global_params.phaseCoeffC1 = 0; //1.383488;
-    global_params.phaseCoeffC2 = 0; //0.501149;
-
-    int num_images = opt.input_images.size();
-
-    std::vector<boost::shared_ptr<CameraModel> > cameras;
     // Read in the camera models for the input images.
+    int num_images = opt.input_images.size();
+    std::vector<boost::shared_ptr<CameraModel> > cameras;
     for (int image_iter = 0; image_iter < num_images; image_iter++){
       typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
       SessionPtr session(asp::StereoSessionFactory::create
@@ -1157,6 +1308,38 @@ int main(int argc, char* argv[]) {
       }
     }
 
+    // Images with bilinear interpolation
+    std::vector< ImageViewRef< PixelMask<float> > > masked_images(num_images);
+    std::vector<BilinearInterpT> interp_images; // will have to use push_back
+    float img_nodata_val = -std::numeric_limits<float>::max();
+    for (int image_iter = 0; image_iter < num_images; image_iter++){
+      std::string img_file = opt.input_images[image_iter];
+      if (vw::read_nodata_val(img_file, img_nodata_val)){
+        vw_out() << "Found image " << image_iter << " nodata value: "
+                 << img_nodata_val << std::endl;
+      }
+      // Model the shadow threshold
+      float shadow_thresh = opt.shadow_threshold_vec[image_iter];
+      masked_images[image_iter]
+        = create_mask_less_or_equal (DiskImageView<float>(img_file),
+                                     std::max(img_nodata_val, shadow_thresh));
+      interp_images.push_back(BilinearInterpT(masked_images[image_iter]));
+    }
+    g_img_nodata_val = &img_nodata_val;
+
+    GlobalParams global_params;
+    if (opt.reflectance_type == 0)
+      global_params.reflectanceType = LAMBERT;
+    else if (opt.reflectance_type == 1)
+      global_params.reflectanceType = LUNAR_LAMBERT;
+    else
+      vw_throw( ArgumentErr()
+                << "Expecting Lambertian or Lunar-Lambertian reflectance." );
+
+    global_params.phaseCoeffC1 = 0; //1.383488;
+    global_params.phaseCoeffC2 = 0; //0.501149;
+
+
     // Get the sun and camera positions from the ISIS cube
     std::vector<ModelParams> model_params;
     model_params.resize(num_images);
@@ -1171,23 +1354,6 @@ int main(int argc, char* argv[]) {
                << model_params[image_iter].sunPosition << std::endl;
       vw_out() << "camera position: "
                << model_params[image_iter].cameraPosition << std::endl;
-    }
-
-    // Images with bilinear interpolation
-    std::vector<BilinearInterpT> interp_images;
-    float img_nodata_val = -std::numeric_limits<float>::max();
-    for (int image_iter = 0; image_iter < num_images; image_iter++){
-      std::string img_file = opt.input_images[image_iter];
-      if (vw::read_nodata_val(img_file, img_nodata_val)){
-        vw_out() << "Found image " << image_iter << " nodata value: "
-                 << img_nodata_val << std::endl;
-      }
-      // Model the shadow threshold
-      float shadow_thresh = opt.shadow_threshold_vec[image_iter];
-      interp_images.push_back(BilinearInterpT
-                              (create_mask_less_or_equal
-                               (DiskImageView<float>(img_file),
-                                std::max(img_nodata_val, shadow_thresh))));
     }
 
     // Find the grid sizes in meters. Note that dem heights are in
@@ -1213,8 +1379,9 @@ int main(int argc, char* argv[]) {
 
     // We have intensity = reflectance*exposure*albedo.
     // The albedo is 1 in the first approximation. Find
-    // the exposure T as mean(intensity)/mean(reflectance).
-    std::vector<double> T(num_images, 0);
+    // the exposure as mean(intensity)/mean(reflectance).
+    // We will update the exposure later.
+    std::vector<double> exposures(num_images, 0);
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
       ImageView< PixelMask<double> > reflectance, intensity;
       computeReflectanceAndIntensity(dem, geo,
@@ -1229,22 +1396,23 @@ int main(int argc, char* argv[]) {
       double imgmean, imgstdev, refmean, refstdev;
       compute_image_stats(intensity, imgmean, imgstdev);
       compute_image_stats(reflectance, refmean, refstdev);
-      T[image_iter] = imgmean/refmean;
+      exposures[image_iter] = imgmean/refmean;
       vw_out() << "img mean std: " << imgmean << ' ' << imgstdev << std::endl;
       vw_out() << "ref mean std: " << refmean << ' ' << refstdev << std::endl;
       vw_out() << "Exposure for image " << image_iter << ": "
-                <<  T[image_iter] << std::endl;
+                <<  exposures[image_iter] << std::endl;
     }
+    g_exposures = &exposures[0];
 
-    // Initial albedo
-    ImageView<double> albedo(ncols, nrows);
+    // Initial albedo. This will be updated later.
+    ImageView<double> albedo(dem.cols(), dem.rows());
     for (int col = 0; col < albedo.cols(); col++) {
       for (int row = 0; row < albedo.rows(); row++) {
         albedo(col, row) = 1;
       }
     }
 
-    // The initial camera adjustments
+    // The initial camera adjustments. They will be updated later.
     std::vector<double> adjustments(6*num_images, 0);
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
       AdjustedCameraModel * icam
@@ -1264,126 +1432,20 @@ int main(int argc, char* argv[]) {
     }
     g_adjustments = &adjustments;
 
-    // Add a residual block for every grid point not at the boundary
-    ceres::Problem problem;
-    for (int col = 1; col < ncols-1; col++) {
-      for (int row = 1; row < nrows-1; row++) {
+    // TODO: Use coarse iterations!
+    int num_iterations = opt.max_iterations;
 
-        // Intensity error for each image
-        for (int image_iter = 0; image_iter < num_images; image_iter++) {
+    // Prepare data at each coarseness level
+    int levels = opt.coarse_levels;
+    std::vector<GeoReference> geos(levels);
+    std::vector< ImageView<double> > dems, albedos;
 
-          ceres::CostFunction* cost_function_img =
-            IntensityError::Create(col, row, dem, geo,
-                                   opt.model_shadows, max_dem_height,
-                                   grid_x, grid_y,
-                                   global_params, model_params[image_iter],
-                                   interp_images[image_iter],
-                                   cameras[image_iter]);
-          ceres::LossFunction* loss_function_img = NULL;
-          problem.AddResidualBlock(cost_function_img, loss_function_img,
-                                   &T[image_iter],              // exposure
-                                   &dem(col-1, row),            // left
-                                   &dem(col, row),              // center
-                                   &dem(col+1, row),            // right
-                                   &dem(col, row+1),            // bottom
-                                   &dem(col, row-1),            // top
-                                   &albedo(col, row),           // albedo
-                                   &adjustments[6*image_iter]); // camera
-
-          // If to float the albedo
-          if (!opt.float_albedo)
-            problem.SetParameterBlockConstant(&albedo(col, row));
-        }
-
-        // Smoothness penalty
-        ceres::LossFunction* loss_function_sm = NULL;
-        ceres::CostFunction* cost_function_sm =
-          SmoothnessError::Create(opt.smoothness_weight, grid_x, grid_y);
-        problem.AddResidualBlock(cost_function_sm, loss_function_sm,
-                                 &dem(col-1, row+1), &dem(col, row+1),
-                                 &dem(col+1, row+1),
-                                 &dem(col-1, row  ), &dem(col, row  ),
-                                 &dem(col+1, row  ),
-                                 &dem(col-1, row-1), &dem(col, row-1),
-                                 &dem(col+1, row-1));
-
-        // Deviation from prescribed height constraint
-        if (opt.max_height_change > 0 && opt.height_change_weight > 0) {
-          ceres::LossFunction* loss_function_hc = NULL;
-          ceres::CostFunction* cost_function_hc =
-            HeightChangeError::Create(orig_dem(col, row),
-                                      opt.max_height_change,
-                                      opt.height_change_weight);
-          problem.AddResidualBlock(cost_function_hc, loss_function_hc,
-                                   &dem(col, row));
-        }
-      }
-    }
-
-    // If there's just one image, don't float the exposure,
-    // as the problem is under-determined. If we float the
-    // albedo, we will implicitly float the exposure, hence
-    // keep the exposure itself fixed.
-    if (!opt.float_exposure) {
-      for (int image_iter = 0; image_iter < num_images; image_iter++)
-        problem.SetParameterBlockConstant(&T[image_iter]);
-    }
-
-    if (!opt.float_cameras) {
-      for (int image_iter = 0; image_iter < num_images; image_iter++)
-        problem.SetParameterBlockConstant(&adjustments[6*image_iter]);
-    }else{
-      // Always fix the first camera, let the other ones conform to it.
-      problem.SetParameterBlockConstant(&adjustments[0]);
-    }
-
-    // Variables at the boundary must be fixed.
-    // TODO: Is this necessary for the DEM if we use a distance
-    // constraint anyway?
-    if (!opt.float_dem_at_boundary) {
-      for (int col = 0; col < dem.cols(); col++) {
-        for (int row = 0; row < dem.rows(); row++) {
-          if (col == 0 || col == dem.cols() - 1 ||
-              row == 0 || row == dem.rows() - 1 ) {
-            problem.SetParameterBlockConstant(&dem(col, row));
-          }
-        }
-      }
-    }
-
-    ceres::Solver::Options options;
-    options.gradient_tolerance = 1e-16;
-    options.function_tolerance = 1e-16;
-    options.max_num_iterations = opt.max_iterations;
-    options.minimizer_progress_to_stdout = 1;
-    options.num_threads = opt.num_threads;
-    options.linear_solver_type = ceres::SPARSE_SCHUR;
-    if (options.num_threads != 1)
-      vw_throw(ArgumentErr()
-               << "Due to ISIS, only a single thread can be used.\n");
-
-    // Use a callback function at every iteration
-    SfsCallback callback;
-    options.callbacks.push_back(&callback);
-    options.update_state_every_iteration = true;
-
-    // A bunch of global variables to use in the callback
-    g_opt            = &opt;
-    g_dem            = &dem;
-    g_albedo         = &albedo;
-    g_geo            = &geo;
-    g_global_params  = &global_params;
-    g_model_params   = &model_params;
-    g_interp_images  = &interp_images;
-    g_cameras        = &cameras;
-    g_nodata_val     = &nodata_val;
-    g_img_nodata_val = &img_nodata_val;
-    g_T              = &T[0];
-
-    // Solve the problem
-    ceres::Solver::Summary summary;
-    ceres::Solve(options, &problem, &summary);
-    vw_out() << summary.FullReport() << "\n";
+    //std::vector<double> scales()
+    run_sfs_level(// Fixed inputs
+                  num_iterations, opt, geo, nodata_val, interp_images,
+                   global_params, model_params,
+                   // Quantities that will float
+                   dem, albedo, cameras, exposures, adjustments);
 
   } ASP_STANDARD_CATCHES;
 }
