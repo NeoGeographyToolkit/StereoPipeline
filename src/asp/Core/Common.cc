@@ -388,6 +388,10 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
 
   unregistered.clear();
 
+  // Ensure that opt gets all needed fields from BaseOptionsDescription().
+  // This is needed not only for stereo, but for all tools using BaseOptions.
+  stereo_settings().initialize(opt);
+
   // Finish filling in the usage_comment.
   std::ostringstream ostr;
   ostr << "Usage: " << argv[0] << " " << usage_comment << "\n\n";
@@ -398,7 +402,6 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
   // options we must parse, even if we don't need some of them, and
   // public_options, which are the options specifically used by the
   // current tool, and for which we also print the help message.
-
   po::variables_map vm;
   try {
     po::options_description all_options;

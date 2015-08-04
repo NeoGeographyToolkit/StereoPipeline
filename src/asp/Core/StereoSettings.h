@@ -63,6 +63,7 @@ namespace asp {
   class StereoSettings {
   public:
     StereoSettings();
+    void initialize(asp::BaseOptions& opt);
     void validate();
     void write_copy( int argc, char *argv[],
                      std::string const& input_file,

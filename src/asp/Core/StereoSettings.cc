@@ -44,36 +44,42 @@ namespace asp {
   StereoSettings& stereo_settings() {
     stereo_settings_once.run( init_stereo_settings );
 
-    // This is a bug fix. Ensure that all members of this class are
-    // always initialized before using them, whether in stereo, other
-    // ASP applications, or the unit tests. What is going on below is
-    // the following. The call to generate_config_file_options()
-    // specifies what the values of the class members should be, then
-    // we parse and initialize them when po::store is invoked. Note
-    // that we don't override any of the options from the command line
-    // (that's done much later), hence below we use empty command line
-    // options.
+    // Ensure StereoSettings are initialized
     if ( !(*stereo_settings_ptr).initialized_stereo_settings) {
-
       // This call must happen first, otherwise we get into infinite
       // recursion.
-      (*stereo_settings_ptr).initialized_stereo_settings = true;
+      stereo_settings_ptr->initialized_stereo_settings = true;
 
-      po::options_description l_opts("");
-      Options opt;
-      l_opts.add( asp::generate_config_file_options( opt ) );
-      po::variables_map l_vm;
-      try {
-        int l_argc = 1; const char* l_argv[] = {""};
-        po::store( po::command_line_parser( l_argc, l_argv ).options(l_opts).style( po::command_line_style::unix_style ).run(), l_vm );
-        po::notify( l_vm );
-      } catch (po::error const& e) {
-        vw::vw_throw( vw::ArgumentErr() << "Error parsing input:\n"
-                      << e.what() << "\n" << l_opts );
-      }
+      // Initialize the members of StereoSettings().
+      asp::BaseOptions opt;
+      stereo_settings_ptr->initialize(opt);
     }
 
     return *stereo_settings_ptr;
+  }
+
+  void StereoSettings::initialize(asp::BaseOptions & opt){
+    // This is a bug fix. Ensure that all members of this class as
+    // well as opt itself are always initialized before using them,
+    // whether in stereo, other ASP applications, or the unit
+    // tests. What is going on below is the following. The call to
+    // generate_config_file_options() specifies what the values of the
+    // class members should be, then we parse and initialize them when
+    // po::store is invoked. Note that we don't override any of the
+    // options from the command line (that's done much later), hence
+    // below we use empty command line options.
+
+    po::options_description l_opts("");
+    l_opts.add( asp::generate_config_file_options( opt ) );
+    po::variables_map l_vm;
+    try {
+      int l_argc = 1; const char* l_argv[] = {""};
+      po::store( po::command_line_parser( l_argc, l_argv ).options(l_opts).style( po::command_line_style::unix_style ).run(), l_vm );
+      po::notify( l_vm );
+    } catch (po::error const& e) {
+      vw::vw_throw( vw::ArgumentErr() << "Error parsing input:\n"
+                    << e.what() << "\n" << l_opts );
+    }
   }
 
   StereoSettings::StereoSettings(){
