@@ -199,8 +199,6 @@ void expandBboxToContainCornerIntersections(boost::shared_ptr<camera::CameraMode
   dem_pixel_list[2] = Vector2(dem.cols()-1, dem.rows()-1);
   dem_pixel_list[3] = Vector2(0,            dem.rows()-1);
 
-  //std::cout << "Dem (row, col): " << dem.rows() <<",  "<< dem.cols() << std::endl;
-
   for (int i=0; i<4; ++i) {
     try{
       // Project the DEM corner into the input image
@@ -489,7 +487,6 @@ int main( int argc, char* argv[] ) {
 
     // Compute output image size in pixels using bounding box in output projected space
     BBox2i target_image_size = target_georef.point_to_pixel_bbox( cam_box );
-    target_image_size.min() = Vector2(0, 0); // we count on this transform_nodata
 
     //vw_out() << "Cropping to projected coordinates: " << cam_box << std::endl;
 
@@ -514,6 +511,15 @@ int main( int argc, char* argv[] ) {
       return 0;
     }
 
+    // Note: The statement below must be _after_ we have initialized
+    // croppedImageBB, to not create an output image with a lot of
+    // black. We count on this statement in
+    // transform_nodata(). Apparently the virtual image there must
+    // have the upper-left corner at (0, 0).  That is not really a
+    // problem, since that image is never fully realized to start
+    // with, we crop it to croppedImageBB before computing its pixels.
+    // At some point this thing should be made less confusing.
+    target_image_size.min() = Vector2(0, 0);
 
     // Create handle to input image to be projected on to the map
     boost::shared_ptr<DiskImageResource>
