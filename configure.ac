@@ -442,6 +442,7 @@ AX_APP(STEREO,           [src/asp/Tools], yes, [SESSIONS])
 AX_APP(STEREO_GUI,       [src/asp/Tools], yes, [SESSIONS GUI])
 AX_APP(WV_CORRECT,       [src/asp/Tools], yes, [SESSIONS])
 AX_APP(IMAGE_CALC,       [src/asp/Tools], yes, [CORE GDAL])
+AX_APP(PANSHARP,         [src/asp/Tools], yes, [CORE GDAL])
 AX_APP(PC_MERGE,         [src/asp/Tools], yes, [CORE GDAL])
 
 # These are here (instead of inside the APP macro where they belong)
@@ -479,6 +480,7 @@ AM_CONDITIONAL(MAKE_APP_STEREO,     [test "$MAKE_APP_STEREO"     = "yes"])
 AM_CONDITIONAL(MAKE_APP_STEREO_GUI, [test "$MAKE_APP_STEREO_GUI" = "yes"])
 AM_CONDITIONAL(MAKE_APP_WV_CORRECT, [test "$MAKE_APP_WV_CORRECT" = "yes"])
 AM_CONDITIONAL(MAKE_APP_IMAGE_CALC, [test "$MAKE_APP_IMAGE_CALC" = "yes"])
+AM_CONDITIONAL(MAKE_APP_PANSHARP,   [test "$MAKE_APP_PANSHARP"   = "yes"])
 AM_CONDITIONAL(MAKE_APP_PC_MERGE,   [test "$MAKE_APP_PC_MERGE"   = "yes"])
 
 ##################################################

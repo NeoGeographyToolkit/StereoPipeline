@@ -194,6 +194,13 @@ if MAKE_APP_IMAGE_CALC
   image_calc_LDADD   = $(APP_IMAGE_CALC_LIBS)
 endif
 
+if MAKE_APP_PANSHARP
+  bin_PROGRAMS += pansharp
+  pansharp_SOURCES = pansharp.cc
+  pansharp_LDADD   = $(APP_PANSHARP_LIBS)
+endif
+
+
 # Auxiliary tools in libexec
 ##############################################################################
 

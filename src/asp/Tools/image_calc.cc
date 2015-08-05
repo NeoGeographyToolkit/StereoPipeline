@@ -626,7 +626,7 @@ void generate_output(const std::string                         & output_path,
                                have_georef, georef,
                                opt.has_out_nodata, opt.out_nodata_value,
                                opt,
-                               TerminalProgressCallback("asp_calc","Writing:"));
+                               TerminalProgressCallback("image_calc","Writing:"));
 }
 
 
