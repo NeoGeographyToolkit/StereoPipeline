@@ -90,7 +90,6 @@ bool asp::has_pinhole_extension( std::string const& input ) {
   return false;
 }
 
-
 bool asp::has_image_extension( std::string const& input ) {
   std::string ext = get_extension(input);
   if ( ext == ".tif"  || ext == ".tiff" || ext == ".ntf" ||
@@ -101,6 +100,12 @@ bool asp::has_image_extension( std::string const& input ) {
   return false;
 }
 
+bool asp::has_tif_or_ntf_extension(std::string const& input){
+  std::string ext = get_extension(input);
+  if ( ext == ".tif"  || ext == ".ntf")
+    return true;
+  return false;
+}
 
 /// Parse the list of files specified as positional arguments on the command lin
 bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,

@@ -856,11 +856,6 @@ namespace asp {
     return search_range;
   }
 
-  bool is_tif_or_ntf(string const& file){
-    return (boost::iends_with(boost::to_lower_copy(file), ".tif") ||
-            boost::iends_with(boost::to_lower_copy(file), ".ntf")   );
-  }
-
   bool skip_image_normalization(Options const& opt ){
 
     bool crop_left_and_right =
@@ -873,8 +868,8 @@ namespace asp {
            stereo_settings().skip_image_normalization   &&
            stereo_settings().alignment_method == "none" &&
            stereo_settings().cost_mode == 2             &&
-           is_tif_or_ntf(opt.in_file1)                  &&
-           is_tif_or_ntf(opt.in_file2));
+           has_tif_or_ntf_extension(opt.in_file1)       &&
+           has_tif_or_ntf_extension(opt.in_file2));
   }
 
 } // end namespace asp

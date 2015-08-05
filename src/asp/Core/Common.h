@@ -67,6 +67,9 @@ namespace asp {
   /// Returns true if the file has an extension which can contain an image
   bool has_image_extension( std::string const& input );
 
+  /// Returns true if the file has an extension which is tif or ntf
+  bool has_tif_or_ntf_extension( std::string const& input );
+
   /// Parse the list of files specified as positional arguments on the command lin
   bool parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
                                  std::vector<std::string>       &image_paths,
