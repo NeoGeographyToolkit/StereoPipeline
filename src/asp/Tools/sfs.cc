@@ -35,6 +35,7 @@
 #include <asp/Core/Common.h>
 #include <asp/Sessions.h>
 #include <vw/Image/MaskViews.h>
+#include <vw/Image/AntiAliasing.h>
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
 
@@ -533,6 +534,20 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
   return;
 }
 
+// Form a finer resolution image with given dimensions from a coarse image.
+// Use constant edge extension.
+void interp_image(ImageView<double> const& coarse_image, double scale,
+                  ImageView<double> & fine_image){
+
+  ImageViewRef<double> coarse_interp = interpolate(coarse_image,
+                                         BilinearInterpolation(), ConstantEdgeExtension());
+  for (int col = 0; col < fine_image.cols(); col++) {
+    for (int row = 0; row < fine_image.rows(); row++) {
+      fine_image(col, row) = coarse_interp(col*scale, row*scale);
+    }
+  }
+}
+
 // A function to invoke at every iteration of ceres.
 // We need a lot of global variables to do something useful.
 int                                            g_iter = -1;
@@ -550,13 +565,14 @@ std::vector<double>                          * g_adjustments;
 double                                       * g_max_dem_height;
 double                                       * g_grid_x;
 double                                       * g_grid_y;
+int                                            g_level = -1;
 
 // When floating the camera position and orientation,
 // multiply the position variables by this number to give
 // it a greater range in searching (it makes more sense to wiggle
 // the camera position by say 1 meter than by a tiny fraction
 // of one millimeter).
-double g_position_scale = 1e+8;
+double g_position_scale = 1e+6;
 
 class SfsCallback: public ceres::IterationCallback {
 public:
@@ -574,17 +590,21 @@ public:
     vw_out() << std::endl;
 
     std::ostringstream os;
-    os << g_iter;
+    os << "-iter" << g_iter;
+
+    if ((*g_opt).coarse_levels > 0) {
+      os << "-level" << g_level;
+    }
     std::string iter_str = os.str();
 
-    std::string out_dem_file = g_opt->out_prefix + "-DEM-iter"
+    std::string out_dem_file = g_opt->out_prefix + "-DEM"
       + iter_str + ".tif";
     vw_out() << "Writing: " << out_dem_file << std::endl;
     TerminalProgressCallback tpc("asp", ": ");
     block_write_gdal_image(out_dem_file, *g_dem, *g_geo, *g_nodata_val,
                            *g_opt, tpc);
 
-    std::string out_albedo_file = g_opt->out_prefix + "-comp-albedo-iter"
+    std::string out_albedo_file = g_opt->out_prefix + "-comp-albedo"
       + iter_str + ".tif";
     vw_out() << "Writing: " << out_albedo_file << std::endl;
     block_write_gdal_image(out_albedo_file, *g_albedo, *g_geo, *g_nodata_val,
@@ -596,8 +616,8 @@ public:
       ImageView< PixelMask<double> > reflectance, intensity, comp_intensity;
 
       std::ostringstream os;
-      os << "-iter" << g_iter << "_img" << image_iter;
-      std::string iter_str = os.str();
+      os << iter_str << "-img" << image_iter;
+      std::string iter_str2 = os.str();
 
       // Compute reflectance and intensity with optimized DEM
       computeReflectanceAndIntensity(*g_dem, *g_geo,
@@ -611,14 +631,14 @@ public:
                                      reflectance, intensity);
 
       std::string out_intensity_file = g_opt->out_prefix + "-meas-intensity"
-        + iter_str + ".tif";
+        + iter_str2 + ".tif";
       vw_out() << "Writing: " << out_intensity_file << std::endl;
       block_write_gdal_image(out_intensity_file,
                              apply_mask(intensity, *g_img_nodata_val),
                              *g_geo, *g_img_nodata_val, *g_opt, tpc);
 
       std::string out_reflectance_file = g_opt->out_prefix + "-comp-reflectance"
-        + iter_str + ".tif";
+        + iter_str2 + ".tif";
       vw_out() << "Writing: " << out_reflectance_file << std::endl;
       block_write_gdal_image(out_reflectance_file,
                              apply_mask(reflectance, *g_img_nodata_val),
@@ -638,7 +658,7 @@ public:
         }
       }
       std::string out_albedo_file = g_opt->out_prefix
-        + "-meas-albedo" + iter_str + ".tif";
+        + "-meas-albedo" + iter_str2 + ".tif";
       vw_out() << "Writing: " << out_albedo_file << std::endl;
       block_write_gdal_image(out_albedo_file, measured_albedo,
                              *g_geo, 0, *g_opt, tpc);
@@ -652,7 +672,7 @@ public:
         }
       }
       std::string out_comp_intensity_file = g_opt->out_prefix
-        + "-comp-intensity" + iter_str + ".tif";
+        + "-comp-intensity" + iter_str2 + ".tif";
       vw_out() << "Writing: " << out_comp_intensity_file << std::endl;
       block_write_gdal_image(out_comp_intensity_file,
                              apply_mask(comp_intensity, *g_img_nodata_val),
@@ -677,7 +697,7 @@ public:
       areInShadow(sunPos, *g_dem, *g_grid_x, *g_grid_y,  *g_geo, shadow);
 
       std::string out_shadow_file = g_opt->out_prefix
-        + "-shadow" + iter_str + ".tif";
+        + "-shadow" + iter_str2 + ".tif";
       vw_out() << "Writing: " << out_shadow_file << std::endl;
       block_write_gdal_image(out_shadow_file, shadow, *g_geo,
                              -std::numeric_limits<float>::max(), *g_opt, tpc);
@@ -732,7 +752,6 @@ struct IntensityError {
         = dynamic_cast<AdjustedCameraModel*>(m_camera.get());
       if (adj_cam == NULL)
         vw_throw( ArgumentErr() << "Expecting adjusted camera.\n");
-      Vector2 pixel_offset;
       Vector3 axis_angle;
       Vector3 translation;
       for (int param_iter = 0; param_iter < 3; param_iter++) {
@@ -741,7 +760,6 @@ struct IntensityError {
       }
       adj_cam->set_translation(translation);
       adj_cam->set_axis_angle_rotation(axis_angle);
-      adj_cam->set_pixel_offset(pixel_offset);
 
       PixelMask<double> reflectance, intensity;
       bool success =
@@ -967,7 +985,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(0.04),
      "A larger value will result in a smoother solution.")
     ("coarse-levels", po::value(&opt.coarse_levels)->default_value(0),
-     "Start with the DEM and images on a grid coarser than the final result by a factor of 2 to this power, then progressively refine it.")
+     "Solve the problem on a grid coarser than the original by a factor of 2 to this power, then refine the solution on finer grids.")
     ("max-coarse-iterations,n", po::value(&opt.max_coarse_iterations)->default_value(10),
      "How many iterations to do at levels of resolution coarser than the final result.")
     ("float-albedo",   po::bool_switch(&opt.float_albedo)->default_value(false)->implicit_value(true),
@@ -1222,6 +1240,7 @@ void run_sfs_level(// Fixed inputs
   g_model_params   = &model_params;
   g_interp_images  = &interp_images;
   g_cameras        = &cameras;
+  g_iter           = -1; // reset the iterations for each level
 
   // Solve the problem
   ceres::Solver::Summary summary;
@@ -1335,10 +1354,8 @@ int main(int argc, char* argv[]) {
     else
       vw_throw( ArgumentErr()
                 << "Expecting Lambertian or Lunar-Lambertian reflectance." );
-
     global_params.phaseCoeffC1 = 0; //1.383488;
     global_params.phaseCoeffC2 = 0; //0.501149;
-
 
     // Get the sun and camera positions from the ISIS cube
     std::vector<ModelParams> model_params;
@@ -1432,20 +1449,108 @@ int main(int argc, char* argv[]) {
     }
     g_adjustments = &adjustments;
 
-    // TODO: Use coarse iterations!
-    int num_iterations = opt.max_iterations;
-
     // Prepare data at each coarseness level
     int levels = opt.coarse_levels;
-    std::vector<GeoReference> geos(levels);
-    std::vector< ImageView<double> > dems, albedos;
+    std::vector<GeoReference> geos(levels+1);
+    std::vector< ImageView<double> > dems(levels+1), albedos(levels+1);
+    std::vector< std::vector< ImageViewRef< PixelMask<float> > > > masked_images_vec(levels+1);
+    geos[0] = geo;
+    dems[0] = dem;
+    albedos[0] = albedo;
+    masked_images_vec[0] = masked_images;
+    int factor = 2;
+    double sub_scale = 1.0/factor;
+    std::vector<int> factors;
+    factors.push_back(1);
 
-    //std::vector<double> scales()
-    run_sfs_level(// Fixed inputs
-                  num_iterations, opt, geo, nodata_val, interp_images,
-                   global_params, model_params,
-                   // Quantities that will float
-                   dem, albedo, cameras, exposures, adjustments);
+    for (int level = 1; level <= levels; level++) {
+
+      factors.push_back(factors[level-1]*factor);
+
+      geos[level] = resample(geos[level-1], sub_scale);
+      dems[level] = pixel_cast<double>(vw::resample_aa
+                                          (pixel_cast< PixelMask<double> >
+                                           (dems[level-1]), sub_scale));
+
+      albedos[level] = pixel_cast<double>(vw::resample_aa
+                                          (pixel_cast< PixelMask<double> >
+                                           (albedos[level-1]), sub_scale));
+
+      // We must write the subsampled images to disk, and then read
+      // them back, as VW cannot access individual pixels of the
+      // monstrosities created using the logic below, and even if it
+      // could, it is best if resampling is done once, and offline,
+      // rather than redoing it each time within the optimization
+      // loop.
+      masked_images_vec[level].resize(num_images);
+      for (int image_iter = 0; image_iter < num_images; image_iter++) {
+        fs::path image_path(opt.input_images[image_iter]);
+        std::ostringstream os; os << "-level" << level;
+        std::string sub_image = opt.out_prefix + "-"
+          + image_path.stem().string() + os.str() + ".tif";
+        vw_out() << "Writing subsampled image: " << sub_image << "\n";
+        bool has_img_georef = false;
+        GeoReference img_georef;
+        bool has_img_nodata = true;
+        int tile_size = 256;
+        int sub_threads = 1;
+        TerminalProgressCallback tpc("asp", ": ");
+        asp::block_write_gdal_image
+          (sub_image,
+           apply_mask
+           (block_rasterize
+            (vw::cache_tile_aware_render
+             (vw::resample_aa
+              (masked_images_vec[level-1][image_iter], sub_scale),
+              Vector2i(tile_size,tile_size) * sub_scale),
+             tile_size, sub_threads), img_nodata_val),
+           has_img_georef, img_georef, has_img_nodata, img_nodata_val, opt, tpc);
+
+        // Read it right back
+        masked_images_vec[level][image_iter]
+          = create_mask(DiskImageView<float>(sub_image), img_nodata_val);
+
+      }
+    }
+
+    // Start going from the coarsest to the finest level
+    for (int level = levels; level >= 0; level--) {
+
+      g_level = level;
+
+      std::vector<BilinearInterpT> interp_images; // will have to use push_back
+      for (int image_iter = 0; image_iter < num_images; image_iter++) {
+        interp_images.push_back(BilinearInterpT(masked_images_vec[level][image_iter]));
+      }
+
+      int num_iterations;
+      if (level == 0)
+        num_iterations = opt.max_iterations;
+      else
+        num_iterations = opt.max_coarse_iterations;
+
+      // Scale the cameras
+      for (int image_iter = 0; image_iter < num_images; image_iter++) {
+        AdjustedCameraModel * adj_cam
+          = dynamic_cast<AdjustedCameraModel*>(cameras[image_iter].get());
+        if (adj_cam == NULL)
+          vw_throw( ArgumentErr() << "Expecting adjusted camera.\n");
+        adj_cam->set_scale(factors[level]);
+      }
+
+      run_sfs_level(// Fixed inputs
+                    num_iterations, opt, geos[level], nodata_val, interp_images,
+                      global_params, model_params,
+                    // Quantities that will float
+                    dems[level], albedos[level], cameras, exposures, adjustments);
+
+      // Refine the coarse DEM and albedo
+      if (level > 0) {
+        interp_image(dems[level],    sub_scale, dems[level-1]);
+        interp_image(albedos[level], sub_scale, albedos[level-1]);
+      }
+
+    }
 
   } ASP_STANDARD_CATCHES;
 }
