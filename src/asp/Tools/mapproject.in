@@ -198,11 +198,11 @@ def main(argsIn):
 
         # Check the required positional arguments.
         if len(requiredList) < 1:
-            parser.error("Missing path to DEM")
+            parser.error("Missing input DEM.")
         if len(requiredList) < 2:
-            parser.error("Missing path to input image")
+            parser.error("Missing input image.")
         if len(requiredList) < 3:
-            parser.error("Missing output path")
+            parser.error("Missing output filename.")
 
         # Make sure we have absolute paths here
         options.demPath    = os.path.abspath(requiredList[0])
