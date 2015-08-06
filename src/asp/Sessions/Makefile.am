@@ -26,9 +26,9 @@ include_HEADERS = StereoSession.h StereoSessionFactory.h StereoSessionConcrete.h
 
 libaspSessions_la_SOURCES = StereoSession.cc 				\
 Pinhole/StereoSessionPinhole.cc DG/StereoSessionDG.cc DG/XMLBase.cc	\
-DG/XML.cc RPC/StereoSessionRPC.cc RPC/RPCStereoModel.cc			\
+DG/XML.cc RPC/RPCStereoModel.cc			\
 RPC/RPCModel.cc RPC/RPCModelGen.cc		\
-NadirPinhole/StereoSessionNadirPinhole.cc DGMapRPC/StereoSessionDGMapRPC.cc
+NadirPinhole/StereoSessionNadirPinhole.cc
 
 libaspSessions_la_LIBADD = @MODULE_SESSIONS_LIBS@
 
