@@ -238,7 +238,6 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
                                                  m_left_image_file,
                                                  m_right_image_file,
                                                  image_file);
-                                                 
   switch(model_type){
     case STEREOMODEL_TYPE_ISIS:
         return load_adjusted_model(m_camera_loader.load_isis_camera_model(camera_file),
@@ -262,26 +261,18 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
       vw_throw(ArgumentErr() << "Unable to load RPC model from either:\n" << image_file
                              << " or:\n" << camera_file);
                              
-    default: {} // This must be the pinhole case
+    default: break; // This must be the pinhole case
   };                    
 
-  // Unfortunately the pinhole case relies on class variables and can't be offloaded to another file!
+  // Unfortunately the pinhole case is more complicated since the left and right files are inter-dependent.
 
   if ( stereo_settings().alignment_method != "epipolar" ) {
-    return
-      load_adjusted_model(m_camera_loader.load_pinhole_camera_model(camera_file),
-                          image_file, camera_file, pixel_offset);
-  }  
-  // Else we need to do epipolar alignment!
-    
-  // Load the image
-  DiskImageView<float> left_image (m_left_image_file );
-  DiskImageView<float> right_image(m_right_image_file);
+    // Not epipolar, just load the camera model.
+    return load_adjusted_model(m_camera_loader.load_pinhole_camera_model(camera_file),
+                               image_file, camera_file, pixel_offset);
+  }
+  // Otherwise handle the epipolar case
 
-  Vector2i left_image_size (left_image.cols(),  left_image.rows() ),
-           right_image_size(right_image.cols(), right_image.rows());
-
-  // TODO: Why is this needed?  We want to make this a static function!
   bool is_left_camera = true;
   if (image_file == m_left_image_file)
     is_left_camera = true;
@@ -290,59 +281,44 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
   else
     (ArgumentErr() << "StereoSessionPinhole: supplied camera model filename does not match the name supplied in the constructor.");
 
-  // Return the appropriate camera model object
-  std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
-  CAHVModel left_cahv, right_cahv;
-  if (boost::ends_with(lcase_file, ".cahvore") ) {
-    CAHVOREModel left_cahvore (m_left_camera_file );
-    CAHVOREModel right_cahvore(m_right_camera_file);
-    left_cahv  = linearize_camera(left_cahvore,  left_image_size,
-                                  left_image_size);
-    right_cahv = linearize_camera(right_cahvore, right_image_size,
-                                  right_image_size);
-  } else if (boost::ends_with(lcase_file, ".cahvor")  ||
-             boost::ends_with(lcase_file, ".cmod"  )   ) {
-    CAHVORModel left_cahvor (m_left_camera_file );
-    CAHVORModel right_cahvor(m_right_camera_file);
-    left_cahv  = linearize_camera(left_cahvor,  left_image_size,
-                                  left_image_size);
-    right_cahv = linearize_camera(right_cahvor, right_image_size,
-                                  right_image_size);
-  } else if ( boost::ends_with(lcase_file, ".cahv") ||
-              boost::ends_with(lcase_file, ".pin" )) {
-    left_cahv  = CAHVModel(m_left_camera_file );
-    right_cahv = CAHVModel(m_right_camera_file);
+  // Fetch CAHV version of the two input pinhole files
+  boost::shared_ptr<CAHVModel> left_cahv  = m_camera_loader.load_cahv_pinhole_camera_model(m_left_camera_file);
+  boost::shared_ptr<CAHVModel> right_cahv = m_camera_loader.load_cahv_pinhole_camera_model(m_right_camera_file);
 
-  } else if ( boost::ends_with(lcase_file, ".pinhole") ||
-              boost::ends_with(lcase_file, ".tsai"   )   ) {
-    PinholeModel left_pin (m_left_camera_file );
-    PinholeModel right_pin(m_right_camera_file);
-    left_cahv  = linearize_camera(left_pin );
-    right_cahv = linearize_camera(right_pin);
-  } else {
-    vw_throw(ArgumentErr() << "PinholeStereoSession: unsupported camera file type.\n");
-  }
-
-  // Create epipolar recitified camera views
+  // Create epipolar rectified camera views
   boost::shared_ptr<CAHVModel> epipolar_left_cahv (new CAHVModel);
   boost::shared_ptr<CAHVModel> epipolar_right_cahv(new CAHVModel);
-  epipolar(left_cahv, right_cahv, *epipolar_left_cahv, *epipolar_right_cahv);
+  epipolar(*(left_cahv.get()),  *(right_cahv.get()), 
+           *epipolar_left_cahv, *epipolar_right_cahv);
 
   if (is_left_camera)
-    return
-      load_adjusted_model(epipolar_left_cahv, image_file,
-                          camera_file, pixel_offset);
+    return load_adjusted_model(epipolar_left_cahv, image_file, camera_file, pixel_offset);
   else
-    return
-      load_adjusted_model(epipolar_right_cahv, image_file,
-                          camera_file, pixel_offset);
-
-
-
+    return load_adjusted_model(epipolar_right_cahv, image_file, camera_file, pixel_offset);
 }
 
 //------------------------------------------------------------------------------
 // Code for handling disk-to-sensor transform
+
+
+// Return the left and right map-projected images. These are the same
+// as the input images unless it is desired to use cropped images.
+inline std::string left_mapproj(std::string const& left_image,
+                                std::string const& out_prefix){
+  if ( ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
+       ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) ) ){
+    return out_prefix + "-L-cropped.tif";
+  }
+  return left_image;
+}
+inline std::string right_mapproj(std::string const& right_image,
+                                      std::string const& out_prefix){
+  if ( ( stereo_settings().right_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
+       ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) ) ){
+    return out_prefix + "-R-cropped.tif";
+  }
+  return right_image;
+}
 
 
 // Redirect to the appropriate function
@@ -383,7 +359,6 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DI
   return tx_type( tx );
 }
 
-
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
@@ -401,26 +376,6 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DI
     return tx_type( align_matrix );
   }
   return tx_type( math::identity_matrix<3>() );
-}
-
-
-// Return the left and right map-projected images. These are the same
-// as the input images unless it is desired to use cropped images.
-inline std::string left_mapproj(std::string const& left_image,
-                                std::string const& out_prefix){
-  if ( ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
-       ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) ) ){
-    return out_prefix + "-L-cropped.tif";
-  }
-  return left_image;
-}
-inline std::string right_mapproj(std::string const& right_image,
-                                      std::string const& out_prefix){
-  if ( ( stereo_settings().right_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
-       ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) ) ){
-    return out_prefix + "-R-cropped.tif";
-  }
-  return right_image;
 }
 
 
