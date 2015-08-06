@@ -127,7 +127,7 @@ public: // Functions
 
   inline int32 cols  () const { return m_num_cols; }
   inline int32 rows  () const { return m_num_rows; }
-  inline int32 planes() const { return 3; }
+  inline int32 planes() const { return 1; }
 
   inline result_type operator()( int32 i, int32 j, int32 p=0 ) const
   {
@@ -160,25 +160,23 @@ public: // Functions
     // Set up the output image tile
     ImageView<result_type> tile(bbox.width(), bbox.height());
 
-    //// Rasterize both of the input images at this particular tile
-    //ImageView<PixelGray<DataTypeT> > gray_tile  = crop(m_gray_image,  bbox);
-    //ImageView<PixelRGB <DataTypeT> > color_tile = crop(m_color_image, bbox);
-
     // Loop through each output pixels and compute each output value
     for (int c = 0; c < bbox.width(); c++) {
-      for (int r = 0; r < bbox.height(); r++) {
+      int source_c = c + bbox.min()[0];
+      for (int r = 0; r < bbox.height(); r++) { 
+        int source_r = r + bbox.min()[1];
 
         // Check for a masked pixel
-        if ( !is_valid(m_gray_image (c, r)) ||
-             !is_valid(m_color_image(c, r))  ) {
-          tile(c, r) = m_output_nodata;
-          continue;
-        }
+        //if ( !is_valid(m_gray_image (c, r)) ||
+        //     !is_valid(m_color_image(c, r))  ) {
+        //  tile(c, r) = m_output_nodata;
+        //  continue;
+        //}
 
         // Pass the two input pixels into the conversion function
-        //result_type output_pixel = convert_pixel(m_gray_image(c, r), m_color_image(c, r));
-        tile(c,r) = convert_pixel(m_gray_image(c, r), m_color_image(c, r));
-
+        //result_type output_pixel = convert_pixel(m_gray_image(source_c, r), m_color_image(source_c, r));
+        tile(c,r) = convert_pixel(m_gray_image (source_c, source_r), 
+                                  m_color_image(source_c, source_r));
 
       } // End row loop
     } // End column loop
@@ -229,18 +227,18 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
     ("min-value", po::value(&opt.min_value)->default_value(0), 
-                "Set this as the minimum legal image value, overriding the data type default.")
+             "Set this as the minimum legal image value, overriding the data type default.")
     ("max-value", po::value(&opt.max_value)->default_value(0), 
-                "Set this as the maximum legal image value, overriding the data type default.")
+             "Set this as the maximum legal image value, overriding the data type default.")
     ("nodata-value", po::value(&opt.nodata_value)->default_value(DEFAULT_NODATA), 
              "The no-data value to use, unless present in the color image header.");
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
-    ("gray_image_path",  po::value(&opt.gray_path),   "The gray image path")
-    ("color_image_path", po::value(&opt.color_path),  "The color image path")
-    ("output_path",      po::value(&opt.output_path), "The output path");
+    ("gray_path",   po::value(&opt.gray_path),   "The gray image path")
+    ("color_path",  po::value(&opt.color_path),  "The color image path")
+    ("output_path", po::value(&opt.output_path), "The output path");
     
   po::positional_options_description positional_desc;
   positional_desc.add("gray_path",   1);
@@ -279,6 +277,13 @@ void load_inputs_and_process(Options           & opt,
   if (opt.max_value == 0)
     opt.max_value = std::numeric_limits<T>::max();
 
+  // TODO: How to handle nonexistant nodata value?
+  std::cout << "Min value: " << (double)opt.min_value << std::endl;
+  std::cout << "Max value: " << (double)opt.max_value << std::endl;
+  std::cout << "Gray  nodata: " << (double)gray_nodata << std::endl;
+  std::cout << "Color nodata: " << (double)color_nodata << std::endl;
+  std::cout << "Out   nodata: " << (double)opt.nodata_value << std::endl;
+
   // Set up file handles
   DiskImageResourceGDAL gray_rsrc(opt.gray_path), 
                         color_rsrc(opt.color_path);
@@ -291,6 +296,10 @@ void load_inputs_and_process(Options           & opt,
   // Generate a bounding box that is the minimum of the two BBox areas
   BBox2 crop_box = bounding_box( gray_img );
   crop_box.crop(gray_georef.lonlat_to_pixel_bbox(color_georef.pixel_to_lonlat_bbox(bounding_box( color_img ))));
+    
+  //std::cout << "gray  BB: " << gray_georef.pixel_to_lonlat_bbox(bounding_box(gray_img)) << std::endl;
+  //std::cout << "color BB: " << color_georef.pixel_to_lonlat_bbox(bounding_box(color_img)) << std::endl;
+  //std::cout << "crop_box: " << crop_box << std::endl;
 
   // Generate a view of the color image from the pixel coordinate system of the gray image
   typedef PixelMask<PixelRGB<T> > PixelRGBMask;
@@ -331,7 +340,6 @@ int main( int argc, char *argv[] ) {
     DiskImageResourceGDAL gray_rsrc(opt.gray_path), 
                           color_rsrc(opt.color_path);
                           
-    // TODO: Make sure these load properly!
     double gray_nodata  = opt.nodata_value;
     double color_nodata = opt.nodata_value;
     if ( gray_rsrc.has_nodata_read() ) {
@@ -366,7 +374,7 @@ int main( int argc, char *argv[] ) {
     // Redirect to another function with the correct template type
     switch(input_data_type) {
       //case VW_CHANNEL_INT8   : load_inputs_and_process<vw::int8   >(opt);  break;
-      //case VW_CHANNEL_UINT8  : load_inputs_and_process<vw::uint8  >(opt, gray_georef, color_georef, gray_nodata, color_nodata);  break;
+      case VW_CHANNEL_UINT8  : load_inputs_and_process<vw::uint8  >(opt, gray_georef, color_georef, gray_nodata, color_nodata);  break;
       //case VW_CHANNEL_INT16  : load_inputs_and_process<vw::int16  >(opt);  break;
       case VW_CHANNEL_UINT16 : load_inputs_and_process<vw::uint16 >(opt, gray_georef, color_georef, gray_nodata, color_nodata);  break;
       //case VW_CHANNEL_INT32  : load_inputs_and_process<vw::int32  >(opt);  break;
