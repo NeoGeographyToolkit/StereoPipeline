@@ -1592,7 +1592,7 @@ Options & Description \\ \hline \hline
 \end{longtable}
 
 
-\section{{\tt colormap}}
+\section{colormap}
 \label{sec:colormap}
 
 The \verb#colormap# tool reads a DEM and writes a corresponding color-coded height image that can be used for visualization.
@@ -1629,7 +1629,8 @@ Option & Description \\ \hline \hline
 \end{longtable}
 
 
-\section{{\tt image2qtree}}\label{sec:image2qtree}
+\section{image2qtree}
+\label{sec:image2qtree}
 
 \verb#image2qtree# turns a georeferenced image (or images) into a quadtree with geographical metadata.  For example, it can output a kml file for viewing in Google Earth.
 
@@ -1696,7 +1697,8 @@ Projection Options\\ \hline
 \verb#--nudge-y arg# & Nudge the image, in projected coordinates\\ \hline
 \end{longtable}
 
-\section{{\tt hillshade}}\label{sec:hillqshade}
+\section{{\tt hillshade}}
+\label{sec:hillshade}
 
 The \verb#hillshade# tool reads in a DEM and outputs an image of that
 DEM as though it were a three-dimensional surface, with every pixel
@@ -1761,8 +1763,11 @@ Option & Description \\ \hline \hline
 
 \section{GDAL Tools}
 
-ASP distributes in the \texttt{bin} directory the following GDAL tools: \texttt{gdalinfo}, \texttt{gdal\_translate} and \texttt{gdalbuildvrt}.
-These executables are used by a few ASP Python tools, are compiled with JPEG2000 and BigTIFF support, and can handle NTF images in addition to most image formats.
-They can be used to see image statistics, crop and scale images, and build virtual mosaics respectively. Detail documentation is available on the GDAL web site,
-at \url{http://www.gdal.org/}.
-\label{imagecalc}
+ASP distributes in the \texttt{bin} directory the following GDAL tools:
+\texttt{gdalinfo}, \texttt{gdal\_translate} and \texttt{gdalbuildvrt}.
+These executables are used by a few ASP Python tools, are compiled with
+JPEG2000 and BigTIFF support, and can handle NTF images in addition to
+most image formats.  They can be used to see image statistics, crop and
+scale images, and build virtual mosaics respectively. Detailed
+documentation is available on the GDAL web site, at
+\url{http://www.gdal.org/}.
