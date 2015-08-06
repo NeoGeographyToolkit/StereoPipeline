@@ -38,6 +38,8 @@ namespace asp {
 
 
   /// List of disk transform options
+  /// - These describe if the image in disk has been transformed by a map projection
+  ///   or some other type of alignment transform.
   enum STEREOSESSION_DISKTRANSFORM_TYPE
   {
     DISKTRANSFORM_TYPE_MATRIX              = 0,  // Covers Homography, Affine-Epipolar, and None.
@@ -47,6 +49,8 @@ namespace asp {
     DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE = 4   // Pinhole map projected image
   };
   /// List of stereo model options
+  /// - This can be different from the model which was used to map project an image on disk.
+  /// - This is what is used for triangulation and other operations.
   enum STEREOSESSION_STEREOMODEL_TYPE
   {
     STEREOMODEL_TYPE_PINHOLE = 0,
@@ -55,6 +59,7 @@ namespace asp {
     STEREOMODEL_TYPE_RPC     = 3
   };
 
+  // TODO: Move this to vw somewhere?
   template <int v>
   struct Int2Type
   {
@@ -150,24 +155,14 @@ namespace asp {
 
   private: // Functions
 
-    // Init calls for the chosen stereo model
-    void init_sensor_model(Int2Type<STEREOMODEL_TYPE_PINHOLE>) {}
-    void init_sensor_model(Int2Type<STEREOMODEL_TYPE_ISIS   >) {}
-    void init_sensor_model(Int2Type<STEREOMODEL_TYPE_DG     >) {}
-    void init_sensor_model(Int2Type<STEREOMODEL_TYPE_RPC    >) {}
-
     // Init calls for the chosen disk transform
-    void init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MATRIX             >) {}
-    void init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MATRIX_RIGHT       >) {}
-    void init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC    >); // Needs to load the map_proj_models
-    void init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS   >); // Needs to load the map_proj_models
-    void init_disk_transform(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE>); // Needs to load the map_proj_models
+    void init_disk_transform(STEREOSESSION_DISKTRANSFORM_TYPE disk_transform_type);
 
-    // Specializations of camera_model for each of the different model types
-    boost::shared_ptr<vw::camera::CameraModel> load_camera_model(Int2Type<STEREOMODEL_TYPE_PINHOLE>, std::string const& image_file, std::string const& camera_file);
-    boost::shared_ptr<vw::camera::CameraModel> load_camera_model(Int2Type<STEREOMODEL_TYPE_ISIS   >, std::string const& image_file, std::string const& camera_file);
-    boost::shared_ptr<vw::camera::CameraModel> load_camera_model(Int2Type<STEREOMODEL_TYPE_DG     >, std::string const& image_file, std::string const& camera_file);
-    boost::shared_ptr<vw::camera::CameraModel> load_camera_model(Int2Type<STEREOMODEL_TYPE_RPC    >, std::string const& image_file, std::string const& camera_file);
+    /// Function to load a camera model of the specified type
+    /// - The type is handled by a switch statement; there is no benefit to templatizing this.
+    boost::shared_ptr<vw::camera::CameraModel> load_camera_model(STEREOSESSION_STEREOMODEL_TYPE model_type, 
+                                                                 std::string const& image_file, 
+                                                                 std::string const& camera_file);
 
     // Specializations of disk transform method
     tx_type tx_left (Int2Type<DISKTRANSFORM_TYPE_MATRIX             >) const;
