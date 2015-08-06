@@ -1109,6 +1109,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 void run_sfs_level(// Fixed inputs
                    int num_iterations,  Options & opt,
                    GeoReference const& geo,
+                   double smoothness_weight,
                    double nodata_val,
                    std::vector<BilinearInterpT> const& interp_images,
                    GlobalParams const& global_params,
@@ -1183,7 +1184,7 @@ void run_sfs_level(// Fixed inputs
       // Smoothness penalty
       ceres::LossFunction* loss_function_sm = NULL;
       ceres::CostFunction* cost_function_sm =
-        SmoothnessError::Create(opt.smoothness_weight, grid_x, grid_y);
+        SmoothnessError::Create(smoothness_weight, grid_x, grid_y);
       problem.AddResidualBlock(cost_function_sm, loss_function_sm,
                                &dem(col-1, row+1), &dem(col, row+1),
                                &dem(col+1, row+1),
@@ -1558,7 +1559,9 @@ int main(int argc, char* argv[]) {
       }
 
       run_sfs_level(// Fixed inputs
-                    num_iterations, opt, geos[level], nodata_val, interp_images,
+                    num_iterations, opt, geos[level],
+                    opt.smoothness_weight*factors[level]*factors[level],
+                    nodata_val, interp_images,
                       global_params, model_params,
                     // Quantities that will float
                     dems[level], albedos[level], cameras, exposures, adjustments);
