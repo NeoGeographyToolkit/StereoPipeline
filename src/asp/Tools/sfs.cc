@@ -201,7 +201,7 @@ void areInShadow(Vector3 & sunPos, ImageView<double> const& dem,
 
 struct Options : public asp::BaseOptions {
   std::string input_dem, out_prefix, stereo_session_string, bundle_adjust_prefix;
-  std::vector<std::string> input_images;
+  std::vector<std::string> input_images, input_cameras;
   std::string shadow_thresholds;
   std::vector<float> shadow_threshold_vec;
 
@@ -572,7 +572,7 @@ int                                            g_level = -1;
 // it a greater range in searching (it makes more sense to wiggle
 // the camera position by say 1 meter than by a tiny fraction
 // of one millimeter).
-double g_position_scale = 1e+6;
+double g_position_scale = 1e+8;
 
 class SfsCallback: public ceres::IterationCallback {
 public:
@@ -1026,18 +1026,38 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                             positional, positional_desc, usage,
                              allow_unregistered, unregistered);
 
+
+  // If the images are tif files, and the cameras are cub files, separate them
+  std::vector<std::string> images, cameras;
+  for (size_t i = 0; i < opt.input_images.size(); i++) {
+    std::string file = opt.input_images[i];
+    if (asp::has_cam_extension(file))          // can be .cub
+      cameras.push_back(file);
+    else if (asp::has_image_extension(file))   // can be .cub
+      images.push_back(file);
+    else
+      vw_throw( ArgumentErr() << "Invalid image or camera file: " << file << ".\n"
+                << usage << general_options );
+  }
+  if (images.empty())
+    images = cameras;
+  if (images.size() != cameras.size()) {
+    vw_throw( ArgumentErr() << "Expecting as many images as cameras.\n"
+              << usage << general_options );
+  }
+  opt.input_images = images;
+  opt.input_cameras = cameras;
+
+  // Sanity checks
   if (opt.input_dem.empty())
     vw_throw( ArgumentErr() << "Missing input DEM.\n"
               << usage << general_options );
-
   if (opt.out_prefix.empty())
     vw_throw( ArgumentErr() << "Missing output prefix.\n"
               << usage << general_options );
-
   if (opt.max_iterations < 0)
     vw_throw( ArgumentErr() << "The number of iterations must be non-negative.\n"
               << usage << general_options );
-
   if (opt.input_images.empty())
   vw_throw( ArgumentErr() << "Missing input images.\n"
             << usage << general_options );
@@ -1049,7 +1069,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   while (is >> val){
     opt.shadow_threshold_vec.push_back(val);
   }
-
   if (!opt.shadow_threshold_vec.empty() &&
       opt.shadow_threshold_vec.size() != opt.input_images.size())
     vw_throw(ArgumentErr()
@@ -1303,13 +1322,13 @@ int main(int argc, char* argv[]) {
                          (opt.stereo_session_string, opt,
                           opt.input_images[image_iter],
                           opt.input_images[image_iter],
-                          opt.input_images[image_iter],
-                          opt.input_images[image_iter],
+                          opt.input_cameras[image_iter],
+                          opt.input_cameras[image_iter],
                           opt.out_prefix));
 
-      vw_out() << "Loading: " << opt.input_images[image_iter] << "\n";
+      vw_out() << "Loading camera: " << opt.input_cameras[image_iter] << "\n";
       cameras.push_back(session->camera_model(opt.input_images[image_iter],
-                                              opt.input_images[image_iter]));
+                                              opt.input_cameras[image_iter]));
     }
 
     // Since we may float the cameras, ensure our camera models are
