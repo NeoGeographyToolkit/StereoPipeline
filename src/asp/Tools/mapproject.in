@@ -255,7 +255,7 @@ def main(argsIn):
 
 
     # Now find the image size in the output
-    startPos    = projectionInfo.find('Output image bounding box:')
+    startPos    = projectionInfo.find('Output image size:')
     widthStart  = projectionInfo.find('width:', startPos)
     heightStart = projectionInfo.find('height:', widthStart)
     heightEnd   = projectionInfo.find(')', heightStart)

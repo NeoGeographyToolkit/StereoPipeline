@@ -234,6 +234,7 @@ void calc_target_geom(// Inputs
                       boost::shared_ptr<camera::CameraModel> const& camera_model,
                       ImageViewRef<PMaskT> const& dem,
                       GeoReference dem_georef, // make copy on purpose
+                      BBox2  dem_bbox,         // make copy on purpose
                       // Outputs
                       Options & opt, BBox2 & cam_box, GeoReference & target_georef){
 
@@ -282,6 +283,11 @@ void calc_target_geom(// Inputs
     cam_box.max().x() -= opt.target_resolution; //TODO: What are these adjustments?
     cam_box.min().y() += opt.target_resolution;
   }
+
+  // Ensure the camera box does not extend beyond the DEM box
+  dem_bbox.max().x() -= opt.target_resolution; //TODO: What are these adjustments?
+  dem_bbox.min().y() += opt.target_resolution;
+  cam_box.crop(dem_bbox);
 
   // In principle the corners of the projection box can be
   // arbitrary.  However, we will force them to be at integer
@@ -426,6 +432,22 @@ int main( int argc, char* argv[] ) {
     //vw_out() << "\nTARGET georeference:\n"        << target_georef << std::endl;
 
 
+    // Compute the dem BBox in the output projected space.
+    // Here we could have used target_georef.lonlat_to_point_bbox(dem_georef.pixel_to_lonlat_bbox)
+    // but that grows the box needlessly big. We will ensure the mapprojected image does
+    // not go beyond dem_bbox.
+    BBox2 dem_bbox;
+    int len = std::max(dem.cols(), dem.rows());
+    for (int i = 0; i <= len; i++) {
+      double r = double(i)/double(std::max(len, 1));
+      // Diagonals of the DEM
+      Vector2i p1 = round(r*Vector2(dem.cols()-1, dem.rows()-1));
+      Vector2i p2 = Vector2i(dem.cols() - 1 - p1[0], p1[1]);
+      dem_bbox.grow(target_georef.lonlat_to_point(dem_georef.pixel_to_lonlat(p1)));
+      dem_bbox.grow(target_georef.lonlat_to_point(dem_georef.pixel_to_lonlat(p2)));
+    }
+
+
     // We compute the target_georef and camera box in two passes,
     // first in the DEM coordinate system and we rotate it to target's
     // coordinate system (which makes it grow), and then we tighten it
@@ -437,7 +459,7 @@ int main( int argc, char* argv[] ) {
     bool first_pass = true;
     calc_target_geom(// Inputs
                      first_pass, calc_target_res, image_size, camera_model,
-                     dem, dem_georef,
+                     dem, dem_georef, dem_bbox,
                      // Outputs
                      opt, cam_box, target_georef);
     // target_georef is now in the output coordinate system and location!
@@ -457,38 +479,25 @@ int main( int argc, char* argv[] ) {
 
     calc_target_geom(// Inputs
                      first_pass, calc_target_res, image_size, camera_model,
-                     trans_dem, target_georef,
+                     trans_dem, target_georef, dem_bbox,
                      // Outputs
                      opt, cam_box, target_georef);
-
-
-    // As a final correction, limit the bbox to the dem area.
-    // - The Map2CamTrans we use later won't draw the image outside
-    //   the DEM boundaries, so we might as well limit things here.
-
-    // Compute the dem BBox in the output projected space.
-    // Here we could have used target_georef.lonlat_to_point_bbox(dem_georef.pixel_to_lonlat_bbox)
-    // but that grows the box needlessly big.
-    BBox2 dem_bbox;
-    int len = std::max(dem.cols(), dem.rows());
-    for (int i = 0; i <= len; i++) {
-      double r = double(i)/double(std::max(len, 1));
-      // Diagonals of the DEM
-      Vector2i p1 = round(r*Vector2(dem.cols()-1, dem.rows()-1));
-      Vector2i p2 = Vector2i(dem.cols() - 1 - p1[0], p1[1]);
-      dem_bbox.grow(target_georef.lonlat_to_point(dem_georef.pixel_to_lonlat(p1)));
-      dem_bbox.grow(target_georef.lonlat_to_point(dem_georef.pixel_to_lonlat(p2)));
-    }
-
-    // Crop the output box to the dem box
-    cam_box.crop(dem_bbox);
 
     vw_out() << "Refined projected space bounding box: " << cam_box << std::endl;
 
     // Compute output image size in pixels using bounding box in output projected space
     BBox2i target_image_size = target_georef.point_to_pixel_bbox( cam_box );
 
-    //vw_out() << "Cropping to projected coordinates: " << cam_box << std::endl;
+    // Very important note: this box may be in the middle of the
+    // image.  However, the virtual image we create with
+    // transform_nodata() below is assumed to start at (0, 0), and in
+    // target_georef we assume the same thing. Hence, its width and
+    // height are going to be the max values of target_image_size.
+    // There is no performance hit here, since that potentially huge
+    // image is never actually realized, we crop it as seen below
+    // before finding its pixels. This could be made less confusing.
+    int virtual_image_width  = target_image_size.max().x();
+    int virtual_image_height = target_image_size.max().y();
 
     // Shrink output image BB if an output image BB was passed in
     GeoReference croppedGeoRef  = target_georef;
@@ -501,25 +510,15 @@ int main( int argc, char* argv[] ) {
       croppedGeoRef = vw::cartography::crop(target_georef, croppedImageBB);
     }
 
-    vw_out() << "Output georeference:\n"        << croppedGeoRef << std::endl;
-    vw_out() << "Output image bounding box:\n";
-    vw_out() << "(Origin: (" << croppedImageBB.min()[0] << ", " << croppedImageBB.min()[1] << ") width: "
-             << croppedImageBB.width() << " height: " << croppedImageBB.height() << ")" << std::endl;
+    // Important: Don't modify the line below, we count on it in mapproject.in.
+    vw_out() << "Output image size:\n";
+    vw_out() << "(width: " << virtual_image_width
+             << " height: " << virtual_image_height << ")" << std::endl;
 
     if (opt.isQuery){ // Quit before we do any image work
       vw_out() << "Query finished, exiting mapproject tool.\n";
       return 0;
     }
-
-    // Note: The statement below must be _after_ we have initialized
-    // croppedImageBB, to not create an output image with a lot of
-    // black. We count on this statement in
-    // transform_nodata(). Apparently the virtual image there must
-    // have the upper-left corner at (0, 0).  That is not really a
-    // problem, since that image is never fully realized to start
-    // with, we crop it to croppedImageBB before computing its pixels.
-    // At some point this thing should be made less confusing.
-    target_image_size.min() = Vector2(0, 0);
 
     // Create handle to input image to be projected on to the map
     boost::shared_ptr<DiskImageResource>
@@ -548,8 +547,8 @@ int main( int argc, char* argv[] ) {
                                dem_georef, opt.dem_file, image_size,
                                call_from_mapproject
                                ),
-                              target_image_size.width(),
-                              target_image_size.height(),
+                              virtual_image_width,
+                              virtual_image_height,
                               ValueEdgeExtension<PMaskT>(nodata_mask),
                               BicubicInterpolation(), nodata_mask
                               ),
