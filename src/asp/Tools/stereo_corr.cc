@@ -526,23 +526,25 @@ void stereo_correlation( Options& opt ) {
   DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
     Rmask(opt.out_prefix + "-rMask.tif");
   ImageViewRef<PixelMask<Vector2i> > sub_disp;
+  std::string dsub_file = opt.out_prefix+"-D_sub.tif";
+  std::string spread_file = opt.out_prefix+"-D_sub_spread.tif";
   if ( stereo_settings().seed_mode > 0 )
     sub_disp =
-      DiskImageView<PixelMask<Vector2i> >(opt.out_prefix+"-D_sub.tif");
+      DiskImageView<PixelMask<Vector2i> >(dsub_file);
   ImageViewRef<PixelMask<Vector2i> > sub_disp_spread;
   if ( stereo_settings().seed_mode == 2 ||  stereo_settings().seed_mode == 3 ){
     // D_sub_spread is mandatory for seed_mode 2 and 3.
     sub_disp_spread =
-      DiskImageView<PixelMask<Vector2i> >(opt.out_prefix+"-D_sub_spread.tif");
+      DiskImageView<PixelMask<Vector2i> >(spread_file);
   }else if ( stereo_settings().seed_mode == 1 ){
     // D_sub_spread is optional for seed_mode 1, we use it only if
     // it is provided.
-    try {
-      sub_disp_spread =
-        DiskImageView<PixelMask<Vector2i> >(opt.out_prefix+"-D_sub_spread.tif");
+    if (fs::exists(spread_file)) {
+      try {
+        sub_disp_spread = DiskImageView<PixelMask<Vector2i> >(spread_file);
+      }
+      catch (...) {}
     }
-    catch (vw::IOErr const& e) {}
-    catch (vw::ArgumentErr const& e) {}
   }
 
   ImageView<Matrix3x3> local_hom;
