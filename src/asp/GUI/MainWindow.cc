@@ -42,7 +42,7 @@ MainWindow::MainWindow(std::vector<std::string> const& images,
                        std::string const& output_prefix,
                        vw::Vector2i const& window_size,
                        bool use_single_window,
-                       bool ignore_georef, bool hillshade,
+                       bool use_georef, bool hillshade,
                        int argc,  char ** argv) :
   m_images(images), m_output_prefix(output_prefix),
   m_widRatio(0.3), m_chooseFiles(NULL), m_argc(argc), m_argv(argv) {
@@ -94,7 +94,7 @@ MainWindow::MainWindow(std::vector<std::string> const& images,
                                          0, m_output_prefix,
                                          m_images, m_matches,
                                          m_chooseFiles,
-                                         ignore_georef, hillshade);
+                                         use_georef, hillshade);
     m_widgets.push_back(widget);
 
   } else{
@@ -106,7 +106,7 @@ MainWindow::MainWindow(std::vector<std::string> const& images,
                                            i, m_output_prefix,
                                            local_images, m_matches,
                                            m_chooseFiles,
-                                           ignore_georef, hillshade);
+                                           use_georef, hillshade);
 
       m_widgets.push_back(widget);
     }

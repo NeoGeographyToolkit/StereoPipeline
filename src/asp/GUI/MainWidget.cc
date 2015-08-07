@@ -92,24 +92,22 @@ namespace vw { namespace gui {
 
 }} // namespace vw::gui
 
-void imageData::read(std::string const& image, bool ignore_georef,
-                     bool hillshade){
+void imageData::read(std::string const& image, bool use_georef, bool hillshade){
   name = image;
 
   int top_image_max_pix = 1000*1000;
   int subsample = 4;
   img = DiskImagePyramidMultiChannel(name, top_image_max_pix, subsample);
 
-  // Turn off handing georef, the code is not ready for that
-  ignore_georef = true;
+  has_georef = vw::cartography::read_georeference(georef, name);
 
-  if (ignore_georef)
-    has_georef = false;
-  else
-    has_georef = vw::cartography::read_georeference(georef, name);
+  if (use_georef && !has_georef){
+    popUp("No georeference present in: " + image + ".");
+    exit(1);
+  }
 
   bbox = BBox2(0, 0, img.cols(), img.rows());
-  if (has_georef)
+  if (use_georef && has_georef)
     bbox = georef.pixel_to_lonlat_bbox(bbox); // lonlat box
 
   if (hillshade){
@@ -219,12 +217,12 @@ MainWidget::MainWidget(QWidget *parent,
                        std::vector<std::string> const& image_files,
                        std::vector<std::vector<vw::ip::InterestPoint> > & matches,
                        chooseFilesDlg * chooseFiles,
-                       bool ignore_georef,
+                       bool use_georef,
                        bool hillshade)
   : QWidget(parent), m_chooseFilesDlg(chooseFiles),
     m_image_id(image_id), m_output_prefix(output_prefix),
     m_image_files(image_files),
-    m_matches(matches), m_hideMatches(true), m_ignore_georef(ignore_georef),
+    m_matches(matches), m_hideMatches(true), m_use_georef(use_georef),
     m_hillshade(hillshade) {
 
   installEventFilter(this);
@@ -260,7 +258,7 @@ MainWidget::MainWidget(QWidget *parent,
   int num_images = image_files.size();
   m_images.resize(num_images);
   for (int i = 0; i < num_images; i++){
-    m_images[i].read(image_files[i], m_ignore_georef, m_hillshade);
+    m_images[i].read(image_files[i], m_use_georef, m_hillshade);
     m_images_box.grow(m_images[i].bbox);
   }
 
@@ -408,8 +406,7 @@ void MainWidget::viewThreshImages(){
     vw_out() << "Writing: " << thresh_file << std::endl;
     asp::block_write_gdal_image(thresh_file, thresh_image, nodata_val, opt, tpc);
 
-    m_shadow_thresh_images[image_iter].read(thresh_file,
-                                            m_ignore_georef, m_hillshade);
+    m_shadow_thresh_images[image_iter].read(thresh_file, m_use_georef, m_hillshade);
   }
 
   refreshPixmap();
@@ -503,7 +500,7 @@ void MainWidget::drawImage(QPainter* paint) {
     screen_box.grow(round(world2screen(image_box.max())));
 
     QImage qimg;
-    if (m_images[i].has_georef){
+    if (m_use_georef){
       // image_box is in lonlat domain. Go from screen pixels
       // to lonlat, then to image pixels. We need to do a flip in
       // y since in lonlat space the origin is in lower-left corner.
@@ -878,13 +875,29 @@ void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
     m_stereoCropWin = screen2world(qrect2bbox(m_rubberBand));
     m_stereoCropWin.min() = round(m_stereoCropWin.min());
     m_stereoCropWin.max() = round(m_stereoCropWin.max());
-    vw_out() << "Crop window for "
+    vw_out() << "Crop src win for  "
              << m_image_files[0]
-             << " (begx begy widx widy): "
+             << ": "
              << m_stereoCropWin.min().x() << ' '
              << m_stereoCropWin.min().y() << ' '
              << m_stereoCropWin.width()   << ' '
              << m_stereoCropWin.height()  << std::endl;
+    if (m_images[0].has_georef){
+      Vector2 proj_min = m_images[0].georef.pixel_to_point(m_stereoCropWin.min());
+      Vector2 proj_max = m_images[0].georef.pixel_to_point(m_stereoCropWin.max());
+      vw_out() << "Crop proj win for "
+               << m_image_files[0] << ": "
+               << proj_min.x() << ' ' << proj_min.y() << ' '
+               << proj_max.x() << ' ' << proj_max.y() << std::endl;
+
+      Vector2 ll_min = m_images[0].georef.pixel_to_lonlat(m_stereoCropWin.min());
+      Vector2 ll_max = m_images[0].georef.pixel_to_lonlat(m_stereoCropWin.max());
+      vw_out() << "lonlat win for    "
+               << m_image_files[0] << ": "
+               << ll_min.x() << ' ' << ll_min.y() << ' '
+               << ll_max.x() << ' ' << ll_max.y() << std::endl;
+
+    }
 
     // Wipe the rubberband, no longer needed.
     updateRubberBand(m_rubberBand);

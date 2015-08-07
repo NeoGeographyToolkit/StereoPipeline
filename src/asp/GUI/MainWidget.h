@@ -452,8 +452,7 @@ private:
     vw::cartography::GeoReference georef;
     BBox2 bbox;
     DiskImagePyramidMultiChannel img;
-    void read(std::string const& image, bool ignore_georef,
-              bool hillshade);
+    void read(std::string const& image, bool use_georef, bool hillshade);
   };
 
   vw::Vector2 QPoint2Vec(QPoint const& qpt);
@@ -510,7 +509,7 @@ private:
                std::string const& output_prefix,
                std::vector<std::string> const& image_files,
                std::vector<std::vector<ip::InterestPoint> > & matches,
-               chooseFilesDlg * chooseFiles, bool ignore_georef,
+               chooseFilesDlg * chooseFiles, bool use_georef,
                bool hillshade);
     virtual ~MainWidget();
 
@@ -569,7 +568,7 @@ private:
     std::vector<std::vector<vw::ip::InterestPoint> > & m_matches;
     bool m_hideMatches;
 
-    bool m_ignore_georef;
+    bool m_use_georef;
     bool m_hillshade;
 
     bool  m_firstPaintEvent;

@@ -50,7 +50,7 @@ namespace vw {
     MainWindow(std::vector<std::string> const& images,
                std::string const& output_prefix,
                vw::Vector2i const& window_size, bool use_single_window,
-               bool ignore_georef, bool hillshade, int argc, char ** argv);
+               bool use_georef, bool hillshade, int argc, char ** argv);
     virtual ~MainWindow() {}
 
   private slots:

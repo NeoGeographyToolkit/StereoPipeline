@@ -87,7 +87,7 @@ int main(int argc, char* argv[]) {
 
     // TODO: Expose these as options and fix the current broken
     // implementation.
-    bool ignore_georef = true;
+    bool use_georef = false;
     bool hillshade = false;
 
     // Start up the Qt GUI
@@ -95,7 +95,7 @@ int main(int argc, char* argv[]) {
     vw::gui::MainWindow main_window(images, output_prefix,
                                     stereo_settings().window_size,
                                     stereo_settings().use_single_window,
-                                    ignore_georef, hillshade, argc, argv);
+                                    use_georef, hillshade, argc, argv);
     main_window.show();
     app.exec();
 
