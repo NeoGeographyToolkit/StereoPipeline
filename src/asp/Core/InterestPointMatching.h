@@ -432,6 +432,9 @@ namespace asp {
     }
     vw_out() << "\t    Matched " << valid_count << " points." << std::endl;
 
+    if (valid_count == 0)
+      return false;
+
     // Produce listing of valid indices that agree with forward and backward matching
     std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
     matched_ip1.reserve( valid_count ); // Get our allocations out of the way.
@@ -566,6 +569,8 @@ namespace asp {
                                   NearestPixelInterpolation()), raster_box),
                    ip_per_tile,
                    datum, output_name, nodata1, nodata2, left_tx, tx );
+    if (!inlier)
+      return inlier;
 
     std::vector<ip::InterestPoint> ip1_copy, ip2_copy;
     ip::read_binary_match_file( output_name, ip1_copy, ip2_copy );
