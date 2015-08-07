@@ -78,7 +78,8 @@ namespace asp {
                                  std::string                    &dem_path);
 
 
-  std::string bundle_adjust_file_name(std::string const& prefix, std::string const& input_img);
+  std::string bundle_adjust_file_name(std::string const& prefix, std::string const& input_img,
+                                      std::string const& input_cam);
 
   boost::filesystem::path make_file_relative_to_dir(boost::filesystem::path const file,
                                                     boost::filesystem::path const dir);

@@ -33,7 +33,7 @@ using namespace vw::camera;
 using namespace vw::stereo;
 using namespace vw::ba;
 
-void read_adjustments(std::string const& filename,
+void asp::read_adjustments(std::string const& filename,
                       Vector3& position_correction,
                       Quat& pose_correction) {
   Vector4 q_buffer;
@@ -44,16 +44,17 @@ void read_adjustments(std::string const& filename,
   pose_correction = Quat(q_buffer);
 }
 
-void write_adjustments(std::string const& filename,
+void asp::write_adjustments(std::string const& filename,
                        Vector3 const& position_correction,
                        Quat const& pose_correction) {
   std::ofstream ostr(filename.c_str());
+  ostr.precision(18);
   ostr << position_correction[0] << " " << position_correction[1] << " " << position_correction[2] << "\n";
   ostr << pose_correction.w() << " " << pose_correction.x() << " "
        << pose_correction.y() << " " << pose_correction.z() << " " << "\n";
 }
 
-void compute_stereo_residuals(std::vector<boost::shared_ptr<CameraModel> > const& camera_models,
+void asp::compute_stereo_residuals(std::vector<boost::shared_ptr<CameraModel> > const& camera_models,
                               ControlNetwork const& cnet) {
 
   // Compute pre-adjustment residuals and convert to bundles

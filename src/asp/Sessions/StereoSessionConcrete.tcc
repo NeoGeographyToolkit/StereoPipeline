@@ -232,7 +232,9 @@ inline vw::Vector2 camera_pixel_offset(std::string const& input_dem,
 // may be in the rotation matrix, camera center, or pixel offset.
 inline  boost::shared_ptr<vw::camera::CameraModel>
 load_adjusted_model(boost::shared_ptr<camera::CameraModel> cam,
-                    std::string const& image_file, vw::Vector2 const& pixel_offset){
+                    std::string const& image_file,
+                    std::string const& camera_file,
+                    vw::Vector2 const& pixel_offset){
 
   std::string ba_pref = stereo_settings().bundle_adjust_prefix;
   if (ba_pref == "" && pixel_offset == vw::Vector2())
@@ -242,10 +244,10 @@ load_adjusted_model(boost::shared_ptr<camera::CameraModel> cam,
   Quaternion<double> pose_correction = Quat(math::identity_matrix<3>());
 
   if (ba_pref != "") {
-    std::string adjust_file = asp::bundle_adjust_file_name(ba_pref, image_file);
+    std::string adjust_file = asp::bundle_adjust_file_name(ba_pref, image_file, camera_file);
     if (boost::filesystem::exists(adjust_file)) {
       vw_out() << "Using adjusted camera model: " << adjust_file << std::endl;
-      read_adjustments(adjust_file, position_correction, pose_correction);
+      asp::read_adjustments(adjust_file, position_correction, pose_correction);
     }else {
       vw_throw(InputErr() << "Missing adjusted camera model: "
                << adjust_file << ".\n");
@@ -265,7 +267,7 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
                                                  m_right_image_file,
                                                  image_file);
   return load_adjusted_model(m_camera_loader.load_isis_camera_model(camera_file),
-                             image_file, pixel_offset);
+                             image_file, camera_file, pixel_offset);
 }
 
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
@@ -278,7 +280,7 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
                                                  m_right_image_file,
                                                  image_file);
   return load_adjusted_model(m_camera_loader.load_dg_camera_model(camera_file),
-                             image_file, pixel_offset);
+                             image_file, camera_file, pixel_offset);
 }
 
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
@@ -298,13 +300,13 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
     if (camera_file != "")
       return
         load_adjusted_model(m_camera_loader.load_rpc_camera_model(camera_file),
-                            image_file, pixel_offset);
+                            image_file, camera_file, pixel_offset);
   }
   catch(...) {}
   try {
     return
       load_adjusted_model(m_camera_loader.load_rpc_camera_model(image_file),
-                          image_file, pixel_offset);
+                          image_file, camera_file, pixel_offset);
   }
   catch(...) {}
   // Raise a custom exception if both failed
@@ -384,14 +386,16 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
 
     if (is_left_camera)
       return
-        load_adjusted_model(epipolar_left_cahv, image_file, pixel_offset);
+        load_adjusted_model(epipolar_left_cahv, image_file,
+                            camera_file, pixel_offset);
     else
       return
-        load_adjusted_model(epipolar_right_cahv, image_file, pixel_offset);
+        load_adjusted_model(epipolar_right_cahv, image_file,
+                            camera_file, pixel_offset);
   } else { // Not epipolar, just load the camera model.
     return
       load_adjusted_model(m_camera_loader.load_pinhole_camera_model(camera_file),
-                          image_file, pixel_offset);
+                          image_file, camera_file, pixel_offset);
   } // End not epipolar case
 
 }

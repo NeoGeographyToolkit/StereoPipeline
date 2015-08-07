@@ -176,7 +176,7 @@ bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
     if (!multiple_extensions)
       has_camera_paths = false; // Two types of files, some must be camera files.
 
-  } // End check for camera file prescence
+  } // End check for camera file presence
 
 
   if (has_camera_paths) { // Move the cameras out of the files vector
@@ -196,8 +196,16 @@ bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
 
 // Convert dir1/image1.cub to out-prefix-image1.adjust
 std::string asp::bundle_adjust_file_name(std::string const& prefix,
-                                         std::string const& input_img){
-  return prefix + "-" + fs::path(input_img).stem().string() + ".adjust";
+                                         std::string const& input_img,
+                                         std::string const& input_cam){
+
+  // Create the adjusted camera file name from the original camera filename,
+  // unless it is empty, and then use the image file name.
+  std::string file = input_cam;
+  if (file == "")
+    file = input_img;
+
+  return prefix + "-" + fs::path(file).stem().string() + ".adjust";
 }
 
 // Make the specified file to be relative to the specified directory.

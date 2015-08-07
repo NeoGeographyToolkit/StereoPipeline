@@ -717,7 +717,9 @@ void do_ba_costfun(CostFunType const& cost_fun, Options& opt){
 
   // Save the models to disk
   for (size_t icam = 0; icam < ba_model.num_cameras(); icam++){
-    std::string adjust_file = asp::bundle_adjust_file_name(opt.out_prefix, opt.image_files[icam]);
+    std::string adjust_file = asp::bundle_adjust_file_name(opt.out_prefix,
+                                                           opt.image_files[icam],
+                                                           opt.camera_files[icam]);
     vw_out() << "Writing: " << adjust_file << std::endl;
     ba_model.write_adjustment(icam, adjust_file);
   }
@@ -755,7 +757,8 @@ extract_cameras_bundle_adjust( std::vector<std::string>& image_files ) {
   std::vector<std::string>::iterator it = image_files.begin();
   while ( it != image_files.end() ) {
     if (asp::has_pinhole_extension( *it ) ||
-        boost::iends_with(boost::to_lower_copy(*it), ".xml")
+        boost::iends_with(boost::to_lower_copy(*it), ".xml") ||
+        boost::iends_with(boost::to_lower_copy(*it), ".cub")
         ){
       cam_files.push_back( *it );
       it = image_files.erase( it );
@@ -824,11 +827,16 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                             positional, positional_desc, usage,
                              allow_unregistered, unregistered);
 
+  opt.gcp_files    = asp::extract_gcps( opt.image_files );
+  opt.camera_files = extract_cameras_bundle_adjust( opt.image_files );
+
+  // If all we have are cubes, those are both images and cameras
+  if (opt.image_files.empty())
+    opt.image_files = opt.camera_files;
+
   if ( opt.image_files.empty() )
     vw_throw( ArgumentErr() << "Missing input image files.\n"
               << usage << general_options );
-  opt.gcp_files    = asp::extract_gcps( opt.image_files );
-  opt.camera_files = extract_cameras_bundle_adjust( opt.image_files );
 
   if ( opt.overlap_limit <= 0 )
     vw_throw( ArgumentErr() << "Must allow search for matches between "
@@ -1027,7 +1035,9 @@ int main(int argc, char* argv[]) {
       // Save the camera models to disk
       std::vector<std::string> cam_files;
       for (int icam = 0; icam < (int)opt.camera_models.size(); icam++){
-        std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix, opt.image_files[icam]);
+        std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix,
+                                                            opt.image_files[icam],
+                                                            opt.camera_files[icam]);
         cam_file = fs::path(cam_file).replace_extension("pinhole").string();
         cam_files.push_back(cam_file);
       }

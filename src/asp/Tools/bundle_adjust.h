@@ -47,7 +47,7 @@ namespace asp{
 
   template<class ModelT>
   void concat_extrinsics_intrinsics(const double* const extrinsics,
-                                    const double* const intrinsics, 
+                                    const double* const intrinsics,
                                     typename ModelT::camera_intr_vector_t & concat){
     int intr_len = ModelT::intrinsic_params_n, cam_len = ModelT::camera_params_n;
     for (int c = 0; c < cam_len; c++)
@@ -55,7 +55,7 @@ namespace asp{
     for (int i = 0; i < intr_len; i++)
       concat[cam_len + i] = intrinsics[i];
   }
-  
+
 }
 
 // Bundle adjustment functor
@@ -161,7 +161,7 @@ public:
     vw::Vector3 position_correction;
     vw::Quat pose_correction;
     asp::parse_camera_parameters(a[j], position_correction, pose_correction);
-    write_adjustments(filename, position_correction, pose_correction);
+    asp::write_adjustments(filename, position_correction, pose_correction);
   }
 
   std::vector<cam_ptr_t> adjusted_cameras() const {
@@ -229,7 +229,7 @@ public:
 };
 
 // Model to be used to float all parameters of a pinhole model.  There
-// are 6 camera parameters, corresponding to: camera center (3), and 
+// are 6 camera parameters, corresponding to: camera center (3), and
 // camera orientation (3). Also there are three intrinsic parameters:
 // focal length (1), and pixel offsets (2), which are shared
 // among the cameras.
@@ -265,9 +265,9 @@ public:
     // Set the camera parameters.
     a[j] = a_j;
   }
-  
+
   vw::camera::PinholeModel get_pinhole_model(camera_intr_vector_t const& a){
-    
+
     camera_intr_vector_t b = a;
 
     // Undo the scale of the rotation variables
@@ -282,7 +282,7 @@ public:
                                     b[6], b[6],  // focal lengths
                                     b[7], b[8]); // pixel offsets
   }
-  
+
   // Given the 'a' vector (camera model parameters) for the j'th
   // image, and the 'b' vector (3D point location) for the i'th
   // point, return the location of b_i on imager j in pixel
@@ -300,17 +300,17 @@ public:
   }
 
   void write_camera_models(std::vector<std::string> const& cam_files){
-    
+
     VW_ASSERT(cam_files.size() == a.size(),
                   vw::ArgumentErr() << "Must have as many camera files as cameras.\n");
-    
+
     for (int icam = 0; icam < (int)cam_files.size(); icam++){
-      vw::vw_out() << "Writing: " << cam_files[icam] << std::endl;        
+      vw::vw_out() << "Writing: " << cam_files[icam] << std::endl;
       get_pinhole_model(a[icam]).write(cam_files[icam]);
     }
-    
+
   }
-  
+
 
 };
 
