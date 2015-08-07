@@ -29,9 +29,9 @@ using namespace vw::cartography;
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
+#include <asp/Camera/DG_XML.h>
 #include <asp/Sessions.h>
-#include <asp/Sessions/DG/StereoSessionDG.h>
-#include <asp/Sessions/DG/XML.h>
+#include <asp/Sessions/StereoSessionDG.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/StereoSettings.h>
 namespace po = boost::program_options;

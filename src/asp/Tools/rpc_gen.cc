@@ -27,10 +27,10 @@
 
 #include <fstream>
 
-#include <asp/Sessions/RPC/RPCModelGen.h>
-#include <asp/Sessions/RPC/StereoSessionRPC.h>
-#include <asp/Sessions/RPC/RPCStereoModel.h>
-#include <asp/Sessions/DG/XML.h>
+#include <asp/Camera/RPCModelGen.h>
+#include <asp/Camera/RPCStereoModel.h>
+#include <asp/Camera/DG_XML.h>
+#include <asp/Sessions/StereoSessionRPC.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 namespace po = boost::program_options;

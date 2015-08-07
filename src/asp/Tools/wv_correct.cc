@@ -34,8 +34,8 @@
 #include <vw/Math.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
-#include <asp/Sessions/DG/XML.h>
-#include <asp/Sessions/RPC/RPCModel.h>
+#include <asp/Camera/DG_XML.h>
+#include <asp/Camera/RPCModel.h>
 #include <xercesc/parsers/XercesDOMParser.hpp>
 #include <xercesc/sax/HandlerBase.hpp>
 #include <xercesc/util/PlatformUtils.hpp>
