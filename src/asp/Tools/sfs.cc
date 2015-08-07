@@ -34,6 +34,7 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Sessions.h>
+#include <asp/Core/BundleAdjustUtils.h>
 #include <vw/Image/MaskViews.h>
 #include <vw/Image/AntiAliasing.h>
 #include <ceres/ceres.h>
@@ -55,6 +56,8 @@ using namespace vw::cartography;
 
 typedef InterpolationView<ImageViewRef< PixelMask<float> >, BilinearInterpolation> BilinearInterpT;
 
+// TODO: Study more the multi-resolution approach.
+// TODO: Must specify in the SfS doc that the lunar lambertian model fails at poles
 // TODO: If this code becomes multi-threaded, need to keep in mind
 // that camera models are shared and modified, so
 // this may cause problems.
@@ -250,12 +253,13 @@ computeLambertianReflectanceFromNormal(Vector3 sunPos, Vector3 xyz,
 }
 
 
-double
-computeLunarLambertianReflectanceFromNormal
-(Vector3 const& sunPos, Vector3 const& viewPos, Vector3 const& xyz,
- Vector3 const& normal, double phaseCoeffC1, double phaseCoeffC2,
- double & alpha) {
-
+double computeLunarLambertianReflectanceFromNormal(Vector3 const& sunPos,
+                                                   Vector3 const& viewPos,
+                                                   Vector3 const& xyz,
+                                                   Vector3 const& normal,
+                                                   double phaseCoeffC1,
+                                                   double phaseCoeffC2,
+                                                   double & alpha) {
   double reflectance;
   double L;
 
@@ -613,11 +617,27 @@ public:
     // If there's just one image, print reflectance and other things
     for (size_t image_iter = 0; image_iter < (*g_interp_images).size();
          image_iter++) {
+
+      // Separate into blocks for each image
+      vw_out() << "\n";
+
       ImageView< PixelMask<double> > reflectance, intensity, comp_intensity;
 
       std::ostringstream os;
       os << iter_str << "-img" << image_iter;
       std::string iter_str2 = os.str();
+
+      // Save the camera adjustments for the current iteration
+      std::string out_camera_file = g_opt->out_prefix + "-camera"
+        + iter_str2 + ".adjust";
+      vw_out() << "Writing: " << out_camera_file << std::endl;
+      AdjustedCameraModel * icam
+        = dynamic_cast<AdjustedCameraModel*>((*g_cameras)[image_iter].get());
+      if (icam == NULL)
+        vw_throw( ArgumentErr() << "Expecting adjusted camera.\n");
+      Vector3 position_correction = icam->translation();
+      Quaternion<double> pose_correction = icam->rotation();
+      asp::write_adjustments(out_camera_file, position_correction, pose_correction);
 
       // Compute reflectance and intensity with optimized DEM
       computeReflectanceAndIntensity(*g_dem, *g_geo,
@@ -1327,7 +1347,8 @@ int main(int argc, char* argv[]) {
                           opt.input_cameras[image_iter],
                           opt.out_prefix));
 
-      vw_out() << "Loading camera: " << opt.input_cameras[image_iter] << "\n";
+      vw_out() << "Loading image and camera: " << opt.input_images[image_iter] << " "
+               <<  opt.input_cameras[image_iter] << "\n";
       cameras.push_back(session->camera_model(opt.input_images[image_iter],
                                               opt.input_cameras[image_iter]));
     }
@@ -1558,19 +1579,30 @@ int main(int argc, char* argv[]) {
         adj_cam->set_scale(factors[level]);
       }
 
+
+      // Note that when we go the finer resolution level, we keep only
+      // the camera corrections, but discard the albedo, dem, and exposures,
+      // preferring to start from scratch.
+      std::vector<double> local_exposures = exposures;
+      g_exposures = &local_exposures[0];
+
       run_sfs_level(// Fixed inputs
                     num_iterations, opt, geos[level],
                     opt.smoothness_weight*factors[level]*factors[level],
                     nodata_val, interp_images,
                       global_params, model_params,
                     // Quantities that will float
-                    dems[level], albedos[level], cameras, exposures, adjustments);
+                    dems[level], albedos[level], cameras, local_exposures, adjustments);
 
+      // TODO: Study this. Turn it off apparently works better. Also note
+      // that we also discard the exposures above.
       // Refine the coarse DEM and albedo
-      if (level > 0) {
-        interp_image(dems[level],    sub_scale, dems[level-1]);
-        interp_image(albedos[level], sub_scale, albedos[level-1]);
-      }
+#if 0
+       if (level > 0) {
+         interp_image(dems[level],    sub_scale, dems[level-1]);
+         interp_image(albedos[level], sub_scale, albedos[level-1]);
+       }
+#endif
 
     }
 
