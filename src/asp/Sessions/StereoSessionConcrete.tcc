@@ -280,8 +280,10 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
     (ArgumentErr() << "StereoSessionPinhole: supplied camera model filename does not match the name supplied in the constructor.");
 
   // Fetch CAHV version of the two input pinhole files
-  boost::shared_ptr<CAHVModel> left_cahv  = m_camera_loader.load_cahv_pinhole_camera_model(m_left_camera_file);
-  boost::shared_ptr<CAHVModel> right_cahv = m_camera_loader.load_cahv_pinhole_camera_model(m_right_camera_file);
+  boost::shared_ptr<CAHVModel> left_cahv
+     = m_camera_loader.load_cahv_pinhole_camera_model(m_left_image_file,  m_left_camera_file);
+  boost::shared_ptr<CAHVModel> right_cahv
+     = m_camera_loader.load_cahv_pinhole_camera_model(m_right_image_file, m_right_camera_file);
 
   // Create epipolar rectified camera views
   boost::shared_ptr<CAHVModel> epipolar_left_cahv (new CAHVModel);
