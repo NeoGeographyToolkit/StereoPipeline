@@ -30,7 +30,7 @@
 #include <vw/Stereo/StereoModel.h>
 
 #include <asp/Sessions/StereoSession.h>
-#include <asp/Sessions/RPC/RPCStereoModel.h>
+#include <asp/Camera/RPCStereoModel.h>
 #include <asp/Sessions/CameraModelLoader.h>
 
 namespace asp {

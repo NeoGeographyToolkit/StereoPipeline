@@ -16,32 +16,27 @@
 // __END_LICENSE__
 
 
-/// \file StereoSessionRPC.h
-///
+#include <asp/Camera/XMLBase.h>
 
-#ifndef __STEREO_SESSION_RPC_H__
-#define __STEREO_SESSION_RPC_H__
+using namespace vw;
 
-#include <asp/Sessions/DG/StereoSessionDG.h>
-#include <asp/Sessions/RPC/RPCStereoModel.h>
+void asp::XMLBase::check_argument( vw::uint8 arg ) {
+  m_checksum |= 0x1 << arg;
+}
 
-namespace asp {
+asp::XMLBase::XMLBase( vw::uint8 num_arguments )  : m_num_arguments(num_arguments), m_checksum(0) {
+  VW_ASSERT( num_arguments != 0,
+             ArgumentErr() << "There must be at least one thing you read.\n");
+  VW_ASSERT( num_arguments <= 32,
+             ArgumentErr() << "You can only have up to 32 checks.\n" );
+  int32 x = 0x1;
+  for ( uint8 i = num_arguments - 1; i != 0; --i ) {
+    x <<= 1;
+    x |= 0x1;
+  }
+  m_good = x;
+}
 
-
-  /// Derived StereoSession class using the RPC camera model.
-  class StereoSessionRPC : public StereoSessionGdal<DISKTRANSFORM_TYPE_MATRIX, STEREOMODEL_TYPE_RPC> {
-  public:
-
-    StereoSessionRPC(){};
-    virtual ~StereoSessionRPC(){};
-
-    virtual std::string name() const { return "rpc"; }
-
-    /// Simple factory function.
-    static StereoSession* construct() { return new StereoSessionRPC; }
-
-  };
-
-} // namespace asp
-
-#endif // __STEREO_SESSION_RPC_H__
+bool asp::XMLBase::is_good() const {
+  return (m_good ^ m_checksum) == 0;
+}

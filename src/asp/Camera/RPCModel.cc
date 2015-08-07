@@ -22,7 +22,7 @@
 #include <vw/FileIO/DiskImageResourceGDAL.h>
 #include <vw/Cartography/Datum.h>
 #include <vw/Cartography/GeoReference.h>
-#include <asp/Sessions/RPC/RPCModel.h>
+#include <asp/Camera/RPCModel.h>
 
 #include <gdal.h>
 #include <gdal_priv.h>

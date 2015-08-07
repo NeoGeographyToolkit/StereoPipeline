@@ -20,8 +20,8 @@
 #include <vw/Math/Vector.h>             // for Vector, Vector3, Vector4, etc
 #include <vw/Cartography/Datum.h>       // for Datum
 
-#include <asp/Sessions/DG/XML.h>
-#include <asp/Sessions/RPC/RPCModel.h>
+#include <asp/Camera/DG_XML.h>
+#include <asp/Camera/RPCModel.h>
 
 #include <xercesc/parsers/XercesDOMParser.hpp>
 #include <xercesc/sax/HandlerBase.hpp>

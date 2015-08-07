@@ -22,13 +22,13 @@
 #include <asp/Sessions/StereoSession.h>
 
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-#include <asp/Sessions/ISIS/StereoSessionIsis.h>
+#include <asp/Sessions/StereoSessionIsis.h>
 #endif
 
-#include <asp/Sessions/DG/StereoSessionDG.h>
-#include <asp/Sessions/DGMapRPC/StereoSessionDGMapRPC.h>
-#include <asp/Sessions/NadirPinhole/StereoSessionNadirPinhole.h>
-#include <asp/Sessions/Pinhole/StereoSessionPinhole.h>
-#include <asp/Sessions/RPC/StereoSessionRPC.h>
+#include <asp/Sessions/StereoSessionDG.h>
+#include <asp/Sessions/StereoSessionDGMapRPC.h>
+#include <asp/Sessions/StereoSessionNadirPinhole.h>
+#include <asp/Sessions/StereoSessionPinhole.h>
+#include <asp/Sessions/StereoSessionRPC.h>
 
 #include <asp/Sessions/StereoSessionFactory.h>

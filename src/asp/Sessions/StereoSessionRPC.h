@@ -16,25 +16,33 @@
 // __END_LICENSE__
 
 
-/// \file PhotometricOutlier.h
+/// \file StereoSessionRPC.h
 ///
-/// Warning: This code was written with only the Apollo Metric data in mind
 
-#ifndef __STEREO_SESSION_ISIS_OUTLIER_H__
-#define __STEREO_SESSION_ISIS_OUTLIER_H__
+#ifndef __STEREO_SESSION_RPC_H__
+#define __STEREO_SESSION_RPC_H__
 
-#include <string>
+#include <asp/Camera/RPCStereoModel.h>
+#include <asp/Sessions/StereoSessionDG.h>
+
 
 namespace asp {
 
-  class BaseOptions;
 
-  void photometric_outlier_rejection( BaseOptions const& opt,
-                                      std::string const& prefix,
-                                      std::string const& input_disparity,
-                                      std::string & output_disparity,
-                                      int kernel_size );
+  /// Derived StereoSession class using the RPC camera model.
+  class StereoSessionRPC : public StereoSessionGdal<DISKTRANSFORM_TYPE_MATRIX, STEREOMODEL_TYPE_RPC> {
+  public:
 
-}
+    StereoSessionRPC(){};
+    virtual ~StereoSessionRPC(){};
 
-#endif//__STEREO_SESSION_ISIS_OUTLIER_H__
+    virtual std::string name() const { return "rpc"; }
+
+    /// Simple factory function.
+    static StereoSession* construct() { return new StereoSessionRPC; }
+
+  };
+
+} // namespace asp
+
+#endif // __STEREO_SESSION_RPC_H__

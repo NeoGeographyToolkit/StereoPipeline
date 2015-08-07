@@ -22,23 +22,21 @@
 
 if MAKE_MODULE_SESSIONS
 
-include_HEADERS = StereoSession.h StereoSessionFactory.h StereoSessionConcrete.h CameraModelLoader.h
+include_HEADERS = StereoSession.h StereoSessionFactory.h StereoSessionConcrete.h \
+                 CameraModelLoader.h StereoSessionPinhole.h StereoSessionNadirPinhole.h \
+                 StereoSessionRPC.h StereoSessionDG.h StereoSessionDGMapRPC.h
 
-libaspSessions_la_SOURCES = StereoSession.cc 				\
-Pinhole/StereoSessionPinhole.cc DG/StereoSessionDG.cc DG/XMLBase.cc	\
-DG/XML.cc RPC/RPCStereoModel.cc			\
-RPC/RPCModel.cc RPC/RPCModelGen.cc		\
-NadirPinhole/StereoSessionNadirPinhole.cc
+libaspSessions_la_SOURCES = StereoSession.cc StereoSessionPinhole.cc StereoSessionDG.cc	StereoSessionNadirPinhole.cc
 
 libaspSessions_la_LIBADD = @MODULE_SESSIONS_LIBS@
 
 lib_LTLIBRARIES = libaspSessions.la
 
-SUBDIRS = . NadirPinhole Pinhole RPC DG DGMapRPC tests
+SUBDIRS = . tests
 
 if HAVE_PKG_ISIS
-SUBDIRS += ISIS
-libaspSessions_la_SOURCES += ISIS/StereoSessionIsis.cc ISIS/PhotometricOutlier.cc
+include_HEADERS += StereoSessionIsis.h
+libaspSessions_la_SOURCES += StereoSessionIsis.cc
 endif
 
 

@@ -20,7 +20,23 @@
 # sources
 #########################################################################
 
-include_HEADERS = StereoSessionDGMapRPC.h
+if MAKE_MODULE_CAMERA
+
+include_HEADERS = RPCModel.h RPCModelGen.h RPCStereoModel.h \
+                  LinescanDGModel.h DG_XML.h XMLBase.h
+
+libaspCamera_la_SOURCES = RPCModel.cc XMLBase.cc	\
+                          DG_XML.cc RPCStereoModel.cc	RPCModelGen.cc
+
+libaspCamera_la_LIBADD = @MODULE_CAMERA_LIBS@
+
+lib_LTLIBRARIES = libaspCamera.la
+
+SUBDIRS = .
+
+
+
+endif
 
 #########################################################################
 # general
@@ -29,6 +45,6 @@ include_HEADERS = StereoSessionDGMapRPC.h
 AM_CPPFLAGS = @ASP_CPPFLAGS@
 AM_LDFLAGS = @ASP_LDFLAGS@ -version-info @LIBTOOL_VERSION@
 
-includedir = $(prefix)/include/asp/Sessions/DGMapRPC
+includedir = $(prefix)/include/asp/Camera
 
 include $(top_srcdir)/config/rules.mak

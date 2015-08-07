@@ -29,13 +29,12 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Common.h>
 
-#include <asp/Sessions/DG/StereoSessionDG.h>
-#include <asp/Sessions/DGMapRPC/StereoSessionDGMapRPC.h>
-#include <asp/Sessions/ISIS/StereoSessionIsis.h>
-#include <asp/Sessions/NadirPinhole/StereoSessionNadirPinhole.h>
-#include <asp/Sessions/Pinhole/StereoSessionPinhole.h>
-#include <asp/Sessions/RPC/StereoSessionRPC.h>
-//#include <asp/Sessions/StereoSessionConcrete.h>
+#include <asp/Sessions/StereoSessionDG.h>
+#include <asp/Sessions/StereoSessionDGMapRPC.h>
+#include <asp/Sessions/StereoSessionIsis.h>
+#include <asp/Sessions/StereoSessionNadirPinhole.h>
+#include <asp/Sessions/StereoSessionPinhole.h>
+#include <asp/Sessions/StereoSessionRPC.h>
 
 namespace asp {
 

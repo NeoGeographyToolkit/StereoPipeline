@@ -20,15 +20,15 @@
 // to read. They only read and then store the raw values. Other
 // objects will interpret the results.
 
-#ifndef __STEREO_SESSION_DG_XML_H__
-#define __STEREO_SESSION_DG_XML_H__
+#ifndef __STEREO_CAMERA_DG_XML_H__
+#define __STEREO_CAMERA_DG_XML_H__
 
 #include <vw/Core/FundamentalTypes.h>
 #include <vw/Core/Log.h>
 #include <vw/Math/Vector.h>
 #include <vw/Math/Quaternion.h>
 #include <vw/Math/BBox.h>
-#include <asp/Sessions/DG/XMLBase.h>
+#include <asp/Camera/XMLBase.h>
 
 #include <vector>
 #include <string>
@@ -64,6 +64,8 @@ namespace asp {
     vw::Vector2i image_size;
   };
 
+
+  ///
   class GeometricXML : public XMLBase {
 
     void parse_principal_distance( xercesc::DOMElement* node );
@@ -87,6 +89,8 @@ namespace asp {
     double      detector_pixel_pitch; // mm
   };
 
+
+  ///
   class EphemerisXML : public XMLBase {
 
     void parse_meta    ( xercesc::DOMElement* node );
@@ -103,6 +107,8 @@ namespace asp {
     std::vector<vw::Vector<double,6> > covariance_vec;   // Tri-diagonal
   };
 
+
+  /// 
   class AttitudeXML : public XMLBase {
 
     void parse_meta( xercesc::DOMElement* node );
@@ -118,6 +124,8 @@ namespace asp {
     std::vector<vw::Quat> quat_vec;
     std::vector<vw::Vector<double,10> > covariance_vec;
   };
+
+
 
   /// Reads from Digital Globe XML format
   class RPCXML : public XMLBase {
@@ -155,4 +163,4 @@ namespace asp {
 
 } //end namespace asp
 
-#endif//__STEREO_SESSION_DG_XML_H__
+#endif//__STEREO_CAMERA_DG_XML_H__

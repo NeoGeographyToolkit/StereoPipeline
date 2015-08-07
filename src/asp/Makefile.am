@@ -23,6 +23,8 @@
 core_subdirs = Core
 core_headers = Core.h
 
+camera_subdirs = Camera
+
 sessions_subdirs = Sessions
 sessions_headers = Sessions.h
 
@@ -40,7 +42,7 @@ include_HEADERS = $(core_headers) $(spiceio_headers)            \
 	  $(isisio_headers) $(sessions_headers) asp_config.h
 
 SUBDIRS = $(core_subdirs) $(spiceio_subdirs) $(isisio_subdirs) \
-	  $(sessions_subdirs) $(gui_subdirs) $(python_subdirs) \
+	  $(camera_subdirs) $(sessions_subdirs) $(gui_subdirs) $(python_subdirs) \
 	  $(tools_subdirs)
 CLEANFILES = asp_config.h.pre.in~
 

@@ -21,8 +21,8 @@
 /// A generic linescan camera model object
 ///
 ///
-#ifndef __STEREO_SESSION_DG_LINESCAN_DG_MODEL_H__
-#define __STEREO_SESSION_DG_LINESCAN_DG_MODEL_H__
+#ifndef __STEREO_CAMERA_LINESCAN_DG_MODEL_H__
+#define __STEREO_CAMERA_LINESCAN_DG_MODEL_H__
 
 #include <vw/Math/Quaternion.h>
 #include <vw/Camera/CameraModel.h>
@@ -276,4 +276,4 @@ namespace asp {
 
 }      // namespace asp
 
-#endif//__STEREO_SESSION_DG_LINESCAN_DG_MODEL_H__
+#endif//__STEREO_CAMERA_LINESCAN_DG_MODEL_H__

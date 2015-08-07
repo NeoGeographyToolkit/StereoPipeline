@@ -25,7 +25,7 @@
 #define __STEREO_SESSION_DGMAPRPC_H__
 
 #include <asp/Sessions/StereoSessionConcrete.h>
-#include <asp/Sessions/DG/StereoSessionDG.h>
+#include <asp/Sessions/StereoSessionDG.h>
 #include <vw/Cartography/Map2CamTrans.h>
 #include <vw/Image/Transform.h>
 

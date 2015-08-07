@@ -27,8 +27,8 @@
 /// definition.  The RPC model is less complicated than the full Digital 
 /// Globe camera model.
 
-#ifndef __STEREO_SESSION_RPC_MODEL_H__
-#define __STEREO_SESSION_RPC_MODEL_H__
+#ifndef __STEREO_CAMERA_RPC_MODEL_H__
+#define __STEREO_CAMERA_RPC_MODEL_H__
 
 #include <vw/Math/Matrix.h>
 #include <vw/Math/Vector.h>
@@ -136,4 +136,4 @@ namespace asp {
   std::ostream& operator<<(std::ostream& os, const RPCModel& rpc);
 }
 
-#endif //__STEREO_SESSION_RPC_MODEL_H__
+#endif //__STEREO_CAMERA_RPC_MODEL_H__

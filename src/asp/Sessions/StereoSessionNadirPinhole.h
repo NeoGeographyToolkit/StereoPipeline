@@ -28,7 +28,7 @@
 #ifndef __STEREO_SESSION_NADIR_PINHOLE_H__
 #define __STEREO_SESSION_NADIR_PINHOLE_H__
 
-#include <asp/Sessions/Pinhole/StereoSessionPinhole.h>
+#include <asp/Sessions/StereoSessionPinhole.h>
 
 namespace asp {
 

@@ -16,8 +16,8 @@
 // __END_LICENSE__
 
 
-#include <asp/Sessions/RPC/RPCModelGen.h>
-#include <asp/Sessions/RPC/RPCModel.h>
+#include <asp/Camera/RPCModelGen.h>
+#include <asp/Camera/RPCModel.h>
 
 using namespace vw;
 

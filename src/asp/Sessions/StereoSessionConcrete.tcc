@@ -129,8 +129,6 @@ void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
     vw_throw( ArgumentErr() << "StereoSessionConcrete: DEM \"" << m_input_dem << "\" does not exist." );
 }
 
-// TODO: Do we need those weird vw enum things?
-
 // Code for reading different camera models
 
 // TODO: Move this function somewhere else!

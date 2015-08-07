@@ -16,173 +16,28 @@
 // __END_LICENSE__
 
 
-/// \file StereoSessionPinhole.cc
+/// \file StereoSessionNadirPinhole.cc
 ///
 
 //#include <asp/Core/StereoSettings.h>
-#include <asp/Sessions/Pinhole/StereoSessionPinhole.h>
+#include <asp/Core/AffineEpipolar.h>
+#include <asp/Sessions/StereoSessionNadirPinhole.h>
 
-#include <vw/Math/BBox.h>
-#include <vw/Math/Geometry.h>
-#include <vw/Math/Matrix.h>
-#include <vw/Math/RANSAC.h>
-#include <vw/Math/Vector.h>
-#include <vw/Image/ImageViewRef.h>
-#include <vw/Image/MaskViews.h>
 #include <vw/Camera.h>
-#include <vw/Stereo/DisparityMap.h>
+#include <vw/Image/Transform.h>
 
 #include <boost/shared_ptr.hpp>
 #include <boost/filesystem/operations.hpp>
 namespace fs = boost::filesystem;
 
 using namespace vw;
-using namespace vw::ip;
+using namespace asp;
 using namespace vw::camera;
 
 //TODO: There is a lot of duplicate code here with the Pinhole
 //class. Common functionality must be factored out.
 
-// Allows FileIO to correctly read/write these pixel types
-namespace vw {
-  template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-}
-
-// TODO: Need to make this session use the same IP matching code as
-// the other sessions.
-bool asp::StereoSessionPinhole::ip_matching(std::string const& input_file1,
-                                            std::string const& input_file2,
-                                            int ip_per_tile,
-                                            float nodata1, float nodata2,
-                                            std::string const& match_filename,
-                                            vw::camera::CameraModel* cam1,
-                                            vw::camera::CameraModel* cam2){
-
-  // If we crop the images, we must regenerate each time the match
-  // files.
-  bool crop_left_and_right =
-    ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
-    ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
-
-  if ( !crop_left_and_right && fs::exists( match_filename ) ) {
-    vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
-    return true;
-  }
-
-  // Load the unmodified images
-  DiskImageView<float> image1( input_file1 ), image2( input_file2 );
-
-  // Worst case, no interest point operations have been performed before
-  vw_out() << "\t--> Locating Interest Points\n";
-  ip::InterestPointList ip1, ip2;
-  asp::detect_ip( ip1, ip2, image1, image2, ip_per_tile,
-                  nodata1, nodata2 );
-
-  if ( ip1.size() > 10000 ) {
-    ip1.sort(); ip1.resize(10000);
-  }
-  if ( ip2.size() > 10000 ) {
-    ip2.sort(); ip2.resize(10000);
-  }
-
-  std::vector<ip::InterestPoint> ip1_copy, ip2_copy;
-  for (InterestPointList::iterator iter = ip1.begin(); iter != ip1.end(); ++iter)
-    ip1_copy.push_back(*iter);
-  for (InterestPointList::iterator iter = ip2.begin(); iter != ip2.end(); ++iter)
-    ip2_copy.push_back(*iter);
-
-  vw_out() << "\t--> Matching interest points\n";
-  ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(0.5);
-  std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
-
-  matcher(ip1_copy, ip2_copy,
-          matched_ip1, matched_ip2,
-          TerminalProgressCallback( "asp", "\t    Matching: "));
-
-
-  vw_out(InfoMessage) << "\t--> " << matched_ip1.size()
-                      << " putative matches.\n";
-
-  vw_out() << "\t--> Rejecting outliers using RANSAC.\n";
-  remove_duplicates(matched_ip1, matched_ip2);
-  std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1);
-  std::vector<Vector3> ransac_ip2 = iplist_to_vectorlist(matched_ip2);
-  vw_out(DebugMessage,"asp") << "\t--> Removed "
-                             << matched_ip1.size() - ransac_ip1.size()
-                             << " duplicate matches.\n";
-
-  Matrix<double> T;
-  std::vector<size_t> indices;
-  try {
-
-    vw::math::RandomSampleConsensus<vw::math::HomographyFittingFunctor, vw::math::InterestPointErrorMetric> ransac( vw::math::HomographyFittingFunctor(), vw::math::InterestPointErrorMetric(), 100, 10, ransac_ip1.size()/2, true);
-    T = ransac( ransac_ip2, ransac_ip1 );
-    indices = ransac.inlier_indices(T, ransac_ip2, ransac_ip1 );
-  } catch (...) {
-    vw_out(WarningMessage,"console") << "Automatic Alignment Failed! Proceed with caution...\n";
-    T = vw::math::identity_matrix<3>();
-  }
-
-  vw_out() << "\t    Caching matches: "
-           << match_filename << "\n";
-
-  { // Keeping only inliers
-    std::vector<ip::InterestPoint> inlier_ip1, inlier_ip2;
-    for ( size_t i = 0; i < indices.size(); i++ ) {
-      inlier_ip1.push_back( matched_ip1[indices[i]] );
-      inlier_ip2.push_back( matched_ip2[indices[i]] );
-    }
-    matched_ip1 = inlier_ip1;
-    matched_ip2 = inlier_ip2;
-  }
-
-  write_binary_match_file( match_filename,
-                           matched_ip1, matched_ip2);
-
-  return true;
-}
-
-// Helper function for determining image alignment.
-vw::Matrix3x3
-asp::StereoSessionPinhole::determine_image_align(std::string const& out_prefix,
-                                                 std::string const& input_file1,
-                                                 std::string const& input_file2,
-                                                 float nodata1, float nodata2) {
-  namespace fs = boost::filesystem;
-  using namespace vw;
-
-  std::string match_filename
-    = ip::match_filename(out_prefix, input_file1, input_file2);
-  ip_matching(input_file1, input_file2,
-              stereo_settings().ip_per_tile,
-              nodata1, nodata2,
-              match_filename,
-              NULL, NULL);
-
-  std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
-  read_binary_match_file( match_filename,
-                          matched_ip1, matched_ip2 );
-
-  // Get the matrix using RANSAC
-  std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1);
-  std::vector<Vector3> ransac_ip2 = iplist_to_vectorlist(matched_ip2);
-  Matrix<double> T;
-  try {
-
-    vw::math::RandomSampleConsensus<vw::math::HomographyFittingFunctor, vw::math::InterestPointErrorMetric> ransac( vw::math::HomographyFittingFunctor(), vw::math::InterestPointErrorMetric(), 100, 10, ransac_ip1.size()/2, true);
-    T = ransac( ransac_ip2, ransac_ip1 );
-    std::vector<size_t> indices = ransac.inlier_indices(T, ransac_ip2, ransac_ip1 );
-    vw_out(DebugMessage,"asp") << "\t--> AlignMatrix: " << T << std::endl;
-
-  } catch (...) {
-    vw_out(WarningMessage,"console") << "Automatic Alignment Failed! Proceed with caution...\n";
-    T = vw::math::identity_matrix<3>();
-  }
-
-  return T;
-}
-
-void asp::StereoSessionPinhole::pre_preprocessing_hook
+void asp::StereoSessionNadirPinhole::pre_preprocessing_hook
 (bool adjust_left_image_size,
  std::string const& left_input_file,
  std::string const& right_input_file,
@@ -287,27 +142,27 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook
 
     // Remove lens distortion and create epipolar rectified images.
     if (boost::ends_with(lcase_file, ".cahvore")) {
-      CAHVOREModel left_cahvore(m_left_camera_file );
+      CAHVOREModel left_cahvore(m_left_camera_file);
       CAHVOREModel right_cahvore(m_right_camera_file);
       Limg = transform(left_masked_image,  CameraTransform<CAHVOREModel, CAHVModel>(left_cahvore,  *left_epipolar_cahv ));
       Rimg = transform(right_masked_image, CameraTransform<CAHVOREModel, CAHVModel>(right_cahvore, *right_epipolar_cahv));
     } else if (boost::ends_with(lcase_file, ".cahvor") ||
                boost::ends_with(lcase_file, ".cmod") ) {
-      CAHVORModel left_cahvor (m_left_camera_file );
+      CAHVORModel left_cahvor (m_left_camera_file);
       CAHVORModel right_cahvor(m_right_camera_file);
       Limg = transform(left_masked_image,  CameraTransform<CAHVORModel, CAHVModel>(left_cahvor,  *left_epipolar_cahv ));
       Rimg = transform(right_masked_image, CameraTransform<CAHVORModel, CAHVModel>(right_cahvor, *right_epipolar_cahv));
 
     } else if ( boost::ends_with(lcase_file, ".cahv") ||
                 boost::ends_with(lcase_file, ".pin" )) {
-      CAHVModel left_cahv (m_left_camera_file );
+      CAHVModel left_cahv (m_left_camera_file);
       CAHVModel right_cahv(m_right_camera_file);
       Limg = transform(left_masked_image,  CameraTransform<CAHVModel, CAHVModel>(left_cahv,  *left_epipolar_cahv ));
       Rimg = transform(right_masked_image, CameraTransform<CAHVModel, CAHVModel>(right_cahv, *right_epipolar_cahv));
 
     } else if ( boost::ends_with(lcase_file, ".pinhole") ||
                 boost::ends_with(lcase_file, ".tsai") ) {
-      PinholeModel left_pin (m_left_camera_file );
+      PinholeModel left_pin (m_left_camera_file);
       PinholeModel right_pin(m_right_camera_file);
       Limg = transform(left_masked_image,  CameraTransform<PinholeModel, CAHVModel>(left_pin,  *left_epipolar_cahv ));
       Rimg = transform(right_masked_image, CameraTransform<PinholeModel, CAHVModel>(right_pin, *right_epipolar_cahv));
@@ -316,22 +171,60 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook
       vw_throw(ArgumentErr() << "PinholeStereoSession: unsupported camera file type.\n");
     }
 
-  } else if ( stereo_settings().alignment_method == "homography" ) {
+  } else if ( stereo_settings().alignment_method == "homography" ||
+              stereo_settings().alignment_method == "affineepipolar" ) {
+    // Getting left image size. Later alignment options can choose to
+    // change this parameters. (Affine Epipolar).
+    Vector2i left_size  = file_image_size(left_cropped_file ),
+             right_size = file_image_size(right_cropped_file);
 
-    vw_out() << "\t--> Performing homography alignment\n";
+    // Define the file name containing IP match information.
+    std::string match_filename = ip::match_filename(this->m_out_prefix,
+                                                    left_cropped_file,
+                                                    right_cropped_file);
 
-    Matrix<double> align_matrix
-      = determine_image_align(m_out_prefix,
-                              left_cropped_file,   right_cropped_file,
-                              left_nodata_value, right_nodata_value);
-    write_matrix( m_out_prefix + "-align-R.exr", align_matrix );
+    boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
+    camera_models( left_cam, right_cam );
+    ip_matching(left_cropped_file,   right_cropped_file,
+                stereo_settings().ip_per_tile,
+                left_nodata_value, right_nodata_value, match_filename,
+                left_cam.get(), right_cam.get() );
+
+    std::vector<ip::InterestPoint> left_ip, right_ip;
+    ip::read_binary_match_file( match_filename, left_ip, right_ip  );
+
+    Matrix<double> align_left_matrix  = math::identity_matrix<3>(),
+                   align_right_matrix = math::identity_matrix<3>();
+
+    if ( stereo_settings().alignment_method == "homography" ) {
+      left_size = homography_rectification(adjust_left_image_size,
+                                           left_size, right_size, left_ip, right_ip,
+                                           align_left_matrix, align_right_matrix );
+      vw_out() << "\t--> Aligning right image to left using matrices:\n"
+               << "\t      " << align_left_matrix  << "\n"
+               << "\t      " << align_right_matrix << "\n";
+    } else {
+      left_size = affine_epipolar_rectification(left_size, right_size,
+                                                left_ip,   right_ip,
+                                                align_left_matrix,
+                                                align_right_matrix );
+
+      vw_out() << "\t--> Aligning left and right images using affine matrices:\n"
+               << "\t      " << submatrix(align_left_matrix, 0,0,2,3) << "\n"
+               << "\t      " << submatrix(align_right_matrix,0,0,2,3) << "\n";
+    }
+    write_matrix(m_out_prefix + "-align-L.exr", align_left_matrix );
+    write_matrix(m_out_prefix + "-align-R.exr", align_right_matrix);
+    right_size = left_size; // Because the images are now aligned
+                            // .. they are the same size.
 
     // Applying alignment transform
-    Limg = left_masked_image;
+    Limg = transform(left_masked_image,
+                     HomographyTransform(align_left_matrix),
+                     left_size.x(), left_size.y() );
     Rimg = transform(right_masked_image,
-                     HomographyTransform(align_matrix),
-                     left_masked_image.cols(), left_masked_image.rows());
-
+                     HomographyTransform(align_right_matrix),
+                     right_size.x(), right_size.y() );
   } else {
     // Do nothing just provide the original files.
     Limg = left_masked_image;
@@ -350,7 +243,9 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook
   block_write_gdal_image( left_output_file, apply_mask(Limg, output_nodata),
                           output_nodata, options,
                           TerminalProgressCallback("asp","\t  L:  ") );
-  block_write_gdal_image( right_output_file, apply_mask(crop(edge_extend(Rimg,ConstantEdgeExtension()),bounding_box(Limg)), output_nodata),
+  block_write_gdal_image( right_output_file,
+                          apply_mask(crop(edge_extend(Rimg,ZeroEdgeExtension()),bounding_box(Limg)), output_nodata),
                           output_nodata, options,
                           TerminalProgressCallback("asp","\t  R:  ") );
+
 }

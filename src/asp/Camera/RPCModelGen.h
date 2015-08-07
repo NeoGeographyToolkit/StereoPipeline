@@ -17,10 +17,10 @@
 
 // RPC model generation. See rpc_gen.cc for details.
 
-#ifndef __STEREO_SESSION_RPC_MODEL_GEN_H__
-#define __STEREO_SESSION_RPC_MODEL_GEN_H__
+#ifndef __STEREO_CAMERA_RPC_MODEL_GEN_H__
+#define __STEREO_CAMERA_RPC_MODEL_GEN_H__
 
-#include <asp/Sessions/RPC/RPCModel.h>
+#include <asp/Camera/RPCModel.h>
 #include <vw/Math/LevenbergMarquardt.h>
 
 namespace asp {
@@ -120,4 +120,4 @@ namespace asp {
 
 }
 
-#endif //__STEREO_SESSION_RPC_MODEL_GEN_H__
+#endif //__STEREO_CAMERA_RPC_MODEL_GEN_H__

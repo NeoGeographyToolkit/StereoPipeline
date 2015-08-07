@@ -26,7 +26,7 @@
 #include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <asp/Tools/stereo.h>
-#include <asp/Sessions/RPC/RPCModel.h>
+#include <asp/Camera/RPCModel.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 
 #include <boost/accumulators/accumulators.hpp>

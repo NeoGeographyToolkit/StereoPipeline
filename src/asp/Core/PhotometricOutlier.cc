@@ -32,7 +32,7 @@
 #include <vw/Stereo/DisparityMap.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Common.h>
-#include <asp/Sessions/ISIS/PhotometricOutlier.h>
+#include <asp/Core/PhotometricOutlier.h>
 namespace fs = boost::filesystem;
 
 using namespace vw;

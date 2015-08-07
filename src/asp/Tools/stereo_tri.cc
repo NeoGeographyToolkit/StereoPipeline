@@ -20,8 +20,8 @@
 ///
 
 #include <asp/Tools/stereo.h>
-#include <asp/Sessions/RPC/RPCModel.h>
-#include <asp/Sessions/RPC/RPCStereoModel.h>
+#include <asp/Camera/RPCModel.h>
+#include <asp/Camera/RPCStereoModel.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <vw/Cartography.h>
 #include <vw/Camera/CameraModel.h>

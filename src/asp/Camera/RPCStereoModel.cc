@@ -23,8 +23,8 @@
 #include <vw/Camera/CameraModel.h>
 #include <vw/Cartography/Datum.h>
 
-#include <asp/Sessions/RPC/RPCModel.h>
-#include <asp/Sessions/RPC/RPCStereoModel.h>
+#include <asp/Camera/RPCModel.h>
+#include <asp/Camera/RPCStereoModel.h>
 
 using namespace vw;
 using namespace std;

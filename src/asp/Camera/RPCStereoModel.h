@@ -16,8 +16,8 @@
 // __END_LICENSE__
 
 
-#ifndef __ASP_RPC_RPCSTEREOMODEL_H__
-#define __ASP_RPC_RPCSTEREOMODEL_H__
+#ifndef __ASP_CAMERA_RPCSTEREOMODEL_H__
+#define __ASP_CAMERA_RPCSTEREOMODEL_H__
 
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Stereo/StereoModel.h>
@@ -63,4 +63,4 @@ namespace asp {
   
 } // namespace asp
 
-#endif  // __ASP_RPC_RPCSTEREOMODEL_H__
+#endif  // __ASP_CAMERA_RPCSTEREOMODEL_H__

@@ -392,13 +392,13 @@ LDFLAGS="$old_LDFLAGS"
 
 # These are here (instead of inside the PKG macro where they belong)
 # for backwards compatability with older versions of automake.
-AM_CONDITIONAL(HAVE_PKG_DSK, [test "$HAVE_PKG_DSK" = "yes"])
-AM_CONDITIONAL(HAVE_PKG_SPICE, [test "$HAVE_PKG_SPICE" = "yes"])
-AM_CONDITIONAL(HAVE_PKG_ISIS, [test "$HAVE_PKG_ISIS" = "yes"])
+AM_CONDITIONAL(HAVE_PKG_DSK,            [test "$HAVE_PKG_DSK" = "yes"])
+AM_CONDITIONAL(HAVE_PKG_SPICE,          [test "$HAVE_PKG_SPICE" = "yes"])
+AM_CONDITIONAL(HAVE_PKG_ISIS,           [test "$HAVE_PKG_ISIS" = "yes"])
 AM_CONDITIONAL(HAVE_PKG_OPENSCENEGRAPH, [test "$HAVE_PKG_OPENSCENEGRAPH" = "yes"])
-AM_CONDITIONAL(HAVE_PKG_RABBITMQ_C, [test "$HAVE_PKG_RABBITMQ_C" = "yes"])
-AM_CONDITIONAL(HAVE_PKG_PROTOBUF, [test "$HAVE_PKG_PROTOBUF" = "yes"])
-AM_CONDITIONAL(HAVE_PKG_FLANN, [test "$HAVE_PKG_FLANN" = "yes"])
+AM_CONDITIONAL(HAVE_PKG_RABBITMQ_C,     [test "$HAVE_PKG_RABBITMQ_C" = "yes"])
+AM_CONDITIONAL(HAVE_PKG_PROTOBUF,       [test "$HAVE_PKG_PROTOBUF" = "yes"])
+AM_CONDITIONAL(HAVE_PKG_FLANN,          [test "$HAVE_PKG_FLANN" = "yes"])
 
 ##################################################
 # module definitions
@@ -408,12 +408,14 @@ AX_GROUP_PKG(BOOST_MOST, [BOOST_DATETIME BOOST_IOSTREAMS BOOST])
 AX_GROUP_PKG(VW_ALL,     [VW_CARTOGRAPHY VW_STEREO VW_CAMERA VW_INTEREST_POINT VW])
 
 # Module
+# Usage: AX_MODULE(<name>, <directory>, <library>, <default>, <prerequisites>, <required dependencies>[, <optional dependencies>])
 AX_MODULE(CORE,     [src/asp/Core],     [libaspCore.la],     yes, [], [VW_ALL LASZIP LIBLAS], [LAPACK])
+AX_MODULE(CAMERA,   [src/asp/Camera],   [libaspCamera.la],   yes, [], [VW], [XERCESC])
 AX_MODULE(SPICEIO,  [src/asp/SpiceIO],  [libaspSpiceIO.la],  yes, [], [VW SPICE])
 AX_MODULE(ISISIO,   [src/asp/IsisIO],   [libaspIsisIO.la],   yes, [], [ISIS VW_CARTOGRAPHY])
-AX_MODULE(SESSIONS, [src/asp/Sessions], [libaspSessions.la], yes, [CORE], [XERCESC], [ISISIO SPICEIO ])
+AX_MODULE(SESSIONS, [src/asp/Sessions], [libaspSessions.la], yes, [CORE], [CAMERA ISISIO SPICEIO ], [])
 AX_MODULE(GUI,      [src/asp/GUI],      [libaspGUI.la],      yes, [CORE], [QT], [])
-AX_MODULE(PYTHON,   [src/asp/Pyton],    [],                  yes, [],     [],   [])
+AX_MODULE(PYTHON,   [src/asp/Python],   [],                  yes, [],     [],   [])
 
 # Tools - The yes/no means to enable by default
 AX_APP(PC_ALIGN,         [src/asp/Tools], yes, [CORE LIBPOINTMATCHER LIBNABO YAML])
@@ -438,8 +440,8 @@ AX_APP(RESULTS,          [src/asp/Tools], no,  [ISISIO])
 AX_APP(MAPPROJECT,       [src/asp/Tools], yes, [SESSIONS GDAL])
 AX_APP(RPC_GEN,          [src/asp/Tools], yes, [SESSIONS])
 AX_APP(TIF_MOSAIC,       [src/asp/Tools], yes, [CORE])
-AX_APP(STEREO,           [src/asp/Tools], yes, [SESSIONS])
-AX_APP(STEREO_GUI,       [src/asp/Tools], yes, [SESSIONS GUI])
+AX_APP(STEREO,           [src/asp/Tools], yes, [CORE SESSIONS])
+AX_APP(STEREO_GUI,       [src/asp/Tools], yes, [CORE SESSIONS GUI])
 AX_APP(WV_CORRECT,       [src/asp/Tools], yes, [SESSIONS])
 AX_APP(IMAGE_CALC,       [src/asp/Tools], yes, [CORE GDAL])
 AX_APP(PANSHARP,         [src/asp/Tools], yes, [CORE GDAL])
@@ -448,6 +450,7 @@ AX_APP(PC_MERGE,         [src/asp/Tools], yes, [CORE GDAL])
 # These are here (instead of inside the APP macro where they belong)
 # for backwards compatability with older versions of automake.
 AM_CONDITIONAL(MAKE_MODULE_CORE,     [test "$MAKE_MODULE_CORE"     = "yes"])
+AM_CONDITIONAL(MAKE_MODULE_CAMERA,   [test "$MAKE_MODULE_CAMERA"   = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_ISISIO,   [test "$MAKE_MODULE_ISISIO"   = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_SPICEIO,  [test "$MAKE_MODULE_SPICEIO"  = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_SESSIONS, [test "$MAKE_MODULE_SESSIONS" = "yes"])
@@ -517,16 +520,11 @@ AC_CONFIG_FILES([                        \
   src/Makefile                           \
   src/asp/Core/Makefile                  \
   src/asp/Core/tests/Makefile            \
+  src/asp/Camera/Makefile                \
   src/asp/IsisIO/Makefile                \
   src/asp/IsisIO/tests/Makefile          \
   src/asp/Makefile                       \
-  src/asp/Sessions/DG/Makefile           \
-  src/asp/Sessions/DGMapRPC/Makefile     \
-  src/asp/Sessions/ISIS/Makefile         \
   src/asp/Sessions/Makefile              \
-  src/asp/Sessions/NadirPinhole/Makefile \
-  src/asp/Sessions/Pinhole/Makefile      \
-  src/asp/Sessions/RPC/Makefile          \
   src/asp/Sessions/tests/Makefile        \
   src/asp/SpiceIO/Makefile               \
   src/asp/GUI/Makefile                   \

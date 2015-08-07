@@ -23,16 +23,15 @@
 #ifndef __STEREO_SESSION_DG_H__
 #define __STEREO_SESSION_DG_H__
 
-//#include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionConcrete.h>
 #include <vw/Stereo/StereoModel.h>
 
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/AffineEpipolar.h>
-#include <asp/Sessions/DG/LinescanDGModel.h>
-#include <asp/Sessions/RPC/RPCModel.h>
-#include <asp/Sessions/DG/XML.h>
+#include <asp/Camera/LinescanDGModel.h>
+#include <asp/Camera/RPCModel.h>
+#include <asp/Camera/DG_XML.h>
 
 namespace asp {
 

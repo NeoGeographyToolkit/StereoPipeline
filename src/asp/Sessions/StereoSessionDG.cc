@@ -30,10 +30,10 @@
 //#include <asp/Core/StereoSettings.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/AffineEpipolar.h>
-#include <asp/Sessions/DG/LinescanDGModel.h>
-#include <asp/Sessions/DG/StereoSessionDG.h>
-#include <asp/Sessions/RPC/RPCModel.h>
-#include <asp/Sessions/DG/XML.h>
+#include <asp/Camera/LinescanDGModel.h>
+#include <asp/Sessions/StereoSessionDG.h>
+#include <asp/Camera/RPCModel.h>
+#include <asp/Camera/DG_XML.h>
 
 #include <iostream>
 #include <string>

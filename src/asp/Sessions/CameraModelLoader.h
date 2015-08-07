@@ -35,9 +35,9 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/IsisIO/Equation.h>
 #include <asp/IsisIO/IsisCameraModel.h>
-#include <asp/Sessions/DG/LinescanDGModel.h>
-#include <asp/Sessions/DG/XML.h>
-#include <asp/Sessions/RPC/RPCModel.h>
+#include <asp/Camera/LinescanDGModel.h>
+#include <asp/Camera/DG_XML.h>
+#include <asp/Camera/RPCModel.h>
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 #include <map>
