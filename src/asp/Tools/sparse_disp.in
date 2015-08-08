@@ -32,6 +32,15 @@ from scipy.sparse import coo_matrix
 from scipy.interpolate import griddata
 from multiprocessing import Pool, cpu_count
 from optparse import OptionParser
+
+# The path to the ASP python files
+basepath    = sys.path[0]
+pythonpath  = basepath + '/../Python'  # for dev ASP
+libexecpath = basepath + '/../libexec' # for packaged ASP
+sys.path.insert(0, basepath) # prepend to Python path
+sys.path.insert(0, pythonpath)
+sys.path.insert(0, libexecpath)
+
 from stereo_utils import get_asp_version
 
 def die(msg, code=-1):
