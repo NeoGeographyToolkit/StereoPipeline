@@ -444,7 +444,7 @@ AX_APP(STEREO,           [src/asp/Tools], yes, [CORE SESSIONS])
 AX_APP(STEREO_GUI,       [src/asp/Tools], yes, [CORE SESSIONS GUI])
 AX_APP(WV_CORRECT,       [src/asp/Tools], yes, [SESSIONS])
 AX_APP(IMAGE_CALC,       [src/asp/Tools], yes, [CORE GDAL])
-AX_APP(PANSHARP,         [src/asp/Tools], yes, [CORE GDAL])
+AX_APP(PANSHARP,         [src/asp/Tools], yes, [CORE CAMERA GDAL])
 AX_APP(PC_MERGE,         [src/asp/Tools], yes, [CORE GDAL])
 
 # These are here (instead of inside the APP macro where they belong)

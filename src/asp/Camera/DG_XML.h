@@ -161,6 +161,15 @@ namespace asp {
                  RPCXML      & rpc );
   vw::Vector2i xml_image_size( std::string const& filename );
 
+
+
+
+  /// Function to extract the four corners from the first band
+  ///  of a Worldview XML file.
+  bool read_WV_XML_corners(std::string const& xml_path,
+                           std::vector<vw::Vector2> &pixel_corners,
+                           std::vector<vw::Vector2> &lonlat_corners);
+
 } //end namespace asp
 
 #endif//__STEREO_CAMERA_DG_XML_H__

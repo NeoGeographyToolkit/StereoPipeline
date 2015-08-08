@@ -29,6 +29,7 @@ using namespace vw::cartography;
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
+#include <asp/Camera/DG_XML.h>
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -213,8 +214,10 @@ inline pansharp_view( ImageGrayT  const& gray_image,
 //-------------------------------------------------------------------------------------
 
 struct Options : asp::BaseOptions {
-  string gray_path, 
-         color_path, 
+  string gray_path,
+         gray_xml_path,
+         color_path,
+         color_xml_path, 
          output_path;
   double nodata_value, 
          min_value,
@@ -230,6 +233,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
              "Set this as the minimum legal image value, overriding the data type default.")
     ("max-value", po::value(&opt.max_value)->default_value(0), 
              "Set this as the maximum legal image value, overriding the data type default.")
+
+    ("gray-xml", po::value(&opt.gray_xml_path)->default_value(""), 
+             "Path to a WV XML file for the gray image.  Can be used to obtain the geo data.")             
+    ("color-xml", po::value(&opt.color_xml_path)->default_value(""), 
+             "Path to a WV XML file for the color image.  Can be used to obtain the geo data.")             
+             
     ("nodata-value", po::value(&opt.nodata_value)->default_value(DEFAULT_NODATA), 
              "The no-data value to use, unless present in the color image header.");
   general_options.add( asp::BaseOptionsDescription(opt) );
@@ -330,6 +339,50 @@ void load_inputs_and_process(Options           & opt,
                                TerminalProgressCallback("pansharp","\t--> Writing:"));
 }
 
+// TODO: Move this!
+/// Attempts to approximate a georeference for a WorldView image using the
+///  four corner points in the XML file.
+/// - This only works for unprojected WV images with four lonlat GCPs at the corner pixels.
+/// - The approximation is limited to using a perspective transform.
+bool approximate_wv_georeference(std::string  const& wv_xml_path,
+                                 GeoReference      & approx_georef) {
+                                 
+  // Find the four corners in the XML file
+  std::vector<Vector2> pixel_corners, lonlat_corners;
+  if (!asp::read_WV_XML_corners(wv_xml_path, pixel_corners, lonlat_corners))
+    return false;
+  
+  // Compute the perspective transform
+  // - To bad this does not give an indication of fit quality
+  vw::math::HomographyFittingFunctor fitter;
+  Matrix<double> transform = fitter(pixel_corners, lonlat_corners);
+  
+  std::cout << "Computed approximate transform: " << transform << std::endl;
+  
+  // Construct the approximated GeoReference
+  approx_georef.set_geographic(); // Set to 'lonlat' projection
+  approx_georef.set_transform(transform);
+  
+  return true;
+}
+
+/// Reads a georeference from the WV file.
+/// - If the image is not georegistered but there are
+///   corner coordinates in xml_path, an approximate
+///   georef file will be created.
+bool read_wv_georeference(GeoReference      &georef,
+                          std::string const &image_path,
+                          std::string const &xml_path="") {
+
+  // Try to read the georeference from the image file
+  DiskImageResourceGDAL rsrc(image_path);
+  if (read_georeference(georef, rsrc))
+    return true;
+    
+  // If that failed, try approximating from the XML file.
+  return approximate_wv_georeference(xml_path, georef);
+}
+
 
 int main( int argc, char *argv[] ) {
 
@@ -357,8 +410,11 @@ int main( int argc, char *argv[] ) {
 
     // Read in geo information
     GeoReference gray_georef, color_georef;
-    read_georeference(gray_georef,  gray_rsrc);
-    read_georeference(color_georef, color_rsrc);
+    if (!read_wv_georeference(gray_georef,  opt.gray_path,  opt.gray_xml_path ) ||
+        !read_wv_georeference(color_georef, opt.color_path, opt.color_xml_path)   ) {
+      vw_throw(ArgumentErr() << "Could not read a georeference from an input image!\n");
+    }
+        
 
     // Transform the color image into the same perspective as the grayscale image. However, we
     // don't support datum changes!

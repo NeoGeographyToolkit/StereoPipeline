@@ -702,3 +702,39 @@ vw::BBox3 asp::RPCXML::get_lon_lat_height_box() const {
 }
 
 
+
+
+
+bool asp::read_WV_XML_corners(std::string const& xml_path,
+                              std::vector<vw::Vector2> &pixel_corners,
+                              std::vector<vw::Vector2> &lonlat_corners) {
+
+    boost::scoped_ptr<XercesDOMParser> parser( new XercesDOMParser() );
+    parser->setValidationScheme(XercesDOMParser::Val_Always);
+    parser->setDoNamespaces(true);
+    boost::scoped_ptr<ErrorHandler> errHandler( new HandlerBase() );
+    parser->setErrorHandler(errHandler.get());
+
+    parser->parse( xml_path.c_str() );
+    DOMDocument* xmlDoc      = parser->getDocument();
+    DOMElement * elementRoot = xmlDoc->getDocumentElement();
+    DOMNodeList* children    = elementRoot->getChildNodes();
+    
+    for ( XMLSize_t i = 0; i < children->getLength(); ++i ) {
+      DOMNode* curr_node = children->item(i);
+      if ( curr_node->getNodeType() == DOMNode::ELEMENT_NODE ) {
+        DOMElement* curr_element = dynamic_cast<DOMElement*>( curr_node );
+
+        std::string tag( XMLString::transcode(curr_element->getTagName()) );
+
+        std::cout << tag << std::endl;
+      }
+    }
+    
+  return false;
+}
+
+
+
+
+
