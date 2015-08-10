@@ -274,8 +274,9 @@ namespace asp {
       ("window-size",  po::value(&global.window_size)->default_value(Vector2i(1200,800),"1200 800"),
        "The width and height of the GUI window in pixels.")
       ("use-single-window,w",   po::bool_switch(&global.use_single_window)->default_value(false)->implicit_value(true),
-       "Show all images in the same window (with a dialog to choose among them) rather than side-by-side.");
-
+       "Show all images in the same window (with a dialog to choose among them) rather than side-by-side.")
+      ("use-georef",   po::bool_switch(&global.use_georef)->default_value(false)->implicit_value(true),
+       "Plot the images in the projected coordinate system given by the georeference of the images.");
   }
 
   DGDescription::DGDescription() : po::options_description("DG Options") {

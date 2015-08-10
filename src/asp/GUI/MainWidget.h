@@ -450,7 +450,7 @@ private:
     std::string name;
     bool has_georef;
     vw::cartography::GeoReference georef;
-    BBox2 bbox;
+    BBox2 bbox; // The pixel bbox or lonlat bbox if georef is present
     DiskImagePyramidMultiChannel img;
     void read(std::string const& image, bool use_georef, bool hillshade);
   };

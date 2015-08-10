@@ -491,6 +491,7 @@ void MainWidget::drawImage(QPainter* paint) {
     string fileName = m_images[i].name;
     if (m_filesToHide.find(fileName) != m_filesToHide.end()) continue;
 
+    // The current view
     BBox2 image_box = m_current_view;
     image_box.crop(m_images[i].bbox);
 
@@ -499,32 +500,83 @@ void MainWidget::drawImage(QPainter* paint) {
     screen_box.grow(round(world2screen(image_box.min())));
     screen_box.grow(round(world2screen(image_box.max())));
 
+    // If we use georef, the image box is in lon-lat units,
+    // so we need to convert it to pixel units
+    BBox2i pixel_box = image_box;
+    if (m_use_georef)
+      pixel_box = m_images[i].georef.lonlat_to_pixel_bbox(image_box);
+
     QImage qimg;
-    if (m_use_georef){
-      // image_box is in lonlat domain. Go from screen pixels
-      // to lonlat, then to image pixels. We need to do a flip in
-      // y since in lonlat space the origin is in lower-left corner.
-#if 0
-      ImageView<double> img = m_images[i].img.bottom();
-      qimg = QImage(screen_box.width(), screen_box.height(),
-                    QImage::Format_RGB888);
+    // Since the image portion contained in pixel_box could be huge,
+    // but the screen area small, render a sub-sampled version of
+    // the image for speed.
+    // Convert to double before multiplication, to avoid overflow
+    // when multiplying large integers.
+    double scale = sqrt((1.0*pixel_box.width()) * pixel_box.height())/
+      std::max(1.0, sqrt((1.0*screen_box.width()) * screen_box.height()));
+    double scale_out;
+    BBox2i region_out;
+    bool highlight_nodata = m_shadow_thresh_view_mode;
+    if (m_shadow_thresh_view_mode){
+      m_shadow_thresh_images[i].img.getImageClip(scale, pixel_box,
+                                                 highlight_nodata,
+                                                 qimg, scale_out, region_out);
+    }else{
+      m_images[i].img.getImageClip(scale, pixel_box,
+                                   highlight_nodata,
+                                   qimg, scale_out, region_out);
+    }
+
+    // Draw on image screen
+    if (!m_use_georef){
+      // This is a regular image, no georeference.
+      QRect rect(screen_box.min().x(), screen_box.min().y(),
+                 screen_box.width(), screen_box.height());
+      paint->drawImage (rect, qimg);
+    }else{
+      // We fetched a bunch of pixels at some scale.
+      // Need to place them on the screen at given projected
+      // position.
+      QImage qimg2 = QImage(screen_box.width(), screen_box.height(), QImage::Format_RGB888);
+
+      // Initialize all pixels to black
+      for (int col = 0; col < qimg2.width(); col++) {
+        for (int row = 0; row < qimg2.height(); row++) {
+          qimg2.setPixel(col, row, qRgb(0, 0, 0));
+        }
+      }
+
       int len = screen_box.max().y() - screen_box.min().y() - 1;
       for (int x = screen_box.min().x(); x < screen_box.max().x(); x++){
         for (int y = screen_box.min().y(); y < screen_box.max().y(); y++){
           Vector2 lonlat = screen2world(Vector2(x, y));
-          Vector2 p = round(m_images[i].georef.lonlat_to_pixel(lonlat));
-          if (p[0] >= 0 && p[0] < img.cols() &&
-              p[1] >= 0 && p[1] < img.rows() ){
-            double v = img(p[0], p[1]); // is it better to interp?
-            qimg.setPixel(x-screen_box.min().x(),
-                          len - (y-screen_box.min().y()), // flip pixels in y
-                          qRgb(v, v, v));
+
+          // p has pixel indices at in the original full-resolution uncropped image.
+          Vector2 p = m_images[i].georef.lonlat_to_pixel(lonlat);
+          bool is_in = (p[0] >= 0 && p[0] <= m_images[i].img.cols()-1 &&
+                        p[1] >= 0 && p[1] <= m_images[i].img.rows()-1 );
+          if (!is_in)
+            continue; // out of range
+
+          // Convert to scaled image pixels and snap to integer value
+          p = round(p/scale_out);
+
+          if (!region_out.contains(p)) continue; // out of range again
+
+          int px = p.x() - region_out.min().x();
+          int py = p.y() - region_out.min().y();
+          if (px < 0 || py < 0 || px >= qimg.width() || py >= qimg.height() ){
+            vw_out() << "Book-keeping failure!";
+            exit(1);
           }
+          // TODO: Explain this flip.
+          qimg2.setPixel(x-screen_box.min().x(),
+                         len - (y-screen_box.min().y()), // flip pixels in y
+                         qimg.pixel(px, py));
         }
       }
-#endif
 
-      // flip pixel box in y
+      // Adjust box. TODO: This is confusing.
       QRect v = this->geometry();
       int a = screen_box.min().y() - v.y();
       int b = v.y() + v.height() - screen_box.max().y();
@@ -533,38 +585,7 @@ void MainWidget::drawImage(QPainter* paint) {
 
       QRect rect(screen_box.min().x(), screen_box.min().y(),
                  screen_box.width(), screen_box.height());
-      paint->drawImage (rect, qimg);
-
-    }else{
-
-      // This is a regular image, no georeference.
-      // image_box is in the image pixel domain.
-
-
-      // Since the image portion contained in image_box could be huge,
-      // but the screen area small, render a sub-sampled version of
-      // the image for speed.
-      // Convert to double before multiplication, to avoid overflow
-      // when multiplying large integers.
-      double scale = sqrt((1.0*image_box.width()) * image_box.height())/
-        std::max(1.0, sqrt((1.0*screen_box.width()) * screen_box.height()));
-      double scale_out;
-      BBox2i region_out;
-      bool highlight_nodata = m_shadow_thresh_view_mode;
-      if (m_shadow_thresh_view_mode){
-        m_shadow_thresh_images[i].img.getImageClip(scale, image_box,
-                                                   highlight_nodata,
-                                                   qimg, scale_out, region_out);
-      }else{
-        m_images[i].img.getImageClip(scale, image_box,
-                                     highlight_nodata,
-                                     qimg, scale_out, region_out);
-      }
-
-      // Draw on image screen
-      QRect rect(screen_box.min().x(), screen_box.min().y(),
-                 screen_box.width(), screen_box.height());
-      paint->drawImage (rect, qimg);
+      paint->drawImage (rect, qimg2);
     }
 
     // Draw interest point matches
@@ -823,6 +844,12 @@ void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
       return;
     }
 
+    if (m_use_georef) {
+      popUp("Thresholding is not supported when using georeference information to show images.");
+      m_shadow_thresh_calc_mode = false;
+      return;
+    }
+
     Vector2 p = screen2world(Vector2(mouse_rel_pos.x(), mouse_rel_pos.y()));
 
     int col = round(p[0]), row = round(p[1]);
@@ -842,6 +869,15 @@ void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
   if( (event->buttons() & Qt::LeftButton) &&
       (event->modifiers() & Qt::ControlModifier) ){
     m_cropWinMode = true;
+  }
+
+  if (m_cropWinMode && m_use_georef) {
+    popUp("Selecting a crop window is not supported when using georeference information to show images.");
+    m_cropWinMode = false;
+    m_rubberBand = m_emptyRubberBand;
+    m_stereoCropWin = BBox2();
+    refreshPixmap();
+    return;
   }
 
   if (event->buttons() & Qt::RightButton) {
@@ -872,31 +908,33 @@ void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
 
     // User selects the region to use for stereo.
     // Convert it to world coordinates, and round to integer.
+    // If we use georeferences, this does not make much sense.
     m_stereoCropWin = screen2world(qrect2bbox(m_rubberBand));
     m_stereoCropWin.min() = round(m_stereoCropWin.min());
     m_stereoCropWin.max() = round(m_stereoCropWin.max());
-    vw_out() << "Crop src win for  "
-             << m_image_files[0]
-             << ": "
-             << m_stereoCropWin.min().x() << ' '
-             << m_stereoCropWin.min().y() << ' '
-             << m_stereoCropWin.width()   << ' '
-             << m_stereoCropWin.height()  << std::endl;
-    if (m_images[0].has_georef){
-      Vector2 proj_min = m_images[0].georef.pixel_to_point(m_stereoCropWin.min());
-      Vector2 proj_max = m_images[0].georef.pixel_to_point(m_stereoCropWin.max());
-      vw_out() << "Crop proj win for "
-               << m_image_files[0] << ": "
-               << proj_min.x() << ' ' << proj_min.y() << ' '
-               << proj_max.x() << ' ' << proj_max.y() << std::endl;
+    if (!m_use_georef){
+      vw_out() << "Crop src win for  "
+               << m_image_files[0]
+               << ": "
+               << m_stereoCropWin.min().x() << ' '
+               << m_stereoCropWin.min().y() << ' '
+               << m_stereoCropWin.width()   << ' '
+               << m_stereoCropWin.height()  << std::endl;
+      if (m_images[0].has_georef){
+        Vector2 proj_min = m_images[0].georef.pixel_to_point(m_stereoCropWin.min());
+        Vector2 proj_max = m_images[0].georef.pixel_to_point(m_stereoCropWin.max());
+        vw_out() << "Crop proj win for "
+                 << m_image_files[0] << ": "
+                 << proj_min.x() << ' ' << proj_min.y() << ' '
+                 << proj_max.x() << ' ' << proj_max.y() << std::endl;
 
-      Vector2 ll_min = m_images[0].georef.pixel_to_lonlat(m_stereoCropWin.min());
-      Vector2 ll_max = m_images[0].georef.pixel_to_lonlat(m_stereoCropWin.max());
-      vw_out() << "lonlat win for    "
-               << m_image_files[0] << ": "
-               << ll_min.x() << ' ' << ll_min.y() << ' '
-               << ll_max.x() << ' ' << ll_max.y() << std::endl;
-
+        Vector2 ll_min = m_images[0].georef.pixel_to_lonlat(m_stereoCropWin.min());
+        Vector2 ll_max = m_images[0].georef.pixel_to_lonlat(m_stereoCropWin.max());
+        vw_out() << "lonlat win for    "
+                 << m_image_files[0] << ": "
+                 << ll_min.x() << ' ' << ll_min.y() << ' '
+                 << ll_max.x() << ' ' << ll_max.y() << std::endl;
+      }
     }
 
     // Wipe the rubberband, no longer needed.
