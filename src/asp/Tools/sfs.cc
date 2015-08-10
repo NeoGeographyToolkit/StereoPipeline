@@ -56,6 +56,7 @@ using namespace vw::cartography;
 
 typedef InterpolationView<ImageViewRef< PixelMask<float> >, BilinearInterpolation> BilinearInterpT;
 
+// TODO: Make it possible to initialize a DEM from scratch.
 // TODO: Study more the multi-resolution approach.
 // TODO: Must specify in the SfS doc that the lunar lambertian model fails at poles
 // TODO: If this code becomes multi-threaded, need to keep in mind
@@ -1579,12 +1580,16 @@ int main(int argc, char* argv[]) {
         adj_cam->set_scale(factors[level]);
       }
 
+#define USE_COARSE_DEM (0)
 
+#if USE_COARSE_DEM
+#else
       // Note that when we go the finer resolution level, we keep only
       // the camera corrections, but discard the albedo, dem, and exposures,
       // preferring to start from scratch.
       std::vector<double> local_exposures = exposures;
       g_exposures = &local_exposures[0];
+#endif
 
       run_sfs_level(// Fixed inputs
                     num_iterations, opt, geos[level],
@@ -1592,12 +1597,17 @@ int main(int argc, char* argv[]) {
                     nodata_val, interp_images,
                       global_params, model_params,
                     // Quantities that will float
-                    dems[level], albedos[level], cameras, local_exposures, adjustments);
+                    dems[level], albedos[level], cameras,
+#if USE_COARSE_DEM
+                    exposures,
+#else
+                    local_exposures,
+#endif
+                    adjustments);
 
-      // TODO: Study this. Turn it off apparently works better. Also note
-      // that we also discard the exposures above.
-      // Refine the coarse DEM and albedo
-#if 0
+#if USE_COARSE_DEM
+      // TODO: Study this. Discarding the coarse DEM and exposure so
+      // keeping only the cameras seem to work better.
        if (level > 0) {
          interp_image(dems[level],    sub_scale, dems[level-1]);
          interp_image(albedos[level], sub_scale, albedos[level-1]);
