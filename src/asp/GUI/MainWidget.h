@@ -453,6 +453,7 @@ private:
     BBox2 bbox; // The pixel bbox or lonlat bbox if georef is present
     DiskImagePyramidMultiChannel img;
     void read(std::string const& image, bool use_georef, bool hillshade);
+    double m_lon_offset; // to compensate for -90 deg equalling 270 deg
   };
 
   vw::Vector2 QPoint2Vec(QPoint const& qpt);
@@ -530,7 +531,7 @@ private:
 
   public slots:
     void sizeToFit();
-    void showFilesChosenByUser();
+    void showFilesChosenByUser(int rowClicked, int columnClicked);
     void viewUnthreshImages();
     void viewThreshImages();
     void addMatchPoint();
@@ -559,6 +560,7 @@ private:
     // Choose which files to hide/show in the GUI
     chooseFilesDlg  *     m_chooseFilesDlg;
     std::set<std::string> m_filesToHide;
+    std::vector<int> m_filesOrder;
 
     int m_image_id;
     std::string m_output_prefix;

@@ -19,6 +19,7 @@
 /// \file MainWidget.cc
 ///
 ///
+/// TODO: Test with empty images and images having just one pixel.
 
 #include <string>
 #include <vector>
@@ -94,6 +95,8 @@ namespace vw { namespace gui {
 
 void imageData::read(std::string const& image, bool use_georef, bool hillshade){
   name = image;
+
+  m_lon_offset = 0; // will be adjusted later
 
   int top_image_max_pix = 1000*1000;
   int subsample = 4;
@@ -255,10 +258,22 @@ MainWidget::MainWidget(QWidget *parent,
   this->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
   this->setFocusPolicy(Qt::ClickFocus);
 
+  // Read the images.
   int num_images = image_files.size();
   m_images.resize(num_images);
+  m_filesOrder.resize(num_images);
   for (int i = 0; i < num_images; i++){
     m_images[i].read(image_files[i], m_use_georef, m_hillshade);
+    m_filesOrder[i] = i; // start by keeping the order of files being read
+    if (m_use_georef){
+      // Compensate for the fact some images show pixels at -90
+      // degrees while others at 270 degrees.
+      double midi = (m_images[i].bbox.min().x() + m_images[i].bbox.max().x())/2.0;
+      double mid0 = (m_images[0].bbox.min().x() + m_images[0].bbox.max().x())/2.0;
+      m_images[i].m_lon_offset = 360.0*round((midi-mid0)/360.0);
+      m_images[i].bbox -= Vector2(m_images[i].m_lon_offset, 0);
+    }
+
     m_images_box.grow(m_images[i].bbox);
   }
 
@@ -272,9 +287,9 @@ MainWidget::MainWidget(QWidget *parent,
   // Choose which files to hide/show in the GUI
   if (m_chooseFilesDlg){
     QObject::connect(m_chooseFilesDlg->getFilesTable(),
-                     SIGNAL(itemClicked(QTableWidgetItem *)),
+                     SIGNAL(cellClicked(int, int)),
                      this,
-                     SLOT(showFilesChosenByUser())
+                     SLOT(showFilesChosenByUser(int, int))
                      );
     m_chooseFilesDlg->chooseFiles(m_images);
   }
@@ -296,10 +311,9 @@ bool MainWidget::eventFilter(QObject *obj, QEvent *E){
   return QWidget::eventFilter(obj, E);
 }
 
-void MainWidget::showFilesChosenByUser(){
+void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
 
   // Process user's choice from m_chooseFilesDlg.
-
   if (!m_chooseFilesDlg)
     return;
 
@@ -313,6 +327,16 @@ void MainWidget::showFilesChosenByUser(){
       string fileName
         = (filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
       m_filesToHide.insert(fileName);
+    }
+  }
+
+  // If we just checked a certain image, it will be shown on top of the other ones.
+  QTableWidgetItem *item = filesTable->item(rowClicked, 0);
+  if (item->checkState() == Qt::Checked){
+    std::vector<int>::iterator it = std::find(m_filesOrder.begin(), m_filesOrder.end(), rowClicked);
+    if (it != m_filesOrder.end()){
+      m_filesOrder.erase(it);
+      m_filesOrder.push_back(rowClicked); // show last, so on top
     }
   }
 
@@ -485,7 +509,9 @@ void MainWidget::resizeEvent(QResizeEvent*){
 void MainWidget::drawImage(QPainter* paint) {
 
   // The portion of the image to draw
-  for (int i = 0; i < (int)m_images.size(); i++){
+  for (int j = 0; j < (int)m_images.size(); j++){
+
+    int i = m_filesOrder[j];
 
     // Don't show files the user wants hidden
     string fileName = m_images[i].name;
@@ -504,7 +530,8 @@ void MainWidget::drawImage(QPainter* paint) {
     // so we need to convert it to pixel units
     BBox2i pixel_box = image_box;
     if (m_use_georef)
-      pixel_box = m_images[i].georef.lonlat_to_pixel_bbox(image_box);
+      pixel_box = m_images[i].georef.lonlat_to_pixel_bbox(image_box
+                                                          + Vector2(m_images[i].m_lon_offset, 0));
 
     QImage qimg;
     // Since the image portion contained in pixel_box could be huge,
@@ -550,6 +577,9 @@ void MainWidget::drawImage(QPainter* paint) {
       for (int x = screen_box.min().x(); x < screen_box.max().x(); x++){
         for (int y = screen_box.min().y(); y < screen_box.max().y(); y++){
           Vector2 lonlat = screen2world(Vector2(x, y));
+
+          // Undo the compensation we did we made the lon for all images similar.
+          lonlat[0] += m_images[i].m_lon_offset;
 
           // p has pixel indices at in the original full-resolution uncropped image.
           Vector2 p = m_images[i].georef.lonlat_to_pixel(lonlat);
