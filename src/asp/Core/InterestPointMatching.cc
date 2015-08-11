@@ -24,9 +24,6 @@
 
 using namespace vw;
 
-
-
-
 namespace asp {
 
   EpipolarLinePointMatcher::EpipolarLinePointMatcher( bool single_threaded_camera,
@@ -262,13 +259,14 @@ namespace asp {
 
     // Bounce several points off the datum and fit an affine.
     std::vector<Vector3> left_points, right_points;
-    left_points.reserve(20000);
-    right_points.reserve(20000);
-    for ( size_t i = 0; i < 100; i++ ) {
-      for ( size_t j = 0; j < 100; j++ ) {
+    int num = 100;
+    left_points.reserve(2*num*num);
+    right_points.reserve(2*num*num);
+    for ( size_t i = 0; i < num; i++ ) {
+      for ( size_t j = 0; j < num; j++ ) {
         try {
-          Vector2 l( double(box1.width() - 1) * i / 99.0,
-                     double(box1.height() - 1) * j / 99.0 );
+          Vector2 l( double(box1.width() - 1) * i / (num-1.0),
+                     double(box1.height() - 1) * j / (num-1.0) );
 
           Vector3 intersection =
             cartography::datum_intersection( datum, cam1, l );
@@ -285,8 +283,8 @@ namespace asp {
         catch (...) {}
 
         try {
-          Vector2 r( double(box2.width() - 1) * i / 99.0,
-                     double(box2.height() - 1) * j / 99.0 );
+          Vector2 r( double(box2.width() - 1) * i / (num-1.0),
+                     double(box2.height() - 1) * j / (num-1.0) );
 
           Vector3 intersection =
             cartography::datum_intersection( datum, cam2, r );
