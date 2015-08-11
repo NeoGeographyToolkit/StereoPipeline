@@ -48,9 +48,14 @@ namespace asp {
     /// Used to check off that one of the arguments has been read.
     void check_argument( vw::uint8 arg );
 
+
+  public:
+    XMLBase( vw::uint8 num_arguments );
+
+
     /// Helper function to convert XML text to binary value we want.
     template <class T>
-    void cast_xmlch( const XMLCh* ch, T& dst) {
+    static void cast_xmlch( const XMLCh* ch, T& dst) {
       char* text = xercesc::XMLString::transcode(ch);
       try {
         dst = boost::lexical_cast<T>( text );
@@ -61,11 +66,11 @@ namespace asp {
       xercesc::XMLString::release( &text );
     }
 
+
     /// Helper function to retreive a node via string and verify that only one exists.
     template <class T>
-    T* get_node( xercesc::DOMElement* element, std::string const& tag ) {
-      XMLCh* tag_c =
-        xercesc::XMLString::transcode(tag.c_str());
+    static T* get_node( xercesc::DOMElement* element, std::string const& tag ) {
+      XMLCh* tag_c = xercesc::XMLString::transcode(tag.c_str());
       xercesc::DOMNodeList* list = element->getElementsByTagName( tag_c );
       VW_ASSERT( list->getLength() != 0,
                  vw::IOErr() << "Couldn't find \"" << tag << "\" tag." );
@@ -74,9 +79,6 @@ namespace asp {
       xercesc::XMLString::release(&tag_c);
       return dynamic_cast<T*>(list->item(0));
     }
-
-  public:
-    XMLBase( vw::uint8 num_arguments );
 
     bool is_good() const;
   };

@@ -1175,6 +1175,43 @@ Options & Description \\ \hline \hline
 
 \clearpage
 
+
+
+\section{pansharp}
+\label{pansharp}
+
+This tool reads in a high resolution grayscale file and a low resolution RGB file and produces
+a high resolution RGB file.  The output image will be at the resolution of the grayscale image
+and will cover the region where the two images overlap.  Both images must have georeferencing 
+information.  This can either be projection information in the image metadata or it can be a 
+seperate Worldview style XML file containing four ground control points.
+
+
+\medskip
+
+Usage:\\
+\hspace*{2em}\texttt{pansharp [options] <grayscale image path> <color image path> <output image path>}
+
+\medskip
+
+\begin{longtable}{|l|p{10cm}|}
+\caption{Command-line options for pc\_merge}
+\label{tbl:pcmerge}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Options & Description \\ \hline \hline
+\texttt{-\/-help} & Display the help message.\\ \hline
+\texttt{-\/-min-value} & Manually specify the bottom of the input data range.\\ \hline
+\texttt{-\/-max-value} & Manually specify the top of the input data range.\\ \hline
+\texttt{-\/-gray-xml} & Look for georeference data here if not present in the grayscale image.\\ \hline
+\texttt{-\/-color-xml} & Look for georeference data here if not present in the RGB image.\\ \hline
+\texttt{-\/-nodata-value} & The nodata value to use for the output RGB file.\\ \hline
+\end{longtable}
+
+
 \section{point2las}
 \label{point2las}
 

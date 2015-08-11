@@ -709,28 +709,74 @@ bool asp::read_WV_XML_corners(std::string const& xml_path,
                               std::vector<vw::Vector2> &pixel_corners,
                               std::vector<vw::Vector2> &lonlat_corners) {
 
-    boost::scoped_ptr<XercesDOMParser> parser( new XercesDOMParser() );
-    parser->setValidationScheme(XercesDOMParser::Val_Always);
-    parser->setDoNamespaces(true);
-    boost::scoped_ptr<ErrorHandler> errHandler( new HandlerBase() );
-    parser->setErrorHandler(errHandler.get());
+  // Open and initialize the document
+  boost::scoped_ptr<XercesDOMParser> parser( new XercesDOMParser() );
+  parser->setValidationScheme(XercesDOMParser::Val_Always);
+  parser->setDoNamespaces(true);
+  boost::scoped_ptr<ErrorHandler> errHandler( new HandlerBase() );
+  parser->setErrorHandler(errHandler.get());
 
-    parser->parse( xml_path.c_str() );
-    DOMDocument* xmlDoc      = parser->getDocument();
-    DOMElement * elementRoot = xmlDoc->getDocumentElement();
-    DOMNodeList* children    = elementRoot->getChildNodes();
+  parser->parse( xml_path.c_str() );
+  DOMDocument* xmlDoc      = parser->getDocument();
+  DOMElement * elementRoot = xmlDoc->getDocumentElement();
+  
+  const size_t NUM_CORNERS = 4;
+  const size_t TOP_LEFT  = 0;
+  const size_t TOP_RIGHT = 1;
+  const size_t BOT_RIGHT = 2;
+  const size_t BOT_LEFT  = 3;
+  pixel_corners.resize(NUM_CORNERS);
+  lonlat_corners.resize(NUM_CORNERS);
+  
+  // Find the IMD node
+  DOMElement *imd_node = XMLBase::get_node<DOMElement>(elementRoot, "IMD");
+  if (!imd_node)
+    return false;
+  
+  // Get the image size
+  double num_rows, num_cols;
+  XMLBase::cast_xmlch( XMLBase::get_node<DOMElement>( imd_node, "NUMROWS"   )->getTextContent(), num_rows);
+  XMLBase::cast_xmlch( XMLBase::get_node<DOMElement>( imd_node, "NUMCOLUMNS")->getTextContent(), num_cols);
+  
+  // Set the pixel corners
+  pixel_corners[TOP_LEFT ].x()  = 0.5;
+  pixel_corners[TOP_LEFT ].y()  = 0.5;
+  pixel_corners[TOP_RIGHT].x() = num_cols - 0.5;
+  pixel_corners[TOP_RIGHT].y() = 0.5;
+  pixel_corners[BOT_RIGHT].x() = num_cols - 0.5;
+  pixel_corners[BOT_RIGHT].y() = num_rows - 0.5;
+  pixel_corners[BOT_LEFT ].x() = 0.5;
+  pixel_corners[BOT_LEFT ].y() = num_rows - 0.5;
     
-    for ( XMLSize_t i = 0; i < children->getLength(); ++i ) {
-      DOMNode* curr_node = children->item(i);
-      if ( curr_node->getNodeType() == DOMNode::ELEMENT_NODE ) {
-        DOMElement* curr_element = dynamic_cast<DOMElement*>( curr_node );
+  // Look through its children for a band name
+  DOMNodeList* children = imd_node->getChildNodes();
+  for ( XMLSize_t i = 0; i < children->getLength(); ++i ) {
+    // Check child node type
+    DOMNode* curr_node = children->item(i);
+    if ( curr_node->getNodeType() != DOMNode::ELEMENT_NODE )
+      continue;
+      
+    // Look for the BAND_X node
+    DOMElement* curr_element = dynamic_cast<DOMElement*>( curr_node );
+    std::string tag( XMLString::transcode(curr_element->getTagName()) );
+    if (tag.find("BAND_") == std::string::npos)
+      continue;
 
-        std::string tag( XMLString::transcode(curr_element->getTagName()) );
+    // We found the band node, now parse the child nodes
+    XMLBase::cast_xmlch(XMLBase::get_node<DOMElement>(curr_element, "ULLON")->getTextContent(), lonlat_corners[TOP_LEFT ].x());
+    XMLBase::cast_xmlch(XMLBase::get_node<DOMElement>(curr_element, "ULLAT")->getTextContent(), lonlat_corners[TOP_LEFT ].y());
+    XMLBase::cast_xmlch(XMLBase::get_node<DOMElement>(curr_element, "URLON")->getTextContent(), lonlat_corners[TOP_RIGHT].x());
+    XMLBase::cast_xmlch(XMLBase::get_node<DOMElement>(curr_element, "URLAT")->getTextContent(), lonlat_corners[TOP_RIGHT].y());
+    XMLBase::cast_xmlch(XMLBase::get_node<DOMElement>(curr_element, "LRLON")->getTextContent(), lonlat_corners[BOT_RIGHT].x());
+    XMLBase::cast_xmlch(XMLBase::get_node<DOMElement>(curr_element, "LRLAT")->getTextContent(), lonlat_corners[BOT_RIGHT].y());
+    XMLBase::cast_xmlch(XMLBase::get_node<DOMElement>(curr_element, "LLLON")->getTextContent(), lonlat_corners[BOT_LEFT ].x());
+    XMLBase::cast_xmlch(XMLBase::get_node<DOMElement>(curr_element, "LLLAT")->getTextContent(), lonlat_corners[BOT_LEFT ].y());
 
-        std::cout << tag << std::endl;
-      }
-    }
-    
+    return true; // Finished!
+
+  } // End loop through top level children
+
+  // Only make it here if we failed to find the corner information!  
   return false;
 }
 

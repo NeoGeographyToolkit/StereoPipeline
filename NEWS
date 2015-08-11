@@ -27,6 +27,8 @@
      operations on one or more images.
    * Added pc_merge, a simple tool for concatenating ASP produced
      point clouds.
+   * Added pansharp, a tool to apply a pansharp algorithm to a matched
+     grayscale image and a low resolution color image.
 
  - docs
    * Added a documentation section on 'tips and tricks', summarizing 
