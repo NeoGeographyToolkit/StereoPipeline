@@ -46,13 +46,13 @@ using namespace std;
 template <class ImageT>
 class DemGeoidView : public ImageViewBase<DemGeoidView<ImageT> >
 {
-  ImageT m_img;
+  ImageT m_img; ///< The DEM
   GeoReference const& m_georef;
   bool m_is_egm2008;
-  vector<double> const& m_egm2008_grid;
-  ImageViewRef<PixelMask<double> > const& m_geoid;
+  vector<double> const& m_egm2008_grid; ///< Special variable storing EGM2008 data
+  ImageViewRef<PixelMask<double> > const& m_geoid; ///< Interpolation view of the geoid
   GeoReference const& m_geoid_georef;
-  bool m_reverse_adjustment;
+  bool   m_reverse_adjustment; ///< If true, convert from orthometric height to geoid height
   double m_correction;
   double m_nodata_val;
 
@@ -62,6 +62,8 @@ public:
   typedef double result_type;
   typedef ProceduralPixelAccessor<DemGeoidView> pixel_accessor;
 
+  /// Image view which adds or subtracts the ellipsoid/geoid difference
+  ///  from elevations in a DEM image.
   DemGeoidView(ImageT const& img, GeoReference const& georef,
                bool is_egm2008, vector<double> const& egm2008_grid,
                ImageViewRef<PixelMask<double> > const& geoid,
@@ -74,8 +76,8 @@ public:
     m_correction(correction),
     m_nodata_val(nodata_val){}
 
-  inline int32 cols() const { return m_img.cols(); }
-  inline int32 rows() const { return m_img.rows(); }
+  inline int32 cols  () const { return m_img.cols(); }
+  inline int32 rows  () const { return m_img.rows(); }
   inline int32 planes() const { return 1; }
 
   inline pixel_accessor origin() const { return pixel_accessor(*this); }
@@ -109,10 +111,13 @@ public:
 
     result_type geoid_height = 0.0;
     if (m_is_egm2008){
-      int nr = m_geoid.rows(), nc = m_geoid.cols();
+      int nr = m_geoid.rows(), 
+          nc = m_geoid.cols();
+      // Call fortran function from "geoid" mini external library
       egm2008_call_interp_(&nr, &nc, (double*)&m_egm2008_grid[0],
                            &lonlat[0], &lonlat[1], &geoid_height);
     }else{
+      // Use our own interpolation into the geoid image
       Vector2  pix = m_geoid_georef.lonlat_to_pixel(lonlat);
       PixelMask<double> interp_val = m_geoid(pix[0], pix[1]);
       if (!is_valid(interp_val)) return m_nodata_val;
@@ -121,12 +126,13 @@ public:
 
     geoid_height += m_correction;
 
-    result_type     height_above_ellipsoid = m_img(col, row, p);
-    double          direction              = m_reverse_adjustment?-1:1;
-    // See the note in the main program about the formula below
-    result_type height_above_geoid         = height_above_ellipsoid - direction*geoid_height;
-
-    return height_above_geoid;
+    result_type height_above_ellipsoid = m_img(col, row, p);
+    // Compute height above the geoid
+    // - See the note in the main program about the formula below
+    if (m_reverse_adjustment)
+      return height_above_ellipsoid + geoid_height;
+    else
+      return height_above_ellipsoid - geoid_height;
   }
 
   /// \cond INTERNAL
@@ -143,6 +149,7 @@ public:
   /// \endcond
 };
 
+// Helper function which uses the class above.
 template <class ImageT>
 DemGeoidView<ImageT>
 dem_geoid( ImageViewBase<ImageT> const& img, GeoReference const& georef,
@@ -159,8 +166,8 @@ dem_geoid( ImageViewBase<ImageT> const& img, GeoReference const& georef,
 struct Options : asp::BaseOptions {
   string dem_name, geoid, out_prefix;
   double nodata_value;
-  bool use_double;
-  bool reverse_adjustment;
+  bool   use_double;
+  bool   reverse_adjustment;
 };
 
 string get_geoid_full_path(string geoid_file){
@@ -194,14 +201,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
   po::options_description general_options("");
   general_options.add_options()
     ("nodata_value", po::value(&opt.nodata_value)->default_value(-32768),
-     "The value of no-data pixels, unless specified in the DEM.")
-    ("geoid", po::value(&opt.geoid), "Specify the geoid to use for Earth WGS84 DEMs. Options: EGM96, EGM2008. Default: EGM96.")
+         "The value of no-data pixels, unless specified in the DEM.")
+    ("geoid",  po::value(&opt.geoid), 
+        "Specify the geoid to use for Earth WGS84 DEMs. Options: EGM96, EGM2008. Default: EGM96.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
     ("double", po::bool_switch(&opt.use_double)->default_value(false)->implicit_value(true),
-     "Output using double precision (64 bit) instead of float (32 bit).")
+         "Output using double precision (64 bit) instead of float (32 bit).")
     ("reverse-adjustment",
-     po::bool_switch(&opt.reverse_adjustment)->default_value(false)->implicit_value(true),
-     "Go from DEM relative to the geoid to DEM relative to the ellipsoid.");
+        po::bool_switch(&opt.reverse_adjustment)->default_value(false)->implicit_value(true),
+        "Go from DEM relative to the geoid to DEM relative to the ellipsoid.");
 
   general_options.add( asp::BaseOptionsDescription(opt) );
 
@@ -237,8 +245,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
 
 }
 
-// Given a DEM, with each height value relative to the datum
-// ellipsoid, convert the heights to be relative to the geoid.
+/// Given a DEM, with each height value relative to the datum
+/// ellipsoid, convert the heights to be relative to the geoid.
 
 // From: http://earth-info.nga.mil/GandG/wgs84/gravitymod/egm96/intpthel.html
 // Geoid heights can be used to convert between orthometric
@@ -248,7 +256,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
 // where,
 // h = WGS 84 Ellipsoid height
 // H = Orthometric height
-// N = EGM96 Geoid height
+// N = EGM96 Geoid height (relative to the ellipsoid)
 // Therefore: H = h - N.
 
 // We support four geoids: EGM96, EGM2008, NAVD88 (Earth) and MOLA MEGDR (Mars).
@@ -299,11 +307,11 @@ int main( int argc, char *argv[] ) {
 
     // Find out the datum from the DEM. If we fail, we do an educated guess.
     string datum_name = dem_georef.datum().name();
-    string lname = boost::to_lower_copy(datum_name);
+    string lname      = boost::to_lower_copy(datum_name);
     string geoid_file;
     bool is_wgs84 = false, is_mola = false;
     if ( lname == "wgs_1984" || lname == "wgs 1984" || lname == "wgs1984" ||
-         lname == "wgs84" || lname == "world geodetic system 1984" ){
+         lname == "wgs84"    || lname == "world geodetic system 1984" ){
       is_wgs84 = true;
     }else if (lname == "north_american_datum_1983"){
       geoid_file = "navd88.tif";
@@ -328,7 +336,7 @@ int main( int argc, char *argv[] ) {
         is_egm2008 = true;
         geoid_file = "egm2008.jp2";
       }else if (opt.geoid == "egm96" || opt.geoid == "")
-        geoid_file = "egm96-5.jp2";
+        geoid_file = "egm96-5.jp2"; // The default WGS84 geoid option
       else
         vw_throw( ArgumentErr() << "Unsupported value for geoid: " << opt.geoid << "\n");
     }else if (opt.geoid != "")
@@ -338,6 +346,7 @@ int main( int argc, char *argv[] ) {
     if (is_mola)
       geoid_file = "mola_areoid.tif";
 
+    // Find where we keep the information for this geoid
     geoid_file = get_geoid_full_path(geoid_file);
     vw_out() << "Adjusting the DEM using the geoid: " << geoid_file << endl;
 
@@ -355,7 +364,11 @@ int main( int argc, char *argv[] ) {
 
     if (is_wgs84 && !is_egm2008){
       // Convert the egm96 int16 JPEG2000-encoded geoid to float.
-      double a = 0, b = 65534, c= -108, d = 86, s = (d-c)/(b-a);
+      double a =  0, 
+             b =  65534, 
+             c = -108, 
+             d =  86, 
+             s = (d-c)/(b-a);
       for (int col = 0; col < geoid_img.cols(); col++){
         for (int row = 0; row < geoid_img.rows(); row++){
           geoid_img(col, row) = s*(geoid_img(col, row) - a) + c;
@@ -368,8 +381,13 @@ int main( int argc, char *argv[] ) {
     // And we scale the int16 JPEG2000-encoded geoid to float.
     vector<double> egm2008_grid;
     if (is_egm2008){
-      double a = 0,  b = 65534, c = -107, d = 86, s = (d-c)/(b-a);
-      int nr = geoid_img.rows(), nc = geoid_img.cols();
+      double a  =  0,  
+             b  =  65534, 
+             c  = -107, 
+             d  =  86, 
+             s  = (d-c)/(b-a);
+      int    nr = geoid_img.rows(), 
+             nc = geoid_img.cols();
       egm2008_grid.resize(nr*nc);
       for (int col = 0; col < nc; col++){
         for (int row = 0; row < nr; row++){
@@ -386,10 +404,8 @@ int main( int argc, char *argv[] ) {
     double major_correction = 0.0;
     double minor_correction = 0.0;
     if (!is_egm2008){
-      major_correction
-        = geoid_georef.datum().semi_major_axis() - dem_georef.datum().semi_major_axis();
-      minor_correction
-        = geoid_georef.datum().semi_minor_axis() - dem_georef.datum().semi_minor_axis();
+      major_correction = geoid_georef.datum().semi_major_axis() - dem_georef.datum().semi_major_axis();
+      minor_correction = geoid_georef.datum().semi_minor_axis() - dem_georef.datum().semi_minor_axis();
     }
     if (major_correction != 0){
       if (fabs(1.0 - minor_correction/major_correction) > 1.0e-5){
@@ -400,10 +416,13 @@ int main( int argc, char *argv[] ) {
                              << "axis lengths differ.\n";
     }
 
+    // Put an interpolation and mask wrapper around the input geoid file
     ImageViewRef<PixelMask<double> > geoid
-      = interpolate(create_mask( pixel_cast<double>(geoid_img), geoid_nodata_val ),
+      = interpolate(create_mask( pixel_cast<double>(geoid_img), 
+                                 geoid_nodata_val ),
                     BicubicInterpolation(), ZeroEdgeExtension());
 
+    // Set up conversion image view
     ImageViewRef<double> adj_dem = dem_geoid(dem_img, dem_georef,
                                              is_egm2008, egm2008_grid,
                                              geoid, geoid_georef,
