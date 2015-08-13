@@ -235,7 +235,10 @@ public:
     if (m_opt.median) // Store each input seperately
       tiles.reserve(m_opt.dem_files.size());
     if (m_opt.stddev) { // Need one working image
-      tiles.push_back(copy(weights));
+      tiles.push_back(ImageView<double>(bbox.width(), bbox.height()));
+      // Each pixel starts at zero, nodata is handled later
+      fill( tiles[0], 0.0 );
+      fill( tile,     0.0 );
     }
 
 
@@ -375,7 +378,7 @@ public:
           bool is_nodata = ((tile(c, r) == m_opt.out_nodata_value));
 
           // Initialize the tile if not done already
-          if (!m_opt.median && !m_opt.min && !m_opt.max){ // Init to zero not needed with these types!
+          if (!m_opt.stddev && !m_opt.median && !m_opt.min && !m_opt.max){ // Init to zero not needed with these types!
             if ( is_nodata ){
               tile   (c, r) = 0;
               weights(c, r) = 0.0;
@@ -401,9 +404,9 @@ public:
             double curr_mean = tiles[0](c,r);
             double delta     = val - curr_mean;
             curr_mean     += delta / weights(c, r);
-            tile(c, r)    += delta*(val - curr_mean);
-            tiles[0](c,r)  = curr_mean;
-            //vw_out() << "val = " << val << " mean = " << curr_mean << ", tile = " << tile(c, r) << "\n";
+            double newVal = tile(c, r) + delta*(val - curr_mean);
+            tile(c, r)    = newVal;
+            tiles[0](c,r) = curr_mean;
           }else if (!noblend){ // Blending --> Weighted average
             tile(c, r) += wt*val;
             weights(c, r) += wt;
@@ -433,15 +436,15 @@ public:
     if (m_opt.stddev){
       for (int c = 0; c < bbox.width(); c++){ // Iterate over all pixels!
         for (int r = 0; r < bbox.height(); r++){
+
           if ( weights(c, r) > 1.0 ){
             tile(c, r) = sqrt( tile(c, r) / (weights(c, r) - 1.0) );
           } else { // Invalid pixel!
             tile(c, r) = m_opt.out_nodata_value;
           }
-
         } // End row loop
       } // End col loop
-    } // End dividing case
+    } // End stddev case
 
 
     // For the median operation,
