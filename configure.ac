@@ -440,7 +440,7 @@ AX_APP(STEREO,           [src/asp/Tools], yes, [SESSIONS])
 AX_APP(STEREO_GUI,       [src/asp/Tools], yes, [SESSIONS GUI])
 AX_APP(WV_CORRECT,       [src/asp/Tools], yes, [SESSIONS])
 AX_APP(IMAGE_CALC,       [src/asp/Tools], yes, [CORE])
-AX_APP(PANSHARP,         [src/asp/Tools], yes, [CORE])
+AX_APP(PANSHARP,         [src/asp/Tools], yes, [CORE CAMERA])
 AX_APP(PC_MERGE,         [src/asp/Tools], yes, [CORE])
 
 # These are here (instead of inside the APP macro where they belong)
