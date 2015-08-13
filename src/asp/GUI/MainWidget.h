@@ -550,6 +550,7 @@ private:
     void showFilesChosenByUser(int rowClicked, int columnClicked);
     void viewUnthreshImages();
     void viewThreshImages();
+    void viewHillshadeImages();
     void addMatchPoint();
     void deleteMatchPoint();
 
@@ -629,7 +630,6 @@ private:
     enum DisplayChannel { DisplayRGBA = 0, DisplayR, DisplayG, DisplayB, DisplayA };
     int m_display_channel;
     int m_colorize_display;
-    int m_hillshade_display;
 
     // Mouse press  position
     int m_mousePrsX,  m_mousePrsY;
@@ -643,7 +643,10 @@ private:
     bool m_shadow_thresh_calc_mode;
     bool m_shadow_thresh_view_mode;
     std::vector<imageData> m_shadow_thresh_images;
+
+    bool m_hillshade_mode;
     std::vector<imageData> m_hillshaded_images;
+
 
     // Drawing is driven by QPaintEvent, which calls out to drawImage()
     void drawImage(QPainter* paint);

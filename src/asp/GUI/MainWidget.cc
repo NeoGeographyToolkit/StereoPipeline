@@ -243,7 +243,6 @@ MainWidget::MainWidget(QWidget *parent,
   m_adjust_mode = NoAdjustment;
   m_display_channel = DisplayRGBA;
   m_colorize_display = false;
-  m_hillshade_display = false;
 
   // Set up shader parameters
   m_gain = 1.0;
@@ -280,6 +279,7 @@ MainWidget::MainWidget(QWidget *parent,
   m_shadow_thresh = -std::numeric_limits<double>::max();
   m_shadow_thresh_calc_mode = false;
   m_shadow_thresh_view_mode = false;
+  m_hillshade_mode = false;
 
   // To do: Warn the user if some images have georef
   // while others don't.
@@ -382,11 +382,13 @@ void MainWidget::sizeToFit() {
 
 void MainWidget::viewUnthreshImages(){
   m_shadow_thresh_view_mode = false;
+  m_hillshade_mode = false;
   refreshPixmap();
 }
 
 void MainWidget::viewThreshImages(){
   m_shadow_thresh_view_mode = true;
+  m_hillshade_mode = false;
 
   if (m_images.size() != 1) {
     popUp("Must have just one image in each window to be able to view thresholded images.");
@@ -444,6 +446,71 @@ void MainWidget::viewThreshImages(){
     m_shadow_thresh_images[image_iter].read(curr_file, m_use_georef, m_hillshade);
   }
 
+  refreshPixmap();
+}
+
+void MainWidget::viewHillshadeImages(){
+  m_hillshade_mode = true;
+  m_shadow_thresh_calc_mode = false;
+  m_shadow_thresh_view_mode = false;
+
+#if 0
+  if (m_images.size() != 1) {
+    popUp("Must have just one image in each window to be able to view hillshaded images.");
+    m_shadow_thresh_view_mode = false;
+    refreshPixmap();
+    return;
+  }
+
+  int num_images = m_images.size();
+  m_shadow_thresh_images.clear(); // wipe the old copy
+  m_shadow_thresh_images.resize(num_images);
+
+  // Create the thresholded images and save them to disk. We have to do it each
+  // time as perhaps the shadow threshold changed.
+  for (int image_iter = 0; image_iter < num_images; image_iter++) {
+    std::string orig_file = m_image_files[image_iter];
+
+    double nodata_val = -std::numeric_limits<double>::max();
+    vw::read_nodata_val(orig_file, nodata_val);
+    nodata_val = std::max(nodata_val, m_shadow_thresh);
+
+    int num_channels = get_num_channels(orig_file);
+    if (num_channels != 1) {
+      popUp("Thresholding makes sense only for single-channel images.");
+      m_shadow_thresh_view_mode = false;
+      return;
+    }
+
+    ImageViewRef<double> thresh_image
+      = apply_mask(create_mask_less_or_equal(DiskImageView<double>(orig_file),
+                               nodata_val), nodata_val);
+
+      // The name of the thresholded file
+    std::string prefix = asp::prefix_from_filename(orig_file);
+    std::string suffix = "_thresh.tif";
+    std::string curr_file = prefix + suffix;
+    vw_out() << "Writing file: " << curr_file << std::endl;
+
+    TerminalProgressCallback tpc("asp", ": ");
+    asp::BaseOptions opt;
+    vw_out() << "Writing: " << curr_file << std::endl;
+    try {
+      asp::block_write_gdal_image(curr_file, thresh_image, nodata_val, opt, tpc);
+    }catch(...){
+      // Failed to write, presumably because we have no write access.
+      // Write the file in the current dir.
+      vw_out() << "Failed to write: " << curr_file << "\n";
+      boost::filesystem::path p(orig_file);
+      prefix = p.stem().string();
+      curr_file = prefix + suffix;
+      vw_out() << "Writing: " << curr_file << std::endl;
+      asp::block_write_gdal_image(curr_file, thresh_image, nodata_val, opt, tpc);
+    }
+
+    m_shadow_thresh_images[image_iter].read(curr_file, m_use_georef, m_hillshade);
+  }
+#endif
   refreshPixmap();
 }
 
@@ -1118,14 +1185,6 @@ void MainWidget::keyPressEvent(QKeyEvent *event) {
     m_use_colormap = !m_use_colormap;
     break;
   case Qt::Key_H:  // Activate hillshade
-    if ( m_hillshade_display == 0 ) {
-      m_hillshade_display = 1;
-    } else {
-      m_hillshade_display *= 3;
-    }
-    if ( m_hillshade_display > 100 || m_hillshade_display < 0 )
-      m_hillshade_display = 0;
-    break;
   case Qt::Key_G:  // Gain adjustment mode
     if (m_adjust_mode == GainAdjustment) {
       m_adjust_mode = TransformAdjustment;
