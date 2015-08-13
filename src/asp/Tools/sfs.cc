@@ -56,6 +56,10 @@ using namespace vw::cartography;
 
 typedef InterpolationView<ImageViewRef< PixelMask<float> >, BilinearInterpolation> BilinearInterpT;
 
+// TODO: Study why using tabulated camera model and multiple resolutions does
+// not work as well as it should.
+// TODO: When using approx camera, we assume the DEM and image grids are very similar.
+// TODO: Remove warning from the approx camera
 // TODO: Make it possible to initialize a DEM from scratch.
 // TODO: Study more the multi-resolution approach.
 // TODO: Must specify in the SfS doc that the lunar lambertian model fails at poles
@@ -91,6 +95,283 @@ typedef InterpolationView<ImageViewRef< PixelMask<float> >, BilinearInterpolatio
 // TODO: Make it work with non-ISIS cameras.
 // TODO: Clean up some of the classes, not all members are needed.
 
+namespace vw { namespace camera {
+
+  // This class provides an approximation for the point_to_pixel()
+  // function of an ISIS camera around a current DEM. The algorithm
+  // works by tabulation of point_to_pixel and pixel_to_vector values
+  // at the mean dem height.
+  class ApproxCameraModel: public CameraModel {
+    boost::shared_ptr<CameraModel>  m_exact_camera;
+    Vector3 m_mean_dir; // mean vector from camera to ground
+    GeoReference m_geo;
+    double m_mean_ht;
+    ImageView< PixelMask<Vector3> > m_pixel_to_vec_mat;
+    ImageView< PixelMask<Vector2> > m_point_to_pix_mat;
+    ImageView< PixelMask<Vector3> > m_camera_center_mat;
+    double m_gridx, m_gridy;
+    BBox2 m_point_box, m_pixel_box;
+    vw::Mutex& m_camera_mutex;
+
+  public:
+    ApproxCameraModel(boost::shared_ptr<CameraModel> exact_camera,
+                      ImageView<double> const& dem,
+                      GeoReference const& geo,
+                      double nodata_val,
+                      vw::Mutex &camera_mutex):
+      m_exact_camera(exact_camera), m_geo(geo), m_camera_mutex(camera_mutex){
+
+      if (dynamic_cast<IsisCameraModel*>(exact_camera.get()) == NULL)
+        vw_throw( ArgumentErr()
+                  << "ApproxCameraModel: Expecting an unadjusted ISIS camera model.\n");
+
+      //Compute the mean DEM height.
+      // We expect all DEM entries to be valid.
+      m_mean_ht = 0;
+      double num = 0.0;
+      for (int col = 0; col < dem.cols(); col++) {
+        for (int row = 0; row < dem.rows(); row++) {
+          if (dem(col, row) == nodata_val)
+            vw_throw( ArgumentErr()
+                      << "ApproxCameraModel: Expecting a DEM without nodata values.\n");
+          m_mean_ht += dem(col, row);
+          num += 1.0;
+        }
+      }
+      if (num > 0) m_mean_ht /= num;
+
+      // The area we're supposed to work around
+      m_point_box = geo.pixel_to_point_bbox(bounding_box(dem));
+      double wx = m_point_box.width(), wy = m_point_box.height();
+      m_gridx = wx/std::max(dem.cols(), 1);
+      m_gridy = wy/std::max(dem.rows(), 1);
+
+      if (m_gridx == 0 || m_gridy == 0) {
+        vw_throw( ArgumentErr()
+                  << "ApproxCameraModel: Expecting a positive grid size.\n");
+      }
+
+      // Expand the box, as later the DEM will change.
+      double extra = 0.5;
+      m_point_box.min().x() -= extra*wx; m_point_box.max().x() += extra*wx;
+      m_point_box.min().y() -= extra*wy; m_point_box.max().y() += extra*wy;
+      wx = m_point_box.width();
+      wy = m_point_box.height();
+
+      vw_out() << "Approximation proj box: " << m_point_box << std::endl;
+
+      // We will tabulate the point_to_pixel function at half the grid,
+      // and we'll use interpolation for anything in between.
+      m_gridx /= 2.0;
+      m_gridy /= 2.0;
+
+      int numx = wx/m_gridx;
+      int numy = wy/m_gridy;
+
+      vw_out() << "Size of lookup table: " << numx << ' ' << numy << std::endl;
+
+      // Fill in the table. Find along the way the mean direction from
+      // the camera to the ground. Invalid values will be masked.
+      int count = 0;
+      m_mean_dir = Vector3();
+      m_pixel_to_vec_mat.set_size(numx, numy);
+      m_point_to_pix_mat.set_size(numx, numy);
+      for (int x = 0; x < numx; x++) {
+        for (int y = 0; y < numy; y++) {
+          Vector2 pt(m_point_box.min().x() + x*m_gridx,
+                     m_point_box.min().y() + y*m_gridy);
+          Vector2 lonlat = geo.point_to_lonlat(pt);
+          Vector3 xyz = geo.datum().geodetic_to_cartesian
+            (Vector3(lonlat[0], lonlat[1], m_mean_ht));
+          bool success = true;
+          Vector2 pix;
+          Vector3 vec;
+          try {
+            pix = m_exact_camera->point_to_pixel(xyz);
+            vec = m_exact_camera->pixel_to_vector(pix);
+            if (x == 0 || y == 0 || x == numx-1 || y == numy - 1) {
+            }
+          }catch(...){
+            success = false;
+          }
+          if (success) {
+            m_pixel_to_vec_mat(x, y) = vec;
+            m_point_to_pix_mat(x, y) = pix;
+            m_pixel_to_vec_mat(x, y).validate();
+            m_point_to_pix_mat(x, y).validate();
+            m_mean_dir += vec;
+            m_pixel_box.grow(pix);
+            count++;
+          }else{
+            m_pixel_to_vec_mat(x, y).invalidate();
+            m_point_to_pix_mat(x, y).invalidate();
+          }
+        }
+      }
+      m_mean_dir /= std::max(1, count);
+      m_mean_dir = m_mean_dir/norm_2(m_mean_dir);
+
+      // Ensure the box is valid
+      if (m_pixel_box.empty()) m_pixel_box = BBox2(0, 0, 2, 2);
+
+      // Expand the box a bit, as later the DEM will change and values at some
+      // new pixels will be needed.
+      m_pixel_box.min().x() -= extra*m_pixel_box.width();
+      m_pixel_box.max().x() += extra*m_pixel_box.width();
+      m_pixel_box.min().y() -= extra*m_pixel_box.height();
+      m_pixel_box.max().y() += extra*m_pixel_box.height();
+      m_pixel_box = grow_bbox_to_int(m_pixel_box);
+
+      // Tabulate the camera_center function
+      vw_out() << "Pixel box loop up table: " << m_pixel_box << std::endl;
+      m_camera_center_mat.set_size(m_pixel_box.width(), m_pixel_box.height());
+      for (int col = 0; col < m_pixel_box.width(); col++) {
+        for (int row = 0; row < m_pixel_box.height(); row++) {
+          bool success = true;
+          Vector3 ctr;
+          try {
+            ctr = m_exact_camera->camera_center(m_pixel_box.min() + Vector2(col, row));
+          }catch(...){
+            success = false;
+          }
+          if (success) {
+            m_camera_center_mat(col, row) = ctr;
+            m_camera_center_mat(col, row).validate();
+          }else{
+            m_camera_center_mat(col, row).invalidate();
+          }
+        }
+      }
+      return;
+    }
+
+    // We have tabulated point_to_pixel at the mean dem height.
+    // Look-up point_to_pixel for the current point by first
+    // intersecting the ray from the current point to the camera
+    // with the datum at that height. We don't know that ray,
+    // so we iterate to find it.
+    virtual Vector2 point_to_pixel(Vector3 const& xyz) const{
+
+      // TODO: What happens if we use bicubic interpolation?
+      InterpolationView<EdgeExtensionView< ImageView< PixelMask<Vector3> >, ConstantEdgeExtension >, BilinearInterpolation> pixel_to_vec_interp
+        = interpolate(m_pixel_to_vec_mat, BilinearInterpolation(),
+                      ConstantEdgeExtension());
+
+      InterpolationView<EdgeExtensionView< ImageView< PixelMask<Vector2> >, ConstantEdgeExtension >, BilinearInterpolation> point_to_pix_interp
+        = interpolate(m_point_to_pix_mat, BilinearInterpolation(),
+                      ConstantEdgeExtension());
+
+      Vector3 dir = m_mean_dir;
+      Vector2 pix;
+      double major_radius = m_geo.datum().semi_major_axis() + m_mean_ht;
+      double minor_radius = m_geo.datum().semi_minor_axis() + m_mean_ht;
+      for (size_t i = 0; i < 10; i++) {
+
+        Vector3 S = xyz - 1.1*major_radius*dir; // push the point outside the sphere
+        if (norm_2(S) <= major_radius) {
+          // should not happen. Return the exact solution.
+          {
+            vw::Mutex::Lock lock(m_camera_mutex);
+            return m_exact_camera->point_to_pixel(xyz);
+          }
+        }
+
+        Vector3 datum_pt = datum_intersection(major_radius, minor_radius, S, dir);
+        Vector3 llh = m_geo.datum().cartesian_to_geodetic(datum_pt);
+        Vector2 pt = m_geo.lonlat_to_point(subvector(llh, 0, 2));
+
+        // Indices
+        double x = (pt.x() - m_point_box.min().x())/m_gridx;
+        double y = (pt.y() - m_point_box.min().y())/m_gridy;
+
+        if ( x < 0 || x >= m_pixel_to_vec_mat.cols()-1 ||
+             y < 0 || y >= m_pixel_to_vec_mat.rows()-1 ) {
+          {
+            vw::Mutex::Lock lock(m_camera_mutex);
+            // TODO: Study why we come here so often. It is related to
+            // opt.camera_position_step_size.
+            return m_exact_camera->point_to_pixel(xyz);
+          }
+        }
+        PixelMask<Vector3> masked_dir = pixel_to_vec_interp(x, y);
+        PixelMask<Vector2> masked_pix = point_to_pix_interp(x, y);
+
+        if (is_valid(masked_dir) && is_valid(masked_pix)) {
+          dir = masked_dir.child();
+          pix = masked_pix.child();
+        }else{
+          {
+            vw::Mutex::Lock lock(m_camera_mutex);
+            return m_exact_camera->point_to_pixel(xyz);
+          }
+        }
+      }
+
+      return pix;
+    }
+
+    virtual ~ApproxCameraModel(){}
+    virtual std::string type() const{ return "ApproxIsis"; }
+
+    virtual Vector3 pixel_to_vector (Vector2 const& pix) const {
+      vw::Mutex::Lock lock(m_camera_mutex);
+      return this->exact_camera()->pixel_to_vector(pix);
+    }
+
+    virtual Vector3 camera_center (Vector2 const& pix) const{
+      InterpolationView<EdgeExtensionView< ImageView< PixelMask<Vector3> >, ConstantEdgeExtension >, BilinearInterpolation> camera_center_interp
+        = interpolate(m_camera_center_mat, BilinearInterpolation(),
+                      ConstantEdgeExtension());
+      double lx = pix[0] - m_pixel_box.min().x();
+      double ly = pix[1] - m_pixel_box.min().y();
+      if (0 <= lx && lx < m_camera_center_mat.cols() - 1 &&
+          0 <= ly && ly < m_camera_center_mat.rows() - 1 ) {
+        PixelMask<Vector3> ctr = camera_center_interp(lx, ly);
+        if (is_valid(ctr))
+          return ctr.child();
+      }
+
+      {
+        // Failed to interpolate
+        vw::Mutex::Lock lock(m_camera_mutex);
+        return this->exact_camera()->camera_center(pix);
+      }
+
+    }
+
+    virtual Quat camera_pose(Vector2 const& pix) const{
+      vw::Mutex::Lock lock(m_camera_mutex);
+      return this->exact_camera()->camera_pose(pix);
+    }
+
+    boost::shared_ptr<CameraModel> exact_camera() const{
+      return m_exact_camera;
+    }
+  };
+}}
+
+// Pull the ISIS model from an adjusted IsisCameraModel or ApproxCameraModel
+boost::shared_ptr<CameraModel> get_isis_cam(boost::shared_ptr<CameraModel> cam){
+
+  AdjustedCameraModel * acam = dynamic_cast<AdjustedCameraModel*>(cam.get());
+  if (acam == NULL)
+    vw_throw( ArgumentErr() << "get_isis_cam: Expecting an adjusted camera model.\n" );
+
+  boost::shared_ptr<CameraModel> ucam = acam->unadjusted_model();
+  if (ucam.get() == NULL)
+    vw_throw( ArgumentErr() << "get_isis_cam: Expecting a valid camera model.\n" );
+
+  ApproxCameraModel * apcam = dynamic_cast<ApproxCameraModel*>(ucam.get());
+  if (apcam != NULL)
+    return apcam->exact_camera();
+
+  if (dynamic_cast<IsisCameraModel*>(ucam.get()) == NULL)
+    vw_throw( ArgumentErr() << "get_isis_cam: Expecting an ISIS camera model.\n" );
+
+  return ucam;
+}
+
+
 // Compute mean and standard deviation of an image
 template <class ImageT>
 void compute_image_stats(ImageT const& I, double & mean, double & stdev){
@@ -119,7 +400,7 @@ void compute_image_stats(ImageT const& I, double & mean, double & stdev){
 // the sun in small increments, until hitting the maximum DEM height.
 bool isInShadow(int col, int row, Vector3 & sunPos,
                 ImageView<double> const& dem, double max_dem_height,
-                double grid_x, double grid_y,
+                double gridx, double gridy,
                 cartography::GeoReference const& geo){
 
   // Here bicubic interpolation won't work. It is easier to interpret
@@ -146,7 +427,7 @@ bool isInShadow(int col, int row, Vector3 & sunPos,
   Vector3 dir2 = dir - dot_prod(dir, xyz)*xyz/dot_prod(xyz, xyz);
 
   // Ensure that we advance by at most half a grid point each time
-  double delta = 0.5*std::min(grid_x, grid_y)/std::max(norm_2(dir2), 1e-16);
+  double delta = 0.5*std::min(gridx, gridy)/std::max(norm_2(dir2), 1e-16);
 
   // go along the ray. Don't allow the loop to go forever.
   for (int i = 1; i < 10000000; i++) {
@@ -180,7 +461,7 @@ bool isInShadow(int col, int row, Vector3 & sunPos,
 }
 
 void areInShadow(Vector3 & sunPos, ImageView<double> const& dem,
-                 double grid_x, double grid_y,
+                 double gridx, double gridy,
                  cartography::GeoReference const& geo,
                  ImageView<float> & shadow){
 
@@ -198,7 +479,7 @@ void areInShadow(Vector3 & sunPos, ImageView<double> const& dem,
   for (int col = 0; col < dem.cols(); col++) {
     for (int row = 0; row < dem.rows(); row++) {
       shadow(col, row) = isInShadow(col, row, sunPos, dem,
-                                    max_dem_height, grid_x, grid_y, geo);
+                                    max_dem_height, gridx, gridy, geo);
     }
   }
 }
@@ -211,13 +492,14 @@ struct Options : public asp::BaseOptions {
 
   int max_iterations, max_coarse_iterations, reflectance_type, coarse_levels;
   bool float_albedo, float_exposure, float_cameras, model_shadows,
-    float_dem_at_boundary;
+    use_approx_camera_models, float_dem_at_boundary;
   double smoothness_weight, init_dem_height, max_height_change,
-    height_change_weight;
+    height_change_weight, camera_position_step_size;
   Options():max_iterations(0), max_coarse_iterations(0), reflectance_type(0),
             coarse_levels(0), float_albedo(false), float_exposure(false), float_cameras(false),
-            model_shadows(false), float_dem_at_boundary(false),
-            smoothness_weight(0), max_height_change(0), height_change_weight(0){};
+            model_shadows(false), use_approx_camera_models(false), float_dem_at_boundary(false),
+            smoothness_weight(0), max_height_change(0), height_change_weight(0),
+            camera_position_step_size(1.0) {};
 };
 
 struct GlobalParams{
@@ -229,7 +511,6 @@ struct GlobalParams{
 
 struct ModelParams {
   vw::Vector3 sunPosition; //relative to the center of the Moon
-  vw::Vector3 cameraPosition;//relative to the center of the planet
   ModelParams(){}
   ~ModelParams(){}
 };
@@ -343,7 +624,8 @@ double computeLunarLambertianReflectanceFromNormal(Vector3 const& sunPos,
   return reflectance;
 }
 
-double ComputeReflectance(Vector3 const& normal, Vector3 const& xyz,
+double ComputeReflectance(Vector3 const& cameraPosition,
+                          Vector3 const& normal, Vector3 const& xyz,
                           ModelParams const& input_img_params,
                           GlobalParams const& global_params,
                           double & phase_angle) {
@@ -355,7 +637,7 @@ double ComputeReflectance(Vector3 const& normal, Vector3 const& xyz,
       //printf("Lunar Lambert\n");
       input_img_reflectance
         = computeLunarLambertianReflectanceFromNormal(input_img_params.sunPosition,
-                                                      input_img_params.cameraPosition,
+                                                      cameraPosition,
                                                       xyz,  normal,
                                                       global_params.phaseCoeffC1,
                                                       global_params.phaseCoeffC2,
@@ -384,7 +666,7 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
                                     cartography::GeoReference const& geo,
                                     bool model_shadows,
                                     double max_dem_height,
-                                    double grid_x, double grid_y,
+                                    double gridx, double gridy,
                                     ModelParams const& model_params,
                                     GlobalParams const& global_params,
                                     BilinearInterpT const & image,
@@ -442,11 +724,13 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   Vector3 normal = -normalize(cross_prod(dx, dy)); // so normal points up
 
   // Update the camera position for the given pixel (camera position
-  // always changes for linescan cameras).
+  // is pixel-dependent for for linescan cameras.
   ModelParams local_model_params = model_params;
-  Vector2 pix = camera->point_to_pixel(base);
+  Vector2 pix;
+  Vector3 cameraPosition;
   try {
-    local_model_params.cameraPosition = camera->camera_center(pix);
+     pix = camera->point_to_pixel(base);
+    cameraPosition = camera->camera_center(pix);
   } catch(...){
     reflectance = 0; reflectance.invalidate();
     intensity = 0;   intensity.invalidate();
@@ -454,7 +738,8 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   }
 
   double phase_angle;
-  reflectance = ComputeReflectance(normal, base, local_model_params,
+  reflectance = ComputeReflectance(cameraPosition,
+                                   normal, base, local_model_params,
                                    global_params, phase_angle);
   reflectance.validate();
 
@@ -477,7 +762,7 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
 
   if (model_shadows) {
     bool inShadow = isInShadow(col, row, local_model_params.sunPosition,
-                               dem, max_dem_height, grid_x, grid_y,
+                               dem, max_dem_height, gridx, gridy,
                                geo);
 
     if (inShadow) {
@@ -494,7 +779,7 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
                                     cartography::GeoReference const& geo,
                                     bool model_shadows,
                                     double & max_dem_height, // alias
-                                    double grid_x, double grid_y,
+                                    double gridx, double gridy,
                                     ModelParams const& model_params,
                                     GlobalParams const& global_params,
                                     BilinearInterpT const & image,
@@ -529,7 +814,7 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
                                      dem(col, row+1), dem(col, row-1),
                                      col, row, dem,  geo,
                                      model_shadows, max_dem_height,
-                                     grid_x, grid_y,
+                                     gridx, gridy,
                                      model_params, global_params,
                                      image, camera,
                                      reflectance(col, row), intensity(col, row));
@@ -568,16 +853,16 @@ float                                        * g_img_nodata_val;
 double                                       * g_exposures;
 std::vector<double>                          * g_adjustments;
 double                                       * g_max_dem_height;
-double                                       * g_grid_x;
-double                                       * g_grid_y;
+double                                       * g_gridx;
+double                                       * g_gridy;
 int                                            g_level = -1;
 
-// When floating the camera position and orientation,
-// multiply the position variables by this number to give
-// it a greater range in searching (it makes more sense to wiggle
-// the camera position by say 1 meter than by a tiny fraction
-// of one millimeter).
-double g_position_scale = 1e+8;
+// When floating the camera position and orientation, multiply the
+// position variables by this factor times
+// opt.camera_position_step_size to give it a greater range in
+// searching (it makes more sense to wiggle the camera position by say
+// 1 meter than by a tiny fraction of one millimeter).
+double g_position_scale_factor = 1e+6;
 
 class SfsCallback: public ceres::IterationCallback {
 public:
@@ -636,15 +921,15 @@ public:
         = dynamic_cast<AdjustedCameraModel*>((*g_cameras)[image_iter].get());
       if (icam == NULL)
         vw_throw( ArgumentErr() << "Expecting adjusted camera.\n");
-      Vector3 position_correction = icam->translation();
-      Quaternion<double> pose_correction = icam->rotation();
-      asp::write_adjustments(out_camera_file, position_correction, pose_correction);
+      Vector3 translation = icam->translation();
+      Quaternion<double> rotation = icam->rotation();
+      asp::write_adjustments(out_camera_file, translation, rotation);
 
       // Compute reflectance and intensity with optimized DEM
       computeReflectanceAndIntensity(*g_dem, *g_geo,
                                      g_opt->model_shadows,
                                      *g_max_dem_height,
-                                     *g_grid_x, *g_grid_y,
+                                     *g_gridx, *g_gridy,
                                      (*g_model_params)[image_iter],
                                      *g_global_params,
                                      (*g_interp_images)[image_iter],
@@ -715,7 +1000,7 @@ public:
       // Dump the points in shadow
       ImageView<float> shadow; // don't use int, scaled weirdly by ASP on reading
       Vector3 sunPos = (*g_model_params)[image_iter].sunPosition;
-      areInShadow(sunPos, *g_dem, *g_grid_x, *g_grid_y,  *g_geo, shadow);
+      areInShadow(sunPos, *g_dem, *g_gridx, *g_gridy,  *g_geo, shadow);
 
       std::string out_shadow_file = g_opt->out_prefix
         + "-shadow" + iter_str2 + ".tif";
@@ -738,15 +1023,18 @@ struct IntensityError {
                  ImageView<double> const& dem,
                  cartography::GeoReference const& geo,
                  bool model_shadows,
+                 double camera_position_step_size,
                  double const& max_dem_height, // note: this is an alias
-                 double grid_x, double grid_y,
+                 double gridx, double gridy,
                  GlobalParams const& global_params,
                  ModelParams const& model_params,
                  BilinearInterpT const& image,
                  boost::shared_ptr<CameraModel> const& camera):
     m_col(col), m_row(row), m_dem(dem), m_geo(geo),
-    m_model_shadows(model_shadows), m_max_dem_height(max_dem_height),
-    m_grid_x(grid_x), m_grid_y(grid_y),
+    m_model_shadows(model_shadows),
+    m_camera_position_step_size(camera_position_step_size),
+    m_max_dem_height(max_dem_height),
+    m_gridx(gridx), m_gridy(gridy),
     m_global_params(global_params),
     m_model_params(model_params),
     m_image(image), m_camera(camera) {}
@@ -768,19 +1056,26 @@ struct IntensityError {
     residuals[0] = F(0.0);
     try{
 
-      // Apply current adjustments to the camera
       AdjustedCameraModel * adj_cam
         = dynamic_cast<AdjustedCameraModel*>(m_camera.get());
       if (adj_cam == NULL)
         vw_throw( ArgumentErr() << "Expecting adjusted camera.\n");
+
+      // We create a copy of this camera to avoid issues when using
+      // multiple threads. We copy just the adjustment parameters,
+      // the pointer to the underlying ISIS camera is shared.
+      AdjustedCameraModel adj_cam_copy = *adj_cam;
+
+      // Apply current adjustments to the camera
       Vector3 axis_angle;
       Vector3 translation;
       for (int param_iter = 0; param_iter < 3; param_iter++) {
-        translation[param_iter] = g_position_scale*adjustments[param_iter];
+        translation[param_iter]
+          = (g_position_scale_factor*m_camera_position_step_size)*adjustments[param_iter];
         axis_angle[param_iter] = adjustments[3 + param_iter];
       }
-      adj_cam->set_translation(translation);
-      adj_cam->set_axis_angle_rotation(axis_angle);
+      adj_cam_copy.set_translation(translation);
+      adj_cam_copy.set_axis_angle_rotation(axis_angle);
 
       PixelMask<double> reflectance, intensity;
       bool success =
@@ -788,9 +1083,9 @@ struct IntensityError {
                                        bottom[0], top[0],
                                        m_col, m_row,  m_dem, m_geo,
                                        m_model_shadows, m_max_dem_height,
-                                       m_grid_x, m_grid_y,
+                                       m_gridx, m_gridy,
                                        m_model_params,  m_global_params,
-                                       m_image, adj_cam,
+                                       m_image, &adj_cam_copy,
                                        reflectance, intensity);
       if (success && is_valid(intensity) && is_valid(reflectance))
         residuals[0] = (intensity - albedo[0]*exposure[0]*reflectance).child();
@@ -811,8 +1106,9 @@ struct IntensityError {
                                      ImageView<double> const& dem,
                                      vw::cartography::GeoReference const& geo,
                                      bool model_shadows,
+                                     double camera_position_step_size,
                                      double const& max_dem_height, // alias
-                                     double grid_x, double grid_y,
+                                     double gridx, double gridy,
                                      GlobalParams const& global_params,
                                      ModelParams const& model_params,
                                      BilinearInterpT const& image,
@@ -820,8 +1116,10 @@ struct IntensityError {
     return (new ceres::NumericDiffCostFunction<IntensityError,
             ceres::CENTRAL, 1, 1, 1, 1, 1, 1, 1, 1, 6>
             (new IntensityError(col, row, dem, geo,
-                                model_shadows, max_dem_height,
-                                grid_x, grid_y,
+                                model_shadows,
+                                camera_position_step_size,
+                                max_dem_height,
+                                gridx, gridy,
                                 global_params, model_params,
                                 image, camera)));
   }
@@ -830,8 +1128,9 @@ struct IntensityError {
   ImageView<double>                 const & m_dem;            // alias
   cartography::GeoReference         const & m_geo;            // alias
   bool                                      m_model_shadows;
+  double                                    m_camera_position_step_size;
   double                            const & m_max_dem_height; // alias
-  double                                    m_grid_x, m_grid_y;
+  double                                    m_gridx, m_gridy;
   GlobalParams                      const & m_global_params;  // alias
   ModelParams                       const & m_model_params;   // alias
   BilinearInterpT                   const & m_image;          // alias
@@ -854,9 +1153,9 @@ struct IntensityError {
 // for the obtained formulas.
 
 struct SmoothnessError {
-  SmoothnessError(double smoothness_weight, double grid_x, double grid_y):
+  SmoothnessError(double smoothness_weight, double gridx, double gridy):
     m_smoothness_weight(smoothness_weight),
-    m_grid_x(grid_x), m_grid_y(grid_y) {}
+    m_gridx(gridx), m_gridy(gridy) {}
 
   template <typename T>
   bool operator()(const T* const bl,   const T* const bottom,    const T* const br,
@@ -867,10 +1166,10 @@ struct SmoothnessError {
 
       // Normalize by grid size seems to make the functional less,
       // sensitive to the actual grid size used.
-      residuals[0] = (left[0] + right[0] - 2*center[0])/m_grid_x/m_grid_x;   // u_xx
-      residuals[1] = (br[0] + tl[0] - bl[0] - tr[0] )/4.0/m_grid_x/m_grid_y; // u_xy
+      residuals[0] = (left[0] + right[0] - 2*center[0])/m_gridx/m_gridx;   // u_xx
+      residuals[1] = (br[0] + tl[0] - bl[0] - tr[0] )/4.0/m_gridx/m_gridy; // u_xy
       residuals[2] = residuals[1];                                           // u_yx
-      residuals[3] = (bottom[0] + top[0] - 2*center[0])/m_grid_y/m_grid_y;   // u_yy
+      residuals[3] = (bottom[0] + top[0] - 2*center[0])/m_gridy/m_gridy;   // u_yy
 
       for (int i = 0; i < 4; i++)
         residuals[i] *= m_smoothness_weight;
@@ -890,13 +1189,13 @@ struct SmoothnessError {
   // Factory to hide the construction of the CostFunction object from
   // the client code.
   static ceres::CostFunction* Create(double smoothness_weight,
-                                     double grid_x, double grid_y){
+                                     double gridx, double gridy){
     return (new ceres::NumericDiffCostFunction<SmoothnessError,
             ceres::CENTRAL, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1>
-            (new SmoothnessError(smoothness_weight, grid_x, grid_y)));
+            (new SmoothnessError(smoothness_weight, gridx, gridy)));
   }
 
-  double m_smoothness_weight, m_grid_x, m_grid_y;
+  double m_smoothness_weight, m_gridx, m_gridy;
 };
 
 // A cost function that will penalize deviating by more than
@@ -942,10 +1241,10 @@ struct HeightChangeError {
 void compute_grid_sizes_in_meters(ImageView<double> const& dem,
                                   GeoReference const& geo,
                                   double nodata_val,
-                                  double & grid_x, double & grid_y){
+                                  double & gridx, double & gridy){
 
   // Initialize the outputs
-  grid_x = 0; grid_y = 0;
+  gridx = 0; gridy = 0;
 
   // Estimate the median height
   std::vector<double> heights;
@@ -963,7 +1262,7 @@ void compute_grid_sizes_in_meters(ImageView<double> const& dem,
 
   // Find the grid sizes by estimating the Euclidean distances
   // between points of a DEM at constant height.
-  std::vector<double> grid_x_vec, grid_y_vec;
+  std::vector<double> gridx_vec, gridy_vec;
   for (int col = 0; col < dem.cols()-1; col++) {
     for (int row = 0; row < dem.rows()-1; row++) {
 
@@ -982,14 +1281,14 @@ void compute_grid_sizes_in_meters(ImageView<double> const& dem,
       lonlat3 = Vector3(lonlat(0), lonlat(1), median_height);
       Vector3 bottom = geo.datum().geodetic_to_cartesian(lonlat3);
 
-      grid_x_vec.push_back(norm_2(right-base));
-      grid_y_vec.push_back(norm_2(bottom-base));
+      gridx_vec.push_back(norm_2(right-base));
+      gridy_vec.push_back(norm_2(bottom-base));
     }
   }
 
   // Median grid size
-  if (!grid_x_vec.empty()) grid_x = grid_x_vec[grid_x_vec.size()/2];
-  if (!grid_y_vec.empty()) grid_y = grid_y_vec[grid_y_vec.size()/2];
+  if (!gridx_vec.empty()) gridx = gridx_vec[gridx_vec.size()/2];
+  if (!gridy_vec.empty()) gridy = gridy_vec[gridy_vec.size()/2];
 }
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -1019,10 +1318,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Model the fact that some points on the DEM are in the shadow.")
     ("shadow-thresholds", po::value(&opt.shadow_thresholds)->default_value(""),
      "Optional shadow thresholds for the input images (a list of real values in quotes).")
+    ("use-approx-camera-models",   po::bool_switch(&opt.use_approx_camera_models)->default_value(false)->implicit_value(true),
+     "Use approximate camera models for speed.")
     ("init-dem-height", po::value(&opt.init_dem_height)->default_value(std::numeric_limits<double>::quiet_NaN()),
      "Use this value as for initial DEM heights. An input DEM still needs to be provided for georeference information.")
     ("float-dem-at-boundary",   po::bool_switch(&opt.float_dem_at_boundary)->default_value(false)->implicit_value(true),
      "Allow the DEM values at the boundary of the region to also float.")
+    ("camera-position-step-size", po::value(&opt.camera_position_step_size)->default_value(1.0),
+     "Larger step size will result in more aggressiveness in varying the camera position if it is being floated (which may result in a better solution or in divergence).")
     ("max-height-change", po::value(&opt.max_height_change)->default_value(0),
      "How much the DEM heights are allowed to differ from the initial guess, in meters. The default is 0, which means this constraint is not applied.")
     ("height-change-weight", po::value(&opt.height_change_weight)->default_value(0),
@@ -1102,6 +1405,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     }
   }
 
+  if (opt.camera_position_step_size <= 0) {
+    vw_throw(ArgumentErr()
+             << "Expecting a positive value for camera-position-step-size.\n");
+  }
+
   // Need this to be able to load adjusted camera models. That will happen
   // in the stereo session.
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
@@ -1153,12 +1461,12 @@ void run_sfs_level(// Fixed inputs
   // Find the grid sizes in meters. Note that dem heights are in
   // meters too, so we treat both horizontal and vertical
   // measurements in same units.
-  double grid_x, grid_y;
-  compute_grid_sizes_in_meters(dem, geo, nodata_val, grid_x, grid_y);
+  double gridx, gridy;
+  compute_grid_sizes_in_meters(dem, geo, nodata_val, gridx, gridy);
   vw_out() << "grid in x and y in meters: "
-           << grid_x << ' ' << grid_y << std::endl;
-  g_grid_x = &grid_x;
-  g_grid_y = &grid_y;
+           << gridx << ' ' << gridy << std::endl;
+  g_gridx = &gridx;
+  g_gridy = &gridy;
 
   // Find the max DEM height
   double max_dem_height = -std::numeric_limits<double>::max();
@@ -1181,8 +1489,10 @@ void run_sfs_level(// Fixed inputs
 
         ceres::CostFunction* cost_function_img =
           IntensityError::Create(col, row, dem, geo,
-                                 opt.model_shadows, max_dem_height,
-                                 grid_x, grid_y,
+                                 opt.model_shadows,
+                                 opt.camera_position_step_size,
+                                 max_dem_height,
+                                 gridx, gridy,
                                  global_params, model_params[image_iter],
                                  interp_images[image_iter],
                                  cameras[image_iter]);
@@ -1205,7 +1515,7 @@ void run_sfs_level(// Fixed inputs
       // Smoothness penalty
       ceres::LossFunction* loss_function_sm = NULL;
       ceres::CostFunction* cost_function_sm =
-        SmoothnessError::Create(smoothness_weight, grid_x, grid_y);
+        SmoothnessError::Create(smoothness_weight, gridx, gridy);
       problem.AddResidualBlock(cost_function_sm, loss_function_sm,
                                &dem(col-1, row+1), &dem(col, row+1),
                                &dem(col+1, row+1),
@@ -1256,6 +1566,12 @@ void run_sfs_level(// Fixed inputs
     }
   }
 
+  if (opt.num_threads > 1){ // && !opt.use_approx_camera_models) {
+    vw_out() << "Using ISIS camera models. Can run with only a single thread.\n";
+    opt.num_threads = 1;
+  }
+  vw_out() << "Using: " << opt.num_threads << " threads.\n";
+
   ceres::Solver::Options options;
   options.gradient_tolerance = 1e-16;
   options.function_tolerance = 1e-16;
@@ -1263,9 +1579,6 @@ void run_sfs_level(// Fixed inputs
   options.minimizer_progress_to_stdout = 1;
   options.num_threads = opt.num_threads;
   options.linear_solver_type = ceres::SPARSE_SCHUR;
-  if (options.num_threads != 1)
-    vw_throw(ArgumentErr()
-             << "Due to ISIS, only a single thread can be used.\n");
 
   // Use a callback function at every iteration
   SfsCallback callback;
@@ -1361,12 +1674,67 @@ int main(int argc, char* argv[]) {
         = dynamic_cast<AdjustedCameraModel*>(cameras[image_iter].get());
       if (icam == NULL) {
         Vector2 pixel_offset;
-        Vector3 position_correction;
-        Quaternion<double> pose_correction = Quat(math::identity_matrix<3>());
+        Vector3 translation;
+        Quaternion<double> rotation = Quat(math::identity_matrix<3>());
         cameras[image_iter] = boost::shared_ptr<CameraModel>
-          (new AdjustedCameraModel(cameras[image_iter], position_correction,
-                                   pose_correction, pixel_offset));
+          (new AdjustedCameraModel(cameras[image_iter], translation,
+                                   rotation, pixel_offset));
       }
+    }
+
+    // Ensure that no two threads can access an ISIS camera at the same time
+    vw::Mutex camera_mutex;
+    double max_approx_err = 0.0;
+
+    // If to use approximate camera models
+    if (opt.use_approx_camera_models) {
+
+      // TODO: The logic below needs some cleanup.
+      for (int image_iter = 0; image_iter < num_images; image_iter++){
+
+        // Here we make a copy, since soon cameras[image_iter] will be overwritten
+        AdjustedCameraModel acam
+          = *dynamic_cast<AdjustedCameraModel*>(cameras[image_iter].get());
+
+        boost::shared_ptr<CameraModel> icam = acam.unadjusted_model();
+        if (dynamic_cast<IsisCameraModel*>(icam.get()) == NULL)
+          vw_throw( ArgumentErr() << "Expecting an ISIS camera model.\n" );
+
+        vw_out() << "Creating an approx camera model for " << opt.input_cameras[image_iter] << ".\n";
+        boost::shared_ptr<CameraModel> apcam
+          (new ApproxCameraModel(icam, dem, geo, nodata_val,
+                                 camera_mutex));
+        vw_out() << "Done creating the approx camera model.\n";
+
+        // Copy the adjustments over to the approximate camera model
+        Vector3 translation  = acam.translation();
+        Quat rotation        = acam.rotation();
+        Vector2 pixel_offset = acam.pixel_offset();
+        double scale         = acam.scale();
+
+        cameras[image_iter] = boost::shared_ptr<CameraModel>
+          (new AdjustedCameraModel(apcam, translation,
+                                   rotation, pixel_offset, scale));
+
+        // Compared original and unadjusted models
+        for (int col = 0; col < dem.cols(); col++) {
+          for (int row = 0; row < dem.rows(); row++) {
+            Vector2 ll = geo.pixel_to_lonlat(Vector2(col, row));
+            Vector3 xyz = geo.datum().geodetic_to_cartesian(Vector3(ll[0], ll[1], dem(col, row)));
+
+            // Test how unadjusted models compare
+            Vector2 pix1 = icam->point_to_pixel(xyz);
+            Vector2 pix2 = apcam->point_to_pixel(xyz);
+            max_approx_err = std::max(max_approx_err, norm_2(pix1 - pix2));
+
+            // Test how adjusted models compare
+            Vector2 pix3 = acam.point_to_pixel(xyz);
+            Vector2 pix4 = cameras[image_iter]->point_to_pixel(xyz);
+            max_approx_err = std::max(max_approx_err, norm_2(pix3 - pix4));
+          }
+        }
+      }
+      vw_out() << "Approximate model error in pixels: " << max_approx_err << std::endl;
     }
 
     // Images with bilinear interpolation
@@ -1403,27 +1771,22 @@ int main(int argc, char* argv[]) {
     std::vector<ModelParams> model_params;
     model_params.resize(num_images);
     for (int image_iter = 0; image_iter < num_images; image_iter++){
-      IsisCameraModel* icam = dynamic_cast<IsisCameraModel*>
-        (unadjusted_model(cameras[image_iter].get()));
-      if (icam == NULL)
-        vw_throw( ArgumentErr() << "ISIS camera model expected." );
+      IsisCameraModel* icam
+        = dynamic_cast<IsisCameraModel*>(get_isis_cam(cameras[image_iter]).get());
       model_params[image_iter].sunPosition    = icam->sun_position();
-      model_params[image_iter].cameraPosition = icam->camera_center();
-      vw_out() << "sun position: "
+      vw_out() << "sun position for image: " << image_iter
                << model_params[image_iter].sunPosition << std::endl;
-      vw_out() << "camera position: "
-               << model_params[image_iter].cameraPosition << std::endl;
     }
 
     // Find the grid sizes in meters. Note that dem heights are in
     // meters too, so we treat both horizontal and vertical
     // measurements in same units.
-    double grid_x, grid_y;
-    compute_grid_sizes_in_meters(dem, geo, nodata_val, grid_x, grid_y);
+    double gridx, gridy;
+    compute_grid_sizes_in_meters(dem, geo, nodata_val, gridx, gridy);
     vw_out() << "grid in x and y in meters: "
-             << grid_x << ' ' << grid_y << std::endl;
-    g_grid_x = &grid_x;
-    g_grid_y = &grid_y;
+             << gridx << ' ' << gridy << std::endl;
+    g_gridx = &gridx;
+    g_gridy = &gridy;
 
     // Find the max DEM height
     double max_dem_height = -std::numeric_limits<double>::max();
@@ -1445,7 +1808,7 @@ int main(int argc, char* argv[]) {
       ImageView< PixelMask<double> > reflectance, intensity;
       computeReflectanceAndIntensity(dem, geo,
                                      opt.model_shadows, max_dem_height,
-                                     grid_x, grid_y,
+                                     gridx, gridy,
                                      model_params[image_iter],
                                      global_params,
                                      interp_images[image_iter],
@@ -1485,7 +1848,7 @@ int main(int argc, char* argv[]) {
         vw_throw(ArgumentErr() << "Expecting zero pixel offset.\n");
       for (int param_iter = 0; param_iter < 3; param_iter++) {
         adjustments[6*image_iter + 0 + param_iter]
-          = translation[param_iter]/g_position_scale;
+          = translation[param_iter]/(g_position_scale_factor*opt.camera_position_step_size);
         adjustments[6*image_iter + 3 + param_iter] = axis_angle[param_iter];
       }
     }
