@@ -16,12 +16,12 @@
 // __END_LICENSE__
 
 
-#include <asp/Sessions/DG/StereoSessionDG.h>
-#include <asp/Sessions/DGMapRPC/StereoSessionDGMapRPC.h>
-#include <asp/Sessions/RPC/StereoSessionRPC.h>
-#include <asp/Sessions/ISIS/StereoSessionIsis.h>
-#include <asp/Sessions/Pinhole/StereoSessionPinhole.h>
-#include <asp/Sessions/NadirPinhole/StereoSessionNadirPinhole.h>
+#include <asp/Sessions/StereoSessionDG.h>
+#include <asp/Sessions/StereoSessionDGMapRPC.h>
+#include <asp/Sessions/StereoSessionRPC.h>
+#include <asp/Sessions/StereoSessionIsis.h>
+#include <asp/Sessions/StereoSessionPinhole.h>
+#include <asp/Sessions/StereoSessionNadirPinhole.h>
 
 #include <test/Helpers.h>
 

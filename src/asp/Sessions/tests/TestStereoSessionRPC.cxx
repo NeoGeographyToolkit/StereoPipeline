@@ -16,10 +16,10 @@
 // __END_LICENSE__
 
 
-#include <asp/Sessions/RPC/StereoSessionRPC.h>
-#include <asp/Sessions/RPC/RPCModel.h>
-#include <asp/Sessions/RPC/RPCStereoModel.h>
-#include <asp/Sessions/DG/XML.h>
+#include <asp/Sessions/StereoSessionRPC.h>
+#include <asp/Camera/RPCModel.h>
+#include <asp/Camera/RPCStereoModel.h>
+#include <asp/Camera/DG_XML.h>
 #include <test/Helpers.h>
 
 using namespace vw;
