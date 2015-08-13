@@ -168,11 +168,11 @@ public: // Functions
         int source_r = r + bbox.min()[1];
 
         // Check for a masked pixel
-        //if ( !is_valid(m_gray_image (c, r)) ||
-        //     !is_valid(m_color_image(c, r))  ) {
-        //  tile(c, r) = m_output_nodata;
-        //  continue;
-        //}
+        if ( !is_valid(m_gray_image (source_c, source_r)) ||
+             !is_valid(m_color_image(source_c, source_r))  ) {
+          tile(c, r) = m_output_nodata;
+          continue;
+        }
 
         // Pass the two input pixels into the conversion function
         //result_type output_pixel = convert_pixel(m_gray_image(source_c, r), m_color_image(source_c, r));
@@ -222,9 +222,10 @@ struct Options : asp::BaseOptions {
   double nodata_value, 
          min_value,
          max_value;
+  bool has_nodata;
 };
 
-const int DEFAULT_NODATA = -32768;
+const double DEFAULT_NODATA = -std::numeric_limits<double>::max();
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
@@ -238,7 +239,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
              "Path to a WV XML file for the gray image.  Can be used to obtain the geo data.")             
     ("color-xml", po::value(&opt.color_xml_path)->default_value(""), 
              "Path to a WV XML file for the color image.  Can be used to obtain the geo data.")             
-             
     ("nodata-value", po::value(&opt.nodata_value)->default_value(DEFAULT_NODATA), 
              "The no-data value to use, unless present in the color image header.");
   general_options.add( asp::BaseOptionsDescription(opt) );
@@ -268,8 +268,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
          << usage << general_options );
          
   if (opt.min_value > opt.max_value)
-    vw_throw( ArgumentErr() 
-         << "The minimum value cannot be greater than the maximum value!\n\n");
+    vw_throw( ArgumentErr() << "The minimum value cannot be greater than the maximum value!\n\n");
+
+  // Determine if the user entered a nodata value
+  opt.has_nodata = vm.count("output-nodata-value");
 }
 
 
@@ -278,8 +280,8 @@ template <typename T>
 void load_inputs_and_process(Options           & opt, 
                              GeoReference const& gray_georef,
                              GeoReference const& color_georef,
-                             T const& gray_nodata,
-                             T const& color_nodata) {
+                             double       const& gray_nodata,
+                             double       const& color_nodata) {
 
   // If the user left max_value at the default, make it the data type max.
   // - min_value defaults to zero so no need to change that.
@@ -299,275 +301,43 @@ void load_inputs_and_process(Options           & opt,
   DiskImageView<PixelGray<T> > gray_img (gray_rsrc);
   DiskImageView<PixelRGB <T> > color_img(color_rsrc);
 
-
-  // TODO: Allow user to choose which image goes where?
-
-  std::cout << "gray georef: \n" << gray_georef << std::endl;
-  std::cout << "color georef: \n" << color_georef << std::endl;
-
   // Generate a bounding box that is the minimum of the two BBox areas
   BBox2 crop_box = bounding_box( gray_img );
   crop_box.crop(gray_georef.lonlat_to_pixel_bbox(color_georef.pixel_to_lonlat_bbox(bounding_box( color_img ))));   
-  std::cout << "gray  pixel box: " << bounding_box(gray_img) << std::endl;
-  std::cout << "color pixel box: " << bounding_box(color_img) << std::endl;
-  std::cout << "gray  BB: " << gray_georef.pixel_to_lonlat_bbox(bounding_box(gray_img)) << std::endl;
-  std::cout << "color BB: " << color_georef.pixel_to_lonlat_bbox(bounding_box(color_img)) << std::endl;
-  std::cout << "gray_bbox: " << bounding_box(gray_img) << std::endl;
-  std::cout << "color_bbox: " << bounding_box(color_img) << std::endl;
-  std::cout << "crop_box: " << crop_box << std::endl;
-
+ 
+  // Processing is done on doubles to handle nodata values, then converted to the desired output type.
 
   // Generate a view of the color image from the pixel coordinate system of the gray image
-  typedef PixelMask<PixelRGB<T> > PixelRGBMask;
-  ImageViewRef<PixelRGBMask> color_trans =
-    crop(geo_transform( create_mask(color_img, color_nodata),
+  typedef PixelMask<PixelRGB<double> > PixelRGBMaskD;
+  typedef PixelMask<PixelRGB<T     > > PixelRGBMask;
+  ImageViewRef<PixelRGBMaskD> color_trans =
+    crop(geo_transform( create_mask(pixel_cast<PixelRGBMaskD>(color_img), 
+                                                  color_nodata),
                         color_georef, gray_georef,
-                        ValueEdgeExtension<PixelRGBMask>(PixelRGBMask()) ),
+                        ValueEdgeExtension<PixelRGBMaskD>(PixelRGBMaskD()) ),
          crop_box );
+        
          
-
-         
-  // - TODO: WorldView convention is to mask <= a value, but this may
-  //         not be a universal standard!
+  // WorldView convention is to mask <= a value, but this may not be a universal standard!
+  // - create_mask_less_or_equal seems to break on PixelRGB types.
+  
   vw_out() << "Writing: " << opt.output_path << std::endl;
   asp::block_write_gdal_image( opt.output_path,
                                // The final output image is set up in these few lines:
-                               apply_mask(pansharp_view(crop(create_mask_less_or_equal(gray_img, 
-                                                                                       gray_nodata), 
-                                                             crop_box),
-                                                        color_trans,
-                                                        static_cast<T>(opt.nodata_value),
-                                                        static_cast<T>(opt.min_value),
-                                                        static_cast<T>(opt.max_value)),
-                                          static_cast<T>(opt.nodata_value) ),
+                               pixel_cast<PixelRGBMask>(
+                                        apply_mask(pansharp_view(crop(create_mask_less_or_equal(pixel_cast<double>(gray_img), 
+                                                                                               gray_nodata), 
+                                                                                 crop_box),
+                                                                            color_trans,
+                                                                            opt.nodata_value,
+                                                                            opt.min_value,
+                                                                            opt.max_value),
+                                                              opt.nodata_value)
+                                      ),
                                true, gray_georef, // The output is written in the gray coordinate system
-                               true, opt.nodata_value,
+                               opt.has_nodata, opt.nodata_value,
                                opt,
                                TerminalProgressCallback("pansharp","\t--> Writing:"));
-}
-
-
-
-
-
-// DEBUG!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
-
-
-/// Solve for Normalization Similarity Matrix used for noise rej.
-Matrix3x3
-NormSimilarity( std::vector<Vector3> const& pts ) {
-  size_t num_points = pts.size();
-  size_t dimension = 3;
-
-  // Get the mean location of the points
-  Vector2 translation;
-  for ( size_t i = 0; i < num_points; i++ )
-    translation+=subvector(pts[i],0,dimension-1);
-  translation /= num_points;
-
-  // Compute scale from mean distance to sqrt(2)
-  double scale = 0;
-  for ( size_t i = 0; i < num_points; i++ )
-    scale += norm_2( subvector(pts[i],0,dimension-1) - translation );
-  scale = num_points*sqrt(2.)/scale;
-
-  // Generate transform to convert points to normalized scale
-  Matrix3x3 t;
-  t(2,2) = 1;
-  t(0,0) = scale;
-  t(1,1) = scale;
-  t(0,2) = -scale*translation[0];
-  t(1,2) = -scale*translation[1];
-  return t;
-}
-
-vw::Matrix3x3
-BasicDLT( std::vector<Vector3 > const& input,
-          std::vector<Vector3 > const& output )  {
-  VW_ASSERT( input.size() == 4 && output.size() == 4,
-             vw::ArgumentErr() << "DLT in this implementation expects to have only 4 inputs." );
-  VW_ASSERT( input[0][input[0].size()-1] == 1,
-             vw::ArgumentErr() << "Input data doesn't seem to be normalized.");
-  VW_ASSERT( output[0][output[0].size()-1] == 1,
-             vw::ArgumentErr() << "Secondary input data doesn't seem to be normalized.");
-  VW_ASSERT( input[0].size() == 3,
-             vw::ArgumentErr() << "BasicDLT only supports homogeneous 2D vectors.");
-
-  // Converting from point pairs (x,y,1) to (u,v,1)
-  // Aih = 0
-  // Ai = ( -x, -y, -1,  0,  0,  0, ux, uy,  u)
-  //      (  0,  0,  0, -x, -y, -1, vx, vy,  v)
-  // Stack four of these to get A.
-  const uint8 NUM_PAIRS = 4;
-  vw::Matrix<double,8,9> A;
-  for ( uint8 i = 0; i < NUM_PAIRS; i++ ) {
-    for ( uint8 j = 0; j < 3; j++ ) {
-      
-      //A(i,  j+3) = -output[i][2]*input[i][j]; // Filling in -wi'*xi^T
-      //A(i,  j+6) =  output[i][1]*input[i][j]; // Filling in  yi'*xi^T
-      //A(i+4,j  ) =  output[i][2]*input[i][j]; // Filling in  wi'*xi^T
-      //A(i+4,j+6) = -output[i][0]*input[i][j]; // Filling in -xi'*xi^T
-    }
-  }
-  std::cout << "OLD A = \n" << A << std::endl;
-
-  for ( uint8 i = 0; i < NUM_PAIRS; i++ ) {
-    double x(input [i][0]),
-           y(input [i][1]);
-    double u(output[i][0]),
-           v(output[i][1]);             
-
-    uint8 i1 = 2*i;    
-    A(i1, 0) = -x;   A(i1, 1) = -y;  A(i1, 2) = -1;
-    A(i1, 6) = u*x;  A(i1, 7) = u*y; A(i1, 8) = u;
-
-    uint8 i2 = i1+1;
-    A(i2, 3) = -x;   A(i2, 4) = -y;  A(i2, 5) = -1;
-    A(i2, 6) = v*x;  A(i2, 7) = v*y; A(i2, 8) = v;
-  }
-  std::cout << "NEW A = \n" << A << std::endl;
-
-  Matrix<double> nullsp = nullspace(A);
-  std::cout << "Nullspace = \n" << nullsp << std::endl;
-  nullsp /= nullsp(8,0);
-  Matrix3x3 H;
-  for ( uint8 i = 0; i < 3; i++ )
-    for ( uint8 j = 0; j < 3; j++ )
-      H(i,j) = nullsp(i*3+j,0);
-  return H;
-}
-
-
-// Applies a transform matrix to a list of points;
-template <int D>
-struct ApplyMatrixFunctor {
-  Matrix<double,D,D> m;
-  template <class MatrixT>
-  ApplyMatrixFunctor( MatrixBase<MatrixT> const& mat ) : m( mat.impl() ) {}
-
-  Vector<double,D> operator()( Vector<double,D> const& v ) {
-    return m * v;
-  }
-};
-
-
-// TODO: Move this!
-/// Attempts to approximate a georeference for a WorldView image using the
-///  four corner points in the XML file.
-/// - This only works for unprojected WV images with four lonlat GCPs at the corner pixels.
-/// - The approximation is limited to using a perspective transform.
-bool approximate_wv_georeference(std::string  const& wv_xml_path,
-                                 GeoReference      & approx_georef) {
-                                 
-  // Find the four corners in the XML file
-  std::vector<Vector2> pixel_corners, lonlat_corners;
-  if (!asp::read_WV_XML_corners(wv_xml_path, pixel_corners, lonlat_corners))
-    return false;
-  
-  std::cout << "Read in these corners:\n";
-  //for(size_t i=0; i<pixel_corners.size(); ++i) {
-  //  std::cout << pixel_corners[i] << "  --->   " << lonlat_corners[i] << std::endl;
-  //}
-
-
-  // Convert the corners into homogenous coordinates so that the fitter will accept them.
-  const size_t NUM_CORNERS = 4; 
-  std::vector<Vector3> pixel_corners3 (NUM_CORNERS), 
-                       lonlat_corners3(NUM_CORNERS);
-  for (size_t i=0; i<NUM_CORNERS; ++i) {
-    pixel_corners3[i].x() = pixel_corners[i].x();
-    pixel_corners3[i].y() = pixel_corners[i].y();
-    pixel_corners3[i].z() = 1.0;
-    lonlat_corners3[i].x() = lonlat_corners[i].x();
-    lonlat_corners3[i].y() = lonlat_corners[i].y();
-    lonlat_corners3[i].z() = 1.0;
-    
-    std::cout << pixel_corners3[i] << "  --->   " << lonlat_corners3[i] << std::endl;
-  }
-  //pixel_corners3[4] = pixel_corners3[3];
-  //lonlat_corners3[4] = lonlat_corners3[3];
-  // Compute the perspective transform
-  // - To bad this does not give an indication of fit quality  
-  vw::math::HomographyFittingFunctor fitter;
-  Matrix<double> transform = fitter(pixel_corners3, lonlat_corners3);
-  
-  std::cout << "Computed approximate transform: \n" << transform << std::endl;
-
-  // DEBUG!!!
-  // Use DLT
-  Matrix3x3 S_in  = NormSimilarity(pixel_corners3);
-  Matrix3x3 S_out = NormSimilarity(lonlat_corners3);
-  std::transform( pixel_corners3.begin(), pixel_corners3.end(), pixel_corners3.begin(),
-                  ApplyMatrixFunctor<3>( S_in ) );
-  std::transform( lonlat_corners3.begin(), lonlat_corners3.end(), lonlat_corners3.begin(),
-                  ApplyMatrixFunctor<3>( S_out ) );
-  Matrix3x3 H_prime = BasicDLT( pixel_corners3, lonlat_corners3 );
-  Matrix3x3 H       = inverse(S_out)*H_prime*S_in;
-  H /= H(2,2);
-
-  std::cout << "S_in    = \n" << S_in << std::endl;
-  std::cout << "S_out   = \n" << S_out << std::endl;
-  std::cout << "Normalized corners:\n";
-  for(size_t i=0; i<pixel_corners.size(); ++i) {
-    std::cout << pixel_corners3[i] << "  --->   " << lonlat_corners3[i] << std::endl;
-  }
-  std::cout << "H_prime = \n" << H_prime << std::endl;
-  std::cout << "H       = \n" << H << std::endl;
-
-  
-  
-  
-  
-  // Construct the approximated GeoReference
-  approx_georef.set_geographic(); // Set to 'lonlat' projection
-  approx_georef.set_transform(H);
-
-  // DEBUG
-  std::cout << "DEBUG mults\n";
-  Vector3 temp = H * Vector3(0.5,     0.5,     1.0);
-  std::cout << temp / temp[2] << std::endl;
-  std::cout << approx_georef.pixel_to_lonlat(pixel_corners[0]) << std::endl;
-  temp = H * Vector3(8231.5, 0.5,     1.0);
-  std::cout << temp / temp[2] << std::endl;
-  std::cout << approx_georef.pixel_to_lonlat(pixel_corners[1]) << std::endl;
-  temp = H * Vector3(8231.5, 6991.5, 1.0);
-  std::cout << temp / temp[2] << std::endl;
-  std::cout << approx_georef.pixel_to_lonlat(pixel_corners[2]) << std::endl;
-  temp = H * Vector3(0.5,     6991.5, 1.0);
-  std::cout << temp / temp[2] << std::endl;
-  std::cout << approx_georef.pixel_to_lonlat(pixel_corners[3]) << std::endl;
-
-  BBox2 box(pixel_corners[0], pixel_corners[2]);
-  std::cout << " pixel box: " << box << std::endl;
-  std::cout << " BB: " << approx_georef.pixel_to_lonlat_bbox(box) << std::endl;
-
-  std::cout << "approx georef: \n" << approx_georef << std::endl;
-
-  return true;
-}
-
-/// Reads a georeference from the WV file.
-/// - If the image is not georegistered but there are
-///   corner coordinates in xml_path, an approximate
-///   georef file will be created.
-bool read_wv_georeference(GeoReference      &georef,
-                          std::string const &image_path,
-                          std::string const &xml_path="") {
-
-  // Try to read the georeference from the image file
-  DiskImageResourceGDAL rsrc(image_path);
-  //if (read_georeference(georef, rsrc))
-  //  return true;
-    
-  std::cout << "Trying to read georef from xml file: " << xml_path << std::endl;
-    
-  // TODO: Should this verify that the image size is correct?
-
-  // If that failed, try approximating from the XML file.
-  xercesc::XMLPlatformUtils::Initialize();
-  bool result = approximate_wv_georeference(xml_path, georef);
-  xercesc::XMLPlatformUtils::Terminate();
-  return result;
 }
 
 
@@ -591,17 +361,18 @@ int main( int argc, char *argv[] ) {
       vw_out() << "\tFound input nodata value for the color image: " << color_nodata << endl;
       // If we read in color nodata and the user did not provide nodata,
       //  set this as the output nodata value.
-      if (opt.nodata_value == DEFAULT_NODATA)
+      if (opt.nodata_value == DEFAULT_NODATA) {
         opt.nodata_value = color_nodata;
+        opt.has_nodata   = true;
+      }
     }
 
     // Read in geo information
     GeoReference gray_georef, color_georef;
-    if (!read_wv_georeference(gray_georef,  opt.gray_path,  opt.gray_xml_path ) ||
-        !read_wv_georeference(color_georef, opt.color_path, opt.color_xml_path)   ) {
+    if (!asp::read_wv_georeference(gray_georef,  opt.gray_path,  opt.gray_xml_path ) ||
+        !asp::read_wv_georeference(color_georef, opt.color_path, opt.color_xml_path)   ) {
       vw_throw(ArgumentErr() << "Could not read a georeference from an input image!\n");
     }
-        
 
     // Transform the color image into the same perspective as the grayscale image. However, we
     // don't support datum changes!

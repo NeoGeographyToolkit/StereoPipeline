@@ -28,6 +28,8 @@
 #include <vw/Math/Vector.h>
 #include <vw/Math/Quaternion.h>
 #include <vw/Math/BBox.h>
+#include <vw/Math/Geometry.h>
+#include <vw/Cartography/GeoReference.h>
 #include <asp/Camera/XMLBase.h>
 
 #include <vector>
@@ -162,13 +164,26 @@ namespace asp {
   vw::Vector2i xml_image_size( std::string const& filename );
 
 
-
-
   /// Function to extract the four corners from the first band
   ///  of a Worldview XML file.
   bool read_WV_XML_corners(std::string const& xml_path,
                            std::vector<vw::Vector2> &pixel_corners,
                            std::vector<vw::Vector2> &lonlat_corners);
+
+  /// Attempts to approximate a georeference for a WorldView image using the
+  ///  four corner points in the XML file.
+  /// - This only works for unprojected WV images with four lonlat GCPs at the corner pixels.
+  /// - The approximation is limited to using a perspective transform.
+  bool approximate_wv_georeference(std::string const& wv_xml_path,
+                                   vw::cartography::GeoReference & approx_georef);
+
+  /// Reads a georeference from the WorldView file.
+  /// - If the image is not georegistered but there are
+  ///   corner coordinates in xml_path, an approximate
+  ///   georef file will be created.
+  bool read_wv_georeference(vw::cartography::GeoReference &georef,
+                            std::string const &image_path,
+                            std::string const &xml_path="");
 
 } //end namespace asp
 

@@ -19,6 +19,7 @@
 #include <vw/Math/Quaternion.h>         // for Quat, Quaternion
 #include <vw/Math/Vector.h>             // for Vector, Vector3, Vector4, etc
 #include <vw/Cartography/Datum.h>       // for Datum
+#include <vw/FileIO/DiskImageResourceGDAL.h>
 
 #include <asp/Camera/DG_XML.h>
 #include <asp/Camera/RPCModel.h>
@@ -32,6 +33,7 @@
 #include <boost/lexical_cast.hpp>
 
 using namespace vw;
+using namespace vw::cartography;
 using namespace xercesc;
 
 namespace fs=boost::filesystem;
@@ -779,6 +781,77 @@ bool asp::read_WV_XML_corners(std::string const& xml_path,
   // Only make it here if we failed to find the corner information!  
   return false;
 }
+
+
+bool asp::approximate_wv_georeference(std::string  const& wv_xml_path,
+                                      GeoReference      & approx_georef) {
+                                 
+  // Find the four corners in the XML file
+  std::vector<Vector2> pixel_corners, lonlat_corners;
+  if (!asp::read_WV_XML_corners(wv_xml_path, pixel_corners, lonlat_corners))
+    return false;
+  
+  std::cout << "Read in these corners:\n";
+  for(size_t i=0; i<pixel_corners.size(); ++i) {
+    std::cout << pixel_corners[i] << "  --->   " << lonlat_corners[i] << std::endl;
+  }
+
+
+  // Convert the corners into homogenous coordinates so that the fitter will accept them.
+  const size_t NUM_CORNERS = 4; 
+  std::vector<Vector3> pixel_corners3 (NUM_CORNERS), 
+                       lonlat_corners3(NUM_CORNERS);
+  for (size_t i=0; i<NUM_CORNERS; ++i) {
+    pixel_corners3[i].x() = pixel_corners[i].x();
+    pixel_corners3[i].y() = pixel_corners[i].y();
+    pixel_corners3[i].z() = 1.0;
+    lonlat_corners3[i].x() = lonlat_corners[i].x();
+    lonlat_corners3[i].y() = lonlat_corners[i].y();
+    lonlat_corners3[i].z() = 1.0;
+    
+    std::cout << pixel_corners3[i] << "  --->   " << lonlat_corners3[i] << std::endl;
+  }
+
+  // Compute the perspective transform
+  // - To bad this does not give an indication of fit quality  
+  vw::math::HomographyFittingFunctor fitter;
+  Matrix<double> transform = fitter(pixel_corners3, lonlat_corners3);
+  
+  std::cout << "Computed approximate transform: \n" << transform << std::endl;
+
+  // Construct the approximated GeoReference
+  approx_georef.set_geographic(); // Set to 'lonlat' projection
+  approx_georef.set_transform(transform);
+
+  return true;
+}
+
+
+bool asp::read_wv_georeference(GeoReference      &georef,
+                               std::string const &image_path,
+                               std::string const &xml_path) {
+
+  // Try to read the georeference from the image file
+  DiskImageResourceGDAL rsrc(image_path);
+  if (read_georeference(georef, rsrc))
+    return true;
+    
+  std::cout << "Trying to read georef from xml file: " << xml_path << std::endl;
+    
+  // TODO: Should this verify that the image size is correct?
+
+  // If that failed, try approximating from the XML file.
+  xercesc::XMLPlatformUtils::Initialize();
+  bool result = approximate_wv_georeference(xml_path, georef);
+  xercesc::XMLPlatformUtils::Terminate();
+  return result;
+}
+
+
+
+
+
+
 
 
 
