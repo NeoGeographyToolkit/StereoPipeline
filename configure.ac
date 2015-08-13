@@ -330,11 +330,7 @@ AX_PKG_ONE_OF(GSL,
     GSL_NEEDBLAS, [AX_PKG(GSL_NEEDBLAS, [LAPACK], [-lgsl -lgslcblas])])
 
 AX_PKG(CURL,    [], [-lcurl], [curl/curl.h])
-
-# The GEOID dependency is data, not software. Must have it here to be
-# able to pass a flag with the data location to the programs using
-# this data.
-AX_PKG(GEOID, [], [], [])
+AX_PKG(GEOID, [], [-legm2008], [])
 
 AX_PKG(GEOS,    [], [-lgeos], [geos.h])
 AX_PKG(XERCESC, [CURL], [-lxerces-c], [xercesc/dom/DOM.hpp xercesc/util/XMLString.hpp xercesc/parsers/XercesDOMParser.hpp])
@@ -432,7 +428,7 @@ AX_APP(MER2CAMERA,       [src/asp/Tools], yes, [CORE])
 AX_APP(ORBITVIZ,         [src/asp/Tools], yes, [SESSIONS])
 AX_APP(ORTHOPROJECT,     [src/asp/Tools], yes, [SESSIONS])
 AX_APP(PLATEORTHOPROJECT,[src/asp/Tools], no,  [VW_PLATE CORE SESSIONS ISISIO])
-AX_APP(POINT2DEM,        [src/asp/Tools], yes, [CORE GDAL])
+AX_APP(POINT2DEM,        [src/asp/Tools], yes, [CORE])
 AX_APP(POINT2MESH,       [src/asp/Tools], yes, [OPENSCENEGRAPH CORE])
 AX_APP(POINT2LAS,        [src/asp/Tools], yes, [CORE])
 AX_APP(DEM_GEOID,        [src/asp/Tools], yes, [GEOID CORE])
@@ -440,12 +436,12 @@ AX_APP(RESULTS,          [src/asp/Tools], no,  [ISISIO])
 AX_APP(MAPPROJECT,       [src/asp/Tools], yes, [SESSIONS GDAL])
 AX_APP(RPC_GEN,          [src/asp/Tools], yes, [SESSIONS])
 AX_APP(TIF_MOSAIC,       [src/asp/Tools], yes, [CORE])
-AX_APP(STEREO,           [src/asp/Tools], yes, [CORE SESSIONS])
-AX_APP(STEREO_GUI,       [src/asp/Tools], yes, [CORE SESSIONS GUI])
+AX_APP(STEREO,           [src/asp/Tools], yes, [SESSIONS])
+AX_APP(STEREO_GUI,       [src/asp/Tools], yes, [SESSIONS GUI])
 AX_APP(WV_CORRECT,       [src/asp/Tools], yes, [SESSIONS])
-AX_APP(IMAGE_CALC,       [src/asp/Tools], yes, [CORE GDAL])
-AX_APP(PANSHARP,         [src/asp/Tools], yes, [CORE CAMERA GDAL])
-AX_APP(PC_MERGE,         [src/asp/Tools], yes, [CORE GDAL])
+AX_APP(IMAGE_CALC,       [src/asp/Tools], yes, [CORE])
+AX_APP(PANSHARP,         [src/asp/Tools], yes, [CORE])
+AX_APP(PC_MERGE,         [src/asp/Tools], yes, [CORE])
 
 # These are here (instead of inside the APP macro where they belong)
 # for backwards compatability with older versions of automake.
