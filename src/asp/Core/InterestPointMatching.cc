@@ -38,7 +38,7 @@ namespace asp {
                                                    camera::CameraModel* cam_obj,
                                                    bool & success) {
     success = true;
-    
+
     Vector3 p0 = cartography::datum_intersection( datum, cam_ip, feature );
 
     if (p0 == Vector3()){
@@ -46,7 +46,7 @@ namespace asp {
       success = false;
       return Vector3();
     }
-    
+
     Vector3 p1 = p0 + 10*cam_ip->pixel_to_vector( feature );
     Vector2 ep0 = cam_obj->point_to_pixel( p0 );
     Vector2 ep1 = cam_obj->point_to_pixel( p1 );
@@ -62,7 +62,7 @@ namespace asp {
       success = false;
       return Vector3();
     }
-    
+
     Matrix<double> nsp = nullspace( matrix );
     if (nsp.cols() <= 0 || nsp.rows() <= 0){
       // Failed to find the nullspace
@@ -130,15 +130,15 @@ namespace asp {
           line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, m_cam1, m_cam2,
                                              found_epipolar);
         }
-        
+
         std::vector<std::pair<float,int> > kept_indices;
         kept_indices.reserve(num);
         m_tree.knn_search( ip->descriptor, indices, distances, num );
-        
+
         for ( size_t i = 0; i < num; i++ ) {
           IPListIter ip2_it = m_ip_other.begin();
           std::advance( ip2_it, indices[i] );
-          
+
           if (found_epipolar){
             Vector2 ip2_org_coord = m_tx2.reverse( Vector2( ip2_it->x, ip2_it->y ) );
             double distance = m_matcher.distance_point_line( line_eq, ip2_org_coord );
@@ -147,7 +147,7 @@ namespace asp {
             }
           }
         }
-        
+
         if ( ( kept_indices.size() > 2 &&
                kept_indices[0].first < m_matcher.m_threshold * kept_indices[1].first ) ||
              kept_indices.size() == 1 ){
@@ -262,8 +262,8 @@ namespace asp {
     int num = 100;
     left_points.reserve(2*num*num);
     right_points.reserve(2*num*num);
-    for ( size_t i = 0; i < num; i++ ) {
-      for ( size_t j = 0; j < num; j++ ) {
+    for (int i = 0; i < num; i++ ) {
+      for ( int j = 0; j < num; j++ ) {
         try {
           Vector2 l( double(box1.width() - 1) * i / (num-1.0),
                      double(box1.height() - 1) * j / (num-1.0) );
@@ -373,7 +373,7 @@ namespace asp {
       temp = right_matrix*Vector3(right_size.x(),right_size.y(),1);
       temp /= temp.z();
       right_bbox.grow( subvector(temp,0,2) );
-      
+
       output_bbox.crop( right_bbox );
 
       //  Move the ideal render size to be aligned up with origin
@@ -382,7 +382,7 @@ namespace asp {
       left_matrix(1,2) -= output_bbox.min().y();
       right_matrix(1,2) -= output_bbox.min().y();
     }
-    
+
     return Vector2i( output_bbox.width(), output_bbox.height() );
   }
 
@@ -442,13 +442,13 @@ namespace asp {
       size_t last_good_index = static_cast<double>(sorted_error.size()) * CUTOFF_PERCENTILE;
       double cutoff_value = 0;
 	  if (last_good_index < sorted_error.size())
-		  cutoff_value = sorted_error[last_good_index]; 
+		  cutoff_value = sorted_error[last_good_index];
 
       // Treat all points below the new cutoff_value as inliers
       std::list<size_t> filtered_indices;
       size_t c=0;
       for ( std::list<size_t>::iterator i = valid_indices.begin();
-          i != valid_indices.end(); i++ ) 
+          i != valid_indices.end(); i++ )
       {
         if (error_samples[c] < cutoff_value)
           filtered_indices.push_back(*i);
