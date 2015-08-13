@@ -420,17 +420,28 @@ void MainWidget::viewThreshImages(){
                                nodata_val), nodata_val);
 
       // The name of the thresholded file
-    boost::filesystem::path p(orig_file);
-    std::string stem = p.stem().string();
-    std::string thresh_file = stem + "_thresh.tif";
-    vw_out() << "Writing file: " << thresh_file << std::endl;
+    std::string prefix = asp::prefix_from_filename(orig_file);
+    std::string suffix = "_thresh.tif";
+    std::string curr_file = prefix + suffix;
+    vw_out() << "Writing file: " << curr_file << std::endl;
 
     TerminalProgressCallback tpc("asp", ": ");
     asp::BaseOptions opt;
-    vw_out() << "Writing: " << thresh_file << std::endl;
-    asp::block_write_gdal_image(thresh_file, thresh_image, nodata_val, opt, tpc);
+    vw_out() << "Writing: " << curr_file << std::endl;
+    try {
+      asp::block_write_gdal_image(curr_file, thresh_image, nodata_val, opt, tpc);
+    }catch(...){
+      // Failed to write, presumably because we have no write access.
+      // Write the file in the current dir.
+      vw_out() << "Failed to write: " << curr_file << "\n";
+      boost::filesystem::path p(orig_file);
+      prefix = p.stem().string();
+      curr_file = prefix + suffix;
+      vw_out() << "Writing: " << curr_file << std::endl;
+      asp::block_write_gdal_image(curr_file, thresh_image, nodata_val, opt, tpc);
+    }
 
-    m_shadow_thresh_images[image_iter].read(thresh_file, m_use_georef, m_hillshade);
+    m_shadow_thresh_images[image_iter].read(curr_file, m_use_georef, m_hillshade);
   }
 
   refreshPixmap();

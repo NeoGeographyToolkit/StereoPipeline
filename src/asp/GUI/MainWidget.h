@@ -202,9 +202,8 @@ public:
 
     // Get the nodata value, if present
     bool has_nodata = vw::read_nodata_val(base_file, m_nodata_val);
-
+    std::string prefix = asp::prefix_from_filename(base_file);
     fs::path base_path(base_file);
-    std::string base_stem = base_path.stem().string();
     std::time_t base_time = fs::last_write_time(base_path);
 
     int level = 0;
@@ -215,8 +214,9 @@ public:
       // The name of the file at the current scale
       std::ostringstream os;
       scale *= subsample;
-      os << base_stem << "_sub" << scale << ".tif";
-      std::string curr_file = os.str();
+      os <<  "_sub" << scale << ".tif";
+      std::string suffix = os.str();
+      std::string curr_file = prefix + suffix;
 
       if (level == 0) {
         vw_out() << "Detected large image: " << base_file  << "." << std::endl;
@@ -249,11 +249,15 @@ public:
       // don't write it again
       bool will_write = true;
       if (fs::exists(curr_file)) {
-        DiskImageView<double> curr(curr_file);
-        fs::path curr_path(curr_file);
-        std::time_t curr_file_time = fs::last_write_time(curr_path);
-        if (curr.cols() == unmasked.cols() && curr.rows() == unmasked.rows() &&
-            curr_file_time > base_time) {
+        try{
+          DiskImageView<double> curr(curr_file);
+          fs::path curr_path(curr_file);
+          std::time_t curr_file_time = fs::last_write_time(curr_path);
+          if (curr.cols() == unmasked.cols() && curr.rows() == unmasked.rows() &&
+              curr_file_time > base_time) {
+            will_write = false;
+          }
+        }catch(...){
           will_write = false;
         }
       }
@@ -264,9 +268,21 @@ public:
         vw::cartography::GeoReference georef;
         asp::BaseOptions opt;
         vw_out() << "Writing: " << curr_file << std::endl;
+        try{
+          asp::block_write_gdal_image(curr_file, unmasked, has_georef, georef,
+                                      has_nodata, m_nodata_val, opt, tpc);
+        }catch(...){
+          // Failed to write, presumably because we have no write access.
+          // Write the file in the current dir.
+          vw_out() << "Failed to write: " << curr_file << "\n";
+          boost::filesystem::path p(base_file);
+          prefix = base_path.stem().string();
+          curr_file = prefix + suffix;
+          vw_out() << "Writing: " << curr_file << std::endl;
+          asp::block_write_gdal_image(curr_file, unmasked, has_georef, georef,
+                                      has_nodata, m_nodata_val, opt, tpc);
 
-        asp::block_write_gdal_image(curr_file, unmasked, has_georef, georef,
-                                    has_nodata, m_nodata_val, opt, tpc);
+        }
       }else{
         vw_out() << "Using existing subsampled image: " << curr_file << std::endl;
       }
@@ -627,6 +643,7 @@ private:
     bool m_shadow_thresh_calc_mode;
     bool m_shadow_thresh_view_mode;
     std::vector<imageData> m_shadow_thresh_images;
+    std::vector<imageData> m_hillshaded_images;
 
     // Drawing is driven by QPaintEvent, which calls out to drawImage()
     void drawImage(QPainter* paint);
