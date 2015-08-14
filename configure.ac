@@ -229,7 +229,7 @@ AX_PKG(VW_CORE,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS LAPACK], [-lvwCore], 
 AX_PKG(VW_MATH,  [VW_CORE],                   [-lvwMath],   [vw/Math/LinearAlgebra.h], [], [], [], [FLANN])
 AX_PKG(VW_IMAGE, [VW_CORE],                   [-lvwImage],  [vw/Image/ImageView.h])
 AX_PKG(VW_FILEIO,[VW_IMAGE Z OPENEXR GDAL BOOST_SYSTEM BOOST_FILESYSTEM],     [-lvwFileIO], [vw/FileIO/DiskImageResourceOpenEXR.h vw/FileIO/DiskImageResourceGDAL.h])
-AX_GROUP_PKG(VW, [VW_FILEIO VW_IMAGE VW_MATH VW_CORE], [-lvwTools], [vw/tools/Common.h])
+AX_PKG(VW, [VW_FILEIO VW_IMAGE VW_MATH VW_CORE], [-lvwTools], [vw/tools/Common.h])
 
 # Double Check again that VW_FILEIO really was built with the correct 3rdParty.
 AX_EXTRACT_CPP_SYMBOL([VW_HAVE_PKG_OPENEXR], [#include <vw/config.h>],
@@ -258,6 +258,8 @@ AX_PKG(VW_INTEREST_POINT, [VW],                 [-lvwInterestPoint],[vw/Interest
 AX_PKG(VW_BUNDLEADJUSTMENT, [VW_INTEREST_POINT VW_CARTOGRAPHY VW_STEREO], [-lvwBundleAdjustment], [vw/BundleAdjustment/AdjustBase.h])
 
 AM_CONDITIONAL(HAVE_PKG_VW_BUNDLEADJUSTMENT, [test "$HAVE_PKG_VW_BUNDLEADJUSTMENT" = "yes"])
+
+AX_GROUP_PKG(VW_ALL,     [VW_CARTOGRAPHY VW_STEREO VW_INTEREST_POINT])
 
 AX_PKG_ONE_OF(GL,
   APPLE_GL,
@@ -402,7 +404,6 @@ AM_CONDITIONAL(HAVE_PKG_FLANN,          [test "$HAVE_PKG_FLANN" = "yes"])
 ##################################################
 
 AX_GROUP_PKG(BOOST_MOST, [BOOST_DATETIME BOOST_IOSTREAMS BOOST])
-AX_GROUP_PKG(VW_ALL,     [VW_CARTOGRAPHY VW_STEREO VW_CAMERA VW_INTEREST_POINT VW])
 
 # Module
 # Usage: AX_MODULE(<name>, <directory>, <library>, <default>, <prerequisites>, <required dependencies>[, <optional dependencies>])
