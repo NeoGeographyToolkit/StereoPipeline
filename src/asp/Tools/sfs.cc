@@ -85,7 +85,6 @@ typedef InterpolationView<ImageViewRef< PixelMask<float> >, BilinearInterpolatio
 // How to change the smoothness weight if the number of images changes?
 // TODO: Investigate the sign of the normal.
 // TODO: Loop over all images when doing sfs.
-// TODO: Shadow threshold needs detection.
 // TODO: Check that we are within image boundaries when interpolating.
 // TODO: Radiometric calibration of images.
 // TODO: Handle the case when the DEM has no-data values.
@@ -152,7 +151,7 @@ namespace vw { namespace camera {
       }
 
       // Expand the box, as later the DEM will change.
-      double extra = 0.5;
+      double extra = 0.2;
       m_point_box.min().x() -= extra*wx; m_point_box.max().x() += extra*wx;
       m_point_box.min().y() -= extra*wy; m_point_box.max().y() += extra*wy;
       wx = m_point_box.width();
@@ -1398,6 +1397,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr()
              << "If specified, there must be as many shadow thresholds as images.\n");
 
+  for (size_t i = 0; i < opt.shadow_threshold_vec.size(); i++) {
+    vw_out() << "Shadow threshold for " << opt.input_images[i] << ' '
+             << opt.shadow_threshold_vec[i] << std::endl;
+  }
+
   // Default thresholds are the smallest float
   if (opt.shadow_threshold_vec.empty()) {
     for (size_t i = 0; i < opt.input_images.size(); i++) {
@@ -1774,7 +1778,7 @@ int main(int argc, char* argv[]) {
       IsisCameraModel* icam
         = dynamic_cast<IsisCameraModel*>(get_isis_cam(cameras[image_iter]).get());
       model_params[image_iter].sunPosition    = icam->sun_position();
-      vw_out() << "sun position for image: " << image_iter
+      vw_out() << "sun position for image: " << image_iter << " "
                << model_params[image_iter].sunPosition << std::endl;
     }
 

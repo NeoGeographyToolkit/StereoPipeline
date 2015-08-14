@@ -67,13 +67,17 @@ int main(int argc, char* argv[]) {
     }catch (std::exception& e){
       // The tool was invoked as an image viewer. Just read in any files
       // that look like images.
+      vw_out() << "Apparently this tool was invoked simply "
+               << "to view images, not for stereo.\n";
       output_prefix = ""; // mark that we did not find valid stereo options
       for (int i = 1; i < argc; i++) {
         std::string image = argv[i];
         bool is_image = true;
         try { DiskImageView<float> tmp(image); }
         catch(...){
-          //vw_out() << "Not a valid image: " << image << "\n";
+          if (!image.empty() && image[0] != '-') {
+            vw_out() << "Not a valid image: " << image << "\n";
+          }
           is_image = false;
         }
         if (is_image)
