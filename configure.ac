@@ -209,13 +209,15 @@ AC_PATH_TOOL( PROTOC, [protoc], [no], [$PKG_PATHS_PROTOBUF/bin$PATH_SEPARATOR$PA
 if test x"$PROTOC" = "xno" && test x"$HAVE_PKG_PROTOBUF" = "xyes"; then
   AC_MSG_ERROR([cannot find protoc used by protobuf])
 fi
-AX_PKG(FLANN,      [], [-lflann_cpp],[flann/flann.hpp])
-AX_PKG(Z, [], [-lz])
+AX_PKG(FLANN, [], [-lflann_cpp], [flann/flann.hpp])
+AX_PKG(Z, [], [-lz], [zlib.h])
+AX_PKG(PNG, [], [-lpng], [png.h])
 AX_PKG(JPEG, [], [-ljpeg], [stdio.h jpeglib.h]) # jpeglib.h requires stdio.h to have been included
-AX_PKG(TIFF, [Z JPEG], [-ltiff], [tiff.h])
+AX_PKG(JP2, [JPEG], [-lopenjp2], [stdio.h openjpeg-2.0/openjpeg.h]) # same as above
+AX_PKG(TIFF, [Z JP2], [-ltiff], [tiff.h])
 AX_PKG(PROJ4, [M], [-lproj], [proj_api.h])
-AX_PKG(GEOTIFF, [PROJ4 JPEG], [-lgeotiff -ltiff])
-AX_PKG(GDAL, [GEOTIFF], [-lgdal], [gdal.h])
+AX_PKG(GEOTIFF, [PROJ4 TIFF], [-lgeotiff], [geotiff.h])
+AX_PKG(GDAL, [GEOTIFF PNG], [-lgdal], [gdal.h])
 
 AX_PKG(ILMBASE, [M Z PTHREADS], [-lImath -lHalf -lIex -lIlmThread], [Iex.h], [OpenEXR])
 AX_PKG(OPENEXR, [ILMBASE], [-lIlmImf], [ImfOutputFile.h], [OpenEXR])
@@ -227,8 +229,7 @@ AX_PKG(VW_CORE,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS LAPACK], [-lvwCore], 
 AX_PKG(VW_MATH,  [VW_CORE],                   [-lvwMath],   [vw/Math/LinearAlgebra.h], [], [], [], [FLANN])
 AX_PKG(VW_IMAGE, [VW_CORE],                   [-lvwImage],  [vw/Image/ImageView.h])
 AX_PKG(VW_FILEIO,[VW_IMAGE Z OPENEXR GDAL BOOST_SYSTEM BOOST_FILESYSTEM],     [-lvwFileIO], [vw/FileIO/DiskImageResourceOpenEXR.h vw/FileIO/DiskImageResourceGDAL.h])
-AX_PKG(VW_TOOLS, [VW_FILEIO VW_IMAGE VW_MATH VW_CORE], [-lvwTools], [vw/tools/Common.h])
-AX_GROUP_PKG(VW, [VW_TOOLS VW_FILEIO VW_IMAGE VW_MATH VW_CORE])
+AX_GROUP_PKG(VW, [VW_FILEIO VW_IMAGE VW_MATH VW_CORE], [-lvwTools], [vw/tools/Common.h])
 
 # Double Check again that VW_FILEIO really was built with the correct 3rdParty.
 AX_EXTRACT_CPP_SYMBOL([VW_HAVE_PKG_OPENEXR], [#include <vw/config.h>],
