@@ -548,13 +548,43 @@ BBox2 MainWidget::world2screen(BBox2 const& R) {
   return BBox2(A, B);
 }
 
+// If we use georef, the world is in lon-lat.  Convert a world box to
+// a pixel box for the given image.
+BBox2i MainWidget::world2image(BBox2 const& R, int imageIndex) {
+
+  if (R.empty()) return R;
+
+  if (!m_use_georef)
+    return R;
+
+  BBox2 pixel_box = m_images[imageIndex].georef.lonlat_to_pixel_bbox
+    (R + Vector2(m_images[imageIndex].m_lon_offset, 0));
+
+  return grow_bbox_to_int(pixel_box);
+}
+
 // Convert the crop window to original pixel coordinates from
 // pixel coordinates on the screen.
 // TODO: Make screen2world() do it, to take an input a QRect (or BBox2)
 // and return as output the converted box.
-QRect MainWidget::get_crop_win() {
-  if (m_stereoCropWin.empty()) return QRect();
-  return bbox2qrect(m_stereoCropWin);
+bool MainWidget::get_crop_win(QRect & win) {
+
+  if (m_images.size() != 1) {
+    popUp("Must have just one image in each window to be able to select regions for stereo.");
+    m_cropWinMode = false;
+    m_rubberBand = m_emptyRubberBand;
+    m_stereoCropWin = BBox2();
+    refreshPixmap();
+    return false;
+  }
+
+  if (m_stereoCropWin.empty()) {
+    popUp("No valid region for stereo is present.");
+    return false;
+  }
+
+  win = bbox2qrect(world2image(m_stereoCropWin, 0));
+  return true;
 }
 
 void MainWidget::zoom(double scale) {
@@ -596,38 +626,35 @@ void MainWidget::drawImage(QPainter* paint) {
     if (m_filesToHide.find(fileName) != m_filesToHide.end()) continue;
 
     // The current view
-    BBox2 image_box = m_current_view;
-    image_box.crop(m_images[i].bbox);
+    BBox2 world_box = m_current_view;
+    world_box.crop(m_images[i].bbox);
 
     // See where it fits on the screen
     BBox2i screen_box;
-    screen_box.grow(round(world2screen(image_box.min())));
-    screen_box.grow(round(world2screen(image_box.max())));
+    screen_box.grow(round(world2screen(world_box.min())));
+    screen_box.grow(round(world2screen(world_box.max())));
 
-    // If we use georef, the image box is in lon-lat units,
-    // so we need to convert it to pixel units
-    BBox2i pixel_box = image_box;
-    if (m_use_georef)
-      pixel_box = m_images[i].georef.lonlat_to_pixel_bbox(image_box
-                                                          + Vector2(m_images[i].m_lon_offset, 0));
+    // If we use georef, the world box is in lon-lat units,
+    // so we need to convert it to image pixels.
+    BBox2i image_box = MainWidget::world2image(world_box, i);
 
     QImage qimg;
-    // Since the image portion contained in pixel_box could be huge,
+    // Since the image portion contained in image_box could be huge,
     // but the screen area small, render a sub-sampled version of
     // the image for speed.
     // Convert to double before multiplication, to avoid overflow
     // when multiplying large integers.
-    double scale = sqrt((1.0*pixel_box.width()) * pixel_box.height())/
+    double scale = sqrt((1.0*image_box.width()) * image_box.height())/
       std::max(1.0, sqrt((1.0*screen_box.width()) * screen_box.height()));
     double scale_out;
     BBox2i region_out;
     bool highlight_nodata = m_shadow_thresh_view_mode;
     if (m_shadow_thresh_view_mode){
-      m_shadow_thresh_images[i].img.getImageClip(scale, pixel_box,
+      m_shadow_thresh_images[i].img.getImageClip(scale, image_box,
                                                  highlight_nodata,
                                                  qimg, scale_out, region_out);
     }else{
-      m_images[i].img.getImageClip(scale, pixel_box,
+      m_images[i].img.getImageClip(scale, image_box,
                                    highlight_nodata,
                                    qimg, scale_out, region_out);
     }
@@ -795,9 +822,8 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
   // rect.bottom() is rect.top() + rect.height()-1.
   paint.drawRect(m_rubberBand.normalized().adjusted(0, 0, -1, -1));
 
-  // Draw the stereo crop window.
-  // Note that the stereo crop window may exist independently
-  // of whether the rubberband exists.
+  // Draw the stereo crop window.  Note that the stereo crop window
+  // may exist independently of whether the rubber band exists.
   if (!m_stereoCropWin.empty()) {
     QRect R = bbox2qrect(world2screen(m_stereoCropWin));
     paint.setPen(cropWinColor);
@@ -979,15 +1005,6 @@ void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
     m_cropWinMode = true;
   }
 
-  if (m_cropWinMode && m_use_georef) {
-    popUp("Selecting a crop window is not supported when using georeference information to show images.");
-    m_cropWinMode = false;
-    m_rubberBand = m_emptyRubberBand;
-    m_stereoCropWin = BBox2();
-    refreshPixmap();
-    return;
-  }
-
   if (event->buttons() & Qt::RightButton) {
     if (std::abs(mouse_rel_pos.x() - m_mousePrsX) < tol &&
         std::abs(mouse_rel_pos.y() - m_mousePrsY) < tol
@@ -1005,44 +1022,49 @@ void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
 
   } else if (m_cropWinMode){
 
-    if (m_images.size() != 1) {
-      popUp("Must have just one image in each window to be able to select regions for stereo.");
-      m_cropWinMode = false;
-      m_rubberBand = m_emptyRubberBand;
-      m_stereoCropWin = BBox2();
-      refreshPixmap();
-      return;
-    }
-
-    // User selects the region to use for stereo.
-    // Convert it to world coordinates, and round to integer.
-    // If we use georeferences, this does not make much sense.
+    // User selects the region to use for stereo.  Convert it to world
+    // coordinates, and round to integer.  If we use georeferences,
+    // the crop win is in lon-lat, so we must convert it to pixels.
     m_stereoCropWin = screen2world(qrect2bbox(m_rubberBand));
-    m_stereoCropWin.min() = round(m_stereoCropWin.min());
-    m_stereoCropWin.max() = round(m_stereoCropWin.max());
-    if (!m_use_georef){
-      vw_out() << "Crop src win for  "
-               << m_image_files[0]
-               << ": "
-               << m_stereoCropWin.min().x() << ' '
-               << m_stereoCropWin.min().y() << ' '
-               << m_stereoCropWin.width()   << ' '
-               << m_stereoCropWin.height()  << std::endl;
-      if (m_images[0].has_georef){
-        Vector2 proj_min = m_images[0].georef.pixel_to_point(m_stereoCropWin.min());
-        Vector2 proj_max = m_images[0].georef.pixel_to_point(m_stereoCropWin.max());
-        vw_out() << "Crop proj win for "
-                 << m_image_files[0] << ": "
-                 << proj_min.x() << ' ' << proj_min.y() << ' '
-                 << proj_max.x() << ' ' << proj_max.y() << std::endl;
 
-        Vector2 ll_min = m_images[0].georef.pixel_to_lonlat(m_stereoCropWin.min());
-        Vector2 ll_max = m_images[0].georef.pixel_to_lonlat(m_stereoCropWin.max());
-        vw_out() << "lonlat win for    "
-                 << m_image_files[0] << ": "
-                 << ll_min.x() << ' ' << ll_min.y() << ' '
-                 << ll_max.x() << ' ' << ll_max.y() << std::endl;
+    BBox2i image_box = world2image(m_stereoCropWin, 0);
+    vw_out() << "Crop src win for  "
+             << m_image_files[0]
+             << ": "
+             << image_box.min().x() << ' '
+             << image_box.min().y() << ' '
+               << image_box.width()   << ' '
+             << image_box.height()  << std::endl;
+    if (m_images[0].has_georef){
+      Vector2 proj_min, proj_max;
+      // TODO: The logic below needs review.
+      if (!m_use_georef){
+        // Convert pixels to projected coordinates
+        proj_min = m_images[0].georef.pixel_to_point(m_stereoCropWin.min());
+        proj_max = m_images[0].georef.pixel_to_point(m_stereoCropWin.max());
+      }else{
+        proj_min = m_images[0].georef.lonlat_to_point(m_stereoCropWin.min());
+        proj_max = m_images[0].georef.lonlat_to_point(m_stereoCropWin.max());
       }
+
+      vw_out() << "Crop proj win for "
+               << m_image_files[0] << ": "
+               << proj_min.x() << ' ' << proj_min.y() << ' '
+               << proj_max.x() << ' ' << proj_max.y() << std::endl;
+
+      Vector2 lonlat_min, lonlat_max;
+      if (!m_use_georef){
+        lonlat_min = m_images[0].georef.pixel_to_lonlat(m_stereoCropWin.min());
+        lonlat_max = m_images[0].georef.pixel_to_lonlat(m_stereoCropWin.max());
+      }else{
+        lonlat_min = m_stereoCropWin.min();
+        lonlat_max = m_stereoCropWin.max();
+      }
+
+      vw_out() << "lonlat win for    "
+               << m_image_files[0] << ": "
+               << lonlat_min.x() << ' ' << lonlat_min.y() << ' '
+               << lonlat_max.x() << ' ' << lonlat_max.y() << std::endl;
     }
 
     // Wipe the rubberband, no longer needed.

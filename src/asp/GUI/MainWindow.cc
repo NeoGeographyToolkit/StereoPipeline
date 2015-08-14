@@ -344,38 +344,42 @@ void MainWindow::saveMatches(){
 
 void MainWindow::run_stereo_or_parallel_stereo(std::string const& cmd){
 
-  if (m_widgets.size() >= 2) {
-    QRect left_win = m_widgets[0]->get_crop_win();
-    QRect right_win = m_widgets[1]->get_crop_win();
-
-    int left_x = left_win.x();
-    int left_y = left_win.y();
-    int left_wx = left_win.width();
-    int left_wy = left_win.height();
-
-    int right_x = right_win.x();
-    int right_y = right_win.y();
-    int right_wx = right_win.width();
-    int right_wy = right_win.height();
-
-    // Command
-    std::string run_cmd = cmd + " ";
-    for (int i = 1; i < m_argc; i++) {
-      run_cmd += std::string(m_argv[i]) + " ";
-    }
-    std::ostringstream os;
-    os << "--left-image-crop-win " << left_x << " " << left_y << " "
-       << left_wx << " " << left_wy << " ";
-    os << "--right-image-crop-win " << right_x << " " << right_y << " "
-       << right_wx << " " << right_wy << " ";
-    run_cmd += os.str();
-    vw_out() << "Running: " << run_cmd << std::endl;
-    system(run_cmd.c_str());
-    QMessageBox::about(this, tr("Error"), tr("Done running stereo"));
-
-  } else {
-    QMessageBox::about(this, tr("Error"), tr("Not ready to run stereo"));
+  if (m_widgets.size() != 2) {
+    QMessageBox::about(this, tr("Error"), tr("Need to have two images side-by-side to run stereo."));
+    return;
   }
+
+  QRect left_win, right_win;
+  if (!m_widgets[0]->get_crop_win(left_win))
+    return;
+  if (!m_widgets[1]->get_crop_win(right_win))
+    return;
+
+  int left_x = left_win.x();
+  int left_y = left_win.y();
+  int left_wx = left_win.width();
+  int left_wy = left_win.height();
+
+  int right_x = right_win.x();
+  int right_y = right_win.y();
+  int right_wx = right_win.width();
+  int right_wy = right_win.height();
+
+  // Command
+  std::string run_cmd = cmd + " ";
+  for (int i = 1; i < m_argc; i++) {
+    run_cmd += std::string(m_argv[i]) + " ";
+  }
+  std::ostringstream os;
+  os << "--left-image-crop-win " << left_x << " " << left_y << " "
+     << left_wx << " " << left_wy << " ";
+  os << "--right-image-crop-win " << right_x << " " << right_y << " "
+     << right_wx << " " << right_wy << " ";
+  run_cmd += os.str();
+  vw_out() << "Running: " << run_cmd << std::endl;
+  system(run_cmd.c_str());
+  QMessageBox::about(this, tr("Error"), tr("Done running stereo"));
+
 }
 
 void MainWindow::run_stereo(){

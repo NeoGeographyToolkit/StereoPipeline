@@ -530,7 +530,7 @@ private:
                bool hillshade);
     virtual ~MainWidget();
 
-    QRect get_crop_win();
+    bool get_crop_win(QRect & win);
 
     // Set a default size for this widget.  This is usually overridden
     // by parent views.
@@ -654,6 +654,7 @@ private:
     vw::Vector2 screen2world(vw::Vector2 const& pix);
     BBox2 world2screen(BBox2 const& R);
     BBox2 screen2world(BBox2 const& R);
+    BBox2i world2image(BBox2 const& R, int imageIndex);
     vw::BBox2 expand_box_to_keep_aspect_ratio(vw::BBox2 const& box);
     void updateCurrentMousePosition();
     void updateRubberBand(QRect & R);
