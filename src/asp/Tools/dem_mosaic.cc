@@ -175,17 +175,19 @@ std::string tile_suffix(Options const& opt){
 class DemMosaicView: public ImageViewBase<DemMosaicView>{
   int m_cols, m_rows;
   Options const& m_opt;
+  vector< ImageViewRef<RealT> > const& m_images;
   vector< GeoReference        > const& m_georefs;
   GeoReference  m_out_georef;
   vector<RealT> m_nodata_values;
 
 public:
   DemMosaicView(int cols, int rows, Options const& opt,
+                vector< ImageViewRef<RealT> > const& images,
                 vector< GeoReference        > const& georefs,
                 GeoReference  const& out_georef,
                 vector<RealT> const& nodata_values):
     m_cols(cols), m_rows(rows), m_opt(opt),
-    m_georefs(georefs),
+    m_images(images), m_georefs(georefs),
     m_out_georef(out_georef), m_nodata_values(nodata_values){
 
     // Sanity check, see if datums differ, then the tool won't work
@@ -233,7 +235,7 @@ public:
     // - Used for median and stddev calculation.
     std::vector< ImageView<double> > tiles;
     if (m_opt.median) // Store each input seperately
-      tiles.reserve(m_opt.dem_files.size());
+      tiles.reserve(m_images.size());
     if (m_opt.stddev) { // Need one working image
       tiles.push_back(ImageView<double>(bbox.width(), bbox.height()));
       // Each pixel starts at zero, nodata is handled later
@@ -243,12 +245,11 @@ public:
 
 
     // Loop through all input DEMs
-    for (int dem_iter = 0; dem_iter < (int)m_opt.dem_files.size(); dem_iter++){
+    for (int dem_iter = 0; dem_iter < (int)m_images.size(); dem_iter++){
 
       // Load the information for this DEM
       GeoReference georef = m_georefs[dem_iter];
-      ImageViewRef<double> disk_dem
-        = pixel_cast<double>(DiskImageView<RealT>(m_opt.dem_files[dem_iter]));
+      ImageViewRef<double> disk_dem = pixel_cast<double>(m_images[dem_iter]);
       double nodata_value = m_nodata_values[dem_iter];
 
       // The GeoTransform will hide the messy details of conversions
@@ -714,6 +715,7 @@ int main( int argc, char *argv[] ) {
     tpc.report_progress(0);
     double inc_amount = 1.0 / double(opt.dem_files.size() );
     vector< RealT               > nodata_values;
+    vector< ImageViewRef<RealT> > images;
     vector< GeoReference        > georefs;
     BBox2 mosaic_bbox;
     vector<BBox2> dem_bboxes;
@@ -750,6 +752,7 @@ int main( int argc, char *argv[] ) {
       }
 
       nodata_values.push_back(curr_nodata_value);
+      images.push_back(img);
       georefs.push_back(georef);
 
       tpc.report_incremental_progress( inc_amount );
@@ -834,8 +837,8 @@ int main( int argc, char *argv[] ) {
       std::string dem_tile = os.str();
 
       // Set up tile image and metadata
-      ImageViewRef<RealT> out_dem = crop(DemMosaicView(cols, rows, opt, georefs,
-                                                       out_georef, nodata_values),
+      ImageViewRef<RealT> out_dem = crop(DemMosaicView(cols, rows, opt, images, georefs,
+                                                       out_georef, nodata_values), 
                                          tile_box);
       GeoReference crop_georef = crop(out_georef, tile_box.min().x(), tile_box.min().y());
 
