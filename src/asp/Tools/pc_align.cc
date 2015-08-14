@@ -650,9 +650,6 @@ void filter_source_cloud(DP          const& ref_point_cloud,
     vw_out() << "Filter gross outliers took " << sw.elapsed_seconds() << " [s]" << endl;
 }
 
-
-//====================================================================================================
-
 int main( int argc, char *argv[] ) {
 
   // Mandatory line for Eigen
@@ -687,7 +684,7 @@ int main( int argc, char *argv[] ) {
     BBox2 ref_box, source_box;
     ref_box    = calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv, opt.reference, opt.max_disp);
     source_box = calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv, opt.source,    opt.max_disp);
-    
+
     // If ref points are offset by 360 degrees in longitude in respect to
     // source points, adjust the ref box to be aligned with the source points, and vice versa.
     double lon_offset = 0.0;
@@ -885,6 +882,12 @@ int main( int argc, char *argv[] ) {
              << trans_ned << std::endl;
     vw_out() << "Translation vector magnitude (meters): " << norm_2(trans_xyz)
              << std::endl;
+    if (opt.max_disp > 0 && opt.max_disp < norm_2(trans_xyz)) {
+      vw_out() << "Warning: The input --max-displacement value is smaller than the "
+               << "final observed displacement. It may be advised to increase the former "
+               << "and rerun the tool.\n";
+    }
+
     // Swap lat and lon, as we want to print lat first
     std::swap(trans_llh[0], trans_llh[1]);
     vw_out() << "Translation vector (lat,lon,z): " << trans_llh << std::endl;
