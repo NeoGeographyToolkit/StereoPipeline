@@ -140,7 +140,7 @@ namespace asp {
       DiskImageView<float> right_orig_image(right_input_file);
       BBox2i left_win = stereo_settings().left_image_crop_win;
       BBox2i right_win = stereo_settings().right_image_crop_win;
-      left_win.crop(bounding_box(left_orig_image));
+      left_win.crop (bounding_box(left_orig_image));
       right_win.crop(bounding_box(right_orig_image));
 
       vw_out() << "\t--> Writing cropped image: " << left_cropped_file << "\n";
@@ -165,7 +165,7 @@ namespace asp {
 
     // Load the cropped images
     DiskImageView<float> left_disk_image(left_cropped_file),
-      right_disk_image(right_cropped_file);
+                         right_disk_image(right_cropped_file);
 
     // Set up image masks
     ImageViewRef< PixelMask<float> > left_masked_image

@@ -89,6 +89,8 @@ namespace asp {
     vw::Vector2 detector_origin;     // mm
     double      detector_rotation;    // degrees about Z+ in camera frame
     double      detector_pixel_pitch; // mm
+    
+    void printDebugInfo() const; ///< Debug string
   };
 
 

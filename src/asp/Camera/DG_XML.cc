@@ -38,29 +38,26 @@ using namespace xercesc;
 
 namespace fs=boost::filesystem;
 
+//========================================================================
+// ImageXML class
+
+
 void asp::ImageXML::parse_meta( xercesc::DOMElement* node ) {
   // Note: dg_mosaic wipes most image tags. If it is desired to parse
   // more tags here, ensure they are not wiped by dg_mosaic and use
   // sensible values when creating them for the combined mosaics.
-  cast_xmlch( get_node<DOMElement>( node, "SATID" )->getTextContent(),
-              sat_id );
-  cast_xmlch( get_node<DOMElement>( node, "SCANDIRECTION" )->getTextContent(),
-              scan_direction );
-  cast_xmlch( get_node<DOMElement>( node, "TLCTIME" )->getTextContent(),
-              tlc_start_time );
-  cast_xmlch( get_node<DOMElement>( node, "FIRSTLINETIME" )->getTextContent(),
-              first_line_start_time );
-  cast_xmlch( get_node<DOMElement>( node, "AVGLINERATE" )->getTextContent(),
-              avg_line_rate );
+  cast_xmlch( get_node<DOMElement>( node, "SATID"         )->getTextContent(), sat_id );
+  cast_xmlch( get_node<DOMElement>( node, "SCANDIRECTION" )->getTextContent(), scan_direction );
+  cast_xmlch( get_node<DOMElement>( node, "TLCTIME"       )->getTextContent(), tlc_start_time );
+  cast_xmlch( get_node<DOMElement>( node, "FIRSTLINETIME" )->getTextContent(), first_line_start_time );
+  cast_xmlch( get_node<DOMElement>( node, "AVGLINERATE"   )->getTextContent(), avg_line_rate );
   size_t num_tlc;
-  cast_xmlch( get_node<DOMElement>( node, "NUMTLC" )->getTextContent(),
-              num_tlc );
+  cast_xmlch( get_node<DOMElement>( node, "NUMTLC"        )->getTextContent(), num_tlc );
   tlc_vec.resize( num_tlc );
 }
 
 void asp::ImageXML::parse_band_p( xercesc::DOMElement* node ) {
-  cast_xmlch( get_node<DOMElement>( node, "TDILEVEL" )->getTextContent(),
-              tdi );
+  cast_xmlch( get_node<DOMElement>( node, "TDILEVEL" )->getTextContent(), tdi );
 }
 
 void asp::ImageXML::parse_tlc_list( xercesc::DOMElement* node ) {
@@ -85,10 +82,8 @@ void asp::ImageXML::parse_tlc_list( xercesc::DOMElement* node ) {
 }
 
 void asp::ImageXML::parse_image_size( xercesc::DOMElement* node ) {
-  cast_xmlch( get_node<DOMElement>( node, "NUMROWS" )->getTextContent(),
-              image_size[1] );
-  cast_xmlch( get_node<DOMElement>( node, "NUMCOLUMNS" )->getTextContent(),
-              image_size[0] );
+  cast_xmlch( get_node<DOMElement>( node, "NUMROWS"    )->getTextContent(), image_size[1] );
+  cast_xmlch( get_node<DOMElement>( node, "NUMCOLUMNS" )->getTextContent(), image_size[0] );
 }
 
 asp::ImageXML::ImageXML() : XMLBase(4) {}
@@ -114,14 +109,16 @@ void asp::ImageXML::parse( xercesc::DOMElement* node ) {
   check_argument(3);
 }
 
+//========================================================================
+// GeometricXML class
+
+
 void asp::GeometricXML::parse_principal_distance( xercesc::DOMElement* node ) {
-  cast_xmlch( get_node<DOMElement>( node, "PD" )->getTextContent(),
-              principal_distance );
+  cast_xmlch( get_node<DOMElement>( node, "PD" )->getTextContent(), principal_distance );
 }
 
 void asp::GeometricXML::parse_optical_distortion( xercesc::DOMElement* node ) {
-  cast_xmlch( get_node<DOMElement>( node, "POLYORDER" )->getTextContent(),
-              optical_polyorder );
+  cast_xmlch( get_node<DOMElement>( node, "POLYORDER" )->getTextContent(), optical_polyorder );
 
   // If the optical polyorder is >= 1 and some of the polynomial
   // coefficients are non-zero, then throw an error as we did not
@@ -160,25 +157,17 @@ void asp::GeometricXML::parse_optical_distortion( xercesc::DOMElement* node ) {
 }
 
 void asp::GeometricXML::parse_perspective_center( xercesc::DOMElement* node ) {
-  cast_xmlch( get_node<DOMElement>( node, "CX" )->getTextContent(),
-              perspective_center[0] );
-  cast_xmlch( get_node<DOMElement>( node, "CY" )->getTextContent(),
-              perspective_center[1] );
-  cast_xmlch( get_node<DOMElement>( node, "CZ" )->getTextContent(),
-              perspective_center[2] );
+  cast_xmlch( get_node<DOMElement>( node, "CX" )->getTextContent(), perspective_center[0] );
+  cast_xmlch( get_node<DOMElement>( node, "CY" )->getTextContent(), perspective_center[1] );
+  cast_xmlch( get_node<DOMElement>( node, "CZ" )->getTextContent(), perspective_center[2] );
 }
 
 void asp::GeometricXML::parse_camera_attitude( xercesc::DOMElement* node ) {
-  Vector4 buffer; // We buffer since Q will want to constantly
-  // renormalize itself.
-  cast_xmlch( get_node<DOMElement>( node, "QCS4" )->getTextContent(),
-              buffer[0] );
-  cast_xmlch( get_node<DOMElement>( node, "QCS1" )->getTextContent(),
-              buffer[1] );
-  cast_xmlch( get_node<DOMElement>( node, "QCS2" )->getTextContent(),
-              buffer[2] );
-  cast_xmlch( get_node<DOMElement>( node, "QCS3" )->getTextContent(),
-              buffer[3] );
+  Vector4 buffer; // We buffer since Q will want to constantly renormalize itself.
+  cast_xmlch( get_node<DOMElement>( node, "QCS4" )->getTextContent(), buffer[0] );
+  cast_xmlch( get_node<DOMElement>( node, "QCS1" )->getTextContent(), buffer[1] );
+  cast_xmlch( get_node<DOMElement>( node, "QCS2" )->getTextContent(), buffer[2] );
+  cast_xmlch( get_node<DOMElement>( node, "QCS3" )->getTextContent(), buffer[3] );
   camera_attitude = Quat(buffer[0],buffer[1],buffer[2],buffer[3]);
 }
 
@@ -191,22 +180,17 @@ void asp::GeometricXML::parse_detector_mounting( xercesc::DOMElement* node ) {
   for ( XMLSize_t i = 0; i < children->getLength(); i++ ) {
     DOMNode* current = children->item(i);
     if ( current->getNodeType() == DOMNode::ELEMENT_NODE ) {
-      DOMElement* element =
-        dynamic_cast< DOMElement* > (current);
+      DOMElement* element = dynamic_cast< DOMElement* > (current);
 
       std::string tag( XMLString::transcode(element->getTagName()) );
       if (boost::starts_with( tag, "BAND_" )) {
         Vector4 data;
 
         DOMElement* detector = get_node<DOMElement>( element, "DETECTOR_ARRAY" );
-        cast_xmlch( get_node<DOMElement>(detector,"DETORIGINX")->getTextContent(),
-                    data[0] );
-        cast_xmlch( get_node<DOMElement>(detector,"DETORIGINY")->getTextContent(),
-                    data[1] );
-        cast_xmlch( get_node<DOMElement>(detector,"DETROTANGLE")->getTextContent(),
-                    data[2] );
-        cast_xmlch( get_node<DOMElement>(detector,"DETPITCH")->getTextContent(),
-                    data[3] );
+        cast_xmlch( get_node<DOMElement>(detector,"DETORIGINX" )->getTextContent(), data[0] );
+        cast_xmlch( get_node<DOMElement>(detector,"DETORIGINY" )->getTextContent(), data[1] );
+        cast_xmlch( get_node<DOMElement>(detector,"DETROTANGLE")->getTextContent(), data[2] );
+        cast_xmlch( get_node<DOMElement>(detector,"DETPITCH"   )->getTextContent(), data[3] );
         bandVec.push_back(data);
       }
     }
@@ -214,7 +198,7 @@ void asp::GeometricXML::parse_detector_mounting( xercesc::DOMElement* node ) {
 
   if (bandVec.empty()){
     vw_throw(ArgumentErr() << "Could not find any bands in the "
-             << "DETECTOR_MOUNTING section of the XML file.\n");
+                           << "DETECTOR_MOUNTING section of the XML file.\n");
   }
 
   // If there are multiple bands, they must have the same values
@@ -267,16 +251,32 @@ void asp::GeometricXML::parse( xercesc::DOMElement* node ) {
   }
 }
 
+
+void asp::GeometricXML::printDebugInfo() const {
+
+  vw_out() << "GeometricXML DEBUG INFO" << std::endl;
+  vw_out() << "principle distance = " << principal_distance << std::endl;
+  vw_out() << "optical polyorder  = " << optical_polyorder << std::endl;
+  vw_out() << "optical_a = " << optical_a << std::endl;
+  vw_out() << "optical_b = " << optical_b << std::endl;
+  vw_out() << "perspective_center   = " << perspective_center << std::endl;
+  vw_out() << "camera_attitude      = " << camera_attitude << std::endl;
+  vw_out() << "detector origin      = " << detector_origin << std::endl;
+  vw_out() << "detector rotation    = " << detector_rotation << std::endl;
+  vw_out() << "detector pixel pitch = " << detector_pixel_pitch << std::endl;
+
+}
+
+//========================================================================
+// EphemerisXML class
+
 void asp::EphemerisXML::parse_meta( xercesc::DOMElement* node ) {
-  cast_xmlch( get_node<DOMElement>( node, "STARTTIME" )->getTextContent(),
-              start_time );
-  cast_xmlch( get_node<DOMElement>( node, "TIMEINTERVAL" )->getTextContent(),
-              time_interval );
+  cast_xmlch( get_node<DOMElement>( node, "STARTTIME"    )->getTextContent(), start_time );
+  cast_xmlch( get_node<DOMElement>( node, "TIMEINTERVAL" )->getTextContent(), time_interval );
   size_t num_points;
-  cast_xmlch( get_node<DOMElement>( node, "NUMPOINTS" )->getTextContent(),
-              num_points );
-  position_vec.resize( num_points );
-  velocity_vec.resize( num_points );
+  cast_xmlch( get_node<DOMElement>( node, "NUMPOINTS"    )->getTextContent(), num_points );
+  position_vec.resize  ( num_points );
+  velocity_vec.resize  ( num_points );
   covariance_vec.resize( num_points );
 }
 
@@ -300,9 +300,9 @@ void asp::EphemerisXML::parse_eph_list( xercesc::DOMElement* node ) {
         vw_throw(ArgumentErr() << "Failed to parse string: " << index_b << "\n");
       }
 
-      istr >> position_vec[index][0] >> position_vec[index][1]
-           >> position_vec[index][2] >> velocity_vec[index][0]
-           >> velocity_vec[index][1] >> velocity_vec[index][2];
+      istr >> position_vec  [index][0] >> position_vec  [index][1]
+           >> position_vec  [index][2] >> velocity_vec  [index][0]
+           >> velocity_vec  [index][1] >> velocity_vec  [index][2];
       istr >> covariance_vec[index][0] >> covariance_vec[index][1]
            >> covariance_vec[index][2] >> covariance_vec[index][3]
            >> covariance_vec[index][4] >> covariance_vec[index][5];
@@ -325,14 +325,14 @@ void asp::EphemerisXML::parse( xercesc::DOMElement* node ) {
   check_argument(1);
 }
 
+//========================================================================
+// AttitudeXML class
+
 void asp::AttitudeXML::parse_meta( xercesc::DOMElement* node ) {
-  cast_xmlch( get_node<DOMElement>( node, "STARTTIME" )->getTextContent(),
-              start_time );
-  cast_xmlch( get_node<DOMElement>( node, "TIMEINTERVAL" )->getTextContent(),
-              time_interval );
+  cast_xmlch( get_node<DOMElement>( node, "STARTTIME"    )->getTextContent(), start_time );
+  cast_xmlch( get_node<DOMElement>( node, "TIMEINTERVAL" )->getTextContent(), time_interval );
   size_t num_points;
-  cast_xmlch( get_node<DOMElement>( node, "NUMPOINTS" )->getTextContent(),
-              num_points );
+  cast_xmlch( get_node<DOMElement>( node, "NUMPOINTS"    )->getTextContent(), num_points );
   quat_vec.resize( num_points );
   covariance_vec.resize( num_points );
 }
@@ -383,6 +383,10 @@ void asp::AttitudeXML::parse( xercesc::DOMElement* node ) {
   parse_att_list( get_node<DOMElement>( node, "ATTLISTList" ) );
   check_argument(1);
 }
+
+
+//========================================================================
+// RPCXML class
 
 void asp::RPCXML::parse_vector( xercesc::DOMElement* node,
                                 Vector<double,20>& vec ) {
@@ -525,15 +529,15 @@ void asp::RPCXML::parse_rational_function_model( xercesc::DOMElement* node ) {
   Vector3 geodetic_offset, geodetic_scale;
 
   // Painfully extract the single values from the XML data
-  cast_xmlch( get_node<DOMElement>( inverse_model, "SAMP_NUM_COEFF_1")->getTextContent(), samp_num_coeff[0] );
-  cast_xmlch( get_node<DOMElement>( inverse_model, "SAMP_NUM_COEFF_2")->getTextContent(), samp_num_coeff[1] );
-  cast_xmlch( get_node<DOMElement>( inverse_model, "SAMP_NUM_COEFF_3")->getTextContent(), samp_num_coeff[2] );
-  cast_xmlch( get_node<DOMElement>( inverse_model, "SAMP_NUM_COEFF_4")->getTextContent(), samp_num_coeff[3] );
-  cast_xmlch( get_node<DOMElement>( inverse_model, "SAMP_NUM_COEFF_5")->getTextContent(), samp_num_coeff[4] );
-  cast_xmlch( get_node<DOMElement>( inverse_model, "SAMP_NUM_COEFF_6")->getTextContent(), samp_num_coeff[5] );
-  cast_xmlch( get_node<DOMElement>( inverse_model, "SAMP_NUM_COEFF_7")->getTextContent(), samp_num_coeff[6] );
-  cast_xmlch( get_node<DOMElement>( inverse_model, "SAMP_NUM_COEFF_8")->getTextContent(), samp_num_coeff[7] );
-  cast_xmlch( get_node<DOMElement>( inverse_model, "SAMP_NUM_COEFF_9")->getTextContent(), samp_num_coeff[8] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "SAMP_NUM_COEFF_1" )->getTextContent(), samp_num_coeff[0] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "SAMP_NUM_COEFF_2" )->getTextContent(), samp_num_coeff[1] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "SAMP_NUM_COEFF_3" )->getTextContent(), samp_num_coeff[2] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "SAMP_NUM_COEFF_4" )->getTextContent(), samp_num_coeff[3] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "SAMP_NUM_COEFF_5" )->getTextContent(), samp_num_coeff[4] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "SAMP_NUM_COEFF_6" )->getTextContent(), samp_num_coeff[5] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "SAMP_NUM_COEFF_7" )->getTextContent(), samp_num_coeff[6] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "SAMP_NUM_COEFF_8" )->getTextContent(), samp_num_coeff[7] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "SAMP_NUM_COEFF_9" )->getTextContent(), samp_num_coeff[8] );
   cast_xmlch( get_node<DOMElement>( inverse_model, "SAMP_NUM_COEFF_10")->getTextContent(), samp_num_coeff[9] );
   cast_xmlch( get_node<DOMElement>( inverse_model, "SAMP_NUM_COEFF_11")->getTextContent(), samp_num_coeff[10] );
   cast_xmlch( get_node<DOMElement>( inverse_model, "SAMP_NUM_COEFF_12")->getTextContent(), samp_num_coeff[11] );
@@ -567,15 +571,15 @@ void asp::RPCXML::parse_rational_function_model( xercesc::DOMElement* node ) {
   cast_xmlch( get_node<DOMElement>( inverse_model, "SAMP_DEN_COEFF_19")->getTextContent(), samp_den_coeff[18] );
   cast_xmlch( get_node<DOMElement>( inverse_model, "SAMP_DEN_COEFF_20")->getTextContent(), samp_den_coeff[19] );
 
-  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_NUM_COEFF_1")->getTextContent(), line_num_coeff[0] );
-  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_NUM_COEFF_2")->getTextContent(), line_num_coeff[1] );
-  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_NUM_COEFF_3")->getTextContent(), line_num_coeff[2] );
-  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_NUM_COEFF_4")->getTextContent(), line_num_coeff[3] );
-  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_NUM_COEFF_5")->getTextContent(), line_num_coeff[4] );
-  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_NUM_COEFF_6")->getTextContent(), line_num_coeff[5] );
-  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_NUM_COEFF_7")->getTextContent(), line_num_coeff[6] );
-  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_NUM_COEFF_8")->getTextContent(), line_num_coeff[7] );
-  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_NUM_COEFF_9")->getTextContent(), line_num_coeff[8] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_NUM_COEFF_1" )->getTextContent(), line_num_coeff[0] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_NUM_COEFF_2" )->getTextContent(), line_num_coeff[1] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_NUM_COEFF_3" )->getTextContent(), line_num_coeff[2] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_NUM_COEFF_4" )->getTextContent(), line_num_coeff[3] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_NUM_COEFF_5" )->getTextContent(), line_num_coeff[4] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_NUM_COEFF_6" )->getTextContent(), line_num_coeff[5] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_NUM_COEFF_7" )->getTextContent(), line_num_coeff[6] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_NUM_COEFF_8" )->getTextContent(), line_num_coeff[7] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_NUM_COEFF_9" )->getTextContent(), line_num_coeff[8] );
   cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_NUM_COEFF_10")->getTextContent(), line_num_coeff[9] );
   cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_NUM_COEFF_11")->getTextContent(), line_num_coeff[10] );
   cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_NUM_COEFF_12")->getTextContent(), line_num_coeff[11] );
@@ -588,15 +592,15 @@ void asp::RPCXML::parse_rational_function_model( xercesc::DOMElement* node ) {
   cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_NUM_COEFF_19")->getTextContent(), line_num_coeff[18] );
   cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_NUM_COEFF_20")->getTextContent(), line_num_coeff[19] );
 
-  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_DEN_COEFF_1")->getTextContent(), line_den_coeff[0] );
-  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_DEN_COEFF_2")->getTextContent(), line_den_coeff[1] );
-  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_DEN_COEFF_3")->getTextContent(), line_den_coeff[2] );
-  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_DEN_COEFF_4")->getTextContent(), line_den_coeff[3] );
-  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_DEN_COEFF_5")->getTextContent(), line_den_coeff[4] );
-  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_DEN_COEFF_6")->getTextContent(), line_den_coeff[5] );
-  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_DEN_COEFF_7")->getTextContent(), line_den_coeff[6] );
-  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_DEN_COEFF_8")->getTextContent(), line_den_coeff[7] );
-  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_DEN_COEFF_9")->getTextContent(), line_den_coeff[8] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_DEN_COEFF_1" )->getTextContent(), line_den_coeff[0] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_DEN_COEFF_2" )->getTextContent(), line_den_coeff[1] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_DEN_COEFF_3" )->getTextContent(), line_den_coeff[2] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_DEN_COEFF_4" )->getTextContent(), line_den_coeff[3] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_DEN_COEFF_5" )->getTextContent(), line_den_coeff[4] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_DEN_COEFF_6" )->getTextContent(), line_den_coeff[5] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_DEN_COEFF_7" )->getTextContent(), line_den_coeff[6] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_DEN_COEFF_8" )->getTextContent(), line_den_coeff[7] );
+  cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_DEN_COEFF_9" )->getTextContent(), line_den_coeff[8] );
   cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_DEN_COEFF_10")->getTextContent(), line_den_coeff[9] );
   cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_DEN_COEFF_11")->getTextContent(), line_den_coeff[10] );
   cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_DEN_COEFF_12")->getTextContent(), line_den_coeff[11] );
@@ -609,17 +613,17 @@ void asp::RPCXML::parse_rational_function_model( xercesc::DOMElement* node ) {
   cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_DEN_COEFF_19")->getTextContent(), line_den_coeff[18] );
   cast_xmlch( get_node<DOMElement>( inverse_model, "LINE_DEN_COEFF_20")->getTextContent(), line_den_coeff[19] );
 
-  cast_xmlch( get_node<DOMElement>( rfmvalidity, "LONG_SCALE")->getTextContent(), geodetic_scale.x() );
-  cast_xmlch( get_node<DOMElement>( rfmvalidity, "LAT_SCALE")->getTextContent(), geodetic_scale.y() );
+  cast_xmlch( get_node<DOMElement>( rfmvalidity, "LONG_SCALE"  )->getTextContent(), geodetic_scale.x() );
+  cast_xmlch( get_node<DOMElement>( rfmvalidity, "LAT_SCALE"   )->getTextContent(), geodetic_scale.y() );
   cast_xmlch( get_node<DOMElement>( rfmvalidity, "HEIGHT_SCALE")->getTextContent(), geodetic_scale.z() );
-  cast_xmlch( get_node<DOMElement>( rfmvalidity, "LONG_OFF")->getTextContent(), geodetic_offset.x() );
-  cast_xmlch( get_node<DOMElement>( rfmvalidity, "LAT_OFF")->getTextContent(), geodetic_offset.y() );
-  cast_xmlch( get_node<DOMElement>( rfmvalidity, "HEIGHT_OFF")->getTextContent(), geodetic_offset.z() );
+  cast_xmlch( get_node<DOMElement>( rfmvalidity, "LONG_OFF"    )->getTextContent(), geodetic_offset.x() );
+  cast_xmlch( get_node<DOMElement>( rfmvalidity, "LAT_OFF"     )->getTextContent(), geodetic_offset.y() );
+  cast_xmlch( get_node<DOMElement>( rfmvalidity, "HEIGHT_OFF"  )->getTextContent(), geodetic_offset.z() );
 
   cast_xmlch( get_node<DOMElement>( rfmvalidity, "SAMP_SCALE")->getTextContent(), xy_scale.x() );
   cast_xmlch( get_node<DOMElement>( rfmvalidity, "LINE_SCALE")->getTextContent(), xy_scale.y() );
-  cast_xmlch( get_node<DOMElement>( rfmvalidity, "SAMP_OFF")->getTextContent(), xy_offset.x() );
-  cast_xmlch( get_node<DOMElement>( rfmvalidity, "LINE_OFF")->getTextContent(), xy_offset.y() );
+  cast_xmlch( get_node<DOMElement>( rfmvalidity, "SAMP_OFF"  )->getTextContent(), xy_offset.x() );
+  cast_xmlch( get_node<DOMElement>( rfmvalidity, "LINE_OFF"  )->getTextContent(), xy_offset.y() );
 
   xy_offset -= Vector2i(1,1);
 

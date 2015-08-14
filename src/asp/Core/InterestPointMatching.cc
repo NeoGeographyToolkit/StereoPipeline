@@ -268,8 +268,7 @@ namespace asp {
           Vector2 l( double(box1.width() - 1) * i / (num-1.0),
                      double(box1.height() - 1) * j / (num-1.0) );
 
-          Vector3 intersection =
-            cartography::datum_intersection( datum, cam1, l );
+          Vector3 intersection = cartography::datum_intersection( datum, cam1, l );
           if ( intersection == Vector3() )
             continue;
 
@@ -286,8 +285,7 @@ namespace asp {
           Vector2 r( double(box2.width() - 1) * i / (num-1.0),
                      double(box2.height() - 1) * j / (num-1.0) );
 
-          Vector3 intersection =
-            cartography::datum_intersection( datum, cam2, r );
+          Vector3 intersection = cartography::datum_intersection( datum, cam2, r );
           if ( intersection == Vector3() )
             continue;
 
@@ -301,6 +299,8 @@ namespace asp {
         catch (...) {}
       }
     }
+    if (left_points.empty() || right_points.empty())
+      vw_throw( ArgumentErr() << "InterestPointMatching: rough_homography_fit failed to generate points!\n" );
 
     typedef math::HomographyFittingFunctor hfit_func;
     math::RandomSampleConsensus<hfit_func, math::InterestPointErrorMetric>

@@ -45,19 +45,25 @@ namespace asp {
   // the image); it is also the flight direction. This is different
   // from Digital Globe model, but you can rotate pose beforehand.
 
+  // Preview of the standard template arguments:
+  //typedef LinescanDGModel<vw::camera::PiecewiseAPositionInterpolation, 
+  //                        vw::camera::LinearPiecewisePositionInterpolation, 
+  //                        vw::camera::SLERPPoseInterpolation, 
+  //                        vw::camera::TLCTimeInterpolation> DGCameraModel;
+
   template <class PositionFuncT, class VelocityFuncT, class PoseFuncT, class TimeFuncT>
   class LinescanDGModel : public vw::camera::CameraModel {
   protected:
     // Extrinsics
     PositionFuncT m_position_func; // Function of time
     VelocityFuncT m_velocity_func; // Function of time
-    PoseFuncT m_pose_func;
-    TimeFuncT m_time_func;         // Function of line number
+    PoseFuncT     m_pose_func;     // Function of time
+    TimeFuncT     m_time_func;     // Function of line number
 
     // Intrinsics
-    vw::Vector2i m_image_size;     // px
-    vw::Vector2 m_detector_origin; // px
-    double m_focal_length;         // px
+    vw::Vector2i m_image_size;      // px
+    vw::Vector2  m_detector_origin; // px
+    double       m_focal_length;    // px
 
     bool m_correct_velocity_aberration;
 
@@ -71,8 +77,8 @@ namespace asp {
       const LinescanDGModel* m_model;
       vw::Vector3 m_point;
     public:
-      typedef vw::Vector<double> result_type; // 1D error on the optical plane.
-      typedef result_type domain_type;        // 1D linescan number
+      typedef vw::Vector<double> result_type;   // 1D error on the optical plane.
+      typedef result_type        domain_type;   // 1D linescan number
       typedef vw::Matrix<double> jacobian_type;
 
       LinescanLMA( const LinescanDGModel* model, const vw::Vector3& pt ) :
@@ -124,12 +130,12 @@ namespace asp {
     //------------------------------------------------------------------
     LinescanDGModel(PositionFuncT const& position,
                     VelocityFuncT const& velocity,
-                    PoseFuncT const& pose,
-                    TimeFuncT const& time,
-                    vw::Vector2i const& image_size,
-                    vw::Vector2 const& detector_origin,
+                    PoseFuncT     const& pose,
+                    TimeFuncT     const& time,
+                    vw::Vector2i  const& image_size,
+                    vw::Vector2  const& detector_origin,
                     double focal_length,
-                    bool correct_velocity_aberration
+                    bool   correct_velocity_aberration
                     ) :
       m_position_func(position), m_velocity_func(velocity),
       m_pose_func(pose), m_time_func(time),
@@ -145,7 +151,8 @@ namespace asp {
     //------------------------------------------------------------------
     virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point) const {
 
-      if (!m_correct_velocity_aberration) return point_to_pixel_uncorrected(point);
+      if (!m_correct_velocity_aberration) 
+        return point_to_pixel_uncorrected(point);
       return point_to_pixel_corrected(point);
     }
 
@@ -158,9 +165,8 @@ namespace asp {
       int status;
       Vector<double> objective(1), start(1);
       start[0] = m_image_size.y()/2;
-      Vector<double> solution =
-        math::levenberg_marquardt( model, start, objective, status,
-                                   1e-2, 1e-5, 1e3 );
+      Vector<double> solution = math::levenberg_marquardt( model, start, objective, status,
+                                                           1e-2, 1e-5, 1e3 );
       // The ending numbers define:
       //   Attempt to solve solution to 0.01 pixels.
       //   Give up with a relative change of 0.00001 pixels.
@@ -170,7 +176,7 @@ namespace asp {
                  camera::PointToPixelErr() << "Unable to project point into LinescanDG model" );
 
       // Solve for sample location
-      double t = m_time_func( solution[0] );
+      double  t  = m_time_func( solution[0] );
       Vector3 pt = inverse( m_pose_func(t) ).rotate( point - m_position_func(t) );
       pt *= m_focal_length / pt.z();
 
@@ -186,11 +192,9 @@ namespace asp {
       Vector2 start = point_to_pixel_uncorrected(point);
 
       Vector3 objective(0, 0, 0);
-      // Need such tight tolerances below otherwise the solution is
-      // inaccurate.
-      Vector2 solution =
-        math::levenberg_marquardt( model, start, objective, status,
-                                   1e-10, 1e-10, 50 );
+      // Need such tight tolerances below otherwise the solution is inaccurate.
+      Vector2 solution = math::levenberg_marquardt( model, start, objective, status,
+                                                    1e-10, 1e-10, 50 );
       VW_ASSERT( status > 0,
                  camera::PointToPixelErr() << "Unable to project point into LinescanDG model" );
 
@@ -202,11 +206,11 @@ namespace asp {
 
       using namespace vw;
 
-      double t = m_time_func( pix.y() );
-      Vector3 pix_to_vec
-        = normalize(m_pose_func( t ).rotate( vw::Vector3(pix[0]+m_detector_origin[0],
-                                                         m_detector_origin[1],
-                                                         m_focal_length) ) );
+      // Compute local vector from the pixel out of the sensor
+      // - m_detector_origin and m_focal_length have been converted into units of pixels
+      Vector3 local_vec(pix[0]+m_detector_origin[0], m_detector_origin[1], m_focal_length);
+      // Put the local vector in world coordinates using the pose information.
+      Vector3 pix_to_vec = normalize(camera_pose(pix).rotate(local_vec));
 
       if (!m_correct_velocity_aberration) return pix_to_vec;
 
@@ -218,9 +222,10 @@ namespace asp {
       double  earth_ctr_to_cam = norm_2(cam_ctr);
       double  cam_angle_cos    = dot_prod(pix_to_vec, -normalize(cam_ctr));
       double  len_cos          = earth_ctr_to_cam*cam_angle_cos;
-      double  earth_rad        = 6371000.0;
-      double  cam_to_surface   = len_cos -
-        sqrt(earth_rad*earth_rad + len_cos*len_cos - earth_ctr_to_cam*earth_ctr_to_cam);
+      double  earth_rad        = 6371000.0; // TODO: Vary by location?
+      double  cam_to_surface   = len_cos - sqrt(earth_rad*earth_rad
+                                                + len_cos*len_cos
+                                                - earth_ctr_to_cam*earth_ctr_to_cam);
 
       // 2. Correct the camera velocity due to the fact that the Earth
       // rotates around its axis.

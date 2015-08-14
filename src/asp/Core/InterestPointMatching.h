@@ -535,10 +535,15 @@ namespace asp {
 
     BBox2i box1 = bounding_box(image1.impl()), box2 = bounding_box(image2.impl());
 
-    // Homography is defined in the original camera coordinates
-    Matrix<double> rough_homography =
-      rough_homography_fit( cam1, cam2, left_tx.reverse_bbox(box1),
-                            right_tx.reverse_bbox(box2), datum );
+    try {
+      // Homography is defined in the original camera coordinates
+      Matrix<double> rough_homography =
+        rough_homography_fit( cam1, cam2, left_tx.reverse_bbox(box1),
+                              right_tx.reverse_bbox(box2), datum );
+    } catch(...) {
+      VW_OUT( DebugMessage, "asp" ) << "Rough homography fit failed, trying with identity transform. " << std::endl;
+      rough_homography.identity_matrix(3);
+    }
 
     // Remove the main translation and solve for BBox that fits the
     // image. If we used the translation from the solved homography with

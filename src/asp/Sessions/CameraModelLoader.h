@@ -179,6 +179,9 @@ inline boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_dg_cam
     att.quat_vec[i] = att.quat_vec[i] * geo.camera_attitude * sensor_coordinate;
   }
 
+  vw_out() << "DG model load - sensor_coordinate = " << sensor_coordinate << std::endl; 
+  geo.printDebugInfo(); // DEBUG INFO
+
   // Load up the time interpolation class. If the TLCList only has
   // one entry ... then we have to manually drop in the slope and offset.
   if ( img.tlc_vec.size() == 1 ) {
@@ -197,6 +200,13 @@ inline boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_dg_cam
                    tlc_time_interpolation( 0 ) ) < fabs( 1.0 / (10.0 * img.avg_line_rate ) ),
              vw::MathErr() << "First Line Time and output from TLC lookup table do not agree of the ephemeris time for the first line of the image." );
 
+  Vector2 final_detector_origin = subvector(inverse(sensor_coordinate).rotate(vw::Vector3(geo.detector_origin[0],
+                                                                                          geo.detector_origin[1],
+                                                                                          0)
+                                                                             ),
+                                            0, 2);
+
+  vw_out() << "DG model load - final_detector_origin = " << final_detector_origin << std::endl;
 
   double et0 = convert( parse_time( eph.start_time ) );
   double at0 = convert( parse_time( att.start_time ) );
@@ -206,11 +216,7 @@ inline boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_dg_cam
                                           vw::camera::LinearPiecewisePositionInterpolation(eph.velocity_vec, et0, edt),
                                           vw::camera::SLERPPoseInterpolation(att.quat_vec, at0, adt),
                                           tlc_time_interpolation, img.image_size,
-                                          subvector(inverse(sensor_coordinate).rotate(vw::Vector3(geo.detector_origin[0],
-                                                                                                  geo.detector_origin[1],
-                                                                                                  0)
-                                                                                     ),
-                                                    0, 2),
+                                          final_detector_origin,
                                           geo.principal_distance, correct_velocity_aberration)
                     );
 } // End function load_dg_camera_model()

@@ -144,7 +144,7 @@ namespace asp {
     tx_type tx_left () const;
     tx_type tx_right() const;
 
-    /// The type of sensor models created by this lass
+    /// The type of sensor models created by this class
     typedef typename StereoModelType2Class<STEREOMODEL_TYPE>::type stereo_model_type;
 /*
     /// Simple factory function
