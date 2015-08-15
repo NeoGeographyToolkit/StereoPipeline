@@ -211,7 +211,7 @@ if test x"$PROTOC" = "xno" && test x"$HAVE_PKG_PROTOBUF" = "xyes"; then
 fi
 AX_PKG(FLANN, [], [-lflann_cpp], [flann/flann.hpp])
 AX_PKG(Z, [], [-lz], [zlib.h])
-AX_PKG(PNG, [], [-lpng], [png.h])
+AX_PKG(PNG, [Z], [-lpng], [png.h])
 AX_PKG(JPEG, [], [-ljpeg], [stdio.h jpeglib.h]) # jpeglib.h requires stdio.h to have been included
 AX_PKG(JP2, [JPEG], [-lopenjp2], [stdio.h openjpeg-2.0/openjpeg.h]) # same as above
 AX_PKG(TIFF, [Z JP2], [-ltiff], [tiff.h])
