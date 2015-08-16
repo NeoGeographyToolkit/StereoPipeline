@@ -38,6 +38,137 @@ using namespace std;
 
 namespace vw { namespace gui {
 
+  // Given an image with georef1 and a portion of its pixels in
+  // pixel_box1, find the bounding box of pixel_box1 in projected
+  // point units for georef2.
+  BBox2 pixel_to_point_bbox(BBox2 pixel_box1,
+                            double lon_offset,
+                            cartography::GeoReference const& georef1,
+                            cartography::GeoReference const& georef2){
+
+    // Note that we don't simply transform the corners, as that does not work
+    // at the poles. We also don't simply use
+    // georef2.lonlat_to_point_bbox(georef1.pixel_to_lonlat_bbox(pixel_box1)),
+    // as that would grow unnecessarily the box.
+
+    // Instead, we'll walk over points on the diagonal and edges of pixel_box1,
+    // and grow the desired box.
+
+    // Ensure we don't get incorrect results for empty boxes with
+    // strange corners.
+    if (pixel_box1.empty())
+      return pixel_box1;
+
+    BBox2 out_box;
+
+    double minx = pixel_box1.min().x(), maxx = pixel_box1.max().x();
+    double miny = pixel_box1.min().y(), maxy = pixel_box1.max().y();
+
+    // Compensate by the fact that lon1 and lon2 could be off
+    // by 360 degrees.
+    Vector2 L(lon_offset, 0);
+
+    // At the poles this won't be enough, more thought is needed.
+    int num = 100;
+    for (int i = 0; i <= num; i++) {
+      double r = double(i)/num;
+
+      // left edge
+      Vector2 P = Vector2(minx, miny + r*(maxy-miny));
+      out_box.grow(georef2.lonlat_to_point(georef1.pixel_to_lonlat(P)+L));
+
+      // right edge
+      P = Vector2(maxx, miny + r*(maxy-miny));
+      out_box.grow(georef2.lonlat_to_point(georef1.pixel_to_lonlat(P)+L));
+
+      // bottom edge
+      P = Vector2(minx + r*(maxx-minx), miny);
+      out_box.grow(georef2.lonlat_to_point(georef1.pixel_to_lonlat(P)+L));
+
+      // top edge
+      P = Vector2(minx + r*(maxx-minx), maxy);
+      out_box.grow(georef2.lonlat_to_point(georef1.pixel_to_lonlat(P)+L));
+
+      // diag1
+      P = Vector2(minx + r*(maxx-minx), miny + r*(maxy-miny));
+      out_box.grow(georef2.lonlat_to_point(georef1.pixel_to_lonlat(P)+L));
+
+      // diag2
+      P = Vector2(maxx - r*(maxx-minx), miny + r*(maxy-miny));
+      out_box.grow(georef2.lonlat_to_point(georef1.pixel_to_lonlat(P)+L));
+    }
+
+    return out_box;
+  }
+
+  // Given georef2 and a point in projected coordinates with this
+  // georef, convert it to pixel coordinates for georef1.
+
+  Vector2 point_to_pixel(Vector2 const& proj_pt2,
+                         double lon_offset,
+                         cartography::GeoReference const& georef1,
+                         cartography::GeoReference const& georef2){
+
+    Vector2 out_pt;
+    Vector2 L(lon_offset, 0);
+    return georef1.lonlat_to_pixel(georef2.point_to_lonlat(proj_pt2) - L);
+  }
+
+  // The reverse of pixel_to_point_bbox. Given georef2 and a box in
+  // projected coordinates of this georef, convert it to a pixel box
+  // with georef1.
+  BBox2 point_to_pixel_bbox(BBox2 point_box2,
+                            double lon_offset,
+                            cartography::GeoReference const& georef1,
+                            cartography::GeoReference const& georef2){
+
+    // Ensure we don't get incorrect results for empty boxes with
+    // strange corners.
+    if (point_box2.empty())
+      return point_box2;
+
+    BBox2 out_box;
+
+    double minx = point_box2.min().x(), maxx = point_box2.max().x();
+    double miny = point_box2.min().y(), maxy = point_box2.max().y();
+
+    // Compensate by the fact that lon1 and lon2 could be off
+    // by 360 degrees.
+    Vector2 L(lon_offset, 0);
+
+    // At the poles this won't be enough, more thought is needed.
+    int num = 100;
+    for (int i = 0; i <= num; i++) {
+      double r = double(i)/num;
+
+      // left edge
+      Vector2 P2 = Vector2(minx, miny + r*(maxy-miny));
+      out_box.grow(point_to_pixel(P2, lon_offset, georef1, georef2));
+
+      // right edge
+      P2 = Vector2(maxx, miny + r*(maxy-miny));
+      out_box.grow(point_to_pixel(P2, lon_offset, georef1, georef2));
+
+      // bottom edge
+      P2 = Vector2(minx + r*(maxx-minx), miny);
+      out_box.grow(point_to_pixel(P2, lon_offset, georef1, georef2));
+
+      // top edge
+      P2 = Vector2(minx + r*(maxx-minx), maxy);
+      out_box.grow(point_to_pixel(P2, lon_offset, georef1, georef2));
+
+      // diag1
+      P2 = Vector2(minx + r*(maxx-minx), miny + r*(maxy-miny));
+      out_box.grow(point_to_pixel(P2, lon_offset, georef1, georef2));
+
+      // diag2
+      P2 = Vector2(maxx - r*(maxx-minx), miny + r*(maxy-miny));
+      out_box.grow(point_to_pixel(P2, lon_offset, georef1, georef2));
+    }
+
+    return grow_bbox_to_int(out_box);
+  }
+
   void popUp(std::string msg){
     QMessageBox msgBox;
     msgBox.setText(msg.c_str());
@@ -58,7 +189,7 @@ namespace vw { namespace gui {
   }
 
   void do_hillshade(cartography::GeoReference const& georef,
-                    ImageView<double> & img,
+                    ImageView<double> & ING,
                     double nodata_val){
 
     // Copied from hillshade.cc.
@@ -81,12 +212,8 @@ namespace vw { namespace gui {
     ImageViewRef< PixelMask<double> > masked_img = create_mask_less_or_equal(img, nodata_val);
 
     // The final result is the dot product of the light source with the normals
-    ImageView<PixelMask<uint8> > shaded_image =
-      channel_cast_rescale<uint8>
-      (clamp
-       (dot_prod
-        (compute_normals
-         (masked_img, u_scale, v_scale), light)));
+    ImageView<PixelMask<uint8> > shaded_image = channel_cast_rescale<uint8>
+      (clamp(dot_prod(compute_normals(masked_img, u_scale, v_scale), light)));
 
     img = apply_mask(shaded_image);
   }
@@ -109,9 +236,9 @@ void imageData::read(std::string const& image, bool use_georef, bool hillshade){
     exit(1);
   }
 
-  bbox = BBox2(0, 0, img.cols(), img.rows());
+  image_bbox = BBox2(0, 0, img.cols(), img.rows());
   if (use_georef && has_georef)
-    bbox = georef.pixel_to_lonlat_bbox(bbox); // lonlat box
+    lonlat_bbox = georef.pixel_to_lonlat_bbox(image_bbox);
 
   if (hillshade){
     if (!has_georef){
@@ -257,23 +384,31 @@ MainWidget::MainWidget(QWidget *parent,
   this->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
   this->setFocusPolicy(Qt::ClickFocus);
 
-  // Read the images.
+  // Read the images. Find the box that will contain all of them.
+  // If we use georef, that pox is in projected point units
+  // of the first image.
   int num_images = image_files.size();
   m_images.resize(num_images);
   m_filesOrder.resize(num_images);
   for (int i = 0; i < num_images; i++){
     m_images[i].read(image_files[i], m_use_georef, m_hillshade);
     m_filesOrder[i] = i; // start by keeping the order of files being read
-    if (m_use_georef){
+    if (!m_use_georef){
+      m_images_box.grow(m_images[i].image_bbox);
+    }else{
       // Compensate for the fact some images show pixels at -90
       // degrees while others at 270 degrees.
-      double midi = (m_images[i].bbox.min().x() + m_images[i].bbox.max().x())/2.0;
-      double mid0 = (m_images[0].bbox.min().x() + m_images[0].bbox.max().x())/2.0;
+      double midi = (m_images[i].lonlat_bbox.min().x() + m_images[i].lonlat_bbox.max().x())/2.0;
+      double mid0 = (m_images[0].lonlat_bbox.min().x() + m_images[0].lonlat_bbox.max().x())/2.0;
       m_images[i].m_lon_offset = 360.0*round((midi-mid0)/360.0);
-      m_images[i].bbox -= Vector2(m_images[i].m_lon_offset, 0);
-    }
+      m_images[i].lonlat_bbox -= Vector2(m_images[i].m_lon_offset, 0);
 
-    m_images_box.grow(m_images[i].bbox);
+      // Convert from pixels in image i to projected points in image 0.
+      BBox2 B = pixel_to_point_bbox(m_images[i].image_bbox,
+                                    -m_images[i].m_lon_offset,
+                                    m_images[i].georef, m_images[0].georef);
+      m_images_box.grow(B);
+    }
   }
 
   m_shadow_thresh = -std::numeric_limits<double>::max();
@@ -548,19 +683,20 @@ BBox2 MainWidget::world2screen(BBox2 const& R) {
   return BBox2(A, B);
 }
 
-// If we use georef, the world is in lon-lat.  Convert a world box to
-// a pixel box for the given image.
+// If we use georef, the world is in projected point units of the first image.
+// Convert a world box to a pixel box for the given image.
 BBox2i MainWidget::world2image(BBox2 const& R, int imageIndex) {
 
   if (R.empty()) return R;
+  if (m_images.empty()) return R;
 
   if (!m_use_georef)
     return R;
 
-  BBox2 pixel_box = m_images[imageIndex].georef.lonlat_to_pixel_bbox
-    (R + Vector2(m_images[imageIndex].m_lon_offset, 0));
+  BBox2 pixel_box = point_to_pixel_bbox(R, -m_images[imageIndex].m_lon_offset,
+                                        m_images[imageIndex].georef, m_images[0].georef);
 
-  return grow_bbox_to_int(pixel_box);
+  return pixel_box;
 }
 
 // Convert the crop window to original pixel coordinates from
@@ -625,17 +761,26 @@ void MainWidget::drawImage(QPainter* paint) {
     string fileName = m_images[i].name;
     if (m_filesToHide.find(fileName) != m_filesToHide.end()) continue;
 
-    // The current view
+    // The current view. If we use georef, the world coordinates are
+    // in projected point units for the first image.
     BBox2 world_box = m_current_view;
-    world_box.crop(m_images[i].bbox);
+    if (!m_use_georef)
+      world_box.crop(m_images[i].image_bbox);
+    else{
+      // Convert from pixels in image i to projected points in image 0.
+      BBox2 B = pixel_to_point_bbox(m_images[i].image_bbox,
+                                    -m_images[i].m_lon_offset,
+                                    m_images[i].georef, m_images[0].georef);
+      world_box.crop(B);
+    }
 
     // See where it fits on the screen
     BBox2i screen_box;
     screen_box.grow(round(world2screen(world_box.min())));
     screen_box.grow(round(world2screen(world_box.max())));
 
-    // If we use georef, the world box is in lon-lat units,
-    // so we need to convert it to image pixels.
+    // Go from projected point units in the first image to pixels
+    // in the second image.
     BBox2i image_box = MainWidget::world2image(world_box, i);
 
     QImage qimg;
@@ -681,13 +826,15 @@ void MainWidget::drawImage(QPainter* paint) {
       int len = screen_box.max().y() - screen_box.min().y() - 1;
       for (int x = screen_box.min().x(); x < screen_box.max().x(); x++){
         for (int y = screen_box.min().y(); y < screen_box.max().y(); y++){
-          Vector2 lonlat = screen2world(Vector2(x, y));
 
-          // Undo the compensation we did we made the lon for all images similar.
-          lonlat[0] += m_images[i].m_lon_offset;
+          // Convert from a pixel as seen on screen, to the internal coordinate
+          // system which is in projected point units for the first image.
+          Vector2 world_pt = screen2world(Vector2(x, y));
 
-          // p has pixel indices at in the original full-resolution uncropped image.
-          Vector2 p = m_images[i].georef.lonlat_to_pixel(lonlat);
+          // p is in pixel coordinates of m_images[i]
+          Vector2 p = point_to_pixel(world_pt, -m_images[i].m_lon_offset,
+                                     m_images[i].georef, m_images[0].georef);
+
           bool is_in = (p[0] >= 0 && p[0] <= m_images[i].img.cols()-1 &&
                         p[1] >= 0 && p[1] <= m_images[i].img.rows()-1 );
           if (!is_in)
@@ -957,6 +1104,8 @@ void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
 
   QPoint mouse_rel_pos = event->pos();
 
+  if (m_images.empty()) return;
+
   // If we are in shadow threshold detection mode, and we released
   // the mouse where we pressed it, that means we want the current
   // point to be marked as shadow.
@@ -1024,45 +1173,37 @@ void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
 
     // User selects the region to use for stereo.  Convert it to world
     // coordinates, and round to integer.  If we use georeferences,
-    // the crop win is in lon-lat, so we must convert it to pixels.
+    // the crop win is in projected units for the first image,
+    // so we must convert to pixels.
     m_stereoCropWin = screen2world(qrect2bbox(m_rubberBand));
 
-    BBox2i image_box = world2image(m_stereoCropWin, 0);
+    int last = m_filesOrder[m_filesOrder.size()-1];
+
+    BBox2i image_box = world2image(m_stereoCropWin, last);
     vw_out() << "Crop src win for  "
-             << m_image_files[0]
+             << m_image_files[last]
              << ": "
              << image_box.min().x() << ' '
              << image_box.min().y() << ' '
                << image_box.width()   << ' '
              << image_box.height()  << std::endl;
-    if (m_images[0].has_georef){
+    if (m_images[last].has_georef){
       Vector2 proj_min, proj_max;
-      // TODO: The logic below needs review.
-      if (!m_use_georef){
-        // Convert pixels to projected coordinates
-        proj_min = m_images[0].georef.pixel_to_point(m_stereoCropWin.min());
-        proj_max = m_images[0].georef.pixel_to_point(m_stereoCropWin.max());
-      }else{
-        proj_min = m_images[0].georef.lonlat_to_point(m_stereoCropWin.min());
-        proj_max = m_images[0].georef.lonlat_to_point(m_stereoCropWin.max());
-      }
-
+      // Convert pixels to projected coordinates
+      BBox2 point_box = m_images[last].georef.pixel_to_point_bbox(image_box);
+      proj_min = point_box.min();
+      proj_max = point_box.max();
       vw_out() << "Crop proj win for "
-               << m_image_files[0] << ": "
+               << m_image_files[last] << ": "
                << proj_min.x() << ' ' << proj_min.y() << ' '
                << proj_max.x() << ' ' << proj_max.y() << std::endl;
 
       Vector2 lonlat_min, lonlat_max;
-      if (!m_use_georef){
-        lonlat_min = m_images[0].georef.pixel_to_lonlat(m_stereoCropWin.min());
-        lonlat_max = m_images[0].georef.pixel_to_lonlat(m_stereoCropWin.max());
-      }else{
-        lonlat_min = m_stereoCropWin.min();
-        lonlat_max = m_stereoCropWin.max();
-      }
-
+      BBox2 lonlat_box = m_images[last].georef.pixel_to_lonlat_bbox(image_box);
+      lonlat_min = lonlat_box.min();
+      lonlat_max = lonlat_box.max();
       vw_out() << "lonlat win for    "
-               << m_image_files[0] << ": "
+               << m_image_files[last] << ": "
                << lonlat_min.x() << ' ' << lonlat_min.y() << ' '
                << lonlat_max.x() << ' ' << lonlat_max.y() << std::endl;
     }

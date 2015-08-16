@@ -466,7 +466,8 @@ private:
     std::string name;
     bool has_georef;
     vw::cartography::GeoReference georef;
-    BBox2 bbox; // The pixel bbox or lonlat bbox if georef is present
+    BBox2 image_bbox;
+    BBox2 lonlat_bbox;
     DiskImagePyramidMultiChannel img;
     void read(std::string const& image, bool use_georef, bool hillshade);
     double m_lon_offset; // to compensate for -90 deg equalling 270 deg
