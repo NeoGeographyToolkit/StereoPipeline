@@ -6,29 +6,37 @@
    only for Digital Globe images). Documentation has been added about
    how to use this mode. 
 
--  Added stereo_gui, a GUI frontend having the same interface as stereo,
-   that can be used to visualize the input images and run stereo only
-   on desired regions. Doubles as a viewer for very large images with
-   integer or floating-point pixels, including ISIS cubes and DEMs,
-   if invoked with images only and no stereo options. It can also be
-   used to view/add/delete interest point matches and choosing
-   shadow thresholds for images. Based on Michael Broxton's vwv tool. 
-
  - New tools
-   * Added gdalinfo, gdal_translate, and gdalbuildvrt to the bin
-     directory. These executables are compiled with JPEG2000 and
-     BigTIFF support, and  can handle NTF images.
-   * Documented the colormap tool. Added a new colormap option based 
-     on the paper "Diverging Color Maps for Scientific Visualization" 
-     (http://www.sandia.gov/~kmorel/documents/ColorMaps/)
-   * Added geodiff, a tool for taking the (absolute) difference of two 
-     DEMs.
+    * Added stereo_gui, a GUI front-end. Features:
+      - Show several extremely large images side by side.
+      - If invoked with the same interface as stereo, can run stereo on 
+        selected clips.
+      - Show images only (no stereo options or cameras are needed).
+      - Load images with int and float pixels, including ISIS cubes, DEMs,
+        NTF, TIF, and other formats, also RGB images.
+      - Can place in correct locations georeferenced images in the same
+        window and can toggle individual images on and off (like Google
+        Earth).
+      - View/add/delete interest points.
+      - Create shadow thresholds by clicking on shadow pixels.
+      - Based on Michael Broxton's vwv tool. 
+
    * Added image_calc, a tool for performing simple per-pixel arithmetic
      operations on one or more images.
    * Added pc_merge, a simple tool for concatenating ASP produced
      point clouds.
    * Added pansharp, a tool to apply a pansharp algorithm to a matched
      grayscale image and a low resolution color image.
+   * Added sfs, a tool to refine DEMs using shape-from-shading. It works
+     only with ISIS images.
+   * Added geodiff, a tool for taking the (absolute) difference of two 
+     DEMs.
+   * Documented the colormap tool. Added a new colormap option based 
+     on the paper "Diverging Color Maps for Scientific Visualization" 
+     (http://www.sandia.gov/~kmorel/documents/ColorMaps/).
+   * Added gdalinfo, gdal_translate, and gdalbuildvrt to the bin
+     directory. These executables are compiled with JPEG2000 and
+     BigTIFF support, and  can handle NTF images.
 
  - docs
    * Added a documentation section on 'tips and tricks', summarizing 
