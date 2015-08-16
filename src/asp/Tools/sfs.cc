@@ -1304,7 +1304,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(0.04),
      "A larger value will result in a smoother solution.")
     ("coarse-levels", po::value(&opt.coarse_levels)->default_value(0),
-     "Solve the problem on a grid coarser than the original by a factor of 2 to this power, then refine the solution on finer grids.")
+     "Solve the problem on a grid coarser than the original by a factor of 2 to this power, then refine the solution on finer grids (experimental).")
     ("max-coarse-iterations,n", po::value(&opt.max_coarse_iterations)->default_value(10),
      "How many iterations to do at levels of resolution coarser than the final result.")
     ("float-albedo",   po::bool_switch(&opt.float_albedo)->default_value(false)->implicit_value(true),
@@ -1947,7 +1947,7 @@ int main(int argc, char* argv[]) {
         adj_cam->set_scale(factors[level]);
       }
 
-#define USE_COARSE_DEM (0)
+#define USE_COARSE_DEM (1)
 
 #if USE_COARSE_DEM
 #else
