@@ -1,4 +1,4 @@
-Look at bug!!!
+Look at bug!!!!
 
 \chapter{Tools}
 
@@ -181,25 +181,31 @@ Usage:
 This program can be also used as a general-purpose image viewer, being
 able to display side-by-side any number of arbitrarily large images with
 integer and floating-point pixel values, including ISIS .cub files and
-DEMs. In this mode just images need to be passed as inputs, without
-cameras or stereo options. \texttt{stereo\_gui} handles large images by
-building on disk a pyramid of increasingly coarser subsampled images for
-each input image, and displaying the subsampled versions that are
-appropriate for the current level of zoom.
+DEMs, as well as RGB images. In this mode just images need to be passed
+as inputs, without cameras or stereo options. \texttt{stereo\_gui}
+handles large images by building on disk a pyramid of increasingly
+coarser subsampled images for each input image, and displaying the
+subsampled versions that are appropriate for the current level of zoom.
+
+If the images are georeferenced, invoking the tool with
+\texttt{-\/-use-georef} and \texttt{-\/-single-window} will correctly
+superimpose the images and individual images can be toggled on and off.
 
 \subsection{Other Functionality}
 
 This tool can be used to view interest point matches, such as generated
-by \texttt{bundle\_adjust} and \texttt{stereo} (only if \texttt{stereo}
-was invoked without map-projected images and with homography or affine
-epipolar alignment). It can also be used to manually create matches
-(useful in situations when automatic interest point matching fails due
-to large changes in illumination) and to delete matches. This functionality
-is only enabled if \texttt{stereo\_gui} is invoked like \texttt{stereo},
+by by a previous \texttt{bundle\_adjust} and \texttt{stereo} run (only
+if \texttt{stereo} was invoked without map-projected images and with
+homography or affine epipolar alignment). It can also be used to
+manually create matches (useful in situations when automatic interest
+point matching fails due to large changes in illumination) and to delete
+matches. This functionality is only enabled if \texttt{stereo\_gui} is
+invoked like \texttt{stereo}, so with output prefix and camera models,
 rather than just with images.
 
 \texttt{stereo\_gui} can be used to find the shadow threshold for each
-of a given set of images. This can be done by turning on from the menu
+of a given set of images (useful for shape-from-shading (chapter \ref{ch:sfs}).
+This can be done by turning on from the menu
 the \texttt{Shadow threshold detection} mode, and then clicking on
 pixels in the shadow. The largest of the chosen pixel values will be set
 to the shadow threshold for each image and printed to the screen. To see
@@ -1186,7 +1192,7 @@ This tool reads in a high resolution grayscale file and a low resolution RGB fil
 a high resolution RGB file.  The output image will be at the resolution of the grayscale image
 and will cover the region where the two images overlap.  Both images must have georeferencing
 information.  This can either be projection information in the image metadata or it can be a
-seperate Worldview style XML file containing four ground control points.
+separate Worldview style XML file containing four ground control points.
 
 
 \medskip
@@ -1198,7 +1204,7 @@ Usage:\\
 
 \begin{longtable}{|l|p{10cm}|}
 \caption{Command-line options for pc\_merge}
-\label{tbl:pcmerge}
+\label{tbl:pansharp}
 \endfirsthead
 \endhead
 \endfoot
@@ -1801,6 +1807,45 @@ Option & Description \\ \hline \hline
 
 \section{sfs}
 \label{sfs}
+
+Here we describle ASP's shape-from-shading tool, named
+\texttt{sfs}. Examples for how to use it are in chapter \ref{ch:sfs}.
+
+\begin{longtable}{|l|p{7.5cm}|}
+\caption{Command-line options for sfs}
+\label{tbl:sfs}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Option & Description \\ \hline \hline
+\texttt{-i | -\/-input-dem  \textit{string}} & The input DEM to refine using SfS.\\ \hline
+\texttt{-o | -\/-output-prefix  \textit{string}} & Prefix for output filenames.\\ \hline
+\texttt{-n | -\/-max-iterations \textit{int(=100)}} & Set the maximum number of iterations.\\ \hline
+\texttt{-\/-reflectance-type \textit{int(=1)}} & Reflectance type (0 = Lambertian, 1 = Lunar Lambertian).\\ \hline
+\texttt{-\/-smoothness-weight \textit{double(=0.04)}} & A larger value will result in a smoother solution.\\ \hline
+\texttt{-\/-coarse-levels \textit{int(=0)}} & Solve the problem on a grid coarser than the original by a factor of 2 to this power, then refine the solution on finer grids (experimental).\\ \hline
+\texttt{-n | -\/-max-coarse-iterations \textit{int(=10)}} & How many iterations to do at levels of resolution coarser than the final result.\\ \hline
+\texttt{-\/-float-albedo} & Float the albedo for each pixel. Will give incorrect results if only one image is present.\\ \hline
+\texttt{-\/-float-exposure} & Float the exposure for each image. Will give incorrect results if only one image is present.\\ \hline
+\texttt{-\/-float-cameras} & Float the camera pose for each image except the first one.\\ \hline
+\texttt{-\/-model-shadows} & Model the fact that some points on the DEM
+are in the shadow (occluded from the sun).\\ \hline
+\texttt{-\/-shadow-thresholds \textit{string}} & Optional shadow thresholds for the input images (a list of real values in quotes).\\ \hline
+\texttt{-\/-use-approx-camera-models} & Use approximate camera models for speed.\\ \hline
+\texttt{-\/-bundle-adjust-prefix \textit{string}} & Use the camera adjustment obtained by previously running bundle\_adjust with this output prefix.\\ \hline
+\texttt{-\/-init-dem-height \textit{double}} & Use this value for initial DEM heights. An input DEM still needs to be provided for georeference information.\\ \hline
+\texttt{-\/-float-dem-at-boundary} & Allow the DEM values at the boundary of the region to also float (not advised).\\ \hline
+\texttt{-\/-camera-position-step-size \textit{int(=1)}} & Larger step size will result in more aggressiveness in varying the camera position if it is being floated (which may result in a better solution or in divergence).\\ \hline
+\texttt{-\/-max-height-change \textit{int(=0)}} & How much the DEM heights are allowed to differ from the initial guess, in meters. The default is 0, which means this constraint is not applied.\\ \hline
+\texttt{-\/-height-change-weight \textit{int(=0)}} & How much weight to give to the height change penalty (this penalty will only kick in when the DEM height changes by more than max-height-change).\\ \hline
+\texttt{-\/-threads \textit{int(=0)}} & Select the number of processors (threads) to use.\\ \hline
+\texttt{-\/-no-bigtiff} & Tell GDAL to not create bigtiffs.\\ \hline
+\texttt{-\/-tif-compress None|LZW|Deflate|Packbits} & TIFF compression method.\\ \hline
+\texttt{-\/-cache-dir \textit{string(=/tmp)}} & Folder for temporary files. Change if directory is inaccessible to user such as on Pleiades.\\ \hline
+\texttt{-h | -\/-help } & Display this help message.\\ \hline
+\end{longtable}
 
 
 \section{GDAL Tools}

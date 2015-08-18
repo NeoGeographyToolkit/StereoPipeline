@@ -49,7 +49,7 @@ namespace vw {
   public:
     MainWindow(std::vector<std::string> const& images,
                std::string const& output_prefix,
-               vw::Vector2i const& window_size, bool use_single_window,
+               vw::Vector2i const& window_size, bool single_window,
                bool use_georef, bool hillshade, int argc, char ** argv);
     virtual ~MainWindow() {}
 

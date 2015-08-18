@@ -189,7 +189,7 @@ namespace vw { namespace gui {
   }
 
   void do_hillshade(cartography::GeoReference const& georef,
-                    ImageView<double> & ING,
+                    ImageView<double> & img,
                     double nodata_val){
 
     // Copied from hillshade.cc.

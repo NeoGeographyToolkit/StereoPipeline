@@ -67,8 +67,6 @@ int main(int argc, char* argv[]) {
     }catch (std::exception& e){
       // The tool was invoked as an image viewer. Just read in any files
       // that look like images.
-      vw_out() << "Apparently this tool was invoked simply "
-               << "to view images, not for stereo.\n";
       output_prefix = ""; // mark that we did not find valid stereo options
       for (int i = 1; i < argc; i++) {
         std::string image = argv[i];
@@ -97,7 +95,7 @@ int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
     vw::gui::MainWindow main_window(images, output_prefix,
                                     stereo_settings().window_size,
-                                    stereo_settings().use_single_window,
+                                    stereo_settings().single_window,
                                     stereo_settings().use_georef,
                                     hillshade, argc, argv);
     main_window.show();

@@ -524,27 +524,37 @@ namespace asp {
         tree1.knn_search( select_row( locations1, i ),
                           indices, distance, NUM_INDICES_TO_GET );
 
+        // Bugfix: If there are too few inputs, in rare occasions
+        // some of the outputs are invalid. Not always. Could not
+        // figure this out in reasonable time, the logic is somewhere
+        // deep inside FLANN. Just discard the bad results.
+        std::vector<int> good_indices;
+        for (size_t j = 0; j < indices.size(); j++) {
+          if (indices[j] >= (int)disparity_vector.size()) continue;
+          good_indices.push_back(indices[j]);
+        }
+
         // Make an average of the disparities around us and not our own
         // measurement
         Vector2 sum;
-        for ( size_t j = 1; j < indices.size(); j++ ) {
-          sum += disparity_vector[ indices[j] ];
+        for ( size_t j = 1; j < good_indices.size(); j++ ) {
+          sum += disparity_vector[ good_indices[j] ];
         }
         sum = normalize( sum );
 
         // Project all disparities along the new gradient
-        Vector<double> projections( indices.size() );
-        for ( size_t j = 0; j < indices.size(); j++ ) {
-          projections[j] = dot_prod( disparity_vector[indices[j]], sum );
+        Vector<double> projections( good_indices.size() );
+        for ( size_t j = 0; j < good_indices.size(); j++ ) {
+          projections[j] = dot_prod( disparity_vector[good_indices[j]], sum );
         }
         double mean = 0;
         double stddev = 0;
-        for ( size_t j = 1; j < indices.size(); j++ ) {
+        for ( size_t j = 1; j < good_indices.size(); j++ ) {
           mean += projections[j];
           stddev += projections[j]*projections[j];
         }
-        mean /= indices.size() - 1;
-        stddev = sqrt( stddev / ( indices.size() - 1 ) - mean*mean );
+        mean /= good_indices.size() - 1;
+        stddev = sqrt( stddev / ( good_indices.size() - 1 ) - mean*mean );
 
         double std_distance = fabs(projections[0]-mean)/stddev;
         if ( std_distance > worse_index.first ) {

@@ -11,14 +11,13 @@
       - Show several extremely large images side by side.
       - If invoked with the same interface as stereo, can run stereo on 
         selected clips.
-      - Show images only (no stereo options or cameras are needed).
       - Load images with int and float pixels, including ISIS cubes, DEMs,
         NTF, TIF, and other formats, also RGB images.
-      - Can place in correct locations georeferenced images in the same
-        window and can toggle individual images on and off (like Google
-        Earth).
+      - Can superimpose goereferenced images and can toggle individual
+        images on and off (like Google Earth).
       - View/add/delete interest points.
-      - Create shadow thresholds by clicking on shadow pixels.
+      - Create shadow thresholds by clicking on shadow pixels (needed
+        for sfs).
       - Based on Michael Broxton's vwv tool. 
 
    * Added image_calc, a tool for performing simple per-pixel arithmetic

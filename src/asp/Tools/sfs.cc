@@ -1314,23 +1314,23 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("float-cameras",   po::bool_switch(&opt.float_cameras)->default_value(false)->implicit_value(true),
      "Float the camera pose for each image except the first one.")
     ("model-shadows",   po::bool_switch(&opt.model_shadows)->default_value(false)->implicit_value(true),
-     "Model the fact that some points on the DEM are in the shadow.")
+     "Model the fact that some points on the DEM are in the shadow (occluded from the sun).")
     ("shadow-thresholds", po::value(&opt.shadow_thresholds)->default_value(""),
      "Optional shadow thresholds for the input images (a list of real values in quotes).")
     ("use-approx-camera-models",   po::bool_switch(&opt.use_approx_camera_models)->default_value(false)->implicit_value(true),
      "Use approximate camera models for speed.")
+    ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
+     "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.")
     ("init-dem-height", po::value(&opt.init_dem_height)->default_value(std::numeric_limits<double>::quiet_NaN()),
-     "Use this value as for initial DEM heights. An input DEM still needs to be provided for georeference information.")
+     "Use this value for initial DEM heights. An input DEM still needs to be provided for georeference information.")
     ("float-dem-at-boundary",   po::bool_switch(&opt.float_dem_at_boundary)->default_value(false)->implicit_value(true),
-     "Allow the DEM values at the boundary of the region to also float.")
+     "Allow the DEM values at the boundary of the region to also float (not advised).")
     ("camera-position-step-size", po::value(&opt.camera_position_step_size)->default_value(1.0),
      "Larger step size will result in more aggressiveness in varying the camera position if it is being floated (which may result in a better solution or in divergence).")
     ("max-height-change", po::value(&opt.max_height_change)->default_value(0),
      "How much the DEM heights are allowed to differ from the initial guess, in meters. The default is 0, which means this constraint is not applied.")
     ("height-change-weight", po::value(&opt.height_change_weight)->default_value(0),
-     "How much weight to give to the height change penalty (this penalty will only kick in when the DEM height changes by more than max-height-change).")
-    ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
-     "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.");
+     "How much weight to give to the height change penalty (this penalty will only kick in when the DEM height changes by more than max-height-change).");
 
   general_options.add( asp::BaseOptionsDescription(opt) );
 

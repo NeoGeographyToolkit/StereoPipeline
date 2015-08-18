@@ -41,7 +41,7 @@ namespace po = boost::program_options;
 MainWindow::MainWindow(std::vector<std::string> const& images,
                        std::string const& output_prefix,
                        vw::Vector2i const& window_size,
-                       bool use_single_window,
+                       bool single_window,
                        bool use_georef, bool hillshade,
                        int argc,  char ** argv) :
   m_images(images), m_output_prefix(output_prefix),
@@ -80,7 +80,7 @@ MainWindow::MainWindow(std::vector<std::string> const& images,
   setCentralWidget(centralFrame);
   QSplitter *splitter = new QSplitter(centralFrame);
 
-  if (use_single_window) {
+  if (single_window) {
     // Put all images in a single window, with a dialog for choosing images if
     // there's more than one image.
 
