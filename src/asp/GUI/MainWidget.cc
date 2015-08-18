@@ -1193,10 +1193,11 @@ void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
       BBox2 point_box = m_images[last].georef.pixel_to_point_bbox(image_box);
       proj_min = point_box.min();
       proj_max = point_box.max();
+      // Below we flip in y to make gdal happy
       vw_out() << "Crop proj win for "
                << m_image_files[last] << ": "
-               << proj_min.x() << ' ' << proj_min.y() << ' '
-               << proj_max.x() << ' ' << proj_max.y() << std::endl;
+               << proj_min.x() << ' ' << proj_max.y() << ' '
+               << proj_max.x() << ' ' << proj_min.y() << std::endl;
 
       Vector2 lonlat_min, lonlat_max;
       BBox2 lonlat_box = m_images[last].georef.pixel_to_lonlat_bbox(image_box);
