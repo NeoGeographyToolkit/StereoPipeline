@@ -40,9 +40,6 @@ of squares all second-order partial derivatives of $\phi$, and $\mu > 0$
 is a smoothing term. We use either the regular Lambertian reflectance model,
 or the Lunar-Lambertian model \cite{mcewen1991photometric}.
 
-This tool is still a work in progress and may improve significantly in
-future releases.
-
 Below we show two examples of running \texttt{sfs}, first for one image,
 and then for multiple images with bundle-adjustment and modeling the shadow
 threshold.
@@ -66,18 +63,18 @@ LROLRC_0005/DATA/SCI/2010267/NAC/M139939938LE.IMG
   lronaccal from = M139939938LE.cub to = M139939938LE.cal.cub
   lronacecho from = M139939938LE.cal.cub to = M139939938LE.cal.echo.cub
 \end{verbatim}
-We rename, for simplicity, the obtained four processed datasets as
+We rename, for simplicity, the obtained four processed datasets to
 A.cub, B.cub, C.cub, and D.cub.
 
 The first step is to run stereo to create an initial guess DEM. We
-picked for this the first two of these images, that form a streo pair,
+picked for this the first two of these images. These form a stereo pair,
 that is, they have reasonable baseline and sufficiently close times of
 acquisition and hence very similar illuminations. These conditions are
 necessary to obtain a good stereo result.
 \begin{verbatim}
 parallel_stereo --job-size-w 1024 --job-size-h 1024 A.cub B.cub    \
-                --left-image-crop-win 0 7998 2728 2696           \
-                --right-image-crop-win 0 9377 2733 2505         \
+                --left-image-crop-win 0 7998 2728 2696             \
+                --right-image-crop-win 0 9377 2733 2505            \
                 --threads 16 --corr-seed-mode 1  --subpixel-mode 3 \
                 run_full1/run
 \end{verbatim}
@@ -95,7 +92,7 @@ This creates a DEM of size $456 \times 410$ pixels.
 
 Then we run \texttt{sfs}:
 \begin{verbatim}
-sfs -i run_full1/run-crop-DEM.tif A.cub -o sfs/run   \
+  sfs -i run_full1/run-crop-DEM.tif A.cub -o sfs/run   \
     --smoothness-weight 0.08  --reflectance-type 0  \
     --max-iterations 100 --use-approx-camera-models
 \end{verbatim}
@@ -110,19 +107,19 @@ South (an issue to be investigated). The meaning of the other
 \texttt{sfs} options can be looked up in section \ref{sfs}.
 
 We show the results of running this program in figure
-\ref{fig:sfs1}. The left-most figure is the hillshaded original DEM,
+\ref{fig:sfs1}. The left-most figure is the hill-shaded original DEM,
 which was obtained by running:
 \begin{verbatim}
   hillshade --azimuth 300 --elevation 20 -o run_full1/run-crop5-hill.tif \
     run_full1/run-crop-DEM.tif
 \end{verbatim}
-The second image is the hillshaded DEM obtained after running
+The second image is the hill-shaded DEM obtained after running
 \texttt{sfs} for 15 iterations.
 
 The third image is, for comparison, the map-projection of A.cub onto the
 original DEM, obtained via the command:
 \begin{verbatim}
-mapproject --tr 1 run_full1/run-crop-DEM.tif A.cub A_map.tif --tile-size 128
+  mapproject --tr 1 run_full1/run-crop-DEM.tif A.cub A_map.tif --tile-size 128
 \end{verbatim}
 The forth image is the colored absolute difference between the original
 DEM and the SfS output, obtained by running:
@@ -135,7 +132,7 @@ DEM and the SfS output, obtained by running:
 \begin{center}
 \includegraphics[width=7in]{images/sfs1.jpg}
 \caption[sfs]{An illustration of \texttt{sfs}. The images are, from
-  left to right, the original hillshaded DEM, the hillshaded DEM obtained
+  left to right, the original hill-shaded DEM, the hill-shaded DEM obtained
 from \texttt{sfs}, the image A.cub map-projected onto the original DEM,
 and the absolute difference of the original and final DEM, where the brightest
 shade of red corresponds to a 2 meter height difference.}
@@ -161,7 +158,7 @@ factor of 10, run stereo with them, followed by SfS using the stereo
 result as an initial guess and with the resampled images. As ground
 truth, we create a DEM from the original images at 1 meter/pixel, which
 we bring closer to the initial guess for SfS using
-\texttt{pc\_align}. We would like to know if running SfS brings us
+\texttt{pc\_align}. We would like to know if running SfS brings us even
 closer to this ``ground truth'' DEM.
 
 The most significant challenge in running SfS with multiple images is
@@ -175,8 +172,9 @@ it will not be able to find matches among images. In that case, the
 \texttt{stereo\_gui} tool can be used to create the matches manually
 (section \ref{stereo_gui}). It is also important to mention that
 running \texttt{sfs} with multiple images at the full 1 meter/pixel
-resolution will even more exagerbate the errors in camera
-positions and orientations.
+resolution will even more exacerbate the errors in camera
+positions and orientations. In that case running the tool at multiple levels
+of resultion is helpful, as described in section \ref{sfs:insights}.
 
 To make bundle adjustment and stereo faster, we first crop the images,
 such as shown below (the crop parameters can be determined via
@@ -215,7 +213,7 @@ commands analogous to the above:
 We'll obtain a point cloud named \verb#run_sub10/run-PC.tif#.
 
 We'll bring the ``ground truth'' point cloud closer to the initial guess
-for SfS using pc\_align:
+for SfS using \texttt{pc\_align}:
 \begin{verbatim}
   pc_align --max-displacement 200 run_full2/run-PC.tif run_sub10/run-PC.tif \
     -o run_full2/run --save-inv-transformed-reference-points
@@ -245,15 +243,15 @@ results. The thresholds can be determined using \texttt{stereo\_gui}.
 \begin{verbatim}
   sfs -i run_sub10/run-crop-DEM.tif A_crop_sub10.cub C_crop_sub10.cub \
     D_crop_sub10.cub -o sfs/run --threads 1 --smoothness-weight 0.12  \
-    --max-iterations 100 --reflectance-type 0 --float-albedo          \
-    --float-exposure --float-cameras --use-approx-camera-models       \
+    --max-iterations 100 --reflectance-type 0 --float-exposure        \
+    --float-cameras --use-approx-camera-models                        \
     --bundle-adjust-prefix run_ba_sub10/run                           \
     --shadow-thresholds "0.00162484 0.0012166 0.000781663"
 \end{verbatim}
 We compare the initial guess to \texttt{sfs} to the ``ground truth'' DEM
 obtained earlier and the same for the final refined DEM using
 \texttt{geodiff} as in the previous section. The mean error goes from
-2.65 meters to 1.44 meters. Visually the refined DEM looks more detailed
+2.65 meters to 1.34 meters. Visually the refined DEM looks more detailed
 as well as seen in figure \ref{fig:sfs2}.
 
 We also show in this figure the first of the images used for SfS,
@@ -262,16 +260,35 @@ we use the previously computed bundle-adjusted cameras when
 map-projecting, otherwise the image will show as shifted from its true
 location:
 \begin{verbatim}
-  mapproject sfs/run-DEM-iter59.tif A_crop_sub10.cub A_crop_sub10_map.tif \
+  mapproject sfs/run-DEM-iter28.tif A_crop_sub10.cub A_crop_sub10_map.tif \
     --bundle-adjust-prefix run_ba_sub10/run
 \end{verbatim}
 \begin{figure}[h!]
 \begin{center}
 \includegraphics[width=7in]{images/sfs2.jpg}
 \caption[sfs]{An illustration of \texttt{sfs}. The images are, from
-  left to right, the hillshaded initial guess DEM for SfS, the hillshaded DEM obtained
+  left to right, the hill-shaded initial guess DEM for SfS, the hill-shaded DEM obtained
 from \texttt{sfs}, the ``ground truth'' DEM, and the first of the
 images used in SfS map-projected onto the optimized DEM.}
 \label{fig:sfs2}
 \end{center}
 \end{figure}
+
+\section{Insights for getting the most of sfs}
+\label{sfs:insights}
+
+Here are a few suggestions we have found helpful when running \texttt{sfs}:
+
+\begin{itemize}{}
+\item First determine the appropriate smoothing term, by running a small clip, and using just one image.
+
+\item Bundle-adjustment for multiple images is crucial. It is suggested to examine the measured intensity images output by \texttt{sfs} for some iterations using \texttt{stereo\_gui} with the options \texttt{-\/-single-window} and \texttt{-\/-use-georef} to see if the images overlay correctly, and if the overlay error appears to go down as the tool is running. If not, the cameras have a pose error that is too big for the algorithm to correct it.
+
+\item If bundle adjustment is not successful, the option \texttt{-\/--coarse-levels} is very helpful in fixing errors in camera positions. It first runs SfS at a coarse resolution, and progressively refines the results. A good value for the number of levels can be 3 to 5 (downsampling the images by a factor of 32 and 128 respectively), larger values are suggested for larger camera errors.
+
+\item Floating the albedo (option \texttt{-\/-float-albedo}) can introduce instability and divergence, it should be avoided unless albedo variation is seen in the images.
+
+\item Floating the DEM at the boundary (option \texttt{-\/-float-dem-at-boundary}) is also suggested to be avoided.
+
+\item Overall, the best strategy is to first use SfS for a single image and not float any variables except the DEM being optimized, and then gradually add images and float more variables and select whichever approach seems to give better results.
+\end{itemize}
