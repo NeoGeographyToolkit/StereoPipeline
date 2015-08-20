@@ -242,10 +242,15 @@ Now you may skip to chapter \ref{nextsteps} which will discuss the
 \label{ch:dg_tutorial}
 
 In this chapter we will focus on how to process Earth imagery, or more
-specifically Digital Globe imagery. This is different from our previous
+specifically Digital Globe data. This is different from our previous
 chapter in that at no point will we be using ISIS utilities. This is
 because ISIS only supports NASA instruments, while most Earth imagery
 comes from commercial providers.
+
+In addtion to Digital Globe's satelites, ASP supports any Earth imagery
+that uses the RPC camera model format. How to process such data is
+described in section \ref{rpc}, although following this tutorial may
+still be insightful even if your data is not from Digital Globe.
 
 Digital Globe provides imagery from Quick Bird and the two World
 View satellites. These are the hardest images to process with Ames
@@ -267,22 +272,18 @@ The camera information for Digital Globe images is contained in an XML
 file for each image. In addition to the exact linear camera model, the
 XML file also has its RPC approximation. In this chapter we will focus
 only on processing data using the linear camera model.  For more detail
-on RPC camera models we refer to section \ref{rpc} on page
-\pageref{rpc}, which discusses processing GeoEye imagery which comes
-only with RPC coefficients.
+on RPC camera models we refer as before to section \ref{rpc}.
 
-Our implementation of the linear camera model only
-models the geometry of the imaging hardware itself and velocity
-aberration. We do not currently model refraction due to light bending
-in Earth's atmosphere. It is our understanding that this could
-represent misplacement of points up to a meter for some
-imagery. However this is still smaller error than the error from
-measurement of the spacecraft's position and orientation. We do not
-provide facilities for correcting spacecraft altitude either. However,
-the \texttt{pc\_align}
-tool discussed in section \ref{pc-align-example} can be used to align
-the terrain obtained from Stereo Pipeline to an accurate set of ground
-measurements.
+Our implementation of the linear camera model only models the geometry
+of the imaging hardware itself and velocity aberration. We do not
+currently model refraction due to light bending in Earth's
+atmosphere. It is our understanding that this could represent
+misplacement of points up to a meter for some imagery. However this is
+still smaller error than the error from measurement of the spacecraft's
+position and orientation. We do not provide facilities for correcting
+spacecraft altitude either. The \texttt{pc\_align} tool discussed in
+section \ref{pc-align-example} can be used to align the terrain obtained
+from Stereo Pipeline to an accurate set of ground measurements.
 
 In the next two sections we will show how to process unmodified and
 map-projected variants of World View imagery. This steps will be the
@@ -1111,10 +1112,11 @@ spheroid (i.e., calculated for the Moon, Mars, or Earth).
   >  point2dem -r mars results/output-PC.tif
 \end{verbatim}
 
-This product is suitable for scientific use, and can be imported into
-a variety of GIS platforms.  However, the resulting file,
-\texttt{results/output-DEM.tif}, will have 32-bit floating point
-pixels, and will not render well in typical image viewers.
+The output DEM will be named \texttt{results/output-DEM.tif}.
+It can be imported into a variety of GIS platforms.
+The DEM can be transformed into a hill-shaded image for visualization
+(section \ref{genhillshade}). Both the DEM itself and its hill-shaded
+version can be examined in \texttt{stereo\_gui}.
 
 The \texttt{point2dem} program can also be used to orthoproject raw
 satellite imagery onto the \ac{DEM}. To do this, invoke
@@ -1283,6 +1285,7 @@ format for the interchange of 3-dimensional point cloud data. The tool
 \end{verbatim}
 
 \subsection{Generating Color Hillshade Maps}
+\label{genhillshade}
 
 Once you have generated a \ac{DEM} file, you can use the
 \texttt{colormap} and \texttt{hillshade} tools to create colorized
@@ -1302,7 +1305,7 @@ use. You can control the azimuth and elevation of the light source
 using the \texttt{-a} and \texttt{-e} options.
 
 \begin{verbatim}
-  >  hillshade results/output-DEM.tif -o hrad-shaded.tif -e 25
+  >  hillshade results/output-DEM.tif -o hrad-shaded.tif -e 25 -a 300
 \end{verbatim}
 
 To create a colorized version of the shaded relief file, specify
