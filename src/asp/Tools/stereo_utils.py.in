@@ -19,6 +19,15 @@
 
 import sys, optparse, subprocess, re, os, time, glob
 import os.path as P
+
+# The path to the ASP python files.
+basepath    = os.path.abspath(sys.path[0])
+pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
+libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
+sys.path.insert(0, basepath) # prepend to Python path
+sys.path.insert(0, pythonpath)
+sys.path.insert(0, libexecpath)
+
 from asp_system_utils import *
 
 def get_asp_version():

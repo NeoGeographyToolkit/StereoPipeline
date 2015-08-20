@@ -20,10 +20,10 @@
 
 import os, glob, optparse, re, shutil, subprocess, sys, string, time
 
-libexecpath = sys.path[0] + '/../libexec'
+libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
 sys.path.insert(0, libexecpath) # prepend to Python path
 from stereo_utils import get_asp_version
-                     
+
 job_pool = [];
 
 # Global output folder variable
@@ -449,7 +449,7 @@ def main():
             lronacechod = lronacecho( lronaccaled, options.threads, options.delete )
 
             if (options.cropAmount > 0): # Crop the input files as soon as ISIS calls allow it
-                lronacechod = cropInputs(lronacechod, options.outputFolder, options.cropAmount, 
+                lronacechod = cropInputs(lronacechod, options.outputFolder, options.cropAmount,
                                          options.threads, options.delete)
 
             print "spice"       # Attach spice info to cubes (adds to existing files)

@@ -19,7 +19,7 @@
 
 import os, glob, optparse, re, shutil, subprocess, sys, string
 
-libexecpath = sys.path[0] + '/../libexec'
+libexecpath = os.path.abspath(sys.path[0] + '/../libexec')
 sys.path.insert(0, libexecpath) # prepend to Python path
 from stereo_utils import get_asp_version
 
@@ -116,7 +116,7 @@ def isisversion(verbose=False):
             index_e = line.rfind("|");
             version = line[index+9:index_e].rstrip()
             #version = version +'b'
-    f.close() 
+    f.close()
 
     if( version ):
         if( verbose ): print "\tFound Isis Version: "+version+ " at "+path
@@ -337,7 +337,7 @@ def main():
             parser.add_option("--stop-at-no-proj", dest="stop_no_proj", action="store_true",
                               help="Process the IMG files only to have SPICE attached. This allows jigsaw to happen")
             parser.add_option("--resume-at-no-proj", dest="resume_no_proj", action="store_true",
-                              help="Pick back up after spiceinit has happened or jigsaw. This was noproj uses your new camera information") 
+                              help="Pick back up after spiceinit has happened or jigsaw. This was noproj uses your new camera information")
             parser.add_option("-t", "--threads", dest="threads",
                               help="Number of threads to use.",type="int")
             parser.add_option("-m", "--match", dest="match",

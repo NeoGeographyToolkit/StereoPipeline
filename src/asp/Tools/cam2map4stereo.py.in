@@ -19,7 +19,7 @@
 
 import os, optparse, subprocess, sys, tempfile
 
-libexecpath = sys.path[0] + '/../libexec'
+libexecpath = os.path.abspath(sys.path[0] + '/../libexec')
 sys.path.insert(0, libexecpath) # prepend to Python path
 from stereo_utils import get_asp_version
 
