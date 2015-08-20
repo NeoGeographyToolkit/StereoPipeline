@@ -108,6 +108,8 @@
  - bundle_adjust
     * Bug fix in handling situations when a point cannot get projected
       into the camera.
+    * Bug fix in the camera adjustment logic. Any .adjust files may 
+      need to be regenerated.
     * Added new parameters, --ip-per-tile and --min-triangulation-angle.
 
  - image2qtree
