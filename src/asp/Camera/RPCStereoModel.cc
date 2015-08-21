@@ -67,7 +67,7 @@ namespace asp {
     int num_cams = m_cameras.size();
     VW_ASSERT((int)pixVec.size() == num_cams,
               vw::ArgumentErr() << "the number of rays must match "
-              << "the number of cameras.\n");
+                                << "the number of cameras.\n");
 
     errorVec = Vector3();
 
@@ -75,7 +75,9 @@ namespace asp {
 
       vector<Vector3> camDirs(num_cams), camCtrs(num_cams);
       vector<const RPCModel*> rpc_cams(num_cams);
-      camDirs.clear(); camCtrs.clear(); rpc_cams.clear();
+      camDirs.clear(); 
+      camCtrs.clear(); 
+      rpc_cams.clear();
 
       // Pick the valid rays
       for (int p = 0; p < num_cams; p++){
@@ -96,9 +98,11 @@ namespace asp {
       }
 
       // Not enough valid rays
-      if (camDirs.size() < 2) return Vector3();
+      if (camDirs.size() < 2) 
+          return Vector3();
 
-      if (are_nearly_parallel(m_least_squares, camDirs)) return Vector3();
+      if (are_nearly_parallel(m_least_squares, camDirs)) 
+          return Vector3();
 
       // Determine range by triangulation
       Vector3 result = triangulate_point(camDirs, camCtrs, errorVec);
@@ -115,13 +119,11 @@ namespace asp {
         Vector4 objective(pixVec[0][0], pixVec[0][1], pixVec[1][0], pixVec[1][1]);
         int status = 0;
 
-        Vector3 initialGeodetic
-          = rpc_cams[0]->datum().cartesian_to_geodetic(result);
+        Vector3 initialGeodetic = rpc_cams[0]->datum().cartesian_to_geodetic(result);
 
         // To do: Find good values for the numbers controlling the convergence
-        Vector3 finalGeodetic
-          = levenberg_marquardt( model, initialGeodetic,
-                                 objective, status, 1e-3, 1e-6, 10 );
+        Vector3 finalGeodetic = levenberg_marquardt( model, initialGeodetic,
+                                                     objective, status, 1e-3, 1e-6, 10 );
 
         if ( status > 0 )
           result = rpc_cams[0]->datum().geodetic_to_cartesian(finalGeodetic);

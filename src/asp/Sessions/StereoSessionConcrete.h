@@ -75,7 +75,9 @@ namespace asp {
 
   /// Utility for converting STEREOMODEL_TYPE into the corresponding class
   template <STEREOSESSION_STEREOMODEL_TYPE T> struct StereoModelType2Class { typedef vw::stereo::StereoModel type; };
-  template <> struct StereoModelType2Class<STEREOMODEL_TYPE_RPC>           { typedef asp::RPCStereoModel     type; };
+// TODO: Using this causes problems to appear in stereo_tri, possibly due to stereo models being
+//       used inconsistently.
+  //template <> struct StereoModelType2Class<STEREOMODEL_TYPE_RPC>           { typedef asp::RPCStereoModel     type; };
 
   /// Utility returns true if our inputs are map projected.
   template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE> struct IsTypeMapProjected { static const bool value=false; };

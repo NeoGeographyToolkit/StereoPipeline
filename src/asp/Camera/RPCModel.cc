@@ -411,6 +411,7 @@ namespace asp {
     // Find a point which gets projected onto the current pixel,
     // and the direction of the ray going through that point.
 
+    // Center of valid region to bottom o valid region (normalized)
     double  height_up = m_lonlatheight_offset[2];
     double  height_dn = m_lonlatheight_offset[2] - m_lonlatheight_scale[2];
 

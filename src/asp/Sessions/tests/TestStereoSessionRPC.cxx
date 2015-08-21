@@ -89,3 +89,39 @@ TEST( StereoSessionRPC, CheckStereo ) {
   
   EXPECT_NEAR( error, 54682.96251543280232, 1e-3 );
 }
+
+
+
+TEST( StereoSessionRPC, CheckRpcCrop ) {
+
+  // Load the camera model as DG and RPC
+  CameraModelLoader loader;
+  boost::shared_ptr<asp::RPCModel> rpcModel = 
+        loader.load_rpc_camera_model("dg_example1.xml");
+  boost::shared_ptr<vw::camera::CameraModel> dgModel = 
+        loader.load_dg_camera_model("dg_example1.xml");
+
+  // Verify that the RPC and DG models are similar
+  Vector2 testPix(100, 200);
+  Vector3 rpcVector = rpcModel->pixel_to_vector(testPix);
+  Vector3 dgVector  = dgModel->pixel_to_vector(testPix);
+  EXPECT_LT( norm_2(rpcVector - dgVector), 1.0e-4 );
+
+  // Now try the same thing with a cropped image
+  Vector2 pixel_offset(40, 80);  
+  Vector3 position_correction;
+  Quaternion<double> pose_correction = Quat(math::identity_matrix<3>());
+
+  boost::shared_ptr<camera::CameraModel> croppedRpc(
+        new vw::camera::AdjustedCameraModel(
+                rpcModel, position_correction, pose_correction, pixel_offset));
+  boost::shared_ptr<camera::CameraModel> croppedDg(
+        new vw::camera::AdjustedCameraModel(
+                dgModel, position_correction, pose_correction, pixel_offset));
+
+  rpcVector = croppedRpc->pixel_to_vector(testPix);
+  dgVector  = croppedDg->pixel_to_vector(testPix);
+  EXPECT_LT( norm_2(rpcVector - dgVector), 1.0e-4 );
+}
+
+

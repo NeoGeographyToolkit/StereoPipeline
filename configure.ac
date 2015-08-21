@@ -521,6 +521,7 @@ AC_CONFIG_FILES([                        \
   src/asp/Core/Makefile                  \
   src/asp/Core/tests/Makefile            \
   src/asp/Camera/Makefile                \
+  src/asp/Camera/tests/Makefile          \
   src/asp/IsisIO/Makefile                \
   src/asp/IsisIO/tests/Makefile          \
   src/asp/Makefile                       \

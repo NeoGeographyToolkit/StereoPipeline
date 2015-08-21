@@ -32,7 +32,7 @@ libaspCamera_la_LIBADD = @MODULE_CAMERA_LIBS@
 
 lib_LTLIBRARIES = libaspCamera.la
 
-SUBDIRS = .
+SUBDIRS = . tests
 
 
 

@@ -124,8 +124,7 @@ TEST(StereoSessionDG, CreateCamera) {
   EXPECT_LT( norm_2(pos), norm_2(cam1->camera_center(m1)) ); // Point should be below camera.
 
   // Verify that projection back into the camera hits the right
-  // spot. It will slightly be wrong due to the above triangulation
-  // error.
+  // spot. It will slightly be wrong due to the above triangulation error.
 #if __GNUC__
 #if __x86_64__ || __ppc64__
   EXPECT_VECTOR_NEAR( m1, cam1->point_to_pixel( pos ), 4 );
@@ -136,8 +135,7 @@ TEST(StereoSessionDG, CreateCamera) {
 #endif
 #endif
 
-  // A more accurate test is just to project out and back into the
-  // same camera
+  // A more accurate test is just to project out and back into the same camera
   for ( size_t i = 0; i < 30000; i += 500 ) {
     for ( size_t j = 0; j < 24000; j += 500 ) {
       EXPECT_VECTOR_NEAR( Vector2(i,j),
