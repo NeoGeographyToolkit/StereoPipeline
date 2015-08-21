@@ -33,6 +33,7 @@ namespace vw {
 namespace asp {
 
   /// Derived StereoModel class implementing the RPC camera model.
+  /// - Using a seperate class allows us to get a speed improvement in ray generation.
   class RPCStereoModel: public vw::stereo::StereoModel {
 
   public:

@@ -53,14 +53,16 @@ boost::shared_ptr<vw::camera::CameraModel> load_rpc_camera_model(std::string con
 
 
 
-TEST( RPCStereoModel, matchPlain ) {
 
-  xercesc::XMLPlatformUtils::Initialize();
+void test_stereo_models(const std::string &path1, const std::string &path2) {
 
   // Load the camera models
   boost::shared_ptr<vw::camera::CameraModel> camPtr1, camPtr2;
-  camPtr1 = load_rpc_camera_model("wv_test1.xml");
-  camPtr2 = load_rpc_camera_model("wv_test2.xml");
+  //camPtr1 = load_rpc_camera_model("wv_test1.xml");
+  //camPtr2 = load_rpc_camera_model("wv_test2.xml");
+
+  camPtr1 = load_rpc_camera_model(path1);
+  camPtr2 = load_rpc_camera_model(path2);
 
   // Set up the stereo models
   vw::stereo::StereoModel plainStereoModel(camPtr1.get(), camPtr2.get());
@@ -86,8 +88,22 @@ TEST( RPCStereoModel, matchPlain ) {
     EXPECT_VECTOR_NEAR(xyzPlain, xyzRpc, 1e-4);
     //EXPECT_LT(abs(errorPlain - errorRpc), 1e-4);
   }
+}
 
 
+
+TEST( RPCStereoModel, mvpMatchTest ) {
+  xercesc::XMLPlatformUtils::Initialize();
+  test_stereo_models("wv_mvp_1.xml", "wv_mvp_2.xml");
   xercesc::XMLPlatformUtils::Terminate();
 }
+
+TEST( RPCStereoModel, greenlandMatchTest ) {
+  xercesc::XMLPlatformUtils::Initialize();
+  test_stereo_models("wv_test1.xml", "wv_test2.xml");
+  xercesc::XMLPlatformUtils::Terminate();
+}
+
+
+
 
