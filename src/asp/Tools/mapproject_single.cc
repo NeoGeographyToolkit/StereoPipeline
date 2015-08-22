@@ -234,7 +234,7 @@ void calc_target_geom(// Inputs
                       boost::shared_ptr<camera::CameraModel> const& camera_model,
                       ImageViewRef<PMaskT> const& dem,
                       GeoReference dem_georef, // make copy on purpose
-                      BBox2  dem_bbox,         // make copy on purpose
+                      BBox2  dem_box,         // make copy on purpose
                       // Outputs
                       Options & opt, BBox2 & cam_box, GeoReference & target_georef){
 
@@ -284,10 +284,14 @@ void calc_target_geom(// Inputs
     cam_box.min().y() += opt.target_resolution;
   }
 
-  // Ensure the camera box does not extend beyond the DEM box
-  dem_bbox.max().x() -= opt.target_resolution; //TODO: What are these adjustments?
-  dem_bbox.min().y() += opt.target_resolution;
-  cam_box.crop(dem_bbox);
+  if ( opt.target_projwin == BBox2() ) {
+    // Ensure the camera box does not extend beyond the DEM box.
+    // Apply this only if the user did not explicitly request
+    // a custom proj win.
+    dem_box.max().x() -= opt.target_resolution; //TODO: What are these adjustments?
+    dem_box.min().y() += opt.target_resolution;
+    cam_box.crop(dem_box);
+  }
 
   // In principle the corners of the projection box can be
   // arbitrary.  However, we will force them to be at integer
@@ -435,16 +439,16 @@ int main( int argc, char* argv[] ) {
     // Compute the dem BBox in the output projected space.
     // Here we could have used target_georef.lonlat_to_point_bbox(dem_georef.pixel_to_lonlat_bbox)
     // but that grows the box needlessly big. We will ensure the mapprojected image does
-    // not go beyond dem_bbox.
-    BBox2 dem_bbox;
+    // not go beyond dem_box.
+    BBox2 dem_box;
     int len = std::max(dem.cols(), dem.rows());
     for (int i = 0; i <= len; i++) {
       double r = double(i)/double(std::max(len, 1));
       // Diagonals of the DEM
       Vector2i p1 = round(r*Vector2(dem.cols()-1, dem.rows()-1));
       Vector2i p2 = Vector2i(dem.cols() - 1 - p1[0], p1[1]);
-      dem_bbox.grow(target_georef.lonlat_to_point(dem_georef.pixel_to_lonlat(p1)));
-      dem_bbox.grow(target_georef.lonlat_to_point(dem_georef.pixel_to_lonlat(p2)));
+      dem_box.grow(target_georef.lonlat_to_point(dem_georef.pixel_to_lonlat(p1)));
+      dem_box.grow(target_georef.lonlat_to_point(dem_georef.pixel_to_lonlat(p2)));
     }
 
 
@@ -459,7 +463,7 @@ int main( int argc, char* argv[] ) {
     bool first_pass = true;
     calc_target_geom(// Inputs
                      first_pass, calc_target_res, image_size, camera_model,
-                     dem, dem_georef, dem_bbox,
+                     dem, dem_georef, dem_box,
                      // Outputs
                      opt, cam_box, target_georef);
     // target_georef is now in the output coordinate system and location!
@@ -479,7 +483,7 @@ int main( int argc, char* argv[] ) {
 
     calc_target_geom(// Inputs
                      first_pass, calc_target_res, image_size, camera_model,
-                     trans_dem, target_georef, dem_bbox,
+                     trans_dem, target_georef, dem_box,
                      // Outputs
                      opt, cam_box, target_georef);
 
