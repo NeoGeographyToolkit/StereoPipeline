@@ -238,9 +238,9 @@ def main(argsIn):
         cmd = ['mapproject_single',  options.demPath,
                 options.imagePath, options.cameraPath, options.outputPath]
         cmd = cmd + options.extraArgs
-        subprocess.call(cmd)
+        ans = subprocess.call(cmd)
+        if ans == 0: print("Wrote: " + relOutputPath)
         return 0
-
 
     # Otherwise this is the original called process and there are multiple steps to go through
 
@@ -274,7 +274,8 @@ def main(argsIn):
         cmd = ['mapproject_single',  options.demPath,
                 options.imagePath, options.cameraPath, options.outputPath]
         cmd = cmd + options.extraArgs
-        subprocess.call(cmd)
+        ans = subprocess.call(cmd)
+        if ans == 0: print("Wrote: " + relOutputPath)
         return 0
 
 
@@ -366,14 +367,14 @@ def main(argsIn):
     # Convert VRT file to final output file
     cmd = "gdal_translate -co compress=lzw -co bigtiff=yes " + vrtPath + " " + options.outputPath;
     print cmd
-    os.system(cmd)
+    ans = os.system(cmd)
 
     # Clean up temporary files
     if not options.keep:
         print("Removing: " + tempFolder)
         asp_file_utils.removeFolderIfExists(tempFolder)
 
-    print("Wrote: " + relOutputPath)
+    if ans == 0: print("Wrote: " + relOutputPath)
 
     endTime = time.time()
     print "Finished in " + str(endTime - startTime) + " seconds."
