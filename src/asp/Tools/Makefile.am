@@ -201,6 +201,13 @@ if MAKE_APP_PANSHARP
 endif
 
 
+if MAKE_APP_DATUM_CONVERT
+  bin_PROGRAMS += datum_convert
+  datum_convert_SOURCES = datum_convert.cc
+  datum_convert_LDADD   = $(APP_DATUM_CONVERT_LIBS)
+endif
+
+
 # Auxiliary tools in libexec
 ##############################################################################
 
