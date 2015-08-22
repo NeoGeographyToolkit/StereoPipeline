@@ -26,6 +26,8 @@
      point clouds.
    * Added pansharp, a tool to apply a pansharp algorithm to a matched
      grayscale image and a low resolution color image.
+   * Added datum_convert, a tool to transform a projected image to a
+     different datum.
    * Added sfs, a tool to refine DEMs using shape-from-shading. It works
      only with ISIS images.
    * Added geodiff, a tool for taking the (absolute) difference of two 

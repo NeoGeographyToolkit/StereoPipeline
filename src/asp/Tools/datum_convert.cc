@@ -191,7 +191,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
   positional_desc.add("output-datum", 1);
   positional_desc.add("output-path",  1);
 
-  string usage("[options] <dem path> <output datum> <output path>");
+  string usage("[options] <dem path> <output datum> <output path>\n Supported options for <output datum> are: wgs84, nad27, nad83, d_moon, d_mars");
   bool allow_unregistered = false;
   vector<string> unregistered;
   po::variables_map vm =

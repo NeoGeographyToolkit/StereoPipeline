@@ -1190,7 +1190,7 @@ This tool reads in a high resolution grayscale file and a low resolution RGB fil
 a high resolution RGB file.  The output image will be at the resolution of the grayscale image
 and will cover the region where the two images overlap.  Both images must have georeferencing
 information.  This can either be projection information in the image metadata or it can be a
-separate Worldview style XML file containing four ground control points.
+separate Worldview format XML file containing four ground control points.
 
 
 \medskip
@@ -1201,7 +1201,7 @@ Usage:\\
 \medskip
 
 \begin{longtable}{|l|p{10cm}|}
-\caption{Command-line options for pc\_merge}
+\caption{Command-line options for pansharp}
 \label{tbl:pansharp}
 \endfirsthead
 \endhead
@@ -1216,6 +1216,41 @@ Options & Description \\ \hline \hline
 \texttt{-\/-color-xml} & Look for georeference data here if not present in the RGB image.\\ \hline
 \texttt{-\/-nodata-value} & The nodata value to use for the output RGB file.\\ \hline
 \end{longtable}
+
+
+
+
+\section{datum\_convert}
+\label{datumconvert}
+
+This tool is used to convert a projected image from one datum to another.  For example,
+you can convert a UTM zone 10 image with an NAD27 datum to a UTM zone 10 image with a WGS84 datum.
+This tool does not convert between projections; another program such as gdalwarp should be used
+for that.  This tool performs both horizontal and vertical conversion.
+
+Supported options for <output datum> are: wgs84, nad27, nad83, d_moon, d_mars
+
+\medskip
+
+Usage:\\
+\hspace*{2em}\texttt{datum\_convert [options] <dem path> <output datum> <output path>}
+
+\medskip
+
+\begin{longtable}{|l|p{10cm}|}
+\caption{Command-line options for datum\_convert}
+\label{tbl:datumconvert}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Options & Description \\ \hline \hline
+\texttt{-\/-help} & Display the help message.\\ \hline
+\texttt{-\/-nodata-value} & The nodata value to use for the output RGB file.\\ \hline
+\end{longtable}
+
+
 
 
 \section{point2las}
