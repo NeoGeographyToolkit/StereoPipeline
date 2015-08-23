@@ -40,13 +40,12 @@ namespace po = boost::program_options;
 
 MainWindow::MainWindow(std::vector<std::string> const& images,
                        std::string const& output_prefix,
-                       int grid_rows,
+                       int grid_cols,
                        vw::Vector2i const& window_size,
                        bool single_window,
                        bool use_georef, bool hillshade,
                        int argc,  char ** argv) :
-  m_images(images), m_output_prefix(output_prefix),
-  m_widRatio(0.3), m_chooseFiles(NULL), m_argc(argc), m_argv(argv) {
+  m_output_prefix(output_prefix), m_widRatio(0.3), m_chooseFiles(NULL), m_argc(argc), m_argv(argv) {
 
   resize(window_size[0], window_size[1]);
 
@@ -74,21 +73,20 @@ MainWindow::MainWindow(std::vector<std::string> const& images,
     popUp("No valid images to display.");
     return;
   }
-  if (grid_rows <= 0) {
-    popUp("Cannot place images using a non-positive number of rows.");
+  if (grid_cols <= 0) {
+    popUp("Cannot place images using a non-positive number of columns.");
     return;
   }
+
+  // Central frame, with a splitter, so we can add multiple widgets
+  QWidget * centralFrame = new QWidget(this);
+  setCentralWidget(centralFrame);
+  QSplitter *splitter = new QSplitter(centralFrame);
 
   m_widgets.clear();
   m_matches_were_loaded = false;
   m_matches.clear();
   m_matches.resize(m_images.size());
-
-  // Central frame, with a splitter, so we can add multiple widgets
-  QWidget * centralFrame;
-  centralFrame = new QWidget(this);
-  setCentralWidget(centralFrame);
-  QSplitter *splitter = new QSplitter(centralFrame);
 
   if (single_window) {
     // Put all images in a single window, with a dialog for choosing images if
@@ -125,12 +123,13 @@ MainWindow::MainWindow(std::vector<std::string> const& images,
   // TODO: When should we de-allocate m_widgets?
 
   // Put the images in a grid
+  int num_images = m_widgets.size();
   QGridLayout *grid = new QGridLayout(centralFrame);
-  for (size_t i = 0; i < m_widgets.size(); i++) {
-
+  int grid_rows = std::max(ceil(double(num_images)/grid_cols), 1.0);
+  for (int i = 0; i < num_images; i++) {
     // Add the current widget
-    int row = i/grid_rows;
-    int col = i - grid_rows*row;
+    int row = i / grid_cols;
+    int col = i % grid_cols;
     grid->addWidget(m_widgets[i], row, col);
 
     // Intercept this widget's request to view (or refresh) the matches in all
