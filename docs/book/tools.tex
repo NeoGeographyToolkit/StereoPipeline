@@ -415,8 +415,8 @@ from: Cauchy, PseudoHuber, Huber, L1, L2. \\ \hline
 cost functions.\\ \hline
 
 \texttt{-\/-datum \textit{string}} & Use this datum (needed only if ground control
-points are used). Options: WGS\_1984, D\_MOON (radius is assumed to be 1,737,400 meters), D\_MARS
-(radius is assumed to be 3,396,190 meters), etc.  \\ \hline
+points are used). Options: WGS\_1984, D\_MOON (radius = 1,737,400 meters), D\_MARS
+(radius = 3,396,190~m), etc.  \\ \hline
 
 \texttt{-\/-semi-major-axis \textit{double}} & Explicitly set the datum semi-major axis
 in meters (needed only if ground control points are used).\\ \hline
@@ -1242,18 +1242,17 @@ Options & Description \\ \hline \hline
 \texttt{-\/-nodata-value} & The nodata value to use for the output RGB file.\\ \hline
 \end{longtable}
 
-
-
-
 \section{datum\_convert}
 \label{datumconvert}
 
 This tool is used to convert a projected image from one datum to another.  For example,
 you can convert a UTM zone 10 image with an NAD27 datum to a UTM zone 10 image with a WGS84 datum.
 This tool does not convert between projections; another program such as gdalwarp should be used
-for that.  This tool performs both horizontal and vertical conversion.
+for that. This tool performs both horizontal and vertical conversion.
 
-Supported options for <output datum> are: wgs84, nad27, nad83, d_moon, d_mars
+Another way to think about this tool is the following. If the input image is a DEM, then the output is a DEM as well, with a different datum, and these DEMs will physically represent the same point cloud in 3D space up to the interpolation errors required to perform the conversion.
+
+Supported options for <output datum> are: WGS84, NAD27, NAD83, D\_MOON (radius = 1,737,400~m), D\_MARS (radius = 3,396,190~m).
 
 \medskip
 
@@ -1484,8 +1483,7 @@ Maximum number of (randomly picked) reference points to use. \\ \hline
 method to use. [point-to-plane, point-to-point]\\ \hline
 \texttt{-\/-highest-accuracy} & Compute with highest accuracy for point-to-plane (can be much slower). \\ \hline
 \texttt{-\/-no-dem-distances} & Never compute initial and final error terms using a DEM. \\ \hline
-\texttt{-\/-datum \textit{string}} & Use this datum for CSV files. [WGS\_1984, D\_MOON (radius is assumed to be 1,737,400 meters), D\_MARS (radius is assumed to be 3,396,190 meters), etc.] \\ \hline
-
+\texttt{-\/-datum \textit{string}} & Use this datum for CSV files. [WGS\_1984, D\_MOON (radius = 1,737,400~m), D\_MARS (radius = 3,396,190~m), etc.] \\ \hline
 
 \texttt{-\/-semi-major-axis \textit{float}} & Explicitly set the datum semi-major axis in meters.\\ \hline
 \texttt{-\/-semi-minor-axis \textit{float}} & Explicitly set the datum semi-minor axis in meters.\\ \hline

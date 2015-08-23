@@ -51,7 +51,7 @@ public:
 
   /// Image view which adds or subtracts the ellipsoid/geoid difference
   ///  from elevations in a DEM image.
-  DatumConvertView(ImageT       const& input_dem, 
+  DatumConvertView(ImageT       const& input_dem,
                    GeoReference const& input_georef,
                    GeoReference const& output_georef,
                    double nodata_val):
@@ -65,9 +65,9 @@ public:
   inline pixel_accessor origin() const { return pixel_accessor(*this); }
 
   inline result_type operator()( size_t col, size_t row, size_t p=0 ) const {
-  
+
     // Handle nodata
-    if ( m_input_dem(col, row) == m_nodata_val ) 
+    if ( m_input_dem(col, row) == m_nodata_val )
       return m_nodata_val;
 
     // Compute the elevation in the output datum
@@ -87,7 +87,7 @@ public:
       //std::cout << "gcc_coord  = " << gcc_coord     << std::endl;
       //std::cout << "out lonlat = " << output_lonlat << std::endl;
     }
-*/    
+*/
     return output_height;
   }
 
@@ -106,7 +106,7 @@ public:
 // Helper function which uses the class above.
 template <class ImageT>
 DatumConvertView<ImageT>
-datum_convert( ImageViewBase<ImageT> const& input_dem, 
+datum_convert( ImageViewBase<ImageT> const& input_dem,
                GeoReference          const& input_georef,
                GeoReference          const& output_georef,
                double                       nodata_val) {
@@ -134,9 +134,9 @@ BBox2 get_output_projected_bbox(GeoReference     const& input_georef,
 
   const int num_rows = input_dem.rows();
   const int num_cols = input_dem.cols();
-  
+
   std::cout << "Image size = " << Vector2(num_cols, num_rows) << std::endl;
-  
+
   // Expand along sides
   BBox2 output_bbox;
   for (int r=0; r<num_rows; ++r) {
@@ -144,7 +144,7 @@ BBox2 get_output_projected_bbox(GeoReference     const& input_georef,
     Vector2 pixel_right(num_cols-1, r);
     double height_left  = input_dem(pixel_left[0],  pixel_left[1]);
     double height_right = input_dem(pixel_right[0], pixel_right[1]);
-    
+
     output_bbox.grow(get_output_loc(pixel_left,  height_left,  input_georef, output_georef));
     output_bbox.grow(get_output_loc(pixel_right, height_right, input_georef, output_georef));
   }
@@ -155,11 +155,11 @@ BBox2 get_output_projected_bbox(GeoReference     const& input_georef,
     Vector2 pixel_bot(c, num_rows-1);
     double height_top = input_dem(pixel_top[0], pixel_top[1]);
     double height_bot = input_dem(pixel_bot[0], pixel_bot[1]);
-    
+
     output_bbox.grow(get_output_loc(pixel_top, height_top, input_georef, output_georef));
     output_bbox.grow(get_output_loc(pixel_bot, height_bot, input_georef, output_georef));
   }
-  return output_bbox;                               
+  return output_bbox;
 }
 
 
@@ -191,7 +191,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
   positional_desc.add("output-datum", 1);
   positional_desc.add("output-path",  1);
 
-  string usage("[options] <dem path> <output datum> <output path>\n Supported options for <output datum> are: wgs84, nad27, nad83, d_moon, d_mars");
+  string usage("[options] <dem path> <output datum> <output path>\n Supported options for <output datum> are: WGS84, NAD27, NAD83, D_MOON (radius = 1737400 m), D_MARS (radius = 3396190 m)");
   bool allow_unregistered = false;
   vector<string> unregistered;
   po::variables_map vm =
@@ -202,7 +202,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
   if ( opt.dem_path.empty() )
     vw_throw( ArgumentErr() << "Requires <dem path> in order to proceed.\n\n"     << usage << general_options );
   if ( opt.output_datum.empty() )
-    vw_throw( ArgumentErr() << "Requires <output datum> in order to proceed.\n\n" << usage << general_options );   
+    vw_throw( ArgumentErr() << "Requires <output datum> in order to proceed.\n\n" << usage << general_options );
   if ( opt.output_path.empty() )
     vw_throw( ArgumentErr() << "Requires <output path> in order to proceed.\n\n"  << usage << general_options );
 
@@ -218,7 +218,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
 /// - TODO: This tool does everything?
 
 // --> Option 1: Run this tool before gdalwarp, all conversions handled.
-// --> Option 2: This tool does everything, but only handles datum conversions 
+// --> Option 2: This tool does everything, but only handles datum conversions
 //               within the same projection type.
 
 template <typename T>
@@ -278,22 +278,22 @@ void do_work(Options const& opt) {
   output_georef.set_transform(affine);
 
   vw_out() << "Output georef:\n" << output_georef << std::endl;
-  
+
   BBox2i output_pixel_box = output_georef.point_to_pixel_bbox(output_proj_box);
   vw_out() << "Computed output pixel box:\n" << output_pixel_box << std::endl;
 
   // Update the elevation values in the image to account for the new datum.
   ImageViewRef<double> dem_new_heights = datum_convert(pixel_cast<double>(dem_img),
-                                                       dem_georef, 
+                                                       dem_georef,
                                                        output_georef,
                                                        dem_nodata_val
                                                       );
 
   // Apply the horizontal warping to the image on account of the new datum.
-  ImageViewRef<double> output_dem = apply_mask(geo_transform(create_mask(dem_new_heights, 
+  ImageViewRef<double> output_dem = apply_mask(geo_transform(create_mask(dem_new_heights,
                                                                          dem_nodata_val),
                                                              dem_georef, output_georef,
-                                                             output_pixel_box.width(), 
+                                                             output_pixel_box.width(),
                                                              output_pixel_box.height(),
                                                              ConstantEdgeExtension()
                                                             ),
@@ -303,7 +303,7 @@ void do_work(Options const& opt) {
   vw_out() << "Writing adjusted DEM: " << opt.output_path << endl;
 
   if ( opt.use_double ) {
-    // Output as double   
+    // Output as double
     block_write_gdal_image(opt.output_path, output_dem,
                            true, output_georef,
                            true, dem_nodata_val, opt,
@@ -313,7 +313,7 @@ void do_work(Options const& opt) {
     block_write_gdal_image(opt.output_path,  pixel_cast<float>(output_dem),
                            true, output_georef,
                            true, dem_nodata_val, opt,
-                           TerminalProgressCallback("asp", "\t--> Converting datum: ") ); 
+                           TerminalProgressCallback("asp", "\t--> Converting datum: ") );
   }
 
 }

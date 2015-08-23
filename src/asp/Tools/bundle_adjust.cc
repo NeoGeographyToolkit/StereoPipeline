@@ -785,7 +785,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(0.5),
                          "Set the threshold for robust cost functions.")
     ("datum",            po::value(&opt.datum_str)->default_value(""),
-                         "Use this datum (needed only if ground control points are used). [WGS_1984, D_MOON (radius is assumed to be 1,737,400 meters), D_MARS (radius is assumed to be 3,396,190 meters), etc.]")
+                         "Use this datum (needed only if ground control points are used). [WGS_1984, D_MOON (radius = 1,737,400 meters), D_MARS (radius = 3,396,190 meters), etc.]")
                          ("semi-major-axis",  po::value(&opt.semi_major)->default_value(0),
                          "Explicitly set the datum semi-major axis in meters (needed only if ground control points are used).")
     ("semi-minor-axis",  po::value(&opt.semi_minor)->default_value(0),

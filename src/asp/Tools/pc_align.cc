@@ -155,7 +155,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("csv-proj4",                po::value(&opt.csv_proj4_str)->default_value(""),
                                  "The PROJ.4 string to use to interpret the entries in input CSV files.")
     ("datum",                    po::value(&opt.datum)->default_value(""),
-                                 "Use this datum for CSV files instead of auto-detecting it. [WGS_1984, D_MOON (radius is assumed to be 1,737,400 meters), D_MARS (radius is assumed to be 3,396,190 meters), etc.]")
+                                 "Use this datum for CSV files instead of auto-detecting it. [WGS_1984, D_MOON (radius = 1,737,400 meters), D_MARS (radius = 3,396,190 meters), etc.]")
     ("semi-major-axis",          po::value(&opt.semi_major)->default_value(0),
                                  "Explicitly set the datum semi-major axis in meters.")
     ("semi-minor-axis",          po::value(&opt.semi_minor)->default_value(0),
