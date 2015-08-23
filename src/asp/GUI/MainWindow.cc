@@ -45,7 +45,10 @@ MainWindow::MainWindow(std::vector<std::string> const& images,
                        bool single_window,
                        bool use_georef, bool hillshade,
                        int argc,  char ** argv) :
-  m_output_prefix(output_prefix), m_widRatio(0.3), m_chooseFiles(NULL), m_argc(argc), m_argv(argv) {
+  m_output_prefix(output_prefix), m_widRatio(0.3), m_chooseFiles(NULL),
+  m_grid_cols(grid_cols),
+  m_use_georef(use_georef), m_hillshade(hillshade),
+  m_argc(argc), m_argv(argv) {
 
   resize(window_size[0], window_size[1]);
 
@@ -54,7 +57,7 @@ MainWindow::MainWindow(std::vector<std::string> const& images,
   this->setWindowTitle(window_title.c_str());
 
   // Set up the basic layout of the window and its menus.
-  create_menus();
+  createMenus();
 
   // Collect only the valid images
   m_images.clear();
@@ -73,22 +76,42 @@ MainWindow::MainWindow(std::vector<std::string> const& images,
     popUp("No valid images to display.");
     return;
   }
-  if (grid_cols <= 0) {
-    popUp("Cannot place images using a non-positive number of columns.");
-    return;
-  }
 
-  // Central frame, with a splitter, so we can add multiple widgets
-  QWidget * centralFrame = new QWidget(this);
-  setCentralWidget(centralFrame);
-  QSplitter *splitter = new QSplitter(centralFrame);
-
-  m_widgets.clear();
   m_matches_were_loaded = false;
   m_matches.clear();
   m_matches.resize(m_images.size());
 
+  m_view_type = VIEW_SIDE_BY_SIDE;
+  if (m_grid_cols > 1) {
+    m_view_type = VIEW_AS_TILES_ON_GRID;
+  }
   if (single_window) {
+    m_view_type = VIEW_IN_SINGLE_WINDOW;
+  }
+
+  createLayout();
+}
+
+
+void MainWindow::createLayout() {
+
+  // Create a new central widget. Qt is smart enough to de-allocate
+  // the previous widget and all of its children.
+
+  QWidget * centralWidget = new QWidget(this);
+  setCentralWidget(centralWidget);
+
+  QSplitter * splitter = new QSplitter(centralWidget);
+
+  // By default, show the images in one row
+  if (m_grid_cols <= 0)
+    m_grid_cols = std::numeric_limits<int>::max();
+
+  // Wipe the widgets from the array. Qt will automatically delete
+  // the widgets when the time is right.
+  m_widgets.clear();
+
+  if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
     // Put all images in a single window, with a dialog for choosing images if
     // there's more than one image.
 
@@ -98,11 +121,11 @@ MainWindow::MainWindow(std::vector<std::string> const& images,
       splitter->addWidget(m_chooseFiles);
     }
 
-    MainWidget * widget = new MainWidget(centralFrame,
+    MainWidget * widget = new MainWidget(centralWidget,
                                          0, m_output_prefix,
                                          m_images, m_matches,
                                          m_chooseFiles,
-                                         use_georef, hillshade);
+                                         m_use_georef, m_hillshade);
     m_widgets.push_back(widget);
 
   } else{
@@ -110,46 +133,41 @@ MainWindow::MainWindow(std::vector<std::string> const& images,
     for (size_t i = 0; i < m_images.size(); i++) {
       std::vector<std::string> local_images;
       local_images.push_back(m_images[i]);
-      MainWidget * widget = new MainWidget(centralFrame,
+      m_chooseFiles = NULL;
+      MainWidget * widget = new MainWidget(centralWidget,
                                            i, m_output_prefix,
                                            local_images, m_matches,
                                            m_chooseFiles,
-                                           use_georef, hillshade);
+                                           m_use_georef, m_hillshade);
 
       m_widgets.push_back(widget);
     }
   }
 
-  // TODO: When should we de-allocate m_widgets?
-
   // Put the images in a grid
-  int num_images = m_widgets.size();
-  QGridLayout *grid = new QGridLayout(centralFrame);
-  int grid_rows = std::max(ceil(double(num_images)/grid_cols), 1.0);
-  for (int i = 0; i < num_images; i++) {
+  int num_widgets = m_widgets.size();
+  QGridLayout *grid = new QGridLayout(centralWidget);
+  for (int i = 0; i < num_widgets; i++) {
     // Add the current widget
-    int row = i / grid_cols;
-    int col = i % grid_cols;
+    int row = i / m_grid_cols;
+    int col = i % m_grid_cols;
     grid->addWidget(m_widgets[i], row, col);
 
     // Intercept this widget's request to view (or refresh) the matches in all
     // the widgets, not just this one's.
     connect(m_widgets[i], SIGNAL(refreshAllMatches()), this, SLOT(viewMatches()));
   }
-  QWidget *container = new QWidget(centralFrame);
+  QWidget *container = new QWidget(centralWidget);
   container->setLayout(grid);
   splitter->addWidget(container);
 
-  QGridLayout *layout = new QGridLayout(centralFrame);
+  // Set new layout
+  QGridLayout *layout = new QGridLayout(centralWidget);
   layout->addWidget (splitter, 0, 0, 0);
-  centralFrame->setLayout(layout);
+  centralWidget->setLayout(layout);
 }
 
-//********************************************************************
-//                      MAIN WINDOW SETUP
-//********************************************************************
-
-void MainWindow::create_menus() {
+void MainWindow::createMenus() {
 
   QMenuBar* menu = menuBar();
 
@@ -175,6 +193,18 @@ void MainWindow::create_menus() {
   m_sizeToFit_action->setStatusTip(tr("Change the view to encompass the images."));
   connect(m_sizeToFit_action, SIGNAL(triggered()), this, SLOT(sizeToFit()));
   m_sizeToFit_action->setShortcut(tr("F"));
+
+  m_viewSingleWindow_action = new QAction(tr("Single window"), this);
+  m_viewSingleWindow_action->setStatusTip(tr("View images in a single window."));
+  connect(m_viewSingleWindow_action, SIGNAL(triggered()), this, SLOT(viewSingleWindow()));
+
+  m_viewSideBySide_action = new QAction(tr("Side-by-side"), this);
+  m_viewSideBySide_action->setStatusTip(tr("View images side-by-side."));
+  connect(m_viewSideBySide_action, SIGNAL(triggered()), this, SLOT(viewSideBySide()));
+
+  m_viewAsTiles_action = new QAction(tr("As tiles on grid"), this);
+  m_viewAsTiles_action->setStatusTip(tr("View images as tiles on grid."));
+  connect(m_viewAsTiles_action, SIGNAL(triggered()), this, SLOT(viewAsTiles()));
 
   m_viewMatches_action = new QAction(tr("Show IP matches"), this);
   m_viewMatches_action->setStatusTip(tr("View interest point matches."));
@@ -221,6 +251,9 @@ void MainWindow::create_menus() {
   // View menu
   m_view_menu = menu->addMenu(tr("&View"));
   m_view_menu->addAction(m_sizeToFit_action);
+  m_view_menu->addAction(m_viewSingleWindow_action);
+  m_view_menu->addAction(m_viewSideBySide_action);
+  m_view_menu->addAction(m_viewAsTiles_action);
 
   // Matches menu
   m_matches_menu = menu->addMenu(tr("&IP matches"));
@@ -257,6 +290,33 @@ void MainWindow::sizeToFit(){
     if (m_widgets[i])
       m_widgets[i]->sizeToFit();
   }
+}
+
+void MainWindow::viewSingleWindow(){
+  m_grid_cols = std::numeric_limits<int>::max();
+  m_view_type = VIEW_IN_SINGLE_WINDOW;
+  createLayout();
+}
+
+void MainWindow::viewSideBySide(){
+  m_grid_cols = std::numeric_limits<int>::max();
+  m_view_type = VIEW_SIDE_BY_SIDE;
+  createLayout();
+}
+
+void MainWindow::viewAsTiles(){
+
+  std::string gridColsStr;
+  bool ans = getStringFromGui("Number of columns in the grid",
+                              "Number of columns in the grid",
+                              "",
+                              gridColsStr);
+  if (!ans)
+    return;
+
+  m_grid_cols = atoi(gridColsStr.c_str());
+  m_view_type = VIEW_AS_TILES_ON_GRID;
+  createLayout();
 }
 
 void MainWindow::viewMatches(){
@@ -450,4 +510,20 @@ void MainWindow::keyPressEvent(QKeyEvent *event) {
     close();
     break;
   }
+}
+
+bool MainWindow::getStringFromGui(std::string title, std::string description,
+                                  std::string inputStr,
+                                  std::string & outputStr // output
+                                  ){
+  outputStr = "";
+
+  bool ok = false;
+  QString text = QInputDialog::getText(this, title.c_str(), description.c_str(),
+                                       QLineEdit::Normal, inputStr.c_str(),
+                                       &ok);
+
+  if (ok) outputStr = text.toStdString();
+
+  return ok;
 }

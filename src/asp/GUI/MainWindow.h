@@ -36,9 +36,11 @@
 class QAction;
 class QLabel;
 class QTabWidget;
+class QSplitter;
 
-namespace vw {
-  namespace gui {
+namespace vw { namespace gui {
+
+  enum ViewType {VIEW_SIDE_BY_SIDE, VIEW_IN_SINGLE_WINDOW, VIEW_AS_TILES_ON_GRID};
 
   class MainWidget;
   class chooseFilesDlg;
@@ -57,6 +59,9 @@ namespace vw {
   private slots:
     void forceQuit(); // Ensure the program shuts down.
     void sizeToFit();
+    void viewSingleWindow();
+    void viewSideBySide();
+    void viewAsTiles();
     void viewMatches();
     void hideMatches();
     void saveMatches();
@@ -74,11 +79,17 @@ namespace vw {
 
     void run_stereo_or_parallel_stereo(std::string const& cmd);
 
-    void create_menus();
+    void createLayout();
+    void createMenus();
 
     // Event handlers
     void resizeEvent(QResizeEvent *);
     void closeEvent (QCloseEvent *);
+
+    bool getStringFromGui(std::string title, std::string description,
+                          std::string inputStr,
+                          std::string & outputStr // output
+                          );
 
     std::vector<std::string> m_images;
     std::string m_output_prefix;
@@ -97,6 +108,9 @@ namespace vw {
     QAction *m_viewThreshImages_action;
     QAction *m_viewUnthreshImages_action;
     QAction *m_sizeToFit_action;
+    QAction *m_viewSingleWindow_action;
+    QAction *m_viewSideBySide_action;
+    QAction *m_viewAsTiles_action;
     QAction *m_viewMatches_action;
     QAction *m_hideMatches_action;
     QAction *m_saveMatches_action;
@@ -104,12 +118,16 @@ namespace vw {
     QAction *m_run_parallel_stereo_action;
     QAction *m_exit_action;
 
+    ViewType m_view_type;
+    int m_grid_cols;
+
+    bool m_use_georef, m_hillshade;
+
     int m_argc;
     char ** m_argv;
     bool m_matches_were_loaded;
     std::vector<std::vector<vw::ip::InterestPoint> > m_matches;
-
-  };
+   };
 
 }} // namespace vw::gui
 
