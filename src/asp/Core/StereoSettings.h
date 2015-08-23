@@ -170,6 +170,7 @@ namespace asp {
     bool   compute_error_vector;      // Compute the triangulation error vector, not just its length
 
     // stereo_gui options
+    int grid_rows;
     vw::Vector2i window_size; // The size of the GUI window
     bool single_window;
     bool use_georef;

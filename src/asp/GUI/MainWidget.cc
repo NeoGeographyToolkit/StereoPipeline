@@ -1180,6 +1180,7 @@ void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
     int last = m_filesOrder[m_filesOrder.size()-1];
 
     BBox2i image_box = world2image(m_stereoCropWin, last);
+    vw_out().precision(8);
     vw_out() << "Crop src win for  "
              << m_image_files[last]
              << ": "
@@ -1203,10 +1204,11 @@ void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
       BBox2 lonlat_box = m_images[last].georef.pixel_to_lonlat_bbox(image_box);
       lonlat_min = lonlat_box.min();
       lonlat_max = lonlat_box.max();
+      // Again, miny and maxy are flipped on purpose
       vw_out() << "lonlat win for    "
                << m_image_files[last] << ": "
-               << lonlat_min.x() << ' ' << lonlat_min.y() << ' '
-               << lonlat_max.x() << ' ' << lonlat_max.y() << std::endl;
+               << lonlat_min.x() << ' ' << lonlat_max.y() << ' '
+               << lonlat_max.x() << ' ' << lonlat_min.y() << std::endl;
     }
 
     // Wipe the rubberband, no longer needed.

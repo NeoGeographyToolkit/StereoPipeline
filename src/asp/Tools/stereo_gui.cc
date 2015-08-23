@@ -74,7 +74,7 @@ int main(int argc, char* argv[]) {
         try { DiskImageView<float> tmp(image); }
         catch(...){
           if (!image.empty() && image[0] != '-') {
-            vw_out() << "Not a valid image: " << image << "\n";
+            // vw_out() << "Not a valid image: " << image << "\n";
           }
           is_image = false;
         }
@@ -94,6 +94,7 @@ int main(int argc, char* argv[]) {
     // Start up the Qt GUI
     QApplication app(argc, argv);
     vw::gui::MainWindow main_window(images, output_prefix,
+                                    stereo_settings().grid_rows,
                                     stereo_settings().window_size,
                                     stereo_settings().single_window,
                                     stereo_settings().use_georef,

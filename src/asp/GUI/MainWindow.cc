@@ -40,6 +40,7 @@ namespace po = boost::program_options;
 
 MainWindow::MainWindow(std::vector<std::string> const& images,
                        std::string const& output_prefix,
+                       int grid_rows,
                        vw::Vector2i const& window_size,
                        bool single_window,
                        bool use_georef, bool hillshade,
@@ -67,6 +68,15 @@ MainWindow::MainWindow(std::vector<std::string> const& images,
     }
     if (!is_image) continue;
     m_images.push_back(images[i]);
+  }
+
+  if (m_images.empty()) {
+    popUp("No valid images to display.");
+    return;
+  }
+  if (grid_rows <= 0) {
+    popUp("Cannot place images using a non-positive number of rows.");
+    return;
   }
 
   m_widgets.clear();
@@ -114,19 +124,26 @@ MainWindow::MainWindow(std::vector<std::string> const& images,
 
   // TODO: When should we de-allocate m_widgets?
 
+  // Put the images in a grid
+  QGridLayout *grid = new QGridLayout(centralFrame);
   for (size_t i = 0; i < m_widgets.size(); i++) {
 
     // Add the current widget
-    splitter->addWidget(m_widgets[i]);
+    int row = i/grid_rows;
+    int col = i - grid_rows*row;
+    grid->addWidget(m_widgets[i], row, col);
 
     // Intercept this widget's request to view (or refresh) the matches in all
     // the widgets, not just this one's.
     connect(m_widgets[i], SIGNAL(refreshAllMatches()), this, SLOT(viewMatches()));
   }
+  QWidget *container = new QWidget(centralFrame);
+  container->setLayout(grid);
+  splitter->addWidget(container);
 
   QGridLayout *layout = new QGridLayout(centralFrame);
   layout->addWidget (splitter, 0, 0, 0);
-  centralFrame->setLayout (layout);
+  centralFrame->setLayout(layout);
 }
 
 //********************************************************************
