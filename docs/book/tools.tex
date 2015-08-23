@@ -145,9 +145,10 @@ documents all options for the individual sub-programs.
 \label{stereo_gui}
 
 The \texttt{stereo\_gui} program is a GUI frontend to \texttt{stereo},
-and has the same command-line options. It displays the input images
-side-by-side. One can zoom in by dragging the mouse from upper-left to
-lower-right, and zoom out via the reverse motion.
+and has the same command-line options. It can display the input images
+side-by-side (or in other ways, as detailed later). One can zoom in by
+dragging the mouse from upper-left to lower-right, and zoom out via the
+reverse motion.
 
 By pressing the \texttt{Control} key while dragging the mouse, regions
 can be selected in the input images, and then stereo can be run on these
@@ -176,22 +177,27 @@ Usage:
 
 \subsection{Use as an Image Viewer}
 
-This program can be also used as a general-purpose image viewer, being
-able to display side-by-side any number of arbitrarily large images with
-integer and floating-point pixel values, including ISIS .cub files and
-DEMs, as well as RGB images. In this mode just images need to be passed
-as inputs, without cameras or stereo options. \texttt{stereo\_gui}
-handles large images by building on disk a pyramid of increasingly
-coarser subsampled images for each input image, and displaying the
-subsampled versions that are appropriate for the current level of zoom.
+This program can be also used as a general-purpose image viewer, case in
+which no stereo options or camera information is necessary.  It can
+display arbitrarily large images with integer, floating-point, or RGB
+pixels, including ISIS .cub files and DEMs. It handles large images by
+building on disk pyramids of increasingly coarser subsampled images and
+displaying the subsampled versions that are appropriate for the current
+level of zoom.
 
-If the images are georeferenced, invoking the tool with
-\texttt{-\/-use-georef} and \texttt{-\/-single-window} will correctly
-superimpose the images and individual images can be toggled on and off.
+The images can be shown either side-by-side, as tiles on a grid
+(using \texttt{-\/-grid-rows integer}), or on top of each other (using
+\texttt{-\/-single-window}), with a dialog to choose among them.  In the
+last usage scenario, the option \texttt{-\/-use-georef} will overlay the
+images correctly if georeference information is present.
+
+This program can also display the outputs of the ASP tools
+\texttt{colormap} and \texttt{hillshade} (sections \ref{sec:colormap}
+and \ref{sec:hillshade}).
 
 \subsection{Other Functionality}
 
-This tool can be used to view interest point matches, such as generated
+This program can be used to view interest point matches, such as generated
 by by a previous \texttt{bundle\_adjust} and \texttt{stereo} run (only
 if \texttt{stereo} was invoked without map-projected images and with
 homography or affine epipolar alignment). It can also be used to
@@ -209,6 +215,25 @@ pixels in the shadow. The largest of the chosen pixel values will be set
 to the shadow threshold for each image and printed to the screen. To see
 the images with the pixels below the shadow threshold highlighted,
 select from the menu the \texttt{View shadow-thresholded images} option.
+
+Listed below are the options specific to \texttt{stereo\_gui}. It will accept
+all other \texttt{stereo} options as well.
+
+\begin{longtable}{|l|p{7.5cm}|}
+\caption{Command-line options for stereo\_gui}
+\label{tbl:stereogui}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Option & Description \\ \hline \hline
+\texttt{-\/-grid-rows arg (=1)} & Display images as tiles on a grid with this many rows.\\ \hline
+\texttt{-\/-window-size arg (=1200 800)} & The width and height of the GUI window in pixels.\\ \hline
+\texttt{-w | -\/-single-window } & Show all images in the same window (with a dialog to choose among them) rather than next to each other.\\ \hline
+\texttt{-\/-use-georef} & Plot the images in the projected coordinate system given by the georeference of the images.\\ \hline
+\texttt{-h | -\/-help } & Display this help message.\\ \hline
+\end{longtable}
 
 \section{parallel\_stereo}
 \label{parallel}
@@ -1706,6 +1731,32 @@ Option & Description \\ \hline \hline
 
 \end{longtable}
 
+\section{{\tt hillshade}}
+\label{sec:hillshade}
+
+The \verb#hillshade# tool reads in a DEM and outputs an image of that
+DEM as though it were a three-dimensional surface, with every pixel
+shaded as though it were illuminated by a light from a specified
+location.
+
+\begin{longtable}{|l|p{11cm}|}
+\caption{Command-line options for hillshade}
+\label{tbl:hillshade}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Option & Description \\ \hline \hline
+\verb#--help# & Display a help message\\ \hline
+\verb#--input-file arg# & Explicitly specify the input file\\ \hline
+\verb#-o [ --output-file ] arg# & Specify the output file\\ \hline
+\verb#-a [ --azimuth ] arg (=0)# & Sets the direction that the light source is coming from (in degrees).  Zero degrees is to the right, with positive degree counter-clockwise.\\ \hline
+\verb#-e [ --elevation ] arg (=45)# & Set the elevation of the light source (in degrees)\\ \hline
+\verb#-s [ --scale ] arg (=0)# & Set the scale of a pixel (in the same units as the DTM height values\\ \hline
+\verb#--nodata-value arg# & Remap the DEM default value to the min altitude value\\ \hline
+\verb#--blur arg# & Pre-blur the DEM with the specified sigma\\ \hline
+\end{longtable}
 
 \section{image2qtree}
 \label{sec:image2qtree}
@@ -1775,33 +1826,6 @@ Projection Options\\ \hline
 \verb#--nudge-y arg# & Nudge the image, in projected coordinates\\ \hline
 \end{longtable}
 
-\section{{\tt hillshade}}
-\label{sec:hillshade}
-
-The \verb#hillshade# tool reads in a DEM and outputs an image of that
-DEM as though it were a three-dimensional surface, with every pixel
-shaded as though it were illuminated by a light from a specified
-location.
-
-\begin{longtable}{|l|p{11cm}|}
-\caption{Command-line options for hillshade}
-\label{tbl:hillshade}
-\endfirsthead
-\endhead
-\endfoot
-\endlastfoot
-\hline
-Option & Description \\ \hline \hline
-\verb#--help# & Display a help message\\ \hline
-\verb#--input-file arg# & Explicitly specify the input file\\ \hline
-\verb#-o [ --output-file ] arg# & Specify the output file\\ \hline
-\verb#-a [ --azimuth ] arg (=0)# & Sets the direction that the light source is coming from (in degrees).  Zero degrees is to the right, with positive degree counter-clockwise.\\ \hline
-\verb#-e [ --elevation ] arg (=45)# & Set the elevation of the light source (in degrees)\\ \hline
-\verb#-s [ --scale ] arg (=0)# & Set the scale of a pixel (in the same units as the DTM height values\\ \hline
-\verb#--nodata-value arg# & Remap the DEM default value to the min altitude value\\ \hline
-\verb#--blur arg# & Pre-blur the DEM with the specified sigma\\ \hline
-\end{longtable}
-
 \section{geodiff}
 \label{geodiff}
 
@@ -1859,7 +1883,7 @@ Option & Description \\ \hline \hline
 \texttt{-\/-reflectance-type \textit{int(=1)}} & Reflectance type (0 = Lambertian, 1 = Lunar Lambertian).\\ \hline
 \texttt{-\/-smoothness-weight \textit{double(=0.04)}} & A larger value will result in a smoother solution.\\ \hline
 \texttt{-\/-coarse-levels \textit{int(=0)}} & Solve the problem on a grid coarser than the original by a factor of 2 to this power, then refine the solution on finer grids (experimental).\\ \hline
-\texttt{-n | -\/-max-coarse-iterations \textit{int(=10)}} & How many iterations to do at levels of resolution coarser than the final result.\\ \hline
+\texttt{-n | -\/-max-coarse-iterations \textit{int(=50)}} & How many iterations to do at levels of resolution coarser than the final result.\\ \hline
 \texttt{-\/-float-albedo} & Float the albedo for each pixel. Will give incorrect results if only one image is present.\\ \hline
 \texttt{-\/-float-exposure} & Float the exposure for each image. Will give incorrect results if only one image is present.\\ \hline
 \texttt{-\/-float-cameras} & Float the camera pose for each image except the first one.\\ \hline

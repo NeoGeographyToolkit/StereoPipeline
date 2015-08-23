@@ -1305,7 +1305,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "A larger value will result in a smoother solution.")
     ("coarse-levels", po::value(&opt.coarse_levels)->default_value(0),
      "Solve the problem on a grid coarser than the original by a factor of 2 to this power, then refine the solution on finer grids (experimental).")
-    ("max-coarse-iterations,n", po::value(&opt.max_coarse_iterations)->default_value(10),
+    ("max-coarse-iterations,n", po::value(&opt.max_coarse_iterations)->default_value(50),
      "How many iterations to do at levels of resolution coarser than the final result.")
     ("float-albedo",   po::bool_switch(&opt.float_albedo)->default_value(false)->implicit_value(true),
      "Float the albedo for each pixel. Will give incorrect results if only one image is present.")
@@ -1647,6 +1647,11 @@ int main(int argc, char* argv[]) {
       }
     }
 
+    int min_dem_size = 5;
+    if (dem.cols() < min_dem_size || dem.rows() < min_dem_size) {
+      vw_throw( ArgumentErr() << "The input DEM is too small.\n" );
+    }
+
     // Read the georeference
     GeoReference geo;
     if (!read_georeference(geo, opt.input_dem))
@@ -1880,6 +1885,19 @@ int main(int argc, char* argv[]) {
       dems[level] = pixel_cast<double>(vw::resample_aa
                                           (pixel_cast< PixelMask<double> >
                                            (dems[level-1]), sub_scale));
+
+      // CERES won't be happy with tiny DEMs
+      if (dems[level].cols() < min_dem_size || dems[level].rows() < min_dem_size) {
+        levels = level-1;
+        vw_out(WarningMessage) << "Reducing the number of coarse levels to "
+                               << levels << ".\n";
+        geos.resize(levels+1);
+        dems.resize(levels+1);
+        albedos.resize(levels+1);
+        masked_images.resize(levels+1);
+        factors.resize(levels+1);
+        break;
+      }
 
       albedos[level] = pixel_cast<double>(vw::resample_aa
                                           (pixel_cast< PixelMask<double> >

@@ -163,18 +163,21 @@ closer to this ``ground truth'' DEM.
 
 The most significant challenge in running SfS with multiple images is
 that shape-from-shading is highly sensitive to errors in camera position
-and orientation. The \texttt{sfs} tool is able to improve these during
-optimization, yet if the errors are too large it will fail.  Hence as
-first step we use bundle adjustment on the images (section
-\ref{bundleadjust}). It is important to note that bundle adjustment
-may fail if the images have sufficiently different illumination, as
-it will not be able to find matches among images. In that case, the
-\texttt{stereo\_gui} tool can be used to create the matches manually
-(section \ref{stereo_gui}). It is also important to mention that
-running \texttt{sfs} with multiple images at the full 1 meter/pixel
-resolution will even more exacerbate the errors in camera
-positions and orientations. In that case running the tool at multiple levels
-of resultion is helpful, as described in section \ref{sfs:insights}.
+and orientation. The \texttt{sfs} tool can improve these by floating
+them during optimization and by using a coarse-to-fine scheme, where
+the problem is first solved using subsampled images and terrain then
+it is successively refined.
+
+If possible, it may still be desirable to bundle-adjust the cameras first
+(section \ref{bundleadjust}). It is important to note that bundle adjustment may
+fail if the images have sufficiently different illumination, as it will
+not be able to find matches among images. In that case, it can be used
+at least among the images forming the stereo pair that is used to create
+the initial DEM, and one of these images should be specified as the
+first input to SfS (as the tool keeps the camera pose of the first image
+fixed while optimizing the poses of the other cameras to
+it). Alternatively, \texttt{stereo\_gui} tool can be used to create the
+matches manually (section \ref{stereo_gui}).
 
 To make bundle adjustment and stereo faster, we first crop the images,
 such as shown below (the crop parameters can be determined via
@@ -284,7 +287,12 @@ Here are a few suggestions we have found helpful when running \texttt{sfs}:
 
 \item Bundle-adjustment for multiple images is crucial. It is suggested to examine the measured intensity images output by \texttt{sfs} for some iterations using \texttt{stereo\_gui} with the options \texttt{-\/-single-window} and \texttt{-\/-use-georef} to see if the images overlay correctly, and if the overlay error appears to go down as the tool is running. If not, the cameras have a pose error that is too big for the algorithm to correct it.
 
-\item If bundle adjustment is not successful, the option \texttt{-\/--coarse-levels} is very helpful in fixing errors in camera positions. It first runs SfS at a coarse resolution, and progressively refines the results. A good value for the number of levels can be 3 to 5 (downsampling the images by a factor of 32 and 128 respectively), larger values are suggested for larger camera errors.
+\item If bundle adjustment is not successful, the option
+\texttt{-\/--coarse-levels} is very helpful in fixing errors in camera
+positions. It first runs SfS at a coarse resolution, and progressively
+refines the results. A good value for the number of levels can be 3 to 5
+(downsampling the images by a factor of 32 and 128 respectively), larger
+values are suggested for larger camera errors.
 
 \item Floating the albedo (option \texttt{-\/-float-albedo}) can introduce instability and divergence, it should be avoided unless albedo variation is seen in the images.
 
