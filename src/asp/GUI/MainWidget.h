@@ -163,6 +163,44 @@ namespace vw { namespace gui {
     }
   }
 
+// Given an image, and an input file name, modify the filename using
+// a prefix. Write the image to that filename. If that fails, create
+// instead the filename in the current directory. Return the name
+// of the output file.
+
+template<class PixelT>
+std::string write_in_orig_or_curr_dir(ImageViewRef<PixelT> & image,
+                                      std::string const& input_file,
+                                      std::string const& suffix,
+                                      bool has_georef,
+                                      vw::cartography::GeoReference const & georef,
+                                      bool has_nodata,
+                                      double nodata_val){
+
+  TerminalProgressCallback tpc("asp", ": ");
+  asp::BaseOptions opt;
+
+  std::string prefix = asp::prefix_from_filename(input_file);
+  std::string output_file = prefix + suffix;
+
+  vw_out() << "Writing: " << output_file << std::endl;
+  try{
+    asp::block_write_gdal_image(output_file, image, has_georef, georef,
+                                has_nodata, nodata_val, opt, tpc);
+  }catch(...){
+    // Failed to write, presumably because we have no write access.
+    // Write the file in the current dir.
+    vw_out() << "Failed to write: " << output_file << "\n";
+    boost::filesystem::path p(input_file);
+    prefix = p.stem().string();
+    output_file = prefix + suffix;
+    vw_out() << "Writing: " << output_file << std::endl;
+    asp::block_write_gdal_image(output_file, image, has_georef, georef,
+                                has_nodata, nodata_val, opt, tpc);
+  }
+  return output_file;
+}
+
 // A class to manage very large images and their subsampled versions
 // in a pyramid. The most recently accessed tiles are cached in memory.
 template <class PixelT>
@@ -205,6 +243,9 @@ public:
     std::string prefix = asp::prefix_from_filename(base_file);
     fs::path base_path(base_file);
     std::time_t base_time = fs::last_write_time(base_path);
+
+    cartography::GeoReference georef;
+    bool has_georef = vw::cartography::read_georeference(georef, base_file);
 
     int level = 0;
     int scale = 1;
@@ -263,26 +304,19 @@ public:
       }
 
       if (will_write) {
-        TerminalProgressCallback tpc("asp", ": ");
-        bool has_georef = false;
-        vw::cartography::GeoReference georef;
-        asp::BaseOptions opt;
-        vw_out() << "Writing: " << curr_file << std::endl;
-        try{
-          asp::block_write_gdal_image(curr_file, unmasked, has_georef, georef,
-                                      has_nodata, m_nodata_val, opt, tpc);
-        }catch(...){
-          // Failed to write, presumably because we have no write access.
-          // Write the file in the current dir.
-          vw_out() << "Failed to write: " << curr_file << "\n";
-          boost::filesystem::path p(base_file);
-          prefix = base_path.stem().string();
-          curr_file = prefix + suffix;
-          vw_out() << "Writing: " << curr_file << std::endl;
-          asp::block_write_gdal_image(curr_file, unmasked, has_georef, georef,
-                                      has_nodata, m_nodata_val, opt, tpc);
+        // Write the current image.
+        vw::cartography::GeoReference sub_georef;
+        if (has_georef)
+          sub_georef = resample(georef, sub_scale);
 
+        std::string output_file = write_in_orig_or_curr_dir(unmasked, base_file, suffix,
+                                                            has_georef,  sub_georef, has_nodata,
+                                                            m_nodata_val);
+        if (output_file != curr_file) {
+          popUp("Book-keeping failure");
+          exit(1);
         }
+
       }else{
         vw_out() << "Using existing subsampled image: " << curr_file << std::endl;
       }
@@ -469,7 +503,7 @@ private:
     BBox2 image_bbox;
     BBox2 lonlat_bbox;
     DiskImagePyramidMultiChannel img;
-    void read(std::string const& image, bool use_georef, bool hillshade);
+    void read(std::string const& image, bool use_georef);
     double m_lon_offset; // to compensate for -90 deg equalling 270 deg
   };
 
@@ -551,7 +585,7 @@ private:
     void showFilesChosenByUser(int rowClicked, int columnClicked);
     void viewUnthreshImages();
     void viewThreshImages();
-    void viewHillshadeImages();
+    void viewHillshadedImages();
     void addMatchPoint();
     void deleteMatchPoint();
 
@@ -589,7 +623,6 @@ private:
     bool m_hideMatches;
 
     bool m_use_georef;
-    bool m_hillshade;
 
     bool  m_firstPaintEvent;
     QRect m_emptyRubberBand;
@@ -648,7 +681,6 @@ private:
     bool m_hillshade_mode;
     std::vector<imageData> m_hillshaded_images;
 
-
     // Drawing is driven by QPaintEvent, which calls out to drawImage()
     void drawImage(QPainter* paint);
     vw::Vector2 world2screen(vw::Vector2 const& p);
@@ -660,6 +692,7 @@ private:
     void updateCurrentMousePosition();
     void updateRubberBand(QRect & R);
     void refreshPixmap();
+    void genHillshadedImages();
   };
 
 }} // namespace vw::gui

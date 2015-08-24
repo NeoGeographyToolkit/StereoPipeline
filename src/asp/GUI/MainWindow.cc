@@ -206,6 +206,11 @@ void MainWindow::createMenus() {
   m_viewAsTiles_action->setStatusTip(tr("View images as tiles on grid."));
   connect(m_viewAsTiles_action, SIGNAL(triggered()), this, SLOT(viewAsTiles()));
 
+  // View hillshaded images
+  m_viewHillshadedImages_action = new QAction(tr("Hillshaded images"), this);
+  m_viewHillshadedImages_action->setStatusTip(tr("View hillshaded images."));
+  connect(m_viewHillshadedImages_action, SIGNAL(triggered()), this, SLOT(viewHillshadedImages()));
+
   m_viewMatches_action = new QAction(tr("Show IP matches"), this);
   m_viewMatches_action->setStatusTip(tr("View interest point matches."));
   connect(m_viewMatches_action, SIGNAL(triggered()), this, SLOT(viewMatches()));
@@ -254,6 +259,7 @@ void MainWindow::createMenus() {
   m_view_menu->addAction(m_viewSingleWindow_action);
   m_view_menu->addAction(m_viewSideBySide_action);
   m_view_menu->addAction(m_viewAsTiles_action);
+  m_view_menu->addAction(m_viewHillshadedImages_action);
 
   // Matches menu
   m_matches_menu = menu->addMenu(tr("&IP matches"));
@@ -488,6 +494,14 @@ void MainWindow::viewUnthreshImages() {
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (m_widgets[i]) {
       m_widgets[i]->viewUnthreshImages();
+    }
+  }
+}
+
+void MainWindow::viewHillshadedImages() {
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (m_widgets[i]) {
+      m_widgets[i]->viewHillshadedImages();
     }
   }
 }

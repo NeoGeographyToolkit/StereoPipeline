@@ -188,19 +188,31 @@ namespace vw { namespace gui {
                  round(B.width()), round(B.height()));
   }
 
-  void do_hillshade(cartography::GeoReference const& georef,
-                    ImageView<double> & img,
-                    double nodata_val){
+  void write_hillshade(std::string const& input_file,
+                       std::string & output_file){
 
-    // Copied from hillshade.cc.
+    // Copied from hillshade.cc. TODO: Unify this code.
+
+    double nodata_val = -std::numeric_limits<double>::max();
+    bool has_nodata = vw::read_nodata_val(input_file, nodata_val);
+
+    cartography::GeoReference georef;
+    bool has_georef = vw::cartography::read_georeference(georef, input_file);
+
+    // This won't be reached, but have it just in case
+    if (!has_georef) {
+      popUp("No georeference present in: " + input_file + ".");
+      exit(1);
+    }
 
     // Select the pixel scale
     double u_scale, v_scale;
     u_scale = georef.transform()(0,0);
     v_scale = georef.transform()(1,1);
 
+    // TODO: Expose these to the user
     int elevation = 45;
-    int azimuth   = 0;
+    int azimuth   = 300;
 
     // Set the direction of the light source.
     Vector3f light_0(1,0,0);
@@ -208,19 +220,24 @@ namespace vw { namespace gui {
       = vw::math::euler_to_rotation_matrix(elevation*M_PI/180,
                                            azimuth*M_PI/180, 0, "yzx") * light_0;
 
-
-    ImageViewRef< PixelMask<double> > masked_img = create_mask_less_or_equal(img, nodata_val);
+    ImageViewRef< PixelMask<PixelGray<float> > > masked_img
+      = create_mask_less_or_equal(DiskImageView< PixelGray<float> >(input_file), nodata_val);
 
     // The final result is the dot product of the light source with the normals
-    ImageView<PixelMask<uint8> > shaded_image = channel_cast_rescale<uint8>
-      (clamp(dot_prod(compute_normals(masked_img, u_scale, v_scale), light)));
-
-    img = apply_mask(shaded_image);
+    ImageViewRef<PixelMask<PixelGray<uint8> > > shaded_image =
+      channel_cast_rescale<uint8>(clamp(dot_prod(compute_normals(masked_img,
+                                                                 u_scale, v_scale), light)));
+    ImageViewRef< PixelGray<uint8> > unmasked_image = apply_mask(shaded_image);
+    std::string suffix = "_hillshade.tif";
+    output_file = write_in_orig_or_curr_dir(shaded_image,
+                                            input_file, suffix,
+                                            has_georef,  georef,
+                                            has_nodata, nodata_val);
   }
 
 }} // namespace vw::gui
 
-void imageData::read(std::string const& image, bool use_georef, bool hillshade){
+void imageData::read(std::string const& image, bool use_georef){
   name = image;
 
   m_lon_offset = 0; // will be adjusted later
@@ -239,15 +256,6 @@ void imageData::read(std::string const& image, bool use_georef, bool hillshade){
   image_bbox = BBox2(0, 0, img.cols(), img.rows());
   if (use_georef && has_georef)
     lonlat_bbox = georef.pixel_to_lonlat_bbox(image_bbox);
-
-  if (hillshade){
-    if (!has_georef){
-      popUp("Cannot create hillshade if the image has no georeference.");
-      exit(1);
-    }
-    // Turning off this code for now, more work needed.
-    //do_hillshade(georef, img.bottom(), nodata_val);
-  }
 }
 
 vw::Vector2 vw::gui::QPoint2Vec(QPoint const& qpt) {
@@ -353,7 +361,7 @@ MainWidget::MainWidget(QWidget *parent,
     m_image_id(image_id), m_output_prefix(output_prefix),
     m_image_files(image_files),
     m_matches(matches), m_hideMatches(true), m_use_georef(use_georef),
-    m_hillshade(hillshade) {
+    m_hillshade_mode(hillshade) {
 
   installEventFilter(this);
 
@@ -391,7 +399,7 @@ MainWidget::MainWidget(QWidget *parent,
   m_images.resize(num_images);
   m_filesOrder.resize(num_images);
   for (int i = 0; i < num_images; i++){
-    m_images[i].read(image_files[i], m_use_georef, m_hillshade);
+    m_images[i].read(image_files[i], m_use_georef);
     m_filesOrder[i] = i; // start by keeping the order of files being read
     if (!m_use_georef){
       m_images_box.grow(m_images[i].image_bbox);
@@ -414,7 +422,6 @@ MainWidget::MainWidget(QWidget *parent,
   m_shadow_thresh = -std::numeric_limits<double>::max();
   m_shadow_thresh_calc_mode = false;
   m_shadow_thresh_view_mode = false;
-  m_hillshade_mode = false;
 
   // To do: Warn the user if some images have georef
   // while others don't.
@@ -436,6 +443,9 @@ MainWidget::MainWidget(QWidget *parent,
   m_deleteMatchPoint = m_ContextMenu->addAction("Delete match point");
   connect(m_addMatchPoint,    SIGNAL(triggered()),this,SLOT(addMatchPoint()));
   connect(m_deleteMatchPoint, SIGNAL(triggered()),this,SLOT(deleteMatchPoint()));
+
+  if (m_hillshade_mode)
+    MainWidget::genHillshadedImages();
 }
 
 
@@ -539,13 +549,13 @@ void MainWidget::viewThreshImages(){
   // Create the thresholded images and save them to disk. We have to do it each
   // time as perhaps the shadow threshold changed.
   for (int image_iter = 0; image_iter < num_images; image_iter++) {
-    std::string orig_file = m_image_files[image_iter];
+    std::string input_file = m_image_files[image_iter];
 
     double nodata_val = -std::numeric_limits<double>::max();
-    vw::read_nodata_val(orig_file, nodata_val);
+    vw::read_nodata_val(input_file, nodata_val);
     nodata_val = std::max(nodata_val, m_shadow_thresh);
 
-    int num_channels = get_num_channels(orig_file);
+    int num_channels = get_num_channels(input_file);
     if (num_channels != 1) {
       popUp("Thresholding makes sense only for single-channel images.");
       m_shadow_thresh_view_mode = false;
@@ -553,99 +563,64 @@ void MainWidget::viewThreshImages(){
     }
 
     ImageViewRef<double> thresh_image
-      = apply_mask(create_mask_less_or_equal(DiskImageView<double>(orig_file),
+      = apply_mask(create_mask_less_or_equal(DiskImageView<double>(input_file),
                                nodata_val), nodata_val);
 
-      // The name of the thresholded file
-    std::string prefix = asp::prefix_from_filename(orig_file);
     std::string suffix = "_thresh.tif";
-    std::string curr_file = prefix + suffix;
-    vw_out() << "Writing file: " << curr_file << std::endl;
+    bool has_georef = false;
+    bool has_nodata = true;
+    vw::cartography::GeoReference georef;
+    std::string output_file
+      = write_in_orig_or_curr_dir(thresh_image, input_file, suffix,
+                                  has_georef,  georef,
+                                  has_nodata, nodata_val);
 
-    TerminalProgressCallback tpc("asp", ": ");
-    asp::BaseOptions opt;
-    vw_out() << "Writing: " << curr_file << std::endl;
-    try {
-      asp::block_write_gdal_image(curr_file, thresh_image, nodata_val, opt, tpc);
-    }catch(...){
-      // Failed to write, presumably because we have no write access.
-      // Write the file in the current dir.
-      vw_out() << "Failed to write: " << curr_file << "\n";
-      boost::filesystem::path p(orig_file);
-      prefix = p.stem().string();
-      curr_file = prefix + suffix;
-      vw_out() << "Writing: " << curr_file << std::endl;
-      asp::block_write_gdal_image(curr_file, thresh_image, nodata_val, opt, tpc);
-    }
-
-    m_shadow_thresh_images[image_iter].read(curr_file, m_use_georef, m_hillshade);
+    // Read it back right away
+    m_shadow_thresh_images[image_iter].read(output_file, m_use_georef);
   }
 
   refreshPixmap();
 }
 
-void MainWidget::viewHillshadeImages(){
+void MainWidget::genHillshadedImages(){
+
+  int num_images = m_images.size();
+  m_hillshaded_images.clear(); // wipe the old copy
+  m_hillshaded_images.resize(num_images);
+
+  // Create the hillshaded images and save them to disk. We have to do
+  // it each time as perhaps the hillshade parameters changed.
+  for (int image_iter = 0; image_iter < num_images; image_iter++) {
+
+    if (!m_images[image_iter].has_georef) {
+      popUp("Hill-shading requires georeferenced images.");
+      m_hillshade_mode = false;
+      return;
+    }
+
+    std::string input_file = m_image_files[image_iter];
+    int num_channels = get_num_channels(input_file);
+    if (num_channels != 1) {
+      popUp("Hill-shading makes sense only for single-channel images.");
+      m_hillshade_mode = false;
+      return;
+    }
+
+    // Save the hillshaded file to disk
+    std::string hillshaded_file;
+    write_hillshade(input_file, hillshaded_file);
+
+    m_hillshaded_images[image_iter].read(hillshaded_file, m_use_georef);
+  }
+}
+
+void MainWidget::viewHillshadedImages(){
   m_hillshade_mode = true;
   m_shadow_thresh_calc_mode = false;
   m_shadow_thresh_view_mode = false;
 
-#if 0
-  if (m_images.size() != 1) {
-    popUp("Must have just one image in each window to be able to view hillshaded images.");
-    m_shadow_thresh_view_mode = false;
-    refreshPixmap();
-    return;
-  }
+  MainWidget::genHillshadedImages();
 
-  int num_images = m_images.size();
-  m_shadow_thresh_images.clear(); // wipe the old copy
-  m_shadow_thresh_images.resize(num_images);
-
-  // Create the thresholded images and save them to disk. We have to do it each
-  // time as perhaps the shadow threshold changed.
-  for (int image_iter = 0; image_iter < num_images; image_iter++) {
-    std::string orig_file = m_image_files[image_iter];
-
-    double nodata_val = -std::numeric_limits<double>::max();
-    vw::read_nodata_val(orig_file, nodata_val);
-    nodata_val = std::max(nodata_val, m_shadow_thresh);
-
-    int num_channels = get_num_channels(orig_file);
-    if (num_channels != 1) {
-      popUp("Thresholding makes sense only for single-channel images.");
-      m_shadow_thresh_view_mode = false;
-      return;
-    }
-
-    ImageViewRef<double> thresh_image
-      = apply_mask(create_mask_less_or_equal(DiskImageView<double>(orig_file),
-                               nodata_val), nodata_val);
-
-      // The name of the thresholded file
-    std::string prefix = asp::prefix_from_filename(orig_file);
-    std::string suffix = "_thresh.tif";
-    std::string curr_file = prefix + suffix;
-    vw_out() << "Writing file: " << curr_file << std::endl;
-
-    TerminalProgressCallback tpc("asp", ": ");
-    asp::BaseOptions opt;
-    vw_out() << "Writing: " << curr_file << std::endl;
-    try {
-      asp::block_write_gdal_image(curr_file, thresh_image, nodata_val, opt, tpc);
-    }catch(...){
-      // Failed to write, presumably because we have no write access.
-      // Write the file in the current dir.
-      vw_out() << "Failed to write: " << curr_file << "\n";
-      boost::filesystem::path p(orig_file);
-      prefix = p.stem().string();
-      curr_file = prefix + suffix;
-      vw_out() << "Writing: " << curr_file << std::endl;
-      asp::block_write_gdal_image(curr_file, thresh_image, nodata_val, opt, tpc);
-    }
-
-    m_shadow_thresh_images[image_iter].read(curr_file, m_use_georef, m_hillshade);
-  }
-#endif
   refreshPixmap();
 }
 
@@ -798,7 +773,12 @@ void MainWidget::drawImage(QPainter* paint) {
       m_shadow_thresh_images[i].img.getImageClip(scale, image_box,
                                                  highlight_nodata,
                                                  qimg, scale_out, region_out);
+    }else if (m_hillshade_mode){
+      m_hillshaded_images[i].img.getImageClip(scale, image_box,
+                                              highlight_nodata,
+                                              qimg, scale_out, region_out);
     }else{
+      // Original images
       m_images[i].img.getImageClip(scale, image_box,
                                    highlight_nodata,
                                    qimg, scale_out, region_out);

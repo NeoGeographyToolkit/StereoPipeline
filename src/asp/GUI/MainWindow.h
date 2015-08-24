@@ -70,6 +70,7 @@ namespace vw { namespace gui {
     void shadowThresholdCalc();
     void viewThreshImages();
     void viewUnthreshImages();
+    void viewHillshadedImages();
     void about();
 
   protected:
@@ -105,12 +106,13 @@ namespace vw { namespace gui {
 
     QAction *m_about_action;
     QAction *m_shadowCalc_action;
-    QAction *m_viewThreshImages_action;
-    QAction *m_viewUnthreshImages_action;
     QAction *m_sizeToFit_action;
     QAction *m_viewSingleWindow_action;
     QAction *m_viewSideBySide_action;
     QAction *m_viewAsTiles_action;
+    QAction *m_viewHillshadedImages_action;
+    QAction *m_viewThreshImages_action;
+    QAction *m_viewUnthreshImages_action;
     QAction *m_viewMatches_action;
     QAction *m_hideMatches_action;
     QAction *m_saveMatches_action;
