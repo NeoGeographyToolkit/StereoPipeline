@@ -271,8 +271,8 @@ namespace asp {
   GUIDescription::GUIDescription() : po::options_description("GUI Options") {
     StereoSettings& global = stereo_settings();
     (*this).add_options()
-      ("grid-cols",  po::value(&global.grid_cols)->default_value(1),
-       "Display images as tiles on a grid with this many columns.")
+      ("grid-cols",  po::value(&global.grid_cols)->default_value(std::numeric_limits<int>::max()),
+       "Display images as tiles on a grid with this many columns. Default: Use one row.")
       ("window-size",  po::value(&global.window_size)->default_value(Vector2i(1200,800),"1200 800"),
        "The width and height of the GUI window in pixels.")
       ("single-window,w",   po::bool_switch(&global.single_window)->default_value(false)->implicit_value(true),
