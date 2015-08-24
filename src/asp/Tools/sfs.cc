@@ -486,8 +486,9 @@ void areInShadow(Vector3 & sunPos, ImageView<double> const& dem,
 struct Options : public asp::BaseOptions {
   std::string input_dem, out_prefix, stereo_session_string, bundle_adjust_prefix;
   std::vector<std::string> input_images, input_cameras;
-  std::string shadow_thresholds;
+  std::string shadow_thresholds, image_exposures;
   std::vector<float> shadow_threshold_vec;
+  std::vector<double> image_exposures_vec;
 
   int max_iterations, max_coarse_iterations, reflectance_type, coarse_levels;
   bool float_albedo, float_exposure, float_cameras, model_shadows,
@@ -871,6 +872,24 @@ public:
     g_iter++;
 
     vw_out() << "Finished iteration: " << g_iter << std::endl;
+
+    // Apply the most recent adjustments to the cameras.
+    for (size_t image_iter = 0; image_iter < (*g_interp_images).size(); image_iter++) {
+      AdjustedCameraModel * icam
+        = dynamic_cast<AdjustedCameraModel*>((*g_cameras)[image_iter].get());
+      if (icam == NULL)
+        vw_throw(ArgumentErr() << "Expecting adjusted camera models.\n");
+      Vector3 translation;
+      Vector3 axis_angle;
+      for (int param_iter = 0; param_iter < 3; param_iter++) {
+        translation[param_iter]
+          = (g_position_scale_factor*g_opt->camera_position_step_size)*
+          (*g_adjustments)[6*image_iter + 0 + param_iter];
+        axis_angle[param_iter] = (*g_adjustments)[6*image_iter + 3 + param_iter];
+      }
+      icam->set_translation(translation);
+      icam->set_axis_angle_rotation(axis_angle);
+    }
 
     vw_out() << "cam adj: ";
     for (int s = 0; s < int((*g_adjustments).size()); s++) {
@@ -1321,6 +1340,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Use approximate camera models for speed.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.")
+    ("image-exposures", po::value(&opt.image_exposures)->default_value(""),
+     "Optional initial guess image exposures to use, otherwise they are computed automatically (a list of real values in quotes).")
     ("init-dem-height", po::value(&opt.init_dem_height)->default_value(std::numeric_limits<double>::quiet_NaN()),
      "Use this value for initial DEM heights. An input DEM still needs to be provided for georeference information.")
     ("float-dem-at-boundary",   po::bool_switch(&opt.float_dem_at_boundary)->default_value(false)->implicit_value(true),
@@ -1386,12 +1407,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
             << usage << general_options );
 
   // Parse shadow thresholds
-  std::istringstream is(opt.shadow_thresholds);
+  std::istringstream ist(opt.shadow_thresholds);
   opt.shadow_threshold_vec.clear();
   float val;
-  while (is >> val){
+  while (ist >> val)
     opt.shadow_threshold_vec.push_back(val);
-  }
   if (!opt.shadow_threshold_vec.empty() &&
       opt.shadow_threshold_vec.size() != opt.input_images.size())
     vw_throw(ArgumentErr()
@@ -1409,6 +1429,24 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     }
   }
 
+
+  // Initial image exposures, if provided
+  std::istringstream ise(opt.image_exposures);
+  opt.image_exposures_vec.clear();
+  double dval;
+  while (ise >> dval)
+    opt.image_exposures_vec.push_back(dval);
+  if (!opt.image_exposures_vec.empty() &&
+      opt.image_exposures_vec.size() != opt.input_images.size())
+    vw_throw(ArgumentErr()
+             << "If specified, there must be as many image exposures as images.\n");
+
+  for (size_t i = 0; i < opt.image_exposures_vec.size(); i++) {
+    vw_out() << "Image exposure for " << opt.input_images[i] << ' '
+             << opt.image_exposures_vec[i] << std::endl;
+  }
+
+  // Sanity check
   if (opt.camera_position_step_size <= 0) {
     vw_throw(ArgumentErr()
              << "Expecting a positive value for camera-position-step-size.\n");
@@ -1811,29 +1849,32 @@ int main(int argc, char* argv[]) {
     // We have intensity = reflectance*exposure*albedo.
     // The albedo is 1 in the first approximation. Find
     // the exposure as mean(intensity)/mean(reflectance).
-    // We will update the exposure later.
-    std::vector<double> exposures(num_images, 0);
-    for (int image_iter = 0; image_iter < num_images; image_iter++) {
-      ImageView< PixelMask<double> > reflectance, intensity;
-      computeReflectanceAndIntensity(dem, geo,
-                                     opt.model_shadows, max_dem_height,
-                                     gridx, gridy,
-                                     model_params[image_iter],
-                                     global_params,
-                                     interp_images[image_iter],
-                                     cameras[image_iter].get(),
-                                     reflectance, intensity);
+    // We will update the exposure later. If the user
+    // provided initial exposures, use those.
+    if (opt.image_exposures_vec.empty()) {
+      opt.image_exposures_vec.resize(num_images);
+      for (int image_iter = 0; image_iter < num_images; image_iter++) {
+        ImageView< PixelMask<double> > reflectance, intensity;
+        computeReflectanceAndIntensity(dem, geo,
+                                       opt.model_shadows, max_dem_height,
+                                       gridx, gridy,
+                                       model_params[image_iter],
+                                       global_params,
+                                       interp_images[image_iter],
+                                       cameras[image_iter].get(),
+                                       reflectance, intensity);
 
-      double imgmean, imgstdev, refmean, refstdev;
-      compute_image_stats(intensity, imgmean, imgstdev);
-      compute_image_stats(reflectance, refmean, refstdev);
-      exposures[image_iter] = imgmean/refmean;
-      vw_out() << "img mean std: " << imgmean << ' ' << imgstdev << std::endl;
-      vw_out() << "ref mean std: " << refmean << ' ' << refstdev << std::endl;
-      vw_out() << "Exposure for image " << image_iter << ": "
-                <<  exposures[image_iter] << std::endl;
+        double imgmean, imgstdev, refmean, refstdev;
+        compute_image_stats(intensity, imgmean, imgstdev);
+        compute_image_stats(reflectance, refmean, refstdev);
+        opt.image_exposures_vec[image_iter] = imgmean/refmean;
+        vw_out() << "img mean std: " << imgmean << ' ' << imgstdev << std::endl;
+        vw_out() << "ref mean std: " << refmean << ' ' << refstdev << std::endl;
+        vw_out() << "Exposure for image " << image_iter << ": "
+                 <<  opt.image_exposures_vec[image_iter] << std::endl;
+      }
     }
-    g_exposures = &exposures[0];
+    g_exposures = &opt.image_exposures_vec[0];
 
     // Initial albedo. This will be updated later.
     ImageView<double> albedo(dem.cols(), dem.rows());
@@ -1965,17 +2006,6 @@ int main(int argc, char* argv[]) {
         adj_cam->set_scale(factors[level]);
       }
 
-#define USE_COARSE_DEM (1)
-
-#if USE_COARSE_DEM
-#else
-      // Note that when we go the finer resolution level, we keep only
-      // the camera corrections, but discard the albedo, dem, and exposures,
-      // preferring to start from scratch.
-      std::vector<double> local_exposures = exposures;
-      g_exposures = &local_exposures[0];
-#endif
-
       run_sfs_level(// Fixed inputs
                     num_iterations, opt, geos[level],
                     opt.smoothness_weight*factors[level]*factors[level],
@@ -1983,21 +2013,15 @@ int main(int argc, char* argv[]) {
                       global_params, model_params,
                     // Quantities that will float
                     dems[level], albedos[level], cameras,
-#if USE_COARSE_DEM
-                    exposures,
-#else
-                    local_exposures,
-#endif
+                    opt.image_exposures_vec,
                     adjustments);
 
-#if USE_COARSE_DEM
       // TODO: Study this. Discarding the coarse DEM and exposure so
       // keeping only the cameras seem to work better.
        if (level > 0) {
          interp_image(dems[level],    sub_scale, dems[level-1]);
          interp_image(albedos[level], sub_scale, albedos[level-1]);
        }
-#endif
 
     }
 
