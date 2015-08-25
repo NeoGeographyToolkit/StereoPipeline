@@ -57,6 +57,8 @@
    * Bugfix, remove outliers during search range determination.
    * Added the option --ip-per-tile, to search for more interest points 
      if the default is insufficient.
+   * If the input images are georeferenced, the good pixel map will be
+     written with a georeference.
  
  - point2dem
    * Fixed a slight discrepancy in the value of the semi-minor axis in
