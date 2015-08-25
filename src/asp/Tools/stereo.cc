@@ -445,8 +445,7 @@ namespace asp {
       // images and just restricting the domain of computation.  The
       // trans_crop_win as passed here from parallel_stereo will
       // already be a tile in the cropped image. So we just use it as
-      // it is. If it is not defined, we set it to the entire cropped
-      // image.
+      // it is. If it is not defined, we set it to the entire cropped image.
       if (stereo_settings().trans_crop_win == BBox2i(0, 0, 0, 0)) {
         DiskImageView<PixelGray<float> > left_image(opt.in_file1);
         stereo_settings().trans_crop_win = bounding_box(left_image);

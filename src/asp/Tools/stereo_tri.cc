@@ -21,7 +21,6 @@
 
 #include <asp/Tools/stereo.h>
 #include <asp/Camera/RPCModel.h>
-#include <asp/Camera/RPCStereoModel.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <vw/Cartography.h>
 #include <vw/Camera/CameraModel.h>
@@ -283,9 +282,13 @@ namespace asp{
       // center at (numx/2, numy/2). Iterate over that boundary.
       for (int x = numx/2-r; x <= numx/2+r; x++){
         for (int y = numy/2-r; y <= numy/2+r; y++){
+
           if ( x != numx/2-r && x != numx/2+r &&
-               y != numy/2-r && y != numy/2+r) continue; // skip inner points
-          if (x < 0 || y < 0 || x >= numx || y >= numy) continue; // out of bounds
+               y != numy/2-r && y != numy/2+r) 
+            continue; // skip inner points
+
+          if (x < 0 || y < 0 || x >= numx || y >= numy) 
+            continue; // out of bounds
 
           BBox2i box(x*tile_size[0], y*tile_size[1], tile_size[0], tile_size[1]);
           box.crop(bounding_box(point_cloud));
@@ -298,7 +301,8 @@ namespace asp{
           for (int px = 0; px < cropped_cloud.cols(); px++){
             for (int py = 0; py < cropped_cloud.rows(); py++){
               Vector3 xyz = subvector(cropped_cloud(px, py), 0, 3);
-              if (xyz == Vector3()) continue;
+              if (xyz == Vector3()) 
+                continue;
               points.push_back(xyz);
             }
           }
@@ -307,10 +311,9 @@ namespace asp{
           if (points.size() > 100)
             return find_approx_points_median(points);
 
-        }
-
-      }
-    }
+        }// end y loop
+      }// end x loop
+    }// end r loop
 
     // Have to use what we've got
     return find_approx_points_median(points);
@@ -414,15 +417,45 @@ void stereo_triangulation( string          const& output_prefix,
       disparity_maps.push_back(opt_vec[p].session->pre_pointcloud_hook(opt_vec[p].out_prefix+"-F.tif"));
     }
 
+
     // Apply radius function and stereo model in one go
     vw_out() << "\t--> Generating a 3D point cloud." << endl;
     ImageViewRef<Vector6> point_cloud = per_pixel_filter
                                             (stereo_error_triangulate(disparity_maps, transforms, stereo_model, is_map_projected),
                                              universe_radius_func);
 
+
+    // DEBUG - Print out some pixel tests and quit!
+    std::vector<Vector2> testPixels;
+    testPixels.push_back(Vector2(0, 0));
+    testPixels.push_back(Vector2(100, 100));
+    testPixels.push_back(Vector2(100, 1000));
+    testPixels.push_back(Vector2(1000, 100));
+    //testPixels.push_back(Vector2(20000, 6000));
+    //testPixels.push_back(Vector2(19000, 5100));
+
+/*  // Try printing sample pixel-to-vector outputs  
+    for (int c = 0; c < num_cams; c++)
+    {
+      std::cout << "For camera: " << c << std::endl;
+      for (size_t i=0; i<testPixels.size(); ++i) 
+      {
+        std::cout << "    Pixel " << i << " --> " << camera_ptrs[c]->pixel_to_vector(testPixels[i]) << "\n";
+      }
+    }*/
+/*
+    // Try generating some sample 3D points
+    // --> These results match the final output values
+    for (size_t i=0; i<testPixels.size(); ++i) 
+    {
+      std::cout << "Pixel " << i << " --> " << point_cloud(testPixels[i][0], testPixels[i][1]) << "\n";
+    }    
+
+    vw_throw(InputErr() << "DEBUG@@@@.\n");
+    */
+
     // If we crop the left and right images, at each run we must
-    // recompute the cloud center, as the cropping windows may
-    // have changed.
+    // recompute the cloud center, as the cropping windows may have changed.
     bool crop_left_and_right =
       ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
       ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
@@ -433,8 +466,7 @@ void stereo_triangulation( string          const& output_prefix,
       string cloud_center_file = output_prefix + "-PC-center.txt";
       if (!read_point(cloud_center_file, cloud_center) || crop_left_and_right){
         if (!stereo_settings().skip_point_cloud_center_comp) {
-          cloud_center
-            = find_point_cloud_center(opt_vec[0].raster_tile_size, point_cloud);
+          cloud_center = find_point_cloud_center(opt_vec[0].raster_tile_size, point_cloud);
           write_point(cloud_center_file, cloud_center);
         }
       }

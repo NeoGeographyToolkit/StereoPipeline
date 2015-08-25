@@ -206,7 +206,7 @@ load_adjusted_model(boost::shared_ptr<camera::CameraModel> cam,
   // TODO: Where does this prefix come from?  Is it always an issue?
   std::string ba_pref = stereo_settings().bundle_adjust_prefix;
   if (ba_pref == "" && pixel_offset == vw::Vector2())
-    return cam;
+    return cam; // Just return if nothing is adjusting the camera
 
   Vector3 position_correction;
   Quaternion<double> pose_correction = Quat(math::identity_matrix<3>());
@@ -232,10 +232,15 @@ boost::shared_ptr<vw::camera::CameraModel>
 StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
 (STEREOSESSION_STEREOMODEL_TYPE model_type, std::string const& image_file, std::string const& camera_file){
 
+  // Retrieve the pixel offset (if any) to cropped images
   vw::Vector2 pixel_offset = camera_pixel_offset(m_input_dem,
                                                  m_left_image_file,
                                                  m_right_image_file,
                                                  image_file);
+
+  std::cout << "For camera files: " << image_file << "\n" << camera_file << "\n";
+  std::cout << "Loaded offset: " << pixel_offset << "\n";
+
   switch(model_type){
     case STEREOMODEL_TYPE_ISIS:
         return load_adjusted_model(m_camera_loader.load_isis_camera_model(camera_file),

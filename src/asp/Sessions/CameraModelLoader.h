@@ -179,7 +179,7 @@ inline boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_dg_cam
     att.quat_vec[i] = att.quat_vec[i] * geo.camera_attitude * sensor_coordinate;
   }
 
-  vw_out() << "DG model load - sensor_coordinate = " << sensor_coordinate << std::endl; 
+  vw::vw_out() << "DG model load - sensor_coordinate = " << sensor_coordinate << std::endl; 
   geo.printDebugInfo(); // DEBUG INFO
 
   // Load up the time interpolation class. If the TLCList only has
@@ -200,13 +200,13 @@ inline boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_dg_cam
                    tlc_time_interpolation( 0 ) ) < fabs( 1.0 / (10.0 * img.avg_line_rate ) ),
              vw::MathErr() << "First Line Time and output from TLC lookup table do not agree of the ephemeris time for the first line of the image." );
 
-  Vector2 final_detector_origin = subvector(inverse(sensor_coordinate).rotate(vw::Vector3(geo.detector_origin[0],
+  vw::Vector2 final_detector_origin = subvector(inverse(sensor_coordinate).rotate(vw::Vector3(geo.detector_origin[0],
                                                                                           geo.detector_origin[1],
                                                                                           0)
                                                                              ),
                                             0, 2);
 
-  vw_out() << "DG model load - final_detector_origin = " << final_detector_origin << std::endl;
+  vw::vw_out() << "DG model load - final_detector_origin = " << final_detector_origin << std::endl;
 
   double et0 = convert( parse_time( eph.start_time ) );
   double at0 = convert( parse_time( att.start_time ) );

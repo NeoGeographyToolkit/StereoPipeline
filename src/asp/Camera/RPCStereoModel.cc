@@ -72,7 +72,8 @@ namespace asp {
     errorVec = Vector3();
 
     try {
-      vector<Vector3> camDirs(num_cams), camCtrs(num_cams);
+      vector<Vector3> camDirs(num_cams), 
+                      camCtrs(num_cams);
       vector<const RPCModel*> rpc_cams(num_cams);
       camDirs.clear(); 
       camCtrs.clear(); 
@@ -142,7 +143,7 @@ namespace asp {
 
       return result;
 
-    } catch (...) {}
+    } catch (const camera::PixelToRayErr& /*e*/) {}
     return Vector3();
   }
 

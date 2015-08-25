@@ -412,7 +412,8 @@ namespace asp {
     // and the direction of the ray going through that point.
 
     // Center of valid region to bottom o valid region (normalized)
-    double  height_up = m_lonlatheight_offset[2];
+    const double VERT_SCALE_FACTOR = 100; // - The virtual center should be high above the terrain
+    double  height_up = m_lonlatheight_offset[2] + m_lonlatheight_scale[2]*VERT_SCALE_FACTOR;
     double  height_dn = m_lonlatheight_offset[2] - m_lonlatheight_scale[2];
 
     // Use m_lonlatheight_offset as initial guess for lonlat_up,

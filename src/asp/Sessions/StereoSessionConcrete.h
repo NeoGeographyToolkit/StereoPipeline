@@ -75,7 +75,8 @@ namespace asp {
 
   /// Utility for converting STEREOMODEL_TYPE into the corresponding class
   template <STEREOSESSION_STEREOMODEL_TYPE T> struct StereoModelType2Class { typedef vw::stereo::StereoModel type; };
-  template <> struct StereoModelType2Class<STEREOMODEL_TYPE_RPC>           { typedef asp::RPCStereoModel     type; };
+  // Unfortunately there is still a problems here that the unit test does not catch.
+  //template <> struct StereoModelType2Class<STEREOMODEL_TYPE_RPC>           { typedef asp::RPCStereoModel     type; };
 
   /// Utility returns true if our inputs are map projected.
   template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE> struct IsTypeMapProjected { static const bool value=false; };
