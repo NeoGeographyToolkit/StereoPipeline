@@ -132,6 +132,7 @@
      RPC model from a DG model.
    * Handle the situation when two images to be mosaicked start at the 
      same output row number.
+   * Added --target-resolution option to specify the output resolution in meters.
 
  - Misc.
    * Upgraded to ISIS 3.4.9.6185.
