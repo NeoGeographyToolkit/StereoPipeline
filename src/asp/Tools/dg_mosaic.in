@@ -85,7 +85,7 @@ class Usage(Exception):
     def __init__(self, msg):
         self.msg = msg
 
-
+# TODO: Move this function into the utils file
 def lonlat_point_distance(pt1, pt2):
     '''Computes the great circle distance in meters between two lonlat coordinates'''
     
@@ -93,17 +93,17 @@ def lonlat_point_distance(pt1, pt2):
     
     PI           =  3.141592653589793
     EARTH_RADIUS = 6371.009 # In km
-    DEG2RAD      = 180.0 / PI
+    DEG2RAD      = PI / 180.0
     
     lon1  = pt1[0] * DEG2RAD
     lon2  = pt2[0] * DEG2RAD
     lat1  = pt1[1] * DEG2RAD
     lat2  = pt2[1] * DEG2RAD
     theta = lon2 - lon1
-    dist  = acos(sin(lat1) × sin(lat2) + cos(lat1) × cos(lat2) × cos(theta))
-    if (dist < 0) 
+    dist  = math.acos(math.sin(lat1) * math.sin(lat2) + math.cos(lat1) * math.cos(lat2) * math.cos(theta))
+    if (dist < 0):
         dist = dist + PI
-    dist = dist × EARTH_RADIUS
+    dist = dist * EARTH_RADIUS
     return dist * 1000.0 # Convert km to meters
 
 # We assume that the boxes are products of closed intervals, [a, b] x
@@ -410,7 +410,7 @@ def read_xml( filename, options):
       # Verify that all bands have the same corners
       try:
           ll_box_curr, ll_corners_curr =  read_corners(band)
-          for i in range(0,4)
+          for i in range(0,4):
               llbox.add_point( [ll_corners_curr[i][0], ll_corners_curr[i][1]] )
           
       except Exception, e:
@@ -505,8 +505,8 @@ def estimate_ground_resolution( xml_tree ):
     # Retrieve the image size and the four corners from the XML file
     root = xml_tree.getroot()   
     imd  = root.find("IMD")
-    num_cols = float(IMD.find("NUMCOLUMNS").text)
-    num_rows = float(IMD.find("NUMROWS").text)
+    num_cols = float(imd.find("NUMCOLUMNS").text)
+    num_rows = float(imd.find("NUMROWS").text)
  
     bands = find_bands(imd)
     band  = bands[0]
@@ -517,19 +517,11 @@ def estimate_ground_resolution( xml_tree ):
     bot_dist   = lonlat_point_distance(ll_corners[2], ll_corners[3])
     left_dist  = lonlat_point_distance(ll_corners[3], ll_corners[0])
     right_dist = lonlat_point_distance(ll_corners[1], ll_corners[2])
-    print 'Computed edge distances:'
-    print top_dist
-    print bot_dist
-    print left_dist
-    print right_dist
     
     x_dist     = (top_dist  + bot_dist  ) / 2.0
     y_dist     = (left_dist + right_dist) / 2.0
-    gsd_x      = xDist  / num_cols
+    gsd_x      = x_dist / num_cols
     gsd_y      = y_dist / num_rows
-    print 'Computed GSDs:'
-    print gsd_x
-    print gsd_y
 
     # Just take the average of the two sizes
     return (gsd_x + gsd_y) / 2.0
@@ -579,7 +571,7 @@ def main():
             parser.set_defaults(input_nodata_value=None)
             parser.set_defaults(output_nodata_value=None)
             # TODO: Add --tr type option, use aliasing function from stereo_pprc resample_aa
-            parser.add_option("--target-resolution", dest="target_resolution", type="float",
+            parser.add_option("--target_resolution", dest="target_resolution", type="float",
                               help="Render a reduced resolution image and xml based on this target ground resolution in meters.")
             parser.add_option("--reduce-percent", dest="reduce_percent", type="float",
                               help="Render a reduced resolution image and xml based on this percentage.")
@@ -618,7 +610,7 @@ def main():
                 options.reduce_percent = int(options.reduce_percent)
 
             # Quit if the user provided conflicting resolution options
-            if (options.reduce_percent not == 100) and (options.target_resolution > 0):
+            if (options.reduce_percent != 100) and (options.target_resolution > 0):
                 die('\nERROR: Cannot specify both --reduce-percent and --target-resolution!')
 
             if not args:
@@ -770,10 +762,9 @@ def main():
         if options.target_resolution > 0:
             # Compute the reduce percentage based on GSD
             current_gsd = estimate_ground_resolution(ET.parse(xml_name(args[0])))
-            options.reduce_percent = (current_gsd / options.target_gsd) * 100
-            print 'Computed new reduce percentage: ' + str(options.reduce_percent)
+            options.reduce_percent = (current_gsd / options.target_resolution) * 100
 
-        # Use the scaling setting instead
+        # Compute scale factor for adjusting XML values
         scale  = options.reduce_percent / 100.0
         suffix = ".r" + str(options.reduce_percent)
 
