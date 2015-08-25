@@ -85,6 +85,27 @@ class Usage(Exception):
     def __init__(self, msg):
         self.msg = msg
 
+
+def lonlat_point_distance(pt1, pt2):
+    '''Computes the great circle distance in meters between two lonlat coordinates'''
+    
+    # This function uses a simple, less accurate calculation.
+    
+    PI           =  3.141592653589793
+    EARTH_RADIUS = 6371.009 # In km
+    DEG2RAD      = 180.0 / PI
+    
+    lon1  = pt1[0] * DEG2RAD
+    lon2  = pt2[0] * DEG2RAD
+    lat1  = pt1[1] * DEG2RAD
+    lat2  = pt2[1] * DEG2RAD
+    theta = lon2 - lon1
+    dist  = acos(sin(lat1) × sin(lat2) + cos(lat1) × cos(lat2) × cos(theta))
+    if (dist < 0) 
+        dist = dist + PI
+    dist = dist × EARTH_RADIUS
+    return dist * 1000.0 # Convert km to meters
+
 # We assume that the boxes are products of closed intervals, [a, b] x
 # [c, d]. As such, the box [0, 0] x [0, 0] of width 0 is not empty.
 class BBox:
@@ -306,6 +327,35 @@ def find_bands(node):
 
     return bands
 
+def read_corners(band):
+    '''Read in the corners from a DG XML file from one band.
+       The points are stored in clockwise order from the upper left.'''
+    
+    llbox = BBox()
+    ll_corners = []
+    
+    ullon = float(band.find("ULLON").text)
+    ullat = float(band.find("ULLAT").text)
+    llbox.add_point([ullon, ullat])
+    ll_corners.append([ullon, ullat])
+
+    urlon = float(band.find("URLON").text)
+    urlat = float(band.find("URLAT").text)
+    llbox.add_point([urlon, urlat])
+    ll_corners.append([urlon, urlat])
+
+    lrlon = float(band.find("LRLON").text)
+    lrlat = float(band.find("LRLAT").text)
+    llbox.add_point([lrlon, lrlat])
+    ll_corners.append([lrlon, lrlat])
+
+    lllon = float(band.find("LLLON").text)
+    lllat = float(band.find("LLLAT").text)
+    llbox.add_point([lllon, lllat])
+    ll_corners.append([lllon, lllat])
+    
+    return (llbox, ll_corners)
+
 # Provide the image files that make up the composite. We assume the XML
 # files are in the same directory and end with extension ".xml" or ".XML".
 def read_xml( filename, options):
@@ -359,29 +409,12 @@ def read_xml( filename, options):
       # code blocks must be kept consistent.
       # Verify that all bands have the same corners
       try:
-          ll_corners_curr = []
-          ullon = float(band.find("ULLON").text)
-          ullat = float(band.find("ULLAT").text)
-          llbox.add_point([ullon, ullat])
-          ll_corners_curr.append([ullon, ullat])
-
-          urlon = float(band.find("URLON").text)
-          urlat = float(band.find("URLAT").text)
-          llbox.add_point([urlon, urlat])
-          ll_corners_curr.append([urlon, urlat])
-
-          lrlon = float(band.find("LRLON").text)
-          lrlat = float(band.find("LRLAT").text)
-          llbox.add_point([lrlon, lrlat])
-          ll_corners_curr.append([lrlon, lrlat])
-
-          lllon = float(band.find("LLLON").text)
-          lllat = float(band.find("LLLAT").text)
-          llbox.add_point([lllon, lllat])
-          ll_corners_curr.append([lllon, lllat])
+          ll_box_curr, ll_corners_curr =  read_corners(band)
+          for i in range(0,4)
+              llbox.add_point( [ll_corners_curr[i][0], ll_corners_curr[i][1]] )
+          
       except Exception, e:
-          print("Warning: File " + filename
-                + " lacks longitude/latitude information.")
+          print("Warning: File " + filename + " lacks longitude/latitude information.")
 
       if len(ll_corners) == 0:
           ll_corners = ll_corners_curr
@@ -465,6 +498,42 @@ def xml_name( filename ):
 
     return xml_file
 
+
+def estimate_ground_resolution( xml_tree ):
+    '''Parse the DG XML file to estimate the ground resolution in meters per pixel'''
+
+    # Retrieve the image size and the four corners from the XML file
+    root = xml_tree.getroot()   
+    imd  = root.find("IMD")
+    num_cols = float(IMD.find("NUMCOLUMNS").text)
+    num_rows = float(IMD.find("NUMROWS").text)
+ 
+    bands = find_bands(imd)
+    band  = bands[0]
+    ll_box, ll_corners = read_corners(band)
+
+    # Estimate meters per pixel in the X and Y directions of the image.
+    top_dist   = lonlat_point_distance(ll_corners[0], ll_corners[1])
+    bot_dist   = lonlat_point_distance(ll_corners[2], ll_corners[3])
+    left_dist  = lonlat_point_distance(ll_corners[3], ll_corners[0])
+    right_dist = lonlat_point_distance(ll_corners[1], ll_corners[2])
+    print 'Computed edge distances:'
+    print top_dist
+    print bot_dist
+    print left_dist
+    print right_dist
+    
+    x_dist     = (top_dist  + bot_dist  ) / 2.0
+    y_dist     = (left_dist + right_dist) / 2.0
+    gsd_x      = xDist  / num_cols
+    gsd_y      = y_dist / num_rows
+    print 'Computed GSDs:'
+    print gsd_x
+    print gsd_y
+
+    # Just take the average of the two sizes
+    return (gsd_x + gsd_y) / 2.0
+
 def run_cmd( cmd, options ):
     if options.dryrun or options.verbose: print cmd
     if options.dryrun: return
@@ -503,11 +572,15 @@ def main():
             parser.set_defaults(dryrun=False)
             parser.set_defaults(preview=False)
             parser.set_defaults(gdaldir="")
+            parser.set_defaults(target_resolution=-1.0)
             parser.set_defaults(reduce_percent=100.0)
             parser.set_defaults(output_prefix="")
             parser.set_defaults(band=0)
             parser.set_defaults(input_nodata_value=None)
             parser.set_defaults(output_nodata_value=None)
+            # TODO: Add --tr type option, use aliasing function from stereo_pprc resample_aa
+            parser.add_option("--target-resolution", dest="target_resolution", type="float",
+                              help="Render a reduced resolution image and xml based on this target ground resolution in meters.")
             parser.add_option("--reduce-percent", dest="reduce_percent", type="float",
                               help="Render a reduced resolution image and xml based on this percentage.")
             parser.add_option("--output-prefix", dest="output_prefix", type="str",
@@ -543,6 +616,10 @@ def main():
             # Transform 50.0 into just 50
             if options.reduce_percent == int(options.reduce_percent):
                 options.reduce_percent = int(options.reduce_percent)
+
+            # Quit if the user provided conflicting resolution options
+            if (options.reduce_percent not == 100) and (options.target_resolution > 0):
+                die('\nERROR: Cannot specify both --reduce-percent and --target-resolution!')
 
             if not args:
                 parser.print_help()
@@ -690,7 +767,14 @@ def main():
                                 'XML file or invalid TLC information.')
             seen.add(val)
 
-        scale = options.reduce_percent / 100.0
+        if options.target_resolution > 0:
+            # Compute the reduce percentage based on GSD
+            current_gsd = estimate_ground_resolution(ET.parse(xml_name(args[0])))
+            options.reduce_percent = (current_gsd / options.target_gsd) * 100
+            print 'Computed new reduce percentage: ' + str(options.reduce_percent)
+
+        # Use the scaling setting instead
+        scale  = options.reduce_percent / 100.0
         suffix = ".r" + str(options.reduce_percent)
 
         # The band to output
@@ -803,8 +887,8 @@ def main():
         # Scale the RPC model
         if not options.skip_rpc_gen:
             RPI = root.find("RPB").find("IMAGE")
-            scale_xml_element(RPI.find("SAMPSCALE"), scale)
-            scale_xml_element(RPI.find("LINESCALE"), scale)
+            scale_xml_element(RPI.find("SAMPSCALE" ), scale)
+            scale_xml_element(RPI.find("LINESCALE" ), scale)
             scale_xml_element(RPI.find("SAMPOFFSET"), scale)
             scale_xml_element(RPI.find("LINEOFFSET"), scale)
 
