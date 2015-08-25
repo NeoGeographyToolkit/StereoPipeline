@@ -176,8 +176,9 @@ class TifMosaicView: public ImageViewBase<TifMosaicView>{
 
 public:
   TifMosaicView(int dst_cols, int dst_rows, std::vector<ImageData> & img_data,
-            double scale, double output_nodata_value):
-    m_dst_cols((int)(scale*dst_cols)), m_dst_rows((int)(scale*dst_rows)),
+                double scale, double output_nodata_value):
+    m_dst_cols((int)(scale*dst_cols)), 
+    m_dst_rows((int)(scale*dst_rows)),
     m_img_data(img_data), m_scale(scale),
     m_output_nodata_value(output_nodata_value){}
 
@@ -186,8 +187,8 @@ public:
   typedef PixelMask<float> masked_pixel_type;
   typedef ProceduralPixelAccessor<TifMosaicView> pixel_accessor;
 
-  inline int32 cols() const { return m_dst_cols; }
-  inline int32 rows() const { return m_dst_rows; }
+  inline int32 cols  () const { return m_dst_cols; }
+  inline int32 rows  () const { return m_dst_rows; }
   inline int32 planes() const { return 1; }
 
   inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
@@ -218,15 +219,18 @@ public:
     std::vector<InterpT> crop_vec(m_img_data.size(),
                                   InterpT(ImageT())); // Image data but expanded a bit for interpolation's sake
     int extra = BilinearInterpolation::pixel_buffer;
+    // Loop through the input images
     for (int k = 0; k < (int)m_img_data.size(); k++){
       BBox2 box = m_img_data[k].dst_box;
       box.crop(scaled_box);
-      if (box.empty()) continue;
+      if (box.empty()) 
+        continue;
       box.expand(1); // since reverse_bbox will truncate input box to BBox2i
       box = m_img_data[k].transform.reverse_bbox(box);
       box = grow_bbox_to_int(box);
       box.crop(bounding_box(m_img_data[k].src_img));
-      if (box.empty()) continue;
+      if (box.empty()) 
+        continue;
       src_vec[k] = ( box ); // Recording active area of the tile
       box.expand( extra );  // Expanding to help interpolation
       crop_vec[k] =
@@ -239,6 +243,8 @@ public:
     ImageView<pixel_type> tile(bbox.width(), bbox.height());
     fill( tile, m_output_nodata_value );
 
+    // TODO: Replace this code with the resample_aa function??
+
     // TODO: This could possibly be performed entirely with a
     // TransformView and apply_mask.
     // -- or --
@@ -247,19 +253,19 @@ public:
     for (int row = 0; row < bbox.height(); row++){
       for (int col = 0; col < bbox.width(); col++){
 
-        Vector2 dst_pix
-          = Vector2(col + bbox.min().x(), row + bbox.min().y())/m_scale;
+        Vector2 dst_pix = Vector2(col + bbox.min().x(), 
+                                  row + bbox.min().y())/m_scale;
 
         // See which src image we end up in. Start from the later
         // images, as those are on top. Stop when we find an image
         // with a valid pixel at given location.
         for (int k = (int)m_img_data.size()-1; k >= 0; k--){
           Vector2 src_pix = m_img_data[k].transform.reverse(dst_pix);
-          if (!src_vec[k].contains(src_pix)) continue;
+          if (!src_vec[k].contains(src_pix)) 
+            continue;
 
           // Go to the coordinate system of image crop_vec[k]. Note that
-          // we add back the 'extra' number used in expanding the image
-          // earlier.
+          // we add back the 'extra' number used in expanding the image earlier.
           src_pix += elem_diff(extra, src_vec[k].min());
           
           masked_pixel_type r = crop_vec[k](src_pix[0], src_pix[1] );
@@ -288,7 +294,7 @@ struct Options : asp::BaseOptions {
   bool has_input_nodata_value, has_output_nodata_value;
   double percent, input_nodata_value, output_nodata_value;
   Options(): band(0), has_input_nodata_value(false), has_output_nodata_value(false),
-             input_nodata_value(std::numeric_limits<double>::quiet_NaN()),
+             input_nodata_value (std::numeric_limits<double>::quiet_NaN()),
              output_nodata_value(std::numeric_limits<double>::quiet_NaN()){}
 };
 
@@ -297,16 +303,16 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add( asp::BaseOptionsDescription(opt) );
   general_options.add_options()
     ("image-data", po::value(&opt.img_data)->default_value(""),
-     "Information on the images to mosaic.")
+         "Information on the images to mosaic.")
     ("output-image,o", po::value(&opt.output_image)->default_value(""),
-     "Specify the output image.")
+         "Specify the output image.")
     ("band", po::value(&opt.band), "Which band to use (for multi-spectral images).")
     ("input-nodata-value", po::value(&opt.input_nodata_value),
-     "Nodata value to use on input; input pixel values less than or equal to this are considered invalid.")
+         "Nodata value to use on input; input pixel values less than or equal to this are considered invalid.")
     ("output-nodata-value", po::value(&opt.output_nodata_value),
-     "Nodata value to use on output.")
+         "Nodata value to use on output.")
     ("reduce-percent", po::value(&opt.percent)->default_value(100.0),
-     "Reduce resolution using this percentage.");
+         "Reduce resolution using this percentage.");
 
   po::options_description positional("");
   po::positional_options_description positional_desc;
@@ -318,20 +324,18 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                              positional, positional_desc, usage,
                              allow_unregistered, unregistered );
 
-  opt.has_input_nodata_value = vm.count("input-nodata-value");
+  opt.has_input_nodata_value  = vm.count("input-nodata-value" );
   opt.has_output_nodata_value = vm.count("output-nodata-value");
 
   if ( opt.img_data.empty() )
-    vw_throw( ArgumentErr() << "No images to mosaic.\n"
-              << usage << general_options );
+    vw_throw( ArgumentErr() << "No images to mosaic.\n" << usage << general_options );
 
   if ( opt.output_image.empty() )
-    vw_throw( ArgumentErr() << "Missing output image name.\n"
-              << usage << general_options );
+    vw_throw( ArgumentErr() << "Missing output image name.\n" << usage << general_options );
 
   if ( opt.percent > 100.0 || opt.percent <= 0.0 )
     vw_throw( ArgumentErr() << "The percent amount must be between 0% and 100%.\n"
-              << usage << general_options );
+                            << usage << general_options );
 
 }
 

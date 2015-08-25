@@ -570,7 +570,6 @@ def main():
             parser.set_defaults(band=0)
             parser.set_defaults(input_nodata_value=None)
             parser.set_defaults(output_nodata_value=None)
-            # TODO: Add --tr type option, use aliasing function from stereo_pprc resample_aa
             parser.add_option("--target_resolution", dest="target_resolution", type="float",
                               help="Render a reduced resolution image and xml based on this target ground resolution in meters.")
             parser.add_option("--reduce-percent", dest="reduce_percent", type="float",
