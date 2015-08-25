@@ -103,6 +103,11 @@ namespace asp {
     // Static copies of some of the characteristic functions defined in the base class.
     static bool isMapProjected() { return IsTypeMapProjected<DISKTRANSFORM_TYPE>::value; }
 
+    // Override the base class functions according to the class paramaters
+    virtual bool uses_map_projected_inputs() const {return  isMapProjected();}
+    virtual bool requires_input_dem       () const {return  isMapProjected();}
+    virtual bool supports_image_alignment () const {return !isMapProjected();}
+
     /// Verify that the inputs needed by the template configuration are selected
     /// - Derived classes should call this before initializing their own behavior.
     virtual void initialize(BaseOptions const& options,

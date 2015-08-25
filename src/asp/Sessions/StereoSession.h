@@ -138,8 +138,8 @@ namespace asp {
 
     // The next set of functions describe characteristics of the derived session class.
     virtual bool uses_map_projected_inputs() const {return false;}
-    virtual bool requires_input_dem      () const {return false;}
-    virtual bool supports_image_alignment() const {return true; }
+    virtual bool requires_input_dem       () const {return false;}
+    virtual bool supports_image_alignment () const {return true; }
 
 
 

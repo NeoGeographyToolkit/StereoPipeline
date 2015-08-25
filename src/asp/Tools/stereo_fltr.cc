@@ -134,10 +134,23 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
                                     Options const& opt ) {
   // Write Good Pixel Map
   // Sub-sampling so that the user can actually view it.
-  float sub_scale =
-    float( min( inputview.impl().cols(),
-                     inputview.impl().rows() ) ) / 2048.0;
+  float sub_scale = float( min( inputview.impl().cols(),
+                                inputview.impl().rows() ) ) / 2048.0;
+  if (sub_scale < 1) // Don't use a sub_scale less than one.
+    sub_scale = 1;
   
+  // Determine if we can attach geo information to the output image
+  bool has_georef = (  (opt.session->uses_map_projected_inputs()) &&
+                       (opt.input_dem != ""));
+  vw::cartography::GeoReference left_georef, good_pixel_georef;
+  if (has_georef) {
+    if (!read_georeference(left_georef, opt.in_file1))
+      has_georef = false;
+    // Account for sub_scale
+    good_pixel_georef = resample(left_georef, sub_scale);
+  }
+  
+  // Write out the good pixel map
   asp::block_write_gdal_image
     ( opt.out_prefix + "-GoodPixelMap.tif",
       subsample
@@ -147,10 +160,11 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
          create_mask(DiskImageView<vw::uint8>(opt.out_prefix+"-lMask.tif"), 0)
          )
         ),
-       sub_scale < 1 ? 1 : sub_scale
+       sub_scale
        ),
-      opt, TerminalProgressCallback
-      ("asp", "\t--> Good Pxl Map: ") );
+      has_georef, good_pixel_georef,
+      false, 0, // Not using nodata
+      opt, TerminalProgressCallback("asp", "\t--> Good Pxl Map: ") );
   
   bool removeSmallBlobs = (stereo_settings().erode_max_size > 0);
 
