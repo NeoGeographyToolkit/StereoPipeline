@@ -69,7 +69,7 @@ public:
     // We look a beyond the current tile, to avoid cutting blobs
     // if possible. Skinny blobs will be cut though.
     int bias = 2*int(ceil(sqrt(double(area))));
-    
+
     BBox2i bbox2 = bbox;
     bbox2.expand(bias);
     bbox2.crop(bounding_box(m_img));
@@ -101,7 +101,7 @@ per_tile_erode( ImageViewBase<ImageT> const& img) {
 template <class ViewT>
 struct MultipleDisparityCleanUp {
   typedef ImageViewRef< typename ViewT::pixel_type > result_type;
-  
+
   inline result_type operator()( ImageViewBase<ViewT> const& input, int N) {
 
     result_type out = input;
@@ -138,7 +138,7 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
                                 inputview.impl().rows() ) ) / 2048.0;
   if (sub_scale < 1) // Don't use a sub_scale less than one.
     sub_scale = 1;
-  
+
   // Determine if we can attach geo information to the output image
   bool has_georef = (  (opt.session->uses_map_projected_inputs()) &&
                        (opt.input_dem != ""));
@@ -149,10 +149,12 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
     // Account for sub_scale
     good_pixel_georef = resample(left_georef, sub_scale);
   }
-  
+
   // Write out the good pixel map
+  std::string goodPixelFile = opt.out_prefix + "-GoodPixelMap.tif";
+  vw_out() << "Writing: " << goodPixelFile << std::endl;
   asp::block_write_gdal_image
-    ( opt.out_prefix + "-GoodPixelMap.tif",
+    ( goodPixelFile,
       subsample
       (apply_mask
        (copy_mask
@@ -164,12 +166,12 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
        ),
       has_georef, good_pixel_georef,
       false, 0, // Not using nodata
-      opt, TerminalProgressCallback("asp", "\t--> Good Pxl Map: ") );
-  
+      opt, TerminalProgressCallback("asp", "\t--> Good pixel map: ") );
+
   bool removeSmallBlobs = (stereo_settings().erode_max_size > 0);
 
   string outF = opt.out_prefix + "-F.tif";
-    
+
   // Fill holes
   if(stereo_settings().enable_fill_holes) {
     // Generate a list of blobs below a maximum size
@@ -208,7 +210,7 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
                                     ), opt, TerminalProgressCallback
                                    ("asp","\t--> Filtering: ") );
     }
-    
+
   } else { // No hole filling
     if (!removeSmallBlobs) { // Skip small blob removal
       vw_out() << "Writing: " << outF << endl;
@@ -224,7 +226,7 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
                                   opt, TerminalProgressCallback
                                   ("asp","\t--> Filtering: ") );
     }
-    
+
   } // End no hole filling case
 }
 
@@ -277,7 +279,7 @@ void stereo_filtering( Options& opt ) {
            apply_mask(asp::threaded_edge_mask(left_mask, 0,mask_buffer,1024)),
            apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024)));
       }
-      
+
       // This is only turned on for apollo. Blob detection doesn't
       // work too great when tracking a whole lot of spots. HiRISE
       // seems to keep breaking this so I've keep it turned off.
@@ -327,7 +329,7 @@ int main(int argc, char* argv[]) {
 
     vw_out() << "\n[ " << current_posix_time_string()
              << " ] : Stage 3 --> FILTERING \n";
-    
+
     // This is probably the right place in which to warn the user about
     // new hole filling behavior.
     vw_out(WarningMessage)
@@ -335,23 +337,23 @@ int main(int argc, char* argv[]) {
       << "It is suggested to use instead point2dem's analogous "
       << "functionality. It can be re-enabled using "
       << "--enable-fill-holes." << endl;
-    
+
     stereo_register_sessions();
-    
+
     bool verbose = false;
     vector<Options> opt_vec;
     string output_prefix;
     asp::parse_multiview(argc, argv, FilteringDescription(),
                          verbose, output_prefix, opt_vec);
     Options opt = opt_vec[0];
-    
+
     // Internal Processes
     //---------------------------------------------------------
     stereo_filtering( opt );
-    
+
     vw_out() << "\n[ " << current_posix_time_string()
              << " ] : FILTERING FINISHED \n";
-    
+
   } ASP_STANDARD_CATCHES;
 
   return 0;

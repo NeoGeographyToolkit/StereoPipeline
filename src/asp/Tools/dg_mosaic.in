@@ -88,13 +88,13 @@ class Usage(Exception):
 # TODO: Move this function into the utils file
 def lonlat_point_distance(pt1, pt2):
     '''Computes the great circle distance in meters between two lonlat coordinates'''
-    
+
     # This function uses a simple, less accurate calculation.
-    
+
     PI           =  3.141592653589793
     EARTH_RADIUS = 6371.009 # In km
     DEG2RAD      = PI / 180.0
-    
+
     lon1  = pt1[0] * DEG2RAD
     lon2  = pt2[0] * DEG2RAD
     lat1  = pt1[1] * DEG2RAD
@@ -330,10 +330,10 @@ def find_bands(node):
 def read_corners(band):
     '''Read in the corners from a DG XML file from one band.
        The points are stored in clockwise order from the upper left.'''
-    
+
     llbox = BBox()
     ll_corners = []
-    
+
     ullon = float(band.find("ULLON").text)
     ullat = float(band.find("ULLAT").text)
     llbox.add_point([ullon, ullat])
@@ -353,7 +353,7 @@ def read_corners(band):
     lllat = float(band.find("LLLAT").text)
     llbox.add_point([lllon, lllat])
     ll_corners.append([lllon, lllat])
-    
+
     return (llbox, ll_corners)
 
 # Provide the image files that make up the composite. We assume the XML
@@ -412,7 +412,7 @@ def read_xml( filename, options):
           ll_box_curr, ll_corners_curr =  read_corners(band)
           for i in range(0,4):
               llbox.add_point( [ll_corners_curr[i][0], ll_corners_curr[i][1]] )
-          
+
       except Exception, e:
           print("Warning: File " + filename + " lacks longitude/latitude information.")
 
@@ -503,11 +503,11 @@ def estimate_ground_resolution( xml_tree ):
     '''Parse the DG XML file to estimate the ground resolution in meters per pixel'''
 
     # Retrieve the image size and the four corners from the XML file
-    root = xml_tree.getroot()   
+    root = xml_tree.getroot()
     imd  = root.find("IMD")
     num_cols = float(imd.find("NUMCOLUMNS").text)
     num_rows = float(imd.find("NUMROWS").text)
- 
+
     bands = find_bands(imd)
     band  = bands[0]
     ll_box, ll_corners = read_corners(band)
@@ -517,7 +517,7 @@ def estimate_ground_resolution( xml_tree ):
     bot_dist   = lonlat_point_distance(ll_corners[2], ll_corners[3])
     left_dist  = lonlat_point_distance(ll_corners[3], ll_corners[0])
     right_dist = lonlat_point_distance(ll_corners[1], ll_corners[2])
-    
+
     x_dist     = (top_dist  + bot_dist  ) / 2.0
     y_dist     = (left_dist + right_dist) / 2.0
     gsd_x      = x_dist / num_cols
@@ -571,7 +571,7 @@ def main():
             parser.set_defaults(input_nodata_value=None)
             parser.set_defaults(output_nodata_value=None)
             parser.add_option("--target_resolution", dest="target_resolution", type="float",
-                              help="Render a reduced resolution image and xml based on this target ground resolution in meters.")
+                              help="Choose the output resolution in meters per pixel on the ground (note that a coarse resolution may result in aliasing).")
             parser.add_option("--reduce-percent", dest="reduce_percent", type="float",
                               help="Render a reduced resolution image and xml based on this percentage.")
             parser.add_option("--output-prefix", dest="output_prefix", type="str",
