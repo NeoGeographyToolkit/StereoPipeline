@@ -585,7 +585,7 @@ private:
     void showFilesChosenByUser(int rowClicked, int columnClicked);
     void viewUnthreshImages();
     void viewThreshImages();
-    void viewHillshadedImages();
+    void viewHillshadedImages(bool hillshade_mode);
     void addMatchPoint();
     void deleteMatchPoint();
 
@@ -687,7 +687,9 @@ private:
     vw::Vector2 screen2world(vw::Vector2 const& pix);
     BBox2 world2screen(BBox2 const& R);
     BBox2 screen2world(BBox2 const& R);
-    BBox2i world2image(BBox2 const& R, int imageIndex);
+    Vector2 world2image(Vector2 const& P, int imageIndex);
+    BBox2 world2image(BBox2 const& R, int imageIndex);
+    BBox2 image2world(BBox2 const& R, int imageIndex);
     vw::BBox2 expand_box_to_keep_aspect_ratio(vw::BBox2 const& box);
     void updateCurrentMousePosition();
     void updateRubberBand(QRect & R);

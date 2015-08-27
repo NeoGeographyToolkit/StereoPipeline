@@ -169,6 +169,18 @@ namespace vw { namespace gui {
     return grow_bbox_to_int(out_box);
   }
 
+
+  // Flip a point and a box in y
+  Vector2 flip_in_y(Vector2 const& P){
+    return Vector2(P.x(), -P.y());
+  }
+  BBox2 flip_in_y(BBox2 const& B){
+    BBox2 R = B;
+    R.min().y() = -B.max().y();
+    R.max().y() = -B.min().y();
+    return R;
+  }
+
   void popUp(std::string msg){
     QMessageBox msgBox;
     msgBox.setText(msg.c_str());
@@ -349,6 +361,80 @@ void chooseFilesDlg::chooseFiles(const std::vector<imageData> & images){
 //               MainWidget Public Methods
 // --------------------------------------------------------------
 
+// Convert a position in the world coordinate system to a pixel
+// position as seen on screen (the screen origin is the
+// visible upper-left corner of the widget).
+vw::Vector2 MainWidget::world2screen(vw::Vector2 const& p){
+  double x = m_window_width*((p.x() - m_current_view.min().x())
+                             /m_current_view.width());
+  double y = m_window_height*((p.y() - m_current_view.min().y())
+                              /m_current_view.height());
+  return vw::Vector2(x, y);
+}
+
+// Convert a pixel on the screen to world coordinates.
+// See world2image() for the definition.
+vw::Vector2 MainWidget::screen2world(vw::Vector2 const& p){
+  double x = m_current_view.min().x()
+    + m_current_view.width() * double(p.x()) / m_window_width;
+  double y = m_current_view.min().y()
+    + m_current_view.height() * double(p.y()) / m_window_height;
+  return vw::Vector2(x, y);
+}
+
+BBox2 MainWidget::screen2world(BBox2 const& R) {
+  if (R.empty()) return R;
+  Vector2 A = screen2world(R.min());
+  Vector2 B = screen2world(R.max());
+  return BBox2(A, B);
+}
+
+BBox2 MainWidget::world2screen(BBox2 const& R) {
+  if (R.empty()) return R;
+  Vector2 A = world2screen(R.min());
+  Vector2 B = world2screen(R.max());
+  return BBox2(A, B);
+}
+
+// If we use georef, the world is in projected point units of the
+// first image, with y replaced with -y, to keep the y axis downward,
+// for consistency with how images are plotted.  Convert a world box
+// to a pixel box for the given image.
+Vector2 MainWidget::world2image(Vector2 const& P, int imageIndex) {
+  return point_to_pixel(flip_in_y(P), -m_images[imageIndex].m_lon_offset,
+                        m_images[imageIndex].georef, m_images[0].georef);
+}
+
+BBox2 MainWidget::world2image(BBox2 const& R, int imageIndex) {
+
+  if (R.empty()) return R;
+  if (m_images.empty()) return R;
+
+  if (!m_use_georef)
+    return R;
+
+  BBox2 pixel_box = point_to_pixel_bbox(flip_in_y(R), -m_images[imageIndex].m_lon_offset,
+                                        m_images[imageIndex].georef, m_images[0].georef);
+
+  return pixel_box;
+}
+
+// The reverse of world2image()
+BBox2 MainWidget::image2world(BBox2 const& R, int imageIndex) {
+
+  if (R.empty()) return R;
+  if (m_images.empty()) return R;
+
+  if (!m_use_georef)
+    return R;
+
+  BBox2 B = flip_in_y(pixel_to_point_bbox(R, -m_images[imageIndex].m_lon_offset,
+                                          m_images[imageIndex].georef,
+                                          m_images[0].georef));
+
+  return B;
+}
+
 MainWidget::MainWidget(QWidget *parent,
                        int image_id,
                        std::string const& output_prefix,
@@ -411,10 +497,8 @@ MainWidget::MainWidget(QWidget *parent,
       m_images[i].m_lon_offset = 360.0*round((midi-mid0)/360.0);
       m_images[i].lonlat_bbox -= Vector2(m_images[i].m_lon_offset, 0);
 
-      // Convert from pixels in image i to projected points in image 0.
-      BBox2 B = pixel_to_point_bbox(m_images[i].image_bbox,
-                                    -m_images[i].m_lon_offset,
-                                    m_images[i].georef, m_images[0].georef);
+      // Convert from pixels in image i to world coordinates.
+      BBox2 B = MainWidget::image2world(m_images[i].image_bbox, i);
       m_images_box.grow(B);
     }
   }
@@ -606,7 +690,7 @@ void MainWidget::genHillshadedImages(){
       return;
     }
 
-    // Save the hillshaded file to disk
+    // Save the hillshaded images to disk
     std::string hillshaded_file;
     write_hillshade(input_file, hillshaded_file);
 
@@ -614,64 +698,14 @@ void MainWidget::genHillshadedImages(){
   }
 }
 
-void MainWidget::viewHillshadedImages(){
-  m_hillshade_mode = true;
+void MainWidget::viewHillshadedImages(bool hillshade_mode){
+  m_hillshade_mode = hillshade_mode;
   m_shadow_thresh_calc_mode = false;
   m_shadow_thresh_view_mode = false;
 
   MainWidget::genHillshadedImages();
 
   refreshPixmap();
-}
-
-vw::Vector2 MainWidget::world2screen(vw::Vector2 const& p){
-  // Convert a position in the world coordinate system to a pixel
-  // position as seen on screen (the screen origin is the
-  // visible upper-left corner of the widget).
-  double x = m_window_width*((p.x() - m_current_view.min().x())
-                             /m_current_view.width());
-  double y = m_window_height*((p.y() - m_current_view.min().y())
-                              /m_current_view.height());
-  return vw::Vector2(x, y);
-}
-
-vw::Vector2 MainWidget::screen2world(vw::Vector2 const& p){
-  // Convert a pixel on the screen to world coordinates.
-  double x = m_current_view.min().x()
-    + m_current_view.width() * double(p.x()) / m_window_width;
-  double y = m_current_view.min().y()
-    + m_current_view.height() * double(p.y()) / m_window_height;
-  return vw::Vector2(x, y);
-}
-
-BBox2 MainWidget::screen2world(BBox2 const& R) {
-  if (R.empty()) return R;
-  Vector2 A = screen2world(R.min());
-  Vector2 B = screen2world(R.max());
-  return BBox2(A, B);
-}
-
-BBox2 MainWidget::world2screen(BBox2 const& R) {
-  if (R.empty()) return R;
-  Vector2 A = world2screen(R.min());
-  Vector2 B = world2screen(R.max());
-  return BBox2(A, B);
-}
-
-// If we use georef, the world is in projected point units of the first image.
-// Convert a world box to a pixel box for the given image.
-BBox2i MainWidget::world2image(BBox2 const& R, int imageIndex) {
-
-  if (R.empty()) return R;
-  if (m_images.empty()) return R;
-
-  if (!m_use_georef)
-    return R;
-
-  BBox2 pixel_box = point_to_pixel_bbox(R, -m_images[imageIndex].m_lon_offset,
-                                        m_images[imageIndex].georef, m_images[0].georef);
-
-  return pixel_box;
 }
 
 // Convert the crop window to original pixel coordinates from
@@ -737,15 +771,13 @@ void MainWidget::drawImage(QPainter* paint) {
     if (m_filesToHide.find(fileName) != m_filesToHide.end()) continue;
 
     // The current view. If we use georef, the world coordinates are
-    // in projected point units for the first image.
+    // described in world2image().
     BBox2 world_box = m_current_view;
     if (!m_use_georef)
       world_box.crop(m_images[i].image_bbox);
     else{
       // Convert from pixels in image i to projected points in image 0.
-      BBox2 B = pixel_to_point_bbox(m_images[i].image_bbox,
-                                    -m_images[i].m_lon_offset,
-                                    m_images[i].georef, m_images[0].georef);
+      BBox2 B = MainWidget::image2world(m_images[i].image_bbox, i);
       world_box.crop(B);
     }
 
@@ -754,8 +786,7 @@ void MainWidget::drawImage(QPainter* paint) {
     screen_box.grow(round(world2screen(world_box.min())));
     screen_box.grow(round(world2screen(world_box.max())));
 
-    // Go from projected point units in the first image to pixels
-    // in the second image.
+    // Go from world coordinates to pixels in the second image.
     BBox2i image_box = MainWidget::world2image(world_box, i);
 
     QImage qimg;
@@ -803,18 +834,15 @@ void MainWidget::drawImage(QPainter* paint) {
         }
       }
 
-      int len = screen_box.max().y() - screen_box.min().y() - 1;
       for (int x = screen_box.min().x(); x < screen_box.max().x(); x++){
         for (int y = screen_box.min().y(); y < screen_box.max().y(); y++){
 
-          // Convert from a pixel as seen on screen, to the internal coordinate
-          // system which is in projected point units for the first image.
+          // Convert from a pixel as seen on screen to the world
+          // coordinate system.
           Vector2 world_pt = screen2world(Vector2(x, y));
 
           // p is in pixel coordinates of m_images[i]
-          Vector2 p = point_to_pixel(world_pt, -m_images[i].m_lon_offset,
-                                     m_images[i].georef, m_images[0].georef);
-
+          Vector2 p = MainWidget::world2image(world_pt, i);
           bool is_in = (p[0] >= 0 && p[0] <= m_images[i].img.cols()-1 &&
                         p[1] >= 0 && p[1] <= m_images[i].img.rows()-1 );
           if (!is_in)
@@ -831,19 +859,11 @@ void MainWidget::drawImage(QPainter* paint) {
             vw_out() << "Book-keeping failure!";
             exit(1);
           }
-          // TODO: Explain this flip.
           qimg2.setPixel(x-screen_box.min().x(),
-                         len - (y-screen_box.min().y()), // flip pixels in y
+                         y-screen_box.min().y(),
                          qimg.pixel(px, py));
         }
       }
-
-      // Adjust box. TODO: This is confusing.
-      QRect v = this->geometry();
-      int a = screen_box.min().y() - v.y();
-      int b = v.y() + v.height() - screen_box.max().y();
-      screen_box.min().y() = screen_box.min().y() + b - a;
-      screen_box.max().y() = screen_box.max().y() + b - a;
 
       QRect rect(screen_box.min().x(), screen_box.min().y(),
                  screen_box.width(), screen_box.height());
