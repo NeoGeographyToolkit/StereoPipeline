@@ -179,8 +179,8 @@ inline boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_dg_cam
     att.quat_vec[i] = att.quat_vec[i] * geo.camera_attitude * sensor_coordinate;
   }
 
-  vw::vw_out() << "DG model load - sensor_coordinate = " << sensor_coordinate << std::endl; 
-  geo.printDebugInfo(); // DEBUG INFO
+  //vw::vw_out() << "DG model load - sensor_coordinate = " << sensor_coordinate << std::endl; 
+  //geo.printDebugInfo(); // DEBUG INFO
 
   // Load up the time interpolation class. If the TLCList only has
   // one entry ... then we have to manually drop in the slope and offset.
@@ -206,7 +206,7 @@ inline boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_dg_cam
                                                                              ),
                                             0, 2);
 
-  vw::vw_out() << "DG model load - final_detector_origin = " << final_detector_origin << std::endl;
+  //vw::vw_out() << "DG model load - final_detector_origin = " << final_detector_origin << std::endl;
 
   double et0 = convert( parse_time( eph.start_time ) );
   double at0 = convert( parse_time( att.start_time ) );

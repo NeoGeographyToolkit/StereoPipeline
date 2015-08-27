@@ -424,7 +424,7 @@ void stereo_triangulation( string          const& output_prefix,
                                             (stereo_error_triangulate(disparity_maps, transforms, stereo_model, is_map_projected),
                                              universe_radius_func);
 
-
+/*
     // DEBUG - Print out some pixel tests and quit!
     std::vector<Vector2> testPixels;
     testPixels.push_back(Vector2(0, 0));
@@ -433,7 +433,7 @@ void stereo_triangulation( string          const& output_prefix,
     testPixels.push_back(Vector2(1000, 100));
     //testPixels.push_back(Vector2(20000, 6000));
     //testPixels.push_back(Vector2(19000, 5100));
-
+*/
 /*  // Try printing sample pixel-to-vector outputs  
     for (int c = 0; c < num_cams; c++)
     {

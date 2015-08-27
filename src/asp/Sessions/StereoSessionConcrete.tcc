@@ -238,8 +238,8 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
                                                  m_right_image_file,
                                                  image_file);
 
-  std::cout << "For camera files: " << image_file << "\n" << camera_file << "\n";
-  std::cout << "Loaded offset: " << pixel_offset << "\n";
+  //std::cout << "For camera files: " << image_file << "\n" << camera_file << "\n";
+  //std::cout << "Loaded offset: " << pixel_offset << "\n";
 
   switch(model_type){
     case STEREOMODEL_TYPE_ISIS:

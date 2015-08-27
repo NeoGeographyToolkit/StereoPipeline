@@ -719,8 +719,9 @@ int main( int argc, char *argv[] ) {
     vector< GeoReference        > georefs;
     BBox2 mosaic_bbox;
     vector<BBox2> dem_bboxes;
-    for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++){
+    for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++){ // Loop through all DEMs
 
+      // Open a handle to this DEM file
       double curr_nodata_value = opt.out_nodata_value;
       DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
       if ( in_rsrc.has_nodata_read() )
@@ -737,7 +738,7 @@ int main( int argc, char *argv[] ) {
 
         // Compute the bounding box of the current image
         // in projected coordinates of the mosaic.
-        BBox2 imgbox = bounding_box(img);
+        BBox2 imgbox     = bounding_box(img);
         BBox2 lonlat_box = georef.pixel_to_lonlat_bbox(imgbox);
 
         // Must compensate for the fact that the lonlat
@@ -751,6 +752,7 @@ int main( int argc, char *argv[] ) {
         dem_bboxes.push_back(proj_box);
       }
 
+      // Add the info for this DEM to the appropriate vectors
       nodata_values.push_back(curr_nodata_value);
       images.push_back(img);
       georefs.push_back(georef);

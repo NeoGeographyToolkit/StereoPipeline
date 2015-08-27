@@ -441,7 +441,7 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
 
 int main(int argc, char* argv[]) {
 
-  //try {
+  try {
     vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 0 --> PREPROCESSING \n";
 
     stereo_register_sessions();
@@ -466,7 +466,7 @@ int main(int argc, char* argv[]) {
 
     vw_out() << "\n[ " << current_posix_time_string() << " ] : PREPROCESSING FINISHED \n";
 
-  //} ASP_STANDARD_CATCHES;
+  } ASP_STANDARD_CATCHES;
 
   return 0;
 }
