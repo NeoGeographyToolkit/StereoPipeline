@@ -3,9 +3,9 @@
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
-//  The NASA Vision Workbench is licensed under the Apache License,
-//  Version 2.0 (the "License"); you may not use this file except in
-//  compliance with the License. You may obtain a copy of the License at
+//  The NGT platform is licensed under the Apache License, Version 2.0 (the
+//  "License"); you may not use this file except in compliance with the
+//  License. You may obtain a copy of the License at
 //  http://www.apache.org/licenses/LICENSE-2.0
 //
 //  Unless required by applicable law or agreed to in writing, software
@@ -200,7 +200,8 @@ namespace vw { namespace gui {
                  round(B.width()), round(B.height()));
   }
 
-  void write_hillshade(std::string const& input_file,
+  void write_hillshade(asp::BaseOptions const& opt,
+                       std::string const& input_file,
                        std::string & output_file){
 
     // Copied from hillshade.cc. TODO: Unify this code.
@@ -223,7 +224,7 @@ namespace vw { namespace gui {
     v_scale = georef.transform()(1,1);
 
     // TODO: Expose these to the user
-    int elevation = 45;
+    int elevation = 20;
     int azimuth   = 300;
 
     // Set the direction of the light source.
@@ -239,9 +240,11 @@ namespace vw { namespace gui {
     ImageViewRef<PixelMask<PixelGray<uint8> > > shaded_image =
       channel_cast_rescale<uint8>(clamp(dot_prod(compute_normals(masked_img,
                                                                  u_scale, v_scale), light)));
-    ImageViewRef< PixelGray<uint8> > unmasked_image = apply_mask(shaded_image);
+
+    vw_out() << "Elevation and azimuth: " << elevation << ' ' << azimuth << std::endl;
     std::string suffix = "_hillshade.tif";
-    output_file = write_in_orig_or_curr_dir(shaded_image,
+    output_file = write_in_orig_or_curr_dir(opt,
+                                            shaded_image,
                                             input_file, suffix,
                                             has_georef,  georef,
                                             has_nodata, nodata_val);
@@ -249,19 +252,21 @@ namespace vw { namespace gui {
 
 }} // namespace vw::gui
 
-void imageData::read(std::string const& image, bool use_georef){
-  name = image;
+void imageData::read(std::string const& name_in, asp::BaseOptions const& opt,
+                     bool use_georef){
+  m_opt = opt;
+  name = name_in;
 
   m_lon_offset = 0; // will be adjusted later
 
   int top_image_max_pix = 1000*1000;
   int subsample = 4;
-  img = DiskImagePyramidMultiChannel(name, top_image_max_pix, subsample);
+  img = DiskImagePyramidMultiChannel(name, m_opt, top_image_max_pix, subsample);
 
   has_georef = vw::cartography::read_georeference(georef, name);
 
   if (use_georef && !has_georef){
-    popUp("No georeference present in: " + image + ".");
+    popUp("No georeference present in: " + name + ".");
     exit(1);
   }
 
@@ -436,6 +441,7 @@ BBox2 MainWidget::image2world(BBox2 const& R, int imageIndex) {
 }
 
 MainWidget::MainWidget(QWidget *parent,
+                       asp::BaseOptions const& opt,
                        int image_id,
                        std::string const& output_prefix,
                        std::vector<std::string> const& image_files,
@@ -443,7 +449,7 @@ MainWidget::MainWidget(QWidget *parent,
                        chooseFilesDlg * chooseFiles,
                        bool use_georef,
                        bool hillshade)
-  : QWidget(parent), m_chooseFilesDlg(chooseFiles),
+  : QWidget(parent), m_opt(opt), m_chooseFilesDlg(chooseFiles),
     m_image_id(image_id), m_output_prefix(output_prefix),
     m_image_files(image_files),
     m_matches(matches), m_hideMatches(true), m_use_georef(use_georef),
@@ -485,7 +491,7 @@ MainWidget::MainWidget(QWidget *parent,
   m_images.resize(num_images);
   m_filesOrder.resize(num_images);
   for (int i = 0; i < num_images; i++){
-    m_images[i].read(image_files[i], m_use_georef);
+    m_images[i].read(image_files[i], m_opt, m_use_georef);
     m_filesOrder[i] = i; // start by keeping the order of files being read
     if (!m_use_georef){
       m_images_box.grow(m_images[i].image_bbox);
@@ -655,12 +661,13 @@ void MainWidget::viewThreshImages(){
     bool has_nodata = true;
     vw::cartography::GeoReference georef;
     std::string output_file
-      = write_in_orig_or_curr_dir(thresh_image, input_file, suffix,
+      = write_in_orig_or_curr_dir(m_opt,
+                                  thresh_image, input_file, suffix,
                                   has_georef,  georef,
                                   has_nodata, nodata_val);
 
     // Read it back right away
-    m_shadow_thresh_images[image_iter].read(output_file, m_use_georef);
+    m_shadow_thresh_images[image_iter].read(output_file, m_opt, m_use_georef);
   }
 
   refreshPixmap();
@@ -692,9 +699,9 @@ void MainWidget::genHillshadedImages(){
 
     // Save the hillshaded images to disk
     std::string hillshaded_file;
-    write_hillshade(input_file, hillshaded_file);
+    write_hillshade(m_opt, input_file, hillshaded_file);
 
-    m_hillshaded_images[image_iter].read(hillshaded_file, m_use_georef);
+    m_hillshaded_images[image_iter].read(hillshaded_file, m_opt, m_use_georef);
   }
 }
 
@@ -703,7 +710,8 @@ void MainWidget::viewHillshadedImages(bool hillshade_mode){
   m_shadow_thresh_calc_mode = false;
   m_shadow_thresh_view_mode = false;
 
-  MainWidget::genHillshadedImages();
+  if (m_hillshade_mode)
+    MainWidget::genHillshadedImages();
 
   refreshPixmap();
 }

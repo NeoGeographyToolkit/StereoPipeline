@@ -3,9 +3,9 @@
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
-//  The NASA Vision Workbench is licensed under the Apache License,
-//  Version 2.0 (the "License"); you may not use this file except in
-//  compliance with the License. You may obtain a copy of the License at
+//  The NGT platform is licensed under the Apache License, Version 2.0 (the
+//  "License"); you may not use this file except in compliance with the
+//  License. You may obtain a copy of the License at
 //  http://www.apache.org/licenses/LICENSE-2.0
 //
 //  Unless required by applicable law or agreed to in writing, software
@@ -18,7 +18,7 @@
 
 /// \file MainWindow.cc
 ///
-/// The Vision Workbench image viewer main window class.
+/// The stereo_gui main window class.
 ///
 #include <QtGui>
 #include <asp/GUI/MainWindow.h>
@@ -38,13 +38,15 @@ using namespace vw::gui;
 #include <sstream>
 namespace po = boost::program_options;
 
-MainWindow::MainWindow(std::vector<std::string> const& images,
+MainWindow::MainWindow(asp::BaseOptions const& opt,
+                       std::vector<std::string> const& images,
                        std::string const& output_prefix,
                        int grid_cols,
                        vw::Vector2i const& window_size,
                        bool single_window,
                        bool use_georef, bool hillshade,
                        int argc,  char ** argv) :
+  m_opt(opt),
   m_output_prefix(output_prefix), m_widRatio(0.3), m_chooseFiles(NULL),
   m_grid_cols(grid_cols),
   m_use_georef(use_georef), m_hillshade(hillshade),
@@ -123,6 +125,7 @@ void MainWindow::createLayout() {
     }
 
     MainWidget * widget = new MainWidget(centralWidget,
+                                         m_opt,
                                          0, m_output_prefix,
                                          m_images, m_matches,
                                          m_chooseFiles,
@@ -136,6 +139,7 @@ void MainWindow::createLayout() {
       local_images.push_back(m_images[i]);
       m_chooseFiles = NULL;
       MainWidget * widget = new MainWidget(centralWidget,
+                                           m_opt,
                                            i, m_output_prefix,
                                            local_images, m_matches,
                                            m_chooseFiles,

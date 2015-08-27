@@ -107,6 +107,9 @@ namespace asp {
     handle_arguments(argc, argv, opt, additional_options,
                      is_multiview, files, usage);
 
+    // Need this for the GUI, ensure that opt_vec is never empty, even on failures
+    opt_vec.push_back(opt);
+
     if (files.size() < 3)
       vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n" << usage );
 
@@ -209,6 +212,7 @@ namespace asp {
 
     // Generate the stereo command for each of the pairs made up of the first
     // image and each subsequent image, with corresponding cameras.
+    opt_vec.resize(num_pairs);
     for (int p = 1; p <= num_pairs; p++){
 
       vector<string> cmd;
@@ -251,7 +255,7 @@ namespace asp {
       vector<string> files;
       handle_arguments( largc, &largv[0], opt, additional_options,
                         is_multiview, files, usage);
-      opt_vec.push_back(opt);
+      opt_vec[p-1] = opt;
 
       if (verbose){
         // Needed for stereo_parse

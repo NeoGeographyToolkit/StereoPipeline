@@ -3,9 +3,9 @@
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
-//  The NASA Vision Workbench is licensed under the Apache License,
-//  Version 2.0 (the "License"); you may not use this file except in
-//  compliance with the License. You may obtain a copy of the License at
+//  The NGT platform is licensed under the Apache License, Version 2.0 (the
+//  "License"); you may not use this file except in compliance with the
+//  License. You may obtain a copy of the License at
 //  http://www.apache.org/licenses/LICENSE-2.0
 //
 //  Unless required by applicable law or agreed to in writing, software
@@ -31,6 +31,7 @@
 
 #include <vw/Math/Vector.h>
 #include <vw/InterestPoint/InterestData.h>
+#include <asp/Core/Common.h>
 
 // Forward declarations
 class QAction;
@@ -49,7 +50,8 @@ namespace vw { namespace gui {
     Q_OBJECT
 
   public:
-    MainWindow(std::vector<std::string> const& images,
+    MainWindow(asp::BaseOptions const& opt,
+               std::vector<std::string> const& images,
                std::string const& output_prefix,
                int grid_cols,
                vw::Vector2i const& window_size, bool single_window,
@@ -93,6 +95,7 @@ namespace vw { namespace gui {
                           std::string & outputStr // output
                           );
 
+    asp::BaseOptions m_opt;
     std::vector<std::string> m_images;
     std::string m_output_prefix;
     double           m_widRatio;    // ratio of sidebar to entire win wid

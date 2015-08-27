@@ -3,9 +3,9 @@
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
-//  The NASA Vision Workbench is licensed under the Apache License,
-//  Version 2.0 (the "License"); you may not use this file except in
-//  compliance with the License. You may obtain a copy of the License at
+//  The NGT platform is licensed under the Apache License, Version 2.0 (the
+//  "License"); you may not use this file except in compliance with the
+//  License. You may obtain a copy of the License at
 //  http://www.apache.org/licenses/LICENSE-2.0
 //
 //  Unless required by applicable law or agreed to in writing, software
@@ -169,7 +169,8 @@ namespace vw { namespace gui {
 // of the output file.
 
 template<class PixelT>
-std::string write_in_orig_or_curr_dir(ImageViewRef<PixelT> & image,
+std::string write_in_orig_or_curr_dir(asp::BaseOptions const& opt,
+                                      ImageViewRef<PixelT> & image,
                                       std::string const& input_file,
                                       std::string const& suffix,
                                       bool has_georef,
@@ -178,7 +179,6 @@ std::string write_in_orig_or_curr_dir(ImageViewRef<PixelT> & image,
                                       double nodata_val){
 
   TerminalProgressCallback tpc("asp", ": ");
-  asp::BaseOptions opt;
 
   std::string prefix = asp::prefix_from_filename(input_file);
   std::string output_file = prefix + suffix;
@@ -215,9 +215,10 @@ public:
   // that has the effect of not accidentally setting some pixels
   // to nodata.
   DiskImagePyramid(std::string const& base_file = "",
+                   asp::BaseOptions const& opt = asp::BaseOptions(),
                    int top_image_max_pix = 1000*1000,
                    int subsample = 2
-                   ): m_subsample(subsample),
+                   ): m_opt(opt), m_subsample(subsample),
                       m_top_image_max_pix(top_image_max_pix),
                       m_nodata_val(std::numeric_limits<double>::quiet_NaN()) {
 
@@ -309,7 +310,8 @@ public:
         if (has_georef)
           sub_georef = resample(georef, sub_scale);
 
-        std::string output_file = write_in_orig_or_curr_dir(unmasked, base_file, suffix,
+        std::string output_file = write_in_orig_or_curr_dir(opt,
+                                                            unmasked, base_file, suffix,
                                                             has_georef,  sub_georef, has_nodata,
                                                             m_nodata_val);
         if (output_file != curr_file) {
@@ -381,6 +383,9 @@ public:
   ImageViewRef<PixelT> bottom() { return m_pyramid[0]; }
 
 private:
+
+  asp::BaseOptions m_opt;
+
   // The subsample factor to go to the next level of the pyramid
   // (must be >= 2).
   int m_subsample;
@@ -406,6 +411,7 @@ private:
   // is not a perfect solution, but there seem to be no easy way
   // in ASP to handle images with variable numbers of channels.
   struct DiskImagePyramidMultiChannel: public DiskImagePyramid<double> {
+    asp::BaseOptions m_opt;
     DiskImagePyramid<double>  m_img_ch1_double;
     DiskImagePyramid< Vector<vw::uint8, 1> > m_img_ch1_uint8;
     DiskImagePyramid< Vector<vw::uint8, 3> > m_img_ch3_uint8;
@@ -415,8 +421,10 @@ private:
 
     // Constructor
     DiskImagePyramidMultiChannel(std::string const& base_file = "",
+                                 asp::BaseOptions const& opt = asp::BaseOptions(),
                                  int top_image_max_pix = 1000*1000,
-                                 int subsample = 2):m_num_channels(0),
+                                 int subsample = 2):m_opt(opt),
+                                                    m_num_channels(0),
                                                     m_rows(0), m_cols(0),
                                                     m_type(UNINIT){
       if (base_file == "") return;
@@ -424,13 +432,13 @@ private:
       m_num_channels = get_num_channels(base_file);
       if (m_num_channels == 1) {
         // Single channel image with float pixels.
-        m_img_ch1_double = DiskImagePyramid<double>(base_file);
+        m_img_ch1_double = DiskImagePyramid<double>(base_file, m_opt);
         m_rows = m_img_ch1_double.rows();
         m_cols = m_img_ch1_double.cols();
         m_type = CH1_DOUBLE;
       }else if (m_num_channels == 2){
         // uint8 image with an alpha channel. Ignore the alpha channel.
-        m_img_ch1_uint8 = DiskImagePyramid< Vector<vw::uint8, 1> >(base_file);
+        m_img_ch1_uint8 = DiskImagePyramid< Vector<vw::uint8, 1> >(base_file, m_opt);
         m_num_channels = 1; // we read only 1 channel
         m_rows = m_img_ch1_uint8.rows();
         m_cols = m_img_ch1_uint8.cols();
@@ -438,7 +446,7 @@ private:
       } else if (m_num_channels == 3 || m_num_channels == 4) {
         // RGB image with three uint8 channels and perhaps an
         // alpha channel which we ignore.
-        m_img_ch3_uint8 = DiskImagePyramid< Vector<vw::uint8, 3> >(base_file);
+        m_img_ch3_uint8 = DiskImagePyramid< Vector<vw::uint8, 3> >(base_file, m_opt);
         m_num_channels = 3; // we read only 3 channels
         m_rows = m_img_ch3_uint8.rows();
         m_cols = m_img_ch3_uint8.cols();
@@ -498,12 +506,13 @@ private:
   // A class to keep all data associated with an image file
   struct imageData{
     std::string name;
+    asp::BaseOptions m_opt;
     bool has_georef;
     vw::cartography::GeoReference georef;
     BBox2 image_bbox;
     BBox2 lonlat_bbox;
     DiskImagePyramidMultiChannel img;
-    void read(std::string const& image, bool use_georef);
+    void read(std::string const& image, asp::BaseOptions const& opt, bool use_georef);
     double m_lon_offset; // to compensate for -90 deg equalling 270 deg
   };
 
@@ -557,6 +566,7 @@ private:
 
     // Constructors/Destructor
     MainWidget(QWidget *parent,
+               asp::BaseOptions const& opt,
                int image_id,
                std::string const& output_prefix,
                std::vector<std::string> const& image_files,
@@ -608,6 +618,8 @@ private:
     void contextMenuEvent(QContextMenuEvent *event);
 
   private:
+
+    asp::BaseOptions m_opt;
 
     // Choose which files to hide/show in the GUI
     chooseFilesDlg  *     m_chooseFilesDlg;

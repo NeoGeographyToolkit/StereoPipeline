@@ -93,7 +93,8 @@ int main(int argc, char* argv[]) {
 
     // Start up the Qt GUI
     QApplication app(argc, argv);
-    vw::gui::MainWindow main_window(images, output_prefix,
+    vw::gui::MainWindow main_window(opt_vec[0],
+                                    images, output_prefix,
                                     stereo_settings().grid_cols,
                                     stereo_settings().window_size,
                                     stereo_settings().single_window,
