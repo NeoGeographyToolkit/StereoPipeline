@@ -44,6 +44,7 @@ namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
   template<> struct PixelFormatID<Vector3f>  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
   template<> struct PixelFormatID<Vector4>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_4_CHANNEL; };
+  template<> struct PixelFormatID<Vector4f>  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_4_CHANNEL; };
   template<> struct PixelFormatID<Vector6>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
 }
 
@@ -65,7 +66,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::options_description general_options("General Options");
   general_options.add_options()
-    ("output-path,o",   po::value(&opt.out_path)->default_value(""),       "Specify the output path.")
+    ("output-path,o",  po::value(&opt.out_path)->default_value(""),        "Specify the output path.")
     ("write-double,d", po::value(&opt.write_double)->default_value(false), "Write a double precision output file.");
 
   general_options.add( asp::BaseOptionsDescription(opt) );
@@ -167,7 +168,7 @@ void do_work(Vector3 const& shift, Options const& opt) {
 int main( int argc, char *argv[] ) {
 
   Options opt;
-  try {
+  //try {
     handle_arguments( argc, argv, opt );
 
     // Determine the number of channels
@@ -187,7 +188,7 @@ int main( int argc, char *argv[] ) {
       default: vw_throw( ArgumentErr() << "Unsupported number of channels!.\n" );
     }
 
-  } ASP_STANDARD_CATCHES;
+  //} ASP_STANDARD_CATCHES;
 
   return 0;
 }
