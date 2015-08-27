@@ -22,6 +22,7 @@ import os, optparse, subprocess, sys, tempfile
 libexecpath = os.path.abspath(sys.path[0] + '/../libexec')
 sys.path.insert(0, libexecpath) # prepend to Python path
 from stereo_utils import get_asp_version
+from asp_system_utils import mkdir_p
 
 def man(option, opt, value, parser):
     print >>sys.stderr, parser.usage
@@ -53,19 +54,27 @@ class ImgInfo:
         self.minlon = None
         self.maxlon = None
 
-def mapfile( cube, suffix ):
+def mapfile( cube, prefix, suffix ):
     items = cube.split('.')
     mapname = '.'.join([items[0], suffix, 'cub'])
 
-    if( os.path.exists(mapname) ):
+    # If the file exists, or it starts with a dot (say ../file.cub)
+    if( os.path.exists(mapname) or mapname[0] == "."):
         items.insert(len(items)-1, suffix)
         mapname = '.'.join(items)
 
-        if( os.path.exists(mapname) ):
-            raise MapExists( mapname )
+    # Make somedir/file.cub into myprefix-file.map.cub
+    if prefix != "":
+        mapname = prefix + "-" + os.path.basename(mapname)
+
+    # Ensure that any output directory exists
+    dirname = os.path.dirname(mapname)
+    mkdir_p(dirname)
+
+    if( os.path.exists(mapname) ):
+        raise MapExists( mapname )
 
     return mapname
-
 
 def camrange( cube ):
     # run camrange on cube
@@ -99,10 +108,11 @@ def camrange( cube ):
 def main():
     try:
         try:
-            usage = "usage: cam2map4stereo.py [--help][--manual][--map mapfile][--pixres CAMERA|MAP|MPP|PPD][--resolution float][--interp NN|BI|CC][--lat min:max][--lon min:max][--suffix string] image1.cub image2.cub\n  [ASP [@]ASP_VERSION[@]]"
+            usage = "usage: cam2map4stereo.py [--help][--manual][--map mapfile][--pixres CAMERA|MAP|MPP|PPD][--resolution float][--interp NN|BI|CC][--lat min:max][--lon min:max][--prefix string] [--suffix string] image1.cub image2.cub\n  [ASP [@]ASP_VERSION[@]]"
             parser = optparse.OptionParser(usage=usage)
             parser.set_defaults(dryrun=False)
             parser.set_defaults(pixres='MPP')
+            parser.set_defaults(prefix='')
             parser.set_defaults(suffix='map')
             parser.add_option("--manual", action="callback", callback=man,
                               help="Read the manual.")
@@ -118,6 +128,8 @@ def main():
                               help="Latitude range for cam2map where LAT is minlat:maxlat.")
             parser.add_option("-o", "--lon", dest="lon",
                               help="Longitude range for cam2map where LON is minlon:maxlon.")
+            parser.add_option("--prefix", dest="prefix",
+                              help="Make all output files use this prefix.")
             parser.add_option("-s", "--suffix", dest="suffix",
                               help="Suffix that gets inserted in the output file names.")
             parser.add_option("-n", "--dry-run", dest="dryrun",
@@ -155,7 +167,8 @@ def main():
 
         # call cam2map with the arguments
 
-        cam2map = ['cam2map', 'from=' + args[0], 'to='+ mapfile( args[0], options.suffix )]
+        cam2map = ['cam2map', 'from=' + args[0], 'to='
+                   + mapfile( args[0], options.prefix, options.suffix )]
 
         if( options.map ):
             cam2map.append( 'map=' + options.map )
@@ -183,7 +196,7 @@ def main():
 
         # Run for second image
         cam2map[1] = 'from=' + args[1]
-        cam2map[2] = 'to='+ mapfile( args[1], options.suffix )
+        cam2map[2] = 'to='+ mapfile( args[1], options.prefix, options.suffix )
         cam2map_cmd = ' '.join(cam2map)
         print cam2map_cmd
         if( not options.dryrun ):
