@@ -19,8 +19,14 @@
 
 import os, optparse, subprocess, sys, tempfile
 
-libexecpath = os.path.abspath(sys.path[0] + '/../libexec')
-sys.path.insert(0, libexecpath) # prepend to Python path
+# The path to the ASP python files.
+basepath    = os.path.abspath(sys.path[0])
+pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
+libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
+sys.path.insert(0, basepath) # prepend to Python path
+sys.path.insert(0, pythonpath)
+sys.path.insert(0, libexecpath)
+
 from stereo_utils import get_asp_version
 from asp_system_utils import mkdir_p
 
