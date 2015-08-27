@@ -174,6 +174,7 @@ namespace asp {
     vw::Vector2i window_size; // The size of the GUI window
     bool single_window;
     bool use_georef;
+    bool hillshade;
 
     // DG Options
     bool disable_correct_velocity_aberration;

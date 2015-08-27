@@ -87,10 +87,6 @@ int main(int argc, char* argv[]) {
         vw_throw(ArgumentErr() << e.what() << "\n");
     }
 
-    // TODO: Expose these as options and fix the current broken
-    // implementation.
-    bool hillshade = false;
-
     // Start up the Qt GUI
     QApplication app(argc, argv);
     vw::gui::MainWindow main_window(opt_vec[0],
@@ -99,7 +95,8 @@ int main(int argc, char* argv[]) {
                                     stereo_settings().window_size,
                                     stereo_settings().single_window,
                                     stereo_settings().use_georef,
-                                    hillshade, argc, argv);
+                                    stereo_settings().hillshade,
+                                    argc, argv);
     main_window.show();
     app.exec();
 

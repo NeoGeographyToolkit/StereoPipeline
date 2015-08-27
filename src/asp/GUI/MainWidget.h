@@ -86,7 +86,7 @@ namespace vw { namespace gui {
   template<class PixelT>
 
   typename boost::enable_if< boost::mpl::or_< boost::is_same<PixelT,double>, boost::is_same<PixelT,vw::uint8> >, ImageViewRef< PixelMask<PixelT> > >::type
- create_custom_mask(ImageViewRef<PixelT> & img, double nodata_val){
+  create_custom_mask(ImageViewRef<PixelT> & img, double nodata_val){
     return create_mask_less_or_equal(img, nodata_val);
   }
   template<class PixelT>
@@ -116,8 +116,8 @@ namespace vw { namespace gui {
   template<class PixelT>
   typename boost::enable_if<boost::mpl::or_< boost::is_same<PixelT,double>, boost::is_same<PixelT,vw::uint8> >, void >::type
   formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
-              ImageView<PixelT> const& clip,
-              QImage & qimg){
+             ImageView<PixelT> const& clip,
+             QImage & qimg){
 
     double min_val = std::numeric_limits<double>::max();
     double max_val = -std::numeric_limits<double>::max();
@@ -149,7 +149,7 @@ namespace vw { namespace gui {
   template<class PixelT>
   typename boost::disable_if<boost::mpl::or_< boost::is_same<PixelT,double>, boost::is_same<PixelT,vw::uint8> >, void >::type
   formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
-              ImageView<PixelT> const& clip, QImage & qimg){
+             ImageView<PixelT> const& clip, QImage & qimg){
 
     qimg = QImage(clip.cols(), clip.rows(), QImage::Format_RGB888);
     for (int col = 0; col < clip.cols(); col++){
@@ -163,247 +163,255 @@ namespace vw { namespace gui {
     }
   }
 
-// Given an image, and an input file name, modify the filename using
-// a prefix. Write the image to that filename. If that fails, create
-// instead the filename in the current directory. Return the name
-// of the output file.
+  // Get a filename by simply replacing current extension with given suffix
+  std::string filename_from_suffix1(std::string const& input_file,
+                                    std::string const& suffix);
 
-template<class PixelT>
-std::string write_in_orig_or_curr_dir(asp::BaseOptions const& opt,
-                                      ImageViewRef<PixelT> & image,
-                                      std::string const& input_file,
-                                      std::string const& suffix,
-                                      bool has_georef,
-                                      vw::cartography::GeoReference const & georef,
-                                      bool has_nodata,
-                                      double nodata_val){
+  // Get a filename by  replacing current extension with given suffix,
+  // and making the file be in the current directory.
+  std::string filename_from_suffix2(std::string const& input_file,
+                                    std::string const& suffix);
 
-  TerminalProgressCallback tpc("asp", ": ");
+  // Given an image, and an input file name, modify the filename using
+  // a prefix. Write the image to that filename. If that fails, create
+  // instead the filename in the current directory. Return the name
+  // of the output file.
 
-  std::string prefix = asp::prefix_from_filename(input_file);
-  std::string output_file = prefix + suffix;
+  template<class PixelT>
+  std::string write_in_orig_or_curr_dir(asp::BaseOptions const& opt,
+                                        ImageViewRef<PixelT> & image,
+                                        std::string const& input_file,
+                                        std::string const& suffix,
+                                        bool has_georef,
+                                        vw::cartography::GeoReference const & georef,
+                                        bool has_nodata,
+                                        double nodata_val){
 
-  vw_out() << "Writing: " << output_file << std::endl;
-  try{
-    asp::block_write_gdal_image(output_file, image, has_georef, georef,
-                                has_nodata, nodata_val, opt, tpc);
-  }catch(...){
-    // Failed to write, presumably because we have no write access.
-    // Write the file in the current dir.
-    vw_out() << "Failed to write: " << output_file << "\n";
-    boost::filesystem::path p(input_file);
-    prefix = p.stem().string();
-    output_file = prefix + suffix;
+    TerminalProgressCallback tpc("asp", ": ");
+
+    std::string output_file = filename_from_suffix1(input_file, suffix);
+
     vw_out() << "Writing: " << output_file << std::endl;
-    asp::block_write_gdal_image(output_file, image, has_georef, georef,
-                                has_nodata, nodata_val, opt, tpc);
+    try{
+      asp::block_write_gdal_image(output_file, image, has_georef, georef,
+                                  has_nodata, nodata_val, opt, tpc);
+    }catch(...){
+      // Failed to write, presumably because we have no write access.
+      // Write the file in the current dir.
+      vw_out() << "Failed to write: " << output_file << "\n";
+      output_file = filename_from_suffix2(input_file, suffix);
+      vw_out() << "Writing: " << output_file << std::endl;
+      asp::block_write_gdal_image(output_file, image, has_georef, georef,
+                                  has_nodata, nodata_val, opt, tpc);
+    }
+    return output_file;
   }
-  return output_file;
-}
 
-// A class to manage very large images and their subsampled versions
-// in a pyramid. The most recently accessed tiles are cached in memory.
-template <class PixelT>
-class DiskImagePyramid : public ImageViewBase<DiskImagePyramid<PixelT> > {
+  bool overwrite_if_no_good(std::string const& input_file,
+                            std::string const& output_file,
+                            int cols = -1, int rows = -1);
 
-public:
-  typedef typename DiskImageView<PixelT>::pixel_type pixel_type;
-  typedef typename DiskImageView<PixelT>::result_type result_type;
-  typedef typename DiskImageView<PixelT>::pixel_accessor pixel_accessor;
+  // A class to manage very large images and their subsampled versions
+  // in a pyramid. The most recently accessed tiles are cached in memory.
+  template <class PixelT>
+  class DiskImagePyramid : public ImageViewBase<DiskImagePyramid<PixelT> > {
 
-  // Constructor. Note that we use NaN as nodata if not available,
-  // that has the effect of not accidentally setting some pixels
-  // to nodata.
-  DiskImagePyramid(std::string const& base_file = "",
-                   asp::BaseOptions const& opt = asp::BaseOptions(),
-                   int top_image_max_pix = 1000*1000,
-                   int subsample = 2
-                   ): m_opt(opt), m_subsample(subsample),
-                      m_top_image_max_pix(top_image_max_pix),
-                      m_nodata_val(std::numeric_limits<double>::quiet_NaN()) {
+  public:
+    typedef typename DiskImageView<PixelT>::pixel_type pixel_type;
+    typedef typename DiskImageView<PixelT>::result_type result_type;
+    typedef typename DiskImageView<PixelT>::pixel_accessor pixel_accessor;
 
-    if (base_file == "")
-      return;
+    // Constructor. Note that we use NaN as nodata if not available,
+    // that has the effect of not accidentally setting some pixels
+    // to nodata.
+    DiskImagePyramid(std::string const& base_file = "",
+                     asp::BaseOptions const& opt = asp::BaseOptions(),
+                     int top_image_max_pix = 1000*1000,
+                     int subsample = 2
+                     ): m_opt(opt), m_subsample(subsample),
+                        m_top_image_max_pix(top_image_max_pix),
+                        m_nodata_val(std::numeric_limits<double>::quiet_NaN()) {
 
-    if (subsample < 2) {
-      vw_throw( ArgumentErr() << "Must subsample by a factor of at least 2.\n");
-    }
+      if (base_file == "")
+        return;
 
-    if (top_image_max_pix < 4) {
-      vw_throw( ArgumentErr() << "The image at the top of the pyramid must "
-                << "be at least 2x2 in size.\n");
-    }
-
-    m_pyramid.push_back(custom_read<PixelT>(base_file));
-
-    m_pyramid_files.push_back(base_file);
-    m_scales.push_back(1);
-
-    // Get the nodata value, if present
-    bool has_nodata = vw::read_nodata_val(base_file, m_nodata_val);
-    std::string prefix = asp::prefix_from_filename(base_file);
-    fs::path base_path(base_file);
-    std::time_t base_time = fs::last_write_time(base_path);
-
-    cartography::GeoReference georef;
-    bool has_georef = vw::cartography::read_georeference(georef, base_file);
-
-    int level = 0;
-    int scale = 1;
-    while (double(m_pyramid[level].cols())*double(m_pyramid[level].rows()) >
-           m_top_image_max_pix ){
-
-      // The name of the file at the current scale
-      std::ostringstream os;
-      scale *= subsample;
-      os <<  "_sub" << scale << ".tif";
-      std::string suffix = os.str();
-      std::string curr_file = prefix + suffix;
-
-      if (level == 0) {
-        vw_out() << "Detected large image: " << base_file  << "." << std::endl;
-        vw_out() << "Will construct an image pyramid on disk."  << std::endl;
+      if (subsample < 2) {
+        vw_throw( ArgumentErr() << "Must subsample by a factor of at least 2.\n");
       }
 
-      ImageViewRef< PixelMask<PixelT> > masked
-        = create_custom_mask(m_pyramid[level], m_nodata_val);
-      double sub_scale = 1.0/subsample;
-      int tile_size = 256;
-      int sub_threads = 1;
+      if (top_image_max_pix < 4) {
+        vw_throw( ArgumentErr() << "The image at the top of the pyramid must "
+                  << "be at least 2x2 in size.\n");
+      }
 
-      // Resample the image at the current pyramid level.
-      // TODO: resample_aa is a hacky thingy. Need to understand
-      // what is a good way of resampling.
-      // Note that below we cast the channels to double for resampling,
-      // then cast back to current pixel type for saving.
-      ImageViewRef<PixelT> unmasked
-        = block_rasterize
-        (vw::cache_tile_aware_render
-         (pixel_cast<PixelT>
-          (apply_mask
-           (vw::resample_aa
-            (channel_cast<double>(masked), sub_scale),
-            m_nodata_val)),
-          Vector2i(tile_size,tile_size) * sub_scale),
-         tile_size, sub_threads);
+      m_pyramid.push_back(custom_read<PixelT>(base_file));
 
-      // If the file exists, and has the right size, and is not too old,
-      // don't write it again
-      bool will_write = true;
-      if (fs::exists(curr_file)) {
-        try{
-          DiskImageView<double> curr(curr_file);
-          fs::path curr_path(curr_file);
-          std::time_t curr_file_time = fs::last_write_time(curr_path);
-          if (curr.cols() == unmasked.cols() && curr.rows() == unmasked.rows() &&
-              curr_file_time > base_time) {
-            will_write = false;
-          }
-        }catch(...){
-          will_write = false;
+      m_pyramid_files.push_back(base_file);
+      m_scales.push_back(1);
+
+      // Get the nodata value, if present
+      bool has_nodata = vw::read_nodata_val(base_file, m_nodata_val);
+
+      cartography::GeoReference georef;
+      bool has_georef = vw::cartography::read_georeference(georef, base_file);
+
+      int level = 0;
+      int scale = 1;
+      while (double(m_pyramid[level].cols())*double(m_pyramid[level].rows()) >
+             m_top_image_max_pix ){
+
+        // The name of the file at the current scale
+        std::ostringstream os;
+        scale *= subsample;
+        os <<  "_sub" << scale << ".tif";
+        std::string suffix = os.str();
+
+        if (level == 0) {
+          vw_out() << "Detected large image: " << base_file  << "." << std::endl;
+          vw_out() << "Will construct an image pyramid on disk."  << std::endl;
         }
-      }
 
-      if (will_write) {
+        ImageViewRef< PixelMask<PixelT> > masked
+          = create_custom_mask(m_pyramid[level], m_nodata_val);
+        double sub_scale = 1.0/subsample;
+        int tile_size = 256;
+        int sub_threads = 1;
+
+        // Resample the image at the current pyramid level.
+        // TODO: resample_aa is a hacky thingy. Need to understand
+        // what is a good way of resampling.
+        // Note that below we cast the channels to double for resampling,
+        // then cast back to current pixel type for saving.
+        ImageViewRef<PixelT> unmasked
+          = block_rasterize
+          (vw::cache_tile_aware_render
+           (pixel_cast<PixelT>
+            (apply_mask
+             (vw::resample_aa
+              (channel_cast<double>(masked), sub_scale),
+              m_nodata_val)),
+            Vector2i(tile_size,tile_size) * sub_scale),
+           tile_size, sub_threads);
+
         // Write the current image.
         vw::cartography::GeoReference sub_georef;
         if (has_georef)
           sub_georef = resample(georef, sub_scale);
 
-        std::string output_file = write_in_orig_or_curr_dir(opt,
-                                                            unmasked, base_file, suffix,
-                                                            has_georef,  sub_georef, has_nodata,
-                                                            m_nodata_val);
-        if (output_file != curr_file) {
-          popUp("Book-keeping failure");
-          exit(1);
+        // If the file exists, and has the right size, and is not too old,
+        // don't write it again
+        std::string curr_file = filename_from_suffix1(base_file, suffix);
+        bool will_write = overwrite_if_no_good(base_file, curr_file,
+                                               unmasked.cols(), unmasked.rows());
+        try {
+          if (will_write) {
+            TerminalProgressCallback tpc("asp", ": ");
+            vw_out() << "Writing: " << curr_file << std::endl;
+            try{
+              asp::block_write_gdal_image(curr_file, unmasked, has_georef, sub_georef,
+                                          has_nodata, m_nodata_val, opt, tpc);
+            }catch(...){
+              vw_out() << "Failed to write: " << curr_file << "\n";
+              curr_file = filename_from_suffix2(base_file, suffix);
+              will_write = overwrite_if_no_good(base_file, curr_file,
+                                                unmasked.cols(), unmasked.rows());
+              if (will_write) {
+                vw_out() << "Writing: " << curr_file << std::endl;
+                asp::block_write_gdal_image(curr_file, unmasked, has_georef, sub_georef,
+                                            has_nodata, m_nodata_val, opt, tpc);
+              }
+            }
+          }
+
+        } catch ( const Exception& e ) {
+          popUp(e.what());
+          return;
         }
 
-      }else{
-        vw_out() << "Using existing subsampled image: " << curr_file << std::endl;
+        if (!will_write)
+          vw_out() << "Using existing subsampled image: " << curr_file << std::endl;
+
+        // Note that m_pyramid contains a handle to DiskImageView.
+        // DiskImageView's implementation will make it possible
+        // cache in memory the most recently used tiles of all
+        // the images in the pyramid.
+        m_pyramid_files.push_back(curr_file);
+        m_pyramid.push_back(vw::DiskImageView<PixelT>(curr_file));
+        m_scales.push_back(scale);
+
+        level++;
+      }
+    }
+
+    // Given a region (at full resolution) and a scale factor, compute
+    // the portion of the image in the region, subsampled by a factor no
+    // more than the input scale factor. Convert it to QImage for
+    // display, so in this function we hide the details of how channels
+    // combined to create the QImage. Also return the precise subsample
+    // factor used and the region at that scale level.
+    void getImageClip(double scale_in, vw::BBox2i region_in,
+                      bool highlight_nodata, bool scale_pixels,
+                      QImage & qimg, double & scale_out, vw::BBox2i & region_out) {
+
+      if (m_pyramid.empty())
+        vw_throw( ArgumentErr() << "Uninitialized image pyramid.\n");
+
+      // Find the right pyramid level to use
+      int level = 0;
+      while (1) {
+        if (level+1 >= (int)m_scales.size()) break; // last level
+        if (m_scales[level+1] > scale_in)  break; // too coarse
+        level++;
       }
 
-      // Note that m_pyramid contains a handle to DiskImageView.
-      // DiskImageView's implementation will make it possible
-      // cache in memory the most recently used tiles of all
-      // the images in the pyramid.
-      m_pyramid_files.push_back(curr_file);
-      m_pyramid.push_back(vw::DiskImageView<PixelT>(curr_file));
-      m_scales.push_back(scale);
+      //vw_out() << "Reading: " << m_pyramid_files[level] << std::endl;
 
-      level++;
-    }
-  }
+      region_in.crop(bounding_box(m_pyramid[0]));
+      scale_out = m_scales[level];
+      region_out = region_in/scale_out;
+      region_out.crop(bounding_box(m_pyramid[level]));
 
-  // Given a region (at full resolution) and a scale factor, compute
-  // the portion of the image in the region, subsampled by a factor no
-  // more than the input scale factor. Convert it to QImage for
-  // display, so in this function we hide the details of how channels
-  // combined to create the QImage. Also return the precise subsample
-  // factor used and the region at that scale level.
-  void getImageClip(double scale_in, vw::BBox2i region_in,
-                    bool highlight_nodata, bool scale_pixels,
-                    QImage & qimg, double & scale_out, vw::BBox2i & region_out) {
-
-    if (m_pyramid.empty())
-      vw_throw( ArgumentErr() << "Uninitialized image pyramid.\n");
-
-    // Find the right pyramid level to use
-    int level = 0;
-    while (1) {
-      if (level+1 >= (int)m_scales.size()) break; // last level
-      if (m_scales[level+1] > scale_in)  break; // too coarse
-      level++;
+      ImageView<PixelT> clip = crop(m_pyramid[level], region_out);
+      formQimage(highlight_nodata, scale_pixels, m_nodata_val, clip, qimg);
     }
 
-    //vw_out() << "Reading: " << m_pyramid_files[level] << std::endl;
+    ~DiskImagePyramid() {}
 
-    region_in.crop(bounding_box(m_pyramid[0]));
-    scale_out = m_scales[level];
-    region_out = region_in/scale_out;
-    region_out.crop(bounding_box(m_pyramid[level]));
+    int32 cols() const { return m_pyramid[0].cols(); }
+    int32 rows() const { return m_pyramid[0].rows(); }
+    int32 planes() const { return m_pyramid[0].planes(); }
 
-    ImageView<PixelT> clip = crop(m_pyramid[level], region_out);
-    formQimage(highlight_nodata, scale_pixels, m_nodata_val, clip, qimg);
-  }
+    pixel_accessor origin() const { return m_pyramid[0].origin(); }
+    result_type operator()( int32 x, int32 y, int32 p = 0 ) const { return m_pyramid[0](x,y,p); }
 
-  ~DiskImagePyramid() {}
+    typedef typename DiskImageView<PixelT>::prerasterize_type prerasterize_type;
+    prerasterize_type prerasterize( BBox2i const& bbox ) const { return m_pyramid[0].prerasterize( bbox ); }
+    template <class DestT> void rasterize( DestT const& dest, BBox2i const& bbox ) const { m_pyramid[0].rasterize( dest, bbox ); }
 
-  int32 cols() const { return m_pyramid[0].cols(); }
-  int32 rows() const { return m_pyramid[0].rows(); }
-  int32 planes() const { return m_pyramid[0].planes(); }
+    ImageViewRef<PixelT> bottom() { return m_pyramid[0]; }
 
-  pixel_accessor origin() const { return m_pyramid[0].origin(); }
-  result_type operator()( int32 x, int32 y, int32 p = 0 ) const { return m_pyramid[0](x,y,p); }
+  private:
 
-  typedef typename DiskImageView<PixelT>::prerasterize_type prerasterize_type;
-  prerasterize_type prerasterize( BBox2i const& bbox ) const { return m_pyramid[0].prerasterize( bbox ); }
-  template <class DestT> void rasterize( DestT const& dest, BBox2i const& bbox ) const { m_pyramid[0].rasterize( dest, bbox ); }
+    asp::BaseOptions m_opt;
 
-  ImageViewRef<PixelT> bottom() { return m_pyramid[0]; }
+    // The subsample factor to go to the next level of the pyramid
+    // (must be >= 2).
+    int m_subsample;
 
-private:
+    // The maxiumum number of pixels in the coarsest level of
+    // the pyramid (keep on downsampling until getting to this number
+    // or under it).
+    int m_top_image_max_pix;
 
-  asp::BaseOptions m_opt;
+    //  The pyramid. Largest images come earlier.
+    std::vector< vw::ImageViewRef<PixelT> > m_pyramid;
 
-  // The subsample factor to go to the next level of the pyramid
-  // (must be >= 2).
-  int m_subsample;
+    // The files (stored on disk) containing the images in the pyramid.
+    std::vector<std::string> m_pyramid_files;
 
-  // The maxiumum number of pixels in the coarsest level of
-  // the pyramid (keep on downsampling until getting to this number
-  // or under it).
-  int m_top_image_max_pix;
-
-  //  The pyramid. Largest images come earlier.
-  std::vector< vw::ImageViewRef<PixelT> > m_pyramid;
-
-  // The files (stored on disk) containing the images in the pyramid.
-  std::vector<std::string> m_pyramid_files;
-
-  double m_nodata_val;
-  std::vector<int> m_scales;
-};
+    double m_nodata_val;
+    std::vector<int> m_scales;
+  };
 
   // An image class that supports 1 to 3 channels.  We inherit from
   // DiskImagePyramid<double> to be able to use some of the
@@ -477,7 +485,7 @@ private:
       } else if (m_type == CH3_UINT8) {
         m_img_ch3_uint8.getImageClip(scale_in, region_in,
                                      highlight_nodata, scale_pixels, qimg,
-                                      scale_out, region_out);
+                                     scale_out, region_out);
       }else{
         vw_throw( ArgumentErr() << "Unsupported image with "
                   << m_num_channels << " bands\n");
@@ -556,7 +564,7 @@ private:
     static QString selectFilesTag(){ return ""; }
   private:
     QTableWidget * m_filesTable;
-                                                      private slots:
+                                                                   private slots:
   };
 
   class MainWidget : public QWidget {
@@ -587,11 +595,11 @@ private:
 
     void setShadowThreshMode(bool turnOn) { m_shadow_thresh_calc_mode = turnOn;}
 
-  signals:
+    signals:
     void refreshAllMatches();
 
-  public slots:
-    void sizeToFit();
+              public slots:
+              void sizeToFit();
     void showFilesChosenByUser(int rowClicked, int columnClicked);
     void viewUnthreshImages();
     void viewThreshImages();

@@ -185,15 +185,20 @@ building on disk pyramids of increasingly coarser subsampled images and
 displaying the subsampled versions that are appropriate for the current
 level of zoom.
 
-The images can be shown either side-by-side, as tiles on a grid
-(using \texttt{-\/-grid-cols integer}), or on top of each other (using
+The images can be shown either side-by-side, as tiles on a grid (using
+\texttt{-\/-grid-cols integer}), or on top of each other (using
 \texttt{-\/-single-window}), with a dialog to choose among them.  In the
 last usage scenario, the option \texttt{-\/-use-georef} will overlay the
-images correctly if georeference information is present.
+images correctly if georeference information is present.  It is possible
+to switch among these modes once the GUI has been open, from the GUI
+View menu.
 
-This program can also display the outputs of the ASP tools
-\texttt{colormap} and \texttt{hillshade} (sections \ref{sec:colormap}
-and \ref{sec:hillshade}).
+\texttt{stereo\_gui} can show hillshaded DEMs, either via the
+\texttt{-\/-hillshade} option, or by choosing from the GUI View menu the
+\texttt{Hillshaded images} option.
+
+This program can also display the output of the ASP \texttt{colormap}
+tool (section \ref{sec:colormap}).
 
 \subsection{Other Functionality}
 
@@ -232,6 +237,7 @@ Option & Description \\ \hline \hline
 \texttt{-\/-window-size arg (=1200 800)} & The width and height of the GUI window in pixels.\\ \hline
 \texttt{-w | -\/-single-window } & Show all images in the same window (with a dialog to choose among them) rather than next to each other.\\ \hline
 \texttt{-\/-use-georef} & Plot the images in the projected coordinate system given by the georeference of the images.\\ \hline
+\texttt{-\/-hillshade} & Interpret the input images as DEM and hillshade them.\\ \hline
 \texttt{-h | -\/-help } & Display this help message.\\ \hline
 \end{longtable}
 

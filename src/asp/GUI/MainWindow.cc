@@ -215,6 +215,7 @@ void MainWindow::createMenus() {
   m_viewHillshadedImages_action = new QAction(tr("Hillshaded images"), this);
   m_viewHillshadedImages_action->setStatusTip(tr("View hillshaded images."));
   m_viewHillshadedImages_action->setCheckable(true);
+  m_viewHillshadedImages_action->setChecked(m_hillshade);
   connect(m_viewHillshadedImages_action, SIGNAL(triggered()), this, SLOT(viewHillshadedImages()));
 
   // View overlayed
