@@ -155,6 +155,12 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
       opt.texture_files.push_back(files[i]);
   }
 
+  if (opt.pointcloud_files.empty())
+    vw_throw( ArgumentErr() << "No valid point cloud files were provided.\n");
+
+  if (!opt.do_ortho && !opt.texture_files.empty())
+    vw_throw( ArgumentErr() << "No ortho image was requested, yet texture files were passed as inputs.\n");
+
   // Must have this check here before we start assuming all input files
   // are tif.
   opt.has_las_or_csv = false;
