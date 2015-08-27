@@ -974,16 +974,19 @@ shows, a quick look at some of the TIFF files in the \texttt{results/}
 directory provides some insight into the process.
 
 Perhaps the most accessible file for assessing the quality of your
-results is the good pixel image,
-\\ (\texttt{results/output-GoodPixelMap.tif}).  If this file shows
-mostly good, gray pixels in the overlap area (the area that is white
-in both the \texttt{results/output-lMask.tif} and
-\texttt{results/output-rMask.tif} files), then your results are
-just fine.  If the good pixel image shows lots of failed data,
-signified by red pixels in the overlap area, then you need to go back
-and tune your \texttt{stereo.default} file until your results improve.
-This might be a good time to make a copy of \texttt{stereo.default} as
-you tune the parameters to improve the results.
+results is the good pixel image, \\
+(\texttt{results/output-GoodPixelMap.tif}).  If this file shows mostly
+good, gray pixels in the overlap area (the area that is white in both
+the \texttt{results/output-lMask.tif} and
+\texttt{results/output-rMask.tif} files), then your results are just
+fine.  If the good pixel image shows lots of failed data, signified by
+red pixels in the overlap area, then you need to go back and tune your
+\texttt{stereo.default} file until your results improve.  This might be
+a good time to make a copy of \texttt{stereo.default} as you tune the
+parameters to improve the results. If the input images are
+map-projected, the GoodPixelMap will also be georeferenced, so it can be
+overlayed on top of the left input image.
+
 \begin{figure}[b!]
 \begin{minipage}{4in}
 \includegraphics[width=4in]{images/p19-disparity.png}
