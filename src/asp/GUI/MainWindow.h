@@ -71,6 +71,7 @@ namespace vw { namespace gui {
     void viewThreshImages();
     void viewUnthreshImages();
     void viewHillshadedImages();
+    void viewOverlayedImages();
     void about();
 
   protected:
@@ -111,6 +112,7 @@ namespace vw { namespace gui {
     QAction *m_viewSideBySide_action;
     QAction *m_viewAsTiles_action;
     QAction *m_viewHillshadedImages_action;
+    QAction *m_viewOverlayedImages_action;
     QAction *m_viewThreshImages_action;
     QAction *m_viewUnthreshImages_action;
     QAction *m_viewMatches_action;
@@ -120,7 +122,7 @@ namespace vw { namespace gui {
     QAction *m_run_parallel_stereo_action;
     QAction *m_exit_action;
 
-    ViewType m_view_type;
+    ViewType m_view_type, m_view_type_old;
     int m_grid_cols;
 
     bool m_use_georef, m_hillshade;

@@ -88,6 +88,7 @@ MainWindow::MainWindow(std::vector<std::string> const& images,
   if (single_window) {
     m_view_type = VIEW_IN_SINGLE_WINDOW;
   }
+  m_view_type_old = m_view_type;
 
   createLayout();
 }
@@ -209,7 +210,14 @@ void MainWindow::createMenus() {
   // View hillshaded images
   m_viewHillshadedImages_action = new QAction(tr("Hillshaded images"), this);
   m_viewHillshadedImages_action->setStatusTip(tr("View hillshaded images."));
+  m_viewHillshadedImages_action->setCheckable(true);
   connect(m_viewHillshadedImages_action, SIGNAL(triggered()), this, SLOT(viewHillshadedImages()));
+
+  // View overlayed
+  m_viewOverlayedImages_action = new QAction(tr("Overlay georeferenced images"), this);
+  m_viewOverlayedImages_action->setStatusTip(tr("View hillshaded images."));
+  m_viewOverlayedImages_action->setCheckable(true);
+  connect(m_viewOverlayedImages_action, SIGNAL(triggered()), this, SLOT(viewOverlayedImages()));
 
   m_viewMatches_action = new QAction(tr("Show IP matches"), this);
   m_viewMatches_action->setStatusTip(tr("View interest point matches."));
@@ -260,6 +268,7 @@ void MainWindow::createMenus() {
   m_view_menu->addAction(m_viewSideBySide_action);
   m_view_menu->addAction(m_viewAsTiles_action);
   m_view_menu->addAction(m_viewHillshadedImages_action);
+  m_view_menu->addAction(m_viewOverlayedImages_action);
 
   // Matches menu
   m_matches_menu = menu->addMenu(tr("&IP matches"));
@@ -499,11 +508,38 @@ void MainWindow::viewUnthreshImages() {
 }
 
 void MainWindow::viewHillshadedImages() {
+  bool on = m_viewHillshadedImages_action->isChecked();
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (m_widgets[i]) {
-      m_widgets[i]->viewHillshadedImages();
+      m_widgets[i]->viewHillshadedImages(on);
     }
   }
+}
+
+void MainWindow::viewOverlayedImages() {
+  bool on = m_viewOverlayedImages_action->isChecked();
+  if (on) {
+
+    // Will show in single window with georef. Must first check if all images
+    // have georef.
+    for (size_t i = 0; i < m_images.size(); i++) {
+      cartography::GeoReference georef;
+      bool has_georef = vw::cartography::read_georeference(georef, m_images[i]);
+      if (!has_georef) {
+        popUp("Cannot overlay, as there is no georeference in: " + m_images[i]);
+        return;
+      }
+    }
+
+    m_view_type_old = m_view_type; // back this up
+    m_view_type = VIEW_IN_SINGLE_WINDOW;
+    m_use_georef = true;
+  }else{
+    m_use_georef = false;
+    m_view_type = m_view_type_old; // restore this
+  }
+
+  createLayout();
 }
 
 void MainWindow::about() {
