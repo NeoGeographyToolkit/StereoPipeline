@@ -32,4 +32,3 @@ TEST( StereoSessionRPC, Dummy ) {
 }
 
 
-#endif
