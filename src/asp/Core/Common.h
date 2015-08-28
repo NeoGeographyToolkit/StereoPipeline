@@ -33,6 +33,7 @@
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Math/Vector.h>
+#include <vw/FileIO/FileUtils.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Cartography/GeoReference.h>
 #include <map>
@@ -47,16 +48,6 @@ namespace asp {
   /// Extract a string into a Vector of given size.
   template<class VecT>
   VecT str_to_vec(std::string const& str);
-
-  // TODO: This function is too dangerous to live!
-  ///// Given a vector of strings, identify and store separately the list of camera models.
-  //std::vector<std::string> extract_cameras( std::vector<std::string>& image_files );
-
-
-  /// Returns the file extension of a path
-  std::string get_extension(std::string const& input);
-
-  // TODO: Move or avoid these functions!
 
   /// Returns true if the file has an extension which can contain a camera model
   bool has_cam_extension( std::string const& input );
@@ -81,17 +72,8 @@ namespace asp {
   std::string bundle_adjust_file_name(std::string const& prefix, std::string const& input_img,
                                       std::string const& input_cam);
 
-  boost::filesystem::path make_file_relative_to_dir(boost::filesystem::path const file,
-                                                    boost::filesystem::path const dir);
-
-  /// Remove file name extension
-  std::string prefix_from_filename(std::string const& filename);
-
   /// Print time function
   std::string current_posix_time_string();
-
-  /// If prefix is "dir/out", create directory "dir"
-  void create_out_dir(std::string out_prefix);
 
   /// Run a system command and append the output to a given file
   void run_cmd_app_to_file(std::string cmd, std::string file);

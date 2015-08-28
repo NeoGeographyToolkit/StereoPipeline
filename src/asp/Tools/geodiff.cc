@@ -84,7 +84,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
       fs::basename(opt.dem1_name) + "__" + fs::basename(opt.dem2_name);
   }
 
-  asp::create_out_dir(opt.output_prefix);
+  vw::create_out_dir(opt.output_prefix);
 }
 
 int main( int argc, char *argv[] ) {

@@ -188,7 +188,7 @@ namespace vw { namespace gui {
   // Get a filename by simply replacing current extension with given suffix
   std::string filename_from_suffix1(std::string const& input_file,
                                     std::string const& suffix){
-    std::string prefix = asp::prefix_from_filename(input_file);
+    std::string prefix = vw::prefix_from_filename(input_file);
     std::string output_file = prefix + suffix;
     return output_file;
   }
@@ -197,7 +197,7 @@ namespace vw { namespace gui {
   // and making the file be in the current directory.
   std::string filename_from_suffix2(std::string const& input_file,
                                     std::string const& suffix){
-    std::string prefix = asp::prefix_from_filename(input_file);
+    std::string prefix = vw::prefix_from_filename(input_file);
     boost::filesystem::path p(input_file);
     prefix = p.stem().string();
     std::string output_file = prefix + suffix;

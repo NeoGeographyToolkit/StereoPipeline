@@ -238,7 +238,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
     opt.out_prefix = fs::path(opt.dem_name).stem().string();
 
   // Create the output directory
-  asp::create_out_dir(opt.out_prefix);
+  vw::create_out_dir(opt.out_prefix);
 
   // Turn on logging to file
   asp::log_to_file(argc, argv, "", opt.out_prefix);

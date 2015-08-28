@@ -485,7 +485,7 @@ int main(int argc, char* argv[]) {
                                   << drg_georef << "\n";
 
     // Create and write the orthoprojected image.
-    asp::create_out_dir(opt.output_file);
+    vw::create_out_dir(opt.output_file);
     switch(texture_fmt.pixel_format) {
 
       // 1.0. RGB, with our without alpha channel

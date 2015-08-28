@@ -531,7 +531,7 @@ int main( int argc, char* argv[] ) {
     // Write the output image. Use the nodata passed in by the user
     // if it is not available in the input file.
     if (img_rsrc->has_nodata_read()) opt.nodata_value = img_rsrc->nodata_read();
-    asp::create_out_dir(opt.output_file);
+    vw::create_out_dir(opt.output_file);
     bool has_img_nodata = true;
     PMaskT nodata_mask = PMaskT(); // invalid value for a PixelMask
     bool call_from_mapproject = true;

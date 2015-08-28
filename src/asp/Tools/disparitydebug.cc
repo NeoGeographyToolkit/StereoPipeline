@@ -83,7 +83,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "Missing input file!\n"
               << usage << general_options );
   if ( opt.output_prefix.empty() )
-    opt.output_prefix = asp::prefix_from_filename(opt.input_file_name);
+    opt.output_prefix = vw::prefix_from_filename(opt.input_file_name);
 }
 
 template <class PixelT>
@@ -102,7 +102,7 @@ void do_disparity_visualization(Options& opt) {
   // large. Let's subsample the image so that it is rough 1000x1000 samples.
   float subsample_amt =
     float(roiToUse.height())*float(roiToUse.width()) / ( 1000.f * 1000.f );
-    
+
   // Compute intensity display range if not passed in
   if ( opt.normalization_range == BBox2(0,0,0,0) )
     opt.normalization_range =

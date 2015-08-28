@@ -90,7 +90,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
               << "and <output-image> in order to proceed.\n\n"
               << usage << general_options );
 
-  asp::create_out_dir(opt.output_image);
+  vw::create_out_dir(opt.output_image);
   
 }
 

@@ -46,31 +46,6 @@
 using namespace vw;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
-/*
-/// Given a vector of strings, identify and store separately the list of camera models.
-std::vector<std::string>
-asp::extract_cameras( std::vector<std::string>& image_files ) {
-  std::vector<std::string> cam_files;
-  std::vector<std::string>::iterator it = image_files.begin();
-  while ( it != image_files.end() ) {
-    if (asp::has_cam_extension( *it ) ||
-        boost::iends_with(boost::to_lower_copy(*it), ".xml")
-        ){
-      cam_files.push_back( *it );
-      it = image_files.erase( it );
-    } else
-      it++;
-  }
-
-  return cam_files;
-}
-*/
-std::string asp::get_extension( std::string const& input ) {
-  boost::filesystem::path ipath( input );
-  std::string ext = ipath.extension().string();
-  boost::algorithm::to_lower(ext);
-  return ext;
-}
 
 bool asp::has_cam_extension( std::string const& input ) {
   std::string ext = get_extension(input);
@@ -208,65 +183,9 @@ std::string asp::bundle_adjust_file_name(std::string const& prefix,
   return prefix + "-" + fs::path(file).stem().string() + ".adjust";
 }
 
-// Make the specified file to be relative to the specified directory.
-fs::path asp::make_file_relative_to_dir(fs::path const file, fs::path const dir) {
-  if (file.has_root_path()){
-    if (file.root_path() != dir.root_path()) {
-      return file;
-    } else {
-      return make_file_relative_to_dir(file.relative_path(), dir.relative_path());
-    }
-  } else {
-    if (dir.has_root_path()) {
-      fs::path file2 = fs::complete(file);
-      return make_file_relative_to_dir(file2.relative_path(), dir.relative_path());
-    } else {
-      typedef fs::path::const_iterator path_iterator;
-      path_iterator file_it = file.begin();
-      path_iterator dir_it = dir.begin();
-      while ( file_it != file.end() && dir_it != dir.end() ) {
-        if (*file_it != *dir_it) break;
-        ++file_it; ++dir_it;
-      }
-      fs::path result;
-      for (; dir_it != dir.end(); ++dir_it) {
-        result /= "..";
-      }
-      for (; file_it != file.end(); ++file_it) {
-        result /= *file_it;
-      }
-      return result;
-    }
-  }
-}
-
-// Remove file name extension
-std::string asp::prefix_from_filename(std::string const& filename) {
-  std::string result = filename;
-  int index = result.rfind(".");
-  if (index != -1)
-    result.erase(index, result.size());
-  return result;
-}
-
 // Print time function
 std::string asp::current_posix_time_string() {
   return boost::posix_time::to_simple_string(boost::posix_time::second_clock::local_time());
-}
-
-// If prefix is "dir/out", create directory "dir"
-void asp::create_out_dir(std::string out_prefix){
-
-  fs::path out_prefix_path(out_prefix);
-  if (out_prefix_path.has_parent_path()) {
-    if (!fs::is_directory(out_prefix_path.parent_path())) {
-      vw_out() << "\nCreating output directory: "
-               << out_prefix_path.parent_path() << std::endl;
-      fs::create_directories(out_prefix_path.parent_path());
-    }
-  }
-
-  return;
 }
 
 // Unless user-specified, compute the rounding error for a given
@@ -320,7 +239,7 @@ void asp::log_to_file(int argc, char *argv[],
     vw::vw_throw( vw::ArgumentErr() << "Output prefix was not set.\n");
 
   // Create the output directory if not present
-  asp::create_out_dir(out_prefix);
+  vw::create_out_dir(out_prefix);
 
   std::string prog_name = extract_prog_name(argv[0]);
 

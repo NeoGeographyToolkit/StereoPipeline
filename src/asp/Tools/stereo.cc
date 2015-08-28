@@ -398,7 +398,7 @@ namespace asp {
     if (!this_is_case3 && opt.cam_file2.empty()) vw_throw(ArgumentErr() << "Missing right camera file");
 
     // Create the output directory
-    asp::create_out_dir(opt.out_prefix);
+    vw::create_out_dir(opt.out_prefix);
 
     // Turn on logging to file
     asp::log_to_file(argc, argv, opt.stereo_default_filename, opt.out_prefix);

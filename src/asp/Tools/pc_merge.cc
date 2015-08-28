@@ -95,7 +95,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "The output file must be specified!\n"
               << usage << general_options );
 
-  asp::create_out_dir(opt.out_file);
+  vw::create_out_dir(opt.out_file);
 }
 
 

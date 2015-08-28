@@ -1457,7 +1457,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
 
   // Create the output directory
-  asp::create_out_dir(opt.out_prefix);
+  vw::create_out_dir(opt.out_prefix);
 
   // Turn on logging to file
   asp::log_to_file(argc, argv, "", opt.out_prefix);

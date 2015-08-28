@@ -604,7 +604,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   }else
     opt.has_out_nodata = true;
 
- asp::create_out_dir(opt.output_file);
+ vw::create_out_dir(opt.output_file);
 }
 
 /// This function call is just to clean up the case statement in load_inputs_and_process

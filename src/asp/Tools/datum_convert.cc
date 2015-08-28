@@ -208,7 +208,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
 
   boost::to_lower(opt.output_datum);
 
-  asp::create_out_dir(opt.output_dem);
+  vw::create_out_dir(opt.output_dem);
 
   //// Turn on logging to file
   //asp::log_to_file(argc, argv, "", opt.out_prefix);

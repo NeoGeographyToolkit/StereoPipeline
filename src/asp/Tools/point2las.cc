@@ -90,13 +90,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   if ( opt.out_prefix.empty() )
     opt.out_prefix =
-      asp::prefix_from_filename( opt.pointcloud_file );
+      vw::prefix_from_filename( opt.pointcloud_file );
 
   boost::to_lower( opt.reference_spheroid );
 
-  // Create the output directory 
-  asp::create_out_dir(opt.out_prefix);
-  
+  // Create the output directory
+  vw::create_out_dir(opt.out_prefix);
+
   // Turn on logging to file
   asp::log_to_file(argc, argv, "", opt.out_prefix);
 
@@ -133,7 +133,7 @@ int main( int argc, char *argv[] ) {
       ref.SetFromUserInput(target_srs);
       vw_out() << "Using projection string: '" << target_srs << "'"<< std::endl;
       header.SetSRS(ref);
-      
+
       is_geodetic = true;
       datum = georef.datum();
     }
@@ -141,7 +141,7 @@ int main( int argc, char *argv[] ) {
     ImageViewRef<Vector3> point_image = asp::read_asp_point_cloud<3>(opt.pointcloud_file);
     if (is_geodetic)
       point_image = cartesian_to_geodetic(point_image, datum);
-    
+
     BBox3 cloud_bbox = asp::pointcloud_bbox(point_image, is_geodetic);
 
     // The las format stores the values as 32 bit integers. So, for a
@@ -186,7 +186,7 @@ int main( int argc, char *argv[] ) {
         bool is_good = ( (!is_geodetic && point != vw::Vector3()) ||
                          (is_geodetic  && !boost::math::isnan(point.z())) );
         if (!is_good) continue;
-          
+
 #if 0
         // For comparison later with las2txt.
         std::cout.precision(16);

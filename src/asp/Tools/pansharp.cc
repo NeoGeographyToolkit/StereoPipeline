@@ -273,7 +273,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   // Determine if the user entered a nodata value
   opt.has_nodata = vm.count("output-nodata-value");
 
-  asp::create_out_dir(opt.output_file);
+  vw::create_out_dir(opt.output_file);
 }
 
 
