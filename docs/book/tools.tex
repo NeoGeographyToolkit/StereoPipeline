@@ -845,6 +845,13 @@ encountered valid \ac{DEM} heights at output grid points. For the
 ``first'' and ``last'' operations, we use the order in which \acp{DEM}
 were passed in.
 
+If the number of input DEMs is very large, the tool can fail as the operating
+system may refuse to load all DEMs. In that case, it is suggested to use
+the parameter \texttt{-\/-tile-size} to break up the output DEM into
+several large tiles, and to invoke the tool for each of the output tiles
+with the option \texttt{-\/-tile-index}. Later, \texttt{dem\_mosaic} can be
+invoked again to merge these tiles into a single DEM.
+
 \begin{longtable}{|l|p{10cm}|}
 \caption{Command-line options for dem\_mosaic}
 \label{tbl:demmosaic}
@@ -1875,7 +1882,7 @@ Option & Description \\ \hline \hline
 \section{sfs}
 \label{sfs}
 
-Here we describle ASP's shape-from-shading tool, named
+Here we describe ASP's shape-from-shading tool, named
 \texttt{sfs}. Examples for how to use it are in chapter \ref{ch:sfs}.
 
 \begin{longtable}{|l|p{7.5cm}|}
