@@ -113,9 +113,15 @@ namespace asp {
     vw::Matrix<double, 2, 3> geodetic_to_pixel_Jacobian (vw::Vector3 const& geodetic ) const;
     vw::Matrix<double, 2, 3> geodetic_to_pixel_numerical_Jacobian (vw::Vector3 const& geodetic, double tol) const;
     vw::Matrix<double, 2, 2> normalized_geodetic_to_pixel_Jacobian(vw::Vector3 const& normalized_geodetic ) const;
+
+    /// Given a pixel (the projection of a point in 3D space onto the camera image)
+    /// and the value of the height of the point, find the lonlat of the point 
+    /// using Newton's method. The user may provide a guess for the lonlat.
     vw::Vector2 image_to_ground(vw::Vector2 const& pixel, double height,
                                 vw::Vector2 lonlat_guess = vw::Vector2(0.0, 0.0)) const;
 
+    /// Find a point which gets projected onto the current pixel,
+    /// and the direction of the ray going through that point.
     void point_and_dir(vw::Vector2 const& pix, vw::Vector3 & P, vw::Vector3 & dir ) const;
 
   private:

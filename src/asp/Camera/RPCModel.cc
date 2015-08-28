@@ -343,11 +343,6 @@ namespace asp {
 
   Vector2 RPCModel::image_to_ground( Vector2 const& pixel, double height, Vector2 lonlat_guess ) const {
 
-    // Given a pixel (the projection of a point in 3D space onto the camera image)
-    // and the value of the height of the point, find the lonlat of
-    // the point using Newton's method. The user may provide a guess
-    // for the lonlat.
-
     // The absolute tolerance is experimental, needs more investigation
     double abs_tolerance = 1e-6;
 
@@ -408,21 +403,33 @@ namespace asp {
 
   void RPCModel::point_and_dir(Vector2 const& pix, Vector3 & P, Vector3 & dir ) const {
 
-    // Find a point which gets projected onto the current pixel,
-    // and the direction of the ray going through that point.
+    // For an RPC model there is no defined origin so it and the ray need to be computed.
 
-    // Center of valid region to bottom o valid region (normalized)
-    const double VERT_SCALE_FACTOR = 100; // - The virtual center should be high above the terrain
+    // Center of valid region to bottom of valid region (normalized)
+    const double VERT_SCALE_FACTOR = 0.9; // - The virtual center should be above the terrain
     double  height_up = m_lonlatheight_offset[2] + m_lonlatheight_scale[2]*VERT_SCALE_FACTOR;
-    double  height_dn = m_lonlatheight_offset[2] - m_lonlatheight_scale[2];
+    double  height_dn = m_lonlatheight_offset[2] - m_lonlatheight_scale[2]*VERT_SCALE_FACTOR;
 
+    //vw_out() << "m_lonlatheight_offset = " << m_lonlatheight_offset << std::endl;
+    //vw_out() << "m_lonlatheight_scale = " << m_lonlatheight_scale << std::endl;
+
+    //vw_out() << "Height up = " << height_up << std::endl;
+    //vw_out() << "Height dn = " << height_dn << std::endl;
+
+    // Given the pixel and elevation, estimate lon-lat.
     // Use m_lonlatheight_offset as initial guess for lonlat_up,
     // and then use lonlat_up as initial guess for lonlat_dn.
     Vector2 lonlat_up = image_to_ground(pix, height_up, subvector(m_lonlatheight_offset, 0, 2));
     Vector2 lonlat_dn = image_to_ground(pix, height_dn, lonlat_up);
 
+    //vw_out() << "lonlat_up = " << lonlat_up << std::endl;
+    //vw_out() << "lonlat_dn = " << lonlat_dn << std::endl;
+
     Vector3 geo_up = Vector3(lonlat_up[0], lonlat_up[1], height_up);
     Vector3 geo_dn = Vector3(lonlat_dn[0], lonlat_dn[1], height_dn);
+
+    //vw_out() << "geo_up = " << geo_up << std::endl;
+    //vw_out() << "geo_dn = " << geo_dn << std::endl;
 
             P    = m_datum.geodetic_to_cartesian( geo_up );
     Vector3 P_dn = m_datum.geodetic_to_cartesian( geo_dn );

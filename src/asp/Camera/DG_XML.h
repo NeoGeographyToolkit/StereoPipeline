@@ -30,6 +30,7 @@
 #include <vw/Math/BBox.h>
 #include <vw/Math/Geometry.h>
 #include <vw/Cartography/GeoReference.h>
+#include <vw/Camera/CameraModel.h>
 #include <asp/Camera/XMLBase.h>
 
 #include <vector>

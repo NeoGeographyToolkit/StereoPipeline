@@ -855,9 +855,3 @@ bool asp::read_wv_georeference(GeoReference      &georef,
 
 
 
-
-
-
-
-
-
