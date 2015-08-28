@@ -53,11 +53,11 @@ TEST( StereoSessionRPC, InstantiateTest ) {
   // Verify that if we go from pixel to lonlat and back, then we
   // arrive at the starting point.
   Vector2 pix = 0.0;
-  double h = 10.0; 
+  double h = 10.0;
   Vector2 lonlat  = model.image_to_ground(pix, h);
   Vector2 pix_out = model.geodetic_to_pixel(Vector3(lonlat[0], lonlat[1], h));
   EXPECT_LT( norm_2(pix - pix_out), 1.0e-9 );
-  
+
   // Verify that nothing segfaults or has a run time error.
   EXPECT_NO_THROW( model.calculate_terms( location ) );
   EXPECT_NO_THROW( model.terms_Jacobian3( location ) );
@@ -70,6 +70,7 @@ TEST( StereoSessionRPC, InstantiateTest ) {
   XMLPlatformUtils::Terminate();
 }
 
+#if 0
 TEST( StereoSessionRPC, CheckStereo ) {
 
   XMLPlatformUtils::Initialize();
@@ -82,11 +83,11 @@ TEST( StereoSessionRPC, CheckStereo ) {
   xml2.read_from_file( "dg_example4.xml" );
   RPCModel model2( *xml2.rpc_ptr() );
   std::cout << std::endl;
-  
+
   RPCStereoModel RPC_stereo(&model1, &model2);
   double error;
   Vector3 p = RPC_stereo(Vector2(), Vector2(), error);
-  
+
   EXPECT_NEAR( error, 54682.96251543280232, 1e-3 );
 }
 
@@ -96,9 +97,9 @@ TEST( StereoSessionRPC, CheckRpcCrop ) {
 
   // Load the camera model as DG and RPC
   CameraModelLoader loader;
-  boost::shared_ptr<asp::RPCModel> rpcModel = 
+  boost::shared_ptr<asp::RPCModel> rpcModel =
         loader.load_rpc_camera_model("dg_example1.xml");
-  boost::shared_ptr<vw::camera::CameraModel> dgModel = 
+  boost::shared_ptr<vw::camera::CameraModel> dgModel =
         loader.load_dg_camera_model("dg_example1.xml");
 
   // Verify that the RPC and DG models are similar
@@ -108,7 +109,7 @@ TEST( StereoSessionRPC, CheckRpcCrop ) {
   EXPECT_LT( norm_2(rpcVector - dgVector), 1.0e-4 );
 
   // Now try the same thing with a cropped image
-  Vector2 pixel_offset(40, 80);  
+  Vector2 pixel_offset(40, 80);
   Vector3 position_correction;
   Quaternion<double> pose_correction = Quat(math::identity_matrix<3>());
 
@@ -125,3 +126,4 @@ TEST( StereoSessionRPC, CheckRpcCrop ) {
 }
 
 
+#endif
