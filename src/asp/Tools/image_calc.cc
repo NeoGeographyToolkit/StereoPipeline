@@ -526,7 +526,7 @@ struct Options : asp::BaseOptions {
   bool   has_out_nodata;
   double out_nodata_value;
   std::string calc_string;
-  std::string output_path;
+  std::string output_file;
 };
 
 
@@ -554,7 +554,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   int output_data_type;
   po::options_description general_options("");
   general_options.add_options()
-    ("output-filename,o", po::value(&opt.output_path), "Output file name.")
+    ("output-file,o", po::value(&opt.output_file), "Output file name.")
     ("calc,c",            po::value(&opt.calc_string), calc_string_help.c_str())
     ("output-data-type,d",  po::value(&output_data_type)->default_value(DT_FLOAT64), data_type_string.c_str())
     ("input-nodata-value",  po::value(&opt.in_nodata_value), "Value that is no-data in the input images.")
@@ -604,11 +604,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   }else
     opt.has_out_nodata = true;
 
+ asp::create_out_dir(opt.output_file);
 }
 
 /// This function call is just to clean up the case statement in load_inputs_and_process
 template <typename PixelT, typename OutputT>
-void generate_output(const std::string                         & output_path,
+void generate_output(const std::string                         & output_file,
                      const Options                             & opt,
                      const calc_operation                      & calc_tree,
                      const bool                                  have_georef,
@@ -616,8 +617,8 @@ void generate_output(const std::string                         & output_path,
                            std::vector< ImageViewRef<PixelT> > & input_images,
                      const std::vector<bool  >                 & has_nodata_vec,
                      const std::vector<PixelT>                 & nodata_vec ) {
-  vw_out() << "Writing: " << output_path << std::endl;
-  asp::block_write_gdal_image( output_path,
+  vw_out() << "Writing: " << output_file << std::endl;
+  asp::block_write_gdal_image( output_file,
                                 ImageCalcView< ImageViewRef<PixelT>, OutputT >(input_images,
                                                                      has_nodata_vec,
                                                                      nodata_vec,
@@ -633,7 +634,7 @@ void generate_output(const std::string                         & output_path,
 
 /// This function loads the input images and calls the main processing function
 template <typename PixelT>
-void load_inputs_and_process(Options &opt, const std::string &output_path, const calc_operation &calc_tree) {
+void load_inputs_and_process(Options &opt, const std::string &output_file, const calc_operation &calc_tree) {
 
   // Read the georef from the first file, they should all have the same value.
   const size_t numInputFiles = opt.input_files.size();
@@ -684,15 +685,15 @@ void load_inputs_and_process(Options &opt, const std::string &output_path, const
     vw_out() << "\t--> Writing output nodata value " << opt.out_nodata_value << std::endl;
 
   // Write out the selected data type
-  //vw_out() << "Writing: " << output_path << " with data type " << opt.output_data_type << std::endl;
+  //vw_out() << "Writing: " << output_file << " with data type " << opt.output_data_type << std::endl;
   switch(opt.output_data_type) {
-    case    DT_UINT8  : generate_output<PixelT, PixelGray<vw::uint8  > >(output_path, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
-    case    DT_INT16  : generate_output<PixelT, PixelGray<vw::int16  > >(output_path, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
-    case    DT_UINT16 : generate_output<PixelT, PixelGray<vw::uint16 > >(output_path, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
-    case    DT_INT32  : generate_output<PixelT, PixelGray<vw::int32  > >(output_path, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
-    case    DT_UINT32 : generate_output<PixelT, PixelGray<vw::uint32 > >(output_path, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
-    case    DT_FLOAT32: generate_output<PixelT, PixelGray<vw::float32> >(output_path, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
-    default :           generate_output<PixelT, PixelGray<vw::float64> >(output_path, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case    DT_UINT8  : generate_output<PixelT, PixelGray<vw::uint8  > >(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case    DT_INT16  : generate_output<PixelT, PixelGray<vw::int16  > >(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case    DT_UINT16 : generate_output<PixelT, PixelGray<vw::uint16 > >(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case    DT_INT32  : generate_output<PixelT, PixelGray<vw::int32  > >(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case    DT_UINT32 : generate_output<PixelT, PixelGray<vw::uint32 > >(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case    DT_FLOAT32: generate_output<PixelT, PixelGray<vw::float32> >(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    default :           generate_output<PixelT, PixelGray<vw::float64> >(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
   };
 
 }
@@ -733,33 +734,33 @@ int main( int argc, char *argv[] ) {
       return -1;
     }
 
-    // Use a default output path if none provided
-    const std::string firstPath = opt.input_files[0];
-    //vw_out() << "Loading: " << firstPath << "\n";
-    size_t pt_idx = firstPath.rfind(".");
-    std::string output_path;
-    if (opt.output_path.size() != 0)
-      output_path = opt.output_path;
+    // Use a default output file if none provided
+    const std::string firstFile = opt.input_files[0];
+    //vw_out() << "Loading: " << firstFile << "\n";
+    size_t pt_idx = firstFile.rfind(".");
+    std::string output_file;
+    if (opt.output_file.size() != 0)
+      output_file = opt.output_file;
     else {
-      output_path = firstPath.substr(0,pt_idx)+"_calc";
-      output_path += firstPath.substr(pt_idx,firstPath.size()-pt_idx);
+      output_file = firstFile.substr(0,pt_idx)+"_calc";
+      output_file += firstFile.substr(pt_idx,firstFile.size()-pt_idx);
     }
 
     // Determining the format of the input images (all are assumed to be the same type!)
-    boost::scoped_ptr<SrcImageResource> rsrc(DiskImageResource::open(firstPath));
+    boost::scoped_ptr<SrcImageResource> rsrc(DiskImageResource::open(firstFile));
     ChannelTypeEnum input_data_type = rsrc->channel_type();
     //PixelFormatEnum pixel_format = rsrc->pixel_format();
 
     // Redirect to another function with the correct template type
     switch(input_data_type) {
-    case VW_CHANNEL_INT8   : load_inputs_and_process<PixelGray<vw::int8   > >(opt, output_path, calc_tree);  break;
-    case VW_CHANNEL_UINT8  : load_inputs_and_process<PixelGray<vw::uint8  > >(opt, output_path, calc_tree);  break;
-    case VW_CHANNEL_INT16  : load_inputs_and_process<PixelGray<vw::int16  > >(opt, output_path, calc_tree);  break;
-    case VW_CHANNEL_UINT16 : load_inputs_and_process<PixelGray<vw::uint16 > >(opt, output_path, calc_tree);  break;
-    case VW_CHANNEL_INT32  : load_inputs_and_process<PixelGray<vw::int32  > >(opt, output_path, calc_tree);  break;
-    case VW_CHANNEL_UINT32 : load_inputs_and_process<PixelGray<vw::uint32 > >(opt, output_path, calc_tree);  break;
-    case VW_CHANNEL_FLOAT32: load_inputs_and_process<PixelGray<vw::float32> >(opt, output_path, calc_tree);  break;
-    case VW_CHANNEL_FLOAT64: load_inputs_and_process<PixelGray<vw::float64> >(opt, output_path, calc_tree);  break;
+    case VW_CHANNEL_INT8   : load_inputs_and_process<PixelGray<vw::int8   > >(opt, output_file, calc_tree);  break;
+    case VW_CHANNEL_UINT8  : load_inputs_and_process<PixelGray<vw::uint8  > >(opt, output_file, calc_tree);  break;
+    case VW_CHANNEL_INT16  : load_inputs_and_process<PixelGray<vw::int16  > >(opt, output_file, calc_tree);  break;
+    case VW_CHANNEL_UINT16 : load_inputs_and_process<PixelGray<vw::uint16 > >(opt, output_file, calc_tree);  break;
+    case VW_CHANNEL_INT32  : load_inputs_and_process<PixelGray<vw::int32  > >(opt, output_file, calc_tree);  break;
+    case VW_CHANNEL_UINT32 : load_inputs_and_process<PixelGray<vw::uint32 > >(opt, output_file, calc_tree);  break;
+    case VW_CHANNEL_FLOAT32: load_inputs_and_process<PixelGray<vw::float32> >(opt, output_file, calc_tree);  break;
+    case VW_CHANNEL_FLOAT64: load_inputs_and_process<PixelGray<vw::float64> >(opt, output_file, calc_tree);  break;
     default : vw_throw(ArgumentErr() << "Input image format " << input_data_type << " is not supported!\n");
     };
   } ASP_STANDARD_CATCHES;

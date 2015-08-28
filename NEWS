@@ -22,6 +22,8 @@
         for sfs).
       - Based on Michael Broxton's vwv tool. 
 
+   * Added sfs, a tool to refine DEMs using shape-from-shading. It works
+     only with ISIS images.
    * Added image_calc, a tool for performing simple per-pixel arithmetic
      operations on one or more images.
    * Added pc_merge, a simple tool for concatenating ASP produced
@@ -30,8 +32,6 @@
      grayscale image and a low resolution color image.
    * Added datum_convert, a tool to transform a projected image to a
      different datum (e.g., NAD27 to WGS84).
-   * Added sfs, a tool to refine DEMs using shape-from-shading. It works
-     only with ISIS images.
    * Added geodiff, a tool for taking the (absolute) difference of two 
      DEMs.
    * Documented the colormap tool. Added a new colormap option based 
@@ -112,11 +112,11 @@
    * Added the ability to fill holes in the output mosaic.
 
  - bundle_adjust
+    * Added new parameters, --ip-per-tile and --min-triangulation-angle.
     * Bug fix in handling situations when a point cannot get projected
       into the camera.
     * Bug fix in the camera adjustment logic. Any .adjust files may 
       need to be regenerated.
-    * Added new parameters, --ip-per-tile and --min-triangulation-angle.
 
  - image2qtree
    * Bug fixes.

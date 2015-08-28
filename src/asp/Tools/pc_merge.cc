@@ -56,7 +56,7 @@ struct Options : asp::BaseOptions {
   bool  write_double;  ///< If true, output file is double instead of float
 
   // Output
-  std::string out_path;
+  std::string out_file;
 
   Options() : write_double(false) {}
 };
@@ -66,7 +66,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::options_description general_options("General Options");
   general_options.add_options()
-    ("output-path,o",  po::value(&opt.out_path)->default_value(""),        "Specify the output path.")
+    ("output-file,o",  po::value(&opt.out_file)->default_value(""),        "Specify the output file.")
     ("write-double,d", po::value(&opt.write_double)->default_value(false), "Write a double precision output file.");
 
   general_options.add( asp::BaseOptionsDescription(opt) );
@@ -91,10 +91,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                             << usage << general_options );
   opt.pointcloud_files = vm["input-files"].as< std::vector<std::string> >();
 
-  if (opt.out_path == "")
-    vw_throw( ArgumentErr() << "The output path must be specified!\n"
-                            << usage << general_options );
+  if (opt.out_file == "")
+    vw_throw( ArgumentErr() << "The output file must be specified!\n"
+              << usage << general_options );
 
+  asp::create_out_dir(opt.out_file);
 }
 
 
@@ -136,7 +137,7 @@ Vector3 determine_output_shift(std::vector<std::string> const& pc_files, Options
   }
   if (shift_count < 0.9) // If no shifts read, don't use a shift.
     return Vector3(0,0,0);
-  
+
   // Compute the mean shift
   // - It would be more accurate to weight the shift according to the number of input points
   shift /= shift_count;
@@ -150,14 +151,14 @@ void do_work(Vector3 const& shift, Options const& opt) {
   // The spacing is selected to be compatible with the point2dem convention.
   const int spacing = asp::OrthoRasterizerView::max_subblock_size();
   ImageViewRef<PixelT> merged_cloud = asp::form_point_cloud_composite<PixelT>(opt.pointcloud_files, spacing);
-  
-  vw_out() << "Writing point cloud: " << opt.out_path << "\n";
+
+  vw_out() << "Writing point cloud: " << opt.out_file << "\n";
 
   // If shift != zero then this will cast the output data to type float.
   //  Otherwise it will keep its data type.
   double point_cloud_rounding_error = 0.0;
   asp::block_write_approx_gdal_image
-    ( opt.out_path, shift,
+    ( opt.out_file, shift,
       point_cloud_rounding_error,
       merged_cloud, opt,
       TerminalProgressCallback("asp", "\t--> Merging: "));
@@ -192,6 +193,3 @@ int main( int argc, char *argv[] ) {
 
   return 0;
 }
-
-
-

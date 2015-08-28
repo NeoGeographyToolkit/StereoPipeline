@@ -56,7 +56,7 @@ T rgbToYCbCr(T const& rgb, double min_val, double max_val) {
     if (temp[i] < min_val) ycbcr[i] = min_val;
     if (temp[i] > max_val) ycbcr[i] = max_val;
   }
-  return ycbcr;  
+  return ycbcr;
 }
 
 
@@ -70,7 +70,7 @@ T ycbcrToRgb(T const& ycbcr, double min_val, double max_val) {
   temp[0] = ycbcr[0]                                   + 1.402   * (ycbcr[2] - mean_val);
   temp[1] = ycbcr[0] - 0.34414 * (ycbcr[1] - mean_val) - 0.71414 * (ycbcr[2] - mean_val);
   temp[2] = ycbcr[0] + 1.772   * (ycbcr[1] - mean_val);
-  
+
   // Copy and constrain
   T rgb;
   for (int i=0; i<3; ++i)
@@ -92,7 +92,7 @@ template <class ImageGrayT, class ImageColorT, typename DataTypeT>
 class PanSharpView : public ImageViewBase<PanSharpView<ImageGrayT, ImageColorT, DataTypeT> > {
 
 public: // Definitions
-  
+
   typedef PixelRGB<DataTypeT> pixel_type;  // This is what controls the type of image that is written to disk.
   typedef pixel_type          result_type;
 
@@ -101,11 +101,11 @@ private: // Variables
   // TODO: These should be Ref views and masked?
   ImageGrayT  const& m_gray_image;
   ImageColorT const& m_color_image;
-  
+
   DataTypeT m_output_nodata;
   DataTypeT m_min_val;
   DataTypeT m_max_val;
-  
+
   int m_num_rows;
   int m_num_cols;
 
@@ -146,10 +146,10 @@ public: // Functions
     // Convert RGB to YCbCr
     P2 temp = rgbToYCbCr(color_pixel, m_min_val, m_max_val);
     result_type ycbcr_pixel(temp[0], temp[1], temp[2]); // Extra step breaks any type dependency from the inputs
-    
+
     // Replace Y channel with gray value
     ycbcr_pixel[0] = gray_pixel[0];
-    
+
     // Convert YCbCr back to RGB
     return ycbcrToRgb(ycbcr_pixel, m_min_val, m_max_val);
   }
@@ -164,7 +164,7 @@ public: // Functions
     // Loop through each output pixels and compute each output value
     for (int c = 0; c < bbox.width(); c++) {
       int source_c = c + bbox.min()[0];
-      for (int r = 0; r < bbox.height(); r++) { 
+      for (int r = 0; r < bbox.height(); r++) {
         int source_r = r + bbox.min()[1];
 
         // Check for a masked pixel
@@ -176,7 +176,7 @@ public: // Functions
 
         // Pass the two input pixels into the conversion function
         //result_type output_pixel = convert_pixel(m_gray_image(source_c, r), m_color_image(source_c, r));
-        tile(c,r) = convert_pixel(m_gray_image (source_c, source_r), 
+        tile(c,r) = convert_pixel(m_gray_image (source_c, source_r),
                                   m_color_image(source_c, source_r));
 
       } // End row loop
@@ -214,12 +214,12 @@ inline pansharp_view( ImageGrayT  const& gray_image,
 //-------------------------------------------------------------------------------------
 
 struct Options : asp::BaseOptions {
-  string gray_path,
-         gray_xml_path,
-         color_path,
-         color_xml_path, 
-         output_path;
-  double nodata_value, 
+  string gray_file,
+         gray_xml_file,
+         color_file,
+         color_xml_file,
+         output_file;
+  double nodata_value,
          min_value,
          max_value;
   bool has_nodata;
@@ -230,31 +230,31 @@ const double DEFAULT_NODATA = -std::numeric_limits<double>::max();
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("min-value", po::value(&opt.min_value)->default_value(0), 
+    ("min-value", po::value(&opt.min_value)->default_value(0),
              "Set this as the minimum legal image value, overriding the data type default.")
-    ("max-value", po::value(&opt.max_value)->default_value(0), 
+    ("max-value", po::value(&opt.max_value)->default_value(0),
              "Set this as the maximum legal image value, overriding the data type default.")
 
-    ("gray-xml", po::value(&opt.gray_xml_path)->default_value(""), 
-             "Path to a WV XML file for the gray image.  Can be used to obtain the geo data.")             
-    ("color-xml", po::value(&opt.color_xml_path)->default_value(""), 
-             "Path to a WV XML file for the color image.  Can be used to obtain the geo data.")             
-    ("nodata-value", po::value(&opt.nodata_value)->default_value(DEFAULT_NODATA), 
+    ("gray-xml", po::value(&opt.gray_xml_file)->default_value(""),
+             "Path to a WV XML file for the gray image.  Can be used to obtain the geo data.")
+    ("color-xml", po::value(&opt.color_xml_file)->default_value(""),
+             "Path to a WV XML file for the color image.  Can be used to obtain the geo data.")
+    ("nodata-value", po::value(&opt.nodata_value)->default_value(DEFAULT_NODATA),
              "The no-data value to use, unless present in the color image header.");
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
-    ("gray_path",   po::value(&opt.gray_path),   "The gray image path")
-    ("color_path",  po::value(&opt.color_path),  "The color image path")
-    ("output_path", po::value(&opt.output_path), "The output path");
-    
-  po::positional_options_description positional_desc;
-  positional_desc.add("gray_path",   1);
-  positional_desc.add("color_path",  1);
-  positional_desc.add("output_path", 1);
+    ("gray_file",   po::value(&opt.gray_file),   "The gray image file")
+    ("color_file",  po::value(&opt.color_file),  "The color image file")
+    ("output_file", po::value(&opt.output_file), "The output file");
 
-  std::string usage("[options] <gray path> <color path> <output path>");
+  po::positional_options_description positional_desc;
+  positional_desc.add("gray_file",   1);
+  positional_desc.add("color_file",  1);
+  positional_desc.add("output_file", 1);
+
+  std::string usage("[options] <gray file> <color file> <output file>");
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
@@ -262,22 +262,24 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                              positional, positional_desc, usage,
                              allow_unregistered, unregistered );
 
-  if ( opt.gray_path.empty() || opt.color_path.empty() || opt.output_path.empty())
-    vw_throw( ArgumentErr() 
-         << "Requires <gray path>, <color path>, and <output path> in order to proceed.\n\n" 
+  if ( opt.gray_file.empty() || opt.color_file.empty() || opt.output_file.empty())
+    vw_throw( ArgumentErr()
+         << "Requires <gray file>, <color file>, and <output file> in order to proceed.\n\n"
          << usage << general_options );
-         
+
   if (opt.min_value > opt.max_value)
     vw_throw( ArgumentErr() << "The minimum value cannot be greater than the maximum value!\n\n");
 
   // Determine if the user entered a nodata value
   opt.has_nodata = vm.count("output-nodata-value");
+
+  asp::create_out_dir(opt.output_file);
 }
 
 
 /// Load and process the images with the correct data type
 template <typename T>
-void load_inputs_and_process(Options           & opt, 
+void load_inputs_and_process(Options           & opt,
                              GeoReference const& gray_georef,
                              GeoReference const& color_georef,
                              double       const& gray_nodata,
@@ -296,50 +298,51 @@ void load_inputs_and_process(Options           & opt,
   std::cout << "Out   nodata: " << (double)opt.nodata_value << std::endl;
 
   // Set up file handles
-  DiskImageResourceGDAL gray_rsrc(opt.gray_path), 
-                        color_rsrc(opt.color_path);
+  DiskImageResourceGDAL gray_rsrc(opt.gray_file),
+                        color_rsrc(opt.color_file);
   DiskImageView<PixelGray<T> > gray_img (gray_rsrc);
   DiskImageView<PixelRGB <T> > color_img(color_rsrc);
 
   // Generate a bounding box that is the minimum of the two BBox areas
   BBox2 crop_box = bounding_box( gray_img );
-  crop_box.crop(gray_georef.lonlat_to_pixel_bbox(color_georef.pixel_to_lonlat_bbox(bounding_box( color_img ))));   
- 
+  crop_box.crop(gray_georef.lonlat_to_pixel_bbox(color_georef.pixel_to_lonlat_bbox(bounding_box( color_img ))));
+
   // Processing is done on doubles to handle nodata values, then converted to the desired output type.
 
   // Generate a view of the color image from the pixel coordinate system of the gray image
   typedef PixelMask<PixelRGB<double> > PixelRGBMaskD;
   typedef PixelMask<PixelRGB<T     > > PixelRGBMask;
   ImageViewRef<PixelRGBMaskD> color_trans =
-    crop(geo_transform( create_mask(pixel_cast<PixelRGBMaskD>(color_img), 
+    crop(geo_transform( create_mask(pixel_cast<PixelRGBMaskD>(color_img),
                                                   color_nodata),
                         color_georef, gray_georef,
                         ValueEdgeExtension<PixelRGBMaskD>(PixelRGBMaskD()) ),
          crop_box );
-        
-         
+
+
   // WorldView convention is to mask <= a value, but this may not be a universal standard!
   // - create_mask_less_or_equal seems to break on PixelRGB types.
-  
-  vw_out() << "Writing: " << opt.output_path << std::endl;
-  asp::block_write_gdal_image( opt.output_path,
+
+  vw_out() << "Writing: " << opt.output_file << std::endl;
+  asp::block_write_gdal_image( opt.output_file,
                                // The final output image is set up in these few lines:
-                               pixel_cast<PixelRGBMask>(
-                                        apply_mask(pansharp_view(crop(create_mask_less_or_equal(pixel_cast<double>(gray_img), 
-                                                                                               gray_nodata), 
-                                                                                 crop_box),
-                                                                            color_trans,
-                                                                            opt.nodata_value,
-                                                                            opt.min_value,
-                                                                            opt.max_value),
-                                                              opt.nodata_value)
-                                      ),
+                               pixel_cast<PixelRGBMask>
+                               (apply_mask(pansharp_view
+                                           (crop(create_mask_less_or_equal
+                                                 (pixel_cast<double>(gray_img),
+                                                  gray_nodata),
+                                                 crop_box),
+                                            color_trans,
+                                            opt.nodata_value,
+                                            opt.min_value,
+                                            opt.max_value),
+                                           opt.nodata_value)
+                                ),
                                true, gray_georef, // The output is written in the gray coordinate system
                                opt.has_nodata, opt.nodata_value,
                                opt,
                                TerminalProgressCallback("pansharp","\t--> Writing:"));
 }
-
 
 int main( int argc, char *argv[] ) {
 
@@ -347,9 +350,9 @@ int main( int argc, char *argv[] ) {
   //try {
     handle_arguments( argc, argv, opt );
 
-    DiskImageResourceGDAL gray_rsrc(opt.gray_path), 
-                          color_rsrc(opt.color_path);
-                          
+    DiskImageResourceGDAL gray_rsrc(opt.gray_file),
+                          color_rsrc(opt.color_file);
+
     double gray_nodata  = opt.nodata_value;
     double color_nodata = opt.nodata_value;
     if ( gray_rsrc.has_nodata_read() ) {
@@ -369,8 +372,8 @@ int main( int argc, char *argv[] ) {
 
     // Read in geo information
     GeoReference gray_georef, color_georef;
-    if (!asp::read_wv_georeference(gray_georef,  opt.gray_path,  opt.gray_xml_path ) ||
-        !asp::read_wv_georeference(color_georef, opt.color_path, opt.color_xml_path)   ) {
+    if (!asp::read_wv_georeference(gray_georef,  opt.gray_file,  opt.gray_xml_file ) ||
+        !asp::read_wv_georeference(color_georef, opt.color_file, opt.color_xml_file)   ) {
       vw_throw(ArgumentErr() << "Could not read a georeference from an input image!\n");
     }
 

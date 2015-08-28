@@ -279,8 +279,8 @@ namespace vw { namespace gui {
 
     double scale       = 0.0;
     double blur_sigma  = std::numeric_limits<double>::quiet_NaN();
-    double nodata_val  = -std::numeric_limits<double>::max();
-    bool has_nodata    = vw::read_nodata_val(input_file, nodata_val);
+    double nodata_val  = std::numeric_limits<double>::quiet_NaN();
+    vw::read_nodata_val(input_file, nodata_val);
     std::string suffix = "_hillshade.tif";
 
     output_file = filename_from_suffix1(input_file, suffix);
