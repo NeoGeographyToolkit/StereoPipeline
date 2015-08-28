@@ -134,10 +134,21 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
                                     Options const& opt ) {
   // Write Good Pixel Map
   // Sub-sampling so that the user can actually view it.
-  float sub_scale = float( min( inputview.impl().cols(),
+  double sub_scale = double( min( inputview.impl().cols(),
                                 inputview.impl().rows() ) ) / 2048.0;
   if (sub_scale < 1) // Don't use a sub_scale less than one.
     sub_scale = 1;
+
+  // Write out the good pixel map
+  std::string goodPixelFile = opt.out_prefix + "-GoodPixelMap.tif";
+  vw_out() << "Writing: " << goodPixelFile << std::endl;
+  ImageViewRef<  PixelRGB<uint8> > goodPixelImage
+    = subsample(apply_mask
+                (copy_mask
+                 (stereo::missing_pixel_image(inputview.impl()),
+                  create_mask(DiskImageView<vw::uint8>(opt.out_prefix+"-lMask.tif"), 0)
+                  )
+                 ), sub_scale);
 
   // Determine if we can attach geo information to the output image
   bool has_georef = (  (opt.session->uses_map_projected_inputs()) &&
@@ -146,25 +157,15 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
   if (has_georef) {
     if (!read_georeference(left_georef, opt.in_file1))
       has_georef = false;
-    // Account for sub_scale
-    good_pixel_georef = resample(left_georef, sub_scale);
+    // Account for scale. Note that goodPixelImage is not guaranteed to respect
+    // the sub_scale factor above, hence this calculation.
+    double good_pixel_scale = 0.5*( double(goodPixelImage.cols())/inputview.impl().cols()
+                                    + double(goodPixelImage.rows())/inputview.impl().rows());
+    good_pixel_georef = resample(left_georef, good_pixel_scale);
   }
 
-  // Write out the good pixel map
-  std::string goodPixelFile = opt.out_prefix + "-GoodPixelMap.tif";
-  vw_out() << "Writing: " << goodPixelFile << std::endl;
   asp::block_write_gdal_image
-    ( goodPixelFile,
-      subsample
-      (apply_mask
-       (copy_mask
-        (stereo::missing_pixel_image(inputview.impl()),
-         create_mask(DiskImageView<vw::uint8>(opt.out_prefix+"-lMask.tif"), 0)
-         )
-        ),
-       sub_scale
-       ),
-      has_georef, good_pixel_georef,
+    ( goodPixelFile, goodPixelImage, has_georef, good_pixel_georef,
       false, 0, // Not using nodata
       opt, TerminalProgressCallback("asp", "\t--> Good pixel map: ") );
 
