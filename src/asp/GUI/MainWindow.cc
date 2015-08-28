@@ -220,8 +220,9 @@ void MainWindow::createMenus() {
 
   // View overlayed
   m_viewOverlayedImages_action = new QAction(tr("Overlay georeferenced images"), this);
-  m_viewOverlayedImages_action->setStatusTip(tr("View hillshaded images."));
+  m_viewOverlayedImages_action->setStatusTip(tr("Overlay georeferenced images."));
   m_viewOverlayedImages_action->setCheckable(true);
+  m_viewOverlayedImages_action->setChecked(m_use_georef);
   connect(m_viewOverlayedImages_action, SIGNAL(triggered()), this, SLOT(viewOverlayedImages()));
 
   m_viewMatches_action = new QAction(tr("Show IP matches"), this);
@@ -513,17 +514,17 @@ void MainWindow::viewUnthreshImages() {
 }
 
 void MainWindow::viewHillshadedImages() {
-  bool on = m_viewHillshadedImages_action->isChecked();
+  m_hillshade = m_viewHillshadedImages_action->isChecked();
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (m_widgets[i]) {
-      m_widgets[i]->viewHillshadedImages(on);
+      m_widgets[i]->viewHillshadedImages(m_hillshade);
     }
   }
 }
 
 void MainWindow::viewOverlayedImages() {
-  bool on = m_viewOverlayedImages_action->isChecked();
-  if (on) {
+  m_use_georef = m_viewOverlayedImages_action->isChecked();
+  if (m_use_georef) {
 
     // Will show in single window with georef. Must first check if all images
     // have georef.
@@ -538,9 +539,7 @@ void MainWindow::viewOverlayedImages() {
 
     m_view_type_old = m_view_type; // back this up
     m_view_type = VIEW_IN_SINGLE_WINDOW;
-    m_use_georef = true;
   }else{
-    m_use_georef = false;
     m_view_type = m_view_type_old; // restore this
   }
 

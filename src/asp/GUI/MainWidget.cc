@@ -852,8 +852,15 @@ namespace vw { namespace gui {
 
       // See where it fits on the screen
       BBox2i screen_box;
-      screen_box.grow(round(world2screen(world_box.min())));
-      screen_box.grow(round(world2screen(world_box.max())));
+
+      screen_box.grow(floor(world2screen(world_box.min())));
+      screen_box.grow(ceil(world2screen(world_box.max())));
+
+      // Ensure the screen box is never empty
+      if (screen_box.min().x() >= screen_box.max().x())
+        screen_box.max().x() = screen_box.min().x() + 1;
+      if (screen_box.min().y() >= screen_box.max().y())
+        screen_box.max().y() = screen_box.min().y() + 1;
 
       // Go from world coordinates to pixels in the second image.
       BBox2i image_box = MainWidget::world2image(world_box, i);
@@ -1314,8 +1321,10 @@ namespace vw { namespace gui {
         Vector2 B = screen2world(Vector2(mouseRelX, mouseRelY));
         BBox2 view = BBox2(A, B);
 
-        // Zoom to this window
-        m_current_view = expand_box_to_keep_aspect_ratio(view);
+        // Zoom to this window. Don't zoom so much that the view box
+        // ends up having size 0 to numerical precision.
+        if (!view.empty())
+          m_current_view = expand_box_to_keep_aspect_ratio(view);
 
         // Must redraw the entire image
         refreshPixmap();
