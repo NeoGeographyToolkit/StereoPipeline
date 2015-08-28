@@ -492,6 +492,51 @@ public:
 }; // End class DemMosaicView
 
 
+/// Find the bounding box of all DEMs in the projected space.
+void load_dem_bounding_boxes(Options       const& opt,
+                             GeoReference  const& out_georef,
+                             BBox2              & mosaic_bbox,
+                             std::vector<BBox2> & dem_bboxes) {
+
+    vw_out() << "Determining bounding boxes of the input DEMs.\n";
+    TerminalProgressCallback tpc("", "\t--> ");
+    tpc.report_progress(0);
+    double inc_amount = 1.0 / double(opt.dem_files.size() );
+
+    for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++){ // Loop through all DEMs
+
+      // Open a handle to this DEM file
+      DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
+      DiskImageView<RealT>  img(opt.dem_files[dem_iter]);
+      GeoReference          georef = read_georef(opt.dem_files[dem_iter]);
+
+      // Compute bounding box of this DEM
+      if (out_georef.overall_proj4_str() == georef.overall_proj4_str()){
+        BBox2 proj_box = georef.bounding_box(img);
+        mosaic_bbox.grow(proj_box);
+        dem_bboxes.push_back(proj_box);
+      }else{
+        // Compute the bounding box of the current image in projected coordinates of the mosaic.
+        BBox2 imgbox     = bounding_box(img);
+        BBox2 lonlat_box = georef.pixel_to_lonlat_bbox(imgbox);
+
+        // Must compensate for the fact that the lonlat
+        // of the two images can differ by 360 degrees.
+        Vector2 old_orgin = georef.pixel_to_lonlat(Vector2(0, 0));
+        Vector2 new_orgin = out_georef.pixel_to_lonlat(Vector2(0, 0));
+        Vector2 offset( 360.0*round( (new_orgin[0] - old_orgin[0])/360.0 ), 0.0 );
+        lonlat_box += offset;
+        BBox2 proj_box = out_georef.lonlat_to_point_bbox(lonlat_box);
+        mosaic_bbox.grow(proj_box);
+        dem_bboxes.push_back(proj_box);
+      }
+
+      tpc.report_incremental_progress( inc_amount );
+    } // End loop through DEM files
+    tpc.report_finished();
+} // End function load_dem_bounding_boxes
+
+
 void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::options_description general_options("Options");
@@ -708,58 +753,12 @@ int main( int argc, char *argv[] ) {
     }
     opt.tile_size = std::max(opt.tile_size, 1);
 
-    // Store the no-data values, pointers to images, and georeferences
-    // (for speed). Find the bounding box of all DEMs in the projected space.
-    vw_out() << "Reading the input DEMs.\n";
-    TerminalProgressCallback tpc("", "\t--> ");
-    tpc.report_progress(0);
-    double inc_amount = 1.0 / double(opt.dem_files.size() );
-    vector< RealT               > nodata_values;
-    vector< ImageViewRef<RealT> > images;
-    vector< GeoReference        > georefs;
+
+    // Load the bounding boxes from all of the DEMs
     BBox2 mosaic_bbox;
     vector<BBox2> dem_bboxes;
-    for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++){ // Loop through all DEMs
+    load_dem_bounding_boxes(opt, out_georef, mosaic_bbox, dem_bboxes);
 
-      // Open a handle to this DEM file
-      double curr_nodata_value = opt.out_nodata_value;
-      DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
-      if ( in_rsrc.has_nodata_read() )
-        curr_nodata_value = in_rsrc.nodata_read();
-      GeoReference georef = read_georef(opt.dem_files[dem_iter]);
-      DiskImageView<RealT> img(opt.dem_files[dem_iter]);
-
-      // Compute bounding box of this DEM
-      if (out_georef.overall_proj4_str() == georef.overall_proj4_str()){
-        BBox2 proj_box = georef.bounding_box(img);
-        mosaic_bbox.grow(proj_box);
-        dem_bboxes.push_back(proj_box);
-      }else{
-
-        // Compute the bounding box of the current image
-        // in projected coordinates of the mosaic.
-        BBox2 imgbox     = bounding_box(img);
-        BBox2 lonlat_box = georef.pixel_to_lonlat_bbox(imgbox);
-
-        // Must compensate for the fact that the lonlat
-        // of the two images can differ by 360 degrees.
-        Vector2 old_orgin = georef.pixel_to_lonlat(Vector2(0, 0));
-        Vector2 new_orgin = out_georef.pixel_to_lonlat(Vector2(0, 0));
-        Vector2 offset( 360.0*round( (new_orgin[0] - old_orgin[0])/360.0 ), 0.0 );
-        lonlat_box += offset;
-        BBox2 proj_box = out_georef.lonlat_to_point_bbox(lonlat_box);
-        mosaic_bbox.grow(proj_box);
-        dem_bboxes.push_back(proj_box);
-      }
-
-      // Add the info for this DEM to the appropriate vectors
-      nodata_values.push_back(curr_nodata_value);
-      images.push_back(img);
-      georefs.push_back(georef);
-
-      tpc.report_incremental_progress( inc_amount );
-    } // End loop through DEM files
-    tpc.report_finished();
 
     // If to create the mosaic only in a given region
     if (opt.projwin != BBox2())
@@ -825,15 +824,76 @@ int main( int argc, char *argv[] ) {
       end_tile = num_tiles;
     }
 
+    // Compute the bounding box of each output tile
+    std::vector<BBox2i> tile_pixel_bboxes;
+    for (int tile_id = start_tile; tile_id < end_tile; tile_id++){
+
+      int tile_index_y = tile_id / num_tiles_x;
+      int tile_index_x = tile_id - tile_index_y*num_tiles_x;
+      BBox2i tile_box(tile_index_x*opt.tile_size, 
+                      tile_index_y*opt.tile_size,
+                      opt.tile_size, opt.tile_size);
+      tile_box.crop(BBox2i(0, 0, cols, rows)); // Bounding box of this tile in pixels in the output image
+     
+      tile_pixel_bboxes.push_back(tile_box);
+    }
+
+
+    // Store the no-data values, pointers to images, and georeferences (for speed).
+    vw_out() << "Reading the input DEMs.\n";
+    TerminalProgressCallback tpc("", "\t--> ");
+    tpc.report_progress(0);
+    double inc_amount = 1.0 / double(opt.dem_files.size() );
+    vector< RealT               > nodata_values;
+    vector< ImageViewRef<RealT> > images;
+    vector< GeoReference        > georefs;
+    for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++){ // Loop through all DEMs
+
+      // Get the DEM bounding box that we previously computed (output projected coords)
+      BBox2 dem_bbox = dem_bboxes[dem_iter];
+
+      // Go through each of the tile bounding boxes and see they intersect this DEM
+      bool use_this_dem = false;
+      for (int tile_id = start_tile; tile_id < end_tile; tile_id++){
+        // Get tile bbox in pixels, then convert it to projected coords.
+        BBox2i tile_pixel_box = tile_pixel_bboxes[tile_id - start_tile];        
+        BBox2  tile_proj_box   = out_georef.pixel_to_point_bbox(tile_pixel_box);
+
+        if (tile_proj_box.intersects(dem_bbox)) {
+          use_this_dem = true;
+          break;
+        }
+      }
+      if (use_this_dem == false)
+        continue; // Skip to the next DEM if we don't need this one.
+
+      vw_out() << "Loading DEM: " << opt.dem_files[dem_iter] << std::endl;
+
+      // Open a handle to this DEM file
+      double curr_nodata_value = opt.out_nodata_value;
+      DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
+      if ( in_rsrc.has_nodata_read() )
+        curr_nodata_value = in_rsrc.nodata_read();
+      GeoReference georef = read_georef(opt.dem_files[dem_iter]);
+      DiskImageView<RealT> img(opt.dem_files[dem_iter]);
+
+      // Add the info for this DEM to the appropriate vectors
+      nodata_values.push_back(curr_nodata_value);
+      images.push_back(img);
+      georefs.push_back(georef);
+
+      tpc.report_incremental_progress( inc_amount );
+    } // End loop through DEM files
+    tpc.report_finished();
+
+
+
     // Time to generate each of the output tiles
     for (int tile_id = start_tile; tile_id < end_tile; tile_id++){
 
-      // Get the information for this tile
-      int tile_index_y = tile_id / num_tiles_x;
-      int tile_index_x = tile_id - tile_index_y*num_tiles_x;
-      BBox2i tile_box(tile_index_x*opt.tile_size, tile_index_y*opt.tile_size,
-                      opt.tile_size, opt.tile_size);
-      tile_box.crop(BBox2i(0, 0, cols, rows));
+      // Get the bounding box we previously computed
+      BBox2i tile_box = tile_pixel_bboxes[tile_id - start_tile];
+
       ostringstream os;
       os << opt.out_prefix << "-tile-" << tile_suffix(opt) << tile_id << ".tif";
       std::string dem_tile = os.str();
