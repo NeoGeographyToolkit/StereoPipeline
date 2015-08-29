@@ -64,8 +64,10 @@ namespace vw { namespace gui {
     void viewSingleWindow();
     void viewSideBySide();
     void viewAsTiles();
+    void viewExistingMatches();
     void viewMatches();
     void hideMatches();
+    void addDelMatches();
     void saveMatches();
     void run_stereo();
     void run_parallel_stereo();
@@ -120,6 +122,7 @@ namespace vw { namespace gui {
     QAction *m_viewUnthreshImages_action;
     QAction *m_viewMatches_action;
     QAction *m_hideMatches_action;
+    QAction *m_addDelMatches_action;
     QAction *m_saveMatches_action;
     QAction *m_run_stereo_action;
     QAction *m_run_parallel_stereo_action;

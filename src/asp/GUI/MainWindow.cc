@@ -160,7 +160,7 @@ void MainWindow::createLayout() {
 
     // Intercept this widget's request to view (or refresh) the matches in all
     // the widgets, not just this one's.
-    connect(m_widgets[i], SIGNAL(refreshAllMatches()), this, SLOT(viewMatches()));
+    connect(m_widgets[i], SIGNAL(refreshAllMatches()), this, SLOT(viewExistingMatches()));
   }
   QWidget *container = new QWidget(centralWidget);
   container->setLayout(grid);
@@ -233,6 +233,10 @@ void MainWindow::createMenus() {
   m_hideMatches_action->setStatusTip(tr("Hide interest point matches."));
   connect(m_hideMatches_action, SIGNAL(triggered()), this, SLOT(hideMatches()));
 
+  m_addDelMatches_action = new QAction(tr("Add/delete IP matches"), this);
+  m_addDelMatches_action->setStatusTip(tr("Add/delete interest point matches."));
+  connect(m_addDelMatches_action, SIGNAL(triggered()), this, SLOT(addDelMatches()));
+
   m_saveMatches_action = new QAction(tr("Save IP matches"), this);
   m_saveMatches_action->setStatusTip(tr("Save interest point matches."));
   connect(m_saveMatches_action, SIGNAL(triggered()), this, SLOT(saveMatches()));
@@ -253,7 +257,7 @@ void MainWindow::createMenus() {
   m_viewUnthreshImages_action->setStatusTip(tr("View un-thresholded images."));
   connect(m_viewUnthreshImages_action, SIGNAL(triggered()), this, SLOT(viewUnthreshImages()));
 
-  // The About Box
+  // The About box
   m_about_action = new QAction(tr("About stereo_gui"), this);
   m_about_action->setStatusTip(tr("Show the stereo_gui about box."));
   connect(m_about_action, SIGNAL(triggered()), this, SLOT(about()));
@@ -280,6 +284,7 @@ void MainWindow::createMenus() {
   m_matches_menu = menu->addMenu(tr("&IP matches"));
   m_matches_menu->addAction(m_viewMatches_action);
   m_matches_menu->addAction(m_hideMatches_action);
+  m_matches_menu->addAction(m_addDelMatches_action);
   m_matches_menu->addAction(m_saveMatches_action);
 
   // Threshold menu
@@ -340,6 +345,13 @@ void MainWindow::viewAsTiles(){
   createLayout();
 }
 
+void MainWindow::viewExistingMatches(){
+  // This function will be invoked after matches got deleted. Since we had matches,
+  // we must set m_matches_were_loaded to true.
+  m_matches_were_loaded = true;
+  MainWindow::viewMatches();
+}
+
 void MainWindow::viewMatches(){
 
   // We will load the matches just once, as we later will add/delete matches manually
@@ -387,7 +399,7 @@ void MainWindow::viewMatches(){
     }
 
     if (m_matches.empty() || m_matches[0].empty()) {
-      popUp("Could not load any matches");
+      popUp("Could not load any matches.");
       return;
     }
   }
@@ -438,6 +450,10 @@ void MainWindow::saveMatches(){
   m_matches_were_loaded = true;
 }
 
+void MainWindow::addDelMatches(){
+  popUp("Right-click on images to add/delete interest point matches.");
+  return;
+}
 
 void MainWindow::run_stereo_or_parallel_stereo(std::string const& cmd){
 
