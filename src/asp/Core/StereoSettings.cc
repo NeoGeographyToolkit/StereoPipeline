@@ -280,7 +280,7 @@ namespace asp {
       ("use-georef",   po::bool_switch(&global.use_georef)->default_value(false)->implicit_value(true),
        "Plot the images in the projected coordinate system given by the georeference of the images.")
       ("hillshade",   po::bool_switch(&global.hillshade)->default_value(false)->implicit_value(true),
-       "Interpret the input images as DEM and hillshade them.");
+       "Interpret the input images as DEMs and hillshade them.");
   }
 
   DGDescription::DGDescription() : po::options_description("DG Options") {

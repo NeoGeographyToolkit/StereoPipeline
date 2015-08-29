@@ -135,7 +135,7 @@ def main():
             parser.add_option("-o", "--lon", dest="lon",
                               help="Longitude range for cam2map where LON is minlon:maxlon.")
             parser.add_option("--prefix", dest="prefix",
-                              help="Make all output files use this prefix.")
+                              help="Make all output files use this prefix. Default: no prefix.")
             parser.add_option("-s", "--suffix", dest="suffix",
                               help="Suffix that gets inserted in the output file names.")
             parser.add_option("-n", "--dry-run", dest="dryrun",

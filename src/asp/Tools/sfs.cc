@@ -1323,7 +1323,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(0.04),
      "A larger value will result in a smoother solution.")
     ("coarse-levels", po::value(&opt.coarse_levels)->default_value(0),
-     "Solve the problem on a grid coarser than the original by a factor of 2 to this power, then refine the solution on finer grids (experimental).")
+     "Solve the problem on a grid coarser than the original by a factor of 2 to this power, then refine the solution on finer grids.")
     ("max-coarse-iterations,n", po::value(&opt.max_coarse_iterations)->default_value(50),
      "How many iterations to do at levels of resolution coarser than the final result.")
     ("float-albedo",   po::bool_switch(&opt.float_albedo)->default_value(false)->implicit_value(true),
@@ -1339,7 +1339,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("use-approx-camera-models",   po::bool_switch(&opt.use_approx_camera_models)->default_value(false)->implicit_value(true),
      "Use approximate camera models for speed.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
-     "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.")
+     "Use the camera adjustments obtained by previously running bundle_adjust with this output prefix.")
     ("image-exposures", po::value(&opt.image_exposures)->default_value(""),
      "Optional initial guess image exposures to use, otherwise they are computed automatically (a list of real values in quotes).")
     ("init-dem-height", po::value(&opt.init_dem_height)->default_value(std::numeric_limits<double>::quiet_NaN()),

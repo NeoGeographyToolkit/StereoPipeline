@@ -27,10 +27,6 @@ library has its own versioning.
   - Build the documentation in StereoPipeline/docs/book. Must do
     make distclean at the top level first, to force that the ASP
     version gets updated.
-  - Greatly reduce the size of the pdf with:
-    gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/ebook \
-       -dNOPAUSE -dQUIET -dBATCH -sOutputFile=output.pdf asp_book.pdf
-    (this only works with some version of gs, such as on lunokhod1).
   - Copy the obtained pdf file to BinaryBuilder/dist-add/asp_book.pdf.
   - Build the ASP release tarball, see BinaryBuilder/README,
     section 3.B, part 2.

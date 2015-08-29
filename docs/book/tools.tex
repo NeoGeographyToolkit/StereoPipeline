@@ -237,7 +237,7 @@ Option & Description \\ \hline \hline
 \texttt{-\/-window-size arg (=1200 800)} & The width and height of the GUI window in pixels.\\ \hline
 \texttt{-w | -\/-single-window } & Show all images in the same window (with a dialog to choose among them) rather than next to each other.\\ \hline
 \texttt{-\/-use-georef} & Plot the images in the projected coordinate system given by image georeferences.\\ \hline
-\texttt{-\/-hillshade} & Interpret the input images as DEM and hillshade them.\\ \hline
+\texttt{-\/-hillshade} & Interpret the input images as DEMs and hillshade them.\\ \hline
 \texttt{-h | -\/-help } & Display this help message.\\ \hline
 \end{longtable}
 
@@ -421,7 +421,7 @@ from: Cauchy, PseudoHuber, Huber, L1, L2. \\ \hline
 cost functions.\\ \hline
 
 \texttt{-\/-datum \textit{string}} & Use this datum (needed only if ground control
-points are used). Options: WGS\_1984, D\_MOON (radius = 1,737,400 meters), D\_MARS
+points are used). Options: WGS\_1984, D\_MOON (radius = 1,737,400 meters), and D\_MARS
 (radius = 3,396,190~m), etc.  \\ \hline
 
 \texttt{-\/-semi-major-axis \textit{double}} & Explicitly set the datum semi-major axis
@@ -1216,6 +1216,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-lat=\textit{LAT}|-a \textit{LAT}} & Latitude range for \texttt{cam2map}, where \texttt{LAT} is of the form \textit{min:max}.  So to specify a latitude range between -5 and 10 degrees, it would look like \texttt{-\/-lat=-5:10}. \\ \hline
 \texttt{-\/-lon=\textit{LON}|-o \textit{LON}} & Longitude range for \texttt{cam2map}, where \texttt{LON} is of the form \textit{min:max}.  So to specify a longitude range between 45 and 47 degrees, it would look like \texttt{-\/-lon=40:47}. \\ \hline
 \texttt{-\/-dry-run|-n} & Make calculations, and print the \texttt{cam2map} command that would be executed, but don't actually run it.\\ \hline
+\texttt{-\/-prefix} & Make all output files use this prefix. Default: no prefix.\\ \hline
 \texttt{-\/-suffix|-s} & Suffix that gets inserted in the output file names, defaults to `map'.\\ \hline
 \end{longtable}
 
@@ -1230,7 +1231,8 @@ This tool reads in a high resolution grayscale file and a low resolution RGB fil
 a high resolution RGB file.  The output image will be at the resolution of the grayscale image
 and will cover the region where the two images overlap.  Both images must have georeferencing
 information.  This can either be projection information in the image metadata or it can be a
-separate Worldview format XML file containing four ground control points.
+separate Worldview format XML camera file containing four ground control points
+(if using the tool with Digital Globe images).
 
 
 \medskip
@@ -1271,7 +1273,8 @@ Intuitively, the input and output DEMs should correspond to the same
 point cloud in 3D space up to the interpolation errors required to
 perform the conversion.
 
-Supported options for <output datum> are: WGS84, NAD27, NAD83, D\_MOON (radius = 1,737,400~m), D\_MARS (radius = 3,396,190~m).
+Supported options for <output datum> are: WGS84, NAD27, NAD83, D\_MOON
+(radius = 1,737,400~m), and D\_MARS (radius = 3,396,190~m).
 
 \medskip
 
@@ -1768,8 +1771,8 @@ Option & Description \\ \hline \hline
 \verb#--help# & Display a help message\\ \hline
 \verb#--input-file arg# & Explicitly specify the input file\\ \hline
 \verb#-o [ --output-file ] arg# & Specify the output file\\ \hline
-\verb#-a [ --azimuth ] arg (=0)# & Sets the direction that the light source is coming from (in degrees).  Zero degrees is to the right, with positive degree counter-clockwise.\\ \hline
-\verb#-e [ --elevation ] arg (=45)# & Set the elevation of the light source (in degrees)\\ \hline
+\verb#-a [ --azimuth ] arg (=300)# & Sets the direction that the light source is coming from (in degrees).  Zero degrees is to the right, with positive degree counter-clockwise.\\ \hline
+\verb#-e [ --elevation ] arg (=20)# & Set the elevation of the light source (in degrees)\\ \hline
 \verb#-s [ --scale ] arg (=0)# & Set the scale of a pixel (in the same units as the DTM height values\\ \hline
 \verb#--nodata-value arg# & Remap the DEM default value to the min altitude value\\ \hline
 \verb#--blur arg# & Pre-blur the DEM with the specified sigma\\ \hline
@@ -1882,8 +1885,9 @@ Option & Description \\ \hline \hline
 \section{sfs}
 \label{sfs}
 
-Here we describe ASP's shape-from-shading tool, named
-\texttt{sfs}. Examples for how to use it are in chapter \ref{ch:sfs}.
+The \texttt{sfs} tool can improve a DEM using
+shape-from-shading. Examples for how to use it are in chapter
+\ref{ch:sfs}.
 
 \begin{longtable}{|l|p{7.5cm}|}
 \caption{Command-line options for sfs}
@@ -1899,7 +1903,7 @@ Option & Description \\ \hline \hline
 \texttt{-n | -\/-max-iterations \textit{int(=100)}} & Set the maximum number of iterations.\\ \hline
 \texttt{-\/-reflectance-type \textit{int(=1)}} & Reflectance type (0 = Lambertian, 1 = Lunar Lambertian).\\ \hline
 \texttt{-\/-smoothness-weight \textit{double(=0.04)}} & A larger value will result in a smoother solution.\\ \hline
-\texttt{-\/-coarse-levels \textit{int(=0)}} & Solve the problem on a grid coarser than the original by a factor of 2 to this power, then refine the solution on finer grids (experimental).\\ \hline
+\texttt{-\/-coarse-levels \textit{int(=0)}} & Solve the problem on a grid coarser than the original by a factor of 2 to this power, then refine the solution on finer grids.\\ \hline
 \texttt{-n | -\/-max-coarse-iterations \textit{int(=50)}} & How many iterations to do at levels of resolution coarser than the final result.\\ \hline
 \texttt{-\/-float-albedo} & Float the albedo for each pixel. Will give incorrect results if only one image is present.\\ \hline
 \texttt{-\/-float-exposure} & Float the exposure for each image. Will give incorrect results if only one image is present.\\ \hline
@@ -1908,7 +1912,7 @@ Option & Description \\ \hline \hline
 are in the shadow (occluded from the sun).\\ \hline
 \texttt{-\/-shadow-thresholds \textit{string}} & Optional shadow thresholds for the input images (a list of real values in quotes).\\ \hline
 \texttt{-\/-use-approx-camera-models} & Use approximate camera models for speed.\\ \hline
-\texttt{-\/-bundle-adjust-prefix \textit{string}} & Use the camera adjustment obtained by previously running bundle\_adjust with this output prefix.\\ \hline
+\texttt{-\/-bundle-adjust-prefix \textit{string}} & Use the camera adjustments obtained by previously running bundle\_adjust with this output prefix.\\ \hline
 \texttt{-\/-init-dem-height \textit{double}} & Use this value for initial DEM heights. An input DEM still needs to be provided for georeference information.\\ \hline
 \texttt{-\/-float-dem-at-boundary} & Allow the DEM values at the boundary of the region to also float (not advised).\\ \hline
 \texttt{-\/-camera-position-step-size \textit{int(=1)}} & Larger step size will result in more aggressiveness in varying the camera position if it is being floated (which may result in a better solution or in divergence).\\ \hline
