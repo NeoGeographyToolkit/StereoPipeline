@@ -1253,38 +1253,39 @@ namespace vw { namespace gui {
       // so we must convert to pixels.
       m_stereoCropWin = screen2world(qrect2bbox(m_rubberBand));
 
-      int last = m_filesOrder[m_filesOrder.size()-1];
+      for (size_t i = 0; i < m_images.size(); i++) {
 
-      BBox2i image_box = world2image(m_stereoCropWin, last);
-      vw_out().precision(8);
-      vw_out() << "Crop src win for  "
-               << m_image_files[last]
-               << ": "
-               << image_box.min().x() << ' '
-               << image_box.min().y() << ' '
-               << image_box.width()   << ' '
-               << image_box.height()  << std::endl;
-      if (m_images[last].has_georef){
-        Vector2 proj_min, proj_max;
-        // Convert pixels to projected coordinates
-        BBox2 point_box = m_images[last].georef.pixel_to_point_bbox(image_box);
-        proj_min = point_box.min();
-        proj_max = point_box.max();
-        // Below we flip in y to make gdal happy
-        vw_out() << "Crop proj win for "
-                 << m_image_files[last] << ": "
-                 << proj_min.x() << ' ' << proj_max.y() << ' '
-                 << proj_max.x() << ' ' << proj_min.y() << std::endl;
+        BBox2i image_box = world2image(m_stereoCropWin, i);
+        vw_out().precision(8);
+        vw_out() << "Crop src win for  "
+                 << m_image_files[i]
+                 << ": "
+                 << image_box.min().x() << ' '
+                 << image_box.min().y() << ' '
+                 << image_box.width()   << ' '
+                 << image_box.height()  << std::endl;
+        if (m_images[i].has_georef){
+          Vector2 proj_min, proj_max;
+          // Convert pixels to projected coordinates
+          BBox2 point_box = m_images[i].georef.pixel_to_point_bbox(image_box);
+          proj_min = point_box.min();
+          proj_max = point_box.max();
+          // Below we flip in y to make gdal happy
+          vw_out() << "Crop proj win for "
+                   << m_image_files[i] << ": "
+                   << proj_min.x() << ' ' << proj_max.y() << ' '
+                   << proj_max.x() << ' ' << proj_min.y() << std::endl;
 
-        Vector2 lonlat_min, lonlat_max;
-        BBox2 lonlat_box = m_images[last].georef.pixel_to_lonlat_bbox(image_box);
-        lonlat_min = lonlat_box.min();
-        lonlat_max = lonlat_box.max();
-        // Again, miny and maxy are flipped on purpose
-        vw_out() << "lonlat win for    "
-                 << m_image_files[last] << ": "
-                 << lonlat_min.x() << ' ' << lonlat_max.y() << ' '
-                 << lonlat_max.x() << ' ' << lonlat_min.y() << std::endl;
+          Vector2 lonlat_min, lonlat_max;
+          BBox2 lonlat_box = m_images[i].georef.pixel_to_lonlat_bbox(image_box);
+          lonlat_min = lonlat_box.min();
+          lonlat_max = lonlat_box.max();
+          // Again, miny and maxy are flipped on purpose
+          vw_out() << "lonlat win for    "
+                   << m_image_files[i] << ": "
+                   << lonlat_min.x() << ' ' << lonlat_max.y() << ' '
+                   << lonlat_max.x() << ' ' << lonlat_min.y() << std::endl;
+        }
       }
 
       // Wipe the rubberband, no longer needed.
