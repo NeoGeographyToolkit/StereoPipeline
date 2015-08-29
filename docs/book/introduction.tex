@@ -13,7 +13,7 @@ planning, and public outreach.
 
 \begin{figure}[tb]
    \centering
-   \includegraphics[width=6.5in]{images/introduction/p19view2.png}
+   \includegraphics[width=6.5in]{images/introduction/p19view2_400px.png}
    \caption{This 3D model was generated from a \acf{MOC} image
      pair M01/00115 and E02/01461 (34.66N, 141.29E).  The complete
      stereo reconstruction process takes approximately thirty minutes on
@@ -66,7 +66,7 @@ valuable raw data if a more streamlined, efficient process could be
 developed.
 
 The Stereo Pipeline was designed to address this very need.  By
-applying recent advances in robotics and computer vision, we have
+applying recent advances in computer vision, we have
 created an {\em automated} process that is capable of generating high
 quality \acp{DEM} with minimal human intervention.  Users of the Stereo
 Pipeline can expect to spend some time picking a handful of settings
@@ -127,16 +127,13 @@ which is a general purpose image processing and computer vision
 library also developed by the \ac{IRG}.  Some of the tools discussed
 in this document are actually Vision Workbench programs, and any
 distribution of the Stereo Pipeline requires the Vision Workbench.
-Unless you're compiling the Vision Workbench and Stereo Pipeline from
-source, the distinctions probably won't matter to you.
-
+This distinction is important only if compiling this software.
 
 \subsection{The USGS Integrated Software for Imagers and Spectrometers}
 
 For processing non-terrestrial NASA satellite imagery, Stereo Pipeline
 must be installed alongside a copy of \ac{USGS} \ac{ISIS}. \ac{ISIS} is
-however not required for processing Digital Globe images of Earth, as
-described in section \ref{quickstartDG}.
+however not required for processing Digital Globe images of Earth.
 
 \ac{ISIS} is widely used in the planetary science community
 for processing raw spacecraft imagery into high level data products of
@@ -171,7 +168,7 @@ stereo pairs captured by just about any \ac{NASA} mission.
 %BUNDLE ADJUSTMENT
 
 \pagebreak
-\section{Getting Help}\label{get-help}
+\section{Getting Help and Reporting Bugs}\label{get-help}
 
 All bugs, feature requests, and general discussion should be sent to
 the Ames Stereo Pipeline user mailing list:
@@ -183,20 +180,14 @@ subject `subscribe' (without the quotes) to:
 \begin{quote}
 \indent \href{mailto:stereo-pipeline-request@lists.nasa.gov}{stereo-pipeline-request@lists.nasa.gov}
 \end{quote}
-To contact the lead developers and project manager directly, send mail
+To contact the developers and project manager directly, send mail
 to:
 \begin{quote}
 \indent \href{mailto:stereo-pipeline-owner@lists.nasa.gov}{stereo-pipeline-owner@lists.nasa.gov}
 \end{quote}
 
-\section{How to File Bug Reports} 
-
-If Stereo Pipeline crashes or produces incorrect results, we would very
-much like to hear from you. You can send an email to
-\texttt{stereo-pipeline-owner@lists.nasa.gov} describing the problem. It
-will be helpful to attach the logs output by \texttt{stereo} and other
-tools (section \ref{logging}). In some cases we may request your input
-data as well.
+When you submit a bug report, it may be helpful to attach the logs
+output by \texttt{stereo} and other tools (section \ref{logging}).
 
 \section{Typographical Conventions}
 
@@ -239,18 +230,18 @@ although its prefix could be anything (hence the italics for that
 part).  Everything else is in square brackets indicating that they
 are optional.
 
-Both \texttt{-\/-help} and \texttt{-h} are really the same thing (both
-will get you help).  Similarly, the argument to the \texttt{-r}
-option must be either \texttt{moon} or \texttt{mars}.  The \texttt{-s}
-option takes a floating point value as its argument, and has a
-default value of zero.  The \texttt{-o} option takes a filename
-that will be used as the output \ac{DEM}.
+Here, \texttt{-\/-help} and \texttt{-h} refer to the same
+thing. Similarly, the argument to the \texttt{-r} option must be either
+\texttt{moon} or \texttt{mars}.  The \texttt{-s} option takes a floating
+point value as its argument, and has a default value of zero.  The
+\texttt{-o} option takes a filename that will be used as the output
+\ac{DEM}.
 
-Although there are two lines of constant-width text, the backslash at the end
-of the first line indicates that the command continues on the second line.  You
-can either type everything into one long line on your own terminal, or use the
-backslash character (or appropriate line continuation character) and a return to
-continue typing on a second line in your terminal.
+Although there are two lines of constant-width text, the backslash at
+the end of the first line indicates that the command continues on the
+second line. You can either type everything into one long line on your
+own terminal, or use the backslash character and a return to continue
+typing on a second line in your terminal.
 
 
 \section{Referencing the Ames Stereo Pipeline in Your Work}
@@ -283,6 +274,6 @@ each release's {\bf NEWS} file to see a summary of our recent changes.
 
 While we are confident that the algorithms used by this software are
 robust, they have not been systematically tested or rigorously
-compared to other methods in the peer-reviewed literature. We {\it 
-strongly recommend} that you consult us first before publishing 
+compared to other methods in the peer-reviewed literature. We {\it
+strongly recommend} that you consult us first before publishing
 any results based on the cartographic products produced by this software.

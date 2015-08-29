@@ -24,8 +24,8 @@ inhibit Stereo Pipeline's internal interest point matcher and block
 auto search range detection.
 \begin{figure}[bt]
   \centering
-  \includegraphics[width=8cm]{images/ba_orig}
-  \includegraphics[width=8cm]{images/ba_adjusted}
+  \includegraphics[width=8cm]{images/ba_orig.pdf}
+  \includegraphics[width=8cm]{images/ba_adjusted.pdf}
   \caption{Bundle adjustment is illustrated here using a color-mapped,
     hill-shaded DEM mosaic from Apollo 15, Orbit 33, imagery. (a)
     Prior to bundle adjustment, large discontinuities can exist between
@@ -77,7 +77,7 @@ way to co-register your \acp{DEM} with other existing data sets and
 geodetic control networks.
 
 At the moment however, Bundle Adjustment does not automatically work
-against outside \acp{DEM} from sources such as laser altimeters. 
+against outside \acp{DEM} from sources such as laser altimeters.
 Hand-picked \acp{GCP} are the only way for \ac{ASP} to register to those
 types of sources.
 
@@ -86,10 +86,10 @@ types of sources.
 
 Recently, Stereo Pipeline started providing its own bundle adjustment
 tool, named \texttt{bundle\_adjust}. Its usage is described in section
-\ref{bundleadjust}. 
+\ref{bundleadjust}.
 
 Here is an example of using this tool on a couple of Apollo 15 images,
-and its effect on decreasing the stereo triangulation error. 
+and its effect on decreasing the stereo triangulation error.
 
 \begin{figure}[h!]
 \centering
@@ -124,7 +124,7 @@ A comparison of the two ways of doing stereo is shown in figure \ref{fig:asp-ba-
 In what follows we describe how to do bundle adjustment using
 \ac{ISIS}'s toolchain. It also serves to describe bundle adjustment in more
 detail, which is applicable to other bundle adjustment tools as well,
-including Stereo Pipeline's own tool. 
+including Stereo Pipeline's own tool.
 
 In bundle adjustment, the position and orientation of each camera
 station are determined jointly with the 3D position of a set of image
@@ -283,7 +283,7 @@ following instruction.
 
 \begin{figure}[ht]
   \centering
-  \includegraphics[width=5in]{images/qnet/Qnet_AfterAutoseed.png}
+  \includegraphics[width=5in]{images/qnet/Qnet_AfterAutoseed_400px.png}
   \caption{A visualization of the features laid out by
     \texttt{autoseed} in \texttt{qnet}. Note that the marks do not
     cover the same features between images. This is due to the poor
@@ -360,7 +360,7 @@ and then \textit{Save As}.
 
 \begin{figure}[ht]
   \centering
-  \includegraphics[width=5in]{images/qnet/Qnet_AfterQnetManual.png}
+  \includegraphics[width=5in]{images/qnet/Qnet_AfterQnetManual_400px.png}
   \caption{A visualization of the features after manual editing in
     \texttt{qnet}. Note that the marks now appear in the same location
     between images.}

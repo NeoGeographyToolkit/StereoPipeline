@@ -27,7 +27,7 @@ in Figure~\ref{fig:asp}, and detailed in the following sections.
 
 \begin{figure}[tb]
   \centering
-  \includegraphics[width=13cm]{images/asp}
+  \includegraphics[width=13cm]{images/asp.pdf}
   \caption{Flow of data through the Stereo Pipeline.}
   \label{fig:asp}
 \end{figure}
@@ -144,7 +144,7 @@ pyramid \citep{Sun02rectangular}.
 
 \begin{figure}[bt]
   \centering
-  \includegraphics[width=13cm]{images/correlation/correlation}
+  \includegraphics[width=13cm]{images/correlation/correlation_400px.png}
   \caption{The correlation algorithm in disparity map initialization
     uses a sliding template window from the left image to find the
     best match in the right image.  The size of the template window
@@ -357,13 +357,16 @@ downsample their DEM after generation in Stereo Pipeline.
 
 \begin{figure}[tb]
 \centering
-  \subfigure[{\tt Left Image}]{\includegraphics[width=2in]{images/correlation/sub4-AS15-M-1134_crop.png}\label{fig:left_input_image}}
-  \subfigure[{\tt Parabola Subpixel Mode}]{\includegraphics[width=2in]{images/correlation/3D_mode0.png}\label{fig:parabola_subpixel}}
-  \subfigure[{\tt Bayes EM Subpixel Mode}]{\includegraphics[width=2in]{images/correlation/3D_mode3.png}}
+  \subfigure[{\tt Left Image}]{\includegraphics[width=2in]{images/correlation/sub4-AS15-M-1134_crop_400px.png}
+    \label{fig:left_input_image}}
+  \subfigure[{\tt Parabola Subpixel Mode}]{\includegraphics[width=2in]{images/correlation/3D_mode0_400px.png}
+    \label{fig:parabola_subpixel}}
+  \subfigure[{\tt Bayes EM Subpixel Mode}]{\includegraphics[width=2in]{images/correlation/3D_mode3_400px.png}}
 
-  \subfigure[{\tt Right Image}]{\includegraphics[width=2in]{images/correlation/sub4-AS15-M-1135_crop.png}\label{fig:right_input_image}}
-  \subfigure[{\tt Parabola Hillshade}]{\includegraphics[width=2in]{images/correlation/hillshade_mode0.png}}
-  \subfigure[{\tt Bayes EM Hillshade}]{\includegraphics[width=2in]{images/correlation/hillshade_mode3.png}}
+  \subfigure[{\tt Right Image}]{\includegraphics[width=2in]{images/correlation/sub4-AS15-M-1135_crop_400px.png}
+    \label{fig:right_input_image}}
+  \subfigure[{\tt Parabola Hillshade}]{\includegraphics[width=2in]{images/correlation/hillshade_mode0_400px.png}}
+  \subfigure[{\tt Bayes EM Hillshade}]{\includegraphics[width=2in]{images/correlation/hillshade_mode3_400px.png}}
 
 \caption{Left: Input images.  Center: results using the parabola draft
   subpixel mode (\texttt{subpixel-mode = 1}). Right: results using the Bayes
@@ -439,8 +442,10 @@ forth arguments or immediately follow after the 2 input images for
 
 \begin{figure}[h]
 \centering
-  \subfigure[{\tt Framing Camera Model}]{\includegraphics[width=3in]{images/correlation/pinhole_model.png}\label{fig:framing}}
-  \subfigure[{\tt Pushbroom Camera Model}]{\includegraphics[width=3in]{images/correlation/linescan_model.png}\label{fig:linescan}}
+  \subfigure[{\tt Framing Camera Model}]{\includegraphics[width=3in]{images/correlation/pinhole_model_400px.png}
+    \label{fig:framing}}
+  \subfigure[{\tt Pushbroom Camera Model}]{\includegraphics[width=3in]{images/correlation/linescan_model_400px.png}
+\label{fig:linescan}}
 \caption{Most remote sensing cameras fall into two generic categories
   based on their basic geometry.  Framing cameras (left) capture an
   instantaneous two-dimensional image.  Linescan cameras (right)
@@ -461,7 +466,7 @@ point.
 
 \begin{figure}[tb]
   \centering
-  \includegraphics[width=12cm]{images/correlation/triangulation}
+  \includegraphics[width=12cm]{images/correlation/triangulation_400px.png}
   \caption{Once a disparity map has been generated and refined, it can
     be used in combination with the geometric camera models to compute
     the locations of 3D points on the surface of Mars.  This figure

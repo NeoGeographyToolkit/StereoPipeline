@@ -252,10 +252,11 @@ that uses the RPC camera model format. How to process such data is
 described in section \ref{rpc}, although following this tutorial may
 still be insightful even if your data is not from Digital Globe.
 
-Digital Globe provides imagery from Quick Bird and the two World
+Digital Globe provides imagery from Quick Bird and the three World
 View satellites. These are the hardest images to process with Ames
 Stereo Pipeline because they are exceedingly large, much larger than
-HiRISE imagery. There is also a wide range of terrain challenges and
+HiRISE imagery (the GUI interface can be used to run stereo on just a
+portion of the images). There is also a wide range of terrain challenges and
 atmospheric effects that can confuse ASP. Trees are particularly
 difficult for us since their texture is nearly nadir and perpendicular
 to our line of sight. It is important to know that the driving force
@@ -341,9 +342,9 @@ the same options, as described in section \ref{stereo_gui}.
 
 \begin{figure}[h!]
 \centering
-  \includegraphics[width=2.0in]{images/examples/dg/DigitalGlobeContext.png}
-  \includegraphics[width=2.0in]{images/examples/dg/DigitalGlobeCloseUp.png}
-  \includegraphics[width=2.0in]{images/examples/dg/DigitalGlobeCloseUpDRG.png}
+  \includegraphics[width=2.0in]{images/examples/dg/DigitalGlobeContext_400px.png}
+  \includegraphics[width=2.0in]{images/examples/dg/DigitalGlobeCloseUp_400px.png}
+  \includegraphics[width=2.0in]{images/examples/dg/DigitalGlobeCloseUpDRG_400px.png}
 \caption{Example colorized height map and ortho image output.}
 \label{fig:dg-nomap-example}
 \end{figure}
@@ -379,7 +380,7 @@ View-1 and World View-2 images for most TDI. It can be invoked as
 follows:
 
 \begin{verbatim}
-    > wv_correct image.ntf image.xml image_out.tif
+    > wv_correct image_in.ntf image.xml image_out.tif
 \end{verbatim}
 
 The corrected images can be used just as the originals, and the camera models
@@ -422,8 +423,8 @@ approach.
 
 \begin{figure}[h!]
 \centering
-  \includegraphics[width=3.0in]{images/examples/sparse_disp1.png}
-  \includegraphics[width=3.0in]{images/examples/sparse_disp3.png}
+  \includegraphics[width=3.0in]{images/examples/sparse_disp1_400px.png}
+  \includegraphics[width=3.0in]{images/examples/sparse_disp3_400px.png}
 \caption{Example of a difficult terrain obtained without (left) and with (right) \texttt{sparse\_disp}. (In these DEMs there is very little elevation change, hence the flat appearance.)}
 \label{fig:sparse-disp-example}
 \end{figure}
@@ -574,7 +575,7 @@ can be found in chapter \ref{ch:correlation}.
 
 \begin{figure}[t!]
 \begin{minipage}{4in}
-\includegraphics[width=4in]{images/p19-stereo-output.png}
+\includegraphics[width=4in]{images/p19-stereo-output_400px.png}
 \end{minipage}
 \hfill
 \begin{minipage}{2.9in}
@@ -663,13 +664,13 @@ of the two cameras are very different or the underlying terrain has
 steep portions. This will result in ASP producing terrains with noise or
 missing data.
 
-ASP can mitigate this by \texttt{map-projecting} the left and right
+ASP can mitigate this by \textit{map-projecting} the left and right
 images onto some pre-existing low-resolution smooth terrain model
 without holes, and using the output images to do stereo. In effect, this
 makes the images much more similar and more likely for stereo
 correlation to succeed.
 
-In this mode, ASP in effect does not create a terrain model from scratch,
+In this mode, ASP does not create a terrain model from scratch,
 but rather uses an existing terrain model as an initial guess, and
 improves on it.
 
@@ -707,7 +708,7 @@ results.
 
 \begin{figure}[h!]
 \centering
-   \includegraphics[width=6.0in]{images/stereo_mapproj.png}
+   \includegraphics[width=6.0in]{images/stereo_mapproj_400px.png}
 \caption{A DEM obtained using plain stereo (left) and stereo
   with map-projected images (right). Their quality will be comparable
   for relatively flat terrain and the second will be much better for
@@ -717,7 +718,7 @@ results.
 \end{figure}
 
 In this example we illustrate how to run stereo with map-projected
-images for ISIS images. We start with LRO NAC Lunar images M1121224102LE
+images for ISIS data. We start with LRO NAC Lunar images M1121224102LE
 and M1121209902LE from ASU's LRO NAC web site,
 http://lroc.sese.asu.edu/. We convert them to ISIS cubes using the ISIS
 program \texttt{lronac2isis}, then we use the ISIS tools
@@ -844,9 +845,9 @@ as the one used in section \ref{rawdg}.
 
 \begin{figure}[h!]
 \centering
-  \includegraphics[width=2.0in]{images/examples/dg/MappedContext.png}
-  \includegraphics[width=2.0in]{images/examples/dg/MappedCloseUp.png}
-  \includegraphics[width=2.0in]{images/examples/dg/MappedCloseUpDRG.png}
+  \includegraphics[width=2.0in]{images/examples/dg/MappedContext_400px.png}
+  \includegraphics[width=2.0in]{images/examples/dg/MappedCloseUp_400px.png}
+  \includegraphics[width=2.0in]{images/examples/dg/MappedCloseUpDRG_400px.png}
 \caption{Example colorized height map and ortho image output.}
 \label{fig:dg-map-example}
 \end{figure}
@@ -985,11 +986,11 @@ red pixels in the overlap area, then you need to go back and tune your
 a good time to make a copy of \texttt{stereo.default} as you tune the
 parameters to improve the results. If the input images are
 map-projected, the GoodPixelMap will also be georeferenced, so it can be
-overlayed on top of the left input image.
+overlayed on top of the left input image in \texttt{stereo\_gui}.
 
 \begin{figure}[b!]
 \begin{minipage}{4in}
-\includegraphics[width=4in]{images/p19-disparity.png}
+\includegraphics[width=4in]{images/p19-disparity_400px.png}
 \end{minipage}
 \hfill
 \begin{minipage}{2.7in}
@@ -1017,12 +1018,11 @@ overlayed on top of the left input image.
 \end{minipage}
 \end{figure}
 
-You should also know that whenever \texttt{stereo}, \texttt{point2dem},
-and other executables are run, they create log files in given tool's
-results directory, containing a copy of the configuration file, the
-command that was run, your system settings, and tool's console
-output. This will help track what was performed so that others in the
-future can recreate your work.
+Whenever \texttt{stereo}, \texttt{point2dem}, and other executables are
+run, they create log files in given tool's results directory, containing
+a copy of the configuration file, the command that was run, your system
+settings, and tool's console output. This will help track what was
+performed so that others in the future can recreate your work.
 
 Another handy debugging tool is the \texttt{disparitydebug} program,
 which allows you to generate viewable versions of the intermediate
@@ -1065,7 +1065,7 @@ the \texttt{results/output-PC.tif} point cloud file.
 
 \begin{figure}[h!]
 \begin{minipage}{5in}
-\includegraphics[width=5in]{images/p19-osg.png}
+\includegraphics[width=5in]{images/p19-osg_400px.png}
 \end{minipage}
 \hfill
 \begin{minipage}{1.7in}
@@ -1143,7 +1143,7 @@ show up in the orthoimage. They can be filled in using the option
 
 The \texttt{point2dem} program is also able to accept output
 projection options the same way as the tools in GDAL. Well-known EPSG,
-IAU2000 projections, and custom Proj4 strings can applied with the
+IAU2000 projections, and custom PROJ.4 strings can applied with the
 target spatial reference set flag, \texttt{-\/-t\_srs}. If the target
 spatial reference flag is applied with any of the reference spheroid
 options, the reference spheroid option will overwrite the datum
