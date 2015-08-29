@@ -247,7 +247,7 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
       // Parse custom CSV file with given format string
       bool success;
       vw::Vector3 vals = csv_conv.parse_csv_line(is_first_line, success, line);
-      if (!success) 
+      if (!success)
         continue;
 
       bool return_point_height = false; // will return xyz
@@ -848,6 +848,35 @@ vw::BBox2 calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
   }
 
   return box;
+}
+
+// Sometime the box we computed with cartesian_to_geodetic is offset
+// from the box computed with pixel_to_lonlat by 360 degrees.
+// Fix that.
+void adjust_lonlat_bbox(std::string const& file_name,
+                        vw::BBox2 & box){
+
+  using namespace vw;
+
+  // Can only adjust DEM boxes
+  if (get_file_type(file_name) != "DEM")
+    return;
+
+  cartography::GeoReference georef;
+  bool has_georef = cartography::read_georeference(georef, file_name);
+  if (!has_georef)
+    vw_throw(ArgumentErr() << "DEM: " << file_name << " does not have a georeference.\n");
+
+  DiskImageView<float> dem(file_name);
+  BBox2 box2 = georef.pixel_to_lonlat_bbox(bounding_box(dem));
+
+  double mean_lon  = (box.min().x() + box.max().x())/2.0;
+  double mean_lon2 = (box2.min().x() + box2.max().x())/2.0;
+
+  double lon_offset = mean_lon2 - mean_lon;
+  lon_offset = 360.0*round(lon_offset/360.0);
+
+  box += Vector2(lon_offset, 0);
 }
 
 double calc_mean(std::vector<double> const& errs, int len){

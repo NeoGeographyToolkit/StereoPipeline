@@ -680,13 +680,22 @@ int main( int argc, char *argv[] ) {
     int num_sample_pts = std::max(4000000,
                                   std::max(opt.max_num_source_points,
                                            opt.max_num_reference_points)/4);
-    // Compute GDC bounding box of the source and reference clouds
-    BBox2 ref_box, source_box;
-    ref_box    = calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv, opt.reference, opt.max_disp);
-    source_box = calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv, opt.source,    opt.max_disp);
 
-    // If ref points are offset by 360 degrees in longitude in respect to
-    // source points, adjust the ref box to be aligned with the source points, and vice versa.
+    // Compute GDC bounding box of the source and reference clouds
+    if (opt.verbose){
+      vw_out() << "Computing the intersection of the bounding boxes "
+               << "of the reference and source points." << endl;
+    }
+    BBox2 ref_box, source_box;
+    ref_box    = calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
+                                           opt.reference, opt.max_disp);
+    source_box = calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
+                                           opt.source,    opt.max_disp);
+
+    // If ref points are offset by 360 degrees in longitude in respect
+    // to source points, adjust the ref box to be aligned with the
+    // source points, and vice versa.  Note that we will use the ref
+    // box to bound the source points, and vice-versa.
     double lon_offset = 0.0;
     if (!ref_box.empty() && !source_box.empty()){
       // Compute the longitude offset
@@ -696,14 +705,23 @@ int main( int argc, char *argv[] ) {
       lon_offset = 360.0*round(lon_offset/360.0);
       // Apply to both bounding boxes
       ref_box    += Vector2(lon_offset, 0);
+      // Intersect them, as pc_align will operate on their common area
       ref_box.crop(source_box);
       source_box.crop(ref_box); // common area
       source_box -= Vector2(lon_offset, 0);
+
+      // Extra adjustments. These are needed since pixel_to_lonlat and
+      // cartesian_to_geodetic can disagree by 360 degress. Adjust ref
+      // to source and vice-versa.
+      adjust_lonlat_bbox(opt.reference, source_box);
+      adjust_lonlat_bbox(opt.source, ref_box);
     }
     sw0.stop();
-    if (opt.verbose)
-      vw_out() << "Determination of the intersection of bounding boxes of the reference"
-               << " and source points took " << sw0.elapsed_seconds() << " [s]" << endl;
+    if (opt.verbose){
+      vw_out() << "Reference box: " << ref_box << std::endl;
+      vw_out() << "Source box:    " << source_box << std::endl;
+      vw_out() << "Intersection of bounding boxes took " << sw0.elapsed_seconds() << " [s]" << endl;
+    }
 
     // Load the point clouds. We will shift both point clouds by the
     // centroid of the first one to bring them closer to origin.
@@ -769,7 +787,7 @@ int main( int argc, char *argv[] ) {
     cartography::GeoReference dem_georef;
     vw::ImageViewRef< PixelMask<float> > reference_dem_ref;
     if (opt.use_dem_distances()) {
-      vw_out() << "Loading reference as DEM.." << endl;
+      vw_out() << "Loading reference as DEM." << endl;
       // Load the dem, then wrap it inside an ImageViewRef object.
       // - This is done because the actual DEM type cannot be created without being initialized.
       InterpolationReadyDem reference_dem(load_interpolation_ready_dem(opt.reference, dem_georef));

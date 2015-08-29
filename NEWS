@@ -1,4 +1,4 @@
-*** RELEASE 2.4.3, upcoming! ***
+*** RELEASE 2.5.0, August 31, 2015 ***
 
 -  Improved speed, coverage, and accuracy for areas with steep slopes
    for ISIS, RPC and Pinhole cameras by implementing stereo using images 
@@ -95,6 +95,7 @@
      DEM is declared to be the closest point. This is more accurate
      than the original implementation for coarse DEMs. The old 
      approach is available using the --no-dem-distances flag.
+   * Fix a bug with a 360 degree longitude offset.
 
  - point2las
    * Added the ability to specify a custom projection (PROJ.4 string)
@@ -139,7 +140,7 @@
    * Added --target-resolution option to specify the output resolution in meters.
 
  - Misc.
-   * Upgraded to ISIS 3.4.9.6185.
+   * Upgraded to ISIS 3.4.10.
    * Oldest supported OSX version is 10.8.
    * Added documentation for image2qtree and hillshade.
 
