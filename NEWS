@@ -9,7 +9,7 @@
 
  - New tools
 
-    * Added stereo_gui, a GUI front-end. Features:
+    * Added stereo_gui, an image viewer and GUI front-end. Features:
       - View extremely large images using a pyramid approach.
       - If invoked with the same interface as stereo, can run stereo on 
         selected clips.
@@ -24,8 +24,11 @@
         for sfs).
       - Based on Michael Broxton's vwv tool. 
 
-   * Added sfs, a tool to refine DEMs using shape-from-shading. It works
-     only with ISIS images.
+   * Added sfs, a tool to refine DEMs using shape-from-shading. Can
+     optimize the DEM, albedo per pixel, image exposures and camera
+     positions and orientations using a multi-resolution pyramid
+     approach. Tested with LRO NAC lunar images at low latitudes and
+     toward poles. It works only with ISIS images.
    * Added image_calc, a tool for performing simple per-pixel arithmetic
      operations on one or more images.
    * Added pc_merge, a tool for concatenating ASP-produced point clouds.
