@@ -27,8 +27,8 @@
    * Added sfs, a tool to refine DEMs using shape-from-shading. Can
      optimize the DEM, albedo per pixel, image exposures and camera
      positions and orientations using a multi-resolution pyramid
-     approach. Tested with LRO NAC lunar images at low latitudes and
-     toward poles. It works only with ISIS images.
+     approach. Can handle shadows. Tested with LRO NAC lunar images at
+     low latitudes and toward poles. It works only with ISIS images.
    * Added image_calc, a tool for performing simple per-pixel arithmetic
      operations on one or more images.
    * Added pc_merge, a tool for concatenating ASP-produced point clouds.
