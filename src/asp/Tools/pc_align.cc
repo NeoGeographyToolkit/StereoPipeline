@@ -682,15 +682,15 @@ int main( int argc, char *argv[] ) {
                                            opt.max_num_reference_points)/4);
 
     // Compute GDC bounding box of the source and reference clouds
-    if (opt.verbose){
-      vw_out() << "Computing the intersection of the bounding boxes "
-               << "of the reference and source points." << endl;
-    }
+    vw_out() << "Computing the intersection of the bounding boxes "
+             << "of the reference and source points." << endl;
     BBox2 ref_box, source_box;
     ref_box    = calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
                                            opt.reference, opt.max_disp);
     source_box = calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
                                            opt.source,    opt.max_disp);
+    vw_out() << "Reference box: " << ref_box << std::endl;
+    vw_out() << "Source box:    " << source_box << std::endl;
 
     // If ref points are offset by 360 degrees in longitude in respect
     // to source points, adjust the ref box to be aligned with the
@@ -717,11 +717,8 @@ int main( int argc, char *argv[] ) {
       adjust_lonlat_bbox(opt.source, ref_box);
     }
     sw0.stop();
-    if (opt.verbose){
-      vw_out() << "Reference box: " << ref_box << std::endl;
-      vw_out() << "Source box:    " << source_box << std::endl;
-      vw_out() << "Intersection of bounding boxes took " << sw0.elapsed_seconds() << " [s]" << endl;
-    }
+    vw_out() << "Intersection:  " << ref_box << std::endl;
+    vw_out() << "Intersection of bounding boxes took " << sw0.elapsed_seconds() << " [s]" << endl;
 
     // Load the point clouds. We will shift both point clouds by the
     // centroid of the first one to bring them closer to origin.

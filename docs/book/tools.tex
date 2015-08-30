@@ -1361,7 +1361,8 @@ subsequent run.
 The user can choose how many points to pick from the reference and
 source point clouds to perform the alignment. The amount of memory and
 processing time used by \texttt{pc\_align} is directly proportional to
-these numbers, ideally the more points the better.
+these numbers, ideally the more points the better. Pre-cropping to
+judiciously chosen regions may improve the accuracy and/or run-time.
 
 Normally Point-to-Plane ICP is more accurate than Point-to-Point, but
 the latter can be good enough if the input point clouds have small
@@ -1370,25 +1371,20 @@ tool also accepts an option named \texttt{-\/-highest-accuracy} which
 will compute the normals for Point-to-Plane ICP at all points rather
 than about a tenth of them. This option is not necessary most of the
 time, but may result in better alignment at the expense of using more
-memory and processing time. If the reference source is a DEM, the
-tool will compute the initial and final error statistics using the
-distance from each source point to the location on the DEM directly
-beneath it. This measure is also used for gross outlier removal.  If
-you do not wish to use distance to DEM, use the option
-\texttt{-\/-no-dem-distances}.
+memory and processing time.
 
 The input point clouds can be in one of several formats: ASP's point
-cloud format, DEMs as GeoTIFF or ISIS cub files, LAS files, or
-plain-text CSV files (with .csv or .txt extension). By default, CSV
-files are expected to have on each line the latitude and longitude (in
-degrees), and the height above the datum (in meters), separated by
-commas or spaces with an optional header line. Alternatively, the user
-can specify the format of the CSV file via the \texttt{-\/-csv-format}
-option. Entries in the CSV file can then be (in any order) (a)
-longitude, latitude (in degrees), height above datum (in meters), (b)
-longitude, latitude, distance from planet center (in meters or km), (c)
-easting, northing and height above datum (in meters), in this case
-a PROJ.4 string must be set via \texttt{-\/-csv-proj4}, (d)
+cloud format (the output of \texttt{stereo}), DEMs as GeoTIFF or ISIS
+cub files, LAS files, or plain-text CSV files (with .csv or .txt
+extension). By default, CSV files are expected to have on each line the
+latitude and longitude (in degrees), and the height above the datum (in
+meters), separated by commas or spaces with an optional header
+line. Alternatively, the user can specify the format of the CSV file via
+the \texttt{-\/-csv-format} option. Entries in the CSV file can then be
+(in any order) (a) longitude, latitude (in degrees), height above datum
+(in meters), (b) longitude, latitude, distance from planet center (in
+meters or km), (c) easting, northing and height above datum (in meters),
+in this case a PROJ.4 string must be set via \texttt{-\/-csv-proj4}, (d)
 Cartesian coordinates $(x, y, z)$ measured from planet center (in
 meters). The precise syntax is described in the table below. The tool
 can also auto-detect the LOLA RDR PointPerRow format.
@@ -1459,7 +1455,7 @@ desired. If an input point cloud is in CSV or ASP point cloud format,
 the output transformed cloud will be in the same format. If the input is
 a DEM, the output will be an ASP point cloud, since a gridded point
 cloud may not stay so after a 3D transform. The \texttt{point2dem}
-program can be used to resample the obtained point cloud back to a DEM.
+program can be used to re-grid the obtained point cloud back to a DEM.
 
 The convergence history for \texttt{pc\_align} (the translation and
 rotation change at each iteration) is saved to disk and can be used to

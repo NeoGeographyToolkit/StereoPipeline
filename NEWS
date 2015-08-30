@@ -1,22 +1,24 @@
 *** RELEASE 2.5.0, August 31, 2015 ***
 
 -  Improved speed, coverage, and accuracy for areas with steep slopes
-   for ISIS, RPC and Pinhole cameras by implementing stereo using images 
-   map-projected onto an existing DEM (functionality previously available
-   only for Digital Globe images). Documentation has been added about
-   how to use this mode. 
+   for ISIS, RPC and Pinhole cameras by implementing stereo using
+   images map-projected onto an existing DEM. This mapprojection is
+   multi-process and hence much faster than cam2map. This
+   functionality was previously available only for Digital Globe
+   images.
 
  - New tools
+
     * Added stereo_gui, a GUI front-end. Features:
-      - Show several extremely large images side by side.
+      - View extremely large images using a pyramid approach.
       - If invoked with the same interface as stereo, can run stereo on 
         selected clips.
-      - Load images with int, float, and RGB pixels, including ISIS cubes, DEMs,
-        NTF, TIF, and other formats.
+      - Load images with int, float, and RGB pixels, including ISIS
+        cubes, DEMs, NTF, TIF, and other formats.
       - Can overlay goereferenced images and can toggle individual
         images on and off (like Google Earth).
       - Show images side-by-side, as tiles on grid, or on top of each other.
-      - Show hillshaded DEMs.
+      - Create and view hillshaded DEMs.
       - View/add/delete interest points.
       - Create shadow thresholds by clicking on shadow pixels (needed
         for sfs).
@@ -26,12 +28,11 @@
      only with ISIS images.
    * Added image_calc, a tool for performing simple per-pixel arithmetic
      operations on one or more images.
-   * Added pc_merge, a simple tool for concatenating ASP produced
-     point clouds.
+   * Added pc_merge, a tool for concatenating ASP-produced point clouds.
    * Added pansharp, a tool to apply a pansharp algorithm to a matched
      grayscale image and a low resolution color image.
-   * Added datum_convert, a tool to transform a projected image to a
-     different datum (e.g., NAD27 to WGS84).
+   * Added datum_convert, a tool to transform a DEM to a different
+     datum (e.g., NAD27 to WGS84).
    * Added geodiff, a tool for taking the (absolute) difference of two 
      DEMs.
    * Documented the colormap tool. Added a new colormap option based 
