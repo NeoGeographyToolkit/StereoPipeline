@@ -1,3 +1,8 @@
+*** RELEASE 2.6.0, upcoming! ***
+
+ - point2mesh
+   * Can create a mesh from a DEM and an orthoimage (DRG file).
+
 *** RELEASE 2.5.0, August 31, 2015 ***
 
 -  Improved speed, coverage, and accuracy for areas with steep slopes

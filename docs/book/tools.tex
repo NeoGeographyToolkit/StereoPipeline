@@ -728,21 +728,26 @@ easting, northing, and height above datum. \\ \hline
 \section{point2mesh}
 \label{point2mesh}
 
-Produces a mesh surface that can be visualized in {\tt osgviewer},
-which is a standard 3D viewing application that is part of the open
-source OpenSceneGraph package.  \footnote{The full OpenSceneGraph package
-is not bundled with the Stereo Pipeline, but the \texttt{osgviewer} program
-is.  You can download and install this package separately from
-\url{http://www.openscenegraph.org/}.}
+The \texttt{point2mesh} tool produces a mesh surface that can be
+visualized in {\tt osgviewer}, which is a standard 3D viewing
+application that is part of the open source OpenSceneGraph package.
+This viewer is bundled with Stereo Pipeline.
+\footnote{The full OpenSceneGraph package can be installed
+separately from \url{http://www.openscenegraph.org/}.}
 
 Unlike \acp{DEM}, the 3D mesh is not meant to be used as a finished
 scientific product.  Rather, it can be used for fast visualization
 to create a 3D view of the generated terrain.
 
-The \texttt{point2mesh} program requires a point cloud file and an
-optional texture file (\texttt{\textit{output-prefix}-PC.tif} and
-normally \texttt{\textit{output-prefix}-L.tif}). When a texture
-file is not provided, a 1D texture is applied in the local Z direction
+The \texttt{point2mesh} program requires a point cloud file
+or a DEM, and an optional texture file.
+For example, it can be used with \texttt{\textit{output-prefix}-PC.tif} and
+\texttt{\textit{output-prefix}-L.tif}, as output by \texttt{stereo},
+or otherwise with \texttt{\textit{output-prefix}-DEM.tif} and
+\texttt{\textit{output-prefix}-DRG.tif}, with the latter two output
+by \texttt{point2dem}.
+
+When a texture file is not provided, a 1D texture is applied in the local Z direction
 that produces a rough rendition of a contour map.  In either case,
 \texttt{point2mesh} will produce a \texttt{\textit{output-prefix}.osgb}
 file that contains the 3D model in OpenSceneGraph format.
@@ -761,8 +766,11 @@ according to how much detail is desired, but remember that large
 models will impact the frame rate of the 3D viewer and affect
 performance.
 
-Example:\\
-\hspace*{2em}\texttt{point2mesh -s 2 \textit{output-prefix}-PC.tif \textit{output-prefix}-L.tif}
+Examples:
+\begin{verbatim}
+  point2mesh -s 2 -l output-prefix-PC.tif output-prefix-L.tif
+  point2mesh -s 2 -l output-prefix-DEM.tif output-prefix-DRG.tif
+\end{verbatim}
 
 To view the resulting \texttt{\textit{output-prefix}.osgb} file use
 \texttt{osgviewer}.
@@ -773,8 +781,9 @@ To view the resulting \texttt{\textit{output-prefix}.osgb} file use
 \hspace*{2em}In a window:\\
 \hspace*{2em}\texttt{> osgviewer \textit{output-prefix}.osgb -\/-window 50 50 1000 1000}
 
-Inside \texttt{osgviewer}, the keys L, T, W, and F can be used to toggle on
-and off lighting, texture, wireframe, and full-screen modes.  The left, middle, and
+Be sure to turn on lightning as soon as the model is loaded, by pressing on ``L''.
+In addition, the keys T, W, and F can be used to toggle on
+and off texture, wireframe, and full-screen modes.  The left, middle, and
 right mouse buttons control rotation, panning, and zooming of the
 model.
 
