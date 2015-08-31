@@ -840,9 +840,7 @@ increased robustness and perhaps speed.
 The output mosaic tiles will be named <output prefix>-tile-<tile
 index>.tif, where <output prefix> is an arbitrary string. For example,
 if it is set to \texttt{results/output}, all the tiles will be in the
-\texttt{results} directory. The tile names will be adjusted accordingly
-if one of the \texttt{-\/-first}, \texttt{-\/-last}, \texttt{-\/-min},
-etc. options is invoked (see below).
+\texttt{results} directory.
 
 By the default, the output mosaicked \ac{DEM} will use the same grid size and
 projection as the first input \ac{DEM}. These can be changed via the
@@ -851,8 +849,13 @@ projection as the first input \ac{DEM}. These can be changed via the
 Instead of blending, \texttt{dem\_mosaic} can compute the image of
 first, last, minimum, maximum, mean, median, and count of all
 encountered valid \ac{DEM} heights at output grid points. For the
-``first'' and ``last'' operations, we use the order in which \acp{DEM}
-were passed in.
+``first'' and ``last'' operations, the order in which \acp{DEM}
+were passed in is used. With any of these options, the tile names will be
+adjusted accordingly.
+
+It is important to note that when any of the options above are turned
+on, blending will not happen, since it is explicitly requested that
+particular values of the input DEMs be used.
 
 If the number of input DEMs is very large, the tool can fail as the operating
 system may refuse to load all DEMs. In that case, it is suggested to use
