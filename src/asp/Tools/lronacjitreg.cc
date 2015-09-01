@@ -233,7 +233,7 @@ bool determineShifts(Parameters & params,
     printf("Gathering interest points...\n");
 
     // Gather interest points
-    asp::IntegralAutoGainDetector detector( 500 );
+    ip::IntegralAutoGainDetector detector( 500 );
     ip::InterestPointList ip1 = ip::detect_interest_points( vw::create_mask_less_or_equal(crop(left_disk_image, crop_roi), 0), detector );
     ip::InterestPointList ip2 = ip::detect_interest_points( vw::create_mask_less_or_equal(crop(right_disk_image,crop_roi), 0), detector );
     printf("Found %lu, %lu interest points.\n", ip1.size(), ip2.size());

@@ -19,8 +19,6 @@
 #ifndef __ASP_CORE_INTEREST_POINT_MATCHING_H__
 #define __ASP_CORE_INTEREST_POINT_MATCHING_H__
 
-#include <asp/Core/IntegralAutoGainDetector.h>
-
 #include <vw/Core.h>
 #include <vw/Core/Stopwatch.h>
 #include <vw/Math.h>
@@ -30,6 +28,7 @@
 #include <vw/Mosaic.h>
 #include <vw/InterestPoint/Matcher.h>
 #include <vw/InterestPoint/InterestData.h>
+#include <vw/InterestPoint/IntegralDetector.h>
 #include <vw/Cartography/Datum.h>
 
 #include <boost/foreach.hpp>
@@ -95,12 +94,12 @@ void write_match_image(std::string const& out_file_name,
 
 namespace asp {
 
-  // Takes interest points and then finds the nearest 10 matches. It
-  // filters them by whom are closest to the epipolar line via a
-  // threshold. The remaining 2 or then selected to be a match if
-  // their distance meets the other threshold.
+  /// Takes interest points and then finds the nearest 10 matches. It
+  /// filters them by whom are closest to the epipolar line via a
+  /// threshold. The remaining 2 or then selected to be a match if
+  /// their distance meets the other threshold.
   class EpipolarLinePointMatcher {
-    bool m_single_threaded_camera;
+    bool   m_single_threaded_camera;
     double m_threshold, m_epipolar_threshold;
     vw::cartography::Datum m_datum;
 
@@ -109,7 +108,7 @@ namespace asp {
                               double threshold, double epipolar_threshold,
                               vw::cartography::Datum const& datum );
 
-    // This only returns the indicies
+    /// This only returns the indicies
     void operator()( vw::ip::InterestPointList const& ip1,
                      vw::ip::InterestPointList const& ip2,
                      vw::camera::CameraModel* cam1,
@@ -118,20 +117,148 @@ namespace asp {
                      vw::TransformRef const& tx2,
                      std::vector<size_t>& output_indices ) const;
 
-    // Work out an epipolar line from interest point. Returns the
-    // coefficients for the following line equation: ax + by + c = 0
+    /// Work out an epipolar line from interest point. Returns the
+    /// coefficients for the following line equation: ax + by + c = 0
     static vw::Vector3 epipolar_line( vw::Vector2 const& feature,
                                       vw::cartography::Datum const& datum,
                                       vw::camera::CameraModel* cam_ip,
                                       vw::camera::CameraModel* cam_obj,
                                       bool & success);
 
-    // Calculate distance between a line of equation ax + by + c = 0
+    /// Calculate distance between a line of equation ax + by + c = 0
     static double distance_point_line( vw::Vector3 const& line,
                                        vw::Vector2 const& point );
 
     friend class EpipolarLineMatchTask;
   };
+
+  /// Tool to remove points on or within 1 px of nodata pixels.
+  /// Note: A nodata pixel is one for which pixel <= nodata.
+  template <class ImageT>
+  void remove_ip_near_nodata( vw::ImageViewBase<ImageT> const& image,
+                              double nodata,
+                              vw::ip::InterestPointList& ip_list );
+
+  /// Find a rough homography that maps right to left using the camera
+  /// and datum information.
+  /// - This intersects rays with the datum, then projects them into the other camera.
+  vw::Matrix<double>
+  rough_homography_fit( vw::camera::CameraModel* cam1,
+                        vw::camera::CameraModel* cam2,
+                        vw::BBox2i const& box1, vw::BBox2i const& box2,
+                        vw::cartography::Datum const& datum );
+
+  /// Homography rectification that aligns the right image to the left
+  /// image via a homography transform. It returns a vector2i of the
+  /// ideal cropping size to use for the left and right image. The left
+  /// transform is actually just a translation that sets origin to the
+  /// shared corner of left and right.
+  vw::Vector2i
+  homography_rectification( bool adjust_left_image_size,
+                            vw::Vector2i const& left_size,
+                            vw::Vector2i const& right_size,
+                            std::vector<vw::ip::InterestPoint> const& left_ip,
+                            std::vector<vw::ip::InterestPoint> const& right_ip,
+                            vw::Matrix<double>& left_matrix,
+                            vw::Matrix<double>& right_matrix );
+
+  /// Detect InterestPoints
+  ///
+  /// This is not meant to be used directly. Please use ip_matching or
+  /// the dumb homography ip matching.
+  template <class List1T, class List2T, class Image1T, class Image2T>
+  void detect_ip( List1T& ip1, List2T& ip2,
+                  vw::ImageViewBase<Image1T> const& image1,
+                  vw::ImageViewBase<Image2T> const& image2,
+                  int ip_per_tile,
+                  double nodata1 = std::numeric_limits<double>::quiet_NaN(),
+                  double nodata2 = std::numeric_limits<double>::quiet_NaN() );
+
+  /// Detect and Match Interest Points
+  ///
+  /// This is not meant to be used directly. Please use ip matching
+  template <class Image1T, class Image2T>
+  void detect_match_ip( std::vector<vw::ip::InterestPoint>& matched_ip1,
+                        std::vector<vw::ip::InterestPoint>& matched_ip2,
+                        vw::ImageViewBase<Image1T> const& image1,
+                        vw::ImageViewBase<Image2T> const& image2,
+                        int ip_per_tile,
+                        double nodata1 = std::numeric_limits<double>::quiet_NaN(),
+                        double nodata2 = std::numeric_limits<double>::quiet_NaN() );
+
+  /// Homography IP matching
+  ///
+  /// This applies only the homography constraint. Not the best...
+  template <class Image1T, class Image2T>
+  bool homography_ip_matching( vw::ImageViewBase<Image1T> const& image1,
+                               vw::ImageViewBase<Image2T> const& image2,
+                               int ip_per_tile,
+                               std::string const& output_name,
+                               double nodata1 = std::numeric_limits<double>::quiet_NaN(),
+                               double nodata2 = std::numeric_limits<double>::quiet_NaN() );
+
+  /// IP matching that uses clustering on triangulation error to
+  /// determine inliers.  Check output this filter can fail.
+  ///
+  /// Input and output is the valid indices. Valid indices must have
+  /// something to start with.
+  bool
+  tri_ip_filtering( std::vector<vw::ip::InterestPoint> const& ip1,
+                    std::vector<vw::ip::InterestPoint> const& ip2,
+                    vw::camera::CameraModel* cam1,
+                    vw::camera::CameraModel* cam2,
+                    std::list<size_t>& valid_indices,
+                    vw::TransformRef const& left_tx  = vw::TransformRef(vw::TranslateTransform(0,0)),
+                    vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)) );
+
+  /// ?
+  bool
+  stddev_ip_filtering( std::vector<vw::ip::InterestPoint> const& ip1,
+                       std::vector<vw::ip::InterestPoint> const& ip2,
+                       std::list<size_t>& valid_indices );
+
+  /// Smart IP matching that uses clustering on triangulation and
+  /// datum information to determine inliers.
+  ///
+  /// Left and Right TX define transforms that have been performed on
+  /// the images that that camera data doesn't know about. (ie scaling).
+  template <class Image1T, class Image2T>
+  bool ip_matching( bool single_threaded_camera,
+                    vw::camera::CameraModel* cam1,
+                    vw::camera::CameraModel* cam2,
+                    vw::ImageViewBase<Image1T> const& image1,
+                    vw::ImageViewBase<Image2T> const& image2,
+                    int ip_per_tile,
+                    vw::cartography::Datum const& datum,
+                    std::string const& output_name,
+                    double nodata1 = std::numeric_limits<double>::quiet_NaN(),
+                    double nodata2 = std::numeric_limits<double>::quiet_NaN(),
+                    vw::TransformRef const& left_tx  = vw::TransformRef(vw::TranslateTransform(0,0)),
+                    vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)),
+                    bool transform_to_original_coord = true );
+
+  /// Calls ip matching above but with an additional step where we
+  /// apply a homogrpahy to make right image like left image. This is
+  /// useful so that both images have similar scale and similar affine qualities.
+  template <class Image1T, class Image2T>
+  bool ip_matching_w_alignment( bool single_threaded_camera,
+                                vw::camera::CameraModel* cam1,
+                                vw::camera::CameraModel* cam2,
+                                vw::ImageViewBase<Image1T> const& image1,
+                                vw::ImageViewBase<Image2T> const& image2,
+                                int ip_per_tile,
+                                vw::cartography::Datum const& datum,
+                                std::string const& output_name,
+                                double nodata1 = std::numeric_limits<double>::quiet_NaN(),
+                                double nodata2 = std::numeric_limits<double>::quiet_NaN(),
+                                vw::TransformRef const& left_tx  = vw::TransformRef(vw::TranslateTransform(0,0)),
+                                vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)) );
+
+// ==============================================================================================
+// Function definitions
+// TODO: Move to .tcc file
+
+
 
   // Tool to remove points on or within 1 px of nodata pixels.
   // Note: A nodata pixel is one for which pixel <= nodata.
@@ -173,28 +300,6 @@ namespace asp {
                                   << nodata << std::endl;
   }
 
-  // Find a rough homography that maps right to left using the camera
-  // and datum information.
-  vw::Matrix<double>
-  rough_homography_fit( vw::camera::CameraModel* cam1,
-                        vw::camera::CameraModel* cam2,
-                        vw::BBox2i const& box1, vw::BBox2i const& box2,
-                        vw::cartography::Datum const& datum );
-
-  // Homography rectification that aligns the right image to the left
-  // image via a homography transform. It returns a vector2i of the
-  // ideal cropping size to use for the left and right image. The left
-  // transform is actually just a translation that sets origin to the
-  // shared corner of left and right.
-  vw::Vector2i
-  homography_rectification( bool adjust_left_image_size,
-                            vw::Vector2i const& left_size,
-                            vw::Vector2i const& right_size,
-                            std::vector<vw::ip::InterestPoint> const& left_ip,
-                            std::vector<vw::ip::InterestPoint> const& right_ip,
-                            vw::Matrix<double>& left_matrix,
-                            vw::Matrix<double>& right_matrix );
-
   // Detect InterestPoints
   //
   // This is not meant to be used directly. Please use ip_matching or
@@ -204,8 +309,8 @@ namespace asp {
                   vw::ImageViewBase<Image1T> const& image1,
                   vw::ImageViewBase<Image2T> const& image2,
                   int ip_per_tile,
-                  double nodata1 = std::numeric_limits<double>::quiet_NaN(),
-                  double nodata2 = std::numeric_limits<double>::quiet_NaN() ) {
+                  double nodata1,
+                  double nodata2) {
     using namespace vw;
     BBox2i box1 = bounding_box(image1.impl());
     ip1.clear();
@@ -218,7 +323,7 @@ namespace asp {
     float number_boxes = (box1.width() / 1024.f) * (box1.height() / 1024.f);
     size_t points_per_tile = 5000.f / number_boxes;
     if ( points_per_tile > 5000 ) points_per_tile = 5000;
-    if ( points_per_tile < 50 ) points_per_tile = 50;
+    if ( points_per_tile < 50   ) points_per_tile = 50;
 
     // See if to override with manual value
     if (ip_per_tile != 0)
@@ -228,7 +333,7 @@ namespace asp {
              << " interest points per tile (1024^2 px).\n";
 
     // Detect Interest Points
-    asp::IntegralAutoGainDetector detector( points_per_tile );
+    vw::ip::IntegralAutoGainDetector detector( points_per_tile );
     vw_out() << "\t    Processing left image" << std::endl;
     if ( boost::math::isnan(nodata1) )
       ip1 = detect_interest_points( image1.impl(), detector );
@@ -287,8 +392,8 @@ namespace asp {
                         vw::ImageViewBase<Image1T> const& image1,
                         vw::ImageViewBase<Image2T> const& image2,
                         int ip_per_tile,
-                        double nodata1 = std::numeric_limits<double>::quiet_NaN(),
-                        double nodata2 = std::numeric_limits<double>::quiet_NaN() ) {
+                        double nodata1,
+                        double nodata2) {
     using namespace vw;
 
     // Detect Interest Points
@@ -318,8 +423,8 @@ namespace asp {
                                vw::ImageViewBase<Image2T> const& image2,
                                int ip_per_tile,
                                std::string const& output_name,
-                               double nodata1 = std::numeric_limits<double>::quiet_NaN(),
-                               double nodata2 = std::numeric_limits<double>::quiet_NaN() ) {
+                               double nodata1,
+                               double nodata2 ) {
 
     using namespace vw;
 
@@ -358,25 +463,6 @@ namespace asp {
     return true;
   }
 
-  // IP matching that uses clustering on triangulation error to
-  // determine inliers.  Check output this filter can fail.
-  //
-  // Input and output is the valid indices. Valid indices must have
-  // something to start with.
-  bool
-  tri_ip_filtering( std::vector<vw::ip::InterestPoint> const& ip1,
-                    std::vector<vw::ip::InterestPoint> const& ip2,
-                    vw::camera::CameraModel* cam1,
-                    vw::camera::CameraModel* cam2,
-                    std::list<size_t>& valid_indices,
-                    vw::TransformRef const& left_tx = vw::TransformRef(vw::TranslateTransform(0,0)),
-                    vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)) );
-
-  bool
-  stddev_ip_filtering( std::vector<vw::ip::InterestPoint> const& ip1,
-                       std::vector<vw::ip::InterestPoint> const& ip2,
-                       std::list<size_t>& valid_indices );
-
   // Smart IP matching that uses clustering on triangulation and
   // datum information to determine inliers.
   //
@@ -391,11 +477,11 @@ namespace asp {
                     int ip_per_tile,
                     vw::cartography::Datum const& datum,
                     std::string const& output_name,
-                    double nodata1 = std::numeric_limits<double>::quiet_NaN(),
-                    double nodata2 = std::numeric_limits<double>::quiet_NaN(),
-                    vw::TransformRef const& left_tx  = vw::TransformRef(vw::TranslateTransform(0,0)),
-                    vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)),
-                    bool transform_to_original_coord = true ) {
+                    double nodata1,
+                    double nodata2,
+                    vw::TransformRef const& left_tx,
+                    vw::TransformRef const& right_tx,
+                    bool transform_to_original_coord ) {
     using namespace vw;
 
     // Detect interest points
@@ -524,10 +610,10 @@ namespace asp {
                                 int ip_per_tile,
                                 vw::cartography::Datum const& datum,
                                 std::string const& output_name,
-                                double nodata1 = std::numeric_limits<double>::quiet_NaN(),
-                                double nodata2 = std::numeric_limits<double>::quiet_NaN(),
-                                vw::TransformRef const& left_tx  = vw::TransformRef(vw::TranslateTransform(0,0)),
-                                vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)) ) {
+                                double nodata1,
+                                double nodata2,
+                                vw::TransformRef const& left_tx,
+                                vw::TransformRef const& right_tx ) {
 
     using namespace vw;
 
@@ -593,6 +679,19 @@ namespace asp {
     return inlier;
   }
 
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+} // End namespace asp
 
 #endif//__ASP_CORE_INTEREST_POINT_MATCHING_H__
