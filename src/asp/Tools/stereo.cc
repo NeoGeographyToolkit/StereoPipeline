@@ -435,8 +435,8 @@ namespace asp {
         stereo_settings().trans_crop_win = transformed_crop_win(opt);
       }
 
+      // Intersect with L.tif which is the transformed and processed left image.
       if ( fs::exists(opt.out_prefix+"-L.tif") ){
-        // Intersect with L.tif which is the transformed and processed left image
         DiskImageView<PixelGray<float> > L_img(opt.out_prefix+"-L.tif");
         stereo_settings().trans_crop_win.crop(bounding_box(L_img));
       }
@@ -460,10 +460,13 @@ namespace asp {
       }
     }
 
-    // Sanity check
-    if (stereo_settings().trans_crop_win.width () <= 0 ||
-        stereo_settings().trans_crop_win.height() <= 0 ){
-
+    // Sanity check. Don't run it if we have L-cropped.tif or R-cropped.tif,
+    // in that case we have ran the gui before, and the sizes of the subimages
+    // could be anything. We'll regenerate any of those anyway soon.
+    if ((stereo_settings().trans_crop_win.width () <= 0 ||
+         stereo_settings().trans_crop_win.height() <= 0) &&
+        !fs::exists(opt.out_prefix+"-L-cropped.tif")     &&
+        !fs::exists(opt.out_prefix+"-R-cropped.tif") ){
       vw_throw(ArgumentErr() << "Invalid region for doing stereo.\n\n" << usage << general_options );
     }
 

@@ -37,6 +37,27 @@ using namespace vw::gui;
 
 #include <sstream>
 namespace po = boost::program_options;
+namespace fs = boost::filesystem;
+
+namespace vw { namespace gui {
+  void rm_option_and_vals(int argc, char ** argv, std::string const& opt, int num_vals){
+    // Wipe say --left-image-crop-win 0 0 100 100, that is, an option
+    // with 4 values.
+    for (int i = 0; i < argc; i++) {
+      if (std::string(argv[i]) != opt)
+        continue;
+
+      for (int j = i; j < i + num_vals + 1; j++) {
+        if (j >= argc) break;
+        // To avoid problems with empty strings, set the string to space instead
+        if (strlen(argv[j]) > 0) {
+          argv[j][0] = ' ';
+          argv[j][1] = '\0';
+        }
+      }
+    }
+  }
+}}
 
 MainWindow::MainWindow(asp::BaseOptions const& opt,
                        std::vector<std::string> const& images,
@@ -478,16 +499,38 @@ void MainWindow::run_stereo_or_parallel_stereo(std::string const& cmd){
   int right_wx = right_win.width();
   int right_wy = right_win.height();
 
-  // Command
-  std::string run_cmd = cmd + " ";
+  // Directory in which the tool is located, and replace libexec with
+  // bin.
+  std::string dir_name = fs::path(m_argv[0]).parent_path().parent_path().string();
+
+  // Command for packaged ASP.
+  std::string run_cmd = dir_name + "/bin/" + cmd;
+
+  // Command for dev ASP. The executables are in Tools.
+  if (!fs::exists(run_cmd)) {
+    run_cmd = dir_name + "/Tools/" + cmd;
+    if (!fs::exists(run_cmd)) { // because we have Tools/.libs/stereo
+      dir_name = fs::path(m_argv[0]).parent_path().parent_path().parent_path().string();
+      run_cmd = dir_name + "/Tools/" + cmd;
+    }
+  }
+
+  // Wipe pre-existing left-image-crop-win and right-image-crop-win
+  rm_option_and_vals(m_argc, m_argv, "--left-image-crop-win", 4);
+  rm_option_and_vals(m_argc, m_argv, "--right-image-crop-win", 4);
+
+  // Add the options
   for (int i = 1; i < m_argc; i++) {
-    run_cmd += std::string(m_argv[i]) + " ";
+    if (std::string(m_argv[i]) != " ") {
+      // Skip adding empty spaces we may have introduced with rm_option_and_vals().
+      run_cmd += " " + std::string(m_argv[i]);
+    }
   }
   std::ostringstream os;
-  os << "--left-image-crop-win " << left_x << " " << left_y << " "
-     << left_wx << " " << left_wy << " ";
-  os << "--right-image-crop-win " << right_x << " " << right_y << " "
-     << right_wx << " " << right_wy << " ";
+  os << " --left-image-crop-win " << left_x << " " << left_y << " "
+     << left_wx << " " << left_wy;
+  os << " --right-image-crop-win " << right_x << " " << right_y << " "
+     << right_wx << " " << right_wy;
   run_cmd += os.str();
   vw_out() << "Running: " << run_cmd << std::endl;
   system(run_cmd.c_str());
