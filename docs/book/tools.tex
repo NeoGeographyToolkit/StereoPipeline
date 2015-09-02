@@ -238,6 +238,7 @@ Option & Description \\ \hline \hline
 \texttt{-w | -\/-single-window } & Show all images in the same window (with a dialog to choose among them) rather than next to each other.\\ \hline
 \texttt{-\/-use-georef} & Plot the images in the projected coordinate system given by image georeferences.\\ \hline
 \texttt{-\/-hillshade} & Interpret the input images as DEMs and hillshade them.\\ \hline
+\texttt{-\/-delete-temporary-files-on-exit} & Delete any subsampled and other files created by the GUI when exiting.\\ \hline
 \texttt{-h | -\/-help } & Display this help message.\\ \hline
 \end{longtable}
 
@@ -815,16 +816,16 @@ Options & Description \\ \hline \hline
 \label{demmosaic}
 
 The program \texttt{dem\_mosaic} takes as input a list of \ac{DEM} files,
-optionally erodes pixels at the \ac{DEM} boundaries, and creates a mosaic,
-blending the \acp{DEM} where they overlap.
+optionally erodes pixels at the \ac{DEM} boundaries, and creates a mosaic.
+By default, it blends the DEMs where they overlap.
 
 Usage:
 \begin{verbatim}
   dem_mosaic [options] <dem files or -l dem_files_list.txt> -o output_file_prefix
 \end{verbatim}
 
-The input \ac{DEM} can either be set on the command line, or if there are too
-many they can be listed in a text file (one per line) and that file can
+The input DEMs can either be set on the command line, or if too
+many, they can be listed in a text file (one per line) and that file can
 be passed to the tool.
 
 The output mosaic is written as non-overlapping tiles with desired tile
@@ -846,12 +847,24 @@ By the default, the output mosaicked \ac{DEM} will use the same grid size and
 projection as the first input \ac{DEM}. These can be changed via the
 \texttt{-\/-tr} and \texttt{-\/-t\_srs} options.
 
+The default behavior is to blend the DEMs everywhere. If the option
+\texttt{-\/-priority-blending-length \textit{integer}} is invoked, the
+blending behavior will be different. At any location, the pixel value of
+the DEM earliest in the list present at this location will be kept,
+unless closer to the boundary of that DEM than this blending length,
+only in the latter case blending will happen. This mode is useful with
+blending several high-resolution ``foreground'' DEMs covering small
+regions in space with larger ``background'' DEMs covering a larger
+extent. Then, the pixels from the high-resolution DEMs are more
+desirable, yet at their boundary these DEMs should blend into the
+background.
+
 Instead of blending, \texttt{dem\_mosaic} can compute the image of
-first, last, minimum, maximum, mean, median, and count of all
-encountered valid \ac{DEM} heights at output grid points. For the
-``first'' and ``last'' operations, the order in which \acp{DEM}
-were passed in is used. With any of these options, the tile names will be
-adjusted accordingly.
+first, last, minimum, maximum, mean, standard deviation, median, and
+count of all encountered valid \ac{DEM} heights at output grid
+points. For the ``first'' and ``last'' operations, the order in which
+\acp{DEM} were passed in is used. With any of these options, the tile
+names will be adjusted accordingly.
 
 It is important to note that when any of the options above are turned
 on, blending will not happen, since it is explicitly requested that
@@ -863,6 +876,22 @@ the parameter \texttt{-\/-tile-size} to break up the output DEM into
 several large tiles, and to invoke the tool for each of the output tiles
 with the option \texttt{-\/-tile-index}. Later, \texttt{dem\_mosaic} can be
 invoked again to merge these tiles into a single DEM.
+
+Example 1 (erode 3 pixels from input DEMs and blend them):
+\begin{verbatim}
+  dem_mosaic --erode-length 3 dem1.tif dem2.tif -o blended
+\end{verbatim}
+
+Example 2 (read the DEMs from a list, and apply priority blending):
+\begin{verbatim}
+  echo dem1.tif dem2.tif > imagelist.txt
+  dem_mosaic -l imagelist.txt --priority-blending-length 14 -o priority_blended
+\end{verbatim}
+
+Example 3 (Find the mean DEM, no blending is used):
+\begin{verbatim}
+  dem_mosaic -l imagelist.txt --mean -o mosaic
+\end{verbatim}
 
 \begin{longtable}{|l|p{10cm}|}
 \caption{Command-line options for dem\_mosaic}
@@ -887,13 +916,19 @@ The maximum size of output DEM tile files to write, in pixels.
 \texttt{-\/-tile-index \textit{integer}} &
 The index of the tile to save (starting from zero). When this program is invoked, it will print  out how many tiles are there. Default: save all tiles.
 \\ \hline
+
 \texttt{-\/-erode-length \textit{integer(=0)} }  &
+Maximum dimensions of a hole in the output DEM to fill in, in pixels.
+\\ \hline
+
+\texttt{-\/-priority-blending-length \textit{integer(=0)} }  &
+If positive, keep unmodified values from the earliest available DEM at the current location except a band this wide measured in pixels around its boundary where blending will happen.
+\\ \hline
+
+\texttt{-\/-hole-fill-length \textit{integer(=0)} }  &
 Erode input DEMs by this many pixels at boundary before mosaicking them.
 \\ \hline
-\texttt{-\/-blending-length \textit{integer(=200)}} &
-Larger values of this number (measured in input DEM pixels) may result
-in smoother blending while using more memory and computing time.
-\\ \hline
+
 \texttt{-\/-tr \textit{double}  } &
 Output DEM resolution in target georeferenced units per pixel. Default: use the same resolution as the first DEM to be mosaicked.
 \\ \hline
@@ -902,18 +937,6 @@ Specify the output projection (PROJ.4 string). Default: use the one from the fir
 \\ \hline
 \texttt{-\/-t\_projwin \textit{xmin ymin xmax ymax} } &
 Limit the mosaic to this region, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.
-\\ \hline
-\texttt{-\/-weights-blur-sigma \textit{integer (=5)} } &
-The standard deviation of the Gaussian used to blur the weights. Higher value results in smoother weights and blending.
-\\ \hline
-\texttt{-\/-weights-exponent \textit{integer (=1)} } &
-The weights used to blend the DEMs should increase away from the boundary as a power with this exponent.
-\\ \hline
-\texttt{-\/-georef-tile-size \textit{double}} &
-Set the tile size in georeferenced (projected) units (e.g., degrees or meters).
-\\ \hline
-\texttt{-\/-output-nodata-value \textit{double}} &
-No-data value to use on output. Default: use the one from the first DEM to be mosaicked.
 \\ \hline
 
 \texttt{-\/-first}
@@ -946,6 +969,25 @@ No-data value to use on output. Default: use the one from the first DEM to be mo
 
 \texttt{-\/-count}
 & Each pixel is set to the number of valid DEM heights at that pixel.
+\\ \hline
+
+\texttt{-\/-georef-tile-size \textit{double}} &
+Set the tile size in georeferenced (projected) units (e.g., degrees or meters).
+\\ \hline
+\texttt{-\/-output-nodata-value \textit{double}} &
+No-data value to use on output. Default: use the one from the first DEM to be mosaicked.
+\\ \hline
+
+\texttt{-\/-weights-blur-sigma \textit{integer (=5)} } &
+The standard deviation of the Gaussian used to blur the weights. Higher value results in smoother weights and blending.
+\\ \hline
+
+\texttt{-\/-weights-exponent \textit{integer (=1)} } &
+The weights used to blend the DEMs should increase away from the boundary as a power with this exponent.
+\\ \hline
+
+\texttt{-\/-extra-crop-length \textit{integer(=200)}} &
+Crop the images this far from the current tile before blending them (a small value may result in artifacts).
 \\ \hline
 
 \texttt{-\/-threads \textit{integer(=4)}}

@@ -144,11 +144,11 @@ struct Options : asp::BaseOptions {
   double tr, geo_tile_size;
   bool   has_out_nodata;
   RealT  out_nodata_value;
-  int    tile_size, tile_index, erode_len, blending_len, hole_fill_len, weights_blur_sigma, weights_exp;
+  int    tile_size, tile_index, erode_len, priority_blending_len, extra_crop_len, hole_fill_len, weights_blur_sigma, weights_exp;
   bool   first, last, min, max, mean, stddev, median, count;
   BBox2 projwin;
   Options(): tr(0), geo_tile_size(0), has_out_nodata(false), tile_index(-1),
-             erode_len(0), blending_len(0), hole_fill_len(0), weights_blur_sigma(0), weights_exp(0),
+             erode_len(0), priority_blending_len(0), extra_crop_len(0), hole_fill_len(0), weights_blur_sigma(0), weights_exp(0),
              first(false), last(false), min(false), max(false),
              mean(false), stddev(false), median(false), count(false){}
 };
@@ -173,7 +173,7 @@ std::string tile_suffix(Options const& opt){
 
 /// Class that does the actual image processing work
 class DemMosaicView: public ImageViewBase<DemMosaicView>{
-  int m_cols, m_rows;
+  int m_cols, m_rows, m_bias;
   Options const& m_opt;
   vector< ImageViewRef<RealT> > const& m_images;
   vector< GeoReference        > const& m_georefs;
@@ -181,12 +181,12 @@ class DemMosaicView: public ImageViewBase<DemMosaicView>{
   vector<RealT> m_nodata_values;
 
 public:
-  DemMosaicView(int cols, int rows, Options const& opt,
+  DemMosaicView(int cols, int rows, int bias, Options const& opt,
                 vector< ImageViewRef<RealT> > const& images,
                 vector< GeoReference        > const& georefs,
                 GeoReference  const& out_georef,
                 vector<RealT> const& nodata_values):
-    m_cols(cols), m_rows(rows), m_opt(opt),
+    m_cols(cols), m_rows(rows), m_bias(bias), m_opt(opt),
     m_images(images), m_georefs(georefs),
     m_out_georef(out_georef), m_nodata_values(nodata_values){
 
@@ -234,7 +234,7 @@ public:
     // A vector of images the size of the output tile.
     // - Used for median and stddev calculation.
     std::vector< ImageView<double> > tiles;
-    if (m_opt.median) // Store each input seperately
+    if (m_opt.median) // Store each input separately
       tiles.reserve(m_images.size());
     if (m_opt.stddev) { // Need one working image
       tiles.push_back(ImageView<double>(bbox.width(), bbox.height()));
@@ -243,6 +243,13 @@ public:
       fill( tile,     0.0 );
     }
 
+    // This will ensure that pixels from earlier images are
+    // mostly used unmodified except being blended at the boundary.
+    ImageView<double> weight_modifier;
+    if (m_opt.priority_blending_len > 0) {
+      weight_modifier = ImageView<double>(bbox.width(), bbox.height());
+      fill(weight_modifier, std::numeric_limits<double>::max());
+    }
 
     // Loop through all input DEMs
     for (int dem_iter = 0; dem_iter < (int)m_images.size(); dem_iter++){
@@ -260,8 +267,7 @@ public:
       BBox2 in_box = geotrans.reverse_bbox(bbox);
 
       // Grow to account for blending and erosion length, etc.
-      in_box.expand(m_opt.erode_len + m_opt.blending_len + m_opt.hole_fill_len
-                    + BilinearInterpolation::pixel_buffer + 1);
+      in_box.expand(m_bias + BilinearInterpolation::pixel_buffer + 1);
       in_box.crop(bounding_box(disk_dem));
       if (in_box.width() == 1 || in_box.height() == 1){
         // Grassfire likes to have width of at least 2
@@ -372,6 +378,27 @@ public:
           // Seperate the value and alpha for this pixel.
           double val = pval.v();
           double wt  = pval.a();
+
+          if (!noblend && m_opt.priority_blending_len > 0) {
+
+            // The priority blending, earlier pixels are used unmodified
+            // unless close to the boundary.
+            wt = std::min(weight_modifier(c, r), wt);
+
+            // Now ensure that the current DEM values will be used
+            // unmodified unless close to the boundary later on.
+            if (wt >= m_opt.priority_blending_len) {
+              // We are well-inside the current DEM, don't let subsequent
+              // DEMs have any good values here.
+              weight_modifier(c, r) = 0;
+            }else if (wt > 0){
+              // We are inside the current DEM, and not too far from boundary
+              // Therefore we will blend.
+              weight_modifier(c, r)
+                = std::min(weight_modifier(c, r), m_opt.priority_blending_len - wt);
+            }
+          }
+
           if (wt <= 0)
             continue; // No need to continue if the weight is zero
 
@@ -550,9 +577,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
            "The index of the tile to save (starting from zero). When this program is invoked, it will print out how many tiles are there. Default: save all tiles.")
     ("erode-length",    po::value<int>(&opt.erode_len)->default_value(0),
            "Erode input DEMs by this many pixels at boundary before mosaicking them.")
-    ("blending-length", po::value<int>(&opt.blending_len)->default_value(200),
-           "Larger values of this number (measured in input DEM pixels) may result in smoother blending while using more memory and computing time.")
-    ("hole-fill-len",   po::value(&opt.hole_fill_len)->default_value(0),
+    ("priority-blending-length", po::value<int>(&opt.priority_blending_len)->default_value(0),
+           "If positive, keep unmodified values from the earliest available DEM at the current location except a band this wide measured in pixels around its boundary where blending will happen.")
+    ("hole-fill-length",   po::value(&opt.hole_fill_len)->default_value(0),
            "Maximum dimensions of a hole in the output DEM to fill in, in pixels.")
     ("tr",              po::value(&opt.tr),
            "Output DEM resolution in target georeferenced units per pixel. Default: use the same resolution as the first DEM to be mosaicked.")
@@ -560,10 +587,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
            "Specify the output projection (PROJ.4 string). Default: use the one from the first DEM to be mosaicked.")
     ("t_projwin",       po::value(&opt.projwin),
            "Limit the mosaic to this region, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.")
-    ("weights-blur-sigma", po::value<int>(&opt.weights_blur_sigma)->default_value(5),
-           "The standard deviation of the Gaussian used to blur the weights. Higher value results in smoother weights and blending.")
-    ("weights-exponent",   po::value<int>(&opt.weights_exp)->default_value(1),
-           "The weights used to blend the DEMs should increase away from the boundary as a power with this exponent.")
     ("first",   po::bool_switch(&opt.first)->default_value(false),
            "Keep the first encountered DEM value (in the input order).")
     ("last",    po::bool_switch(&opt.last)->default_value(false),
@@ -584,6 +607,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
            "Set the tile size in georeferenced (projected) units (e.g., degrees or meters).")
     ("output-nodata-value", po::value<RealT>(&opt.out_nodata_value),
            "No-data value to use on output. Default: use the one from the first DEM to be mosaicked.")
+    ("weights-blur-sigma", po::value<int>(&opt.weights_blur_sigma)->default_value(5),
+           "The standard deviation of the Gaussian used to blur the weights. Higher value results in smoother weights and blending.")
+    ("weights-exponent",   po::value<int>(&opt.weights_exp)->default_value(1),
+           "The weights used to blend the DEMs should increase away from the boundary as a power with this exponent.")
+    ("extra-crop-length", po::value<int>(&opt.extra_crop_len)->default_value(200),
+           "Crop the images this far from the current tile before blending them (a small value may result in artifacts).")
     ("threads",             po::value<int>(&opt.num_threads)->default_value(4),
            "Number of threads to use.")
     ("help,h", "Display this help message.");
@@ -613,7 +642,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (opt.erode_len < 0)
     vw_throw(ArgumentErr() << "The erode length must not be negative.\n"
                            << usage << general_options );
-  if (opt.blending_len < 0)
+  if (opt.extra_crop_len < 0)
     vw_throw(ArgumentErr() << "The blending length must not be negative.\n"
                            << usage << general_options );
   if (opt.hole_fill_len < 0)
@@ -622,6 +651,18 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (opt.tile_size <= 0)
     vw_throw(ArgumentErr() << "The size of a tile in pixels must be positive.\n"
                            << usage << general_options );
+
+  if (opt.priority_blending_len < 0)
+    vw_throw(ArgumentErr() << "The priority blending length must not be negative.\n"
+                           << usage << general_options );
+
+  if (opt.priority_blending_len > 0 && opt.weights_exp != 1) {
+    vw_throw(ArgumentErr() << "The priority blending length does not "
+             << "work with changing weights-exponent.\n");
+  }
+
+  // If priority blending is used, need to adjust extra_crop_len accordingly
+  opt.extra_crop_len = std::max(opt.extra_crop_len, 3*opt.priority_blending_len);
 
   // Make sure no more than one of these options is enabled.
   int noblend = no_blend(opt);
@@ -633,6 +674,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (opt.geo_tile_size < 0)
     vw_throw(ArgumentErr() << "The size of a tile in georeferenced units must not be negative.\n"
                            << usage << general_options );
+
+  if (noblend && opt.priority_blending_len > 0) {
+    vw_throw(ArgumentErr() << "Priority blending cannot happen if any of the statistics DEMs are computed.\n"
+                           << usage << general_options );
+  }
 
   // For compatibility with the GDAL tools, allow the min and max to be reversed.
   if (opt.projwin.min().x() > opt.projwin.max().x())
@@ -797,7 +843,7 @@ int main( int argc, char *argv[] ) {
     // Form the mosaic and write it to disk
     vw_out()<< "The size of the mosaic is " << cols << " x " << rows << " pixels.\n";
 
-    int bias = opt.erode_len + opt.blending_len + opt.hole_fill_len;
+    int bias = opt.erode_len + opt.extra_crop_len + opt.hole_fill_len;
     // The next power of 2 >= 4*bias. We want to make the blocks big,
     // to reduce overhead from this bias, but not so big that it may
     // not fit in memory.
@@ -830,11 +876,11 @@ int main( int argc, char *argv[] ) {
 
       int tile_index_y = tile_id / num_tiles_x;
       int tile_index_x = tile_id - tile_index_y*num_tiles_x;
-      BBox2i tile_box(tile_index_x*opt.tile_size, 
+      BBox2i tile_box(tile_index_x*opt.tile_size,
                       tile_index_y*opt.tile_size,
                       opt.tile_size, opt.tile_size);
       tile_box.crop(BBox2i(0, 0, cols, rows)); // Bounding box of this tile in pixels in the output image
-     
+
       tile_pixel_bboxes.push_back(tile_box);
     }
 
@@ -856,7 +902,7 @@ int main( int argc, char *argv[] ) {
       bool use_this_dem = false;
       for (int tile_id = start_tile; tile_id < end_tile; tile_id++){
         // Get tile bbox in pixels, then convert it to projected coords.
-        BBox2i tile_pixel_box = tile_pixel_bboxes[tile_id - start_tile];        
+        BBox2i tile_pixel_box = tile_pixel_bboxes[tile_id - start_tile];
         BBox2  tile_proj_box   = out_georef.pixel_to_point_bbox(tile_pixel_box);
 
         if (tile_proj_box.intersects(dem_bbox)) {
@@ -899,8 +945,8 @@ int main( int argc, char *argv[] ) {
       std::string dem_tile = os.str();
 
       // Set up tile image and metadata
-      ImageViewRef<RealT> out_dem = crop(DemMosaicView(cols, rows, opt, images, georefs,
-                                                       out_georef, nodata_values), 
+      ImageViewRef<RealT> out_dem = crop(DemMosaicView(cols, rows, bias, opt, images, georefs,
+                                                       out_georef, nodata_values),
                                          tile_box);
       GeoReference crop_georef = crop(out_georef, tile_box.min().x(), tile_box.min().y());
 
