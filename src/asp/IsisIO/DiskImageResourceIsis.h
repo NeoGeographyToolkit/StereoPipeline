@@ -25,6 +25,7 @@
 
 #include <vw/Image/PixelTypes.h>
 #include <vw/FileIO/DiskImageResource.h>
+#include <vw/FileIO/DiskImageResourceGDAL.h>
 
 namespace Isis {
   class Cube;
@@ -32,15 +33,15 @@ namespace Isis {
 
 namespace vw {
 
-  class DiskImageResourceIsis : public DiskImageResource {
+  class DiskImageResourceIsis : public DiskImageResourceGDAL {
   public:
 
-    DiskImageResourceIsis(std::string const& filename) : DiskImageResource(filename) {
+    DiskImageResourceIsis(std::string const& filename) : DiskImageResourceGDAL(filename) {
       open(filename);
     }
 
     DiskImageResourceIsis(std::string const& filename, ImageFormat const& format)
-      : DiskImageResource(filename) {
+      : DiskImageResourceGDAL(filename) {
       create(filename, format);
     }
 

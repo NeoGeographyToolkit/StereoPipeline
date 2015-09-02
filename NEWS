@@ -14,6 +14,7 @@
  - stereo_gui
    * Added the option --delete-temporary-files-on-exit to do precisely
      that.
+   * Can read the georeference of map-projected ISIS images.
 
 *** RELEASE 2.5.0, August 31, 2015 ***
 
