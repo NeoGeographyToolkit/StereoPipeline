@@ -21,6 +21,13 @@
 # https://github.com/NeoGeographyToolkit/BinaryBuilder/blob/master/build_python_modules/README.txt
 
 import sys, optparse, subprocess, re, os, math, time, datetime
+def die(msg, code=-1):
+    print >>sys.stderr, msg
+    sys.exit(code)
+
+if sys.version_info < (2, 6):
+    die('\nERROR: Must use Python 2.6 or greater.', code=2)
+
 from osgeo import gdal, gdalconst
 import numpy as np
 import scipy as sp
@@ -43,9 +50,6 @@ sys.path.insert(0, libexecpath)
 
 from stereo_utils import get_asp_version
 
-def die(msg, code=-1):
-    print >>sys.stderr, msg
-    sys.exit(code)
 
 def prevpow2(i):
     """
@@ -991,9 +995,6 @@ def main():
     parser.add_option("-D", "--Debug", dest="Debug", default=False, action="store_true",
                       help="Output deugging info and text file of correlation-estimate points")
     (options, args) = parser.parse_args()
-
-    if sys.version_info < (2, 6):
-        die('\nERROR: Must use Python 2.6 or greater.', code=2)
 
     if len(args) < 3:
         parser.print_help()

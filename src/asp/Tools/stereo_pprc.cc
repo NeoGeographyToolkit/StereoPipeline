@@ -261,14 +261,15 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
     }
 
     // Intersect the left mask with the warped version of the right
-    // mask, and vice-versa to reduce noise.
+    // mask, and vice-versa to reduce noise, if the images
+    // are map-projected.
     cartography::GeoReference left_georef, right_georef;
     bool has_left_georef  = read_georeference(left_georef,  left_cropped_file);
     bool has_right_georef = read_georeference(right_georef, right_cropped_file);
 
     vw_out() << "Writing masks: " << left_mask_file << ' '
              << right_mask_file << ".\n";
-    if (has_left_georef && has_right_georef){
+    if (has_left_georef && has_right_georef && !opt.input_dem.empty()){
       ImageViewRef< PixelMask<uint8> > warped_left_mask // Left image mask transformed into right coordinates
         = crop(vw::cartography::geo_transform
                (left_mask, left_georef, right_georef,

@@ -162,6 +162,22 @@ def run_sparse_disp(args, opt):
         if num_threads > 0:
             sparse_args += ['--processes', str(num_threads)]
 
+    # Set the env variables needed by sparse_disp and its dependencies.
+    # We set those here as the LD_LIBRARY_PATH set below is not the
+    # right one for ASP executables.
+    if os.environ.get('ASP_PYTHON_MODULES_PATH') is None:
+        die('\nERROR: Must set the environmental variable ASP_PYTHON_MODULES_PATH.', code=2)
+    if os.environ.get('LD_LIBRARY_PATH') is None:
+        os.environ['LD_LIBRARY_PATH'] = os.environ.get('ASP_PYTHON_MODULES_PATH')
+    else:
+        os.environ['LD_LIBRARY_PATH'] = os.environ.get('LD_LIBRARY_PATH') + \
+                                        ":" + os.environ.get('ASP_PYTHON_MODULES_PATH')
+    if os.environ.get('PYTHONPATH') is None:
+        os.environ['PYTHONPATH'] = os.environ.get('ASP_PYTHON_MODULES_PATH')
+    else:
+        os.environ['PYTHONPATH'] = os.environ.get('ASP_PYTHON_MODULES_PATH') + ":" + \
+                                   os.environ.get('PYTHONPATH')
+
     stereo_run('sparse_disp', sparse_args, opt,
                msg='%d: Low-res correlation with sparse_disp' % Step.corr)
 

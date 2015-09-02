@@ -566,8 +566,12 @@ namespace asp {
 
     //TODO: Clean up these conditional using some kind of enum system
 
-    // If images are map-projected, need an input DEM
-    if (has_georef1 && has_georef2 && !dem_provided) {
+    // If the images are map-projected, and the cameras are specified
+    // separately from the images, we need an input DEM, as we use the
+    // ASP flow with map-projected images.
+    if (has_georef1 && has_georef2 && !dem_provided &&
+        (opt.cam_file1 != opt.in_file1) && (opt.cam_file2 != opt.in_file2) &&
+        !opt.cam_file1.empty() && !opt.cam_file2.empty() ) {
       vw_out(WarningMessage) << "It appears that the input images are "
                              << "map-projected. In that case a DEM needs to be "
                              << "provided for stereo to give correct results.\n";
