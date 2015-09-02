@@ -31,6 +31,7 @@
 #include <vw/Math/EulerAngles.h>
 #include <vw/Image/Algorithms.h>
 #include <vw/tools/hillshade.h>
+#include <vw/Core/RunOnce.h>
 #include <asp/GUI/MainWidget.h>
 
 using namespace vw;
@@ -38,6 +39,19 @@ using namespace vw::gui;
 using namespace std;
 
 namespace vw { namespace gui {
+
+  // A structure to hold all the temporary files we have created
+  vw::RunOnce temporary_files_once = VW_RUNONCE_INIT;
+  boost::shared_ptr<TemporaryFiles> temporary_files_ptr;
+  void init_temporary_files() {
+    temporary_files_ptr
+      = boost::shared_ptr<TemporaryFiles>(new TemporaryFiles());
+  }
+
+  TemporaryFiles& temporary_files() {
+    temporary_files_once.run( init_temporary_files );
+    return *temporary_files_ptr;
+  }
 
   // TODO: Move these pixel_to_point_bbox and point_to_pixel_bbox functions
   // to a lower-level location.
@@ -270,7 +284,7 @@ namespace vw { namespace gui {
     bool has_georef = vw::cartography::read_georeference(georef, input_file);
     if (!has_georef) {
       popUp("No georeference present in: " + input_file + ".");
-      exit(1);
+      vw_throw(ArgumentErr() << "Missing georeference.\n");
     }
 
     // TODO: Expose these to the user
@@ -328,7 +342,7 @@ namespace vw { namespace gui {
 
     if (use_georef && !has_georef){
       popUp("No georeference present in: " + name + ".");
-      exit(1);
+      vw_throw(ArgumentErr() << "Missing georeference.\n");
     }
 
     image_bbox = BBox2(0, 0, img.cols(), img.rows());
@@ -514,7 +528,7 @@ namespace vw { namespace gui {
       m_image_id(image_id), m_output_prefix(output_prefix),
       m_image_files(image_files),
       m_matches(matches), m_hideMatches(true), m_use_georef(use_georef),
-      m_hillshade_mode(hillshade) {
+      m_hillshade_mode(hillshade){
 
     installEventFilter(this);
 
@@ -729,6 +743,7 @@ namespace vw { namespace gui {
 
       // Read it back right away
       m_shadow_thresh_images[image_iter].read(output_file, m_opt, m_use_georef);
+      temporary_files().files.insert(output_file);
     }
 
     refreshPixmap();
@@ -763,6 +778,7 @@ namespace vw { namespace gui {
       write_hillshade(m_opt, input_file, hillshaded_file);
 
       m_hillshaded_images[image_iter].read(hillshaded_file, m_opt, m_use_georef);
+      temporary_files().files.insert(hillshaded_file);
     }
   }
 
@@ -933,7 +949,7 @@ namespace vw { namespace gui {
             int py = p.y() - region_out.min().y();
             if (px < 0 || py < 0 || px >= qimg.width() || py >= qimg.height() ){
               vw_out() << "Book-keeping failure!";
-              exit(1);
+              vw_throw(ArgumentErr() << "Book-keeping failure.\n");
             }
             qimg2.setPixel(x-screen_box.min().x(),
                            y-screen_box.min().y(),

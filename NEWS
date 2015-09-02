@@ -2,6 +2,18 @@
 
  - point2mesh
    * Can create a mesh from a DEM and an orthoimage (DRG file).
+ - dem_mosaic
+   * Introduce --priority-blending-length, measured in input pixels. 
+     If positive, keep unmodified values from the earliest available
+     DEM at the current location except a band this wide near its
+     boundary where blending will happen. Meant to be used with 
+     smaller high-resolution "foreground" DEMs and larger
+     lower-resolution "background" DEMs that should be specified later
+     in the list.
+   * Rename --blending-length to --extra-crop-length, for clarity. 
+ - stereo_gui
+   * Added the option --delete-temporary-files-on-exit to do precisely
+     that.
 
 *** RELEASE 2.5.0, August 31, 2015 ***
 

@@ -55,7 +55,9 @@ namespace vw { namespace gui {
                std::string const& output_prefix,
                int grid_cols,
                vw::Vector2i const& window_size, bool single_window,
-               bool use_georef, bool hillshade, int argc, char ** argv);
+               bool use_georef, bool hillshade,
+               bool delete_temporary_files_on_exit,
+               int argc, char ** argv);
     virtual ~MainWindow() {}
 
   private slots:
@@ -131,7 +133,7 @@ namespace vw { namespace gui {
     ViewType m_view_type, m_view_type_old;
     int m_grid_cols;
 
-    bool m_use_georef, m_hillshade;
+    bool m_use_georef, m_hillshade, m_delete_temporary_files_on_exit;
 
     int m_argc;
     char ** m_argv;

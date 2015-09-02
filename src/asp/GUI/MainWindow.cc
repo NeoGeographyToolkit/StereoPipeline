@@ -66,11 +66,13 @@ MainWindow::MainWindow(asp::BaseOptions const& opt,
                        vw::Vector2i const& window_size,
                        bool single_window,
                        bool use_georef, bool hillshade,
+                       bool delete_temporary_files_on_exit,
                        int argc,  char ** argv) :
   m_opt(opt),
   m_output_prefix(output_prefix), m_widRatio(0.3), m_chooseFiles(NULL),
   m_grid_cols(grid_cols),
   m_use_georef(use_georef), m_hillshade(hillshade),
+  m_delete_temporary_files_on_exit(delete_temporary_files_on_exit),
   m_argc(argc), m_argv(argv) {
 
   resize(window_size[0], window_size[1]);
@@ -329,6 +331,19 @@ void MainWindow::closeEvent(QCloseEvent *){
 }
 
 void MainWindow::forceQuit(){
+
+  if (m_delete_temporary_files_on_exit) {
+    std::set<std::string> & tmp_files = vw::gui::temporary_files().files;
+    for (std::set<std::string>::iterator it = tmp_files.begin();
+         it != tmp_files.end() ; it++) {
+      std::string file = *it;
+      if (fs::exists(file)){
+        vw_out() << "Deleting: " << file << std::endl;
+        fs::remove(file);
+      }
+    }
+  }
+
   exit(0); // A fix for an older buggy version of Qt
 }
 

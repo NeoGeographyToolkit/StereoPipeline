@@ -76,6 +76,11 @@ namespace vw { namespace gui {
 
   namespace fs = boost::filesystem;
 
+  struct TemporaryFiles {
+    std::set<std::string> files;
+  };
+  TemporaryFiles& temporary_files();
+
   // Pop-up a window with given message
   void popUp(std::string msg);
 
@@ -336,6 +341,7 @@ namespace vw { namespace gui {
         // cache in memory the most recently used tiles of all
         // the images in the pyramid.
         m_pyramid_files.push_back(curr_file);
+        temporary_files().files.insert(curr_file);
         m_pyramid.push_back(vw::DiskImageView<PixelT>(curr_file));
         m_scales.push_back(scale);
 
@@ -408,6 +414,9 @@ namespace vw { namespace gui {
 
     // The files (stored on disk) containing the images in the pyramid.
     std::vector<std::string> m_pyramid_files;
+
+    // We may wipe these at the end
+    std::vector<std::string> m_cached_files;
 
     double m_nodata_val;
     std::vector<int> m_scales;
@@ -520,7 +529,8 @@ namespace vw { namespace gui {
     BBox2 image_bbox;
     BBox2 lonlat_bbox;
     DiskImagePyramidMultiChannel img;
-    void read(std::string const& image, asp::BaseOptions const& opt, bool use_georef);
+    void read(std::string const& image, asp::BaseOptions const& opt,
+              bool use_georef);
     double m_lon_offset; // to compensate for -90 deg equalling 270 deg
   };
 

@@ -175,6 +175,7 @@ namespace asp {
     bool single_window;
     bool use_georef;
     bool hillshade;
+    bool delete_temporary_files_on_exit;
 
     // DG Options
     bool disable_correct_velocity_aberration;
