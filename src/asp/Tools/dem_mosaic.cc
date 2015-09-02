@@ -331,7 +331,8 @@ public:
       }
 
       // Prepare the DEM for interpolation
-      ImageViewRef<RealGrayA> interp_dem = interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
+      ImageViewRef<RealGrayA> interp_dem
+        = interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
 
       // Loop through each output pixel
       for (int c = 0; c < bbox.width(); c++){
@@ -368,9 +369,10 @@ public:
               continue; // Outside the loaded DEM bounds, skip to the next pixel
 
             // If we have weights of 0, that means there are invalid pixels, so skip this point.
-            int i = (int)floor(x), j = (int)floor(y);
-            if ((dem(i, j  ).a() <= 0) || (dem(i+1, j  ).a() <= 0) ||
-                (dem(i, j+1).a() <= 0) || (dem(i+1, j+1).a() <= 0))
+            int i0 = (int)floor(x), j0 = (int)floor(y);
+            int i1 = (int)ceil(x),  j1 = (int)ceil(y);
+            if ((dem(i0, j0).a() <= 0) || (dem(i1, j0).a() <= 0) ||
+                (dem(i0, j1).a() <= 0) || (dem(i1, j1).a() <= 0))
               continue;
 
             pval = interp_dem(x, y); // Things checked out, do the interpolation.
@@ -405,8 +407,9 @@ public:
           // Check if the current output value at this pixel is nodata
           bool is_nodata = ((tile(c, r) == m_opt.out_nodata_value));
 
-          // Initialize the tile if not done already
-          if (!m_opt.stddev && !m_opt.median && !m_opt.min && !m_opt.max){ // Init to zero not needed with these types!
+          // Initialize the tile if not done already.
+          // Init to zero not needed with some types.
+          if (!m_opt.stddev && !m_opt.median && !m_opt.min && !m_opt.max){
             if ( is_nodata ){
               tile   (c, r) = 0;
               weights(c, r) = 0.0;
@@ -887,9 +890,6 @@ int main( int argc, char *argv[] ) {
 
     // Store the no-data values, pointers to images, and georeferences (for speed).
     vw_out() << "Reading the input DEMs.\n";
-    TerminalProgressCallback tpc("", "\t--> ");
-    tpc.report_progress(0);
-    double inc_amount = 1.0 / double(opt.dem_files.size() );
     vector< RealT               > nodata_values;
     vector< ImageViewRef<RealT> > images;
     vector< GeoReference        > georefs;
@@ -928,11 +928,7 @@ int main( int argc, char *argv[] ) {
       images.push_back(img);
       georefs.push_back(georef);
 
-      tpc.report_incremental_progress( inc_amount );
     } // End loop through DEM files
-    tpc.report_finished();
-
-
 
     // Time to generate each of the output tiles
     for (int tile_id = start_tile; tile_id < end_tile; tile_id++){
