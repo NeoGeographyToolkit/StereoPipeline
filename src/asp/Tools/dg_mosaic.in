@@ -574,7 +574,7 @@ def main():
                               help="Choose the output resolution in meters per pixel on the ground (note that a coarse resolution may result in aliasing).")
             parser.add_option("--reduce-percent", dest="reduce_percent", type="float",
                               help="Render a reduced resolution image and xml based on this percentage.")
-            parser.add_option("--output-prefix", dest="output_prefix", type="str",
+            parser.add_option("-o", "--output-prefix", dest="output_prefix", type="str",
                               help="The prefix for the output .tif and .xml files.")
             parser.add_option("--band", dest="band", type="int",
                               help="Which band to use (for multi-spectral images).")
