@@ -289,21 +289,36 @@ public:
 
       // Use grassfire weights for smooth blending
       ImageView<double> local_wts = grassfire(notnodata(select_channel(dem, 0), nodata_value));
+
+      // Erode
       int max_cutoff = max_pixel_value(local_wts);
       int min_cutoff = m_opt.erode_len;
       if (max_cutoff <= min_cutoff)
         max_cutoff = min_cutoff + 1; // precaution
-
-      // Erode
       local_wts = clamp(local_wts - min_cutoff, 0.0, max_cutoff - min_cutoff);
 
-      // Blur the weights. However, where the weights are now zero, they must stay at zero.
+      // Blur the weights.
       if (m_opt.weights_blur_sigma > 0) {
-        ImageView<double> blurred_wts = gaussian_filter(local_wts, m_opt.weights_blur_sigma);
-        for (int col = 0; col < dem.cols(); col++){
-          for (int row = 0; row < dem.rows(); row++){
-            if (local_wts(col, row) > 0)
-              local_wts(col, row) = blurred_wts(col, row);
+        // Bugfix: Must ensure the blurred weights are smaller
+        // and smoother than before. Hence erode them first a bit.
+        // The smoothing will make the zero weights non-zero again.
+        int half_kernel = vw::compute_kernel_size(m_opt.weights_blur_sigma)/2;
+        int max_cutoff = max_pixel_value(local_wts);
+        // Care needed below. We want the weights to be pretty small, but
+        // not very tiny.
+        int min_cutoff = ceil(0.75*half_kernel);
+        if (max_cutoff <= min_cutoff)
+          max_cutoff = min_cutoff + 1; // precaution
+        ImageView<double> eroded_wts = clamp(local_wts - min_cutoff, 0.0, max_cutoff - min_cutoff);
+        ImageView<double> blurred_wts = gaussian_filter(eroded_wts, m_opt.weights_blur_sigma);
+        if (blurred_wts.cols() != local_wts.cols() || blurred_wts.rows() != local_wts.rows()) {
+          vw_throw(ArgumentErr() << "Book-keeping failure when blurring weights!\n");
+        }
+        // Where the original weights were zero, the new weights must
+        // also be zero, as at those points there is no DEM data.
+        for (int col = 0; col < local_wts.cols(); col++) {
+          for (int row = 0; row < local_wts.rows(); row++) {
+            local_wts(col, row) = std::min(local_wts(col, row), blurred_wts(col, row));
           }
         }
       }
