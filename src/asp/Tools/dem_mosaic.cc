@@ -249,7 +249,6 @@ public:
     return pixel_type();
   }
 
-
   typedef CropView<ImageView<pixel_type> > prerasterize_type;
   inline prerasterize_type prerasterize(BBox2i bbox) const {
 
@@ -544,7 +543,7 @@ public:
     } // End stddev case
 
 
-    // For the median operation,
+    // For the median operation
     if (m_opt.median){
       // Init output pixels to nodata
       fill( tile, m_opt.out_nodata_value );
@@ -574,7 +573,22 @@ public:
       if (tile_vec.size() != weight_vec.size())
         vw_throw(ArgumentErr() << "There must be as many dem tiles as weight tiles.\n");
 
-      // First, don't allow the weights to grow too fast, for uniqueness.
+      // We will use the weights created so far only to burn holes in
+      // the DEMs where we don't want blending. Then we will have to
+      // recreate the weights. That because the current weights have
+      // been interpolated from a different grid, and won't handle
+      // erosion and bluring well.
+      for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
+        for (int col = 0; col < weight_vec[clip_iter].cols(); col++){
+          for (int row = 0; row < weight_vec[clip_iter].rows(); row++){
+            if (weight_vec[clip_iter](col, row) <= 0)
+              tile_vec[clip_iter](col, row) = m_opt.out_nodata_value;
+          }
+        }
+        weight_vec[clip_iter] = grassfire(notnodata(tile_vec[clip_iter], m_opt.out_nodata_value));
+      }
+
+      // Don't allow the weights to grow too fast, for uniqueness.
       for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
         for (int col = 0; col < weight_vec[clip_iter].cols(); col++) {
           for (int row = 0; row < weight_vec[clip_iter].rows(); row++) {
@@ -584,7 +598,7 @@ public:
         }
       }
 
-      // Next, erode the weights a bit, and blur them. The erosion is necessary
+      // Erode the weights a bit, and blur them. The erosion is necessary
       // to get to small values at the boundary.
       for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
         blur_weights(weight_vec[clip_iter], m_opt.weights_blur_sigma);
