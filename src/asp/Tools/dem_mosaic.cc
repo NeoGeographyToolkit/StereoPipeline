@@ -143,7 +143,7 @@ struct Options : asp::BaseOptions {
   vector<string> dem_files;
   double tr, geo_tile_size;
   bool   has_out_nodata;
-  RealT  out_nodata_value;
+  double out_nodata_value;
   int    tile_size, tile_index, erode_len, priority_blending_len, extra_crop_len, hole_fill_len, weights_blur_sigma, weights_exp;
   bool   first, last, min, max, mean, stddev, median, count;
   BBox2 projwin;
@@ -178,14 +178,14 @@ class DemMosaicView: public ImageViewBase<DemMosaicView>{
   vector< ImageViewRef<RealT> > const& m_images;
   vector< GeoReference        > const& m_georefs;
   GeoReference  m_out_georef;
-  vector<RealT> m_nodata_values;
+  vector<double> m_nodata_values;
 
 public:
   DemMosaicView(int cols, int rows, int bias, Options const& opt,
                 vector< ImageViewRef<RealT> > const& images,
                 vector< GeoReference        > const& georefs,
                 GeoReference  const& out_georef,
-                vector<RealT> const& nodata_values):
+                vector<double> const& nodata_values):
     m_cols(cols), m_rows(rows), m_bias(bias), m_opt(opt),
     m_images(images), m_georefs(georefs),
     m_out_georef(out_georef), m_nodata_values(nodata_values){
@@ -298,18 +298,22 @@ public:
       local_wts = clamp(local_wts - min_cutoff, 0.0, max_cutoff - min_cutoff);
 
       // Blur the weights. However, where the weights are now zero, they must stay at zero.
-      ImageView<double> blurred_wts = gaussian_filter(local_wts, m_opt.weights_blur_sigma);
-      for (int col = 0; col < dem.cols(); col++){
-        for (int row = 0; row < dem.rows(); row++){
-          if (local_wts(col, row) > 0)
-            local_wts(col, row) = blurred_wts(col, row);
+      if (m_opt.weights_blur_sigma > 0) {
+        ImageView<double> blurred_wts = gaussian_filter(local_wts, m_opt.weights_blur_sigma);
+        for (int col = 0; col < dem.cols(); col++){
+          for (int row = 0; row < dem.rows(); row++){
+            if (local_wts(col, row) > 0)
+              local_wts(col, row) = blurred_wts(col, row);
+          }
         }
       }
 
       // Raise to the power
-      for (int col = 0; col < dem.cols(); col++){
-        for (int row = 0; row < dem.rows(); row++){
-          local_wts(col, row) = pow(local_wts(col, row), m_opt.weights_exp);
+      if (m_opt.weights_exp != 1) {
+        for (int col = 0; col < dem.cols(); col++){
+          for (int row = 0; row < dem.rows(); row++){
+            local_wts(col, row) = pow(local_wts(col, row), m_opt.weights_exp);
+          }
         }
       }
 
@@ -383,22 +387,24 @@ public:
 
           if (!noblend && m_opt.priority_blending_len > 0) {
 
-            // The priority blending, earlier pixels are used unmodified
-            // unless close to the boundary.
+            // The priority blending, pixels from earlier DEMs at this location
+            // are used unmodified unless close to that DEM boundary.
             wt = std::min(weight_modifier(c, r), wt);
 
             // Now ensure that the current DEM values will be used
-            // unmodified unless close to the boundary later on.
-            if (wt >= m_opt.priority_blending_len) {
-              // We are well-inside the current DEM, don't let subsequent
-              // DEMs have any good values here.
-              weight_modifier(c, r) = 0;
-            }else if (wt > 0){
-              // We are inside the current DEM, and not too far from boundary
-              // Therefore we will blend.
-              weight_modifier(c, r)
-                = std::min(weight_modifier(c, r), m_opt.priority_blending_len - wt);
+            // unmodified unless close to the boundary for subsequent
+            // DEMs. The weight w2 will be 0 well inside the DEM, and
+            // increase towards the boundary.
+            double wt2 = wt;
+            if (m_opt.weights_exp == 1) {
+              wt2 = std::max(0.0, m_opt.priority_blending_len - wt2);
+            }else{
+              // Undo the power used earlier, then apply it back at the end
+              wt2 = pow(wt2, 1.0/m_opt.weights_exp);
+              wt2 = std::max(0.0, m_opt.priority_blending_len - wt2);
+              wt2 = pow(wt2, m_opt.weights_exp);
             }
+            weight_modifier(c, r) = std::min(weight_modifier(c, r), wt2);
           }
 
           if (wt <= 0)
@@ -449,6 +455,19 @@ public:
       // - This will be memory intensive
       if (m_opt.median)
         tiles.push_back(copy(tile));
+
+#if 0
+      if (!noblend && m_opt.priority_blending_len > 0) {
+        // Dump the modifier weights
+        GeoReference crop_georef = crop(m_out_georef, bbox);
+        std::ostringstream os;
+        os << "modifier_" << dem_iter << ".tif";
+        std::cout << "Writing: " << os.str() << std::endl;
+        block_write_gdal_image(os.str(), weight_modifier, crop_georef, -100,
+                               asp::BaseOptions(),
+                               TerminalProgressCallback("asp", ""));
+      }
+#endif
 
     } // End iterating over DEMs
 
@@ -509,7 +528,9 @@ public:
                         m_opt.out_nodata_value);
     }
 
-    // Return the tile we created with fake borders to make it look the size of the entire output image
+    // Return the tile we created with fake borders to make it look
+    // the size of the entire output image. So far we operated
+    // on doubles, here we cast to RealT.
     return prerasterize_type(pixel_cast<RealT>(tile),
                              -bbox.min().x(), -bbox.min().y(),
                              cols(), rows() );
@@ -608,10 +629,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
            "Each pixel is set to the number of valid DEM heights at that pixel.")
     ("georef-tile-size",    po::value<double>(&opt.geo_tile_size),
            "Set the tile size in georeferenced (projected) units (e.g., degrees or meters).")
-    ("output-nodata-value", po::value<RealT>(&opt.out_nodata_value),
+    ("output-nodata-value", po::value<double>(&opt.out_nodata_value),
            "No-data value to use on output. Default: use the one from the first DEM to be mosaicked.")
     ("weights-blur-sigma", po::value<int>(&opt.weights_blur_sigma)->default_value(5),
-           "The standard deviation of the Gaussian used to blur the weights. Higher value results in smoother weights and blending.")
+           "The standard deviation of the Gaussian used to blur the weights. Higher value results in smoother weights and blending. Set to 0 to not use blurring.")
     ("weights-exponent",   po::value<int>(&opt.weights_exp)->default_value(1),
            "The weights used to blend the DEMs should increase away from the boundary as a power with this exponent.")
     ("extra-crop-length", po::value<int>(&opt.extra_crop_len)->default_value(200),
@@ -659,11 +680,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw(ArgumentErr() << "The priority blending length must not be negative.\n"
                            << usage << general_options );
 
-  if (opt.priority_blending_len > 0 && opt.weights_exp != 1) {
-    vw_throw(ArgumentErr() << "The priority blending length does not "
-             << "work with changing weights-exponent.\n");
-  }
-
   // If priority blending is used, need to adjust extra_crop_len accordingly
   opt.extra_crop_len = std::max(opt.extra_crop_len, 3*opt.priority_blending_len);
 
@@ -689,8 +705,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (opt.projwin.min().y() > opt.projwin.max().y())
     std::swap(opt.projwin.min().y(), opt.projwin.max().y());
 
-  if (opt.weights_blur_sigma <= 0)
-    vw_throw(ArgumentErr() << "The standard deviation used for blurring must be positive.\n"
+  if (opt.weights_blur_sigma < 0)
+    vw_throw(ArgumentErr() << "The standard deviation used for blurring must be non-negative.\n"
                            << usage << general_options );
 
   if (opt.weights_exp <= 0)
@@ -748,6 +764,11 @@ int main( int argc, char *argv[] ) {
     if (!opt.has_out_nodata){
       DiskImageResourceGDAL in_rsrc(opt.dem_files[0]);
       if (in_rsrc.has_nodata_read()) opt.out_nodata_value = in_rsrc.nodata_read();
+    }
+
+    // Watch for underflow, if mixing doubles and float
+    if (opt.out_nodata_value < static_cast<double>(-numeric_limits<RealT>::max())) {
+      opt.out_nodata_value = static_cast<double>(-numeric_limits<RealT>::max());
     }
     vw_out() << "Using output no-data value: " << opt.out_nodata_value << endl;
 
@@ -862,7 +883,8 @@ int main( int argc, char *argv[] ) {
              << num_tiles_y << " = " << num_tiles << std::endl;
 
     if (opt.tile_index >= num_tiles){
-      vw_out() << "Tile with index: " << opt.tile_index << " is out of bounds." << std::endl;
+      vw_out() << "Tile with index: " << opt.tile_index
+               << " is out of bounds." << std::endl;
       return 0;
     }
 
@@ -890,10 +912,11 @@ int main( int argc, char *argv[] ) {
 
     // Store the no-data values, pointers to images, and georeferences (for speed).
     vw_out() << "Reading the input DEMs.\n";
-    vector< RealT               > nodata_values;
+    vector<double> nodata_values;
     vector< ImageViewRef<RealT> > images;
     vector< GeoReference        > georefs;
-    for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++){ // Loop through all DEMs
+    // Loop through all DEMs
+    for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++){
 
       // Get the DEM bounding box that we previously computed (output projected coords)
       BBox2 dem_bbox = dem_bboxes[dem_iter];
@@ -941,10 +964,12 @@ int main( int argc, char *argv[] ) {
       std::string dem_tile = os.str();
 
       // Set up tile image and metadata
-      ImageViewRef<RealT> out_dem = crop(DemMosaicView(cols, rows, bias, opt, images, georefs,
+      ImageViewRef<RealT> out_dem = crop(DemMosaicView(cols, rows, bias, opt,
+                                                       images, georefs,
                                                        out_georef, nodata_values),
                                          tile_box);
-      GeoReference crop_georef = crop(out_georef, tile_box.min().x(), tile_box.min().y());
+      GeoReference crop_georef = crop(out_georef, tile_box.min().x(),
+                                      tile_box.min().y());
 
       // Raster the tile to disk
       vw_out() << "Writing: " << dem_tile << std::endl;
