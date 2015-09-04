@@ -101,6 +101,40 @@ struct BigOrZero: public ReturnFixedType<PixelT> {
   }
 };
 
+void blur_weights(ImageView<double> & weights, double sigma){
+
+  if (sigma <= 0)
+    return;
+
+  // Bugfix: Must ensure the blurred weights are smaller
+  // and smoother than before. Hence erode them first a bit.
+  // The smoothing will make the zero weights non-zero again.
+  int half_kernel = vw::compute_kernel_size(sigma)/2;
+  int max_cutoff = max_pixel_value(weights);
+
+  // Care needed below. We want the weights to be pretty small, but
+  // not very tiny.
+  int min_cutoff = ceil(0.75*half_kernel);
+  if (max_cutoff <= min_cutoff)
+    max_cutoff = min_cutoff + 1; // precaution
+
+  ImageView<double> eroded_wts = clamp(weights - min_cutoff, 0.0, max_cutoff - min_cutoff);
+  ImageView<double> blurred_wts = gaussian_filter(eroded_wts, sigma);
+  if (blurred_wts.cols() != weights.cols() || blurred_wts.rows() != weights.rows()) {
+    vw_throw(ArgumentErr() << "Book-keeping failure when blurring weights!\n");
+  }
+
+  // The weights must not grow. In particular, where the original
+  // weights were zero, the new weights must also be zero, as at those
+  // points there is no DEM data.
+  for (int col = 0; col < weights.cols(); col++) {
+    for (int row = 0; row < weights.rows(); row++) {
+      weights(col, row) = std::min(weights(col, row), blurred_wts(col, row));
+    }
+  }
+
+}
+
 BBox2 point_to_pixel_bbox_nogrow(GeoReference const& georef, BBox2 const& ptbox){
 
   // Given the corners in the projected space, find the pixel corners.
@@ -217,7 +251,14 @@ public:
 
 
   typedef CropView<ImageView<pixel_type> > prerasterize_type;
-  inline prerasterize_type prerasterize(BBox2i const& bbox) const {
+  inline prerasterize_type prerasterize(BBox2i bbox) const {
+
+    // When doing priority blending, we will do all the work in the
+    // output pixels domain. Hence we need to take into account the
+    // bias here rather than later.
+    if (m_opt.priority_blending_len > 0) {
+      bbox.expand(m_bias + BilinearInterpolation::pixel_buffer + 1);
+    }
 
     // We will do all computations in double precision, regardless
     // of the precision of the inputs, for increased accuracy.
@@ -233,14 +274,18 @@ public:
 
     // A vector of images the size of the output tile.
     // - Used for median and stddev calculation.
-    std::vector< ImageView<double> > tiles;
+    std::vector< ImageView<double> > tile_vec, weight_vec;
     if (m_opt.median) // Store each input separately
-      tiles.reserve(m_images.size());
+      tile_vec.reserve(m_images.size());
     if (m_opt.stddev) { // Need one working image
-      tiles.push_back(ImageView<double>(bbox.width(), bbox.height()));
+      tile_vec.push_back(ImageView<double>(bbox.width(), bbox.height()));
       // Each pixel starts at zero, nodata is handled later
-      fill( tiles[0], 0.0 );
+      fill( tile_vec[0], 0.0 );
       fill( tile,     0.0 );
+    }
+    if (m_opt.priority_blending_len > 0) { // Store each weight separately
+      tile_vec.reserve(m_images.size());
+      weight_vec.reserve(m_images.size());
     }
 
     // This will ensure that pixels from earlier images are
@@ -266,8 +311,13 @@ public:
       // Get the tile bbox in the frame of the input DEM
       BBox2 in_box = geotrans.reverse_bbox(bbox);
 
-      // Grow to account for blending and erosion length, etc.
-      in_box.expand(m_bias + BilinearInterpolation::pixel_buffer + 1);
+      // Grow to account for blending and erosion length, etc.  If
+      // priority blending length was positive, we've already done
+      // that.
+      if (m_opt.priority_blending_len <= 0) {
+        in_box.expand(m_bias + BilinearInterpolation::pixel_buffer + 1);
+      }
+
       in_box.crop(bounding_box(disk_dem));
       if (in_box.width() == 1 || in_box.height() == 1){
         // Grassfire likes to have width of at least 2
@@ -277,7 +327,7 @@ public:
       if (in_box.width() <= 1 || in_box.height() <= 1)
         continue; // No overlap with this tile, skip to the next DEM.
 
-      if (m_opt.median){
+      if (m_opt.median || m_opt.priority_blending_len > 0){
         // Must use a blank tile each time
         fill( tile, m_opt.out_nodata_value );
         fill( weights, 0.0 );
@@ -290,6 +340,18 @@ public:
       // Use grassfire weights for smooth blending
       ImageView<double> local_wts = grassfire(notnodata(select_channel(dem, 0), nodata_value));
 
+      // If we don't limit the weights from above, we will have tiling artifacts,
+      // as in different tiles the weights grow to different heights since
+      // they are cropped to different regions. for priority blending length,
+      // we'll do this process later, as the bbox is obtained differently in that case.
+      if (m_opt.priority_blending_len <= 0) {
+        for (int col = 0; col < local_wts.cols(); col++) {
+          for (int row = 0; row < local_wts.rows(); row++) {
+            local_wts(col, row) = std::min(local_wts(col, row), double(m_bias));
+          }
+        }
+      }
+
       // Erode
       int max_cutoff = max_pixel_value(local_wts);
       int min_cutoff = m_opt.erode_len;
@@ -297,34 +359,14 @@ public:
         max_cutoff = min_cutoff + 1; // precaution
       local_wts = clamp(local_wts - min_cutoff, 0.0, max_cutoff - min_cutoff);
 
-      // Blur the weights.
-      if (m_opt.weights_blur_sigma > 0) {
-        // Bugfix: Must ensure the blurred weights are smaller
-        // and smoother than before. Hence erode them first a bit.
-        // The smoothing will make the zero weights non-zero again.
-        int half_kernel = vw::compute_kernel_size(m_opt.weights_blur_sigma)/2;
-        int max_cutoff = max_pixel_value(local_wts);
-        // Care needed below. We want the weights to be pretty small, but
-        // not very tiny.
-        int min_cutoff = ceil(0.75*half_kernel);
-        if (max_cutoff <= min_cutoff)
-          max_cutoff = min_cutoff + 1; // precaution
-        ImageView<double> eroded_wts = clamp(local_wts - min_cutoff, 0.0, max_cutoff - min_cutoff);
-        ImageView<double> blurred_wts = gaussian_filter(eroded_wts, m_opt.weights_blur_sigma);
-        if (blurred_wts.cols() != local_wts.cols() || blurred_wts.rows() != local_wts.rows()) {
-          vw_throw(ArgumentErr() << "Book-keeping failure when blurring weights!\n");
-        }
-        // Where the original weights were zero, the new weights must
-        // also be zero, as at those points there is no DEM data.
-        for (int col = 0; col < local_wts.cols(); col++) {
-          for (int row = 0; row < local_wts.rows(); row++) {
-            local_wts(col, row) = std::min(local_wts(col, row), blurred_wts(col, row));
-          }
-        }
-      }
+      // Blur the weights. If priority blending length is on, we'll do the blur later,
+      // after weights from different DEMs are combined.
+      if (m_opt.weights_blur_sigma > 0 && m_opt.priority_blending_len <= 0)
+        blur_weights(local_wts, m_opt.weights_blur_sigma);
 
-      // Raise to the power
-      if (m_opt.weights_exp != 1) {
+      // Raise to the power. Note that when priority blending length is positive, we
+      // delay this process.
+      if (m_opt.weights_exp != 1 && m_opt.priority_blending_len <= 0) {
         for (int col = 0; col < dem.cols(); col++){
           for (int row = 0; row < dem.rows(); row++){
             local_wts(col, row) = pow(local_wts(col, row), m_opt.weights_exp);
@@ -357,10 +399,13 @@ public:
       for (int c = 0; c < bbox.width(); c++){
         for (int r = 0; r < bbox.height(); r++){
 
-          Vector2 out_pix(c +  bbox.min().x(), r +  bbox.min().y()); // Coordinate in entire output mosaic
-          Vector2 in_pix = geotrans.reverse(out_pix); // Coordinate in this input DEM
+          // Coordinates in the output mosaic
+          Vector2 out_pix(c +  bbox.min().x(), r +  bbox.min().y());
+          // Coordinate in this input DEM
+          Vector2 in_pix = geotrans.reverse(out_pix);
 
-          double x = in_pix[0] - in_box.min().x(); // Input DEM pixel relative to loaded bbox
+          // Input DEM pixel relative to loaded bbox
+          double x = in_pix[0] - in_box.min().x();
           double y = in_pix[1] - in_box.min().y();
           RealGrayA pval;
 
@@ -400,8 +445,7 @@ public:
           double val = pval.v();
           double wt  = pval.a();
 
-          if (!noblend && m_opt.priority_blending_len > 0) {
-
+          if (m_opt.priority_blending_len > 0) {
             // The priority blending, pixels from earlier DEMs at this location
             // are used unmodified unless close to that DEM boundary.
             wt = std::min(weight_modifier(c, r), wt);
@@ -411,14 +455,7 @@ public:
             // DEMs. The weight w2 will be 0 well inside the DEM, and
             // increase towards the boundary.
             double wt2 = wt;
-            if (m_opt.weights_exp == 1) {
-              wt2 = std::max(0.0, m_opt.priority_blending_len - wt2);
-            }else{
-              // Undo the power used earlier, then apply it back at the end
-              wt2 = pow(wt2, 1.0/m_opt.weights_exp);
-              wt2 = std::max(0.0, m_opt.priority_blending_len - wt2);
-              wt2 = pow(wt2, m_opt.weights_exp);
-            }
+            wt2 = std::max(0.0, m_opt.priority_blending_len - wt2);
             weight_modifier(c, r) = std::min(weight_modifier(c, r), wt2);
           }
 
@@ -430,7 +467,8 @@ public:
 
           // Initialize the tile if not done already.
           // Init to zero not needed with some types.
-          if (!m_opt.stddev && !m_opt.median && !m_opt.min && !m_opt.max){
+          if (!m_opt.stddev && !m_opt.median && !m_opt.min && !m_opt.max &&
+              m_opt.priority_blending_len <= 0){
             if ( is_nodata ){
               tile   (c, r) = 0;
               weights(c, r) = 0.0;
@@ -442,7 +480,8 @@ public:
                m_opt.last                                         ||
                ( m_opt.min && ( val < tile(c, r) || is_nodata ) ) ||
                ( m_opt.max && ( val > tile(c, r) || is_nodata ) ) ||
-               m_opt.median ){ // --> Conditions where we replace the current value
+               m_opt.median || m_opt.priority_blending_len > 0 ){
+            // --> Conditions where we replace the current value
             tile   (c, r) = val;
             weights(c, r) = wt;
           }else if (m_opt.mean){ // Mean --> Accumulate the value
@@ -453,12 +492,12 @@ public:
             weights(c, r) += wt;
           }else if (m_opt.stddev){ // Standard Deviation --> Keep running calculation
             weights(c, r) += 1.0;
-            double curr_mean = tiles[0](c,r);
+            double curr_mean = tile_vec[0](c,r);
             double delta     = val - curr_mean;
             curr_mean     += delta / weights(c, r);
             double newVal = tile(c, r) + delta*(val - curr_mean);
             tile(c, r)    = newVal;
-            tiles[0](c,r) = curr_mean;
+            tile_vec[0](c,r) = curr_mean;
           }else if (!noblend){ // Blending --> Weighted average
             tile(c, r) += wt*val;
             weights(c, r) += wt;
@@ -469,20 +508,13 @@ public:
       // For the median option, keep a copy of the output tile for each input DEM!
       // - This will be memory intensive
       if (m_opt.median)
-        tiles.push_back(copy(tile));
+        tile_vec.push_back(copy(tile));
 
-#if 0
-      if (!noblend && m_opt.priority_blending_len > 0) {
-        // Dump the modifier weights
-        GeoReference crop_georef = crop(m_out_georef, bbox);
-        std::ostringstream os;
-        os << "modifier_" << dem_iter << ".tif";
-        std::cout << "Writing: " << os.str() << std::endl;
-        block_write_gdal_image(os.str(), weight_modifier, crop_georef, -100,
-                               asp::BaseOptions(),
-                               TerminalProgressCallback("asp", ""));
+      // For priority blending, need also to keep all tiles, but also the weights
+      if (m_opt.priority_blending_len > 0){
+        tile_vec.push_back(copy(tile));
+        weight_vec.push_back(copy(weights));
       }
-#endif
 
     } // End iterating over DEMs
 
@@ -516,14 +548,14 @@ public:
     if (m_opt.median){
       // Init output pixels to nodata
       fill( tile, m_opt.out_nodata_value );
-      vector<double> vals(tiles.size());
+      vector<double> vals(tile_vec.size());
       // Iterate through all pixels
       for (int c = 0; c < bbox.width(); c++){
         for (int r = 0; r < bbox.height(); r++){
           // Compute the median for this pixel
           vals.clear();
-          for (int i = 0; i < (int)tiles.size(); i++){
-            ImageView<double> & tile_ref = tiles[i];
+          for (int i = 0; i < (int)tile_vec.size(); i++){
+            ImageView<double> & tile_ref = tile_vec[i];
             if ( tile_ref(c, r) == m_opt.out_nodata_value )
               continue;
             vals.push_back(tile_ref(c, r));
@@ -534,6 +566,84 @@ public:
         }// End row loop
       } // End col loop
     } // End median case
+
+
+    // For priority blending length.
+    if (m_opt.priority_blending_len > 0) {
+
+      if (tile_vec.size() != weight_vec.size())
+        vw_throw(ArgumentErr() << "There must be as many dem tiles as weight tiles.\n");
+
+      // First, don't allow the weights to grow too fast, for uniqueness.
+      for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
+        for (int col = 0; col < weight_vec[clip_iter].cols(); col++) {
+          for (int row = 0; row < weight_vec[clip_iter].rows(); row++) {
+            weight_vec[clip_iter](col, row)
+              = std::min(weight_vec[clip_iter](col, row), double(m_bias));
+          }
+        }
+      }
+
+      // Next, erode the weights a bit, and blur them. The erosion is necessary
+      // to get to small values at the boundary.
+      for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
+        blur_weights(weight_vec[clip_iter], m_opt.weights_blur_sigma);
+      }
+
+      // Raise to power
+      if (m_opt.weights_exp != 1) {
+        for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
+          for (int col = 0; col < weight_vec[clip_iter].cols(); col++){
+            for (int row = 0; row < weight_vec[clip_iter].rows(); row++){
+              weight_vec[clip_iter](col, row)
+                = pow(weight_vec[clip_iter](col, row), m_opt.weights_exp);
+            }
+          }
+        }
+      }
+
+      // Now we are ready for blending
+      fill( tile, m_opt.out_nodata_value );
+      fill( weights, 0.0 );
+      for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
+        for (int col = 0; col < weight_vec[clip_iter].cols(); col++){
+          for (int row = 0; row < weight_vec[clip_iter].rows(); row++){
+
+            double wt = weight_vec[clip_iter](col, row);
+            if (wt <= 0) continue; // nothing to do
+
+            // Initialize the tile
+            if (tile(col, row) == m_opt.out_nodata_value)
+              tile(col, row) = 0;
+
+            tile(col, row)    += wt*tile_vec[clip_iter](col, row);
+            weights(col, row) += wt;
+          }
+        }
+      }
+
+      // Compute the weighted average
+      for (int col = 0; col < tile.cols(); col++){
+        for (int row = 0; row < weights.rows(); row++){
+          if ( weights(col, row) > 0 )
+            tile(col, row) /= weights(col, row);
+        }
+      }
+
+#if 0
+      for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
+        // Dump the modifier weights
+        GeoReference crop_georef = crop(m_out_georef, bbox);
+        std::ostringstream os;
+        os << "tile_weight_" << clip_iter << ".tif";
+        std::cout << "Writing: " << os.str() << std::endl;
+        block_write_gdal_image(os.str(), weight_vec[clip_iter], crop_georef, -100,
+                               asp::BaseOptions(),
+                               TerminalProgressCallback("asp", ""));
+      }
+#endif
+
+    } // end considering the priority blending length
 
     // Fill holes
     if (m_opt.hole_fill_len > 0){
