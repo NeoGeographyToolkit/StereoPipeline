@@ -267,9 +267,8 @@ public:
     // When doing priority blending, we will do all the work in the
     // output pixels domain. Hence we need to take into account the
     // bias here rather than later.
-    if (m_opt.priority_blending_len > 0) {
+    if (m_opt.priority_blending_len > 0)
       bbox.expand(m_bias + BilinearInterpolation::pixel_buffer + 1);
-    }
 
     // We will do all computations in double precision, regardless
     // of the precision of the inputs, for increased accuracy.
@@ -333,9 +332,8 @@ public:
       // Grow to account for blending and erosion length, etc.  If
       // priority blending length was positive, we've already done
       // that.
-      if (m_opt.priority_blending_len <= 0) {
+      if (m_opt.priority_blending_len <= 0)
         in_box.expand(m_bias + BilinearInterpolation::pixel_buffer + 1);
-      }
 
       in_box.crop(bounding_box(disk_dem));
       if (in_box.width() == 1 || in_box.height() == 1){
@@ -520,12 +518,8 @@ public:
           }else if (!noblend){ // Blending --> Weighted average
             tile(c, r) += wt*val;
             weights(c, r) += wt;
-          }
-
-          // Save the current weight. This is treated separately as to not
-          // interfere with any of the actual calculations.
-          if (m_opt.save_dem_weight == dem_iter) {
-            saved_weight(c, r) = wt;
+            if (m_opt.save_dem_weight == dem_iter)
+              saved_weight(c, r) = wt;
           }
 
         } // End col loop
@@ -551,6 +545,10 @@ public:
         for (int r = 0; r < bbox.height(); r++){
           if ( weights(c, r) > 0 )
             tile(c, r) /= weights(c, r);
+
+          if (m_opt.save_dem_weight >= 0 && weights(c, r) > 0)
+            saved_weight(c, r) /= weights(c, r);
+
         } // End row loop
       } // End col loop
     } // End dividing case
@@ -647,10 +645,8 @@ public:
       fill( tile, m_opt.out_nodata_value );
       fill( weights, 0.0 );
 
-      if (m_opt.save_dem_weight >= 0) {
-        saved_weight = ImageView<double>(bbox.width(), bbox.height());
+      if (m_opt.save_dem_weight >= 0)
         fill(saved_weight, 0.0);
-      }
 
       for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
         for (int col = 0; col < weight_vec[clip_iter].cols(); col++){
@@ -677,6 +673,10 @@ public:
         for (int row = 0; row < weights.rows(); row++){
           if ( weights(col, row) > 0 )
             tile(col, row) /= weights(col, row);
+
+          if (m_opt.save_dem_weight >= 0 && weights(col, row) > 0)
+            saved_weight(col, row) /= weights(col, row);
+
         }
       }
 
@@ -817,7 +817,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("extra-crop-length", po::value<int>(&opt.extra_crop_len)->default_value(200),
      "Crop the images this far from the current tile before blending them (a small value may result in artifacts).")
     ("save-dem-weight",      po::value<int>(&opt.save_dem_weight),
-     "Save the weight image used to blend the DEM with given index in the input list (smallest index is 0). Useful for validating the weights.")
+     "Save the weight image used to blend into the mosaic the DEM with given index in the input list (smallest index is 0).")
     ("threads",             po::value<int>(&opt.num_threads)->default_value(4),
            "Number of threads to use.")
     ("help,h", "Display this help message.");

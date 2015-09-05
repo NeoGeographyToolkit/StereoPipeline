@@ -151,7 +151,7 @@ namespace asp{
     }
 
   }; // End class CsvReader
-  
+
 
   /// Create a point cloud image from a las file. The image will be
   /// created block by block, when it needs to be written to disk. It is
@@ -159,9 +159,9 @@ namespace asp{
   /// as we read from the las file sequentially.
   template <class ImageT>
   class LasOrCsvToTif_Class : public ImageViewBase< LasOrCsvToTif_Class<ImageT> > {
-    
+
     typedef typename ImageT::pixel_type PixelT;
-    
+
     asp::BaseReader * m_reader;
     int m_rows, m_cols; // These are pixel sizes, not tile counts.
     int m_block_size;
@@ -178,7 +178,7 @@ namespace asp{
       boost::uint64_t num_points = m_reader->m_num_points;
       int num_row_tiles = std::max(1, (int)ceil(double(num_rows)/tile_len));
       m_rows = tile_len*num_row_tiles;
-      
+
       int points_per_row = (int)ceil(double(num_points)/m_rows);
       int num_col_tiles  = std::max(1, (int)ceil(double(points_per_row)/tile_len));
       m_cols = tile_len*num_col_tiles;
@@ -215,7 +215,7 @@ namespace asp{
       while (m_reader->ReadNextPoint()){
         in.push_back(m_reader->GetPoint());
         count++;
-        if (count >= max_num_pts_to_read) 
+        if (count >= max_num_pts_to_read)
           break;
       }
 
@@ -263,7 +263,7 @@ void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
   std::string local = csv_format_str;
   boost::algorithm::to_lower(local);
 
-  if (local == "") 
+  if (local == "")
     return;
 
   boost::replace_all(local, ":", " ");
@@ -401,7 +401,7 @@ vw::Vector3 asp::CsvConv::parse_csv_line(bool & is_first_line, bool & success,
     if ( num_read >= 3 ) break; // read enough numbers
 
     // Look only at indices we are supposed to read
-    if (this->col2name.find(col_index) == this->col2name.end()) 
+    if (this->col2name.find(col_index) == this->col2name.end())
       continue;
 
     double val;
@@ -414,7 +414,7 @@ vw::Vector3 asp::CsvConv::parse_csv_line(bool & is_first_line, bool & success,
     num_read++;
   }
 
-  if (num_read != (int)vals.size()) 
+  if (num_read != (int)vals.size())
     success = false;
 
   // Be prepared for the fact that the first line may be the header.
@@ -464,7 +464,7 @@ Vector3 asp::CsvConv::csv_to_cartesian_or_point_height(Vector3 const& csv,
   }else if (this->format == HEIGHT_LAT_LON){
 
     std::swap(ordered_csv[0], ordered_csv[2]); // now lon, lat, height
-    if (return_point_height) 
+    if (return_point_height)
       return ordered_csv;
 
     xyz = geo.datum().geodetic_to_cartesian(ordered_csv);
@@ -482,7 +482,7 @@ Vector3 asp::CsvConv::csv_to_cartesian_or_point_height(Vector3 const& csv,
     // Update the radius
     xyz = ordered_csv[2]*(xyz/norm_2(xyz));
 
-    if (return_point_height) 
+    if (return_point_height)
       return geo.datum().cartesian_to_geodetic(xyz);
   }
   return xyz;
@@ -647,7 +647,7 @@ bool asp::georef_from_las(std::vector<std::string> const& files,
 
   for (int i = 0; i < (int)files.size(); i++){
     GeoReference local_georef;
-    if (!is_las(files[i])) 
+    if (!is_las(files[i]))
       continue;
     if (asp::georef_from_las(files[i], local_georef)){
       georef = local_georef;
@@ -683,6 +683,7 @@ bool asp::read_user_datum(double semi_major, double semi_minor,
       vw_out() << "\t--> Re-referencing altitude values using a Lunar spheroid\n";
     } else if (reference_spheroid == "earth") {
       vw_out() << "\t--> Re-referencing altitude values using the Earth WGS84 spheroid\n";
+      datum.set_well_known_datum("WGS84");
     } else {
       vw_throw( ArgumentErr() << "\t--> Unknown reference spheriod: "
                 << reference_spheroid
