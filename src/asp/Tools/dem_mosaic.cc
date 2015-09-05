@@ -106,30 +106,41 @@ void blur_weights(ImageView<double> & weights, double sigma){
   if (sigma <= 0)
     return;
 
-  // Bugfix: Must ensure the blurred weights are smaller
-  // and smoother than before. Hence erode them first a bit.
-  // The smoothing will make the zero weights non-zero again.
+  // Blur the weights. To try to make the weights not drop much at the
+  // boundary, expand the weights with zero, blur, crop back to the
+  // original region.
+
+  // It is highly important to note that blurring can increase the weights
+  // at the boundary, even with the extension done above. Erosion before
+  // blurring does not help with that, as for weights with complicated
+  // boundary erosion can wipe things in a non-uniform way leaving
+  // huge holes. To get smooth weights, if really desired one should
+  // use the weights-exponent option.
+
   int half_kernel = vw::compute_kernel_size(sigma)/2;
-  int max_cutoff = max_pixel_value(weights);
+  int extra = half_kernel + 1; // to guarantee we stay zero at boundary
 
-  // Care needed below. We want the weights to be pretty small, but
-  // not very tiny.
-  int min_cutoff = ceil(0.75*half_kernel);
-  if (max_cutoff <= min_cutoff)
-    max_cutoff = min_cutoff + 1; // precaution
+  int cols = weights.cols(), rows = weights.rows();
 
-  ImageView<double> eroded_wts = clamp(weights - min_cutoff, 0.0, max_cutoff - min_cutoff);
-  ImageView<double> blurred_wts = gaussian_filter(eroded_wts, sigma);
-  if (blurred_wts.cols() != weights.cols() || blurred_wts.rows() != weights.rows()) {
-    vw_throw(ArgumentErr() << "Book-keeping failure when blurring weights!\n");
+  ImageView<double> extra_wts(cols + 2*extra, rows + 2*extra);
+  fill(extra_wts, 0);
+  for (int col = 0; col < cols; col++) {
+    for (int row = 0; row < rows; row++) {
+      extra_wts(col + extra, row + extra) = weights(col, row);
+    }
   }
 
-  // The weights must not grow. In particular, where the original
-  // weights were zero, the new weights must also be zero, as at those
-  // points there is no DEM data.
-  for (int col = 0; col < weights.cols(); col++) {
-    for (int row = 0; row < weights.rows(); row++) {
-      weights(col, row) = std::min(weights(col, row), blurred_wts(col, row));
+  ImageView<double> blurred_wts = gaussian_filter(extra_wts, sigma);
+
+  // Copy back.  The weights must not grow. In particular, where the
+  // original weights were zero, the new weights must also be zero, as
+  // at those points there is no DEM data.
+  for (int col = 0; col < cols; col++) {
+    for (int row = 0; row < rows; row++) {
+      if (weights(col, row) > 0) {
+        weights(col, row) = blurred_wts(col + extra, row + extra);
+      }
+      //weights(col, row) = std::min(weights(col, row), blurred_wts(col + extra, row + extra));
     }
   }
 
@@ -178,11 +189,11 @@ struct Options : asp::BaseOptions {
   double tr, geo_tile_size;
   bool   has_out_nodata;
   double out_nodata_value;
-  int    tile_size, tile_index, erode_len, priority_blending_len, extra_crop_len, hole_fill_len, weights_blur_sigma, weights_exp;
+  int    tile_size, tile_index, erode_len, priority_blending_len, extra_crop_len, hole_fill_len, weights_blur_sigma, weights_exp, save_dem_weight;
   bool   first, last, min, max, mean, stddev, median, count;
   BBox2 projwin;
   Options(): tr(0), geo_tile_size(0), has_out_nodata(false), tile_index(-1),
-             erode_len(0), priority_blending_len(0), extra_crop_len(0), hole_fill_len(0), weights_blur_sigma(0), weights_exp(0),
+             erode_len(0), priority_blending_len(0), extra_crop_len(0), hole_fill_len(0), weights_blur_sigma(0), weights_exp(0), save_dem_weight(-1),
              first(false), last(false), min(false), max(false),
              mean(false), stddev(false), median(false), count(false){}
 };
@@ -194,14 +205,15 @@ int no_blend(Options const& opt){
 }
 
 std::string tile_suffix(Options const& opt){
-  if (opt.first ) return "first-";
-  if (opt.last  ) return "last-";
-  if (opt.min   ) return "min-";
-  if (opt.max   ) return "max-";
-  if (opt.mean  ) return "mean-";
-  if (opt.stddev) return "stddev-";
-  if (opt.median) return "median-";
-  if (opt.count ) return "count-";
+  if (opt.first ) return "-first";
+  if (opt.last  ) return "-last";
+  if (opt.min   ) return "-min";
+  if (opt.max   ) return "-max";
+  if (opt.mean  ) return "-mean";
+  if (opt.stddev) return "-stddev";
+  if (opt.median) return "-median";
+  if (opt.count ) return "-count";
+  if (opt.save_dem_weight >= 0) return "-weight-" + stringify(opt.save_dem_weight) + "";
   return "";
 }
 
@@ -293,6 +305,14 @@ public:
     if (m_opt.priority_blending_len > 0) {
       weight_modifier = ImageView<double>(bbox.width(), bbox.height());
       fill(weight_modifier, std::numeric_limits<double>::max());
+    }
+
+    // For saving the weights
+    std::vector<int> clip2dem_index;
+    ImageView<double> saved_weight;
+    if (m_opt.save_dem_weight >= 0) {
+      saved_weight = ImageView<double>(bbox.width(), bbox.height());
+      fill(saved_weight, 0.0);
     }
 
     // Loop through all input DEMs
@@ -501,6 +521,13 @@ public:
             tile(c, r) += wt*val;
             weights(c, r) += wt;
           }
+
+          // Save the current weight. This is treated separately as to not
+          // interfere with any of the actual calculations.
+          if (m_opt.save_dem_weight == dem_iter) {
+            saved_weight(c, r) = wt;
+          }
+
         } // End col loop
       } // End row loop
 
@@ -513,6 +540,7 @@ public:
       if (m_opt.priority_blending_len > 0){
         tile_vec.push_back(copy(tile));
         weight_vec.push_back(copy(weights));
+        clip2dem_index.push_back(dem_iter);
       }
 
     } // End iterating over DEMs
@@ -570,7 +598,7 @@ public:
     // For priority blending length.
     if (m_opt.priority_blending_len > 0) {
 
-      if (tile_vec.size() != weight_vec.size())
+      if (tile_vec.size() != weight_vec.size() || tile_vec.size() != clip2dem_index.size())
         vw_throw(ArgumentErr() << "There must be as many dem tiles as weight tiles.\n");
 
       // We will use the weights created so far only to burn holes in
@@ -598,8 +626,7 @@ public:
         }
       }
 
-      // Erode the weights a bit, and blur them. The erosion is necessary
-      // to get to small values at the boundary.
+      // Blur the weights.
       for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
         blur_weights(weight_vec[clip_iter], m_opt.weights_blur_sigma);
       }
@@ -619,6 +646,12 @@ public:
       // Now we are ready for blending
       fill( tile, m_opt.out_nodata_value );
       fill( weights, 0.0 );
+
+      if (m_opt.save_dem_weight >= 0) {
+        saved_weight = ImageView<double>(bbox.width(), bbox.height());
+        fill(saved_weight, 0.0);
+      }
+
       for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
         for (int col = 0; col < weight_vec[clip_iter].cols(); col++){
           for (int row = 0; row < weight_vec[clip_iter].rows(); row++){
@@ -632,6 +665,9 @@ public:
 
             tile(col, row)    += wt*tile_vec[clip_iter](col, row);
             weights(col, row) += wt;
+
+            if (clip2dem_index[clip_iter] == m_opt.save_dem_weight)
+              saved_weight(col, row) = wt;
           }
         }
       }
@@ -666,6 +702,10 @@ public:
                             m_opt.hole_fill_len),
                         m_opt.out_nodata_value);
     }
+
+    // Save the weight instead
+    if (m_opt.save_dem_weight >= 0)
+      tile = saved_weight;
 
     // Return the tile we created with fake borders to make it look
     // the size of the entire output image. So far we operated
@@ -775,7 +815,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("weights-exponent",   po::value<int>(&opt.weights_exp)->default_value(1),
            "The weights used to blend the DEMs should increase away from the boundary as a power with this exponent.")
     ("extra-crop-length", po::value<int>(&opt.extra_crop_len)->default_value(200),
-           "Crop the images this far from the current tile before blending them (a small value may result in artifacts).")
+     "Crop the images this far from the current tile before blending them (a small value may result in artifacts).")
+    ("save-dem-weight",      po::value<int>(&opt.save_dem_weight),
+     "Save the weight image used to blend the DEM with given index in the input list (smallest index is 0). Useful for validating the weights.")
     ("threads",             po::value<int>(&opt.num_threads)->default_value(4),
            "Number of threads to use.")
     ("help,h", "Display this help message.");
@@ -838,6 +880,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                            << usage << general_options );
   }
 
+  if (noblend && opt.save_dem_weight >= 0) {
+    vw_throw(ArgumentErr() << "Cannot save the weights if the statistics DEMs are computed.\n"
+             << usage << general_options );
+  }
+
   // For compatibility with the GDAL tools, allow the min and max to be reversed.
   if (opt.projwin.min().x() > opt.projwin.max().x())
     std::swap(opt.projwin.min().x(), opt.projwin.max().x());
@@ -871,9 +918,14 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   }else{  // Get them from the command line
 
     if (unregistered.empty())
-      vw_throw(ArgumentErr() << "No input DEMs were specified..\n"
+      vw_throw(ArgumentErr() << "No input DEMs were specified.\n"
                              << usage << general_options );
     opt.dem_files = unregistered;
+  }
+
+  if (int(opt.dem_files.size()) <= opt.save_dem_weight) {
+    vw_throw(ArgumentErr() << "Cannot save weights for given index as it is out of bounds.\n"
+             << usage << general_options );
   }
 
   // Create the output directory
@@ -1006,7 +1058,11 @@ int main( int argc, char *argv[] ) {
     // Form the mosaic and write it to disk
     vw_out()<< "The size of the mosaic is " << cols << " x " << rows << " pixels.\n";
 
-    int bias = opt.erode_len + opt.extra_crop_len + opt.hole_fill_len;
+    // This bias is very important. This is how much we should read from
+    // the images beyond the current boundary to avoid tiling artifacts.
+    int bias = opt.erode_len + opt.extra_crop_len + opt.hole_fill_len
+      + 2*vw::compute_kernel_size(opt.weights_blur_sigma);
+
     // The next power of 2 >= 4*bias. We want to make the blocks big,
     // to reduce overhead from this bias, but not so big that it may
     // not fit in memory.
@@ -1099,7 +1155,7 @@ int main( int argc, char *argv[] ) {
       BBox2i tile_box = tile_pixel_bboxes[tile_id - start_tile];
 
       ostringstream os;
-      os << opt.out_prefix << "-tile-" << tile_suffix(opt) << tile_id << ".tif";
+      os << opt.out_prefix << "-tile-" << tile_id << tile_suffix(opt) << ".tif";
       std::string dem_tile = os.str();
 
       // Set up tile image and metadata
