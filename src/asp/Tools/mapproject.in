@@ -337,7 +337,7 @@ def main(argsIn):
     # - The numbers in braces will receive the values from the text file we wrote earlier
     # - The output path used here does not matter since spawned copies compute the correct tile path.
     python_path = sys.executable # children must use same Python as parent
-    # We use below the libexec_path to call pyton, not the shell script
+    # We use below the libexec_path to call python, not the shell script
     mapproject_path = asp_system_utils.libexec_path('mapproject')
     commandList   = [python_path, mapproject_path,
                      '--pixelStartX', '{1}',

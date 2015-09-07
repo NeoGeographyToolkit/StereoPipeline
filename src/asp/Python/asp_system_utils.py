@@ -115,13 +115,15 @@ def runInGnuParallel(numParallelProcesses, commandString, argumentFilePath, para
 
 # When user-exposed ASP executables are installed, they are in
 # 'bin'. Otherwise, in dev mode, they are in the same dir as __file__.
+# We prefer absolute paths below, in case some intermediate directories
+# do not exist.
 def bin_path(prog, **kw):
     currpath = kw.get('path', P.dirname(P.abspath(__file__)))
-    binpath = P.join(currpath, '..', 'bin', prog)
+    binpath = os.path.abspath(P.join(currpath, '..', 'bin', prog))
     if not P.isfile(binpath):
-        binpath = P.join(currpath, '..', 'Tools', prog)
+        binpath = os.path.abspath(P.join(currpath, '..', 'Tools', prog))
     if not P.isfile(binpath):
-        binpath = P.join(currpath, prog)
+        binpath = os.path.abspath(P.join(currpath, prog))
     return binpath
 
 # When hidden ASP executables are installed, they are in
@@ -129,11 +131,11 @@ def bin_path(prog, **kw):
 # __file__.
 def libexec_path(prog, **kw):
     currpath = kw.get('path', P.dirname(P.abspath(__file__)))
-    libexecpath = P.join(currpath, '..', 'libexec', prog)
+    libexecpath = os.path.abspath(P.join(currpath, '..', 'libexec', prog))
     if not P.isfile(libexecpath):
-        libexecpath = P.join(currpath, '..', 'Tools', prog)
+        libexecpath = os.path.abspath(P.join(currpath, '..', 'Tools', prog))
     if not P.isfile(libexecpath):
-        libexecpath = P.join(currpath, prog)
+        libexecpath = os.path.abspath(P.join(currpath, prog))
 
     if not P.isfile(libexecpath):
         # Could not find prog in libexec either. We will come
