@@ -324,6 +324,8 @@ void read_datum(Options& opt, asp::CsvConv& csv_conv, Datum& datum){
       opt.csv_format_str = "1:x 2:y 3:z";
       csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_proj4_str);
     }
+  }else{
+    vw::vw_throw( vw::InputErr() << "Could not set the datum.\n");
   }
 
   return;
@@ -792,7 +794,6 @@ int main( int argc, char *argv[] ) {
     }
 
     // Now all of the input data is loaded.
-
 
     // Filter the reference and initialize the reference tree
     double elapsed_time;
