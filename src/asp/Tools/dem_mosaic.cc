@@ -813,7 +813,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("weights-blur-sigma", po::value<int>(&opt.weights_blur_sigma)->default_value(5),
            "The standard deviation of the Gaussian used to blur the weights. Higher value results in smoother weights and blending. Set to 0 to not use blurring.")
     ("weights-exponent",   po::value<int>(&opt.weights_exp)->default_value(1),
-           "The weights used to blend the DEMs should increase away from the boundary as a power with this exponent.")
+           "The weights used to blend the DEMs should increase away from the boundary as a power with this exponent. Higher values will result in smoother but faster-growing weights.")
     ("extra-crop-length", po::value<int>(&opt.extra_crop_len)->default_value(200),
      "Crop the images this far from the current tile before blending them (a small value may result in artifacts).")
     ("save-dem-weight",      po::value<int>(&opt.save_dem_weight),
@@ -876,8 +876,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                            << usage << general_options );
 
   if (noblend && opt.priority_blending_len > 0) {
-    vw_throw(ArgumentErr() << "Priority blending cannot happen if any of the statistics DEMs are computed.\n"
-                           << usage << general_options );
+    vw_throw(ArgumentErr()
+             << "Priority blending cannot happen if any of the statistics DEMs are computed.\n"
+             << usage << general_options );
   }
 
   if (noblend && opt.save_dem_weight >= 0) {
@@ -1099,7 +1100,9 @@ int main( int argc, char *argv[] ) {
       BBox2i tile_box(tile_index_x*opt.tile_size,
                       tile_index_y*opt.tile_size,
                       opt.tile_size, opt.tile_size);
-      tile_box.crop(BBox2i(0, 0, cols, rows)); // Bounding box of this tile in pixels in the output image
+
+      // Bounding box of this tile in pixels in the output image
+      tile_box.crop(BBox2i(0, 0, cols, rows));
 
       tile_pixel_bboxes.push_back(tile_box);
     }
