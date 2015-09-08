@@ -851,24 +851,29 @@ The default behavior is to blend the DEMs everywhere. If the option
 \texttt{-\/-priority-blending-length \textit{integer}} is invoked, the
 blending behavior will be different. At any location, the pixel value of
 the DEM earliest in the list present at this location will be kept,
-unless closer to the boundary of that DEM than this blending length,
-only in the latter case blending will happen. This mode is useful with
-blending several high-resolution ``foreground'' DEMs covering small
-regions in space with larger ``background'' DEMs covering a larger
+unless closer to the boundary of that DEM than this blending length
+(measured in input DEM pixels), only in the latter case blending will happen. This
+mode is useful when blending several high-resolution ``foreground'' DEMs
+covering small regions with larger ``background'' DEMs covering a larger
 extent. Then, the pixels from the high-resolution DEMs are more
 desirable, yet at their boundary these DEMs should blend into the
 background.
+
+To obtain smoother blending when the input DEMs are quite different at
+the boundary, one can increase \texttt{-\/-weights-blur-sigma} and
+\texttt{-\/-weights-exponent}. The latter will result in weights growing
+slower earlier and faster later. Some experimentation may be necessary,
+helped for example by examining the weights used in blending; they can be
+written out with \texttt{-\/-save-dem-weight \textit{integer}}.
 
 Instead of blending, \texttt{dem\_mosaic} can compute the image of
 first, last, minimum, maximum, mean, standard deviation, median, and
 count of all encountered valid \ac{DEM} heights at output grid
 points. For the ``first'' and ``last'' operations, the order in which
 \acp{DEM} were passed in is used. With any of these options, the tile
-names will be adjusted accordingly.
-
-It is important to note that when any of the options above are turned
-on, blending will not happen, since it is explicitly requested that
-particular values of the input DEMs be used.
+names will be adjusted accordingly. It is important to note that with
+these options blending will not happen, since it is explicitly
+requested that particular values of the input DEMs be used.
 
 If the number of input DEMs is very large, the tool can fail as the operating
 system may refuse to load all DEMs. In that case, it is suggested to use
@@ -983,11 +988,11 @@ The standard deviation of the Gaussian used to blur the weights. Higher value re
 \\ \hline
 
 \texttt{-\/-weights-exponent \textit{integer (=1)} } &
-The weights used to blend the DEMs should increase away from the boundary as a power with this exponent.
+The weights used to blend the DEMs should increase away from the boundary as a power with this exponent. Higher values will result in smoother but faster-growing weights.
 \\ \hline
 
 \texttt{-\/-extra-crop-length \textit{integer(=200)}} &
-Crop the images this far from the current tile before blending them (a small value may result in artifacts).
+Crop the images this far from the current tile (in pixels) before blending them (a small value may result in artifacts).
 \\ \hline
 
 \texttt{-\/-save-dem-weight \textit{integer}} &
