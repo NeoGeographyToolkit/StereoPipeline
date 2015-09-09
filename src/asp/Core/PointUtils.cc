@@ -248,7 +248,7 @@ void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
   // Parse the CSV format string and build the data structure which
   // will enable to convert from CSV to Cartesian and vice-versa.
 
-  // Make sure that these custom turms do not appear in the proj4 string.
+  // Make sure that these custom terms do not appear in the proj4 string.
   if ((csv_proj4_str.find("D_MOON") != std::string::npos) ||
       (csv_proj4_str.find("D_MARS") != std::string::npos)   ) {
     vw_throw(ArgumentErr() << "D_MOON and D_MARS are not official proj4 names."
@@ -675,25 +675,8 @@ bool asp::read_user_datum(double semi_major, double semi_minor,
   // Select a cartographic datum. There are several hard coded datums
   // that can be used here, or the user can specify their own.
   if ( reference_spheroid != "" ) {
-    if (reference_spheroid == "mars") {
-      datum.set_well_known_datum("D_MARS");
-      vw_out() << "\t--> Re-referencing altitude values using a Mars spheroid\n";
-    } else if (reference_spheroid == "moon") {
-      datum.set_well_known_datum("D_MOON");
-      vw_out() << "\t--> Re-referencing altitude values using a Lunar spheroid\n";
-    } else if (reference_spheroid == "earth") {
-      vw_out() << "\t--> Re-referencing altitude values using the Earth WGS84 spheroid\n";
-      datum.set_well_known_datum("WGS84");
-    } else {
-      vw_throw( ArgumentErr() << "\t--> Unknown reference spheriod: "
-                << reference_spheroid
-                << ". Current options are [Earth, Moon, Mars].\nExiting." );
-    }
-    vw_out() << "\t    Axes [" << datum.semi_major_axis() << " "
-             << datum.semi_minor_axis() << "] meters\n";
+    datum.set_well_known_datum(reference_spheroid);
   } else if (semi_major > 0 && semi_minor > 0) {
-    vw_out() << "\t--> Re-referencing altitude values to user supplied datum.\n"
-             << "\t    Semi-major: " << semi_major << "  Semi-minor: " << semi_minor << "\n";
     datum = cartography::Datum("User Specified Datum",
                                "User Specified Spheroid",
                                "Reference Meridian",
@@ -701,6 +684,9 @@ bool asp::read_user_datum(double semi_major, double semi_minor,
   } else {
     return false;
   }
+  vw_out() << "\t--> Re-referencing altitude values using datum: " << datum.name() << ".\n";
+  vw_out() << "\t    Axes [" << datum.semi_major_axis() << " "
+           << datum.semi_minor_axis() << "] meters.\n";
   return true;
 }
 

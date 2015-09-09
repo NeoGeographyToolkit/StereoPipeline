@@ -47,7 +47,7 @@ namespace vw {
 
 struct Options : asp::BaseOptions {
   // Input
-  std::string reference_spheroid;
+  std::string reference_spheroid, datum;
   std::string pointcloud_file;
   std::string target_srs_string;
   bool compressed;
@@ -63,7 +63,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("compressed,c", po::bool_switch(&opt.compressed)->default_value(false)->implicit_value(true),
      "Compress using laszip.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
-    ("reference-spheroid,r", po::value(&opt.reference_spheroid),"Set the reference spheroid [Earth, Moon, Mars]. This will create a geo-referenced LAS file in respect to the spheroid. For Earth, the WGS84 datum is used.")
+    ("datum", po::value(&opt.datum),"Create a geo-referenced LAS file in respect to this datum. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
+    ("reference-spheroid,r", po::value(&opt.reference_spheroid),
+     "This is identical to the datum option.")
+
     ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
      "Specify a custom projection (PROJ.4 string).");
 
@@ -92,7 +95,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     opt.out_prefix =
       vw::prefix_from_filename( opt.pointcloud_file );
 
-  boost::to_lower( opt.reference_spheroid );
+  // reference_spheroid and datum are aliases.
+  boost::to_lower(opt.reference_spheroid);
+  boost::to_lower(opt.datum);
+  if (opt.datum != "" && opt.reference_spheroid != "")
+    vw_throw( ArgumentErr() << "Both --datum and --reference-spheroid were specified.\n");
+  if (opt.datum == "")
+    opt.datum = opt.reference_spheroid;
 
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
@@ -117,7 +126,7 @@ int main( int argc, char *argv[] ) {
     liblas::Header header;
     cartography::Datum datum;
     bool have_user_datum
-      = asp::read_user_datum(0, 0, opt.reference_spheroid, datum);
+      = asp::read_user_datum(0, 0, opt.datum, datum);
 
     bool is_geodetic = false;
     if (have_user_datum || !opt.target_srs_string.empty()){

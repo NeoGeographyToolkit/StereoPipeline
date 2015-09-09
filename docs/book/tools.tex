@@ -422,8 +422,7 @@ from: Cauchy, PseudoHuber, Huber, L1, L2. \\ \hline
 cost functions.\\ \hline
 
 \texttt{-\/-datum \textit{string}} & Use this datum (needed only if ground control
-points are used). Options: WGS\_1984, D\_MOON (radius = 1,737,400 meters), and D\_MARS
-(radius = 3,396,190~m), etc.  \\ \hline
+points are used).  Options: WGS\_1984, D\_MOON (1,737,400 meters), D\_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), Moon (=D\_MOON). \\ \hline
 
 \texttt{-\/-semi-major-axis \textit{double}} & Explicitly set the datum semi-major axis
 in meters (needed only if ground control points are used).\\ \hline
@@ -539,6 +538,12 @@ it onto the 3D terrain produced by the Stereo Pipeline.  The resulting
 {\tt *-DRG.tif} file will be saved as a GeoTIFF image in a
 simple cylindrical map-projection.
 
+In the following example the point cloud is very close to the
+South Pole of the Moon, and for that reason we use the stereographic projection:
+\begin{verbatim}
+  point2dem -r moon --stereographic --proj-lon 0 --proj-lat -90 output-prefix-PC.tif
+\end{verbatim}
+
 Multiple point clouds can be passed as inputs, to be combined into a
 single \ac{DEM}. If it is desired to use the \texttt{-\/-orthoimage}
 option as above, the clouds need to be specified first, followed by the
@@ -550,6 +555,7 @@ and CSV point clouds together with an output file from {\tt stereo}:
 \end{verbatim}
 
 \subsection{Comparing with MOLA Data}
+\ref{molacmp}
 
 When comparing the output of \texttt{point2dem} to laser altimeter
 data, like MOLA, it is important to understand the different kinds
@@ -569,19 +575,27 @@ important to note that all of these data products have a reference
 value subtracted from them.  The MOLA reference value is NOT the
 IAU reference value, but 3,396,000~m.
 
-In order to compare with the MOLA data, you can do one of two
-different things.  You could operate purely in radius space, and
-have \texttt{point2dem} create radius values that are directly
-comparable to the MOLA Radius data.  You can do this by having
-\texttt{point2dem} subtract the MOLA reference value by setting
-\texttt{-\/-semi-major-axis 3396000} and \texttt{-\/-semi-minor-axis
-3396000}.
+In order to compare with the MOLA data, you can do one of two different
+things.  You could operate purely in radius space, and have
+\texttt{point2dem} create radius values that are directly comparable to
+the MOLA radius data.  You can do this by having \texttt{point2dem}
+subtract the MOLA reference value, by using either \texttt{-r
+mola} or setting \texttt{-\/-semi-major-axis 3396000} and
+\texttt{-\/-semi-minor-axis 3396000}.
 
-To get values that are directly comparable to MOLA Topography data,
-you'll need to run \texttt{point2dem} with the option \texttt{-r mars},
-then run the ASP tool \texttt{dem\_geoid} (section \ref{demgeoid}). This
-program will convert the DEM height values from being relative to the IAU
-reference spheroid to being relative to the MOLA Areoid.
+Alternatively, to get values that are directly comparable to MOLA
+\textit{Topography} data, you'll need to run \texttt{point2dem} with
+either \texttt{-r mars} or \texttt{-r mola}, then run the ASP tool
+\texttt{dem\_geoid} (section \ref{demgeoid}). This program will convert
+the DEM height values from being relative to the IAU reference spheroid
+or the MOLA spheroid to being relative to the MOLA Areoid.
+
+The newly obtained DEM will inherit the datum from the unadjusted DEM,
+so it could be either of the two earlier encountered radii, but of
+course the heights in it will be in respect to the areoid, not to this
+datum. It is important to note that one cannot tell from inspecting a
+DEM if it was adjusted to be in respect to the areoid or not, so there is
+the potential of mixing up adjusted and unadjusted terrain models.
 
 \subsection{Post Spacing}
 \label{post-spacing}
@@ -674,7 +688,8 @@ Options & Description \\ \hline \hline
 \texttt{-\/-kappa-rotation \textit{float(=0)}} & Set a rotation angle kappa. \\ \hline
 \hline
 \texttt{-\/-t\_srs \textit{string}} & Specify the output projection (PROJ.4 string). \\ \hline
-\texttt{-\/-reference-spheroid|-r Earth|Moon|Mars} & Set the reference spheroid. This will override manually set datum information. \\ \hline
+\texttt{-\/-datum \textit{string}} & Set the datum. This will override manually set datum information. Options: WGS\_1984, D\_MOON (1,737,400 meters), D\_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), and Moon (=D\_MOON). \\ \hline
+\texttt{-\/-reference-spheroid \textit{string}} & This is identical to the datum option. \\ \hline
 \texttt{-\/-semi-major-axis \textit{float(=0)}} & Explicitly set the datum semi-major axis in meters.\\ \hline
 \texttt{-\/-semi-minor-axis \textit{float(=0)}} & Explicitly set the datum semi-minor axis in meters.\\ \hline
 \texttt{-\/-sinusoidal} & Save using a sinusoidal projection. \\ \hline
@@ -992,7 +1007,7 @@ The weights used to blend the DEMs should increase away from the boundary as a p
 \\ \hline
 
 \texttt{-\/-extra-crop-length \textit{integer(=200)}} &
-Crop the images this far from the current tile (in pixels) before blending them (a small value may result in artifacts).
+Crop the DEMs this far from the current tile (measured in pixels) before blending them (a small value may result in artifacts).
 \\ \hline
 
 \texttt{-\/-save-dem-weight \textit{integer}} &
@@ -1378,7 +1393,8 @@ public LAS format for interchange of 3-dimensional point cloud data.
 \hline
 Options & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message.\\ \hline
-\texttt{-\/-reference-spheroid|-r Earth|Moon|Mars} & "Set the reference spheroid [Earth, Moon, Mars]. This will create a geo-referenced LAS file in respect to the spheroid. For Earth, the WGS84 datum is used. \\ \hline
+\texttt{-\/-datum} & Create a geo-referenced LAS file in respect to this datum. Options: WGS\_1984, D\_MOON (1,737,400 meters), D\_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), Moon (=D\_MOON). \\ \hline
+\texttt{-\/-reference-spheroid \textit{string}} & This is identical to the datum option. \\ \hline
 \texttt{-\/-t\_srs \textit{string}} & Specify the output projection (PROJ.4 string). \\ \hline
 \texttt{-\/-compressed} &
 Compress using laszip. \\ \hline
@@ -1564,7 +1580,7 @@ Maximum number of (randomly picked) reference points to use. \\ \hline
 method to use. [point-to-plane, point-to-point]\\ \hline
 \texttt{-\/-highest-accuracy} & Compute with highest accuracy for point-to-plane (can be much slower). \\ \hline
 \texttt{-\/-no-dem-distances} & Never compute initial and final error terms using a DEM. \\ \hline
-\texttt{-\/-datum \textit{string}} & Use this datum for CSV files. [WGS\_1984, D\_MOON (radius = 1,737,400~m), D\_MARS (radius = 3,396,190~m), etc.] \\ \hline
+\texttt{-\/-datum \textit{string}} & Use this datum for CSV files. Options: WGS\_1984, D\_MOON (1,737,400 meters), D\_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), and Moon (=D\_MOON). \\ \hline
 
 \texttt{-\/-semi-major-axis \textit{float}} & Explicitly set the datum semi-major axis in meters.\\ \hline
 \texttt{-\/-semi-minor-axis \textit{float}} & Explicitly set the datum semi-minor axis in meters.\\ \hline

@@ -2,6 +2,11 @@
 
  - point2mesh
    * Can create a mesh from a DEM and an orthoimage (DRG file).
+
+ - Datum-using tools:
+   * point2dem, point2las, and pc_align now accept --datum MOLA, as
+     a shortcut for the sphere with radius 3,396,000 meters.
+
  - dem_mosaic
    * Introduce --priority-blending-length, measured in input pixels. 
      If positive, keep unmodified values from the earliest available
@@ -9,12 +14,16 @@
      boundary where blending will happen. Meant to be used with 
      smaller high-resolution "foreground" DEMs and larger
      lower-resolution "background" DEMs that should be specified later
-     in the list.
+     in the list. Changing --weights-exponent can improve transition.
+   * Fix an issue with minor jumps across tiles. 
+   * Introduce --save-dem-weight <integer> to save the weights
+     used in blending. Can be used to judge blending effectiveness.
    * Rename --blending-length to --extra-crop-length, for clarity. 
+
  - stereo_gui
    * Added the option --delete-temporary-files-on-exit to do precisely
      that.
-   * Can read the georeference of map-projected ISIS images.
+   * Can read the georeference of map-projected ISIS cubes.
 
 *** RELEASE 2.5.0, August 31, 2015 ***
 

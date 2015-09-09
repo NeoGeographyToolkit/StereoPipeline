@@ -71,7 +71,7 @@ struct Options : asp::BaseOptions {
   std::vector<double> dem_spacing;
   float       nodata_value;
   double      semi_major, semi_minor;
-  std::string reference_spheroid;
+  std::string reference_spheroid, datum;
   double      phi_rot, omega_rot, kappa_rot;
   std::string rot_order;
   double      proj_lat, proj_lon, proj_scale, false_easting, false_northing;
@@ -351,8 +351,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("dem-spacing,s", po::value(&dem_spacing1)->default_value(""),
              "Set output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically (except for LAS and CSV files). You can set multiple spacings in quotes to generate multiple output files. This is the same as the --tr option.")
     ("tr",            po::value(&dem_spacing2)->default_value(""), "This is identical to the --dem-spacing option.")
+    ("datum",                    po::value(&opt.datum),
+     "Set the datum. This will override manually set datum information. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("reference-spheroid,r", po::value(&opt.reference_spheroid),
-            "Set the reference spheroid [Earth, Moon, Mars]. This will override manually set datum information.")
+     "This is identical to the datum option.")
     ("semi-major-axis",      po::value(&opt.semi_major)->default_value(0), "Explicitly set the datum semi-major axis in meters.")
     ("semi-minor-axis",      po::value(&opt.semi_minor)->default_value(0), "Explicitly set the datum semi-minor axis in meters.")
     ("sinusoidal",          "Save using a sinusoidal projection.")
@@ -523,7 +525,14 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   // Turn on logging to file
   asp::log_to_file(argc, argv, "", opt.out_prefix);
 
-  boost::to_lower( opt.reference_spheroid );
+  // reference_spheroid and datum are aliases.
+  boost::to_lower(opt.reference_spheroid);
+  boost::to_lower(opt.datum);
+  if (opt.datum != "" && opt.reference_spheroid != "")
+    vw_throw( ArgumentErr() << "Both --datum and --reference-spheroid were specified.\n");
+  if (opt.datum == "")
+    opt.datum = opt.reference_spheroid;
+
   if      ( vm.count("sinusoidal") )           opt.projection = SINUSOIDAL;
   else if ( vm.count("mercator") )             opt.projection = MERCATOR;
   else if ( vm.count("transverse-mercator") )  opt.projection = TRANSVERSEMERCATOR;
@@ -1189,7 +1198,7 @@ int main( int argc, char *argv[] ) {
     // See if the user specified the datum outside of the srs string
     cartography::Datum user_datum;
     bool have_user_datum = asp::read_user_datum(opt.semi_major, opt.semi_minor,
-                                                opt.reference_spheroid,
+                                                opt.datum,
                                                 user_datum);
 
     // Set up the georeferencing information.  We specify everything

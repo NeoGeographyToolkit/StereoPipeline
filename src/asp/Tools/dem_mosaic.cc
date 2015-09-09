@@ -815,7 +815,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("weights-exponent",   po::value<int>(&opt.weights_exp)->default_value(1),
            "The weights used to blend the DEMs should increase away from the boundary as a power with this exponent. Higher values will result in smoother but faster-growing weights.")
     ("extra-crop-length", po::value<int>(&opt.extra_crop_len)->default_value(200),
-     "Crop the images this far from the current tile before blending them (a small value may result in artifacts).")
+     "Crop the DEMs this far from the current tile (measured in pixels) before blending them (a small value may result in artifacts).")
     ("save-dem-weight",      po::value<int>(&opt.save_dem_weight),
      "Save the weight image used to blend into the mosaic the DEM with given index in the input list (smallest index is 0).")
     ("threads",             po::value<int>(&opt.num_threads)->default_value(4),

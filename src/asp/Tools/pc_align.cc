@@ -155,7 +155,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("csv-proj4",                po::value(&opt.csv_proj4_str)->default_value(""),
                                  "The PROJ.4 string to use to interpret the entries in input CSV files.")
     ("datum",                    po::value(&opt.datum)->default_value(""),
-                                 "Use this datum for CSV files instead of auto-detecting it. [WGS_1984, D_MOON (radius = 1,737,400 meters), D_MARS (radius = 3,396,190 meters), etc.]")
+                                 "Use this datum for CSV files instead of auto-detecting it. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("semi-major-axis",          po::value(&opt.semi_major)->default_value(0),
                                  "Explicitly set the datum semi-major axis in meters.")
     ("semi-minor-axis",          po::value(&opt.semi_minor)->default_value(0),
@@ -179,8 +179,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::options_description positional("");
   positional.add_options()
-    ("reference", po::value(&opt.reference), "The reference (fixed) point cloud/DEM")
-    ("source",    po::value(&opt.source),    "The source (movable) point cloud/DEM");
+    ("reference", po::value(&opt.reference), "The reference (fixed) point cloud/DEM.")
+    ("source",    po::value(&opt.source),    "The source (movable) point cloud/DEM.");
 
   po::positional_options_description positional_desc;
   positional_desc.add("reference", 1);
@@ -258,6 +258,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 /// Set up the datum, need it to read CSV files.
 void read_datum(Options& opt, asp::CsvConv& csv_conv, Datum& datum){
 
+  bool is_good = false;
+
   // First, get the datum from the DEM if available.
   string dem_file = "";
   if ( get_file_type(opt.reference) == "DEM" )
@@ -266,11 +268,12 @@ void read_datum(Options& opt, asp::CsvConv& csv_conv, Datum& datum){
     dem_file = opt.source;
   if (dem_file != ""){
     GeoReference geo;
-    bool is_good = cartography::read_georeference( geo, dem_file );
-    if (!is_good)
+    bool have_georef = cartography::read_georeference( geo, dem_file );
+    if (!have_georef)
       vw_throw(ArgumentErr() << "DEM: " << dem_file << " does not have a georeference.\n");
     datum = geo.datum();
     vw_out() << "Detected datum from " << dem_file << ":\n" << datum << std::endl;
+    is_good = true;
   }
 
   // Then, try to set it from the las file if available.
@@ -281,6 +284,7 @@ void read_datum(Options& opt, asp::CsvConv& csv_conv, Datum& datum){
       las_file = opt.reference;
       datum    = geo.datum();
       vw_out() << "Detected datum from " << las_file << ":\n" << datum << std::endl;
+      is_good = true;
     }
   }
   if ( get_file_type(opt.source) == "LAS" ){
@@ -289,6 +293,7 @@ void read_datum(Options& opt, asp::CsvConv& csv_conv, Datum& datum){
       las_file = opt.source;
       datum    = geo.datum();
       vw_out() << "Detected datum from " << las_file << ":\n" << datum << std::endl;
+      is_good = true;
     }
   }
   // We should have read in the datum from an input file, but check to see if
@@ -299,12 +304,14 @@ void read_datum(Options& opt, asp::CsvConv& csv_conv, Datum& datum){
     // If the user set the datum, use it.
     datum.set_well_known_datum(opt.datum);
     vw_out() << "Will use datum (for CSV files): "  << datum << std::endl;
+    is_good = true;
   }else if (opt.semi_major > 0 && opt.semi_minor > 0){
     // Otherwise, if the user set the semi-axes, use that.
     datum = Datum("User Specified Datum", "User Specified Spheroid",
                   "Reference Meridian",
                   opt.semi_major, opt.semi_minor, 0.0);
     vw_out() << "Will use datum (for CSV files): " << datum << std::endl;
+    is_good = true;
   }else if (dem_file == "" && las_file == "" &&
             (opt.csv_format_str == "" || csv_conv.format != asp::CsvConv::XYZ) ){
     // There is no DEM/LAS to read the datum from, and the user either
@@ -323,10 +330,12 @@ void read_datum(Options& opt, asp::CsvConv& csv_conv, Datum& datum){
                << "in the x,y,z format." << std::endl;
       opt.csv_format_str = "1:x 2:y 3:z";
       csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_proj4_str);
+      is_good = true;
     }
-  }else{
-    vw::vw_throw( vw::InputErr() << "Could not set the datum.\n");
   }
+
+  if (!is_good)
+    vw::vw_throw( vw::InputErr() << "Datum is required and could not be set.\n");
 
   return;
 }

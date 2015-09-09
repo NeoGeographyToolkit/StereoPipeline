@@ -1262,11 +1262,16 @@ fit between MOLA and the CTX model was increased substantially.
 \end{figure}
 
 \begin {verbatim}
-  >  pc_align --max-displacement 200 --datum D_MARS \
+  >  pc_align --max-displacement 200 --datum MOLA   \
        --save-inv-transformed-reference-points      \
-       --csv-format '1:lon 2:lat 3:radius_m'      \
+       --csv-format '1:lon 2:lat 3:radius_m'        \
        stereo-PC.tif mola.csv
 \end{verbatim}
+
+It is important to note here that there are two widely used Mars datums,
+and if your CSV file has, unlike above, the heights relative to a datum,
+the correct datum name must be specified via \texttt{-\/-datum}. Section
+\ref{molacmp} talks in more detail about the Mars datums.
 
 Figure \ref{pc-align-fig} shows an example of using \texttt{pc\_align}.
 The complete documentation for this program is in section
