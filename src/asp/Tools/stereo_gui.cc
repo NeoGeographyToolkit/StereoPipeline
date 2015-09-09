@@ -127,9 +127,10 @@ int main(int argc, char* argv[]) {
           if (is_image)
             images.push_back(image);
         }
-      }catch (std::exception& e){
-        vw_throw(ArgumentErr() << "Use either the stereo or the image viewer interface. "
-                 << e.what() << "\n");
+      }catch (std::exception& e2){
+        vw_throw(ArgumentErr() << "Use either the stereo or the image viewer interface.\n"
+                 << "stereo error: " << e.what() << "\n"
+                 << "viewer error: " << e2.what() << "\n");
       }
 
       // Presumably the tool was invoked with no options. Just print the help message.

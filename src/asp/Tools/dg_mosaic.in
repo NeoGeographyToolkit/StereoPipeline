@@ -600,7 +600,7 @@ def main():
             # Debug option. Skip the part where we create the tif file,
             # that is quite time-consuming.
             parser.add_option('--skip-tif-gen', dest='skip_tif_gen', default=False,
-                              action='store_true', help=optparse.SUPPRESS_HELP)
+                              action='store_true', help="Skip TIF file generation.")
 
             (options, args) = parser.parse_args()
 
