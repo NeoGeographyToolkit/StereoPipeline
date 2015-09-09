@@ -1351,14 +1351,9 @@ Intuitively, the input and output DEMs should correspond to the same
 point cloud in 3D space up to the interpolation errors required to
 perform the conversion.
 
-Supported options for <output datum> are: WGS84, NAD27, NAD83, D\_MOON
-(radius = 1,737,400~m), and D\_MARS (radius = 3,396,190~m).
-
 \medskip
-
 Usage:\\
-\hspace*{2em}\texttt{datum\_convert [options] <input dem> <output datum> <output dem>}
-
+\hspace*{2em}\texttt{datum\_convert [options] <input dem> <output dem>}
 \medskip
 
 \begin{longtable}{|l|p{10cm}|}
@@ -1370,11 +1365,11 @@ Usage:\\
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
+\texttt{-\/-output-datum \textit{string}} & The datum to convert to. Supported options: WGS\_1984, NAD83, WGS72, and NAD27. \\ \hline
+\texttt{-\/-t\_srs \textit{string}} & Specify the output datum via the PROJ.4 string. \\ \hline
 \texttt{-\/-help} & Display the help message.\\ \hline
-\texttt{-\/-nodata-value} & The nodata value to use for the output RGB file.\\ \hline
+\texttt{-\/-nodata-value} & The value of no-data pixels, unless specified in the DEM.\\ \hline
 \end{longtable}
-
-
 
 
 \section{point2las}
