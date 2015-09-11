@@ -549,7 +549,7 @@ void MainWindow::run_stereo_or_parallel_stereo(std::string const& cmd){
   run_cmd += os.str();
   vw_out() << "Running: " << run_cmd << std::endl;
   system(run_cmd.c_str());
-  QMessageBox::about(this, tr("Error"), tr("Done running stereo"));
+  QMessageBox::about(this, tr("stereo_gui"), tr("Done running stereo"));
 
 }
 

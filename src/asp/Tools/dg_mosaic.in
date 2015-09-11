@@ -582,25 +582,25 @@ def main():
                               help="Nodata value to use on input; input pixel values less than or equal to this are considered invalid.")
             parser.add_option("--output-nodata-value", dest="output_nodata_value", type="float",
                               help="Nodata value to use on output.")
-            parser.add_option('--skip-rpc-gen', dest='skip_rpc_gen', default=False,
-                              action='store_true', help="Skip RPC model generation")
             parser.add_option("--rpc-penalty-weight", dest="penalty_weight", type="float",
                               default=0.01,
                               help="The weight to use to penalize higher order RPC coefficients when generating the combined RPC model. Higher penalty weight results in smaller such coefficients.")
+            parser.add_option('--fix-seams', dest='fix_seams', default=False,
+                              action='store_true', help="Fix seams in the output mosaic due to inconsistencies between image and camera data using interest point matching.")
             parser.add_option("--preview", dest="preview",
                               action="store_true",
                               help="Render a small 8 bit png of the input for preview.")
+            parser.add_option("-v", "--verbose", dest="verbose",
+                              action="store_true", help="Increase verbosity.")
             parser.add_option("-n", "--dry-run", dest="dryrun",
                               action="store_true",
                               help="Make the calculations, but just print out the commands.")
-            parser.add_option("-v", "--verbose", dest="verbose",
-                              action="store_true", help="Increase verbosity.")
-            # This option is obsolete. We now ship gdal_translate with ASP.
-            parser.add_option("--gdal-dir", dest="gdaldir", help=optparse.SUPPRESS_HELP)
-            # Debug option. Skip the part where we create the tif file,
-            # that is quite time-consuming.
+            parser.add_option('--skip-rpc-gen', dest='skip_rpc_gen', default=False,
+                              action='store_true', help="Skip RPC model generation")
             parser.add_option('--skip-tif-gen', dest='skip_tif_gen', default=False,
                               action='store_true', help="Skip TIF file generation.")
+            # This option is obsolete. We now ship gdal_translate with ASP.
+            parser.add_option("--gdal-dir", dest="gdaldir", help=optparse.SUPPRESS_HELP)
 
             (options, args) = parser.parse_args()
 
@@ -914,6 +914,9 @@ def main():
                 mosaic_args += ['--input-nodata-value', str(options.input_nodata_value)]
             if options.output_nodata_value is not None:
                 mosaic_args += ['--output-nodata-value', str(options.output_nodata_value)]
+            if options.fix_seams:
+                mosaic_args += ['--fix-seams']
+
             print "Writing: " + tif_file
             run_and_parse_output( mosaic_cmd, mosaic_args, sep,
                                   options.verbose )

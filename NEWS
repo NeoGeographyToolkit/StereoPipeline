@@ -20,6 +20,12 @@
      used in blending. Can be used to judge blending effectiveness.
    * Rename --blending-length to --extra-crop-length, for clarity. 
 
+ - dg_mosaic 
+   * Added the switch --fix-seams to use interest point matching
+     to fix seams in the output mosaic due to inconsistencies between
+     image and camera data. Such artifacts may show up in older
+     (2009 or earlier) Digital Globe images.
+
  - stereo_gui
    * Added the option --delete-temporary-files-on-exit to do precisely
      that.

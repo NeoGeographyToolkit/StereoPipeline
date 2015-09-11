@@ -679,19 +679,6 @@ namespace asp {
     return inlier;
   }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 } // End namespace asp
 
 #endif//__ASP_CORE_INTEREST_POINT_MATCHING_H__

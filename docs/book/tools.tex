@@ -1087,6 +1087,10 @@ The tool needs to be applied twice, for both the left and right image sets.
 \texttt{dg\_mosaic} can also reduce the image resolution while creating the
 mosaics (with the camera files modified accordingly).
 
+Some older (2009 or earlier) Digital Globe images may exhibit seams upon mosaicking
+due to inconsistent image and camera information. The \texttt{-\/-fix-seams} switch
+can be used to rectify this problem. Its effect should be minimal if such inconsistencies
+are not present.
 
 \begin{longtable}{|l|p{10cm}|}
 \caption{Command-line options for dg\_mosaic}
@@ -1110,6 +1114,8 @@ The weight to use to penalize higher order RPC coefficients when generating the 
 \texttt{-\/-band \textit{integer}} & Which band to use (for multi-spectral images). \\ \hline
 \texttt{-\/-input-nodata-value \textit{float}} & Nodata value to use on input; input pixel values less than or equal to this are considered invalid. \\ \hline
 \texttt{-\/-output-nodata-value \textit{float}} & Nodata value to use on output. \\ \hline
+
+\texttt{-\/-fix-seams} & Fix seams in the output mosaic due to inconsistencies between image and camera data using interest point matching. \\ \hline
 
 \texttt{-\/-preview } & Render a small 8 bit png of the input for preview. \\ \hline
 \texttt{-\/- \textit{dry-run|-n}} & Make calculations, but just print out the commands. \\ \hline

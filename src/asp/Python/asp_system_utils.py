@@ -199,6 +199,10 @@ def run_and_parse_output(cmd, args, sep, verbose, **kw ):
         print(stderr)
         raise Exception('Failed executing: ' + " ".join(call))
     data = {}
+    if verbose:
+        if stdout is not None: print(stdout)
+        if stderr is not None: print(stderr)
+
     for line in stdout.split('\n'):
 
         # Print warning messages to stdout
