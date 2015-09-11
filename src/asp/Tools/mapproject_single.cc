@@ -24,8 +24,6 @@
 #include <vw/FileIO.h>
 #include <vw/Image.h>
 #include <vw/Cartography.h>
-using namespace vw;
-using namespace vw::cartography;
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
@@ -34,6 +32,9 @@ using namespace vw::cartography;
 #include <asp/Sessions/StereoSessionDG.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/StereoSettings.h>
+
+using namespace vw;
+using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 

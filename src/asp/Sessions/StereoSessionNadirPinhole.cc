@@ -89,7 +89,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook
   options.gdal_options["PREDICTOR"] = "1";
 
   std::string left_cropped_file = left_input_file,
-    right_cropped_file = right_input_file;
+              right_cropped_file = right_input_file;
 
   // See if to crop the images
   if (crop_left_and_right) {
@@ -118,7 +118,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook
 
   // Load the cropped images
   DiskImageView<float> left_disk_image(left_cropped_file),
-    right_disk_image(right_cropped_file);
+                       right_disk_image(right_cropped_file);
 
   ImageViewRef< PixelMask<float> > left_masked_image  = create_mask_less_or_equal(left_disk_image,  left_nodata_value);
   ImageViewRef< PixelMask<float> > right_masked_image = create_mask_less_or_equal(right_disk_image, right_nodata_value);

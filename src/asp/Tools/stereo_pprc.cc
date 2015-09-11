@@ -428,7 +428,7 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
       = copy_mask(right_image, create_mask(right_mask));
     Vector4f left_stats  = gather_stats( left_masked_image,  "left" );
     Vector4f right_stats = gather_stats( right_masked_image, "right" );
-    string left_stats_file  = opt.out_prefix+"-lStats.tif";
+    string left_stats_file   = opt.out_prefix+"-lStats.tif";
     string right_stats_file  = opt.out_prefix+"-rStats.tif";
 
     vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << endl;
@@ -446,6 +446,8 @@ int main(int argc, char* argv[]) {
     vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 0 --> PREPROCESSING \n";
 
     stereo_register_sessions();
+
+    
 
     bool verbose = false;
     vector<Options> opt_vec;

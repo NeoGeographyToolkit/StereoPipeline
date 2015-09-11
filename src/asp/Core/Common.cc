@@ -306,8 +306,7 @@ asp::BaseOptionsDescription::BaseOptionsDescription( asp::BaseOptions& opt ) {
 }
 
 // User should only put the arguments to their application in the
-// usage_comment argument. We'll finish filling in the repeated
-// information.
+// usage_comment argument. We'll finish filling in the repeated information.
 po::variables_map
 asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
                          po::options_description const& public_options,

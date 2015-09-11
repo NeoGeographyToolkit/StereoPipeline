@@ -39,7 +39,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <limits>
-using namespace std;
+
 
 #include <vw/FileIO.h>
 #include <vw/Image.h>
@@ -49,14 +49,15 @@ using namespace std;
 #include <asp/Core/Common.h>
 #include <asp/Core/InpaintView.h>
 
-using namespace vw;
-using namespace vw::cartography;
-
 #include <boost/math/special_functions/fpclassify.hpp>
 #include <boost/program_options.hpp>
-namespace po = boost::program_options;
 
 #include <boost/filesystem/convenience.hpp>
+
+using namespace std;
+using namespace vw;
+using namespace vw::cartography;
+namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 typedef float RealT; // Use double for debugging

@@ -137,9 +137,11 @@ namespace asp {
     typedef StereoSession* (*construct_func)();
 
     // The next set of functions describe characteristics of the derived session class.
+    // - These could be made in to some sort of static constant if needed.
     virtual bool uses_map_projected_inputs() const {return false;}
     virtual bool requires_input_dem       () const {return false;}
     virtual bool supports_image_alignment () const {return true; }
+    virtual bool is_nadir_facing          () const {return true; }
 
 
 
@@ -156,13 +158,13 @@ namespace asp {
     virtual std::string name() const = 0;
 
     /// Specialization for how interest points are found
-    virtual bool ip_matching(std::string const& input_file1,
-                             std::string const& input_file2,
-                             int ip_per_tile,
-                             float nodata1, float nodata2,
-                             std::string const& match_filename,
-                             vw::camera::CameraModel* cam1,
-                             vw::camera::CameraModel* cam2);
+    bool ip_matching(std::string const& input_file1,
+                     std::string const& input_file2,
+                     int ip_per_tile,
+                     float nodata1, float nodata2,
+                     std::string const& match_filename,
+                     vw::camera::CameraModel* cam1,
+                     vw::camera::CameraModel* cam2);
 
     /// Returns the target datum to use for a given camera model
     virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam) const { return vw::cartography::Datum("WGS84"); }

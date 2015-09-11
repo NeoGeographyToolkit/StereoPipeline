@@ -26,6 +26,9 @@ using namespace vw;
 
 namespace asp {
 
+//-------------------------------------------------------------------------------------------------
+// Class EpipolarLinePointMatcher
+
   EpipolarLinePointMatcher::EpipolarLinePointMatcher( bool single_threaded_camera,
                                                       double threshold, double epipolar_threshold,
                                                       vw::cartography::Datum const& datum ) :
@@ -81,6 +84,7 @@ namespace asp {
       norm_2( subvector( line, 0, 2 ) );
   }
 
+  // Local class definition
   class EpipolarLineMatchTask : public Task, private boost::noncopyable {
     typedef ip::InterestPointList::const_iterator IPListIter;
     bool                            m_single_threaded_camera;
@@ -112,9 +116,9 @@ namespace asp {
 
     void operator()() {
 
-      const size_t num = 10;
-      Vector<int> indices(num);
-      Vector<float> distances(num);
+      const size_t NUM_MATCHES_TO_FIND = 10;
+      Vector<int  > indices  (NUM_MATCHES_TO_FIND);
+      Vector<float> distances(NUM_MATCHES_TO_FIND);
 
       for ( IPListIter ip = m_start; ip != m_end; ip++ ) {
         Vector2 ip_org_coord = m_tx1.reverse( Vector2( ip->x, ip->y ) );
@@ -124,18 +128,16 @@ namespace asp {
         if (m_single_threaded_camera){
           // ISIS camera is single-threaded
           Mutex::Lock lock( m_camera_mutex );
-          line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, m_cam1, m_cam2,
-                                             found_epipolar);
+          line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, m_cam1, m_cam2, found_epipolar);
         }else{
-          line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, m_cam1, m_cam2,
-                                             found_epipolar);
+          line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, m_cam1, m_cam2, found_epipolar);
         }
 
         std::vector<std::pair<float,int> > kept_indices;
-        kept_indices.reserve(num);
-        m_tree.knn_search( ip->descriptor, indices, distances, num );
+        kept_indices.reserve(NUM_MATCHES_TO_FIND);
+        m_tree.knn_search( ip->descriptor, indices, distances, NUM_MATCHES_TO_FIND );
 
-        for ( size_t i = 0; i < num; i++ ) {
+        for ( size_t i = 0; i < NUM_MATCHES_TO_FIND; i++ ) {
           IPListIter ip2_it = m_ip_other.begin();
           std::advance( ip2_it, indices[i] );
 
@@ -146,26 +148,25 @@ namespace asp {
               kept_indices.push_back( std::pair<float,int>( distances[i], indices[i] ) );
             }
           }
-        }
+        } // End loop to find NUM_MATCHES_TO_FIND matches
 
-        if ( ( kept_indices.size() > 2 &&
-               kept_indices[0].first < m_matcher.m_threshold * kept_indices[1].first ) ||
-             kept_indices.size() == 1 ){
-          *m_output++ = kept_indices[0].second;
+        if ( ( (kept_indices.size() > 2) && (kept_indices[0].first < m_matcher.m_threshold * kept_indices[1].first) ) 
+              || (kept_indices.size() == 1) ){
+          *m_output++ = kept_indices[0].second; // Just return the first of the matches we found?
         } else {
-          *m_output++ = (size_t)(-1);
+          *m_output++ = (size_t)(-1); // Failed to find a match, return a flag!
         }
-      }
-    }
-  };
+      } // End loop through IP
+    } // End function operator()
+  }; // End class EpipolarLineMatchTask
 
   void EpipolarLinePointMatcher::operator()( ip::InterestPointList const& ip1,
                                              ip::InterestPointList const& ip2,
-                                             camera::CameraModel* cam1,
-                                             camera::CameraModel* cam2,
-                                             TransformRef const& tx1,
-                                             TransformRef const& tx2,
-                                             std::vector<size_t>& output_indices ) const {
+                                             camera::CameraModel        * cam1,
+                                             camera::CameraModel        * cam2,
+                                             TransformRef          const& tx1,
+                                             TransformRef          const& tx2,
+                                             std::vector<size_t>        & output_indices ) const {
     typedef ip::InterestPointList::const_iterator IPListIter;
 
     Timer total_time("Total elapsed time", DebugMessage, "interest_point");
@@ -191,21 +192,22 @@ namespace asp {
     math::FLANNTree<float > kd( ip2_matrix );
     vw_out(InfoMessage,"interest_point") << "FLANN-Tree created. Searching...\n";
 
-    FifoWorkQueue matching_queue;
+    FifoWorkQueue matching_queue; // Create a thread pool object
     Mutex camera_mutex;
 
-    // Jobs set to 2x the number of cores. This is just incase all
-    // jobs are not equal.
+    // Jobs set to 2x the number of cores. This is just incase all jobs are not equal.
     size_t number_of_jobs = vw_settings().default_num_threads() * 2;
 
     // Robustness fix
     if (ip1_size < number_of_jobs)
       number_of_jobs = ip1_size;
 
+    // Get input and output iterators
     IPListIter start_it = ip1.begin();
     std::vector<size_t>::iterator output_it = output_indices.begin();
 
-    for ( size_t i = 0; i < number_of_jobs - 1; i++ ) {
+    for ( size_t i = 0; i < number_of_jobs - 1; i++ ) { // For each job...
+      // Update iterators and launch the job.
       IPListIter end_it = start_it;
       std::advance( end_it, ip1_size / number_of_jobs );
       boost::shared_ptr<Task>
@@ -223,8 +225,11 @@ namespace asp {
                                              ip2, cam1, cam2, tx1, tx2, *this,
                                              camera_mutex, output_it ) );
     matching_queue.add_task( match_task );
-    matching_queue.join_all();
+    matching_queue.join_all(); // Wait for all the jobs to finish.
   }
+
+// End class EpipolarLinePointMatcher
+//---------------------------------------------------------------------------------------
 
   void check_homography_matrix(Matrix<double>       const& H,
                                std::vector<Vector3> const& left_points,
@@ -377,9 +382,9 @@ namespace asp {
       output_bbox.crop( right_bbox );
 
       //  Move the ideal render size to be aligned up with origin
-      left_matrix(0,2) -= output_bbox.min().x();
+      left_matrix (0,2) -= output_bbox.min().x();
       right_matrix(0,2) -= output_bbox.min().x();
-      left_matrix(1,2) -= output_bbox.min().y();
+      left_matrix (1,2) -= output_bbox.min().y();
       right_matrix(1,2) -= output_bbox.min().y();
     }
 

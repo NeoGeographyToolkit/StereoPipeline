@@ -35,9 +35,6 @@
 #include <asp/Core/Common.h>
 #include <asp/Sessions.h>
 
-namespace po = boost::program_options;
-namespace fs = boost::filesystem;
-
 // Support for ISIS image files
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
 #include <asp/IsisIO/DiskImageResourceIsis.h>
@@ -51,6 +48,9 @@ namespace fs = boost::filesystem;
 #else
 #include <ctime>
 #endif
+
+namespace po = boost::program_options;
+namespace fs = boost::filesystem;
 
 /// The stereo pipeline has several stages, which are enumerated below.
 enum { PREPROCESSING = 0,

@@ -34,14 +34,8 @@ namespace asp {
 
     virtual std::string name() const { return "pinhole"; }
 
-    // Specialization for how interest points are found
-    virtual bool ip_matching(std::string const& input_file1,
-                             std::string const& input_file2,
-                             int ip_per_tile,
-                             float nodata1, float nodata2,
-                             std::string const& match_filename,
-                             vw::camera::CameraModel* cam1,
-                             vw::camera::CameraModel* cam2);
+    // This session does not assume a downward facing camera
+    virtual bool is_nadir_facing() const {return false;}
 
     // Stage 1: Preprocessing
     //

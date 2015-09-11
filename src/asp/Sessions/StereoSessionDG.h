@@ -132,7 +132,7 @@ namespace asp {
       right_cropped_file = this->m_out_prefix + "-R-cropped.tif";
 
       vw::cartography::GeoReference left_georef, right_georef;
-      bool has_left_georef  = read_georeference(left_georef, left_input_file);
+      bool has_left_georef  = read_georeference(left_georef,  left_input_file);
       bool has_right_georef = read_georeference(right_georef, right_input_file);
       bool has_nodata = true;
 

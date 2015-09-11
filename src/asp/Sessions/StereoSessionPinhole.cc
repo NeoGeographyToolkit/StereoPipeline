@@ -47,99 +47,9 @@ namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
-// TODO: Need to make this session use the same IP matching code as
-// the other sessions.
-bool asp::StereoSessionPinhole::ip_matching(std::string const& input_file1,
-                                            std::string const& input_file2,
-                                            int ip_per_tile,
-                                            float nodata1, float nodata2,
-                                            std::string const& match_filename,
-                                            vw::camera::CameraModel* cam1,
-                                            vw::camera::CameraModel* cam2){
-
-  // If we crop the images, we must regenerate each time the match
-  // files.
-  bool crop_left_and_right =
-    ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
-    ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
-
-  if ( !crop_left_and_right && fs::exists( match_filename ) ) {
-    vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
-    return true;
-  }
-
-  // Load the unmodified images
-  DiskImageView<float> image1( input_file1 ), image2( input_file2 );
-
-  // Worst case, no interest point operations have been performed before
-  vw_out() << "\t--> Locating Interest Points\n";
-  ip::InterestPointList ip1, ip2;
-  asp::detect_ip( ip1, ip2, image1, image2, ip_per_tile,
-                  nodata1, nodata2 );
-
-  if ( ip1.size() > 10000 ) {
-    ip1.sort(); ip1.resize(10000);
-  }
-  if ( ip2.size() > 10000 ) {
-    ip2.sort(); ip2.resize(10000);
-  }
-
-  std::vector<ip::InterestPoint> ip1_copy, ip2_copy;
-  for (InterestPointList::iterator iter = ip1.begin(); iter != ip1.end(); ++iter)
-    ip1_copy.push_back(*iter);
-  for (InterestPointList::iterator iter = ip2.begin(); iter != ip2.end(); ++iter)
-    ip2_copy.push_back(*iter);
-
-  vw_out() << "\t--> Matching interest points\n";
-  ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(0.5);
-  std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
-
-  matcher(ip1_copy, ip2_copy,
-          matched_ip1, matched_ip2,
-          TerminalProgressCallback( "asp", "\t    Matching: "));
-
-
-  vw_out(InfoMessage) << "\t--> " << matched_ip1.size()
-                      << " putative matches.\n";
-
-  vw_out() << "\t--> Rejecting outliers using RANSAC.\n";
-  remove_duplicates(matched_ip1, matched_ip2);
-  std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1);
-  std::vector<Vector3> ransac_ip2 = iplist_to_vectorlist(matched_ip2);
-  vw_out(DebugMessage,"asp") << "\t--> Removed "
-                             << matched_ip1.size() - ransac_ip1.size()
-                             << " duplicate matches.\n";
-
-  Matrix<double> T;
-  std::vector<size_t> indices;
-  try {
-
-    vw::math::RandomSampleConsensus<vw::math::HomographyFittingFunctor, vw::math::InterestPointErrorMetric> ransac( vw::math::HomographyFittingFunctor(), vw::math::InterestPointErrorMetric(), 100, 10, ransac_ip1.size()/2, true);
-    T = ransac( ransac_ip2, ransac_ip1 );
-    indices = ransac.inlier_indices(T, ransac_ip2, ransac_ip1 );
-  } catch (...) {
-    vw_out(WarningMessage,"console") << "Automatic Alignment Failed! Proceed with caution...\n";
-    T = vw::math::identity_matrix<3>();
-  }
-
-  vw_out() << "\t    Caching matches: "
-           << match_filename << "\n";
-
-  { // Keeping only inliers
-    std::vector<ip::InterestPoint> inlier_ip1, inlier_ip2;
-    for ( size_t i = 0; i < indices.size(); i++ ) {
-      inlier_ip1.push_back( matched_ip1[indices[i]] );
-      inlier_ip2.push_back( matched_ip2[indices[i]] );
-    }
-    matched_ip1 = inlier_ip1;
-    matched_ip2 = inlier_ip2;
-  }
-
-  write_binary_match_file( match_filename,
-                           matched_ip1, matched_ip2);
-
-  return true;
-}
+// TODO: The other Session classes use functions like affine_epipolar_rectification 
+//        and homograhy_rectification (in the IP file) to perform this task.
+//       Why does the Pinhole Session need to use something different?
 
 // Helper function for determining image alignment.
 vw::Matrix3x3
@@ -150,8 +60,7 @@ asp::StereoSessionPinhole::determine_image_align(std::string const& out_prefix,
   namespace fs = boost::filesystem;
   using namespace vw;
 
-  std::string match_filename
-    = ip::match_filename(out_prefix, input_file1, input_file2);
+  std::string match_filename = ip::match_filename(out_prefix, input_file1, input_file2);
   ip_matching(input_file1, input_file2,
               stereo_settings().ip_per_tile,
               nodata1, nodata2,
@@ -233,7 +142,7 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook
   options.gdal_options["PREDICTOR"] = "1";
 
   std::string left_cropped_file = left_input_file,
-    right_cropped_file = right_input_file;
+              right_cropped_file = right_input_file;
 
   // See if to crop the images
   if (crop_left_and_right) {
@@ -262,7 +171,7 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook
 
   // Load the cropped images
   DiskImageView<float> left_disk_image(left_cropped_file),
-    right_disk_image(right_cropped_file);
+                       right_disk_image(right_cropped_file);
 
   ImageViewRef< PixelMask<float> > left_masked_image  = create_mask_less_or_equal(left_disk_image,  left_nodata_value);
   ImageViewRef< PixelMask<float> > right_masked_image = create_mask_less_or_equal(right_disk_image, right_nodata_value);
@@ -286,7 +195,7 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook
 
     // Remove lens distortion and create epipolar rectified images.
     if (boost::ends_with(lcase_file, ".cahvore")) {
-      CAHVOREModel left_cahvore(m_left_camera_file );
+      CAHVOREModel left_cahvore (m_left_camera_file );
       CAHVOREModel right_cahvore(m_right_camera_file);
       Limg = transform(left_masked_image,  CameraTransform<CAHVOREModel, CAHVModel>(left_cahvore,  *left_epipolar_cahv ));
       Rimg = transform(right_masked_image, CameraTransform<CAHVOREModel, CAHVModel>(right_cahvore, *right_epipolar_cahv));

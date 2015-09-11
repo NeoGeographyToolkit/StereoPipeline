@@ -87,14 +87,26 @@ namespace asp {
     }
 
     DiskImageView<float> image1(input_file1), image2(input_file2);
-    cartography::Datum datum = this->get_datum(cam1);
 
-    bool single_threaded_camera = true;
-    bool inlier = ip_matching_w_alignment(single_threaded_camera, cam1, cam2,
-                                          image1, image2,
-                                          ip_per_tile,
-                                          datum, match_filename,
-                                          nodata1, nodata2);
+    const bool nadir_facing = this->is_nadir_facing();
+
+    bool inlier = false;
+    if (nadir_facing) {
+      // Run an IP matching function that takes the camera and datum info into account
+      bool single_threaded_camera = true; // TODO: Does this make sense?
+      cartography::Datum datum = this->get_datum(cam1);
+      inlier = ip_matching_w_alignment(single_threaded_camera, cam1, cam2,
+                                       image1, image2,
+                                       ip_per_tile,
+                                       datum, match_filename,
+                                       nodata1, nodata2);
+    } else { // Not nadir facing
+      // Run a simpler purely image based matching function
+      inlier = homography_ip_matching( image1, image2,                                      
+                                       ip_per_tile,
+                                       match_filename,
+                                       nodata1, nodata2);
+    }
     if (!inlier) {
       boost::filesystem::remove(match_filename);
       vw_throw(IOErr() << "Unable to match left and right images.");

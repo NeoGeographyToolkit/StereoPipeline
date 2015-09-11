@@ -106,60 +106,64 @@ namespace asp {
 
     (*this).add_options()
       ("alignment-method",         po::value(&global.alignment_method)->default_value("affineepipolar"),
-       "Rough alignment for input images. [AffineEpipolar, Homography, Epipolar, None]")
-      ("left-image-crop-win", po::value(&global.left_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"), "Do stereo in a subregion of the left image [default: use the entire image].")
-      ("right-image-crop-win", po::value(&global.right_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"), "Do stereo in a subregion of the right image if specified together with left-image-crop-win [default: use the entire image].")
+                     "Rough alignment for input images. [AffineEpipolar, Homography, Epipolar, None]")
+      ("left-image-crop-win", po::value(&global.left_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"), 
+                      "Do stereo in a subregion of the left image [default: use the entire image].")
+      ("right-image-crop-win", po::value(&global.right_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"), 
+                      "Do stereo in a subregion of the right image if specified together with left-image-crop-win [default: use the entire image].")
       ("force-use-entire-range",   po::bool_switch(&global.force_use_entire_range)->default_value(false)->implicit_value(true),
-       "Normalize images based on the global min and max values from both images. Don't use this option if you are using normalized cross correlation.")
+                     "Normalize images based on the global min and max values from both images. Don't use this option if you are using normalized cross correlation.")
       ("individually-normalize",   po::bool_switch(&global.individually_normalize)->default_value(false)->implicit_value(true),
-       "Individually normalize the input images between 0.0-1.0 using +- 2.5 sigmas about their mean values.")
+                     "Individually normalize the input images between 0.0-1.0 using +- 2.5 sigmas about their mean values.")
       ("ip-per-tile",             po::value(&global.ip_per_tile)->default_value(0),
-       "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
+                     "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
+      ("ip_detect_method",          po::value(&global.ip_matching_method)->default_value(0),
+                     "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV BRISK, 2: OpenCV ORB.")
       ("nodata-value",             po::value(&global.nodata_value)->default_value(nan),
-       "Pixels with values less than or equal to this number are treated as no-data. This overrides the no-data values from input images.")
+                     "Pixels with values less than or equal to this number are treated as no-data. This overrides the no-data values from input images.")
       ("nodata-pixel-percentage",  po::value(&global.nodata_pixel_percentage)->default_value(nan),
-       "The percentage of (low-value) pixels treated as no-data (use a number between 0 and 100).")
+                    "The percentage of (low-value) pixels treated as no-data (use a number between 0 and 100).")
       ("nodata-optimal-threshold-factor", po::value(&global.nodata_optimal_threshold_factor)->default_value(nan),
-       "Pixels with values less than this factor times the optimal Otsu threshold are treated as no-data. Suggested value: 0.1 to 0.2.")
+                     "Pixels with values less than this factor times the optimal Otsu threshold are treated as no-data. Suggested value: 0.1 to 0.2.")
       ("skip-image-normalization", po::bool_switch(&global.skip_image_normalization)->default_value(false)->implicit_value(true),
-       "Skip the step of normalizing the values of input images and removing nodata-pixels. Create instead symbolic links to original images.")
+                     "Skip the step of normalizing the values of input images and removing nodata-pixels. Create instead symbolic links to original images.")
       ("part-of-multiview-run", po::bool_switch(&global.part_of_multiview_run)->default_value(false)->implicit_value(true),
-       "If the current run is part of a larger multiview run.");
+                    "If the current run is part of a larger multiview run.");
   }
 
   CorrelationDescription::CorrelationDescription() : po::options_description("Correlation Options") {
     StereoSettings& global = stereo_settings();
     (*this).add_options()
       ("prefilter-kernel-width", po::value(&global.slogW)->default_value(1.5),
-       "Sigma value for Gaussian kernel used in prefilter for correlator.")
+                     "Sigma value for Gaussian kernel used in prefilter for correlator.")
       ("prefilter-mode",         po::value(&global.pre_filter_mode)->default_value(2),
-       "Preprocessing filter mode. [0 None, 1 Gaussian, 2 LoG, 3 Sign of LoG]")
+                     "Preprocessing filter mode. [0 None, 1 Gaussian, 2 LoG, 3 Sign of LoG]")
       ("corr-seed-mode",         po::value(&global.seed_mode)->default_value(1),
-       "Correlation seed strategy. [0 None, 1 Use low-res disparity from stereo, 2 Use low-res disparity from provided DEM (see disparity-estimation-dem), 3 Use low-res disparity produced by sparse_disp (in development)]")
+                     "Correlation seed strategy. [0 None, 1 Use low-res disparity from stereo, 2 Use low-res disparity from provided DEM (see disparity-estimation-dem), 3 Use low-res disparity produced by sparse_disp (in development)]")
       ("corr-sub-seed-percent",  po::value(&global.seed_percent_pad)->default_value(0.25),
-       "Percent fudge factor for disparity seed's search range.")
+                     "Percent fudge factor for disparity seed's search range.")
       ("cost-mode",              po::value(&global.cost_mode)->default_value(2),
-       "Correlation cost metric. [0 Absolute, 1 Squared, 2 Normalized Cross Correlation]")
+                     "Correlation cost metric. [0 Absolute, 1 Squared, 2 Normalized Cross Correlation]")
       ("xcorr-threshold",        po::value(&global.xcorr_threshold)->default_value(2),
-       "L-R vs R-L agreement threshold in pixels.")
+                     "L-R vs R-L agreement threshold in pixels.")
       ("corr-kernel",            po::value(&global.corr_kernel)->default_value(Vector2i(21,21),"21 21"),
-       "Kernel size used for integer correlator.")
+                    "Kernel size used for integer correlator.")
       ("corr-search",            po::value(&global.search_range)->default_value(BBox2i(0,0,0,0), "auto"),
-       "Disparity search range. Specify in format: hmin vmin hmax vmax.")
+                     "Disparity search range. Specify in format: hmin vmin hmax vmax.")
       ("corr-max-levels",        po::value(&global.corr_max_levels)->default_value(5),
-       "Max pyramid levels to process when using the integer correlator. (0 is just a single level).")
+                     "Max pyramid levels to process when using the integer correlator. (0 is just a single level).")
       ("skip-low-res-disparity-comp", po::bool_switch(&global.skip_low_res_disparity_comp)->default_value(false)->implicit_value(true),
-       "Skip the low-resolution disparity computation. This option is used in parallel_stereo.")
+                     "Skip the low-resolution disparity computation. This option is used in parallel_stereo.")
       ("compute-low-res-disparity-only", po::bool_switch(&global.compute_low_res_disparity_only)->default_value(false)->implicit_value(true),
-       "Compute only the low-resolution disparity, skip the full-resolution disparity computation.")
+                     "Compute only the low-resolution disparity, skip the full-resolution disparity computation.")
       ("disparity-estimation-dem", po::value(&global.disparity_estimation_dem)->default_value(""),
-       "DEM to use in estimating the low-resolution disparity (when corr-seed-mode is 2).")
+                     "DEM to use in estimating the low-resolution disparity (when corr-seed-mode is 2).")
       ("disparity-estimation-dem-error", po::value(&global.disparity_estimation_dem_error)->default_value(0.0),
-       "Error (in meters) of the disparity estimation DEM.")
+                     "Error (in meters) of the disparity estimation DEM.")
       ("use-local-homography",   po::bool_switch(&global.use_local_homography)->default_value(false)->implicit_value(true),
-       "Apply a local homography in each tile.")
+                     "Apply a local homography in each tile.")
       ("corr-timeout",           po::value(&global.corr_timeout)->default_value(1800),
-       "Correlation timeout for a tile, in seconds.");
+                     "Correlation timeout for a tile, in seconds.");
 
     po::options_description backwards_compat_options("Aliased backwards compatibility options");
     // Do not add default values here. They may override the values set
@@ -271,18 +275,18 @@ namespace asp {
   GUIDescription::GUIDescription() : po::options_description("GUI Options") {
     StereoSettings& global = stereo_settings();
     (*this).add_options()
-      ("grid-cols",  po::value(&global.grid_cols)->default_value(std::numeric_limits<int>::max()),
-       "Display images as tiles on a grid with this many columns. Default: Use one row.")
-      ("window-size",  po::value(&global.window_size)->default_value(Vector2i(1200,800),"1200 800"),
-       "The width and height of the GUI window in pixels.")
+      ("grid-cols",         po::value(&global.grid_cols)->default_value(std::numeric_limits<int>::max()),
+                            "Display images as tiles on a grid with this many columns. Default: Use one row.")
+      ("window-size",       po::value(&global.window_size)->default_value(Vector2i(1200,800),"1200 800"),
+                            "The width and height of the GUI window in pixels.")
       ("single-window,w",   po::bool_switch(&global.single_window)->default_value(false)->implicit_value(true),
-       "Show all images in the same window (with a dialog to choose among them) rather than next to each other.")
-      ("use-georef",   po::bool_switch(&global.use_georef)->default_value(false)->implicit_value(true),
-       "Plot the images in the projected coordinate system given by the georeference of the images.")
-      ("hillshade",   po::bool_switch(&global.hillshade)->default_value(false)->implicit_value(true),
-       "Interpret the input images as DEMs and hillshade them.")
+                            "Show all images in the same window (with a dialog to choose among them) rather than next to each other.")
+      ("use-georef",        po::bool_switch(&global.use_georef)->default_value(false)->implicit_value(true),
+                            "Plot the images in the projected coordinate system given by the georeference of the images.")
+      ("hillshade",         po::bool_switch(&global.hillshade)->default_value(false)->implicit_value(true),
+                            "Interpret the input images as DEMs and hillshade them.")
       ("delete-temporary-files-on-exit",   po::bool_switch(&global.delete_temporary_files_on_exit)->default_value(false)->implicit_value(true),
-       "Delete any subsampled and other files created by the GUI when exiting.");
+                            "Delete any subsampled and other files created by the GUI when exiting.");
   }
 
   DGDescription::DGDescription() : po::options_description("DG Options") {
@@ -318,7 +322,7 @@ namespace asp {
     using namespace boost::algorithm;
     to_lower( alignment_method );
     trim( alignment_method );
-    VW_ASSERT( alignment_method == "none" || alignment_method == "homography" ||
+    VW_ASSERT( alignment_method == "none"     || alignment_method == "homography" ||
                alignment_method == "epipolar" || alignment_method == "affineepipolar",
                ArgumentErr() << "\"" <<  alignment_method
                << "\" is not a valid option for ALIGNMENT_METHOD." );

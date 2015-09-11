@@ -86,17 +86,20 @@ namespace asp {
     bool   individually_normalize;          // If > 1, normalize the images
                                             //         individually with their
                                             //         own hi's and lo's
-    int ip_per_tile;                 // How many ip to find in each 1024^2 tile
-    double nodata_value;                    // Pixels with values less than or equal to this number are treated as no-data.
-                                            // This overrides the nodata values from input images.
-    double nodata_pixel_percentage;         // Percentage of low-value pixels treated as no-data
-    double nodata_optimal_threshold_factor; // Pixels with values less than this factor times the optimal Otsu threshold
-                                            // are treated as no-data
-    bool   skip_image_normalization;        // Skip the step of normalizing the values of input images and removing nodata-pixels. Create instead symbolic links to original images.
-    bool   part_of_multiview_run;           // If the current run is part of a larger multiview run
+    int   ip_per_tile;                      ///< How many ip to find in each 1024^2 tile
+    int   ip_matching_method;               ///< Method used for matching interest points
+                                            // 0 = Zack's integral Obalog method
+                                            // 1 = OpenCV BRISK method 
+                                            // 2 = OpenCV ORB method
+    double nodata_value;                    ///< Pixels with values less than or equal to this number are treated as no-data.
+                                            //   This overrides the nodata values from input images.
+    double nodata_pixel_percentage;         ///< Percentage of low-value pixels treated as no-data
+    double nodata_optimal_threshold_factor; ///< Pixels with values less than this factor times the optimal Otsu threshold are treated as no-data
+    bool   skip_image_normalization;        ///< Skip the step of normalizing the values of input images and removing nodata-pixels. Create instead symbolic links to original images.
+    bool   part_of_multiview_run;           ///< If the current run is part of a larger multiview run
 
     // Correlation Options
-    float slogW;                      // Preprocessing filter width
+    float slogW;                      ///< Preprocessing filter width
     vw::uint16 pre_filter_mode;       // 0 = None
                                       // 1 = Gaussian Blur
                                       // 2 = Log Filter
@@ -109,7 +112,7 @@ namespace asp {
                                       // 3 = Use low-res disparity produced by sparse_disp
                                       //     (in development)
 
-    float seed_percent_pad;           // Pad amound towards the IP found
+    float seed_percent_pad;           ///< Pad amound towards the IP found
     vw::uint16 cost_mode;             // 0 = absolute difference
                                       // 1 = squared difference
                                       // 2 = normalized cross correlation

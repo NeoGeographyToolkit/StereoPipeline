@@ -31,6 +31,7 @@
 #include <vw/InterestPoint/IntegralDetector.h>
 #include <vw/Cartography/Datum.h>
 
+#include <asp/Core/StereoSettings.h>
 #include <boost/foreach.hpp>
 #include <boost/math/special_functions/fpclassify.hpp>
 
@@ -111,19 +112,19 @@ namespace asp {
     /// This only returns the indicies
     void operator()( vw::ip::InterestPointList const& ip1,
                      vw::ip::InterestPointList const& ip2,
-                     vw::camera::CameraModel* cam1,
-                     vw::camera::CameraModel* cam2,
-                     vw::TransformRef const& tx1,
-                     vw::TransformRef const& tx2,
-                     std::vector<size_t>& output_indices ) const;
+                     vw::camera::CameraModel        * cam1,
+                     vw::camera::CameraModel        * cam2,
+                     vw::TransformRef          const& tx1,
+                     vw::TransformRef          const& tx2,
+                     std::vector<size_t>            & output_indices ) const;
 
     /// Work out an epipolar line from interest point. Returns the
     /// coefficients for the following line equation: ax + by + c = 0
-    static vw::Vector3 epipolar_line( vw::Vector2 const& feature,
+    static vw::Vector3 epipolar_line( vw::Vector2            const& feature,
                                       vw::cartography::Datum const& datum,
-                                      vw::camera::CameraModel* cam_ip,
-                                      vw::camera::CameraModel* cam_obj,
-                                      bool & success);
+                                      vw::camera::CameraModel     * cam_ip,
+                                      vw::camera::CameraModel     * cam_obj,
+                                      bool                        & success);
 
     /// Calculate distance between a line of equation ax + by + c = 0
     static double distance_point_line( vw::Vector3 const& line,
@@ -161,6 +162,11 @@ namespace asp {
                             std::vector<vw::ip::InterestPoint> const& right_ip,
                             vw::Matrix<double>& left_matrix,
                             vw::Matrix<double>& right_matrix );
+
+  // Choose the method used for IP matching
+  enum DetectIpMethod { DETECT_IP_METHOD_INTEGRAL = 0,
+                        DETECT_IP_METHOD_BRISK    = 1,
+                        DETECT_IP_METHOD_ORB      = 2};
 
   /// Detect InterestPoints
   ///
@@ -310,7 +316,7 @@ namespace asp {
                   vw::ImageViewBase<Image2T> const& image2,
                   int ip_per_tile,
                   double nodata1,
-                  double nodata2) {
+                  double nodata2 ) {
     using namespace vw;
     BBox2i box1 = bounding_box(image1.impl());
     ip1.clear();
@@ -332,18 +338,45 @@ namespace asp {
     vw_out() << "Using " << points_per_tile
              << " interest points per tile (1024^2 px).\n";
 
+    // Load the detection method from stereo_settings.
+    // - This relies on a direct match in the enum integer value.
+    DetectIpMethod detect_method = static_cast<DetectIpMethod>(stereo_settings().ip_matching_method);
+
     // Detect Interest Points
-    vw::ip::IntegralAutoGainDetector detector( points_per_tile );
-    vw_out() << "\t    Processing left image" << std::endl;
-    if ( boost::math::isnan(nodata1) )
-      ip1 = detect_interest_points( image1.impl(), detector );
-    else
-      ip1 = detect_interest_points( apply_mask(create_mask_less_or_equal(image1.impl(),nodata1)), detector );
-    vw_out() << "\t    Processing right image" << std::endl;
-    if ( boost::math::isnan(nodata2) )
-      ip2 = detect_interest_points( image2.impl(), detector );
-    else
-      ip2 = detect_interest_points( apply_mask(create_mask_less_or_equal(image2.impl(),nodata2)), detector );
+    // - Due to templated types we need to duplicate a bunch of code here
+    if (detect_method == DETECT_IP_METHOD_INTEGRAL) {
+      // Zack's custom detector
+      vw::ip::IntegralAutoGainDetector detector( points_per_tile );
+
+      vw_out() << "\t    Processing left image" << std::endl;
+      if ( boost::math::isnan(nodata1) )
+        ip1 = detect_interest_points( image1.impl(), detector );
+      else
+        ip1 = detect_interest_points( apply_mask(create_mask_less_or_equal(image1.impl(),nodata1)), detector );
+      vw_out() << "\t    Processing right image" << std::endl;
+      if ( boost::math::isnan(nodata2) )
+        ip2 = detect_interest_points( image2.impl(), detector );
+      else
+        ip2 = detect_interest_points( apply_mask(create_mask_less_or_equal(image2.impl(),nodata2)), detector );
+    } else {
+      // Initialize the OpenCV detector.  Conveniently we can just pass in the type argument.
+      // - If VW was not build with OpenCV, this call will just throw an exception.
+      vw::ip::OpenCvIpDetectorType cv_method = vw::ip::OPENCV_IP_DETECTOR_TYPE_BRISK;
+      if (detect_method == DETECT_IP_METHOD_ORB)
+        cv_method = vw::ip::OPENCV_IP_DETECTOR_TYPE_ORB;
+      vw::ip::OpenCvInterestPointDetector detector(cv_method);
+
+      vw_out() << "\t    Processing left image" << std::endl;
+      if ( boost::math::isnan(nodata1) )
+        ip1 = detect_interest_points( image1.impl(), detector );
+      else
+        ip1 = detect_interest_points( apply_mask(create_mask_less_or_equal(image1.impl(),nodata1)), detector );
+      vw_out() << "\t    Processing right image" << std::endl;
+      if ( boost::math::isnan(nodata2) )
+        ip2 = detect_interest_points( image2.impl(), detector );
+      else
+        ip2 = detect_interest_points( apply_mask(create_mask_less_or_equal(image2.impl(),nodata2)), detector );
+    } // End OpenCV case
 
     sw.stop();
     vw_out(DebugMessage,"asp") << "Detect interest points elapsed time: "
@@ -436,18 +469,23 @@ namespace asp {
     if ( matched_ip1.size() == 0 || matched_ip2.size() == 0 )
       return false;
     std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1),
-      ransac_ip2 = iplist_to_vectorlist(matched_ip2);
+                         ransac_ip2 = iplist_to_vectorlist(matched_ip2);
     std::vector<size_t> indices;
     try {
       typedef math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric> RansacT;
+      //Does this version work better?
+      //const double INLIER_THRESHOLD = norm_2(Vector2(bounding_box(image1.impl()).size()))/100.0;
+      const double INLIER_THRESHOLD       = 10.0;
+      const int    MIN_NUM_OUTPUT_INLIERS = ransac_ip1.size()/2;
+      const int    NUM_ITERATIONS         = 100;
       RansacT ransac( math::HomographyFittingFunctor(),
-                      math::InterestPointErrorMetric(), 100,
-                      norm_2(Vector2(bounding_box(image1.impl()).size()))/100.0,
-                      ransac_ip1.size()/2, true
+                      math::InterestPointErrorMetric(), NUM_ITERATIONS,
+                      INLIER_THRESHOLD,
+                      MIN_NUM_OUTPUT_INLIERS, true
                       );
-      Matrix<double> H(ransac(ransac_ip1,ransac_ip2));
+      Matrix<double> H(ransac(ransac_ip2,ransac_ip1)); // 2 then 1 is used here for legacy reasons
       vw_out() << "\t--> Homography: " << H << "\n";
-      indices = ransac.inlier_indices(H,ransac_ip1,ransac_ip2);
+      indices = ransac.inlier_indices(H,ransac_ip2,ransac_ip1);
     } catch (const math::RANSACErr& e ) {
       vw_out() << "RANSAC Failed: " << e.what() << "\n";
       return false;
@@ -487,7 +525,8 @@ namespace asp {
     // Detect interest points
     ip::InterestPointList ip1, ip2;
     detect_ip( ip1, ip2, image1.impl(), image2.impl(),
-               ip_per_tile, nodata1, nodata2 );
+               ip_per_tile, 
+               nodata1, nodata2 );
     if ( ip1.size() == 0 || ip2.size() == 0 ){
       vw_out() << "Unable to detect interest points." << std::endl;
       return false;
@@ -624,9 +663,8 @@ namespace asp {
     Matrix<double> rough_homography;
     try {
       // Homography is defined in the original camera coordinates
-      rough_homography =
-        rough_homography_fit( cam1, cam2, left_tx.reverse_bbox(box1),
-                              right_tx.reverse_bbox(box2), datum );
+      rough_homography =  rough_homography_fit( cam1, cam2, left_tx.reverse_bbox(box1),
+                                                right_tx.reverse_bbox(box2), datum );
     } catch(...) {
       VW_OUT( DebugMessage, "asp" ) << "Rough homography fit failed, trying with identity transform. " << std::endl;
       rough_homography.set_identity(3);

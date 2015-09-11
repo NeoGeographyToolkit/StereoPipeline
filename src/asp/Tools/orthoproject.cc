@@ -24,15 +24,16 @@
 #include <vw/Math/Functors.h>
 #include <vw/Camera.h>
 #include <vw/Cartography.h>
-using namespace vw;
-using namespace vw::camera;
-using namespace vw::cartography;
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Sessions.h>
 #include <asp/IsisIO/DiskImageResourceIsis.h>
 #include <boost/tokenizer.hpp>
+
+using namespace vw;
+using namespace vw::camera;
+using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
