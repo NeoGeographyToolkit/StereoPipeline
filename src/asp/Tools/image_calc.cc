@@ -354,13 +354,13 @@ enum DataType {
 /// Returns the default nodata value for each data type (just the minimum value)
 double get_default_nodata(const DataType d) {
   switch(d) {
-    case    DT_UINT8  : return 0;
-  case      DT_INT16  : return std::numeric_limits<vw::int16>::min();
-    case    DT_UINT16 : return std::numeric_limits<vw::uint16>::min();
-    case    DT_INT32  : return std::numeric_limits<vw::int32>::min();
-    case    DT_UINT32 : return std::numeric_limits<vw::uint32>::min();
-    case    DT_FLOAT32: return -std::numeric_limits<vw::float32>::max();
-    default :           return -std::numeric_limits<vw::float64>::max();
+  case    DT_UINT8  : return std::numeric_limits<vw::uint8>::min();
+  case    DT_INT16  : return std::numeric_limits<vw::int16>::min();
+  case    DT_UINT16 : return std::numeric_limits<vw::uint16>::min();
+  case    DT_INT32  : return std::numeric_limits<vw::int32>::min();
+  case    DT_UINT32 : return std::numeric_limits<vw::uint32>::min();
+  case    DT_FLOAT32: return -std::numeric_limits<vw::float32>::max();
+  default :           return -std::numeric_limits<vw::float64>::max();
   };
 }
 
