@@ -31,6 +31,13 @@
      that.
    * Can read the georeference of map-projected ISIS cubes.
 
+ - point2dem
+   * Fix minor discrepancies in the minor semi-axis for the WGS84,
+     NAD83 and WGS72 datums. Now using GDAL/OGR for that.
+
+ - image_calc
+   * Fix calculation bug when no-data is present.
+ 
 *** RELEASE 2.5.0, August 31, 2015 ***
 
 -  Improved speed, coverage, and accuracy for areas with steep slopes

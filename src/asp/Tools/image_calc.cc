@@ -339,22 +339,61 @@ struct calc_grammar : b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space
 
 //=================================================================================
 
+/// List of possible output data types
+enum DataType {
+  DT_UINT8   = 0,
+  DT_UINT16  = 1,
+  DT_UINT32  = 2,
+  //DT_INT8    = 3, // Not supported by GDAL!
+  DT_INT16   = 3,
+  DT_INT32   = 4,
+  DT_FLOAT32 = 5,
+  DT_FLOAT64 = 6
+};
+
+/// Returns the default nodata value for each data type (just the minimum value)
+double get_default_nodata(const DataType d) {
+  switch(d) {
+    case    DT_UINT8  : return 0;
+  case      DT_INT16  : return std::numeric_limits<vw::int16>::min();
+    case    DT_UINT16 : return std::numeric_limits<vw::uint16>::min();
+    case    DT_INT32  : return std::numeric_limits<vw::int32>::min();
+    case    DT_UINT32 : return std::numeric_limits<vw::uint32>::min();
+    case    DT_FLOAT32: return -std::numeric_limits<vw::float32>::max();
+    default :           return -std::numeric_limits<vw::float64>::max();
+  };
+}
+
 /// Converts a double to another numeric type with min/max value clamping.
 /// - TODO: Replace this with the correct VW function!
 template <typename T>
 T clamp_and_cast(const double val) {
-
   const T minVal = std::numeric_limits<T>::min();
   const T maxVal = std::numeric_limits<T>::max();
   if (val < static_cast<double>(minVal)) return (minVal);
   if (val > static_cast<double>(maxVal)) return (maxVal);
   return static_cast<T>(val);
-
 }
-template <> float  clamp_and_cast<float >(const double val) {return static_cast<float>(val);}
-template <> double clamp_and_cast<double>(const double val) {return val;}
 
+// Specializations for floating point values.
+template <typename T>
+T clamp_and_cast_float(const double val) {
+  const T minVal = -std::numeric_limits<T>::max();
+  const T maxVal = std::numeric_limits<T>::max();
+  if (val < static_cast<double>(minVal)) return (minVal);
+  if (val > static_cast<double>(maxVal)) return (maxVal);
+  return static_cast<T>(val);
+}
 
+template <>
+vw::float32 clamp_and_cast<vw::float32>(const double val) {
+  return clamp_and_cast_float<vw::float32>(val);
+}
+
+template <>
+vw::float64 clamp_and_cast<vw::float64>(const double val) {
+  return clamp_and_cast_float<vw::float64>(val);
+}
 
 /// Image view class which applies the calc_operation tree to each pixel location.
 template <class ImageT, typename OutputPixelT>
@@ -489,31 +528,6 @@ public: // Functions
 
 //======================================================================================================
 
-/// List of possible output data types
-enum DataType {
-  DT_UINT8   = 0,
-  DT_UINT16  = 1,
-  DT_UINT32  = 2,
-  //DT_INT8    = 3, // Not supported by GDAL!
-  DT_INT16   = 3,
-  DT_INT32   = 4,
-  DT_FLOAT32 = 5,
-  DT_FLOAT64 = 6
-};
-
-/// Returns the default nodata value for each data type (just the minimum value)
-double get_default_nodata(const DataType d) {
-  switch(d) {
-    case    DT_UINT8  : return 0;
-    case    DT_INT16  : return std::numeric_limits<short>::min();
-    case    DT_UINT16 : return 0;
-    case    DT_INT32  : return std::numeric_limits<int>::min();
-    case    DT_UINT32 : return 0;
-    case    DT_FLOAT32: return std::numeric_limits<float>::min();
-    default :           return std::numeric_limits<double>::min();
-  };
-}
-
 struct Options : asp::BaseOptions {
   Options() : out_nodata_value(-1) {}
   // Input
@@ -522,6 +536,7 @@ struct Options : asp::BaseOptions {
   double in_nodata_value;
 
   // Settings
+  std::string output_data_string;
   DataType output_data_type;
   bool   has_out_nodata;
   double out_nodata_value;
@@ -542,21 +557,20 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     "Surround the entire string with double quotes.\n";
 
   const std::string data_type_string =
-    "No-data value to use on output.  Enter the integer corresponding to the type you want (default is float64)\n"
-    "  uint8   = 0 \n"
-    "  uint16  = 1 \n"
-    "  uint32  = 2 \n"
-    "  int16   = 3 \n"
-    "  int32   = 4 \n"
-    "  float32 = 5 \n"
-    "  float64 = 6 (default)\n";
+    "The data type of the output file:\n"
+    "  uint8   \n"
+    "  uint16  \n"
+    "  uint32  \n"
+    "  int16   \n"
+    "  int32   \n"
+    "  float32 \n"
+    "  float64 (default)\n";
 
-  int output_data_type;
   po::options_description general_options("");
   general_options.add_options()
     ("output-file,o", po::value(&opt.output_file), "Output file name.")
     ("calc,c",            po::value(&opt.calc_string), calc_string_help.c_str())
-    ("output-data-type,d",  po::value(&output_data_type)->default_value(DT_FLOAT64), data_type_string.c_str())
+    ("output-data-type,d",  po::value(&opt.output_data_string)->default_value("float64"), data_type_string.c_str())
     ("input-nodata-value",  po::value(&opt.in_nodata_value), "Value that is no-data in the input images.")
     ("output-nodata-value", po::value(&opt.out_nodata_value), "Value to use for no-data in the output image.")
     ("help,h",            "Display this help message");
@@ -590,7 +604,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if ( opt.calc_string.size() == 0)
     vw_throw( ArgumentErr() << "Missing operation string!\n" << usage.str() << general_options );
 
- opt.output_data_type = static_cast<DataType>(output_data_type);
+  if      (opt.output_data_string == "uint8"  ) opt.output_data_type = DT_UINT8;
+  else if (opt.output_data_string == "uint16" ) opt.output_data_type = DT_UINT16;
+  else if (opt.output_data_string == "uint32" ) opt.output_data_type = DT_UINT32;
+  else if (opt.output_data_string == "int16"  ) opt.output_data_type = DT_INT16;
+  else if (opt.output_data_string == "int32"  ) opt.output_data_type = DT_INT32;
+  else if (opt.output_data_string == "float32") opt.output_data_type = DT_FLOAT32;
+  else if (opt.output_data_string == "float64") opt.output_data_type = DT_FLOAT64;
+  else
+    vw_throw(ArgumentErr() << "Unsupported output data type: '" << opt.output_data_string << "'.\n" );
 
  // Fill out opt.has_in_nodata and opt.has_out_nodata depending if the user specified these options
  if (!vm.count("input-nodata-value")){
@@ -703,7 +725,6 @@ int main( int argc, char *argv[] ) {
 
   Options opt;
   try {
-    handle_arguments( argc, argv, opt );
     handle_arguments( argc, argv, opt );
 
     std::string exp(opt.calc_string);

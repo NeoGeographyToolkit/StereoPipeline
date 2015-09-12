@@ -1054,7 +1054,10 @@ You can proceed to make a mesh or a \ac{DEM} by processing
 
 Figure \ref {p19-disparity} shows the outputs of \texttt{disparitydebug}.
 
-And a note on performance. If \texttt{stereo\_corr} takes unreasonably
+\subsection{Dealing with Long Run-times}
+\label{longrun}
+
+If \texttt{stereo\_corr} takes unreasonably
 long, it may have encountered a portion of the image where, due to noise
 (such as clouds, shadows, etc.) the determined search range is much
 larger than what it should be. The option \texttt{-\/-corr-timeout \textit{integer}}
@@ -1082,7 +1085,7 @@ the \texttt{results/output-PC.tif} point cloud file.
 \end{minipage}
 \end{figure}
 
-\subsection{Building a 3D Model}
+\subsection{Building a 3D Mesh Model}
 If you wish to see the data in an interactive 3D browser, then you can
 generate a 3D object file using the \texttt{point2mesh} command (page
 \pageref{point2mesh}). The resulting file is stored in Open Scene
@@ -1104,7 +1107,13 @@ lighting with the `L' key, toggle texturing with the 'T' key, and
 toggle wireframe mode with the 'W'.  Press '?' to see a variety of
 other interactive options.
 
-\subsection{Building a Digital Elevation Model}
+If you already have a DEM and an ortho image (section \ref{builddem}),
+they can be used to build a mesh as well, in the same way as done above:
+\begin{verbatim}
+  > point2mesh results/output-DEM.tif results/output-DRG.tif
+\end{verbatim}
+
+\subsection{Building a Digital Elevation Model and Ortho Image}
 \label{builddem}
 
 The \texttt{point2dem} program (page \pageref{point2dem}) creates a
@@ -1183,6 +1192,12 @@ complete documentation is in section \ref{point2dem}.
 \end{minipage}
 \hfill
 \end{figure}
+
+\subsection{Orthorectification of an Image From a Different Source}
+If you have already obtained a DEM, using ASP or some other approach, and have
+an image and camera pair which you would like to overlay on top of this terrain,
+use the \texttt{mapproject} tool (section \ref{mapproject}).
+
 
 % \begin{figure}
 % \begin{center}
@@ -1434,6 +1449,9 @@ during DEM and orthoimage generation with \texttt{point2dem} (section
 \item To get good results if the images lack large-scale features (such
 as for ice plains) use a different way to get the low-resolution
 disparity (section \ref{sparse-disp}).
+
+\item If a run takes unreasonably long, decreasing the timeout parameter
+may be in order (section \ref{longrun}).
 
 \item Manually set the search range if the automated approach fails
 (section \ref{sec:search_range}).

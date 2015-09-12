@@ -1126,14 +1126,9 @@ The weight to use to penalize higher order RPC coefficients when generating the 
 \section{mapproject}
 \label{mapproject}
 
-The tool \texttt{mapproject} is used to map-project a camera image onto
-a DEM. The obtained images can be used, for example, to visualize how
-camera images would look when projected onto the ground obtained by
-doing stereo of these images (ideally, if there were no correlation or
-triangulation error, the images would project perfectly). The tool can
-also be used to compute stereo from the obtained map-projected images;
-this functionality is currently supported only with RPC models (section
-\ref{mapproj-example}).
+The tool \texttt{mapproject} is used to orthorectify (map-project) a camera image onto
+a DEM. (ASP is able to use map-projected images to run stereo, section
+\ref{mapproj-example}.)
 
 \texttt{mapproject} supersedes the older
 \texttt{orthoproject} tool, which could map-project only with ISIS and
@@ -1142,12 +1137,13 @@ releases for backward compatibility). We ported all features of
 \texttt{orthoproject} except for projecting of vector imagery (for
 example, RGB pixel data).
 
-The \texttt{mapproject} tool can be run using multiple processes and can be
+The \texttt{mapproject} program can be run using multiple processes and can be
 distributed over multiple machines. This is particularly useful for
 ISIS cameras, as in that case any single process must use only one thread
 due to the limitations of ISIS.  The tool splits the image up into tiles,
 farms the tiles out to sub-processes, and then merges the tiles into the
-requested output image.
+requested output image. If your image is small, smaller tiles can be used
+as well to start more simultaneous processes (parameter \texttt{-\/-tile-size}).
 
 Examples:
 \begin{verbatim}
@@ -1157,6 +1153,14 @@ mapproject -t isis DEM.tif image.cub  output-IMG.tif --ppd 256
 \begin{verbatim}
 mapproject -t rpc DEM.tif image.tif image.xml output-IMG.tif --tr 20
 \end{verbatim}
+
+It is very important to pick a good value for the grid size parameter, given by
+\texttt{-\/-tr}. Ideally it should be very close to the known image resolution
+as measured on the ground (in degree or meter units, depending on the projection).
+
+If the imagery is from Digital Globe, both the exact DG model from the XML file
+can be used for map-projection (\texttt{-t dg}) and its RPC approximation (\texttt{-t rpc}).
+The former is more accurate but much smaller.
 
 \begin{longtable}{|l|p{10cm}|}
 \caption{Command-line options for mapproject}
@@ -1768,8 +1772,15 @@ Parentheses can be used to enforce any preferred order of evaluation.
 
 \medskip
 
-Usage:\\
-\hspace*{2em}\texttt{image\_calc [options] [required calc option] <one or more images files>}
+Usage:
+\begin{verbatim}
+  image_calc [options] -c <arithmetic formula> <inputs> -o <output>
+\end{verbatim}
+
+Example:
+\begin{verbatim}
+  image_calc -c "pow(var_0/3.0, 1.1)" input_image.tif -o output_image.tif -d float32
+\end{verbatim}
 
 \medskip
 
