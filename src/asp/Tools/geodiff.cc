@@ -119,7 +119,11 @@ int main( int argc, char *argv[] ) {
 
     // Generate a bounding box that is the minimum of the two BBox areas
     BBox2 crop_box = bounding_box( dem1_dmg );
-    crop_box.crop(dem1_georef.lonlat_to_pixel_bbox(dem2_georef.pixel_to_lonlat_bbox(bounding_box( dem2_dmg ))));
+
+    // Transform the second DEM's bounding box to first DEM's pixels
+    GeoTransform gt(dem2_georef, dem1_georef);
+    BBox2 box21 = gt.forward_bbox(bounding_box(dem2_dmg));
+    crop_box.crop(box21);
 
     ImageViewRef<PixelMask<double> > dem2_trans =
       crop(geo_transform( per_pixel_filter(dem_to_geodetic( create_mask(dem2_dmg, dem2_nodata),
@@ -140,6 +144,8 @@ int main( int argc, char *argv[] ) {
                    opt.nodata_value );
     }
 
+    GeoReference crop_georef = crop(dem1_georef, crop_box);
+
     std::string output_file = opt.output_prefix + "-diff.tif";
     vw_out() << "Writing difference: " << output_file << "\n";
 
@@ -148,14 +154,14 @@ int main( int argc, char *argv[] ) {
       boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( output_file,
                                                                            difference_float, opt ) );
       rsrc->set_nodata_write( opt.nodata_value );
-      write_georeference( *rsrc, dem1_georef );
+      write_georeference( *rsrc, crop_georef );
       block_write_image( *rsrc, difference_float,
                          TerminalProgressCallback("asp", "\t--> Differencing: ") );
     } else {
       boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( output_file,
                                                                            difference, opt ) );
       rsrc->set_nodata_write( opt.nodata_value );
-      write_georeference( *rsrc, dem1_georef );
+      write_georeference( *rsrc, crop_georef );
       block_write_image( *rsrc, difference,
                          TerminalProgressCallback("asp", "\t--> Differencing: ") );
     }

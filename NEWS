@@ -37,7 +37,10 @@
 
  - image_calc
    * Fix calculation bug when no-data is present.
- 
+
+ - geodiff
+   * Bugfix when the two DEMs have longitudes offset by 360 degrees.
+
 *** RELEASE 2.5.0, August 31, 2015 ***
 
 -  Improved speed, coverage, and accuracy for areas with steep slopes
