@@ -831,7 +831,8 @@ int main( int argc, char *argv[] ) {
     }
 
     random_pc_subsample<RealT>(opt.max_num_source_points, source_point_cloud);
-    vw_out() << "Reducing number of source points to " << source_point_cloud.features.cols() << endl;
+    vw_out() << "Reducing number of source points to "
+             << source_point_cloud.features.cols() << endl;
 
     //dump_llh("ref.csv", datum, ref_point_cloud,    shift);
     //dump_llh("src.csv", datum, source, shift);
