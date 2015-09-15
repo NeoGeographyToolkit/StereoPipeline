@@ -21,14 +21,14 @@
 #include <vw/Image/ImageView.h>
 #include <vw/Image/ImageMath.h>
 #include <vw/Image/ImageViewRef.h>
+#include <vw/InterestPoint/IntegralDetector.h>
 #include <vw/InterestPoint/InterestData.h>
-#include <asp/Core/IntegralAutoGainDetector.h>
 
 #include <boost/foreach.hpp>
 #include <boost/random/normal_distribution.hpp>
 
 using namespace vw;
-using namespace asp;
+using namespace vw::ip;
 
 TEST( IntegralAutoGainDetector, VerifyMaxima ) {
 
