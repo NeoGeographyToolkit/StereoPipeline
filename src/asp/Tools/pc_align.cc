@@ -167,7 +167,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("compute-translation-only", po::bool_switch(&opt.compute_translation_only)->default_value(false)->implicit_value(true),
                                  "Compute the transform from source to reference point cloud as a translation only (no rotation).")
     ("no-dem-distances",         po::bool_switch(&opt.dont_use_dem_distances)->default_value(false)->implicit_value(true),
-                                 "For reference point clouds that are DEMs, don't take advantage of the fact that it is possible to interpolate into this DEM when finding the closest distance to it from a point in the source cloud.")
+                                 "For reference point clouds that are DEMs, don't take advantage of the fact that it is possible to interpolate into this DEM when finding the closest distance to it from a point in the source cloud and hence the error metrics.")
     ("save-transformed-source-points", po::bool_switch(&opt.save_trans_source)->default_value(false)->implicit_value(true),
                                   "Apply the obtained transform to the source points so they match the reference points and save them.")
     ("save-inv-transformed-reference-points", po::bool_switch(&opt.save_trans_ref)->default_value(false)->implicit_value(true),
@@ -609,7 +609,8 @@ double compute_registration_error(DP          const& ref_point_cloud,
   sw.start();
 
   // Always start by computing the error using LPM
-  const double BIG_NUMBER = 1e+300; // A big number to make sure no points are filtered!
+  // Use a big number to make sure no points are filtered!
+  const double BIG_NUMBER = std::numeric_limits<double>::max();
   pm_icp_object.filterGrossOutliersAndCalcErrors(ref_point_cloud, BIG_NUMBER,
                                                  source_point_cloud, error_matrix);
 
@@ -643,6 +644,9 @@ void filter_source_cloud(DP          const& ref_point_cloud,
   Stopwatch sw;
   sw.start();
 
+  if (opt.verbose)
+    vw_out() << "Filtering gross outliers" << endl;
+
   PointMatcher<RealT>::Matrix error_matrix;
   if (opt.use_dem_distances()) {
     // Compute the registration error using the best available means
@@ -658,7 +662,7 @@ void filter_source_cloud(DP          const& ref_point_cloud,
 
   sw.stop();
   if (opt.verbose)
-    vw_out() << "Filter gross outliers took " << sw.elapsed_seconds() << " [s]" << endl;
+    vw_out() << "Filtering gross outliers took " << sw.elapsed_seconds() << " [s]" << endl;
 }
 
 int main( int argc, char *argv[] ) {
@@ -808,6 +812,8 @@ int main( int argc, char *argv[] ) {
     double elapsed_time;
     PM::ICP icp;
     Stopwatch sw3;
+    if (opt.verbose)
+      vw_out() << "Building the reference cloud tree." << endl;
     sw3.start();
     icp.initRefTree(ref_point_cloud, opt.alignment_method, opt.highest_accuracy, false /*opt.verbose*/);
     sw3.stop();
