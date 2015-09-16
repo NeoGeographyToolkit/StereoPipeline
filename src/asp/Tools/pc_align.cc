@@ -80,6 +80,7 @@ typedef PointMatcher<RealT> PM;
 typedef PM::DataPoints DP;
 using namespace PointMatcherSupport;
 
+const double BIG_NUMBER = 1e+300; // libpointmatcher does not like here the largest double
 
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
@@ -512,7 +513,6 @@ void calcErrorsWithDem(DP          const& point_cloud,
                        vw::cartography::GeoReference        const& georef,
                        vw::ImageViewRef< PixelMask<float> > const& dem,
                        std::vector<double> &errors) {
-  const double BIG_NUMBER = 1e+300; // Flag indicating no match found in the DEM
 
   // Initialize output error storage
   const int num_pts = point_cloud.features.cols();
@@ -610,7 +610,6 @@ double compute_registration_error(DP          const& ref_point_cloud,
 
   // Always start by computing the error using LPM
   // Use a big number to make sure no points are filtered!
-  const double BIG_NUMBER = std::numeric_limits<double>::max();
   pm_icp_object.filterGrossOutliersAndCalcErrors(ref_point_cloud, BIG_NUMBER,
                                                  source_point_cloud, error_matrix);
 
