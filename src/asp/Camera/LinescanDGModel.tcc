@@ -36,7 +36,7 @@ template <class PositionFuncT, class VelocityFuncT, class PoseFuncT, class TimeF
 vw::Vector2 LinescanDGModel<PositionFuncT, VelocityFuncT, PoseFuncT, TimeFuncT>
 ::point_to_pixel(vw::Vector3 const& point) const {
 
-  if (!m_correct_velocity_aberration) 
+  if (!m_correct_velocity_aberration)
     return point_to_pixel_uncorrected(point);
   return point_to_pixel_corrected(point);
 }
@@ -164,7 +164,8 @@ inline boost::posix_time::ptime parse_time(std::string str)
   try{
     return boost::posix_time::time_from_string(str);
   }catch(...){
-    vw::vw_throw(vw::ArgumentErr() << "Failed to parse time from string: " << str << "\n");
+    vw::vw_throw(vw::ArgumentErr() << "Failed to parse time from string: " << str
+                 << ". Not a valid Digital Globe linescan model.\n");
   }
   return boost::posix_time::time_from_string(str); // Never reached!
 }
@@ -212,7 +213,7 @@ boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const
     att.quat_vec[i] = att.quat_vec[i] * geo.camera_attitude * sensor_coordinate;
   }
 
-  //vw::vw_out() << "DG model load - sensor_coordinate = " << sensor_coordinate << std::endl; 
+  //vw::vw_out() << "DG model load - sensor_coordinate = " << sensor_coordinate << std::endl;
   //geo.printDebugInfo(); // DEBUG INFO
 
   // Load up the time interpolation class. If the TLCList only has
@@ -254,4 +255,3 @@ boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const
                                           geo.principal_distance, correct_velocity_aberration)
                     );
 } // End function load_dg_camera_model()
-
