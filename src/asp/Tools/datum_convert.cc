@@ -174,7 +174,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
 
   po::options_description general_options("");
   general_options.add_options()
-    ("output-datum", po::value(&opt.output_datum), " The datum to convert to. Supported options: WGS\_1984, NAD83, WGS72, and NAD27.")
+    ("output-datum", po::value(&opt.output_datum), " The datum to convert to. Supported options: WGS_1984, NAD83, WGS72, and NAD27.")
     ("t_srs",        po::value(&opt.target_srs_string)->default_value(""), "Specify the output datum via the PROJ.4 string.")
     ("nodata_value", po::value(&opt.nodata_value)->default_value(-32768),
      "The value of no-data pixels, unless specified in the DEM.")
