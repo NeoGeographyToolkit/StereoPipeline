@@ -18,7 +18,8 @@
 
 /// \file pc_merge.cc
 ///
-/// A simple tool to merge multiple point cloud files into a single file.
+/// A simple tool to merge multiple point cloud files into a single file. The clouds
+/// can have 1 channel (plain raster images) or 3 to 6 channels.
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
@@ -146,8 +147,30 @@ Vector3 determine_output_shift(std::vector<std::string> const& pc_files, Options
 
 
 // Do the actual work of loading, merging, and saving the point clouds
+
+// Case 1: Single-channel cloud.
 template <class PixelT>
-void do_work(Vector3 const& shift, Options const& opt) {
+typename boost::enable_if<boost::is_same<PixelT, vw::PixelGray<float> >, void >::type
+do_work(Vector3 const& shift, Options const& opt) {
+  // The spacing is selected to be compatible with the point2dem convention.
+  const int spacing = asp::OrthoRasterizerView::max_subblock_size();
+  ImageViewRef<PixelT> merged_cloud = asp::form_point_cloud_composite<PixelT>(opt.pointcloud_files, spacing);
+
+  vw_out() << "Writing image: " << opt.out_file << "\n";
+
+  bool has_georef = false;
+  bool has_nodata = false;
+  double nodata;
+  GeoReference georef;
+  asp::block_write_gdal_image(opt.out_file, merged_cloud, has_georef,
+                              georef,  has_nodata, nodata, opt,
+                              TerminalProgressCallback("asp", "\t--> Merging: "));
+}
+
+// Case 2: Multi-channel cloud.
+template <class PixelT>
+typename boost::disable_if<boost::is_same<PixelT, vw::PixelGray<float> >, void >::type
+do_work(Vector3 const& shift, Options const& opt) {
   // The spacing is selected to be compatible with the point2dem convention.
   const int spacing = asp::OrthoRasterizerView::max_subblock_size();
   ImageViewRef<PixelT> merged_cloud = asp::form_point_cloud_composite<PixelT>(opt.pointcloud_files, spacing);
@@ -183,6 +206,7 @@ int main( int argc, char *argv[] ) {
     {
       // The input point clouds have their shift incorporated and are stored as doubles.
       // If the output file is stored as float, it needs to have a single shift value applied.
+      case 1:  do_work< vw::PixelGray<float> >(shift, opt); break;
       case 3:  do_work<Vector3>(shift, opt); break;
       case 4:  do_work<Vector4>(shift, opt); break;
       case 6:  do_work<Vector6>(shift, opt); break;
