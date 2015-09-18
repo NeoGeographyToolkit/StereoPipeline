@@ -496,7 +496,10 @@ seeded_correlation( ImageViewBase<Image1T>        const& left,
 
 void stereo_correlation( Options& opt ) {
 
-  if (!stereo_settings().skip_low_res_disparity_comp)
+  // Note that even when we are told to skip low-resolution correlation,
+  // we must still go through the motions when seed_mode is 0, to be
+  // able to get a search range, even though we don't write D_sub then.
+  if (!stereo_settings().skip_low_res_disparity_comp || stereo_settings().seed_mode == 0)
     lowres_correlation(opt);
 
   if (stereo_settings().compute_low_res_disparity_only) return;

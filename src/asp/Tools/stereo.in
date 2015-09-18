@@ -122,18 +122,8 @@ if __name__ == '__main__':
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ): sys.exit()
 
-            # First do low-res correlation, this happens just once.
-            if ( opt.seed_mode == 3 ):
-                run_sparse_disp(args, opt)
-            else:
-                tmp_args = args[:] # deep copy
-                tmp_args.extend(['--compute-low-res-disparity-only'])
-                run_and_parse_output('stereo_corr', tmp_args, sep, opt.verbose)
-
-            # See if to attach a georef to D_sub and D_sub_spread.
-            tmp_args = args[:]
-            tmp_args.append('--attach-georeference-to-lowres-disparity')
-            run_and_parse_output("stereo_parse", tmp_args, sep, opt.verbose)
+            # Do low-res correlation, this happens just once.
+            calc_lowres_disp(args, opt, sep)
 
             # Run full-resolution stereo correlation
             args.extend(['--skip-low-res-disparity-comp'])

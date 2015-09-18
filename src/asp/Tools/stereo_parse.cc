@@ -109,8 +109,10 @@ int main( int argc, char* argv[] ) {
     // invoked after low-res disparity is computed, whether done in
     // C++ or in Python. It will attach a georeference to this
     // disparity.
-    if (stereo_settings().attach_georeference_to_lowres_disparity) {
-      std::string left_image_file = opt.out_prefix + "-L.tif";
+    std::string left_image_file = opt.out_prefix + "-L.tif";
+    if (stereo_settings().attach_georeference_to_lowres_disparity &&
+        fs::exists(left_image_file) ) {
+
       cartography::GeoReference left_georef, left_sub_georef;
       bool has_left_georef = read_georeference(left_georef, left_image_file);
       bool has_nodata = false;
@@ -121,27 +123,26 @@ int main( int argc, char* argv[] ) {
 	for (int i = 0; i < 2; i++) {
 	  std::string d_sub_file = opt.out_prefix + "-D_sub.tif";
 	  if (i == 1) d_sub_file = opt.out_prefix + "-D_sub_spread.tif";
-	  if (fs::exists(d_sub_file)) {
+	  if (!fs::exists(d_sub_file)) continue;
 
-	    bool has_sub_georef = read_georeference(left_sub_georef, d_sub_file);
-	    if (has_sub_georef) {
-	      // If D_sub already has a georef, as with seed-mode 3, don't
-	      // overwrite it.
-	      continue;
-	    }
+          bool has_sub_georef = read_georeference(left_sub_georef, d_sub_file);
+          if (has_sub_georef) {
+            // If D_sub already has a georef, as with seed-mode 3, don't
+            // overwrite it.
+            continue;
+          }
 
-	    ImageView<PixelMask<Vector2i> > d_sub;
-	    read_image(d_sub, d_sub_file);
+          ImageView<PixelMask<Vector2i> > d_sub;
+          read_image(d_sub, d_sub_file);
 	    // Account for scale.
-	    double left_scale = 0.5*( double(d_sub.cols())/left_image.cols()
-				      + double(d_sub.rows())/left_image.rows());
-	    left_sub_georef = resample(left_georef, left_scale);
-	    asp::block_write_gdal_image(d_sub_file, d_sub,
-					has_left_georef, left_sub_georef,
-					has_nodata, output_nodata,
-					opt, TerminalProgressCallback("asp", "\t    D_sub: ")
-					);
-	  }
+          double left_scale = 0.5*( double(d_sub.cols())/left_image.cols()
+                                    + double(d_sub.rows())/left_image.rows());
+          left_sub_georef = resample(left_georef, left_scale);
+          asp::block_write_gdal_image(d_sub_file, d_sub,
+                                      has_left_georef, left_sub_georef,
+                                      has_nodata, output_nodata,
+                                      opt, TerminalProgressCallback("asp", "\t    D_sub: ")
+                                      );
 	}
       }
     }

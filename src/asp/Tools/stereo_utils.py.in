@@ -181,6 +181,21 @@ def run_sparse_disp(args, opt):
     stereo_run('sparse_disp', sparse_args, opt,
                msg='%d: Low-res correlation with sparse_disp' % Step.corr)
 
+# Do low-res correlation.
+def calc_lowres_disp(args, opt, sep):
+
+    if ( opt.seed_mode == 3 ):
+        run_sparse_disp(args, opt)
+    else:
+        tmp_args = args[:] # deep copy
+        tmp_args.extend(['--compute-low-res-disparity-only'])
+        run_and_parse_output('stereo_corr', tmp_args, sep, opt.verbose)
+
+    # See if to attach a georef to D_sub and D_sub_spread.
+    tmp_args = args[:]
+    tmp_args.append('--attach-georeference-to-lowres-disparity')
+    run_and_parse_output("stereo_parse", tmp_args, sep, opt.verbose)
+
 def parse_corr_seed_mode(filename):
 
     mode = None
