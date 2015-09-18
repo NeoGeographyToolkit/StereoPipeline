@@ -47,7 +47,7 @@ namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
-// TODO: The other Session classes use functions like affine_epipolar_rectification 
+// TODO: The other Session classes use functions like affine_epipolar_rectification
 //        and homograhy_rectification (in the IP file) to perform this task.
 //       Why does the Pinhole Session need to use something different?
 
@@ -90,84 +90,25 @@ asp::StereoSessionPinhole::determine_image_align(std::string const& out_prefix,
   return T;
 }
 
-void asp::StereoSessionPinhole::pre_preprocessing_hook
-(bool adjust_left_image_size,
- std::string const& left_input_file,
- std::string const& right_input_file,
- std::string      & left_output_file,
- std::string      & right_output_file) {
+void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_size,
+                                                       std::string const& left_input_file,
+                                                       std::string const& right_input_file,
+                                                       std::string      & left_output_file,
+                                                       std::string      & right_output_file) {
 
-  left_output_file  = m_out_prefix + "-L.tif";
-  right_output_file = m_out_prefix + "-R.tif";
 
-  bool crop_left_and_right =
-    ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
-    ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
-
-  // If the output files already exist, and we don't crop both left
-  // and right images, then there is nothing to do here.
-  if ( boost::filesystem::exists(left_output_file)  &&
-       boost::filesystem::exists(right_output_file) &&
-       (!crop_left_and_right)) {
-    try {
-      vw_log().console_log().rule_set().add_rule(-1,"fileio");
-      DiskImageView<PixelGray<float32> > out_left (left_output_file );
-      DiskImageView<PixelGray<float32> > out_right(right_output_file);
-      vw_out(InfoMessage) << "\t--> Using cached normalized input images.\n";
-      vw_settings().reload_config();
-      return;
-    } catch (vw::ArgumentErr const& e) {
-      // This throws on a corrupted file.
-      vw_settings().reload_config();
-    } catch (vw::IOErr const& e) {
-      vw_settings().reload_config();
-    }
-  } // End check for existing output files
-
-  // Retrieve nodata values
-  float left_nodata_value, right_nodata_value;
-  {
-    // For this to work the ISIS type must be registered with the
-    // DiskImageResource class.  - This happens in "stereo.cc", so
-    // these calls will create DiskImageResourceIsis objects.
-    boost::shared_ptr<DiskImageResource>
-      left_rsrc (DiskImageResource::open(left_input_file )),
-      right_rsrc(DiskImageResource::open(right_input_file));
-    this->get_nodata_values(left_rsrc, right_rsrc,
-                            left_nodata_value, right_nodata_value);
-  }
-
-  // Enforce no predictor in compression, it works badly with L.tif and R.tif.
-  asp::BaseOptions options = m_options;
-  options.gdal_options["PREDICTOR"] = "1";
-
-  std::string left_cropped_file = left_input_file,
-              right_cropped_file = right_input_file;
-
-  // See if to crop the images
-  if (crop_left_and_right) {
-    // Crop the images, will use them from now on
-    left_cropped_file  = this->m_out_prefix + "-L-cropped.tif";
-    right_cropped_file = this->m_out_prefix + "-R-cropped.tif";
-
-    DiskImageView<float> left_orig_image(left_input_file);
-    stereo_settings().left_image_crop_win.crop(bounding_box(left_orig_image));
-    vw_out() << "\t--> Writing cropped image: " << left_cropped_file << "\n";
-    block_write_gdal_image(left_cropped_file,
-                           crop(left_orig_image,
-                                stereo_settings().left_image_crop_win),
-                           left_nodata_value, options,
-                           TerminalProgressCallback("asp", "\t:  "));
-
-    DiskImageView<float> right_orig_image(right_input_file);
-    stereo_settings().right_image_crop_win.crop(bounding_box(right_orig_image));
-    vw_out() << "\t--> Writing cropped image: " << right_cropped_file << "\n";
-    block_write_gdal_image(right_cropped_file,
-                           crop(right_orig_image,
-                                stereo_settings().right_image_crop_win),
-                           right_nodata_value, options,
-                           TerminalProgressCallback("asp", "\t:  "));
-  }
+    std::string left_cropped_file, right_cropped_file;
+    asp::BaseOptions options;
+    float left_nodata_value, right_nodata_value;
+    bool has_left_georef, has_right_georef;
+    vw::cartography::GeoReference left_georef, right_georef;
+    StereoSession::shared_preprocessing_hook(options,
+                                             left_input_file,   right_input_file,
+                                             left_output_file,  right_output_file,
+                                             left_cropped_file, right_cropped_file,
+                                             left_nodata_value, right_nodata_value,
+                                             has_left_georef,   has_right_georef,
+                                             left_georef,       right_georef);
 
   // Load the cropped images
   DiskImageView<float> left_disk_image(left_cropped_file),

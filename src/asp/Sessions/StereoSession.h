@@ -226,6 +226,22 @@ namespace asp {
                            boost::shared_ptr<vw::DiskImageResource> right_rsrc,
                            float & left_nodata_value,
                            float & right_nodata_value);
+
+    // Factor out here all functionality shared among the preprocessing hooks
+    // for various sessions.
+    void shared_preprocessing_hook(asp::BaseOptions              & options,
+                                   std::string const             & left_input_file,
+                                   std::string const             & right_input_file,
+                                   std::string                   & left_output_file,
+                                   std::string                   & right_output_file,
+                                   std::string                   & left_cropped_file,
+                                   std::string                   & right_cropped_file,
+                                   float                         & left_nodata_value,
+                                   float                         & right_nodata_value,
+                                   bool                          & has_left_georef,
+                                   bool                          & has_right_georef,
+                                   vw::cartography::GeoReference & left_georef,
+                                   vw::cartography::GeoReference & right_georef);
   };
 
 

@@ -46,8 +46,6 @@ namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
-
-
 namespace asp {
 
   // Pass over all the string variables we use
@@ -102,7 +100,7 @@ namespace asp {
                                        nodata1, nodata2);
     } else { // Not nadir facing
       // Run a simpler purely image based matching function
-      inlier = homography_ip_matching( image1, image2,                                      
+      inlier = homography_ip_matching( image1, image2,
                                        ip_per_tile,
                                        match_filename,
                                        nodata1, nodata2);
@@ -201,5 +199,114 @@ namespace asp {
 
     return;
   }
+
+void StereoSession::shared_preprocessing_hook(asp::BaseOptions              & options,
+                                              std::string const             & left_input_file,
+                                              std::string const             & right_input_file,
+                                              std::string                   & left_output_file,
+                                              std::string                   & right_output_file,
+                                              std::string                   & left_cropped_file,
+                                              std::string                   & right_cropped_file,
+                                              float                         & left_nodata_value,
+                                              float                         & right_nodata_value,
+                                              bool                          & has_left_georef,
+                                              bool                          & has_right_georef,
+                                              vw::cartography::GeoReference & left_georef,
+                                              vw::cartography::GeoReference & right_georef){
+
+  // Set output file paths
+  left_output_file  = this->m_out_prefix + "-L.tif";
+  right_output_file = this->m_out_prefix + "-R.tif";
+
+  bool crop_left_and_right =
+    ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
+    ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
+
+  // If the output files already exist, and we don't crop both left
+  // and right images, then there is nothing to do here.
+  if ( boost::filesystem::exists(left_output_file)  &&
+       boost::filesystem::exists(right_output_file) &&
+       (!crop_left_and_right)) {
+    try {
+      vw_log().console_log().rule_set().add_rule(-1,"fileio");
+      DiskImageView<PixelGray<float32> > out_left (left_output_file );
+      DiskImageView<PixelGray<float32> > out_right(right_output_file);
+      vw_out(InfoMessage) << "\t--> Using cached normalized input images.\n";
+      vw_settings().reload_config();
+      return;
+    } catch (vw::ArgumentErr const& e) {
+      // This throws on a corrupted file.
+      vw_settings().reload_config();
+    } catch (vw::IOErr const& e) {
+      vw_settings().reload_config();
+    }
+  } // End check for existing output files
+
+  // Retrieve nodata values
+  {
+    // For this to work the ISIS type must be registered with the
+    // DiskImageResource class.  - This happens in "stereo.cc", so
+    // these calls will create DiskImageResourceIsis objects.
+    boost::shared_ptr<DiskImageResource>
+      left_rsrc (DiskImageResource::open(left_input_file )),
+      right_rsrc(DiskImageResource::open(right_input_file));
+    this->get_nodata_values(left_rsrc, right_rsrc,
+                            left_nodata_value, right_nodata_value);
+  }
+
+  // Enforce no predictor in compression, it works badly with L.tif and R.tif.
+  options = this->m_options;
+  options.gdal_options["PREDICTOR"] = "1";
+
+  left_cropped_file  = left_input_file;
+  right_cropped_file = right_input_file;
+
+  // See if to crop the images
+  if (crop_left_and_right) {
+    // Crop the images, will use them from now on. Crop the georef as
+    // well, if available.
+    left_cropped_file  = this->m_out_prefix + "-L-cropped.tif";
+    right_cropped_file = this->m_out_prefix + "-R-cropped.tif";
+
+    has_left_georef  = read_georeference(left_georef,  left_input_file);
+    has_right_georef = read_georeference(right_georef, right_input_file);
+    bool has_nodata = true;
+
+    DiskImageView<float> left_orig_image(left_input_file);
+    DiskImageView<float> right_orig_image(right_input_file);
+    BBox2i left_win  = stereo_settings().left_image_crop_win;
+    BBox2i right_win = stereo_settings().right_image_crop_win;
+    left_win.crop (bounding_box(left_orig_image ));
+    right_win.crop(bounding_box(right_orig_image));
+
+
+    vw_out() << "\t--> Writing cropped image: " << left_cropped_file << "\n";
+    block_write_gdal_image(left_cropped_file,
+                           crop(left_orig_image, left_win),
+                           has_left_georef, crop(left_georef, left_win),
+                           has_nodata, left_nodata_value,
+                           options,
+                           TerminalProgressCallback("asp", "\t:  "));
+
+    vw_out() << "\t--> Writing cropped image: " << right_cropped_file << "\n";
+    block_write_gdal_image(right_cropped_file,
+                           crop(right_orig_image, right_win),
+                           has_right_georef,
+                           crop(right_georef, right_win),
+                           has_nodata, right_nodata_value,
+                           options,
+                           TerminalProgressCallback("asp", "\t:  "));
+  }
+
+  // Read the georef if available
+  has_left_georef  = read_georeference(left_georef,  left_cropped_file);
+  has_right_georef = read_georeference(right_georef, right_cropped_file);
+  if ( stereo_settings().alignment_method != "none") {
+    // If any alignment at all happens, the georef will be messed up.
+    has_left_georef = false;
+    has_right_georef = false;
+  }
+
+}
 
 } // End namespace asp
