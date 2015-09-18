@@ -137,9 +137,12 @@ void write_preprocessed_isis_image( BaseOptions const& opt,
                                     float isis_lo, float isis_hi,
                                     float out_lo,  float out_hi,
                                     Matrix<double> const& matrix,
-                                    Vector2i const& crop_size ) {
+                                    Vector2i const& crop_size,
+                                    bool has_georef,
+                                    vw::cartography::GeoReference const& georef) {
 
   // The output no-data value must be < 0 as we scale the images to [0, 1].
+  bool has_nodata = true;
   float output_nodata = -32768.0;
 
   ImageViewRef<float> image_sans_mask = apply_mask(masked_image, isis_lo);
@@ -168,7 +171,9 @@ void write_preprocessed_isis_image( BaseOptions const& opt,
     }
 
     vw_out() << "\t--> Writing normalized image: " << out_file << "\n";
-    block_write_gdal_image( out_file, apply_mask(applied_image, output_nodata), output_nodata, opt,
+    block_write_gdal_image( out_file, apply_mask(applied_image, output_nodata),
+                            has_georef, georef,
+                            has_nodata, output_nodata, opt,
                             TerminalProgressCallback("asp", "\t  "+tag+":  "));
 
   }else{
@@ -189,7 +194,9 @@ void write_preprocessed_isis_image( BaseOptions const& opt,
     }
 
     vw_out() << "\t--> Writing normalized image: " << out_file << "\n";
-    block_write_gdal_image( out_file, applied_image, output_nodata, opt,
+    block_write_gdal_image( out_file, applied_image,
+                            has_georef, georef,
+                            has_nodata, output_nodata, opt,
                             TerminalProgressCallback("asp", "\t  "+tag+":  "));
   }
 
@@ -265,31 +272,44 @@ pre_preprocessing_hook(bool adjust_left_image_size,
   asp::BaseOptions options = this->m_options;
   options.gdal_options["PREDICTOR"] = "1";
 
-  std::string left_cropped_file = left_input_file,
-    right_cropped_file = right_input_file;
+  std::string left_cropped_file  = left_input_file;
+  std::string right_cropped_file = right_input_file;
 
   // See if to crop the images
   if (crop_left_and_right) {
-    // Crop the images, will use them from now on
+    // Crop the images, will use them from now on. Crop the georef as
+    // well, if available.
     left_cropped_file  = this->m_out_prefix + "-L-cropped.tif";
     right_cropped_file = this->m_out_prefix + "-R-cropped.tif";
 
+    vw::cartography::GeoReference left_georef, right_georef;
+    bool has_left_georef  = read_georeference(left_georef,  left_input_file);
+    bool has_right_georef = read_georeference(right_georef, right_input_file);
+    bool has_nodata = true;
+
     DiskImageView<float> left_orig_image(left_input_file);
-    stereo_settings().left_image_crop_win.crop(bounding_box(left_orig_image));
+    DiskImageView<float> right_orig_image(right_input_file);
+    BBox2i left_win  = stereo_settings().left_image_crop_win;
+    BBox2i right_win = stereo_settings().right_image_crop_win;
+    left_win.crop (bounding_box(left_orig_image ));
+    right_win.crop(bounding_box(right_orig_image));
+
+
     vw_out() << "\t--> Writing cropped image: " << left_cropped_file << "\n";
     block_write_gdal_image(left_cropped_file,
-                           crop(left_orig_image,
-                                stereo_settings().left_image_crop_win),
-                           left_nodata_value, options,
+                           crop(left_orig_image, left_win),
+                           has_left_georef, crop(left_georef, left_win),
+                           has_nodata, left_nodata_value,
+                           options,
                            TerminalProgressCallback("asp", "\t:  "));
 
-    DiskImageView<float> right_orig_image(right_input_file);
-    stereo_settings().right_image_crop_win.crop(bounding_box(right_orig_image));
     vw_out() << "\t--> Writing cropped image: " << right_cropped_file << "\n";
     block_write_gdal_image(right_cropped_file,
-                           crop(right_orig_image,
-                                stereo_settings().right_image_crop_win),
-                           right_nodata_value, options,
+                           crop(right_orig_image, right_win),
+                           has_right_georef,
+                           crop(right_georef, right_win),
+                           has_nodata, right_nodata_value,
+                           options,
                            TerminalProgressCallback("asp", "\t:  "));
   }
 
@@ -297,7 +317,18 @@ pre_preprocessing_hook(bool adjust_left_image_size,
   DiskImageView<float> left_disk_image(left_cropped_file),
     right_disk_image(right_cropped_file);
 
-  // Getting image sizes. Later alignment options can choose to change this parameters. (Affine Epipolar).
+  // Read the georef if available
+  vw::cartography::GeoReference left_georef, right_georef;
+  bool has_left_georef  = read_georeference(left_georef,  left_cropped_file);
+  bool has_right_georef = read_georeference(right_georef, right_cropped_file);
+  if ( stereo_settings().alignment_method != "none") {
+    // If any alignment at all happens, the georef will be messed up.
+    has_left_georef = false;
+    has_right_georef = false;
+  }
+
+  // Getting image sizes. Later alignment options can choose to change
+  // this parameters. (Affine Epipolar).
   Vector2i left_size  = file_image_size(left_cropped_file ),
            right_size = file_image_size(right_cropped_file);
 
@@ -392,11 +423,13 @@ pre_preprocessing_hook(bool adjust_left_image_size,
   write_preprocessed_isis_image( options, will_apply_user_nodata,
                                  left_masked_image, left_output_file, "left",
                                  left_lo, left_hi, left_lo_out, left_hi_out,
-                                 align_left_matrix, left_size );
+                                 align_left_matrix, left_size,
+                                 has_left_georef, left_georef);
   write_preprocessed_isis_image( options, will_apply_user_nodata,
                                  right_masked_image, right_output_file, "right",
                                  right_lo, right_hi, right_lo_out, right_hi_out,
-                                 align_right_matrix, right_size );
+                                 align_right_matrix, right_size,
+                                 has_right_georef, right_georef);
 }
 
 // Only used with mask_flatfield option?

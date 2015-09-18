@@ -90,6 +90,11 @@ template <class PixelT>
 void do_disparity_visualization(Options& opt) {
   DiskImageView<PixelT > disk_disparity_map(opt.input_file_name);
 
+  cartography::GeoReference georef;
+  bool has_georef  = read_georeference(georef, opt.input_file_name);
+  bool has_nodata = false;
+  float output_nodata = -32768.0;
+
   vw_out() << "\t--> Computing disparity range \n";
 
   // If no ROI passed in, use the full image
@@ -97,6 +102,8 @@ void do_disparity_visualization(Options& opt) {
   if ( opt.roi == BBox2(0,0,0,0) )
     roiToUse = BBox2(0,0,disk_disparity_map.cols(),disk_disparity_map.rows());
 
+  if (has_georef)
+    georef = crop(georef, roiToUse);
 
   // We don't want to sample every pixel as the image might be very
   // large. Let's subsample the image so that it is rough 1000x1000 samples.
@@ -144,11 +151,15 @@ void do_disparity_visualization(Options& opt) {
   vw_out() << "\t--> Writing horizontal disparity debug image: " << h_file << "\n";
   block_write_gdal_image( h_file,
                           channel_cast_rescale<uint8>(horizontal),
+                          has_georef, georef,
+                          has_nodata, output_nodata,
                           opt, TerminalProgressCallback("asp","\t    H : "));
   std::string v_file = opt.output_prefix+"-V."+opt.output_file_type;
   vw_out() << "\t--> Writing vertical disparity debug image: " << v_file << "\n";
   block_write_gdal_image( v_file,
                           channel_cast_rescale<uint8>(vertical),
+                          has_georef, georef,
+                          has_nodata, output_nodata,
                           opt, TerminalProgressCallback("asp","\t    V : "));
 }
 

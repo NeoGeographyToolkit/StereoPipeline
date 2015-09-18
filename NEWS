@@ -26,6 +26,13 @@
      image and camera data. Such artifacts may show up in older
      (2009 or earlier) Digital Globe images.
 
+ - stereo
+    * If the input images are map-projected (georeferenced) and 
+      alignment method is none, most outputs of stereo are
+      georeferenced as well, such as GoodPixelMap, D_sub, filtered
+      disparity, etc. As such, all these data can be overlayed in
+      stereo_gui.
+      
  - stereo_gui
    * Added the option --delete-temporary-files-on-exit to do precisely
      that.

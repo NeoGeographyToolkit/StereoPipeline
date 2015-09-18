@@ -107,9 +107,9 @@ namespace asp {
     (*this).add_options()
       ("alignment-method",         po::value(&global.alignment_method)->default_value("affineepipolar"),
                      "Rough alignment for input images. [AffineEpipolar, Homography, Epipolar, None]")
-      ("left-image-crop-win", po::value(&global.left_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"), 
+      ("left-image-crop-win", po::value(&global.left_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"),
                       "Do stereo in a subregion of the left image [default: use the entire image].")
-      ("right-image-crop-win", po::value(&global.right_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"), 
+      ("right-image-crop-win", po::value(&global.right_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"),
                       "Do stereo in a subregion of the right image if specified together with left-image-crop-win [default: use the entire image].")
       ("force-use-entire-range",   po::bool_switch(&global.force_use_entire_range)->default_value(false)->implicit_value(true),
                      "Normalize images based on the global min and max values from both images. Don't use this option if you are using normalized cross correlation.")
@@ -299,7 +299,9 @@ namespace asp {
   UndocOptsDescription::UndocOptsDescription() : po::options_description("Undocumented Options") {
     StereoSettings& global = stereo_settings();
     (*this).add_options()
-      ("trans-crop-win", po::value(&global.trans_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"), "Left image crop window in respect to L.tif. This is an internal option. [default: use the entire image].");
+      ("trans-crop-win", po::value(&global.trans_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"), "Left image crop window in respect to L.tif. This is an internal option. [default: use the entire image].")
+      ("attach-georeference-to-lowres-disparity", po::bool_switch(&global.attach_georeference_to_lowres_disparity)->default_value(false)->implicit_value(true),
+       "If input images are georeferenced, make D_sub and D_sub_spread georeferenced.");
   }
 
   po::options_description

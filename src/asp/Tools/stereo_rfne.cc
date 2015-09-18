@@ -348,7 +348,7 @@ void stereo_refinement( Options const& opt ) {
       = copy_mask(left_image, create_mask(left_mask));
     ImageViewRef< PixelMask< PixelGray<float> > > Rimg
       = copy_mask(right_image, create_mask(right_mask));
-    
+
     Vector<float32> left_stats, right_stats;
     string left_stats_file  = opt.out_prefix+"-lStats.tif";
     string right_stats_file  = opt.out_prefix+"-rStats.tif";
@@ -374,10 +374,16 @@ void stereo_refinement( Options const& opt ) {
     = per_tile_rfne(left_image, right_image, right_mask,
                     integer_disp, sub_disp, local_hom, opt);
 
+  cartography::GeoReference left_georef;
+  bool has_left_georef = read_georeference(left_georef,  opt.out_prefix + "-L.tif");
+  bool has_nodata = false;
+  double nodata = -32768.0;
+
   string rd_file = opt.out_prefix + "-RD.tif";
   vw_out() << "Writing: " << rd_file << "\n";
-  asp::block_write_gdal_image(rd_file,
-                              refined_disp, opt,
+  asp::block_write_gdal_image(rd_file, refined_disp,
+                              has_left_georef, left_georef,
+                              has_nodata, nodata, opt,
                               TerminalProgressCallback("asp", "\t--> Refinement :") );
 }
 
@@ -389,7 +395,7 @@ int main(int argc, char* argv[]) {
              << " ] : Stage 2 --> REFINEMENT \n";
 
     stereo_register_sessions();
-    
+
     bool verbose = false;
     vector<Options> opt_vec;
     string output_prefix;

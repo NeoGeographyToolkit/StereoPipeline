@@ -567,9 +567,6 @@ if __name__ == '__main__':
     if opt.version:
         args.append('-v')
 
-    args_sub = args[:] # deep copy
-    args_sub.extend(['--compute-low-res-disparity-only'])
-
     sep = ","
     settings=run_and_parse_output( "stereo_parse", args, sep, opt.verbose )
 
@@ -632,8 +629,15 @@ if __name__ == '__main__':
             if ( opt.seed_mode == 3 ):
                 run_sparse_disp(args, opt)
             else:
-                single_run('stereo_corr',
-                           args_sub, msg='%d: Low-res correlation' % step)
+                tmp_args = args[:] # deep copy
+                tmp_args.extend(['--compute-low-res-disparity-only'])
+                run_and_parse_output('stereo_corr', tmp_args, sep, opt.verbose)
+
+            # See if to attach a georef to D_sub and D_sub_spread.
+            tmp_args = args[:]
+            tmp_args.append('--attach-georeference-to-lowres-disparity')
+            run_and_parse_output("stereo_parse", tmp_args, sep, opt.verbose)
+
             create_subproject_dirs( settings ) # symlink D_sub
 
             # Low-res correlation is done. Run full-res stereo
@@ -672,9 +676,9 @@ if __name__ == '__main__':
 
             # First compute the point cloud center. This is done
             # just once.
-            l_args = args[:] # deep copy
-            l_args.append('--compute-point-cloud-center-only')
-            single_run('stereo_tri',  l_args, msg='%d: Triangulation' % step)
+            tmp_args = args[:] # deep copy
+            tmp_args.append('--compute-point-cloud-center-only')
+            single_run('stereo_tri',  tmp_args, msg='%d: Triangulation' % step)
             create_subproject_dirs( settings ) # symlink cloud center
 
             # Next run triangulation on multiple machines

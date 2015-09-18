@@ -146,8 +146,7 @@ namespace asp {
       vw_out() << "\t--> Writing cropped image: " << left_cropped_file << "\n";
       block_write_gdal_image(left_cropped_file,
                              crop(left_orig_image, left_win),
-                             has_left_georef,
-                             crop(left_georef, left_win),
+                             has_left_georef, crop(left_georef, left_win),
                              has_nodata, left_nodata_value,
                              options,
                              TerminalProgressCallback("asp", "\t:  "));
@@ -156,7 +155,7 @@ namespace asp {
       block_write_gdal_image(right_cropped_file,
                              crop(right_orig_image, right_win),
                              has_right_georef,
-                             crop(left_georef, left_win),
+                             crop(right_georef, right_win),
                              has_nodata, right_nodata_value,
                              options,
                              TerminalProgressCallback("asp", "\t:  "));
@@ -166,6 +165,16 @@ namespace asp {
     // Load the cropped images
     DiskImageView<float> left_disk_image (left_cropped_file ),
                          right_disk_image(right_cropped_file);
+
+    // Read the georef if available
+    vw::cartography::GeoReference left_georef, right_georef;
+    bool has_left_georef  = read_georeference(left_georef,  left_cropped_file);
+    bool has_right_georef = read_georeference(right_georef, right_cropped_file);
+    if ( stereo_settings().alignment_method != "none") {
+      // If any alignment at all happens, the georef will be messed up.
+      has_left_georef = false;
+      has_right_georef = false;
+    }
 
     // Set up image masks
     ImageViewRef< PixelMask<float> > left_masked_image
@@ -251,22 +260,27 @@ namespace asp {
                      left_stats, right_stats, Limg, Rimg);
 
     // The output no-data value must be < 0 as we scale the images to [0, 1].
+    bool has_nodata = true;
     float output_nodata = -32768.0;
 
     // The left image is written out with no alignment warping.
     vw_out() << "\t--> Writing pre-aligned images.\n";
     block_write_gdal_image( left_output_file, apply_mask(Limg, output_nodata),
-                            output_nodata, options,
+                            has_left_georef, left_georef,
+                            has_nodata, output_nodata, options,
                             TerminalProgressCallback("asp","\t  L:  ") );
 
-    if ( stereo_settings().alignment_method == "none" ) // Write out the right image with no warping.
+    if ( stereo_settings().alignment_method == "none" )
       block_write_gdal_image( right_output_file, apply_mask(Rimg, output_nodata),
-                              output_nodata, options,
+                              has_right_georef, right_georef,
+                              has_nodata, output_nodata, options,
                               TerminalProgressCallback("asp","\t  R:  ") );
-    else // Write out the right image warped to align with the left image.
+    else // Write out the right image cropped to align with the left image.
       block_write_gdal_image( right_output_file,
-                              apply_mask(crop(edge_extend(Rimg, ConstantEdgeExtension()), bounding_box(Limg)), output_nodata),
-                              output_nodata, options,
+                              apply_mask(crop(edge_extend(Rimg, ConstantEdgeExtension()),
+                                              bounding_box(Limg)), output_nodata),
+                              has_right_georef, right_georef,
+                              has_nodata, output_nodata, options,
                               TerminalProgressCallback("asp","\t  R:  ") );
   } // End function pre_preprocessing_hook
 

@@ -598,10 +598,16 @@ void stereo_correlation( Options& opt ) {
                           seconds_per_op );
   }
 
+  cartography::GeoReference left_georef;
+  bool has_left_georef = read_georeference(left_georef,  opt.out_prefix + "-L.tif");
+  bool has_nodata = false;
+  double nodata = -32768.0;
+
   string d_file = opt.out_prefix + "-D.tif";
   vw_out() << "Writing: " << d_file << "\n";
-  asp::block_write_gdal_image(d_file,
-                              fullres_disparity, opt,
+  asp::block_write_gdal_image(d_file, fullres_disparity,
+                              has_left_georef, left_georef,
+                              has_nodata, nodata, opt,
                               TerminalProgressCallback("asp", "\t--> Correlation :") );
 
   vw_out() << "\n[ " << current_posix_time_string()

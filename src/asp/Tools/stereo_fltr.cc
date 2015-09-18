@@ -151,12 +151,13 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
                  ), sub_scale);
 
   // Determine if we can attach geo information to the output image
-  bool has_georef = (  (opt.session->uses_map_projected_inputs()) &&
-                       (opt.input_dem != ""));
-  vw::cartography::GeoReference left_georef, good_pixel_georef;
-  if (has_georef) {
-    if (!read_georeference(left_georef, opt.in_file1))
-      has_georef = false;
+  cartography::GeoReference left_georef;
+  bool has_left_georef = read_georeference(left_georef,  opt.out_prefix + "-L.tif");
+  bool has_nodata = false;
+  double nodata = -32768.0;
+
+  vw::cartography::GeoReference good_pixel_georef;
+  if (has_left_georef) {
     // Account for scale. Note that goodPixelImage is not guaranteed to respect
     // the sub_scale factor above, hence this calculation.
     double good_pixel_scale = 0.5*( double(goodPixelImage.cols())/inputview.impl().cols()
@@ -165,8 +166,8 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
   }
 
   asp::block_write_gdal_image
-    ( goodPixelFile, goodPixelImage, has_georef, good_pixel_georef,
-      false, 0, // Not using nodata
+    ( goodPixelFile, goodPixelImage, has_left_georef, good_pixel_georef,
+      has_nodata, nodata,
       opt, TerminalProgressCallback("asp", "\t--> Good pixel map: ") );
 
   bool removeSmallBlobs = (stereo_settings().erode_max_size > 0);
@@ -195,7 +196,9 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
       asp::block_write_gdal_image( outF,
                                    inpaint(inputview.impl(), smallHoleIndex,
                                            use_grassfire, default_inpaint_val),
-                                   opt, TerminalProgressCallback
+                                   has_left_georef, left_georef,
+                                   has_nodata, nodata, opt,
+                                   TerminalProgressCallback
                                    ("asp","\t--> Filtering: ") );
     }
     else { // Add small blob removal step
@@ -207,15 +210,19 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
                                    (inpaint(inputview.impl(),
                                             smallHoleIndex,
                                             use_grassfire,
-                                            default_inpaint_val)
-                                    ), opt, TerminalProgressCallback
+                                            default_inpaint_val) ),
+                                   has_left_georef, left_georef,
+                                   has_nodata, nodata, opt,
+                                   TerminalProgressCallback
                                    ("asp","\t--> Filtering: ") );
     }
 
   } else { // No hole filling
     if (!removeSmallBlobs) { // Skip small blob removal
       vw_out() << "Writing: " << outF << endl;
-      asp::block_write_gdal_image( outF, inputview.impl(), opt,
+      asp::block_write_gdal_image( outF, inputview.impl(),
+                                   has_left_georef, left_georef,
+                                   has_nodata, nodata, opt,
                                    TerminalProgressCallback
                                    ("asp", "\t--> Filtering: ") );
     }
@@ -224,7 +231,9 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
       // Write out the image to disk, removing the blobs in the process
       vw_out() << "Writing: " << outF << endl;
       asp::block_write_gdal_image(outF, per_tile_erode(inputview.impl()),
-                                  opt, TerminalProgressCallback
+                                  has_left_georef, left_georef,
+                                  has_nodata, nodata, opt,
+                                  TerminalProgressCallback
                                   ("asp","\t--> Filtering: ") );
     }
 

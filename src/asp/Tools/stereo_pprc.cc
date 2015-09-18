@@ -168,6 +168,15 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
     vw_settings().reload_config();
     rebuild = true;
   }
+
+  cartography::GeoReference left_georef, right_georef;
+  bool has_left_georef  = read_georeference(left_georef,  left_image_file);
+  bool has_right_georef = read_georeference(right_georef, right_image_file);
+
+  // The output no-data value must be < 0 as the images are scaled to around [0, 1].
+  bool has_nodata = true;
+  float output_nodata = -32768.0;
+
   if (!rebuild) {
     vw_out() << "\t--> Using cached masks.\n";
   }else{
@@ -263,10 +272,6 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
     // Intersect the left mask with the warped version of the right
     // mask, and vice-versa to reduce noise, if the images
     // are map-projected.
-    cartography::GeoReference left_georef, right_georef;
-    bool has_left_georef  = read_georeference(left_georef,  left_cropped_file);
-    bool has_right_georef = read_georeference(right_georef, right_cropped_file);
-
     vw_out() << "Writing masks: " << left_mask_file << ' '
              << right_mask_file << ".\n";
     if (has_left_georef && has_right_georef && !opt.input_dem.empty()){
@@ -287,19 +292,29 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
 
       asp::block_write_gdal_image(left_mask_file,
                                   apply_mask(intersect_mask(left_mask, warped_right_mask)),
+                                  has_left_georef, left_georef,
+                                  has_nodata, output_nodata,
                                   opt, TerminalProgressCallback("asp", "\t    Mask L: ")
-                                 );
+                                  );
       asp::block_write_gdal_image(right_mask_file,
                                   apply_mask(intersect_mask(right_mask, warped_left_mask)),
+                                  has_right_georef, right_georef,
+                                  has_nodata, output_nodata,
                                   opt, TerminalProgressCallback("asp", "\t    Mask R: ")
                                  );
-    }else{ // No left and right georef
-      asp::block_write_gdal_image( left_mask_file, apply_mask(left_mask), opt,
-                                    TerminalProgressCallback("asp",
-                                    "\t Mask L: ") );
-      asp::block_write_gdal_image( right_mask_file, apply_mask(right_mask), opt,
-                                    TerminalProgressCallback("asp",
-                                    "\t Mask R: ") );
+    }else{
+      // No DEM to map-project to.
+      // TODO: Even so, the trick above with intersecting the masks will still work,
+      // if the images are map-projected (such as with cam2map-ed cubes),
+      // but this would require careful research.
+      asp::block_write_gdal_image( left_mask_file, apply_mask(left_mask),
+                                   has_left_georef, left_georef,
+                                   has_nodata, output_nodata,
+                                   opt, TerminalProgressCallback("asp", "\t Mask L: ") );
+      asp::block_write_gdal_image( right_mask_file, apply_mask(right_mask),
+                                   has_right_georef, right_georef,
+                                   has_nodata, output_nodata,
+                                   opt, TerminalProgressCallback("asp", "\t Mask R: ") );
     }
 
     sw.stop();
@@ -360,9 +375,6 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
     // Resample the images and the masks. We must use the masks when
     // resampling the images to interpolate correctly around invalid pixels.
 
-    // The output no-data value must be < 0 as the images are scaled to around [0, 1].
-    float output_nodata = -32768.0;
-
     DiskImageView<uint8> left_mask(left_mask_file), right_mask(right_mask_file);
     // Below we use ImageView instead of ImageViewRef as the output
     // images are small.  Using an ImageViewRef would make the
@@ -378,39 +390,59 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
       // When we heavily reduce the image size, super sampling seems
       // like the best approach. The method below should be equivalent.
       left_sub_image
-        = block_rasterize(cache_tile_aware_render(resample_aa(copy_mask(left_image,create_mask(left_mask)),
-                                                              sub_scale),
-                                                  Vector2i(256,256) * sub_scale),
-                          sub_tile_size, sub_threads);
+        = block_rasterize
+        (cache_tile_aware_render(resample_aa(copy_mask(left_image,create_mask(left_mask)),
+                                             sub_scale),
+                                 Vector2i(256,256) * sub_scale),
+         sub_tile_size, sub_threads);
       right_sub_image
-        = block_rasterize(cache_tile_aware_render(resample_aa(copy_mask(right_image,create_mask(right_mask)),
-                                                              sub_scale),
-                                                  Vector2i(256,256) * sub_scale),
-                          sub_tile_size, sub_threads);
+        = block_rasterize
+        (cache_tile_aware_render(resample_aa(copy_mask(right_image,create_mask(right_mask)),
+                                             sub_scale),
+                                 Vector2i(256,256) * sub_scale),
+         sub_tile_size, sub_threads);
     }
 
     // Enforce no predictor in compression, it works badly with sub-images
     asp::BaseOptions opt_nopred = opt;
     opt_nopred.gdal_options["PREDICTOR"] = "1";
 
+    vw::cartography::GeoReference left_sub_georef, right_sub_georef;
+    if (has_left_georef) {
+      // Account for scale.
+      double left_scale = 0.5*( double(left_sub_image.cols())/left_image.cols()
+                                + double(left_sub_image.rows())/left_image.rows());
+      left_sub_georef = resample(left_georef, left_scale);
+    }
+    if (has_right_georef) {
+      // Account for scale.
+      double right_scale = 0.5*( double(right_sub_image.cols())/right_image.cols()
+                                + double(right_sub_image.rows())/right_image.rows());
+      right_sub_georef = resample(right_georef, right_scale);
+    }
+
     asp::block_write_gdal_image
       ( lsub, apply_mask(left_sub_image, output_nodata),
-        output_nodata, opt_nopred,
-        TerminalProgressCallback("asp", "\t    Sub L: ") );
+        has_left_georef, left_sub_georef,
+        has_nodata, output_nodata,
+        opt_nopred, TerminalProgressCallback("asp", "\t    Sub L: ") );
     asp::block_write_gdal_image
       ( rsub, apply_mask(right_sub_image, output_nodata),
-        output_nodata, opt_nopred,
-        TerminalProgressCallback("asp", "\t    Sub R: ") );
+        has_right_georef, right_sub_georef,
+        has_nodata, output_nodata,
+        opt_nopred, TerminalProgressCallback("asp", "\t    Sub R: ") );
     asp::block_write_gdal_image
       ( lmsub,
         channel_cast_rescale<uint8>(select_channel(left_sub_image, 1)),
-        opt_nopred,
-        TerminalProgressCallback("asp", "\t    Sub L Mask: ") );
+        has_left_georef, left_sub_georef,
+        has_nodata, output_nodata,
+        opt_nopred, TerminalProgressCallback("asp", "\t    Sub L Mask: ") );
     asp::block_write_gdal_image
       ( rmsub,
         channel_cast_rescale<uint8>(select_channel(right_sub_image, 1)),
-        opt_nopred,
-        TerminalProgressCallback("asp", "\t    Sub R Mask: ") );
+        has_right_georef, right_sub_georef,
+        has_nodata, output_nodata,
+        opt_nopred, TerminalProgressCallback("asp", "\t    Sub R Mask: ") );
   } // End try/catch to see if the subsampled images have content
 
 
@@ -446,8 +478,6 @@ int main(int argc, char* argv[]) {
     vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 0 --> PREPROCESSING \n";
 
     stereo_register_sessions();
-
-    
 
     bool verbose = false;
     vector<Options> opt_vec;
