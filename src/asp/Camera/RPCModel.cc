@@ -431,10 +431,15 @@ namespace asp {
     //vw_out() << "geo_up = " << geo_up << std::endl;
     //vw_out() << "geo_dn = " << geo_dn << std::endl;
 
-            P    = m_datum.geodetic_to_cartesian( geo_up );
+    Vector3 P_up = m_datum.geodetic_to_cartesian( geo_up );
     Vector3 P_dn = m_datum.geodetic_to_cartesian( geo_dn );
 
-    dir = normalize(P_dn - P);
+    dir = normalize(P_dn - P_up);
+    
+    // Set the origin location very far in the opposite direction of the pointing vector,
+    //  to put it high above the terrain.
+    const double LONG_SCALE_UP = 10000; // This is a distance in meters approx from the top of the llh valid cube
+    P = P_up - dir*LONG_SCALE_UP;
   }
 
   Vector3 RPCModel::camera_center(Vector2 const& pix ) const{
