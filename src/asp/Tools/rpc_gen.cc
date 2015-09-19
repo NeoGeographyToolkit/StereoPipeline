@@ -29,7 +29,7 @@
 
 #include <asp/Camera/RPCModelGen.h>
 #include <asp/Camera/DG_XML.h>
-#include <asp/Sessions/StereoSessionRPC.h>
+#include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 namespace po = boost::program_options;
@@ -181,8 +181,13 @@ int main( int argc, char* argv[] ) {
 
     // Load up the Digital Globe camera model from the camera file
     XMLPlatformUtils::Initialize();
-    StereoSessionDG session;
-    boost::shared_ptr<camera::CameraModel> cam_dg( session.camera_model("", opt.camera_model) );
+
+    // Load the DG camera model. The API is kind of ugly.
+    std::string session_name = "DG";
+    typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
+    SessionPtr session(asp::StereoSessionFactory::create
+                       (session_name, opt, "", "", opt.camera_model, opt.camera_model, ""));
+    boost::shared_ptr<camera::CameraModel> cam_dg(session->camera_model("", opt.camera_model));
 
     // Load up the RPC camera model from the camera file
     RPCXML xml;
