@@ -31,12 +31,14 @@
 #endif
 #endif
 
-#include <asp/Core/Macros.h>
-#include <asp/Core/Common.h>
-#include <asp/Sessions.h>
-#include <asp/Core/BundleAdjustUtils.h>
 #include <vw/Image/MaskViews.h>
 #include <vw/Image/AntiAliasing.h>
+#include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
+#include <asp/Sessions/StereoSessionFactory.h>
+#include <asp/IsisIO/IsisCameraModel.h>
+#include <asp/Core/BundleAdjustUtils.h>
+#include <asp/Core/StereoSettings.h>
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
 

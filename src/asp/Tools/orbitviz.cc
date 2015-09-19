@@ -29,7 +29,7 @@
 #include <vw/Cartography.h>
 
 #include <asp/Core/Macros.h>
-#include <asp/Sessions.h>
+#include <asp/Sessions/StereoSessionFactory.h>
 
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
 #include <asp/IsisIO/IsisCameraModel.h>

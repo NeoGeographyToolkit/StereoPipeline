@@ -22,6 +22,7 @@
 #ifndef __STEREO_SESSION_PINHOLE_H__
 #define __STEREO_SESSION_PINHOLE_H__
 
+#include <asp/Core/InterestPointMatching.h>
 #include <asp/Sessions/StereoSessionConcrete.h>
 #include <vw/Stereo/StereoModel.h>
 

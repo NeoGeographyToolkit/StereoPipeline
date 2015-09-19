@@ -31,6 +31,7 @@
 #include <asp/Core/Common.h>
 
 #include <asp/Sessions/StereoSession.h>
+#include <asp/Core/InterestPointMatching.h>
 
 #include <map>
 #include <utility>

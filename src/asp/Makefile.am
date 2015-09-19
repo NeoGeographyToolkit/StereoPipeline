@@ -26,7 +26,6 @@ core_headers = Core.h
 camera_subdirs = Camera
 
 sessions_subdirs = Sessions
-sessions_headers = Sessions.h
 
 isisio_subdirs = IsisIO
 isisio_headers = IsisIO.h
@@ -39,7 +38,7 @@ python_subdirs = Python
 tools_subdirs = Tools
 
 include_HEADERS = $(core_headers) $(spiceio_headers)            \
-	  $(isisio_headers) $(sessions_headers) asp_config.h
+	  $(isisio_headers) asp_config.h
 
 SUBDIRS = $(core_subdirs) $(spiceio_subdirs) $(isisio_subdirs) \
 	  $(camera_subdirs) $(sessions_subdirs) $(gui_subdirs) $(python_subdirs) \

@@ -20,8 +20,10 @@
 ///
 
 #include <asp/Core/Macros.h>
-#include <asp/Sessions.h>
+#include <asp/Sessions/StereoSessionFactory.h>
+#include <asp/Core/StereoSettings.h>
 #include <asp/Tools/bundle_adjust.h>
+#include <asp/Core/InterestPointMatching.h>
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
 

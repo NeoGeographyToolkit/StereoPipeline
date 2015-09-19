@@ -118,12 +118,6 @@ if MAKE_APP_ORTHOPROJECT
   orthoproject_LDADD = $(APP_ORTHOPROJECT_LIBS)
 endif
 
-if MAKE_APP_RESULTS
-  bin_PROGRAMS +=results
-  results_SOURCES = results.cc
-  results_LDADD = $(APP_RESULTS_LIBS)
-endif
-
 if MAKE_APP_PC_ALIGN
   bin_PROGRAMS += pc_align
   pc_align_SOURCES = pc_align.cc
@@ -154,12 +148,6 @@ if MAKE_APP_DEMPROFILE
   bin_PROGRAMS += dem_profile
   dem_profile_SOURCES = dem_profile.cc
   dem_profile_LDADD = $(APP_DEMPROFILE_LIBS)
-endif
-
-if MAKE_APP_PLATEORTHOPROJECT
-  bin_PROGRAMS += plateorthoproject
-  plateorthoproject_SOURCES = plateorthoproject.cc
-  plateorthoproject_LDADD = $(APP_PLATEORTHOPROJECT_LIBS)
 endif
 
 if MAKE_APP_HSVMERGE

@@ -29,6 +29,7 @@
 #include <asp/Tools/stereo.h>
 #include <asp/Core/DemDisparity.h>
 #include <asp/Core/LocalHomography.h>
+#include <asp/Sessions/StereoSession.h>
 
 using namespace vw;
 using namespace vw::stereo;

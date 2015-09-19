@@ -25,6 +25,7 @@
 #include <asp/Core/InpaintView.h>
 #include <asp/Core/ErodeView.h>
 #include <asp/Core/ThreadedEdgeMask.h>
+#include <asp/Sessions/StereoSession.h>
 
 using namespace vw;
 using namespace asp;

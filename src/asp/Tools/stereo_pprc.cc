@@ -18,12 +18,13 @@
 
 /// \file stereo_pprc.cc
 ///
-#include <asp/Tools/stereo.h>
-#include <asp/Core/ThreadedEdgeMask.h>
-#include <asp/Core/InpaintView.h>
 #include <vw/Image/AntiAliasing.h>
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Math/Functors.h>
+#include <asp/Tools/stereo.h>
+#include <asp/Core/ThreadedEdgeMask.h>
+#include <asp/Core/InpaintView.h>
+#include <asp/Sessions/StereoSession.h>
 
 using namespace vw;
 using namespace asp;

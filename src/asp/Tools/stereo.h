@@ -33,7 +33,6 @@
 #include <asp/Core/MedianFilter.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
-#include <asp/Sessions.h>
 
 // Support for ISIS image files
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1

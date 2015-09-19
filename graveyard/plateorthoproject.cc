@@ -28,7 +28,7 @@
 using namespace vw;
 using namespace vw::platefile;
 
-#include <asp/Sessions.h>
+#include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
 #include <asp/IsisIO/DiskImageResourceIsis.h>

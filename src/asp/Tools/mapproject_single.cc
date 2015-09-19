@@ -28,8 +28,7 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Camera/DG_XML.h>
-#include <asp/Sessions.h>
-#include <asp/Sessions/StereoSessionDG.h>
+#include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/StereoSettings.h>
 

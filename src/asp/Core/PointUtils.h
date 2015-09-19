@@ -54,7 +54,7 @@ namespace asp {
     enum CsvFormat{
       XYZ, HEIGHT_LAT_LON, LAT_LON_RADIUS_M,
       LAT_LON_RADIUS_KM, EASTING_HEIGHT_NORTHING};
-  
+
   public: // Variables
     std::map<std::string,int>  name2col;
     std::map<int, std::string> col2name;
@@ -65,23 +65,23 @@ namespace asp {
     CsvFormat   format;
     int         utm_zone;
     bool        utm_north;
-    
-    
+
+
   public: // Functions
-    
+
     /// Default Constructor, the object is not ready to use.
     CsvConv() : lon_index(-1), lat_index(-1), format(XYZ), utm_zone(-1),
                 utm_north(false){}
-              
+
     /// Initialize using a pair of CSV format strings
     void parse_csv_format(std::string const& csv_format_str,
                           std::string const& csv_proj4_str);
-              
+
     /// If the user passed in a csv file containing easting, northing, height
     /// above datum, and either a utm zone or a custom proj4 string,
     /// pass that info into the georeference for the purpose of converting
     /// later from easting and northing to lon and lat.
-    void configure_georef(vw::cartography::GeoReference & georef) const;    
+    void configure_georef(vw::cartography::GeoReference & georef) const;
 
     /// Parse a CSV file line in given format
     vw::Vector3 parse_csv_line(bool & is_first_line, bool & success,
@@ -99,11 +99,11 @@ namespace asp {
     vw::Vector3 cartesian_to_csv(vw::Vector3 const& xyz,
                                  vw::cartography::GeoReference const& geo,
                                  double mean_longitude) const;
-              
+
   }; // End class CsvConv
 
 
-  /// Fetch a chunk of the las file of area TILE_LEN x TILE_LEN, 
+  /// Fetch a chunk of the las file of area TILE_LEN x TILE_LEN,
   /// split it into bins of spatially close points, and write
   /// it to disk as a tile in a vector tif image.
   void las_or_csv_to_tif(std::string const& in_file,
@@ -184,7 +184,7 @@ namespace asp {
     read_point_cloud_compatible_file(std::string const& file){
       return asp::read_asp_point_cloud< vw::math::VectorSize<PixelT>::value >(file);
     }
-    
+
   } // end namespace point_utils_private
 
   /// Read multiple image files pack them into a single patchwork tiled image.

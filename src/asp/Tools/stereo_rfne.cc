@@ -24,8 +24,9 @@
 #include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/SubpixelView.h>
 #include <vw/Stereo/EMSubpixelCorrelatorView.h>
-#include <asp/Core/LocalHomography.h>
 #include <vw/Stereo/DisparityMap.h>
+#include <asp/Core/LocalHomography.h>
+#include <asp/Sessions/StereoSession.h> // TODO: This should not be needed
 
 using namespace vw;
 using namespace vw::stereo;

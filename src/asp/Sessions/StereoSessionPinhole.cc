@@ -20,6 +20,7 @@
 ///
 
 #include <asp/Sessions/StereoSessionPinhole.h>
+#include <asp/Core/InterestPointMatching.h>
 
 #include <vw/Math/BBox.h>
 #include <vw/Math/Geometry.h>

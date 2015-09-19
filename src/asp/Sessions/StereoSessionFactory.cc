@@ -16,19 +16,8 @@
 // __END_LICENSE__
 
 
-/// \file Sessions.h
+/// \file StereoSessionFactory.cc
 ///
 
-#include <asp/Sessions/StereoSession.h>
-
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-#include <asp/Sessions/StereoSessionIsis.h>
-#endif
-
-#include <asp/Sessions/StereoSessionDG.h>
-#include <asp/Sessions/StereoSessionDGMapRPC.h>
-#include <asp/Sessions/StereoSessionNadirPinhole.h>
-#include <asp/Sessions/StereoSessionPinhole.h>
-#include <asp/Sessions/StereoSessionRPC.h>
-
-#include <asp/Sessions/StereoSessionFactory.h>
+// This include must exist for linking purposes
+#include <asp/Sessions/StereoSessionFactory.tcc>

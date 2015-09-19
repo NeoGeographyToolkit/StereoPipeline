@@ -30,6 +30,7 @@
 #include <vw/Stereo/DisparityMap.h>
 
 #include <asp/Core/Common.h>
+#include <asp/Core/InterestPointMatching.h>
 
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/Core/BundleAdjustUtils.h>
@@ -110,11 +111,11 @@ void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
     case DISKTRANSFORM_TYPE_MAP_PROJECT_RPC:      model_type_to_load = STEREOMODEL_TYPE_RPC;      break;
     case DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS:     model_type_to_load = STEREOMODEL_TYPE_ISIS;     break;
     case DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE:  model_type_to_load = STEREOMODEL_TYPE_PINHOLE;  break;
-    
-    default: // The other types don't need to do anything in this function! 
+
+    default: // The other types don't need to do anything in this function!
       return;
   };
-  
+
   // Load the pair of camera models
   m_left_map_proj_model  = load_camera_model(model_type_to_load, m_left_image_file,  m_left_camera_file );
   m_right_map_proj_model = load_camera_model(model_type_to_load, m_right_image_file, m_right_camera_file);
@@ -263,9 +264,9 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
       // Raise a custom exception if both failed
       vw_throw(ArgumentErr() << "Unable to load RPC model from either:\n" << image_file
                              << " or:\n" << camera_file);
-                             
+
     default: break; // This must be the pinhole case
-  };                    
+  };
 
   // Unfortunately the pinhole case is more complicated since the left and right files are inter-dependent.
 
@@ -293,7 +294,7 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
   // Create epipolar rectified camera views
   boost::shared_ptr<CAHVModel> epipolar_left_cahv (new CAHVModel);
   boost::shared_ptr<CAHVModel> epipolar_right_cahv(new CAHVModel);
-  epipolar(*(left_cahv.get()),  *(right_cahv.get()), 
+  epipolar(*(left_cahv.get()),  *(right_cahv.get()),
            *epipolar_left_cahv, *epipolar_right_cahv);
 
   if (is_left_camera)

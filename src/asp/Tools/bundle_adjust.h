@@ -32,9 +32,7 @@
 #include <stdlib.h>
 #include <iostream>
 
-#include <asp/Sessions.h>
 #include <asp/Core/BundleAdjustUtils.h>
-#include <asp/Core/StereoSettings.h>
 
 namespace asp{
   template<class camera_vector_t>

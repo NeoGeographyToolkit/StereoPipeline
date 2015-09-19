@@ -19,12 +19,17 @@
 /// \file stereo_tri.cc
 ///
 
-#include <asp/Tools/stereo.h>
-#include <asp/Camera/RPCModel.h>
-#include <asp/Core/BundleAdjustUtils.h>
 #include <vw/Cartography.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/Stereo/StereoView.h>
+
+#include <asp/Tools/stereo.h>
+#include <asp/Camera/RPCModel.h>
+#include <asp/Core/BundleAdjustUtils.h>
+
+// We must have the implementations of all sessions for triangulation
+#include <asp/Sessions/StereoSessionFactory.tcc>
+
 #include <ctime>
 
 using namespace vw;

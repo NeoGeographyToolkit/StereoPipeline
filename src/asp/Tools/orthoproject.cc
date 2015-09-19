@@ -27,8 +27,7 @@
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
-#include <asp/Sessions.h>
-#include <asp/IsisIO/DiskImageResourceIsis.h>
+#include <asp/Sessions/StereoSessionFactory.h>
 #include <boost/tokenizer.hpp>
 
 using namespace vw;

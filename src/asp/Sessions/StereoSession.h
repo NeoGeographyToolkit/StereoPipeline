@@ -28,14 +28,11 @@
 
 #include <vw/Math/Functors.h>
 #include <vw/Math/Geometry.h>
-#include <vw/InterestPoint.h>
 
 #include <boost/shared_ptr.hpp>
 #include <boost/filesystem/operations.hpp>
 
 #include <asp/Core/Common.h>
-#include <asp/Core/InterestPointMatching.h>
-
 namespace asp {
 
   //TODO: Move this function!
