@@ -284,10 +284,10 @@ namespace asp{
         for (int y = numy/2-r; y <= numy/2+r; y++){
 
           if ( x != numx/2-r && x != numx/2+r &&
-               y != numy/2-r && y != numy/2+r) 
+               y != numy/2-r && y != numy/2+r)
             continue; // skip inner points
 
-          if (x < 0 || y < 0 || x >= numx || y >= numy) 
+          if (x < 0 || y < 0 || x >= numx || y >= numy)
             continue; // out of bounds
 
           BBox2i box(x*tile_size[0], y*tile_size[1], tile_size[0], tile_size[1]);
@@ -301,7 +301,7 @@ namespace asp{
           for (int px = 0; px < cropped_cloud.cols(); px++){
             for (int py = 0; py < cropped_cloud.rows(); py++){
               Vector3 xyz = subvector(cropped_cloud(px, py), 0, 3);
-              if (xyz == Vector3()) 
+              if (xyz == Vector3())
                 continue;
               points.push_back(xyz);
             }
@@ -421,38 +421,9 @@ void stereo_triangulation( string          const& output_prefix,
     // Apply radius function and stereo model in one go
     vw_out() << "\t--> Generating a 3D point cloud." << endl;
     ImageViewRef<Vector6> point_cloud = per_pixel_filter
-                                            (stereo_error_triangulate(disparity_maps, transforms, stereo_model, is_map_projected),
-                                             universe_radius_func);
-
-/*
-    // DEBUG - Print out some pixel tests and quit!
-    std::vector<Vector2> testPixels;
-    testPixels.push_back(Vector2(0, 0));
-    testPixels.push_back(Vector2(100, 100));
-    testPixels.push_back(Vector2(100, 1000));
-    testPixels.push_back(Vector2(1000, 100));
-    //testPixels.push_back(Vector2(20000, 6000));
-    //testPixels.push_back(Vector2(19000, 5100));
-*/
-/*  // Try printing sample pixel-to-vector outputs  
-    for (int c = 0; c < num_cams; c++)
-    {
-      std::cout << "For camera: " << c << std::endl;
-      for (size_t i=0; i<testPixels.size(); ++i) 
-      {
-        std::cout << "    Pixel " << i << " --> " << camera_ptrs[c]->pixel_to_vector(testPixels[i]) << "\n";
-      }
-    }*/
-/*
-    // Try generating some sample 3D points
-    // --> These results match the final output values
-    for (size_t i=0; i<testPixels.size(); ++i) 
-    {
-      std::cout << "Pixel " << i << " --> " << point_cloud(testPixels[i][0], testPixels[i][1]) << "\n";
-    }    
-
-    vw_throw(InputErr() << "DEBUG@@@@.\n");
-    */
+      (stereo_error_triangulate
+       (disparity_maps, transforms, stereo_model, is_map_projected),
+       universe_radius_func);
 
     // If we crop the left and right images, at each run we must
     // recompute the cloud center, as the cropping windows may have changed.
@@ -556,16 +527,16 @@ int main( int argc, char* argv[] ) {
 #define INSTANTIATE(T,NAME) if ( opt_vec[0].session->name() == NAME ) { \
       stereo_triangulation<T>(output_prefix, opt_vec); }
 
-    INSTANTIATE(StereoSessionPinhole,           "pinhole"     );
-    INSTANTIATE(StereoSessionNadirPinhole,      "nadirpinhole");
-    INSTANTIATE(StereoSessionRPC,               "rpc"         );
-    INSTANTIATE(StereoSessionDG,                "dg"          );
-    INSTANTIATE(StereoSessionDGMapRPC,          "dgmaprpc"    );
-    INSTANTIATE(StereoSessionRPCMapRPC,         "rpcmaprpc"   );
-    INSTANTIATE(StereoSessionPinholeMapPinhole, "pinholemappinhole"   );
+    INSTANTIATE(StereoSessionPinhole,           "pinhole"           );
+    INSTANTIATE(StereoSessionNadirPinhole,      "nadirpinhole"      );
+    INSTANTIATE(StereoSessionRPC,               "rpc"               );
+    INSTANTIATE(StereoSessionDG,                "dg"                );
+    INSTANTIATE(StereoSessionDGMapRPC,          "dgmaprpc"          );
+    INSTANTIATE(StereoSessionRPCMapRPC,         "rpcmaprpc"         );
+    INSTANTIATE(StereoSessionPinholeMapPinhole, "pinholemappinhole" );
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-    INSTANTIATE(StereoSessionIsis,         "isis"        );
-    INSTANTIATE(StereoSessionIsisMapIsis,  "isismapisis" );
+    INSTANTIATE(StereoSessionIsis,         "isis"                   );
+    INSTANTIATE(StereoSessionIsisMapIsis,  "isismapisis"            );
 #endif
 
 #undef INSTANTIATE
