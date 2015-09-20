@@ -307,7 +307,6 @@ void StereoSession::shared_preprocessing_hook(asp::BaseOptions              & op
     has_left_georef = false;
     has_right_georef = false;
   }
-
 }
 
 } // End namespace asp

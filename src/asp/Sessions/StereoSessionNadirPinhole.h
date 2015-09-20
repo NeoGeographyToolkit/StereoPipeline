@@ -29,6 +29,7 @@
 #define __STEREO_SESSION_NADIR_PINHOLE_H__
 
 #include <asp/Sessions/StereoSessionPinhole.h>
+#include <asp/Sessions/StereoSessionConcrete.h> // TODO: Wipe this!
 
 namespace asp {
 

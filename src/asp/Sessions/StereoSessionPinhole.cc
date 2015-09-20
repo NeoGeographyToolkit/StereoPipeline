@@ -36,6 +36,9 @@
 #include <boost/filesystem/operations.hpp>
 namespace fs = boost::filesystem;
 
+// TODO: Get rid of this!!!
+#include <asp/Sessions/StereoSessionConcrete.h>
+
 using namespace vw;
 using namespace vw::ip;
 using namespace vw::camera;
@@ -51,6 +54,7 @@ namespace vw {
 // TODO: The other Session classes use functions like affine_epipolar_rectification
 //        and homograhy_rectification (in the IP file) to perform this task.
 //       Why does the Pinhole Session need to use something different?
+
 
 // Helper function for determining image alignment.
 vw::Matrix3x3
@@ -203,4 +207,31 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
   block_write_gdal_image( right_output_file, apply_mask(crop(edge_extend(Rimg,ConstantEdgeExtension()),bounding_box(Limg)), output_nodata),
                           output_nodata, options,
                           TerminalProgressCallback("asp","\t  R:  ") );
+}
+
+// Redirect to the correct function depending on the template parameters
+boost::shared_ptr<vw::camera::CameraModel>
+asp::StereoSessionPinhole::camera_model(std::string const& image_file,
+                                    std::string const& camera_file) {
+  return load_adj_pinhole_model(image_file, camera_file,
+                                m_left_image_file, m_right_image_file,
+                                m_left_camera_file, m_right_camera_file,
+                                m_input_dem);
+
+}
+
+
+typename asp::StereoSessionPinhole::tx_type
+asp::StereoSessionPinhole::tx_left() const {
+  Matrix<double> tx = math::identity_matrix<3>();
+  return tx_type( tx );
+}
+typename asp::StereoSessionPinhole::tx_type
+asp::StereoSessionPinhole::tx_right() const {
+  if ( stereo_settings().alignment_method == "homography" ) {
+    Matrix<double> align_matrix;
+    read_matrix( align_matrix, m_out_prefix + "-align-R.exr" );
+    return tx_type( align_matrix );
+  }
+  return tx_type( math::identity_matrix<3>() );
 }

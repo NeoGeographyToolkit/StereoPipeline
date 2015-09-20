@@ -226,6 +226,55 @@ load_adjusted_model(boost::shared_ptr<camera::CameraModel> cam,
   return boost::shared_ptr<camera::CameraModel>(new vw::camera::AdjustedCameraModel(cam, position_correction, pose_correction, pixel_offset));
 }
 
+inline boost::shared_ptr<vw::camera::CameraModel>
+load_adj_pinhole_model(std::string const& image_file, std::string const& camera_file,
+                       std::string const& left_image_file, std::string const& right_image_file,
+                       std::string const& left_camera_file, std::string const& right_camera_file,
+                       std::string const& input_dem){
+
+  // Unfortunately the pinhole case is more complicated since the left and right files are inter-dependent.
+
+  // Retrieve the pixel offset (if any) to cropped images
+  vw::Vector2 pixel_offset = camera_pixel_offset(input_dem,
+                                                 left_image_file,
+                                                 right_image_file,
+                                                 image_file);
+
+  CameraModelLoader camera_loader;
+
+  if ( stereo_settings().alignment_method != "epipolar" ) {
+    // Not epipolar, just load the camera model.
+    return load_adjusted_model(camera_loader.load_pinhole_camera_model(camera_file),
+                               image_file, camera_file, pixel_offset);
+  }
+  // Otherwise handle the epipolar case
+
+  bool is_left_camera = true;
+  if (image_file == left_image_file)
+    is_left_camera = true;
+  else if (image_file == right_image_file)
+    is_left_camera = false;
+  else
+    (ArgumentErr() << "StereoSessionPinhole: supplied camera model filename does not match the name supplied in the constructor.");
+
+  // Fetch CAHV version of the two input pinhole files
+  boost::shared_ptr<CAHVModel> left_cahv
+     = camera_loader.load_cahv_pinhole_camera_model(left_image_file,  left_camera_file);
+  boost::shared_ptr<CAHVModel> right_cahv
+     = camera_loader.load_cahv_pinhole_camera_model(right_image_file, right_camera_file);
+
+  // Create epipolar rectified camera views
+  boost::shared_ptr<CAHVModel> epipolar_left_cahv (new CAHVModel);
+  boost::shared_ptr<CAHVModel> epipolar_right_cahv(new CAHVModel);
+  epipolar(*(left_cahv.get()),  *(right_cahv.get()),
+           *epipolar_left_cahv, *epipolar_right_cahv);
+
+  if (is_left_camera)
+    return load_adjusted_model(epipolar_left_cahv, image_file, camera_file, pixel_offset);
+
+  // Right camera
+  return load_adjusted_model(epipolar_right_cahv, image_file, camera_file, pixel_offset);
+}
 
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
@@ -268,39 +317,11 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
     default: break; // This must be the pinhole case
   };
 
-  // Unfortunately the pinhole case is more complicated since the left and right files are inter-dependent.
-
-  if ( stereo_settings().alignment_method != "epipolar" ) {
-    // Not epipolar, just load the camera model.
-    return load_adjusted_model(m_camera_loader.load_pinhole_camera_model(camera_file),
-                               image_file, camera_file, pixel_offset);
-  }
-  // Otherwise handle the epipolar case
-
-  bool is_left_camera = true;
-  if (image_file == m_left_image_file)
-    is_left_camera = true;
-  else if (image_file == m_right_image_file)
-    is_left_camera = false;
-  else
-    (ArgumentErr() << "StereoSessionPinhole: supplied camera model filename does not match the name supplied in the constructor.");
-
-  // Fetch CAHV version of the two input pinhole files
-  boost::shared_ptr<CAHVModel> left_cahv
-     = m_camera_loader.load_cahv_pinhole_camera_model(m_left_image_file,  m_left_camera_file);
-  boost::shared_ptr<CAHVModel> right_cahv
-     = m_camera_loader.load_cahv_pinhole_camera_model(m_right_image_file, m_right_camera_file);
-
-  // Create epipolar rectified camera views
-  boost::shared_ptr<CAHVModel> epipolar_left_cahv (new CAHVModel);
-  boost::shared_ptr<CAHVModel> epipolar_right_cahv(new CAHVModel);
-  epipolar(*(left_cahv.get()),  *(right_cahv.get()),
-           *epipolar_left_cahv, *epipolar_right_cahv);
-
-  if (is_left_camera)
-    return load_adjusted_model(epipolar_left_cahv, image_file, camera_file, pixel_offset);
-  else
-    return load_adjusted_model(epipolar_right_cahv, image_file, camera_file, pixel_offset);
+  // pinhole
+  return load_adj_pinhole_model(image_file, camera_file,
+                                m_left_image_file, m_right_image_file,
+                                m_left_camera_file, m_right_camera_file,
+                                m_input_dem);
 }
 
 //------------------------------------------------------------------------------

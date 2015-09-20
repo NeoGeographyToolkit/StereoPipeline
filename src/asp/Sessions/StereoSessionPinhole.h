@@ -23,20 +23,17 @@
 #define __STEREO_SESSION_PINHOLE_H__
 
 #include <asp/Core/InterestPointMatching.h>
-#include <asp/Sessions/StereoSessionConcrete.h>
 #include <vw/Stereo/StereoModel.h>
+#include <asp/Sessions/StereoSession.h>
 
 namespace asp {
 
-  class StereoSessionPinhole : public StereoSessionConcrete<DISKTRANSFORM_TYPE_MATRIX_RIGHT, STEREOMODEL_TYPE_PINHOLE>{
+ class StereoSessionPinhole: public StereoSession {
   public:
     StereoSessionPinhole() {}
     virtual ~StereoSessionPinhole() {}
 
     virtual std::string name() const { return "pinhole"; }
-
-    // This session does not assume a downward facing camera
-    virtual bool is_nadir_facing() const {return false;}
 
     // Stage 1: Preprocessing
     //
@@ -50,6 +47,28 @@ namespace asp {
 
     static StereoSession* construct() { return new StereoSessionPinhole; }
 
+    virtual boost::shared_ptr<vw::camera::CameraModel>
+    camera_model(std::string const& image_file,
+                 std::string const& camera_file = "");
+
+    /// Transforms from pixel coordinates on disk to original unwarped image coordinates.
+    /// - For reversing our arithmetic applied in preprocessing.
+    typedef typename vw::HomographyTransform tx_type;
+    tx_type tx_left () const;
+    tx_type tx_right() const;
+
+    typedef vw::stereo::StereoModel stereo_model_type;
+
+   static bool isMapProjected() { return false; }
+
+   // TODO: Clean these up!
+
+   // Override the base class functions according to the class paramaters
+   virtual bool uses_map_projected_inputs() const {return  isMapProjected();}
+   virtual bool requires_input_dem       () const {return  isMapProjected();}
+   virtual bool supports_image_alignment () const {return !isMapProjected();}
+   virtual bool is_nadir_facing          () const {return false;}
+
  private:
     /// Helper function for determining image alignment.
     /// - Only used in pre_preprocessing_hook()
@@ -58,7 +77,6 @@ namespace asp {
                                          std::string const& input_file2,
                                          float nodata1, float nodata2);
   };
-
 }
 
 #endif // __STEREO_SESSION_PINHOLE_H__
