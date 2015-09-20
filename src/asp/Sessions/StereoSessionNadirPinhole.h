@@ -29,11 +29,10 @@
 #define __STEREO_SESSION_NADIR_PINHOLE_H__
 
 #include <asp/Sessions/StereoSessionPinhole.h>
-#include <asp/Sessions/StereoSessionConcrete.h> // TODO: Wipe this!
 
 namespace asp {
 
-  class StereoSessionNadirPinhole : public StereoSessionConcrete<DISKTRANSFORM_TYPE_MATRIX, STEREOMODEL_TYPE_PINHOLE>{
+  class StereoSessionNadirPinhole : public StereoSessionPinhole{
   public:
     virtual ~StereoSessionNadirPinhole() {}
 
@@ -47,6 +46,9 @@ namespace asp {
                                          std::string      & right_output_file);
 
     static StereoSession* construct() { return new StereoSessionNadirPinhole; }
+
+    virtual bool is_nadir_facing          () const {return true;}
+
   };
 
 }

@@ -30,10 +30,6 @@
 #include <boost/filesystem/operations.hpp>
 namespace fs = boost::filesystem;
 
-// TODO: Wipe this header, no need to put all those functions in one header
-#include <asp/Sessions/CameraModelLoader.h>
-
-
 using namespace vw;
 using namespace asp;
 using namespace vw::camera;
