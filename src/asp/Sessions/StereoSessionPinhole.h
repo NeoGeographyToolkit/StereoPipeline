@@ -76,7 +76,15 @@ namespace asp {
                                          std::string const& input_file1,
                                          std::string const& input_file2,
                                          float nodata1, float nodata2);
-  };
+ };
+
+  // TODO: Move this to a Pinhole loader class
+  boost::shared_ptr<vw::camera::CameraModel>
+  load_adj_pinhole_model(std::string const& image_file, std::string const& camera_file,
+                         std::string const& left_image_file, std::string const& right_image_file,
+                         std::string const& left_camera_file, std::string const& right_camera_file,
+                         std::string const& input_dem);
+
 }
 
 #endif // __STEREO_SESSION_PINHOLE_H__

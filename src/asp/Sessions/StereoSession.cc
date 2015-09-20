@@ -32,6 +32,7 @@
 
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Core/InterestPointMatching.h>
+#include <asp/Core/BundleAdjustUtils.h>
 
 #include <map>
 #include <utility>
@@ -307,6 +308,68 @@ void StereoSession::shared_preprocessing_hook(asp::BaseOptions              & op
     has_left_georef = false;
     has_right_georef = false;
   }
+}
+
+// TODO: Find a better place for these functions!
+
+// If both left-image-crop-win and right-image-crop win are specified,
+// we crop the images to these boxes, and hence the need to keep
+// the upper-left corners of the crop windows to handle the cameras correctly.
+vw::Vector2 camera_pixel_offset(std::string const& input_dem,
+                                       std::string const& left_image_file,
+                                       std::string const& right_image_file,
+                                       std::string const& curr_image_file){
+
+  // For map-projected images we don't apply a pixel offset.
+  // When we need to do stereo on cropped images, we just
+  // crop the images together with their georeferences.
+  if (input_dem != "")
+    return Vector2();
+
+  vw::Vector2 left_pixel_offset, right_pixel_offset;
+  if ( ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
+       ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) ) ){
+    left_pixel_offset  = stereo_settings().left_image_crop_win.min();
+    right_pixel_offset = stereo_settings().right_image_crop_win.min();
+  }
+  if (curr_image_file == left_image_file)
+    return left_pixel_offset;
+  else if (curr_image_file == right_image_file)
+    return right_pixel_offset;
+  else
+    vw_throw(ArgumentErr() << "Supplied image file does not match left or right image file.");
+
+  return Vector2();
+}
+
+// If we have adjusted camera models, load them. The adjustment
+// may be in the rotation matrix, camera center, or pixel offset.
+boost::shared_ptr<vw::camera::CameraModel>
+load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
+                    std::string const& image_file,
+                    std::string const& camera_file,
+                    vw::Vector2 const& pixel_offset){
+
+  // TODO: Where does this prefix come from?  Is it always an issue?
+  std::string ba_pref = stereo_settings().bundle_adjust_prefix;
+  if (ba_pref == "" && pixel_offset == vw::Vector2())
+    return cam; // Just return if nothing is adjusting the camera
+
+  Vector3 position_correction;
+  Quaternion<double> pose_correction = Quat(math::identity_matrix<3>());
+
+  if (ba_pref != "") {
+    std::string adjust_file = asp::bundle_adjust_file_name(ba_pref, image_file, camera_file);
+    if (boost::filesystem::exists(adjust_file)) {
+      vw_out() << "Using adjusted camera model: " << adjust_file << std::endl;
+      asp::read_adjustments(adjust_file, position_correction, pose_correction);
+    }else {
+      vw_throw(InputErr() << "Missing adjusted camera model: "
+               << adjust_file << ".\n");
+    }
+  }
+
+  return boost::shared_ptr<camera::CameraModel>(new vw::camera::AdjustedCameraModel(cam, position_correction, pose_correction, pixel_offset));
 }
 
 } // End namespace asp

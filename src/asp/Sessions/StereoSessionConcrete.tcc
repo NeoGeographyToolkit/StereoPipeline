@@ -33,7 +33,7 @@
 #include <asp/Core/InterestPointMatching.h>
 
 #include <asp/IsisIO/IsisCameraModel.h>
-#include <asp/Core/BundleAdjustUtils.h>
+#include <asp/Sessions/StereoSessionPinhole.h> // TODO: temporary
 
 #include <map>
 #include <utility>
@@ -166,116 +166,6 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::camera_model(std::st
     return load_camera_model(STEREOMODEL_TYPE, image_file, camera_file);
 }
 
-// If both left-image-crop-win and right-image-crop win are specified,
-// we crop the images to these boxes, and hence the need to keep
-// the upper-left corners of the crop windows to handle the cameras correctly.
-inline vw::Vector2 camera_pixel_offset(std::string const& input_dem,
-                                       std::string const& left_image_file,
-                                       std::string const& right_image_file,
-                                       std::string const& curr_image_file){
-
-  // For map-projected images we don't apply a pixel offset.
-  // When we need to do stereo on cropped images, we just
-  // crop the images together with their georeferences.
-  if (input_dem != "")
-    return Vector2();
-
-  vw::Vector2 left_pixel_offset, right_pixel_offset;
-  if ( ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
-       ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) ) ){
-    left_pixel_offset  = stereo_settings().left_image_crop_win.min();
-    right_pixel_offset = stereo_settings().right_image_crop_win.min();
-  }
-  if (curr_image_file == left_image_file)
-    return left_pixel_offset;
-  else if (curr_image_file == right_image_file)
-    return right_pixel_offset;
-  else
-    vw_throw(ArgumentErr() << "Supplied image file does not match left or right image file.");
-
-  return Vector2();
-}
-
-// If we have adjusted camera models, load them. The adjustment
-// may be in the rotation matrix, camera center, or pixel offset.
-inline  boost::shared_ptr<vw::camera::CameraModel>
-load_adjusted_model(boost::shared_ptr<camera::CameraModel> cam,
-                    std::string const& image_file,
-                    std::string const& camera_file,
-                    vw::Vector2 const& pixel_offset){
-
-  // TODO: Where does this prefix come from?  Is it always an issue?
-  std::string ba_pref = stereo_settings().bundle_adjust_prefix;
-  if (ba_pref == "" && pixel_offset == vw::Vector2())
-    return cam; // Just return if nothing is adjusting the camera
-
-  Vector3 position_correction;
-  Quaternion<double> pose_correction = Quat(math::identity_matrix<3>());
-
-  if (ba_pref != "") {
-    std::string adjust_file = asp::bundle_adjust_file_name(ba_pref, image_file, camera_file);
-    if (boost::filesystem::exists(adjust_file)) {
-      vw_out() << "Using adjusted camera model: " << adjust_file << std::endl;
-      asp::read_adjustments(adjust_file, position_correction, pose_correction);
-    }else {
-      vw_throw(InputErr() << "Missing adjusted camera model: "
-               << adjust_file << ".\n");
-    }
-  }
-
-  return boost::shared_ptr<camera::CameraModel>(new vw::camera::AdjustedCameraModel(cam, position_correction, pose_correction, pixel_offset));
-}
-
-inline boost::shared_ptr<vw::camera::CameraModel>
-load_adj_pinhole_model(std::string const& image_file, std::string const& camera_file,
-                       std::string const& left_image_file, std::string const& right_image_file,
-                       std::string const& left_camera_file, std::string const& right_camera_file,
-                       std::string const& input_dem){
-
-  // Unfortunately the pinhole case is more complicated since the left and right files are inter-dependent.
-
-  // Retrieve the pixel offset (if any) to cropped images
-  vw::Vector2 pixel_offset = camera_pixel_offset(input_dem,
-                                                 left_image_file,
-                                                 right_image_file,
-                                                 image_file);
-
-  CameraModelLoader camera_loader;
-
-  if ( stereo_settings().alignment_method != "epipolar" ) {
-    // Not epipolar, just load the camera model.
-    return load_adjusted_model(camera_loader.load_pinhole_camera_model(camera_file),
-                               image_file, camera_file, pixel_offset);
-  }
-  // Otherwise handle the epipolar case
-
-  bool is_left_camera = true;
-  if (image_file == left_image_file)
-    is_left_camera = true;
-  else if (image_file == right_image_file)
-    is_left_camera = false;
-  else
-    (ArgumentErr() << "StereoSessionPinhole: supplied camera model filename does not match the name supplied in the constructor.");
-
-  // Fetch CAHV version of the two input pinhole files
-  boost::shared_ptr<CAHVModel> left_cahv
-     = camera_loader.load_cahv_pinhole_camera_model(left_image_file,  left_camera_file);
-  boost::shared_ptr<CAHVModel> right_cahv
-     = camera_loader.load_cahv_pinhole_camera_model(right_image_file, right_camera_file);
-
-  // Create epipolar rectified camera views
-  boost::shared_ptr<CAHVModel> epipolar_left_cahv (new CAHVModel);
-  boost::shared_ptr<CAHVModel> epipolar_right_cahv(new CAHVModel);
-  epipolar(*(left_cahv.get()),  *(right_cahv.get()),
-           *epipolar_left_cahv, *epipolar_right_cahv);
-
-  if (is_left_camera)
-    return load_adjusted_model(epipolar_left_cahv, image_file, camera_file, pixel_offset);
-
-  // Right camera
-  return load_adjusted_model(epipolar_right_cahv, image_file, camera_file, pixel_offset);
-}
-
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 boost::shared_ptr<vw::camera::CameraModel>
@@ -283,7 +173,7 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
 (STEREOSESSION_STEREOMODEL_TYPE model_type, std::string const& image_file, std::string const& camera_file){
 
   // Retrieve the pixel offset (if any) to cropped images
-  vw::Vector2 pixel_offset = camera_pixel_offset(m_input_dem,
+  vw::Vector2 pixel_offset = asp::camera_pixel_offset(m_input_dem,
                                                  m_left_image_file,
                                                  m_right_image_file,
                                                  image_file);
@@ -317,11 +207,11 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
     default: break; // This must be the pinhole case
   };
 
-  // pinhole
-  return load_adj_pinhole_model(image_file, camera_file,
-                                m_left_image_file, m_right_image_file,
-                                m_left_camera_file, m_right_camera_file,
-                                m_input_dem);
+  return asp::load_adj_pinhole_model(image_file, camera_file,
+                                     m_left_image_file, m_right_image_file,
+                                     m_left_camera_file, m_right_camera_file,
+                                     m_input_dem);
+
 }
 
 //------------------------------------------------------------------------------

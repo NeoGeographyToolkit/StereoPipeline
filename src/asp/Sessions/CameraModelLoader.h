@@ -121,64 +121,6 @@ inline boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_dg_cam
 
 
 
-/// Load a pinhole camera model
-inline boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_pinhole_camera_model(std::string const& path) const
-{
-  // Keypoint alignment and everything else just gets camera models
-  std::string lcase_file = boost::to_lower_copy(path);
-  if (boost::ends_with(lcase_file,".cahvore") ) {
-    return CameraModelPtr( new vw::camera::CAHVOREModel(path) );
-  } else if (boost::ends_with(lcase_file,".cahvor") ||
-             boost::ends_with(lcase_file,".cmod"  )   ) {
-    return CameraModelPtr( new vw::camera::CAHVORModel(path) );
-  } else if ( boost::ends_with(lcase_file,".cahv") ||
-              boost::ends_with(lcase_file,".pin" )   ) {
-    return CameraModelPtr( new vw::camera::CAHVModel(path) );
-  } else if ( boost::ends_with(lcase_file,".pinhole") ||
-              boost::ends_with(lcase_file,".tsai"   )   ) {
-    return CameraModelPtr( new vw::camera::PinholeModel(path) );
-  } else {
-    vw::vw_throw(vw::ArgumentErr() << "PinholeStereoSession: unsupported camera file type.\n");
-  }
-}
-
-inline boost::shared_ptr<vw::camera::CAHVModel>
-CameraModelLoader::load_cahv_pinhole_camera_model(std::string const& image_path,
-                                                  std::string const& camera_path) const
-{
-  // Get the image size
-  vw::DiskImageView<float> disk_image(image_path);
-  vw::Vector2i image_size(disk_image.cols(), disk_image.rows());
-
-  // Load the appropriate camera model object and if necessary
-  // convert it to the CAHVModel type.
-  std::string lcase_file = boost::to_lower_copy(camera_path);
-  boost::shared_ptr<vw::camera::CAHVModel> cahv(new vw::camera::CAHVModel);
-  if (boost::ends_with(lcase_file, ".cahvore") ) {
-    vw::camera::CAHVOREModel cahvore(camera_path);
-    *(cahv.get()) = vw::camera::linearize_camera(cahvore, image_size, image_size);
-  } else if (boost::ends_with(lcase_file, ".cahvor")  ||
-             boost::ends_with(lcase_file, ".cmod"  )   ) {
-    vw::camera::CAHVORModel cahvor(camera_path);
-    *(cahv.get()) = vw::camera::linearize_camera(cahvor, image_size, image_size);
-
-  } else if ( boost::ends_with(lcase_file, ".cahv") ||
-              boost::ends_with(lcase_file, ".pin" )) {
-    *(cahv.get()) = vw::camera::CAHVModel(camera_path);
-
-  } else if ( boost::ends_with(lcase_file, ".pinhole") ||
-              boost::ends_with(lcase_file, ".tsai"   )   ) {
-    vw::camera::PinholeModel left_pin(camera_path);
-    *(cahv.get()) = vw::camera::linearize_camera(left_pin);
-
-  } else {
-    vw_throw(vw::ArgumentErr() << "CameraModelLoader::load_cahv_pinhole_camera_model - unsupported camera file type.\n");
-  }
-
-  return cahv;
-}
-
-
 
 /// Load an ISIS camera model
 inline boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_isis_camera_model(std::string const& path) const
@@ -190,13 +132,6 @@ inline boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_isis_c
   vw::vw_throw( vw::NoImplErr() << "\nCannot load ISIS files because ISIS was not enabled in the build!.\n");
 
 } // End function load_isis_camera_model()
-
-
-
-
-
-
-
 
 } // end namespace asp
 
