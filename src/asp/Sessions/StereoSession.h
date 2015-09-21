@@ -225,8 +225,9 @@ namespace asp {
                            float & right_nodata_value);
 
     // Factor out here all functionality shared among the preprocessing hooks
-    // for various sessions.
-    void shared_preprocessing_hook(asp::BaseOptions              & options,
+    // for various sessions. Return 'true' if we encounter cached images
+    // and don't need to go through the motions again.
+    bool shared_preprocessing_hook(asp::BaseOptions              & options,
                                    std::string const             & left_input_file,
                                    std::string const             & right_input_file,
                                    std::string                   & left_output_file,

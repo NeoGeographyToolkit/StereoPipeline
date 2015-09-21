@@ -48,13 +48,15 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
   float left_nodata_value, right_nodata_value;
   bool has_left_georef, has_right_georef;
   vw::cartography::GeoReference left_georef, right_georef;
-  StereoSession::shared_preprocessing_hook(options,
-                                           left_input_file,   right_input_file,
-                                           left_output_file,  right_output_file,
-                                           left_cropped_file, right_cropped_file,
-                                           left_nodata_value, right_nodata_value,
-                                           has_left_georef,   has_right_georef,
-                                           left_georef,       right_georef);
+  bool exit_early =
+    StereoSession::shared_preprocessing_hook(options,
+					     left_input_file,   right_input_file,
+					     left_output_file,  right_output_file,
+					     left_cropped_file, right_cropped_file,
+					     left_nodata_value, right_nodata_value,
+					     has_left_georef,   has_right_georef,
+					     left_georef,       right_georef);
+  if (exit_early) return;
 
   // Load the cropped images
   DiskImageView<float> left_disk_image(left_cropped_file),

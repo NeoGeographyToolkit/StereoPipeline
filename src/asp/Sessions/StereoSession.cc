@@ -202,7 +202,7 @@ namespace asp {
     return;
   }
 
-void StereoSession::shared_preprocessing_hook(asp::BaseOptions              & options,
+bool StereoSession::shared_preprocessing_hook(asp::BaseOptions              & options,
                                               std::string const             & left_input_file,
                                               std::string const             & right_input_file,
                                               std::string                   & left_output_file,
@@ -216,34 +216,6 @@ void StereoSession::shared_preprocessing_hook(asp::BaseOptions              & op
                                               vw::cartography::GeoReference & left_georef,
                                               vw::cartography::GeoReference & right_georef){
 
-  // Set output file paths
-  left_output_file  = this->m_out_prefix + "-L.tif";
-  right_output_file = this->m_out_prefix + "-R.tif";
-
-  bool crop_left_and_right =
-    ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
-    ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
-
-  // If the output files already exist, and we don't crop both left
-  // and right images, then there is nothing to do here.
-  if ( boost::filesystem::exists(left_output_file)  &&
-       boost::filesystem::exists(right_output_file) &&
-       (!crop_left_and_right)) {
-    try {
-      vw_log().console_log().rule_set().add_rule(-1,"fileio");
-      DiskImageView<PixelGray<float32> > out_left (left_output_file );
-      DiskImageView<PixelGray<float32> > out_right(right_output_file);
-      vw_out(InfoMessage) << "\t--> Using cached normalized input images.\n";
-      vw_settings().reload_config();
-      return;
-    } catch (vw::ArgumentErr const& e) {
-      // This throws on a corrupted file.
-      vw_settings().reload_config();
-    } catch (vw::IOErr const& e) {
-      vw_settings().reload_config();
-    }
-  } // End check for existing output files
-
   // Retrieve nodata values
   {
     // For this to work the ISIS type must be registered with the
@@ -256,12 +228,51 @@ void StereoSession::shared_preprocessing_hook(asp::BaseOptions              & op
                             left_nodata_value, right_nodata_value);
   }
 
+  // Set output file paths
+  left_output_file  = this->m_out_prefix + "-L.tif";
+  right_output_file = this->m_out_prefix + "-R.tif";
+
+  left_cropped_file  = left_input_file;
+  right_cropped_file = right_input_file;
+
   // Enforce no predictor in compression, it works badly with L.tif and R.tif.
   options = this->m_options;
   options.gdal_options["PREDICTOR"] = "1";
 
-  left_cropped_file  = left_input_file;
-  right_cropped_file = right_input_file;
+  // Read the georef if available
+  has_left_georef  = read_georeference(left_georef,  left_cropped_file);
+  has_right_georef = read_georeference(right_georef, right_cropped_file);
+  if ( stereo_settings().alignment_method != "none") {
+    // If any alignment at all happens, the georef will be messed up.
+    has_left_georef = false;
+    has_right_georef = false;
+  }
+
+  bool crop_left_and_right =
+    ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
+    ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
+
+  // If the output files already exist, and we don't crop both left
+  // and right images, then there is nothing to do here.
+  // Note: Must make sure all outputs are initialized before we
+  // get to this part where we exit early.
+  if ( boost::filesystem::exists(left_output_file)  &&
+       boost::filesystem::exists(right_output_file) &&
+       (!crop_left_and_right)) {
+    try {
+      vw_log().console_log().rule_set().add_rule(-1,"fileio");
+      DiskImageView<PixelGray<float32> > out_left (left_output_file );
+      DiskImageView<PixelGray<float32> > out_right(right_output_file);
+      vw_out(InfoMessage) << "\t--> Using cached normalized input images.\n";
+      vw_settings().reload_config();
+      return true; // Return true if we exist early since the images exist
+    } catch (vw::ArgumentErr const& e) {
+      // This throws on a corrupted file.
+      vw_settings().reload_config();
+    } catch (vw::IOErr const& e) {
+      vw_settings().reload_config();
+    }
+  } // End check for existing output files
 
   // See if to crop the images
   if (crop_left_and_right) {
@@ -300,7 +311,7 @@ void StereoSession::shared_preprocessing_hook(asp::BaseOptions              & op
                            TerminalProgressCallback("asp", "\t:  "));
   }
 
-  // Read the georef if available
+  // Re-read the georef, since it changed above.
   has_left_georef  = read_georeference(left_georef,  left_cropped_file);
   has_right_georef = read_georeference(right_georef, right_cropped_file);
   if ( stereo_settings().alignment_method != "none") {
@@ -308,6 +319,8 @@ void StereoSession::shared_preprocessing_hook(asp::BaseOptions              & op
     has_left_georef = false;
     has_right_georef = false;
   }
+
+  return false; // don't exit early
 }
 
 // TODO: Find a better place for these functions!
