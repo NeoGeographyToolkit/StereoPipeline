@@ -32,7 +32,8 @@
       georeferenced as well, such as GoodPixelMap, D_sub, filtered
       disparity, etc. As such, all these data can be overlayed in
       stereo_gui.
-      
+    * Bugfix for rpcmaprpc stereo.
+  
  - stereo_gui
    * Added the option --delete-temporary-files-on-exit to do precisely
      that.
