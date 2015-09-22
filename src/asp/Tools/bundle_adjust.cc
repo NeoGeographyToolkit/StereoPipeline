@@ -969,9 +969,9 @@ int main(int argc, char* argv[]) {
         session->get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
         try{
           // IP matching may not succeed for all pairs
-          vw::Vector<vw::float32,6> image1_stats; // Generate dummy stats that result in no stretch
-          for (size_t k=0; k<6; ++k)  image1_stats[k] = 0.0;
-          vw::Vector<vw::float32,6> image2_stats = image1_stats;
+          DiskImageView<float> image1_view(image1), image2_view(image2);
+          vw::Vector<vw::float32,6> image1_stats = gather_stats(image1_view, "image1");
+          vw::Vector<vw::float32,6> image2_stats = gather_stats(image2_view, "image2");
           session->ip_matching(image1, image2,
                                image1.size(),
                                image1_stats,

@@ -103,7 +103,6 @@ namespace asp {
     ImageViewRef< PixelMask<float> > right_masked_image
       = create_mask_less_or_equal(right_disk_image, right_nodata_value);
 
-    // TODO: Shift this down to where we use the statistics
     // Compute input image statistics
     Vector6f left_stats  = gather_stats(left_masked_image,  "left" );
     Vector6f right_stats = gather_stats(right_masked_image, "right");
