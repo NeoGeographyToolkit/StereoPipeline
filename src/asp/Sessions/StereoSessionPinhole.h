@@ -53,7 +53,7 @@ namespace asp {
 
     /// Transforms from pixel coordinates on disk to original unwarped image coordinates.
     /// - For reversing our arithmetic applied in preprocessing.
-    typedef typename vw::HomographyTransform tx_type;
+    typedef vw::HomographyTransform tx_type;
     tx_type tx_left () const;
     tx_type tx_right() const;
 

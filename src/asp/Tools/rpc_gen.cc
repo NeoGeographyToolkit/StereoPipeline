@@ -167,17 +167,117 @@ int find_solution_from_seed(RpcSolveLMA    const& lma_model,
 }
 
 
+void compute_scale_factors(vw::BBox3   const& gdc_box, 
+                           vw::Vector2 const& image_size,
+                           Vector3 &llh_scale, Vector3 &llh_offset,
+                           Vector2 &uv_scale,  Vector2 &uv_offset) {
 
+  Vector3 min_llh_coord = gdc_box.min();
+  Vector3 max_llh_coord = gdc_box.max();
 
+  // Use matched axis scaling for pixels so one axis does not get higher error weighting
+  llh_scale  = (max_llh_coord - min_llh_coord)/2.0; // half range
+  llh_offset = (max_llh_coord + min_llh_coord)/2.0; // center point
+  double pixel_max = vw::math::max(image_size);
+  uv_scale  = Vector2(pixel_max/2.0, pixel_max/2.0); // The long axis pixel is scaled to 1.0
+  uv_offset = image_size/2.0; // center point 
+}
+  
 
+/// Loads in the points from a text file
+void load_pairs_from_file(std::string const& path,
+                          Vector<double> &normalized_geodetics,
+                          Vector<double> &normalized_pixels,
+                          Vector3 &llh_scale, Vector3 &llh_offset,
+                          Vector2 &uv_scale,  Vector2 &uv_offset) {
+  // For now this only loads files from Geocam Space.
+  
+  const double HEIGHT = 0; // Might want to change this!
+  
+  vw_out() << "Reading point pairs from file...\n";
+  
+  // Read through the file and extract all the points
+  
+  std::ifstream infile(path.c_str());
+  
+  std::vector<Vector3> gdc_temp;
+  std::vector<Vector2> pixel_temp;
+  
+  vw::BBox2 pixel_bbox;
+  vw::BBox3 gdc_bbox;
+  
+  std::string line;
+  while (std::getline(infile, line)) {
+  
+    size_t colon_pos = line.find(':');
+    size_t start_pos = colon_pos + 1;
+    size_t comma_pos = line.find(',');
+    size_t num1_len = comma_pos - start_pos;
+    float num1 = atof(line.substr(start_pos, num1_len).c_str());
+    float num2 = atof(line.substr(comma_pos+1).c_str());    
+    //printf("Read %lf, %lf\n", num1, num2);
+  
+    if (line[0] == 'u') { // = GDC
+      Vector3 gdc(num1, num2, HEIGHT);
+      gdc_temp.push_back(gdc);
+      gdc_bbox.grow(gdc);
+    }else { // v = pixel
+      Vector2 pixel(num1, num2);
+      pixel_temp.push_back(pixel);
+      pixel_bbox.grow(pixel);
+    }
+  } // End loop through file
+  
+  // Check that we loaded the correct number of points
+  size_t num_points = gdc_temp.size();
+  if (pixel_temp.size() != num_points)
+    vw_throw( ArgumentErr() << "Error reading input file: counts\n");
+  
+  // Automatically compute the scale factors
+  
+  compute_scale_factors(gdc_bbox, pixel_bbox.size(), llh_scale, llh_offset, uv_scale, uv_offset);
+  
+  // Currently the height is hardcoded to zero, resulting in zero scale and divide by zero!
+  llh_scale [2] = 1.0;
+  llh_offset[2] = 0.0;
+  
+  // Initialize normalized data storage
+  normalized_geodetics.set_size(RPCModel::GEODETIC_COORD_SIZE*num_points);
+  normalized_pixels.set_size   (RPCModel::IMAGE_COORD_SIZE   *num_points + RpcSolveLMA::NUM_PENALTY_TERMS);
+  for (size_t i = 0; i < normalized_pixels.size(); i++)
+    normalized_pixels[i] = 0.0; // Important: The extra penalty terms are all set to zero here.
+      
+  for (size_t i=0; i<num_points; ++i) {
+  
+    // Normalize the points
+    Vector3 gdc   = elem_quot(gdc_temp  [i] - llh_offset, llh_scale);
+    Vector2 pixel = elem_quot(pixel_temp[i] - uv_offset,  uv_scale );
+  
+    // Pack them in the output vectors
+    subvector(normalized_geodetics, RPCModel::GEODETIC_COORD_SIZE*i, RPCModel::GEODETIC_COORD_SIZE) = gdc;
+    subvector(normalized_pixels,    RPCModel::IMAGE_COORD_SIZE   *i, RPCModel::IMAGE_COORD_SIZE   ) = pixel;
+   
+  }
+  vw_out() << "Loaded "<< num_points <<" processing point pairs from file\n";
+}
 
-int main( int argc, char* argv[] ) {
+/// Generates the set of GDC/pixel pairs that will be fed into the solver.
+void generate_point_pairs(RPC_gen_Options opt,
+                          Vector<double> &normalized_geodetics,
+                          Vector<double> &normalized_pixels,
+                          Vector3 &llh_scale, Vector3 &llh_offset,
+                          Vector2 &uv_scale,  Vector2 &uv_offset) {
 
-  RPC_gen_Options opt;
-  try {
-    handle_arguments( argc, argv, opt );
-
-    VW_ASSERT( opt.penalty_weight >= 0, ArgumentErr() << "The RPC penalty weight must be non-negative.\n" );
+    // If the user provided a text file instead of a camera model, load the points
+    // straight from the file.
+    if ( (opt.camera_model.find(".csv") != std::string::npos) ||
+         (opt.camera_model.find(".txt") != std::string::npos)   ) {
+      load_pairs_from_file(opt.camera_model, normalized_geodetics, normalized_pixels,
+                          llh_scale, llh_offset, uv_scale, uv_offset);
+      return;
+    }
+    
+    // Otherwise use the camera model information to generate the point pairs.
 
     // Load up the Digital Globe camera model from the camera file
     XMLPlatformUtils::Initialize();
@@ -204,11 +304,11 @@ int main( int argc, char* argv[] ) {
     Vector3 max_llh_coord = opt.lon_lat_height_box.max();
 
     // Use matched axis scaling for pixels so one axis does not get higher error weighting
-    Vector3 llh_scale     = (max_llh_coord - min_llh_coord)/2.0; // half range
-    Vector3 llh_offset    = (max_llh_coord + min_llh_coord)/2.0; // center point
+    llh_scale  = (max_llh_coord - min_llh_coord)/2.0; // half range
+    llh_offset = (max_llh_coord + min_llh_coord)/2.0; // center point
     double pixel_max = vw::math::max(image_size);
-    Vector2 uv_scale(pixel_max/2.0, pixel_max/2.0); // The long axis pixel is scaled to 1.0
-    Vector2 uv_offset     = image_size/2.0; // center point
+    uv_scale  = Vector2(pixel_max/2.0, pixel_max/2.0); // The long axis pixel is scaled to 1.0
+    uv_offset = image_size/2.0; // center point
 
     // Number of points in x and y at which we will optimize the RPC
     // model. Using 10 or 20 points gives roughly similar results.
@@ -218,12 +318,10 @@ int main( int argc, char* argv[] ) {
     int num_total_pts = num_pts*num_pts*num_pts;
 
     // Initialize normalized data storage
-    Vector<double> normalizedGeodetics;
-    normalizedGeodetics.set_size(RPCModel::GEODETIC_COORD_SIZE*num_total_pts);
-    Vector<double> normalizedPixels;
-    normalizedPixels.set_size(RPCModel::IMAGE_COORD_SIZE*num_total_pts + RpcSolveLMA::NUM_PENALTY_TERMS);
-    for (int i = 0; i < (int)normalizedPixels.size(); i++)
-      normalizedPixels[i] = 0.0; // Important: The extra penalty terms are all set to zero here.
+    normalized_geodetics.set_size(RPCModel::GEODETIC_COORD_SIZE*num_total_pts);
+    normalized_pixels.set_size(RPCModel::IMAGE_COORD_SIZE*num_total_pts + RpcSolveLMA::NUM_PENALTY_TERMS);
+    for (size_t i = 0; i < normalized_pixels.size(); i++)
+      normalized_pixels[i] = 0.0; // Important: The extra penalty terms are all set to zero here.
 
     // Loop through all test points and generate the "correct" pairs / training data
     //  using the trusted DG camera model.
@@ -256,22 +354,41 @@ int main( int argc, char* argv[] ) {
           //std::cout << U << ' ' << P << ' ' << pxg << ' ' << pxr  << ' '
           //          << norm_2(pxg-pxr)<< std::endl;
 
-          subvector(normalizedGeodetics, RPCModel::GEODETIC_COORD_SIZE*count, RPCModel::GEODETIC_COORD_SIZE) = U;
-          subvector(normalizedPixels,    RPCModel::IMAGE_COORD_SIZE   *count, RPCModel::IMAGE_COORD_SIZE   ) = pxn;
+          subvector(normalized_geodetics, RPCModel::GEODETIC_COORD_SIZE*count, RPCModel::GEODETIC_COORD_SIZE) = U;
+          subvector(normalized_pixels,    RPCModel::IMAGE_COORD_SIZE   *count, RPCModel::IMAGE_COORD_SIZE   ) = pxn;
           count++;
 
         } // End z loop
       } // End y loop
     } // End x loop
 
+}
+
+
+int main( int argc, char* argv[] ) {
+
+  RPC_gen_Options opt;
+ // try {
+    handle_arguments( argc, argv, opt );
+
+    VW_ASSERT( opt.penalty_weight >= 0, ArgumentErr() << "The RPC penalty weight must be non-negative.\n" );
+
+    // Generate all the point pairs using the input options
+    Vector<double> normalized_geodetics;
+    Vector<double> normalized_pixels;
+    Vector3 llh_scale, llh_offset;
+    Vector2 uv_scale,  uv_offset;
+    generate_point_pairs(opt, normalized_geodetics, normalized_pixels,
+                         llh_scale, llh_offset, uv_scale, uv_offset);
+
     double penalty_weight_fraction = opt.penalty_weight; // The percentage of the error that the penalty weights should represent
-    double native_penalty_fraction = (double)RpcSolveLMA::NUM_PENALTY_TERMS / (double)normalizedPixels.size(); // Fraction with no adjustment
+    double native_penalty_fraction = (double)RpcSolveLMA::NUM_PENALTY_TERMS / (double)normalized_pixels.size(); // Fraction with no adjustment
     double penalty_adjustment      = penalty_weight_fraction / native_penalty_fraction;
 
     VW_OUT(DebugMessage, "math") << "rpc_gen: Computed penalty weight: " << penalty_adjustment<< std::endl;
 
     // Initialize a specialized least squares solver object and load the input data
-    RpcSolveLMA lma_model (normalizedGeodetics, normalizedPixels, penalty_adjustment);
+    RpcSolveLMA lma_model (normalized_geodetics, normalized_pixels, penalty_adjustment);
 
     int status;
     Vector<double> solution;
@@ -280,19 +397,19 @@ int main( int argc, char* argv[] ) {
     // Initialize a zero vector of RPC model coefficients
     Vector<double> startZero;
     startZero.set_size(RPCModel::NUM_RPC_COEFFS);
-    for (int i = 0; i < (int)startZero.size(); i++)
+    for (size_t i = 0; i < startZero.size(); i++)
       startZero[i] = 0.0;
 
     // Use the L-M solver to optimize the RPC model coefficient values.
     //VW_OUT(DebugMessage, "math") << "rpc_gen: Solving with zero seed" << std::endl;
-    status = find_solution_from_seed(lma_model, startZero, normalizedPixels, solution, norm_error);
+    status = find_solution_from_seed(lma_model, startZero, normalized_pixels, solution, norm_error);
     VW_OUT(DebugMessage, "math") << "rpc_gen: norm_error = " << norm_error << std::endl;
 
     // If we ever want to improve our results further we should experiment with multiple starting seeds!
 
     // Dump all the results to disk if the user passed in an output prefix.
     if (opt.output_prefix != "")
-      write_levmar_solver_results(opt.output_prefix, status, startZero, solution, normalizedPixels, lma_model);
+      write_levmar_solver_results(opt.output_prefix, status, startZero, solution, normalized_pixels, lma_model);
 
     // Dump the output to stdout, to be parsed by python
     RPCModel::CoeffVec line_num, line_den, samp_num, samp_den;
@@ -306,7 +423,7 @@ int main( int argc, char* argv[] ) {
     print_vec("samp_num",   samp_num  );
     print_vec("samp_den",   samp_den  );
 
-  } ASP_STANDARD_CATCHES;
+ // } ASP_STANDARD_CATCHES;
 
   return 0;
 }

@@ -330,12 +330,12 @@ asp::StereoSessionPinhole::camera_model(std::string const& image_file,
 }
 
 
-typename asp::StereoSessionPinhole::tx_type
+asp::StereoSessionPinhole::tx_type
 asp::StereoSessionPinhole::tx_left() const {
   Matrix<double> tx = math::identity_matrix<3>();
   return tx_type( tx );
 }
-typename asp::StereoSessionPinhole::tx_type
+asp::StereoSessionPinhole::tx_type
 asp::StereoSessionPinhole::tx_right() const {
   if ( stereo_settings().alignment_method == "homography" ) {
     Matrix<double> align_matrix;
