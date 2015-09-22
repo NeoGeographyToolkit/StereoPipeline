@@ -105,8 +105,8 @@ namespace asp {
 
     // TODO: Shift this down to where we use the statistics
     // Compute input image statistics
-    Vector4f left_stats  = gather_stats(left_masked_image,  "left" );
-    Vector4f right_stats = gather_stats(right_masked_image, "right");
+    Vector6f left_stats  = gather_stats(left_masked_image,  "left" );
+    Vector6f right_stats = gather_stats(right_masked_image, "right");
 
     ImageViewRef< PixelMask<float> > Limg, Rimg;
     std::string lcase_file = boost::to_lower_copy(this->m_left_camera_file);
@@ -122,9 +122,12 @@ namespace asp {
 
       // Detect matching interest points between the left and right input images.
       // - The output is written directly to file!
+      DiskImageView<float> left_orig_image(left_input_file);
       boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
       this->camera_models(left_cam, right_cam); // Fetch the camera models.
       this->ip_matching(left_cropped_file,   right_cropped_file,
+                        bounding_box(left_orig_image).size(),
+                        left_stats, right_stats,
                         stereo_settings().ip_per_tile,
                         left_nodata_value, right_nodata_value, match_filename,
                         left_cam.get(),    right_cam.get() );
@@ -178,6 +181,7 @@ namespace asp {
     // Apply our normalization options.
     normalize_images(stereo_settings().force_use_entire_range,
                      stereo_settings().individually_normalize,
+                     false, // Use std stretch
                      left_stats, right_stats, Limg, Rimg);
 
     // The output no-data value must be < 0 as we scale the images to [0, 1].

@@ -89,7 +89,7 @@ namespace asp {
     int   ip_per_tile;                      ///< How many ip to find in each 1024^2 tile
     int   ip_matching_method;               ///< Method used for matching interest points
                                             // 0 = Zack's integral Obalog method
-                                            // 1 = OpenCV BRISK method
+                                            // 1 = OpenCV SIFT method 
                                             // 2 = OpenCV ORB method
     double nodata_value;                    ///< Pixels with values less than or equal to this number are treated as no-data.
                                             //   This overrides the nodata values from input images.

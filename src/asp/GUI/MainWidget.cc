@@ -263,6 +263,15 @@ namespace vw { namespace gui {
     return;
   }
 
+  std::string fileDialog(std::string title, std::string start_folder){
+
+    std::string fileName = QFileDialog::getOpenFileName(0,
+                                        title.c_str(), 
+                                        start_folder.c_str()).toStdString();
+
+    return fileName;
+  }
+
   BBox2 qrect2bbox(QRect const& R){
     return BBox2( Vector2(R.left(), R.top()), Vector2(R.right(), R.bottom()) );
   }

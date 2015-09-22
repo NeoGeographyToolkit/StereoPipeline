@@ -67,8 +67,8 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
   ImageViewRef< PixelMask<float> > right_masked_image
     = create_mask_less_or_equal(right_disk_image, right_nodata_value);
 
-  Vector4f left_stats  = gather_stats(left_masked_image,  "left" );
-  Vector4f right_stats = gather_stats(right_masked_image, "right");
+  Vector6f left_stats  = gather_stats(left_masked_image,  "left" );
+  Vector6f right_stats = gather_stats(right_masked_image, "right");
 
   ImageViewRef< PixelMask<float> > Limg, Rimg;
   std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
@@ -127,12 +127,15 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
                                                     left_cropped_file,
                                                     right_cropped_file);
 
+    DiskImageView<float> left_orig_image(left_input_file);
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
     camera_models( left_cam, right_cam );
-    ip_matching(left_cropped_file,   right_cropped_file,
-                stereo_settings().ip_per_tile,
-                left_nodata_value, right_nodata_value, match_filename,
-                left_cam.get(), right_cam.get() );
+    this->ip_matching(left_cropped_file,   right_cropped_file,
+                      bounding_box(left_orig_image).size(),
+                      left_stats, right_stats,
+                      stereo_settings().ip_per_tile,
+                      left_nodata_value, right_nodata_value, match_filename,
+                      left_cam.get(), right_cam.get() );
 
     std::vector<ip::InterestPoint> left_ip, right_ip;
     ip::read_binary_match_file( match_filename, left_ip, right_ip  );
@@ -178,6 +181,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
   // Apply our normalization options.
   normalize_images(stereo_settings().force_use_entire_range,
                    stereo_settings().individually_normalize,
+                   false, // Use std stretch
                    left_stats, right_stats, Limg, Rimg);
 
   // The output no-data value must be < 0 as we scale the images to [0, 1].

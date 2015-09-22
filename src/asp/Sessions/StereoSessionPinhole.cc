@@ -58,16 +58,22 @@ vw::Matrix3x3
 asp::StereoSessionPinhole::determine_image_align(std::string const& out_prefix,
                                                  std::string const& input_file1,
                                                  std::string const& input_file2,
+                                                 vw::Vector2 const& uncropped_image_size,
+                                                 Vector6f    const& stats1,
+                                                 Vector6f    const& stats2,
                                                  float nodata1, float nodata2) {
   namespace fs = boost::filesystem;
   using namespace vw;
 
   std::string match_filename = ip::match_filename(out_prefix, input_file1, input_file2);
-  ip_matching(input_file1, input_file2,
-              stereo_settings().ip_per_tile,
-              nodata1, nodata2,
-              match_filename,
-              NULL, NULL);
+  vw::camera::CameraModel* null_camera_model = 0;
+  this->ip_matching(input_file1, input_file2,
+                    uncropped_image_size,
+                    stats1, stats2,
+                    stereo_settings().ip_per_tile,
+                    nodata1, nodata2,
+                    match_filename,
+                    null_camera_model, null_camera_model);
 
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
   read_binary_match_file( match_filename,
@@ -121,8 +127,8 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
   ImageViewRef< PixelMask<float> > left_masked_image  = create_mask_less_or_equal(left_disk_image,  left_nodata_value);
   ImageViewRef< PixelMask<float> > right_masked_image = create_mask_less_or_equal(right_disk_image, right_nodata_value);
 
-  Vector4f left_stats  = gather_stats(left_masked_image,  "left" );
-  Vector4f right_stats = gather_stats(right_masked_image, "right");
+  Vector6f left_stats  = gather_stats(left_masked_image,  "left" );
+  Vector6f right_stats = gather_stats(right_masked_image, "right");
 
   ImageViewRef< PixelMask<float> > Limg, Rimg;
   std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
@@ -173,9 +179,12 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
 
     vw_out() << "\t--> Performing homography alignment\n";
 
+    DiskImageView<float> left_orig_image(left_input_file);
     Matrix<double> align_matrix
       = determine_image_align(m_out_prefix,
-                              left_cropped_file,   right_cropped_file,
+                              left_cropped_file, right_cropped_file,
+                              bounding_box(left_orig_image).size(),
+                              left_stats,        right_stats,
                               left_nodata_value, right_nodata_value);
     write_matrix( m_out_prefix + "-align-R.exr", align_matrix );
 
@@ -194,6 +203,7 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
   // Apply our normalization options.
   normalize_images(stereo_settings().force_use_entire_range,
                    stereo_settings().individually_normalize,
+                   false, // Use std stretch
                    left_stats, right_stats, Limg, Rimg);
 
   // The output no-data value must be < 0 as we scale the images to [0, 1].

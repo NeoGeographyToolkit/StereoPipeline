@@ -926,8 +926,7 @@ int main(int argc, char* argv[]) {
       opt.stereo_session_string = "pinhole";
     }
 
-    // Create the stereo session. This will attempt to identify the
-    // session type.
+    // Create the stereo session. This will attempt to identify the session type.
     // Read in the camera model and image info for the input images.
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
     for (int i = 0; i < num_images; i++){
@@ -957,8 +956,7 @@ int main(int argc, char* argv[]) {
       for (int j = i+1; j <= std::min(num_images-1, i+opt.overlap_limit); j++){
         std::string image1 = opt.image_files[i];
         std::string image2 = opt.image_files[j];
-        std::string match_filename
-          = ip::match_filename(opt.out_prefix, image1, image2);
+        std::string match_filename = ip::match_filename(opt.out_prefix, image1, image2);
         boost::shared_ptr<DiskImageResource>
           rsrc1( DiskImageResource::open(image1) ),
           rsrc2( DiskImageResource::open(image2) );
@@ -971,7 +969,13 @@ int main(int argc, char* argv[]) {
         session->get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
         try{
           // IP matching may not succeed for all pairs
+          vw::Vector<vw::float32,6> image1_stats; // Generate dummy stats that result in no stretch
+          for (size_t k=0; k<6; ++k)  image1_stats[k] = 0.0;
+          vw::Vector<vw::float32,6> image2_stats = image1_stats;
           session->ip_matching(image1, image2,
+                               image1.size(),
+                               image1_stats,
+                               image2_stats,
                                opt.ip_per_tile,
                                nodata1, nodata2, match_filename,
                                opt.camera_models[i].get(),

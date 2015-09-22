@@ -393,10 +393,10 @@ void MainWindow::viewMatches(){
   // We will load the matches just once, as we later will add/delete matches manually
   if (!m_matches_were_loaded && (!m_matches.empty()) && m_matches[0].empty()) {
 
-    if (m_output_prefix == "" ) {
-      popUp("Output prefix was not set. Cannot view matches.");
-      return;
-    }
+    //if (m_output_prefix == "" ) {
+      //popUp("Output prefix was not set. Cannot view matches.");
+      //return;
+    //}
 
     m_matches_were_loaded = true;
     m_matches.clear();
@@ -407,8 +407,20 @@ void MainWindow::viewMatches(){
 
     for (int i = 0; i < int(m_images.size()); i++) {
       for (int j = int(i+1); j < int(m_images.size()); j++) {
-        std::string match_filename
-          = vw::ip::match_filename(m_output_prefix, m_images[i], m_images[j]);
+        std::string match_filename = vw::ip::match_filename(m_output_prefix, m_images[i], m_images[j]);
+
+        // Look for the match file in the default location, and if it does not appear prompt the user or a path.
+        try {
+          ip::read_binary_match_file( match_filename, m_matches[i], m_matches[j]);        
+        }catch(...){
+          try {
+            match_filename = fileDialog("Manually select the match file...", m_output_prefix);
+          }catch(...){
+            popUp("Manually selected file failed to load. Cannot view matches.");
+            return;
+          }
+        }
+
         vw_out() << "Loading " << match_filename << std::endl;
         try {
           ip::read_binary_match_file( match_filename, m_matches[i], m_matches[j]);

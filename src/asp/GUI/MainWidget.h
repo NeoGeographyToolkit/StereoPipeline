@@ -84,6 +84,9 @@ namespace vw { namespace gui {
   // Pop-up a window with given message
   void popUp(std::string msg);
 
+  /// Pop-up a window to have the user select a file
+  std::string fileDialog(std::string title, std::string start_folder="");
+
   // The kinds of images we support
   enum ImgType {UNINIT, CH1_DOUBLE, CH1_UINT8, CH3_UINT8};
 

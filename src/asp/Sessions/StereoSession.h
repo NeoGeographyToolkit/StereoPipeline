@@ -35,43 +35,58 @@
 
 namespace asp {
 
+  typedef vw::Vector<vw::float32,6> Vector6f;
+
   //TODO: Move this function!
   /// Compute the min, max, mean, and standard deviation of an image object and write them to a log.
   /// - "tag" is only used to make the log messages more descriptive.
   template <class ViewT>
-  vw::Vector4f gather_stats( vw::ImageViewBase<ViewT> const& view_base, std::string const& tag) {
+  Vector6f gather_stats( vw::ImageViewBase<ViewT> const& view_base, std::string const& tag) {
     using namespace vw;
     vw_out(InfoMessage) << "\t--> Computing statistics for the "+tag+" image\n";
     ViewT image = view_base.impl();
+
+    // Compute statistics at a reduced resolution
     int stat_scale = int(ceil(sqrt(float(image.cols())*float(image.rows()) / 1000000)));
 
     ChannelAccumulator<vw::math::CDFAccumulator<float> > accumulator;
     for_each_pixel( subsample( edge_extend(image, ConstantEdgeExtension()),
-                               stat_scale ), accumulator );
-    Vector4f result( accumulator.quantile(0),
-                     accumulator.quantile(1),
-                     accumulator.approximate_mean(),
-                     accumulator.approximate_stddev() );
+                               stat_scale ), 
+                    accumulator );
+    Vector6f result;
+    result[0] = accumulator.quantile(0); // Min
+    result[1] = accumulator.quantile(1); // Max
+    result[2] = accumulator.approximate_mean();
+    result[3] = accumulator.approximate_stddev();
+    result[4] = accumulator.quantile(0.02); // Percentile values
+    result[5] = accumulator.quantile(0.98);
+
     vw_out(InfoMessage) << "\t  " << tag << ": [ lo: " << result[0] << " hi: " << result[1]
-                                             << " m: " << result[2] << " s: "  << result[3] << " ]\n";
+                                             << " mean: " << result[2] << " std_dev%: "  << result[3] << " ]\n";
     return result;
   }
 
   //TODO: Move this function!
   /// Normalize the intensity of two grayscale images based on input statistics
-  template<class ImageT, class VectorT>
+  template<class ImageT>
   void normalize_images(bool force_use_entire_range,
                         bool individually_normalize,
-                        VectorT const& left_stats,
-                        VectorT const& right_stats,
+                        bool use_percentile_stretch,
+                        Vector6f const& left_stats,
+                        Vector6f const& right_stats,
                         ImageT & Limg, ImageT & Rimg){
 
     // These arguments must contain: (min, max, mean, std)
-    VW_ASSERT(left_stats.size() == 4 && right_stats.size() == 4,
-                  vw::ArgumentErr() << "Expecting a vector of size 4 in normalize_images()\n");
+    VW_ASSERT(left_stats.size() == 6 && right_stats.size() == 6,
+                  vw::ArgumentErr() << "Expecting a vector of size 6 in normalize_images()\n");
 
-    if ( force_use_entire_range > 0 ) {
-      if ( individually_normalize > 0 ) {
+    // If the input stats don't contain the stddev, must use the entire range version.
+    // - This should only happen when normalizing ISIS images for ip_matching purposes.
+    if ((left_stats[3] == 0) || (right_stats[3] == 0))
+      force_use_entire_range = true;
+
+    if ( force_use_entire_range ) { // Stretch between the min and max values
+      if ( individually_normalize ) {
         vw::vw_out() << "\t--> Individually normalize images to their respective min max\n";
         Limg = normalize( Limg, left_stats [0], left_stats [1], 0.0, 1.0 );
         Rimg = normalize( Rimg, right_stats[0], right_stats[1], 0.0, 1.0 );
@@ -83,13 +98,26 @@ namespace asp {
         Rimg = normalize( Rimg, low, hi, 0.0, 1.0 );
       }
     } else { // Don't force the entire range
-      double left_min  = left_stats [2] - 2*left_stats [3];
-      double left_max  = left_stats [2] + 2*left_stats [3];
-      double right_min = right_stats[2] - 2*right_stats[3];
-      double right_max = right_stats[2] + 2*right_stats[3];
+      double left_min, left_max, right_min, right_max;
+      if (use_percentile_stretch) {
+        // Percentile stretch
+        left_min  = left_stats [4];
+        left_max  = left_stats [5];
+        right_min = right_stats[4];
+        right_max = right_stats[5];
+      } else {
+        // Two standard deviation stretch
+        left_min  = left_stats [2] - 2*left_stats [3];
+        left_max  = left_stats [2] + 2*left_stats [3];
+        right_min = right_stats[2] - 2*right_stats[3];
+        right_max = right_stats[2] + 2*right_stats[3];
+      }
+
+      // The images are normalized so most pixels fall into this range,
+      // but the data is not clamped so some pixels can fall outside this range.
       if ( individually_normalize > 0 ) {
-        vw::vw_out() << "\t--> Individually normalize images to their respective 4 std dev window\n";
-        Limg = normalize( Limg, left_min,  left_max, 0.0, 1.0 );
+        vw::vw_out() << "\t--> Individually normalize images\n";
+        Limg = normalize( Limg, left_min,  left_max,  0.0, 1.0 );
         Rimg = normalize( Rimg, right_min, right_max, 0.0, 1.0 );
       } else { // Normalize using the same stats
         float low = std::min(left_min, right_min);
@@ -155,8 +183,11 @@ namespace asp {
     virtual std::string name() const = 0;
 
     /// Specialization for how interest points are found
-    bool ip_matching(std::string const& input_file1,
-                     std::string const& input_file2,
+    bool ip_matching(std::string  const& input_file1,
+                     std::string  const& input_file2,
+                     vw::Vector2  const& uncropped_image_size,
+                     Vector6f const& stats1,
+                     Vector6f const& stats2,
                      int ip_per_tile,
                      float nodata1, float nodata2,
                      std::string const& match_filename,

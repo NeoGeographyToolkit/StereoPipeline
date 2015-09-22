@@ -72,9 +72,12 @@ namespace asp {
  private:
     /// Helper function for determining image alignment.
     /// - Only used in pre_preprocessing_hook()
-    vw::Matrix3x3 determine_image_align( std::string const& out_prefix,
-                                         std::string const& input_file1,
-                                         std::string const& input_file2,
+    vw::Matrix3x3 determine_image_align( std::string  const& out_prefix,
+                                         std::string  const& input_file1,
+                                         std::string  const& input_file2,
+                                         vw::Vector2  const& uncropped_image_size,
+                                         Vector6f const& stats1,
+                                         Vector6f const& stats2,
                                          float nodata1, float nodata2);
  };
 

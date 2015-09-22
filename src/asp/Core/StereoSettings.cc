@@ -118,7 +118,7 @@ namespace asp {
       ("ip-per-tile",             po::value(&global.ip_per_tile)->default_value(0),
                      "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
       ("ip_detect_method",          po::value(&global.ip_matching_method)->default_value(0),
-                     "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV BRISK, 2: OpenCV ORB.")
+                     "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
       ("nodata-value",             po::value(&global.nodata_value)->default_value(nan),
                      "Pixels with values less than or equal to this number are treated as no-data. This overrides the no-data values from input images.")
       ("nodata-pixel-percentage",  po::value(&global.nodata_pixel_percentage)->default_value(nan),

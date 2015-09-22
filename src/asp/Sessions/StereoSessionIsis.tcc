@@ -225,7 +225,7 @@ pre_preprocessing_hook(bool adjust_left_image_size,
   std::string left_cropped_file, right_cropped_file;
   asp::BaseOptions options;
   float left_nodata_value, right_nodata_value;
-  bool has_left_georef, has_right_georef;
+  bool  has_left_georef,   has_right_georef;
   vw::cartography::GeoReference left_georef, right_georef;
   bool exit_early =
     StereoSession::shared_preprocessing_hook(options,
@@ -237,9 +237,10 @@ pre_preprocessing_hook(bool adjust_left_image_size,
 					     left_georef,       right_georef);
   if (exit_early) return;
 
+
   // Load the cropped images
   DiskImageView<float> left_disk_image(left_cropped_file),
-    right_disk_image(right_cropped_file);
+                       right_disk_image(right_cropped_file);
 
   // Getting image sizes. Later alignment options can choose to change
   // this parameters. (Affine Epipolar).
@@ -266,14 +267,13 @@ pre_preprocessing_hook(bool adjust_left_image_size,
                             right_hi);
 
   // Handle mutual normalization if requested
-  float left_lo_out = left_lo,  left_hi_out = left_hi,
+  float left_lo_out  = left_lo,  left_hi_out  = left_hi,
         right_lo_out = right_lo, right_hi_out = right_hi;
   if (stereo_settings().individually_normalize == 0 ) {
     // Find the outer range of both files
     float mutual_lo = std::min(left_lo, right_lo);
     float mutual_hi = std::max(left_hi, right_hi);
-    vw_out() << "\t--> Normalizing globally to: ["
-             <<mutual_lo<<" "<<mutual_hi<<"]\n";
+    vw_out() << "\t--> Normalizing globally to: ["<<mutual_lo<<" "<<mutual_hi<<"]\n";
     // Set the individual hi/lo values to the mutual values
     left_lo_out  = mutual_lo;
     left_hi_out  = mutual_hi;
@@ -282,6 +282,10 @@ pre_preprocessing_hook(bool adjust_left_image_size,
   } else{
     vw_out() << "\t--> Individually normalizing.\n";
   }
+
+  // Fill in a stats block for ip_matching
+  Vector6f left_stats (left_lo,  left_hi,  0, 0);
+  Vector6f right_stats(right_lo, right_hi, 0, 0);
 
   // Image alignment block - Generate aligned versions of the input
   // images according to the options.
@@ -296,9 +300,12 @@ pre_preprocessing_hook(bool adjust_left_image_size,
                                                     right_cropped_file);
 
     // Find matching interest points between the two input images
+    DiskImageView<float> left_orig_image(left_input_file);
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
     this->camera_models(left_cam, right_cam);
     this->ip_matching(left_cropped_file,   right_cropped_file,
+                      bounding_box(left_orig_image).size(),
+                      left_stats, right_stats,
                       stereo_settings().ip_per_tile,
                       left_nodata_value, right_nodata_value, match_filename,
                       left_cam.get(),    right_cam.get());

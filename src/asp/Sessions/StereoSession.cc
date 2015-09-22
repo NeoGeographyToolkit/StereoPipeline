@@ -70,6 +70,9 @@ namespace asp {
   // A default IP matching implementation that derived classes can use
   bool StereoSession::ip_matching(std::string const& input_file1,
                                   std::string const& input_file2,
+                                  vw::Vector2 const& uncropped_image_size,
+                                  Vector6f    const& stats1,
+                                  Vector6f    const& stats2,
                                   int ip_per_tile,
                                   float nodata1, float nodata2,
                                   std::string const& match_filename,
@@ -86,7 +89,15 @@ namespace asp {
       return true;
     }
 
+    // Get normalized versions of the images
     DiskImageView<float> image1(input_file1), image2(input_file2);
+    ImageViewRef<float> image1_norm=image1, image2_norm=image2;
+    if (stats1[0] != stats1[1]) // Don't normalize if no stats were provided!
+      normalize_images(stereo_settings().force_use_entire_range,
+                       stereo_settings().individually_normalize,
+                       true, // Use percentile based stretch for ip matching
+                       stats1,      stats2, 
+                       image1_norm, image2_norm);
 
     const bool nadir_facing = this->is_nadir_facing();
 
@@ -95,14 +106,24 @@ namespace asp {
       // Run an IP matching function that takes the camera and datum info into account
       bool single_threaded_camera = true; // TODO: Does this make sense?
       cartography::Datum datum = this->get_datum(cam1);
+
+      // Min % distance between closest and second closest descriptor matches
+      const double match_seperation_threshold = 0.7; 
+
+      // This computes a distance used for throwing out interest points.
+      // - It has to be computed using the entire (not cropped) image size!
+      const double epipolar_threshold = norm_2(uncropped_image_size)/15;
+      //vw_out() << "Epipolar threshold = " << epipolar_threshold << "\n";
+
       inlier = ip_matching_w_alignment(single_threaded_camera, cam1, cam2,
-                                       image1, image2,
+                                       image1_norm, image2_norm,
                                        ip_per_tile,
                                        datum, match_filename,
+                                       epipolar_threshold, match_seperation_threshold,
                                        nodata1, nodata2);
     } else { // Not nadir facing
       // Run a simpler purely image based matching function
-      inlier = homography_ip_matching( image1, image2,
+      inlier = homography_ip_matching( image1_norm, image2_norm,                            
                                        ip_per_tile,
                                        match_filename,
                                        nodata1, nodata2);

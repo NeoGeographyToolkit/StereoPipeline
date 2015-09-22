@@ -31,8 +31,8 @@ namespace asp {
 
   EpipolarLinePointMatcher::EpipolarLinePointMatcher( bool single_threaded_camera,
                                                       double threshold, double epipolar_threshold,
-                                                      vw::cartography::Datum const& datum ) :
-    m_single_threaded_camera(single_threaded_camera), m_threshold(threshold),
+                                                      vw::cartography::Datum const& datum) :
+    m_single_threaded_camera(single_threaded_camera), m_threshold(threshold), 
     m_epipolar_threshold(epipolar_threshold), m_datum(datum) {}
 
   Vector3 EpipolarLinePointMatcher::epipolar_line( Vector2 const& feature,
@@ -42,16 +42,16 @@ namespace asp {
                                                    bool & success) {
     success = true;
 
+    // Intersect the interest point pixel with the datum
     Vector3 p0 = cartography::datum_intersection( datum, cam_ip, feature );
 
-    if (p0 == Vector3()){
-      // No intersection
+    if (p0 == Vector3()){ // No intersection
       success = false;
       return Vector3();
     }
 
-    Vector3 p1 = p0 + 10*cam_ip->pixel_to_vector( feature );
-    Vector2 ep0 = cam_obj->point_to_pixel( p0 );
+    Vector3 p1  = p0 + 10*cam_ip->pixel_to_vector( feature ); // Extend the point below the datum
+    Vector2 ep0 = cam_obj->point_to_pixel( p0 ); // Project the intersection and extension into the other camera
     Vector2 ep1 = cam_obj->point_to_pixel( p1 );
     Matrix<double> matrix( 2, 3 );
     select_col( matrix, 2 ) = Vector2(1,1);
@@ -60,15 +60,13 @@ namespace asp {
     matrix(1,0) = ep1.x();
     matrix(1,1) = ep1.y();
 
-    if (matrix != matrix){
-      // Got back NaN values. Can't proceed.
+    if (matrix != matrix){ // Got back NaN values. Can't proceed.
       success = false;
       return Vector3();
     }
 
     Matrix<double> nsp = nullspace( matrix );
-    if (nsp.cols() <= 0 || nsp.rows() <= 0){
-      // Failed to find the nullspace
+    if (nsp.cols() <= 0 || nsp.rows() <= 0){ // Failed to find the nullspace
       success = false;
       return Vector3();
     }
@@ -84,11 +82,13 @@ namespace asp {
       norm_2( subvector( line, 0, 2 ) );
   }
 
-  // Local class definition
+  // Local class definition -----
   class EpipolarLineMatchTask : public Task, private boost::noncopyable {
     typedef ip::InterestPointList::const_iterator IPListIter;
     bool                            m_single_threaded_camera;
-    math::FLANNTree<float>&         m_tree;
+    bool                            m_use_uchar_tree;
+    math::FLANNTree<float        >& m_tree_float;
+    math::FLANNTree<unsigned char>& m_tree_uchar;
     IPListIter                      m_start, m_end;
     ip::InterestPointList const&    m_ip_other;
     camera::CameraModel            *m_cam1, *m_cam2;
@@ -98,7 +98,9 @@ namespace asp {
     std::vector<size_t>::iterator   m_output;
   public:
     EpipolarLineMatchTask( bool single_threaded_camera,
-                           math::FLANNTree<float>& tree,
+                           bool use_uchar_tree,
+                           math::FLANNTree<float        >& tree_float,
+                           math::FLANNTree<unsigned char>& tree_uchar,
                            ip::InterestPointList::const_iterator start,
                            ip::InterestPointList::const_iterator end,
                            ip::InterestPointList const& ip2,
@@ -110,20 +112,22 @@ namespace asp {
                            Mutex& camera_mutex,
                            std::vector<size_t>::iterator output ) :
       m_single_threaded_camera(single_threaded_camera),
-      m_tree(tree), m_start(start), m_end(end), m_ip_other(ip2),
+      m_use_uchar_tree(use_uchar_tree), m_tree_float(tree_float), m_tree_uchar(tree_uchar),
+      m_start(start), m_end(end), m_ip_other(ip2),
       m_cam1(cam1), m_cam2(cam2), m_tx1(tx1), m_tx2(tx2),
       m_matcher( matcher ), m_camera_mutex(camera_mutex), m_output(output) {}
 
     void operator()() {
 
       const size_t NUM_MATCHES_TO_FIND = 10;
-      Vector<int  > indices  (NUM_MATCHES_TO_FIND);
-      Vector<float> distances(NUM_MATCHES_TO_FIND);
+      Vector<int   > indices  (NUM_MATCHES_TO_FIND);
+      Vector<double> distances(NUM_MATCHES_TO_FIND);
 
       for ( IPListIter ip = m_start; ip != m_end; ip++ ) {
         Vector2 ip_org_coord = m_tx1.reverse( Vector2( ip->x, ip->y ) );
         Vector3 line_eq;
 
+        // Find the equation that describes the epipolar line
         bool found_epipolar;
         if (m_single_threaded_camera){
           // ISIS camera is single-threaded
@@ -133,35 +137,70 @@ namespace asp {
           line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, m_cam1, m_cam2, found_epipolar);
         }
 
+        // TODO: If not found epipolar we can just quit now!
+
+        // Use FLANN tree to find the N nearest neighbors according to the IP region descriptor?
         std::vector<std::pair<float,int> > kept_indices;
         kept_indices.reserve(NUM_MATCHES_TO_FIND);
-        m_tree.knn_search( ip->descriptor, indices, distances, NUM_MATCHES_TO_FIND );
 
-        for ( size_t i = 0; i < NUM_MATCHES_TO_FIND; i++ ) {
+        // Call the correct FLANN tree for the matching type
+        size_t num_matches_valid = 0;
+        if (m_use_uchar_tree) {
+          vw::Vector<unsigned char> uchar_descriptor(ip->descriptor.size());
+          for (size_t i=0; i<ip->descriptor.size(); ++i)
+            uchar_descriptor[i] = static_cast<unsigned char>(ip->descriptor[i]);
+          num_matches_valid = m_tree_uchar.knn_search( uchar_descriptor, indices, distances, NUM_MATCHES_TO_FIND );
+        } else {
+          num_matches_valid = m_tree_float.knn_search( ip->descriptor, indices, distances, NUM_MATCHES_TO_FIND );
+        }
+
+        if (num_matches_valid < 1) {
+          *m_output++ = (size_t)(-1); // Failed to find a match, return a flag!
+          continue; // Skip to the next IP
+        }
+
+        //vw_out() << "For descriptor: " << ip->descriptor << std::endl;
+        //vw_out() << num_matches_valid << " Best match distances: " << distances << std::endl;
+        //vw_out() << "Indices: " << indices << std::endl;
+
+        // Loop through the N "nearest" points and keep only the ones within 
+        //   m_matcher.m_epipolar_threshold pixel distance from the epipolar line
+        for ( size_t i = 0; i < num_matches_valid; i++ ) {
           IPListIter ip2_it = m_ip_other.begin();
           std::advance( ip2_it, indices[i] );
 
           if (found_epipolar){
             Vector2 ip2_org_coord = m_tx2.reverse( Vector2( ip2_it->x, ip2_it->y ) );
-            double distance = m_matcher.distance_point_line( line_eq, ip2_org_coord );
-            if ( distance < m_matcher.m_epipolar_threshold ) {
+            double line_distance = m_matcher.distance_point_line( line_eq, ip2_org_coord );
+            if ( line_distance < m_matcher.m_epipolar_threshold ) {
               kept_indices.push_back( std::pair<float,int>( distances[i], indices[i] ) );
             }
-          }
-        } // End loop to find NUM_MATCHES_TO_FIND matches
+            else {
+              Vector2 ip1_coord( ip->x, ip->y );
+              //double normDist = norm_2(ip1_coord - ip2_org_coord);
+              //vw_out() << "Discarding match between " << ip1_coord << " and " << ip2_org_coord
+              //        << " because distance is " << line_distance << " and threshold is " 
+              //        << m_matcher.m_epipolar_threshold << " norm dist = " << normDist<<"\n";
+            }
+          } 
+        } // End loop for match prunining
 
+        // If we only found one match or the first descriptor match is much better than the second
         if ( ( (kept_indices.size() > 2) && (kept_indices[0].first < m_matcher.m_threshold * kept_indices[1].first) ) 
               || (kept_indices.size() == 1) ){
-          *m_output++ = kept_indices[0].second; // Just return the first of the matches we found?
-        } else {
+          *m_output++ = kept_indices[0].second; // Return the first of the matches we found
+          //vw_out() << "Kept distance: " << kept_indices[0].first << std::endl;
+        } else { // No matches or no clear winner
           *m_output++ = (size_t)(-1); // Failed to find a match, return a flag!
         }
       } // End loop through IP
     } // End function operator()
-  }; // End class EpipolarLineMatchTask
+
+  }; // End class EpipolarLineMatchTask -------------------
 
   void EpipolarLinePointMatcher::operator()( ip::InterestPointList const& ip1,
                                              ip::InterestPointList const& ip2,
+                                             DetectIpMethod  ip_detect_method,
                                              camera::CameraModel        * cam1,
                                              camera::CameraModel        * cam2,
                                              TransformRef          const& tx1,
@@ -181,21 +220,30 @@ namespace asp {
     // Build the output indices
     output_indices.resize( ip1_size );
 
-    // Make the storage structure required by FLANN. FLANN really only
-    // holds a bunch of pointers to this structure. It should be
-    // possible to modify FLANN so that it doesn't need a copy.
-    Matrix<float> ip2_matrix( ip2_size, ip2.begin()->size() );
-    Matrix<float>::iterator ip2_matrix_it = ip2_matrix.begin();
-    BOOST_FOREACH( ip::InterestPoint const& ip, ip2 )
-      ip2_matrix_it = std::copy( ip.begin(), ip.end(), ip2_matrix_it );
+    // Set up FLANNTree objects of all the different types we may need.
+    math::FLANNTree<float        > kd_float;
+    math::FLANNTree<unsigned char> kd_uchar;
 
-    math::FLANNTree<float > kd( ip2_matrix );
+    Matrix<float        > ip2_matrix_float;
+    Matrix<unsigned char> ip2_matrix_uchar;
+
+    // Pack the IP descriptors into a matrix and feed it to the chosen FLANNTree object
+    const bool use_uchar_FLANN = (ip_detect_method == DETECT_IP_METHOD_ORB);
+    if (use_uchar_FLANN) {
+      ip_list_to_matrix(ip2, ip2_matrix_uchar);
+      kd_uchar.load_match_data( ip2_matrix_uchar, vw::math::FLANN_DistType_Hamming );
+    }else {
+      ip_list_to_matrix(ip2, ip2_matrix_float);
+      kd_float.load_match_data( ip2_matrix_float,  vw::math::FLANN_DistType_L2 );
+    }
+
     vw_out(InfoMessage,"interest_point") << "FLANN-Tree created. Searching...\n";
 
     FifoWorkQueue matching_queue; // Create a thread pool object
     Mutex camera_mutex;
 
     // Jobs set to 2x the number of cores. This is just incase all jobs are not equal.
+    // The total number of interest points will be divided up among the jobs.
     size_t number_of_jobs = vw_settings().default_num_threads() * 2;
 
     // Robustness fix
@@ -212,7 +260,8 @@ namespace asp {
       std::advance( end_it, ip1_size / number_of_jobs );
       boost::shared_ptr<Task>
         match_task( new EpipolarLineMatchTask( m_single_threaded_camera,
-                                               kd, start_it, end_it,
+                                               use_uchar_FLANN, kd_float, kd_uchar, 
+                                               start_it, end_it,
                                                ip2, cam1, cam2, tx1, tx2, *this,
                                                camera_mutex, output_it ) );
       matching_queue.add_task( match_task );
@@ -221,7 +270,8 @@ namespace asp {
     }
     boost::shared_ptr<Task>
       match_task( new EpipolarLineMatchTask( m_single_threaded_camera,
-                                             kd, start_it, ip1.end(),
+                                             use_uchar_FLANN, kd_float, kd_uchar, 
+                                             start_it, ip1.end(),
                                              ip2, cam1, cam2, tx1, tx2, *this,
                                              camera_mutex, output_it ) );
     matching_queue.add_task( match_task );
@@ -270,7 +320,7 @@ namespace asp {
     for (int i = 0; i < num; i++ ) {
       for ( int j = 0; j < num; j++ ) {
         try {
-          Vector2 l( double(box1.width() - 1) * i / (num-1.0),
+          Vector2 l( double(box1.width()  - 1) * i / (num-1.0),
                      double(box1.height() - 1) * j / (num-1.0) );
 
           Vector3 intersection = cartography::datum_intersection( datum, cam1, l );
@@ -280,14 +330,14 @@ namespace asp {
           Vector2 r = cam2->point_to_pixel( intersection );
 
           if ( box2.contains( r ) ){
-            left_points.push_back( Vector3(l[0],l[1],1) );
+            left_points.push_back(  Vector3(l[0],l[1],1) );
             right_points.push_back( Vector3(r[0],r[1],1) );
           }
         }
         catch (...) {}
 
         try {
-          Vector2 r( double(box2.width() - 1) * i / (num-1.0),
+          Vector2 r( double(box2.width()  - 1) * i / (num-1.0),
                      double(box2.height() - 1) * j / (num-1.0) );
 
           Vector3 intersection = cartography::datum_intersection( datum, cam2, r );
@@ -333,18 +383,14 @@ namespace asp {
                             std::vector<ip::InterestPoint> const& right_ip,
                             vw::Matrix<double>& left_matrix,
                             vw::Matrix<double>& right_matrix ) {
+    // Reformat the interest points for RANSAC
+    std::vector<Vector3>  right_copy = iplist_to_vectorlist(right_ip), 
+                          left_copy  = iplist_to_vectorlist(left_ip);
 
-    std::vector<Vector3>  right_copy, left_copy;
-    right_copy.reserve( right_ip.size() );
-    left_copy.reserve( right_ip.size() );
-    for ( size_t i = 0; i < right_ip.size(); i++ ) {
-      right_copy.push_back( Vector3(right_ip[i].x, right_ip[i].y, 1) );
-      left_copy.push_back( Vector3(left_ip[i].x, left_ip[i].y, 1) );
-    }
-
-    typedef math::HomographyFittingFunctor hfit_func;
-    math::RandomSampleConsensus<hfit_func, math::InterestPointErrorMetric>
-      ransac( hfit_func(), math::InterestPointErrorMetric(),
+    // Use RANSAC to determine a good homography transform between the images
+    math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric>
+      ransac( math::HomographyFittingFunctor(), 
+              math::InterestPointErrorMetric(),
               100, // num iter
               norm_2(Vector2(left_size.x(),left_size.y())) / 10, // inlier threshold
               left_copy.size()*2/3 // min output inliers
@@ -354,8 +400,8 @@ namespace asp {
     check_homography_matrix(H, left_copy, right_copy, indices);
 
     // Set right to a homography that has been refined just to our inliers
-    left_matrix = math::identity_matrix<3>();
-    right_matrix = hfit_func()(right_copy, left_copy, H);
+    left_matrix  = math::identity_matrix<3>();
+    right_matrix = math::HomographyFittingFunctor()(right_copy, left_copy, H);
 
     // Work out the ideal render size
     BBox2i output_bbox, right_bbox;
@@ -501,8 +547,7 @@ namespace asp {
                        std::list<size_t>& valid_indices ) {
     // 4 stddev filtering. Deletes any disparity measurement that is 4
     // stddev away from the measurements of it's local neighbors. We
-    // kill off worse offender one at a time until everyone is
-    // compliant.
+    // kill off worse offender one at a time until everyone is compliant.
     bool deleted_something;
     do {
       deleted_something = false;
@@ -518,13 +563,14 @@ namespace asp {
                                     Vector2(ip1[index].x,ip1[index].y);
         count++;
       }
-      math::FLANNTree<float> tree1( locations1 );
+      math::FLANNTree<float> tree1;
+      tree1.load_match_data( locations1, vw::math::FLANN_DistType_L2);
 
       std::pair<double,size_t> worse_index;
       worse_index.first = 0;
       for ( size_t i = 0; i < valid_indices.size(); i++ ) {
-        Vector<int>   indices;
-        Vector<float> distance;
+        Vector<int   > indices;
+        Vector<double> distance;
         const int NUM_INDICES_TO_GET = 11;
         tree1.knn_search( select_row( locations1, i ),
                           indices, distance, NUM_INDICES_TO_GET );

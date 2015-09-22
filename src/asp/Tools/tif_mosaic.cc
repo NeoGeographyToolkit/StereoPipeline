@@ -23,11 +23,12 @@
 #include <vw/Cartography.h>
 #include <vw/Math.h>
 #include <vw/FileIO/DiskImageUtils.h>
-using namespace vw;
 
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/InterestPointMatching.h>
+
+using namespace vw;
 namespace po = boost::program_options;
 
 #include <limits>
