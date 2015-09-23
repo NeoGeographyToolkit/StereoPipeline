@@ -38,7 +38,6 @@ using namespace vw::gui;
 using namespace std;
 
 namespace vw { namespace gui {
-
   // --------------------------------------------------------------
   //               MainWidget Public Methods
   // --------------------------------------------------------------
@@ -377,7 +376,11 @@ namespace vw { namespace gui {
 
       // Save the hillshaded images to disk
       std::string hillshaded_file;
-      write_hillshade(m_opt, input_file, hillshaded_file);
+      bool success = write_hillshade(m_opt, input_file, hillshaded_file);
+      if (!success) {
+	m_hillshade_mode = false;
+	return;
+      }
 
       m_hillshaded_images[image_iter].read(hillshaded_file, m_opt, m_use_georef);
       temporary_files().files.insert(hillshaded_file);
