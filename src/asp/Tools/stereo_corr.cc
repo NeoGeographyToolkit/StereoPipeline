@@ -164,8 +164,7 @@ void lowres_correlation( Options & opt ) {
       // If there is no match file for the input images, gather some IP from the
       // low resolution images. This routine should only run for:
       //   Pinhole + Epipolar
-      //   Pinhole + None
-      //   DG + None
+      //   Alignment method none
       // Everything else should gather IP's all the time.
       double sub_scale =
         sum(elem_quot( Vector2(file_image_size( opt.out_prefix+"-L_sub.tif" )),

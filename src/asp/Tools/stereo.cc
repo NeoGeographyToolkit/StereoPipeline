@@ -698,159 +698,36 @@ namespace asp {
       ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
 
     // Building / Loading Interest point data
-    if (fs::exists(match_filename) && !crop_left_and_right) {
-      vw_out() << "\t    * Using cached match file: " << match_filename << "\n";
-      ip::read_binary_match_file(match_filename, matched_ip1, matched_ip2);
-    } else {
+    if (!fs::exists(match_filename) || crop_left_and_right) {
 
-      vector<ip::InterestPoint> ip1_copy, ip2_copy;
+      // No interest point operations have been performed before
+      vw_out() << "\t    * Locating Interest Points\n";
 
-      if ( crop_left_and_right || !fs::exists(left_ip_file) || !fs::exists(right_ip_file) ) {
+      boost::shared_ptr<DiskImageResource>
+        left_rsrc (DiskImageResource::open(left_sub_file )),
+        right_rsrc(DiskImageResource::open(right_sub_file));
 
-        // Worst case, no interest point operations have been performed before
-        vw_out() << "\t    * Locating Interest Points\n";
+      // Read the no-data values written to disk previously when
+      // the normalized left and right sub-images were created.
+      float left_nodata_value  = numeric_limits<float>::quiet_NaN();
+      float right_nodata_value = numeric_limits<float>::quiet_NaN();
+      if (left_rsrc->has_nodata_read ()) left_nodata_value  = left_rsrc->nodata_read();
+      if (right_rsrc->has_nodata_read()) right_nodata_value = right_rsrc->nodata_read();
 
-        boost::shared_ptr<DiskImageResource>
-          left_rsrc (DiskImageResource::open(left_sub_file )),
-          right_rsrc(DiskImageResource::open(right_sub_file));
+      DiskImageView<PixelT> left_sub_image (left_rsrc );
+      DiskImageView<PixelT> right_sub_image(right_rsrc);
 
-        // Read the no-data values written to disk previously when
-        // the normalized left and right sub-images were created.
-        float left_nodata_value  = numeric_limits<float>::quiet_NaN();
-        float right_nodata_value = numeric_limits<float>::quiet_NaN();
-        if (left_rsrc->has_nodata_read ()) left_nodata_value  = left_rsrc->nodata_read();
-        if (right_rsrc->has_nodata_read()) right_nodata_value = right_rsrc->nodata_read();
-
-        DiskImageView<PixelT> left_sub_image (left_rsrc );
-        DiskImageView<PixelT> right_sub_image(right_rsrc);
-        // Interest Point module detector code.
-        float ipgain = 0.07;
-        list<ip::InterestPoint> ip1, ip2;
-        vw_out() << "\t    * Processing for Interest Points.\n";
-        while (ip1.size() < 1500 || ip2.size() < 1500) {
-          ip1.clear();
-          ip2.clear();
-
-          ip::OBALoGInterestOperator interest_operator(ipgain);
-          ip::IntegralInterestPointDetector<ip::OBALoGInterestOperator> detector(interest_operator, 0);
-
-          if (boost::math::isnan(left_nodata_value))
-            ip1 = detect_interest_points(left_sub_image, detector);
-          else
-            ip1 = detect_interest_points(apply_mask(create_mask_less_or_equal(left_sub_image,left_nodata_value)), detector);
-
-          if (boost::math::isnan(right_nodata_value))
-            ip2 = detect_interest_points(right_sub_image, detector);
-          else
-            ip2 = detect_interest_points(apply_mask(create_mask_less_or_equal(right_sub_image,right_nodata_value)), detector);
-
-          if (!boost::math::isnan(left_nodata_value))
-            remove_ip_near_nodata( left_sub_image, left_nodata_value, ip1);
-
-          if (!boost::math::isnan(right_nodata_value))
-            remove_ip_near_nodata(right_sub_image, right_nodata_value, ip2);
-
-          ipgain *= 0.75;
-          if (ipgain < 1e-2) {
-            vw_out() << "\t    * Unable to find desirable amount of Interest Points.\n";
-            break;
-          }
-        }
-
-        if (ip1.size() < 8 || ip2.size() < 8)
-          vw_throw( InputErr() << "Unable to extract interest points from input images ["
-                    << left_sub_file << "," << right_sub_file << "]! Unable to continue." );
-
-        // Making sure we don't exceed 3000 points
-        if (ip1.size() > 3000) {
-          ip1.sort(); ip1.resize(3000);
-        }
-        if (ip2.size() > 3000) {
-          ip2.sort(); ip2.resize(3000);
-        }
-
-        // Stripping out orientation. This allows for a better
-        // possibility of interest point matches.
-        //
-        // This is no loss as images at this point are already aligned
-        // since the dense correlator is not rotation-invariant.
-        BOOST_FOREACH(ip::InterestPoint& ip, ip1) ip.orientation = 0;
-        BOOST_FOREACH(ip::InterestPoint& ip, ip2) ip.orientation = 0;
-
-        vw_out() << "\t    * Building descriptors..." << flush;
-        ip::SGradDescriptorGenerator descriptor;
-        if (boost::math::isnan(left_nodata_value))
-          describe_interest_points(left_sub_image, descriptor, ip1);
-        else
-          describe_interest_points(apply_mask(create_mask_less_or_equal(left_sub_image,left_nodata_value)), descriptor, ip1);
-        if (boost::math::isnan(right_nodata_value))
-          describe_interest_points(right_sub_image, descriptor, ip2);
-        else
-          describe_interest_points(apply_mask(create_mask_less_or_equal(right_sub_image,right_nodata_value)), descriptor, ip2);
-
-        vw_out() << "done.\n";
-
-        // Writing out the results
-        vw_out() << "\t    * Caching interest points: " << left_ip_file << " & " << right_ip_file << endl;
-        ip::write_binary_ip_file(left_ip_file,  ip1);
-        ip::write_binary_ip_file(right_ip_file, ip2);
-
-      }
-
-      vw_out() << "\t    * Using cached IPs.\n";
-      ip1_copy = ip::read_binary_ip_file(left_ip_file );
-      ip2_copy = ip::read_binary_ip_file(right_ip_file);
-
-      vw_out() << "\t    * Matching interest points\n";
-      ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(0.6);
-
-      matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2,
-              TerminalProgressCallback("asp", "\t    Matching: "));
-      vw_out(InfoMessage) << "\t    " << matched_ip1.size() << " putative matches.\n";
-
-      vw_out() << "\t    * Rejecting outliers using RANSAC.\n";
-      ip::remove_duplicates(matched_ip1, matched_ip2);
-      vector<Vector3> ransac_ip1 = ip::iplist_to_vectorlist(matched_ip1),
-                      ransac_ip2 = ip::iplist_to_vectorlist(matched_ip2);
-      vector<size_t> indices;
-
-      try {
-        // Figure out the inlier threshold .. it should be about 3% of
-        // the edge lengths. This is a bit of a magic number, but I'm
-        // pulling from experience that an inlier threshold of 30
-        // worked best for 1024^2 AMC imagery.
-        float inlier_threshold =
-          0.0075 * (sum(file_image_size(left_sub_file )) +
-                    sum(file_image_size(right_sub_file)) );
-
-        math::RandomSampleConsensus<math::HomographyFittingFunctor,math::InterestPointErrorMetric>
-          ransac(math::HomographyFittingFunctor(), math::InterestPointErrorMetric(), 100, inlier_threshold, ransac_ip1.size()/2, true);
-        Matrix<double> trans = ransac(ransac_ip1, ransac_ip2);
-        vw_out(DebugMessage,"asp") << "\t    * Ransac Result: " << trans << endl;
-        vw_out(DebugMessage,"asp") << "\t      inlier thresh: "
-                                   << inlier_threshold << " px" << endl;
-        indices = ransac.inlier_indices(trans, ransac_ip1, ransac_ip2);
-      } catch (vw::math::RANSACErr const& e) {
-        vw_out() << "-------------------------------WARNING---------------------------------\n";
-        vw_out() << "\t    RANSAC failed! Unable to auto detect search range.\n\n";
-        vw_out() << "\t    Please proceed cautiously!\n";
-        vw_out() << "-------------------------------WARNING---------------------------------\n";
-        return BBox2i(-10,-10,20,20);
-      }
-
-      { // Keeping only inliers
-        vector<ip::InterestPoint> inlier_ip1, inlier_ip2;
-        for (size_t i = 0; i < indices.size(); i++) {
-          inlier_ip1.push_back(matched_ip1[indices[i]]);
-          inlier_ip2.push_back(matched_ip2[indices[i]]);
-        }
-        matched_ip1 = inlier_ip1;
-        matched_ip2 = inlier_ip2;
-      }
-
-      vw_out() << "\t    * Caching matches: " << match_filename << "\n";
-      write_binary_match_file( match_filename, matched_ip1, matched_ip2);
+      // This will write match_filename to disk.
+      bool success = asp::homography_ip_matching(left_sub_image, right_sub_image,
+                                                 stereo_settings().ip_per_tile,
+                                                 match_filename,
+                                                 left_nodata_value, right_nodata_value);
+      if (!success)
+        vw_throw(ArgumentErr() << "Could not find interest points.\n");
     }
+
+    vw_out() << "\t    * Using cached match file: " << match_filename << "\n";
+    ip::read_binary_match_file(match_filename, matched_ip1, matched_ip2);
 
     // Find search window based on interest point matches
     namespace ba = boost::accumulators;

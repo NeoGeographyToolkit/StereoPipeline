@@ -587,6 +587,7 @@ namespace asp {
       final_ip2.push_back(matched_ip2[index]);
     }
 
+    vw_out() << "\t    * Writing match file: " << output_name << "\n";
     ip::write_binary_match_file(output_name, final_ip1, final_ip2);
     return true;
   }
@@ -618,7 +619,7 @@ namespace asp {
     // Detect interest points
     ip::InterestPointList ip1, ip2;
     detect_ip( ip1, ip2, image1.impl(), image2.impl(),
-               ip_per_tile, 
+               ip_per_tile,
                nodata1, nodata2 );
     if ( ip1.size() == 0 || ip2.size() == 0 ){
       vw_out() << "Unable to detect interest points." << std::endl;
@@ -723,7 +724,7 @@ namespace asp {
     }
     matched_ip2 = buffer;
 
-    vw_out() << "Writing: " << output_name << std::endl;
+    vw_out() << "\t    * Writing match file: " << output_name << "\n";
     ip::write_binary_match_file( output_name, matched_ip1, matched_ip2 );
 
     //// DEBUG - Draw out the point matches pre-geometric filtering

@@ -186,7 +186,7 @@ namespace asp {
         } // End loop for match prunining
 
         // If we only found one match or the first descriptor match is much better than the second
-        if ( ( (kept_indices.size() > 2) && (kept_indices[0].first < m_matcher.m_threshold * kept_indices[1].first) ) 
+        if ( ( (kept_indices.size() > 2) && (kept_indices[0].first < m_matcher.m_threshold * kept_indices[1].first) )
               || (kept_indices.size() == 1) ){
           *m_output++ = kept_indices[0].second; // Return the first of the matches we found
           //vw_out() << "Kept distance: " << kept_indices[0].first << std::endl;
@@ -290,12 +290,18 @@ namespace asp {
     // Sanity checks. If these fail, most likely the two images are too different
     // for stereo to succeed.
     if ( indices.size() < std::min( right_points.size(), left_points.size() )/2 ){
-      vw_throw( ArgumentErr() << "InterestPointMatching: The number of inliers is less than 1/2 of the number of points. Invalid stereo pair.\n" );
+      vw_out(WarningMessage)
+	<< "InterestPointMatching: The number of inliers is less "
+	<< "than 1/2 of the number of points. The inputs may be invalid.\n";
     }
 
     double det = fabs(H(0, 0)*H(1, 1) - H(0, 1)*H(1, 0));
     if (det <= 0.1 || det >= 10.0){
-      vw_throw( ArgumentErr() << "InterestPointMatching: The determinant of the 2x2 submatrix of the homography matrix " << H << " is too small or too large. Invalid stereo pair.\n" );
+      vw_out(WarningMessage)
+	<< "InterestPointMatching: The determinant of the 2x2 submatrix "
+	<< "of the homography matrix " << H << " is " << det
+	<< ". There could be a large scale discrepancy among the input images "
+	<< "or the inputs may be an invalid stereo pair.\n";
     }
 
   }

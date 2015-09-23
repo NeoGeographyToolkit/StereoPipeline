@@ -189,7 +189,8 @@ def calc_lowres_disp(args, opt, sep):
     else:
         tmp_args = args[:] # deep copy
         tmp_args.extend(['--compute-low-res-disparity-only'])
-        run_and_parse_output('stereo_corr', tmp_args, sep, opt.verbose)
+        # invoke here stereo_run to be able to see the output on screen
+        stereo_run('stereo_corr', tmp_args, opt, msg='')
 
     # See if to attach a georef to D_sub and D_sub_spread.
     tmp_args = args[:]

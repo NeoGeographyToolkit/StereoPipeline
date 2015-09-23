@@ -235,6 +235,14 @@ At this stage we can run the stereo program with map-projected images:
             -s stereo.default.example results/output
 \end{verbatim}
 
+Here we have used \texttt{alignment-method none} since
+\texttt{cam2map4stereo.py} brought the two images into the same
+perspective and using the same resolution. If you invoke
+\texttt{cam2map} independently on the two images, without
+\texttt{matchmap=true}, their resolutions may differ, and using an
+alignment method rather than \texttt{none} to correct for that is still
+necessary.
+
 Now you may skip to chapter \ref{nextsteps} which will discuss the
 \texttt{stereo} program in more detail and the other tools in ASP.
 
@@ -886,9 +894,10 @@ section \ref{mapproject}.
 
 In the \texttt{stereo} command, we have used \texttt{subpixel-mode 1}
 which is less accurate but reasonably fast. We have also used
-\texttt{alignment-method none}, since the images are map-projected, and
-thus no alignment is necessary. More details about how to set these and
-other \texttt{stereo} parameters can be found in section
+\texttt{alignment-method none}, since the images are map-projected onto
+the same terrain with the same resolution, thus no additional alignment
+is necessary. More details about how to set these and other
+\texttt{stereo} parameters can be found in section
 \ref{settingoptionsinstereodefault}.
 
 It is important to note here that any Digital Globe camera file has two
