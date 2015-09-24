@@ -86,7 +86,8 @@ namespace vw { namespace gui {
   // Pop-up a window with given message
   void popUp(std::string msg);
 
-  bool getStringFromGui(std::string title, std::string description,
+  bool getStringFromGui(QWidget * parent,
+			std::string title, std::string description,
 			std::string inputStr,
 			std::string & outputStr);
 
