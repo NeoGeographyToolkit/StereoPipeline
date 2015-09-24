@@ -17,7 +17,7 @@
 
 
 #include <asp/GUI/TileGenerator.h>
-#include <asp/GUI/ImageTileGenerator.h>
+#include <asp/GUI/ImageTileGenerator.h> // This contains a derived class of TileGenerator!
 
 #include <vw/Core/Debugging.h>
 #include <boost/filesystem/convenience.hpp>
@@ -100,6 +100,8 @@ boost::shared_ptr<TileGenerator> TileGenerator::create(std::string filename_) {
 
   typedef boost::shared_ptr<TileGenerator> TileGenPtr;
 
+// TODO: Plate is deprecated, not sure we need this code.
+
 #if HAVE_PKG_PLATE
   // Remove trailing /
   boost::trim_right_if(filename_, boost::is_any_of("/"));
@@ -126,6 +128,7 @@ boost::shared_ptr<TileGenerator> TileGenerator::create(std::string filename_) {
   }
 #else
   try {
+    // Creat an instance of the derived class
     return TileGenPtr( new ImageTileGenerator(filename_) );
   } catch (const vw::Exception& e) {
     std::cerr << "Could not open " << filename_ << ":\n\t" << e.what() << std::endl;

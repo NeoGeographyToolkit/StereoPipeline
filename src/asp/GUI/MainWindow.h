@@ -46,6 +46,7 @@ namespace vw { namespace gui {
   class MainWidget;
   class chooseFilesDlg;
 
+  /// This class handles the menues at the top bar and other application level details.
   class MainWindow : public QMainWindow {
     Q_OBJECT
 
@@ -99,12 +100,12 @@ namespace vw { namespace gui {
                           std::string & outputStr // output
                           );
 
-    asp::BaseOptions m_opt;
-    std::vector<std::string> m_images;
-    std::string m_output_prefix;
-    double           m_widRatio;    // ratio of sidebar to entire win wid
+    asp::BaseOptions          m_opt;
+    std::vector<std::string>  m_images;
+    std::string               m_output_prefix;
+    double                    m_widRatio;    // ratio of sidebar to entire win wid
     std::vector<MainWidget*>  m_widgets;
-    chooseFilesDlg * m_chooseFiles; // left sidebar for selecting files
+    chooseFilesDlg *          m_chooseFiles; // left sidebar for selecting files
 
     QMenu *m_file_menu;
     QMenu *m_view_menu;
@@ -130,14 +131,15 @@ namespace vw { namespace gui {
     QAction *m_run_parallel_stereo_action;
     QAction *m_exit_action;
 
-    ViewType m_view_type, m_view_type_old;
-    int m_grid_cols;
-
-    bool m_use_georef, m_hillshade, m_delete_temporary_files_on_exit;
-
-    int m_argc;
-    char ** m_argv;
-    bool m_matches_were_loaded;
+    ViewType m_view_type,
+             m_view_type_old;
+    int      m_grid_cols;
+    bool     m_use_georef, 
+             m_hillshade, 
+             m_delete_temporary_files_on_exit;
+    int      m_argc;
+    char **  m_argv;
+    bool     m_matches_were_loaded;
     std::vector<std::vector<vw::ip::InterestPoint> > m_matches;
    };
 

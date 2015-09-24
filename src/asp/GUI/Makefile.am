@@ -26,18 +26,22 @@ if MAKE_MODULE_GUI
 CLEANFILES = *.moc.cc
 
 include_HEADERS =               \
+  GuiUtilities.h                \
   MainWidget.h                  \
   ImageTileGenerator.h          \
   MainWindow.h                  \
   TileGenerator.h               \
-  Tree.h
+  Tree.h                        \
+  Tree.tcc
 
 BUILT_SOURCES =                 \
+  GuiUtilities.moc.cc           \
   MainWidget.moc.cc             \
   MainWindow.moc.cc
 
 libaspGUI_la_SOURCES =          \
   $(BUILT_SOURCES)              \
+  GuiUtilities.cc               \
   MainWidget.cc                 \
   ImageTileGenerator.cc         \
   MainWindow.cc                 \

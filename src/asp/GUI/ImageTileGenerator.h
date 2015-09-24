@@ -24,23 +24,38 @@
 namespace vw {
 namespace gui {
 
+  /// Wraps an image on disk and provides acces to tiles from a 
+  /// 2x downsample image image pyramid of it.
   class ImageTileGenerator : public TileGenerator {
-    boost::shared_ptr<SrcImageResource> m_rsrc;
+    /// This points to a DiskImageResource for the input image file.
+    boost::shared_ptr<SrcImageResource> m_rsrc; 
 
   public:
+    /// Init with any type of ASP supported image file.
     ImageTileGenerator(std::string filename);
     virtual ~ImageTileGenerator() {}
+    
+    /// Read a single pixel from disk at the specified location.
     virtual PixelRGBA<float> sample(int x, int y, int level, int transaction_id);
 
+    /// Generate the specified image from the disk resource.
     virtual boost::shared_ptr<SrcImageResource> generate_tile(TileLocator const& tile_info);
+    
+    /// TODO: Does nothing!!!!
     virtual Vector2 minmax();
 
+    // These describe the image on disk
     virtual int cols() const;
-    virtual int rows() const;
+    virtual int rows() const;   
     virtual PixelFormatEnum pixel_format() const;
     virtual ChannelTypeEnum channel_type() const;
-    virtual Vector2i tile_size() const;
-    virtual int32 num_levels() const;
+    
+    /// Return the block read size of the disk resource
+    virtual Vector2i tile_size() const; 
+    
+    /// Return number of pyramid levels needed to represent the image 
+    ///  with a 2x downsample image pyramid.
+    virtual int32 num_levels() const; 
   };
 
 

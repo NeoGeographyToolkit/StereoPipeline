@@ -29,15 +29,23 @@ ImageTileGenerator::ImageTileGenerator(std::string filename) :
 }
 
 
-// This little template makes the code below much cleaner.
+/// Load, downsample, and float cast a base resolution tile bbox from disk.
+/// - The bbox is specified at max resolution, but the output image is the
+///   same region at a lower resolution according to the input level info.
+/// - Helper function for the generate_tile function below.
 template <class PixelT>
 boost::shared_ptr<SrcImageResource> do_image_tilegen(boost::shared_ptr<SrcImageResource> rsrc,
                                                       BBox2i tile_bbox,
                                                       int level, int num_levels) {
+  // Create a new image buffer of the bbox size
   ImageView<PixelT> tile(tile_bbox.width(), tile_bbox.height());
+  // Read data from the disk into it.
   rsrc->read(tile.buffer(), tile_bbox);
+  // Make another image view containing the appropriately subsampled tile
+  //  and also cast it to float.
   ImageView<typename CompoundChannelCast<PixelT,float>::type> reduced_tile =
     channel_cast<float>(subsample(tile, (1 << ((num_levels-1) - level))));
+  // Wrap the ImageView object as a VW resource type.
   return boost::shared_ptr<SrcImageResource>( new ViewImageResource(reduced_tile) );
 }
 
@@ -46,6 +54,7 @@ boost::shared_ptr<SrcImageResource> ImageTileGenerator::generate_tile(TileLocato
   // Compute the bounding box of the image and the tile that is being
   // requested.  The bounding box of the tile depends on the pyramid
   // level we are looking at.
+  // - The bounding box is computed for the max resolution (ie disk) level
   BBox2i image_bbox(0,0,m_rsrc->cols(),m_rsrc->rows());
   BBox2i tile_bbox = tile_to_bbox(this->tile_size(), tile_info.col,
                                   tile_info.row, tile_info.level, this->num_levels()-1);
@@ -61,6 +70,8 @@ boost::shared_ptr<SrcImageResource> ImageTileGenerator::generate_tile(TileLocato
   // by cropping the tile to the image dimensions.
   tile_bbox.crop(image_bbox);
 
+  /// Load the requested image area downsampled to the specified tile level, and
+  ///  also converted from the disk type to float.
   switch (this->pixel_format()) {
   case VW_PIXEL_GRAY:
     if (this->channel_type() == VW_CHANNEL_UINT8) {
@@ -76,11 +87,11 @@ boost::shared_ptr<SrcImageResource> ImageTileGenerator::generate_tile(TileLocato
       return do_image_tilegen<PixelGray<float> >(m_rsrc, tile_bbox,
                                                   tile_info.level, this->num_levels());
     } else {
-      std::cout << "This platefile has a channel type that is not yet support by stereo_gui.\n";
+      std::cout << "This image has a channel type that is not yet support by stereo_gui.\n";
       std::cout << "Exiting...\n\n";
       exit(0);
   }
-  break;
+  break; // Done with VW_PIXEL_GRAY image
 
   case VW_PIXEL_GRAYA:
     if (this->channel_type() == VW_CHANNEL_UINT8) {
@@ -101,7 +112,7 @@ boost::shared_ptr<SrcImageResource> ImageTileGenerator::generate_tile(TileLocato
       exit(0);
     }
 
-    break;
+    break; // Done with VW_PIXEL_GRAYA image
 
   case VW_PIXEL_RGB:
     if (this->channel_type() == VW_CHANNEL_UINT8) {
@@ -122,7 +133,7 @@ boost::shared_ptr<SrcImageResource> ImageTileGenerator::generate_tile(TileLocato
       exit(0);
     }
 
-    break;
+    break; // Done with VW_PIXEL_RGB image
 
   case VW_PIXEL_RGBA:
     if (this->channel_type() == VW_CHANNEL_UINT8) {
@@ -140,8 +151,7 @@ boost::shared_ptr<SrcImageResource> ImageTileGenerator::generate_tile(TileLocato
       std::cout << "Exiting...\n\n";
       exit(0);
     }
-
-    break;
+    break; // Done with VW_PIXEL_RGBA image
 
   default:
     std::cout << "This image has a pixel format that is not yet support by stereo_gui.\n";
