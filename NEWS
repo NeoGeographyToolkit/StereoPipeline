@@ -33,6 +33,7 @@
       disparity, etc. As such, all these data can be overlayed in
       stereo_gui.
     * Bugfix for rpcmaprpc stereo.
+    * Increased reliability of interest point detection.
   
  - stereo_gui
    * Added the option --delete-temporary-files-on-exit to do precisely
@@ -45,6 +46,11 @@
 
  - image_calc
    * Fix calculation bug when no-data is present.
+
+ - pc_align
+   * Added the ability to compute a manual rotation + translation +
+     scale transform based on user-selected point correspondences from
+     reference to source cloud in stereo_gui.
 
  - geodiff
    * Bugfix when the two DEMs have longitudes offset by 360 degrees.

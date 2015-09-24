@@ -504,9 +504,7 @@ of a ground control point measurement:
 5 23.7 160.1 427.1 1.0 1.0 1.0 image1.tif 124.5 19.7 1.0 1.0 image2.tif 254.3 73.9 1.0 1.0
 \end{verbatim}
 
-%--------------------------------------------------------------------------
 %                           VISUALIZATION TOOLS
-%--------------------------------------------------------------------------
 
 \section{point2dem}
 \label{point2dem}
@@ -1573,6 +1571,25 @@ The convergence history for \texttt{pc\_align} (the translation and
 rotation change at each iteration) is saved to disk and can be used to
 fine-tune the stopping criteria.
 
+\subsection{Manual alignment}
+
+If automatic alignment fails, for example, if the clouds are too
+different, or they differ by a scale factor, manual alignment can be
+used instead, either on its own, or as an initial guess for the
+automatic alignment transform. For that, the input point clouds should
+be first converted to DEMs using \texttt{point2dem}, unless in that
+format already. Then, \texttt{stereo\_gui} can be used to create point
+correspondences (interest point matches) from the reference to the
+source DEM. Once these correspondences are saved to a match file,
+\texttt{pc\_align} can be invoked with the reference and source DEMs and
+the \texttt{-\/-match-file} option.  This will compute and save to disk
+a rotation + translation + scale transform.  A subsequent invocation of
+\texttt{pc\_align}, either with the original clouds or the DEM created
+from them, can use this transform as an initial guess via the
+\texttt{-\/initial-transform} option. If it is desired to use it as it
+is, without further adjusting it using ICP, one can specify
+\texttt{-\/-num-iterations 0}.
+
 \medskip
 
 \begin{longtable}{|p{8cm}|p{9cm}|}
@@ -1604,7 +1621,7 @@ Maximum number of (randomly picked) reference points to use. \\ \hline
 \texttt{-\/-alignment-method \textit{default: point-to-plane}} & The type of iterative closest point
 method to use. [point-to-plane, point-to-point]\\ \hline
 \texttt{-\/-highest-accuracy} & Compute with highest accuracy for point-to-plane (can be much slower). \\ \hline
-\texttt{-\/-no-dem-distances} & For reference point clouds that are DEMs, don't take advantage of the fact that it is possible to interpolate into this DEM when finding the closest distance to it from a point in the source cloud and hence the error metrics. \\ \hline
+
 \texttt{-\/-datum \textit{string}} & Use this datum for CSV files. Options: WGS\_1984, D\_MOON (1,737,400 meters), D\_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), and Moon (=D\_MOON). \\ \hline
 
 \texttt{-\/-semi-major-axis \textit{float}} & Explicitly set the datum semi-major axis in meters.\\ \hline
@@ -1630,7 +1647,10 @@ easting, northing, and height above datum. \\ \hline
 \texttt{-\/-save-transformed-source-points} & Apply the obtained transform to the source points so they match the reference points and save them. \\ \hline
 \texttt{ -\/-save-inv-transformed-reference-points} & Apply the inverse of the obtained transform to the reference points so they match the source points and save them.
 \\ \hline
-\texttt{--no-dem-distances} & For reference point clouds that are DEMs, don't take advantage of the fact that it is possible to interpolate into this DEM when finding the closest distance to it from a point in the source cloud (the text above has more detailed information). \\ \hline
+
+\texttt{-\/-no-dem-distances} & For reference point clouds that are DEMs, don't take advantage of the fact that it is possible to interpolate into this DEM when finding the closest distance to it from a point in the source cloud (the text above has more detailed information). \\ \hline
+
+\texttt{-\/-match-file} & Compute a translation + rotation + scale transform from the source to the reference point cloud using manually selected point correspondences (obtained for example using stereo\_gui). \\ \hline
 
 \texttt{-\/-config-file \textit{file.yaml}} & This is an advanced
 option. Read the alignment parameters from a configuration file, in the

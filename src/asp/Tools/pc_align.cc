@@ -57,6 +57,7 @@
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/PointUtils.h>
+#include <asp/Core/InterestPointMatching.h>
 #include <liblas/liblas.hpp>
 
 #include <limits>
@@ -94,14 +95,8 @@ namespace vw {
 /// Options container for the pc_align tool
 struct Options : public asp::BaseOptions {
   // Input
-  string reference,
-         source,
-         init_transform_file,
-         alignment_method,
-         config_file,
-         datum,
-         csv_format_str,
-         csv_proj4_str;
+  string reference, source, init_transform_file, alignment_method, config_file,
+    datum, csv_format_str, csv_proj4_str, match_file;
   PointMatcher<RealT>::Matrix init_transform;
   int    num_iter,
          max_num_reference_points,
@@ -161,18 +156,23 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                                  "Explicitly set the datum semi-major axis in meters.")
     ("semi-minor-axis",          po::value(&opt.semi_minor)->default_value(0),
                                  "Explicitly set the datum semi-minor axis in meters.")
-    ("config-file",              po::value(&opt.config_file)->default_value(""),
-                                 "This is an advanced option. Read the alignment parameters from a configuration file, in the format expected by libpointmatcher, over-riding the command-line options.")
     ("output-prefix,o",          po::value(&opt.out_prefix)->default_value("run/run"),
                                  "Specify the output prefix.")
     ("compute-translation-only", po::bool_switch(&opt.compute_translation_only)->default_value(false)->implicit_value(true),
                                  "Compute the transform from source to reference point cloud as a translation only (no rotation).")
-    ("no-dem-distances",         po::bool_switch(&opt.dont_use_dem_distances)->default_value(false)->implicit_value(true),
-                                 "For reference point clouds that are DEMs, don't take advantage of the fact that it is possible to interpolate into this DEM when finding the closest distance to it from a point in the source cloud and hence the error metrics.")
     ("save-transformed-source-points", po::bool_switch(&opt.save_trans_source)->default_value(false)->implicit_value(true),
                                   "Apply the obtained transform to the source points so they match the reference points and save them.")
     ("save-inv-transformed-reference-points", po::bool_switch(&opt.save_trans_ref)->default_value(false)->implicit_value(true),
-                                  "Apply the inverse of the obtained transform to the reference points so they match the source points and save them.");
+     "Apply the inverse of the obtained transform to the reference points so they match the source points and save them.")
+
+    ("no-dem-distances",         po::bool_switch(&opt.dont_use_dem_distances)->default_value(false)->implicit_value(true),
+                                 "For reference point clouds that are DEMs, don't take advantage of the fact that it is possible to interpolate into this DEM when finding the closest distance to it from a point in the source cloud and hence the error metrics.")
+
+    ("match-file", po::value(&opt.match_file)->default_value(""),
+     "Compute a translation + rotation + scale transform from the source to the reference point cloud using manually selected point correspondences (obtained for example using stereo_gui).")
+    ("config-file",              po::value(&opt.config_file)->default_value(""),
+     "This is an advanced option. Read the alignment parameters from a configuration file, in the format expected by libpointmatcher, over-riding the command-line options.");
+
   //("verbose", po::bool_switch(&opt.verbose)->default_value(false)->implicit_value(true),
   // "Print debug information");
 
@@ -200,6 +200,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   if ( opt.out_prefix.empty() )
     vw_throw( ArgumentErr() << "Missing output prefix.\n" << usage << general_options );
+
+  // There is no need to use max-displacement with custom tie points.
+  if (opt.match_file != "")
+    opt.max_disp = -1.0;
 
   if ( opt.max_disp == 0.0 )
     vw_throw( ArgumentErr() << "The max-displacement option was not set. Use -1 if it is desired not to use it.\n"
@@ -254,7 +258,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   }
 
 }
-
 
 /// Set up the datum, need it to read CSV files.
 void read_datum(Options& opt, asp::CsvConv& csv_conv, Datum& datum){
@@ -664,6 +667,99 @@ void filter_source_cloud(DP          const& ref_point_cloud,
     vw_out() << "Filtering gross outliers took " << sw.elapsed_seconds() << " [s]" << endl;
 }
 
+// Compute a manual transform based on tie points (interest point matches).
+void manual_transform(Options & opt){
+
+  if (get_file_type(opt.reference) != "DEM" ||
+      get_file_type(opt.source) != "DEM" )
+    vw_throw( ArgumentErr() << "The alignment transform computation based on manually chosen point matches only works for DEMs. Use point2dem to first create DEMs from the input point clouds.\n" );
+
+  vector<vw::ip::InterestPoint> ref_ip, source_ip;
+  vw_out() << "Reading match file: " << opt.match_file << "\n";
+  vw::ip::read_binary_match_file(opt.match_file, ref_ip, source_ip);
+
+  DiskImageView<float> ref(opt.reference);
+  vw::cartography::GeoReference ref_geo;
+  bool has_ref_geo = vw::cartography::read_georeference(ref_geo, opt.reference);
+  double ref_nodata = -std::numeric_limits<double>::max();
+  vw::read_nodata_val(opt.reference, ref_nodata);
+
+  DiskImageView<float> source(opt.source);
+  vw::cartography::GeoReference source_geo;
+  bool has_source_geo = vw::cartography::read_georeference(source_geo, opt.source);
+  double source_nodata = -std::numeric_limits<double>::max();
+  vw::read_nodata_val(opt.source, source_nodata);
+
+  if (!has_ref_geo || !has_source_geo)
+    vw_throw( ArgumentErr() << "One of the inputs is not a valid DEM.\n" );
+
+  if (DIM != 3)
+    vw_throw( ArgumentErr() << "Expecting DIM = 3.\n" );
+
+  // Go from pixels to 3D points
+  int num_matches = ref_ip.size();
+  Eigen::Matrix3Xd ref_mat(DIM, num_matches), source_mat(DIM, num_matches);
+  int count = 0;
+  for (int match_id = 0; match_id < num_matches; match_id++) {
+    int ref_x = ref_ip[match_id].x;
+    int ref_y = ref_ip[match_id].y;
+    if (ref_x < 0 || ref_x >= ref.cols()) continue;
+    if (ref_y < 0 || ref_y >= ref.rows()) continue;
+    double ref_h = ref(ref_x, ref_y);
+    // Check for no-data and NaN pixels
+    if (ref_h <= ref_nodata || ref_h != ref_h) continue;
+
+    int source_x = source_ip[match_id].x;
+    int source_y = source_ip[match_id].y;
+    if (source_x < 0 || source_x >= source.cols()) continue;
+    if (source_y < 0 || source_y >= source.rows()) continue;
+    double source_h = source(source_x, source_y);
+    // Check for no-data and NaN pixels
+    if (source_h <= source_nodata || source_h != source_h) continue;
+
+    Vector2 ref_ll = ref_geo.pixel_to_lonlat(Vector2(ref_x, ref_y));
+    Vector3 ref_xyz = ref_geo.datum()
+      .geodetic_to_cartesian(Vector3(ref_ll[0], ref_ll[1], ref_h));
+
+    Vector2 source_ll = source_geo.pixel_to_lonlat(Vector2(source_x, source_y));
+    Vector3 source_xyz = source_geo.datum()
+      .geodetic_to_cartesian(Vector3(source_ll[0], source_ll[1], source_h));
+
+    // Go from VW vectors to Eigen vectors
+    Eigen::Vector3d ref_vec, source_vec;
+    for (int col = 0; col < DIM; col++) {
+      ref_vec[col]    = ref_xyz[col];
+      source_vec[col] = source_xyz[col];
+    }
+
+    ref_mat.col(count)    = ref_vec;
+    source_mat.col(count) = source_vec;
+    count++;
+  }
+
+  if (count < 3)
+    vw_throw( ArgumentErr() << "Not enough valid matches were found.\n");
+
+  // Resize the matrix to keep only the valid points. Find the transform.
+  ref_mat.conservativeResize(Eigen::NoChange, count);
+  source_mat.conservativeResize(Eigen::NoChange, count);
+  Eigen::Affine3d trans = Find3DAffineTransform(source_mat, ref_mat);
+
+  // Convert to pc_align transform format.
+  PointMatcher<RealT>::Matrix globalT = Eigen::MatrixXd::Identity(DIM+1, DIM+1);
+  globalT.block(0, 0, DIM, DIM) = trans.linear();
+  globalT.block(0, DIM, DIM, 1) = trans.translation();
+
+  vw_out() << "Computed manual transform from source to reference:\n" << globalT << std::endl;
+
+  // Save the transform to disk
+  save_transforms(opt, globalT);
+
+  vw_out() << "The transform file can be passed back to "
+	   << "pc_align as an initial guess via --initial-transform. "
+	   << "To have pc_align not further refine this transform, invoke it with 0 iterations.\n";
+}
+
 int main( int argc, char *argv[] ) {
 
   // Mandatory line for Eigen
@@ -686,6 +782,11 @@ int main( int argc, char *argv[] ) {
 
     // Set user's csv_proj4_str if specified
     csv_conv.configure_georef(geo);
+
+    if (opt.match_file != "") {
+      manual_transform(opt);
+      return 0;
+    }
 
     // We will use ref_box to bound the source points, and vice-versa.
     // Decide how many samples to pick to estimate these boxes.
