@@ -95,11 +95,6 @@ namespace vw { namespace gui {
     void resizeEvent(QResizeEvent *);
     void closeEvent (QCloseEvent *);
 
-    bool getStringFromGui(std::string title, std::string description,
-                          std::string inputStr,
-                          std::string & outputStr // output
-                          );
-
     asp::BaseOptions          m_opt;
     std::vector<std::string>  m_images;
     std::string               m_output_prefix;
@@ -134,8 +129,8 @@ namespace vw { namespace gui {
     ViewType m_view_type,
              m_view_type_old;
     int      m_grid_cols;
-    bool     m_use_georef, 
-             m_hillshade, 
+    bool     m_use_georef,
+             m_hillshade,
              m_delete_temporary_files_on_exit;
     int      m_argc;
     char **  m_argv;

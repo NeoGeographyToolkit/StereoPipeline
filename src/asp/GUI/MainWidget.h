@@ -69,6 +69,8 @@ class QMenu;
 namespace vw { namespace gui {
 
   namespace fs = boost::filesystem;
+
+   /// This class handles user interaction with the image displays.
   class MainWidget : public QWidget {
     Q_OBJECT
 
@@ -106,7 +108,7 @@ namespace vw { namespace gui {
     void viewUnthreshImages();
     void viewThreshImages();
     void viewHillshadedImages(bool hillshade_mode);
-    
+
     void addMatchPoint();    ///< Add a new interest point (from right click menu)
     void deleteMatchPoint(); ///< Delete an interest point (from right click menu)
 
@@ -214,7 +216,7 @@ namespace vw { namespace gui {
     BBox2       world2image(BBox2 const& R, int imageIndex);
     BBox2       image2world(BBox2 const& R, int imageIndex);
     vw::BBox2   expand_box_to_keep_aspect_ratio(vw::BBox2 const& box);
-    
+
     void updateCurrentMousePosition();
     void updateRubberBand(QRect & R);
     void refreshPixmap();

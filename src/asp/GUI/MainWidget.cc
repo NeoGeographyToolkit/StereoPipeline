@@ -38,6 +38,7 @@ using namespace vw::gui;
 using namespace std;
 
 namespace vw { namespace gui {
+
   // --------------------------------------------------------------
   //               MainWidget Public Methods
   // --------------------------------------------------------------
@@ -1171,6 +1172,11 @@ namespace vw { namespace gui {
   void MainWidget::deleteMatchPoint(){
 
     if (!supplyOutputPrefixIfNeeded(this, m_output_prefix)) return;
+
+    if (m_matches.empty() || m_matches[0].empty()){
+      popUp("No matches to delete.");
+      return;
+    }
 
     // Sanity checks
     for (int i = 0; i < int(m_matches.size()); i++) {

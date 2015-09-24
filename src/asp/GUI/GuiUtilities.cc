@@ -114,10 +114,42 @@ void popUp(std::string msg){
   return;
 }
 
+bool getStringFromGui(QWidget * parent,
+		      std::string title, std::string description,
+		      std::string inputStr,
+		      std::string & outputStr){ // output
+  outputStr = "";
+
+  bool ok = false;
+  QString text = QInputDialog::getText(parent, title.c_str(), description.c_str(),
+				       QLineEdit::Normal, inputStr.c_str(),
+				       &ok);
+
+  if (ok) outputStr = text.toStdString();
+
+  return ok;
+}
+
+bool supplyOutputPrefixIfNeeded(QWidget * parent, std::string & output_prefix){
+
+  if (output_prefix != "") return true;
+
+  bool ans = getStringFromGui(parent,
+			      "Enter the output prefix to use for the interest point match file.",
+			      "Enter the output prefix to use for the interest point match file.",
+			      "",
+				output_prefix);
+
+  if (ans)
+    vw::create_out_dir(output_prefix);
+
+  return ans;
+}
+
 std::string fileDialog(std::string title, std::string start_folder){
 
   std::string fileName = QFileDialog::getOpenFileName(0,
-                                      title.c_str(), 
+                                      title.c_str(),
                                       start_folder.c_str()).toStdString();
 
   return fileName;
@@ -131,7 +163,7 @@ QRect bbox2qrect(BBox2 const& B){
                round(B.width()), round(B.height()));
 }
 
-void write_hillshade(asp::BaseOptions const& opt,
+bool write_hillshade(asp::BaseOptions const& opt,
                      std::string const& input_file,
                      std::string & output_file) {
 
@@ -140,7 +172,7 @@ void write_hillshade(asp::BaseOptions const& opt,
   bool has_georef = vw::cartography::read_georeference(georef, input_file);
   if (!has_georef) {
     popUp("No georeference present in: " + input_file + ".");
-    vw_throw(ArgumentErr() << "Missing georeference.\n");
+    return false;
   }
 
   // TODO: Expose these to the user
@@ -179,8 +211,10 @@ void write_hillshade(asp::BaseOptions const& opt,
     }
   } catch ( const Exception& e ) {
     popUp(e.what());
-    return;
-  }                    
+    return false;
+  }
+
+  return true;
 }
 
 Vector2 point_to_pixel(Vector2 const& proj_pt2,

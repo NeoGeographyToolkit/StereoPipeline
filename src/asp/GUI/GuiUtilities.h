@@ -86,6 +86,12 @@ namespace vw { namespace gui {
   // Pop-up a window with given message
   void popUp(std::string msg);
 
+  bool getStringFromGui(std::string title, std::string description,
+			std::string inputStr,
+			std::string & outputStr);
+
+  bool supplyOutputPrefixIfNeeded(QWidget * parent, std::string & output_prefix);
+
   /// Pop-up a window to have the user select a file
   std::string fileDialog(std::string title, std::string start_folder="");
 
@@ -138,7 +144,7 @@ namespace vw { namespace gui {
   typename boost::enable_if<boost::mpl::or_< boost::is_same<PixelT,double>, boost::is_same<PixelT,vw::uint8> >, void >::type
   formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
              ImageView<PixelT> const& clip,
-             QImage & qimg);          
+             QImage & qimg);
   template<class PixelT>
   typename boost::disable_if<boost::mpl::or_< boost::is_same<PixelT,double>, boost::is_same<PixelT,vw::uint8> >, void >::type
   formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
@@ -151,7 +157,7 @@ namespace vw { namespace gui {
 
   QRect bbox2qrect(BBox2 const& B);
 
-  void write_hillshade(asp::BaseOptions const& opt,
+  bool write_hillshade(asp::BaseOptions const& opt,
                        std::string const& input_file,
                        std::string & output_file);
 
@@ -205,7 +211,7 @@ namespace vw { namespace gui {
                                         vw::cartography::GeoReference const & georef,
                                         bool has_nodata,
                                         double nodata_val);
-                                        
+
   /// If output_file exists, is not older than input_file,
   /// and has given numbers of rows and columns, don't overwrite it.
   bool overwrite_if_no_good(std::string const& input_file,
@@ -267,7 +273,7 @@ namespace vw { namespace gui {
     // The subsample factor to go to the next level of the pyramid (must be >= 2).
     int m_subsample;
 
-    // The maxiumum number of pixels in the coarsest level of the pyramid 
+    // The maxiumum number of pixels in the coarsest level of the pyramid
     // (keep on downsampling until getting to this number or under it).
     int m_top_image_max_pix;
 
@@ -309,7 +315,7 @@ namespace vw { namespace gui {
     void getImageClip(double scale_in, vw::BBox2i region_in,
                       bool highlight_nodata,
                       QImage & qimg, double & scale_out, vw::BBox2i & region_out);
-                      
+
     int32 cols  () const { return m_cols;  }
     int32 rows  () const { return m_rows;  }
     int32 planes() const { return m_num_channels; }
@@ -329,7 +335,7 @@ namespace vw { namespace gui {
     BBox2            lonlat_bbox;
     DiskImagePyramidMultiChannel img;
     double m_lon_offset; // to compensate for -90 deg equalling 270 deg
-    
+
     void read(std::string const& image, asp::BaseOptions const& opt, bool use_georef);
   };
 

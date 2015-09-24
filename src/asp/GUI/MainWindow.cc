@@ -40,6 +40,7 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 namespace vw { namespace gui {
+
   void rm_option_and_vals(int argc, char ** argv, std::string const& opt, int num_vals){
     // Wipe say --left-image-crop-win 0 0 100 100, that is, an option
     // with 4 values.
@@ -410,7 +411,7 @@ void MainWindow::viewMatches(){
 
         // Look for the match file in the default location, and if it does not appear prompt the user or a path.
         try {
-          ip::read_binary_match_file( match_filename, m_matches[i], m_matches[j]);        
+          ip::read_binary_match_file( match_filename, m_matches[i], m_matches[j]);
         }catch(...){
           try {
             match_filename = fileDialog("Manually select the match file...", m_output_prefix);
