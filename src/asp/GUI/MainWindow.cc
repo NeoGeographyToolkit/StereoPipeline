@@ -61,7 +61,7 @@ namespace vw { namespace gui {
 
 MainWindow::MainWindow(asp::BaseOptions const& opt,
                        std::vector<std::string> const& images,
-                       std::string const& output_prefix,
+                       std::string& output_prefix,
                        int grid_cols,
                        vw::Vector2i const& window_size,
                        bool single_window,
@@ -81,8 +81,6 @@ MainWindow::MainWindow(asp::BaseOptions const& opt,
   std::string window_title = "Stereo GUI";
   this->setWindowTitle(window_title.c_str());
 
-  // Set up the basic layout of the window and its menus.
-  createMenus();
 
   // Collect only the valid images
   m_images.clear();
@@ -114,6 +112,9 @@ MainWindow::MainWindow(asp::BaseOptions const& opt,
     m_view_type = VIEW_IN_SINGLE_WINDOW;
   }
   m_view_type_old = m_view_type;
+
+    // Set up the basic layout of the window and its menus.
+  createMenus();
 
   createLayout();
 }
@@ -245,7 +246,7 @@ void MainWindow::createMenus() {
   m_viewOverlayedImages_action = new QAction(tr("Overlay georeferenced images"), this);
   m_viewOverlayedImages_action->setStatusTip(tr("Overlay georeferenced images."));
   m_viewOverlayedImages_action->setCheckable(true);
-  m_viewOverlayedImages_action->setChecked(m_use_georef);
+  m_viewOverlayedImages_action->setChecked(m_use_georef && (m_view_type == VIEW_IN_SINGLE_WINDOW));
   connect(m_viewOverlayedImages_action, SIGNAL(triggered()), this, SLOT(viewOverlayedImages()));
 
   m_viewMatches_action = new QAction(tr("Show IP matches"), this);
@@ -369,7 +370,8 @@ void MainWindow::viewSideBySide(){
 void MainWindow::viewAsTiles(){
 
   std::string gridColsStr;
-  bool ans = getStringFromGui("Number of columns in the grid",
+  bool ans = getStringFromGui(this,
+			      "Number of columns in the grid",
                               "Number of columns in the grid",
                               "",
                               gridColsStr);
@@ -393,10 +395,7 @@ void MainWindow::viewMatches(){
   // We will load the matches just once, as we later will add/delete matches manually
   if (!m_matches_were_loaded && (!m_matches.empty()) && m_matches[0].empty()) {
 
-    //if (m_output_prefix == "" ) {
-      //popUp("Output prefix was not set. Cannot view matches.");
-      //return;
-    //}
+    if (!supplyOutputPrefixIfNeeded(this, m_output_prefix)) return;
 
     m_matches_were_loaded = true;
     m_matches.clear();
@@ -469,10 +468,7 @@ void MainWindow::hideMatches(){
 
 void MainWindow::saveMatches(){
 
-  if (m_output_prefix == "") {
-    popUp("Output prefix was not set. Cannot save matches.");
-    return;
-  }
+  if (!supplyOutputPrefixIfNeeded(this, m_output_prefix)) return;
 
   // Sanity check
   for (int i = 0; i < int(m_matches.size()); i++) {
@@ -650,20 +646,4 @@ void MainWindow::keyPressEvent(QKeyEvent *event) {
     close();
     break;
   }
-}
-
-bool MainWindow::getStringFromGui(std::string title, std::string description,
-                                  std::string inputStr,
-                                  std::string & outputStr // output
-                                  ){
-  outputStr = "";
-
-  bool ok = false;
-  QString text = QInputDialog::getText(this, title.c_str(), description.c_str(),
-                                       QLineEdit::Normal, inputStr.c_str(),
-                                       &ok);
-
-  if (ok) outputStr = text.toStdString();
-
-  return ok;
 }

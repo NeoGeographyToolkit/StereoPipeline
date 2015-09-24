@@ -119,7 +119,7 @@ namespace vw { namespace gui {
   MainWidget::MainWidget(QWidget *parent,
                          asp::BaseOptions const& opt,
                          int image_id,
-                         std::string const& output_prefix,
+                         std::string & output_prefix,
                          std::vector<std::string> const& image_files,
                          std::vector<std::vector<vw::ip::InterestPoint> > & matches,
                          chooseFilesDlg * chooseFiles,
@@ -1121,10 +1121,8 @@ namespace vw { namespace gui {
 
   void MainWidget::addMatchPoint(){
 
-    if (m_output_prefix == "") {
-      popUp("Output prefix was not set. Cannot add matches.");
-      return;
-    }
+    if (!supplyOutputPrefixIfNeeded(this, m_output_prefix)) return;
+
     if (m_image_id >= (int)m_matches.size()) {
       popUp("Number of existing matches is corrupted. Cannot add matches.");
       return;
@@ -1172,15 +1170,9 @@ namespace vw { namespace gui {
 
   void MainWidget::deleteMatchPoint(){
 
+    if (!supplyOutputPrefixIfNeeded(this, m_output_prefix)) return;
+
     // Sanity checks
-    if (m_output_prefix == "") {
-      popUp("Output prefix was not set. Cannot delete matches.");
-      return;
-    }
-    if (m_matches.empty() || m_matches[0].empty()){
-      popUp("No matches to delete.");
-      return;
-    }
     for (int i = 0; i < int(m_matches.size()); i++) {
       if (m_matches[0].size() != m_matches[i].size()) {
         popUp("Cannot delete matches. Must have the same number of matches in each image.");

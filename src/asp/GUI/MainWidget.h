@@ -69,8 +69,6 @@ class QMenu;
 namespace vw { namespace gui {
 
   namespace fs = boost::filesystem;
-
-  /// This class handles user interaction with the image displays.
   class MainWidget : public QWidget {
     Q_OBJECT
 
@@ -80,7 +78,7 @@ namespace vw { namespace gui {
     MainWidget(QWidget *parent,
                asp::BaseOptions const& opt,
                int image_id,
-               std::string const& output_prefix,
+               std::string& output_prefix,
                std::vector<std::string> const& image_files,
                std::vector<std::vector<ip::InterestPoint> > & matches,
                chooseFilesDlg * chooseFiles, bool use_georef,
@@ -140,7 +138,7 @@ namespace vw { namespace gui {
     std::vector<int> m_filesOrder;
 
     int m_image_id;
-    std::string m_output_prefix;
+    std::string & m_output_prefix; // alias
     std::vector<std::string> m_image_files;
 
     // Note that this is an alias

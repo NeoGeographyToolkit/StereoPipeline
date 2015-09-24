@@ -53,7 +53,7 @@ namespace vw { namespace gui {
   public:
     MainWindow(asp::BaseOptions const& opt,
                std::vector<std::string> const& images,
-               std::string const& output_prefix,
+               std::string& output_prefix, // non-const, so we can change it
                int grid_cols,
                vw::Vector2i const& window_size, bool single_window,
                bool use_georef, bool hillshade,

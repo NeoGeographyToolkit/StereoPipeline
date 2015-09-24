@@ -109,7 +109,6 @@ int main(int argc, char* argv[]) {
       // user only wants to see images?
       try {
 
-        output_prefix = ""; // mark that we did not parse correctly stereo options.
         std::vector<std::string> all_images;
         opt_vec.resize(1);
         handle_arguments(argc, argv, opt_vec[0], all_images);
@@ -120,7 +119,11 @@ int main(int argc, char* argv[]) {
           try { DiskImageView<float> tmp(image); }
           catch(...){
             if (!image.empty() && image[0] != '-') {
-              vw_out() << "Not a valid image: " << image << "\n";
+              vw_out() << "Not a valid image: " << image << ".\n";
+	      if (!fs::exists(image)) {
+		vw_out() << "Using this as the output prefix.\n";
+		output_prefix = image;
+	      }
             }
             is_image = false;
           }
@@ -137,6 +140,8 @@ int main(int argc, char* argv[]) {
       if (images.empty())
         vw_throw(ArgumentErr() << e.what() << "\n");
     }
+
+    vw::create_out_dir(output_prefix);
 
     // Start up the Qt GUI
     QApplication app(argc, argv);
