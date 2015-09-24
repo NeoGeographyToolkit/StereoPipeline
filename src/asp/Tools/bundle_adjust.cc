@@ -20,6 +20,7 @@
 ///
 
 #include <asp/Core/Macros.h>
+#include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Tools/bundle_adjust.h>
@@ -81,6 +82,7 @@ struct Options : public asp::BaseOptions {
   boost::shared_ptr<ControlNetwork> cnet;
   std::vector<boost::shared_ptr<CameraModel> > camera_models;
   cartography::Datum datum;
+  int ip_detect_method;
 
   // Make sure all values are initialized, even though they will be
   // over-written later.
@@ -88,7 +90,8 @@ struct Options : public asp::BaseOptions {
             max_iterations(0), overlap_limit(0), save_iteration(false), have_input_cams(true),
             semi_major(0), semi_minor(0),
             datum(cartography::Datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
-                                     "Reference Meridian", 1, 1, 0)){}
+                                     "Reference Meridian", 1, 1, 0)),
+            ip_detect_method(0){}
 };
 
 
@@ -796,6 +799,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                          "Select the stereo session type to use for processing. Options: pinhole isis dg rpc. Usually the program can select this automatically by the file extension.")
     ("min-matches",      po::value(&opt.min_matches)->default_value(30),
                          "Set the minimum  number of matches between images that will be considered.")
+    ("ip-detect-method",po::value(&opt.ip_detect_method)->default_value(0),
+                     "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
     ("max-iterations",   po::value(&opt.max_iterations)->default_value(1000),
                          "Set the maximum number of iterations.")
     ("overlap-limit",    po::value(&opt.overlap_limit)->default_value(3),
@@ -849,6 +854,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   // See if we start with initial cameras or no cameras
   opt.have_input_cams = (!opt.camera_files.empty()) || asp::images_are_cubes(opt.image_files);
+
+  // Copy the IP settings to the global stereosettings() object
+  asp::stereo_settings().ip_matching_method = opt.ip_detect_method;
 
   if (!opt.gcp_files.empty() || !opt.have_input_cams){
     // Need to read the datum if we have gcps.
@@ -933,6 +941,7 @@ int main(int argc, char* argv[]) {
       vw_out(DebugMessage,"asp") << "Loading: " << opt.image_files [i] << ' '
                                                 << opt.camera_files[i] << "\n";
 
+      // The same camera is double-loaded into the same session instance.
       SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
                                                            opt.image_files [i], opt.image_files [i],
                                                            opt.camera_files[i], opt.camera_files[i],
@@ -952,8 +961,11 @@ int main(int argc, char* argv[]) {
     }
 
     // Create the match points
+    // Iterate through each pair of input images
     for (int i = 0; i < num_images; i++){
       for (int j = i+1; j <= std::min(num_images-1, i+opt.overlap_limit); j++){
+        // Load both images into a new StereoSession object and use it to find interest points.
+        // - The points are written to a file on disk.
         std::string image1 = opt.image_files[i];
         std::string image2 = opt.image_files[j];
         std::string match_filename = ip::match_filename(opt.out_prefix, image1, image2);
@@ -970,8 +982,8 @@ int main(int argc, char* argv[]) {
         try{
           // IP matching may not succeed for all pairs
           DiskImageView<float> image1_view(image1), image2_view(image2);
-          vw::Vector<vw::float32,6> image1_stats = gather_stats(image1_view, "image1");
-          vw::Vector<vw::float32,6> image2_stats = gather_stats(image2_view, "image2");
+          vw::Vector<vw::float32,6> image1_stats = asp::gather_stats(image1_view, "image1");
+          vw::Vector<vw::float32,6> image2_stats = asp::gather_stats(image2_view, "image2");
           session->ip_matching(image1, image2,
                                image1.size(),
                                image1_stats,
@@ -982,9 +994,9 @@ int main(int argc, char* argv[]) {
                                opt.camera_models[j].get());
         } catch ( const std::exception& e ){
           vw_out(WarningMessage) << e.what() << std::endl;
-        }
+        } //End try/catch
       }
-    }
+    } // End loop through all input image pairs
 
     opt.cnet.reset( new ControlNetwork("BundleAdjust") );
     if ( opt.cnet_file.empty() ) {
