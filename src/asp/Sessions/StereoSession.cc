@@ -89,15 +89,17 @@ namespace asp {
       return true;
     }
 
-    // Get normalized versions of the images
+    // Get normalized versions of the images for OpenCV based methods
     DiskImageView<float> image1(input_file1), image2(input_file2);
     ImageViewRef<float> image1_norm=image1, image2_norm=image2;
-    if (stats1[0] != stats1[1]) // Don't normalize if no stats were provided!
+    if ( (stereo_settings().ip_matching_method != DETECT_IP_METHOD_INTEGRAL) &&
+       (stats1[0] != stats1[1]) ) { // Don't normalize if no stats were provided!
       normalize_images(stereo_settings().force_use_entire_range,
                        stereo_settings().individually_normalize,
                        true, // Use percentile based stretch for ip matching
                        stats1,      stats2, 
                        image1_norm, image2_norm);
+    }
 
     const bool nadir_facing = this->is_nadir_facing();
 
@@ -123,7 +125,7 @@ namespace asp {
                                        nodata1, nodata2);
     } else { // Not nadir facing
       // Run a simpler purely image based matching function
-      inlier = homography_ip_matching( image1_norm, image2_norm,                            
+      inlier = homography_ip_matching( image1_norm, image2_norm,
                                        ip_per_tile,
                                        match_filename,
                                        nodata1, nodata2);

@@ -537,6 +537,13 @@ namespace asp {
     }
 
     ip::remove_duplicates( matched_ip1, matched_ip2 );
+
+    //// DEBUG - Draw out the point matches pre-geometric filtering
+    //vw_out() << "\t    Writing IP debug image! " << std::endl;
+    //write_match_image("InterestPointMatching__ip_matching_debug.tif",
+    //                  image1, image2,
+    //                  matched_ip1, matched_ip2);
+
     vw_out() << "\t    Matched points: " << matched_ip1.size() << std::endl;
   }
 
@@ -586,6 +593,13 @@ namespace asp {
       final_ip1.push_back(matched_ip1[index]);
       final_ip2.push_back(matched_ip2[index]);
     }
+
+
+    //// DEBUG - Draw out the point matches pre-geometric filtering
+    //vw_out() << "\t    Writing IP debug image2! " << std::endl;
+    //write_match_image("InterestPointMatching__ip_matching_debug2.tif",
+    //                  image1, image2,
+    //                  final_ip1, final_ip2);
 
     vw_out() << "\t    * Writing match file: " << output_name << "\n";
     ip::write_binary_match_file(output_name, final_ip1, final_ip2);
