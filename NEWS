@@ -34,6 +34,7 @@
       stereo_gui.
     * Bugfix for rpcmaprpc stereo.
     * Increased reliability of interest point detection.
+    * Added OpenCV based SIFT and ORB IP finding options.
   
  - stereo_gui
    * Added the option --delete-temporary-files-on-exit to do precisely

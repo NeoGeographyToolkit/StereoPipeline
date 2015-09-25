@@ -98,6 +98,15 @@ to the specified region.
 How many interest points to detect in each $1024^2$ image tile (default: automatic
 determination).
 
+\item[ip-detect-method]  \hfill \\
+What type of interest point detection algorithm to use for image alignment.
+0 = Custom OBAloG implementation (default)
+1 = SIFT implementation from OpenCV
+2 = ORB implementation from OpenCV
+If the default method does not perform well, try out one of the other two methods.
+The OpenCV based methods will only work if Vision Workbench was compiled with OpenCV
+functionality.
+
 \item[nodata-value \textnormal (default = none)] \hfill \\
   Pixels with values less than or equal to this number are treated as
   no-data. This overrides the nodata values from input images.
