@@ -518,7 +518,19 @@ void DiskImagePyramidMultiChannel::getImageClip(double scale_in, vw::BBox2i regi
   }
 }
 
-double DiskImagePyramidMultiChannel::operator()( int32 x, int32 y, int32 p ) const {
+double DiskImagePyramidMultiChannel::get_value_as_double( int32 x, int32 y) const {
+  if (m_type == CH1_DOUBLE) {
+    return m_img_ch1_double.bottom()(x, y, 0);
+  }else if (m_type == CH1_UINT8){
+    return m_img_ch1_uint8.bottom()(x, y, 0)[0];
+  }else{
+    vw_throw( ArgumentErr() << "Unsupported image with " << m_num_channels << " bands\n");
+  }
+  return 0;
+}
+
+/*
+double DiskImagePyramidMultiChannel::bottom() const {
   if (m_type == CH1_DOUBLE) {
     return m_img_ch1_double(x, y, p);
   }else if (m_type == CH1_UINT8){
@@ -528,7 +540,7 @@ double DiskImagePyramidMultiChannel::operator()( int32 x, int32 y, int32 p ) con
               << m_num_channels << " bands\n");
   }
   return 0;
-}
+}*/
 
 
 void PointList::push_back(std::list<vw::Vector2> pts) {

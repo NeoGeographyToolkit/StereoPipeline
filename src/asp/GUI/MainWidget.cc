@@ -878,7 +878,7 @@ namespace vw { namespace gui {
 
       if (col >= 0 && row >= 0 && col < m_images[0].img.cols() &&
           row < m_images[0].img.rows() ) {
-        double val = m_images[0].img(col, row);
+        double val = m_images[0].img.get_value_as_double(col, row);
         m_shadow_thresh = std::max(m_shadow_thresh, val);
       }
       vw_out() << "Shadow threshold for "

@@ -226,12 +226,12 @@ namespace vw { namespace gui {
   /// - Caching is handled by use of the DiskImageView class.
   /// - Constructing this class creates a temporary file on disk for each level of the pyramid.
   template <class PixelT>
-  class DiskImagePyramid : public ImageViewBase<DiskImagePyramid<PixelT> > {
+  class DiskImagePyramid {//: public ImageViewBase<DiskImagePyramid<PixelT> > {
 
   public:
     typedef typename DiskImageView<PixelT>::pixel_type     pixel_type;
-    typedef typename DiskImageView<PixelT>::result_type    result_type;
-    typedef typename DiskImageView<PixelT>::pixel_accessor pixel_accessor;
+    //typedef typename DiskImageView<PixelT>::result_type    result_type;
+    //typedef typename DiskImageView<PixelT>::pixel_accessor pixel_accessor;
 
     // Constructor. Note that we use NaN as nodata if not available,
     // that has the effect of not accidentally setting some pixels to nodata.
@@ -256,16 +256,17 @@ namespace vw { namespace gui {
     int32 cols  () const { return m_pyramid[0].cols(); }
     int32 rows  () const { return m_pyramid[0].rows(); }
     int32 planes() const { return m_pyramid[0].planes(); }
-
+/*
     pixel_accessor origin() const { return m_pyramid[0].origin(); }
     result_type operator()( int32 x, int32 y, int32 p = 0 ) const { return m_pyramid[0](x,y,p); }
 
     typedef typename DiskImageView<PixelT>::prerasterize_type prerasterize_type;
     prerasterize_type prerasterize( BBox2i const& bbox ) const { return m_pyramid[0].prerasterize( bbox ); }
     template <class DestT> void rasterize( DestT const& dest, BBox2i const& bbox ) const { m_pyramid[0].rasterize( dest, bbox ); }
-
+*/
     /// Return the highest resolution pyramid layer
-    ImageViewRef<PixelT> bottom() { return m_pyramid[0]; }
+    ImageViewRef<PixelT>        bottom()       { return m_pyramid[0]; }
+    ImageViewRef<PixelT> const& bottom() const { return m_pyramid[0]; }
 
   private:
 
@@ -321,9 +322,11 @@ namespace vw { namespace gui {
     int32 rows  () const { return m_rows;  }
     int32 planes() const { return m_num_channels; }
 
-    // This operator will quietly return just the first channel.
-    // The getImageClip() function is what needs to be used generally.
-    double operator()( int32 x, int32 y, int32 p = 0 ) const;
+
+    /// Return the element at this location (at the lowest level) cast to double.
+    /// - Only works for single channel pyramids!
+    double get_value_as_double( int32 x, int32 y) const;
+
   };
 
   /// A class to keep all data associated with an image file
@@ -337,6 +340,7 @@ namespace vw { namespace gui {
     DiskImagePyramidMultiChannel img;
     double m_lon_offset; // to compensate for -90 deg equalling 270 deg
 
+    /// Load an image from disk into img and set the other variables.
     void read(std::string const& image, asp::BaseOptions const& opt, bool use_georef);
   };
 
