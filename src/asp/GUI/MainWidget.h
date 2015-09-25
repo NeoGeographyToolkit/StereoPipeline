@@ -70,7 +70,7 @@ namespace vw { namespace gui {
 
   namespace fs = boost::filesystem;
 
-   /// This class handles user interaction with the image displays.
+   /// This class handles user interaction with the a single image pane.
   class MainWidget : public QWidget {
     Q_OBJECT
 
@@ -134,18 +134,21 @@ namespace vw { namespace gui {
 
     asp::BaseOptions m_opt;
 
-    // Choose which files to hide/show in the GUI
-    chooseFilesDlg  *     m_chooseFilesDlg;
-    std::set<std::string> m_filesToHide;
-    std::vector<int> m_filesOrder;
+    /// Handle to parent GUI panel used to select which of the multiple "owned"
+    ///  images should be currently displayed.
+    /// - Null if there is only one image.
+    chooseFilesDlg  *     m_chooseFilesDlg; 
+    std::set<std::string> m_filesToHide; ///< Files that are currently not being displayed.
+    std::vector<int> m_filesOrder;       ///< The order the images are drawn in.
 
-    int m_image_id;
+    const int m_image_id; ///< An ID number assigned to this widget when it is created
     std::string & m_output_prefix; // alias
     std::vector<std::string> m_image_files;
 
-    // Note that this is an alias
+    /// A set of matching interest points for each image.
+    /// - Note that this is an alias wrapping an object passed in through the constructor.
     std::vector<std::vector<vw::ip::InterestPoint> > & m_matches;
-    bool m_hideMatches;
+    bool m_hideMatches; ///< Control if IP's are drawn
 
     bool m_use_georef;
 
@@ -208,6 +211,10 @@ namespace vw { namespace gui {
 
     // Drawing is driven by QPaintEvent, which calls out to drawImage()
     void drawImage(QPainter* paint);
+    /// Add all the interest points to the provided canvas
+    /// - Called internally by drawImage
+    void drawInterestPoints(QPainter* paint, std::list<BBox2i> const& valid_regions); 
+
     vw::Vector2 world2screen(vw::Vector2 const& p);
     vw::Vector2 screen2world(vw::Vector2 const& pix);
     BBox2       world2screen(BBox2 const& R);

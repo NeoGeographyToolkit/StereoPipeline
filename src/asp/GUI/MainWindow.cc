@@ -149,6 +149,7 @@ void MainWindow::createLayout() {
       splitter->addWidget(m_chooseFiles);
     }
 
+    // Pass all images to a single MainWidget object
     MainWidget * widget = new MainWidget(centralWidget,
                                          m_opt,
                                          0, m_output_prefix,
@@ -159,6 +160,7 @@ void MainWindow::createLayout() {
 
   } else{
 
+    // Each MainWidget object gets passed a single image
     for (size_t i = 0; i < m_images.size(); i++) {
       std::vector<std::string> local_images;
       local_images.push_back(m_images[i]);
@@ -169,7 +171,6 @@ void MainWindow::createLayout() {
                                            local_images, m_matches,
                                            m_chooseFiles,
                                            m_use_georef, m_hillshade);
-
       m_widgets.push_back(widget);
     }
   }

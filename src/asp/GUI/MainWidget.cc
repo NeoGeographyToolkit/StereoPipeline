@@ -233,11 +233,11 @@ namespace vw { namespace gui {
     QTableWidget * filesTable = m_chooseFilesDlg->getFilesTable();
     int rows = filesTable->rowCount();
 
+    // Make list of all the unchecked files
     for (int rowIter = 0; rowIter < rows; rowIter++){
       QTableWidgetItem *item = filesTable->item(rowIter, 0);
       if (item->checkState() != Qt::Checked){
-        string fileName
-          = (filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
+        string fileName = (filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
         m_filesToHide.insert(fileName);
       }
     }
@@ -452,7 +452,10 @@ namespace vw { namespace gui {
 
   void MainWidget::drawImage(QPainter* paint) {
 
-    // The portion of the image to draw
+    std::list<BBox2i> screen_box_list; // List of regions the images are drawn in
+
+    // Loop through input images
+    // - These images get drawn in the same
     for (int j = 0; j < (int)m_images.size(); j++){
 
       int i = m_filesOrder[j];
@@ -474,7 +477,6 @@ namespace vw { namespace gui {
 
       // See where it fits on the screen
       BBox2i screen_box;
-
       screen_box.grow(floor(world2screen(world_box.min())));
       screen_box.grow(ceil(world2screen(world_box.max())));
 
@@ -483,6 +485,7 @@ namespace vw { namespace gui {
         screen_box.max().x() = screen_box.min().x() + 1;
       if (screen_box.min().y() >= screen_box.max().y())
         screen_box.max().y() = screen_box.min().y() + 1;
+      screen_box_list.push_back(screen_box);
 
       // Go from world coordinates to pixels in the second image.
       BBox2i image_box = MainWidget::world2image(world_box, i);
@@ -497,7 +500,7 @@ namespace vw { namespace gui {
         std::max(1.0, sqrt((1.0*screen_box.width()) * screen_box.height()));
       double scale_out;
       BBox2i region_out;
-      bool highlight_nodata = m_shadow_thresh_view_mode;
+      bool   highlight_nodata = m_shadow_thresh_view_mode;
       if (m_shadow_thresh_view_mode){
         m_shadow_thresh_images[i].img.getImageClip(scale, image_box,
                                                    highlight_nodata,
@@ -515,14 +518,14 @@ namespace vw { namespace gui {
 
       // Draw on image screen
       if (!m_use_georef){
-        // This is a regular image, no georeference.
+        // This is a regular image, no georeference, just pass it to the QT painter
         QRect rect(screen_box.min().x(), screen_box.min().y(),
                    screen_box.width(), screen_box.height());
         paint->drawImage (rect, qimg);
       }else{
         // We fetched a bunch of pixels at some scale.
-        // Need to place them on the screen at given projected
-        // position.
+        // Need to place them on the screen at given projected position.
+        // - To do that we will fill up this QImage object with interpolated data, then paint it.
         QImage qimg2 = QImage(screen_box.width(), screen_box.height(), QImage::Format_RGB888);
 
         // Initialize all pixels to black
@@ -532,11 +535,11 @@ namespace vw { namespace gui {
           }
         }
 
+        // Loop through pixels
         for (int x = screen_box.min().x(); x < screen_box.max().x(); x++){
           for (int y = screen_box.min().y(); y < screen_box.max().y(); y++){
 
-            // Convert from a pixel as seen on screen to the world
-            // coordinate system.
+            // Convert from a pixel as seen on screen to the world coordinate system.
             Vector2 world_pt = screen2world(Vector2(x, y));
 
             // p is in pixel coordinates of m_images[i]
@@ -557,47 +560,86 @@ namespace vw { namespace gui {
               vw_out() << "Book-keeping failure!";
               vw_throw(ArgumentErr() << "Book-keeping failure.\n");
             }
-            qimg2.setPixel(x-screen_box.min().x(),
+            qimg2.setPixel(x-screen_box.min().x(), // Fill the temp QImage object
                            y-screen_box.min().y(),
                            qimg.pixel(px, py));
           }
-        }
+        } // End loop through pixels
 
+        // Send the temp QImage object to the painter
         QRect rect(screen_box.min().x(), screen_box.min().y(),
                    screen_box.width(), screen_box.height());
         paint->drawImage (rect, qimg2);
       }
 
-      // Draw interest point matches
-      if (m_image_id < int(m_matches.size()) && !m_hideMatches) {
-        QColor ipColor = QColor("red");
-        QRect rect(screen_box.min().x(), screen_box.min().y(),
-                   screen_box.width(), screen_box.height());
-        paint->setPen(ipColor);
-        paint->setBrush(Qt::NoBrush);
+    } // End loop through input images
 
-        std::vector<vw::ip::InterestPoint> & ip = m_matches[m_image_id];
-
-        if (m_images.size() != 1 && !ip.empty()) {
-          popUp("Must have just one image in each window to view matches.");
-          return;
-        }
-
-        for (size_t ip_iter = 0; ip_iter < ip.size(); ip_iter++) {
-          double x = ip[ip_iter].x;
-          double y = ip[ip_iter].y;
-          Vector2 P = world2screen(Vector2(x, y));
-          QPoint Q(P.x(), P.y());
-
-          if (!rect.contains(Q)) continue;
-          paint->drawEllipse(Q, 2, 2);
-        }
-      }
-
-    }
+    // Call another function to handle drawing the interest points
+    if ((m_image_id < int(m_matches.size())) && !m_hideMatches)
+      drawInterestPoints(paint, screen_box_list);
 
     return;
-  }
+  } // End function drawImage()
+
+
+
+  void MainWidget::drawInterestPoints(QPainter* paint, std::list<BBox2i> const& valid_regions) {
+
+    QColor ipColor          = QColor("red"  ); // Hard coded interest point color
+    QColor ipHighlightColor = QColor("green"); // Used to highlight a point being selected
+
+    // Convert the input rects to QRect format
+    std::list<QRect> qrect_list;
+    for (std::list<BBox2i>::const_iterator i=valid_regions.begin(); i!=valid_regions.end(); ++i)
+      qrect_list.push_back(QRect(i->min().x(), i->min().y(),
+                                 i->width(),   i->height()));
+    
+    paint->setPen(ipColor);
+    paint->setBrush(Qt::NoBrush);
+
+    std::vector<vw::ip::InterestPoint> & ip = m_matches[m_image_id]; // IP's for this image
+
+    if (m_images.size() != 1 && !ip.empty()) {
+      popUp("Must have just one image in each window to view matches.");
+      return;
+    }
+
+    // If this point is currently being edited by the user, highlight it.
+    // - Here we check to see if it has not been placed in all images yet.
+    bool highlight_last = false;
+    for (size_t h=0; h<m_matches.size(); ++h) {
+      if (ip.size() > m_matches[h].size())
+        highlight_last = true;
+    }
+
+    // For each IP...
+    for (size_t ip_iter = 0; ip_iter < ip.size(); ip_iter++) {
+      // Generate the pixel coord of the point
+      double x = ip[ip_iter].x;
+      double y = ip[ip_iter].y;
+      Vector2 P = world2screen(Vector2(x, y));
+      QPoint Q(P.x(), P.y());
+
+      // Skip the point if none of the valid regions contain it
+      bool safe = false;
+      for (std::list<QRect>::const_iterator i=qrect_list.begin(); i!=qrect_list.end(); ++i) {
+        if (i->contains(Q)) { // Verify the conversion worked
+          safe = true;
+          break;
+        }
+      }
+      if (!safe)
+        continue;
+
+      if (highlight_last && (ip_iter == ip.size()-1)) // Highlighting the last point
+        paint->setPen(ipHighlightColor);
+
+      paint->drawEllipse(Q, 2, 2); // Draw the point!
+    } // End loop through points
+  } // End function drawInterestPoints
+
+
+
 
   void MainWidget::updateCurrentMousePosition() {
     m_curr_world_pos = screen2world(m_curr_pixel_pos);

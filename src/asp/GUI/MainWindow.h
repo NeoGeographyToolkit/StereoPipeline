@@ -99,7 +99,7 @@ namespace vw { namespace gui {
     std::vector<std::string>  m_images;
     std::string               m_output_prefix;
     double                    m_widRatio;    // ratio of sidebar to entire win wid
-    std::vector<MainWidget*>  m_widgets;
+    std::vector<MainWidget*>  m_widgets;     ///< One of these for each seperate image pane.
     chooseFilesDlg *          m_chooseFiles; // left sidebar for selecting files
 
     QMenu *m_file_menu;
@@ -135,6 +135,8 @@ namespace vw { namespace gui {
     int      m_argc;
     char **  m_argv;
     bool     m_matches_were_loaded;
+    /// A set of interest points for each input image
+    /// - The length of the outer vector is equal to the number of MainWidget objects
     std::vector<std::vector<vw::ip::InterestPoint> > m_matches;
    };
 
