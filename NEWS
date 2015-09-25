@@ -34,7 +34,7 @@
       stereo_gui.
     * Bugfix for rpcmaprpc stereo.
     * Increased reliability of interest point detection.
-    * Added OpenCV based SIFT and ORB IP finding options.
+    * Added OpenCV-based SIFT and ORB interest point finding options.
   
  - stereo_gui
    * Added the option --delete-temporary-files-on-exit to do precisely
@@ -52,6 +52,9 @@
    * Added the ability to compute a manual rotation + translation +
      scale transform based on user-selected point correspondences from
      reference to source cloud in stereo_gui.
+
+ - bundle_adjust
+    * Added OpenCV-based SIFT and ORB interest point finding options.
 
  - geodiff
    * Bugfix when the two DEMs have longitudes offset by 360 degrees.
