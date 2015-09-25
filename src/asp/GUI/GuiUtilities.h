@@ -219,19 +219,16 @@ namespace vw { namespace gui {
                             std::string const& output_file,
                             int cols = -1, int rows = -1);
 
-  // TODO: Move or replace this class!
-  // TODO: Maybe this should not derive from ImageViewBase -> It should not be treated as an image!
+  // TODO: Move this class!
   /// A class to manage very large images and their subsampled versions
   /// in a pyramid. The most recently accessed tiles are cached in memory.
   /// - Caching is handled by use of the DiskImageView class.
   /// - Constructing this class creates a temporary file on disk for each level of the pyramid.
   template <class PixelT>
-  class DiskImagePyramid {//: public ImageViewBase<DiskImagePyramid<PixelT> > {
+  class DiskImagePyramid {
 
   public:
-    typedef typename DiskImageView<PixelT>::pixel_type     pixel_type;
-    //typedef typename DiskImageView<PixelT>::result_type    result_type;
-    //typedef typename DiskImageView<PixelT>::pixel_accessor pixel_accessor;
+    typedef typename DiskImageView<PixelT>::pixel_type pixel_type;
 
     // Constructor. Note that we use NaN as nodata if not available,
     // that has the effect of not accidentally setting some pixels to nodata.
@@ -256,14 +253,7 @@ namespace vw { namespace gui {
     int32 cols  () const { return m_pyramid[0].cols(); }
     int32 rows  () const { return m_pyramid[0].rows(); }
     int32 planes() const { return m_pyramid[0].planes(); }
-/*
-    pixel_accessor origin() const { return m_pyramid[0].origin(); }
-    result_type operator()( int32 x, int32 y, int32 p = 0 ) const { return m_pyramid[0](x,y,p); }
 
-    typedef typename DiskImageView<PixelT>::prerasterize_type prerasterize_type;
-    prerasterize_type prerasterize( BBox2i const& bbox ) const { return m_pyramid[0].prerasterize( bbox ); }
-    template <class DestT> void rasterize( DestT const& dest, BBox2i const& bbox ) const { m_pyramid[0].rasterize( dest, bbox ); }
-*/
     /// Return the highest resolution pyramid layer
     ImageViewRef<PixelT>        bottom()       { return m_pyramid[0]; }
     ImageViewRef<PixelT> const& bottom() const { return m_pyramid[0]; }
@@ -297,7 +287,7 @@ namespace vw { namespace gui {
   // pre-defined member functions for an image class. This class
   // is not a perfect solution, but there seem to be no easy way
   // in ASP to handle images with variable numbers of channels.
-  struct DiskImagePyramidMultiChannel: public DiskImagePyramid<double> {
+  struct DiskImagePyramidMultiChannel{
     asp::BaseOptions m_opt;
     DiskImagePyramid< double               > m_img_ch1_double;
     DiskImagePyramid< Vector<vw::uint8, 1> > m_img_ch1_uint8;

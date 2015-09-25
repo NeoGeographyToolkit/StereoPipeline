@@ -529,18 +529,6 @@ double DiskImagePyramidMultiChannel::get_value_as_double( int32 x, int32 y) cons
   return 0;
 }
 
-/*
-double DiskImagePyramidMultiChannel::bottom() const {
-  if (m_type == CH1_DOUBLE) {
-    return m_img_ch1_double(x, y, p);
-  }else if (m_type == CH1_UINT8){
-    return m_img_ch1_uint8(x, y, p)[0];
-  }else{
-    vw_throw( ArgumentErr() << "Unsupported image with "
-              << m_num_channels << " bands\n");
-  }
-  return 0;
-}*/
 
 
 void PointList::push_back(std::list<vw::Vector2> pts) {
