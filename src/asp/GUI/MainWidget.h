@@ -84,7 +84,7 @@ namespace vw { namespace gui {
                std::vector<std::string> const& image_files,
                std::vector<std::vector<ip::InterestPoint> > & matches,
                chooseFilesDlg * chooseFiles, bool use_georef,
-               bool hillshade);
+               bool hillshade, bool view_matches);
     virtual ~MainWidget();
 
     bool get_crop_win(QRect & win);
@@ -137,7 +137,7 @@ namespace vw { namespace gui {
     /// Handle to parent GUI panel used to select which of the multiple "owned"
     ///  images should be currently displayed.
     /// - Null if there is only one image.
-    chooseFilesDlg  *     m_chooseFilesDlg; 
+    chooseFilesDlg  *     m_chooseFilesDlg;
     std::set<std::string> m_filesToHide; ///< Files that are currently not being displayed.
     std::vector<int> m_filesOrder;       ///< The order the images are drawn in.
 
@@ -148,7 +148,6 @@ namespace vw { namespace gui {
     /// A set of matching interest points for each image.
     /// - Note that this is an alias wrapping an object passed in through the constructor.
     std::vector<std::vector<vw::ip::InterestPoint> > & m_matches;
-    bool m_hideMatches; ///< Control if IP's are drawn
 
     bool m_use_georef;
 
@@ -209,11 +208,13 @@ namespace vw { namespace gui {
     bool m_hillshade_mode;
     std::vector<imageData> m_hillshaded_images;
 
+    bool m_viewMatches; ///< Control if IP's are drawn
+
     // Drawing is driven by QPaintEvent, which calls out to drawImage()
     void drawImage(QPainter* paint);
     /// Add all the interest points to the provided canvas
     /// - Called internally by drawImage
-    void drawInterestPoints(QPainter* paint, std::list<BBox2i> const& valid_regions); 
+    void drawInterestPoints(QPainter* paint, std::list<BBox2i> const& valid_regions);
 
     vw::Vector2 world2screen(vw::Vector2 const& p);
     vw::Vector2 screen2world(vw::Vector2 const& pix);

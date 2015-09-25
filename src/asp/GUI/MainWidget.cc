@@ -124,13 +124,11 @@ namespace vw { namespace gui {
                          std::vector<std::string> const& image_files,
                          std::vector<std::vector<vw::ip::InterestPoint> > & matches,
                          chooseFilesDlg * chooseFiles,
-                         bool use_georef,
-                         bool hillshade)
+                         bool use_georef, bool hillshade, bool view_matches)
     : QWidget(parent), m_opt(opt), m_chooseFilesDlg(chooseFiles),
       m_image_id(image_id), m_output_prefix(output_prefix),
-      m_image_files(image_files),
-      m_matches(matches), m_hideMatches(true), m_use_georef(use_georef),
-      m_hillshade_mode(hillshade){
+      m_image_files(image_files), m_matches(matches),  m_use_georef(use_georef),
+      m_hillshade_mode(hillshade), m_viewMatches(view_matches){
 
     installEventFilter(this);
 
@@ -575,7 +573,7 @@ namespace vw { namespace gui {
     } // End loop through input images
 
     // Call another function to handle drawing the interest points
-    if ((m_image_id < int(m_matches.size())) && !m_hideMatches)
+    if ((m_image_id < int(m_matches.size())) && m_viewMatches)
       drawInterestPoints(paint, screen_box_list);
 
     return;
@@ -593,7 +591,7 @@ namespace vw { namespace gui {
     for (std::list<BBox2i>::const_iterator i=valid_regions.begin(); i!=valid_regions.end(); ++i)
       qrect_list.push_back(QRect(i->min().x(), i->min().y(),
                                  i->width(),   i->height()));
-    
+
     paint->setPen(ipColor);
     paint->setBrush(Qt::NoBrush);
 
@@ -1150,7 +1148,7 @@ namespace vw { namespace gui {
     return;
   }
 
-  void MainWidget::viewMatches(bool hide){
+  void MainWidget::viewMatches(bool view_matches){
     if (m_images.size() != 1) {
       popUp("Must have just one image in each window to view matches.");
 
@@ -1158,7 +1156,7 @@ namespace vw { namespace gui {
       return;
     }
 
-    m_hideMatches = hide;
+    m_viewMatches = view_matches;
     refreshPixmap();
   }
 
@@ -1207,8 +1205,8 @@ namespace vw { namespace gui {
     ip.y = P.y();
     m_matches[m_image_id].push_back(ip);
 
-    bool hide = false;
-    viewMatches(hide);
+    bool view_matches = true;
+    viewMatches(view_matches);
   }
 
   void MainWidget::deleteMatchPoint(){
@@ -1259,8 +1257,5 @@ namespace vw { namespace gui {
     // Must refresh the matches in all the images, not just this one
     emit refreshAllMatches();
   }
-
-
-
 
 }} // namespace vw::gui

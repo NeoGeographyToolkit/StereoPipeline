@@ -285,6 +285,8 @@ namespace asp {
                             "Plot the images in the projected coordinate system given by the georeference of the images.")
       ("hillshade",         po::bool_switch(&global.hillshade)->default_value(false)->implicit_value(true),
                             "Interpret the input images as DEMs and hillshade them.")
+      ("view-matches",   po::bool_switch(&global.view_matches)->default_value(false)->implicit_value(true),
+                            "Locate and display the interest point matches.")
       ("delete-temporary-files-on-exit",   po::bool_switch(&global.delete_temporary_files_on_exit)->default_value(false)->implicit_value(true),
                             "Delete any subsampled and other files created by the GUI when exiting.");
   }

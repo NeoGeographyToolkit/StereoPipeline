@@ -238,6 +238,7 @@ Option & Description \\ \hline \hline
 \texttt{-w | -\/-single-window } & Show all images in the same window (with a dialog to choose among them) rather than next to each other.\\ \hline
 \texttt{-\/-use-georef} & Plot the images in the projected coordinate system given by image georeferences.\\ \hline
 \texttt{-\/-hillshade} & Interpret the input images as DEMs and hillshade them.\\ \hline
+\texttt{-\/-view-matches} & Locate and display the interest point matches.\\ \hline
 \texttt{-\/-delete-temporary-files-on-exit} & Delete any subsampled and other files created by the GUI when exiting.\\ \hline
 \texttt{-h | -\/-help } & Display this help message.\\ \hline
 \end{longtable}
@@ -454,7 +455,7 @@ How many interest points to detect in each $1024^2$ image tile (default: automat
 determination).
 \\ \hline
 
-\texttt{-\/-ip-detect-method \textit{string [default: OBAloG]}} & Choose an interest point 
+\texttt{-\/-ip-detect-method \textit{string [default: OBAloG]}} & Choose an interest point
 detection method from: 0=OBAloG, 1=SIFT, 2=ORB. \\ \hline
 
 \texttt{-\/min-triangulation-angle \textit{double(=0.1)}} &
@@ -556,7 +557,7 @@ and CSV point clouds together with an output file from {\tt stereo}:
 \end{verbatim}
 
 \subsection{Comparing with MOLA Data}
-\ref{molacmp}
+\label{molacmp}
 
 When comparing the output of \texttt{point2dem} to laser altimeter
 data, like MOLA, it is important to understand the different kinds

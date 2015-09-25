@@ -56,7 +56,7 @@ namespace vw { namespace gui {
                std::string& output_prefix, // non-const, so we can change it
                int grid_cols,
                vw::Vector2i const& window_size, bool single_window,
-               bool use_georef, bool hillshade,
+               bool use_georef, bool hillshade, bool view_matches,
                bool delete_temporary_files_on_exit,
                int argc, char ** argv);
     virtual ~MainWindow() {}
@@ -69,7 +69,6 @@ namespace vw { namespace gui {
     void viewAsTiles();
     void viewExistingMatches();
     void viewMatches();
-    void hideMatches();
     void addDelMatches();
     void saveMatches();
     void run_stereo();
@@ -119,7 +118,6 @@ namespace vw { namespace gui {
     QAction *m_viewThreshImages_action;
     QAction *m_viewUnthreshImages_action;
     QAction *m_viewMatches_action;
-    QAction *m_hideMatches_action;
     QAction *m_addDelMatches_action;
     QAction *m_saveMatches_action;
     QAction *m_run_stereo_action;
@@ -129,9 +127,7 @@ namespace vw { namespace gui {
     ViewType m_view_type,
              m_view_type_old;
     int      m_grid_cols;
-    bool     m_use_georef,
-             m_hillshade,
-             m_delete_temporary_files_on_exit;
+    bool     m_use_georef, m_hillshade, m_viewMatches, m_delete_temporary_files_on_exit;
     int      m_argc;
     char **  m_argv;
     bool     m_matches_were_loaded;

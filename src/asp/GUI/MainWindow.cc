@@ -67,12 +67,13 @@ MainWindow::MainWindow(asp::BaseOptions const& opt,
                        vw::Vector2i const& window_size,
                        bool single_window,
                        bool use_georef, bool hillshade,
+                       bool view_matches,
                        bool delete_temporary_files_on_exit,
                        int argc,  char ** argv) :
   m_opt(opt),
   m_output_prefix(output_prefix), m_widRatio(0.3), m_chooseFiles(NULL),
   m_grid_cols(grid_cols),
-  m_use_georef(use_georef), m_hillshade(hillshade),
+  m_use_georef(use_georef), m_hillshade(hillshade), m_viewMatches(view_matches),
   m_delete_temporary_files_on_exit(delete_temporary_files_on_exit),
   m_argc(argc), m_argv(argv) {
 
@@ -155,7 +156,7 @@ void MainWindow::createLayout() {
                                          0, m_output_prefix,
                                          m_images, m_matches,
                                          m_chooseFiles,
-                                         m_use_georef, m_hillshade);
+                                         m_use_georef, m_hillshade, m_viewMatches);
     m_widgets.push_back(widget);
 
   } else{
@@ -170,7 +171,7 @@ void MainWindow::createLayout() {
                                            i, m_output_prefix,
                                            local_images, m_matches,
                                            m_chooseFiles,
-                                           m_use_georef, m_hillshade);
+                                           m_use_georef, m_hillshade, m_viewMatches);
       m_widgets.push_back(widget);
     }
   }
@@ -196,6 +197,9 @@ void MainWindow::createLayout() {
   QGridLayout *layout = new QGridLayout(centralWidget);
   layout->addWidget (splitter, 0, 0, 0);
   centralWidget->setLayout(layout);
+
+  // This code must be here in order to load the matches if needed
+  viewMatches();
 }
 
 void MainWindow::createMenus() {
@@ -251,13 +255,11 @@ void MainWindow::createMenus() {
   m_viewOverlayedImages_action->setChecked(m_use_georef && (m_view_type == VIEW_IN_SINGLE_WINDOW));
   connect(m_viewOverlayedImages_action, SIGNAL(triggered()), this, SLOT(viewOverlayedImages()));
 
-  m_viewMatches_action = new QAction(tr("Show IP matches"), this);
-  m_viewMatches_action->setStatusTip(tr("View interest point matches."));
+  m_viewMatches_action = new QAction(tr("View IP matches"), this);
+  m_viewMatches_action->setStatusTip(tr("View IP matches."));
+  m_viewMatches_action->setCheckable(true);
+  m_viewMatches_action->setChecked(m_viewMatches);
   connect(m_viewMatches_action, SIGNAL(triggered()), this, SLOT(viewMatches()));
-
-  m_hideMatches_action = new QAction(tr("Hide IP matches"), this);
-  m_hideMatches_action->setStatusTip(tr("Hide interest point matches."));
-  connect(m_hideMatches_action, SIGNAL(triggered()), this, SLOT(hideMatches()));
 
   m_addDelMatches_action = new QAction(tr("Add/delete IP matches"), this);
   m_addDelMatches_action->setStatusTip(tr("Add/delete interest point matches."));
@@ -309,7 +311,6 @@ void MainWindow::createMenus() {
   // Matches menu
   m_matches_menu = menu->addMenu(tr("&IP matches"));
   m_matches_menu->addAction(m_viewMatches_action);
-  m_matches_menu->addAction(m_hideMatches_action);
   m_matches_menu->addAction(m_addDelMatches_action);
   m_matches_menu->addAction(m_saveMatches_action);
 
@@ -385,17 +386,20 @@ void MainWindow::viewAsTiles(){
   createLayout();
 }
 
+// This function will be invoked after matches got deleted. Since we had matches,
+// we must set m_matches_were_loaded to true.
 void MainWindow::viewExistingMatches(){
-  // This function will be invoked after matches got deleted. Since we had matches,
-  // we must set m_matches_were_loaded to true.
   m_matches_were_loaded = true;
   MainWindow::viewMatches();
 }
 
+// Show or hide matches depending on the value of m_viewMatches.
 void MainWindow::viewMatches(){
 
+  m_viewMatches = m_viewMatches_action->isChecked();
+
   // We will load the matches just once, as we later will add/delete matches manually
-  if (!m_matches_were_loaded && (!m_matches.empty()) && m_matches[0].empty()) {
+  if (!m_matches_were_loaded && (!m_matches.empty()) && m_matches[0].empty() && m_viewMatches) {
 
     if (!supplyOutputPrefixIfNeeded(this, m_output_prefix)) return;
 
@@ -410,7 +414,8 @@ void MainWindow::viewMatches(){
       for (int j = int(i+1); j < int(m_images.size()); j++) {
         std::string match_filename = vw::ip::match_filename(m_output_prefix, m_images[i], m_images[j]);
 
-        // Look for the match file in the default location, and if it does not appear prompt the user or a path.
+        // Look for the match file in the default location, and if it
+        // does not appear prompt the user or a path.
         try {
           ip::read_binary_match_file( match_filename, m_matches[i], m_matches[j]);
         }catch(...){
@@ -424,7 +429,7 @@ void MainWindow::viewMatches(){
 
         vw_out() << "Loading " << match_filename << std::endl;
         try {
-          ip::read_binary_match_file( match_filename, m_matches[i], m_matches[j]);
+          ip::read_binary_match_file(match_filename, m_matches[i], m_matches[j]);
 
           if (num_matches < 0)
             num_matches = m_matches[i].size();
@@ -453,19 +458,12 @@ void MainWindow::viewMatches(){
     }
   }
 
-  bool hide = false;
   for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i]) m_widgets[i]->viewMatches(hide);
+    if (m_widgets[i]) m_widgets[i]->viewMatches(m_viewMatches);
   }
 
-  m_matches_were_loaded = true;
-}
-
-void MainWindow::hideMatches(){
-  bool hide = true;
-  for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i]) m_widgets[i]->viewMatches(hide);
-  }
+  if (m_viewMatches)
+    m_matches_were_loaded = true;
 }
 
 void MainWindow::saveMatches(){
