@@ -269,6 +269,10 @@ void MainWindow::createMenus() {
   m_saveMatches_action->setStatusTip(tr("Save interest point matches."));
   connect(m_saveMatches_action, SIGNAL(triggered()), this, SLOT(saveMatches()));
 
+  m_writeGcp_action = new QAction(tr("Write GCP file"), this);
+  m_writeGcp_action->setStatusTip(tr("Save interest point matches in a GCP format for bundle_adjust."));
+  connect(m_writeGcp_action, SIGNAL(triggered()), this, SLOT(writeGroundControlPoints()));
+
   // Shadow threshold calculation
   m_shadowCalc_action = new QAction(tr("Shadow threshold detection"), this);
   m_shadowCalc_action->setStatusTip(tr("Shadow threshold detection."));
@@ -313,6 +317,7 @@ void MainWindow::createMenus() {
   m_matches_menu->addAction(m_viewMatches_action);
   m_matches_menu->addAction(m_addDelMatches_action);
   m_matches_menu->addAction(m_saveMatches_action);
+  m_matches_menu->addAction(m_writeGcp_action);
 
   // Threshold menu
   m_threshold_menu = menu->addMenu(tr("&Threshold"));
@@ -493,6 +498,50 @@ void MainWindow::saveMatches(){
 
   m_matches_were_loaded = true;
 }
+
+
+void MainWindow::writeGroundControlPoints() {
+
+  // Make sure the IP matches are ready
+  for (size_t i = 0; i < m_matches.size(); i++) {
+    if (m_matches[0].size() != m_matches[i].size()) {
+      popUp("Cannot save matches. Must have the same number of matches in each image.");
+      return;
+    }
+  }
+  size_t num_ips = m_matches[0].size();
+
+  // Prompt the user for the desired output path
+  std::string save_path = "";
+  try { 
+    std::string default_path = m_output_prefix + "/ground_control_points.csv";
+    save_path = QFileDialog::getSaveFileName(0,
+                                      "Select a path to save the GCP file to",
+                                      default_path.c_str()).toStdString();
+  }catch(...){
+    popUp("Error selecting the output path.");
+    return;
+  }
+
+
+  std::ofstream output_handle(save_path.c_str());
+
+  for (size_t p = 0; p < num_ips; p++) { // Loop through IPs
+    for (size_t i = 0; i < m_matches.size(); i++) { // Loop through image panes
+      // Add this IP to the current line
+      vw::ip::InterestPoint ip = m_matches[i][p];
+      if (i > 0)
+        output_handle << ", ";
+      output_handle << ip.x << ", " << ip.y;
+    } // End loop through IP sets
+    output_handle << std::endl; // Finish the line
+  } // End loop through IPs
+
+  output_handle.close();
+  popUp("Finished writing file " + save_path);
+
+}
+
 
 void MainWindow::addDelMatches(){
   popUp("Right-click on images to add/delete interest point matches.");

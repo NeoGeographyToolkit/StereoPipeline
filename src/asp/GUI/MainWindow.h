@@ -71,6 +71,7 @@ namespace vw { namespace gui {
     void viewMatches();
     void addDelMatches();
     void saveMatches();
+    void writeGroundControlPoints(); ///< Write a ground control point file for bundle_adjust
     void run_stereo();
     void run_parallel_stereo();
     void shadowThresholdCalc();
@@ -95,7 +96,7 @@ namespace vw { namespace gui {
     void closeEvent (QCloseEvent *);
 
     asp::BaseOptions          m_opt;
-    std::vector<std::string>  m_images;
+    std::vector<std::string>  m_images; ///< Loaded image files
     std::string               m_output_prefix;
     double                    m_widRatio;    // ratio of sidebar to entire win wid
     std::vector<MainWidget*>  m_widgets;     ///< One of these for each seperate image pane.
@@ -120,6 +121,7 @@ namespace vw { namespace gui {
     QAction *m_viewMatches_action;
     QAction *m_addDelMatches_action;
     QAction *m_saveMatches_action;
+    QAction *m_writeGcp_action;
     QAction *m_run_stereo_action;
     QAction *m_run_parallel_stereo_action;
     QAction *m_exit_action;
@@ -132,6 +134,9 @@ namespace vw { namespace gui {
     char **  m_argv;
     bool     m_matches_were_loaded;
     /// A set of interest points for each input image
+    /// - There is always one set of matched interest points shared among all images.
+    /// - The only way the counts can differ is if the user is in the process of manually
+    ///   adding an interest point to the images.
     /// - The length of the outer vector is equal to the number of MainWidget objects
     std::vector<std::vector<vw::ip::InterestPoint> > m_matches;
    };
