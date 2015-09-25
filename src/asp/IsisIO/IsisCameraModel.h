@@ -96,6 +96,11 @@ namespace camera {
       return m_interface->target_radii();
     }
 
+    // The spheroid name.
+    std::string target_name() const {
+      return m_interface->target_name();
+    }
+
   protected:
     boost::shared_ptr<asp::isis::IsisInterface> m_interface;
 

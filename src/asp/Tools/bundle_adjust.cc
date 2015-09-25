@@ -982,8 +982,8 @@ int main(int argc, char* argv[]) {
         try{
           // IP matching may not succeed for all pairs
           DiskImageView<float> image1_view(image1), image2_view(image2);
-          vw::Vector<vw::float32,6> image1_stats = asp::gather_stats(image1_view, "image1");
-          vw::Vector<vw::float32,6> image2_stats = asp::gather_stats(image2_view, "image2");
+          vw::Vector<vw::float32,6> image1_stats = asp::gather_stats(image1_view, image1);
+          vw::Vector<vw::float32,6> image2_stats = asp::gather_stats(image2_view, image2);
           session->ip_matching(image1, image2,
                                image1.size(),
                                image1_stats,

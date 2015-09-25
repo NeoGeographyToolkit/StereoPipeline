@@ -96,7 +96,7 @@ find_ideal_isis_range(DiskImageView<float> const& image,
   // Calculating statistics. We subsample the images so statistics only does about a million samples.
   float isis_mean, isis_std;
   {
-    vw_out(InfoMessage) << "\t--> Computing statistics for the "+tag+" image\n";
+    vw_out(InfoMessage) << "\t--> Computing statistics for " + tag + " image\n";
     int stat_scale = int(ceil(sqrt(float(image.cols())*float(image.rows()) / 1000000)));
     ChannelAccumulator<math::CDFAccumulator<float> > accumulator;
     for_each_pixel(subsample(edge_extend(masked_image, ConstantEdgeExtension()),
@@ -208,7 +208,7 @@ vw::cartography::Datum StereoSessionIsisBase<DISKTRANSFORM_TYPE>::get_datum(cons
     = dynamic_cast<const IsisCameraModel*>(vw::camera::unadjusted_model(cam));
   VW_ASSERT(isis_cam != NULL, ArgumentErr() << "StereoSessionISIS: Invalid left camera.\n");
   Vector3 radii = isis_cam->target_radii();
-  cartography::Datum datum("","","", (radii[0] + radii[1]) / 2, radii[2], 0);
+  cartography::Datum datum("D_" + isis_cam->target_name(), isis_cam->target_name(), "Reference Meridian", (radii[0] + radii[1]) / 2, radii[2], 0);
   return datum;
 }
 

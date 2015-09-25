@@ -32,6 +32,7 @@
 #include <Distance.h>
 #include <Pvl.h>
 #include <Camera.h>
+#include <Target.h>
 #include <FileName.h>
 #include <CameraFactory.h>
 #include <SerialNumber.h>
@@ -118,6 +119,10 @@ vw::Vector3 IsisInterface::target_radii() const {
   return Vector3( radii[0].meters(),
                   radii[1].meters(),
                   radii[2].meters() );
+}
+
+std::string IsisInterface::target_name() const {
+  return m_camera->target()->name().toStdString();
 }
 
 std::ostream& asp::isis::operator<<( std::ostream& os, IsisInterface* i ) {

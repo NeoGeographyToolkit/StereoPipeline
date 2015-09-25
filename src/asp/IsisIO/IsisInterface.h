@@ -69,6 +69,7 @@ namespace isis {
     double ephemeris_time( vw::Vector2 const& pix ) const;
     vw::Vector3 sun_position( vw::Vector2 const& pix = vw::Vector2() ) const;
     vw::Vector3 target_radii() const;
+    std::string target_name() const;
 
   protected:
     // Standard Variables

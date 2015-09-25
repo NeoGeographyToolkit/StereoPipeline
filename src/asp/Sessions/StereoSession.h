@@ -43,7 +43,7 @@ namespace asp {
   template <class ViewT>
   Vector6f gather_stats( vw::ImageViewBase<ViewT> const& view_base, std::string const& tag) {
     using namespace vw;
-    vw_out(InfoMessage) << "\t--> Computing statistics for the "+tag+" image\n";
+    vw_out(InfoMessage) << "\t--> Computing statistics for " + tag + " image\n";
     ViewT image = view_base.impl();
 
     // Compute statistics at a reduced resolution
@@ -51,7 +51,7 @@ namespace asp {
 
     ChannelAccumulator<vw::math::CDFAccumulator<float> > accumulator;
     for_each_pixel( subsample( edge_extend(image, ConstantEdgeExtension()),
-                               stat_scale ), 
+                               stat_scale ),
                     accumulator );
     Vector6f result;
     result[0] = accumulator.quantile(0); // Min
