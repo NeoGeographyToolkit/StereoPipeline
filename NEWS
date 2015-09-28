@@ -52,6 +52,8 @@
    * Added the ability to compute a manual rotation + translation +
      scale transform based on user-selected point correspondences from
      reference to source cloud in stereo_gui.
+  * Upgraded to the latest libpointmatcher. This may result in minor
+    alignment changes as the core algorithm got modified.
 
  - bundle_adjust
     * Added OpenCV-based SIFT and ORB interest point finding options.
