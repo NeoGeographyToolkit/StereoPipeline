@@ -212,6 +212,16 @@ matches. This functionality is only enabled if \texttt{stereo\_gui} is
 invoked like \texttt{stereo}, so with output prefix and camera models,
 rather than just with images.
 
+You can create ground control point files for bundle_adjust using stereo_gui.
+To do this, you must have at least three images loaded and the last of these
+images must have a valid georeference.  You must then manually create interest 
+point matches between the images.  When you are finished creating 
+interest points, use the "IP matches"->"Write GCP file" menu item to generate
+a ground control point file containing the selected points.  You will be prompted
+for a reference DEM and for the desired output path.  The last image is
+only used for it's georeference information to index into the DEM; the 
+selected pixels from the last image are not saved to the GCP file.
+
 \texttt{stereo\_gui} can be used to find the shadow threshold for each
 of a given set of images (useful for shape-from-shading (chapter \ref{ch:sfs}).
 This can be done by turning on from the menu

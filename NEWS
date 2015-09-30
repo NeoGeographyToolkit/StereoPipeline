@@ -40,6 +40,7 @@
    * Added the option --delete-temporary-files-on-exit to do precisely
      that.
    * Can read the georeference of map-projected ISIS cubes.
+   * Added ability to generate ground control point files for bundle_adjust.
 
  - point2dem
    * Fix minor discrepancies in the minor semi-axis for the WGS84,
