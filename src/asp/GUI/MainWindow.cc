@@ -85,7 +85,7 @@ MainWindow::MainWindow(asp::BaseOptions const& opt,
 
 
   // Collect only the valid images
-  m_images.clear();
+  m_image_paths.clear();
   for (size_t i = 0; i < images.size(); i++) {
     bool is_image = true;
     try {
@@ -94,17 +94,17 @@ MainWindow::MainWindow(asp::BaseOptions const& opt,
       is_image = false;
     }
     if (!is_image) continue;
-    m_images.push_back(images[i]);
+    m_image_paths.push_back(images[i]);
   }
 
-  if (m_images.empty()) {
+  if (m_image_paths.empty()) {
     popUp("No valid images to display.");
     return;
   }
 
   m_matches_were_loaded = false;
   m_matches.clear();
-  m_matches.resize(m_images.size());
+  m_matches.resize(m_image_paths.size());
 
   m_view_type = VIEW_SIDE_BY_SIDE;
   if (m_grid_cols > 1) {
@@ -141,10 +141,11 @@ void MainWindow::createLayout() {
   m_widgets.clear();
 
   if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
+
     // Put all images in a single window, with a dialog for choosing images if
     // there's more than one image.
 
-    if (m_images.size() > 1) {
+    if (m_image_paths.size() > 1) {
       m_chooseFiles = new chooseFilesDlg(this);
       m_chooseFiles->setMaximumSize(int(m_widRatio*size().width()), size().height());
       splitter->addWidget(m_chooseFiles);
@@ -154,7 +155,7 @@ void MainWindow::createLayout() {
     MainWidget * widget = new MainWidget(centralWidget,
                                          m_opt,
                                          0, m_output_prefix,
-                                         m_images, m_matches,
+                                         m_image_paths, m_matches,
                                          m_chooseFiles,
                                          m_use_georef, m_hillshade, m_viewMatches);
     m_widgets.push_back(widget);
@@ -162,9 +163,9 @@ void MainWindow::createLayout() {
   } else{
 
     // Each MainWidget object gets passed a single image
-    for (size_t i = 0; i < m_images.size(); i++) {
+    for (size_t i = 0; i < m_image_paths.size(); i++) {
       std::vector<std::string> local_images;
-      local_images.push_back(m_images[i]);
+      local_images.push_back(m_image_paths[i]);
       m_chooseFiles = NULL;
       MainWidget * widget = new MainWidget(centralWidget,
                                            m_opt,
@@ -178,6 +179,7 @@ void MainWindow::createLayout() {
 
   // Put the images in a grid
   int num_widgets = m_widgets.size();
+
   QGridLayout *grid = new QGridLayout(centralWidget);
   for (int i = 0; i < num_widgets; i++) {
     // Add the current widget
@@ -410,14 +412,14 @@ void MainWindow::viewMatches(){
 
     m_matches_were_loaded = true;
     m_matches.clear();
-    m_matches.resize(m_images.size());
+    m_matches.resize(m_image_paths.size());
 
     // All images must have the same number of matches to be able to view them
     int num_matches = -1;
 
-    for (int i = 0; i < int(m_images.size()); i++) {
-      for (int j = int(i+1); j < int(m_images.size()); j++) {
-        std::string match_filename = vw::ip::match_filename(m_output_prefix, m_images[i], m_images[j]);
+    for (int i = 0; i < int(m_image_paths.size()); i++) {
+      for (int j = int(i+1); j < int(m_image_paths.size()); j++) {
+        std::string match_filename = vw::ip::match_filename(m_output_prefix, m_image_paths[i], m_image_paths[j]);
 
         // Look for the match file in the default location, and if it
         // does not appear prompt the user or a path.
@@ -442,7 +444,7 @@ void MainWindow::viewMatches(){
           if (num_matches != int(m_matches[i].size()) ||
               num_matches != int(m_matches[j].size()) ) {
             m_matches.clear();
-            m_matches.resize(m_images.size());
+            m_matches.resize(m_image_paths.size());
             popUp(std::string("All image must have the same number of matching ")
                   + "interest point to be able to display them.");
             return;
@@ -450,7 +452,7 @@ void MainWindow::viewMatches(){
 
         }catch(...){
           m_matches.clear();
-          m_matches.resize(m_images.size());
+          m_matches.resize(m_image_paths.size());
           popUp("Could not read matches file: " + match_filename);
           return;
         }
@@ -483,10 +485,9 @@ void MainWindow::saveMatches(){
     }
   }
 
-  for (int i = 0; i < int(m_images.size()); i++) {
-    for (int j = int(i+1); j < int(m_images.size()); j++) {
-      std::string match_filename
-        = vw::ip::match_filename(m_output_prefix, m_images[i], m_images[j]);
+  for (int i = 0; i < int(m_image_paths.size()); i++) {
+    for (int j = int(i+1); j < int(m_image_paths.size()); j++) {
+      std::string match_filename = vw::ip::match_filename(m_output_prefix, m_image_paths[i], m_image_paths[j]);
       try {
         vw_out() << "Writing: " << match_filename << std::endl;
         ip::write_binary_match_file(match_filename, m_matches[i], m_matches[j]);
@@ -505,41 +506,97 @@ void MainWindow::writeGroundControlPoints() {
   // Make sure the IP matches are ready
   for (size_t i = 0; i < m_matches.size(); i++) {
     if (m_matches[0].size() != m_matches[i].size()) {
-      popUp("Cannot save matches. Must have the same number of matches in each image.");
-      return;
+      return popUp("Cannot save matches. Must have the same number of matches in each image.");
     }
   }
-  size_t num_ips = m_matches[0].size();
+  const size_t num_ips    = m_matches[0].size();
+  const size_t num_images = m_image_paths.size();
+  const size_t num_images_to_save = num_images - 1; // Don't record pixels from the last image.
+  if (num_images != m_matches.size()) {
+    return popUp("Cannot save matches. Image and match vectors are unequal!");
+  }
+
+  // Prompt the user for a DEM path
+  std::string dem_path = "";
+  try { 
+    dem_path = QFileDialog::getOpenFileName(0,
+                                      "Select DEM to use for point elevations",
+                                      m_output_prefix.c_str()).toStdString();
+  }catch(...){
+    return popUp("Error selecting the dem path.");
+  }
+
+  // Load a georeference to use for the GCPs from the last image
+  cartography::GeoReference georef;
+  const size_t GEOREF_INDEX = m_image_paths.size() - 1;
+  const std::string georef_image_path = m_image_paths[GEOREF_INDEX];
+  bool has_georef = vw::cartography::read_georeference(georef, georef_image_path);
+  if (!has_georef) {
+    return popUp("Error: Could not load a valid georeference to use for ground control points in file: "
+                 + georef_image_path);
+  }
+  vw_out() << "Loaded georef from file " << georef_image_path << std::endl;
+
+  // Init the DEM to use for height interpolation
+  boost::shared_ptr<DiskImageResource> dem_rsrc(DiskImageResource::open(dem_path));
+  DiskImageView<float> dem_disk_image(dem_path);
+  vw::ImageViewRef<PixelMask<float> > raw_dem;
+  float nodata_val = -std::numeric_limits<float>::max();
+  if (dem_rsrc->has_nodata_read()){
+    nodata_val = dem_rsrc->nodata_read();
+    raw_dem    = create_mask(dem_disk_image, nodata_val);
+  }else{
+    raw_dem = pixel_cast<PixelMask<float> >(dem_disk_image);
+  }
+  vw::ImageViewRef<PixelMask<float> > interp_dem = interpolate(raw_dem, 
+                                                      BilinearInterpolation(),
+                                                      ValueEdgeExtension<PixelMask<float> >(PixelMask<float>()));
 
   // Prompt the user for the desired output path
   std::string save_path = "";
   try { 
-    std::string default_path = m_output_prefix + "/ground_control_points.csv";
+    std::string default_path = m_output_prefix + "/ground_control_points.gcp";
     save_path = QFileDialog::getSaveFileName(0,
                                       "Select a path to save the GCP file to",
                                       default_path.c_str()).toStdString();
   }catch(...){
-    popUp("Error selecting the output path.");
-    return;
+    return popUp("Error selecting the output path.");
   }
-
 
   std::ofstream output_handle(save_path.c_str());
 
+  size_t num_pts_skipped = 0, num_pts_used = 0;
   for (size_t p = 0; p < num_ips; p++) { // Loop through IPs
-    for (size_t i = 0; i < m_matches.size(); i++) { // Loop through image panes
+
+    // Compute the GDC coordinate of the point
+    ip::InterestPoint ip = m_matches[GEOREF_INDEX][p];
+    Vector2 lonlat = georef.pixel_to_lonlat(Vector2(ip.x, ip.y));
+    PixelMask<float> height = interp_dem(ip.x, ip.y)[0];
+    if (is_valid(height) == false) {
+      vw_out() << "Warning: Skipped IP # " << p << " because it does not fall on the DEM.\n";
+      ++num_pts_skipped;
+      continue; // Skip locations which do not fall on the DEM
+    }
+
+    // Write the per-point information
+    output_handle << num_pts_used; // The ground control point ID
+    output_handle << ", " << lonlat[0] << ", " << lonlat[1] << ", " << height[0];
+    output_handle << ", " << 1 << ", " << 1 << ", " << 1; // Sigma values
+
+    // Write the per-image information
+    for (size_t i = 0; i < num_images_to_save; i++) {
       // Add this IP to the current line
-      vw::ip::InterestPoint ip = m_matches[i][p];
-      if (i > 0)
-        output_handle << ", ";
-      output_handle << ip.x << ", " << ip.y;
+      ip::InterestPoint ip = m_matches[i][p];
+      output_handle << ", " << m_image_paths[i];
+      output_handle << ", " << ip.x << ", " << ip.y; // IP location in image
+      output_handle << ", " << 1 << ", " << 1; // Sigma values
     } // End loop through IP sets
     output_handle << std::endl; // Finish the line
+    ++num_pts_used;
   } // End loop through IPs
 
   output_handle.close();
   popUp("Finished writing file " + save_path);
-
 }
 
 
@@ -657,13 +714,12 @@ void MainWindow::viewOverlayedImages() {
   m_use_georef = m_viewOverlayedImages_action->isChecked();
   if (m_use_georef) {
 
-    // Will show in single window with georef. Must first check if all images
-    // have georef.
-    for (size_t i = 0; i < m_images.size(); i++) {
+    // Will show in single window with georef. Must first check if all images have georef.
+    for (size_t i = 0; i < m_image_paths.size(); i++) {
       cartography::GeoReference georef;
-      bool has_georef = vw::cartography::read_georeference(georef, m_images[i]);
+      bool has_georef = vw::cartography::read_georeference(georef, m_image_paths[i]);
       if (!has_georef) {
-        popUp("Cannot overlay, as there is no georeference in: " + m_images[i]);
+        popUp("Cannot overlay, as there is no georeference in: " + m_image_paths[i]);
         return;
       }
     }

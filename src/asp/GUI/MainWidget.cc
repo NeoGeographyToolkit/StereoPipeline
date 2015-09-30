@@ -573,8 +573,9 @@ namespace vw { namespace gui {
     } // End loop through input images
 
     // Call another function to handle drawing the interest points
-    if ((m_image_id < int(m_matches.size())) && m_viewMatches)
+    if ((static_cast<size_t>(m_image_id) < m_matches.size()) && m_viewMatches) {
       drawInterestPoints(paint, screen_box_list);
+    }
 
     return;
   } // End function drawImage()
@@ -1149,7 +1150,8 @@ namespace vw { namespace gui {
   }
 
   void MainWidget::viewMatches(bool view_matches){
-    if (m_images.size() != 1) {
+    // Complain if there are multiple images and matches was turned on
+    if ((m_images.size() != 1) && view_matches) {
       popUp("Must have just one image in each window to view matches.");
 
       refreshPixmap();

@@ -96,7 +96,7 @@ namespace vw { namespace gui {
     void closeEvent (QCloseEvent *);
 
     asp::BaseOptions          m_opt;
-    std::vector<std::string>  m_images; ///< Loaded image files
+    std::vector<std::string>  m_image_paths; ///< Loaded image files
     std::string               m_output_prefix;
     double                    m_widRatio;    // ratio of sidebar to entire win wid
     std::vector<MainWidget*>  m_widgets;     ///< One of these for each seperate image pane.
