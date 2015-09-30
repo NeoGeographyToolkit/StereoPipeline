@@ -202,6 +202,9 @@ void MainWindow::createLayout() {
 
   // This code must be here in order to load the matches if needed
   viewMatches();
+
+  // Refresh if this menu should be checked
+  m_viewOverlayedImages_action->setChecked(m_use_georef && (m_view_type == VIEW_IN_SINGLE_WINDOW));
 }
 
 void MainWindow::createMenus() {
@@ -518,7 +521,7 @@ void MainWindow::writeGroundControlPoints() {
 
   // Prompt the user for a DEM path
   std::string dem_path = "";
-  try { 
+  try {
     dem_path = QFileDialog::getOpenFileName(0,
                                       "Select DEM to use for point elevations",
                                       m_output_prefix.c_str()).toStdString();
@@ -548,13 +551,13 @@ void MainWindow::writeGroundControlPoints() {
   }else{
     raw_dem = pixel_cast<PixelMask<float> >(dem_disk_image);
   }
-  vw::ImageViewRef<PixelMask<float> > interp_dem = interpolate(raw_dem, 
+  vw::ImageViewRef<PixelMask<float> > interp_dem = interpolate(raw_dem,
                                                       BilinearInterpolation(),
                                                       ValueEdgeExtension<PixelMask<float> >(PixelMask<float>()));
 
   // Prompt the user for the desired output path
   std::string save_path = "";
-  try { 
+  try {
     std::string default_path = m_output_prefix + "/ground_control_points.gcp";
     save_path = QFileDialog::getSaveFileName(0,
                                       "Select a path to save the GCP file to",
