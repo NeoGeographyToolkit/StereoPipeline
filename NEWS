@@ -37,10 +37,14 @@
     * Added OpenCV-based SIFT and ORB interest point finding options.
   
  - stereo_gui
+   * Added the ability to generate ground control point files for
+     bundle_adjust. In addition to the images to be bundle-adjusted,
+     one should provide an additional georeferenced image to find
+     matches in and a reference DEM from which the GCP xyz coordinates
+     will be inferred.
    * Added the option --delete-temporary-files-on-exit to do precisely
      that.
    * Can read the georeference of map-projected ISIS cubes.
-   * Added ability to generate ground control point files for bundle_adjust.
 
  - point2dem
    * Fix minor discrepancies in the minor semi-axis for the WGS84,
