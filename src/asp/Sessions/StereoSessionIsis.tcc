@@ -202,13 +202,22 @@ void write_preprocessed_isis_image( BaseOptions const& opt,
 
 }
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE>
-vw::cartography::Datum StereoSessionIsisBase<DISKTRANSFORM_TYPE>::get_datum(const vw::camera::CameraModel* cam) const
+vw::cartography::Datum StereoSessionIsisBase<DISKTRANSFORM_TYPE>::get_datum(const vw::camera::CameraModel* cam, bool use_sphere_for_isis) const
 {
   const IsisCameraModel * isis_cam
     = dynamic_cast<const IsisCameraModel*>(vw::camera::unadjusted_model(cam));
   VW_ASSERT(isis_cam != NULL, ArgumentErr() << "StereoSessionISIS: Invalid left camera.\n");
   Vector3 radii = isis_cam->target_radii();
-  cartography::Datum datum("D_" + isis_cam->target_name(), isis_cam->target_name(), "Reference Meridian", (radii[0] + radii[1]) / 2, radii[2], 0);
+  double radius1 = (radii[0] + radii[1]) / 2;
+  double radius2 = radius1;
+  if (!use_sphere_for_isis) {
+    // During alignment, we'd like to use the most accurate
+    // non-spherical datum, hence radii[2]. However, for the purpose
+    // of creating a DEM on non-Earth planets (that is, when ISIS is
+    // used) people usually just use a sphere, which we'll do as well.
+    radius2 = radii[2];
+  }
+  cartography::Datum datum("D_" + isis_cam->target_name(), isis_cam->target_name(), "Reference Meridian", radius1, radius2, 0);
   return datum;
 }
 

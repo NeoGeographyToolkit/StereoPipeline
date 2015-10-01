@@ -22,6 +22,7 @@
 
 #include <asp/Tools/stereo.h>
 #include <vw/Stereo/DisparityMap.h>
+#include <asp/Sessions/StereoSession.h>
 
 using namespace vw;
 using namespace asp;
@@ -41,6 +42,9 @@ int main( int argc, char* argv[] ) {
     string output_prefix;
     asp::parse_multiview(argc, argv, TriangulationDescription(),
                          verbose, output_prefix, opt_vec);
+    if (opt_vec.empty())
+      return 1;
+
     Options opt = opt_vec[0];
 
     vw_out() << "in_file1,"        << opt.in_file1        << endl;
@@ -75,6 +79,7 @@ int main( int argc, char* argv[] ) {
       trans_left_image_size = file_image_size(trans_left_image);
     vw_out() << "trans_left_image_size," << trans_left_image_size.x() << "," << trans_left_image_size.y() << endl;
 
+    vw_out() << "WKT--non-comma-separator--" << opt.session->get_georef().get_wkt() << std::endl;
 
     // Some care is needed below. The transformed_window will be used
     // by parallel_stereo to parallelize stereo on a given user-specified

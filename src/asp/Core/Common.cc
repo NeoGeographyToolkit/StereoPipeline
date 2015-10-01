@@ -441,15 +441,15 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
   OGRSpatialReference gdal_spatial_ref;
   if (gdal_spatial_ref.SetFromUserInput( srs_string.c_str() ))
     vw_throw( ArgumentErr() << "Failed to parse: \"" << srs_string << "\"." );
-  char *wkt = NULL;
-  gdal_spatial_ref.exportToWkt( &wkt );
-  srs_string = wkt;
-  delete[] wkt;
+  char *wkt_str_tmp = NULL;
+  gdal_spatial_ref.exportToWkt( &wkt_str_tmp );
+  srs_string = wkt_str_tmp;
+  OGRFree(wkt_str_tmp);
   georef.set_wkt(srs_string);
 
   // Re-apply the user's datum. The important values were already
   // there (major/minor axis), we're just re-applying to make sure
-  // the names of the datum are there.
+  // the name of the datum is there.
   if ( have_user_datum )
     georef.set_datum( user_datum );
 

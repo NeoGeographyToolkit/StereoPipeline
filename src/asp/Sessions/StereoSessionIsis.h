@@ -152,7 +152,8 @@ namespace asp {
     virtual std::string name() const { return "isis"; }
 
     /// Returns the target datum to use for a given camera model
-    virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam) const;
+    virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,
+                                             bool use_sphere_for_isis) const;
 
     /// Stage 1: Preprocessing
     ///

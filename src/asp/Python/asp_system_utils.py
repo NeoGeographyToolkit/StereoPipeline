@@ -211,7 +211,7 @@ def run_and_parse_output(cmd, args, sep, verbose, **kw ):
         if sep in line:
             keywords = line.split(sep)
             for index, item in enumerate(keywords):
-                # Strip whitespace
+                # Strip whitespace from ends
                 keywords[index] = item.strip(' \t\n\r')
             data[keywords[0]] = keywords[1:]
 

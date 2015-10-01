@@ -195,7 +195,14 @@ namespace asp {
                      vw::camera::CameraModel* cam2);
 
     /// Returns the target datum to use for a given camera model
-    virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam) const { return vw::cartography::Datum("WGS84"); }
+    virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,
+                                             bool use_sphere_for_isis) const {
+      return vw::cartography::Datum("WGS84");
+    }
+
+  // Peek inside the images and camera models and return the datum and projection,
+  // or at least the datum, packaged in a georef.
+    vw::cartography::GeoReference get_georef();
 
     // All Stereo Session children must define the following which are not defined in the the parent:
     //   typedef VWStereoModel stereo_model_type;

@@ -97,7 +97,7 @@ namespace asp {
       normalize_images(stereo_settings().force_use_entire_range,
                        stereo_settings().individually_normalize,
                        true, // Use percentile based stretch for ip matching
-                       stats1,      stats2, 
+                       stats1,      stats2,
                        image1_norm, image2_norm);
     }
 
@@ -106,11 +106,13 @@ namespace asp {
     bool inlier = false;
     if (nadir_facing) {
       // Run an IP matching function that takes the camera and datum info into account
-      bool single_threaded_camera = true; // TODO: Does this make sense?
-      cartography::Datum datum = this->get_datum(cam1);
+      bool single_threaded_camera = true; // TODO: This is probably needed only for ISIS.
+
+      bool use_sphere_for_isis = false; // Assume Mars is not a sphere
+      cartography::Datum datum = this->get_datum(cam1, use_sphere_for_isis);
 
       // Min % distance between closest and second closest descriptor matches
-      const double match_seperation_threshold = 0.7; 
+      const double match_seperation_threshold = 0.7;
 
       // This computes a distance used for throwing out interest points.
       // - It has to be computed using the entire (not cropped) image size!
@@ -137,7 +139,28 @@ namespace asp {
     return inlier;
   }
 
+  // Peek inside the images and camera models and return the datum and projection,
+  // or at least the datum, packaged in a georef.
+  vw::cartography::GeoReference StereoSession::get_georef() {
 
+    vw::cartography::GeoReference georef;
+
+    // First try to see if the image is map-projected.
+    bool has_georef = read_georeference(georef, m_left_image_file);
+
+    if (!has_georef) {
+      // The best we can do is to get the datum, even non-projected images
+      // have that.
+      boost::shared_ptr<vw::camera::CameraModel> cam = this->camera_model(m_left_image_file,
+                                                                          m_left_camera_file);
+
+      // Spherical datum for non-Earth, as done usually
+      bool use_sphere_for_isis = true;
+      georef.set_datum(this->get_datum(cam.get(), use_sphere_for_isis));
+    }
+
+    return georef;
+  }
 
   // Default implementation of this function.  Derived classes will probably override this.
   void StereoSession::camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
