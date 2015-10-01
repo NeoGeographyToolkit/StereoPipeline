@@ -66,6 +66,10 @@
  - geodiff
    * Bugfix when the two DEMs have longitudes offset by 360 degrees.
 
+ - colormap
+   * Default style is binary-red-blue. Works better than jet when 
+     data goes out of range.
+
 *** RELEASE 2.5.0, August 31, 2015 ***
 
 -  Improved speed, coverage, and accuracy for areas with steep slopes
