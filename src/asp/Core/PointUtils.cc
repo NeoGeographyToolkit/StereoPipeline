@@ -544,9 +544,6 @@ Vector3 asp::CsvConv::cartesian_to_csv(Vector3 const& xyz,
 // End class CsvConv functions
 //------------------------------------------------------------------------------------------
 
-
-
-
 void asp::las_or_csv_to_tif(std::string const& in_file,
                             std::string const& out_file,
                             int num_rows, int block_size,

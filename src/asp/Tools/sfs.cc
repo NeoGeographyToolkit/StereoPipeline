@@ -907,17 +907,20 @@ public:
     }
     std::string iter_str = os.str();
 
+    bool has_georef = true, has_nodata = true;
     std::string out_dem_file = g_opt->out_prefix + "-DEM"
       + iter_str + ".tif";
     vw_out() << "Writing: " << out_dem_file << std::endl;
     TerminalProgressCallback tpc("asp", ": ");
-    block_write_gdal_image(out_dem_file, *g_dem, *g_geo, *g_nodata_val,
+    block_write_gdal_image(out_dem_file, *g_dem, has_georef, *g_geo,
+                           has_nodata, *g_nodata_val,
                            *g_opt, tpc);
 
     std::string out_albedo_file = g_opt->out_prefix + "-comp-albedo"
       + iter_str + ".tif";
     vw_out() << "Writing: " << out_albedo_file << std::endl;
-    block_write_gdal_image(out_albedo_file, *g_albedo, *g_geo, *g_nodata_val,
+    block_write_gdal_image(out_albedo_file, *g_albedo, has_georef, *g_geo,
+                           has_nodata, *g_nodata_val,
                            *g_opt, tpc);
 
     // If there's just one image, print reflectance and other things
@@ -961,14 +964,14 @@ public:
       vw_out() << "Writing: " << out_intensity_file << std::endl;
       block_write_gdal_image(out_intensity_file,
                              apply_mask(intensity, *g_img_nodata_val),
-                             *g_geo, *g_img_nodata_val, *g_opt, tpc);
+                             has_georef, *g_geo, has_nodata, *g_img_nodata_val, *g_opt, tpc);
 
       std::string out_reflectance_file = g_opt->out_prefix + "-comp-reflectance"
         + iter_str2 + ".tif";
       vw_out() << "Writing: " << out_reflectance_file << std::endl;
       block_write_gdal_image(out_reflectance_file,
                              apply_mask(reflectance, *g_img_nodata_val),
-                             *g_geo, *g_img_nodata_val, *g_opt, tpc);
+                             has_georef, *g_geo, has_nodata, *g_img_nodata_val, *g_opt, tpc);
 
       // Find the measured normalized albedo, after correcting for
       // reflectance.
@@ -987,7 +990,7 @@ public:
         + "-meas-albedo" + iter_str2 + ".tif";
       vw_out() << "Writing: " << out_albedo_file << std::endl;
       block_write_gdal_image(out_albedo_file, measured_albedo,
-                             *g_geo, 0, *g_opt, tpc);
+                             has_georef, *g_geo, has_nodata, 0, *g_opt, tpc);
 
       // Find the computed intensity
       comp_intensity.set_size(reflectance.cols(), reflectance.rows());
@@ -1002,7 +1005,7 @@ public:
       vw_out() << "Writing: " << out_comp_intensity_file << std::endl;
       block_write_gdal_image(out_comp_intensity_file,
                              apply_mask(comp_intensity, *g_img_nodata_val),
-                             *g_geo, *g_img_nodata_val, *g_opt, tpc);
+                             has_georef, *g_geo, has_nodata, *g_img_nodata_val, *g_opt, tpc);
 
       double imgmean, imgstdev, refmean, refstdev;
       compute_image_stats(intensity, imgmean, imgstdev);
@@ -1025,7 +1028,7 @@ public:
       std::string out_shadow_file = g_opt->out_prefix
         + "-shadow" + iter_str2 + ".tif";
       vw_out() << "Writing: " << out_shadow_file << std::endl;
-      block_write_gdal_image(out_shadow_file, shadow, *g_geo,
+      block_write_gdal_image(out_shadow_file, shadow, has_georef, *g_geo, has_nodata,
                              -std::numeric_limits<float>::max(), *g_opt, tpc);
 #endif
 

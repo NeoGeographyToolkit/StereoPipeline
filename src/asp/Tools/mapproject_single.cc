@@ -142,25 +142,16 @@ void write_parallel_cond( std::string              const& filename,
   std::map<std::string, std::string> keywords;
   keywords["CAMERA_MODEL_TYPE" ] = session_type;
 
-  // ISIS is not thread safe so we must switch out base on what the session is.
+  bool has_georef = true;
 
+  // ISIS is not thread safe so we must switch out base on what the session is.
   vw_out() << "Writing: " << filename << "\n";
-  if (has_nodata){
-    if ( session_type == "isis" ) {
-      asp::write_gdal_image(filename, image.impl(), georef,
-                            nodata_val, opt, tpc, keywords);
-    } else {
-      asp::block_write_gdal_image(filename, image.impl(), georef,
-                                  nodata_val, opt, tpc, keywords);
-    }
-  }else{ // Does not have nodata
-    if ( session_type == "isis" ) {
-      asp::write_gdal_image(filename, image.impl(), georef,
-                            opt, tpc, keywords);
-    } else {
-      asp::block_write_gdal_image(filename, image.impl(), georef,
-                                  opt, tpc, keywords);
-    }
+  if ( session_type == "isis" ) {
+    asp::write_gdal_image(filename, image.impl(), has_georef, georef,
+                          has_nodata, nodata_val, opt, tpc, keywords);
+  } else {
+    asp::block_write_gdal_image(filename, image.impl(), has_georef, georef,
+                                has_nodata, nodata_val, opt, tpc, keywords);
   }
 
 }

@@ -226,6 +226,11 @@ namespace asp{
                         Options const& opt){
 
     vw_out() << "Writing point cloud: " << point_cloud_file << "\n";
+    bool has_georef = true;
+    cartography::GeoReference georef = opt.session->get_georef();
+
+    bool has_nodata = false;
+    double nodata = -std::numeric_limits<float>::max(); // smallest float
 
     // TODO: Replace this with with a function call!
     if ( (opt.session->name() == "isis") || (opt.session->name() == "isismapisis")){
@@ -233,14 +238,16 @@ namespace asp{
       asp::write_approx_gdal_image
         ( point_cloud_file, shift,
           stereo_settings().point_cloud_rounding_error,
-          point_cloud, opt,
-          TerminalProgressCallback("asp", "\t--> Triangulating: "));
+          point_cloud,
+          has_georef, georef, has_nodata, nodata,
+          opt, TerminalProgressCallback("asp", "\t--> Triangulating: "));
     }else{
       asp::block_write_approx_gdal_image
         ( point_cloud_file, shift,
           stereo_settings().point_cloud_rounding_error,
-          point_cloud, opt,
-          TerminalProgressCallback("asp", "\t--> Triangulating: "));
+          point_cloud,
+          has_georef, georef, has_nodata, nodata,
+          opt, TerminalProgressCallback("asp", "\t--> Triangulating: "));
     }
 
   }

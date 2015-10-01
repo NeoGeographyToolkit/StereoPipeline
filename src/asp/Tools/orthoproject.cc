@@ -103,20 +103,13 @@ void write_parallel_cond( std::string const& filename,
   // ISIS is not thread safe so we must switch out base on what the
   // session is.
   vw_out() << "Writing: " << filename << "\n";
-  if (use_nodata){
-    if ( opt.stereo_session == "isis" ) {
-      asp::write_gdal_image(filename, image.impl(), georef, nodata_val, opt, tpc);
-    } else {
-      asp::block_write_gdal_image(filename, image.impl(), georef, nodata_val, opt, tpc);
-    }
-  }else{
-    if ( opt.stereo_session == "isis" ) {
-      asp::write_gdal_image(filename, image.impl(), georef, opt, tpc);
-    } else {
-      asp::block_write_gdal_image(filename, image.impl(), georef, opt, tpc);
-    }
-  }
-
+  bool has_georef = true;
+  if ( opt.stereo_session == "isis" )
+    asp::write_gdal_image(filename, image.impl(), has_georef, georef,
+                          use_nodata, nodata_val, opt, tpc);
+  else
+    asp::block_write_gdal_image(filename, image.impl(), has_georef, georef,
+                                use_nodata, nodata_val, opt, tpc);
 }
 
 // Convert PixelMask<PixelT> to PixelGrayA<PixelT> taking particular care

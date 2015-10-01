@@ -397,7 +397,10 @@ public:
       std::ostringstream os;
       os << "weights_" << dem_iter << ".tif";
       std::cout << "Writing: " << os.str() << std::endl;
-      block_write_gdal_image(os.str(), local_wts, georef, -100,
+      bool has_georef = true, has_nodata = true;
+      block_write_gdal_image(os.str(), local_wts,
+                             has_georef, georef,
+                             has_nodata, -100,
                              asp::BaseOptions(),
                              TerminalProgressCallback("asp", ""));
 #endif
@@ -688,7 +691,10 @@ public:
         std::ostringstream os;
         os << "tile_weight_" << clip_iter << ".tif";
         std::cout << "Writing: " << os.str() << std::endl;
-        block_write_gdal_image(os.str(), weight_vec[clip_iter], crop_georef, -100,
+        bool has_georef = true, has_nodata = true;
+        block_write_gdal_image(os.str(), weight_vec[clip_iter],
+                               has_georef, crop_georef,
+                               has_nodata, -100,
                                asp::BaseOptions(),
                                TerminalProgressCallback("asp", ""));
       }

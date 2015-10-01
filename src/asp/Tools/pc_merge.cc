@@ -175,6 +175,22 @@ do_work(Vector3 const& shift, Options const& opt) {
   const int spacing = asp::OrthoRasterizerView::max_subblock_size();
   ImageViewRef<PixelT> merged_cloud = asp::form_point_cloud_composite<PixelT>(opt.pointcloud_files, spacing);
 
+  // See if we can pull a georeference from somewhere. Of course it will be wrong
+  // when applied to the merged cloud, but it will at least have the correct datum
+  // and projection.
+  bool has_georef = false;
+  cartography::GeoReference georef;
+  for (size_t i = 0; i < opt.pointcloud_files.size(); i++){
+    cartography::GeoReference local_georef;
+    if (read_georeference(local_georef, opt.pointcloud_files[i])){
+      georef = local_georef;
+      has_georef = true;
+    }
+  }
+
+  bool has_nodata = false;
+  double nodata = -std::numeric_limits<float>::max(); // smallest float
+
   vw_out() << "Writing point cloud: " << opt.out_file << "\n";
 
   // If shift != zero then this will cast the output data to type float.
@@ -183,8 +199,9 @@ do_work(Vector3 const& shift, Options const& opt) {
   asp::block_write_approx_gdal_image
     ( opt.out_file, shift,
       point_cloud_rounding_error,
-      merged_cloud, opt,
-      TerminalProgressCallback("asp", "\t--> Merging: "));
+      merged_cloud,
+      has_georef, georef, has_nodata, nodata,
+      opt, TerminalProgressCallback("asp", "\t--> Merging: "));
 }
 
 //-----------------------------------------------------------------------------------

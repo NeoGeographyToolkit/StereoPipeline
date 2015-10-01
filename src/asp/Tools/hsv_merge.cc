@@ -72,7 +72,11 @@ void do_merge(Options const& opt) {
   ImageViewRef<PixelRGB<ChannelT> > result =
     pixel_cast<PixelRGB<ChannelT> >(replace_channel(pixel_cast<PixelHSV<ChannelT> >(rgb_image),2,shaded_image));
 
-  block_write_gdal_image( opt.output_file, result, georef, opt,
+  bool has_georef = true;
+  bool has_nodata = false;
+  double nodata = -std::numeric_limits<float>::max(); // smallest float
+
+  block_write_gdal_image( opt.output_file, result, has_georef, georef, has_nodata, nodata, opt,
                           TerminalProgressCallback("tools.hsv_merge","Writing:") );
 }
 
