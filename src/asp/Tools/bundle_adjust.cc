@@ -83,6 +83,7 @@ struct Options : public asp::BaseOptions {
   std::vector<boost::shared_ptr<CameraModel> > camera_models;
   cartography::Datum datum;
   int ip_detect_method;
+  bool individually_normalize;
 
   // Make sure all values are initialized, even though they will be
   // over-written later.
@@ -801,6 +802,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                          "Set the minimum  number of matches between images that will be considered.")
     ("ip-detect-method",po::value(&opt.ip_detect_method)->default_value(0),
                      "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
+      ("individually-normalize",   po::bool_switch(&opt.individually_normalize)->default_value(false)->implicit_value(true),
+                     "Individually normalize the input images instead of using common values.")
     ("max-iterations",   po::value(&opt.max_iterations)->default_value(1000),
                          "Set the maximum number of iterations.")
     ("overlap-limit",    po::value(&opt.overlap_limit)->default_value(3),
@@ -857,6 +860,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   // Copy the IP settings to the global stereosettings() object
   asp::stereo_settings().ip_matching_method = opt.ip_detect_method;
+  asp::stereo_settings().individually_normalize = opt.individually_normalize;
 
   if (!opt.gcp_files.empty() || !opt.have_input_cams){
     // Need to read the datum if we have gcps.
@@ -981,11 +985,18 @@ int main(int argc, char* argv[]) {
         session->get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
         try{
           // IP matching may not succeed for all pairs
+
+          // Get masked views of the images to get statistics from
           DiskImageView<float> image1_view(image1), image2_view(image2);
-          vw::Vector<vw::float32,6> image1_stats = asp::gather_stats(image1_view, image1);
-          vw::Vector<vw::float32,6> image2_stats = asp::gather_stats(image2_view, image2);
+          ImageViewRef< PixelMask<float> > masked_image1
+            = create_mask_less_or_equal(image1_view,  nodata1);
+          ImageViewRef< PixelMask<float> > masked_image2
+            = create_mask_less_or_equal(image2_view, nodata2);
+          vw::Vector<vw::float32,6> image1_stats = asp::gather_stats(masked_image1, image1);
+          vw::Vector<vw::float32,6> image2_stats = asp::gather_stats(masked_image2, image2);
+
           session->ip_matching(image1, image2,
-                               image1.size(),
+                               Vector2(masked_image1.cols(), masked_image1.rows()),
                                image1_stats,
                                image2_stats,
                                opt.ip_per_tile,
