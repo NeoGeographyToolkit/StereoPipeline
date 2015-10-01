@@ -74,46 +74,46 @@ private:
   boost::shared_ptr<vw::ba::ControlNetwork> m_network;
 
   std::vector<camera_intr_vector_t> m_cam_vec;
-  std::vector<point_vector_t> b;
-  std::vector<camera_vector_t> cam_target_vec;
-  std::vector<point_vector_t> point_target_vec;
+  std::vector<point_vector_t> m_point_vec;
+  std::vector<camera_vector_t> m_cam_target_vec;
+  std::vector<point_vector_t> m_point_target_vec;
   int m_num_pixel_observations;
 
 public:
   BundleAdjustmentModel(std::vector<cam_ptr_t> const& cameras,
                         boost::shared_ptr<vw::ba::ControlNetwork> network) :
     m_cameras(cameras), m_network(network), m_cam_vec(cameras.size()),
-    b(network->size()), cam_target_vec(cameras.size()), point_target_vec(network->size()) {
+    m_point_vec(network->size()), m_cam_target_vec(cameras.size()), m_point_target_vec(network->size()) {
 
     // Compute the number of observations from the bundle.
     m_num_pixel_observations = 0;
     for (unsigned i = 0; i < network->size(); ++i)
       m_num_pixel_observations += (*network)[i].size();
 
-    // Set up the 'b' vectors, storing the initial values.
-    // The 'm_cam_vec' vectors however just start out zero.
+    // Set up the point vectors, storing the initial values.
+    // The camera vectors however just start out zero.
     for (unsigned i = 0; i < network->size(); ++i) {
-      b[i] = (*m_network)[i].position();
-      point_target_vec[i] = b[i];
+      m_point_vec[i] = (*m_network)[i].position();
+      m_point_target_vec[i] = m_point_vec[i];
     }
   }
 
   // Return a reference to the camera and point parameters.
   camera_vector_t cam_params(int j) const { return m_cam_vec[j]; }
-  point_vector_t point_params(int i) const { return b[i]; }
+  point_vector_t point_params(int i) const { return m_point_vec[i]; }
   void set_cam_params(int j, camera_intr_vector_t const& cam_j) {
     m_cam_vec[j] = cam_j;
   }
   void set_point_params(int i, point_vector_t const& point_i) {
-    b[i] = point_i;
+    m_point_vec[i] = point_i;
   }
 
   // Return the initial parameters
-  camera_vector_t cam_target(int j) const { return cam_target_vec[j]; }
-  point_vector_t point_target(int i) const { return point_target_vec[i]; }
+  camera_vector_t cam_target(int j) const { return m_cam_target_vec[j]; }
+  point_vector_t point_target(int i) const { return m_point_target_vec[i]; }
 
   unsigned num_cameras() const { return m_cam_vec.size(); }
-  unsigned num_points() const { return b.size(); }
+  unsigned num_points() const { return m_point_vec.size(); }
   unsigned num_pixel_observations() const { return m_num_pixel_observations; }
 
   // Return the covariance of the camera parameters for camera j.
@@ -139,8 +139,8 @@ public:
     return result;
   }
 
-  // Given the 'm_cam_vec' vector (camera model parameters) for the j'th
-  // image, and the 'b' vector (3D point location) for the i'th
+  // Given the camera model parameters for the j'th
+  // image, and the 3D point location for the i'th
   // point, return the location of point_i on imager j in pixel
   // coordinates.
   vw::Vector2 operator() ( unsigned /*i*/, unsigned j,
@@ -219,7 +219,7 @@ public:
   void bundlevis_points_append(std::string const& filename) const {
     std::ofstream ostr(filename.c_str(),std::ios::app);
     unsigned i = 0;
-    BOOST_FOREACH( point_vector_t const& p, b ) {
+    BOOST_FOREACH( point_vector_t const& p, m_point_vec ) {
       ostr << i++ << std::setprecision(18) << "\t" << p[0] << "\t"
            << p[1] << "\t" << p[2] << "\n";
     }
@@ -282,7 +282,7 @@ public:
   }
 
   // Given the 'cam_vec' vector (camera model parameters) for the j'th
-  // image, and the 'b' vector (3D point location) for the i'th
+  // image, and the 'm_point_vec' vector (3D point location) for the i'th
   // point, return the location of point_i on imager j in pixel
   // coordinates.
   vw::Vector2 operator() ( unsigned /*i*/, unsigned j,

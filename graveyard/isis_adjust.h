@@ -58,8 +58,8 @@ class IsisBundleAdjustmentModel : public vw::ba::ModelBase< IsisBundleAdjustment
   std::vector<camera_vector_t> m_cam_vec;
   //std::vector<point_vector_t> b; // b is not required as we'll be
                                    // using the cnet for storage.
-  std::vector<camera_vector_t> cam_target_vec;
-  std::vector<point_vector_t> point_target_vec;
+  std::vector<camera_vector_t> m_cam_target_vec;
+  std::vector<point_vector_t> m_point_target_vec;
   std::vector< std::string > m_files;
   int m_num_pixel_observations;
   float m_spacecraft_position_sigma;
@@ -74,8 +74,8 @@ public:
                              float const& spacecraft_position_sigma,
                              float const& spacecraft_pose_sigma, float const& gcp_scalar ) :
   m_cameras( camera_models ), m_network(network), m_cam_vec( camera_models.size() ),
-    cam_target_vec( camera_models.size() ),
-    point_target_vec( network->size() ), m_files( input_names ),
+    m_cam_target_vec( camera_models.size() ),
+    m_point_target_vec( network->size() ), m_files( input_names ),
     m_spacecraft_position_sigma(spacecraft_position_sigma),
     m_spacecraft_pose_sigma(spacecraft_pose_sigma), m_gcp_scalar(gcp_scalar) {
 
@@ -98,12 +98,12 @@ public:
         m_cam_vec[j][n] = (*posF)[n];
       for (unsigned n = 0; n < poseF->size(); ++n)
         m_cam_vec[j][n + posF->size()] = (*poseF)[n];
-      cam_target_vec[j] = m_cam_vec[j];
+      m_cam_target_vec[j] = m_cam_vec[j];
     }
 
     // Setting up B vectors
     for (unsigned i = 0; i < network->size(); ++i) {
-      point_target_vec[i] = (*m_network)[i].position();
+      m_point_target_vec[i] = (*m_network)[i].position();
     }
 
     // Checking to see if this Control Network is compatible with
@@ -120,8 +120,8 @@ public:
   void set_point_params(int i, point_vector_t const& point_i) { (*m_network)[i].set_position(point_i); }
 
   // Return Initial parameters. (Used by the bundle adjuster )
-  camera_vector_t cam_target( int j ) const { return cam_target_vec[j]; }
-  point_vector_t point_target( int i ) const { return point_target_vec[i]; }
+  camera_vector_t cam_target( int j ) const { return m_cam_target_vec[j]; }
+  point_vector_t point_target( int i ) const { return m_point_target_vec[i]; }
 
   // Return general sizes
   size_t num_cameras() const { return m_cam_vec.size(); }
