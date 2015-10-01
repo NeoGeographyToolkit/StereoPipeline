@@ -73,7 +73,7 @@ private:
   std::vector<cam_ptr_t> m_cameras;
   boost::shared_ptr<vw::ba::ControlNetwork> m_network;
 
-  std::vector<camera_intr_vector_t> a;
+  std::vector<camera_intr_vector_t> m_cam_vec;
   std::vector<point_vector_t> b;
   std::vector<camera_vector_t> cam_target_vec;
   std::vector<point_vector_t> point_target_vec;
@@ -82,7 +82,7 @@ private:
 public:
   BundleAdjustmentModel(std::vector<cam_ptr_t> const& cameras,
                         boost::shared_ptr<vw::ba::ControlNetwork> network) :
-    m_cameras(cameras), m_network(network), a(cameras.size()),
+    m_cameras(cameras), m_network(network), m_cam_vec(cameras.size()),
     b(network->size()), cam_target_vec(cameras.size()), point_target_vec(network->size()) {
 
     // Compute the number of observations from the bundle.
@@ -91,7 +91,7 @@ public:
       m_num_pixel_observations += (*network)[i].size();
 
     // Set up the 'b' vectors, storing the initial values.
-    // The 'a' vectors however just start out zero.
+    // The 'm_cam_vec' vectors however just start out zero.
     for (unsigned i = 0; i < network->size(); ++i) {
       b[i] = (*m_network)[i].position();
       point_target_vec[i] = b[i];
@@ -99,10 +99,10 @@ public:
   }
 
   // Return a reference to the camera and point parameters.
-  camera_vector_t cam_params(int j) const { return a[j]; }
+  camera_vector_t cam_params(int j) const { return m_cam_vec[j]; }
   point_vector_t point_params(int i) const { return b[i]; }
   void set_cam_params(int j, camera_intr_vector_t const& cam_j) {
-    a[j] = cam_j;
+    m_cam_vec[j] = cam_j;
   }
   void set_point_params(int i, point_vector_t const& point_i) {
     b[i] = point_i;
@@ -112,7 +112,7 @@ public:
   camera_vector_t cam_target(int j) const { return cam_target_vec[j]; }
   point_vector_t point_target(int i) const { return point_target_vec[i]; }
 
-  unsigned num_cameras() const { return a.size(); }
+  unsigned num_cameras() const { return m_cam_vec.size(); }
   unsigned num_points() const { return b.size(); }
   unsigned num_pixel_observations() const { return m_num_pixel_observations; }
 
@@ -139,7 +139,7 @@ public:
     return result;
   }
 
-  // Given the 'a' vector (camera model parameters) for the j'th
+  // Given the 'm_cam_vec' vector (camera model parameters) for the j'th
   // image, and the 'b' vector (3D point location) for the i'th
   // point, return the location of point_i on imager j in pixel
   // coordinates.
@@ -158,7 +158,7 @@ public:
   void write_adjustment(int j, std::string const& filename) const {
     vw::Vector3 position_correction;
     vw::Quat pose_correction;
-    asp::parse_camera_parameters(a[j], position_correction, pose_correction);
+    asp::parse_camera_parameters(m_cam_vec[j], position_correction, pose_correction);
     asp::write_adjustments(filename, position_correction, pose_correction);
   }
 
@@ -167,7 +167,7 @@ public:
     for (unsigned j = 0; j < result.size(); ++j) {
       vw::Vector3 position_correction;
       vw::Quat pose_correction;
-      asp::parse_camera_parameters(a[j], position_correction, pose_correction);
+      asp::parse_camera_parameters(m_cam_vec[j], position_correction, pose_correction);
       result[j] = cam_ptr_t( new vw::camera::AdjustedCameraModel( m_cameras[j], position_correction, pose_correction ) );
     }
     return result;
@@ -200,10 +200,10 @@ public:
 
   void bundlevis_cameras_append(std::string const& filename) const {
     std::ofstream ostr(filename.c_str(),std::ios::app);
-    for ( unsigned j = 0; j < a.size(); j++ ) {
+    for ( unsigned j = 0; j < m_cam_vec.size(); j++ ) {
       vw::Vector3 position_correction;
       vw::Quat pose_correction;
-      asp::parse_camera_parameters(a[j], position_correction, pose_correction);
+      asp::parse_camera_parameters(m_cam_vec[j], position_correction, pose_correction);
       vw::camera::AdjustedCameraModel cam(m_cameras[j],
                                           position_correction,
                                           pose_correction);
@@ -249,39 +249,39 @@ public:
 private:
   std::vector<cam_ptr_t> m_cameras;
   boost::shared_ptr<vw::ba::ControlNetwork> m_network;
-  std::vector<camera_intr_vector_t> a;
+  std::vector<camera_intr_vector_t> m_cam_vec;
 
 public:
   BAPinholeModel(std::vector<cam_ptr_t> const& cameras,
                  boost::shared_ptr<vw::ba::ControlNetwork> network) :
-    m_cameras(cameras), m_network(network), a(cameras.size()){}
+    m_cameras(cameras), m_network(network), m_cam_vec(cameras.size()){}
 
   unsigned num_cameras() const { return m_cameras.size(); }
   unsigned num_points() const { return m_network->size(); }
 
   void set_cam_params(int j, camera_intr_vector_t const& cam_j) {
     // Set the camera parameters.
-    a[j] = cam_j;
+    m_cam_vec[j] = cam_j;
   }
 
-  vw::camera::PinholeModel get_pinhole_model(camera_intr_vector_t const& a){
+  vw::camera::PinholeModel get_pinhole_model(camera_intr_vector_t const& cam_vec){
 
-    camera_intr_vector_t b = a;
+    camera_intr_vector_t scaled_cam_vec = cam_vec;
 
     // Undo the scale of the rotation variables
-    subvector(b,3,3) /= pose_scale;
+    subvector(scaled_cam_vec,3,3) /= pose_scale;
 
     vw::Vector3 position;
     vw::Quat pose;
-    asp::parse_camera_parameters(b, position, pose);
+    asp::parse_camera_parameters(scaled_cam_vec, position, pose);
 
     return vw::camera::PinholeModel(position,
                                     pose.rotation_matrix(),
-                                    b[6], b[6],  // focal lengths
-                                    b[7], b[8]); // pixel offsets
+                                    scaled_cam_vec[6], scaled_cam_vec[6],  // focal lengths
+                                    scaled_cam_vec[7], scaled_cam_vec[8]); // pixel offsets
   }
 
-  // Given the 'a' vector (camera model parameters) for the j'th
+  // Given the 'cam_vec' vector (camera model parameters) for the j'th
   // image, and the 'b' vector (3D point location) for the i'th
   // point, return the location of point_i on imager j in pixel
   // coordinates.
@@ -299,12 +299,12 @@ public:
 
   void write_camera_models(std::vector<std::string> const& cam_files){
 
-    VW_ASSERT(cam_files.size() == a.size(),
+    VW_ASSERT(cam_files.size() == m_cam_vec.size(),
                   vw::ArgumentErr() << "Must have as many camera files as cameras.\n");
 
     for (int icam = 0; icam < (int)cam_files.size(); icam++){
       vw::vw_out() << "Writing: " << cam_files[icam] << std::endl;
-      get_pinhole_model(a[icam]).write(cam_files[icam]);
+      get_pinhole_model(m_cam_vec[icam]).write(cam_files[icam]);
     }
 
   }

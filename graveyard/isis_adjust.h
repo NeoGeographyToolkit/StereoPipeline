@@ -55,7 +55,7 @@ class IsisBundleAdjustmentModel : public vw::ba::ModelBase< IsisBundleAdjustment
 
   std::vector< boost::shared_ptr<vw::camera::IsisAdjustCameraModel> > m_cameras;
   boost::shared_ptr<vw::ba::ControlNetwork> m_network;
-  std::vector<camera_vector_t> a;
+  std::vector<camera_vector_t> m_cam_vec;
   //std::vector<point_vector_t> b; // b is not required as we'll be
                                    // using the cnet for storage.
   std::vector<camera_vector_t> cam_target_vec;
@@ -73,7 +73,7 @@ public:
                              std::vector< std::string > input_names,
                              float const& spacecraft_position_sigma,
                              float const& spacecraft_pose_sigma, float const& gcp_scalar ) :
-  m_cameras( camera_models ), m_network(network), a( camera_models.size() ),
+  m_cameras( camera_models ), m_network(network), m_cam_vec( camera_models.size() ),
     cam_target_vec( camera_models.size() ),
     point_target_vec( network->size() ), m_files( input_names ),
     m_spacecraft_position_sigma(spacecraft_position_sigma),
@@ -84,7 +84,7 @@ public:
     for (unsigned i = 0; i < network->size(); ++i)
       m_num_pixel_observations += (*network)[i].size();
 
-    // Set up the A and B vectors, storing the initial values.
+    // Set up the camera and point vectors, storing the initial values.
     for (unsigned j = 0; j < m_cameras.size(); ++j) {
       // I'm using what is already in the IsisAdjust camera file as
       // the orginal starting point for the problem. This way I can
@@ -92,13 +92,13 @@ public:
       boost::shared_ptr<asp::BaseEquation> posF = m_cameras[j]->position_func();
       boost::shared_ptr<asp::BaseEquation> poseF = m_cameras[j]->pose_func();
 
-      a[j] = camera_vector_t();
+      m_cam_vec[j] = camera_vector_t();
       // Setting new equations defined by cam_j
       for (unsigned n = 0; n < posF->size(); ++n)
-        a[j][n] = (*posF)[n];
+        m_cam_vec[j][n] = (*posF)[n];
       for (unsigned n = 0; n < poseF->size(); ++n)
-        a[j][n + posF->size()] = (*poseF)[n];
-      cam_target_vec[j] = a[j];
+        m_cam_vec[j][n + posF->size()] = (*poseF)[n];
+      cam_target_vec[j] = m_cam_vec[j];
     }
 
     // Setting up B vectors
@@ -114,9 +114,9 @@ public:
   }
 
   // Return a reference to the camera and point parameters.
-  camera_vector_t cam_params( int j ) const { return a[j]; }
+  camera_vector_t cam_params( int j ) const { return m_cam_vec[j]; }
   point_vector_t point_params( int i ) const { return (*m_network)[i].position(); }
-  void set_cam_params(int j, camera_vector_t const& cam_j) { a[j] = cam_j; }
+  void set_cam_params(int j, camera_vector_t const& cam_j) { m_cam_vec[j] = cam_j; }
   void set_point_params(int i, point_vector_t const& point_i) { (*m_network)[i].set_position(point_i); }
 
   // Return Initial parameters. (Used by the bundle adjuster )
@@ -124,7 +124,7 @@ public:
   point_vector_t point_target( int i ) const { return point_target_vec[i]; }
 
   // Return general sizes
-  size_t num_cameras() const { return a.size(); }
+  size_t num_cameras() const { return m_cam_vec.size(); }
   size_t num_points() const { return m_network->size(); }
   unsigned num_pixel_observations() const { return m_num_pixel_observations; }
 
@@ -204,9 +204,9 @@ public:
 
     // Setting new equations defined by cam_j
     for (unsigned n = 0; n < posF->size(); ++n)
-      (*posF)[n] = a[j][n];
+      (*posF)[n] = m_cam_vec[j][n];
     for (unsigned n = 0; n < poseF->size(); ++n)
-      (*poseF)[n] = a[j][n + posF->size()];
+      (*poseF)[n] = m_cam_vec[j][n + posF->size()];
 
     return m_cameras[j];
   }
@@ -219,7 +219,7 @@ public:
     return cameras;
   }
 
-  // Given the 'a' vector ( camera model paramters ) for the j'th
+  // Given the 'cam_j' vector ( camera model paramters ) for the j'th
   // image, and the 'b' vector (3D point location ) for the i'th
   // point, return the location of point_i on imager j in
   // millimeters. !!Warning!! This gives data back in millimeters

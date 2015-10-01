@@ -163,11 +163,11 @@ update_cnet_and_init_cams(ModelT & ba_model, Options & opt,
     Vector3 camAxis = camPose.axis_angle();
 
     // Copy to cameras_vec
-    Vector<double, ModelT::camera_params_n> a;
-    subvector(a, 0, 3) = camCtr;
-    subvector(a, 3, 3) = ModelT::pose_scale*camAxis;
+    Vector<double, ModelT::camera_params_n> cam_params;
+    subvector(cam_params, 0, 3) = camCtr;
+    subvector(cam_params, 3, 3) = ModelT::pose_scale*camAxis;
     for (size_t q = 0; q < num_camera_params; q++)
-      cameras_vec[icam*num_camera_params + q] = a[q];
+      cameras_vec[icam*num_camera_params + q] = cam_params[q];
 
     // Intrinsics
     intrinsics_vec[0] = -100; // Focal length. Why it turns out negative?
