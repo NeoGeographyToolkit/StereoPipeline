@@ -86,7 +86,7 @@ void do_ba( typename AdjusterT::cost_type const& cost_function,
         boost::shared_ptr<asp::BaseEquation> position_eq = asp::read_equation(input);
         boost::shared_ptr<asp::BaseEquation> pose_eq = asp::read_equation(input);
         input.close();
-        Vector<double> camera_vector = ba_model.A_parameters( j );
+        Vector<double> camera_vector = ba_model.cam_params( j );
         if ( camera_vector.size() != pose_eq->size()+position_eq->size() )
           vw_throw( IOErr() << "Isis Adjust files have incorrect number parameters for BA session." );
 
@@ -96,7 +96,7 @@ void do_ba( typename AdjusterT::cost_type const& cost_function,
           camera_vector[insert_i] = (*position_eq)[i];
         for ( unsigned i = 0; i < pose_eq->size(); i++, insert_i++ )
           camera_vector[insert_i] = (*pose_eq)[i];
-        ba_model.set_A_parameters( j, camera_vector );
+        ba_model.set_cam_params( j, camera_vector );
       }
     }
 
@@ -171,7 +171,7 @@ void do_ba( typename AdjusterT::cost_type const& cost_function,
   // Re-apply GCP measure to control network
   for ( size_t i = 0; i < opt.cnet->size(); i++ ) {
     if ( (*opt.cnet)[i].type() == ControlPoint::GroundControlPoint ) {
-      (*opt.cnet)[i].set_position( ba_model.B_target(i) );
+      (*opt.cnet)[i].set_position( ba_model.point_target(i) );
     }
   }
 

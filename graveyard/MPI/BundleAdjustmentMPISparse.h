@@ -165,14 +165,14 @@ namespace camera {
                            ArgumentErr() << "BundleAdjustment::update() : image index out of bounds.");
 
           // Store jacobian values
-          A(i,j) = this->m_model.A_jacobian(i,j,this->m_model.A_parameters(j),
-                                            this->m_model.B_parameters(i));
-          B(i,j) = this->m_model.B_jacobian(i,j,this->m_model.A_parameters(j),
-                                            this->m_model.B_parameters(i));
+          A(i,j) = this->m_model.cam_jacobian(i,j,this->m_model.cam_params(j),
+                                            this->m_model.point_params(i));
+          B(i,j) = this->m_model.point_jacobian(i,j,this->m_model.cam_params(j),
+                                            this->m_model.point_params(i));
 
           // Apply robust cost function weighting
           Vector2 unweighted_error = measure_iter->dominant() -
-            this->m_model(i,j,this->m_model.A_parameters(j),this->m_model.B_parameters(i));
+            this->m_model(i,j,this->m_model.cam_params(j),this->m_model.point_params(i));
 
           double mag = norm_2(unweighted_error);
           double weight = sqrt(this->m_robust_cost_func(mag)) / mag;
@@ -228,11 +228,11 @@ namespace camera {
       if ( this->m_use_camera_constraint )
         for ( unsigned j = 0; j < U.size(); ++j ) {
           matrix_camera_camera inverse_cov;
-          inverse_cov = this->m_model.A_inverse_covariance(j);
+          inverse_cov = this->m_model.cam_inverse_covariance(j);
           matrix_camera_camera C;
           C.set_identity();
           U(j) += transpose(C) * inverse_cov * C;
-          vector_camera eps_a = this->m_model.A_initial(j)-this->m_model.A_parameters(j);
+          vector_camera eps_a = this->m_model.A_initial(j)-this->m_model.cam_params(j);
           error_total += .5  * transpose(eps_a) * inverse_cov * eps_a;
           epsilon_a(j) += transpose(C) * inverse_cov * eps_a;
         }
@@ -244,11 +244,11 @@ namespace camera {
         for ( unsigned i = 0; i < V.size(); ++i )
           if ((*this->m_control_net)[i].type() == ControlPoint::GroundControlPoint) {
             matrix_point_point inverse_cov;
-            inverse_cov = this->m_model.B_inverse_covariance(i);
+            inverse_cov = this->m_model.point_inverse_covariance(i);
             matrix_point_point D;
             D.set_identity();
             V(i) +=  transpose(D) * inverse_cov * D;
-            vector_point eps_b = this->m_model.B_initial(i)-this->m_model.B_parameters(i);
+            vector_point eps_b = this->m_model.B_initial(i)-this->m_model.point_params(i);
             error_total += .5 * transpose(eps_b) * inverse_cov * eps_b;
             epsilon_b(i) += transpose(D) * inverse_cov * eps_b;
           }
@@ -461,11 +461,11 @@ namespace camera {
           unsigned j = measure_iter->image_id();
 
           // Compute error vector
-          vector_camera new_a = this->m_model.A_parameters(j) +
+          vector_camera new_a = this->m_model.cam_params(j) +
             subvector(delta_a, num_cam_params*j, num_cam_params);
           Vector<double> del_a = subvector(delta_a, num_cam_params*j, num_cam_params);
 
-          vector_point new_b = this->m_model.B_parameters(i) +
+          vector_point new_b = this->m_model.point_params(i) +
             static_cast<vector_point>(delta_b(i));
 
           // Apply robust cost function weighting
@@ -491,12 +491,12 @@ namespace camera {
       if ( this->m_use_camera_constraint )
         for (unsigned j = 0; j < U.size(); ++j) {
 
-          vector_camera new_a = this->m_model.A_parameters(j) +
+          vector_camera new_a = this->m_model.cam_params(j) +
             subvector(delta_a, num_cam_params*j, num_cam_params);
           vector_camera eps_a = this->m_model.A_initial(j)-new_a;
 
           matrix_camera_camera inverse_cov;
-          inverse_cov = this->m_model.A_inverse_covariance(j);
+          inverse_cov = this->m_model.cam_inverse_covariance(j);
           new_error_total += .5 * transpose(eps_a) * inverse_cov * eps_a;
         }
 
@@ -506,11 +506,11 @@ namespace camera {
           if ( (*this->m_control_net)[i].type() ==
                ControlPoint::GroundControlPoint) {
 
-            vector_point new_b = this->m_model.B_parameters(i) +
+            vector_point new_b = this->m_model.point_params(i) +
               static_cast<vector_point>(delta_b(i));
             vector_point eps_b = this->m_model.B_initial(i)-new_b;
             matrix_point_point inverse_cov;
-            inverse_cov = this->m_model.B_inverse_covariance(i);
+            inverse_cov = this->m_model.point_inverse_covariance(i);
             new_error_total += .5 * transpose(eps_b) * inverse_cov * eps_b;
           }
       delete time;
@@ -524,10 +524,10 @@ namespace camera {
 
         time = new Timer("Setting Parameters",DebugMessage,"bundle_adjust");
         for (unsigned j=0; j<this->m_model.num_cameras(); ++j)
-          this->m_model.set_A_parameters(j, this->m_model.A_parameters(j) +
+          this->m_model.set_cam_params(j, this->m_model.cam_params(j) +
                                          subvector(delta_a, num_cam_params*j,num_cam_params));
         for (unsigned i=0; i<this->m_model.num_points(); ++i)
-          this->m_model.set_B_parameters(i, this->m_model.B_parameters(i) +
+          this->m_model.set_point_params(i, this->m_model.point_params(i) +
                                          static_cast<vector_point>(delta_b(i)));
         delete time;
 

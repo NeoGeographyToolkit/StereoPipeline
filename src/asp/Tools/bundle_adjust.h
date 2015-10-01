@@ -36,11 +36,11 @@
 
 namespace asp{
   template<class camera_vector_t>
-  void parse_camera_parameters(camera_vector_t a_j,
+  void parse_camera_parameters(camera_vector_t cam_j,
                                vw::Vector3 &position_correction,
                                vw::Quat &pose_correction) {
-    position_correction = subvector(a_j, 0, 3);
-    pose_correction = axis_angle_to_quaternion( subvector(a_j,3,3) );
+    position_correction = subvector(cam_j, 0, 3);
+    pose_correction = axis_angle_to_quaternion( subvector(cam_j,3,3) );
   }
 
   template<class ModelT>
@@ -75,15 +75,15 @@ private:
 
   std::vector<camera_intr_vector_t> a;
   std::vector<point_vector_t> b;
-  std::vector<camera_vector_t> a_target;
-  std::vector<point_vector_t> b_target;
+  std::vector<camera_vector_t> cam_target_vec;
+  std::vector<point_vector_t> point_target_vec;
   int m_num_pixel_observations;
 
 public:
   BundleAdjustmentModel(std::vector<cam_ptr_t> const& cameras,
                         boost::shared_ptr<vw::ba::ControlNetwork> network) :
     m_cameras(cameras), m_network(network), a(cameras.size()),
-    b(network->size()), a_target(cameras.size()), b_target(network->size()) {
+    b(network->size()), cam_target_vec(cameras.size()), point_target_vec(network->size()) {
 
     // Compute the number of observations from the bundle.
     m_num_pixel_observations = 0;
@@ -94,23 +94,23 @@ public:
     // The 'a' vectors however just start out zero.
     for (unsigned i = 0; i < network->size(); ++i) {
       b[i] = (*m_network)[i].position();
-      b_target[i] = b[i];
+      point_target_vec[i] = b[i];
     }
   }
 
   // Return a reference to the camera and point parameters.
-  camera_vector_t A_parameters(int j) const { return a[j]; }
-  point_vector_t B_parameters(int i) const { return b[i]; }
-  void set_A_parameters(int j, camera_intr_vector_t const& a_j) {
-    a[j] = a_j;
+  camera_vector_t cam_params(int j) const { return a[j]; }
+  point_vector_t point_params(int i) const { return b[i]; }
+  void set_cam_params(int j, camera_intr_vector_t const& cam_j) {
+    a[j] = cam_j;
   }
-  void set_B_parameters(int i, point_vector_t const& b_i) {
-    b[i] = b_i;
+  void set_point_params(int i, point_vector_t const& point_i) {
+    b[i] = point_i;
   }
 
   // Return the initial parameters
-  camera_vector_t A_target(int j) const { return a_target[j]; }
-  point_vector_t B_target(int i) const { return b_target[i]; }
+  camera_vector_t cam_target(int j) const { return cam_target_vec[j]; }
+  point_vector_t point_target(int i) const { return point_target_vec[i]; }
 
   unsigned num_cameras() const { return a.size(); }
   unsigned num_points() const { return b.size(); }
@@ -118,7 +118,7 @@ public:
 
   // Return the covariance of the camera parameters for camera j.
   inline vw::Matrix<double,camera_params_n,camera_params_n>
-  A_inverse_covariance ( unsigned /*j*/ ) const {
+  cam_inverse_covariance ( unsigned /*j*/ ) const {
     vw::Matrix<double,camera_params_n,camera_params_n> result;
     result(0,0) = 1/100.0;
     result(1,1) = 1/100.0;
@@ -131,7 +131,7 @@ public:
 
   // Return the covariance of the point parameters for point i.
   inline vw::Matrix<double,point_params_n,point_params_n>
-  B_inverse_covariance ( unsigned /*i*/ ) const {
+  point_inverse_covariance ( unsigned /*i*/ ) const {
     vw::Matrix<double,point_params_n,point_params_n> result;
     result(0,0) = 1/20;
     result(1,1) = 1/20;
@@ -141,18 +141,18 @@ public:
 
   // Given the 'a' vector (camera model parameters) for the j'th
   // image, and the 'b' vector (3D point location) for the i'th
-  // point, return the location of b_i on imager j in pixel
+  // point, return the location of point_i on imager j in pixel
   // coordinates.
   vw::Vector2 operator() ( unsigned /*i*/, unsigned j,
-                           camera_vector_t const& a_j,
-                           point_vector_t const& b_i) const {
+                           camera_vector_t const& cam_j,
+                           point_vector_t const& point_i) const {
     vw::Vector3 position_correction;
     vw::Quat pose_correction;
-    asp::parse_camera_parameters(a_j, position_correction, pose_correction);
+    asp::parse_camera_parameters(cam_j, position_correction, pose_correction);
     vw::camera::AdjustedCameraModel cam(m_cameras[j],
                                         position_correction,
                                         pose_correction);
-    return cam.point_to_pixel(b_i);
+    return cam.point_to_pixel(point_i);
   }
 
   void write_adjustment(int j, std::string const& filename) const {
@@ -259,9 +259,9 @@ public:
   unsigned num_cameras() const { return m_cameras.size(); }
   unsigned num_points() const { return m_network->size(); }
 
-  void set_A_parameters(int j, camera_intr_vector_t const& a_j) {
+  void set_cam_params(int j, camera_intr_vector_t const& cam_j) {
     // Set the camera parameters.
-    a[j] = a_j;
+    a[j] = cam_j;
   }
 
   vw::camera::PinholeModel get_pinhole_model(camera_intr_vector_t const& a){
@@ -283,13 +283,13 @@ public:
 
   // Given the 'a' vector (camera model parameters) for the j'th
   // image, and the 'b' vector (3D point location) for the i'th
-  // point, return the location of b_i on imager j in pixel
+  // point, return the location of point_i on imager j in pixel
   // coordinates.
   vw::Vector2 operator() ( unsigned /*i*/, unsigned j,
-                           camera_intr_vector_t const& a_j,
-                           point_vector_t const& b_i) {
+                           camera_intr_vector_t const& cam_j,
+                           point_vector_t const& point_i) {
 
-    return get_pinhole_model(a_j).point_to_pixel(b_i);
+    return get_pinhole_model(cam_j).point_to_pixel(point_i);
   }
 
   // Give access to the control network

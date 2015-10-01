@@ -584,7 +584,7 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
     asp::concat_extrinsics_intrinsics<ModelT>(&cameras_vec[icam*num_camera_params],
                                               intrinsics,
                                               concat); // output goes here
-    ba_model.set_A_parameters(icam, concat);
+    ba_model.set_cam_params(icam, concat);
   }
 
 }

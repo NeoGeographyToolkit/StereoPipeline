@@ -58,8 +58,8 @@ class IsisBundleAdjustmentModel : public vw::ba::ModelBase< IsisBundleAdjustment
   std::vector<camera_vector_t> a;
   //std::vector<point_vector_t> b; // b is not required as we'll be
                                    // using the cnet for storage.
-  std::vector<camera_vector_t> a_target;
-  std::vector<point_vector_t> b_target;
+  std::vector<camera_vector_t> cam_target_vec;
+  std::vector<point_vector_t> point_target_vec;
   std::vector< std::string > m_files;
   int m_num_pixel_observations;
   float m_spacecraft_position_sigma;
@@ -74,8 +74,8 @@ public:
                              float const& spacecraft_position_sigma,
                              float const& spacecraft_pose_sigma, float const& gcp_scalar ) :
   m_cameras( camera_models ), m_network(network), a( camera_models.size() ),
-    a_target( camera_models.size() ),
-    b_target( network->size() ), m_files( input_names ),
+    cam_target_vec( camera_models.size() ),
+    point_target_vec( network->size() ), m_files( input_names ),
     m_spacecraft_position_sigma(spacecraft_position_sigma),
     m_spacecraft_pose_sigma(spacecraft_pose_sigma), m_gcp_scalar(gcp_scalar) {
 
@@ -93,17 +93,17 @@ public:
       boost::shared_ptr<asp::BaseEquation> poseF = m_cameras[j]->pose_func();
 
       a[j] = camera_vector_t();
-      // Setting new equations defined by a_j
+      // Setting new equations defined by cam_j
       for (unsigned n = 0; n < posF->size(); ++n)
         a[j][n] = (*posF)[n];
       for (unsigned n = 0; n < poseF->size(); ++n)
         a[j][n + posF->size()] = (*poseF)[n];
-      a_target[j] = a[j];
+      cam_target_vec[j] = a[j];
     }
 
     // Setting up B vectors
     for (unsigned i = 0; i < network->size(); ++i) {
-      b_target[i] = (*m_network)[i].position();
+      point_target_vec[i] = (*m_network)[i].position();
     }
 
     // Checking to see if this Control Network is compatible with
@@ -114,14 +114,14 @@ public:
   }
 
   // Return a reference to the camera and point parameters.
-  camera_vector_t A_parameters( int j ) const { return a[j]; }
-  point_vector_t B_parameters( int i ) const { return (*m_network)[i].position(); }
-  void set_A_parameters(int j, camera_vector_t const& a_j) { a[j] = a_j; }
-  void set_B_parameters(int i, point_vector_t const& b_i) { (*m_network)[i].set_position(b_i); }
+  camera_vector_t cam_params( int j ) const { return a[j]; }
+  point_vector_t point_params( int i ) const { return (*m_network)[i].position(); }
+  void set_cam_params(int j, camera_vector_t const& cam_j) { a[j] = cam_j; }
+  void set_point_params(int i, point_vector_t const& point_i) { (*m_network)[i].set_position(point_i); }
 
   // Return Initial parameters. (Used by the bundle adjuster )
-  camera_vector_t A_target( int j ) const { return a_target[j]; }
-  point_vector_t B_target( int i ) const { return b_target[i]; }
+  camera_vector_t cam_target( int j ) const { return cam_target_vec[j]; }
+  point_vector_t point_target( int i ) const { return point_target_vec[i]; }
 
   // Return general sizes
   size_t num_cameras() const { return a.size(); }
@@ -136,7 +136,7 @@ public:
   }
 
   // Return the covariance of the camera parameters for camera j.
-  inline vw::Matrix<double, (positionParam+poseParam), (positionParam+poseParam)> A_inverse_covariance ( unsigned /*j*/ ) const {
+  inline vw::Matrix<double, (positionParam+poseParam), (positionParam+poseParam)> cam_inverse_covariance ( unsigned /*j*/ ) const {
     vw::Matrix< double, (positionParam+poseParam), (positionParam+poseParam) > result;
     for ( unsigned i = 0; i <positionParam; ++i )
       result(i,i) = 1/pow(m_spacecraft_position_sigma,2);
@@ -146,7 +146,7 @@ public:
   }
 
   // Return the covariance of the point parameters for point i.
-  inline vw::Matrix<double, 3, 3> B_inverse_covariance ( unsigned i ) const {
+  inline vw::Matrix<double, 3, 3> point_inverse_covariance ( unsigned i ) const {
     vw::Matrix< double, 3, 3> result;
     vw::Vector3 sigmas = (*m_network)[i].sigma();
     sigmas = m_gcp_scalar*sigmas;
@@ -202,7 +202,7 @@ public:
     boost::shared_ptr<asp::BaseEquation> posF = m_cameras[j]->position_func();
     boost::shared_ptr<asp::BaseEquation> poseF = m_cameras[j]->pose_func();
 
-    // Setting new equations defined by a_j
+    // Setting new equations defined by cam_j
     for (unsigned n = 0; n < posF->size(); ++n)
       (*posF)[n] = a[j][n];
     for (unsigned n = 0; n < poseF->size(); ++n)
@@ -221,12 +221,12 @@ public:
 
   // Given the 'a' vector ( camera model paramters ) for the j'th
   // image, and the 'b' vector (3D point location ) for the i'th
-  // point, return the location of b_i on imager j in
+  // point, return the location of point_i on imager j in
   // millimeters. !!Warning!! This gives data back in millimeters
   // which is different from most implementations.
   vw::Vector2 operator() ( unsigned /*i*/, unsigned j,
-                           camera_vector_t const& a_j,
-                           point_vector_t const& b_i ) const {
+                           camera_vector_t const& cam_j,
+                           point_vector_t const& point_i ) const {
 
     // Loading equations
     boost::shared_ptr<asp::BaseEquation> posF = m_cameras[j]->position_func();
@@ -234,25 +234,25 @@ public:
 
     // Applying new equation constants
     for (unsigned n = 0; n < posF->size(); ++n)
-      (*posF)[n] = a_j[n];
+      (*posF)[n] = cam_j[n];
     for (unsigned n = 0; n < poseF->size(); ++n)
-      (*poseF)[n] = a_j[n + posF->size()];
+      (*poseF)[n] = cam_j[n + posF->size()];
 
     // Performing the forward projection. This is specific to the
     // IsisAdjustCameraModel. The first argument is really just
     // passing the time instance to load up a pinhole model for.
     vw::Vector2 forward_projection =
-      m_cameras[j]->point_to_pixel( b_i );
+      m_cameras[j]->point_to_pixel( point_i );
 
     // Giving back the pixel measurement.
     return forward_projection;
   }
 
-  void parse_camera_parameters(camera_vector_t a_j,
+  void parse_camera_parameters(camera_vector_t cam_j,
                                vw::Vector3 &position_correction,
                                vw::Vector3 &pose_correction) const {
-    position_correction = subvector(a_j, 0, 3);
-    pose_correction = subvector(a_j, 3, 3);
+    position_correction = subvector(cam_j, 0, 3);
+    pose_correction = subvector(cam_j, 3, 3);
   }
 
   // Errors on the image plane
