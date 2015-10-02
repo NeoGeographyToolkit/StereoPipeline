@@ -1976,7 +1976,7 @@ int main(int argc, char* argv[]) {
              (vw::resample_aa
               (masked_images_vec[level-1][image_iter], sub_scale),
               Vector2i(tile_size,tile_size) * sub_scale),
-             tile_size, sub_threads), img_nodata_val),
+             Vector2i(tile_size, tile_size), sub_threads), img_nodata_val),
            has_img_georef, img_georef, has_img_nodata, img_nodata_val, opt, tpc);
 
         // Read it right back
