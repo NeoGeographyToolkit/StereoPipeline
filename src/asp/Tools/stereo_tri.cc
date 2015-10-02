@@ -412,7 +412,7 @@ void stereo_triangulation( string          const& output_prefix,
                                                           stereo_settings().far_universe_radius);
       }
     } catch (std::exception &e) {
-      std::cout << e.what() << std::endl;
+      vw_out() << e.what() << std::endl;
       vw_out(WarningMessage) << "Could not find the camera center. "
                              << "Will not be able to filter triangulated points by radius.\n";
     } // End try/catch

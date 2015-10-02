@@ -259,8 +259,16 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
 }
 
-/// Set up the datum, need it to read CSV files.
-void read_datum(Options& opt, asp::CsvConv& csv_conv, Datum& datum){
+/// Try to read the georef/datum info, need it to read CSV files.
+void read_georef(Options& opt, asp::CsvConv& csv_conv, GeoReference& geo){
+
+  // Use an initialized datum for the georef, so later we can check
+  // if we manage to populate it.
+  {
+    Datum datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
+              "Reference Meridian", 1, 1, 0);
+    geo.set_datum(datum);
+  }
 
   bool is_good = false;
 
@@ -271,53 +279,88 @@ void read_datum(Options& opt, asp::CsvConv& csv_conv, Datum& datum){
   else if ( get_file_type(opt.source) == "DEM" )
     dem_file = opt.source;
   if (dem_file != ""){
-    GeoReference geo;
-    bool have_georef = cartography::read_georeference( geo, dem_file );
+    GeoReference local_geo;
+    bool have_georef = cartography::read_georeference(local_geo, dem_file);
     if (!have_georef)
       vw_throw(ArgumentErr() << "DEM: " << dem_file << " does not have a georeference.\n");
-    datum = geo.datum();
-    vw_out() << "Detected datum from " << dem_file << ":\n" << datum << std::endl;
+    geo = local_geo;
+    vw_out() << "Detected datum from " << dem_file << ":\n" << geo.datum() << std::endl;
     is_good = true;
   }
 
+  // Then, try to set it from the pc file if available.
+  // Either one, or both or neither of the pc files may have a georef.
+  string pc_file = "";
+  if ( get_file_type(opt.reference) == "PC" ){
+    GeoReference local_geo;
+    if (cartography::read_georeference(local_geo, opt.reference)){
+      pc_file = opt.reference;
+      geo = local_geo;
+      vw_out() << "Detected datum from " << pc_file << ":\n" << geo.datum() << std::endl;
+      is_good = true;
+    }
+  }
+  if ( get_file_type(opt.source) == "PC" ){
+    GeoReference local_geo;
+    if (cartography::read_georeference(local_geo, opt.source)){
+      pc_file = opt.source;
+      geo = local_geo;
+      vw_out() << "Detected datum from " << pc_file << ":\n" << geo.datum() << std::endl;
+      is_good = true;
+    }
+  }
+
   // Then, try to set it from the las file if available.
+  // Either one, or both or neither of the las files may have a georef.
   string las_file = "";
   if ( get_file_type(opt.reference) == "LAS" ){
-    GeoReference geo;
-    if (asp::georef_from_las(opt.reference, geo)){
+    GeoReference local_geo;
+    if (asp::georef_from_las(opt.reference, local_geo)){
       las_file = opt.reference;
-      datum    = geo.datum();
-      vw_out() << "Detected datum from " << las_file << ":\n" << datum << std::endl;
+      geo = local_geo;
+      vw_out() << "Detected datum from " << las_file << ":\n" << geo.datum() << std::endl;
       is_good = true;
     }
   }
   if ( get_file_type(opt.source) == "LAS" ){
-    GeoReference geo;
-    if (asp::georef_from_las(opt.source, geo)){
+    GeoReference local_geo;
+    if (asp::georef_from_las(opt.source, local_geo)){
       las_file = opt.source;
-      datum    = geo.datum();
-      vw_out() << "Detected datum from " << las_file << ":\n" << datum << std::endl;
+      geo = local_geo;
+      vw_out() << "Detected datum from " << las_file << ":\n" << geo.datum() << std::endl;
       is_good = true;
     }
   }
+
   // We should have read in the datum from an input file, but check to see if
   //  we should override it with input parameters.
 
-  // A lot of care is needed below.
   if (opt.datum != ""){
     // If the user set the datum, use it.
+    Datum datum;
     datum.set_well_known_datum(opt.datum);
-    vw_out() << "Will use datum (for CSV files): "  << datum << std::endl;
+    geo.set_datum(datum);
     is_good = true;
   }else if (opt.semi_major > 0 && opt.semi_minor > 0){
     // Otherwise, if the user set the semi-axes, use that.
-    datum = Datum("User Specified Datum", "User Specified Spheroid",
-                  "Reference Meridian",
-                  opt.semi_major, opt.semi_minor, 0.0);
-    vw_out() << "Will use datum (for CSV files): " << datum << std::endl;
+    Datum datum = Datum("User Specified Datum", "User Specified Spheroid",
+                        "Reference Meridian",
+                        opt.semi_major, opt.semi_minor, 0.0);
+    geo.set_datum(datum);
     is_good = true;
-  }else if (dem_file == "" && las_file == "" &&
-            (opt.csv_format_str == "" || csv_conv.format != asp::CsvConv::XYZ) ){
+  }
+
+  // This must be the last as it has priority. Use user's csv_proj4 string,
+  // to add info to the georef.
+  if (csv_conv.parse_georef(geo)) {
+    is_good = true;
+  }
+
+  if (is_good)
+    vw_out() << "Will use datum (for CSV files): " << geo.datum() << std::endl;
+
+  // A lot of care is needed below.
+  if (!is_good  && (opt.csv_format_str == "" || csv_conv.format != asp::CsvConv::XYZ) ){
     // There is no DEM/LAS to read the datum from, and the user either
     // did not specify the CSV format (then we set it to lat, lon,
     // height), or it is specified as containing lat, lon, rather than xyz.
@@ -326,10 +369,10 @@ void read_datum(Options& opt, asp::CsvConv& csv_conv, Datum& datum){
     if (has_csv){
       // We are in trouble, will not be able to convert input lat, lon, to xyz.
       vw_throw( ArgumentErr() << "Cannot detect the datum. "
-                              << "Please specify it via --datum or "
+                              << "Please specify it via --csv-proj4 or --datum or "
                               << "--semi-major-axis and --semi-minor-axis.\n" );
     }else{
-      // The inputs are ASP point clouds. Need CSV only on output.
+      // The inputs have no georef. Will have to write xyz.
       vw_out() << "No datum specified. Will write output CSV files "
                << "in the x,y,z format." << std::endl;
       opt.csv_format_str = "1:x 2:y 3:z";
@@ -403,7 +446,7 @@ void save_transforms(Options const& opt,
                      PointMatcher<RealT>::Matrix const& T){
 
   string transFile = opt.out_prefix + "-transform.txt";
-  vw_out() << "Writing: " << transFile  << endl;
+  vw_out() << "Writing: " << transFile << endl;
   ofstream tf(transFile.c_str());
   tf.precision(16);
   tf << T << endl;
@@ -411,7 +454,7 @@ void save_transforms(Options const& opt,
 
   string iTransFile = opt.out_prefix + "-inverse-transform.txt";
   PointMatcher<RealT>::Matrix invT = T.inverse();
-  vw_out() << "Writing: " << iTransFile  << endl;
+  vw_out() << "Writing: " << iTransFile << endl;
   ofstream itf(iTransFile.c_str());
   itf.precision(16);
   itf << invT << endl;
@@ -439,8 +482,7 @@ void save_errors(DP const& point_cloud,
                  GeoReference const& geo,
                  asp::CsvConv const& csv_conv,
                  bool is_lola_rdr_format,
-                 double mean_longitude
-                 ){
+                 double mean_longitude){
 
   vw_out() << "Writing: " << output_file << std::endl;
 
@@ -463,6 +505,10 @@ void save_errors(DP const& point_cloud,
     else
       outfile << "# latitude,longitude,height above datum (meters),error (meters)" << endl;
   }
+
+  // Save the datum, may be useful to know what it was
+  if (geo.datum().name() != UNSPECIFIED_DATUM)
+    outfile << "# " << geo.datum() << std::endl;
 
   int numPts = point_cloud.features.cols();
   for(int col = 0; col < numPts; col++){
@@ -772,17 +818,15 @@ int main( int argc, char *argv[] ) {
     // Set the number of threads for OpenMP
     omp_set_num_threads(opt.num_threads);
 
+    // Parse the csv format string and csv projection string
     asp::CsvConv csv_conv;
     csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_proj4_str);
 
-    Datum datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
-                "Reference Meridian", 1, 1, 0);
-    read_datum(opt, csv_conv, datum);
-    GeoReference geo(datum);
+    // Try to read the georeference/datum info
+    GeoReference geo;
+    read_georef(opt, csv_conv, geo);
 
-    // Set user's csv_proj4_str if specified
-    csv_conv.configure_georef(geo);
-
+    // Create a manual transform based on user-picked correspondences among clouds
     if (opt.match_file != "") {
       manual_transform(opt);
       return 0;

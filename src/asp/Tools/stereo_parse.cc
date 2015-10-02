@@ -79,7 +79,17 @@ int main( int argc, char* argv[] ) {
       trans_left_image_size = file_image_size(trans_left_image);
     vw_out() << "trans_left_image_size," << trans_left_image_size.x() << "," << trans_left_image_size.y() << endl;
 
-    vw_out() << "WKT--non-comma-separator--" << opt.session->get_georef().get_wkt() << std::endl;
+    cartography::GeoReference georef = opt.session->get_georef();
+    vw_out() << "WKT--non-comma-separator--" << georef.get_wkt() << std::endl;
+
+    // Write the geotransform as a string as expected by GDAL's vrt xml format
+    // TODO: Not sure if this will be useful as a member function in GeoReference.
+    Matrix3x3 T = georef.transform();
+    std::ostringstream os;
+    os.precision(18);
+    os << " "  << T(0, 2) << ",  " << T(0, 0) << ",  " << T(0, 1) << ",  "
+       << " "  << T(1, 2) << ",  " << T(1, 0) << ",  " << T(1, 1);
+    vw_out() << "GeoTransform--non-comma-separator--" << os.str() << std::endl;
 
     // Some care is needed below. The transformed_window will be used
     // by parallel_stereo to parallelize stereo on a given user-specified

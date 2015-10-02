@@ -120,14 +120,14 @@ disparity files using \texttt{disparitydebug}, then they can be
 seen in this viewer as well.
 
 If the input images are map-projected (georeferenced) and the alignment
-method is \texttt{none}, all the output images listed above, save for the point
-cloud, will also be georeferenced, and hence can be overlayed in
-\texttt{stereo\_gui} on top of the input imagery (the outputs of
-\texttt{disparitydebug} will then be georeferenced as well). If,
-however, \texttt{parallel\_stereo} is invoked instead of
-\texttt{stereo}, then D.tif and RD.tif will not be georeferenced, as
-they are just plain text virtual images (D\_sub.tif and F.tif will be
-georeferenced however).
+method is \texttt{none}, all the output images listed above, will also
+be georeferenced, and hence can be overlayed in \texttt{stereo\_gui} on
+top of the input imagery (the outputs of \texttt{disparitydebug} will
+then be georeferenced as well).
+
+The point cloud file saves the datum (and projection if available)
+inferred from the input images, regardless of whether these images
+are map-projected or not.
 
 The {\tt point2mesh} and {\tt point2dem} programs can be used
 to convert the point cloud to formats that are easier to visualize.

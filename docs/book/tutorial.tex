@@ -1062,9 +1062,9 @@ You can proceed to make a mesh or a \ac{DEM} by processing
 Figure \ref {p19-disparity} shows the outputs of \texttt{disparitydebug}.
 
 If the input images are map-projected (georeferenced) and the alignment
-method is \texttt{none}, most outputs of stereo are georeferenced as
-well, such as GoodPixelMap, D\_sub, filtered disparity, etc. As such,
-all these data can be overlayed in
+method is \texttt{none}, all images output by stereo are georeferenced
+as well, such as GoodPixelMap, D\_sub, disparity, etc. As such, all
+these data can be overlayed in
 \texttt{stereo\_gui}. \texttt{disparitydebug} also preserves any
 georeference.
 
@@ -1138,9 +1138,13 @@ Digital Elevation Model (\ac{DEM}) from the point cloud file.
 \end{verbatim}
 
 The resulting TIFF file is map-projected and will contain
-georeferencing information stored as GeoTIFF tags. You can specify a
-coordinate system (e.g., mercator, sinusoidal) and a reference
-spheroid (i.e., calculated for the Moon, Mars, or Earth).
+georeferencing information stored as GeoTIFF tags.
+
+The tool will infer the datum and projection from the input images, if
+present. You can explicitely specify a coordinate system (e.g.,
+mercator, sinusoidal) and a reference spheroid (i.e., calculated for the
+Moon, Mars, or Earth). Alternatively, the datum semi-axes can be set or
+a PROJ.4 string can be passed in.
 
 \begin{verbatim}
   >  point2dem -r mars results/output-PC.tif

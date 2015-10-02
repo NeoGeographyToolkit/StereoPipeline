@@ -81,7 +81,7 @@ namespace asp {
     /// above datum, and either a utm zone or a custom proj4 string,
     /// pass that info into the georeference for the purpose of converting
     /// later from easting and northing to lon and lat.
-    void configure_georef(vw::cartography::GeoReference & georef) const;
+    bool parse_georef(vw::cartography::GeoReference & georef) const;
 
     /// Parse a CSV file line in given format
     vw::Vector3 parse_csv_line(bool & is_first_line, bool & success,
@@ -122,9 +122,9 @@ namespace asp {
   bool georef_from_las(std::string const& las_file,
                        vw::cartography::GeoReference & georef);
 
-  /// Builds a GeoReference from the first LAS file found in the file list
-  bool georef_from_las(std::vector<std::string> const& files,
-                       vw::cartography::GeoReference & georef);
+  /// Builds a GeoReference from the first cloud having a georeference in the list
+  bool georef_from_pc_files(std::vector<std::string> const& files,
+			    vw::cartography::GeoReference & georef);
 
   /// Returns the number of points stored in a LAS
   boost::uint64_t las_file_size(std::string const& las_file);

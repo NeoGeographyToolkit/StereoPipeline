@@ -432,6 +432,8 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
   boost::replace_first(srs_string,
                        "IAU2000:","DICT:IAU2000.wkt,");
 
+  // TODO: The line below is fishy. A better choice would be
+  // srs_string = georef.overall_proj4_str() but this needs testing.
   if (srs_string == "")
     srs_string = "+proj=longlat";
 

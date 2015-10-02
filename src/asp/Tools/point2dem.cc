@@ -216,25 +216,22 @@ void las_or_csv_to_tifs(Options& opt,
                              << "CSV format string was not set.\n");
   }
 
-  // Extract georef info from las files.
-  GeoReference las_georef;
-  bool have_las_georef = asp::georef_from_las(opt.pointcloud_files, las_georef);
+  // Extract georef info from PC or las files.
+  GeoReference pc_georef;
+  bool have_pc_georef = asp::georef_from_pc_files(opt.pointcloud_files, pc_georef);
 
   // Configure a CSV converter object according to the input parameters
   asp::CsvConv csv_conv;
   csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_proj4_str); // Modifies csv_conv
 
-  // Set the georef for CSV files
+  // Set the georef for CSV files, if user's csv_proj4_str if specified
   GeoReference csv_georef;
-
-  // Set user's csv_proj4_str if specified
-  csv_conv.configure_georef(csv_georef);
+  csv_conv.parse_georef(csv_georef);
 
   csv_georef.set_datum(datum);
 
-  if (!have_las_georef) // If LAS file has no georef, the csv georef is our best guess.
-    las_georef = csv_georef;
-
+  if (!have_pc_georef) // if we have no georef so far, the csv georef is our best guess.
+    pc_georef = csv_georef;
 
   // There are situations in which some files will already be tif, and
   // others will be LAS or CSV. When we convert the latter to tif,
@@ -298,7 +295,7 @@ void las_or_csv_to_tifs(Options& opt,
     // Perform the actual conversion to a tif file
     if (asp::is_las(in_file)) {
       asp::las_or_csv_to_tif(in_file, out_file, num_rows, block_size,
-                             &opt, las_georef, csv_conv);
+                             &opt, pc_georef, csv_conv);
     } else { // CSV
       asp::las_or_csv_to_tif(in_file, out_file, num_rows, block_size,
                              &opt, csv_georef, csv_conv);
@@ -352,7 +349,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
              "Set output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically (except for LAS and CSV files). You can set multiple spacings in quotes to generate multiple output files. This is the same as the --tr option.")
     ("tr",            po::value(&dem_spacing2)->default_value(""), "This is identical to the --dem-spacing option.")
     ("datum",                    po::value(&opt.datum),
-     "Set the datum. This will override manually set datum information. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
+     "Set the datum. This will override the datum from the input images and also --t_srs, --semi-major-axis, and --semi-minor-axis. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("reference-spheroid,r", po::value(&opt.reference_spheroid),
      "This is identical to the datum option.")
     ("semi-major-axis",      po::value(&opt.semi_major)->default_value(0), "Explicitly set the datum semi-major axis in meters.")
@@ -1191,16 +1188,6 @@ int main( int argc, char *argv[] ) {
   try {
     handle_arguments( argc, argv, opt );
 
-    // Extract georef info from las files before converting them to ASP clouds.
-    GeoReference las_georef;
-    bool has_las_georef = asp::georef_from_las(opt.pointcloud_files, las_georef);
-
-    // See if the user specified the datum outside of the srs string
-    cartography::Datum user_datum;
-    bool have_user_datum = asp::read_user_datum(opt.semi_major, opt.semi_minor,
-                                                opt.datum,
-                                                user_datum);
-
     // Set up the georeferencing information.  We specify everything
     // here except for the affine transform, which is defined later once
     // we know the bounds of the orthorasterizer view.  However, we can
@@ -1208,6 +1195,19 @@ int main( int argc, char *argv[] ) {
     // transform because this projection never requires us to convert to
     // or from pixel space.
     GeoReference output_georef;
+
+    // See if we can get a georef from any of the input pc files
+    GeoReference pc_georef;
+    bool has_pc_georef = asp::georef_from_pc_files(opt.pointcloud_files, pc_georef);
+    if (has_pc_georef)
+      output_georef = pc_georef;
+
+    // See if the user specified the datum outside of the srs string
+    cartography::Datum user_datum;
+    bool have_user_datum = asp::read_user_datum(opt.semi_major, opt.semi_minor,
+                                                opt.datum,
+                                                user_datum);
+
 
     // If the user specified a PROJ.4 string to use to interpret the
     // input in CSV files, use the same string to create output DEMs,
@@ -1238,10 +1238,6 @@ int main( int argc, char *argv[] ) {
       case LAMBERTAZIMUTHAL:   output_georef.set_lambert_azimuthal  (opt.proj_lat, opt.proj_lon, opt.false_easting, opt.false_northing); break;
         case UTM:              output_georef.set_UTM( opt.utm_zone ); break;
         default: // Handles plate carree
-          if (has_las_georef)
-            output_georef = las_georef; // copy from las georef if present
-          // Otherwise we use WGS84 datum with geographic projection,
-          // the georef default.
           break;
       }
     } else { // The user specified the target srs_string

@@ -182,6 +182,7 @@ do_work(Vector3 const& shift, Options const& opt) {
   cartography::GeoReference georef;
   for (size_t i = 0; i < opt.pointcloud_files.size(); i++){
     cartography::GeoReference local_georef;
+
     if (read_georeference(local_georef, opt.pointcloud_files[i])){
       georef = local_georef;
       has_georef = true;

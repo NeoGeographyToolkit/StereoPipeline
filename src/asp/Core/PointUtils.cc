@@ -349,18 +349,16 @@ void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
   }
 }
 
-void asp::CsvConv::configure_georef(vw::cartography::GeoReference & georef) const {
+bool asp::CsvConv::parse_georef(vw::cartography::GeoReference & georef) const {
   // If the user passed in a csv file containing easting, northing, height
   // above datum, and either a utm zone or a custom proj4 string,
   // pass that info into the georeference for the purpose of converting
   // later from easting and northing to lon and lat.
 
-  //if (this->format != EASTING_HEIGHT_NORTHING)
-  //  return; // nothing to do
-
   if (this->utm_zone >= 0) { // UTM case
     try{
       georef.set_UTM(this->utm_zone, this->utm_north);
+      return true;
     } catch ( const std::exception& e ) {
       vw_throw(ArgumentErr() << "Detected error: " << e.what()
                              << "\nPlease check if you are using an Earth datum.\n");
@@ -369,11 +367,12 @@ void asp::CsvConv::configure_georef(vw::cartography::GeoReference & georef) cons
     bool have_user_datum = false;
     Datum user_datum;
     asp::set_srs_string(this->csv_proj4_str, have_user_datum, user_datum, georef);
-
+    return true;
   }else{ // No UTM, no proj4 string
     if (this->format == EASTING_HEIGHT_NORTHING)
       vw_throw( ArgumentErr() << "When a CSV file has easting and northing, the PROJ.4 string must be set via --csv_proj4.\n" );
   }
+  return false;
 }
 
 vw::Vector3 asp::CsvConv::parse_csv_line(bool & is_first_line, bool & success,
@@ -634,19 +633,26 @@ bool asp::georef_from_las(std::string const& las_file,
   return true;
 }
 
-bool asp::georef_from_las(std::vector<std::string> const& files,
-                          vw::cartography::GeoReference & georef){
-
-  // Get the georeference from the first las file
+/// Builds a GeoReference from the first cloud having a georeference in the list
+bool asp::georef_from_pc_files(std::vector<std::string> const& files,
+			       vw::cartography::GeoReference & georef){
 
   // Initialize
   georef = GeoReference();
 
   for (int i = 0; i < (int)files.size(); i++){
     GeoReference local_georef;
-    if (!is_las(files[i]))
-      continue;
-    if (asp::georef_from_las(files[i], local_georef)){
+
+    // Sometimes ASP PC files can have georef, written there by stereo
+    try {
+      if (!is_las(files[i]) && read_georeference(local_georef, files[i])){
+	georef = local_georef;
+	return true;
+      }
+    }catch(...){}
+
+    // Sometimes las files can have georef
+    if (is_las(files[i]) && asp::georef_from_las(files[i], local_georef)){
       georef = local_georef;
       return true;
     }

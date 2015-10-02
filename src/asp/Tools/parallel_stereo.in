@@ -176,7 +176,7 @@ def create_symlinks_for_multiview(settings, opt):
                 if os.path.lexists(dst_f): continue
                 os.symlink(rel_src, dst_f)
 
-def build_vrt( settings, postfix, tile_postfix, **kw ):
+def build_vrt(settings, georef, postfix, tile_postfix, **kw):
 
     image_size = settings["trans_left_image_size"]
 
@@ -185,6 +185,10 @@ def build_vrt( settings, postfix, tile_postfix, **kw ):
     f = open(vrt_file,'w')
     f.write("<VRTDataset rasterXSize=\"%i\" rasterYSize=\"%i\">\n" %
             (int(image_size[0]),int(image_size[1])) )
+
+    # Write the datum, projection, and georeference transform in XML format
+    f.write("  <SRS>" + georef["WKT"] + "</SRS>\n")
+    f.write("  <GeoTransform>" + georef["GeoTransform"] + "</GeoTransform>\n")
 
     tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h )
 
@@ -570,6 +574,11 @@ if __name__ == '__main__':
     sep = ","
     settings=run_and_parse_output( "stereo_parse", args, sep, opt.verbose )
 
+    sep2 = '--non-comma-separator--' # for values having commas which we don't want disturbed
+    georef=run_and_parse_output( "stereo_parse", args, sep2, opt.verbose )
+    georef["WKT"] = "".join(georef["WKT"])
+    georef["GeoTransform"] = "".join(georef["GeoTransform"])
+
     if opt.tile_id is None:
 
         # We get here when the script is started. The current running
@@ -641,7 +650,7 @@ if __name__ == '__main__':
             # build the vrt of all correlation tiles, and sym link
             # that vrt from all tile directories.
             rename_files( settings, "-D.tif", "-Dnosym.tif" )
-            build_vrt( settings, "-D.tif", "-Dnosym.tif" )
+            build_vrt(settings, georef, "-D.tif", "-Dnosym.tif")
             create_subproject_dirs( settings ) # symlink D.tif
 
         # Refinement
@@ -655,7 +664,7 @@ if __name__ == '__main__':
         step = Step.fltr
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ): sys.exit()
-            build_vrt( settings, "-RD.tif", "-RD.tif" )
+            build_vrt(settings, georef, "-RD.tif", "-RD.tif")
             single_run('stereo_fltr', args, msg='%d: Filtering' % step)
             create_subproject_dirs( settings ) # symlink F.tif
 
@@ -674,7 +683,7 @@ if __name__ == '__main__':
             # Next run triangulation on multiple machines
             self_args.extend(['--skip-point-cloud-center-comp'])
             sprawn_to_nodes(step, settings, self_args)
-            build_vrt( settings, "-PC.tif", "-PC.tif" ) # mosaic
+            build_vrt(settings, georef, "-PC.tif", "-PC.tif") # mosaic
 
     else:
 

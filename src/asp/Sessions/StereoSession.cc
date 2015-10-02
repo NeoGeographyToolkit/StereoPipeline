@@ -149,13 +149,21 @@ namespace asp {
     bool has_georef = read_georeference(georef, m_left_image_file);
 
     if (!has_georef) {
-      // The best we can do is to get the datum, even non-projected images
-      // have that.
+      // The best we can do is to get the datum, even non-projected
+      // images have that. Create however a fake valid georeference to
+      // go with this datum, otherwise we can't read the datum when we
+      // needed it later.
+
+      georef = vw::cartography::GeoReference();
+      Matrix3x3 transform = georef.transform();
+      transform(0,2) = 1;
+      transform(1,2) = 1;
+      georef.set_transform(transform);
+      georef.set_geographic();
+
       boost::shared_ptr<vw::camera::CameraModel> cam = this->camera_model(m_left_image_file,
                                                                           m_left_camera_file);
-
-      // Spherical datum for non-Earth, as done usually
-      bool use_sphere_for_isis = true;
+      bool use_sphere_for_isis = true;       // Spherical datum for non-Earth, as done usually
       georef.set_datum(this->get_datum(cam.get(), use_sphere_for_isis));
     }
 

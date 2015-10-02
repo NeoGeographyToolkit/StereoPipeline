@@ -80,12 +80,12 @@ namespace asp{
                   ImageViewRef<Vector3> const& I){
 
     //Crop the image to the given box and save to a file.
-  
+
     std::ostringstream os;
     os << prefix << "_" << box.min().x() << "_" << box.min().y()
        << " " << box.width() << " " << box.height() << ".csv";
     std::string file = os.str();
-    std::cout << "Writing: " << file << std::endl;
+    vw_out() << "Writing: " << file << std::endl;
     std::ofstream of(file.c_str());
     of.precision(18);
 
@@ -102,7 +102,7 @@ namespace asp{
     of.close();
   }
 
-  // Task to parallelize the generation of bounding boxes for each block. 
+  // Task to parallelize the generation of bounding boxes for each block.
   class SubBlockBoundaryTask : public Task, private boost::noncopyable {
     ImageViewRef<Vector3> m_view;
     int m_sub_block_size;
@@ -139,7 +139,7 @@ namespace asp{
         m_hist[k]++;
       }
     };
-      
+
   public:
     SubBlockBoundaryTask( ImageViewRef<Vector3> const& view,
                           int sub_block_size,
@@ -194,12 +194,12 @@ namespace asp{
 
         if ( pts_bdbox.min().x() <= pts_bdbox.max().x() &&
              pts_bdbox.min().y() <= pts_bdbox.max().y() ) {
-          // pts_bdbox has at least one point. A box of just one      
+          // pts_bdbox has at least one point. A box of just one
           // point is considered empty by VW. For that reason,
-          // grow this box to make it definitely non-empty. 
+          // grow this box to make it definitely non-empty.
           // Note: for local_union, which will end up contributing
           // to the global bounding box, we don't use the float_next
-          // gimmick, as we need the precise box. 
+          // gimmick, as we need the precise box.
           local_union.grow( pts_bdbox );
           pts_bdbox.max()[0] = boost::math::float_next(pts_bdbox.max()[0]);
           pts_bdbox.max()[1] = boost::math::float_next(pts_bdbox.max()[1]);
@@ -212,7 +212,7 @@ namespace asp{
                           error_accum );
 
         }
-          
+
       }
 
       // Append to the global list of boxes and expand the point
@@ -229,7 +229,7 @@ namespace asp{
         if (remove_outliers_with_pct)
           for (int i = 0; i < (int)m_errors_hist.size(); i++)
             m_errors_hist[i] += local_hist[i];
-          
+
         m_progress.report_incremental_progress( m_inc_amt );
       }
     }
@@ -246,9 +246,9 @@ namespace asp{
     ImageView<float> error_copy = crop(errors, box);
 
     VW_ASSERT(image.cols() == error_copy.cols() &&
-              image.rows() == error_copy.rows(), 
+              image.rows() == error_copy.rows(),
               ArgumentErr() << "Size mis-match in remove_outliers().");
-    
+
     for (int col = 0; col < image.cols(); col++){
       for (int row = 0; row < image.rows(); row++){
         if ( error_copy(col, row) > error_cutoff ){
@@ -256,31 +256,31 @@ namespace asp{
         }
       }
     }
-    
+
   }
-  
+
   void filter_by_median(ImageView<Vector3> & image, Vector2 const& median_filter_params){
-    
+
     // If the point cloud height at the current point differs by more
     // than the given threshold from the median of heights in the
     // window of given size centered at the point, remove it as an
     // outlier.
- 
+
     int half = median_filter_params[0]/2; // half window size
     double thresh = median_filter_params[1];
     if (half <= 0 || thresh <= 0) return;
-    
+
     int nc = image.cols(), nr = image.rows(); // shorten
     double nan = std::numeric_limits<double>::quiet_NaN();
-    
+
     ImageView<Vector3> image_out = copy(image);
-    
+
     for (int col = 0; col < image.cols(); col++){
       for (int row = 0; row < image.rows(); row++){
-        
+
         if (boost::math::isnan(image(col, row).z()))
           continue;
-        
+
         std::vector<double> vals;
         for (int c = std::max(col-half, 0); c <= std::min(col+half, nc-1); c++){
           for (int r = std::max(row-half, 0); r <= std::min(row+half, nr-1); r++){
@@ -294,37 +294,37 @@ namespace asp{
         }
       }
     }
-    
+
     image = copy(image_out);
   }
 
   void erode_image(ImageView<Vector3> & image, int erode_len){
 
     // Erode this many pixels around invalid pixels
-    
+
     if (erode_len <= 0) return;
 
     int nc = image.cols(), nr = image.rows(); // shorten
     double nan = std::numeric_limits<double>::quiet_NaN();
-    
+
     for (int pass = 0; pass < erode_len; pass++){
       ImageView<Vector3> eroded = copy(image);
-      
+
       for (int col = 0; col < image.cols(); col++){
         for (int row = 0; row < image.rows(); row++){
-          
+
           for (int c = std::max(col-1, 0); c <= std::min(col+1, nc-1); c++){
             for (int r = std::max(row-1, 0); r <= std::min(row+1, nr-1); r++){
               if (boost::math::isnan(image(c, r).z()))
-                eroded(col, row).z() = nan; 
+                eroded(col, row).z() = nan;
             }
           }
         }
       }
-      
+
       image = copy(eroded);
     } // end passes
-    
+
   }
 
 
@@ -350,28 +350,28 @@ namespace asp{
     m_hole_fill_len(0),
     m_error_image(error_image), m_error_cutoff(-1.0),
     m_median_filter_params(median_filter_params), m_erode_len(erode_len){
-    
+
     set_texture(texture.impl());
-    
+
     //dump_image("img", BBox2(0, 0, 3000, 3000), point_image);
-    
+
     // Compute the bounding box that encompasses tiles within the image
     //
     // They're used for querying what part of the image we need
     VW_OUT(DebugMessage,"asp") << "Computing raster bounding box...\n";
-    
+
     int num_bins = 1024;
     std::vector<double> errors_hist;
     if (remove_outliers_with_pct){
       // Need to compute the histogram of all errors in the error image
       errors_hist = std::vector<double>(num_bins, 0.0);
     }
-    
+
     // Subdivide each block into smaller chunks. Note: small chunks
     // greatly increase the memory usage and run-time for very large
     // images (because they are very many). As such, make the chunks
     // bigger for bigger images.
-    double s = 10000.0; 
+    double s = 10000.0;
     int sub_block_size
       = int(double(point_image.cols())*double(point_image.rows())/(s*s));
     sub_block_size = std::max(1, sub_block_size);
@@ -404,7 +404,7 @@ namespace asp{
       vw_throw( ArgumentErr() << "OrthoRasterize: Input point cloud is empty!\n" );
     VW_OUT(DebugMessage,"asp") << "Point cloud boundary is " << m_bbox << "\n";
 
-     
+
     if (remove_outliers_with_pct){
       // Find the outlier cutoff from the histogram of all errors.
       // The cutoff is the outlier factor times the percentile of the errors.
@@ -435,7 +435,7 @@ namespace asp{
       vw_out() << "Manual triangulation error cutoff is "
                << m_error_cutoff << " meters.\n";
     }
-    
+
 
     // Find the width and height of the median point cloud pixel in
     // projected coordinates. For las or csv files, this approach
@@ -459,7 +459,7 @@ namespace asp{
         m_default_spacing_y = vy[(int)(0.5*len)];
       }
     }
-      
+
     return;
   } // End OrthoRasterizerView Constructor
 
@@ -467,7 +467,7 @@ namespace asp{
   // This is kind of like part 2 of the constructor
   // - This function finalizes the spacing and generates a spacing-snapped BBox.
   void OrthoRasterizerView::initialize_spacing(const double spacing) {
-  
+
     // This must happen after the bounding box was computed, but
     // before setting the spacing.
     if (m_use_surface_sampling){
@@ -486,7 +486,7 @@ namespace asp{
       // We choose the coarsest of the two spacings
       m_default_spacing = std::max(m_default_spacing_x, m_default_spacing_y);
     }
-      
+
     // Set the sampling rate (i.e. spacing between pixels)
     this->set_spacing(spacing);
     VW_OUT(DebugMessage,"asp") << "Pixel spacing is " << m_spacing << " pnt/px\n";
@@ -497,7 +497,7 @@ namespace asp{
     // grids match perfectly.
     m_snapped_bbox = m_bbox;
     snap_bbox(m_spacing, m_snapped_bbox); // TODO: Class function!
-  
+
   } // End function initialize_spacing()
 
 
@@ -518,10 +518,10 @@ namespace asp{
   OrthoRasterizerView::prerasterize_type OrthoRasterizerView::prerasterize( BBox2i const& bbox ) const {
 
     BBox2i bbox_1 = bbox;
-      
+
     // bugfix, ensure we see enough beyond current tile
     bbox_1.expand((int)ceil(std::max(m_search_radius_factor, 5.0)));
-      
+
     // Used to find which polygons are actually in the draw space.
     BBox3 local_3d_bbox = pixel_to_point_bbox(bbox_1);
 
@@ -567,7 +567,7 @@ namespace asp{
     } else {
       min_val = m_default_value;
     }
-      
+
     std::valarray<float> vertices(10), intensities(5);
 
     if (m_use_surface_sampling){
@@ -579,7 +579,7 @@ namespace asp{
     }else{
       point2grid.Clear(min_val);
     }
-      
+
     // For each block in the DEM space intersecting local_3d_bbox,
     // find the corresponding blocks in the point cloud space.  We
     // use here a map since we'd like to group together the point
@@ -592,7 +592,7 @@ namespace asp{
       if (! local_3d_bbox.intersects(boundary.first) ) continue;
 
       BBox2i pc_block = boundary.second;
-        
+
       BBox2i snapped_block;
       snapped_block.min() = m_block_size*floor(pc_block.min()/double(m_block_size));
       snapped_block.max() = m_block_size*ceil( pc_block.max()/double(m_block_size));
@@ -618,19 +618,19 @@ namespace asp{
                                          cols(), rows()) );
       }
     }
-      
+
     // This is very important. When doing surface sampling, for each
     // pixel we need to see its next up and right neighbors.
     int d = (int)m_use_surface_sampling;
 
     for (std::map<BBox2i, BBox2i, compare_bboxes>::iterator it = blocks_map.begin();
          it != blocks_map.end(); it++){
-        
+
       BBox2i block = it->second;
 
       block.max() += Vector2i(d, d);
       block.crop(vw::bounding_box(m_point_image));
-        
+
       // Pull a copy of the input image in memory.  Expand the image
       // to be able to see a bit beyond when filling holes.
       BBox2i biased_block = block;
@@ -638,7 +638,7 @@ namespace asp{
       biased_block.expand(bias);
       biased_block.crop(vw::bounding_box(m_point_image));
       ImageView<Vector3> point_copy = crop(m_point_image, biased_block);
-      
+
       remove_outliers(point_copy, m_error_image, m_error_cutoff, biased_block);
       filter_by_median(point_copy, m_median_filter_params);
       erode_image(point_copy, m_erode_len);
@@ -649,19 +649,19 @@ namespace asp{
                                                         NaN2Mask<Vector3>()),
                                        m_hole_fill_len),
                                       Mask2NaN<Vector3>());
-      
+
       // Crop back to the area of interest
       point_copy = crop(point_copy, block - biased_block.min());
-      
+
       ImageView<float> texture_copy = crop(m_texture, block );
 
       typedef ImageView<Vector3>::pixel_accessor PointAcc;
       PointAcc row_acc = point_copy.origin();
       for ( int32 row = 0; row < point_copy.rows()-d; ++row ) {
         PointAcc point_ul = row_acc;
-          
+
         for ( int32 col = 0; col < point_copy.cols()-d; ++col ) {
-            
+
           PointAcc point_ur = point_ul; point_ur.next_col();
           PointAcc point_ll = point_ul; point_ll.next_row();
           PointAcc point_lr = point_ul; point_lr.advance(1,1);
@@ -671,7 +671,7 @@ namespace asp{
             // This loop rasterizes a quad indexed by the upper left.
             if ( !boost::math::isnan((*point_ul).z()) &&
                  !boost::math::isnan((*point_lr).z()) ) {
-                
+
               vertices[0] = (*point_ul).x(); // UL
               vertices[1] = (*point_ul).y();
               vertices[2] = (*point_ll).x(); // LL
@@ -682,13 +682,13 @@ namespace asp{
               vertices[7] = (*point_ur).y();
               vertices[8] = (*point_ul).x(); // UL
               vertices[9] = (*point_ul).y();
-                
+
               intensities[0] = texture_copy(col,  row);
               intensities[1] = texture_copy(col,row+1);
               intensities[2] = texture_copy(col+1,  row+1);
               intensities[3] = texture_copy(col+1,row);
               intensities[4] = texture_copy(col,row);
-                
+
               if ( !boost::math::isnan((*point_ll).z()) ) {
                 // triangle 1 is: UL LL LR
                 renderer.DrawPolygon(0, 3);
@@ -698,7 +698,7 @@ namespace asp{
                 renderer.DrawPolygon(2, 3);
               }
             }
-              
+
           }else{
             // The new engine
             if ( !boost::math::isnan(point_copy(col, row).z()) ){
@@ -711,7 +711,7 @@ namespace asp{
         }
         row_acc.next_row();
       }
-        
+
     }
 
     if (!m_use_surface_sampling)
@@ -727,7 +727,7 @@ namespace asp{
       result = flip_vertical(render_buffer);
     else
       result = flip_vertical(d_buffer);
-      
+
     return prerasterize_type (result, BBox2i(-bbox_1.min().x(),
                                              -bbox_1.min().y(),
                                              cols(), rows()));
@@ -744,14 +744,14 @@ namespace asp{
     geo_transform(1,2) = m_snapped_bbox.max().y();
     return geo_transform;
   }
-  
+
   // To do: This code is not enabled yet.
   void OrthoRasterizerView::find_bdbox_robust_to_outliers
   (std::vector<BBoxPair> const& point_image_boundaries, BBox3 & bbox){
-    
+
     using namespace vw::math;
 
-    double pct = 0.1; 
+    double pct = 0.1;
     double outlier_factor = 1.5;
     double ctrx_min, ctrx_max, ctry_min, ctry_max;
     double widx_min, widx_max, widy_min, widy_max;
@@ -794,7 +794,7 @@ namespace asp{
       if ( b.center().y()  < ctry_min || b.center().y() > ctry_max ) continue;
       bbox.grow(b);
     }
-      
+
   }
 
 } // namespace asp

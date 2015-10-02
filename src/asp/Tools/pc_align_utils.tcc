@@ -1097,10 +1097,14 @@ void save_trans_point_cloud(asp::BaseOptions const& opt,
       geodetic_to_cartesian( dem_to_geodetic( create_mask(dem, nodata),
                                               dem_geo ),
                              dem_geo.datum() );
+
+    // Save the georeference with the cloud, to help point2dem later
+    bool has_nodata2 = false; // the cloud should not use DEM nodata
     asp::block_write_gdal_image(output_file,
                                 per_pixel_filter(point_cloud, TransformPC(T)),
-                                opt,
-                                vw::TerminalProgressCallback("asp", "\t--> "));
+                                has_georef, dem_geo,
+                                has_nodata2, nodata,
+                                opt, vw::TerminalProgressCallback("asp", "\t--> "));
 
   }else if (file_type == "PC"){
 
@@ -1108,9 +1112,9 @@ void save_trans_point_cloud(asp::BaseOptions const& opt,
     // with n channels without knowing n beforehand.
     int nc = vw::get_num_channels(input_file);
     switch(nc){
-      case 3:  save_trans_point_cloud_n<3>(opt, input_file, output_file, T);  break;
-      case 4:  save_trans_point_cloud_n<4>(opt, input_file, output_file, T);  break;
-      case 6:  save_trans_point_cloud_n<6>(opt, input_file, output_file, T);  break;
+    case 3:  save_trans_point_cloud_n<3>(opt, geo, input_file, output_file, T);  break;
+    case 4:  save_trans_point_cloud_n<4>(opt, geo, input_file, output_file, T);  break;
+    case 6:  save_trans_point_cloud_n<6>(opt, geo, input_file, output_file, T);  break;
     default:
       vw_throw( vw::ArgumentErr() << "The point cloud from " << input_file
                 << " has " << nc << " channels, which is not supported.\n" );
@@ -1197,6 +1201,10 @@ void save_trans_point_cloud(asp::BaseOptions const& opt,
       else
         outfile << "# latitude,longitude,height above datum (meters)" << std::endl;
     }
+
+    // Save the datum, may be useful to know what it was
+    if (geo.datum().name() != UNSPECIFIED_DATUM)
+      outfile << "# " << geo.datum() << std::endl;
 
     int numPts = point_cloud.features.cols();
     vw::TerminalProgressCallback tpc("asp", "\t--> ");

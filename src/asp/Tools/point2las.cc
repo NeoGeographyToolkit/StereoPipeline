@@ -125,19 +125,23 @@ int main( int argc, char *argv[] ) {
     // by the user.
     liblas::Header header;
     cartography::Datum datum;
-    bool have_user_datum
+    bool has_user_datum
       = asp::read_user_datum(0, 0, opt.datum, datum);
 
-    bool is_geodetic = false;
-    if (have_user_datum || !opt.target_srs_string.empty()){
+    cartography::GeoReference georef;
+    bool has_georef = vw::cartography::read_georeference(georef, opt.pointcloud_file);
+    if (has_georef && opt.target_srs_string.empty()) {
+      opt.target_srs_string = georef.overall_proj4_str();
+    }
 
-      cartography::GeoReference georef;
+    bool is_geodetic = false;
+    if (has_user_datum || !opt.target_srs_string.empty()){
+
       // Set the srs string into georef.
       asp::set_srs_string(opt.target_srs_string,
-                          have_user_datum, datum, georef);
+                          has_user_datum, datum, georef);
       liblas::SpatialReference ref;
-      std::string target_srs = georef.proj4_str();
-      target_srs += " " + georef.datum().proj4_str();
+      std::string target_srs = georef.overall_proj4_str();
 
       ref.SetFromUserInput(target_srs);
       vw_out() << "Using projection string: '" << target_srs << "'"<< std::endl;
@@ -147,6 +151,7 @@ int main( int argc, char *argv[] ) {
       datum = georef.datum();
     }
 
+    // if we have a datum, save the las file in respect to this datum
     ImageViewRef<Vector3> point_image = asp::read_asp_point_cloud<3>(opt.pointcloud_file);
     if (is_geodetic)
       point_image = cartesian_to_geodetic(point_image, datum);

@@ -1,11 +1,25 @@
-*** RELEASE 2.6.0, upcoming! ***
+*** RELEASE 2.5.2, upcoming! ***
 
- - point2mesh
-   * Can create a mesh from a DEM and an orthoimage (DRG file).
+ - point2dem, point2las, and pc_align
+   * The -r <datum> field is optional now, the datum will be inferred
+     automatically (together with the projection) from the input
+     images if present. This can be useful for bodies that are not
+     Moon, Mars, or Earth. The datum and projection can still be
+     overridden with --reference-spheroid (--datum) and --t_srs.
+   * Accept --datum (-r) MOLA, as a shortcut for the sphere with
+     radius 3,396,000 meters.
 
- - Datum-using tools:
-   * point2dem, point2las, and pc_align now accept --datum MOLA, as
-     a shortcut for the sphere with radius 3,396,000 meters.
+ - stereo
+    * Bugfix for stereo with map-projected images using the RPC
+      session (e.g, for Pleiades imagery).
+    * Added OpenCV-based SIFT and ORB interest point finding options.
+    * If the input images are map-projected (georeferenced) and 
+      alignment method is none, all image outputs of stereo are
+      georeferenced as well, such as GoodPixelMap, D_sub, disparity,
+      etc. As such, all these data can be overlayed in stereo_gui.
+    * The output point cloud saves datum info from input images
+      (even when the inputs are not georeferenced). 
+    * Increased reliability of interest point detection.
 
  - dem_mosaic
    * Introduce --priority-blending-length, measured in input pixels. 
@@ -26,22 +40,11 @@
      image and camera data. Such artifacts may show up in older
      (2009 or earlier) Digital Globe images.
 
- - stereo
-    * If the input images are map-projected (georeferenced) and 
-      alignment method is none, most outputs of stereo are
-      georeferenced as well, such as GoodPixelMap, D_sub, filtered
-      disparity, etc. As such, all these data can be overlayed in
-      stereo_gui.
-    * Bugfix for rpcmaprpc stereo.
-    * Increased reliability of interest point detection.
-    * Added OpenCV-based SIFT and ORB interest point finding options.
-  
  - stereo_gui
    * Added the ability to generate ground control point files for
      bundle_adjust. In addition to the images to be bundle-adjusted,
-     one should provide an additional georeferenced image to find
-     matches in and a reference DEM from which the GCP xyz coordinates
-     will be inferred.
+     one should provide a georeferenced image to find the GCP lon-lat,
+     and a reference DEM to find the GCP heights.
    * Added the option --delete-temporary-files-on-exit to do precisely
      that.
    * Can read the georeference of map-projected ISIS cubes.
@@ -50,15 +53,20 @@
    * Fix minor discrepancies in the minor semi-axis for the WGS84,
      NAD83 and WGS72 datums. Now using GDAL/OGR for that.
 
+ - point2las
+   * Save the LAS file with a datum if the input PC had one.
+
  - image_calc
    * Fix calculation bug when no-data is present.
 
  - pc_align
-   * Added the ability to compute a manual rotation + translation +
-     scale transform based on user-selected point correspondences from
-     reference to source cloud in stereo_gui.
   * Upgraded to the latest libpointmatcher. This may result in minor
     alignment changes as the core algorithm got modified.
+  * Added the ability to compute a manual rotation + translation +
+    scale transform based on user-selected point correspondences
+    from reference to source cloud in stereo_gui.
+  * Save all PC clouds with datum info, if present. Add a comment line
+    with the datum info to CSV files.
 
  - bundle_adjust
     * Added OpenCV-based SIFT and ORB interest point finding options.
@@ -69,6 +77,14 @@
  - colormap
    * Default style is binary-red-blue. Works better than jet when 
      data goes out of range.
+
+ - pc_merge
+   * Can merge clouds with 1 band. That is, can merge not only PC.tif
+     files but also L.tif files, with the goal of using these two
+     merged datasets to create a merged orthoimage with point2dem.
+
+ - point2mesh
+   * Can create a mesh from a DEM and an orthoimage (DRG file).
 
 *** RELEASE 2.5.0, August 31, 2015 ***
 
