@@ -213,7 +213,7 @@ struct BaReprojectionError {
         point_vec[p]  = (double)point[p];
 
       // Project the current point into the current camera
-      Vector2 prediction = (*m_ba_model)(m_ipt, m_icam, cam_vec, point_vec);
+      Vector2 prediction = (*m_ba_model).cam_pixel(m_ipt, m_icam, cam_vec, point_vec);
 
       // The error is the difference between the predicted and observed position,
       // normalized by sigma.
@@ -285,7 +285,7 @@ struct BaPinholeError {
         point_vec[p]  = (double)point[p];
 
       // Project the current point into the current camera
-      Vector2 prediction = (*m_ba_model)(m_ipt, m_icam, cam_intr_vec, point_vec);
+      Vector2 prediction = (*m_ba_model).cam_pixel(m_ipt, m_icam, cam_intr_vec, point_vec);
 
       // The error is the difference between the predicted and observed position,
       // normalized by sigma.

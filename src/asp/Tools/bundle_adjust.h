@@ -143,9 +143,9 @@ public:
   // image, and the 3D point location for the i'th
   // point, return the location of point_i on imager j in pixel
   // coordinates.
-  vw::Vector2 operator() ( unsigned /*i*/, unsigned j,
-                           camera_vector_t const& cam_j,
-                           point_vector_t const& point_i) const {
+  vw::Vector2 cam_pixel(unsigned /*i*/, unsigned j,
+			camera_vector_t const& cam_j,
+			point_vector_t const& point_i) const {
     vw::Vector3 position_correction;
     vw::Quat pose_correction;
     asp::parse_camera_parameters(cam_j, position_correction, pose_correction);
@@ -285,9 +285,9 @@ public:
   // image, and the 'm_point_vec' vector (3D point location) for the i'th
   // point, return the location of point_i on imager j in pixel
   // coordinates.
-  vw::Vector2 operator() ( unsigned /*i*/, unsigned j,
-                           camera_intr_vector_t const& cam_j,
-                           point_vector_t const& point_i) {
+  vw::Vector2 cam_pixel(unsigned /*i*/, unsigned j,
+			camera_intr_vector_t const& cam_j,
+			point_vector_t const& point_i) {
 
     return get_pinhole_model(cam_j).point_to_pixel(point_i);
   }
