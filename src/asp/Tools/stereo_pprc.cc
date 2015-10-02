@@ -368,7 +368,7 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
     uint32 sub_tile_size = 1u << tile_power;
     if (sub_tile_size > vw_settings().default_tile_size())
       sub_tile_size = vw_settings().default_tile_size();
-
+    Vector2 sub_tile_size_vec(sub_tile_size, sub_tile_size);
     vw_out() << "\t--> Creating previews. Subsampling by " << sub_scale
              << " by using a tile of size " << sub_tile_size << " and "
              << sub_threads << " threads.\n";
@@ -385,8 +385,8 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
     if ( sub_scale > 0.5 ) {
       // When we are near the pixel input to output ratio, standard
       // interpolation gives the best possible results.
-      left_sub_image  = block_rasterize(resample(copy_mask(left_image,  create_mask(left_mask)),  sub_scale), sub_tile_size, sub_threads);
-      right_sub_image = block_rasterize(resample(copy_mask(right_image, create_mask(right_mask)), sub_scale), sub_tile_size, sub_threads);
+      left_sub_image  = block_rasterize(resample(copy_mask(left_image,  create_mask(left_mask)),  sub_scale), sub_tile_size_vec, sub_threads);
+      right_sub_image = block_rasterize(resample(copy_mask(right_image, create_mask(right_mask)), sub_scale), sub_tile_size_vec, sub_threads);
     } else {
       // When we heavily reduce the image size, super sampling seems
       // like the best approach. The method below should be equivalent.
@@ -395,13 +395,13 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
         (cache_tile_aware_render(resample_aa(copy_mask(left_image,create_mask(left_mask)),
                                              sub_scale),
                                  Vector2i(256,256) * sub_scale),
-         sub_tile_size, sub_threads);
+         sub_tile_size_vec, sub_threads);
       right_sub_image
         = block_rasterize
         (cache_tile_aware_render(resample_aa(copy_mask(right_image,create_mask(right_mask)),
                                              sub_scale),
                                  Vector2i(256,256) * sub_scale),
-         sub_tile_size, sub_threads);
+         sub_tile_size_vec, sub_threads);
     }
 
     // Enforce no predictor in compression, it works badly with sub-images

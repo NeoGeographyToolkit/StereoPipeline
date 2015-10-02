@@ -117,7 +117,7 @@ namespace asp {
                 cropped_copy.origin();
               pit.advance( l.x() - 1, l.y() - 1 );
 
-              AccumulatorType sum(0);
+              AccumulatorType sum;
               sum += .176765 * (*pit);
               pit.next_col();
               sum += .073235 * (*pit);

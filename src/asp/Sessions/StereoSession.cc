@@ -94,6 +94,7 @@ namespace asp {
     ImageViewRef<float> image1_norm=image1, image2_norm=image2;
     if ( (stereo_settings().ip_matching_method != DETECT_IP_METHOD_INTEGRAL) &&
        (stats1[0] != stats1[1]) ) { // Don't normalize if no stats were provided!
+      vw_out() << "\t--> Normalizing images for IP detection using stats " << stats1 << "\n";
       normalize_images(stereo_settings().force_use_entire_range,
                        stereo_settings().individually_normalize,
                        true, // Use percentile based stretch for ip matching
@@ -117,7 +118,7 @@ namespace asp {
       // This computes a distance used for throwing out interest points.
       // - It has to be computed using the entire (not cropped) image size!
       const double epipolar_threshold = norm_2(uncropped_image_size)/15;
-      //vw_out() << "Epipolar threshold = " << epipolar_threshold << "\n";
+      VW_OUT( DebugMessage, "asp" ) << "Epipolar threshold = " << epipolar_threshold << std::endl;
 
       inlier = ip_matching_w_alignment(single_threaded_camera, cam1, cam2,
                                        image1_norm, image2_norm,

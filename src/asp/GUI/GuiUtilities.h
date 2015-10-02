@@ -99,17 +99,19 @@ namespace vw { namespace gui {
   // The kinds of images we support
   enum ImgType {UNINIT, CH1_DOUBLE, CH1_UINT8, CH3_UINT8};
 
-  /// For multi-channel images we cannot use create_mask_less_or_equal.
-  /// - Custom function switches to create_mask for multi-channel images.
+  // Gets called for PixelT == double
   template<class PixelT>
   typename boost::enable_if< boost::mpl::or_< boost::is_same<PixelT,double>, boost::is_same<PixelT,vw::uint8> >, ImageViewRef< PixelMask<PixelT> > >::type
   create_custom_mask(ImageViewRef<PixelT> & img, double nodata_val){
     return create_mask_less_or_equal(img, nodata_val);
   }
+  // Gets called for PixelT == Vector<u8, 1> and Vector<u8, 3>
   template<class PixelT>
   typename boost::disable_if< boost::mpl::or_< boost::is_same<PixelT,double>, boost::is_same<PixelT,vw::uint8> >, ImageViewRef< PixelMask<PixelT> > >::type
   create_custom_mask(ImageViewRef<PixelT> & img, double nodata_val){
-    return create_mask(img, nodata_val);
+    PixelT mask_pixel;
+    mask_pixel.set_all(nodata_val);
+    return create_mask(img, mask_pixel);
   }
 
   /// Single-channel images are read into Image<float>, while
@@ -458,6 +460,7 @@ std::string write_in_orig_or_curr_dir(asp::BaseOptions const& opt,
   return output_file;
 }
 
+
 template <class PixelT>
 DiskImagePyramid<PixelT>::DiskImagePyramid(std::string const& base_file,
                  asp::BaseOptions const& opt,
@@ -515,16 +518,24 @@ DiskImagePyramid<PixelT>::DiskImagePyramid(std::string const& base_file,
     // what is a good way of resampling.
     // Note that below we cast the channels to double for resampling,
     // then cast back to current pixel type for saving.
+    PixelT nodata_pixel;
+    set_all(nodata_pixel, m_nodata_val);
     ImageViewRef<PixelT> unmasked
-      = block_rasterize
-      (vw::cache_tile_aware_render
-       (pixel_cast<PixelT>
-        (apply_mask
-         (vw::resample_aa
-          (channel_cast<double>(masked), sub_scale),
-          m_nodata_val)),
-        Vector2i(tile_size,tile_size) * sub_scale),
-       tile_size, sub_threads);
+        = block_rasterize(
+            vw::cache_tile_aware_render(
+              pixel_cast<PixelT>(
+                apply_mask(
+                  vw::resample_aa(
+                    channel_cast<double>(masked), 
+                    sub_scale
+                  ),
+                  nodata_pixel
+                )
+              ),
+              Vector2i(tile_size,tile_size) * sub_scale
+            ),
+            Vector2i(tile_size,tile_size), sub_threads
+          );
 
     // Write the current image.
     vw::cartography::GeoReference sub_georef;
@@ -575,6 +586,7 @@ DiskImagePyramid<PixelT>::DiskImagePyramid(std::string const& base_file,
 
     level++;
   } // End level creation loop
+  
 }
 
 template <class PixelT>

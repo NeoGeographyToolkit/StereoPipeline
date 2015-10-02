@@ -137,7 +137,7 @@ TEST( StereoSessionRPC, InstantiateTest ) {
 
   // Verify that if we go from pixel to lonlat and back, then we
   // arrive at the starting point.
-  Vector2 pix = 0.0;
+  Vector2 pix(0, 0);
   double h = 10.0; 
   Vector2 lonlat  = model.image_to_ground(pix, h);
   Vector2 pix_out = model.geodetic_to_pixel(Vector3(lonlat[0], lonlat[1], h));

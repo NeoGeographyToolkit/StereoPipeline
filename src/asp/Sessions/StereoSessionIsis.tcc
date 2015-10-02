@@ -293,8 +293,17 @@ pre_preprocessing_hook(bool adjust_left_image_size,
   }
 
   // Fill in a stats block for ip_matching
-  Vector6f left_stats (left_lo,  left_hi,  0, 0);
-  Vector6f right_stats(right_lo, right_hi, 0, 0);
+  // - Because we don't have all the stats, we will have to use the entire range.
+  Vector6f left_stats;
+  Vector6f right_stats;
+  left_stats [0] = left_lo;
+  left_stats [1] = left_hi;
+  right_stats[0] = right_lo;
+  right_stats[1] = right_hi;
+  for (size_t i=2; i<6; ++i) {
+    left_stats [i] = 0;
+    right_stats[i] = 0;
+  }
 
   // Image alignment block - Generate aligned versions of the input
   // images according to the options.

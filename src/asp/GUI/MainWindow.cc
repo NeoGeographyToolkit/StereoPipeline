@@ -530,16 +530,16 @@ void MainWindow::writeGroundControlPoints() {
   }
 
   // Load a georeference to use for the GCPs from the last image
-  cartography::GeoReference georef;
+  cartography::GeoReference georef_image, georef_dem;
   const size_t GEOREF_INDEX = m_image_paths.size() - 1;
   const std::string georef_image_path = m_image_paths[GEOREF_INDEX];
-  bool has_georef = vw::cartography::read_georeference(georef, georef_image_path);
+  bool has_georef = vw::cartography::read_georeference(georef_image, georef_image_path);
   if (!has_georef) {
     return popUp("Error: Could not load a valid georeference to use for ground control points in file: "
                  + georef_image_path);
   }
   vw_out() << "Loaded georef from file " << georef_image_path << std::endl;
-
+  
   // Init the DEM to use for height interpolation
   boost::shared_ptr<DiskImageResource> dem_rsrc(DiskImageResource::open(dem_path));
   DiskImageView<float> dem_disk_image(dem_path);
@@ -547,13 +547,22 @@ void MainWindow::writeGroundControlPoints() {
   float nodata_val = -std::numeric_limits<float>::max();
   if (dem_rsrc->has_nodata_read()){
     nodata_val = dem_rsrc->nodata_read();
-    raw_dem    = create_mask(dem_disk_image, nodata_val);
+    raw_dem    = create_mask_less_or_equal(dem_disk_image, nodata_val);
   }else{
     raw_dem = pixel_cast<PixelMask<float> >(dem_disk_image);
   }
+  PixelMask<float> fill_val;
+  fill_val[0] = -99999;
+  fill_val.invalidate();
   vw::ImageViewRef<PixelMask<float> > interp_dem = interpolate(raw_dem,
                                                       BilinearInterpolation(),
-                                                      ValueEdgeExtension<PixelMask<float> >(PixelMask<float>()));
+                                                      ValueEdgeExtension<PixelMask<float> >(fill_val));
+  // Load the georef from the DEM
+  has_georef = vw::cartography::read_georeference(georef_dem, dem_path);
+  if (!has_georef) {
+    return popUp("Error: Could not load a valid georeference from dem file: " + dem_path);
+  }
+  vw_out() << "Loaded georef from dem file " << dem_path << std::endl;
 
   // Prompt the user for the desired output path
   std::string save_path = "";
@@ -565,25 +574,30 @@ void MainWindow::writeGroundControlPoints() {
   }catch(...){
     return popUp("Error selecting the output path.");
   }
-
+  BBox2 image_bb = bounding_box(interp_dem);
+  
   std::ofstream output_handle(save_path.c_str());
-
   size_t num_pts_skipped = 0, num_pts_used = 0;
   for (size_t p = 0; p < num_ips; p++) { // Loop through IPs
 
     // Compute the GDC coordinate of the point
     ip::InterestPoint ip = m_matches[GEOREF_INDEX][p];
-    Vector2 lonlat = georef.pixel_to_lonlat(Vector2(ip.x, ip.y));
-    PixelMask<float> height = interp_dem(ip.x, ip.y)[0];
-    if (is_valid(height) == false) {
+    Vector2 lonlat    = georef_image.pixel_to_lonlat(Vector2(ip.x, ip.y));
+    Vector2 dem_pixel = georef_dem.lonlat_to_pixel(lonlat);
+    PixelMask<float> mask_height = interp_dem(dem_pixel[0], dem_pixel[1])[0];
+   
+    // We make a seperate bounding box check because the ValueEdgeExtension
+    //  functionality may not work properly!
+    if ( (!image_bb.contains(dem_pixel)) || (!is_valid(mask_height)) ) {
       vw_out() << "Warning: Skipped IP # " << p << " because it does not fall on the DEM.\n";
       ++num_pts_skipped;
       continue; // Skip locations which do not fall on the DEM
     }
+    vw_out() << "Writing out location: " << mask_height << std::endl;
 
     // Write the per-point information
     output_handle << num_pts_used; // The ground control point ID
-    output_handle << ", " << lonlat[0] << ", " << lonlat[1] << ", " << height[0];
+    output_handle << ", " << lonlat[0] << ", " << lonlat[1] << ", " << mask_height[0];
     output_handle << ", " << 1 << ", " << 1 << ", " << 1; // Sigma values
 
     // Write the per-image information
