@@ -97,6 +97,10 @@ from optparse import (OptionParser,BadOptionError,AmbiguousOptionError)
 
 class PassThroughOptionParser(OptionParser):
 
+    # Overwrite the default implementation which deletes newlines
+    def format_epilog(self, formatter):
+        return self.epilog
+
     def _process_args(self, largs, rargs, values):
         while rargs:
             try:
