@@ -569,7 +569,7 @@ it onto the 3D terrain produced by the Stereo Pipeline.  The resulting
 {\tt *-DRG.tif} file will be saved as a GeoTIFF image with the same
 geoheader as the DEM.
 
-Here we have explicitely specified the spheroid (\texttt{-r moon}), rather
+Here we have explicitly specified the spheroid (\texttt{-r moon}), rather
 than have it inferred automatically. The Moon spheroid will have
 a radius of 1737.4~km.
 
@@ -1045,9 +1045,13 @@ The weights used to blend the DEMs should increase away from the boundary as a p
 Crop the DEMs this far from the current tile (measured in pixels) before blending them (a small value may result in artifacts).
 \\ \hline
 
-\texttt{-\/-save-dem-weight \textit{integer}} &
-Save the weight image used to blend into the mosaic the DEM with given index in the input list (smallest index is 0).
-\\ \hline
+\texttt{-\/-save-dem-weight \textit{integer index}} &
+Save the weight image that tracks how much the input DEM with given index contributed to the output mosaic at each pixel (smallest index is 0).\\ \hline
+
+\texttt{-\/-save-index-map} &
+For each output pixel, save the index of the input DEM it came from
+(applicable only for -\/-first, -\/-last, -\/-min, and -\/-max). A text
+file with the index assigned to each input DEM is saved as well.\\ \hline
 
 \texttt{-\/-threads \textit{integer(=4)}}
 & Set the number of threads to use.
@@ -1095,7 +1099,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message.\\ \hline
 \texttt{-\/-nodata-value \textit{float(=-32768)}} & The value of no-data pixels, unless specified in the DEM. \\ \hline
 \texttt{-\/-geoid \textit{string}} & Specify the geoid to use for Earth WGS84 DEMs.
-                               Options: EGM96, EGM2008. Default: EGM96. \\ \hline
+			       Options: EGM96, EGM2008. Default: EGM96. \\ \hline
 \texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix. \\ \hline
 \texttt{-\/-double} & Output using double precision (64 bit) instead of float (32 bit).\\ \hline
 \texttt{-\/-reverse-adjustment} & Go from DEM relative to the geoid/areoid to DEM relative to the datum ellipsoid.\\ \hline

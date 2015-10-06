@@ -30,8 +30,13 @@
      lower-resolution "background" DEMs that should be specified later
      in the list. Changing --weights-exponent can improve transition.
    * Fix an issue with minor jumps across tiles. 
-   * Introduce --save-dem-weight <integer> to save the weights
-     used in blending. Can be used to judge blending effectiveness.
+   * Introduce --save-dem-weight <index>. Saves the weight image that
+     tracks how much the input DEM with given index contributed to the
+     output mosaic at each pixel (smallest index is 0).
+   * Introduce --save-index-map. For each output pixel, save the
+     index of the input DEM it came from (applicable only for
+     --first, --last, --min, and --max). A text file with the index
+     assigned to each input DEM is saved as well.
    * Rename --blending-length to --extra-crop-length, for clarity. 
 
  - dg_mosaic 
