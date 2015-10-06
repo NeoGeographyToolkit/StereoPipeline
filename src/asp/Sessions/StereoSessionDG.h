@@ -29,7 +29,6 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/AffineEpipolar.h>
-#include <asp/Camera/LinescanDGModel.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/DG_XML.h>
 
@@ -39,7 +38,7 @@ namespace asp {
   /// Generic stereoSession implementation for images which we can read/write with GDAL.
   /// - This class adds a "preprocessing hook" which aligns and normalizes the images using the specified methods.
   template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
-            STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
+	    STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
   class StereoSessionGdal : public StereoSessionConcrete<DISKTRANSFORM_TYPE, STEREOMODEL_TYPE> {
 
   public:
@@ -53,10 +52,10 @@ namespace asp {
     /// Pre file is a pair of images.            ( ImageView<PixelT> )
     /// Post file is a pair of grayscale images. ( ImageView<PixelGray<float> > )
     virtual inline void pre_preprocessing_hook(bool adjust_left_image_size,
-                                        std::string const& left_input_file,
-                                        std::string const& right_input_file,
-                                        std::string      & left_output_file,
-                                        std::string      & right_output_file);
+					std::string const& left_input_file,
+					std::string const& right_input_file,
+					std::string      & left_output_file,
+					std::string      & right_output_file);
 
     /// Simple factory function
     static StereoSession* construct() { return new StereoSessionGdal<DISKTRANSFORM_TYPE, STEREOMODEL_TYPE>; }
@@ -69,13 +68,13 @@ namespace asp {
 // Function definitions
 
   template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
-            STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
+	    STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
   inline void StereoSessionGdal<DISKTRANSFORM_TYPE, STEREOMODEL_TYPE>::
   pre_preprocessing_hook(bool adjust_left_image_size,
-                         std::string const& left_input_file,
-                         std::string const& right_input_file,
-                         std::string &left_output_file,
-                         std::string &right_output_file) {
+			 std::string const& left_input_file,
+			 std::string const& right_input_file,
+			 std::string &left_output_file,
+			 std::string &right_output_file) {
 
     std::string left_cropped_file, right_cropped_file;
     asp::BaseOptions options;
@@ -84,12 +83,12 @@ namespace asp {
     vw::cartography::GeoReference left_georef, right_georef;
     bool exit_early =
       StereoSession::shared_preprocessing_hook(options,
-                                             left_input_file,   right_input_file,
-                                             left_output_file,  right_output_file,
-                                             left_cropped_file, right_cropped_file,
-                                             left_nodata_value, right_nodata_value,
-                                             has_left_georef,   has_right_georef,
-                                             left_georef,       right_georef);
+					     left_input_file,   right_input_file,
+					     left_output_file,  right_output_file,
+					     left_cropped_file, right_cropped_file,
+					     left_nodata_value, right_nodata_value,
+					     has_left_georef,   has_right_georef,
+					     left_georef,       right_georef);
 
     if (exit_early) return;
 
@@ -113,11 +112,11 @@ namespace asp {
     // Image alignment block - Generate aligned versions of the input
     // images according to the options.
     if ( stereo_settings().alignment_method == "homography" ||
-         stereo_settings().alignment_method == "affineepipolar" ) {
+	 stereo_settings().alignment_method == "affineepipolar" ) {
       // Define the file name containing IP match information.
       std::string match_filename = ip::match_filename(this->m_out_prefix,
-                                                      left_cropped_file,
-                                                      right_cropped_file);
+						      left_cropped_file,
+						      right_cropped_file);
 
       // Detect matching interest points between the left and right input images.
       // - The output is written directly to file!
@@ -125,11 +124,11 @@ namespace asp {
       boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
       this->camera_models(left_cam, right_cam); // Fetch the camera models.
       this->ip_matching(left_cropped_file,   right_cropped_file,
-                        bounding_box(left_orig_image).size(),
-                        left_stats, right_stats,
-                        stereo_settings().ip_per_tile,
-                        left_nodata_value, right_nodata_value, match_filename,
-                        left_cam.get(),    right_cam.get() );
+			bounding_box(left_orig_image).size(),
+			left_stats, right_stats,
+			stereo_settings().ip_per_tile,
+			left_nodata_value, right_nodata_value, match_filename,
+			left_cam.get(),    right_cam.get() );
 
       // Load the interest points results from the file we just wrote.
       std::vector<ip::InterestPoint> left_ip, right_ip;
@@ -137,26 +136,26 @@ namespace asp {
 
       // Initialize alignment matrices and get the input image sizes.
       Matrix<double> align_left_matrix  = math::identity_matrix<3>(),
-                     align_right_matrix = math::identity_matrix<3>();
+		     align_right_matrix = math::identity_matrix<3>();
       Vector2i left_size  = file_image_size(left_cropped_file ),
-               right_size = file_image_size(right_cropped_file);
+	       right_size = file_image_size(right_cropped_file);
 
       // Compute the appropriate alignment matrix based on the input points
       if ( stereo_settings().alignment_method == "homography" ) {
-        left_size = homography_rectification(adjust_left_image_size,
-                                             left_size,         right_size,
-                                             left_ip,           right_ip,
-                                             align_left_matrix, align_right_matrix);
-        vw_out() << "\t--> Aligning right image to left using matrices:\n"
-                 << "\t      " << align_left_matrix  << "\n"
-                 << "\t      " << align_right_matrix << "\n";
+	left_size = homography_rectification(adjust_left_image_size,
+					     left_size,         right_size,
+					     left_ip,           right_ip,
+					     align_left_matrix, align_right_matrix);
+	vw_out() << "\t--> Aligning right image to left using matrices:\n"
+		 << "\t      " << align_left_matrix  << "\n"
+		 << "\t      " << align_right_matrix << "\n";
       } else {
-        left_size = affine_epipolar_rectification(left_size,         right_size,
-                                                  left_ip,           right_ip,
-                                                  align_left_matrix, align_right_matrix);
-        vw_out() << "\t--> Aligning left and right images using affine matrices:\n"
-                 << "\t      " << submatrix(align_left_matrix, 0,0,2,3) << "\n"
-                 << "\t      " << submatrix(align_right_matrix,0,0,2,3) << "\n";
+	left_size = affine_epipolar_rectification(left_size,         right_size,
+						  left_ip,           right_ip,
+						  align_left_matrix, align_right_matrix);
+	vw_out() << "\t--> Aligning left and right images using affine matrices:\n"
+		 << "\t      " << submatrix(align_left_matrix, 0,0,2,3) << "\n"
+		 << "\t      " << submatrix(align_right_matrix,0,0,2,3) << "\n";
       }
       // Write out both computed matrices to disk
       write_matrix(this->m_out_prefix + "-align-L.exr", align_left_matrix );
@@ -164,11 +163,11 @@ namespace asp {
 
       // Apply the alignment transform to both input images
       Limg = transform(left_masked_image,
-                       HomographyTransform(align_left_matrix),
-                       left_size.x(), left_size.y() );
+		       HomographyTransform(align_left_matrix),
+		       left_size.x(), left_size.y() );
       Rimg = transform(right_masked_image,
-                       HomographyTransform(align_right_matrix),
-                       left_size.x(), left_size.y() );
+		       HomographyTransform(align_right_matrix),
+		       left_size.x(), left_size.y() );
     } else if ( stereo_settings().alignment_method == "epipolar" ) {
       vw_throw( NoImplErr() << "StereoSessionGdal does not support epipolar rectification" );
     } else {
@@ -179,9 +178,9 @@ namespace asp {
 
     // Apply our normalization options.
     normalize_images(stereo_settings().force_use_entire_range,
-                     stereo_settings().individually_normalize,
-                     false, // Use std stretch
-                     left_stats, right_stats, Limg, Rimg);
+		     stereo_settings().individually_normalize,
+		     false, // Use std stretch
+		     left_stats, right_stats, Limg, Rimg);
 
     // The output no-data value must be < 0 as we scale the images to [0, 1].
     bool has_nodata = true;
@@ -190,22 +189,22 @@ namespace asp {
     // The left image is written out with no alignment warping.
     vw_out() << "\t--> Writing pre-aligned images.\n";
     block_write_gdal_image( left_output_file, apply_mask(Limg, output_nodata),
-                            has_left_georef, left_georef,
-                            has_nodata, output_nodata, options,
-                            TerminalProgressCallback("asp","\t  L:  ") );
+			    has_left_georef, left_georef,
+			    has_nodata, output_nodata, options,
+			    TerminalProgressCallback("asp","\t  L:  ") );
 
     if ( stereo_settings().alignment_method == "none" )
       block_write_gdal_image( right_output_file, apply_mask(Rimg, output_nodata),
-                              has_right_georef, right_georef,
-                              has_nodata, output_nodata, options,
-                              TerminalProgressCallback("asp","\t  R:  ") );
+			      has_right_georef, right_georef,
+			      has_nodata, output_nodata, options,
+			      TerminalProgressCallback("asp","\t  R:  ") );
     else // Write out the right image cropped to align with the left image.
       block_write_gdal_image( right_output_file,
-                              apply_mask(crop(edge_extend(Rimg, ConstantEdgeExtension()),
-                                              bounding_box(Limg)), output_nodata),
-                              has_right_georef, right_georef,
-                              has_nodata, output_nodata, options,
-                              TerminalProgressCallback("asp","\t  R:  ") );
+			      apply_mask(crop(edge_extend(Rimg, ConstantEdgeExtension()),
+					      bounding_box(Limg)), output_nodata),
+			      has_right_georef, right_georef,
+			      has_nodata, output_nodata, options,
+			      TerminalProgressCallback("asp","\t  R:  ") );
   } // End function pre_preprocessing_hook
 
 

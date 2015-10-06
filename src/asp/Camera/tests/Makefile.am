@@ -22,9 +22,11 @@
 
 if MAKE_MODULE_CAMERA
 
-TestRPCStereoModel_SOURCES  = TestRPCStereoModel.cxx
+# Temporarily moved tests to Session/tests, as they depend on Session
 
-TESTS = TestRPCStereoModel
+#TestRPCStereoModel_SOURCES  = TestRPCStereoModel.cxx
+
+#TESTS = TestRPCStereoModel
 
 endif
 

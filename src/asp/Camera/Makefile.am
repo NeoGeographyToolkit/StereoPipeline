@@ -22,11 +22,11 @@
 
 if MAKE_MODULE_CAMERA
 
-include_HEADERS = RPCModel.h RPCModelGen.h RPCStereoModel.h \
-                  LinescanDGModel.h LinescanDGModel.tcc DG_XML.h XMLBase.h
+include_HEADERS = RPCModel.h RPCModelGen.h RPCStereoModel.h                   \
+		  LinescanDGModel.h LinescanDGModel.tcc DG_XML.h XMLBase.h
 
-libaspCamera_la_SOURCES = RPCModel.cc XMLBase.cc	\
-                          DG_XML.cc RPCStereoModel.cc	RPCModelGen.cc
+libaspCamera_la_SOURCES = RPCModel.cc XMLBase.cc DG_XML.cc                    \
+			  RPCStereoModel.cc RPCModelGen.cc
 
 libaspCamera_la_LIBADD = @MODULE_CAMERA_LIBS@
 

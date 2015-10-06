@@ -27,7 +27,8 @@
 #include <asp/Camera/DG_XML.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/RPCStereoModel.h>
-#include <asp/Camera/LinescanDGModel.h>
+#include <asp/Sessions/CameraModelLoader.h>
+#include <asp/Core/StereoSettings.h>
 #include <xercesc/util/PlatformUtils.hpp>
 
 using namespace vw;
@@ -36,38 +37,16 @@ using namespace vw::camera;
 using namespace vw::math;
 using namespace asp;
 
-// TODO: Move this!
-boost::shared_ptr<asp::RPCModel> load_rpc_camera_model(std::string const& path)
-{
-  // Try the default loading method
-  RPCModel* rpc_model = NULL;
-  try {
-    RPCXML rpc_xml; // This is for reading XML files
-    rpc_xml.read_from_file(path);
-    rpc_model = new RPCModel(*rpc_xml.rpc_ptr()); // Copy the value
-  } catch (...) {}
-  if (!rpc_model) // The default loading method failed, try the backup method.
-  {
-    rpc_model = new RPCModel(path); // This is for reading .tif files
-  }
-
-  // We don't catch an error here because the user will need to
-  // know of a failure at this point.
-  return boost::shared_ptr<asp::RPCModel>(rpc_model);
-}
-
-
-
-
 void test_stereo_models(const std::string &path1, const std::string &path2) {
 
   // Load the camera models
   boost::shared_ptr<vw::camera::CameraModel> camPtr1, camPtr2;
-  //camPtr1 = load_rpc_camera_model("wv_test1.xml");
-  //camPtr2 = load_rpc_camera_model("wv_test2.xml");
 
-  camPtr1 = load_rpc_camera_model(path1);
-  camPtr2 = load_rpc_camera_model(path2);
+  // Object to handle camera model loading
+  asp::CameraModelLoader camera_loader;
+
+  camPtr1 = camera_loader.load_rpc_camera_model(path1);
+  camPtr2 = camera_loader.load_rpc_camera_model(path2);
 
   // Set up the stereo models
   vw::stereo::StereoModel plainStereoModel(camPtr1.get(), camPtr2.get());
@@ -138,11 +117,11 @@ TEST( StereoSessionRPC, InstantiateTest ) {
   // Verify that if we go from pixel to lonlat and back, then we
   // arrive at the starting point.
   Vector2 pix(0, 0);
-  double h = 10.0; 
+  double h = 10.0;
   Vector2 lonlat  = model.image_to_ground(pix, h);
   Vector2 pix_out = model.geodetic_to_pixel(Vector3(lonlat[0], lonlat[1], h));
   EXPECT_LT( norm_2(pix - pix_out), 1.0e-9 );
-  
+
   // Verify that nothing segfaults or has a run time error.
   EXPECT_NO_THROW( model.calculate_terms( location ) );
   EXPECT_NO_THROW( model.terms_Jacobian3( location ) );
@@ -165,11 +144,11 @@ TEST( StereoSessionRPC, CheckStereo ) {
   RPCModel model1( *xml1.rpc_ptr() );
   RPCModel model2( *xml2.rpc_ptr() );
   std::cout << std::endl;
-  
+
   RPCStereoModel RPC_stereo(&model1, &model2);
   double error;
-  Vector3 p = RPC_stereo(Vector2(), Vector2(), error);
-  
+  RPC_stereo(Vector2(), Vector2(), error);
+
   //EXPECT_NEAR( error, 54682.96251543280232, 1e-3 );
   EXPECT_NEAR( error, 54705.95473285091, 1e-3 );
 
@@ -183,10 +162,15 @@ TEST( StereoSessionRPC, CheckRpcCrop ) {
 
   xercesc::XMLPlatformUtils::Initialize();
 
+
+  // Object to handle camera model loading
+  asp::CameraModelLoader camera_loader;
+
   // Load the camera model as DG and RPC
-  
-  boost::shared_ptr<asp::RPCModel          > rpcModel = load_rpc_camera_model("dg_example1.xml");
-  boost::shared_ptr<vw::camera::CameraModel> dgModel  = load_dg_camera_model_from_xml("dg_example1.xml", false);
+  boost::shared_ptr<vw::camera::CameraModel> rpcModel = camera_loader.load_rpc_camera_model("dg_example1.xml");
+
+  stereo_settings().disable_correct_velocity_aberration = true;
+  boost::shared_ptr<vw::camera::CameraModel> dgModel  = camera_loader.load_dg_camera_model("dg_example1.xml");
 
   // Verify that the RPC and DG models are similar
   Vector2 testPix(100, 200);
@@ -195,7 +179,7 @@ TEST( StereoSessionRPC, CheckRpcCrop ) {
   EXPECT_LT( norm_2(rpcVector - dgVector), 1.0e-4 );
 
   // Now try the same thing with a cropped image
-  Vector2 pixel_offset(40, 80);  
+  Vector2 pixel_offset(40, 80);
   Vector3 position_correction;
   Quaternion<double> pose_correction = Quat(math::identity_matrix<3>());
 
@@ -210,5 +194,3 @@ TEST( StereoSessionRPC, CheckRpcCrop ) {
 
   xercesc::XMLPlatformUtils::Terminate();
 }
-
-

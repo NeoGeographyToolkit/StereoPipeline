@@ -45,7 +45,7 @@ using namespace vw::camera;
 double DELTA = 1e-8;
 
 Vector2 generate_random( int const& xsize,
-                         int const& ysize ) {
+			 int const& ysize ) {
   Vector2 pixel;
   pixel[0] = rand() % ( 10 * xsize - 10 ) + 10;
   pixel[0] /= 10.0;
@@ -57,7 +57,7 @@ Vector2 generate_random( int const& xsize,
 TEST(IsisCameraModel, mapprojected) {
   if (!asp::isis::IsisEnv()) {
     vw_out() << "ISISROOT or ISIS3DATA was not set. ISIS unit tests won't be run."
-             << std::endl;
+	     << std::endl;
     return;
   }
   std::string file("E0201461.tiny.cub");
@@ -75,19 +75,19 @@ TEST(IsisCameraModel, mapprojected) {
   srand( 42 ); // We only want repeatible pseudo random
   for ( size_t i = 0; i < 2; i++ ) {
     Vector2 pixel = generate_random( cam->Samples(),
-                                     cam->Lines() );
+				     cam->Lines() );
     Vector2 noise = generate_random( cam->Samples(),
-                                     cam->Lines() );
+				     cam->Lines() );
 
     proj->SetWorld( pixel[0], pixel[1] );
     Vector3 lon_lat_radius( proj->UniversalLongitude(),
-                            proj->UniversalLatitude(),
-                            cam->LocalRadius( proj->UniversalLatitude(),
-                                              proj->UniversalLongitude() ).meters() );
+			    proj->UniversalLatitude(),
+			    cam->LocalRadius( proj->UniversalLatitude(),
+					      proj->UniversalLongitude() ).meters() );
     cam->SetImage( noise[0], noise[1] );
     cam->SetUniversalGround( lon_lat_radius[1],
-                             lon_lat_radius[0],
-                             lon_lat_radius[2] );
+			     lon_lat_radius[0],
+			     lon_lat_radius[2] );
     EXPECT_VECTOR_NEAR( Vector2(cam->Sample(),cam->Line()), pixel, 1e-3 );
     double ip[3];
     cam->instrumentPosition( ip );
@@ -113,7 +113,7 @@ TEST(IsisCameraModel, groundmap_chk) {
 
   if (!asp::isis::IsisEnv()) {
     vw_out() << "ISISROOT or ISIS3DATA was not set. ISIS unit tests won't be run."
-             << std::endl;
+	     << std::endl;
     return;
   }
 
@@ -151,7 +151,7 @@ TEST(IsisCameraModel, groundmap_chk) {
     srand( 42 );
     for ( size_t i = 0; i < 1000; i++ ) {
       Vector2 pixel = generate_random( cam->Samples(),
-                                       cam->Lines() );
+				       cam->Lines() );
       pixel_sets.push_back(pixel);
     }
 
@@ -165,11 +165,11 @@ TEST(IsisCameraModel, groundmap_chk) {
 
       // No Ground Map Solution
       detectmap->SetParent( alphacube.AlphaSample(pixel[0]),
-                            alphacube.AlphaLine(pixel[1]) );
+			    alphacube.AlphaLine(pixel[1]) );
       focalmap->SetDetector( detectmap->DetectorSample(),
-                             detectmap->DetectorLine() );
+			     detectmap->DetectorLine() );
       distortmap->SetFocalPlane( focalmap->FocalPlaneX(),
-                                 focalmap->FocalPlaneY() );
+				 focalmap->FocalPlaneY() );
       nog_solution[0] = distortmap->UndistortedFocalPlaneX();
       nog_solution[1] = distortmap->UndistortedFocalPlaneY();
       nog_solution[2] = distortmap->UndistortedFocalPlaneZ();
@@ -208,14 +208,14 @@ TEST(IsisCameraModel, groundmap_chk) {
 
     for ( size_t i = 0; i < pixel_sets.size(); i++ )
       EXPECT_VECTOR_NEAR( nog_solution_sets[i],
-                          g_solution_sets[i], m_delta );
+			  g_solution_sets[i], m_delta );
   }
 }
 
 TEST(IsisCameraModel, camera_model) {
   if (!asp::isis::IsisEnv()) {
     vw_out() << "ISISROOT or ISIS3DATA was not set. ISIS unit tests won't be run."
-             << std::endl;
+	     << std::endl;
     return;
   }
 
@@ -237,21 +237,19 @@ TEST(IsisCameraModel, camera_model) {
 
     for ( size_t i = 0; i < 2; i++ ) {
       Vector2 pixel = generate_random( cam.samples(),
-                                       cam.lines() );
+				       cam.lines() );
       Vector3 point = cam.pixel_to_vector( pixel );
       for ( size_t k = 0; k < 2; k++ ) {
-        // Apply noise to make sure we are not using stored values
-        Vector2 noise = generate_random( cam.samples(),
-                                         cam.lines() );
-        Vector3 temp = cam.pixel_to_vector( noise );
+	// Apply noise to make sure we are not using stored values
+	Vector2 noise = generate_random( cam.samples(),
+					 cam.lines() );
       }
       point *= 70000; // 70 km below
       point += cam.camera_center( pixel );
       for ( size_t k = 0; k < 2; k++ ) {
-        // Apply noise to make sure we are not using stored values
-        Vector2 noise = generate_random( cam.samples(),
-                                         cam.lines() );
-        Vector3 temp = cam.camera_center( noise );
+	// Apply noise to make sure we are not using stored values
+	Vector2 noise = generate_random( cam.samples(),
+					 cam.lines() );
       }
 
       Vector2 rpixel = cam.point_to_pixel( point );
