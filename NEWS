@@ -57,6 +57,8 @@
  - point2dem
    * Fix minor discrepancies in the minor semi-axis for the WGS84,
      NAD83 and WGS72 datums. Now using GDAL/OGR for that.
+   * Can create simultaneously DEMs at multiple resolutions (by
+     passing multiple values in quotes to --dem-spacing).
 
  - point2las
    * Save the LAS file with a datum if the input PC had one.

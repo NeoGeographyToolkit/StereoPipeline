@@ -741,7 +741,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-proj-scale \textit{float}} & The projection scale (if applicable). \\ \hline
 \texttt{-\/-false-northing \textit{float}} & The projection false northing (if applicable). \\ \hline
 \texttt{-\/-false-easting \textit{float}} & The projection false easting (if applicable). \\ \hline
-\texttt{-\/-dem-spacing|-s \textit{float(=0)}} & Set the output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically (except for LAS and CSV files). \\ \hline
+\texttt{-\/-dem-spacing|-s \textit{float(=0)}} & Set output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically (except for LAS and CSV files). Multiple spacings can be set (in quotes) to generate multiple output files. This is the same as the -\/-tr option. \\ \hline
 \texttt{-\/-search-radius-factor \textit{float(=$0$)}} & Multiply this factor by \texttt{dem-spacing} to get the search radius. The DEM height at a given grid point is obtained as a weighted average of heights of all points in the cloud within search radius of the grid point, with the weights given by a Gaussian. Default search radius: max(\texttt{dem-spacing}, default\_dem\_spacing), so the default factor is about 1.\\ \hline
 
 \texttt{-\/-csv-format \textit{string}} & Specify the format of input
