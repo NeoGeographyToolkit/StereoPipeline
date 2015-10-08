@@ -27,7 +27,7 @@ import sys, os, re, shutil, subprocess, string, time, errno, multiprocessing
 def isCmdOption(arg):
     """Returns True if the string is a command line option,
     False otherwise (if it is an argument)"""
-    
+
     # An option must start with '-' and not consist of all numbers
     if ( arg.startswith('-') and not re.match('^-[0-9.]+$', arg) ):
         return True
@@ -41,20 +41,20 @@ def isCmdOption(arg):
 def isNotString(a):
     """Returns true if the object is not a string"""
     return (not isinstance(a, basestring))
-    
+
 def argListToString(argList):
     """Converts a list of arguments into a single argument string"""
-    
+
     string = ""
     for arg in argList:
         stringVersion = str(arg)
-        
+
         # Wrap arguments with spaces in them in "" so they stay together
         if stringVersion.find(' ') >= 0:
             string = string + '"' + stringVersion + '" '
         else:
             string = string + stringVersion + ' '
-    
+
     return string
 
 def stringToArgList(string):
@@ -76,19 +76,18 @@ def executeCommand(cmd,
 
     # Run the command if conditions are met
     if force or (not outputPath) or (not os.path.exists(outputPath)):
-        
+
         if suppressOutput: # Process silently
             FNULL = open(os.devnull, 'w')
             subprocess.call(cmd, stdout=FNULL, stderr=subprocess.STDOUT)
         else: # Display output
             print cmd
             subprocess.call(cmd)
-        
+
     # Optionally check that the output file was created
     if outputPath and (not os.path.exists(outputPath)):
         raise CmdRunException('Failed to create output file: ' + outputPath)
     return True
-
 
 #==================================================
 # This class implements a variant of OptionParser which ignores unknown options.
@@ -104,7 +103,7 @@ class PassThroughOptionParser(OptionParser):
     def _process_args(self, largs, rargs, values):
         while rargs:
             try:
-                self._process_args2(largs,rargs,values) 
+                self._process_args2(largs,rargs,values)
             except (BadOptionError,AmbiguousOptionError), e:  # On failure, pass option to output list
                 if sys.version_info < (2, 6, 0):
                     # Port to Python 2.4
@@ -113,9 +112,9 @@ class PassThroughOptionParser(OptionParser):
                         largs.append(p.group(1))
                 else:
                     largs.append(e.opt_str)
-    
 
-    # This version of the function successfully passes through negative numbers    
+
+    # This version of the function successfully passes through negative numbers
     def _process_args2(self, largs, rargs, values):
         """_process_args(largs : [string],
                          rargs : [string],
@@ -134,7 +133,7 @@ class PassThroughOptionParser(OptionParser):
                 del rargs[0]
                 raise BadOptionError(arg)
                 #self.error(_("%s unrecognized number in arguments") % arg)
-            
+
             # We handle bare "--" explicitly, and bare "-" is handled by the
             # standard arg handler since the short arg case ensures that the
             # len of the opt string is greater than 1.
@@ -173,23 +172,3 @@ class PassThroughOptionParser(OptionParser):
         # If allow_interspersed_args is false, largs will always be
         # *empty* -- still a subset of [arg0, ..., arg(i-1)], but
         # not a very interesting subset!
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

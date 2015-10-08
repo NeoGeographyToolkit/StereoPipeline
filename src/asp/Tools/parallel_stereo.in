@@ -521,11 +521,8 @@ if __name__ == '__main__':
         p.print_help()
         die('\nERROR: Missing input files', code=2)
 
-    # This error will never be reached for users of our packaged final
-    # product as that one bundles 'parallel' with it.
-    ver = get_prog_version('parallel')
-    if ver < '2013':
-        die("Expecting a version of GNU parallel from at least 2013.")
+    # Ensure our 'parallel' is not out of date
+    check_parallel_version()
 
     if opt.threads_single is None:
         opt.threads_single = get_num_cpus()

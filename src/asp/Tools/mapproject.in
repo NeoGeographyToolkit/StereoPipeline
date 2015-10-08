@@ -139,28 +139,28 @@ def writeSingleTile(options):
     i = 0
     while i < len(options.extraArgs):
         arg = options.extraArgs[i]
-        
+
         if arg == '--t_pixelwin':
             # Skip this element and grab the user provided pixel bounds
             userStartX = int(options.extraArgs[i+1])
             userStopX  = int(options.extraArgs[i+2])
             userStartY = int(options.extraArgs[i+3])
             userStopY  = int(options.extraArgs[i+4])
-            
-            # Reconcile the bounding box            
+
+            # Reconcile the bounding box
             if (startX < userStartX): startX = userStartX
             if (stopX  > userStopX ): stopX  = userStopX
             if (startY < userStartY): startY = userStartY
             if (stopY  > userStopY ): stopY  = userStopY
-            
+
             # If there is no tile left to generate then we can just return here
             if ((startX > stopX) or (startY > stopY)):
                 return 0
-            i += 5           
+            i += 5
         else:
             extraArgs.append(arg)
             i += 1
-        
+
     # Just call the command for a single tile!
     cmd = ['mapproject_single',  '--t_pixelwin', str(startX), str(startY), str(stopX), str(stopY),
                                options.demPath, options.imagePath, options.cameraPath, tilePath]
@@ -185,14 +185,14 @@ def main(argsIn):
         cmd = ['mapproject_single',  '--help']
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
         baseHelp, err = p.communicate()
-        
+
         # Extract the version and help text
         vStart = baseHelp.find('[ASP')
         vEnd   = baseHelp.find(']', vStart)+1
         version = baseHelp[vStart:vEnd]
         baseHelpText = baseHelp[vEnd:]
 
-        # Use parser that ignores unknown options    
+        # Use parser that ignores unknown options
         usage  = "usage: mapproject [options] <dem> <camera-image> <output>"
         parser = asp_cmd_utils.PassThroughOptionParser(usage=usage, epilog=baseHelpText)
 
@@ -240,11 +240,14 @@ def main(argsIn):
 
         # Check the required positional arguments.
         if len(requiredList) < 1:
-            parser.error("Missing input DEM.")
+            parser.print_help()
+            parser.error("Missing input DEM.\n" );
         if len(requiredList) < 2:
-            parser.error("Missing input image.")
+            parser.print_help()
+            parser.error("Missing input image.\n" );
         if len(requiredList) < 3:
-            parser.error("Missing output filename.")
+            parser.print_help()
+            parser.error("Missing output filename.\n" );
 
         # Make sure we have absolute paths here
         options.demPath    = os.path.abspath(requiredList[0])

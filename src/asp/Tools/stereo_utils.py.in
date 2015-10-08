@@ -77,10 +77,6 @@ class PassThroughOptionParser(optparse.OptionParser):
                 else:
                     largs.append(e.opt_str)
 
-def die(msg, code=-1):
-    print >>sys.stderr, msg
-    sys.exit(code)
-
 class BBox:
     def __init__(self, x, y, width, height):
         self.x = x
@@ -214,20 +210,6 @@ def parse_corr_seed_mode(filename):
     fh.close()
 
     return mode
-
-def get_prog_version(prog):
-    try:
-        p = subprocess.Popen([prog,"--version"], stdout=subprocess.PIPE)
-        out, err = p.communicate()
-    except:
-        raise Exception("Could not find: " + prog)
-    if p.returncode != 0:
-        raise Exception("Checking " + prog + " version caused errors")
-
-    m = re.match("^.*? ([\d\.]+)", out)
-    if not m:
-        raise Exception("Could not find " + prog + " version")
-    return m.group(1)
 
 def run_multiview(prog_name, args, extra_args, entry_point, stop_point,
                   verbose, settings):

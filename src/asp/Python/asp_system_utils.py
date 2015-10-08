@@ -24,6 +24,24 @@ General system related utilities
 import sys, os, re, shutil, subprocess, string, time, errno, multiprocessing
 import os.path as P
 
+def die(msg, code=-1):
+    print >>sys.stderr, msg
+    sys.exit(code)
+
+def get_prog_version(prog):
+    try:
+        p = subprocess.Popen([prog,"--version"], stdout=subprocess.PIPE)
+        out, err = p.communicate()
+    except:
+        raise Exception("Could not find: " + prog)
+    if p.returncode != 0:
+        raise Exception("Checking " + prog + " version caused errors")
+
+    m = re.match("^.*? ([\d\.]+)", out)
+    if not m:
+        raise Exception("Could not find " + prog + " version")
+    return m.group(1)
+
 def get_num_cpus():
     """Return the number of CPUs on the current machine."""
 
@@ -80,7 +98,12 @@ def getNumNodesInList(nodesListPath):
 
     return num_nodes
 
-
+def check_parallel_version():
+    # This error will never be reached for users of our packaged final
+    # product as that one bundles 'parallel' with it.
+    ver = get_prog_version('parallel')
+    if ver < '2013':
+        die("Expecting a version of GNU parallel from at least 2013.")
 
 def runInGnuParallel(numParallelProcesses, commandString, argumentFilePath, parallelArgs=[], nodeListPath=None, verbose=False):
     """Use GNU Parallel to spread task across multiple computers and processes"""
@@ -88,6 +111,9 @@ def runInGnuParallel(numParallelProcesses, commandString, argumentFilePath, para
     # Make sure GNU parallel is installed
     if not checkIfToolExists('parallel'):
         raise Exception('Need GNU Parallel to distribute the jobs.')
+
+    # Ensure our 'parallel' is not out of date
+    check_parallel_version()
 
     # Use GNU parallel with given number of processes.
     # - Let output be interspersed, read input series from file
