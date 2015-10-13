@@ -1,11 +1,11 @@
 *** RELEASE 2.5.2, upcoming! ***
 
  - point2dem, point2las, and pc_align
-   * The -r <datum> field is optional now, the datum will be inferred
+   * The spheroid (-r <datum>) is optional now, it will inferred
      automatically (together with the projection) from the input
      images if present. This can be useful for bodies that are not
      Moon, Mars, or Earth. The datum and projection can still be
-     overridden with --reference-spheroid (--datum) and --t_srs.
+     overridden with --reference-spheroid (or --datum) and --t_srs.
    * Accept --datum (-r) MOLA, as a shortcut for the sphere with
      radius 3,396,000 meters.
 
@@ -49,7 +49,7 @@
    * Added the ability to generate ground control point files for
      bundle_adjust. In addition to the images to be bundle-adjusted,
      one should provide a georeferenced image to find the GCP lon-lat,
-     and a reference DEM to find the GCP heights.
+     and a reference DEM to find the GCP heights (not fully mature).
    * Added the option --delete-temporary-files-on-exit to do precisely
      that.
    * Can read the georeference of map-projected ISIS cubes.
@@ -72,8 +72,8 @@
   * Added the ability to compute a manual rotation + translation +
     scale transform based on user-selected point correspondences
     from reference to source cloud in stereo_gui.
-  * Save all PC clouds with datum info, if present. Add a comment line
-    with the datum info to CSV files.
+  * Save all PC clouds with datum and projection info, if present. Add
+    comment lines with the datum and projection to CSV files.
 
  - bundle_adjust
     * Added OpenCV-based SIFT and ORB interest point finding options.

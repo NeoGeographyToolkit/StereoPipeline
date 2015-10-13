@@ -1203,8 +1203,10 @@ void save_trans_point_cloud(asp::BaseOptions const& opt,
     }
 
     // Save the datum, may be useful to know what it was
-    if (geo.datum().name() != UNSPECIFIED_DATUM)
+    if (geo.datum().name() != UNSPECIFIED_DATUM) {
       outfile << "# " << geo.datum() << std::endl;
+      outfile << "# Projection: " << geo.overall_proj4_str() << std::endl;
+    }
 
     int numPts = point_cloud.features.cols();
     vw::TerminalProgressCallback tpc("asp", "\t--> ");
