@@ -28,22 +28,29 @@ LinescanDGModel<PositionFuncT, VelocityFuncT, PoseFuncT, TimeFuncT>::LinescanLMA
   result_type result(1);
   result[0] = pt.y() -
     m_model->m_detector_origin[1]; // Error against the location
-                                   // of the detector
+				   // of the detector
   return result;
 }
 
 template <class PositionFuncT, class VelocityFuncT, class PoseFuncT, class TimeFuncT>
 vw::Vector2 LinescanDGModel<PositionFuncT, VelocityFuncT, PoseFuncT, TimeFuncT>
 ::point_to_pixel(vw::Vector3 const& point) const {
+  return point_to_pixel(point, -1);
+}
+
+// Here we use an initial guess for the line number
+template <class PositionFuncT, class VelocityFuncT, class PoseFuncT, class TimeFuncT>
+vw::Vector2 LinescanDGModel<PositionFuncT, VelocityFuncT, PoseFuncT, TimeFuncT>
+::point_to_pixel(vw::Vector3 const& point, double starty) const {
 
   if (!m_correct_velocity_aberration)
-    return point_to_pixel_uncorrected(point);
-  return point_to_pixel_corrected(point);
+    return point_to_pixel_uncorrected(point, starty);
+  return point_to_pixel_corrected(point, starty);
 }
 
 template <class PositionFuncT, class VelocityFuncT, class PoseFuncT, class TimeFuncT>
 vw::Vector2 LinescanDGModel<PositionFuncT, VelocityFuncT, PoseFuncT, TimeFuncT>
-::point_to_pixel_uncorrected(vw::Vector3 const& point) const {
+::point_to_pixel_uncorrected(vw::Vector3 const& point, double starty) const {
 
   using namespace vw;
 
@@ -52,15 +59,20 @@ vw::Vector2 LinescanDGModel<PositionFuncT, VelocityFuncT, PoseFuncT, TimeFuncT>
   int status;
   Vector<double> objective(1), start(1);
   start[0] = m_image_size.y()/2;
+
+  // Use a refined guess, if available
+  if (starty >= 0)
+    start[0] = starty;
+
   Vector<double> solution = math::levenberg_marquardt( model, start, objective, status,
-                                                       1e-2, 1e-5, 1e3 );
+						       1e-2, 1e-5, 1e3 );
   // The ending numbers define:
   //   Attempt to solve solution to 0.01 pixels.
   //   Give up with a relative change of 0.00001 pixels.
   //   Try with a max of a 1000 iterations.
 
   VW_ASSERT( status > 0,
-             camera::PointToPixelErr() << "Unable to project point into LinescanDG model" );
+	     camera::PointToPixelErr() << "Unable to project point into LinescanDG model" );
 
   // Solve for sample location
   double  t  = m_time_func( solution[0] );
@@ -72,20 +84,20 @@ vw::Vector2 LinescanDGModel<PositionFuncT, VelocityFuncT, PoseFuncT, TimeFuncT>
 
 template <class PositionFuncT, class VelocityFuncT, class PoseFuncT, class TimeFuncT>
 vw::Vector2 LinescanDGModel<PositionFuncT, VelocityFuncT, PoseFuncT, TimeFuncT>
-::point_to_pixel_corrected(vw::Vector3 const& point) const {
+::point_to_pixel_corrected(vw::Vector3 const& point, double starty) const {
 
   using namespace vw;
 
   LinescanCorrLMA model( this, point );
   int status;
-  Vector2 start = point_to_pixel_uncorrected(point);
+  Vector2 start = point_to_pixel_uncorrected(point, starty);
 
   Vector3 objective(0, 0, 0);
   // Need such tight tolerances below otherwise the solution is inaccurate.
   Vector2 solution = math::levenberg_marquardt( model, start, objective, status,
-                                                1e-10, 1e-10, 50 );
+						1e-10, 1e-10, 50 );
   VW_ASSERT( status > 0,
-             camera::PointToPixelErr() << "Unable to project point into LinescanDG model" );
+	     camera::PointToPixelErr() << "Unable to project point into LinescanDG model" );
 
   return solution;
 }
@@ -114,8 +126,8 @@ vw::Vector3 LinescanDGModel<PositionFuncT, VelocityFuncT, PoseFuncT, TimeFuncT>
   double  len_cos          = earth_ctr_to_cam*cam_angle_cos;
   double  earth_rad        = 6371000.0; // TODO: Vary by location?
   double  cam_to_surface   = len_cos - sqrt(earth_rad*earth_rad
-                                            + len_cos*len_cos
-                                            - earth_ctr_to_cam*earth_ctr_to_cam);
+					    + len_cos*len_cos
+					    - earth_ctr_to_cam*earth_ctr_to_cam);
 
   // 2. Correct the camera velocity due to the fact that the Earth
   // rotates around its axis.
@@ -140,9 +152,9 @@ vw::camera::PinholeModel LinescanDGModel<PositionFuncT, VelocityFuncT, PoseFuncT
 
   double t = m_time_func( y );
   return vw::camera::PinholeModel(m_position_func(t),  m_pose_func(t).rotation_matrix(),
-                                  m_focal_length, -m_focal_length,
-                                  -m_detector_origin[0], y - m_detector_origin[1]
-                                  );
+				  m_focal_length, -m_focal_length,
+				  -m_detector_origin[0], y - m_detector_origin[1]
+				  );
 }
 
 
@@ -165,13 +177,13 @@ inline boost::posix_time::ptime parse_time(std::string str)
     return boost::posix_time::time_from_string(str);
   }catch(...){
     vw::vw_throw(vw::ArgumentErr() << "Failed to parse time from string: " << str
-                 << ". Not a valid Digital Globe linescan model.\n");
+		 << ". Not a valid Digital Globe linescan model.\n");
   }
   return boost::posix_time::time_from_string(str); // Never reached!
 }
 
 boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const& path,
-                                                               bool correct_velocity_aberration)
+							       bool correct_velocity_aberration)
 {
   //vw_out() << "DEBUG - Loading DG camera file: " << camera_file << std::endl;
 
@@ -199,9 +211,9 @@ boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const
 
   // I'm going make the assumption that EPH and ATT are sampled at the same rate and time.
   VW_ASSERT( eph.position_vec.size() == att.quat_vec.size(),
-             vw::MathErr() << "Ephemeris and Attitude don't have the same number of samples." );
+	     vw::MathErr() << "Ephemeris and Attitude don't have the same number of samples." );
   VW_ASSERT( eph.start_time == att.start_time && eph.time_interval == att.time_interval,
-             vw::MathErr() << "Ephemeris and Attitude don't seem to sample with the same t0 or dt." );
+	     vw::MathErr() << "Ephemeris and Attitude don't seem to sample with the same t0 or dt." );
 
   // Convert ephemeris to be position of camera. Change attitude to
   // be the rotation from camera frame to world frame. We also add an
@@ -224,21 +236,21 @@ boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const
       direction = -1;
     }
     img.tlc_vec.push_back( std::make_pair(img.tlc_vec.front().first +
-                                          img.avg_line_rate, direction) );
+					  img.avg_line_rate, direction) );
   }
 
   // Build the TLCTimeInterpolation object and do a quick sanity check.
   vw::camera::TLCTimeInterpolation tlc_time_interpolation( img.tlc_vec,
-                                                               convert( parse_time( img.tlc_start_time ) ) );
+							       convert( parse_time( img.tlc_start_time ) ) );
   VW_ASSERT( fabs( convert( parse_time( img.first_line_start_time ) ) -
-                   tlc_time_interpolation( 0 ) ) < fabs( 1.0 / (10.0 * img.avg_line_rate ) ),
-             vw::MathErr() << "First Line Time and output from TLC lookup table do not agree of the ephemeris time for the first line of the image." );
+		   tlc_time_interpolation( 0 ) ) < fabs( 1.0 / (10.0 * img.avg_line_rate ) ),
+	     vw::MathErr() << "First Line Time and output from TLC lookup table do not agree of the ephemeris time for the first line of the image." );
 
   vw::Vector2 final_detector_origin = subvector(inverse(sensor_coordinate).rotate(vw::Vector3(geo.detector_origin[0],
-                                                                                          geo.detector_origin[1],
-                                                                                          0)
-                                                                             ),
-                                            0, 2);
+											  geo.detector_origin[1],
+											  0)
+									     ),
+					    0, 2);
 
   //vw::vw_out() << "DG model load - final_detector_origin = " << final_detector_origin << std::endl;
 
@@ -246,12 +258,13 @@ boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const
   double at0 = convert( parse_time( att.start_time ) );
   double edt = eph.time_interval;
   double adt = att.time_interval;
+
   typedef boost::shared_ptr<DGCameraModel> CameraModelPtr;
   return CameraModelPtr(new DGCameraModel(vw::camera::PiecewiseAPositionInterpolation(eph.position_vec, eph.velocity_vec, et0, edt ),
-                                          vw::camera::LinearPiecewisePositionInterpolation(eph.velocity_vec, et0, edt),
-                                          vw::camera::SLERPPoseInterpolation(att.quat_vec, at0, adt),
-                                          tlc_time_interpolation, img.image_size,
-                                          final_detector_origin,
-                                          geo.principal_distance, correct_velocity_aberration)
-                    );
+					  vw::camera::LinearPiecewisePositionInterpolation(eph.velocity_vec, et0, edt),
+					  vw::camera::SLERPPoseInterpolation(att.quat_vec, at0, adt),
+					  tlc_time_interpolation, img.image_size,
+					  final_detector_origin,
+					  geo.principal_distance, correct_velocity_aberration)
+		    );
 } // End function load_dg_camera_model()

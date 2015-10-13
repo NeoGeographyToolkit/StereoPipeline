@@ -91,7 +91,7 @@ void write_match_image(std::string const& out_file_name,
 }
 
 
-// TODO: This function should live somewhere else!  
+// TODO: This function should live somewhere else!
 template <typename ImageT, typename IPT>
 void write_point_image(std::string const& out_file_name,
                        vw::ImageViewBase<ImageT> const& image,
@@ -109,7 +109,7 @@ void write_point_image(std::string const& out_file_name,
   if ( sub_scale > 1 )
     sub_scale = 1;
 
-  vw::ImageView<vw::PixelRGB<vw::uint8> > canvas = 
+  vw::ImageView<vw::PixelRGB<vw::uint8> > canvas =
         vw::pixel_cast_rescale<vw::PixelRGB<vw::uint8> >(resample(normalize(image), sub_scale));
 
   vw::vw_out() << "\t    Draw points "<<  std::endl;
@@ -411,12 +411,6 @@ namespace asp {
 
     } else {
 
-      double min_val, max_val;
-      find_image_min_max(image1, min_val, max_val);
-      vw_out() << "Image1 IP detect input stats: "<< Vector2(min_val, max_val) << std::endl;
-      find_image_min_max(image2, min_val, max_val);
-      vw_out() << "Image2 IP detect input stats: "<< Vector2(min_val, max_val) << std::endl;
-
       // Initialize the OpenCV detector.  Conveniently we can just pass in the type argument.
       // - If VW was not build with OpenCV, this call will just throw an exception.
       vw::ip::OpenCvIpDetectorType cv_method = vw::ip::OPENCV_IP_DETECTOR_TYPE_SIFT;
@@ -425,7 +419,7 @@ namespace asp {
 
       // The opencv detector only works if the inputs are normalized, so do it here if it was not done before.
       // - If the images are already normalized most of the data will be in the 0-1 range.
-      bool opencv_normalize = stereo_settings().skip_image_normalization; 
+      bool opencv_normalize = stereo_settings().skip_image_normalization;
       if (opencv_normalize)
         vw_out() << "Normalizing OpenCV images...\n";
 
@@ -524,7 +518,7 @@ namespace asp {
     const double threshold = 0.8; // Best point must be closer than the next best point
 
     if (detect_method != DETECT_IP_METHOD_ORB) {
-      // For all L2Norm distance metrics     
+      // For all L2Norm distance metrics
       ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(threshold);
       matcher( ip1_copy, ip2_copy, matched_ip1, matched_ip2,
                TerminalProgressCallback( "asp", "\t   Matching: " ));

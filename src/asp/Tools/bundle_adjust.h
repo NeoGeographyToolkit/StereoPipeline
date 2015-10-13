@@ -83,7 +83,8 @@ public:
   BundleAdjustmentModel(std::vector<cam_ptr_t> const& cameras,
                         boost::shared_ptr<vw::ba::ControlNetwork> network) :
     m_cameras(cameras), m_network(network), m_cam_vec(cameras.size()),
-    m_point_vec(network->size()), m_cam_target_vec(cameras.size()), m_point_target_vec(network->size()) {
+    m_point_vec(network->size()), m_cam_target_vec(cameras.size()),
+    m_point_target_vec(network->size()) {
 
     // Compute the number of observations from the bundle.
     m_num_pixel_observations = 0;

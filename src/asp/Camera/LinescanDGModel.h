@@ -29,6 +29,7 @@
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/Extrinsics.h>
 #include <vw/Math/EulerAngles.h>
+#include <asp/Camera/RPCModel.h>
 #include <asp/Camera/DG_XML.h>
 #include <boost/date_time/posix_time/posix_time.hpp>
 
@@ -51,9 +52,9 @@ namespace asp {
   // from Digital Globe model, but you can rotate pose beforehand.
 
   // Preview of the standard template arguments:
-  //typedef LinescanDGModel<vw::camera::PiecewiseAPositionInterpolation, 
-  //                        vw::camera::LinearPiecewisePositionInterpolation, 
-  //                        vw::camera::SLERPPoseInterpolation, 
+  //typedef LinescanDGModel<vw::camera::PiecewiseAPositionInterpolation,
+  //                        vw::camera::LinearPiecewisePositionInterpolation,
+  //                        vw::camera::SLERPPoseInterpolation,
   //                        vw::camera::TLCTimeInterpolation> DGCameraModel;
 
   // The useful load_dg_camera_model() function is at the end of the file.
@@ -66,14 +67,14 @@ namespace asp {
     // Constructors / Destructors
     //------------------------------------------------------------------
     LinescanDGModel(PositionFuncT const& position,
-                    VelocityFuncT const& velocity,
-                    PoseFuncT     const& pose,
-                    TimeFuncT     const& time,
-                    vw::Vector2i  const& image_size,
-                    vw::Vector2  const& detector_origin,
-                    double focal_length,
-                    bool   correct_velocity_aberration
-                    ) :
+		    VelocityFuncT const& velocity,
+		    PoseFuncT     const& pose,
+		    TimeFuncT     const& time,
+		    vw::Vector2i  const& image_size,
+		    vw::Vector2  const& detector_origin,
+		    double focal_length,
+		    bool   correct_velocity_aberration
+		    ) :
       m_position_func(position), m_velocity_func(velocity),
       m_pose_func(pose), m_time_func(time),
       m_image_size(image_size), m_detector_origin(detector_origin),
@@ -86,9 +87,12 @@ namespace asp {
     //------------------------------------------------------------------
     // Interface
     //------------------------------------------------------------------
-    virtual vw::Vector2 point_to_pixel            (vw::Vector3 const& point) const;
-            vw::Vector2 point_to_pixel_uncorrected(vw::Vector3 const& point) const; ///< Never  corrects velocity aberration
-            vw::Vector2 point_to_pixel_corrected  (vw::Vector3 const& point) const; ///< Always corrects velocity aberration
+    virtual vw::Vector2 point_to_pixel    (vw::Vector3 const& point) const;
+
+    // Here we use an initial guess for the line number
+    vw::Vector2 point_to_pixel            (vw::Vector3 const& point, double starty) const;
+    vw::Vector2 point_to_pixel_uncorrected(vw::Vector3 const& point, double starty) const; ///< Never  corrects velocity aberration
+    vw::Vector2 point_to_pixel_corrected  (vw::Vector3 const& point, double starty) const; ///< Always corrects velocity aberration
 
     /// Gives a pointing vector in the world coordinates.
     virtual vw::Vector3 pixel_to_vector(vw::Vector2 const& pix) const;
@@ -112,7 +116,7 @@ namespace asp {
     /// by extension at neighboring lines as well.
     vw::camera::PinholeModel linescan_to_pinhole(double y) const;
 
-  protected:
+  public:
     // Extrinsics
     PositionFuncT m_position_func; // Function of time
     VelocityFuncT m_velocity_func; // Function of time
@@ -126,6 +130,8 @@ namespace asp {
 
     bool m_correct_velocity_aberration;
 
+
+  protected:
     // Levenberg Marquardt solver for linescan number
     //
     // We solve for the line number of the image that position the
@@ -141,7 +147,7 @@ namespace asp {
       typedef vw::Matrix<double> jacobian_type;
 
       LinescanLMA( const LinescanDGModel* model, const vw::Vector3& pt ) :
-        m_model(model), m_point(pt) {}
+	m_model(model), m_point(pt) {}
 
       inline result_type operator()( domain_type const& y ) const;
     };
@@ -163,10 +169,10 @@ namespace asp {
       typedef vw::Matrix<double, 3, 2> jacobian_type;
 
       LinescanCorrLMA( const LinescanDGModel* model, const vw::Vector3& pt ) :
-        m_model(model), m_point(pt) {}
+	m_model(model), m_point(pt) {}
 
       inline result_type operator()( domain_type const& pix ) const {
-        return m_model->pixel_to_vector(pix) - normalize(m_point - m_model->camera_center(pix));
+	return m_model->pixel_to_vector(pix) - normalize(m_point - m_model->camera_center(pix));
       }
 
     };
@@ -174,18 +180,16 @@ namespace asp {
   }; // End class LinescanDGModel
 
   /// Currently this is the only variant of this we ever use
-  typedef LinescanDGModel<vw::camera::PiecewiseAPositionInterpolation, 
-                          vw::camera::LinearPiecewisePositionInterpolation, 
-                          vw::camera::SLERPPoseInterpolation, 
-                          vw::camera::TLCTimeInterpolation> DGCameraModel;
-
-
+  typedef LinescanDGModel<vw::camera::PiecewiseAPositionInterpolation,
+			  vw::camera::LinearPiecewisePositionInterpolation,
+			  vw::camera::SLERPPoseInterpolation,
+			  vw::camera::TLCTimeInterpolation> DGCameraModel;
 
   /// Load a DG camera model from an XML file.
   /// - This function does not take care of Xerces XML init/de-init, the caller must
   ///   make sure this is done before/after this function is called!
   inline boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const& path,
-                                                                        bool correct_velocity_aberration);
+									bool correct_velocity_aberration);
 
 #include <asp/Camera/LinescanDGModel.tcc>
 

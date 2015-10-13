@@ -34,15 +34,44 @@ using namespace vw::stereo;
 using namespace vw::ba;
 
 void asp::read_adjustments(std::string const& filename,
-                      Vector3& position_correction,
-                      Quat& pose_correction) {
-  Vector4 q_buffer;
+                           std::vector<Vector3> & position_correction,
+                           std::vector<Quat> & pose_correction) {
+
+  position_correction.clear();
+  pose_correction.clear();
+
+  Vector3 pos;
+  Vector4 q_buf;
   std::ifstream istr(filename.c_str());
-  istr >> position_correction[0] >> position_correction[1]
-       >> position_correction[2];
-  istr >> q_buffer[0] >> q_buffer[1] >> q_buffer[2] >> q_buffer[3];
-  pose_correction = Quat(q_buffer);
+
+  while (1){
+    if (! (istr >> pos[0] >> pos[1] >> pos[2]) ) break;
+    if (! (istr >> q_buf[0] >> q_buf[1] >> q_buf[2] >> q_buf[3]) ) break;
+
+    position_correction.push_back(pos);
+    pose_correction.push_back(Quat(q_buf));
+  }
 }
+
+void asp::write_adjustments(std::string const& filename,
+                            std::vector<vw::Vector3> const& position_correction,
+                            std::vector<vw::Quat> const& pose_correction) {
+
+  std::ofstream ostr(filename.c_str());
+  ostr.precision(18);
+
+  for (size_t adj = 0; adj < position_correction.size(); adj++) {
+    ostr << position_correction[adj][0] << " "
+         << position_correction[adj][1] << " "
+         << position_correction[adj][2] << "\n";
+    ostr << pose_correction[adj].w() << " "
+         << pose_correction[adj].x() << " "
+         << pose_correction[adj].y() << " "
+         << pose_correction[adj].z() << " " << "\n";
+  }
+  ostr.close();
+}
+
 
 void asp::write_adjustments(std::string const& filename,
                        Vector3 const& position_correction,
@@ -52,6 +81,7 @@ void asp::write_adjustments(std::string const& filename,
   ostr << position_correction[0] << " " << position_correction[1] << " " << position_correction[2] << "\n";
   ostr << pose_correction.w() << " " << pose_correction.x() << " "
        << pose_correction.y() << " " << pose_correction.z() << " " << "\n";
+  ostr.close();
 }
 
 void asp::compute_stereo_residuals(std::vector<boost::shared_ptr<CameraModel> > const& camera_models,

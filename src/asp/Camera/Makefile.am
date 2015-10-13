@@ -23,7 +23,8 @@
 if MAKE_MODULE_CAMERA
 
 include_HEADERS = RPCModel.h RPCModelGen.h RPCStereoModel.h                   \
-		  LinescanDGModel.h LinescanDGModel.tcc DG_XML.h XMLBase.h
+		  LinescanDGModel.h LinescanDGModel.tcc                       \
+		  AdjustedLinescanDGModel.h DG_XML.h XMLBase.h
 
 libaspCamera_la_SOURCES = RPCModel.cc XMLBase.cc DG_XML.cc                    \
 			  RPCStereoModel.cc RPCModelGen.cc

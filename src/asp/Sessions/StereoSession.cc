@@ -29,10 +29,10 @@
 
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Common.h>
-
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/BundleAdjustUtils.h>
+#include <asp/Camera/AdjustedLinescanDGModel.h>
 
 #include <map>
 #include <utility>
@@ -52,12 +52,12 @@ namespace asp {
 
   // Pass over all the string variables we use
   void StereoSession::initialize( BaseOptions const& options,
-                                  std::string const& left_image_file,
-                                  std::string const& right_image_file,
-                                  std::string const& left_camera_file,
-                                  std::string const& right_camera_file,
-                                  std::string const& out_prefix,
-                                  std::string const& input_dem) {
+				  std::string const& left_image_file,
+				  std::string const& right_image_file,
+				  std::string const& left_camera_file,
+				  std::string const& right_camera_file,
+				  std::string const& out_prefix,
+				  std::string const& input_dem) {
     m_options           = options;
     m_left_image_file   = left_image_file;
     m_right_image_file  = right_image_file;
@@ -69,15 +69,15 @@ namespace asp {
 
   // A default IP matching implementation that derived classes can use
   bool StereoSession::ip_matching(std::string const& input_file1,
-                                  std::string const& input_file2,
-                                  vw::Vector2 const& uncropped_image_size,
-                                  Vector6f    const& stats1,
-                                  Vector6f    const& stats2,
-                                  int ip_per_tile,
-                                  float nodata1, float nodata2,
-                                  std::string const& match_filename,
-                                  vw::camera::CameraModel* cam1,
-                                  vw::camera::CameraModel* cam2){
+				  std::string const& input_file2,
+				  vw::Vector2 const& uncropped_image_size,
+				  Vector6f    const& stats1,
+				  Vector6f    const& stats2,
+				  int ip_per_tile,
+				  float nodata1, float nodata2,
+				  std::string const& match_filename,
+				  vw::camera::CameraModel* cam1,
+				  vw::camera::CameraModel* cam2){
 
     bool crop_left_and_right =
       ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
@@ -96,10 +96,10 @@ namespace asp {
        (stats1[0] != stats1[1]) ) { // Don't normalize if no stats were provided!
       vw_out() << "\t--> Normalizing images for IP detection using stats " << stats1 << "\n";
       normalize_images(stereo_settings().force_use_entire_range,
-                       stereo_settings().individually_normalize,
-                       true, // Use percentile based stretch for ip matching
-                       stats1,      stats2,
-                       image1_norm, image2_norm);
+		       stereo_settings().individually_normalize,
+		       true, // Use percentile based stretch for ip matching
+		       stats1,      stats2,
+		       image1_norm, image2_norm);
     }
 
     const bool nadir_facing = this->is_nadir_facing();
@@ -121,17 +121,17 @@ namespace asp {
       VW_OUT( DebugMessage, "asp" ) << "Epipolar threshold = " << epipolar_threshold << std::endl;
 
       inlier = ip_matching_w_alignment(single_threaded_camera, cam1, cam2,
-                                       image1_norm, image2_norm,
-                                       ip_per_tile,
-                                       datum, match_filename,
-                                       epipolar_threshold, match_seperation_threshold,
-                                       nodata1, nodata2);
+				       image1_norm, image2_norm,
+				       ip_per_tile,
+				       datum, match_filename,
+				       epipolar_threshold, match_seperation_threshold,
+				       nodata1, nodata2);
     } else { // Not nadir facing
       // Run a simpler purely image based matching function
       inlier = homography_ip_matching( image1_norm, image2_norm,
-                                       ip_per_tile,
-                                       match_filename,
-                                       nodata1, nodata2);
+				       ip_per_tile,
+				       match_filename,
+				       nodata1, nodata2);
     }
     if (!inlier) {
       boost::filesystem::remove(match_filename);
@@ -163,7 +163,7 @@ namespace asp {
       georef.set_geographic();
 
       boost::shared_ptr<vw::camera::CameraModel> cam = this->camera_model(m_left_image_file,
-                                                                          m_left_camera_file);
+									  m_left_camera_file);
       bool use_sphere_for_isis = true;       // Spherical datum for non-Earth, as done usually
       georef.set_datum(this->get_datum(cam.get(), use_sphere_for_isis));
     }
@@ -173,49 +173,49 @@ namespace asp {
 
   // Default implementation of this function.  Derived classes will probably override this.
   void StereoSession::camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
-                                    boost::shared_ptr<vw::camera::CameraModel> &cam2) {
+				    boost::shared_ptr<vw::camera::CameraModel> &cam2) {
     cam1 = camera_model(m_left_image_file,  m_left_camera_file);
     cam2 = camera_model(m_right_image_file, m_right_camera_file);
   }
 
   // Processing Hooks. The default is to do nothing.
   void StereoSession::pre_preprocessing_hook(bool adjust_left_image_size,
-                                             std::string const& input_file1,
-                                             std::string const& input_file2,
-                                             std::string      & output_file1,
-                                             std::string      & output_file2) {
+					     std::string const& input_file1,
+					     std::string const& input_file2,
+					     std::string      & output_file1,
+					     std::string      & output_file2) {
     output_file1 = input_file1;
     output_file2 = input_file2;
   }
 
   void StereoSession::post_preprocessing_hook(std::string const& input_file1,
-                                              std::string const& input_file2,
-                                              std::string &output_file1,
-                                              std::string &output_file2) {
+					      std::string const& input_file2,
+					      std::string &output_file1,
+					      std::string &output_file2) {
     output_file1 = input_file1;
     output_file2 = input_file2;
   }
 
   void StereoSession::pre_correlation_hook(std::string const& input_file1,
-                                           std::string const& input_file2,
-                                           std::string      & output_file1,
-                                           std::string      & output_file2) {
+					   std::string const& input_file2,
+					   std::string      & output_file1,
+					   std::string      & output_file2) {
     output_file1 = input_file1;
     output_file2 = input_file2;
   }
 
   void StereoSession::post_correlation_hook(std::string const& input_file,
-                                            std::string      & output_file) {
+					    std::string      & output_file) {
     output_file = input_file;
   }
 
   void StereoSession::pre_filtering_hook(std::string const& input_file,
-                                         std::string      & output_file) {
+					 std::string      & output_file) {
     output_file = input_file;
   }
 
   void StereoSession::post_filtering_hook(std::string const& input_file,
-                                          std::string      & output_file) {
+					  std::string      & output_file) {
     output_file = input_file;
   }
 
@@ -225,16 +225,16 @@ namespace asp {
   }
 
   void StereoSession::post_pointcloud_hook(std::string const& input_file,
-                                           std::string      & output_file) {
+					   std::string      & output_file) {
     output_file = input_file;
   }
 
 
 
   void StereoSession::get_nodata_values(boost::shared_ptr<vw::DiskImageResource> left_rsrc,
-                                        boost::shared_ptr<vw::DiskImageResource> right_rsrc,
-                                        float & left_nodata_value,
-                                        float & right_nodata_value){
+					boost::shared_ptr<vw::DiskImageResource> right_rsrc,
+					float & left_nodata_value,
+					float & right_nodata_value){
 
     // The no-data value read from options overrides the value present in the image files.
     left_nodata_value  = std::numeric_limits<float>::quiet_NaN();
@@ -246,9 +246,9 @@ namespace asp {
     if (!std::isnan(opt_nodata)){
 
       if ( opt_nodata < left_nodata_value )
-        vw_out(WarningMessage) << "It appears that the user-supplied no-data value is less than the no-data value of left image. This may not be what was intended.\n";
+	vw_out(WarningMessage) << "It appears that the user-supplied no-data value is less than the no-data value of left image. This may not be what was intended.\n";
       if ( opt_nodata < right_nodata_value )
-        vw_out(WarningMessage) << "It appears that the user-supplied no-data value is less than the no-data value of right image. This may not be what was intended.\n";
+	vw_out(WarningMessage) << "It appears that the user-supplied no-data value is less than the no-data value of right image. This may not be what was intended.\n";
 
       left_nodata_value  = opt_nodata;
       right_nodata_value = opt_nodata;
@@ -258,18 +258,18 @@ namespace asp {
   }
 
 bool StereoSession::shared_preprocessing_hook(asp::BaseOptions              & options,
-                                              std::string const             & left_input_file,
-                                              std::string const             & right_input_file,
-                                              std::string                   & left_output_file,
-                                              std::string                   & right_output_file,
-                                              std::string                   & left_cropped_file,
-                                              std::string                   & right_cropped_file,
-                                              float                         & left_nodata_value,
-                                              float                         & right_nodata_value,
-                                              bool                          & has_left_georef,
-                                              bool                          & has_right_georef,
-                                              vw::cartography::GeoReference & left_georef,
-                                              vw::cartography::GeoReference & right_georef){
+					      std::string const             & left_input_file,
+					      std::string const             & right_input_file,
+					      std::string                   & left_output_file,
+					      std::string                   & right_output_file,
+					      std::string                   & left_cropped_file,
+					      std::string                   & right_cropped_file,
+					      float                         & left_nodata_value,
+					      float                         & right_nodata_value,
+					      bool                          & has_left_georef,
+					      bool                          & has_right_georef,
+					      vw::cartography::GeoReference & left_georef,
+					      vw::cartography::GeoReference & right_georef){
 
   // Retrieve nodata values
   {
@@ -280,7 +280,7 @@ bool StereoSession::shared_preprocessing_hook(asp::BaseOptions              & op
       left_rsrc (DiskImageResource::open(left_input_file )),
       right_rsrc(DiskImageResource::open(right_input_file));
     this->get_nodata_values(left_rsrc, right_rsrc,
-                            left_nodata_value, right_nodata_value);
+			    left_nodata_value, right_nodata_value);
   }
 
   // Set output file paths
@@ -350,20 +350,20 @@ bool StereoSession::shared_preprocessing_hook(asp::BaseOptions              & op
 
     vw_out() << "\t--> Writing cropped image: " << left_cropped_file << "\n";
     block_write_gdal_image(left_cropped_file,
-                           crop(left_orig_image, left_win),
-                           has_left_georef, crop(left_georef, left_win),
-                           has_nodata, left_nodata_value,
-                           options,
-                           TerminalProgressCallback("asp", "\t:  "));
+			   crop(left_orig_image, left_win),
+			   has_left_georef, crop(left_georef, left_win),
+			   has_nodata, left_nodata_value,
+			   options,
+			   TerminalProgressCallback("asp", "\t:  "));
 
     vw_out() << "\t--> Writing cropped image: " << right_cropped_file << "\n";
     block_write_gdal_image(right_cropped_file,
-                           crop(right_orig_image, right_win),
-                           has_right_georef,
-                           crop(right_georef, right_win),
-                           has_nodata, right_nodata_value,
-                           options,
-                           TerminalProgressCallback("asp", "\t:  "));
+			   crop(right_orig_image, right_win),
+			   has_right_georef,
+			   crop(right_georef, right_win),
+			   has_nodata, right_nodata_value,
+			   options,
+			   TerminalProgressCallback("asp", "\t:  "));
   }
 
   // Re-read the georef, since it changed above.
@@ -384,9 +384,9 @@ bool StereoSession::shared_preprocessing_hook(asp::BaseOptions              & op
 // we crop the images to these boxes, and hence the need to keep
 // the upper-left corners of the crop windows to handle the cameras correctly.
 vw::Vector2 camera_pixel_offset(std::string const& input_dem,
-                                       std::string const& left_image_file,
-                                       std::string const& right_image_file,
-                                       std::string const& curr_image_file){
+				       std::string const& left_image_file,
+				       std::string const& right_image_file,
+				       std::string const& curr_image_file){
 
   // For map-projected images we don't apply a pixel offset.
   // When we need to do stereo on cropped images, we just
@@ -410,34 +410,61 @@ vw::Vector2 camera_pixel_offset(std::string const& input_dem,
   return Vector2();
 }
 
-// If we have adjusted camera models, load them. The adjustment
-// may be in the rotation matrix, camera center, or pixel offset.
+// If we have adjusted camera models, load them.
 boost::shared_ptr<vw::camera::CameraModel>
 load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
-                    std::string const& image_file,
-                    std::string const& camera_file,
-                    vw::Vector2 const& pixel_offset){
+		    std::string const& image_file,
+		    std::string const& camera_file,
+		    vw::Vector2 const& pixel_offset){
 
-  // TODO: Where does this prefix come from?  Is it always an issue?
+  // Any tool using adjusted camera models must pre-populate the
+  // prefix at which to find them.
   std::string ba_pref = stereo_settings().bundle_adjust_prefix;
   if (ba_pref == "" && pixel_offset == vw::Vector2())
     return cam; // Just return if nothing is adjusting the camera
 
-  Vector3 position_correction;
-  Quaternion<double> pose_correction = Quat(math::identity_matrix<3>());
+  std::vector<Vector3> position_correction;
+  std::vector<Quat> pose_correction;
+
+  // Ensure these vectors are populated even when there are no corrections to read,
+  // as we may still have pixel offset.
+  position_correction.push_back(Vector3());
+  pose_correction.push_back(Quat(math::identity_matrix<3>()));
 
   if (ba_pref != "") {
+
     std::string adjust_file = asp::bundle_adjust_file_name(ba_pref, image_file, camera_file);
-    if (boost::filesystem::exists(adjust_file)) {
-      vw_out() << "Using adjusted camera model: " << adjust_file << std::endl;
-      asp::read_adjustments(adjust_file, position_correction, pose_correction);
-    }else {
-      vw_throw(InputErr() << "Missing adjusted camera model: "
-               << adjust_file << ".\n");
+
+    if (!boost::filesystem::exists(adjust_file))
+      vw_throw(InputErr() << "Missing adjusted camera model: " << adjust_file << ".\n");
+
+    vw_out() << "Using adjusted camera model: " << adjust_file << std::endl;
+    asp::read_adjustments(adjust_file, position_correction, pose_correction);
+
+    if (position_correction.empty() || pose_correction.empty())
+      vw_throw(InputErr() << "Unable to read corrections.\n");
+
+    // Handle the case of piecewise adjustments for DG cameras
+    if (position_correction.size() > 1 && pose_correction.size() > 1) {
+
+      // Create the adjusted DG model
+      boost::shared_ptr<camera::CameraModel> adj_dg_cam
+	(new AdjustedLinescanDGModel(cam, position_correction, pose_correction));
+
+      // Apply the pixel offset and pose corrections. So this a second adjustment
+      // on top of the first.
+      boost::shared_ptr<camera::CameraModel> adj_dg_cam2
+	(new vw::camera::AdjustedCameraModel(adj_dg_cam, Vector3(),
+					     Quat(math::identity_matrix<3>()), pixel_offset));
+
+      return adj_dg_cam2;
     }
+
   }
 
-  return boost::shared_ptr<camera::CameraModel>(new vw::camera::AdjustedCameraModel(cam, position_correction, pose_correction, pixel_offset));
+  return boost::shared_ptr<camera::CameraModel>(new vw::camera::AdjustedCameraModel
+						(cam, position_correction[0],
+						 pose_correction[0], pixel_offset));
 }
 
 } // End namespace asp

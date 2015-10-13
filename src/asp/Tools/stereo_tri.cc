@@ -25,7 +25,6 @@
 
 #include <asp/Tools/stereo.h>
 #include <asp/Camera/RPCModel.h>
-#include <asp/Core/BundleAdjustUtils.h>
 
 // We must have the implementations of all sessions for triangulation
 #include <asp/Sessions/StereoSessionFactory.tcc>
