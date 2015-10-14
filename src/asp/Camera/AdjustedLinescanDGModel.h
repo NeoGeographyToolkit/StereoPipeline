@@ -39,33 +39,63 @@ namespace asp {
     return dg_cam;
   }
 
+  // We would like to place num_adjustments between the first and last image
+  // lines. Compute the starting time for that and the spacing.
+  void compute_t0_dt(DGCameraModel const* cam_ptr,
+		     int num_adjustments,
+		     double & t0, double & dt){
+
+    VW_ASSERT( num_adjustments >= 2,
+	       vw::ArgumentErr() << "Expecting at least two adjustments.\n" );
+
+    int num_image_lines = cam_ptr->m_image_size[1];
+
+    // Note we compute beg_t and end_t at -1 and num_image_lines
+    // rather than at the first and last line, 0 and
+    // num_image_lines-1. This is intentional. Otherwise
+    // LinearPiecewisePositionInterpolation and SLERPPoseInterpolation
+    // may fail at line number 0 or num_image_lines as it always
+    // expects us to not try to interpolate at endpoints.
+    double beg_t = cam_ptr->m_time_func(-1);
+    double end_t = cam_ptr->m_time_func(num_image_lines);
+
+    //std::cout << "--beg and end t " << beg_t << ' ' << end_t << std::endl;
+
+    // For images scanned in reverse, beg_t can be > end_t
+    if (beg_t > end_t)
+      std::swap(beg_t, end_t);
+
+    //std::cout << "2beg and end t " << beg_t << ' ' << end_t << std::endl;
+
+    t0 = beg_t;
+    dt = (end_t - beg_t)/(num_adjustments - 1.0);
+
+    //std::cout << "---num image lines " << num_image_lines << std::endl;
+    //std::cout << "num adj is " << num_adjustments << std::endl;
+    //std::cout << "t0 is " << t0 << std::endl;
+    //std::cout << "--dt is " << dt << std::endl;
+  }
+
   // Position adjustment. Note that the position class itself is of
   // type PiecewiseAPositionInterpolation (uses velocity) though the
   // adjustments themselves are, as expected, of the simpler
   // LinearPiecewisePositionInterpolation type.
   inline vw::camera::LinearPiecewisePositionInterpolation
-  set_position_adjustments(vw::camera::PiecewiseAPositionInterpolation const& position,
-		  std::vector<vw::Vector3> const& position_adjustments){
+  set_position_adjustments(DGCameraModel const* cam_ptr,
+			   std::vector<vw::Vector3> const& position_adjustments){
 
     // We will need to be able to linearly interpolate into the adjustments.
-    double t0   = position.get_t0();
-    double tend = position.get_tend();
-    int num     = position_adjustments.size(); // size of adjustments, not of positions
-    VW_ASSERT( num >= 2,
-	       vw::ArgumentErr() << "Expecting at least two adjustments.\n" );
-
-    // Note we use a new dt. There could be 200,000 positions, yet we
-    // could use only 30 adjustments, spread over the entire range,
-    // with linear interpolation between them.
-    double dt = (tend - t0)/(num - 1.0);
+    double t0, dt;
+    compute_t0_dt(cam_ptr, position_adjustments.size(), t0, dt);
     return vw::camera::LinearPiecewisePositionInterpolation(position_adjustments, t0, dt);
   }
+
   class AdjustablePosition {
   public:
     AdjustablePosition(DGCameraModel const* cam_ptr,
 		       std::vector<vw::Vector3> const& position_adjustments):
       m_cam_ptr(cam_ptr),
-      m_position_adjustments(set_position_adjustments(m_cam_ptr->m_position_func,
+      m_position_adjustments(set_position_adjustments(cam_ptr,
 						      position_adjustments)) {}
 
     // Return the original position plus the interpolated adjustment.
@@ -79,7 +109,11 @@ namespace asp {
       double dt   = m_position_adjustments.get_dt();
       double tend = m_position_adjustments.get_tend();
 
+      //std::cout << "t0 t dt tend " << t0 << ' ' << t << ' ' << dt << ' ' << tend << std::endl;
+
       int    num  = round( (tend - t0)/dt ) + 1;
+
+      //std::cout << "--num is " << num << std::endl;
 
       double ratio = (t-t0)/dt;
 
@@ -88,6 +122,8 @@ namespace asp {
       int i0 = floor(ratio - 0.5);
       int i1 = i0 + 1;
       int i2 = i1 + 1;
+
+      //std::cout << "--ratio is " << ratio  << std::endl;
 
       std::vector<int> indices;
       if (i0 >= 0 && i0 < num) indices.push_back(i0);
@@ -105,27 +141,22 @@ namespace asp {
 
   // Pose adjustment
   inline vw::camera::SLERPPoseInterpolation
-  set_pose_adjustments(vw::camera::SLERPPoseInterpolation const& pose,
-		  std::vector<vw::Quat> const& pose_adjustments){
+  set_pose_adjustments(DGCameraModel const* cam_ptr,
+		       std::vector<vw::Quat> const& pose_adjustments){
 
     // We will need to be able to linearly interpolate into the adjustments.
-    double t0   = pose.get_t0();
-    double tend = pose.get_tend();
-    int     num = pose_adjustments.size();
-    VW_ASSERT( num >= 2,
-	       vw::ArgumentErr() << "Expecting at least two adjustments.\n" );
-
-    // As before the number of pose adjustments can be much less than the number
-    // of actual poses, hence the need for a bigger dt.
-    double dt = (tend - t0)/(num - 1.0);
+    double t0, dt;
+    compute_t0_dt(cam_ptr, pose_adjustments.size(), t0, dt);
     return vw::camera::SLERPPoseInterpolation(pose_adjustments, t0, dt);
   }
+
   class AdjustablePose {
   public:
     AdjustablePose(DGCameraModel const* cam_ptr,
 		   std::vector<vw::Quat> const& pose_adjustments):
       m_cam_ptr(cam_ptr),
-      m_pose_adjustments(set_pose_adjustments(m_cam_ptr->m_pose_func, pose_adjustments)) {}
+      m_pose_adjustments(set_pose_adjustments(m_cam_ptr,
+					      pose_adjustments)) {}
 
     // Take the original rotation, and apply the adjustment on top of it. Both are
     // interpolated.
@@ -173,6 +204,12 @@ namespace asp {
       m_cam(cam)
     {
 
+      //std::cout << "sensor columns " << get_dg_ptr(cam)->m_image_size[0] << std::endl;
+
+      //std::cout << "sensor lines: " << get_dg_ptr(cam)->m_image_size[1] << std::endl;
+      //std::cout << "starting time " << get_dg_ptr(cam)->m_time_func(0) << std::endl;
+      //std::cout << "--ending time " <<  get_dg_ptr(cam)->m_time_func(get_dg_ptr(cam)->m_image_size[1]) << std::endl;
+
       VW_ASSERT( position_adjustments.size() == pose_adjustments.size(),
 		 vw::ArgumentErr()
 		 << "Expecting the number of position and pose adjustments to agree.\n" );
@@ -187,6 +224,8 @@ namespace asp {
     // for the given line (image row) position.
     std::vector<int> get_closest_adj_indices(double line_pos){
       double t = m_time_func(line_pos);
+      //std::cout << "y and t is " << line_pos << ' ' << t << std::endl;
+
       return m_position_func.get_closest_adj_indices(t);
     }
 

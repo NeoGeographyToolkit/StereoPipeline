@@ -253,6 +253,7 @@ struct PiecewiseReprojectionError {
 
     try{
 
+      //std::cout << "\n\n\n---now in residual calc! " << std::endl;
       int num_cameras = m_cameras_vec.size();
       VW_ASSERT(m_camera_index < num_cameras,
 		ArgumentErr() << "Out of bounds in the number of cameras");
@@ -276,6 +277,8 @@ struct PiecewiseReprojectionError {
 			    m_start_index, m_end_index,
 			    position_adjustments, pose_adjustments);
 
+      //std::cout << "---size of adj " << position_adjustments.size() << ' ' << pose_adjustments.size() << std::endl;
+
       // The adjusted camera has just the adjustments, it does not create a full
       // copy of the camera.
       asp::AdjustedLinescanDGModel adj_cam(m_cam, position_adjustments, pose_adjustments);
@@ -290,10 +293,15 @@ struct PiecewiseReprojectionError {
       // prediction is hopefully not too far from it.
       Vector2 prediction = adj_cam.point_to_pixel(point_vec, m_observation.y());
 
+      //std::cout << "obs and pred and diff " << m_observation << ' ' << prediction << ' ' << m_observation - prediction << std::endl;
+
       // The error is the difference between the predicted and observed position,
       // normalized by sigma.
       residuals[0] = (prediction[0] - m_observation[0])/m_pixel_sigma[0];
       residuals[1] = (prediction[1] - m_observation[1])/m_pixel_sigma[1];
+
+      //std::cout << "---finish residual calc!!!" << std::endl;
+      //std::cout << "\n\n\n" << std::endl;
 
     } catch (const camera::PointToPixelErr& e) {
       // Failed to project into the camera
@@ -659,8 +667,12 @@ void do_ba_piecewise(ModelT & ba_model, Options& opt ){
     num_adj++;
 
     num_adj_per_cam.push_back(num_adj);
+    vw_out() << "Number of adjustments per camera: " << num_adj << std::endl;
+
     num_total_adj += num_adj;
   }
+
+  vw_out() << "Total number of adjustments: " << num_total_adj << std::endl;
 
   // The camera adjustment and point variables concatenated into
   // vectors. The camera adjustments start as 0. The points come from
@@ -710,6 +722,9 @@ void do_ba_piecewise(ModelT & ba_model, Options& opt ){
     asp::AdjustedLinescanDGModel adj_cam(opt.camera_models[icam],
 					 position_adjustments, pose_adjustments);
 
+    //std::cout << "\n\n\n\n" << std::endl;
+    //std::cout << "---start and end " << start_index << ' ' << end_index << std::endl;
+
     typedef CameraNode<JFeature>::iterator crn_iter;
     for ( crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++ ){
 
@@ -724,13 +739,18 @@ void do_ba_piecewise(ModelT & ba_model, Options& opt ){
       Vector2 observation = (**fiter).m_location;
       Vector2 pixel_sigma = (**fiter).m_scale;
 
-      // The adjustments that will be affected by the current point
-      std::vector<int> indices = adj_cam.get_closest_adj_indices(observation[0]);
+      //std::cout << "cam, obs, and indicies: " << icam << ' ' << observation << " ";
+
+      // The adjustments that will be affected by the current point (recall that
+      // the adjustments are placed on various rows).
+      std::vector<int> indices = adj_cam.get_closest_adj_indices(observation.y());
 
       for (int index_iter = 0; index_iter < (int)indices.size(); index_iter++) {
 
 	// Get the index in the array of concatenated params for all cameras
 	int camera_index = indices[index_iter] + start_index;
+
+	//std::cout << " " << camera_index << ' ';
 
 	VW_ASSERT(camera_index < num_total_adj,
 		  ArgumentErr() << "Out of bounds in the camera index");
@@ -750,7 +770,9 @@ void do_ba_piecewise(ModelT & ba_model, Options& opt ){
 	problem.AddResidualBlock(cost_function, loss_function, camera, point);
       }
 
+      //std::cout << std::endl;
     }
+
   }
 
   // Add ground control points
