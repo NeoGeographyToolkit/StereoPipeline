@@ -285,6 +285,11 @@ with the addition of the list of nodes to use (if using multiple nodes).
   parallel_stereo --nodes-list machines.txt <other stereo options>
 \end{verbatim}
 
+It will create the same output files as \texttt{stereo}. (Internally
+some of them will be GDAL VRT files, that is, virtual mosaics of files created
+by individual processes; ASP and GDAL tools are able to use these
+virtulal files in the same way as regular binary TIF files.)
+
 If your jobs are launched on a cluster or supercomputer, the name of the
 file containing the list of nodes may exist as an environmental
 variable. For example, on NASA's Pleiades Supercomputer, which uses the
