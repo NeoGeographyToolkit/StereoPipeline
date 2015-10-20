@@ -237,37 +237,60 @@ struct PiecewiseReprojectionError {
   PiecewiseReprojectionError(Vector2 const& observation, Vector2 const& pixel_sigma,
 			     std::vector<double> const& cameras_vec,
 			     boost::shared_ptr<vw::camera::CameraModel> cam,
-			     int start_index, int camera_index, int end_index,
+			     int start_index,
+			     int camera_index1, int camera_index2, int camera_index3,
+			     int end_index,
 			     size_t ipt):
     m_observation(observation),
     m_pixel_sigma(pixel_sigma),
     m_cameras_vec(cameras_vec),
     m_cam(cam),
     m_start_index(start_index),
-    m_camera_index(camera_index),
+    m_camera_index1(camera_index1),
+    m_camera_index2(camera_index2),
+    m_camera_index3(camera_index3),
     m_end_index(end_index),
     m_ipt(ipt){}
 
   template <typename T>
-  bool operator()(const T* const camera, const T* const point, T* residuals) const {
+  bool do_calc(const T* const camera1, const T* const camera2, const T* const camera3,
+	       const T* const point, T* residuals) const {
 
     try{
 
-      //std::cout << "\n\n\n---now in residual calc! " << std::endl;
       int num_cameras = m_cameras_vec.size();
-      VW_ASSERT(m_camera_index < num_cameras,
-		ArgumentErr() << "Out of bounds in the number of cameras");
-
-      VW_ASSERT(0 <= m_start_index && m_start_index <= m_camera_index
-		&& m_camera_index < m_end_index && m_end_index <= num_cameras,
-		ArgumentErr() << "Book-keeping failure in camera indicies");
-
-
-      // Copy the camera adjustments to local storage.  Update them
-      // with the latest value for the current camera being floated.
       std::vector<double> local_cameras_vec = m_cameras_vec;
-      for (int p = 0; p < 6; p++) {
-	local_cameras_vec[6*m_camera_index + p] = camera[p];
+
+	// Copy the camera adjustments to local storage.  Update them
+	// with the latest value for the current camera being floated.
+
+      for (int i = 1; i <= 3; i++) {
+
+	int camera_index = -1;
+	const T * camera = NULL;
+	if (i == 1 && m_camera_index1 >= 0 && camera1 != NULL) {
+	  camera_index = m_camera_index1;
+	  camera       = camera1;
+	} else if (i == 2 && m_camera_index2 >= 0 && camera2 != NULL) {
+	  camera_index = m_camera_index2;
+	  camera       = camera2;
+	} else if (i == 3 && m_camera_index3 >= 0 && camera3 != NULL) {
+	  camera_index = m_camera_index3;
+	  camera       = camera3;
+	}
+
+	if (camera == NULL) continue;
+
+	VW_ASSERT(camera_index < num_cameras,
+		  ArgumentErr() << "Out of bounds in the number of cameras");
+
+	VW_ASSERT(0 <= m_start_index && m_start_index <= camera_index
+		  && camera_index < m_end_index && m_end_index <= num_cameras,
+		  ArgumentErr() << "Book-keeping failure in camera indicies");
+
+	for (int p = 0; p < 6; p++) {
+	  local_cameras_vec[6*camera_index + p] = camera[p];
+	}
       }
 
       // Extract the adjustments specific to the current camera
@@ -276,8 +299,6 @@ struct PiecewiseReprojectionError {
       populate_adjustements(local_cameras_vec,
 			    m_start_index, m_end_index,
 			    position_adjustments, pose_adjustments);
-
-      //std::cout << "---size of adj " << position_adjustments.size() << ' ' << pose_adjustments.size() << std::endl;
 
       // The adjusted camera has just the adjustments, it does not create a full
       // copy of the camera.
@@ -293,15 +314,10 @@ struct PiecewiseReprojectionError {
       // prediction is hopefully not too far from it.
       Vector2 prediction = adj_cam.point_to_pixel(point_vec, m_observation.y());
 
-      //std::cout << "obs and pred and diff " << m_observation << ' ' << prediction << ' ' << m_observation - prediction << std::endl;
-
       // The error is the difference between the predicted and observed position,
       // normalized by sigma.
       residuals[0] = (prediction[0] - m_observation[0])/m_pixel_sigma[0];
       residuals[1] = (prediction[1] - m_observation[1])/m_pixel_sigma[1];
-
-      //std::cout << "---finish residual calc!!!" << std::endl;
-      //std::cout << "\n\n\n" << std::endl;
 
     } catch (const camera::PointToPixelErr& e) {
       // Failed to project into the camera
@@ -313,6 +329,26 @@ struct PiecewiseReprojectionError {
     return true;
   }
 
+  template <typename T>
+  bool operator()(const T* const camera1, const T* const point, T* residuals) const {
+    return do_calc<T>(camera1, NULL, NULL, point, residuals);
+  }
+
+  template <typename T>
+  bool operator()(const T* const camera1,
+		  const T* const camera2,
+		  const T* const point, T* residuals) const {
+    return do_calc<T>(camera1, camera2, NULL, point, residuals);
+  }
+
+  template <typename T>
+  bool operator()(const T* const camera1,
+		  const T* const camera2,
+		  const T* const camera3,
+		  const T* const point, T* residuals) const {
+    return do_calc<T>(camera1, camera2, camera3, point, residuals);
+  }
+
   // Factory to hide the construction of the CostFunction object from
   // the client code.
   static ceres::CostFunction* Create(Vector2 const& observation,
@@ -320,17 +356,45 @@ struct PiecewiseReprojectionError {
 				     std::vector<double> const& cameras_vec,
 				     boost::shared_ptr<vw::camera::CameraModel> cam,
 				     int start_index,
-				     int camera_index,
+				     int camera_index1,
+				     int camera_index2,
+				     int camera_index3,
 				     int end_index,
 				     size_t ipt // point index
 				     ){
+
+    if (camera_index2 < 0 && camera_index3 < 0)
+      return (new ceres::NumericDiffCostFunction<PiecewiseReprojectionError,
+	      ceres::CENTRAL, 2, 6, 3> // TODO: replace 6 and 3
+	      (new PiecewiseReprojectionError(observation, pixel_sigma,
+					      cameras_vec, cam,
+					      start_index,
+					      camera_index1, camera_index2, camera_index3,
+					      end_index,
+					      ipt)));
+    if (camera_index3 < 0)
+      return (new ceres::NumericDiffCostFunction<PiecewiseReprojectionError,
+	      ceres::CENTRAL, 2, 6, 6, 3> // TODO: replace 6 and 3
+	      (new PiecewiseReprojectionError(observation, pixel_sigma,
+					      cameras_vec, cam,
+					      start_index,
+					      camera_index1, camera_index2, camera_index3,
+					      end_index,
+					      ipt)));
+
+    if (camera_index1 < 0 || camera_index2 < 0 || camera_index3 < 0)
+      vw_throw( ArgumentErr() << "Book-keeping failure in camera indices: "
+		<< camera_index1 << ' ' << camera_index2 << ' ' << camera_index3 << ".\n" );
+
+
     return (new ceres::NumericDiffCostFunction<PiecewiseReprojectionError,
-	    ceres::CENTRAL, 2, 6, 3> // TODO: replace 6 and 3
+	    ceres::CENTRAL, 2, 6, 6, 6, 3> // TODO: replace 6 and 3
 	    (new PiecewiseReprojectionError(observation, pixel_sigma,
 					    cameras_vec, cam,
-					    start_index, camera_index, end_index,
+					    start_index,
+					    camera_index1, camera_index2, camera_index3,
+					    end_index,
 					    ipt)));
-
   }
 
   Vector2 m_observation;
@@ -338,7 +402,7 @@ struct PiecewiseReprojectionError {
   std::vector<double> const& m_cameras_vec;  // alias
   boost::shared_ptr<vw::camera::CameraModel> m_cam;
   int m_start_index;  // all adjustments for the current camera will be >= this
-  int m_camera_index; // index of the current adjustment in the total array of adj
+  int m_camera_index1, m_camera_index2, m_camera_index3; // indices of the current adjustments
   int m_end_index;    // all adjustment indices for current camera will be < this
   int m_ipt;          // index of the current 3D point in the vector of points
 };
@@ -609,17 +673,11 @@ add_residual_block(ModelT & ba_model,
 
 std::vector<double> * g_cameras_vec;
 
-// Will be called at each iteration
+// Will be called at each iteration. Here we can put any desired logging info.
 class PiecewiseBaCallback: public ceres::IterationCallback {
 public:
   virtual ceres::CallbackReturnType operator()
     (const ceres::IterationSummary& summary) {
-
-    vw_out() << "Adjustments: ";
-    for (size_t i = 0; i < (*g_cameras_vec).size(); i++) {
-      vw_out() << (*g_cameras_vec)[i] << ' ';
-    }
-    vw_out() << std::endl;
 
     return ceres::SOLVER_CONTINUE;
   }
@@ -661,9 +719,11 @@ void do_ba_piecewise(ModelT & ba_model, Options& opt ){
     int num_adj = round(double(num_lines)/opt.image_lines_per_adjustment);
     if (num_adj <= 0) num_adj = 1;
 
-    // Ensure we have at least two adjustments (at endpoints).  So, if
-    // the image has 2000 lines, and we need 1000 lines per
-    // adjustment, we'll get 3 adjustments, at line 0, 1000, 2000.
+    // Ensure we have at least two adjustments, at
+    // endpoints. Otherwise one could simply use the single-camera
+    // adjustment flow and not come here. So, if the image has 2000
+    // lines, and we need 1000 lines per adjustment, we'll get 3
+    // adjustments, at line 0, 1000, 2000.
     num_adj++;
 
     num_adj_per_cam.push_back(num_adj);
@@ -722,9 +782,6 @@ void do_ba_piecewise(ModelT & ba_model, Options& opt ){
     asp::AdjustedLinescanDGModel adj_cam(opt.camera_models[icam],
 					 position_adjustments, pose_adjustments);
 
-    //std::cout << "\n\n\n\n" << std::endl;
-    //std::cout << "---start and end " << start_index << ' ' << end_index << std::endl;
-
     typedef CameraNode<JFeature>::iterator crn_iter;
     for ( crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++ ){
 
@@ -739,18 +796,19 @@ void do_ba_piecewise(ModelT & ba_model, Options& opt ){
       Vector2 observation = (**fiter).m_location;
       Vector2 pixel_sigma = (**fiter).m_scale;
 
-      //std::cout << "cam, obs, and indicies: " << icam << ' ' << observation << " ";
-
       // The adjustments that will be affected by the current point (recall that
       // the adjustments are placed on various rows).
       std::vector<int> indices = adj_cam.get_closest_adj_indices(observation.y());
 
+      // We assume below there are only 3 closest indices!
+
       for (int index_iter = 0; index_iter < (int)indices.size(); index_iter++) {
+
+	if (index_iter != 0) continue; // tmp
+
 
 	// Get the index in the array of concatenated params for all cameras
 	int camera_index = indices[index_iter] + start_index;
-
-	//std::cout << " " << camera_index << ' ';
 
 	VW_ASSERT(camera_index < num_total_adj,
 		  ArgumentErr() << "Out of bounds in the camera index");
@@ -762,15 +820,59 @@ void do_ba_piecewise(ModelT & ba_model, Options& opt ){
 
 	ceres::LossFunction* loss_function = get_loss_function(opt);
 
-	ceres::CostFunction* cost_function =
-	  PiecewiseReprojectionError::Create(observation, pixel_sigma,
-					     cameras_vec, opt.camera_models[icam],
-					     start_index, camera_index, end_index,
-					     ipt);
-	problem.AddResidualBlock(cost_function, loss_function, camera, point);
-      }
+	ceres::CostFunction* cost_function;
+	if      (camera_index + 1 == end_index) {
+	  int camera_index2 = -1;
+	  int camera_index3 = -1;
+	  cost_function = PiecewiseReprojectionError::Create(observation, pixel_sigma,
+							     cameras_vec, opt.camera_models[icam],
+							     start_index,
+							     camera_index,
+							     camera_index2,
+							     camera_index3,
+							     end_index,
+							     ipt);
+	  problem.AddResidualBlock(cost_function, loss_function, camera, point);
 
-      //std::cout << std::endl;
+	}else if (camera_index + 2 == end_index) {
+
+	  int camera_index2 = camera_index + 1;
+	  int camera_index3 = -1;
+	  cost_function = PiecewiseReprojectionError::Create(observation, pixel_sigma,
+							     cameras_vec, opt.camera_models[icam],
+							     start_index,
+							     camera_index,
+							     camera_index2,
+							     camera_index3,
+							     end_index,
+							     ipt);
+	  problem.AddResidualBlock(cost_function, loss_function,
+				   camera, camera + num_camera_params,
+				   point);
+
+	}else if (camera_index + 3 <= end_index) {
+
+	  int camera_index2 = camera_index + 1;
+	  int camera_index3 = camera_index + 2;
+	  cost_function = PiecewiseReprojectionError::Create(observation, pixel_sigma,
+							     cameras_vec, opt.camera_models[icam],
+							     start_index,
+							     camera_index,
+							     camera_index2,
+							     camera_index3,
+							     end_index,
+							     ipt);
+	  problem.AddResidualBlock(cost_function, loss_function,
+				   camera, camera + num_camera_params,  camera + 2*num_camera_params,
+				   point);
+
+	}else{
+	  vw_throw( ArgumentErr() << "Book-keeping failure in camera indices! Values of start_index, camera_index and end_index are " << start_index << ' ' << camera_index << ' ' << end_index << "\n" );
+
+	  problem.AddResidualBlock(cost_function, loss_function, camera, point);
+	}
+
+      }
     }
 
   }

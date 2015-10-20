@@ -246,13 +246,10 @@ boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const
 		   tlc_time_interpolation( 0 ) ) < fabs( 1.0 / (10.0 * img.avg_line_rate ) ),
 	     vw::MathErr() << "First Line Time and output from TLC lookup table do not agree of the ephemeris time for the first line of the image." );
 
-  vw::Vector2 final_detector_origin = subvector(inverse(sensor_coordinate).rotate(vw::Vector3(geo.detector_origin[0],
-											  geo.detector_origin[1],
-											  0)
-									     ),
-					    0, 2);
-
-  //vw::vw_out() << "DG model load - final_detector_origin = " << final_detector_origin << std::endl;
+  vw::Vector2 final_detector_origin
+    = subvector(inverse(sensor_coordinate).rotate(vw::Vector3(geo.detector_origin[0],
+							      geo.detector_origin[1],
+							      0)), 0, 2);
 
   double et0 = convert( parse_time( eph.start_time ) );
   double at0 = convert( parse_time( att.start_time ) );

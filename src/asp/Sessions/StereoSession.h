@@ -43,7 +43,7 @@ namespace asp {
   template <class ViewT>
   Vector6f gather_stats( vw::ImageViewBase<ViewT> const& view_base, std::string const& tag) {
     using namespace vw;
-    vw_out(InfoMessage) << "\t--> Computing statistics for " + tag + " image\n";
+    vw_out(InfoMessage) << "\t--> Computing statistics for " + tag + "\n";
     ViewT image = view_base.impl();
 
     // Compute statistics at a reduced resolution
@@ -51,8 +51,8 @@ namespace asp {
 
     ChannelAccumulator<vw::math::CDFAccumulator<float> > accumulator;
     for_each_pixel( subsample( edge_extend(image, ConstantEdgeExtension()),
-                               stat_scale ),
-                    accumulator );
+			       stat_scale ),
+		    accumulator );
     Vector6f result;
     result[0] = accumulator.quantile(0); // Min
     result[1] = accumulator.quantile(1); // Max
@@ -62,7 +62,7 @@ namespace asp {
     result[5] = accumulator.quantile(0.98);
 
     vw_out(InfoMessage) << "\t  " << tag << ": [ lo: " << result[0] << " hi: " << result[1]
-                                             << " mean: " << result[2] << " std_dev%: "  << result[3] << " ]\n";
+					     << " mean: " << result[2] << " std_dev: "  << result[3] << " ]\n";
     return result;
   }
 
@@ -70,15 +70,15 @@ namespace asp {
   /// Normalize the intensity of two grayscale images based on input statistics
   template<class ImageT>
   void normalize_images(bool force_use_entire_range,
-                        bool individually_normalize,
-                        bool use_percentile_stretch,
-                        Vector6f const& left_stats,
-                        Vector6f const& right_stats,
-                        ImageT & Limg, ImageT & Rimg){
+			bool individually_normalize,
+			bool use_percentile_stretch,
+			Vector6f const& left_stats,
+			Vector6f const& right_stats,
+			ImageT & Limg, ImageT & Rimg){
 
     // These arguments must contain: (min, max, mean, std)
     VW_ASSERT(left_stats.size() == 6 && right_stats.size() == 6,
-                  vw::ArgumentErr() << "Expecting a vector of size 6 in normalize_images()\n");
+		  vw::ArgumentErr() << "Expecting a vector of size 6 in normalize_images()\n");
 
     // If the input stats don't contain the stddev, must use the entire range version.
     // - This should only happen when normalizing ISIS images for ip_matching purposes.
@@ -87,44 +87,44 @@ namespace asp {
 
     if ( force_use_entire_range ) { // Stretch between the min and max values
       if ( individually_normalize ) {
-        vw::vw_out() << "\t--> Individually normalize images to their respective min max\n";
-        Limg = normalize( Limg, left_stats [0], left_stats [1], 0.0, 1.0 );
-        Rimg = normalize( Rimg, right_stats[0], right_stats[1], 0.0, 1.0 );
+	vw::vw_out() << "\t--> Individually normalize images to their respective min max\n";
+	Limg = normalize( Limg, left_stats [0], left_stats [1], 0.0, 1.0 );
+	Rimg = normalize( Rimg, right_stats[0], right_stats[1], 0.0, 1.0 );
       } else { // Normalize using the same stats
-        float low = std::min(left_stats[0], right_stats[0]);
-        float hi  = std::max(left_stats[1], right_stats[1]);
-        vw::vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
-        Limg = normalize( Limg, low, hi, 0.0, 1.0 );
-        Rimg = normalize( Rimg, low, hi, 0.0, 1.0 );
+	float low = std::min(left_stats[0], right_stats[0]);
+	float hi  = std::max(left_stats[1], right_stats[1]);
+	vw::vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
+	Limg = normalize( Limg, low, hi, 0.0, 1.0 );
+	Rimg = normalize( Rimg, low, hi, 0.0, 1.0 );
       }
     } else { // Don't force the entire range
       double left_min, left_max, right_min, right_max;
       if (use_percentile_stretch) {
-        // Percentile stretch
-        left_min  = left_stats [4];
-        left_max  = left_stats [5];
-        right_min = right_stats[4];
-        right_max = right_stats[5];
+	// Percentile stretch
+	left_min  = left_stats [4];
+	left_max  = left_stats [5];
+	right_min = right_stats[4];
+	right_max = right_stats[5];
       } else {
-        // Two standard deviation stretch
-        left_min  = left_stats [2] - 2*left_stats [3];
-        left_max  = left_stats [2] + 2*left_stats [3];
-        right_min = right_stats[2] - 2*right_stats[3];
-        right_max = right_stats[2] + 2*right_stats[3];
+	// Two standard deviation stretch
+	left_min  = left_stats [2] - 2*left_stats [3];
+	left_max  = left_stats [2] + 2*left_stats [3];
+	right_min = right_stats[2] - 2*right_stats[3];
+	right_max = right_stats[2] + 2*right_stats[3];
       }
 
       // The images are normalized so most pixels fall into this range,
       // but the data is not clamped so some pixels can fall outside this range.
       if ( individually_normalize > 0 ) {
-        vw::vw_out() << "\t--> Individually normalize images\n";
-        Limg = normalize( Limg, left_min,  left_max,  0.0, 1.0 );
-        Rimg = normalize( Rimg, right_min, right_max, 0.0, 1.0 );
+	vw::vw_out() << "\t--> Individually normalize images\n";
+	Limg = normalize( Limg, left_min,  left_max,  0.0, 1.0 );
+	Rimg = normalize( Rimg, right_min, right_max, 0.0, 1.0 );
       } else { // Normalize using the same stats
-        float low = std::min(left_min, right_min);
-        float hi  = std::max(left_max, right_max);
-        vw::vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
-        Limg = normalize( Limg, low, hi, 0.0, 1.0 );
-        Rimg = normalize( Rimg, low, hi, 0.0, 1.0 );
+	float low = std::min(left_min, right_min);
+	float hi  = std::max(left_max, right_max);
+	vw::vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
+	Limg = normalize( Limg, low, hi, 0.0, 1.0 );
+	Rimg = normalize( Rimg, low, hi, 0.0, 1.0 );
       }
     }
     return;
@@ -148,12 +148,12 @@ namespace asp {
     std::string m_out_prefix, m_input_dem;
 
     virtual void initialize (BaseOptions const& options,
-                             std::string const& left_image_file,
-                             std::string const& right_image_file,
-                             std::string const& left_camera_file,
-                             std::string const& right_camera_file,
-                             std::string const& out_prefix,
-                             std::string const& input_dem);
+			     std::string const& left_image_file,
+			     std::string const& right_image_file,
+			     std::string const& left_camera_file,
+			     std::string const& right_camera_file,
+			     std::string const& out_prefix,
+			     std::string const& input_dem);
 
   public:
     virtual ~StereoSession() {}
@@ -172,31 +172,31 @@ namespace asp {
 
     /// Helper function that retrieves both cameras.
     virtual void camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
-                               boost::shared_ptr<vw::camera::CameraModel> &cam2);
+			       boost::shared_ptr<vw::camera::CameraModel> &cam2);
 
     /// Method that produces a Camera Model from input files.
     virtual boost::shared_ptr<vw::camera::CameraModel>
     camera_model(std::string const& image_file,
-                 std::string const& camera_file = "") = 0;
+		 std::string const& camera_file = "") = 0;
 
     /// Method to help determine what session we actually have
     virtual std::string name() const = 0;
 
     /// Specialization for how interest points are found
     bool ip_matching(std::string  const& input_file1,
-                     std::string  const& input_file2,
-                     vw::Vector2  const& uncropped_image_size,
-                     Vector6f const& stats1,
-                     Vector6f const& stats2,
-                     int ip_per_tile,
-                     float nodata1, float nodata2,
-                     std::string const& match_filename,
-                     vw::camera::CameraModel* cam1,
-                     vw::camera::CameraModel* cam2);
+		     std::string  const& input_file2,
+		     vw::Vector2  const& uncropped_image_size,
+		     Vector6f const& stats1,
+		     Vector6f const& stats2,
+		     int ip_per_tile,
+		     float nodata1, float nodata2,
+		     std::string const& match_filename,
+		     vw::camera::CameraModel* cam1,
+		     vw::camera::CameraModel* cam2);
 
     /// Returns the target datum to use for a given camera model
     virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,
-                                             bool use_sphere_for_isis) const {
+					     bool use_sphere_for_isis) const {
       return vw::cartography::Datum("WGS84");
     }
 
@@ -218,66 +218,66 @@ namespace asp {
     /// Pre  file is a pair of images.   ( ImageView<PixelT> )
     /// Post file is a grayscale images. ( ImageView<PixelGray<float> > )
     virtual void pre_preprocessing_hook( bool adjust_left_image_size,
-                                         std::string const& input_file1,
-                                         std::string const& input_file2,
-                                         std::string      & output_file1,
-                                         std::string      & output_file2);
+					 std::string const& input_file1,
+					 std::string const& input_file2,
+					 std::string      & output_file1,
+					 std::string      & output_file2);
     virtual void post_preprocessing_hook(std::string const& input_file1,    // CURRENTLY NEVER USED!
-                                         std::string const& input_file2,
-                                         std::string      & output_file1,
-                                         std::string      & output_file2);
+					 std::string const& input_file2,
+					 std::string      & output_file1,
+					 std::string      & output_file2);
 
     /// Stage 2: Correlation
     ///
     /// Pre  file is a pair of grayscale images. ( ImageView<PixelGray<float> > )
     /// Post file is a disparity map.            ( ImageView<PixelDisparity> )
     virtual void pre_correlation_hook( std::string const& input_file1,    // CURRENTLY NEVER USED!
-                                       std::string const& input_file2,
-                                       std::string      & output_file1,
-                                       std::string      & output_file2);
+				       std::string const& input_file2,
+				       std::string      & output_file1,
+				       std::string      & output_file2);
     virtual void post_correlation_hook(std::string const& input_file,    // CURRENTLY NEVER USED!
-                                       std::string      & output_file);
+				       std::string      & output_file);
 
     /// Stage 3: Filtering
     ///
     /// Pre  file is a disparity map. ( ImageView<PixelDisparity<float> > )
     /// Post file is a disparity map. ( ImageView<PixelDisparity<float> > )
     virtual void pre_filtering_hook( std::string const& input_file,
-                                     std::string      & output_file);
+				     std::string      & output_file);
     virtual void post_filtering_hook(std::string const& input_file,    // CURRENTLY NEVER USED!
-                                     std::string      & output_file);
+				     std::string      & output_file);
 
     /// Stage 4: Point cloud generation
     ///
     /// Pre  file is a disparity map. ( ImageView<PixelDisparity<float> > )
     /// Post file is point image.     ( ImageView<Vector3> )
     virtual vw::ImageViewRef<vw::PixelMask<vw::Vector2f> >
-                 pre_pointcloud_hook (std::string const& input_file);
+		 pre_pointcloud_hook (std::string const& input_file);
     virtual void post_pointcloud_hook(std::string const& input_file,      // CURRENTLY NEVER USED!
-                                      std::string      & output_file);
+				      std::string      & output_file);
 
     /// Returns the correct nodata value from the input images or the input options.
     void get_nodata_values(boost::shared_ptr<vw::DiskImageResource> left_rsrc,
-                           boost::shared_ptr<vw::DiskImageResource> right_rsrc,
-                           float & left_nodata_value,
-                           float & right_nodata_value);
+			   boost::shared_ptr<vw::DiskImageResource> right_rsrc,
+			   float & left_nodata_value,
+			   float & right_nodata_value);
 
     // Factor out here all functionality shared among the preprocessing hooks
     // for various sessions. Return 'true' if we encounter cached images
     // and don't need to go through the motions again.
     bool shared_preprocessing_hook(asp::BaseOptions              & options,
-                                   std::string const             & left_input_file,
-                                   std::string const             & right_input_file,
-                                   std::string                   & left_output_file,
-                                   std::string                   & right_output_file,
-                                   std::string                   & left_cropped_file,
-                                   std::string                   & right_cropped_file,
-                                   float                         & left_nodata_value,
-                                   float                         & right_nodata_value,
-                                   bool                          & has_left_georef,
-                                   bool                          & has_right_georef,
-                                   vw::cartography::GeoReference & left_georef,
-                                   vw::cartography::GeoReference & right_georef);
+				   std::string const             & left_input_file,
+				   std::string const             & right_input_file,
+				   std::string                   & left_output_file,
+				   std::string                   & right_output_file,
+				   std::string                   & left_cropped_file,
+				   std::string                   & right_cropped_file,
+				   float                         & left_nodata_value,
+				   float                         & right_nodata_value,
+				   bool                          & has_left_georef,
+				   bool                          & has_right_georef,
+				   vw::cartography::GeoReference & left_georef,
+				   vw::cartography::GeoReference & right_georef);
   };
 
 // TODO: Move this function!
@@ -285,18 +285,18 @@ namespace asp {
 // we crop the images to these boxes, and hence the need to keep
 // the upper-left corners of the crop windows to handle the cameras correctly.
 vw::Vector2 camera_pixel_offset(std::string const& input_dem,
-                                std::string const& left_image_file,
-                                std::string const& right_image_file,
-                                std::string const& curr_image_file);
+				std::string const& left_image_file,
+				std::string const& right_image_file,
+				std::string const& curr_image_file);
 
 // TODO: Move this function!
 // If we have adjusted camera models, load them. The adjustment
 // may be in the rotation matrix, camera center, or pixel offset.
 boost::shared_ptr<vw::camera::CameraModel>
 load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
-                    std::string const& image_file,
-                    std::string const& camera_file,
-                    vw::Vector2 const& pixel_offset);
+		    std::string const& image_file,
+		    std::string const& camera_file,
+		    vw::Vector2 const& pixel_offset);
 
 } // end namespace asp
 

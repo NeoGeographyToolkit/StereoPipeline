@@ -39,10 +39,10 @@
 // TODO: This function should live somewhere else!  It was pulled from vw->tools->ipmatch.cc
 template <typename Image1T, typename Image2T>
 void write_match_image(std::string const& out_file_name,
-                       vw::ImageViewBase<Image1T> const& image1,
-                       vw::ImageViewBase<Image2T> const& image2,
-                       std::vector<vw::ip::InterestPoint> const& matched_ip1,
-                       std::vector<vw::ip::InterestPoint> const& matched_ip2) {
+		       vw::ImageViewBase<Image1T> const& image1,
+		       vw::ImageViewBase<Image2T> const& image2,
+		       std::vector<vw::ip::InterestPoint> const& matched_ip1,
+		       std::vector<vw::ip::InterestPoint> const& matched_ip2) {
   vw::vw_out() << "\t    Starting write_match_image " << std::endl;
 
   // Skip image pairs with no matches.
@@ -52,8 +52,8 @@ void write_match_image(std::string const& out_file_name,
   // Work out the scaling to produce the subsampled images. These
   // values are choosen just allow a reasonable rendering time.
   float sub_scale  = sqrt(1500.0 * 1500.0 / float(image1.impl().cols() * image1.impl().rows()));
-        sub_scale += sqrt(1500.0 * 1500.0 / float(image2.impl().cols() * image2.impl().rows()));
-        sub_scale /= 2;
+	sub_scale += sqrt(1500.0 * 1500.0 / float(image2.impl().cols() * image2.impl().rows()));
+	sub_scale /= 2;
   if ( sub_scale > 1 )
     sub_scale = 1;
 
@@ -81,7 +81,7 @@ void write_match_image(std::string const& out_file_name,
       int i = (int)(0.5 + start.x() + r*(end.x()-start.x()));
       int j = (int)(0.5 + start.y() + r*(end.y()-start.y()));
       if (i >=0 && j >=0 && i < comp.cols() && j < comp.rows())
-        comp(i,j) = vw::PixelRGB<vw::uint8>(255, 0, 0);
+	comp(i,j) = vw::PixelRGB<vw::uint8>(255, 0, 0);
     }
   }
 
@@ -94,8 +94,8 @@ void write_match_image(std::string const& out_file_name,
 // TODO: This function should live somewhere else!
 template <typename ImageT, typename IPT>
 void write_point_image(std::string const& out_file_name,
-                       vw::ImageViewBase<ImageT> const& image,
-                       IPT const& ip) {
+		       vw::ImageViewBase<ImageT> const& image,
+		       IPT const& ip) {
   vw::vw_out() << "\t    Starting write_match_image " << std::endl;
 
   // Skip image pairs with no matches.
@@ -105,12 +105,12 @@ void write_point_image(std::string const& out_file_name,
   // Work out the scaling to produce the subsampled images. These
   // values are choosen just allow a reasonable rendering time.
   float sub_scale  = sqrt(1500.0 * 1500.0 / float(image.impl().cols() * image.impl().rows()));
-        sub_scale /= 2;
+	sub_scale /= 2;
   if ( sub_scale > 1 )
     sub_scale = 1;
 
   vw::ImageView<vw::PixelRGB<vw::uint8> > canvas =
-        vw::pixel_cast_rescale<vw::PixelRGB<vw::uint8> >(resample(normalize(image), sub_scale));
+	vw::pixel_cast_rescale<vw::PixelRGB<vw::uint8> >(resample(normalize(image), sub_scale));
 
   vw::vw_out() << "\t    Draw points "<<  std::endl;
 
@@ -123,7 +123,7 @@ void write_point_image(std::string const& out_file_name,
     // TODO: - Error checking!
     for (size_t i=pt[0]-1; i<=pt[0]+1; ++i )
       for (size_t j=pt[1]-1; j<=pt[1]+1; ++j )
-        canvas(i,j) = vw::PixelRGB<vw::uint8>(255, 0, 0);
+	canvas(i,j) = vw::PixelRGB<vw::uint8>(255, 0, 0);
   }
 
   vw::vw_out() << "\t    Write to disk "  <<std::endl;
@@ -140,8 +140,8 @@ namespace asp {
 
   // Choose the method used for IP matching
   enum DetectIpMethod { DETECT_IP_METHOD_INTEGRAL = 0,
-                        DETECT_IP_METHOD_SIFT     = 1,
-                        DETECT_IP_METHOD_ORB      = 2};
+			DETECT_IP_METHOD_SIFT     = 1,
+			DETECT_IP_METHOD_ORB      = 2};
 
   /// Takes interest points and then finds the nearest 10 matches
   /// according to their IP descriptiors. It then
@@ -156,31 +156,31 @@ namespace asp {
   public:
     /// Constructor.
     EpipolarLinePointMatcher( bool single_threaded_camera,
-                              double threshold, double epipolar_threshold,
-                              vw::cartography::Datum const& datum);
+			      double threshold, double epipolar_threshold,
+			      vw::cartography::Datum const& datum);
 
     /// This only returns the indicies
     /// - ip_detect_method must match the method used to obtain the interest points
     void operator()( vw::ip::InterestPointList const& ip1,
-                     vw::ip::InterestPointList const& ip2,
-                     DetectIpMethod  ip_detect_method,
-                     vw::camera::CameraModel        * cam1,
-                     vw::camera::CameraModel        * cam2,
-                     vw::TransformRef          const& tx1,
-                     vw::TransformRef          const& tx2,
-                     std::vector<size_t>            & output_indices ) const;
+		     vw::ip::InterestPointList const& ip2,
+		     DetectIpMethod  ip_detect_method,
+		     vw::camera::CameraModel        * cam1,
+		     vw::camera::CameraModel        * cam2,
+		     vw::TransformRef          const& tx1,
+		     vw::TransformRef          const& tx2,
+		     std::vector<size_t>            & output_indices ) const;
 
     /// Work out an epipolar line from interest point. Returns the
     /// coefficients for the following line equation: ax + by + c = 0
     static vw::Vector3 epipolar_line( vw::Vector2            const& feature,
-                                      vw::cartography::Datum const& datum,
-                                      vw::camera::CameraModel     * cam_ip,
-                                      vw::camera::CameraModel     * cam_obj,
-                                      bool                        & success);
+				      vw::cartography::Datum const& datum,
+				      vw::camera::CameraModel     * cam_ip,
+				      vw::camera::CameraModel     * cam_obj,
+				      bool                        & success);
 
     /// Calculate distance between a line of equation ax + by + c = 0
     static double distance_point_line( vw::Vector3 const& line,
-                                       vw::Vector2 const& point );
+				       vw::Vector2 const& point );
 
     friend class EpipolarLineMatchTask;
   };
@@ -189,17 +189,17 @@ namespace asp {
   /// Note: A nodata pixel is one for which pixel <= nodata.
   template <class ImageT>
   void remove_ip_near_nodata( vw::ImageViewBase<ImageT> const& image,
-                              double nodata,
-                              vw::ip::InterestPointList& ip_list );
+			      double nodata,
+			      vw::ip::InterestPointList& ip_list );
 
   /// Find a rough homography that maps right to left using the camera
   /// and datum information.
   /// - This intersects rays with the datum, then projects them into the other camera.
   vw::Matrix<double>
   rough_homography_fit( vw::camera::CameraModel* cam1,
-                        vw::camera::CameraModel* cam2,
-                        vw::BBox2i const& box1, vw::BBox2i const& box2,
-                        vw::cartography::Datum const& datum );
+			vw::camera::CameraModel* cam2,
+			vw::BBox2i const& box1, vw::BBox2i const& box2,
+			vw::cartography::Datum const& datum );
 
   /// Homography rectification that aligns the right image to the left
   /// image via a homography transform. It returns a vector2i of the
@@ -208,12 +208,12 @@ namespace asp {
   /// shared corner of left and right.
   vw::Vector2i
   homography_rectification( bool adjust_left_image_size,
-                            vw::Vector2i const& left_size,
-                            vw::Vector2i const& right_size,
-                            std::vector<vw::ip::InterestPoint> const& left_ip,
-                            std::vector<vw::ip::InterestPoint> const& right_ip,
-                            vw::Matrix<double>& left_matrix,
-                            vw::Matrix<double>& right_matrix );
+			    vw::Vector2i const& left_size,
+			    vw::Vector2i const& right_size,
+			    std::vector<vw::ip::InterestPoint> const& left_ip,
+			    std::vector<vw::ip::InterestPoint> const& right_ip,
+			    vw::Matrix<double>& left_matrix,
+			    vw::Matrix<double>& right_matrix );
 
   /// Detect InterestPoints
   ///
@@ -221,34 +221,34 @@ namespace asp {
   /// the dumb homography ip matching.
   template <class List1T, class List2T, class Image1T, class Image2T>
   void detect_ip( List1T& ip1, List2T& ip2,
-                  vw::ImageViewBase<Image1T> const& image1,
-                  vw::ImageViewBase<Image2T> const& image2,
-                  int ip_per_tile,
-                  double nodata1 = std::numeric_limits<double>::quiet_NaN(),
-                  double nodata2 = std::numeric_limits<double>::quiet_NaN() );
+		  vw::ImageViewBase<Image1T> const& image1,
+		  vw::ImageViewBase<Image2T> const& image2,
+		  int ip_per_tile,
+		  double nodata1 = std::numeric_limits<double>::quiet_NaN(),
+		  double nodata2 = std::numeric_limits<double>::quiet_NaN() );
 
   /// Detect and Match Interest Points
   ///
   /// This is not meant to be used directly. Please use ip matching
   template <class Image1T, class Image2T>
   void detect_match_ip( std::vector<vw::ip::InterestPoint>& matched_ip1,
-                        std::vector<vw::ip::InterestPoint>& matched_ip2,
-                        vw::ImageViewBase<Image1T> const& image1,
-                        vw::ImageViewBase<Image2T> const& image2,
-                        int ip_per_tile,
-                        double nodata1 = std::numeric_limits<double>::quiet_NaN(),
-                        double nodata2 = std::numeric_limits<double>::quiet_NaN() );
+			std::vector<vw::ip::InterestPoint>& matched_ip2,
+			vw::ImageViewBase<Image1T> const& image1,
+			vw::ImageViewBase<Image2T> const& image2,
+			int ip_per_tile,
+			double nodata1 = std::numeric_limits<double>::quiet_NaN(),
+			double nodata2 = std::numeric_limits<double>::quiet_NaN() );
 
   /// Homography IP matching
   ///
   /// This applies only the homography constraint. Not the best...
   template <class Image1T, class Image2T>
   bool homography_ip_matching( vw::ImageViewBase<Image1T> const& image1,
-                               vw::ImageViewBase<Image2T> const& image2,
-                               int ip_per_tile,
-                               std::string const& output_name,
-                               double nodata1 = std::numeric_limits<double>::quiet_NaN(),
-                               double nodata2 = std::numeric_limits<double>::quiet_NaN() );
+			       vw::ImageViewBase<Image2T> const& image2,
+			       int ip_per_tile,
+			       std::string const& output_name,
+			       double nodata1 = std::numeric_limits<double>::quiet_NaN(),
+			       double nodata2 = std::numeric_limits<double>::quiet_NaN() );
 
   /// IP matching that uses clustering on triangulation error to
   /// determine inliers.  Check output this filter can fail.
@@ -257,19 +257,19 @@ namespace asp {
   /// something to start with.
   bool
   tri_ip_filtering( std::vector<vw::ip::InterestPoint> const& ip1,
-                    std::vector<vw::ip::InterestPoint> const& ip2,
-                    vw::camera::CameraModel* cam1,
-                    vw::camera::CameraModel* cam2,
-                    std::list<size_t>& valid_indices,
-                    vw::TransformRef const& left_tx  = vw::TransformRef(vw::TranslateTransform(0,0)),
-                    vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)) );
+		    std::vector<vw::ip::InterestPoint> const& ip2,
+		    vw::camera::CameraModel* cam1,
+		    vw::camera::CameraModel* cam2,
+		    std::list<size_t>& valid_indices,
+		    vw::TransformRef const& left_tx  = vw::TransformRef(vw::TranslateTransform(0,0)),
+		    vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)) );
 
   /// 4 stddev filtering. Deletes any disparity measurement that is 4
   /// stddev away from the measurements of it's local neighbors. We
   /// kill off worse offender one at a time until everyone is compliant.
   bool stddev_ip_filtering( std::vector<vw::ip::InterestPoint> const& ip1,
-                            std::vector<vw::ip::InterestPoint> const& ip2,
-                            std::list<size_t>& valid_indices );
+			    std::vector<vw::ip::InterestPoint> const& ip2,
+			    std::list<size_t>& valid_indices );
 
   /// Smart IP matching that uses clustering on triangulation and
   /// datum information to determine inliers.
@@ -278,39 +278,39 @@ namespace asp {
   /// the images that that camera data doesn't know about. (ie scaling).
   template <class Image1T, class Image2T>
   bool ip_matching( bool single_threaded_camera,
-                    vw::camera::CameraModel* cam1,
-                    vw::camera::CameraModel* cam2,
-                    vw::ImageViewBase<Image1T> const& image1,
-                    vw::ImageViewBase<Image2T> const& image2,
-                    int ip_per_tile,
-                    vw::cartography::Datum const& datum,
-                    std::string const& output_name,
-                    double epipolar_threshold,
-                    double match_seperation_threshold = 0.5,
-                    double nodata1 = std::numeric_limits<double>::quiet_NaN(),
-                    double nodata2 = std::numeric_limits<double>::quiet_NaN(),
-                    vw::TransformRef const& left_tx  = vw::TransformRef(vw::TranslateTransform(0,0)),
-                    vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)),
-                    bool transform_to_original_coord = true );
+		    vw::camera::CameraModel* cam1,
+		    vw::camera::CameraModel* cam2,
+		    vw::ImageViewBase<Image1T> const& image1,
+		    vw::ImageViewBase<Image2T> const& image2,
+		    int ip_per_tile,
+		    vw::cartography::Datum const& datum,
+		    std::string const& output_name,
+		    double epipolar_threshold,
+		    double match_seperation_threshold = 0.5,
+		    double nodata1 = std::numeric_limits<double>::quiet_NaN(),
+		    double nodata2 = std::numeric_limits<double>::quiet_NaN(),
+		    vw::TransformRef const& left_tx  = vw::TransformRef(vw::TranslateTransform(0,0)),
+		    vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)),
+		    bool transform_to_original_coord = true );
 
   /// Calls ip matching above but with an additional step where we
   /// apply a homogrpahy to make right image like left image. This is
   /// useful so that both images have similar scale and similar affine qualities.
   template <class Image1T, class Image2T>
   bool ip_matching_w_alignment( bool single_threaded_camera,
-                                vw::camera::CameraModel* cam1,
-                                vw::camera::CameraModel* cam2,
-                                vw::ImageViewBase<Image1T> const& image1,
-                                vw::ImageViewBase<Image2T> const& image2,
-                                int ip_per_tile,
-                                vw::cartography::Datum const& datum,
-                                std::string const& output_name,
-                                double epipolar_threshold,
-                                double match_seperation_threshold = 0.5,
-                                double nodata1 = std::numeric_limits<double>::quiet_NaN(),
-                                double nodata2 = std::numeric_limits<double>::quiet_NaN(),
-                                vw::TransformRef const& left_tx  = vw::TransformRef(vw::TranslateTransform(0,0)),
-                                vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)) );
+				vw::camera::CameraModel* cam1,
+				vw::camera::CameraModel* cam2,
+				vw::ImageViewBase<Image1T> const& image1,
+				vw::ImageViewBase<Image2T> const& image2,
+				int ip_per_tile,
+				vw::cartography::Datum const& datum,
+				std::string const& output_name,
+				double epipolar_threshold,
+				double match_seperation_threshold = 0.5,
+				double nodata1 = std::numeric_limits<double>::quiet_NaN(),
+				double nodata2 = std::numeric_limits<double>::quiet_NaN(),
+				vw::TransformRef const& left_tx  = vw::TransformRef(vw::TranslateTransform(0,0)),
+				vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)) );
 
 // ==============================================================================================
 // Function definitions
@@ -322,8 +322,8 @@ namespace asp {
   // Note: A nodata pixel is one for which pixel <= nodata.
   template <class ImageT>
   void remove_ip_near_nodata( vw::ImageViewBase<ImageT> const& image,
-                              double nodata,
-                              vw::ip::InterestPointList& ip_list ){
+			      double nodata,
+			      vw::ip::InterestPointList& ip_list ){
 
     using namespace vw;
     size_t prior_ip = ip_list.size();
@@ -335,25 +335,25 @@ namespace asp {
     bound.contract(1);
     for ( ip::InterestPointList::iterator ip = ip_list.begin(); ip != ip_list.end(); ++ip ) {
       if ( !bound.contains( Vector2i(ip->ix,ip->iy) ) ) {
-        ip = ip_list.erase(ip);
-        ip--;
-        continue;
+	ip = ip_list.erase(ip);
+	ip--;
+	continue;
       }
 
       subsection = crop( image.impl(), ip->ix-1, ip->iy-1, 3, 3 );
       for ( typename CropImageT::iterator pixel = subsection.begin();
-            pixel != subsection.end(); pixel++ ) {
-        if (*pixel <= nodata) {
-          ip = ip_list.erase(ip);
-          ip--;
-          break;
-        }
+	    pixel != subsection.end(); pixel++ ) {
+	if (*pixel <= nodata) {
+	  ip = ip_list.erase(ip);
+	  ip--;
+	  break;
+	}
       }
     }
     VW_OUT( DebugMessage, "asp" ) << "Removed " << prior_ip - ip_list.size()
-                                  << " interest points due to their proximity to nodata values."
-                                  << std::endl << "Nodata value used "
-                                  << nodata << std::endl;
+				  << " interest points due to their proximity to nodata values."
+				  << std::endl << "Nodata value used "
+				  << nodata << std::endl;
   }
 
   // Detect InterestPoints
@@ -362,11 +362,11 @@ namespace asp {
   // the dumb homography ip matching.
   template <class List1T, class List2T, class Image1T, class Image2T>
   void detect_ip( List1T& ip1, List2T& ip2,
-                  vw::ImageViewBase<Image1T> const& image1,
-                  vw::ImageViewBase<Image2T> const& image2,
-                  int ip_per_tile,
-                  double nodata1,
-                  double nodata2 ) {
+		  vw::ImageViewBase<Image1T> const& image1,
+		  vw::ImageViewBase<Image2T> const& image2,
+		  int ip_per_tile,
+		  double nodata1,
+		  double nodata2 ) {
     using namespace vw;
     BBox2i box1 = bounding_box(image1.impl());
     ip1.clear();
@@ -386,7 +386,7 @@ namespace asp {
       points_per_tile = ip_per_tile;
 
     vw_out() << "Using " << points_per_tile
-             << " interest points per tile (1024^2 px).\n";
+	     << " interest points per tile (1024^2 px).\n";
 
     // Load the detection method from stereo_settings.
     // - This relies on a direct match in the enum integer value.
@@ -400,14 +400,14 @@ namespace asp {
 
       vw_out() << "\t    Processing left image" << std::endl;
       if ( boost::math::isnan(nodata1) )
-        ip1 = detect_interest_points( image1.impl(), detector );
+	ip1 = detect_interest_points( image1.impl(), detector );
       else
-        ip1 = detect_interest_points( apply_mask(create_mask_less_or_equal(image1.impl(),nodata1)), detector );
+	ip1 = detect_interest_points( apply_mask(create_mask_less_or_equal(image1.impl(),nodata1)), detector );
       vw_out() << "\t    Processing right image" << std::endl;
       if ( boost::math::isnan(nodata2) )
-        ip2 = detect_interest_points( image2.impl(), detector );
+	ip2 = detect_interest_points( image2.impl(), detector );
       else
-        ip2 = detect_interest_points( apply_mask(create_mask_less_or_equal(image2.impl(),nodata2)), detector );
+	ip2 = detect_interest_points( apply_mask(create_mask_less_or_equal(image2.impl(),nodata2)), detector );
 
     } else {
 
@@ -415,32 +415,32 @@ namespace asp {
       // - If VW was not build with OpenCV, this call will just throw an exception.
       vw::ip::OpenCvIpDetectorType cv_method = vw::ip::OPENCV_IP_DETECTOR_TYPE_SIFT;
       if (detect_method == DETECT_IP_METHOD_ORB)
-        cv_method = vw::ip::OPENCV_IP_DETECTOR_TYPE_ORB;
+	cv_method = vw::ip::OPENCV_IP_DETECTOR_TYPE_ORB;
 
       // The opencv detector only works if the inputs are normalized, so do it here if it was not done before.
       // - If the images are already normalized most of the data will be in the 0-1 range.
       bool opencv_normalize = stereo_settings().skip_image_normalization;
       if (opencv_normalize)
-        vw_out() << "Normalizing OpenCV images...\n";
+	vw_out() << "Normalizing OpenCV images...\n";
 
       bool build_opencv_descriptors = true;
       vw::ip::OpenCvInterestPointDetector detector(cv_method, opencv_normalize, build_opencv_descriptors, points_per_tile);
 
       vw_out() << "\t    Processing left image" << std::endl;
       if ( boost::math::isnan(nodata1) )
-        ip1 = detect_interest_points( image1.impl(), detector );
+	ip1 = detect_interest_points( image1.impl(), detector );
       else
-        ip1 = detect_interest_points( apply_mask(create_mask_less_or_equal(image1.impl(),nodata1)), detector );
+	ip1 = detect_interest_points( apply_mask(create_mask_less_or_equal(image1.impl(),nodata1)), detector );
       vw_out() << "\t    Processing right image" << std::endl;
       if ( boost::math::isnan(nodata2) )
-        ip2 = detect_interest_points( image2.impl(), detector );
+	ip2 = detect_interest_points( image2.impl(), detector );
       else
-        ip2 = detect_interest_points( apply_mask(create_mask_less_or_equal(image2.impl(),nodata2)), detector );
+	ip2 = detect_interest_points( apply_mask(create_mask_less_or_equal(image2.impl(),nodata2)), detector );
     } // End OpenCV case
 
     sw.stop();
     vw_out(DebugMessage,"asp") << "Detect interest points elapsed time: "
-                               << sw.elapsed_seconds() << " s." << std::endl;
+			       << sw.elapsed_seconds() << " s." << std::endl;
 
     //// DEBUG - Draw out the point matches pre-geometric filtering
     //vw_out() << "\t    Writing IP debug images! " << std::endl;
@@ -459,7 +459,7 @@ namespace asp {
 
     sw.stop();
     vw_out(DebugMessage,"asp") << "Remove IP elapsed time: "
-                               << sw.elapsed_seconds() << " s." << std::endl;
+			       << sw.elapsed_seconds() << " s." << std::endl;
 
     sw.start();
 
@@ -468,20 +468,20 @@ namespace asp {
       vw_out() << "\t    Building descriptors" << std::endl;
       ip::SGradDescriptorGenerator descriptor;
       if ( boost::math::isnan(nodata1) )
-        describe_interest_points( image1.impl(), descriptor, ip1 );
+	describe_interest_points( image1.impl(), descriptor, ip1 );
       else
-        describe_interest_points( apply_mask(create_mask_less_or_equal(image1.impl(),nodata1)), descriptor, ip1 );
+	describe_interest_points( apply_mask(create_mask_less_or_equal(image1.impl(),nodata1)), descriptor, ip1 );
       if ( boost::math::isnan(nodata2) )
-        describe_interest_points( image2.impl(), descriptor, ip2 );
+	describe_interest_points( image2.impl(), descriptor, ip2 );
       else
-        describe_interest_points( apply_mask(create_mask_less_or_equal(image2.impl(),nodata2)), descriptor, ip2 );
+	describe_interest_points( apply_mask(create_mask_less_or_equal(image2.impl(),nodata2)), descriptor, ip2 );
 
       vw_out(DebugMessage,"asp") << "Building descriptors elapsed time: "
-                                 << sw.elapsed_seconds() << " s." << std::endl;
+				 << sw.elapsed_seconds() << " s." << std::endl;
     }
 
     vw_out() << "\t    Found interest points:\n"
-             << "\t      left: " << ip1.size() << std::endl;
+	     << "\t      left: " << ip1.size() << std::endl;
     vw_out() << "\t     right: " << ip2.size() << std::endl;
   }
 
@@ -490,18 +490,18 @@ namespace asp {
   // This is not meant to be used directly. Please use ip matching
   template <class Image1T, class Image2T>
   void detect_match_ip( std::vector<vw::ip::InterestPoint>& matched_ip1,
-                        std::vector<vw::ip::InterestPoint>& matched_ip2,
-                        vw::ImageViewBase<Image1T> const& image1,
-                        vw::ImageViewBase<Image2T> const& image2,
-                        int ip_per_tile,
-                        double nodata1,
-                        double nodata2) {
+			std::vector<vw::ip::InterestPoint>& matched_ip2,
+			vw::ImageViewBase<Image1T> const& image1,
+			vw::ImageViewBase<Image2T> const& image2,
+			int ip_per_tile,
+			double nodata1,
+			double nodata2) {
     using namespace vw;
 
     // Detect Interest Points
     ip::InterestPointList ip1, ip2;
     detect_ip( ip1, ip2, image1.impl(), image2.impl(),
-               ip_per_tile, nodata1, nodata2 );
+	       ip_per_tile, nodata1, nodata2 );
 
     // Match the interset points using the default matcher
     vw_out() << "\t--> Matching interest points\n";
@@ -521,13 +521,13 @@ namespace asp {
       // For all L2Norm distance metrics
       ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(threshold);
       matcher( ip1_copy, ip2_copy, matched_ip1, matched_ip2,
-               TerminalProgressCallback( "asp", "\t   Matching: " ));
+	       TerminalProgressCallback( "asp", "\t   Matching: " ));
     }
     else {
       // For Hamming distance metrics
       ip::InterestPointMatcher<ip::HammingMetric,ip::NullConstraint> matcher(threshold);
       matcher( ip1_copy, ip2_copy, matched_ip1, matched_ip2,
-               TerminalProgressCallback( "asp", "\t   Matching: " ));
+	       TerminalProgressCallback( "asp", "\t   Matching: " ));
     }
 
     ip::remove_duplicates( matched_ip1, matched_ip2 );
@@ -538,7 +538,7 @@ namespace asp {
     //                  image1, image2,
     //                  matched_ip1, matched_ip2);
 
-    vw_out() << "\t    Matched points: " << matched_ip1.size() << std::endl;
+    vw_out() << "\n\t    Matched points: " << matched_ip1.size() << std::endl;
   }
 
   // Homography IP matching
@@ -546,23 +546,23 @@ namespace asp {
   // This applies only the homography constraint. Not the best...
   template <class Image1T, class Image2T>
   bool homography_ip_matching( vw::ImageViewBase<Image1T> const& image1,
-                               vw::ImageViewBase<Image2T> const& image2,
-                               int ip_per_tile,
-                               std::string const& output_name,
-                               double nodata1,
-                               double nodata2 ) {
+			       vw::ImageViewBase<Image2T> const& image2,
+			       int ip_per_tile,
+			       std::string const& output_name,
+			       double nodata1,
+			       double nodata2 ) {
 
     using namespace vw;
 
     std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
     detect_match_ip( matched_ip1, matched_ip2,
-                     image1.impl(), image2.impl(),
-                     ip_per_tile,
-                     nodata1, nodata2 );
+		     image1.impl(), image2.impl(),
+		     ip_per_tile,
+		     nodata1, nodata2 );
     if ( matched_ip1.size() == 0 || matched_ip2.size() == 0 )
       return false;
     std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1),
-                         ransac_ip2 = iplist_to_vectorlist(matched_ip2);
+			 ransac_ip2 = iplist_to_vectorlist(matched_ip2);
     std::vector<size_t> indices;
     try {
       typedef math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric> RansacT;
@@ -570,10 +570,10 @@ namespace asp {
       const int    MIN_NUM_OUTPUT_INLIERS = ransac_ip1.size()/2;
       const int    NUM_ITERATIONS         = 100;
       RansacT ransac( math::HomographyFittingFunctor(),
-                      math::InterestPointErrorMetric(), NUM_ITERATIONS,
-                      INLIER_THRESHOLD,
-                      MIN_NUM_OUTPUT_INLIERS, true
-                      );
+		      math::InterestPointErrorMetric(), NUM_ITERATIONS,
+		      INLIER_THRESHOLD,
+		      MIN_NUM_OUTPUT_INLIERS, true
+		      );
       Matrix<double> H(ransac(ransac_ip2,ransac_ip1)); // 2 then 1 is used here for legacy reasons
       vw_out() << "\t--> Homography: " << H << "\n";
       indices = ransac.inlier_indices(H,ransac_ip2,ransac_ip1);
@@ -607,28 +607,28 @@ namespace asp {
   // the images that that camera data doesn't know about. (ie scaling).
   template <class Image1T, class Image2T>
   bool ip_matching( bool single_threaded_camera,
-                    vw::camera::CameraModel* cam1,
-                    vw::camera::CameraModel* cam2,
-                    vw::ImageViewBase<Image1T> const& image1,
-                    vw::ImageViewBase<Image2T> const& image2,
-                    int ip_per_tile,
-                    vw::cartography::Datum const& datum,
-                    std::string const& output_name,
-                    double epipolar_threshold,
-                    double match_seperation_threshold,
-                    double nodata1,
-                    double nodata2,
-                    vw::TransformRef const& left_tx,
-                    vw::TransformRef const& right_tx,
-                    bool transform_to_original_coord
-                     ) {
+		    vw::camera::CameraModel* cam1,
+		    vw::camera::CameraModel* cam2,
+		    vw::ImageViewBase<Image1T> const& image1,
+		    vw::ImageViewBase<Image2T> const& image2,
+		    int ip_per_tile,
+		    vw::cartography::Datum const& datum,
+		    std::string const& output_name,
+		    double epipolar_threshold,
+		    double match_seperation_threshold,
+		    double nodata1,
+		    double nodata2,
+		    vw::TransformRef const& left_tx,
+		    vw::TransformRef const& right_tx,
+		    bool transform_to_original_coord
+		     ) {
     using namespace vw;
 
     // Detect interest points
     ip::InterestPointList ip1, ip2;
     detect_ip( ip1, ip2, image1.impl(), image2.impl(),
-               ip_per_tile,
-               nodata1, nodata2 );
+	       ip_per_tile,
+	       nodata1, nodata2 );
     if ( ip1.size() == 0 || ip2.size() == 0 ){
       vw_out() << "Unable to detect interest points." << std::endl;
       return false;
@@ -639,7 +639,7 @@ namespace asp {
     std::vector<size_t> forward_match, backward_match;
     vw_out() << "\t--> Matching interest points" << std::endl;
     EpipolarLinePointMatcher matcher(single_threaded_camera,
-                                     match_seperation_threshold, epipolar_threshold, datum );
+				     match_seperation_threshold, epipolar_threshold, datum );
     vw_out() << "\t    Matching Forward" << std::endl;
     matcher( ip1, ip2, detect_method, cam1, cam2, left_tx, right_tx, forward_match );
     vw_out() << "\t    Matching Backward" << std::endl;
@@ -650,11 +650,11 @@ namespace asp {
     const size_t NULL_INDEX = (size_t)(-1);
     for ( size_t i = 0; i < forward_match.size(); i++ ) {
       if ( forward_match[i] != NULL_INDEX ) {
-        if ( backward_match[forward_match[i]] != i ) {
-          forward_match[i] = NULL_INDEX;
-        } else {
-          valid_count++;
-        }
+	if ( backward_match[forward_match[i]] != i ) {
+	  forward_match[i] = NULL_INDEX;
+	} else {
+	  valid_count++;
+	}
       }
     }
     vw_out() << "\t    Matched " << valid_count << " points." << std::endl;
@@ -669,13 +669,13 @@ namespace asp {
     {
       ip::InterestPointList::const_iterator ip1_it = ip1.begin(), ip2_it = ip2.begin();
       for ( size_t i = 0; i < forward_match.size(); i++ ) {
-        if ( forward_match[i] != NULL_INDEX ) {
-          matched_ip1.push_back( *ip1_it );
-          ip2_it = ip2.begin();
-          std::advance( ip2_it, forward_match[i] );
-          matched_ip2.push_back( *ip2_it );
-        }
-        ip1_it++;
+	if ( forward_match[i] != NULL_INDEX ) {
+	  matched_ip1.push_back( *ip1_it );
+	  ip2_it = ip2.begin();
+	  std::advance( ip2_it, forward_match[i] );
+	  matched_ip2.push_back( *ip2_it );
+	}
+	ip1_it++;
       }
     }
 
@@ -693,7 +693,7 @@ namespace asp {
       good_indices.push_back(i);
     }
     if (!tri_ip_filtering( matched_ip1, matched_ip2,
-                           cam1, cam2, good_indices, left_tx, right_tx ) ){
+			   cam1, cam2, good_indices, left_tx, right_tx ) ){
       vw_out() << "No interest points left after triangulation filtering." << std::endl;
       return false;
     }
@@ -711,7 +711,7 @@ namespace asp {
     BOOST_FOREACH( size_t index, good_indices ) {
       Vector2 l( matched_ip1[index].x, matched_ip1[index].y );
       if ( transform_to_original_coord )
-        l = left_tx.reverse( l );
+	l = left_tx.reverse( l );
       matched_ip1[index].ix = matched_ip1[index].x = l.x();
       matched_ip1[index].iy = matched_ip1[index].y = l.y();
       buffer[w_index] = matched_ip1[index];
@@ -724,7 +724,7 @@ namespace asp {
     BOOST_FOREACH( size_t index, good_indices ) {
       Vector2 r( matched_ip2[index].x, matched_ip2[index].y );
       if ( transform_to_original_coord )
-        r = right_tx.reverse( r );
+	r = right_tx.reverse( r );
       matched_ip2[index].ix = matched_ip2[index].x = r.x();
       matched_ip2[index].iy = matched_ip2[index].y = r.y();
       buffer[w_index] = matched_ip2[index];
@@ -749,19 +749,19 @@ namespace asp {
   // useful so that both images have similar scale and similar affine qualities.
   template <class Image1T, class Image2T>
   bool ip_matching_w_alignment( bool single_threaded_camera,
-                                vw::camera::CameraModel* cam1,
-                                vw::camera::CameraModel* cam2,
-                                vw::ImageViewBase<Image1T> const& image1,
-                                vw::ImageViewBase<Image2T> const& image2,
-                                int ip_per_tile,
-                                vw::cartography::Datum const& datum,
-                                std::string const& output_name,
-                                double epipolar_threshold,
-                                double match_seperation_threshold,
-                                double nodata1,
-                                double nodata2,
-                                vw::TransformRef const& left_tx,
-                                vw::TransformRef const& right_tx ) {
+				vw::camera::CameraModel* cam1,
+				vw::camera::CameraModel* cam2,
+				vw::ImageViewBase<Image1T> const& image1,
+				vw::ImageViewBase<Image2T> const& image2,
+				int ip_per_tile,
+				vw::cartography::Datum const& datum,
+				std::string const& output_name,
+				double epipolar_threshold,
+				double match_seperation_threshold,
+				double nodata1,
+				double nodata2,
+				vw::TransformRef const& left_tx,
+				vw::TransformRef const& right_tx ) {
 
     using namespace vw;
 
@@ -773,7 +773,7 @@ namespace asp {
     try {
       // Homography is defined in the original camera coordinates
       rough_homography =  rough_homography_fit( cam1, cam2, left_tx.reverse_bbox(box1),
-                                                right_tx.reverse_bbox(box2), datum );
+						right_tx.reverse_bbox(box2), datum );
     } catch(...) {
       VW_OUT( DebugMessage, "asp" ) << "Rough homography fit failed, trying with identity transform. " << std::endl;
       rough_homography.set_identity(3);
@@ -788,13 +788,13 @@ namespace asp {
     { // Check to see if this rough homography works
       HomographyTransform func( rough_homography );
       VW_ASSERT( box1.intersects( func.forward_bbox( box2 ) ),
-                 LogicErr() << "The rough homography alignment based on datum and camera geometry shows that input images do not overlap at all. Unable to proceed.\n" );
+		 LogicErr() << "The rough homography alignment based on datum and camera geometry shows that input images do not overlap at all. Unable to proceed.\n" );
     }
 
     TransformRef tx( compose(right_tx, HomographyTransform(rough_homography)) );
     BBox2i raster_box = tx.forward_bbox( right_tx.reverse_bbox(box2) );
     tx = TransformRef(compose(TranslateTransform(-raster_box.min()),
-                              right_tx, HomographyTransform(rough_homography)));
+			      right_tx, HomographyTransform(rough_homography)));
     raster_box -= Vector2i(raster_box.min());
 
 
@@ -804,13 +804,13 @@ namespace asp {
     //   and stop them from being masked out.
     bool inlier =
       ip_matching( single_threaded_camera,
-                   cam1, cam2, image1.impl(),
-                   crop(transform(image2.impl(), compose(tx, inverse(right_tx)),
-                                  ValueEdgeExtension<typename Image2T::pixel_type>(boost::math::isnan(nodata2) ? 0 : nodata2),
-                                  NearestPixelInterpolation()), raster_box),
-                   ip_per_tile,
-                   datum, output_name, epipolar_threshold, match_seperation_threshold,
-                   nodata1, nodata2, left_tx, tx );
+		   cam1, cam2, image1.impl(),
+		   crop(transform(image2.impl(), compose(tx, inverse(right_tx)),
+				  ValueEdgeExtension<typename Image2T::pixel_type>(boost::math::isnan(nodata2) ? 0 : nodata2),
+				  NearestPixelInterpolation()), raster_box),
+		   ip_per_tile,
+		   datum, output_name, epipolar_threshold, match_seperation_threshold,
+		   nodata1, nodata2, left_tx, tx );
     if (!inlier)
       return inlier;
 
@@ -822,8 +822,8 @@ namespace asp {
     bool adjust_left_image_size = true;
     Matrix<double> matrix1, matrix2;
     homography_rectification( adjust_left_image_size,
-                              raster_box.size(), raster_box.size(),
-                              ip1_copy, ip2_copy, matrix1, matrix2 );
+			      raster_box.size(), raster_box.size(),
+			      ip1_copy, ip2_copy, matrix1, matrix2 );
     if ( sum(abs(submatrix(rough_homography,0,0,2,2) - submatrix(matrix2,0,0,2,2))) > 4 ) {
       vw_out() << "Post homography has largely different scale and skew from rough fit. Post solution is " << matrix2 << "\n";
       //return false;

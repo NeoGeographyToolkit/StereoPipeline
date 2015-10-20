@@ -24,61 +24,80 @@
 
 using namespace vw;
 
+int g_num_errors = 0;
+Mutex g_mutex;
+
 namespace asp {
 
 //-------------------------------------------------------------------------------------------------
 // Class EpipolarLinePointMatcher
 
   EpipolarLinePointMatcher::EpipolarLinePointMatcher( bool single_threaded_camera,
-                                                      double threshold, double epipolar_threshold,
-                                                      vw::cartography::Datum const& datum) :
-    m_single_threaded_camera(single_threaded_camera), m_threshold(threshold), 
+						      double threshold, double epipolar_threshold,
+						      vw::cartography::Datum const& datum) :
+    m_single_threaded_camera(single_threaded_camera), m_threshold(threshold),
     m_epipolar_threshold(epipolar_threshold), m_datum(datum) {}
 
   Vector3 EpipolarLinePointMatcher::epipolar_line( Vector2 const& feature,
-                                                   cartography::Datum const& datum,
-                                                   camera::CameraModel* cam_ip,
-                                                   camera::CameraModel* cam_obj,
-                                                   bool & success) {
+						   cartography::Datum const& datum,
+						   camera::CameraModel* cam_ip,
+						   camera::CameraModel* cam_obj,
+						   bool & success) {
     success = true;
 
-    // Intersect the interest point pixel with the datum
-    Vector3 p0 = cartography::datum_intersection( datum, cam_ip, feature );
+    // Watch out for errors thrown when projecting into the camera
+    try{
 
-    if (p0 == Vector3()){ // No intersection
-      success = false;
-      return Vector3();
+      // Intersect the interest point pixel with the datum
+      Vector3 p0 = cartography::datum_intersection( datum, cam_ip, feature );
+
+      if (p0 == Vector3()){ // No intersection
+	success = false;
+	return Vector3();
+      }
+
+      Vector3 p1  = p0 + 10*cam_ip->pixel_to_vector( feature ); // Extend the point below the datum
+      Vector2 ep0 = cam_obj->point_to_pixel( p0 ); // Project the intersection and extension into the other camera
+      Vector2 ep1 = cam_obj->point_to_pixel( p1 );
+      Matrix<double> matrix( 2, 3 );
+      select_col( matrix, 2 ) = Vector2(1,1);
+      matrix(0,0) = ep0.x();
+      matrix(0,1) = ep0.y();
+      matrix(1,0) = ep1.x();
+      matrix(1,1) = ep1.y();
+
+      if (matrix != matrix){ // Got back NaN values. Can't proceed.
+	success = false;
+	return Vector3();
+      }
+
+      Matrix<double> nsp = nullspace( matrix );
+      if (nsp.cols() <= 0 || nsp.rows() <= 0){ // Failed to find the nullspace
+	success = false;
+	return Vector3();
+      }
+
+      return select_col(nsp,0);
+
+    } catch (std::exception const& e) {
+      Mutex::Lock lock( g_mutex );
+      g_num_errors++;
+      if (g_num_errors < 100) {
+	vw_out(ErrorMessage) << e.what() << std::endl;
+      }else if (g_num_errors == 100) {
+	vw_out() << "Will print no more error messages about failing to find epipolar line.\n";
+      }
     }
 
-    Vector3 p1  = p0 + 10*cam_ip->pixel_to_vector( feature ); // Extend the point below the datum
-    Vector2 ep0 = cam_obj->point_to_pixel( p0 ); // Project the intersection and extension into the other camera
-    Vector2 ep1 = cam_obj->point_to_pixel( p1 );
-    Matrix<double> matrix( 2, 3 );
-    select_col( matrix, 2 ) = Vector2(1,1);
-    matrix(0,0) = ep0.x();
-    matrix(0,1) = ep0.y();
-    matrix(1,0) = ep1.x();
-    matrix(1,1) = ep1.y();
-
-    if (matrix != matrix){ // Got back NaN values. Can't proceed.
-      success = false;
-      return Vector3();
-    }
-
-    Matrix<double> nsp = nullspace( matrix );
-    if (nsp.cols() <= 0 || nsp.rows() <= 0){ // Failed to find the nullspace
-      success = false;
-      return Vector3();
-    }
-
-    return select_col(nsp,0);
+    success = false;
+    return Vector3();
   }
 
   double EpipolarLinePointMatcher::distance_point_line( Vector3 const& line,
-                                                        Vector2 const& point ) {
+							Vector2 const& point ) {
     return fabs( line.x() * point.x() +
-                 line.y() * point.y() +
-                 line.z() ) /
+		 line.y() * point.y() +
+		 line.z() ) /
       norm_2( subvector( line, 0, 2 ) );
   }
 
@@ -98,19 +117,19 @@ namespace asp {
     std::vector<size_t>::iterator   m_output;
   public:
     EpipolarLineMatchTask( bool single_threaded_camera,
-                           bool use_uchar_tree,
-                           math::FLANNTree<float        >& tree_float,
-                           math::FLANNTree<unsigned char>& tree_uchar,
-                           ip::InterestPointList::const_iterator start,
-                           ip::InterestPointList::const_iterator end,
-                           ip::InterestPointList const& ip2,
-                           camera::CameraModel* cam1,
-                           camera::CameraModel* cam2,
-                           TransformRef const& tx1,
-                           TransformRef const& tx2,
-                           EpipolarLinePointMatcher const& matcher,
-                           Mutex& camera_mutex,
-                           std::vector<size_t>::iterator output ) :
+			   bool use_uchar_tree,
+			   math::FLANNTree<float        >& tree_float,
+			   math::FLANNTree<unsigned char>& tree_uchar,
+			   ip::InterestPointList::const_iterator start,
+			   ip::InterestPointList::const_iterator end,
+			   ip::InterestPointList const& ip2,
+			   camera::CameraModel* cam1,
+			   camera::CameraModel* cam2,
+			   TransformRef const& tx1,
+			   TransformRef const& tx2,
+			   EpipolarLinePointMatcher const& matcher,
+			   Mutex& camera_mutex,
+			   std::vector<size_t>::iterator output ) :
       m_single_threaded_camera(single_threaded_camera),
       m_use_uchar_tree(use_uchar_tree), m_tree_float(tree_float), m_tree_uchar(tree_uchar),
       m_start(start), m_end(end), m_ip_other(ip2),
@@ -124,88 +143,91 @@ namespace asp {
       Vector<double> distances(NUM_MATCHES_TO_FIND);
 
       for ( IPListIter ip = m_start; ip != m_end; ip++ ) {
-        Vector2 ip_org_coord = m_tx1.reverse( Vector2( ip->x, ip->y ) );
-        Vector3 line_eq;
+	Vector2 ip_org_coord = m_tx1.reverse( Vector2( ip->x, ip->y ) );
+	Vector3 line_eq;
 
-        // Find the equation that describes the epipolar line
-        bool found_epipolar;
-        if (m_single_threaded_camera){
-          // ISIS camera is single-threaded
-          Mutex::Lock lock( m_camera_mutex );
-          line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, m_cam1, m_cam2, found_epipolar);
-        }else{
-          line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, m_cam1, m_cam2, found_epipolar);
-        }
+	// Find the equation that describes the epipolar line
+	bool found_epipolar = false;
+	if (m_single_threaded_camera){
+	  // ISIS camera is single-threaded
+	  Mutex::Lock lock( m_camera_mutex );
+	  line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, m_cam1, m_cam2, found_epipolar);
+	}else{
+	  line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, m_cam1, m_cam2, found_epipolar);
+	}
 
-        // TODO: If not found epipolar we can just quit now!
+	if (!found_epipolar) {
+	  *m_output++ = (size_t)(-1); // Failed to find a match, return a flag!
+	  continue; // Skip to the next IP
+	}
 
-        // Use FLANN tree to find the N nearest neighbors according to the IP region descriptor?
-        std::vector<std::pair<float,int> > kept_indices;
-        kept_indices.reserve(NUM_MATCHES_TO_FIND);
+	// Use FLANN tree to find the N nearest neighbors according to the IP region descriptor?
+	std::vector<std::pair<float,int> > kept_indices;
+	kept_indices.reserve(NUM_MATCHES_TO_FIND);
 
-        // Call the correct FLANN tree for the matching type
-        size_t num_matches_valid = 0;
-        if (m_use_uchar_tree) {
-          vw::Vector<unsigned char> uchar_descriptor(ip->descriptor.size());
-          for (size_t i=0; i<ip->descriptor.size(); ++i)
-            uchar_descriptor[i] = static_cast<unsigned char>(ip->descriptor[i]);
-          num_matches_valid = m_tree_uchar.knn_search( uchar_descriptor, indices, distances, NUM_MATCHES_TO_FIND );
-        } else {
-          num_matches_valid = m_tree_float.knn_search( ip->descriptor, indices, distances, NUM_MATCHES_TO_FIND );
-        }
+	// Call the correct FLANN tree for the matching type
+	size_t num_matches_valid = 0;
+	if (m_use_uchar_tree) {
+	  vw::Vector<unsigned char> uchar_descriptor(ip->descriptor.size());
+	  for (size_t i=0; i<ip->descriptor.size(); ++i)
+	    uchar_descriptor[i] = static_cast<unsigned char>(ip->descriptor[i]);
+	  num_matches_valid = m_tree_uchar.knn_search( uchar_descriptor, indices, distances, NUM_MATCHES_TO_FIND );
+	} else {
+	  num_matches_valid = m_tree_float.knn_search( ip->descriptor, indices, distances, NUM_MATCHES_TO_FIND );
+	}
 
-        if (num_matches_valid < 1) {
-          *m_output++ = (size_t)(-1); // Failed to find a match, return a flag!
-          continue; // Skip to the next IP
-        }
+	if (num_matches_valid < 1) {
+	  *m_output++ = (size_t)(-1); // Failed to find a match, return a flag!
+	  continue; // Skip to the next IP
+	}
 
-        //vw_out() << "For descriptor: " << ip->descriptor << std::endl;
-        //vw_out() << num_matches_valid << " Best match distances: " << distances << std::endl;
-        //vw_out() << "Indices: " << indices << std::endl;
+	//vw_out() << "For descriptor: " << ip->descriptor << std::endl;
+	//vw_out() << num_matches_valid << " Best match distances: " << distances << std::endl;
+	//vw_out() << "Indices: " << indices << std::endl;
 
-        // Loop through the N "nearest" points and keep only the ones within 
-        //   m_matcher.m_epipolar_threshold pixel distance from the epipolar line
-        for ( size_t i = 0; i < num_matches_valid; i++ ) {
-          IPListIter ip2_it = m_ip_other.begin();
-          std::advance( ip2_it, indices[i] );
+	// Loop through the N "nearest" points and keep only the ones within
+	//   m_matcher.m_epipolar_threshold pixel distance from the epipolar line
+	for ( size_t i = 0; i < num_matches_valid; i++ ) {
+	  IPListIter ip2_it = m_ip_other.begin();
+	  std::advance( ip2_it, indices[i] );
 
-          if (found_epipolar){
-            Vector2 ip2_org_coord = m_tx2.reverse( Vector2( ip2_it->x, ip2_it->y ) );
-            double line_distance = m_matcher.distance_point_line( line_eq, ip2_org_coord );
-            if ( line_distance < m_matcher.m_epipolar_threshold ) {
-              kept_indices.push_back( std::pair<float,int>( distances[i], indices[i] ) );
-            }
-            else {
-              Vector2 ip1_coord( ip->x, ip->y );
-              //double normDist = norm_2(ip1_coord - ip2_org_coord);
-              //vw_out() << "Discarding match between " << ip1_coord << " and " << ip2_org_coord
-              //        << " because distance is " << line_distance << " and threshold is " 
-              //        << m_matcher.m_epipolar_threshold << " norm dist = " << normDist<<"\n";
-            }
-          } 
-        } // End loop for match prunining
+	  if (found_epipolar){
+	    Vector2 ip2_org_coord = m_tx2.reverse( Vector2( ip2_it->x, ip2_it->y ) );
+	    double line_distance = m_matcher.distance_point_line( line_eq, ip2_org_coord );
+	    if ( line_distance < m_matcher.m_epipolar_threshold ) {
+	      kept_indices.push_back( std::pair<float,int>( distances[i], indices[i] ) );
+	    }
+	    else {
+	      Vector2 ip1_coord( ip->x, ip->y );
+	      //double normDist = norm_2(ip1_coord - ip2_org_coord);
+	      //vw_out() << "Discarding match between " << ip1_coord << " and " << ip2_org_coord
+	      //        << " because distance is " << line_distance << " and threshold is "
+	      //        << m_matcher.m_epipolar_threshold << " norm dist = " << normDist<<"\n";
+	    }
+	  }
+	} // End loop for match prunining
 
-        // If we only found one match or the first descriptor match is much better than the second
-        if ( ( (kept_indices.size() > 2) && (kept_indices[0].first < m_matcher.m_threshold * kept_indices[1].first) )
-              || (kept_indices.size() == 1) ){
-          *m_output++ = kept_indices[0].second; // Return the first of the matches we found
-          //vw_out() << "Kept distance: " << kept_indices[0].first << std::endl;
-        } else { // No matches or no clear winner
-          *m_output++ = (size_t)(-1); // Failed to find a match, return a flag!
-        }
+	// If we only found one match or the first descriptor match is much better than the second
+	if ( ( (kept_indices.size() > 2) && (kept_indices[0].first < m_matcher.m_threshold * kept_indices[1].first) )
+	      || (kept_indices.size() == 1) ){
+	  *m_output++ = kept_indices[0].second; // Return the first of the matches we found
+	  //vw_out() << "Kept distance: " << kept_indices[0].first << std::endl;
+	} else { // No matches or no clear winner
+	  *m_output++ = (size_t)(-1); // Failed to find a match, return a flag!
+	}
       } // End loop through IP
     } // End function operator()
 
   }; // End class EpipolarLineMatchTask -------------------
 
   void EpipolarLinePointMatcher::operator()( ip::InterestPointList const& ip1,
-                                             ip::InterestPointList const& ip2,
-                                             DetectIpMethod  ip_detect_method,
-                                             camera::CameraModel        * cam1,
-                                             camera::CameraModel        * cam2,
-                                             TransformRef          const& tx1,
-                                             TransformRef          const& tx2,
-                                             std::vector<size_t>        & output_indices ) const {
+					     ip::InterestPointList const& ip2,
+					     DetectIpMethod  ip_detect_method,
+					     camera::CameraModel        * cam1,
+					     camera::CameraModel        * cam2,
+					     TransformRef          const& tx1,
+					     TransformRef          const& tx2,
+					     std::vector<size_t>        & output_indices ) const {
     typedef ip::InterestPointList::const_iterator IPListIter;
 
     Timer total_time("Total elapsed time", DebugMessage, "interest_point");
@@ -259,21 +281,21 @@ namespace asp {
       IPListIter end_it = start_it;
       std::advance( end_it, ip1_size / number_of_jobs );
       boost::shared_ptr<Task>
-        match_task( new EpipolarLineMatchTask( m_single_threaded_camera,
-                                               use_uchar_FLANN, kd_float, kd_uchar, 
-                                               start_it, end_it,
-                                               ip2, cam1, cam2, tx1, tx2, *this,
-                                               camera_mutex, output_it ) );
+	match_task( new EpipolarLineMatchTask( m_single_threaded_camera,
+					       use_uchar_FLANN, kd_float, kd_uchar,
+					       start_it, end_it,
+					       ip2, cam1, cam2, tx1, tx2, *this,
+					       camera_mutex, output_it ) );
       matching_queue.add_task( match_task );
       start_it = end_it;
       std::advance( output_it, ip1_size / number_of_jobs );
     }
     boost::shared_ptr<Task>
       match_task( new EpipolarLineMatchTask( m_single_threaded_camera,
-                                             use_uchar_FLANN, kd_float, kd_uchar, 
-                                             start_it, ip1.end(),
-                                             ip2, cam1, cam2, tx1, tx2, *this,
-                                             camera_mutex, output_it ) );
+					     use_uchar_FLANN, kd_float, kd_uchar,
+					     start_it, ip1.end(),
+					     ip2, cam1, cam2, tx1, tx2, *this,
+					     camera_mutex, output_it ) );
     matching_queue.add_task( match_task );
     matching_queue.join_all(); // Wait for all the jobs to finish.
   }
@@ -282,10 +304,10 @@ namespace asp {
 //---------------------------------------------------------------------------------------
 
   void check_homography_matrix(Matrix<double>       const& H,
-                               std::vector<Vector3> const& left_points,
-                               std::vector<Vector3> const& right_points,
-                               std::vector<size_t>  const& indices
-                               ){
+			       std::vector<Vector3> const& left_points,
+			       std::vector<Vector3> const& right_points,
+			       std::vector<size_t>  const& indices
+			       ){
 
     // Sanity checks. If these fail, most likely the two images are too different
     // for stereo to succeed.
@@ -314,9 +336,9 @@ namespace asp {
   // the pixels in the two camera images.
   Matrix<double>
   rough_homography_fit( camera::CameraModel* cam1,
-                        camera::CameraModel* cam2,
-                        BBox2i const& box1, BBox2i const& box2,
-                        cartography::Datum const& datum ) {
+			camera::CameraModel* cam2,
+			BBox2i const& box1, BBox2i const& box2,
+			cartography::Datum const& datum ) {
 
     // Bounce several points off the datum and fit an affine.
     std::vector<Vector3> left_points, right_points;
@@ -325,39 +347,39 @@ namespace asp {
     right_points.reserve(2*num*num);
     for (int i = 0; i < num; i++ ) {
       for ( int j = 0; j < num; j++ ) {
-        try {
-          Vector2 l( double(box1.width()  - 1) * i / (num-1.0),
-                     double(box1.height() - 1) * j / (num-1.0) );
+	try {
+	  Vector2 l( double(box1.width()  - 1) * i / (num-1.0),
+		     double(box1.height() - 1) * j / (num-1.0) );
 
-          Vector3 intersection = cartography::datum_intersection( datum, cam1, l );
-          if ( intersection == Vector3() )
-            continue;
+	  Vector3 intersection = cartography::datum_intersection( datum, cam1, l );
+	  if ( intersection == Vector3() )
+	    continue;
 
-          Vector2 r = cam2->point_to_pixel( intersection );
+	  Vector2 r = cam2->point_to_pixel( intersection );
 
-          if ( box2.contains( r ) ){
-            left_points.push_back(  Vector3(l[0],l[1],1) );
-            right_points.push_back( Vector3(r[0],r[1],1) );
-          }
-        }
-        catch (...) {}
+	  if ( box2.contains( r ) ){
+	    left_points.push_back(  Vector3(l[0],l[1],1) );
+	    right_points.push_back( Vector3(r[0],r[1],1) );
+	  }
+	}
+	catch (...) {}
 
-        try {
-          Vector2 r( double(box2.width()  - 1) * i / (num-1.0),
-                     double(box2.height() - 1) * j / (num-1.0) );
+	try {
+	  Vector2 r( double(box2.width()  - 1) * i / (num-1.0),
+		     double(box2.height() - 1) * j / (num-1.0) );
 
-          Vector3 intersection = cartography::datum_intersection( datum, cam2, r );
-          if ( intersection == Vector3() )
-            continue;
+	  Vector3 intersection = cartography::datum_intersection( datum, cam2, r );
+	  if ( intersection == Vector3() )
+	    continue;
 
-          Vector2 l = cam1->point_to_pixel( intersection );
+	  Vector2 l = cam1->point_to_pixel( intersection );
 
-          if ( box1.contains( l ) ) {
-            left_points.push_back( Vector3(l[0],l[1],1) );
-            right_points.push_back( Vector3(r[0],r[1],1) );
-          }
-        }
-        catch (...) {}
+	  if ( box1.contains( l ) ) {
+	    left_points.push_back( Vector3(l[0],l[1],1) );
+	    right_points.push_back( Vector3(r[0],r[1],1) );
+	  }
+	}
+	catch (...) {}
       }
     }
     if (left_points.empty() || right_points.empty())
@@ -366,16 +388,16 @@ namespace asp {
     typedef math::HomographyFittingFunctor hfit_func;
     math::RandomSampleConsensus<hfit_func, math::InterestPointErrorMetric>
       ransac( hfit_func(), math::InterestPointErrorMetric(),
-              100, // num iterations
-              norm_2(Vector2(box1.width(),box1.height())) / 10, // inlier threshold
-              left_points.size()/2 // min output inliers
-              );
+	      100, // num iterations
+	      norm_2(Vector2(box1.width(),box1.height())) / 10, // inlier threshold
+	      left_points.size()/2 // min output inliers
+	      );
     Matrix<double> H = ransac( right_points, left_points );
     std::vector<size_t> indices = ransac.inlier_indices(H, right_points, left_points);
     check_homography_matrix(H, left_points, right_points, indices);
 
     VW_OUT( DebugMessage, "asp" ) << "Projected " << left_points.size()
-                                  << " rays for rough homography.\n";
+				  << " rays for rough homography.\n";
     VW_OUT( DebugMessage, "asp" ) << "Number of inliers: " << indices.size() << ".\n";
 
     return H;
@@ -383,24 +405,24 @@ namespace asp {
 
   Vector2i
   homography_rectification( bool adjust_left_image_size,
-                            Vector2i const& left_size,
-                            Vector2i const& right_size,
-                            std::vector<ip::InterestPoint> const& left_ip,
-                            std::vector<ip::InterestPoint> const& right_ip,
-                            vw::Matrix<double>& left_matrix,
-                            vw::Matrix<double>& right_matrix ) {
+			    Vector2i const& left_size,
+			    Vector2i const& right_size,
+			    std::vector<ip::InterestPoint> const& left_ip,
+			    std::vector<ip::InterestPoint> const& right_ip,
+			    vw::Matrix<double>& left_matrix,
+			    vw::Matrix<double>& right_matrix ) {
     // Reformat the interest points for RANSAC
-    std::vector<Vector3>  right_copy = iplist_to_vectorlist(right_ip), 
-                          left_copy  = iplist_to_vectorlist(left_ip);
+    std::vector<Vector3>  right_copy = iplist_to_vectorlist(right_ip),
+			  left_copy  = iplist_to_vectorlist(left_ip);
 
     // Use RANSAC to determine a good homography transform between the images
     math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric>
-      ransac( math::HomographyFittingFunctor(), 
-              math::InterestPointErrorMetric(),
-              100, // num iter
-              norm_2(Vector2(left_size.x(),left_size.y())) / 10, // inlier threshold
-              left_copy.size()*2/3 // min output inliers
-              );
+      ransac( math::HomographyFittingFunctor(),
+	      math::InterestPointErrorMetric(),
+	      100, // num iter
+	      norm_2(Vector2(left_size.x(),left_size.y())) / 10, // inlier threshold
+	      left_copy.size()*2/3 // min output inliers
+	      );
     Matrix<double> H = ransac(right_copy, left_copy);
     std::vector<size_t> indices = ransac.inlier_indices(H, right_copy, left_copy);
     check_homography_matrix(H, left_copy, right_copy, indices);
@@ -445,12 +467,12 @@ namespace asp {
 
   bool
   tri_ip_filtering( std::vector<ip::InterestPoint> const& matched_ip1,
-                    std::vector<ip::InterestPoint> const& matched_ip2,
-                    vw::camera::CameraModel* cam1,
-                    vw::camera::CameraModel* cam2,
-                    std::list<size_t>& valid_indices,
-                    vw::TransformRef const& left_tx,
-                    vw::TransformRef const& right_tx ) {
+		    std::vector<ip::InterestPoint> const& matched_ip2,
+		    vw::camera::CameraModel* cam1,
+		    vw::camera::CameraModel* cam2,
+		    std::list<size_t>& valid_indices,
+		    vw::TransformRef const& left_tx,
+		    vw::TransformRef const& right_tx ) {
     typedef std::vector<double> ArrayT;
     ArrayT error_samples( valid_indices.size() );
 
@@ -460,26 +482,26 @@ namespace asp {
     size_t count = 0;
     BOOST_FOREACH( size_t i, valid_indices ) {
       model( left_tx.reverse(Vector2( matched_ip1[i].x,
-                                      matched_ip1[i].y )),
-             right_tx.reverse(Vector2(matched_ip2[i].x,
-                                      matched_ip2[i].y)),
-             error_samples[count] );
+				      matched_ip1[i].y )),
+	     right_tx.reverse(Vector2(matched_ip2[i].x,
+				      matched_ip2[i].y)),
+	     error_samples[count] );
       count++;
     }
     VW_ASSERT( count == valid_indices.size(),
-               vw::MathErr() << "tri_ip_filtering: Programmer error. Count indices not aligned." );
+	       vw::MathErr() << "tri_ip_filtering: Programmer error. Count indices not aligned." );
 
     typedef std::vector<std::pair<Vector<double>, Vector<double> > > ClusterT;
     ClusterT error_clusters =
       asp::gaussian_clustering<ArrayT>( error_samples.begin(),
-                                        error_samples.end(), 2 );
+					error_samples.end(), 2 );
 
     // The best triangulation error is the one that has the smallest
     // standard deviations. They are focused on the tight pack of
     // inliers. Bring the smaller std-dev cluster to the front as it
     // is what we are interested in.OB
     if ( error_clusters.front().second[0] > error_clusters.back().second[0] &&
-         error_clusters.back().second[0] != std::numeric_limits<double>::epsilon() )
+	 error_clusters.back().second[0] != std::numeric_limits<double>::epsilon() )
       std::swap( error_clusters[0], error_clusters[1] );
 
     // Determine if we just wrote nothing but outliers (the variance
@@ -505,19 +527,19 @@ namespace asp {
       std::list<size_t> filtered_indices;
       size_t c=0;
       for ( std::list<size_t>::iterator i = valid_indices.begin();
-          i != valid_indices.end(); i++ )
+	  i != valid_indices.end(); i++ )
       {
-        if (error_samples[c] < cutoff_value)
-          filtered_indices.push_back(*i);
-        ++c;
+	if (error_samples[c] < cutoff_value)
+	  filtered_indices.push_back(*i);
+	++c;
       }
       valid_indices = filtered_indices;
       return true;
     }
 
     vw_out() << "\t    Inlier cluster:\n"
-             << "\t      Triangulation Err: " << error_clusters.front().first[0]
-             << " +- " << sqrt( error_clusters.front().second[0] ) << " meters\n";
+	     << "\t      Triangulation Err: " << error_clusters.front().first[0]
+	     << " +- " << sqrt( error_clusters.front().second[0] ) << " meters\n";
 
     // Record indices of points that match our clustering result
     const double escalar1 = 1.0 / sqrt( 2.0 * M_PI * error_clusters.front().second[0] ); // outside exp of normal eq
@@ -527,30 +549,30 @@ namespace asp {
     size_t error_idx = 0;
     size_t prior_valid_size = valid_indices.size();
     for ( std::list<size_t>::iterator i = valid_indices.begin();
-          i != valid_indices.end(); i++ ) {
+	  i != valid_indices.end(); i++ ) {
       double err_diff_front = error_samples[error_idx]-error_clusters.front().first[0];
       double err_diff_back  = error_samples[error_idx]-error_clusters.back().first[0];
 
       if (
-          !((escalar1 * exp( (-err_diff_front * err_diff_front) * escalar3 ) ) >
-            (escalar2 * exp( (-err_diff_back * err_diff_back) * escalar4 ) ) ||
-            error_samples[error_idx] < error_clusters.front().first[0]) ) {
-        // It's an outlier!
-        i = valid_indices.erase(i);
-        i--; // For loop is going to increment this back up
+	  !((escalar1 * exp( (-err_diff_front * err_diff_front) * escalar3 ) ) >
+	    (escalar2 * exp( (-err_diff_back * err_diff_back) * escalar4 ) ) ||
+	    error_samples[error_idx] < error_clusters.front().first[0]) ) {
+	// It's an outlier!
+	i = valid_indices.erase(i);
+	i--; // For loop is going to increment this back up
       }
       error_idx++;
     }
     VW_ASSERT( prior_valid_size == error_idx,
-               vw::MathErr() << "tri_ip_filtering: Programmer error. Indices don't seem to be aligned." );
+	       vw::MathErr() << "tri_ip_filtering: Programmer error. Indices don't seem to be aligned." );
 
     return true;
   }
 
   bool
   stddev_ip_filtering( std::vector<vw::ip::InterestPoint> const& ip1,
-                       std::vector<vw::ip::InterestPoint> const& ip2,
-                       std::list<size_t>& valid_indices ) {
+		       std::vector<vw::ip::InterestPoint> const& ip2,
+		       std::list<size_t>& valid_indices ) {
     // 4 stddev filtering. Deletes any disparity measurement that is 4
     // stddev away from the measurements of it's local neighbors. We
     // kill off worse offender one at a time until everyone is compliant.
@@ -562,12 +584,12 @@ namespace asp {
       std::vector<size_t > reverse_lookup  ( valid_indices.size() );
       std::vector<Vector2> disparity_vector( valid_indices.size() );
       BOOST_FOREACH( size_t index, valid_indices ) {
-        locations1( count, 0 ) = ip1[index].x;
-        locations1( count, 1 ) = ip1[index].y;
-        reverse_lookup  [ count ] = index;
-        disparity_vector[ count ] = Vector2(ip2[index].x,ip2[index].y) -
-                                    Vector2(ip1[index].x,ip1[index].y);
-        count++;
+	locations1( count, 0 ) = ip1[index].x;
+	locations1( count, 1 ) = ip1[index].y;
+	reverse_lookup  [ count ] = index;
+	disparity_vector[ count ] = Vector2(ip2[index].x,ip2[index].y) -
+				    Vector2(ip1[index].x,ip1[index].y);
+	count++;
       }
       math::FLANNTree<float> tree1;
       tree1.load_match_data( locations1, vw::math::FLANN_DistType_L2);
@@ -575,55 +597,55 @@ namespace asp {
       std::pair<double,size_t> worse_index;
       worse_index.first = 0;
       for ( size_t i = 0; i < valid_indices.size(); i++ ) {
-        Vector<int   > indices;
-        Vector<double> distance;
-        const int NUM_INDICES_TO_GET = 11;
-        tree1.knn_search( select_row( locations1, i ),
-                          indices, distance, NUM_INDICES_TO_GET );
+	Vector<int   > indices;
+	Vector<double> distance;
+	const int NUM_INDICES_TO_GET = 11;
+	tree1.knn_search( select_row( locations1, i ),
+			  indices, distance, NUM_INDICES_TO_GET );
 
-        // Bugfix: If there are too few inputs, in rare occasions
-        // some of the outputs are invalid. Not always. Could not
-        // figure this out in reasonable time, the logic is somewhere
-        // deep inside FLANN. Just discard the bad results.
-        std::vector<int> good_indices;
-        for (size_t j = 0; j < indices.size(); j++) {
-          if (indices[j] >= (int)disparity_vector.size()) continue;
-          good_indices.push_back(indices[j]);
-        }
+	// Bugfix: If there are too few inputs, in rare occasions
+	// some of the outputs are invalid. Not always. Could not
+	// figure this out in reasonable time, the logic is somewhere
+	// deep inside FLANN. Just discard the bad results.
+	std::vector<int> good_indices;
+	for (size_t j = 0; j < indices.size(); j++) {
+	  if (indices[j] >= (int)disparity_vector.size()) continue;
+	  good_indices.push_back(indices[j]);
+	}
 
-        // Make an average of the disparities around us and not our own
-        // measurement
-        Vector2 sum;
-        for ( size_t j = 1; j < good_indices.size(); j++ ) {
-          sum += disparity_vector[ good_indices[j] ];
-        }
-        sum = normalize( sum );
+	// Make an average of the disparities around us and not our own
+	// measurement
+	Vector2 sum;
+	for ( size_t j = 1; j < good_indices.size(); j++ ) {
+	  sum += disparity_vector[ good_indices[j] ];
+	}
+	sum = normalize( sum );
 
-        // Project all disparities along the new gradient
-        Vector<double> projections( good_indices.size() );
-        for ( size_t j = 0; j < good_indices.size(); j++ ) {
-          projections[j] = dot_prod( disparity_vector[good_indices[j]], sum );
-        }
-        double mean = 0;
-        double stddev = 0;
-        for ( size_t j = 1; j < good_indices.size(); j++ ) {
-          mean += projections[j];
-          stddev += projections[j]*projections[j];
-        }
-        mean /= good_indices.size() - 1;
-        stddev = sqrt( stddev / ( good_indices.size() - 1 ) - mean*mean );
+	// Project all disparities along the new gradient
+	Vector<double> projections( good_indices.size() );
+	for ( size_t j = 0; j < good_indices.size(); j++ ) {
+	  projections[j] = dot_prod( disparity_vector[good_indices[j]], sum );
+	}
+	double mean = 0;
+	double stddev = 0;
+	for ( size_t j = 1; j < good_indices.size(); j++ ) {
+	  mean += projections[j];
+	  stddev += projections[j]*projections[j];
+	}
+	mean /= good_indices.size() - 1;
+	stddev = sqrt( stddev / ( good_indices.size() - 1 ) - mean*mean );
 
-        double std_distance = fabs(projections[0]-mean)/stddev;
-        if ( std_distance > worse_index.first ) {
-          worse_index.first = std_distance;
-          worse_index.second = i;
-        }
+	double std_distance = fabs(projections[0]-mean)/stddev;
+	if ( std_distance > worse_index.first ) {
+	  worse_index.first = std_distance;
+	  worse_index.second = i;
+	}
       }
       if ( worse_index.first > 4 ) {
-        std::list<size_t>::iterator it = valid_indices.begin();
-        std::advance( it, worse_index.second );
-        valid_indices.erase( it );
-        deleted_something = true;
+	std::list<size_t>::iterator it = valid_indices.begin();
+	std::advance( it, worse_index.second );
+	valid_indices.erase( it );
+	deleted_something = true;
       }
     } while( deleted_something );
 

@@ -77,7 +77,7 @@
 
  - bundle_adjust
     * Added OpenCV-based SIFT and ORB interest point finding options.
-
+ 
  - geodiff
    * Bugfix when the two DEMs have longitudes offset by 360 degrees.
 

@@ -71,11 +71,11 @@ namespace asp{
 // range, but we try to minimize that.
 inline ImageViewRef< PixelMask<float> >
 find_ideal_isis_range(DiskImageView<float> const& image,
-                      boost::shared_ptr<DiskImageResourceIsis> isis_rsrc,
-                      float nodata_value,
-                      std::string const& tag,
-                      bool & will_apply_user_nodata,
-                      float & isis_lo, float & isis_hi ) {
+		      boost::shared_ptr<DiskImageResourceIsis> isis_rsrc,
+		      float nodata_value,
+		      std::string const& tag,
+		      bool & will_apply_user_nodata,
+		      float & isis_lo, float & isis_hi ) {
 
   will_apply_user_nodata = false;
   isis_lo = isis_rsrc->valid_minimum();
@@ -96,19 +96,19 @@ find_ideal_isis_range(DiskImageView<float> const& image,
   // Calculating statistics. We subsample the images so statistics only does about a million samples.
   float isis_mean, isis_std;
   {
-    vw_out(InfoMessage) << "\t--> Computing statistics for " + tag + " image\n";
+    vw_out(InfoMessage) << "\t--> Computing statistics for " + tag + "\n";
     int stat_scale = int(ceil(sqrt(float(image.cols())*float(image.rows()) / 1000000)));
     ChannelAccumulator<math::CDFAccumulator<float> > accumulator;
     for_each_pixel(subsample(edge_extend(masked_image, ConstantEdgeExtension()),
-                             stat_scale ),
-                   accumulator );
+			     stat_scale ),
+		   accumulator );
     isis_lo   = accumulator.quantile(0);
     isis_hi   = accumulator.quantile(1);
     isis_mean = accumulator.approximate_mean();
     isis_std  = accumulator.approximate_stddev();
 
     vw_out(InfoMessage) << "\t  "+tag+": [ lo:" << isis_lo << " hi:" << isis_hi
-                        << " m: " << isis_mean << " s: " << isis_std <<  "]\n";
+			<< " m: " << isis_mean << " s: " << isis_std <<  "]\n";
   }
 
   // Normalizing to -+2 sigmas around mean
@@ -121,7 +121,7 @@ find_ideal_isis_range(DiskImageView<float> const& image,
       isis_hi = isis_mean + 2*isis_std;
 
     vw_out(InfoMessage) << "\t    "+tag+" changed: [ lo:"
-                        << isis_lo << " hi:" << isis_hi << "]\n";
+			<< isis_lo << " hi:" << isis_hi << "]\n";
   }
 
   return masked_image;
@@ -130,16 +130,16 @@ find_ideal_isis_range(DiskImageView<float> const& image,
 // This actually modifies and writes the pre-processed image.
 inline
 void write_preprocessed_isis_image( BaseOptions const& opt,
-                                    bool will_apply_user_nodata,
-                                    ImageViewRef< PixelMask <float> > masked_image,
-                                    std::string const& out_file,
-                                    std::string const& tag,
-                                    float isis_lo, float isis_hi,
-                                    float out_lo,  float out_hi,
-                                    Matrix<double> const& matrix,
-                                    Vector2i const& crop_size,
-                                    bool has_georef,
-                                    vw::cartography::GeoReference const& georef) {
+				    bool will_apply_user_nodata,
+				    ImageViewRef< PixelMask <float> > masked_image,
+				    std::string const& out_file,
+				    std::string const& tag,
+				    float isis_lo, float isis_hi,
+				    float out_lo,  float out_hi,
+				    Matrix<double> const& matrix,
+				    Vector2i const& crop_size,
+				    bool has_georef,
+				    vw::cartography::GeoReference const& georef) {
 
   // The output no-data value must be < 0 as we scale the images to [0, 1].
   bool has_nodata = true;
@@ -164,17 +164,17 @@ void write_preprocessed_isis_image( BaseOptions const& opt,
     ImageViewRef< PixelMask<float> > applied_image;
     if ( matrix == math::identity_matrix<3>() ) {
       applied_image = crop(edge_extend(normalized_image, ZeroEdgeExtension()),
-                           0, 0, crop_size[0], crop_size[1]);
+			   0, 0, crop_size[0], crop_size[1]);
     } else {
       applied_image = transform(normalized_image, HomographyTransform(matrix),
-                                crop_size[0], crop_size[1]);
+				crop_size[0], crop_size[1]);
     }
 
     vw_out() << "\t--> Writing normalized image: " << out_file << "\n";
     block_write_gdal_image( out_file, apply_mask(applied_image, output_nodata),
-                            has_georef, georef,
-                            has_nodata, output_nodata, opt,
-                            TerminalProgressCallback("asp", "\t  "+tag+":  "));
+			    has_georef, georef,
+			    has_nodata, output_nodata, opt,
+			    TerminalProgressCallback("asp", "\t  "+tag+":  "));
 
   }else{
 
@@ -187,17 +187,17 @@ void write_preprocessed_isis_image( BaseOptions const& opt,
     ImageViewRef<float> applied_image;
     if ( matrix == math::identity_matrix<3>() ) {
       applied_image = crop(edge_extend(normalized_image, ZeroEdgeExtension()),
-                           0, 0, crop_size[0], crop_size[1]);
+			   0, 0, crop_size[0], crop_size[1]);
     } else {
       applied_image = transform(normalized_image, HomographyTransform(matrix),
-                                crop_size[0], crop_size[1]);
+				crop_size[0], crop_size[1]);
     }
 
     vw_out() << "\t--> Writing normalized image: " << out_file << "\n";
     block_write_gdal_image( out_file, applied_image,
-                            has_georef, georef,
-                            has_nodata, output_nodata, opt,
-                            TerminalProgressCallback("asp", "\t  "+tag+":  "));
+			    has_georef, georef,
+			    has_nodata, output_nodata, opt,
+			    TerminalProgressCallback("asp", "\t  "+tag+":  "));
   }
 
 }
@@ -226,10 +226,10 @@ vw::cartography::Datum StereoSessionIsisBase<DISKTRANSFORM_TYPE>::get_datum(cons
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE>
 void StereoSessionIsisBase<DISKTRANSFORM_TYPE>::
 pre_preprocessing_hook(bool adjust_left_image_size,
-                       std::string const& left_input_file,
-                       std::string const& right_input_file,
-                       std::string      & left_output_file,
-                       std::string      & right_output_file) {
+		       std::string const& left_input_file,
+		       std::string const& right_input_file,
+		       std::string      & left_output_file,
+		       std::string      & right_output_file) {
 
   std::string left_cropped_file, right_cropped_file;
   asp::BaseOptions options;
@@ -249,12 +249,12 @@ pre_preprocessing_hook(bool adjust_left_image_size,
 
   // Load the cropped images
   DiskImageView<float> left_disk_image(left_cropped_file),
-                       right_disk_image(right_cropped_file);
+		       right_disk_image(right_cropped_file);
 
   // Getting image sizes. Later alignment options can choose to change
   // this parameters. (Affine Epipolar).
   Vector2i left_size  = file_image_size(left_cropped_file ),
-           right_size = file_image_size(right_cropped_file);
+	   right_size = file_image_size(right_cropped_file);
 
   // These variables will be true if we reduce the valid range for ISIS images
   // using the nodata value provided by the user.
@@ -269,15 +269,15 @@ pre_preprocessing_hook(bool adjust_left_image_size,
   float left_lo, left_hi, right_lo, right_hi;
   ImageViewRef< PixelMask <float> > left_masked_image
     = find_ideal_isis_range(left_disk_image, left_isis_rsrc, left_nodata_value,
-                            "left", will_apply_user_nodata_left, left_lo, left_hi);
+			    "left", will_apply_user_nodata_left, left_lo, left_hi);
   ImageViewRef< PixelMask <float> > right_masked_image
     = find_ideal_isis_range(right_disk_image, right_isis_rsrc, right_nodata_value,
-                            "right", will_apply_user_nodata_right, right_lo,
-                            right_hi);
+			    "right", will_apply_user_nodata_right, right_lo,
+			    right_hi);
 
   // Handle mutual normalization if requested
   float left_lo_out  = left_lo,  left_hi_out  = left_hi,
-        right_lo_out = right_lo, right_hi_out = right_hi;
+	right_lo_out = right_lo, right_hi_out = right_hi;
   if (stereo_settings().individually_normalize == 0 ) {
     // Find the outer range of both files
     float mutual_lo = std::min(left_lo, right_lo);
@@ -308,25 +308,25 @@ pre_preprocessing_hook(bool adjust_left_image_size,
   // Image alignment block - Generate aligned versions of the input
   // images according to the options.
   Matrix<double> align_left_matrix  = math::identity_matrix<3>(),
-                 align_right_matrix = math::identity_matrix<3>();
+		 align_right_matrix = math::identity_matrix<3>();
   if ( stereo_settings().alignment_method == "homography" ||
        stereo_settings().alignment_method == "affineepipolar" ) {
 
     // Define the file name containing IP match information.
     std::string match_filename = ip::match_filename(this->m_out_prefix,
-                                                    left_cropped_file,
-                                                    right_cropped_file);
+						    left_cropped_file,
+						    right_cropped_file);
 
     // Find matching interest points between the two input images
     DiskImageView<float> left_orig_image(left_input_file);
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
     this->camera_models(left_cam, right_cam);
     this->ip_matching(left_cropped_file,   right_cropped_file,
-                      bounding_box(left_orig_image).size(),
-                      left_stats, right_stats,
-                      stereo_settings().ip_per_tile,
-                      left_nodata_value, right_nodata_value, match_filename,
-                      left_cam.get(),    right_cam.get());
+		      bounding_box(left_orig_image).size(),
+		      left_stats, right_stats,
+		      stereo_settings().ip_per_tile,
+		      left_nodata_value, right_nodata_value, match_filename,
+		      left_cam.get(),    right_cam.get());
     // Read in the interest point data we just wrote to disk
     std::vector<ip::InterestPoint> left_ip, right_ip;
     ip::read_binary_match_file(match_filename, left_ip, right_ip);
@@ -334,25 +334,25 @@ pre_preprocessing_hook(bool adjust_left_image_size,
     // Compute the appropriate transform matrix between the two input images.
     if ( stereo_settings().alignment_method == "homography" ) {
       left_size = homography_rectification(adjust_left_image_size,
-                                           left_size, right_size, left_ip, right_ip,
-                                           align_left_matrix, align_right_matrix );
+					   left_size, right_size, left_ip, right_ip,
+					   align_left_matrix, align_right_matrix );
       vw_out() << "\t--> Aligning right image to left using matrices:\n"
-               << "\t      " << align_left_matrix  << "\n"
-               << "\t      " << align_right_matrix << "\n";
+	       << "\t      " << align_left_matrix  << "\n"
+	       << "\t      " << align_right_matrix << "\n";
     } else {
       left_size = affine_epipolar_rectification(left_size, right_size,
-                                                left_ip,   right_ip,
-                                                align_left_matrix,
-                                                align_right_matrix);
+						left_ip,   right_ip,
+						align_left_matrix,
+						align_right_matrix);
       vw_out() << "\t--> Aligning left and right images using affine matrices:\n"
-               << "\t      " << submatrix(align_left_matrix ,0,0,2,3) << "\n"
-               << "\t      " << submatrix(align_right_matrix,0,0,2,3) << "\n";
+	       << "\t      " << submatrix(align_left_matrix ,0,0,2,3) << "\n"
+	       << "\t      " << submatrix(align_right_matrix,0,0,2,3) << "\n";
     }
     // Write the computed transform matrices to disk
     write_matrix( this->m_out_prefix + "-align-L.exr", align_left_matrix );
     write_matrix( this->m_out_prefix + "-align-R.exr", align_right_matrix);
     right_size = left_size; // Because the images are now aligned
-                            // .. they are the same size.
+			    // .. they are the same size.
   } else if ( stereo_settings().alignment_method == "epipolar" ) {
     vw_throw( NoImplErr() << "StereoSessionISIS does not support epipolar rectification" );
   } // End alignment block
@@ -363,28 +363,28 @@ pre_preprocessing_hook(bool adjust_left_image_size,
 
   // Write output images
   write_preprocessed_isis_image( options, will_apply_user_nodata,
-                                 left_masked_image, left_output_file, "left",
-                                 left_lo, left_hi, left_lo_out, left_hi_out,
-                                 align_left_matrix, left_size,
-                                 has_left_georef, left_georef);
+				 left_masked_image, left_output_file, "left",
+				 left_lo, left_hi, left_lo_out, left_hi_out,
+				 align_left_matrix, left_size,
+				 has_left_georef, left_georef);
   write_preprocessed_isis_image( options, will_apply_user_nodata,
-                                 right_masked_image, right_output_file, "right",
-                                 right_lo, right_hi, right_lo_out, right_hi_out,
-                                 align_right_matrix, right_size,
-                                 has_right_georef, right_georef);
+				 right_masked_image, right_output_file, "right",
+				 right_lo, right_hi, right_lo_out, right_hi_out,
+				 align_right_matrix, right_size,
+				 has_right_georef, right_georef);
 }
 
 // Only used with mask_flatfield option?
 inline std::string write_shadow_mask( BaseOptions const& opt,
-                                      std::string const& output_prefix,
-                                      std::string const& input_image,
-                                      std::string const& mask_postfix ) {
+				      std::string const& output_prefix,
+				      std::string const& input_image,
+				      std::string const& mask_postfix ) {
   // This thresholds at -25000 as the input sub4s for Apollo that I've
   // processed have a range somewhere between -32000 and +32000. -ZMM
   DiskImageView<PixelGray<float> > disk_image( input_image );
   DiskImageView<uint8> disk_mask( output_prefix + mask_postfix );
   ImageViewRef<uint8> mask = apply_mask(intersect_mask(create_mask(disk_mask),
-                                        create_mask(threshold(disk_image,-25000,0,1.0))));
+					create_mask(threshold(disk_image,-25000,0,1.0))));
   std::string output_mask = output_prefix+mask_postfix.substr(0,mask_postfix.size()-4)+"Debug.tif";
 
   block_write_gdal_image(output_mask, mask, opt, TerminalProgressCallback("asp","\t  Shadow:"));
@@ -398,7 +398,7 @@ inline std::string write_shadow_mask( BaseOptions const& opt,
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE>
 void StereoSessionIsisBase<DISKTRANSFORM_TYPE>
 ::pre_filtering_hook(std::string const& input_file,
-                     std::string      & output_file) {
+		     std::string      & output_file) {
   output_file = input_file;
 
   if (stereo_settings().mask_flatfield) {
@@ -420,7 +420,7 @@ void StereoSessionIsisBase<DISKTRANSFORM_TYPE>
 
     DiskImageResourceOpenEXR disparity_map_rsrc(output_file, disparity_map.format() );
     Vector2i block_size(std::min<size_t>(vw_settings().default_tile_size(), disparity_map.cols()),
-                        std::min<size_t>(vw_settings().default_tile_size(), disparity_map.rows()));
+			std::min<size_t>(vw_settings().default_tile_size(), disparity_map.rows()));
     disparity_map_rsrc.set_block_write_size(block_size);
     block_write_image(disparity_map_rsrc, disparity_map, TerminalProgressCallback( "asp", "\t--> Saving Mask :"));
   }
@@ -439,7 +439,7 @@ ImageViewRef<PixelMask<Vector2f> > StereoSessionIsisBase<DISKTRANSFORM_TYPE>
     // ****************************************************
     vw_out() << "\t--> Masking pixels that appear to be dust.  (NOTE: Use this option with Apollo Metric Camera frames only!)\n";
     photometric_outlier_rejection(this->m_options, this->m_out_prefix, input_file,
-                                  dust_result, stereo_settings().corr_kernel[0]);
+				  dust_result, stereo_settings().corr_kernel[0]);
   }
   return DiskImageView<PixelMask<Vector2f> >(dust_result);
 } // End function pre_pointcloud_hook(

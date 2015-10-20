@@ -34,8 +34,8 @@ using namespace vw::stereo;
 using namespace vw::ba;
 
 void asp::read_adjustments(std::string const& filename,
-                           std::vector<Vector3> & position_correction,
-                           std::vector<Quat> & pose_correction) {
+			   std::vector<Vector3> & position_correction,
+			   std::vector<Quat> & pose_correction) {
 
   position_correction.clear();
   pose_correction.clear();
@@ -54,28 +54,28 @@ void asp::read_adjustments(std::string const& filename,
 }
 
 void asp::write_adjustments(std::string const& filename,
-                            std::vector<vw::Vector3> const& position_correction,
-                            std::vector<vw::Quat> const& pose_correction) {
+			    std::vector<vw::Vector3> const& position_correction,
+			    std::vector<vw::Quat> const& pose_correction) {
 
   std::ofstream ostr(filename.c_str());
   ostr.precision(18);
 
   for (size_t adj = 0; adj < position_correction.size(); adj++) {
     ostr << position_correction[adj][0] << " "
-         << position_correction[adj][1] << " "
-         << position_correction[adj][2] << "\n";
+	 << position_correction[adj][1] << " "
+	 << position_correction[adj][2] << "\n";
     ostr << pose_correction[adj].w() << " "
-         << pose_correction[adj].x() << " "
-         << pose_correction[adj].y() << " "
-         << pose_correction[adj].z() << " " << "\n";
+	 << pose_correction[adj].x() << " "
+	 << pose_correction[adj].y() << " "
+	 << pose_correction[adj].z() << " " << "\n";
   }
   ostr.close();
 }
 
 
 void asp::write_adjustments(std::string const& filename,
-                       Vector3 const& position_correction,
-                       Quat const& pose_correction) {
+		       Vector3 const& position_correction,
+		       Quat const& pose_correction) {
   std::ofstream ostr(filename.c_str());
   ostr.precision(18);
   ostr << position_correction[0] << " " << position_correction[1] << " " << position_correction[2] << "\n";
@@ -85,7 +85,7 @@ void asp::write_adjustments(std::string const& filename,
 }
 
 void asp::compute_stereo_residuals(std::vector<boost::shared_ptr<CameraModel> > const& camera_models,
-                              ControlNetwork const& cnet) {
+			      ControlNetwork const& cnet) {
 
   // Compute pre-adjustment residuals and convert to bundles
   int n = 0;
@@ -101,7 +101,7 @@ void asp::compute_stereo_residuals(std::vector<boost::shared_ptr<CameraModel> > 
       Vector2 pix2 = cnet[i][j+1].position();
 
       StereoModel sm( camera_models[cam1].get(),
-                      camera_models[cam2].get() );
+		      camera_models[cam2].get() );
       double error;
       sm(pix1,pix2,error);
       error_sum += error;
@@ -110,5 +110,5 @@ void asp::compute_stereo_residuals(std::vector<boost::shared_ptr<CameraModel> > 
     }
   }
   vw_out() << "\nStereo Intersection Residuals -- Min: " << min_error
-           << "  Max: " << max_error << "  Average: " << (error_sum/n) << "\n";
+	   << "  Max: " << max_error << "  Average: " << (error_sum/n) << "\n";
 }

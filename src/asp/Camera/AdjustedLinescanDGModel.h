@@ -41,9 +41,9 @@ namespace asp {
 
   // We would like to place num_adjustments between the first and last image
   // lines. Compute the starting time for that and the spacing.
-  void compute_t0_dt(DGCameraModel const* cam_ptr,
-		     int num_adjustments,
-		     double & t0, double & dt){
+  inline void compute_t0_dt(DGCameraModel const* cam_ptr,
+			    int num_adjustments,
+			    double & t0, double & dt){
 
     VW_ASSERT( num_adjustments >= 2,
 	       vw::ArgumentErr() << "Expecting at least two adjustments.\n" );
@@ -59,21 +59,15 @@ namespace asp {
     double beg_t = cam_ptr->m_time_func(-1);
     double end_t = cam_ptr->m_time_func(num_image_lines);
 
-    //std::cout << "--beg and end t " << beg_t << ' ' << end_t << std::endl;
-
     // For images scanned in reverse, beg_t can be > end_t
     if (beg_t > end_t)
       std::swap(beg_t, end_t);
 
-    //std::cout << "2beg and end t " << beg_t << ' ' << end_t << std::endl;
-
     t0 = beg_t;
     dt = (end_t - beg_t)/(num_adjustments - 1.0);
 
-    //std::cout << "---num image lines " << num_image_lines << std::endl;
-    //std::cout << "num adj is " << num_adjustments << std::endl;
-    //std::cout << "t0 is " << t0 << std::endl;
-    //std::cout << "--dt is " << dt << std::endl;
+    if (num_adjustments == 1)
+      dt = std::numeric_limits<double>::max();
   }
 
   // Position adjustment. Note that the position class itself is of
@@ -100,20 +94,25 @@ namespace asp {
 
     // Return the original position plus the interpolated adjustment.
     vw::Vector3 operator()( double t ) const {
-      return m_cam_ptr->m_position_func(t) + m_position_adjustments(t);
+
+      // The adjustments by design can be applied only to t
+      // corresponding to between first and last lines, as that's
+      // where the adjustments are placed. Anything beyond will have
+      // to use the adjustments at endpoints.
+      double t0 = t;
+      t0 = std::max(t0, m_position_adjustments.get_t0());
+      t0 = std::min(t0, m_position_adjustments.get_tend());
+
+      return m_position_adjustments(t0) + m_cam_ptr->m_position_func(t);
     }
 
     // Return the closest piecewise adjustment camera indices to given time.
     std::vector<int> get_closest_adj_indices(double t){
+
       double t0   = m_position_adjustments.get_t0();
       double dt   = m_position_adjustments.get_dt();
       double tend = m_position_adjustments.get_tend();
-
-      //std::cout << "t0 t dt tend " << t0 << ' ' << t << ' ' << dt << ' ' << tend << std::endl;
-
       int    num  = round( (tend - t0)/dt ) + 1;
-
-      //std::cout << "--num is " << num << std::endl;
 
       double ratio = (t-t0)/dt;
 
@@ -122,8 +121,6 @@ namespace asp {
       int i0 = floor(ratio - 0.5);
       int i1 = i0 + 1;
       int i2 = i1 + 1;
-
-      //std::cout << "--ratio is " << ratio  << std::endl;
 
       std::vector<int> indices;
       if (i0 >= 0 && i0 < num) indices.push_back(i0);
@@ -161,7 +158,16 @@ namespace asp {
     // Take the original rotation, and apply the adjustment on top of it. Both are
     // interpolated.
     vw::Quat operator()( double t ) const {
-      return  m_cam_ptr->m_pose_func(t)*m_pose_adjustments(t);
+
+      // The adjustments by design can be applied only to t
+      // corresponding to between first and last lines, as that's
+      // where the adjustments are placed. Anything beyond will have
+      // to use the adjustments at endpoints.
+      double t0 = t;
+      t0 = std::max(t0, m_pose_adjustments.get_t0());
+      t0 = std::min(t0, m_pose_adjustments.get_tend());
+
+      return  m_pose_adjustments(t0) * m_cam_ptr->m_pose_func(t);
     }
 
   private:
@@ -204,12 +210,6 @@ namespace asp {
       m_cam(cam)
     {
 
-      //std::cout << "sensor columns " << get_dg_ptr(cam)->m_image_size[0] << std::endl;
-
-      //std::cout << "sensor lines: " << get_dg_ptr(cam)->m_image_size[1] << std::endl;
-      //std::cout << "starting time " << get_dg_ptr(cam)->m_time_func(0) << std::endl;
-      //std::cout << "--ending time " <<  get_dg_ptr(cam)->m_time_func(get_dg_ptr(cam)->m_image_size[1]) << std::endl;
-
       VW_ASSERT( position_adjustments.size() == pose_adjustments.size(),
 		 vw::ArgumentErr()
 		 << "Expecting the number of position and pose adjustments to agree.\n" );
@@ -224,8 +224,6 @@ namespace asp {
     // for the given line (image row) position.
     std::vector<int> get_closest_adj_indices(double line_pos){
       double t = m_time_func(line_pos);
-      //std::cout << "y and t is " << line_pos << ' ' << t << std::endl;
-
       return m_position_func.get_closest_adj_indices(t);
     }
 
