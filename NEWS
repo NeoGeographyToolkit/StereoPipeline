@@ -59,6 +59,7 @@
      NAD83 and WGS72 datums. Now using GDAL/OGR for that.
    * Can create simultaneously DEMs at multiple resolutions (by
      passing multiple values in quotes to --dem-spacing).
+   * Respect --t_projwin to the letter. 
 
  - point2las
    * Save the LAS file with a datum if the input PC had one.

@@ -35,7 +35,7 @@ namespace asp{
   using namespace vw;
 
   typedef std::pair<BBox3, BBox2i> BBoxPair;
-  
+
   /// Given a point image and corresponding texture, this class
   /// bins and averages the point cloud on a regular grid over the [x,y]
   /// plane of the point image; producing an evenly sampled ortho-image
@@ -55,12 +55,13 @@ namespace asp{
     bool    m_minz_as_default;
     bool    m_use_alpha;
     int     m_block_size;
+    BBox2   m_projwin;
     int     m_hole_fill_len;
     ImageViewRef<double> const& m_error_image;
     double  m_error_cutoff;
     Vector2 m_median_filter_params;
     int     m_erode_len;
-    
+
     // We could actually use a quadtree here .. but this should be a
     // good enough improvement.
     std::vector<BBoxPair> m_point_image_boundaries;
@@ -71,7 +72,7 @@ namespace asp{
 
     // Function to convert pixel coordinates to the point domain
     BBox3 pixel_to_point_bbox( BBox2 const& px ) const;
-    
+
   public:
     typedef PixelGray<float> pixel_type;
     typedef const PixelGray<float> result_type;
@@ -80,21 +81,23 @@ namespace asp{
 
     /// Constructor.  You must call initialize_spacing before using the object!!
     OrthoRasterizerView(ImageViewRef<Vector3> point_image,
-                        ImageViewRef<double> texture,
-                        double  search_radius_factor, bool use_surface_sampling,
-                        int     pc_tile_size, bool remove_outliers_with_pct,
-                        Vector2 const& remove_outliers_params,
-                        ImageViewRef<double> const& error_image,
-                        double  estim_max_error,
-                        double  max_valid_triangulation_error,
-                        Vector2 median_filter_params,
-                        int     erode_len,
-                        bool    has_las_or_csv,
-                        const ProgressCallback& progress);
-    
+			ImageViewRef<double> texture,
+			double  search_radius_factor, bool use_surface_sampling,
+			int     pc_tile_size,
+			vw::BBox2 const& projwin,
+			bool remove_outliers_with_pct,
+			Vector2 const& remove_outliers_params,
+			ImageViewRef<double> const& error_image,
+			double  estim_max_error,
+			double  max_valid_triangulation_error,
+			Vector2 median_filter_params,
+			int     erode_len,
+			bool    has_las_or_csv,
+			const ProgressCallback& progress);
+
     /// This must be called before the object can be used!
     void initialize_spacing(double spacing=0.0);
-    
+
     /// You can change the texture after the class has been
     /// initialized.  The texture image must have the same dimensions
     /// as the point image, and texture pixels must correspond exactly
@@ -102,15 +105,15 @@ namespace asp{
     template <class TextureViewT>
     void set_texture(TextureViewT texture) {
       VW_ASSERT(texture.impl().cols() == m_point_image.cols() &&
-                texture.impl().rows() == m_point_image.rows(),
-                ArgumentErr() << "Orthorasterizer: set_texture() failed."
-                << " Texture dimensions must match point image dimensions.");
+		texture.impl().rows() == m_point_image.rows(),
+		ArgumentErr() << "Orthorasterizer: set_texture() failed."
+		<< " Texture dimensions must match point image dimensions.");
       m_texture = channel_cast<float>(channels_to_planes(texture.impl()));
     }
 
     inline int32 cols() const { return (int) round((fabs(m_snapped_bbox.max().x() - m_snapped_bbox.min().x()) / m_spacing)) + 1; }
     inline int32 rows() const { return (int) round((fabs(m_snapped_bbox.max().y() - m_snapped_bbox.min().y()) / m_spacing)) + 1; }
-    
+
     inline int32 planes() const { return 1; }
 
     inline pixel_accessor origin() const { return pixel_accessor(*this); }
@@ -144,11 +147,11 @@ namespace asp{
     /// original image.
     void set_spacing(double val) {
       if (val == 0.0) {
-        m_spacing = m_default_spacing;
+	m_spacing = m_default_spacing;
       } else {
-        m_spacing = val;
+	m_spacing = val;
       }
-      
+
     }
 
     double spacing() { return m_spacing; }
@@ -159,37 +162,37 @@ namespace asp{
       // Need this check, as sometimes m_default_spacing which we use
       // below may not be set.
       if (hole_fill_len == 0){
-        m_hole_fill_len = 0;
-        return;
+	m_hole_fill_len = 0;
+	return;
       }
-      
+
       // Important: the hole fill len was set in DEM pixels. We convert it
       // here to point cloud pixels, as what we will fill is holes
       // in the point cloud before creating the image.
       VW_ASSERT(m_spacing > 0 && m_default_spacing > 0,
-                ArgumentErr() << "Expecting positive DEM spacing.");
+		ArgumentErr() << "Expecting positive DEM spacing.");
       m_hole_fill_len = (int)round((m_spacing/m_default_spacing)*hole_fill_len);
     }
-    
+
     BBox3 bounding_box() const { return m_snapped_bbox; }
 
     // Return the affine georeferencing transform.
     vw::Matrix<double,3,3> geo_transform();
-    
+
     void find_bdbox_robust_to_outliers(std::vector<BBoxPair >
-                                       const& point_image_boundaries,
-                                       BBox3 & bbox);
-    
+				       const& point_image_boundaries,
+				       BBox3 & bbox);
+
   };
 
   // TODO: Make this a BBox class function!!!
-  /// Snaps the coordinates of a BBox to a grid spacing  
+  /// Snaps the coordinates of a BBox to a grid spacing
   template <size_t N>
   void snap_bbox(const double spacing, BBox<double, N> &bbox ) {
     bbox.min() = spacing*floor(bbox.min()/spacing);
     bbox.max() = spacing*ceil (bbox.max()/spacing);
   }
-  
+
 } // namespace asp
 
 #endif

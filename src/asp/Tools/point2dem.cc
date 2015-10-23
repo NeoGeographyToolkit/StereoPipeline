@@ -82,7 +82,6 @@ struct Options : asp::BaseOptions {
   double      rounding_error;
   std::string target_srs_string;
   BBox2       target_projwin;
-  BBox2i      target_projwin_pixels;
   int         fsaa, dem_hole_fill_len, ortho_hole_fill_len;
   bool        remove_outliers_with_pct;
   Vector2     remove_outliers_params;
@@ -516,6 +515,16 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     opt.remove_outliers_with_pct = false;
   }
 
+  // For compatibility with GDAL, we allow the projwin y coordinate to be flipped.
+  // Correct that here.
+  if ( opt.target_projwin != BBox2() ) {
+    if ( opt.target_projwin.min().y() > opt.target_projwin.max().y() ) {
+      std::swap( opt.target_projwin.min().y(),
+		 opt.target_projwin.max().y() );
+    }
+    vw_out() << "Cropping to " << opt.target_projwin << " pt. " << std::endl;
+  }
+
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
 
@@ -628,47 +637,22 @@ generate_fsaa_raster( ImageViewBase<ImageT> const& rasterizer,
   int kernel_size = vw::compute_kernel_size(fsaa_sigma);
 
   ImageViewRef< PixelGray<float> > rasterizer_fsaa;
-  if ( opt.target_projwin != BBox2() ) {
-    typedef ValueEdgeExtension< PixelGray<float> > ValExtend;
-    if ( opt.fsaa > 1 ) {
-      // subsample .. samples from the corner.
-      rasterizer_fsaa =
-	crop(edge_extend
-	     (apply_mask
-	      (vw::resample_aa
-	       (translate
-		(gaussian_filter
-		 (fill_nodata_with_avg
-		  (create_mask(rasterizer.impl(),opt.nodata_value),
-		   kernel_size),
-		  fsaa_sigma),
-		 -double(opt.fsaa-1)/2., double(opt.fsaa-1)/2.,
-		 ConstantEdgeExtension()), 1.0/opt.fsaa),
-	       opt.nodata_value),
-	      ValExtend(opt.nodata_value)), opt.target_projwin_pixels );
-    } else {
-      rasterizer_fsaa =
-	crop(edge_extend(rasterizer.impl(),
-			 ValExtend(opt.nodata_value)), opt.target_projwin_pixels );
-    }
+  if ( opt.fsaa > 1 ) {
+    // subsample .. samples from the corner.
+    rasterizer_fsaa =
+      apply_mask
+      (vw::resample_aa
+       (translate
+	(gaussian_filter
+	 (fill_nodata_with_avg
+	  (create_mask(rasterizer.impl(),opt.nodata_value),
+	   kernel_size),
+	  fsaa_sigma),
+	 -double(opt.fsaa-1)/2., double(opt.fsaa-1)/2.,
+	 ConstantEdgeExtension()), 1.0/opt.fsaa),
+       opt.nodata_value);
   } else {
-    if ( opt.fsaa > 1 ) {
-      // subsample .. samples from the corner.
-      rasterizer_fsaa =
-	apply_mask
-	(vw::resample_aa
-	 (translate
-	  (gaussian_filter
-	   (fill_nodata_with_avg
-	    (create_mask(rasterizer.impl(),opt.nodata_value),
-	     kernel_size),
-	    fsaa_sigma),
-	   -double(opt.fsaa-1)/2., double(opt.fsaa-1)/2.,
-	   ConstantEdgeExtension()), 1.0/opt.fsaa),
-	 opt.nodata_value);
-    } else {
-      rasterizer_fsaa = rasterizer.impl();
-    }
+    rasterizer_fsaa = rasterizer.impl();
   }
   return rasterizer_fsaa;
 }
@@ -972,20 +956,7 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
   // transform here. The generate_fsaa_raster will be responsible
   // for making sure we have the correct pixel crop.
   if ( opt.target_projwin != BBox2() ) {
-    if ( opt.target_projwin.min().y() > opt.target_projwin.max().y() ) {
-      std::swap( opt.target_projwin.min().y(),
-		 opt.target_projwin.max().y() );
-    }
-    vw_out() << "Cropping to " << opt.target_projwin << " pt. " << std::endl;
     Matrix3x3 transform = georef.transform();
-    opt.target_projwin.max().x() -= fabs(transform(0,0));
-    opt.target_projwin.min().y() += fabs(transform(1,1));
-
-    // This math seems a little silly, but we need to fuzz the
-    // values on target projwin so that it aligns with a pixel value.
-    opt.target_projwin_pixels = georef.point_to_pixel_bbox( opt.target_projwin );
-    opt.target_projwin_pixels.crop(bounding_box(rasterizer.impl()));
-    opt.target_projwin = georef.pixel_to_point_bbox( opt.target_projwin_pixels );
     transform(0,2) = opt.target_projwin.min().x();
     transform(1,2) = opt.target_projwin.max().y();
     georef.set_transform( transform );
@@ -1145,6 +1116,7 @@ void do_software_rasterization_multi_spacing( const ImageViewRef<Vector3>& proj_
     rasterizer(proj_point_input.impl(), select_channel(proj_point_input.impl(),2),
 	       opt.search_radius_factor, opt.use_surface_sampling,
 	       Options::tri_tile_size(), // to efficiently process the cloud
+	       opt.target_projwin,
 	       opt.remove_outliers_with_pct, opt.remove_outliers_params,
 	       error_image, estim_max_error, opt.max_valid_triangulation_error,
 	       opt.median_filter_params, opt.erode_len, opt.has_las_or_csv,
