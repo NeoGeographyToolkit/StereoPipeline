@@ -1,17 +1,8 @@
 *** RELEASE 2.5.2, upcoming! ***
 
- - point2dem, point2las, and pc_align
-   * The spheroid (-r <datum>) is optional now, it will inferred
-     automatically (together with the projection) from the input
-     images if present. This can be useful for bodies that are not
-     Moon, Mars, or Earth. The datum and projection can still be
-     overridden with --reference-spheroid (or --datum) and --t_srs.
-   * Accept --datum (-r) MOLA, as a shortcut for the sphere with
-     radius 3,396,000 meters.
-
  - stereo
     * Bugfix for stereo with map-projected images using the RPC
-      session (e.g, for Pleiades imagery).
+      session (e.g, for map-projected Pleiades imagery).
     * Added OpenCV-based SIFT and ORB interest point finding options.
     * If the input images are map-projected (georeferenced) and 
       alignment method is none, all image outputs of stereo are
@@ -20,6 +11,16 @@
     * The output point cloud saves datum info from input images
       (even when the inputs are not georeferenced). 
     * Increased reliability of interest point detection.
+
+ - point2dem, point2las, and pc_align
+   * The datum (-r <planet> or --semi-major-axis) is optional now.
+     The planet will be inferred automatically (together with the
+     projection) from the input images if present. This can be useful
+     for bodies that are not Moon, Mars, or Earth. The datum and
+     projection can still be overridden with --reference-spheroid (or
+     --datum) and --t_srs. 
+  * Accept --datum (-r) MOLA, as a shortcut for the sphere with
+     radius 3,396,000 meters.
 
  - dem_mosaic
    * Introduce --priority-blending-length, measured in input pixels. 
@@ -50,16 +51,15 @@
      bundle_adjust. In addition to the images to be bundle-adjusted,
      one should provide a georeferenced image to find the GCP lon-lat,
      and a reference DEM to find the GCP heights (not fully mature).
-   * Added the option --delete-temporary-files-on-exit to do precisely
-     that.
+   * Added the option --delete-temporary-files-on-exit.
    * Can read the georeference of map-projected ISIS cubes.
 
  - point2dem
-   * Fix minor discrepancies in the minor semi-axis for the WGS84,
-     NAD83 and WGS72 datums. Now using GDAL/OGR for that.
+   * Respect --t_projwin to the letter. 
    * Can create simultaneously DEMs at multiple resolutions (by
      passing multiple values in quotes to --dem-spacing).
-   * Respect --t_projwin to the letter. 
+   * Fix minor discrepancies in the minor semi-axis for the WGS84,
+     NAD83 and WGS72 datums. Now using GDAL/OGR for that.
 
  - point2las
    * Save the LAS file with a datum if the input PC had one.
