@@ -288,7 +288,7 @@ with the addition of the list of nodes to use (if using multiple nodes).
 It will create the same output files as \texttt{stereo}. (Internally
 some of them will be GDAL VRT files, that is, virtual mosaics of files created
 by individual processes; ASP and GDAL tools are able to use these
-virtulal files in the same way as regular binary TIF files.)
+virtual files in the same way as regular binary TIF files.)
 
 If your jobs are launched on a cluster or supercomputer, the name of the
 file containing the list of nodes may exist as an environmental
@@ -728,6 +728,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-kappa-rotation \textit{float(=0)}} & Set a rotation angle kappa. \\ \hline
 \hline
 \texttt{-\/-t\_srs \textit{string}} & Specify the output projection (PROJ.4 string). \\ \hline
+\texttt{-\/-t\_projwin \textit{xmin ymin xmax ymax} } & The output DEM will have corners with these georeferenced coordinates. \\ \hline
 \texttt{-\/-datum \textit{string}} & Set the datum. This will override the datum from the input images and also -\/-t\_srs, -\/-semi-major-axis, and -\/-semi-minor-axis. Options: WGS\_1984, D\_MOON (1,737,400 meters), D\_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), Moon (=D\_MOON). \\ \hline
 \texttt{-\/-reference-spheroid \textit{string}} & This is identical to the datum option. \\ \hline
 \texttt{-\/-semi-major-axis \textit{float(=0)}} & Explicitly set the datum semi-major axis in meters.\\ \hline
