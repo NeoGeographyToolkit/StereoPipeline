@@ -177,7 +177,7 @@ inline boost::posix_time::ptime parse_time(std::string str)
     return boost::posix_time::time_from_string(str);
   }catch(...){
     vw::vw_throw(vw::ArgumentErr() << "Failed to parse time from string: " << str
-		 << ". Not a valid Digital Globe linescan model.\n");
+		 << ". If you are not using Digital Globe images, you may need to specify the session as -t rpc or -t rpcmaprpc.\n");
   }
   return boost::posix_time::time_from_string(str); // Never reached!
 }
