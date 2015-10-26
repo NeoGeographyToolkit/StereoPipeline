@@ -287,6 +287,8 @@ namespace asp {
                             "Interpret the input images as DEMs and hillshade them.")
       ("view-matches",   po::bool_switch(&global.view_matches)->default_value(false)->implicit_value(true),
                             "Locate and display the interest point matches.")
+      ("match-file", po::value(&global.match_file)->default_value(""),
+       "Display this match file instead of looking one up based on existing conventions (implies --view-matches).")
       ("delete-temporary-files-on-exit",   po::bool_switch(&global.delete_temporary_files_on_exit)->default_value(false)->implicit_value(true),
                             "Delete any subsampled and other files created by the GUI when exiting.");
   }

@@ -377,8 +377,8 @@ namespace vw { namespace gui {
       std::string hillshaded_file;
       bool success = write_hillshade(m_opt, input_file, hillshaded_file);
       if (!success) {
-	m_hillshade_mode = false;
-	return;
+        m_hillshade_mode = false;
+        return;
       }
 
       m_hillshaded_images[image_iter].read(hillshaded_file, m_opt, m_use_georef);
@@ -606,7 +606,7 @@ namespace vw { namespace gui {
     // If this point is currently being edited by the user, highlight it.
     // - Here we check to see if it has not been placed in all images yet.
     bool highlight_last = false;
-    for (size_t h=0; h<m_matches.size(); ++h) {
+    for (size_t h = 0; h < m_matches.size(); h++) {
       if (ip.size() > m_matches[h].size())
         highlight_last = true;
     }
@@ -1164,8 +1164,6 @@ namespace vw { namespace gui {
 
   void MainWidget::addMatchPoint(){
 
-    if (!supplyOutputPrefixIfNeeded(this, m_output_prefix)) return;
-
     if (m_image_id >= (int)m_matches.size()) {
       popUp("Number of existing matches is corrupted. Cannot add matches.");
       return;
@@ -1212,8 +1210,6 @@ namespace vw { namespace gui {
   }
 
   void MainWidget::deleteMatchPoint(){
-
-    if (!supplyOutputPrefixIfNeeded(this, m_output_prefix)) return;
 
     if (m_matches.empty() || m_matches[0].empty()){
       popUp("No matches to delete.");

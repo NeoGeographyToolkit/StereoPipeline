@@ -23,6 +23,8 @@
 #include <QtGui>
 #include <asp/GUI/MainWindow.h>
 #include <asp/GUI/MainWidget.h>
+#include <asp/Core/StereoSettings.h>
+using namespace asp;
 using namespace vw::gui;
 
 #include <vw/config.h>
@@ -77,12 +79,12 @@ MainWindow::MainWindow(asp::BaseOptions const& opt,
   m_delete_temporary_files_on_exit(delete_temporary_files_on_exit),
   m_argc(argc), m_argv(argv) {
 
+  // Window size
   resize(window_size[0], window_size[1]);
 
-  // Set the window title and add tabs
+  // Window title
   std::string window_title = "Stereo GUI";
   this->setWindowTitle(window_title.c_str());
-
 
   // Collect only the valid images
   m_image_paths.clear();
@@ -100,6 +102,18 @@ MainWindow::MainWindow(asp::BaseOptions const& opt,
   if (m_image_paths.empty()) {
     popUp("No valid images to display.");
     return;
+  }
+
+  // If a match file was explicitly specified, use it.
+  if (stereo_settings().match_file != ""){
+    if (m_image_paths.size() != 2){
+      popUp("The --match-file option only works with two valid input images.");
+      m_viewMatches = false;
+      stereo_settings().match_file = "";
+    }else{
+      m_viewMatches = true;
+      m_match_file = stereo_settings().match_file;
+    }
   }
 
   m_matches_were_loaded = false;
@@ -384,7 +398,7 @@ void MainWindow::viewAsTiles(){
 
   std::string gridColsStr;
   bool ans = getStringFromGui(this,
-			      "Number of columns in the grid",
+                              "Number of columns in the grid",
                               "Number of columns in the grid",
                               "",
                               gridColsStr);
@@ -411,7 +425,9 @@ void MainWindow::viewMatches(){
   // We will load the matches just once, as we later will add/delete matches manually
   if (!m_matches_were_loaded && (!m_matches.empty()) && m_matches[0].empty() && m_viewMatches) {
 
-    if (!supplyOutputPrefixIfNeeded(this, m_output_prefix)) return;
+    // If no match file was specified by now, ask the user for the output prefix.
+    if (m_match_file == "")
+      if (!supplyOutputPrefixIfNeeded(this, m_output_prefix)) return;
 
     m_matches_were_loaded = true;
     m_matches.clear();
@@ -422,24 +438,34 @@ void MainWindow::viewMatches(){
 
     for (int i = 0; i < int(m_image_paths.size()); i++) {
       for (int j = int(i+1); j < int(m_image_paths.size()); j++) {
-        std::string match_filename = vw::ip::match_filename(m_output_prefix, m_image_paths[i], m_image_paths[j]);
+
+        // If the match file was not specified, look it up.
+        std::string match_file = m_match_file;
+        if (match_file == "")
+          match_file = vw::ip::match_filename(m_output_prefix, m_image_paths[i], m_image_paths[j]);
 
         // Look for the match file in the default location, and if it
         // does not appear prompt the user or a path.
         try {
-          ip::read_binary_match_file( match_filename, m_matches[i], m_matches[j]);
+          ip::read_binary_match_file(match_file, m_matches[i], m_matches[j]);
         }catch(...){
           try {
-            match_filename = fileDialog("Manually select the match file...", m_output_prefix);
+            match_file = fileDialog("Manually select the match file...", m_output_prefix);
+
+            // If we have just two images, save this match file as the
+            // default. For more than two, it gets complicated.
+            if (m_image_paths.size() == 2)
+              m_match_file = match_file;
+
           }catch(...){
             popUp("Manually selected file failed to load. Cannot view matches.");
             return;
           }
         }
 
-        vw_out() << "Loading " << match_filename << std::endl;
+        vw_out() << "Loading " << match_file << std::endl;
         try {
-          ip::read_binary_match_file(match_filename, m_matches[i], m_matches[j]);
+          ip::read_binary_match_file(match_file, m_matches[i], m_matches[j]);
 
           if (num_matches < 0)
             num_matches = m_matches[i].size();
@@ -456,7 +482,7 @@ void MainWindow::viewMatches(){
         }catch(...){
           m_matches.clear();
           m_matches.resize(m_image_paths.size());
-          popUp("Could not read matches file: " + match_filename);
+          popUp("Could not read matches file: " + match_file);
           return;
         }
       }
@@ -478,9 +504,14 @@ void MainWindow::viewMatches(){
 
 void MainWindow::saveMatches(){
 
-  if (!supplyOutputPrefixIfNeeded(this, m_output_prefix)) return;
+  if (m_match_file == "")
+    if (!supplyOutputPrefixIfNeeded(this, m_output_prefix)) return;
 
-  // Sanity check
+  // Sanity checks
+  if (m_image_paths.size() != m_matches.size()) {
+    popUp("The number of sets of interest points does not agree with the number of images.");
+    return;
+  }
   for (int i = 0; i < int(m_matches.size()); i++) {
     if (m_matches[0].size() != m_matches[i].size()) {
       popUp("Cannot save matches. Must have the same number of matches in each image.");
@@ -490,12 +521,15 @@ void MainWindow::saveMatches(){
 
   for (int i = 0; i < int(m_image_paths.size()); i++) {
     for (int j = int(i+1); j < int(m_image_paths.size()); j++) {
-      std::string match_filename = vw::ip::match_filename(m_output_prefix, m_image_paths[i], m_image_paths[j]);
+
+      std::string match_file = m_match_file;
+      if (match_file == "")
+        match_file = vw::ip::match_filename(m_output_prefix, m_image_paths[i], m_image_paths[j]);
       try {
-        vw_out() << "Writing: " << match_filename << std::endl;
-        ip::write_binary_match_file(match_filename, m_matches[i], m_matches[j]);
+        vw_out() << "Writing: " << match_file << std::endl;
+        ip::write_binary_match_file(match_file, m_matches[i], m_matches[j]);
       }catch(...){
-        popUp("Failed to save matches.");
+        popUp("Failed to save match file: " + match_file);
       }
     }
   }
@@ -539,7 +573,7 @@ void MainWindow::writeGroundControlPoints() {
                  + georef_image_path);
   }
   vw_out() << "Loaded georef from file " << georef_image_path << std::endl;
-  
+
   // Init the DEM to use for height interpolation
   boost::shared_ptr<DiskImageResource> dem_rsrc(DiskImageResource::open(dem_path));
   DiskImageView<float> dem_disk_image(dem_path);
@@ -575,7 +609,7 @@ void MainWindow::writeGroundControlPoints() {
     return popUp("Error selecting the output path.");
   }
   BBox2 image_bb = bounding_box(interp_dem);
-  
+
   std::ofstream output_handle(save_path.c_str());
   size_t num_pts_skipped = 0, num_pts_used = 0;
   for (size_t p = 0; p < num_ips; p++) { // Loop through IPs
@@ -585,7 +619,7 @@ void MainWindow::writeGroundControlPoints() {
     Vector2 lonlat    = georef_image.pixel_to_lonlat(Vector2(ip.x, ip.y));
     Vector2 dem_pixel = georef_dem.lonlat_to_pixel(lonlat);
     PixelMask<float> mask_height = interp_dem(dem_pixel[0], dem_pixel[1])[0];
-   
+
     // We make a seperate bounding box check because the ValueEdgeExtension
     //  functionality may not work properly!
     if ( (!image_bb.contains(dem_pixel)) || (!is_valid(mask_height)) ) {

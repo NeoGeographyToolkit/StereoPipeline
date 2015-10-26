@@ -179,6 +179,7 @@ namespace asp {
     bool use_georef;
     bool hillshade;
     bool view_matches;
+    std::string match_file;
     bool delete_temporary_files_on_exit;
 
     // DG Options

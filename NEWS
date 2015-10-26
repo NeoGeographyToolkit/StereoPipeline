@@ -51,6 +51,7 @@
      bundle_adjust. In addition to the images to be bundle-adjusted,
      one should provide a georeferenced image to find the GCP lon-lat,
      and a reference DEM to find the GCP heights (not fully mature).
+   * Added the option --match-file to view interest point matches.
    * Added the option --delete-temporary-files-on-exit.
    * Can read the georeference of map-projected ISIS cubes.
 

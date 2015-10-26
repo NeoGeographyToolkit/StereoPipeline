@@ -133,6 +133,8 @@ namespace vw { namespace gui {
     int      m_argc;
     char **  m_argv;
     bool     m_matches_were_loaded;
+    std::string m_match_file;
+
     /// A set of interest points for each input image
     /// - There is always one set of matched interest points shared among all images.
     /// - The only way the counts can differ is if the user is in the process of manually
