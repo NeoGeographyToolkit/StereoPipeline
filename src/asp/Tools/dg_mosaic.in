@@ -557,9 +557,11 @@ def examine_discrepancy_in_arrays(A, B):
     if len(A) != len(B):
         raise Exception('InputError', 'Cannot process arrays of different lengths.')
 
+    max_err = 1.0e-10
+    print("Will go on if the relative discrepancies are less than %g." % max_err)
+
     num_messages = 0
     max_num_messages = 10
-    max_err = 1.0e-10
     for i in range(len(A)):
         if A[i] != B[i]:
             a=float(A[i])
@@ -724,7 +726,7 @@ def main():
                     # they are components of the same observation. Oddly, in practice
                     # that is not always so. Print a warning if the discrepancies are
                     # minor, and thow an error if they are major.
-                    print("Warning: ephem values do not agree in " \
+                    print("Warning: ephem values must be identical in " \
                           + xml_name(args[0]) + ' and ' + xml_name(filename))
                     examine_discrepancy_in_arrays(ref_eph_list, eph_list)
 
@@ -734,7 +736,7 @@ def main():
 
                 if ref_att_list != att_list:
                     # Same thing as for ephem.
-                    print("Warning: att values do not agree in " \
+                    print("Warning: att values must be identical in " \
                           + xml_name(args[0]) + ' and ' + xml_name(filename))
                     examine_discrepancy_in_arrays(ref_att_list, att_list)
 
