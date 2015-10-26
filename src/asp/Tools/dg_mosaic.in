@@ -552,6 +552,34 @@ def listlist_to_str(listlist):
             ans += str(val) + " "
     return ans
 
+def examine_discrepancy_in_arrays(A, B):
+
+    if len(A) != len(B):
+        raise Exception('InputError', 'Cannot process arrays of different lengths.')
+
+    num_messages = 0
+    max_num_messages = 10
+    max_err = 1.0e-10
+    for i in range(len(A)):
+        if A[i] != B[i]:
+            a=float(A[i])
+            b=float(B[i])
+            if a != b:
+                err = abs( (a-b)/a )
+                num_messages = num_messages + 1
+
+                if err > max_err or num_messages < max_num_messages:
+                    print("Warning: Disagreeing values and relative error: %0.18g %0.18g %0.18g" \
+                      % (a, b, err))
+
+                if num_messages == max_num_messages:
+                    print("Will stop printing more warnings.")
+
+                if err > max_err:
+                    raise Exception('InputError',
+                                    'Discrepancy is too large. Cannot continue.')
+
+
 def main():
 
     try:
@@ -686,12 +714,29 @@ def main():
                 if ref_pd != pd:
                     raise Exception('InputError', 'Must have the same pd in: '
                                     + xml_name(args[0]) + ' ' + xml_name(filename) )
+
+                if len(ref_eph_list) != len(eph_list):
+                    raise Exception('InputError', 'Must have the same number of ephem values in: '
+                                    + xml_name(args[0]) + ' and ' + xml_name(filename) )
+
                 if ref_eph_list != eph_list:
-                    raise Exception('InputError', 'Must have the same ephem in: '
-                                    + xml_name(args[0]) + ' ' + xml_name(filename) )
+                    # Normally we'd expect the same ephh in all files, as after all,
+                    # they are components of the same observation. Oddly, in practice
+                    # that is not always so. Print a warning if the discrepancies are
+                    # minor, and thow an error if they are major.
+                    print("Warning: ephem values do not agree in " \
+                          + xml_name(args[0]) + ' and ' + xml_name(filename))
+                    examine_discrepancy_in_arrays(ref_eph_list, eph_list)
+
+                if len(ref_att_list) != len(att_list):
+                    raise Exception('InputError', 'Must have the same number of att values in: '
+                                    + xml_name(args[0]) + ' and ' + xml_name(filename) )
+
                 if ref_att_list != att_list:
-                    raise Exception('InputError', 'Must have the same att in: '
-                                    + xml_name(args[0]) + ' ' + xml_name(filename) )
+                    # Same thing as for ephem.
+                    print("Warning: att values do not agree in " \
+                          + xml_name(args[0]) + ' and ' + xml_name(filename))
+                    examine_discrepancy_in_arrays(ref_att_list, att_list)
 
                 orig_sizes.append(image_size)
 
