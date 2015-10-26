@@ -343,7 +343,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   projection_options.add_options()
     ("t_srs",         po::value(&opt.target_srs_string)->default_value(""), "Specify the output projection (PROJ.4 string).")
     ("t_projwin",     po::value(&opt.target_projwin),
-	     "Selects a subwindow from the source image for copying but with the corners given in georeferenced coordinates. Max is exclusive.")
+     "The output DEM will have corners with these georeferenced coordinates.")
     ("dem-spacing,s", po::value(&dem_spacing1)->default_value(""),
 	     "Set output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically (except for LAS and CSV files). Multiple spacings can be set (in quotes) to generate multiple output files. This is the same as the --tr option.")
     ("tr",            po::value(&dem_spacing2)->default_value(""), "This is identical to the --dem-spacing option.")
