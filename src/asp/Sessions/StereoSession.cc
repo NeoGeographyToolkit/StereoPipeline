@@ -439,7 +439,8 @@ load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
       vw_throw(InputErr() << "Missing adjusted camera model: " << adjust_file << ".\n");
 
     vw_out() << "Using adjusted camera model: " << adjust_file << std::endl;
-    asp::read_adjustments(adjust_file, position_correction, pose_correction);
+    Vector2 adjustment_bounds;
+    asp::read_adjustments(adjust_file, adjustment_bounds, position_correction, pose_correction);
 
     if (position_correction.empty() || pose_correction.empty())
       vw_throw(InputErr() << "Unable to read corrections.\n");
@@ -447,9 +448,10 @@ load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
     // Handle the case of piecewise adjustments for DG cameras
     if (position_correction.size() > 1 && pose_correction.size() > 1) {
 
+
       // Create the adjusted DG model
       boost::shared_ptr<camera::CameraModel> adj_dg_cam
-	(new AdjustedLinescanDGModel(cam, position_correction, pose_correction));
+	(new AdjustedLinescanDGModel(cam, adjustment_bounds, position_correction, pose_correction));
 
       // Apply the pixel offset and pose corrections. So this a second adjustment
       // on top of the first.

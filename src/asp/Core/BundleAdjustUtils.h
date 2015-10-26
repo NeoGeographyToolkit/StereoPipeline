@@ -41,10 +41,12 @@ namespace vw {
 
 namespace asp{
   void read_adjustments(std::string const& filename,
+                        vw::Vector2 & adjustment_bounds,
                         std::vector<vw::Vector3> & position_correction,
                         std::vector<vw::Quat> & pose_correction);
 
   void write_adjustments(std::string const& filename,
+                         vw::Vector2 const & adjustment_bounds,
                          std::vector<vw::Vector3> const& position_correction,
                          std::vector<vw::Quat> const& pose_correction);
 

@@ -196,7 +196,80 @@ stereo_error_triangulate( vector<DisparityT> const& disparities,
   return result_type( disparities, transforms, model, is_map_projected );
 }
 
+/// Bin the disparities, and from each bin get a disparity value.
+/// This will create a correspondence from the left to right image,
+/// which we save in the match format
+template <class DisparityT, class TXT>
+void compute_matches_from_disp(vector<DisparityT> const& disparities,
+                               vector<TXT>        const& transforms) {
 
+  VW_ASSERT( disparities.size() == 1 && transforms.size() == 2,
+               vw::ArgumentErr() << "Expecting two images and one disparity.\n" );
+  DisparityT const& disp = disparities[0]; // pull the disparity
+
+  // Transforms to compensate for alignment
+  TXT left_trans  = transforms[0];
+  TXT right_trans = transforms[1];
+
+  std::vector<vw::ip::InterestPoint> left_ip, right_ip;
+
+  // TODO: This number must scale with the number of adjustments!!!
+  double max_num_matches = 90000;
+
+  double num_pixels = double(disp.cols()) * double(disp.rows());
+  if (num_pixels < max_num_matches) max_num_matches = num_pixels;
+
+  std::cout << "--num matches " << max_num_matches << std::endl;
+  std::cout << "num pixels " << num_pixels << std::endl;
+  double bin_len = sqrt(num_pixels/max_num_matches);
+  VW_ASSERT( bin_len >= 1.0, vw::ArgumentErr() << "Expecting bin_len >= 1.\n" );
+
+  std::cout << "--bin len is " << bin_len << std::endl;
+  int lenx = round( disp.cols()/bin_len );
+  int leny = round( disp.rows()/bin_len );
+
+  std::cout << "len x and y is " << lenx << ' ' << leny << std::endl;
+
+  // Iterate over bins.
+
+  vw_out() << "Computing interest point matches based on disparity.\n";
+  vw::TerminalProgressCallback tpc("asp", "\t--> ");
+  double inc_amount = 1.0 / double(lenx);
+  tpc.report_progress(0);
+
+  for (int binx = 0; binx < lenx; binx++) {
+
+    // Pick the disparity at the center of the bin
+    int posx = round( (binx+0.5)*bin_len );
+
+    for (int biny = 0; biny < leny; biny++) {
+
+      int posy = round( (biny+0.5)*bin_len );
+
+      if (posx >= disp.cols() || posy >= disp.rows()) continue;
+      typedef typename DisparityT::pixel_type DispPixelT;
+      DispPixelT dpix = disp(posx, posy);
+      if (!is_valid(dpix)) continue;
+
+      // De-warp left and right pixels to be in the camera coordinate system
+      Vector2 left_pix  = left_trans.reverse ( Vector2(posx, posy) );
+      Vector2 right_pix = right_trans.reverse( Vector2(posx, posy) + stereo::DispHelper(dpix) );
+
+      ip::InterestPoint lip, rip;
+      lip.x  = left_pix.x();  lip.y = left_pix.y();
+      rip.x = right_pix.x();  rip.y = right_pix.y();
+      left_ip.push_back(lip);
+      right_ip.push_back(rip);
+    }
+
+    tpc.report_incremental_progress( inc_amount );
+  }
+  tpc.report_finished();
+
+  std::string match_filename = "tmp.match";
+  std::cout << "--wrtting " << match_filename << std::endl;
+  ip::write_binary_match_file(match_filename, left_ip, right_ip);
+}
 
 namespace asp{
 
@@ -428,6 +501,13 @@ void stereo_triangulation( string          const& output_prefix,
       disparity_maps.push_back(opt_vec[p].session->pre_pointcloud_hook(opt_vec[p].out_prefix+"-F.tif"));
     }
 
+    if (getenv("MATCH") != NULL){
+      int val = atoi(getenv("MATCH"));
+      if (val > 0) {
+        compute_matches_from_disp(disparity_maps, transforms);
+        exit(0);
+      }
+    }
 
     // Apply radius function and stereo model in one go
     vw_out() << "\t--> Generating a 3D point cloud." << endl;

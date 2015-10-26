@@ -31,7 +31,10 @@
 
 namespace asp {
 
-  // A little function to pull the true camera model
+  const bool g_use_smooth_interp = false; // temporary!!!
+
+  // A little function to pull the true camera model.
+  // TODO: What if we are dealing with an adjusted camera model?
   inline DGCameraModel* get_dg_ptr(boost::shared_ptr<vw::camera::CameraModel> cam){
     DGCameraModel * dg_cam = dynamic_cast<DGCameraModel*>(cam.get());
     if (dg_cam == NULL)
@@ -42,22 +45,17 @@ namespace asp {
   // We would like to place num_adjustments between the first and last image
   // lines. Compute the starting time for that and the spacing.
   inline void compute_t0_dt(DGCameraModel const* cam_ptr,
-			    int num_adjustments,
-			    double & t0, double & dt){
+                            vw::Vector2 const& adjustment_bounds,
+                            int num_adjustments,
+                            double & t0, double & dt){
 
     VW_ASSERT( num_adjustments >= 2,
-	       vw::ArgumentErr() << "Expecting at least two adjustments.\n" );
+               vw::ArgumentErr() << "Expecting at least two adjustments.\n" );
 
-    int num_image_lines = cam_ptr->m_image_size[1];
-
-    // Note we compute beg_t and end_t at -1 and num_image_lines
-    // rather than at the first and last line, 0 and
-    // num_image_lines-1. This is intentional. Otherwise
-    // LinearPiecewisePositionInterpolation and SLERPPoseInterpolation
-    // may fail at line number 0 or num_image_lines as it always
-    // expects us to not try to interpolate at endpoints.
-    double beg_t = cam_ptr->m_time_func(-1);
-    double end_t = cam_ptr->m_time_func(num_image_lines);
+    // compute the times at the bounds between which we want to place
+    // the adjustments.
+    double beg_t = cam_ptr->m_time_func(adjustment_bounds[0]);
+    double end_t = cam_ptr->m_time_func(adjustment_bounds[1]);
 
     // For images scanned in reverse, beg_t can be > end_t
     if (beg_t > end_t)
@@ -65,32 +63,30 @@ namespace asp {
 
     t0 = beg_t;
     dt = (end_t - beg_t)/(num_adjustments - 1.0);
-
-    if (num_adjustments == 1)
-      dt = std::numeric_limits<double>::max();
-  }
-
-  // Position adjustment. Note that the position class itself is of
-  // type PiecewiseAPositionInterpolation (uses velocity) though the
-  // adjustments themselves are, as expected, of the simpler
-  // LinearPiecewisePositionInterpolation type.
-  inline vw::camera::LinearPiecewisePositionInterpolation
-  set_position_adjustments(DGCameraModel const* cam_ptr,
-			   std::vector<vw::Vector3> const& position_adjustments){
-
-    // We will need to be able to linearly interpolate into the adjustments.
-    double t0, dt;
-    compute_t0_dt(cam_ptr, position_adjustments.size(), t0, dt);
-    return vw::camera::LinearPiecewisePositionInterpolation(position_adjustments, t0, dt);
   }
 
   class AdjustablePosition {
   public:
     AdjustablePosition(DGCameraModel const* cam_ptr,
-		       std::vector<vw::Vector3> const& position_adjustments):
-      m_cam_ptr(cam_ptr),
-      m_position_adjustments(set_position_adjustments(cam_ptr,
-						      position_adjustments)) {}
+                       vw::Vector2 const& adjustment_bounds,
+                       std::vector<vw::Vector3> const& position_adjustments,
+                       int num_wts, double sigma): m_cam_ptr(cam_ptr){
+
+      // We will need to be able to linearly interpolate into the adjustments.
+      double t0, dt;
+      compute_t0_dt(cam_ptr, adjustment_bounds, position_adjustments.size(), t0, dt);
+
+      // Linear interp
+      if (!g_use_smooth_interp){
+        m_linear_position_adjustments
+          = vw::camera::LinearPiecewisePositionInterpolation(position_adjustments, t0, dt);
+      }else{
+      // Smooth interp
+      m_smooth_position_adjustments
+        = vw::camera::SmoothPiecewisePositionInterpolation(position_adjustments,
+                                                           t0, dt, num_wts, sigma);
+      }
+    }
 
     // Return the original position plus the interpolated adjustment.
     vw::Vector3 operator()( double t ) const {
@@ -99,61 +95,83 @@ namespace asp {
       // corresponding to between first and last lines, as that's
       // where the adjustments are placed. Anything beyond will have
       // to use the adjustments at endpoints.
-      double t0 = t;
-      t0 = std::max(t0, m_position_adjustments.get_t0());
-      t0 = std::min(t0, m_position_adjustments.get_tend());
+      if (!g_use_smooth_interp){
+        double bound_t = t;
+        bound_t = std::max(bound_t, m_linear_position_adjustments.get_t0());
+        bound_t = std::min(bound_t, m_linear_position_adjustments.get_tend());
+        return m_linear_position_adjustments(bound_t) + m_cam_ptr->m_position_func(t);
+      }
 
-      return m_position_adjustments(t0) + m_cam_ptr->m_position_func(t);
+      double bound_t = t;
+      bound_t = std::max(bound_t, m_smooth_position_adjustments.get_t0());
+      bound_t = std::min(bound_t, m_smooth_position_adjustments.get_tend());
+      return m_smooth_position_adjustments(bound_t) + m_cam_ptr->m_position_func(t);
     }
 
     // Return the closest piecewise adjustment camera indices to given time.
     std::vector<int> get_closest_adj_indices(double t){
 
-      double t0   = m_position_adjustments.get_t0();
-      double dt   = m_position_adjustments.get_dt();
-      double tend = m_position_adjustments.get_tend();
-      int    num  = round( (tend - t0)/dt ) + 1;
+      if (!g_use_smooth_interp){
 
-      double ratio = (t-t0)/dt;
+        double t0   = m_linear_position_adjustments.get_t0();
+        double dt   = m_linear_position_adjustments.get_dt();
+        double tend = m_linear_position_adjustments.get_tend();
+        int    num  = round( (tend - t0)/dt ) + 1;
 
-      // if ratio == 7.2, return 6, 7, 8
-      // if ratio == 7.9, return 7, 8, 9
-      int i0 = floor(ratio - 0.5);
-      int i1 = i0 + 1;
-      int i2 = i1 + 1;
+        double bound_t = t;
+        bound_t = std::max(bound_t, m_linear_position_adjustments.get_t0());
+        bound_t = std::min(bound_t, m_linear_position_adjustments.get_tend());
 
-      std::vector<int> indices;
-      if (i0 >= 0 && i0 < num) indices.push_back(i0);
-      if (i1 >= 0 && i1 < num) indices.push_back(i1);
-      if (i2 >= 0 && i2 < num) indices.push_back(i2);
+        double ratio = (bound_t-t0)/dt;
 
-      return indices;
+        // if ratio == 7.2, return 6, 7, 8
+        // if ratio == 7.9, return 7, 8, 9
+        int i0 = floor(ratio - 0.5);
+        int i1 = i0 + 1;
+        int i2 = i1 + 1;
+
+        std::vector<int> indices;
+        if (i0 >= 0 && i0 < num) indices.push_back(i0);
+        if (i1 >= 0 && i1 < num) indices.push_back(i1);
+        if (i2 >= 0 && i2 < num) indices.push_back(i2);
+
+        return indices;
+      }
+
+      double bound_t = t;
+      bound_t = std::max(bound_t, m_smooth_position_adjustments.get_t0());
+      bound_t = std::min(bound_t, m_smooth_position_adjustments.get_tend());
+
+      // Return the indices of the largest weights used in interp.
+      return m_smooth_position_adjustments.get_indices_of_largest_weights(bound_t);
     }
-
 
   private:
     DGCameraModel const* m_cam_ptr;
-    vw::camera::LinearPiecewisePositionInterpolation m_position_adjustments;
+    vw::camera::LinearPiecewisePositionInterpolation m_linear_position_adjustments;
+    vw::camera::SmoothPiecewisePositionInterpolation m_smooth_position_adjustments;
   };
-
-  // Pose adjustment
-  inline vw::camera::SLERPPoseInterpolation
-  set_pose_adjustments(DGCameraModel const* cam_ptr,
-		       std::vector<vw::Quat> const& pose_adjustments){
-
-    // We will need to be able to linearly interpolate into the adjustments.
-    double t0, dt;
-    compute_t0_dt(cam_ptr, pose_adjustments.size(), t0, dt);
-    return vw::camera::SLERPPoseInterpolation(pose_adjustments, t0, dt);
-  }
 
   class AdjustablePose {
   public:
     AdjustablePose(DGCameraModel const* cam_ptr,
-		   std::vector<vw::Quat> const& pose_adjustments):
-      m_cam_ptr(cam_ptr),
-      m_pose_adjustments(set_pose_adjustments(m_cam_ptr,
-					      pose_adjustments)) {}
+                   vw::Vector2 const& adjustment_bounds,
+                   std::vector<vw::Quat> const& pose_adjustments,
+                   int num_wts, double sigma):
+      m_cam_ptr(cam_ptr){
+
+      // We will need to be able to linearly interpolate into the adjustments.
+      double t0, dt;
+      compute_t0_dt(m_cam_ptr, adjustment_bounds, pose_adjustments.size(), t0, dt);
+
+      if (!g_use_smooth_interp){
+        m_linear_pose_adjustments
+          = vw::camera::SLERPPoseInterpolation(pose_adjustments, t0, dt);
+      }else{
+        m_smooth_pose_adjustments
+          = vw::camera::SmoothSLERPPoseInterpolation(pose_adjustments, t0, dt, num_wts, sigma);
+      }
+    }
 
     // Take the original rotation, and apply the adjustment on top of it. Both are
     // interpolated.
@@ -163,17 +181,28 @@ namespace asp {
       // corresponding to between first and last lines, as that's
       // where the adjustments are placed. Anything beyond will have
       // to use the adjustments at endpoints.
-      double t0 = t;
-      t0 = std::max(t0, m_pose_adjustments.get_t0());
-      t0 = std::min(t0, m_pose_adjustments.get_tend());
 
-      return  m_pose_adjustments(t0) * m_cam_ptr->m_pose_func(t);
+      if (!g_use_smooth_interp){
+        double bound_t = t;
+        bound_t = std::max(bound_t, m_linear_pose_adjustments.get_t0());
+        bound_t = std::min(bound_t, m_linear_pose_adjustments.get_tend());
+        return m_linear_pose_adjustments(bound_t) * m_cam_ptr->m_pose_func(t);
+      }
+
+      double bound_t = t;
+      bound_t = std::max(bound_t, m_smooth_pose_adjustments.get_t0());
+      bound_t = std::min(bound_t, m_smooth_pose_adjustments.get_tend());
+      return m_smooth_pose_adjustments(bound_t) * m_cam_ptr->m_pose_func(t);
     }
 
   private:
     DGCameraModel const* m_cam_ptr;
-    vw::camera::SLERPPoseInterpolation m_pose_adjustments;
+    vw::camera::SLERPPoseInterpolation       m_linear_pose_adjustments;
+    vw::camera::SmoothSLERPPoseInterpolation m_smooth_pose_adjustments;
   };
+
+  int g_num_wts = 4; // Modifying here will require modifying a lot of code
+  double g_sigma = 1.0;
 
   // This class will have adjustable position and pose. Those are obtained by applying
   // adjustments to given position and pose. The adjustable position and pose
@@ -181,25 +210,26 @@ namespace asp {
   // and pose. Note that we don't adjust the velocity, maybe we should.
   class AdjustedLinescanDGModel:
     public LinescanDGModel<AdjustablePosition,                                 // position
-			   vw::camera::LinearPiecewisePositionInterpolation,   // velocity
-			   AdjustablePose,                                     // pose
-			   vw::camera::TLCTimeInterpolation> {
+                           vw::camera::LinearPiecewisePositionInterpolation,   // velocity
+                           AdjustablePose,                                     // pose
+                           vw::camera::TLCTimeInterpolation> {
 
   public:
     //------------------------------------------------------------------
     // Constructors / Destructors
     //------------------------------------------------------------------
     AdjustedLinescanDGModel(boost::shared_ptr<vw::camera::CameraModel> cam,
-			    std::vector<vw::Vector3> const& position_adjustments,
-			    std::vector<vw::Quat>    const& pose_adjustments):
+                            vw::Vector2 const& adjustment_bounds,
+                            std::vector<vw::Vector3> const& position_adjustments,
+                            std::vector<vw::Quat>    const& pose_adjustments):
       // Initialize the base
       LinescanDGModel<AdjustablePosition,
-		      vw::camera::LinearPiecewisePositionInterpolation,
-		      AdjustablePose,
-		      vw::camera::TLCTimeInterpolation>
-    (AdjustablePosition(get_dg_ptr(cam), position_adjustments),
+                      vw::camera::LinearPiecewisePositionInterpolation,
+                      AdjustablePose,
+                      vw::camera::TLCTimeInterpolation>
+    (AdjustablePosition(get_dg_ptr(cam), adjustment_bounds, position_adjustments, g_num_wts, g_sigma),
      get_dg_ptr(cam)->m_velocity_func,
-     AdjustablePose(get_dg_ptr(cam), pose_adjustments),
+     AdjustablePose(get_dg_ptr(cam), adjustment_bounds, pose_adjustments, g_num_wts, g_sigma),
      get_dg_ptr(cam)->m_time_func,
      get_dg_ptr(cam)->m_image_size,
      get_dg_ptr(cam)->m_detector_origin,
@@ -211,8 +241,8 @@ namespace asp {
     {
 
       VW_ASSERT( position_adjustments.size() == pose_adjustments.size(),
-		 vw::ArgumentErr()
-		 << "Expecting the number of position and pose adjustments to agree.\n" );
+                 vw::ArgumentErr()
+                 << "Expecting the number of position and pose adjustments to agree.\n" );
 
     }
 
