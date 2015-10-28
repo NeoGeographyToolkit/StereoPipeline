@@ -451,7 +451,9 @@ load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
 
       // Create the adjusted DG model
       boost::shared_ptr<camera::CameraModel> adj_dg_cam
-	(new AdjustedLinescanDGModel(cam, adjustment_bounds, position_correction, pose_correction));
+	(new AdjustedLinescanDGModel(cam,
+                                     stereo_settings().piecewise_adjustment_interp_type,
+                                     adjustment_bounds, position_correction, pose_correction));
 
       // Apply the pixel offset and pose corrections. So this a second adjustment
       // on top of the first.

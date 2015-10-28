@@ -406,6 +406,61 @@ using it is in Figure \ref{fig:ccd-artifact-example}.
 \label{fig:ccd-artifact-example}
 \end{figure}
 
+\section{Managing Camera Jitter}
+\label{sec:jitter}
+
+The measured position and orientation of the image-acquiring line sensor as specified
+in a camera XML file is usually not perfectly accurate, the sensor in
+fact wiggles slightly from where it is assumed to be as it travels through
+space and appends rows of pixels to the image. This results in slight
+errors in the final DEM created using stereo. Those are most clearly
+seen in the intersection error map output by \texttt{point2dem -\/-errorimage}.
+
+ASP provides support for correcting this jitter, at least its low
+frequency component. During stereo, right before the triangulation step,
+so after the left-to-right image disparity is computed, it can solve for
+adjustments to apply to the satellite position and orientation. Those
+adjustments are placed along-track (hence at several lines in the image)
+with interpolation between them. This is quite analogous to what
+\texttt{bundle\_adjust} is doing, except that the latter uses just one
+adjustment for each image.
+
+This process can be triggered by invoking \texttt{stereo} with
+\texttt{-\/-image-lines-per-piecewise-adjustment arg}. A smaller value
+of \texttt{arg} will result in more adjustments being used (each
+adjustment being responsible for fewer image lines), hence providing
+finer-grained control, though making this number too small may result in
+over-fitting and instability. A smaller value here will also require
+overall more interest point matches (as computed from the disparity),
+which is set via \texttt{-\/-num-matches-for-piecewise-adjustment}.
+
+If it appears that the adjustments show some instability at the starting
+and ending lines due to not enough matches being present (as deduced
+from examining the intersection error image), the locations of the first
+and last adjustment (and everything in between) may be brought closer to
+each other, by modifying \texttt{-\/-piecewise-adjustment-percentiles}.
+Its values are by default 5 and 95, and could be set for example to 10
+and 90.
+
+Lastly, the way interpolation among adjustments is performed can be
+controlled with
+
+\begin{verbatim}
+  --piecewise-adjustment-interp-type
+\end{verbatim}
+
+Section \ref{triangulation_options} describes these options in detail.
+
+An illustration of jitter correction is given in figure \ref{fig:jitter-example}.
+
+\begin{figure}[h!]
+\centering
+  \includegraphics[width=6.0in]{images/jitter.jpg}
+\caption{Example of a colorized intersection error map before (left) and
+  after jitter correction.}
+\label{fig:jitter-example}
+\end{figure}
+
 
 \section{Dealing with Terrain Lacking Large-Scale Features}
 \label{sparse-disp}
@@ -1141,7 +1196,7 @@ The resulting TIFF file is map-projected and will contain
 georeferencing information stored as GeoTIFF tags.
 
 The tool will infer the datum and projection from the input images, if
-present. You can explicitely specify a coordinate system (e.g.,
+present. You can explicitly specify a coordinate system (e.g.,
 mercator, sinusoidal) and a reference spheroid (i.e., calculated for the
 Moon, Mars, or Earth). Alternatively, the datum semi-axes can be set or
 a PROJ.4 string can be passed in.

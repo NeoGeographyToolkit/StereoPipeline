@@ -259,9 +259,10 @@ namespace asp {
                                             "Use rigorous least squares triangulation process. This is slow for ISIS processes.")
       ("bundle-adjust-prefix", po::value(&global.bundle_adjust_prefix),
        "Use the camera adjustments obtained by previously running bundle_adjust with this output prefix.")
-      ("image-lines-per-piecewise-adjustment", po::value(&global.image_lines_per_piecewise_adjustment)->default_value(0), "A positive value, e.g., 2000, will turn on using piecewise camera adjustments to help reduce jitter in input imagery. Use one adjustment per this many image lines.")
+      ("image-lines-per-piecewise-adjustment", po::value(&global.image_lines_per_piecewise_adjustment)->default_value(0), "A positive value, e.g., 2000, will turn on using piecewise camera adjustments to help reduce jitter effects. Use one adjustment per this many image lines.")
       ("piecewise-adjustment-percentiles",     po::value(&global.piecewise_adjustment_percentiles)->default_value(Vector2(5, 95), "5 95"), "A narrower range will place the piecewise adjustments for jitter correction closer together and further from the first and last lines in the image.")
-      ("num_matches-for-piecewise-adjustment", po::value(&global.num_matches_for_piecewise_adjustment)->default_value(90000), "How many matches among images to create based on the disparity for the purpose of solving for jitter using piecewise adjustments.")
+      ("piecewise-adjustment-interp-type", po::value(&global.piecewise_adjustment_interp_type)->default_value(1), "How to interpolate between adjustments. [1 Linear, 2 Using Gaussian weights]")
+      ("num-matches-for-piecewise-adjustment", po::value(&global.num_matches_for_piecewise_adjustment)->default_value(90000), "How many matches among images to create based on the disparity for the purpose of solving for jitter using piecewise adjustment.")
       ("point-cloud-rounding-error",        po::value(&global.point_cloud_rounding_error)->default_value(0.0),
                                             "How much to round the output point cloud values, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. Default: 1/2^10 for Earth and proportionally less for smaller bodies.")
       ("save-double-precision-point-cloud", po::bool_switch(&global.save_double_precision_point_cloud)->default_value(false)->implicit_value(true),

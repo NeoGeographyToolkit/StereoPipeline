@@ -177,7 +177,9 @@ struct PiecewiseReprojectionError {
 
       // The adjusted camera has just the adjustments, it does not create a full
       // copy of the camera.
-      asp::AdjustedLinescanDGModel adj_cam(m_cam, m_adjustment_bounds,
+      asp::AdjustedLinescanDGModel adj_cam(m_cam,
+                                           stereo_settings().piecewise_adjustment_interp_type,
+                                           m_adjustment_bounds,
 					   position_adjustments, pose_adjustments);
 
       // Copy the input data to structures expected by the BA model
@@ -441,7 +443,10 @@ void jitter_adjust(std::vector<std::string> const& image_files,
   for (int icam = 0; icam < num_cameras; icam++)
     vw_out() << "Placing first and last adjustment for image "
              << image_files[icam] << " at lines: "
-             << adjustment_bounds[icam][0] << ' ' << adjustment_bounds[icam][1] << "\n";
+             << adjustment_bounds[icam][0] << ' '
+             << adjustment_bounds[icam][1] << "\n";
+  vw_out() << "--> For map-projected images the above pixels "
+           << "are in the camera domain (hence with map-projection undone).\n";
 
   // Decide how many adjustments to use per camera
   int num_total_adj = 0;
@@ -524,6 +529,7 @@ void jitter_adjust(std::vector<std::string> const& image_files,
     std::vector<vw::Quat> pose_adjustments(num_adj_per_cam[icam]);
 
     asp::AdjustedLinescanDGModel adj_cam(camera_models[icam],
+                                         stereo_settings().piecewise_adjustment_interp_type,
 					 adjustment_bounds[icam],
 					 position_adjustments, pose_adjustments);
 

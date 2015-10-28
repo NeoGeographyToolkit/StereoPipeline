@@ -169,6 +169,7 @@ namespace asp {
     // piecewise adjustments
     int image_lines_per_piecewise_adjustment;
     vw::Vector2 piecewise_adjustment_percentiles;
+    int    piecewise_adjustment_interp_type;
     int    num_matches_for_piecewise_adjustment;
     bool   skip_computing_piecewise_adjustments;
     bool   compute_piecewise_adjustments_only;

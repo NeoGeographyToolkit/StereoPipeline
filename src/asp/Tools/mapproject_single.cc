@@ -264,8 +264,9 @@ void calc_target_geom(// Inputs
     opt.target_resolution = auto_res;
 
   // If an image bounding box (projected coordinates) was passed in,
-  //  override the camera's view on the ground with the custom box.
-  // - The user needs to know the georeference projected coordinate system (using the query command) to do this
+  // override the camera's view on the ground with the custom box.
+  // The user needs to know the georeference projected coordinate
+  // system (using the query command) to do this.
   if ( opt.target_projwin != BBox2() ) {
     cam_box = opt.target_projwin;
     if ( cam_box.min().y() > cam_box.max().y() )

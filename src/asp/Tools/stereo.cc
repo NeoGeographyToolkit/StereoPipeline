@@ -690,6 +690,12 @@ namespace asp {
             dynamic_cast<vw::camera::AdjustedCameraModel*>(camera_model2.get()) != NULL )
           vw_throw(ArgumentErr() << "Since we perform piecewise adjustments "
                    << "to reduce jitter, the input cameras should not have been bundle-adjusted.\n");
+
+        if (stereo_settings().piecewise_adjustment_interp_type != 1 &&
+            stereo_settings().piecewise_adjustment_interp_type != 2)
+          vw_throw(ArgumentErr() << "Interpolation type for piecewise "
+                   << "adjustment can be only 1 or 2.\n");
+
       }
 
     } catch (const exception& e) {

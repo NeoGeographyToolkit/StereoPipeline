@@ -29,7 +29,7 @@ distribution.
   When \texttt{alignment-method} is set to \texttt{homography},
   \texttt{stereo} will attempt to pre-align the images by
   automatically detecting tie-points between images using a feature
-  based image matching technique. Tiepoints are stored in a
+  based image matching technique. Tie points are stored in a
   \texttt{*.match} file that is used to compute a linear homography
   transformation of the right image so that it closely matches the
   left image.  Note: the user may exercise more control over this
@@ -147,7 +147,7 @@ If the default method does not perform well, try out one of the other two method
   preprocessing provides good immunity to variations in lighting
   conditions and is usually the recommended choice.
 
-\item[prefilter-kernel-width \textnormal{\small{(= \emph{float})}} (default = 1.4)] \hfill \\
+\item[prefilter-kernel-width \textnormal{\small{(\emph{float})}} (default = 1.4)] \hfill \\
   This defines the diameter of the Gaussian convolution kernel used
   for the preprocessing modes 1 and 2 above. A value of 1.4 works
   well for LoG and 25-30 works well for Subtracted Mean.
@@ -192,7 +192,7 @@ If the default method does not perform well, try out one of the other two method
   ISS or MER images should just shut this option off to save storage
   space.
 
-\item[corr-sub-seed-percent \textnormal{\small{(= \emph{float})}} (default=0.25)] \hfill \\
+\item[corr-sub-seed-percent \textnormal{\small{(\emph{float})}} (default=0.25)] \hfill \\
   When using \texttt{corr-seed-mode 1}, the solved-for or user-provided
   search range is grown by this factor for the purpose of computing the
   low-resolution disparity.
@@ -215,13 +215,13 @@ If the default method does not perform well, try out one of the other two method
     \item[2 - normalized cross correlation]
   \end{description}
 
-\item[corr-kernel \textnormal{\small{(= \emph{integer integer})}} (default = 25 25)] \hfill \\
+\item[corr-kernel \textnormal{\small{(\emph{integer integer})}} (default = 25 25)] \hfill \\
   These option determine the size (in pixels) of the correlation
   kernel used in the initialization step.  A different size can be set
   in the horizontal and vertical directions, but square correlation
   kernels are almost always used in practice.
 
-\item[corr-search \textnormal{\small{(= \emph{integer integer integer integer})}}] \hfill \\
+\item[corr-search \textnormal{\small{(\emph{integer integer integer integer})}}] \hfill \\
   These parameters determine the size of the initial correlation
   search range.  The ideal search range depends on a variety of
   factors ranging from how the images were pre-aligned to the
@@ -240,7 +240,7 @@ If the default method does not perform well, try out one of the other two method
   vertical disparity and then the maximum horizontal and vertical
   disparity.
 
-\item[xcorr-threshold \textnormal{\small{(= \emph{integer})}} (default = 2)] \hfill \\
+\item[xcorr-threshold \textnormal{\small{(\emph{integer})}} (default = 2)] \hfill \\
 
   Integer correlation to a limited sense performs a correlation
   forward and backwards to double check its result. This is one of the
@@ -259,7 +259,7 @@ If the default method does not perform well, try out one of the other two method
   This flag, if provided, enables using local homography during
   correlation, as described in Section \ref{sec:local_hom}.
 
-\item[corr-timeout \textnormal{\small{(= \emph{integer})}} (default = 1800)]\hfill \\
+\item[corr-timeout \textnormal{\small{(\emph{integer})}} (default = 1800)]\hfill \\
 
   Correlation timeout for an image tile, in seconds. A non-positive
 value will result in no timeout enforcement. A value of 600 seconds
@@ -296,7 +296,7 @@ should be sufficient in most cases.
   For a visual comparison of the quality of these subpixel modes,
   refer back to Chapter:\ref{ch:correlation}.
 
-\item[subpixel-kernel \textnormal{\small{(= \emph{integer integer})}} (default = 35 35)]
+\item[subpixel-kernel \textnormal{\small{(\emph{integer integer})}} (default = 35 35)]
   Specify the size of the horizontal and vertical size (in pixels) of
   the subpixel correlation kernel. It is advantageous to keep this
   small for parabola fitting in order to resolve finer
@@ -319,7 +319,7 @@ should be sufficient in most cases.
 
 \begin{description}
 
-\item[filter-mode \textnormal{\small{(= \emph{integer})}} (default = 1)]
+\item[filter-mode \textnormal{\small{(\emph{integer})}} (default = 1)]
 \hfill \\ This parameter sets the filter mode. Three modes are supported
 as described below. Here, by neighboring pixels for a current pixel we
 mean those pixels within the window of half-size of
@@ -330,7 +330,7 @@ mean those pixels within the window of half-size of
     \item[2] - Filter by discarding pixels at which percentage of neighboring disparities that are within \texttt{rm-threshold} of current disparity is less than \texttt{rm-min-matches}.
   \end{description}
 
-\item[rm-half-kernel \textnormal{\small{(= \emph{integer integer})}} (default = 5 5)] \hfill \\
+\item[rm-half-kernel \textnormal{\small{(\emph{integer integer})}} (default = 5 5)] \hfill \\
   This setting adjusts the behavior of an outlier rejection scheme
   that ``erodes'' isolated regions of pixels in the disparity map that
   are in disagreement with their neighbors.
@@ -340,23 +340,23 @@ mean those pixels within the window of half-size of
   $5 \times 5$ half kernel would result in an $11 \times 11$ kernel
   with 121 pixels in it.
 
-\item[max-mean-diff \textnormal{\small{(= \emph{integer})}} (default = 3)] \hfill \\
+\item[max-mean-diff \textnormal{\small{(\emph{integer})}} (default = 3)] \hfill \\
   This parameter sets the {\em maximum difference} between the current pixel disparity and the mean of disparities of neighbors in order for a
   given disparity value to be retained (for \texttt{filter-mode} 1).
 
-\item[rm-min-matches \textnormal{\small{(= \emph{integer})}} (default = 60)] \hfill \\
+\item[rm-min-matches \textnormal{\small{(\emph{integer})}} (default = 60)] \hfill \\
   This parameter sets the {\em percentage} of neighboring disparity
   values that must fall within the inlier threshold in order for a
   given disparity value to be retained (for \texttt{filter-mode} 2).
 
-\item[rm-threshold \textnormal{\small{(= \emph{integer})}} (default = 3)] \hfill \\
+\item[rm-threshold \textnormal{\small{(\emph{integer})}} (default = 3)] \hfill \\
   This parameter sets the inlier threshold for the outlier rejection
   scheme.  This option works in conjunction with RM\_MIN\_MATCHES
   above.  A disparity value is rejected if it differs by more than
   RM\_THRESHOLD disparity values from RM\_MIN\_MATCHES percent of
   pixels in the region being considered  (for \texttt{filter-mode} 2).
 
-\item[rm-clean-passes \textnormal{\small{(= \emph{integer})}} (default = 1)] \hfill \\
+\item[rm-clean-passes \textnormal{\small{(\emph{integer})}} (default = 1)] \hfill \\
   Select the number of outlier removal passes that are carried out.
   Each pass will erode pixels that do not match their neighbors.  One
   pass is usually sufficient.
@@ -367,10 +367,10 @@ Enable filling of holes in disparity using an inpainting
 method. Obsolete. It is suggested to use instead point2dem's analogous
 functionality.
 
-\item[fill-holes-max-size \textnormal{\small{(= \emph{integer})}} (default = 100,000)] \hfill \\
+\item[fill-holes-max-size \textnormal{\small{(\emph{integer})}} (default = 100,000)] \hfill \\
   Holes with no more pixels than this number should be filled in.
 
-\item[erode-max-size \textnormal{\small{(= \emph{integer})}} (default = 0)] \hfill \\
+\item[erode-max-size \textnormal{\small{(\emph{integer})}} (default = 0)] \hfill \\
   Isolated blobs with no more pixels than this number should be removed.
 
 \end{description}
@@ -385,8 +385,8 @@ functionality.
 \bigskip
 
 \begin{description}
-\item[near-universe-radius \textnormal{\small{(= \emph{float})}} (default = 0.0)]
-\item[far-universe-radius \textnormal{\small{(= \emph{float})}} (default = 0.0)] \hfill \\
+\item[near-universe-radius \textnormal{\small{(\emph{float})}} (default = 0.0)]
+\item[far-universe-radius \textnormal{\small{(\emph{float})}} (default = 0.0)] \hfill \\
 
 These parameters can be used to remove outliers from the 3D triangulated
 point cloud. The points that will be kept are those whose distance from
@@ -404,9 +404,9 @@ are:
     \item[Zero]   - Use the center of the planet as the universe center.
   \end{description}
 
-\item[bundle-adjust-prefix \textnormal{\small{(= \emph{string})}}] \hfill \\ Use the camera adjustments obtained by previously running bundle\_adjust with this output prefix.
+\item[bundle-adjust-prefix \textnormal{\small{(\emph{string})}}] \hfill \\ Use the camera adjustments obtained by previously running bundle\_adjust with this output prefix.
 
-\item[point-cloud-rounding-error \textnormal{\small{(= \emph{double})}}] \hfill \\
+\item[point-cloud-rounding-error \textnormal{\small{(\emph{double})}}] \hfill \\
 
 How much to round the output point cloud values, in meters (more
 rounding means less precision but potentially smaller size on disk). The
@@ -430,5 +430,29 @@ triangulation error vector) rather than the usual 4. When invoking
 \texttt{-\/-errorimage} option, the error image will contain the three
 components of the triangulation error vector in the North-East-Down
 coordinate system.
+
+The next several parameters are used for jitter correction for Digital
+Globe imagery. A usage tutorial is given in section \ref{sec:jitter}.
+
+\item[image-lines-per-piecewise-adjustment \textnormal{\small{(\emph{integer})}} (default = 0)]
+A positive value, e.g., 2000, will turn on using piecewise camera adjustments to help reduce jitter effects. Use one adjustment per this many image lines.
+
+\item[piecewise-adjustment-percentiles \textnormal{\small{(\emph{float
+        float})}} (default = 5 95)]
+A narrower range will place the piecewise adjustments for jitter correction closer together and further from the first and last lines in the image.
+
+\item[piecewise-adjustment-interp-type \textnormal{\small{(\emph{integer})}} (default = 1)]
+How to interpolate between adjustments. [1 Linear, 2 Using Gaussian weights]
+
+\item[num-matches-for-piecewise-adjustment \textnormal{\small{(\emph{integer})}} (default = 90000)]
+How many matches among images to create based on the disparity for the purpose of solving for jitter using piecewise adjustment.
+
+These last two options are used internally.
+
+\item[compute-piecewise-adjustments-only \textnormal (default = false)] \hfill \\
+Compute the piecewise adjustments as part of jitter correction, and then stop.
+
+\item[skip-computing-piecewise-adjustments \textnormal (default = false)] \hfill \\
+Skip computing the piecewise adjustments for jitter, they should have been done by now.
 
 \end{description}

@@ -223,8 +223,8 @@ void compute_matches_from_disp(vector<DisparityT> const& disparities,
   double bin_len = sqrt(num_pixels/max_num_matches);
   VW_ASSERT( bin_len >= 1.0, vw::ArgumentErr() << "Expecting bin_len >= 1.\n" );
 
-  int lenx = round( disp.cols()/bin_len );
-  int leny = round( disp.rows()/bin_len );
+  int lenx = round( disp.cols()/bin_len ); lenx = std::max(1, lenx);
+  int leny = round( disp.rows()/bin_len ); leny = std::max(1, leny);
 
   // Iterate over bins.
 
@@ -262,7 +262,10 @@ void compute_matches_from_disp(vector<DisparityT> const& disparities,
   }
   tpc.report_finished();
 
-  vw_out() << "Writing " << match_file << std::endl;
+  vw_out() << "Determined " << left_ip.size()
+           << " interest point matches from disparity.\n";
+
+  vw_out() << "Writing :" << match_file << std::endl;
   ip::write_binary_match_file(match_file, left_ip, right_ip);
 }
 
