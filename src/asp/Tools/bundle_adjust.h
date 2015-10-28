@@ -35,6 +35,7 @@
 #include <asp/Core/BundleAdjustUtils.h>
 
 namespace asp{
+
   template<class camera_vector_t>
   void parse_camera_parameters(camera_vector_t cam_j,
                                vw::Vector3 &position_correction,
@@ -313,4 +314,4 @@ public:
 
 };
 
-#endif
+#endif // __ASP_TOOLS_BUNDLEADJUST_H__

@@ -165,12 +165,21 @@ namespace asp {
     float  far_universe_radius;       // Radius of the universe in meters
     float  max_valid_triangulation_error; // points with error > this are rm from cloud
     std::string bundle_adjust_prefix; // Use the camera adjustments obtained by previously running bundle_adjust with the output prefix specified here.
-    bool   use_least_squares;         // Use a more rigorous triangulation
+
+    // piecewise adjustments
+    int image_lines_per_piecewise_adjustment;
+    vw::Vector2 piecewise_adjustment_percentiles;
+    int    num_matches_for_piecewise_adjustment;
+    bool   skip_computing_piecewise_adjustments;
+    bool   compute_piecewise_adjustments_only;
+
+    bool   compute_error_vector;              // Compute the triangulation error vector, not just its length
+
+    bool   use_least_squares;                 // Use a more rigorous triangulation
     bool   save_double_precision_point_cloud; // Save final point cloud in double precision rather than bringing the points closer to origin and saving as float (marginally more precision at 2x the storage).
-    double point_cloud_rounding_error;// How much to round the output point cloud values
+    double point_cloud_rounding_error;        // How much to round the output point cloud values
+    bool   compute_point_cloud_center_only;   // Only compute the center of triangulated point cloud and exit.
     bool   skip_point_cloud_center_comp;
-    bool   compute_point_cloud_center_only; // Only compute the center of triangulated point cloud and exit.
-    bool   compute_error_vector;      // Compute the triangulation error vector, not just its length
 
     // stereo_gui options
     int grid_cols;

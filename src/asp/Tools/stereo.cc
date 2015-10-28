@@ -624,6 +624,7 @@ namespace asp {
     }
 
     // Camera checks
+    bool force_throw = false;
     try {
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
       opt.session->camera_models(camera_model1, camera_model2);
@@ -665,12 +666,42 @@ namespace asp {
           << "\tyour input models as most likely stereo won't\n"
           << "\tbe able to triangulate.\n";
       }
+
+      // If later we perform piecewise adjustments, the cameras loaded
+      // so far must not be adjusted. And we also can't just perform
+      // stereo on cropped images, as we need the full disparity.
+      if (stereo_settings().image_lines_per_piecewise_adjustment > 0) {
+
+        force_throw = true;
+
+        if ( opt.session->name() != "dg" && opt.session->name() != "dgmaprpc")
+          vw_throw(ArgumentErr()
+                   << "Piecewise adjustment is possible only for Digital Globe cameras.\n");
+
+        // This check must come first as it implies adjusted cameras
+        if ( ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
+             ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) ) )
+          vw_throw(ArgumentErr() << "Since we perform piecewise adjustments we "
+                   << "need the full disparities, so --left-image-crop-win and  "
+                   << "--right-image-crop-win cannot be used.\n");
+
+        if (stereo_settings().bundle_adjust_prefix != "" ||
+            dynamic_cast<vw::camera::AdjustedCameraModel*>(camera_model1.get()) != NULL ||
+            dynamic_cast<vw::camera::AdjustedCameraModel*>(camera_model2.get()) != NULL )
+          vw_throw(ArgumentErr() << "Since we perform piecewise adjustments "
+                   << "to reduce jitter, the input cameras should not have been bundle-adjusted.\n");
+      }
+
     } catch (const exception& e) {
       // Don't throw an error here. There are legitimate reasons as to
-      // why this check may fail. For example, the top left pixel
+      // why the first checks may fail. For example, the top left pixel
       // might not be valid on a map projected image. But notify the
-      // user anyway.
-      vw_out(DebugMessage,"asp") << e.what() << endl;
+      // user anyway. Make an exception for the piecewise adjustment checks.
+      if (!force_throw)
+        vw_out(DebugMessage,"asp") << e.what() << endl;
+      else
+        vw_throw( ArgumentErr() << e.what() );
+
     }
 
   }

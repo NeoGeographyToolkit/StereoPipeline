@@ -23,8 +23,9 @@
 #include <vw/Camera/CameraModel.h>
 #include <vw/Stereo/StereoView.h>
 
-#include <asp/Tools/stereo.h>
 #include <asp/Camera/RPCModel.h>
+#include <asp/Tools/stereo.h>
+#include <asp/Tools/jitter_adjust.h>
 
 // We must have the implementations of all sessions for triangulation
 #include <asp/Sessions/StereoSessionFactory.tcc>
@@ -201,7 +202,8 @@ stereo_error_triangulate( vector<DisparityT> const& disparities,
 /// which we save in the match format
 template <class DisparityT, class TXT>
 void compute_matches_from_disp(vector<DisparityT> const& disparities,
-                               vector<TXT>        const& transforms) {
+                               vector<TXT>        const& transforms,
+                               std::string        const& match_file) {
 
   VW_ASSERT( disparities.size() == 1 && transforms.size() == 2,
                vw::ArgumentErr() << "Expecting two images and one disparity.\n" );
@@ -213,22 +215,16 @@ void compute_matches_from_disp(vector<DisparityT> const& disparities,
 
   std::vector<vw::ip::InterestPoint> left_ip, right_ip;
 
-  // TODO: This number must scale with the number of adjustments!!!
-  double max_num_matches = 90000;
+  double max_num_matches = stereo_settings().num_matches_for_piecewise_adjustment;
 
   double num_pixels = double(disp.cols()) * double(disp.rows());
   if (num_pixels < max_num_matches) max_num_matches = num_pixels;
 
-  std::cout << "--num matches " << max_num_matches << std::endl;
-  std::cout << "num pixels " << num_pixels << std::endl;
   double bin_len = sqrt(num_pixels/max_num_matches);
   VW_ASSERT( bin_len >= 1.0, vw::ArgumentErr() << "Expecting bin_len >= 1.\n" );
 
-  std::cout << "--bin len is " << bin_len << std::endl;
   int lenx = round( disp.cols()/bin_len );
   int leny = round( disp.rows()/bin_len );
-
-  std::cout << "len x and y is " << lenx << ' ' << leny << std::endl;
 
   // Iterate over bins.
 
@@ -266,9 +262,8 @@ void compute_matches_from_disp(vector<DisparityT> const& disparities,
   }
   tpc.report_finished();
 
-  std::string match_filename = "tmp.match";
-  std::cout << "--wrtting " << match_filename << std::endl;
-  ip::write_binary_match_file(match_filename, left_ip, right_ip);
+  vw_out() << "Writing " << match_file << std::endl;
+  ip::write_binary_match_file(match_file, left_ip, right_ip);
 }
 
 namespace asp{
@@ -443,7 +438,7 @@ void stereo_triangulation( string          const& output_prefix,
     // Collect the images, cameras, and transforms. The left image is
     // the same in all n-1 stereo pairs forming the n images multiview
     // system. Same for cameras and transforms.
-    vector<string> images;
+    vector<string> image_files, camera_files;
     vector< boost::shared_ptr<camera::CameraModel> > cameras;
     vector<typename SessionT::tx_type> transforms;
     for (int p = 0; p < (int)opt_vec.size(); p++){
@@ -454,11 +449,14 @@ void stereo_triangulation( string          const& output_prefix,
       boost::shared_ptr<SessionT> sPtr = boost::dynamic_pointer_cast<SessionT>(opt_vec[p].session);
 
       if (p == 0){ // The first image is the "left" image for all pairs.
-        images.push_back(opt_vec[p].in_file1);
+        image_files.push_back(opt_vec[p].in_file1);
+        camera_files.push_back(opt_vec[p].cam_file1);
         cameras.push_back(camera_model1);
         transforms.push_back(sPtr->tx_left());
       }
-      images.push_back(opt_vec[p].in_file2);
+
+      image_files.push_back(opt_vec[p].in_file2);
+      camera_files.push_back(opt_vec[p].cam_file2);
       cameras.push_back(camera_model2);
       transforms.push_back(sPtr->tx_right());
     }
@@ -489,25 +487,57 @@ void stereo_triangulation( string          const& output_prefix,
                              << "Will not be able to filter triangulated points by radius.\n";
     } // End try/catch
 
+    vector<PVImageT> disparity_maps;
+    for (int p = 0; p < (int)opt_vec.size(); p++){
+      disparity_maps.push_back(opt_vec[p].session->pre_pointcloud_hook(opt_vec[p].out_prefix+"-F.tif"));
+    }
+
+    // Piecewise adjustments for jitter
+    if (stereo_settings().image_lines_per_piecewise_adjustment > 0 &&
+        !stereo_settings().skip_computing_piecewise_adjustments){
+
+      std::string match_file = output_prefix + "-disp.match";
+      compute_matches_from_disp(disparity_maps, transforms, match_file);
+
+      int num_threads = opt_vec[0].num_threads;
+      if (opt_vec[0].session->name() == "isis" || opt_vec[0].session->name() == "isismapisis")
+        num_threads = 1;
+      asp::jitter_adjust(image_files, camera_files, cameras, output_prefix,
+                         match_file,  num_threads);
+    }
+
+    if (stereo_settings().compute_piecewise_adjustments_only) {
+      vw_out() << "Computed the piecewise adjustments. Will stop here." << endl;
+      return;
+    }
+
+    // Reload the cameras, loading the piecewise corrections for jitter.
+    if (stereo_settings().image_lines_per_piecewise_adjustment > 0) {
+
+      // Sanity check. We actually performed it already, this is just being
+      // extra cautious.
+      if (stereo_settings().bundle_adjust_prefix != "")
+        vw_throw( ArgumentErr() << "Since we perform piecewise adjustments to reduce jitter, "
+                  << "the input cameras should not have been bundle-adjusted.\n");
+
+      stereo_settings().bundle_adjust_prefix = output_prefix; // trigger loading adj cams
+      cameras.clear();
+      for (int p = 0; p < (int)opt_vec.size(); p++){
+
+        boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
+        opt_vec[p].session->camera_models(camera_model1, camera_model2);
+        if (p == 0) // The first image is the "left" image for all pairs.
+          cameras.push_back(camera_model1);
+        cameras.push_back(camera_model2);
+      }
+    }
+
     // Strip the smart pointers and form the stereo model
     std::vector<const vw::camera::CameraModel *> camera_ptrs;
     int num_cams = cameras.size();
     for (int c = 0; c < num_cams; c++)
       camera_ptrs.push_back(cameras[c].get());
     StereoModelT stereo_model( camera_ptrs, stereo_settings().use_least_squares );
-
-    vector<PVImageT> disparity_maps;
-    for (int p = 0; p < (int)opt_vec.size(); p++){
-      disparity_maps.push_back(opt_vec[p].session->pre_pointcloud_hook(opt_vec[p].out_prefix+"-F.tif"));
-    }
-
-    if (getenv("MATCH") != NULL){
-      int val = atoi(getenv("MATCH"));
-      if (val > 0) {
-        compute_matches_from_disp(disparity_maps, transforms);
-        exit(0);
-      }
-    }
 
     // Apply radius function and stereo model in one go
     vw_out() << "\t--> Generating a 3D point cloud." << endl;
