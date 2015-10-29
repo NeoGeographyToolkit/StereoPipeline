@@ -110,9 +110,9 @@ namespace vw { namespace gui {
     if (!m_use_georef)
       return R;
 
-    BBox2 B = flip_in_y(pixel_to_point_bbox(R, -m_images[imageIndex].m_lon_offset,
-                                            m_images[imageIndex].georef,
-                                            m_images[0].georef));
+    BBox2 B = flip_in_y(forward_pixel_to_point_bbox(R, -m_images[imageIndex].m_lon_offset,
+                                                    m_images[imageIndex].georef,
+                                                    m_images[0].georef));
 
     return B;
   }

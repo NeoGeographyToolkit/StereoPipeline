@@ -29,6 +29,7 @@
 #include <vw/FileIO.h>
 #include <vw/Math/EulerAngles.h>
 #include <vw/Image/Algorithms.h>
+#include <vw/Cartography/GeoTransform.h>
 #include <vw/tools/hillshade.h>
 #include <vw/Core/RunOnce.h>
 #include <asp/GUI/GuiUtilities.h>
@@ -226,6 +227,7 @@ Vector2 point_to_pixel(Vector2 const& proj_pt2,
   return georef1.lonlat_to_pixel(georef2.point_to_lonlat(proj_pt2) - L);
 }
 
+// TODO: Carefully integrate this into GeoTransform. An example can be found in GeoReference.cc.
 // The reverse of pixel_to_point_bbox. Given georef2 and a box in
 // projected coordinates of this georef, convert it to a pixel box with georef1.
 BBox2 point_to_pixel_bbox(BBox2 point_box2,
@@ -280,70 +282,17 @@ BBox2 point_to_pixel_bbox(BBox2 point_box2,
   return grow_bbox_to_int(out_box);
 }
 
-// TODO: Move these pixel_to_point_bbox and point_to_pixel_bbox functions
-// to a lower-level location.
-
 // Given an image with georef1 and a portion of its pixels in
 // pixel_box1, find the bounding box of pixel_box1 in projected
 // point units for georef2.
-BBox2 pixel_to_point_bbox(BBox2 pixel_box1,
-                          double lon_offset,
-                          cartography::GeoReference const& georef1,
-                          cartography::GeoReference const& georef2){
+BBox2 forward_pixel_to_point_bbox(BBox2 pixel_box1,
+                                  double lon_offset,
+                                  cartography::GeoReference const& georef1,
+                                  cartography::GeoReference const& georef2){
 
-  // Note that we don't simply transform the corners, as that does not work
-  // at the poles. We also don't simply use
-  // georef2.lonlat_to_point_bbox(georef1.pixel_to_lonlat_bbox(pixel_box1)),
-  // as that would grow unnecessarily the box.
-
-  // Instead, we'll walk over points on the diagonal and edges of pixel_box1,
-  // and grow the desired box.
-
-  // Ensure we don't get incorrect results for empty boxes with
-  // strange corners.
-  if (pixel_box1.empty())
-    return pixel_box1;
-
-  BBox2 out_box;
-
-  double minx = pixel_box1.min().x(), maxx = pixel_box1.max().x();
-  double miny = pixel_box1.min().y(), maxy = pixel_box1.max().y();
-
-  // Compensate by the fact that lon1 and lon2 could be off
-  // by 360 degrees.
-  Vector2 L(lon_offset, 0);
-
-  // At the poles this won't be enough, more thought is needed.
-  int num = 100;
-  for (int i = 0; i <= num; i++) {
-    double r = double(i)/num;
-
-    // left edge
-    Vector2 P = Vector2(minx, miny + r*(maxy-miny));
-    out_box.grow(georef2.lonlat_to_point(georef1.pixel_to_lonlat(P)+L));
-
-    // right edge
-    P = Vector2(maxx, miny + r*(maxy-miny));
-    out_box.grow(georef2.lonlat_to_point(georef1.pixel_to_lonlat(P)+L));
-
-    // bottom edge
-    P = Vector2(minx + r*(maxx-minx), miny);
-    out_box.grow(georef2.lonlat_to_point(georef1.pixel_to_lonlat(P)+L));
-
-    // top edge
-    P = Vector2(minx + r*(maxx-minx), maxy);
-    out_box.grow(georef2.lonlat_to_point(georef1.pixel_to_lonlat(P)+L));
-
-    // diag1
-    P = Vector2(minx + r*(maxx-minx), miny + r*(maxy-miny));
-    out_box.grow(georef2.lonlat_to_point(georef1.pixel_to_lonlat(P)+L));
-
-    // diag2
-    P = Vector2(maxx - r*(maxx-minx), miny + r*(maxy-miny));
-    out_box.grow(georef2.lonlat_to_point(georef1.pixel_to_lonlat(P)+L));
-  }
-
-  return out_box;
+  cartography::GeoTransform T(georef1, georef2);
+  T.set_offset(Vector2(lon_offset, 0));
+  return T.forward_pixel_to_point_bbox(pixel_box1);
 }
 
 

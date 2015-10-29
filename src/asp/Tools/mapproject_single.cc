@@ -431,17 +431,8 @@ int main( int argc, char* argv[] ) {
     // Here we could have used target_georef.lonlat_to_point_bbox(dem_georef.pixel_to_lonlat_bbox)
     // but that grows the box needlessly big. We will ensure the mapprojected image does
     // not go beyond dem_box.
-    BBox2 dem_box;
-    int len = std::max(dem.cols(), dem.rows());
-    for (int i = 0; i <= len; i++) {
-      double r = double(i)/double(std::max(len, 1));
-      // Diagonals of the DEM
-      Vector2i p1 = round(r*Vector2(dem.cols()-1, dem.rows()-1));
-      Vector2i p2 = Vector2i(dem.cols() - 1 - p1[0], p1[1]);
-      dem_box.grow(target_georef.lonlat_to_point(dem_georef.pixel_to_lonlat(p1)));
-      dem_box.grow(target_georef.lonlat_to_point(dem_georef.pixel_to_lonlat(p2)));
-    }
-
+    cartography::GeoTransform T(dem_georef, target_georef);
+    BBox2 dem_box = T.forward_pixel_to_point_bbox(bounding_box(dem));
 
     // We compute the target_georef and camera box in two passes,
     // first in the DEM coordinate system and we rotate it to target's

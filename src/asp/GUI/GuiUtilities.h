@@ -184,10 +184,10 @@ namespace vw { namespace gui {
   // Given an image with georef1 and a portion of its pixels in
   // pixel_box1, find the bounding box of pixel_box1 in projected
   // point units for georef2.
-  BBox2 pixel_to_point_bbox(BBox2 pixel_box1,
-                            double lon_offset,
-                            cartography::GeoReference const& georef1,
-                            cartography::GeoReference const& georef2);
+  BBox2 forward_pixel_to_point_bbox(BBox2 pixel_box1,
+                                    double lon_offset,
+                                    cartography::GeoReference const& georef1,
+                                    cartography::GeoReference const& georef2);
 
 
   // TODO: Move to a general strings file
@@ -526,7 +526,7 @@ DiskImagePyramid<PixelT>::DiskImagePyramid(std::string const& base_file,
               pixel_cast<PixelT>(
                 apply_mask(
                   vw::resample_aa(
-                    channel_cast<double>(masked), 
+                    channel_cast<double>(masked),
                     sub_scale
                   ),
                   nodata_pixel
@@ -586,7 +586,7 @@ DiskImagePyramid<PixelT>::DiskImagePyramid(std::string const& base_file,
 
     level++;
   } // End level creation loop
-  
+
 }
 
 template <class PixelT>
