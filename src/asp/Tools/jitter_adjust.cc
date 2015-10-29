@@ -428,7 +428,6 @@ void jitter_adjust(std::vector<std::string> const& image_files,
     vw_throw( ArgumentErr() << "Insufficient number of matches to solve for jitter.\n" );
 
   int num_points = cnet.size();
-  vw_out() << "Size of control network: " << num_points << std::endl;
 
   // Create the adjustment bounds based on percentiles of interest points.
   std::vector<Vector2> adjustment_bounds;

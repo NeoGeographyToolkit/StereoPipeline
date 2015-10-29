@@ -265,7 +265,7 @@ void compute_matches_from_disp(vector<DisparityT> const& disparities,
   vw_out() << "Determined " << left_ip.size()
            << " interest point matches from disparity.\n";
 
-  vw_out() << "Writing :" << match_file << std::endl;
+  vw_out() << "Writing: " << match_file << std::endl;
   ip::write_binary_match_file(match_file, left_ip, right_ip);
 }
 
