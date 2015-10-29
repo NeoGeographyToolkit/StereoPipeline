@@ -441,11 +441,9 @@ void jitter_adjust(std::vector<std::string> const& image_files,
 
   for (int icam = 0; icam < num_cameras; icam++)
     vw_out() << "Placing first and last adjustment for image "
-             << image_files[icam] << " at lines: "
+             << image_files[icam] << " at (un-transformed) lines: "
              << adjustment_bounds[icam][0] << ' '
              << adjustment_bounds[icam][1] << "\n";
-  vw_out() << "--> For map-projected images the above pixels "
-           << "are in the camera domain (hence with map-projection undone).\n";
 
   // Decide how many adjustments to use per camera
   int num_total_adj = 0;
