@@ -121,18 +121,25 @@ void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
       return;
   };
 
-  // Load the pair of camera models
-  m_left_map_proj_model  = load_camera_model(model_type_to_load, m_left_image_file,  m_left_camera_file );
-  m_right_map_proj_model = load_camera_model(model_type_to_load, m_right_image_file, m_right_camera_file);
-
+  // Load the pair of camera models. We assume the user did not use
+  // adjusted models on map-projection.
+  std::string ba_pref_bk = stereo_settings().bundle_adjust_prefix;
+  stereo_settings().bundle_adjust_prefix = "";
+  m_left_map_proj_model  = load_camera_model(model_type_to_load,
+                                             m_left_image_file,  m_left_camera_file );
+  m_right_map_proj_model = load_camera_model(model_type_to_load,
+                                             m_right_image_file, m_right_camera_file);
+  stereo_settings().bundle_adjust_prefix = ba_pref_bk;
 
   VW_ASSERT( m_left_map_proj_model.get() && m_right_map_proj_model.get(),
-             ArgumentErr() << "StereoSessionConcrete: Unable to locate map projection camera model inside input files!" );
+             ArgumentErr() << "StereoSessionConcrete: Unable to locate map "
+             << "projection camera model inside input files!" );
 
   // Double check that we can read the DEM and that it has cartographic information.
-  VW_ASSERT(!m_input_dem.empty(), InputErr() << "StereoSessionConcrete : Require input DEM" );
+  VW_ASSERT(!m_input_dem.empty(), InputErr() << "StereoSessionConcrete : Require input DEM." );
   if (!boost::filesystem::exists(m_input_dem))
-    vw_throw( ArgumentErr() << "StereoSessionConcrete: DEM \"" << m_input_dem << "\" does not exist." );
+    vw_throw( ArgumentErr() << "StereoSessionConcrete: DEM \"" << m_input_dem
+              << "\" does not exist." );
 }
 
 // Code for reading different camera models
