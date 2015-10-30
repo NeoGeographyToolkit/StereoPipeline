@@ -665,20 +665,31 @@ if __name__ == '__main__':
             single_run('stereo_fltr', args, msg='%d: Filtering' % step)
             create_subproject_dirs( settings ) # symlink F.tif
 
-        # Triangulation. First compute the point cloud center.
+        # Triangulation
         step = Step.tri
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ): sys.exit()
 
-            # First compute the point cloud center. This is done
-            # just once.
+            # First compute jitter correction (optional). Done just once per run.
+            if '--image-lines-per-piecewise-adjustment' in args:
+                tmp_args = args[:] # deep copy
+                tmp_args.extend('--compute-piecewise-adjustments-only')
+                single_run('stereo_tri',  tmp_args, msg='%d: Triangulation' % step)
+                # And don't do it again
+                args.extend(['--skip-computing-piecewise-adjustments'])
+                self_args.extend(['--skip-computing-piecewise-adjustments'])
+
+            # Then compute the cloud center. Done once per run.
             tmp_args = args[:] # deep copy
             tmp_args.append('--compute-point-cloud-center-only')
             single_run('stereo_tri',  tmp_args, msg='%d: Triangulation' % step)
-            create_subproject_dirs( settings ) # symlink cloud center
-
-            # Next run triangulation on multiple machines
+            # Point cloud center computation was done
             self_args.extend(['--skip-point-cloud-center-comp'])
+
+            # symlink the files just created
+            create_subproject_dirs( settings )
+
+            # Run triangulation on multiple machines
             sprawn_to_nodes(step, settings, self_args)
             build_vrt(settings, georef, "-PC.tif", "-PC.tif") # mosaic
 

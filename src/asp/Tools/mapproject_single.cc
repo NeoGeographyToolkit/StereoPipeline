@@ -138,8 +138,11 @@ void write_parallel_cond( std::string              const& filename,
   if (session_type == "pinholemappinhole")
     session_type = "pinhole";
 
+  // Save some keywords that we will check later when using the mapprojected file
   std::map<std::string, std::string> keywords;
-  keywords["CAMERA_MODEL_TYPE" ] = session_type;
+  keywords["CAMERA_MODEL_TYPE" ]    = session_type;
+  keywords["BUNDLE_ADJUST_PREFIX" ] = asp::stereo_settings().bundle_adjust_prefix;
+  keywords["DEM_FILE" ]             = opt.dem_file;
 
   bool has_georef = true;
 

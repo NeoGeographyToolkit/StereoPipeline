@@ -200,34 +200,6 @@ update_cnet_and_init_cams(ModelT & ba_model, Options & opt,
 
 }
 
-void populate_adjustements(std::vector<double> const& cameras_vec,
-                           int start_index, int end_index,
-                           std::vector<vw::Vector3> & position_adjustments,
-                           std::vector<vw::Quat>    & pose_adjustments){
-
-  // Extract the adjustments for just the current camera, and copy
-  // them in arrays of vectors and quaternions.
-
-  int num_camera_params = 6;
-  int num_adjustments = cameras_vec.size()/num_camera_params;
-  VW_ASSERT(0 <= start_index && start_index < end_index && end_index <= num_adjustments,
-            ArgumentErr() << "Book-keeping failure in camera indicies.");
-
-  position_adjustments.clear();
-  pose_adjustments.clear();
-
-  for (int a = start_index; a < end_index; a++) {
-    Vector3 position, pose;
-    for (int b = 0; b < 3; b++) {
-      position[b] = cameras_vec[num_camera_params*a + b + 0];
-      pose[b]     = cameras_vec[num_camera_params*a + b + 3];
-    }
-
-    position_adjustments.push_back(position);
-    pose_adjustments.push_back(axis_angle_to_quaternion(pose));
-  }
-}
-
 // A ceres cost function. Templated by the BundleAdjust model. We pass
 // in the observation, the model, and the current camera and point
 // indices. The result is the residual, the difference in the

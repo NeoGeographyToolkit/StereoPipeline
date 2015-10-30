@@ -594,11 +594,11 @@ namespace asp {
       vw_out(WarningMessage) << "Changing the alignment method to 'none' "
                              << "as the images are map-projected." << endl;
     }
-    /*
-    TODO: Make sure we check the types at some point!
-    // Ensure that we are not accidentally doing stereo with
-    // images map-projected with other camera model than 'rpc'.
-    if (!opt.input_dem.empty()){
+
+    // Ensure that for dgmaprpc and rpcmaprpc sessions the images were
+    // map-projected using -t rpc. For isismapisis it should have been
+    // isis. Same for pinhole.
+    if (dem_provided){
 
       string cam_tag = "CAMERA_MODEL_TYPE";
       string l_cam_type, r_cam_type;
@@ -607,12 +607,26 @@ namespace asp {
       boost::shared_ptr<vw::DiskImageResource> r_rsrc(new vw::DiskImageResourceGDAL(opt.in_file2));
       vw::cartography::read_header_string(*r_rsrc.get(), cam_tag, r_cam_type);
 
-      if ((l_cam_type != "" && l_cam_type != "rpc") ||
-          (r_cam_type != "" && r_cam_type != "rpc")   ){
-        vw_throw(ArgumentErr() << "The images were map-projected with another option than -t rpc.\n");
+      // Extract the 'rpc' from 'rpcmaprpc' and 'dgmaprc', and 'pinhole' from 'pinholemappinhole'
+      std::string expected_cam_type;
+      std::string sep = "map";
+      std::size_t it = opt.session->name().find(sep);
+      if (it != std::string::npos) {
+        it += sep.size();
+        expected_cam_type = opt.session->name().substr(it, opt.session->name().size());
       }
+
+      if ((l_cam_type != "" && l_cam_type != expected_cam_type) ||
+          (r_cam_type != "" && r_cam_type != expected_cam_type)   ){
+        vw_throw(ArgumentErr() << "For session type "
+                 << opt.session->name()
+                 << ", the images should have been map-projected with "
+                 << "the option -t \"" << expected_cam_type << "\". Instead, got: \""
+                 << l_cam_type << "\" and \"" << r_cam_type << "\".\n");
+      }
+
     }
-*/
+
     if (stereo_settings().corr_kernel[0]%2 == 0 ||
         stereo_settings().corr_kernel[1]%2 == 0   ){
       vw_throw(ArgumentErr() << "The entries of corr-kernel must be odd numbers.\n");

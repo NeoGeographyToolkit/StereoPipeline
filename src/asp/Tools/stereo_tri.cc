@@ -215,6 +215,7 @@ void compute_matches_from_disp(vector<DisparityT> const& disparities,
 
   std::vector<vw::ip::InterestPoint> left_ip, right_ip;
 
+  // TODO: This must be proportional to how many adjustments have!
   double max_num_matches = stereo_settings().num_matches_for_piecewise_adjustment;
 
   double num_pixels = double(disp.cols()) * double(disp.rows());

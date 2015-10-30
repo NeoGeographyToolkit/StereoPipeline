@@ -404,7 +404,9 @@ def main(argsIn):
 
     # Use GNU parallel call to distribute the work across computers
     # - This call will wait until all processes are finished
-    asp_system_utils.runInGnuParallel(options.numProcesses, commandString, argumentFilePath, parallelArgs, options.nodesListPath, True)#not options.suppressOutput)
+    asp_system_utils.runInGnuParallel(options.numProcesses, commandString,
+                                      argumentFilePath, parallelArgs,
+                                      options.nodesListPath, True)#not options.suppressOutput)
 
 
     # Build a gdal VRT file which is composed of all the processed tiles
@@ -412,6 +414,32 @@ def main(argsIn):
     cmd = "gdalbuildvrt -resolution highest " + vrtPath + " " + tempFolder + "*_.tif";
     print cmd
     os.system(cmd)
+
+    # Modify the vrt to append some metadata from the original files
+
+    # Get the metadata
+    files = glob.glob(tempFolder + "*_.tif")
+    if len(files) == 0:
+        raise "No mapprojected tif files were generated"
+    args=[files[0]]
+    sep = "="
+    verbose = False
+    gdal_settings = asp_system_utils.run_and_parse_output( "gdalinfo", args, sep, verbose)
+    meta = ["  <Metadata>\n"]
+    for v in ['CAMERA_MODEL_TYPE', 'BUNDLE_ADJUST_PREFIX', 'DEM_FILE']:
+        if v in gdal_settings:
+            line = "    <MDI key=\"" + v + "\">" + gdal_settings[v][0] + "</MDI>\n"
+            meta.append(line)
+    meta.append("  </Metadata>\n")
+
+    # Append the metadata after the first line in the vrt.
+    f = open(vrtPath, "r")
+    lines = f.readlines()
+    f.close()
+    lines = [ lines[0] ] + meta + lines[1:len(lines)]
+    f = open(vrtPath, "w")
+    f.writelines(lines)
+    f.close()
 
     # Convert VRT file to final output file
     cmd = "gdal_translate -co compress=lzw -co bigtiff=yes " + vrtPath + " " + options.outputPath;

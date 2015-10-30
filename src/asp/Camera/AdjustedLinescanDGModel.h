@@ -65,6 +65,14 @@ namespace asp {
     dt = (end_t - beg_t)/(num_adjustments - 1.0);
   }
 
+  // This adjustment turned out to be necessary to deal with very subtle problems
+  // with numerical precision, such as when we try to interpolate at position
+  // say 7.00000000000000001 into an array whose indices are between 0 and 7.
+  // The source of this problem is I think due to the fact that (a/b)*b can
+  // be a tiny bit bigger than b sometimes. Such logic is used in get_tend()
+  // for example.
+  const double TINY_ADJ = 1.0 - 1.0e-10;
+
   class AdjustablePosition {
   public:
     AdjustablePosition(DGCameraModel const* cam_ptr,
@@ -101,13 +109,13 @@ namespace asp {
       if (m_interp_type == LinearInterp){
         double bound_t = t;
         bound_t = std::max(bound_t, m_linear_position_adjustments.get_t0());
-        bound_t = std::min(bound_t, m_linear_position_adjustments.get_tend());
+        bound_t = std::min(bound_t, TINY_ADJ*m_linear_position_adjustments.get_tend());
         return m_linear_position_adjustments(bound_t) + m_cam_ptr->m_position_func(t);
       }
 
       double bound_t = t;
       bound_t = std::max(bound_t, m_smooth_position_adjustments.get_t0());
-      bound_t = std::min(bound_t, m_smooth_position_adjustments.get_tend());
+      bound_t = std::min(bound_t, TINY_ADJ*m_smooth_position_adjustments.get_tend());
       return m_smooth_position_adjustments(bound_t) + m_cam_ptr->m_position_func(t);
     }
 
@@ -123,7 +131,7 @@ namespace asp {
 
         double bound_t = t;
         bound_t = std::max(bound_t, m_linear_position_adjustments.get_t0());
-        bound_t = std::min(bound_t, m_linear_position_adjustments.get_tend());
+        bound_t = std::min(bound_t, TINY_ADJ*m_linear_position_adjustments.get_tend());
 
         double ratio = (bound_t-t0)/dt;
 
@@ -143,7 +151,7 @@ namespace asp {
 
       double bound_t = t;
       bound_t = std::max(bound_t, m_smooth_position_adjustments.get_t0());
-      bound_t = std::min(bound_t, m_smooth_position_adjustments.get_tend());
+      bound_t = std::min(bound_t, TINY_ADJ*m_smooth_position_adjustments.get_tend());
 
       // Return the indices of the largest weights used in interp.
       return m_smooth_position_adjustments.get_indices_of_largest_weights(bound_t);
@@ -191,13 +199,13 @@ namespace asp {
       if (m_interp_type == LinearInterp){
         double bound_t = t;
         bound_t = std::max(bound_t, m_linear_pose_adjustments.get_t0());
-        bound_t = std::min(bound_t, m_linear_pose_adjustments.get_tend());
+        bound_t = std::min(bound_t, TINY_ADJ*m_linear_pose_adjustments.get_tend());
         return m_linear_pose_adjustments(bound_t) * m_cam_ptr->m_pose_func(t);
       }
 
       double bound_t = t;
       bound_t = std::max(bound_t, m_smooth_pose_adjustments.get_t0());
-      bound_t = std::min(bound_t, m_smooth_pose_adjustments.get_tend());
+      bound_t = std::min(bound_t, TINY_ADJ*m_smooth_pose_adjustments.get_tend());
       return m_smooth_pose_adjustments(bound_t) * m_cam_ptr->m_pose_func(t);
     }
 

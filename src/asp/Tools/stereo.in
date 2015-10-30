@@ -114,10 +114,13 @@ if __name__ == '__main__':
                           opt.stop_point, opt.verbose, settings)
             sys.exit(0)
 
+        # Pre-processing
         step = Step.pprc
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ): sys.exit()
             stereo_run('stereo_pprc', args, opt, msg='%d: Preprocessing' % step)
+
+        # Correlation
         step = Step.corr
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ): sys.exit()
@@ -129,14 +132,19 @@ if __name__ == '__main__':
             args.extend(['--skip-low-res-disparity-comp'])
             stereo_run('stereo_corr', args, opt, msg='%d: Correlation' % step)
 
+        # Refinement
         step = Step.rfne
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ): sys.exit()
             stereo_run('stereo_rfne', args, opt, msg='%d: Refinement' % step)
+
+        # Filtering
         step = Step.fltr
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ): sys.exit()
             stereo_run('stereo_fltr', args, opt, msg='%d: Filtering' % step)
+
+        # Triangulation
         step = Step.tri
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ): sys.exit()
