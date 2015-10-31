@@ -250,16 +250,16 @@ def main(argsIn):
             parser.error("Missing output filename.\n" );
 
         # Make sure we have absolute paths here
-        options.demPath    = os.path.abspath(requiredList[0])
-        options.imagePath  = os.path.abspath(requiredList[1])
+        options.demPath    = requiredList[0]
+        options.imagePath  = requiredList[1]
         if len(requiredList) == 3:
             options.cameraPath = ''
             relOutputPath = requiredList[2]
-            options.outputPath = os.path.abspath(relOutputPath)
+            options.outputPath = relOutputPath
         else: # == 4
             relOutputPath = requiredList[3]
-            options.cameraPath = os.path.abspath(requiredList[2])
-            options.outputPath = os.path.abspath(relOutputPath)
+            options.cameraPath = requiredList[2]
+            options.outputPath = relOutputPath
 
         # Any additional arguments need to be forwarded to the mapproject function
         options.extraArgs = optionsList
@@ -353,11 +353,6 @@ def main(argsIn):
     # Indicate to GNU Parallel that there are multiple tab-seperated variables in the text file we just wrote
     parallelArgs = ['--colsep', "\\t"]
 
-    # TODO: Move this to the lower level functions
-    # If using multiple computers, need to make sure the same program paths are available
-    if options.nodesListPath:
-        parallelArgs = parallelArgs + ['--env', 'PATH', '--env', 'PYTHONPATH', '--env', 'ISISROOT', '--env', 'ISIS3DATA']
-
     # Get the number of available nodes and CPUs per node
     numNodes = asp_system_utils.getNumNodesInList(options.nodesListPath)
 
@@ -442,7 +437,7 @@ def main(argsIn):
     f.close()
 
     # Convert VRT file to final output file
-    cmd = "gdal_translate -co compress=lzw -co bigtiff=yes " + vrtPath + " " + options.outputPath;
+    cmd = "gdal_translate -co compress=lzw -co bigtiff=yes -co TILED=yes -co INTERLEAVE=BAND -co BLOCKXSIZE=256 -co BLOCKYSIZE=256 " + vrtPath + " " + options.outputPath;
     print cmd
     ans = os.system(cmd)
 

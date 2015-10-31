@@ -116,8 +116,12 @@ def runInGnuParallel(numParallelProcesses, commandString, argumentFilePath, para
     check_parallel_version()
 
     # Use GNU parallel with given number of processes.
-    # - Let output be interspersed, read input series from file
-    cmd = ['parallel', '-u', '-a', argumentFilePath]
+    # Let output be interspersed, read input series from file
+    # Start in the same directory on remote machines. Ensure
+    # that vital env variables are copied over.
+    cmd = ['parallel',  '--workdir', os.getcwd(), '-u',
+           '--env', 'PATH', '--env', 'PYTHONPATH', '--env', 'ISISROOT',
+           '--env', 'ISIS3DATA', '-a', argumentFilePath]
 
     # Add number of processes if specified (default is one job per CPU core)
     if numParallelProcesses is not None:

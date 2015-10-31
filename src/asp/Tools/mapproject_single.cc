@@ -141,7 +141,9 @@ void write_parallel_cond( std::string              const& filename,
   // Save some keywords that we will check later when using the mapprojected file
   std::map<std::string, std::string> keywords;
   keywords["CAMERA_MODEL_TYPE" ]    = session_type;
-  keywords["BUNDLE_ADJUST_PREFIX" ] = asp::stereo_settings().bundle_adjust_prefix;
+  std::string prefix = asp::stereo_settings().bundle_adjust_prefix;;
+  if (prefix == "") prefix = "NONE"; // to save the field, need to make it non-empty
+  keywords["BUNDLE_ADJUST_PREFIX" ] = prefix;
   keywords["DEM_FILE" ]             = opt.dem_file;
 
   bool has_georef = true;
