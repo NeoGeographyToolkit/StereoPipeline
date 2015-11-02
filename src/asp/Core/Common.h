@@ -91,7 +91,6 @@ namespace asp {
     vw::DiskImageResourceGDAL::Options gdal_options;
     vw::Vector2i raster_tile_size;
     vw::int32    num_threads;
-    std::string  cache_dir;
     std::string  tif_compress;
     static int   corr_tile_size() { return 1024; } // Tile size for correlation
     static int   rfne_tile_size() { return 256;  } // Tile size for refinement

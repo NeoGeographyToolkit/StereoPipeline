@@ -48,13 +48,14 @@ void asp::photometric_outlier_rejection( BaseOptions const& opt,
   DiskImageView<PixelMask<Vector2f> > disparity_disk_image( input_disparity );
   stereo::DisparityTransform trans( disparity_disk_image );
 
-  if (!fs::is_directory(opt.cache_dir)) {
-    vw_out() << "\nCreating cache directory: " << opt.cache_dir << std::endl;
-    fs::create_directories(opt.cache_dir);
+  std::string cache_dir = "/tmp"; // modify here to use a different cache dir if needed
+  if (!fs::is_directory(cache_dir)) {
+    vw_out() << "\nCreating cache directory: " << cache_dir << std::endl;
+    fs::create_directories(cache_dir);
   }
-  
+
   DiskCacheImageView<PixelGray<float> >
-    right_proj( transform( right_disk_image, trans, ZeroEdgeExtension() ), "tif", TerminalProgressCallback("asp","Projecting R:"), opt.cache_dir);
+    right_proj( transform( right_disk_image, trans, ZeroEdgeExtension() ), "tif", TerminalProgressCallback("asp","Projecting R:"), cache_dir);
 
   // Differencing Left and Projected Right
   ImageViewRef<PixelMask<PixelGray<float32> > > right_mask =
@@ -63,7 +64,7 @@ void asp::photometric_outlier_rejection( BaseOptions const& opt,
   DiskCacheImageView<PixelGray<float> >
     diff( abs(apply_mask(copy_mask(left_image,right_mask))-right_proj),
           "tif", TerminalProgressCallback("asp","\tDifference:"),
-          opt.cache_dir);
+          cache_dir);
   ChannelAccumulator<math::CDFAccumulator<float32> > cdf;
   cdf.resize(8000,2001);
   for_each_pixel(diff, cdf);

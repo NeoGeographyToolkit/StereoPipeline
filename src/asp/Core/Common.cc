@@ -299,8 +299,6 @@ asp::BaseOptionsDescription::BaseOptionsDescription( asp::BaseOptions& opt ) {
     ("no-bigtiff", "Tell GDAL to not create bigtiffs.")
     ("tif-compress", po::value(&opt.tif_compress)->default_value("LZW"),
      "TIFF Compression method. [None, LZW, Deflate, Packbits]")
-    ("cache-dir", po::value(&opt.cache_dir)->default_value("/tmp"),
-     "Folder for temporary files. Change if directory is inaccessible to user such as on Pleiades.")
     ("version,v", "Display the version of software.")
     ("help,h", "Display this help message.");
 }
