@@ -208,10 +208,8 @@ namespace asp {
                                      vw::cartography::GeoReference const& georef,
                                      bool has_nodata, double nodata,
                                      BaseOptions const& opt,
-                                     vw::ProgressCallback const& progress_callback
-                                     = vw::ProgressCallback::dummy_instance(),
-                                     std::map<std::string, std::string> const& keywords =
-                                     std::map<std::string, std::string>() ) {
+                                     vw::ProgressCallback const& progress_callback,
+                                     std::map<std::string, std::string> const& keywords) {
 
 
     if (norm_2(shift) > 0){
@@ -246,10 +244,8 @@ namespace asp {
                                vw::cartography::GeoReference const& georef,
                                bool has_nodata, double nodata,
                                BaseOptions const& opt,
-                               vw::ProgressCallback const& progress_callback
-                               = vw::ProgressCallback::dummy_instance(),
-                               std::map<std::string, std::string> const& keywords =
-                               std::map<std::string, std::string>()){
+                               vw::ProgressCallback const& progress_callback,
+                               std::map<std::string, std::string> const& keywords){
 
     if (norm_2(shift) > 0){
 
