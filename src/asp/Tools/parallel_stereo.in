@@ -492,7 +492,7 @@ if __name__ == '__main__':
                  help='Options to pass directly to sparse_disp.')
     p.add_option('-v', '--version',        dest='version', default=False,
                  action='store_true', help='Display the version of software.')
-    p.add_option('-s', '--stereo-file',    dest='filename',    default='./stereo.default',
+    p.add_option('-s', '--stereo-file',    dest='stereo_file',    default='./stereo.default',
                  help='Explicitly specify the stereo.default file to use. [default: ./stereo.default]')
     p.add_option('--verbose', dest='verbose', default=False, action='store_true',
                  help='Display the commands being executed.')
@@ -529,14 +529,14 @@ if __name__ == '__main__':
 
     # If corr-seed-mode was not specified, read it from the file
     if opt.seed_mode is None:
-        opt.seed_mode = parse_corr_seed_mode(opt.filename)
+        opt.seed_mode = parse_corr_seed_mode(opt.stereo_file)
     # If not set in the file either, use 1.
     if opt.seed_mode is None:
         opt.seed_mode = 1
     # Pass it to the subprocesses
     args.extend(['--corr-seed-mode', str(opt.seed_mode)])
 
-    args.extend(['--stereo-file', opt.filename])
+    args.extend(['--stereo-file', opt.stereo_file])
 
     if opt.tile_id is None:
         # When the script is started, set some options from the
@@ -595,7 +595,7 @@ if __name__ == '__main__':
 
             # Bugfix: avoid confusing the logic below
             wipe_option(self_args, '-s', 1)
-            self_args.extend(['--stereo-file', opt.filename])
+            self_args.extend(['--stereo-file', opt.stereo_file])
 
             # Find the options used by parallel_stereo which are not
             # passed to the stereo executables.

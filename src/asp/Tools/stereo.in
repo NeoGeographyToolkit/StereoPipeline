@@ -48,12 +48,10 @@ if __name__ == '__main__':
   [ASP [@]ASP_VERSION[@]]'''
 
     p = PassThroughOptionParser(usage=usage)
-    p.add_option('--threads',              dest='threads', default=0, type='int',
-                 help='Set the number of threads to use. 0 means use as many threads as there are cores.')
     p.add_option('-t', '--session-type',   dest='session',
-                 help='Select the stereo session type to use for processing. [options: pinhole isis dg rpc]')
-    p.add_option('-s', '--stereo-file',    dest='filename',    default='./stereo.default',
-                 help='Explicitly specify the stereo.default file to use. [default: ./stereo.default]')
+                 help='Select the stereo session type to use for processing. Options: pinhole, isis, dg, rpc.')
+    p.add_option('-s', '--stereo-file',    dest='stereo_file',    default='./stereo.default',
+                 help='Explicitly specify the stereo.default file to use. Default: ./stereo.default.')
     p.add_option('--corr-seed-mode',    dest='seed_mode', default=None,
                  help='Correlation seed strategy. See stereo_corr for options.', type='int')
     p.add_option('-e', '--entry-point',    dest='entry_point', default=0,
@@ -61,16 +59,28 @@ if __name__ == '__main__':
     p.add_option('--stop-point',           dest='stop_point',  default=5,
                  help='Stereo Pipeline stop point (an integer from 1-5).',
                  type='int')
-    p.add_option('--no-bigtiff',           dest='no_bigtiff',  default=False, action='store_true',
-                 help='Tell GDAL to not create bigtiffs.')
     p.add_option('--sparse-disp-options', dest='sparse_disp_options',
                  help='Options to pass directly to sparse_disp.')
+
+    p.add_option('--threads',              dest='threads', default=0, type='int',
+                 help='Set the number of threads to use. 0 means use as many threads as there are cores.')
+    p.add_option('--no-bigtiff',           dest='no_bigtiff',  default=False, action='store_true',
+                 help='Tell GDAL to not create bigtiffs.')
+
+    p.add_option('--tif-compress',   dest='tif_compress', default = 'LZW',
+                 help='TIFF compression method. Options: None, LZW, Deflate, Packbits. Default: LZW.')
+
+    p.add_option('--cache-dir',   dest='cache_dir', default = '/tmp',
+                 help='Folder for temporary files. Normally this need not be changed. Default: /tmp.')
+
+    p.add_option('-v', '--version',        dest='version',     default=False, action='store_true',
+                 help='Display the version of software.')
+
+    # Debug options
     p.add_option('--dry-run',              dest='dryrun',      default=False, action='store_true',
                  help=optparse.SUPPRESS_HELP)
     p.add_option('--verbose',                dest='verbose', default=False, action='store_true',
                  help=optparse.SUPPRESS_HELP)
-    p.add_option('-v', '--version',        dest='version',     default=False, action='store_true',
-                 help='Display the version of software.')
 
     global opt
     (opt, args) = p.parse_args()
@@ -86,21 +96,30 @@ if __name__ == '__main__':
 
     # If corr-seed-mode was not specified, read it from the file
     if opt.seed_mode is None:
-        opt.seed_mode = parse_corr_seed_mode(opt.filename)
+        opt.seed_mode = parse_corr_seed_mode(opt.stereo_file)
     # If not set in the file either, use 1.
     if opt.seed_mode is None:
         opt.seed_mode = 1
     # Pass it to the subprocesses
     args.extend(['--corr-seed-mode', str(opt.seed_mode)])
 
+    # Pass to sub-processes other stereo options. We wanted these
+    # set in this Python script so that they show up in the help message.
     if opt.session is not None:
         args.extend(['--session-type', opt.session])
+    if opt.stereo_file is not None:
+        args.extend(['--stereo-file', opt.stereo_file])
     if opt.no_bigtiff:
         args.append('--no-bigtiff')
+    if opt.tif_compress is not None:
+        args.extend(['--tif-compress', opt.tif_compress])
+    if opt.cache_dir is not None:
+        args.extend(['--cache-dir', opt.cache_dir])
     if opt.version:
         args.append('-v')
-    args.extend(['--stereo-file', opt.filename])
 
+    # Run stereo_parse with these options, to get the values of some
+    # internal fields.
     sep = ","
     settings=run_and_parse_output( "stereo_parse", args, sep, opt.verbose )
 

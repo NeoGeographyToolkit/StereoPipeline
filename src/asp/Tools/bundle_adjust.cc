@@ -804,9 +804,6 @@ extract_cameras_bundle_adjust( std::vector<std::string>& image_files ) {
   return cam_files;
 }
 
-
-
-
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
@@ -818,7 +815,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("cost-function",    po::value(&opt.cost_function)->default_value("Cauchy"),
                          "Choose a cost function from: Cauchy, PseudoHuber, Huber, L1, L2.")
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(0.5),
-                         "Set the threshold for robust cost functions.")
+                         "Set the threshold for robust cost functions. Increasing this makes the solver focus harder on the larger errors.")
     ("datum",            po::value(&opt.datum_str)->default_value(""),
                          "Use this datum (needed only if ground control points are used). Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
                          ("semi-major-axis",  po::value(&opt.semi_major)->default_value(0),

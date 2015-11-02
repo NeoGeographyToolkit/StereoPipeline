@@ -61,16 +61,20 @@ in sub-directories, we recommend using an output prefix like
 \hline
 Option & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message\\ \hline
-\texttt{-\/-threads \textit{integer(=0)}} & Set the number of threads to use. 0 means use as many threads as there are cores.\\ \hline
 \texttt{-\/-session-type|-t pinhole|isis|dg|rpc} & Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension.\\ \hline
 \texttt{-\/-stereo-file|-s \textit{filename(=./stereo.default)}} & Define the stereo.default file to use.\\ \hline
 \texttt{-\/-entry-point|-e integer(=0 to 4)} & Stereo Pipeline entry
 point (start at this stage). \\ \hline
 \texttt{-\/-stop-point|-e integer(=1 to 5)} & Stereo Pipeline stop point (stop at the stage {\it right before} this value). \\ \hline
 \texttt{-\/-corr-seed-mode integer(=0 to 3)} & Correlation seed strategy (section \ref{corr_section}). \\ \hline
+\texttt{-\/-threads \textit{integer(=0)}} & Set the number of threads to use. 0 means use as many threads as there are cores.\\ \hline
+\texttt{-\/-no-bigtiff} & Tell GDAL to not create bigtiffs.\\ \hline
+\texttt{-\/-tif-compress None|LZW|Deflate|Packbits} & TIFF compression method.\\ \hline
+\texttt{-\/-cache-dir \textit{directory(=/tmp)}} & Folder for temporary files. Normally this need not be changed.\\ \hline
 \end{longtable}
 
-More information about the stereo.default configuration file can be
+More information about additional options that can be passed to \texttt{stereo}
+via the command line or via the \texttt{stereo.default} configuration file can be
 found in Appendix \ref{ch:stereodefault} on page
 \pageref{ch:stereodefault}.  \texttt{stereo} creates a set
 of intermediate files, they are described in Appendix
@@ -258,6 +262,7 @@ all other \texttt{stereo} options as well.
 \endlastfoot
 \hline
 Option & Description \\ \hline \hline
+\texttt{-h | -\/-help } & Display this help message.\\ \hline
 \texttt{-\/-grid-cols arg} & Display images as tiles on a grid with this many columns. Default: Use one row.\\ \hline
 \texttt{-\/-window-size arg (=1200 800)} & The width and height of the GUI window in pixels.\\ \hline
 \texttt{-w | -\/-single-window } & Show all images in the same window (with a dialog to choose among them) rather than next to each other.\\ \hline
@@ -266,7 +271,6 @@ Option & Description \\ \hline \hline
 \texttt{-\/-view-matches} & Locate and display the interest point matches.\\ \hline
 \texttt{-\/-match-file} & Display this match file instead of looking one up based on existing conventions (implies \texttt{-\/-view-matches}). \\ \hline
 \texttt{-\/-delete-temporary-files-on-exit} & Delete any subsampled and other files created by the GUI when exiting.\\ \hline
-\texttt{-h | -\/-help } & Display this help message.\\ \hline
 \end{longtable}
 
 \section{parallel\_stereo}
@@ -282,7 +286,7 @@ This is because ISIS camera models are restricted to a single thread, but
 \texttt{parallel\_stereo} can run multiple processes in parallel to reduce
 computation times.
 
-At the simplest, \texttt{parallel\_stereo} can be invoked exactly like stereo,
+At the simplest, \texttt{parallel\_stereo} can be invoked exactly like \texttt{stereo},
 with the addition of the list of nodes to use (if using multiple nodes).
 
 \begin{verbatim}
@@ -451,7 +455,7 @@ Ceres, RobustSparse, RobustRef, Sparse, Ref. \\ \hline
 from: Cauchy, PseudoHuber, Huber, L1, L2. \\ \hline
 
 \texttt{-\/-robust-threshold \textit{double(=0.5)}} & Set the threshold for robust
-cost functions.\\ \hline
+cost functions.  Increasing this makes the solver focus harder on the larger errors.\\ \hline
 
 \texttt{-\/-datum \textit{string}} & Use this datum (needed only if ground control
 points are used).  Options: WGS\_1984, D\_MOON (1,737,400 meters), D\_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), Moon (=D\_MOON). \\ \hline
@@ -715,6 +719,7 @@ used for output DEMs, unless \texttt{-\/-t\_srs} is specified).
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
+\texttt{-\/-help|-h} & Display the help message. \\ \hline
 \texttt{-\/-nodata-value \textit{float(=-3.40282347e+38)}} & Set the nodata value. \\ \hline
 \texttt{-\/-use-alpha} & Create images that have an alpha channel. \\ \hline
 \texttt{-\/-normalized|-n} & Also write a normalized version of the \ac{DEM} (for debugging). \\ \hline
@@ -783,7 +788,6 @@ easting, northing, and height above datum. \\ \hline
 \texttt{-\/-tif-compress None|LZW|Deflate|Packbits} & TIFF compression method.\\ \hline
 \texttt{-\/-cache-dir \textit{directory(=/tmp)}} & Folder for temporary files. Normally this need not be changed.\\ \hline
 \hline
-\texttt{-\/-help|-h} & Display the help message. \\ \hline
 \end{longtable}
 
 \section{point2mesh}
@@ -969,6 +973,7 @@ Example 3 (Find the mean DEM, no blending is used):
 Options & Description \\
 \hline \hline
 
+\texttt{-\/-help|-h} & Display the help message.\\ \hline
 \texttt{-l | -\/-dem-list-file \textit{string}}  &
 Text file listing the DEM files to mosaic, one per line.
 \\ \hline
@@ -1064,10 +1069,7 @@ For each output pixel, save the index of the input DEM it came from
 file with the index assigned to each input DEM is saved as well.\\ \hline
 
 \texttt{-\/-threads \textit{integer(=4)}}
-& Set the number of threads to use.
-\\ \hline
-\texttt{-\/-help|-h} & Display the help message.
-\\ \hline
+& Set the number of threads to use. \\ \hline
 \end{longtable}
 
 \clearpage
@@ -1220,6 +1222,7 @@ The former is more accurate but much smaller.
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
+\texttt{-\/-help|-h} & Display the help message. \\ \hline
 \texttt{-\/-nodata-value \textit{float(=-32768)}} & No-data value to use unless specified in the input image. \\ \hline
 \texttt{-\/-t\_srs} & Specify the output projection (PROJ.4 string). If not provided, use the one from the DEM. \\ \hline
 \texttt{-\/-tr \textit{float}} & Set the output file resolution in target
@@ -1235,16 +1238,14 @@ session type to use for processing. Choose 'rpc' if it is desired to later do st
 \texttt{-\/-bundle-adjust-prefix \textit{string}} & Use the camera
 adjustment obtained by previously running bundle\_adjust with this
 output prefix. \\ \hline
-\texttt{-\/-threads \textit{int(=0)}} & Select the number of processors (threads) to use.\\ \hline
-\texttt{-\/-no-bigtiff} & Tell GDAL to not create bigtiffs.\\ \hline
-\texttt{-\/-tif-compress None|LZW|Deflate|Packbits} & TIFF compression method.\\ \hline
-\texttt{-\/-cache-dir \textit{directory(=/tmp)}} & Folder for temporary files. Normally this need not be changed.\\ \hline
-\texttt{-\/-help|-h} & Display the help message. \\ \hline
-\\ \hline
 \texttt{-\/-num-processes} & Number of parallel processes to use (default program chooses).\\ \hline
 \texttt{-\/-nodes-list} & List of available computing nodes.\\ \hline
 \texttt{-\/-tile-size} & Size of square tiles to break processing up into.\\ \hline
 \texttt{-\/-suppress-output} & Suppress output from sub-processes.\\ \hline
+\texttt{-\/-threads \textit{int(=0)}} & Select the number of processors (threads) to use.\\ \hline
+\texttt{-\/-no-bigtiff} & Tell GDAL to not create bigtiffs.\\ \hline
+\texttt{-\/-tif-compress None|LZW|Deflate|Packbits} & TIFF compression method.\\ \hline
+\texttt{-\/-cache-dir \textit{directory(=/tmp)}} & Folder for temporary files. Normally this need not be changed.\\ \hline
 \end{longtable}
 
 \clearpage
@@ -1427,9 +1428,9 @@ Usage:\\
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
+\texttt{-\/-help} & Display the help message.\\ \hline
 \texttt{-\/-output-datum \textit{string}} & The datum to convert to. Supported options: WGS\_1984, NAD83, WGS72, and NAD27. \\ \hline
 \texttt{-\/-t\_srs \textit{string}} & Specify the output datum via the PROJ.4 string. \\ \hline
-\texttt{-\/-help} & Display the help message.\\ \hline
 \texttt{-\/-nodata-value} & The value of no-data pixels, unless specified in the DEM.\\ \hline
 \end{longtable}
 
@@ -1984,11 +1985,11 @@ Option & Description \\ \hline \hline
 \hline
 Option & Description \\ \hline \hline
 General Options \\ \hline
+\verb#--help# & Display a help message\\ \hline
 \verb#-o [ --output-name ] arg# & Specify the base output directory\\ \hline
 \verb#-q [ --quiet ]# & Quiet output\\ \hline
 \verb#-v [ --verbose ]# & Verbose output\\ \hline
 \verb#--cache arg (=1024)# & Cache size, in megabytes\\ \hline
-\verb#--help# & Display a help message\\ \hline
 
 Input Options\\ \hline
 \verb#--force-wgs84# & Use WGS84 as the input images' geographic coordinate systems, even if they're not (old behavior)\\ \hline
@@ -2060,6 +2061,7 @@ Usage:
 \endlastfoot
 \hline
 Option & Description \\ \hline \hline
+\texttt{-\/-help|-h} & Display the help message. \\ \hline
 \texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output prefix. \\ \hline
 \texttt{-\/-absolute} & Output the absolute difference as opposed to just the difference. \\ \hline
 \texttt{-\/-float} & Output using float (32 bit) instead of using doubles (64 bit). \\ \hline
@@ -2069,7 +2071,6 @@ Option & Description \\ \hline \hline
 \texttt{-\/-tif-compress None|LZW|Deflate|Packbits} & TIFF compression method.\\ \hline
 \texttt{-\/-cache-dir \textit{directory(=/tmp)}} & Folder for temporary files. Normally this need not be changed.\\ \hline
 \hline
-\texttt{-\/-help|-h} & Display the help message. \\ \hline
 \end{longtable}
 
 \section{sfs}
@@ -2088,6 +2089,7 @@ shape-from-shading. Examples for how to use it are in chapter
 \endlastfoot
 \hline
 Option & Description \\ \hline \hline
+\texttt{-h | -\/-help } & Display this help message.\\ \hline
 \texttt{-i | -\/-input-dem  \textit{string}} & The input DEM to refine using SfS.\\ \hline
 \texttt{-o | -\/-output-prefix  \textit{string}} & Prefix for output filenames.\\ \hline
 \texttt{-n | -\/-max-iterations \textit{int(=100)}} & Set the maximum number of iterations.\\ \hline
@@ -2112,7 +2114,6 @@ are in the shadow (occluded from the sun).\\ \hline
 \texttt{-\/-no-bigtiff} & Tell GDAL to not create bigtiffs.\\ \hline
 \texttt{-\/-tif-compress None|LZW|Deflate|Packbits} & TIFF compression method.\\ \hline
 \texttt{-\/-cache-dir \textit{string(=/tmp)}} & Folder for temporary files. Change if directory is inaccessible to user such as on Pleiades.\\ \hline
-\texttt{-h | -\/-help } & Display this help message.\\ \hline
 \end{longtable}
 
 
