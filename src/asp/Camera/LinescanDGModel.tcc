@@ -48,6 +48,12 @@ vw::Vector2 LinescanDGModel<PositionFuncT, VelocityFuncT, PoseFuncT, TimeFuncT>
   return point_to_pixel_corrected(point, starty);
 }
 
+namespace linescan {
+  const double ABS_TOL = 1e-16;
+  const double REL_TOL = 1e-16;
+  const int    MAX_ITERATIONS = 1e+5;
+}
+
 template <class PositionFuncT, class VelocityFuncT, class PoseFuncT, class TimeFuncT>
 vw::Vector2 LinescanDGModel<PositionFuncT, VelocityFuncT, PoseFuncT, TimeFuncT>
 ::point_to_pixel_uncorrected(vw::Vector3 const& point, double starty) const {
@@ -64,12 +70,11 @@ vw::Vector2 LinescanDGModel<PositionFuncT, VelocityFuncT, PoseFuncT, TimeFuncT>
   if (starty >= 0)
     start[0] = starty;
 
-  Vector<double> solution = math::levenberg_marquardt( model, start, objective, status,
-						       1e-2, 1e-5, 1e3 );
-  // The ending numbers define:
-  //   Attempt to solve solution to 0.01 pixels.
-  //   Give up with a relative change of 0.00001 pixels.
-  //   Try with a max of a 1000 iterations.
+  Vector<double> solution
+    = math::levenberg_marquardt(model, start, objective, status,
+                                linescan::ABS_TOL,
+                                linescan::REL_TOL,
+                                linescan::MAX_ITERATIONS);
 
   VW_ASSERT( status > 0,
 	     camera::PointToPixelErr() << "Unable to project point into LinescanDG model" );
@@ -93,9 +98,11 @@ vw::Vector2 LinescanDGModel<PositionFuncT, VelocityFuncT, PoseFuncT, TimeFuncT>
   Vector2 start = point_to_pixel_uncorrected(point, starty);
 
   Vector3 objective(0, 0, 0);
-  // Need such tight tolerances below otherwise the solution is inaccurate.
-  Vector2 solution = math::levenberg_marquardt( model, start, objective, status,
-						1e-10, 1e-10, 50 );
+  Vector2 solution
+    = math::levenberg_marquardt(model, start, objective, status,
+                                linescan::ABS_TOL,
+                                linescan::REL_TOL,
+                                linescan::MAX_ITERATIONS);
   VW_ASSERT( status > 0,
 	     camera::PointToPixelErr() << "Unable to project point into LinescanDG model" );
 
