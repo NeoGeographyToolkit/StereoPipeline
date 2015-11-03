@@ -520,21 +520,21 @@ namespace asp {
       std::sort(sorted_error.begin(), sorted_error.end());
       size_t last_good_index = static_cast<double>(sorted_error.size()) * CUTOFF_PERCENTILE;
       double cutoff_value = 0;
-	  if (last_good_index < sorted_error.size())
-		  cutoff_value = sorted_error[last_good_index];
+      if (last_good_index < sorted_error.size())
+        cutoff_value = sorted_error[last_good_index];
 
       // Treat all points below the new cutoff_value as inliers
       std::list<size_t> filtered_indices;
       size_t c=0;
       for ( std::list<size_t>::iterator i = valid_indices.begin();
-	  i != valid_indices.end(); i++ )
+        	  i != valid_indices.end(); i++ )
       {
-	if (error_samples[c] < cutoff_value)
-	  filtered_indices.push_back(*i);
-	++c;
+        if (error_samples[c] < cutoff_value)
+          filtered_indices.push_back(*i);
+        ++c;
       }
       valid_indices = filtered_indices;
-      return true;
+      return (!valid_indices.empty());
     }
 
     vw_out() << "\t    Inlier cluster:\n"
@@ -553,26 +553,26 @@ namespace asp {
       double err_diff_front = error_samples[error_idx]-error_clusters.front().first[0];
       double err_diff_back  = error_samples[error_idx]-error_clusters.back().first[0];
 
-      if (
-	  !((escalar1 * exp( (-err_diff_front * err_diff_front) * escalar3 ) ) >
-	    (escalar2 * exp( (-err_diff_back * err_diff_back) * escalar4 ) ) ||
-	    error_samples[error_idx] < error_clusters.front().first[0]) ) {
-	// It's an outlier!
-	i = valid_indices.erase(i);
-	i--; // For loop is going to increment this back up
+      if (!((escalar1 * exp( (-err_diff_front * err_diff_front) * escalar3 ) ) >
+            (escalar2 * exp( (-err_diff_back * err_diff_back) * escalar4 ) ) ||
+          error_samples[error_idx] < error_clusters.front().first[0]) ) {
+        // It's an outlier!
+        i = valid_indices.erase(i);
+        i--; // For loop is going to increment this back up
       }
       error_idx++;
     }
     VW_ASSERT( prior_valid_size == error_idx,
 	       vw::MathErr() << "tri_ip_filtering: Programmer error. Indices don't seem to be aligned." );
 
-    return true;
+    return (!valid_indices.empty());
   }
 
   bool
   stddev_ip_filtering( std::vector<vw::ip::InterestPoint> const& ip1,
 		       std::vector<vw::ip::InterestPoint> const& ip2,
 		       std::list<size_t>& valid_indices ) {
+    const int NUM_STD_FILTER = 4;
     // 4 stddev filtering. Deletes any disparity measurement that is 4
     // stddev away from the measurements of it's local neighbors. We
     // kill off worse offender one at a time until everyone is compliant.
@@ -584,12 +584,12 @@ namespace asp {
       std::vector<size_t > reverse_lookup  ( valid_indices.size() );
       std::vector<Vector2> disparity_vector( valid_indices.size() );
       BOOST_FOREACH( size_t index, valid_indices ) {
-	locations1( count, 0 ) = ip1[index].x;
-	locations1( count, 1 ) = ip1[index].y;
-	reverse_lookup  [ count ] = index;
-	disparity_vector[ count ] = Vector2(ip2[index].x,ip2[index].y) -
-				    Vector2(ip1[index].x,ip1[index].y);
-	count++;
+        locations1( count, 0 ) = ip1[index].x;
+        locations1( count, 1 ) = ip1[index].y;
+        reverse_lookup  [ count ] = index;
+        disparity_vector[ count ] = Vector2(ip2[index].x,ip2[index].y) -
+			            Vector2(ip1[index].x,ip1[index].y);
+        count++;
       }
       math::FLANNTree<float> tree1;
       tree1.load_match_data( locations1, vw::math::FLANN_DistType_L2);
@@ -597,56 +597,59 @@ namespace asp {
       std::pair<double,size_t> worse_index;
       worse_index.first = 0;
       for ( size_t i = 0; i < valid_indices.size(); i++ ) {
-	Vector<int   > indices;
-	Vector<double> distance;
-	const int NUM_INDICES_TO_GET = 11;
-	tree1.knn_search( select_row( locations1, i ),
-			  indices, distance, NUM_INDICES_TO_GET );
+        Vector<int   > indices;
+        Vector<double> distance;
+        const int NUM_INDICES_TO_GET = 11;
+        tree1.knn_search( select_row( locations1, i ),
+            		          indices, distance, NUM_INDICES_TO_GET );
 
-	// Bugfix: If there are too few inputs, in rare occasions
-	// some of the outputs are invalid. Not always. Could not
-	// figure this out in reasonable time, the logic is somewhere
-	// deep inside FLANN. Just discard the bad results.
-	std::vector<int> good_indices;
-	for (size_t j = 0; j < indices.size(); j++) {
-	  if (indices[j] >= (int)disparity_vector.size()) continue;
-	  good_indices.push_back(indices[j]);
-	}
+	      // Bugfix: If there are too few inputs, in rare occasions
+	      // some of the outputs are invalid. Not always. Could not
+	      // figure this out in reasonable time, the logic is somewhere
+	      // deep inside FLANN. Just discard the bad results.
+	      std::vector<int> good_indices;
+	      for (size_t j = 0; j < indices.size(); j++) {
+	        if (indices[j] >= (int)disparity_vector.size()) continue;
+	        good_indices.push_back(indices[j]);
+	      }
 
-	// Make an average of the disparities around us and not our own
-	// measurement
-	Vector2 sum;
-	for ( size_t j = 1; j < good_indices.size(); j++ ) {
-	  sum += disparity_vector[ good_indices[j] ];
-	}
-	sum = normalize( sum );
+	      // Make an average of the disparities around us and not our own
+	      // measurement
+	      Vector2 sum;
+	      for ( size_t j = 1; j < good_indices.size(); j++ ) {
+	        sum += disparity_vector[ good_indices[j] ];
+	      }
+	      sum = normalize( sum );
 
-	// Project all disparities along the new gradient
-	Vector<double> projections( good_indices.size() );
-	for ( size_t j = 0; j < good_indices.size(); j++ ) {
-	  projections[j] = dot_prod( disparity_vector[good_indices[j]], sum );
-	}
-	double mean = 0;
-	double stddev = 0;
-	for ( size_t j = 1; j < good_indices.size(); j++ ) {
-	  mean += projections[j];
-	  stddev += projections[j]*projections[j];
-	}
-	mean /= good_indices.size() - 1;
-	stddev = sqrt( stddev / ( good_indices.size() - 1 ) - mean*mean );
+	      // Project all disparities along the new gradient
+	      Vector<double> projections( good_indices.size() );
+	      for ( size_t j = 0; j < good_indices.size(); j++ ) {
+	        projections[j] = dot_prod( disparity_vector[good_indices[j]], sum );
+	      }
+	      double mean   = 0;
+	      double stddev = 0;
+	      for ( size_t j = 1; j < good_indices.size(); j++ ) {
+	        mean += projections[j];
+	        stddev += projections[j]*projections[j];
+	      }
+	      mean /= good_indices.size() - 1;
+	      stddev = sqrt( stddev / ( good_indices.size() - 1 ) - mean*mean );
 
-	double std_distance = fabs(projections[0]-mean)/stddev;
-	if ( std_distance > worse_index.first ) {
-	  worse_index.first = std_distance;
-	  worse_index.second = i;
-	}
+	      double std_distance = fabs(projections[0]-mean)/stddev;
+	      if ( std_distance > worse_index.first ) {
+	        worse_index.first = std_distance;
+	        worse_index.second = i;
+	      }
+      } // End loop through valid indices
+      if ( worse_index.first > NUM_STD_FILTER ) {
+        std::list<size_t>::iterator it = valid_indices.begin();
+        std::advance( it, worse_index.second );
+        valid_indices.erase( it );
+        deleted_something = true;
       }
-      if ( worse_index.first > 4 ) {
-	std::list<size_t>::iterator it = valid_indices.begin();
-	std::advance( it, worse_index.second );
-	valid_indices.erase( it );
-	deleted_something = true;
-      }
+      // If we ended up deleting everything, just quit here and return 0.
+      if (valid_indices.empty())
+        return 0;
     } while( deleted_something );
 
     return valid_indices.size();
