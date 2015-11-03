@@ -171,6 +171,7 @@ namespace asp {
     vw::Vector2 piecewise_adjustment_percentiles;
     int    piecewise_adjustment_interp_type;
     int    num_matches_for_piecewise_adjustment;
+    double piecewise_adjustment_camera_weight;
     bool   skip_computing_piecewise_adjustments;
     bool   compute_piecewise_adjustments_only;
 

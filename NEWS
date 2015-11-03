@@ -3,7 +3,8 @@
  - stereo
     * Bugfix for stereo with map-projected images using the RPC
       session (e.g, for map-projected Pleiades imagery).
-    * Added OpenCV-based SIFT and ORB interest point finding options.
+    * Added OpenCV-based SIFT and ORB interest point finding options
+      (still experiemental).
     * Added jitter correction for linescan imagery.
     * If the input images are map-projected (georeferenced) and 
       alignment method is none, all image outputs of stereo are

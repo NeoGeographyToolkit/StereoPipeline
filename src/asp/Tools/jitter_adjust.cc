@@ -623,7 +623,7 @@ void jitter_adjust(std::vector<std::string> const& image_files,
   }
 
   // Add camera constraints
-  double camera_weight = 1;
+  double camera_weight = stereo_settings().piecewise_adjustment_camera_weight;
   for (int cam_index = 0; cam_index < num_total_adj; cam_index++){
 
     camera_vector_t orig_cam;

@@ -394,7 +394,7 @@ follows:
 The corrected images can be used just as the originals, and the camera
 models do not change. When working with such imagery, we recommend that
 CCD artifact correction happen first, on original un-projected
-imagery. Afterwards images can be mosaicked with \texttt{dg\_mosaic},
+imagery. Afterward images can be mosaicked with \texttt{dg\_mosaic},
 map-projected, and the resulting data used to run stereo and create
 terrain models.
 
@@ -430,14 +430,14 @@ appends rows of pixels to the image. This results in slight errors in
 the final DEM created using stereo. Those are most clearly seen in the
 intersection error map output by \texttt{point2dem -\/-errorimage}.
 
-ASP provides support for correcting this jitter, at least its low
-frequency component. During stereo, right before the triangulation step,
-so after the left-to-right image disparity is computed, it can solve for
-adjustments to apply to the satellite position and orientation. Those
-adjustments are placed along-track (hence at several lines in the image)
-with interpolation between them. This is quite analogous to what
-\texttt{bundle\_adjust} is doing, except that the latter uses just one
-adjustment for each image.
+ASP provides support for correcting this jitter, at least its
+lower-frequency component. During stereo, right before the triangulation
+step, so after the left-to-right image disparity is computed, it can
+solve for adjustments to apply to the satellite position and
+orientation. Those adjustments are placed along-track (hence at several
+lines in the image) with interpolation between them. This is quite
+analogous to what \texttt{bundle\_adjust} is doing, except that the
+latter uses just one adjustment for each image.
 
 This process can be triggered by invoking \texttt{stereo} with
 \texttt{-\/-image-lines-per-piecewise-adjustment arg}. A smaller value
@@ -456,14 +456,14 @@ each other, by modifying \texttt{-\/-piecewise-adjustment-percentiles}.
 Its values are by default 5 and 95, and could be set for example to 10
 and 90.
 
-Lastly, the way interpolation among adjustments is performed can be
-controlled with
+Section \ref{triangulation_options} has the full list of parameters
+used in jitter correction.
 
-\begin{verbatim}
-  --piecewise-adjustment-interp-type
-\end{verbatim}
-
-Section \ref{triangulation_options} describes these options in detail.
+In order for jitter correction to be successful, the disparity map
+(\texttt{*-F.tif}) should be of good quality. If that is not the case,
+it is suggested to redo stereo, and use, for example, map-projected
+images, and in the case of terrain lacking large scale features, the
+value \texttt{corr-seed-mode 3} (section \ref{sparse-disp}).
 
 An illustration of jitter correction is given in figure \ref{fig:jitter-example}.
 
