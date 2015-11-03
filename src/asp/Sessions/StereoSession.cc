@@ -405,7 +405,9 @@ vw::Vector2 camera_pixel_offset(std::string const& input_dem,
   else if (curr_image_file == right_image_file)
     return right_pixel_offset;
   else
-    vw_throw(ArgumentErr() << "Supplied image file does not match left or right image file.");
+    // If the image files were not specified, no offset and no error.
+    if ((left_image_file != "") || (right_image_file != ""))
+      vw_throw(ArgumentErr() << "Supplied image file does not match left or right image file.");
 
   return Vector2();
 }
@@ -431,8 +433,9 @@ load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
   position_correction.push_back(Vector3());
   pose_correction.push_back(Quat(math::identity_matrix<3>()));
 
-  if (ba_pref != "") {
+  if (ba_pref != "") { // If a bundle adjustment file was specified
 
+    // Get full BA file path
     std::string adjust_file = asp::bundle_adjust_file_name(ba_pref, image_file, camera_file);
 
     if (!boost::filesystem::exists(adjust_file))
@@ -448,7 +451,6 @@ load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
     // Handle the case of piecewise adjustments for DG cameras
     if (position_correction.size() > 1 && pose_correction.size() > 1) {
 
-
       // Create the adjusted DG model
       boost::shared_ptr<camera::CameraModel> adj_dg_cam
 	(new AdjustedLinescanDGModel(cam,
@@ -462,10 +464,11 @@ load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
 					     Quat(math::identity_matrix<3>()), pixel_offset));
 
       return adj_dg_cam2;
-    }
+    } // End case for piecewise DG adjustment
 
-  }
+  } // End case for parsing bundle adjustment file
 
+  // Create VW adjusted camera model object with the info we loaded
   return boost::shared_ptr<camera::CameraModel>(new vw::camera::AdjustedCameraModel
 						(cam, position_correction[0],
 						 pose_correction[0], pixel_offset));
