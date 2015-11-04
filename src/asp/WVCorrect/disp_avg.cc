@@ -21,38 +21,10 @@
 #pragma warning(disable:4996)
 #endif
 
-#include <cstdlib>
-#include <iostream>
-#include <cmath>
-#include <boost/tokenizer.hpp>
-#include <boost/lexical_cast.hpp>
-#include <boost/numeric/conversion/cast.hpp>
-#include <boost/program_options.hpp>
-#include <boost/filesystem/path.hpp>
-#include <boost/foreach.hpp>
-namespace fs = boost::filesystem;
-namespace po = boost::program_options;
-
-#include <vw/Core/Functors.h>
-#include <vw/Image/Algorithms.h>
-#include <vw/Image/ImageMath.h>
-#include <vw/Image/ImageViewRef.h>
-#include <vw/Image/PerPixelViews.h>
-#include <vw/Image/PixelMask.h>
-#include <vw/Image/MaskViews.h>
-#include <vw/Image/PixelTypes.h>
-#include <vw/Image/Statistics.h>
 #include <vw/FileIO/DiskImageView.h>
-#include <vw/Cartography/GeoReference.h>
-#include <vw/tools/Common.h>
-#include <vw/FileIO/DiskImageResourceGDAL.h>
-#include <vw/Image/Interpolation.h>
-#include <cstdlib>
-
 #include <vw/Stereo/DisparityMap.h>
 
 using namespace vw;
-using namespace vw::cartography;
 using namespace std;
 
 // Average the rows in a given disparity image. Save them to disk as
@@ -61,6 +33,9 @@ using namespace std;
 
 int main( int argc, char *argv[] ){
 
+  // TODO: Use Boost program options.
+
+  // TODO: No need for outdx.txt and outdy.txt, just save with with same prefix.
   if (argc <= 3) {
     vw_out() << "Usage: disp_avg disp.tif outdx.txt outdy.txt\n";
     return 1;
@@ -74,6 +49,7 @@ int main( int argc, char *argv[] ){
   int cols = D.cols(), rows = D.rows();
   std::cout << "Number of cols and rows is " << cols << ' ' << rows << std::endl;
 
+  // TODO: Add a progress bar.
   vector<double> Dx(cols, 0), Dy(cols, 0);
   for (int col = 0; col < cols; col++){
     if (col%100 == 0){

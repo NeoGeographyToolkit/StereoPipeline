@@ -121,8 +121,25 @@ void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
       return;
   };
 
-  // Load the pair of camera models. We assume the user did not use
-  // adjusted models on map-projection.
+  // Enforce that the user not use adjusted models with map-projected
+  // images, that would be confusing.
+  {
+    std::string adj_key = "BUNDLE_ADJUST_PREFIX";
+    std::string l_adj_prefix, r_adj_prefix;
+    boost::shared_ptr<vw::DiskImageResource> l_rsrc
+      (new vw::DiskImageResourceGDAL(m_left_image_file));
+    vw::cartography::read_header_string(*l_rsrc.get(), adj_key, l_adj_prefix);
+    boost::shared_ptr<vw::DiskImageResource> r_rsrc
+      (new vw::DiskImageResourceGDAL(m_right_image_file));
+    vw::cartography::read_header_string(*r_rsrc.get(), adj_key, r_adj_prefix);
+    if (l_adj_prefix != "" || r_adj_prefix != "")
+      vw_throw( ArgumentErr() << "The images were map-projected using "
+                << "--bundle-adjust-prefix. That is not supported.\n" );
+  }
+
+  // Load the pair of camera models used in map-projection. For those
+  // we do not apply bundle_adjust_prefix, that one is applied only
+  // for the actual model used in triangulation.
   std::string ba_pref_bk = stereo_settings().bundle_adjust_prefix;
   stereo_settings().bundle_adjust_prefix = "";
   m_left_map_proj_model  = load_camera_model(model_type_to_load,

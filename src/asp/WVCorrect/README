@@ -4,23 +4,50 @@ tabulated and then corrected.
 Basic idea
 ----------
 
-For each TDI/scan direction perform several runs.  For each run,
-average all rows of the disparity (ignore invalid disparities).
-Average these over multiple runs.  We get n Vector2 values (since each
-valid disparity pixel is a Vector2), where n is the image width. From
-these, we will extract the locations of CCD jumps and their values in
-x and in y. Those will be hard-coded in asp/Tools/wv_correct.cc.
+For each TDI perform several runs. For each run, average all rows of
+the disparity (ignore invalid disparities).  Average these over
+multiple runs.  We get n Vector2 values (since each valid disparity
+pixel is a Vector2), where n is the image width. From these, we will
+extract the locations of CCD jumps and their values in x and in
+y. Those will be hard-coded in asp/Tools/wv_correct.cc.
 
 Detailed instructions
 ---------------------
 
-1. Run
-  stereo --part-of-multiview-run --alignment-method homography \ 
-  --subpixel-mode 1 --corr-max-levels 2 --disable-fill-holes   \
-  --left-image-crop-win 0 starty widx widy                     \
+1. Choose a satellite (WV1, WV2, or WV3), a TDI (values are various
+multiples of 8 from 8 to 64), and a scan direction (forward or
+reverse). (All this information can be found in the XML files.) 
+
+2. Create a directory, which we will name BASEDIR. Have there
+at least 5-10 image sets for the desired satellite/TDI/scan
+direction combination, with reasonably flat terrain, little or no
+clouds, and reasonable amount of detail.
+
+2. Build ASP in dev mode. Ensure that the Tools and WVCorrect
+directories are in the path.
+
+2. Run dg_mosaic to mosaic the left and right images/cameras for each
+image set. This will create a stereo pair.
+
+4. Run src/asp/WVCorrect/gen_scandir.pl in BASEDIR to extract
+some meta information. Inspect the obtained file for correctness.
+
+5. For each stereo pair, inspect the left and right images in stereo_gui.
+Select corresponding areas to run stereo on. Each such area must have
+little or no clouds and must be as wide as the whole image.
+
+6. For each stereo pair, create a left-to-right run and a right-to-left
+run, that is, flip the images/cameras. Invoke stereo as follows:
+
+7. Run
+  stereo -e 0 -s 4  \ # skip triangulation
+  --part-of-multiview-run --alignment-method homography     \ 
+  --subpixel-mode 1 --corr-max-levels 2 --disable-fill-holes       \
+  --left-image-crop-win 0 starty1 widx1 widy1                      \
+  --right-image-crop-win 0 starty2 widx2 widy2                     \
   left.tif right.tif left.xml right.xml run/run
 
-Do a second run with left and right images flipped, to get more data.
+Again, widx1 and widx2 must be as big as the images.
 
 Potentially use
 
@@ -48,7 +75,7 @@ The value widx should be the maximum image width. The values
 starty and widy can be chosen to ensure each row in the disparity is
 of high quality.
 
-2. Inspect the F.tif disparity. Crop away some top and bottom rows
+8. Inspect the F.tif disparity. Crop away some top and bottom rows
 if they are incomplete or have noise. Average the obtained rows using
 asp/WVCorrect/disp_avg.cc.
    
