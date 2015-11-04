@@ -439,7 +439,11 @@ namespace asp {
     output_bbox.grow( left_size );
 
     if (adjust_left_image_size){
-
+      // Crop the left and right images to the shared region. This is
+      // done for efficiency.  It may not be always desirable though,
+      // as in this case we lose the one-to-one correspondence between
+      // original input left image pixels and output disparity/point
+      // cloud pixels.
       Vector3 temp = right_matrix*Vector3(0,0,1);
       temp /= temp.z();
       right_bbox.grow( subvector(temp,0,2) );
