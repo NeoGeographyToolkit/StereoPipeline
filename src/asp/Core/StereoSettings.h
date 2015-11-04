@@ -192,6 +192,7 @@ namespace asp {
     bool view_matches;
     std::string match_file;
     bool delete_temporary_files_on_exit;
+    bool create_image_pyramids_only;
 
     // DG Options
     bool disable_correct_velocity_aberration;

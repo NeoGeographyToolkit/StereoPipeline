@@ -33,6 +33,7 @@
 #include <asp/Core/DemDisparity.h>
 #include <asp/Core/LocalHomography.h>
 #include <asp/GUI/MainWindow.h>
+#include <asp/GUI/GuiUtilities.h>
 
 using namespace vw;
 using namespace vw::stereo;
@@ -139,6 +140,15 @@ int main(int argc, char* argv[]) {
       // Presumably the tool was invoked with no options. Just print the help message.
       if (images.empty())
         vw_throw(ArgumentErr() << e.what() << "\n");
+    }
+
+    if (stereo_settings().create_image_pyramids_only) {
+      // Just create the image pyramids and exit.
+      for (size_t i = 0; i < images.size(); i++) {
+        vw::gui::imageData img;
+        img.read(images[i], opt_vec[0], stereo_settings().use_georef);
+      }
+      return 0;
     }
 
     vw::create_out_dir(output_prefix);
