@@ -487,9 +487,10 @@ int main(int argc, char* argv[]) {
                          verbose, output_prefix, opt_vec);
     Options opt = opt_vec[0];
 
-    // We will not adjust the left image size for multiview,
-    // as then each stereo pair will have its left image of
-    // variable size, which is not desirable.
+    // We will not adjust the left image size if we do multiview stereo,
+    // so we can keep one-to-one correspondence between the several
+    // pairwise runs that are part of the multiview run for the time
+    // when we need to combine all these runs to do simultaneous triangulation.
     bool adjust_left_image_size = (opt_vec.size() == 1 &&
                                    !stereo_settings().part_of_multiview_run);
 
