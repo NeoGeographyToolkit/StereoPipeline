@@ -185,9 +185,9 @@ namespace asp {
         new_alignment = "none";
 
       vw_out(WarningMessage)
-        << "For multi-view stereo, only alignment method of none or homography "
-        << "is supported. Changing alignment method from "
-        << stereo_settings().alignment_method << " to " << new_alignment << ".\n";
+        << "For multi-view stereo, only alignment method of 'none' or 'homography' "
+        << "is supported. Changing alignment method from '"
+        << stereo_settings().alignment_method << "' to '" << new_alignment << "'.\n";
       stereo_settings().alignment_method = new_alignment;
 
       // Set this for future runs as well
