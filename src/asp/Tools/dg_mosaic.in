@@ -965,8 +965,7 @@ def main():
                 mosaic_args += ['--fix-seams']
 
             print "Writing: " + tif_file
-            run_and_parse_output( mosaic_cmd, mosaic_args, sep,
-                                  options.verbose )
+            subprocess.call([mosaic_cmd] +  mosaic_args)
 
             # Make a preview image
             if options.preview:
