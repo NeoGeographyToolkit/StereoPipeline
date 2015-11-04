@@ -182,6 +182,11 @@ namespace vw { namespace gui {
     int m_window_width;  // the width  of the plotting window in screen pixels
     int m_window_height; // the height of the plotting window in screen pixels
 
+    // Shrink the image to be shown on screen by this factor
+    // (typically 0.90 to 0.95) to create an extra empty margin at a widget's
+    // border, to make it easier to zoom.
+    double m_border_factor;
+
     // Image Parameters
     vw::BBox2 m_current_view, m_last_view;
     double m_gain,   m_last_gain;

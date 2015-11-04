@@ -47,20 +47,36 @@ namespace vw { namespace gui {
   // position as seen on screen (the screen origin is the
   // visible upper-left corner of the widget).
   vw::Vector2 MainWidget::world2screen(vw::Vector2 const& p){
+
     double x = m_window_width*((p.x() - m_current_view.min().x())
                                /m_current_view.width());
     double y = m_window_height*((p.y() - m_current_view.min().y())
                                 /m_current_view.height());
+
+    // Create an empty border margin, to make it easier to zoom
+    // by allowing the zoom window to slightly exceed the visible image
+    // area (that inability was such a nuisance).
+    x = m_border_factor*(x - m_window_width/2.0) + m_window_width/2.0;
+    y = m_border_factor*(y - m_window_height/2.0) + m_window_height/2.0;
+
     return vw::Vector2(x, y);
   }
 
   // Convert a pixel on the screen to world coordinates.
   // See world2image() for the definition.
   vw::Vector2 MainWidget::screen2world(vw::Vector2 const& p){
-    double x = m_current_view.min().x()
-      + m_current_view.width() * double(p.x()) / m_window_width;
-    double y = m_current_view.min().y()
-      + m_current_view.height() * double(p.y()) / m_window_height;
+
+    // First undo the empty border margin
+    double x = p.x(), y = p.y();
+    x = (x - m_window_width/2.0)/m_border_factor + m_window_width/2.0;
+    y = (y - m_window_height/2.0)/m_border_factor + m_window_height/2.0;
+
+    // Scale to world coordinates
+    x = m_current_view.min().x()
+      + m_current_view.width() * x / m_window_width;
+    y = m_current_view.min().y()
+      + m_current_view.height() * y / m_window_height;
+
     return vw::Vector2(x, y);
   }
 
@@ -138,6 +154,8 @@ namespace vw { namespace gui {
     m_cropWinMode     = false;
 
     m_mousePrsX = 0; m_mousePrsY = 0;
+
+    m_border_factor = 0.95;
 
     // Set some reasonable defaults
     m_bilinear_filter = true;
