@@ -444,6 +444,7 @@ AX_APP(IMAGE_CALC,       [src/asp/Tools], yes, [CORE])
 AX_APP(PANSHARP,         [src/asp/Tools], yes, [CORE CAMERA])
 AX_APP(PC_MERGE,         [src/asp/Tools], yes, [CORE])
 AX_APP(DATUM_CONVERT,    [src/asp/Tools], yes, [CORE])
+AX_APP(DISP_AVG,         [src/asp/WVCorrect], yes, [CORE])
 
 # These are here (instead of inside the APP macro where they belong)
 # for backwards compatability with older versions of automake.
@@ -483,6 +484,7 @@ AM_CONDITIONAL(MAKE_APP_IMAGE_CALC, [test "$MAKE_APP_IMAGE_CALC" = "yes"])
 AM_CONDITIONAL(MAKE_APP_PANSHARP,   [test "$MAKE_APP_PANSHARP"   = "yes"])
 AM_CONDITIONAL(MAKE_APP_PC_MERGE,   [test "$MAKE_APP_PC_MERGE"   = "yes"])
 AM_CONDITIONAL(MAKE_APP_DATUM_CONVERT, [test "$MAKE_APP_DATUM_CONVERT" = "yes"])
+AM_CONDITIONAL(MAKE_APP_DISP_AVG, [test "$MAKE_APP_DISP_AVG" = "yes"])
 
 ##################################################
 # final processing
@@ -529,6 +531,7 @@ AC_CONFIG_FILES([                        \
   src/asp/GUI/Makefile                   \
   src/asp/Python/Makefile                \
   src/asp/Tools/Makefile
+  src/asp/WVCorrect/Makefile
 ])
 
 AC_OUTPUT

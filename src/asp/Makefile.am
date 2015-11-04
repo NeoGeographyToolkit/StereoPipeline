@@ -36,13 +36,14 @@ spiceio_headers = SpiceIO.h
 gui_subdirs = GUI
 python_subdirs = Python
 tools_subdirs = Tools
+wv_correct_subdirs = WVCorrect
 
 include_HEADERS = $(core_headers) $(spiceio_headers)            \
 	  $(isisio_headers) asp_config.h
 
 SUBDIRS = $(core_subdirs) $(spiceio_subdirs) $(isisio_subdirs) \
 	  $(camera_subdirs) $(sessions_subdirs) $(gui_subdirs) $(python_subdirs) \
-	  $(tools_subdirs)
+	  $(tools_subdirs) $(wv_correct_subdirs)
 CLEANFILES = asp_config.h.pre.in~
 
 #########################################
