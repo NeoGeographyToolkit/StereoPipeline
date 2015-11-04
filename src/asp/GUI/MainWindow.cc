@@ -631,7 +631,7 @@ void MainWindow::writeGroundControlPoints() {
 
     // Write the per-point information
     output_handle << num_pts_used; // The ground control point ID
-    output_handle << ", " << lonlat[0] << ", " << lonlat[1] << ", " << mask_height[0];
+    output_handle << ", " << lonlat[1] << ", " << lonlat[0] << ", " << mask_height[0]; // Lat, lon, height
     output_handle << ", " << 1 << ", " << 1 << ", " << 1; // Sigma values
 
     // Write the per-image information
