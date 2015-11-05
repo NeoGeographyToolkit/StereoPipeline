@@ -36,11 +36,13 @@ using namespace vw::ba;
 std::string g_piecewise_adj_str = "PIECEWISE_ADJUSTMENTS";
 
 void asp::read_adjustments(std::string const& filename,
+                           bool & piecewise_adjustments,
                            vw::Vector2 & adjustment_bounds,
                            std::vector<Vector3> & position_correction,
                            std::vector<Quat> & pose_correction) {
 
   // Initialize the outputs
+  piecewise_adjustments = false;
   adjustment_bounds = Vector2();
   position_correction.clear();
   pose_correction.clear();
@@ -54,10 +56,12 @@ void asp::read_adjustments(std::string const& filename,
   if (!std::getline(istr, line))
     vw_throw( ArgumentErr() << "Could not read adjustment file: " << filename << "\n" );
   if (line == g_piecewise_adj_str) {
+    piecewise_adjustments = true;
     if (! (istr >> adjustment_bounds[0] >> adjustment_bounds[1]))
       vw_throw( ArgumentErr() << "Could not read adjustment bounds from: " << filename << "\n");
   }else{
     // No piecewise adjustments. Rewind to beginning.
+    piecewise_adjustments = false;
     istr.clear();
     istr.seekg(0, std::ios::beg);
   }

@@ -442,14 +442,16 @@ load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
       vw_throw(InputErr() << "Missing adjusted camera model: " << adjust_file << ".\n");
 
     vw_out() << "Using adjusted camera model: " << adjust_file << std::endl;
+    bool piecewise_adjustments;
     Vector2 adjustment_bounds;
-    asp::read_adjustments(adjust_file, adjustment_bounds, position_correction, pose_correction);
+    asp::read_adjustments(adjust_file, piecewise_adjustments,
+                          adjustment_bounds, position_correction, pose_correction);
 
     if (position_correction.empty() || pose_correction.empty())
       vw_throw(InputErr() << "Unable to read corrections.\n");
 
     // Handle the case of piecewise adjustments for DG cameras
-    if (position_correction.size() > 1 && pose_correction.size() > 1) {
+    if (piecewise_adjustments) {
 
       // Create the adjusted DG model
       boost::shared_ptr<camera::CameraModel> adj_dg_cam
