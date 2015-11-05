@@ -132,7 +132,8 @@ void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
     boost::shared_ptr<vw::DiskImageResource> r_rsrc
       (new vw::DiskImageResourceGDAL(m_right_image_file));
     vw::cartography::read_header_string(*r_rsrc.get(), adj_key, r_adj_prefix);
-    if (l_adj_prefix != "" || r_adj_prefix != "")
+    if ( (l_adj_prefix != "" && l_adj_prefix != "NONE")  ||
+         (r_adj_prefix != "" && r_adj_prefix != "NONE") )
       vw_throw( ArgumentErr() << "The images were map-projected using "
                 << "--bundle-adjust-prefix. That is not supported.\n" );
   }
