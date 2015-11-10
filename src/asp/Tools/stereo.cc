@@ -699,12 +699,6 @@ namespace asp {
                    << "need the full disparities, so --left-image-crop-win and  "
                    << "--right-image-crop-win cannot be used.\n");
 
-        if (stereo_settings().bundle_adjust_prefix != "" ||
-            dynamic_cast<vw::camera::AdjustedCameraModel*>(camera_model1.get()) != NULL ||
-            dynamic_cast<vw::camera::AdjustedCameraModel*>(camera_model2.get()) != NULL )
-          vw_throw(ArgumentErr() << "Since we perform piecewise adjustments "
-                   << "to reduce jitter, the input cameras should not have been bundle-adjusted.\n");
-
         if (stereo_settings().piecewise_adjustment_interp_type != 1 &&
             stereo_settings().piecewise_adjustment_interp_type != 2)
           vw_throw(ArgumentErr() << "Interpolation type for piecewise "

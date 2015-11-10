@@ -46,7 +46,8 @@ endif
 if MAKE_APP_STEREO_TRI
   bin_PROGRAMS        += stereo_tri
   stereo_tri_LDADD     = $(APP_STEREO_TRI_LIBS)
-  stereo_tri_SOURCES   = stereo_tri.cc jitter_adjust.h jitter_adjust.cc stereo.cc
+  stereo_tri_SOURCES   = stereo_tri.cc jitter_adjust.h jitter_adjust.cc \
+                         ccd_adjust.h ccd_adjust.cc stereo.cc
 endif
 
 # The stereo_gui app is separate as it also depends on Qt

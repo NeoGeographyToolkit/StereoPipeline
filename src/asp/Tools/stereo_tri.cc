@@ -26,6 +26,7 @@
 #include <asp/Camera/RPCModel.h>
 #include <asp/Tools/stereo.h>
 #include <asp/Tools/jitter_adjust.h>
+#include <asp/Tools/ccd_adjust.h>
 
 // We must have the implementations of all sessions for triangulation
 #include <asp/Sessions/StereoSessionFactory.tcc>
@@ -507,7 +508,9 @@ void stereo_triangulation( string          const& output_prefix,
       if (opt_vec[0].session->name() == "isis" || opt_vec[0].session->name() == "isismapisis")
         num_threads = 1;
       asp::jitter_adjust(image_files, camera_files, cameras, output_prefix,
-                         match_file,  num_threads);
+                      match_file,  num_threads);
+      //asp::ccd_adjust(image_files, camera_files, cameras, output_prefix,
+      //                match_file,  num_threads);
     }
 
     if (stereo_settings().compute_piecewise_adjustments_only) {
@@ -517,12 +520,6 @@ void stereo_triangulation( string          const& output_prefix,
 
     // Reload the cameras, loading the piecewise corrections for jitter.
     if (stereo_settings().image_lines_per_piecewise_adjustment > 0) {
-
-      // Sanity check. We actually performed it already, this is just being
-      // extra cautious.
-      if (stereo_settings().bundle_adjust_prefix != "")
-        vw_throw( ArgumentErr() << "Since we perform piecewise adjustments to reduce jitter, "
-                  << "the input cameras should not have been bundle-adjusted.\n");
 
       stereo_settings().bundle_adjust_prefix = output_prefix; // trigger loading adj cams
       cameras.clear();
