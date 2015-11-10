@@ -440,13 +440,15 @@ analogous to what \texttt{bundle\_adjust} is doing, except that the
 latter uses just one adjustment for each image.
 
 This process can be triggered by invoking \texttt{stereo} with
-\texttt{-\/-image-lines-per-piecewise-adjustment arg}. A smaller value
-of \texttt{arg} will result in more adjustments being used (each
-adjustment being responsible for fewer image lines), hence providing
-finer-grained control, though making this number too small may result in
-over-fitting and instability. A smaller value here will also require
-overall more interest point matches (as computed from the disparity),
-which is set via \texttt{-\/-num-matches-for-piecewise-adjustment}.
+\texttt{-\/-image-lines-per-piecewise-adjustment arg}. A recommended
+value here is 1000, though it is suggested to try several values. A
+smaller value of \texttt{arg} will result in more adjustments being used
+(each adjustment being responsible for fewer image lines), hence
+providing finer-grained control, though making this number too small may
+result in over-fitting and instability. A smaller value here will also
+require overall more interest point matches (as computed from the
+disparity), which is set via
+\texttt{-\/-num-matches-for-piecewise-adjustment}.
 
 If it appears that the adjustments show some instability at the starting
 and ending lines due to not enough matches being present (as deduced
