@@ -84,11 +84,11 @@ void populate_adjustements(std::vector<double> const& cameras_vec,
   position_adjustments.clear();
   pose_adjustments.clear();
 
-  for (int a = start_index; a < end_index; a++) {
+  for (int cam_index = start_index; cam_index < end_index; cam_index++) {
     Vector3 position, pose;
     for (int b = 0; b < NUM_CAMERA_PARAMS/2; b++) {
-      position[b] = cameras_vec[NUM_CAMERA_PARAMS*a + b + 0];
-      pose[b]     = cameras_vec[NUM_CAMERA_PARAMS*a + b + NUM_CAMERA_PARAMS/2];
+      position[b] = cameras_vec[NUM_CAMERA_PARAMS * cam_index + b + 0];
+      pose[b]     = cameras_vec[NUM_CAMERA_PARAMS * cam_index + b + NUM_CAMERA_PARAMS/2];
     }
 
     position_adjustments.push_back(position);
@@ -177,8 +177,9 @@ struct PiecewiseReprojectionError {
 
       // The adjusted camera has just the adjustments, it does not create a full
       // copy of the camera.
+      int interp_type = stereo_settings().piecewise_adjustment_interp_type;
       asp::AdjustedLinescanDGModel adj_cam(m_cam,
-                                           stereo_settings().piecewise_adjustment_interp_type,
+                                           interp_type,
                                            m_adjustment_bounds,
 					   position_adjustments, pose_adjustments);
 
@@ -353,7 +354,7 @@ struct CamError {
   double m_weight;
 };
 
-ceres::LossFunction* get_loss_function(){
+ceres::LossFunction* get_jitter_loss_function(){
   return new ceres::CauchyLoss(0.5);
 }
 
@@ -398,7 +399,8 @@ vw::Vector2 find_bounds_from_percentiles(std::vector<ip::InterestPoint> const& i
 // adjustments per linescan camera to solve for jitter).
 void jitter_adjust(std::vector<std::string> const& image_files,
                    std::vector<std::string> const& camera_files,
-                   std::vector< boost::shared_ptr<vw::camera::CameraModel> > const& camera_models,
+                   std::vector< boost::shared_ptr<vw::camera::CameraModel> >
+                   const& input_camera_models,
                    std::string const& out_prefix,
                    std::string const& match_file,
                    int num_threads){
@@ -408,7 +410,7 @@ void jitter_adjust(std::vector<std::string> const& image_files,
   if (image_files.size() != camera_files.size())
     vw_throw( ArgumentErr() << "Expecting as many images as cameras.\n" );
 
-  int num_cameras = camera_models.size();
+  int num_cameras = input_camera_models.size();
   if (num_cameras != 2)
     vw_throw( ArgumentErr() << "Can solve for jitter only for two cameras.\n" );
 
@@ -419,9 +421,11 @@ void jitter_adjust(std::vector<std::string> const& image_files,
   double min_angle = 0.1; // in degrees
   ba::ControlNetwork cnet("JitterAdjust");
   bool triangulate_control_points = true;
+  vw_out() << "Building the control network.\n";
   bool success = build_control_network(triangulate_control_points,
                                        cnet, // output
-                                       camera_models, image_files, match_files, min_matches,
+                                       input_camera_models, image_files,
+                                       match_files, min_matches,
                                        min_angle*(M_PI/180));
 
   if (!success)
@@ -454,11 +458,6 @@ void jitter_adjust(std::vector<std::string> const& image_files,
 
   for (int icam = 0; icam < num_cameras; icam++) {
 
-    asp::DGCameraModel * dg_cam
-      = dynamic_cast<asp::DGCameraModel*>(camera_models[icam].get());
-    if (dg_cam == NULL)
-      vw_throw( ArgumentErr() << "Expecting a DG camera in jitter correction.\n" );
-
     // We get the number of image lines from the bounds on where to
     // place the adjustments.
     int num_lines = adjustment_bounds[icam][1] - adjustment_bounds[icam][0];
@@ -486,8 +485,38 @@ void jitter_adjust(std::vector<std::string> const& image_files,
   // the network.
   std::vector<double> cameras_vec(num_total_adj*NUM_CAMERA_PARAMS, 0.0);
 
-  std::vector<vw::Vector3> position_adjustments(num_total_adj);
-  std::vector<vw::Quat>    pose_adjustments(num_total_adj);
+  // If the input cameras are bundle-adjusted, use those adjustments
+  // as initial guess for piecewise adjustments. also pull the
+  // unadjusted DG cameras.
+  int start_index = 0;
+  std::vector< boost::shared_ptr<vw::camera::CameraModel> > camera_models;
+  for (int icam = 0; icam < (int)input_camera_models.size(); icam++) {
+
+    if (icam > 0)
+      start_index += num_adj_per_cam[icam - 1];
+    int end_index = start_index + num_adj_per_cam[icam];
+
+    AdjustedCameraModel* adj_cam
+      = dynamic_cast<AdjustedCameraModel*>(input_camera_models[icam].get());
+
+    if (adj_cam == NULL) {
+      camera_models.push_back(input_camera_models[icam]);
+    }else{
+      camera_models.push_back(adj_cam->unadjusted_model());
+
+      Vector<double, NUM_CAMERA_PARAMS/2> position = adj_cam->translation();
+      Vector<double, NUM_CAMERA_PARAMS/2> pose    = adj_cam->axis_angle_rotation();
+
+      for (int cam_index = start_index; cam_index < end_index; cam_index++) {
+        int curr_start = NUM_CAMERA_PARAMS * cam_index;
+        for (int b = 0; b < NUM_CAMERA_PARAMS/2; b++) {
+          cameras_vec[curr_start + 0                   + b] = position[b];
+          cameras_vec[curr_start + NUM_CAMERA_PARAMS/2 + b] = pose[b];
+        }
+
+      }
+    }
+  }
 
   // To be able to use it from the callback
   g_cameras_vec = &cameras_vec;
@@ -513,7 +542,7 @@ void jitter_adjust(std::vector<std::string> const& image_files,
   // Add the cost function component for difference of pixel observations
   CameraRelationNetwork<JFeature> crn;
   crn.read_controlnetwork(cnet);
-  int start_index = 0;
+  start_index = 0;
   for (int icam = 0; icam < (int)crn.size(); icam++) {
 
     if (icam > 0)
@@ -573,7 +602,7 @@ void jitter_adjust(std::vector<std::string> const& image_files,
       // Each observation corresponds to a pair of a camera and a point
       double * point = points  + ipt * NUM_POINT_PARAMS;
 
-      ceres::LossFunction* loss_function = get_loss_function();
+      ceres::LossFunction* loss_function = get_jitter_loss_function();
 
       ceres::CostFunction* cost_function
 	= PiecewiseReprojectionError::Create(observation, pixel_sigma,
@@ -628,13 +657,13 @@ void jitter_adjust(std::vector<std::string> const& image_files,
 
     camera_vector_t orig_cam;
     for (int q = 0; q < NUM_CAMERA_PARAMS; q++)
-      orig_cam[q] = orig_cameras_vec[cam_index * NUM_CAMERA_PARAMS + q];
+      orig_cam[q] = orig_cameras_vec[NUM_CAMERA_PARAMS * cam_index + q];
 
     ceres::CostFunction* cost_function = CamError::Create(orig_cam, camera_weight);
 
-    ceres::LossFunction* loss_function = get_loss_function();
+    ceres::LossFunction* loss_function = get_jitter_loss_function();
 
-    double * camera  = cameras  + cam_index * NUM_CAMERA_PARAMS;
+    double * camera  = cameras  + NUM_CAMERA_PARAMS * cam_index;
     problem.AddResidualBlock(cost_function, loss_function, camera);
   }
 
