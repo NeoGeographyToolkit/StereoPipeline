@@ -1,4 +1,4 @@
-*** RELEASE 2.5.2, upcoming! ***
+*** RELEASE 2.5.2, Nomverber 13, 2015 ***
 
 Highlights
 
@@ -26,8 +26,8 @@ Highlights
      in the list. Changing --weights-exponent can improve transition.
 
  - bundle_adjust
+    * Much improved convergence for Digital Globe cameras.
     * Added OpenCV-based SIFT and ORB interest point finding options.
-    * Improved convergence for Digital Globe cameras.
 
  - pc_align
   * Added the ability to compute a manual rotation + translation +
@@ -50,6 +50,8 @@ Other
     * The output point cloud saves datum info from input images
       (even when the inputs are not georeferenced). 
     * Increased reliability of interest point detection.
+    * Decreased the default timeout to 900 seconds. This still needs
+      tuning and a permanent solution is necessary.
 
  - point2dem, point2las, and pc_align
   * Accept --datum (-r) MOLA, as a shortcut for the sphere with
