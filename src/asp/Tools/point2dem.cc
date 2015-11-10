@@ -1303,7 +1303,7 @@ int main( int argc, char *argv[] ) {
 	  vw_out(DebugMessage,"asp") << "Triangulation error range estimation time: "
 				     << sw2.elapsed_seconds() << std::endl;
 	  if (success || subsample_amt == 1) break;
-	  vw_out() << "Failed to estimate the triangulation range. "
+	  vw_out() << "Failed to estimate the triangulation range. Check if your cloud is valid. "
 		   << "Trying again with finer sampling.\n";
 	}
       }
