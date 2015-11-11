@@ -450,13 +450,18 @@ require overall more interest point matches (as computed from the
 disparity), which is set via
 \texttt{-\/-num-matches-for-piecewise-adjustment}.
 
+Jitter correction is more effective if \texttt{stereo} is preceeded by
+bundle adjustment, with the adjusted cameras then being passed via
+\texttt{-\/-bundle-adjust-prefix}.
+
 If it appears that the adjustments show some instability at the starting
 and ending lines due to not enough matches being present (as deduced
 from examining the intersection error image), the locations of the first
 and last adjustment (and everything in between) may be brought closer to
 each other, by modifying \texttt{-\/-piecewise-adjustment-percentiles}.
 Its values are by default 5 and 95, and could be set for example to 10
-and 90.
+and 90. For very tall images, it may be desirable to use instead values
+closer to 0 and 100.
 
 Section \ref{triangulation_options} has the full list of parameters
 used in jitter correction.

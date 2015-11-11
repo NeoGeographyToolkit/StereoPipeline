@@ -64,6 +64,9 @@ using namespace vw::ba;
 
 namespace asp{
 
+int g_jitter_num_errors = 0;
+Mutex g_jitter_mutex;
+
 const int NUM_CAMERA_PARAMS = 6;
 const int NUM_POINT_PARAMS = 3;
 
@@ -198,8 +201,19 @@ struct PiecewiseReprojectionError {
       residuals[0] = (prediction[0] - m_observation[0])/m_pixel_sigma[0];
       residuals[1] = (prediction[1] - m_observation[1])/m_pixel_sigma[1];
 
-    } catch (const camera::PointToPixelErr& e) {
-      // Failed to project into the camera
+    } catch (std::exception const& e) {
+
+      // Failed to compute residuals
+
+      Mutex::Lock lock( g_jitter_mutex );
+      g_jitter_num_errors++;
+      if (g_jitter_num_errors < 100) {
+	vw_out(ErrorMessage) << e.what() << std::endl;
+      }else if (g_jitter_num_errors == 100) {
+	vw_out() << "Will print no more error messages about "
+                 << "failing to compute residuals.\n";
+      }
+
       residuals[0] = T(1e+20);
       residuals[1] = T(1e+20);
       return false;
@@ -672,6 +686,7 @@ void jitter_adjust(std::vector<std::string> const& image_files,
   options.gradient_tolerance = 1e-16;
   options.function_tolerance = 1e-16;
   options.max_num_iterations = 1000;
+  options.max_num_consecutive_invalid_steps = 100; // try hard
   options.minimizer_progress_to_stdout = false;
 
   options.num_threads = num_threads;

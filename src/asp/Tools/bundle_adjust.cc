@@ -59,6 +59,9 @@ using namespace vw::ba;
 
 std::string UNSPECIFIED_DATUM = "unspecified_datum";
 
+int g_ba_num_errors = 0;
+Mutex g_ba_mutex;
+
 namespace asp{
 
   // Given a vector of strings, identify and store separately the the
@@ -243,8 +246,19 @@ struct BaReprojectionError {
       residuals[0] = (prediction[0] - m_observation[0])/m_pixel_sigma[0];
       residuals[1] = (prediction[1] - m_observation[1])/m_pixel_sigma[1];
 
-    } catch (const camera::PointToPixelErr& e) {
-      // Failed to project into the camera
+    } catch (std::exception const& e) {
+
+      // Failed to compute residuals
+
+      Mutex::Lock lock( g_ba_mutex );
+      g_ba_num_errors++;
+      if (g_ba_num_errors < 100) {
+	vw_out(ErrorMessage) << e.what() << std::endl;
+      }else if (g_ba_num_errors == 100) {
+	vw_out() << "Will print no more error messages about "
+                 << "failing to compute residuals.\n";
+      }
+
       residuals[0] = T(1e+20);
       residuals[1] = T(1e+20);
       return false;
@@ -580,6 +594,7 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
   options.gradient_tolerance = 1e-16;
   options.function_tolerance = 1e-16;
   options.max_num_iterations = opt.max_iterations;
+  options.max_num_consecutive_invalid_steps = opt.max_iterations/5; // try hard
   options.minimizer_progress_to_stdout = (opt.report_level >= vw::ba::ReportFile);
 
   if (opt.stereo_session_string == "isis")

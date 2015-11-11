@@ -24,10 +24,11 @@
 
 using namespace vw;
 
-int g_num_errors = 0;
-Mutex g_mutex;
-
 namespace asp {
+
+  int g_ip_num_errors = 0;
+  Mutex g_ip_mutex;
+
 
 //-------------------------------------------------------------------------------------------------
 // Class EpipolarLinePointMatcher
@@ -80,11 +81,11 @@ namespace asp {
       return select_col(nsp,0);
 
     } catch (std::exception const& e) {
-      Mutex::Lock lock( g_mutex );
-      g_num_errors++;
-      if (g_num_errors < 100) {
+      Mutex::Lock lock( g_ip_mutex );
+      g_ip_num_errors++;
+      if (g_ip_num_errors < 100) {
 	vw_out(ErrorMessage) << e.what() << std::endl;
-      }else if (g_num_errors == 100) {
+      }else if (g_ip_num_errors == 100) {
 	vw_out() << "Will print no more error messages about failing to find epipolar line.\n";
       }
     }
@@ -531,7 +532,7 @@ namespace asp {
       std::list<size_t> filtered_indices;
       size_t c=0;
       for ( std::list<size_t>::iterator i = valid_indices.begin();
-        	  i != valid_indices.end(); i++ )
+	  i != valid_indices.end(); i++ )
       {
         if (error_samples[c] < cutoff_value)
           filtered_indices.push_back(*i);
@@ -605,7 +606,7 @@ namespace asp {
         Vector<double> distance;
         const int NUM_INDICES_TO_GET = 11;
         tree1.knn_search( select_row( locations1, i ),
-            		          indices, distance, NUM_INDICES_TO_GET );
+		          indices, distance, NUM_INDICES_TO_GET );
 
 	      // Bugfix: If there are too few inputs, in rare occasions
 	      // some of the outputs are invalid. Not always. Could not
