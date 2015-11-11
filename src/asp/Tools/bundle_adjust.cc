@@ -594,7 +594,7 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
   options.gradient_tolerance = 1e-16;
   options.function_tolerance = 1e-16;
   options.max_num_iterations = opt.max_iterations;
-  options.max_num_consecutive_invalid_steps = opt.max_iterations/5; // try hard
+  options.max_num_consecutive_invalid_steps = std::max(5, opt.max_iterations/5); // try hard
   options.minimizer_progress_to_stdout = (opt.report_level >= vw::ba::ReportFile);
 
   if (opt.stereo_session_string == "isis")
