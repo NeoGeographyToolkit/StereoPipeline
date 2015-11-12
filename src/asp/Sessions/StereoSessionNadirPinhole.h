@@ -49,6 +49,13 @@ namespace asp {
 
     virtual bool is_nadir_facing          () const {return true;}
 
+    /// Transforms from pixel coordinates on disk to original unwarped image coordinates.
+    /// - For reversing our arithmetic applied in preprocessing.
+    typedef vw::HomographyTransform tx_type;
+    tx_type tx_left () const;
+    tx_type tx_right() const;
+
+
   };
 
 }
