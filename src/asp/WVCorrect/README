@@ -1,12 +1,13 @@
 Here we describe how CCD artifacts in WorldView imagery are are
-tabulated and then corrected.
+tabulated and then corrected. This code needs more polishing,
+the goal for now is to have it documented and checked in.
 
 Basic idea
 ----------
 
 For each TDI perform several runs. For each run, average all rows of
 the disparity (ignore invalid disparities).  Average these over
-multiple runs.  We get n Vector2 values (since each valid disparity
+multiple runs. We get n Vector2 values (since each valid disparity
 pixel is a Vector2), where n is the image width. From these, we will
 extract the locations of CCD jumps and their values in x and in
 y. Those will be hard-coded in asp/Tools/wv_correct.cc.
@@ -14,98 +15,68 @@ y. Those will be hard-coded in asp/Tools/wv_correct.cc.
 Detailed instructions
 ---------------------
 
-1. Choose a satellite (WV1, WV2, or WV3), a TDI (values are various
-multiples of 8 from 8 to 64), and a scan direction (forward or
-reverse). (All this information can be found in the XML files.) 
+1. Choose a satellite (WV1 or WV2; this approach does not work for
+WV3), a TDI (values are various multiples of 8 from 8 to 64), and a
+scan direction (forward or reverse). (All this information can be
+found in the XML files.)
 
-2. Create a directory, which we will name BASEDIR. Have there
-at least 5-10 image sets for the desired satellite/TDI/scan
-direction combination, with reasonably flat terrain, little or no
-clouds, and reasonable amount of detail.
+2. Create a work directory. Have there at least 5-10 image sets for
+the desired satellite/TDI/scan direction combination, with reasonably
+flat terrain, little or no clouds, and reasonable amount of detail.
 
-2. Build ASP in dev mode. Ensure that the Tools and WVCorrect
-directories are in the path.
+3. Build ASP in dev mode. Ensure that the Tools and WVCorrect
+directories are in your path.
 
-2. Run dg_mosaic to mosaic the left and right images/cameras for each
-image set. This will create a stereo pair.
-
-4. Run src/asp/WVCorrect/gen_scandir.pl in BASEDIR to extract
-some meta information. Inspect the obtained file for correctness.
+4. Optionally run dg_mosaic to mosaic the left and right
+images/cameras for each image set. This will create a stereo pair.  In
+practice it is easier not to mosaic, but to pick one left and one
+right image from the existing data.
 
 5. For each stereo pair, inspect the left and right images in stereo_gui.
 Select corresponding areas to run stereo on. Each such area must have
 little or no clouds and must be as wide as the whole image.
 
-6. For each stereo pair, create a left-to-right run and a right-to-left
-run, that is, flip the images/cameras. Invoke stereo as follows:
+6. In the run directory for each stereo pair, run the script run_lr.sh
+(see inside of it for usage). Note that you may pass in crop windows
+to use. This will do two stereo runs, from left to right, and in reverse.
+The outputs will be saved in 'run_lr' and 'run_rl'.
 
-7. Run
-  stereo -e 0 -s 4  \ # skip triangulation
-  --part-of-multiview-run --alignment-method homography     \ 
-  --subpixel-mode 1 --corr-max-levels 2 --disable-fill-holes       \
-  --left-image-crop-win 0 starty1 widx1 widy1                      \
-  --right-image-crop-win 0 starty2 widx2 widy2                     \
-  left.tif right.tif left.xml right.xml run/run
-
-Again, widx1 and widx2 must be as big as the images.
-
-Potentially use
-
-  --corr-seed-mode 3
-  
-All these options are essential. We need
-
-  --part-of-multiview-run --alignment-method homography  
-
-to keep one-to-one correspondence between input image pixels and
-final disparity pixels. This also why images must not be map-projected.
-
-The value --subpixel-mode 1 is mainly for speed.  The value
---corr-max-levels 2 is to handle images without large scale features
-(that's why --corr-seed-mode 3 may also be helpful).
-
-Of course we don't want to fill in holes to not pollute the
-disparities. We really want to look at a portion of the disparities
-that has as many valid and non-noisy pixels as possible, that's why we
-use
-
- --left-image-crop-win 0 starty widx widy
-
-The value widx should be the maximum image width. The values
-starty and widy can be chosen to ensure each row in the disparity is
-of high quality.
-
-8. Inspect the F.tif disparity. Crop away some top and bottom rows
-if they are incomplete or have noise. Average the obtained rows using
-asp/WVCorrect/disp_avg.cc.
+7. Inspect the obtained F.tif disparities. Crop away some top and
+bottom rows if they are incomplete or have noise. You will have to
+redo the step "disp_avg" from run_lr.sh. The result will be "dx.txt"
+and "dy.txt" files having averaged disparities.
    
+8. Start Matlab. Add your WVCorrect directory to the path, for example
+use 
 
+addpath(genpath('/home/USER/projects/StereoPipeline/src/asp/WVCorrect'))
 
-%How to deal with CCD artifacts:
-%
-%1. Find the average disparity for a given run
-%   g=a100  # this a directory having input images and xml files                    
-%   qsub -N $g -l select=1:ncpus=8 -l walltime=15:00:00 -W group_list=s1219 \
-%   -j oe -m n -- $(pwd)/driver.sh $(pwd)/$g                          
-%
-%   The average disparities will go to dx.txt and dy.txt in some subdirectories.
+9. In Matlab, create an entry for each run you made, for example, as
 
-addpath(genpath('/home/oalexan1/projects/StereoPipeline/src/asp/WVCorrect'))
+dirs={'run1/run_lr', 'run1/run_rl', 'run2/run_lr', 'run2/run_rl'};
 
-do_find=0;
-pitches=[8.000000000000000e-03]
-dirs={'WV02_14DEC081'};
+pitches=zeros(length(dirs), 1) + 8.0e-3;
 
-find_ccds(do_find, dirs, pitches)
+It is important to verify that the pitches in each XML file are indeed
+8.0e-03 (search for <DETPITCH>). Otherwise fill in the correct values
+in the 'pitches' arrray. 
 
-%
-%2. Plot the average disparities for a set of runs with given TDI and
-%   scan direction using plot_ccds.m.  Manually throw away the noisy
-%   ones. At the end, the CCD jumps in x and in y will be saved to
-%   text files. The auxiliary tools gen_scandir.m and plot_ccds.m
-%   can help with plotting.
-%
-%3. Hard-code the obtained values in wv_correct.cc.
-   
-   
-  
+The script gen_scandir.pl can be helpful in parsing XML files
+to extract information on pitches, etc.
+
+10. Run
+
+do_find = 1;
+fig_no = 1;
+find_ccds(do_find, dirs, pitches, fig_no);
+
+This will save the CCD corrections to files, from there they can be hard-coded
+in wv_correct.cc. 
+
+11. It is quite likely the previous step will result in very noisy curves.
+Those need to be eliminated, by excluding the noisy runs altogether, or by
+cropping F.tif even further and redoing "disp_avg".
+
+Be prepared for a lot of manual iterative work.
+
+12. The script fix_ccds.m can be used to tweak the CCD jumps from the GUI.

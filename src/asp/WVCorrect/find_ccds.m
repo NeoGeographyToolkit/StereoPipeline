@@ -1,4 +1,4 @@
-function main(do_find, dirs, pitches)
+function main(do_find, dirs, pitches, plotid)
 
    % if do_find is 1, we actually find and save the CCDs,
    % otherwise we just examine the current averaged disparties.
@@ -17,10 +17,10 @@ function main(do_find, dirs, pitches)
       ay = [ay, ay0];
    end
    
-   do_plot(do_find, ax, pitches, 1);
+   do_plot(do_find, ax, pitches, plotid);
    title('x');
    
-   do_plot(do_find, ay, pitches, 2); 
+   do_plot(do_find, ay, pitches, 1+plotid); 
    title('y');
 
 function dx = scale_by_pitch(dx, pitch)
@@ -113,7 +113,7 @@ function do_plot(do_find, d, pitches, fig)
    s=1.0; % cutoff
    t=0.0;
    if do_find
-      t = 0.5; % shift when plotting
+      t = 0.25; % vertical gap between individual curves, for visibility
    end
    
    for r=1:m
@@ -123,7 +123,7 @@ function do_plot(do_find, d, pitches, fig)
          disp(sprintf('doing %s', d{r}));
       end
 
-      Y = X(r, :)-find_moving_avg(X(r, :));
+      Y = X(r, :) -find_moving_avg(X(r, :));
       X(r, :) = Y;
       r2 = rem(r-1, length(colors))+1;
       plot(Y + t*(r+1), colors(r2));         

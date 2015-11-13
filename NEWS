@@ -8,6 +8,10 @@ Highlights
       session (e.g, for map-projected Pleiades imagery).
     * Added OpenCV-based SIFT and ORB interest point finding options.
 
+ - bundle_adjust
+    * Much improved convergence for Digital Globe cameras.
+    * Added OpenCV-based SIFT and ORB interest point finding options.
+
  - point2dem, point2las, and pc_align
    * The datum (-r <planet> or --semi-major-axis) is optional now.
      The planet will be inferred automatically (together with the
@@ -25,10 +29,6 @@ Highlights
      lower-resolution "background" DEMs that should be specified later
      in the list. Changing --weights-exponent can improve transition.
 
- - bundle_adjust
-    * Much improved convergence for Digital Globe cameras.
-    * Added OpenCV-based SIFT and ORB interest point finding options.
-
  - pc_align
   * Added the ability to compute a manual rotation + translation +
     scale transform based on user-selected point correspondences
@@ -36,8 +36,8 @@ Highlights
 
  - stereo_gui
    * Added the ability to generate ground control point (GCP) files
-     for bundle_adjust. In addition to the images to be
-     bundle-adjusted, one should provide a georeferenced image to find
+     for bundle_adjust by picking features. In addition to the images
+     to be bundle-adjusted, one should provide a georeferenced image to find
      the GCP lon-lat, and a reference DEM to find the GCP heights.
 
 Other
