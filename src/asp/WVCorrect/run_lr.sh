@@ -15,6 +15,8 @@ right_cam=$6
 
 export ASP_PYTHON_MODULES_PATH=$HOME/projects/BinaryBuilder/StereoPipelinePythonModules/lib64/python2.6/site-packages:$HOME/projects/BinaryBuilder/StereoPipelinePythonModules/lib64/python2.6/site-packages/GDAL-1.10.0-py2.6-linux-x86_64.egg/osgeo:$HOME/projects/BinaryBuilder/StereoPipelinePythonModules/lib
 
+bundle_adjust $left_image $right_image $left_cam $right_cam -o run_ba/run
+
 base_cmd="stereo --corr-seed-mode 3
   --part-of-multiview-run --alignment-method homography
   --subpixel-mode 1 --corr-max-levels 2 --disable-fill-holes
