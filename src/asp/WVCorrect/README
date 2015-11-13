@@ -36,10 +36,15 @@ right image from the existing data.
 Select corresponding areas to run stereo on. Each such area must have
 little or no clouds and must be as wide as the whole image.
 
-6. In the run directory for each stereo pair, run the script run_lr.sh
+6. In the directory for each stereo pair, run the script run_lr.sh
 (see inside of it for usage). Note that you may pass in crop windows
 to use. This will do two stereo runs, from left to right, and in reverse.
 The outputs will be saved in 'run_lr' and 'run_rl'.
+
+In the directory for each stereo pair, have a dem.tif file
+pointing to a pre-existing DEM of the area covered by the images.
+This is optional, but it is queried to find the projection 
+to use in point2dem during the execution of run_lr.sh.
 
 7. Inspect the obtained F.tif disparities. Crop away some top and
 bottom rows if they are incomplete or have noise. You will have to
@@ -59,7 +64,7 @@ pitches=zeros(length(dirs), 1) + 8.0e-3;
 
 It is important to verify that the pitches in each XML file are indeed
 8.0e-03 (search for <DETPITCH>). Otherwise fill in the correct values
-in the 'pitches' arrray. 
+in the 'pitches' array. 
 
 The script gen_scandir.pl can be helpful in parsing XML files
 to extract information on pitches, etc.
@@ -77,6 +82,10 @@ in wv_correct.cc.
 Those need to be eliminated, by excluding the noisy runs altogether, or by
 cropping F.tif even further and redoing "disp_avg".
 
-Be prepared for a lot of manual iterative work.
+Be prepared for a lot of manual iterative work over many days.
 
 12. The script fix_ccds.m can be used to tweak the CCD jumps from the GUI.
+
+13. Recompile wv_correct.cc. Run it to get corrected images. Redo
+stereo and point2dem. Examine if the IntersectionError.tif file looks
+better than before.
