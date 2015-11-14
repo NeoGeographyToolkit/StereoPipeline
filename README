@@ -10,7 +10,7 @@ models (DEMs), ortho-projected imagery, and 3D models. These data
 products are suitable for science analysis, mission planning, and
 public outreach.
 
-Please install USGS ISIS version 3.4.10 if you would like to process
+Please install USGS ISIS version 3.4.11 if you would like to process
 NASA non-terrestrial imagery. Users wishing to process Digital Globe,
 GeoEye, or perspective imagery do not need to download anything else.
 
