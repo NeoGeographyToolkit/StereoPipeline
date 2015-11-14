@@ -29,6 +29,7 @@
 #include <vw/Cartography.h>
 
 #include <asp/Core/Macros.h>
+#include <asp/Core/StereoSettings.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
@@ -53,7 +54,9 @@ struct Options : public asp::BaseOptions {
   Options() : loading_image_camera_order(true) {}
   // Input
   std::vector<std::string> input_files;
-  std::string stereo_session_string, path_to_outside_model;
+  std::string stereo_session_string, 
+              path_to_outside_model, 
+              bundle_adjust_prefix;
 
   // Settings
   bool loading_image_camera_order, write_csv;
@@ -76,7 +79,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Set a reference surface to a hard coded value (one of [moon, mars, wgs84].)")
     ("use-path-to-dae-model,u", po::value(&opt.path_to_outside_model),
      "Instead of using an icon to mark a camera, use a 3D model with extension .dae")
-    ("write-csv", "write a csv file with the orbital the data.");
+    ("write-csv", "write a csv file with the orbital the data.")
+    ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
+     "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.");
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
@@ -98,11 +103,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if ( opt.input_files.size() == 1 )
     opt.loading_image_camera_order = false;
   else if ( opt.input_files.size() > 1 ) {
-    std::string first_extension =
-      opt.input_files[0].substr( opt.input_files[0].size()-4,4 );
+    // TODO: Fix this so it works for all extensions!
+    std::string first_extension = opt.input_files[0].substr( opt.input_files[0].size()-4,4 );
+    std::cout << "first_extension = " << first_extension << std::endl;
     if ( boost::iends_with(opt.input_files[1], first_extension ) )
       opt.loading_image_camera_order = false;
   }
+  std::cout << "opt.loading_image_camera_order = " << opt.loading_image_camera_order << std::endl;
 
   if ( opt.input_files.size() == 0 ||
        (opt.loading_image_camera_order && opt.input_files.size() < 2) )
@@ -110,18 +117,23 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   opt.write_csv = vm.count("write-csv");
 
+  // Need this to be able to load adjusted camera models. That will happen
+  // in the stereo session.
+  asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
+
   // Look up for session type based on file extensions
   if (opt.stereo_session_string.empty()) {
-    int testing_i = 0;
+    std::string type_containing_string = opt.input_files[0];
     if ( opt.loading_image_camera_order )
-      testing_i = 1;
-    if ( boost::iends_with(opt.input_files[testing_i], ".cahvor") ||
-         boost::iends_with(opt.input_files[testing_i], ".cahv") ||
-         boost::iends_with(opt.input_files[testing_i], ".pin") ||
-         boost::iends_with(opt.input_files[testing_i], ".tsai") ) {
+      type_containing_string = opt.input_files[1];
+    
+    if ( boost::iends_with(type_containing_string, ".cahvor") ||
+         boost::iends_with(type_containing_string, ".cahv"  ) ||
+         boost::iends_with(type_containing_string, ".pin"   ) ||
+         boost::iends_with(type_containing_string, ".tsai"  ) ) {
       vw_out() << "\t--> Detected pinhole camera file\n";
       opt.stereo_session_string = "pinhole";
-    } else if (boost::iends_with(opt.input_files[testing_i], ".cub") ) {
+    } else if (boost::iends_with(type_containing_string, ".cub") ) {
       vw_out() << "\t--> Detected ISIS cube file\n";
       opt.stereo_session_string = "isis";
     } else {
@@ -137,11 +149,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 int main(int argc, char* argv[]) {
 
   Options opt;
-  try {
+  //try {
     handle_arguments( argc, argv, opt );
 
-    typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-    SessionPtr session( asp::StereoSessionFactory::create(opt.stereo_session_string, opt ) );
 
     // Data to be loaded
     unsigned no_cameras = opt.loading_image_camera_order ? opt.input_files.size()/2 : opt.input_files.size();
@@ -150,11 +160,14 @@ int main(int argc, char* argv[]) {
     cartography::XYZtoLonLatRadFunctor conv_func;
 
     // Copying file names
-    for (unsigned load_i = 0, read_i = 0; load_i < no_cameras;
-         load_i++) {
+    for (unsigned load_i = 0, read_i = 0; load_i < no_cameras; load_i++) {
       camera_names[load_i] = opt.input_files[read_i];
       read_i += opt.loading_image_camera_order ? 2 : 1;
     }
+
+    typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
+    SessionPtr session( asp::StereoSessionFactory::create(opt.stereo_session_string, opt) );
+
 
     // Create the KML file.
     KMLFile kml( opt.out_file, "orbitviz" );
@@ -188,8 +201,7 @@ int main(int argc, char* argv[]) {
       vw_throw( IOErr() << "Unable to open output file.\n" );
 
     // Building Camera Models and then writing to KML
-    for (unsigned load_i = 0, read_i = 0; load_i < no_cameras;
-         load_i++) {
+    for (unsigned load_i=0, read_i=0; load_i < no_cameras; load_i++) {
       boost::shared_ptr<camera::CameraModel> current_camera;
       if (opt.loading_image_camera_order)
         current_camera = session->camera_model( opt.input_files[read_i],
@@ -213,7 +225,7 @@ int main(int argc, char* argv[]) {
         csv_file << std::setprecision(12);
         csv_file << xyz[0] << ", "
                  << xyz[1] << ", " << xyz[2] << "\n";
-      }
+      } // End csv write condition
 
       // Adding Placemarks
       Vector3 lon_lat_alt = conv_func(current_camera->camera_center(Vector2()));
@@ -237,7 +249,7 @@ int main(int argc, char* argv[]) {
 
     csv_file.close();
     kml.close_kml();
-  } ASP_STANDARD_CATCHES;
+  //} ASP_STANDARD_CATCHES;
 
   return 0;
 }

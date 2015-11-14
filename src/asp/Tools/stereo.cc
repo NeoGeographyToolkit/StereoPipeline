@@ -573,6 +573,10 @@ namespace asp {
     if (has_georef1 && has_georef2 && !dem_provided &&
         (opt.cam_file1 != opt.in_file1) && (opt.cam_file2 != opt.in_file2) &&
         !opt.cam_file1.empty() && !opt.cam_file2.empty() ) {
+        
+    std::cout << "Georef 1: " << georef1 << std::endl;
+    std::cout << "Georef 2: " << georef1 << std::endl;
+        
       vw_out(WarningMessage) << "It appears that the input images are "
                              << "map-projected. In that case a DEM needs to be "
                              << "provided for stereo to give correct results.\n";

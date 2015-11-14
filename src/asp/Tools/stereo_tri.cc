@@ -92,27 +92,60 @@ public:
   /// - p is not actually used here, it should always be zero!
   inline result_type operator()( size_t i, size_t j, size_t p=0 ) const {
 
-    // For each input image, de-warp the pixel in to the native camera coordinates
-    int num_disp = m_disparity_maps.size();
-    vector<Vector2> pixVec(num_disp + 1);
-    pixVec[0] = m_transforms[0].reverse(Vector2(i,j)); // De-warp "left" pixel
-    for (int c = 0; c < num_disp; c++){
-      Vector2 pix;
-      DPixelT disp = m_disparity_maps[c](i,j,p); // Disparity value at this pixel
-      if (is_valid(disp)) // De-warp the "right" pixel
-        pix = m_transforms[c+1].reverse( Vector2(i,j) + stereo::DispHelper(disp) );
-      else // Insert flag values
-        pix = Vector2(std::numeric_limits<double>::quiet_NaN(),
-                      std::numeric_limits<double>::quiet_NaN());
-      pixVec[c+1] = pix;
-    }
+    if ((i!=3402) || (j!=7510)) {
+      // For each input image, de-warp the pixel in to the native camera coordinates
+      int num_disp = m_disparity_maps.size();
+      vector<Vector2> pixVec(num_disp + 1);
+      pixVec[0] = m_transforms[0].reverse(Vector2(i,j)); // De-warp "left" pixel
+      for (int c = 0; c < num_disp; c++){
+        Vector2 pix;
+        DPixelT disp = m_disparity_maps[c](i,j,p); // Disparity value at this pixel
+        if (is_valid(disp)) // De-warp the "right" pixel
+          pix = m_transforms[c+1].reverse( Vector2(i,j) + stereo::DispHelper(disp) );
+        else // Insert flag values
+          pix = Vector2(std::numeric_limits<double>::quiet_NaN(),
+                        std::numeric_limits<double>::quiet_NaN());
+        pixVec[c+1] = pix;
+      }
 
-    // Compute the location of the 3D point observed by each input pixel
-    Vector3 errorVec;
-    pixel_type result;
-    subvector(result,0,3) = m_stereo_model(pixVec, errorVec);
-    subvector(result,3,3) = errorVec;
-    return result; // Contains location and error vector
+      // Compute the location of the 3D point observed by each input pixel
+      Vector3 errorVec;
+      pixel_type result;
+      subvector(result,0,3) = m_stereo_model(pixVec, errorVec);
+      subvector(result,3,3) = errorVec;
+      return result; // Contains location and error vector
+    }    
+    else{ 
+        
+      // For each input image, de-warp the pixel in to the native camera coordinates
+      int num_disp = m_disparity_maps.size();
+      vector<Vector2> pixVec(num_disp + 1);
+      pixVec[0] = m_transforms[0].reverse(Vector2(i,j)); // De-warp "left" pixel
+      std::cout << "Dewarped left = " << pixVec[0] << std::endl;
+      for (int c = 0; c < num_disp; c++){
+        Vector2 pix;
+        DPixelT disp = m_disparity_maps[c](i,j,p); // Disparity value at this pixel
+        std::cout << "disp = " << disp << std::endl;
+        if (is_valid(disp)) // De-warp the "right" pixel
+        {
+          pix = m_transforms[c+1].reverse( Vector2(i,j) + stereo::DispHelper(disp) );
+          std::cout << "right pix = " << pix << std::endl;
+        }
+        else // Insert flag values
+          pix = Vector2(std::numeric_limits<double>::quiet_NaN(),
+                        std::numeric_limits<double>::quiet_NaN());
+        pixVec[c+1] = pix;
+      }
+
+      // Compute the location of the 3D point observed by each input pixel
+      Vector3 errorVec;
+      pixel_type result;
+      subvector(result,0,3) = m_stereo_model(pixVec, errorVec);
+      subvector(result,3,3) = errorVec;
+      std::cout << "result   = " << result   << std::endl;
+      std::cout << "errorVec = " << errorVec << std::endl;
+      return result; // Contains location and error vector
+    }
   }
 
   typedef StereoTXAndErrorView<ImageViewRef<DPixelT>, TXT, StereoModelT> prerasterize_type;
@@ -533,11 +566,22 @@ void stereo_triangulation( string          const& output_prefix,
       }
     }
 
+    for (size_t i=0; i<transforms.size(); ++i) {
+      vw_out() << "Transform " << i << " = " << transforms[i] << std::endl;
+    }
+    if (is_map_projected)
+      vw_out() << "\t--> Inputs are map projected" << std::endl;
+    else
+      vw_out() << "\t--> Inputs are NOT map projected" << std::endl;
+
     // Strip the smart pointers and form the stereo model
     std::vector<const vw::camera::CameraModel *> camera_ptrs;
     int num_cams = cameras.size();
-    for (int c = 0; c < num_cams; c++)
+    for (int c = 0; c < num_cams; c++) {
       camera_ptrs.push_back(cameras[c].get());
+      std::cout << "Pixel vector 100,100: " << 
+           cameras[c]->pixel_to_vector(Vector2(100, 100)) << std::endl;      
+    }
     StereoModelT stereo_model( camera_ptrs, stereo_settings().use_least_squares );
 
     // Apply radius function and stereo model in one go
@@ -608,7 +652,7 @@ void stereo_triangulation( string          const& output_prefix,
 
 int main( int argc, char* argv[] ) {
 
-  try {
+  //try {
 
     vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 4 --> TRIANGULATION \n";
 
@@ -665,7 +709,7 @@ int main( int argc, char* argv[] ) {
 
     vw_out() << "\n[ " << current_posix_time_string() << " ] : TRIANGULATION FINISHED \n";
 
-  } ASP_STANDARD_CATCHES;
+ // } ASP_STANDARD_CATCHES;
 
   return 0;
 }
