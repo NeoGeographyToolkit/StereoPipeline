@@ -67,10 +67,12 @@ different commit, first remove the exiting tag with:
 
 11.) Copy the new builds to the release area at
 /byss/docroot/stereopipeline/binaries. Also copy the documentation
-from BinaryBuilder/dist-add/asp_book.pdf and rename it to incorporate
-the version name. Update the website, at
-https://ti.arc.nasa.gov/cms/pages/page/ (SG can give permissions to
-edit the pages under /tech/asr/intelligent-robotics/ngt). Update:
+from BinaryBuilder/dist-add/asp_book.pdf to the same location, 
+and rename it to incorporate the version name. 
+
+Update the website, at https://ti.arc.nasa.gov/cms/pages/page/
+(SG can give permissions to edit the pages under
+/tech/asr/intelligent-robotics/ngt). Update:
  - The sidebar 
  - The main page, inluding:
    * Binary release links
