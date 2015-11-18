@@ -1,0 +1,284 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# __BEGIN_LICENSE__
+#  Copyright (c) 2009-2013, United States Government as represented by the
+#  Administrator of the National Aeronautics and Space Administration. All
+#  rights reserved.
+#
+#  The NGT platform is licensed under the Apache License, Version 2.0 (the
+#  "License"); you may not use this file except in compliance with the
+#  License. You may obtain a copy of the License at
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+# __END_LICENSE__
+
+'''
+A helper tool to streamline the process of solving for 
+pinhole camera models using Theia and ASP.
+'''
+
+import sys
+import os, glob, re, shutil, subprocess, string, time, errno, optparse, math
+
+if sys.version_info < (2, 6, 0):
+    print('\nERROR: Must use Python 2.6 or greater.')
+    sys.exit(1)
+
+# The path to the ASP python files
+basepath    = os.path.abspath(sys.path[0])
+pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
+libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
+sys.path.insert(0, basepath) # prepend to Python path
+sys.path.insert(0, pythonpath)
+sys.path.insert(0, libexecpath)
+
+import asp_file_utils, asp_system_utils, asp_cmd_utils, asp_image_utils
+
+# Prepend to system PATH
+os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
+
+
+    # Call mapproject on the input data using subprocess and record output
+    cmd = ['mapproject_single',  '--query-projection', options.demPath,
+                options.imagePath, options.cameraPath, options.outputPath]
+    cmd = cmd + options.extraArgs # Append other options
+    print(" ".join(cmd))
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    projectionInfo, err = p.communicate()
+    if not options.suppressOutput:
+        print projectionInfo
+
+def prep_input_images(options):
+    '''Make sure all the input images can be loaded by Theia.
+       This is done by making symlinks or conversions of all input
+       images in the output directory.'''
+
+    # List of image types that Theia cannot read and must be translated
+    convert_ext_list = ['.cub']
+
+    # Set up the image wildcard string required by Theia.
+    common_ext = os.path.splitext(options.input_images[0])[0]
+    options.image_wildcard = os.path.join(options.output_folder, '*' + common_ext)
+    
+    for input_path in options.input_images:
+        ext = os.path.splitext(input_path)[0]
+        if not (ext == common_ext):
+            raise Exception('All input images must have the same extension!')
+
+        # TODO: Use gdal_translate to convert the file type.
+        if ext in convert_ext_list:
+            raise Exception('This image type is not yet supported!')
+            
+        # Make a symlink to this file in the output folder
+        filename     = os.path.basename(input_path)
+        symlink_path = os.path.join(options.output_folder, filename)
+        os.symlink(input_path, symlink_path)
+        
+    return
+
+def generate_flagfile(options):
+    '''Generate a Theia config file based on user options'''
+
+    camera_info_path = camera_info.txt
+    match_path       = os.path.join(options.output_folder, 'theia_matches.dat')
+    output_path      = os.path.join(options.output_folder, 'theia_reconstruction.dat')
+    flagfile_path    = os.path.join(options.output_folder, 'theia_flagfile.txt')
+    options.theia_output_path = output_path
+    options.flagfile_path     = flagfile_path
+   
+    # TODO: Make use of options.custom_theia_flagfile
+   
+    output_string =  
+'''
+--images='''+options.image_wildcard+'''
+--output_matches_file='''+match_path+'''
+#--matches_file=results/matches.dat
+--calibration_file='''+options.camera_param_path+'''
+--output_reconstruction='''+output_path+'''
+--descriptor=SIFT
+--sift_num_octaves=-1
+--sift_num_levels=3
+--sift_first_octave=-1
+--sift_edge_threshold=10.0
+--sift_peak_threshold=1.7
+--root_sift=true
+--matching_strategy=CASCADE_HASHING
+--lowes_ratio=0.75
+--min_num_inliers_for_valid_match=30
+--max_sampson_error_for_verified_match=4.0
+--bundle_adjust_two_view_geometry=true
+--keep_only_symmetric_matches=true
+--reconstruction_estimator=NONLINEAR
+--max_track_length=50
+--reconstruct_largest_connected_component=true
+--only_calibrated_views=true
+--constant_camera_intrinsics=true
+--max_reprojection_error_pixels=4.0
+--num_retriangulation_iterations=1
+--post_rotation_filtering_degrees=5.0
+--refine_relative_translations_after_rotation_estimation=false
+--position_estimation_min_num_tracks_per_view=0
+--min_triangulation_angle_degrees=4.0
+--triangulation_reprojection_error_pixels=15.0
+--bundle_adjust_tracks=true
+--num_threads=1
+--logtostderr
+--v=1
+'''
+    handle = open(flagfile_path, 'w')
+    handle.write(output_string)
+    handle.close()
+    return flagfile_path
+
+def build_reconstruction(options):
+    '''Call Theia to generate a 3D camera reconstruction'''
+
+    # TODO: Create the Theia config file!
+
+    flagfile_path = generate_flagfile(options)
+
+    # TODO: Make sure this tool is exported by BB!
+    
+    cmd = ['build_reconstruction', '--flagfile', flagfile_path]
+    asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
+
+    if not os.path.exists(options.theia_output_path):
+        raise Exception('Theia failed to generate a camera reconstruction')
+
+    # TODO: Any other output verification needed?
+    return options.theia_output_path
+
+def export_cameras_to_vw(options):
+    '''Convert from Theia's camera format to VW's pinhole format'''
+
+    # TODO: Make sure this tool is exported by BB!
+
+    cmd = ['export_reconstruction_to_vw',  '--reconstruction', options.theia_output_path, 
+           '--output_directory', option.output_folder, '--images', options.image_wildcard]
+    asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
+
+    # Running the tool should generate a .tsai file for each input image
+    all_found = True
+    options.theia_camera_models = []
+    for image in options.input_images:
+        # Figure out the path for the model we should have created
+        filename = os.path.basename(image)
+        model_path = os.path.join(options.output_folder, filename + '.tsai')
+        options.theia_camera_models.append(model_path)
+        
+        if not os.path.exists(model_path):
+            all_found = False
+            print 'Failed to generate model file: ' + model_path
+    if not all_found:
+        raise Exception('Failed to extract camera models for all input image files.')
+
+
+def run_bundle_adjust(options):
+    '''Run the ASP bundle adjust program to move the camera models into global coordinates'''
+
+    output_prefix = options.output_folder+'/out'
+
+    # Some extra bundle adjust params
+    # - TODO: Figure out the datum automatically
+    ba_params = ['--max-iterations', '1000', '--threads', '1', '--datum', 'wgs84']
+
+    # Run ASP's bundle_adjust tool    
+    cmd = ['bundle_adjust', options.input_images, options.theia_camera_models]
+    cmd += [options.gcp_path, '-o', output_prefix]
+    cmd += ba_params
+    asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
+
+    # This should create a .pinhole file for every input image
+
+    all_found = True
+    options.asp_camera_models = []
+    for image in options.input_images:
+        # Figure out the path for the model we should have created
+        filename = os.path.basename(image)
+        model_path = os.path.join(options.output_folder, filename + '.pinhole')
+        options.asp_camera_models.append(model_path)
+        
+        if not os.path.exists(model_path):
+            all_found = False
+            print 'Failed to generate model file: ' + model_path
+    if not all_found:
+        raise Exception('Bundle adjustment failed to generate all camera models.')
+
+
+
+#------------------------------------------------------------------------------
+
+def main(argsIn):
+
+    try:
+
+        # Use parser that ignores unknown options
+        usage  = "usage: pinhole_solver [options] <camera param file> <GCP file> <output folder> <Input Image 1> <Input Image 2> ..."
+        parser = optparse.OptionParser(usage=usage)
+
+        parser.add_option("--num-processes",  dest="numProcesses", type='int', default=None,
+                                              help="Number of processes to use (default program tries to choose best)")
+
+        parser.add_option('--theia-flagfile',  dest='existing_theia_flagfile', default=None,
+                                         help='Path to a custom THEIA flag file to fine-tune its operation')
+
+
+        parser.add_option('--work-dir',  dest='workDir', default=None,
+                                         help='Working directory to assemble the tiles in')
+        parser.add_option("--solve-intrinsic-params", action="store_true", default=False,
+                                               dest="solveIntrinsic",  help="Use the optimizer to improve the intrinsic camera parameter estimates.")
+        parser.add_option("--suppress-output", action="store_true", default=False,
+                                               dest="suppressOutput",  help="Suppress output of sub-calls.")
+
+
+        # This call handles all the parallel_mapproject specific options.
+        (options, args) = parser.parse_args(argsIn)
+
+        # This will parse all the mapproject options.
+        requiredList, optionsList = handleArguments(args)
+
+        # Check the required positional arguments.
+        if len(requiredList) < 1:
+            parser.print_help()
+            parser.error("Missing input camera parameter file.\n" );
+        if len(requiredList) < 2:
+            parser.print_help()
+            parser.error("Missing ground control point file.\n" );
+        if len(requiredList) < 3:
+            parser.print_help()
+            parser.error("Missing output folder.\n" );
+        if len(requiredList) < 5:
+            parser.print_help()
+            parser.error("At least two input images are required.\n" );
+            
+        # Store the positional input parameters
+        options.camera_param_path = requiredList[0]
+        options.gcp_path          = requiredList[1]
+        options.output_folder     = requiredList[2]
+        options.input_images      = requiredList[3:]
+        
+        
+    except optparse.OptionError, msg:
+        raise Usage(msg)
+
+    startTime = time.time()
+
+    # Step 1 - Call Theia's build_reconstruction tool.
+    build_reconstruction(options)
+
+    # Step 2 - Call an extra tool to export Theia's camera output.
+    export_cameras_to_vw(options)
+    
+    # Step 3 - Call ASP's bundle_adjust to move the cameras into global coordinates
+    run_bundle_adjust(options)
+
+    endTime = time.time()
+    print "Finished in " + str(endTime - startTime) + " seconds."
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
