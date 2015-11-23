@@ -104,40 +104,117 @@ def generate_flagfile(options):
     # TODO: Make use of options.custom_theia_flagfile
    
     output_string =  '''
+############### Input/Output ###############
+# Input/output files.
+# Set these if a matches file is not present. Images should be a filepath with a
+# wildcard e.g., /home/my_username/my_images/*.jpg
 --images='''+options.image_wildcard+'''
 --output_matches_file='''+os.path.abspath(match_path)+'''
-#--matches_file=results/matches.dat
+
+# If a matches file has already been created, set the filepath here. This avoids
+# having to recompute all features and matches.
+#--matches_file=/home/smcmich1/data/theia_test/apollo_15_nadir/sub/sfm_run/theia_matches.dat
+
+# The calibration file indicates possibly known calibration e.g, from EXIF or
+# explicit calibration. Theia attempts to extract EXIF focal lengths if calibration
+# is not supplied for a given image.
 --calibration_file='''+os.path.abspath(options.camera_param_path)+'''
 --output_reconstruction='''+os.path.abspath(output_path)+'''
+
+############### Multithreading ###############
+# Set to the number of threads you want to use.
+--num_threads=16
+
+############### Feature Extraction ###############
 --descriptor=SIFT
+# Sift blob detector parameters.
 --sift_num_octaves=-1
 --sift_num_levels=3
 --sift_first_octave=-1
 --sift_edge_threshold=10.0
 --sift_peak_threshold=1.7
+# Disable if regular sift descriptor is desired.
 --root_sift=true
+
+############### Matching Options ###############
+# Perform matching out-of-core. If set to true, the matching_working_directory
+# must be set to a valid, writable directory (the directory will be created if
+# it does not exits) Set to false to perform all-in-memory matching.
+--match_out_of_core=false
+
+# During feature matching, features are saved to disk so that out-of-core
+# matching may be performed. This directory specifies which directory those
+# features should be saved to.
+--matching_working_directory=
+
+# During feature matching we utilize an LRU cache for out-of-core matching. The size
+# of that cache (in terms of number of images) is controlled by this parameter. The
+# higher this number the more memory is required.
+--matching_max_num_images_in_cache=128
+
 --matching_strategy=CASCADE_HASHING
 --lowes_ratio=0.75
 --min_num_inliers_for_valid_match=30
 --max_sampson_error_for_verified_match=4.0
 --bundle_adjust_two_view_geometry=true
 --keep_only_symmetric_matches=true
---reconstruction_estimator=NONLINEAR
+
+############### General SfM Options ###############
+--reconstruction_estimator=GLOBAL
 --max_track_length=50
---reconstruct_largest_connected_component=true
---only_calibrated_views=true
---constant_camera_intrinsics=true
---max_reprojection_error_pixels=4.0
---num_retriangulation_iterations=1
---post_rotation_filtering_degrees=5.0
---refine_relative_translations_after_rotation_estimation=false
+--reconstruct_largest_connected_component=false
+# If set to true, only views with known calibration are reconstructed.
+--only_calibrated_views=false
+
+############### Global SfM Options ###############
+--global_position_estimator=NONLINEAR
+--global_rotation_estimator=ROBUST_L1L2
+--post_rotation_filtering_degrees=15.0
+
+# This refinement is very unstable for rotation-only motions so
+# it is advised that this is set to false for these motions.
+--refine_relative_translations_after_rotation_estimation=true
+
+# If true, only cameras that are well-conditioned for position estimation will
+# be used for global position estimation
+--extract_maximal_rigid_subgraph=false
+
+# Filter the relative translations with the 1DSfM filter to remove potential
+# outliers in the relative pose measurements.
+--filter_relative_translations_with_1dsfm=true
+
+# Nonlinear position estimation options
 --position_estimation_min_num_tracks_per_view=0
+--position_estimation_robust_loss_width=0.1
+
+# After estimating camera poses, we perform trianguation, then BA,
+# then filter out bad points. This controls how many times we repeat
+# this process.
+--num_retriangulation_iterations=1
+
+############### Incremental SfM Options ###############
+--absolute_pose_reprojection_error_threshold=8
+--partial_bundle_adjustment_num_views=20
+--full_bundle_adjustment_growth_percent=5
+--min_num_absolute_pose_inliers=30
+
+############### Bundle Adjustment Options ###############
+# Set to true to hold camera intrinsics constant during BA.
+--constant_camera_intrinsics=true
+# After BA, remove any points that have a reprojection error greater
+# than this.
+--max_reprojection_error_pixels=4.0
+
+############### Triangulation Options ###############
 --min_triangulation_angle_degrees=4.0
 --triangulation_reprojection_error_pixels=15.0
 --bundle_adjust_tracks=true
---num_threads=1
+
+############### Logging Options ###############
+# Logging verbosity.
 --logtostderr
---v=1
+# Increase this number to get more verbose logging.
+--v=3
 '''
     handle = open(flagfile_path, 'w')
     handle.write(output_string)
@@ -156,7 +233,7 @@ def build_reconstruction(options):
     # TODO: Make sure this tool is exported by BB!
 
     if (not os.path.exists(options.theia_output_path)) or options.overwrite:
-        cmd = ['/home/smcmich1/repo/BinaryBuilder/build_root_gcc52/build/theia/TheiaSfM-0-.4/build/bin/build_reconstruction', '--flagfile', flagfile_path]
+        cmd = ['/home/smcmich1/repo/BinaryBuilder/build_root_gcc52/build/theia/TheiaSfM-0.5/build/bin/build_reconstruction', '--flagfile', flagfile_path]
         asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
 
         # Theia appends a tag to the requested output file, just rename the file.
@@ -173,7 +250,7 @@ def export_cameras_to_vw(options):
 
     # TODO: Make sure this tool is exported by BB!
     # Need to wrap the image wildcard in quotes so it does not get expanded too early!
-    cmd = ['/home/smcmich1/repo/BinaryBuilder/build_root_gcc52/build/theia/TheiaSfM-0-.4/build/bin/export_reconstruction_to_vw',  '--reconstruction', options.theia_output_path, 
+    cmd = ['/home/smcmich1/repo/BinaryBuilder/build_root_gcc52/build/theia/TheiaSfM-0.5/build/bin/export_reconstruction_to_vw',  '--reconstruction', options.theia_output_path, 
            '--output_directory', options.output_folder, '--images', options.image_wildcard]
     asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
 
@@ -197,7 +274,8 @@ def run_bundle_adjust(options):
 
     # Some extra bundle adjust params
     # - TODO: Figure out the datum automatically
-    ba_params = ['--max-iterations', '1000', '--threads', '1', '--datum', 'wgs84']
+    ba_params = ['--max-iterations', '1000', '--threads', '1', 
+                 '-t', 'pinhole', '--datum', 'wgs84']
 
     # Always run this step as otherwise there was no point to calling the tool
 
@@ -220,6 +298,8 @@ def run_bundle_adjust(options):
     if not all_found:
         raise Exception('Bundle adjustment failed to generate all camera models.')
 
+
+    # TODO: Where should the final files be located??
 
 
 #------------------------------------------------------------------------------
