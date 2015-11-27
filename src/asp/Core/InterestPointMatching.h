@@ -642,8 +642,10 @@ namespace asp {
 				     match_seperation_threshold, epipolar_threshold, datum );
     vw_out() << "\t    Matching Forward" << std::endl;
     matcher( ip1, ip2, detect_method, cam1, cam2, left_tx, right_tx, forward_match );
+    vw_out() << "\t    ---> Obtained " << forward_match.size() << " matches." << std::endl;
     vw_out() << "\t    Matching Backward" << std::endl;
     matcher( ip2, ip1, detect_method, cam2, cam1, right_tx, left_tx, backward_match );
+    vw_out() << "\t    ---> Obtained " << backward_match.size() << " matches." << std::endl;
 
     // Perform circle consistency check
     size_t valid_count = 0;
