@@ -1,34 +1,44 @@
-function find_ccds_aux(dx0, fig)
+function find_ccds_aux(mean_disparity, fig)
+   % 
 
-   n = length(dx0);
-   
-   sx0=find_ccds_aux2(dx0);
+   n = length(mean_disparity);
 
-   I0=1:(length(dx0));
-   P0 = sx0(1, :);
-   H0 = sx0(2, :);
+   % Access the existing figure and draw the mean disparity line
+   figure(fig); hold on;
+   plot(mean_disparity, 'm', 'LineWidth',3); 
    
-   wid = 60;
+   % Call function to detect jumps in the disparity vector
+   detected_jumps=find_ccds_aux2(mean_disparity);
+
+   [m, num_jumps] = size(detected_jumps)
+   if (num_jumps == 0)
+     disp('No CCD jumps detected!')
+     return % Don't need to write output if we did not find anything.
+   end
+
+   I0=1:(n);
+   jump_indices    = detected_jumps(1, :);
+   jump_magnitudes = detected_jumps(2, :);
+   
+   WIDTH  = 60;
    period = 705;
    shift  = -80;
-   [P0, H0] = sparse_ccds(wid, period, shift, n, P0, H0);
+   [jump_indices, jump_magnitudes] = sparse_ccds(WIDTH, period, shift, n, jump_indices, jump_magnitudes);
 
-   figure(fig); hold on;
-   plot(dx0, 'r');
-   plot(P0, dx0(P0), 'b*');
-   plot(P0, H0, 'b');
+   plot(jump_indices, mean_disparity(jump_indices), 'b*'); % Draw blue *'s
+   plot(jump_indices, jump_magnitudes, 'b'); % Draw blue lines?
 
-   %[period, shift] = find_true_period(P0, H0);
+   %[period, shift] = find_true_period(jump_indices, jump_magnitudes);
    
 %   if fig == 1
 %      figure(fig+10);
 %      clf; hold on;
-%      plot(diff(P0), 'b');
-%      plot(1000*H0, 'r');
+%      plot(diff(jump_indices), 'b');
+%      plot(1000*jump_magnitudes, 'r');
 %   end
    
    format long g;
-   T = [P0' H0']';
+   T = [jump_indices' jump_magnitudes']';
    if fig == 1
       file='ccdx.txt';
       file2='avgx.txt';
@@ -37,32 +47,35 @@ function find_ccds_aux(dx0, fig)
       file2='avgy.txt';
    end
 
-   dx0 = dx0';
+   mean_disparity = mean_disparity';
+   
+   % Write the output files
    disp(sprintf('saving %s', file));
    disp(sprintf('saving %s', file2));
-   save(file, '-ascii', '-double', 'T');
-   save(file2, '-ascii', '-double', 'dx0');
+   save(file,  '-ascii', '-double', 'T');
+   save(file2, '-ascii', '-double', 'mean_disparity');
+   
 
-function [period, shift] = find_true_period(P0, H0)
+function [period, shift] = find_true_period(jump_indices, jump_magnitudes)
    % The true period is associated with the hugest hump
-   n = length(P0);
+   n = length(jump_indices);
    Q = zeros(n-1, 1);
    for i=1:(n-1)
-      Q(i) = abs(H0(i)) + abs(H0(i+1));
+      Q(i) = abs(jump_magnitudes(i)) + abs(jump_magnitudes(i+1));
    end
    I = find(Q == max(Q));
    i = I(1);
-   period = P0(i+1) - P0(i);
-   shift = P0(i) - i*period;
+   period = jump_indices(i+1) - jump_indices(i);
+   shift = jump_indices(i) - i*period;
    while shift > 0
       shift = shift - period;
    end
 
-   plot(P0(i), H0(i), 'g*');
+   plot(jump_indices(i), jump_magnitudes(i), 'g*');
    disp(sprintf('--period and shift %g %g', period, shift));
    
    
-function [P0, H0] = sparse_ccds(wid, period, shift, n, P0, H0)
+function [jump_indices, jump_magnitudes] = sparse_ccds(wid, period, shift, n, jump_indices, jump_magnitudes)
    
    % Keep one CCD per period
    P = period*(1:n) + shift;
@@ -70,65 +83,73 @@ function [P0, H0] = sparse_ccds(wid, period, shift, n, P0, H0)
    P = P(I);
    I=[];
    for i=1:length(P)
-      J = find( P0 >= P(i) - wid & P0 <= P(i) + wid);
+      J = find( jump_indices >= P(i) - wid & jump_indices <= P(i) + wid);
       if length(J) == 0
          continue
       end
-      K = find( abs(H0(J)) == max(abs(H0(J))) );
+      K = find( abs(jump_magnitudes(J)) == max(abs(jump_magnitudes(J))) );
       I = [I, J(K(1))];
    end
-   P0 = P0(I);
-   H0 = H0(I);
+   jump_indices    = jump_indices(I);
+   jump_magnitudes = jump_magnitudes(I);
    
-function U = find_ccds_aux2(B)
-   
+function U = find_ccds_aux2(mean_disparity)
+   % Detect local maxima of a diff function in the input vector
+   % - Returns indices and values in a matrix
 
+   % Hard coded debug figure
    do_plot = 0; figno=0;
    SHIFT=0;
    if do_plot
       figure(figno); clf; hold on;
    end
    
-   %B = find_avg(A, col);
-   %Bt=B';
+   %mean_disparity = find_avg(A, col);
+   %Bt=mean_disparity';
    %save('Bm.txt', '-ascii', '-double', 'Bt');
    %return
    
-   %B0 = find_avg(A0, col);
+   %mean_disparity0 = find_avg(A0, col);
    
-   wid = 35;
+   WIDTH = 35;
    
-   Q = B*0 + NaN;
-   for i=1:length(B)
-      %if i-wid >= 1 & i+wid<= length(S)
-      if i-wid >= 1 & i+2*wid <= length(B)
+   % Compute some sort of diff measure
+   Q = mean_disparity*0 + NaN; % Generate a NaN vector matching the disparity vector
+   for i=1:length(mean_disparity)
+      %if i-WIDTH >= 1 & i+WIDTH<= length(S)
+      if (i-WIDTH >= 1) & (i+2*WIDTH <= length(mean_disparity)) % 3*WIDTH region 1/3 centered on i
          % Document this!!!
          % To do: Improve the accuracy by doing slopes with least squares
-         Q(i) = 1.5*(B(i+wid) - B(i)) - 0.5*(B(i + 2*wid) - B(i-wid));
-         %Q(i) = wid*(2*S(i) - S(i-wid) - S(i + wid))/2; 
+         Q(i) =   1.5*(mean_disparity(i+  WIDTH) - mean_disparity(i      )) ...
+                - 0.5*(mean_disparity(i+2*WIDTH) - mean_disparity(i-WIDTH));
+         %Q(i) = WIDTH*(2*S(i) - S(i-WIDTH) - S(i + WIDTH))/2; 
       end
    end
    
    % To do: Use some other criterion
-   cutoff = 0.01; % temporary!!! % CCD artifacts must be less than this
+   cutoff     = 0.01; % temporary!!! % CCD artifacts must be less than this
    max_cutoff = 1.5; % no ccd artifacts more than that are expected
-   wid2 = ceil(1.5*wid); % leave only largest maxium in length wid2 on each side
+   wid2       = ceil(1.5*WIDTH); % leave only largest maxium in length wid2 on each side
    
-   G = [];
-   V = [];
+   q_indices = [];
+   q_maxima = [];
    for i=1:length(Q)
       if isnan(Q(i)) 
          continue
       end
       
+      % Only process regions in a certain range
       if abs(Q(i)) < cutoff | abs(Q(i)) > max_cutoff
          continue
       end
       
+      % Skip locations near the boundary
       if i-wid2 < 1 | i + wid2 > length(Q)
          continue
       end
       
+      % Look at the nearby Q values; if any are greater than the current location
+      %   don't retain this location.  This is to only keep local maxima?
       % To do: This needs more thinking, can result in a chain
       % reaction eliminating too many artifacts.
       is_good = 1;
@@ -138,24 +159,26 @@ function U = find_ccds_aux2(B)
          end
       end
       
-      if is_good
-         G = [G, i];
-         V = [V, Q(i)];
+      if is_good % Record the point index and Q value
+         q_indices = [q_indices, i];
+         q_maxima  = [q_maxima,  Q(i)];
       end
    end
    
-   w2 = floor(wid/2);
+   w2 = floor(WIDTH/2);
+   
    %G = G + w2; % to be at center of CCD defect region
    format long g
    %[G'+w2 V']'
    
-   U = [G'+w2+SHIFT V']';
+   % Pack centered indices and the value into the output vector
+   U = [q_indices'+w2+SHIFT   q_maxima']';
    
    
    %return
    %
    %%
-   %%plot(sx0(1, K0), 0*dx0(sx0(1, K0)), 'b*')
+   %%plot(detected_jumps(1, K0), 0*mean_disparity(detected_jumps(1, K0)), 'b*')
    %%plot(sx1(1, K1)+s, 0*dx1(sx1(1, K1)), 'r*')
    %
    %%return
@@ -168,18 +191,18 @@ function U = find_ccds_aux2(B)
    %%plot(I1(J1)+s, -dx1(J1)', 'r');
    %%plot(sx1(1, K1)+s, -dx1(sx1(1, K1)), 'r*')
    %%
-   %%plot(sx0(1, K0), 0*dx0(sx0(1, K0)), 'b*')
+   %%plot(detected_jumps(1, K0), 0*mean_disparity(detected_jumps(1, K0)), 'b*')
    %%plot(sx1(1, K1)+s, 0*dx1(sx1(1, K1)), 'r*')
    %
-   %P0 = sx0(1, :);
+   %jump_indices = detected_jumps(1, :);
    %P1 = sx1(1, :);
-   %Z = zeros(length(P0), length(P1));
-   %for l=1:length(P0)
+   %Z = zeros(length(jump_indices), length(P1));
+   %for l=1:length(jump_indices)
    %   %disp(sprintf('l=%d', l));
    %   for t = 1:length(P1)
-   %      P1_shift = P1 - P1(t)+P0(l);
-   %      for v = 1:length(P0)
-   %         T = find(P1_shift >= P0(v) - d & P1_shift <= P0(v) + d);
+   %      P1_shift = P1 - P1(t)+jump_indices(l);
+   %      for v = 1:length(jump_indices)
+   %         T = find(P1_shift >= jump_indices(v) - d & P1_shift <= jump_indices(v) + d);
    %         Z(l, t) = Z(l, t) + length(T);
    %         %      if v == l
    %         %         disp(sprintf('%d %d %d', t, l, T));
@@ -193,10 +216,10 @@ function U = find_ccds_aux2(B)
    %%disp(sprintf('min is %g, %g', min(min(Z)), max(max(Z))));
    %
    %S=[];
-   %for l=1:length(P0)
+   %for l=1:length(jump_indices)
    %   for t = 1:length(P1)
    %      if Z(l, t) == max(max(Z))
-   %         S = [S, - P1(t)+P0(l)];
+   %         S = [S, - P1(t)+jump_indices(l)];
    %      end
    %   end
    %end
@@ -221,21 +244,21 @@ function U = find_ccds_aux2(B)
    %P1_shift = P1 + SHIFT;
    %
    %figure(2); clf; hold on;
-   %plot(I0, dx0', 'b');
+   %plot(I0, mean_disparity', 'b');
    %plot(I1+SHIFT, -dx1, 'r');
-   %plot(P0, dx0(P0), 'b*');
+   %plot(jump_indices, mean_disparity(jump_indices), 'b*');
    %plot(P1_shift, -dx1(P1), 'r*');
    %
    %Tall=[];
    %V = [];
-   %for v = 1:length(P0)
-   %   T = find(P1_shift >= P0(v) - d & P1_shift <= P0(v) + d);
+   %for v = 1:length(jump_indices)
+   %   T = find(P1_shift >= jump_indices(v) - d & P1_shift <= jump_indices(v) + d);
    %   if length(T) > 0
    %      V = [V, v];
    %      Tall=[Tall, T];
    %   end
    %end
    %
-   %plot(P0(V), dx0(P0(V))+0.1, 'g*')
+   %plot(jump_indices(V), mean_disparity(jump_indices(V))+0.1, 'g*')
    %plot(P1_shift(Tall), -dx1(P1(Tall))+0.1, 'g*');
    %

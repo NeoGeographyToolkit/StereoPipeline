@@ -1,7 +1,8 @@
 function b = find_moving_avg(a)
+   % 
 
-   wid = 700;
-   wid2 = floor(wid/2);
+   WINDOW_SIZE = 700;
+   wid2 = floor(WINDOW_SIZE/2);
    len = length(a);
    b = a + NaN;
 
@@ -23,7 +24,7 @@ function b = find_moving_avg(a)
 
    for i=1:len
 
-      % average using a window of size wid
+      % average using a window of size WINDOW_SIZE
       
       s0 = max(i-wid2, ss);
       e0 = min(i+wid2, ee);
@@ -44,7 +45,7 @@ function b = find_moving_avg(a)
 %            num = num + 1;
 %         end
 %
-%         if num >= wid
+%         if num >= WINDOW_SIZE
 %            break;
 %         end
 %
@@ -53,7 +54,7 @@ function b = find_moving_avg(a)
 %            num = num + 1;
 %         end
 %
-%         if num >= wid
+%         if num >= WINDOW_SIZE
 %            break;
 %         end
 %

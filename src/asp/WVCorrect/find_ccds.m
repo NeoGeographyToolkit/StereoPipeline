@@ -3,10 +3,11 @@ function main(do_find, dirs, pitches, plotid)
    % if do_find is 1, we actually find and save the CCDs,
    % otherwise we just examine the current averaged disparties.
 
-   if nargin == 2
+   if nargin == 2 % Did the user pass in the pitch list?
       pitches = [];
    end
    
+   % Generate list of dx and dy file paths
    ax={};
    ay={};
    for i=1:length(dirs)
@@ -17,84 +18,97 @@ function main(do_find, dirs, pitches, plotid)
       ay = [ay, ay0];
    end
    
+   % Seperately handle dx then dy
    do_plot(do_find, ax, pitches, plotid);
    title('x');
    
    do_plot(do_find, ay, pitches, 1+plotid); 
    title('y');
 
-function dx = scale_by_pitch(dx, pitch)
+%--------------------------------------------------------
+
+function disparity_data = scale_by_pitch(disparity_data, pitch)
    % compensate for the fact that ccd artifacts are spaced closer
    % for larger pitch
-   base_pitch = 8.0000000000e-03;
-   I = (base_pitch/pitch)*(1:(10*length(dx)));
-   J=find(I > length(dx));
+   BASE_PITCH = 8.0000000000e-03; % The default pitch value
+   I = (BASE_PITCH/pitch)*(1:(10*length(disparity_data)));
+   J=find(I > length(disparity_data));
    I = I(1:(J(1)-1));
-   dx = interp1(1:length(dx), dx', I, 'linear')';
+   disparity_data = interp1(1:length(disparity_data), disparity_data', I, 'linear')';
+
+% The main working function!
+function do_plot(do_find, disparity_file_paths, pitches, fig)
    
-function do_plot(do_find, d, pitches, fig)
-   
+   % Loop through each of the input disparity files.
    X = [];
-   for i=1:length(d)
-      dxf=d{i};
-      if exist(dxf, 'file') == 2
-         %disp(sprintf('Loading %s', dxf));
+   for i=1:length(disparity_file_paths)
+      disparity_path=disparity_file_paths{i};
+      if exist(disparity_path, 'file') == 2  % If the file exists...
+         %disp(sprintf('Loading %s', disparity_path)); 
       else
-         disp(sprintf('Missing file: %s', dxf));
+         disp(sprintf('Missing file: %s', disparity_path));
          continue;
       end
-      dx = load(dxf);
+      disparity_data = load(disparity_path); 
 
-      if length(pitches) >= i
-         dx = scale_by_pitch(dx, pitches(i));
+      if length(pitches) >= i % If pitch value is available, scale the data
+         disparity_data = scale_by_pitch(disparity_data, pitches(i));
       end
       
-      [m, n] = size(X);
-      % Deal with size mis-matches by either
-      % growing X or dx.
-      if m > 0
-         if length(dx) < m
-            dx = [dx' zeros(1, m - length(dx))]';
-         elseif m < length(dx)
-            m1 = length(dx);
-            Y = zeros(m1, n);
-            Y(1:m, 1:n) = X;
+      [existing_data_length, n_files_stored] = size(X);
+      % Deal with size mis-matches by either growing X or disparity_data.
+      if data_length > 0 % If this is not the first file loaded
+         new_data_length = length(disparity_data)
+         if new_data_length < existing_data_length % Pad out the new data
+            disparity_data = [disparity_data' zeros(1, existing_data_length - new_data_length)]';
+         elseif existing_data_length < new_data_length % Pad out the existing data
+            Y  = zeros(new_data_length, n_files_stored);
+            Y(1:new_data_length, 1:n_files_stored) = X;
             X = Y;
-            [m, n] = size(X);
+            [data_length, n_files_stored] = size(X); % Update these values
          end
       end
 
-      X = [X dx];
+      % Now that the sizes are equalized, append the new data.
+      X = [X disparity_data];
       
-   end
+   end % End loop through disparity files
    
+   % Transpose the data so that the first dimension is smaller
    X = X';
-
-   [m, n] = size(X);
-   %disp(sprintf('size is %d %d', m, n));
+   [n_files_stored, data_length] = size(X);
+   %disp(sprintf('size of X is %d %d', n_files_stored, existing_data_length));
    
-   for r=1:m
+   % Set to NaN all values within a buffer of a zero value near the ends of
+   %  each loaded data set.
+   for r=1:n_files_stored
 
       % Stay away from boundary.
-      bdval = 300; % Must tweak this!!!
-      c0 = round(n/3);
-      c1 = n - c0;
+      BDVAL = 300; % Must tweak this!!!
+      
+      % Search through the data to find the last? zero value
+      c0 = round(data_length/3);
+      c1 = data_length - c0;
       cs = 1;
-      for c=1:c0
+      for c=1:c0 % Loop through first third of data
          if X(r, c) == 0
             cs = max(cs, c);
          end
       end
 
-      ce = n;
-      for c=(n-c0):n
+      % Do the same thing but coming in from the back
+      ce = data_length;
+      for c=(data_length-c0):data_length
          if X(r, c) == 0
             ce = min(ce, c);
          end
       end
       
-      cs = cs + bdval;
-      ce = ce - bdval;
+      % Move in even farther
+      cs = cs + BDVAL;
+      ce = ce - BDVAL;
+      
+      % Clear all the values outside the boundaries
       for c=1:cs
          X(r, c) = NaN;
       end
@@ -102,71 +116,56 @@ function do_plot(do_find, d, pitches, fig)
          X(r, c) = NaN;
       end
       
-   end
+   end % End loop through stored files
    
    wid = 35;
 
-   A = [];
-   figure(fig); clf; hold on;
+   % These colors are rotated through as files are plotted
    colors=['b', 'r', 'g', 'c', 'k', 'b', 'r', 'g', 'c', 'b', 'r', 'g', 'k', 'c'];
-   q=0;
-   s=1.0; % cutoff
-   t=0.0;
+
+   figure(fig); clf; hold on;
+   sep_size=0.0;
    if do_find
-      t = 0.25; % vertical gap between individual curves, for visibility
+      sep_size = 0.25; % vertical gap between individual curves, for visibility
    end
    
-   for r=1:m
-      q=q+1;
-      q = rem(q-1, length(colors)) + 1;
-      if r <= length(d) 
-         disp(sprintf('doing %s', d{r}));
+   % Plot each of the data sets, vertically shifted
+   for r=1:n_files_stored
+      if r <= length(disparity_file_paths) 
+         disp(sprintf('doing %s', disparity_file_paths{r}));
       end
 
-      Y = X(r, :) -find_moving_avg(X(r, :));
+      % Subtract out a smoothed version of this file's data
+      Y = X(r, :) - find_moving_avg(X(r, :));
       X(r, :) = Y;
+      
+      % Select a color for this file and plot the shifted data
       r2 = rem(r-1, length(colors))+1;
-      plot(Y + t*(r+1), colors(r2));         
-   end
+      vertical_offset = sep_size*(r+1) % Visually seperate the plots
+      plot(Y + vertical_offset, colors(r2));         
+   end % End loop through stored files
 
-   [m, n] = size(X);
-   Z = zeros(1, n);
-   for c=1:n
+   % Take the mean of all of the input data
+   mean_X = zeros(1, data_length);
+   for c=1:data_length
       sum = 0;
       num = 0;
-      for r=1:m
+      for r=1:n_files_stored
          if ~isnan(X(r, c))
             sum = sum + X(r, c);
             num = num + 1;
          end
       end
       if num > 0
-         Z(1, c) = sum/num;
+         mean_X(1, c) = sum/num;
       end
-   end
+   end % End loop through data
 
    if do_find ~= 0
-      find_ccds_aux(Z, fig)
+      find_ccds_aux(mean_X, fig)
    end
    
+% Split up a string based on spaces
 function b = split(a)
+   b = strread(a,'%s','delimiter',' ')
 
-   % split by space character
-   b={};
-
-   c = '';
-   for i=1:length(a)
-      if isspace(a(i))
-         if length(c) ~= 0
-            b = [b, c];
-            c = '';
-         end
-      else
-         c = [c, a(i)];
-      end
-   end
-
-   if length(c) ~= 0
-      b = [b, c];
-   end
-   
