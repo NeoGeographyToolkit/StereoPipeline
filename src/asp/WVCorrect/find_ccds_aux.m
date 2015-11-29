@@ -1,11 +1,10 @@
 function find_ccds_aux(mean_disparity, fig)
    % 
 
-   n = length(mean_disparity);
+   vector_length = length(mean_disparity);
 
-   % Access the existing figure and draw the mean disparity line
+   % Access the existing figure
    figure(fig); hold on;
-   plot(mean_disparity, 'm', 'LineWidth',3); 
    
    % Call function to detect jumps in the disparity vector
    detected_jumps=find_ccds_aux2(mean_disparity);
@@ -16,14 +15,17 @@ function find_ccds_aux(mean_disparity, fig)
      return % Don't need to write output if we did not find anything.
    end
 
-   I0=1:(n);
+   %I0=1:(vector_length);
    jump_indices    = detected_jumps(1, :);
    jump_magnitudes = detected_jumps(2, :);
    
+   % Limit the detected jumps to only one jump per N regions in the disparity vector.
+   % - Each region is +/- width in size, centered around: n*PERIOD + SHIFT
+   % - Why do we do this?
+   PERIOD = 705;
+   SHIFT  = -80;
    WIDTH  = 60;
-   period = 705;
-   shift  = -80;
-   [jump_indices, jump_magnitudes] = sparse_ccds(WIDTH, period, shift, n, jump_indices, jump_magnitudes);
+   [jump_indices, jump_magnitudes] = sparse_ccds(WIDTH, PERIOD, SHIFT, vector_length, jump_indices, jump_magnitudes);
 
    plot(jump_indices, mean_disparity(jump_indices), 'b*'); % Draw blue *'s
    plot(jump_indices, jump_magnitudes, 'b'); % Draw blue lines?
@@ -58,9 +60,10 @@ function find_ccds_aux(mean_disparity, fig)
 
 function [period, shift] = find_true_period(jump_indices, jump_magnitudes)
    % The true period is associated with the hugest hump
-   n = length(jump_indices);
-   Q = zeros(n-1, 1);
-   for i=1:(n-1)
+   
+   vector_length = length(jump_indices);
+   Q = zeros(vector_length-1, 1);
+   for i=1:(vector_length-1)
       Q(i) = abs(jump_magnitudes(i)) + abs(jump_magnitudes(i+1));
    end
    I = find(Q == max(Q));
@@ -75,20 +78,25 @@ function [period, shift] = find_true_period(jump_indices, jump_magnitudes)
    disp(sprintf('--period and shift %g %g', period, shift));
    
    
-function [jump_indices, jump_magnitudes] = sparse_ccds(wid, period, shift, n, jump_indices, jump_magnitudes)
+function [jump_indices, jump_magnitudes] = sparse_ccds(wid, period, shift, vector_length, jump_indices, jump_magnitudes)
    
    % Keep one CCD per period
-   P = period*(1:n) + shift;
-   I = find(P <= n);
-   P = P(I);
+   P = period*(1:vector_length) + shift;
+   I = find(P <= vector_length);
+   P = P(I); 
+   % P now contains only multiples of period (+ shift)
+   
+   
    I=[];
-   for i=1:length(P)
-      J = find( jump_indices >= P(i) - wid & jump_indices <= P(i) + wid);
+   for i=1:length(P) % For each period multiple
+      % Grab jumps that fall within a range from the period position
+      J = find( (jump_indices >= (P(i) - wid)) & (jump_indices <= (P(i) + wid)));
       if length(J) == 0
          continue
       end
+      % Restrict to only the largest jumps (if ties, the first will get kept)
       K = find( abs(jump_magnitudes(J)) == max(abs(jump_magnitudes(J))) );
-      I = [I, J(K(1))];
+      I = [I, J(K(1))]; % Record the jump index
    end
    jump_indices    = jump_indices(I);
    jump_magnitudes = jump_magnitudes(I);

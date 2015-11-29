@@ -39,7 +39,9 @@ function disparity_data = scale_by_pitch(disparity_data, pitch)
 % The main working function!
 function do_plot(do_find, disparity_file_paths, pitches, fig)
    
-   % Loop through each of the input disparity files.
+   PRINT_EACH_FILE = FALSE
+   
+   % Loop through each of the input disparity files and load the data into X.
    X = [];
    for i=1:length(disparity_file_paths)
       disparity_path=disparity_file_paths{i};
@@ -129,21 +131,22 @@ function do_plot(do_find, disparity_file_paths, pitches, fig)
       sep_size = 0.25; % vertical gap between individual curves, for visibility
    end
    
-   % Plot each of the data sets, vertically shifted
-   for r=1:n_files_stored
-      if r <= length(disparity_file_paths) 
-         disp(sprintf('doing %s', disparity_file_paths{r}));
-      end
+   if (PRINT_EACH_FILE) % Plot each of the data sets, vertically shifted
+     for r=1:n_files_stored
+        if r <= length(disparity_file_paths) 
+           disp(sprintf('doing %s', disparity_file_paths{r}));
+        end
 
-      % Subtract out a smoothed version of this file's data
-      Y = X(r, :) - find_moving_avg(X(r, :));
-      X(r, :) = Y;
-      
-      % Select a color for this file and plot the shifted data
-      r2 = rem(r-1, length(colors))+1;
-      vertical_offset = sep_size*(r+1) % Visually seperate the plots
-      plot(Y + vertical_offset, colors(r2));         
-   end % End loop through stored files
+        % Subtract out a smoothed version of this file's data
+        Y = X(r, :) - find_moving_avg(X(r, :));
+        X(r, :) = Y;
+        
+        % Select a color for this file and plot the shifted data
+        r2 = rem(r-1, length(colors))+1;
+        vertical_offset = sep_size*(r+1) % Visually seperate the plots
+        plot(Y + vertical_offset, colors(r2));         
+     end % End loop through stored files
+   end
 
    % Take the mean of all of the input data
    mean_X = zeros(1, data_length);
@@ -160,6 +163,8 @@ function do_plot(do_find, disparity_file_paths, pitches, fig)
          mean_X(1, c) = sum/num;
       end
    end % End loop through data
+
+   plot(mean_X, 'm', 'LineWidth',3);
 
    if do_find ~= 0
       find_ccds_aux(mean_X, fig)
