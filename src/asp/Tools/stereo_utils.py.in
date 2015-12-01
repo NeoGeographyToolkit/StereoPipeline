@@ -136,6 +136,15 @@ def stereo_run(prog, args, opt, **kw):
     if code != 0:
         raise Exception('Stereo step ' + kw['msg'] + ' failed')
 
+# When printing the version, don't throw an error. Just exit quetly.
+def print_version_and_exit(opt, args):
+    args.append('-v')
+    try:
+        stereo_run('stereo_parse', args, opt, msg='')
+    except Exception, e:
+        pass
+    sys.exit(0)
+
 def run_sparse_disp(args, opt):
 
     settings   = run_and_parse_output( "stereo_parse", args, ",", opt.verbose )

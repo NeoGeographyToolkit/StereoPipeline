@@ -517,6 +517,9 @@ if __name__ == '__main__':
     (opt, args) = p.parse_args()
     args=unescape_vals(args) # to do: somehow, merge into the above call
 
+    if opt.version:
+        print_version_and_exit(opt, args)
+
     if not args and not opt.version:
         p.print_help()
         die('\nERROR: Missing input files', code=2)
