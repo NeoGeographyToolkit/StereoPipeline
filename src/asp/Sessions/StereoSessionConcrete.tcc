@@ -152,6 +152,7 @@ void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
     = load_camera_model(model_type_to_load,
                         m_left_image_file,  m_left_camera_file );
 
+  stereo_settings().bundle_adjust_prefix = "";
   if (r_adj_prefix != "" && r_adj_prefix != "NONE")
     stereo_settings().bundle_adjust_prefix = r_adj_prefix;
   m_right_map_proj_model
