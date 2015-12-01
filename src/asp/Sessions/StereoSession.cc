@@ -257,22 +257,24 @@ namespace asp {
     return;
   }
 
-bool StereoSession::shared_preprocessing_hook(asp::BaseOptions              & options,
-					      std::string const             & left_input_file,
-					      std::string const             & right_input_file,
-					      std::string                   & left_output_file,
-					      std::string                   & right_output_file,
-					      std::string                   & left_cropped_file,
-					      std::string                   & right_cropped_file,
-					      float                         & left_nodata_value,
-					      float                         & right_nodata_value,
-					      bool                          & has_left_georef,
-					      bool                          & has_right_georef,
-					      vw::cartography::GeoReference & left_georef,
-					      vw::cartography::GeoReference & right_georef){
+bool StereoSession::
+shared_preprocessing_hook(asp::BaseOptions              & options,
+                          std::string const             & left_input_file,
+                          std::string const             & right_input_file,
+                          std::string                   & left_output_file,
+                          std::string                   & right_output_file,
+                          std::string                   & left_cropped_file,
+                          std::string                   & right_cropped_file,
+                          float                         & left_nodata_value,
+                          float                         & right_nodata_value,
+                          bool                          & has_left_georef,
+                          bool                          & has_right_georef,
+                          vw::cartography::GeoReference & left_georef,
+                          vw::cartography::GeoReference & right_georef){
 
-  // Retrieve nodata values
   {
+    // Retrieve nodata values and let the handles go out of scope right away.
+
     // For this to work the ISIS type must be registered with the
     // DiskImageResource class.  - This happens in "stereo.cc", so
     // these calls will create DiskImageResourceIsis objects.
