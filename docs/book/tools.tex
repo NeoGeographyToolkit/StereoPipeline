@@ -220,6 +220,7 @@ images are not map-projected and alignment is homography or affine
 epipolar).
 
 \subsubsection{Create GCP}
+\label{bagcp}
 
 \texttt{stereo\_gui} can be used to create
 ground control point (GCP) files for \texttt{bundle\_adjust}. It is
@@ -513,10 +514,12 @@ passed to \texttt{stereo} via the option
 \texttt{-\/-bundle-adjust-prefix}.
 
 \subsection{Ground control points}
+
 A number of plain-text files containing ground control points (GCP) can be
 passed as inputs to \texttt{bundle\_adjust}.
 
-The \texttt{stereo\_gui} program can be used to create GCPs.
+These can eithre be created by hand, or using \texttt{stereo\_gui}
+(section \ref{bagcp}).
 
 A GCP file must end with a .gcp extension, and contain one ground
 control point per line. Each line must have the following fields:
@@ -546,8 +549,6 @@ of a ground control point measurement:
 \begin{verbatim}
 5 23.7 160.1 427.1 1.0 1.0 1.0 image1.tif 124.5 19.7 1.0 1.0 image2.tif 254.3 73.9 1.0 1.0
 \end{verbatim}
-
-%                           VISUALIZATION TOOLS
 
 \section{point2dem}
 \label{point2dem}

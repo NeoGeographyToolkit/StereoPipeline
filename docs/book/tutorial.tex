@@ -289,10 +289,12 @@ currently model refraction due to light bending in Earth's
 atmosphere. It is our understanding that this could represent
 misplacement of points up to a meter for some imagery. However this is
 still smaller error than the error from measurement of the spacecraft's
-position and orientation. We do not provide facilities for correcting
-spacecraft altitude either. The \texttt{pc\_align} tool discussed in
-section \ref{pc-align-example} can be used to align the terrain obtained
-from Stereo Pipeline to an accurate set of ground measurements.
+position and orientation. The latter can be corrected using bundle
+adjustment, ideally used with ground control points (section
+\ref{bundleadjust}). Alternatively, the \texttt{pc\_align} tool
+discussed in section \ref{pc-align-example} can be used to align the
+terrain obtained from ASP to an accurate set of ground
+measurements.
 
 In the next two sections we will show how to process unmodified and
 map-projected variants of World View imagery. This steps will be the
@@ -1320,6 +1322,14 @@ use the \texttt{mapproject} tool (section \ref{mapproject}).
 
 \newpage
 
+\subsection{Correcting Camera Positions and Orientations}
+
+The \texttt{bundle\_adjust} program can be used to adjust the camera
+positions and orientations before running stereo. These adjustments only
+makes the cameras self-consistent. For the adjustments to be absolute,
+it is necessary to use \texttt{bundle\_adjust} with ground control
+points. This tool is described in section \ref{bundleadjust}.
+
 \subsection{Alignment to Point Clouds From a Different Source}
 \label{pc-align-example}
 Often the 3D terrain models output by \texttt{stereo} (point
@@ -1329,13 +1339,18 @@ kilometers, depending on the spacecraft. This can result from small
 errors in the position and orientation of the satellite cameras taking
 the pictures.
 
-ASP provides a tool named \texttt{pc\_align} for aligning such 3D
-terrains to a much more accurately positioned (if potentially sparser)
-dataset. Such datasets can be made up of ground control points (in the
-case of Earth), or from laser altimetry instruments on satellites, such
-as ICESat/GLASS for Earth, LRO/LOLA on the Moon, and MGS/MOLA on Mars.
-Under the hood, \texttt{pc\_align} uses the Iterative Closest Point
-algorithm (ICP) (both the point-to-plane and point-to-point flavors are supported).
+Such errors can be corrected in advance using bundle adjustment, as
+described in the previous section. That requires using ground control
+points, that may not be easy to collect. Alliteratively, the images and
+cameras can be used as they are, and the absolute position of the output
+point clouds can be corrected in post-processing. For that, ASP provides
+a tool named \texttt{pc\_align}. It aligns a 3D terrain to a much more
+accurately positioned (if potentially sparser) dataset. Such datasets
+can be made up of GPS measurements (in the case of Earth), or from
+laser altimetry instruments on satellites, such as ICESat/GLASS for
+Earth, LRO/LOLA on the Moon, and MGS/MOLA on Mars.  Under the hood,
+\texttt{pc\_align} uses the Iterative Closest Point algorithm (ICP)
+(both the point-to-plane and point-to-point flavors are supported).
 
 The \texttt{pc\_align} tool requires another input, an a priori guess for
 the maximum displacement we expect to see as result of alignment, i.e.,
