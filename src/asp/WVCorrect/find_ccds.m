@@ -22,8 +22,8 @@ function main(do_find, dirs, pitches, plotid)
    do_plot(do_find, ax, pitches, plotid);
    title('x');
    
-   do_plot(do_find, ay, pitches, 1+plotid); 
-   title('y');
+   %do_plot(do_find, ay, pitches, 1+plotid); 
+   %title('y');
 
 %--------------------------------------------------------
 
@@ -39,8 +39,10 @@ function disparity_data = scale_by_pitch(disparity_data, pitch)
 % The main working function!
 function do_plot(do_find, disparity_file_paths, pitches, fig)
    
-   PRINT_EACH_FILE = FALSE
+   PRINT_EACH_FILE = false;
    
+   % TODO: Should input values outside +1/-1 be replaced with NaN?
+
    % Loop through each of the input disparity files and load the data into X.
    X = [];
    for i=1:length(disparity_file_paths)
@@ -59,13 +61,13 @@ function do_plot(do_find, disparity_file_paths, pitches, fig)
       
       [existing_data_length, n_files_stored] = size(X);
       % Deal with size mis-matches by either growing X or disparity_data.
-      if data_length > 0 % If this is not the first file loaded
-         new_data_length = length(disparity_data)
+      if existing_data_length > 0 % If this is not the first file loaded
+         new_data_length = length(disparity_data);
          if new_data_length < existing_data_length % Pad out the new data
             disparity_data = [disparity_data' zeros(1, existing_data_length - new_data_length)]';
          elseif existing_data_length < new_data_length % Pad out the existing data
-            Y  = zeros(new_data_length, n_files_stored);
-            Y(1:new_data_length, 1:n_files_stored) = X;
+            Y = zeros(new_data_length, n_files_stored);
+            Y(1:existing_data_length, 1:n_files_stored) = X;
             X = Y;
             [data_length, n_files_stored] = size(X); % Update these values
          end
@@ -86,7 +88,8 @@ function do_plot(do_find, disparity_file_paths, pitches, fig)
    for r=1:n_files_stored
 
       % Stay away from boundary.
-      BDVAL = 300; % Must tweak this!!!
+      %BDVAL = 300; % Must tweak this!!!
+      BDVAL = 100; % Smaller for working with cropped regions
       
       % Search through the data to find the last? zero value
       c0 = round(data_length/3);
@@ -114,7 +117,7 @@ function do_plot(do_find, disparity_file_paths, pitches, fig)
       for c=1:cs
          X(r, c) = NaN;
       end
-      for c=ce:n
+      for c=ce:data_length
          X(r, c) = NaN;
       end
       
@@ -131,22 +134,25 @@ function do_plot(do_find, disparity_file_paths, pitches, fig)
       sep_size = 0.25; % vertical gap between individual curves, for visibility
    end
    
-   if (PRINT_EACH_FILE) % Plot each of the data sets, vertically shifted
-     for r=1:n_files_stored
-        if r <= length(disparity_file_paths) 
-           disp(sprintf('doing %s', disparity_file_paths{r}));
-        end
+   
+   for r=1:n_files_stored
+      if r <= length(disparity_file_paths) 
+         disp(sprintf('doing %s', disparity_file_paths{r}));
+      end
 
-        % Subtract out a smoothed version of this file's data
-        Y = X(r, :) - find_moving_avg(X(r, :));
-        X(r, :) = Y;
-        
-        % Select a color for this file and plot the shifted data
-        r2 = rem(r-1, length(colors))+1;
-        vertical_offset = sep_size*(r+1) % Visually seperate the plots
-        plot(Y + vertical_offset, colors(r2));         
-     end % End loop through stored files
-   end
+      % Subtract out a smoothed version of this file's data
+      Y = X(r, :) - find_moving_avg(X(r, :));
+      print mean(Y)
+      X(r, :) = Y;
+      
+      if (PRINT_EACH_FILE) % Plot the data set, vertically shifted
+         % Select a color for this file and plot the shifted data
+         r2 = rem(r-1, length(colors))+1;
+         vertical_offset = sep_size*(r+1); % Visually seperate the plots
+         plot(Y + vertical_offset, colors(r2));
+      end
+   end % End loop through stored files
+
 
    % Take the mean of all of the input data
    mean_X = zeros(1, data_length);
@@ -164,12 +170,32 @@ function do_plot(do_find, disparity_file_paths, pitches, fig)
       end
    end % End loop through data
 
-   plot(mean_X, 'm', 'LineWidth',3);
+   mean_line_width = 1;
+   if PRINT_EACH_FILE
+      mean_line_width = 3;
+   end
+   plot(mean_X, 'm', 'LineWidth', mean_line_width);
+   %ylim([-1, 1])
+   
+
+   h1 = zoom;
+   h2 = pan;
+   set(gca,'XTickLabelMode','auto')
+   set(gca,'XTickLabel',num2str(get(gca,'XTick').'))
+   set(h1,'ActionPostCallback',@mypostcallbackX);
+   set(h2,'ActionPostCallback',@mypostcallbackX);
 
    if do_find ~= 0
       find_ccds_aux(mean_X, fig)
    end
-   
+
+
+function mypostcallbackX(obj,evd)
+   % Redo conversion to decimal format
+   set(gca,'XTickLabelMode','auto')
+   set(gca,'XTickLabel',num2str(get(gca,'XTick').'))
+
+
 % Split up a string based on spaces
 function b = split(a)
    b = strread(a,'%s','delimiter',' ')

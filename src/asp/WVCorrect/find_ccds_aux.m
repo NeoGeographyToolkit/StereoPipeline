@@ -9,7 +9,7 @@ function find_ccds_aux(mean_disparity, fig)
    % Call function to detect jumps in the disparity vector
    detected_jumps=find_ccds_aux2(mean_disparity);
 
-   [m, num_jumps] = size(detected_jumps)
+   [m, num_jumps] = size(detected_jumps);
    if (num_jumps == 0)
      disp('No CCD jumps detected!')
      return % Don't need to write output if we did not find anything.
@@ -25,10 +25,10 @@ function find_ccds_aux(mean_disparity, fig)
    PERIOD = 705;
    SHIFT  = -80;
    WIDTH  = 60;
-   [jump_indices, jump_magnitudes] = sparse_ccds(WIDTH, PERIOD, SHIFT, vector_length, jump_indices, jump_magnitudes);
+   [jump_indices, jump_magnitudes] = sparse_ccds(WIDTH, PERIOD, SHIFT, vector_length, jump_indices, jump_magnitudes, fig);
 
    plot(jump_indices, mean_disparity(jump_indices), 'b*'); % Draw blue *'s
-   plot(jump_indices, jump_magnitudes, 'b'); % Draw blue lines?
+   %plot(jump_indices, jump_magnitudes, 'b'); % Draw blue lines?
 
    %[period, shift] = find_true_period(jump_indices, jump_magnitudes);
    
@@ -78,19 +78,60 @@ function [period, shift] = find_true_period(jump_indices, jump_magnitudes)
    disp(sprintf('--period and shift %g %g', period, shift));
    
    
-function [jump_indices, jump_magnitudes] = sparse_ccds(wid, period, shift, vector_length, jump_indices, jump_magnitudes)
+function [jump_indices, jump_magnitudes] = sparse_ccds(wid, period, shift, ...
+                                    vector_length, jump_indices, jump_magnitudes, fig)
    
+   % The known jumps should fall inside the search regions
+   PLOT_SEARCH_REGIONS = true; % This is kind of slow
+   PLOT_KNOWN_JUMPS    = true;
+   WV_SAT_NUM          = 1;
+   CROP_START_COL      = 0 % Crop amount for the "left" image, fixes locations for a single cropped input
+
+   jump_indices = jump_indices;
+
+   if PLOT_KNOWN_JUMPS
+      % CCD correction locations which were determined manually
+      % - The position of the corrections does not change much, so look near these points.
+      [est_jumps_x, est_jumps_y] = get_wv_correct_positions(WV_SAT_NUM);
+      
+
+      % Filter points outside the cropped region
+      est_jumps_x = est_jumps_x - CROP_START_COL;
+      est_jumps_y = est_jumps_y - CROP_START_COL;
+      est_jumps_x = est_jumps_x(find( (est_jumps_x>0) & (est_jumps_x<vector_length)));
+      est_jumps_y = est_jumps_y(find( (est_jumps_y>0) & (est_jumps_y<vector_length)));
+
+
+      plot(est_jumps_x, zeros(1, length(est_jumps_x)), 'g*');
+      plot(est_jumps_y, zeros(1, length(est_jumps_y)), 'y*');
+   end
+
    % Keep one CCD per period
-   P = period*(1:vector_length) + shift;
-   I = find(P <= vector_length);
+   P = period*(1:vector_length) + shift - CROP_START_COL;
+   I = find( (P > 0) & (P <= vector_length));
    P = P(I); 
    % P now contains only multiples of period (+ shift)
    
    
    I=[];
    for i=1:length(P) % For each period multiple
+
+      region_start = P(i)-wid;
+      region_end   = P(i)+wid;
+
+      if PLOT_SEARCH_REGIONS
+         % Shade this search region with a low-opacity box.
+         figure(fig);
+         y = [1  1];
+         x = [region_start  region_end];
+         basevalue = -1;
+         h = area(x, y, basevalue, 'LineStyle',':');
+         child=get(h,'Children');
+         set(child,'FaceAlpha',0.15)
+      end
+
       % Grab jumps that fall within a range from the period position
-      J = find( (jump_indices >= (P(i) - wid)) & (jump_indices <= (P(i) + wid)));
+      J = find( (jump_indices >= region_start) & (jump_indices <= region_end));
       if length(J) == 0
          continue
       end
