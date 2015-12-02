@@ -198,6 +198,7 @@ namespace asp {
     virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,
 					     bool use_sphere_for_isis) const {
       return vw::cartography::Datum("WGS84");
+      //return vw::cartography::Datum("D_MOON");
     }
 
     // Peek inside the images and camera models and return the datum and projection,

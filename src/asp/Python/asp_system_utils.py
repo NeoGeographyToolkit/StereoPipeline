@@ -67,7 +67,7 @@ def checkIfToolExists(toolName):
     # Check if that command failed to find the file
     failString = 'no ' + toolName + ' in ('
     if translateOut.find(failString) >= 0:
-        raise Exception('Missing requested tool ' + toolName)
+        raise Exception('Missing required executable "' + toolName + '", please add it to your PATH.')
     else:
         return True
 

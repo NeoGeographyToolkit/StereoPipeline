@@ -804,147 +804,6 @@ extract_cameras_bundle_adjust( std::vector<std::string>& image_files ) {
   return cam_files;
 }
 
-void handle_arguments( int argc, char *argv[], Options& opt ) {
-  po::options_description general_options("");
-  general_options.add_options()
-//     ("cnet,c", po::value(&opt.cnet_file),
-//      "Load a control network from a file (optional).")
-    ("output-prefix,o",  po::value(&opt.out_prefix), "Prefix for output filenames.")
-    ("bundle-adjuster",  po::value(&opt.ba_type)->default_value("Ceres"),
-                        "Choose a solver from: Ceres, RobustSparse, RobustRef, Sparse, Ref.")
-    ("cost-function",    po::value(&opt.cost_function)->default_value("Cauchy"),
-                         "Choose a cost function from: Cauchy, PseudoHuber, Huber, L1, L2.")
-    ("robust-threshold", po::value(&opt.robust_threshold)->default_value(0.5),
-                         "Set the threshold for robust cost functions. Increasing this makes the solver focus harder on the larger errors.")
-    ("datum",            po::value(&opt.datum_str)->default_value(""),
-                         "Use this datum (needed only if ground control points are used). Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
-                         ("semi-major-axis",  po::value(&opt.semi_major)->default_value(0),
-                         "Explicitly set the datum semi-major axis in meters (needed only if ground control points are used).")
-    ("semi-minor-axis",  po::value(&opt.semi_minor)->default_value(0),
-                         "Explicitly set the datum semi-minor axis in meters (needed only if ground control points are used).")
-    ("session-type,t",   po::value(&opt.stereo_session_string)->default_value(""),
-                         "Select the stereo session type to use for processing. Options: pinhole isis dg rpc. Usually the program can select this automatically by the file extension.")
-    ("min-matches",      po::value(&opt.min_matches)->default_value(30),
-                         "Set the minimum  number of matches between images that will be considered.")
-    ("ip-detect-method",po::value(&opt.ip_detect_method)->default_value(0),
-                     "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
-      ("individually-normalize",   po::bool_switch(&opt.individually_normalize)->default_value(false)->implicit_value(true),
-                     "Individually normalize the input images instead of using common values.")
-    ("max-iterations",   po::value(&opt.max_iterations)->default_value(1000),
-                         "Set the maximum number of iterations.")
-    ("overlap-limit",    po::value(&opt.overlap_limit)->default_value(3),
-                         "Limit the number of subsequent images to search for matches to the current image to this value.")
-    ("camera-weight",    po::value(&opt.camera_weight)->default_value(1.0),
-                         "The weight to give to the constraint that the camera positions/orientations stay close to the original values (only for the Ceres solver).")
-    ("ip-per-tile",             po::value(&opt.ip_per_tile)->default_value(0),
-     "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
-    ("min-triangulation-angle",             po::value(&opt.min_angle)->default_value(0.1),
-     "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.")
-    ("lambda,l",         po::value(&opt.lambda)->default_value(-1),
-                         "Set the initial value of the LM parameter lambda (ignored for the Ceres solver).")
-    ("local-pinhole",    po::bool_switch(&opt.local_pinhole_input)->default_value(false),
-                         "Use special methods to handle a local coordinate input pinhole model.")
-    ("report-level,r",   po::value(&opt.report_level)->default_value(10),
-                         "Use a value >= 20 to get increasingly more verbose output.");
-//     ("save-iteration-data,s", "Saves all camera information between iterations to output-prefix-iterCameraParam.txt, it also saves point locations for all iterations in output-prefix-iterPointsParam.txt.");
-  general_options.add( asp::BaseOptionsDescription(opt) );
-
-  // TODO: When finding the min and max bounds, do a histogram, throw away 5% of points
-  // or something at each end.
-
-  po::options_description positional("");
-  positional.add_options()
-    ("input-files", po::value(&opt.image_files));
-
-  po::positional_options_description positional_desc;
-  positional_desc.add("input-files", -1);
-
-  std::string usage("<images> <cameras> <optional ground control points> -o <output prefix> [options]");
-  bool allow_unregistered = false;
-  std::vector<std::string> unregistered;
-  po::variables_map vm =
-    asp::check_command_line(argc, argv, opt, general_options, general_options,
-                            positional, positional_desc, usage,
-                             allow_unregistered, unregistered);
-
-  opt.gcp_files    = asp::extract_gcps( opt.image_files );
-  opt.camera_files = extract_cameras_bundle_adjust( opt.image_files );
-
-  // If all we have are cubes, those are both images and cameras
-  if (opt.image_files.empty())
-    opt.image_files = opt.camera_files;
-
-  // TODO: Check for duplicates in opt.image_files!
-
-  if ( opt.image_files.empty() )
-    vw_throw( ArgumentErr() << "Missing input image files.\n"
-              << usage << general_options );
-
-  if ( opt.overlap_limit <= 0 )
-    vw_throw( ArgumentErr() << "Must allow search for matches between "
-              << "at least each image and its subsequent one.\n" << usage << general_options );
-
-  if ( opt.camera_weight < 0.0 )
-    vw_throw( ArgumentErr() << "The camera weight must be non-negative.\n" << usage << general_options );
-
-  if (opt.local_pinhole_input && !asp::has_pinhole_extension(opt.camera_files[0]))
-    vw_throw( ArgumentErr() << "Can't use special pinhole handling with non-pinhole input!\n");
-
-  // Copy the IP settings to the global stereosettings() object
-  asp::stereo_settings().ip_matching_method     = opt.ip_detect_method;
-  asp::stereo_settings().individually_normalize = opt.individually_normalize;
-
-  if (!opt.gcp_files.empty()){
-    // Need to read the datum if we have gcps.
-    if (opt.datum_str != ""){
-      // If the user set the datum, use it.
-      opt.datum.set_well_known_datum(opt.datum_str);
-    }else if (opt.semi_major > 0 && opt.semi_minor > 0){
-      // Otherwise, if the user set the semi-axes, use that.
-      opt.datum = cartography::Datum("User Specified Datum",
-                                     "User Specified Spheroid",
-                                     "Reference Meridian",
-                                     opt.semi_major, opt.semi_minor, 0.0);
-    }else{
-      if (!opt.gcp_files.empty())
-        vw_throw( ArgumentErr() << "When ground control points are used, "
-                                << "the datum must be specified.\n" << usage << general_options );
-    }
-    vw_out() << "Will use datum: " << opt.datum << std::endl;
-
-  }
-
-  if ( opt.out_prefix.empty() )
-    vw_throw( ArgumentErr() << "Missing output prefix.\n"
-              << usage << general_options  );
-
-  // Create the output directory
-  vw::create_out_dir(opt.out_prefix);
-
-  // Turn on logging to file
-  asp::log_to_file(argc, argv, "", opt.out_prefix);
-
-  opt.save_iteration = vm.count("save-iteration-data");
-  boost::to_lower( opt.stereo_session_string );
-  boost::to_lower( opt.ba_type );
-  boost::to_lower( opt.cost_function );
-  if ( !( opt.ba_type == "ceres"        ||
-          opt.ba_type == "robustsparse" ||
-          opt.ba_type == "robustref"    ||
-          opt.ba_type == "sparse"       ||
-          opt.ba_type == "ref"
-          ) )
-    vw_throw( ArgumentErr() << "Unknown bundle adjustment version: " << opt.ba_type
-              << ". Options are: [Ceres, RobustSparse, RobustRef, Sparse, Ref]\n" );
-
-}
-
-
-
-
-//============================================================
-// New code
-
 // TODO: Seems surprising we can't do this with our VW classes.
 Eigen::Affine3d Find3DAffineTransform(Eigen::Matrix3Xd in, Eigen::Matrix3Xd out) {
   // Default output
@@ -1151,8 +1010,6 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
     } // End loop through control network points
 */
 
-
-
     // Apply the transform to the cameras
     std::cout << "---Transform camera positions" << std::endl;
     for (size_t icam = 0; icam < opt.camera_models.size(); icam++){
@@ -1200,9 +1057,144 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
   return true;
 } // End function init_pinhole_model_with_gcp
 
+
+
+void handle_arguments( int argc, char *argv[], Options& opt ) {
+  po::options_description general_options("");
+  general_options.add_options()
+//     ("cnet,c", po::value(&opt.cnet_file),
+//      "Load a control network from a file (optional).")
+    ("output-prefix,o",  po::value(&opt.out_prefix), "Prefix for output filenames.")
+    ("bundle-adjuster",  po::value(&opt.ba_type)->default_value("Ceres"),
+                        "Choose a solver from: Ceres, RobustSparse, RobustRef, Sparse, Ref.")
+    ("cost-function",    po::value(&opt.cost_function)->default_value("Cauchy"),
+                         "Choose a cost function from: Cauchy, PseudoHuber, Huber, L1, L2.")
+    ("robust-threshold", po::value(&opt.robust_threshold)->default_value(0.5),
+                         "Set the threshold for robust cost functions. Increasing this makes the solver focus harder on the larger errors.")
+    ("datum",            po::value(&opt.datum_str)->default_value(""),
+                         "Use this datum (needed only if ground control points are used). Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
+                         ("semi-major-axis",  po::value(&opt.semi_major)->default_value(0),
+                         "Explicitly set the datum semi-major axis in meters (needed only if ground control points are used).")
+    ("semi-minor-axis",  po::value(&opt.semi_minor)->default_value(0),
+                         "Explicitly set the datum semi-minor axis in meters (needed only if ground control points are used).")
+    ("session-type,t",   po::value(&opt.stereo_session_string)->default_value(""),
+                         "Select the stereo session type to use for processing. Options: pinhole isis dg rpc. Usually the program can select this automatically by the file extension.")
+    ("min-matches",      po::value(&opt.min_matches)->default_value(30),
+                         "Set the minimum  number of matches between images that will be considered.")
+    ("ip-detect-method",po::value(&opt.ip_detect_method)->default_value(0),
+                     "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
+      ("individually-normalize",   po::bool_switch(&opt.individually_normalize)->default_value(false)->implicit_value(true),
+                     "Individually normalize the input images instead of using common values.")
+    ("max-iterations",   po::value(&opt.max_iterations)->default_value(1000),
+                         "Set the maximum number of iterations.")
+    ("overlap-limit",    po::value(&opt.overlap_limit)->default_value(3),
+                         "Limit the number of subsequent images to search for matches to the current image to this value.")
+    ("camera-weight",    po::value(&opt.camera_weight)->default_value(1.0),
+                         "The weight to give to the constraint that the camera positions/orientations stay close to the original values (only for the Ceres solver).")
+    ("ip-per-tile",             po::value(&opt.ip_per_tile)->default_value(0),
+     "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
+    ("min-triangulation-angle",             po::value(&opt.min_angle)->default_value(0.1),
+     "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.")
+    ("lambda,l",         po::value(&opt.lambda)->default_value(-1),
+                         "Set the initial value of the LM parameter lambda (ignored for the Ceres solver).")
+    ("local-pinhole",    po::bool_switch(&opt.local_pinhole_input)->default_value(false),
+                         "Use special methods to handle a local coordinate input pinhole model.")
+    ("report-level,r",   po::value(&opt.report_level)->default_value(10),
+                         "Use a value >= 20 to get increasingly more verbose output.");
+//     ("save-iteration-data,s", "Saves all camera information between iterations to output-prefix-iterCameraParam.txt, it also saves point locations for all iterations in output-prefix-iterPointsParam.txt.");
+  general_options.add( asp::BaseOptionsDescription(opt) );
+
+  // TODO: When finding the min and max bounds, do a histogram, throw away 5% of points
+  // or something at each end.
+
+  po::options_description positional("");
+  positional.add_options()
+    ("input-files", po::value(&opt.image_files));
+
+  po::positional_options_description positional_desc;
+  positional_desc.add("input-files", -1);
+
+  std::string usage("<images> <cameras> <optional ground control points> -o <output prefix> [options]");
+  bool allow_unregistered = false;
+  std::vector<std::string> unregistered;
+  po::variables_map vm =
+    asp::check_command_line(argc, argv, opt, general_options, general_options,
+                            positional, positional_desc, usage,
+                             allow_unregistered, unregistered);
+
+  opt.gcp_files    = asp::extract_gcps( opt.image_files );
+  opt.camera_files = extract_cameras_bundle_adjust( opt.image_files );
+
+  // If all we have are cubes, those are both images and cameras
+  if (opt.image_files.empty())
+    opt.image_files = opt.camera_files;
+
+  // TODO: Check for duplicates in opt.image_files!
+
+  if ( opt.image_files.empty() )
+    vw_throw( ArgumentErr() << "Missing input image files.\n"
+              << usage << general_options );
+
+  if ( opt.overlap_limit <= 0 )
+    vw_throw( ArgumentErr() << "Must allow search for matches between "
+              << "at least each image and its subsequent one.\n" << usage << general_options );
+
+  if ( opt.camera_weight < 0.0 )
+    vw_throw( ArgumentErr() << "The camera weight must be non-negative.\n" << usage << general_options );
+
+  if (opt.local_pinhole_input && !asp::has_pinhole_extension(opt.camera_files[0]))
+    vw_throw( ArgumentErr() << "Can't use special pinhole handling with non-pinhole input!\n");
+
+  // Copy the IP settings to the global stereosettings() object
+  asp::stereo_settings().ip_matching_method     = opt.ip_detect_method;
+  asp::stereo_settings().individually_normalize = opt.individually_normalize;
+
+  if (!opt.gcp_files.empty()){
+    // Need to read the datum if we have gcps.
+    if (opt.datum_str != ""){
+      // If the user set the datum, use it.
+      opt.datum.set_well_known_datum(opt.datum_str);
+    }else if (opt.semi_major > 0 && opt.semi_minor > 0){
+      // Otherwise, if the user set the semi-axes, use that.
+      opt.datum = cartography::Datum("User Specified Datum",
+                                     "User Specified Spheroid",
+                                     "Reference Meridian",
+                                     opt.semi_major, opt.semi_minor, 0.0);
+    }else{
+      if (!opt.gcp_files.empty())
+        vw_throw( ArgumentErr() << "When ground control points are used, "
+                                << "the datum must be specified.\n" << usage << general_options );
+    }
+    vw_out() << "Will use datum: " << opt.datum << std::endl;
+
+  }
+
+  if ( opt.out_prefix.empty() )
+    vw_throw( ArgumentErr() << "Missing output prefix.\n"
+              << usage << general_options  );
+
+  // Create the output directory
+  vw::create_out_dir(opt.out_prefix);
+
+  // Turn on logging to file
+  asp::log_to_file(argc, argv, "", opt.out_prefix);
+
+  opt.save_iteration = vm.count("save-iteration-data");
+  boost::to_lower( opt.stereo_session_string );
+  boost::to_lower( opt.ba_type );
+  boost::to_lower( opt.cost_function );
+  if ( !( opt.ba_type == "ceres"        ||
+          opt.ba_type == "robustsparse" ||
+          opt.ba_type == "robustref"    ||
+          opt.ba_type == "sparse"       ||
+          opt.ba_type == "ref"
+          ) )
+    vw_throw( ArgumentErr() << "Unknown bundle adjustment version: " << opt.ba_type
+              << ". Options are: [Ceres, RobustSparse, RobustRef, Sparse, Ref]\n" );
+
+}
+
 // ================================================================================
-
-
 
 int main(int argc, char* argv[]) {
 
