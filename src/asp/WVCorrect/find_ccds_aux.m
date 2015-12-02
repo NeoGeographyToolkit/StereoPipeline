@@ -83,7 +83,7 @@ function [jump_indices, jump_magnitudes] = sparse_ccds(wid, period, shift, ...
    
    % The known jumps should fall inside the search regions
    PLOT_SEARCH_REGIONS = true; % This is kind of slow
-   PLOT_KNOWN_JUMPS    = true;
+   PLOT_KNOWN_JUMPS    = false;
    WV_SAT_NUM          = 1;
    CROP_START_COL      = 0 % Crop amount for the "left" image, fixes locations for a single cropped input
 

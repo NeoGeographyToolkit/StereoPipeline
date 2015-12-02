@@ -142,7 +142,6 @@ function do_plot(do_find, disparity_file_paths, pitches, fig)
 
       % Subtract out a smoothed version of this file's data
       Y = X(r, :) - find_moving_avg(X(r, :));
-      print mean(Y)
       X(r, :) = Y;
       
       if (PRINT_EACH_FILE) % Plot the data set, vertically shifted
