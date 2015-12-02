@@ -1,9 +1,17 @@
 *** RELEASE 2.5.2, Upcoming ***
 
+Highlights
+
+ - camera_solve
+    * A new tool which uses the THEIA library to compute camera positions
+      where no metadata is available.
+
+Other
+
  - docs
     * Mention DERT, a tool for exploring large DEMs.
 
-*** RELEASE 2.5.1, Nomverber 13, 2015 ***
+*** RELEASE 2.5.1, November 13, 2015 ***
 
 Highlights
 
