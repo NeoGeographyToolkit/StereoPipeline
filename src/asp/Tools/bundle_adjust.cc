@@ -861,6 +861,56 @@ Eigen::Affine3d Find3DAffineTransform(Eigen::Matrix3Xd in, Eigen::Matrix3Xd out)
   return A;
 }
 
+/// Generate a warning if the GCP's are really far from the IP points
+/// - This is intended to help catch the common lat/lon swap in GCP files.
+void check_gcp_dists(Options const &opt) {
+
+    // Make one iteration just to count the points.
+    const ControlNetwork & cnet = *opt.cnet.get(); // Helper alias
+    const int num_cnet_points = static_cast<int>(cnet.size());
+    double gcp_count=0, ip_count=0;
+    for (int ipt = 0; ipt < num_cnet_points; ipt++){
+
+      if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
+        gcp_count += 1.0;
+      else {
+        // Use triangulation to estimate the position of this control point using
+        //   the current set of camera models.
+        ControlPoint cp_new = cnet[ipt];     
+        double minimum_angle = 0;
+        vw::ba::triangulate_control_point(cp_new, opt.camera_models, minimum_angle);
+        if (cp_new.position() == Vector3())
+          continue; // Skip points that fail to triangulate
+        
+        ip_count += 1.0;
+      }
+    } // End loop through control network points
+
+    // Make another iteration to compute the mean.
+    Vector3 mean_gcp(0,0,0);
+    Vector3 mean_ip(0,0,0);
+    for (int ipt = 0; ipt < num_cnet_points; ipt++){
+
+      if (cnet[ipt].type() == ControlPoint::GroundControlPoint) {
+        mean_gcp += (cnet[ipt].position() / gcp_count);
+      }
+      else {
+        // Use triangulation to estimate the position of this control point using
+        //   the current set of camera models.
+        ControlPoint cp_new = cnet[ipt];
+        double minimum_angle = 0;
+        vw::ba::triangulate_control_point(cp_new, opt.camera_models, minimum_angle);
+        if (cp_new.position() == Vector3())
+          continue; // Skip points that fail to triangulate
+      
+        mean_ip += (cp_new.position() / ip_count);
+      }
+    } // End loop through control network points
+    
+    double dist = norm_2(mean_ip - mean_gcp);
+    if (dist > 100000)
+      std::cout << "WARNING: GCPs are over 100 KM from the other points.  Are your lat/lon GCP coordinates swapped?\n";
+}
 
 
 /// Initialize the position and orientation of each pinhole camera model using
@@ -1354,6 +1404,8 @@ int main(int argc, char* argv[]) {
     //   to adjust our camera model positions.  Otherwise we could init the adjustment values...
     if ((opt.gcp_files.size() > 0) && opt.local_pinhole_input)
       init_pinhole_model_with_gcp(opt);
+    else
+      check_gcp_dists(opt); // If not a local pinhole, issue a warning if the GCPs are far away.
 
     // Check that we modified the CNET properly
     save_cnet_as_csv(opt, opt.out_prefix + "-cnet.csv");
