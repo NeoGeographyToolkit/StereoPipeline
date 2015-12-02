@@ -72,7 +72,7 @@ def prep_input_images(options):
         if not (ext == common_ext):
             raise Exception('All input images must have the same extension!')
 
-        # TODO: Use gdal_translate to convert the file type.
+        # If needed we could use gdal_translate to convert the file
         if ext in convert_ext_list:
             raise Exception('This image type is not yet supported!')
             
@@ -115,12 +115,35 @@ def generate_flagfile(options):
         else:
             return 'false'
 
+    if options.existing_theia_flagfile:
 
-   
-    # TODO: Make use of options.custom_theia_flagfile
+        # Replace the file path options
+        image_line        = '--images='               +options.image_wildcard
+        calib_line        = '--calibration_file='     +pathPrint(options.camera_param_path)
+        output_match_line = '--output_matches_file='  +pathPrint(match_path)
+        output_line       = '--output_reconstruction='+pathPrint(output_path)
 
+        # Open the input file
+        input_handle = open(options.existing_theia_flagfile, 'r')
+        output_string = ''
+        for line in input_handle:
+            out_line = line
+            # Swap out specific file paths, leaving all the other options.
+            if '--images=' in line:
+                out_line = image_line +'\n'
+            if '--calibration_file=' in line:
+                out_line = calib_line +'\n'
+            if '--output_matches_file=' in line:
+                out_line = output_match_line +'\n'
+            if '--output_reconstruction=' in line:
+                out_line = output_line +'\n'
+            output_string += out_line
+            
+        input_handle.close()
+        
+    else: # The user did not provide a flag file, generate our own from defaults.
 
-    output_string =  '''
+        output_string =  '''
 ############### Input/Output ###############
 # Input/output files.
 # Set these if a matches file is not present. Images should be a filepath with a
@@ -232,9 +255,13 @@ def generate_flagfile(options):
 # Increase this number to get more verbose logging.
 --v=3
 '''
+
+    # Now have a string to write to the flag file, however we got it.
+
     handle = open(flagfile_path, 'w')
     handle.write(output_string)
     handle.close()
+
     return flagfile_path
 
 def build_reconstruction(options):
@@ -246,8 +273,6 @@ def build_reconstruction(options):
     # Create the Theia config file!
     flagfile_path = generate_flagfile(options)
 
-    # TODO: Make sure this tool is exported by BB!
-
     if (not os.path.exists(options.theia_output_path)) or options.overwrite:
         cmd = ['/home/smcmich1/repo/BinaryBuilder/build_root_gcc52/build/theia/TheiaSfM-0.5/build/bin/build_reconstruction', '--flagfile', flagfile_path]
         asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
@@ -258,13 +283,11 @@ def build_reconstruction(options):
             raise Exception('Theia failed to generate a camera reconstruction')
         shutil.move(theia_temp_output_path, options.theia_output_path)
 
-    # TODO: Any other output verification needed?
     return options.theia_output_path
 
 def export_cameras_to_vw(options):
     '''Convert from Theia's camera format to VW's pinhole format'''
 
-    # TODO: Make sure this tool is exported by BB!
     # Need to wrap the image wildcard in quotes so it does not get expanded too early!
     cmd = ['/home/smcmich1/repo/BinaryBuilder/build_root_gcc52/build/theia/TheiaSfM-0.5/build/bin/export_reconstruction_to_vw',  '--reconstruction', options.theia_output_path, 
            '--output_directory', options.output_folder, '--images', options.image_wildcard]
@@ -289,33 +312,34 @@ def run_bundle_adjust(options):
     output_prefix = os.path.join(options.output_folder, 'asp_ba_out')
 
     # Some extra bundle adjust params
-    # - TODO: Figure out the datum automatically
-    ba_params = ['--max-iterations', '1000', '--threads', '1', 
-                 '-t', 'pinhole', '--datum', 'wgs84']
+    ba_params = ['--local-pinhole', '-t', 'pinhole', '--datum', options.datum]
+    if options.bundle_params:
+        ba_params += options.bundle_params.split(' ')
 
     # Always run this step as otherwise there was no point to calling the tool
 
     # Run ASP's bundle_adjust tool    
-    cmd = ['bundle_adjust'] + options.input_images + options.theia_camera_models
+    cmd = ['/home/smcmich1/repo/StereoPipeline/src/asp/Tools/bundle_adjust'] + options.input_images + options.theia_camera_models
     cmd += [options.gcp_path, '-o', output_prefix]
     cmd += ba_params
     asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
 
     # The previous call should create a .pinhole file for every input image in the output folder
-    options.asp_camera_models = get_paths_with_extension(options.input_images, 
-                                                         options.output_folder, 
-                                                         '.pinhole', 'asp_ba_out-')
+    ba_camera_models = get_paths_with_extension(options.input_images, options.output_folder,
+                                                '.pinhole', prefix='asp_ba_out-')
+    output_paths = get_paths_with_extension(options.input_images, options.output_folder,
+                                            '.pinhole', prefix='')
 
+    # Move the output files to their final location
     all_found = True
-    for model_path in options.asp_camera_models:       
+    for (model_path, output_path) in zip(ba_camera_models, output_paths):
         if not os.path.exists(model_path):
             all_found = False
             print 'Failed to generate model file: ' + model_path
+        shutil.move(model_path, output_path)
+        print '--> Wrote output camera model: ' + output_path
     if not all_found:
         raise Exception('Bundle adjustment failed to generate all camera models.')
-
-
-    # TODO: Where should the final files be located??
 
 
 #------------------------------------------------------------------------------
@@ -340,29 +364,24 @@ def main(argsIn):
         parser.add_option("--overwrite",       action="store_true", default=False,
                                                dest="overwrite",  
                                                help="Overwrite any partial computation results on disk.")
-
+        parser.add_option('--datum',  dest='datum', default='wgs84',
+                                         help='Datum to use.  Options: WGS_1984 (default), D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON)')
         parser.add_option('--calib-file',  dest='camera_param_path', default=None,
                                          help='Path to file containing camera model information')
         parser.add_option('--gcp-file',  dest='gcp_path', default=None,
                                          help='Path to file containing Ground Control Points')
-
-        parser.add_option("--solve-intrinsics", action="store_true", default=False,
-                                               dest="solveIntrinsic",  help="Use the optimizer to improve the intrinsic camera parameter estimates.")
-
-        # TODO:
-        # bundle_adjust options string?
-        # How to get datum info in?
-        # Get our export tool into the Theia build
-
-        # TODO: Hook up functionality behind these features:
+        # Solving for intrinsics is disabled until either Theia or our bundle adjustment tool supports it!
+        #parser.add_option("--solve-intrinsics", action="store_true", default=False,
+        #                                       dest="solveIntrinsic",  help="Use the optimizer to improve the intrinsic camera parameter estimates.")
+        parser.add_option('--bundle-adjust-params',  dest='bundle_params', default=None,
+                                         help='Params string (in quotes "") passed to the bundle_adjust tool')
         parser.add_option('--theia-flagfile',  dest='existing_theia_flagfile', default=None,
                                          help='Path to a custom THEIA flag file to fine-tune its operation')
-        parser.add_option('--work-dir',  dest='workDir', default=None,
-                                         help='Working directory to assemble the tiles in')
-
 
         # This call handles all the parallel_mapproject specific options.
         (options, args) = parser.parse_args(argsIn)
+
+        options.solveIntrinsic = False # Disable this until we can support it!
 
         # Check the required positional arguments.
         if len(args) < 1:
@@ -402,7 +421,7 @@ def main(argsIn):
     print 'Finished extracting camera models'
     
     if options.gcp_path:
-        if not os.path.exists(gcp_path):
+        if not os.path.exists(options.gcp_path):
             raise Exception('The provided ground control point file does not exist!')
         print 'Ground control point file found, running global camera adjustment...'
     

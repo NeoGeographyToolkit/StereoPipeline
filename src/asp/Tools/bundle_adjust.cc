@@ -100,7 +100,7 @@ struct Options : public asp::BaseOptions {
   double min_angle, lambda, camera_weight, robust_threshold;
   int report_level, min_matches, max_iterations, overlap_limit;
 
-  bool save_iteration, using_pinhole_cameras;
+  bool save_iteration, local_pinhole_input;
   std::string datum_str;
   double semi_major, semi_minor;
 
@@ -842,6 +842,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.")
     ("lambda,l",         po::value(&opt.lambda)->default_value(-1),
                          "Set the initial value of the LM parameter lambda (ignored for the Ceres solver).")
+    ("local-pinhole",    po::bool_switch(&opt.local_pinhole_input)->default_value(false),
+                         "Use special methods to handle a local coordinate input pinhole model.")
     ("report-level,r",   po::value(&opt.report_level)->default_value(10),
                          "Use a value >= 20 to get increasingly more verbose output.");
 //     ("save-iteration-data,s", "Saves all camera information between iterations to output-prefix-iterCameraParam.txt, it also saves point locations for all iterations in output-prefix-iterPointsParam.txt.");
@@ -885,11 +887,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if ( opt.camera_weight < 0.0 )
     vw_throw( ArgumentErr() << "The camera weight must be non-negative.\n" << usage << general_options );
 
-  // Determine if we are optimizing pinhole camera models
-  opt.using_pinhole_cameras = asp::has_pinhole_extension(opt.camera_files[0]);
+  if (opt.local_pinhole_input && !asp::has_pinhole_extension(opt.camera_files[0]))
+    vw_throw( ArgumentErr() << "Can't use special pinhole handling with non-pinhole input!\n");
 
   // Copy the IP settings to the global stereosettings() object
-  asp::stereo_settings().ip_matching_method = opt.ip_detect_method;
+  asp::stereo_settings().ip_matching_method     = opt.ip_detect_method;
   asp::stereo_settings().individually_normalize = opt.individually_normalize;
 
   if (!opt.gcp_files.empty()){
@@ -1324,13 +1326,11 @@ int main(int argc, char* argv[]) {
                  << "the number of interest points per tile using "
                  << "--ip-per-tile.\n";
         return 1;
-
       }
 
       vw::ba::add_ground_control_points( (*opt.cnet), opt.image_files,
                                          opt.gcp_files.begin(), opt.gcp_files.end(),
                                          opt.datum);
-
       // DEBUG
       //opt.cnet->write_binary(opt.out_prefix + "-control");
       //save_cnet_as_csv(opt, opt.out_prefix + "-cnet.csv");
@@ -1360,16 +1360,16 @@ int main(int argc, char* argv[]) {
     // - This function also updates all the ControlNetwork world point positions
     // - We could do this for other camera types too, but it would require us to be able
     //   to adjust our camera model positions.  Otherwise we could init the adjustment values...
-    if ((opt.gcp_files.size() > 0) && opt.using_pinhole_cameras)
+    if ((opt.gcp_files.size() > 0) && opt.local_pinhole_input)
       init_pinhole_model_with_gcp(opt);
 
     // Check that we modified the CNET properly
     save_cnet_as_csv(opt, opt.out_prefix + "-cnet.csv");
 
-    if (opt.using_pinhole_cameras == false) {
+    if (opt.local_pinhole_input == false) {
       do_ba_with_model<BundleAdjustmentModel>(opt);
     }
-    else{ // Pinhole models
+    else{ // Use for local pinhole models, could also be used for other pinhole models.
 
       BAPinholeModel ba_model(opt.camera_models, opt.cnet);
 
@@ -1384,12 +1384,12 @@ int main(int argc, char* argv[]) {
                                                             opt.camera_files[icam]);
         cam_file = fs::path(cam_file).replace_extension("pinhole").string();
         cam_files.push_back(cam_file);
-        /*
-        std::cout << "Camera output GDC coordinate: " << 
-           opt.datum.cartesian_to_geodetic(ba_model.get_camera_model(icam).camera_center()) << std::endl;
-         std::cout << "Pixel vector 100,100: " << 
-           ba_model.get_camera_model(icam).pixel_to_vector(Vector2(100, 100)) << std::endl;
-        */
+        
+        //std::cout << "Camera output GDC coordinate: " << 
+        //   opt.datum.cartesian_to_geodetic(ba_model.get_camera_model(icam).camera_center()) << std::endl;
+        // std::cout << "Pixel vector 100,100: " << 
+        //   ba_model.get_camera_model(icam).pixel_to_vector(Vector2(100, 100)) << std::endl;
+        
       }
       ba_model.write_camera_models(cam_files);
       
