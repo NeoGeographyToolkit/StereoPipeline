@@ -59,6 +59,7 @@ endif
 
 if MAKE_APP_BUNDLE_ADJUST
   bin_PROGRAMS += bundle_adjust
+  bin_SCRIPTS  += camera_solve
   bundle_adjust_SOURCES = bundle_adjust.cc bundle_adjust.h
   bundle_adjust_LDADD = $(APP_BUNDLE_ADJUST_LIBS)
 endif

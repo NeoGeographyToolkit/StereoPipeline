@@ -471,7 +471,7 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
   // Do any init required for this camera model.
   // - Currently we don't do anything except for pinhole models with no input cameras.
   update_cnet_and_init_cams(ba_model, opt, (*opt.cnet), cameras_vec, intrinsics_vec);
-
+/*
   // DEBUG
   std::cout << "Initial camera parameters: ";
   for (size_t i=0; i<cameras_vec.size(); ++i)
@@ -480,7 +480,7 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
   for (size_t i=0; i<intrinsics_vec.size(); ++i)
     std::cout << intrinsics_vec[i] << "  ";
   std::cout << std::endl;
-
+*/
 
   // Camera extrinsics and intrinsics
   double* cameras = &cameras_vec[0];
@@ -613,7 +613,6 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
 }
 
 /// The older approach, using VW's solver
-/// - TODO: Does this support empty input pinhole model option?
 template <class AdjusterT>
 void do_ba_nonceres(typename AdjusterT::model_type & ba_model,
                     typename AdjusterT::cost_type const& cost_function,
@@ -684,8 +683,8 @@ void save_cnet_as_csv(Options& opt, std::string const& cnetFile){
   // control points.
 
   if (opt.datum.name() == UNSPECIFIED_DATUM)
-    vw_throw( ArgumentErr() << "No datum was specified. "
-              << "Cannot save control network as csv.\n" );
+    vw_throw( ArgumentErr() << "FATAL: No datum was specified. "
+                            << "Cannot save control network as csv.\n" );
 
   vw_out() << "Writing: " << cnetFile << std::endl;
   std::ofstream ofs(cnetFile.c_str());
@@ -1123,7 +1122,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                          "Set the threshold for robust cost functions. Increasing this makes the solver focus harder on the larger errors.")
     ("datum",            po::value(&opt.datum_str)->default_value(""),
                          "Use this datum (needed only if ground control points are used). Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
-                         ("semi-major-axis",  po::value(&opt.semi_major)->default_value(0),
+    ("semi-major-axis",  po::value(&opt.semi_major)->default_value(0),
                          "Explicitly set the datum semi-major axis in meters (needed only if ground control points are used).")
     ("semi-minor-axis",  po::value(&opt.semi_minor)->default_value(0),
                          "Explicitly set the datum semi-minor axis in meters (needed only if ground control points are used).")
@@ -1402,13 +1401,12 @@ int main(int argc, char* argv[]) {
     // - This function also updates all the ControlNetwork world point positions
     // - We could do this for other camera types too, but it would require us to be able
     //   to adjust our camera model positions.  Otherwise we could init the adjustment values...
-    if ((opt.gcp_files.size() > 0) && opt.local_pinhole_input)
-      init_pinhole_model_with_gcp(opt);
-    else
-      check_gcp_dists(opt); // If not a local pinhole, issue a warning if the GCPs are far away.
-
-    // Check that we modified the CNET properly
-    save_cnet_as_csv(opt, opt.out_prefix + "-cnet.csv");
+    if (opt.gcp_files.size() > 0) {
+      if (opt.local_pinhole_input)
+        init_pinhole_model_with_gcp(opt);
+      else
+        check_gcp_dists(opt); // If not a local pinhole, issue a warning if the GCPs are far away.
+    }
 
     if (opt.local_pinhole_input == false) {
       do_ba_with_model<BundleAdjustmentModel>(opt);
