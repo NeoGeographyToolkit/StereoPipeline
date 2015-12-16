@@ -518,7 +518,7 @@ passed to \texttt{stereo} via the option
 A number of plain-text files containing ground control points (GCP) can be
 passed as inputs to \texttt{bundle\_adjust}.
 
-These can eithre be created by hand, or using \texttt{stereo\_gui}
+These can either be created by hand, or using \texttt{stereo\_gui}
 (section \ref{bagcp}).
 
 A GCP file must end with a .gcp extension, and contain one ground
@@ -1552,14 +1552,14 @@ specified via the \texttt{-\/-datum} option, or by setting
 
 \subsection{The alignment transform}
 
-The transform obtained by \texttt{pc\_align} is output to a file as a
+The transform obtained by \texttt{pc\_align} is output to a text file as a
 $4\times 4$ matrix with the upper-left $3\times 3$ submatrix being the
 rotation and the top three elements of the right-most column being the
 translation. This transform, if applied to the source point cloud, will
 bring it in alignment with the reference point cloud. The transform
 assumes the 3D Cartesian coordinate system with the origin at the planet
 center. This matrix can be supplied back to the tool as an initial
-guess. The inverse transform is saved to a file as well.
+guess (section \ref{prevtrans}). The inverse transform is saved to a file as well.
 
 The \texttt{pc\_align} program outputs the translation component of this
 transform, defined as the vector from the centroid of the original
@@ -1578,6 +1578,18 @@ The rotation + transform itself, with its origin at the center of the planet,
 can result in large movements on the planet surface even for small angles
 of rotation. Because of this it may be difficult to interpret both its rotation
 and translation components.
+
+\subsection{Applying a previous transform}
+\label{prevtrans}
+
+The transform output by \texttt{pc\_align} can be supplied back to the
+tool as an initial guess via the \texttt{-\/-initial-transform} option,
+with the same or different clouds. If it is desired to simply apply this
+transform to the clouds without further work, one can specify
+\texttt{-\/-num-iterations 0}.  This may be useful, for example, in
+first finding the alignment transform over a smaller, more reliable
+region (e.g., over rock, excluding moving ice), then extending it over the entire
+available dataset.
 
 \subsection{Error metrics and outliers}
 
@@ -1632,17 +1644,16 @@ different, or they differ by a scale factor, manual alignment can be
 used instead, either on its own, or as an initial guess for the
 automatic alignment transform. For that, the input point clouds should
 be first converted to DEMs using \texttt{point2dem}, unless in that
-format already. Then, \texttt{stereo\_gui} can be invoked  to create point
-correspondences (interest point matches) from the reference to the
+format already. Then, \texttt{stereo\_gui} can be invoked to create
+point correspondences (interest point matches) from the reference to the
 source DEM. Once these correspondences are saved to a match file,
 \texttt{pc\_align} can be called with the reference and source DEMs and
 the \texttt{-\/-match-file} option.  This will compute and save to disk
 a rotation + translation + scale transform.  A subsequent invocation of
 \texttt{pc\_align}, either with the original clouds or the DEM created
-from them, can use this transform as an initial guess via the
-\texttt{-\/initial-transform} option. If it is desired to use it as it
-is, without further adjusting it using ICP, one can specify
-\texttt{-\/-num-iterations 0}.
+from them, can use this transform as an initial guess (section
+\ref{prevtrans}).
+
 
 \medskip
 
