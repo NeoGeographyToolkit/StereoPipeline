@@ -54,8 +54,10 @@ function find_ccds_aux(mean_disparity, fig)
    % Write the output files
    disp(sprintf('saving %s', file));
    disp(sprintf('saving %s', file2));
-   save(file,  '-ascii', '-double', 'T');
-   save(file2, '-ascii', '-double', 'mean_disparity');
+   %save(file,  '-ascii', '-double', 'T');
+   %save(file2, '-ascii', '-double', 'mean_disparity');
+   dlmwrite(file, T, 'delimiter', ',', 'precision', 9);
+   dlmwrite(file2, mean_disparity, 'delimiter', ',', 'precision', 9);
    
 
 function [period, shift] = find_true_period(jump_indices, jump_magnitudes)
@@ -77,14 +79,29 @@ function [period, shift] = find_true_period(jump_indices, jump_magnitudes)
    plot(jump_indices(i), jump_magnitudes(i), 'g*');
    disp(sprintf('--period and shift %g %g', period, shift));
    
+
+
+% TODO: Update this
+function [locationsx, locationsy] = get_wv_correct_positions(WV_SAT_NUM)
+
+   %if WV_SAT_NUM == 2
+   locations = [6.9000000000000000e+02,1.3820000000000000e+03,2.0770000000000000e+03,2.7720000000000000e+03,3.4670000000000000e+03,4.1680000000000000e+03,4.8670000000000000e+03,5.5670000000000000e+03,6.2680000000000000e+03,6.9720000000000000e+03,7.6750000000000000e+03,8.3790000000000000e+03,9.0860000000000000e+03,9.7910000000000000e+03,1.0497000000000000e+04,1.1204000000000000e+04,1.1913000000000000e+04,1.2622000000000000e+04,1.3331000000000000e+04,1.4041000000000000e+04,1.4750000000000000e+04,1.5459000000000000e+04,1.6169000000000000e+04,1.6878000000000000e+04,1.7590000000000000e+04,1.8301000000000000e+04,1.9009000000000000e+04,1.9725000000000000e+04,2.0435000000000000e+04,2.1141000000000000e+04,2.1875000000000000e+04,2.2579000000000000e+04,2.3267000000000000e+04,2.3975000000000000e+04,2.4683000000000000e+04,2.5388000000000000e+04,2.6094000000000000e+04,2.6799000000000000e+04,2.7503000000000000e+04,2.8207000000000000e+04,2.8908000000000000e+04,2.9610000000000000e+04,3.0310000000000000e+04,3.1010000000000000e+04,3.1707000000000000e+04,3.2404000000000000e+04,3.3098000000000000e+04,3.3792000000000000e+04,3.4484000000000000e+04];
+   %else
+   %end
+
+   locationsx = locations;
+   locationsy = locations;
    
+   
+
+
 function [jump_indices, jump_magnitudes] = sparse_ccds(wid, period, shift, ...
                                     vector_length, jump_indices, jump_magnitudes, fig)
    
    % The known jumps should fall inside the search regions
-   PLOT_SEARCH_REGIONS = true; % This is kind of slow
-   PLOT_KNOWN_JUMPS    = false;
-   WV_SAT_NUM          = 1;
+   PLOT_SEARCH_REGIONS = false; % This is kind of slow
+   PLOT_KNOWN_JUMPS    = true;
+   WV_SAT_NUM          = 2;
    CROP_START_COL      = 0 % Crop amount for the "left" image, fixes locations for a single cropped input
 
    jump_indices = jump_indices;
