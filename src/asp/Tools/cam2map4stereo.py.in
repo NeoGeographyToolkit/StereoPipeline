@@ -61,6 +61,7 @@ class ImgInfo:
         self.maxlon = None
 
 def mapfile( cube, prefix, suffix ):
+    '''???'''
     items = cube.split('.')
     mapname = '.'.join([items[0], suffix, 'cub'])
 
@@ -82,10 +83,11 @@ def mapfile( cube, prefix, suffix ):
 
     return mapname
 
-def camrange( cube ):
-    # run camrange on cube
+def camrange( cube, options ):
+    '''run camrange on cube'''
     info = ImgInfo();
     try:
+        # Run the camrange function to write to a temp file
         tmpfile = tempfile.NamedTemporaryFile(dir='.', prefix="camrange",
                                               suffix=".txt", mode="w")
         cmd = 'camrange from= '+ cube +' to= '+ tmpfile.name
@@ -96,14 +98,38 @@ def camrange( cube ):
             raise Exception('ProcessError', 'Non zero return code ('+str(result)+')')
         os.system("cat %s" % tmpfile.name )
 
+        # Path to the ISIS getkey tool
         getkey_path = os.environ['ISISROOT']+'/bin/getkey'
 
+        # By default we get the longitude from the Universal field,
+        #   but if the user specified a longitude region we need to match it.
+        lonGroupName = 'UniversalGroundRange'
+        lonDomain    = '360'
+        lonDirection = 'PositiveEast'
+        if options.map:
+            # Read the pertinent values from the map file
+            lonDomainIn    = subprocess.Popen([getkey_path, 'from= '+options.map, "grpname= Mapping", "keyword= LongitudeDomain"   ], stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()[0].strip()
+            lonDirectionIn = subprocess.Popen([getkey_path, 'from= '+options.map, "grpname= Mapping", "keyword= LongitudeDirection"], stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()[0].strip()
+            if lonDomainIn:
+                lonDomain = lonDomainIn
+            if lonDirectionIn:
+                lonDirection = lonDirectionIn
+            # Determine the correct lon group
+            if (lonDomain == '360') and (lonDirection == 'PositiveWest'):
+                lonGroupName = 'PositiveWest360'
+            if (lonDomain == '180') and (lonDirection == 'PositiveEast'):
+                lonGroupName = 'PositiveEast180'
+            if (lonDomain == '180') and (lonDirection == 'PositiveWest'):
+                lonGroupName = 'PositiveWest180'
+        lonGroupString = 'grpname= ' + lonGroupName
+        fromString     = "from= "+ tmpfile.name
+
         # extract information
-        info.resolution = subprocess.Popen([getkey_path, "from= "+ tmpfile.name, "grpname= PixelResolution", "keyword= Lowest"], stdout=subprocess.PIPE).communicate()[0].strip()
-        info.minlat = subprocess.Popen([getkey_path, "from= "+ tmpfile.name, "grpname= UniversalGroundRange", "keyword= MinimumLatitude"], stdout=subprocess.PIPE).communicate()[0].strip()
-        info.maxlat = subprocess.Popen([getkey_path, "from= "+ tmpfile.name, "grpname= UniversalGroundRange", "keyword= MaximumLatitude"], stdout=subprocess.PIPE).communicate()[0].strip()
-        info.minlon = subprocess.Popen([getkey_path, "from= "+ tmpfile.name, "grpname= UniversalGroundRange", "keyword= MinimumLongitude"], stdout=subprocess.PIPE).communicate()[0].strip()
-        info.maxlon = subprocess.Popen([getkey_path, "from= "+ tmpfile.name, "grpname= UniversalGroundRange", "keyword= MaximumLongitude"], stdout=subprocess.PIPE).communicate()[0].strip()
+        info.resolution = subprocess.Popen([getkey_path, fromString, "grpname= PixelResolution",      "keyword= Lowest"          ], stdout=subprocess.PIPE).communicate()[0].strip()
+        info.minlat     = subprocess.Popen([getkey_path, fromString, "grpname= UniversalGroundRange", "keyword= MinimumLatitude" ], stdout=subprocess.PIPE).communicate()[0].strip()
+        info.maxlat     = subprocess.Popen([getkey_path, fromString, "grpname= UniversalGroundRange", "keyword= MaximumLatitude" ], stdout=subprocess.PIPE).communicate()[0].strip()
+        info.minlon     = subprocess.Popen([getkey_path, fromString, lonGroupString,                  "keyword= MinimumLongitude"], stdout=subprocess.PIPE).communicate()[0].strip()
+        info.maxlon     = subprocess.Popen([getkey_path, fromString, lonGroupString,                  "keyword= MaximumLongitude"], stdout=subprocess.PIPE).communicate()[0].strip()
 
     except OSError, e:
         print >>sys.stderr, "Execution failed:", e
@@ -150,15 +176,16 @@ def main():
         except optparse.OptionError, msg:
             raise Usage(msg)
 
-        image1 = camrange( args[0] )
-        image2 = camrange( args[1] )
+        # Call
+        image1 = camrange( args[0], options)
+        image2 = camrange( args[1], options)
 
         mapout = ImgInfo()
 
-        mapout.minlat = max( image1.minlat, image2.minlat )
-        mapout.maxlat = min( image1.maxlat, image2.maxlat )
-        mapout.minlon = max( image1.minlon, image2.minlon )
-        mapout.maxlon = min( image1.maxlon, image2.maxlon )
+        mapout.minlat     = max( image1.minlat,     image2.minlat )
+        mapout.maxlat     = min( image1.maxlat,     image2.maxlat )
+        mapout.minlon     = max( image1.minlon,     image2.minlon )
+        mapout.maxlon     = min( image1.maxlon,     image2.maxlon )
         mapout.resolution = max( image1.resolution, image2.resolution )
 
         if( options.resolution ): mapout.resolution = options.resolution
