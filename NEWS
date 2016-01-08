@@ -8,6 +8,8 @@ Highlights
 
 Other
 
+ - Tools
+    * Suppressed pesky aux.xml warning sometimes printed by GDAL.
  - docs
     * Mention DERT, a tool for exploring large DEMs.
 
