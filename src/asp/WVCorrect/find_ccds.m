@@ -153,7 +153,7 @@ function do_plot(do_find, disparity_file_paths, pitches, fig)
 
    % These colors are rotated through as files are plotted
    colors  = {'b', 'r', 'g', 'c', 'k'};
-   brushes = {'-', '--', '-.', ':'};
+   brushes = {'-', '--', '-.', ':', '-', '--', '-.', ':', '-', '--', '-.', ':', '-', '--', '-.', ':'};
 
    figure(fig); clf; hold on;
    sep_size=0.0;

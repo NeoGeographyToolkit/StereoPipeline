@@ -37,7 +37,7 @@ int main( int argc, char *argv[] ){
 
   // TODO: No need for outdx.txt and outdy.txt, just save with with same prefix.
   if (argc <= 3) {
-    vw_out() << "Usage: disp_avg disp.tif outdx.txt outdy.txt\n";
+    vw_out() << "Usage: disp_avg disp.tif outdx.txt outdy.txt [row_start] [num_rows] [col_start] [num_cols]\n";
     return 1;
   }
 
@@ -49,14 +49,25 @@ int main( int argc, char *argv[] ){
   int cols = D.cols(), rows = D.rows();
   std::cout << "Number of cols and rows is " << cols << ' ' << rows << std::endl;
 
+  // Handle optional row ROI arguments.
+  // - No col ROI since we want the entire column range.
+  int row_start = 0;
+  int row_stop  = rows;
+  int col_start = 0;
+  int col_stop  = cols;
+  if (argc > 4) row_start = atoi(argv[4]);
+  if (argc > 5) row_stop  = row_start + atoi(argv[5]);
+  if (argc > 6) col_start = atoi(argv[6]);
+  if (argc > 7) col_stop  = col_start + atoi(argv[7]);
+
   // TODO: Add a progress bar.
-  vector<double> Dx(cols, 0), Dy(cols, 0);
-  for (int col = 0; col < cols; col++){
+  vector<double> Dx(cols, 0), Dy(cols, 0); // Always full sized, even if crop is used.
+  for (int col = col_start; col < col_stop; col++){
     if (col%100 == 0){
       std::cout << "column " << col << std::endl;
     }
     vector<double> px, py;
-    for (int row = 0; row < rows; row++){
+    for (int row = row_start; row < row_stop; row++){
       PixelMask<Vector2f> p = D(col, row);
       if (! is_valid(p)) continue;
       px.push_back(p.child()[0]);
@@ -80,15 +91,21 @@ int main( int argc, char *argv[] ){
     }
   }
 
+  // Write dx file
   ofstream dx(outx.c_str());
   dx.precision(16);
   std::cout << "Writing: " << outx << std::endl;
-  for (int col = 0; col < cols; col++) dx << Dx[col] << std::endl;
+  dx << col_start << std::endl << col_stop << std::endl; // Column crop on header lines
+  for (int col = 0; col < cols; col++) 
+    dx << Dx[col] << std::endl;
 
+  // Write dy file
   ofstream dy(outy.c_str());
   dy.precision(16);
   std::cout << "Writing: " << outy << std::endl;
-  for (int col = 0; col < cols; col++) dy << Dy[col] << std::endl;
+  dy << col_start << std::endl << col_stop << std::endl; // Column crop on header lines
+  for (int col = 0; col < cols; col++) 
+    dy << Dy[col] << std::endl;
 
   return 0;
 }

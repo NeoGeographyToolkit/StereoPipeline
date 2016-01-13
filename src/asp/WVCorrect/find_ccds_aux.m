@@ -23,12 +23,12 @@ function find_ccds_aux(mean_disparity, fig)
    % - Each region is +/- width in size, centered around: n*PERIOD + SHIFT
    % - Why do we do this?
    PERIOD = 705;
-   SHIFT  = -80;
-   WIDTH  = 60;
+   SHIFT  = -35;
+   WIDTH  = 80;
    [jump_indices, jump_magnitudes] = sparse_ccds(WIDTH, PERIOD, SHIFT, vector_length, jump_indices, jump_magnitudes, fig);
 
-   plot(jump_indices, mean_disparity(jump_indices), 'b*'); % Draw blue *'s
-   %plot(jump_indices, jump_magnitudes, 'b'); % Draw blue lines?
+   plot(jump_indices, mean_disparity(jump_indices), 'b*', 'MarkerSize',12); % Draw blue *'s
+   plot(jump_indices, jump_magnitudes, 'b'); % Draw blue lines?
 
    %[period, shift] = find_true_period(jump_indices, jump_magnitudes);
    
@@ -54,8 +54,6 @@ function find_ccds_aux(mean_disparity, fig)
    % Write the output files
    disp(sprintf('saving %s', file));
    disp(sprintf('saving %s', file2));
-   %save(file,  '-ascii', '-double', 'T');
-   %save(file2, '-ascii', '-double', 'mean_disparity');
    dlmwrite(file, T, 'delimiter', ',', 'precision', 9);
    dlmwrite(file2, mean_disparity, 'delimiter', ',', 'precision', 9);
    
@@ -100,7 +98,7 @@ function [jump_indices, jump_magnitudes] = sparse_ccds(wid, period, shift, ...
    
    % The known jumps should fall inside the search regions
    PLOT_SEARCH_REGIONS = false; % This is kind of slow
-   PLOT_KNOWN_JUMPS    = true;
+   PLOT_KNOWN_JUMPS    = false;
    WV_SAT_NUM          = 2;
    CROP_START_COL      = 0 % Crop amount for the "left" image, fixes locations for a single cropped input
 
@@ -139,7 +137,7 @@ function [jump_indices, jump_magnitudes] = sparse_ccds(wid, period, shift, ...
       if PLOT_SEARCH_REGIONS
          % Shade this search region with a low-opacity box.
          figure(fig);
-         y = [1  1];
+         y = [5  5];
          x = [region_start  region_end];
          basevalue = -1;
          h = area(x, y, basevalue, 'LineStyle',':');

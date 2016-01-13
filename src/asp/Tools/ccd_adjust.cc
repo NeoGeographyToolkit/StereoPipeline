@@ -99,6 +99,7 @@ struct CCDReprojectionError {
     m_cam(cam),
     m_ccd_pos(ccd_pos){}
 
+  ///  
   template <typename T>
   bool operator()(const T* const offset, const T* const point, T* residuals) const {
 
@@ -142,8 +143,8 @@ struct CCDReprojectionError {
     return true;
   }
 
-  // Factory to hide the construction of the CostFunction object from
-  // the client code.
+  /// Factory to hide the construction of the CostFunction object from the client code.
+  /// - Pass in pixel location, sigma, camera model, and vector of default CCD positions?
   static ceres::CostFunction* Create(Vector2 const& observation,
                                      Vector2 const& pixel_sigma,
                                      boost::shared_ptr<vw::camera::CameraModel> cam,
@@ -182,7 +183,7 @@ void ccd_adjust(std::vector<std::string> const& image_files,
                 std::vector<std::string> const& camera_files,
                 std::vector< boost::shared_ptr<vw::camera::CameraModel> > const& camera_models,
                 std::string const& out_prefix,
-                std::string const& match_file,
+                std::string const& match_file, // Input match file
                 int num_threads){
 
   vw_out() << "Identifying CCD offsets.\n";
@@ -197,6 +198,7 @@ void ccd_adjust(std::vector<std::string> const& image_files,
   std::map< std::pair<int, int>, std::string> match_files;
   match_files[std::pair<int, int>(0, 1)] = match_file;
 
+  // Set up control network containing all the input matched pixel pairs
   int min_matches = 30;   // TODO: Think more here
   double min_angle = 0.1; // in degrees
   ba::ControlNetwork cnet("CcdAdjust");
@@ -212,14 +214,14 @@ void ccd_adjust(std::vector<std::string> const& image_files,
   int num_points = cnet.size();
 
   // TODO: This must come from outside!!!
-  std::vector<double>  ccd_pos;
+  std::vector<double>  ccd_pos; //TODO: THIS IS NOT SET!!!!!!!!!!!!!
   int num_offsets = ccd_pos.size() + 1; // TODO: Explain this!
 
-  // There is a correction in x and one in y
+  // Pack all the CCD offset parameters into a vector (x,y per CCD)
   std::vector<double> ccd_offsets_vec(NUM_PIXEL_PARAMS*num_offsets, 0);
   double* ccd_offsets = &ccd_offsets_vec[0];
 
-  // Points
+  // Pack all the point parameters into a vector
   std::vector<double> points_vec(num_points*NUM_POINT_PARAMS, 0.0);
   for (int ipt = 0; ipt < num_points; ipt++){
     for (int q = 0; q < NUM_POINT_PARAMS; q++){
@@ -252,7 +254,7 @@ void ccd_adjust(std::vector<std::string> const& image_files,
 
       // This is a bugfix
       if (pixel_sigma != pixel_sigma)
-	pixel_sigma = Vector2(1, 1);
+        pixel_sigma = Vector2(1, 1);
 
       int offset_index = get_cdd_offset_index(observation.x(), ccd_pos);
 
@@ -266,17 +268,14 @@ void ccd_adjust(std::vector<std::string> const& image_files,
       ceres::LossFunction* loss_function = get_ccd_loss_function();
 
       ceres::CostFunction* cost_function
-	= CCDReprojectionError::Create(observation, pixel_sigma,
-                                       camera_models[icam],
-                                       ccd_pos);
+                = CCDReprojectionError::Create(observation, pixel_sigma,
+                                               camera_models[icam], ccd_pos);
       problem.AddResidualBlock(cost_function, loss_function,
                                offset, point);
+    } // End loop through points seen by this camera
+  } // End loop through cameras
 
-
-    }
-  }
-
-  // Solve the problem
+  // Set up Ceres options
   ceres::Solver::Options options;
   options.gradient_tolerance = 1e-16;
   options.function_tolerance = 1e-16;
@@ -300,6 +299,7 @@ void ccd_adjust(std::vector<std::string> const& image_files,
   options.callbacks.push_back(&callback);
   options.update_state_every_iteration = true; // ensure we have the latest adjustments
 
+  // Solve the problem using Ceres
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
   vw_out() << summary.FullReport() << "\n";

@@ -1,8 +1,11 @@
 #!/bin/bash
 
-if [ "$#" -lt 3 ]; then echo Usage: $0 left_crop_win right_crop_win left_image right_image left_cam right_cam; exit; fi
+if [ "$#" -lt 4 ]; then 
+    echo Usage: $0 left_crop_win right_crop_win left_image right_image left_cam right_cam; [left | right]
+    exit; 
+fi
 
-execDir=$(dirname $0)
+execDir=/home/smcmich1/repo/StereoPipeline/src/asp/WVCorrect
 
 echo execDir is $execDir
 
@@ -13,16 +16,21 @@ right_image=$4
 left_cam=$5
 right_cam=$6
 
-export ASP_PYTHON_MODULES_PATH=$HOME/projects/BinaryBuilder/StereoPipelinePythonModules/lib64/python2.6/site-packages:$HOME/projects/BinaryBuilder/StereoPipelinePythonModules/lib64/python2.6/site-packages/GDAL-1.10.0-py2.6-linux-x86_64.egg/osgeo:$HOME/projects/BinaryBuilder/StereoPipelinePythonModules/lib
+side=""
+if [ "$#" -gt 6 ]; then
+    side=$7
+fi
 
-bundle_adjust $left_image $right_image $left_cam $right_cam -o run_ba/run
+#export ASP_PYTHON_MODULES_PATH=$HOME/projects/BinaryBuilder/StereoPipelinePythonModules/lib64/python2.6/site-packages:$HOME/projects/BinaryBuilder/StereoPipelinePythonModules/lib64/python2.6/site-packages/GDAL-1.10.0-py2.6-linux-x86_64.egg/osgeo:$HOME/projects/BinaryBuilder/StereoPipelinePythonModules/lib
 
-base_cmd="stereo --corr-seed-mode 3
+#bundle_adjust $left_image $right_image $left_cam $right_cam -o run_ba/run
+
+base_cmd="parallel_stereo --corr-seed-mode 1 --subpixel-kernel 13 13
   --part-of-multiview-run --alignment-method homography
   --subpixel-mode 1 --corr-max-levels 2 --disable-fill-holes
   --corr-timeout 300 --bundle-adjust-prefix run_ba/run"
 
-projwin=$($HOME/projects/base_system/bin/gdalinfo -proj4 dem.tif 2>/dev/null |grep -i "proj=" | perl -pi -e "s#\'##g")
+projwin=$(gdalinfo -proj4 dem.tif 2>/dev/null |grep -i "proj=" | perl -pi -e "s#\'##g")
 if [ "$projwin" != "" ]; then
     projwin=$projwin # Wipe quotes
     echo "Found projwin from dem: $projwin"
@@ -35,6 +43,8 @@ for i in 1 2; do
 
     if [ "$i" == "1" ]; then
 
+        if [ "$side" == "right" ]; then continue; fi # Skip if right was requested
+
         dir=run_lr
         leftc=""
         rightc=""
@@ -46,10 +56,13 @@ for i in 1 2; do
 
         if [ "$right_crop_win" != "" ]; then rightc="--right-image-crop-win $right_crop_win"; fi
 
+        rm -rf $dir
         cmd="$base_cmd $leftc $rightc $left_image $right_image $left_cam $right_cam $dir/run"
 
         echo $cmd
     else
+
+        if [ "$side" == "left" ]; then continue; fi # Skip if left was requested
 
         dir=run_rl
         leftc=""
@@ -75,6 +88,8 @@ for i in 1 2; do
 
     disparitydebug $dir/run-F.tif
     stereo_gui --create-image-pyramids-only $dir/run-F-H.tif $dir/run-F-V.tif
+
+    # This needs to be manually run for each data set using good bounds!
     $execDir/disp_avg $dir/run-F.tif $dir/dx.txt $dir/dy.txt
 done
 
