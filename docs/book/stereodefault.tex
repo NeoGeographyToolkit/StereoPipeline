@@ -261,6 +261,18 @@ If the default method does not perform well, try out one of the other two method
   result. This will drastically improve speed at the cost of
   additional noise.
 
+\item[rm-quantile-percentile \textnormal{\small{(\emph{double})}} (default = 0.85)] \hfill \\
+  See rm-quantile-multiple for details.
+
+\item[rm-quantile-multiple \textnormal{\small{(\emph{double})}} (default = -1)] \hfill \\
+  Used for filtering disparity values in D\_sub.  Disparities 
+  greater than MULTIPLE*PERCENTILE will be discarded.  If this value is set greater
+  than zero, this filtering method will be used instead of the
+  method using the values RM\_MIN\_MATCHES and RM\_THRESHOLD.
+  This method will help filter out small clusters of pixels which are too large to be
+  filtered out by the neighborhood method, but care must be taken or it will filter out
+  small but valid sections of image.
+
 \item[use-local-homography \textnormal (default = false)] \hfill \\
 
   This flag, if provided, enables using local homography during

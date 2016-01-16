@@ -11,6 +11,9 @@ Highlights
       and Reverse) and TDI 32 (Forward) of WV02.  Other correction
       behavior is unchanged.
 
+ - stereo_corr
+   * Added quantile based filtering option for clearing out larger
+     sections of bad pixels.
 
 Other
 

@@ -63,6 +63,8 @@ void read_search_range(Options & opt){
   stereo_settings().search_range = search_range;
 }
 
+
+
 /// Produces the low-resolution disparity file D_sub
 void produce_lowres_disparity( Options & opt ) {
 
@@ -103,37 +105,63 @@ void produce_lowres_disparity( Options & opt ) {
     if (corr_timeout > 0)
       seconds_per_op = calc_seconds_per_op(cost_mode, left_sub, right_sub, kernel_size);
 
-    // Warning: A giant function call approaches!
-    // TODO: Why the extra filtering step here? PyramidCorrelationView already performs 1-3 iterations of outlier removal!
-    asp::block_write_gdal_image( // Write to disk
-        opt.out_prefix + "-D_sub.tif",
-        rm_outliers_using_thresh( // Throw out individual pixels that are far from any neighbors
-            stereo::pyramid_correlate( // Compute image correlation using the PyramidCorrelationView class
-                left_sub, right_sub,
-                left_mask_sub, right_mask_sub,
-                stereo::LaplacianOfGaussian(stereo_settings().slogW),
-                search_range, kernel_size, cost_mode,
-                corr_timeout, seconds_per_op,
-                stereo_settings().xcorr_threshold, stereo_settings().corr_max_levels
-            ),
-            // To do: all these hard-coded values must be replaced with
-            // appropriate params from user's stereo.default, for
-            // consistency with how disparity is filtered in stereo_fltr,
-            // when invoking disparity_cleanup_using_thresh.
-            1, 1, // in stereo.default we have 5 5
-            // Changing below the hard-coded value from 2.0 to using a
-            // param.  The default value will still be 2.0 but is now
-            // modifiable. Need to get rid of the 2.0/3.0 factor and
-            // study how it affects the result.
-            stereo_settings().rm_threshold*2.0/3.0,
-            // Another change of hard-coded value to param. Get rid of 0.5/0.6
-            // and study the effect.
-            (stereo_settings().rm_min_matches/100.0)*0.5/0.6
-        ), // End outlier removal arguments
-        opt,
-        TerminalProgressCallback("asp", "\t--> Low-resolution disparity:")
-    );
-  // End of giant function call block
+    if (stereo_settings().rm_quantile_multiple <= 0.0)
+    {
+      // Warning: A giant function call approaches!
+      // TODO: Why the extra filtering step here? PyramidCorrelationView already performs 1-3 iterations of outlier removal!
+      asp::block_write_gdal_image( // Write to disk
+          opt.out_prefix + "-D_sub.tif",
+          rm_outliers_using_thresh( // Throw out individual pixels that are far from any neighbors
+              stereo::pyramid_correlate( // Compute image correlation using the PyramidCorrelationView class
+                  left_sub, right_sub,
+                  left_mask_sub, right_mask_sub,
+                  stereo::LaplacianOfGaussian(stereo_settings().slogW),
+                  search_range, kernel_size, cost_mode,
+                  corr_timeout, seconds_per_op,
+                  stereo_settings().xcorr_threshold, stereo_settings().corr_max_levels
+              ),
+              // To do: all these hard-coded values must be replaced with
+              // appropriate params from user's stereo.default, for
+              // consistency with how disparity is filtered in stereo_fltr,
+              // when invoking disparity_cleanup_using_thresh.
+              1, 1, // in stereo.default we have 5 5
+              // Changing below the hard-coded value from 2.0 to using a
+              // param.  The default value will still be 2.0 but is now
+              // modifiable. Need to get rid of the 2.0/3.0 factor and
+              // study how it affects the result.
+              stereo_settings().rm_threshold*2.0/3.0,
+              // Another change of hard-coded value to param. Get rid of 0.5/0.6
+              // and study the effect.
+              (stereo_settings().rm_min_matches/100.0)*0.5/0.6
+          ), // End outlier removal arguments
+          opt,
+          TerminalProgressCallback("asp", "\t--> Low-resolution disparity:")
+      );
+      // End of giant function call block
+    }
+    else { // Use quantile based filtering - This filter needs to be profiled to improve its speed.
+    
+      // Compute image correlation using the PyramidCorrelationView class
+      ImageView< PixelMask<Vector2i> > disp_image = stereo::pyramid_correlate( 
+                  left_sub, right_sub,
+                  left_mask_sub, right_mask_sub,
+                  stereo::LaplacianOfGaussian(stereo_settings().slogW),
+                  search_range, kernel_size, cost_mode,
+                  corr_timeout, seconds_per_op,
+                  stereo_settings().xcorr_threshold, stereo_settings().corr_max_levels
+              );
+
+      asp::write_gdal_image( // Write to disk while removing outliers
+          opt.out_prefix + "-D_sub.tif",
+          rm_outliers_using_quantiles( // Throw out individual pixels that are far from any neighbors
+              disp_image,
+              stereo_settings().rm_quantile_percentile, stereo_settings().rm_quantile_multiple
+          ),
+          opt,
+          TerminalProgressCallback("asp", "\t--> Low-resolution disparity:")
+      );
+    }
+
 
   }else if ( stereo_settings().seed_mode == 2 ) {
     // Use a DEM to get the low-res disparity
@@ -636,7 +664,7 @@ void stereo_correlation( Options& opt ) {
 
 int main(int argc, char* argv[]) {
 
-  try {
+//  try {
 
     stereo_register_sessions();
 
@@ -656,7 +684,7 @@ int main(int argc, char* argv[]) {
     //---------------------------------------------------------
     stereo_correlation( opt );
 
-  } ASP_STANDARD_CATCHES;
+ // } ASP_STANDARD_CATCHES;
 
   return 0;
 }
