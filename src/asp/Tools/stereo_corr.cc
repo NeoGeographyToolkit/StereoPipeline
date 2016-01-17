@@ -664,7 +664,7 @@ void stereo_correlation( Options& opt ) {
 
 int main(int argc, char* argv[]) {
 
-//  try {
+  try {
 
     stereo_register_sessions();
 
@@ -684,7 +684,7 @@ int main(int argc, char* argv[]) {
     //---------------------------------------------------------
     stereo_correlation( opt );
 
- // } ASP_STANDARD_CATCHES;
+  } ASP_STANDARD_CATCHES;
 
   return 0;
 }

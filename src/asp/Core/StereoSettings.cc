@@ -152,10 +152,11 @@ namespace asp {
                      "Disparity search range. Specify in format: hmin vmin hmax vmax.")
       ("corr-max-levels",        po::value(&global.corr_max_levels)->default_value(5),
                      "Max pyramid levels to process when using the integer correlator. (0 is just a single level).")
-      ("rm-min-matches",      po::value(&global.rm_min_matches)->default_value(60),
-                              "Minimum number of pixels to be matched to keep sample (for filter mode 2).")
-      ("rm-threshold",        po::value(&global.rm_threshold)->default_value(3),
-                              "Maximum distance between samples to be considered still matched (for filter mode 2).")
+      // TODO: These parameters are used here, but are only set as filter options.
+      //("rm-min-matches",      po::value(&global.rm_min_matches)->default_value(60),
+      //                        "Minimum number of pixels to be matched to keep sample (for filter mode 2).")
+      //("rm-threshold",        po::value(&global.rm_threshold)->default_value(3),
+      //                        "Maximum distance between samples to be considered still matched (for filter mode 2).")
       ("rm-quantile-percentile",  po::value(&global.rm_quantile_percentile)->default_value(0.85),
                               "Filter out pixels in D_sub where disparity > multiple*quantile.")
       ("rm-quantile-multiple",    po::value(&global.rm_quantile_multiple)->default_value(-1),
