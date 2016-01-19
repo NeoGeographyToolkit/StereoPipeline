@@ -2129,12 +2129,60 @@ are in the shadow (occluded from the sun).\\ \hline
 
 
 
+
+\section{camera-calibrate}
+\label{camera-calibrate}
+
+The \texttt{camera-calibrate} tool can generate camera models suitable for use by \texttt{camera-solve}
+and other ASP tools.  This tool only solves for intrinsic camera parameters; to obtain the camera pose you should 
+use the \texttt{camera-solve} tool.  This tool is a wrapper around the OpenCV \url{http://opencv.org/} checkerboard
+calibration tool which takes care of converting the output into readily usable formats.  When you run the tool,
+three camera model files will be created in the output folder: 
+"solve_cam_params.txt", "vw_cam_params.tsai", and ocv_cam_params.yml.
+The first file can be used as a camera calibration file for the \texttt{camera-solve} tool.  The second file
+is a pinhole camera format that is recognized by ASP but remember that the extrinsic parameters were not solved for
+so ASP is limited in what it can do with the camera file.  The last file contains the camera information as formatted
+by the OpenCV calibration tool.
+
+In order to use this tool you must provide multiple images of the same checkerboard pattern acquired with
+the camera you wish to calibrate.  When calling the tool you must specify the number of internal square corners
+contained in your checkerboard pattern (width and height can be swapped) so that OpenCV knows what to look for.
+You must also specify an image wildcard path such as "checkers/image_*.jpg".  You may need to enclose this
+parameter in quotes so that your command line does not expand the wildcard before it is passed to the tool.  
+If you do not provide the \texttt{--box-size} parameter the output calibration numbers will be unitless.
+
+Usage:
+\begin{verbatim}
+  > camera_calibrate [options] <output folder> <Board Height> <Board Width> <Image Wildcard> ...
+\end{verbatim}
+
+\begin{longtable}{|l|p{7.5cm}|}
+\caption{Command-line options for camera-solve}
+\label{tbl:camera-solve}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Option & Description \\ \hline \hline
+\texttt{-h | -\/-help } & Display this help message.\\ \hline
+\texttt{-\/-overwrite}  & Recompute any intermediate steps already completed on disk.\\ \hline
+\texttt{-\/-suppress-output} & Reduce the amount of program console output.\\ \hline
+\texttt{-\/-flash-pictures} & Pop up windows with pictures of the checkerboard to verify 
+the image processing is working well.\\ \hline
+\texttt{-\/-box-size-cm  \textit{float}} & The size of the checkerboard squares in centimeters.\\ \hline
+\texttt{-\/-duplicate-files} & Make a copy of the vw param file for each input camera.\\ \hline
+\end{longtable}
+
+
+
 \section{camera-solve}
 \label{camera-solve}
 
 The \texttt{camera-solve} tool can generate pinhole sensor models for input images lacking metadata.
 This tool is primarily intended to solve for the extrinsic camera parameters.  If you do not provide
-intrinsic parameters the tool will try to compute them but do not expect good results.
+intrinsic parameters the tool will try to compute them but do not expect good results.  You can use the
+\texttt{camera-calibrate} tool to solve for intrinsic parameters.
 In order to register the camera models in world coordinates a set of ground control points
 will be needed establishing the real world
 coordinates of several points in the images.  The easiest way to generate these points is to use

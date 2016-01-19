@@ -1,0 +1,271 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# __BEGIN_LICENSE__
+#  Copyright (c) 2009-2013, United States Government as represented by the
+#  Administrator of the National Aeronautics and Space Administration. All
+#  rights reserved.
+#
+#  The NGT platform is licensed under the Apache License, Version 2.0 (the
+#  "License"); you may not use this file except in compliance with the
+#  License. You may obtain a copy of the License at
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+# __END_LICENSE__
+
+'''
+A wrapper around the OpenCV checkerboard calibration tool.  Handy to use
+prior to camera_solve in order to generate intrinsic camera parameters.
+'''
+
+import sys
+import os, glob, re, shutil, subprocess, string, time, errno, optparse, math
+
+if sys.version_info < (2, 6, 0):
+    print('\nERROR: Must use Python 2.6 or greater.')
+    sys.exit(1)
+
+# The path to the ASP python files
+basepath    = os.path.abspath(sys.path[0])
+pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
+libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
+sys.path.insert(0, basepath) # prepend to Python path
+sys.path.insert(0, pythonpath)
+sys.path.insert(0, libexecpath)
+
+import asp_file_utils, asp_system_utils, asp_cmd_utils, asp_image_utils
+
+# Prepend to system PATH
+os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
+
+def make_image_list(options):
+    '''Generate an OpenCV compatible image list'''
+
+    # Call in this manner so that the image wildcard does not get expanded  
+    # - Execute from install dir so we can find the executable
+    curr_dir = os.getcwd()
+    os.chdir(libexecpath)              
+    cmd = ['/home/smcmich1/repo/BinaryBuilder/build_root/install/libexec/opencv_imagelist_creator ' 
+            +  os.path.abspath(options.xml_list_path) +' '+ os.path.abspath(options.image_wildcard)]
+    proc   = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output = proc.communicate()
+    os.chdir(curr_dir) # Return to original directory
+    
+    if not os.path.exists(options.xml_list_path):
+        print cmd
+        print output[0]
+        raise Exception('Failed to generate xml image list file!')
+
+
+def calibrate_camera(options):
+    '''Perform camera calibration using the input images'''
+
+    # Execute from install dir so we can find the executable
+    curr_dir = os.getcwd()
+    os.chdir(libexecpath)              
+    cmd = ['../libexec/opencv_calibrate_camera', '-pt', 'chessboard', 
+           '-o', os.path.abspath(options.ocv_params_path),
+           '-p', os.path.abspath(options.xml_list_path), 
+           '-w', str(options.board_size[0]), '-h', str(options.board_size[0])]
+    if options.box_size_cm:
+        box_size_meters = options.box_size_cm/100.0
+        cmd += ['-s', box_size_meters]
+    if options.flash_pictures:
+        cmd += ['-i']
+    asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppress_output, 
+                                 outputPath=options.ocv_params_path, force=options.overwrite)
+
+
+
+
+    os.chdir(curr_dir) # Return to original directory
+
+    if not os.path.exists(options.ocv_params_path):
+        raise Exception('Failed to calibrate the camera!')
+
+def get_value_after_colon(s):
+    parts = s.split(':')
+    return parts[1]
+
+def get_string_between_brackets(s):
+    start = s.find('[')
+    stop  = s.rfind(']')
+    return s[start+1:stop]
+
+def read_lines_until_bracket_end(lines, start_index):
+    '''Keep appending lines from a list until we hit the one ending with "]", then strip brackets '''
+    index = start_index
+    s = ''
+    while index < len(lines):
+        s += lines[index].strip()
+        if s[-1] == ']':
+            return get_string_between_brackets(s)
+        index += 1
+    
+    raise Exception('Text parsing error!')
+
+def parse_cv_yaml_file(path):
+    '''Reads the OpenCV parameter file into a nice dictionary'''
+
+    params  = dict()
+    cv_file = open(path)
+    lines   = cv_file.read().split('\n')
+    params['width' ] = int(get_value_after_colon(lines[2]))
+    params['height'] = int(get_value_after_colon(lines[3]))
+    
+    # Get the intrinsic params
+    s = read_lines_until_bracket_end(lines, 13).split(',')
+    intrinsics = [float(x) for x in s]
+    
+    # Get the distortion params
+    s = read_lines_until_bracket_end(lines, 19).split(',')
+    distortion = [float(x) for x in s]
+
+    params['error' ] = float(get_value_after_colon(lines[-2]))
+
+    params['focal_length_x'] = intrinsics[0]
+    params['focal_length_y'] = intrinsics[4]
+    params['center_x'      ] = intrinsics[2]
+    params['center_y'      ] = intrinsics[5]
+    #params['focal_length_pixels'] = 0 # TODO: What units are used?
+    
+    params['k1'] = distortion[0]
+    params['k2'] = distortion[1]
+    params['p1'] = distortion[2]
+    params['p2'] = distortion[3]
+
+    params['skew'] = 0.0
+    params['aspect_ratio'] = 1.0
+    
+    return params
+
+def write_vw_params_file(params, path):
+
+    vw_file = open(path, 'w')
+    vw_file.write('fu = '+ str(params['focal_length_x'])+'\n')
+    vw_file.write('fv = '+ str(params['focal_length_y'])+'\n')
+    vw_file.write('cu = '+ str(params['center_x'])+'\n')
+    vw_file.write('cv = '+ str(params['center_y'])+'\n')
+    vw_file.write('u_direction = 1  0  0\n')
+    vw_file.write('v_direction = 0  1  0\n')
+    vw_file.write('w_direction = 0  0  1\n')
+    vw_file.write('C = 0 0 0\n') # This tool only computes intrinsic parameters!
+    vw_file.write('R = 1 0 0 0 1 0 0 0 1\n')
+    vw_file.write('k2 = '+ str(params['k2'])+'\n')
+    vw_file.write('p1 = '+ str(params['p1'])+'\n')
+    vw_file.write('p2 = '+ str(params['p2'])+'\n')
+    vw_file.close()
+
+def get_full_image_list(options):
+    '''Make a list of all the images specified by the wildcard'''
+    
+    handle = file(options.xml_list_path, 'r')
+    text   = handle.read()
+    handle.close()
+    start      = text.find('<images>')
+    stop       = text.find('</images>')
+    image_text = text[start+len('<images>'):stop]
+    paths      = image_text.split()
+    return paths
+
+def convert_outputs(options):
+    '''Translates the OpenCV output into some more useful formats'''
+    
+    # Parse the OpenCV output
+    params = parse_cv_yaml_file(options.ocv_params_path)
+    
+    # Write a .tsai file
+    write_vw_params_file(params, options.vw_params_path)
+
+    # If the user requested it, make a duplicate of the vw params file for each input image.
+    if options.duplicate_param_files:
+        all_images = get_full_image_list(options)
+        all_images = [os.path.basename(x) for x in all_images]
+        for name in all_images:
+            output_path = os.path.join(options.output_folder, name + '.tsai')
+            shutil.copy(options.vw_params_path, output_path)
+    
+    theia_file = open(options.theia_params_path, 'w')
+    mean_focal_length = (params['focal_length_x']+params['focal_length_y'])/2.0
+    param_list = [options.image_wildcard, mean_focal_length, params['center_x'], params['center_y'], 
+                  params['aspect_ratio'], params['skew'], params['k1'], params['k2']]
+    param_list = [str(x) for x in param_list] # Cast to strings for output
+    s = " ".join(param_list)
+    theia_file.write(s)
+    theia_file.close()
+
+
+#------------------------------------------------------------------------------
+
+def main(argsIn):
+
+    try:
+
+        # Use parser that ignores unknown options
+        usage  = "usage: camera_calibrate [options] <output folder> <board height> <board width> <image wildcard>"
+        parser = optparse.OptionParser(usage=usage)
+
+        parser.add_option('--box-size-cm',  dest='box_size_cm', default=None, type=float,
+                                         help='Size of the checkerboard boxes in centimeters.  Required for the results to be in real world values.')
+        parser.add_option("--suppress-output", action="store_true", default=False,
+                                               dest="suppress_output",  help="Suppress output of sub-calls.")
+        parser.add_option("--duplicate-files", action="store_true", default=False,
+                                               dest="duplicate_param_files",  
+                                               help="Makes duplicate copies of the output camera files so they are ready to use.")
+        parser.add_option("--flash-pictures", action="store_true", default=False,
+                                               dest="flash_pictures",  help="Have OpenCV pop up images showing the calibration quality.")
+        parser.add_option("--overwrite",       action="store_true", default=False,
+                                               dest="overwrite",  
+                                               help="Overwrite any partial computation results on disk.")
+
+        # This call handles all the parallel_mapproject specific options.
+        (options, args) = parser.parse_args(argsIn)
+
+        # Check the required positional arguments.
+        if len(args) < 1:
+            parser.print_help()
+            parser.error("Missing output folder.\n" );
+        if len(args) < 3:
+            parser.print_help()
+            parser.error("Missing the checkerboard internal corner counts, one in each dimension.\n" );
+        if len(args) < 4:
+            parser.print_help()
+            parser.error("Missing input image wildcard path.\n" );
+            
+        # Store the positional input parameters
+        options.output_folder  = args[0]
+        options.board_size     = (int(args[1]), int(args[2]))
+        options.image_wildcard = args[3]
+        
+        # Store some other things in options to make passing arguments easier
+        options.xml_list_path     = os.path.join(options.output_folder, 'ocv_image_list.xml'  )
+        options.ocv_params_path   = os.path.join(options.output_folder, 'ocv_cam_params.yml'  )
+        options.vw_params_path    = os.path.join(options.output_folder, 'vw_cam_params.tsai'  )
+        options.theia_params_path = os.path.join(options.output_folder, 'solve_cam_params.txt')
+        
+    except optparse.OptionError, msg:
+        raise Usage(msg)
+
+    startTime = time.time()
+
+    if not (os.path.exists(options.output_folder)):
+        os.mkdir(options.output_folder)
+
+    # Call the image list generation tool
+    make_image_list(options)
+    
+    # Call the calibration tool
+    calibrate_camera(options)
+    
+    # Generate camera_solve and VW compatible camera files.
+    convert_outputs(options)
+
+    endTime = time.time()
+    print "Finished in " + str(endTime - startTime) + " seconds."
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
