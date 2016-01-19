@@ -2134,20 +2134,20 @@ are in the shadow (occluded from the sun).\\ \hline
 \label{camera-calibrate}
 
 The \texttt{camera-calibrate} tool can generate camera models suitable for use by \texttt{camera-solve}
-and other ASP tools.  This tool only solves for intrinsic camera parameters; to obtain the camera pose you should 
-use the \texttt{camera-solve} tool.  This tool is a wrapper around the OpenCV \url{http://opencv.org/} checkerboard
-calibration tool which takes care of converting the output into readily usable formats.  When you run the tool,
-three camera model files will be created in the output folder: 
-"solve_cam_params.txt", "vw_cam_params.tsai", and ocv_cam_params.yml.
+and other ASP tools.  This tool only solves for intrinsic camera parameters; to obtain the camera pose you
+should  use the \texttt{camera-solve} tool.  This tool is a wrapper around the OpenCV (\url{http://opencv.org/})
+checkerboard calibration tool which takes care of converting the output into readily usable formats.  When you
+run the tool, three camera model files will be created in the output folder: 
+\texttt{solve\_cam\_params.txt}, \texttt{vw\_cam\_params.tsai}, and \texttt{ocv\_cam\_params.yml}.
 The first file can be used as a camera calibration file for the \texttt{camera-solve} tool.  The second file
-is a pinhole camera format that is recognized by ASP but remember that the extrinsic parameters were not solved for
-so ASP is limited in what it can do with the camera file.  The last file contains the camera information as formatted
-by the OpenCV calibration tool.
+is a pinhole camera format that is recognized by ASP but remember that the extrinsic parameters were not solved
+for so ASP is limited in what it can do with the camera file.  The last file contains the camera information as
+formatted by the OpenCV calibration tool.
 
 In order to use this tool you must provide multiple images of the same checkerboard pattern acquired with
 the camera you wish to calibrate.  When calling the tool you must specify the number of internal square corners
 contained in your checkerboard pattern (width and height can be swapped) so that OpenCV knows what to look for.
-You must also specify an image wildcard path such as "checkers/image_*.jpg".  You may need to enclose this
+You must also specify an image wildcard path such as \texttt{"checkers/image\_*.jpg"}.  You may need to enclose this
 parameter in quotes so that your command line does not expand the wildcard before it is passed to the tool.  
 If you do not provide the \texttt{--box-size} parameter the output calibration numbers will be unitless.
 

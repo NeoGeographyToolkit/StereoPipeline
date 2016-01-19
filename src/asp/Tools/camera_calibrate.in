@@ -203,6 +203,11 @@ def convert_outputs(options):
 
 def main(argsIn):
 
+    if ('darwin' in sys.platform):
+        print('This tool is not supported on OSX platforms.  Please contact stereo-pipeline-owner@lists.nasa.gov for workaround build instructions to enable this tool.')
+        return 1
+
+
     try:
 
         # Use parser that ignores unknown options
