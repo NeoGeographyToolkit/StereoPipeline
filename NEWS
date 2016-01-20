@@ -3,12 +3,16 @@
 Highlights
 
  - camera_solve
-    * A new tool which uses the THEIA library to compute camera positions
-      where no metadata is available.
+   * Added support for aerial and historical imagery via this new tool
+     that uses the THEIA library (http://www.theia-sfm.org/index.html)
+     to compute camera positions and orientations where no metadata is
+     available. Ground control points can be used to find absolute
+     camera positions.
 
  - camera_calibrate
-    * A convenience wrapper around the OpenCV checkerboard calibration tool
-      with outputs in formats for camera_solve and ASP.
+    * A convenience camera calibration tool that is a wrapper around
+      the OpenCV checkerboard calibration program with outputs in
+      formats for camera_solve and ASP.
 
  - wv_correct
     * Now corrects TDI 8 (Reverse) of WV01 and TDI 8 (Forward 
@@ -16,9 +20,10 @@ Highlights
       behavior is unchanged.
 
  - stereo_corr
-   * Added quantile based filtering option for clearing out larger
-     sections of bad pixels.
-
+   * Added the ability to filter large disparities from D_sub that 
+     can greatly slow down a run. The options are --rm-quantile-percentile
+     and --rm-quantile-multiple. 
+    
 Other
 
  - Tools

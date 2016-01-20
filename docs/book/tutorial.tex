@@ -1558,8 +1558,15 @@ from planet center or left camera center can be removed as outliers
 using \texttt{-\/-remove-outliers-params}. Spikes can be removed with
 \texttt{-\/-median-filter-params}. Points close to the boundary, that
 tend to be less accurate, can be eroded (\texttt{-\/-erode-length}).
-Also, during stereo filtering, islands can be removed with \texttt{-\/-erode-max-size}.
 
+
+\item During stereo filtering, islands can be removed with
+\texttt{-\/-erode-max-size}.
+
+\item Remove noise from the low-resolution disparity (D\_sub) that can
+greatly slow down a run using  \texttt{-\/-rm-quantile-percentile} and
+\texttt{-\/-rm-quantile-multiple}. Some care is needed with these to
+not remove too much information.
 
 \item Fill holes in output orthoimages for nicer display (also in DEMs),
 during DEM and orthoimage generation with \texttt{point2dem} (section
