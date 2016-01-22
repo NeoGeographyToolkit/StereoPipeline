@@ -218,9 +218,11 @@ AX_PKG(TIFF, [Z JP2], [-ltiff], [tiff.h])
 AX_PKG(PROJ4, [M], [-lproj], [proj_api.h])
 AX_PKG(GEOTIFF, [PROJ4 TIFF], [-lgeotiff], [geotiff.h])
 AX_PKG(GDAL, [GEOTIFF PNG], [-lgdal], [gdal.h])
-
 AX_PKG(ILMBASE, [M Z PTHREADS], [-lImath -lHalf -lIex -lIlmThread], [Iex.h], [OpenEXR])
 AX_PKG(OPENEXR, [ILMBASE], [-lIlmImf], [ImfOutputFile.h], [OpenEXR])
+
+# We don't build all the components in BinaryBuilder, so only include certain headers.
+AX_PKG(OPENCV,     [], [-lopencv_core -lopencv_imgproc -lopencv_highgui -lopencv_features2d -lopencv_flann -lopencv_nonfree],  [ opencv2/core/core_c.h opencv2/core/core.hpp  opencv2/imgproc/imgproc_c.h opencv2/highgui/highgui.hpp opencv2/imgproc/imgproc.hpp opencv2/features2d/features2d.hpp opencv2/objdetect/objdetect.hpp opencv2/calib3d/calib3d.hpp opencv2/nonfree/nonfree.hpp opencv2/nonfree/features2d.hpp ])
 
 AX_PKG(LASZIP,  [], [-llaszip], [laszip/laszip.hpp])
 AX_PKG(LIBLAS,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS LASZIP GDAL], [-llas], [liblas/liblas.hpp])
@@ -363,7 +365,6 @@ if test x"$HAVE_PKG_ISIS" = "xyes"; then
   AX_PKG_ISIS_CHECK_VERSION()
 fi
 
-#AX_PKG(YAML, [], [-lyaml-cpp], [])
 AX_PKG(EIGEN,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS], [], [])
 AX_PKG(LIBNABO, [], [-lnabo], [])
 AX_PKG(LIBPOINTMATCHER, [LIBNABO EIGEN BOOST_THREAD BOOST_FILESYSTEM BOOST_SYSTEM BOOST_PROGRAM_OPTIONS BOOST_DATETIME], [-lpointmatcher], [])
@@ -398,6 +399,7 @@ AM_CONDITIONAL(HAVE_PKG_OPENSCENEGRAPH, [test "$HAVE_PKG_OPENSCENEGRAPH" = "yes"
 AM_CONDITIONAL(HAVE_PKG_RABBITMQ_C,     [test "$HAVE_PKG_RABBITMQ_C" = "yes"])
 AM_CONDITIONAL(HAVE_PKG_PROTOBUF,       [test "$HAVE_PKG_PROTOBUF" = "yes"])
 AM_CONDITIONAL(HAVE_PKG_FLANN,          [test "$HAVE_PKG_FLANN" = "yes"])
+AM_CONDITIONAL(HAVE_PKG_OPENCV,         [test "$HAVE_PKG_OPENCV"     = "yes"])
 
 ##################################################
 # module definitions
@@ -417,7 +419,7 @@ AX_MODULE(PYTHON,   [src/asp/Python],   [],                  yes, [],     [],   
 
 # Tools - The yes/no means to enable by default
 AX_APP(PC_ALIGN,         [src/asp/Tools], yes, [CORE LIBPOINTMATCHER])
-AX_APP(BUNDLE_ADJUST,    [src/asp/Tools], yes, [VW_BUNDLEADJUSTMENT SESSIONS CERES])
+AX_APP(BUNDLE_ADJUST,    [src/asp/Tools], yes, [VW_BUNDLEADJUSTMENT SESSIONS CERES OPENCV])
 AX_APP(BUNDLEVIS,        [src/asp/Tools], yes, [OPENSCENEGRAPH VW_BUNDLEADJUSTMENT CORE])
 AX_APP(SFS,              [src/asp/Tools], yes, [SESSIONS CERES])
 AX_APP(DEM_MOSAIC,       [src/asp/Tools], yes, [CORE])

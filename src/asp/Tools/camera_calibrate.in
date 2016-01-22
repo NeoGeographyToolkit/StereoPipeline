@@ -47,10 +47,11 @@ def make_image_list(options):
 
     # Call in this manner so that the image wildcard does not get expanded  
     # - Execute from install dir so we can find the executable
+    cmd = ['../libexec/opencv_imagelist_creator ' 
+            +  os.path.abspath(options.xml_list_path) +' '+ os.path.abspath(options.image_wildcard)]
+    #print cmd
     curr_dir = os.getcwd()
     os.chdir(libexecpath)              
-    cmd = ['/home/smcmich1/repo/BinaryBuilder/build_root/install/libexec/opencv_imagelist_creator ' 
-            +  os.path.abspath(options.xml_list_path) +' '+ os.path.abspath(options.image_wildcard)]
     proc   = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output = proc.communicate()
     os.chdir(curr_dir) # Return to original directory
@@ -65,22 +66,18 @@ def calibrate_camera(options):
     '''Perform camera calibration using the input images'''
 
     # Execute from install dir so we can find the executable
-    curr_dir = os.getcwd()
-    os.chdir(libexecpath)              
-    cmd = ['../libexec/opencv_calibrate_camera', '-pt', 'chessboard', 
-           '-o', os.path.abspath(options.ocv_params_path),
+    output_abs_path = os.path.abspath(options.ocv_params_path)
+    cmd = ['../libexec/opencv_calibrate', '-pt', 'chessboard', 
+           '-o', output_abs_path,
            '-p', os.path.abspath(options.xml_list_path), 
            '-w', str(options.board_size[0]), '-h', str(options.board_size[0])]
+    curr_dir = os.getcwd()
+    os.chdir(libexecpath)              
     if options.box_size_cm:
         box_size_meters = options.box_size_cm/100.0
         cmd += ['-s', box_size_meters]
-    if options.flash_pictures:
-        cmd += ['-i']
     asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppress_output, 
-                                 outputPath=options.ocv_params_path, force=options.overwrite)
-
-
-
+                                 outputPath=output_abs_path, force=options.overwrite)
 
     os.chdir(curr_dir) # Return to original directory
 
@@ -155,6 +152,7 @@ def write_vw_params_file(params, path):
     vw_file.write('w_direction = 0  0  1\n')
     vw_file.write('C = 0 0 0\n') # This tool only computes intrinsic parameters!
     vw_file.write('R = 1 0 0 0 1 0 0 0 1\n')
+    vw_file.write('k1 = '+ str(params['k1'])+'\n')
     vw_file.write('k2 = '+ str(params['k2'])+'\n')
     vw_file.write('p1 = '+ str(params['p1'])+'\n')
     vw_file.write('p2 = '+ str(params['p2'])+'\n')
@@ -221,8 +219,6 @@ def main(argsIn):
         parser.add_option("--duplicate-files", action="store_true", default=False,
                                                dest="duplicate_param_files",  
                                                help="Makes duplicate copies of the output camera files so they are ready to use.")
-        parser.add_option("--flash-pictures", action="store_true", default=False,
-                                               dest="flash_pictures",  help="Have OpenCV pop up images showing the calibration quality.")
         parser.add_option("--overwrite",       action="store_true", default=False,
                                                dest="overwrite",  
                                                help="Overwrite any partial computation results on disk.")
@@ -245,6 +241,8 @@ def main(argsIn):
         options.output_folder  = args[0]
         options.board_size     = (int(args[1]), int(args[2]))
         options.image_wildcard = args[3]
+        print args
+        print options.image_wildcard
         
         # Store some other things in options to make passing arguments easier
         options.xml_list_path     = os.path.join(options.output_folder, 'ocv_image_list.xml'  )

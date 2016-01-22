@@ -58,11 +58,16 @@ if MAKE_APP_STEREO_GUI
 endif
 
 if MAKE_APP_BUNDLE_ADJUST
-  bin_PROGRAMS += bundle_adjust
-  bin_SCRIPTS  += camera_calibrate
-  bin_SCRIPTS  += camera_solve
-  bundle_adjust_SOURCES = bundle_adjust.cc bundle_adjust.h
-  bundle_adjust_LDADD = $(APP_BUNDLE_ADJUST_LIBS)
+  bin_PROGRAMS     += bundle_adjust 
+  libexec_PROGRAMS += opencv_imagelist_creator
+  libexec_PROGRAMS += opencv_calibrate 
+  bin_SCRIPTS      += camera_calibrate camera_solve
+  bundle_adjust_SOURCES            = bundle_adjust.cc bundle_adjust.h
+  opencv_imagelist_creator_SOURCES = opencv_imagelist_creator.cpp
+  opencv_calibrate_SOURCES         = opencv_calibrate.cpp
+  bundle_adjust_LDADD            = $(APP_BUNDLE_ADJUST_LIBS)
+  opencv_imagelist_creator_LDADD = $(APP_BUNDLE_ADJUST_LIBS)
+  opencv_calibrate_LDADD         = $(APP_BUNDLE_ADJUST_LIBS)
 endif
 
 if MAKE_APP_SFS
