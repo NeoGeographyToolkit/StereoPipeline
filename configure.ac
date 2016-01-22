@@ -222,7 +222,7 @@ AX_PKG(ILMBASE, [M Z PTHREADS], [-lImath -lHalf -lIex -lIlmThread], [Iex.h], [Op
 AX_PKG(OPENEXR, [ILMBASE], [-lIlmImf], [ImfOutputFile.h], [OpenEXR])
 
 # We don't build all the components in BinaryBuilder, so only include certain headers.
-AX_PKG(OPENCV,     [], [-lopencv_core -lopencv_imgproc -lopencv_features2d -lopencv_flann -lopencv_nonfree],  [ opencv2/core/core_c.h opencv2/core/core.hpp  opencv2/imgproc/imgproc_c.h opencv2/imgproc/imgproc.hpp opencv2/features2d/features2d.hpp opencv2/objdetect/objdetect.hpp opencv2/calib3d/calib3d.hpp opencv2/nonfree/nonfree.hpp opencv2/nonfree/features2d.hpp ])
+AX_PKG(OPENCV,     [], [-lopencv_core -lopencv_imgproc -lopencv_features2d -lopencv_calib3d -lopencv_flann -lopencv_nonfree],  [ opencv2/core/core_c.h opencv2/core/core.hpp  opencv2/imgproc/imgproc_c.h opencv2/imgproc/imgproc.hpp opencv2/features2d/features2d.hpp opencv2/objdetect/objdetect.hpp opencv2/calib3d/calib3d.hpp opencv2/nonfree/nonfree.hpp opencv2/nonfree/features2d.hpp ])
 
 AX_PKG(LASZIP,  [], [-llaszip], [laszip/laszip.hpp])
 AX_PKG(LIBLAS,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS LASZIP GDAL], [-llas], [liblas/liblas.hpp])
