@@ -70,12 +70,12 @@ def calibrate_camera(options):
     cmd = ['../libexec/opencv_calibrate', '-pt', 'chessboard', 
            '-o', output_abs_path,
            '-p', os.path.abspath(options.xml_list_path), 
-           '-w', str(options.board_size[0]), '-h', str(options.board_size[0])]
+           '-w', str(options.board_size[0]), '-h', str(options.board_size[1])]
     curr_dir = os.getcwd()
     os.chdir(libexecpath)              
     if options.box_size_cm:
         box_size_meters = options.box_size_cm/100.0
-        cmd += ['-s', box_size_meters]
+        cmd += ['-s', str(box_size_meters)]
     asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppress_output, 
                                  outputPath=output_abs_path, force=options.overwrite)
 
@@ -236,8 +236,8 @@ def main(argsIn):
         options.output_folder  = args[0]
         options.board_size     = (int(args[1]), int(args[2]))
         options.image_wildcard = args[3]
-        print args
-        print options.image_wildcard
+        #print args
+        #print options.image_wildcard
         
         # Store some other things in options to make passing arguments easier
         options.xml_list_path     = os.path.join(options.output_folder, 'ocv_image_list.xml'  )
