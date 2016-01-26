@@ -22,8 +22,8 @@ A helper tool to streamline the process of solving for
 pinhole camera models using Theia and ASP.
 '''
 
-import sys
-import os, glob, re, shutil, subprocess, string, time, errno, optparse, math
+import sys, os
+import shutil, subprocess, string, time, errno, optparse, glob
 
 if sys.version_info < (2, 6, 0):
     print('\nERROR: Must use Python 2.6 or greater.')
@@ -93,7 +93,7 @@ def generate_flagfile(options):
     flagfile_path    = os.path.join(options.output_folder, 'theia_flagfile.txt')
     options.theia_output_path = output_path
     options.flagfile_path     = flagfile_path
-    
+       
     # Make sure the output file has the latest options
     if os.path.exists(options.flagfile_path):
         os.remove(options.flagfile_path)
@@ -345,6 +345,40 @@ def run_bundle_adjust(options):
         raise Exception('Bundle adjustment failed to generate all camera models.')
 
 
+def expand_calibration_file(path, alt_path):
+    '''Check if the user passed in a wildcard calibration file, and if so expand
+       so that there is one line per input file on disk.
+       Also strip out any folder paths which confuse Theia.'''
+       
+    # Look through the input file and make name - param pairs
+    entries = []
+    input_file  = open(path, 'r')
+    for line in input_file:
+        if line[0] == '#':
+            continue # Skip comment lines
+        parts  = line.split()
+        name   = parts[0]
+        params = ' '.join(parts[1:])
+        if '*' in name:
+            rewrite = True
+        entries.append((name, params))
+    input_file.close()
+
+    # No write all the data back out into a new config file
+    output_file = open(alt_path, 'w')
+    for entry in entries:
+        name   = entry[0]
+        params = entry[1]
+        
+        matching_files = glob.glob(name) # Find all matching files
+        for f in matching_files:
+            s = os.path.basename(f) + ' ' + params + '\n' # Just use the file name
+            output_file.write(s)
+    output_file.close()
+
+    return alt_path # Return the path to the rewritten config file
+        
+
 #------------------------------------------------------------------------------
 
 def main(argsIn):
@@ -399,21 +433,25 @@ def main(argsIn):
         # Store the positional input parameters
         options.output_folder = args[0]
         options.input_images  = args[1:]
+
+        if not (os.path.exists(options.output_folder)):
+            os.mkdir(options.output_folder)
         
         # If we don't have input camera params we have to solve for them.
         if not options.camera_param_path:
             #if not options.solveIntrinsic:
             #    print 'Since no calib-file provided, setting --solve-intrinsics.'
             options.solveIntrinsic = True
+        else:
+            # Otherwise rewrite a copy of the camera param file which Theia can read.
+            alt_param_path = os.path.join(options.output_folder, 'expanded_camera_configs.txt')
+            options.camera_param_path = expand_calibration_file(options.camera_param_path, alt_param_path)
 
         
     except optparse.OptionError, msg:
         raise Usage(msg)
 
     startTime = time.time()
-
-    if not (os.path.exists(options.output_folder)):
-        os.mkdir(options.output_folder)
 
     # Step 1 - Call Theia's build_reconstruction tool.
     build_reconstruction(options)
