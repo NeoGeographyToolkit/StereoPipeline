@@ -455,7 +455,22 @@ def main(argsIn):
     startTime = time.time()
 
     # Step 1 - Call Theia's build_reconstruction tool.
-    build_reconstruction(options)
+    
+    # Theia's reconstruction tool sometimes fails for no apparent reason but
+    #  this only happens about 30% of the time.  If it fails, try a few more times
+    #  to see if we can get it to succeed.
+    NUM_THEIA_RETRIES = 3
+    
+    try_counter = 0
+    for i in range(0,NUM_THEIA_RETRIES):
+        try:
+            build_reconstruction(options)
+            break
+        except: # Theia failed, but give it another shot.
+            if i == NUM_THEIA_RETRIES-1:
+                raise Exception('Theia failed to generate a camera reconstruction')
+            else:
+                print 'Retrying Theia solution...'
 
     print 'Finished generating reconstruction using Theia'
 

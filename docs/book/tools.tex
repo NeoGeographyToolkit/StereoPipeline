@@ -494,6 +494,10 @@ determination).
 \texttt{-\/-ip-detect-method \textit{string [default: OBAloG]}} & Choose an interest point
 detection method from: 0=OBAloG, 1=SIFT, 2=ORB. \\ \hline
 
+\texttt{-\/-local-pinhole} & Optimize processing for inputs which are local coordinate pinhole models.
+Solves for intrinsic parameters and writes out pinhole file instead of adjust files. \\ \hline
+\texttt{-\/-constant-intrinsics} & Used with the local pinhole option, holds the intrinsic parameters constant. \\ \hline
+
 \texttt{-\/min-triangulation-angle \textit{double(=0.1)}} &
 The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.
 \\ \hline
@@ -2142,7 +2146,9 @@ run the tool, three camera model files will be created in the output folder:
 The first file can be used as a camera calibration file for the \texttt{camera\_solve} tool.  The second file
 is a pinhole camera format that is recognized by ASP but remember that the extrinsic parameters were not solved
 for so ASP is limited in what it can do with the camera file.  The last file contains the camera information as
-formatted by the OpenCV calibration tool.
+formatted by the OpenCV calibration tool.  If you use the first file as an input to \texttt{camera\_solve}
+you must remember to replace the wildcard image path in the file with the one to the images you want to use 
+solve for (as opposed to the checkerboard images).
 
 In order to use this tool you must provide multiple images of the same checkerboard pattern acquired with
 the camera you wish to calibrate.  When calling the tool you must specify the number of internal square corners
@@ -2168,8 +2174,6 @@ Option & Description \\ \hline \hline
 \texttt{-h | -\/-help } & Display this help message.\\ \hline
 \texttt{-\/-overwrite}  & Recompute any intermediate steps already completed on disk.\\ \hline
 \texttt{-\/-suppress-output} & Reduce the amount of program console output.\\ \hline
-\texttt{-\/-flash-pictures} & Pop up windows with pictures of the checkerboard to verify
-the image processing is working well.\\ \hline
 \texttt{-\/-box-size-cm  \textit{float}} & The size of the checkerboard squares in centimeters.\\ \hline
 \texttt{-\/-duplicate-files} & Make a copy of the vw param file for each input camera.\\ \hline
 \end{longtable}
