@@ -428,7 +428,7 @@ load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
     return cam; // Just return if nothing is adjusting the camera
 
   std::vector<Vector3> position_correction;
-  std::vector<Quat> pose_correction;
+  std::vector<Quat   > pose_correction;
 
   // Ensure these vectors are populated even when there are no corrections to read,
   // as we may still have pixel offset.

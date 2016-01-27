@@ -315,7 +315,8 @@ def run_bundle_adjust(options):
     output_prefix = os.path.join(options.output_folder, 'asp_ba_out')
 
     # Some extra bundle adjust params
-    ba_params = ['--local-pinhole', '-t', 'pinhole', '--datum', options.datum]
+    # - We used Theia to try and compute intrinsics, don't need to redo it here.
+    ba_params = ['--local-pinhole', '--constant-intrinsics',  '-t', 'pinhole', '--datum', options.datum]
     if options.bundle_params:
         ba_params += options.bundle_params.split(' ')
 

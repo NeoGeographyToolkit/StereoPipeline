@@ -96,11 +96,11 @@ namespace asp{
 struct Options : public asp::BaseOptions {
   std::vector<std::string> image_files, camera_files, gcp_files;
   std::string cnet_file, out_prefix, stereo_session_string, cost_function, ba_type;
-  int ip_per_tile;
+  int    ip_per_tile;
   double min_angle, lambda, camera_weight, robust_threshold;
-  int report_level, min_matches, max_iterations, overlap_limit;
+  int    report_level, min_matches, max_iterations, overlap_limit;
 
-  bool save_iteration, local_pinhole_input;
+  bool   save_iteration, local_pinhole_input, constant_intrinsics;
   std::string datum_str;
   double semi_major, semi_minor;
 
@@ -115,6 +115,7 @@ struct Options : public asp::BaseOptions {
   Options(): ip_per_tile(0), min_angle(0), lambda(-1.0), camera_weight(-1),
              robust_threshold(0), report_level(0), min_matches(0),
              max_iterations(0), overlap_limit(0), save_iteration(false),
+             local_pinhole_input(false), constant_intrinsics(false),
              semi_major(0), semi_minor(0),
              datum(cartography::Datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
                                       "Reference Meridian", 1, 1, 0)),
@@ -122,6 +123,7 @@ struct Options : public asp::BaseOptions {
 };
 
 // TODO: This update stuff should really be done somewhere else!
+//       Also the comments may be wrong.
 
 /// This version does nothing.  All camera parameters will start at zero.
 /// - This is for the BundleAdjustmentModel class where the camera parameters
@@ -223,9 +225,9 @@ struct BaReprojectionError {
       Mutex::Lock lock( g_ba_mutex );
       g_ba_num_errors++;
       if (g_ba_num_errors < 100) {
-	vw_out(ErrorMessage) << e.what() << std::endl;
+        vw_out(ErrorMessage) << e.what() << std::endl;
       }else if (g_ba_num_errors == 100) {
-	vw_out() << "Will print no more error messages about "
+        vw_out() << "Will print no more error messages about "
                  << "failing to compute residuals.\n";
       }
 
@@ -415,25 +417,23 @@ ceres::LossFunction* get_loss_function(Options const& opt ){
 
 // Add residual block without floating intrinsics
 template<class ModelT>
-typename boost::disable_if<boost::is_same<ModelT,BAPinholeModel>,void>::type
-add_residual_block(ModelT & ba_model,
-                   Vector2 const& observation, Vector2 const& pixel_sigma,
-                   size_t icam, size_t ipt,
-                   double * camera, double * point, double * intrinsics,
-                   ceres::LossFunction* loss_function,
-                   ceres::Problem & problem){
+void add_residual_block(ModelT & ba_model,
+                        Vector2 const& observation, Vector2 const& pixel_sigma,
+                        size_t icam, size_t ipt,
+                        double * camera, double * point, double * intrinsics,
+                        ceres::LossFunction* loss_function,
+                        ceres::Problem & problem){
 
   ceres::CostFunction* cost_function =
     BaReprojectionError<ModelT>::Create(observation, pixel_sigma,
                                         &ba_model, icam, ipt);
   problem.AddResidualBlock(cost_function, loss_function, camera, point);
-
 }
 
 // Add residual block floating the intrinsics
-template<class ModelT>
-typename boost::enable_if<boost::is_same<ModelT,BAPinholeModel>,void>::type
-add_residual_block(ModelT & ba_model,
+template<>
+void add_residual_block<BAPinholeModel>
+                  (BAPinholeModel & ba_model,
                    Vector2 const& observation, Vector2 const& pixel_sigma,
                    size_t icam, size_t ipt,
                    double * camera, double * point, double * intrinsics,
@@ -441,10 +441,10 @@ add_residual_block(ModelT & ba_model,
                    ceres::Problem & problem){
 
   ceres::CostFunction* cost_function =
-    BaPinholeError<ModelT>::Create(observation, pixel_sigma,
-                                   &ba_model, icam, ipt);
-  problem.AddResidualBlock(cost_function, loss_function, camera,
-                           point, intrinsics);
+    BaPinholeError<BAPinholeModel>::Create(observation, pixel_sigma,
+                                           &ba_model, icam, ipt);
+  problem.AddResidualBlock(cost_function, loss_function, camera, point, intrinsics);
+                           
 
 }
 
@@ -483,8 +483,8 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
 */
 
   // Camera extrinsics and intrinsics
-  double* cameras = &cameras_vec[0];
-  double * intrinsics = NULL;
+  double* cameras    = &cameras_vec[0];
+  double* intrinsics = NULL;
   if (num_intrinsic_params > 0)
     intrinsics = &intrinsics_vec[0];
 
@@ -600,8 +600,9 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
     vw_out() << "Found a valid solution, but did not reach the actual minimum." << std::endl;
   }
 
-  // Copy the latest version of the optimized variables into
-  // ba_model. Need this to be able to save the model to disk later.
+  // Copy the latest version of the optimized intrinsic variables back
+  // into the parameter vectors in ba_model, right after the already updated
+  // extrinsic parameters.
   typename ModelT::camera_intr_vector_t concat;
   for (size_t icam = 0; icam < num_cameras; icam++){
     asp::concat_extrinsics_intrinsics<ModelT>(&cameras_vec[icam*num_camera_params],
@@ -780,9 +781,6 @@ void do_ba_with_model(Options& opt){
   }
 
 }
-
-// TODO: Clean up the command line parsing and unify it with other modules!
-
 
 /// Given a vector of strings, identify and store separately the list of camera models.
 std::vector<std::string>
@@ -1070,19 +1068,12 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
       vw::Vector3 position = pincam->camera_center();
       vw::Quat    pose     = pincam->camera_pose();
 
-      vw::Vector2 fl = pincam->focal_length();
-      vw::Vector2 po = pincam->point_offset();
-
       // New position and rotation
       position = scale*A*position + b;
       vw::Quat aq(A);
       pose = aq*pose;
-
-      // Use assignment operator to overwrite the pinhole parameters
-      *pincam = vw::camera::PinholeModel(position,
-                                         pose.rotation_matrix(),
-                                         fl[0], fl[1],  // focal lengths
-                                         po[0], po[1]); // pixel offsets
+      pincam->set_camera_center(position);
+      pincam->set_camera_pose  (pose);                                   
       //std::cout << "model: " << *pincam << std::endl;
       //std::cout << "GDC coordinate: " << opt.datum.cartesian_to_geodetic(position) << std::endl;
     } // End loop through cameras
@@ -1131,9 +1122,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("min-matches",      po::value(&opt.min_matches)->default_value(30),
                          "Set the minimum  number of matches between images that will be considered.")
     ("ip-detect-method",po::value(&opt.ip_detect_method)->default_value(0),
-                     "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
-      ("individually-normalize",   po::bool_switch(&opt.individually_normalize)->default_value(false)->implicit_value(true),
-                     "Individually normalize the input images instead of using common values.")
+                         "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
+    ("individually-normalize",   po::bool_switch(&opt.individually_normalize)->default_value(false)->implicit_value(true),
+                        "Individually normalize the input images instead of using common values.")
     ("max-iterations",   po::value(&opt.max_iterations)->default_value(1000),
                          "Set the maximum number of iterations.")
     ("overlap-limit",    po::value(&opt.overlap_limit)->default_value(3),
@@ -1148,6 +1139,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                          "Set the initial value of the LM parameter lambda (ignored for the Ceres solver).")
     ("local-pinhole",    po::bool_switch(&opt.local_pinhole_input)->default_value(false),
                          "Use special methods to handle a local coordinate input pinhole model.")
+    ("constant-intrinsics",   po::bool_switch(&opt.constant_intrinsics)->default_value(false)->implicit_value(true),
+                         "Do not modify the input intrinsic camera values.")
     ("report-level,r",   po::value(&opt.report_level)->default_value(10),
                          "Use a value >= 20 to get increasingly more verbose output.");
 //     ("save-iteration-data,s", "Saves all camera information between iterations to output-prefix-iterCameraParam.txt, it also saves point locations for all iterations in output-prefix-iterPointsParam.txt.");
@@ -1282,8 +1275,7 @@ int main(int argc, char* argv[]) {
                                                            ));
 
       opt.camera_models.push_back(session->camera_model(opt.image_files [i],
-                                                        opt.camera_files[i]));
-
+                                                        opt.camera_files[i])); 
     } // End loop through images loading all the camera models
 
     // Create the match points
@@ -1413,7 +1405,7 @@ int main(int argc, char* argv[]) {
     }
     else{ // Use for local pinhole models, could also be used for other pinhole models.
 
-      BAPinholeModel ba_model(opt.camera_models, opt.cnet);
+      BAPinholeModel ba_model(opt.camera_models, opt.cnet, opt.constant_intrinsics);
 
       // Create new camera models from scratch
       do_ba_ceres<BAPinholeModel>(ba_model, opt);

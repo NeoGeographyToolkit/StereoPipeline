@@ -187,6 +187,7 @@ def convert_outputs(options):
             output_path = os.path.join(options.output_folder, name + '.tsai')
             shutil.copy(options.vw_params_path, output_path)
     
+    # Write the Theia output file
     theia_file = open(options.theia_params_path, 'w')
     mean_focal_length = (params['focal_length_x']+params['focal_length_y'])/2.0
     param_list = [options.image_wildcard, mean_focal_length, params['center_x'], params['center_y'], 
