@@ -61,6 +61,7 @@ def stringToArgList(string):
     """Converts a single argument string into a list of arguments"""
     return string.split(" ")
 
+# TODO: Improve this function a bit
 def executeCommand(cmd,
                    outputPath=None,      # If given, throw if the file is not created.  Don't run if it already exists.
                    suppressOutput=False, # If true, don't print anything!

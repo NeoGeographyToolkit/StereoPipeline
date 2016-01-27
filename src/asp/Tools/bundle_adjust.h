@@ -441,7 +441,7 @@ public:
     for (int icam = 0; icam < (int)cam_files.size(); icam++){
       vw::vw_out() << "Writing: " << cam_files[icam] << std::endl;
       vw::camera::PinholeModel model = get_camera_model(icam);
-      model.write(cam_files[icam]);
+      model.write(cam_files[icam]); // TODO: Write .tsai files instead?
      
       std::cout << "Writing BAPinhole model params: " << m_cam_vec[icam] << std::endl;
       std::cout << "BAPinhole output model: " << model << std::endl;
