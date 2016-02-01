@@ -66,6 +66,7 @@ IsisInterface* IsisInterface::open( std::string const& filename ) {
 
   IsisInterface* result;
 
+  // Instantiate the correct class type
   switch ( camera->GetCameraType() ) {
   case 0:
     // Framing Camera

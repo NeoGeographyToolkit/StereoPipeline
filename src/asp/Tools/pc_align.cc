@@ -814,7 +814,7 @@ int main( int argc, char *argv[] ) {
   Eigen::initParallel();
 
   Options opt;
-  try {
+  //try {
     handle_arguments( argc, argv, opt );
 
     // Set the number of threads for OpenMP
@@ -956,7 +956,7 @@ int main( int argc, char *argv[] ) {
 
     // Filter the reference and initialize the reference tree
     double elapsed_time;
-    PM::ICP icp;
+    PM::ICP icp; // LibpointMatcher object
     Stopwatch sw3;
     if (opt.verbose)
       vw_out() << "Building the reference cloud tree." << endl;
@@ -1110,7 +1110,7 @@ int main( int argc, char *argv[] ) {
     if (opt.verbose) vw_out() << "Saving to disk took "
                               << sw5.elapsed_seconds() << " [s]" << endl;
 
-  } ASP_STANDARD_CATCHES;
+  //} ASP_STANDARD_CATCHES;
 
   return 0;
 }

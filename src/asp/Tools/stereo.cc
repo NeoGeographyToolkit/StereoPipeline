@@ -660,10 +660,10 @@ namespace asp {
           << "\tto triangulate or perform epipolar rectification.\n";
 
       // Developer friendly help
-      VW_OUT(DebugMessage,"asp") << "Camera 1 location: "     << cam1_ctr << "\n"
-                                 << "   in Lon Lat Rad: "     << cartography::xyz_to_lon_lat_radius(cam1_ctr) << "\n";
-      VW_OUT(DebugMessage,"asp") << "Camera 2 location: "     << cam2_ctr << "\n"
-                                 << "   in Lon Lat Rad: "     << cartography::xyz_to_lon_lat_radius(cam2_ctr) << "\n";
+      VW_OUT(DebugMessage,"asp") << "Camera 1 location: " << cam1_ctr << "\n"
+             << "   in estimated Lon Lat Rad: " << cartography::xyz_to_lon_lat_radius_estimate(cam1_ctr) << "\n";
+      VW_OUT(DebugMessage,"asp") << "Camera 2 location: " << cam2_ctr << "\n"
+             << "   in estimated Lon Lat Rad: " << cartography::xyz_to_lon_lat_radius_estimate(cam2_ctr) << "\n";
       VW_OUT(DebugMessage,"asp") << "Camera 1 Pointing Dir: " << cam1_vec << "\n"
                                  << "      dot against pos: " << dot_prod(cam1_vec, cam1_ctr) << "\n";
       VW_OUT(DebugMessage,"asp") << "Camera 2 Pointing Dir: " << cam2_vec << "\n"

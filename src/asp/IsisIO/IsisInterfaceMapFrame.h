@@ -41,6 +41,7 @@ namespace Isis {
 namespace asp {
 namespace isis {
 
+  /// ??
   class IsisInterfaceMapFrame : public IsisInterface {
 
   public:
@@ -51,24 +52,20 @@ namespace isis {
     // Standard Methods
     //-------------------------------------------------
 
-    virtual vw::Vector2
-      point_to_pixel( vw::Vector3 const& point ) const;
-    virtual vw::Vector3
-      pixel_to_vector( vw::Vector2 const& pix ) const;
-    virtual vw::Vector3
-      camera_center( vw::Vector2 const& pix = vw::Vector2() ) const;
-    virtual vw::Quat
-      camera_pose( vw::Vector2 const& pix = vw::Vector2() ) const;
+    virtual vw::Vector2 point_to_pixel ( vw::Vector3 const& point ) const; // TODO: Inaccurate!  Needs DATUM!
+    virtual vw::Vector3 pixel_to_vector( vw::Vector2 const& pix   ) const;
+    virtual vw::Vector3 camera_center  ( vw::Vector2 const& pix = vw::Vector2() ) const;
+    virtual vw::Quat    camera_pose    ( vw::Vector2 const& pix = vw::Vector2() ) const;
 
   protected:
 
     // Custom Variables
     boost::scoped_ptr<Isis::TProjection> m_projection;
-    Isis::CameraGroundMap *m_groundmap;
+    Isis::CameraGroundMap     *m_groundmap;
     Isis::CameraDistortionMap *m_distortmap;
 
-    vw::Vector3 m_center;
-    vw::Quat m_pose;
+    vw::Vector3    m_center;
+    vw::Quat       m_pose;
     Isis::Distance m_radii[3];
   };
 

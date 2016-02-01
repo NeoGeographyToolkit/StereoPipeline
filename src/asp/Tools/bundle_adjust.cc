@@ -824,15 +824,15 @@ Eigen::Affine3d Find3DAffineTransform(Eigen::Matrix3Xd in, Eigen::Matrix3Xd out)
   out /= scale;
 
   // Find the centroids then shift to the origin
-  Eigen::Vector3d in_ctr = Eigen::Vector3d::Zero();
+  Eigen::Vector3d in_ctr  = Eigen::Vector3d::Zero();
   Eigen::Vector3d out_ctr = Eigen::Vector3d::Zero();
   for (int col = 0; col < in.cols(); col++) {
     in_ctr  += in.col(col);
     out_ctr += out.col(col);
   }
-  in_ctr /= in.cols();
+  in_ctr  /= in.cols(); // Get the mean
   out_ctr /= out.cols();
-  for (int col = 0; col < in.cols(); col++) {
+  for (int col = 0; col < in.cols(); col++) { // Subtract mean from in and out
     in.col(col)  -= in_ctr;
     out.col(col) -= out_ctr;
   }

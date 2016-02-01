@@ -18,7 +18,7 @@
 
 // ASP
 #include <asp/IsisIO/IsisInterfaceMapFrame.h>
-#include <vw/Cartography/SimplePointImageManipulation.h>
+#include <vw/Cartography/PointImageManipulation.h>
 
 // ISIS
 #include <ProjectionFactory.h>
@@ -42,7 +42,7 @@ IsisInterfaceMapFrame::IsisInterfaceMapFrame( std::string const& filename ) :
   m_projection.reset(tempProj);
 
   // Gutting Isis::Camera
-  m_groundmap = m_camera->GroundMap();
+  m_groundmap  = m_camera->GroundMap();
   m_distortmap = m_camera->DistortionMap();
   m_camera->radii( m_radii );
 
@@ -60,15 +60,15 @@ IsisInterfaceMapFrame::IsisInterfaceMapFrame( std::string const& filename ) :
 
 Vector2
 IsisInterfaceMapFrame::point_to_pixel( Vector3 const& point ) const {
-  Vector3 lon_lat_radius = cartography::xyz_to_lon_lat_radius( point );
+  Vector3 lon_lat_radius = cartography::xyz_to_lon_lat_radius_estimate( point ); // TODO: INACCURATE!!!
   if ( lon_lat_radius[0] < 0 )
     lon_lat_radius[0] += 360;
 
   // Projecting into the camera
   m_groundmap->SetGround(
-    Isis::SurfacePoint( Isis::Latitude( lon_lat_radius[1], Isis::Angle::Degrees ),
-                        Isis::Longitude( lon_lat_radius[0], Isis::Angle::Degrees ),
-                        Isis::Distance( lon_lat_radius[2], Isis::Distance::Meters ) ) );
+    Isis::SurfacePoint( Isis::Latitude ( lon_lat_radius[1], Isis::Angle::Degrees   ),
+                        Isis::Longitude( lon_lat_radius[0], Isis::Angle::Degrees   ),
+                        Isis::Distance ( lon_lat_radius[2], Isis::Distance::Meters ) ) );
   m_distortmap->SetUndistortedFocalPlane( m_groundmap->FocalPlaneX(),
                                           m_groundmap->FocalPlaneY() );
 
@@ -94,7 +94,7 @@ IsisInterfaceMapFrame::pixel_to_vector( Vector2 const& px ) const {
                           m_camera->LocalRadius( m_projection->UniversalLatitude(),
                                                  m_projection->UniversalLongitude() ).meters() );
 
-  Vector3 point = cartography::lon_lat_radius_to_xyz(lon_lat_radius);
+  Vector3 point = cartography::lon_lat_radius_to_xyz_estimate(lon_lat_radius); // TODO: INACCURATE!!!
   return normalize(point-m_center);
 }
 

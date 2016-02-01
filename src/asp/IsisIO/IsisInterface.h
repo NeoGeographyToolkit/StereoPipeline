@@ -37,7 +37,7 @@ namespace Isis {
 namespace asp {
 namespace isis {
 
-  // The IsisInterface abstract base class
+  /// The IsisInterface abstract base class
   // -------------------------------------------------------
 
   class IsisInterface {
@@ -47,6 +47,8 @@ namespace isis {
                               // incomplete types from Isis.
 
     virtual std::string type() = 0;
+    
+    /// Construct an IsisInterface-derived class of the correct type for the given file.
     static IsisInterface* open( std::string const& filename );
 
     // Standard Methods
@@ -63,13 +65,13 @@ namespace isis {
 
     // General information
     //------------------------------------------------------
-    int lines  () const;
-    int samples() const;
-    std::string serial_number() const;
-    double ephemeris_time( vw::Vector2 const& pix ) const;
-    vw::Vector3 sun_position( vw::Vector2 const& pix = vw::Vector2() ) const;
-    vw::Vector3 target_radii() const;
-    std::string target_name() const;
+    int         lines         () const;
+    int         samples       () const;
+    std::string serial_number () const;
+    double      ephemeris_time( vw::Vector2 const& pix ) const;
+    vw::Vector3 sun_position  ( vw::Vector2 const& pix = vw::Vector2() ) const;
+    vw::Vector3 target_radii  () const;
+    std::string target_name   () const;
 
   protected:
     // Standard Variables

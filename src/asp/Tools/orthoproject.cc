@@ -327,7 +327,7 @@ int main(int argc, char* argv[]) {
       //
       // Valid values are well known Datums like D_MOON D_MARS WGS84 and so on.
       Vector3 llr_camera_loc =
-        cartography::XYZtoLonLatRadFunctor::apply( camera_model->camera_center(Vector2()) );
+        cartography::XYZtoLonLatRadEstimateFunctor::apply( camera_model->camera_center(Vector2()) );
       if ( llr_camera_loc[0] < 0 ) llr_camera_loc[0] += 360;
 
       dem_georef =

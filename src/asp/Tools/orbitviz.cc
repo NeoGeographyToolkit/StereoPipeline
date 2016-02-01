@@ -157,7 +157,6 @@ int main(int argc, char* argv[]) {
     unsigned no_cameras = opt.loading_image_camera_order ? opt.input_files.size()/2 : opt.input_files.size();
     vw_out() << "Number of cameras: " << no_cameras << std::endl;
     std::vector<std::string> camera_names(no_cameras);
-    cartography::XYZtoLonLatRadFunctor conv_func;
 
     // Copying file names
     for (unsigned load_i = 0, read_i = 0; load_i < no_cameras; load_i++) {
@@ -228,8 +227,8 @@ int main(int argc, char* argv[]) {
       } // End csv write condition
 
       // Adding Placemarks
-      Vector3 lon_lat_alt = conv_func(current_camera->camera_center(Vector2()));
-      lon_lat_alt[2] -= datum.radius(lon_lat_alt[0], lon_lat_alt[1]);
+      Vector3 lon_lat_alt = datum.cartesian_to_geodetic(current_camera->camera_center(Vector2()));
+      //lon_lat_alt[2] -= datum.radius(lon_lat_alt[0], lon_lat_alt[1]);
 
       if (!opt.path_to_outside_model.empty())
         kml.append_model( opt.path_to_outside_model,

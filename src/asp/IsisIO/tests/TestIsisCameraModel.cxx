@@ -21,7 +21,7 @@
 #include <vw/Math/Vector.h>
 #include <vw/Core/Debugging.h>
 #include <asp/IsisIO/IsisCameraModel.h>
-#include <vw/Cartography/SimplePointImageManipulation.h>
+#include <vw/Cartography/PointImageManipulation.h>
 
 #include <FileName.h>
 #include <CameraFactory.h>
@@ -95,7 +95,7 @@ TEST(IsisCameraModel, mapprojected) {
     double bc[3];
     cam->Coordinate( bc );
     VectorProxy<double,3> coord( bc );
-    Vector3 alt = cartography::lon_lat_radius_to_xyz( lon_lat_radius );
+    Vector3 alt = cartography::lon_lat_radius_to_xyz_estimate( lon_lat_radius ); // INACCURATE
 
     Vector3 dir = normalize( alt - instru );
     Vector3 new_point = instru*1000+50000*dir;
