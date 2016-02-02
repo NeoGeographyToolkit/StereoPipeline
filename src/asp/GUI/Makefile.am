@@ -28,11 +28,7 @@ CLEANFILES = *.moc.cc
 include_HEADERS =               \
   GuiUtilities.h                \
   MainWidget.h                  \
-  ImageTileGenerator.h          \
-  MainWindow.h                  \
-  TileGenerator.h               \
-  Tree.h                        \
-  Tree.tcc
+  MainWindow.h                  
 
 BUILT_SOURCES =                 \
   GuiUtilities.moc.cc           \
@@ -43,9 +39,8 @@ libaspGUI_la_SOURCES =          \
   $(BUILT_SOURCES)              \
   GuiUtilities.cc               \
   MainWidget.cc                 \
-  ImageTileGenerator.cc         \
-  MainWindow.cc                 \
-  TileGenerator.cc
+  MainWindow.cc                 
+
 
 libaspGUI_la_LIBADD = @MODULE_GUI_LIBS@
 
