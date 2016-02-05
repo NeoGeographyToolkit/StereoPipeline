@@ -298,33 +298,62 @@ namespace asp{
     image = copy(image_out);
   }
 
+  // TODO: This function should live somewhere else!
+  // Erode this many pixels around invalid pixels
   void erode_image(ImageView<Vector3> & image, int erode_len){
 
-    // Erode this many pixels around invalid pixels
+    if (erode_len <= 0) // No erode, we are finished!
+      return;
 
-    if (erode_len <= 0) return;
+    int    nc      = image.cols(), 
+           nr      = image.rows(); // shorten
+    double nan     = std::numeric_limits<double>::quiet_NaN();
+    int    max_col = nc - 1;
+    int    max_row = nr - 1;
 
-    int nc = image.cols(), nr = image.rows(); // shorten
-    double nan = std::numeric_limits<double>::quiet_NaN();
-
+    // Create a buffer to modify and a pointer to allow easy
+    //  swapping of which image we are writing to.
+    // - The first write is to the input image, so we don't have to do extra copies with one pass.
+    ImageView<Vector3>  buffer = copy(image);
+    ImageView<Vector3>* read_ptr  = &buffer; 
+    ImageView<Vector3>* write_ptr = &image; 
+    ImageView<Vector3>* temp_ptr = 0;
+    
+    // One pass per erode length    
     for (int pass = 0; pass < erode_len; pass++){
-      ImageView<Vector3> eroded = copy(image);
 
-      for (int col = 0; col < image.cols(); col++){
-	for (int row = 0; row < image.rows(); row++){
+      // Loop through the entire image
+      for (int col = 0; col < nc; col++){
+        int start_col = std::max(col-1, 0      );
+        int stop_col  = std::min(col+1, max_col);
+	      for (int row = 0; row < nr; row++){
+          int start_row = std::max(row-1, 0      );
+          int stop_row  = std::min(row+1, max_row);
 
-	  for (int c = std::max(col-1, 0); c <= std::min(col+1, nc-1); c++){
-	    for (int r = std::max(row-1, 0); r <= std::min(row+1, nr-1); r++){
-	      if (boost::math::isnan(image(c, r).z()))
-		eroded(col, row).z() = nan;
-	    }
-	  }
-	}
-      }
+          // Loop through bounds checked border 1 region around this pixel
+          for (int c = start_col; c <= stop_col; c++){
+            for (int r = start_row; r <= stop_row; r++){
+              // If any of these pixels are bad, throw out this pixel
+              if (boost::math::isnan(read_ptr->operator()(c, r).z()))
+                write_ptr->operator()(col, row).z() = nan;
+            }
+          } // End inner erode double loop
+          
+        }
+      } // End double loop through image pixels
 
-      image = copy(eroded);
+      // Swap the read and write buffer pointers for the next pass
+      // - No need to make copies each time, the nan regions will just keep expanding.
+      temp_ptr  = write_ptr;
+      write_ptr = read_ptr;
+      read_ptr  = temp_ptr;
+      
     } // end passes
-
+    
+    // If we had an even number of erode passes, the last write was to the temp
+    //  buffer and we need to copy it back to the input image.
+    if ((erode_len % 2) == 0)
+      image = copy(buffer);
   }
 
 
