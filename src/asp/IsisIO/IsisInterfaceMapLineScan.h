@@ -45,14 +45,10 @@ namespace isis {
     // Standard Methods
     //-------------------------------------------------
 
-    virtual vw::Vector2
-      point_to_pixel( vw::Vector3 const& point ) const;
-    virtual vw::Vector3
-      pixel_to_vector( vw::Vector2 const& pix ) const;
-    virtual vw::Vector3
-      camera_center( vw::Vector2 const& pix = vw::Vector2(1,1) ) const;
-    virtual vw::Quat
-      camera_pose( vw::Vector2 const& pix = vw::Vector2(1,1) ) const;
+    virtual vw::Vector2 point_to_pixel ( vw::Vector3 const& point ) const;
+    virtual vw::Vector3 pixel_to_vector( vw::Vector2 const& pix   ) const;
+    virtual vw::Vector3 camera_center  ( vw::Vector2 const& pix = vw::Vector2(1,1) ) const;
+    virtual vw::Quat    camera_pose    ( vw::Vector2 const& pix = vw::Vector2(1,1) ) const;
 
   protected:
 

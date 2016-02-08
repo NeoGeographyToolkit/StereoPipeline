@@ -52,14 +52,10 @@ namespace isis {
     // Standard Methods
     //-------------------------------------------------
 
-    virtual vw::Vector2
-      point_to_pixel( vw::Vector3 const& point ) const;
-    virtual vw::Vector3
-      pixel_to_vector( vw::Vector2 const& pix ) const;
-    virtual vw::Vector3
-      camera_center( vw::Vector2 const& pix = vw::Vector2(1,1) ) const;
-    virtual vw::Quat
-      camera_pose( vw::Vector2 const& pix = vw::Vector2(1,1) ) const;
+    virtual vw::Vector2 point_to_pixel ( vw::Vector3 const& point ) const;
+    virtual vw::Vector3 pixel_to_vector( vw::Vector2 const& pix   ) const;
+    virtual vw::Vector3 camera_center  ( vw::Vector2 const& pix = vw::Vector2(1,1) ) const;
+    virtual vw::Quat    camera_pose    ( vw::Vector2 const& pix = vw::Vector2(1,1) ) const;
 
   protected:
 
@@ -67,14 +63,14 @@ namespace isis {
     Isis::CameraDistortionMap *m_distortmap;
     Isis::CameraFocalPlaneMap *m_focalmap;
     Isis::CameraDetectorMap   *m_detectmap;
-    mutable Isis::AlphaCube   m_alphacube; // Doesn't use const
+    mutable Isis::AlphaCube    m_alphacube; // Doesn't use const
 
   private:
 
     // Custom Functions
     mutable vw::Vector2 m_c_location;
     mutable vw::Vector3 m_center;
-    mutable vw::Quat m_pose;
+    mutable vw::Quat    m_pose;
     void SetTime( vw::Vector2 const& px,
                   bool calc=false ) const;
   };
