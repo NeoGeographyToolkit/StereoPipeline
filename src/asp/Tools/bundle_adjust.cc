@@ -163,7 +163,7 @@ update_cnet_and_init_cams<BAPinholeModel>(
       ++index;
     } // End loop through camera parameters
   } // End loop through cameras
-
+/*
   // Set the intrinsics vector which is shared across all cameras.
   intrinsics_vec.resize(num_intrinsic_params);
   BAPinholeModel::camera_intr_vector_t cam_vec;
@@ -171,7 +171,7 @@ update_cnet_and_init_cams<BAPinholeModel>(
   for (size_t i=0; i<num_intrinsic_params; ++i) {
     intrinsics_vec[i] = cam_vec[num_params_per_camera+i];
   }
-
+*/
   return;
 }
 
@@ -260,10 +260,11 @@ struct BaReprojectionError {
   size_t m_icam, m_ipt;
 };
 
-// A ceres cost function. Here we float a pinhole camera's intrinsic
-// and extrinsic parameters. The result is the residual, the
-// difference in the observation and the projection of the point into
-// the camera, normalized by pixel_sigma.
+/// A ceres cost function. Here we float a pinhole camera's intrinsic
+/// and extrinsic parameters. The result is the residual, the
+/// difference in the observation and the projection of the point into
+/// the camera, normalized by pixel_sigma.
+/// - Variation of intrinsic parameters is currently disabled!
 template<class ModelT>
 struct BaPinholeError {
   BaPinholeError(Vector2 const& observation, Vector2 const& pixel_sigma,
@@ -276,7 +277,7 @@ struct BaPinholeError {
   template <typename T>
   bool operator()(const T* const camera,
                   const T* const point,
-                  const T* const intrinsic,
+                  //const T* const intrinsic,
                   T* residuals) const {
 
     try{
@@ -288,7 +289,9 @@ struct BaPinholeError {
 
       // Copy the input data to structures expected by the BA model
       typename ModelT::camera_intr_vector_t cam_intr_vec;
-      asp::concat_extrinsics_intrinsics<ModelT>(camera, intrinsic, cam_intr_vec);
+      //asp::concat_extrinsics_intrinsics<ModelT>(camera, intrinsic, cam_intr_vec);
+      for (int c = 0; c < cam_intr_vec.size(); c++)
+          cam_intr_vec[c] = camera[c];
       typename ModelT::point_vector_t  point_vec;
       for (size_t p = 0; p < point_vec.size(); p++)
         point_vec[p]  = (double)point[p];
@@ -319,12 +322,17 @@ struct BaPinholeError {
                                      size_t icam, // camera index
                                      size_t ipt // point index
                                      ){
+/* // Disable intrinsic params
     return (new ceres::NumericDiffCostFunction<BaPinholeError,
             ceres::CENTRAL, 2, ModelT::camera_params_n, ModelT::point_params_n,
             ModelT::intrinsic_params_n>
             (new BaPinholeError(observation, pixel_sigma,
                                      ba_model, icam, ipt)));
-
+*/
+    return (new ceres::NumericDiffCostFunction<BaPinholeError,
+            ceres::CENTRAL, 2, ModelT::camera_params_n, ModelT::point_params_n>
+            (new BaPinholeError(observation, pixel_sigma,
+                                     ba_model, icam, ipt)));
   }
 
   Vector2 m_observation;
@@ -443,7 +451,8 @@ void add_residual_block<BAPinholeModel>
   ceres::CostFunction* cost_function =
     BaPinholeError<BAPinholeModel>::Create(observation, pixel_sigma,
                                            &ba_model, icam, ipt);
-  problem.AddResidualBlock(cost_function, loss_function, camera, point, intrinsics);
+  //problem.AddResidualBlock(cost_function, loss_function, camera, point, intrinsics);
+  problem.AddResidualBlock(cost_function, loss_function, camera, point);
                            
 
 }
@@ -1139,12 +1148,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                          "Set the initial value of the LM parameter lambda (ignored for the Ceres solver).")
     ("local-pinhole",    po::bool_switch(&opt.local_pinhole_input)->default_value(false),
                          "Use special methods to handle a local coordinate input pinhole model.")
-    ("constant-intrinsics",   po::bool_switch(&opt.constant_intrinsics)->default_value(false)->implicit_value(true),
-                         "Do not modify the input intrinsic camera values.")
+    //("constant-intrinsics",   po::bool_switch(&opt.constant_intrinsics)->default_value(false)->implicit_value(true),
+    //                     "Do not modify the input intrinsic camera values.")
     ("report-level,r",   po::value(&opt.report_level)->default_value(10),
                          "Use a value >= 20 to get increasingly more verbose output.");
 //     ("save-iteration-data,s", "Saves all camera information between iterations to output-prefix-iterCameraParam.txt, it also saves point locations for all iterations in output-prefix-iterPointsParam.txt.");
   general_options.add( asp::BaseOptionsDescription(opt) );
+
+  // We don't currently support varying the intrinsic parameters!
+  opt.constant_intrinsics = true;
 
   // TODO: When finding the min and max bounds, do a histogram, throw away 5% of points
   // or something at each end.
@@ -1405,7 +1417,7 @@ int main(int argc, char* argv[]) {
     }
     else{ // Use for local pinhole models, could also be used for other pinhole models.
 
-      BAPinholeModel ba_model(opt.camera_models, opt.cnet, opt.constant_intrinsics);
+      BAPinholeModel ba_model(opt.camera_models, opt.cnet/*, opt.constant_intrinsics*/);
 
       // Create new camera models from scratch
       do_ba_ceres<BAPinholeModel>(ba_model, opt);
@@ -1416,7 +1428,7 @@ int main(int argc, char* argv[]) {
         std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix,
                                                             opt.image_files[icam],
                                                             opt.camera_files[icam]);
-        cam_file = fs::path(cam_file).replace_extension("pinhole").string();
+        cam_file = fs::path(cam_file).replace_extension("tsai").string();
         cam_files.push_back(cam_file);
         
         //std::cout << "Camera output GDC coordinate: " << 

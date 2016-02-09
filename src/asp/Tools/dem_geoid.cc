@@ -46,15 +46,15 @@ using namespace std;
 template <class ImageT>
 class DemGeoidView : public ImageViewBase<DemGeoidView<ImageT> >
 {
-  ImageT m_img; ///< The DEM
-  GeoReference const& m_georef;
-  bool m_is_egm2008;
-  vector<double> const& m_egm2008_grid; ///< Special variable storing EGM2008 data
+  ImageT                m_img; ///< The DEM
+  GeoReference   const& m_georef;
+  bool                  m_is_egm2008;
+  vector<double>                   const& m_egm2008_grid; ///< Special variable storing EGM2008 data
   ImageViewRef<PixelMask<double> > const& m_geoid; ///< Interpolation view of the geoid
-  GeoReference const& m_geoid_georef;
-  bool   m_reverse_adjustment; ///< If true, convert from orthometric height to geoid height
-  double m_correction;
-  double m_nodata_val;
+  GeoReference                     const& m_geoid_georef;
+  bool     m_reverse_adjustment; ///< If true, convert from orthometric height to geoid height
+  double   m_correction;
+  double   m_nodata_val;
 
 public:
 
@@ -200,15 +200,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
 
   po::options_description general_options("");
   general_options.add_options()
-    ("nodata_value", po::value(&opt.nodata_value)->default_value(-32768),
+    ("nodata_value",    po::value(&opt.nodata_value)->default_value(-32768),
          "The value of no-data pixels, unless specified in the DEM.")
-    ("geoid",  po::value(&opt.geoid), 
+    ("geoid",           po::value(&opt.geoid), 
         "Specify the geoid to use for Earth WGS84 DEMs. Options: EGM96, EGM2008. Default: EGM96.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
-    ("double", po::bool_switch(&opt.use_double)->default_value(false)->implicit_value(true),
+    ("double",          po::bool_switch(&opt.use_double)->default_value(false)->implicit_value(true),
          "Output using double precision (64 bit) instead of float (32 bit).")
     ("reverse-adjustment",
-        po::bool_switch(&opt.reverse_adjustment)->default_value(false)->implicit_value(true),
+                        po::bool_switch(&opt.reverse_adjustment)->default_value(false)->implicit_value(true),
         "Go from DEM relative to the geoid to DEM relative to the ellipsoid.");
 
   general_options.add( asp::BaseOptionsDescription(opt) );

@@ -248,24 +248,25 @@ public:
 /// camera orientation (3). Also there are three intrinsic parameters:
 /// focal length (1), and pixel offsets (2), which are shared
 /// among the cameras.
-/// - Uses only the TsaiLensDistortion model (k1, k2, p1, p2)
-/// - Adjusting the input intrinsic values is optional.
-/// - Because our BA code is kind of a mess, when intrinsics are turned
-///   off we still pretend to Ceres that they are turned on, we just
-///   never let them change in this class.
+/// - Accomodate any lens distortion model.
+/// - Adjusting the input intrinsic values is not currently supported.
+/// - If we want to enable solving for intrinsics, we should drop our old
+///   bundle adjust code so we only have to fix things once.
 class BAPinholeModel : public vw::ba::ModelBase<BAPinholeModel, 6, 3> {
 
 public: // Definitions
 
-  typedef vw::Vector<double,camera_params_n> camera_vector_t;
-  typedef vw::Vector<double,point_params_n > point_vector_t;
+  typedef vw::Vector<double,camera_params_n>          camera_vector_t;
+  typedef vw::Vector<double,point_params_n >          point_vector_t;
   typedef boost::shared_ptr<vw::camera::PinholeModel> pin_cam_ptr_t;
   typedef boost::shared_ptr<vw::camera::CameraModel>  cam_ptr_t;
-  // Seven intrinsic params -> focal length, point offset x/y, distortion params(k1, k2, p1, p2)
-  const static size_t intrinsic_params_n = 7;
-  typedef vw::Vector<double,intrinsic_params_n> intrinsic_vector_t; ///< Vector containing intrinsic parameters
+  // Currently all the intrinsic parameters are kept hidden within the class.
+  const static size_t intrinsic_params_n = 0;
+  typedef vw::Vector<double> intrinsic_vector_t; ///< Vector containing intrinsic parameters
   typedef vw::Vector<double,camera_params_n
                      +intrinsic_params_n> camera_intr_vector_t; ///< Vector containing all parameters
+  
+  // TODO: We don't solve from scratch, remove this!
   // Need this scale to force the rotations to not change that wildly
   // when determining pinhole cameras from scratch.
   const static double pose_scale = 1.0e+3;
@@ -276,21 +277,21 @@ private: // Variables
   boost::shared_ptr<vw::ba::ControlNetwork> m_network; ///< Little used control network pointer
   std::vector<camera_intr_vector_t>         m_cam_vec; ///< Vector of param vectors for each camera
   intrinsic_vector_t                        m_shared_intrinsics; ///< Record shared intrinsic values
-  const bool                                m_constant_intrinsics; ///< True if the intrinsics will never be modified
- 
+  boost::shared_ptr<vw::camera::LensDistortion>  m_shared_lens_distortion; ///< Copy of input lens distortion object
 
 public:
   /// Contructor requires a list of input pinhole models
   /// - Set constant_intrinsics if you do not want them changed
   BAPinholeModel(std::vector<cam_ptr_t> const& cameras,
-                 boost::shared_ptr<vw::ba::ControlNetwork> network,
-                 bool constant_intrinsics=false) :
-    m_cameras(cameras), m_network(network), m_cam_vec(cameras.size()), 
-    m_constant_intrinsics(constant_intrinsics){
+                 boost::shared_ptr<vw::ba::ControlNetwork> network) :
+    m_cameras(cameras), m_network(network), m_cam_vec(cameras.size()){
 
-    // Copy the (shared) intrinsic values from the first camera  
-    intrinsic_params_from_model(*(boost::dynamic_pointer_cast<vw::camera::PinholeModel>(cameras[0])), 
+    // Copy the (shared) intrinsic values from the first camera
+    const pin_cam_ptr_t pinhole_ptr = boost::dynamic_pointer_cast<vw::camera::PinholeModel>(cameras[0]);
+    intrinsic_params_from_model(*pinhole_ptr, 
                                 m_shared_intrinsics);
+    // Make a copy of the lens distortion model object
+    m_shared_lens_distortion =pinhole_ptr->lens_distortion()->copy();
   
     // Copy all of the input camera model information to the internal 
     //  camera parameters vector
@@ -308,7 +309,7 @@ public:
   
   } // End constructor
 
-  bool are_intrinsics_constant() const {return m_constant_intrinsics; }
+  bool are_intrinsics_constant() const {return true; }
 
   unsigned num_cameras() const { return m_cameras.size();  }
   unsigned num_points () const { return m_network->size(); }
@@ -333,52 +334,37 @@ public:
     vw::Quat    pose;
     asp::parse_camera_parameters(scaled_cam_vec, position, pose);
 
-    if (!m_constant_intrinsics) {
-      // Get the lens distortion parameters from the vector
-      vw::camera::TsaiLensDistortion distortion_model(vw::Vector4(scaled_cam_vec[ 9], scaled_cam_vec[10],
-                                                                  scaled_cam_vec[11], scaled_cam_vec[12]));
+    // Make a new PinholeModel object with a copy of the shared distortion model
+    return vw::camera::PinholeModel(position,
+                                    pose.rotation_matrix(),
+                                    m_shared_intrinsics[0], m_shared_intrinsics[0], // focal lengths
+                                    m_shared_intrinsics[1], m_shared_intrinsics[2], // pixel offsets
+                                    *(m_shared_lens_distortion.get()) ); 
 
-      return vw::camera::PinholeModel(position,
-                                      pose.rotation_matrix(),
-                                      scaled_cam_vec[6], scaled_cam_vec[6], // focal lengths
-                                      scaled_cam_vec[7], scaled_cam_vec[8], // pixel offsets
-                                      distortion_model); 
-    }else {
-      // Always use our shared intrinsics vector
-      vw::camera::TsaiLensDistortion distortion_model(vw::Vector4(m_shared_intrinsics[3], m_shared_intrinsics[4],
-                                                                  m_shared_intrinsics[5], m_shared_intrinsics[6]));
-
-      return vw::camera::PinholeModel(position,
-                                      pose.rotation_matrix(),
-                                      m_shared_intrinsics[0], m_shared_intrinsics[0], // focal lengths
-                                      m_shared_intrinsics[1], m_shared_intrinsics[2], // pixel offsets
-                                      distortion_model); 
-    }
   }
 
   /// Extract the intrinsic parameters only from a model
+  /// - Currently we pull them all out, but we never look at most of them again.
   void intrinsic_params_from_model(const vw::camera::PinholeModel & model,
                                          intrinsic_vector_t       & cam_vec) const{
-    // Set the intrinsic_params_n
+
+    const size_t NUM_PINHOLE_INTRINSICS = 3; // Focal length and focal point x,y offset.
+    
+    // Get the lens distortion parameters and allocate the output vector
+    vw::Vector<double> lens_distortion_params = model.lens_distortion()->distortion_parameters();
+    const size_t num_lens_params = lens_distortion_params.size();
+    cam_vec.set_size(num_lens_params + NUM_PINHOLE_INTRINSICS);
+    
+    // Get the parameters that are the same for all pinhole cameras
     vw::Vector2 fl = model.focal_length();
     vw::Vector2 po = model.point_offset();
     cam_vec[0] = fl[0];
     cam_vec[1] = po[0];
     cam_vec[2] = po[1];
     
-    // Set the lens distortion parameters
-    vw::Vector<double> lens_distortion_params = model.lens_distortion()->distortion_parameters();
-    if (lens_distortion_params.size() == 0) { 
-      // No lens distortion
-      cam_vec[3] = cam_vec[4] = cam_vec[5] = cam_vec[6] = 0.0;
-    } else {
-      VW_ASSERT(lens_distortion_params.size() == 4,
-                vw::ArgumentErr() << "bundle_adjust only supports the TSAI lens distortion model!\n");
-      cam_vec[3] = lens_distortion_params[0];
-      cam_vec[4] = lens_distortion_params[1];
-      cam_vec[5] = lens_distortion_params[2];
-      cam_vec[6] = lens_distortion_params[3];
-    }
+    // Copy the lens distortion parameters -> Not currently used!
+    for (size_t i=0; i<num_lens_params; ++i)
+      cam_vec[i+NUM_PINHOLE_INTRINSICS] = lens_distortion_params[i];
   }
 
   /// Extract the camera parameter vector from a pinhole model
@@ -393,17 +379,7 @@ public:
     // Scale the rotation variables
     subvector(cam_vec,3,3) *= pose_scale;
 
-    if (!m_constant_intrinsics) {
-      // Extract and copy the intrinsic parameters from the input model
-      intrinsic_vector_t intrinsic_vec;
-      intrinsic_params_from_model(model, intrinsic_vec);
-      for (size_t i=0; i<intrinsic_params_n; ++i)
-        cam_vec[i+6] = intrinsic_vec[i];
-    } else { // Always use our shared intrinsics vector
-      for (size_t i=0; i<intrinsic_params_n; ++i)
-        cam_vec[i+6] = m_shared_intrinsics[i];
-    }
-
+    // We don't import any of the intrinsic params here.
   }
 
 
@@ -441,11 +417,9 @@ public:
     for (int icam = 0; icam < (int)cam_files.size(); icam++){
       vw::vw_out() << "Writing: " << cam_files[icam] << std::endl;
       vw::camera::PinholeModel model = get_camera_model(icam);
-      model.write(cam_files[icam]); // TODO: Write .tsai files instead?
-     
+      model.write(cam_files[icam]);
       std::cout << "Writing BAPinhole model params: " << m_cam_vec[icam] << std::endl;
-      std::cout << "BAPinhole output model: " << model << std::endl;
-      
+      std::cout << "BAPinhole output model: " << model << std::endl;      
     }
 
   }
