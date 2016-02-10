@@ -228,15 +228,15 @@ int main(int argc, char* argv[]) {
 
       // Adding Placemarks
       Vector3 lon_lat_alt = datum.cartesian_to_geodetic(current_camera->camera_center(Vector2()));
-      //lon_lat_alt[2] -= datum.radius(lon_lat_alt[0], lon_lat_alt[1]);
 
-      if (!opt.path_to_outside_model.empty())
+      if (!opt.path_to_outside_model.empty()) {
+        const double scale = 1.0/30; // The KML class applies a model scale of 3000 * this value.
         kml.append_model( opt.path_to_outside_model,
                           lon_lat_alt.x(), lon_lat_alt.y(),
                           inverse(current_camera->camera_pose(Vector2())),
                           camera_names[load_i], "",
-                          lon_lat_alt[2], 1 );
-      else {
+                          lon_lat_alt[2], scale );
+      } else {
         kml.append_placemark( lon_lat_alt.x(), lon_lat_alt.y(),
                               camera_names[load_i], "", "camera_placemark",
                               lon_lat_alt[2], true );

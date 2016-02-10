@@ -260,6 +260,7 @@ struct BaReprojectionError {
   size_t m_icam, m_ipt;
 };
 
+/*
 /// A ceres cost function. Here we float a pinhole camera's intrinsic
 /// and extrinsic parameters. The result is the residual, the
 /// difference in the observation and the projection of the point into
@@ -277,7 +278,7 @@ struct BaPinholeError {
   template <typename T>
   bool operator()(const T* const camera,
                   const T* const point,
-                  //const T* const intrinsic,
+                  const T* const intrinsic,
                   T* residuals) const {
 
     try{
@@ -289,9 +290,7 @@ struct BaPinholeError {
 
       // Copy the input data to structures expected by the BA model
       typename ModelT::camera_intr_vector_t cam_intr_vec;
-      //asp::concat_extrinsics_intrinsics<ModelT>(camera, intrinsic, cam_intr_vec);
-      for (int c = 0; c < cam_intr_vec.size(); c++)
-          cam_intr_vec[c] = camera[c];
+      asp::concat_extrinsics_intrinsics<ModelT>(camera, intrinsic, cam_intr_vec);
       typename ModelT::point_vector_t  point_vec;
       for (size_t p = 0; p < point_vec.size(); p++)
         point_vec[p]  = (double)point[p];
@@ -322,15 +321,9 @@ struct BaPinholeError {
                                      size_t icam, // camera index
                                      size_t ipt // point index
                                      ){
-/* // Disable intrinsic params
     return (new ceres::NumericDiffCostFunction<BaPinholeError,
             ceres::CENTRAL, 2, ModelT::camera_params_n, ModelT::point_params_n,
             ModelT::intrinsic_params_n>
-            (new BaPinholeError(observation, pixel_sigma,
-                                     ba_model, icam, ipt)));
-*/
-    return (new ceres::NumericDiffCostFunction<BaPinholeError,
-            ceres::CENTRAL, 2, ModelT::camera_params_n, ModelT::point_params_n>
             (new BaPinholeError(observation, pixel_sigma,
                                      ba_model, icam, ipt)));
   }
@@ -340,6 +333,7 @@ struct BaPinholeError {
   ModelT * const m_ba_model;
   size_t m_icam, m_ipt;
 };
+*/
 
 // A ceres cost function. The residual is the difference between the
 // observed 3D point and the current (floating) 3D point, normalized by
@@ -437,7 +431,7 @@ void add_residual_block(ModelT & ba_model,
                                         &ba_model, icam, ipt);
   problem.AddResidualBlock(cost_function, loss_function, camera, point);
 }
-
+/*
 // Add residual block floating the intrinsics
 template<>
 void add_residual_block<BAPinholeModel>
@@ -451,11 +445,9 @@ void add_residual_block<BAPinholeModel>
   ceres::CostFunction* cost_function =
     BaPinholeError<BAPinholeModel>::Create(observation, pixel_sigma,
                                            &ba_model, icam, ipt);
-  //problem.AddResidualBlock(cost_function, loss_function, camera, point, intrinsics);
-  problem.AddResidualBlock(cost_function, loss_function, camera, point);
-                           
-
+  problem.AddResidualBlock(cost_function, loss_function, camera, point, intrinsics);
 }
+*/
 
 // Use Ceres to do bundle adjustment. The camera and point variables
 // are stored in arrays.  The projection of point into camera is
@@ -601,6 +593,7 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
   //  options->minimizer_type = ceres::LINE_SEARCH;
   //}
 
+  vw_out() << "Starting the Ceres optimizer..." << std::endl;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
   vw_out() << summary.FullReport() << "\n";
@@ -746,7 +739,7 @@ template<class ModelType, class CostFunType>
 void do_ba_costfun(CostFunType const& cost_fun, Options& opt){
 
   ModelType ba_model(opt.camera_models, opt.cnet);
-
+  
   if ( opt.ba_type == "ceres" ) {
     do_ba_ceres<ModelType>(ba_model, opt);
   } else if ( opt.ba_type == "robustsparse" ) {

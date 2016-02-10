@@ -86,7 +86,7 @@ public:
   typedef vw::Vector<double,camera_params_n
                      +intrinsic_params_n> camera_intr_vector_t;
 private:
-  std::vector<cam_ptr_t> m_cameras;
+  std::vector<cam_ptr_t>                    m_cameras;
   boost::shared_ptr<vw::ba::ControlNetwork> m_network;
 
   std::vector<camera_intr_vector_t> m_cam_vec;
@@ -134,7 +134,7 @@ public:
   inline vw::Matrix<double,camera_params_n,camera_params_n>
   cam_inverse_covariance ( unsigned /*j*/ ) const {
     vw::Matrix<double,camera_params_n,camera_params_n> result;
-    result(0,0) = 1/100.0;
+    result(0,0) = 1/100.0; // TODO: What are these numbers?
     result(1,1) = 1/100.0;
     result(2,2) = 1/100.0;
     result(3,3) = 1/1e-1;
@@ -147,7 +147,7 @@ public:
   inline vw::Matrix<double,point_params_n,point_params_n>
   point_inverse_covariance ( unsigned /*i*/ ) const {
     vw::Matrix<double,point_params_n,point_params_n> result;
-    result(0,0) = 1/20;
+    result(0,0) = 1/20; // TODO: What are these numbers?
     result(1,1) = 1/20;
     result(2,2) = 1/20;
     return result;
@@ -158,8 +158,8 @@ public:
   /// point, return the location of point_i on imager j in pixel coordinates.
   /// - The model parameters in this case are adjustment parameters for AdjustedCameraModel
   vw::Vector2 cam_pixel(unsigned /*i*/, unsigned j,
-			camera_vector_t const& cam_j,
-			point_vector_t  const& point_i) const {
+			                  camera_vector_t const& cam_j,
+			                  point_vector_t  const& point_i) const {
     vw::Vector3 position_correction;
     vw::Quat    pose_correction;
     asp::parse_camera_parameters(cam_j, position_correction, pose_correction);
@@ -167,6 +167,14 @@ public:
                                         position_correction,
                                         pose_correction);
     return cam.point_to_pixel(point_i);
+    //try {
+    //  //std::cout << "cam_pixel: " << point_i << " --> " << cam.point_to_pixel(point_i) << std::endl;
+    //  return cam.point_to_pixel(point_i);
+    //}
+    //catch(...) { // If the camera parameters were bad, return a garbage pixel instead of crashing
+    //  std::cout << "MISSED point at: " << point_i << "   with CAM: " << cam_j << std::endl;
+    //  return vw::Vector2(-999999,-999999);
+    //}
   }
 
   /// Write the adjusted camera at the given index to disk
@@ -339,7 +347,8 @@ public:
                                     pose.rotation_matrix(),
                                     m_shared_intrinsics[0], m_shared_intrinsics[0], // focal lengths
                                     m_shared_intrinsics[1], m_shared_intrinsics[2], // pixel offsets
-                                    *(m_shared_lens_distortion.get()) ); 
+                                    *(m_shared_lens_distortion.get()),
+                                     m_shared_intrinsics[3]); //pixel pitch
 
   }
 
@@ -348,7 +357,7 @@ public:
   void intrinsic_params_from_model(const vw::camera::PinholeModel & model,
                                          intrinsic_vector_t       & cam_vec) const{
 
-    const size_t NUM_PINHOLE_INTRINSICS = 3; // Focal length and focal point x,y offset.
+    const size_t NUM_PINHOLE_INTRINSICS = 4; // Focal length and focal point x,y offset, pixel_pitch.
     
     // Get the lens distortion parameters and allocate the output vector
     vw::Vector<double> lens_distortion_params = model.lens_distortion()->distortion_parameters();
@@ -361,6 +370,7 @@ public:
     cam_vec[0] = fl[0];
     cam_vec[1] = po[0];
     cam_vec[2] = po[1];
+    cam_vec[3] = model.pixel_pitch();
     
     // Copy the lens distortion parameters -> Not currently used!
     for (size_t i=0; i<num_lens_params; ++i)
@@ -394,10 +404,11 @@ public:
 
     try {
       vw::camera::PinholeModel model = params_to_model(cam_j);
+      //std::cout << "cam_pixel: " << point_i << " --> " << model.point_to_pixel(point_i) << std::endl;
       return model.point_to_pixel(point_i);
     }
     catch(...) { // If the camera parameters were bad, return a garbage pixel instead of crashing
-      //std::cout << "Missed point at: " << point_i << "   with CAM: " << cam_j << std::endl;
+      //std::cout << "MISSED point at: " << point_i << "   with CAM: " << cam_j << std::endl;
       return vw::Vector2(-999999,-999999);
     }
     
