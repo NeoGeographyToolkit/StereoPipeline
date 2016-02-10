@@ -114,7 +114,8 @@ The program takes all the red CCDs and projects them using the \ac{ISIS}
 {\tt noproj} command into the perspective of the RED5 CCD. From there,
 {\tt hijitreg} is performed to work out the relative offsets between
 CCDs. Finally the CCDs are mosaicked together using the average
-offset listed from {\tt hijitreg} using the {\tt handmos} command.
+offset listed from {\tt hijitreg} using the {\tt handmos} command,
+and the mosaic is normalized with {\tt cubenorm}.
 Below is an outline of the processing.
 
 \begin{verbatim}
@@ -126,6 +127,7 @@ Below is an outline of the processing.
     noproj            # Project all images into perspective of RED5
     hijitreg          # Work out alignment between CCDs
     handmos           # Mosaic to single file
+    cubenorm          # Normalize the mosaic
 \end{verbatim}
 
 To use our script, first go to the directory where you have downloaded
