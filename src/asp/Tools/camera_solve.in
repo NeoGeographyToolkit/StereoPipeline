@@ -316,7 +316,7 @@ def run_bundle_adjust(options):
 
     # Some extra bundle adjust params
     # - We used Theia to try and compute intrinsics, don't need to redo it here.
-    ba_params = ['--local-pinhole', '--constant-intrinsics',  '-t', 'pinhole', '--datum', options.datum]
+    ba_params = ['--local-pinhole', '-t', 'pinhole', '--datum', options.datum]
     if options.bundle_params:
         ba_params += options.bundle_params.split(' ')
 
