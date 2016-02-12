@@ -360,7 +360,7 @@ void read_georef(Options& opt, asp::CsvConv& csv_conv, GeoReference& geo){
     vw_out() << "Will use datum (for CSV files): " << geo.datum() << std::endl;
 
   // A lot of care is needed below.
-  if (!is_good  && (opt.csv_format_str == "" || csv_conv.format != asp::CsvConv::XYZ) ){
+  if (!is_good  && (opt.csv_format_str == "" || csv_conv.get_format() != asp::CsvConv::XYZ) ){
     // There is no DEM/LAS to read the datum from, and the user either
     // did not specify the CSV format (then we set it to lat, lon,
     // height), or it is specified as containing lat, lon, rather than xyz.
@@ -493,12 +493,8 @@ void save_errors(DP const& point_cloud,
   outfile.precision(16);
 
   // Write the header line
-  if (csv_conv.csv_format_str != ""){
-    outfile << "# ";
-    for (map<int, string>::const_iterator it = csv_conv.col2name.begin(); it != csv_conv.col2name.end(); it++){
-      outfile << it->second << ",";
-    }
-    outfile << "error (meters)" << endl;
+  if (csv_conv.is_configured()){
+    outfile << "# " << csv_conv.write_header_string(",") << "error (meters)" << endl;
   }else{
     if (is_lola_rdr_format)
       outfile << "# longitude,latitude,radius (km),error (meters)" << endl;
@@ -516,7 +512,7 @@ void save_errors(DP const& point_cloud,
   for(int col = 0; col < numPts; col++){
     Vector3 P = get_cloud_gcc_coord(point_cloud, shift, col);
 
-    if (csv_conv.csv_format_str != ""){
+    if (csv_conv.is_configured()){
       Vector3 csv = csv_conv.cartesian_to_csv(P, geo, mean_longitude);
       outfile << csv[0] << ',' << csv[1] << ',' << csv[2]
               << "," << errors(0, col) << endl;

@@ -155,8 +155,8 @@ stereo-pipeline-owner@lists.nasa.gov
 \include{tools}
 \include{stereodefault}
 \include{outputfiles}
-\include{scripting}
-\include{thirdparty}
+%\include{scripting}
+%\include{thirdparty}
 
 % Create the References list
 \bibliographystyle{plainnat}

@@ -47,12 +47,14 @@
 // BlobIndex (Multi) Threaded
 ///////////////////////////////////////
 
-// This code is a custom write up of BlobIndex from VW. It has several
+// This code is a custom write up of the blob_index function from VW. It has several
 // different features.
 // --> Multithread (as expected)
 // --> Lower Memory Impact
 //     via a new internal compressed format
 // --> Allows for limiting on size.
+
+// TODO: Move to vision workbench and replace the old blob function.
 
 namespace blob {
 
@@ -105,9 +107,7 @@ namespace blob {
 
   // Blob Index Custom
   ////////////////////////////////////
-  // A different version of Blob index
-  // that uses the compressed format and
-  // the new options
+  /// A different version of Blob index that uses the compressed format and the new options
   class BlobIndexCustom {
     std::vector<BlobCompressed> m_c_blob;
     uint m_blob_count;
@@ -291,7 +291,7 @@ namespace blob {
 
   // Blob Index Task
   /////////////////////////////////////
-  // A task wrapper to allow threading
+  /// A task wrapper to allow threading
   template <class SourceT>
   class BlobIndexTask : public vw::Task, private boost::noncopyable {
 
@@ -347,8 +347,7 @@ namespace blob {
 
 // Blob Index Threaded
 ///////////////////////////////////
-// Performs Blob Index using all threads and a minimal
-// amount of memory
+/// Performs Blob Index using all threads and a minimal amount of memory
 class BlobIndexThreaded {
 
   std::deque<vw::BBox2i>           m_blob_bbox;
@@ -420,11 +419,10 @@ class BlobIndexThreaded {
     }
   }
 
+  /// Wipe blobs bigger than this size.
   void wipe_big_blobs(int max_size){
 
-    // Wipe blobs bigger than this size.
-    //Keep the bounding boxes up-to-date.
-
+    // Keep the bounding boxes up-to-date.
     m_blob_bbox.clear();
     
     for ( std::deque<blob::BlobCompressed>::iterator iter = m_c_blob.begin();
@@ -446,8 +444,10 @@ class BlobIndexThreaded {
   
   // Access for the users
   vw::uint32 num_blobs() const;
+  /// ?
   void blob( vw::uint32 const& index,
              std::list<vw::Vector2i>& output ) const;
+  /// ?
   blob::BlobCompressed const& compressed_blob( vw::uint32 const& index ) const;
 
   typedef std::deque<blob::BlobCompressed>::iterator             blob_iterator;

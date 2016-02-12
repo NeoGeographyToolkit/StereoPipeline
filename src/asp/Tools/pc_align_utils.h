@@ -74,10 +74,6 @@
 */
 
 
-// Find the best fitting rotation + translation + scale transform among
-// the two sets of points represented as matrix columns.
-Eigen::Affine3d Find3DAffineTransform(Eigen::Matrix3Xd in, Eigen::Matrix3Xd out);
-
 typedef double RealT; // We will use doubles in libpointmatcher.
 
 // This stuff is from the libpointmatcher library
@@ -91,6 +87,11 @@ const int DIM = 3;
 std::string UNSPECIFIED_DATUM = "unspecified_datum";
 
 //======================================================================
+
+// TODO: This is a duplicate, move it!!!!!!!!!!
+// TODO: Seems surprising we can't do this with our VW classes.
+Eigen::Affine3d Find3DAffineTransform(Eigen::Matrix3Xd in, Eigen::Matrix3Xd out);
+
 
 /// Analyze a file name to determine the file type
 std::string get_file_type(std::string const& file_name);

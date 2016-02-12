@@ -53,7 +53,7 @@ inline vw::CropView<vw::ImageView<typename ImageT::pixel_type> >
 
 
 // ErodeView
-/*
+/**
     This class is similar to SparseView but instead of storing replacement
     image data it just stores a sparse list of invalid pixels.
 

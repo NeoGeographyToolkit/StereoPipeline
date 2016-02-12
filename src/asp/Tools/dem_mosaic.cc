@@ -344,21 +344,21 @@ public:
       // priority blending length was positive, we've already done
       // that.
       if (m_opt.priority_blending_len <= 0)
-	in_box.expand(m_bias + BilinearInterpolation::pixel_buffer + 1);
+        in_box.expand(m_bias + BilinearInterpolation::pixel_buffer + 1);
 
       in_box.crop(bounding_box(disk_dem));
       if (in_box.width() == 1 || in_box.height() == 1){
-	// Grassfire likes to have width of at least 2
-	in_box.expand(1);
-	in_box.crop(bounding_box(disk_dem));
+        // Grassfire likes to have width of at least 2
+        in_box.expand(1);
+        in_box.crop(bounding_box(disk_dem));
       }
       if (in_box.width() <= 1 || in_box.height() <= 1)
-	continue; // No overlap with this tile, skip to the next DEM.
+        continue; // No overlap with this tile, skip to the next DEM.
 
       if (m_opt.median || m_opt.priority_blending_len > 0){
-	// Must use a blank tile each time
-	fill( tile, m_opt.out_nodata_value );
-	fill( weights, 0.0 );
+        // Must use a blank tile each time
+        fill( tile, m_opt.out_nodata_value );
+        fill( weights, 0.0 );
       }
 
       // Crop the disk dem to a 2-channel in-memory image. First channel
@@ -373,33 +373,33 @@ public:
       // they are cropped to different regions. for priority blending length,
       // we'll do this process later, as the bbox is obtained differently in that case.
       if (m_opt.priority_blending_len <= 0) {
-	for (int col = 0; col < local_wts.cols(); col++) {
-	  for (int row = 0; row < local_wts.rows(); row++) {
-	    local_wts(col, row) = std::min(local_wts(col, row), double(m_bias));
-	  }
-	}
+        for (int col = 0; col < local_wts.cols(); col++) {
+          for (int row = 0; row < local_wts.rows(); row++) {
+            local_wts(col, row) = std::min(local_wts(col, row), double(m_bias));
+          }
+        }
       }
 
       // Erode
       int max_cutoff = max_pixel_value(local_wts);
       int min_cutoff = m_opt.erode_len;
       if (max_cutoff <= min_cutoff)
-	max_cutoff = min_cutoff + 1; // precaution
+        max_cutoff = min_cutoff + 1; // precaution
       local_wts = clamp(local_wts - min_cutoff, 0.0, max_cutoff - min_cutoff);
 
       // Blur the weights. If priority blending length is on, we'll do the blur later,
       // after weights from different DEMs are combined.
       if (m_opt.weights_blur_sigma > 0 && m_opt.priority_blending_len <= 0)
-	blur_weights(local_wts, m_opt.weights_blur_sigma);
+        blur_weights(local_wts, m_opt.weights_blur_sigma);
 
       // Raise to the power. Note that when priority blending length is positive, we
       // delay this process.
       if (m_opt.weights_exp != 1 && m_opt.priority_blending_len <= 0) {
-	for (int col = 0; col < dem.cols(); col++){
-	  for (int row = 0; row < dem.rows(); row++){
-	    local_wts(col, row) = pow(local_wts(col, row), m_opt.weights_exp);
-	  }
-	}
+        for (int col = 0; col < dem.cols(); col++){
+          for (int row = 0; row < dem.rows(); row++){
+            local_wts(col, row) = pow(local_wts(col, row), m_opt.weights_exp);
+          }
+        }
       }
 
 #if 0

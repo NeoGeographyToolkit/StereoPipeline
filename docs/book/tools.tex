@@ -1184,13 +1184,6 @@ The tool \texttt{mapproject} is used to orthorectify (map-project) a camera imag
 a DEM. (ASP is able to use map-projected images to run stereo, section
 \ref{mapproj-example}.)
 
-\texttt{mapproject} supersedes the older
-\texttt{orthoproject} tool, which could map-project only with ISIS and
-pinhole camera models (the latter program is still being kept for a few
-releases for backward compatibility). We ported all features of
-\texttt{orthoproject} except for projecting of vector imagery (for
-example, RGB pixel data).
-
 The \texttt{mapproject} program can be run using multiple processes and can be
 distributed over multiple machines. This is particularly useful for
 ISIS cameras, as in that case any single process must use only one thread
@@ -2213,8 +2206,8 @@ The format of each line is:
 The K1 and K2 terms in the calibration file are used as follows:\\
 \hspace*{2em}\texttt{r2 = x*x + y*y} \\
 \hspace*{4em}\texttt{d  = 1 + r2*(k1 + k2*r2)} \\
-\hspace*{6em}\texttt{x_distorted = x * d} \\
-\hspace*{8em}\texttt{y_distorted = y * d}
+\hspace*{6em}\texttt{x\_distorted = x * d} \\
+\hspace*{8em}\texttt{y\_distorted = y * d}
 
 This tool will generate two types of output files.  One is a set of .tsai files, one per input image.
 These are camera models in a local coordinate system and they are plain text files for easy inspection.

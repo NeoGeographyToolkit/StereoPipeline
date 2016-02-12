@@ -48,7 +48,7 @@ public:
 
   // Image View interface
   typedef typename ImageT::pixel_type pixel_type;
-  typedef pixel_type result_type;
+  typedef pixel_type                  result_type;
   typedef ProceduralPixelAccessor<PerTileErode> pixel_accessor;
 
   inline int32 cols  () const { return m_img.cols(); }
