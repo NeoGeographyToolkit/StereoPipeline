@@ -26,6 +26,8 @@
 #include <asp/Tools/bundle_adjust.h>
 #include <asp/Core/InterestPointMatching.h>
 
+
+
 // Turn off warnings from eigen
 #if defined(__GNUC__) || defined(__GNUG__)
 #define LOCAL_GCC_VERSION (__GNUC__ * 10000                    \
@@ -95,7 +97,9 @@ namespace asp{
 
 struct Options : public asp::BaseOptions {
   std::vector<std::string> image_files, camera_files, gcp_files;
-  std::string cnet_file, out_prefix, stereo_session_string, cost_function, ba_type;
+  std::string cnet_file, out_prefix, stereo_session_string, 
+              cost_function, ba_type, camera_position_path,
+              camera_position_format;
   int    ip_per_tile;
   double min_angle, lambda, camera_weight, robust_threshold;
   int    report_level, min_matches, max_iterations, overlap_limit;
@@ -803,6 +807,7 @@ extract_cameras_bundle_adjust( std::vector<std::string>& image_files ) {
   return cam_files;
 }
 
+// TODO: This is a duplicate from pc_align_utils!!!!!!!!!
 // TODO: Seems surprising we can't do this with our VW classes.
 Eigen::Affine3d Find3DAffineTransform(Eigen::Matrix3Xd in, Eigen::Matrix3Xd out) {
   // Default output
@@ -911,6 +916,14 @@ void check_gcp_dists(Options const &opt) {
       std::cout << "WARNING: GCPs are over 100 KM from the other points.  Are your lat/lon GCP coordinates swapped?\n";
 }
 
+
+/// Initialize the position and orientation of each pinhole camera model using
+///  a least squares error transform to match the provided control points file.
+/// - This function overwrites the camera parameters in-place
+bool init_pinhole_model_with_camera_positions(Options &opt, bool check_only=false) {
+
+return true;
+}
 
 /// Initialize the position and orientation of each pinhole camera model using
 ///  a least squares error transform to match the provided control points file.
@@ -1107,14 +1120,21 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 //     ("cnet,c", po::value(&opt.cnet_file),
 //      "Load a control network from a file (optional).")
     ("output-prefix,o",  po::value(&opt.out_prefix), "Prefix for output filenames.")
+    ("est-camera-positions", po::value(&opt.camera_position_path)->default_value(""),
+                         "Path to a csv file containing estimated camera positions.")
+    ("est-camera-format", po::value(&opt.camera_position_format)->default_value("Default"),
+                         "Choose a format of the est-camera-positions file from: Default, IceBridge.")
     ("bundle-adjuster",  po::value(&opt.ba_type)->default_value("Ceres"),
                         "Choose a solver from: Ceres, RobustSparse, RobustRef, Sparse, Ref.")
     ("cost-function",    po::value(&opt.cost_function)->default_value("Cauchy"),
                          "Choose a cost function from: Cauchy, PseudoHuber, Huber, L1, L2.")
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(0.5),
                          "Set the threshold for robust cost functions. Increasing this makes the solver focus harder on the larger errors.")
+    ("csv-format",               po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
+    ("csv-proj4",                po::value(&opt.csv_proj4_str)->default_value(""),
+                                 "The PROJ.4 string to use to interpret the entries in input CSV files.")
     ("datum",            po::value(&opt.datum_str)->default_value(""),
-                         "Use this datum (needed only if ground control points are used). Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
+                         "Use this datum (needed only for ground control points or a camera position file). Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("semi-major-axis",  po::value(&opt.semi_major)->default_value(0),
                          "Explicitly set the datum semi-major axis in meters (needed only if ground control points are used).")
     ("semi-minor-axis",  po::value(&opt.semi_minor)->default_value(0),
@@ -1393,17 +1413,25 @@ int main(int argc, char* argv[]) {
       }
     } // End control network loading case
 
+    // If camera positions were provided for local inputs, align to them.
+    const bool have_est_camera_positions = (opt.camera_position_path != "");
+    if (opt.local_pinhole_input && have_est_camera_positions)
+      init_pinhole_model_with_camera_positions(opt);
+
     // If we have GPC's for pinhole cameras, try to do a simple affine initialization
     //  of the camera parameters.
     // - This function also updates all the ControlNetwork world point positions
     // - We could do this for other camera types too, but it would require us to be able
     //   to adjust our camera model positions.  Otherwise we could init the adjustment values...
     if (opt.gcp_files.size() > 0) {
-      if (opt.local_pinhole_input)
+    
+      if (opt.local_pinhole_input && !have_est_camera_positions)
         init_pinhole_model_with_gcp(opt);
-      else
-        check_gcp_dists(opt); // If not a local pinhole, issue a warning if the GCPs are far away.
+
+      // Issue a warning if the GCPs are far away from the camera coords
+      check_gcp_dists(opt); 
     }
+
 
     if (opt.local_pinhole_input == false) {
       do_ba_with_model<BundleAdjustmentModel>(opt);

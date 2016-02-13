@@ -311,7 +311,7 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
 
       // Parse custom CSV file with given format string
       bool success;
-      vw::Vector3 vals = csv_conv.parse_csv_line(is_first_line, success, line);
+      asp::CsvConv::CsvRecord vals = csv_conv.parse_csv_line(is_first_line, success, line);
       if (!success)
         continue;
 

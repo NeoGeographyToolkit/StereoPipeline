@@ -166,15 +166,14 @@ public:
     vw::camera::AdjustedCameraModel cam(m_cameras[j],
                                         position_correction,
                                         pose_correction);
-    return cam.point_to_pixel(point_i);
-    //try {
-    //  //std::cout << "cam_pixel: " << point_i << " --> " << cam.point_to_pixel(point_i) << std::endl;
-    //  return cam.point_to_pixel(point_i);
-    //}
-    //catch(...) { // If the camera parameters were bad, return a garbage pixel instead of crashing
-    //  std::cout << "MISSED point at: " << point_i << "   with CAM: " << cam_j << std::endl;
-    //  return vw::Vector2(-999999,-999999);
-    //}
+    try {
+      //std::cout << "cam_pixel: " << point_i << " --> " << cam.point_to_pixel(point_i) << std::endl;
+      return cam.point_to_pixel(point_i);
+    }
+    catch(...) { // If the camera parameters were bad, return a garbage pixel instead of crashing
+      //std::cout << "MISSED point at: " << point_i << "   with CAM: " << cam_j << std::endl;
+      return vw::Vector2(-999999,-999999);
+    }
   }
 
   /// Write the adjusted camera at the given index to disk

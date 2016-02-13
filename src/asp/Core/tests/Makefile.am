@@ -30,10 +30,12 @@ TestIntegralAutoGainDetector_SOURCES = TestIntegralAutoGainDetector.cxx
 TestInterestPointMatching_SOURCES = TestInterestPointMatching.cxx
 TestThreadedEdgeMask_SOURCES   = TestThreadedEdgeMask.cxx
 TestSoftwareRenderer_SOURCES   = TestSoftwareRenderer.cxx
+TestPointUtils_SOURCES   = TestPointUtils.cxx
 
 TESTS = TestErodeView TestBlobIndexThreaded TestThreadedEdgeMask \
         TestGaussianClustering TestInterestPointMatching         \
-        TestSoftwareRenderer TestIntegralAutoGainDetector TestCommon
+        TestSoftwareRenderer TestIntegralAutoGainDetector TestCommon \
+        TestPointUtils
 
 endif
 
