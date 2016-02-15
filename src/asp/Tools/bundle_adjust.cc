@@ -23,6 +23,7 @@
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/PointUtils.h>
 #include <asp/Tools/bundle_adjust.h>
 #include <asp/Core/InterestPointMatching.h>
 
@@ -64,54 +65,23 @@ std::string UNSPECIFIED_DATUM = "unspecified_datum";
 int g_ba_num_errors = 0;
 Mutex g_ba_mutex;
 
-namespace asp{
-
-  // Given a vector of strings, identify and store separately the the
-  // list of GCPs. This should be useful for those programs who accept
-  // their data in a mass input vector.
-  std::vector<std::string>
-  extract_gcps( std::vector<std::string>& image_files ) {
-    std::vector<std::string> gcp_files;
-    std::vector<std::string>::iterator it = image_files.begin();
-    while ( it != image_files.end() ) {
-      if ( boost::iends_with(boost::to_lower_copy(*it), ".gcp") ){
-        gcp_files.push_back( *it );
-        it = image_files.erase( it );
-      } else
-        it++;
-    }
-
-    return gcp_files;
-  }
-
-  bool images_are_cubes(std::vector<std::string>& image_files){
-    bool are_cubes = true;
-    for (int i = 0; i < (int)image_files.size(); i++){
-      if ( ! boost::iends_with(boost::to_lower_copy(image_files[i]), ".cub") )
-        are_cubes = false;
-    }
-    return are_cubes;
-  }
-
-} // end namespace asp
 
 struct Options : public asp::BaseOptions {
   std::vector<std::string> image_files, camera_files, gcp_files;
   std::string cnet_file, out_prefix, stereo_session_string, 
-              cost_function, ba_type, camera_position_path,
-              camera_position_format;
+              cost_function, ba_type;
   int    ip_per_tile;
   double min_angle, lambda, camera_weight, robust_threshold;
   int    report_level, min_matches, max_iterations, overlap_limit;
 
   bool   save_iteration, local_pinhole_input, constant_intrinsics;
-  std::string datum_str;
+  std::string datum_str, camera_position_file, csv_format_str, csv_proj4_str;
   double semi_major, semi_minor;
 
   boost::shared_ptr<ControlNetwork> cnet;
   std::vector<boost::shared_ptr<CameraModel> > camera_models;
   cartography::Datum datum;
-  int ip_detect_method;
+  int  ip_detect_method;
   bool individually_normalize;
 
   // Make sure all values are initialized, even though they will be
@@ -153,7 +123,7 @@ update_cnet_and_init_cams<BAPinholeModel>(
   const unsigned int num_cameras           = ba_model.num_cameras();
   const unsigned int num_params_per_camera = BAPinholeModel::camera_params_n;
   const unsigned int num_camera_params     = num_cameras * num_params_per_camera;
-  const unsigned int num_intrinsic_params  = BAPinholeModel::intrinsic_params_n;
+  //const unsigned int num_intrinsic_params  = BAPinholeModel::intrinsic_params_n;
   cameras_vec.resize(num_camera_params);
   
   // Copy the camera parameters from the model to cameras_vec
@@ -865,6 +835,42 @@ Eigen::Affine3d Find3DAffineTransform(Eigen::Matrix3Xd in, Eigen::Matrix3Xd out)
   return A;
 }
 
+
+// TODO: Move this function too!
+/// Given an input and output set of points, compute a best-fit scale/rotation/translation transform.
+void FindScaleRotationTranslateTransform(Eigen::Matrix3Xd in, Eigen::Matrix3Xd out,
+                                         vw::Matrix3x3 & rotation, 
+                                         vw::Vector3   & translation,
+                                         double        & scale) {
+
+    // Call function to compute a 3D affine transform between the two point sets
+    Eigen::Affine3d T = Find3DAffineTransform(in, out);
+    scale = pow(T.linear().determinant(), 1.0 / 3.0); // Extract the scale change.
+/*
+    std::cout << "--det is " << T.linear().determinant() << std::endl;
+    std::cout << "Transform to world coordinates." << std::endl;
+    std::cout << "Rotation:\n"    << T.linear() / scale << std::endl;
+    std::cout << "Scale:\n"       << scale << std::endl;
+    std::cout << "Translation:\n" << T.translation().transpose() << std::endl;
+*/
+
+    // Represent the transform as y = scale*A*x + b
+    Eigen::MatrixXd eA = T.linear()/scale;
+    Eigen::Vector3d eb = T.translation();
+
+    // Store in VW matrices and vectors
+    for (size_t r = 0; r < rotation.rows(); r++) {
+      for (size_t c = 0; c < rotation.cols(); c++) {
+        rotation(r, c) = eA(r, c);
+      }
+    }
+    for (size_t i = 0; i < translation.size(); i++)
+      translation[i] = eb[i];
+}
+
+
+
+
 /// Generate a warning if the GCP's are really far from the IP points
 /// - This is intended to help catch the common lat/lon swap in GCP files.
 void check_gcp_dists(Options const &opt) {
@@ -920,9 +926,99 @@ void check_gcp_dists(Options const &opt) {
 /// Initialize the position and orientation of each pinhole camera model using
 ///  a least squares error transform to match the provided control points file.
 /// - This function overwrites the camera parameters in-place
-bool init_pinhole_model_with_camera_positions(Options &opt, bool check_only=false) {
+bool init_pinhole_model_with_camera_positions(Options &opt) {
 
-return true;
+  return false; // TODO: Finish this code!
+  
+  vw::cartography::GeoReference geo;
+/*
+  // Set up a GeoReference object
+  // - TODO: Move to a function?
+  bool have_georef = false;
+  if (opt.datum != ""){
+    // If the user set the datum, use it.
+    Datum datum;
+    datum.set_well_known_datum(opt.datum);
+    geo.set_datum(datum);
+    have_georef = true;
+  }else if (opt.semi_major > 0 && opt.semi_minor > 0){
+    // Otherwise, if the user set the semi-axes, use that.
+    Datum datum = Datum("User Specified Datum", "User Specified Spheroid",
+                        "Reference Meridian",
+                        opt.semi_major, opt.semi_minor, 0.0);
+    geo.set_datum(datum);
+    have_georef = true;
+  }
+
+  // This must be the last as it has priority. Use user's csv_proj4 string,
+  // to add info to the georef.
+  if (csv_conv.parse_georef(geo)) {
+    have_georef = true;
+  }
+
+*/
+  // Read the input csv file
+  asp::CsvConv conv;
+  conv.parse_csv_format(opt.csv_format_str, opt.csv_proj4_str);
+  std::list<asp::CsvConv::CsvRecord> pos_records;
+  typedef std::list<asp::CsvConv::CsvRecord>::const_iterator RecordIter;
+  conv.parse_entire_file(opt.camera_position_file, pos_records);
+  
+  // For each input camera, find the matching position in the record list
+  const size_t num_cameras = opt.image_files.size();
+  std::vector<RecordIter> matching_records(num_cameras);
+  
+  const RecordIter no_match = pos_records.end();
+  size_t num_matches_found = 0;
+  for (size_t i=0; i<num_cameras; ++i) {
+   
+    // TODO: Make the name based matching a bit more robust!!!
+    std::string file_name = opt.image_files[i];
+    RecordIter iter;
+    for (iter=pos_records.begin(); iter!=pos_records.end(); ++iter) {
+      if (iter->file == file_name)
+        break; // Match found, stop the iterator here.
+    }
+    if (iter == no_match)
+      std::cout << "WARNING: Camera file " << file_name << " not found in camera position file.\n";
+    else
+      ++num_matches_found;
+    matching_records[i] = iter;
+  } // End loop to find position record for each camera
+
+    const int MIN_NUM_MATCHES = 3;
+    if (num_matches_found < MIN_NUM_MATCHES)
+      vw_throw( ArgumentErr() << "Not enough cameras found in the camera position file!\n" );
+
+  // Now matching_records is populated with iterators pointing to CsvRecords.
+  
+  // Populate matrices containing the current and known camera positions.
+  Eigen::Matrix3Xd cam_pos_in  (3, num_matches_found), 
+                   cam_pos_file(3, num_matches_found);
+  size_t index = 0;
+  for (size_t i=0; i<num_cameras; ++i) {
+    // Skip cameras with no matching record
+    if (matching_records[i] == no_match)
+      continue;
+    
+    // Get the two GCC positions
+    Vector3 gcc_in   = opt.camera_models[i]->camera_center(Vector2(0,0));
+    Vector3 gcc_file = conv.csv_to_cartesian(*(matching_records[i]), geo);
+
+    // Store in matrices    
+    cam_pos_in.col  (index) << gcc_in  [0], gcc_in  [1], gcc_in  [2];
+    cam_pos_file.col(index) << gcc_file[0], gcc_file[1], gcc_file[2];  
+    ++index;
+  
+  } // End matrix populating loop
+  
+  // Call function to compute a 3D affine transform between the two point sets   
+  vw::Matrix3x3 rotation;
+  vw::Vector3   translation;
+  double        scale;
+  FindScaleRotationTranslateTransform(cam_pos_in, cam_pos_file, rotation, translation, scale);
+
+  return true;
 }
 
 /// Initialize the position and orientation of each pinhole camera model using
@@ -1008,40 +1104,21 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
     
     // Update the number of GCP that we are using
     const int MIN_NUM_GOOD_GCP = 3;
-    if (num_good_gcp < MIN_NUM_GOOD_GCP) {
-      std::cout << "Not enough valid GCPs for affine initalization!\n";
-      return false;
-    }
+    if (num_good_gcp < MIN_NUM_GOOD_GCP)
+      vw_throw( ArgumentErr() << "Not enough valid GCPs for affine initalization!\n" );
+
     in.conservativeResize (Eigen::NoChange_t(), num_good_gcp);
     out.conservativeResize(Eigen::NoChange_t(), num_good_gcp);
 
-    // Call function to compute a 3D affine transform between the two point sets
-    Eigen::Affine3d T = Find3DAffineTransform(in, out);
-    double scale = pow(T.linear().determinant(), 1.0 / 3.0); // Extract the scale change.
-/*
-    std::cout << "--det is " << T.linear().determinant() << std::endl;
-    std::cout << "Transform to world coordinates." << std::endl;
-    std::cout << "Rotation:\n"    << T.linear() / scale << std::endl;
-    std::cout << "Scale:\n"       << scale << std::endl;
-    std::cout << "Translation:\n" << T.translation().transpose() << std::endl;
-*/
+    // Call function to compute a 3D affine transform between the two point sets   
+    vw::Matrix3x3 rotation;
+    vw::Vector3   translation;
+    double        scale;
+    FindScaleRotationTranslateTransform(in, out,  rotation, translation, scale);
+    
     if (check_only)
       return true;
 
-    // Represent the transform as y = scale*A*x + b
-    Eigen::MatrixXd eA = T.linear()/scale;
-    Eigen::Vector3d eb = T.translation();
-
-    // Store in VW matrices and vectors
-    vw::Matrix3x3 A;
-    for (size_t r = 0; r < A.rows(); r++) {
-      for (size_t c = 0; c < A.cols(); c++) {
-        A(r, c) = eA(r, c);
-      }
-    }
-    vw::Vector3 b;
-    for (size_t i = 0; i < b.size(); i++)
-      b[i] = eb[i];
 /*
     // DEBUG - Test the transform on the GCP's
     std::cout << "==== GCP fit quality ====\n";
@@ -1060,7 +1137,7 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
                                         
       // Store the computed and correct position of this point in Eigen matrices
       Vector3 inp    = cp_new.position();
-      Vector3 transp = scale*A*inp + b;
+      Vector3 transp = scale*rotation*inp + translation;
       Vector3 outp   = cnet[ipt].position();
       //std::cout << "---triangulated: " << cnet[ipt].position() << ' '
       //          << cp_new.position() << std::endl;
@@ -1084,8 +1161,8 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
       vw::Quat    pose     = pincam->camera_pose();
 
       // New position and rotation
-      position = scale*A*position + b;
-      vw::Quat aq(A);
+      position = scale*rotation*position + translation;
+      vw::Quat aq(rotation);
       pose = aq*pose;
       pincam->set_camera_center(position);
       pincam->set_camera_pose  (pose);                                   
@@ -1101,7 +1178,7 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
         continue; // Don't convert the ground control points!
         
       Vector3 position     = iter->position();
-      Vector3 new_position = scale*A*position + b;
+      Vector3 new_position = scale*rotation*position + translation;
       //std::cout << "Converted position: " << position << " --> " << new_position << std::endl;
       //std::cout << "          =======>  " << opt.datum.cartesian_to_geodetic(position) << " --> " 
       //          << opt.datum.cartesian_to_geodetic(new_position) << std::endl;
@@ -1120,18 +1197,20 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 //     ("cnet,c", po::value(&opt.cnet_file),
 //      "Load a control network from a file (optional).")
     ("output-prefix,o",  po::value(&opt.out_prefix), "Prefix for output filenames.")
-    ("est-camera-positions", po::value(&opt.camera_position_path)->default_value(""),
-                         "Path to a csv file containing estimated camera positions.")
-    ("est-camera-format", po::value(&opt.camera_position_format)->default_value("Default"),
-                         "Choose a format of the est-camera-positions file from: Default, IceBridge.")
     ("bundle-adjuster",  po::value(&opt.ba_type)->default_value("Ceres"),
                         "Choose a solver from: Ceres, RobustSparse, RobustRef, Sparse, Ref.")
     ("cost-function",    po::value(&opt.cost_function)->default_value("Cauchy"),
                          "Choose a cost function from: Cauchy, PseudoHuber, Huber, L1, L2.")
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(0.5),
                          "Set the threshold for robust cost functions. Increasing this makes the solver focus harder on the larger errors.")
-    ("csv-format",               po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
-    ("csv-proj4",                po::value(&opt.csv_proj4_str)->default_value(""),
+    ("local-pinhole",    po::bool_switch(&opt.local_pinhole_input)->default_value(false),
+                         "Use special methods to handle a local coordinate input pinhole model.")
+    //("constant-intrinsics",   po::bool_switch(&opt.constant_intrinsics)->default_value(false)->implicit_value(true),
+    //                     "Do not modify the input intrinsic camera values.")
+    ("camera-positions", po::value(&opt.camera_position_file)->default_value(""), 
+          "Specify a csv file path containing the estimated positions of the input cameras.  Only used with the local-pinhole option.")
+    ("csv-format",       po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
+    ("csv-proj4",        po::value(&opt.csv_proj4_str)->default_value(""),
                                  "The PROJ.4 string to use to interpret the entries in input CSV files.")
     ("datum",            po::value(&opt.datum_str)->default_value(""),
                          "Use this datum (needed only for ground control points or a camera position file). Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
@@ -1159,10 +1238,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.")
     ("lambda,l",         po::value(&opt.lambda)->default_value(-1),
                          "Set the initial value of the LM parameter lambda (ignored for the Ceres solver).")
-    ("local-pinhole",    po::bool_switch(&opt.local_pinhole_input)->default_value(false),
-                         "Use special methods to handle a local coordinate input pinhole model.")
-    //("constant-intrinsics",   po::bool_switch(&opt.constant_intrinsics)->default_value(false)->implicit_value(true),
-    //                     "Do not modify the input intrinsic camera values.")
     ("report-level,r",   po::value(&opt.report_level)->default_value(10),
                          "Use a value >= 20 to get increasingly more verbose output.");
 //     ("save-iteration-data,s", "Saves all camera information between iterations to output-prefix-iterCameraParam.txt, it also saves point locations for all iterations in output-prefix-iterPointsParam.txt.");
@@ -1189,7 +1264,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                             positional, positional_desc, usage,
                              allow_unregistered, unregistered);
 
-  opt.gcp_files    = asp::extract_gcps( opt.image_files );
+  opt.gcp_files    = asp::get_files_with_ext( opt.image_files, ".gcp", true ); // Seperate out GCP files
   opt.camera_files = extract_cameras_bundle_adjust( opt.image_files );
 
   // If all we have are cubes, those are both images and cameras
@@ -1216,8 +1291,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   asp::stereo_settings().ip_matching_method     = opt.ip_detect_method;
   asp::stereo_settings().individually_normalize = opt.individually_normalize;
 
-  if (!opt.gcp_files.empty()){
-    // Need to read the datum if we have gcps.
+  if ( !opt.gcp_files.empty() || !opt.camera_position_file.empty() ){
+    // Need to read the datum if we have gcps or a camera position file.
     if (opt.datum_str != ""){
       // If the user set the datum, use it.
       opt.datum.set_well_known_datum(opt.datum_str);
@@ -1228,13 +1303,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                                      "Reference Meridian",
                                      opt.semi_major, opt.semi_minor, 0.0);
     }else{
-      if (!opt.gcp_files.empty())
-        vw_throw( ArgumentErr() << "When ground control points are used, "
-                                << "the datum must be specified.\n" << usage << general_options );
+      vw_throw( ArgumentErr() << "When ground control points or a camera position file are used, "
+                              << "the datum must be specified.\n" << usage << general_options );
     }
     vw_out() << "Will use datum: " << opt.datum << std::endl;
-
-  }
+  } // End datum finding
 
   if ( opt.out_prefix.empty() )
     vw_throw( ArgumentErr() << "Missing output prefix.\n"
@@ -1414,7 +1487,7 @@ int main(int argc, char* argv[]) {
     } // End control network loading case
 
     // If camera positions were provided for local inputs, align to them.
-    const bool have_est_camera_positions = (opt.camera_position_path != "");
+    const bool have_est_camera_positions = (opt.camera_position_file != "");
     if (opt.local_pinhole_input && have_est_camera_positions)
       init_pinhole_model_with_camera_positions(opt);
 
