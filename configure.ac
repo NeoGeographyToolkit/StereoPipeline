@@ -419,7 +419,7 @@ AX_MODULE(PYTHON,   [src/asp/Python],   [],                  yes, [],     [],   
 
 # Tools - The yes/no means to enable by default
 AX_APP(PC_ALIGN,         [src/asp/Tools], yes, [CORE LIBPOINTMATCHER])
-AX_APP(BUNDLE_ADJUST,    [src/asp/Tools], yes, [VW_BUNDLEADJUSTMENT SESSIONS CERES OPENCV])
+AX_APP(BUNDLE_ADJUST,    [src/asp/Tools], yes, [CORE VW_BUNDLEADJUSTMENT SESSIONS CERES OPENCV])
 AX_APP(BUNDLEVIS,        [src/asp/Tools], yes, [OPENSCENEGRAPH VW_BUNDLEADJUSTMENT CORE])
 AX_APP(SFS,              [src/asp/Tools], yes, [SESSIONS CERES])
 AX_APP(DEM_MOSAIC,       [src/asp/Tools], yes, [CORE])

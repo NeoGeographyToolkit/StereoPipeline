@@ -61,6 +61,7 @@ namespace asp {
       vw::Vector3 point_data;
       std::string file;
     };
+
     
   public: // Functions
 
@@ -90,6 +91,11 @@ namespace asp {
     CsvRecord parse_csv_line(bool & is_first_line, bool & success,
                               std::string const& line) const;
 
+    /// Reads an entire CSV file and stores a record for each line.
+    /// - Intended for use with smaller files.
+    size_t parse_entire_file(std::string const    & file_path,
+                             std::list<CsvRecord> & output_list) const;
+
     /// Convert values read from a csv file using parse_csv_line (in the same order they appear in the file)
     /// to a Cartesian point. If return_point_height is true, and the csv point is not
     /// in xyz format, return instead the projected point and height above datum.
@@ -118,7 +124,6 @@ namespace asp {
                                  vw::cartography::GeoReference const& geo,
                                  double mean_longitude) const;
                                  
-
 
   private: // Variables
     std::map<std::string,int>  name2col; ///< Target names -> Column index in input csv
@@ -262,6 +267,7 @@ namespace asp {
     return vw::UnaryPerPixelView<ImageT,PointOffsetFunc>( image.impl(), PointOffsetFunc(offset) );
   }
 
+  // TODO: Move center lon functions and use consistently.
 
   // Center Longitudes
   class CenterLongitudeFunc : public vw::UnaryReturnSameType {

@@ -431,6 +431,8 @@ bool asp::CsvConv::parse_georef(vw::cartography::GeoReference & georef) const {
   return false;
 }
 
+#include <iomanip>
+
 asp::CsvConv::CsvRecord asp::CsvConv::parse_csv_line(bool & is_first_line, bool & success,
                                                      std::string const& line) const {
   // Parse a CSV file line in given format
@@ -491,6 +493,33 @@ asp::CsvConv::CsvRecord asp::CsvConv::parse_csv_line(bool & is_first_line, bool 
 
   is_first_line = false;
   return values;
+}
+
+
+size_t asp::CsvConv::parse_entire_file(std::string    const & file_path,
+                                       std::list<CsvRecord> & output_list) const {
+  // Clear output object
+  output_list.clear();
+
+  // Open input file
+  std::ifstream file( file_path.c_str() );
+  if( !file )
+    vw_throw( vw::IOErr() << "Unable to open file \"" << file_path << "\"" );
+
+  // Read through all the lines of the input file, parse each line, and build the output list.
+  bool success;
+  bool first_line = true;
+  std::string line = "";
+  while ( std::getline(file, line, '\n') ){
+    CsvRecord new_record = asp::CsvConv::parse_csv_line(first_line, success, line);
+    if (success)
+      output_list.push_back(new_record);
+    first_line = false;
+  }
+
+  file.close();
+
+  return output_list.size();
 }
 
 

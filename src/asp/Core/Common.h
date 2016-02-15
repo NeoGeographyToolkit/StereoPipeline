@@ -61,6 +61,15 @@ namespace asp {
   /// Returns true if the file has an extension which is tif or ntf
   bool has_tif_or_ntf_extension( std::string const& input );
 
+  /// Returns true if all of the input files have the given extension.
+  bool all_files_have_extension(std::vector<std::string> const& files, std::string const& ext);
+  
+  /// Makes a vector containing all files in the input vector with an extension.
+  /// - If prune_input_list is set, matching files are removed from the input list.
+  std::vector<std::string>
+  get_files_with_ext( std::vector<std::string>& files, std::string const& ext, 
+                      bool prune_input_list );
+
   /// Parse the list of files specified as positional arguments on the command lin
   bool parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
                                  std::vector<std::string>       &image_paths,

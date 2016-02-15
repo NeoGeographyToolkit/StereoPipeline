@@ -320,10 +320,16 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
       // Decide if the point is in the box. Also save for the future
       // the longitude of the point, we'll use it to compute the mean longitude.
       vw::Vector2 lonlat = csv_conv.csv_to_lonlat(vals, geo);
+      lon = lonlat[0]; // Needed for mean calculation below
+      lat = lonlat[1];
 
+      // TODO: We really need a lonlat bbox function that handles wraparound!!!!!!
       // Skip points outside the given box
-      if (!lonlat_box.empty() && !lonlat_box.contains(lonlat))
+      if (!lonlat_box.empty() && !lonlat_box.contains(lonlat)
+                              && !lonlat_box.contains(lonlat+vw::Vector2(360,0))
+                              && !lonlat_box.contains(lonlat-vw::Vector2(360,0))) {
         continue;
+      }
 
     }else if (!is_lola_rdr_format){
 
@@ -1184,7 +1190,7 @@ void save_trans_point_cloud(asp::BaseOptions const& opt,
 
     // Write the header line
     if (csv_conv.is_configured()){
-      outfile << "# " << csv_conv.write_header_string();
+      outfile << "# " << csv_conv.write_header_string(",");
       outfile << std::endl;
     }else{
       if (is_lola_rdr_format)

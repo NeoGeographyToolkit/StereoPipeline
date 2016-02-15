@@ -82,6 +82,36 @@ bool asp::has_tif_or_ntf_extension(std::string const& input){
   return false;
 }
 
+bool asp::all_files_have_extension(std::vector<std::string> const& files, std::string const& ext){
+  for (size_t i = 0; i < files.size(); i++){
+    if ( ! boost::iends_with(boost::to_lower_copy(files[i]), ext) )
+      return false;
+  }
+  return true;
+}
+
+
+
+std::vector<std::string>
+asp::get_files_with_ext( std::vector<std::string>& files, std::string const& ext, bool prune_input_list ) {
+  std::vector<std::string> match_files;
+  std::vector<std::string>::iterator it = files.begin();
+  while ( it != files.end() ) {
+    if ( boost::iends_with(boost::to_lower_copy(*it), ext) ){ // Match
+      match_files.push_back( *it );
+      if (prune_input_list) // Clear match from the input list
+        it = files.erase( it );
+      else
+        ++it;
+    } else // No Match
+      ++it;
+  } // End loop through input list
+
+  return match_files;
+}
+
+
+
 /// Parse the list of files specified as positional arguments on the command lin
 bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
                                     std::vector<std::string>       &image_paths,

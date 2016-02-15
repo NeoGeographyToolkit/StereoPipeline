@@ -24,6 +24,7 @@ pinhole camera models using Theia and ASP.
 
 import sys, os
 import shutil, subprocess, string, time, errno, optparse, glob
+#import register_local_cameras
 
 if sys.version_info < (2, 6, 0):
     print('\nERROR: Must use Python 2.6 or greater.')
@@ -112,6 +113,10 @@ def generate_flagfile(options):
         else:
             return 'false'
 
+    # TODO: Solving for intrinsics is disabled until shared params exist!!!
+
+    # TODO: Check for any changed flags in new version!
+
     if options.existing_theia_flagfile:
 
         # Replace the file path options
@@ -150,7 +155,7 @@ def generate_flagfile(options):
 
 # If a matches file has already been created, set the filepath here. This avoids
 # having to recompute all features and matches.
-#--matches_file=/home/smcmich1/data/theia_test/apollo_15_nadir/sub/sfm_run/theia_matches.dat
+--matches_file='''+options.match_wildcard+'''
 
 # The calibration file indicates possibly known calibration e.g, from EXIF or
 # explicit calibration. Theia attempts to extract EXIF focal lengths if calibration
@@ -189,7 +194,7 @@ def generate_flagfile(options):
 # higher this number the more memory is required.
 --matching_max_num_images_in_cache=128
 
---matching_strategy=CASCADE_HASHING
+--matching_strategy=BRUTE_FORCE
 --lowes_ratio=0.75
 --min_num_inliers_for_valid_match=30
 --max_sampson_error_for_verified_match=4.0
@@ -201,7 +206,7 @@ def generate_flagfile(options):
 --max_track_length=50
 --reconstruct_largest_connected_component=false
 # If set to true, only views with known calibration are reconstructed.
---only_calibrated_views=false
+--only_calibrated_views=true
 
 ############### Global SfM Options ###############
 --global_position_estimator=NONLINEAR
@@ -236,8 +241,8 @@ def generate_flagfile(options):
 --min_num_absolute_pose_inliers=30
 
 ############### Bundle Adjustment Options ###############
-# Set to true to hold camera intrinsics constant during BA.
---constant_camera_intrinsics='''+ tfPrint(not options.solveIntrinsic) +'''
+# Set this parameter to change which camera intrinsics should be optimized.
+--intrinsics_to_optimize=NONE
 # After BA, remove any points that have a reprojection error greater than this.
 --max_reprojection_error_pixels=4.0
 
@@ -261,6 +266,7 @@ def generate_flagfile(options):
 
     return flagfile_path
 
+
 def build_reconstruction(options):
     '''Call Theia to generate a 3D camera reconstruction'''
 
@@ -268,6 +274,7 @@ def build_reconstruction(options):
     prep_input_images(options)
 
     # Create the Theia config file!
+    options.match_wildcard=''
     flagfile_path = generate_flagfile(options)
 
     if (not os.path.exists(options.theia_output_path)) or options.overwrite:
@@ -286,7 +293,79 @@ def build_reconstruction(options):
             raise Exception('Theia failed to generate a camera reconstruction')
         shutil.move(theia_temp_output_path, options.theia_output_path)
 
+
     return options.theia_output_path
+
+TEMP_BIN = '/home/smcmich1/repo/BinaryBuilder/build_root/build/theia/theia-git/build/bin/'
+
+
+def guided_build_reconstruction(options):
+    '''Split the reconstruction over multiple Theia tool calls to provide
+       more control over the process'''
+       
+    # Make sure the input images are set up
+    prep_input_images(options)
+    
+    
+    # TODO: Skip existing files
+    # Extract features for all of the input images.
+    # - TODO: Can run this in parallel to use more CPUs, only hits 400% now.
+    # - match_features expects these to be in the same folder as the source images
+    # - TODO: Play experiment with feature options and read these from the flagfile which
+    #         the user can currently pass in.
+    options.feature_folder = options.output_folder#os.path.join(options.output_folder, 'features')
+    #if not os.path.exists(options.feature_folder):
+    #    os.mkdir(options.feature_folder)
+    cmd = [TEMP_BIN+'extract_features', '--input_images',options.image_wildcard, 
+           '--features_output_directory',options.feature_folder, 
+           '--num_threads','12', '--descriptor','SIFT']
+    #asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
+    
+    # TODO: Generate lists of images which we think should match
+    #       - Can even have "primary" images and "backup" images to reduce
+    #         the number of links.
+    #       - Once we have the lists, we need to selectively call match_features for each pairing.
+    
+    options.matches_folder = options.output_folder#os.path.join(options.output_folder, 'matches')
+    #if not os.path.exists(options.matches_folder):
+    #    os.mkdir(options.matches_folder)
+    match_path        = os.path.join(os.path.abspath(options.matches_folder), 'A.match')
+    features_wildcard = os.path.join(os.path.abspath(options.feature_folder), '*.features')
+    cmd = [TEMP_BIN+'match_features', '--input_features',features_wildcard, 
+           '--output_matches_file',match_path, '--calibration_file',options.camera_param_path,
+           '--num_threads','12', '--matching_strategy','BRUTE_FORCE', '--lowes_ratio','0.8']
+    asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)    
+
+
+
+
+
+    # Set this so it can be included in the flag file
+    options.match_wildcard = os.path.join(os.path.abspath(options.feature_folder), '*.match')
+
+    # Create the Theia config file!
+    flagfile_path = generate_flagfile(options)
+    
+    # TODO: May need to run build_reconstruction multiple times too.
+    
+    if (not os.path.exists(options.theia_output_path)) or options.overwrite:
+        # Run the executable from a folder in the ASP install directory so that
+        #  Theia can find a file by going "../share/theia/blahblah.txt"
+        abs_flag_path = os.path.abspath(flagfile_path)
+        curr_dir = os.getcwd()
+        os.chdir(libexecpath)
+        cmd = [TEMP_BIN+'build_reconstruction', '--flagfile', abs_flag_path]
+        asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
+        os.chdir(curr_dir) # Return to original directory
+
+        # Theia appends a tag to the requested output file, just rename the file.
+        theia_temp_output_path = options.theia_output_path + '-0'
+        if not os.path.exists(theia_temp_output_path):
+            raise Exception('Theia failed to generate a camera reconstruction')
+        shutil.move(theia_temp_output_path, options.theia_output_path)
+
+    return options.theia_output_path
+       
 
 def export_cameras_to_vw(options):
     '''Convert from Theia's camera format to VW's pinhole format'''
@@ -316,7 +395,7 @@ def run_bundle_adjust(options):
 
     # Some extra bundle adjust params
     # - We used Theia to try and compute intrinsics, don't need to redo it here.
-    ba_params = ['--local-pinhole', '-t', 'pinhole', '--datum', options.datum]
+    ba_params = ['--local-pinhole', '--constant-intrinsics',  '-t', 'pinhole', '--datum', options.datum]
     if options.bundle_params:
         ba_params += options.bundle_params.split(' ')
 
@@ -377,8 +456,8 @@ def expand_calibration_file(path, alt_path):
             output_file.write(s)
     output_file.close()
 
-    return alt_path # Return the path to the rewritten config file
-        
+    return os.path.abspath(alt_path) # Return the path to the rewritten config file
+    
 
 #------------------------------------------------------------------------------
 
@@ -471,6 +550,7 @@ def main(argsIn):
                 raise Exception('Theia failed to generate a camera reconstruction')
             else:
                 print 'Retrying Theia solution...'
+    #guided_build_reconstruction(options)
 
     print 'Finished generating reconstruction using Theia'
 
