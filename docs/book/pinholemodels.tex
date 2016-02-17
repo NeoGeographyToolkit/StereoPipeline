@@ -1,0 +1,196 @@
+\chapter{Pinhole Models}
+\label{chapter:pinholemodels}
+
+
+Ames Stereo Pipeline supports a generic pinhole camera model with
+several generic lens distortion models which cover common 
+calibration methods.  The generic pinhole model uses the following
+parameters:   
+
+\begin{itemize}{}
+\item  \textit{fx} = The focal length in horizontal units.
+\item  \textit{fy} = The focal length in vertical units.
+\item  \textit{cx} = The horizontal offset of the principal 
+point of the camera in the image plane.
+\item  \textit{cy} = The vertical offset of the principal 
+point of the camera in the image plane.
+\item  \textit{pitch} = The size of each pixel in the units used to specify
+the four parameters listed above.  This will usually either be 1.0 if they
+are specified in pixel units or alternately the size of a pixel in millimeters.
+\end{itemize}
+
+Along with the basic pinhole camera parameters, a lens distortion model
+can be added.  Note that the units used in the distortion model must
+match the units used for the parameters listed above.  For example, if the
+camera calibration was performed using units of millimeters the focal lengths etc. must be given in
+units of millimeters and the pitch must be equal to the size of each pixel in millimeters.
+The following lens distortion models are currently supported:
+
+\begin{itemize}{}
+\item  \textbf{Null} = A placeholder model that applies no distortion.
+
+\item  \textbf{Tsai} = A common distortion model similar to the one used by OpenCV and THEIA.
+ This model uses the following parameters:
+  \begin{description}
+    \item \textit{K1, K2} = Radial distortion parameters.
+    \item \textit{P1, P2} = Tangential distortion parameters.
+  \end{description}
+\hfill \\ The following equations describe the distortion:
+\[ r^{2} = x^{2} + y^{2} \]
+\[ x(distorted) = x*(K_{1}r^{2} + K_{2}r^{4} + 2P_{1}y + P_{2}(\frac{r^{2}}{x} + 2x)) \]
+\[ y(distorted) = y*(K_{1}r^{2} + K_{2}r^{4} + 2P_{2}x + P_{1}(\frac{r^{2}}{y} + 2y))  \]
+\hfill \\ References:
+\begin{description}
+   \item Roger Tsai, A Versatile Camera Calibration Technique for a High-Accuracy 3D
+          Machine Vision Metrology Using Off-the-shelf TV Cameras and Lenses
+\end{description}
+\hfill \\ Note that this model uses normalized pixel units.
+
+\item  \textbf{Adjustable Tsai} = A variant of the Tsai model additional \textit{K} terms can be used.
+
+\item  \textbf{Brown-Conrady} = An older model based on a centering angle.
+\hfill \\ References:
+\begin{description}
+   \item Decentering Distortion of Lenses - D.C. Brown, 
+          Photometric Engineering, pages 444-462, Vol. 32, No. 3, 1966
+   \item Close-Range Camera Calibration - D.C. Brown, 
+          Photogrammetric Engineering, pages 855-866, Vol. 37, No. 8, 1971
+\end{description}
+
+\item  \textbf{Photometrix} = A model matching the conventions used by the Australis software from Photometrix.
+ This model uses the following parameters:
+  \begin{description}
+    \item \textit{K1, K2, K3} = Radial distortion parameters.
+    \item \textit{P1, P2} = Tangential distortion parameters.
+    \item \textit{xp, yp} = Principal point offset.
+    \item \textit{B1, B2} = Unused parameters.
+  \end{description}
+\hfill \\ The following equations describe the distortion:
+\[ x = x(distorted) - xp \]
+\[ y = y(distorted) - yp \]
+\[ r^{2} = x^{2} + y^{2} \]
+\[ dr = K_{1}r^{3} + K_{2}r^{5} + K_{3}r^{7} \]
+\[ x(undistorted) = x + x\frac{dr}{r} + P_{1}(r^{2} +2x^{2}) + 2P_{2}xy \]
+\[ y(undistorted) = y + y\frac{dr}{r} + P_{2}(r^{2} +2y^{2}) + 2P_{1}xy \]
+\hfill \\ Note that this model uses non-normalized pixel units.
+
+\end{itemize}
+
+\hrule
+\section{File Format}
+\label{file_format}
+\bigskip
+
+ASP pinhole model files are written in an easy to work with plain text format 
+using the extension \texttt{.tsai}.
+A sample file is shown below:
+
+\begin{verbatim}
+VERSION_3
+fu = 28.429
+fv = 28.429
+cu = 17.9712
+cv = 11.9808
+u_direction = 1  0  0
+v_direction = 0  1  0
+w_direction = 0  0  1
+C = 266.943 -105.583 -2.14189
+R = 0.0825447 0.996303 -0.0238243 -0.996008 0.0832884 0.0321213 0.0339869 0.0210777 0.9992
+pitch = 0.0064
+Photometrix
+xp = 0.004
+yp = -0.191
+k1 = 1.31024e-04
+k2 = -2.05354e-07
+k3 = -5.28558e-011
+p1 = 7.2359e-006
+p2 = 2.2656e-006
+b1 = 0.0
+b2 = 0.0
+\end{verbatim}
+
+The first half of the file is the same for all pinhole models:
+
+\begin{itemize}{}
+\item  \texttt{VERSION\_X} = A header line used to track the format of the file.
+\item  \texttt{fu, fv, cu, cv} = The first four intrinsic parameters described in the previous section.
+\item  \texttt{u, v, and w\_direction} = These lines allow an additional permutation of the 
+axes of the camera coordinates.  By default, the positive column direction aligns with x, the
+positive row direction aligns with y, and downward into the image aligns with z.
+\item  \texttt{C} = The location of the camera center, usually in the geocentric coordinate system (GCC).
+\item  \texttt{R} = The rotation matrix describing the camera's pose in the coordinate system.
+\item  \texttt{pitch} = The pitch intrinsic parameter described in the previous section.
+\end{itemize}
+
+The second half of the file describes the lens distortion model being used.  The name of the
+distortion model appears first, followed by a list of the parameters for that model.  The number
+of parameters may be different for each distortion type.  Samples of each format are shown below:
+
+\begin{itemize}{}
+\item  \textbf{Null}
+\begin{verbatim}
+NULL
+\end{verbatim}
+
+\item  \textbf{Tsai}
+\begin{verbatim}
+TSAI
+k1 = 1.31024e-04
+k2 = -2.05354e-07
+p1 = 0.5
+p2 = 0.4
+\end{verbatim}
+
+\item  \textbf{Adjustable Tsai}
+\begin{verbatim}
+AdjustableTSAI
+Radial Coeff: Vector3(1.31024e-04, 1.31024e-07, 1.31024e-08)
+Tangential Coeff: Vector2(-2.05354e-07, 1.05354e-07)
+Alpha = 0.4
+\end{verbatim}
+
+\item  \textbf{Brown-Conrady}
+\begin{verbatim}
+BrownConrady
+xp = 0.5
+yp = 0.4
+k1 = 1.31024e-04
+k2 = -2.05354e-07
+k3 = 1.31024e-08
+p1 = 0.5
+p2 = 0.4
+phi = 0.001
+\end{verbatim}
+
+\item  \textbf{Photometrix}
+\begin{verbatim}
+Photometrix
+xp = 0.004
+yp = -0.191
+k1 = 1.31024e-04
+k2 = -2.05354e-07
+k3 = -5.28558e-011
+p1 = 7.2359e-006
+p2 = 2.2656e-006
+b1 = 0.0
+b2 = 0.0
+\end{verbatim}
+
+\end{itemize}{}
+
+For several years Ames Stereo Pipeline generated pinhole files in the binary \texttt{.pinhole} format.
+That format has been deprecated and can be read but will no longer be written.  
+At some point in the future support for that file format will be dropped.
+
+Also in the past Ames Stereo Pipeline has generated a shorter version of the current file
+format, also with the extension \texttt{.tsai}, which only supported the TSAI lens distortion model.
+Existing files in that format can still be used by ASP.
+
+
+
+
+
+
+
+
+

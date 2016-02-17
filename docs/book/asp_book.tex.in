@@ -146,15 +146,12 @@ stereo-pipeline-owner@lists.nasa.gov
 %\include{data_visualization} <-- we should add this someday!
 \include{examples}
 
-%\part{Additional Toolkits}
-%\include{controlnettk}
-%\include{Photometrytk}
-
 \part{Appendices}
 \appendix
 \include{tools}
 \include{stereodefault}
 \include{outputfiles}
+\include{pinholemodels}
 %\include{scripting}
 %\include{thirdparty}
 
