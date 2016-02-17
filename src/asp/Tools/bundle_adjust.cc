@@ -869,6 +869,49 @@ void FindScaleRotationTranslateTransform(Eigen::Matrix3Xd in, Eigen::Matrix3Xd o
 }
 
 
+/// Apply a scale-rotate-translate transform to pinhole cameras
+void apply_rigid_transform(vw::Matrix3x3 const & rotation, 
+                           vw::Vector3   const & translation,
+                           double                scale,
+                           Options             & opt) {
+
+  vw::Quat rotation_quaternion(rotation);
+
+  // Apply the transform to the cameras
+  std::cout << "---Transform camera positions" << std::endl;
+  for (size_t icam = 0; icam < opt.camera_models.size(); icam++){
+    vw::camera::PinholeModel * pincam
+      = dynamic_cast<vw::camera::PinholeModel*>(opt.camera_models[icam].get());
+    VW_ASSERT(pincam != NULL, vw::ArgumentErr() << "A pinhole camera expected.\n");
+
+    // Extract current parameters
+    vw::Vector3 position = pincam->camera_center();
+    vw::Quat    pose     = pincam->camera_pose();
+
+    // New position and rotation
+    position = scale*rotation*position + translation;
+    pose     = rotation_quaternion*pose;
+    pincam->set_camera_center(position);
+    pincam->set_camera_pose  (pose);                                   
+    //std::cout << "model: " << *pincam << std::endl;
+    //std::cout << "GDC coordinate: " << opt.datum.cartesian_to_geodetic(position) << std::endl;
+  } // End loop through cameras
+
+  // Apply the transform to all of the world points in the ControlNetwork
+  std::cout << "---Correct points in control network" << std::endl;
+  ControlNetwork::iterator iter;
+  for (iter=opt.cnet->begin(); iter!=opt.cnet->end(); ++iter) {
+    if (iter->type() == ControlPoint::GroundControlPoint) 
+      continue; // Don't convert the ground control points!
+      
+    Vector3 position     = iter->position();
+    Vector3 new_position = scale*rotation*position + translation;
+    //std::cout << "Converted position: " << position << " --> " << new_position << std::endl;
+    //std::cout << "          =======>  " << opt.datum.cartesian_to_geodetic(position) << " --> " 
+    //          << opt.datum.cartesian_to_geodetic(new_position) << std::endl;
+    iter->set_position(new_position);
+  }
+} // End function ApplyRigidTransform
 
 
 /// Generate a warning if the GCP's are really far from the IP points
@@ -928,41 +971,20 @@ void check_gcp_dists(Options const &opt) {
 /// - This function overwrites the camera parameters in-place
 bool init_pinhole_model_with_camera_positions(Options &opt) {
 
-  return false; // TODO: Finish this code!
-  
-  vw::cartography::GeoReference geo;
-/*
-  // Set up a GeoReference object
-  // - TODO: Move to a function?
-  bool have_georef = false;
-  if (opt.datum != ""){
-    // If the user set the datum, use it.
-    Datum datum;
-    datum.set_well_known_datum(opt.datum);
-    geo.set_datum(datum);
-    have_georef = true;
-  }else if (opt.semi_major > 0 && opt.semi_minor > 0){
-    // Otherwise, if the user set the semi-axes, use that.
-    Datum datum = Datum("User Specified Datum", "User Specified Spheroid",
-                        "Reference Meridian",
-                        opt.semi_major, opt.semi_minor, 0.0);
-    geo.set_datum(datum);
-    have_georef = true;
-  }
+  std::cout << "Initializing camera positions from input file..." << std::endl;
 
-  // This must be the last as it has priority. Use user's csv_proj4 string,
-  // to add info to the georef.
-  if (csv_conv.parse_georef(geo)) {
-    have_georef = true;
-  }
-
-*/
   // Read the input csv file
   asp::CsvConv conv;
   conv.parse_csv_format(opt.csv_format_str, opt.csv_proj4_str);
   std::list<asp::CsvConv::CsvRecord> pos_records;
   typedef std::list<asp::CsvConv::CsvRecord>::const_iterator RecordIter;
   conv.parse_entire_file(opt.camera_position_file, pos_records);
+
+  // Set up a GeoReference object using the datum
+  vw::cartography::GeoReference geo;
+  geo.set_datum(opt.datum); // We checked for a datum earlier
+  // Use user's csv_proj4 string, if provided, to add info to the georef.
+  conv.parse_georef(geo);
   
   // For each input camera, find the matching position in the record list
   const size_t num_cameras = opt.image_files.size();
@@ -972,11 +994,16 @@ bool init_pinhole_model_with_camera_positions(Options &opt) {
   size_t num_matches_found = 0;
   for (size_t i=0; i<num_cameras; ++i) {
    
-    // TODO: Make the name based matching a bit more robust!!!
+    // Search for this image file in the records
     std::string file_name = opt.image_files[i];
+    //std::cout << "file_name = " << file_name << std::endl;
     RecordIter iter;
     for (iter=pos_records.begin(); iter!=pos_records.end(); ++iter) {
-      if (iter->file == file_name)
+      // Match if the string in the file is contained in the input image string.
+      // - May need to play around with this in the future!
+      std::string field = iter->file;
+      //std::cout << "field = " << field << std::endl;
+      if (file_name.find(field) != std::string::npos)
         break; // Match found, stop the iterator here.
     }
     if (iter == no_match)
@@ -1018,6 +1045,26 @@ bool init_pinhole_model_with_camera_positions(Options &opt) {
   double        scale;
   FindScaleRotationTranslateTransform(cam_pos_in, cam_pos_file, rotation, translation, scale);
 
+  // Debug: Test transform on cameras
+  for (size_t i=0; i<num_cameras; ++i) {
+    // Skip cameras with no matching record
+    if (matching_records[i] == no_match)
+      continue;
+    
+    // Get the two GCC positions
+    Vector3 gcc_in    = opt.camera_models[i]->camera_center(Vector2(0,0));
+    Vector3 gcc_file  = conv.csv_to_cartesian(*(matching_records[i]), geo);
+    Vector3 gcc_trans = scale*rotation*gcc_in + translation;
+
+    //std::cout << "--gdc_file  is " << opt.datum.cartesian_to_geodetic(gcc_file ) << std::endl;
+    //std::cout << "--gdc_trans is " << opt.datum.cartesian_to_geodetic(gcc_trans) << std::endl;
+    //std::cout << "--gcc_diff  is " << norm_2(gcc_trans - gcc_file)               << std::endl;
+  
+  } // End debug loop
+
+  // Update the camera and point information with the new transform
+  apply_rigid_transform(rotation, translation, scale, opt);
+
   return true;
 }
 
@@ -1025,6 +1072,8 @@ bool init_pinhole_model_with_camera_positions(Options &opt) {
 ///  a least squares error transform to match the provided control points file.
 /// - This function overwrites the camera parameters in-place
 bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
+
+    std::cout << "Initializing camera positions from ground control points..." << std::endl;
 
     const ControlNetwork & cnet = *opt.cnet.get(); // Helper alias
 
@@ -1149,43 +1198,9 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
     } // End loop through control network points
 */
 
-    // Apply the transform to the cameras
-    std::cout << "---Transform camera positions" << std::endl;
-    for (size_t icam = 0; icam < opt.camera_models.size(); icam++){
-      vw::camera::PinholeModel * pincam
-        = dynamic_cast<vw::camera::PinholeModel*>(opt.camera_models[icam].get());
-      VW_ASSERT(pincam != NULL, vw::ArgumentErr() << "A pinhole camera expected.\n");
+  // Update the camera and point information with the new transform
+  apply_rigid_transform(rotation, translation, scale, opt);
 
-      // Extract current parameters
-      vw::Vector3 position = pincam->camera_center();
-      vw::Quat    pose     = pincam->camera_pose();
-
-      // New position and rotation
-      position = scale*rotation*position + translation;
-      vw::Quat aq(rotation);
-      pose = aq*pose;
-      pincam->set_camera_center(position);
-      pincam->set_camera_pose  (pose);                                   
-      //std::cout << "model: " << *pincam << std::endl;
-      //std::cout << "GDC coordinate: " << opt.datum.cartesian_to_geodetic(position) << std::endl;
-    } // End loop through cameras
-
-    // Apply the transform to all of the world points in the ControlNetwork
-    std::cout << "---Correct points in control network" << std::endl;
-    ControlNetwork::iterator iter;
-    for (iter=opt.cnet->begin(); iter!=opt.cnet->end(); ++iter) {
-      if (iter->type() == ControlPoint::GroundControlPoint) 
-        continue; // Don't convert the ground control points!
-        
-      Vector3 position     = iter->position();
-      Vector3 new_position = scale*rotation*position + translation;
-      //std::cout << "Converted position: " << position << " --> " << new_position << std::endl;
-      //std::cout << "          =======>  " << opt.datum.cartesian_to_geodetic(position) << " --> " 
-      //          << opt.datum.cartesian_to_geodetic(new_position) << std::endl;
-      iter->set_position(new_position);
-    }
-    
-    
   return true;
 } // End function init_pinhole_model_with_gcp
 
@@ -1231,7 +1246,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("overlap-limit",    po::value(&opt.overlap_limit)->default_value(3),
                          "Limit the number of subsequent images to search for matches to the current image to this value.")
     ("camera-weight",    po::value(&opt.camera_weight)->default_value(1.0),
-                         "The weight to give to the constraint that the camera positions/orientations stay close to the original values (only for the Ceres solver).")
+                         "The weight to give to the constraint that the camera positions/orientations stay close to the original values (only for the Ceres solver).  A lower weight means that the values will change less, a higher weight means more change.")
     ("ip-per-tile",             po::value(&opt.ip_per_tile)->default_value(0),
      "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
     ("min-triangulation-angle",             po::value(&opt.min_angle)->default_value(0.1),
@@ -1290,6 +1305,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   // Copy the IP settings to the global stereosettings() object
   asp::stereo_settings().ip_matching_method     = opt.ip_detect_method;
   asp::stereo_settings().individually_normalize = opt.individually_normalize;
+
+  if (!opt.camera_position_file.empty() && opt.csv_format_str == "")
+    vw_throw( ArgumentErr() << "When using a camera position file, the csv-format option must be set.\n"
+                            << usage << general_options );
 
   if ( !opt.gcp_files.empty() || !opt.camera_position_file.empty() ){
     // Need to read the datum if we have gcps or a camera position file.

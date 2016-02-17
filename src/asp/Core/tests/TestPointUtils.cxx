@@ -64,6 +64,20 @@ TEST( PointUtils, CsvConv ) {
   EXPECT_EQ(4, point[1]); // x
   EXPECT_EQ(8, point[2]); // y
   
+  
+  // Check format parsing
+  conv.parse_csv_format("1:file 12:lat 13:lon 14:height_above_datum", "");
+  EXPECT_TRUE(conv.is_configured());   
+    
+  // Check line reading
+  line = "2009_10_20_0778        778    228373.34782  -17.79782     2782345.669     -147696.005     1521956.201       10263.249      0.441      1.973    191.403    -75.22419715    -98.31170774       10263.249 740";
+  vals = conv.parse_csv_line(is_first_line, success, line);
+  EXPECT_EQ("2009_10_20_0778", conv.file_from_csv(vals));
+  point = conv.csv_to_geodetic(vals, geo);
+  EXPECT_EQ(-98.31170774,  point[0]); // lon
+  EXPECT_EQ(-75.22419715,  point[1]); // lat
+  EXPECT_EQ(10263.249,     point[2]); // height
+  
 
   // Check format parsing
   conv.parse_csv_format("1:height_above_datum 3:lon 2:lat", "");

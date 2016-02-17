@@ -433,6 +433,13 @@ Example (for Digital Globe Earth data, using ground control points):
     --datum WGS_1984 -o results/run
 \end{verbatim}
 
+Example (for generic pinhole camera data, using estimated camera positions):
+\begin{verbatim}   
+  bundle_adjust file1.JPG file2.JPG file1.tsai file2.tsai -o results/out \
+     -t pinhole --local-pinhole --datum WGS_1984 --camera-positions nav_data.csv \
+     --csv-format "1:file 6:lat 7:lon 9:height_above_datum"
+\end{verbatim}
+
 The \texttt{stereo} program can then be told to use the adjusted cameras
 via the option \texttt{-\/-bundle-adjust-prefix}.
 
@@ -481,9 +488,9 @@ subsequent images to search for matches to the current image to this
 value.  \\ \hline
 
 \texttt{-\/-camera-weight \textit{double(=1.0)}} &
-The weight to give to the constraint that the
-camera positions/orientations stay close to
-the original values (only for the Ceres solver).
+The weight to give to the constraint that the camera positions/orientations stay close to
+the original values (only for the Ceres solver).  A lower weight means that the values will
+change less, a higher weight means more change.
 \\ \hline
 
 \texttt{-\/-ip-per-tile \textit{int}} &
@@ -496,6 +503,25 @@ detection method from: 0=OBAloG, 1=SIFT, 2=ORB. \\ \hline
 
 \texttt{-\/-local-pinhole} & Optimize processing for inputs which are local coordinate pinhole models.
 Also writes out a standalone camera model file instead of adjust files. \\ \hline
+
+\texttt{-\/-camera-positions \textit{filename}} & CSV file containing estimated positions of each camera.  
+Only used with the local-pinhole setting to initialize global camera coordinates. If used,
+the csv-format setting must also be set.\\ \hline
+
+\texttt{-\/-csv-format \textit{string}} & Specify the format of input
+CSV files as a list of entries column\_index:column\_type (indices start
+from 1). Examples: '1:x 2:y 3:z 4:file' (a Cartesian coordinate system with
+origin at planet center is assumed, with the units being in meters),
+'5:lon 6:lat 7:radius\_m 2:file' (longitude and latitude are in degrees, the
+radius is measured in meters from planet center), '6:file 3:lat 2:lon
+1:height\_above\_datum', '1:easting 2:northing 3:height\_above\_datum'
+(need to set \texttt{-\/-csv-proj4}; the height above datum is in
+meters). Can also use radius\_km for column\_type, when it is again
+measured from planet center. TODO FILE MATCH\\ \hline
+
+\texttt{-\/-csv-proj4 \textit{string}} & The PROJ.4 string to use to
+interpret the entries in input CSV files, if those entries contain
+easting, northing, and height above datum. \\ \hline
 
 \texttt{-\/min-triangulation-angle \textit{double(=0.1)}} &
 The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.
@@ -2174,14 +2200,14 @@ Option & Description \\ \hline \hline
 \label{camera-solve}
 
 The \texttt{camera\_solve} tool can generate pinhole sensor models (frame
-cameras) for input images lacking metadata.  This tool is primarily
-intended to solve for the extrinsic camera parameters.  If you do not
-provide intrinsic parameters the tool will try to compute them but do
-not expect good results.  You can use the \texttt{camera\_calibrate} tool
-to solve for intrinsic parameters.
+cameras) for input images lacking metadata.  Currently the tool only
+ solves for the extrinsic camera parameters and it is up to the user to
+ provide intrinsic camera parameters.  You can use the \texttt{camera\_calibrate} 
+tool to solve for intrinsic parameters.
 
-The tool is based on the THEIA software library
-\url{http://www.theia-sfm.org/index.html}, which we bundle with ASP.
+The tool makes use of the the THEIA software library to generate initial 
+camera position estimates in a local coordinate space.  You can learn more 
+about THEIA at \url{http://www.theia-sfm.org/index.html}.
 
 In order to register the camera models in world coordinates a set of
 ground control points will be needed establishing the real world
@@ -2190,31 +2216,16 @@ generate these points is to use the ground control point writer tool
 available in the \texttt{stereo-gui} tool.  The pinhole models generated
 by this tool can be used normally with all other ASP tools.
 
-The camera calibration file should be a plain text file with each line corresponding to one input image file.
-The format of each line is:
-\begin{itemize}
-\item file path (or a wildcard path to multiple files using the * symbol)
-\item focal length (in pixel units)
-\item focal point x (in pixels)
-\item focal point y (in pixels)
-\item aspect ratio
-\item skew
-\item radial distortion factor k1
-\item radial distortion factor k2
-\end{itemize}
+The camera calibration passed with the \texttt{-\/-calib-file} option
+ should be a .tsai pinhole camera model file in one of the formats
+compatible with ASP.  TODO: LINK TO PINHOLE CHAPTER
 
-The K1 and K2 terms in the calibration file are used as follows:\\
-\hspace*{2em}\texttt{r2 = x*x + y*y} \\
-\hspace*{4em}\texttt{d  = 1 + r2*(k1 + k2*r2)} \\
-\hspace*{6em}\texttt{x\_distorted = x * d} \\
-\hspace*{8em}\texttt{y\_distorted = y * d}
+This tool will generate two .tsai camera model files in the output folder per input image.
+The first file, appended with .tsai, is in a local coordinate system.  The first file also does not 
+have the final bundle adjustment applied but it may be useful to aid in debugging strange results.  
+The second file, appended with .final.tsai, contains the final solver results.  If ground control points or 
+estimated camera positions were provided then the second file will be in a global coordinate system.
 
-This tool will generate two types of output files.  One is a set of .tsai files, one per input image.
-These are camera models in a local coordinate system and they are plain text files for easy inspection.
-If ground control points are provided the tool will also generate a .pinhole model for each image.
-These files contain the world coordinates for each camera.  You can use either file with the other ASP
-tools but remember that the .tsai files are only in an arbitrary local coordinate system.  Both sets of
-files will be created in the specified output folder.
 
 Usage:
 \begin{verbatim}
