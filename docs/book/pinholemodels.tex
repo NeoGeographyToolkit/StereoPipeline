@@ -49,6 +49,21 @@ The following lens distortion models are currently supported:
 \item  \textbf{Adjustable Tsai} = A variant of the Tsai model additional \textit{K} terms can be used.
 
 \item  \textbf{Brown-Conrady} = An older model based on a centering angle.
+  \begin{description}
+    \item \textit{K1, K2, K3} = Radial distortion parameters.
+    \item \textit{P1, P2} = Tangential distortion parameters.
+    \item \textit{xp, yp} = Principal point offset.
+    \item \textit{B1, B2} = Unused parameters.
+  \end{description}
+\hfill \\ The following equations describe the distortion:
+\[ x = x(distorted) - xp \]
+\[ y = y(distorted) - yp \]
+\[ r^{2} = x^{2} + y^{2} \]
+\[ dr = K_{1}r^{3} + K_{2}r^{5} + K_{3}r^{7} \]
+\[ x(undistorted) = x + x\frac{dr}{r} + P_{1}(r^{2} +2x^{2}) + 2P_{2}xy \]
+\[ y(undistorted) = y + y\frac{dr}{r} + P_{2}(r^{2} +2y^{2}) + 2P_{1}xy \]
+\hfill \\ Note that this model uses non-normalized pixel units.
+
 \hfill \\ References:
 \begin{description}
    \item Decentering Distortion of Lenses - D.C. Brown, 
@@ -63,15 +78,15 @@ The following lens distortion models are currently supported:
     \item \textit{K1, K2, K3} = Radial distortion parameters.
     \item \textit{P1, P2} = Tangential distortion parameters.
     \item \textit{xp, yp} = Principal point offset.
-    \item \textit{B1, B2} = Unused parameters.
+    \item \textit{phi} = Tangential distortion angle in radians.
   \end{description}
 \hfill \\ The following equations describe the distortion:
 \[ x = x(distorted) - xp \]
 \[ y = y(distorted) - yp \]
 \[ r^{2} = x^{2} + y^{2} \]
 \[ dr = K_{1}r^{3} + K_{2}r^{5} + K_{3}r^{7} \]
-\[ x(undistorted) = x + x\frac{dr}{r} + P_{1}(r^{2} +2x^{2}) + 2P_{2}xy \]
-\[ y(undistorted) = y + y\frac{dr}{r} + P_{2}(r^{2} +2y^{2}) + 2P_{1}xy \]
+\[ x(undistorted) = x + x\frac{dr}{r} - (P_{1}r^{2} +P_{2}r^{4})sin(phi) +  \]
+\[ y(undistorted) = y + y\frac{dr}{r} + (P_{1}r^{2} +P_{2}r^{4})cos(phi) \]
 \hfill \\ Note that this model uses non-normalized pixel units.
 
 \end{itemize}

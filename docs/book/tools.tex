@@ -506,7 +506,8 @@ Also writes out a standalone camera model file instead of adjust files. \\ \hlin
 
 \texttt{-\/-camera-positions \textit{filename}} & CSV file containing estimated positions of each camera.  
 Only used with the local-pinhole setting to initialize global camera coordinates. If used,
-the csv-format setting must also be set.\\ \hline
+the csv-format setting must also be set.  The "file" field is searched for strings that are found
+in the input image files to match locations to cameras.\\ \hline
 
 \texttt{-\/-csv-format \textit{string}} & Specify the format of input
 CSV files as a list of entries column\_index:column\_type (indices start
@@ -517,7 +518,7 @@ radius is measured in meters from planet center), '6:file 3:lat 2:lon
 1:height\_above\_datum', '1:easting 2:northing 3:height\_above\_datum'
 (need to set \texttt{-\/-csv-proj4}; the height above datum is in
 meters). Can also use radius\_km for column\_type, when it is again
-measured from planet center. TODO FILE MATCH\\ \hline
+measured from planet center.\\ \hline
 
 \texttt{-\/-csv-proj4 \textit{string}} & The PROJ.4 string to use to
 interpret the entries in input CSV files, if those entries contain
@@ -2151,9 +2152,34 @@ are in the shadow (occluded from the sun).\\ \hline
 
 
 
+\section{undistortimage}
+\label{undistortimage}
 
-\section{camera\_calibrate}
-\label{camera-calibrate}
+The \texttt{undistort\_image} program takes as input an image and a pinhole model .tsai file 
+describing the image.  The tool will generate a copy of the input image with the lens distortion
+specified in the pinhole model file removed.
+
+Usage:
+\begin{verbatim}
+  > undistort_image [options] <input image> <camera model>
+\end{verbatim}
+
+\begin{longtable}{|l|p{7.5cm}|}
+\caption{Command-line options for undistort\_image}
+\label{tbl:undistortimage}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Option & Description \\ \hline \hline
+\texttt{-\/-help|-h} & Display the help message. \\ \hline
+\texttt{-\/-output-file|-o \textit{filename}} & Specify the output file. \\ \hline
+\end{longtable}
+
+
+\section{cameracalibrate}
+\label{cameracalibrate}
 
 The \texttt{camera\_calibrate} tool can generate camera models suitable for use by \texttt{camera\_solve}
 and other ASP tools.  This tool only solves for intrinsic camera parameters; to obtain the camera pose you
@@ -2182,7 +2208,7 @@ Usage:
 
 \begin{longtable}{|l|p{7.5cm}|}
 \caption{Command-line options for camera\_calibrate}
-\label{tbl:camera-calibrate}
+\label{tbl:cameracalibrate}
 \endfirsthead
 \endhead
 \endfoot
@@ -2196,8 +2222,8 @@ Option & Description \\ \hline \hline
 \texttt{-\/-duplicate-files} & Make a copy of the vw param file for each input camera.\\ \hline
 \end{longtable}
 
-\section{camera\_solve}
-\label{camera-solve}
+\section{camerasolve}
+\label{camerasolve}
 
 The \texttt{camera\_solve} tool can generate pinhole sensor models (frame
 cameras) for input images lacking metadata.  Currently the tool only
@@ -2234,7 +2260,7 @@ Usage:
 
 \begin{longtable}{|l|p{7.5cm}|}
 \caption{Command-line options for camera\_solve}
-\label{tbl:camera-solve}
+\label{tbl:camerasolve}
 \endfirsthead
 \endhead
 \endfoot
