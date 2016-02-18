@@ -14,6 +14,10 @@ Highlights
       the OpenCV checkerboard calibration program with outputs in
       formats for camera_solve and ASP.
 
+ - bundle_adjust
+    * Added several options to support solving for pinhole camera
+      models in local coordinates using GCPs or estimated camera positions.
+
  - wv_correct
     * Now corrects TDI 8 (Reverse) of WV01 and TDI 8 (Forward 
       and Reverse) and TDI 32 (Forward) of WV02.  Other correction
@@ -26,8 +30,12 @@ Highlights
     
 Other
 
+ - undistort_image
+    * A new tool to test out pinhole model lens distortion parameters.
+
  - Tools
     * Suppressed pesky aux.xml warning sometimes printed by GDAL.
+   
  - docs
     * Mention DERT, a tool for exploring large DEMs.
 

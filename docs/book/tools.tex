@@ -2152,7 +2152,7 @@ are in the shadow (occluded from the sun).\\ \hline
 
 
 
-\section{undistortimage}
+\section{undistort\_image}
 \label{undistortimage}
 
 The \texttt{undistort\_image} program takes as input an image and a pinhole model .tsai file 
@@ -2178,7 +2178,7 @@ Option & Description \\ \hline \hline
 \end{longtable}
 
 
-\section{cameracalibrate}
+\section{camera\_calibrate}
 \label{cameracalibrate}
 
 The \texttt{camera\_calibrate} tool can generate camera models suitable for use by \texttt{camera\_solve}
@@ -2222,7 +2222,7 @@ Option & Description \\ \hline \hline
 \texttt{-\/-duplicate-files} & Make a copy of the vw param file for each input camera.\\ \hline
 \end{longtable}
 
-\section{camerasolve}
+\section{camera\_solve}
 \label{camerasolve}
 
 The \texttt{camera\_solve} tool can generate pinhole sensor models (frame
@@ -2235,16 +2235,29 @@ The tool makes use of the the THEIA software library to generate initial
 camera position estimates in a local coordinate space.  You can learn more 
 about THEIA at \url{http://www.theia-sfm.org/index.html}.
 
+The camera calibration passed with the \texttt{-\/-calib-file} option
+ should be a .tsai pinhole camera model file in one of the formats
+compatible with ASP.  Our supported pinhole camera models are described
+in appendix \ref{chapter:pinholemodels}.
+
 In order to register the camera models in world coordinates a set of
 ground control points will be needed establishing the real world
 coordinates of several points in the images.  The easiest way to
 generate these points is to use the ground control point writer tool
-available in the \texttt{stereo-gui} tool.  The pinhole models generated
-by this tool can be used normally with all other ASP tools.
+available in the \texttt{stereo-gui} tool.  
 
-The camera calibration passed with the \texttt{-\/-calib-file} option
- should be a .tsai pinhole camera model file in one of the formats
-compatible with ASP.  TODO: LINK TO PINHOLE CHAPTER
+Alternately, you can use a set of estimated camera positions
+(perhaps from a GPS unit) to register the camera models in world coordinates.
+This method is not as accurate as using ground control points but it may
+be easier to use.  To do this, use the \texttt{-\/-camera-positions} parameter to 
+\texttt{bundle-adjust} via the \texttt{-\/-bundle-adjust-params} option similar to 
+the example line below.  You may want to use the \texttt{-\/-camera-weight} option
+to prevent the camera models from shifting too far from their starting positions.
+
+\begin{verbatim}
+--bundle-adjust-params '--camera-positions nav.csv \
+ --csv-format "1:file 12:lat 13:lon 14:height_above_datum" --camera-weight 0.2'
+\end{verbatim}
 
 This tool will generate two .tsai camera model files in the output folder per input image.
 The first file, appended with .tsai, is in a local coordinate system.  The first file also does not 
@@ -2292,8 +2305,8 @@ control points.  If the tool does not provide good results you can
 customize the parameters being passed to the underlying tools in order
 to improve the results.  For \texttt{bundle\_adjust} options, see the
 description in this document.  For more information about THEIA flagfile
-options see their website.  You can generate a THEIA flagfile by running
-the tool; it will generate a default flagfile in the output folder.
+options see their website or edit a copy of the default flagfile
+generated in the output folder
 
 \section{GDAL Tools}
 
