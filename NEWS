@@ -39,6 +39,7 @@ Other
 
  - Tools
     * Suppressed pesky aux.xml warning sometimes printed by GDAL.
+    * point2las now writes extents in the header.
    
  - docs
     * Mention DERT, a tool for exploring large DEMs.
