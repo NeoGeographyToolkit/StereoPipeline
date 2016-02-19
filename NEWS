@@ -18,6 +18,10 @@ Highlights
     * Added several options to support solving for pinhole camera
       models in local coordinates using GCPs or estimated camera positions.
 
+ - orbitviz
+    * Significantly improved the accuracy of the plotted camera locations.
+    * Added option to load results from camera_solve.
+
  - wv_correct
     * Now corrects TDI 8 (Reverse) of WV01 and TDI 8 (Forward 
       and Reverse) and TDI 32 (Forward) of WV02.  Other correction

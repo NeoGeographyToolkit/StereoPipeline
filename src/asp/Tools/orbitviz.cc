@@ -25,6 +25,7 @@
 #include <vw/Core.h>
 #include <vw/Math.h>
 #include <vw/FileIO/KML.h>
+//#include <vw/FileIO/FileUtils.h>
 #include <vw/Camera.h>
 #include <vw/Cartography.h>
 
@@ -48,10 +49,10 @@ using namespace vw;
 using namespace vw::camera;
 using namespace vw::cartography;
 namespace po = boost::program_options;
-namespace fs = boost::filesystem;
+//namespace fs = boost::filesystem;
 
 struct Options : public asp::BaseOptions {
-  Options() : loading_image_camera_order(true) {}
+  Options() : seperate_camera_files(true) {}
   // Input
   std::vector<std::string> input_files;
   std::string stereo_session_string, 
@@ -59,29 +60,153 @@ struct Options : public asp::BaseOptions {
               bundle_adjust_prefix;
 
   // Settings
-  bool loading_image_camera_order, write_csv;
+  bool seperate_camera_files, write_csv, load_camera_solve;
   std::string datum;
+  double model_scale; ///< Size scaling applied to 3D models
 
   // Output
   std::string out_file;
 };
+
+
+// TODO: Update the function in VW
+/// Returns the extension of a file.
+std::string get_extension( std::string const& input, bool make_lower=true ) {
+  boost::filesystem::path ipath( input );
+  std::string ext = ipath.extension().string();
+  if (make_lower)
+    boost::algorithm::to_lower(ext);
+  return ext;
+}
+
+/// Strip the directory out of a file path
+std::string strip_directory( std::string const& input){
+ boost::filesystem::path p(input); 
+ return p.filename().string();
+}
+
+
+// Would be nice to have this in a function
+/// Populate a list of all files in a directory.
+/// - Returns the number of files found.
+/// - If an extension is passed in, files must match the extension.
+size_t get_files_in_folder(std::string              const& folder,
+                           std::vector<std::string>      & output,
+                           std::string              const& ext="")
+{
+  output.clear();
+  
+  // Handle invalid inputs
+  if(!boost::filesystem::exists(folder) || !boost::filesystem::is_directory(folder)) 
+    return 0;
+
+  boost::filesystem::directory_iterator it(folder);
+  boost::filesystem::directory_iterator endit;
+
+  if (ext != ""){ // Check the extension
+    while(it != endit) {
+        if(boost::filesystem::is_regular_file(*it) && it->path().extension() == ext) 
+          output.push_back(it->path().filename().string());
+        ++it;
+    }
+  }
+  else{ // No extension check
+    while(it != endit) {
+        if(boost::filesystem::is_regular_file(*it)) 
+          output.push_back(it->path().filename().string());
+        ++it;
+    }
+  }
+  return output.size();
+}
+
+
+
+// TODO: Eliminate bool input and move somewhere else.
+/// Seperates a list of files into camera files and image files.
+/// - The camera files may be the same as the image files.
+size_t split_files_list(std::vector<std::string> const& input_files,
+                        std::vector<std::string>      & image_files, 
+                        std::vector<std::string>      & camera_files,
+                        const bool seperate_camera_files) {
+
+  size_t num_cameras = seperate_camera_files ? input_files.size()/2 : input_files.size();
+  vw_out() << "Number of cameras: " << num_cameras << std::endl;
+  
+  // Split the list of image files and camera files
+  image_files.resize (num_cameras);
+  camera_files.resize(num_cameras);
+  for (size_t i = 0, store=0; store < num_cameras; ++store) {
+    image_files[store] = input_files[i];
+    if (seperate_camera_files){ // Camera file comes after the image file
+      camera_files[store] = input_files[i+1];
+      i += 2;
+    } else { // Camera file is the same as the image file
+      camera_files[store] = camera_files[store];
+      i += 1;
+    }
+  } // End loop through cameras
+  
+  return num_cameras;
+}
+
+/// Get a list of the files in the solver output folder
+size_t get_files_from_solver_folder(std::string         const& solver_folder,
+                                      std::vector<std::string> & image_files, 
+                                      std::vector<std::string> & camera_files) {
+  image_files.clear();
+  camera_files.clear();
+  std::vector<std::string> solver_files;
+  get_files_in_folder(solver_folder, solver_files);
+  
+  // Identify the image extension
+  std::string image_ext = "";
+  for (size_t i=0; i<solver_files.size(); ++i) {
+    if (asp::has_image_extension(solver_files[i])) {
+      image_ext = get_extension(solver_files[i], false);
+      break;
+    }
+  }
+  vw_out() << "image_ext: " << image_ext << std::endl;
+  if (image_ext == "")
+    vw_throw( ArgumentErr() << "Failed to find any image files in the camera_solve directory: "
+                            << solver_folder);
+  
+  // Grab a list of just the image files
+  size_t num_images = get_files_in_folder(solver_folder, image_files, image_ext);
+  vw_out() << "Number of cameras: " << num_images << std::endl;
+  
+  // Grab a list of the camera model files
+  camera_files.resize(num_images);
+  for (size_t i=0; i<num_images; ++i)
+    camera_files[i] = solver_folder + "/" + image_files[i] + ".final.tsai";
+    
+  return num_images;
+}
+
+
 
 // MAIN
 //***********************************************************************
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("output,o", po::value(&opt.out_file)->default_value("orbit.kml"),
-     "The output kml file that will be written")
-    ("session-type,t", po::value(&opt.stereo_session_string),
-     "Select the stereo session type to use for processing. [options: pinhole isis]")
-    ("reference-spheroid,r", po::value(&opt.datum)->default_value("moon"),
-     "Set a reference surface to a hard coded value (one of [moon, mars, wgs84].)")
+    ("output,o",                po::value(&opt.out_file)->default_value("orbit.kml"),
+          "The output kml file that will be written")
+    ("session-type,t",          po::value(&opt.stereo_session_string),
+          "Select the stereo session type to use for processing. [options: pinhole isis]")
+    ("load-camera-solve",       po::bool_switch(&opt.load_camera_solve)->default_value(false)->implicit_value(true),
+          "Load the results from a run of the camera-solve tool. The only positional argument must be the path to the camera-solve output folder.")
+    ("reference-spheroid,r",    po::value(&opt.datum)->default_value("moon"),
+          "Set a reference surface to a hard coded value (one of [moon, mars, wgs84].)")
     ("use-path-to-dae-model,u", po::value(&opt.path_to_outside_model),
-     "Instead of using an icon to mark a camera, use a 3D model with extension .dae")
+          "Instead of using an icon to mark a camera, use a 3D model with extension .dae")
+    // The KML class applies a model scale of 3000 * this value.
+    ("model-scale",             po::value(&opt.model_scale)->default_value(1.0/30.0),
+          "Scale factor applied to 3D model size.")
     ("write-csv", "write a csv file with the orbital the data.")
-    ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
-     "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.");
+    ("bundle-adjust-prefix",    po::value(&opt.bundle_adjust_prefix),
+          "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.");
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
@@ -101,18 +226,18 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   // Determining if feed only camera model
   if ( opt.input_files.size() == 1 )
-    opt.loading_image_camera_order = false;
+    opt.seperate_camera_files = false;
   else if ( opt.input_files.size() > 1 ) {
-    // TODO: Fix this so it works for all extensions!
-    std::string first_extension = opt.input_files[0].substr( opt.input_files[0].size()-4,4 );
-    std::cout << "first_extension = " << first_extension << std::endl;
+    // If the files have different extensions, set opt.seperate_camera_files
+    std::string first_extension = get_extension(opt.input_files[0], false);
+    //std::cout << "first_extension = " << first_extension << std::endl;
     if ( boost::iends_with(opt.input_files[1], first_extension ) )
-      opt.loading_image_camera_order = false;
+      opt.seperate_camera_files = false;
   }
-  std::cout << "opt.loading_image_camera_order = " << opt.loading_image_camera_order << std::endl;
+  //std::cout << "opt.seperate_camera_files = " << opt.seperate_camera_files << std::endl;
 
   if ( opt.input_files.size() == 0 ||
-       (opt.loading_image_camera_order && opt.input_files.size() < 2) )
+       (opt.seperate_camera_files && opt.input_files.size() < 2) )
     vw_throw( ArgumentErr() << usage << general_options );
 
   opt.write_csv = vm.count("write-csv");
@@ -124,7 +249,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   // Look up for session type based on file extensions
   if (opt.stereo_session_string.empty()) {
     std::string type_containing_string = opt.input_files[0];
-    if ( opt.loading_image_camera_order )
+    if ( opt.seperate_camera_files ) // Look in camera model file instead of image file
       type_containing_string = opt.input_files[1];
     
     if ( boost::iends_with(type_containing_string, ".cahvor") ||
@@ -149,24 +274,21 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 int main(int argc, char* argv[]) {
 
   Options opt;
-  //try {
+  try {
     handle_arguments( argc, argv, opt );
 
 
-    // Data to be loaded
-    unsigned no_cameras = opt.loading_image_camera_order ? opt.input_files.size()/2 : opt.input_files.size();
-    vw_out() << "Number of cameras: " << no_cameras << std::endl;
-    std::vector<std::string> camera_names(no_cameras);
-
-    // Copying file names
-    for (unsigned load_i = 0, read_i = 0; load_i < no_cameras; load_i++) {
-      camera_names[load_i] = opt.input_files[read_i];
-      read_i += opt.loading_image_camera_order ? 2 : 1;
-    }
+    // Get the list of image files and camera model files
+    size_t num_cameras;
+    std::vector<std::string> image_files, camera_files;
+    if (!opt.load_camera_solve)
+      num_cameras = split_files_list(opt.input_files, image_files, camera_files, 
+                                     opt.seperate_camera_files);
+    else
+      num_cameras = get_files_from_solver_folder(opt.input_files[0], image_files, camera_files);
 
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
     SessionPtr session( asp::StereoSessionFactory::create(opt.stereo_session_string, opt) );
-
 
     // Create the KML file.
     KMLFile kml( opt.out_file, "orbitviz" );
@@ -181,6 +303,7 @@ int main(int argc, char* argv[]) {
                            "plane_highlight" );
     }
 
+    // TODO: There should be a datum parsing function!
     // Load up datum
     cartography::Datum datum;
     if ( opt.datum == "mars" ) {
@@ -200,18 +323,15 @@ int main(int argc, char* argv[]) {
       vw_throw( IOErr() << "Unable to open output file.\n" );
 
     // Building Camera Models and then writing to KML
-    for (unsigned load_i=0, read_i=0; load_i < no_cameras; load_i++) {
+    for (size_t i=0; i < num_cameras; i++) {
       boost::shared_ptr<camera::CameraModel> current_camera;
-      if (opt.loading_image_camera_order)
-        current_camera = session->camera_model( opt.input_files[read_i],
-                                                opt.input_files[read_i+1] );
-      else
-        current_camera = session->camera_model( opt.input_files[read_i],
-                                                opt.input_files[read_i] );
+      current_camera = session->camera_model(image_files [i],
+                                             camera_files[i]);
 
       if ( opt.write_csv ) {
-        csv_file << camera_names[load_i] << ", ";
+        csv_file << image_files[i] << ", ";
 
+        // Add the ISIS camera serial number if applicable
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
         boost::shared_ptr<IsisCameraModel> isis_cam =
           boost::dynamic_pointer_cast<IsisCameraModel>(current_camera);
@@ -229,26 +349,24 @@ int main(int argc, char* argv[]) {
       // Adding Placemarks
       Vector3 lon_lat_alt = datum.cartesian_to_geodetic(current_camera->camera_center(Vector2()));
 
+      std::string display_name = strip_directory(image_files[i]);
       if (!opt.path_to_outside_model.empty()) {
-        const double scale = 1.0/30; // The KML class applies a model scale of 3000 * this value.
         kml.append_model( opt.path_to_outside_model,
                           lon_lat_alt.x(), lon_lat_alt.y(),
                           inverse(current_camera->camera_pose(Vector2())),
-                          camera_names[load_i], "",
-                          lon_lat_alt[2], scale );
+                          display_name, "",
+                          lon_lat_alt[2], opt.model_scale );
       } else {
         kml.append_placemark( lon_lat_alt.x(), lon_lat_alt.y(),
-                              camera_names[load_i], "", "camera_placemark",
+                              display_name, "", "camera_placemark",
                               lon_lat_alt[2], true );
       }
-
-      // Increment
-      read_i += opt.loading_image_camera_order ? 2 : 1;
-    }
+      
+    } // End loop through cameras
 
     csv_file.close();
     kml.close_kml();
-  //} ASP_STANDARD_CATCHES;
+  } ASP_STANDARD_CATCHES;
 
   return 0;
 }
