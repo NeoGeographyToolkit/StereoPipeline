@@ -177,6 +177,15 @@ int main( int argc, char *argv[] ) {
     header.SetScale(scale[0], scale[1], scale[2]);
     header.SetOffset(offset[0], offset[1], offset[2]);
 
+    // Our code does not set the min and max in the las header.
+    // That can be seen with libexec/lasinfo on an existing cloud.
+    // Here are the APIs to use to set min and max.
+    // The values to use should come from cloud_bbox above.
+    // Set maximum values of extent of X, Y and Z coordinates.
+    // void SetMax(double x, double y, double z);
+    // Set minimum values of extent of X, Y and Z coordinates.
+    // void SetMin(double x, double y, double z);
+
     std::string lasFile;
     header.SetCompressed(opt.compressed);
     if (opt.compressed)
