@@ -28,6 +28,7 @@
 //#include <vw/FileIO/FileUtils.h>
 #include <vw/Camera.h>
 #include <vw/Cartography.h>
+#include <vw/InterestPoint/InterestData.h>
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/StereoSettings.h>
@@ -192,6 +193,16 @@ size_t get_files_from_solver_folder(std::string                 const& solver_fo
   std::vector<std::string> match_files;
   size_t num_matches = get_files_in_folder(solver_folder, match_files, ".match");
   matched_cameras.resize(num_images);
+  
+  // Ignore any match files where there are not many matches
+  const size_t MIN_MATCHES = 30; // This is the default value, but it could be made an option.
+  std::vector<ip::InterestPoint> ip1, ip2;
+  for (size_t m=0; m<num_matches; ++m) {
+    vw::ip::read_binary_match_file(solver_folder+ "/"+match_files[m], ip1, ip2);
+    //std::cout << "Read " << ip1.size() << " matches from file " << match_files[m] << std::endl;
+    if (ip1.size() < MIN_MATCHES)
+      match_files[m] = "";
+  }
   
   // Figure out which image pairs are matched
   std::string f1, f2;
