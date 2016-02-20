@@ -39,7 +39,10 @@ Other
 
  - Tools
     * Suppressed pesky aux.xml warning sometimes printed by GDAL.
-    * point2las now writes extents in the header.
+
+ - point2las
+    * Write correct bounding box in the header.
+    * Respect projections that are not lon-lat.
    
  - docs
     * Mention DERT, a tool for exploring large DEMs.

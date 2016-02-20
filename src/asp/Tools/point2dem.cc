@@ -1238,27 +1238,6 @@ int main( int argc, char *argv[] ) {
       point_image = asp::point_transform(point_image,
 					 math::euler_to_rotation_matrix(opt.phi_rot, opt.omega_rot,opt.kappa_rot, opt.rot_order));
     }
-
-    // Determine if we should be using a longitude range between
-    // [-180, 180] or [0,360]. We determine this by looking at the
-    // average location of the points. If the average location has a
-    // negative x value (think in ECEF coordinates) then we should
-    // be using [0,360].
-    Stopwatch sw1;
-    sw1.start();
-    int32 subsample_amt = int32(norm_2(Vector2(point_image.cols(),
-					       point_image.rows()))/32.0);
-    if (subsample_amt < 1 )
-      subsample_amt = 1;
-    PixelAccumulator<MeanAccumulator<Vector3> > mean_accum;
-    for_each_pixel( subsample(point_image, subsample_amt),
-		    mean_accum,
-		    TerminalProgressCallback("asp","Statistics: ") );
-    Vector3 avg_location = mean_accum.value();
-    double avg_lon = avg_location.x() >= 0 ? 0 : 180;
-    sw1.stop();
-    vw_out(DebugMessage,"asp") << "Statistics time: " << sw1.elapsed_seconds() << std::endl;
-
     // Estimate the maximum value of the error channel in case we would
     // like to remove outliers.
     ImageViewRef<double> error_image;
@@ -1308,6 +1287,13 @@ int main( int argc, char *argv[] ) {
 	}
       }
     }
+
+    // Determine if we should be using a longitude range between
+    // [-180, 180] or [0,360]. We determine this by looking at the
+    // average location of the points. If the average location has a
+    // negative x value (think in ECEF coordinates) then we should
+    // be using [0,360].
+    double avg_lon = asp::find_avg_lon(point_image);
 
     // We trade off readability here to avoid ImageViewRef dereferences
     if (opt.lon_offset != 0 || opt.lat_offset != 0 || opt.height_offset != 0) {

@@ -68,7 +68,7 @@ Mutex g_ba_mutex;
 
 struct Options : public asp::BaseOptions {
   std::vector<std::string> image_files, camera_files, gcp_files;
-  std::string cnet_file, out_prefix, stereo_session_string, 
+  std::string cnet_file, out_prefix, stereo_session_string,
               cost_function, ba_type;
   int    ip_per_tile;
   double min_angle, lambda, camera_weight, robust_threshold;
@@ -112,7 +112,7 @@ update_cnet_and_init_cams(ModelT & ba_model, Options & opt,
 /// This function should be called when no input cameras were
 /// provided. We set initial guesses for the control point
 /// positions and for the (pinhole) cameras.
-template<> void 
+template<> void
 update_cnet_and_init_cams<BAPinholeModel>(
                           BAPinholeModel & ba_model, Options & opt,
                           ControlNetwork& cnet,
@@ -125,7 +125,7 @@ update_cnet_and_init_cams<BAPinholeModel>(
   const unsigned int num_camera_params     = num_cameras * num_params_per_camera;
   //const unsigned int num_intrinsic_params  = BAPinholeModel::intrinsic_params_n;
   cameras_vec.resize(num_camera_params);
-  
+
   // Copy the camera parameters from the model to cameras_vec
   unsigned int index = 0;
   for (unsigned int i=0; i<num_cameras; ++i) {
@@ -712,7 +712,7 @@ template<class ModelType, class CostFunType>
 void do_ba_costfun(CostFunType const& cost_fun, Options& opt){
 
   ModelType ba_model(opt.camera_models, opt.cnet);
-  
+
   if ( opt.ba_type == "ceres" ) {
     do_ba_ceres<ModelType>(ba_model, opt);
   } else if ( opt.ba_type == "robustsparse" ) {
@@ -838,7 +838,7 @@ Eigen::Affine3d Find3DAffineTransform(Eigen::Matrix3Xd in, Eigen::Matrix3Xd out)
 // TODO: Move this function too!
 /// Given an input and output set of points, compute a best-fit scale/rotation/translation transform.
 void FindScaleRotationTranslateTransform(Eigen::Matrix3Xd in, Eigen::Matrix3Xd out,
-                                         vw::Matrix3x3 & rotation, 
+                                         vw::Matrix3x3 & rotation,
                                          vw::Vector3   & translation,
                                          double        & scale) {
 
@@ -869,7 +869,7 @@ void FindScaleRotationTranslateTransform(Eigen::Matrix3Xd in, Eigen::Matrix3Xd o
 
 
 /// Apply a scale-rotate-translate transform to pinhole cameras
-void apply_rigid_transform(vw::Matrix3x3 const & rotation, 
+void apply_rigid_transform(vw::Matrix3x3 const & rotation,
                            vw::Vector3   const & translation,
                            double                scale,
                            Options             & opt) {
@@ -891,7 +891,7 @@ void apply_rigid_transform(vw::Matrix3x3 const & rotation,
     position = scale*rotation*position + translation;
     pose     = rotation_quaternion*pose;
     pincam->set_camera_center(position);
-    pincam->set_camera_pose  (pose);                                   
+    pincam->set_camera_pose  (pose);
     //std::cout << "model: " << *pincam << std::endl;
     //std::cout << "New GDC coordinate: " << opt.datum.cartesian_to_geodetic(position) << std::endl;
   } // End loop through cameras
@@ -900,13 +900,13 @@ void apply_rigid_transform(vw::Matrix3x3 const & rotation,
   std::cout << "---Correct points in control network" << std::endl;
   ControlNetwork::iterator iter;
   for (iter=opt.cnet->begin(); iter!=opt.cnet->end(); ++iter) {
-    if (iter->type() == ControlPoint::GroundControlPoint) 
+    if (iter->type() == ControlPoint::GroundControlPoint)
       continue; // Don't convert the ground control points!
-      
+
     Vector3 position     = iter->position();
     Vector3 new_position = scale*rotation*position + translation;
     //std::cout << "Converted position: " << position << " --> " << new_position << std::endl;
-    //std::cout << "          =======>  " << opt.datum.cartesian_to_geodetic(position) << " --> " 
+    //std::cout << "          =======>  " << opt.datum.cartesian_to_geodetic(position) << " --> "
     //          << opt.datum.cartesian_to_geodetic(new_position) << std::endl;
     iter->set_position(new_position);
   }
@@ -928,12 +928,12 @@ void check_gcp_dists(Options const &opt) {
       else {
         // Use triangulation to estimate the position of this control point using
         //   the current set of camera models.
-        ControlPoint cp_new = cnet[ipt];     
+        ControlPoint cp_new = cnet[ipt];
         double minimum_angle = 0;
         vw::ba::triangulate_control_point(cp_new, opt.camera_models, minimum_angle);
         if (cp_new.position() == Vector3())
           continue; // Skip points that fail to triangulate
-        
+
         ip_count += 1.0;
       }
     } // End loop through control network points
@@ -954,11 +954,11 @@ void check_gcp_dists(Options const &opt) {
         vw::ba::triangulate_control_point(cp_new, opt.camera_models, minimum_angle);
         if (cp_new.position() == Vector3())
           continue; // Skip points that fail to triangulate
-      
+
         mean_ip += (cp_new.position() / ip_count);
       }
     } // End loop through control network points
-    
+
     double dist = norm_2(mean_ip - mean_gcp);
     if (dist > 100000)
       std::cout << "WARNING: GCPs are over 100 KM from the other points.  Are your lat/lon GCP coordinates swapped?\n";
@@ -986,15 +986,15 @@ size_t load_estimated_camera_positions(Options &opt,
   geo.set_datum(opt.datum); // We checked for a datum earlier
   // Use user's csv_proj4 string, if provided, to add info to the georef.
   conv.parse_georef(geo);
-  
+
   // For each input camera, find the matching position in the record list
   const size_t num_cameras = opt.image_files.size();
-  
   estimated_camera_gcc.resize(num_cameras);
+  
   const RecordIter no_match = pos_records.end();
   size_t num_matches_found = 0;
   for (size_t i=0; i<num_cameras; ++i) {
-   
+
     // Search for this image file in the records
     std::string file_name = opt.image_files[i];
     //std::cout << "file_name = " << file_name << std::endl;
@@ -1047,26 +1047,26 @@ bool init_pinhole_model_with_camera_positions(Options &opt,
     vw_throw( ArgumentErr() << "Not enough camera position matches to initialize sensor models!\n" );
   
   // Populate matrices containing the current and known camera positions.
-  Eigen::Matrix3Xd cam_pos_in  (3, num_matches_found), 
+  Eigen::Matrix3Xd cam_pos_in  (3, num_matches_found),
                    cam_pos_file(3, num_matches_found);
   size_t index = 0;
   for (size_t i=0; i<num_cameras; ++i) {
     // Skip cameras with no matching record
     if (estimated_camera_gcc[i] == Vector3(0,0,0))
       continue;
-    
+
     // Get the two GCC positions
     Vector3 gcc_in   = opt.camera_models[i]->camera_center(Vector2(0,0));
     Vector3 gcc_file = estimated_camera_gcc[i];
 
-    // Store in matrices    
+    // Store in matrices
     cam_pos_in.col  (index) << gcc_in  [0], gcc_in  [1], gcc_in  [2];
-    cam_pos_file.col(index) << gcc_file[0], gcc_file[1], gcc_file[2];  
+    cam_pos_file.col(index) << gcc_file[0], gcc_file[1], gcc_file[2];
     ++index;
-  
+
   } // End matrix populating loop
-  
-  // Call function to compute a 3D affine transform between the two point sets   
+
+  // Call function to compute a 3D affine transform between the two point sets
   vw::Matrix3x3 rotation;
   vw::Vector3   translation;
   double        scale;
@@ -1078,7 +1078,7 @@ bool init_pinhole_model_with_camera_positions(Options &opt,
     // Skip cameras with no matching record
     if (estimated_camera_gcc[i] == Vector3(0,0,0))
       continue;
-    
+
     // Get the two GCC positions
     Vector3 gcc_in    = opt.camera_models[i]->camera_center(Vector2(0,0));
     Vector3 gcc_file  = estimated_camera_gcc[i];
@@ -1118,7 +1118,7 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
     const int num_cnet_points = static_cast<int>(cnet.size());
     int num_gcp = 0;
     for (int ipt = 0; ipt < num_cnet_points; ipt++){
-      if (cnet[ipt].type() != ControlPoint::GroundControlPoint) 
+      if (cnet[ipt].type() != ControlPoint::GroundControlPoint)
         continue;
       num_gcp++;
     }
@@ -1127,7 +1127,7 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
     // DEBUG: Print out a measure of the triangulation error
     for (int ipt = 0; ipt < num_cnet_points; ipt++){
       // Skip ground control points
-      if (cnet[ipt].type() == ControlPoint::GroundControlPoint) 
+      if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
         continue;
 
       // Use triangulation to estimate the position of this control point using
@@ -1140,12 +1140,12 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
       std::cout << "Err = " << tri_err << std::endl;
     } // End loop through control network points
     */
-    
+
     Eigen::Matrix3Xd in(3, num_gcp), out(3, num_gcp);
     int num_good_gcp = 0;
     for (int ipt = 0; ipt < num_cnet_points; ipt++){
       // Loop through all the ground control points only
-      if (cnet[ipt].type() != ControlPoint::GroundControlPoint) 
+      if (cnet[ipt].type() != ControlPoint::GroundControlPoint)
         continue;
 
       // Use triangulation to estimate the position of this control point using
@@ -1157,7 +1157,7 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
       vw::ba::triangulate_control_point(cp_new,
                                         opt.camera_models,
                                         minimum_angle);
-                                        
+
       // Store the computed and correct position of this point in Eigen matrices
       Vector3 inp  = cp_new.position();
       Vector3 outp = cnet[ipt].position();
@@ -1176,7 +1176,7 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
       //std::cout << "--ou is " << opt.datum.cartesian_to_geodetic(outp) << std::endl;
       num_good_gcp++;
     } // End loop through control network points
-    
+
     // Update the number of GCP that we are using
     const int MIN_NUM_GOOD_GCP = 3;
     if (num_good_gcp < MIN_NUM_GOOD_GCP)
@@ -1185,12 +1185,12 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
     in.conservativeResize (Eigen::NoChange_t(), num_good_gcp);
     out.conservativeResize(Eigen::NoChange_t(), num_good_gcp);
 
-    // Call function to compute a 3D affine transform between the two point sets   
+    // Call function to compute a 3D affine transform between the two point sets
     vw::Matrix3x3 rotation;
     vw::Vector3   translation;
     double        scale;
     FindScaleRotationTranslateTransform(in, out,  rotation, translation, scale);
-    
+
     if (check_only)
       return true;
 
@@ -1199,7 +1199,7 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
     std::cout << "==== GCP fit quality ====\n";
     for (int ipt = 0; ipt < num_cnet_points; ipt++){
       // Loop through all the ground control points only
-      if (cnet[ipt].type() != ControlPoint::GroundControlPoint) 
+      if (cnet[ipt].type() != ControlPoint::GroundControlPoint)
         continue;
 
       // Use triangulation to estimate the position of this control point using
@@ -1209,7 +1209,7 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
       vw::ba::triangulate_control_point(cp_new,
                                         opt.camera_models,
                                         minimum_angle);
-                                        
+
       // Store the computed and correct position of this point in Eigen matrices
       Vector3 inp    = cp_new.position();
       Vector3 transp = scale*rotation*inp + translation;
@@ -1248,7 +1248,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                          "Use special methods to handle a local coordinate input pinhole model.")
     //("constant-intrinsics",   po::bool_switch(&opt.constant_intrinsics)->default_value(false)->implicit_value(true),
     //                     "Do not modify the input intrinsic camera values.")
-    ("camera-positions", po::value(&opt.camera_position_file)->default_value(""), 
+    ("camera-positions", po::value(&opt.camera_position_file)->default_value(""),
           "Specify a csv file path containing the estimated positions of the input cameras.  Only used with the local-pinhole option.")
     ("csv-format",       po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
     ("csv-proj4",        po::value(&opt.csv_proj4_str)->default_value(""),
@@ -1422,7 +1422,7 @@ int main(int argc, char* argv[]) {
                                                            ));
 
       opt.camera_models.push_back(session->camera_model(opt.image_files [i],
-                                                        opt.camera_files[i])); 
+                                                        opt.camera_files[i]));
     } // End loop through images loading all the camera models
 
     // Create the match points
@@ -1497,7 +1497,7 @@ int main(int argc, char* argv[]) {
                                opt.camera_models[j].get());
           ++num_pairs_matched;
         } catch ( const std::exception& e ){
-          vw_out() << "!! Caught exception finding interest points between images " 
+          vw_out() << "!! Caught exception finding interest points between images "
                    << opt.image_files[i] << " and " << opt.image_files[j] << std::endl;
           vw_out(WarningMessage) << e.what() << std::endl;
         } //End try/catch
@@ -1509,7 +1509,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Try to set up the control network, ie the list of point coordinates.
-    // - This triangulates from the camera models to determine the initial 
+    // - This triangulates from the camera models to determine the initial
     //   world coordinate estimate for each matched IP.
     opt.cnet.reset( new ControlNetwork("BundleAdjust") );
     if ( opt.cnet_file.empty() ) {
@@ -1565,12 +1565,12 @@ int main(int argc, char* argv[]) {
     // - We could do this for other camera types too, but it would require us to be able
     //   to adjust our camera model positions.  Otherwise we could init the adjustment values...
     if (opt.gcp_files.size() > 0) {
-    
+
       if (opt.local_pinhole_input && !have_est_camera_positions)
         init_pinhole_model_with_gcp(opt);
 
       // Issue a warning if the GCPs are far away from the camera coords
-      check_gcp_dists(opt); 
+      check_gcp_dists(opt);
     }
 
 
@@ -1592,20 +1592,20 @@ int main(int argc, char* argv[]) {
                                                             opt.camera_files[icam]);
         cam_file = fs::path(cam_file).replace_extension("tsai").string();
         cam_files.push_back(cam_file);
-        
-        //std::cout << "Camera output GDC coordinate: " << 
+
+        //std::cout << "Camera output GDC coordinate: " <<
         //   opt.datum.cartesian_to_geodetic(ba_model.get_camera_model(icam).camera_center()) << std::endl;
-        // std::cout << "Pixel vector 100,100: " << 
+        // std::cout << "Pixel vector 100,100: " <<
         //   ba_model.get_camera_model(icam).pixel_to_vector(Vector2(100, 100)) << std::endl;
-        
+
       }
       ba_model.write_camera_models(cam_files);
-      
+
       //double error=0;
       //stereo::StereoModel sm(ba_model.get_camera_model(0), ba_model.get_camera_model(1));
       //Vector3 position sm(Vector2(), Vector2(), error);
       //std::cout << "Tri test position: "<< position << " error " << error << std::endl;
-      
+
     } // End BAPinhole case
 
     //// Verify the solver accuracy
@@ -1615,6 +1615,3 @@ int main(int argc, char* argv[]) {
 
   } ASP_STANDARD_CATCHES;
 }
-
-
-

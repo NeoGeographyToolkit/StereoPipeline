@@ -24,6 +24,7 @@
 #include <asp/Core/Common.h>
 #include <asp/Core/PointUtils.h>
 #include <vw/Cartography/Chipper.h>
+#include <vw/Core/Stopwatch.h>
 #include <boost/math/special_functions/fpclassify.hpp>
 
 using namespace vw;
@@ -263,7 +264,7 @@ int asp::CsvConv::get_sorted_index_for_name(std::string const& name){
   if (name == "easting"  ) return 0;
   if (name == "northing" ) return 1;
   if (name == "height_above_datum") return 2;
-  
+
   vw_throw( ArgumentErr() << "Unsupported column name: " << name );
 }
 
@@ -315,12 +316,12 @@ void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
     // Grab the next two elements
     if (! (is >> col >> name))
       vw_throw(ArgumentErr() << "Could not parse: '" << csv_format_str << "'\n");
-      
+
     // Convert to zero-based indexing and error check
     col--;
     if ( (col<0) || (this->col2name.count(col)) )
       vw_throw(ArgumentErr() << "Illegal column index in: '" << csv_format_str << "'\n");
-      
+
     // Store in the lookup maps
     this->name2col[name] = col;
     this->col2name[col ] = name;
@@ -331,7 +332,7 @@ void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
   const int MAX_NUM_TARGETS = NUM_POINT_VALS + 1; // Location and a file
   if ((this->num_targets < MIN_NUM_TARGETS) || (this->num_targets > MAX_NUM_TARGETS))
     vw_throw(ArgumentErr() << "Invalid number of column indices in: '" << csv_format_str << "'\n");
-  
+
   /*
 
   // Read in the three user inputs
@@ -477,7 +478,7 @@ asp::CsvConv::CsvRecord asp::CsvConv::parse_csv_line(bool & is_first_line, bool 
       num_floats_read++;
     }
     num_values_read++;
-    
+
   } // End loop through columns
 
   if (num_values_read != this->num_targets)
@@ -595,13 +596,13 @@ Vector3 asp::CsvConv::csv_to_cartesian_or_point_height(CsvRecord const& csv,
 
 
 vw::Vector3 asp::CsvConv::csv_to_cartesian(CsvRecord const& csv,
-                                           vw::cartography::GeoReference const& geo) const {  
+                                           vw::cartography::GeoReference const& geo) const {
   Vector3 ordered_csv = sort_parsed_vector3(csv);
 
   Vector3 xyz;
   if (this->format == XYZ){
     return ordered_csv; // already as xyz
-    
+
   }else if (this->format == EASTING_HEIGHT_NORTHING){
     Vector3 point_height = Vector3(ordered_csv[0], ordered_csv[1], ordered_csv[2]);
     Vector2 ll           = geo.point_to_lonlat(Vector2(point_height[0], point_height[1]));
@@ -623,7 +624,7 @@ vw::Vector3 asp::CsvConv::csv_to_cartesian(CsvRecord const& csv,
   }
   return xyz;
 }
-                             
+
 vw::Vector3 asp::CsvConv::csv_to_geodetic(CsvRecord const& csv,
                                           vw::cartography::GeoReference const& geo) const {
   Vector3 ordered_csv = sort_parsed_vector3(csv);
@@ -631,15 +632,15 @@ vw::Vector3 asp::CsvConv::csv_to_geodetic(CsvRecord const& csv,
 
   if (this->format == XYZ){
     llh = geo.datum().cartesian_to_geodetic(ordered_csv);
-    
+
   }else if (this->format == EASTING_HEIGHT_NORTHING){
     Vector3 point_height = Vector3(ordered_csv[0], ordered_csv[1], ordered_csv[2]);
     Vector2 ll           = geo.point_to_lonlat(Vector2(point_height[0], point_height[1]));
     llh = Vector3(ll[0], ll[1], point_height[2]); // now lon, lat, height
-    
+
   }else if (this->format == HEIGHT_LAT_LON){
     return ordered_csv;
-    
+
   }else{ // Handle asp::LAT_LON_RADIUS_M and asp::LAT_LON_RADIUS_KM
     if (this->format == LAT_LON_RADIUS_KM)
       ordered_csv[2] *= 1000.0; // now lon, lat, radius_m
@@ -661,7 +662,7 @@ vw::Vector2 asp::CsvConv::csv_to_lonlat(CsvRecord const& csv,
 
   if (this->format == XYZ){
     Vector3 llh = geo.datum().cartesian_to_geodetic(ordered_csv);
-    return Vector2(llh[0], llh[1]);  
+    return Vector2(llh[0], llh[1]);
   }else if (this->format == EASTING_HEIGHT_NORTHING){
     return geo.point_to_lonlat(Vector2(ordered_csv[0], ordered_csv[1]));
   }else if (this->format == HEIGHT_LAT_LON){
@@ -669,7 +670,7 @@ vw::Vector2 asp::CsvConv::csv_to_lonlat(CsvRecord const& csv,
   }else{ // Handle asp::LAT_LON_RADIUS_M and asp::LAT_LON_RADIUS_KM
     return Vector2(ordered_csv[0], ordered_csv[1]);
   }
-  
+
 }
 
 Vector3 asp::CsvConv::cartesian_to_csv(Vector3 const& xyz,
@@ -966,4 +967,23 @@ vw::BBox3 asp::pointcloud_bbox(vw::ImageViewRef<vw::Vector3> const& point_image,
   return result;
 }
 
+// Find the average longitude for a given point image with lon, lat, height values
+double asp::find_avg_lon(ImageViewRef<Vector3> const& point_image){
 
+  Stopwatch sw;
+  sw.start();
+  int32 subsample_amt = int32(norm_2(Vector2(point_image.cols(),
+                                             point_image.rows()))/32.0);
+  if (subsample_amt < 1 )
+    subsample_amt = 1;
+  PixelAccumulator<MeanAccumulator<Vector3> > mean_accum;
+  for_each_pixel( subsample(point_image, subsample_amt),
+                  mean_accum,
+                  TerminalProgressCallback("asp","Statistics: ") );
+  Vector3 avg_location = mean_accum.value();
+  double avg_lon = avg_location.x() >= 0 ? 0 : 180;
+  sw.stop();
+  vw_out(DebugMessage,"asp") << "Statistics time: " << sw.elapsed_seconds() << std::endl;
+
+  return avg_lon;
+}

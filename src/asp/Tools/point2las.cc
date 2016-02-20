@@ -150,10 +150,13 @@ int main( int argc, char *argv[] ) {
       datum = georef.datum();
     }
 
-    // if we have a datum, save the las file in respect to this datum
+    // Save the las file with given georeference, if present
     ImageViewRef<Vector3> point_image = asp::read_asp_point_cloud<3>(opt.pointcloud_file);
-    if (is_geodetic)
+    if (is_geodetic) {
       point_image = cartesian_to_geodetic(point_image, datum);
+      double avg_lon = asp::find_avg_lon(point_image); // see if to use [-180, 180] or [0, 360]
+      point_image = geodetic_to_point(asp::recenter_longitude(point_image, avg_lon), georef);
+    }
 
     BBox3 cloud_bbox = asp::pointcloud_bbox(point_image, is_geodetic);
 
