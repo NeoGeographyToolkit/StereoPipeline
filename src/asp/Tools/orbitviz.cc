@@ -85,6 +85,11 @@ std::string strip_directory( std::string const& input){
  return p.filename().string();
 }
 
+/// Strip the directory and extension out of a file path
+std::string strip_directory_and_extension( std::string const& input){
+ boost::filesystem::path p(input); 
+ return p.stem().string();
+}
 
 // Would be nice to have this in a function
 /// Populate a list of all files in a directory.
@@ -151,11 +156,13 @@ size_t split_files_list(std::vector<std::string> const& input_files,
 }
 
 /// Get a list of the files in the solver output folder
-size_t get_files_from_solver_folder(std::string         const& solver_folder,
-                                      std::vector<std::string> & image_files, 
-                                      std::vector<std::string> & camera_files) {
+size_t get_files_from_solver_folder(std::string                 const& solver_folder,
+                                      std::vector<std::string>       & image_files, 
+                                      std::vector<std::string>       & camera_files,
+                                      std::vector<std::vector<int> > & matched_cameras) {
   image_files.clear();
   camera_files.clear();
+  matched_cameras.clear();
   std::vector<std::string> solver_files;
   get_files_in_folder(solver_folder, solver_files);
   
@@ -176,10 +183,39 @@ size_t get_files_from_solver_folder(std::string         const& solver_folder,
   size_t num_images = get_files_in_folder(solver_folder, image_files, image_ext);
   vw_out() << "Number of cameras: " << num_images << std::endl;
   
-  // Grab a list of the camera model files
+  // Make a list of the camera model files
   camera_files.resize(num_images);
   for (size_t i=0; i<num_images; ++i)
     camera_files[i] = solver_folder + "/" + image_files[i] + ".final.tsai";
+    
+  // Search for IP match files
+  std::vector<std::string> match_files;
+  size_t num_matches = get_files_in_folder(solver_folder, match_files, ".match");
+  matched_cameras.resize(num_images);
+  
+  // Figure out which image pairs are matched
+  std::string f1, f2;
+  for (size_t i=0; i<num_images; ++i) {
+    matched_cameras[i].clear(); // Start with empty list of matches
+    f1 = strip_directory_and_extension(image_files[i]);
+    //std::cout <<"f1 = " << f1 << std::endl;
+    for (size_t j=0; j<num_images; ++j) {
+      if (i == j) // No self-matching!
+        continue;
+      f2 = strip_directory_and_extension(image_files[j]);
+      //std::cout <<"- f2 = " << f2 << std::endl;
+      for (size_t m=0; m<num_matches; ++m) {
+        // If both file names are contained in the match file name,
+        //  make a match between image files i and j
+        if ( (match_files[m].find(f1) != std::string::npos) && 
+             (match_files[m].find(f2) != std::string::npos)   ) {
+          //std::cout <<"= MATCH = " << match_files[m] << std::endl;
+          matched_cameras[i].push_back(j);
+          match_files[m] = ""; // Clear this name so we don't use the match twice
+        }
+      }
+    }
+  } // End nested loops for setting up file matches
     
   return num_images;
 }
@@ -281,11 +317,13 @@ int main(int argc, char* argv[]) {
     // Get the list of image files and camera model files
     size_t num_cameras;
     std::vector<std::string> image_files, camera_files;
+    std::vector<std::vector<int> > matched_cameras;
     if (!opt.load_camera_solve)
       num_cameras = split_files_list(opt.input_files, image_files, camera_files, 
                                      opt.seperate_camera_files);
     else
-      num_cameras = get_files_from_solver_folder(opt.input_files[0], image_files, camera_files);
+      num_cameras = get_files_from_solver_folder(opt.input_files[0], image_files, 
+                                                 camera_files, matched_cameras);
 
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
     SessionPtr session( asp::StereoSessionFactory::create(opt.stereo_session_string, opt) );
@@ -323,6 +361,7 @@ int main(int argc, char* argv[]) {
       vw_throw( IOErr() << "Unable to open output file.\n" );
 
     // Building Camera Models and then writing to KML
+    std::vector<Vector3> camera_positions(num_cameras);
     for (size_t i=0; i < num_cameras; i++) {
       boost::shared_ptr<camera::CameraModel> current_camera;
       current_camera = session->camera_model(image_files [i],
@@ -346,9 +385,11 @@ int main(int argc, char* argv[]) {
                  << xyz[1] << ", " << xyz[2] << "\n";
       } // End csv write condition
 
-      // Adding Placemarks
+      // Compute and record the GDC coordinates
       Vector3 lon_lat_alt = datum.cartesian_to_geodetic(current_camera->camera_center(Vector2()));
+      camera_positions[i] = lon_lat_alt;
 
+      // Adding Placemarks
       std::string display_name = strip_directory(image_files[i]);
       if (!opt.path_to_outside_model.empty()) {
         kml.append_model( opt.path_to_outside_model,
@@ -363,6 +404,20 @@ int main(int argc, char* argv[]) {
       }
       
     } // End loop through cameras
+
+    // Draw lines between camera positions representing camera
+    //  pairs with match files.
+    const std::string style_id = "ip_match_style";
+    kml.append_line_style(style_id, "FF00FF00", 1.0); // Green line with default size
+    std::vector<Vector3> line_ends(2);
+    for (size_t i=0; i<matched_cameras.size(); ++i) {
+      line_ends[0] = camera_positions[i];
+      for (size_t j=0; j<matched_cameras[i].size(); ++j) {
+        int index = matched_cameras[i][j];
+        line_ends[1] = camera_positions[index];
+        kml.append_line(line_ends, "", style_id);
+      }
+    }
 
     csv_file.close();
     kml.close_kml();
