@@ -427,7 +427,11 @@ def run_bundle_adjust(options):
 
     # Some extra bundle adjust params
     # - We used Theia to try and compute intrinsics, don't need to redo it here.
-    ba_params = ['--local-pinhole', '-t', 'pinhole', '--datum', options.datum]
+    have_camera_positions = options.bundle_params and ('camera-positions' in options.bundle_params)
+    cam_type = 'pinhole'
+    if options.gcp_path or have_camera_positions:
+      cam_type = 'nadirpinhole' # This is better, but can only use with global coordinates.
+    ba_params = ['--local-pinhole', '-t', cam_type, '--datum', options.datum]
     if options.bundle_params:
         ba_params += shlex.split(options.bundle_params) # Split on spaces but keep quoted parts together
 
@@ -619,19 +623,10 @@ def main(argsIn):
     
     print 'Finished extracting camera models'
 
-    # Step 3 - Call ASP's bundle_adjust to move the cameras into global coordinates
+    # Step 3 - Call ASP's bundle_adjust to adjust for lens distortion and 
+    #          to move the cameras into global coordinates if possible.
     run_bundle_adjust(options)
 
-    #have_camera_positions = options.bundle_params and ('camera-positions' in options.bundle_params)
-    #if options.gcp_path or have_camera_positions:
-    #    if options.gcp_path and not os.path.exists(options.gcp_path):
-    #        raise Exception('The provided ground control point file does not exist!')
-    #    print 'Running global camera adjustment...'
-    
-    #    # Step 3 - Call ASP's bundle_adjust to move the cameras into global coordinates
-    #    run_bundle_adjust(options)
-    #else:
-    #    print 'No ground control point or camera location file loaded, skipping global camera adjustment.'
 
     endTime = time.time()
     print "Finished in " + str(endTime - startTime) + " seconds."
