@@ -76,7 +76,7 @@ struct Options : public asp::BaseOptions {
 
   bool   save_iteration, local_pinhole_input, constant_intrinsics;
   std::string datum_str, camera_position_file, csv_format_str, csv_proj4_str;
-  double semi_major, semi_minor;
+  double semi_major, semi_minor, position_filter_dist;
 
   boost::shared_ptr<ControlNetwork> cnet;
   std::vector<boost::shared_ptr<CameraModel> > camera_models;
@@ -509,7 +509,6 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
 
       add_residual_block(ba_model, observation, pixel_sigma, icam, ipt,
                          camera, point, intrinsics, loss_function, problem);
-
     }
   }
 
@@ -894,7 +893,7 @@ void apply_rigid_transform(vw::Matrix3x3 const & rotation,
     pincam->set_camera_center(position);
     pincam->set_camera_pose  (pose);                                   
     //std::cout << "model: " << *pincam << std::endl;
-    //std::cout << "GDC coordinate: " << opt.datum.cartesian_to_geodetic(position) << std::endl;
+    //std::cout << "New GDC coordinate: " << opt.datum.cartesian_to_geodetic(position) << std::endl;
   } // End loop through cameras
 
   // Apply the transform to all of the world points in the ControlNetwork
@@ -966,13 +965,15 @@ void check_gcp_dists(Options const &opt) {
 }
 
 
-/// Initialize the position and orientation of each pinhole camera model using
-///  a least squares error transform to match the provided control points file.
-/// - This function overwrites the camera parameters in-place
-bool init_pinhole_model_with_camera_positions(Options &opt) {
-
-  std::cout << "Initializing camera positions from input file..." << std::endl;
-
+/// Looks in the input camera position file to generate a GCC position for
+/// each input camera.
+/// - If no match is found, the coordinate is (0,0,0)
+size_t load_estimated_camera_positions(Options &opt,
+                                       std::vector<Vector3> & estimated_camera_gcc) {
+  estimated_camera_gcc.clear();
+  if (opt.camera_position_file == "")
+    return 0;
+  
   // Read the input csv file
   asp::CsvConv conv;
   conv.parse_csv_format(opt.csv_format_str, opt.csv_proj4_str);
@@ -988,8 +989,8 @@ bool init_pinhole_model_with_camera_positions(Options &opt) {
   
   // For each input camera, find the matching position in the record list
   const size_t num_cameras = opt.image_files.size();
-  std::vector<RecordIter> matching_records(num_cameras);
   
+  estimated_camera_gcc.resize(num_cameras);
   const RecordIter no_match = pos_records.end();
   size_t num_matches_found = 0;
   for (size_t i=0; i<num_cameras; ++i) {
@@ -1003,21 +1004,47 @@ bool init_pinhole_model_with_camera_positions(Options &opt) {
       // - May need to play around with this in the future!
       std::string field = iter->file;
       //std::cout << "field = " << field << std::endl;
-      if (file_name.find(field) != std::string::npos)
+      if (file_name.find(field) != std::string::npos) {
+        estimated_camera_gcc[i] = conv.csv_to_cartesian(*iter, geo);
         break; // Match found, stop the iterator here.
+      }
     }
-    if (iter == no_match)
+    if (iter == no_match) {
       std::cout << "WARNING: Camera file " << file_name << " not found in camera position file.\n";
-    else
+      estimated_camera_gcc[i] = Vector3(0,0,0);
+    }else
       ++num_matches_found;
-    matching_records[i] = iter;
   } // End loop to find position record for each camera
 
-    const int MIN_NUM_MATCHES = 3;
-    if (num_matches_found < MIN_NUM_MATCHES)
-      vw_throw( ArgumentErr() << "Not enough cameras found in the camera position file!\n" );
+  return num_matches_found;  
+}
 
-  // Now matching_records is populated with iterators pointing to CsvRecords.
+
+/// Initialize the position and orientation of each pinhole camera model using
+///  a least squares error transform to match the provided camera positions.
+/// - This function overwrites the camera parameters in-place
+bool init_pinhole_model_with_camera_positions(Options &opt,
+                                              std::vector<Vector3> const & estimated_camera_gcc) {
+
+  std::cout << "Initializing camera positions from input file..." << std::endl;
+
+  // Count the number of matches and check for problems
+  const size_t num_cameras = opt.image_files.size();
+  if (estimated_camera_gcc.size() != num_cameras)
+    vw_throw( ArgumentErr() << "No camera matches provided to init function!\n" );
+  
+  std::cout << "Num cameras: " << num_cameras << std::endl;
+    
+  size_t num_matches_found = 0;
+  for (size_t i=0; i<num_cameras; ++i)
+    if (estimated_camera_gcc[i] != Vector3(0,0,0))
+      ++num_matches_found;
+
+  std::cout << "Number of matches found: " << num_matches_found << std::endl;
+  
+  const size_t MIN_NUM_MATCHES = 3;
+  if (num_matches_found < MIN_NUM_MATCHES)
+    vw_throw( ArgumentErr() << "Not enough camera position matches to initialize sensor models!\n" );
   
   // Populate matrices containing the current and known camera positions.
   Eigen::Matrix3Xd cam_pos_in  (3, num_matches_found), 
@@ -1025,12 +1052,12 @@ bool init_pinhole_model_with_camera_positions(Options &opt) {
   size_t index = 0;
   for (size_t i=0; i<num_cameras; ++i) {
     // Skip cameras with no matching record
-    if (matching_records[i] == no_match)
+    if (estimated_camera_gcc[i] == Vector3(0,0,0))
       continue;
     
     // Get the two GCC positions
     Vector3 gcc_in   = opt.camera_models[i]->camera_center(Vector2(0,0));
-    Vector3 gcc_file = conv.csv_to_cartesian(*(matching_records[i]), geo);
+    Vector3 gcc_file = estimated_camera_gcc[i];
 
     // Store in matrices    
     cam_pos_in.col  (index) << gcc_in  [0], gcc_in  [1], gcc_in  [2];
@@ -1045,26 +1072,26 @@ bool init_pinhole_model_with_camera_positions(Options &opt) {
   double        scale;
   FindScaleRotationTranslateTransform(cam_pos_in, cam_pos_file, rotation, translation, scale);
 
+/*
   // Debug: Test transform on cameras
   for (size_t i=0; i<num_cameras; ++i) {
     // Skip cameras with no matching record
-    if (matching_records[i] == no_match)
+    if (estimated_camera_gcc[i] == Vector3(0,0,0))
       continue;
     
     // Get the two GCC positions
     Vector3 gcc_in    = opt.camera_models[i]->camera_center(Vector2(0,0));
-    Vector3 gcc_file  = conv.csv_to_cartesian(*(matching_records[i]), geo);
+    Vector3 gcc_file  = estimated_camera_gcc[i];
     Vector3 gcc_trans = scale*rotation*gcc_in + translation;
 
-    //std::cout << "--gdc_file  is " << opt.datum.cartesian_to_geodetic(gcc_file ) << std::endl;
-    //std::cout << "--gdc_trans is " << opt.datum.cartesian_to_geodetic(gcc_trans) << std::endl;
-    //std::cout << "--gcc_diff  is " << norm_2(gcc_trans - gcc_file)               << std::endl;
-  
+    std::cout << "--gdc_file  is " << opt.datum.cartesian_to_geodetic(gcc_file ) << std::endl;
+    std::cout << "--gdc_trans is " << opt.datum.cartesian_to_geodetic(gcc_trans) << std::endl;
+    std::cout << "--gcc_diff  is " << norm_2(gcc_trans - gcc_file)               << std::endl;
   } // End debug loop
+*/
 
   // Update the camera and point information with the new transform
   apply_rigid_transform(rotation, translation, scale, opt);
-
   return true;
 }
 
@@ -1095,8 +1122,9 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
         continue;
       num_gcp++;
     }
+    
     /*
-    // Print out a measure of the triangulation error
+    // DEBUG: Print out a measure of the triangulation error
     for (int ipt = 0; ipt < num_cnet_points; ipt++){
       // Skip ground control points
       if (cnet[ipt].type() == ControlPoint::GroundControlPoint) 
@@ -1112,7 +1140,6 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
       std::cout << "Err = " << tri_err << std::endl;
     } // End loop through control network points
     */
-    
     
     Eigen::Matrix3Xd in(3, num_gcp), out(3, num_gcp);
     int num_good_gcp = 0;
@@ -1141,13 +1168,12 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
 
       in.col(num_good_gcp)  << inp[0],  inp[1],  inp[2];
       out.col(num_good_gcp) << outp[0], outp[1], outp[2];
-      /*
-      if (check_only) // In geocentric coords, convert to GDC
-        std::cout << "--in is " << opt.datum.cartesian_to_geodetic(inp) << std::endl;
-      else // In local coords, leave as-is
-        std::cout << "--in is " << inp << std::endl;
-      std::cout << "--ou is " << opt.datum.cartesian_to_geodetic(outp) << std::endl;
-      */
+
+      //if (check_only) // In geocentric coords, convert to GDC
+      //  std::cout << "--in is " << opt.datum.cartesian_to_geodetic(inp) << std::endl;
+      //else // In local coords, leave as-is
+      //  std::cout << "--in is " << inp << std::endl;
+      //std::cout << "--ou is " << opt.datum.cartesian_to_geodetic(outp) << std::endl;
       num_good_gcp++;
     } // End loop through control network points
     
@@ -1188,13 +1214,13 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
       Vector3 inp    = cp_new.position();
       Vector3 transp = scale*rotation*inp + translation;
       Vector3 outp   = cnet[ipt].position();
-      //std::cout << "---triangulated: " << cnet[ipt].position() << ' '
-      //          << cp_new.position() << std::endl;
+      std::cout << "---triangulated: " << cnet[ipt].position() << ' '
+                << cp_new.position() << std::endl;
       if (inp == Vector3() || outp == Vector3())
         continue; // Skip points that fail to triangulate
 
-      //std::cout << "--tr is " << opt.datum.cartesian_to_geodetic(transp) << std::endl;
-      //std::cout << "--ou is " << opt.datum.cartesian_to_geodetic(outp) << std::endl;
+      std::cout << "--tr is " << opt.datum.cartesian_to_geodetic(transp) << std::endl;
+      std::cout << "--ou is " << opt.datum.cartesian_to_geodetic(outp) << std::endl;
     } // End loop through control network points
 */
 
@@ -1243,8 +1269,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                         "Individually normalize the input images instead of using common values.")
     ("max-iterations",   po::value(&opt.max_iterations)->default_value(1000),
                          "Set the maximum number of iterations.")
-    ("overlap-limit",    po::value(&opt.overlap_limit)->default_value(3),
-                         "Limit the number of subsequent images to search for matches to the current image to this value.")
+    ("overlap-limit",    po::value(&opt.overlap_limit)->default_value(0),
+                         "Limit the number of subsequent images to search for matches to the current image to this value.  By default match all images.")
+    ("position-filter-dist", po::value(&opt.position_filter_dist)->default_value(-1),
+                         "Set a distance in meters and don't perform IP matching on images with an estimated camera center farther apart than this distance.  Requires --camera-positions.")
     ("camera-weight",    po::value(&opt.camera_weight)->default_value(1.0),
                          "The weight to give to the constraint that the camera positions/orientations stay close to the original values (only for the Ceres solver).  A lower weight means that the values will change less, a higher weight means more change.")
     ("ip-per-tile",             po::value(&opt.ip_per_tile)->default_value(0),
@@ -1292,9 +1320,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "Missing input image files.\n"
               << usage << general_options );
 
-  if ( opt.overlap_limit <= 0 )
+  if ( opt.overlap_limit < 0 )
     vw_throw( ArgumentErr() << "Must allow search for matches between "
               << "at least each image and its subsequent one.\n" << usage << general_options );
+  // By default, try to match all of the images!
+  if ( opt.overlap_limit == 0 )
+    opt.overlap_limit = opt.image_files.size();
 
   if ( opt.camera_weight < 0.0 )
     vw_throw( ArgumentErr() << "The camera weight must be non-negative.\n" << usage << general_options );
@@ -1350,7 +1381,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
           ) )
     vw_throw( ArgumentErr() << "Unknown bundle adjustment version: " << opt.ba_type
               << ". Options are: [Ceres, RobustSparse, RobustRef, Sparse, Ref]\n" );
-
 }
 
 // ================================================================================
@@ -1399,14 +1429,33 @@ int main(int argc, char* argv[]) {
     // Iterate through each pair of input images
     std::map< std::pair<int, int>, std::string> match_files;
 
+    // Load estimated camera positions if they were provided.
+    std::vector<Vector3> estimated_camera_gcc;
+    load_estimated_camera_positions(opt, estimated_camera_gcc);
+    const bool got_est_cam_positions = (estimated_camera_gcc.size() == static_cast<size_t>(num_images));
+    
     size_t num_pairs_matched = 0;
     for (int i = 0; i < num_images; i++){
       for (int j = i+1; j <= std::min(num_images-1, i+opt.overlap_limit); j++){
+
+        // If this option is set, don't try to match cameras that are too far apart.
+        if (got_est_cam_positions && (opt.position_filter_dist > 0)) {
+          Vector3 this_pos  = estimated_camera_gcc[i];
+          Vector3 other_pos = estimated_camera_gcc[j];
+          if ( (this_pos  != Vector3(0,0,0)) && // If both positions are known
+               (other_pos != Vector3(0,0,0)) && // and they are too far apart
+               (norm_2(this_pos - other_pos) > opt.position_filter_dist) ) {
+            std::cout << "Skipping position: " << this_pos << " and " << other_pos << " with distance " << norm_2(this_pos - other_pos) << std::endl;
+            continue; // Skip this image pair
+          }
+        } // End estimated camera position filtering
+
+      
         // Load both images into a new StereoSession object and use it to find interest points.
         // - The points are written to a file on disk.
-        std::string image1 = opt.image_files[i];
-        std::string image2 = opt.image_files[j];
-        std::string match_filename = ip::match_filename(opt.out_prefix, image1, image2);
+        std::string image1_path = opt.image_files[i];
+        std::string image2_path = opt.image_files[j];
+        std::string match_filename = ip::match_filename(opt.out_prefix, image1_path, image2_path);
 
         match_files[ std::pair<int, int>(i, j) ] = match_filename;
 
@@ -1417,8 +1466,8 @@ int main(int argc, char* argv[]) {
         }
 
         boost::shared_ptr<DiskImageResource>
-          rsrc1( DiskImageResource::open(image1) ),
-          rsrc2( DiskImageResource::open(image2) );
+          rsrc1( DiskImageResource::open(image1_path) ),
+          rsrc2( DiskImageResource::open(image2_path) );
         float nodata1, nodata2;
         SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
                                                              opt.image_files [i], opt.image_files [j],
@@ -1430,15 +1479,15 @@ int main(int argc, char* argv[]) {
           // IP matching may not succeed for all pairs
 
           // Get masked views of the images to get statistics from
-          DiskImageView<float> image1_view(image1), image2_view(image2);
+          DiskImageView<float> image1_view(image1_path), image2_view(image2_path);
           ImageViewRef< PixelMask<float> > masked_image1
             = create_mask_less_or_equal(image1_view,  nodata1);
           ImageViewRef< PixelMask<float> > masked_image2
             = create_mask_less_or_equal(image2_view, nodata2);
-          vw::Vector<vw::float32,6> image1_stats = asp::gather_stats(masked_image1, image1);
-          vw::Vector<vw::float32,6> image2_stats = asp::gather_stats(masked_image2, image2);
+          vw::Vector<vw::float32,6> image1_stats = asp::gather_stats(masked_image1, image1_path);
+          vw::Vector<vw::float32,6> image2_stats = asp::gather_stats(masked_image2, image2_path);
 
-          session->ip_matching(image1, image2,
+          session->ip_matching(image1_path, image2_path,
                                Vector2(masked_image1.cols(), masked_image1.rows()),
                                image1_stats,
                                image2_stats,
@@ -1508,7 +1557,7 @@ int main(int argc, char* argv[]) {
     // If camera positions were provided for local inputs, align to them.
     const bool have_est_camera_positions = (opt.camera_position_file != "");
     if (opt.local_pinhole_input && have_est_camera_positions)
-      init_pinhole_model_with_camera_positions(opt);
+      init_pinhole_model_with_camera_positions(opt, estimated_camera_gcc);
 
     // If we have GPC's for pinhole cameras, try to do a simple affine initialization
     //  of the camera parameters.

@@ -428,8 +428,8 @@ public:
       vw::vw_out() << "Writing: " << cam_files[icam] << std::endl;
       vw::camera::PinholeModel model = get_camera_model(icam);
       model.write(cam_files[icam]);
-      std::cout << "Writing BAPinhole model params: " << m_cam_vec[icam] << std::endl;
-      std::cout << "BAPinhole output model: " << model << std::endl;      
+      //std::cout << "Writing BAPinhole model params: " << m_cam_vec[icam] << std::endl;
+      std::cout << "Writing output model: " << model << std::endl;      
     }
 
   }
