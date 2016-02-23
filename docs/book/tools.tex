@@ -1352,6 +1352,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-load-camera-solve} & Use a specialized display for showing the results of the \texttt{camera\_solve} tool. 
 When using this option, only pass in the path to the \texttt{camera\_solve} output folder as a positional argument.
 Green lines drawn between the camera positions indicate a successful interest point match between those two images.\\ \hline
+\texttt{-\/-hide-labels} & Hide image names unless the camera is highlighted.\\ \hline
 \end{longtable}
 
 \clearpage
@@ -2317,6 +2318,32 @@ to improve the results.  For \texttt{bundle\_adjust} options, see the
 description in this document.  For more information about THEIA flagfile
 options see their website or edit a copy of the default flagfile
 generated in the output folder
+
+
+
+\section{icebridge\_kmz\_to\_csv}
+\label{icebridgekmztocsv}
+
+A simple tool for use with data from the NASA IceBridge program.  Google Earth compatible
+.kmz files are available at \url{http://asapdata.arc.nasa.gov/dms/missions.html} which display
+the aircraft position at the point when each DMS frame image was captured.  This tool exports
+those positions into a csv file which can be passed into \texttt{bundle\_adjust} using
+the following parameters: 
+\begin{verbatim}
+--camera-positions ../camera_positions.csv --csv-format "1:file 2:lon 3:lat 4:height_above_datum"
+\end{verbatim}
+This may be useful in conjunction with the \texttt{camera\_solve} tool to allow conversion of camera
+positions from local to global coordinates.
+
+Usage:
+\begin{verbatim}
+  > icebridge_kmz_to_csv <input kmz file> <output csv file>
+\end{verbatim}
+
+
+
+
+
 
 \section{GDAL Tools}
 

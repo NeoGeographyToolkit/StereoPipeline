@@ -61,7 +61,7 @@ struct Options : public asp::BaseOptions {
               bundle_adjust_prefix;
 
   // Settings
-  bool seperate_camera_files, write_csv, load_camera_solve;
+  bool seperate_camera_files, write_csv, load_camera_solve, hide_labels;
   std::string datum;
   double model_scale; ///< Size scaling applied to 3D models
 
@@ -251,6 +251,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     // The KML class applies a model scale of 3000 * this value.
     ("model-scale",             po::value(&opt.model_scale)->default_value(1.0/30.0),
           "Scale factor applied to 3D model size.")
+    ("hide-labels",             po::bool_switch(&opt.hide_labels)->default_value(false)->implicit_value(true),
+          "Hide image names unless the camera is highlighted.")
     ("write-csv", "write a csv file with the orbital the data.")
     ("bundle-adjust-prefix",    po::value(&opt.bundle_adjust_prefix),
           "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.");
@@ -345,7 +347,8 @@ int main(int argc, char* argv[]) {
     if ( opt.path_to_outside_model.empty() ) {
       // Placemark Style
       kml.append_style( "plane", "", 1.2,
-                        "http://maps.google.com/mapfiles/kml/shapes/airports.png");
+                        "http://maps.google.com/mapfiles/kml/shapes/airports.png", 
+                        opt.hide_labels);
       kml.append_style( "plane_highlight", "", 1.4,
                         "http://maps.google.com/mapfiles/kml/shapes/airports.png");
       kml.append_stylemap( "camera_placemark", "plane",

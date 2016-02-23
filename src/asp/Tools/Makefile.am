@@ -61,7 +61,7 @@ if MAKE_APP_BUNDLE_ADJUST
   bin_PROGRAMS     += bundle_adjust 
   libexec_PROGRAMS += opencv_imagelist_creator
   libexec_PROGRAMS += opencv_calibrate 
-  bin_SCRIPTS      += camera_calibrate camera_solve
+  bin_SCRIPTS      += camera_calibrate camera_solve icebridge_kmz_to_csv
   bundle_adjust_SOURCES            = bundle_adjust.cc bundle_adjust.h
   opencv_imagelist_creator_SOURCES = opencv_imagelist_creator.cpp
   opencv_calibrate_SOURCES         = opencv_calibrate.cpp
@@ -200,7 +200,6 @@ if MAKE_APP_PANSHARP
   pansharp_SOURCES = pansharp.cc
   pansharp_LDADD   = $(APP_PANSHARP_LIBS)
 endif
-
 
 if MAKE_APP_DATUM_CONVERT
   bin_PROGRAMS += datum_convert
