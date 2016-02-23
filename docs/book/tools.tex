@@ -487,6 +487,7 @@ number of iterations. \\ \hline
 subsequent images to search for matches to the current image to this
 value.  By default try to match all images.\\ \hline
 
+
 \texttt{-\/-camera-weight \textit{double(=1.0)}} &
 The weight to give to the constraint that the camera positions/orientations stay close to
 the original values (only for the Ceres solver).  A lower weight means that the values will
@@ -523,6 +524,12 @@ measured from planet center.\\ \hline
 \texttt{-\/-csv-proj4 \textit{string}} & The PROJ.4 string to use to
 interpret the entries in input CSV files, if those entries contain
 easting, northing, and height above datum. \\ \hline
+
+\texttt{-\/-position-filter-dist \textit{double(=-1.0)}} &
+If estimated camera positions are used, this option can be used to set a threshold distance in meters
+between the cameras.  If any pair of cameras is farther apart than this distance, the tool will not 
+attempt to find matching interest points between those two cameras.
+\\ \hline
 
 \texttt{-\/min-triangulation-angle \textit{double(=0.1)}} &
 The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.
@@ -1342,6 +1349,9 @@ Options & Description \\ \hline \hline
 \texttt{-\/-output|-o \textit{filename(=orbit.kml)}} & Specifies the output file name \\ \hline
 \texttt{-\/-scale|-s \textit{float(=1)}} & Scale the size of the coordinate axes by this amount. Ex: To scale axis sizes up to Earth size, use 3.66 \\ \hline
 \texttt{-\/-use\_path\_to\_dae\_model|-u \textit{fullpath}} & Use this dae model to represent camera location. \emph{Google Sketch up can create these.} \\ \hline
+\texttt{-\/-load-camera-solve} & Use a specialized display for showing the results of the \texttt{camera\_solve} tool. 
+When using this option, only pass in the path to the \texttt{camera\_solve} output folder as a positional argument.
+Green lines drawn between the camera positions indicate a successful interest point match between those two images.\\ \hline
 \end{longtable}
 
 \clearpage

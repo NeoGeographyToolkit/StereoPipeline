@@ -961,20 +961,35 @@ using \texttt{stereo\_gui} and a DEM generated from LRONAC images.
 
 After running this command:
 \begin{verbatim}
-> camera_solve out/ AS15-M-0414_MED.png AS15-M-1134_MED.png --datum D_MOON \
+> camera_solve out_gcp/ AS15-M-0414_MED.png AS15-M-1134_MED.png --datum D_MOON \
   --calib-file metric_model.tsai --gcp-file ground_control_points.gcp
 \end{verbatim}
 we end up with results that can be compared with the a DEM created from LRONAC images.
 The stereo results on the Apollo 15 images leave something to be desired but the 
-DEM they produced has been moved to the correct location.
+DEM they produced has been moved to the correct location.  You can easily visualize
+the output camera positions using the \texttt{orbitviz} tool with the 
+\texttt{--load-camera-solve} option as shown below.  Green lines between camera
+positions mean that a sufficient number of matching interest points were found
+between those two images.
+
+\begin{verbatim}
+> stereo AS15-M-0414_MED.png AS15-M-1134_MED.png out_gcp/AS15-M-0414_MED.png.final.tsai \
+  out_gcp/AS15-M-1134_MED.png.final.tsai -t nadirpinhole s_global/out  --corr-timeout 300 \
+  --erode-max-size 100
+> orbitviz -t nadirpinhole -r moon out_gcp --load-camera-solve
+\end{verbatim}
+
 
 \begin{figure}[h!]
 \centering
-  \includegraphics[width=3.0in]{images/examples/pinhole/a15_image_diff.png}
-\caption{The narrow LRONAC DEM overlaid on the larger pinhole DEM.  They are both 
-color shaded over the same elevation range.}
+  \subfigure[{\tt orbitviz display}]{\includegraphics[width=3.5in]{images/examples/pinhole/a15_orbitviz_display.png}}
+  \hfil
+  \subfigure[{\tt KML Screenshot}]{\includegraphics[width=3in]{images/examples/pinhole/a15_image_diff.png}}
+\caption{Solved for camera positions plotted using orbitviz and the resulting DEM color-shaded and overlaid
+over a narrow LRONAC DEM.}
 \label{fig:pinhole-a15-result-image}
 \end{figure}
+
 
 Another, more difficult, option to move the camera models is to run stereo with the local
 camera models, then use the \texttt{pc\_align} tool to align the output point cloud with an
