@@ -1,4 +1,4 @@
-*** RELEASE 2.5.2, Upcoming ***
+*** RELEASE 2.5.2, Feb X, 2015 ***
 
 Highlights
 
@@ -31,14 +31,15 @@ Highlights
    * Added the ability to filter large disparities from D_sub that 
      can greatly slow down a run. The options are --rm-quantile-percentile
      and --rm-quantile-multiple. 
-    
-Other
 
  - undistort_image
     * A new tool to test out pinhole model lens distortion parameters.
+    
+Other
 
  - Tools
     * Suppressed pesky aux.xml warning sometimes printed by GDAL.
+    * Removed the long-deprecated orthoproject tool.
 
  - point2las
     * Write correct bounding box in the header.

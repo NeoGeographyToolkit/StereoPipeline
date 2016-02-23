@@ -94,7 +94,6 @@ namespace asp {
 
     double nan = std::numeric_limits<double>::quiet_NaN();
     nodata_value = nan;
-    max_valid_triangulation_error = nan;
   }
 
   // Define our options that are available
@@ -262,8 +261,6 @@ namespace asp {
                                             "Radius of inner boundary of universe in meters (remove points with radius smaller than that).")
       ("far-universe-radius",               po::value(&global.far_universe_radius)->default_value(0.0),
                                             "Radius of outer boundary of universe in meters (remove points with radius larger than that).")
-      ("max-valid-triangulation-error",     po::value(&global.max_valid_triangulation_error),
-                                            "Points with triangulation error larger than this are removed from the cloud.")
       ("use-least-squares",                 po::bool_switch(&global.use_least_squares)->default_value(false)->implicit_value(true),
                                             "Use rigorous least squares triangulation process. This is slow for ISIS processes.")
       ("bundle-adjust-prefix", po::value(&global.bundle_adjust_prefix),

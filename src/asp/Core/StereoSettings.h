@@ -165,7 +165,6 @@ namespace asp {
     std::string universe_center;      // Center for the radius clipping
     float  near_universe_radius;      // Radius of the universe in meters
     float  far_universe_radius;       // Radius of the universe in meters
-    float  max_valid_triangulation_error; // points with error > this are rm from cloud
     std::string bundle_adjust_prefix; // Use the camera adjustments obtained by previously running bundle_adjust with the output prefix specified here.
 
     // piecewise adjustments

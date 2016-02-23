@@ -507,17 +507,6 @@ namespace asp {
 
     const bool dem_provided = !opt.input_dem.empty();
 
-    // Sanity check for max_valid_triangulation_error
-    if (stereo_settings().max_valid_triangulation_error <= 0){
-      vw_throw( ArgumentErr() << "The maximum valid triangulation error must be positive.\n" );
-    }
-    if (stereo_settings().max_valid_triangulation_error > 0){
-      vw_throw( ArgumentErr() << "The --max-valid-triangulation-error was moved "
-                << "to point2dem. Alternatively, the point2dem --remove-outliers "
-                << "option can be used for automatic detection of maximum "
-                << "triangulation error.\n" );
-    }
-
     // Seed mode valid values
     if (stereo_settings().seed_mode > 3){
       vw_throw(ArgumentErr() << "Invalid value for seed-mode: " << stereo_settings().seed_mode << ".\n");
