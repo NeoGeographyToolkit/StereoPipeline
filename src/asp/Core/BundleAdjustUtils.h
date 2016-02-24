@@ -40,24 +40,25 @@ namespace vw {
 }
 
 namespace asp{
-  // Read both kinds of adjustments
+  /// Read both kinds of adjustments
   void read_adjustments(std::string const& filename,
-                        bool & piecewise_adjustments,
+                        bool        & piecewise_adjustments,
                         vw::Vector2 & adjustment_bounds,
                         std::vector<vw::Vector3> & position_correction,
-                        std::vector<vw::Quat> & pose_correction);
+                        std::vector<vw::Quat>    & pose_correction);
 
-  // Write piecewise adjustments
-  void write_adjustments(std::string const& filename,
+  /// Write piecewise adjustments
+  void write_adjustments(std::string const & filename,
                          vw::Vector2 const & adjustment_bounds,
                          std::vector<vw::Vector3> const& position_correction,
-                         std::vector<vw::Quat> const& pose_correction);
+                         std::vector<vw::Quat>    const& pose_correction);
 
-  // Write global adjustments
+  /// Write global adjustments
   void write_adjustments(std::string const& filename,
                          vw::Vector3 const& position_correction,
-                         vw::Quat const& pose_correction);
+                         vw::Quat    const& pose_correction);
 
+  ///
   void compute_stereo_residuals(std::vector<boost::shared_ptr<vw::camera::CameraModel> >
                                 const& camera_models,
                                 vw::ba::ControlNetwork const& cnet);

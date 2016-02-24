@@ -417,7 +417,7 @@ void calc_stats(string label, PointMatcher<RealT>::Matrix const& dists){
   double a25 = calc_mean(errs,   len/4), a50  = calc_mean(errs, len/2);
   double a75 = calc_mean(errs, 3*len/4), a100 = calc_mean(errs, len);
   vw_out() << label << ": mean of smallest errors (meters):"
-           << " 25%: " << a25 << ", 50%: " << a50
+           << " 25%: "  << a25 << ", 50%: "  << a50
            << ", 75%: " << a75 << ", 100%: " << a100 << endl;
 }
 
@@ -426,7 +426,7 @@ void calc_stats(string label, PointMatcher<RealT>::Matrix const& dists){
 void dump_llh(string const& file, Datum const& datum,
               DP const & data, Vector3 const& shift){
 
-  vw_out() << "Writing: " << data.features.cols()
+  vw_out() << "Writing: "   << data.features.cols()
            << " points to " << file << std::endl;
 
   ofstream fs(file.c_str());
@@ -694,17 +694,22 @@ void filter_source_cloud(DP          const& ref_point_cloud,
     vw_out() << "Filtering gross outliers" << endl;
 
   PointMatcher<RealT>::Matrix error_matrix;
-  if (opt.use_dem_distances()) {
-    // Compute the registration error using the best available means
-    compute_registration_error(ref_point_cloud, source_point_cloud, pm_icp_object, shift,
-                               dem_georef, dem_ref, opt, error_matrix);
+  try {
+    if (opt.use_dem_distances()) {
+      // Compute the registration error using the best available means
+      compute_registration_error(ref_point_cloud, source_point_cloud, pm_icp_object, shift,
+                                 dem_georef, dem_ref, opt, error_matrix);
 
-    filterPointsByError(source_point_cloud, error_matrix, opt.max_disp);
-  } else { // LPM only method
-      // Points in source_point_cloud further than opt.max_disp from ref_point_cloud are deleted!
-      pm_icp_object.filterGrossOutliersAndCalcErrors(ref_point_cloud, opt.max_disp*opt.max_disp,
-                                                     source_point_cloud, error_matrix);
+      filterPointsByError(source_point_cloud, error_matrix, opt.max_disp);
+    } else { // LPM only method
+        // Points in source_point_cloud further than opt.max_disp from ref_point_cloud are deleted!
+        pm_icp_object.filterGrossOutliersAndCalcErrors(ref_point_cloud, opt.max_disp*opt.max_disp,
+                                                       source_point_cloud, error_matrix);
+    }
+  }catch(const PointMatcher<RealT>::ConvergenceError & e){
+    vw_throw( ArgumentErr() << "Error: No points left in source cloud after filtering.\n");
   }
+
 
   sw.stop();
   if (opt.verbose)
@@ -810,7 +815,7 @@ int main( int argc, char *argv[] ) {
   Eigen::initParallel();
 
   Options opt;
-  //try {
+  try {
     handle_arguments( argc, argv, opt );
 
     // Set the number of threads for OpenMP
@@ -1106,7 +1111,7 @@ int main( int argc, char *argv[] ) {
     if (opt.verbose) vw_out() << "Saving to disk took "
                               << sw5.elapsed_seconds() << " [s]" << endl;
 
-  //} ASP_STANDARD_CATCHES;
+  } ASP_STANDARD_CATCHES;
 
   return 0;
 }
