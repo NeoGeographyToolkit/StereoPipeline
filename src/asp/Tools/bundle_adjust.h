@@ -130,7 +130,7 @@ public:
   unsigned num_points ()            const { return m_point_vec.size();       }
   unsigned num_pixel_observations() const { return m_num_pixel_observations; }
 
-  // Return the covariance of the camera parameters for camera j.
+  /// Return the covariance of the camera parameters for camera j.
   inline vw::Matrix<double,camera_params_n,camera_params_n>
   cam_inverse_covariance ( unsigned /*j*/ ) const {
     vw::Matrix<double,camera_params_n,camera_params_n> result;
@@ -143,7 +143,7 @@ public:
     return result;
   }
 
-  // Return the covariance of the point parameters for point i.
+  /// Return the covariance of the point parameters for point i.
   inline vw::Matrix<double,point_params_n,point_params_n>
   point_inverse_covariance ( unsigned /*i*/ ) const {
     vw::Matrix<double,point_params_n,point_params_n> result;
@@ -276,7 +276,7 @@ public: // Definitions
   // TODO: We don't solve from scratch, remove this!
   // Need this scale to force the rotations to not change that wildly
   // when determining pinhole cameras from scratch.
-  const static double pose_scale = 1.0e+3;
+  const static double pose_scale = 1.0;//1.0e+3;
   
 private: // Variables
 

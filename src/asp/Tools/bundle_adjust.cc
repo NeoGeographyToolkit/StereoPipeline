@@ -189,7 +189,7 @@ struct BaReprojectionError {
 
       // The error is the difference between the predicted and observed position,
       // normalized by sigma.
-      residuals[0] = (prediction[0] - m_observation[0])/m_pixel_sigma[0];
+      residuals[0] = (prediction[0] - m_observation[0])/m_pixel_sigma[0]; // Input units are pixels
       residuals[1] = (prediction[1] - m_observation[1])/m_pixel_sigma[1];
 
     } catch (std::exception const& e) {
@@ -309,9 +309,9 @@ struct BaPinholeError {
 };
 */
 
-// A ceres cost function. The residual is the difference between the
-// observed 3D point and the current (floating) 3D point, normalized by
-// xyz_sigma. Used only for ground control points.
+/// A ceres cost function. The residual is the difference between the
+/// observed 3D point and the current (floating) 3D point, normalized by
+/// xyz_sigma. Used only for ground control points.
 struct XYZError {
   XYZError(Vector3 const& observation, Vector3 const& xyz_sigma):
     m_observation(observation), m_xyz_sigma(xyz_sigma){}
@@ -319,7 +319,7 @@ struct XYZError {
   template <typename T>
   bool operator()(const T* const point, T* residuals) const {
     for (size_t p = 0; p < m_observation.size(); p++)
-      residuals[p] = ((double)point[p] - m_observation[p])/m_xyz_sigma[p];
+      residuals[p] = ((double)point[p] - m_observation[p])/m_xyz_sigma[p]; // Input units are meters
 
     return true;
   }
@@ -337,10 +337,10 @@ struct XYZError {
   Vector3 m_xyz_sigma;
 };
 
-// A ceres cost function. The residual is the difference between the
-// original camera center and the current (floating) camera center.
-// This cost function prevents the cameras from straying too far from
-// their starting point.
+/// A ceres cost function. The residual is the difference between the
+/// original camera center and the current (floating) camera center.
+/// This cost function prevents the cameras from straying too far from
+/// their starting point.
 template<class ModelT>
 struct CamError {
   typedef typename ModelT::camera_vector_t CamVecT;
@@ -351,11 +351,20 @@ struct CamError {
   template <typename T>
   bool operator()(const T* const cam_vec, T* residuals) const {
 
-    // Note that we allow the position to vary more than the orientation.
-    for (size_t p = 0; p < 3; p++)
-      residuals[p] = 1e-6*m_weight*(cam_vec[p] - m_orig_cam[p]);
-    for (size_t p = 3; p < m_orig_cam.size(); p++)
-      residuals[p] = m_weight*(cam_vec[p] - m_orig_cam[p]);
+    const double POSITION_WEIGHT = 1e-2;  // Units are meters.  Don't lock the camera down too tightly.
+    const double ROTATION_WEIGHT = 5e1;   // Units are in radianish range 
+    
+    //std::cout << "CamError: ";
+    for (size_t p = 0; p < 3; p++) {
+      residuals[p] = POSITION_WEIGHT*m_weight*(cam_vec[p] - m_orig_cam[p]);
+      //std::cout << residuals[p] << ",  ";
+    }
+    //std::cout << "  ::  ";
+    for (size_t p = 3; p < m_orig_cam.size(); p++) {
+      residuals[p] = ROTATION_WEIGHT*m_weight*(cam_vec[p] - m_orig_cam[p]);
+      //std::cout << residuals[p] << ",  ";
+    }
+    //std::cout << std::endl;
 
     return true;
   }
@@ -479,8 +488,11 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
 
   CameraRelationNetwork<JFeature> crn;
   crn.read_controlnetwork(cnet);
+  
+  // Now add the various cost functions the solver will optimize over.
 
   // Add the cost function component for difference of pixel observations
+  // - Reduce error by making pixel projection consistent with observations.
   typedef CameraNode<JFeature>::iterator crn_iter;
   for ( size_t icam = 0; icam < crn.size(); icam++ ) {
     for ( crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++ ){
@@ -497,7 +509,7 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
       Vector2 pixel_sigma = (**fiter).m_scale;
 
       // This is a bugfix
-      if (pixel_sigma != pixel_sigma)
+      if (pixel_sigma != pixel_sigma) // nan check?
         pixel_sigma = Vector2(1, 1);
 
       // Each observation corresponds to a pair of a camera and a point
@@ -513,6 +525,7 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
   }
 
   // Add ground control points
+  // - Error goes up as GCP's move from their input positions.
   for (size_t ipt = 0; ipt < num_points; ipt++){
     if (cnet[ipt].type() != ControlPoint::GroundControlPoint) continue;
 
@@ -528,6 +541,7 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
   }
 
   // Add camera constraints
+  // - Error goes up as cameras move and rotate from their input positions.
   if (opt.camera_weight > 0){
     for (size_t icam = 0; icam < num_cameras; icam++){
 
@@ -754,7 +768,6 @@ void do_ba_with_model(Options& opt){
     vw_throw( ArgumentErr() << "Unknown cost function: " << opt.cost_function
               << ". Options are: Cauchy, PseudoHuber, Huber, L1, L2.\n" );
   }
-
 }
 
 /// Given a vector of strings, identify and store separately the list of camera models.
@@ -1274,7 +1287,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("position-filter-dist", po::value(&opt.position_filter_dist)->default_value(-1),
                          "Set a distance in meters and don't perform IP matching on images with an estimated camera center farther apart than this distance.  Requires --camera-positions.")
     ("camera-weight",    po::value(&opt.camera_weight)->default_value(1.0),
-                         "The weight to give to the constraint that the camera positions/orientations stay close to the original values (only for the Ceres solver).  A lower weight means that the values will change less, a higher weight means more change.")
+                         "The weight to give to the constraint that the camera positions/orientations stay close to the original values (only for the Ceres solver).  A higher weight means that the values will change less, a lower weight means more change.")
     ("ip-per-tile",             po::value(&opt.ip_per_tile)->default_value(0),
      "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
     ("min-triangulation-angle",             po::value(&opt.min_angle)->default_value(0.1),
