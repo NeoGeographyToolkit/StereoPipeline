@@ -490,8 +490,8 @@ value.  By default try to match all images.\\ \hline
 
 \texttt{-\/-camera-weight \textit{double(=1.0)}} &
 The weight to give to the constraint that the camera positions/orientations stay close to
-the original values (only for the Ceres solver).  A lower weight means that the values will
-change less, a higher weight means more change.
+the original values (only for the Ceres solver).  A higher weight means that the values will
+change less, a lower weight means more change.
 \\ \hline
 
 \texttt{-\/-ip-per-tile \textit{int}} &
@@ -2342,6 +2342,39 @@ Usage:
 
 
 
+\section{lvis2kml}
+\label{lvis2kml}
+
+A simple tool for use with LVIS (Land, Vegetation, and Ice Sensor) lidar data from the 
+NASA IceBridge program.  Generates a Google Earth compatible .kml files from either 
+an LVIS data file (.TXT extension) or an LVIS boundary file (.xml extension).  Using
+this tool makes it easy to visualize what region a given LVIS file covers and what 
+the shap of its data looks like.  If the output path is not passed to the tool it
+will generate an output path by appending ".kml" to the input path.  This tool requires
+the simplekml Python package to run.  One way to get this is to install the ASP Python
+tools, described at the end of section \ref{sparse-disp}.
+
+Usage:
+\begin{verbatim}
+  > lvis2kml [options] <input path> [output path]
+\end{verbatim}
+
+
+\begin{longtable}{|l|p{7.5cm}|}
+\caption{Command-line options for lvis2kml}
+\label{tbl:lvis2kml}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Option & Description \\ \hline \hline
+\texttt{-h | -\/-help } & Display this help message.\\ \hline
+\texttt{-\/-name  \textit{string}} & Assign a name to the KML file.\\ \hline
+\texttt{-\/-color  \textit{string}} & Draw plots in one of (red | green | blue)\\ \hline
+\texttt{-\/-skip  \textit{int(=1)}} & When loading a data file, plot only every N'th point.
+Has no effect on boundary files.\\ \hline
+\end{longtable}
 
 
 

@@ -1014,10 +1014,49 @@ inside one of the image file names, so for example the field value \texttt{2009\
 matched with the input file \texttt{2009\_10\_20\_0778.JPG}.
 
 
+\section{IceBridge DMS Camera}
 
+The DMS (Digital Mapping System) is a frame camera flown on as part of the NASA IceBridge
+program to collect digital terrain imagery of polar and antarctic terrain.  To process this 
+data the steps are very similar to the steps described for a generic pinhole camera but there
+are some aspects which are particular to IceBridge.
 
+Obtaining ground control points for icy locations on Earth can be particularly difficult because
+they are not well surveyed or because the terrain shifts over time.  
+This may force you to use the third option listed in the generic pinhole section above which is
+to use estimated camera positions to convert the local camera models into global coordinates.
+To make this easier for IceBridge data sets, ASP provides the 
+\texttt{icebridge\_kmz\_to\_csv} tool (see appendix \ref{icebridgekmztocsv}) 
+which extracts a list of estimated camera positions from the kmz files available for each 
+IceBridge flight at \url{http://asapdata.arc.nasa.gov/dms/missions.html}.  When using this
+method be aware of the \texttt{-\/-camera-weight} option for \texttt{bundle\_adjust}.  If
+your cameras being moved too far or too little from the estimated positions you can raise or
+lower this parameter respectively to adjust the output of the solver.
 
+Another option which is useful when processing IceBridge data is the 
+\texttt{-\/-position-filter-dist} option for \texttt{bundle\_adjust}.  IceBridge data sets contain
+a large number of images and when processing many at once you can significantly decrease
+your processing time by using this option to limit interest-point matching to image pairs
+which are actually close enough to overlap.  
 
+A final tip for processing IceBridge data is that LVIS lidar data available on some flights
+can be used to register DEMs created using DMS imagery.  The lidar data comes in plain text 
+files that \texttt{pc\_align} can parse using the following option:
+\begin{verbatim}  --csv-format "5:lat 4:lon 6:height_above_datum"  \end{verbatim}
+ASP provides the \texttt{lvis2kml} tool to help visualize the coverage and terrain contained 
+in LVIS files, see appendix \ref{lvis2kml} for details.
+The LVIS lidar coverage is sparse compared to the image coverage and you will have difficulty
+getting a good registration unless the region has terrain features such as hills or you are 
+registering very large point clouds that overlap with the lidar coverage across a wide area.
+Otherwise \texttt{pc\_align} will simply slide the flat terrain to an incorrect location to 
+produce a low-error fit with the narrow lidar tracks.
+
+\begin{figure}[h!]
+\centering
+  \includegraphics[width=5.5in]{images/examples/pinhole/icebridge_orbitviz_display.png}
+\caption{Display of \texttt{camera\_solve} results for ten IceBridge images using \texttt{orbitviz.}}
+\label{fig:pinhole-icebridge-orbitviz}
+\end{figure}
 
 
 
