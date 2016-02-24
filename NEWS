@@ -40,6 +40,7 @@ Other
  - Tools
     * Suppressed pesky aux.xml warning sometimes printed by GDAL.
     * Removed the long-deprecated orthoproject tool.
+    * Added icebridge_kmz_to_csv and lvis2kml utilities.
 
  - point2las
     * Write correct bounding box in the header.
