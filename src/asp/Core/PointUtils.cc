@@ -38,6 +38,80 @@ namespace vw {
 
 namespace asp{
 
+
+  void find_3D_affine_transform(vw::Matrix<double>     & in, 
+                                vw::Matrix<double>     & out,
+                                vw::Matrix<double,3,3> & rotation,
+                                vw::Vector<double,3>   & translation,
+                                double                 & scale) {
+    // Default output
+    rotation.set_identity();
+    translation.set_all(0.0);
+    scale = 1.0;
+    VW_ASSERT((in.rows() == 3) && (in.rows() == out.rows()) && (in.cols() == out.cols()), 
+              vw::ArgumentErr() << "find_3D_affine_transform(): input data is incorrect size.\n");
+
+    typedef vw::math::MatrixCol<vw::Matrix<double> > ColView;
+
+    // First find the scale, by finding the ratio of sums of some distances,
+    // then bring the datasets to the same scale.
+    double dist_in = 0, dist_out = 0;
+    for (size_t col = 0; col < in.cols()-1; col++) {
+      ColView inCol1 (in,  col), inCol2 (in,  col+1);
+      ColView outCol1(out, col), outCol2(out, col+1);
+      dist_in  += vw::math::norm_2(inCol2  - inCol1 );
+      dist_out += vw::math::norm_2(outCol2 - outCol1);
+    }
+    if (dist_in <= 0 || dist_out <= 0)
+      return;
+    scale = dist_out/dist_in;
+    out /= scale;
+
+    // Find the centroids then shift to the origin
+    vw::Vector3 in_ctr;
+    vw::Vector3 out_ctr;
+    for (size_t col = 0; col < in.cols(); col++) {
+      ColView inCol (in,  col);
+      ColView outCol(out, col);
+      in_ctr  += inCol;
+      out_ctr += outCol;
+    }
+    in_ctr  /= in.cols(); // Get the mean
+    out_ctr /= out.cols();
+    vw::Matrix<double> in_copy = in;
+    for (size_t col = 0; col < in.cols(); col++) { // Subtract mean from in and out
+      ColView inCol (in,  col);
+      ColView outCol(out, col);
+      inCol  -= in_ctr;
+      outCol -= out_ctr;
+    }
+
+    // SVD
+    vw::Matrix<double> cov = in * vw::math::transpose(out);
+    vw::Matrix<float> U, VT;
+    vw::Vector<float> s;
+    vw::math::svd(cov, U, s, VT);
+
+    // Find the rotation
+    double d = vw::math::det(vw::math::transpose(VT) * vw::math::transpose(U));
+    if (d > 0)
+      d = 1.0;
+    else
+      d = -1.0;
+    vw::Matrix3x3 I;
+    I.set_identity();
+    I(2, 2) = d;
+    vw::Matrix3x3 R = vw::math::transpose(VT) * I * vw::math::transpose(U);
+
+    // The final transform
+    rotation    = R;
+    translation = scale*(out_ctr - R*in_ctr);
+    return;
+  }
+
+
+
+
   // Classes to read points from CSV and LAS files one point at a
   // time. We basically implement an interface for CSV files
   // mimicking the existing interface for las files in liblas.

@@ -789,98 +789,6 @@ extract_cameras_bundle_adjust( std::vector<std::string>& image_files ) {
   return cam_files;
 }
 
-// TODO: This is a duplicate from pc_align_utils!!!!!!!!!
-// TODO: Seems surprising we can't do this with our VW classes.
-Eigen::Affine3d Find3DAffineTransform(Eigen::Matrix3Xd in, Eigen::Matrix3Xd out) {
-  // Default output
-  Eigen::Affine3d A;
-  A.linear() = Eigen::Matrix3d::Identity(3, 3);
-  A.translation() = Eigen::Vector3d::Zero();
-
-  if (in.cols() != out.cols())
-    throw "Find3DAffineTransform(): input data mis-match";
-
-  // First find the scale, by finding the ratio of sums of some distances,
-  // then bring the datasets to the same scale.
-  double dist_in = 0, dist_out = 0;
-  for (int col = 0; col < in.cols()-1; col++) {
-    dist_in  += (in.col(col+1) - in.col(col)).norm();
-    dist_out += (out.col(col+1) - out.col(col)).norm();
-  }
-  if (dist_in <= 0 || dist_out <= 0)
-    return A;
-  double scale = dist_out/dist_in;
-  out /= scale;
-
-  // Find the centroids then shift to the origin
-  Eigen::Vector3d in_ctr  = Eigen::Vector3d::Zero();
-  Eigen::Vector3d out_ctr = Eigen::Vector3d::Zero();
-  for (int col = 0; col < in.cols(); col++) {
-    in_ctr  += in.col(col);
-    out_ctr += out.col(col);
-  }
-  in_ctr  /= in.cols(); // Get the mean
-  out_ctr /= out.cols();
-  for (int col = 0; col < in.cols(); col++) { // Subtract mean from in and out
-    in.col(col)  -= in_ctr;
-    out.col(col) -= out_ctr;
-  }
-
-  // SVD
-  Eigen::MatrixXd Cov = in * out.transpose();
-  Eigen::JacobiSVD<Eigen::MatrixXd> svd(Cov, Eigen::ComputeThinU | Eigen::ComputeThinV);
-
-  // Find the rotation
-  double d = (svd.matrixV() * svd.matrixU().transpose()).determinant();
-  if (d > 0)
-    d = 1.0;
-  else
-    d = -1.0;
-  Eigen::Matrix3d I = Eigen::Matrix3d::Identity(3, 3);
-  I(2, 2) = d;
-  Eigen::Matrix3d R = svd.matrixV() * I * svd.matrixU().transpose();
-
-  // The final transform
-  A.linear() = scale * R;
-  A.translation() = scale*(out_ctr - R*in_ctr);
-
-  return A;
-}
-
-
-// TODO: Move this function too!
-/// Given an input and output set of points, compute a best-fit scale/rotation/translation transform.
-void FindScaleRotationTranslateTransform(Eigen::Matrix3Xd in, Eigen::Matrix3Xd out,
-                                         vw::Matrix3x3 & rotation,
-                                         vw::Vector3   & translation,
-                                         double        & scale) {
-
-    // Call function to compute a 3D affine transform between the two point sets
-    Eigen::Affine3d T = Find3DAffineTransform(in, out);
-    scale = pow(T.linear().determinant(), 1.0 / 3.0); // Extract the scale change.
-/*
-    std::cout << "--det is " << T.linear().determinant() << std::endl;
-    std::cout << "Transform to world coordinates." << std::endl;
-    std::cout << "Rotation:\n"    << T.linear() / scale << std::endl;
-    std::cout << "Scale:\n"       << scale << std::endl;
-    std::cout << "Translation:\n" << T.translation().transpose() << std::endl;
-*/
-
-    // Represent the transform as y = scale*A*x + b
-    Eigen::MatrixXd eA = T.linear()/scale;
-    Eigen::Vector3d eb = T.translation();
-
-    // Store in VW matrices and vectors
-    for (size_t r = 0; r < rotation.rows(); r++) {
-      for (size_t c = 0; c < rotation.cols(); c++) {
-        rotation(r, c) = eA(r, c);
-      }
-    }
-    for (size_t i = 0; i < translation.size(); i++)
-      translation[i] = eb[i];
-}
-
-
 /// Apply a scale-rotate-translate transform to pinhole cameras
 void apply_rigid_transform(vw::Matrix3x3 const & rotation,
                            vw::Vector3   const & translation,
@@ -1060,8 +968,8 @@ bool init_pinhole_model_with_camera_positions(Options &opt,
     vw_throw( ArgumentErr() << "Not enough camera position matches to initialize sensor models!\n" );
   
   // Populate matrices containing the current and known camera positions.
-  Eigen::Matrix3Xd cam_pos_in  (3, num_matches_found),
-                   cam_pos_file(3, num_matches_found);
+  vw::Matrix<double> points_in(3, num_matches_found), points_file(3, num_matches_found);
+  typedef vw::math::MatrixCol<vw::Matrix<double> > ColView;
   size_t index = 0;
   for (size_t i=0; i<num_cameras; ++i) {
     // Skip cameras with no matching record
@@ -1071,10 +979,12 @@ bool init_pinhole_model_with_camera_positions(Options &opt,
     // Get the two GCC positions
     Vector3 gcc_in   = opt.camera_models[i]->camera_center(Vector2(0,0));
     Vector3 gcc_file = estimated_camera_gcc[i];
-
+    
     // Store in matrices
-    cam_pos_in.col  (index) << gcc_in  [0], gcc_in  [1], gcc_in  [2];
-    cam_pos_file.col(index) << gcc_file[0], gcc_file[1], gcc_file[2];
+    ColView colIn (points_in,   index); 
+    ColView colOut(points_file, index);
+    colIn  = gcc_in;
+    colOut = gcc_file;
     ++index;
 
   } // End matrix populating loop
@@ -1083,7 +993,8 @@ bool init_pinhole_model_with_camera_positions(Options &opt,
   vw::Matrix3x3 rotation;
   vw::Vector3   translation;
   double        scale;
-  FindScaleRotationTranslateTransform(cam_pos_in, cam_pos_file, rotation, translation, scale);
+  asp::find_3D_affine_transform(points_in, points_file, rotation, translation, scale);
+
 
 /*
   // Debug: Test transform on cameras
@@ -1126,15 +1037,28 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
       //std::cout << "---before rotation, camera is " << *pincam << std::endl;
     }
 
-    // Count up the number of ground control points
+    // Count up the number of good ground control points
     // - Maybe this should be a function of the ControlNet class?
     const int num_cnet_points = static_cast<int>(cnet.size());
-    int num_gcp = 0;
+    int num_good_gcp = 0;
     for (int ipt = 0; ipt < num_cnet_points; ipt++){
       if (cnet[ipt].type() != ControlPoint::GroundControlPoint)
         continue;
-      num_gcp++;
+        
+      // Use triangulation to estimate the position of this control point using
+      //   the current set of camera models.
+      ControlPoint cp_new = cnet[ipt];
+      // Making minimum_angle below big may throw away valid points at this stage // really???
+      double minimum_angle = 0;
+      vw::ba::triangulate_control_point(cp_new, opt.camera_models, minimum_angle);
+      if (cp_new.position() != Vector3() && cnet[ipt].position() != Vector3())
+        ++num_good_gcp; // Only count points that triangulate
     }
+    
+    // Update the number of GCP that we are using
+    const int MIN_NUM_GOOD_GCP = 3;
+    if (num_good_gcp < MIN_NUM_GOOD_GCP)
+      vw_throw( ArgumentErr() << "Not enough valid GCPs for affine initalization!\n" );
     
     /*
     // DEBUG: Print out a measure of the triangulation error
@@ -1154,8 +1078,9 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
     } // End loop through control network points
     */
 
-    Eigen::Matrix3Xd in(3, num_gcp), out(3, num_gcp);
-    int num_good_gcp = 0;
+    vw::Matrix<double> points_in(3, num_good_gcp), points_file(3, num_good_gcp);
+    typedef vw::math::MatrixCol<vw::Matrix<double> > ColView;
+    int index = 0;
     for (int ipt = 0; ipt < num_cnet_points; ipt++){
       // Loop through all the ground control points only
       if (cnet[ipt].type() != ControlPoint::GroundControlPoint)
@@ -1164,8 +1089,7 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
       // Use triangulation to estimate the position of this control point using
       //   the current set of camera models.
       ControlPoint cp_new = cnet[ipt];
-      // Making minimum_angle below big may throw away valid points at this stage
-      // really???
+      // Making minimum_angle below big may throw away valid points at this stage // really???
       double minimum_angle = 0;
       vw::ba::triangulate_control_point(cp_new,
                                         opt.camera_models,
@@ -1179,30 +1103,25 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
       if (inp == Vector3() || outp == Vector3())
         continue; // Skip points that fail to triangulate
 
-      in.col(num_good_gcp)  << inp[0],  inp[1],  inp[2];
-      out.col(num_good_gcp) << outp[0], outp[1], outp[2];
+      // Store in matrices
+      ColView colIn (points_in,   index); 
+      ColView colOut(points_file, index);
+      colIn  = inp;
+      colOut = outp;
 
       //if (check_only) // In geocentric coords, convert to GDC
       //  std::cout << "--in is " << opt.datum.cartesian_to_geodetic(inp) << std::endl;
       //else // In local coords, leave as-is
       //  std::cout << "--in is " << inp << std::endl;
       //std::cout << "--ou is " << opt.datum.cartesian_to_geodetic(outp) << std::endl;
-      num_good_gcp++;
+      ++index;
     } // End loop through control network points
-
-    // Update the number of GCP that we are using
-    const int MIN_NUM_GOOD_GCP = 3;
-    if (num_good_gcp < MIN_NUM_GOOD_GCP)
-      vw_throw( ArgumentErr() << "Not enough valid GCPs for affine initalization!\n" );
-
-    in.conservativeResize (Eigen::NoChange_t(), num_good_gcp);
-    out.conservativeResize(Eigen::NoChange_t(), num_good_gcp);
 
     // Call function to compute a 3D affine transform between the two point sets
     vw::Matrix3x3 rotation;
     vw::Vector3   translation;
     double        scale;
-    FindScaleRotationTranslateTransform(in, out,  rotation, translation, scale);
+    asp::find_3D_affine_transform(points_in, points_file, rotation, translation, scale);
 
     if (check_only)
       return true;

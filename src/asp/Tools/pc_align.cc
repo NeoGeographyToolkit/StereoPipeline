@@ -716,6 +716,26 @@ void filter_source_cloud(DP          const& ref_point_cloud,
     vw_out() << "Filtering gross outliers took " << sw.elapsed_seconds() << " [s]" << endl;
 }
 
+
+Eigen::Matrix3d vw_matrix3_to_eigen(vw::Matrix3x3 const& vw_matrix) {
+  Eigen::Matrix3d out;
+  out(0,0) = vw_matrix(0,0);
+  out(0,1) = vw_matrix(0,1);
+  out(0,2) = vw_matrix(0,2);
+  out(1,0) = vw_matrix(1,0);
+  out(1,1) = vw_matrix(1,1);
+  out(1,2) = vw_matrix(1,2);
+  out(2,0) = vw_matrix(2,0);
+  out(2,1) = vw_matrix(2,1);
+  out(2,2) = vw_matrix(2,2);
+  return out;
+}
+
+Eigen::Vector3d vw_vector3_to_eigen(vw::Vector3 const& vw_vector) {
+  return Eigen::Vector3d(vw_vector[0], vw_vector[1], vw_vector[2]);
+}
+
+
 // Compute a manual transform based on tie points (interest point matches).
 void manual_transform(Options & opt){
 
@@ -747,7 +767,8 @@ void manual_transform(Options & opt){
 
   // Go from pixels to 3D points
   int num_matches = ref_ip.size();
-  Eigen::Matrix3Xd ref_mat(DIM, num_matches), source_mat(DIM, num_matches);
+  vw::Matrix<double> points_ref(DIM, num_matches), points_src(DIM, num_matches);
+  typedef vw::math::MatrixCol<vw::Matrix<double> > ColView;
   int count = 0;
   for (int match_id = 0; match_id < num_matches; match_id++) {
     int ref_x = ref_ip[match_id].x;
@@ -766,7 +787,7 @@ void manual_transform(Options & opt){
     // Check for no-data and NaN pixels
     if (source_h <= source_nodata || source_h != source_h) continue;
 
-    Vector2 ref_ll = ref_geo.pixel_to_lonlat(Vector2(ref_x, ref_y));
+    Vector2 ref_ll  = ref_geo.pixel_to_lonlat(Vector2(ref_x, ref_y));
     Vector3 ref_xyz = ref_geo.datum()
       .geodetic_to_cartesian(Vector3(ref_ll[0], ref_ll[1], ref_h));
 
@@ -774,15 +795,12 @@ void manual_transform(Options & opt){
     Vector3 source_xyz = source_geo.datum()
       .geodetic_to_cartesian(Vector3(source_ll[0], source_ll[1], source_h));
 
-    // Go from VW vectors to Eigen vectors
-    Eigen::Vector3d ref_vec, source_vec;
-    for (int col = 0; col < DIM; col++) {
-      ref_vec[col]    = ref_xyz[col];
-      source_vec[col] = source_xyz[col];
-    }
-
-    ref_mat.col(count)    = ref_vec;
-    source_mat.col(count) = source_vec;
+    // Store in matrices
+    ColView col_ref(points_ref, count); 
+    ColView col_src(points_src, count);
+    col_ref = ref_xyz;
+    col_src = source_xyz;
+    
     count++;
   }
 
@@ -790,14 +808,18 @@ void manual_transform(Options & opt){
     vw_throw( ArgumentErr() << "Not enough valid matches were found.\n");
 
   // Resize the matrix to keep only the valid points. Find the transform.
-  ref_mat.conservativeResize(Eigen::NoChange, count);
-  source_mat.conservativeResize(Eigen::NoChange, count);
-  Eigen::Affine3d trans = Find3DAffineTransform(source_mat, ref_mat);
+  points_src.set_size(DIM, count, true);
+  points_ref.set_size(DIM, count, true);
+  vw::Matrix3x3 rotation;
+  vw::Vector3   translation;
+  double        scale;
+  asp::find_3D_affine_transform(points_src, points_ref,
+                                rotation, translation, scale);
 
   // Convert to pc_align transform format.
   PointMatcher<RealT>::Matrix globalT = Eigen::MatrixXd::Identity(DIM+1, DIM+1);
-  globalT.block(0, 0, DIM, DIM) = trans.linear();
-  globalT.block(0, DIM, DIM, 1) = trans.translation();
+  globalT.block(0, 0, DIM, DIM) = vw_matrix3_to_eigen(rotation*scale);
+  globalT.block(0, DIM, DIM, 1) = vw_vector3_to_eigen(translation);
 
   vw_out() << "Computed manual transform from source to reference:\n" << globalT << std::endl;
 

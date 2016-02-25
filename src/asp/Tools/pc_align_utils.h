@@ -88,11 +88,6 @@ std::string UNSPECIFIED_DATUM = "unspecified_datum";
 
 //======================================================================
 
-// TODO: This is a duplicate, move it!!!!!!!!!!
-// TODO: Seems surprising we can't do this with our VW classes.
-Eigen::Affine3d Find3DAffineTransform(Eigen::Matrix3Xd in, Eigen::Matrix3Xd out);
-
-
 /// Analyze a file name to determine the file type
 std::string get_file_type(std::string const& file_name);
 
