@@ -908,7 +908,6 @@ perform a sanity check on the lens distortion parameters.
 \end{verbatim}
 
 
-
 It is difficult to tell if the distortion model is correct by using this
 tool but it should be obvious if there are any gross errors in your 
 camera model file such as incorrect units or missing parameters.  In this
@@ -985,8 +984,7 @@ between those two images.
   \subfigure[{\tt orbitviz display}]{\includegraphics[width=3.5in]{images/examples/pinhole/a15_orbitviz_display.png}}
   \hfil
   \subfigure[{\tt KML Screenshot}]{\includegraphics[width=3in]{images/examples/pinhole/a15_image_diff.png}}
-\caption{Solved for camera positions plotted using orbitviz and the resulting DEM color-shaded and overlaid
-over a narrow LRONAC DEM.}
+\caption{(a) Solved for camera positions plotted using orbitviz.  (b) A narrow LRONAC DEM overlaid on the resulting DEM, both colormapped to the same elevation range.}
 \label{fig:pinhole-a15-result-image}
 \end{figure}
 
@@ -1016,10 +1014,38 @@ matched with the input file \texttt{2009\_10\_20\_0778.JPG}.
 
 \section{IceBridge DMS Camera}
 
-The DMS (Digital Mapping System) is a frame camera flown on as part of the NASA IceBridge
-program to collect digital terrain imagery of polar and antarctic terrain.  To process this 
+The DMS (Digital Mapping System) Camera is a frame camera flown on as part of the NASA 
+IceBridge program to collect digital terrain imagery of polar and Antarctic terrain.  To process this 
 data the steps are very similar to the steps described for a generic pinhole camera but there
-are some aspects which are particular to IceBridge.
+are some aspects which are particular to IceBridge.  You can download DMS images from 
+\url{ftp://n5eil01u.ecs.nsidc.org/SAN2/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/}.  A list of
+the available data types can be found at \url{https://nsidc.org/data/icebridge/instr_data_summary.html}.
+This example uses data from the November 5, 2009 flight over Antarctica.  The following camera
+model was used:
+
+\begin{verbatim}
+VERSION_3
+fu = 28.429
+fv = 28.429
+cu = 17.9712
+cv = 11.9808
+u_direction = 1  0  0
+v_direction = 0  1  0
+w_direction = 0  0  1
+C = 0 0 0 
+R = 1 0 0 0 1 0 0 0 1
+pitch = 0.0064
+Photometrix
+xp = 0.004
+yp = -0.191
+k1 = 1.31024e-04
+k2 = -2.05354e-07
+k3 = -5.28558e-011
+p1 = 7.2359e-006
+p2 = 2.2656e-006
+b1 = 0.0
+b2 = 0.0
+\end{verbatim}
 
 Obtaining ground control points for icy locations on Earth can be particularly difficult because
 they are not well surveyed or because the terrain shifts over time.  
@@ -1028,20 +1054,48 @@ to use estimated camera positions to convert the local camera models into global
 To make this easier for IceBridge data sets, ASP provides the 
 \texttt{icebridge\_kmz\_to\_csv} tool (see appendix \ref{icebridgekmztocsv}) 
 which extracts a list of estimated camera positions from the kmz files available for each 
-IceBridge flight at \url{http://asapdata.arc.nasa.gov/dms/missions.html}.  When using this
-method be aware of the \texttt{-\/-camera-weight} option for \texttt{bundle\_adjust}.  If
-your cameras being moved too far or too little from the estimated positions you can raise or
-lower this parameter respectively to adjust the output of the solver.
+IceBridge flight at \url{http://asapdata.arc.nasa.gov/dms/missions.html}.
 
 Another option which is useful when processing IceBridge data is the 
 \texttt{-\/-position-filter-dist} option for \texttt{bundle\_adjust}.  IceBridge data sets contain
 a large number of images and when processing many at once you can significantly decrease
 your processing time by using this option to limit interest-point matching to image pairs
-which are actually close enough to overlap.  
+which are actually close enough to overlap.  A good way to determine what distance to use
+is to load the camera position kmz file from their website into Google Earth and use the 
+ruler tool to measure the distance between a pair of frames that are as far apart as you
+want to match. Commands using these options may look like this:
 
-A final tip for processing IceBridge data is that LVIS lidar data available on some flights
-can be used to register DEMs created using DMS imagery.  The lidar data comes in plain text 
-files that \texttt{pc\_align} can parse using the following option:
+\begin{verbatim}
+icebridge_kmz_to_csv  1000123_DMS_Frame_Events.kmz  camera_positions.csv
+camera_solve out 2009_11_05_00667.JPG 2009_11_05_00668.JPG  \
+  2009_11_05_00669.JPG 2009_11_05_00670.JPG  2009_11_05_02947.JPG 2009_11_05_02948.JPG \
+  2009_11_05_02949.JPG  2009_11_05_02950.JPG  2009_11_05_01381.JPG 2009_11_05_01382.JPG  \
+  --datum WGS84 --calib-file icebridge_model.tsai  \
+  --bundle-adjust-params '--camera-positions camera_positions.csv \
+  --csv-format "1:file 2:lon 3:lat 4:height_above_datum" --position-filter-dist 2000'
+orbitviz out --load-camera-solve --hide-labels -r wgs84 -t nadirpinhole
+\end{verbatim}
+
+
+\begin{figure}[h!]
+\centering
+  \subfigure[]{\includegraphics[width=3.5in]{images/examples/pinhole/icebridge_frame_dists.png}}
+  \hfil
+  \subfigure[]{\includegraphics[width=3in]{images/examples/pinhole/icebridge_orbitviz_display.png}}
+\caption{(a) Measuring the distance between estimated frame locations using Google Earth
+and an IceBridge kmz file.  The kmz file is from the IceBridge website with no modifications.
+Using a position filter distance of 2000 meters will mostly limit image IP matching
+in this case to each image's immediate "neigbors".  (b) Display of \texttt{camera\_solve} 
+results for ten IceBridge images using \texttt{orbitviz}.}
+\label{fig:pinhole-icebridge-camera-results}
+\end{figure}
+
+
+A final tip for processing IceBridge data is that Land, Vegetation, and Ice Sensor (LVIS) 
+lidar data available for some flights can be used to register DEMs created using DMS 
+imagery.  LVIS data can be downloaded at 
+\url{ftp://n5eil01u.ecs.nsidc.org/SAN2/ICEBRIDGE/ILVIS2.001/}. The lidar data comes in plain text 
+files that \texttt{pc\_align} and \texttt{point2dem} can parse using the following option:
 \begin{verbatim}  --csv-format "5:lat 4:lon 6:height_above_datum"  \end{verbatim}
 ASP provides the \texttt{lvis2kml} tool to help visualize the coverage and terrain contained 
 in LVIS files, see appendix \ref{lvis2kml} for details.
@@ -1049,14 +1103,38 @@ The LVIS lidar coverage is sparse compared to the image coverage and you will ha
 getting a good registration unless the region has terrain features such as hills or you are 
 registering very large point clouds that overlap with the lidar coverage across a wide area.
 Otherwise \texttt{pc\_align} will simply slide the flat terrain to an incorrect location to 
-produce a low-error fit with the narrow lidar tracks.
+produce a low-error fit with the narrow lidar tracks.  This test case was specifically chosen
+to provide strong terrain features to make alignment more accurate but \texttt{pc\_align} still 
+failed to produce a good fit until the lidar point cloud was converted into a smoothed DEM.
+
+\begin{verbatim}
+stereo 2009_11_05_02948.JPG  2009_11_05_02949.JPG  out/2009_11_05_02948.JPG.final.tsai \ 
+  out/2009_11_05_02949.JPG.final.tsai st_run/out -t nadirpinhole
+point2dem ILVIS2_AQ2009_1105_R1408_055812.TXT --datum WGS_1984 \
+  --t_srs "+proj=stere +lat_0=-90 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs" \
+  --csv-format "5:lat 4:lon 6:height_above_datum"  --tr 30  \
+  --search-radius-factor 2.0 -o lvis
+pc_align  --max-displacement 1000 lvis-DEM.tif st_run/out-PC.tif  -o align_run/out \
+  --save-transformed-source-points --datum wgs84 --outlier-ratio 0.55 
+point2dem align_run/out-trans_source.tif --datum WGS_1984 \
+  --t_srs "+proj=stere +lat_0=-90 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs"
+colormap align_run_big/out-trans_source-DEM.tif --min 200 --max 1500
+colormap lvis-DEM.tif --min 200 --max 1500
+image2qtree lvis-DEM_CMAP.tif 
+image2qtree align_run_big/out-trans_source-DEM_CMAP.tif
+\end{verbatim}
 
 \begin{figure}[h!]
 \centering
-  \includegraphics[width=5.5in]{images/examples/pinhole/icebridge_orbitviz_display.png}
-\caption{Display of \texttt{camera\_solve} results for ten IceBridge images using \texttt{orbitviz.}}
+  \includegraphics[width=5.5in]{images/examples/pinhole/icebridge_dem_overlay.png}
+\caption{LVIS lidar DEM overlaid on the ASP created DEM, both colormapped to the same elevation range.
+The ASP DEM could be improved but the registration is accurate.}
 \label{fig:pinhole-icebridge-orbitviz}
 \end{figure}
+
+
+
+
 
 
 

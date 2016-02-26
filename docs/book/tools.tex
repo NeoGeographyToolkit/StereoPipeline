@@ -503,7 +503,7 @@ determination).
 detection method from: 0=OBAloG, 1=SIFT, 2=ORB. \\ \hline
 
 \texttt{-\/-local-pinhole} & Optimize processing for inputs which are local coordinate pinhole models.
-Also writes out a standalone camera model file instead of adjust files. \\ \hline
+Also writes out a standalone .tsai camera model file instead of adjust files. \\ \hline
 
 \texttt{-\/-camera-positions \textit{filename}} & CSV file containing estimated positions of each camera.  
 Only used with the local-pinhole setting to initialize global camera coordinates. If used,
@@ -2376,6 +2376,17 @@ Option & Description \\ \hline \hline
 Has no effect on boundary files.\\ \hline
 \end{longtable}
 
+\begin{figure}[!b]
+  \begin{center}
+  \includegraphics[width=6in]{images/lvis2kml_snap.png}
+  \end{center}
+  \caption{ Example of \ac{KML} visualizations produced with {\tt
+      lvis2kml}.  The output from both the boundary file (red) and the data file 
+      (green) with a point skip of 500 are shown in this image.  The color saturation of 
+      data points is scaled with the elevation such that the points in the file with the least
+      elevation show up as white and the highest points show up as the specified color.}
+  \label{fig:lvis2kml_example}
+\end{figure}
 
 
 \section{GDAL Tools}
