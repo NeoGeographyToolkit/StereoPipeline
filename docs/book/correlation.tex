@@ -254,6 +254,35 @@ intuition for the effects of various {\tt stereo.default} parameters
 and a good intuition for reading the output of {\tt disparitydebug},
 it is possible to quickly identify and address most problems.
 
+If you are seeing too many holes in your disparity images, one option 
+that may give good results is to increase the size of the
+correlation kernel used by \texttt{stereo\_corr} with the 
+\texttt{--corr-kernel} option.  Increasing the kernel size will 
+increase the processing time but should help fill in regions of
+the image where no match was found.  
+
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=17cm]{images/correlation/stereo_corr_box_compare.png}
+  \caption{The effect of increasing the correlation kernel size from 35 (left) 
+  to 75 (right). This location is covered in snow and several regions lack 
+  texture for the correlator to use but a large kernel increases the chances 
+  of finding useful texture for a given pixel.}
+  \label{fig:corr-kernel-size-effect}
+\end{figure}
+
+
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=17cm]{images/correlation/quantile_filter_result.png}
+  \caption{The effect of using the \texttt{rm-quantile} filtering option
+  in \texttt{stereo\_corr}. In the left image there are a series of high
+  disparity "islands" at the bottom of the image.  In the right image quantile
+  filtering has removed those islands while leaving the rest of the image intact.}
+  \label{fig:quantile-filtering-effect}
+\end{figure}
+
+
 \subsection{Search Range Determination}
 \label{sec:search_range}
 
