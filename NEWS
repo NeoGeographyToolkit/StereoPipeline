@@ -1,13 +1,21 @@
-*** RELEASE 2.5.2, Feb X, 2015 ***
+*** RELEASE 2.5.2, Feb XX, 2015 ***
 
 Highlights
 
+- Added a constellation of features and tools to support solving for
+  the positions of input images lacking position information.  Can be used
+  for aerial imagery with innaccurate or incomplete pose information,
+  images from low cost drones, historical images lacking metadata, 
+  and images taken with handheld cameras.
+
  - camera_solve
-   * Added support for aerial and historical imagery via this new tool
-     that uses the THEIA library (http://www.theia-sfm.org/index.html)
-     to compute camera positions and orientations where no metadata is
-     available. Ground control points can be used to find absolute
-     camera positions.
+   * New tool which adds support for aerial imagery etc as described above.
+   * Uses the THEIA library (http://www.theia-sfm.org/index.html)
+     to compute camera positions and orientations where no metadata is available. 
+   * Ground control points and estimated camera positions
+     can be used to find absolute camera positions.
+    * Added section to documentation describing ways to use ASP to 
+      process imagery from NASA's IceBridge program.
 
  - camera_calibrate
     * A convenience camera calibration tool that is a wrapper around
@@ -17,6 +25,7 @@ Highlights
  - bundle_adjust
     * Added several options to support solving for pinhole camera
       models in local coordinates using GCPs or estimated camera positions.
+    * Improved filtering options for which images are IP-matched.
 
  - orbitviz
     * Significantly improved the accuracy of the plotted camera locations.
@@ -35,6 +44,13 @@ Highlights
  - undistort_image
     * A new tool to test out pinhole model lens distortion parameters.
     
+ - Lens distortion models:
+    * Switched from binary .pinhole file format to updated version of
+      the old plain text .tsai file format.
+    * Added support for Photometrix camera calibration parameters.
+    * New appendix to the documentation describing the .tsai file format
+      and supported lens distortion models.
+    
 Other
 
  - Tools
@@ -45,9 +61,13 @@ Other
  - point2las
     * Write correct bounding box in the header.
     * Respect projections that are not lon-lat.
+
+ - point2dem
+    * Increased speed of erode option.
    
  - docs
     * Mention DERT, a tool for exploring large DEMs.
+    * Added new section describing camera_solve tool in detail.
 
 *** RELEASE 2.5.1, November 13, 2015 ***
 
