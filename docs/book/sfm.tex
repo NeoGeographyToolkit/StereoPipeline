@@ -2,7 +2,7 @@
 \label{ch:sfm}
 
 The ASP tool \texttt{camera\_solve} offers several ways
-to find the true position of pinhole camera images that do
+to find the true position of frame camera images that do
 not come with any attached pose metadata.  An overview of the tool
 and examples are provided in this chapter.  Reference information for
 this tool can be found in Appendix \ref{camerasolve}.
@@ -30,7 +30,7 @@ our supported pinhole camera models in Appendix \ref{chapter:pinholemodels}.
 
 In order to transform the camera models from local to world coordinates, 
 one of three pieces of information may be used.  These sources are listed
-below and described in more detail in the examples that folow:
+below and described in more detail in the examples that follow:
 \begin{itemize}{}
 \item A set of ground control points of the same type used by \texttt{pc\_align}.
 The easiest way to generate these points is to use the ground control point 
@@ -51,7 +51,7 @@ THEIA and/or passing in settings to \texttt{bundle\_adjust}.
 \label{sfm:generic}
 
 To demonstrate the ability of the Ames Stereo Pipeline to process a
-generic pinhole camera we use images from the Apollo 15 Metric camera.  The
+generic frame camera we use images from the Apollo 15 Metric camera.  The
  calibration information for this camera is available online and we have accurate
  digital terrain models we can use to verify our results.
 
@@ -161,7 +161,7 @@ Band 4 Block=256x256 Type=Float32, ColorInterp=Undefined
 
 In order to generate a useful DEM, we need to move our cameras from local coordinates
 to global coordinates.  The easiest way to do this is to obtain known ground control 
-points (GCPs) which can be identified in the pinhole images.  This will allow an accurate 
+points (GCPs) which can be identified in the frame images.  This will allow an accurate 
 positioning of the cameras provided that the GCPs and the camera model parameters are 
 accurate.  To create GCPs see the instructions for the \texttt{stereo\_gui} tool in 
 appendix \ref{bagcp}.
@@ -198,7 +198,7 @@ between those two images.
 \label{fig:pinhole-a15-result-image}
 \end{figure}
 
-ASP asol supports the method of initializing the \texttt{camera\_solve} tool with estimated
+ASP also supports the method of initializing the \texttt{camera\_solve} tool with estimated
 camera positions.  This method will not move the cameras to exactly the right location but
 it should get them fairly close and at the correct scale, hopefully close enough 
 to be used as-is or to be refined using \texttt{pc\_align} or some other method.  
