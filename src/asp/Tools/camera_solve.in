@@ -425,8 +425,15 @@ def run_bundle_adjust(options):
 
     output_prefix = os.path.join(options.output_folder, 'asp_ba_out')
 
+    if options.use_theia_matches:
+        # Try to export Theia matches to VW so that matching only needs to happen once.
+        # - ASP will try to find any matches that Theia did not find.
+        cmd = ['export_matches_file_to_vw', '-theia_matches_file', options.theia_match_path, 
+                                            '-output_prefix', output_prefix]
+        print cmd
+        asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
+
     # Some extra bundle adjust params
-    # - We used Theia to try and compute intrinsics, don't need to redo it here.
     have_camera_positions = options.bundle_params and ('camera-positions' in options.bundle_params)
     cam_type = 'pinhole'
     if options.gcp_path or have_camera_positions:
@@ -534,6 +541,9 @@ def main(argsIn):
         parser.add_option("--overwrite",       action="store_true", default=False,
                                                dest="overwrite",  
                                                help="Overwrite any partial computation results on disk.")
+        parser.add_option("--reuse-theia-matches", action="store_true", default=False,
+                                               dest="use_theia_matches",  
+                                               help="Pass the Theia IP matches into ASP instead of recomputing them.")
         parser.add_option('--datum',  dest='datum', default='wgs84',
                                          help='Datum to use.  Options: WGS_1984 (default), D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON)')
         parser.add_option('--calib-file',  dest='camera_param_path', default=None,
