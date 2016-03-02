@@ -3,39 +3,43 @@
 
 The ASP tool \texttt{camera\_solve} offers several ways
 to find the true position of frame camera images that do
-not come with any attached pose metadata.  An overview of the tool
-and examples are provided in this chapter.  Reference information for
-this tool can be found in Appendix \ref{camerasolve}.
+not come with any attached pose metadata. This can be useful with
+aerial, hand-held, and historical imagery for which such information
+may be incomplete or inaccurate.
+
+An overview of the tool and examples are provided in this chapter.
+Reference information for this tool can be found in Appendix
+\ref{camerasolve}.
 
 \section{Camera Solve Overview}
 
 The \texttt{camera\_solve} tool is implemented as a Python wrapper around
-two other tools.  The first of these is the the THEIA software library, 
-which is used to generate initial camera position estimates in a local 
-coordinate space.  You can learn more about THEIA at 
+two other tools.  The first of these is the the THEIA software library,
+which is used to generate initial camera position estimates in a local
+coordinate space.  You can learn more about THEIA at
 \url{http://www.theia-sfm.org/index.html}.  The second tool is ASP's
 own \texttt{bundle\_adjust} tool.  The second step improves the solution
 to account for lens distortion and transforms the solution from local
 to global coordinates by making use of additional input data.
 
-Currently the tool only solves for the extrinsic camera parameters 
-and the user must provide intrinsic camera information.  
-You can use the \texttt{camera\_calibrate} 
+Currently the tool only solves for the extrinsic camera parameters
+and the user must provide intrinsic camera information.
+You can use the \texttt{camera\_calibrate}
 tool (see Appendix \ref{cameracalibrate}) or other camera calibration software
 to solve for intrinsic parameters if you have access to the camera in question.
-The camera calibration information must be contained in a 
+The camera calibration information must be contained in a
 .tsai pinhole camera model file and must passed in using the
 \texttt{-\/-calib-file} option.  You can find descriptions of
 our supported pinhole camera models in Appendix \ref{chapter:pinholemodels}.
 
-In order to transform the camera models from local to world coordinates, 
+In order to transform the camera models from local to world coordinates,
 one of three pieces of information may be used.  These sources are listed
 below and described in more detail in the examples that follow:
 \begin{itemize}{}
 \item A set of ground control points of the same type used by \texttt{pc\_align}.
-The easiest way to generate these points is to use the ground control point 
-writer tool available in the \texttt{stereo-gui} tool.  
-\item A set of estimated camera positions (perhaps from a GPS unit) stored in 
+The easiest way to generate these points is to use the ground control point
+writer tool available in the \texttt{stereo-gui} tool.
+\item A set of estimated camera positions (perhaps from a GPS unit) stored in
 a csv file.
 \item A DEM which a local point cloud can be registered to using \texttt{pc\_align}.
 This method can be more accurate if estimated camera positions are also used.  The user
@@ -45,7 +49,6 @@ must perform alignment to a DEM, that step is not handled by \texttt{camera\_sol
 Power users can tweak the individual steps that \texttt{camera\_solve} goes through
 to optimize their results.  This primarily involves setting up a custom flag file for
 THEIA and/or passing in settings to \texttt{bundle\_adjust}.
-
 
 \section{Example: Apollo 15 Metric Camera}
 \label{sfm:generic}
@@ -72,8 +75,8 @@ First download a pair of images:
 
 In order to make the example run faster we use downsampled versions of
 the original images.  The images at those links have already been downsampled
-by a factor of 4*sqrt(2) from the original images.  This means that the 
-effective pixel size has increased from five microns (0.005 millimeters) to 
+by a factor of 4*sqrt(2) from the original images.  This means that the
+effective pixel size has increased from five microns (0.005 millimeters) to
 0.028284 millimeters.
 
 The next step is to fill out the rest of the pinhole camera model information
@@ -109,8 +112,8 @@ phi = 2.9659070
 \end{verbatim}
 
 These parameters use units of millimeters so we have to convert the nominal center
-point of the images from 2024 pixels to units of millimeters.  Note that for some older 
-images like these the nominal image center can be checked by looking for some sort of 
+point of the images from 2024 pixels to units of millimeters.  Note that for some older
+images like these the nominal image center can be checked by looking for some sort of
 marking around the image borders that indicates where the center should lie.  For these
 pictures there are black triangles at the center positions and they line up nicely
 with the center of the image.  Before we try to solve for the camera positions
@@ -119,18 +122,18 @@ with the center of the image.  Before we try to solve for the camera positions
 \end{verbatim}
 
 It is difficult to tell if the distortion model is correct by using this
-tool but it should be obvious if there are any gross errors in your 
+tool but it should be obvious if there are any gross errors in your
 camera model file such as incorrect units or missing parameters.  In this
 case the tool will fail to run or will produce a significantly distorted image.
 For certain distortion models the \texttt{undistort\_image} tool may take a long time to run.
 
 If we do not see any obvious problems we can go ahead and run the \texttt{camera\_solve} tool:
 \begin{verbatim}
-> camera_solve out/ AS15-M-0414_MED.png AS15-M-1134_MED.png --datum D_MOON \ 
+> camera_solve out/ AS15-M-0414_MED.png AS15-M-1134_MED.png --datum D_MOON \
   --calib-file metric_model.tsai
 \end{verbatim}
 
-We should get some camera models in the output folder and see a printout of 
+We should get some camera models in the output folder and see a printout of
 the final bundle adjustment error among the program output information:
 \begin{verbatim}
 Cost:
@@ -140,7 +143,7 @@ Change                           7.042649e+00
 \end{verbatim}
 
 We can't generate a DEM with these local camera models but we can run stereo anyways
-and look at the intersection error in the fourth band of the \texttt{PC.tif} file.  While 
+and look at the intersection error in the fourth band of the \texttt{PC.tif} file.  While
 there are many speckles in this example where stereo correlation failed the mean
 intersection error is low and we don't see any evidence of lens distortion error.
 
@@ -160,10 +163,10 @@ Band 4 Block=256x256 Type=Float32, ColorInterp=Undefined
 \end{verbatim}
 
 In order to generate a useful DEM, we need to move our cameras from local coordinates
-to global coordinates.  The easiest way to do this is to obtain known ground control 
-points (GCPs) which can be identified in the frame images.  This will allow an accurate 
-positioning of the cameras provided that the GCPs and the camera model parameters are 
-accurate.  To create GCPs see the instructions for the \texttt{stereo\_gui} tool in 
+to global coordinates.  The easiest way to do this is to obtain known ground control
+points (GCPs) which can be identified in the frame images.  This will allow an accurate
+positioning of the cameras provided that the GCPs and the camera model parameters are
+accurate.  To create GCPs see the instructions for the \texttt{stereo\_gui} tool in
 appendix \ref{bagcp}.
 For the moon there are several ways to get DEMs and in this case we generated GCPs
 using \texttt{stereo\_gui} and a DEM generated from LRONAC images.
@@ -174,9 +177,9 @@ After running this command:
   --calib-file metric_model.tsai --gcp-file ground_control_points.gcp
 \end{verbatim}
 we end up with results that can be compared with the a DEM created from LRONAC images.
-The stereo results on the Apollo 15 images leave something to be desired but the 
+The stereo results on the Apollo 15 images leave something to be desired but the
 DEM they produced has been moved to the correct location.  You can easily visualize
-the output camera positions using the \texttt{orbitviz} tool with the 
+the output camera positions using the \texttt{orbitviz} tool with the
 \texttt{--load-camera-solve} option as shown below.  Green lines between camera
 positions mean that a sufficient number of matching interest points were found
 between those two images.
@@ -200,8 +203,8 @@ between those two images.
 
 ASP also supports the method of initializing the \texttt{camera\_solve} tool with estimated
 camera positions.  This method will not move the cameras to exactly the right location but
-it should get them fairly close and at the correct scale, hopefully close enough 
-to be used as-is or to be refined using \texttt{pc\_align} or some other method.  
+it should get them fairly close and at the correct scale, hopefully close enough
+to be used as-is or to be refined using \texttt{pc\_align} or some other method.
 To use this method, pass additional bundle adjust parameters to \texttt{camera\_solve} similar to the following line:
 
 \begin{verbatim}
@@ -209,23 +212,25 @@ To use this method, pass additional bundle adjust parameters to \texttt{camera\_
  --csv-format "1:file 12:lat 13:lon 14:height_above_datum" --camera-weight 0.2'
 \end{verbatim}
 
-The nav data file you use must have a column (the "file" column) containing a string that can be matched to the 
+The nav data file you use must have a column (the "file" column) containing a string that can be matched to the
 input image files passed to \texttt{camera\_solve}.  The tool looks for strings that are fully contained
 inside one of the image file names, so for example the field value \texttt{2009\_10\_20\_0778} would be
 matched with the input file \texttt{2009\_10\_20\_0778.JPG}.
 
+Chapter \ref{nextsteps} will discuss the \texttt{stereo} program in more
+detail and the other tools in ASP.
 
 \section{Example: IceBridge DMS Camera}
 \label{sfm:icebridge}
 
 
-The DMS (Digital Mapping System) Camera is a frame camera flown on as part of the NASA 
-IceBridge program to collect digital terrain imagery of polar and Antarctic terrain.  To process this 
+The DMS (Digital Mapping System) Camera is a frame camera flown on as part of the NASA
+IceBridge program to collect digital terrain imagery of polar and Antarctic terrain.  To process this
 data the steps are very similar to the steps described above for the Apollo Metric camera but there
-are some aspects which are particular to IceBridge.  You can download DMS images from 
+are some aspects which are particular to IceBridge.  You can download DMS images from
 \url{ftp://n5eil01u.ecs.nsidc.org/SAN2/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/}.  A list of
 the available data types can be found at \url{https://nsidc.org/data/icebridge/instr_data_summary.html}.
-This example uses data from the November 5, 2009 flight over Antarctica.  Note that these images 
+This example uses data from the November 5, 2009 flight over Antarctica.  Note that these images
 are RGB on disk but the three channel are identical so we can just let ASP use the first
 channel by default.  The following camera model (icebridge\_model.tsai) was used:
 
@@ -238,7 +243,7 @@ cv = 11.9808
 u_direction = 1  0  0
 v_direction = 0  1  0
 w_direction = 0  0  1
-C = 0 0 0 
+C = 0 0 0
 R = 1 0 0 0 1 0 0 0 1
 pitch = 0.0064
 Photometrix
@@ -254,20 +259,20 @@ b2 = 0.0
 \end{verbatim}
 
 Obtaining ground control points for icy locations on Earth can be particularly difficult because
-they are not well surveyed or because the terrain shifts over time.  
-This may force you to use estimated camera positions 
+they are not well surveyed or because the terrain shifts over time.
+This may force you to use estimated camera positions
 to convert the local camera models into global coordinates.
-To make this easier for IceBridge data sets, ASP provides the 
-\texttt{icebridge\_kmz\_to\_csv} tool (see appendix \ref{icebridgekmztocsv}) 
-which extracts a list of estimated camera positions from the kmz files available for each 
+To make this easier for IceBridge data sets, ASP provides the
+\texttt{icebridge\_kmz\_to\_csv} tool (see appendix \ref{icebridgekmztocsv})
+which extracts a list of estimated camera positions from the kmz files available for each
 IceBridge flight at \url{http://asapdata.arc.nasa.gov/dms/missions.html}.
 
-Another option which is useful when processing IceBridge data is the 
+Another option which is useful when processing IceBridge data is the
 \texttt{-\/-position-filter-dist} option for \texttt{bundle\_adjust}.  IceBridge data sets contain
 a large number of images and when processing many at once you can significantly decrease
 your processing time by using this option to limit interest-point matching to image pairs
 which are actually close enough to overlap.  A good way to determine what distance to use
-is to load the camera position kmz file from their website into Google Earth and use the 
+is to load the camera position kmz file from their website into Google Earth and use the
 ruler tool to measure the distance between a pair of frames that are as far apart as you
 want to match. Commands using these options may look like this:
 
@@ -291,42 +296,42 @@ orbitviz out --load-camera-solve --hide-labels -r wgs84 -t nadirpinhole
 \caption{(a) Measuring the distance between estimated frame locations using Google Earth
 and an IceBridge kmz file.  The kmz file is from the IceBridge website with no modifications.
 Using a position filter distance of 2000 meters will mostly limit image IP matching
-in this case to each image's immediate "neighbors".  (b) Display of \texttt{camera\_solve} 
+in this case to each image's immediate "neighbors".  (b) Display of \texttt{camera\_solve}
 results for ten IceBridge images using \texttt{orbitviz}.}
 \label{fig:pinhole-icebridge-camera-results}
 \end{figure}
 
 
-A final tip for processing IceBridge data is that Land, Vegetation, and Ice Sensor (LVIS) 
-lidar data available for some flights can be used to register DEMs created using DMS 
-imagery.  LVIS data can be downloaded at 
-\url{ftp://n5eil01u.ecs.nsidc.org/SAN2/ICEBRIDGE/ILVIS2.001/}. The lidar data comes in plain text 
+A final tip for processing IceBridge data is that Land, Vegetation, and Ice Sensor (LVIS)
+lidar data available for some flights can be used to register DEMs created using DMS
+imagery.  LVIS data can be downloaded at
+\url{ftp://n5eil01u.ecs.nsidc.org/SAN2/ICEBRIDGE/ILVIS2.001/}. The lidar data comes in plain text
 files that \texttt{pc\_align} and \texttt{point2dem} can parse using the following option:
 \begin{verbatim}  --csv-format "5:lat 4:lon 6:height_above_datum"  \end{verbatim}
-ASP provides the \texttt{lvis2kml} tool to help visualize the coverage and terrain contained 
+ASP provides the \texttt{lvis2kml} tool to help visualize the coverage and terrain contained
 in LVIS files, see Appendix \ref{lvis2kml} for details.
 The LVIS lidar coverage is sparse compared to the image coverage and you will have difficulty
-getting a good registration unless the region has terrain features such as hills or you are 
+getting a good registration unless the region has terrain features such as hills or you are
 registering very large point clouds that overlap with the lidar coverage across a wide area.
-Otherwise \texttt{pc\_align} will simply slide the flat terrain to an incorrect location to 
+Otherwise \texttt{pc\_align} will simply slide the flat terrain to an incorrect location to
 produce a low-error fit with the narrow lidar tracks.  This test case was specifically chosen
-to provide strong terrain features to make alignment more accurate but \texttt{pc\_align} still 
+to provide strong terrain features to make alignment more accurate but \texttt{pc\_align} still
 failed to produce a good fit until the lidar point cloud was converted into a smoothed DEM.
 
 \begin{verbatim}
-stereo 2009_11_05_02948.JPG  2009_11_05_02949.JPG  out/2009_11_05_02948.JPG.final.tsai \ 
+stereo 2009_11_05_02948.JPG  2009_11_05_02949.JPG  out/2009_11_05_02948.JPG.final.tsai \
   out/2009_11_05_02949.JPG.final.tsai st_run/out -t nadirpinhole
 point2dem ILVIS2_AQ2009_1105_R1408_055812.TXT --datum WGS_1984 \
   --t_srs "+proj=stere +lat_0=-90 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs" \
   --csv-format "5:lat 4:lon 6:height_above_datum"  --tr 30  \
   --search-radius-factor 2.0 -o lvis
 pc_align  --max-displacement 1000 lvis-DEM.tif st_run/out-PC.tif  -o align_run/out \
-  --save-transformed-source-points --datum wgs84 --outlier-ratio 0.55 
+  --save-transformed-source-points --datum wgs84 --outlier-ratio 0.55
 point2dem align_run/out-trans_source.tif --datum WGS_1984 \
   --t_srs "+proj=stere +lat_0=-90 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs"
 colormap align_run_big/out-trans_source-DEM.tif --min 200 --max 1500
 colormap lvis-DEM.tif --min 200 --max 1500
-image2qtree lvis-DEM_CMAP.tif 
+image2qtree lvis-DEM_CMAP.tif
 image2qtree align_run_big/out-trans_source-DEM_CMAP.tif
 \end{verbatim}
 
@@ -339,3 +344,5 @@ is compared to the field of view of the camera.}
 \label{fig:pinhole-icebridge-orbitviz}
 \end{figure}
 
+Chapter \ref{nextsteps} will discuss the \texttt{stereo} program in more
+detail and the other tools in ASP.

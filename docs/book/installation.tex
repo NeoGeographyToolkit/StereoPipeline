@@ -100,6 +100,12 @@ in chapter \ref{ch:dg_tutorial}.
 
 \end{description}
 
+\subsection{Quick Start for Aerial and Historical Imagery}
+\label{quickstartAerial}
+
+Fetch the software as before. Processing imagery without accurate camera
+pose information is described in chapter \ref{ch:sfm}.
+
 \subsection{Common Errors}
 
 Here are some errors you might see, and what it could mean. Treat
@@ -151,7 +157,7 @@ Finally, the last thing to be done for Stereo Pipeline is to setup up
 Vision Workbench's render and logging settings. This step is optional,
 but for best performance some thought should be applied here.
 
-Vision Workbench is a multithreaded image processing library used by
+Vision Workbench is a multi-threaded image processing library used by
 Stereo Pipeline. The settings by which Vision Workbench processes is
 configurable by having a \texttt{.vwrc} file hidden in your home
 directory. Below is an example.
@@ -186,7 +192,7 @@ Adding more threads for rasterization increases the memory demands of
 Stereo Pipeline. If your system is memory limited, it might be best to
 lower the \texttt{default\_num\_threads} option. Remember that 32 bit
 systems can only allocate 4 GB of memory per process. Despite Stereo
-Pipeline being a multithreaded application, it is still a single
+Pipeline being a multi-threaded application, it is still a single
 process.
 
 \item[write\_pool\_size \textnormal (default=21)] \hfill \\

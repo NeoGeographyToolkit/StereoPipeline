@@ -4,10 +4,12 @@
 
 The NASA Ames Stereo Pipeline (ASP) is a suite of free and open source
 automated geodesy and stereogrammetry tools designed for processing
-planetary and Earth imagery captured from satellites and robotic
-rovers. It produces cartographic products, including digital elevation
-models (DEMs), ortho-projected imagery, and 3D models. These data
-products are suitable for science analysis, mission planning, and
+stereo imagery captured from satellites (around Earth and other
+planets), robotic rovers, aerial cameras, and historical imagery, with
+and without accurate camera pose information. It produces cartographic
+products, including digital elevation models (DEMs), ortho-projected
+imagery, 3D models, and bundle-adjusted networks of cameras. ASP's
+data products are suitable for science analysis, mission planning, and
 public outreach.
 
 Please install USGS ISIS version 3.4.11 if you would like to process

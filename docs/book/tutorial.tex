@@ -1593,8 +1593,13 @@ subsampling will tend to increase the signal to noise ratio, so it may
 also be helpful for obtaining 3D terrain out of noisy, low quality
 images.
 
-\item Photometric calibration can be used to improve the input images
+\item Photometric calibration (using the ISIS tools) can be used to improve the input images
 and hence get higher quality stereo results.
+
+\item If your images have missing or inaccurate camera pose information,
+and they were acquired with frame (pinhole cameras), such data can be
+solved for using structure-from-motion and bundle adjustment (chapter
+\ref{ch:sfm}).
 
 \item Shape-from-shading (chapter \ref{ch:sfs}) can be used to further
 increase the level of detail of a DEM obtained from stereo, though this
