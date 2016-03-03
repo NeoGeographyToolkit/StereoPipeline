@@ -17,6 +17,7 @@
 
 
 #include <asp/Sessions/StereoSessionDG.h>
+#include <asp/Camera/XMLBase.h>
 #include <asp/Camera/DG_XML.h>
 #include <asp/Camera/RPCModel.h>
 #include <boost/scoped_ptr.hpp>

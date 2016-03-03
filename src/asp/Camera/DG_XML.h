@@ -31,21 +31,29 @@
 #include <vw/Math/Geometry.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Camera/CameraModel.h>
-#include <asp/Camera/XMLBase.h>
+#include <asp/Core/Common.h>
 
 #include <vector>
 #include <string>
 
 #include <boost/smart_ptr/scoped_ptr.hpp>
 
+// Special forward declare so we can hide the Xerces headers.
+#include <xercesc/util/XercesDefs.hpp> // Needed for this XERCES macro
+XERCES_CPP_NAMESPACE_BEGIN
+  class DOMDocument;
+  class DOMElement;
+XERCES_CPP_NAMESPACE_END
+
 namespace asp {
 
   // Forward declare so that we can cut down on the headers.
   class RPCModel;
 
+
   /// Objects that represent read data from XML. These also provide a
   /// storage structure for modification later on.
-  class ImageXML : public XMLBase {
+  class ImageXML : public BitChecker {
 
     void parse_meta      ( xercesc::DOMElement* node );
     void parse_band_p    ( xercesc::DOMElement* node );
@@ -69,7 +77,7 @@ namespace asp {
 
 
   ///
-  class GeometricXML : public XMLBase {
+  class GeometricXML : public BitChecker {
 
     void parse_principal_distance( xercesc::DOMElement* node );
     void parse_optical_distortion( xercesc::DOMElement* node );
@@ -96,7 +104,7 @@ namespace asp {
 
 
   ///
-  class EphemerisXML : public XMLBase {
+  class EphemerisXML : public BitChecker {
 
     void parse_meta    ( xercesc::DOMElement* node );
     void parse_eph_list( xercesc::DOMElement* node );
@@ -114,7 +122,7 @@ namespace asp {
 
 
   /// 
-  class AttitudeXML : public XMLBase {
+  class AttitudeXML : public BitChecker {
 
     void parse_meta( xercesc::DOMElement* node );
     void parse_att_list( xercesc::DOMElement* node );
@@ -133,7 +141,7 @@ namespace asp {
 
 
   /// Reads from Digital Globe XML format
-  class RPCXML : public XMLBase {
+  class RPCXML : public BitChecker {
     boost::scoped_ptr<RPCModel> m_rpc;
     vw::BBox3 m_lat_lon_height_box;
 

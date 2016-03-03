@@ -21,6 +21,7 @@
 #include <vw/Cartography/Datum.h>       // for Datum
 #include <vw/FileIO/DiskImageResourceGDAL.h>
 
+#include <asp/Camera/XMLBase.h>
 #include <asp/Camera/DG_XML.h>
 #include <asp/Camera/RPCModel.h>
 
@@ -37,6 +38,9 @@ using namespace vw::cartography;
 using namespace xercesc;
 
 namespace fs=boost::filesystem;
+
+using asp::XmlUtils::get_node;
+using asp::XmlUtils::cast_xmlch;
 
 //========================================================================
 // ImageXML class
@@ -86,7 +90,7 @@ void asp::ImageXML::parse_image_size( xercesc::DOMElement* node ) {
   cast_xmlch( get_node<DOMElement>( node, "NUMCOLUMNS" )->getTextContent(), image_size[0] );
 }
 
-asp::ImageXML::ImageXML() : XMLBase(4) {}
+asp::ImageXML::ImageXML() : BitChecker(4) {}
 
 void asp::ImageXML::parse( xercesc::DOMElement* node ) {
   DOMElement* image = get_node<DOMElement>( node, "IMAGE" );
@@ -218,7 +222,7 @@ void asp::GeometricXML::parse_detector_mounting( xercesc::DOMElement* node ) {
   
 }
 
-asp::GeometricXML::GeometricXML() : XMLBase(5) {}
+asp::GeometricXML::GeometricXML() : BitChecker(5) {}
 
 void asp::GeometricXML::parse( xercesc::DOMElement* node ) {
   DOMNodeList* children = node->getChildNodes();
@@ -315,7 +319,7 @@ void asp::EphemerisXML::parse_eph_list( xercesc::DOMElement* node ) {
              IOErr() << "Read incorrect number of points." );
 }
 
-asp::EphemerisXML::EphemerisXML() : XMLBase(2) {}
+asp::EphemerisXML::EphemerisXML() : BitChecker(2) {}
 
 void asp::EphemerisXML::parse( xercesc::DOMElement* node ) {
   parse_meta( node );
@@ -374,7 +378,7 @@ void asp::AttitudeXML::parse_att_list( xercesc::DOMElement* node ) {
              IOErr() << "Read incorrect number of points." );
 }
 
-asp::AttitudeXML::AttitudeXML() : XMLBase(2) {}
+asp::AttitudeXML::AttitudeXML() : BitChecker(2) {}
 
 void asp::AttitudeXML::parse( xercesc::DOMElement* node ) {
   parse_meta( node );
@@ -400,7 +404,7 @@ void asp::RPCXML::parse_vector( xercesc::DOMElement* node,
        >> vec[18] >> vec[19];
 }
 
-asp::RPCXML::RPCXML() : XMLBase(2) {}
+asp::RPCXML::RPCXML() : BitChecker(2) {}
 
 void asp::RPCXML::read_from_file( std::string const& name ) {
   boost::scoped_ptr<XercesDOMParser> parser( new XercesDOMParser() );
@@ -735,14 +739,14 @@ bool asp::read_WV_XML_corners(std::string const& xml_path,
   lonlat_corners.resize(NUM_CORNERS);
   
   // Find the IMD node
-  DOMElement *imd_node = XMLBase::get_node<DOMElement>(elementRoot, "IMD");
+  DOMElement *imd_node = XmlUtils::get_node<DOMElement>(elementRoot, "IMD");
   if (!imd_node)
     return false;
   
   // Get the image size
   double num_rows, num_cols;
-  XMLBase::cast_xmlch( XMLBase::get_node<DOMElement>( imd_node, "NUMROWS"   )->getTextContent(), num_rows);
-  XMLBase::cast_xmlch( XMLBase::get_node<DOMElement>( imd_node, "NUMCOLUMNS")->getTextContent(), num_cols);
+  XmlUtils::cast_xmlch( XmlUtils::get_node<DOMElement>( imd_node, "NUMROWS"   )->getTextContent(), num_rows);
+  XmlUtils::cast_xmlch( XmlUtils::get_node<DOMElement>( imd_node, "NUMCOLUMNS")->getTextContent(), num_cols);
   
   // Set the pixel corners
   pixel_corners[TOP_LEFT ].x()  = 0.5;
@@ -769,14 +773,14 @@ bool asp::read_WV_XML_corners(std::string const& xml_path,
       continue;
 
     // We found the band node, now parse the child nodes
-    XMLBase::cast_xmlch(XMLBase::get_node<DOMElement>(curr_element, "ULLON")->getTextContent(), lonlat_corners[TOP_LEFT ].x());
-    XMLBase::cast_xmlch(XMLBase::get_node<DOMElement>(curr_element, "ULLAT")->getTextContent(), lonlat_corners[TOP_LEFT ].y());
-    XMLBase::cast_xmlch(XMLBase::get_node<DOMElement>(curr_element, "URLON")->getTextContent(), lonlat_corners[TOP_RIGHT].x());
-    XMLBase::cast_xmlch(XMLBase::get_node<DOMElement>(curr_element, "URLAT")->getTextContent(), lonlat_corners[TOP_RIGHT].y());
-    XMLBase::cast_xmlch(XMLBase::get_node<DOMElement>(curr_element, "LRLON")->getTextContent(), lonlat_corners[BOT_RIGHT].x());
-    XMLBase::cast_xmlch(XMLBase::get_node<DOMElement>(curr_element, "LRLAT")->getTextContent(), lonlat_corners[BOT_RIGHT].y());
-    XMLBase::cast_xmlch(XMLBase::get_node<DOMElement>(curr_element, "LLLON")->getTextContent(), lonlat_corners[BOT_LEFT ].x());
-    XMLBase::cast_xmlch(XMLBase::get_node<DOMElement>(curr_element, "LLLAT")->getTextContent(), lonlat_corners[BOT_LEFT ].y());
+    XmlUtils::cast_xmlch(XmlUtils::get_node<DOMElement>(curr_element, "ULLON")->getTextContent(), lonlat_corners[TOP_LEFT ].x());
+    XmlUtils::cast_xmlch(XmlUtils::get_node<DOMElement>(curr_element, "ULLAT")->getTextContent(), lonlat_corners[TOP_LEFT ].y());
+    XmlUtils::cast_xmlch(XmlUtils::get_node<DOMElement>(curr_element, "URLON")->getTextContent(), lonlat_corners[TOP_RIGHT].x());
+    XmlUtils::cast_xmlch(XmlUtils::get_node<DOMElement>(curr_element, "URLAT")->getTextContent(), lonlat_corners[TOP_RIGHT].y());
+    XmlUtils::cast_xmlch(XmlUtils::get_node<DOMElement>(curr_element, "LRLON")->getTextContent(), lonlat_corners[BOT_RIGHT].x());
+    XmlUtils::cast_xmlch(XmlUtils::get_node<DOMElement>(curr_element, "LRLAT")->getTextContent(), lonlat_corners[BOT_RIGHT].y());
+    XmlUtils::cast_xmlch(XmlUtils::get_node<DOMElement>(curr_element, "LLLON")->getTextContent(), lonlat_corners[BOT_LEFT ].x());
+    XmlUtils::cast_xmlch(XmlUtils::get_node<DOMElement>(curr_element, "LLLAT")->getTextContent(), lonlat_corners[BOT_LEFT ].y());
 
     return true; // Finished!
 

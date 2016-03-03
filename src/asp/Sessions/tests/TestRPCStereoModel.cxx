@@ -24,12 +24,14 @@
 #include <vw/Camera/CameraModel.h>
 #include <vw/Stereo/StereoModel.h>
 #include <test/Helpers.h>
+#include <asp/Camera/XMLBase.h>
 #include <asp/Camera/DG_XML.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/RPCStereoModel.h>
 #include <asp/Sessions/CameraModelLoader.h>
 #include <asp/Core/StereoSettings.h>
 #include <xercesc/util/PlatformUtils.hpp>
+
 
 using namespace vw;
 using namespace vw::stereo;

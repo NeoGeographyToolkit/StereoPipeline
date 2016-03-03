@@ -20,69 +20,60 @@
 // brings in a bunch of Xerces Headers. This way I can limit the
 // spread of those headers and objects.
 
-#ifndef __STEREO_SESSION_DG_XMLBASE_H__
-#define __STEREO_SESSION_DG_XMLBASE_H__
+#ifndef __STEREO_SESSION_DG_BitChecker_H__
+#define __STEREO_SESSION_DG_BitChecker_H__
 
 #include <vw/Core/Exception.h>
 #include <vw/Core/FundamentalTypes.h>
 
 #include <string>
 
+#include <boost/lexical_cast.hpp>
+
+#include <bitset>
+
+
 #include <xercesc/dom/DOMElement.hpp>
 #include <xercesc/dom/DOMNodeList.hpp>
 #include <xercesc/util/XMLString.hpp>
 #include <xercesc/util/Xerces_autoconf_config.hpp>
 
-#include <boost/lexical_cast.hpp>
+
+// TODO: Rename this file to something like XML_utils
 
 namespace asp {
 
-  /// XML parsing base that provides tools for verifying that we read
-  /// everything we were expecting.
-  class XMLBase {
-    vw::uint8 m_num_arguments;
-    vw::int32 m_checksum;
-    vw::int32 m_good;
+namespace XmlUtils {
 
-  protected:
-    /// Used to check off that one of the arguments has been read.
-    void check_argument( vw::uint8 arg );
+/// Helper function to convert XML text to binary value we want.
+template <class T>
+void cast_xmlch( const XMLCh* ch, T& dst) {
+  char* text = xercesc::XMLString::transcode(ch);
+  try {
+    dst = boost::lexical_cast<T>( text );
+  } catch (boost::bad_lexical_cast const& e) {
+    vw_throw(vw::ArgumentErr() << "Failed to parse string: " << text << "\n");
+  }
 
-
-  public:
-    XMLBase( vw::uint8 num_arguments );
-
-
-    /// Helper function to convert XML text to binary value we want.
-    template <class T>
-    static void cast_xmlch( const XMLCh* ch, T& dst) {
-      char* text = xercesc::XMLString::transcode(ch);
-      try {
-        dst = boost::lexical_cast<T>( text );
-      } catch (boost::bad_lexical_cast const& e) {
-        vw_throw(vw::ArgumentErr() << "Failed to parse string: " << text << "\n");
-      }
-
-      xercesc::XMLString::release( &text );
-    }
+  xercesc::XMLString::release( &text );
+}
 
 
-    /// Helper function to retreive a node via string and verify that only one exists.
-    template <class T>
-    static T* get_node( xercesc::DOMElement* element, std::string const& tag ) {
-      XMLCh* tag_c = xercesc::XMLString::transcode(tag.c_str());
-      xercesc::DOMNodeList* list = element->getElementsByTagName( tag_c );
-      VW_ASSERT( list->getLength() != 0,
-                 vw::IOErr() << "Couldn't find \"" << tag << "\" tag." );
-      VW_ASSERT( list->getLength() == 1,
-                 vw::IOErr() << "Found multiple \"" << tag << "\" tags." );
-      xercesc::XMLString::release(&tag_c);
-      return dynamic_cast<T*>(list->item(0));
-    }
+/// Helper function to retreive a node via string and verify that only one exists.
+template <class T>
+T* get_node( xercesc::DOMElement* element, std::string const& tag ) {
+  XMLCh* tag_c = xercesc::XMLString::transcode(tag.c_str());
+  xercesc::DOMNodeList* list = element->getElementsByTagName( tag_c );
+  VW_ASSERT( list->getLength() != 0,
+             vw::IOErr() << "Couldn't find \"" << tag << "\" tag." );
+  VW_ASSERT( list->getLength() == 1,
+             vw::IOErr() << "Found multiple \"" << tag << "\" tags." );
+  xercesc::XMLString::release(&tag_c);
+  return dynamic_cast<T*>(list->item(0));
+}
 
-    bool is_good() const;
-  };
+} // End namespace XmlUtils 
 
 } // end namespace asp
 
-#endif//__STEREO_SESSION_DG_XMLBASE_H__
+#endif//__STEREO_SESSION_DG_BitChecker_H__
