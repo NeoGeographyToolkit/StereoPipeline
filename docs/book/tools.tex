@@ -434,7 +434,7 @@ Example (for Digital Globe Earth data, using ground control points):
 \end{verbatim}
 
 Example (for generic pinhole camera data, using estimated camera positions):
-\begin{verbatim}   
+\begin{verbatim}
   bundle_adjust file1.JPG file2.JPG file1.tsai file2.tsai -o results/out \
      -t pinhole --local-pinhole --datum WGS_1984 --camera-positions nav_data.csv \
      --csv-format "1:file 6:lat 7:lon 9:height_above_datum"
@@ -505,7 +505,7 @@ detection method from: 0=OBAloG, 1=SIFT, 2=ORB. \\ \hline
 \texttt{-\/-local-pinhole} & Optimize processing for inputs which are local coordinate pinhole models.
 Also writes out a standalone .tsai camera model file instead of adjust files. \\ \hline
 
-\texttt{-\/-camera-positions \textit{filename}} & CSV file containing estimated positions of each camera.  
+\texttt{-\/-camera-positions \textit{filename}} & CSV file containing estimated positions of each camera.
 Only used with the local-pinhole setting to initialize global camera coordinates. If used,
 the csv-format setting must also be set.  The "file" field is searched for strings that are found
 in the input image files to match locations to cameras.\\ \hline
@@ -527,7 +527,7 @@ easting, northing, and height above datum. \\ \hline
 
 \texttt{-\/-position-filter-dist \textit{double(=-1.0)}} &
 If estimated camera positions are used, this option can be used to set a threshold distance in meters
-between the cameras.  If any pair of cameras is farther apart than this distance, the tool will not 
+between the cameras.  If any pair of cameras is farther apart than this distance, the tool will not
 attempt to find matching interest points between those two cameras.
 \\ \hline
 
@@ -1132,9 +1132,9 @@ and NAVD88, relative to the NAD83 datum ellipsoid
 The Mars areoid is MOLA MEGDR
 (\url{http://geo.pds.nasa.gov/missions/mgs/megdr.html}). When importing
 it into ASP, we adjusted the areoid height values to be relative to
-the IAU reference spheroid for Mars of radius 3,396,190~m, to be
-consistent with the DEM data produced by ASP. The areoid at that source was
-relative to the Mars radius of 3,396,000~m.
+the IAU reference spheroid for Mars of radius 3,396,190~m. The areoid at that source was
+relative to the Mars radius of 3,396,000~m. Yet \texttt{dem\_geoid} can adjust
+corretly Mars DEMs created in respect to either spheroid.
 
 \begin{longtable}{|l|p{10cm}|}
 \caption{Command-line options for dem\_geoid}
@@ -1349,7 +1349,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-output|-o \textit{filename(=orbit.kml)}} & Specifies the output file name \\ \hline
 \texttt{-\/-scale|-s \textit{float(=1)}} & Scale the size of the coordinate axes by this amount. Ex: To scale axis sizes up to Earth size, use 3.66 \\ \hline
 \texttt{-\/-use\_path\_to\_dae\_model|-u \textit{fullpath}} & Use this dae model to represent camera location. \emph{Google Sketch up can create these.} \\ \hline
-\texttt{-\/-load-camera-solve} & Use a specialized display for showing the results of the \texttt{camera\_solve} tool. 
+\texttt{-\/-load-camera-solve} & Use a specialized display for showing the results of the \texttt{camera\_solve} tool.
 When using this option, only pass in the path to the \texttt{camera\_solve} output folder as a positional argument.
 Green lines drawn between the camera positions indicate a successful interest point match between those two images.\\ \hline
 \texttt{-\/-hide-labels} & Hide image names unless the camera is highlighted.\\ \hline
@@ -1693,13 +1693,13 @@ from them, can use this transform as an initial guess (section
 \subsection{Troubleshooting}
 
 Remember that filtering is applied only to the source point cloud.
-If you have an input cloud with a lot of noise, make sure it is 
+If you have an input cloud with a lot of noise, make sure it is
 being used as the source cloud.
 
 If you are not getting good results with \texttt{pc\_align}, something
 that you can try is to convert an input point cloud into a smoothed DEM.
 Use \texttt{point2dem} to do this and set \texttt{-\/-search-radius-factor}
-if needed to fill in holes in the DEM.  For some input data this can 
+if needed to fill in holes in the DEM.  For some input data this can
 significantly improve alignment accuracy.
 
 \medskip
@@ -2177,7 +2177,7 @@ are in the shadow (occluded from the sun).\\ \hline
 \section{undistort\_image}
 \label{undistortimage}
 
-The \texttt{undistort\_image} program takes as input an image and a pinhole model .tsai file 
+The \texttt{undistort\_image} program takes as input an image and a pinhole model .tsai file
 describing the image.  The tool will generate a copy of the input image with the lens distortion
 specified in the pinhole model file removed.
 
@@ -2213,7 +2213,7 @@ The first file can be used as a camera calibration file for the \texttt{camera\_
 is a pinhole camera format that is recognized by ASP but remember that the extrinsic parameters were not solved
 for so ASP is limited in what it can do with the camera file.  The last file contains the camera information as
 formatted by the OpenCV calibration tool.  If you use the first file as an input to \texttt{camera\_solve}
-you must remember to replace the wildcard image path in the file with the one to the images you want to use 
+you must remember to replace the wildcard image path in the file with the one to the images you want to use
 solve for (as opposed to the checkerboard images).
 
 In order to use this tool you must provide multiple images of the same checkerboard pattern acquired with
@@ -2248,8 +2248,8 @@ Option & Description \\ \hline \hline
 \label{camerasolve}
 
 The \texttt{camera\_solve} tool generates pinhole sensor models (frame
-cameras) for input images lacking metadata.  See chapter 
-\ref{chapter:sfm} for an overview an examples of using the tool..
+cameras), including camera poses, for input images lacking metadata.  See chapter
+\ref{ch:sfm} for an overview and examples of using the tool.
 
 The camera calibration passed with the \texttt{-\/-calib-file} option
  should be a .tsai pinhole camera model file in one of the formats
@@ -2257,13 +2257,13 @@ compatible with ASP.  Our supported pinhole camera models are described
 in appendix \ref{chapter:pinholemodels}.
 
 
-You can use a set of estimated camera positions to register 
+You can use a set of estimated camera positions to register
 camera models in world coordinates.
 This method is not as accurate as using ground control points but it may
-be easier to use.  To do this, use the \texttt{-\/-camera-positions} parameter to 
-\texttt{bundle-adjust} via the \texttt{-\/-bundle-adjust-params} option similar to 
-the example line below.  If you see the camera models shifting too far from their 
-starting positions try using the \texttt{-\/-camera-weight} option to restrain 
+be easier to use.  To do this, use the \texttt{-\/-camera-positions} parameter to
+\texttt{bundle-adjust} via the \texttt{-\/-bundle-adjust-params} option similar to
+the example line below.  If you see the camera models shifting too far from their
+starting positions try using the \texttt{-\/-camera-weight} option to restrain
 their movement.
 
 \begin{verbatim}
@@ -2273,8 +2273,8 @@ their movement.
 
 This tool will generate two .tsai camera model files in the output folder per input image.
 The first file, appended with .tsai, is in a local coordinate system and does not include
-optimizations for intrinsic parameters but it may be useful for debugging purposes.  
-The second file, appended with .final.tsai, contains the final solver results.  If ground control points or 
+optimizations for intrinsic parameters but it may be useful for debugging purposes.
+The second file, appended with .final.tsai, contains the final solver results.  If ground control points or
 estimated camera positions were provided then the second file will be in a global coordinate system.
 
 
@@ -2331,7 +2331,7 @@ A simple tool for use with data from the NASA IceBridge program.  Google Earth c
 .kmz files are available at \url{http://asapdata.arc.nasa.gov/dms/missions.html} which display
 the aircraft position at the point when each DMS frame image was captured.  This tool exports
 those positions into a csv file which can be passed into \texttt{bundle\_adjust} using
-the following parameters: 
+the following parameters:
 \begin{verbatim}
 --camera-positions ../camera_positions.csv --csv-format "1:file 2:lon 3:lat 4:height_above_datum"
 \end{verbatim}
@@ -2348,10 +2348,10 @@ Usage:
 \section{lvis2kml}
 \label{lvis2kml}
 
-A simple tool for use with LVIS (Land, Vegetation, and Ice Sensor) lidar data from the 
-NASA IceBridge program.  Generates a Google Earth compatible .kml files from either 
+A simple tool for use with LVIS (Land, Vegetation, and Ice Sensor) lidar data from the
+NASA IceBridge program.  Generates a Google Earth compatible .kml files from either
 an LVIS data file (.TXT extension) or an LVIS boundary file (.xml extension).  Using
-this tool makes it easy to visualize what region a given LVIS file covers and what 
+this tool makes it easy to visualize what region a given LVIS file covers and what
 the shap of its data looks like.  If the output path is not passed to the tool it
 will generate an output path by appending ".kml" to the input path.  This tool requires
 the simplekml Python package to run.  One way to get this is to install the ASP Python
@@ -2384,8 +2384,8 @@ Has no effect on boundary files.\\ \hline
   \includegraphics[width=6in]{images/lvis2kml_snap.png}
   \end{center}
   \caption{ Example of \ac{KML} visualizations produced with {\tt
-      lvis2kml}.  The output from both the boundary file (red) and the data file 
-      (green) with a point skip of 500 are shown in this image.  The color saturation of 
+      lvis2kml}.  The output from both the boundary file (red) and the data file
+      (green) with a point skip of 500 are shown in this image.  The color saturation of
       data points is scaled with the elevation such that the points in the file with the least
       elevation show up as white and the highest points show up as the specified color.}
   \label{fig:lvis2kml_example}
