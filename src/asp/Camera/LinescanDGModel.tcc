@@ -16,155 +16,23 @@
 // __END_LICENSE__
 
 
-template <class PositionFuncT, class VelocityFuncT, class PoseFuncT, class TimeFuncT>
-typename LinescanDGModel<PositionFuncT, VelocityFuncT, PoseFuncT, TimeFuncT>::LinescanLMA::result_type
-LinescanDGModel<PositionFuncT, VelocityFuncT, PoseFuncT, TimeFuncT>::LinescanLMA
-::operator()( domain_type const& y ) const {
-  double t = m_model->m_time_func( y[0] );
 
-  // Rotate the point into our camera's frame
-  vw::Vector3 pt = inverse( m_model->m_pose_func(t) ).rotate( m_point - m_model->m_position_func(t) );
-  pt *= m_model->m_focal_length / pt.z(); // Rescale to pixel units
-  result_type result(1);
-  result[0] = pt.y() -
-    m_model->m_detector_origin[1]; // Error against the location
-				   // of the detector
-  return result;
-}
+#include <vw/Math/EulerAngles.h>
+#include <asp/Camera/RPCModel.h>
+#include <asp/Camera/DG_XML.h>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
-template <class PositionFuncT, class VelocityFuncT, class PoseFuncT, class TimeFuncT>
-vw::Vector2 LinescanDGModel<PositionFuncT, VelocityFuncT, PoseFuncT, TimeFuncT>
-::point_to_pixel(vw::Vector3 const& point) const {
-  return point_to_pixel(point, -1);
-}
+namespace asp {
 
-// Here we use an initial guess for the line number
-template <class PositionFuncT, class VelocityFuncT, class PoseFuncT, class TimeFuncT>
-vw::Vector2 LinescanDGModel<PositionFuncT, VelocityFuncT, PoseFuncT, TimeFuncT>
-::point_to_pixel(vw::Vector3 const& point, double starty) const {
+template <class PositionFuncT, class PoseFuncT>
+vw::camera::PinholeModel LinescanDGModel<PositionFuncT, PoseFuncT>::linescan_to_pinhole(double y) const {
 
-  if (!m_correct_velocity_aberration)
-    return point_to_pixel_uncorrected(point, starty);
-  return point_to_pixel_corrected(point, starty);
-}
-
-namespace linescan {
-  const double ABS_TOL = 1e-16;
-  const double REL_TOL = 1e-16;
-  const int    MAX_ITERATIONS = 1e+5;
-}
-
-template <class PositionFuncT, class VelocityFuncT, class PoseFuncT, class TimeFuncT>
-vw::Vector2 LinescanDGModel<PositionFuncT, VelocityFuncT, PoseFuncT, TimeFuncT>
-::point_to_pixel_uncorrected(vw::Vector3 const& point, double starty) const {
-
-  using namespace vw;
-
-  // Solve for the correct line number to use
-  LinescanLMA model( this, point );
-  int status;
-  Vector<double> objective(1), start(1);
-  start[0] = m_image_size.y()/2;
-
-  // Use a refined guess, if available
-  if (starty >= 0)
-    start[0] = starty;
-
-  Vector<double> solution
-    = math::levenberg_marquardt(model, start, objective, status,
-                                linescan::ABS_TOL,
-                                linescan::REL_TOL,
-                                linescan::MAX_ITERATIONS);
-
-  VW_ASSERT( status > 0,
-	     camera::PointToPixelErr() << "Unable to project point into LinescanDG model" );
-
-  // Solve for sample location
-  double  t  = m_time_func( solution[0] );
-  Vector3 pt = inverse( m_pose_func(t) ).rotate( point - m_position_func(t) );
-  pt *= m_focal_length / pt.z();
-
-  return vw::Vector2(pt.x() - m_detector_origin[0], solution[0]);
-}
-
-template <class PositionFuncT, class VelocityFuncT, class PoseFuncT, class TimeFuncT>
-vw::Vector2 LinescanDGModel<PositionFuncT, VelocityFuncT, PoseFuncT, TimeFuncT>
-::point_to_pixel_corrected(vw::Vector3 const& point, double starty) const {
-
-  using namespace vw;
-
-  LinescanCorrLMA model( this, point );
-  int status;
-  Vector2 start = point_to_pixel_uncorrected(point, starty);
-
-  Vector3 objective(0, 0, 0);
-  Vector2 solution
-    = math::levenberg_marquardt(model, start, objective, status,
-                                linescan::ABS_TOL,
-                                linescan::REL_TOL,
-                                linescan::MAX_ITERATIONS);
-  VW_ASSERT( status > 0,
-	     camera::PointToPixelErr() << "Unable to project point into LinescanDG model" );
-
-  return solution;
-}
-
-template <class PositionFuncT, class VelocityFuncT, class PoseFuncT, class TimeFuncT>
-vw::Vector3 LinescanDGModel<PositionFuncT, VelocityFuncT, PoseFuncT, TimeFuncT>
-::pixel_to_vector(vw::Vector2 const& pix) const {
-
-  using namespace vw;
-
-  // Compute local vector from the pixel out of the sensor
-  // - m_detector_origin and m_focal_length have been converted into units of pixels
-  Vector3 local_vec(pix[0]+m_detector_origin[0], m_detector_origin[1], m_focal_length);
-  // Put the local vector in world coordinates using the pose information.
-  Vector3 pix_to_vec = normalize(camera_pose(pix).rotate(local_vec));
-
-  if (!m_correct_velocity_aberration) return pix_to_vec;
-
-  // Correct for velocity aberration
-
-  // 1. Find the distance from the camera to the first
-  // intersection of the current ray with the Earth surface.
-  Vector3 cam_ctr          = camera_center(pix);
-  double  earth_ctr_to_cam = norm_2(cam_ctr);
-  double  cam_angle_cos    = dot_prod(pix_to_vec, -normalize(cam_ctr));
-  double  len_cos          = earth_ctr_to_cam*cam_angle_cos;
-  double  earth_rad        = 6371000.0; // TODO: Vary by location?
-  double  cam_to_surface   = len_cos - sqrt(earth_rad*earth_rad
-					    + len_cos*len_cos
-					    - earth_ctr_to_cam*earth_ctr_to_cam);
-
-  // 2. Correct the camera velocity due to the fact that the Earth
-  // rotates around its axis.
-  double seconds_in_day = 86164.0905;
-  Vector3 earth_rotation_vec(0.0, 0.0, 2*M_PI/seconds_in_day);
-  Vector3 cam_vel = camera_velocity(pix);
-  Vector3 cam_vel_corr1 = cam_vel - cam_to_surface * cross_prod(earth_rotation_vec, pix_to_vec);
-
-  // 3. Find the component of the camera velocity orthogonal to the
-  // direction the camera is pointing to.
-  Vector3 cam_vel_corr2 = cam_vel_corr1 - dot_prod(cam_vel_corr1, pix_to_vec) * pix_to_vec;
-
-  // 4. Correct direction for velocity aberration due to the speed of light.
-  double light_speed = 299792458.0;
-  Vector3 corr_pix_to_vec = pix_to_vec - cam_vel_corr2/light_speed;
-  return normalize(corr_pix_to_vec);
-}
-
-template <class PositionFuncT, class VelocityFuncT, class PoseFuncT, class TimeFuncT>
-vw::camera::PinholeModel LinescanDGModel<PositionFuncT, VelocityFuncT, PoseFuncT, TimeFuncT>
-::linescan_to_pinhole(double y) const{
-
-  double t = m_time_func( y );
-  return vw::camera::PinholeModel(m_position_func(t),  m_pose_func(t).rotation_matrix(),
-				  m_focal_length, -m_focal_length,
-				  -m_detector_origin[0], y - m_detector_origin[1]
+  double t = this->m_time_func( y );
+  return vw::camera::PinholeModel(this->m_position_func(t),  this->m_pose_func(t).rotation_matrix(),
+				  this->m_focal_length, -this->m_focal_length,
+				  -this->m_detector_origin[0], y - this->m_detector_origin[1]
 				  );
 }
-
-
 
 
 class SecondsFrom
@@ -189,8 +57,7 @@ inline boost::posix_time::ptime parse_time(std::string str)
   return boost::posix_time::time_from_string(str); // Never reached!
 }
 
-boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const& path,
-							       bool correct_velocity_aberration)
+boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const& path)
 {
   //vw_out() << "DEBUG - Loading DG camera file: " << camera_file << std::endl;
 
@@ -265,10 +132,14 @@ boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const
 
   typedef boost::shared_ptr<DGCameraModel> CameraModelPtr;
   return CameraModelPtr(new DGCameraModel(vw::camera::PiecewiseAPositionInterpolation(eph.position_vec, eph.velocity_vec, et0, edt ),
-					  vw::camera::LinearPiecewisePositionInterpolation(eph.velocity_vec, et0, edt),
-					  vw::camera::SLERPPoseInterpolation(att.quat_vec, at0, adt),
-					  tlc_time_interpolation, img.image_size,
-					  final_detector_origin,
-					  geo.principal_distance, correct_velocity_aberration)
+					                                vw::camera::LinearPiecewisePositionInterpolation(eph.velocity_vec, et0, edt),
+					                                vw::camera::SLERPPoseInterpolation(att.quat_vec, at0, adt),
+					                                tlc_time_interpolation, img.image_size,
+					                                final_detector_origin,
+					                                geo.principal_distance)
 		    );
 } // End function load_dg_camera_model()
+
+
+} // end namespace asp
+

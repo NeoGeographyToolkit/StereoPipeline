@@ -31,7 +31,7 @@
 
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Camera/RPCStereoModel.h>
-#include <asp/Sessions/CameraModelLoader.h>
+#include <asp/Camera/CameraModelLoader.h>
 
 namespace asp {
 

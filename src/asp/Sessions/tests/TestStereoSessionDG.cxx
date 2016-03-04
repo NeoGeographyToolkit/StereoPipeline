@@ -32,80 +32,6 @@ using namespace asp;
 using namespace xercesc;
 using namespace vw::test;
 
-TEST(StereoSessionDG, XMLReading) {
-  XMLPlatformUtils::Initialize();
-
-  GeometricXML geo;
-  AttitudeXML att;
-  EphemerisXML eph;
-  ImageXML img;
-  RPCXML rpc;
-
-  EXPECT_FALSE( geo.is_good() );
-  EXPECT_FALSE( att.is_good() );
-  EXPECT_FALSE( eph.is_good() );
-  EXPECT_FALSE( img.is_good() );
-  EXPECT_FALSE( rpc.is_good() );
-
-  read_xml( "dg_example1.xml", geo, att, eph, img, rpc );
-
-  EXPECT_TRUE( geo.is_good() );
-  EXPECT_TRUE( att.is_good() );
-  EXPECT_TRUE( eph.is_good() );
-  EXPECT_TRUE( img.is_good() );
-  EXPECT_TRUE( rpc.is_good() );
-
-  // Checking GEO
-  EXPECT_NEAR( 7949.165, geo.principal_distance, 1e-6 );
-  EXPECT_EQ( 0, geo.optical_polyorder );
-  EXPECT_VECTOR_NEAR( Vector3(), geo.perspective_center, 1e-6 );
-  EXPECT_NEAR( 0, geo.camera_attitude.x(), 1e-6 );
-  EXPECT_NEAR( 1, geo.camera_attitude.w(), 1e-6 );
-  EXPECT_VECTOR_NEAR( Vector2(.05372,140.71193), geo.detector_origin, 1e-6 );
-  EXPECT_NEAR( 0, geo.detector_rotation, 1e-6 );
-  EXPECT_NEAR( .008, geo.detector_pixel_pitch, 1e-6 );
-
-  // Checking ATT
-  EXPECT_FALSE( att.start_time.empty() );
-  EXPECT_NEAR( .02, att.time_interval, 1e-6 );
-  EXPECT_EQ( 840, att.quat_vec.size() );
-  EXPECT_EQ( 840, att.covariance_vec.size() );
-  for ( size_t i = 0; i < 840; i++ ) {
-    EXPECT_NE( 0, att.quat_vec[i].w() );
-    EXPECT_NE( 0, att.covariance_vec[i][5] );
-  }
-  EXPECT_VECTOR_NEAR( Vector3(3.72e-12, 3.51e-12, 1.12e-13),
-                      subvector(att.covariance_vec[0],0,3), 1e-20 );
-
-  // Checking EPH
-  EXPECT_FALSE( eph.start_time.empty() );
-  EXPECT_NEAR( .02, eph.time_interval, 1e-6 );
-  EXPECT_EQ( 840, eph.position_vec.size() );
-  EXPECT_EQ( 840, eph.velocity_vec.size() );
-  EXPECT_EQ( 840, eph.covariance_vec.size() );
-  for ( size_t i = 0; i < 840; i++ ) {
-    EXPECT_NE( 0, eph.position_vec[i].x() ) << i;
-    EXPECT_NE( 0, eph.velocity_vec[i].x() );
-    EXPECT_NE( 0, eph.covariance_vec[i][3] );
-  }
-  EXPECT_VECTOR_NEAR( Vector3(-1.150529111070304e+06,
-                              -4.900037170821411e+06,
-                              4.673402253879593e+06),
-                      eph.position_vec[0], 1e-6 );
-
-  // Checking IMG
-  EXPECT_FALSE( img.tlc_start_time.empty() );
-  EXPECT_FALSE( img.first_line_start_time.empty() );
-  EXPECT_EQ( 2, img.tlc_vec.size() );
-  EXPECT_NEAR( 0, img.tlc_vec[0].first, 1e-8 );
-  EXPECT_NEAR( 0, img.tlc_vec[0].second, 1e-8 );
-  EXPECT_NEAR( 23708, img.tlc_vec[1].first, 1e-8 );
-  EXPECT_NEAR( 1.975667, img.tlc_vec[1].second, 1e-8 );
-  EXPECT_EQ( 23708, img.image_size.y() );
-  EXPECT_EQ( 35170, img.image_size.x() );
-
-  XMLPlatformUtils::Terminate();
-}
 
 TEST(StereoSessionDG, CreateCamera) {
   StereoSessionDG session;
@@ -152,30 +78,6 @@ TEST(StereoSessionDG, CreateCamera) {
   EXPECT_NO_THROW( boost::shared_ptr<camera::CameraModel> cam3( session.camera_model("", "dg_example3.xml") ) );
 }
 
-TEST(StereoSessionDG, ReadRPC) {
-  XMLPlatformUtils::Initialize();
-
-  RPCXML xml;
-
-  EXPECT_FALSE( xml.is_good() );
-
-  xml.read_from_file( "dg_example1.xml" );
-
-  EXPECT_TRUE( xml.is_good() );
-
-  EXPECT_VECTOR_NEAR( Vector2(17564,11856), xml.rpc_ptr()->xy_offset(), 1e-6 );
-  EXPECT_VECTOR_NEAR( Vector2(17927,12384), xml.rpc_ptr()->xy_scale(), 1e-6 );
-  EXPECT_VECTOR_NEAR( Vector3(-105.2903,39.7454,2281), xml.rpc_ptr()->lonlatheight_offset(), 1e-6 );
-  EXPECT_VECTOR_NEAR( Vector3(.1345,.1003,637), xml.rpc_ptr()->lonlatheight_scale(), 1e-6 );
-  EXPECT_NEAR( 4.683662e-3, xml.rpc_ptr()->line_num_coeff()[0], 1e-6 );
-  EXPECT_NEAR( 4.395393e-6, xml.rpc_ptr()->line_num_coeff()[19], 1e-6 );
-  EXPECT_NEAR( 1, xml.rpc_ptr()->line_den_coeff()[0], 1e-6 );
-  EXPECT_NEAR( -3.71156e-8, xml.rpc_ptr()->line_den_coeff()[19], 1e-6 );
-  EXPECT_NEAR( -7.306375e-3, xml.rpc_ptr()->sample_num_coeff()[0], 1e-6 );
-  EXPECT_NEAR( -1.585929e-6, xml.rpc_ptr()->sample_num_coeff()[19], 1e-6 );
-  EXPECT_NEAR( 1, xml.rpc_ptr()->sample_den_coeff()[0], 1e-6 );
-  EXPECT_NEAR( -1.211995e-7, xml.rpc_ptr()->sample_den_coeff()[19], 1e-6 );
-}
 
 TEST(StereoSessionDG, ProjectRPC) {
   XMLPlatformUtils::Initialize();

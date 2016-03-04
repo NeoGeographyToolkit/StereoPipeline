@@ -32,8 +32,9 @@
 #include <asp/IsisIO/Equation.h>
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/Camera/LinescanDGModel.h>
-#include <asp/Sessions/CameraModelLoader.h>
+#include <asp/Camera/CameraModelLoader.h>
 #include <asp/Camera/RPCModel.h>
+#include <asp/Camera/DG_XML.h>
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 #include <map>
@@ -82,10 +83,8 @@ boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_rpc_camera_mo
 /// Load a DG camera file
 boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_dg_camera_model(std::string const& path) const
 {
-  bool correct_velocity_aberration = !stereo_settings().disable_correct_velocity_aberration;
-
   // Redirect to the call from LinescanDGModel.h file
-  return CameraModelPtr(load_dg_camera_model_from_xml(path, correct_velocity_aberration));
+  return CameraModelPtr(load_dg_camera_model_from_xml(path));
 }
 
 

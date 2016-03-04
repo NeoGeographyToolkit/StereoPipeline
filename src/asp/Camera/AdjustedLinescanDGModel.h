@@ -54,8 +54,8 @@ namespace asp {
 
     // compute the times at the bounds between which we want to place
     // the adjustments.
-    double beg_t = cam_ptr->m_time_func(adjustment_bounds[0]);
-    double end_t = cam_ptr->m_time_func(adjustment_bounds[1]);
+    double beg_t = cam_ptr->get_line_time(adjustment_bounds[0]);
+    double end_t = cam_ptr->get_line_time(adjustment_bounds[1]);
 
     // For images scanned in reverse, beg_t can be > end_t
     if (beg_t > end_t)
@@ -110,13 +110,13 @@ namespace asp {
         double bound_t = t;
         bound_t = std::max(bound_t, m_linear_position_adjustments.get_t0());
         bound_t = std::min(bound_t, TINY_ADJ*m_linear_position_adjustments.get_tend());
-        return m_linear_position_adjustments(bound_t) + m_cam_ptr->m_position_func(t);
+        return m_linear_position_adjustments(bound_t) + m_cam_ptr->camera_center(t);
       }
 
       double bound_t = t;
       bound_t = std::max(bound_t, m_smooth_position_adjustments.get_t0());
       bound_t = std::min(bound_t, TINY_ADJ*m_smooth_position_adjustments.get_tend());
-      return m_smooth_position_adjustments(bound_t) + m_cam_ptr->m_position_func(t);
+      return m_smooth_position_adjustments(bound_t) + m_cam_ptr->camera_center(t);
     }
 
     // Return the closest piecewise adjustment camera indices to given time.
@@ -200,13 +200,13 @@ namespace asp {
         double bound_t = t;
         bound_t = std::max(bound_t, m_linear_pose_adjustments.get_t0());
         bound_t = std::min(bound_t, TINY_ADJ*m_linear_pose_adjustments.get_tend());
-        return m_linear_pose_adjustments(bound_t) * m_cam_ptr->m_pose_func(t);
+        return m_linear_pose_adjustments(bound_t) * m_cam_ptr->camera_pose(t);
       }
 
       double bound_t = t;
       bound_t = std::max(bound_t, m_smooth_pose_adjustments.get_t0());
       bound_t = std::min(bound_t, TINY_ADJ*m_smooth_pose_adjustments.get_tend());
-      return m_smooth_pose_adjustments(bound_t) * m_cam_ptr->m_pose_func(t);
+      return m_smooth_pose_adjustments(bound_t) * m_cam_ptr->camera_pose(t);
     }
 
   private:
@@ -225,9 +225,7 @@ namespace asp {
   // and pose. Note that we don't adjust the velocity, maybe we should.
   class AdjustedLinescanDGModel:
     public LinescanDGModel<AdjustablePosition,                                 // position
-                           vw::camera::LinearPiecewisePositionInterpolation,   // velocity
-                           AdjustablePose,                                     // pose
-                           vw::camera::TLCTimeInterpolation> {
+                           AdjustablePose> {                                   // pose
 
   public:
     //------------------------------------------------------------------
@@ -240,17 +238,14 @@ namespace asp {
                             std::vector<vw::Quat>    const& pose_adjustments):
       // Initialize the base
       LinescanDGModel<AdjustablePosition,
-                      vw::camera::LinearPiecewisePositionInterpolation,
-                      AdjustablePose,
-                      vw::camera::TLCTimeInterpolation>
+                      AdjustablePose>
     (AdjustablePosition(get_dg_ptr(cam), interp_type, adjustment_bounds, position_adjustments, g_num_wts, g_sigma),
-     get_dg_ptr(cam)->m_velocity_func,
+     get_dg_ptr(cam)->get_velocity_func(),
      AdjustablePose(get_dg_ptr(cam), interp_type, adjustment_bounds, pose_adjustments, g_num_wts, g_sigma),
-     get_dg_ptr(cam)->m_time_func,
-     get_dg_ptr(cam)->m_image_size,
-     get_dg_ptr(cam)->m_detector_origin,
-     get_dg_ptr(cam)->m_focal_length,
-     get_dg_ptr(cam)->m_correct_velocity_aberration),
+     get_dg_ptr(cam)->get_time_func(),
+     get_dg_ptr(cam)->get_image_size(),
+     get_dg_ptr(cam)->get_detector_origin(),
+     get_dg_ptr(cam)->get_focal_length()),
       // The line below is very important. We must make sure to keep track of
       // the smart pointer to the original camera, so it does not go out of scope.
       m_cam(cam)
