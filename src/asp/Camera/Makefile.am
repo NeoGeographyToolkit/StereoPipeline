@@ -24,9 +24,9 @@ if MAKE_MODULE_CAMERA
 
 include_HEADERS = RPCModel.h RPCModelGen.h RPCStereoModel.h                   \
 		  LinescanDGModel.h  LinescanDGModel.tcc                      \
-		  AdjustedLinescanDGModel.h DG_XML.h XMLBase.h CameraModelLoader.h
+		  AdjustedLinescanDGModel.h DG_XML.h SPOT_XML.h XMLBase.h CameraModelLoader.h
 
-libaspCamera_la_SOURCES = RPCModel.cc XMLBase.cc DG_XML.cc                    \
+libaspCamera_la_SOURCES = RPCModel.cc XMLBase.cc DG_XML.cc SPOT_XML.cc           \
 			  RPCStereoModel.cc RPCModelGen.cc CameraModelLoader.cc
 			  
 
