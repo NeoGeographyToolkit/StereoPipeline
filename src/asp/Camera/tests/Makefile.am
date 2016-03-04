@@ -25,7 +25,7 @@ if MAKE_MODULE_CAMERA
 TestRPCStereoModel_SOURCES  = TestRPCStereoModel.cxx
 TestDGCameraModel_SOURCES  = TestDGCameraModel.cxx
 
-TESTS = TestDGCameraModel
+TESTS = TestDGCameraModel TestRPCStereoModel
 
 endif
 
@@ -34,7 +34,7 @@ endif
 ########################################################################
 
 AM_CPPFLAGS = @ASP_CPPFLAGS@
-AM_LDFLAGS  = @ASP_LDFLAGS@ @PKG_CAMERA_LIBS@
+AM_LDFLAGS  = @ASP_LDFLAGS@ @PKG_CAMERA_LIBS@ @PKG_ISISIO_LIBS@
 
 check_PROGRAMS = $(TESTS)
 EXTRA_DIST = wv_test1.xml wv_test2.xml wv_mvp_1.xml wv_mvp_2.xml

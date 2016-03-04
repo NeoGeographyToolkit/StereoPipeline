@@ -78,7 +78,7 @@ void test_stereo_models(const std::string &path1, const std::string &path2) {
 
 
 TEST(RPCXML, ReadRPC) {
-  XMLPlatformUtils::Initialize();
+  xercesc::XMLPlatformUtils::Initialize();
 
   RPCXML xml;
 
@@ -100,6 +100,8 @@ TEST(RPCXML, ReadRPC) {
   EXPECT_NEAR( -1.585929e-6, xml.rpc_ptr()->sample_num_coeff()[19], 1e-6 );
   EXPECT_NEAR( 1, xml.rpc_ptr()->sample_den_coeff()[0], 1e-6 );
   EXPECT_NEAR( -1.211995e-7, xml.rpc_ptr()->sample_den_coeff()[19], 1e-6 );
+  
+  xercesc::XMLPlatformUtils::Terminate();
 }
 
 
