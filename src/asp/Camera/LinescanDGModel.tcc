@@ -24,6 +24,9 @@
 
 namespace asp {
 
+// -----------------------------------------------------------------
+// LinescanDGModel class functions
+
 template <class PositionFuncT, class PoseFuncT>
 vw::camera::PinholeModel LinescanDGModel<PositionFuncT, PoseFuncT>::linescan_to_pinhole(double y) const {
 
@@ -34,6 +37,98 @@ vw::camera::PinholeModel LinescanDGModel<PositionFuncT, PoseFuncT>::linescan_to_
 				  );
 }
 
+
+template <class PositionFuncT, class PoseFuncT>
+vw::Vector3 LinescanDGModel<PositionFuncT, PoseFuncT>::get_local_pixel_vector(vw::Vector2 const& pix) const {
+  vw::Vector3 local_vec(pix[0]+m_detector_origin[0], m_detector_origin[1], m_focal_length);
+  return normalize(local_vec);
+}
+
+
+
+// Here we use an initial guess for the line number
+template <class PositionFuncT, class PoseFuncT>
+vw::Vector2 LinescanDGModel<PositionFuncT, PoseFuncT>::point_to_pixel(vw::Vector3 const& point, double starty) const {
+
+  // Use the uncorrected function to get a fast but good starting seed.
+  LinescanGenericLMA model( this, point );
+  int status;
+  vw::Vector2 start = point_to_pixel_uncorrected(point, starty);
+
+  // Run the solver
+  vw::Vector3 objective(0, 0, 0);
+  const double ABS_TOL = 1e-16;
+  const double REL_TOL = 1e-16;
+  const int    MAX_ITERATIONS = 1e+5;
+  vw::Vector2 solution = vw::math::levenberg_marquardt(model, start, objective, status,
+                                                       ABS_TOL, REL_TOL, MAX_ITERATIONS);
+  VW_ASSERT( status > 0,
+          vw::camera::PointToPixelErr() << "Unable to project point into LinescanDG model" );
+
+  return solution;
+}
+
+// Computing the uncorrected pixel location is much faster.
+template <class PositionFuncT, class PoseFuncT>
+vw::Vector2 LinescanDGModel<PositionFuncT, PoseFuncT>::point_to_pixel_uncorrected(vw::Vector3 const& point, double starty) const {
+
+  // Solve for the correct line number to use
+  LinescanLMA model( this, point );
+  int status;
+  vw::Vector<double> objective(1), start(1);
+  start[0] = m_image_size.y()/2; 
+  // Use a refined guess, if available, otherwise the center line.
+  if (starty >= 0)
+    start[0] = starty;
+
+  // Run the solver
+  const double ABS_TOL = 1e-16;
+  const double REL_TOL = 1e-16;
+  const int    MAX_ITERATIONS = 1e+5;
+  vw::Vector<double> solution = vw::math::levenberg_marquardt(model, start, objective, status,
+                                                              ABS_TOL, REL_TOL, MAX_ITERATIONS);
+
+  VW_ASSERT( status > 0, vw::camera::PointToPixelErr() << "Unable to project point into LinescanDG model" );
+
+  // Solve for sample location now that we know the correct line
+  double      t  = m_time_func( solution[0] );
+  vw::Vector3 pt = inverse( m_pose_func(t) ).rotate( point - m_position_func(t) );
+  pt *= m_focal_length / pt.z();
+
+  return vw::Vector2(pt.x() - m_detector_origin[0], solution[0]);
+}
+
+
+
+
+
+
+
+
+
+
+// -----------------------------------------------------------------
+// LinescanDGModel solver functions
+
+// Function to minimize with the no-correction LMA optimizer.
+template <class PositionFuncT, class PoseFuncT>
+typename LinescanDGModel<PositionFuncT, PoseFuncT>::LinescanLMA::result_type
+LinescanDGModel<PositionFuncT, PoseFuncT>::LinescanLMA::operator()( domain_type const& y ) const {
+  double       t        = m_model->get_time_at_line(y[0]);
+  vw::Quat     pose     = m_model->get_camera_pose_at_time(t);
+  vw::Vector3  position = m_model->m_position_func(t);
+
+  // Get point in camera's frame and rescale to pixel units
+  vw::Vector3 pt = vw::camera::point_to_camera_coord(position, pose, m_point);
+  pt *= m_model->m_focal_length / pt.z();
+  result_type result(1);
+  result[0] = pt.y() - m_model->m_detector_origin[1]; // Error against the location of the detector
+  return result;
+}
+
+
+// -----------------------------------------------------------------
+// LinescanDGModel supporting functions
 
 class SecondsFrom
 {

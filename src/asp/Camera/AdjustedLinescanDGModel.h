@@ -54,8 +54,8 @@ namespace asp {
 
     // compute the times at the bounds between which we want to place
     // the adjustments.
-    double beg_t = cam_ptr->get_line_time(adjustment_bounds[0]);
-    double end_t = cam_ptr->get_line_time(adjustment_bounds[1]);
+    double beg_t = cam_ptr->get_time_at_line(adjustment_bounds[0]);
+    double end_t = cam_ptr->get_time_at_line(adjustment_bounds[1]);
 
     // For images scanned in reverse, beg_t can be > end_t
     if (beg_t > end_t)
@@ -110,13 +110,13 @@ namespace asp {
         double bound_t = t;
         bound_t = std::max(bound_t, m_linear_position_adjustments.get_t0());
         bound_t = std::min(bound_t, TINY_ADJ*m_linear_position_adjustments.get_tend());
-        return m_linear_position_adjustments(bound_t) + m_cam_ptr->camera_center(t);
+        return m_linear_position_adjustments(bound_t) + m_cam_ptr->get_camera_center_at_time(t);
       }
 
       double bound_t = t;
       bound_t = std::max(bound_t, m_smooth_position_adjustments.get_t0());
       bound_t = std::min(bound_t, TINY_ADJ*m_smooth_position_adjustments.get_tend());
-      return m_smooth_position_adjustments(bound_t) + m_cam_ptr->camera_center(t);
+      return m_smooth_position_adjustments(bound_t) + m_cam_ptr->get_camera_center_at_time(t);
     }
 
     // Return the closest piecewise adjustment camera indices to given time.
@@ -200,13 +200,13 @@ namespace asp {
         double bound_t = t;
         bound_t = std::max(bound_t, m_linear_pose_adjustments.get_t0());
         bound_t = std::min(bound_t, TINY_ADJ*m_linear_pose_adjustments.get_tend());
-        return m_linear_pose_adjustments(bound_t) * m_cam_ptr->camera_pose(t);
+        return m_linear_pose_adjustments(bound_t) * m_cam_ptr->get_camera_pose_at_time(t);
       }
 
       double bound_t = t;
       bound_t = std::max(bound_t, m_smooth_pose_adjustments.get_t0());
       bound_t = std::min(bound_t, TINY_ADJ*m_smooth_pose_adjustments.get_tend());
-      return m_smooth_pose_adjustments(bound_t) * m_cam_ptr->camera_pose(t);
+      return m_smooth_pose_adjustments(bound_t) * m_cam_ptr->get_camera_pose_at_time(t);
     }
 
   private:
