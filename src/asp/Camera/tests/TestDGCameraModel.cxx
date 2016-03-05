@@ -20,7 +20,6 @@
 #include <asp/Camera/DG_XML.h>
 #include <asp/Camera/XMLBase.h>
 #include <asp/Camera/RPCModel.h>
-#include <asp/Camera/CameraModelLoader.h>
 #include <boost/scoped_ptr.hpp>
 #include <test/Helpers.h>
 
@@ -110,12 +109,13 @@ TEST(StereoSessionDG, XMLReading) {
 
 TEST(DGCameraModel, CreateCamera) {
 
-  CameraModelLoader loader;
-
-  boost::shared_ptr<camera::CameraModel> cam1, cam2, cam3;
-  cam1 = loader.load_dg_camera_model("dg_example1.xml");
-  cam2 = loader.load_dg_camera_model("dg_example2.xml");
-
+  xercesc::XMLPlatformUtils::Initialize();
+  
+  typedef boost::shared_ptr<vw::camera::CameraModel> CameraModelPtr;
+  CameraModelPtr cam1, cam2, cam3;
+  cam1 = CameraModelPtr(load_dg_camera_model_from_xml("dg_example1.xml"));
+  cam2 = CameraModelPtr(load_dg_camera_model_from_xml("dg_example2.xml"));
+  
   ASSERT_TRUE( cam1.get() != 0 );
   ASSERT_TRUE( cam2.get() != 0 );
 
@@ -153,7 +153,8 @@ TEST(DGCameraModel, CreateCamera) {
   // Create a camera that only has a single TLC entry. It will throw
   // an error in the event that first line time and TLC entry lookup
   // don't agree. That should be good enough for a test.
-  EXPECT_NO_THROW( cam3=loader.load_dg_camera_model("dg_example3.xml"); );
+  EXPECT_NO_THROW( cam3=load_dg_camera_model_from_xml("dg_example3.xml"); );
 
+  XMLPlatformUtils::Terminate();
 }
 

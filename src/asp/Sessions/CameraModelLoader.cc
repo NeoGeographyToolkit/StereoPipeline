@@ -32,7 +32,7 @@
 #include <asp/IsisIO/Equation.h>
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/Camera/LinescanDGModel.h>
-#include <asp/Camera/CameraModelLoader.h>
+#include <asp/Sessions/CameraModelLoader.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/DG_XML.h>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -59,7 +59,8 @@ CameraModelLoader::~CameraModelLoader()
 }
 
 
-/// Load an RPC camera file
+// Load an RPC camera file
+// - TODO: Move to another file
 boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_rpc_camera_model(std::string const& path) const
 {
   // Try the default loading method

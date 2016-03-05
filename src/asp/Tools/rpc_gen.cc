@@ -32,6 +32,9 @@
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
+#include <xercesc/util/PlatformUtils.hpp>
+
+
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 

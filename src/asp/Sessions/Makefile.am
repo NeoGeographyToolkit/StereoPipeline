@@ -23,11 +23,13 @@
 if MAKE_MODULE_SESSIONS
 
 include_HEADERS = StereoSession.h StereoSessionFactory.h StereoSessionFactory.tcc \
-		  StereoSessionConcrete.h \
+		  StereoSessionConcrete.h CameraModelLoader.h \
       StereoSessionPinhole.h StereoSessionNadirPinhole.h \
-		  StereoSessionRPC.h StereoSessionDG.h StereoSessionDGMapRPC.h
+		  StereoSessionRPC.h StereoSessionDG.h StereoSessionDGMapRPC.h 
 
-libaspSessions_la_SOURCES = StereoSession.cc StereoSessionFactory.cc StereoSessionPinhole.cc StereoSessionDG.cc	StereoSessionNadirPinhole.cc
+libaspSessions_la_SOURCES = StereoSession.cc StereoSessionFactory.cc \
+      StereoSessionPinhole.cc StereoSessionDG.cc	\
+      StereoSessionNadirPinhole.cc CameraModelLoader.cc
 
 libaspSessions_la_LIBADD = @MODULE_SESSIONS_LIBS@
 

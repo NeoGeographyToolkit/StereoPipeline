@@ -152,7 +152,7 @@ namespace asp {
   /// Load a DG camera model from an XML file.
   /// - This function does not take care of Xerces XML init/de-init, the caller must
   ///   make sure this is done before/after this function is called!
-  boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const& path);
+  inline boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const& path);
 
 }      // namespace asp
 

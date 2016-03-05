@@ -19,7 +19,6 @@
 //#include <asp/Camera/LinescanDGModel.h>
 #include <asp/Camera/SPOT_XML.h>
 #include <asp/Camera/XMLBase.h>
-#include <asp/Camera/CameraModelLoader.h>
 #include <boost/scoped_ptr.hpp>
 #include <test/Helpers.h>
 

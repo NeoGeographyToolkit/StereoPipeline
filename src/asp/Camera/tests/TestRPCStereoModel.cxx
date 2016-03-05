@@ -26,9 +26,9 @@
 #include <test/Helpers.h>
 #include <asp/Camera/XMLBase.h>
 #include <asp/Camera/DG_XML.h>
+#include <asp/Camera/LinescanDGModel.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/RPCStereoModel.h>
-#include <asp/Camera/CameraModelLoader.h>
 #include <asp/Core/StereoSettings.h>
 #include <xercesc/util/PlatformUtils.hpp>
 
@@ -39,16 +39,34 @@ using namespace vw::camera;
 using namespace vw::math;
 using namespace asp;
 
+
+
+
+/// Load an RPC camera file
+/// - TODO: Remove this once we have a nice RPC load function outside the Loader class.
+boost::shared_ptr<vw::camera::CameraModel> load_rpc_camera_model(std::string const& path)
+{
+  // Try the default loading method
+  RPCModel* rpc_model = NULL;
+  try {
+    RPCXML rpc_xml; // This is for reading XML files
+    rpc_xml.read_from_file(path);
+    rpc_model = new RPCModel(*rpc_xml.rpc_ptr()); // Copy the value
+  } catch (...) {}
+
+  // We don't catch an error here because the user will need to
+  // know of a failure at this point.
+  return boost::shared_ptr<asp::RPCModel>(rpc_model);
+}
+
 void test_stereo_models(const std::string &path1, const std::string &path2) {
 
   // Load the camera models
   boost::shared_ptr<vw::camera::CameraModel> camPtr1, camPtr2;
 
   // Object to handle camera model loading
-  asp::CameraModelLoader camera_loader;
-
-  camPtr1 = camera_loader.load_rpc_camera_model(path1);
-  camPtr2 = camera_loader.load_rpc_camera_model(path2);
+  camPtr1 = load_rpc_camera_model(path1);
+  camPtr2 = load_rpc_camera_model(path2);
 
   // Set up the stereo models
   vw::stereo::StereoModel plainStereoModel(camPtr1.get(), camPtr2.get());
@@ -187,20 +205,17 @@ TEST( StereoSessionRPC, CheckStereo ) {
 }
 
 
+
 /// Make sure that the AdjustedCameraModel class handles cropping with RPC models
 TEST( StereoSessionRPC, CheckRpcCrop ) {
 
   xercesc::XMLPlatformUtils::Initialize();
 
-
-  // Object to handle camera model loading
-  asp::CameraModelLoader camera_loader;
-
   // Load the camera model as DG and RPC
-  boost::shared_ptr<vw::camera::CameraModel> rpcModel = camera_loader.load_rpc_camera_model("dg_example1.xml");
+  boost::shared_ptr<vw::camera::CameraModel> rpcModel = load_rpc_camera_model("dg_example1.xml");
 
   stereo_settings().disable_correct_velocity_aberration = true;
-  boost::shared_ptr<vw::camera::CameraModel> dgModel  = camera_loader.load_dg_camera_model("dg_example1.xml");
+  boost::shared_ptr<vw::camera::CameraModel> dgModel  = load_dg_camera_model_from_xml("dg_example1.xml");
 
   // Verify that the RPC and DG models are similar
   Vector2 testPix(100, 200);
