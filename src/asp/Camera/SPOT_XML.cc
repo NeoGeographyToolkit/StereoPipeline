@@ -93,7 +93,7 @@ void SpotXML::read_xml(std::string const& xml_path) {
   std::string err_message  = ""; // Filled in later on error
 
   try{
-    std::cout << "Set XML parser\n";
+    //std::cout << "Set XML parser\n";
   
     // Set up the XML parser
     boost::scoped_ptr<XercesDOMParser> parser( new XercesDOMParser() );
@@ -102,7 +102,7 @@ void SpotXML::read_xml(std::string const& xml_path) {
     boost::scoped_ptr<ErrorHandler> errHandler( new HandlerBase() );
     parser->setErrorHandler(errHandler.get());
 
-    std::cout << "Load XML\n";
+    //std::cout << "Load XML\n";
 
     // Load the XML file
     parser->parse( xml_path.c_str() );
@@ -135,31 +135,31 @@ void SpotXML::read_xml(std::string const& xml_path) {
 
 void SpotXML::parse_xml(xercesc::DOMElement* node) {
 
-  std::cout << "Find dataset\n";
+  //std::cout << "Find dataset\n";
   xercesc::DOMElement* dataset_frame_node       = get_node<DOMElement>(node, "Dataset_Frame"); 
   //xercesc::DOMElement* crs_node                 get_node<DOMElement>(node, "Coordinate_Reference_System");
   //xercesc::DOMElement* image_display_node       get_node<DOMElement>(node, "Image_Display");
   //xercesc::DOMElement* scene_source_node        get_node<DOMElement>(node, "Scene_Source");
-  std::cout << "Find dims\n";
+  //std::cout << "Find dims\n";
   xercesc::DOMElement* raster_dims_node         = get_node<DOMElement>(node, "Raster_Dimensions");
-  std::cout << "Find ephem\n";
+  //std::cout << "Find ephem\n";
   xercesc::DOMElement* corrected_attitudes_node = get_node<DOMElement>(node, "Corrected_Attitudes");
-  std::cout << "Find angles\n";
+  //std::cout << "Find angles\n";
   xercesc::DOMElement* look_angles_node         = get_node<DOMElement>(node, "Instrument_Look_Angles_List");
   xercesc::DOMElement* sensor_config_node       = get_node<DOMElement>(node, "Sensor_Configuration");
 
-  std::cout << "Parse dataset\n";
+  //std::cout << "Parse dataset\n";
   read_corners(dataset_frame_node);
   //read_datum(crs_node);
   //read_display_info(image_display_node);
   //read_datetime(scene_source_node);
-  std::cout << "Parse dims\n";
+  //std::cout << "Parse dims\n";
   read_image_size(raster_dims_node);
-  std::cout << "Parse ephem\n";
+  //std::cout << "Parse ephem\n";
   read_ephemeris(corrected_attitudes_node);
-  std::cout << "Parse angles\n";
+  //std::cout << "Parse angles\n";
   read_look_angles(look_angles_node);
-  std::cout << "Parse line times\n";
+  //std::cout << "Parse line times\n";
   read_line_times(sensor_config_node);
 }
 
@@ -206,7 +206,6 @@ void SpotXML::read_look_angles(xercesc::DOMElement* look_angles_node) {
     ++index;
 
   } // End loop through corrected attitudes
-
 }
 
 
@@ -240,7 +239,6 @@ void SpotXML::read_ephemeris(xercesc::DOMElement* corrected_attitudes_node) {
     pose_logs.push_back(data);
 
   } // End loop through corrected attitudes
-
 }
 
 
@@ -288,7 +286,6 @@ void SpotXML::read_line_times(xercesc::DOMElement* sensor_config_node) {
   cast_xmlch( get_node<DOMElement>(sensor_config_node, "SCENE_CENTER_TIME")->getTextContent(), center_time);
   cast_xmlch( get_node<DOMElement>(sensor_config_node, "SCENE_CENTER_LINE")->getTextContent(), center_line);
   cast_xmlch( get_node<DOMElement>(sensor_config_node, "SCENE_CENTER_COL" )->getTextContent(), center_col);
-  
 }
 
 
