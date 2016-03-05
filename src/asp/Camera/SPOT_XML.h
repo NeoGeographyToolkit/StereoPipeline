@@ -79,8 +79,10 @@ namespace asp {
     // The reader will populate these fields
     std::vector<vw::Vector3> lonlat_corners;
     std::vector<vw::Vector2> pixel_corners;
-    std::vector<std::pair<int,         vw::Vector2> > look_angles; // (column, psi_x/psi_y)
-    std::list  <std::pair<std::string, vw::Vector3> > pose_logs;   // (time,   yaw/pitch/roll)
+    std::vector<std::pair<int,         vw::Vector2> > look_angles;   // (column, psi_x/psi_y)
+    std::list  <std::pair<std::string, vw::Vector3> > pose_logs;     // (time,   yaw/pitch/roll)
+    std::list  <std::pair<std::string, vw::Vector3> > position_logs; // (time,   X/Y/Z)
+    std::list  <std::pair<std::string, vw::Vector3> > velocity_logs; // (time,   dX/dY/dZ)
     vw::Vector2i image_size;
     double       line_period;
     std::string  center_time;
@@ -96,7 +98,8 @@ namespace asp {
   private: // The various XML data reading sections
   
     void read_look_angles(xercesc::DOMElement* look_angles_node);
-    void read_ephemeris  (xercesc::DOMElement* corrected_attitudes_node);
+    void read_ephemeris  (xercesc::DOMElement* ephemeris_node);
+    void read_attitude   (xercesc::DOMElement* corrected_attitudes_node);
     void read_corners    (xercesc::DOMElement* dataset_frame_node);
     void read_image_size (xercesc::DOMElement* raster_dims_node);
     void read_line_times (xercesc::DOMElement* sensor_config_node);

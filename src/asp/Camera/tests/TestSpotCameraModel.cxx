@@ -80,6 +80,17 @@ TEST(SPOT_camera, XMLReading) {
   EXPECT_NEAR(-2.4331461036e-05, xml_reader.pose_logs.back().second.z(), EPS);
 
 
+  EXPECT_EQ("2008-03-04T12:28:27.000000",  xml_reader.position_logs.front().first);
+  EXPECT_NEAR(1.7495691231e+06,  xml_reader.position_logs.front().second.x(), EPS);
+  EXPECT_NEAR(-2.2672541162e+06, xml_reader.position_logs.front().second.y(), EPS);
+  EXPECT_NEAR(-6.6183333707e+06, xml_reader.position_logs.front().second.z(), EPS);
+
+  EXPECT_EQ("2008-03-04T12:28:27.000000",  xml_reader.velocity_logs.front().first);
+  EXPECT_NEAR(-6.2538959540e+03,  xml_reader.velocity_logs.front().second.x(), EPS);
+  EXPECT_NEAR(3.1331303950e+03, xml_reader.velocity_logs.front().second.y(), EPS);
+  EXPECT_NEAR(-2.7272519760e+03, xml_reader.velocity_logs.front().second.z(), EPS);
+
+
   XMLPlatformUtils::Terminate();
 }
 

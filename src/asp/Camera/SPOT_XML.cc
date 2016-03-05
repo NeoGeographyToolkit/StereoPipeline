@@ -142,11 +142,13 @@ void SpotXML::parse_xml(xercesc::DOMElement* node) {
   //xercesc::DOMElement* scene_source_node        get_node<DOMElement>(node, "Scene_Source");
   //std::cout << "Find dims\n";
   xercesc::DOMElement* raster_dims_node         = get_node<DOMElement>(node, "Raster_Dimensions");
+  xercesc::DOMElement* ephemeris_node           = get_node<DOMElement>(node, "Ephemeris");
   //std::cout << "Find ephem\n";
   xercesc::DOMElement* corrected_attitudes_node = get_node<DOMElement>(node, "Corrected_Attitudes");
   //std::cout << "Find angles\n";
   xercesc::DOMElement* look_angles_node         = get_node<DOMElement>(node, "Instrument_Look_Angles_List");
   xercesc::DOMElement* sensor_config_node       = get_node<DOMElement>(node, "Sensor_Configuration");
+  
 
   //std::cout << "Parse dataset\n";
   read_corners(dataset_frame_node);
@@ -154,9 +156,10 @@ void SpotXML::parse_xml(xercesc::DOMElement* node) {
   //read_display_info(image_display_node);
   //read_datetime(scene_source_node);
   //std::cout << "Parse dims\n";
+  read_ephemeris(ephemeris_node);
   read_image_size(raster_dims_node);
   //std::cout << "Parse ephem\n";
-  read_ephemeris(corrected_attitudes_node);
+  read_attitude(corrected_attitudes_node);
   //std::cout << "Parse angles\n";
   read_look_angles(look_angles_node);
   //std::cout << "Parse line times\n";
@@ -190,7 +193,7 @@ void SpotXML::read_look_angles(xercesc::DOMElement* look_angles_node) {
     if ( curr_node->getNodeType() != DOMNode::ELEMENT_NODE )
       continue;
 
-    // Check the node time
+    // Check the node name
     DOMElement* curr_element = dynamic_cast<DOMElement*>( curr_node );
     std::string tag( XMLString::transcode(curr_element->getTagName()) );
     if (tag.find("Look_Angles") == std::string::npos)
@@ -208,8 +211,53 @@ void SpotXML::read_look_angles(xercesc::DOMElement* look_angles_node) {
   } // End loop through corrected attitudes
 }
 
+void SpotXML::read_ephemeris(xercesc::DOMElement* ephemeris_node) {
 
-void SpotXML::read_ephemeris(xercesc::DOMElement* corrected_attitudes_node) {
+  position_logs.clear(); // Reset data storage
+  velocity_logs.clear();
+
+  // Dig one level down
+  xercesc::DOMElement* points_node = get_node<DOMElement>(ephemeris_node, "Points");
+
+  // Pick out the "Point" nodes
+  DOMNodeList* children = points_node->getChildNodes();
+  for ( XMLSize_t i = 0; i < children->getLength(); ++i ) {
+    // Check child node type
+    DOMNode* curr_node = children->item(i);
+    if ( curr_node->getNodeType() != DOMNode::ELEMENT_NODE )
+      continue;
+
+    // Check the node name
+    DOMElement* curr_element = dynamic_cast<DOMElement*>( curr_node );
+    std::string tag( XMLString::transcode(curr_element->getTagName()) );
+    if (tag.find("Point") == std::string::npos)
+      continue;
+
+    // Get the three sub-nodes
+    xercesc::DOMElement* location_node = get_node<DOMElement>(curr_element, "Location");
+    xercesc::DOMElement* velocity_node = get_node<DOMElement>(curr_element, "Velocity");
+  
+    // Read in both sets of values
+    std::string time;
+    Vector3 position, velocity;
+    
+    cast_xmlch( get_node<DOMElement>(curr_element, "TIME" )->getTextContent(), time );
+    cast_xmlch( get_node<DOMElement>(location_node, "X")->getTextContent(), position.x() );
+    cast_xmlch( get_node<DOMElement>(location_node, "Y")->getTextContent(), position.y() );
+    cast_xmlch( get_node<DOMElement>(location_node, "Z")->getTextContent(), position.z() );
+    cast_xmlch( get_node<DOMElement>(velocity_node, "X")->getTextContent(), velocity.x() );
+    cast_xmlch( get_node<DOMElement>(velocity_node, "Y")->getTextContent(), velocity.y() );
+    cast_xmlch( get_node<DOMElement>(velocity_node, "Z")->getTextContent(), velocity.z() );
+    
+    position_logs.push_back(std::pair<std::string, Vector3>(time, position));
+    velocity_logs.push_back(std::pair<std::string, Vector3>(time, velocity));
+
+  } // End loop through corrected attitudes
+}
+
+
+
+void SpotXML::read_attitude(xercesc::DOMElement* corrected_attitudes_node) {
 
   pose_logs.clear(); // Reset data storage
 
@@ -240,7 +288,6 @@ void SpotXML::read_ephemeris(xercesc::DOMElement* corrected_attitudes_node) {
 
   } // End loop through corrected attitudes
 }
-
 
 void SpotXML::read_corners(xercesc::DOMElement* dataset_frame_node) {
 
