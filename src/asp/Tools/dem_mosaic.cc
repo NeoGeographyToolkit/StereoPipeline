@@ -335,7 +335,7 @@ public:
 
       // The GeoTransform will hide the messy details of conversions
       // from pixels to points and lon-lat.
-      GeoTransform geotrans(georef, m_out_georef);
+      GeoTransform geotrans(georef, m_out_georef, bounding_box(disk_dem), bbox);
 
       // Get the tile bbox in the frame of the input DEM
       BBox2 in_box = geotrans.reverse_bbox(bbox);
