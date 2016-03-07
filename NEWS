@@ -1,3 +1,12 @@
+*** RELEASE 2.5.3, Upcoming! ***
+
+ - dem_mosaic
+   * Fix a bug with mosaicking of DEMs over very large extent.
+
+ - colormap
+   * Added a new colormap scheme, 'cubehelix', that works better for
+     most color-blind people.
+
 *** RELEASE 2.5.2, Feb 29, 2015 ***
 
 Highlights

@@ -400,16 +400,20 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
       max_val = min_val + 1.0;
   }
 
-  qimg = QImage(clip.cols(), clip.rows(), QImage::Format_RGB888);
+  qimg = QImage(clip.cols(), clip.rows(), QImage::Format_RGB888);//QImage::Format_ARGB32_Premultiplied);
   for (int col = 0; col < clip.cols(); col++){
     for (int row = 0; row < clip.rows(); row++){
       double val = clip(col, row);
       if (scale_pixels)
         val = round(255*(std::max(val, min_val) - min_val)/(max_val-min_val));
-      if (!highlight_nodata || clip(col, row) > nodata_val)
-        qimg.setPixel(col, row, qRgb(val, val, val));
-      else
+      if (!highlight_nodata){
+        if ( clip(col, row) > nodata_val )
+          qimg.setPixel(col, row, qRgb(val, val, val)); //QColor(val, val, val, 255).rgba()); // opaque
+        else
+          qimg.setPixel(col, row, qRgb(val, val, val)); // QColor(val, val, val, 0).rgba()); // transparent
+      }else{
         qimg.setPixel(col, row, qRgb(255, 0, 0)); // highlight in red
+      }
     }
   }
 }
