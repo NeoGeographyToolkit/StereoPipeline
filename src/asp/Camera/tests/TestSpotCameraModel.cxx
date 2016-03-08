@@ -16,15 +16,11 @@
 // __END_LICENSE__
 
 
-//#include <asp/Camera/LinescanDGModel.h>
 #include <asp/Camera/SPOT_XML.h>
-#include <asp/Camera/XMLBase.h>
+#include <asp/Camera/LinescanSpotModel.h>
 #include <boost/scoped_ptr.hpp>
 #include <test/Helpers.h>
-
-#include <vw/Stereo/StereoModel.h>
-
-#include <vw/Cartography/GeoTransform.h>
+#include <xercesc/util/PlatformUtils.hpp>
 
 using namespace vw;
 using namespace asp;
@@ -93,4 +89,21 @@ TEST(SPOT_camera, XMLReading) {
 
   XMLPlatformUtils::Terminate();
 }
+
+TEST(SPOT_camera, SensorTest) {
+  XMLPlatformUtils::Initialize();
+
+  
+  boost::shared_ptr<asp::SPOTCameraModel> cam_ptr = asp::load_spot5_camera_model("spot_example1.xml");
+
+  XMLPlatformUtils::Terminate();
+}
+
+
+
+
+
+
+
+
 

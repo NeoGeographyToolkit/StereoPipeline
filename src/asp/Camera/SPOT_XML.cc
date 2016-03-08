@@ -337,6 +337,104 @@ void SpotXML::read_line_times(xercesc::DOMElement* sensor_config_node) {
 
 
 
+// ----- These functions help convert the input data to a useable format ------
+
+// TODO: Add some error checking
+
+// Input strings look like this: 2008-03-04T12:31:03.081912
+double SpotXML::convert_time(std::string const& s) const {
+  try{
+    // Replace the T with a space so the default Boost function can parse the time.
+    std::string s2 = s;
+    boost::replace_all(s2, "T", " ");
+    boost::posix_time::ptime time = boost::posix_time::time_from_string(s2);
+    return this->m_time_ref_functor(time);
+  }catch(...){
+    vw::vw_throw(vw::ArgumentErr() << "Failed to parse time from string: " << s << "\n");
+  }
+  return -1; // Never reached!
+}
+
+// This is pretty simple, SPOT5 has a constant time for each line.
+vw::camera::LinearTimeInterpolation SpotXML::setup_time_func() const {
+
+  // The metadata tells us the time of the middle line, so find the time for the first line.
+  double center_time_d = convert_time(this->center_time);
+  double min_line_diff = static_cast<double>(0 - this->center_line);
+  double min_line_time = center_time_d + this->line_period*min_line_diff;
+  
+  return vw::camera::LinearTimeInterpolation(min_line_time, this->line_period);
+}
+
+// Note: Each file should contain 8 or 9 position/velocity locations and most/all
+//       of them will fall outside the imaging time range.  Take this into account
+//       when choosing an interpolation method!
+
+// Velocities are the sum of inertial velocities and the instantaneous
+//  Earth rotation.
+
+// The velocity is already in GCC, so just pack into a function.
+vw::camera::LagrangianInterpolation SpotXML::setup_velocity_func() const {
+
+  const int INTERP_RADII = 4; // Reccomended in the docs
+  std::vector<double>  time;
+  std::vector<Vector3> velocity;
+
+  // Loop through the velocity logs and extract values
+  std::list<std::pair<std::string, vw::Vector3> >::const_iterator iter;
+  for (iter=velocity_logs.begin(); iter!=velocity_logs.end(); ++iter) {
+    time.push_back(convert_time(iter->first));
+    velocity.push_back(iter->second);
+  }
+  return vw::camera::LagrangianInterpolation(velocity, time, INTERP_RADII);
+}
+
+// The position is already in GCC, so just pack into a function.
+// - Currently this is identical to the velocity function, but this may change later.
+vw::camera::LagrangianInterpolation SpotXML::setup_position_func() const {
+
+ const int INTERP_RADII = 4; // Reccomended in the docs
+  std::vector<double>  time;
+  std::vector<Vector3> position;
+
+  // Loop through the velocity logs and extract values
+  std::list<std::pair<std::string, vw::Vector3> >::const_iterator iter;
+  for (iter=position_logs.begin(); iter!=position_logs.end(); ++iter) {
+    time.push_back(convert_time(iter->first));
+    position.push_back(iter->second);
+  }
+  return vw::camera::LagrangianInterpolation(position, time, INTERP_RADII);
+}
+
+// TODO: Pose function may need some conversion!
+vw::camera::LinearPiecewisePositionInterpolation SpotXML::setup_pose_func() const {
+
+  // This function returns a functor that returns just the yaw/pitch/roll angles.
+  // - The time interval between lines is not constant but it is extremely close,
+  //   so maybe this interpolation is good enough?
+  std::vector<Vector3> pose;
+  std::vector<double>  time;
+
+  // Loop through the velocity logs and extract values
+  std::list<std::pair<std::string, vw::Vector3> >::const_iterator iter;
+  for (iter=pose_logs.begin(); iter!=pose_logs.end(); ++iter) {
+    time.push_back(convert_time(iter->first));
+    pose.push_back(iter->second);
+  }
+  double max_time  = time.back();
+  double min_time  = time.front();
+  double time_diff = max_time - min_time;
+  double dt        = time_diff / static_cast<double>(time.size()-1);
+  
+  return vw::camera::LinearPiecewisePositionInterpolation(pose, min_time, dt);
+
+}
+
+
+
+
+
+
 
 } // end namespace asp
 

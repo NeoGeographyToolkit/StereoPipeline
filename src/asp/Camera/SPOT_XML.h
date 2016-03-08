@@ -31,12 +31,14 @@
 #include <vw/Math/Geometry.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Camera/CameraModel.h>
+#include <vw/Camera/Extrinsics.h>
 #include <asp/Core/Common.h>
 
 #include <vector>
 #include <string>
 
 #include <boost/smart_ptr/scoped_ptr.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 // Special forward declare so we can hide the Xerces headers.
 #include <xercesc/util/XercesDefs.hpp> // Needed for this XERCES macro
@@ -47,6 +49,20 @@ XERCES_CPP_NAMESPACE_END
 
 namespace asp {
 
+
+  // TODO: Duplicate in LinescanDG class!
+  /// A functor that returns the difference in seconds from a reference time.
+  /// - Uses boost::posix_time.
+  class SecondsFromRef
+  {
+    boost::posix_time::ptime m_reference;
+  public:
+    inline SecondsFromRef( boost::posix_time::ptime const& ref_time ) : m_reference(ref_time) {}
+
+    inline double operator()( boost::posix_time::ptime const& time ) const {
+      return double( (time - m_reference).total_microseconds() ) / 1e6;
+    }
+  };
 
 /*
   Load the following elements from the .DIM file:
@@ -76,6 +92,10 @@ namespace asp {
   class SpotXML {
   public:
   
+    /// Constructor
+    /// - Sets the fixed reference time.
+    SpotXML() : m_time_ref_functor(boost::posix_time::time_from_string("2002-05-04 00:00:00.00")) {}
+
     // The reader will populate these fields
     std::vector<vw::Vector3> lonlat_corners;
     std::vector<vw::Vector2> pixel_corners;
@@ -95,6 +115,12 @@ namespace asp {
     /// Parse an XML tree to populate the data
     void parse_xml(xercesc::DOMElement* node);
 
+    // Functions to setup functors which manage the raw input data.
+    vw::camera::LagrangianInterpolation setup_position_func() const;
+    vw::camera::LagrangianInterpolation setup_velocity_func() const;
+    vw::camera::LinearPiecewisePositionInterpolation  setup_pose_func() const; // (yaw/pitch/roll)        
+    vw::camera::LinearTimeInterpolation setup_time_func    () const;
+
   private: // The various XML data reading sections
   
     void read_look_angles(xercesc::DOMElement* look_angles_node);
@@ -103,6 +129,12 @@ namespace asp {
     void read_corners    (xercesc::DOMElement* dataset_frame_node);
     void read_image_size (xercesc::DOMElement* raster_dims_node);
     void read_line_times (xercesc::DOMElement* sensor_config_node);
+
+    /// Converts a time from string to numeric format.
+    /// - All times are in seconds relative to May 5th, 2002 (when SPOT5 launched)
+    double convert_time(std::string const& s) const;
+
+    SecondsFromRef m_time_ref_functor;
 
   }; // End class SpotXML
 // TODO: If time allows, adapt some helpful functions from the DG XML reader.
