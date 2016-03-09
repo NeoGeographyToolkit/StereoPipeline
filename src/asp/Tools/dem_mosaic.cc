@@ -241,12 +241,23 @@ public:
     m_out_georef(out_georef), m_nodata_values(nodata_values){
 
     // Sanity check, see if datums differ, then the tool won't work
-    for (int i = 0; i < (int)m_georefs.size(); i++){
-      if (m_georefs[i].datum().name() != m_out_georef.datum().name()){
-	vw_throw(NoImplErr() << "Mosaicking of DEMs with different datums "
-		 << "is not implemented. Datums encountered:\n"
-		 << m_georefs[i].datum() << "\n"
-		 <<  m_out_georef.datum() << "\n");
+    for (int i = 0; i < (int)m_georefs.size(); i++) {
+      if (m_georefs[i].datum().semi_major_axis() != m_out_georef.datum().semi_major_axis() ||
+          m_georefs[i].datum().semi_minor_axis() != m_out_georef.datum().semi_minor_axis() ||
+          m_georefs[i].datum().meridian_offset() != m_out_georef.datum().meridian_offset() ){
+        vw_throw(NoImplErr() << "Mosaicking of DEMs with differing datum radii or meridian offsets "
+                 << "is not implemented. Datums encountered:\n"
+                 << m_georefs[i].datum() << "\n"
+                 <<  m_out_georef.datum() << "\n");
+      }
+      if (m_georefs[i].datum().name() != m_out_georef.datum().name() &&
+          m_georefs[i].datum().semi_major_axis() == m_out_georef.datum().semi_major_axis() &&
+          m_georefs[i].datum().semi_minor_axis() == m_out_georef.datum().semi_minor_axis() &&
+          m_georefs[i].datum().meridian_offset() == m_out_georef.datum().meridian_offset() ){
+        vw_out(WarningMessage) << "Found DEMs with the same radii and meridian offsets, "
+                               << "but different names: "
+                               <<  m_georefs[i].datum().name() << " and "
+                               << m_out_georef.datum().name() << "\n";
       }
     }
   }
