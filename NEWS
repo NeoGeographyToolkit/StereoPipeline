@@ -8,7 +8,7 @@
      most color-blind people.
 
  - stereo_gui
-   * Use transparent pixels for displaying no-data instead of black.
+   * Use transparent pixels for displaying no-data values instead of black.
 
 *** RELEASE 2.5.2, Feb 29, 2015 ***
 

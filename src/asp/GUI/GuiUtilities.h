@@ -97,7 +97,7 @@ namespace vw { namespace gui {
   std::string fileDialog(std::string title, std::string start_folder="");
 
   // The kinds of images we support
-  enum ImgType {UNINIT, CH1_DOUBLE, CH2_UINT8, CH3_UINT8};
+  enum ImgType {UNINIT, CH1_DOUBLE, CH2_UINT8, CH3_UINT8, CH4_UINT8};
 
   // Gets called for PixelT == double
   template<class PixelT>
@@ -304,6 +304,7 @@ namespace vw { namespace gui {
     DiskImagePyramid< double               > m_img_ch1_double;
     DiskImagePyramid< Vector<vw::uint8, 2> > m_img_ch2_uint8;
     DiskImagePyramid< Vector<vw::uint8, 3> > m_img_ch3_uint8;
+    DiskImagePyramid< Vector<vw::uint8, 4> > m_img_ch4_uint8;
     int m_num_channels;
     int m_rows, m_cols;
     ImgType m_type; // keeps track of which of the above images we use
@@ -413,16 +414,16 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
   qimg = QImage(clip.cols(), clip.rows(), QImage::Format_ARGB32_Premultiplied);
   for (int col = 0; col < clip.cols(); col++){
     for (int row = 0; row < clip.rows(); row++){
-      double val = clip(col, row);
+      double v = clip(col, row);
       if (scale_pixels)
-        val = round(255*(std::max(val, min_val) - min_val)/(max_val-min_val));
+        v = round(255*(std::max(v, min_val) - min_val)/(max_val-min_val));
       if (!highlight_nodata){
         if ( clip(col, row) > nodata_val ){
           // opaque
-          qimg.setPixel(col, row, QColor(val, val, val, 255).rgba());
+          qimg.setPixel(col, row, QColor(v, v, v, 255).rgba());
         }else{
           // transparent
-          qimg.setPixel(col, row, QColor(val, val, val, 0).rgba());
+          qimg.setPixel(col, row, QColor(v, v, v, 0).rgba());
         }
       }else{
          // highlight in red
@@ -441,13 +442,13 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
   qimg = QImage(clip.cols(), clip.rows(), QImage::Format_ARGB32_Premultiplied);
   for (int col = 0; col < clip.cols(); col++){
     for (int row = 0; row < clip.rows(); row++){
-      Vector<vw::uint8, 2> val = clip(col, row);
-      if ( val[1] > 0){
-        // opaque
-        qimg.setPixel(col, row, QColor(val[0], val[0], val[0], 255).rgba());
+      Vector<vw::uint8, 2> v = clip(col, row);
+      if ( v[1] > 0){
+        // opaque grayscale
+        qimg.setPixel(col, row, QColor(v[0], v[0], v[0], 255).rgba());
       }else{
         // transparent
-        qimg.setPixel(col, row, QColor(val[0], val[0], val[0], 0).rgba());
+        qimg.setPixel(col, row, QColor(v[0], v[0], v[0], 0).rgba());
       }
     }
   }
@@ -459,14 +460,17 @@ typename boost::disable_if<boost::mpl::or_< boost::is_same<PixelT,double>,
 formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
            ImageView<PixelT> const& clip, QImage & qimg){
 
-  qimg = QImage(clip.cols(), clip.rows(), QImage::Format_RGB888);
+  qimg = QImage(clip.cols(), clip.rows(), QImage::Format_ARGB32_Premultiplied);
   for (int col = 0; col < clip.cols(); col++){
     for (int row = 0; row < clip.rows(); row++){
       PixelT v = clip(col, row);
-      if (v.size() >= 3)
-        qimg.setPixel(col, row, qRgb(v[0], v[1], v[2])); // color
+      if (v.size() == 3)
+        qimg.setPixel(col, row, QColor(v[0], v[1], v[2], 255).rgba()); // color
+      else if (v.size() > 3)
+        qimg.setPixel(col, row, QColor(v[0], v[1], v[2], 255*(v[3] > 0) ).rgba()); // color or transparent
+
       else
-        qimg.setPixel(col, row, qRgb(v[0], v[0], v[0])); // grayscale
+        qimg.setPixel(col, row, QColor(v[0], v[0], v[0], 255).rgba()); // grayscale
     }
   }
 }
