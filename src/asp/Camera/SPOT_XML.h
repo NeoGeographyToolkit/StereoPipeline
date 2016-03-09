@@ -20,8 +20,8 @@
 // to read. They only read and then store the raw values. Other
 // objects will interpret the results.
 
-#ifndef __STEREO_CAMERA_DG_XML_H__
-#define __STEREO_CAMERA_DG_XML_H__
+#ifndef __STEREO_CAMERA_SPOT_XML_H__
+#define __STEREO_CAMERA_SPOT_XML_H__
 
 #include <vw/Core/FundamentalTypes.h>
 #include <vw/Core/Log.h>
@@ -45,6 +45,8 @@
 XERCES_CPP_NAMESPACE_BEGIN
   class DOMDocument;
   class DOMElement;
+  class XercesDOMParser;
+  class ErrorHandler;
 XERCES_CPP_NAMESPACE_END
 
 namespace asp {
@@ -115,6 +117,12 @@ namespace asp {
     /// Parse an XML tree to populate the data
     void parse_xml(xercesc::DOMElement* node);
 
+    /// Fills in an ImageFormat object required to read the associated .BIL file.
+    static vw::ImageFormat get_image_format(std::string const& xml_path);
+    
+    /// Faster overload for when the file has already been parsed.
+    vw::ImageFormat get_image_format() const;
+
     // Functions to setup functors which manage the raw input data.
     vw::camera::LagrangianInterpolation setup_position_func() const;
     vw::camera::LagrangianInterpolation setup_velocity_func() const;
@@ -122,6 +130,9 @@ namespace asp {
     vw::camera::LinearTimeInterpolation setup_time_func    () const;
 
   private: // The various XML data reading sections
+  
+    /// Just opens the XML file for reading and returns the root node.
+    xercesc::DOMElement* open_xml_file(std::string const& xml_path);
   
     void read_look_angles(xercesc::DOMElement* look_angles_node);
     void read_ephemeris  (xercesc::DOMElement* ephemeris_node);
@@ -134,6 +145,8 @@ namespace asp {
     /// - All times are in seconds relative to May 5th, 2002 (when SPOT5 launched)
     double convert_time(std::string const& s) const;
 
+    boost::shared_ptr<xercesc::XercesDOMParser> m_parser;
+    boost::shared_ptr<xercesc::ErrorHandler>    m_errHandler;
     SecondsFromRef m_time_ref_functor;
 
   }; // End class SpotXML
@@ -143,4 +156,4 @@ namespace asp {
 
 } //end namespace asp
 
-#endif//__STEREO_CAMERA_DG_XML_H__
+#endif//__STEREO_CAMERA_SPOT_XML_H__

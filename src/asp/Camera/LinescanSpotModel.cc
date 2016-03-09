@@ -49,6 +49,17 @@ Vector3 SPOTCameraModel::get_local_pixel_vector(vw::Vector2 const& pix) const {
 }
 
 
+vw::ImageFormat SPOTCameraModel::get_image_format() const {
+  vw::ImageFormat format;
+  format.cols          = samples_per_line();
+  format.rows          = number_of_lines ();
+  format.planes        = 1;
+  format.pixel_format  = vw::VW_PIXEL_GRAY; // This should be constant
+  format.channel_type  = vw::VW_CHANNEL_UINT8;
+  format.premultiplied = true; // Don't do anything funny to the data
+  return format;
+}
+
 Matrix3x3 SPOTCameraModel::get_local_orbital_frame(Vector3 const& position, Vector3 const& velocity) {
   // These calculations are copied from the SPOT 123-4-58 Geometry Handbook (GAEL-P135-DOC-001)
   Vector3 Z2 = vw::math::normalize(position);

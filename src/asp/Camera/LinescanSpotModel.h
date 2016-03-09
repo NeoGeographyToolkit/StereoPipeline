@@ -21,8 +21,8 @@
 /// A generic linescan camera model object
 ///
 ///
-#ifndef __STEREO_CAMERA_LINESCAN_DG_MODEL_H__
-#define __STEREO_CAMERA_LINESCAN_DG_MODEL_H__
+#ifndef __STEREO_CAMERA_LINESCAN_SPOT_MODEL_H__
+#define __STEREO_CAMERA_LINESCAN_SPOT_MODEL_H__
 
 #include <vw/Math/Matrix.h>
 #include <vw/Camera/LinescanModel.h>
@@ -138,6 +138,9 @@ Check the LOS paper to see if it has a good implementation suggestion.
     virtual vw::Vector3 get_local_pixel_vector(vw::Vector2 const& pix) const;
  
  
+    /// Fills in an ImageFormat object required to read the associated .BIL file.
+    vw::ImageFormat get_image_format() const;
+ 
     // ---- Users probably won't ever need to call these functions ----
  
     /// Given the satellite's position and velocity in GCC coordinates, return
@@ -174,4 +177,4 @@ Check the LOS paper to see if it has a good implementation suggestion.
 }      // namespace asp
 
 
-#endif//__STEREO_CAMERA_LINESCAN_DG_MODEL_H__
+#endif//__STEREO_CAMERA_LINESCAN_SPOT_MODEL_H__

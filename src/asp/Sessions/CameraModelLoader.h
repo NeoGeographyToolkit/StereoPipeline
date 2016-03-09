@@ -47,6 +47,7 @@ namespace asp {
     CameraModelPtr load_dg_camera_model     (std::string const& path) const;
     CameraModelPtr load_pinhole_camera_model(std::string const& path) const;
     CameraModelPtr load_isis_camera_model   (std::string const& path) const;
+    CameraModelPtr load_spot5_camera_model  (std::string const& path) const;
   }; // End class CameraModelLoader
 
 } // end namespace asp

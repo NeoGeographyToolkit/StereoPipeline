@@ -660,6 +660,7 @@ int main( int argc, char* argv[] ) {
     INSTANTIATE(StereoSessionDGMapRPC,          "dgmaprpc"          );
     INSTANTIATE(StereoSessionRPCMapRPC,         "rpcmaprpc"         );
     INSTANTIATE(StereoSessionPinholeMapPinhole, "pinholemappinhole" );
+    INSTANTIATE(StereoSessionSpot,              "spot5"                );
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
     INSTANTIATE(StereoSessionIsis,         "isis"                   );
     INSTANTIATE(StereoSessionIsisMapIsis,  "isismapisis"            );

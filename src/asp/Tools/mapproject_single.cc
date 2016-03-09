@@ -67,7 +67,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("query-projection", po::bool_switch(&opt.isQuery)->default_value(false),
       "Just display the computed projection information without actually doing the projection.")
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
-     "Select the stereo session type to use for processing. Choose 'rpc' if it is desired to later do stereo with the 'dg' session. [options: pinhole isis rpc]")
+     "Select the stereo session type to use for processing. Choose 'rpc' if it is desired to later do stereo with the 'dg' session. [options: pinhole isis rpc spot5]")
     ("t_projwin",        po::value(&opt.target_projwin),
      "Limit the map-projected image to this region, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.")
     ("t_pixelwin",       po::value(&opt.target_pixelwin),

@@ -83,7 +83,7 @@ namespace asp {
 
 
 
-void SpotXML::read_xml(std::string const& xml_path) {
+DOMElement* SpotXML::open_xml_file(std::string const& xml_path) {
 
   // Check if the file actually exists and throw a user helpful file.
   if ( !boost::filesystem::exists( xml_path ) )
@@ -95,22 +95,22 @@ void SpotXML::read_xml(std::string const& xml_path) {
   try{
     //std::cout << "Set XML parser\n";
   
-    // Set up the XML parser
-    boost::scoped_ptr<XercesDOMParser> parser( new XercesDOMParser() );
-    parser->setValidationScheme(XercesDOMParser::Val_Always);
-    parser->setDoNamespaces(true);
-    boost::scoped_ptr<ErrorHandler> errHandler( new HandlerBase() );
-    parser->setErrorHandler(errHandler.get());
+    // Set up the XML parser if we have not already done so
+    if (!m_parser.get()) {
+      m_parser.reset(new XercesDOMParser());
+      m_errHandler.reset(new HandlerBase());
+      m_parser->setValidationScheme(XercesDOMParser::Val_Always);
+      m_parser->setDoNamespaces(true);   
+      m_parser->setErrorHandler(m_errHandler.get());
+    }
 
     //std::cout << "Load XML\n";
 
     // Load the XML file
-    parser->parse( xml_path.c_str() );
-    DOMDocument* xmlDoc      = parser->getDocument();
+    m_parser->parse( xml_path.c_str() );
+    DOMDocument* xmlDoc      = m_parser->getDocument();
     DOMElement * elementRoot = xmlDoc->getDocumentElement();
-
-    // Use the parser function to walk through the XML tree
-    return parse_xml(elementRoot);
+    return elementRoot;
 
   } catch (const XMLException& toCatch) {
     char* message = XMLString::transcode(toCatch.getMessage());
@@ -130,7 +130,24 @@ void SpotXML::read_xml(std::string const& xml_path) {
     err_message = "Unrecognized error in XML file \"" + xml_path + "\"\n";
   }
   vw_throw( ArgumentErr() << err_message); // Only get here on error
+  return 0;
+}
+
+void SpotXML::read_xml(std::string const& xml_path) {
+
+  DOMElement * elementRoot = open_xml_file(xml_path);
+  return parse_xml(elementRoot);
+}
+
+vw::ImageFormat SpotXML::get_image_format(std::string const& xml_path) {
+  SpotXML xml_reader;
+  DOMElement * root = xml_reader.open_xml_file(xml_path);
+  // Just get this one node we need to find the image size  
+  DOMElement* raster_dims_node = get_node<DOMElement>(root, "Raster_Dimensions");
+  xml_reader.read_image_size(raster_dims_node);
   
+  // The image size is the only thing we need to call this function.
+  return xml_reader.get_image_format();
 }
 
 void SpotXML::parse_xml(xercesc::DOMElement* node) {
@@ -337,7 +354,23 @@ void SpotXML::read_line_times(xercesc::DOMElement* sensor_config_node) {
 
 
 
+
+
 // ----- These functions help convert the input data to a useable format ------
+
+vw::ImageFormat SpotXML::get_image_format() const {
+  vw::ImageFormat format;
+  format.cols          = image_size[0];
+  format.rows          = image_size[1];
+  format.planes        = 1;
+  format.pixel_format  = VW_PIXEL_GRAY; // This should be constant
+  format.channel_type  = VW_CHANNEL_UINT8;
+  format.premultiplied = true; // Don't do anything funny to the data
+  return format;
+}
+
+
+
 
 // TODO: Add some error checking
 

@@ -239,6 +239,9 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
   case STEREOMODEL_TYPE_DG:
     return load_adjusted_model(m_camera_loader.load_dg_camera_model(camera_file),
                                image_file, camera_file, pixel_offset);
+  case STEREOMODEL_TYPE_SPOT5:
+    return load_adjusted_model(m_camera_loader.load_spot5_camera_model(camera_file),
+                               image_file, camera_file, pixel_offset);
   case STEREOMODEL_TYPE_RPC:
     try {
       if (camera_file != "")
@@ -404,6 +407,15 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DI
                                     right_mapproj(m_right_image_file, m_out_prefix),
                                     m_right_map_proj_model);
 }
-
+/*
+template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
+          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
+typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
+StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_SPOT5>) const {
+  return getTransformFromMapProject(m_input_dem,
+                                    right_mapproj(m_right_image_file, m_out_prefix),
+                                    m_right_map_proj_model);
+}
+*/
 
 } // End namespace asp

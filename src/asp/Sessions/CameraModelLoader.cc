@@ -32,6 +32,7 @@
 #include <asp/IsisIO/Equation.h>
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/Camera/LinescanDGModel.h>
+#include <asp/Camera/LinescanSpotModel.h>
 #include <asp/Sessions/CameraModelLoader.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/DG_XML.h>
@@ -81,18 +82,21 @@ boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_rpc_camera_mo
 }
 
 
-/// Load a DG camera file
+// Load a Spot5 camera file
 boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_dg_camera_model(std::string const& path) const
 {
   // Redirect to the call from LinescanDGModel.h file
   return CameraModelPtr(load_dg_camera_model_from_xml(path));
 }
 
+// Load a DG camera file
+boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_spot5_camera_model(std::string const& path) const
+{
+  // Redirect to the call from LinescanSpotModel.h file
+  return CameraModelPtr(load_spot5_camera_model(path));
+}
 
-
-
-
-/// Load an ISIS camera model
+// Load an ISIS camera model
 boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_isis_camera_model(std::string const& path) const
 {
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1

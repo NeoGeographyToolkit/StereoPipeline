@@ -143,7 +143,7 @@ namespace asp {
     friend class StereoSessionFactory; // Needed so the factory can call initialize()
   protected:
     asp::BaseOptions m_options;
-    std::string m_left_image_file, m_right_image_file;
+    std::string m_left_image_file,  m_right_image_file;
     std::string m_left_camera_file, m_right_camera_file;
     std::string m_out_prefix, m_input_dem;
 

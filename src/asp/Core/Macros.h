@@ -22,7 +22,10 @@
 #ifndef __ASP_CORE_MACROS_H__
 #define __ASP_CORE_MACROS_H__
 
-#define ASP_STANDARD_CATCHES                                \
+#define ASP_STANDARD_CATCHES \
+{vw_out() << "CATCHES ARE DISABLED!" << std::endl;}
+
+#define ASP_STANDARD_CATCHES2                                \
     catch ( const ArgumentErr& e ) {                        \
     vw_out() << e.what() << std::endl;                      \
     return 1;                                               \

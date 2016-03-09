@@ -26,9 +26,10 @@ TestStereoSessionDG_SOURCES  = TestStereoSessionDG.cxx
 TestStereoSessionDGMapRPC_SOURCES = TestStereoSessionDGMapRPC.cxx
 TestStereoSessionRPC_SOURCES = TestStereoSessionRPC.cxx
 TestInstantiation_SOURCES    = TestInstantiation.cxx
+TestStereoSessionSpot_SOURCES  = TestStereoSessionSpot.cxx
 
 TESTS = TestStereoSessionDG TestStereoSessionDGMapRPC	\
-TestStereoSessionRPC TestInstantiation
+TestStereoSessionRPC TestInstantiation TestStereoSessionSpot
 
 endif
 

@@ -89,3 +89,49 @@ Be prepared for a lot of manual iterative work over many days.
 13. Recompile wv_correct.cc. Run it to get corrected images. Redo
 stereo and point2dem. Examine if the IntersectionError.tif file looks
 better than before.
+
+wv_correct will only ever be run once per image.  The Matlab find_ccds tool will 
+also only be run once per TDI; it can be re-run to get a better set of fixes, but
+corrected data is never fed back in to the find_ccds tool.
+
+To improve the correction as seen in IntersectionError.tif, the following steps can
+be taken:
+- Use more input data to find_ccds.  This may involve tweaking the ROIs or stereo 
+  commands so that more image pairs successfully generate dx/dy files.
+- Tune the ROIs more carefully so that mountains or poorly matching regions do not
+  get included into the dx/dy averages.
+- Compare plots of the newly obtained correction amounts with the corrections from
+  other TDIs to get an idea of what shift patterns can be expected.
+- Hand-tune individual correction amounts by looking at the curves in Matlab.  The
+  jump should be equal in height to the peak-to-peak jump seen in the plot.
+- Keep in mind that WV1 is not as well behaved as WV2.  The final errors for WV1 
+  will be worse.
+  
+
+After correcting the images, you can re-run the process on the corrected images and obtain 
+dx/dy curves for them as well.  When plotted, you should see the lack of sharp jumps in the
+CCD border areas.  Most likely you will still see jumps, but they will be corrected by an
+opposite jump nearby.  This is the effect of our applied correction, and the spacing between
+the jumps indicates that our correction is misplaced by some number of pixels.  A difference
+in the height of the jumps indicates that our correction amount is also off by some amount.  
+
+
+Other Observations
+---------------------
+
+At least some WV images show a consistent 0.25 pixel oscillation in the X-direction disparity
+results.  This oscillation is independent of the CCD border correction and about half the magnitude.
+It is not noticably affected by the subpixel mode used and it is visible on the intersection error image.
+
+Seen in WV1 and WV2, multiple directions and TDIs.
+
+
+
+
+
+
+
+
+
+
+

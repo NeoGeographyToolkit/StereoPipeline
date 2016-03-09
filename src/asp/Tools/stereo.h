@@ -82,7 +82,7 @@ namespace asp {
                          std::vector<std::string> & unregistered,
                          std::string & usage);
 
-  /// Register Session types
+  /// Register DiskImageResource types that are not included in Vision Workbench.
   void stereo_register_sessions();
 
   /// Checks for obvious user mistakes

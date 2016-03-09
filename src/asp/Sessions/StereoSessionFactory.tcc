@@ -28,6 +28,7 @@
 #include <asp/Sessions/StereoSessionNadirPinhole.h>
 #include <asp/Sessions/StereoSessionPinhole.h>
 #include <asp/Sessions/StereoSessionRPC.h>
+#include <asp/Sessions/StereoSessionSpot.h>
 
 namespace asp {
 
@@ -68,6 +69,10 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
       if (boost::iends_with(boost::to_lower_copy(left_camera_file ), ".xml") ||
           boost::iends_with(boost::to_lower_copy(right_camera_file), ".xml") ) {
         actual_session_type = "dg";
+      }
+      if (boost::iends_with(boost::to_lower_copy(left_camera_file ), ".dim") ||
+          boost::iends_with(boost::to_lower_copy(right_camera_file), ".dim") ) {
+        actual_session_type = "spot5";
       }
     }
 
@@ -138,6 +143,8 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
     else if (actual_session_type == "isis")
       session_new = StereoSessionIsis::construct();
+    else if (actual_session_type == "spot5")
+      session_new = StereoSessionSpot::construct();
     else if (actual_session_type == "isismapisis")
       session_new = StereoSessionIsisMapIsis::construct();
 #endif
