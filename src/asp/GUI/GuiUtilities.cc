@@ -423,12 +423,12 @@ DiskImagePyramidMultiChannel::DiskImagePyramidMultiChannel(std::string const& ba
     m_cols = m_img_ch1_double.cols();
     m_type = CH1_DOUBLE;
   }else if (m_num_channels == 2){
-    // uint8 image with an alpha channel. Ignore the alpha channel.
-    m_img_ch1_uint8 = DiskImagePyramid< Vector<vw::uint8, 1> >(base_file, m_opt);
-    m_num_channels = 1; // we read only 1 channel
-    m_rows = m_img_ch1_uint8.rows();
-    m_cols = m_img_ch1_uint8.cols();
-    m_type = CH1_UINT8;
+    // uint8 image with an alpha channel.
+    m_img_ch2_uint8 = DiskImagePyramid< Vector<vw::uint8, 2> >(base_file, m_opt);
+    m_num_channels = 2; // we read only 1 channel
+    m_rows = m_img_ch2_uint8.rows();
+    m_cols = m_img_ch2_uint8.cols();
+    m_type = CH2_UINT8;
   } else if (m_num_channels == 3 || m_num_channels == 4) {
     // RGB image with three uint8 channels and perhaps an
     // alpha channel which we ignore.
@@ -453,8 +453,8 @@ void DiskImagePyramidMultiChannel::getImageClip(double scale_in, vw::BBox2i regi
     m_img_ch1_double.getImageClip(scale_in, region_in,
                                   highlight_nodata, scale_pixels, qimg,
                                   scale_out, region_out);
-  } else if (m_type == CH1_UINT8) {
-    m_img_ch1_uint8.getImageClip(scale_in, region_in,
+  } else if (m_type == CH2_UINT8) {
+    m_img_ch2_uint8.getImageClip(scale_in, region_in,
                                  highlight_nodata, scale_pixels, qimg,
                                  scale_out, region_out);
   } else if (m_type == CH3_UINT8) {
@@ -470,8 +470,8 @@ void DiskImagePyramidMultiChannel::getImageClip(double scale_in, vw::BBox2i regi
 double DiskImagePyramidMultiChannel::get_value_as_double( int32 x, int32 y) const {
   if (m_type == CH1_DOUBLE) {
     return m_img_ch1_double.bottom()(x, y, 0);
-  }else if (m_type == CH1_UINT8){
-    return m_img_ch1_uint8.bottom()(x, y, 0)[0];
+  }else if (m_type == CH2_UINT8){
+    return m_img_ch2_uint8.bottom()(x, y, 0)[0];
   }else{
     vw_throw( ArgumentErr() << "Unsupported image with " << m_num_channels << " bands\n");
   }

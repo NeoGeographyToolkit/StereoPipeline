@@ -542,12 +542,13 @@ namespace vw { namespace gui {
         // We fetched a bunch of pixels at some scale.
         // Need to place them on the screen at given projected position.
         // - To do that we will fill up this QImage object with interpolated data, then paint it.
-        QImage qimg2 = QImage(screen_box.width(), screen_box.height(), QImage::Format_RGB888);
+        QImage qimg2 = QImage(screen_box.width(), screen_box.height(),
+                              QImage::Format_ARGB32_Premultiplied);
 
-        // Initialize all pixels to black
+        // Initialize all pixels to transparent
         for (int col = 0; col < qimg2.width(); col++) {
           for (int row = 0; row < qimg2.height(); row++) {
-            qimg2.setPixel(col, row, qRgb(0, 0, 0));
+            qimg2.setPixel(col, row,  QColor(0, 0, 0, 0).rgba());
           }
         }
 
