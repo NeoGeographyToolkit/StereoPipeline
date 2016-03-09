@@ -112,8 +112,10 @@ int main( int argc, char *argv[] ) {
 
     // Transform DEM 2 into the same perspective as DEM 1. However, we
     // don't support datum changes!
-    if ( dem1_georef.datum().semi_major_axis() != dem2_georef.datum().semi_major_axis() ||
-         dem1_georef.datum().semi_minor_axis() != dem2_georef.datum().semi_minor_axis() ||
+    if ( std::abs(dem1_georef.datum().semi_major_axis()
+                  - dem2_georef.datum().semi_major_axis() ) > 0.1 ||
+         std::abs(dem1_georef.datum().semi_minor_axis()
+                  - dem2_georef.datum().semi_minor_axis() ) > 0.1 ||
          dem1_georef.datum().meridian_offset() != dem2_georef.datum().meridian_offset() ) {
       vw_throw( NoImplErr() << "geodiff can't difference DEMs which have differing "
                 << "datum radii or meridian offsets.\n" );
