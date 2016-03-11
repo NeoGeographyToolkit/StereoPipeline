@@ -200,9 +200,9 @@ void lowres_correlation( Options & opt ) {
       // Everything else should gather IP's all the time.
       double sub_scale =
         sum(elem_quot( Vector2(file_image_size( opt.out_prefix+"-L_sub.tif" )),
-                 Vector2(file_image_size( opt.out_prefix+"-L.tif" ) ) )) +
+                       Vector2(file_image_size( opt.out_prefix+"-L.tif" ) ) )) +
         sum(elem_quot( Vector2(file_image_size( opt.out_prefix+"-R_sub.tif" )),
-                 Vector2(file_image_size( opt.out_prefix+"-R.tif" ) ) ));
+                       Vector2(file_image_size( opt.out_prefix+"-R.tif" ) ) ));
       sub_scale /= 4.0f;
 
       stereo_settings().search_range =

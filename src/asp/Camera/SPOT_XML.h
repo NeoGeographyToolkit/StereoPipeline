@@ -59,7 +59,10 @@ namespace asp {
   {
     boost::posix_time::ptime m_reference;
   public:
-    inline SecondsFromRef( boost::posix_time::ptime const& ref_time ) : m_reference(ref_time) {}
+    inline SecondsFromRef() {}
+    inline SecondsFromRef(boost::posix_time::ptime const& ref_time) : m_reference(ref_time) {}
+
+    inline void set_base_time(boost::posix_time::ptime const& ref_time) {m_reference = ref_time;}
 
     inline double operator()( boost::posix_time::ptime const& time ) const {
       return double( (time - m_reference).total_microseconds() ) / 1e6;
@@ -126,8 +129,9 @@ namespace asp {
     // Functions to setup functors which manage the raw input data.
     vw::camera::LagrangianInterpolation setup_position_func() const;
     vw::camera::LagrangianInterpolation setup_velocity_func() const;
-    vw::camera::LinearPiecewisePositionInterpolation  setup_pose_func() const; // (yaw/pitch/roll)        
     vw::camera::LinearTimeInterpolation setup_time_func    () const;
+    vw::camera::LinearPiecewisePositionInterpolation setup_pose_func(
+        vw::camera::LinearTimeInterpolation const& time_func) const; // (yaw/pitch/roll)        
 
   private: // The various XML data reading sections
   

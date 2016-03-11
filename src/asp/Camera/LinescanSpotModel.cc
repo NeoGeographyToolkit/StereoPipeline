@@ -29,23 +29,36 @@ Vector3 SPOTCameraModel::get_local_pixel_vector(vw::Vector2 const& pix) const {
   
   // psi_x Is the angle from nadir line in along-track direction (lines)
   // psi_y Is the angle from nadir line in across-track direction (cols)
+  // psi_x is nearly constant.  psi_y starts negative and increases with column.
   
   // Interpolate the pixel angle from the adjacent values in the lookup table.
   // - Probably should have a simple 2D interp function somewhere.  
   double     col = pix[0];
   double min_col = floor(col);
-  double max_col = ceil (col);
+  double max_col = min_col + 1.0;
   size_t min_index = static_cast<size_t>(min_col);
   size_t max_index = static_cast<size_t>(max_col);
+  double min_weight = max_col - col;
+  double max_weight = col-min_col;
   
-  double psi_x = (m_look_angles[min_index].second[0]*(col-min_col) + 
-                  m_look_angles[max_index].second[0]*(max_col-col)  );
-  double psi_y = (m_look_angles[min_index].second[1]*(col-min_col) + 
-                  m_look_angles[max_index].second[1]*(max_col-col)  );
+  double psi_x = (m_look_angles[max_index].second[0]*max_weight + 
+                  m_look_angles[min_index].second[0]*min_weight  );
+  double psi_y = (m_look_angles[max_index].second[1]*max_weight + 
+                  m_look_angles[min_index].second[1]*min_weight  );
   
   // This vector is in the SPOT5 O1 Navigation Coordinate Sytem, which 
   // differs from how we usually set up our coordinates.
-  return normalize(Vector3(-tan(psi_y), tan(psi_x), -1));
+  //return normalize(Vector3(-tan(psi_y), tan(psi_x), -1));
+  
+  // Convert the local vector so that it follows our usual conventions:
+  //  Z down, Y flight direction, X increasing sample direction. 
+  Vector3 result = normalize(Vector3(tan(psi_y), tan(psi_x), 1.0));
+  //std::cout << "Pixel: " << pix << std::endl;
+  //std::cout << "Col: " << col << ", min col: " << min_col << ", max col: " << max_col << std::endl;
+  //std::cout << "min = " << m_look_angles[min_index].second << std::endl;
+  //std::cout << "max = " << m_look_angles[max_index].second << std::endl;
+  //std::cout << "Local pixel vector: " << result << std::endl;
+  return result;
 }
 
 
@@ -93,7 +106,7 @@ Matrix3x3 SPOTCameraModel::get_look_rotation_matrix(double yaw, double pitch, do
   return out;
 }
 
-boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model(std::string const& path)
+boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model_from_xml(std::string const& path)
 {
 
   // XYZ coordinates are in the ITRF coordinate frame which means GCC coordinates.
@@ -106,10 +119,10 @@ boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model(std::string const& pa
   xml_reader.read_xml(path);
 
   // Get all the initial functors
-  vw::camera::LagrangianInterpolation              position_func  = xml_reader.setup_position_func();
-  vw::camera::LagrangianInterpolation              velocity_func  = xml_reader.setup_velocity_func();
-  vw::camera::LinearPiecewisePositionInterpolation spot_pose_func = xml_reader.setup_pose_func();
-  vw::camera::LinearTimeInterpolation              time_func      = xml_reader.setup_time_func();
+  vw::camera::LagrangianInterpolation position_func  = xml_reader.setup_position_func();
+  vw::camera::LagrangianInterpolation velocity_func  = xml_reader.setup_velocity_func();
+  vw::camera::LinearTimeInterpolation time_func      = xml_reader.setup_time_func();
+  vw::camera::LinearPiecewisePositionInterpolation spot_pose_func = xml_reader.setup_pose_func(time_func);
   
   // The SPOT5 camera uses a different pose convention than we do, so we create
   //  a new pose interpolation functor that will return the pose in an easy to use format.
@@ -119,6 +132,17 @@ boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model(std::string const& pa
   double max_time      = spot_pose_func.get_tend();
   double time_delta    = spot_pose_func.get_dt();
   size_t num_pose_vals = static_cast<size_t>(round((max_time - min_time) / time_delta));
+  
+  //std::cout << "Min pose time final: " << min_time << std::endl;
+  //std::cout << "Max pose time final: " << max_time << std::endl;
+  //std::cout << "Delta pose time final: " << time_delta << std::endl;
+  
+  // This matrix rotates the axes of the SPOT5 model so that it is oriented with
+  //  our standard linescanner coordinate frame.
+  Matrix3x3 R;
+  R(0,0) = -1.0; R(0,1) = 0.0; R(0,2) =  0.0;
+  R(1,0) =  0.0; R(1,1) = 1.0; R(1,2) =  0.0;
+  R(2,0) =  0.0; R(2,1) = 0.0; R(2,2) = -1.0;
   
   // Make a new vector of pose values in the GCC coordinate frame.
   std::vector<vw::Quat> gcc_pose(num_pose_vals);
@@ -135,11 +159,29 @@ boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model(std::string const& pa
     lo_frame      = SPOTCameraModel::get_local_orbital_frame(position, velocity);
     look_rotation = SPOTCameraModel::get_look_rotation_matrix(yaw_pitch_roll[0], 
                                           yaw_pitch_roll[1], yaw_pitch_roll[2]);
-    // By their powers combined thes form the GCC rotation we need.
-    combined_rotation = look_rotation * lo_frame;
+    //look_rotation.set_identity(); // DEBUG assume perfect path following
+    // By their powers combined these form the GCC rotation we need.
+    combined_rotation = look_rotation * lo_frame * R;
+    
     gcc_pose[i] = vw::Quat(combined_rotation);
+    
+    if ((time > 156.207) && (time < 156.45)) {
+   
+      std::cout << "time = " << time << std::endl;
+      std::cout << "position = " << position << std::endl;
+      std::cout << "velocity = " << velocity << std::endl;
+      std::cout << "yaw_pitch_roll = " << yaw_pitch_roll << std::endl;
+      std::cout << "lo_frame = " << lo_frame << std::endl;
+      std::cout << "look_rotation = " << look_rotation << std::endl;
+      std::cout << "combined_rotation = " << combined_rotation << std::endl;
+    }
+    
+    
   }
+  
   vw::camera::SLERPPoseInterpolation pose_func(gcc_pose, min_time, time_delta);
+  //std::cout << "Last time check: " << min_time + time_delta*gcc_pose.size() << std::endl;
+  //std::cout << "Last time check2: " << pose_func.get_tend() << std::endl;
 
   // Feed everything into a new camera model.
   return boost::shared_ptr<SPOTCameraModel>(new SPOTCameraModel(position_func, velocity_func, 

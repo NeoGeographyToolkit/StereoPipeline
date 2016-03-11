@@ -64,6 +64,7 @@ struct Options : public asp::BaseOptions {
   bool seperate_camera_files, write_csv, load_camera_solve, hide_labels;
   std::string datum;
   double model_scale; ///< Size scaling applied to 3D models
+  int    linescan_line; ///< Show the camera position at this line
 
   // Output
   std::string out_file;
@@ -241,7 +242,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("output,o",                po::value(&opt.out_file)->default_value("orbit.kml"),
           "The output kml file that will be written")
     ("session-type,t",          po::value(&opt.stereo_session_string),
-          "Select the stereo session type to use for processing. [options: pinhole isis]")
+          "Select the stereo session type to use for processing. [options: pinhole isis spot5 dg]")
     ("load-camera-solve",       po::bool_switch(&opt.load_camera_solve)->default_value(false)->implicit_value(true),
           "Load the results from a run of the camera-solve tool. The only positional argument must be the path to the camera-solve output folder.")
     ("reference-spheroid,r",    po::value(&opt.datum)->default_value("moon"),
@@ -251,6 +252,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     // The KML class applies a model scale of 3000 * this value.
     ("model-scale",             po::value(&opt.model_scale)->default_value(1.0/30.0),
           "Scale factor applied to 3D model size.")
+    ("linescan-line",          po::value(&opt.linescan_line)->default_value(0),
+          "Show the position of the camera when this line was captured.")
     ("hide-labels",             po::bool_switch(&opt.hide_labels)->default_value(false)->implicit_value(true),
           "Hide image names unless the camera is highlighted.")
     ("write-csv", "write a csv file with the orbital the data.")
@@ -310,8 +313,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     } else if (boost::iends_with(type_containing_string, ".cub") ) {
       vw_out() << "\t--> Detected ISIS cube file\n";
       opt.stereo_session_string = "isis";
+    } else if (boost::iends_with(type_containing_string, ".bil") ) {
+      vw_out() << "\t--> Detected SPOT5 file\n";
+      opt.stereo_session_string = "spot5";
     } else {
-      vw_throw( ArgumentErr() << "\n\n******************************************************************\n"
+      vw_throw( ArgumentErr() 
+                << "\n\n******************************************************************\n"
                 << "Could not determine stereo session type.   Please set it explicitly\n"
                 << "using the -t switch.\n"
                 << "******************************************************************\n\n" );
@@ -374,6 +381,8 @@ int main(int argc, char* argv[]) {
     if ( !csv_file.is_open() )
       vw_throw( IOErr() << "Unable to open output file.\n" );
 
+    Vector2 camera_pixel(0, opt.linescan_line);
+
     // Building Camera Models and then writing to KML
     std::vector<Vector3> camera_positions(num_cameras);
     for (size_t i=0; i < num_cameras; i++) {
@@ -393,14 +402,15 @@ int main(int argc, char* argv[]) {
         }
 #endif
 
-        Vector3 xyz = current_camera->camera_center(Vector2());
+        Vector3 xyz = current_camera->camera_center(camera_pixel);
         csv_file << std::setprecision(12);
         csv_file << xyz[0] << ", "
                  << xyz[1] << ", " << xyz[2] << "\n";
       } // End csv write condition
 
       // Compute and record the GDC coordinates
-      Vector3 lon_lat_alt = datum.cartesian_to_geodetic(current_camera->camera_center(Vector2()));
+      Vector3 lon_lat_alt = datum.cartesian_to_geodetic(
+                                current_camera->camera_center(camera_pixel));
       camera_positions[i] = lon_lat_alt;
 
       // Adding Placemarks
@@ -408,7 +418,7 @@ int main(int argc, char* argv[]) {
       if (!opt.path_to_outside_model.empty()) {
         kml.append_model( opt.path_to_outside_model,
                           lon_lat_alt.x(), lon_lat_alt.y(),
-                          inverse(current_camera->camera_pose(Vector2())),
+                          inverse(current_camera->camera_pose(camera_pixel)),
                           display_name, "",
                           lon_lat_alt[2], opt.model_scale );
       } else {

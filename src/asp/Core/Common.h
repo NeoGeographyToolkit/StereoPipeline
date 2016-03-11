@@ -125,7 +125,9 @@ namespace asp {
                       bool allow_unregistered, std::vector<std::string> & unregistered);
 
 
-
+  /// Return the size of the given image file.
+  /// - If you are not sure of the image type, use the safe 
+  ///   version in StereoSessionFactory which works with Spot5 data.
   vw::Vector2i file_image_size( std::string const& input );
 
   void set_srs_string(std::string srs_string, bool have_user_datum,

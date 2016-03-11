@@ -59,7 +59,7 @@ std::string asp::double_to_str(double const& val){
 bool asp::has_cam_extension( std::string const& input ) {
   std::string ext = get_extension(input);
   if ( has_pinhole_extension(input) ||
-      ext == ".cub" || ext == "xml"      )
+      ext == ".cub" || ext == "xml" || ext == "dim" )
     return true;
   return false;
 }
@@ -79,7 +79,8 @@ bool asp::has_image_extension( std::string const& input ) {
   if ( ext == ".tif"  || ext == ".tiff" || ext == ".ntf" ||
        ext == ".png"  || ext == ".jpeg" ||
        ext == ".jpg"  || ext == ".jp2"  ||
-       ext == ".img"  || ext == ".cub"    )
+       ext == ".img"  || ext == ".cub"  ||
+       ext == ".bip"  || ext == ".bil"  ||ext == ".bsq" )
     return true;
   return false;
 }

@@ -93,7 +93,7 @@ boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_dg_camera_mod
 boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_spot5_camera_model(std::string const& path) const
 {
   // Redirect to the call from LinescanSpotModel.h file
-  return CameraModelPtr(load_spot5_camera_model(path));
+  return CameraModelPtr(load_spot5_camera_model_from_xml(path));
 }
 
 // Load an ISIS camera model

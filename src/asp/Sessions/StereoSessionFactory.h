@@ -23,6 +23,8 @@
 #define __STEREO_SESSION_FACTORY_H__
 
 #include <asp/Sessions/StereoSession.h>
+#include <vw/FileIO/DiskImageResource.h>
+#include <vw/Cartography/GeoReference.h>
 
 namespace asp {
 
@@ -44,6 +46,32 @@ class StereoSessionFactory {
 
 }; // End class StereoSessionFactory
 
-}
+// Here we have some other functions that don't really belong here but don't
+// have a better home.
+
+/// Overload of the function in asp/core/Common.h which can handle Spot5 data.
+vw::Vector2i file_image_size( std::string const& input, std::string const& camera_file);
+
+/// Return true if the camera file is a SPOT5 camera file.
+/// - Returns false if the input is empty.
+bool has_spot5_extension(std::string const& image_file, std::string const& camera_file="");
+
+
+/// Function to load a DiskImageResource from a supported camera image.
+/// - This function is required because Spot5 images are not self-contained
+///   and our generic loading function does not handle them.
+boost::shared_ptr<vw::DiskImageResource> load_disk_image_resource(std::string const& image_file,
+                                                                  std::string const& camera_file);
+
+/// Function to load a GeoReference from a supported camera image.
+/// - This function is required because Spot5 images are not self-contained
+///   and our generic loading function does not handle them.
+bool read_georeference_asp(vw::cartography::GeoReference &georef, 
+                           std::string const& image_file,
+                           std::string const& camera_file="");
+
+} // end namespace asp
+
+#include <asp/Sessions/StereoSessionFactory.tcc>
 
 #endif // __STEREO_SESSION_FACTORY_H__

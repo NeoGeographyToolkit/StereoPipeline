@@ -35,7 +35,7 @@ using namespace vw::test;
 
 
 /*
-TEST(StereoSessionDG, CreateCamera) {
+TEST(StereoSessionSpot, CreateCamera) {
   StereoSessionDG session;
 
   boost::shared_ptr<camera::CameraModel> cam1( session.camera_model("", "dg_example1.xml") ),

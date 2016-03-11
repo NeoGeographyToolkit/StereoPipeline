@@ -22,6 +22,8 @@
 #include <vw/Cartography.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/Stereo/StereoView.h>
+#include <vw/Stereo/DisparityMap.h>
+#include <vw/InterestPoint/InterestData.h>
 
 #include <asp/Camera/RPCModel.h>
 #include <asp/Tools/stereo.h>
@@ -29,7 +31,13 @@
 #include <asp/Tools/ccd_adjust.h>
 
 // We must have the implementations of all sessions for triangulation
-#include <asp/Sessions/StereoSessionFactory.tcc>
+#include <asp/Sessions/StereoSessionFactory.h>
+#include <asp/Sessions/StereoSessionDGMapRPC.h>
+#include <asp/Sessions/StereoSessionIsis.h>
+#include <asp/Sessions/StereoSessionNadirPinhole.h>
+#include <asp/Sessions/StereoSessionPinhole.h>
+#include <asp/Sessions/StereoSessionRPC.h>
+#include <asp/Sessions/StereoSessionSpot.h>
 
 #include <ctime>
 

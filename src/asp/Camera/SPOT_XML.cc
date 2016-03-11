@@ -37,6 +37,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/lexical_cast.hpp>
+#include <iomanip>
 
 using namespace vw;
 using namespace vw::cartography;
@@ -167,20 +168,37 @@ void SpotXML::parse_xml(xercesc::DOMElement* node) {
   xercesc::DOMElement* sensor_config_node       = get_node<DOMElement>(node, "Sensor_Configuration");
   
 
-  //std::cout << "Parse dataset\n";
+  std::cout << "Parse dataset\n";
   read_corners(dataset_frame_node);
   //read_datum(crs_node);
   //read_display_info(image_display_node);
   //read_datetime(scene_source_node);
-  //std::cout << "Parse dims\n";
+  std::cout << "Parse dims\n";
   read_ephemeris(ephemeris_node);
   read_image_size(raster_dims_node);
-  //std::cout << "Parse ephem\n";
+  std::cout << "Parse ephem\n";
   read_attitude(corrected_attitudes_node);
-  //std::cout << "Parse angles\n";
+  std::cout << "Parse angles\n";
   read_look_angles(look_angles_node);
-  //std::cout << "Parse line times\n";
+  std::cout << "Parse line times\n";
   read_line_times(sensor_config_node);
+  
+  // Set up the base time
+  // - The position log starts before the image does, so the first
+  //   time there should be a good reference time.
+  boost::posix_time::ptime earliest_time = boost::posix_time::time_from_string("2016-05-04 00:00:00.00");
+  std::list<std::pair<std::string, vw::Vector3> >::const_iterator iter;
+  for (iter=position_logs.begin(); iter!=position_logs.end(); ++iter) {
+    std::string s = iter->first;
+    boost::replace_all(s, "T", " ");
+    boost::posix_time::ptime this_time = boost::posix_time::time_from_string(s);
+    if (this_time < earliest_time){
+      earliest_time = this_time;
+      std::cout << "Using reference time " << iter->first << std::endl;
+    }
+  }
+  m_time_ref_functor.set_base_time(earliest_time);
+  std::cout << "Done parsing XML.\n";
 }
 
 //void read_datum(xercesc::DOMElement* crs_node) {
@@ -203,6 +221,7 @@ void SpotXML::read_look_angles(xercesc::DOMElement* look_angles_node) {
 
   // Pick out the "Angles" nodes
   DOMNodeList* children = look_angle_list_node->getChildNodes();
+  //std::cout << "Child count: " << children->getLength() << std::endl;
   size_t index = 0;
   for ( XMLSize_t i = 0; i < children->getLength(); ++i ) {
     // Check child node type
@@ -213,8 +232,10 @@ void SpotXML::read_look_angles(xercesc::DOMElement* look_angles_node) {
     // Check the node name
     DOMElement* curr_element = dynamic_cast<DOMElement*>( curr_node );
     std::string tag( XMLString::transcode(curr_element->getTagName()) );
-    if (tag.find("Look_Angles") == std::string::npos)
+    if (tag.find("Look_Angles") == std::string::npos){
+      std::cout << "Skipping " << tag << std::endl;
       continue;
+    }
 
     if (index >= num_cols)
       vw_throw(ArgumentErr() << "More look angles than rows in SPOT XML file!\n");
@@ -223,9 +244,12 @@ void SpotXML::read_look_angles(xercesc::DOMElement* look_angles_node) {
     cast_xmlch( get_node<DOMElement>(curr_element, "DETECTOR_ID")->getTextContent(), look_angles[index].first );
     cast_xmlch( get_node<DOMElement>(curr_element, "PSI_X"      )->getTextContent(), look_angles[index].second.x() );
     cast_xmlch( get_node<DOMElement>(curr_element, "PSI_Y"      )->getTextContent(), look_angles[index].second.y() );
+    //std::cout << "Loaded psi: " << look_angles[index].second << std::endl;
     ++index;
 
   } // End loop through corrected attitudes
+  if (index != num_cols)
+    vw_throw(ArgumentErr() << "Did not load the correct number of SPOT5 pixel look angles!\n");
 }
 
 void SpotXML::read_ephemeris(xercesc::DOMElement* ephemeris_node) {
@@ -350,6 +374,8 @@ void SpotXML::read_line_times(xercesc::DOMElement* sensor_config_node) {
   cast_xmlch( get_node<DOMElement>(sensor_config_node, "SCENE_CENTER_TIME")->getTextContent(), center_time);
   cast_xmlch( get_node<DOMElement>(sensor_config_node, "SCENE_CENTER_LINE")->getTextContent(), center_line);
   cast_xmlch( get_node<DOMElement>(sensor_config_node, "SCENE_CENTER_COL" )->getTextContent(), center_col);
+  center_line -= 1;
+  center_col  -= 1; // Convert from 1-based to 0-based indices.
 }
 
 
@@ -395,7 +421,8 @@ vw::camera::LinearTimeInterpolation SpotXML::setup_time_func() const {
   double center_time_d = convert_time(this->center_time);
   double min_line_diff = static_cast<double>(0 - this->center_line);
   double min_line_time = center_time_d + this->line_period*min_line_diff;
-  
+  std::cout << "Setup time functor: " << std::setprecision(12)  << min_line_time << ", " << this->line_period << std::endl;
+  std::cout << std::setprecision(12)  << "Center time: " << center_time_d << std::endl;
   return vw::camera::LinearTimeInterpolation(min_line_time, this->line_period);
 }
 
@@ -418,6 +445,8 @@ vw::camera::LagrangianInterpolation SpotXML::setup_velocity_func() const {
   for (iter=velocity_logs.begin(); iter!=velocity_logs.end(); ++iter) {
     time.push_back(convert_time(iter->first));
     velocity.push_back(iter->second);
+    std::cout << "Adding velocity point: " << iter->first 
+              << " --> " << iter->second << std::endl;
   }
   return vw::camera::LagrangianInterpolation(velocity, time, INTERP_RADII);
 }
@@ -435,31 +464,88 @@ vw::camera::LagrangianInterpolation SpotXML::setup_position_func() const {
   for (iter=position_logs.begin(); iter!=position_logs.end(); ++iter) {
     time.push_back(convert_time(iter->first));
     position.push_back(iter->second);
+    std::cout << "Adding position point: " << convert_time(iter->first)
+              << " --> " << iter->second << std::endl;
   }
   return vw::camera::LagrangianInterpolation(position, time, INTERP_RADII);
 }
 
-// TODO: Pose function may need some conversion!
-vw::camera::LinearPiecewisePositionInterpolation SpotXML::setup_pose_func() const {
+vw::camera::LinearPiecewisePositionInterpolation SpotXML::setup_pose_func(
+        vw::camera::LinearTimeInterpolation const& time_func) const {
 
   // This function returns a functor that returns just the yaw/pitch/roll angles.
   // - The time interval between lines is not constant but it is extremely close,
   //   so maybe this interpolation is good enough?
-  std::vector<Vector3> pose;
-  std::vector<double>  time;
 
-  // Loop through the velocity logs and extract values
+
+  // For some reason the corrected pose angles do not start early enough to cover
+  // the time span for all of the input lines!
+  // - In order to handle this, we repeat the earliest pose value so that it starts
+  //   before the first line.
+  // - The raw pose angles do start before the lines, but their values differ noticably
+  //   from the corrected values.
+  
+  // Compute how many padded pose entries are needed to cover all of the lines.
+  size_t num_lines           = this->image_size[1];
+  double num_corrected_poses = static_cast<double>(pose_logs.size());
+  double first_line_time     = time_func(0);
+  double last_line_time      = time_func(num_lines - 1.0);
+  double pose_start_time     = convert_time(pose_logs.front().first);
+  double pose_stop_time      = convert_time(pose_logs.back().first);
+  double pose_delta_t        = (pose_stop_time - pose_start_time) / (num_corrected_poses - 1.0);
+  int    num_prefill_poses   = static_cast<int>(ceil((pose_start_time - first_line_time) / pose_delta_t));
+  int    num_postfill_poses  = static_cast<int>(ceil((last_line_time  - pose_stop_time ) / pose_delta_t));
+  //std::cout << "First line time: " << first_line_time << std::endl;
+  //std::cout << "Last line time:  " << last_line_time  << std::endl;
+  //std::cout << "Pose start: " << pose_start_time << std::endl;
+  //std::cout << "Pose stop:  " << pose_stop_time  << std::endl;
+  num_postfill_poses += 1; // Stick another bit of padding on the back.
+                           // This is so our Extrinsics algorithms have enough room to interpolate.
+  if (num_prefill_poses < 1)
+    num_prefill_poses = 0;
+  if (num_postfill_poses < 1)
+    num_postfill_poses = 0;
+    
+  size_t num_total_poses = pose_logs.size() + static_cast<size_t>(num_prefill_poses )
+                                            + static_cast<size_t>(num_postfill_poses);
+
+  std::vector<Vector3> pose(num_total_poses);
+  std::vector<double>  time(num_total_poses);
+  
+  // Fill in the pre-padding poses
+  size_t index = 0;
+  for (int i=0; i<num_prefill_poses; ++i) {
+    double time_offset = pose_delta_t*static_cast<double>(num_prefill_poses-i);
+    time[index] = convert_time(pose_logs.front().first) - time_offset;
+    pose[index] = pose_logs.front().second;
+    //std::cout << "PREFILL: " << time[index] << std::endl;
+    ++index;
+  }
+
+  // Now fill in the real poses
   std::list<std::pair<std::string, vw::Vector3> >::const_iterator iter;
   for (iter=pose_logs.begin(); iter!=pose_logs.end(); ++iter) {
-    time.push_back(convert_time(iter->first));
-    pose.push_back(iter->second);
+    time[index] = convert_time(iter->first);
+    pose[index] = iter->second;
+    ++index;
   }
-  double max_time  = time.back();
-  double min_time  = time.front();
-  double time_diff = max_time - min_time;
-  double dt        = time_diff / static_cast<double>(time.size()-1);
+
+  // Fill in the post-padding poses
+  for (int i=0; i<num_postfill_poses; ++i) {
+    double time_offset = pose_delta_t*(i+1);
+    time[index] = convert_time(pose_logs.back().first) + time_offset;
+    pose[index] = pose_logs.back().second;
+    //std::cout << "POSTFILL: " << time[index] << std::endl;
+    ++index;
+  }
   
-  return vw::camera::LinearPiecewisePositionInterpolation(pose, min_time, dt);
+  double max_time = time.back();
+  double min_time = time.front();
+  
+  std::cout << std::setprecision(12) << "Adding pose info: " << min_time << ", " 
+            << max_time << " -> " << pose_delta_t << std::endl;
+  
+  return vw::camera::LinearPiecewisePositionInterpolation(pose, min_time, pose_delta_t);
 
 }
 

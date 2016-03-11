@@ -23,6 +23,7 @@
 #include <asp/Tools/stereo.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <asp/Sessions/StereoSession.h>
+#include <asp/Sessions/StereoSessionFactory.h>
 
 using namespace vw;
 using namespace asp;
@@ -65,8 +66,8 @@ int main( int argc, char* argv[] ) {
 
     vw_out() << "out_prefix," << output_prefix << endl;
 
-    Vector2i left_image_size = file_image_size( opt.in_file1 ),
-             right_image_size = file_image_size( opt.in_file2 );
+    Vector2i left_image_size  = file_image_size(opt.in_file1, opt.cam_file1),
+             right_image_size = file_image_size(opt.in_file2, opt.cam_file2);
     vw_out() << "left_image_size,"  << left_image_size.x()  << "," << left_image_size.y()  << endl;
     vw_out() << "right_image_size," << right_image_size.x() << "," << right_image_size.y() << endl;
 

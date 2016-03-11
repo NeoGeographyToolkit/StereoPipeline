@@ -532,14 +532,14 @@ struct Options : asp::BaseOptions {
   Options() : out_nodata_value(-1) {}
   // Input
   std::vector<std::string> input_files;
-  bool   has_in_nodata;
-  double in_nodata_value;
+  bool        has_in_nodata;
+  double      in_nodata_value;
 
   // Settings
   std::string output_data_string;
-  DataType output_data_type;
-  bool   has_out_nodata;
-  double out_nodata_value;
+  DataType    output_data_type;
+  bool        has_out_nodata;
+  double      out_nodata_value;
   std::string calc_string;
   std::string output_file;
 };

@@ -23,7 +23,11 @@
 #define __ASP_CORE_MACROS_H__
 
 #define ASP_STANDARD_CATCHES \
-{vw_out() << "CATCHES ARE DISABLED!" << std::endl;}
+    catch ( const std::bad_alloc& e ) {                     \
+    std::cerr << "\n\nError: Ran out of Memory!" << std::endl; \
+    return 1;                                               \
+  }  \
+  vw_out() << "CATCHES ARE DISABLED!" << std::endl;
 
 #define ASP_STANDARD_CATCHES2                                \
     catch ( const ArgumentErr& e ) {                        \

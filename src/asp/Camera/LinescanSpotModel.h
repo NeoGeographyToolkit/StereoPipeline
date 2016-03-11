@@ -91,6 +91,17 @@ Check the LOS paper to see if it has a good implementation suggestion.
       My = [cos(yaw), -sin(yaw), 0]
            [sin(yaw),  cos(yaw), 0]
            [0,         0,        1]
+
+    The same rotations with the non-inverted frame:
+      Mp = [1, 0,           0          ]
+           [0, cos(pitch), -sin(pitch) ]
+           [0, sin(pitch),  cos(pitch) ]
+      Mr = [ cos(roll), 0, sin(roll)]
+           [ 0,         1, 0        ]
+           [-sin(roll), 0, cos(roll)]
+      My = [cos(yaw), -sin(yaw), 0]
+           [sin(yaw),  cos(yaw), 0]
+           [0,         0,        1]
    
     look(gcc=u3) = [X2 | Y2 | Z2] * look(orbital=u2)
     
@@ -99,6 +110,15 @@ Check the LOS paper to see if it has a good implementation suggestion.
         vectors that implement [X2|Y2|Z2]*Mp*Mr*My.  Do this
         at a high frequency to make sure it is an excellent 
         approximation of doing all of the math each time.
+  
+  Take the simple case, zero angles and center pixel:
+    The local look vector is [0, 0, -1]
+    M = Identity
+    The O2 vectors are in GCC coords, but not our standard frame.
+    
+    Rs = [-1  0  0]
+         [ 0  1  0]
+         [ 0  0 -1]
     
 */
 
@@ -118,7 +138,7 @@ Check the LOS paper to see if it has a good implementation suggestion.
 		                vw::camera::LinearTimeInterpolation       const& time,
                     std::vector<std::pair<int, vw::Vector2> > const& look_angles,
 		                vw::Vector2i  const& image_size
-		    ) : vw::camera::LinescanModel(image_size, true), // Always correct velocity aberration
+		    ) : vw::camera::LinescanModel(image_size, false), // TODO: Always correct velocity aberration
   		      m_position_func(position), m_velocity_func(velocity),
             m_pose_func(pose),         m_time_func(time),
             m_look_angles(look_angles) {}
@@ -149,6 +169,7 @@ Check the LOS paper to see if it has a good implementation suggestion.
     static vw::Matrix3x3 get_local_orbital_frame(vw::Vector3 const& position, vw::Vector3 const& velocity);
     
     /// Returns the matrix needed to convert an O1 look vector into an O2 look vector.
+    /// = Mp*Mr*My
     static vw::Matrix3x3 get_look_rotation_matrix(double yaw, double pitch, double roll);
 
   protected:
@@ -172,7 +193,7 @@ Check the LOS paper to see if it has a good implementation suggestion.
   /// Load a SPOT5 camera model from an XML file.
   /// - This function does not take care of Xerces XML init/de-init, the caller must
   ///   make sure this is done before/after this function is called!
-  boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model(std::string const& path);
+  boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model_from_xml(std::string const& path);
 
 }      // namespace asp
 

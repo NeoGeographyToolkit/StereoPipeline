@@ -27,7 +27,6 @@
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
-#include <asp/Camera/DG_XML.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/StereoSettings.h>
 
@@ -329,7 +328,98 @@ void calc_target_geom(// Inputs
   return;
 }
 
+/*
+#include <vw/Cartography/Datum.h>
+#include <asp/Camera/SPOT_XML.h>
+#include <asp/Camera/LinescanSpotModel.h>
+#include <boost/scoped_ptr.hpp>
+#include <xercesc/util/PlatformUtils.hpp>
+*/
+
+
 int main( int argc, char* argv[] ) {
+
+/*
+  using namespace vw;
+
+  xercesc::XMLPlatformUtils::Initialize();
+
+  //boost::shared_ptr<asp::SPOTCameraModel> cam_ptr = asp::load_spot5_camera_model("spot_example1.xml");
+
+  std::cout << "Loading model" << std::endl;
+  boost::shared_ptr<asp::SPOTCameraModel> cam_ptr = 
+      asp::load_spot5_camera_model_from_xml("/home/smcmich1/data/spot/METADATA.DIM");
+
+  //for (size_t i=0; i<12000; i+=1000){
+  //  Vector3 local_vec = cam_ptr->get_local_pixel_vector(Vector2(i, 100));
+  //  std::cout << "Local vec at column " << i << " = " << local_vec << std::endl;
+  //}
+
+  // Load a list of approximately correct tie points
+  double ERROR_THRESH = 50.0; // Since the ground points came from Google Earth, we can't
+                              // expect that they will be super accurate.  Allow them to be
+                              // this many pixels off from the recorded location.
+  const double PIXEL_SCALE = 12; // Convert from preview to full image coordinates
+  std::vector<Vector3> gdc_coords;
+  std::vector<Vector2> pixel_coords;
+  gdc_coords.push_back(Vector3(-83.890520, -78.543415, 213));
+  pixel_coords.push_back(Vector2(203*PIXEL_SCALE, 4870*PIXEL_SCALE));
+  gdc_coords.push_back(Vector3(-83.914755, -78.728363, 336));
+  pixel_coords.push_back(Vector2(333*PIXEL_SCALE, 5086*PIXEL_SCALE));
+  gdc_coords.push_back(Vector3(-83.780710, -79.582781, 1261));
+  pixel_coords.push_back(Vector2(960*PIXEL_SCALE, 6031*PIXEL_SCALE));  
+  gdc_coords.push_back(Vector3(-86.341318, -79.084420, 1383));
+  pixel_coords.push_back(Vector2(340*PIXEL_SCALE, 6191*PIXEL_SCALE));  
+
+  // Project all of these coordinates into the camera and see what pixel we get.
+  vw::cartography::Datum datum; // Use wgs84 default
+  const size_t num_points = gdc_coords.size();
+  for (size_t i=0; i<num_points; ++i) {
+
+    vw::Vector3 gcc   = datum.geodetic_to_cartesian(gdc_coords[i]);
+    std::cout << "Projecting point: " << gcc << std::endl;
+    vw::Vector2 pixel = cam_ptr->point_to_pixel(gcc);
+    std::cout << "Got pixel: " << pixel << std::endl;
+  
+  
+    std::cout << "target pixel: " << pixel_coords[i] << std::endl;    
+    Vector3 current_vector = cam_ptr->pixel_to_vector(pixel_coords[i]);
+    std::cout << "pixel_to_vector: " << current_vector << std::endl;
+    
+    Vector3 cam_to_point = gcc - cam_ptr->camera_center(pixel_coords[i]);
+    std::cout << "cam_to_point: " << normalize(cam_to_point)  << std::endl;
+    
+    // The pixels should be somewhat close to the expected location.
+    double diff = norm_2(pixel - pixel_coords[i]);
+    std::cout << "DIFF = " << diff << std::endl;
+  }
+
+  xercesc::XMLPlatformUtils::Terminate();
+  return 0;
+}
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   Options opt;
   try {
@@ -370,10 +460,9 @@ int main( int argc, char* argv[] ) {
     {
       // Safety check that the users are not trying to map project map
       // projected images. This should not be an error as sometimes
-      // even raw images have some half-baked georeference attached
-      // to them.
+      // even raw images have some half-baked georeference attached to them.
       GeoReference dummy_georef;
-      bool has_georef = read_georeference( dummy_georef, opt.image_file );
+      bool has_georef = asp::read_georeference_asp( dummy_georef, opt.image_file );
       if (has_georef)
         vw_out(WarningMessage) << "Your input camera image is already map-"
                                << "projected. The expected input is required "
@@ -383,7 +472,7 @@ int main( int argc, char* argv[] ) {
     // Load the DEM
     GeoReference dem_georef;
     ImageViewRef<PMaskT> dem;
-    bool has_georef = read_georeference(dem_georef, opt.dem_file);
+    bool has_georef = asp::read_georeference_asp(dem_georef, opt.dem_file);
     if (!has_georef)
       vw_throw( ArgumentErr() << "There is no georeference information in: " << opt.dem_file << ".\n" );
 
@@ -444,7 +533,7 @@ int main( int argc, char* argv[] ) {
     // coordinate system (which makes it grow), and then we tighten it
     // in target's coordinate system.
     bool     calc_target_res = std::isnan(opt.target_resolution);
-    Vector2i image_size      = asp::file_image_size(opt.image_file);
+    Vector2i image_size      = asp::file_image_size(opt.image_file, opt.camera_model_file);
     BBox2    cam_box;
     // First pass
     bool first_pass = true;
@@ -512,16 +601,17 @@ int main( int argc, char* argv[] ) {
     }
 
     // Create handle to input image to be projected on to the map
-    boost::shared_ptr<DiskImageResource>
-      img_rsrc( DiskImageResource::open( opt.image_file ) );
+    boost::shared_ptr<DiskImageResource> img_rsrc = 
+          asp::load_disk_image_resource(opt.image_file, opt.camera_model_file);
 
     // Write the output image. Use the nodata passed in by the user
     // if it is not available in the input file.
-    if (img_rsrc->has_nodata_read()) opt.nodata_value = img_rsrc->nodata_read();
+    if (img_rsrc->has_nodata_read()) 
+      opt.nodata_value = img_rsrc->nodata_read();
     vw::create_out_dir(opt.output_file);
-    bool has_img_nodata = true;
-    PMaskT nodata_mask = PMaskT(); // invalid value for a PixelMask
-    bool call_from_mapproject = true;
+    bool   has_img_nodata       = true;
+    PMaskT nodata_mask          = PMaskT(); // invalid value for a PixelMask
+    bool   call_from_mapproject = true;
     write_parallel_cond
       ( // Write to the output file
        opt.output_file,
