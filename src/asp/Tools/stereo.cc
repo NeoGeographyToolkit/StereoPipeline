@@ -293,6 +293,7 @@ namespace asp {
       ("stereo-file,s",       po::value(&opt.stereo_default_filename)->default_value("./stereo.default"),
        "Explicitly specify the stereo.default file to use. [default: ./stereo.default]");
 
+
     // We distinguish between all_general_options, which is all the
     // options we must parse, even if we don't need some of them, and
     // general_options, which are the options specifically used by the
@@ -340,6 +341,8 @@ namespace asp {
                                                    all_general_options, positional_options,
                                                    positional_desc, usage,
                                                    allow_unregistered, unregistered);
+
+    std::cout <<"HANDLE STRING = " << opt.stereo_session_string << std::endl;
 
     // Read the config file
     try {
@@ -421,14 +424,27 @@ namespace asp {
     stereo_settings().trans_crop_win = BBox2i(b.min().x(), b.min().y(), b.max().x(), b.max().y());
 
     // Ensure the crop windows are always contained in the images.
-    DiskImageView<PixelGray<float> > left_image(opt.in_file1);
-    DiskImageView<PixelGray<float> > right_image(opt.in_file2);
+    boost::shared_ptr<vw::DiskImageResource> left_resource, right_resource;
+    left_resource  = asp::load_disk_image_resource(opt.in_file1, opt.cam_file1);
+    right_resource = asp::load_disk_image_resource(opt.in_file2, opt.cam_file2);
+    DiskImageView<PixelGray<float> > left_image(left_resource);
+    DiskImageView<PixelGray<float> > right_image(right_resource);
     stereo_settings().left_image_crop_win.crop(bounding_box(left_image));
     stereo_settings().right_image_crop_win.crop(bounding_box(right_image));
 
-    bool crop_left_and_right =
-      ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
-      ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
+    std::cout << "DEBUG: stereo_settings().left_image_crop_win = " << stereo_settings().left_image_crop_win << std::endl;
+    std::cout << "DEBUG: stereo_settings().right_image_crop_win = " << stereo_settings().right_image_crop_win << std::endl;
+
+    bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+    bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+    bool crop_left_and_right = (crop_left && crop_right);
+    
+    // If crops were specified, check that they are valid.
+    if (crop_left && stereo_settings().left_image_crop_win.empty())
+      vw_throw(ArgumentErr() << "Invalid left crop window specified!\n");
+    if (crop_right && stereo_settings().right_image_crop_win.empty())
+      vw_throw(ArgumentErr() << "Invalid right crop window specified!\n");
+    
     if (!crop_left_and_right) {
       // The crop window after transforming the left image via
       // affine epipolar or homography alignment.
@@ -452,7 +468,6 @@ namespace asp {
       // already be a tile in the cropped image. So we just use it as
       // it is. If it is not defined, we set it to the entire cropped image.
       if (stereo_settings().trans_crop_win == BBox2i(0, 0, 0, 0)) {
-        DiskImageView<PixelGray<float> > left_image(opt.in_file1);
         stereo_settings().trans_crop_win = bounding_box(left_image);
         if ( fs::exists(opt.out_prefix+"-L.tif") ){
           DiskImageView<PixelGray<float> > L_img(opt.out_prefix+"-L.tif");
@@ -470,6 +485,8 @@ namespace asp {
         !fs::exists(opt.out_prefix+"-R-cropped.tif") ){
       vw_throw(ArgumentErr() << "Invalid region for doing stereo.\n\n" << usage << general_options );
     }
+
+    std::cout <<"HANDLE STRING2 = " << opt.stereo_session_string << std::endl;
 
     // The StereoSession call automatically determines the type of object to create from the input parameters.
     opt.session.reset(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,// i/o
@@ -540,8 +557,8 @@ namespace asp {
 
     // Must use map-projected images if input DEM is provided
     GeoReference georef1, georef2;
-    bool has_georef1 = read_georeference(georef1, opt.in_file1);
-    bool has_georef2 = read_georeference(georef2, opt.in_file2);
+    bool has_georef1 = asp::read_georeference_asp(georef1, opt.in_file1);
+    bool has_georef2 = asp::read_georeference_asp(georef2, opt.in_file2);
     if (dem_provided && (!has_georef1 || !has_georef2)){
       vw_throw( ArgumentErr() << "The images are not map-projected, "
                 << "cannot use the provided DEM: " << opt.input_dem << "\n");

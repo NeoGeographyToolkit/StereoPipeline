@@ -38,7 +38,7 @@
 #include <asp/Sessions/StereoSessionPinhole.h>
 #include <asp/Sessions/StereoSessionRPC.h>
 #include <asp/Sessions/StereoSessionSpot.h>
-
+#include <xercesc/util/PlatformUtils.hpp>
 #include <ctime>
 
 using namespace vw;
@@ -621,6 +621,7 @@ void stereo_triangulation( string          const& output_prefix,
 int main( int argc, char* argv[] ) {
 
   try {
+    xercesc::XMLPlatformUtils::Initialize();
 
     vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 4 --> TRIANGULATION \n";
 
@@ -632,6 +633,7 @@ int main( int argc, char* argv[] ) {
     string output_prefix;
     asp::parse_multiview(argc, argv, TriangulationDescription(),
                          verbose, output_prefix, opt_vec);
+    std::cout << "SESSION TYPE = " << opt_vec[0].session->name() << std::endl;
 
     if (opt_vec.size() > 1){
       // For multiview, turn on logging to file in the run directory
@@ -658,6 +660,8 @@ int main( int argc, char* argv[] ) {
 
     // Internal Processes
     //---------------------------------------------------------
+    
+    std::cout << "SESSION TYPE = " << opt_vec[0].session->name() << std::endl;
 #define INSTANTIATE(T,NAME) if ( opt_vec[0].session->name() == NAME ) { \
       stereo_triangulation<T>(output_prefix, opt_vec); }
 
@@ -678,6 +682,7 @@ int main( int argc, char* argv[] ) {
 
     vw_out() << "\n[ " << current_posix_time_string() << " ] : TRIANGULATION FINISHED \n";
 
+    xercesc::XMLPlatformUtils::Terminate();
   } ASP_STANDARD_CATCHES;
 
   return 0;

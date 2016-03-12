@@ -30,6 +30,7 @@
 #include <asp/Core/DemDisparity.h>
 #include <asp/Core/LocalHomography.h>
 #include <asp/Sessions/StereoSession.h>
+#include <xercesc/util/PlatformUtils.hpp>
 
 using namespace vw;
 using namespace vw::stereo;
@@ -665,6 +666,7 @@ void stereo_correlation( Options& opt ) {
 int main(int argc, char* argv[]) {
 
   try {
+    xercesc::XMLPlatformUtils::Initialize();
 
     stereo_register_sessions();
 
@@ -683,7 +685,8 @@ int main(int argc, char* argv[]) {
     // Internal Processes
     //---------------------------------------------------------
     stereo_correlation( opt );
-
+  
+    xercesc::XMLPlatformUtils::Terminate();
   } ASP_STANDARD_CATCHES;
 
   return 0;

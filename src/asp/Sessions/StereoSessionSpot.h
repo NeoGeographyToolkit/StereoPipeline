@@ -45,7 +45,7 @@ namespace asp {
     StereoSessionSpot(){}
     virtual ~StereoSessionSpot(){}
 
-    virtual std::string name() const { return "dg"; }
+    virtual std::string name() const { return "spot5"; }
 
     /// Stage 1: Preprocessing
     ///

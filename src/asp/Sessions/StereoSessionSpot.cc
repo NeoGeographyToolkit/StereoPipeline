@@ -255,9 +255,9 @@ unshared_preprocessing_hook(asp::BaseOptions              & options,
   options = this->m_options;
   options.gdal_options["PREDICTOR"] = "1";
 
-  // Read the georef if available
-  has_left_georef  = read_georeference(left_georef,  left_cropped_file);
-  has_right_georef = read_georeference(right_georef, right_cropped_file);
+  // SPOT5 images do not have a georef.  Will have to change this to support map projection.
+  has_left_georef  = false;
+  has_right_georef = false;
   if ( stereo_settings().alignment_method != "none") {
     // If any alignment at all happens, the georef will be messed up.
     has_left_georef = false;
@@ -297,8 +297,9 @@ unshared_preprocessing_hook(asp::BaseOptions              & options,
     left_cropped_file  = this->m_out_prefix + "-L-cropped.tif";
     right_cropped_file = this->m_out_prefix + "-R-cropped.tif";
 
-    has_left_georef  = read_georeference(left_georef,  left_input_file);
-    has_right_georef = read_georeference(right_georef, right_input_file);
+    // SPOT5 images do not have a georef.  Will have to change this to support map projection.
+    has_left_georef  = false;
+    has_right_georef = false;
     bool has_nodata = true;
 
     DiskImageView<float> left_orig_image(left_rsrc);
@@ -328,8 +329,9 @@ unshared_preprocessing_hook(asp::BaseOptions              & options,
   }
 
   // Re-read the georef, since it changed above.
-  has_left_georef  = read_georeference(left_georef,  left_cropped_file);
-  has_right_georef = read_georeference(right_georef, right_cropped_file);
+  // - SPOT5 images do not have a georef.  Will have to change this to support map projection.
+  has_left_georef  = false;
+  has_right_georef = false;
   if ( stereo_settings().alignment_method != "none") {
     // If any alignment at all happens, the georef will be messed up.
     has_left_georef = false;

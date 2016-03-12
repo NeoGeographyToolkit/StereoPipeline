@@ -25,6 +25,8 @@
 #include <asp/Core/ThreadedEdgeMask.h>
 #include <asp/Core/InpaintView.h>
 #include <asp/Sessions/StereoSession.h>
+#include <asp/Sessions/StereoSessionFactory.h>
+#include <xercesc/util/PlatformUtils.hpp>
 
 using namespace vw;
 using namespace asp;
@@ -140,8 +142,8 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
                                         left_image_file, right_image_file);
 
   boost::shared_ptr<DiskImageResource>
-    left_rsrc (DiskImageResource::open(left_image_file )),
-    right_rsrc(DiskImageResource::open(right_image_file));
+    left_rsrc (asp::load_disk_image_resource(left_image_file,  opt.cam_file1)),
+    right_rsrc(asp::load_disk_image_resource(right_image_file, opt.cam_file2));
 
   // Load the normalized images.
   DiskImageView<PixelGray<float> > left_image (left_rsrc ),
@@ -476,6 +478,8 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
 int main(int argc, char* argv[]) {
 
   try {
+    xercesc::XMLPlatformUtils::Initialize();
+  
     vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 0 --> PREPROCESSING \n";
 
     stereo_register_sessions();
@@ -501,6 +505,7 @@ int main(int argc, char* argv[]) {
 
     vw_out() << "\n[ " << current_posix_time_string() << " ] : PREPROCESSING FINISHED \n";
 
+     xercesc::XMLPlatformUtils::Terminate();
   } ASP_STANDARD_CATCHES;
 
   return 0;

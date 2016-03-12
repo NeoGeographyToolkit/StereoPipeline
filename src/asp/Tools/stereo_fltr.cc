@@ -26,6 +26,7 @@
 #include <asp/Core/ErodeView.h>
 #include <asp/Core/ThreadedEdgeMask.h>
 #include <asp/Sessions/StereoSession.h>
+#include <xercesc/util/PlatformUtils.hpp>
 
 using namespace vw;
 using namespace asp;
@@ -337,6 +338,7 @@ void stereo_filtering( Options& opt ) {
 int main(int argc, char* argv[]) {
 
   try {
+    xercesc::XMLPlatformUtils::Initialize();
 
     vw_out() << "\n[ " << current_posix_time_string()
              << " ] : Stage 3 --> FILTERING \n";
@@ -365,6 +367,7 @@ int main(int argc, char* argv[]) {
     vw_out() << "\n[ " << current_posix_time_string()
              << " ] : FILTERING FINISHED \n";
 
+    xercesc::XMLPlatformUtils::Terminate();
   } ASP_STANDARD_CATCHES;
 
   return 0;

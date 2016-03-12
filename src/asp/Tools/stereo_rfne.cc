@@ -26,7 +26,8 @@
 #include <vw/Stereo/EMSubpixelCorrelatorView.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <asp/Core/LocalHomography.h>
-#include <asp/Sessions/StereoSession.h> // TODO: This should not be needed
+#include <asp/Sessions/StereoSession.h>
+#include <xercesc/util/PlatformUtils.hpp>
 
 using namespace vw;
 using namespace vw::stereo;
@@ -392,6 +393,7 @@ void stereo_refinement( Options const& opt ) {
 int main(int argc, char* argv[]) {
 
   try {
+    xercesc::XMLPlatformUtils::Initialize();
 
     vw_out() << "\n[ " << current_posix_time_string()
              << " ] : Stage 2 --> REFINEMENT \n";
@@ -417,6 +419,7 @@ int main(int argc, char* argv[]) {
     vw_out() << "\n[ " << current_posix_time_string()
              << " ] : REFINEMENT FINISHED \n";
 
+    xercesc::XMLPlatformUtils::Terminate();
   } ASP_STANDARD_CATCHES;
 
   return 0;
