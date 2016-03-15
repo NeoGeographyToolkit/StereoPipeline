@@ -137,11 +137,13 @@ Check the LOS paper to see if it has a good implementation suggestion.
 		                vw::camera::SLERPPoseInterpolation        const& pose,
 		                vw::camera::LinearTimeInterpolation       const& time,
                     std::vector<std::pair<int, vw::Vector2> > const& look_angles,
-		                vw::Vector2i  const& image_size
+		                vw::Vector2i  const& image_size,
+		                double min_time, double max_time
 		    ) : vw::camera::LinescanModel(image_size, false), // TODO: Always correct velocity aberration
   		      m_position_func(position), m_velocity_func(velocity),
             m_pose_func(pose),         m_time_func(time),
-            m_look_angles(look_angles) {}
+            m_look_angles(look_angles),
+            m_min_time(min_time), m_max_time(max_time) {}
 		    
     virtual ~SPOTCameraModel() {}
     virtual std::string type() const { return "LinescanDG"; }
@@ -149,14 +151,19 @@ Check the LOS paper to see if it has a good implementation suggestion.
     // -- This set of functions implements virtual functions from LinescanModel.h --
 
     // Implement the functions from the LinescanModel class using functors
-    virtual vw::Vector3 get_camera_center_at_time  (double time) const { return m_position_func(time); }
-    virtual vw::Vector3 get_camera_velocity_at_time(double time) const { return m_velocity_func(time); }
-    virtual vw::Quat    get_camera_pose_at_time    (double time) const { return m_pose_func    (time); }
-    virtual double      get_time_at_line           (double line) const { return m_time_func    (line); }
+    virtual vw::Vector3 get_camera_center_at_time  (double time) const;
+    virtual vw::Vector3 get_camera_velocity_at_time(double time) const;
+    virtual vw::Quat    get_camera_pose_at_time    (double time) const;
+    virtual double      get_time_at_line           (double line) const;
     
     /// As pixel_to_vector, but in the local camera frame.
     virtual vw::Vector3 get_local_pixel_vector(vw::Vector2 const& pix) const;
- 
+
+    // TODO: See if we can port these local changes to the parent class
+    virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point, double starty) const;
+    virtual Vector2 point_to_pixel (Vector3 const& point) const {
+      return point_to_pixel(point, -1); // Redirect to other function with no guess
+    }
  
     /// Fills in an ImageFormat object required to read the associated .BIL file.
     vw::ImageFormat get_image_format() const;
@@ -186,6 +193,14 @@ Check the LOS paper to see if it has a good implementation suggestion.
     /// This is a lookup table for local pixel ray vectors loaded from the XML file.
     std::vector<std::pair<int, vw::Vector2> > m_look_angles;
     
+    /// These are the limits of when he have pose data available.
+    /// - SPOT5 data only barely provides enough pose data for the time range,
+    ///   so asking for data outside this range will throuw an exception.
+    double m_min_time, m_max_time;
+    
+    /// Throw an exception if the input time is outside the given bounds.
+    /// - Pass the caller location in to get a nice error message.
+    void check_time(double time, std::string const& location) const;
 
   }; // End class SPOTCameraModel
 

@@ -25,6 +25,107 @@ using vw::Vector3;
 using vw::Matrix3x3;
 
 
+/*
+
+  // Levenberg Marquardt solver for linescan number (y) and pixel
+  // number (x) for the given point in space. The obtained solution
+  // pixel (x, y) must be such that the vector from this camera
+  // pixel goes through the given point. This version does uses only
+  // functions declared in LinescanModel class and should work for 
+  // any LineScan camera. Some cameras may be able to use a faster
+  // implementation that solves for y first and then for x seperately.
+  class LinescanGenericLMA2 : public vw::math::LeastSquaresModelBase<LinescanGenericLMA2> {
+    const SPOTCameraModel* m_model;
+    const Vector3 m_point;
+  public:
+    typedef vw::Vector2 domain_type;     // 2D pixel, input to cost function vector
+    typedef Vector3 result_type;     // 3D error, output of cost function vector
+    typedef vw::Matrix<double, 3, 2> jacobian_type;
+
+    LinescanGenericLMA2( const SPOTCameraModel* model, const vw::Vector3& pt ) :
+      m_model(model), m_point(pt) {
+      //std::cout << "INIT MODEL with point " << pt << std::endl;
+    }
+
+    // Minimize the difference between the vector from the pixel and
+    //  the vector from the point to the camera.
+    inline result_type operator()( domain_type const& pix ) const {
+      try {
+        Vector3 vec = m_model->pixel_to_vector(pix);
+        Vector3 center = m_model->camera_center(pix);
+        Vector3 target = m_point - center;
+        //std::cout << "pixel " << pix << " --> " << vec << " vs " << target << std::endl;
+        //std::cout << "center = " << center << std::endl;
+        return vec - vw::math::normalize(target);
+      } catch(...) { // Handle camera misses by returning a very large error
+        return Vector3(999999,999999,999999);
+      }
+    }
+  }; // End class LinescanGenericLMA
+*/
+
+// TODO: Port these changes to the base class
+
+vw::Vector2 SPOTCameraModel::point_to_pixel(Vector3 const& point, double starty) const {
+
+  // Use the generic solver to find the pixel 
+  // - This method will be slower but works for more complicated geometries
+  LinescanGenericLMA model( this, point );
+  int status;
+  vw::Vector2 start = m_image_size / 2.0; // Use the center as the initial guess
+  if (starty >= 0) // If the user provided a line number guess..
+    start[1] = starty;
+
+  // Solver constants
+  const double ABS_TOL = 1e-16;
+  const double REL_TOL = 1e-16;
+  const int    MAX_ITERATIONS = 1e+5;
+  const double MAX_ERROR = 0.01;
+
+  Vector3 objective(0, 0, 0);
+  vw::Vector2 solution = vw::math::levenberg_marquardt(model, start, objective, status,
+                                               ABS_TOL, REL_TOL, MAX_ITERATIONS);
+  // Check the error - If it is too high then the solver probably got stuck at the edge of the image.
+  Vector3 ray   = this->pixel_to_vector(solution);
+  double  error = vw::math::norm_2(ray - vw::math::normalize(point - this->camera_center(solution)));
+  VW_ASSERT( (status > 0) && (error < MAX_ERROR),
+	           vw::camera::PointToPixelErr() << "Unable to project point into LinescanSPOT model" );
+
+  return solution;
+}
+
+
+
+
+void SPOTCameraModel::check_time(double time, std::string const& location) const {
+  if ((time < m_min_time) || (time > m_max_time))
+    vw::vw_throw(vw::ArgumentErr() << "SPOTCameraModel::"<<location
+                 << ": Requested time "<<time<<" is out of bounds ("
+                 << m_min_time << " <-> "<<m_max_time<<")\n");
+}
+
+vw::Vector3 SPOTCameraModel::get_camera_center_at_time(double time) const {
+  check_time(time, "get_camera_center_at_time");
+  return m_position_func(time);
+}
+vw::Vector3 SPOTCameraModel::get_camera_velocity_at_time(double time) const { 
+  check_time(time, "get_camera_velocity_at_time");
+  return m_velocity_func(time); 
+}
+vw::Quat SPOTCameraModel::get_camera_pose_at_time(double time) const {
+  check_time(time, "get_camera_pose_at_time");
+ return m_pose_func(time); 
+}
+double SPOTCameraModel::get_time_at_line(double line) const {
+  if ((line < 0.0) || (static_cast<int>(line) >= m_image_size[1]))
+    vw::vw_throw(vw::ArgumentErr() << "SPOTCameraModel::get_time_at_line"
+                 << ": Requested line "<<line<<" is out of bounds (0"
+                 << " <-> "<<m_image_size[1]<<")\n");
+ return m_time_func(line); 
+}
+
+
+
 Vector3 SPOTCameraModel::get_local_pixel_vector(vw::Vector2 const& pix) const {
   
   // psi_x Is the angle from nadir line in along-track direction (lines)
@@ -33,13 +134,17 @@ Vector3 SPOTCameraModel::get_local_pixel_vector(vw::Vector2 const& pix) const {
   
   // Interpolate the pixel angle from the adjacent values in the lookup table.
   // - Probably should have a simple 2D interp function somewhere.  
-  double     col = pix[0];
-  double min_col = floor(col);
-  double max_col = min_col + 1.0;
-  size_t min_index = static_cast<size_t>(min_col);
-  size_t max_index = static_cast<size_t>(max_col);
+  double     col    = pix[0];
+  double min_col    = floor(col);
+  double max_col    = min_col + 1.0;
+  size_t min_index  = static_cast<size_t>(min_col);
+  size_t max_index  = static_cast<size_t>(max_col);
   double min_weight = max_col - col;
   double max_weight = col-min_col;
+  
+  // Check bounds
+  if ((col < 0) || (col > static_cast<double>(m_look_angles.size())-1.0))
+    vw::vw_throw(vw::ArgumentErr() << "SPOTCameraModel:::get_local_pixel_vector: Requested pixel " << col << " is out of bounds!\n");
   
   double psi_x = (m_look_angles[max_index].second[0]*max_weight + 
                   m_look_angles[min_index].second[0]*min_weight  );
@@ -187,7 +292,8 @@ boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model_from_xml(std::string 
   return boost::shared_ptr<SPOTCameraModel>(new SPOTCameraModel(position_func, velocity_func, 
                                                                 pose_func, time_func, 
                                                                 xml_reader.look_angles,
-                                                                xml_reader.image_size));
+                                                                xml_reader.image_size,
+                                                                min_time, max_time));
 
 } // End function load_spot_camera_model()
 

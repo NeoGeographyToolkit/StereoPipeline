@@ -73,8 +73,8 @@ namespace asp {
   pre_preprocessing_hook(bool adjust_left_image_size,
 			 std::string const& left_input_file,
 			 std::string const& right_input_file,
-			 std::string &left_output_file,
-			 std::string &right_output_file) {
+			 std::string      & left_output_file,
+			 std::string      & right_output_file) {
 
     std::string left_cropped_file, right_cropped_file;
     asp::BaseOptions options;
@@ -94,7 +94,7 @@ namespace asp {
 
     // Load the cropped images
     DiskImageView<float> left_disk_image (left_cropped_file ),
-    right_disk_image(right_cropped_file);
+                         right_disk_image(right_cropped_file);
 
     // Set up image masks
     ImageViewRef< PixelMask<float> > left_masked_image
