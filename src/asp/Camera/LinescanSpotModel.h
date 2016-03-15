@@ -161,7 +161,7 @@ Check the LOS paper to see if it has a good implementation suggestion.
 
     // TODO: See if we can port these local changes to the parent class
     virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point, double starty) const;
-    virtual Vector2 point_to_pixel (Vector3 const& point) const {
+    virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point) const {
       return point_to_pixel(point, -1); // Redirect to other function with no guess
     }
  

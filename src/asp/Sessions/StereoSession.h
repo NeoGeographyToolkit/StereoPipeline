@@ -202,7 +202,7 @@ namespace asp {
 
     // Peek inside the images and camera models and return the datum and projection,
     // or at least the datum, packaged in a georef.
-    vw::cartography::GeoReference get_georef();
+    virtual vw::cartography::GeoReference get_georef();
 
     // All Stereo Session children must define the following which are not defined in the the parent:
     //   typedef VWStereoModel stereo_model_type;

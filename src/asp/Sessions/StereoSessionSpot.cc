@@ -53,7 +53,28 @@ namespace vw {
 namespace asp {
 
 
-  inline void StereoSessionSpot::
+
+  vw::cartography::GeoReference StereoSessionSpot::get_georef() {
+
+    // SPOT5 images never have georef information!
+    // The best we can do is to set the datum to what SPOT5 always uses and
+    // stick it inside a fake georef object.
+
+    vw::cartography::GeoReference georef = vw::cartography::GeoReference();
+    Matrix3x3 transform = georef.transform();
+    transform(0,2) = 1;
+    transform(1,2) = 1;
+    georef.set_transform(transform);
+    georef.set_geographic();
+
+    georef.set_datum(vw::cartography::Datum("WGS84"));
+
+    return georef;
+  }
+
+
+
+  void StereoSessionSpot::
   pre_preprocessing_hook(bool adjust_left_image_size,
 			 std::string const& left_input_file,
 			 std::string const& right_input_file,

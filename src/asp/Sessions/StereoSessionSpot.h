@@ -57,6 +57,9 @@ namespace asp {
 					std::string      & left_output_file,
 					std::string      & right_output_file);
 
+    /// Override the base class implementation, SPOT5 images never have georef.
+    virtual vw::cartography::GeoReference get_georef();
+
     /// Specialization of shared_preprocessing_hook currently required for this class.
     /// - TODO: Refactor things so we don't need all this duplicate code!!!
     bool unshared_preprocessing_hook(asp::BaseOptions              & options,
