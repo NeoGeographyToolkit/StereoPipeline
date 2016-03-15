@@ -223,7 +223,8 @@ void SpotXML::read_look_angles(xercesc::DOMElement* look_angles_node) {
   DOMNodeList* children = look_angle_list_node->getChildNodes();
   //std::cout << "Child count: " << children->getLength() << std::endl;
   size_t index = 0;
-  for ( XMLSize_t i = 0; i < children->getLength(); ++i ) {
+  const XMLSize_t num_children = children->getLength();
+  for ( XMLSize_t i = 0; i < num_children; ++i ) {
     // Check child node type
     DOMNode* curr_node = children->item(i);
     if ( curr_node->getNodeType() != DOMNode::ELEMENT_NODE )
@@ -231,23 +232,42 @@ void SpotXML::read_look_angles(xercesc::DOMElement* look_angles_node) {
 
     // Check the node name
     DOMElement* curr_element = dynamic_cast<DOMElement*>( curr_node );
+    /*
     std::string tag( XMLString::transcode(curr_element->getTagName()) );
     if (tag.find("Look_Angles") == std::string::npos){
       std::cout << "Skipping " << tag << std::endl;
       continue;
     }
+    */
+    //std::cout << "Tag = " << tag << std::endl;
 
     if (index >= num_cols)
       vw_throw(ArgumentErr() << "More look angles than rows in SPOT XML file!\n");
 
-    // Record the values  
-    cast_xmlch( get_node<DOMElement>(curr_element, "DETECTOR_ID")->getTextContent(), look_angles[index].first );
-    cast_xmlch( get_node<DOMElement>(curr_element, "PSI_X"      )->getTextContent(), look_angles[index].second.x() );
-    cast_xmlch( get_node<DOMElement>(curr_element, "PSI_Y"      )->getTextContent(), look_angles[index].second.y() );
+    // Look through the three nodes and assign each of them
+    // - In this function we do this a little more by hand to try and speed things up
+    DOMNodeList* sub_children = curr_element->getChildNodes();
+    for ( XMLSize_t j = 0; j < sub_children->getLength(); ++j ) {
+
+      DOMNode* child_node = sub_children->item(j);
+      if ( child_node->getNodeType() != DOMNode::ELEMENT_NODE )
+        continue;
+      DOMElement* child_element = dynamic_cast<DOMElement*>( child_node );
+      std::string tag2( XMLString::transcode(child_element->getTagName()) );
+      std::string text( XMLString::transcode(child_element->getTextContent()) );
+      //std::cout << "Tag2 = " << tag2 << std::endl;
+      if (tag2 == "DETECTOR_ID")
+        look_angles[index].first = atoi(text.c_str());
+      if (tag2 == "PSI_X")
+        look_angles[index].second.x() = atof(text.c_str());
+      if (tag2 == "PSI_Y")
+        look_angles[index].second.y() = atof(text.c_str());
+    }
+
     //std::cout << "Loaded psi: " << look_angles[index].second << std::endl;
     ++index;
 
-  } // End loop through corrected attitudes
+  } // End loop through look angles
   if (index != num_cols)
     vw_throw(ArgumentErr() << "Did not load the correct number of SPOT5 pixel look angles!\n");
 }
