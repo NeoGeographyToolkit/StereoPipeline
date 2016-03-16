@@ -1,5 +1,10 @@
 *** RELEASE 2.5.3, Upcoming! ***
 
+ - pc_align 
+   * Can solve for a scale change in addition to a rotation and translation 
+     to best align two clouds, hence for a similarity transform. 
+     Option: --alignment-method similarity-point-to-point
+
  - dem_mosaic
    * Fix a bug with mosaicking of DEMs over very large extent.
 

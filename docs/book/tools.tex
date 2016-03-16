@@ -1134,7 +1134,7 @@ The Mars areoid is MOLA MEGDR
 it into ASP, we adjusted the areoid height values to be relative to
 the IAU reference spheroid for Mars of radius 3,396,190~m. The areoid at that source was
 relative to the Mars radius of 3,396,000~m. Yet \texttt{dem\_geoid} can adjust
-corretly Mars DEMs created in respect to either spheroid.
+correctly Mars DEMs created in respect to either spheroid.
 
 \begin{longtable}{|l|p{10cm}|}
 \caption{Command-line options for dem\_geoid}
@@ -1502,8 +1502,10 @@ Compress using laszip. \\ \hline
 \label{pcalign}
 
 This tool can be used to align two point clouds using Point-to-Plane or
-Point-to-Point Iterative Closest Point (ICP). It uses the
-\texttt{libpointmatcher} library~\cite{Pomerleau12comp}
+Point-to-Point Iterative Closest Point (ICP). With the latter method it
+can also handle a scale as part of the alignment transform, not just a
+rigid transformation. It uses the \texttt{libpointmatcher}
+library~\cite{Pomerleau12comp}
 (\url{https://github.com/ethz-asl/libpointmatcher}).
 
 \medskip
@@ -1549,6 +1551,7 @@ these numbers, ideally the more points the better. Pre-cropping to
 judiciously chosen regions may improve the accuracy and/or run-time.
 
 \subsection{Alignment method}
+\label{align-method}
 
 Normally Point-to-Plane ICP is more accurate than Point-to-Point, but
 the latter can be good enough if the input point clouds have small
@@ -1558,6 +1561,13 @@ will compute the normals for Point-to-Plane ICP at all points rather
 than about a tenth of them. This option is not necessary most of the
 time, but may result in better alignment at the expense of using more
 memory and processing time.
+
+The default alignment transform is rigid, that is, a combination of
+rotation and translation. With Point-to-Point ICP, it is also possible
+to solve for a scale change (to obtain a so-called \texttt{similarity
+transform}). It is suggested this approach be used only when a scale
+change is expected. It can be turned on by using
+\texttt{-\/-alignment-method similarity-point-to-point}.
 
 \subsection{File formats}
 
@@ -1588,14 +1598,16 @@ specified via the \texttt{-\/-datum} option, or by setting
 
 \subsection{The alignment transform}
 
-The transform obtained by \texttt{pc\_align} is output to a text file as a
-$4\times 4$ matrix with the upper-left $3\times 3$ submatrix being the
-rotation and the top three elements of the right-most column being the
+The transform obtained by \texttt{pc\_align} is output to a text file as
+a $4\times 4$ matrix with the upper-left $3\times 3$ submatrix being the
+rotation (and potentially also a scale, per section \ref{align-method}) and
+the top three elements of the right-most column being the
 translation. This transform, if applied to the source point cloud, will
 bring it in alignment with the reference point cloud. The transform
 assumes the 3D Cartesian coordinate system with the origin at the planet
-center. This matrix can be supplied back to the tool as an initial
-guess (section \ref{prevtrans}). The inverse transform is saved to a file as well.
+center. This matrix can be supplied back to the tool as an initial guess
+(section \ref{prevtrans}). The inverse transform is saved to a file as
+well.
 
 The \texttt{pc\_align} program outputs the translation component of this
 transform, defined as the vector from the centroid of the original
@@ -1610,7 +1622,7 @@ form (b) above is most amenable to interpretation as it is in respect
 to cardinal directions and height above ground if standing at a point on
 the planet surface.
 
-The rotation + transform itself, with its origin at the center of the planet,
+The full transform itself, with its origin at the center of the planet,
 can result in large movements on the planet surface even for small angles
 of rotation. Because of this it may be difficult to interpret both its rotation
 and translation components.
@@ -1717,7 +1729,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-threads \textit{integer(=0)}} & Set the number threads to
 use. 0 means use the default as set by OpenMP. Only some parts of the algorithm are multi-threaded.\\ \hline
 \texttt{-\/-initial-transform \textit{string}} &
-The file containing the rotation + translation transform to be used as an
+The file containing the transform to be used as an
 initial guess. It can come from a previous run of the tool. \\ \hline
 \texttt{-\/-num-iterations \textit{default: 1000}} &  Maximum number of iterations. \\ \hline
 \texttt{-\/-diff-rotation-error \textit{default: $10^{-8}$}} & Change in rotation amount below which the algorithm will stop (if translation error is also below bound), in degrees. \\ \hline
@@ -1730,8 +1742,7 @@ for removing gross outliers in the source (movable) point cloud.\\ \hline
 \texttt{-\/-max-num-reference-points \textit{default: $10^8$}} &
 Maximum number of (randomly picked) reference points to use. \\ \hline
 \texttt{-\/-max-num-source-points \textit{default: $10^5$}} & Maximum number of (randomly picked) source points to use (after discarding gross outliers). \\ \hline
-\texttt{-\/-alignment-method \textit{default: point-to-plane}} & The type of iterative closest point
-method to use. [point-to-plane, point-to-point]\\ \hline
+\texttt{-\/-alignment-method \textit{default: point-to-plane}} & The type of iterative closest point method to use. [point-to-plane, point-to-point, similarity-point-to-point]\\ \hline
 \texttt{-\/-highest-accuracy} & Compute with highest accuracy for point-to-plane (can be much slower). \\ \hline
 
 \texttt{-\/-datum \textit{string}} & Use this datum for CSV files. Options: WGS\_1984, D\_MOON (1,737,400 meters), D\_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), and Moon (=D\_MOON). \\ \hline
@@ -2352,7 +2363,7 @@ A simple tool for use with LVIS (Land, Vegetation, and Ice Sensor) lidar data fr
 NASA IceBridge program.  Generates a Google Earth compatible .kml files from either
 an LVIS data file (.TXT extension) or an LVIS boundary file (.xml extension).  Using
 this tool makes it easy to visualize what region a given LVIS file covers and what
-the shap of its data looks like.  If the output path is not passed to the tool it
+the shape of its data looks like.  If the output path is not passed to the tool it
 will generate an output path by appending ".kml" to the input path.  This tool requires
 the simplekml Python package to run.  One way to get this is to install the ASP Python
 tools, described at the end of section \ref{sparse-disp}.

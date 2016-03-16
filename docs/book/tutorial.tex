@@ -1350,7 +1350,8 @@ can be made up of GPS measurements (in the case of Earth), or from
 laser altimetry instruments on satellites, such as ICESat/GLASS for
 Earth, LRO/LOLA on the Moon, and MGS/MOLA on Mars.  Under the hood,
 \texttt{pc\_align} uses the Iterative Closest Point algorithm (ICP)
-(both the point-to-plane and point-to-point flavors are supported).
+(both the point-to-plane and point-to-point flavors are supported,
+and with point-to-point ICP it is also possible to solve for a scale change).
 
 The \texttt{pc\_align} tool requires another input, an a priori guess for
 the maximum displacement we expect to see as result of alignment, i.e.,

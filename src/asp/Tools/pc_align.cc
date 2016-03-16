@@ -128,7 +128,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
     ("initial-transform",        po::value(&opt.init_transform_file)->default_value(""),
-                                 "The file containing the rotation + translation transform to be used as an initial guess. It can come from a previous run of the tool.")
+                                 "The file containing the transform to be used as an initial guess. It can come from a previous run of the tool.")
     ("num-iterations",           po::value(&opt.num_iter)->default_value(1000),
                                  "Maximum number of iterations.")
     ("diff-rotation-error",      po::value(&opt.diff_rotation_err)->default_value(1e-8),
@@ -144,7 +144,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("max-num-source-points",    po::value(&opt.max_num_source_points)->default_value(100000),
                                  "Maximum number of (randomly picked) source points to use (after discarding gross outliers).")
     ("alignment-method",         po::value(&opt.alignment_method)->default_value("point-to-plane"),
-                                 "The type of iterative closest point method to use. [point-to-plane, point-to-point]")
+                                 "The type of iterative closest point method to use. [point-to-plane, point-to-point, similarity-point-to-point]")
     ("highest-accuracy",         po::bool_switch(&opt.highest_accuracy)->default_value(false)->implicit_value(true),
                                  "Compute with highest accuracy for point-to-plane (can be much slower).")
     ("csv-format",               po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
@@ -257,6 +257,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_out() << "Initial guess transform:\n" << opt.init_transform << endl;
   }
 
+  if (opt.alignment_method != "point-to-plane" && opt.alignment_method != "point-to-point" &&
+      opt.alignment_method != "similarity-point-to-point" )
+    vw_throw( ArgumentErr() << "Only the following alignment methods are supported: point-to-plane, point-to-point, and similarity-point-to-point.\n"
+	      << usage << general_options );
+  
 }
 
 /// Try to read the georef/datum info, need it to read CSV files.
