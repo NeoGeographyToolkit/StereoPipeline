@@ -79,7 +79,7 @@ Check the LOS paper to see if it has a good implementation suggestion.
     the look vector in GCC = u3.  
     The angles are actually expressed in a special coordinate frame:
       Xa = -X1, Ya = -Y1, Za = Z1.
-    These inversions ARE taken into account in the following equations
+    These inversions ARE(?) taken into account in the following equations
     to compute the look vector in the O2 (Orbital) coord system = u2:
       u2 = Mp*Mr*My*u1
       Mp = [1, 0,           0          ]
@@ -139,7 +139,7 @@ Check the LOS paper to see if it has a good implementation suggestion.
                     std::vector<std::pair<int, vw::Vector2> > const& look_angles,
 		                vw::Vector2i  const& image_size,
 		                double min_time, double max_time
-		    ) : vw::camera::LinescanModel(image_size, false), // TODO: Always correct velocity aberration
+		    ) : vw::camera::LinescanModel(image_size, true), // Always correct velocity aberration
   		      m_position_func(position), m_velocity_func(velocity),
             m_pose_func(pose),         m_time_func(time),
             m_look_angles(look_angles),
@@ -178,6 +178,14 @@ Check the LOS paper to see if it has a good implementation suggestion.
     /// Returns the matrix needed to convert an O1 look vector into an O2 look vector.
     /// = Mp*Mr*My
     static vw::Matrix3x3 get_look_rotation_matrix(double yaw, double pitch, double roll);
+
+  private:
+
+    /// SPOT5 velocities are already rotation velocity corrected!
+    virtual vw::Vector3 get_rotation_corrected_velocity(vw::Vector2 const& pixel,
+                                                        vw::Vector3 const& uncorrected_vector) const {
+      return camera_velocity(pixel);
+    }
 
   protected:
 

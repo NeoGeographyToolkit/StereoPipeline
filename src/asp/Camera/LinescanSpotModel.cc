@@ -95,8 +95,6 @@ vw::Vector2 SPOTCameraModel::point_to_pixel(Vector3 const& point, double starty)
 }
 
 
-
-
 void SPOTCameraModel::check_time(double time, std::string const& location) const {
   if ((time < m_min_time) || (time > m_max_time))
     vw::vw_throw(vw::ArgumentErr() << "SPOTCameraModel::"<<location
@@ -153,7 +151,7 @@ Vector3 SPOTCameraModel::get_local_pixel_vector(vw::Vector2 const& pix) const {
   
   // This vector is in the SPOT5 O1 Navigation Coordinate Sytem, which 
   // differs from how we usually set up our coordinates.
-  //return normalize(Vector3(-tan(psi_y), tan(psi_x), -1));
+  //Vector3 result = normalize(Vector3(-tan(psi_y), tan(psi_x), -1));
   
   // Convert the local vector so that it follows our usual conventions:
   //  Z down, Y flight direction, X increasing sample direction. 
@@ -193,6 +191,7 @@ Matrix3x3 SPOTCameraModel::get_local_orbital_frame(Vector3 const& position, Vect
 }
 
 Matrix3x3 SPOTCameraModel::get_look_rotation_matrix(double yaw, double pitch, double roll) {
+/*
   // These calculations are copied from the SPOT 123-4-58 Geometry Handbook (GAEL-P135-DOC-001)
   Matrix3x3 Mp, Mr, My;
   Mp(0,0) = 1.0;         Mp(0,1) = 0.0;           Mp(0,2) = 0.0;
@@ -209,6 +208,20 @@ Matrix3x3 SPOTCameraModel::get_look_rotation_matrix(double yaw, double pitch, do
 
   Matrix3x3 out = Mp*Mr*My;
   return out;
+*/  
+
+  double cp = cos(pitch);
+  double sp = sin(pitch);
+  double cr = cos(roll);
+  double sr = sin(roll);
+  double cy = cos(yaw);
+  double sy = sin(yaw);
+
+  Matrix3x3 M;
+  M(0,0) = (cr*cy);            M(0,1) = (-cr*sy);           M(0,2) = (-sr);
+  M(1,0) = (cp*sy+sp*sr*cy);   M(1,1) = (cp*cy-sp*sr*sy);   M(1,2) = (sp*cr);
+  M(2,0) = (-sp*sy+cp*sr*cy);  M(2,1) = (-sp*cy-cp*sr*sy);  M(2,2) = cp*cr; 
+  return M;
 }
 
 boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model_from_xml(std::string const& path)
@@ -260,18 +273,38 @@ boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model_from_xml(std::string 
     velocity       = velocity_func(time);
     yaw_pitch_roll = spot_pose_func(time);
     
+    // TODO: There may be a ~1 meter offset between ITRF coordinates and WGS84 coordinates!
+    
     // Get the two of rotation matrices we need
     lo_frame      = SPOTCameraModel::get_local_orbital_frame(position, velocity);
     look_rotation = SPOTCameraModel::get_look_rotation_matrix(yaw_pitch_roll[0], 
                                           yaw_pitch_roll[1], yaw_pitch_roll[2]);
     //look_rotation.set_identity(); // DEBUG assume perfect path following
     // By their powers combined these form the GCC rotation we need.
-    combined_rotation = look_rotation * lo_frame * R;
+    combined_rotation = lo_frame * look_rotation*R;
+    /*
+    // Try a test vector
+    Vector3 uSat = normalize(Vector3(0.1, 0.2, -1));
+    Vector3 uSat2 = normalize(Vector3(-0.1, 0.2, 1));
+    Vector3 uOrb = look_rotation * uSat;
+    Vector3 uEcf = lo_frame * uOrb;
+    std::cout << "uECF =" << uEcf << std::endl;
     
+    Vector3 uTest = combined_rotation * uSat2;
+    std::cout << "uTest =" << uTest << std::endl;
+    
+    Vector3 uTest2 = lo_frame * look_rotation * uSat;
+    std::cout << "uTest2 =" << uTest2 << std::endl;    
+
+    Vector3 uTest3 = (combined_rotation*R) * uSat2;
+    std::cout << "uTest3 =" << uTest3 << std::endl;
+    Vector3 uTest4 = (R*combined_rotation) * uSat2;
+    std::cout << "uTest4 =" << uTest4 << std::endl;
+    */
     gcc_pose[i] = vw::Quat(combined_rotation);
     
+    /*
     if ((time > 156.207) && (time < 156.45)) {
-   
       std::cout << "time = " << time << std::endl;
       std::cout << "position = " << position << std::endl;
       std::cout << "velocity = " << velocity << std::endl;
@@ -280,7 +313,7 @@ boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model_from_xml(std::string 
       std::cout << "look_rotation = " << look_rotation << std::endl;
       std::cout << "combined_rotation = " << combined_rotation << std::endl;
     }
-    
+    */
     
   }
   
