@@ -337,7 +337,7 @@ AX_PKG_ONE_OF(GSL,
 AX_PKG(CURL,    [], [-lcurl], [curl/curl.h])
 AX_PKG(GEOID, [], [-legm2008], [])
 
-AX_PKG(GEOS,    [], [-lgeos], [geos.h])
+AX_PKG(GEOS,    [], [-lgeos -lgeos_c], [geos.h])
 AX_PKG(XERCESC, [CURL], [-lxerces-c], [xercesc/dom/DOM.hpp xercesc/util/XMLString.hpp xercesc/parsers/XercesDOMParser.hpp])
 AX_PKG(SUITESPARSE, [], [-lsuitesparseconfig], [SuiteSparse_config.h])
 AX_PKG(AMD, [], [-lamd], [], [], [], [], [SUITESPARSE])
