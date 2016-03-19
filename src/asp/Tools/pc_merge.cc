@@ -160,7 +160,7 @@ do_work(Vector3 const& shift, Options const& opt) {
 
   bool has_georef = false;
   bool has_nodata = false;
-  double nodata;
+  double nodata = -std::numeric_limits<float>::max(); // smallest float
   GeoReference georef;
   asp::block_write_gdal_image(opt.out_file, merged_cloud, has_georef,
                               georef,  has_nodata, nodata, opt,
