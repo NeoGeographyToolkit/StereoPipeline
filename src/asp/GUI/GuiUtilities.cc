@@ -256,27 +256,33 @@ BBox2 point_to_pixel_bbox(BBox2 point_box2,
 
     // left edge
     Vector2 P2 = Vector2(minx, miny + r*(maxy-miny));
-    out_box.grow(point_to_pixel(P2, lon_offset, georef1, georef2));
+    try { out_box.grow(point_to_pixel(P2, lon_offset, georef1, georef2)); }
+    catch ( const std::exception & e ) {}
 
     // right edge
     P2 = Vector2(maxx, miny + r*(maxy-miny));
-    out_box.grow(point_to_pixel(P2, lon_offset, georef1, georef2));
+    try { out_box.grow(point_to_pixel(P2, lon_offset, georef1, georef2)); }
+    catch ( const std::exception & e ) {}
 
     // bottom edge
     P2 = Vector2(minx + r*(maxx-minx), miny);
-    out_box.grow(point_to_pixel(P2, lon_offset, georef1, georef2));
+    try { out_box.grow(point_to_pixel(P2, lon_offset, georef1, georef2)); }
+    catch ( const std::exception & e ) {}
 
     // top edge
     P2 = Vector2(minx + r*(maxx-minx), maxy);
-    out_box.grow(point_to_pixel(P2, lon_offset, georef1, georef2));
+    try { out_box.grow(point_to_pixel(P2, lon_offset, georef1, georef2)); }
+    catch ( const std::exception & e ) {}
 
     // diag1
     P2 = Vector2(minx + r*(maxx-minx), miny + r*(maxy-miny));
-    out_box.grow(point_to_pixel(P2, lon_offset, georef1, georef2));
+    try { out_box.grow(point_to_pixel(P2, lon_offset, georef1, georef2)); }
+    catch ( const std::exception & e ) {}
 
     // diag2
     P2 = Vector2(maxx - r*(maxx-minx), miny + r*(maxy-miny));
-    out_box.grow(point_to_pixel(P2, lon_offset, georef1, georef2));
+    try { out_box.grow(point_to_pixel(P2, lon_offset, georef1, georef2)); }
+    catch ( const std::exception & e ) {}
   }
 
   return grow_bbox_to_int(out_box);

@@ -560,12 +560,16 @@ namespace vw { namespace gui {
             Vector2 world_pt = screen2world(Vector2(x, y));
 
             // p is in pixel coordinates of m_images[i]
-            Vector2 p = MainWidget::world2image(world_pt, i);
-            bool is_in = (p[0] >= 0 && p[0] <= m_images[i].img.cols()-1 &&
-                          p[1] >= 0 && p[1] <= m_images[i].img.rows()-1 );
-            if (!is_in)
-              continue; // out of range
-
+            Vector2 p;
+            try {
+              p = MainWidget::world2image(world_pt, i);
+              bool is_in = (p[0] >= 0 && p[0] <= m_images[i].img.cols()-1 &&
+                            p[1] >= 0 && p[1] <= m_images[i].img.rows()-1 );
+              if (!is_in) continue; // out of range
+            }catch ( const std::exception & e ) {
+              continue;
+            }
+                        
             // Convert to scaled image pixels and snap to integer value
             p = round(p/scale_out);
 

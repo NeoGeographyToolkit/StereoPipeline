@@ -462,12 +462,17 @@ void load_dem(bool verbose, std::string const& file_name,
   // Load only points within lonlat_box
   vw::BBox2i pix_box;
   if (!lonlat_box.empty()){
-    pix_box.grow(dem_geo.lonlat_to_pixel(lonlat_box.min()));
-    pix_box.grow(dem_geo.lonlat_to_pixel(lonlat_box.max()));
-    pix_box.grow(dem_geo.lonlat_to_pixel(vw::Vector2(lonlat_box.min().x(),
-                                                     lonlat_box.max().y())));
-    pix_box.grow(dem_geo.lonlat_to_pixel(vw::Vector2(lonlat_box.max().x(),
-                                                     lonlat_box.min().y())));
+    // Need a lot of catch statements, as lonlat_to_pixel() can throw things
+    try { pix_box.grow(dem_geo.lonlat_to_pixel(lonlat_box.min())); } catch(...){}
+    try { pix_box.grow(dem_geo.lonlat_to_pixel(lonlat_box.max())); } catch(...){}
+    try {
+      pix_box.grow(dem_geo.lonlat_to_pixel(vw::Vector2(lonlat_box.min().x(),
+                                                       lonlat_box.max().y())));
+    }catch(...){}
+    try{
+      pix_box.grow(dem_geo.lonlat_to_pixel(vw::Vector2(lonlat_box.max().x(),
+                                                       lonlat_box.min().y())));
+    }catch(...){}
     pix_box.expand(1); // to counteract casting to int
     pix_box.crop(bounding_box(dem));
   }
@@ -1217,9 +1222,14 @@ bool interp_dem_height(vw::ImageViewRef< vw::PixelMask<float> > const& dem,
                        vw::Vector3                   const & lonlat,
                        double                              & dem_height) {
   // Convert the lon/lat location into a pixel in the DEM.
-  vw::Vector2 pix = georef.lonlat_to_pixel(subvector(lonlat, 0, 2));
-  double c = pix[0],
-         r = pix[1];
+  vw::Vector2 pix;
+  try {
+    pix = georef.lonlat_to_pixel(subvector(lonlat, 0, 2));
+  }catch(...){
+    return false;
+  }
+  
+  double c = pix[0], r = pix[1];
 
   // Quit if the pixel falls outside the DEM.
   if (c < 0 || c >= dem.cols()-1 || // TODO: This ought to be an image class function

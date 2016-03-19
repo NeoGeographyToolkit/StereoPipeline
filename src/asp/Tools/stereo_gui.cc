@@ -84,6 +84,23 @@ namespace asp{
 
 }
 
+// Inherit from QApplication to be able to over-ride the notify() method
+// that throws exceptions.
+class StereoApplication: public QApplication {
+public:
+  StereoApplication(int& argc, char** argv): QApplication(argc, argv) {}
+  virtual bool notify(QObject *receiver, QEvent *e) {
+
+    try {
+      return QApplication::notify(receiver, e);
+    } catch ( std::exception& ex ) {
+      vw::gui::popUp(ex.what());
+      return false;
+    }
+ 
+  }
+};
+
 int main(int argc, char* argv[]) {
 
   try {
@@ -142,9 +159,9 @@ int main(int argc, char* argv[]) {
         vw_throw(ArgumentErr() << e.what() << "\n");
     }
 
-    // Create the application. Must be done before trying to read images as that call uses
-    // pop-ups.
-    QApplication app(argc, argv);
+    // Create the application. Must be done before trying to read
+    // images as that call uses pop-ups.
+    StereoApplication app(argc, argv);
 
     if (stereo_settings().create_image_pyramids_only) {
       // Just create the image pyramids and exit.
