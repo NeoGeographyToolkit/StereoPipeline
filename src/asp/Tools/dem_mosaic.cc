@@ -876,10 +876,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 	   "Number of threads to use.")
     ("help,h", "Display this help message.");
 
-  // Parse options
-  po::options_description options("Allowed Options");
-  options.add(general_options);
-
   po::options_description positional("");
   po::positional_options_description positional_desc;
 

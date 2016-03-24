@@ -207,6 +207,12 @@ if MAKE_APP_DATUM_CONVERT
   datum_convert_LDADD   = $(APP_DATUM_CONVERT_LIBS)
 endif
 
+if MAKE_APP_ASTER2ASP
+  bin_PROGRAMS += aster2asp
+  aster2asp_SOURCES = aster2asp.cc
+  aster2asp_LDADD = $(APP_ASTER2ASP_LIBS)
+endif
+
 
 # Auxiliary tools in libexec
 ##############################################################################
