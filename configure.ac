@@ -447,7 +447,7 @@ AX_APP(PANSHARP,         [src/asp/Tools], yes, [CORE CAMERA])
 AX_APP(PC_MERGE,         [src/asp/Tools], yes, [CORE])
 AX_APP(DATUM_CONVERT,    [src/asp/Tools], yes, [CORE])
 AX_APP(DISP_AVG,         [src/asp/WVCorrect], yes, [CORE])
-AX_APP(ASTER2ASP,        [src/asp/Tools], yes, [CORE])
+AX_APP(ASTER2ASP,        [src/asp/Tools], yes, [CORE CAMERA])
 
 # These are here (instead of inside the APP macro where they belong)
 # for backwards compatability with older versions of automake.

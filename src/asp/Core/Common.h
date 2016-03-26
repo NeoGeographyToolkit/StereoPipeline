@@ -41,6 +41,9 @@
 
 namespace asp {
 
+  /// Pack a double into a string
+  std::string double_to_str(double const& val);
+
   /// Pack a Vector into a string
   template <class VecT>
   std::string vec_to_str(VecT const& vec);

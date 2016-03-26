@@ -47,6 +47,15 @@ using namespace vw;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
+/// Pack a double into a string
+std::string asp::double_to_str(double const& val){
+  std::ostringstream oss;
+  oss.precision(16);
+  oss << val;
+  
+  return oss.str();
+}
+
 bool asp::has_cam_extension( std::string const& input ) {
   std::string ext = get_extension(input);
   if ( has_pinhole_extension(input) ||

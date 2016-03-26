@@ -117,7 +117,38 @@ namespace asp {
 
   };
 
+  /// Print out a name followed by the vector of values
+  void print_vec(std::string const& name, vw::Vector<double> const& vals);
 
+  /// Dump a vector to a text file, one value per row.
+  void print_vec_to_file(std::string const& path, vw::Vector<double> const& vals);
+  
+  void write_levmar_solver_results(std::string const& output_prefix, int status,
+                                   vw::Vector<double> const& initial_params,
+                                   vw::Vector<double> const& final_params,
+                                   vw::Vector<double> const& actual_observation,
+                                   RpcSolveLMA const& lma_model);
+  
+  int find_solution_from_seed(RpcSolveLMA    const& lma_model,
+                              vw::Vector<double> const& seed_params,
+                              vw::Vector<double> const& actual_observations,
+                              vw::Vector<double>      & final_params,
+                              double              & norm_error);
+  
+  void gen_rpc(// Inputs
+               double penalty_weight,
+               std::string    const& output_prefix,
+               vw::Vector<double> const& normalized_geodetics,
+               vw::Vector<double> const& normalized_pixels,
+               vw::Vector3 const& llh_scale,
+               vw::Vector3 const& llh_offset,
+               vw::Vector2 const& uv_scale,
+               vw::Vector2 const& uv_offset,
+               // Outputs
+               RPCModel::CoeffVec & line_num,
+               RPCModel::CoeffVec & line_den,
+               RPCModel::CoeffVec & samp_num,
+               RPCModel::CoeffVec & samp_den);
 }
 
 #endif //__STEREO_CAMERA_RPC_MODEL_GEN_H__

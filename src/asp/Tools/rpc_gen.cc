@@ -84,92 +84,6 @@ void handle_arguments( int argc, char *argv[], RPC_gen_Options& opt ) {
 
 }
 
-/// Print out a name followed by the vector of values
-void print_vec(std::string const& name, Vector<double> const& vals){
-  std::cout.precision(16);
-  std::cout << name << ",";
-  int len = vals.size();
-  for (int i = 0; i < len - 1; i++)
-    std::cout << vals[i] << ",";
-  if (len > 0)
-    std::cout << vals[len-1];
-  std::cout << std::endl;
-}
-
-/// Dump a vector to a text file, one value per row.
-void print_vec_to_file(std::string const& path, Vector<double> const& vals) {
-  std::ofstream outFile(path.c_str());
-  outFile.precision(16);
-  int len = vals.size();
-  for (int i = 0; i < len - 1; i++)
-    outFile << vals[i] << std::endl;
-  if (len > 0)
-    outFile << vals[len-1];
-  outFile.close();
-
-}
-
-void write_levmar_solver_results(std::string const& output_prefix, int status,
-                                 Vector<double> const& initial_params,
-                                 Vector<double> const& final_params,
-                                 Vector<double> const& actual_observation,
-                                 RpcSolveLMA const& lma_model) {
-
-  // Compute initial and final numbers
-  Vector<double> initial_projected = lma_model(initial_params);
-  Vector<double> final_projected   = lma_model(final_params);
-  Vector<double> initial_error     = lma_model.difference(initial_projected, actual_observation);
-  Vector<double> final_error       = lma_model.difference(final_projected,   actual_observation);
-
-  // Log the solver status
-  VW_OUT(VerboseDebugMessage, "math") << "rpc_gen: levmar solver status = " << status << std::endl;
-  VW_OUT(VerboseDebugMessage, "math") << "rpc_gen: levmar solver initial error norm_2 = " << norm_2(initial_error) << std::endl;
-  VW_OUT(VerboseDebugMessage, "math") << "rpc_gen: levmar solver final   error norm_2 = " << norm_2(final_error  ) << std::endl;
-
-  //// Dump the values to file
-  //print_vec_to_file(output_prefix + "_initial_parameters.csv", initial_params);
-  //print_vec_to_file(output_prefix + "_final_parameters.csv",   final_params);
-  //print_vec_to_file(output_prefix + "_initial_projected.csv", initial_projected);
-  //print_vec_to_file(output_prefix + "_final_projected.csv",   final_projected);
-  //print_vec_to_file(output_prefix + "_initial_error.csv",     initial_error);
-  //print_vec_to_file(output_prefix + "_final_error.csv",       final_error);
-
-  //// Also add the results to the log
-  //VW_OUT(VerboseDebugMessage, "math") << "LM: starting proj  " << initial_projected << std::endl;
-  //VW_OUT(VerboseDebugMessage, "math") << "LM: final    proj  " << final_projected   << std::endl;
-  //VW_OUT(VerboseDebugMessage, "math") << "LM: starting error " << initial_error     << std::endl;
-  //VW_OUT(VerboseDebugMessage, "math") << "LM: final    error " << final_error       << std::endl;
-}
-
-/// Computes a system solution from a seed and returns the final error number.
-int find_solution_from_seed(RpcSolveLMA    const& lma_model,
-                            Vector<double> const& seed_params,
-                            Vector<double> const& actual_observations,
-                            Vector<double>      & final_params,
-                            double              & norm_error) {
-
-    // Initialize a zero vector of RPC model coefficients
-    int status;
-
-    // Use the L-M solver to optimize the RPC model coefficient values.
-    const double abs_tolerance  = 1e-24;
-    const double rel_tolerance  = 1e-24;
-    const int    max_iterations = 2000;
-    final_params = math::levenberg_marquardt( lma_model, seed_params, actual_observations, status,
-                                              abs_tolerance, rel_tolerance, max_iterations );
-
-    if (status < 1) { // This means the solver failed to converge!
-      VW_OUT(DebugMessage, "math") << "rpc_gen: WARNING --> levmar solver status = " << status << std::endl;
-    }
-
-    // Otherwise the solver converged, return the final error number.
-    Vector<double> final_projected = lma_model(final_params);
-    Vector<double> final_error     = lma_model.difference(final_projected, actual_observations);
-    norm_error = norm_2(final_error);
-    return status;
-}
-
-
 void compute_scale_factors(vw::BBox3   const& gdc_box, 
                            vw::Vector2 const& image_size,
                            Vector3 &llh_scale, Vector3 &llh_offset,
@@ -322,10 +236,13 @@ void generate_point_pairs(RPC_gen_Options opt,
 
     // Initialize normalized data storage
     normalized_geodetics.set_size(RPCModel::GEODETIC_COORD_SIZE*num_total_pts);
-    normalized_pixels.set_size(RPCModel::IMAGE_COORD_SIZE*num_total_pts + RpcSolveLMA::NUM_PENALTY_TERMS);
-    for (size_t i = 0; i < normalized_pixels.size(); i++)
-      normalized_pixels[i] = 0.0; // Important: The extra penalty terms are all set to zero here.
-
+    normalized_pixels.set_size(RPCModel::IMAGE_COORD_SIZE*num_total_pts
+                               + RpcSolveLMA::NUM_PENALTY_TERMS);
+    for (size_t i = 0; i < normalized_pixels.size(); i++) {
+      // Important: The extra penalty terms are all set to zero here.
+      normalized_pixels[i] = 0.0; 
+    }
+    
     // Loop through all test points and generate the "correct" pairs / training data
     //  using the trusted DG camera model.
     int count = 0;
@@ -357,8 +274,10 @@ void generate_point_pairs(RPC_gen_Options opt,
           //std::cout << U << ' ' << P << ' ' << pxg << ' ' << pxr  << ' '
           //          << norm_2(pxg-pxr)<< std::endl;
 
-          subvector(normalized_geodetics, RPCModel::GEODETIC_COORD_SIZE*count, RPCModel::GEODETIC_COORD_SIZE) = U;
-          subvector(normalized_pixels,    RPCModel::IMAGE_COORD_SIZE   *count, RPCModel::IMAGE_COORD_SIZE   ) = pxn;
+          subvector(normalized_geodetics, RPCModel::GEODETIC_COORD_SIZE*count,
+                    RPCModel::GEODETIC_COORD_SIZE) = U;
+          subvector(normalized_pixels,    RPCModel::IMAGE_COORD_SIZE   *count,
+                    RPCModel::IMAGE_COORD_SIZE   ) = pxn;
           count++;
 
         } // End z loop
@@ -367,14 +286,11 @@ void generate_point_pairs(RPC_gen_Options opt,
 
 }
 
-
 int main( int argc, char* argv[] ) {
 
   RPC_gen_Options opt;
- // try {
+  try {
     handle_arguments( argc, argv, opt );
-
-    VW_ASSERT( opt.penalty_weight >= 0, ArgumentErr() << "The RPC penalty weight must be non-negative.\n" );
 
     // Generate all the point pairs using the input options
     Vector<double> normalized_geodetics;
@@ -384,39 +300,17 @@ int main( int argc, char* argv[] ) {
     generate_point_pairs(opt, normalized_geodetics, normalized_pixels,
                          llh_scale, llh_offset, uv_scale, uv_offset);
 
-    double penalty_weight_fraction = opt.penalty_weight; // The percentage of the error that the penalty weights should represent
-    double native_penalty_fraction = (double)RpcSolveLMA::NUM_PENALTY_TERMS / (double)normalized_pixels.size(); // Fraction with no adjustment
-    double penalty_adjustment      = penalty_weight_fraction / native_penalty_fraction;
-
-    VW_OUT(DebugMessage, "math") << "rpc_gen: Computed penalty weight: " << penalty_adjustment<< std::endl;
-
-    // Initialize a specialized least squares solver object and load the input data
-    RpcSolveLMA lma_model (normalized_geodetics, normalized_pixels, penalty_adjustment);
-
-    int status;
-    Vector<double> solution;
-    double norm_error;
-
-    // Initialize a zero vector of RPC model coefficients
-    Vector<double> startZero;
-    startZero.set_size(RPCModel::NUM_RPC_COEFFS);
-    for (size_t i = 0; i < startZero.size(); i++)
-      startZero[i] = 0.0;
-
-    // Use the L-M solver to optimize the RPC model coefficient values.
-    //VW_OUT(DebugMessage, "math") << "rpc_gen: Solving with zero seed" << std::endl;
-    status = find_solution_from_seed(lma_model, startZero, normalized_pixels, solution, norm_error);
-    VW_OUT(DebugMessage, "math") << "rpc_gen: norm_error = " << norm_error << std::endl;
-
-    // If we ever want to improve our results further we should experiment with multiple starting seeds!
-
-    // Dump all the results to disk if the user passed in an output prefix.
-    if (opt.output_prefix != "")
-      write_levmar_solver_results(opt.output_prefix, status, startZero, solution, normalized_pixels, lma_model);
-
-    // Dump the output to stdout, to be parsed by python
+    // Find the RPC coefficients
     RPCModel::CoeffVec line_num, line_den, samp_num, samp_den;
-    unpackCoeffs(solution, line_num, line_den, samp_num, samp_den);
+    gen_rpc(// Inputs
+            opt.penalty_weight,
+            opt.output_prefix,
+            normalized_geodetics, normalized_pixels,  
+            llh_scale, llh_offset, uv_scale, uv_offset,
+            // Outputs
+            line_num, line_den, samp_num, samp_den);
+    
+    // Dump the output to stdout, to be parsed by python
     print_vec("uv_scale",   uv_scale  );
     print_vec("uv_offset",  uv_offset );
     print_vec("llh_scale",  llh_scale );
@@ -426,7 +320,7 @@ int main( int argc, char* argv[] ) {
     print_vec("samp_num",   samp_num  );
     print_vec("samp_den",   samp_den  );
 
- // } ASP_STANDARD_CATCHES;
+  } ASP_STANDARD_CATCHES;
 
   return 0;
 }

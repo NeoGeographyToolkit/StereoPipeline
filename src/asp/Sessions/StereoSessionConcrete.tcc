@@ -231,6 +231,7 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
   //std::cout << "For camera files: " << image_file << "\n" << camera_file << "\n";
   //std::cout << "Loaded offset: " << pixel_offset << "\n";
 
+  std::string err1, err2;
   switch(model_type){
     case STEREOMODEL_TYPE_ISIS:
         return load_adjusted_model(m_camera_loader.load_isis_camera_model(camera_file),
@@ -244,15 +245,20 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
         return load_adjusted_model(m_camera_loader.load_rpc_camera_model(camera_file),
                                    image_file, camera_file, pixel_offset);
     }
-    catch(...) {}
+    catch(std::exception const& e1) {
+      err1 = e1.what();
+    }
     try {
       return load_adjusted_model(m_camera_loader.load_rpc_camera_model(image_file),
                                  image_file, camera_file, pixel_offset);
     }
-    catch(...) {}
+    catch(std::exception const& e2) {
+      err2 = e2.what();
+    }
     // Raise a custom exception if both failed
     vw_throw(ArgumentErr() << "Unable to load RPC model from either:\n" << image_file
-                             << " or:\n" << camera_file);
+             << "\nor:\n" << camera_file << "\n"
+             << err1 << "\n" << err2 << "\n");
 
   default: break; // This must be the pinhole case
   };

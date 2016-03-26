@@ -29,6 +29,8 @@
 #include <vw/Cartography/GeoReference.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
+#include <asp/Camera/RPCModelGen.h>
+#include <asp/Camera/RPCModel.h>
 
 #include <limits>
 #include <cstring>
@@ -105,9 +107,6 @@ bool match_file(std::string const& input_file, std::string const& pattern,
 	      << matched_file << " and " << input_file << "\n");
   
   matched_file = input_file;
-  
-  std::cout << "file is " << input_file << std::endl;
-  std::cout << "it is " << it << std::endl;
 
   return true;
 }
@@ -259,6 +258,50 @@ RadioCorrectView<ImageT> radio_correct(ImageT const& img, std::vector<Vector3> c
   return RadioCorrectView<ImageT>(img, corr);
 }
 
+void read_1d_points(std::string const& file,
+		    std::vector<double> & points){
+
+  std::ifstream ifs(file.c_str());
+  if (!ifs.good())
+    vw_throw( ArgumentErr() << "Could not open file for reading: " << file << "\n" );
+  double a;
+
+  points.clear();
+  while (ifs >> a){
+    points.push_back(a);
+  }
+}
+
+void read_2d_points(std::string const& file,
+		    std::vector<Vector2> & points){
+
+  std::ifstream ifs(file.c_str());
+  if (!ifs.good())
+    vw_throw( ArgumentErr() << "Could not open file for reading: " << file << "\n" );
+  double a, b;
+
+  points.clear();
+  while (ifs >> a >> b){
+    Vector2 p(a, b);
+    points.push_back(p);
+  }
+}
+
+void read_3d_points(std::string const& file,
+		    std::vector<Vector3> & points){
+
+  std::ifstream ifs(file.c_str());
+  if (!ifs.good())
+    vw_throw( ArgumentErr() << "Could not open file for reading: " << file << "\n" );
+  double a, b, c;
+
+  points.clear();
+  while (ifs >> a >> b >> c){
+    Vector3 p(a, b, c);
+    points.push_back(p);
+  }
+}
+  
 void apply_radiometric_corrections(Options const& opt, 
 				   std::string const& input_image,
 				   std::string const& corr_table,
@@ -267,14 +310,7 @@ void apply_radiometric_corrections(Options const& opt,
 
   // Extract the corrections
   std::vector<Vector3> corr;
-  std::ifstream ifs(corr_table.c_str());
-  if (!ifs.good())
-    vw_throw( ArgumentErr() << "Could not open file for reading: " << corr_table << "\n" );
-  double a, b, c;
-  while (ifs >> a >> b >> c){
-    Vector3 p(a, b, c);
-    corr.push_back(p);
-  }
+  read_3d_points(corr_table, corr);
   
   DiskImageView<float> input_img(input_image);
 
@@ -290,7 +326,7 @@ void apply_radiometric_corrections(Options const& opt,
 
   // See if there is a no-data value
   {
-    boost::shared_ptr<DiskImageResource> img_rsrc( new DiskImageResourceGDAL(input_image) );
+    boost::shared_ptr<DiskImageResource> img_rsrc(new DiskImageResourceGDAL(input_image));
     if (img_rsrc->has_nodata_read()){
       has_nodata = true;
       nodata = img_rsrc->nodata_read();
@@ -306,6 +342,276 @@ void apply_radiometric_corrections(Options const& opt,
 			      TerminalProgressCallback("asp", "\t-->: "));
 }
 
+void generate_point_pairs(// Inputs
+                          double min_height, double max_height, int num_layers,
+                          double penalty_weight,
+                          std::string const& sat_pos_file,
+                          std::string const& sight_vec_file,
+                          std::string const& longitude_file,
+                          std::string const& latitude_file,
+                          std::string const& lattice_file,
+                          // Outputs
+                          Vector3 & llh_scale, Vector3 & llh_offset,
+                          Vector2 & pixel_scale, Vector2 & pixel_offset,
+                          Vector<double> & normalized_llh,
+                          Vector<double> & normalized_pixels){
+
+  // Read the sight vectors 
+  std::vector<Vector3> sight_vec;
+  read_3d_points(sight_vec_file, sight_vec);
+
+  // Read the satellite positions
+  std::vector<Vector3> sat_pos;
+  read_3d_points(sat_pos_file, sat_pos);
+
+  int num_rows = sat_pos.size();
+  int num_pts = sight_vec.size();
+  int num_cols = num_pts / num_rows;
+
+  if (num_rows * num_cols != num_pts) 
+    vw_throw( ArgumentErr()
+	      << "Found " << num_rows << " satellite positions in "
+	      << sat_pos_file << " and "
+              << num_pts << " sight vectors in " << sight_vec_file
+	      << ". The latter must be a multiple of the former.");
+  
+  // For each satellite position there many sight vectors corresponding to pixel positions
+  // on that image line. Clone the satellite positions to make them one per each
+  // sight vector. It is easier to work with things that way later.
+  std::vector<Vector3> full_sat_pos(num_pts);
+  int count = 0;
+  for (int row = 0; row < num_rows; row++) {
+    for (int col = 0; col < num_cols; col++) {
+      full_sat_pos[count] = sat_pos[row];
+      count++;
+    }
+  }
+  if (count != num_pts) 
+    vw_throw( ArgumentErr() << "Book-keeping failure!\n" );
+
+  std::vector<double> longitude;
+  read_1d_points(longitude_file, longitude);
+  if (int(longitude.size()) != num_pts)
+    vw_throw( ArgumentErr() << "Expecting " << num_pts << " longitude values in "
+	      << longitude_file << " but got instead " << longitude.size() << ".\n" );
+  
+  std::vector<double> latitude;
+  read_1d_points(latitude_file, latitude);
+  if (int(latitude.size()) != num_pts)
+    vw_throw( ArgumentErr() << "Expecting " << num_pts << " latitude values in "
+	      << latitude_file << " but got instead " << latitude.size() << ".\n" );
+
+  // Covert geocentric latitude to geodetic latitude. Pages 60 and 79 of
+  // https://asterweb.jpl.nasa.gov/content/03_data/04_Documents/aster_user_guide_v2.pdf
+  // Geodetic = Arctan [(tan (Latitude)) / 0.99330562]
+  double deg2rad = M_PI/180.0;
+  for (size_t i = 0; i < latitude.size(); i++) {
+    latitude[i] =  atan (tan (deg2rad*latitude[i]) / 0.99330562)/deg2rad;
+  }
+  
+  std::vector<Vector2> pixels;
+  read_2d_points(lattice_file, pixels);
+  if (int(pixels.size()) != num_pts)
+    vw_throw( ArgumentErr() << "Expecting " << num_pts << " pixels in "
+	      << lattice_file << " but got instead " << pixels.size() << ".\n" );
+
+
+  // Convert from geodetic coordinates to xyz
+  cartography::Datum datum;
+  datum.set_well_known_datum("WGS84");
+  std::vector<Vector3> ground_xyz(num_pts);
+  for (int i = 0; i < num_pts; i++) {
+    ground_xyz[i] = datum.geodetic_to_cartesian(Vector3(longitude[i], latitude[i], 0));
+    //std::cout << "sat and xyz lon,lat,height are "
+    //          << datum.cartesian_to_geodetic(full_sat_pos[i]) << ' '
+    //          << datum.cartesian_to_geodetic(ground_xyz[i]) << std::endl;
+  }
+
+  // Min and max heights in meters, this will give us 
+  // the heights of the box in which to compute the rpc model
+  int num_total_pts = num_pts*num_layers;
+  std::vector<Vector3> all_llh (num_total_pts);
+  std::vector<Vector2> all_pixels(num_total_pts);
+
+  // Form num_layers layers between min_height and max_height.
+  // Each point there will have its corresponding pixel value.
+  count = 0;
+  for (int layer = 0; layer < num_layers; layer++) {
+    double height = min_height
+      + double(layer)*(max_height - min_height)/(num_layers - 1.0);
+
+    // Find an xyz position at roughly that height. We need to solve
+    // a quadratic equation for that. We assume the Earth is a sphere.
+    for (int pt = 0; pt < num_pts; pt++) {
+
+      Vector3 A = ground_xyz[pt]; 
+      Vector3 B = full_sat_pos[pt];
+      Vector3 D = B - A;
+      double  d = dot_prod(A, D) * dot_prod(A, D)
+        + dot_prod(D, D) * (height*height + 2*norm_2(A)*height);
+      double  t = ( -dot_prod(A, D) + sqrt(d) ) / dot_prod(D, D);
+      Vector3 P = A + t*D;
+
+      all_llh[count]  = datum.cartesian_to_geodetic(P);
+      all_pixels[count] = pixels[pt];
+      count++;
+    }
+  }
+
+  // Find the range of lon-lat-heights
+  BBox3 llh_box;
+  for (size_t i = 0; i < all_llh.size(); i++) 
+    llh_box.grow(all_llh[i]);
+  
+  // Find the range of pixels
+  BBox2 pixel_box;
+  for (size_t i = 0; i < all_pixels.size(); i++) 
+    pixel_box.grow(all_pixels[i]);
+
+  llh_scale  = (llh_box.max() - llh_box.min())/2.0; // half range
+  llh_offset = (llh_box.max() + llh_box.min())/2.0; // center point
+
+  pixel_scale = (pixel_box.max() - pixel_box.min())/2.0; // half range 
+  pixel_offset = (pixel_box.max() + pixel_box.min())/2.0; // center point
+
+  normalized_llh.set_size(asp::RPCModel::GEODETIC_COORD_SIZE*num_total_pts);
+  normalized_pixels.set_size(asp::RPCModel::IMAGE_COORD_SIZE*num_total_pts
+                             + asp::RpcSolveLMA::NUM_PENALTY_TERMS);
+  for (size_t i = 0; i < normalized_pixels.size(); i++) {
+    // Important: The extra penalty terms are all set to zero here.
+    normalized_pixels[i] = 0.0; 
+  }
+
+  // Form the arrays of normalized pixels and normalized llh
+  for (int pt = 0; pt < num_total_pts; pt++) {
+
+    // Normalize the pixel to -1 <> 1 range
+    Vector3 llh_n   = elem_quot(all_llh[pt]    - llh_offset,   llh_scale);
+    Vector2 pixel_n = elem_quot(all_pixels[pt] - pixel_offset, pixel_scale);
+
+    subvector(normalized_llh, asp::RPCModel::GEODETIC_COORD_SIZE*pt,
+              asp::RPCModel::GEODETIC_COORD_SIZE) = llh_n;
+    subvector(normalized_pixels, asp::RPCModel::IMAGE_COORD_SIZE*pt,
+              asp::RPCModel::IMAGE_COORD_SIZE   ) = pixel_n;
+    
+  }
+
+  return;
+}
+
+// Save an XML file having all RPC information
+void save_xml(Vector3 const& llh_scale,
+              Vector3 const& llh_offset,
+              Vector2 const& pixel_scale,
+              Vector2 const& pixel_offset,
+              asp::RPCModel::CoeffVec const& line_num,
+              asp::RPCModel::CoeffVec const& line_den,
+              asp::RPCModel::CoeffVec const& samp_num,
+              asp::RPCModel::CoeffVec const& samp_den,
+              std::string const& out_cam_file){
+
+  std::string lineoffset   = asp::double_to_str(pixel_offset.y());
+  std::string sampoffset   = asp::double_to_str(pixel_offset.x());
+  std::string latoffset    = asp::double_to_str(llh_offset.y());
+  std::string longoffset   = asp::double_to_str(llh_offset.x());
+  std::string heightoffset = asp::double_to_str(llh_offset.z());
+  
+  std::string linescale   = asp::double_to_str(pixel_scale.y());
+  std::string sampscale   = asp::double_to_str(pixel_scale.x());
+  std::string latscale    = asp::double_to_str(llh_scale.y());
+  std::string longscale   = asp::double_to_str(llh_scale.x());
+  std::string heightscale = asp::double_to_str(llh_scale.z());
+
+  std::string linenumcoef = asp::vec_to_str(line_num);
+  std::string linedencoef = asp::vec_to_str(line_den);
+  std::string sampnumcoef = asp::vec_to_str(samp_num);
+  std::string sampdencoef = asp::vec_to_str(samp_den);
+  
+  vw_out() << "Writing: " << out_cam_file << std::endl;
+  std::ofstream ofs(out_cam_file.c_str());
+  ofs << "<isd>\n";
+  ofs << "    <RPB>\n";
+  ofs << "        <SATID>ASTER_L1A_VNIR_Band3</SATID>\n";
+  ofs << "        <IMAGE>\n";
+  ofs << "            <LINEOFFSET>" << lineoffset << "</LINEOFFSET>\n";
+  ofs << "            <SAMPOFFSET>" << sampoffset << "</SAMPOFFSET>\n";
+  ofs << "            <LATOFFSET>" << latoffset << "</LATOFFSET>\n";
+  ofs << "            <LONGOFFSET>" << longoffset << "</LONGOFFSET>\n";
+  ofs << "            <HEIGHTOFFSET>" << heightoffset << "</HEIGHTOFFSET>\n";
+  ofs << "            <LINESCALE>" << linescale << "</LINESCALE>\n";
+  ofs << "            <SAMPSCALE>" << sampscale << "</SAMPSCALE>\n";
+  ofs << "            <LATSCALE>" << latscale << "</LATSCALE>\n";
+  ofs << "            <LONGSCALE>" << longscale << "</LONGSCALE>\n";
+  ofs << "            <HEIGHTSCALE>" << heightscale << "</HEIGHTSCALE>\n";
+  ofs << "            <LINENUMCOEFList>\n";
+  ofs << "                <LINENUMCOEF>" << linenumcoef << "</LINENUMCOEF>\n";
+  ofs << "            </LINENUMCOEFList>\n";
+  ofs << "            <LINEDENCOEFList>\n";
+  ofs << "                <LINEDENCOEF>" << linedencoef << "</LINEDENCOEF>\n";
+  ofs << "            </LINEDENCOEFList>\n";
+  ofs << "            <SAMPNUMCOEFList>\n";
+  ofs << "                <SAMPNUMCOEF>" << sampnumcoef << "</SAMPNUMCOEF>\n";
+  ofs << "            </SAMPNUMCOEFList>\n";
+  ofs << "            <SAMPDENCOEFList>\n";
+  ofs << "                <SAMPDENCOEF>" << sampdencoef << "</SAMPDENCOEF>\n";
+  ofs << "            </SAMPDENCOEFList>\n";
+  ofs << "        </IMAGE>\n";
+  ofs << "    </RPB>\n";
+  ofs << "</isd>\n";
+  ofs.close();
+}
+ 
+void compute_rpc(double min_height, double max_height, int num_layers,
+                 double penalty_weight,
+                 std::string const& sat_pos_file,
+		 std::string const& sight_vec_file,
+		 std::string const& longitude_file,
+		 std::string const& latitude_file,
+		 std::string const& lattice_file,
+		 std::string const& out_cam_file){
+
+  Vector3 llh_scale, llh_offset;
+  Vector2 pixel_scale, pixel_offset;
+  Vector<double> normalized_llh;
+  Vector<double> normalized_pixels;
+  generate_point_pairs(// inputs
+                       min_height, max_height, num_layers, penalty_weight,  
+                       sat_pos_file, sight_vec_file,  
+                       longitude_file, latitude_file, lattice_file,  
+                       // Outputs
+                       llh_scale, llh_offset,  
+                       pixel_scale, pixel_offset,  
+                       normalized_llh,  
+                       normalized_pixels);
+  
+  // Find the RPC coefficients
+  asp::RPCModel::CoeffVec line_num, line_den, samp_num, samp_den;
+  std::string output_prefix = ""; 
+  asp::gen_rpc(// Inputs
+               penalty_weight,
+               output_prefix,
+               normalized_llh, normalized_pixels,  
+               llh_scale, llh_offset, pixel_scale, pixel_offset,
+               // Outputs
+               line_num, line_den, samp_num, samp_den);
+  
+#if 0
+  // Dump the output to stdout
+  asp::print_vec("pixel_scale",  pixel_scale );
+  asp::print_vec("pixel_offset", pixel_offset);
+  asp::print_vec("llh_scale",    llh_scale   );
+  asp::print_vec("llh_offset",   llh_offset  );
+  asp::print_vec("line_num",     line_num    );
+  asp::print_vec("line_den",     line_den    );
+  asp::print_vec("samp_num",     samp_num    );
+  asp::print_vec("samp_den",     samp_den    );
+#endif
+  
+  save_xml(llh_scale, llh_offset, pixel_scale, pixel_offset,  
+           line_num, line_den, samp_num, samp_den,  
+           out_cam_file);
+}
+  
 int main( int argc, char *argv[] ) {
 
   Options opt;
@@ -330,6 +636,7 @@ int main( int argc, char *argv[] ) {
     std::string out_nadir_cam = opt.output_prefix + "-Band3N.xml";
     std::string out_back_cam  = opt.output_prefix + "-Band3B.xml";
 
+#if 0
     std::cout << "nadir_image             " << nadir_image << std::endl;
     std::cout << "back_image              " << back_image << std::endl;
     std::cout << "nadir_sat_pos           " << nadir_sat_pos << std::endl;
@@ -344,9 +651,24 @@ int main( int argc, char *argv[] ) {
     std::cout << "back_latitude           " << back_latitude << std::endl;
     std::cout << "nadir_lattice_point     " << nadir_lattice_point << std::endl;
     std::cout << "back_lattice_point      " << back_lattice_point << std::endl;
+    std::cout << "output nadir image: " << out_nadir_image << ' '
+              << out_nadir_cam << std::endl;
+    std::cout << "output back image:  " << out_back_image  << ' '
+              << out_back_cam  << std::endl;
+#endif
+    
+    // TODO: Make these parameters user inputs!
+    double min_height = 0.0, max_height = 1000.0;
+    int num_layers = 11; // how much to sample
+    double penalty_weight = 0.1;
 
-    std::cout << "output nadir image: " << out_nadir_image << ' ' << out_nadir_cam << std::endl;
-    std::cout << "output back image:  " << out_back_image  << ' ' << out_back_cam  << std::endl;
+    compute_rpc(min_height, max_height, num_layers, penalty_weight,
+                nadir_sat_pos, nadir_sight_vec, nadir_longitude, nadir_latitude,  
+                nadir_lattice_point, out_nadir_cam);
+    
+    compute_rpc(min_height, max_height, num_layers, penalty_weight,
+                back_sat_pos, back_sight_vec, back_longitude, back_latitude,  
+		back_lattice_point, out_back_cam);
 
     apply_radiometric_corrections(opt, nadir_image, nadir_corr_table, out_nadir_image);
     apply_radiometric_corrections(opt, back_image,  back_corr_table,  out_back_image);
