@@ -612,7 +612,7 @@ void stereo_triangulation( string          const& output_prefix,
 
 int main( int argc, char* argv[] ) {
 
-  //try {
+  try {
 
     vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 4 --> TRIANGULATION \n";
 
@@ -669,7 +669,7 @@ int main( int argc, char* argv[] ) {
 
     vw_out() << "\n[ " << current_posix_time_string() << " ] : TRIANGULATION FINISHED \n";
 
- // } ASP_STANDARD_CATCHES;
+  } ASP_STANDARD_CATCHES;
 
   return 0;
 }

@@ -347,7 +347,7 @@ void load_inputs_and_process(Options           & opt,
 int main( int argc, char *argv[] ) {
 
   Options opt;
-  //try {
+  try {
     handle_arguments( argc, argv, opt );
 
     DiskImageResourceGDAL gray_rsrc(opt.gray_file),
@@ -401,7 +401,7 @@ int main( int argc, char *argv[] ) {
       default : vw_throw(ArgumentErr() << "Input image format " << input_data_type << " is not supported!\n");
     };
 
-  //} ASP_STANDARD_CATCHES;
+  } ASP_STANDARD_CATCHES;
 
   return 0;
 }

@@ -210,7 +210,7 @@ do_work(Vector3 const& shift, Options const& opt) {
 int main( int argc, char *argv[] ) {
 
   Options opt;
-  //try {
+  try {
     handle_arguments( argc, argv, opt );
 
     // Determine the number of channels
@@ -231,7 +231,7 @@ int main( int argc, char *argv[] ) {
       default: vw_throw( ArgumentErr() << "Unsupported number of channels!.\n" );
     }
 
-  //} ASP_STANDARD_CATCHES;
+  } ASP_STANDARD_CATCHES;
 
   return 0;
 }
