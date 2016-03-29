@@ -158,12 +158,11 @@ namespace vw { namespace gui {
   template<class PixelT>
   typename boost::disable_if<boost::mpl::or_< boost::is_same<PixelT,double>,
                                               boost::is_same<PixelT, vw::Vector<vw::uint8, 2> > >, void >::type
-                                              formQimage(bool highlight_nodata,
-                                                         bool scale_pixels, double nodata_val,
-                                                         ImageView<PixelT> const& clip,
-                                                         QImage & qimg);
-
-
+  formQimage(bool highlight_nodata,
+             bool scale_pixels, double nodata_val,
+             ImageView<PixelT> const& clip,
+             QImage & qimg);
+  
   inline BBox2 qrect2bbox(QRect const& R){
     return BBox2( Vector2(R.left(), R.top()), Vector2(R.right(), R.bottom()) );
   }
@@ -417,22 +416,26 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
       double v = clip(col, row);
       if (scale_pixels)
         v = round(255*(std::max(v, min_val) - min_val)/(max_val-min_val));
-      if (!highlight_nodata){
-        if ( clip(col, row) > nodata_val ){
-          // opaque
-          qimg.setPixel(col, row, QColor(v, v, v, 255).rgba());
-        }else{
+
+      // The comparison below is false when nodata_val is NaN
+      if (clip(col, row) <= nodata_val || std::isnan(clip(col, row)) ){
+        
+        if (!highlight_nodata){
           // transparent
           qimg.setPixel(col, row, QColor(v, v, v, 0).rgba());
-        }
-      }else{
+        }else{
          // highlight in red
-        qimg.setPixel(col, row, qRgb(255, 0, 0));
+          qimg.setPixel(col, row, qRgb(255, 0, 0));
+        }
+        
+      }else{
+        // opaque
+        qimg.setPixel(col, row, QColor(v, v, v, 255).rgba());
       }
     }
   }
 }
-
+  
 template<class PixelT>
 typename boost::enable_if<boost::is_same<PixelT, vw::Vector<vw::uint8, 2> >, void>::type
 formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
@@ -540,7 +543,8 @@ DiskImagePyramid<PixelT>::DiskImagePyramid(std::string const& base_file,
   // Keep making more pyramid levels until they are small enough
   int level = 0;
   int scale = 1;
-  while (double(m_pyramid[level].cols())*double(m_pyramid[level].rows()) > m_top_image_max_pix ){
+  while (double(m_pyramid[level].cols())*double(m_pyramid[level].rows())
+         > m_top_image_max_pix ){
 
     // The name of the file at the current scale
     std::ostringstream os;
@@ -553,7 +557,8 @@ DiskImagePyramid<PixelT>::DiskImagePyramid(std::string const& base_file,
       vw_out() << "Will construct an image pyramid on disk."  << std::endl;
     }
 
-    ImageViewRef< PixelMask<PixelT> > masked = create_custom_mask(m_pyramid[level], m_nodata_val);
+    ImageViewRef< PixelMask<PixelT> > masked
+      = create_custom_mask(m_pyramid[level], m_nodata_val);
     double sub_scale   = 1.0/subsample;
     int    tile_size   = 256;
     int    sub_threads = 1;
@@ -660,11 +665,6 @@ void DiskImagePyramid<PixelT>::getImageClip(double scale_in, vw::BBox2i region_i
   ImageView<PixelT> clip = crop(m_pyramid[level], region_out);
   formQimage(highlight_nodata, scale_pixels, m_nodata_val, clip, qimg);
 }
-
-
-
-
-
 
 }} // namespace vw::gui
 
