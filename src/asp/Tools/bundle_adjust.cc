@@ -20,6 +20,7 @@
 ///
 
 #include <asp/Core/Macros.h>
+#include <asp/Sessions/ResourceLoader.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/StereoSettings.h>

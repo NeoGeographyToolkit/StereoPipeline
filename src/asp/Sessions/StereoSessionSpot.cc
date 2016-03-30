@@ -22,12 +22,12 @@
 #include <vw/Image/Manipulation.h>
 #include <vw/Image/MaskViews.h>
 #include <vw/Image/Transform.h>
-#include <vw/FileIO/DiskImageResourceRaw.h>
 
 //#include <asp/Core/StereoSettings.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Camera/SPOT_XML.h>
+#include <asp/Sessions/ResourceLoader.h>
 #include <asp/Sessions/StereoSessionSpot.h>
 
 
@@ -109,16 +109,17 @@ namespace asp {
 
     // Load the cropped images
     // - These can be either SPOT5 images (no crop) or GDAL images (cropped)
+    // - In the cropped case we don't have a camera model file.
     boost::shared_ptr<DiskImageResource> left_rsrc, right_rsrc, left_input_rsrc;
-    left_input_rsrc.reset(DiskImageResourceRaw::construct(left_input_file, m_left_input_format));
+    left_input_rsrc = load_disk_image_resource(left_input_file, m_left_camera_file);
     if (left_cropped_file == left_input_file) // SPOT format
-       left_rsrc = left_input_rsrc;
+       left_rsrc = left_input_rsrc; // Use the resource we already loaded.
     else // GDAL format
-      left_rsrc.reset(DiskImageResource::open(left_cropped_file));
+      left_rsrc = load_disk_image_resource(left_cropped_file);
     if (right_cropped_file == right_input_file) // SPOT format
-       right_rsrc.reset(DiskImageResourceRaw::construct(right_input_file, m_right_input_format));
+       right_rsrc = load_disk_image_resource(right_input_file, m_right_camera_file);
     else // GDAL format
-      right_rsrc.reset(DiskImageResource::open(right_cropped_file));
+      right_rsrc = load_disk_image_resource(right_cropped_file);
 
     // Now load the DiskImageResource objects into DiskImageViews.
     DiskImageView<float> left_disk_image (left_rsrc ),
@@ -260,10 +261,10 @@ unshared_preprocessing_hook(asp::BaseOptions              & options,
   // Retrieve nodata values and let the handles go out of scope right away.
   // - SPOT5 does not support nodata values, but this will handle user-provided values.
   boost::shared_ptr<DiskImageResource>
-    left_rsrc (DiskImageResourceRaw::construct(left_input_file,  m_left_input_format )),
-    right_rsrc(DiskImageResourceRaw::construct(right_input_file, m_right_input_format));
-  this->get_nodata_values(left_rsrc, right_rsrc,
-		    left_nodata_value, right_nodata_value);
+    left_rsrc (load_disk_image_resource(left_input_file,  m_left_camera_file )),
+    right_rsrc(load_disk_image_resource(right_input_file, m_right_camera_file));
+  this->get_nodata_values(left_rsrc,         right_rsrc,
+                          left_nodata_value, right_nodata_value);
 
   // Set output file paths
   left_output_file  = this->m_out_prefix + "-L.tif";

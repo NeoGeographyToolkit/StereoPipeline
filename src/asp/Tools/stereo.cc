@@ -28,6 +28,7 @@
 #include <asp/Tools/stereo.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Sessions/StereoSessionFactory.h>
+#include <asp/Sessions/ResourceLoader.h>
 #include <asp/Core/InterestPointMatching.h>
 
 #include <boost/accumulators/accumulators.hpp>

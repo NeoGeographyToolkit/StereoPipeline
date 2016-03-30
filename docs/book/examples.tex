@@ -776,6 +776,63 @@ works generally well with all GeoEye pairs. Just set
 \texttt{alignment-method} to \texttt{affineepipolar} or
 \texttt{homography}.
 
+
+\section{SPOT5 Imagery}
+\label{spot5}
+
+SPOT5 is a CNES (Space Agency of France) satellite launched on May 2002 and 
+decommissioned in March 2015.  SPOT5 contained two High Resolution Stereoscopic 
+(HRS) instruments with a ground resolution of 5 meters.  These two cameras were
+pointed forwards and backwards, allowing capture of a stereo image pair in
+a single pass of the satellite.
+
+ASP supports only images from the HRS sensors on SPOT5.  These images come in
+two parts, the data file (extension \texttt{.bil} or \texttt{.tif}) and the header file
+the data file (extension \texttt{.dim}).  The data file can be either a plain 
+binary file with no header information or a geotiff file.  
+The header file is human readable XML but it is
+fairly large.  When using SPOT5 images with ASP tools, pass in the data file
+as the image file and the header file as the camera model file.  ASP tools
+which do not accept camera model files as inputs do not support SPOT5 imagery.
+ASP has no ability to write images in SPOT5 format.
+
+You can find a sample SPOT5 image at 
+\url{http://www.geo-airbusds.com/en/23-sample-imagery}.  
+
+
+
+\begin{figure}[h!]
+\centering
+  \includegraphics[width=2.0in]{images/examples/spot5/GeoEye_ContextRender_400px.png}
+  \includegraphics[width=2.0in]{images/examples/spot5/GeoEye_CloseUp_400px.png}
+  \includegraphics[width=2.0in]{images/examples/spot5/GeoEye_CloseUpDRG_400px.png}
+\caption{Example colorized height map and ortho image output.}
+\label{fig:geoeye-nomap-example}
+\end{figure}
+
+\subsubsection*{Commands}
+
+\begin{verbatim}
+    > stereo -t rpc po_312012_pan_0000000.tif po_312012_pan_0010000.tif geoeye/geoeye
+\end{verbatim}
+
+In case the image files do not contain the RPC models, separate XML
+files having this information need to be provided, as done for Digital
+Globe images (section \ref{rawdg}).
+
+For terrain having steep slopes, we recommend that images be map-projected
+onto an existing DEM before running stereo. This is described in section
+\ref{mapproj-example}.
+
+\subsubsection*{stereo.default}
+
+The stereo.default example file (appendix \ref{ch:stereodefault})
+works generally well with all GeoEye pairs. Just set
+\texttt{alignment-method} to \texttt{affineepipolar} or
+\texttt{homography}.
+
+
+
 \section{Dawn (FC) Framing Camera}
 
 This is a NASA mission to visit two of the largest objects in the

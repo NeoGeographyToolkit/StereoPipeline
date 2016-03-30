@@ -164,53 +164,6 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
 
 
 
-vw::Vector2i file_image_size(std::string const& input,
-                             std::string const& camera_file) {
-  boost::shared_ptr<vw::DiskImageResource> rsrc(load_disk_image_resource(input, camera_file));
-  Vector2i size( rsrc->cols(), rsrc->rows() );
-  return size;
-}
-
-
-bool has_spot5_extension(std::string const& image_file, std::string const& camera_file){
-  // Currently we just need to check the image file.
-  std::string image_ext = get_extension(image_file);
-  boost::algorithm::to_lower(image_ext);
-  if ((image_ext == ".bip") || (image_ext == ".bil") || (image_ext == ".bsq"))
-    return true;
-  return false;
-//  if ((camera_file == "") || (camera_file == image_file))
-//    return false;
-//  const std::string camera_ext = get_extension(camera_file);
-//  return ((camera_ext == ".DIM") || (camera_ext == ".dim"));
-}
-
-boost::shared_ptr<vw::DiskImageResource> load_disk_image_resource(std::string const& image_file,
-                                                                  std::string const& camera_file) {
-  std::cout << "Loading disk image resource with: " << image_file << ", " << camera_file << std::endl;
-  if (has_spot5_extension(image_file, camera_file)) {
-    std::cout << "Has SPOT5 extension!\n";
-    // Special handling for SPOT5 images
-    // - Read format info from the header, then construct the correct resource type.
-    ImageFormat format = SpotXML::get_image_format(camera_file);
-    return boost::shared_ptr<vw::DiskImageResource>(
-            vw::DiskImageResourceRaw::construct(image_file, format));
-  }
-  else // Still a normal file
-    return boost::shared_ptr<vw::DiskImageResource>(vw::DiskImageResource::open(image_file));
-}
-
-bool read_georeference_asp(vw::cartography::GeoReference &georef, 
-                           std::string const& image_file, 
-                           std::string const& camera_file) {
-  // SPOT5 images never have a georeference.                       
-  if (has_spot5_extension(image_file, camera_file))
-    return false;
-  // If not SPOT5, the normal function can handle it.
-  return read_georeference(georef, image_file);
-}
-
-
 
 
 } // end namespace asp

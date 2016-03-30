@@ -27,13 +27,14 @@ using namespace vw;
 using namespace asp;
 using namespace xercesc;
 using namespace vw::test;
-/*
+
 TEST(SPOT_camera, XMLReading) {
   std::cout << "Start first" << std::endl;
   XMLPlatformUtils::Initialize();
 
   SpotXML xml_reader;
   xml_reader.read_xml("spot_example1.xml");
+  //xml_reader.read_xml("/home/smcmich1/data/spot/METADATA.DIM");
 
   EXPECT_EQ(300,   xml_reader.image_size[0]); // Cols, a real file is much larger.
   EXPECT_EQ(96168, xml_reader.image_size[1]); // Rows
@@ -97,7 +98,7 @@ TEST(SPOT_camera, XMLReading) {
   XMLPlatformUtils::Terminate();
   std::cout << "Done first" << std::endl;
 }
-*/
+/*
 TEST(SPOT_camera, SensorTest) {
   std::cout << "Start second" << std::endl;
   XMLPlatformUtils::Initialize();
@@ -128,29 +129,53 @@ TEST(SPOT_camera, SensorTest) {
 
   // Load a list of approximately correct tie points
   // TODO: Lower this number!
-  double ERROR_THRESH = 400.0; // Since the ground points came from Google Earth, we can't
+  double ERROR_THRESH = 50.0; // Since the ground points came from Google Earth, we can't
                               // expect that they will be super accurate.  Allow them to be
                               // this many pixels off from the recorded location.
   const double PIXEL_SCALE = 12; // Convert from preview to full image coordinates
   std::vector<Vector3> gdc_coords;
   std::vector<Vector2> pixel_coords;
-  gdc_coords.push_back(Vector3(-83.890520, -78.543415, 213));
-  pixel_coords.push_back(Vector2(203*PIXEL_SCALE, 4870*PIXEL_SCALE));
-  gdc_coords.push_back(Vector3(-83.914755, -78.728363, 336));
-  pixel_coords.push_back(Vector2(333*PIXEL_SCALE, 5086*PIXEL_SCALE));
-  gdc_coords.push_back(Vector3(-83.780710, -79.582781, 1261));
-  pixel_coords.push_back(Vector2(960*PIXEL_SCALE, 6031*PIXEL_SCALE));  
-  gdc_coords.push_back(Vector3(-86.341318, -79.084420, 1383));
-  pixel_coords.push_back(Vector2(340*PIXEL_SCALE, 6191*PIXEL_SCALE));  
+  // These coords are from Google Earth
+  //gdc_coords.push_back(Vector3(-83.890520, -78.543415, 213));
+  //pixel_coords.push_back(Vector2(203*PIXEL_SCALE, 4870*PIXEL_SCALE));
+  //gdc_coords.push_back(Vector3(-83.914755, -78.728363, 336));
+  //pixel_coords.push_back(Vector2(333*PIXEL_SCALE, 5086*PIXEL_SCALE));
+  //gdc_coords.push_back(Vector3(-83.780710, -79.582781, 1261));
+  //pixel_coords.push_back(Vector2(960*PIXEL_SCALE, 6031*PIXEL_SCALE));  
+  //gdc_coords.push_back(Vector3(-86.341318, -79.084420, 1383));
+  //pixel_coords.push_back(Vector2(340*PIXEL_SCALE, 6191*PIXEL_SCALE));  
+  // These coords are from someone else's SPOT5 DEM.
+  gdc_coords.push_back(Vector3(-83.7819, -78.5474, 477.437));
+  pixel_coords.push_back(Vector2(2663.304, 58006.2));
+  gdc_coords.push_back(Vector3(-84.4778, -78.456, 1531.65));
+  pixel_coords.push_back(Vector2(935.1552, 59211.84));
+  gdc_coords.push_back(Vector3(-83.9636, -78.7255, 504.305));
+  pixel_coords.push_back(Vector2(3967.08, 61081.2));
+  gdc_coords.push_back(Vector3(-83.8405, -78.7615, 417.859));
+  pixel_coords.push_back(Vector2(4413.156, 61203.36));
+  gdc_coords.push_back(Vector3(-83.6087, -79.3809, 1228.67));
+  pixel_coords.push_back(Vector2(9991.296, 68912.88));
+  gdc_coords.push_back(Vector3(-84.5157, -78.8572, 1122.1));
+  pixel_coords.push_back(Vector2(4543.344, 64987.56));
+
+  
+  Vector2 testPixel(3000, 15000);
+  Vector3 vec       = cam_ptr->pixel_to_vector(testPixel);
+  Vector3 center    = cam_ptr->camera_center(testPixel);
+  Vector3 testPoint = center + vec*400000.0;
+  Vector2 testPixel2 = cam_ptr->point_to_pixel(testPoint, 48000);
+  double diff = norm_2(testPixel - testPixel2);
+  EXPECT_NEAR(0.0, diff, 0.01);
+
 
   // Project all of these coordinates into the camera and see what pixel we get.
   vw::cartography::Datum datum; // Use wgs84 default
   const size_t num_points = gdc_coords.size();
   for (size_t i=0; i<num_points; ++i) {
 
-    vw::Vector3 gcc   = datum.geodetic_to_cartesian(gdc_coords[i]);
+    Vector3 gcc   = datum.geodetic_to_cartesian(gdc_coords[i]);
     std::cout << "Projecting point: " << gcc << std::endl;
-    vw::Vector2 pixel = cam_ptr->point_to_pixel(gcc);
+    Vector2 pixel = cam_ptr->point_to_pixel(gcc, 48000);
     std::cout << "Got pixel: " << pixel << std::endl;
   
   
@@ -162,17 +187,16 @@ TEST(SPOT_camera, SensorTest) {
     std::cout << "cam_to_point: " << normalize(cam_to_point)  << std::endl;
     
     // The pixels should be somewhat close to the expected location.
-    double diff = norm_2(pixel - pixel_coords[i]);
+    diff = norm_2(pixel - pixel_coords[i]);
     std::cout << "DIFF = " << diff << std::endl;
     EXPECT_NEAR(0.0, diff, ERROR_THRESH);
+    
   }
 
   XMLPlatformUtils::Terminate();
 }
 
-
-
-
+*/
 
 
 

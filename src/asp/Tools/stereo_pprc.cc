@@ -24,6 +24,7 @@
 #include <asp/Tools/stereo.h>
 #include <asp/Core/ThreadedEdgeMask.h>
 #include <asp/Core/InpaintView.h>
+#include <asp/Sessions/ResourceLoader.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <xercesc/util/PlatformUtils.hpp>

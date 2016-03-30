@@ -78,6 +78,11 @@ src/asp/Core/tests/TestInterestPointMatching
 src/asp/Core/tests/TestSoftwareRenderer
 src/asp/Core/tests/TestThreadedEdgeMask
 
+# Camera
+src/asp/Camera/tests/TestDGCameraModel
+src/asp/Camera/tests/TestRPCStereoModel
+src/asp/Camera/tests/TestSpotCameraModel
+
 # IsisIO
 src/asp/IsisIO/tests/TestEphemerisEquations
 src/asp/IsisIO/tests/TestIsisAdjustCameraModel
@@ -89,30 +94,46 @@ src/asp/Sessions/tests/TestStereoSessionDG
 src/asp/Sessions/tests/TestStereoSessionDGMapRPC
 src/asp/Sessions/tests/TestStereoSessionRPC
 
+src/asp/WVCorrect/disp_avg
+
 # Tools
 src/asp/MPI/isis_mpi_adjust
 src/asp/Tools/*.py
+src/asp/Tools/asp_calc
+src/asp/Tools/aster2asp
 src/asp/Tools/aligndem
 src/asp/Tools/bundle_adjust
 src/asp/Tools/bundlevis
+src/asp/Tools/camera_calibrate
+src/asp/Tools/camera_solve
+src/asp/Tools/datum_convert
 src/asp/Tools/dem_adjust
 src/asp/Tools/dem_geoid
 src/asp/Tools/dem_mosaic
 src/asp/Tools/dem_profile
 src/asp/Tools/dg_mosaic
 src/asp/Tools/disparitydebug
+src/asp/Tools/extract_camera_positions
 src/asp/Tools/geodiff
 src/asp/Tools/hsv_merge
+src/asp/Tools/icebridge_kmz_to_csv
+src/asp/Tools/image_calc
 src/asp/Tools/isis_adjust
 src/asp/Tools/isis_adjust_camera_err
 src/asp/Tools/isis_adjust_cnet_clip
 src/asp/Tools/lronacjitreg
+src/asp/Tools/lvis2kml
 src/asp/Tools/mapproject
+src/asp/Tools/mapproject_single
 src/asp/Tools/mer2camera
+src/asp/Tools/opencv_calibrate
+src/asp/Tools/opencv_imagelist_creator
 src/asp/Tools/orbitviz
 src/asp/Tools/orthoproject
+src/asp/Tools/pansharp
 src/asp/Tools/parallel_stereo
 src/asp/Tools/pc_align
+src/asp/Tools/pc_merge
 src/asp/Tools/plateorthoproject
 src/asp/Tools/point2dem
 src/asp/Tools/point2las
@@ -123,11 +144,13 @@ src/asp/Tools/rmax2cahvor
 src/asp/Tools/rmax_adjust
 src/asp/Tools/rpc_gen
 src/asp/Tools/rpc_mapproject
+src/asp/Tools/sfs
 src/asp/Tools/sparse_disp
 src/asp/Tools/stereo
 src/asp/Tools/stereo_corr
 src/asp/Tools/stereo_corr_sub
 src/asp/Tools/stereo_fltr
+src/asp/Tools/stereo_gui
 src/asp/Tools/stereo_mpi
 src/asp/Tools/stereo_parse
 src/asp/Tools/stereo_pprc
@@ -135,15 +158,7 @@ src/asp/Tools/stereo_rfne
 src/asp/Tools/stereo_tri
 src/asp/Tools/tif_mosaic
 src/asp/Tools/time_trials
-
-# Control Network Toolkit
-src/asp/ControlNetTK/reduce_match
-src/asp/ControlNetTK/cnet_build
-src/asp/ControlNetTK/cnet_convert
-src/asp/ControlNetTK/cnet_merge
-src/asp/ControlNetTK/isis_position_extract
-src/asp/ControlNetTK/render_gcp
-src/asp/ControlNetTK/vw_position_extract
+src/asp/Tools/wv_correct
 
 # Doc
 docs/book/*aux

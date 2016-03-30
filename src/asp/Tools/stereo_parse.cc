@@ -22,6 +22,7 @@
 
 #include <asp/Tools/stereo.h>
 #include <vw/Stereo/DisparityMap.h>
+#include <asp/Sessions/ResourceLoader.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 
