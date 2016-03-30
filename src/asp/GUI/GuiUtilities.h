@@ -422,7 +422,7 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
         
         if (!highlight_nodata){
           // transparent
-          qimg.setPixel(col, row, QColor(v, v, v, 0).rgba());
+          qimg.setPixel(col, row, QColor(0, 0, 0, 0).rgba());
         }else{
          // highlight in red
           qimg.setPixel(col, row, qRgb(255, 0, 0));
@@ -446,12 +446,12 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
   for (int col = 0; col < clip.cols(); col++){
     for (int row = 0; row < clip.rows(); row++){
       Vector<vw::uint8, 2> v = clip(col, row);
-      if ( v[1] > 0){
+      if ( v[1] > 0 && v == v){ // need the latter for NaN
         // opaque grayscale
         qimg.setPixel(col, row, QColor(v[0], v[0], v[0], 255).rgba());
       }else{
         // transparent
-        qimg.setPixel(col, row, QColor(v[0], v[0], v[0], 0).rgba());
+        qimg.setPixel(col, row, QColor(0, 0, 0, 0).rgba());
       }
     }
   }
@@ -467,7 +467,9 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
   for (int col = 0; col < clip.cols(); col++){
     for (int row = 0; row < clip.rows(); row++){
       PixelT v = clip(col, row);
-      if (v.size() == 3)
+      if (v != v) // NaN
+	qimg.setPixel(col, row, QColor(0, 0, 0, 0).rgba()); // transparent
+      else if (v.size() == 3)
         qimg.setPixel(col, row, QColor(v[0], v[1], v[2], 255).rgba()); // color
       else if (v.size() > 3)
         qimg.setPixel(col, row, QColor(v[0], v[1], v[2], 255*(v[3] > 0) ).rgba()); // color or transparent
