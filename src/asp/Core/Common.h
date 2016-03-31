@@ -81,6 +81,9 @@ namespace asp {
                                  std::string                    &dem_path);
 
 
+  /// Create the adjusted camera file name from the original camera filename,
+  /// unless it is empty, and then use the image file name.
+  /// - Convert dir1/image1.cub to out-prefix-image1.adjust
   std::string bundle_adjust_file_name(std::string const& prefix, std::string const& input_img,
                                       std::string const& input_cam);
 

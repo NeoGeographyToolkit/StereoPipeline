@@ -27,7 +27,7 @@
 #include <asp/Core/PointUtils.h>
 #include <asp/Tools/bundle_adjust.h>
 #include <asp/Core/InterestPointMatching.h>
-
+#include <xercesc/util/PlatformUtils.hpp>
 
 
 // Turn off warnings from eigen
@@ -778,8 +778,9 @@ extract_cameras_bundle_adjust( std::vector<std::string>& image_files ) {
   std::vector<std::string>::iterator it = image_files.begin();
   while ( it != image_files.end() ) {
     if (asp::has_pinhole_extension( *it ) ||
-        boost::iends_with(boost::to_lower_copy(*it), ".xml") ||
-        boost::iends_with(boost::to_lower_copy(*it), ".cub")
+        boost::iends_with(boost::to_lower_copy(*it), ".xml") || // TODO: This should be a function call!
+        boost::iends_with(boost::to_lower_copy(*it), ".cub") ||
+        boost::iends_with(boost::to_lower_copy(*it), ".dim")
         ){
       cam_files.push_back( *it );
       it = image_files.erase( it );
@@ -1322,6 +1323,8 @@ int main(int argc, char* argv[]) {
 
   Options opt;
   try {
+    xercesc::XMLPlatformUtils::Initialize();
+    
     handle_arguments( argc, argv, opt );
 
     int num_images = opt.image_files.size();
@@ -1334,6 +1337,19 @@ int main(int argc, char* argv[]) {
       for (int i = 0; i < num_images; i++)
         opt.camera_files.push_back("");
     }
+
+    // Ensure that no camera files have duplicate names.  This will cause the output files
+    // to overwrite each other!
+    for (size_t i=0; i<opt.camera_files.size()-1; ++i) {   
+      std::string filename_1 = asp::bundle_adjust_file_name(opt.out_prefix,
+                                              opt.image_files[i], opt.camera_files[i]);
+      for (size_t j=i+1; j<opt.camera_files.size(); ++j) {
+        std::string filename_2 = asp::bundle_adjust_file_name(opt.out_prefix,
+                                                opt.image_files[j], opt.camera_files[j]);
+        if (filename_1 == filename_2)
+          vw_throw( ArgumentErr() << "All camera model files must have unique names!\n" );
+      } 
+    } // End loops for finding duplicate camera model file names
 
     // Sanity check
     if (num_images != (int)opt.camera_files.size())
@@ -1386,8 +1402,11 @@ int main(int argc, char* argv[]) {
       
         // Load both images into a new StereoSession object and use it to find interest points.
         // - The points are written to a file on disk.
-        std::string image1_path = opt.image_files[i];
-        std::string image2_path = opt.image_files[j];
+        std::string image1_path  = opt.image_files[i];
+        std::string image2_path  = opt.image_files[j];
+        std::string camera1_path = opt.camera_files[i];
+        std::string camera2_path = opt.camera_files[j];        
+        
         std::string match_filename = ip::match_filename(opt.out_prefix, image1_path, image2_path);
 
         match_files[ std::pair<int, int>(i, j) ] = match_filename;
@@ -1399,12 +1418,12 @@ int main(int argc, char* argv[]) {
         }
 
         boost::shared_ptr<DiskImageResource>
-          rsrc1(asp::load_disk_image_resource(opt.image_files[i], opt.camera_files[i])),
-          rsrc2(asp::load_disk_image_resource(opt.image_files[j], opt.camera_files[j]));
+          rsrc1(asp::load_disk_image_resource(image1_path, camera1_path)),
+          rsrc2(asp::load_disk_image_resource(image1_path, camera1_path));
         float nodata1, nodata2;
         SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
-                                                             opt.image_files [i], opt.image_files [j],
-                                                             opt.camera_files[i], opt.camera_files[j],
+                                                             image1_path,  image2_path,
+                                                             camera1_path, camera2_path,
                                                              opt.out_prefix
                                                              ));
         session->get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
@@ -1412,7 +1431,7 @@ int main(int argc, char* argv[]) {
           // IP matching may not succeed for all pairs
 
           // Get masked views of the images to get statistics from
-          DiskImageView<float> image1_view(image1_path), image2_view(image2_path);
+          DiskImageView<float> image1_view(rsrc1), image2_view(rsrc2);
           ImageViewRef< PixelMask<float> > masked_image1
             = create_mask_less_or_equal(image1_view,  nodata1);
           ImageViewRef< PixelMask<float> > masked_image2
@@ -1545,6 +1564,7 @@ int main(int argc, char* argv[]) {
     //if ((opt.gcp_files.size() > 0) && (opt.stereo_session_string == "pinhole"))
     //  init_pinhole_model_with_gcp(opt, true);
 
+    xercesc::XMLPlatformUtils::Terminate();
 
   } ASP_STANDARD_CATCHES;
 }

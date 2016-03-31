@@ -30,6 +30,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Common.h>
 #include <asp/Sessions/StereoSession.h>
+#include <asp/Sessions/ResourceLoader.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Camera/AdjustedLinescanDGModel.h>
@@ -80,9 +81,9 @@ namespace asp {
 				  vw::camera::CameraModel* cam1,
 				  vw::camera::CameraModel* cam2){
 
-    bool crop_left_and_right =
-      ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
-      ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
+    bool crop_left  = ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+    bool crop_right = ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+    bool crop_left_and_right = crop_left && crop_right;
 
     // If we crop the images we must always create new matching files
     if (!crop_left_and_right && boost::filesystem::exists(match_filename)) {
@@ -91,16 +92,31 @@ namespace asp {
     }
 
     // Get normalized versions of the images for OpenCV based methods
-    DiskImageView<float> image1(input_file1), image2(input_file2);
+    
+    // Create DiskImageResource objects
+    // - A little messy to make sure it works with SPOT5 which will not work without the camera file
+    //   but the camera file does not match if the image is cropped.
+    // - Ideally there would be a function to make this cleaner.
+    boost::shared_ptr<DiskImageResource> rsrc1, rsrc2;
+    if (crop_left) // Tiff input
+      rsrc1 = asp::load_disk_image_resource(input_file1);
+    else // Original input
+      rsrc1 = asp::load_disk_image_resource(input_file1, m_left_camera_file);
+    if (crop_right) // Tiff input
+      rsrc2 = asp::load_disk_image_resource(input_file2);
+    else // Original input
+      rsrc2 = asp::load_disk_image_resource(input_file2, m_right_camera_file);
+    
+    DiskImageView<float> image1(rsrc1), image2(rsrc2);
     ImageViewRef<float> image1_norm=image1, image2_norm=image2;
     if ( (stereo_settings().ip_matching_method != DETECT_IP_METHOD_INTEGRAL) &&
        (stats1[0] != stats1[1]) ) { // Don't normalize if no stats were provided!
       vw_out() << "\t--> Normalizing images for IP detection using stats " << stats1 << "\n";
       normalize_images(stereo_settings().force_use_entire_range,
-		       stereo_settings().individually_normalize,
-		       true, // Use percentile based stretch for ip matching
-		       stats1,      stats2,
-		       image1_norm, image2_norm);
+                       stereo_settings().individually_normalize,
+                       true, // Use percentile based stretch for ip matching
+                       stats1,      stats2,
+                       image1_norm, image2_norm);
     }
 
     const bool nadir_facing = this->is_nadir_facing();
@@ -122,17 +138,17 @@ namespace asp {
       VW_OUT( DebugMessage, "asp" ) << "Epipolar threshold = " << epipolar_threshold << std::endl;
 
       inlier = ip_matching_w_alignment(single_threaded_camera, cam1, cam2,
-				       image1_norm, image2_norm,
-				       ip_per_tile,
-				       datum, match_filename,
-				       epipolar_threshold, match_seperation_threshold,
-				       nodata1, nodata2);
+                                       image1_norm, image2_norm,
+                                       ip_per_tile,
+                                       datum, match_filename,
+                                       epipolar_threshold, match_seperation_threshold,
+                                       nodata1, nodata2);
     } else { // Not nadir facing
       // Run a simpler purely image based matching function
       inlier = homography_ip_matching( image1_norm, image2_norm,
-				       ip_per_tile,
-				       match_filename,
-				       nodata1, nodata2);
+                                       ip_per_tile,
+                                       match_filename,
+                                       nodata1, nodata2);
     }
     if (!inlier) {
       boost::filesystem::remove(match_filename);

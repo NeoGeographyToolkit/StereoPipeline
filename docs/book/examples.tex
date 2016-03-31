@@ -797,9 +797,23 @@ which do not accept camera model files as inputs do not support SPOT5 imagery.
 ASP has no ability to write images in SPOT5 format.
 
 You can find a sample SPOT5 image at 
-\url{http://www.geo-airbusds.com/en/23-sample-imagery}.  
+\url{http://www.geo-airbusds.com/en/23-sample-imagery}.
 
+One issue to watch out for is that SPOT5 data typically comes in a standard
+directory structure where the image and header files always have the same name.
+The header (camera model) files cannot be passed into the \texttt{bundle_adjust} tool with the
+same file name even if they are in different folders.  A simple workaround is to create
+symbolic links to the original header files with different names:
 
+\begin{verbatim}
+    > ln -s  METADATA.DIM front/SEGMT01/METADATA_FRONT.DIM
+    > ln -s  METADATA.DIM back/SEGMT01/METADATA_BACK.DIM
+    > bundle_adjust -t spot5 front/SEGMT01/IMAGERY.BIL back/SEGMT01/IMAGERY.BIL \
+      front/SEGMT01/METADATA_FRONT.DIM back/SEGMT01/METADATA_BACK.DIM -o ba_run/out
+    > stereo -t spot5 front/SEGMT01/IMAGERY.BIL back/SEGMT01/IMAGERY.BIL  \ 
+      front/SEGMT01/METADATA_FRONT.DIM back/SEGMT01/METADATA_BACK.DIM \ 
+      st_run/out --bundle-adjust-prefix ba_run/out
+\end{verbatim}
 
 
 \section{Dawn (FC) Framing Camera}
