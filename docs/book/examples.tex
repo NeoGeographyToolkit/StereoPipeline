@@ -801,37 +801,6 @@ You can find a sample SPOT5 image at
 
 
 
-\begin{figure}[h!]
-\centering
-  \includegraphics[width=2.0in]{images/examples/spot5/GeoEye_ContextRender_400px.png}
-  \includegraphics[width=2.0in]{images/examples/spot5/GeoEye_CloseUp_400px.png}
-  \includegraphics[width=2.0in]{images/examples/spot5/GeoEye_CloseUpDRG_400px.png}
-\caption{Example colorized height map and ortho image output.}
-\label{fig:geoeye-nomap-example}
-\end{figure}
-
-\subsubsection*{Commands}
-
-\begin{verbatim}
-    > stereo -t rpc po_312012_pan_0000000.tif po_312012_pan_0010000.tif geoeye/geoeye
-\end{verbatim}
-
-In case the image files do not contain the RPC models, separate XML
-files having this information need to be provided, as done for Digital
-Globe images (section \ref{rawdg}).
-
-For terrain having steep slopes, we recommend that images be map-projected
-onto an existing DEM before running stereo. This is described in section
-\ref{mapproj-example}.
-
-\subsubsection*{stereo.default}
-
-The stereo.default example file (appendix \ref{ch:stereodefault})
-works generally well with all GeoEye pairs. Just set
-\texttt{alignment-method} to \texttt{affineepipolar} or
-\texttt{homography}.
-
-
 
 \section{Dawn (FC) Framing Camera}
 

@@ -28,18 +28,14 @@ using namespace asp;
 using namespace xercesc;
 using namespace vw::test;
 
-TEST(SPOT_camera, XMLReading) {
-  std::cout << "Start first" << std::endl;
-  XMLPlatformUtils::Initialize();
-
+// This test is split to a separate function so that the SpotXML destructor is called
+//  before the Xerces platform terminate function is called.
+void xml_reading_test() {
   SpotXML xml_reader;
   xml_reader.read_xml("spot_example1.xml");
-  //xml_reader.read_xml("/home/smcmich1/data/spot/METADATA.DIM");
-
+  
   EXPECT_EQ(300,   xml_reader.image_size[0]); // Cols, a real file is much larger.
   EXPECT_EQ(96168, xml_reader.image_size[1]); // Rows
-
-  std::cout << "Set 1" << std::endl;
 
   const double EPS = 1e-8;
   EXPECT_EQ(4, xml_reader.lonlat_corners.size());
@@ -61,8 +57,6 @@ TEST(SPOT_camera, XMLReading) {
   EXPECT_EQ(1,     xml_reader.pixel_corners[3].x());
   EXPECT_EQ(96168, xml_reader.pixel_corners[3].y());
 
-  std::cout << "Set 2" << std::endl;
-
   EXPECT_NEAR(7.5199705115e-04, xml_reader.line_period, EPS);
   EXPECT_EQ("2008-03-04T12:31:39.349737", xml_reader.center_time);
   EXPECT_EQ(48084, xml_reader.center_line);
@@ -82,8 +76,6 @@ TEST(SPOT_camera, XMLReading) {
   EXPECT_NEAR(-9.5696493468e-04, xml_reader.pose_logs.back().second.y(), EPS);
   EXPECT_NEAR(-2.4331461036e-05, xml_reader.pose_logs.back().second.z(), EPS);
 
-  std::cout << "Set 3" << std::endl;
-  
   EXPECT_EQ("2008-03-04T12:28:27.000000",  xml_reader.position_logs.front().first);
   EXPECT_NEAR(1.7495691231e+06,  xml_reader.position_logs.front().second.x(), EPS);
   EXPECT_NEAR(-2.2672541162e+06, xml_reader.position_logs.front().second.y(), EPS);
@@ -93,35 +85,28 @@ TEST(SPOT_camera, XMLReading) {
   EXPECT_NEAR(-6.2538959540e+03,  xml_reader.velocity_logs.front().second.x(), EPS);
   EXPECT_NEAR(3.1331303950e+03, xml_reader.velocity_logs.front().second.y(), EPS);
   EXPECT_NEAR(-2.7272519760e+03, xml_reader.velocity_logs.front().second.z(), EPS);
-
-
-  XMLPlatformUtils::Terminate();
-  std::cout << "Done first" << std::endl;
 }
+
+TEST(SPOT_camera, XMLReading) {
+  XMLPlatformUtils::Initialize();
+  xml_reading_test();
+  XMLPlatformUtils::Terminate();
+}
+
+// This test is disabled because the full model does not work with a cropped down
+//  XML file.  The full XML files are very large!
+
 /*
 TEST(SPOT_camera, SensorTest) {
   std::cout << "Start second" << std::endl;
   XMLPlatformUtils::Initialize();
 
-  //boost::shared_ptr<asp::SPOTCameraModel> cam_ptr = asp::load_spot5_camera_model("spot_example1.xml");
+  boost::shared_ptr<asp::SPOTCameraModel> cam_ptr = asp::load_spot5_camera_model_from_xml("spot_example1.xml");
 
   std::cout << "Loading model" << std::endl;
-  boost::shared_ptr<asp::SPOTCameraModel> cam_ptr = 
-      asp::load_spot5_camera_model_from_xml("/home/smcmich1/data/spot/METADATA.DIM");
-
-  for (size_t i=0; i<20; ++i) {
-    //std::cout << std::setprecision(12) << "Time at line " << i << " = " << cam_ptr->get_time_at_line(i) << std::endl;
-    Vector3 vec = cam_ptr->pixel_to_vector(Vector2(500, i));
-    //std::cout << "pixel_to_vector: " << vec << std::endl;
-  }
-
-  for (size_t i=20; i>0; --i) {
-    size_t line = cam_ptr->number_of_lines() - i;
-    //std::cout << std::setprecision(12) << "Time at line " << line << " = " << cam_ptr->get_time_at_line(line) << std::endl;
-    Vector3 vec = cam_ptr->pixel_to_vector(Vector2(500, line));
-    //std::cout << "pixel_to_vector: " << vec << std::endl;
-  }
-
+  //boost::shared_ptr<asp::SPOTCameraModel> cam_ptr = 
+  //    asp::load_spot5_camera_model_from_xml("/home/smcmich1/data/spot/METADATA.DIM");
+  
   std::cout << std::endl;
 
   //Vector3 local_vec = cam_ptr->get_local_pixel_vector(Vector2(0, 0));
@@ -144,6 +129,7 @@ TEST(SPOT_camera, SensorTest) {
   //pixel_coords.push_back(Vector2(960*PIXEL_SCALE, 6031*PIXEL_SCALE));  
   //gdc_coords.push_back(Vector3(-86.341318, -79.084420, 1383));
   //pixel_coords.push_back(Vector2(340*PIXEL_SCALE, 6191*PIXEL_SCALE));  
+  
   // These coords are from someone else's SPOT5 DEM.
   gdc_coords.push_back(Vector3(-83.7819, -78.5474, 477.437));
   pixel_coords.push_back(Vector2(2663.304, 58006.2));
@@ -158,12 +144,15 @@ TEST(SPOT_camera, SensorTest) {
   gdc_coords.push_back(Vector3(-84.5157, -78.8572, 1122.1));
   pixel_coords.push_back(Vector2(4543.344, 64987.56));
 
-  
-  Vector2 testPixel(3000, 15000);
+  // Make sure that vector generation is reversible
+  Vector2 testPixel(50, 70);
   Vector3 vec       = cam_ptr->pixel_to_vector(testPixel);
+  std::cout << "1";
   Vector3 center    = cam_ptr->camera_center(testPixel);
+  std::cout << "2";
   Vector3 testPoint = center + vec*400000.0;
-  Vector2 testPixel2 = cam_ptr->point_to_pixel(testPoint, 48000);
+  Vector2 testPixel2 = cam_ptr->point_to_pixel(testPoint);
+  std::cout << "3";
   double diff = norm_2(testPixel - testPixel2);
   EXPECT_NEAR(0.0, diff, 0.01);
 
@@ -197,8 +186,6 @@ TEST(SPOT_camera, SensorTest) {
 }
 
 */
-
-
 
 
 

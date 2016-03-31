@@ -69,30 +69,6 @@ namespace asp {
     }
   };
 
-/*
-  Load the following elements from the .DIM file:
-  - The four corner locations at the beginning of the file (<Dataset_Frame>)
-  - Datum information (<Coordinate_Reference_System>)
-  - Image info (<Image_Display>)
-  - Date/time (<Scene_Source>)
-  - Image size (<Raster_Dimensions>)
-  - <Ephemeris> data:  ?
-    - (GCC location / GCC velocity / time) 
-  - DORIS points?  
-  - <Satellite_Attitudes> ?
-    - (time / yaw / pitch / roll)
-  - Ignore angular speeds.
-  - <Quaternion_List> ?
-    - (time / Q0 / Q1 / Q2 / Q3)
-  - <Corrected_Attitudes> ?
-    - (time / yaw / pitch / roll)
-  - <Instrument_Look_Angles_List> (one per sample)
-    - (ID / PSI_X / PSI_Y) -> X is line angle, Y is sample angle.
-    - Going to need some extra Linescan code to implement this.
-  - Ignore dark current
-
-  Also need a raw data loader, gdal can't load the SPOT data.
-*/
 
   class SpotXML {
   public:
@@ -154,8 +130,6 @@ namespace asp {
     SecondsFromRef m_time_ref_functor;
 
   }; // End class SpotXML
-// TODO: If time allows, adapt some helpful functions from the DG XML reader.
-
 
 
 } //end namespace asp

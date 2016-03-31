@@ -48,41 +48,6 @@ using asp::XmlUtils::cast_xmlch;
 
 namespace asp {
 
-//========================================================================
-// ImageXML class
-
-
-
-
-
-/*
-  Load the following elements from the .DIM file:
-  - The four corner locations at the beginning of the file (<Dataset_Frame>)
-  - Datum information (<Coordinate_Reference_System>)
-  - Image info (<Image_Display>)
-  - Date/time (<Scene_Source>)
-  - Image size (<Raster_Dimensions>)
-  - <Ephemeris> data:  ?
-    - (GCC location / GCC velocity / time) 
-  - DORIS points?  
-  - <Satellite_Attitudes> ?
-    - (time / yaw / pitch / roll)
-  - Ignore angular speeds.
-  - <Quaternion_List> ?
-    - (time / Q0 / Q1 / Q2 / Q3)
-  - <Corrected_Attitudes> ?
-    - (time / yaw / pitch / roll)
-  - <Instrument_Look_Angles_List> (one per sample)
-    - (ID / PSI_X / PSI_Y) -> X is line angle, Y is sample angle.
-    - Going to need some extra Linescan code to implement this.
-  - Ignore dark current
-
-  Also need a raw data loader, gdal can't load the SPOT data.
-*/
-
-
-
-
 
 DOMElement* SpotXML::open_xml_file(std::string const& xml_path) {
 
@@ -137,7 +102,7 @@ DOMElement* SpotXML::open_xml_file(std::string const& xml_path) {
 void SpotXML::read_xml(std::string const& xml_path) {
 
   DOMElement * elementRoot = open_xml_file(xml_path);
-  return parse_xml(elementRoot);
+  parse_xml(elementRoot);
 }
 
 vw::ImageFormat SpotXML::get_image_format(std::string const& xml_path) {

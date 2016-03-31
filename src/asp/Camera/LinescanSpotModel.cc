@@ -25,7 +25,7 @@ using vw::Vector3;
 using vw::Matrix3x3;
 
 
-/*
+
 
   // Levenberg Marquardt solver for linescan number (y) and pixel
   // number (x) for the given point in space. The obtained solution
@@ -44,13 +44,14 @@ using vw::Matrix3x3;
 
     LinescanGenericLMA2( const SPOTCameraModel* model, const vw::Vector3& pt ) :
       m_model(model), m_point(pt) {
-      //std::cout << "INIT MODEL with point " << pt << std::endl;
+      std::cout << "INIT MODEL with point " << pt << std::endl;
     }
 
     // Minimize the difference between the vector from the pixel and
     //  the vector from the point to the camera.
     inline result_type operator()( domain_type const& pix ) const {
       try {
+        std::cout << "pixel " << pix << std::endl;
         Vector3 vec = m_model->pixel_to_vector(pix);
         Vector3 center = m_model->camera_center(pix);
         Vector3 target = m_point - center;
@@ -62,7 +63,7 @@ using vw::Matrix3x3;
       }
     }
   }; // End class LinescanGenericLMA
-*/
+
 
 // TODO: Port these changes to the base class
 

@@ -41,9 +41,9 @@ if MAKE_APP_STEREO
   stereo_rfne_LDADD       = $(APP_STEREO_LIBS)
   stereo_rfne_SOURCES     = stereo_rfne.cc stereo.cc
   
-  bin_PROGRAMS += extract_camera_positions
-  extract_camera_positions_SOURCES = extract_camera_positions.cc
-  extract_camera_positions_LDADD   = $(APP_STEREO_LIBS)
+  # bin_PROGRAMS += extract_camera_positions
+  # extract_camera_positions_SOURCES = extract_camera_positions.cc
+  # extract_camera_positions_LDADD   = $(APP_STEREO_LIBS)
 endif
 
 # Need this separate since it also depends on CERES
