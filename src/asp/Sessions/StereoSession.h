@@ -87,44 +87,44 @@ namespace asp {
 
     if ( force_use_entire_range ) { // Stretch between the min and max values
       if ( individually_normalize ) {
-	vw::vw_out() << "\t--> Individually normalize images to their respective min max\n";
-	Limg = normalize( Limg, left_stats [0], left_stats [1], 0.0, 1.0 );
-	Rimg = normalize( Rimg, right_stats[0], right_stats[1], 0.0, 1.0 );
+        vw::vw_out() << "\t--> Individually normalize images to their respective min max\n";
+        Limg = normalize( Limg, left_stats [0], left_stats [1], 0.0, 1.0 );
+        Rimg = normalize( Rimg, right_stats[0], right_stats[1], 0.0, 1.0 );
       } else { // Normalize using the same stats
-	float low = std::min(left_stats[0], right_stats[0]);
-	float hi  = std::max(left_stats[1], right_stats[1]);
-	vw::vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
-	Limg = normalize( Limg, low, hi, 0.0, 1.0 );
-	Rimg = normalize( Rimg, low, hi, 0.0, 1.0 );
+        float low = std::min(left_stats[0], right_stats[0]);
+        float hi  = std::max(left_stats[1], right_stats[1]);
+        vw::vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
+        Limg = normalize( Limg, low, hi, 0.0, 1.0 );
+        Rimg = normalize( Rimg, low, hi, 0.0, 1.0 );
       }
     } else { // Don't force the entire range
       double left_min, left_max, right_min, right_max;
       if (use_percentile_stretch) {
-	// Percentile stretch
-	left_min  = left_stats [4];
-	left_max  = left_stats [5];
-	right_min = right_stats[4];
-	right_max = right_stats[5];
+        // Percentile stretch
+        left_min  = left_stats [4];
+        left_max  = left_stats [5];
+        right_min = right_stats[4];
+        right_max = right_stats[5];
       } else {
-	// Two standard deviation stretch
-	left_min  = left_stats [2] - 2*left_stats [3];
-	left_max  = left_stats [2] + 2*left_stats [3];
-	right_min = right_stats[2] - 2*right_stats[3];
-	right_max = right_stats[2] + 2*right_stats[3];
+        // Two standard deviation stretch
+        left_min  = left_stats [2] - 2*left_stats [3];
+        left_max  = left_stats [2] + 2*left_stats [3];
+        right_min = right_stats[2] - 2*right_stats[3];
+        right_max = right_stats[2] + 2*right_stats[3];
       }
 
       // The images are normalized so most pixels fall into this range,
       // but the data is not clamped so some pixels can fall outside this range.
       if ( individually_normalize > 0 ) {
-	vw::vw_out() << "\t--> Individually normalize images\n";
-	Limg = normalize( Limg, left_min,  left_max,  0.0, 1.0 );
-	Rimg = normalize( Rimg, right_min, right_max, 0.0, 1.0 );
+        vw::vw_out() << "\t--> Individually normalize images\n";
+        Limg = normalize( Limg, left_min,  left_max,  0.0, 1.0 );
+        Rimg = normalize( Rimg, right_min, right_max, 0.0, 1.0 );
       } else { // Normalize using the same stats
-	float low = std::min(left_min, right_min);
-	float hi  = std::max(left_max, right_max);
-	vw::vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
-	Limg = normalize( Limg, low, hi, 0.0, 1.0 );
-	Rimg = normalize( Rimg, low, hi, 0.0, 1.0 );
+        float low = std::min(left_min, right_min);
+        float hi  = std::max(left_max, right_max);
+        vw::vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
+        Limg = normalize( Limg, low, hi, 0.0, 1.0 );
+        Rimg = normalize( Rimg, low, hi, 0.0, 1.0 );
       }
     }
     return;

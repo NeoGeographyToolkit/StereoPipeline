@@ -133,19 +133,19 @@ void SpotXML::parse_xml(xercesc::DOMElement* node) {
   xercesc::DOMElement* sensor_config_node       = get_node<DOMElement>(node, "Sensor_Configuration");
   
 
-  std::cout << "Parse dataset\n";
+  //std::cout << "Parse dataset\n";
   read_corners(dataset_frame_node);
   //read_datum(crs_node);
   //read_display_info(image_display_node);
   //read_datetime(scene_source_node);
-  std::cout << "Parse dims\n";
+  //std::cout << "Parse dims\n";
   read_ephemeris(ephemeris_node);
   read_image_size(raster_dims_node);
-  std::cout << "Parse ephem\n";
+  //std::cout << "Parse ephem\n";
   read_attitude(corrected_attitudes_node);
-  std::cout << "Parse angles\n";
+  //std::cout << "Parse angles\n";
   read_look_angles(look_angles_node);
-  std::cout << "Parse line times\n";
+  //std::cout << "Parse line times\n";
   read_line_times(sensor_config_node);
   
   // Set up the base time
@@ -159,16 +159,13 @@ void SpotXML::parse_xml(xercesc::DOMElement* node) {
     boost::posix_time::ptime this_time = boost::posix_time::time_from_string(s);
     if (this_time < earliest_time){
       earliest_time = this_time;
-      std::cout << "Using reference time " << iter->first << std::endl;
+      //std::cout << "Using reference time " << iter->first << std::endl;
     }
   }
   m_time_ref_functor.set_base_time(earliest_time);
-  std::cout << "Done parsing XML.\n";
+  //std::cout << "Done parsing XML.\n";
 }
 
-//void read_datum(xercesc::DOMElement* crs_node) {
-// TODO  
-//}
 
 void SpotXML::read_look_angles(xercesc::DOMElement* look_angles_node) {
 
@@ -406,8 +403,8 @@ vw::camera::LinearTimeInterpolation SpotXML::setup_time_func() const {
   double center_time_d = convert_time(this->center_time);
   double min_line_diff = static_cast<double>(0 - this->center_line);
   double min_line_time = center_time_d + this->line_period*min_line_diff;
-  std::cout << "Setup time functor: " << std::setprecision(12)  << min_line_time << ", " << this->line_period << std::endl;
-  std::cout << std::setprecision(12)  << "Center time: " << center_time_d << std::endl;
+  //std::cout << "Setup time functor: " << std::setprecision(12)  << min_line_time << ", " << this->line_period << std::endl;
+  //std::cout << std::setprecision(12)  << "Center time: " << center_time_d << std::endl;
   return vw::camera::LinearTimeInterpolation(min_line_time, this->line_period);
 }
 
@@ -430,8 +427,8 @@ vw::camera::LagrangianInterpolation SpotXML::setup_velocity_func() const {
   for (iter=velocity_logs.begin(); iter!=velocity_logs.end(); ++iter) {
     time.push_back(convert_time(iter->first));
     velocity.push_back(iter->second);
-    std::cout << "Adding velocity point: " << iter->first 
-              << " --> " << iter->second << std::endl;
+    //std::cout << "Adding velocity point: " << iter->first 
+    //          << " --> " << iter->second << std::endl;
   }
   return vw::camera::LagrangianInterpolation(velocity, time, INTERP_RADII);
 }
@@ -449,8 +446,8 @@ vw::camera::LagrangianInterpolation SpotXML::setup_position_func() const {
   for (iter=position_logs.begin(); iter!=position_logs.end(); ++iter) {
     time.push_back(convert_time(iter->first));
     position.push_back(iter->second);
-    std::cout << "Adding position point: " << convert_time(iter->first)
-              << " --> " << iter->second << std::endl;
+    //std::cout << "Adding position point: " << convert_time(iter->first)
+    //          << " --> " << iter->second << std::endl;
   }
   return vw::camera::LagrangianInterpolation(position, time, INTERP_RADII);
 }
@@ -524,11 +521,11 @@ vw::camera::LinearPiecewisePositionInterpolation SpotXML::setup_pose_func(
     ++index;
   }
   
-  double max_time = time.back();
+  //double max_time = time.back();
   double min_time = time.front();
   
-  std::cout << std::setprecision(12) << "Adding pose info: " << min_time << ", " 
-            << max_time << " -> " << pose_delta_t << std::endl;
+  //std::cout << std::setprecision(12) << "Adding pose info: " << min_time << ", " 
+  //          << max_time << " -> " << pose_delta_t << std::endl;
   
   return vw::camera::LinearPiecewisePositionInterpolation(pose, min_time, pose_delta_t);
 

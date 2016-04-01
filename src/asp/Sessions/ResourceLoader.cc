@@ -53,7 +53,7 @@ bool has_spot5_extension(std::string const& image_file, std::string const& camer
 
 boost::shared_ptr<vw::DiskImageResource> load_disk_image_resource(std::string const& image_file,
                                                                   std::string const& camera_file) {
-  std::cout << "Loading disk image resource with: " << image_file << ", " << camera_file << std::endl;
+  //std::cout << "Loading disk image resource with: " << image_file << ", " << camera_file << std::endl;
   
   // Get input info
   const bool        spot5_ext = has_spot5_extension(image_file, camera_file);

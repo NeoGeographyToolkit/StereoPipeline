@@ -208,8 +208,6 @@ namespace asp {
     if (verbose)
       vw_out() << "num_stereo_pairs," << num_pairs << std::endl;
 
-    //vw_out() << "DEBUG - Starting pairs loop" << std::endl;
-
     std::string prog_name = extract_prog_name(argv[0]);
 
     // Generate the stereo command for each of the pairs made up of the first
@@ -343,8 +341,6 @@ namespace asp {
                                                    positional_desc, usage,
                                                    allow_unregistered, unregistered);
 
-    std::cout <<"HANDLE STRING = " << opt.stereo_session_string << std::endl;
-
     // Read the config file
     try {
       po::options_description cfg_options;
@@ -433,9 +429,6 @@ namespace asp {
     stereo_settings().left_image_crop_win.crop(bounding_box(left_image));
     stereo_settings().right_image_crop_win.crop(bounding_box(right_image));
 
-    std::cout << "DEBUG: stereo_settings().left_image_crop_win = " << stereo_settings().left_image_crop_win << std::endl;
-    std::cout << "DEBUG: stereo_settings().right_image_crop_win = " << stereo_settings().right_image_crop_win << std::endl;
-
     bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
     bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
     bool crop_left_and_right = (crop_left && crop_right);
@@ -487,8 +480,6 @@ namespace asp {
       vw_throw(ArgumentErr() << "Invalid region for doing stereo.\n\n" << usage << general_options );
     }
 
-    std::cout <<"HANDLE STRING2 = " << opt.stereo_session_string << std::endl;
-
     // The StereoSession call automatically determines the type of object to create from the input parameters.
     opt.session.reset(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,// i/o
                                                         opt.in_file1,   opt.in_file2,
@@ -533,22 +524,19 @@ namespace asp {
     // Local homography needs D_sub
     if (stereo_settings().seed_mode == 0 &&
         stereo_settings().use_local_homography){
-      vw_throw( ArgumentErr() << "Cannot use local homography without "
-                << "computing low-resolution disparity.\n");
+      vw_throw( ArgumentErr() << "Cannot use local homography without computing low-resolution disparity.\n");
     }
 
     // D_sub from DEM needs a positive disparity_estimation_dem_error
     if (stereo_settings().seed_mode == 2 &&
         stereo_settings().disparity_estimation_dem_error <= 0.0){
-      vw_throw( ArgumentErr()
-                << "For seed-mode 2, the value of disparity-estimation-dem-error must be positive." );
+      vw_throw( ArgumentErr() << "For seed-mode 2, the value of disparity-estimation-dem-error must be positive." );
     }
 
     // D_sub from DEM needs a DEM
     if (stereo_settings().seed_mode == 2 &&
         stereo_settings().disparity_estimation_dem.empty()){
-      vw_throw( ArgumentErr()
-                << "For seed-mode 2, an input DEM must be provided.\n" );
+      vw_throw( ArgumentErr() << "For seed-mode 2, an input DEM must be provided.\n" );
     }
 
     // D_sub from DEM does not work with map-projected images
@@ -568,8 +556,7 @@ namespace asp {
     // If the images are map-projected, they need to use the same projection.
     if (dem_provided &&
         georef1.overall_proj4_str() != georef2.overall_proj4_str()){
-      vw_throw( ArgumentErr() << "The left and right images "
-                << "must use the same projection.\n");
+      vw_throw( ArgumentErr() << "The left and right images must use the same projection.\n");
     }
 
     //TODO: Clean up these conditional using some kind of enum system
@@ -601,7 +588,7 @@ namespace asp {
 
     // No alignment must be set for map-projected images.
     if (stereo_settings().alignment_method != "none" && dem_provided) {
-      stereo_settings().alignment_method = "none";
+        stereo_settings().alignment_method  = "none";
       vw_out(WarningMessage) << "Changing the alignment method to 'none' "
                              << "as the images are map-projected." << endl;
     }
@@ -651,6 +638,8 @@ namespace asp {
     // Camera checks
     bool force_throw = false;
     try {
+      // TODO: Remove this extra camera load!
+      //       - Some camera models take a long time to load and this causes us to load them twice!
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
       opt.session->camera_models(camera_model1, camera_model2);
 
@@ -726,17 +715,15 @@ namespace asp {
         vw_out(DebugMessage,"asp") << e.what() << endl;
       else
         vw_throw( ArgumentErr() << e.what() );
-
     }
-
-  }
+  } // End user_safety_checks
 
   // approximate search range
   //  Find interest points and grow them into a search range
   BBox2i
   approximate_search_range(std::string const& out_prefix,
-                           string const& left_sub_file,
-                           string const& right_sub_file,
+                           std::string const& left_sub_file,
+                           std::string const& right_sub_file,
                            float scale) {
 
     typedef PixelGray<float32> PixelT;

@@ -25,6 +25,7 @@
 #include <asp/Sessions/ResourceLoader.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
+#include <xercesc/util/PlatformUtils.hpp>
 
 using namespace vw;
 using namespace asp;
@@ -34,7 +35,7 @@ namespace fs = boost::filesystem;
 int main( int argc, char* argv[] ) {
 
   try {
-
+    xercesc::XMLPlatformUtils::Initialize();
     stereo_register_sessions();
 
     // Below, TriangulationDescription() would work just as well
@@ -165,6 +166,7 @@ int main( int argc, char* argv[] ) {
       }
     }
 
+    xercesc::XMLPlatformUtils::Terminate();
   } ASP_STANDARD_CATCHES;
 
   return 0;

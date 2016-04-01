@@ -633,7 +633,6 @@ int main( int argc, char* argv[] ) {
     string output_prefix;
     asp::parse_multiview(argc, argv, TriangulationDescription(),
                          verbose, output_prefix, opt_vec);
-    std::cout << "SESSION TYPE = " << opt_vec[0].session->name() << std::endl;
 
     if (opt_vec.size() > 1){
       // For multiview, turn on logging to file in the run directory
@@ -661,7 +660,6 @@ int main( int argc, char* argv[] ) {
     // Internal Processes
     //---------------------------------------------------------
     
-    std::cout << "SESSION TYPE = " << opt_vec[0].session->name() << std::endl;
 #define INSTANTIATE(T,NAME) if ( opt_vec[0].session->name() == NAME ) { \
       stereo_triangulation<T>(output_prefix, opt_vec); }
 

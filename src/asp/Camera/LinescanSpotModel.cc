@@ -25,7 +25,7 @@ using vw::Vector3;
 using vw::Matrix3x3;
 
 
-
+/*
 
   // Levenberg Marquardt solver for linescan number (y) and pixel
   // number (x) for the given point in space. The obtained solution
@@ -63,7 +63,7 @@ using vw::Matrix3x3;
       }
     }
   }; // End class LinescanGenericLMA
-
+*/
 
 // TODO: Port these changes to the base class
 
@@ -231,7 +231,7 @@ boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model_from_xml(std::string 
   // XYZ coordinates are in the ITRF coordinate frame which means GCC coordinates.
   // - The velocities are in the same coordinate frame, not in some local frame.
 
-  vw::vw_out() << "DEBUG - Loading SPOT5 camera file: " << path << std::endl;
+  vw_out(vw::DebugMessage,"asp") << "Loading SPOT5 camera file: " << path << std::endl;
 
   // Parse the SPOT5 XML file
   SpotXML xml_reader;
