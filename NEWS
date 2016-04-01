@@ -1,9 +1,17 @@
 *** RELEASE 2.5.3, Upcoming! ***
+ 
+Highlights
+ 
+ - Added the ability to process ASTER L1A VNIR images via the tool
+   aster2asp that creates image files and RPC camera model files that
+   can then be passed to stereo.
 
  - pc_align 
    * Can solve for a scale change in addition to a rotation and translation 
      to best align two clouds, hence for a similarity transform. 
      Option: --alignment-method similarity-point-to-point
+
+Other
 
  - dem_mosaic
    * Fix a bug with mosaicking of DEMs over very large extent.
@@ -16,8 +24,8 @@
    * Use transparent pixels for displaying no-data values instead of black.
 
  - Misc
-   * Make ASP handle gracefully georeferenced images with pixels having
-     invalid projections.
+   * Make ASP handle gracefully georeferenced images with some pixels
+     having projected coordinates outside of the range expected by PROJ.4.
  
 *** RELEASE 2.5.2, Feb 29, 2015 ***
 
@@ -25,7 +33,7 @@ Highlights
 
 - Added a constellation of features and tools to support solving for
   the positions of input images lacking position information.  Can be used
-  for aerial imagery with innaccurate or incomplete pose information,
+  for aerial imagery with inaccurate or incomplete pose information,
   images from low cost drones, historical images lacking metadata, 
   and images taken with handheld cameras.
 
@@ -223,7 +231,7 @@ Other
         selected clips.
       - Load images with int, float, and RGB pixels, including ISIS
         cubes, DEMs, NTF, TIF, and other formats.
-      - Can overlay goereferenced images and can toggle individual
+      - Can overlay georeferenced images and can toggle individual
         images on and off (like Google Earth).
       - Show images side-by-side, as tiles on grid, or on top of each other.
       - Create and view hillshaded DEMs.
