@@ -116,7 +116,8 @@ point of the images from 2024 pixels to units of millimeters.  Note that for som
 images like these the nominal image center can be checked by looking for some sort of
 marking around the image borders that indicates where the center should lie.  For these
 pictures there are black triangles at the center positions and they line up nicely
-with the center of the image.  Before we try to solve for the camera positions
+with the center of the image.  Before we try to solve for the camera positions we can run
+a simple tool to check the quality of our camera model file:
 \begin{verbatim}
 > undistort_image AS15-M-0414_MED.png metric_model.tsai -o corrected_414.tif
 \end{verbatim}
@@ -126,6 +127,12 @@ tool but it should be obvious if there are any gross errors in your
 camera model file such as incorrect units or missing parameters.  In this
 case the tool will fail to run or will produce a significantly distorted image.
 For certain distortion models the \texttt{undistort\_image} tool may take a long time to run.
+
+If your input images are not all from the same camera or were scanned such that the center
+point is not at the same pixel, you can run \texttt{camera\_solve} with one camera
+model file per input image.  To do so pass a space-separated list of files 
+surrounded by quotes to the \texttt{--calib-file} option such as 
+\texttt{--calib-file "c1.tsai c2.tsai c3.tsai"}.
 
 If we do not see any obvious problems we can go ahead and run the \texttt{camera\_solve} tool:
 \begin{verbatim}

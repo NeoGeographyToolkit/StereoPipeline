@@ -119,7 +119,7 @@ def generate_flagfile(options):
 
         # Replace the file path options
         image_line        = '--images='               +options.image_wildcard
-        calib_line        = '--calibration_file='     +pathPrint(options.camera_param_path)
+        calib_line        = '--calibration_file='     +pathPrint(options.theia_camera_param_path)
         output_match_line = '--output_matches_file='  +pathPrint(match_path)
         output_line       = '--output_reconstruction='+pathPrint(output_path)
 
@@ -333,7 +333,7 @@ def guided_build_reconstruction(options):
     match_path        = os.path.join(os.path.abspath(options.matches_folder), 'A.match')
     features_wildcard = os.path.join(os.path.abspath(options.feature_folder), '*.features')
     cmd = [TEMP_BIN+'match_features', '--input_features',features_wildcard, 
-           '--output_matches_file',match_path, '--calibration_file',options.camera_param_path,
+           '--output_matches_file',match_path, '--calibration_file',options.theia_camera_param_path,
            '--num_threads','12', '--matching_strategy','BRUTE_FORCE', '--lowes_ratio','0.8']
     asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)    
 
@@ -366,7 +366,7 @@ def guided_build_reconstruction(options):
 
 
 
-def update_tsai_file(input_path, new_pose_path, output_path):
+def update_tsai_file(input_camera_path, new_pose_path, output_camera_path):
     '''Copies a .tsai camera file with an updated position from another .tsai camera file.'''
 
     # Read in the C and R lines from new_pose_path
@@ -381,8 +381,8 @@ def update_tsai_file(input_path, new_pose_path, output_path):
     f_in.close()
 
     # Copy each line of the input file except for the updated pose data
-    f_in  = open(input_path,  'r')
-    f_out = open(output_path, 'w')
+    f_in  = open(input_camera_path,  'r')
+    f_out = open(output_camera_path, 'w')
     for line in f_in:
         if 'C =' in line:
             f_out.write(c_line)
@@ -407,14 +407,21 @@ def export_cameras_to_vw(options):
                                                            options.output_folder, '.tsai')
     
     all_found = True
-    for model_path in options.theia_camera_models:
+    for i in range(0,len(options.theia_camera_models)):
+        model_path = options.theia_camera_models[i]
         if not os.path.exists(model_path):
             all_found = False
             print 'Failed to generate model file: ' + model_path
         
+        # Handle possibility of multiple camera files
+        if len(options.camera_param_paths) > 1:
+            this_vw_camera_path = options.camera_param_paths[i]
+        else:
+            this_vw_camera_path = options.camera_param_paths[0]
+        
         # Overwrite the file Theia wrote with a copy of the user's camera file with
         #  position and orientation replaced with the Theia values.
-        update_tsai_file(options.camera_param_path, model_path, model_path)
+        update_tsai_file(this_vw_camera_path, model_path, model_path)
             
     if not all_found:
         raise Exception('Failed to extract camera models for all input image files.')
@@ -489,25 +496,35 @@ def parse_vw_tsai_file(path):
     f.close()
     return output
 
-def generate_theia_camera_file(input_images, vw_cam_file, theia_cam_file_out):
+def generate_theia_camera_file(input_images, vw_cam_files, theia_cam_file_out):
     '''Generate zero-distortion camera configs for Theia with one line per input file on disk.
        Also strip out any folder paths which confuse Theia.  We use zero distortion because
        Theia only supports one distortion model (unlike ASP) and we will run bundle_adjust to
        fine-tune the Theia outputs by taking into account the distortion model.'''
-    
-    # Read in the focal length and center point
-    tsai_data = parse_vw_tsai_file(vw_cam_file)
-    
-    pitch        = tsai_data['pitch'] # Use to convert other data to pixel units
-    focal_length = ((tsai_data['fu'] + tsai_data['fv']) / 2.0) / pitch
-    center_x     = tsai_data['cu'] / pitch
-    center_y     = tsai_data['cv'] / pitch
+
+    # Make a list of parameters for each camera
+    params = []
+    for path in vw_cam_files:
+      # Read in the focal length and center point
+      tsai_data = parse_vw_tsai_file(path)
+      
+      pitch        = tsai_data['pitch'] # Use to convert other data to pixel units
+      focal_length = ((tsai_data['fu'] + tsai_data['fv']) / 2.0) / pitch
+      center_x     = tsai_data['cu'] / pitch
+      center_y     = tsai_data['cv'] / pitch
+      
+      params.append( (pitch, focal_length, center_x, center_y) )
 
     # Write a nearly identical line for each input image    
     output_file = open(theia_cam_file_out, 'w')
-    for image in input_images:
+    for i in range(0,len(input_images)):
+        image = input_images[i]
+        if len(vw_cam_files) == 1:
+            theseParams = params[0]
+        else:
+            theseParams = params[i]
         file_name = os.path.basename(image) # Strip the folder
-        s = ("%s %f %f %f 1.0 0.0 0.0 0.0\n" % (file_name, focal_length, center_x, center_y))
+        s = ("%s %f %f %f 1.0 0.0 0.0 0.0\n" % (file_name, theseParams[1], theseParams[2], theseParams[3]))
         output_file.write(s)
     output_file.close()
 
@@ -546,17 +563,15 @@ def main(argsIn):
                                                help="Pass the Theia IP matches into ASP instead of recomputing them.")
         parser.add_option('--datum',  dest='datum', default='wgs84',
                                          help='Datum to use.  Options: WGS_1984 (default), D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON)')
-        parser.add_option('--calib-file',  dest='camera_param_path', default=None,
-                   help='Path to an ASP compatible .tsai file containing camera model information.  See the ASP documentation for details.  The position and pose information will be ignored.')
+                                         
+        parser.add_option('--calib-file',  dest='camera_param_paths', default=None,
+                   help=('Path to an ASP compatible .tsai file containing camera model information.'+
+                        ' See the ASP documentation for details.  The position and pose information will be ignored.'+
+                        ' If you want to use a unique file for each input image, pass a space seperated list of files'+
+                        ' surrounded by quotes.'))
         parser.add_option('--gcp-file',  dest='gcp_path', default=None,
                                          help='Path to file containing Ground Control Points')
                                                                                  
-        # Should we automatically reduce the camera weight if positions are passed in?
-        
-        #parser.add_option('--camera-positions-file',  dest='cam_pos_path', default=None,
-        #       help=('Path to file containing estimated camera positions. If you use this option you must also include'+
-        #             ' one of the following bundle-adjust-params options: datum, csv-format, csv-proj4,'+
-        #             ' semi-major-axis/semi-minor-axis.  See the bundle_adjust documentation for details.')
         
         # Solving for intrinsics is disabled until either Theia or our bundle adjustment tool supports it!
         #parser.add_option("--solve-intrinsics", action="store_true", default=False,
@@ -574,10 +589,10 @@ def main(argsIn):
         # Check the required positional arguments.
         if len(args) < 1:
             parser.print_help()
-            parser.error("Missing output folder.\n" );
+            parser.error("Error: Missing output folder.\n" );
         if len(args) < 3:
             parser.print_help()
-            parser.error("At least two input images are required.\n" );
+            parser.error("Error: At least two input images are required.\n" );
             
         # Store the positional input parameters
         options.output_folder = args[0]
@@ -587,17 +602,24 @@ def main(argsIn):
             os.mkdir(options.output_folder)
         
         # If we don't have input camera params we have to solve for them.
-        if not options.camera_param_path:
+        if not options.camera_param_paths:
             #if not options.solveIntrinsic:
             #    print 'Since no calib-file provided, setting --solve-intrinsics.'
             options.solveIntrinsic = True
             print 'Error: camera_solve does not support solving for intrinsic camera parameters!'
             return -1
         else:
+        
+            # Handle if a list of camera files were passed in.
+            options.camera_param_paths = options.camera_param_paths.split()
+            if (len(options.camera_param_paths) > 1) and (len(options.camera_param_paths) != len(options.input_images)):
+                print 'Error: If multiple camera files are used, there must be one per input image.'
+                return -1
+            
             # Otherwise rewrite a zero-distortion copy of the camera param file which Theia can read.
             alt_param_path = os.path.join(options.output_folder, 'expanded_camera_configs.txt')
             options.theia_camera_param_path = generate_theia_camera_file(options.input_images, 
-                                                options.camera_param_path, alt_param_path)
+                                                options.camera_param_paths, alt_param_path)
             
         
     except optparse.OptionError, msg:
@@ -609,7 +631,7 @@ def main(argsIn):
     # Step 1 - Call Theia's build_reconstruction tool.
     
     # Theia's reconstruction tool sometimes fails for no apparent reason but
-    #  this only happens about 30% of the time.  If it fails, try a few more times
+    #  this does not happen often.  If it fails, try a few more times
     #  to see if we can get it to succeed.
     NUM_THEIA_RETRIES = 3
     
@@ -620,7 +642,8 @@ def main(argsIn):
             break
         except: # Theia failed, but give it another shot.
             if i == NUM_THEIA_RETRIES-1:
-                raise Exception('Theia failed to generate a camera reconstruction')
+                print 'Error: Theia failed to generate a camera reconstruction!'
+                return -1
             else:
                 print 'Retrying Theia solution...'
     #guided_build_reconstruction(options)

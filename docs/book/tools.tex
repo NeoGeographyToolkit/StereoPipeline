@@ -2369,8 +2369,9 @@ Usage:
 Option & Description \\ \hline \hline
 \texttt{-h | -\/-help } & Display this help message.\\ \hline
 \texttt{-\/-datum  \textit{string}} & The datum to use when calibrating.  Default is WGS84.\\ \hline
-\texttt{-\/-calib-file  \textit{string}} & Path to estimated camera parameters.  The tool
-works much better if good estimates are provided!\\ \hline
+\texttt{-\/-calib-file  \textit{string}} & Path to an ASP compatible pinhole model file containing 
+camera model information. The position and pose information will be ignored. If you want 
+to use a unique file for each input image, pass a space seperated list of files surrounded by quotes.\\ \hline
 \texttt{-\/-gcp-file  \textit{string}} & Path to a ground control point file.  This allows
 the tool to generate cameras in a global coordinate system.\\ \hline
 \texttt{-\/-bundle-adjust-params  \textit{string}} & Additional parameters (in single quotes)
