@@ -1419,7 +1419,7 @@ int main(int argc, char* argv[]) {
 
         boost::shared_ptr<DiskImageResource>
           rsrc1(asp::load_disk_image_resource(image1_path, camera1_path)),
-          rsrc2(asp::load_disk_image_resource(image1_path, camera1_path));
+          rsrc2(asp::load_disk_image_resource(image2_path, camera2_path));
         float nodata1, nodata2;
         SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
                                                              image1_path,  image2_path,

@@ -98,6 +98,17 @@ namespace asp {
     vw::camera::TLCTimeInterpolation
                   const& get_time_func    () const {return m_time_func;    } ///< Access the time     function
 
+  private:
+
+    // TODO: We should not need to redefine this here but some weird compile issue
+    //       is making things crash if we don't.
+    /// Returns the velocity corrected to account for the planetary rotation.
+    /// - For efficiency, requires the uncorrected look vector at this location.
+    virtual vw::Vector3 get_rotation_corrected_velocity(vw::Vector2 const& pixel,
+                                                    vw::Vector3 const& uncorrected_vector) const {
+      return vw::camera::LinescanModel::get_rotation_corrected_velocity(pixel, uncorrected_vector);
+    }
+
   protected: // Functions
   
     /// Low accuracy function used by point_to_pixel to get a good solver starting seed.

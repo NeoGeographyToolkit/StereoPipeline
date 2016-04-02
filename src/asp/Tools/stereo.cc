@@ -44,7 +44,9 @@ namespace asp {
   BBox2i transformed_crop_win(Options const& opt){
 
     BBox2i b = stereo_settings().left_image_crop_win;
-    DiskImageView<PixelGray<float> > left_image(opt.in_file1);
+    boost::shared_ptr<vw::DiskImageResource> rsrc = 
+            load_disk_image_resource(opt.in_file1, opt.cam_file1);
+    DiskImageView<PixelGray<float> > left_image(rsrc);
     BBox2i full_box = bounding_box(left_image);
     if (b == BBox2i(0, 0, 0, 0)){
 
