@@ -59,7 +59,7 @@ std::string asp::double_to_str(double const& val){
 bool asp::has_cam_extension( std::string const& input ) {
   std::string ext = get_extension(input);
   if ( has_pinhole_extension(input) ||
-      ext == ".cub" || ext == "xml" || ext == "dim" )
+      ext == ".cub" || ext == ".xml" || ext == ".dim" )
     return true;
   return false;
 }

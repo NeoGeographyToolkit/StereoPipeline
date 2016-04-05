@@ -107,19 +107,22 @@ namespace asp {
 
     if (exit_early) return;
 
+    const bool left_is_cropped  = (left_cropped_file  != left_input_file);
+    const bool right_is_cropped = (right_cropped_file != right_input_file);
+
     // Load the cropped images
     // - These can be either SPOT5 images (no crop) or GDAL images (cropped)
     // - In the cropped case we don't have a camera model file.
     boost::shared_ptr<DiskImageResource> left_rsrc, right_rsrc, left_input_rsrc;
     left_input_rsrc = load_disk_image_resource(left_input_file, m_left_camera_file);
-    if (left_cropped_file == left_input_file) // SPOT format
-       left_rsrc = left_input_rsrc; // Use the resource we already loaded.
-    else // GDAL format
+    if (left_is_cropped) // GDAL format
       left_rsrc = load_disk_image_resource(left_cropped_file);
-    if (right_cropped_file == right_input_file) // SPOT format
-       right_rsrc = load_disk_image_resource(right_input_file, m_right_camera_file);
-    else // GDAL format
+    else // SPOT format
+      left_rsrc = left_input_rsrc; // Use the resource we already loaded.   
+    if (right_is_cropped) // GDAL format
       right_rsrc = load_disk_image_resource(right_cropped_file);
+    else // SPOT format
+      right_rsrc = load_disk_image_resource(right_input_file, m_right_camera_file);
 
     // Now load the DiskImageResource objects into DiskImageViews.
     DiskImageView<float> left_disk_image (left_rsrc ),
@@ -165,23 +168,31 @@ namespace asp {
 
       // Initialize alignment matrices and get the input image sizes.
       Matrix<double> align_left_matrix  = math::identity_matrix<3>(),
-		     align_right_matrix = math::identity_matrix<3>();
-      Vector2i left_size  = file_image_size(left_cropped_file ),
-	       right_size = file_image_size(right_cropped_file);
+                     align_right_matrix = math::identity_matrix<3>();
+      Vector2i left_size, right_size;
+      if (left_is_cropped) // GDAL format
+        left_size  = file_image_size(left_cropped_file);
+      else // SPOT5 format
+        left_size  = file_image_size(left_cropped_file, m_left_camera_file);
+
+      if (right_is_cropped) // GDAL format
+        right_size  = file_image_size(right_cropped_file);
+      else // SPOT5 format
+        right_size  = file_image_size(right_cropped_file, m_right_camera_file);
 
       // Compute the appropriate alignment matrix based on the input points
       if ( stereo_settings().alignment_method == "homography" ) {
         left_size = homography_rectification(adjust_left_image_size,
-				             left_size,         right_size,
-				             left_ip,           right_ip,
-				             align_left_matrix, align_right_matrix);
+                                             left_size,         right_size,
+                                             left_ip,           right_ip,
+                                             align_left_matrix, align_right_matrix);
         vw_out() << "\t--> Aligning right image to left using matrices:\n"
 	         << "\t      " << align_left_matrix  << "\n"
 	         << "\t      " << align_right_matrix << "\n";
       } else {
         left_size = affine_epipolar_rectification(left_size,         right_size,
-					          left_ip,           right_ip,
-					          align_left_matrix, align_right_matrix);
+                                                  left_ip,           right_ip,
+                                                  align_left_matrix, align_right_matrix);
         vw_out() << "\t--> Aligning left and right images using affine matrices:\n"
 	         << "\t      " << submatrix(align_left_matrix, 0,0,2,3) << "\n"
 	         << "\t      " << submatrix(align_right_matrix,0,0,2,3) << "\n";
@@ -192,11 +203,11 @@ namespace asp {
 
       // Apply the alignment transform to both input images
       Limg = transform(left_masked_image,
-		       HomographyTransform(align_left_matrix),
-		       left_size.x(), left_size.y() );
+                       HomographyTransform(align_left_matrix),
+                       left_size.x(), left_size.y() );
       Rimg = transform(right_masked_image,
-		       HomographyTransform(align_right_matrix),
-		       left_size.x(), left_size.y() );
+                       HomographyTransform(align_right_matrix),
+                       left_size.x(), left_size.y() );
     } else if ( stereo_settings().alignment_method == "epipolar" ) {
       vw_throw( NoImplErr() << "StereoSessionGdal does not support epipolar rectification" );
     } else {
@@ -218,22 +229,22 @@ namespace asp {
     // The left image is written out with no alignment warping.
     vw_out() << "\t--> Writing pre-aligned images.\n";
     block_write_gdal_image( left_output_file, apply_mask(Limg, output_nodata),
-			    has_left_georef, left_georef,
-			    has_nodata, output_nodata, options,
-			    TerminalProgressCallback("asp","\t  L:  ") );
+                            has_left_georef, left_georef,
+                            has_nodata, output_nodata, options,
+                            TerminalProgressCallback("asp","\t  L:  ") );
 
     if ( stereo_settings().alignment_method == "none" )
       block_write_gdal_image( right_output_file, apply_mask(Rimg, output_nodata),
-			      has_right_georef, right_georef,
-			      has_nodata, output_nodata, options,
-			      TerminalProgressCallback("asp","\t  R:  ") );
+                              has_right_georef, right_georef,
+                              has_nodata, output_nodata, options,
+                              TerminalProgressCallback("asp","\t  R:  ") );
     else // Write out the right image cropped to align with the left image.
       block_write_gdal_image( right_output_file,
-			      apply_mask(crop(edge_extend(Rimg, ConstantEdgeExtension()),
-					      bounding_box(Limg)), output_nodata),
-			      has_right_georef, right_georef,
-			      has_nodata, output_nodata, options,
-			      TerminalProgressCallback("asp","\t  R:  ") );
+                              apply_mask(crop(edge_extend(Rimg, ConstantEdgeExtension()),
+                              bounding_box(Limg)), output_nodata),
+                              has_right_georef, right_georef,
+                              has_nodata, output_nodata, options,
+                              TerminalProgressCallback("asp","\t  R:  ") );
   } // End function pre_preprocessing_hook
 
 

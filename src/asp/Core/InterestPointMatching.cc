@@ -53,8 +53,8 @@ namespace asp {
       Vector3 p0 = cartography::datum_intersection( datum, cam_ip, feature );
 
       if (p0 == Vector3()){ // No intersection
-	success = false;
-	return Vector3();
+        success = false;
+        return Vector3();
       }
 
       Vector3 p1  = p0 + 10*cam_ip->pixel_to_vector( feature ); // Extend the point below the datum
@@ -68,14 +68,14 @@ namespace asp {
       matrix(1,1) = ep1.y();
 
       if (matrix != matrix){ // Got back NaN values. Can't proceed.
-	success = false;
-	return Vector3();
+        success = false;
+        return Vector3();
       }
 
       Matrix<double> nsp = nullspace( matrix );
       if (nsp.cols() <= 0 || nsp.rows() <= 0){ // Failed to find the nullspace
-	success = false;
-	return Vector3();
+        success = false;
+        return Vector3();
       }
 
       return select_col(nsp,0);
@@ -84,9 +84,9 @@ namespace asp {
       Mutex::Lock lock( g_ip_mutex );
       g_ip_num_errors++;
       if (g_ip_num_errors < 100) {
-	vw_out(ErrorMessage) << e.what() << std::endl;
+        vw_out(ErrorMessage) << e.what() << std::endl;
       }else if (g_ip_num_errors == 100) {
-	vw_out() << "Will print no more error messages about failing to find epipolar line.\n";
+        vw_out() << "Will print no more error messages about failing to find epipolar line.\n";
       }
     }
 

@@ -34,6 +34,7 @@
 #include <asp/Core/LocalHomography.h>
 #include <asp/GUI/MainWindow.h>
 #include <asp/GUI/GuiUtilities.h>
+#include <xercesc/util/PlatformUtils.hpp>
 
 using namespace vw;
 using namespace vw::stereo;
@@ -104,7 +105,7 @@ public:
 int main(int argc, char* argv[]) {
 
   try {
-
+    xercesc::XMLPlatformUtils::Initialize();
     stereo_register_sessions();
 
     bool verbose = false;
@@ -131,6 +132,7 @@ int main(int argc, char* argv[]) {
         opt_vec.resize(1);
         handle_arguments(argc, argv, opt_vec[0], all_images);
 
+        // Try to load each input file as a standalone image one at a time
         for (size_t i = 0; i < all_images.size(); i++) {
           std::string image = all_images[i];
           bool is_image = true;
@@ -138,10 +140,10 @@ int main(int argc, char* argv[]) {
           catch(...){
             if (!image.empty() && image[0] != '-') {
               vw_out() << "Not a valid image: " << image << ".\n";
-	      if (!fs::exists(image)) {
-		vw_out() << "Using this as the output prefix.\n";
-		output_prefix = image;
-	      }
+              if (!fs::exists(image)) {
+                vw_out() << "Using this as the output prefix.\n";
+                output_prefix = image;
+              }
             }
             is_image = false;
           }
@@ -188,6 +190,7 @@ int main(int argc, char* argv[]) {
     main_window.show();
     app.exec();
 
+    xercesc::XMLPlatformUtils::Terminate();
   } ASP_STANDARD_CATCHES;
 
   return 0;

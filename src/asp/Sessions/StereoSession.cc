@@ -98,14 +98,15 @@ namespace asp {
     //   but the camera file does not match if the image is cropped.
     // - Ideally there would be a function to make this cleaner.
     boost::shared_ptr<DiskImageResource> rsrc1, rsrc2;
-    if (crop_left) // Tiff input
+    if (input_file1 == m_left_image_file)
+      rsrc1 = asp::load_disk_image_resource(m_left_image_file, m_left_camera_file);
+    else // Tiff input
       rsrc1 = asp::load_disk_image_resource(input_file1);
-    else // Original input
-      rsrc1 = asp::load_disk_image_resource(input_file1, m_left_camera_file);
-    if (crop_right) // Tiff input
+    if (input_file2 == m_right_image_file)
+      rsrc2 = asp::load_disk_image_resource(m_right_image_file, m_right_camera_file);
+    else // Tiff input
       rsrc2 = asp::load_disk_image_resource(input_file2);
-    else // Original input
-      rsrc2 = asp::load_disk_image_resource(input_file2, m_right_camera_file);
+
     
     DiskImageView<float> image1(rsrc1), image2(rsrc2);
     ImageViewRef<float> image1_norm=image1, image2_norm=image2;
