@@ -483,6 +483,8 @@ void generate_point_pairs(// Inputs
       Vector3 A = ground_xyz[pt]; 
       Vector3 B = full_sat_pos[pt];
       Vector3 D = B - A;
+
+      // Find t such that norm(A + t*D) = norm(A) + height
       double  d = dot_prod(A, D) * dot_prod(A, D)
         + dot_prod(D, D) * (height*height + 2*norm_2(A)*height);
       double  t = ( -dot_prod(A, D) + sqrt(d) ) / dot_prod(D, D);
