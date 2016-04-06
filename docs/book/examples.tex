@@ -883,16 +883,30 @@ works well for this stereo pair. Just set
 \section{ASTER Imagery}
 \label{sec:aster}
 
-In this example we will describe how to process ASTER Level 1A
-VNIR imagery. We will use the dataset \texttt{030352200281191} around the
-Basalt Hills quarry, near San Luis Reservoir in Northern California.
 
-This dataset will come as a directory containing imagery and
-meta-information. We use the tool \texttt{aster2asp} (section \ref{app:aster})
-to parse it (also there is described the data contained in this directory):
+In this example we will describe how to process ASTER Level 1A VNIR
+imagery. The data can be obtained for free from
+\url{http://reverb.echo.nasa.gov}. Select a region on the map, 
+search for AST\_L1A, and choose ``ASTER L1A Reconstructed Unprocessed Instrument Data''.
+(The same interface can be used to obtain pre-existing ASTER DEMs.)
+
+There are two important things to keep in mind when ordering the data.
+First, at the very last step, when finalizing the order options, click on
+``change'' and choose GeoTIFF as the data format, rather than
+HDF-EOS. This way the imagery and metadata will come already extracted from the HDF file.
+
+Second, note that ASP cannot process ASTER Level 1B imagery, as those
+images lack camera information.
+
+Below, we will use the dataset
+\texttt{AST\_L1A\_00307182000191236\_20160404141337\_21031} near San Luis
+Reservoir in Northern California. This dataset will come as a directory
+containing TIFF imagery and meta-information as text files. We use the
+tool \texttt{aster2asp} (section \ref{app:aster}) to parse it (also
+there is described the data contained in this directory):
 
 \begin{verbatim}
-  aster2asp 030352200281191 -o out
+  aster2asp 030353697511879 -o out
 \end{verbatim}
 
 This command will create 4 files, named \texttt{out-Band3N.tif},
@@ -902,7 +916,7 @@ regarding details of how these files were created.
 
 Next, we run stereo, with the RPC session, and create a DEM:
 \begin{verbatim}
-  stereo -t rpc --subpixel-mode 3 bout-Band3N.tif out-Band3B.tif \
+  stereo -t rpc --subpixel-mode 3 out-Band3N.tif out-Band3B.tif \
      out-Band3N.xml out-Band3B.xml out_stereo/run
   point2dem -r earth --tr 0.00054 out_stereo/run-PC.tif
 \end{verbatim}
