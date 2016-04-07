@@ -146,7 +146,7 @@ Check the LOS paper to see if it has a good implementation suggestion.
             m_min_time(min_time), m_max_time(max_time) {}
 		    
     virtual ~SPOTCameraModel() {}
-    virtual std::string type() const { return "LinescanDG"; }
+    virtual std::string type() const { return "LinescanSPOT"; }
 
     // -- This set of functions implements virtual functions from LinescanModel.h --
 
@@ -162,7 +162,7 @@ Check the LOS paper to see if it has a good implementation suggestion.
     // TODO: See if we can port these local changes to the parent class
     virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point, double starty) const;
     virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point) const {
-      return point_to_pixel(point, -1); // Redirect to other function with no guess
+      return point_to_pixel(point, -1); // Redirect to the function with no initial guess
     }
  
     /// Fills in an ImageFormat object required to read the associated .BIL file.

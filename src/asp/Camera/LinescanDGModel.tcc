@@ -18,6 +18,7 @@
 
 
 #include <vw/Math/EulerAngles.h>
+#include <vw/Camera/CameraSolve.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/DG_XML.h>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -51,7 +52,7 @@ template <class PositionFuncT, class PoseFuncT>
 vw::Vector2 LinescanDGModel<PositionFuncT, PoseFuncT>::point_to_pixel(vw::Vector3 const& point, double starty) const {
 
   // Use the uncorrected function to get a fast but good starting seed.
-  LinescanGenericLMA model( this, point );
+  vw::camera::CameraGenericLMA model( this, point );
   int status;
   vw::Vector2 start = point_to_pixel_uncorrected(point, starty);
 

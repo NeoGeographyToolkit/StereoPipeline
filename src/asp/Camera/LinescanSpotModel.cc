@@ -17,6 +17,7 @@
 
 
 #include <asp/Camera/SPOT_XML.h>
+#include <vw/Camera/CameraSolve.h>
 #include <asp/Camera/LinescanSpotModel.h>
 
 namespace asp {
@@ -24,54 +25,13 @@ namespace asp {
 using vw::Vector3;
 using vw::Matrix3x3;
 
-
-/*
-
-  // Levenberg Marquardt solver for linescan number (y) and pixel
-  // number (x) for the given point in space. The obtained solution
-  // pixel (x, y) must be such that the vector from this camera
-  // pixel goes through the given point. This version does uses only
-  // functions declared in LinescanModel class and should work for 
-  // any LineScan camera. Some cameras may be able to use a faster
-  // implementation that solves for y first and then for x seperately.
-  class LinescanGenericLMA2 : public vw::math::LeastSquaresModelBase<LinescanGenericLMA2> {
-    const SPOTCameraModel* m_model;
-    const Vector3 m_point;
-  public:
-    typedef vw::Vector2 domain_type;     // 2D pixel, input to cost function vector
-    typedef Vector3 result_type;     // 3D error, output of cost function vector
-    typedef vw::Matrix<double, 3, 2> jacobian_type;
-
-    LinescanGenericLMA2( const SPOTCameraModel* model, const vw::Vector3& pt ) :
-      m_model(model), m_point(pt) {
-      std::cout << "INIT MODEL with point " << pt << std::endl;
-    }
-
-    // Minimize the difference between the vector from the pixel and
-    //  the vector from the point to the camera.
-    inline result_type operator()( domain_type const& pix ) const {
-      try {
-        std::cout << "pixel " << pix << std::endl;
-        Vector3 vec = m_model->pixel_to_vector(pix);
-        Vector3 center = m_model->camera_center(pix);
-        Vector3 target = m_point - center;
-        //std::cout << "pixel " << pix << " --> " << vec << " vs " << target << std::endl;
-        //std::cout << "center = " << center << std::endl;
-        return vec - vw::math::normalize(target);
-      } catch(...) { // Handle camera misses by returning a very large error
-        return Vector3(999999,999999,999999);
-      }
-    }
-  }; // End class LinescanGenericLMA
-*/
-
 // TODO: Port these changes to the base class
 
 vw::Vector2 SPOTCameraModel::point_to_pixel(Vector3 const& point, double starty) const {
 
   // Use the generic solver to find the pixel 
   // - This method will be slower but works for more complicated geometries
-  LinescanGenericLMA model( this, point );
+  vw::camera::CameraGenericLMA model( this, point );
   int status;
   vw::Vector2 start = m_image_size / 2.0; // Use the center as the initial guess
   if (starty >= 0) // If the user provided a line number guess..

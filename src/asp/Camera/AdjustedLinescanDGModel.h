@@ -33,6 +33,251 @@ namespace asp {
 
   enum InterpType {LinearInterp = 1, GaussianWeightsInterp};
 
+  // This adjustment turned out to be necessary to deal with very subtle problems
+  // with numerical precision, such as when we try to interpolate at position
+  // say 7.00000000000000001 into an array whose indices are between 0 and 7.
+  // The source of this problem is I think due to the fact that (a/b)*b can
+  // be a tiny bit bigger than b sometimes. Such logic is used in get_tend()
+  // for example.
+  const double TINY_ADJ = 1.0 - 1.0e-10;
+
+  // Modifying g_num_wts will require modifying a lot of code. We
+  // assume that when doing smooth interpolation, only that many
+  // neighboring grid points will be used.
+  int g_num_wts = 4; 
+  double g_sigma = 1.0; // The sigma of the Gaussian used for smooth interpolation
+
+  // We would like to place num_adjustments between the first and last image
+  // lines. Compute the starting line and the spacing.
+  inline void compute_t0_dt(vw::Vector2 const& adjustment_bounds,
+                            int num_adjustments,
+                            double & y0, double & dt){
+
+    VW_ASSERT( num_adjustments >= 2,
+               vw::ArgumentErr() << "Expecting at least two adjustments.\n" );
+
+    // compute the times at the bounds between which we want to place
+    // the adjustments.
+    double beg_t = adjustment_bounds[0];
+    double end_t = adjustment_bounds[1];
+    
+    // For images scanned in reverse, beg_t can be > end_t
+    if (beg_t > end_t)
+      std::swap(beg_t, end_t);
+
+    y0 = beg_t;
+    dt = (end_t - beg_t)/(num_adjustments - 1.0);
+  }
+
+  class AdjustablePosition {
+  public:
+    AdjustablePosition(int interp_type,
+                       vw::Vector2 const& adjustment_bounds,
+                       std::vector<vw::Vector3> const& position_adjustments,
+                       int num_wts, double sigma):
+      m_interp_type(static_cast<InterpType>(interp_type)) {
+
+      // We will need to be able to linearly interpolate into the adjustments.
+      double t0, dt;
+      compute_t0_dt(adjustment_bounds, position_adjustments.size(), t0, dt);
+
+      // Linear interp
+      if (m_interp_type == LinearInterp){
+        m_linear_position_adjustments
+          = vw::camera::LinearPiecewisePositionInterpolation(position_adjustments, t0, dt);
+      }else{
+        // Smooth interp
+        m_smooth_position_adjustments
+          = vw::camera::SmoothPiecewisePositionInterpolation(position_adjustments,
+                                                             t0, dt, num_wts, sigma);
+      }
+    }
+
+    // Return the original position plus the interpolated adjustment.
+    vw::Vector3 operator()(double t) const {
+
+      // The adjustments by design can be applied only to t
+      // corresponding to between first and last lines, as that's
+      // where the adjustments are placed. Anything beyond will have
+      // to use the adjustments at endpoints.
+      if (m_interp_type == LinearInterp){
+        double bound_t = t;
+        bound_t = std::max(bound_t, m_linear_position_adjustments.get_t0());
+        bound_t = std::min(bound_t, TINY_ADJ*m_linear_position_adjustments.get_tend());
+        return m_linear_position_adjustments(bound_t);
+      }
+
+      double bound_t = t;
+      bound_t = std::max(bound_t, m_smooth_position_adjustments.get_t0());
+      bound_t = std::min(bound_t, TINY_ADJ*m_smooth_position_adjustments.get_tend());
+      return m_smooth_position_adjustments(bound_t);
+    }
+
+    // Return the closest piecewise adjustment camera indices to given time.
+    std::vector<int> get_closest_adj_indices(double t){
+
+      if (m_interp_type == LinearInterp){
+
+        double t0   = m_linear_position_adjustments.get_t0();
+        double dt   = m_linear_position_adjustments.get_dt();
+        double tend = m_linear_position_adjustments.get_tend();
+        int    num  = round( (tend - t0)/dt ) + 1;
+
+        double bound_t = t;
+        bound_t = std::max(bound_t, m_linear_position_adjustments.get_t0());
+        bound_t = std::min(bound_t, TINY_ADJ*m_linear_position_adjustments.get_tend());
+
+        double ratio = (bound_t-t0)/dt;
+
+        // if ratio == 7.2, return 6, 7, 8
+        // if ratio == 7.9, return 7, 8, 9
+        int i0 = floor(ratio - 0.5);
+        int i1 = i0 + 1;
+        int i2 = i1 + 1;
+
+        std::vector<int> indices;
+        if (i0 >= 0 && i0 < num) indices.push_back(i0);
+        if (i1 >= 0 && i1 < num) indices.push_back(i1);
+        if (i2 >= 0 && i2 < num) indices.push_back(i2);
+
+        return indices;
+      }
+
+      double bound_t = t;
+      bound_t = std::max(bound_t, m_smooth_position_adjustments.get_t0());
+      bound_t = std::min(bound_t, TINY_ADJ*m_smooth_position_adjustments.get_tend());
+
+      // Return the indices of the largest weights used in interp.
+      return m_smooth_position_adjustments.get_indices_of_largest_weights(bound_t);
+    }
+
+  private:
+    InterpType m_interp_type;
+    vw::camera::LinearPiecewisePositionInterpolation m_linear_position_adjustments;
+    vw::camera::SmoothPiecewisePositionInterpolation m_smooth_position_adjustments;
+  };
+
+  class AdjustablePose {
+  public:
+    AdjustablePose(int interp_type,
+                   vw::Vector2 const& adjustment_bounds,
+                   std::vector<vw::Quat> const& pose_adjustments,
+                   int num_wts, double sigma):
+      m_interp_type(static_cast<InterpType>(interp_type)) {
+
+      // We will need to be able to linearly interpolate into the adjustments.
+      double t0, dt;
+      compute_t0_dt(adjustment_bounds, pose_adjustments.size(), t0, dt);
+
+      if (m_interp_type == LinearInterp){
+        m_linear_pose_adjustments
+          = vw::camera::SLERPPoseInterpolation(pose_adjustments, t0, dt);
+      }else{
+        m_smooth_pose_adjustments
+          = vw::camera::SmoothSLERPPoseInterpolation(pose_adjustments, t0, dt,
+                                                     num_wts, sigma);
+      }
+    }
+
+    // Take the original rotation, and apply the adjustment on top of it. Both are
+    // interpolated.
+    vw::Quat operator()(double t) const {
+
+      // The adjustments by design can be applied only to t
+      // corresponding to between first and last lines, as that's
+      // where the adjustments are placed. Anything beyond will have
+      // to use the adjustments at endpoints.
+
+      if (m_interp_type == LinearInterp){
+        double bound_t = t;
+        bound_t = std::max(bound_t, m_linear_pose_adjustments.get_t0());
+        bound_t = std::min(bound_t, TINY_ADJ*m_linear_pose_adjustments.get_tend());
+        return m_linear_pose_adjustments(bound_t);
+      }
+
+      double bound_t = t;
+      bound_t = std::max(bound_t, m_smooth_pose_adjustments.get_t0());
+      bound_t = std::min(bound_t, TINY_ADJ*m_smooth_pose_adjustments.get_tend());
+      return m_smooth_pose_adjustments(bound_t);
+    }
+
+  private:
+    InterpType m_interp_type;
+    vw::camera::SLERPPoseInterpolation       m_linear_pose_adjustments;
+    vw::camera::SmoothSLERPPoseInterpolation m_smooth_pose_adjustments;
+  };
+  
+  // This is similar to AdjustedCameraModel, which has one rotation
+  // and translation adjustment for the camera, except that this one
+  // has n adjustments, placed along certain rows in the image. It can
+  // be used with any camera model, but it is meaningful when the
+  // camera is linescan, hence this adjusts the satellite position and
+  // pose as it moves.
+  
+  // A point X gets mapped by the pieceiwe adjusted camera at pixel pix as
+  // m_adj_pose(pix.y()) * ( X - m_cam.camera_center(pix) ) 
+  //    + m_cam.camera_center(pix) + m_adj_position(pix.y())  
+  class PiecewiseAdjustedLinescanModel: public vw::camera::LinescanModel {
+
+  public:
+    //------------------------------------------------------------------
+    // Constructors / Destructors
+    //------------------------------------------------------------------
+    PiecewiseAdjustedLinescanModel(boost::shared_ptr<vw::camera::CameraModel> cam,
+                                   int interp_type,
+                                   vw::Vector2               const& adjustment_bounds,
+                                   std::vector<vw::Vector3>  const& position_adjustments,
+                                   std::vector<vw::Quat>     const& pose_adjustments,
+                                   vw::Vector2i              const& image_size
+                                   ): vw::camera::LinescanModel(image_size,
+                                                                false), // no velocity ab
+                                      m_adj_position(interp_type, adjustment_bounds,
+                                                     position_adjustments,
+                                                     g_num_wts, g_sigma),
+                                      m_adj_pose(interp_type, adjustment_bounds,
+                                                 pose_adjustments,
+                                                 g_num_wts, g_sigma),
+                                      // The line below is very
+                                      // important. We must make sure
+                                      // to keep track of the smart
+                                      // pointer to the original
+                                      // camera, so it does not go out
+                                      // of scope.
+                                      m_cam(cam)
+    {
+      VW_ASSERT( position_adjustments.size() == pose_adjustments.size(),
+		 vw::ArgumentErr()
+		 << "Expecting the number of position and pose adjustments to agree.\n" );
+    }
+    
+    virtual ~PiecewiseAdjustedLinescanModel() {}
+    
+    virtual std::string type() const { return "PiecewiseAdjustedLinescanModel"; }
+    
+    // Need this function to decide which adjustments we need to vary
+    // for the given line (image row) position.
+    std::vector<int> get_closest_adj_indices(double line_pos){
+      return m_adj_position.get_closest_adj_indices(line_pos);
+    }
+
+    vw::Vector3 pixel_to_vector(vw::Vector2 const& pix) const {
+      return m_adj_pose(pix.y()).rotate(m_cam->pixel_to_vector(pix));
+    }
+
+    vw::Vector3 camera_center(vw::Vector2 const& pix) const {
+      return m_cam->camera_center(pix) + m_adj_position(pix.y());
+    }
+
+    // The function point_to_pixel() is inherited from the base LinescanModel class.
+    // TODO: Test that the right functions are called.
+  private:
+    AdjustablePosition m_adj_position; 
+    AdjustablePose m_adj_pose; 
+    boost::shared_ptr<vw::camera::CameraModel> m_cam;
+
+    // Add here point_to_pixel(point, initial_guess).
+  };
+  
   // A little function to pull the true camera model.
   // TODO: What if we are dealing with an adjusted camera model?
   inline DGCameraModel* get_dg_ptr(boost::shared_ptr<vw::camera::CameraModel> cam){
@@ -65,17 +310,9 @@ namespace asp {
     dt = (end_t - beg_t)/(num_adjustments - 1.0);
   }
 
-  // This adjustment turned out to be necessary to deal with very subtle problems
-  // with numerical precision, such as when we try to interpolate at position
-  // say 7.00000000000000001 into an array whose indices are between 0 and 7.
-  // The source of this problem is I think due to the fact that (a/b)*b can
-  // be a tiny bit bigger than b sometimes. Such logic is used in get_tend()
-  // for example.
-  const double TINY_ADJ = 1.0 - 1.0e-10;
-
-  class AdjustablePosition {
+  class AdjustableDGPosition {
   public:
-    AdjustablePosition(DGCameraModel const* cam_ptr,
+    AdjustableDGPosition(DGCameraModel const* cam_ptr,
                        int interp_type,
                        vw::Vector2 const& adjustment_bounds,
                        std::vector<vw::Vector3> const& position_adjustments,
@@ -100,7 +337,7 @@ namespace asp {
     }
 
     // Return the original position plus the interpolated adjustment.
-    vw::Vector3 operator()( double t ) const {
+    vw::Vector3 operator()(double t) const {
 
       // The adjustments by design can be applied only to t
       // corresponding to between first and last lines, as that's
@@ -164,9 +401,9 @@ namespace asp {
     vw::camera::SmoothPiecewisePositionInterpolation m_smooth_position_adjustments;
   };
 
-  class AdjustablePose {
+  class AdjustableDGPose {
   public:
-    AdjustablePose(DGCameraModel const* cam_ptr,
+    AdjustableDGPose(DGCameraModel const* cam_ptr,
                    int interp_type,
                    vw::Vector2 const& adjustment_bounds,
                    std::vector<vw::Quat> const& pose_adjustments,
@@ -189,7 +426,7 @@ namespace asp {
 
     // Take the original rotation, and apply the adjustment on top of it. Both are
     // interpolated.
-    vw::Quat operator()( double t ) const {
+    vw::Quat operator()(double t) const {
 
       // The adjustments by design can be applied only to t
       // corresponding to between first and last lines, as that's
@@ -216,16 +453,13 @@ namespace asp {
     vw::camera::SmoothSLERPPoseInterpolation m_smooth_pose_adjustments;
   };
 
-  int g_num_wts = 4; // Modifying here will require modifying a lot of code
-  double g_sigma = 1.0;
-
   // This class will have adjustable position and pose. Those are obtained by applying
   // adjustments to given position and pose. The adjustable position and pose
   // implement operator() so can be invoked exactly as the original position
   // and pose. Note that we don't adjust the velocity, maybe we should.
   class AdjustedLinescanDGModel:
-    public LinescanDGModel<AdjustablePosition,                                 // position
-                           AdjustablePose> {                                   // pose
+    public LinescanDGModel<AdjustableDGPosition,                                 // position
+                           AdjustableDGPose> {                                   // pose
 
   public:
     //------------------------------------------------------------------
@@ -237,11 +471,11 @@ namespace asp {
                             std::vector<vw::Vector3> const& position_adjustments,
                             std::vector<vw::Quat>    const& pose_adjustments):
       // Initialize the base
-      LinescanDGModel<AdjustablePosition,
-                      AdjustablePose>
-    (AdjustablePosition(get_dg_ptr(cam), interp_type, adjustment_bounds, position_adjustments, g_num_wts, g_sigma),
+      LinescanDGModel<AdjustableDGPosition,
+                      AdjustableDGPose>
+    (AdjustableDGPosition(get_dg_ptr(cam), interp_type, adjustment_bounds, position_adjustments, g_num_wts, g_sigma),
      get_dg_ptr(cam)->get_velocity_func(),
-     AdjustablePose(get_dg_ptr(cam), interp_type, adjustment_bounds, pose_adjustments, g_num_wts, g_sigma),
+     AdjustableDGPose(get_dg_ptr(cam), interp_type, adjustment_bounds, pose_adjustments, g_num_wts, g_sigma),
      get_dg_ptr(cam)->get_time_func(),
      get_dg_ptr(cam)->get_image_size(),
      get_dg_ptr(cam)->get_detector_origin(),
