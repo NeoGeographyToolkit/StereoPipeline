@@ -464,30 +464,55 @@ load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
     vw_out() << "Using adjusted camera model: " << adjust_file << std::endl;
     bool piecewise_adjustments;
     Vector2 adjustment_bounds;
+    std::string session;
     asp::read_adjustments(adjust_file, piecewise_adjustments,
-                          adjustment_bounds, position_correction, pose_correction);
+                          adjustment_bounds, position_correction, pose_correction,
+                          session);
 
     if (position_correction.empty() || pose_correction.empty())
       vw_throw(InputErr() << "Unable to read corrections.\n");
 
-    // Handle the case of piecewise adjustments for DG cameras
+    // Handle the case of piecewise adjustments for DG and other cameras
     if (piecewise_adjustments) {
 
-      // Create the adjusted DG model
-      boost::shared_ptr<camera::CameraModel> adj_dg_cam
-	(new AdjustedLinescanDGModel(cam,
-                                     stereo_settings().piecewise_adjustment_interp_type,
-                                     adjustment_bounds, position_correction, pose_correction));
+      DiskImageView<float> img(image_file);
+      Vector2i image_size(img.cols(), img.rows());
 
-      // Apply the pixel offset and pose corrections. So this a second adjustment
-      // on top of the first.
-      boost::shared_ptr<camera::CameraModel> adj_dg_cam2
-	(new vw::camera::AdjustedCameraModel(adj_dg_cam, Vector3(),
-					     Quat(math::identity_matrix<3>()), pixel_offset));
+       if ( session == "dg" || session == "dgmaprpc") {
 
-      return adj_dg_cam2;
+	// Create the adjusted DG model
+	boost::shared_ptr<camera::CameraModel> adj_dg_cam
+	  (new AdjustedLinescanDGModel(cam,
+				       stereo_settings().piecewise_adjustment_interp_type,
+				       adjustment_bounds, position_correction,
+				       pose_correction, image_size));
+	
+	// Apply the pixel offset and pose corrections. So this a second adjustment
+	// on top of the first.
+	boost::shared_ptr<camera::CameraModel> adj_dg_cam2
+	  (new vw::camera::AdjustedCameraModel(adj_dg_cam, Vector3(),
+					       Quat(math::identity_matrix<3>()), pixel_offset));
+	
+	return adj_dg_cam2;
+       }else{
+         // Create the generic adjusted model
+         boost::shared_ptr<camera::CameraModel> adj_generic_cam
+           (new PiecewiseAdjustedLinescanModel(cam,
+                                               stereo_settings().piecewise_adjustment_interp_type,
+                                               adjustment_bounds, position_correction,
+                                               pose_correction, image_size));
+         
+         // Apply the pixel offset and pose corrections. So this a second adjustment
+         // on top of the first.
+         boost::shared_ptr<camera::CameraModel> adj_generic_cam2
+           (new vw::camera::AdjustedCameraModel(adj_generic_cam, Vector3(),
+                                                Quat(math::identity_matrix<3>()), pixel_offset));
+         
+         return adj_generic_cam2;
+       }
+       
     } // End case for piecewise DG adjustment
-
+    
   } // End case for parsing bundle adjustment file
 
   // Create VW adjusted camera model object with the info we loaded

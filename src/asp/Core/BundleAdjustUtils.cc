@@ -34,29 +34,41 @@ using namespace vw::stereo;
 using namespace vw::ba;
 
 std::string g_piecewise_adj_str = "PIECEWISE_ADJUSTMENTS";
+std::string g_session_str = "SESSION";
 
 void asp::read_adjustments(std::string const& filename,
                            bool & piecewise_adjustments,
                            vw::Vector2 & adjustment_bounds,
                            std::vector<Vector3> & position_correction,
-                           std::vector<Quat> & pose_correction) {
+                           std::vector<Quat> & pose_correction,
+                           std::string & session) {
 
   // Initialize the outputs
   piecewise_adjustments = false;
   adjustment_bounds = Vector2();
   position_correction.clear();
   pose_correction.clear();
-
+  session = "dg"; // default session, for historical reasons
+  
   Vector3 pos;
   Vector4 q_buf;
   std::ifstream istr(filename.c_str());
 
-  // First peek to see if the file contains piecewise adjustments
+  // Peek to see if the file contains piecewise adjustments
   std::string line;
   if (!std::getline(istr, line))
     vw_throw( ArgumentErr() << "Could not read adjustment file: " << filename << "\n" );
   if (line == g_piecewise_adj_str) {
     piecewise_adjustments = true;
+
+    // Read the session
+    std::string a, b;
+    if (istr >> a >> b) {
+      if (a == g_session_str) {
+        session = b;
+      }
+    }
+    
     if (! (istr >> adjustment_bounds[0] >> adjustment_bounds[1]))
       vw_throw( ArgumentErr() << "Could not read adjustment bounds from: " << filename << "\n");
   }else{
@@ -76,15 +88,18 @@ void asp::read_adjustments(std::string const& filename,
   }
 }
 
+// Write piecewise adjustments
 void asp::write_adjustments(std::string const& filename,
                             vw::Vector2 const& adjustment_bounds,
                             std::vector<vw::Vector3> const& position_correction,
-                            std::vector<vw::Quat> const& pose_correction) {
+                            std::vector<vw::Quat> const& pose_correction,
+                            std::string const& session) {
 
   std::ofstream ostr(filename.c_str());
   ostr.precision(18);
 
   ostr << g_piecewise_adj_str << std::endl;
+  ostr << g_session_str << " " << boost::to_lower_copy(session) << std::endl;
   ostr << adjustment_bounds[0] << ' ' << adjustment_bounds[1] << std::endl;
 
   for (size_t adj = 0; adj < position_correction.size(); adj++) {
@@ -105,7 +120,8 @@ void asp::write_adjustments(std::string const& filename,
                        Quat const& pose_correction) {
   std::ofstream ostr(filename.c_str());
   ostr.precision(18);
-  ostr << position_correction[0] << " " << position_correction[1] << " " << position_correction[2] << "\n";
+  ostr << position_correction[0] << " " << position_correction[1] << " "
+       << position_correction[2] << "\n";
   ostr << pose_correction.w() << " " << pose_correction.x() << " "
        << pose_correction.y() << " " << pose_correction.z() << " " << "\n";
   ostr.close();

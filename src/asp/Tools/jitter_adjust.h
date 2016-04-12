@@ -27,6 +27,7 @@ namespace asp{
                      std::vector<std::string> const& camera_files,
                      std::vector< boost::shared_ptr<vw::camera::CameraModel> > const& camera_models,
                      std::string const& out_prefix,
+		     std::string const& session,
                      std::string const& match_file,
                      int num_threads);
 }

@@ -29,6 +29,7 @@
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Tools/jitter_adjust.h>
+#include <vw/Core/Stopwatch.h>
 
 // Turn off warnings from eigen
 #if defined(__GNUC__) || defined(__GNUG__)
@@ -72,6 +73,62 @@ const int NUM_POINT_PARAMS = 3;
 
 typedef Vector<double, NUM_CAMERA_PARAMS> camera_vector_t;
 
+// In spite of trying a lot, I could not find a way to make a base class
+// from which both AdjustedLinescanDGModel and PiecewiseAdjustedLinescanModel
+// could inherit. Hence this wrapper.
+class AdjustedModelWrapper {
+public:
+  AdjustedModelWrapper(std::string               const& session,
+                       boost::shared_ptr<vw::camera::CameraModel> cam,
+                       int interp_type,
+                       vw::Vector2               const& adjustment_bounds,
+                       std::vector<vw::Vector3>  const& position_adjustments,
+                       std::vector<vw::Quat>     const& pose_adjustments,
+                       vw::Vector2i              const& image_size):
+    m_session(session)
+  {
+    if (m_session == "dg" || m_session == "dgmaprpc") {
+      m_cam = boost::shared_ptr<vw::camera::CameraModel>
+        (new asp::AdjustedLinescanDGModel(cam, interp_type, adjustment_bounds,
+                                          position_adjustments, pose_adjustments,
+                                          image_size));
+    } else {
+      m_cam = boost::shared_ptr<vw::camera::CameraModel>
+        (new asp::PiecewiseAdjustedLinescanModel(cam, interp_type, adjustment_bounds,
+                                                 position_adjustments, pose_adjustments,
+                                                 image_size));
+    }
+    
+  }
+
+  vw::Vector2 point_to_pixel(vw::Vector3 const& point, double starty) const {
+    if (m_session == "dg" || m_session == "dgmaprpc") 
+      return
+        dynamic_cast<asp::AdjustedLinescanDGModel*>
+	(m_cam.get())->point_to_pixel(point, starty);
+    
+    return
+      dynamic_cast<asp::PiecewiseAdjustedLinescanModel*>
+      (m_cam.get())->point_to_pixel(point, starty);
+  }
+  
+  std::vector<int> get_closest_adj_indices(double t){
+    if (m_session == "dg" || m_session == "dgmaprpc") 
+      return
+        dynamic_cast<asp::AdjustedLinescanDGModel*>(m_cam.get())->get_closest_adj_indices(t);
+    
+    return
+      dynamic_cast<asp::PiecewiseAdjustedLinescanModel*>(m_cam.get())->get_closest_adj_indices(t);
+  }
+  
+private:
+  std::string m_session;
+  boost::shared_ptr<vw::camera::CameraModel> m_cam;
+
+  
+};
+  
+  
 void populate_adjustements(std::vector<double> const& cameras_vec,
 			   int start_index, int end_index,
 			   std::vector<vw::Vector3> & position_adjustments,
@@ -108,6 +165,8 @@ struct PiecewiseReprojectionError {
 			     Vector2 const& adjustment_bounds,
 			     std::vector<double> const& cameras_vec,
 			     boost::shared_ptr<vw::camera::CameraModel> cam,
+			     Vector2i const& image_size,
+			     std::string const& session,
 			     int start_index,
 			     int camera_index1, int camera_index2,
 			     int camera_index3, int camera_index4,
@@ -118,6 +177,8 @@ struct PiecewiseReprojectionError {
     m_adjustment_bounds(adjustment_bounds),
     m_cameras_vec(cameras_vec),
     m_cam(cam),
+    m_image_size(image_size),
+    m_session(session),
     m_start_index(start_index),
     m_camera_index1(camera_index1),
     m_camera_index2(camera_index2),
@@ -181,11 +242,13 @@ struct PiecewiseReprojectionError {
       // The adjusted camera has just the adjustments, it does not create a full
       // copy of the camera.
       int interp_type = stereo_settings().piecewise_adjustment_interp_type;
-      asp::AdjustedLinescanDGModel adj_cam(m_cam,
-                                           interp_type,
-                                           m_adjustment_bounds,
-					   position_adjustments, pose_adjustments);
 
+      asp::AdjustedModelWrapper cam_wrapper(m_session, m_cam,
+                                            interp_type,
+                                            m_adjustment_bounds,
+                                            position_adjustments, pose_adjustments,
+                                            m_image_size);
+      
       // Copy the input data to structures expected by the BA model
       Vector3 point_vec;
       for (size_t p = 0; p < point_vec.size(); p++)
@@ -194,7 +257,7 @@ struct PiecewiseReprojectionError {
       // Project the current point into the current camera.  Note that
       // we pass the observation as an initial guess, as the
       // prediction is hopefully not too far from it.
-      Vector2 prediction = adj_cam.point_to_pixel(point_vec, m_observation.y());
+      Vector2 prediction = cam_wrapper.point_to_pixel(point_vec, m_observation.y());
 
       // The error is the difference between the predicted and observed position,
       // normalized by sigma.
@@ -258,6 +321,8 @@ struct PiecewiseReprojectionError {
 				     Vector2 const& adjustment_bounds,
 				     std::vector<double> const& cameras_vec,
 				     boost::shared_ptr<vw::camera::CameraModel> cam,
+				     Vector2i const& image_size,
+				     std::string const& session,
 				     int start_index,
 				     int camera_index1,
 				     int camera_index2,
@@ -271,7 +336,7 @@ struct PiecewiseReprojectionError {
       return (new ceres::NumericDiffCostFunction<PiecewiseReprojectionError,
 	      ceres::CENTRAL, 2, NUM_CAMERA_PARAMS, NUM_POINT_PARAMS>
 	      (new PiecewiseReprojectionError(observation, pixel_sigma, adjustment_bounds,
-					      cameras_vec, cam,
+					      cameras_vec, cam, image_size, session,
 					      start_index,
 					      camera_index1, camera_index2,
 					      camera_index3, camera_index4,
@@ -282,7 +347,7 @@ struct PiecewiseReprojectionError {
       return (new ceres::NumericDiffCostFunction<PiecewiseReprojectionError,
 	      ceres::CENTRAL, 2, NUM_CAMERA_PARAMS, NUM_CAMERA_PARAMS, NUM_POINT_PARAMS>
 	      (new PiecewiseReprojectionError(observation, pixel_sigma, adjustment_bounds,
-					      cameras_vec, cam,
+					      cameras_vec, cam, image_size, session,
 					      start_index,
 					      camera_index1, camera_index2,
 					      camera_index3, camera_index4,
@@ -294,7 +359,7 @@ struct PiecewiseReprojectionError {
 	      ceres::CENTRAL, 2, NUM_CAMERA_PARAMS, NUM_CAMERA_PARAMS,
               NUM_CAMERA_PARAMS, NUM_POINT_PARAMS>
 	      (new PiecewiseReprojectionError(observation, pixel_sigma, adjustment_bounds,
-					      cameras_vec, cam,
+					      cameras_vec, cam, image_size, session,
 					      start_index,
 					      camera_index1, camera_index2,
 					      camera_index3, camera_index4,
@@ -310,7 +375,7 @@ struct PiecewiseReprojectionError {
 	    ceres::CENTRAL, 2, NUM_CAMERA_PARAMS, NUM_CAMERA_PARAMS,
             NUM_CAMERA_PARAMS, NUM_CAMERA_PARAMS, NUM_POINT_PARAMS>
 	    (new PiecewiseReprojectionError(observation, pixel_sigma, adjustment_bounds,
-					    cameras_vec, cam,
+					    cameras_vec, cam, image_size, session,
 					    start_index,
 					    camera_index1, camera_index2,
 					    camera_index3, camera_index4,
@@ -323,7 +388,9 @@ struct PiecewiseReprojectionError {
   Vector2 m_adjustment_bounds;
   std::vector<double> const& m_cameras_vec;  // alias
   boost::shared_ptr<vw::camera::CameraModel> m_cam;
-
+  Vector2i m_image_size; // TODO: Group this with the above
+  std::string m_session;
+								   
   // all adjustments for the current camera will be >= this
   int m_start_index;
 
@@ -416,6 +483,7 @@ void jitter_adjust(std::vector<std::string> const& image_files,
                    std::vector< boost::shared_ptr<vw::camera::CameraModel> >
                    const& input_camera_models,
                    std::string const& out_prefix,
+                   std::string const& session,
                    std::string const& match_file,
                    int num_threads){
 
@@ -435,7 +503,6 @@ void jitter_adjust(std::vector<std::string> const& image_files,
   double min_angle = 0.1; // in degrees
   ba::ControlNetwork cnet("JitterAdjust");
   bool triangulate_control_points = true;
-  vw_out() << "Building the control network.\n";
   bool success = build_control_network(triangulate_control_points,
                                        cnet, // output
                                        input_camera_models, image_files,
@@ -519,7 +586,7 @@ void jitter_adjust(std::vector<std::string> const& image_files,
       camera_models.push_back(adj_cam->unadjusted_model());
 
       Vector<double, NUM_CAMERA_PARAMS/2> position = adj_cam->translation();
-      Vector<double, NUM_CAMERA_PARAMS/2> pose    = adj_cam->axis_angle_rotation();
+      Vector<double, NUM_CAMERA_PARAMS/2> pose     = adj_cam->axis_angle_rotation();
 
       for (int cam_index = start_index; cam_index < end_index; cam_index++) {
         int curr_start = NUM_CAMERA_PARAMS * cam_index;
@@ -557,6 +624,8 @@ void jitter_adjust(std::vector<std::string> const& image_files,
   CameraRelationNetwork<JFeature> crn;
   crn.read_controlnetwork(cnet);
   start_index = 0;
+  std::vector<Vector2i> sizes;
+  
   for (int icam = 0; icam < (int)crn.size(); icam++) {
 
     if (icam > 0)
@@ -568,11 +637,17 @@ void jitter_adjust(std::vector<std::string> const& image_files,
     std::vector<vw::Vector3> position_adjustments(num_adj_per_cam[icam]);
     std::vector<vw::Quat> pose_adjustments(num_adj_per_cam[icam]);
 
-    asp::AdjustedLinescanDGModel adj_cam(camera_models[icam],
-                                         stereo_settings().piecewise_adjustment_interp_type,
-					 adjustment_bounds[icam],
-					 position_adjustments, pose_adjustments);
+    DiskImageView<float> img(image_files[icam]);
+    Vector2i image_size(img.cols(), img.rows());
+    sizes.push_back(image_size);
 
+    asp::AdjustedModelWrapper cam_wrapper(session, 
+                                          camera_models[icam],
+                                          stereo_settings().piecewise_adjustment_interp_type,
+                                          adjustment_bounds[icam],
+                                          position_adjustments, pose_adjustments,
+                                          image_size);
+    
     typedef CameraNode<JFeature>::iterator crn_iter;
     for (crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++){
 
@@ -587,13 +662,13 @@ void jitter_adjust(std::vector<std::string> const& image_files,
       Vector2 observation = (**fiter).m_location;
       Vector2 pixel_sigma = (**fiter).m_scale;
 
-      // This is a bugfix
+      // This is a bugfix for NaN problems
       if (pixel_sigma != pixel_sigma)
 	pixel_sigma = Vector2(1, 1);
 
       // The adjustments that will be affected by the current observation (recall that
       // the adjustments are placed at several scan lines (image rows)).
-      std::vector<int> indices = adj_cam.get_closest_adj_indices(observation.y());
+      std::vector<int> indices = cam_wrapper.get_closest_adj_indices(observation.y());
 
       VW_ASSERT(indices.size() >= 1 && indices.size() <= 4,
 		ArgumentErr() << "Expecting between 1 and 4 camera indices.");
@@ -622,6 +697,8 @@ void jitter_adjust(std::vector<std::string> const& image_files,
 	= PiecewiseReprojectionError::Create(observation, pixel_sigma,
 					     adjustment_bounds[icam],
 					     cameras_vec, camera_models[icam],
+					     sizes[icam],
+					     session,
 					     start_index,
 					     camera_index1, camera_index2,
 					     camera_index3, camera_index4,
@@ -681,6 +758,9 @@ void jitter_adjust(std::vector<std::string> const& image_files,
     problem.AddResidualBlock(cost_function, loss_function, camera);
   }
 
+  vw::vw_out() << "Solving for jitter" << std::endl;
+  Stopwatch sw;
+  sw.start();
   // Solve the problem
   ceres::Solver::Options options;
   options.gradient_tolerance = 1e-16;
@@ -713,6 +793,9 @@ void jitter_adjust(std::vector<std::string> const& image_files,
     vw_out() << "Found a valid solution, but did not reach the actual minimum." << std::endl;
   }
 
+  sw.stop();
+  vw::vw_out() << "Jitter solve elapsed time: " << sw.elapsed_seconds() << std::endl;
+  
   // Save the adjustments. We will recover them later based on the output prefix.
   start_index = 0;
   for (int icam = 0; icam < (int)crn.size(); icam++) {
@@ -734,7 +817,8 @@ void jitter_adjust(std::vector<std::string> const& image_files,
     vw_out() << "Writing: " << adjust_file << std::endl;
     asp::write_adjustments(adjust_file,
 			   adjustment_bounds[icam],
-			   position_adjustments, pose_adjustments);
+			   position_adjustments, pose_adjustments,
+                           session);
   }
 
 }

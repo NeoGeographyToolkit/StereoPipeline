@@ -690,10 +690,6 @@ namespace asp {
 
         force_throw = true;
 
-        if ( opt.session->name() != "dg" && opt.session->name() != "dgmaprpc")
-          vw_throw(ArgumentErr()
-                   << "Piecewise adjustment is possible only for Digital Globe cameras.\n");
-
         // This check must come first as it implies adjusted cameras
         if ( ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
              ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) ) )

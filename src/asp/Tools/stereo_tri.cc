@@ -515,8 +515,9 @@ void stereo_triangulation( string          const& output_prefix,
       int num_threads = opt_vec[0].num_threads;
       if (opt_vec[0].session->name() == "isis" || opt_vec[0].session->name() == "isismapisis")
         num_threads = 1;
-      asp::jitter_adjust(image_files, camera_files, cameras, output_prefix,
-                      match_file,  num_threads);
+      asp::jitter_adjust(image_files, camera_files, cameras,
+			 output_prefix, opt_vec[0].session->name(),
+			 match_file,  num_threads);
       //asp::ccd_adjust(image_files, camera_files, cameras, output_prefix,
       //                match_file,  num_threads);
     }

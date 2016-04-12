@@ -45,13 +45,15 @@ namespace asp{
                         bool        & piecewise_adjustments,
                         vw::Vector2 & adjustment_bounds,
                         std::vector<vw::Vector3> & position_correction,
-                        std::vector<vw::Quat>    & pose_correction);
+                        std::vector<vw::Quat>    & pose_correction,
+                        std::string & session);
 
   /// Write piecewise adjustments
   void write_adjustments(std::string const & filename,
                          vw::Vector2 const & adjustment_bounds,
                          std::vector<vw::Vector3> const& position_correction,
-                         std::vector<vw::Quat>    const& pose_correction);
+                         std::vector<vw::Quat>    const& pose_correction,
+                         std::string              const& session);
 
   /// Write global adjustments
   void write_adjustments(std::string const& filename,

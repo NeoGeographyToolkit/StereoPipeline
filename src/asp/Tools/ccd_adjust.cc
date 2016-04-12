@@ -329,9 +329,10 @@ void ccd_adjust(std::vector<std::string> const& image_files,
 							   image_files[icam],
 							   camera_files[icam]);
     vw_out() << "Writing: " << adjust_file << std::endl;
+    std::string session = "dg";
     asp::write_adjustments(adjust_file,
 			   adjustment_bounds[icam],
-			   position_adjustments, pose_adjustments);
+			   position_adjustments, pose_adjustments, session);
   }
 #endif
 
