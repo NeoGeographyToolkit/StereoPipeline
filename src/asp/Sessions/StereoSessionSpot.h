@@ -32,12 +32,12 @@
 
 namespace asp {
 
-// TODO: Refactor the session classes again?
-
-//TODO: Add STEREOSESSION_DISKTRANSFORM_TYPE template so we can support map projected SPOT5 images. 
-
-  /// Generic stereoSession implementation for images which we can read/write with GDAL.
-  /// - This class adds a "preprocessing hook" which aligns and normalizes the images using the specified methods.
+  /// StereoSession instance for loading SPOT5 data.
+  /// - There are some specific handling issues because the SPOT5 image file
+  ///   cannot always be loaded on its own.
+  /// - Unfortunately there is a lot of duplicate code here!
+  ///   It will require some Session refactoring to clean it up.
+  /// - Map projected SPOT5 images are not supported.
   class StereoSessionSpot : public StereoSessionConcrete<DISKTRANSFORM_TYPE_MATRIX,   
                                                          STEREOMODEL_TYPE_SPOT5> {
 
@@ -61,7 +61,6 @@ namespace asp {
     virtual vw::cartography::GeoReference get_georef();
 
     /// Specialization of shared_preprocessing_hook currently required for this class.
-    /// - TODO: Refactor things so we don't need all this duplicate code!!!
     bool unshared_preprocessing_hook(asp::BaseOptions              & options,
 			                               std::string const             & left_input_file,
 			                               std::string const             & right_input_file,

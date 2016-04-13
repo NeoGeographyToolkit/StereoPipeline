@@ -52,7 +52,7 @@ XERCES_CPP_NAMESPACE_END
 namespace asp {
 
 
-  // TODO: Duplicate in LinescanDG class!
+  // TODO: There is a duplicate in LinescanDG class!
   /// A functor that returns the difference in seconds from a reference time.
   /// - Uses boost::posix_time.
   class SecondsFromRef

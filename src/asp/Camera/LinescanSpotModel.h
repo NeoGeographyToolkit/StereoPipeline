@@ -32,22 +32,6 @@
 
 namespace asp {
 
-/*
-
-Line period = 7.5199705115e-04 = 0.000751997051
-
-Paper recommends:
-position = lagrangian interpolation --> The times happen to be spaced exactly 30 secs apart.
-velocity = lagrangian interpolation
-pose = linear interpolation --> The times are spaced ALMOST EXACTLY 1.0000 seconds apart
-time = Linear is only option.
-
-TODO: Verify our interpolation quality.
-
-Check the LOS paper to see if it has a good implementation suggestion.
-
-*/
-
 
 /* 
    The intrinisic model expects +Z to be point out the camera. +X is
@@ -79,7 +63,7 @@ Check the LOS paper to see if it has a good implementation suggestion.
     the look vector in GCC = u3.  
     The angles are actually expressed in a special coordinate frame:
       Xa = -X1, Ya = -Y1, Za = Z1.
-    These inversions ARE(?) taken into account in the following equations
+    These inversions are taken into account in the following equations
     to compute the look vector in the O2 (Orbital) coord system = u2:
       u2 = Mp*Mr*My*u1
       Mp = [1, 0,           0          ]
@@ -91,25 +75,8 @@ Check the LOS paper to see if it has a good implementation suggestion.
       My = [cos(yaw), -sin(yaw), 0]
            [sin(yaw),  cos(yaw), 0]
            [0,         0,        1]
-
-    The same rotations with the non-inverted frame:
-      Mp = [1, 0,           0          ]
-           [0, cos(pitch), -sin(pitch) ]
-           [0, sin(pitch),  cos(pitch) ]
-      Mr = [ cos(roll), 0, sin(roll)]
-           [ 0,         1, 0        ]
-           [-sin(roll), 0, cos(roll)]
-      My = [cos(yaw), -sin(yaw), 0]
-           [sin(yaw),  cos(yaw), 0]
-           [0,         0,        1]
    
     look(gcc=u3) = [X2 | Y2 | Z2] * look(orbital=u2)
-    
-    This is a lot of calculation to get the vectors!
-      - When we load the file, generate a new set of rotation
-        vectors that implement [X2|Y2|Z2]*Mp*Mr*My.  Do this
-        at a high frequency to make sure it is an excellent 
-        approximation of doing all of the math each time.
   
   Take the simple case, zero angles and center pixel:
     The local look vector is [0, 0, -1]
@@ -118,8 +85,7 @@ Check the LOS paper to see if it has a good implementation suggestion.
     
     Rs = [-1  0  0]
          [ 0  1  0]
-         [ 0  0 -1]
-    
+         [ 0  0 -1]   
 */
 
 

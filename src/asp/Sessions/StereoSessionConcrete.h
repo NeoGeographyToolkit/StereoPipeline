@@ -46,8 +46,7 @@ namespace asp {
     DISKTRANSFORM_TYPE_MATRIX_RIGHT        = 1,  // As Matrix, but only homography and only for the right image.
     DISKTRANSFORM_TYPE_MAP_PROJECT_RPC     = 2,  // RPC     map projected image
     DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS    = 3,  // ISIS    map projected image
-    DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE = 4//,  // Pinhole map projected image
-//    DISKTRANSFORM_TYPE_MAP_PROJECT_SPOT5   = 5   // Spot5   map projected image
+    DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE = 4  // Pinhole map projected image
   };
   /// List of stereo model options
   /// - This can be different from the model which was used to map project an image on disk.
@@ -74,7 +73,6 @@ namespace asp {
   template <> struct DiskTransformType2Class<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC    > { typedef vw::cartography::Map2CamTrans type; };
   template <> struct DiskTransformType2Class<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS   > { typedef vw::cartography::Map2CamTrans type; };
   template <> struct DiskTransformType2Class<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE> { typedef vw::cartography::Map2CamTrans type; };
-//  template <> struct DiskTransformType2Class<DISKTRANSFORM_TYPE_MAP_PROJECT_SPOT5> { typedef vw::cartography::Map2CamTrans type; };
 
   /// Utility for converting STEREOMODEL_TYPE into the corresponding class
   template <STEREOSESSION_STEREOMODEL_TYPE T> struct StereoModelType2Class { typedef vw::stereo::StereoModel type; };
@@ -86,7 +84,6 @@ namespace asp {
   template <> struct IsTypeMapProjected<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC    > { static const bool value=true; };
   template <> struct IsTypeMapProjected<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS   > { static const bool value=true; };
   template <> struct IsTypeMapProjected<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE> { static const bool value=true; };
-//  template <> struct IsTypeMapProjected<DISKTRANSFORM_TYPE_MAP_PROJECT_SPOT5> { static const bool value=true; };
 
   /// Derived class of StereoSession with different configuration options
   /// - This keeps the base class template-free but makes it easier for

@@ -183,7 +183,7 @@ void SpotXML::read_look_angles(xercesc::DOMElement* look_angles_node) {
 
   // Pick out the "Angles" nodes
   DOMNodeList* children = look_angle_list_node->getChildNodes();
-  //std::cout << "Child count: " << children->getLength() << std::endl;
+
   size_t index = 0;
   const XMLSize_t num_children = children->getLength();
   for ( XMLSize_t i = 0; i < num_children; ++i ) {
@@ -194,14 +194,6 @@ void SpotXML::read_look_angles(xercesc::DOMElement* look_angles_node) {
 
     // Check the node name
     DOMElement* curr_element = dynamic_cast<DOMElement*>( curr_node );
-    /*
-    std::string tag( XMLString::transcode(curr_element->getTagName()) );
-    if (tag.find("Look_Angles") == std::string::npos){
-      std::cout << "Skipping " << tag << std::endl;
-      continue;
-    }
-    */
-    //std::cout << "Tag = " << tag << std::endl;
 
     if (index >= num_cols)
       vw_throw(ArgumentErr() << "More look angles than rows in SPOT XML file!\n");
@@ -217,7 +209,7 @@ void SpotXML::read_look_angles(xercesc::DOMElement* look_angles_node) {
       DOMElement* child_element = dynamic_cast<DOMElement*>( child_node );
       std::string tag2( XMLString::transcode(child_element->getTagName()) );
       std::string text( XMLString::transcode(child_element->getTextContent()) );
-      //std::cout << "Tag2 = " << tag2 << std::endl;
+
       if (tag2 == "DETECTOR_ID")
         look_angles[index].first = atoi(text.c_str());
       if (tag2 == "PSI_X")
@@ -226,7 +218,6 @@ void SpotXML::read_look_angles(xercesc::DOMElement* look_angles_node) {
         look_angles[index].second.y() = atof(text.c_str());
     }
 
-    //std::cout << "Loaded psi: " << look_angles[index].second << std::endl;
     ++index;
 
   } // End loop through look angles
@@ -378,10 +369,6 @@ vw::ImageFormat SpotXML::get_image_format() const {
 }
 
 
-
-
-// TODO: Add some error checking
-
 // Input strings look like this: 2008-03-04T12:31:03.081912
 double SpotXML::convert_time(std::string const& s) const {
   try{
@@ -408,9 +395,6 @@ vw::camera::LinearTimeInterpolation SpotXML::setup_time_func() const {
   return vw::camera::LinearTimeInterpolation(min_line_time, this->line_period);
 }
 
-// Note: Each file should contain 8 or 9 position/velocity locations and most/all
-//       of them will fall outside the imaging time range.  Take this into account
-//       when choosing an interpolation method!
 
 // Velocities are the sum of inertial velocities and the instantaneous
 //  Earth rotation.
@@ -456,8 +440,7 @@ vw::camera::LinearPiecewisePositionInterpolation SpotXML::setup_pose_func(
         vw::camera::LinearTimeInterpolation const& time_func) const {
 
   // This function returns a functor that returns just the yaw/pitch/roll angles.
-  // - The time interval between lines is not constant but it is extremely close,
-  //   so maybe this interpolation is good enough?
+  // - The time interval between lines is not constant but it is extremely close.
 
 
   // For some reason the corrected pose angles do not start early enough to cover
@@ -530,11 +513,6 @@ vw::camera::LinearPiecewisePositionInterpolation SpotXML::setup_pose_func(
   return vw::camera::LinearPiecewisePositionInterpolation(pose, min_time, pose_delta_t);
 
 }
-
-
-
-
-
 
 
 } // end namespace asp

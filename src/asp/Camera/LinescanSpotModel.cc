@@ -185,6 +185,20 @@ Matrix3x3 SPOTCameraModel::get_look_rotation_matrix(double yaw, double pitch, do
   return M;
 }
 
+
+/*
+Notes on interpolation:
+
+Line period = 7.5199705115e-04 = 0.000751997051
+
+Paper recommends:
+position = lagrangian interpolation --> The times happen to be spaced exactly 30 secs apart.
+velocity = lagrangian interpolation
+pose = linear interpolation --> The times are spaced ALMOST exactly 1.0000 seconds apart
+time = Linear is only option.
+*/
+
+
 boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model_from_xml(std::string const& path)
 {
 
@@ -212,10 +226,6 @@ boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model_from_xml(std::string 
   double time_delta    = spot_pose_func.get_dt();
   size_t num_pose_vals = static_cast<size_t>(round((max_time - min_time) / time_delta));
   
-  //std::cout << "Min pose time final: " << min_time << std::endl;
-  //std::cout << "Max pose time final: " << max_time << std::endl;
-  //std::cout << "Delta pose time final: " << time_delta << std::endl;
-  
   // This matrix rotates the axes of the SPOT5 model so that it is oriented with
   //  our standard linescanner coordinate frame.
   Matrix3x3 R;
@@ -224,6 +234,8 @@ boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model_from_xml(std::string 
   R(2,0) =  0.0; R(2,1) = 0.0; R(2,2) = -1.0;
   
   // Make a new vector of pose values in the GCC coordinate frame.
+  // - This saves us from having to do all of the coordinate transforms
+  //   each time a camera position is needed.
   std::vector<vw::Quat> gcc_pose(num_pose_vals);
   Vector3 position, velocity, yaw_pitch_roll;
   Matrix3x3 lo_frame, look_rotation, combined_rotation;  
@@ -234,7 +246,7 @@ boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model_from_xml(std::string 
     velocity       = velocity_func(time);
     yaw_pitch_roll = spot_pose_func(time);
     
-    // TODO: There may be a ~1 meter offset between ITRF coordinates and WGS84 coordinates!
+    // TODO: There may be a small (~1 meter offset) between ITRF coordinates and WGS84 coordinates!
     
     // Get the two of rotation matrices we need
     lo_frame      = SPOTCameraModel::get_local_orbital_frame(position, velocity);
@@ -243,44 +255,11 @@ boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model_from_xml(std::string 
     //look_rotation.set_identity(); // DEBUG assume perfect path following
     // By their powers combined these form the GCC rotation we need.
     combined_rotation = lo_frame * look_rotation*R;
-    /*
-    // Try a test vector
-    Vector3 uSat = normalize(Vector3(0.1, 0.2, -1));
-    Vector3 uSat2 = normalize(Vector3(-0.1, 0.2, 1));
-    Vector3 uOrb = look_rotation * uSat;
-    Vector3 uEcf = lo_frame * uOrb;
-    std::cout << "uECF =" << uEcf << std::endl;
-    
-    Vector3 uTest = combined_rotation * uSat2;
-    std::cout << "uTest =" << uTest << std::endl;
-    
-    Vector3 uTest2 = lo_frame * look_rotation * uSat;
-    std::cout << "uTest2 =" << uTest2 << std::endl;    
 
-    Vector3 uTest3 = (combined_rotation*R) * uSat2;
-    std::cout << "uTest3 =" << uTest3 << std::endl;
-    Vector3 uTest4 = (R*combined_rotation) * uSat2;
-    std::cout << "uTest4 =" << uTest4 << std::endl;
-    */
-    gcc_pose[i] = vw::Quat(combined_rotation);
-    
-    /*
-    if ((time > 156.207) && (time < 156.45)) {
-      std::cout << "time = " << time << std::endl;
-      std::cout << "position = " << position << std::endl;
-      std::cout << "velocity = " << velocity << std::endl;
-      std::cout << "yaw_pitch_roll = " << yaw_pitch_roll << std::endl;
-      std::cout << "lo_frame = " << lo_frame << std::endl;
-      std::cout << "look_rotation = " << look_rotation << std::endl;
-      std::cout << "combined_rotation = " << combined_rotation << std::endl;
-    }
-    */
-    
+    gcc_pose[i] = vw::Quat(combined_rotation);    
   }
   
   vw::camera::SLERPPoseInterpolation pose_func(gcc_pose, min_time, time_delta);
-  //std::cout << "Last time check: " << min_time + time_delta*gcc_pose.size() << std::endl;
-  //std::cout << "Last time check2: " << pose_func.get_tend() << std::endl;
 
   // Feed everything into a new camera model.
   return boost::shared_ptr<SPOTCameraModel>(new SPOTCameraModel(position_func, velocity_func, 
