@@ -767,7 +767,7 @@ void jitter_adjust(std::vector<std::string> const& image_files,
   options.function_tolerance = 1e-16;
   options.max_num_iterations = 1000;
   options.max_num_consecutive_invalid_steps = 100; // try hard
-  options.minimizer_progress_to_stdout = false;
+  options.minimizer_progress_to_stdout = true;
 
   options.num_threads = num_threads;
 

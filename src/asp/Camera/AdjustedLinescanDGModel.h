@@ -216,7 +216,6 @@ namespace asp {
     vw::camera::SmoothSLERPPoseInterpolation m_smooth_pose_adjustments;
   };
 
-
   // This class is similar to AdjustedCameraModel, which has one rotation
   // and translation adjustment for the camera, except that this one
   // has n adjustments, placed along certain rows in the image. It can
@@ -273,7 +272,6 @@ namespace asp {
     // The function point_to_pixel() is inherited from the base LinescanModel class.
     // TODO: Test that the right functions are called.
     
-    // TODO: Move to base class?
     vw::Vector2 point_to_pixel(vw::Vector3 const& point, double starty) const {
       // Use the generic solver to find the pixel 
       // - This method will be slower but works for more complicated geometries
@@ -292,7 +290,7 @@ namespace asp {
       vw::Vector2 solution = vw::math::levenberg_marquardt(model, start, objective, status,
 						   ABS_TOL, REL_TOL, MAX_ITERATIONS);
       VW_ASSERT( status > 0,
-		 vw::camera::PointToPixelErr() << "Unable to project point into Linescan model" );
+		 vw::camera::PointToPixelErr() << "Unable to project point into camera." );
       
       return solution;
     }

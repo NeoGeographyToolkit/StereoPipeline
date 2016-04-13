@@ -789,7 +789,7 @@ a single pass of the satellite.
 ASP supports only images from the HRS sensors on SPOT5.  These images come in
 two parts, the data file (extension \texttt{.bil} or \texttt{.tif}) and the header file
 the data file (extension \texttt{.dim}).  The data file can be either a plain 
-binary file with no header information or a geotiff file.  The header file is a 
+binary file with no header information or a GeoTIFF file.  The header file is a 
 plain text XML file.  When using SPOT5 images with ASP tools pass in the data file
 as the image file and the header file as the camera model file.  ASP tools
 which do not accept camera model files as inputs do not support SPOT5 imagery.
@@ -909,26 +909,77 @@ there is described the data contained in this directory):
   aster2asp 030353697511879 -o out
 \end{verbatim}
 
-This command will create 4 files, named \texttt{out-Band3N.tif},
-\texttt{out-Band3B.tif}, \texttt{out-Band3N.xml}, and 
-\texttt{out-Band3B.xml}. We refer again to the tool's documentation page
+This command will create 4 files, named
+
+\begin{verbatim}
+  out-Band3N.tif out-Band3B.tif out-Band3N.xml out-Band3B.xml
+\end{verbatim}
+
+We refer again to the tool's documentation page
 regarding details of how these files were created.
 
 Next, we run stereo, with the RPC session, and create a DEM:
 \begin{verbatim}
   stereo -t rpc --subpixel-mode 3 out-Band3N.tif out-Band3B.tif \
      out-Band3N.xml out-Band3B.xml out_stereo/run
-  point2dem -r earth --tr 0.00054 out_stereo/run-PC.tif
+  point2dem -r earth --tr 0.000277777777778 out_stereo/run-PC.tif
 \end{verbatim}
 
-The value 0.00054 is the desired output DEM resolution, specified in
-degrees. It is approximately 60 meters/pixel. We chose it since the
-ASTER VNIR images are about 15 meters/pixel, and running stereo is
-necessarily a lossy process, so the output DEM resolution is several
-times coarser than the resolution of the input imagery.
+The value 0.000277777777778 is the desired output DEM resolution, specified in
+degrees. It is approximately 31 meters/pixel, the same as the publicly available ASTER DEM,
+and about twice the 15 meters/pixel image resolution.
 
-Of course, various options can be used with \texttt{stereo}, the images
-can be map-projected, the cameras bundle-adjusted, etc. (see chapter
-\ref{tips}).
+Much higher quality results, but still not as detailed as the public ASTER DEM
+can be obtained by first doing bundle-adjustment, then doing stereo as before
+with bundle-adjusted images, followed by map-projection onto a coarser and smoother
+version of the obtained DEM, and then redoing stereo with map-projected images
+(per the suggestions in chapter \ref{tips}).
+Using \texttt{-\/-subpixel-mode 2}, while much slower, yields the best results.
+The flow is as follows:
 
+\begin{verbatim}
+  # Bundle adjustment
+  bundle_adjust out-Band3N.tif out-Band3B.tif out-Band3N.xml out-Band3B.xml \
+     -o out_ba/run -t rpc
+  
+  # Initial stereo with bundle-adjusted images
+  stereo -t rpc --subpixel-mode 3 out-Band3N.tif out-Band3B.tif \
+     out-Band3N.xml out-Band3B.xml out_stereo/run               \
+     --bundle-adjust-prefix out_ba/run
 
+  # Create a coarse and smooth DEM at 300 meters/pixel
+  point2dem -r earth --tr 0.0026949458523585 out_stereo/run-PC.tif \
+    -o out_stereo/run-300m
+
+  # Map-project onto this DEM at 10 meters/pixel
+  mapproject --tr 0.0000898315284119 out_stereo/run-300m-DEM.tif \
+    out-Band3N.tif out-Band3N.xml out-Band3N_proj.tif            \
+    --bundle-adjust-prefix out_ba/run
+  mapproject --tr 0.0000898315284119 out_stereo/run-300m-DEM.tif \
+    out-Band3B.tif out-Band3B.xml out-Band3B_proj.tif            \
+    --bundle-adjust-prefix out_ba/run
+  
+  # Run stereo with the map-projected images with subpixel-mode 2
+  stereo --subpixel-mode 2 out-Band3N_proj.tif out-Band3B_proj.tif \
+    out-Band3N.xml out-Band3B.xml out_stereo_proj/run              \
+    out_stereo/run-300m-DEM.tif -t rpc --bundle-adjust-prefix out_ba/run
+
+  # Create the final DEM
+  point2dem -r earth --tr 0.000277777777778 out_stereo_proj/run-PC.tif
+\end{verbatim}
+
+It is possible to increase the resolution of the final DEM slightly
+by instead map-projecting at 7 meters/pixel, hence using
+
+\begin{verbatim}
+  --tr .0000628820698883
+\end{verbatim}
+
+or smaller correlation and subpixel-refinement kernels, that is
+
+\begin{verbatim}
+  --corr-kernel 15 15 --subpixel-kernel 25 25
+\end{verbatim}
+
+instead of the defaults (21 21 and 35 35) but this comes with increased noise as well, and
+using a finer resolution results in longer run-time.
