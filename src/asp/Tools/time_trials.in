@@ -21,6 +21,9 @@ import os, sys, optparse, string, subprocess, math
 
 from stereo_utils.py import get_asp_version
 
+import asp_system_utils
+asp_system_utils.verify_python_version_is_supported()
+
 def convert_to_seconds( time ):
     time = time.strip()
     return float(time[:time.find("m")]) * 60.0 + float(time[time.find("m")+1:-1])
@@ -37,11 +40,11 @@ def main():
 
         if not args: raise Exception('No input command')
 
-    except optparse.OptionError, msg:
+    except optparse.OptionError as msg:
         print >>sys.stderr, msg
         return 2
 
-    print "Running command: [%s]" % args[0]
+    print("Running command: [%s]" % args[0])
 
     real_mean   = 0.0
     real_stddev = 0.0
@@ -51,13 +54,13 @@ def main():
     sys_stddev  = 0.0
 
     for i in range(0,options.trials):
-        print " -> trial %i / %i " % (i+1,options.trials),
+        print(" -> trial %i / %i " % (i+1,options.trials))
         p = subprocess.Popen("( time %s ) 2>&1 | tail -n3 "%args[0] , shell=True, stdout=subprocess.PIPE)
         output    = p.stdout.read().strip().split()
         real_time = convert_to_seconds( output[1] )
         user_time = convert_to_seconds( output[3] )
         sys_time  = convert_to_seconds( output[5] )
-        print "r%.1f, u%.1f, s%.1f" % (real_time, user_time, sys_time)
+        print("r%.1f, u%.1f, s%.1f" % (real_time, user_time, sys_time))
 
         # Accumulate values
         real_mean   += real_time / float(options.trials)
@@ -75,10 +78,9 @@ def main():
     sys_stddev  = sys_stddev - sys_mean*sys_mean
     sys_stddev  = math.sqrt(sys_stddev)
 
-    print
-    print "Real:   %.3f +- %.3f" % (real_mean,real_stddev)
-    print "User:   %.3f +- %.3f" % (user_mean,user_stddev)
-    print "Sys:    %.3f +- %.3f" % (sys_mean,sys_stddev)
+    print("Real:   %.3f +- %.3f" % (real_mean, real_stddev))
+    print("User:   %.3f +- %.3f" % (user_mean, user_stddev))
+    print("Sys:    %.3f +- %.3f" % (sys_mean,  sys_stddev ))
 
 if __name__ == "__main__":
     sys.exit(main())

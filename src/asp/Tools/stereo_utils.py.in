@@ -30,6 +30,9 @@ sys.path.insert(0, libexecpath)
 
 from asp_system_utils import *
 
+import asp_system_utils
+asp_system_utils.verify_python_version_is_supported()
+
 def get_asp_version():
     '''Returns the current ASP version number'''
     return "[ASP [@]ASP_VERSION[@]]"
@@ -68,7 +71,7 @@ class PassThroughOptionParser(optparse.OptionParser):
         while rargs:
             try:
                 optparse.OptionParser._process_args(self,largs,rargs,values)
-            except (optparse.BadOptionError), e:
+            except (optparse.BadOptionError) as e:
                 if sys.version_info < (2, 6, 0):
                     # Port to Python 2.4
                     p = re.match("^.*?no such option:\s*(.*?)$", e.msg)
@@ -112,7 +115,7 @@ def generic_run(cmd, verbose):
 
     try:
         code = subprocess.call(cmd)
-    except OSError, e:
+    except OSError as e:
         raise Exception('%s: %s' % (cmd_str, e))
     if code != 0:
             raise Exception('Failed to run: ' + cmd_str)
@@ -131,7 +134,7 @@ def stereo_run(prog, args, opt, **kw):
         if opt.verbose:
             wall_s = time.time() - t_start
             print('Wall time (s): {0:.1f}\n'.format(wall_s))
-    except OSError, e:
+    except OSError as e:
         raise Exception('%s: %s' % (binpath, e))
     if code != 0:
         raise Exception('Stereo step ' + kw['msg'] + ' failed')
@@ -141,7 +144,7 @@ def print_version_and_exit(opt, args):
     args.append('-v')
     try:
         stereo_run('stereo_parse', args, opt, msg='')
-    except Exception, e:
+    except Exception as e:
         pass
     sys.exit(0)
 

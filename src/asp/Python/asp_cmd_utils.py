@@ -105,7 +105,7 @@ class PassThroughOptionParser(OptionParser):
         while rargs:
             try:
                 self._process_args2(largs,rargs,values)
-            except (BadOptionError,AmbiguousOptionError), e:  # On failure, pass option to output list
+            except (BadOptionError,AmbiguousOptionError) as e:  # On failure, pass option to output list
                 if sys.version_info < (2, 6, 0):
                     # Port to Python 2.4
                     p = re.match("^.*?no such option:\s*(.*?)$", e.msg)

@@ -23,6 +23,9 @@ libexecpath = os.path.abspath(sys.path[0] + '/../libexec')
 sys.path.insert(0, libexecpath) # prepend to Python path
 from stereo_utils import get_asp_version
 
+import asp_system_utils
+asp_system_utils.verify_python_version_is_supported()
+
 job_pool = [];
 
 def man(option, opt, value, parser):
@@ -72,11 +75,11 @@ def add_job( cmd, num_working_threads=4 ):
     if ( len(job_pool) >= num_working_threads):
         job_pool[0].wait();
         job_pool.pop(0);
-    print cmd;
+    print(cmd)
     job_pool.append( subprocess.Popen(cmd, shell=True) );
 
 def wait_on_all_jobs():
-    print "Waiting for jobs to finish";
+    print("Waiting for jobs to finish")
     while len(job_pool) > 0:
         job_pool[0].wait();
         job_pool.pop(0);
@@ -100,7 +103,7 @@ def read_flatfile( flat ):
 def isisversion(verbose=False):
     path = ''
     try: path = os.environ['ISISROOT']
-    except KeyError, msg:
+    except KeyError as msg:
         raise Exception( "The ISIS environment does not seem to be enabled.\nThe " + str(msg) + " environment variable must be set." )
 
     version = None
@@ -119,7 +122,8 @@ def isisversion(verbose=False):
     f.close()
 
     if( version ):
-        if( verbose ): print "\tFound Isis Version: "+version+ " at "+path
+        if( verbose ): 
+          print("\tFound Isis Version: "+version+ " at "+path)
         alphaend = version.lstrip(string.digits+'.')
         version_numbers = version.rstrip(string.ascii_letters);
         version_strings = version_numbers.split('.')
@@ -139,7 +143,7 @@ def hi2isis( img_files, threads ):
         # Expect to end in .IMG, change to end in .cub
         to_cub = os.path.splitext( os.path.basename(img) )[0] + '.cub'
         if( os.path.exists(to_cub) ):
-            print to_cub + ' exists, skipping hi2isis.'
+            print(to_cub + ' exists, skipping hi2isis.')
         else:
             cmd = 'hi2isis from= '+ img +' to= '+ to_cub
             add_job(cmd, threads)
@@ -153,7 +157,7 @@ def hical( cub_files, threads, delete=False ):
         # Expect to end in .cub, change to end in .hical.cub
         to_cub = os.path.splitext(cub)[0] + '.hical.cub'
         if( os.path.exists(to_cub) ):
-            print to_cub + ' exists, skipping hical.'
+            print(to_cub + ' exists, skipping hical.')
         else:
             cmd = 'hical from=  '+ cub +' to= '+ to_cub
             add_job(cmd, threads)
@@ -191,7 +195,7 @@ def histitch( cub_files, threads, delete=False ):
 
         if( channel_files[i][0] and channel_files[i][1] ):
             if( os.path.exists(to_cub) ):
-                print to_cub + ' exists, skipping histitch.'
+                print(to_cub + ' exists, skipping histitch.')
             else:
                 cmd = 'histitch balance= TRUE from1= '+ channel_files[i][0] \
                         +' from2= '+ channel_files[i][1] +' to= '+ to_cub
@@ -203,7 +207,7 @@ def histitch( cub_files, threads, delete=False ):
             found = ''
             if( channel_files[i][0] ):  found = channel_files[i][0]
             else:                       found = channel_files[i][1]
-            print 'Found '+ found  +' but not the matching channel file.'
+            print('Found '+ found  +' but not the matching channel file.')
             cmd = 'histitch from1= '+ found +' to= '+ to_cub
             add_job(cmd, threads)
             to_del_cubs.append( found )
@@ -230,7 +234,7 @@ def noproj( CCD_object, threads, delete=False ):
     for i in CCD_object.keys():
         to_cub = CCD_object.prefix + str(i) + '.noproj.cub'
         if os.path.exists( to_cub ):
-            print to_cub + ' exists, skipping noproj.'
+            print(to_cub + ' exists, skipping noproj.')
         else:
             cmd = 'mkdir -p tmp_' + CCD_object[i] + '&& ' \
                 + 'cd tmp_' + CCD_object[i] + '&& ' \
@@ -315,7 +319,7 @@ def handmos( fromcub, tocub, outsamp, outline ):
 def cubenorm( fromcub, delete=False ):
     tocub = os.path.splitext(fromcub)[0] + '.norm.cub'
     cmd = 'cubenorm from= '+ fromcub+' to= '+ tocub
-    print cmd
+    print(cmd)
     os.system(cmd)
     if( delete ):
         os.remove( fromcub )
@@ -350,7 +354,7 @@ def main():
 
             if not args: parser.error("need .IMG files")
 
-        except optparse.OptionError, msg:
+        except optparse.OptionError as msg:
             raise Usage(msg)
 
         # # Determine Isis Version
@@ -371,7 +375,7 @@ def main():
             spice( histitched, options.threads )
 
         if options.stop_no_proj:
-            print "Finished"
+            print("Finished")
             return 0
 
         if options.resume_no_proj:
@@ -396,10 +400,10 @@ def main():
         # Run a final cubenorm across the image:
         cubenorm( mosaicked, options.delete )
 
-        print "Finished"
+        print("Finished")
         return 0
 
-    except Usage, err:
+    except Usage as err:
         print >>sys.stderr, err.msg
         # print >>sys.stderr, "for help use --help"
         return 2

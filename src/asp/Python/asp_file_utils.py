@@ -86,7 +86,7 @@ def tarFileList(fileList, outputPath, compress=True, replacementNameList=None):
             os.rename(f, r) # Temporarily replace the file path
             cmd = cmd + ' -C ' + os.path.dirname(r) + ' ' + os.path.basename(r) # Add the new path
     # Command set up, now run it!    
-    print cmd
+    print(cmd)
     os.system(cmd)
     
     if replacementNameList: # Move all the files back to their original locations

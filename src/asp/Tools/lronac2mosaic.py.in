@@ -24,6 +24,9 @@ libexecpath = os.path.abspath(sys.path[0] + '/../libexec')
 sys.path.insert(0, libexecpath) # prepend to Python path
 from stereo_utils import get_asp_version
 
+import asp_system_utils
+asp_system_utils.verify_python_version_is_supported()
+
 job_pool = [];
 
 # Global output folder variable
@@ -54,11 +57,11 @@ def add_job( cmd, num_working_threads=4 ):
     if ( len(job_pool) >= num_working_threads):
         job_pool[0].wait();
         job_pool.pop(0);
-    print cmd;
+    print(cmd)
     job_pool.append( subprocess.Popen(cmd, shell=True, env=os.environ) );
 
 def wait_on_all_jobs():
-    print "Waiting for jobs to finish";
+    print("Waiting for jobs to finish")
     while len(job_pool) > 0:
         job_pool[0].wait();
         job_pool.pop(0);
@@ -68,7 +71,7 @@ def build_cube_pairs(cubePaths):
     pairDict = dict();
 
     for cube in cubePaths:
-        print cube
+        print(cube)
         m = re.search('\D*(\d+)(.).*',os.path.basename(cube))
         number     = m.group(1)
         sideLetter = m.group(2)
@@ -108,8 +111,8 @@ def read_flatfile( flat ):
         elif ( line.rfind("Using IpFind result only:") >= 0 ):
             index       = line.rfind("only:");
             if (line[index + 7] == 1):
-                print "Warning: This result based only on IpFind search."
-    print str(averages)
+                print("Warning: This result based only on IpFind search.")
+    print(str(averages))
     return averages
 
 # Call lronac2isis on each input file, return list of output files.
@@ -120,7 +123,7 @@ def lronac2isis( img_files, threads, outputFolder ):
         newExtension = os.path.splitext(img)[0] + '.cub'
         cubFilePath  = os.path.join(outputFolder, os.path.basename(newExtension))
         if( os.path.exists(cubFilePath) ):
-            print cubFilePath + ' exists, skipping lronac2isis.'
+            print(cubFilePath + ' exists, skipping lronac2isis.')
         else:
             cmd = 'lronac2isis from='+ img +' to='+ cubFilePath
             add_job(cmd, threads)
@@ -136,7 +139,7 @@ def lronaccal( cub_files, threads, delete=False ):
         # Expect to end in .cub, change to end in .lronaccal.cub
         to_cub = os.path.splitext(cub)[0] + '.lronaccal.cub'
         if( os.path.exists(to_cub) ):
-            print to_cub + ' exists, skipping lronaccal.'
+            print(to_cub + ' exists, skipping lronaccal.')
         else:
             cmd = 'lronaccal from='+ cub +' to='+ to_cub
             add_job(cmd, threads)
@@ -159,7 +162,7 @@ def lronacecho( cub_files, threads, delete=False ):
         # Expect to end in .cub, change to end in .lronaccal.cub
         to_cub = os.path.splitext(cub)[0] + '.lronacecho.cub'
         if( os.path.exists(to_cub) ):
-            print to_cub + ' exists, skipping lronacecho.'
+            print(to_cub + ' exists, skipping lronacecho.')
         else:
             cmd = 'lronacecho from='+ cub +' to='+ to_cub
             add_job(cmd, threads)
@@ -206,9 +209,9 @@ def noproj( file_pairs, threads, delete, fakePvl, outputFolder):
 
        fullResFilePath = os.path.join(outputFolder, 'noprojInstruments_fullRes.pvl')
        if os.path.exists(fullResFilePath):
-          print fullResFilePath + ' exists, using existing file.'
+          print(fullResFilePath + ' exists, using existing file.')
        else: # Need to write the file
-          print 'Generating LRONAC compatible .pvl file ' + fullResFilePath
+          print('Generating LRONAC compatible .pvl file ' + fullResFilePath)
           f = open(fullResFilePath, 'w')
           f.write('Object = IdealInstrumentsSpecifications\n');
           f.write('  UserName     = auto\n');
@@ -227,9 +230,9 @@ def noproj( file_pairs, threads, delete, fakePvl, outputFolder):
 
        halfResFilePath = os.path.join(outputFolder, 'noprojInstruments_halfRes.pvl')
        if os.path.exists(halfResFilePath):
-          print halfResFilePath + ' exists, using existing file.'
+          print(halfResFilePath + ' exists, using existing file.')
        else: # Need to write the file
-          print 'Generating LRONAC compatible .pvl file ' + halfResFilePath
+          print('Generating LRONAC compatible .pvl file ' + halfResFilePath)
           f = open(halfResFilePath, 'w')
           f.write('Object = IdealInstrumentsSpecifications\n');
           f.write('  UserName     = auto\n');
@@ -255,7 +258,7 @@ def noproj( file_pairs, threads, delete, fakePvl, outputFolder):
 
           noproj_pairs[k][i] = to_cub; # Add file to output list
           if os.path.exists( to_cub ):
-              print to_cub + ' exists, skipping noproj.'
+              print(to_cub + ' exists, skipping noproj.')
           else:
 
               # Generate pvl command if needed
@@ -308,7 +311,7 @@ def lronacjitreg( noproj_pairs, threads, delete=False ):
     averages = dict()
     for k,v in noproj_pairs.items():
         flat_file = 'outputLog_'+str(k)+'.txt'
-        print 'Reading log file ' + flat_file;
+        print('Reading log file ' + flat_file)
         averages[k] = read_flatfile( flat_file )
         if delete:
             os.remove( flat_file )
@@ -421,7 +424,7 @@ def main():
 
             if not args: parser.error("need .IMG files")
 
-        except optparse.OptionError, msg:
+        except optparse.OptionError as msg:
             raise Usage(msg)
 
         # Make sure only one pair of cubes was passed in
@@ -431,48 +434,48 @@ def main():
 
         if not options.outputFolder: # Set the output folder equal to the input folder
             options.outputFolder = os.path.dirname(args[0])
-        print 'Using output folder: ' + options.outputFolder
+        print('Using output folder: ' + options.outputFolder)
         if not os.path.exists(options.outputFolder) and len(options.outputFolder) > 1:
             os.makedirs(options.outputFolder)
 
-        print "Beginning processing....."
+        print("Beginning processing.....")
 
         if not options.resume_no_proj: # If not skipping to later point
 
-            print "lronac2isis" # Per-file operation, returns list of new files
+            print("lronac2isis") # Per-file operation, returns list of new files
             lronac2isised = lronac2isis( args, options.threads, options.outputFolder )
 
-            print "lronaccal"   # Per-file operation, returns list of new files
+            print("lronaccal")   # Per-file operation, returns list of new files
             lronaccaled = lronaccal( lronac2isised, options.threads, options.delete )
 
-            print "lronacecho"  # Per-file operation, returns list of new files
+            print("lronacecho")  # Per-file operation, returns list of new files
             lronacechod = lronacecho( lronaccaled, options.threads, options.delete )
 
             if (options.cropAmount > 0): # Crop the input files as soon as ISIS calls allow it
                 lronacechod = cropInputs(lronacechod, options.outputFolder, options.cropAmount,
                                          options.threads, options.delete)
 
-            print "spice"       # Attach spice info to cubes (adds to existing files)
+            print("spice")       # Attach spice info to cubes (adds to existing files)
             spice( lronacechod, options.threads )
 
 
         if options.stop_no_proj: # Stop early if requested
-            print "Finished"
+            print("Finished")
             return 0
 
         if options.resume_no_proj: # If resume option was set
             lronacechod = args
 
-        print "build_cube_pairs" # Detected corresponding pairs of cubes
+        print("build_cube_pairs") # Detected corresponding pairs of cubes
         lronac_file_pairs = build_cube_pairs( lronacechod )
 
-        print "noproj"       # Per-file operation
+        print("noproj")       # Per-file operation
         noprojed_file_pairs = noproj( lronac_file_pairs, options.threads, options.delete, options.fakePvl, options.outputFolder)
 
-        print "lronacjitreg" # Determines mean shift for each file pair
+        print("lronacjitreg") # Determines mean shift for each file pair
         averages = lronacjitreg( noprojed_file_pairs, options.threads, options.delete )
 
-        print "mosaic"       # handmos - Use mean shifts to combine the file pairs
+        print("mosaic")       # handmos - Use mean shifts to combine the file pairs
         mosaicked = mosaic( noprojed_file_pairs, averages, options.threads )
 
         # Clean up noproj files
@@ -484,10 +487,10 @@ def main():
         # Run a final cubenorm across the image:
         cubenorm( mosaicked, options.threads, options.delete )
 
-        print "Finished"
+        print("Finished")
         return 0
 
-    except Usage, err:
+    except Usage as err:
         print >>sys.stderr, err.msg
         return 2
 

@@ -27,9 +27,16 @@ http://asapdata.arc.nasa.gov/dms/missions.html
 import sys, os
 import shutil, string, errno, optparse, glob
 
-if sys.version_info < (2, 6, 0):
-    print('\nERROR: Must use Python 2.6 or greater.')
-    sys.exit(1)
+# The path to the ASP python files
+basepath    = os.path.abspath(sys.path[0])
+pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
+libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
+sys.path.insert(0, basepath) # prepend to Python path
+sys.path.insert(0, pythonpath)
+sys.path.insert(0, libexecpath)
+
+import asp_system_utils
+asp_system_utils.verify_python_version_is_supported()
 
 
 def convert(inputPath, outputPath):
@@ -87,8 +94,8 @@ if __name__ == "__main__":
 
     # Handle input parameters
     if len(sys.argv) != 3:
-        print 'Wrong number of input arguments provided.'
-        print 'Usage: icebridge_kmz_to_csv <input kmz file> <output csv file>'
+        print('Wrong number of input arguments provided.')
+        print('Usage: icebridge_kmz_to_csv <input kmz file> <output csv file>')
     else:
         sys.exit(main(sys.argv[1], sys.argv[2]))
     

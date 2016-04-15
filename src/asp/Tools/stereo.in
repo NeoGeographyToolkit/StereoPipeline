@@ -20,10 +20,6 @@
 import sys, optparse, subprocess, re, os
 import os.path as P
 
-if sys.version_info < (2, 6, 0):
-    print('\nERROR: Must use Python 2.6 or greater.')
-    sys.exit(1)
-
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
 pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
@@ -34,10 +30,14 @@ sys.path.insert(0, libexecpath)
 
 from stereo_utils import * # must be after the path is altered above
 
+import asp_system_utils
+asp_system_utils.verify_python_version_is_supported()
+
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
 if __name__ == '__main__':
+
     usage = '''parallel_stereo [options] <images> [<cameras>]
                   <output_file_prefix> [DEM]
         Extensions are automaticaly added to the output files.
@@ -163,5 +163,5 @@ if __name__ == '__main__':
         if ( opt.entry_point <= step ):
             if ( opt.stop_point <= step ): sys.exit()
             stereo_run('stereo_tri',  args, opt, msg='%d: Triangulation' % step)
-    except Exception, e:
+    except Exception as e:
             die(e)

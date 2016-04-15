@@ -166,7 +166,7 @@ def doesImageHaveGeoData(imagePath):
 #        maxLat = float( asp_string_utils.getLineAfterText(textOutput, 'Max latitude  =') )
 #        minLon = float( asp_string_utils.getLineAfterText(textOutput, 'Min longitude =') )
 #        maxLon = float( asp_string_utils.getLineAfterText(textOutput, 'Max longitude =') )
-#    except Exception,e:
+#    except Exception as e:
 #        print 'In file: ' + geoTiffPath
 #        print 'In text:'
 #        print textOutput

@@ -24,11 +24,32 @@ General system related utilities
 import sys, os, re, shutil, subprocess, string, time, errno, multiprocessing
 import os.path as P
 
+if sys.version_info < (2, 6, 0):
+    print('\nERROR: Must use Python 2.6.x or 2.7.x.')
+    sys.exit(1)
+
+if sys.version_info.major > 2:
+    print('\nERROR: Python 3 is not supported, must use Python 2.6.x or 2.7.x')
+    sys.exit(1)
+
 def die(msg, code=-1):
+    '''Exit the program with a message'''
     print >>sys.stderr, msg
     sys.exit(code)
 
+def verify_python_version_is_supported():
+    '''Verifies that a supported version of Python is being used.'''
+    
+    if sys.version_info < (2, 6, 0):
+        print('\nERROR: Must use Python 2.6.x or 2.7.x.')
+        sys.exit(1)
+
+    if sys.version_info.major > 2:
+        print('\nERROR: Python 3 is not supported, must use Python 2.6.x or 2.7.x')
+        sys.exit(1)
+
 def get_prog_version(prog):
+    '''Get the version of a command line program.'''
     try:
         p = subprocess.Popen([prog,"--version"], stdout=subprocess.PIPE)
         out, err = p.communicate()
@@ -91,7 +112,7 @@ def getNumNodesInList(nodesListPath):
                 nodes[matches.group(1)] = 1
 
         num_nodes = len(nodes)
-    except Exception, e: # Fail on exception
+    except Exception as e: # Fail on exception
         die(e)
     if num_nodes == 0:
         raise Exception('The list of computing nodes is empty')
@@ -219,7 +240,7 @@ def run_and_parse_output(cmd, args, sep, verbose, **kw ):
 
     try:
         p = subprocess.Popen(call, stdout=subprocess.PIPE)
-    except OSError, e:
+    except OSError as e:
         raise Exception('%s: %s' % (libexecpath, e))
     (stdout, stderr) = p.communicate()
 

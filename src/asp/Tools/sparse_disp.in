@@ -25,8 +25,17 @@ def die(msg, code=-1):
     print >>sys.stderr, msg
     sys.exit(code)
 
-if sys.version_info < (2, 6):
-    die('\nERROR: Must use Python 2.6 or greater.', code=2)
+# The path to the ASP python files
+basepath    = os.path.abspath(sys.path[0])
+pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
+libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
+sys.path.insert(0, basepath) # prepend to Python path
+sys.path.insert(0, pythonpath)
+sys.path.insert(0, libexecpath)
+
+
+import asp_system_utils
+asp_system_utils.verify_python_version_is_supported()
 
 from osgeo import gdal, gdalconst
 import numpy as np
@@ -175,9 +184,9 @@ try:
             return C
 
 except ImportError:
-    print "Module 'anfft' (FFTW Python bindings) could not be imported.\n"\
+    print("Module 'anfft' (FFTW Python bindings) could not be imported.\n"\
           "To install it, try running 'easy_install anfft' from the terminal.\n"\
-          "Falling back on the slower 'fftpack' module for ND Fourier transforms."
+          "Falling back on the slower 'fftpack' module for ND Fourier transforms.")
     from scipy.fftpack import fftn, ifftn
 
 class TemplateMatch(object):
@@ -555,7 +564,7 @@ def run_blocks(param):
     for Xc, Yc, s_nx, s_ny, dx0, dy0 in zip(XYc_i[:,0], XYc_i[:,1], s_nxy_i[:,0],
                                             s_nxy_i[:,1], dxy0_i[:,0],
                                             dxy0_i[:,1]):
-        #print "S_buffer.Nodata=%f, T_buffer.noData"% (matcher.S_sub.noData, matcher.T_sub.noData)
+        #print("S_buffer.Nodata=%f, T_buffer.noData"% (matcher.S_sub.noData, matcher.T_sub.noData)
         count=count+1
         t_xr=[Xc-(t_pixels/2-1)-KW, Xc+(t_pixels/2)+KW]
         t_yr=[Yc-(t_pixels/2-1)-KW, Xc+(t_pixels/2)+KW]
@@ -1017,10 +1026,10 @@ def main():
     S_file = args[1]
     output_prefix = args[2]
     sys.stdout.flush()
-    print "Start: " + str(datetime.datetime.now())
-    print "T_file = " + T_file
-    print "S_file = " + S_file
-    print "output_prefix = " + output_prefix
+    print("Start: " + str(datetime.datetime.now()))
+    print("T_file = " + T_file)
+    print("S_file = " + S_file)
+    print("output_prefix = " + output_prefix)
 
     #Minimum number of coarse points in any dimension
     min_npts = 8
@@ -1032,23 +1041,23 @@ def main():
     prev2x = prevpow2( T_band.XSize)
     if options.s_nx > prev2x/4:
         options.s_nx = prev2x/4
-        print "Warning: Decreasing xsearch value to: %d" % options.s_nx
+        print("Warning: Decreasing xsearch value to: %d" % options.s_nx)
 
     prev2y = prevpow2(T_band.YSize)
     if options.s_ny > prev2y/4:
         options.s_ny = prev2y/4
-        print "Warning: Decreasing ysearch value to: %d" % options.s_ny
+        print("Warning: Decreasing ysearch value to: %d" % options.s_ny)
 
     #Automatically set coarse_skip if not specified
     if options.coarse_skip is None:
         options.coarse_skip = np.min([prev2x/min_npts, prev2y/min_npts])
-        print "Setting coarse skip to: %d" % options.coarse_skip
+        print("Setting coarse skip to: %d" % options.coarse_skip)
     else:
         #Check to make sure coarse_skip isn't TOO coarse
         #Minimum of 4 points in smallest dimension
         if options.coarse_skip > np.min([prev2x/min_npts, prev2y/min_npts]):
             options.coarse_skip = np.min([prev2x/min_npts, prev2y/min_npts])
-            print "Warning: decreasing coarse skip to: %d" % options.coarse_skip
+            print("Warning: decreasing coarse skip to: %d" % options.coarse_skip)
 
     s_nx=options.s_nx
     s_ny=options.s_ny
@@ -1090,7 +1099,7 @@ def main():
     D_origin = np.c_[ftm.UL_T-ftm.UL_S].transpose()
     D_origin[0][0]=np.floor(D_origin[0][0]/np.abs(GT[1]))
     D_origin[0][1]=np.floor(D_origin[0][1]/np.abs(GT[5]))
-    print "Running initial search: " + str(datetime.datetime.now())
+    print("Running initial search: " + str(datetime.datetime.now()))
 
     dxy0=np.dot(np.c_[np.ones_like(XY0[:,0])], D_origin*[1, -1])
     dxy_score=np.c_[dxy0[:,0]-s_nx/2., dxy0[:,0]+s_nx/2, dxy0[:,1]-s_ny/2, dxy0[:,1]+s_ny/2]
@@ -1108,7 +1117,7 @@ def main():
             ep_f90= ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], 90)
             ep_tol=np.minimum(ep_tol_max,np.maximum(ep_tol_min, ep_f90))
             good, ep_dist=test_epipolar(dxy_ctr, ep_vec, dxy, ep_tol)
-        print " --- ep vec estimated at(%f,%f), tol=%f, ep_dist_f90=%f" % (ep_vec[0], ep_vec[1], ep_tol, ep_f90)
+        print(" --- ep vec estimated at(%f,%f), tol=%f, ep_dist_f90=%f" % (ep_vec[0], ep_vec[1], ep_tol, ep_f90))
     else:
         #Create boolean array with True for all values in dx
         good = (dxy != np.nan)[:,0]
@@ -1134,10 +1143,10 @@ def main():
     refine_y=np.array([-1., -1., -1.,  0.,  0.,  1., 1., 1.]);
     recalc_nbhd_range=False
     for delta_x in skip_vals:
-        print "----------refining to %d---------" % delta_x
-        print "Refining: " + str(datetime.datetime.now())
+        print("----------refining to %d---------" % delta_x)
+        print("Refining: " + str(datetime.datetime.now()))
         if len(refine_pts)==0:
-            print "    No refinement points for scale: %d" % delta_x
+            print("    No refinement points for scale: %d" % delta_x)
             recalc_nbhd_range=True
             break
         # add neighbors of the last set of points to the list
@@ -1167,13 +1176,13 @@ def main():
 
         new_xy, new_dxy,  new_C, new_xy_bad=search_new_pts(new_xy, new_dxy_score, t_pixels, ftm, min_template_sigma=options.sigma_t_min, mask=in_mask)
         if len(new_xy)==0:
-            print "    no new points found"
+            print("    no new points found")
             recalc_nbhd_range=True
             break
 
         if options.epipolar_fltr:
             good, ep_dist=test_epipolar(dxy_ctr, ep_vec, new_dxy, ep_tol)
-            print "    searched %d points, found %d good matches" % (N_search, np.sum(good) )
+            print("    searched %d points, found %d good matches" % (N_search, np.sum(good) ))
         else:
             good = (new_dxy != np.nan)[:,0]
 
@@ -1203,7 +1212,7 @@ def main():
         dxy_score, min_dxy_slope=nbhd_range(range(all_pts.shape[0]), dx_mat, dy_mat, tri, pt_dict, calc_min_slope=True)
         bad=np.max(min_dxy_slope, axis=1) > dxy_slope_tol
         if options.Debug:
-            print "---deleting %d points that failed the d(disparity)/d(dist) test" % np.sum(bad)
+            print("---deleting %d points that failed the d(disparity)/d(dist) test" % np.sum(bad))
         if bad is not None and np.any(bad):
             C_mat=C_mat.tolil()
             C_mat[all_pts[bad,1], all_pts[bad,0]]=0
@@ -1228,7 +1237,7 @@ def main():
         # N.B.  we can often end up refining more points than we searched on the
         # last round, because points from previous rounds can get marked for
         # refinement
-        print "    found %d points to refine" %  len(refine_pts)
+        print("    found %d points to refine" %  len(refine_pts))
 
     if recalc_nbhd_range:
         all_pts=np.c_[C_mat.nonzero()];
@@ -1248,7 +1257,7 @@ def main():
     bad_xy=all_pts[np.logical_or((R_dxy_score[:,0] > R_max[0]) ,  (R_dxy_score[:,2] > R_max[1])),:]
     bad_mask_mat = bad_mask_mat + coo_matrix((8*np.ones_like(bad_xy[:,1]), (bad_xy[:,1], bad_xy[:,0])), shape=im_shape).tocsr()
     if options.Debug:
-        print "rejecting %d detected outliers using the minimum-disparity-difference test with R_max = %f, %f" % (bad_xy.shape[0], R_max[0], R_max[1])
+        print("rejecting %d detected outliers using the minimum-disparity-difference test with R_max = %f, %f" % (bad_xy.shape[0], R_max[0], R_max[1]))
     # delete the bad value, convert dx dy, and C to lil matrices
     C_mat=C_mat.tolil()
     dx_mat=dx_mat.tolil()
@@ -1271,10 +1280,10 @@ def main():
     R_dx=dxy_score[:,1]-dxy_score[:,0]
     R_dy=dxy_score[:,3]-dxy_score[:,2]
 
-    print "--------output stats------"
+    print("--------output stats------")
     for pct in (99, 95, 90, 84):
         P= (pct, ss.scoreatpercentile(R_dx, pct), ss.scoreatpercentile(R_dy, pct))
-        print "%dth percetiles (rx,ry) = (%5.2f %5.2f)" % P
+        print("%dth percetiles (rx,ry) = (%5.2f %5.2f)" % P)
 
     dx=dx_mat[all_pts[:,1], all_pts[:,0]].transpose()
     dy=dy_mat[all_pts[:,1], all_pts[:,0]].transpose()
@@ -1312,20 +1321,20 @@ def main():
 
 
     if options.Debug:
-        print "--- Debug enabled-----"
-        print " writing csv file: %s" % output_prefix+'.csv'
+        print("--- Debug enabled-----")
+        print(" writing csv file: %s" % output_prefix+'.csv')
         outfile=open(output_prefix+'.csv','w')
         outfile.write('%x, y, dx, dy, C, R_dx, R_dy\n')
         for line in out:
             outfile.write("%7.0f, %7.0f, %7.0f, %7.0f, %4.2f, %7.0f, %7.0f\n" %  tuple(x for x in line.tolist()[0]))
         outfile.close
-        print " writing bad points to file: %s" % output_prefix+'_bad_pts.csv'
-        print " bad matches are flagged:"
-        print "  1: failed signal strength test"
-        print "  2: failed epipolar test"
-        print "  4: failed d(disparity)/d(dist) test"
-        print "  8: failed the total-delta-disparity test"
-        print "-----"
+        print(" writing bad points to file: %s" % output_prefix+'_bad_pts.csv')
+        print(" bad matches are flagged:")
+        print("  1: failed signal strength test")
+        print("  2: failed epipolar test")
+        print("  4: failed d(disparity)/d(dist) test")
+        print("  8: failed the total-delta-disparity test")
+        print("-----")
         outfile=open(output_prefix+'_bad_pts.csv', 'w')
         outfile.write('%x, y, flag\n')
         if bad_flag is not None:
@@ -1370,7 +1379,7 @@ def main():
         for c0 in c0_out:
             for r0 in r0_out:
                 if options.Debug:
-                    print "     gridding output for col %d out of %d, row %d out of %d" % (int(c0/OutBlocksize)+1, int(c0_out[-1]/OutBlocksize)+1, int(r0/OutBlocksize)+1, int(r0_out[-1]/OutBlocksize)+1)
+                    print("     gridding output for col %d out of %d, row %d out of %d" % (int(c0/OutBlocksize)+1, int(c0_out[-1]/OutBlocksize)+1, int(r0/OutBlocksize)+1, int(r0_out[-1]/OutBlocksize)+1))
                 cols=np.arange(c0, np.minimum(c0+OutBlocksize, len(xg)))
                 rows=np.arange(r0, np.minimum(r0+OutBlocksize, len(yg)))
                 if (len(rows)==0) | (len(cols)==0):
@@ -1384,7 +1393,7 @@ def main():
                 if np.sum(ii) < 4:
                     continue
                 if options.Debug:
-                    print " ...based on %d points" % np.sum(ii)
+                    print(" ...based on %d points" % np.sum(ii))
                 if (np.amax(out[ii,0])-np.amin(out[ii,0]) > 0) and (np.amax(out[ii,1])-np.amin(out[ii,1]) > 0 ) :
                     grid_disp(xg_sub, yg_sub, out[ii,0:2], out[ii,2], out[ii,3], out[ii,5], out[ii,6], options.fill_dist, s_nx, dispDs, spreadDs, options.output_scale, cr_out)
 
@@ -1394,7 +1403,7 @@ def main():
         spreadDs=None
         dispDs=None
 
-    print "End: " + str(datetime.datetime.now())
+    print("End: " + str(datetime.datetime.now()))
 
 if __name__=="__main__":
     main()

@@ -411,7 +411,7 @@ def export_cameras_to_vw(options):
         model_path = options.theia_camera_models[i]
         if not os.path.exists(model_path):
             all_found = False
-            print 'Failed to generate model file: ' + model_path
+            print('Failed to generate model file: ' + model_path)
         
         # Handle possibility of multiple camera files
         if len(options.camera_param_paths) > 1:
@@ -437,7 +437,7 @@ def run_bundle_adjust(options):
         # - ASP will try to find any matches that Theia did not find.
         cmd = ['export_matches_file_to_vw', '-theia_matches_file', options.theia_match_path, 
                                             '-output_prefix', output_prefix]
-        print cmd
+        print(cmd)
         asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
 
     # Some extra bundle adjust params
@@ -470,9 +470,9 @@ def run_bundle_adjust(options):
     for (model_path, output_path) in zip(ba_camera_models, output_paths):
         if not os.path.exists(model_path):
             all_found = False
-            print 'Failed to generate model file: ' + model_path
+            print('Failed to generate model file: ' + model_path)
         shutil.move(model_path, output_path)
-        print '--> Wrote output camera model: ' + output_path
+        print('--> Wrote output camera model: ' + output_path)
     if not all_found:
         raise Exception('Bundle adjustment failed to generate all camera models.')
 
@@ -541,7 +541,7 @@ def main(argsIn):
         asp_system_utils.checkIfToolExists('export_reconstruction_to_vw')
         asp_system_utils.checkIfToolExists('bundle_adjust')
     except:
-        print 'Did not detect required executables!  Check your PATH and ASP installation.'
+        print('Did not detect required executables!  Check your PATH and ASP installation.')
         return -1
 
     try:
@@ -606,14 +606,14 @@ def main(argsIn):
             #if not options.solveIntrinsic:
             #    print 'Since no calib-file provided, setting --solve-intrinsics.'
             options.solveIntrinsic = True
-            print 'Error: camera_solve does not support solving for intrinsic camera parameters!'
+            print('Error: camera_solve does not support solving for intrinsic camera parameters!')
             return -1
         else:
         
             # Handle if a list of camera files were passed in.
             options.camera_param_paths = options.camera_param_paths.split()
             if (len(options.camera_param_paths) > 1) and (len(options.camera_param_paths) != len(options.input_images)):
-                print 'Error: If multiple camera files are used, there must be one per input image.'
+                print('Error: If multiple camera files are used, there must be one per input image.')
                 return -1
             
             # Otherwise rewrite a zero-distortion copy of the camera param file which Theia can read.
@@ -622,7 +622,7 @@ def main(argsIn):
                                                 options.camera_param_paths, alt_param_path)
             
         
-    except optparse.OptionError, msg:
+    except optparse.OptionError as msg:
         raise Usage(msg)
 
 
@@ -642,19 +642,19 @@ def main(argsIn):
             break
         except: # Theia failed, but give it another shot.
             if i == NUM_THEIA_RETRIES-1:
-                print 'Error: Theia failed to generate a camera reconstruction!'
+                print('Error: Theia failed to generate a camera reconstruction!')
                 return -1
             else:
-                print 'Retrying Theia solution...'
+                print('Retrying Theia solution...')
     #guided_build_reconstruction(options)
 
-    print 'Finished generating reconstruction using Theia'
+    print('Finished generating reconstruction using Theia')
 
     # Step 2 - Call an extra tool to export Theia's camera output.
     export_cameras_to_vw(options)
     # TODO: Update this tool to match the latest format?
     
-    print 'Finished extracting camera models'
+    print('Finished extracting camera models')
 
     # Step 3 - Call ASP's bundle_adjust to adjust for lens distortion and 
     #          to move the cameras into global coordinates if possible.
@@ -662,7 +662,7 @@ def main(argsIn):
 
 
     endTime = time.time()
-    print "Finished in " + str(endTime - startTime) + " seconds."
+    print("Finished in " + str(endTime - startTime) + " seconds.")
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

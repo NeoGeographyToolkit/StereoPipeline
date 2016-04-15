@@ -25,9 +25,17 @@ greatly increase the speed of map projecting ISIS images.
 import sys
 import os, glob, re, shutil, subprocess, string, time, errno, optparse, math
 
-if sys.version_info < (2, 6, 0):
-    print('\nERROR: Must use Python 2.6 or greater.')
-    sys.exit(1)
+# The path to the ASP python files
+basepath    = os.path.abspath(sys.path[0])
+pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
+libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
+sys.path.insert(0, basepath) # prepend to Python path
+sys.path.insert(0, pythonpath)
+sys.path.insert(0, libexecpath)
+
+
+import asp_system_utils
+asp_system_utils.verify_python_version_is_supported()
 
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
@@ -181,10 +189,14 @@ def main(argsIn):
 
     relOutputPath = ""
     try:
-        # Get the help text from the base C++ tool so we can append it to the python help
-        cmd = ['mapproject_single',  '--help']
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-        baseHelp, err = p.communicate()
+        try:
+            # Get the help text from the base C++ tool so we can append it to the python help
+            cmd = ['mapproject_single',  '--help']
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+            baseHelp, err = p.communicate()
+        except OSError:
+            print("Error: Unable to find required mapproject_single tool!")
+            return -1
 
         # Extract the version and help text
         vStart = baseHelp.find('[ASP')
@@ -264,7 +276,7 @@ def main(argsIn):
         # Any additional arguments need to be forwarded to the mapproject function
         options.extraArgs = optionsList
 
-    except optparse.OptionError, msg:
+    except optparse.OptionError as msg:
         raise Usage(msg)
 
     startTime = time.time()
@@ -298,7 +310,7 @@ def main(argsIn):
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     projectionInfo, err = p.communicate()
     if not options.suppressOutput:
-        print projectionInfo
+        print(projectionInfo)
 
 
     # Now find the image size in the output
@@ -309,13 +321,13 @@ def main(argsIn):
     # Extract values
     fullWidth   = int(projectionInfo[widthStart+7  : heightStart-1])
     fullHeight  = int(projectionInfo[heightStart+8 : heightEnd])
-    print 'Output image size is ' + str(fullWidth) + ' by ' + str(fullHeight) + ' pixels.'
+    print('Output image size is ' + str(fullWidth) + ' by ' + str(fullHeight) + ' pixels.')
 
     # For now we just break up the image into a user-specified tile size (default 1000x1000)
     numTilesX, numTilesY, tileList = generateTileList(fullWidth, fullHeight, options.tileSize)
     numTiles = numTilesX * numTilesY
 
-    print 'Splitting into ' + str(numTilesX) + ' by ' + str(numTilesY) + ' tiles.'
+    print('Splitting into ' + str(numTilesX) + ' by ' + str(numTilesY) + ' tiles.')
     # If there is only going to be one output tile, just use the non-parallel call
     if (numTilesX*numTilesY == 1):
         cmd = ['mapproject_single',  options.demPath,
@@ -323,7 +335,8 @@ def main(argsIn):
         cmd = cmd + options.extraArgs
         print(" ".join(cmd))
         ans = subprocess.call(cmd)
-        if ans == 0: print("Wrote: " + relOutputPath)
+        if ans == 0: 
+            print("Wrote: " + relOutputPath)
         return 0
 
 
@@ -407,7 +420,7 @@ def main(argsIn):
     # Build a gdal VRT file which is composed of all the processed tiles
     vrtPath = os.path.join(tempFolder, 'mosaic.vrt')
     cmd = "gdalbuildvrt -resolution highest " + vrtPath + " " + tempFolder + "*_.tif";
-    print cmd
+    print(cmd)
     os.system(cmd)
 
     # Modify the vrt to append some metadata from the original files
@@ -438,7 +451,7 @@ def main(argsIn):
 
     # Convert VRT file to final output file
     cmd = "gdal_translate -co compress=lzw -co bigtiff=yes -co TILED=yes -co INTERLEAVE=BAND -co BLOCKXSIZE=256 -co BLOCKYSIZE=256 " + vrtPath + " " + options.outputPath;
-    print cmd
+    print(cmd)
     ans = os.system(cmd)
 
     # Clean up temporary files
@@ -446,10 +459,11 @@ def main(argsIn):
         print("Removing: " + tempFolder)
         asp_file_utils.removeFolderIfExists(tempFolder)
 
-    if ans == 0: print("Wrote: " + relOutputPath)
+    if ans == 0: 
+        print("Wrote: " + relOutputPath)
 
     endTime = time.time()
-    print "Finished in " + str(endTime - startTime) + " seconds."
+    print("Finished in " + str(endTime - startTime) + " seconds.")
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

@@ -20,9 +20,16 @@ import sys, optparse, subprocess, re, os, math, time, tempfile, glob,\
        shutil, math
 import os.path as P
 
-if sys.version_info < (2, 6, 0):
-    print('\nERROR: Must use Python 2.6 or greater.')
-    sys.exit(1)
+# The path to the ASP python files
+basepath    = os.path.abspath(sys.path[0])
+pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
+libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
+sys.path.insert(0, basepath) # prepend to Python path
+sys.path.insert(0, pythonpath)
+sys.path.insert(0, libexecpath)
+
+import asp_system_utils
+asp_system_utils.verify_python_version_is_supported()
 
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
@@ -77,7 +84,7 @@ def add_job( cmd ):
     job_pool.append( subprocess.Popen(cmd) )
 
 def wait_on_all_jobs():
-    print "Waiting for jobs to finish"
+    print("Waiting for jobs to finish")
     sleep_time = 1
     while len(job_pool) > 0:
         for i in range(len(job_pool)):
@@ -108,8 +115,8 @@ def create_subproject_dirs( settings, **kw ):
         subproject_dir = tile_dir(out_prefix, tile)
         tile_prefix = subproject_dir + "/" + tile.name_str()
         if opt.dryrun:
-            print "mkdir -p %s" % subproject_dir
-            print "soft linking via %s %s" % (tile_prefix, out_prefix)
+            print("mkdir -p %s" % subproject_dir)
+            print("soft linking via %s %s" % (tile_prefix, out_prefix))
         else:
             mkdir_p(subproject_dir)
 
@@ -277,7 +284,7 @@ def get_num_nodes(nodes_list):
                 nodes[matches.group(1)] = 1
 
         num_nodes = len(nodes)
-    except Exception, e:
+    except Exception as e:
         die(e)
     if num_nodes == 0:
         raise Exception('The list of computing nodes is empty')
@@ -407,14 +414,14 @@ def parallel_run(prog, args, settings, tiles, **kw):
                            = tile_dir(settings['out_prefix'][0], tile) \
                            + "/" + tile.name_str()
             if opt.dryrun:
-                print " ".join(cmd)
+                print(" ".join(cmd))
                 return
 
             if opt.verbose:
-                print " ".join(cmd)
+                print(" ".join(cmd))
             add_job( cmd )
         wait_on_all_jobs()
-    except OSError, e:
+    except OSError as e:
         raise Exception('%s: %s' % (binpath, e))
 
 # Run with one thread
@@ -429,13 +436,13 @@ def single_run(prog, args, **kw):
         call.extend(['--threads', str(opt.threads_single)])
 
     if opt.dryrun:
-        print '%s' % ' '.join(call)
+        print('%s' % ' '.join(call))
         return
     if opt.verbose:
-        print '%s' % ' '.join(call)
+        print('%s' % ' '.join(call))
     try:
         code = subprocess.call(call)
-    except OSError, e:
+    except OSError as e:
         raise Exception('%s: %s' % (binpath, e))
     if code != 0:
         raise Exception('Stereo step ' + kw['msg'] + ' failed')
@@ -722,6 +729,6 @@ if __name__ == '__main__':
                 parallel_run('stereo_tri', args, settings, tiles,
                              msg='%d: Triangulation' % opt.entry_point)
 
-        except Exception, e:
+        except Exception as e:
             die(e)
             raise

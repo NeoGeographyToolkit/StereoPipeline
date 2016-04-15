@@ -30,6 +30,9 @@ sys.path.insert(0, libexecpath)
 from stereo_utils import get_asp_version
 from asp_system_utils import mkdir_p
 
+import asp_system_utils
+asp_system_utils.verify_python_version_is_supported()
+
 def man(option, opt, value, parser):
     print >>sys.stderr, parser.usage
     print >>sys.stderr, '''\
@@ -92,7 +95,7 @@ def camrange( cube, options ):
                                               suffix=".txt", mode="w")
         cmd = 'camrange from= '+ cube +' to= '+ tmpfile.name
 
-        print 'Running ' + cmd
+        print('Running ' + cmd)
         result = subprocess.call(cmd, shell=True)
         if not result == 0:
             raise Exception('ProcessError', 'Non zero return code ('+str(result)+')')
@@ -131,7 +134,7 @@ def camrange( cube, options ):
         info.minlon     = subprocess.Popen([getkey_path, fromString, lonGroupString,                  "keyword= MinimumLongitude"], stdout=subprocess.PIPE).communicate()[0].strip()
         info.maxlon     = subprocess.Popen([getkey_path, fromString, lonGroupString,                  "keyword= MaximumLongitude"], stdout=subprocess.PIPE).communicate()[0].strip()
 
-    except OSError, e:
+    except OSError as e:
         print >>sys.stderr, "Execution failed:", e
         raise e
 
@@ -173,7 +176,7 @@ def main():
             if not args: parser.error("need .cub files")
 
 
-        except optparse.OptionError, msg:
+        except optparse.OptionError as msg:
             raise Usage(msg)
 
         # Call
@@ -221,7 +224,7 @@ def main():
 
         # Need to put these together to keep ISIS from calling the GUI
         cam2map_cmd = ' '.join(cam2map)
-        print cam2map_cmd
+        print(cam2map_cmd)
         if( not options.dryrun ):
             code = subprocess.call(cam2map_cmd, shell=True)
             if not code == 0:
@@ -231,21 +234,21 @@ def main():
         cam2map[1] = 'from=' + args[1]
         cam2map[2] = 'to='+ mapfile( args[1], options.prefix, options.suffix )
         cam2map_cmd = ' '.join(cam2map)
-        print cam2map_cmd
+        print(cam2map_cmd)
         if( not options.dryrun ):
             code = subprocess.call(cam2map_cmd, shell=True)
             if not code == 0:
                 raise Exception('ProcessError', 'Non zero return code ('+str(code)+')')
 
-        print "Finished"
+        print("Finished")
         return 0
 
-    except Usage, err:
+    except Usage as err:
         print >>sys.stderr, err.msg
         # print >>sys.stderr, "for help use --help"
         return 2
 
-    except MapExists, e:
+    except MapExists as e:
         print >>sys.stderr, 'The file '+ e.msg +' already exists, delete first.'
         return 3
 

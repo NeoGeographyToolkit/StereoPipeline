@@ -22,10 +22,6 @@
 
 import os, sys, string, subprocess, math, re, optparse, time, copy, tempfile
 
-if sys.version_info < (2, 6, 0):
-    print('\nERROR: Must use Python 2.6 or greater.')
-    sys.exit(1)
-
 from datetime import datetime, timedelta
 
 # The path to the ASP python files
@@ -37,6 +33,7 @@ sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
 from asp_system_utils import * # must be after the path is altered above
+verify_python_version_is_supported()
 
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
@@ -413,7 +410,7 @@ def read_xml( filename, options):
           for i in range(0,4):
               llbox.add_point( [ll_corners_curr[i][0], ll_corners_curr[i][1]] )
 
-      except Exception, e:
+      except Exception as e:
           print("Warning: File " + filename + " lacks longitude/latitude information.")
 
       if len(ll_corners) == 0:
@@ -431,7 +428,7 @@ def read_xml( filename, options):
             min_ht = -ht_scale + ht_offset
             max_ht =  ht_scale + ht_offset
             htbox = BBox(min_ht, min_ht, max_ht, max_ht)
-        except Exception, e:
+        except Exception as e:
             raise Exception('InputError', "File " + filename
                             + " lacks RPC model information.")
 
@@ -527,7 +524,8 @@ def estimate_ground_resolution( xml_tree ):
     return (gsd_x + gsd_y) / 2.0
 
 def run_cmd( cmd, options ):
-    if options.dryrun or options.verbose: print cmd
+    if options.dryrun or options.verbose: 
+        print(cmd)
     if options.dryrun: return
     code = subprocess.call(cmd, shell=True)
     if code:
@@ -648,7 +646,7 @@ def main():
 
             if len(options.gdaldir): options.gdaldir += "/"
 
-        except optparse.OptionError, msg:
+        except optparse.OptionError as msg:
             raise Usage(msg)
 
         if options.output_prefix == "":
@@ -875,8 +873,8 @@ def main():
                 RPI.find("LINEDENCOEFList").find("LINEDENCOEF").text = " ".join(rpc_model["line_den"])
                 RPI.find("SAMPNUMCOEFList").find("SAMPNUMCOEF").text = " ".join(rpc_model["samp_num"])
                 RPI.find("SAMPDENCOEFList").find("SAMPDENCOEF").text = " ".join(rpc_model["samp_den"])
-            except Exception, e:
-                print 'Caught exception: ' + str(e)
+            except Exception as e:
+                print('Caught exception: ' + str(e))
                 raise Exception('InputError', "File " + args[0] +
                                 " lacks complete RPC model information.")
         else:
@@ -900,7 +898,7 @@ def main():
         imd = root.find("IMD")
         imd.find("NUMROWS").text = str(nrows)
         imd.find("NUMCOLUMNS").text = str(ncols)
-        print "Output image size: %dx%d px" % (nrows, ncols)
+        print("Output image size: %dx%d px" % (nrows, ncols))
 
         # Update TLCList, AVGLineRate, ExposureDur
         image = imd.find("IMAGE")
@@ -930,17 +928,17 @@ def main():
             scale_xml_element(RPI.find("LINEOFFSET"), scale)
 
         xml_file = options.output_prefix + suffix + ".xml"
-        print "Writing: " + xml_file
+        print("Writing: " + xml_file)
         tree.write(xml_file)
 
         if not options.skip_tif_gen:
 
             tif_mosaic_opts = "%d,%d," % (boundary.width(), boundary.height())
             for i in range(len(args)):
-                print "  Placing %s" % args[i]
-                print "    Size %dx%d at column %d and line %d" % \
+                print("  Placing %s" % args[i])
+                print("    Size %dx%d at column %d and line %d" % \
                       (placements[i].width(),placements[i].height(),
-                       placements[i].minx, placements[i].miny)
+                       placements[i].minx, placements[i].miny))
 
                 tif_mosaic_opts += \
                                 ("%s,%0.16f,%0.16f,%0.16f,%0.16f,%0.16f,%0.16f," %
@@ -964,7 +962,7 @@ def main():
             if options.fix_seams:
                 mosaic_args += ['--fix-seams']
 
-            print "Writing: " + tif_file
+            print("Writing: " + tif_file)
             subprocess.call([mosaic_cmd] +  mosaic_args)
 
             # Make a preview image
@@ -974,11 +972,11 @@ def main():
                 small_scale = int(round(5.0/scale))
 
                 stif_file = options.output_prefix + ".small.png"
-                print "Writing: " + stif_file
+                print("Writing: " + stif_file)
                 cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of PNG -ot Byte -scale -outsize %d%% %d%% %s %s" % (options.gdaldir,small_scale,small_scale,tif_file,stif_file)
                 run_cmd( cmd, options )
 
-    except Usage, err:
+    except Usage as err:
         print >>sys.stderr, err.msg
         return 2
 
