@@ -38,7 +38,7 @@ mapprojected: nonmapprojected
 	if [ ! -e P02_001981_1823_XI_02N356W.map.cub ] && [ ! -e P03_002258_1817_XI_01N356W.map.cub ]; then $(CAM2MAP4STEREO) P02_001981_1823_XI_02N356W.cal.cub P03_002258_1817_XI_01N356W.cal.cub; fi
 
 map/map-PC.tif: mapprojected
-	$(STEREO) P02_001981_1823_XI_02N356W.map.cub P03_002258_1817_XI_01N356W.map.cub map/map -s stereo.map
+	if [ ! -e map/map-PC.tif ]; then $(STEREO) P02_001981_1823_XI_02N356W.map.cub P03_002258_1817_XI_01N356W.map.cub map/map -s stereo.map; fi
 
 map/map-DEM.tif: map/map-PC.tif
 	cd map; \
@@ -48,20 +48,20 @@ map/map-DEM_CMAP.tif: map/map-DEM.tif
 	cd map; \
 	$(HILLSHADE) map-DEM.tif; \
 	$(COLORMAP) -s map-DEM_HILLSHADE.tif map-DEM.tif; \
-	$(COLORMAP) map-DEMError.tif --lut ../../TriangulationError.lut
+	$(COLORMAP) map-IntersectionErr.tif --colormap-style ../../TriangulationError.lut
 
 nonmap/nonmap-PC.tif: nonmapprojected
-	$(STEREO) P02_001981_1823_XI_02N356W.cal.cub P03_002258_1817_XI_01N356W.cal.cub nonmap/nonmap -s stereo.nonmap
+	if [ ! -e nonmap/nonmap-PC.tif ]; then $(STEREO) P02_001981_1823_XI_02N356W.cal.cub P03_002258_1817_XI_01N356W.cal.cub nonmap/nonmap -s stereo.nonmap; fi
 
 nonmap/nonmap-DEM.tif: nonmap/nonmap-PC.tif
 	cd nonmap; \
-	$(POINT2DEM) -r mars --nodata -32767 nonmap-PC.tif
+	$(POINT2DEM) -r mars --nodata -32767 nonmap-PC.tif --error
 
 nonmap/nonmap-DEM_CMAP.tif: nonmap/nonmap-DEM.tif
 	cd nonmap; \
 	$(HILLSHADE) nonmap-DEM.tif; \
 	$(COLORMAP) -s nonmap-DEM_HILLSHADE.tif nonmap-DEM.tif; \
-	$(COLORMAP) map-DEMError.tif --lut ../../TriangulationError.lut
+	$(COLORMAP) nonmap-IntersectionErr.tif --colormap-style ../../TriangulationError.lut
 
 clean:
 	rm -rf nonmap map *.vwip

@@ -45,7 +45,7 @@ pan01/pan01-PC.tif: 1p270664103esf90csp2566l2m1.img 1p270664103esf90csp2566r2m1.
 nav01/nav01-PC.tif: 1n270487304eff90cip1952l0m1.img 1n270487304eff90cip1952r0m1.img 1n270487304eff90cip1952l0m1.cahvor 1n270487304eff90cip1952r0m1.cahvor
 	$(STEREO) $^ nav01/nav01
 
-mi01/mi01-PC.tif: 2m147677487eff8800p2976m2f1.img 2m147677547eff8800p2976m2f1.img 2m147677487eff8800p2976m2f1.cahvor 2m147677547eff8800p2976m2f1.cahvor
+mi01/mi01-PC.tif: 2m147677487eff8800p2976m2m1.img 2m147677547eff8800p2976m2m1.img 2m147677487eff8800p2976m2m1.cahvor 2m147677547eff8800p2976m2m1.cahvor
 	$(STEREO) $^ mi01/mi01
 
 fh01lin/fh01lin-PC.tif: 2f194370083fflap00p1214r0m1.img 2f194370083fflap00p1214l0m1.img 2f194370083fflap00p1214r0m1.cahv 2f194370083fflap00p1214l0m1.cahv
@@ -121,12 +121,12 @@ pan02/pan02.ive: pan02/pan02-PC.tif
 2f191703508effanhep1110r0m1.img:
 	wget -O $@ 'http://pds-imaging.jpl.nasa.gov/pds/prod?q=OFSN+%3D+/data/mer/spirit//mer2ho_0xxx/data/sol0736/edr//2f191703508effanhep1110r0m1.img+AND+RT+%3D+RAW'
 # MI01
-2m147677487eff8800p2976m2f1.img:
-	wget -O $@ 'http://pds-imaging.jpl.nasa.gov/pds/prod?q=OFSN+%3D+/data/mer/spirit//mer2ms_0xxx/data/sol0240/edr//2m147677487eff8800p2976m2f1.img+AND+RT+%3D+RAW'
-2m147677547eff8800p2976m2f1.img:
-	wget -O $@ 'http://pds-imaging.jpl.nasa.gov/pds/prod?q=OFSN+%3D+/data/mer/spirit//mer2ms_0xxx/data/sol0240/edr//2m147677547eff8800p2976m2f1.img+AND+RT+%3D+RAW'
+2m147677487eff8800p2976m2m1.img:
+	wget -O $@ 'http://pds-imaging.jpl.nasa.gov/pds/prod?q=OFSN+%3D+/data/mer/spirit///mer2mo_0xxx/data/sol0240/edr//2m147677487eff8800p2976m2m1.img+AND+RT+%3D+RAW'
+2m147677547eff8800p2976m2m1.img:
+	wget -O $@ 'http://pds-imaging.jpl.nasa.gov/pds/prod?q=OFSN+%3D+/data/mer/spirit///mer2mo_0xxx/data/sol0240/edr//2m147677547eff8800p2976m2m1.img+AND+RT+%3D+RAW'
 # PAN02
-1p227709787eff80k7OBp2389l2c1.img:
+1p227709787eff80k7p2389l2c1.img:
 	wget -O $@ 'http://pds-geosciences.wustl.edu/mer/mer1-m-pancam-2-edr-sci-v1/mer1pc_0xxx/data/sol1121/1p227709787eff80k7p2389l2c1.img'
 1p227709787eff80k7p2389r2c1.img:
 	wget -O $@ 'http://pds-geosciences.wustl.edu/mer/mer1-m-pancam-2-edr-sci-v1/mer1pc_0xxx/data/sol1121/1p227709787eff80k7p2389r2c1.img'

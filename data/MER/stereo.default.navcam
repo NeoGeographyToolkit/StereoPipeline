@@ -36,7 +36,7 @@ prefilter-kernel-width 1.4
 # 0 - absolute difference (fast)
 # 1 - squared difference  (faster .. but usually bad)
 # 2 - normalized cross correlation (recommended)
-cost-mode 2
+cost-mode 1
 
 # Initialization step: correlation kernel size
 corr-kernel 19 23
@@ -52,7 +52,7 @@ corr-search -137 -21 -1 1
 # 0 - disable subpixel correlation (fastest)
 # 1 - parabola fitting (draft mode - not as accurate)
 # 2 - affine adaptive window, bayes EM weighting (slower, but much more accurate)
-subpixel-mode 2
+subpixel-mode 1
 
 # Subpixel step: correlation kernel size
 subpixel-kernel 25 25
@@ -64,7 +64,7 @@ subpixel-kernel 25 25
 disable-fill-holes
 
 # Automatic "erode" low confidence pixels
-rm-half-kernel 5 5
+rm-half-kernel 3 3
 rm-min-matches 60
 rm-threshold 3
 rm-cleanup-passes 1

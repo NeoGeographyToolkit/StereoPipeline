@@ -56,7 +56,7 @@ corr-kernel 25 25
 # 0 - disable subpixel correlation (fastest)
 # 1 - parabola fitting (draft mode - not as accurate)
 # 2 - affine adaptive window, bayes EM weighting (slower, but much more accurate)
-subpixel-mode 2
+subpixel-mode 1
 
 # Subpixel step: correlation kernel size
 subpixel-kernel 25 25
@@ -64,11 +64,8 @@ subpixel-kernel 25 25
 # Post Filtering / stereo_fltr
 ################################################################
 
-# Fill in holes up to 100,000 pixels in size with an inpainting method
-# disable-fill-holes
-
 # Automatic "erode" low confidence pixels
-rm-half-kernel 5 5
+rm-half-kernel 3 3
 rm-min-matches 60
 rm-threshold 3
 rm-cleanup-passes 1

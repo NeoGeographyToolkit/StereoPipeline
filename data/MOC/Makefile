@@ -16,20 +16,11 @@ endif
 STEREO = $(EXECDIR)stereo
 IMAGE2QTREE = $(EXECDIR)image2qtree
 POINT2DEM = $(EEXECDIR)point2dem
-ORTHOPROJECT = $(EEXECDIR)orthoproject
+MAPPROJECT = $(EEXECDIR)mapproject
 HILLSHADE = $(EEXECDIR)hillshade
 COLORMAP = $(EEXECDIR)colormap
 DISPARITYDEBUG = $(EEXECDIR)disparitydebug
 POINT2MESH = $(EEXECDIR)point2mesh
-
-# Output variables
-RESULTSDIR = map
-PREFIX = $(RESULTSDIR)/$(RESULTSDIR)
-POINTCLOUD = $(PREFIX)-PC.tif
-
-RESULTSDIRU = nonmap
-PREFIXU = $(RESULTSDIRU)/$(RESULTSDIRU)
-POINTCLOUDU = $(PREFIXU)-PC.tif
 
 all: products_map products_nonmap
 
@@ -54,51 +45,51 @@ M0100115.map/M0100115.kml: M0100115.map.cub
 E0201461.map/E0201461.kml: E0201461.map.cub
 	$(IMAGE2QTREE) -m kml --normalize $<
 
-$(POINTCLOUD): M0100115.map.cub E0201461.map.cub
-	mkdir -p $(RESULTSDIR); \
-	$(STEREO) $^ $(PREFIX) -s stereo.map
+map/map-PC.tif: M0100115.map.cub E0201461.map.cub
+	mkdir -p map; \
+	if [ ! -e map/map-PC.tif ]; then $(STEREO) $^ map/map -s stereo.map; fi
 
-$(PREFIX)-F-H.tif: $(POINTCLOUD)
-	cd $(RESULTSDIR); $(DISPARITYDEBUG) $(RESULTSDIR)-F.tif
+map/map-F-H.tif: map/map-PC.tif
+	cd map; $(DISPARITYDEBUG) map-F.tif
 
-$(PREFIX).ive: $(POINTCLOUD)
-	cd $(RESULTSDIR); $(POINT2MESH) $(RESULTSDIR)-PC.tif $(RESULTSDIR)-L.tif
+map/map.ive: map/map-PC.tif
+	cd map; $(POINT2MESH) map-PC.tif map-L.tif
 
-$(PREFIX)-DEM.tif: $(POINTCLOUD)
-	cd $(RESULTSDIR); $(POINT2DEM) -r mars --orthoimage $(RESULTSDIR)-L.tif -n --error --nodata -32767 $(RESULTSDIR)-PC.tif;
+map/map-DEM.tif: map/map-PC.tif
+	cd map; $(POINT2DEM) -r mars --orthoimage map-L.tif -n --error --nodata -32767 map-PC.tif;
 
-$(PREFIX)-OrthoR.tif: $(PREFIX)-DEM.tif
-	cd $(RESULTSDIR); $(ORTHOPROJECT) $(RESULTSDIR)-DEM.tif ../M0100115.cub $(RESULTSDIR)-OrthoR.tif;
+map/map-OrthoR.tif: map/map-DEM.tif
+	cd map; $(MAPPROJECT) map-DEM.tif ../M0100115.cub map-OrthoR.tif;
 
-$(PREFIX)-OrthoL.tif: $(PREFIX)-DEM.tif
-	cd $(RESULTSDIR); $(ORTHOPROJECT) $(RESULTSDIR)-DEM.tif ../E0201461.cub $(RESULTSDIR)-OrthoL.tif;
+map/map-OrthoL.tif: map/map-DEM.tif
+	cd map; $(MAPPROJECT) map-DEM.tif ../E0201461.cub map-OrthoL.tif;
 
-$(PREFIX)-DEM_CMAP.tif: $(PREFIX)-DEM.tif
-	cd $(RESULTSDIR); \
-	$(HILLSHADE) $(RESULTSDIR)-DEM.tif; \
-	$(COLORMAP) -s $(RESULTSDIR)-DEM_HILLSHADE.tif $(RESULTSDIR)-DEM.tif; \
-	$(COLORMAP) $(RESULTSDIR)-DEMError.tif --lut ../../TriangulationError.lut
+map/map-DEM_CMAP.tif: map/map-DEM.tif
+	cd map; \
+	$(HILLSHADE) map-DEM.tif; \
+	$(COLORMAP) -s map-DEM_HILLSHADE.tif map-DEM.tif; \
+	$(COLORMAP) map-IntersectionErr.tif --colormap-style ../../TriangulationError.lut
 
-products_map: $(PREFIX)-F-H.tif $(PREFIX).ive $(PREFIX)-OrthoL.tif $(PREFIX)-OrthoR.tif E0201461.map/E0201461.kml M0100115.map/M0100115.kml $(PREFIX)-DEM_CMAP.tif
+products_map: map/map-F-H.tif map/map.ive map/map-OrthoL.tif map/map-OrthoR.tif E0201461.map/E0201461.kml M0100115.map/M0100115.kml map/map-DEM_CMAP.tif
 
-$(POINTCLOUDU): jigsaw
-	mkdir -p $(RESULTSDIRU)
-	$(STEREO) M0100115.cub E0201461.cub $(PREFIXU) -s stereo.nonmap
+nonmap/nonmap-PC.tif: jigsaw
+	mkdir -p nonmap
+	if [ ! -e nomap/nomap-PC.tif ]; then $(STEREO) M0100115.cub E0201461.cub nonmap/nonmap -s stereo.nonmap; fi
 
-$(PREFIXU).ive: $(POINTCLOUDU)
-	cd $(RESULTSDIRU); $(POINT2MESH) $(RESULTSDIRU)-PC.tif $(RESULTSDIRU)-L.tif
+nonmap/nonmap.ive: nonmap/nonmap-PC.tif
+	cd nonmap; $(POINT2MESH) nonmap-PC.tif nonmap-L.tif
 
-nonmap_point2dem: $(POINTCLOUDU)
-	cd $(RESULTSDIRU); \
-	$(POINT2DEM) -r mars --orthoimage $(RESULTSDIRU)-L.tif $(RESULTSDIRU)-PC.tif --error --nodata -32767 -n; \
-	$(HILLSHADE) $(RESULTSDIRU)-DEM.tif; \
-	$(COLORMAP) -s $(RESULTSDIRU)-DEM_HILLSHADE.tif $(RESULTSDIRU)-DEM.tif; \
-	$(COLORMAP) $(RESULTSDIRU)-DEMError.tif --lut ../../TriangulationError.lut
+nonmap_point2dem: nonmap/nonmap-PC.tif
+	cd nonmap; \
+	$(POINT2DEM) -r mars --orthoimage nonmap-L.tif nonmap-PC.tif --error --nodata -32767 -n; \
+	$(HILLSHADE) nonmap-DEM.tif; \
+	$(COLORMAP) -s nonmap-DEM_HILLSHADE.tif nonmap-DEM.tif; \
+	$(COLORMAP) nonmap-IntersectionErr.tif --colormap-style ../../TriangulationError.lut
 
-products_nonmap: $(PREFIXU).ive nonmap_point2dem
+products_nonmap: nonmap/nonmap.ive nonmap_point2dem
 
 clean:
-	rm -rf $(RESULTSDIR) $(RESULTSDIRU)
+	rm -rf map nonmap
 	rm -rf M0100115.map E0201461.map cube.lis control_ba.net *.match bundleout* residuals.csv control_jigsaw.net
 
 distclean: clean
