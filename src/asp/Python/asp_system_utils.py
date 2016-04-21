@@ -24,13 +24,6 @@ General system related utilities
 import sys, os, re, shutil, subprocess, string, time, errno, multiprocessing
 import os.path as P
 
-if sys.version_info < (2, 6, 0):
-    print('\nERROR: Must use Python 2.6.x or 2.7.x.')
-    sys.exit(1)
-
-if sys.version_info.major > 2:
-    print('\nERROR: Python 3 is not supported, must use Python 2.6.x or 2.7.x')
-    sys.exit(1)
 
 def die(msg, code=-1):
     '''Exit the program with a message'''
