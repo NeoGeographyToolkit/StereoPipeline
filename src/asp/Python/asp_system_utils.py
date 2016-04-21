@@ -37,7 +37,7 @@ def verify_python_version_is_supported():
         print('\nERROR: Must use Python 2.6.x or 2.7.x.')
         sys.exit(1)
 
-    if sys.version_info.major > 2:
+    if sys.version_info[0] > 2:
         print('\nERROR: Python 3 is not supported, must use Python 2.6.x or 2.7.x')
         sys.exit(1)
 
