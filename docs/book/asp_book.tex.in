@@ -183,6 +183,8 @@ stereo-pipeline-owner@lists.nasa.gov
 \nocite{2014LPI....45.1723L}
 \nocite{2014LPI....45.1211H}
 \nocite{2014NatCo...5E3417L}
+\nocite{lacroix2016landslides}
+\nocite{shean2016automated}
 
 % Create the References list
 \bibliographystyle{plainnat}
