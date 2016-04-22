@@ -363,6 +363,7 @@ void generate_point_pairs(// Inputs
   int num_pts = sight_vec.size();
   int num_cols = num_pts / num_rows;
 
+  // Sight vector in world coordinates
   world_sight_mat.clear();
   world_sight_mat.resize(num_rows);
   

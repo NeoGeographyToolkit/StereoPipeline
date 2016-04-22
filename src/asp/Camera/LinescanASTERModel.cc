@@ -223,7 +223,6 @@ vw::Vector2 ASTERCameraModel::point_to_pixel(Vector3 const& point, Vector2 const
   return solution;
 }
 
-// TODO: Port these changes to the base class
 vw::Vector2 ASTERCameraModel::point_to_pixel(Vector3 const& point, double starty) const {
   return this->point_to_pixel(point, Vector2(-1.0, starty));
 }

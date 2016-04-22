@@ -16,9 +16,10 @@
 // __END_LICENSE__
 
 
-/// \file LinescanDGModel.h
+/// \file LinescanASTERModel.h
 ///
-/// A generic linescan camera model object
+/// Linescan model for ASTER. Don't bother with time, just interpolate
+/// between pointing vectors.
 ///
 ///
 #ifndef __STEREO_CAMERA_LINESCAN_ASTER_MODEL_H__
