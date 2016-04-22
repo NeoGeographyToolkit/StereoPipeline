@@ -242,7 +242,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("output,o",                po::value(&opt.out_file)->default_value("orbit.kml"),
           "The output kml file that will be written")
     ("session-type,t",          po::value(&opt.stereo_session_string),
-          "Select the stereo session type to use for processing. [options: pinhole isis spot5 dg]")
+          "Select the stereo session type to use for processing. [options: pinhole isis spot5 dg aster]")
     ("load-camera-solve",       po::bool_switch(&opt.load_camera_solve)->default_value(false)->implicit_value(true),
           "Load the results from a run of the camera-solve tool. The only positional argument must be the path to the camera-solve output folder.")
     ("reference-spheroid,r",    po::value(&opt.datum)->default_value("moon"),

@@ -39,8 +39,8 @@
 #include <vw/Cartography/GeoReference.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
+#include <asp/Core/FileUtils.h>
 #include <asp/Camera/RPCModelGen.h>
-#include <asp/Camera/RPCModel.h>
 
 #include <limits>
 #include <cstring>
@@ -288,49 +288,6 @@ RadioCorrectView<ImageT> radio_correct(ImageT const& img, std::vector<Vector3> c
   return RadioCorrectView<ImageT>(img, corr, has_nodata, nodata);
 }
 
-void read_1d_points(std::string const& file, std::vector<double> & points){
-
-  std::ifstream ifs(file.c_str());
-  if (!ifs.good())
-    vw_throw( ArgumentErr() << "Could not open file for reading: " << file << "\n" );
-
-  double a;
-  points.clear();
-  while (ifs >> a)
-    points.push_back(a);
-  
-}
-
-void read_2d_points(std::string const& file, std::vector<Vector2> & points){
-
-  std::ifstream ifs(file.c_str());
-  if (!ifs.good())
-    vw_throw( ArgumentErr() << "Could not open file for reading: " << file << "\n" );
-  
-  double a, b;
-  points.clear();
-  while (ifs >> a >> b){
-    Vector2 p(a, b);
-    points.push_back(p);
-  }
-  
-}
-
-void read_3d_points(std::string const& file,
-		    std::vector<Vector3> & points){
-
-  std::ifstream ifs(file.c_str());
-  if (!ifs.good())
-    vw_throw( ArgumentErr() << "Could not open file for reading: " << file << "\n" );
-
-  double a, b, c;
-  points.clear();
-  while (ifs >> a >> b >> c){
-    Vector3 p(a, b, c);
-    points.push_back(p);
-  }
-}
-
 // ASTER L1A images come with radiometric corrections appended, but not applied.
 // There is one correction per image column.
 void apply_radiometric_corrections(Options const& opt, 
@@ -341,7 +298,7 @@ void apply_radiometric_corrections(Options const& opt,
 
   // Extract the corrections
   std::vector<Vector3> corr;
-  read_3d_points(corr_table, corr);
+  asp::read_3d_points(corr_table, corr);
   
   DiskImageView<float> input_img(input_image);
 
@@ -388,6 +345,7 @@ void generate_point_pairs(// Inputs
                           std::string const& latitude_file,
                           std::string const& lattice_file,
                           // Outputs
+			  std::vector< std::vector<vw::Vector3> > & world_sight_mat,
                           Vector3 & llh_scale, Vector3 & llh_offset,
                           Vector2 & pixel_scale, Vector2 & pixel_offset,
                           Vector<double> & normalized_llh,
@@ -395,16 +353,19 @@ void generate_point_pairs(// Inputs
 
   // Read the sight vectors 
   std::vector<Vector3> sight_vec;
-  read_3d_points(sight_vec_file, sight_vec);
+  asp::read_3d_points(sight_vec_file, sight_vec);
 
   // Read the satellite positions
   std::vector<Vector3> sat_pos;
-  read_3d_points(sat_pos_file, sat_pos);
+  asp::read_3d_points(sat_pos_file, sat_pos);
 
   int num_rows = sat_pos.size();
   int num_pts = sight_vec.size();
   int num_cols = num_pts / num_rows;
 
+  world_sight_mat.clear();
+  world_sight_mat.resize(num_rows);
+  
   if (num_rows * num_cols != num_pts) 
     vw_throw( ArgumentErr()
 	      << "Found " << num_rows << " satellite positions in "
@@ -428,13 +389,13 @@ void generate_point_pairs(// Inputs
     vw_throw( ArgumentErr() << "Book-keeping failure!\n" );
 
   std::vector<double> longitude;
-  read_1d_points(longitude_file, longitude);
+  asp::read_1d_points(longitude_file, longitude);
   if (int(longitude.size()) != num_pts)
     vw_throw( ArgumentErr() << "Expecting " << num_pts << " longitude values in "
 	      << longitude_file << " but got instead " << longitude.size() << ".\n" );
   
   std::vector<double> latitude;
-  read_1d_points(latitude_file, latitude);
+  asp::read_1d_points(latitude_file, latitude);
   if (int(latitude.size()) != num_pts)
     vw_throw( ArgumentErr() << "Expecting " << num_pts << " latitude values in "
 	      << latitude_file << " but got instead " << latitude.size() << ".\n" );
@@ -448,7 +409,7 @@ void generate_point_pairs(// Inputs
   }
   
   std::vector<Vector2> pixels;
-  read_2d_points(lattice_file, pixels);
+  asp::read_2d_points(lattice_file, pixels);
   if (int(pixels.size()) != num_pts)
     vw_throw( ArgumentErr() << "Expecting " << num_pts << " pixels in "
 	      << lattice_file << " but got instead " << pixels.size() << ".\n" );
@@ -459,11 +420,21 @@ void generate_point_pairs(// Inputs
   std::vector<Vector3> ground_xyz(num_pts);
   for (int i = 0; i < num_pts; i++) {
     ground_xyz[i] = datum.geodetic_to_cartesian(Vector3(longitude[i], latitude[i], 0));
-    //std::cout << "sat and xyz lon, lat, height are "
-    //          << datum.cartesian_to_geodetic(full_sat_pos[i]) << ' '
-    //          << datum.cartesian_to_geodetic(ground_xyz[i]) << std::endl;
   }
 
+  // Create the sight vectors, from the camera center to the ground, in world
+  // coordinates, rather than in spacecraft coordinates, like sight_vec.
+  for (int pt = 0; pt < num_pts; pt++) {
+    Vector3 G = ground_xyz[pt]; 
+    Vector3 C = full_sat_pos[pt];
+    Vector3 S = sight_vec[pt];
+    int row = pt/num_cols;
+    world_sight_mat[row].push_back( (G-C)/norm_2(G-C) );
+  }
+  if (world_sight_mat.empty() || (int)world_sight_mat[0].size() != num_cols) {
+    vw_throw( ArgumentErr() << "Incorrect number of world sight vectors.\n");
+  }
+    
   // Form num_samples layers between min_height and max_height.
   // Each point there will have its corresponding pixel value.
   int num_total_pts = num_pts*num_samples;
@@ -495,7 +466,7 @@ void generate_point_pairs(// Inputs
       count++;
     }
   }
-
+  
   // Find the range of lon-lat-heights
   BBox3 llh_box;
   for (size_t i = 0; i < all_llh.size(); i++) 
@@ -538,7 +509,12 @@ void generate_point_pairs(// Inputs
 }
 
 // Save an XML file having all RPC information
-void save_xml(Vector3 const& llh_scale,
+void save_xml(int image_cols, int image_rows,
+	      std::vector< std::vector<Vector2> > const& lattice_mat,
+	      std::vector< std::vector<Vector3> > const& sight_mat,
+	      std::vector< std::vector<Vector3> > const& world_sight_mat,
+	      std::vector<Vector3>                const& sat_pos,
+	      Vector3 const& llh_scale,
               Vector3 const& llh_offset,
               Vector2 const& pixel_scale,
               Vector2 const& pixel_offset,
@@ -569,6 +545,51 @@ void save_xml(Vector3 const& llh_scale,
   std::ofstream ofs(out_cam_file.c_str());
   
   ofs << "<isd>\n";
+
+  // Rigorous camera model
+
+  // Lattice points
+  ofs << "    <LATTICE_POINT>\n";
+  for (size_t row = 0; row < lattice_mat.size(); row++) {
+    for (size_t col = 0; col < lattice_mat[row].size(); col++) {
+      ofs << asp::vec_to_str(lattice_mat[row][col]) << std::endl;
+    }
+    ofs << std::endl;
+  }
+  ofs << "    </LATTICE_POINT>\n";
+
+  // Sight vector
+  ofs << "    <SIGHT_VECTOR>\n";
+  for (size_t row = 0; row < sight_mat.size(); row++) {
+    for (size_t col = 0; col < sight_mat[row].size(); col++) {
+      ofs << asp::vec_to_str(sight_mat[row][col]) << std::endl;
+    }
+    ofs << std::endl;
+  }
+  ofs << "    </SIGHT_VECTOR>\n";
+
+  // Sight vector in world coordinates
+  ofs << "    <WORLD_SIGHT_VECTOR>\n";
+  for (size_t row = 0; row < world_sight_mat.size(); row++) {
+    for (size_t col = 0; col < world_sight_mat[row].size(); col++) {
+      ofs << asp::vec_to_str(world_sight_mat[row][col]) << std::endl;
+    }
+    ofs << std::endl;
+  }
+  ofs << "    </WORLD_SIGHT_VECTOR>\n";
+  
+  // Satellite position
+  ofs << "    <SAT_POS>\n";
+  for (size_t row = 0; row < sat_pos.size(); row++) {
+    ofs << asp::vec_to_str(sat_pos[row]) << std::endl;
+  }
+  ofs << "    </SAT_POS>\n";
+
+  // Image size
+  ofs << "    <IMAGE_COLS>" << image_cols << "</IMAGE_COLS>\n";
+  ofs << "    <IMAGE_ROWS>" << image_rows << "</IMAGE_ROWS>\n";
+  
+  // RPC
   ofs << "    <RPB>\n";
   ofs << "        <SATID>ASTER_L1A_VNIR_Band3</SATID>\n";
   ofs << "        <IMAGE>\n";
@@ -600,25 +621,46 @@ void save_xml(Vector3 const& llh_scale,
   ofs.close();
 }
 
-// Compute the RPC coefficients
-void compute_rpc(double min_height, double max_height, int num_samples,
-                 double penalty_weight,
-                 std::string const& sat_pos_file,
-		 std::string const& sight_vec_file,
-		 std::string const& longitude_file,
-		 std::string const& latitude_file,
-		 std::string const& lattice_file,
-		 std::string const& out_cam_file){
+// Create XML files containing rigorous camera info, and compute the RPC coefficients as well.
+void gen_xml(double min_height, double max_height, int num_samples,
+	     double penalty_weight,
+	     std::string const& image_file,
+	     std::string const& sat_pos_file,
+	     std::string const& sight_vec_file,
+	     std::string const& longitude_file,
+	     std::string const& latitude_file,
+	     std::string const& lattice_file,
+	     std::string const& out_cam_file){
+  
+  std::vector< std::vector<Vector2> > lattice_mat;
+  asp::read_matrix_from_file(lattice_file, lattice_mat);
+  
+  std::vector< std::vector<Vector3> > sight_mat;
+  asp::read_matrix_from_file(sight_vec_file, sight_mat);
+  
+  if (lattice_mat.empty() || sight_mat.empty()     ||
+      lattice_mat.size()     != sight_mat.size()   ||
+      lattice_mat[0].size() != sight_mat[0].size() ) {
+    vw_throw( ArgumentErr() << "Inconsistent lattice point and sight vector information.\n");
+  }
 
+  // Read the satellite positions
+  std::vector<Vector3> sat_pos;
+  asp::read_3d_points(sat_pos_file, sat_pos);
+  if (sat_pos.size() != sight_mat.size()) 
+    vw_throw( ArgumentErr() << "Inconsistent satellite position and sight vector information.\n");
+    
   Vector3 llh_scale, llh_offset;
   Vector2 pixel_scale, pixel_offset;
   Vector<double> normalized_llh;
   Vector<double> normalized_pixels;
+  std::vector< std::vector<vw::Vector3> > world_sight_mat; // sight dir in world coords
   generate_point_pairs(// inputs
                        min_height, max_height, num_samples, penalty_weight,  
                        sat_pos_file, sight_vec_file,  
                        longitude_file, latitude_file, lattice_file,  
                        // Outputs
+		       world_sight_mat, 
                        llh_scale, llh_offset,  
                        pixel_scale, pixel_offset,  
                        normalized_llh,  
@@ -645,12 +687,19 @@ void compute_rpc(double min_height, double max_height, int num_samples,
   asp::print_vec("samp_num",     samp_num    );
   asp::print_vec("samp_den",     samp_den    );
 #endif
+
+  int image_cols, image_rows;
+  DiskImageView<float> input_img(image_file);
+  image_cols = input_img.cols();
+  image_rows = input_img.rows();
   
-  save_xml(llh_scale, llh_offset, pixel_scale, pixel_offset,  
+  save_xml(image_cols, image_rows, lattice_mat,
+	   sight_mat, world_sight_mat, sat_pos,
+	   llh_scale, llh_offset, pixel_scale, pixel_offset,  
            line_num, line_den, samp_num, samp_den,  
            out_cam_file);
 }
-  
+
 int main( int argc, char *argv[] ) {
 
   Options opt;
@@ -696,14 +745,14 @@ int main( int argc, char *argv[] ) {
               	<< out_back_cam  		<< std::endl;
 #endif
     
-    compute_rpc(opt.min_height, opt.max_height, opt.num_samples, opt.penalty_weight,
-                nadir_sat_pos, nadir_sight_vec, nadir_longitude, nadir_latitude,  
-                nadir_lattice_point, out_nadir_cam);
+    gen_xml(opt.min_height, opt.max_height, opt.num_samples, opt.penalty_weight,
+	    nadir_image, nadir_sat_pos, nadir_sight_vec, nadir_longitude, nadir_latitude,  
+	    nadir_lattice_point, out_nadir_cam);
     
-    compute_rpc(opt.min_height, opt.max_height, opt.num_samples, opt.penalty_weight,
-                back_sat_pos, back_sight_vec, back_longitude, back_latitude,  
-		back_lattice_point, out_back_cam);
-
+    gen_xml(opt.min_height, opt.max_height, opt.num_samples, opt.penalty_weight,
+	    back_image, back_sat_pos, back_sight_vec, back_longitude, back_latitude,  
+	    back_lattice_point, out_back_cam);
+    
     apply_radiometric_corrections(opt, nadir_image, nadir_corr_table, out_nadir_image);
     apply_radiometric_corrections(opt, back_image,  back_corr_table,  out_back_image);
     

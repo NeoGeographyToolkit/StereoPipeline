@@ -47,8 +47,7 @@ vw::Vector2 SPOTCameraModel::point_to_pixel(Vector3 const& point, double starty)
   vw::Vector2 solution = vw::math::levenberg_marquardt(model, start, objective, status,
                                                ABS_TOL, REL_TOL, MAX_ITERATIONS);
   // Check the error - If it is too high then the solver probably got stuck at the edge of the image.
-  Vector3 ray   = this->pixel_to_vector(solution);
-  double  error = vw::math::norm_2(ray - vw::math::normalize(point - this->camera_center(solution)));
+  double  error = norm_2(model(solution));
   VW_ASSERT( (status > 0) && (error < MAX_ERROR),
 	           vw::camera::PointToPixelErr() << "Unable to project point into LinescanSPOT model" );
 

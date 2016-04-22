@@ -22,14 +22,17 @@
 
 if MAKE_MODULE_SESSIONS
 
-TestStereoSessionDG_SOURCES  = TestStereoSessionDG.cxx
+TestStereoSessionDG_SOURCES       = TestStereoSessionDG.cxx
 TestStereoSessionDGMapRPC_SOURCES = TestStereoSessionDGMapRPC.cxx
-TestStereoSessionRPC_SOURCES = TestStereoSessionRPC.cxx
-TestInstantiation_SOURCES    = TestInstantiation.cxx
-TestStereoSessionSpot_SOURCES  = TestStereoSessionSpot.cxx
+TestStereoSessionRPC_SOURCES      = TestStereoSessionRPC.cxx
+TestInstantiation_SOURCES         = TestInstantiation.cxx
+TestStereoSessionSpot_SOURCES     = TestStereoSessionSpot.cxx
+TestStereoSessionASTER_SOURCES    = TestStereoSessionASTER.cxx
 
-TESTS = TestStereoSessionDG TestStereoSessionDGMapRPC	\
-TestStereoSessionRPC TestInstantiation TestStereoSessionSpot
+TESTS = TestStereoSessionDG TestStereoSessionDGMapRPC                \
+        TestStereoSessionRPC TestInstantiation TestStereoSessionSpot \
+        TestStereoSessionASTER
+
 
 endif
 

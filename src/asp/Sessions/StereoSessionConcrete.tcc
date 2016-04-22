@@ -242,6 +242,9 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
   case STEREOMODEL_TYPE_SPOT5:
     return load_adjusted_model(m_camera_loader.load_spot5_camera_model(camera_file),
                                image_file, camera_file, pixel_offset);
+  case STEREOMODEL_TYPE_ASTER:
+    return load_adjusted_model(m_camera_loader.load_ASTER_camera_model(camera_file),
+                               image_file, camera_file, pixel_offset);
   case STEREOMODEL_TYPE_RPC:
     try {
       if (camera_file != "")

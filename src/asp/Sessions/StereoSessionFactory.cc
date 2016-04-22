@@ -29,10 +29,12 @@
 #include <asp/Sessions/StereoSessionPinhole.h>
 #include <asp/Sessions/StereoSessionRPC.h>
 #include <asp/Sessions/StereoSessionSpot.h>
+#include <asp/Sessions/StereoSessionASTER.h>
 
 
 #include <vw/FileIO/DiskImageResourceRaw.h>
 #include <asp/Camera/SPOT_XML.h>
+#include <asp/Camera/ASTER_XML.h>
 
 namespace asp{
 
@@ -146,11 +148,13 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
     else if (actual_session_type == "isis")
       session_new = StereoSessionIsis::construct();
-    else if (actual_session_type == "spot5")
-      session_new = StereoSessionSpot::construct();
     else if (actual_session_type == "isismapisis")
       session_new = StereoSessionIsisMapIsis::construct();
 #endif
+    else if (actual_session_type == "spot5")
+      session_new = StereoSessionSpot::construct();
+    else if (actual_session_type == "aster")
+      session_new = StereoSessionASTER::construct();
     if (session_new == 0)
       vw_throw(vw::NoImplErr() << "Unsuppported stereo session type: " << session_type);
 

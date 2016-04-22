@@ -38,6 +38,7 @@
 #include <asp/Sessions/StereoSessionPinhole.h>
 #include <asp/Sessions/StereoSessionRPC.h>
 #include <asp/Sessions/StereoSessionSpot.h>
+#include <asp/Sessions/StereoSessionASTER.h>
 #include <xercesc/util/PlatformUtils.hpp>
 #include <ctime>
 
@@ -660,7 +661,7 @@ int main( int argc, char* argv[] ) {
 
     // Internal Processes
     //---------------------------------------------------------
-    
+
 #define INSTANTIATE(T,NAME) if ( opt_vec[0].session->name() == NAME ) { \
       stereo_triangulation<T>(output_prefix, opt_vec); }
 
@@ -671,7 +672,8 @@ int main( int argc, char* argv[] ) {
     INSTANTIATE(StereoSessionDGMapRPC,          "dgmaprpc"          );
     INSTANTIATE(StereoSessionRPCMapRPC,         "rpcmaprpc"         );
     INSTANTIATE(StereoSessionPinholeMapPinhole, "pinholemappinhole" );
-    INSTANTIATE(StereoSessionSpot,              "spot5"                );
+    INSTANTIATE(StereoSessionSpot,              "spot5"             );
+    INSTANTIATE(StereoSessionASTER,             "aster"             );
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
     INSTANTIATE(StereoSessionIsis,         "isis"                   );
     INSTANTIATE(StereoSessionIsisMapIsis,  "isismapisis"            );
