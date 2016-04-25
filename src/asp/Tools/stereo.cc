@@ -290,7 +290,7 @@ namespace asp {
     po::options_description general_options_sub("");
     general_options_sub.add_options()
       ("session-type,t",      po::value(&opt.stereo_session_string),
-                              "Select the stereo session type to use for processing. [options: pinhole isis dg rpc spot5 aster]")
+                              "Select the stereo session type to use for processing. [options: pinhole isis dg rpc spot5 aster pinholemappinhole isismapisis dgmaprpc rpcmaprpc astermaprpc]")
       ("stereo-file,s",       po::value(&opt.stereo_default_filename)->default_value("./stereo.default"),
        "Explicitly specify the stereo.default file to use. [default: ./stereo.default]");
 
@@ -583,7 +583,8 @@ namespace asp {
     // Check that if the user provided a dem that we are using a map projection method
     if (dem_provided
         && opt.session->name() != "dgmaprpc"    && opt.session->name() != "rpcmaprpc"
-        && opt.session->name() != "isismapisis" && opt.session->name() != "pinholemappinhole") {
+        && opt.session->name() != "isismapisis" && opt.session->name() != "pinholemappinhole"
+	&& opt.session->name() != "astermaprpc") {
       vw_throw(ArgumentErr() << "Cannot use map-projected images with a session of type: "
                              << opt.session->name() << ".\n");
     }

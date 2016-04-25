@@ -428,8 +428,7 @@ void generate_point_pairs(// Inputs
   for (int pt = 0; pt < num_pts; pt++) {
     Vector3 G = ground_xyz[pt]; 
     Vector3 C = full_sat_pos[pt];
-    Vector3 S = sight_vec[pt];
-    int row = pt/num_cols;
+    int row   = pt/num_cols;
     world_sight_mat[row].push_back( (G-C)/norm_2(G-C) );
   }
   if (world_sight_mat.empty() || (int)world_sight_mat[0].size() != num_cols) {

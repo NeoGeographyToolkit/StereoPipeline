@@ -1194,7 +1194,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("semi-minor-axis",  po::value(&opt.semi_minor)->default_value(0),
                          "Explicitly set the datum semi-minor axis in meters (needed only if ground control points are used).")
     ("session-type,t",   po::value(&opt.stereo_session_string)->default_value(""),
-                         "Select the stereo session type to use for processing. Options: pinhole isis dg rpc. Usually the program can select this automatically by the file extension.")
+                         "Select the stereo session type to use for processing. Options: pinhole isis dg rpc spot5 aster. Usually the program can select this automatically by the file extension.")
     ("min-matches",      po::value(&opt.min_matches)->default_value(30),
                          "Set the minimum  number of matches between images that will be considered.")
     ("ip-detect-method",po::value(&opt.ip_detect_method)->default_value(0),

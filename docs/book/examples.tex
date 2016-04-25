@@ -930,22 +930,16 @@ degrees. It is approximately 31 meters/pixel, the same as the publicly available
 and about twice the 15 meters/pixel image resolution.
 
 Much higher quality results, but still not as detailed as the public ASTER DEM
-can be obtained by first doing bundle-adjustment, then doing stereo as before
-with bundle-adjusted images, followed by map-projection onto a coarser and smoother
+can be obtained by doing stereo as before, followed by map-projection onto a coarser and smoother
 version of the obtained DEM, and then redoing stereo with map-projected images
 (per the suggestions in chapter \ref{tips}).
 Using \texttt{-\/-subpixel-mode 2}, while much slower, yields the best results.
 The flow is as follows:
 
 \begin{verbatim}
-  # Bundle adjustment
-  bundle_adjust out-Band3N.tif out-Band3B.tif out-Band3N.xml out-Band3B.xml \
-     -o out_ba/run -t rpc
-  
-  # Initial stereo with bundle-adjusted images
+  # Initial stereo
   stereo -t rpc --subpixel-mode 3 out-Band3N.tif out-Band3B.tif \
-     out-Band3N.xml out-Band3B.xml out_stereo/run               \
-     --bundle-adjust-prefix out_ba/run
+     out-Band3N.xml out-Band3B.xml out_stereo/run               
 
   # Create a coarse and smooth DEM at 300 meters/pixel
   point2dem -r earth --tr 0.0026949458523585 out_stereo/run-PC.tif \
@@ -953,16 +947,14 @@ The flow is as follows:
 
   # Map-project onto this DEM at 10 meters/pixel
   mapproject --tr 0.0000898315284119 out_stereo/run-300m-DEM.tif \
-    out-Band3N.tif out-Band3N.xml out-Band3N_proj.tif            \
-    --bundle-adjust-prefix out_ba/run
+    out-Band3N.tif out-Band3N.xml out-Band3N_proj.tif            
   mapproject --tr 0.0000898315284119 out_stereo/run-300m-DEM.tif \
-    out-Band3B.tif out-Band3B.xml out-Band3B_proj.tif            \
-    --bundle-adjust-prefix out_ba/run
+    out-Band3B.tif out-Band3B.xml out-Band3B_proj.tif            
   
   # Run stereo with the map-projected images with subpixel-mode 2
-  stereo --subpixel-mode 2 out-Band3N_proj.tif out-Band3B_proj.tif \
+  stereo -t rpc --subpixel-mode 2 out-Band3N_proj.tif out-Band3B_proj.tif \
     out-Band3N.xml out-Band3B.xml out_stereo_proj/run              \
-    out_stereo/run-300m-DEM.tif -t rpc --bundle-adjust-prefix out_ba/run
+    out_stereo/run-300m-DEM.tif
 
   # Create the final DEM
   point2dem -r earth --tr 0.000277777777778 out_stereo_proj/run-PC.tif
@@ -983,3 +975,16 @@ or smaller correlation and subpixel-refinement kernels, that is
 
 instead of the defaults (21 21 and 35 35) but this comes with increased noise as well, and
 using a finer resolution results in longer run-time.
+
+ASP also implements the exact ASTER linescan camera model, in addition
+to the RPC approximation. To take advantage of that, in the commands above
+one can run stereo with the \texttt{aster} session instead of \texttt{rpc}.
+The \texttt{mapproject} command should not be modified. Just as for
+Digital Globe images, it is sufficient to use the approximate RPC model
+in map-projection even when using the exact linescan model in the stereo
+step.
+
+We did not get better results by using the exact linescan model as
+opposed to the RPC model when compared to pre-existing ASTER DEMs. Using
+ASP's \texttt{bundle\_adjust} as a pre-processing step did not improve
+the results either.

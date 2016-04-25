@@ -61,7 +61,7 @@ in sub-directories, we recommend using an output prefix like
 \hline
 Option & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message\\ \hline
-\texttt{-\/-session-type|-t pinhole|isis|dg|rpc} & Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension.\\ \hline
+\texttt{-\/-session-type|-t pinhole|isis|dg|rpc|spot5|aster|pinholemappinhole|isismapisis|dgmaprpc|rpcmaprpc|astermaprpc} & Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension.\\ \hline
 \texttt{-\/-stereo-file|-s \textit{filename(=./stereo.default)}} & Define the stereo.default file to use.\\ \hline
 \texttt{-\/-entry-point|-e integer(=0 to 4)} & Stereo Pipeline entry
 point (start at this stage). \\ \hline
@@ -473,7 +473,7 @@ in meters (needed only if ground control points are used).\\ \hline
 \texttt{-\/-semi-minor-axis \textit{double}} & Explicitly set the datum semi-minor axis
 in meters (needed only if ground control points are used).\\ \hline
 
-\texttt{-\/-session-type|-t pinhole|isis|dg|rpc} & Select the stereo
+\texttt{-\/-session-type|-t pinhole|isis|dg|rpc|spot5|aster} & Select the stereo
 session type to use for processing. Usually the program can select this
 automatically by the file extension.\\ \hline
 

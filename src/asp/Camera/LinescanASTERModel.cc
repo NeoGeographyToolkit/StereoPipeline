@@ -48,8 +48,6 @@ ASTERCameraModel::ASTERCameraModel(std::vector< std::vector<vw::Vector2> > const
   // The spacing between rows must be integer
   double tol = 1e-10;
   double d_row = double(max_row - min_row)/(num_rows - 1.0);
-  std::cout.precision(20);
-  std::cout << "d_row is " << d_row << std::endl;
   if (std::abs(d_row - round(d_row)) > tol) {
     vw::vw_throw( vw::ArgumentErr()
                   << "The spacing between lattice points must be integer.\n" );
@@ -58,8 +56,6 @@ ASTERCameraModel::ASTERCameraModel(std::vector< std::vector<vw::Vector2> > const
 
   // The spacing between columns must be integer
   double d_col = double(max_col - min_col)/(num_cols - 1.0);
-  std::cout.precision(20);
-  std::cout << "d_col is " << d_col << std::endl;
   if (std::abs(d_col - round(d_col)) > tol) {
     vw::vw_throw( vw::ArgumentErr()
                   << "The spacing between lattice points must be integer.\n" );

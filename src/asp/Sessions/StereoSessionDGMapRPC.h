@@ -86,6 +86,17 @@ namespace asp {
     static StereoSession* construct() { return new StereoSessionPinholeMapPinhole; }
   };
 
+  /// Specialization of the StereoSessionGDAL class to use (RPC) map-projected inputs with the ASTER sensor model.
+  class StereoSessionASTERMapRPC : public StereoSessionGdal<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC, STEREOMODEL_TYPE_ASTER>  {
+  public:
+    StereoSessionASTERMapRPC(){};
+    virtual ~StereoSessionASTERMapRPC(){};
+
+    virtual std::string name() const { return "astermaprpc"; }
+
+    static StereoSession* construct() { return new StereoSessionASTERMapRPC; }
+  };
+
 }
 
 #endif//__STEREO_SESSION_DGMAPRPC_H__
