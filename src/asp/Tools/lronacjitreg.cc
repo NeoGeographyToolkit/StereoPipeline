@@ -16,9 +16,9 @@
 // __END_LICENSE__
 
 
-/// \file lrojitreg.cc
+/// \file lronacjitreg.cc
 ///
-
+#include <vw/Math/Functors.h>
 #include <vw/Image/ImageView.h>
 #include <vw/Image/ImageMath.h>
 #include <vw/Image/MaskViews.h>
@@ -56,66 +56,6 @@ using std::setw;
 - Output those two values!
 */
 
-
-// TODO: Move this class to a library file!
-/// Class to compute a running standard deviation
-/// - Code from http://www.johndcook.com/standard_deviation.html
-class RunningStatistics
-{
-public:
-  RunningStatistics() : m_n(0), m_oldM(0), m_newM(0), m_oldS(0), m_newS(0) {}
-
-  void Clear()
-  {
-    m_n = 0;
-  }
-
-  void Push(double x)
-  {
-    m_n++;
-
-    // See Knuth TAOCP vol 2, 3rd edition, page 232
-    if (m_n == 1)
-    {
-      m_oldM = m_newM = x;
-      m_oldS = 0.0;
-    }
-    else
-    {
-      m_newM = m_oldM + (x - m_oldM)/m_n;
-      m_newS = m_oldS + (x - m_oldM)*(x - m_newM);
-
-      // set up for next iteration
-      m_oldM = m_newM; 
-      m_oldS = m_newS;
-    }
-  }
-
-  int NumDataValues() const
-  {
-    return m_n;
-  }
-
-  double Mean() const
-  {
-    return (m_n > 0) ? m_newM : 0.0;
-  }
-
-  double Variance() const
-  {
-    return ( (m_n > 1) ? m_newS/(m_n - 1) : 0.0 );
-  }
-
-  double StandardDeviation() const
-  {
-    return sqrt( Variance() );
-  }
-
-private:
-  int    m_n;
-  double m_oldM, m_newM, m_oldS, m_newS;
-
-};
 
 
 struct Parameters : asp::BaseOptions 
@@ -392,7 +332,7 @@ bool determineShifts(Parameters & params,
   int    numValidRows        = 0;
   int    totalNumValidPixels = 0;
   
-  RunningStatistics stdCalcX, stdCalcY;
+  vw::StdDevAccumulator<float> stdCalcX, stdCalcY;
   
   std::vector<double> rowOffsets(disparity_map.rows());
   std::vector<double> colOffsets(disparity_map.rows());  
@@ -400,9 +340,10 @@ bool determineShifts(Parameters & params,
   {
   
     // Accumulate the shifts for this row
-    RunningStatistics rowCalcY;
+    vw::StdDevAccumulator<float> stdDevCalcRow;
     double rowSum        = 0.0;
     double colSum        = 0.0;
+    double stdDevRow     = 0.0;
     int    numValidInRow = 0;
     for (int col=0; col<disparity_map.cols(); ++col)
     {
@@ -415,10 +356,10 @@ bool determineShifts(Parameters & params,
         colSum += dX;
         ++numValidInRow;
       
-        stdCalcX.Push(dX);
-        stdCalcY.Push(dY);
+        stdCalcX(dX);
+        stdCalcY(dY);
 
-        rowCalcY.Push(dY);
+        stdDevCalcRow(dY);
       }
     } // End loop through cols
 
@@ -427,15 +368,16 @@ bool determineShifts(Parameters & params,
     {
       rowOffsets[row] = 0;
       colOffsets[row] = 0;
+      stdDevRow       = 0;
     }
     else  // At least one valid pixel
     {
       rowOffsets[row] = rowSum / static_cast<double>(numValidInRow);
       colOffsets[row] = colSum / static_cast<double>(numValidInRow);
+      stdDevRow = stdDevCalcRow.value();
       totalNumValidPixels += numValidInRow;
       ++numValidRows;      
     }
- 
     
     if (writeLogFile)
     {
@@ -444,7 +386,7 @@ bool determineShifts(Parameters & params,
           << setw(6) << rowOffsets[row] << ", " 
           << setw(6) << colOffsets[row] << " Count = " 
           << setw(3) << numValidInRow   << " Std = " 
-          << setw(4) << rowCalcY.StandardDeviation() << std::endl;    
+          << setw(4) << stdDevRow << std::endl;    
     }
 
   } // End loop through rows
@@ -468,10 +410,10 @@ bool determineShifts(Parameters & params,
     if(numValidRows > 0) 
     {
       out << "#   Using IpFind result only:   0" << endl;
-      out << "#   Average Sample Offset: " << setprecision(4) << stdCalcX.Mean()
-          << "  StdDev: " << setprecision(4) << stdCalcX.StandardDeviation() << endl;
-      out << "#   Average Line Offset:   " << setprecision(4) << stdCalcY.Mean()
-          << " StdDev: " << setprecision(4) << stdCalcY.StandardDeviation() << endl;
+      out << "#   Average Sample Offset: " << setprecision(4) << stdCalcX.mean()
+          << "  StdDev: " << setprecision(4) << stdCalcX.value() << endl;
+      out << "#   Average Line Offset:   " << setprecision(4) << stdCalcY.mean()
+          << " StdDev: " << setprecision(4) << stdCalcY.value() << endl;
      }
      else  // No valid rows
      {
@@ -502,8 +444,8 @@ bool determineShifts(Parameters & params,
   }
   
   // Compute overall mean shift
-  meanVertOffset  = stdCalcY.Mean();
-  meanHorizOffset = stdCalcX.Mean();
+  meanVertOffset  = stdCalcY.mean();
+  meanHorizOffset = stdCalcX.mean();
   
   dX = meanHorizOffset;
   dY = meanVertOffset;
