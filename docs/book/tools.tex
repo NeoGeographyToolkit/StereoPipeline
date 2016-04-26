@@ -1215,7 +1215,7 @@ The weight to use to penalize higher order RPC coefficients when generating the 
 \label{mapproject}
 
 The tool \texttt{mapproject} is used to orthorectify (map-project) a camera image onto
-a DEM. (ASP is able to use map-projected images to run stereo, section
+a DEM or datum. (ASP is able to use map-projected images to run stereo, section
 \ref{mapproj-example}.)
 
 The \texttt{mapproject} program can be run using multiple processes and can be
@@ -1232,11 +1232,18 @@ mapproject -t isis DEM.tif image.cub  output-IMG.tif --ppd 256
 \end{verbatim}
 
 \begin{verbatim}
-mapproject -t rpc DEM.tif image.tif image.xml output-IMG.tif --tr 20
+mapproject -t rpc DEM.tif image.tif image.xml output-IMG.tif --mpp 20
 \end{verbatim}
 
+\begin{verbatim}
+mapproject WGS84 image.tif output.tif --mpp 10
+\end{verbatim}
+
+The first argument can either be a path to a DEM file or the name of a standard datum.
+Valid datum names include WGS84, NAD83, NAD27, D\_MOON, D\_MARS, and MOLA.
+
 It is very important to pick a good value for the grid size parameter, given by
-\texttt{-\/-tr}. Ideally it should be very close to the known image resolution
+\texttt{-\/-mpp} or \texttt{-\/-ppd}. Ideally it should be very close to the known image resolution
 as measured on the ground (in degree or meter units, depending on the projection).
 
 If the imagery is from Digital Globe, both the exact DG model from the XML file
@@ -1255,12 +1262,11 @@ Options & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message. \\ \hline
 \texttt{-\/-nodata-value \textit{float(=-32768)}} & No-data value to use unless specified in the input image. \\ \hline
 \texttt{-\/-t\_srs} & Specify the output projection (PROJ.4 string). If not provided, use the one from the DEM. \\ \hline
-\texttt{-\/-tr \textit{float}} & Set the output file resolution in target
-  georeferenced units per pixel. \\ \hline
 \texttt{-\/-mpp \textit{float}} & Set the output file resolution in meters per
 pixel. \\ \hline
 \texttt{-\/-ppd \textit{float}} & Set the output file resolution in pixels per
 degree. \\ \hline
+\texttt{-\/-datum-offset \textit{float}} & When projecting to a datum instead of a DEM, add this elevation offset to the datum. \\ \hline
 \texttt{-\/-session-type|-t pinhole|isis|rpc} & Select the stereo
 session type to use for processing. Choose 'rpc' if it is desired to later do stereo with the 'dg' session. \\ \hline
 \texttt{-\/-t\_projwin \textit{xmin ymin xmax ymax}} & Limit the map-projected image to this region, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive. \\ \hline

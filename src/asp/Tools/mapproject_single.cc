@@ -36,7 +36,85 @@ using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-typedef PixelMask<float> PMaskT;
+
+/// Variant of Map2CamTrans that accepts a constant elevation instead of a DEM.
+/// - TODO: Move to vision workbench!
+class Datum2CamTrans : public vw::TransformBase<Map2CamTrans> {
+  vw::camera::CameraModel const* m_cam;
+  GeoReference m_image_georef, m_dem_georef;
+  float        m_dem_height;
+  vw::Vector2i m_image_size;
+  bool         m_call_from_mapproject;
+  Vector2      m_invalid_pix;
+
+public:
+  Datum2CamTrans( vw::camera::CameraModel const* cam,
+                GeoReference const& image_georef,
+                GeoReference const& dem_georef,
+                float dem_height,
+                vw::Vector2i const& image_size,
+                bool call_from_mapproject
+                ):
+    m_cam(cam), m_image_georef(image_georef), m_dem_georef(dem_georef),
+    m_dem_height(dem_height), m_image_size(image_size),
+    m_call_from_mapproject(call_from_mapproject){
+
+    m_invalid_pix = vw::camera::CameraModel::invalid_pixel();
+  }
+
+  /// Convert Map Projected pixel to camera pixel
+  vw::Vector2 reverse(const vw::Vector2 &p) const{
+
+    Vector2 lonlat = m_image_georef.pixel_to_lonlat(p);
+    Vector3 lonlatAlt(lonlat[0], lonlat[1], m_dem_height);
+    Vector3 xyz = m_dem_georef.datum().geodetic_to_cartesian(lonlatAlt);
+    
+    int b = BicubicInterpolation::pixel_buffer;  
+    Vector2 pt;
+    try{
+      pt = m_cam->point_to_pixel(xyz);
+      if ( m_call_from_mapproject &&
+           (pt[0] < b - 1 || pt[0] >= m_image_size[0] - b ||
+            pt[1] < b - 1 || pt[1] >= m_image_size[1] - b)
+           ){
+        // Won't be able to interpolate into image in transform(...)
+        return m_invalid_pix;
+      }
+    }catch(...){ // If a point failed to project
+      return m_invalid_pix;
+    }
+
+    return pt;
+  }
+
+  vw::BBox2i reverse_bbox( vw::BBox2i const& bbox ) const {
+
+    vw::BBox2 out_box;      
+    for( int32 y=bbox.min().y(); y<bbox.max().y(); ++y ){
+      for( int32 x=bbox.min().x(); x<bbox.max().x(); ++x ){
+      
+        Vector2 p = reverse( Vector2(x,y) );
+        if (p == m_invalid_pix) 
+          continue;
+        out_box.grow( p );
+      }
+    }
+    out_box = grow_bbox_to_int( out_box );
+
+    // Need the check below as to not try to create images with negative dimensions.
+    if (out_box.empty())
+      out_box = vw::BBox2i(0, 0, 0, 0);
+
+    return out_box;
+  }
+}; // End class Datum2CamTrans
+
+
+
+
+/// The pixel type used for the DEM data
+typedef PixelMask<float> DemPixelT;
+
 
 struct Options : asp::BaseOptions {
   // Input
@@ -46,7 +124,7 @@ struct Options : asp::BaseOptions {
 
   // Settings
   std::string target_srs_string;
-  double nodata_value, target_resolution, mpp, ppd;
+  double nodata_value, mpp, ppd, datum_offset;
   BBox2 target_projwin, target_pixelwin;
 };
 
@@ -58,12 +136,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "No-data value to use unless specified in the input image.")
     ("t_srs",            po::value(&opt.target_srs_string)->default_value(""),
      "Specify the projection (PROJ.4 string). If not provided, use the one from the DEM.")
-    ("tr",               po::value(&opt.target_resolution)->default_value(NaN),
-     "Set the output file resolution in target georeferenced units per pixel.")
     ("mpp",              po::value(&opt.mpp)->default_value(NaN),
      "Set the output file resolution in meters per pixel.")
     ("ppd",              po::value(&opt.ppd)->default_value(NaN),
      "Set the output file resolution in pixels per degree.")
+    ("datum-offset",     po::value(&opt.datum_offset)->default_value(0),
+     "When projecting to a datum instead of a DEM, use this elevation in meters from the datum.")
     ("query-projection", po::bool_switch(&opt.isQuery)->default_value(false),
       "Just display the computed projection information without actually doing the projection.")
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
@@ -118,6 +196,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
 }
 
+
 template <class ImageT>
 void write_parallel_cond( std::string              const& filename,
                           ImageViewBase<ImageT>    const& image,
@@ -163,12 +242,12 @@ void write_parallel_cond( std::string              const& filename,
 /// Compute which camera pixel observes a DEM pixel.
 Vector2 demPixToCamPix(Vector2i const& dem_pixel,
                       boost::shared_ptr<camera::CameraModel> const& camera_model,
-                      ImageViewRef<PMaskT> const& dem,
+                      ImageViewRef<DemPixelT> const& dem,
                       GeoReference const &dem_georef)
 {
   Vector2 lonlat = dem_georef.point_to_lonlat(dem_georef.pixel_to_point(dem_pixel));
   //vw_out() << "lonlat = " << lonlat << std::endl;
-  PMaskT height = dem(dem_pixel[0], dem_pixel[1]);
+  DemPixelT height = dem(dem_pixel[0], dem_pixel[1]);
   Vector3 xyz = dem_georef.datum().geodetic_to_cartesian
                     (Vector3(lonlat[0], lonlat[1], height.child()));
   //vw_out() << "xyz = " << xyz << std::endl;
@@ -182,7 +261,7 @@ Vector2 demPixToCamPix(Vector2i const& dem_pixel,
 /// - TODO: This method still does not guarantee all points will be included in the bbox.
 /// - TODO: This should probably take pixel validity into account!
 void expandBboxToContainCornerIntersections(boost::shared_ptr<camera::CameraModel> const& camera_model,
-                                            ImageViewRef<PMaskT> const& dem,
+                                            ImageViewRef<DemPixelT> const& dem,
                                             GeoReference const &dem_georef,
                                             Vector2i const& image_size,
                                             BBox2 & bbox_on_ground)
@@ -227,7 +306,7 @@ void calc_target_geom(// Inputs
                       bool calc_target_res,
                       Vector2i const& image_size,
                       boost::shared_ptr<camera::CameraModel> const& camera_model,
-                      ImageViewRef<PMaskT> const& dem,
+                      ImageViewRef<DemPixelT> const& dem,
                       GeoReference dem_georef, // make copy on purpose
                       BBox2  dem_box,         // make copy on purpose
                       // Outputs
@@ -246,27 +325,44 @@ void calc_target_geom(// Inputs
 
   //vw_out() << "\ncam_box calc1:\n" << cam_box << std::endl;
 
-  if (first_pass) {
-    // Project the four corners of the DEM into the camera; if any of them intersect,
-    //  expand the bbox to include their coordinates
-    // - This is not valid in the second pass because the dem_georef is no longer accurate!
-    expandBboxToContainCornerIntersections(camera_model, dem, dem_georef, image_size, cam_box);
+  // The next two cam_box adjustments are not valid with a flat datum DEM.
+  const bool flat_datum_dem = (fs::path(opt.dem_file).extension() == "");
+  if (!flat_datum_dem) {
+
+    if (first_pass) {
+      // Project the four corners of the DEM into the camera; if any of them intersect,
+      //  expand the bbox to include their coordinates
+      // - This is not valid in the second pass because the dem_georef is no longer accurate!
+      expandBboxToContainCornerIntersections(camera_model, dem, dem_georef, image_size, cam_box);
+    }
+
+    //vw_out() << "\ncam_box calc dem expanded:\n" << cam_box << std::endl;
+
+    if (first_pass){
+      // Convert bounding box from dem_georef coordinate system to
+      //  target_georef coordinate system
+      cam_box = target_georef.lonlat_to_point_bbox
+        (dem_georef.point_to_lonlat_bbox(cam_box));
+
+      //vw_out() << "\ncam_box calc trans:\n" << cam_box << std::endl;
+    }
   }
 
-  //vw_out() << "\ncam_box calc dem expanded:\n" << cam_box << std::endl;
-
-  if (first_pass){
-    // Convert bounding box from dem_georef coordinate system to
-    //  target_georef coordinate system
-    cam_box = target_georef.lonlat_to_point_bbox
-      (dem_georef.point_to_lonlat_bbox(cam_box));
-
-    //vw_out() << "\ncam_box calc trans:\n" << cam_box << std::endl;
-  }
+  double current_resolution;
 
   // Use auto-calculated ground resolution if that option was selected
   if (calc_target_res)
-    opt.target_resolution = auto_res;
+    current_resolution = auto_res;
+  else {
+    // Set the resolution from input options
+    if (target_georef.is_projected()) {
+      current_resolution = opt.mpp; // Use units of meters
+    } else { // Not projected, GDC coordinates only.
+      current_resolution = 1/opt.ppd; // Use units of degrees
+                                      // Lat/lon degrees are different so we never want to do this!
+    }  
+  }
+  //vw_out() << "current_resolution = " << current_resolution << std::endl;
 
   // If an image bounding box (projected coordinates) was passed in,
   // override the camera's view on the ground with the custom box.
@@ -276,17 +372,19 @@ void calc_target_geom(// Inputs
     cam_box = opt.target_projwin;
     if ( cam_box.min().y() > cam_box.max().y() )
       std::swap( cam_box.min().y(), cam_box.max().y() );
-    cam_box.max().x() -= opt.target_resolution; //TODO: What are these adjustments?
-    cam_box.min().y() += opt.target_resolution;
+    cam_box.max().x() -= current_resolution; //TODO: What are these adjustments?
+    cam_box.min().y() += current_resolution;
+    //vw_out() << "\ncam_box projwin1:\n" << cam_box << std::endl;
   }
 
-  if ( opt.target_projwin == BBox2() ) {
+  if ( (opt.target_projwin == BBox2()) && (!flat_datum_dem) ) {
     // Ensure the camera box does not extend beyond the DEM box.
     // Apply this only if the user did not explicitly request
     // a custom proj win.
-    dem_box.max().x() -= opt.target_resolution; //TODO: What are these adjustments?
-    dem_box.min().y() += opt.target_resolution;
+    dem_box.max().x() -= current_resolution; //TODO: What are these adjustments?
+    dem_box.min().y() += current_resolution;
     cam_box.crop(dem_box);
+    //vw_out() << "\ncam_box projwin2:\n" << cam_box << std::endl;
   }
 
   // In principle the corners of the projection box can be
@@ -297,13 +395,12 @@ void calc_target_geom(// Inputs
   // single projected image. The tiling solution provides a nice
   // speedup when dealing with ISIS images, when projection runs
   // only with one thread.
-  double s = opt.target_resolution;
+  double s = current_resolution;
   int min_x         = (int)round(cam_box.min().x() / s);
   int min_y         = (int)round(cam_box.min().y() / s);
   int output_width  = (int)round(cam_box.width()   / s);
   int output_height = (int)round(cam_box.height()  / s);
   cam_box = s * BBox2(min_x, min_y, output_width, output_height);
-
   //vw_out() << "\ncam_box calc scaled:\n" << cam_box << std::endl;
 
 
@@ -316,19 +413,177 @@ void calc_target_geom(// Inputs
     T(0,2) = cam_box.max().x();  // The maximum projected X coordinate is the starting offset
   else
     T(0,2) = cam_box.min().x(); // The minimum projected X coordinate is the starting offset
-  T(0,0) =  opt.target_resolution;  // Set col/X conversion to meters per pixel
-  T(1,1) = -opt.target_resolution;  // Set row/Y conversion to meters per pixel with a vertical flip (increasing row = down in Y)
+  T(0,0) =  current_resolution;  // Set col/X conversion to meters per pixel
+  T(1,1) = -current_resolution;  // Set row/Y conversion to meters per pixel with a vertical flip (increasing row = down in Y)
   T(1,2) = cam_box.max().y();       // The maximum projected Y coordinate is the starting offset
   if ( target_georef.pixel_interpretation() ==
        GeoReference::PixelAsArea ) { // Meaning point [0][0] equals location (0.5, 0.5)
-    T(0,2) -= 0.5 * opt.target_resolution; // Apply a small shift to the offsets
-    T(1,2) += 0.5 * opt.target_resolution;
+    T(0,2) -= 0.5 * current_resolution; // Apply a small shift to the offsets
+    T(1,2) += 0.5 * current_resolution;
   }
   target_georef.set_transform( T ); // Overwrite the existing transform in target_georef
 
   return;
 }
 
+
+/// Map project the image with a nodata value.  Used for single channel images.
+template <class ImagePixelT, class Map2CamTransT>
+void project_image_nodata(Options & opt,
+                          GeoReference const& croppedGeoRef,
+                          Vector2i     const& virtual_image_size,
+                          BBox2i       const& croppedImageBB,
+                          boost::shared_ptr<camera::CameraModel> const& camera_model,
+                   Map2CamTransT const& transform) {
+
+    typedef PixelMask<ImagePixelT> ImageMaskPixelT;
+
+    // Create handle to input image to be projected on to the map
+    boost::shared_ptr<DiskImageResource> img_rsrc = 
+          asp::load_disk_image_resource(opt.image_file, opt.camera_model_file);   
+
+    // Update the nodata value from the input file if it is present.
+    if (img_rsrc->has_nodata_read()) 
+      opt.nodata_value = img_rsrc->nodata_read();
+    
+    bool            has_img_nodata = true;
+    ImageMaskPixelT nodata_mask    = ImageMaskPixelT(); // invalid value for a PixelMask
+
+    write_parallel_cond
+      ( // Write to the output file
+       opt.output_file,
+       crop( // Apply crop (only happens if --t_pixelwin was specified)
+            apply_mask
+            ( // Handle nodata
+             transform_nodata( // Apply the output from Map2CamTrans
+                              create_mask(DiskImageView<ImagePixelT>(img_rsrc),
+                                          opt.nodata_value), // Handle nodata
+                              transform,
+                              virtual_image_size[0],
+                              virtual_image_size[1],
+                              ValueEdgeExtension<ImageMaskPixelT>(nodata_mask),
+                              BicubicInterpolation(), nodata_mask
+                              ),
+             opt.nodata_value
+             ),
+            croppedImageBB
+            ),
+       croppedGeoRef, has_img_nodata, opt.nodata_value, opt,
+       TerminalProgressCallback("","")
+       );
+
+}
+
+/// Map project the image with an alpha channel.  Used for multi-channel images.
+template <class ImagePixelT, class Map2CamTransT>
+void project_image_alpha(Options & opt,
+                   GeoReference const& croppedGeoRef,
+                   Vector2i     const& virtual_image_size,
+                   BBox2i       const& croppedImageBB,
+                   boost::shared_ptr<camera::CameraModel> const& camera_model,
+                   Map2CamTransT const& transform) {
+
+    // Create handle to input image to be projected on to the map
+    boost::shared_ptr<DiskImageResource> img_rsrc = 
+          asp::load_disk_image_resource(opt.image_file, opt.camera_model_file);   
+
+    const bool        has_img_nodata    = false;
+    const ImagePixelT transparent_pixel = ImagePixelT();
+
+    write_parallel_cond
+      ( // Write to the output file
+       opt.output_file,
+       crop( // Apply crop (only happens if --t_pixelwin was specified)
+             // Transparent pixels are inserted for nodata
+             transform_nodata( // Apply the output from Map2CamTrans
+                              DiskImageView<ImagePixelT>(img_rsrc),
+                              transform,
+                              virtual_image_size[0],
+                              virtual_image_size[1],
+                              ConstantEdgeExtension(),
+                              BicubicInterpolation(), transparent_pixel
+                              ),
+             croppedImageBB
+           ),
+       croppedGeoRef, has_img_nodata, opt.nodata_value, opt,
+       TerminalProgressCallback("","")
+       );
+
+}
+
+// The two "pick" functions below select between the Map2CamTrans and Datum2CamTrans
+// transform classes which will be passed to the image projection function.
+// - TODO: Is there a good reason for the transform classes to be CRTP instead of virtual?
+
+template <class ImagePixelT>
+void project_image_nodata_pick_transform(Options & opt,
+                          GeoReference const& dem_georef,
+                          GeoReference const& target_georef,
+                          GeoReference const& croppedGeoRef,
+                          Vector2i     const& image_size,
+                          Vector2i     const& virtual_image_size,
+                          BBox2i       const& croppedImageBB,
+                          boost::shared_ptr<camera::CameraModel> const& camera_model) {
+  const bool        call_from_mapproject = true;
+  if (fs::path(opt.dem_file).extension() != "") {
+    // A DEM file was provided
+    return project_image_nodata<ImagePixelT>(opt, croppedGeoRef,
+                                             virtual_image_size, croppedImageBB, camera_model, 
+                                             Map2CamTrans( // Converts coordinates in DEM
+                                                           // georeference to camera pixels
+                                                          camera_model.get(), target_georef,
+                                                          dem_georef, opt.dem_file, image_size,
+                                                          call_from_mapproject
+                                                          )
+                                            );
+  } else {
+    // A constant datum elevation was provided
+    return project_image_nodata<ImagePixelT>(opt, croppedGeoRef,
+                                             virtual_image_size, croppedImageBB, camera_model, 
+                                             Datum2CamTrans( // Converts coordinates in DEM
+                                                             // georeference to camera pixels
+                                                            camera_model.get(), target_georef,
+                                                            dem_georef, opt.datum_offset, image_size,
+                                                            call_from_mapproject
+                                                            )
+                                            );
+  }
+}
+
+template <class ImagePixelT>
+void project_image_alpha_pick_transform(Options & opt,
+                          GeoReference const& dem_georef,
+                          GeoReference const& target_georef,
+                          GeoReference const& croppedGeoRef,
+                          Vector2i     const& image_size,
+                          Vector2i     const& virtual_image_size,
+                          BBox2i       const& croppedImageBB,
+                          boost::shared_ptr<camera::CameraModel> const& camera_model) {
+  const bool        call_from_mapproject = true;
+  if (fs::path(opt.dem_file).extension() != "") {
+    // A DEM file was provided
+    return project_image_alpha<ImagePixelT>(opt, croppedGeoRef,
+                                            virtual_image_size, croppedImageBB, camera_model, 
+                                            Map2CamTrans( // Converts coordinates in DEM
+                                                          // georeference to camera pixels
+                                                         camera_model.get(), target_georef,
+                                                         dem_georef, opt.dem_file, image_size,
+                                                         call_from_mapproject
+                                                         )
+                                           );
+  } else {
+    // A constant datum elevation was provided
+    return project_image_alpha<ImagePixelT>(opt, croppedGeoRef,
+                                            virtual_image_size, croppedImageBB, camera_model, 
+                                            Datum2CamTrans( // Converts coordinates in DEM
+                                                            // georeference to camera pixels
+                                                           camera_model.get(), target_georef,
+                                                           dem_georef, opt.datum_offset, image_size,
+                                                           call_from_mapproject
+                                                           )
+                                           );
+  }
+}
 
 int main( int argc, char* argv[] ) {
 
@@ -382,26 +637,47 @@ int main( int argc, char* argv[] ) {
 
     // Load the DEM
     GeoReference dem_georef;
-    ImageViewRef<PMaskT> dem;
-    bool has_georef = asp::read_georeference_asp(dem_georef, opt.dem_file);
-    if (!has_georef)
-      vw_throw( ArgumentErr() << "There is no georeference information in: " << opt.dem_file << ".\n" );
+    ImageViewRef<DemPixelT> dem;
+    if (fs::path(opt.dem_file).extension() != "") {
+      // A path to a real DEM file was provided, load it!
 
-    boost::shared_ptr<DiskImageResource> dem_rsrc(DiskImageResource::open(opt.dem_file));
+      bool has_georef = asp::read_georeference_asp(dem_georef, opt.dem_file);
+      if (!has_georef)
+        vw_throw( ArgumentErr() << "There is no georeference information in: " << opt.dem_file << ".\n" );
 
-    // If we have a nodata value, create a mask.
-    DiskImageView<float> dem_disk_image(opt.dem_file);
-    if (dem_rsrc->has_nodata_read()){
-      dem = create_mask(dem_disk_image, dem_rsrc->nodata_read());
-    }else{
-      dem = pixel_cast<PMaskT>(dem_disk_image);
+      boost::shared_ptr<DiskImageResource> dem_rsrc(DiskImageResource::open(opt.dem_file));
+
+      // If we have a nodata value, create a mask.
+      DiskImageView<float> dem_disk_image(opt.dem_file);
+      if (dem_rsrc->has_nodata_read()){
+        dem = create_mask(dem_disk_image, dem_rsrc->nodata_read());
+      }else{
+        dem = pixel_cast<DemPixelT>(dem_disk_image);
+      }      
+    } else {
+      // Projecting to a datum instead of a DEM
+      std::string datum_name = opt.dem_file;
+      
+      // Use the camera center to determine whether to center the fake DEM on 0 or 180.
+      Vector3 llr_camera_loc =
+        cartography::XYZtoLonLatRadEstimateFunctor::apply( camera_model->camera_center(Vector2()) );
+      if ( llr_camera_loc[0] < 0 ) 
+        llr_camera_loc[0] += 360;
+      dem_georef = GeoReference(Datum(datum_name),
+                                Matrix3x3(1, 0, (llr_camera_loc[0] < 90 ||
+                                                 llr_camera_loc[0] > 270) ? -180 : 0,
+                                          0, -1, 90, 0, 0, 1) );
+      dem = constant_view(PixelMask<float>(opt.datum_offset), 360, 180 );
+      vw_out() << "\t--> Using flat datum \"" << datum_name << "\" as elevation model.\n";
     }
+    // Finished setting up the datum
 
     // Find the target resolution based on mpp or ppd if provided. Do
     // the math to convert pixel-per-degree to meter-per-pixel and vice-versa.
-    int sum = (!std::isnan(opt.target_resolution)) + (!std::isnan(opt.mpp)) + (!std::isnan(opt.ppd));
+    int sum = (!std::isnan(opt.mpp)) + (!std::isnan(opt.ppd));
     if (sum >= 2){
-      vw_throw( ArgumentErr() << "Must specify at most one of the options: --tr, --mpp, --ppd.\n" );
+      //vw_throw( ArgumentErr() << "Must specify at most one of the options: --tr, --mpp, --ppd.\n" );
+      vw_throw( ArgumentErr() << "Must specify at most one of the options: --mpp, --ppd.\n" );
     }
     double radius = dem_georef.datum().semi_major_axis();
     if ( !std::isnan(opt.mpp) ){ // Meters per pixel was set
@@ -409,14 +685,8 @@ int main( int argc, char* argv[] ) {
     }else if ( !std::isnan(opt.ppd) ){ // Pixels per degree was set
       opt.mpp = 2.0*M_PI*radius/(360.0*opt.ppd);
     }
-    if ( !std::isnan(opt.ppd) ) { // pixels per degree now available
-      if (dem_georef.is_projected()) {
-        opt.target_resolution = opt.mpp; // Use units of meters
-      } else { // Not projected, GDC coordinates only.
-        opt.target_resolution = 1/opt.ppd; // Use units of degrees
-                                           // Lat/lon degrees are different so we never want to do this!
-      }
-    }
+    // pixels per degree now available
+    bool user_provided_resolution = (!std::isnan(opt.ppd));
 
     // Read projection. Work out output bounding box in points using original camera model.
     GeoReference target_georef = dem_georef;
@@ -443,7 +713,7 @@ int main( int argc, char* argv[] ) {
     // first in the DEM coordinate system and we rotate it to target's
     // coordinate system (which makes it grow), and then we tighten it
     // in target's coordinate system.
-    bool     calc_target_res = std::isnan(opt.target_resolution);
+    bool     calc_target_res = !user_provided_resolution;
     Vector2i image_size      = asp::file_image_size(opt.image_file, opt.camera_model_file);
     BBox2    cam_box;
     // First pass
@@ -463,9 +733,9 @@ int main( int argc, char* argv[] ) {
 
     // Transformed view indexes DEM based on target georeference
     // - Note that the width and height of trans_dem don't make sense!
-    ImageViewRef<PMaskT> trans_dem
+    ImageViewRef<DemPixelT> trans_dem
       = geo_transform(dem, dem_georef, target_georef,
-                      ValueEdgeExtension<PMaskT>(PMaskT()),
+                      ValueEdgeExtension<DemPixelT>(DemPixelT()),
                       BilinearInterpolation());
 
     calc_target_geom(// Inputs
@@ -473,6 +743,8 @@ int main( int argc, char* argv[] ) {
                      trans_dem, target_georef, dem_box,
                      // Outputs
                      opt, cam_box, target_georef);
+
+    //vw_out() << "\nTARGET georeference 3:\n"        << target_georef << std::endl;
 
     vw_out() << "Refined projected space bounding box: " << cam_box << std::endl;
 
@@ -500,6 +772,8 @@ int main( int argc, char* argv[] ) {
       // Update output georeference to match the reduced image size
       croppedGeoRef = vw::cartography::crop(target_georef, croppedImageBB);
     }
+    //vw_out() << "croppedImageBB = " << croppedImageBB << std::endl;
+    //vw_out() << "\nCROPPED georeference:\n"        << croppedGeoRef << std::endl;
 
     // Important: Don't modify the line below, we count on it in mapproject.in.
     vw_out() << "Output image size:\n";
@@ -511,80 +785,60 @@ int main( int argc, char* argv[] ) {
       return 0;
     }
 
-    // Create handle to input image to be projected on to the map
-    boost::shared_ptr<DiskImageResource> img_rsrc = 
-          asp::load_disk_image_resource(opt.image_file, opt.camera_model_file);
+    // Determine the pixel type of the input image
+    boost::scoped_ptr<SrcImageResource> image_rsrc(DiskImageResource::open(opt.image_file));
+    ImageFormat image_fmt = image_rsrc->format();
+    const int num_input_channels = num_channels(image_fmt.pixel_format);
 
-    // Write the output image. Use the nodata passed in by the user
-    // if it is not available in the input file.
-    if (img_rsrc->has_nodata_read()) 
-      opt.nodata_value = img_rsrc->nodata_read();
+    // Prepare output directory
     vw::create_out_dir(opt.output_file);
-    bool   has_img_nodata       = true;
-    PMaskT nodata_mask          = PMaskT(); // invalid value for a PixelMask
-    bool   call_from_mapproject = true;
-    
-    // DEBUG
-    Map2CamTrans trans(camera_model.get(), target_georef,
-                       dem_georef, opt.dem_file, image_size,
-                       call_from_mapproject);
-    /*ImageViewRef<float> transRef = transform( // Apply the output from Map2CamTrans
-                                          DiskImageView<float>(img_rsrc),
-                                          Map2CamTrans
-                                          ( // Converts coordinates in DEM
-                                            // georeference to camera pixels
-                                           camera_model.get(), target_georef,
-                                           dem_georef, opt.dem_file, image_size,
-                                           call_from_mapproject
-                                          ),
-                                          virtual_image_width,
-                                          virtual_image_height
-                                          );
-    std::cout << "Starting test...\n";
-    for (int r=croppedImageBB.min().y(); r<croppedImageBB.max().y(); r+=100) {
-      for (int c=croppedImageBB.min().x(); c<croppedImageBB.max().x(); c+=100) {
-        
-        Vector2 pixel(c,r);
-        Vector2 lonlat = croppedGeoRef.pixel_to_lonlat(pixel);
-        std::cout << "lonlat = " << lonlat << std::endl;
-        Vector3 gcc = croppedGeoRef.datum().geodetic_to_cartesian(Vector3(lonlat[0], lonlat[1], 0));
-        Vector2 cam_pixel = camera_model->point_to_pixel(gcc);
-        std::cout << "Map pixel " << pixel << " --> " << cam_pixel << std::endl;
-      }
+
+    // Redirect to the correctly typed function to perform the actual map projection.
+    // - Must correspond to the type of the input image.
+    if (image_fmt.pixel_format == VW_PIXEL_RGB) {
+        // We can't just use float for everything or the output will be cast
+        //  into the -1 to 1 range which is probably not desired.
+        // - Always use an alpha channel with RGB images.
+        switch(image_fmt.channel_type) {
+        case VW_CHANNEL_UINT8:
+          project_image_alpha_pick_transform<PixelRGBA<uint8> >(opt, dem_georef, target_georef, croppedGeoRef, image_size, 
+                        Vector2i(virtual_image_width, virtual_image_height),
+                        croppedImageBB, camera_model);
+          break;
+        case VW_CHANNEL_INT16:
+          project_image_alpha_pick_transform<PixelRGBA<int16> >(opt, dem_georef, target_georef, croppedGeoRef, image_size, 
+                        Vector2i(virtual_image_width, virtual_image_height),
+                        croppedImageBB, camera_model);
+          break;
+        case VW_CHANNEL_UINT16:
+          project_image_alpha_pick_transform<PixelRGBA<uint16> >(opt, dem_georef, target_georef, croppedGeoRef, image_size, 
+                        Vector2i(virtual_image_width, virtual_image_height),
+                        croppedImageBB, camera_model);
+          break;
+        default:
+          project_image_alpha_pick_transform<PixelRGBA<float32> >(opt, dem_georef, target_georef, croppedGeoRef, image_size, 
+                        Vector2i(virtual_image_width, virtual_image_height),
+                        croppedImageBB, camera_model);
+          break;
+        };
     }
-    //return 0;
-    */
-    
-    write_parallel_cond
-      ( // Write to the output file
-       opt.output_file,
-       crop( // Apply crop (only happens if --t_pixelwin was specified)
-            apply_mask
-            ( // Handle nodata
-             transform_nodata( // Apply the output from Map2CamTrans
-                              create_mask(DiskImageView<float>(img_rsrc),
-                                          opt.nodata_value), // Handle nodata
-                              Map2CamTrans
-                              ( // Converts coordinates in DEM
-                                // georeference to camera pixels
-                               camera_model.get(), target_georef,
-                               dem_georef, opt.dem_file, image_size,
-                               call_from_mapproject
-                               ),
-                              virtual_image_width,
-                              virtual_image_height,
-                              ValueEdgeExtension<PMaskT>(nodata_mask),
-                              BicubicInterpolation(), nodata_mask
-                              ),
-             opt.nodata_value
-             ),
-            croppedImageBB
-            ),
-       croppedGeoRef, has_img_nodata, opt.nodata_value, opt,
-       TerminalProgressCallback("","")
-       );
+    else {
+      // If the input image is not RGB, only single channel images are supported.
+      if (num_input_channels != 1)
+        vw_throw( ArgumentErr() << "Input images must be single channel or RGB!\n" );
+      
+      // This will cast to float but will not rescale the pixel values.
+      project_image_nodata_pick_transform<float>(opt, dem_georef, target_georef, croppedGeoRef, image_size, 
+                           Vector2i(virtual_image_width, virtual_image_height),
+                           croppedImageBB, camera_model);
+    } 
+    // Done map projecting!
 
   } ASP_STANDARD_CATCHES;
 
   return 0;
 }
+
+
+
+
