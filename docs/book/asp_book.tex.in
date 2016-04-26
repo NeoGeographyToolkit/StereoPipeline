@@ -16,6 +16,9 @@
 \usepackage{fancyvrb}
 \usepackage{moreverb} % for file listing
 
+\usepackage{bibentry}
+\nobibliography*
+
 \usepackage[T1]{fontenc}
 \usepackage[latin9]{inputenc}
 
@@ -153,44 +156,14 @@ stereo-pipeline-owner@lists.nasa.gov
 \include{stereodefault}
 \include{outputfiles}
 \include{pinholemodels}
-%\include{thirdparty}
-
-
-% Partial list of papers that use ASP
-\nocite{2010LPI....41.2678B}
-\nocite{2010LPI....41.1863W}
-\nocite{2010AGUFM.P21B1596P}
-\nocite{2011LPI....42.2633H}
-\nocite{Huffman20111273}
-\nocite{2011LPI....42.2715B}
-\nocite{2011LPI....42.2267M}
-\nocite{2011LPI....42.2418L}
-\nocite{2011AGUFM.P41F..07P}
-\nocite{ROB:ROB20410}
-\nocite{doi:10.1117/12.974524}
-\nocite{JGRE:JGRE2993}
-\nocite{Golombek:2012ys}
-\nocite{2012JGRE..117.3007L}
-\nocite{2012LPI....43.1953L}
-\nocite{2012LPI....43.2571P}
-\nocite{2012LPI....43.2815M}
-\nocite{Hammond2013418}
-\nocite{Peel2013}
-\nocite{2013LPICo1719.2766P}
-\nocite{2013LPICo1719.2966O}
-\nocite{2013LPI....44.3081W}
-\nocite{2014LPI....45.2836W}
-\nocite{2014LPI....45.1723L}
-\nocite{2014LPI....45.1211H}
-\nocite{2014NatCo...5E3417L}
-\nocite{lacroix2016landslides}
-\nocite{shean2016automated}
+\include{papersusingasp}
 
 % Create the References list
 \bibliographystyle{plainnat}
 \phantomsection % to make hyperref behave
+
 \addcontentsline{toc}{chapter}{\bibname}
+
+\nocite{*}
 \bibliography{bibliography.bib}
-
-
-\end{document}
+\end{document} 
