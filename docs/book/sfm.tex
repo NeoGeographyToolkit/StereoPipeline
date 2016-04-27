@@ -237,9 +237,8 @@ data the steps are very similar to the steps described above for the Apollo Metr
 are some aspects which are particular to IceBridge.  You can download DMS images from
 \url{ftp://n5eil01u.ecs.nsidc.org/SAN2/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/}.  A list of
 the available data types can be found at \url{https://nsidc.org/data/icebridge/instr_data_summary.html}.
-This example uses data from the November 5, 2009 flight over Antarctica.  Note that these images
-are RGB on disk but the three channel are identical so we can just let ASP use the first
-channel by default.  The following camera model (icebridge\_model.tsai) was used:
+This example uses data from the November 5, 2009 flight over Antarctica. 
+The following camera model (icebridge\_model.tsai) was used:
 
 \begin{verbatim}
 VERSION_3
@@ -263,6 +262,20 @@ p1 = 7.2359e-006
 p2 = 2.2656e-006
 b1 = 0.0
 b2 = 0.0
+\end{verbatim}
+
+Note that these images are RGB format which is not supported by all ASP tools.  
+To use the files with ASP, first convert them to single channel images using 
+a tool such as ImageMagick's \texttt{convert}, \texttt{gdal\_translate}, or 
+\texttt{gdal\_edit.py}. Different conversion methods may produce slightly different
+results depending on the contents of your input images.
+Some conversion command examples are shown below:
+
+\begin{verbatim}
+convert  rgb.jpg  -colorspace Gray   gray.jpg
+gdal_calc.py -A rgb.tif --A_band=1 -B rgb.tif --B_band=2 -C rgb.tif
+--C_band=3 --outfile=gray.tif --calc="A*0.2989+B*0.5870+C*0.1140"
+gdal_translate -b 1 rgb.jpg gray.jpg
 \end{verbatim}
 
 Obtaining ground control points for icy locations on Earth can be particularly difficult because

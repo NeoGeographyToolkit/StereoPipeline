@@ -144,6 +144,10 @@ used in \texttt{stereo.default}, while being prepended by a double hyphen
 option specified in \texttt{stereo.default}. Chapter \ref{ch:stereodefault}
 documents all options for the individual sub-programs.
 
+Note that the stereo tools operate only on single channel (grayscale) images.
+If you need to run stereo on multi-channel images you must first convert them
+to grayscale or extract a single channel to operate on.
+
 \section{stereo\_gui}
 \label{stereo_gui}
 

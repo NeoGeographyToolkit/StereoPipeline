@@ -426,8 +426,8 @@ namespace asp {
     boost::shared_ptr<vw::DiskImageResource> left_resource, right_resource;
     left_resource  = asp::load_disk_image_resource(opt.in_file1, opt.cam_file1);
     right_resource = asp::load_disk_image_resource(opt.in_file2, opt.cam_file2);
-    DiskImageView<PixelGray<float> > left_image(left_resource);
-    DiskImageView<PixelGray<float> > right_image(right_resource);
+    DiskImageView<float> left_image(left_resource);
+    DiskImageView<float> right_image(right_resource);
     stereo_settings().left_image_crop_win.crop(bounding_box(left_image));
     stereo_settings().right_image_crop_win.crop(bounding_box(right_image));
 
@@ -470,7 +470,7 @@ namespace asp {
           stereo_settings().trans_crop_win = bounding_box(L_img);
         }
       }
-    }
+    } // End crop checking case
 
     // Sanity check. Don't run it if we have L-cropped.tif or R-cropped.tif,
     // in that case we have ran the gui before, and the sizes of the subimages
@@ -481,6 +481,10 @@ namespace asp {
         !fs::exists(opt.out_prefix+"-R-cropped.tif") ){
       vw_throw(ArgumentErr() << "Invalid region for doing stereo.\n\n" << usage << general_options );
     }
+
+    // Verify that there is only one channel per input image
+    if ( (left_resource->channels() > 1) || (right_resource->channels() > 1) )
+      vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n" << usage << general_options );
 
     // The StereoSession call automatically determines the type of object to create from the input parameters.
     opt.session.reset(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,// i/o

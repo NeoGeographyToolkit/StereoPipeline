@@ -777,15 +777,19 @@ extract_cameras_bundle_adjust( std::vector<std::string>& image_files ) {
   std::vector<std::string> cam_files;
   std::vector<std::string>::iterator it = image_files.begin();
   while ( it != image_files.end() ) {
-    if (asp::has_pinhole_extension( *it ) ||
+
+    if (asp::has_pinhole_extension(*it) ||
         boost::iends_with(boost::to_lower_copy(*it), ".xml") || // TODO: This should be a function call!
         boost::iends_with(boost::to_lower_copy(*it), ".cub") ||
         boost::iends_with(boost::to_lower_copy(*it), ".dim")
         ){
       cam_files.push_back( *it );
       it = image_files.erase( it );
-    } else
+    } else { // Not a camera, double check that it is an image.
+      if (!asp::has_image_extension(*it))
+        vw_throw( ArgumentErr() << "Error - unrecognized input: " << *it );
       it++;
+    }
   }
 
   return cam_files;
@@ -1352,8 +1356,10 @@ int main(int argc, char* argv[]) {
     } // End loops for finding duplicate camera model file names
 
     // Sanity check
-    if (num_images != (int)opt.camera_files.size())
+    if (num_images != (int)opt.camera_files.size()){
+      vw_out() << "Detected " << num_images << " images and " << opt.camera_files.size() << " cameras.\n";
       vw_throw(ArgumentErr() << "Must have as many cameras as we have images.\n");
+    }
 
     // Create the stereo session. This will attempt to identify the session type.
     // Read in the camera model and image info for the input images.
@@ -1420,6 +1426,8 @@ int main(int argc, char* argv[]) {
         boost::shared_ptr<DiskImageResource>
           rsrc1(asp::load_disk_image_resource(image1_path, camera1_path)),
           rsrc2(asp::load_disk_image_resource(image2_path, camera2_path));
+        if ( (rsrc1->channels() > 1) || (rsrc2->channels() > 1) )
+          vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n");
         float nodata1, nodata2;
         SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
                                                              image1_path,  image2_path,
