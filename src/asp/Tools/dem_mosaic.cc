@@ -45,6 +45,7 @@
 #include <vw/Image.h>
 #include <vw/Cartography.h>
 #include <vw/Math.h>
+#include <vw/FileIO/DiskImageManager.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/InpaintView.h>
@@ -224,22 +225,26 @@ std::string tile_suffix(Options const& opt){
 /// Class that does the actual image processing work
 class DemMosaicView: public ImageViewBase<DemMosaicView>{
   int m_cols, m_rows, m_bias;
-  Options const& m_opt;
-  vector< ImageViewRef<RealT> > const& m_images;
-  vector< GeoReference        > const& m_georefs;
-  GeoReference  m_out_georef;
-  vector<double> m_nodata_values;
+  Options                 const& m_opt;              // alias
+  DiskImageManager<RealT>      & m_imgMgr;           // alias
+  vector<GeoReference>    const& m_georefs;          // alias
+  GeoReference                   m_out_georef;
+  vector<double>          const& m_nodata_values;    // alias
+  vector<BBox2i>          const& m_dem_pixel_bboxes; // alias
 
 public:
-  DemMosaicView(int cols, int rows, int bias, Options const& opt,
-		vector< ImageViewRef<RealT> > const& images,
-		vector< GeoReference        > const& georefs,
-		GeoReference  const& out_georef,
-		vector<double> const& nodata_values):
+  DemMosaicView(int cols, int rows, int bias,
+                Options                const& opt,
+                DiskImageManager<RealT>     & imgMgr,
+		vector<GeoReference>   const& georefs,
+		GeoReference           const& out_georef,
+		vector<double>         const& nodata_values,
+                vector<BBox2i>         const& dem_pixel_bboxes):
     m_cols(cols), m_rows(rows), m_bias(bias), m_opt(opt),
-    m_images(images), m_georefs(georefs),
-    m_out_georef(out_georef), m_nodata_values(nodata_values){
-
+    m_imgMgr(imgMgr), m_georefs(georefs),
+    m_out_georef(out_georef), m_nodata_values(nodata_values),
+    m_dem_pixel_bboxes(dem_pixel_bboxes){
+    
     // Sanity check, see if datums differ, then the tool won't work
     for (int i = 0; i < (int)m_georefs.size(); i++) {
       if (std::abs(m_georefs[i].datum().semi_major_axis()
@@ -304,7 +309,7 @@ public:
     // - Used for median and stddev calculation.
     std::vector< ImageView<double> > tile_vec, weight_vec;
     if (m_opt.median) // Store each input separately
-      tile_vec.reserve(m_images.size());
+      tile_vec.reserve(m_imgMgr.size());
     if (m_opt.stddev) { // Need one working image
       tile_vec.push_back(ImageView<double>(bbox.width(), bbox.height()));
       // Each pixel starts at zero, nodata is handled later
@@ -312,8 +317,8 @@ public:
       fill( tile,     0.0 );
     }
     if (m_opt.priority_blending_len > 0) { // Store each weight separately
-      tile_vec.reserve(m_images.size());
-      weight_vec.reserve(m_images.size());
+      tile_vec.reserve(m_imgMgr.size());
+      weight_vec.reserve(m_imgMgr.size());
     }
 
     // This will ensure that pixels from earlier images are
@@ -340,18 +345,19 @@ public:
     }
 
     // Loop through all input DEMs
-    for (int dem_iter = 0; dem_iter < (int)m_images.size(); dem_iter++){
+    for (int dem_iter = 0; dem_iter < (int)m_imgMgr.size(); dem_iter++){
 
       // Load the information for this DEM
       GeoReference georef = m_georefs[dem_iter];
-      ImageViewRef<double> disk_dem = pixel_cast<double>(m_images[dem_iter]);
       double nodata_value = m_nodata_values[dem_iter];
 
+      BBox2i dem_pixel_box = m_dem_pixel_bboxes[dem_iter];
+      
       // The GeoTransform will hide the messy details of conversions
       // from pixels to points and lon-lat.
-      GeoTransform geotrans(georef, m_out_georef, bounding_box(disk_dem), bbox);
+      GeoTransform geotrans(georef, m_out_georef, dem_pixel_box, bbox);
 
-      // Get the tile bbox in the frame of the input DEM
+      // Get the tile bbox in the frame of the current input DEM
       BBox2 in_box = geotrans.reverse_bbox(bbox);
 
       // Grow to account for blending and erosion length, etc.  If
@@ -360,11 +366,11 @@ public:
       if (m_opt.priority_blending_len <= 0)
         in_box.expand(m_bias + BilinearInterpolation::pixel_buffer + 1);
 
-      in_box.crop(bounding_box(disk_dem));
+      in_box.crop(dem_pixel_box);
       if (in_box.width() == 1 || in_box.height() == 1){
         // Grassfire likes to have width of at least 2
         in_box.expand(1);
-        in_box.crop(bounding_box(disk_dem));
+        in_box.crop(dem_pixel_box);
       }
       if (in_box.width() <= 1 || in_box.height() <= 1)
         continue; // No overlap with this tile, skip to the next DEM.
@@ -375,10 +381,17 @@ public:
         fill( weights, 0.0 );
       }
 
-      // Crop the disk dem to a 2-channel in-memory image. First channel
-      // is the image pixels, second will be the grassfire weights.
+      // Crop the disk dem to a 2-channel in-memory image. First
+      // channel is the image pixels, second will be the grassfire
+      // weights.
+      ImageViewRef<double> disk_dem = pixel_cast<double>(m_imgMgr.get_handle(dem_iter, bbox));
       ImageView<RealGrayA> dem = crop(disk_dem, in_box);
-
+      
+      // Mark the handle to the image as not in use, though we still
+      // keep that image file open, for increased performance, unless
+      // their number becomes too large.
+      m_imgMgr.release(dem_iter);
+      
       // Use grassfire weights for smooth blending
       ImageView<double> local_wts = grassfire(notnodata(select_channel(dem, 0), nodata_value));
 
@@ -778,44 +791,53 @@ public:
 void load_dem_bounding_boxes(Options       const& opt,
 			     GeoReference  const& out_georef,
 			     BBox2              & mosaic_bbox,
-			     std::vector<BBox2> & dem_bboxes) {
+			     std::vector<BBox2> & dem_proj_bboxes,
+			     std::vector<BBox2i> & dem_pixel_bboxes) {
 
-    vw_out() << "Determining bounding boxes of the input DEMs.\n";
-    TerminalProgressCallback tpc("", "\t--> ");
-    tpc.report_progress(0);
-    double inc_amount = 1.0 / double(opt.dem_files.size() );
+  vw_out() << "Determining the bounding boxes of the input DEMs.\n";
 
-    for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++){ // Loop through all DEMs
+  dem_proj_bboxes.clear();
+  dem_pixel_bboxes.clear();
+  
+  TerminalProgressCallback tpc("", "\t--> ");
+  tpc.report_progress(0);
+  double inc_amount = 1.0 / double(opt.dem_files.size() );
 
-      // Open a handle to this DEM file
-      DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
-      DiskImageView<RealT>  img(opt.dem_files[dem_iter]);
-      GeoReference          georef = read_georef(opt.dem_files[dem_iter]);
+  // Loop through all DEMs
+  for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++){ 
 
-      // Compute bounding box of this DEM
-      if (out_georef.overall_proj4_str() == georef.overall_proj4_str()){
-	BBox2 proj_box = georef.bounding_box(img);
-	mosaic_bbox.grow(proj_box);
-	dem_bboxes.push_back(proj_box);
-      }else{
-	// Compute the bounding box of the current image in projected coordinates of the mosaic.
-	BBox2 imgbox     = bounding_box(img);
-	BBox2 lonlat_box = georef.pixel_to_lonlat_bbox(imgbox);
+    // Open a handle to this DEM file
+    DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
+    DiskImageView<RealT>  img(opt.dem_files[dem_iter]);
+    GeoReference          georef = read_georef(opt.dem_files[dem_iter]);
+    BBox2i                pixel_box = bounding_box(img);
 
-	// Must compensate for the fact that the lonlat
-	// of the two images can differ by 360 degrees.
-	Vector2 old_orgin = georef.pixel_to_lonlat(Vector2(0, 0));
-	Vector2 new_orgin = out_georef.pixel_to_lonlat(Vector2(0, 0));
-	Vector2 offset( 360.0*round( (new_orgin[0] - old_orgin[0])/360.0 ), 0.0 );
-	lonlat_box += offset;
-	BBox2 proj_box = out_georef.lonlat_to_point_bbox(lonlat_box);
-	mosaic_bbox.grow(proj_box);
-	dem_bboxes.push_back(proj_box);
-      }
+    dem_pixel_bboxes.push_back(pixel_box);
+    // Compute bounding box of this DEM
+    if (out_georef.overall_proj4_str() == georef.overall_proj4_str()){
+      BBox2 proj_box = georef.bounding_box(img);
+      mosaic_bbox.grow(proj_box);
+      dem_proj_bboxes.push_back(proj_box);
+    }else{
+      // Compute the bounding box of the current image in projected coordinates of the mosaic.
+      BBox2 imgbox     = bounding_box(img);
+      BBox2 lonlat_box = georef.pixel_to_lonlat_bbox(imgbox);
 
-      tpc.report_incremental_progress( inc_amount );
-    } // End loop through DEM files
-    tpc.report_finished();
+      // Must compensate for the fact that the lonlat
+      // of the two images can differ by 360 degrees.
+      Vector2 old_orgin = georef.pixel_to_lonlat(Vector2(0, 0));
+      Vector2 new_orgin = out_georef.pixel_to_lonlat(Vector2(0, 0));
+      // TODO: Bug here!!!
+      Vector2 offset( 360.0*round( (new_orgin[0] - old_orgin[0])/360.0 ), 0.0 );
+      lonlat_box += offset;
+      BBox2 proj_box = out_georef.lonlat_to_point_bbox(lonlat_box);
+      mosaic_bbox.grow(proj_box);
+      dem_proj_bboxes.push_back(proj_box);
+    }
+
+    tpc.report_incremental_progress( inc_amount );
+  } // End loop through DEM files
+  tpc.report_finished();
 } // End function load_dem_bounding_boxes
 
 
@@ -1082,9 +1104,10 @@ int main( int argc, char *argv[] ) {
 
     // Load the bounding boxes from all of the DEMs
     BBox2 mosaic_bbox;
-    vector<BBox2> dem_bboxes;
-    load_dem_bounding_boxes(opt, out_georef, mosaic_bbox, dem_bboxes);
-
+    vector<BBox2> dem_proj_bboxes;
+    vector<BBox2i> dem_pixel_bboxes;
+    load_dem_bounding_boxes(opt, out_georef, mosaic_bbox,
+                            dem_proj_bboxes, dem_pixel_bboxes);
 
     // If to create the mosaic only in a given region
     if (opt.projwin != BBox2())
@@ -1093,10 +1116,11 @@ int main( int argc, char *argv[] ) {
     // Display which DEMs will end up being used for the current box
     if (opt.projwin != BBox2()){
       for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++){
-	BBox2 box = dem_bboxes[dem_iter];
+	BBox2 box = dem_proj_bboxes[dem_iter];
 	box.crop(mosaic_bbox);
-	if (!box.empty())
-	  vw_out() << "Using: " << opt.dem_files[dem_iter] << std::endl;
+	// Turn this message off. Too verbose.
+	//if (!box.empty())
+	//  vw_out() << "Using: " << opt.dem_files[dem_iter] << std::endl;
       }
     }
 
@@ -1175,20 +1199,24 @@ int main( int argc, char *argv[] ) {
     // Store the no-data values, pointers to images, and georeferences (for speed).
     vw_out() << "Reading the input DEMs.\n";
     vector<double> nodata_values;
-    vector< ImageViewRef<RealT> > images;
-    vector< GeoReference        > georefs;
+    vector<GeoReference>          georefs;
+    std::vector<string>           loaded_dems;
+    DiskImageManager<RealT> imgMgr;
+
+    BBox2i output_dem_box = BBox2i(0, 0, cols, rows); // output DEM box
+    
     // Loop through all DEMs
     for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++){
 
       // Get the DEM bounding box that we previously computed (output projected coords)
-      BBox2 dem_bbox = dem_bboxes[dem_iter];
+      BBox2 dem_bbox = dem_proj_bboxes[dem_iter];
 
       // Go through each of the tile bounding boxes and see they intersect this DEM
       bool use_this_dem = false;
       for (int tile_id = start_tile; tile_id < end_tile; tile_id++){
 	// Get tile bbox in pixels, then convert it to projected coords.
 	BBox2i tile_pixel_box = tile_pixel_bboxes[tile_id - start_tile];
-	BBox2  tile_proj_box   = out_georef.pixel_to_point_bbox(tile_pixel_box);
+	BBox2  tile_proj_box  = out_georef.pixel_to_point_bbox(tile_pixel_box);
 
 	if (tile_proj_box.intersects(dem_bbox)) {
 	  use_this_dem = true;
@@ -1198,23 +1226,43 @@ int main( int argc, char *argv[] ) {
       if (use_this_dem == false)
 	continue; // Skip to the next DEM if we don't need this one.
 
-      vw_out() << "Loading DEM: " << opt.dem_files[dem_iter] << std::endl;
+      // The GeoTransform will hide the messy details of conversions
+      // from pixels to points and lon-lat.
+      GeoReference georef  = read_georef(opt.dem_files[dem_iter]);
+      BBox2i dem_pixel_box = dem_pixel_bboxes[dem_iter];
+      GeoTransform geotrans(georef, out_georef, dem_pixel_box, output_dem_box);
 
-      // Open a handle to this DEM file
+      // Get the current DEM bounding box in pixel units of the output mosaicked DEM
+      BBox2 curr_box = geotrans.forward_bbox(dem_pixel_box);
+      curr_box.crop(output_dem_box);
+      
+      // This is a fix for GDAL crashing when there are too many open
+      // file handles. In such situation, just selectively close the
+      // handles furthest from the current location.
+      imgMgr.add_file_handle_not_thread_safe(opt.dem_files[dem_iter], curr_box);
+      
       double curr_nodata_value = opt.out_nodata_value;
-      DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
-      if ( in_rsrc.has_nodata_read() )
-	curr_nodata_value = in_rsrc.nodata_read();
-      GeoReference georef = read_georef(opt.dem_files[dem_iter]);
-      DiskImageView<RealT> img(opt.dem_files[dem_iter]);
-
+      try {
+	// Get the nodata-value. Need a try block, in case we can't
+	// open more handles.
+	DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
+	if ( in_rsrc.has_nodata_read() )
+	  curr_nodata_value = in_rsrc.nodata_read();
+      }catch(std::exception const& e){
+	// Try again
+	imgMgr.freeup_handles_not_thread_safe();
+	DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
+	if ( in_rsrc.has_nodata_read() )
+	  curr_nodata_value = in_rsrc.nodata_read();
+      }
+      
+      loaded_dems.push_back(opt.dem_files[dem_iter]);
+      
       // Add the info for this DEM to the appropriate vectors
       nodata_values.push_back(curr_nodata_value);
-      images.push_back(img);
       georefs.push_back(georef);
-
     } // End loop through DEM files
-
+    
     // Time to generate each of the output tiles
     for (int tile_id = start_tile; tile_id < end_tile; tile_id++){
 
@@ -1227,8 +1275,9 @@ int main( int argc, char *argv[] ) {
 
       // Set up tile image and metadata
       ImageViewRef<RealT> out_dem = crop(DemMosaicView(cols, rows, bias, opt,
-						       images, georefs,
-						       out_georef, nodata_values),
+						       imgMgr, georefs,
+						       out_georef, nodata_values,
+                                                       dem_pixel_bboxes),
 					 tile_box);
       GeoReference crop_georef = crop(out_georef, tile_box.min().x(),
 				      tile_box.min().y());
@@ -1242,12 +1291,12 @@ int main( int argc, char *argv[] ) {
 
     } // End loop through tiles
 
-    // Write the name of each file together with its index
+    // Write the name of each DEM file that was used together with its index
     if (opt.save_index_map) {
       std::string index_map = opt.out_prefix + "-index-map.txt";
       vw_out() << "Writing: " << index_map << std::endl;
       std::ofstream ih(index_map.c_str());
-      for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++){
+      for (int dem_iter = 0; dem_iter < (int)loaded_dems.size(); dem_iter++){
 	ih << opt.dem_files[dem_iter] << ' ' << dem_iter << std::endl;
       }
     }
