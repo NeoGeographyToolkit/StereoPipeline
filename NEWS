@@ -3,8 +3,10 @@
 Highlights
  
  - Added the ability to process ASTER L1A VNIR images via the tool
-   aster2asp that creates image files and RPC camera model files that
-   can then be passed to stereo.
+   aster2asp that creates image files and both RPC and rigorous
+   linescan camera models that can then be passed to stereo.
+   The RPC model seems to work just as well as the rigorous one
+   and is much faster.
 
  - pc_align 
    * Can solve for a scale change in addition to a rotation and translation 
@@ -15,6 +17,7 @@ Other
 
  - dem_mosaic
    * Fix a bug with mosaicking of DEMs over very large extent.
+   * Fix a bug with 360 degree longitude offset.
 
  - colormap
    * Added a new colormap scheme, 'cubehelix', that works better for
