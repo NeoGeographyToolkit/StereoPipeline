@@ -20,6 +20,7 @@
 ///
 #include <asp/Tools/stereo.h>
 #include <vw/Stereo/DisparityMap.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
 
 #include <asp/Core/BlobIndexThreaded.h>
 #include <asp/Core/InpaintView.h>

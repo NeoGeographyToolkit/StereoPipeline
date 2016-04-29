@@ -25,6 +25,7 @@
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/Cartography/CameraBBox.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/InterestPoint/MatrixIO.h>
 #include <asp/Core/StereoSettings.h>

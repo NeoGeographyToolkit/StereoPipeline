@@ -33,6 +33,7 @@
 
 #include <vw/Image/MaskViews.h>
 #include <vw/Image/AntiAliasing.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Sessions/StereoSessionFactory.h>

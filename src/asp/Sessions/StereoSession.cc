@@ -26,6 +26,7 @@
 #include <vw/Image/PixelTypeInfo.h>
 #include <vw/FileIO/DiskImageResource.h>
 #include <vw/FileIO/DiskImageView.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
 
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Common.h>

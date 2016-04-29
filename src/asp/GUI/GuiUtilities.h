@@ -50,6 +50,7 @@
 #include <vw/Math/BBox.h>
 #include <vw/Math/Vector.h>
 #include <vw/Cartography/GeoReference.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/InterestPoint/InterestData.h>
 
 // ASP
@@ -163,43 +164,18 @@ namespace vw { namespace gui {
              ImageView<PixelT> const& clip,
              QImage & qimg);
   
+  /// Convert a QRect object to a BBox2 object.
   inline BBox2 qrect2bbox(QRect const& R){
     return BBox2( Vector2(R.left(), R.top()), Vector2(R.right(), R.bottom()) );
   }
 
+  /// Convert a BBox2 object to a QRect object.
   QRect bbox2qrect(BBox2 const& B);
 
+  /// ?
   bool write_hillshade(asp::BaseOptions const& opt,
                        std::string const& input_file,
-                       std::string & output_file);
-
-  // Given georef2 and a point in projected coordinates with this
-  // georef, convert it to pixel coordinates for georef1.
-  Vector2 point_to_pixel(Vector2 const& proj_pt2,
-                         double lon_offset,
-                         cartography::GeoReference const& georef1,
-                         cartography::GeoReference const& georef2);
-
-  // The reverse of pixel_to_point_bbox. Given georef2 and a box in
-  // projected coordinates of this georef, convert it to a pixel box with georef1.
-  BBox2 point_to_pixel_bbox(BBox2 point_box2,
-                            double lon_offset,
-                            cartography::GeoReference const& georef1,
-                            cartography::GeoReference const& georef2);
-
-  // TODO: Move these pixel_to_point_bbox and point_to_pixel_bbox functions
-  // to a lower-level location.
-
-  // Given an image with georef1 and a portion of its pixels in
-  // pixel_box1, find the bounding box of pixel_box1 in projected
-  // point units for georef2.
-  BBox2 forward_pixel_to_point_bbox(BBox2 pixel_box1,
-                                    double lon_offset,
-                                    cartography::GeoReference const& georef1,
-                                    cartography::GeoReference const& georef2);
-
-
-  // TODO: Move to a general strings file
+                       std::string      & output_file);
 
   /// Get a filename by simply replacing current extension with given suffix
   std::string filename_from_suffix1(std::string const& input_file,
@@ -340,7 +316,6 @@ namespace vw { namespace gui {
     BBox2            image_bbox;
     BBox2            lonlat_bbox;
     DiskImagePyramidMultiChannel img;
-    double m_lon_offset; // to compensate for -90 deg equalling 270 deg
 
     /// Load an image from disk into img and set the other variables.
     void read(std::string const& image, asp::BaseOptions const& opt, bool use_georef);

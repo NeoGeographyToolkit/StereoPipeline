@@ -1197,7 +1197,7 @@ int main( int argc, char *argv[] ) {
     if (opt.target_srs_string.empty()) {
 
       if (have_user_datum)
-	output_georef.set_datum( user_datum );
+        output_georef.set_datum( user_datum );
 
       switch( opt.projection ) {
       case SINUSOIDAL:         output_georef.set_sinusoidal(opt.proj_lon, opt.false_easting, opt.false_northing); break;
@@ -1208,9 +1208,9 @@ int main( int argc, char *argv[] ) {
       case OSTEREOGRAPHIC:   output_georef.set_oblique_stereographic(opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
       case GNOMONIC:           output_georef.set_gnomonic(opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
       case LAMBERTAZIMUTHAL:   output_georef.set_lambert_azimuthal  (opt.proj_lat, opt.proj_lon, opt.false_easting, opt.false_northing); break;
-	case UTM:              output_georef.set_UTM( opt.utm_zone ); break;
-	default: // Handles plate carree
-	  break;
+      case UTM:              output_georef.set_UTM( opt.utm_zone ); break;
+      default: // Handles plate carree
+        break;
       }
     } else { // The user specified the target srs_string
 
@@ -1248,52 +1248,56 @@ int main( int argc, char *argv[] ) {
       if      (num_channels == 4) error_image = asp::error_norm<4>(opt.pointcloud_files);
       else if (num_channels == 6) error_image = asp::error_norm<6>(opt.pointcloud_files);
       else{
-	vw_out() << "The point cloud files must have an equal number of channels which "
-		 << "must be 4 or 6 to be able to remove outliers.\n";
-	opt.remove_outliers_with_pct      = false;
-	opt.max_valid_triangulation_error = 0.0;
+        vw_out() << "The point cloud files must have an equal number of channels which "
+	         << "must be 4 or 6 to be able to remove outliers.\n";
+        opt.remove_outliers_with_pct      = false;
+        opt.max_valid_triangulation_error = 0.0;
       }
 
       if (opt.remove_outliers_with_pct && opt.max_valid_triangulation_error == 0.0){
-	// Get a somewhat dense sampling of the error image to get an idea
-	// of what the distribution of errors is. This will be refined
-	// later using a histogram approach and using all points. Do
-	// several attempts if the sampling is too coarse.
-	bool success = false;
-	for (int count = 7; count <= 18; count++){
+        // Get a somewhat dense sampling of the error image to get an idea
+        // of what the distribution of errors is. This will be refined
+        // later using a histogram approach and using all points. Do
+        // several attempts if the sampling is too coarse.
+        bool success = false;
+        for (int count = 7; count <= 18; count++){
 
-	  double sample = (1 << count);
-	  int32 subsample_amt = int32(norm_2(Vector2(point_image.cols(),
-						     point_image.rows()))/sample);
-	  if (subsample_amt < 1 ) subsample_amt = 1;
+          double sample = (1 << count);
+          int32 subsample_amt = int32(norm_2(Vector2(point_image.cols(),
+				               point_image.rows()))/sample);
+          if (subsample_amt < 1 ) subsample_amt = 1;
 
-	  Stopwatch sw2;
-	  sw2.start();
-	  PixelAccumulator<asp::ErrorRangeEstimAccum> error_accum;
-	  for_each_pixel( subsample(error_image, subsample_amt),
-			  error_accum,
-			  TerminalProgressCallback
-			  ("asp","Triangulation error range estimation: ") );
-	  if (error_accum.size() > 0){
-	    success = true;
-	    estim_max_error = error_accum.value(opt.remove_outliers_params);
-	  }
-	  sw2.stop();
-	  vw_out(DebugMessage,"asp") << "Triangulation error range estimation time: "
-				     << sw2.elapsed_seconds() << std::endl;
-	  if (success || subsample_amt == 1) break;
-	  vw_out() << "Failed to estimate the triangulation range. Check if your cloud is valid. "
-		   << "Trying again with finer sampling.\n";
-	}
+          Stopwatch sw2;
+          sw2.start();
+          PixelAccumulator<asp::ErrorRangeEstimAccum> error_accum;
+          for_each_pixel( subsample(error_image, subsample_amt),
+	            error_accum,
+	            TerminalProgressCallback
+	            ("asp","Triangulation error range estimation: ") );
+          if (error_accum.size() > 0){
+            success = true;
+            estim_max_error = error_accum.value(opt.remove_outliers_params);
+          }
+          sw2.stop();
+          vw_out(DebugMessage,"asp") << "Triangulation error range estimation time: "
+		               << sw2.elapsed_seconds() << std::endl;
+          if (success || subsample_amt == 1) break;
+          vw_out() << "Failed to estimate the triangulation range. Check if your cloud is valid. "
+             << "Trying again with finer sampling.\n";
+        }
       }
     }
-
     // Determine if we should be using a longitude range between
     // [-180, 180] or [0,360]. We determine this by looking at the
     // average location of the points. If the average location has a
     // negative x value (think in ECEF coordinates) then we should
     // be using [0,360].
     double avg_lon = asp::find_avg_lon(point_image);
+    
+    // TODO: Do we need the recenter code now that we have this?
+    output_georef.set_lon_center(avg_lon < 100);
+    
+    //std::cout << "output_georef: \n" << output_georef << std::endl;
 
     // We trade off readability here to avoid ImageViewRef dereferences
     if (opt.lon_offset != 0 || opt.lat_offset != 0 || opt.height_offset != 0) {

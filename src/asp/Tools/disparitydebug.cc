@@ -33,6 +33,7 @@
 
 #include <vw/FileIO.h>
 #include <vw/Image.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/tools/Common.h>
 #include <asp/Core/Macros.h>

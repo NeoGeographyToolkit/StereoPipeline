@@ -159,14 +159,15 @@ std::string fileDialog(std::string title, std::string start_folder){
 QRect bbox2qrect(BBox2 const& B){
   // Need some care here, an empty BBox2 can have its corners
   // as the largest double, which can cause overflow.
-  if (B.empty()) return QRect();
+  if (B.empty()) 
+    return QRect();
   return QRect(round(B.min().x()), round(B.min().y()),
                round(B.width()), round(B.height()));
 }
 
 bool write_hillshade(asp::BaseOptions const& opt,
                      std::string const& input_file,
-                     std::string & output_file) {
+                     std::string      & output_file) {
 
   // Sanity check: Must have a georeference
   cartography::GeoReference georef;
@@ -218,96 +219,10 @@ bool write_hillshade(asp::BaseOptions const& opt,
   return true;
 }
 
-Vector2 point_to_pixel(Vector2 const& proj_pt2,
-                       double lon_offset,
-                       cartography::GeoReference const& georef1,
-                       cartography::GeoReference const& georef2){
-  Vector2 out_pt;
-  Vector2 L(lon_offset, 0);
-  return georef1.lonlat_to_pixel(georef2.point_to_lonlat(proj_pt2) - L);
-}
-
-// TODO: Carefully integrate this into GeoTransform. An example can be found in GeoReference.cc.
-// The reverse of pixel_to_point_bbox. Given georef2 and a box in
-// projected coordinates of this georef, convert it to a pixel box with georef1.
-BBox2 point_to_pixel_bbox(BBox2 point_box2,
-                          double lon_offset,
-                          cartography::GeoReference const& georef1,
-                          cartography::GeoReference const& georef2){
-
-  // Ensure we don't get incorrect results for empty boxes with
-  // strange corners.
-  if (point_box2.empty())
-    return point_box2;
-
-  BBox2 out_box;
-
-  double minx = point_box2.min().x(), maxx = point_box2.max().x();
-  double miny = point_box2.min().y(), maxy = point_box2.max().y();
-
-  // Compensate by the fact that lon1 and lon2 could be off
-  // by 360 degrees.
-  Vector2 L(lon_offset, 0);
-
-  // At the poles this won't be enough, more thought is needed.
-  int num = 100;
-  for (int i = 0; i <= num; i++) {
-    double r = double(i)/num;
-
-    // left edge
-    Vector2 P2 = Vector2(minx, miny + r*(maxy-miny));
-    try { out_box.grow(point_to_pixel(P2, lon_offset, georef1, georef2)); }
-    catch ( const std::exception & e ) {}
-
-    // right edge
-    P2 = Vector2(maxx, miny + r*(maxy-miny));
-    try { out_box.grow(point_to_pixel(P2, lon_offset, georef1, georef2)); }
-    catch ( const std::exception & e ) {}
-
-    // bottom edge
-    P2 = Vector2(minx + r*(maxx-minx), miny);
-    try { out_box.grow(point_to_pixel(P2, lon_offset, georef1, georef2)); }
-    catch ( const std::exception & e ) {}
-
-    // top edge
-    P2 = Vector2(minx + r*(maxx-minx), maxy);
-    try { out_box.grow(point_to_pixel(P2, lon_offset, georef1, georef2)); }
-    catch ( const std::exception & e ) {}
-
-    // diag1
-    P2 = Vector2(minx + r*(maxx-minx), miny + r*(maxy-miny));
-    try { out_box.grow(point_to_pixel(P2, lon_offset, georef1, georef2)); }
-    catch ( const std::exception & e ) {}
-
-    // diag2
-    P2 = Vector2(maxx - r*(maxx-minx), miny + r*(maxy-miny));
-    try { out_box.grow(point_to_pixel(P2, lon_offset, georef1, georef2)); }
-    catch ( const std::exception & e ) {}
-  }
-
-  return grow_bbox_to_int(out_box);
-}
-
-// Given an image with georef1 and a portion of its pixels in
-// pixel_box1, find the bounding box of pixel_box1 in projected
-// point units for georef2.
-BBox2 forward_pixel_to_point_bbox(BBox2 pixel_box1,
-                                  double lon_offset,
-                                  cartography::GeoReference const& georef1,
-                                  cartography::GeoReference const& georef2){
-
-  cartography::GeoTransform T(georef1, georef2);
-  T.set_offset(Vector2(lon_offset, 0));
-  return T.forward_pixel_to_point_bbox(pixel_box1);
-}
-
-
 void imageData::read(std::string const& name_in, asp::BaseOptions const& opt,
                      bool use_georef){
   m_opt = opt;
   name = name_in;
-
-  m_lon_offset = 0; // will be adjusted later
 
   int top_image_max_pix = 1000*1000;
   int subsample = 4;

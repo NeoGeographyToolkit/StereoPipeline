@@ -20,6 +20,7 @@
 ///
 #include <vw/Image/AntiAliasing.h>
 #include <vw/Cartography/GeoTransform.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Math/Functors.h>
 #include <asp/Tools/stereo.h>
 #include <asp/Core/ThreadedEdgeMask.h>

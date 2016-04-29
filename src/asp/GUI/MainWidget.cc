@@ -31,10 +31,13 @@
 #include <vw/Math/EulerAngles.h>
 #include <vw/Image/Algorithms.h>
 #include <vw/Core/RunOnce.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
+#include <vw/Cartography/GeoTransform.h>
 #include <asp/GUI/MainWidget.h>
 
 using namespace vw;
 using namespace vw::gui;
+using namespace vw::cartography;
 using namespace std;
 
 namespace vw { namespace gui {
@@ -99,20 +102,22 @@ namespace vw { namespace gui {
   // for consistency with how images are plotted.  Convert a world box
   // to a pixel box for the given image.
   Vector2 MainWidget::world2image(Vector2 const& P, int imageIndex) {
-    return point_to_pixel(flip_in_y(P), -m_images[imageIndex].m_lon_offset,
-                          m_images[imageIndex].georef, m_images[0].georef);
+    GeoTransform trans(m_images[0].georef, m_images[imageIndex].georef);
+    return trans.point_to_pixel(flip_in_y(P));
   }
 
   BBox2 MainWidget::world2image(BBox2 const& R, int imageIndex) {
 
-    if (R.empty()) return R;
-    if (m_images.empty()) return R;
-
+    if (R.empty()) 
+      return R;
+    if (m_images.empty()) 
+      return R;
     if (!m_use_georef)
       return R;
 
-    BBox2 pixel_box = point_to_pixel_bbox(flip_in_y(R), -m_images[imageIndex].m_lon_offset,
-                                          m_images[imageIndex].georef, m_images[0].georef);
+
+    GeoTransform trans(m_images[0].georef, m_images[imageIndex].georef);
+    BBox2 pixel_box = trans.point_to_pixel_bbox(flip_in_y(R));
 
     return pixel_box;
   }
@@ -126,9 +131,8 @@ namespace vw { namespace gui {
     if (!m_use_georef)
       return R;
 
-    BBox2 B = flip_in_y(forward_pixel_to_point_bbox(R, -m_images[imageIndex].m_lon_offset,
-                                                    m_images[imageIndex].georef,
-                                                    m_images[0].georef));
+    GeoTransform trans(m_images[imageIndex].georef, m_images[0].georef);
+    BBox2 B = flip_in_y(trans.pixel_to_point_bbox(R));
 
     return B;
   }
@@ -178,7 +182,7 @@ namespace vw { namespace gui {
     this->setFocusPolicy(Qt::ClickFocus);
 
     // Read the images. Find the box that will contain all of them.
-    // If we use georef, that pox is in projected point units
+    // If we use georef, that box is in projected point units
     // of the first image.
     int num_images = image_files.size();
     m_images.resize(num_images);
@@ -189,13 +193,6 @@ namespace vw { namespace gui {
       if (!m_use_georef){
         m_images_box.grow(m_images[i].image_bbox);
       }else{
-        // Compensate for the fact some images show pixels at -90
-        // degrees while others at 270 degrees.
-        double midi = (m_images[i].lonlat_bbox.min().x() + m_images[i].lonlat_bbox.max().x())/2.0;
-        double mid0 = (m_images[0].lonlat_bbox.min().x() + m_images[0].lonlat_bbox.max().x())/2.0;
-        m_images[i].m_lon_offset = 360.0*round((midi-mid0)/360.0);
-        m_images[i].lonlat_bbox -= Vector2(m_images[i].m_lon_offset, 0);
-
         // Convert from pixels in image i to world coordinates.
         BBox2 B = MainWidget::image2world(m_images[i].image_bbox, i);
         m_images_box.grow(B);
@@ -761,9 +758,9 @@ namespace vw { namespace gui {
     m_rubberBand = m_emptyRubberBand;
 
     m_curr_pixel_pos = QPoint2Vec(QPoint(m_mousePrsX, m_mousePrsY));
-    m_last_gain = m_gain;     // Store this so the user can do linear
-    m_last_offset = m_offset; // and nonlinear steps.
-    m_last_gamma = m_gamma;
+    m_last_gain      = m_gain;     // Store this so the user can do linear
+    m_last_offset    = m_offset; // and nonlinear steps.
+    m_last_gamma     = m_gamma;
     updateCurrentMousePosition();
 
     // Need this for panning

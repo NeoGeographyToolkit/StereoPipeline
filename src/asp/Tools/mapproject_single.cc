@@ -707,7 +707,7 @@ int main( int argc, char* argv[] ) {
     // but that grows the box needlessly big. We will ensure the mapprojected image does
     // not go beyond dem_box.
     cartography::GeoTransform T(dem_georef, target_georef);
-    BBox2 dem_box = T.forward_pixel_to_point_bbox(bounding_box(dem));
+    BBox2 dem_box = T.pixel_to_point_bbox(bounding_box(dem));
 
     // We compute the target_georef and camera box in two passes,
     // first in the DEM coordinate system and we rotate it to target's

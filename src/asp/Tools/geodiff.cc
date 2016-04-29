@@ -53,10 +53,14 @@ struct Options : asp::BaseOptions {
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("nodata-value",    po::value(&opt.nodata_value)->default_value(-32768),      "The no-data value to use, unless present in the DEM geoheaders.")
-    ("output-prefix,o", po::value(&opt.output_prefix),                            "Specify the output prefix.")
-    ("float",           po::bool_switch(&opt.use_float)->default_value(false),    "Output using float (32 bit) instead of using doubles (64 bit).")
-    ("absolute",        po::bool_switch(&opt.use_absolute)->default_value(false), "Output the absolute difference as opposed to just the difference.");
+    ("nodata-value",    po::value(&opt.nodata_value)->default_value(-32768),      
+                        "The no-data value to use, unless present in the DEM geoheaders.")
+    ("output-prefix,o", po::value(&opt.output_prefix),                            
+                        "Specify the output prefix.")
+    ("float",           po::bool_switch(&opt.use_float)->default_value(false),    
+                        "Output using float (32 bit) instead of using doubles (64 bit).")
+    ("absolute",        po::bool_switch(&opt.use_absolute)->default_value(false), 
+                        "Output the absolute difference as opposed to just the difference.");
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
@@ -80,8 +84,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "Requires <dem1> and <dem2> in order to proceed.\n\n" << usage << general_options );
 
   if ( opt.output_prefix.empty() ) {
-    opt.output_prefix =
-      fs::basename(opt.dem1_name) + "__" + fs::basename(opt.dem2_name);
+    opt.output_prefix = fs::basename(opt.dem1_name) + "__" + fs::basename(opt.dem2_name);
   }
 
   vw::create_out_dir(opt.output_prefix);
@@ -104,7 +107,7 @@ int main( int argc, char *argv[] ) {
       vw_out() << "\tFound input nodata value for DEM 2: " << dem2_nodata << endl;
     }
 
-    DiskImageView<double> dem1_dmg(dem1_rsrc), dem2_dmg(dem2_rsrc);
+    DiskImageView<double> dem1_disk_image_view(dem1_rsrc), dem2_disk_image_view(dem2_rsrc);
 
     GeoReference dem1_georef, dem2_georef;
     read_georeference(dem1_georef, dem1_rsrc);
@@ -129,15 +132,15 @@ int main( int argc, char *argv[] ) {
     }
 
     // Generate a bounding box that is the minimum of the two BBox areas
-    BBox2 crop_box = bounding_box( dem1_dmg );
+    BBox2 crop_box = bounding_box( dem1_disk_image_view );
 
     // Transform the second DEM's bounding box to first DEM's pixels
     GeoTransform gt(dem2_georef, dem1_georef);
-    BBox2 box21 = gt.forward_bbox(bounding_box(dem2_dmg));
+    BBox2 box21 = gt.forward_bbox(bounding_box(dem2_disk_image_view));
     crop_box.crop(box21);
 
     ImageViewRef<PixelMask<double> > dem2_trans =
-      crop(geo_transform( per_pixel_filter(dem_to_geodetic( create_mask(dem2_dmg, dem2_nodata),
+      crop(geo_transform( per_pixel_filter(dem_to_geodetic( create_mask(dem2_disk_image_view, dem2_nodata),
                                                             dem2_georef),
                                            MGeodeticToMAltitude()),
                           dem2_georef, dem1_georef,
@@ -147,11 +150,11 @@ int main( int argc, char *argv[] ) {
     ImageViewRef<double> difference;
     if ( opt.use_absolute ) {
       difference =
-        apply_mask(abs(crop(create_mask(dem1_dmg, dem1_nodata), crop_box) - dem2_trans),
+        apply_mask(abs(crop(create_mask(dem1_disk_image_view, dem1_nodata), crop_box) - dem2_trans),
                    opt.nodata_value );
     } else {
       difference =
-        apply_mask(crop(create_mask(dem1_dmg, dem1_nodata), crop_box) - dem2_trans,
+        apply_mask(crop(create_mask(dem1_disk_image_view, dem1_nodata), crop_box) - dem2_trans,
                    opt.nodata_value );
     }
 
