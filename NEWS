@@ -8,10 +8,20 @@ Highlights
    The RPC model seems to work just as well as the rigorous one
    and is much faster.
 
+ - Added the ability to process SPOT5 images with stereo,
+   bundle_adjust, and map_project using a rigorous linescan camera model.
+
  - pc_align 
    * Can solve for a scale change in addition to a rotation and translation 
      to best align two clouds, hence for a similarity transform. 
      Option: --alignment-method similarity-point-to-point
+
+ - mapproject
+   * Added ability to map project color images.
+   * Added option to map project on to a flat datum.
+
+ - camera_solve
+   * Added option to accept multiple input camera models.
 
 Other
 
