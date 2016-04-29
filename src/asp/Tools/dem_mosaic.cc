@@ -789,13 +789,15 @@ public:
 
 /// Find the bounding box of all DEMs in the projected space.
 void load_dem_bounding_boxes(Options       const& opt,
-			     GeoReference  const& out_georef,
+			     GeoReference  const& mosaic_georef,
 			     BBox2              & mosaic_bbox,
 			     std::vector<BBox2> & dem_proj_bboxes,
 			     std::vector<BBox2i> & dem_pixel_bboxes) {
 
   vw_out() << "Determining the bounding boxes of the input DEMs.\n";
 
+  // Initialize the outputs
+  mosaic_bbox = BBox2();
   dem_proj_bboxes.clear();
   dem_pixel_bboxes.clear();
   
@@ -813,24 +815,31 @@ void load_dem_bounding_boxes(Options       const& opt,
     BBox2i                pixel_box = bounding_box(img);
 
     dem_pixel_bboxes.push_back(pixel_box);
-    // Compute bounding box of this DEM
-    if (out_georef.overall_proj4_str() == georef.overall_proj4_str()){
+
+    bool has_lonat = (georef.proj4_str().find("+proj=longlat") != std::string::npos ||
+                      mosaic_georef.proj4_str().find("+proj=longlat") != std::string::npos );
+    
+    // Compute bounding box of this DEM. The simple case is when all DEMs have
+    // the same projection, and it is not longlat, as then we need to worry about
+    // a 360 degree shift.
+    if ( (!has_lonat) && mosaic_georef.overall_proj4_str() == georef.overall_proj4_str() ){
       BBox2 proj_box = georef.bounding_box(img);
       mosaic_bbox.grow(proj_box);
       dem_proj_bboxes.push_back(proj_box);
     }else{
-      // Compute the bounding box of the current image in projected coordinates of the mosaic.
-      BBox2 imgbox     = bounding_box(img);
-      BBox2 lonlat_box = georef.pixel_to_lonlat_bbox(imgbox);
-
-      // Must compensate for the fact that the lonlat
-      // of the two images can differ by 360 degrees.
-      Vector2 old_orgin = georef.pixel_to_lonlat(Vector2(0, 0));
-      Vector2 new_orgin = out_georef.pixel_to_lonlat(Vector2(0, 0));
-      // TODO: Bug here!!!
-      Vector2 offset( 360.0*round( (new_orgin[0] - old_orgin[0])/360.0 ), 0.0 );
-      lonlat_box += offset;
-      BBox2 proj_box = out_georef.lonlat_to_point_bbox(lonlat_box);
+      // Compute the bounding box of the current image in projected
+      // coordinates of the mosaic. There is always a worry that the
+      // lonlat of the mosaic so far and of the current DEM will be
+      // offset by 360 degrees. Try to deal with that.
+      BBox2 proj_box;
+      BBox2 imgbox = bounding_box(img);
+      if (dem_iter == 0) {
+	proj_box = mosaic_georef.pixel_to_point_bbox(imgbox);
+      }else{
+	BBox2 mosaic_pixel_box = mosaic_georef.point_to_pixel_bbox(mosaic_bbox);
+	GeoTransform geotrans(georef, mosaic_georef, imgbox, mosaic_pixel_box);
+	proj_box = geotrans.forward_pixel_to_point_bbox(imgbox);
+      }
       mosaic_bbox.grow(proj_box);
       dem_proj_bboxes.push_back(proj_box);
     }
@@ -1055,10 +1064,10 @@ int main( int argc, char *argv[] ) {
     if (opt.target_srs_string != "")
       opt.target_srs_string = processed_proj4(opt.target_srs_string);
 
-    GeoReference out_georef = read_georef(opt.dem_files[0]);
+    GeoReference mosaic_georef = read_georef(opt.dem_files[0]);
     double spacing = opt.tr;
     if (opt.target_srs_string != ""                                              &&
-	opt.target_srs_string != processed_proj4(out_georef.overall_proj4_str()) &&
+	opt.target_srs_string != processed_proj4(mosaic_georef.overall_proj4_str()) &&
 	spacing <= 0 ){
       vw_throw(ArgumentErr()
 	       << "Changing the projection was requested. The output DEM "
@@ -1070,29 +1079,29 @@ int main( int argc, char *argv[] ) {
       bool have_user_datum = false;
       Datum user_datum;
       asp::set_srs_string(opt.target_srs_string,
-			  have_user_datum, user_datum, out_georef);
+			  have_user_datum, user_datum, mosaic_georef);
     }
 
     // Bugfix: steal the datum and its name from the input, if the output
     // datum name is unknown.
-    if (out_georef.datum().name() == "unknown"){
+    if (mosaic_georef.datum().name() == "unknown"){
       GeoReference georef = read_georef(opt.dem_files[0]);
-      if (out_georef.datum().semi_major_axis() == georef.datum().semi_major_axis() &&
-	  out_georef.datum().semi_minor_axis() == georef.datum().semi_minor_axis() ){
+      if (mosaic_georef.datum().semi_major_axis() == georef.datum().semi_major_axis() &&
+	  mosaic_georef.datum().semi_minor_axis() == georef.datum().semi_minor_axis() ){
 	vw_out() << "Using the datum: " << georef.datum() << std::endl;
-	out_georef.set_datum(georef.datum());
+	mosaic_georef.set_datum(georef.datum());
       }
     }
 
     // Use desired spacing if user-specified
     if (spacing > 0.0){
-      Matrix<double,3,3> transform = out_georef.transform();
+      Matrix<double,3,3> transform = mosaic_georef.transform();
       transform.set_identity();
       transform(0, 0) =  spacing;
       transform(1, 1) = -spacing;
-      out_georef.set_transform(transform);
+      mosaic_georef.set_transform(transform);
     }else
-      spacing = out_georef.transform()(0, 0);
+      spacing = mosaic_georef.transform()(0, 0);
 
     // if the user specified the tile size in georeferenced units.
     if (opt.geo_tile_size > 0){
@@ -1106,7 +1115,7 @@ int main( int argc, char *argv[] ) {
     BBox2 mosaic_bbox;
     vector<BBox2> dem_proj_bboxes;
     vector<BBox2i> dem_pixel_bboxes;
-    load_dem_bounding_boxes(opt, out_georef, mosaic_bbox,
+    load_dem_bounding_boxes(opt, mosaic_georef, mosaic_bbox,
                             dem_proj_bboxes, dem_pixel_bboxes);
 
     // If to create the mosaic only in a given region
@@ -1131,14 +1140,14 @@ int main( int argc, char *argv[] ) {
     // integer. This ensures that when we mosaic a single DEM we get
     // its corners to be the same as the originals rather than moved
     // by a slight offset.
-    BBox2 pixel_box = point_to_pixel_bbox_nogrow(out_georef, mosaic_bbox);
+    BBox2 pixel_box = point_to_pixel_bbox_nogrow(mosaic_georef, mosaic_bbox);
     Vector2 beg_pix = pixel_box.min();
     if (norm_2(beg_pix - round(beg_pix)) < g_tol )
       beg_pix = round(beg_pix);
-    out_georef = crop(out_georef, beg_pix[0], beg_pix[1]);
+    mosaic_georef = crop(mosaic_georef, beg_pix[0], beg_pix[1]);
 
     // Image size
-    pixel_box = point_to_pixel_bbox_nogrow(out_georef, mosaic_bbox);
+    pixel_box = point_to_pixel_bbox_nogrow(mosaic_georef, mosaic_bbox);
     Vector2 end_pix = pixel_box.max();
 
     int cols = (int)round(end_pix[0]); // end_pix is the last pix in the image
@@ -1216,7 +1225,7 @@ int main( int argc, char *argv[] ) {
       for (int tile_id = start_tile; tile_id < end_tile; tile_id++){
 	// Get tile bbox in pixels, then convert it to projected coords.
 	BBox2i tile_pixel_box = tile_pixel_bboxes[tile_id - start_tile];
-	BBox2  tile_proj_box  = out_georef.pixel_to_point_bbox(tile_pixel_box);
+	BBox2  tile_proj_box  = mosaic_georef.pixel_to_point_bbox(tile_pixel_box);
 
 	if (tile_proj_box.intersects(dem_bbox)) {
 	  use_this_dem = true;
@@ -1230,12 +1239,12 @@ int main( int argc, char *argv[] ) {
       // from pixels to points and lon-lat.
       GeoReference georef  = read_georef(opt.dem_files[dem_iter]);
       BBox2i dem_pixel_box = dem_pixel_bboxes[dem_iter];
-      GeoTransform geotrans(georef, out_georef, dem_pixel_box, output_dem_box);
+      GeoTransform geotrans(georef, mosaic_georef, dem_pixel_box, output_dem_box);
 
       // Get the current DEM bounding box in pixel units of the output mosaicked DEM
       BBox2 curr_box = geotrans.forward_bbox(dem_pixel_box);
       curr_box.crop(output_dem_box);
-      
+
       // This is a fix for GDAL crashing when there are too many open
       // file handles. In such situation, just selectively close the
       // handles furthest from the current location.
@@ -1276,10 +1285,10 @@ int main( int argc, char *argv[] ) {
       // Set up tile image and metadata
       ImageViewRef<RealT> out_dem = crop(DemMosaicView(cols, rows, bias, opt,
 						       imgMgr, georefs,
-						       out_georef, nodata_values,
+						       mosaic_georef, nodata_values,
                                                        dem_pixel_bboxes),
 					 tile_box);
-      GeoReference crop_georef = crop(out_georef, tile_box.min().x(),
+      GeoReference crop_georef = crop(mosaic_georef, tile_box.min().x(),
 				      tile_box.min().y());
 
       // Raster the tile to disk
