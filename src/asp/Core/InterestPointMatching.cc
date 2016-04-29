@@ -17,7 +17,7 @@
 
 
 #include <asp/Core/InterestPointMatching.h>
-#include <asp/Core/GaussianClustering.h>
+#include <vw/Math/GaussianClustering.h>
 #include <vw/Math/RANSAC.h>
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Stereo/StereoModel.h>
@@ -498,8 +498,7 @@ namespace asp {
 
     typedef std::vector<std::pair<Vector<double>, Vector<double> > > ClusterT;
     ClusterT error_clusters =
-      asp::gaussian_clustering<ArrayT>( error_samples.begin(),
-					error_samples.end(), 2 );
+      gaussian_clustering<ArrayT>(error_samples.begin(), error_samples.end(), 2);
 
     // The best triangulation error is the one that has the smallest
     // standard deviations. They are focused on the tight pack of

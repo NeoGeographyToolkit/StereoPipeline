@@ -33,7 +33,7 @@ include_HEADERS = BlobIndexThreaded.h StereoSettings.h SparseView.h        \
                   InpaintView.h MedianFilter.h OrthoRasterizer.h           \
                   SoftwareRenderer.h ErodeView.h $(ba_headers) Macros.h    \
                   Common.h Common.tcc ThreadedEdgeMask.h                   \
-                  GaussianClustering.h InterestPointMatching.h FileUtils.h \
+                  InterestPointMatching.h FileUtils.h \
                   DemDisparity.h LocalHomography.h AffineEpipolar.h        \
                   Point2Grid.h PointUtils.h PhotometricOutlier.h
 
