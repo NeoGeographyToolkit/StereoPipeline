@@ -42,77 +42,6 @@ namespace vw {
   template<> struct PixelFormatID<Vector<double, 4> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_4_CHANNEL; };
 }
 
-namespace asp {
-
-  // IP matching with translation + rotation transform. Must move this
-  // to InterestPointMatching.cc and reduce any code duplication.
-
-  vw::Matrix<double> ip_matching_no_alignment(vw::ImageView<float> const& image1,
-                                              vw::ImageView<float> const& image2,
-                                              int ip_per_tile,
-                                              double nodata1, double nodata2 ) {
-
-    using namespace vw;
-
-    vw_out() << "\t--> Locating Interest Points\n";
-    ip::InterestPointList ip1, ip2;
-    asp::detect_ip( ip1, ip2, image1, image2, ip_per_tile,
-                    nodata1, nodata2 );
-
-    std::vector<ip::InterestPoint> ip1_copy, ip2_copy;
-    for (ip::InterestPointList::iterator iter = ip1.begin(); iter != ip1.end(); ++iter)
-      ip1_copy.push_back(*iter);
-    for (ip::InterestPointList::iterator iter = ip2.begin(); iter != ip2.end(); ++iter)
-      ip2_copy.push_back(*iter);
-
-    vw_out() << "\t--> Matching interest points\n";
-    ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(0.5);
-    std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
-
-    matcher(ip1_copy, ip2_copy,
-            matched_ip1, matched_ip2,
-            TerminalProgressCallback( "asp", "\t    Matching: "));
-
-
-    vw_out(InfoMessage) << "\t--> " << matched_ip1.size()
-                        << " putative matches.\n";
-
-    vw_out() << "\t--> Rejecting outliers using RANSAC.\n";
-    remove_duplicates(matched_ip1, matched_ip2);
-    std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1);
-    std::vector<Vector3> ransac_ip2 = iplist_to_vectorlist(matched_ip2);
-    vw_out(DebugMessage,"asp") << "\t--> Removed "
-                               << matched_ip1.size() - ransac_ip1.size()
-                               << " duplicate matches.\n";
-
-    Matrix<double> T;
-    std::vector<size_t> indices;
-    try {
-
-      vw::math::RandomSampleConsensus<vw::math::TranslationScaleFittingFunctor, vw::math::InterestPointErrorMetric> ransac( vw::math::TranslationScaleFittingFunctor(), vw::math::InterestPointErrorMetric(), 100, 10, ransac_ip1.size()/2, true);
-      T = ransac( ransac_ip2, ransac_ip1 );
-      indices = ransac.inlier_indices(T, ransac_ip2, ransac_ip1 );
-    } catch (...) {
-      vw_out(WarningMessage,"console") << "Automatic Alignment Failed! Proceed with caution...\n";
-      T = vw::math::identity_matrix<3>();
-    }
-
-    { // Keeping only inliers
-      std::vector<ip::InterestPoint> inlier_ip1, inlier_ip2;
-      for ( size_t i = 0; i < indices.size(); i++ ) {
-        inlier_ip1.push_back( matched_ip1[indices[i]] );
-        inlier_ip2.push_back( matched_ip2[indices[i]] );
-      }
-      matched_ip1 = inlier_ip1;
-      matched_ip2 = inlier_ip2;
-    }
-
-    return T;
-
-  }
-
-}
-
 struct ImageData{
   std::string src_file;
   int band;
@@ -180,10 +109,10 @@ void fix_seams_using_ip(std::vector<ImageData> & img_data){
 
     // The transform from cropped image0 to cropped image1
     int ip_per_tile = 0; // auto-determination
-    Matrix3x3 T = asp::ip_matching_no_alignment(crop0, crop1,
-                                                ip_per_tile,
-                                                img_data[img_index].nodata_value,
-                                                img_data[img_index+1].nodata_value);
+    Matrix3x3 T = asp::translation_ip_matching(crop0, crop1,
+                                               ip_per_tile,
+                                               img_data[img_index].nodata_value,
+                                               img_data[img_index+1].nodata_value);
     T = inverse(T); // originally it was going from image1 to image0
 
     // The transform from image0 to cropped image0
@@ -209,11 +138,13 @@ void fix_seams_using_ip(std::vector<ImageData> & img_data){
 
     vw_out() << "Old transform for image " << img_index+1 << ": " << N0 << std::endl;
     vw_out() << "New transform for image " << img_index+1 << ": " << N  << std::endl;
-
+    
     // Update the transform
     img_data[img_index+1].transform = mat2affine(N);
 
-    // Update the dst box
+    // Update the dst box.
+    // TODO: forward_bbox() always give results as an int box. Must revisit this using
+    // a float box!
     img_data[img_index+1].dst_box
       = img_data[img_index+1].transform.forward_bbox(img_data[img_index+1].src_box);
   }

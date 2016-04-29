@@ -217,8 +217,8 @@ namespace asp {
 
   /// Detect InterestPoints
   ///
-  /// This is not meant to be used directly. Please use ip_matching or
-  /// the dumb homography ip matching.
+  /// This is not meant to be used directly. Please use ip_matching() or
+  /// the dumb homography_ip_matching().
   template <class List1T, class List2T, class Image1T, class Image2T>
   void detect_ip( List1T& ip1, List2T& ip2,
 		  vw::ImageViewBase<Image1T> const& image1,
@@ -229,7 +229,7 @@ namespace asp {
 
   /// Detect and Match Interest Points
   ///
-  /// This is not meant to be used directly. Please use ip matching
+  /// This is not meant to be used directly. Please use ip_matching
   template <class Image1T, class Image2T>
   void detect_match_ip( std::vector<vw::ip::InterestPoint>& matched_ip1,
 			std::vector<vw::ip::InterestPoint>& matched_ip2,
@@ -358,8 +358,8 @@ namespace asp {
 
   // Detect InterestPoints
   //
-  // This is not meant to be used directly. Please use ip_matching or
-  // the dumb homography ip matching.
+  /// This is not meant to be used directly. Please use ip_matching() or
+  /// the dumb homography_ip_matching().
   template <class List1T, class List2T, class Image1T, class Image2T>
   void detect_ip( List1T& ip1, List2T& ip2,
 		  vw::ImageViewBase<Image1T> const& image1,
@@ -834,6 +834,12 @@ namespace asp {
     return inlier;
   }
 
+  // Do IP matching, return, the best translation+scale fitting functor.
+  vw::Matrix<double> translation_ip_matching(vw::ImageView<float> const& image1,
+                                             vw::ImageView<float> const& image2,
+                                             int ip_per_tile,
+                                             double nodata1, double nodata2);
+  
 } // End namespace asp
 
 #endif//__ASP_CORE_INTEREST_POINT_MATCHING_H__

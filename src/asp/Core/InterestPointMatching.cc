@@ -659,4 +659,49 @@ namespace asp {
 
     return valid_indices.size();
   }
+
+  // Do IP matching, return, the best translation+scale fitting functor.
+  vw::Matrix<double> translation_ip_matching(vw::ImageView<float> const& image1,
+                                              vw::ImageView<float> const& image2,
+                                              int ip_per_tile,
+                                              double nodata1, double nodata2) {
+
+    using namespace vw;
+
+    std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
+    detect_match_ip(matched_ip1, matched_ip2, image1,  image2, ip_per_tile,
+                    nodata1, nodata2);
+
+    std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1);
+    std::vector<Vector3> ransac_ip2 = iplist_to_vectorlist(matched_ip2);
+    vw_out(DebugMessage,"asp") << "\t--> Removed "
+                               << matched_ip1.size() - ransac_ip1.size()
+                               << " duplicate matches.\n";
+
+    Matrix<double> T;
+    std::vector<size_t> indices;
+    try {
+
+      vw::math::RandomSampleConsensus<vw::math::TranslationScaleFittingFunctor, vw::math::InterestPointErrorMetric> ransac( vw::math::TranslationScaleFittingFunctor(), vw::math::InterestPointErrorMetric(), 100, 10, ransac_ip1.size()/2, true);
+      T = ransac( ransac_ip2, ransac_ip1 );
+      indices = ransac.inlier_indices(T, ransac_ip2, ransac_ip1 );
+    } catch (...) {
+      vw_out(WarningMessage,"console") << "Automatic Alignment Failed! Proceed with caution...\n";
+      T = vw::math::identity_matrix<3>();
+    }
+
+    { // Keeping only inliers
+      std::vector<ip::InterestPoint> inlier_ip1, inlier_ip2;
+      for ( size_t i = 0; i < indices.size(); i++ ) {
+        inlier_ip1.push_back( matched_ip1[indices[i]] );
+        inlier_ip2.push_back( matched_ip2[indices[i]] );
+      }
+      matched_ip1 = inlier_ip1;
+      matched_ip2 = inlier_ip2;
+    }
+
+    return T;
+
+  }
+  
 }

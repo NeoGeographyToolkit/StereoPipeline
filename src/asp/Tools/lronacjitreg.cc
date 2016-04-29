@@ -34,6 +34,7 @@
 
 #include <asp/Core/DemDisparity.h>
 #include <asp/Core/LocalHomography.h>
+#include <asp/Core/InterestPointMatching.h>
 #include <asp/Tools/stereo.h>
 
 #include <iomanip>
@@ -159,7 +160,7 @@ bool determineShifts(Parameters & params,
   // - Since both images were nproj'd the overlap areas should be in about the same spots.
   const BBox2i crop_roi( cropStartX, imageTopRow,
 			 params.cropWidth, imageHeight );
-  std::cout << "Expected overlap ROI = " << crop_roi << std::endl;
+  vw_out() << "Expected overlap ROI = " << crop_roi << std::endl;
 
   const int SEARCH_RANGE_EXPANSION = 5;
   int  ipFindXOffset = 0;
@@ -170,26 +171,19 @@ bool determineShifts(Parameters & params,
   if ( (params.h_corr_min > params.h_corr_max) || (params.v_corr_min > params.v_corr_max) )
   {
     // Now use interest point finding/matching functions to estimate the search offset between the images
-    printf("Gathering interest points...\n");
+    vw_out() << "Gathering interest points...\n";
 
-    // Gather interest points
-    ip::IntegralAutoGainDetector detector( 500 );
-    ip::InterestPointList ip1 = ip::detect_interest_points( vw::create_mask_less_or_equal(crop(left_disk_image, crop_roi), 0), detector );
-    ip::InterestPointList ip2 = ip::detect_interest_points( vw::create_mask_less_or_equal(crop(right_disk_image,crop_roi), 0), detector );
-    printf("Found %lu, %lu interest points.\n", ip1.size(), ip2.size());
-       
-    ip::SGradDescriptorGenerator descriptor;
-    describe_interest_points( vw::create_mask_less_or_equal(crop(left_disk_image, crop_roi), 0), descriptor, ip1 );
-    describe_interest_points( vw::create_mask_less_or_equal(crop(right_disk_image,crop_roi), 0), descriptor, ip2 );
+    int points_per_tile = 500;
+    double nodata1 = 0, nodata2 = 0;
+    ImageViewRef<PixelGray<float> > left_crop = crop(left_disk_image, crop_roi);
+    ImageViewRef<PixelGray<float> > right_crop = crop(right_disk_image, crop_roi);
 
-    // Match interest points
-    ip::DefaultMatcher matcher(0.5);
+    // Gather interest points and match them
     std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
-    matcher(ip1, ip2, matched_ip1, matched_ip2 );
-    ip::remove_duplicates( matched_ip1, matched_ip2 );
-
-    if (matched_ip1.empty() || matched_ip2.empty())
-    {
+    detect_match_ip(matched_ip1, matched_ip2, left_crop, right_crop, points_per_tile,
+                    nodata1, nodata2);
+    
+    if (matched_ip1.empty() || matched_ip2.empty()){
      ransacSuccess = false;
      printf("Failed to find any matching interest points, defaulting to large search range.\n");
     }
@@ -198,26 +192,24 @@ bool determineShifts(Parameters & params,
       printf("Found %lu, %lu matched interest points.\n", matched_ip1.size(), matched_ip2.size());
 
       // Filter interest point matches
-      math::RandomSampleConsensus<math::SimilarityFittingFunctor, math::InterestPointErrorMetric> ransac( math::SimilarityFittingFunctor(),
-												      math::InterestPointErrorMetric(),
-												      100, 5, 100, true );
+      math::RandomSampleConsensus<math::SimilarityFittingFunctor, math::InterestPointErrorMetric>
+        ransac( math::SimilarityFittingFunctor(), math::InterestPointErrorMetric(),
+                100, 5, 100, true );
       std::vector<Vector3> ransac_ip1 = ip::iplist_to_vectorlist(matched_ip1);
       std::vector<Vector3> ransac_ip2 = ip::iplist_to_vectorlist(matched_ip2);
 
       // Finding offset using RANSAC...
-      try
-      {
+      try{
         Matrix<double> H(ransac(ransac_ip1, ransac_ip2));
-        std::cout << "ipfind based similarity: " << H << std::endl;
-
+        vw_out() << "ipfind based similarity: " << H << std::endl;
+        
         // Use the estimated transform between the images to determine a search offset range
         ipFindXOffset = static_cast<int>(H[0][2]);
         ipFindYOffset = static_cast<int>(H[1][2]);
         ransacSuccess = true;
       }
-      catch(...) // Handle a RANSAC failure
-      {
-        printf("RANSAC solution failed, defaulting to large search range.\n");
+      catch(...){ // Handle a RANSAC failure
+        vw_out() << "RANSAC solution failed, defaulting to large search range.\n";
         ransacSuccess = false;
       }
     } // End of successful IP matching 
@@ -248,7 +240,7 @@ bool determineShifts(Parameters & params,
   }
 
   printf("Disparity search image size = %d by %d\n", params.cropWidth, imageHeight);
-  std::cout << "Offset search region = " << searchRegion << endl;
+  vw_out() << "Offset search region = " << searchRegion << endl;
 
 
   // Use correlation function to compute image disparity
