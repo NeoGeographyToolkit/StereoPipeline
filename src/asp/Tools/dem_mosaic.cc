@@ -834,11 +834,11 @@ void load_dem_bounding_boxes(Options       const& opt,
       BBox2 proj_box;
       BBox2 imgbox = bounding_box(img);
       if (dem_iter == 0) {
-	proj_box = mosaic_georef.pixel_to_point_bbox(imgbox);
+        proj_box = mosaic_georef.pixel_to_point_bbox(imgbox);
       }else{
-	BBox2 mosaic_pixel_box = mosaic_georef.point_to_pixel_bbox(mosaic_bbox);
-	GeoTransform geotrans(georef, mosaic_georef, imgbox, mosaic_pixel_box);
-	proj_box = geotrans.forward_pixel_to_point_bbox(imgbox);
+	      BBox2 mosaic_pixel_box = mosaic_georef.point_to_pixel_bbox(mosaic_bbox);
+	      GeoTransform geotrans(georef, mosaic_georef, imgbox, mosaic_pixel_box);
+	      proj_box = geotrans.pixel_to_point_bbox(imgbox);
       }
       mosaic_bbox.grow(proj_box);
       dem_proj_bboxes.push_back(proj_box);
