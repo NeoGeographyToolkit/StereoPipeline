@@ -370,31 +370,30 @@ DiskImagePyramidMultiChannel::DiskImagePyramidMultiChannel(std::string const& ba
   }
 }
 
-void DiskImagePyramidMultiChannel::getImageClip(double scale_in, vw::BBox2i region_in,
+void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i region_in,
                   bool highlight_nodata,
                   QImage & qimg, double & scale_out, vw::BBox2i & region_out) {
 
   bool scale_pixels = (m_type == CH1_DOUBLE);
-
+  
+  // Extract the clip, then convert it from VW format to QImage format.
   if (m_type == CH1_DOUBLE) {
-    m_img_ch1_double.getImageClip(scale_in, region_in,
-                                  highlight_nodata, scale_pixels, qimg,
+    ImageView<double> clip;
+    m_img_ch1_double.get_image_clip(scale_in, region_in, clip,
                                   scale_out, region_out);
+    formQimage(highlight_nodata, scale_pixels, m_img_ch1_double.get_nodata_val(), clip, qimg);
   } else if (m_type == CH2_UINT8) {
-    m_img_ch2_uint8.getImageClip(scale_in, region_in,
-                                 highlight_nodata, scale_pixels, qimg,
+    ImageView<Vector<vw::uint8, 2> > clip;
+    m_img_ch2_uint8.get_image_clip(scale_in, region_in, clip,
                                  scale_out, region_out);
+    formQimage(highlight_nodata, scale_pixels, m_img_ch2_uint8.get_nodata_val(), clip, qimg);
   } else if (m_type == CH3_UINT8) {
-    m_img_ch3_uint8.getImageClip(scale_in, region_in,
-                                 highlight_nodata, scale_pixels, qimg,
+    ImageView<Vector<vw::uint8, 3> > clip;
+    m_img_ch3_uint8.get_image_clip(scale_in, region_in, clip,
                                  scale_out, region_out);
-  } else if (m_type == CH4_UINT8) {
-    m_img_ch4_uint8.getImageClip(scale_in, region_in,
-                                 highlight_nodata, scale_pixels, qimg,
-                                 scale_out, region_out);
+    formQimage(highlight_nodata, scale_pixels, m_img_ch3_uint8.get_nodata_val(), clip, qimg);
   }else{
-    vw_throw( ArgumentErr() << "Unsupported image with "
-              << m_num_channels << " bands\n");
+    vw_throw(ArgumentErr() << "Unsupported image with " << m_num_channels << " bands\n");
   }
 }
 

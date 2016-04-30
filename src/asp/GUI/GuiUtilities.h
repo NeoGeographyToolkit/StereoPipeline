@@ -102,13 +102,15 @@ namespace vw { namespace gui {
 
   // Gets called for PixelT == double
   template<class PixelT>
-  typename boost::enable_if< boost::mpl::or_< boost::is_same<PixelT,double>, boost::is_same<PixelT,vw::uint8> >, ImageViewRef< PixelMask<PixelT> > >::type
+  typename boost::enable_if< boost::mpl::or_< boost::is_same<PixelT,double>, 
+                              boost::is_same<PixelT,vw::uint8> >, ImageViewRef< PixelMask<PixelT> > >::type
   create_custom_mask(ImageViewRef<PixelT> & img, double nodata_val){
     return create_mask_less_or_equal(img, nodata_val);
   }
   // Gets called for PixelT == Vector<u8, 1> and Vector<u8, 3>
   template<class PixelT>
-  typename boost::disable_if< boost::mpl::or_< boost::is_same<PixelT,double>, boost::is_same<PixelT,vw::uint8> >, ImageViewRef< PixelMask<PixelT> > >::type
+  typename boost::disable_if< boost::mpl::or_< boost::is_same<PixelT,double>, 
+                               boost::is_same<PixelT,vw::uint8> >, ImageViewRef< PixelMask<PixelT> > >::type
   create_custom_mask(ImageViewRef<PixelT> & img, double nodata_val){
     PixelT mask_pixel;
     mask_pixel.set_all(nodata_val);
@@ -230,9 +232,9 @@ namespace vw { namespace gui {
     // display, so in this function we hide the details of how channels
     // combined to create the QImage. Also return the precise subsample
     // factor used and the region at that scale level.
-    void getImageClip(double scale_in, vw::BBox2i region_in,
-                      bool highlight_nodata, bool scale_pixels,
-                      QImage & qimg, double & scale_out, vw::BBox2i & region_out);
+    void get_image_clip(double scale_in, vw::BBox2i region_in,
+                      //bool highlight_nodata, bool scale_pixels,
+                      ImageView<PixelT> & clip, double & scale_out, vw::BBox2i & region_out);
 
     ~DiskImagePyramid() {}
 
@@ -240,6 +242,8 @@ namespace vw { namespace gui {
     int32 cols  () const { return m_pyramid[0].cols(); }
     int32 rows  () const { return m_pyramid[0].rows(); }
     int32 planes() const { return m_pyramid[0].planes(); }
+
+    double get_nodata_val() const {return(m_nodata_val);}
 
     /// Return the highest resolution pyramid layer
     ImageViewRef<PixelT>        bottom()       { return m_pyramid[0]; }
@@ -292,7 +296,7 @@ namespace vw { namespace gui {
 
     // This function will return a QImage to be shown on screen.
     // How we create it, depends on the type of image we want to display.
-    void getImageClip(double scale_in, vw::BBox2i region_in,
+    void get_image_clip(double scale_in, vw::BBox2i region_in,
                       bool highlight_nodata,
                       QImage & qimg, double & scale_out, vw::BBox2i & region_out);
 
@@ -617,9 +621,8 @@ DiskImagePyramid<PixelT>::DiskImagePyramid(std::string const& base_file,
 }
 
 template <class PixelT>
-void DiskImagePyramid<PixelT>::getImageClip(double scale_in, vw::BBox2i region_in,
-                  bool highlight_nodata, bool scale_pixels,
-                  QImage & qimg, double & scale_out, vw::BBox2i & region_out) {
+void DiskImagePyramid<PixelT>::get_image_clip(double scale_in, vw::BBox2i region_in,
+                  ImageView<PixelT> & clip, double & scale_out, vw::BBox2i & region_out) {
 
   if (m_pyramid.empty())
     vw_throw( ArgumentErr() << "Uninitialized image pyramid.\n");
@@ -635,12 +638,12 @@ void DiskImagePyramid<PixelT>::getImageClip(double scale_in, vw::BBox2i region_i
   //vw_out() << "Reading: " << m_pyramid_files[level] << std::endl;
 
   region_in.crop(bounding_box(m_pyramid[0]));
-  scale_out = m_scales[level];
+  scale_out  = m_scales[level];
   region_out = region_in/scale_out;
   region_out.crop(bounding_box(m_pyramid[level]));
 
-  ImageView<PixelT> clip = crop(m_pyramid[level], region_out);
-  formQimage(highlight_nodata, scale_pixels, m_nodata_val, clip, qimg);
+  clip = crop(m_pyramid[level], region_out);
+  //formQimage(highlight_nodata, scale_pixels, m_nodata_val, clip, qimg);
 }
 
 }} // namespace vw::gui

@@ -515,18 +515,18 @@ namespace vw { namespace gui {
       BBox2i region_out;
       bool   highlight_nodata = m_shadow_thresh_view_mode;
       if (m_shadow_thresh_view_mode){
-        m_shadow_thresh_images[i].img.getImageClip(scale, image_box,
-                                                   highlight_nodata,
-                                                   qimg, scale_out, region_out);
+        m_shadow_thresh_images[i].img.get_image_clip(scale, image_box,
+                                                     highlight_nodata,
+                                                     qimg, scale_out, region_out);
       }else if (m_hillshade_mode){
-        m_hillshaded_images[i].img.getImageClip(scale, image_box,
-                                                highlight_nodata,
-                                                qimg, scale_out, region_out);
+        m_hillshaded_images[i].img.get_image_clip(scale, image_box,
+                                                  highlight_nodata,
+                                                  qimg, scale_out, region_out);
       }else{
         // Original images
-        m_images[i].img.getImageClip(scale, image_box,
-                                     highlight_nodata,
-                                     qimg, scale_out, region_out);
+        m_images[i].img.get_image_clip(scale, image_box,
+                                       highlight_nodata,
+                                       qimg, scale_out, region_out);
       }
 
       // Draw on image screen
