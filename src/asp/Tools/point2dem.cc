@@ -405,7 +405,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 	     "Multiply this factor by dem-spacing to get the search radius. The DEM height at a given grid point is obtained as a weighted average of heights of all points in the cloud within search radius of the grid point, with the weights given by a Gaussian. Default search radius: max(dem-spacing, default_dem_spacing), so the default factor is about 1.")
     ("use-surface-sampling", po::bool_switch(&opt.use_surface_sampling)->default_value(false),
 	       "Use the older algorithm, interpret the point cloud as a surface made up of triangles and interpolate into it (prone to aliasing).")
-    ("fsaa",   po::value(&opt.fsaa)->implicit_value(3),            "Oversampling amount to perform antialiasing (obsolete).")
+    ("fsaa",   po::value<int>(&opt.fsaa)->implicit_value(3),            "Oversampling amount to perform antialiasing (obsolete).")
     ("no-dem", po::bool_switch(&opt.no_dem)->default_value(false), "Skip writing a DEM.");
 
   general_options.add( manipulation_options );
