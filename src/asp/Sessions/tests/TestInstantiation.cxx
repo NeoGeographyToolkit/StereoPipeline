@@ -65,7 +65,7 @@ TYPED_TEST( InstantiationTest, Typedefs ) {
 
 TEST( Instantiation, Names ) {
   std::vector<StereoSession*> sessions;
-  BaseOptions opt;
+  vw::cartography::GdalWriteOptions opt;
   sessions.push_back( StereoSessionDG::construct() );
   sessions.push_back( StereoSessionDGMapRPC::construct() );
   sessions.push_back( StereoSessionRPC::construct() );

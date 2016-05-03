@@ -528,7 +528,7 @@ public: // Functions
 
 //======================================================================================================
 
-struct Options : asp::BaseOptions {
+struct Options : vw::cartography::GdalWriteOptions {
   Options() : out_nodata_value(-1) {}
   // Input
   std::vector<std::string> input_files;
@@ -640,7 +640,7 @@ void generate_output(const std::string                         & output_file,
                      const std::vector<bool  >                 & has_nodata_vec,
                      const std::vector<PixelT>                 & nodata_vec ) {
   vw_out() << "Writing: " << output_file << std::endl;
-  asp::block_write_gdal_image( output_file,
+  vw::cartography::block_write_gdal_image( output_file,
                                 ImageCalcView< ImageViewRef<PixelT>, OutputT >(input_images,
                                                                      has_nodata_vec,
                                                                      nodata_vec,

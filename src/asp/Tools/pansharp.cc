@@ -213,7 +213,7 @@ inline pansharp_view( ImageGrayT  const& gray_image,
 
 //-------------------------------------------------------------------------------------
 
-struct Options : asp::BaseOptions {
+struct Options : vw::cartography::GdalWriteOptions {
   string gray_file,
          gray_xml_file,
          color_file,
@@ -241,7 +241,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
              "Path to a WV XML file for the color image.  Can be used to obtain the geo data.")
     ("nodata-value", po::value(&opt.nodata_value)->default_value(DEFAULT_NODATA),
              "The no-data value to use, unless present in the color image header.");
-  general_options.add( asp::BaseOptionsDescription(opt) );
+  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -324,7 +324,7 @@ void load_inputs_and_process(Options           & opt,
   // - create_mask_less_or_equal seems to break on PixelRGB types.
 
   vw_out() << "Writing: " << opt.output_file << std::endl;
-  asp::block_write_gdal_image( opt.output_file,
+  vw::cartography::block_write_gdal_image( opt.output_file,
                                // The final output image is set up in these few lines:
                                pixel_cast<PixelRGBMask>
                                (apply_mask(pansharp_view

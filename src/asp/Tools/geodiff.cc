@@ -43,7 +43,7 @@ public:
   }
 };
 
-struct Options : asp::BaseOptions {
+struct Options : vw::cartography::GdalWriteOptions {
   string dem1_name, dem2_name, output_prefix;
   double nodata_value;
 
@@ -61,7 +61,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                         "Output using float (32 bit) instead of using doubles (64 bit).")
     ("absolute",        po::bool_switch(&opt.use_absolute)->default_value(false), 
                         "Output the absolute difference as opposed to just the difference.");
-  general_options.add( asp::BaseOptionsDescription(opt) );
+  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -165,14 +165,14 @@ int main( int argc, char *argv[] ) {
 
     if ( opt.use_float ) {
       ImageViewRef<float> difference_float = channel_cast<float>( difference );
-      boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( output_file,
+      boost::scoped_ptr<DiskImageResourceGDAL> rsrc( vw::cartography::build_gdal_rsrc( output_file,
                                                                            difference_float, opt ) );
       rsrc->set_nodata_write( opt.nodata_value );
       write_georeference( *rsrc, crop_georef );
       block_write_image( *rsrc, difference_float,
                          TerminalProgressCallback("asp", "\t--> Differencing: ") );
     } else {
-      boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( output_file,
+      boost::scoped_ptr<DiskImageResourceGDAL> rsrc( vw::cartography::build_gdal_rsrc( output_file,
                                                                            difference, opt ) );
       rsrc->set_nodata_write( opt.nodata_value );
       write_georeference( *rsrc, crop_georef );

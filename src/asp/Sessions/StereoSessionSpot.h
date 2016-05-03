@@ -61,7 +61,7 @@ namespace asp {
     virtual vw::cartography::GeoReference get_georef();
 
     /// Specialization of shared_preprocessing_hook currently required for this class.
-    bool unshared_preprocessing_hook(asp::BaseOptions              & options,
+    bool unshared_preprocessing_hook(vw::cartography::GdalWriteOptions              & options,
 			                               std::string const             & left_input_file,
 			                               std::string const             & right_input_file,
 			                               std::string                   & left_output_file,

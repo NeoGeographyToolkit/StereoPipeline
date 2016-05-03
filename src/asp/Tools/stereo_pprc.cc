@@ -130,7 +130,7 @@ void create_sym_links(string const& left_input_file,
 
 }
 
-void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
+void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
 
   // Normalize the images, unless the user prefers not to.
   string left_image_file, right_image_file;
@@ -295,13 +295,13 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
                bounding_box(left_mask)
               );
 
-      asp::block_write_gdal_image(left_mask_file,
+      vw::cartography::block_write_gdal_image(left_mask_file,
                                   apply_mask(intersect_mask(left_mask, warped_right_mask)),
                                   has_left_georef, left_georef,
                                   has_nodata, output_nodata,
                                   opt, TerminalProgressCallback("asp", "\t    Mask L: ")
                                   );
-      asp::block_write_gdal_image(right_mask_file,
+      vw::cartography::block_write_gdal_image(right_mask_file,
                                   apply_mask(intersect_mask(right_mask, warped_left_mask)),
                                   has_right_georef, right_georef,
                                   has_nodata, output_nodata,
@@ -312,11 +312,11 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
       // TODO: Even so, the trick above with intersecting the masks will still work,
       // if the images are map-projected (such as with cam2map-ed cubes),
       // but this would require careful research.
-      asp::block_write_gdal_image( left_mask_file, apply_mask(left_mask),
+      vw::cartography::block_write_gdal_image( left_mask_file, apply_mask(left_mask),
                                    has_left_georef, left_georef,
                                    has_nodata, output_nodata,
                                    opt, TerminalProgressCallback("asp", "\t Mask L: ") );
-      asp::block_write_gdal_image( right_mask_file, apply_mask(right_mask),
+      vw::cartography::block_write_gdal_image( right_mask_file, apply_mask(right_mask),
                                    has_right_georef, right_georef,
                                    has_nodata, output_nodata,
                                    opt, TerminalProgressCallback("asp", "\t Mask R: ") );
@@ -409,7 +409,7 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
     }
 
     // Enforce no predictor in compression, it works badly with sub-images
-    asp::BaseOptions opt_nopred = opt;
+    vw::cartography::GdalWriteOptions opt_nopred = opt;
     opt_nopred.gdal_options["PREDICTOR"] = "1";
 
     vw::cartography::GeoReference left_sub_georef, right_sub_georef;
@@ -426,23 +426,23 @@ void stereo_preprocessing(bool adjust_left_image_size, Options& opt) {
       right_sub_georef = resample(right_georef, right_scale);
     }
 
-    asp::block_write_gdal_image
+    vw::cartography::block_write_gdal_image
       ( lsub, apply_mask(left_sub_image, output_nodata),
         has_left_georef, left_sub_georef,
         has_nodata, output_nodata,
         opt_nopred, TerminalProgressCallback("asp", "\t    Sub L: ") );
-    asp::block_write_gdal_image
+    vw::cartography::block_write_gdal_image
       ( rsub, apply_mask(right_sub_image, output_nodata),
         has_right_georef, right_sub_georef,
         has_nodata, output_nodata,
         opt_nopred, TerminalProgressCallback("asp", "\t    Sub R: ") );
-    asp::block_write_gdal_image
+    vw::cartography::block_write_gdal_image
       ( lmsub,
         channel_cast_rescale<uint8>(select_channel(left_sub_image, 1)),
         has_left_georef, left_sub_georef,
         has_nodata, output_nodata,
         opt_nopred, TerminalProgressCallback("asp", "\t    Sub L Mask: ") );
-    asp::block_write_gdal_image
+    vw::cartography::block_write_gdal_image
       ( rmsub,
         channel_cast_rescale<uint8>(select_channel(right_sub_image, 1)),
         has_right_georef, right_sub_georef,
@@ -487,11 +487,11 @@ int main(int argc, char* argv[]) {
     stereo_register_sessions();
 
     bool verbose = false;
-    vector<Options> opt_vec;
+    vector<ASPGlobalOptions> opt_vec;
     string output_prefix;
     asp::parse_multiview(argc, argv, PreProcessingDescription(),
                          verbose, output_prefix, opt_vec);
-    Options opt = opt_vec[0];
+    ASPGlobalOptions opt = opt_vec[0];
 
     // We will not adjust the left image size if we do multiview stereo,
     // so we can keep one-to-one correspondence between the several

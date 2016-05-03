@@ -62,7 +62,7 @@ namespace vw { namespace gui {
   }
 }}
 
-MainWindow::MainWindow(asp::BaseOptions const& opt,
+MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
                        std::vector<std::string> const& images,
                        std::string& output_prefix,
                        int grid_cols,

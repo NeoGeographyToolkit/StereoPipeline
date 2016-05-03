@@ -362,7 +362,7 @@ public:
   }
 };
 
-struct Options : asp::BaseOptions {
+struct Options : vw::cartography::GdalWriteOptions {
   std::string img_data, output_image;
   int band;
   bool has_input_nodata_value, has_output_nodata_value, fix_seams;
@@ -374,7 +374,7 @@ struct Options : asp::BaseOptions {
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
-  general_options.add( asp::BaseOptionsDescription(opt) );
+  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
   general_options.add_options()
     ("image-data", po::value(&opt.img_data)->default_value(""),
          "Information on the images to mosaic.")
@@ -441,7 +441,7 @@ int main( int argc, char *argv[] ) {
       output_nodata_value = opt.output_nodata_value;
 
     vw_out() << "Writing: " << opt.output_image << std::endl;
-    asp::block_write_gdal_image(opt.output_image,
+    vw::cartography::block_write_gdal_image(opt.output_image,
                                 TifMosaicView(dst_cols, dst_rows,
                                               img_data, scale,
                                               output_nodata_value),

@@ -51,7 +51,7 @@ namespace asp {
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 void StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::
-  initialize(BaseOptions const& options,
+  initialize(vw::cartography::GdalWriteOptions const& options,
              std::string const& left_image_file,
              std::string const& right_image_file,
              std::string const& left_camera_file,

@@ -1010,7 +1010,7 @@ namespace asp{
 /// and save it.
 /// - Note: We transform the entire point cloud, not just the resampled
 ///         version used in alignment.
-void save_trans_point_cloud(asp::BaseOptions const& opt,
+void save_trans_point_cloud(vw::cartography::GdalWriteOptions const& opt,
                             std::string input_file,
                             std::string out_prefix,
                             vw::cartography::GeoReference const& geo,
@@ -1048,7 +1048,7 @@ void save_trans_point_cloud(asp::BaseOptions const& opt,
 
     // Save the georeference with the cloud, to help point2dem later
     bool has_nodata2 = false; // the cloud should not use DEM nodata
-    asp::block_write_gdal_image(output_file,
+    vw::cartography::block_write_gdal_image(output_file,
                                 per_pixel_filter(point_cloud, TransformPC(T)),
                                 has_georef, dem_geo,
                                 has_nodata2, nodata,

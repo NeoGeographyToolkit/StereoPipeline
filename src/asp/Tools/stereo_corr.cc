@@ -39,7 +39,7 @@ using namespace std;
 
 
 // Read the search range from D_sub, and scale it to the full image
-void read_search_range(Options & opt){
+void read_search_range(ASPGlobalOptions & opt){
 
   // No D_sub is generated or should be used for seed mode 0.
   if (stereo_settings().seed_mode == 0) return;
@@ -67,7 +67,7 @@ void read_search_range(Options & opt){
 
 
 /// Produces the low-resolution disparity file D_sub
-void produce_lowres_disparity( Options & opt ) {
+void produce_lowres_disparity( ASPGlobalOptions & opt ) {
 
   // Set up handles to read the input images
   DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
@@ -110,7 +110,7 @@ void produce_lowres_disparity( Options & opt ) {
     {
       // Warning: A giant function call approaches!
       // TODO: Why the extra filtering step here? PyramidCorrelationView already performs 1-3 iterations of outlier removal!
-      asp::block_write_gdal_image( // Write to disk
+      vw::cartography::block_write_gdal_image( // Write to disk
           opt.out_prefix + "-D_sub.tif",
           rm_outliers_using_thresh( // Throw out individual pixels that are far from any neighbors
               stereo::pyramid_correlate( // Compute image correlation using the PyramidCorrelationView class
@@ -152,7 +152,7 @@ void produce_lowres_disparity( Options & opt ) {
                   stereo_settings().xcorr_threshold, stereo_settings().corr_max_levels
               );
 
-      asp::write_gdal_image( // Write to disk while removing outliers
+      vw::cartography::write_gdal_image( // Write to disk while removing outliers
           opt.out_prefix + "-D_sub.tif",
           rm_outliers_using_quantiles( // Throw out individual pixels that are far from any neighbors
               disp_image,
@@ -177,7 +177,7 @@ void produce_lowres_disparity( Options & opt ) {
 } // End produce_lowres_disparity
 
 /// The first step of correlation computation.
-void lowres_correlation( Options & opt ) {
+void lowres_correlation( ASPGlobalOptions & opt ) {
 
   vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 1 --> LOW-RESOLUTION CORRELATION \n";
 
@@ -417,7 +417,7 @@ public:
       if (!use_local_homography){
         local_search_range = stereo::get_disparity_range( disparity_in_box );
       }else{ // seed_mode == 0
-        int ts = Options::corr_tile_size();
+        int ts = ASPGlobalOptions::corr_tile_size();
         lowres_hom = m_local_hom(bbox.min().x()/ts, bbox.min().y()/ts);
         local_search_range = stereo::get_disparity_range
           (transform_disparities(do_round, seed_bbox,
@@ -543,7 +543,7 @@ seeded_correlation( ImageViewBase<Image1T>        const& left,
 }
 
 /// Main stereo correlation function, called after parsing input arguments.
-void stereo_correlation( Options& opt ) {
+void stereo_correlation( ASPGlobalOptions& opt ) {
 
   // The first thing we will do is compute the low-resolution correlation.
 
@@ -654,7 +654,7 @@ void stereo_correlation( Options& opt ) {
 
   string d_file = opt.out_prefix + "-D.tif";
   vw_out() << "Writing: " << d_file << "\n";
-  asp::block_write_gdal_image(d_file, fullres_disparity,
+  vw::cartography::block_write_gdal_image(d_file, fullres_disparity,
 			      has_left_georef, left_georef,
 			      has_nodata, nodata, opt,
 			      TerminalProgressCallback("asp", "\t--> Correlation :") );
@@ -671,15 +671,15 @@ int main(int argc, char* argv[]) {
     stereo_register_sessions();
 
     bool verbose = false;
-    vector<Options> opt_vec;
+    vector<ASPGlobalOptions> opt_vec;
     string output_prefix;
     asp::parse_multiview(argc, argv, CorrelationDescription(),
 			 verbose, output_prefix, opt_vec);
-    Options opt = opt_vec[0];
+    ASPGlobalOptions opt = opt_vec[0];
 
     // Integer correlator requires large tiles
     //---------------------------------------------------------
-    int ts = Options::corr_tile_size();
+    int ts = ASPGlobalOptions::corr_tile_size();
     opt.raster_tile_size = Vector2i(ts, ts);
 
     // Internal Processes

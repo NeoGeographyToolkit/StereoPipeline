@@ -116,7 +116,7 @@ public:
 typedef PixelMask<float> DemPixelT;
 
 
-struct Options : asp::BaseOptions {
+struct Options : vw::cartography::GdalWriteOptions {
   // Input
   std::string dem_file, image_file, camera_model_file, output_file, stereo_session,
     bundle_adjust_prefix;
@@ -153,7 +153,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.");
 
-  general_options.add( asp::BaseOptionsDescription(opt) );
+  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -230,10 +230,10 @@ void write_parallel_cond( std::string              const& filename,
   // ISIS is not thread safe so we must switch out base on what the session is.
   vw_out() << "Writing: " << filename << "\n";
   if ( session_type == "isis" ) {
-    asp::write_gdal_image(filename, image.impl(), has_georef, georef,
+    vw::cartography::write_gdal_image(filename, image.impl(), has_georef, georef,
                           has_nodata, nodata_val, opt, tpc, keywords);
   } else {
-    asp::block_write_gdal_image(filename, image.impl(), has_georef, georef,
+    vw::cartography::block_write_gdal_image(filename, image.impl(), has_georef, georef,
                                 has_nodata, nodata_val, opt, tpc, keywords);
   }
 

@@ -304,7 +304,7 @@ namespace asp{
   template <class ImageT>
   void save_point_cloud(Vector3 const& shift, ImageT const& point_cloud,
                         string const& point_cloud_file,
-                        Options const& opt){
+                        ASPGlobalOptions const& opt){
 
     vw_out() << "Writing point cloud: " << point_cloud_file << "\n";
     bool has_georef = true;
@@ -440,7 +440,7 @@ namespace asp{
 /// Main triangulation function
 template <class SessionT>
 void stereo_triangulation( string          const& output_prefix,
-                           vector<Options> const& opt_vec ) {
+                           vector<ASPGlobalOptions> const& opt_vec ) {
 
   typedef          ImageViewRef<PixelMask<Vector2f> >  PVImageT;
   typedef typename SessionT::stereo_model_type         StereoModelT;
@@ -631,7 +631,7 @@ int main( int argc, char* argv[] ) {
 
     // Unlike other stereo executables, triangulation can handle multiple images and cameras.
     bool verbose = false;
-    vector<Options> opt_vec;
+    vector<ASPGlobalOptions> opt_vec;
     string output_prefix;
     asp::parse_multiview(argc, argv, TriangulationDescription(),
                          verbose, output_prefix, opt_vec);
@@ -644,7 +644,7 @@ int main( int argc, char* argv[] ) {
     }
 
     // Keep only those stereo pairs for which filtered disparity exists
-    vector<Options> opt_vec_new;
+    vector<ASPGlobalOptions> opt_vec_new;
     for (int p = 0; p < (int)opt_vec.size(); p++){
       if (fs::exists(opt_vec[p].out_prefix+"-F.tif"))
         opt_vec_new.push_back(opt_vec[p]);
@@ -655,7 +655,7 @@ int main( int argc, char* argv[] ) {
 
     // Triangulation uses small tiles.
     //---------------------------------------------------------
-    int ts = Options::tri_tile_size();
+    int ts = ASPGlobalOptions::tri_tile_size();
     for (int s = 0; s < (int)opt_vec.size(); s++)
       opt_vec[s].raster_tile_size = Vector2i(ts, ts);
 

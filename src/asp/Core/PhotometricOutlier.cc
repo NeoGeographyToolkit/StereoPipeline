@@ -29,6 +29,7 @@
 #include <vw/Image/MaskViews.h>
 #include <vw/Image/Transform.h>
 #include <vw/FileIO/DiskImageView.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Common.h>
@@ -38,7 +39,7 @@ namespace fs = boost::filesystem;
 using namespace vw;
 using namespace asp;
 
-void asp::photometric_outlier_rejection( BaseOptions const& opt,
+void asp::photometric_outlier_rejection( vw::cartography::GdalWriteOptions const& opt,
                                          std::string const& prefix,
                                          std::string const& input_disparity,
                                          std::string & output_disparity,
@@ -82,7 +83,7 @@ void asp::photometric_outlier_rejection( BaseOptions const& opt,
     intersect_mask(disparity_disk_image,
                    intersect_mask(create_mask(threshold(dust,kernel_size,0.0,1.0)),right_mask));
 
-  block_write_gdal_image( prefix+"-FDust.tif",
+  vw::cartography::block_write_gdal_image( prefix+"-FDust.tif",
                           cleaned_disparity, opt,
                           TerminalProgressCallback("asp","Dust Removal:") );
 }

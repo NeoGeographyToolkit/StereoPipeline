@@ -88,7 +88,7 @@ namespace asp {
 
 
     std::string left_cropped_file, right_cropped_file;
-    asp::BaseOptions options;
+    vw::cartography::GdalWriteOptions options;
     float left_nodata_value, right_nodata_value;
     bool  has_left_georef,   has_right_georef;
     vw::cartography::GeoReference left_georef, right_georef;
@@ -251,7 +251,7 @@ namespace asp {
 
 
 bool StereoSessionSpot::
-unshared_preprocessing_hook(asp::BaseOptions              & options,
+unshared_preprocessing_hook(vw::cartography::GdalWriteOptions              & options,
                             std::string const             & left_input_file,
                             std::string const             & right_input_file,
                             std::string                   & left_output_file,

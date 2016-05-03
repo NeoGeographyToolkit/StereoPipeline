@@ -27,14 +27,14 @@
 
 // Forward declaration
 namespace asp {
-  class Options;
+  class ASPGlobalOptions;
 }
 
 namespace asp {
 
   void split_n_into_k(int n, int k, std::vector<int> & partition);
 
-  void create_local_homographies(Options const& opt);
+  void create_local_homographies(ASPGlobalOptions const& opt);
 
   void write_local_homographies(std::string const& local_hom_file,
                                 vw::ImageView<vw::Matrix3x3> const& local_hom);

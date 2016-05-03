@@ -56,14 +56,14 @@ namespace vw {
   template<> struct PixelFormatID<Vector6>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
 }
 
-struct Options : asp::BaseOptions {
+struct Options : vw::cartography::GdalWriteOptions {
   std::string camera_image_file, camera_model_file, output_image; 
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   
   po::options_description general_options("");
-  general_options.add( asp::BaseOptionsDescription(opt) );
+  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
   
   po::options_description positional("");
   positional.add_options()
@@ -617,7 +617,7 @@ int main( int argc, char *argv[] ) {
 
     vw_out() << "Writing: " << opt.output_image << std::endl;
     if (has_nodata){
-      asp::block_write_gdal_image(opt.output_image,
+      vw::cartography::block_write_gdal_image(opt.output_image,
                                   apply_mask
                                   (wv_correct(create_mask(input_img,
                                                           nodata),
@@ -627,7 +627,7 @@ int main( int argc, char *argv[] ) {
                                   nodata, opt,
                                   TerminalProgressCallback("asp", "\t-->: "));
     }else{
-      asp::block_write_gdal_image(opt.output_image,
+      vw::cartography::block_write_gdal_image(opt.output_image,
                                   wv_correct(input_img,
                                              tdi, is_wv01, is_forward,
                                              pitch_ratio),

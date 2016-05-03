@@ -52,61 +52,7 @@ TemporaryFiles& temporary_files() {
 }
 
 
-// Get a filename by simply replacing current extension with given suffix
-std::string filename_from_suffix1(std::string const& input_file,
-                                  std::string const& suffix){
-  std::string prefix = vw::prefix_from_filename(input_file);
-  std::string output_file = prefix + suffix;
-  return output_file;
-}
 
-// Get a filename by  replacing current extension with given suffix,
-// and making the file be in the current directory.
-std::string filename_from_suffix2(std::string const& input_file,
-                                  std::string const& suffix){
-  std::string prefix = vw::prefix_from_filename(input_file);
-  boost::filesystem::path p(input_file);
-  prefix = p.stem().string();
-  std::string output_file = prefix + suffix;
-  return output_file;
-}
-
-
-bool overwrite_if_no_good(std::string const& input_file,
-                          std::string const& output_file,
-                          int cols, int rows){
-
-  fs::path input_path(input_file);
-  std::time_t input_time = fs::last_write_time(input_path);
-
-  bool overwrite = true;
-  if (fs::exists(output_file)) {
-    try{
-      DiskImageView<double> curr(output_file);
-      fs::path output_path(output_file);
-      std::time_t output_time = fs::last_write_time(output_path);
-      if (output_time < input_time){
-        overwrite = true; // too old
-        return overwrite;
-      }
-
-      if (cols >= 0 && rows >= 0) {
-        if (curr.cols() == cols && curr.rows() == rows){
-          overwrite = false;
-        }else{
-          overwrite = true;
-        }
-      }else{
-        overwrite = false;
-      }
-
-    }catch(...){
-      overwrite = true;
-    }
-  }
-
-  return overwrite;
-}
 
 void popUp(std::string msg){
   QMessageBox msgBox;
@@ -165,7 +111,7 @@ QRect bbox2qrect(BBox2 const& B){
                round(B.width()), round(B.height()));
 }
 
-bool write_hillshade(asp::BaseOptions const& opt,
+bool write_hillshade(vw::cartography::GdalWriteOptions const& opt,
                      std::string const& input_file,
                      std::string      & output_file) {
 
@@ -187,11 +133,11 @@ bool write_hillshade(asp::BaseOptions const& opt,
   vw::read_nodata_val(input_file, nodata_val);
   std::string suffix = "_hillshade.tif";
 
-  output_file = filename_from_suffix1(input_file, suffix);
+  output_file = vw::mosaic::filename_from_suffix1(input_file, suffix);
   try {
     DiskImageView<float> input(input_file);
     try{
-      bool will_write = overwrite_if_no_good(input_file, output_file,
+      bool will_write = vw::mosaic::overwrite_if_no_good(input_file, output_file,
                                              input.cols(), input.rows());
       if (will_write){
         vw_out() << "Writing: " << output_file << std::endl;
@@ -202,8 +148,8 @@ bool write_hillshade(asp::BaseOptions const& opt,
       // Failed to write, presumably because we have no write access.
       // Write the file in the current dir.
       vw_out() << "Failed to write: " << output_file << "\n";
-      output_file = filename_from_suffix2(input_file, suffix);
-      bool will_write = overwrite_if_no_good(input_file, output_file,
+      output_file = vw::mosaic::filename_from_suffix2(input_file, suffix);
+      bool will_write = vw::mosaic::overwrite_if_no_good(input_file, output_file,
                                              input.cols(), input.rows());
       if (will_write){
         vw_out() << "Writing: " << output_file << std::endl;
@@ -219,7 +165,7 @@ bool write_hillshade(asp::BaseOptions const& opt,
   return true;
 }
 
-void imageData::read(std::string const& name_in, asp::BaseOptions const& opt,
+void imageData::read(std::string const& name_in, vw::cartography::GdalWriteOptions const& opt,
                      bool use_georef){
   m_opt = opt;
   name = name_in;
@@ -328,7 +274,7 @@ void chooseFilesDlg::chooseFiles(const std::vector<imageData> & images){
 
 
 DiskImagePyramidMultiChannel::DiskImagePyramidMultiChannel(std::string const& base_file,
-                             asp::BaseOptions const& opt,
+                             vw::cartography::GdalWriteOptions const& opt,
                              int top_image_max_pix,
                              int subsample):m_opt(opt),
                                                 m_num_channels(0),
@@ -336,37 +282,51 @@ DiskImagePyramidMultiChannel::DiskImagePyramidMultiChannel(std::string const& ba
                                                 m_type(UNINIT){
   if (base_file == "") return;
 
-  m_num_channels = get_num_channels(base_file);
-  if (m_num_channels == 1) {
-    // Single channel image with float pixels.
-    m_img_ch1_double = DiskImagePyramid<double>(base_file, m_opt);
-    m_rows = m_img_ch1_double.rows();
-    m_cols = m_img_ch1_double.cols();
-    m_type = CH1_DOUBLE;
-  }else if (m_num_channels == 2){
-    // uint8 image with an alpha channel.
-    m_img_ch2_uint8 = DiskImagePyramid< Vector<vw::uint8, 2> >(base_file, m_opt);
-    m_num_channels = 2; // we read only 1 channel
-    m_rows = m_img_ch2_uint8.rows();
-    m_cols = m_img_ch2_uint8.cols();
-    m_type = CH2_UINT8;
-  } else if (m_num_channels == 3){
-    // RGB image with three uint8 channels.
-    m_img_ch3_uint8 = DiskImagePyramid< Vector<vw::uint8, 3> >(base_file, m_opt);
-    m_num_channels = 3;
-    m_rows = m_img_ch3_uint8.rows();
-    m_cols = m_img_ch3_uint8.cols();
-    m_type = CH3_UINT8;
-  } else if (m_num_channels == 4){
-    // RGB image with three uint8 channels and an alpha channel
-    m_img_ch4_uint8 = DiskImagePyramid< Vector<vw::uint8, 4> >(base_file, m_opt);
-    m_num_channels = 4;
-    m_rows = m_img_ch4_uint8.rows();
-    m_cols = m_img_ch4_uint8.cols();
-    m_type = CH4_UINT8;
-  }else{
-    vw_throw( ArgumentErr() << "Unsupported image with "
-              << m_num_channels << " bands.\n");
+  // Instantiate the correct DiskImagePyramid then record information including
+  //  the list of temporary files it created.
+  try {
+    m_num_channels = get_num_channels(base_file);
+    if (m_num_channels == 1) {
+      // Single channel image with float pixels.
+      m_img_ch1_double = vw::mosaic::DiskImagePyramid<double>(base_file, m_opt);
+      m_rows = m_img_ch1_double.rows();
+      m_cols = m_img_ch1_double.cols();
+      m_type = CH1_DOUBLE;
+      temporary_files().files.insert(m_img_ch1_double.get_temporary_files().begin(), 
+                                     m_img_ch1_double.get_temporary_files().end());
+    }else if (m_num_channels == 2){
+      // uint8 image with an alpha channel.
+      m_img_ch2_uint8 = vw::mosaic::DiskImagePyramid< Vector<vw::uint8, 2> >(base_file, m_opt);
+      m_num_channels = 2; // we read only 1 channel
+      m_rows = m_img_ch2_uint8.rows();
+      m_cols = m_img_ch2_uint8.cols();
+      m_type = CH2_UINT8;
+      temporary_files().files.insert(m_img_ch2_uint8.get_temporary_files().begin(), 
+                                     m_img_ch2_uint8.get_temporary_files().end());
+    } else if (m_num_channels == 3){
+      // RGB image with three uint8 channels.
+      m_img_ch3_uint8 = vw::mosaic::DiskImagePyramid< Vector<vw::uint8, 3> >(base_file, m_opt);
+      m_num_channels = 3;
+      m_rows = m_img_ch3_uint8.rows();
+      m_cols = m_img_ch3_uint8.cols();
+      m_type = CH3_UINT8;
+      temporary_files().files.insert(m_img_ch3_uint8.get_temporary_files().begin(), 
+                                     m_img_ch3_uint8.get_temporary_files().end());
+    } else if (m_num_channels == 4){
+      // RGB image with three uint8 channels and an alpha channel
+      m_img_ch4_uint8 = vw::mosaic::DiskImagePyramid< Vector<vw::uint8, 4> >(base_file, m_opt);
+      m_num_channels = 4;
+      m_rows = m_img_ch4_uint8.rows();
+      m_cols = m_img_ch4_uint8.cols();
+      m_type = CH4_UINT8;
+      temporary_files().files.insert(m_img_ch4_uint8.get_temporary_files().begin(), 
+                                     m_img_ch4_uint8.get_temporary_files().end());
+    }else{
+      vw_throw(ArgumentErr() << "Unsupported image with " << m_num_channels << " bands.\n");
+    }
+  } catch ( const Exception& e ) {
+      popUp(e.what());
+      return;
   }
 }
 

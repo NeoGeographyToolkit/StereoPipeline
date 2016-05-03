@@ -142,12 +142,12 @@ namespace asp {
   class StereoSession {
     friend class StereoSessionFactory; // Needed so the factory can call initialize()
   protected:
-    asp::BaseOptions m_options;
+    vw::cartography::GdalWriteOptions m_options;
     std::string m_left_image_file,  m_right_image_file;
     std::string m_left_camera_file, m_right_camera_file;
     std::string m_out_prefix, m_input_dem;
 
-    virtual void initialize (BaseOptions const& options,
+    virtual void initialize (vw::cartography::GdalWriteOptions const& options,
 			     std::string const& left_image_file,
 			     std::string const& right_image_file,
 			     std::string const& left_camera_file,
@@ -265,7 +265,7 @@ namespace asp {
     // Factor out here all functionality shared among the preprocessing hooks
     // for various sessions. Return 'true' if we encounter cached images
     // and don't need to go through the motions again.
-    bool shared_preprocessing_hook(asp::BaseOptions              & options,
+    bool shared_preprocessing_hook(vw::cartography::GdalWriteOptions              & options,
 				   std::string const             & left_input_file,
 				   std::string const             & right_input_file,
 				   std::string                   & left_output_file,

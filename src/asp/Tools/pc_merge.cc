@@ -49,7 +49,7 @@ namespace vw {
   template<> struct PixelFormatID<Vector6>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
 }
 
-struct Options : asp::BaseOptions {
+struct Options : vw::cartography::GdalWriteOptions {
   // Input
   std::vector<std::string> pointcloud_files;
 
@@ -70,7 +70,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("output-file,o",  po::value(&opt.out_file)->default_value(""),        "Specify the output file.")
     ("write-double,d", po::value(&opt.write_double)->default_value(false), "Write a double precision output file.");
 
-  general_options.add( asp::BaseOptionsDescription(opt) );
+  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -162,7 +162,7 @@ do_work(Vector3 const& shift, Options const& opt) {
   bool has_nodata = false;
   double nodata = -std::numeric_limits<float>::max(); // smallest float
   GeoReference georef;
-  asp::block_write_gdal_image(opt.out_file, merged_cloud, has_georef,
+  vw::cartography::block_write_gdal_image(opt.out_file, merged_cloud, has_georef,
                               georef,  has_nodata, nodata, opt,
                               TerminalProgressCallback("asp", "\t--> Merging: "));
 }

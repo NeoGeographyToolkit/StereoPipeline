@@ -273,7 +273,7 @@ struct TransformPC: public vw::UnaryReturnSameType {
 /// Apply a given transform to the point cloud in input file, and save it.
 /// - Note: We transform the entire point cloud, not just the resampled
 ///         version used in alignment.
-void save_trans_point_cloud(asp::BaseOptions const& opt,
+void save_trans_point_cloud(vw::cartography::GdalWriteOptions const& opt,
                             std::string input_file,
                             std::string out_prefix,
                             vw::cartography::GeoReference const& geo,
@@ -282,7 +282,7 @@ void save_trans_point_cloud(asp::BaseOptions const& opt,
 
 /// Save a transformed point cloud with N bands
 template<int n> // Number of bands
-void save_trans_point_cloud_n(asp::BaseOptions const& opt,
+void save_trans_point_cloud_n(vw::cartography::GdalWriteOptions const& opt,
                               vw::cartography::GeoReference const& geo,
                               std::string input_file,
                               std::string output_file,
@@ -302,7 +302,7 @@ void save_trans_point_cloud_n(asp::BaseOptions const& opt,
   double nodata = -std::numeric_limits<float>::max(); // smallest float
 
   vw::ImageViewRef< vw::Vector<double, n> > point_cloud = asp::read_asp_point_cloud<n>(input_file);
-  asp::block_write_gdal_image(output_file,
+  vw::cartography::block_write_gdal_image(output_file,
                               per_pixel_filter(point_cloud, TransformPC(T)),
                               has_georef, curr_geo,
                               has_nodata, nodata,

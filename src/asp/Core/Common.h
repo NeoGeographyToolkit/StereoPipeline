@@ -28,6 +28,7 @@
 #include <boost/program_options.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/shared_ptr.hpp>
+#include <vw/Core/StringUtils.h>
 #include <vw/Image/ImageIO.h>
 #include <vw/FileIO/DiskImageResourceGDAL.h>
 #include <vw/FileIO/DiskImageView.h>
@@ -36,21 +37,11 @@
 #include <vw/FileIO/FileUtils.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Cartography/GeoReference.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
 #include <map>
 #include <string>
 
 namespace asp {
-
-  /// Pack a double into a string
-  std::string double_to_str(double const& val);
-
-  /// Pack a Vector into a string
-  template <class VecT>
-  std::string vec_to_str(VecT const& vec);
-
-  /// Extract a string into a Vector of given size.
-  template<class VecT>
-  VecT str_to_vec(std::string const& str);
 
   /// Returns true if the file has an extension which can contain a camera model
   bool has_cam_extension( std::string const& input );
@@ -101,25 +92,8 @@ namespace asp {
                    std::string stereo_default_filename,
                    std::string output_prefix);
 
-  /// Standard Options
-  struct BaseOptions {
-    vw::DiskImageResourceGDAL::Options gdal_options;
-    vw::Vector2i raster_tile_size;
-    vw::int32    num_threads;
-    std::string  tif_compress;
-    static int   corr_tile_size() { return 1024; } // Tile size for correlation
-    static int   rfne_tile_size() { return 256;  } // Tile size for refinement
-    static int   tri_tile_size()  { return 256;  } // Tile size for tri/point cloud
-    BaseOptions();
-  };
-
-  /// An object to let Program Options know about our standard options
-  struct BaseOptionsDescription : public boost::program_options::options_description {
-    BaseOptionsDescription( BaseOptions& opt);
-  };
-
   boost::program_options::variables_map
-  check_command_line( int argc, char *argv[], BaseOptions& opt,
+  check_command_line( int argc, char *argv[], vw::cartography::GdalWriteOptions& opt,
                       boost::program_options::options_description const& public_options,
                       boost::program_options::options_description const& all_public_options,
                       boost::program_options::options_description const& positional_options,
@@ -138,110 +112,11 @@ namespace asp {
                       vw::cartography::GeoReference & georef);
 
   //---------------------------------------------------------------------------
-  // Functions for writing GDAL images - multithreaded.
 
   /// String we use in ASP written point cloud files to indicate that an offset
   ///  has been subtracted out from the points.
   // Note: We use this constant in the python code as well
   const std::string ASP_POINT_OFFSET_TAG_STR = "POINT_OFFSET";
-
-  template <class ImageT>
-  vw::DiskImageResourceGDAL*
-  build_gdal_rsrc( const std::string &filename,
-                   vw::ImageViewBase<ImageT> const& image,
-                   BaseOptions const& opt ) {
-    return new vw::DiskImageResourceGDAL(filename, image.impl().format(),
-                                         opt.raster_tile_size, opt.gdal_options);
-  }
-
-  /// Multi-threaded block write image with, if available, nodata, georef, and
-  /// keywords to geoheader.
-  template <class ImageT>
-  void block_write_gdal_image(const std::string &filename,
-                              vw::ImageViewBase<ImageT> const& image,
-                              bool has_georef,
-                              vw::cartography::GeoReference const& georef,
-                              bool has_nodata, double nodata,
-                              BaseOptions const& opt,
-                              vw::ProgressCallback const& progress_callback =
-                              vw::ProgressCallback::dummy_instance(),
-                              std::map<std::string, std::string> const& keywords =
-                              std::map<std::string, std::string>() );
-
-  /// Block write image without georef and nodata.
-  template <class ImageT>
-  void block_write_gdal_image(const std::string &filename,
-                              vw::ImageViewBase<ImageT> const& image,
-                              BaseOptions const& opt,
-                              vw::ProgressCallback const& progress_callback =
-                              vw::ProgressCallback::dummy_instance(),
-                              std::map<std::string, std::string> const& keywords =
-                              std::map<std::string, std::string>() );
-
-  /// Block write image with nodata.
-  template <class ImageT>
-  void block_write_gdal_image(const std::string &filename,
-                              vw::ImageViewBase<ImageT> const& image,
-                              double nodata,
-                              BaseOptions const& opt,
-                              vw::ProgressCallback const& progress_callback =
-                              vw::ProgressCallback::dummy_instance(),
-                              std::map<std::string, std::string> const& keywords =
-                              std::map<std::string, std::string>() );
-
-  //---------------------------------------------------------------------------
-  // Functions for writing GDAL images - single threaded.
-
-  /// Single-threaded write image with, if available, nodata, georef, and
-  /// keywords to geoheader.
-  template <class ImageT>
-  void write_gdal_image(const std::string &filename,
-                        vw::ImageViewBase<ImageT> const& image,
-                        bool has_georef,
-                        vw::cartography::GeoReference const& georef,
-                        bool has_nodata, double nodata,
-                        BaseOptions const& opt,
-                        vw::ProgressCallback const& progress_callback
-                        = vw::ProgressCallback::dummy_instance(),
-                        std::map<std::string, std::string> const& keywords
-                        = std::map<std::string, std::string>() );
-
-
-  /// Single-threaded write image with georef and keywords to geoheader.
-  template <class ImageT>
-  void write_gdal_image(const std::string &filename,
-                        vw::ImageViewBase<ImageT> const& image,
-                        vw::cartography::GeoReference const& georef,
-                        BaseOptions const& opt,
-                        vw::ProgressCallback const& progress_callback
-                        = vw::ProgressCallback::dummy_instance(),
-                        std::map<std::string, std::string> const& keywords
-                        = std::map<std::string, std::string>() );
-
-  /// Single-threaded write image with georef, nodata, and keywords to geoheader.
-  template <class ImageT>
-  void write_gdal_image(const std::string &filename,
-                        vw::ImageViewBase<ImageT> const& image,
-                        vw::cartography::GeoReference const& georef,
-                        double nodata,
-                        BaseOptions const& opt,
-                        vw::ProgressCallback const& progress_callback
-                        = vw::ProgressCallback::dummy_instance(),
-                        std::map<std::string, std::string> const& keywords
-                        = std::map<std::string, std::string>() );
-
-  /// Single-threaded write image.
-  template <class ImageT>
-  void write_gdal_image(const std::string &filename,
-                        vw::ImageViewBase<ImageT> const& image,
-                        BaseOptions const& opt,
-                        vw::ProgressCallback const& progress_callback
-                        = vw::ProgressCallback::dummy_instance(),
-                        std::map<std::string, std::string> const& keywords
-                        = std::map<std::string, std::string>() );
-
-
-  //---------------------------------------------------------------------------
 
   // Specialized functions for reading/writing images with a shift.
   // The shift is meant to bring the pixel values closer to origin,
@@ -313,7 +188,7 @@ namespace asp {
                                      bool has_georef,
                                      vw::cartography::GeoReference const& georef,
                                      bool has_nodata, double nodata,
-                                     BaseOptions const& opt,
+                                     vw::cartography::GdalWriteOptions const& opt,
                                      vw::ProgressCallback const& progress_callback
                                      = vw::ProgressCallback::dummy_instance(),
                                      std::map<std::string, std::string> const& keywords =
@@ -330,7 +205,7 @@ namespace asp {
                                bool has_georef,
                                vw::cartography::GeoReference const& georef,
                                bool has_nodata, double nodata,
-                               BaseOptions const& opt,
+                               vw::cartography::GdalWriteOptions const& opt,
                                vw::ProgressCallback const& progress_callback
                                = vw::ProgressCallback::dummy_instance(),
                                std::map<std::string, std::string> const& keywords =
@@ -345,7 +220,7 @@ namespace asp {
                                  vw::ImageViewBase<ImageT> const& img,
                                  vw::cartography::GeoReference const& georef,
                                  double nodata,
-                                 BaseOptions & opt,
+                                 vw::cartography::GdalWriteOptions & opt,
                                  vw::ProgressCallback const& tpc);
 
 

@@ -41,7 +41,7 @@ using namespace std;
 namespace asp {
 
   // Transform the crop window to be in reference to L.tif
-  BBox2i transformed_crop_win(Options const& opt){
+  BBox2i transformed_crop_win(ASPGlobalOptions const& opt){
 
     BBox2i b = stereo_settings().left_image_crop_win;
     boost::shared_ptr<vw::DiskImageResource> rsrc = 
@@ -85,14 +85,14 @@ namespace asp {
                        additional_options,
                        bool verbose,
                        string & output_prefix,
-                       vector<Options> & opt_vec){
+                       vector<ASPGlobalOptions> & opt_vec){
 
     // If a stereo program is invoked as:
 
     // prog <images> <cameras> <output-prefix> [<input_dem>] <other options>
 
     // with the number of images n >= 2, create n-1 individual
-    // Options entries, corresponding to n-1 stereo pairs between the
+    // ASPGlobalOptions entries, corresponding to n-1 stereo pairs between the
     // first image and each of the subsequent images.
 
     //vw_out() << "DEBUG - parse_multiview inputs:" << std::endl;
@@ -106,7 +106,7 @@ namespace asp {
     // Extract the images/cameras/output prefix, and perhaps the input DEM
     vector<string> files;
     bool is_multiview = true;
-    Options opt;
+    ASPGlobalOptions opt;
     std::string usage;
     handle_arguments(argc, argv, opt, additional_options,
                      is_multiview, files, usage);
@@ -252,7 +252,7 @@ namespace asp {
       vector<char*> largv;
       for (int t = 0; t < largc; t++)
         largv.push_back((char*)cmd[t].c_str());
-      Options opt;
+      ASPGlobalOptions opt;
       bool is_multiview = false;
       vector<string> files;
       handle_arguments( largc, &largv[0], opt, additional_options,
@@ -281,7 +281,7 @@ namespace asp {
   }
 
   // Parse input command line arguments
-  void handle_arguments( int argc, char *argv[], Options& opt,
+  void handle_arguments( int argc, char *argv[], ASPGlobalOptions& opt,
                          boost::program_options::options_description const&
                          additional_options,
                          bool is_multiview, vector<string> & input_files,
@@ -303,7 +303,7 @@ namespace asp {
     po::options_description general_options("");
     general_options.add(general_options_sub);
     general_options.add(additional_options);
-    general_options.add(asp::BaseOptionsDescription(opt));
+    general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
 
     po::options_description all_general_options("");
     all_general_options.add(general_options_sub );
@@ -516,7 +516,7 @@ namespace asp {
 #endif
   }
 
-  void user_safety_checks(Options const& opt){
+  void user_safety_checks(ASPGlobalOptions const& opt){
 
     // Error checking
 
@@ -790,7 +790,7 @@ namespace asp {
     return search_range;
   }
 
-  bool skip_image_normalization(Options const& opt ){
+  bool skip_image_normalization(ASPGlobalOptions const& opt ){
 
     bool crop_left_and_right =
       ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&

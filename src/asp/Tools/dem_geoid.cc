@@ -163,7 +163,7 @@ dem_geoid( ImageViewBase<ImageT> const& img, GeoReference const& georef,
                                reverse_adjustment, correction, nodata_val );
 }
 
-struct Options : asp::BaseOptions {
+struct Options : vw::cartography::GdalWriteOptions {
   string dem_name, geoid, out_prefix;
   double nodata_value;
   bool   use_double;
@@ -211,7 +211,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
                         po::bool_switch(&opt.reverse_adjustment)->default_value(false)->implicit_value(true),
         "Go from DEM relative to the geoid to DEM relative to the ellipsoid.");
 
-  general_options.add( asp::BaseOptionsDescription(opt) );
+  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -433,7 +433,7 @@ int main( int argc, char *argv[] ) {
 
     if ( opt.use_double ) {
       // Output as double
-      boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc(adj_dem_file,
+      boost::scoped_ptr<DiskImageResourceGDAL> rsrc( vw::cartography::build_gdal_rsrc(adj_dem_file,
                                                                           adj_dem, opt ) );
       rsrc->set_nodata_write( dem_nodata_val );
       write_georeference( *rsrc, dem_georef );
@@ -442,7 +442,7 @@ int main( int argc, char *argv[] ) {
     }else{
       // Output as float
       ImageViewRef<float> adj_dem_float = channel_cast<float>( adj_dem );
-      boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc(adj_dem_file,
+      boost::scoped_ptr<DiskImageResourceGDAL> rsrc( vw::cartography::build_gdal_rsrc(adj_dem_file,
                                                                           adj_dem_float, opt ) );
       rsrc->set_nodata_write( dem_nodata_val );
       write_georeference( *rsrc, dem_georef );

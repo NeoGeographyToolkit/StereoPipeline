@@ -54,7 +54,7 @@ namespace vw {
 namespace asp {
 
   // Pass over all the string variables we use
-  void StereoSession::initialize( BaseOptions const& options,
+  void StereoSession::initialize( vw::cartography::GdalWriteOptions const& options,
 				  std::string const& left_image_file,
 				  std::string const& right_image_file,
 				  std::string const& left_camera_file,
@@ -277,7 +277,7 @@ namespace asp {
   }
 
 bool StereoSession::
-shared_preprocessing_hook(asp::BaseOptions              & options,
+shared_preprocessing_hook(vw::cartography::GdalWriteOptions              & options,
                           std::string const             & left_input_file,
                           std::string const             & right_input_file,
                           std::string                   & left_output_file,

@@ -154,7 +154,7 @@ namespace asp {
   };
 
   // Create a local homography for each correlation tile
-  void create_local_homographies(Options const& opt){
+  void create_local_homographies(ASPGlobalOptions const& opt){
 
     DiskImageView< PixelGray<float> > left_sub (opt.out_prefix + "-L_sub.tif");
     DiskImageView< PixelGray<float> > left_img (opt.out_prefix + "-L.tif");
@@ -164,7 +164,7 @@ namespace asp {
     Vector2 upscale_factor( double(left_img.cols()) / double(left_sub.cols()),
                             double(left_img.rows()) / double(left_sub.rows()) );
 
-    int ts = Options::corr_tile_size();
+    int ts   = ASPGlobalOptions::corr_tile_size();
     int cols = (int)ceil(left_img.cols()/double(ts));
     int rows = (int)ceil(left_img.rows()/double(ts));
     ImageView<Matrix3x3> local_hom(cols, rows);

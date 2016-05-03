@@ -42,14 +42,14 @@ int main( int argc, char* argv[] ) {
     // Below, TriangulationDescription() would work just as well
     // as anything else. Just need to pass something.
     bool verbose = true;
-    vector<Options> opt_vec;
+    vector<ASPGlobalOptions> opt_vec;
     string output_prefix;
     asp::parse_multiview(argc, argv, TriangulationDescription(),
                          verbose, output_prefix, opt_vec);
     if (opt_vec.empty())
       return 1;
 
-    Options opt = opt_vec[0];
+    ASPGlobalOptions opt = opt_vec[0];
 
     vw_out() << "in_file1,"        << opt.in_file1        << endl;
     vw_out() << "in_file2,"        << opt.in_file2        << endl;
@@ -120,9 +120,9 @@ int main( int argc, char* argv[] ) {
              << transformed_window.height()  << endl;
 
 
-    vw_out() << "corr_tile_size," << Options::corr_tile_size() << endl;
-    vw_out() << "rfne_tile_size," << Options::rfne_tile_size() << endl;
-    vw_out() << "tri_tile_size,"  << Options::tri_tile_size()  << endl;
+    vw_out() << "corr_tile_size," << ASPGlobalOptions::corr_tile_size() << endl;
+    vw_out() << "rfne_tile_size," << ASPGlobalOptions::rfne_tile_size() << endl;
+    vw_out() << "tri_tile_size,"  << ASPGlobalOptions::tri_tile_size()  << endl;
 
     // This block of code should be in its own executable but I am
     // reluctant to create one just for it. This functionality will be
@@ -158,7 +158,7 @@ int main( int argc, char* argv[] ) {
           double left_scale = 0.5*( double(d_sub.cols())/left_image.cols()
                                     + double(d_sub.rows())/left_image.rows());
           left_sub_georef = resample(left_georef, left_scale);
-          asp::block_write_gdal_image(d_sub_file, d_sub,
+          vw::cartography::block_write_gdal_image(d_sub_file, d_sub,
                                       has_left_georef, left_sub_georef,
                                       has_nodata, output_nodata,
                                       opt, TerminalProgressCallback("asp", "\t    D_sub: ")

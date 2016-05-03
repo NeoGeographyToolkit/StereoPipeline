@@ -486,7 +486,7 @@ void areInShadow(Vector3 & sunPos, ImageView<double> const& dem,
   }
 }
 
-struct Options : public asp::BaseOptions {
+struct Options : public vw::cartography::GdalWriteOptions {
   std::string input_dem, out_prefix, stereo_session_string, bundle_adjust_prefix;
   std::vector<std::string> input_images, input_cameras;
   std::string shadow_thresholds, image_exposures;
@@ -1359,7 +1359,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("height-change-weight", po::value(&opt.height_change_weight)->default_value(0),
      "How much weight to give to the height change penalty (this penalty will only kick in when the DEM height changes by more than max-height-change).");
 
-  general_options.add( asp::BaseOptionsDescription(opt) );
+  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -1969,7 +1969,7 @@ int main(int argc, char* argv[]) {
 	int tile_size = 256;
 	int sub_threads = 1;
 	TerminalProgressCallback tpc("asp", ": ");
-	asp::block_write_gdal_image
+	vw::cartography::block_write_gdal_image
 	  (sub_image,
 	   apply_mask
 	   (block_rasterize

@@ -64,7 +64,7 @@ enum { PREPROCESSING = 0,
 namespace asp {
 
   /// Transform the crop window to be in reference to L.tif
-  vw::BBox2i transformed_crop_win(Options const& opt);
+  vw::BBox2i transformed_crop_win(ASPGlobalOptions const& opt);
 
   /// Parse the command line options for multi-view stereo
   void parse_multiview(int argc, char* argv[],
@@ -72,10 +72,10 @@ namespace asp {
                        additional_options,
                        bool verbose,
                        std::string & output_prefix,
-                       std::vector<Options> & opt_vec);
+                       std::vector<ASPGlobalOptions> & opt_vec);
 
   /// Parse input command line arguments
-  void handle_arguments( int argc, char *argv[], Options& opt,
+  void handle_arguments( int argc, char *argv[], ASPGlobalOptions& opt,
                          boost::program_options::options_description const&
                          additional_options,
                          bool allow_unregistered,
@@ -87,7 +87,7 @@ namespace asp {
 
   /// Checks for obvious user mistakes
   /// - Throws if any incompatible settings are found.
-  void user_safety_checks(Options const& opt);
+  void user_safety_checks(ASPGlobalOptions const& opt);
 
   /// Approximate search range by looking at interest point match file
   vw::BBox2i approximate_search_range(std::string const& out_prefix,
@@ -95,7 +95,7 @@ namespace asp {
                                       std::string const& right_sub_file,
                                       float scale);
 
-  bool skip_image_normalization(Options const& opt);
+  bool skip_image_normalization(ASPGlobalOptions const& opt);
 
 } // end namespace vw
 

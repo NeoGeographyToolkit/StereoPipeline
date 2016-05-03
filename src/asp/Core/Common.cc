@@ -47,15 +47,6 @@ using namespace vw;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-/// Pack a double into a string
-std::string asp::double_to_str(double const& val){
-  std::ostringstream oss;
-  oss.precision(16);
-  oss << val;
-  
-  return oss.str();
-}
-
 bool asp::has_cam_extension( std::string const& input ) {
   std::string ext = get_extension(input);
   if ( has_pinhole_extension(input) ||
@@ -319,34 +310,11 @@ void asp::log_to_file(int argc, char *argv[],
   vw_log().add(current_log);
 }
 
-asp::BaseOptions::BaseOptions() {
-#if defined(VW_HAS_BIGTIFF) && VW_HAS_BIGTIFF == 1
-  gdal_options["COMPRESS"] = "LZW";
-#else
-  gdal_options["COMPRESS"] = "NONE";
-  gdal_options["BIGTIFF"] = "NO";
-#endif
-  raster_tile_size =
-    Vector2i(vw_settings().default_tile_size(),
-             vw_settings().default_tile_size());
-}
-
-asp::BaseOptionsDescription::BaseOptionsDescription( asp::BaseOptions& opt ) {
-  namespace po = boost::program_options;
-  (*this).add_options()
-    ("threads", po::value(&opt.num_threads)->default_value(0),
-     "Select the number of processors (threads) to use.")
-    ("no-bigtiff", "Tell GDAL to not create bigtiffs.")
-    ("tif-compress", po::value(&opt.tif_compress)->default_value("LZW"),
-     "TIFF Compression method. [None, LZW, Deflate, Packbits]")
-    ("version,v", "Display the version of software.")
-    ("help,h", "Display this help message.");
-}
 
 // User should only put the arguments to their application in the
 // usage_comment argument. We'll finish filling in the repeated information.
 po::variables_map
-asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
+asp::check_command_line( int argc, char *argv[], vw::cartography::GdalWriteOptions& opt,
                          po::options_description const& public_options,
                          po::options_description const& all_public_options,
                          po::options_description const& positional_options,
@@ -357,8 +325,8 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
 
   unregistered.clear();
 
-  // Ensure that opt gets all needed fields from BaseOptionsDescription().
-  // This is needed not only for stereo, but for all tools using BaseOptions.
+  // Ensure that opt gets all needed fields from vw::cartography::GdalWriteOptionsDescription().
+  // This is needed not only for stereo, but for all tools using vw::cartography::GdalWriteOptions.
   stereo_settings().initialize(opt);
 
   // Finish filling in the usage_comment.

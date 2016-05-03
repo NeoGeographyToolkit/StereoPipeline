@@ -178,7 +178,7 @@ namespace asp {
   void las_or_csv_to_tif(std::string const& in_file,
                          std::string const& out_file,
                          int num_rows, int block_size,
-                         asp::BaseOptions * opt,
+                         vw::cartography::GdalWriteOptions * opt,
                          vw::cartography::GeoReference const& csv_georef,
                          asp::CsvConv const& csv_conv);
 
@@ -342,7 +342,7 @@ vw::ImageViewRef< vw::Vector<double, m> > read_asp_point_cloud(std::string const
   boost::shared_ptr<vw::DiskImageResource> rsrc
     ( new vw::DiskImageResourceGDAL(filename) );
   if (vw::cartography::read_header_string(*rsrc.get(), asp::ASP_POINT_OFFSET_TAG_STR, shift_str)){
-    shift = str_to_vec<vw::Vector3>(shift_str);
+    shift = vw::str_to_vec<vw::Vector3>(shift_str);
   }
 
   // Read the first m channels

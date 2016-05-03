@@ -119,7 +119,7 @@ namespace asp {
 
     /// Verify that the inputs needed by the template configuration are selected
     /// - Derived classes should call this before initializing their own behavior.
-    virtual void initialize(BaseOptions const& options,
+    virtual void initialize(vw::cartography::GdalWriteOptions const& options,
                             std::string const& left_image_file,
                             std::string const& right_image_file,
                             std::string const& left_camera_file,

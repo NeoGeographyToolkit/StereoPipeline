@@ -44,7 +44,7 @@ using namespace vw::stereo;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-struct Options : asp::BaseOptions {
+struct Options : vw::cartography::GdalWriteOptions {
   // Input
   std::string input_file_name;
   BBox2       normalization_range;
@@ -63,7 +63,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Region of interest. Specify in format: xmin,ymin,xmax,ymax.")
     ("output-prefix,o", po::value(&opt.output_prefix), "Specify the output prefix.")
     ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file type.");
-  general_options.add( asp::BaseOptionsDescription(opt) );
+  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()

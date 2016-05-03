@@ -67,7 +67,7 @@ int g_ba_num_errors = 0;
 Mutex g_ba_mutex;
 
 
-struct Options : public asp::BaseOptions {
+struct Options : public vw::cartography::GdalWriteOptions {
   std::vector<std::string> image_files, camera_files, gcp_files;
   std::string cnet_file, out_prefix, stereo_session_string,
               cost_function, ba_type;
@@ -1222,7 +1222,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("report-level,r",   po::value(&opt.report_level)->default_value(10),
                          "Use a value >= 20 to get increasingly more verbose output.");
 //     ("save-iteration-data,s", "Saves all camera information between iterations to output-prefix-iterCameraParam.txt, it also saves point locations for all iterations in output-prefix-iterPointsParam.txt.");
-  general_options.add( asp::BaseOptionsDescription(opt) );
+  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
   // We don't currently support varying the intrinsic parameters!
   opt.constant_intrinsics = true;

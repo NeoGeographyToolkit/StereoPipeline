@@ -72,7 +72,7 @@ namespace vw {
   template<> struct PixelFormatID<Vector6>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
 }
 
-struct Options : asp::BaseOptions {
+struct Options : vw::cartography::GdalWriteOptions {
   Options() : root( new osg::Group() ), simplify_percent(0) {};
   // Input
   std::string pointcloud_filename, texture_file_name;
@@ -190,7 +190,7 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image,
       ImageViewRef<PixelGray<uint8> > new_texture = resample(previous_texture,tex_sub_scale);
       vw_out() << "\t--> Texture size: [" << new_texture.cols() << ", " << new_texture.rows() << "]\n";
       vw_out() << "Writing temporary file: " << tex_file+".tif" << "\n";
-      asp::block_write_gdal_image( tex_file+".tif", new_texture, opt,
+      vw::cartography::block_write_gdal_image( tex_file+".tif", new_texture, opt,
                                    TerminalProgressCallback("asp","\tSubsampling:") );
     } else {
       // Always saving as an 8bit texture. These second handedly
@@ -198,7 +198,7 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image,
       // like HiRISE which will feed us tiffs with values outside of
       // 0-1).
       vw_out() << "Writing temporary file: " << tex_file+".tif" << "\n";
-      asp::block_write_gdal_image( tex_file+".tif", previous_texture, opt,
+      vw::cartography::block_write_gdal_image( tex_file+".tif", previous_texture, opt,
                                    TerminalProgressCallback("asp","\tNormalizing:") );
     }
     // When we subsample, we use tiff because we can block write the image.
@@ -451,7 +451,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Enables shades and lighting on the mesh" )
     ("center", po::bool_switch(&opt.center)->default_value(false),
      "Center the model around the origin. Use this option if you are experiencing numerical precision issues.");
-  general_options.add( asp::BaseOptionsDescription(opt) );
+  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()

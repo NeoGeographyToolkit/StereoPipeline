@@ -45,7 +45,7 @@ namespace vw {
   template<> struct PixelFormatID<Vector6> { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
 }
 
-struct Options : asp::BaseOptions {
+struct Options : vw::cartography::GdalWriteOptions {
   // Input
   std::string reference_spheroid, datum;
   std::string pointcloud_file;
@@ -71,7 +71,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
      "Specify a custom projection (PROJ.4 string).");
 
-  general_options.add( asp::BaseOptionsDescription(opt) );
+  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()

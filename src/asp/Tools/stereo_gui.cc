@@ -52,7 +52,7 @@ namespace asp{
   // only when we failed to parse the arguments under the assumption
   // that the tool was being invoked with the stereo interface. Hence
   // we'll fallback to this when the tool is used as an image viewer.
-  void handle_arguments( int argc, char *argv[], Options& opt,
+  void handle_arguments( int argc, char *argv[], ASPGlobalOptions& opt,
                          std::vector<string> & input_files){
 
     po::options_description general_options("");
@@ -109,7 +109,7 @@ int main(int argc, char* argv[]) {
     stereo_register_sessions();
 
     bool verbose = false;
-    vector<Options> opt_vec;
+    vector<ASPGlobalOptions> opt_vec;
     string output_prefix;
     std::vector<std::string> images;
     try {

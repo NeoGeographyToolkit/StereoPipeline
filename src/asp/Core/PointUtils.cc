@@ -796,7 +796,7 @@ Vector3 asp::CsvConv::cartesian_to_csv(Vector3 const& xyz,
 void asp::las_or_csv_to_tif(std::string const& in_file,
                             std::string const& out_file,
                             int num_rows, int block_size,
-                            asp::BaseOptions * opt,
+                            vw::cartography::GdalWriteOptions * opt,
                             vw::cartography::GeoReference const& csv_georef,
                             asp::CsvConv const& csv_conv) {
 
@@ -823,7 +823,7 @@ void asp::las_or_csv_to_tif(std::string const& in_file,
       = asp::LasOrCsvToTif_Class< ImageView<Vector3> > (csvReaderPtr.get(), num_rows, TILE_LEN, block_size);
 
     // Must use a thread only, as we read the las file serially.
-    asp::write_gdal_image(out_file, Img, *opt, TerminalProgressCallback("asp", "\t--> ") );
+    vw::cartography::write_gdal_image(out_file, Img, *opt, TerminalProgressCallback("asp", "\t--> ") );
 
   }else if (asp::is_las(in_file)){ // LAS
 
@@ -836,7 +836,7 @@ void asp::las_or_csv_to_tif(std::string const& in_file,
       = asp::LasOrCsvToTif_Class< ImageView<Vector3> > (lasReaderPtr.get(), num_rows, TILE_LEN, block_size);
 
     // Must use a thread only, as we read the las file serially.
-    asp::write_gdal_image(out_file, Img, *opt, TerminalProgressCallback("asp", "\t--> ") );
+    vw::cartography::write_gdal_image(out_file, Img, *opt, TerminalProgressCallback("asp", "\t--> ") );
   }else
     vw_throw( ArgumentErr() << "Unknown file type: " << in_file << "\n");
 

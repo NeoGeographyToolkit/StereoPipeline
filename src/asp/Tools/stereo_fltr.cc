@@ -134,7 +134,7 @@ struct MultipleDisparityCleanUp {
 
 template <class ImageT>
 void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
-                                    Options const& opt ) {
+                                    ASPGlobalOptions const& opt ) {
   // Write Good Pixel Map
   // Sub-sampling so that the user can actually view it.
   double sub_scale = double( min( inputview.impl().cols(),
@@ -168,7 +168,7 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
     good_pixel_georef = resample(left_georef, good_pixel_scale);
   }
 
-  asp::block_write_gdal_image
+  vw::cartography::block_write_gdal_image
     ( goodPixelFile, goodPixelImage, has_left_georef, good_pixel_georef,
       has_nodata, nodata,
       opt, TerminalProgressCallback("asp", "\t--> Good pixel map: ") );
@@ -196,7 +196,7 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
     if (!removeSmallBlobs) { // Skip small blob removal
       // Write out the image to disk, filling in the blobs in the process
       vw_out() << "Writing: " << outF << endl;
-      asp::block_write_gdal_image( outF,
+      vw::cartography::block_write_gdal_image( outF,
                                    inpaint(inputview.impl(), smallHoleIndex,
                                            use_grassfire, default_inpaint_val),
                                    has_left_georef, left_georef,
@@ -208,7 +208,7 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
       // Write out the image to disk, filling in and removing blobs in the process
       // - Blob removal is done second to make sure inner-blob holes are removed.
       vw_out() << "Writing: " << outF << endl;
-      asp::block_write_gdal_image( outF,
+      vw::cartography::block_write_gdal_image( outF,
                                    per_tile_erode
                                    (inpaint(inputview.impl(),
                                             smallHoleIndex,
@@ -223,7 +223,7 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
   } else { // No hole filling
     if (!removeSmallBlobs) { // Skip small blob removal
       vw_out() << "Writing: " << outF << endl;
-      asp::block_write_gdal_image( outF, inputview.impl(),
+      vw::cartography::block_write_gdal_image( outF, inputview.impl(),
                                    has_left_georef, left_georef,
                                    has_nodata, nodata, opt,
                                    TerminalProgressCallback
@@ -233,7 +233,7 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
       vw_out() << "\t--> Removing small blobs.\n";
       // Write out the image to disk, removing the blobs in the process
       vw_out() << "Writing: " << outF << endl;
-      asp::block_write_gdal_image(outF, per_tile_erode(inputview.impl()),
+      vw::cartography::block_write_gdal_image(outF, per_tile_erode(inputview.impl()),
                                   has_left_georef, left_georef,
                                   has_nodata, nodata, opt,
                                   TerminalProgressCallback
@@ -243,7 +243,7 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
   } // End no hole filling case
 }
 
-void stereo_filtering( Options& opt ) {
+void stereo_filtering( ASPGlobalOptions& opt ) {
 
   string post_correlation_fname;
   opt.session->pre_filtering_hook(opt.out_prefix+"-RD.tif",
@@ -355,11 +355,11 @@ int main(int argc, char* argv[]) {
     stereo_register_sessions();
 
     bool verbose = false;
-    vector<Options> opt_vec;
+    vector<ASPGlobalOptions> opt_vec;
     string output_prefix;
     asp::parse_multiview(argc, argv, FilteringDescription(),
                          verbose, output_prefix, opt_vec);
-    Options opt = opt_vec[0];
+    ASPGlobalOptions opt = opt_vec[0];
 
     // Internal Processes
     //---------------------------------------------------------

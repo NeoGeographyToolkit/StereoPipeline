@@ -23,10 +23,13 @@
 #include <asp/Core/OrthoRasterizer.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
+#include <asp/Core/StereoSettings.h>
 #include <vw/Image/AntiAliasing.h>
 #include <asp/Core/InpaintView.h>
 
 #include <vw/Core/Stopwatch.h>
+#include <vw/Core/StringUtils.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Mosaic/ImageComposite.h>
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Math/EulerAngles.h>
@@ -63,7 +66,7 @@ enum ProjectionType {
   PLATECARREE
 };
 
-struct Options : asp::BaseOptions {
+struct Options : vw::cartography::GdalWriteOptions {
   // Input
   std::vector<std::string> pointcloud_files, texture_files;
 
@@ -407,7 +410,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   general_options.add( manipulation_options );
   general_options.add( projection_options );
-  general_options.add( asp::BaseOptionsDescription(opt) );
+  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -718,7 +721,7 @@ namespace asp{
     if ( opt.output_file_type == "tif" )
       asp::save_with_temp_big_blocks(block_size, output_file, img, georef, opt.nodata_value, opt, tpc);
     else
-      asp::write_gdal_image(output_file, img, georef, opt, tpc);
+      vw::cartography::write_gdal_image(output_file, img, georef, opt, tpc);
   }
 
   // A class for combining the three channels of errors and finding
@@ -1010,7 +1013,7 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
 
     vw_out()<< "Creating output file that is " << bounding_box(dem).size() << " px.\n";
 
-    save_image(opt, dem, georef, hole_fill_len, "DEM");
+    asp::save_image(opt, dem, georef, hole_fill_len, "DEM");
     sw2.stop();
     vw_out(DebugMessage,"asp") << "DEM render time: "
 			       << sw2.elapsed_seconds() << std::endl;
@@ -1073,7 +1076,7 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
     rasterizer.set_texture(texture);
     rasterizer.set_hole_fill_len(hole_fill_len);
     rasterizer_fsaa = generate_fsaa_raster( rasterizer, opt );
-    save_image(opt, rasterizer_fsaa, georef, hole_fill_len, "DRG");
+    asp::save_image(opt, rasterizer_fsaa, georef, hole_fill_len, "DRG");
     sw3.stop();
     vw_out(DebugMessage,"asp") << "DRG render time: " << sw3.elapsed_seconds() << std::endl;
   }
@@ -1083,7 +1086,7 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
     int hole_fill_len = 0;
     DiskImageView< PixelGray<float> >
       dem_image(opt.out_prefix + "-DEM." + opt.output_file_type);
-    save_image(opt,
+    asp::save_image(opt,
 	       apply_mask
 	       (channel_cast<uint8>
 		(normalize(create_mask(dem_image,opt.nodata_value),
@@ -1094,14 +1097,6 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
   }
 } // End do_software_rasterization
 
-
-// TODO: Move somewhere else
-template <typename T>
-std::string itoa(const T i) {
-  std::stringstream s;
-  s << i;
-  return s.str();
-}
 
 // Wrapper for do_software_rasterization that goes through all spacing values
 void do_software_rasterization_multi_spacing( const ImageViewRef<Vector3>& proj_point_input,
@@ -1115,7 +1110,7 @@ void do_software_rasterization_multi_spacing( const ImageViewRef<Vector3>& proj_
   asp::OrthoRasterizerView
     rasterizer(proj_point_input.impl(), select_channel(proj_point_input.impl(),2),
 	       opt.search_radius_factor, opt.use_surface_sampling,
-	       Options::tri_tile_size(), // to efficiently process the cloud
+	       asp::ASPGlobalOptions::tri_tile_size(), // to efficiently process the cloud
 	       opt.target_projwin,
 	       opt.remove_outliers_with_pct, opt.remove_outliers_params,
 	       error_image, estim_max_error, opt.max_valid_triangulation_error,
@@ -1143,7 +1138,7 @@ void do_software_rasterization_multi_spacing( const ImageViewRef<Vector3>& proj_
     if (i == 0)
       opt.out_prefix = base_out_prefix;
     else // Write later iterations to a different path!!
-      opt.out_prefix = base_out_prefix + "_" + itoa(i);
+      opt.out_prefix = base_out_prefix + "_" + vw::num_to_str(i);
     do_software_rasterization( rasterizer, opt, georef,
 			       error_image, estim_max_error);
   } // End loop through spacings

@@ -78,7 +78,7 @@ namespace vw { namespace gui {
 
     // Constructors/Destructor
     MainWidget(QWidget *parent,
-               asp::BaseOptions const& opt,
+               vw::cartography::GdalWriteOptions const& opt,
                int image_id,
                std::string& output_prefix,
                std::vector<std::string> const& image_files,
@@ -132,7 +132,7 @@ namespace vw { namespace gui {
 
   private:
 
-    asp::BaseOptions m_opt;
+    vw::cartography::GdalWriteOptions m_opt;
 
     /// Handle to parent GUI panel used to select which of the multiple "owned"
     ///  images should be currently displayed.

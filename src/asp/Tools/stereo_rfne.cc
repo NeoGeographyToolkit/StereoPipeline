@@ -43,7 +43,7 @@ ImageViewRef<PixelMask<Vector2f> >
 refine_disparity(Image1T const& left_image,
                  Image2T const& right_image,
                  ImageViewRef< PixelMask<Vector2i> > const& integer_disp,
-                 Options const& opt, bool verbose){
+                 ASPGlobalOptions const& opt, bool verbose){
 
   ImageViewRef<PixelMask<Vector2f> > refined_disp =
     pixel_cast<PixelMask<Vector2f> >(integer_disp);
@@ -188,7 +188,7 @@ class PerTileRfne: public ImageViewBase<PerTileRfne<Image1T, Image2T, SeedDispT>
   SeedDispT            m_integer_disp;
   SeedDispT            m_sub_disp;
   ImageView<Matrix3x3> m_local_hom;
-  Options const&       m_opt;
+  ASPGlobalOptions const&       m_opt;
   Vector2              m_upscale_factor;
 
 public:
@@ -198,7 +198,7 @@ public:
                ImageViewBase<SeedDispT> const& integer_disp,
                ImageViewBase<SeedDispT> const& sub_disp,
                ImageView    <Matrix3x3> const& local_hom,
-               Options const& opt):
+               ASPGlobalOptions const& opt):
     m_left_image(left_image.impl()), m_right_image(right_image.impl()),
     m_right_mask(right_mask),
     m_integer_disp( integer_disp.impl() ), m_sub_disp( sub_disp.impl() ),
@@ -243,7 +243,7 @@ public:
     bool verbose = false;
     if (stereo_settings().seed_mode > 0 && stereo_settings().use_local_homography){
 
-      int ts = Options::corr_tile_size();
+      int ts = ASPGlobalOptions::corr_tile_size();
       Matrix<double>  lowres_hom
         = m_local_hom(bbox.min().x()/ts, bbox.min().y()/ts);
       Vector3 upscale( m_upscale_factor[0],     m_upscale_factor[1],     1 );
@@ -306,13 +306,13 @@ per_tile_rfne( ImageViewBase<Image1T> const& left,
                ImageViewBase<SeedDispT> const& integer_disp,
                ImageViewBase<SeedDispT> const& sub_disp,
                ImageView<Matrix3x3> const& local_hom,
-               Options const& opt) {
+               ASPGlobalOptions const& opt) {
   typedef PerTileRfne<Image1T, Image2T, SeedDispT> return_type;
   return return_type( left.impl(), right.impl(), right_mask,
                       integer_disp.impl(), sub_disp.impl(), local_hom, opt );
 }
 
-void stereo_refinement( Options const& opt ) {
+void stereo_refinement( ASPGlobalOptions const& opt ) {
 
   ImageViewRef<PixelGray<float> > left_image, right_image;
   ImageViewRef<uint8> left_mask, right_mask;
@@ -384,7 +384,7 @@ void stereo_refinement( Options const& opt ) {
 
   string rd_file = opt.out_prefix + "-RD.tif";
   vw_out() << "Writing: " << rd_file << "\n";
-  asp::block_write_gdal_image(rd_file, refined_disp,
+  vw::cartography::block_write_gdal_image(rd_file, refined_disp,
                               has_left_georef, left_georef,
                               has_nodata, nodata, opt,
                               TerminalProgressCallback("asp", "\t--> Refinement :") );
@@ -401,15 +401,15 @@ int main(int argc, char* argv[]) {
     stereo_register_sessions();
 
     bool verbose = false;
-    vector<Options> opt_vec;
+    vector<ASPGlobalOptions> opt_vec;
     string output_prefix;
     asp::parse_multiview(argc, argv, SubpixelDescription(),
                          verbose, output_prefix, opt_vec);
-    Options opt = opt_vec[0];
+    ASPGlobalOptions opt = opt_vec[0];
 
     // Subpixel refinement uses smaller tiles.
     //---------------------------------------------------------
-    int ts = Options::rfne_tile_size();
+    int ts = ASPGlobalOptions::rfne_tile_size();
     opt.raster_tile_size = Vector2i(ts, ts);
 
     // Internal Processes

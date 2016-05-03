@@ -26,7 +26,7 @@
 
 // Forward declaration
 namespace asp {
-  class Options;
+  class ASPGlobalOptions;
 }
 namespace vw {
   namespace camera {
@@ -36,7 +36,7 @@ namespace vw {
 
 namespace asp {
 
-  void produce_dem_disparity(Options & opt,
+  void produce_dem_disparity(ASPGlobalOptions & opt,
                              boost::shared_ptr<vw::camera::CameraModel> left_camera_model,
                              boost::shared_ptr<vw::camera::CameraModel> right_camera_model,
                              std::string session_name

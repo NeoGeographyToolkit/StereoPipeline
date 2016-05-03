@@ -31,7 +31,7 @@ namespace asp {
   class StereoSession; // Forward declaration
 
   /// 'Global Scoped' Variables
-  struct Options : asp::BaseOptions {
+  struct ASPGlobalOptions : vw::cartography::GdalWriteOptions {
     // Input
     std::string in_file1,  in_file2,
                 cam_file1, cam_file2,
@@ -44,6 +44,11 @@ namespace asp {
     boost::shared_ptr<asp::StereoSession> session; // Used to extract cameras
     // Output
     std::string out_prefix;
+    
+    // Constants
+    static int   corr_tile_size() { return 1024; } // Tile size for correlation
+    static int   rfne_tile_size() { return 256;  } // Tile size for refinement
+    static int   tri_tile_size()  { return 256;  } // Tile size for tri/point cloud
   };
 
   // Program Options for each executable/step
@@ -52,18 +57,18 @@ namespace asp {
   struct SubpixelDescription      : public boost::program_options::options_description { SubpixelDescription     (); };
   struct FilteringDescription     : public boost::program_options::options_description { FilteringDescription    (); };
   struct TriangulationDescription : public boost::program_options::options_description { TriangulationDescription(); };
-  struct GUIDescription           : public boost::program_options::options_description { GUIDescription(); };
+  struct GUIDescription           : public boost::program_options::options_description { GUIDescription          (); };
   struct DGDescription            : public boost::program_options::options_description { DGDescription           (); };
   struct UndocOptsDescription     : public boost::program_options::options_description { UndocOptsDescription    (); };
 
   boost::program_options::options_description
-  generate_config_file_options( asp::BaseOptions& opt );
+  generate_config_file_options( vw::cartography::GdalWriteOptions& opt );
 
   /// Structure holding variables
   class StereoSettings {
   public:
     StereoSettings();
-    void initialize(asp::BaseOptions& opt);
+    void initialize(vw::cartography::GdalWriteOptions& opt);
     void validate();
     void write_copy( int argc, char *argv[],
                      std::string const& input_file,

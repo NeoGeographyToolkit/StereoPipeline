@@ -93,7 +93,7 @@ namespace vw {
 }
 
 /// Options container for the pc_align tool
-struct Options : public asp::BaseOptions {
+struct Options : public vw::cartography::GdalWriteOptions {
   // Input
   string reference, source, init_transform_file, alignment_method, config_file,
     datum, csv_format_str, csv_proj4_str, match_file;
@@ -176,7 +176,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   //("verbose", po::bool_switch(&opt.verbose)->default_value(false)->implicit_value(true),
   // "Print debug information");
 
-  general_options.add( asp::BaseOptionsDescription(opt) );
+  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()

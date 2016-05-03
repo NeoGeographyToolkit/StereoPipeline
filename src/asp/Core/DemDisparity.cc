@@ -285,7 +285,7 @@ namespace asp {
                         );
   }
 
-  void produce_dem_disparity( Options & opt,
+  void produce_dem_disparity( ASPGlobalOptions & opt,
                               boost::shared_ptr<camera::CameraModel> left_camera_model,
                               boost::shared_ptr<camera::CameraModel> right_camera_model,
                               std::string session_name
@@ -366,12 +366,12 @@ namespace asp {
     vw_out() << "Writing low-resolution disparity: " << disparity_file << "\n";
     if ( session_name == "isis" ){
       // ISIS does not support multi-threading
-      boost::scoped_ptr<DiskImageResource> drsrc( asp::build_gdal_rsrc( disparity_file,
+      boost::scoped_ptr<DiskImageResource> drsrc( vw::cartography::build_gdal_rsrc( disparity_file,
                                                                         lowres_disparity, opt ) );
       write_image(*drsrc, lowres_disparity,
                   TerminalProgressCallback("asp", "\t--> Low-resolution disparity: "));
     }else{
-      asp::block_write_gdal_image( disparity_file,
+      vw::cartography::block_write_gdal_image( disparity_file,
                                    lowres_disparity,
                                    opt,
                                    TerminalProgressCallback("asp", "\t--> Low-resolution disparity:") );
@@ -379,7 +379,7 @@ namespace asp {
 
     std::string disp_spread_file = opt.out_prefix + "-D_sub_spread.tif";
     vw_out() << "Writing low-resolution disparity spread: " << disp_spread_file << "\n";
-    asp::block_write_gdal_image( disp_spread_file,
+    vw::cartography::block_write_gdal_image( disp_spread_file,
                                  disparity_spread,
                                  opt,
                                  TerminalProgressCallback("asp", "\t--> Low-resolution disparity spread:") );
@@ -396,7 +396,7 @@ namespace asp {
         lowres_disparity2(col, row) = lowres_disparity_disk(pixel_sample*col, pixel_sample*row);
       }
     }
-    asp::block_write_gdal_image( opt.out_prefix + "-D_sub2.tif",
+    vw::cartography::block_write_gdal_image( opt.out_prefix + "-D_sub2.tif",
                                  lowres_disparity2,
                                  opt,
                                  TerminalProgressCallback("asp", "\t--> Low-resolution disparity:") );

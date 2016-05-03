@@ -34,6 +34,7 @@
 
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Math.h>
+#include <vw/Core/StringUtils.h>
 #include <vw/Image.h>
 #include <vw/Cartography/Datum.h>
 #include <vw/Cartography/GeoReference.h>
@@ -56,7 +57,7 @@ using namespace vw;
 using namespace std;
 using namespace vw::cartography;
 
-struct Options : public asp::BaseOptions {
+struct Options : public vw::cartography::GdalWriteOptions {
   string input_dir, output_prefix; 
   double min_height, max_height;
   int num_samples;
@@ -77,7 +78,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("penalty-weight",     po::value(&opt.penalty_weight)->default_value(0.1),
      "Penalty weight to use to keep the higher-order RPC coefficients small. Higher penalty weight results in smaller such coefficients.");
 
-  general_options.add( asp::BaseOptionsDescription(opt) );
+  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -326,7 +327,7 @@ void apply_radiometric_corrections(Options const& opt,
 
   
   vw_out() << "Writing: " << out_image << std::endl;
-  asp::block_write_gdal_image(out_image,
+  vw::cartography::block_write_gdal_image(out_image,
 			      radio_correct(input_img, corr, has_nodata, nodata),
 			      has_georef, georef, 
 			      has_nodata, nodata,
@@ -524,22 +525,22 @@ void save_xml(int image_cols, int image_rows,
               asp::RPCModel::CoeffVec const& samp_den,
               std::string const& out_cam_file){
 
-  std::string lineoffset   = asp::double_to_str(pixel_offset.y());
-  std::string sampoffset   = asp::double_to_str(pixel_offset.x());
-  std::string latoffset    = asp::double_to_str(llh_offset.y());
-  std::string longoffset   = asp::double_to_str(llh_offset.x());
-  std::string heightoffset = asp::double_to_str(llh_offset.z());
+  std::string lineoffset   = vw::num_to_str(pixel_offset.y());
+  std::string sampoffset   = vw::num_to_str(pixel_offset.x());
+  std::string latoffset    = vw::num_to_str(llh_offset.y());
+  std::string longoffset   = vw::num_to_str(llh_offset.x());
+  std::string heightoffset = vw::num_to_str(llh_offset.z());
   
-  std::string linescale   = asp::double_to_str(pixel_scale.y());
-  std::string sampscale   = asp::double_to_str(pixel_scale.x());
-  std::string latscale    = asp::double_to_str(llh_scale.y());
-  std::string longscale   = asp::double_to_str(llh_scale.x());
-  std::string heightscale = asp::double_to_str(llh_scale.z());
+  std::string linescale   = vw::num_to_str(pixel_scale.y());
+  std::string sampscale   = vw::num_to_str(pixel_scale.x());
+  std::string latscale    = vw::num_to_str(llh_scale.y());
+  std::string longscale   = vw::num_to_str(llh_scale.x());
+  std::string heightscale = vw::num_to_str(llh_scale.z());
 
-  std::string linenumcoef = asp::vec_to_str(line_num);
-  std::string linedencoef = asp::vec_to_str(line_den);
-  std::string sampnumcoef = asp::vec_to_str(samp_num);
-  std::string sampdencoef = asp::vec_to_str(samp_den);
+  std::string linenumcoef = vw::vec_to_str(line_num);
+  std::string linedencoef = vw::vec_to_str(line_den);
+  std::string sampnumcoef = vw::vec_to_str(samp_num);
+  std::string sampdencoef = vw::vec_to_str(samp_den);
   
   vw_out() << "Writing: " << out_cam_file << std::endl;
   std::ofstream ofs(out_cam_file.c_str());
@@ -552,7 +553,7 @@ void save_xml(int image_cols, int image_rows,
   ofs << "    <LATTICE_POINT>\n";
   for (size_t row = 0; row < lattice_mat.size(); row++) {
     for (size_t col = 0; col < lattice_mat[row].size(); col++) {
-      ofs << asp::vec_to_str(lattice_mat[row][col]) << std::endl;
+      ofs << vw::vec_to_str(lattice_mat[row][col]) << std::endl;
     }
     ofs << std::endl;
   }
@@ -562,7 +563,7 @@ void save_xml(int image_cols, int image_rows,
   ofs << "    <SIGHT_VECTOR>\n";
   for (size_t row = 0; row < sight_mat.size(); row++) {
     for (size_t col = 0; col < sight_mat[row].size(); col++) {
-      ofs << asp::vec_to_str(sight_mat[row][col]) << std::endl;
+      ofs << vw::vec_to_str(sight_mat[row][col]) << std::endl;
     }
     ofs << std::endl;
   }
@@ -572,7 +573,7 @@ void save_xml(int image_cols, int image_rows,
   ofs << "    <WORLD_SIGHT_VECTOR>\n";
   for (size_t row = 0; row < world_sight_mat.size(); row++) {
     for (size_t col = 0; col < world_sight_mat[row].size(); col++) {
-      ofs << asp::vec_to_str(world_sight_mat[row][col]) << std::endl;
+      ofs << vw::vec_to_str(world_sight_mat[row][col]) << std::endl;
     }
     ofs << std::endl;
   }
@@ -581,7 +582,7 @@ void save_xml(int image_cols, int image_rows,
   // Satellite position
   ofs << "    <SAT_POS>\n";
   for (size_t row = 0; row < sat_pos.size(); row++) {
-    ofs << asp::vec_to_str(sat_pos[row]) << std::endl;
+    ofs << vw::vec_to_str(sat_pos[row]) << std::endl;
   }
   ofs << "    </SAT_POS>\n";
 

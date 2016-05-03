@@ -164,7 +164,7 @@ BBox2 get_output_projected_bbox(GeoReference     const& input_georef,
 }
 
 
-struct Options : asp::BaseOptions {
+struct Options : vw::cartography::GdalWriteOptions {
   string input_dem, output_dem, output_datum, target_srs_string;
   double nodata_value;
   bool   use_double;
@@ -181,7 +181,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
     ("double", po::bool_switch(&opt.use_double)->default_value(false)->implicit_value(true),
      "Output using double precision (64 bit) instead of float (32 bit).");
 
-  general_options.add( asp::BaseOptionsDescription(opt) );
+  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()

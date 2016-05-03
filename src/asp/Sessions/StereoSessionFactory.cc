@@ -42,7 +42,7 @@ namespace asp{
 
 
 StereoSession* StereoSessionFactory::create(std::string        & session_type, // in-out variable
-                                              BaseOptions const& options,
+                                              vw::cartography::GdalWriteOptions const& options,
                                               std::string const& left_image_file,
                                               std::string const& right_image_file,
                                               std::string const& left_camera_file,

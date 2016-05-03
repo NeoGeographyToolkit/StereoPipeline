@@ -138,7 +138,7 @@ namespace vw { namespace gui {
   }
 
   MainWidget::MainWidget(QWidget *parent,
-                         asp::BaseOptions const& opt,
+                         vw::cartography::GdalWriteOptions const& opt,
                          int image_id,
                          std::string & output_prefix,
                          std::vector<std::string> const& image_files,

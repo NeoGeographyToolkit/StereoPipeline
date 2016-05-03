@@ -51,7 +51,7 @@ namespace vw { namespace gui {
     Q_OBJECT
 
   public:
-    MainWindow(asp::BaseOptions const& opt,
+    MainWindow(vw::cartography::GdalWriteOptions const& opt,
                std::vector<std::string> const& images,
                std::string& output_prefix, // non-const, so we can change it
                int grid_cols,
@@ -95,7 +95,7 @@ namespace vw { namespace gui {
     void resizeEvent(QResizeEvent *);
     void closeEvent (QCloseEvent *);
 
-    asp::BaseOptions          m_opt;
+    vw::cartography::GdalWriteOptions          m_opt;
     std::vector<std::string>  m_image_paths; ///< Loaded image files
     std::string               m_output_prefix;
     double                    m_widRatio;    // ratio of sidebar to entire win wid

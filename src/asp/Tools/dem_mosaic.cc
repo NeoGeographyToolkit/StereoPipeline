@@ -185,7 +185,7 @@ std::string processed_proj4(std::string const& srs){
   return georef.overall_proj4_str();
 }
 
-struct Options : asp::BaseOptions {
+struct Options : vw::cartography::GdalWriteOptions {
   string dem_list_file, out_prefix, target_srs_string;
   vector<string> dem_files;
   double tr, geo_tile_size;
@@ -438,7 +438,7 @@ public:
       block_write_gdal_image(os.str(), local_wts,
 			     has_georef, georef,
 			     has_nodata, -100,
-			     asp::BaseOptions(),
+			     vw::cartography::GdalWriteOptions(),
 			     TerminalProgressCallback("asp", ""));
 #endif
 
@@ -749,7 +749,7 @@ public:
 	block_write_gdal_image(os.str(), weight_vec[clip_iter],
 			       has_georef, crop_georef,
 			       has_nodata, -100,
-			       asp::BaseOptions(),
+			       vw::cartography::GdalWriteOptions(),
 			       TerminalProgressCallback("asp", ""));
       }
 #endif
@@ -796,6 +796,8 @@ void load_dem_bounding_boxes(Options       const& opt,
 
   vw_out() << "Determining the bounding boxes of the input DEMs.\n";
 
+  std::cout << "mosaic_georef = " << mosaic_georef << std::endl;
+
   // Initialize the outputs
   mosaic_bbox = BBox2();
   dem_proj_bboxes.clear();
@@ -826,6 +828,7 @@ void load_dem_bounding_boxes(Options       const& opt,
       BBox2 proj_box = georef.bounding_box(img);
       mosaic_bbox.grow(proj_box);
       dem_proj_bboxes.push_back(proj_box);
+      std::cout << "A: dem proj_box = " << proj_box << std::endl;
     }else{
       // Compute the bounding box of the current image in projected
       // coordinates of the mosaic. There is always a worry that the
@@ -833,12 +836,16 @@ void load_dem_bounding_boxes(Options       const& opt,
       // offset by 360 degrees. Try to deal with that.
       BBox2 proj_box;
       BBox2 imgbox = bounding_box(img);
+      std::cout << "B: imgbox = " << imgbox << std::endl;
       if (dem_iter == 0) {
-        proj_box = mosaic_georef.pixel_to_point_bbox(imgbox);
+        proj_box = mosaic_georef.pixel_to_point_bbox(imgbox); // BUG!!!!
+        std::cout << "B1: dem proj_box = " << proj_box << std::endl;
       }else{
 	      BBox2 mosaic_pixel_box = mosaic_georef.point_to_pixel_bbox(mosaic_bbox);
 	      GeoTransform geotrans(georef, mosaic_georef, imgbox, mosaic_pixel_box);
 	      proj_box = geotrans.pixel_to_point_bbox(imgbox);
+	      std::cout << "B2: mosaic_pixel_box = " << mosaic_pixel_box << std::endl;
+	      std::cout << "B2: dem proj_box = " << proj_box << std::endl;
       }
       mosaic_bbox.grow(proj_box);
       dem_proj_bboxes.push_back(proj_box);
@@ -847,6 +854,8 @@ void load_dem_bounding_boxes(Options       const& opt,
     tpc.report_incremental_progress( inc_amount );
   } // End loop through DEM files
   tpc.report_finished();
+  
+  std::cout << "mosaic_bbox = " << mosaic_bbox << std::endl;
 } // End function load_dem_bounding_boxes
 
 
@@ -1065,13 +1074,14 @@ int main( int argc, char *argv[] ) {
       opt.target_srs_string = processed_proj4(opt.target_srs_string);
 
     GeoReference mosaic_georef = read_georef(opt.dem_files[0]);
+    std::cout << "Input georef 0 = " << mosaic_georef << std::endl;
     double spacing = opt.tr;
     if (opt.target_srs_string != ""                                              &&
-	opt.target_srs_string != processed_proj4(mosaic_georef.overall_proj4_str()) &&
-	spacing <= 0 ){
-      vw_throw(ArgumentErr()
-	       << "Changing the projection was requested. The output DEM "
-	       << "resolution must be specified via the --tr option.\n");
+      opt.target_srs_string != processed_proj4(mosaic_georef.overall_proj4_str()) &&
+      spacing <= 0 ){
+        vw_throw(ArgumentErr()
+           << "Changing the projection was requested. The output DEM "
+           << "resolution must be specified via the --tr option.\n");
     }
 
     if (opt.target_srs_string != ""){
@@ -1087,9 +1097,9 @@ int main( int argc, char *argv[] ) {
     if (mosaic_georef.datum().name() == "unknown"){
       GeoReference georef = read_georef(opt.dem_files[0]);
       if (mosaic_georef.datum().semi_major_axis() == georef.datum().semi_major_axis() &&
-	  mosaic_georef.datum().semi_minor_axis() == georef.datum().semi_minor_axis() ){
-	vw_out() << "Using the datum: " << georef.datum() << std::endl;
-	mosaic_georef.set_datum(georef.datum());
+    	  mosaic_georef.datum().semi_minor_axis() == georef.datum().semi_minor_axis() ){
+          vw_out() << "Using the datum: " << georef.datum() << std::endl;
+          mosaic_georef.set_datum(georef.datum());
       }
     }
 
@@ -1125,11 +1135,11 @@ int main( int argc, char *argv[] ) {
     // Display which DEMs will end up being used for the current box
     if (opt.projwin != BBox2()){
       for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++){
-	BBox2 box = dem_proj_bboxes[dem_iter];
-	box.crop(mosaic_bbox);
-	// Turn this message off. Too verbose.
-	//if (!box.empty())
-	//  vw_out() << "Using: " << opt.dem_files[dem_iter] << std::endl;
+        BBox2 box = dem_proj_bboxes[dem_iter];
+        box.crop(mosaic_bbox);
+        // Turn this message off. Too verbose.
+        //if (!box.empty())
+        //  vw_out() << "Using: " << opt.dem_files[dem_iter] << std::endl;
       }
     }
 
@@ -1219,21 +1229,26 @@ int main( int argc, char *argv[] ) {
 
       // Get the DEM bounding box that we previously computed (output projected coords)
       BBox2 dem_bbox = dem_proj_bboxes[dem_iter];
+      std::cout << "dem_bbox = " << dem_bbox << std::endl;
 
       // Go through each of the tile bounding boxes and see they intersect this DEM
       bool use_this_dem = false;
       for (int tile_id = start_tile; tile_id < end_tile; tile_id++){
-	// Get tile bbox in pixels, then convert it to projected coords.
-	BBox2i tile_pixel_box = tile_pixel_bboxes[tile_id - start_tile];
-	BBox2  tile_proj_box  = mosaic_georef.pixel_to_point_bbox(tile_pixel_box);
+        // Get tile bbox in pixels, then convert it to projected coords.
+        BBox2i tile_pixel_box = tile_pixel_bboxes[tile_id - start_tile];
+        BBox2  tile_proj_box  = mosaic_georef.pixel_to_point_bbox(tile_pixel_box);
 
-	if (tile_proj_box.intersects(dem_bbox)) {
-	  use_this_dem = true;
-	  break;
-	}
+        std::cout << "tile_pixel_box = " << tile_pixel_box << std::endl;
+        std::cout << "tile_proj_box = " << tile_proj_box << std::endl;
+
+        if (tile_proj_box.intersects(dem_bbox)) {
+          std::cout << "Intersection!\n";
+          use_this_dem = true;
+          break;
+        }
       }
       if (use_this_dem == false)
-	continue; // Skip to the next DEM if we don't need this one.
+        continue; // Skip to the next DEM if we don't need this one.
 
       // The GeoTransform will hide the messy details of conversions
       // from pixels to points and lon-lat.
@@ -1245,6 +1260,11 @@ int main( int argc, char *argv[] ) {
       BBox2 curr_box = geotrans.forward_bbox(dem_pixel_box);
       curr_box.crop(output_dem_box);
 
+
+      std::cout << "georef = " << georef << std::endl;
+      std::cout << "dem_pixel_box = " << dem_pixel_box << std::endl;
+      std::cout << "curr_box = " << curr_box << std::endl;
+
       // This is a fix for GDAL crashing when there are too many open
       // file handles. In such situation, just selectively close the
       // handles furthest from the current location.
@@ -1252,17 +1272,17 @@ int main( int argc, char *argv[] ) {
       
       double curr_nodata_value = opt.out_nodata_value;
       try {
-	// Get the nodata-value. Need a try block, in case we can't
-	// open more handles.
-	DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
-	if ( in_rsrc.has_nodata_read() )
-	  curr_nodata_value = in_rsrc.nodata_read();
+        // Get the nodata-value. Need a try block, in case we can't
+        // open more handles.
+        DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
+        if ( in_rsrc.has_nodata_read() )
+          curr_nodata_value = in_rsrc.nodata_read();
       }catch(std::exception const& e){
-	// Try again
-	imgMgr.freeup_handles_not_thread_safe();
-	DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
-	if ( in_rsrc.has_nodata_read() )
-	  curr_nodata_value = in_rsrc.nodata_read();
+        // Try again
+        imgMgr.freeup_handles_not_thread_safe();
+        DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
+        if ( in_rsrc.has_nodata_read() )
+          curr_nodata_value = in_rsrc.nodata_read();
       }
       
       loaded_dems.push_back(opt.dem_files[dem_iter]);
@@ -1284,10 +1304,10 @@ int main( int argc, char *argv[] ) {
 
       // Set up tile image and metadata
       ImageViewRef<RealT> out_dem = crop(DemMosaicView(cols, rows, bias, opt,
-						       imgMgr, georefs,
-						       mosaic_georef, nodata_values,
-                                                       dem_pixel_bboxes),
-					 tile_box);
+                                                imgMgr, georefs,
+                                                mosaic_georef, nodata_values,
+                                                                                    dem_pixel_bboxes),
+                                         tile_box);
       GeoReference crop_georef = crop(mosaic_georef, tile_box.min().x(),
 				      tile_box.min().y());
 
@@ -1306,7 +1326,7 @@ int main( int argc, char *argv[] ) {
       vw_out() << "Writing: " << index_map << std::endl;
       std::ofstream ih(index_map.c_str());
       for (int dem_iter = 0; dem_iter < (int)loaded_dems.size(); dem_iter++){
-	ih << opt.dem_files[dem_iter] << ' ' << dem_iter << std::endl;
+        ih << opt.dem_files[dem_iter] << ' ' << dem_iter << std::endl;
       }
     }
 

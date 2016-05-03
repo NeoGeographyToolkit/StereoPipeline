@@ -129,7 +129,7 @@ find_ideal_isis_range(DiskImageView<float> const& image,
 
 // This actually modifies and writes the pre-processed image.
 inline
-void write_preprocessed_isis_image( BaseOptions const& opt,
+void write_preprocessed_isis_image( vw::cartography::GdalWriteOptions const& opt,
 				    bool will_apply_user_nodata,
 				    ImageViewRef< PixelMask <float> > masked_image,
 				    std::string const& out_file,
@@ -232,7 +232,7 @@ pre_preprocessing_hook(bool adjust_left_image_size,
 		       std::string      & right_output_file) {
 
   std::string left_cropped_file, right_cropped_file;
-  asp::BaseOptions options;
+  vw::cartography::GdalWriteOptions options;
   float left_nodata_value, right_nodata_value;
   bool  has_left_georef,   has_right_georef;
   vw::cartography::GeoReference left_georef, right_georef;
@@ -375,7 +375,7 @@ pre_preprocessing_hook(bool adjust_left_image_size,
 }
 
 // Only used with mask_flatfield option?
-inline std::string write_shadow_mask( BaseOptions const& opt,
+inline std::string write_shadow_mask( vw::cartography::GdalWriteOptions const& opt,
 				      std::string const& output_prefix,
 				      std::string const& input_image,
 				      std::string const& mask_postfix ) {

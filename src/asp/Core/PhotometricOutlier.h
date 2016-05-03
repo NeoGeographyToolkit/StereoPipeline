@@ -27,9 +27,9 @@
 
 namespace asp {
 
-  class BaseOptions;
+  class vw::cartography::GdalWriteOptions;
 
-  void photometric_outlier_rejection( BaseOptions const& opt,
+  void photometric_outlier_rejection( vw::cartography::GdalWriteOptions const& opt,
                                       std::string const& prefix,
                                       std::string const& input_disparity,
                                       std::string & output_disparity,

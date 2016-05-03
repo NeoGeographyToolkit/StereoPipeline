@@ -52,7 +52,7 @@ using namespace vw::cartography;
 namespace po = boost::program_options;
 //namespace fs = boost::filesystem;
 
-struct Options : public asp::BaseOptions {
+struct Options : public vw::cartography::GdalWriteOptions {
   Options() : seperate_camera_files(true) {}
   // Input
   std::vector<std::string> input_files;
@@ -259,7 +259,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("write-csv", "write a csv file with the orbital the data.")
     ("bundle-adjust-prefix",    po::value(&opt.bundle_adjust_prefix),
           "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.");
-  general_options.add( asp::BaseOptionsDescription(opt) );
+  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
