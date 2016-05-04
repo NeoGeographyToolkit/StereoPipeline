@@ -129,12 +129,6 @@ if MAKE_APP_BUNDLEVIS
   bundlevis_LDADD = $(APP_BUNDLEVIS_LIBS)
 endif
 
-if MAKE_APP_ORTHOPROJECT
-  bin_PROGRAMS += orthoproject
-  orthoproject_SOURCES = orthoproject.cc
-  orthoproject_LDADD = $(APP_ORTHOPROJECT_LIBS)
-endif
-
 if MAKE_APP_PC_ALIGN
   bin_PROGRAMS += pc_align
   pc_align_SOURCES = pc_align.cc
