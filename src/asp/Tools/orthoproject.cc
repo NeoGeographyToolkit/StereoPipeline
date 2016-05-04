@@ -105,8 +105,8 @@ void write_parallel_cond( std::string const& filename,
   vw_out() << "Writing: " << filename << "\n";
   bool has_georef = true;
   if ( opt.stereo_session == "isis" )
-    asp::write_gdal_image(filename, image.impl(), has_georef, georef,
-                          use_nodata, nodata_val, opt, tpc);
+    vw::cartography::write_gdal_image(filename, image.impl(), has_georef, georef,
+                                      use_nodata, nodata_val, opt, tpc);
   else
     vw::cartography::block_write_gdal_image(filename, image.impl(), has_georef, georef,
                                 use_nodata, nodata_val, opt, tpc);
