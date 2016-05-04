@@ -1068,28 +1068,32 @@ namespace vw { namespace gui {
 
     std::ostringstream s;
 
+    // Save these before we modify the box
+    double width  = m_current_view.width();
+    double height = m_current_view.height();
+      
     double factor = 0.2;  // We will pan by moving by 20%.
     switch (event->key()) {
 
       // Pan
     case Qt::Key_Left: // Pan left
-      m_current_view.min().x() -= m_current_view.width()*factor;
-      m_current_view.max().x() -= m_current_view.width()*factor;
+      m_current_view.min().x() -= width*factor;
+      m_current_view.max().x() -= width*factor;
       refreshPixmap();
       break;
     case Qt::Key_Right: // Pan right
-      m_current_view.min().x() += m_current_view.width()*factor;
-      m_current_view.max().x() += m_current_view.width()*factor;
+      m_current_view.min().x() += width*factor;
+      m_current_view.max().x() += width*factor;
       refreshPixmap();
       break;
     case Qt::Key_Up: // Pan up
-      m_current_view.min().y() -= m_current_view.height()*factor;
-      m_current_view.max().y() -= m_current_view.height()*factor;
+      m_current_view.min().y() -= height*factor;
+      m_current_view.max().y() -= height*factor;
       refreshPixmap();
       break;
     case Qt::Key_Down: // Pan down
-      m_current_view.min().y() += m_current_view.height()*factor;
-      m_current_view.max().y() += m_current_view.height()*factor;
+      m_current_view.min().y() += height*factor;
+      m_current_view.max().y() += height*factor;
       refreshPixmap();
       break;
 
@@ -1157,7 +1161,6 @@ namespace vw { namespace gui {
     default:
       QWidget::keyPressEvent(event);
     }
-
   }
 
   void MainWidget::contextMenuEvent(QContextMenuEvent *event){
