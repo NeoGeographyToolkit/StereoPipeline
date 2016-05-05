@@ -796,8 +796,6 @@ void load_dem_bounding_boxes(Options       const& opt,
 
   vw_out() << "Determining the bounding boxes of the input DEMs.\n";
 
-  std::cout << "mosaic_georef = " << mosaic_georef << std::endl;
-
   // Initialize the outputs
   mosaic_bbox = BBox2();
   dem_proj_bboxes.clear();
@@ -828,7 +826,6 @@ void load_dem_bounding_boxes(Options       const& opt,
       BBox2 proj_box = georef.bounding_box(img);
       mosaic_bbox.grow(proj_box);
       dem_proj_bboxes.push_back(proj_box);
-      std::cout << "A: dem proj_box = " << proj_box << std::endl;
     }else{
       // Compute the bounding box of the current image in projected
       // coordinates of the mosaic. There is always a worry that the
@@ -836,17 +833,20 @@ void load_dem_bounding_boxes(Options       const& opt,
       // offset by 360 degrees. Try to deal with that.
       BBox2 proj_box;
       BBox2 imgbox = bounding_box(img);
-      std::cout << "B: imgbox = " << imgbox << std::endl;
+      BBox2 mosaic_pixel_box;
       if (dem_iter == 0) {
-        proj_box = mosaic_georef.pixel_to_point_bbox(imgbox); // BUG!!!!
-        std::cout << "B1: dem proj_box = " << proj_box << std::endl;
+        // TODO: Not robust. How to estimate the pixel extent of the
+        // first DEM in the mosaic? Taking into account that
+        // the first DEM lonlat box and the mosaic lonlat box
+        // may be offset by 360 degrees?
+        mosaic_pixel_box = imgbox;
       }else{
-	      BBox2 mosaic_pixel_box = mosaic_georef.point_to_pixel_bbox(mosaic_bbox);
-	      GeoTransform geotrans(georef, mosaic_georef, imgbox, mosaic_pixel_box);
-	      proj_box = geotrans.pixel_to_point_bbox(imgbox);
-	      std::cout << "B2: mosaic_pixel_box = " << mosaic_pixel_box << std::endl;
-	      std::cout << "B2: dem proj_box = " << proj_box << std::endl;
+        mosaic_pixel_box = mosaic_georef.point_to_pixel_bbox(mosaic_bbox);
       }
+      
+      GeoTransform geotrans(georef, mosaic_georef, imgbox, mosaic_pixel_box);
+      proj_box = geotrans.pixel_to_point_bbox(imgbox);
+      
       mosaic_bbox.grow(proj_box);
       dem_proj_bboxes.push_back(proj_box);
     }
@@ -855,7 +855,6 @@ void load_dem_bounding_boxes(Options       const& opt,
   } // End loop through DEM files
   tpc.report_finished();
   
-  std::cout << "mosaic_bbox = " << mosaic_bbox << std::endl;
 } // End function load_dem_bounding_boxes
 
 
@@ -1074,7 +1073,6 @@ int main( int argc, char *argv[] ) {
       opt.target_srs_string = processed_proj4(opt.target_srs_string);
 
     GeoReference mosaic_georef = read_georef(opt.dem_files[0]);
-    std::cout << "Input georef 0 = " << mosaic_georef << std::endl;
     double spacing = opt.tr;
     if (opt.target_srs_string != ""                                              &&
       opt.target_srs_string != processed_proj4(mosaic_georef.overall_proj4_str()) &&
@@ -1105,11 +1103,22 @@ int main( int argc, char *argv[] ) {
 
     // Use desired spacing if user-specified
     if (spacing > 0.0){
+      DiskImageView<float> dem0(opt.dem_files[0]);
+
+      BBox2 llbox0 = mosaic_georef.pixel_to_lonlat_bbox(bounding_box(dem0));
       Matrix<double,3,3> transform = mosaic_georef.transform();
       transform.set_identity();
       transform(0, 0) =  spacing;
       transform(1, 1) = -spacing;
       mosaic_georef.set_transform(transform);
+
+      // Set the translation part of the transform so that the origin
+      // maps to the lonlat box corner. This is still not fully
+      // reliable, but better than nothing. We will adjust
+      // mosaic_georef later on.
+      Vector2 ul = mosaic_georef.lonlat_to_pixel(Vector2(llbox0.min().x(), llbox0.max().y()));
+      mosaic_georef = crop(mosaic_georef, ul.x(), ul.y());
+
     }else
       spacing = mosaic_georef.transform()(0, 0);
 
