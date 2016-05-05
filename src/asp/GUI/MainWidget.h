@@ -51,6 +51,7 @@
 #include <vw/Math/BBox.h>
 #include <vw/Math/Vector.h>
 #include <vw/Cartography/GeoReference.h>
+#include <vw/Cartography/GeoTransform.h>
 #include <vw/InterestPoint/InterestData.h>
 
 // ASP
@@ -168,7 +169,10 @@ namespace vw { namespace gui {
 
     std::vector<imageData> m_images;
     BBox2 m_images_box;
-
+    
+    std::vector<vw::cartography::GeoTransform> m_world2image_geotransforms;
+    std::vector<vw::cartography::GeoTransform> m_image2world_geotransforms;
+    
     // Adjustment mode
     enum AdjustmentMode { NoAdjustment,
                           TransformAdjustment, GainAdjustment,

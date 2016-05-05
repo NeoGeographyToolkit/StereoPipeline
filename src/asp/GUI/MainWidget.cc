@@ -102,8 +102,8 @@ namespace vw { namespace gui {
   // for consistency with how images are plotted.  Convert a world box
   // to a pixel box for the given image.
   Vector2 MainWidget::world2image(Vector2 const& P, int imageIndex) {
-    GeoTransform trans(m_images[0].georef, m_images[imageIndex].georef);
-    return trans.point_to_pixel(flip_in_y(P));
+
+    return m_world2image_geotransforms[imageIndex].point_to_pixel(flip_in_y(P));
   }
 
   BBox2 MainWidget::world2image(BBox2 const& R, int imageIndex) {
@@ -115,10 +115,7 @@ namespace vw { namespace gui {
     if (!m_use_georef)
       return R;
 
-
-    GeoTransform trans(m_images[0].georef, m_images[imageIndex].georef);
-    BBox2 pixel_box = trans.point_to_pixel_bbox(flip_in_y(R));
-
+    BBox2 pixel_box = m_world2image_geotransforms[imageIndex].point_to_pixel_bbox(flip_in_y(R));
     return pixel_box;
   }
 
@@ -131,9 +128,7 @@ namespace vw { namespace gui {
     if (!m_use_georef)
       return R;
 
-    GeoTransform trans(m_images[imageIndex].georef, m_images[0].georef);
-    BBox2 B = flip_in_y(trans.pixel_to_point_bbox(R));
-
+    BBox2 B = flip_in_y(m_image2world_geotransforms[imageIndex].pixel_to_point_bbox(R));
     return B;
   }
 
@@ -184,11 +179,20 @@ namespace vw { namespace gui {
     // Read the images. Find the box that will contain all of them.
     // If we use georef, that box is in projected point units
     // of the first image.
+    // Also set up the image GeoReference transforms for each image
+    // in both directions.
     int num_images = image_files.size();
     m_images.resize(num_images);
     m_filesOrder.resize(num_images);
+    m_world2image_geotransforms.resize(num_images);
+    m_image2world_geotransforms.resize(num_images);
     for (int i = 0; i < num_images; i++){
       m_images[i].read(image_files[i], m_opt, m_use_georef);
+      
+      // Make sure we set these up before the image2world call below!
+      m_world2image_geotransforms[i] = GeoTransform(m_images[0].georef, m_images[i].georef);
+      m_image2world_geotransforms[i] = GeoTransform(m_images[i].georef, m_images[0].georef);
+      
       m_filesOrder[i] = i; // start by keeping the order of files being read
       if (!m_use_georef){
         m_images_box.grow(m_images[i].image_bbox);
@@ -226,7 +230,7 @@ namespace vw { namespace gui {
 
     if (m_hillshade_mode)
       MainWidget::genHillshadedImages();
-  }
+  } // End constructor
 
 
   MainWidget::~MainWidget() {
