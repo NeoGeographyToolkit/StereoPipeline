@@ -1231,16 +1231,20 @@ requested output image. If your image is small, smaller tiles can be used
 as well to start more simultaneous processes (parameter \texttt{-\/-tile-size}).
 
 Examples:
+
+Map-project a .cub file (it has both image and camera information):
 \begin{verbatim}
-mapproject -t isis DEM.tif image.cub  output-IMG.tif --ppd 256
+mapproject -t isis DEM.tif image.cub output.tif --ppd 256
 \end{verbatim}
 
+Map-project an image file with associated .xml camera file:
 \begin{verbatim}
-mapproject -t rpc DEM.tif image.tif image.xml output-IMG.tif --mpp 20
+mapproject -t rpc DEM.tif image.tif image.xml output.tif --mpp 20
 \end{verbatim}
 
+Mapproject onto a datum rather than a DEM:
 \begin{verbatim}
-mapproject WGS84 image.tif output.tif --mpp 10
+mapproject WGS84 image.tif image.xml output.tif --mpp 10
 \end{verbatim}
 
 The first argument can either be a path to a DEM file or the name of a standard datum.
