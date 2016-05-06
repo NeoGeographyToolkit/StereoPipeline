@@ -324,6 +324,14 @@ def find_bands(node):
 
     return bands
 
+# bugfix for the situation ullon = -178.6 and urlon = 178.34
+def maybe_swap_add_360(a, b):
+    if b - a > 270:
+        tmp = b
+        b   = a + 360
+        a   = tmp
+    return [a, b]
+    
 def read_corners(band):
     '''Read in the corners from a DG XML file from one band.
        The points are stored in clockwise order from the upper left.'''
@@ -333,22 +341,28 @@ def read_corners(band):
 
     ullon = float(band.find("ULLON").text)
     ullat = float(band.find("ULLAT").text)
-    llbox.add_point([ullon, ullat])
-    ll_corners.append([ullon, ullat])
 
     urlon = float(band.find("URLON").text)
     urlat = float(band.find("URLAT").text)
-    llbox.add_point([urlon, urlat])
-    ll_corners.append([urlon, urlat])
 
     lrlon = float(band.find("LRLON").text)
     lrlat = float(band.find("LRLAT").text)
-    llbox.add_point([lrlon, lrlat])
-    ll_corners.append([lrlon, lrlat])
 
     lllon = float(band.find("LLLON").text)
     lllat = float(band.find("LLLAT").text)
+
+    # Bugfix for the situation when ullon = -178.6 and urlon = 178.34
+    [ullon, urlon] = maybe_swap_add_360(ullon, urlon)
+    [lllon, lrlon] = maybe_swap_add_360(lllon, lrlon)
+    
+    llbox.add_point([ullon, ullat])
+    llbox.add_point([urlon, urlat])
+    llbox.add_point([lrlon, lrlat])
     llbox.add_point([lllon, lllat])
+
+    ll_corners.append([ullon, ullat])
+    ll_corners.append([urlon, urlat])
+    ll_corners.append([lrlon, lrlat])
     ll_corners.append([lllon, lllat])
 
     return (llbox, ll_corners)
@@ -555,9 +569,10 @@ def examine_discrepancy_in_arrays(A, B):
     if len(A) != len(B):
         raise Exception('InputError', 'Cannot process arrays of different lengths.')
 
-    max_err = 1.0e-10
+    max_err = 3e-5
     print("Will go on if the relative discrepancies are less than %g." % max_err)
 
+    observed_max_err = 0
     num_messages = 0
     max_num_messages = 10
     for i in range(len(A)):
@@ -568,16 +583,20 @@ def examine_discrepancy_in_arrays(A, B):
                 err = abs( (a-b)/a )
                 num_messages = num_messages + 1
 
-                if err > max_err or num_messages < max_num_messages:
+                if err > observed_max_err:
+                    observed_max_err = err
+                    
+                if err > max_err and num_messages < max_num_messages:
                     print("Warning: Disagreeing values and relative error: %0.18g %0.18g %0.18g" \
                       % (a, b, err))
-
-                if num_messages == max_num_messages:
+                    continue
+                
+                if err > max_err and num_messages == max_num_messages:
                     print("Will stop printing more warnings.")
-
-                if err > max_err:
-                    raise Exception('InputError',
-                                    'Discrepancy is too large. Cannot continue.')
+                    
+    print('Maximum observed relative discrepancy is ' + str(observed_max_err))
+    if observed_max_err > max_err:
+        raise Exception('InputError', 'Error is too large')
 
 
 def main():
