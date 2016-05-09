@@ -68,8 +68,8 @@ A.cub, B.cub, C.cub, and D.cub.
 
 The first step is to run stereo to create an initial guess DEM. We
 picked for this the first two of these images. These form a stereo pair,
-that is, they have reasonable baseline and sufficiently close times of
-acquisition and hence very similar illuminations. These conditions are
+that is, they have a reasonable baseline and sufficiently close times of
+acquisition (hence very similar illuminations). These conditions are
 necessary to obtain a good stereo result.
 \begin{verbatim}
 parallel_stereo --job-size-w 1024 --job-size-h 1024 A.cub B.cub    \
@@ -93,7 +93,7 @@ This creates a DEM of size $456 \times 410$ pixels.
 Then we run \texttt{sfs}:
 \begin{verbatim}
   sfs -i run_full1/run-crop-DEM.tif A.cub -o sfs/run   \
-    --smoothness-weight 0.08  --reflectance-type 0  \
+    --smoothness-weight 0.08  --reflectance-type 0     \
     --max-iterations 100 --use-approx-camera-models
 \end{verbatim}
 This run should take an hour or more, but just after 10 iterations
@@ -110,8 +110,8 @@ We show the results of running this program in figure
 \ref{fig:sfs1}. The left-most figure is the hill-shaded original DEM,
 which was obtained by running:
 \begin{verbatim}
-  hillshade --azimuth 300 --elevation 20 -o run_full1/run-crop5-hill.tif \
-    run_full1/run-crop-DEM.tif
+  hillshade --azimuth 300 --elevation 20 run_full1/run-crop-DEM.tif \
+    -o run_full1/run-crop-hill.tif 
 \end{verbatim}
 The second image is the hill-shaded DEM obtained after running
 \texttt{sfs} for 15 iterations.
@@ -190,7 +190,7 @@ such as shown below (the crop parameters can be determined via
 \end{verbatim}
 Then we bundle-adjust and run stereo
 \begin{verbatim}
-  bundle_adjust A_crop.cub B_crop.cub C_crop.cub D_crop.cub \
+  bundle_adjust A_crop.cub B_crop.cub C_crop.cub D_crop.cub    \
     --min-matches 10 -o run_ba/run
   stereo A_crop.cub B_crop.cub run_full2/run --subpixel-mode 3 \
     --bundle-adjust-prefix run_ba/run
@@ -210,7 +210,7 @@ commands analogous to the above:
 \begin{verbatim}
   bundle_adjust A_crop_sub10.cub B_crop_sub10.cub C_crop_sub10.cub D_crop_sub10.cub \
     --min-matches 1 -o run_ba_sub10/run --ip-per-tile 100000
- stereo A_crop_sub10.cub B_crop_sub10.cub run_sub10/run --subpixel-mode 3 \
+ stereo A_crop_sub10.cub B_crop_sub10.cub run_sub10/run --subpixel-mode 3           \
    --bundle-adjust-prefix run_ba_sub10/run
 \end{verbatim}
 We'll obtain a point cloud named \verb#run_sub10/run-PC.tif#.
@@ -223,7 +223,9 @@ for SfS using \texttt{pc\_align}:
 \end{verbatim}
 This step is extremely important. Since we ran two bundle adjustment
 steps, and both were without ground control points, the resulting clouds
-may differ by a large translation, which we correct here.
+may differ by a large translation, which we correct here. (In principle 
+we could have easily done the reverse transformation, briging the intial
+SfS guess closer to the ``ground truth''.)
 
 Next we create the ``ground truth'' DEM from the aligned high-resolution
 point cloud, and crop it to a desired region:
