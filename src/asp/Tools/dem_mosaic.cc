@@ -788,9 +788,12 @@ public:
 
 
 /// Find the bounding box of all DEMs in the projected space.
+/// - mosaic_bbox is the output bounding box in projected space
+/// - dem_proj_bboxes and dem_pixel_bboxes are the locations of
+///   each input DEM in the output DEM in projected and pixel coordinates.
 void load_dem_bounding_boxes(Options       const& opt,
 			     GeoReference  const& mosaic_georef,
-			     BBox2              & mosaic_bbox,
+			     BBox2              & mosaic_bbox, // Projected coordinates
 			     std::vector<BBox2> & dem_proj_bboxes,
 			     std::vector<BBox2i> & dem_pixel_bboxes) {
 
@@ -805,6 +808,9 @@ void load_dem_bounding_boxes(Options       const& opt,
   tpc.report_progress(0);
   double inc_amount = 1.0 / double(opt.dem_files.size() );
 
+  //std::cout << "mosaic_georef: \n"<< mosaic_georef << std::endl;
+  //std::cout << "mosaic_bbox: \n"  << mosaic_bbox << std::endl;
+
   // Loop through all DEMs
   for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++){ 
 
@@ -813,6 +819,8 @@ void load_dem_bounding_boxes(Options       const& opt,
     DiskImageView<RealT>  img(opt.dem_files[dem_iter]);
     GeoReference          georef = read_georef(opt.dem_files[dem_iter]);
     BBox2i                pixel_box = bounding_box(img);
+
+    //std::cout << "Read georef: \n"<< georef << std::endl;
 
     dem_pixel_bboxes.push_back(pixel_box);
 
@@ -834,6 +842,8 @@ void load_dem_bounding_boxes(Options       const& opt,
       BBox2 proj_box;
       BBox2 imgbox = bounding_box(img);
       BBox2 mosaic_pixel_box;
+      
+      // Get the bbox of current mosaic in pixels.
       if (dem_iter == 0) {
         // TODO: Not robust. How to estimate the pixel extent of the
         // first DEM in the mosaic? Taking into account that
@@ -844,12 +854,24 @@ void load_dem_bounding_boxes(Options       const& opt,
         mosaic_pixel_box = mosaic_georef.point_to_pixel_bbox(mosaic_bbox);
       }
       
+      // We computed the pixel bbox for this DEM, convert to the projection space 
+      // bbox in the mosaic georeference.
       GeoTransform geotrans(georef, mosaic_georef, imgbox, mosaic_pixel_box);
       proj_box = geotrans.pixel_to_point_bbox(imgbox);
+
+      // Notify the user if one of the input DEMS is going to wrap around the 
+      // left and right sides of their output image.
+      if ((dem_iter > 0) && geotrans.check_bbox_wraparound()) {
+        vw_out() << "WARNING: Longitude wraparound detected from input DEM "
+                 << opt.dem_files[dem_iter] << " to the output georeference. "
+                 << "This can result in an output DEM *much* larger than expected. "
+                 << "Consider changing your output georeference options or your inputs.\n";
+      }
       
       mosaic_bbox.grow(proj_box);
+      //std::cout << "mosaic_bbox: \n"  << mosaic_bbox << std::endl;
       dem_proj_bboxes.push_back(proj_box);
-    }
+    } // End second case
 
     tpc.report_incremental_progress( inc_amount );
   } // End loop through DEM files
@@ -1072,7 +1094,9 @@ int main( int argc, char *argv[] ) {
     if (opt.target_srs_string != "")
       opt.target_srs_string = processed_proj4(opt.target_srs_string);
 
+    // By default the output georef is equal to the first input georef
     GeoReference mosaic_georef = read_georef(opt.dem_files[0]);
+    
     double spacing = opt.tr;
     if (opt.target_srs_string != ""                                              &&
       opt.target_srs_string != processed_proj4(mosaic_georef.overall_proj4_str()) &&
@@ -1090,7 +1114,7 @@ int main( int argc, char *argv[] ) {
 			  have_user_datum, user_datum, mosaic_georef);
     }
 
-    // Bugfix: steal the datum and its name from the input, if the output
+    // Steal the datum and its name from the input, if the output
     // datum name is unknown.
     if (mosaic_georef.datum().name() == "unknown"){
       GeoReference georef = read_georef(opt.dem_files[0]);
@@ -1103,9 +1127,11 @@ int main( int argc, char *argv[] ) {
 
     // Use desired spacing if user-specified
     if (spacing > 0.0){
+      // Get lonlat bounding box of the first DEM.
       DiskImageView<float> dem0(opt.dem_files[0]);
-
       BBox2 llbox0 = mosaic_georef.pixel_to_lonlat_bbox(bounding_box(dem0));
+      
+      // Reset transform with user provided spacing.
       Matrix<double,3,3> transform = mosaic_georef.transform();
       transform.set_identity();
       transform(0, 0) =  spacing;
@@ -1119,7 +1145,7 @@ int main( int argc, char *argv[] ) {
       Vector2 ul = mosaic_georef.lonlat_to_pixel(Vector2(llbox0.min().x(), llbox0.max().y()));
       mosaic_georef = crop(mosaic_georef, ul.x(), ul.y());
 
-    }else
+    }else // Update spacing variable from the current transform
       spacing = mosaic_georef.transform()(0, 0);
 
     // if the user specified the tile size in georeferenced units.
@@ -1128,7 +1154,6 @@ int main( int argc, char *argv[] ) {
       vw_out() << "Tile size in pixels: " << opt.tile_size << "\n";
     }
     opt.tile_size = std::max(opt.tile_size, 1);
-
 
     // Load the bounding boxes from all of the DEMs
     BBox2 mosaic_bbox;
@@ -1174,6 +1199,7 @@ int main( int argc, char *argv[] ) {
 
     // Form the mosaic and write it to disk
     vw_out()<< "The size of the mosaic is " << cols << " x " << rows << " pixels.\n";
+    vw_out()<< "The output georeference is\n" << mosaic_georef << std::endl;
 
     // This bias is very important. This is how much we should read from
     // the images beyond the current boundary to avoid tiling artifacts.
@@ -1192,11 +1218,11 @@ int main( int argc, char *argv[] ) {
     if (num_tiles_y <= 0) num_tiles_y = 1;
     int num_tiles = num_tiles_x*num_tiles_y;
     vw_out() << "Number of tiles: " << num_tiles_x << " x "
-	     << num_tiles_y << " = " << num_tiles << std::endl;
+	           << num_tiles_y << " = " << num_tiles << std::endl;
 
     if (opt.tile_index >= num_tiles){
       vw_out() << "Tile with index: " << opt.tile_index
-	       << " is out of bounds." << std::endl;
+	             << " is out of bounds." << std::endl;
       return 0;
     }
 
@@ -1238,7 +1264,7 @@ int main( int argc, char *argv[] ) {
 
       // Get the DEM bounding box that we previously computed (output projected coords)
       BBox2 dem_bbox = dem_proj_bboxes[dem_iter];
-      std::cout << "dem_bbox = " << dem_bbox << std::endl;
+      //std::cout << "dem_bbox = " << dem_bbox << std::endl;
 
       // Go through each of the tile bounding boxes and see they intersect this DEM
       bool use_this_dem = false;
@@ -1247,11 +1273,11 @@ int main( int argc, char *argv[] ) {
         BBox2i tile_pixel_box = tile_pixel_bboxes[tile_id - start_tile];
         BBox2  tile_proj_box  = mosaic_georef.pixel_to_point_bbox(tile_pixel_box);
 
-        std::cout << "tile_pixel_box = " << tile_pixel_box << std::endl;
-        std::cout << "tile_proj_box = " << tile_proj_box << std::endl;
+        //std::cout << "tile_pixel_box = " << tile_pixel_box << std::endl;
+        //std::cout << "tile_proj_box = " << tile_proj_box << std::endl;
 
         if (tile_proj_box.intersects(dem_bbox)) {
-          std::cout << "Intersection!\n";
+          //std::cout << "Intersection!\n";
           use_this_dem = true;
           break;
         }
@@ -1270,9 +1296,9 @@ int main( int argc, char *argv[] ) {
       curr_box.crop(output_dem_box);
 
 
-      std::cout << "georef = " << georef << std::endl;
-      std::cout << "dem_pixel_box = " << dem_pixel_box << std::endl;
-      std::cout << "curr_box = " << curr_box << std::endl;
+      //std::cout << "georef = " << georef << std::endl;
+      //std::cout << "dem_pixel_box = " << dem_pixel_box << std::endl;
+      //std::cout << "curr_box = " << curr_box << std::endl;
 
       // This is a fix for GDAL crashing when there are too many open
       // file handles. In such situation, just selectively close the
