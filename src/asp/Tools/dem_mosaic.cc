@@ -148,12 +148,18 @@ void blur_weights(ImageView<double> & weights, double sigma){
 
 }
 
-BBox2 point_to_pixel_bbox_nogrow(GeoReference const& georef, BBox2 const& ptbox){
+BBox2 custom_point_to_pixel_bbox(GeoReference const& georef, BBox2 const& ptbox){
 
   // Given the corners in the projected space, find the pixel corners.
-  // This differs from the point_to_pixel_bbox() function in
-  // GeoReferenceBase.cc in that in the latter the box is grown to
-  // int. Here we prefer finer control.
+  // If the biggest pixel value is say 42, the image must have 43
+  // pixels.  And if the biggest pixel value is 42.1 or 42.9, the
+  // image must have 44 pixels.  That's why below we use
+  // ceil(pix_box.max() + Vector2(1, 1)).
+
+  // This differs a bit from the point_to_pixel_bbox() function in
+  // GeoReferenceBase.cc.
+
+  // TODO: Maybe that function can be made to imitate this one. 
 
   BBox2 pix_box;
   Vector2 cr[] = {ptbox.min(), ptbox.max(),
@@ -161,7 +167,17 @@ BBox2 point_to_pixel_bbox_nogrow(GeoReference const& georef, BBox2 const& ptbox)
 		  Vector2(ptbox.max().x(), ptbox.min().y())};
   for (int icr = 0; icr < (int)(sizeof(cr)/sizeof(Vector2)); icr++)
     pix_box.grow( georef.point_to_pixel(cr[icr]) );
+  
+  // If the corner is actually very close to an integer number, we
+  // assume it should in fact be integer but got moved a bit due to
+  // numerical error. Then we set it to integer. This ensures that
+  // when we mosaic a single DEM we get its corners to be the same as
+  // the originals rather than moved by a slight offset.
+  if (norm_2(pix_box.max() - round(pix_box.max())) < g_tol ) 
+    pix_box.max() = round(pix_box.max());
 
+  pix_box.max() = ceil( pix_box.max() + Vector2(1, 1));
+  
   return pix_box;
 }
 
@@ -854,9 +870,7 @@ void load_dem_bounding_boxes(Options       const& opt,
         mosaic_pixel_box = mosaic_georef.point_to_pixel_bbox(mosaic_bbox);
       }
       
-      // We computed the pixel bbox for this DEM, convert to the projection space 
-      // bbox in the mosaic georeference.
-      GeoTransform geotrans(georef, mosaic_georef, imgbox, mosaic_pixel_box);
+	  GeoTransform geotrans(georef, mosaic_georef, imgbox, mosaic_pixel_box);
       proj_box = geotrans.pixel_to_point_bbox(imgbox);
 
       // Notify the user if one of the input DEMS is going to wrap around the 
@@ -1177,21 +1191,17 @@ int main( int argc, char *argv[] ) {
       }
     }
 
-    // Set the lower-left corner. Note: The position of the corner is
-    // somewhat arbitrary. If the corner is actually very close to an
-    // integer number, we assume it should in fact be integer but got
-    // moved a bit due to numerical error. Then we set it to
-    // integer. This ensures that when we mosaic a single DEM we get
-    // its corners to be the same as the originals rather than moved
-    // by a slight offset.
-    BBox2 pixel_box = point_to_pixel_bbox_nogrow(mosaic_georef, mosaic_bbox);
+    // First-guess pixel box
+    BBox2 pixel_box = custom_point_to_pixel_bbox(mosaic_georef, mosaic_bbox);
+
+    // Take care of numerical artifacts
     Vector2 beg_pix = pixel_box.min();
     if (norm_2(beg_pix - round(beg_pix)) < g_tol )
       beg_pix = round(beg_pix);
     mosaic_georef = crop(mosaic_georef, beg_pix[0], beg_pix[1]);
 
     // Image size
-    pixel_box = point_to_pixel_bbox_nogrow(mosaic_georef, mosaic_bbox);
+    pixel_box = custom_point_to_pixel_bbox(mosaic_georef, mosaic_bbox);
     Vector2 end_pix = pixel_box.max();
 
     int cols = (int)round(end_pix[0]); // end_pix is the last pix in the image
@@ -1264,7 +1274,12 @@ int main( int argc, char *argv[] ) {
 
       // Get the DEM bounding box that we previously computed (output projected coords)
       BBox2 dem_bbox = dem_proj_bboxes[dem_iter];
+<<<<<<< HEAD
       //std::cout << "dem_bbox = " << dem_bbox << std::endl;
+||||||| merged common ancestors
+      std::cout << "dem_bbox = " << dem_bbox << std::endl;
+=======
+>>>>>>> dem_mosaic: Minor tweaks to bdbox
 
       // Go through each of the tile bounding boxes and see they intersect this DEM
       bool use_this_dem = false;
@@ -1273,11 +1288,23 @@ int main( int argc, char *argv[] ) {
         BBox2i tile_pixel_box = tile_pixel_bboxes[tile_id - start_tile];
         BBox2  tile_proj_box  = mosaic_georef.pixel_to_point_bbox(tile_pixel_box);
 
+<<<<<<< HEAD
         //std::cout << "tile_pixel_box = " << tile_pixel_box << std::endl;
         //std::cout << "tile_proj_box = " << tile_proj_box << std::endl;
 
+||||||| merged common ancestors
+        std::cout << "tile_pixel_box = " << tile_pixel_box << std::endl;
+        std::cout << "tile_proj_box = " << tile_proj_box << std::endl;
+
+=======
+>>>>>>> dem_mosaic: Minor tweaks to bdbox
         if (tile_proj_box.intersects(dem_bbox)) {
+<<<<<<< HEAD
           //std::cout << "Intersection!\n";
+||||||| merged common ancestors
+          std::cout << "Intersection!\n";
+=======
+>>>>>>> dem_mosaic: Minor tweaks to bdbox
           use_this_dem = true;
           break;
         }
@@ -1295,11 +1322,20 @@ int main( int argc, char *argv[] ) {
       BBox2 curr_box = geotrans.forward_bbox(dem_pixel_box);
       curr_box.crop(output_dem_box);
 
+<<<<<<< HEAD
 
       //std::cout << "georef = " << georef << std::endl;
       //std::cout << "dem_pixel_box = " << dem_pixel_box << std::endl;
       //std::cout << "curr_box = " << curr_box << std::endl;
 
+||||||| merged common ancestors
+
+      std::cout << "georef = " << georef << std::endl;
+      std::cout << "dem_pixel_box = " << dem_pixel_box << std::endl;
+      std::cout << "curr_box = " << curr_box << std::endl;
+
+=======
+>>>>>>> dem_mosaic: Minor tweaks to bdbox
       // This is a fix for GDAL crashing when there are too many open
       // file handles. In such situation, just selectively close the
       // handles furthest from the current location.
