@@ -1274,12 +1274,6 @@ int main( int argc, char *argv[] ) {
 
       // Get the DEM bounding box that we previously computed (output projected coords)
       BBox2 dem_bbox = dem_proj_bboxes[dem_iter];
-<<<<<<< HEAD
-      //std::cout << "dem_bbox = " << dem_bbox << std::endl;
-||||||| merged common ancestors
-      std::cout << "dem_bbox = " << dem_bbox << std::endl;
-=======
->>>>>>> dem_mosaic: Minor tweaks to bdbox
 
       // Go through each of the tile bounding boxes and see they intersect this DEM
       bool use_this_dem = false;
@@ -1288,23 +1282,7 @@ int main( int argc, char *argv[] ) {
         BBox2i tile_pixel_box = tile_pixel_bboxes[tile_id - start_tile];
         BBox2  tile_proj_box  = mosaic_georef.pixel_to_point_bbox(tile_pixel_box);
 
-<<<<<<< HEAD
-        //std::cout << "tile_pixel_box = " << tile_pixel_box << std::endl;
-        //std::cout << "tile_proj_box = " << tile_proj_box << std::endl;
-
-||||||| merged common ancestors
-        std::cout << "tile_pixel_box = " << tile_pixel_box << std::endl;
-        std::cout << "tile_proj_box = " << tile_proj_box << std::endl;
-
-=======
->>>>>>> dem_mosaic: Minor tweaks to bdbox
         if (tile_proj_box.intersects(dem_bbox)) {
-<<<<<<< HEAD
-          //std::cout << "Intersection!\n";
-||||||| merged common ancestors
-          std::cout << "Intersection!\n";
-=======
->>>>>>> dem_mosaic: Minor tweaks to bdbox
           use_this_dem = true;
           break;
         }
@@ -1322,20 +1300,6 @@ int main( int argc, char *argv[] ) {
       BBox2 curr_box = geotrans.forward_bbox(dem_pixel_box);
       curr_box.crop(output_dem_box);
 
-<<<<<<< HEAD
-
-      //std::cout << "georef = " << georef << std::endl;
-      //std::cout << "dem_pixel_box = " << dem_pixel_box << std::endl;
-      //std::cout << "curr_box = " << curr_box << std::endl;
-
-||||||| merged common ancestors
-
-      std::cout << "georef = " << georef << std::endl;
-      std::cout << "dem_pixel_box = " << dem_pixel_box << std::endl;
-      std::cout << "curr_box = " << curr_box << std::endl;
-
-=======
->>>>>>> dem_mosaic: Minor tweaks to bdbox
       // This is a fix for GDAL crashing when there are too many open
       // file handles. In such situation, just selectively close the
       // handles furthest from the current location.
