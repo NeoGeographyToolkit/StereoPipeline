@@ -870,7 +870,7 @@ void load_dem_bounding_boxes(Options       const& opt,
         mosaic_pixel_box = mosaic_georef.point_to_pixel_bbox(mosaic_bbox);
       }
       
-	  GeoTransform geotrans(georef, mosaic_georef, imgbox, mosaic_pixel_box);
+      GeoTransform geotrans(georef, mosaic_georef, imgbox, mosaic_pixel_box);
       proj_box = geotrans.pixel_to_point_bbox(imgbox);
 
       // Notify the user if one of the input DEMS is going to wrap around the 
