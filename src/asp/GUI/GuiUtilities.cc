@@ -352,6 +352,11 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
     m_img_ch3_uint8.get_image_clip(scale_in, region_in, clip,
                                  scale_out, region_out);
     formQimage(highlight_nodata, scale_pixels, m_img_ch3_uint8.get_nodata_val(), clip, qimg);
+  } else if (m_type == CH4_UINT8) {
+    ImageView<Vector<vw::uint8, 4> > clip;
+    m_img_ch4_uint8.get_image_clip(scale_in, region_in, clip,
+                                 scale_out, region_out);
+    formQimage(highlight_nodata, scale_pixels, m_img_ch4_uint8.get_nodata_val(), clip, qimg);
   }else{
     vw_throw(ArgumentErr() << "Unsupported image with " << m_num_channels << " bands\n");
   }

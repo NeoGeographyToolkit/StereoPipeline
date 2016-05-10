@@ -223,9 +223,9 @@ for SfS using \texttt{pc\_align}:
 \end{verbatim}
 This step is extremely important. Since we ran two bundle adjustment
 steps, and both were without ground control points, the resulting clouds
-may differ by a large translation, which we correct here. (In principle 
-we could have easily done the reverse transformation, briging the intial
-SfS guess closer to the ``ground truth''.)
+may differ by a large translation, which we correct here. Hence we would like to 
+make the ``ground truth'' terrain aligned with the datasets on which we 
+will perform SfS. 
 
 Next we create the ``ground truth'' DEM from the aligned high-resolution
 point cloud, and crop it to a desired region:
