@@ -44,12 +44,33 @@ Below we show two examples of running \texttt{sfs}, first for one image,
 and then for multiple images with bundle-adjustment and modeling the shadow
 threshold.
 
+\section{How to get good test imagery}
+
+We obtain the images from
+\url{http://wms.lroc.asu.edu/lroc/search} (we search for EDR images of
+type NACL and NACR). 
+
+We advise the following strategy for picking images. First choose a small
+longitude-latidue window in which to perform a search for imagery. Pick
+two images that are very close in time and with a big amount of overlap.
+Those will create a stereo pair and an initial DEM. Then search for 
+other images close to the center of the maximum overlap of the first
+two images. Pick one or more of those, ideally with different illumination
+conditions than the first two, and run SfS for example with the first
+and the third image. 
+
+To locate the area of spatial overlap, the images can be map-projected (either
+with \texttt{cam2map} with a coarse resolution) or with \texttt{mappproject}
+(using say the LOLA DEM as the terrain to project onto, or the DEM obtained
+from running \texttt{stereo} on those images). Then the images can be examined
+in \texttt{stereo\_gui} while turning on the mode to render them using their
+georeferences.
+
 \section{Running sfs at 1 meter/pixel using a single image}
 
 In both this and the next section we will work with LRO NAC images taken
 close to the Lunar South Pole, at $85^\circ$ of latitude (the tool was
-tested on equatorial regions as well). We obtain the images from
-\url{http://wms.lroc.asu.edu/lroc/search}.  We will use four images,
+tested on equatorial regions as well). We will use four images,
 M139939938LE, M139946735RE, M173004270LE, and M122270273LE.
 
 We first retrieve the data sets, convert them to ISIS cubes, initialize

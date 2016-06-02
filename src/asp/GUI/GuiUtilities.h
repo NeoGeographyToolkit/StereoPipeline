@@ -199,6 +199,8 @@ namespace vw { namespace gui {
     /// - Only works for single channel pyramids!
     double get_value_as_double( int32 x, int32 y) const;
 
+    // Return value as string
+    std::string get_value_as_str( int32 x, int32 y) const;
   };
 
   /// A class to keep all data associated with an image file

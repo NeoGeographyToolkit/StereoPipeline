@@ -112,6 +112,7 @@ namespace vw { namespace gui {
 
     void addMatchPoint();    ///< Add a new interest point (from right click menu)
     void deleteMatchPoint(); ///< Delete an interest point (from right click menu)
+    void toggleHillshade();    ///< Turn on/off hillshading per image (from right click menu)
 
   protected:
 
@@ -208,6 +209,7 @@ namespace vw { namespace gui {
     QMenu  * m_ContextMenu;
     QAction* m_addMatchPoint;
     QAction* m_deleteMatchPoint;
+    QAction* m_toggleHillshade;
 
     double m_shadow_thresh;
     bool   m_shadow_thresh_calc_mode;

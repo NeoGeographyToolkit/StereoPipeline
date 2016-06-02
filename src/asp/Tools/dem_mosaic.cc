@@ -51,6 +51,7 @@
 #include <asp/Core/InpaintView.h>
 
 #include <boost/math/special_functions/fpclassify.hpp>
+#include <boost/math/special_functions/erf.hpp>
 #include <boost/program_options.hpp>
 
 #include <boost/filesystem/convenience.hpp>
@@ -65,6 +66,16 @@ typedef float RealT; // Use double for debugging
 
 // This is used for various tolerances
 double g_tol = 1e-6;
+
+// An S-shaped function. Value at 0 is 0. Value at M is M.
+// Flat before 0 and after M. Higher value of L means
+// more flatness at the ends, but higher growth
+// in the middle.
+double S_shape(double x, double M, double L){
+  if (x <= 0) return 0;
+  if (x >= M) return M;
+  return 0.5*M*( 1 + boost::math::erf (0.5*sqrt(M_PI) * (2*x*L/M - L) ) );
+}
 
 // Function for highlighting spots of data
 template<class PixelT>
@@ -690,12 +701,12 @@ public:
 
       // Don't allow the weights to grow too fast, for uniqueness.
       for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
-	for (int col = 0; col < weight_vec[clip_iter].cols(); col++) {
-	  for (int row = 0; row < weight_vec[clip_iter].rows(); row++) {
-	    weight_vec[clip_iter](col, row)
-	      = std::min(weight_vec[clip_iter](col, row), double(m_bias));
-	  }
-	}
+        for (int col = 0; col < weight_vec[clip_iter].cols(); col++) {
+          for (int row = 0; row < weight_vec[clip_iter].rows(); row++) {
+            weight_vec[clip_iter](col, row)
+              = std::min(weight_vec[clip_iter](col, row), double(m_bias));
+          }
+        }
       }
 
       // Blur the weights.
@@ -705,14 +716,14 @@ public:
 
       // Raise to power
       if (m_opt.weights_exp != 1) {
-	for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
-	  for (int col = 0; col < weight_vec[clip_iter].cols(); col++){
-	    for (int row = 0; row < weight_vec[clip_iter].rows(); row++){
-	      weight_vec[clip_iter](col, row)
-		= pow(weight_vec[clip_iter](col, row), m_opt.weights_exp);
-	    }
-	  }
-	}
+        for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
+          for (int col = 0; col < weight_vec[clip_iter].cols(); col++){
+            for (int row = 0; row < weight_vec[clip_iter].rows(); row++){
+              weight_vec[clip_iter](col, row)
+                = pow(weight_vec[clip_iter](col, row), m_opt.weights_exp);
+            }
+          }
+        }
       }
 
       // Now we are ready for blending

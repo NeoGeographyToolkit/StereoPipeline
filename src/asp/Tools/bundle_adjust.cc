@@ -1457,7 +1457,7 @@ int main(int argc, char* argv[]) {
                                opt.camera_models[j].get());
           ++num_pairs_matched;
         } catch ( const std::exception& e ){
-          vw_out() << "!! Caught exception finding interest points between images "
+          vw_out() << "Could not find interest points between images "
                    << opt.image_files[i] << " and " << opt.image_files[j] << std::endl;
           vw_out(WarningMessage) << e.what() << std::endl;
         } //End try/catch

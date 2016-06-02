@@ -215,8 +215,7 @@ namespace vw { namespace gui {
       QObject::connect(m_chooseFilesDlg->getFilesTable(),
                        SIGNAL(cellClicked(int, int)),
                        this,
-                       SLOT(showFilesChosenByUser(int, int))
-                       );
+                       SLOT(showFilesChosenByUser(int, int)));
       m_chooseFilesDlg->chooseFiles(m_images);
     }
 
@@ -225,8 +224,10 @@ namespace vw { namespace gui {
     //setContextMenuPolicy(Qt::CustomContextMenu);
     m_addMatchPoint    = m_ContextMenu->addAction("Add match point");
     m_deleteMatchPoint = m_ContextMenu->addAction("Delete match point");
+    m_toggleHillshade  = m_ContextMenu->addAction("Toggle hillshaded display");
     connect(m_addMatchPoint,    SIGNAL(triggered()),this,SLOT(addMatchPoint()));
     connect(m_deleteMatchPoint, SIGNAL(triggered()),this,SLOT(deleteMatchPoint()));
+    connect(m_toggleHillshade,  SIGNAL(triggered()),this,SLOT(toggleHillshade()));
 
     if (m_hillshade_mode)
       MainWidget::genHillshadedImages();
@@ -416,6 +417,10 @@ namespace vw { namespace gui {
     refreshPixmap();
   }
 
+  void MainWidget::toggleHillshade(){
+    viewHillshadedImages(!m_hillshade_mode);
+  }
+  
   // Convert the crop window to original pixel coordinates from
   // pixel coordinates on the screen.
   // TODO: Make screen2world() do it, to take an input a QRect (or BBox2)
@@ -873,45 +878,81 @@ namespace vw { namespace gui {
     // the mouse where we pressed it, that means we want the current
     // point to be marked as shadow.
     int tol = 3; // pixels
-    if (m_shadow_thresh_calc_mode &&
-        std::abs(m_mousePrsX - mouse_rel_pos.x()) < tol &&
-        std::abs(m_mousePrsY - mouse_rel_pos.y()) < tol ) {
+    if (std::abs(m_mousePrsX - mouse_rel_pos.x()) < tol &&
+	std::abs(m_mousePrsY - mouse_rel_pos.y()) < tol ) {
+      
+      if (!m_shadow_thresh_calc_mode){
+#if 0
+	// Turn this off. The value seems to be off by a few pixels, need to investigate.
+	// Print pixel value.
+	for (size_t it = 0; it < m_images.size(); it++) {
 
-      if (m_images.size() != 1) {
-        popUp("Must have just one image in each window to do shadow threshold detection.");
-        m_shadow_thresh_calc_mode = false;
-        refreshPixmap();
-        return;
+	  Vector2 p = screen2world(Vector2(mouse_rel_pos.x(), mouse_rel_pos.y()));
+	  std::cout << "p is " << p << std::endl;
+	  int col = round(p[0]), row = round(p[1]);
+
+	  std::string val = "none";
+	  
+	  if (col >= 0 && row >= 0 && col < m_images[it].img.cols() &&
+	      row < m_images[it].img.rows() ) {
+	    val = m_images[it].img.get_value_as_str(col, row);
+	  }
+
+	  QPainter paint(&m_pixmap);
+	  paint.initFrom(this);
+	  //
+	  //QPainter paint(this);
+	  //paint.begin(m_pixmap);
+	  //paint.initFrom(this);
+
+	  QPoint Q(mouse_rel_pos.x(), mouse_rel_pos.y());
+	  paint.setPen(QColor("red"));
+	  paint.drawEllipse(Q, 2, 2); // Draw the point!
+
+	  vw_out() << "Pixel and value for " << m_image_files[it] << ": "
+		   << col << ' ' << row << ' ' << val << std::endl;
+	  update();
+	}
+#endif
+	
+      }else{
+	// Shadow threshold mode
+	if (m_images.size() != 1) {
+	  popUp("Must have just one image in each window to do shadow threshold detection.");
+	  m_shadow_thresh_calc_mode = false;
+	  refreshPixmap();
+	  return;
+	}
+	
+	if (m_images[0].img.planes() != 1) {
+	  popUp("Thresholding makes sense only for single-channel images.");
+	  m_shadow_thresh_calc_mode = false;
+	  return;
+	}
+	
+	if (m_use_georef) {
+	  popUp("Thresholding is not supported when using georeference information to show images.");
+	  m_shadow_thresh_calc_mode = false;
+	  return;
+	}
+	
+	Vector2 p = screen2world(Vector2(mouse_rel_pos.x(), mouse_rel_pos.y()));
+	
+	int col = round(p[0]), row = round(p[1]);
+	vw_out() << "Clicked on pixel: " << col << ' ' << row << std::endl;
+	
+	if (col >= 0 && row >= 0 && col < m_images[0].img.cols() &&
+	    row < m_images[0].img.rows() ) {
+	  double val = m_images[0].img.get_value_as_double(col, row);
+	  m_shadow_thresh = std::max(m_shadow_thresh, val);
+	}
+	vw_out() << "Shadow threshold for "
+		 << m_image_files[0]
+		 << ": " << m_shadow_thresh << std::endl;
+	return;
       }
-
-      if (m_images[0].img.planes() != 1) {
-        popUp("Thresholding makes sense only for single-channel images.");
-        m_shadow_thresh_calc_mode = false;
-        return;
-      }
-
-      if (m_use_georef) {
-        popUp("Thresholding is not supported when using georeference information to show images.");
-        m_shadow_thresh_calc_mode = false;
-        return;
-      }
-
-      Vector2 p = screen2world(Vector2(mouse_rel_pos.x(), mouse_rel_pos.y()));
-
-      int col = round(p[0]), row = round(p[1]);
-      vw_out() << "Clicked on pixel: " << col << ' ' << row << std::endl;
-
-      if (col >= 0 && row >= 0 && col < m_images[0].img.cols() &&
-          row < m_images[0].img.rows() ) {
-        double val = m_images[0].img.get_value_as_double(col, row);
-        m_shadow_thresh = std::max(m_shadow_thresh, val);
-      }
-      vw_out() << "Shadow threshold for "
-               << m_image_files[0]
-               << ": " << m_shadow_thresh << std::endl;
-      return;
     }
-
+    
     if( (event->buttons() & Qt::LeftButton) &&
         (event->modifiers() & Qt::ControlModifier) ){
       m_cropWinMode = true;

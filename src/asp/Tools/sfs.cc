@@ -559,13 +559,13 @@ double computeLunarLambertianReflectanceFromNormal(Vector3 const& sunPos,
   //sun coordinates relative to the xyz point on the Moon surface
   //Vector3 sunDirection = -normalize(sunPos-xyz);
   Vector3 sunDirection = normalize(sunPos-xyz);
-  double mu_0 = dot_prod(sunDirection,normal);
+  double mu_0 = dot_prod(sunDirection, normal);
 
-  double tol = 0.3;
-  if (mu_0 < tol){
-    // Sun is too low, reflectance is too close to 0, the albedo will be inaccurate
-    return 0.0;
-  }
+  //double tol = 0.3;
+  //if (mu_0 < tol){
+  //  // Sun is too low, reflectance is too close to 0, the albedo will be inaccurate
+  //  return 0.0;
+  // }
 
   //compute  /mu = cosine of the angle between the viewer direction and the surface normal.
   //viewer coordinates relative to the xyz point on the Moon surface
@@ -598,23 +598,23 @@ double computeLunarLambertianReflectanceFromNormal(Vector3 const& sunPos,
 
   //printf(" deg_alpha = %f, L = %f\n", deg_alpha, L);
 
-  if (mu_0 < 0.0){
-    return 0.0;
-  }
+  //if (mu_0 < 0.0){
+  //  return 0.0;
+  // }
 
-  if (mu < 0.0){ //emission angle is > 90
-    mu = 0.0;
-  }
+  //  if (mu < 0.0){ //emission angle is > 90
+  //  mu = 0.0;
+  //}
 
-  if (mu_0 + mu == 0){
-    //printf("negative reflectance\n");
-    return 0.0;
-  }
-  else{
-    reflectance = 2*L*mu_0/(mu_0+mu) + (1-L)*mu_0;
-  }
-  if (reflectance <= 0){
-    //printf("negative reflectance\n");
+  //if (mu_0 + mu == 0){
+  //  //printf("negative reflectance\n");
+  //  return 0.0;
+  //}
+  //else{
+  reflectance = 2*L*mu_0/(mu_0+mu) + (1-L)*mu_0;
+  //}
+  
+  if (mu < 0 || mu_0 < 0 || mu_0 + mu <= 0 ||  reflectance <= 0 || reflectance != reflectance){
     return 0.0;
   }
 
@@ -859,6 +859,7 @@ double                                       * g_max_dem_height;
 double                                       * g_gridx;
 double                                       * g_gridy;
 int                                            g_level = -1;
+bool                                           g_final_iter = false;
 
 // When floating the camera position and orientation, multiply the
 // position variables by this factor times
@@ -901,7 +902,11 @@ public:
     vw_out() << std::endl;
 
     std::ostringstream os;
-    os << "-iter" << g_iter;
+    if (!g_final_iter) {
+      os << "-iter" << g_iter;
+    }else{
+      os << "-final";
+    }
 
     if ((*g_opt).coarse_levels > 0) {
       os << "-level" << g_level;
@@ -1017,7 +1022,7 @@ public:
       vw_out() << "comp image mean and std: " << refmean << ' ' << refstdev
 		<< std::endl;
 
-      vw_out() << "Exposure " << " for image " << image_iter << ": "
+      vw_out() << "Exposure for image " << image_iter << ": "
 	       << g_exposures[image_iter] << std::endl;
 
 #if 0
@@ -1643,10 +1648,17 @@ void run_sfs_level(// Fixed inputs
   g_interp_images  = &interp_images;
   g_cameras        = &cameras;
   g_iter           = -1; // reset the iterations for each level
+  g_final_iter     = false;
 
   // Solve the problem
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
+
+  // Save the final results
+  g_final_iter = true;
+  ceres::IterationSummary callback_summary;
+  callback(callback_summary);
+  
   vw_out() << summary.FullReport() << "\n";
 }
 
@@ -1705,21 +1717,39 @@ int main(int argc, char* argv[]) {
     int num_images = opt.input_images.size();
     std::vector<boost::shared_ptr<CameraModel> > cameras;
     for (int image_iter = 0; image_iter < num_images; image_iter++){
-      typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-      SessionPtr session(asp::StereoSessionFactory::create
-			 (opt.stereo_session_string, opt,
-			  opt.input_images[image_iter],
-			  opt.input_images[image_iter],
-			  opt.input_cameras[image_iter],
-			  opt.input_cameras[image_iter],
-			  opt.out_prefix));
-
-      vw_out() << "Loading image and camera: " << opt.input_images[image_iter] << " "
-	       <<  opt.input_cameras[image_iter] << "\n";
-      cameras.push_back(session->camera_model(opt.input_images[image_iter],
-					      opt.input_cameras[image_iter]));
+      // Try to load adjustments, if available
+      for (int attempt = 0; attempt <= 1 ; attempt++) {
+	if (attempt == 0)
+	  asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix; 
+	else
+	  asp::stereo_settings().bundle_adjust_prefix = "";
+      
+	try{
+	  typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
+	  SessionPtr session(asp::StereoSessionFactory::create
+			     (opt.stereo_session_string, opt,
+			      opt.input_images[image_iter],
+			      opt.input_images[image_iter],
+			      opt.input_cameras[image_iter],
+			      opt.input_cameras[image_iter],
+			      opt.out_prefix));
+	  
+	  vw_out() << "Loading image and camera: " << opt.input_images[image_iter] << " "
+		   <<  opt.input_cameras[image_iter] << "\n";
+	  cameras.push_back(session->camera_model(opt.input_images[image_iter],
+						  opt.input_cameras[image_iter]));
+	  break; // success
+	}catch(std::exception const& e){
+	  vw_out() << e.what() << std::endl;
+	}
+      }
     }
-
+    if (int(cameras.size()) != num_images) 
+      vw_throw( ArgumentErr() << "Expecting as many images as cameras.\n" );
+    
+    // Go back to the original
+    asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;  
+    
     // Since we may float the cameras, ensure our camera models are
     // always adjustable.
     for (int image_iter = 0; image_iter < num_images; image_iter++){
