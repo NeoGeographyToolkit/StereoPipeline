@@ -76,7 +76,10 @@ repository.
 
 It is important to check that the gcc, g++, and gfortran versions
 are as above.
- 
+
+Set: 
+export LD_LIBRARY_PATH=<path to libstdc++ for your version compliant gcc>:$LD_LIBRARY_PATH
+
 2. Base dependencies - MAC
 
 First install Homebrew or Macports, if you do not already have it.
@@ -84,15 +87,25 @@ First install Homebrew or Macports, if you do not already have it.
 Next you need the following packages:
 
 g++, gfortran (version >= 4.4.7), the FSF version, not Apple's LLVM hybrid.
+automake
 libtool
 git
 subversion
 xz
 
-If you are using OSX 10.7 Lion, you will need to manually install the
-OSX 10.5 SDK. This is required for building against ISIS since they
-currently only have a 10.5 version of their binary.  See instructions
-here: http://lunokhod.org/?p=269
+Here's an example for how to install some of these. First read
+http://superuser.com/questions/619498/can-i-install-homebrew-without-sudo-privileges
+about how to install homebrew without sudo. Then:
+
+Add "$HOME/local/bin/" to the PATH variable
+
+Run:
+brew doctor
+brew install automake libtool git subversion xz
+brew install gcc48 --with-fortran 
+
+Set the following env variable:
+export DYLD_LIBRARY_PATH=$HOME/local/lib/gcc/4.8/:$DYLD_LIBRARY_PATH
 
 3. Invoking Binary Builder
 
