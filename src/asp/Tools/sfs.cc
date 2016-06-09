@@ -107,16 +107,62 @@ namespace vw { namespace camera {
   // at the mean dem height.
   class ApproxCameraModel: public CameraModel {
     boost::shared_ptr<CameraModel>  m_exact_camera;
-    Vector3 m_mean_dir; // mean vector from camera to ground
+    mutable Vector3 m_mean_dir; // mean vector from camera to ground
     GeoReference m_geo;
     double m_mean_ht;
-    ImageView< PixelMask<Vector3> > m_pixel_to_vec_mat;
-    ImageView< PixelMask<Vector2> > m_point_to_pix_mat;
+    mutable ImageView< PixelMask<Vector3> > m_pixel_to_vec_mat;
+    mutable ImageView< PixelMask<Vector2> > m_point_to_pix_mat;
     ImageView< PixelMask<Vector3> > m_camera_center_mat;
     double m_gridx, m_gridy;
-    BBox2 m_point_box, m_crop_box;
+    mutable BBox2 m_point_box, m_crop_box;
     vw::Mutex& m_camera_mutex;
+    Vector2 m_uncompValue;
+    mutable int m_begX, m_endX, m_begY, m_endY;
+    mutable bool m_compute_mean;
+    mutable int m_count;
 
+    void comp_entries_in_table() const{
+      for (int x = m_begX; x <= m_endX; x++) {
+	for (int y = m_begY; y <= m_endY; y++) {
+	  
+	  // This will be useful when we invoke this function repeatedly
+	  if (m_point_to_pix_mat(x, y).child() != m_uncompValue) {
+	    continue;
+	  }
+	  
+	  Vector2 pt(m_point_box.min().x() + x*m_gridx,
+		     m_point_box.min().y() + y*m_gridy);
+	  Vector2 lonlat = m_geo.point_to_lonlat(pt);
+	  Vector3 xyz = m_geo.datum().geodetic_to_cartesian
+	    (Vector3(lonlat[0], lonlat[1], m_mean_ht));
+	  bool success = true;
+	  Vector2 pix;
+	  Vector3 vec;
+	  try {
+	    pix = m_exact_camera->point_to_pixel(xyz);
+	    vec = m_exact_camera->pixel_to_vector(pix);
+	  }catch(...){
+	    success = false;
+	  }
+	  if (success) {
+	    m_pixel_to_vec_mat(x, y) = vec;
+	    m_point_to_pix_mat(x, y) = pix;
+	    m_pixel_to_vec_mat(x, y).validate();
+	    m_point_to_pix_mat(x, y).validate();
+	    if (m_compute_mean) {
+	      m_mean_dir += vec;
+	      m_crop_box.grow(pix);
+	      m_count++;
+	    }
+	  }else{
+       	    m_pixel_to_vec_mat(x, y).invalidate();
+	    m_point_to_pix_mat(x, y).invalidate();
+	  }
+	}
+      }
+      
+    }
+    
   public:
 
     // The range of pixels in the image we are actually expected to use. 
@@ -129,8 +175,13 @@ namespace vw { namespace camera {
 		      GeoReference const& geo,
 		      double nodata_val,
 		      vw::Mutex &camera_mutex):
-      m_exact_camera(exact_camera), m_geo(geo), m_camera_mutex(camera_mutex){
+      m_exact_camera(exact_camera), m_geo(geo), m_camera_mutex(camera_mutex)
+    {
 
+      int big = 1e+8;
+      m_uncompValue = Vector2(-big, -big);
+      m_compute_mean = true; // We'll set this to false when we finish estimating the mean
+      
       if (dynamic_cast<IsisCameraModel*>(exact_camera.get()) == NULL)
 	vw_throw( ArgumentErr()
 		  << "ApproxCameraModel: Expecting an unadjusted ISIS camera model.\n");
@@ -151,7 +202,7 @@ namespace vw { namespace camera {
       if (num > 0) m_mean_ht /= num;
 
       // The area we're supposed to work around
-      m_point_box = geo.pixel_to_point_bbox(bounding_box(dem));
+      m_point_box = m_geo.pixel_to_point_bbox(bounding_box(dem));
       double wx = m_point_box.width(), wy = m_point_box.height();
       m_gridx = wx/std::max(dem.cols(), 1);
       m_gridy = wy/std::max(dem.rows(), 1);
@@ -161,8 +212,10 @@ namespace vw { namespace camera {
 		  << "ApproxCameraModel: Expecting a positive grid size.\n");
       }
 
-      // Expand the box, as later the DEM will change.
-      double extra = 0.5;
+      // Expand the box, as later the DEM will change. This expanded box
+      // is huge, so pre-compute values only in an inner area. Later,
+      // if needed, pre-compute more values by growing that area.
+      double extra = 1.5;
       m_point_box.min().x() -= extra*wx; m_point_box.max().x() += extra*wx;
       m_point_box.min().y() -= extra*wy; m_point_box.max().y() += extra*wy;
       wx = m_point_box.width();
@@ -180,54 +233,39 @@ namespace vw { namespace camera {
 
       vw_out() << "Size of lookup table: " << numx << ' ' << numy << std::endl;
 
-      // Fill in the table. Find along the way the mean direction from
-      // the camera to the ground. Invalid values will be masked.
-      int count = 0;
-      m_mean_dir = Vector3();
+      m_begX = 0.25*numx; m_endX = 0.75*numx;
+      m_begY = 0.25*numy; m_endY = 0.75*numy;
+      
+      vw_out() << "Size of actually pre-computed table: "
+	       << m_endX - m_begX << ' ' << m_endY - m_begY << std::endl;
+      
+      // Mark all values as uncomputed and invalid
       m_pixel_to_vec_mat.set_size(numx, numy);
       m_point_to_pix_mat.set_size(numx, numy);
       for (int x = 0; x < numx; x++) {
 	for (int y = 0; y < numy; y++) {
-	  Vector2 pt(m_point_box.min().x() + x*m_gridx,
-		     m_point_box.min().y() + y*m_gridy);
-	  Vector2 lonlat = geo.point_to_lonlat(pt);
-	  Vector3 xyz = geo.datum().geodetic_to_cartesian
-	    (Vector3(lonlat[0], lonlat[1], m_mean_ht));
-	  bool success = true;
-	  Vector2 pix;
-	  Vector3 vec;
-	  try {
-	    pix = m_exact_camera->point_to_pixel(xyz);
-	    vec = m_exact_camera->pixel_to_vector(pix);
-	    if (x == 0 || y == 0 || x == numx-1 || y == numy - 1) {
-	    }
-	  }catch(...){
-	    success = false;
-	  }
-	  if (success) {
-	    m_pixel_to_vec_mat(x, y) = vec;
-	    m_point_to_pix_mat(x, y) = pix;
-	    m_pixel_to_vec_mat(x, y).validate();
-	    m_point_to_pix_mat(x, y).validate();
-	    m_mean_dir += vec;
-	    m_crop_box.grow(pix);
-	    count++;
-	  }else{
-       	    m_pixel_to_vec_mat(x, y).invalidate();
-	    m_point_to_pix_mat(x, y).invalidate();
-	  }
+	  m_point_to_pix_mat(x, y) = m_uncompValue;
+	  m_point_to_pix_mat(x, y).invalidate();
 	}
       }
-      m_mean_dir /= std::max(1, count);
+	  
+      // Fill in the table. Find along the way the mean direction from
+      // the camera to the ground. Invalid values will be masked.
+      m_count = 0;
+      m_mean_dir = Vector3();
+      comp_entries_in_table();
+      m_mean_dir /= std::max(1, m_count);
       m_mean_dir = m_mean_dir/norm_2(m_mean_dir);
-
+      m_compute_mean = false; // done computing the mean
+      
       // Ensure the box is valid
       if (m_crop_box.empty()) m_crop_box = BBox2(0, 0, 2, 2);
 
-#if 1 
+#if 1
       // Expand the box a bit, as later the DEM will change and values at some
       // new pixels will be needed.
       m_crop_box.min().x() -= extra*m_crop_box.width();
+      // Bug here, the width already changed!
       m_crop_box.max().x() += extra*m_crop_box.width();
       m_crop_box.min().y() -= extra*m_crop_box.height();
       m_crop_box.max().y() += extra*m_crop_box.height();
@@ -298,19 +336,48 @@ namespace vw { namespace camera {
 	double x = (pt.x() - m_point_box.min().x())/m_gridx;
 	double y = (pt.y() - m_point_box.min().y())/m_gridy;
 
-	if ( x < 0 || x >= m_pixel_to_vec_mat.cols()-1 ||
-	     y < 0 || y >= m_pixel_to_vec_mat.rows()-1 ) {
-	  {
-	    vw::Mutex::Lock lock(m_camera_mutex);
-	    // TODO: Study why we come here so often. It is related to
-	    // opt.camera_position_step_size.
-	    g_num_locks++;
-	    vw_out(WarningMessage) << "Pixel outside of range. Current values and range: "  << ' '
-                                   << x << ' ' << y << ' '
-                                   << m_pixel_to_vec_mat.cols() << ' ' << m_pixel_to_vec_mat.rows()
-                                   << std::endl;
-	    return m_exact_camera->point_to_pixel(xyz);
-	  }
+	bool out_of_range = ( x < 0 || x >= m_pixel_to_vec_mat.cols()-1 ||
+			      y < 0 || y >= m_pixel_to_vec_mat.rows()-1 );
+
+	bool out_of_comp_range = (x < m_begX || x >= m_endX-1 ||
+				  y < m_begY || y >= m_endY-1);
+
+	// If we are not out of range, but we need to expand the computed table, do that
+	if (!out_of_range && out_of_comp_range) {
+	  vw::Mutex::Lock lock(m_camera_mutex);
+	  g_num_locks++;
+	  vw_out(WarningMessage) << "Pixel outside of computed range. "
+				 << "Growing the computed table." << std::endl;
+	  vw_out() << "Start table: " << m_begX << ' ' << m_begY << ' ' << m_endX << ' ' << m_endY << std::endl;
+	  // If we have to expand, do it by a lot
+	  int extrax = std::max(10, int(0.1*(m_endX - m_begX)));
+	  int extray = std::max(10, int(0.1*(m_endY - m_begY)));
+
+	  m_begX = std::min(m_begX, int(floor(x))) - extrax; m_begX = std::max(0, m_begX);
+	  m_begY = std::min(m_begY, int(floor(y))) - extray; m_begY = std::max(0, m_begY);
+	  
+	  m_endX = std::max(m_endX, int(ceil(x))) + extrax;
+	  m_endX = std::min(m_pixel_to_vec_mat.cols()-1, m_endX);
+
+	  m_endY = std::max(m_endY, int(ceil(y))) + extray;
+	  m_endY = std::min(m_pixel_to_vec_mat.rows()-1, m_endY);
+	  
+	  vw_out() << "Updated table: " << m_begX << ' ' << m_begY << ' ' << m_endX << ' ' << m_endY << std::endl;
+	  comp_entries_in_table();
+
+	  // Update this
+	  out_of_comp_range = (x < m_begX || x >= m_endX-1 ||
+			       y < m_begY || y >= m_endY-1);
+	}
+	
+	if (out_of_range || out_of_comp_range){
+	  vw::Mutex::Lock lock(m_camera_mutex);
+	  g_num_locks++;
+	  vw_out(WarningMessage) << "Pixel outside of range. Current values and range: "  << ' '
+				 << x << ' ' << y << ' '
+				 << m_pixel_to_vec_mat.cols() << ' ' << m_pixel_to_vec_mat.rows()
+				 << std::endl;
+	  return m_exact_camera->point_to_pixel(xyz);
 	}
 	PixelMask<Vector3> masked_dir = pixel_to_vec_interp(x, y);
 	PixelMask<Vector2> masked_pix = point_to_pix_interp(x, y);
