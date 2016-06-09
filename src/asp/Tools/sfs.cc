@@ -53,6 +53,8 @@
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
+int g_num_locks = 0;
+
 using namespace vw;
 using namespace vw::camera;
 using namespace vw::cartography;
@@ -112,10 +114,16 @@ namespace vw { namespace camera {
     ImageView< PixelMask<Vector2> > m_point_to_pix_mat;
     ImageView< PixelMask<Vector3> > m_camera_center_mat;
     double m_gridx, m_gridy;
-    BBox2 m_point_box, m_pixel_box;
+    BBox2 m_point_box, m_crop_box;
     vw::Mutex& m_camera_mutex;
 
   public:
+
+    // The range of pixels in the image we are actually expected to use. 
+    BBox2i crop_box(){
+      return m_crop_box;
+    }
+
     ApproxCameraModel(boost::shared_ptr<CameraModel> exact_camera,
 		      ImageView<double> const& dem,
 		      GeoReference const& geo,
@@ -154,7 +162,7 @@ namespace vw { namespace camera {
       }
 
       // Expand the box, as later the DEM will change.
-      double extra = 0.2;
+      double extra = 0.5;
       m_point_box.min().x() -= extra*wx; m_point_box.max().x() += extra*wx;
       m_point_box.min().y() -= extra*wy; m_point_box.max().y() += extra*wy;
       wx = m_point_box.width();
@@ -202,10 +210,10 @@ namespace vw { namespace camera {
 	    m_pixel_to_vec_mat(x, y).validate();
 	    m_point_to_pix_mat(x, y).validate();
 	    m_mean_dir += vec;
-	    m_pixel_box.grow(pix);
+	    m_crop_box.grow(pix);
 	    count++;
 	  }else{
-	    m_pixel_to_vec_mat(x, y).invalidate();
+       	    m_pixel_to_vec_mat(x, y).invalidate();
 	    m_point_to_pix_mat(x, y).invalidate();
 	  }
 	}
@@ -214,25 +222,27 @@ namespace vw { namespace camera {
       m_mean_dir = m_mean_dir/norm_2(m_mean_dir);
 
       // Ensure the box is valid
-      if (m_pixel_box.empty()) m_pixel_box = BBox2(0, 0, 2, 2);
+      if (m_crop_box.empty()) m_crop_box = BBox2(0, 0, 2, 2);
 
+#if 1 
       // Expand the box a bit, as later the DEM will change and values at some
       // new pixels will be needed.
-      m_pixel_box.min().x() -= extra*m_pixel_box.width();
-      m_pixel_box.max().x() += extra*m_pixel_box.width();
-      m_pixel_box.min().y() -= extra*m_pixel_box.height();
-      m_pixel_box.max().y() += extra*m_pixel_box.height();
-      m_pixel_box = grow_bbox_to_int(m_pixel_box);
-
+      m_crop_box.min().x() -= extra*m_crop_box.width();
+      m_crop_box.max().x() += extra*m_crop_box.width();
+      m_crop_box.min().y() -= extra*m_crop_box.height();
+      m_crop_box.max().y() += extra*m_crop_box.height();
+      m_crop_box = grow_bbox_to_int(m_crop_box);
+#endif
+      
       // Tabulate the camera_center function
-      vw_out() << "Pixel box loop up table: " << m_pixel_box << std::endl;
-      m_camera_center_mat.set_size(m_pixel_box.width(), m_pixel_box.height());
-      for (int col = 0; col < m_pixel_box.width(); col++) {
-	for (int row = 0; row < m_pixel_box.height(); row++) {
+      vw_out() << "Pixel box look up table: " << m_crop_box << std::endl;
+      m_camera_center_mat.set_size(m_crop_box.width(), m_crop_box.height());
+      for (int col = 0; col < m_crop_box.width(); col++) {
+	for (int row = 0; row < m_crop_box.height(); row++) {
 	  bool success = true;
 	  Vector3 ctr;
 	  try {
-	    ctr = m_exact_camera->camera_center(m_pixel_box.min() + Vector2(col, row));
+	    ctr = m_exact_camera->camera_center(m_crop_box.min() + Vector2(col, row));
 	  }catch(...){
 	    success = false;
 	  }
@@ -274,6 +284,8 @@ namespace vw { namespace camera {
 	  // should not happen. Return the exact solution.
 	  {
 	    vw::Mutex::Lock lock(m_camera_mutex);
+	    g_num_locks++;
+	    vw_out(WarningMessage) << "3D point is inside the planet.\n";
 	    return m_exact_camera->point_to_pixel(xyz);
 	  }
 	}
@@ -292,6 +304,11 @@ namespace vw { namespace camera {
 	    vw::Mutex::Lock lock(m_camera_mutex);
 	    // TODO: Study why we come here so often. It is related to
 	    // opt.camera_position_step_size.
+	    g_num_locks++;
+	    vw_out(WarningMessage) << "Pixel outside of range. Current values and range: "  << ' '
+                                   << x << ' ' << y << ' '
+                                   << m_pixel_to_vec_mat.cols() << ' ' << m_pixel_to_vec_mat.rows()
+                                   << std::endl;
 	    return m_exact_camera->point_to_pixel(xyz);
 	  }
 	}
@@ -304,6 +321,9 @@ namespace vw { namespace camera {
 	}else{
 	  {
 	    vw::Mutex::Lock lock(m_camera_mutex);
+	    g_num_locks++;
+	    vw_out(WarningMessage) << "Invalid ground to camera direction: "
+                                   << masked_dir << ' ' << masked_pix << std::endl;
 	    return m_exact_camera->point_to_pixel(xyz);
 	  }
 	}
@@ -317,15 +337,20 @@ namespace vw { namespace camera {
 
     virtual Vector3 pixel_to_vector (Vector2 const& pix) const {
       vw::Mutex::Lock lock(m_camera_mutex);
+      g_num_locks++;
+      vw_out(WarningMessage) << "Invoked exact camera model pixel_to_vector for pixel: "
+                             << pix << std::endl;
       return this->exact_camera()->pixel_to_vector(pix);
     }
 
     virtual Vector3 camera_center (Vector2 const& pix) const{
+      // TODO: Is this function invoked? Should just the underlying exact model
+      // camera center be used all the time?
       InterpolationView<EdgeExtensionView< ImageView< PixelMask<Vector3> >, ConstantEdgeExtension >, BilinearInterpolation> camera_center_interp
 	= interpolate(m_camera_center_mat, BilinearInterpolation(),
 		      ConstantEdgeExtension());
-      double lx = pix[0] - m_pixel_box.min().x();
-      double ly = pix[1] - m_pixel_box.min().y();
+      double lx = pix[0] - m_crop_box.min().x();
+      double ly = pix[1] - m_crop_box.min().y();
       if (0 <= lx && lx < m_camera_center_mat.cols() - 1 &&
 	  0 <= ly && ly < m_camera_center_mat.rows() - 1 ) {
 	PixelMask<Vector3> ctr = camera_center_interp(lx, ly);
@@ -336,6 +361,9 @@ namespace vw { namespace camera {
       {
 	// Failed to interpolate
 	vw::Mutex::Lock lock(m_camera_mutex);
+	g_num_locks++;
+	vw_out(WarningMessage) << "Invoked the camera center function for pixel: "
+                               << pix << std::endl;
 	return this->exact_camera()->camera_center(pix);
       }
 
@@ -343,6 +371,9 @@ namespace vw { namespace camera {
 
     virtual Quat camera_pose(Vector2 const& pix) const{
       vw::Mutex::Lock lock(m_camera_mutex);
+      g_num_locks++;
+      vw_out(WarningMessage) << "Invoked the camera pose function for pixel: "
+                             << pix << std::endl;
       return this->exact_camera()->camera_pose(pix);
     }
 
@@ -495,12 +526,13 @@ struct Options : public vw::cartography::GdalWriteOptions {
 
   int max_iterations, max_coarse_iterations, reflectance_type, coarse_levels;
   bool float_albedo, float_exposure, float_cameras, model_shadows,
-    use_approx_camera_models, float_dem_at_boundary;
+    use_approx_camera_models, crop_input_images, float_dem_at_boundary;
   double smoothness_weight, init_dem_height, max_height_change,
     height_change_weight, camera_position_step_size;
   Options():max_iterations(0), max_coarse_iterations(0), reflectance_type(0),
 	    coarse_levels(0), float_albedo(false), float_exposure(false), float_cameras(false),
-	    model_shadows(false), use_approx_camera_models(false), float_dem_at_boundary(false),
+	    model_shadows(false), use_approx_camera_models(false),
+	    crop_input_images(false), float_dem_at_boundary(false),
 	    smoothness_weight(0), max_height_change(0), height_change_weight(0),
 	    camera_position_step_size(1.0) {};
 };
@@ -672,6 +704,7 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
 				    double gridx, double gridy,
 				    ModelParams const& model_params,
 				    GlobalParams const& global_params,
+				    BBox2i const& crop_box,
 				    BilinearInterpT const & image,
 				    CameraModel const* camera,
 				    PixelMask<double> &reflectance,
@@ -747,6 +780,9 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   reflectance.validate();
 
 
+  // Since our image is cropped
+  pix -= crop_box.min();
+  
   // Check for out of range
   if (pix[0] < 0 || pix[0] >= image.cols()-1 ||
       pix[1] < 0 || pix[1] >= image.rows()-1) {
@@ -785,6 +821,7 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
 				    double gridx, double gridy,
 				    ModelParams const& model_params,
 				    GlobalParams const& global_params,
+				    BBox2i const& crop_box,
 				    BilinearInterpT const & image,
 				    CameraModel const* camera,
 				    ImageView< PixelMask<double> > & reflectance,
@@ -819,7 +856,7 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
 				     model_shadows, max_dem_height,
 				     gridx, gridy,
 				     model_params, global_params,
-				     image, camera,
+				     crop_box, image, camera,
 				     reflectance(col, row), intensity(col, row));
     }
   }
@@ -849,6 +886,7 @@ ImageView<double>                            * g_dem, *g_albedo;
 cartography::GeoReference              const * g_geo;
 GlobalParams                           const * g_global_params;
 std::vector<ModelParams>               const * g_model_params;
+std::vector<BBox2i>                    const * g_crop_boxes;
 std::vector<BilinearInterpT>           const * g_interp_images;
 std::vector<boost::shared_ptr<CameraModel> > * g_cameras;
 double                                       * g_nodata_val;
@@ -961,6 +999,7 @@ public:
 				     *g_gridx, *g_gridy,
 				     (*g_model_params)[image_iter],
 				     *g_global_params,
+				     (*g_crop_boxes)[image_iter],
 				     (*g_interp_images)[image_iter],
 				     (*g_cameras)[image_iter].get(),
 				     reflectance, intensity);
@@ -1057,6 +1096,7 @@ struct IntensityError {
 		 double gridx, double gridy,
 		 GlobalParams const& global_params,
 		 ModelParams const& model_params,
+		 BBox2i const& crop_box,
 		 BilinearInterpT const& image,
 		 boost::shared_ptr<CameraModel> const& camera):
     m_col(col), m_row(row), m_dem(dem), m_geo(geo),
@@ -1066,6 +1106,7 @@ struct IntensityError {
     m_gridx(gridx), m_gridy(gridy),
     m_global_params(global_params),
     m_model_params(model_params),
+    m_crop_box(crop_box),
     m_image(image), m_camera(camera) {}
 
   // See SmoothnessError() for the definitions of bottom, top, etc.
@@ -1114,15 +1155,16 @@ struct IntensityError {
 				       m_model_shadows, m_max_dem_height,
 				       m_gridx, m_gridy,
 				       m_model_params,  m_global_params,
-				       m_image, &adj_cam_copy,
+				       m_crop_box, m_image, &adj_cam_copy,
 				       reflectance, intensity);
       if (success && is_valid(intensity) && is_valid(reflectance))
 	residuals[0] = (intensity - albedo[0]*exposure[0]*reflectance).child();
 
     } catch (const camera::PointToPixelErr& e) {
       // To be able to handle robustly DEMs that extend beyond the camera,
-      // always return true when we fail to project, but with a somewhat
-      // large residual.
+      // always return true when we fail to project, but with zero residual.
+      // This needs more study.
+      residuals[0] = F(0.0);
       return true;
     }
 
@@ -1140,6 +1182,7 @@ struct IntensityError {
 				     double gridx, double gridy,
 				     GlobalParams const& global_params,
 				     ModelParams const& model_params,
+				     BBox2i const& crop_box,
 				     BilinearInterpT const& image,
 				     boost::shared_ptr<CameraModel> const& camera){
     return (new ceres::NumericDiffCostFunction<IntensityError,
@@ -1150,7 +1193,7 @@ struct IntensityError {
 				max_dem_height,
 				gridx, gridy,
 				global_params, model_params,
-				image, camera)));
+				crop_box, image, camera)));
   }
 
   int m_col, m_row;
@@ -1162,6 +1205,7 @@ struct IntensityError {
   double                                    m_gridx, m_gridy;
   GlobalParams                      const & m_global_params;  // alias
   ModelParams                       const & m_model_params;   // alias
+  BBox2i                                    m_crop_box;
   BilinearInterpT                   const & m_image;          // alias
   boost::shared_ptr<CameraModel>    const & m_camera;         // alias
 };
@@ -1349,6 +1393,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Optional shadow thresholds for the input images (a list of real values in quotes).")
     ("use-approx-camera-models",   po::bool_switch(&opt.use_approx_camera_models)->default_value(false)->implicit_value(true),
      "Use approximate camera models for speed.")
+    ("crop-input-images",   po::bool_switch(&opt.crop_input_images)->default_value(false)->implicit_value(true),
+     "Crop the images and keep them fully in memory, for speed.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Use the camera adjustments obtained by previously running bundle_adjust with this output prefix.")
     ("image-exposures", po::value(&opt.image_exposures)->default_value(""),
@@ -1493,6 +1539,7 @@ void run_sfs_level(// Fixed inputs
 		   GeoReference const& geo,
 		   double smoothness_weight,
 		   double nodata_val,
+		   std::vector<BBox2i> const& crop_boxes,
 		   std::vector<BilinearInterpT> const& interp_images,
 		   GlobalParams const& global_params,
 		   std::vector<ModelParams> const & model_params,
@@ -1547,6 +1594,7 @@ void run_sfs_level(// Fixed inputs
 				 max_dem_height,
 				 gridx, gridy,
 				 global_params, model_params[image_iter],
+				 crop_boxes[image_iter],
 				 interp_images[image_iter],
 				 cameras[image_iter]);
 	ceres::LossFunction* loss_function_img = NULL;
@@ -1619,8 +1667,8 @@ void run_sfs_level(// Fixed inputs
     }
   }
 
-  if (opt.num_threads > 1){ // && !opt.use_approx_camera_models) {
-    vw_out() << "Using ISIS camera models. Can run with only a single thread.\n";
+  if (opt.num_threads > 1 && !opt.use_approx_camera_models) {
+    vw_out() << "Using exact ISIS camera models. Can run with only a single thread.\n";
     opt.num_threads = 1;
   }
   vw_out() << "Using: " << opt.num_threads << " threads.\n";
@@ -1645,6 +1693,7 @@ void run_sfs_level(// Fixed inputs
   g_geo            = &geo;
   g_global_params  = &global_params;
   g_model_params   = &model_params;
+  g_crop_boxes     = &crop_boxes;
   g_interp_images  = &interp_images;
   g_cameras        = &cameras;
   g_iter           = -1; // reset the iterations for each level
@@ -1659,7 +1708,7 @@ void run_sfs_level(// Fixed inputs
   ceres::IterationSummary callback_summary;
   callback(callback_summary);
   
-  vw_out() << summary.FullReport() << "\n";
+  vw_out() << summary.FullReport() << "\n" << std::endl;
 }
 
 int main(int argc, char* argv[]) {
@@ -1765,13 +1814,34 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    // Ensure that no two threads can access an ISIS camera at the same time
+    // Prepare for working at multiple levels
+    int levels = opt.coarse_levels;
+    int factor = 2;
+    std::vector<int> factors;
+    factors.push_back(1);
+    for (int level = 1; level <= levels; level++) {
+      factors.push_back(factors[level-1]*factor);
+    }
+    
+    // We won't load the full images, just portions restricted
+    // to the area we we will compute the DEM.
+    std::vector< std::vector<BBox2i> > crop_boxes;
+    crop_boxes.resize(levels+1);
+    // The crop box starts as the original image bounding box. We'll shrink it later.
+    for (int image_iter = 0; image_iter < num_images; image_iter++){
+      std::string img_file = opt.input_images[image_iter];
+      crop_boxes[0].push_back(bounding_box(DiskImageView<float>(img_file)));
+    }
+  
+    // Ensure that no two threads can access an ISIS camera at the same time.
+    // Declare the lock here, as we want it to live until the end of the program. 
     vw::Mutex camera_mutex;
-    double max_approx_err = 0.0;
 
     // If to use approximate camera models
     if (opt.use_approx_camera_models) {
 
+      double max_approx_err = 0.0;
+      
       // TODO: The logic below needs some cleanup.
       for (int image_iter = 0; image_iter < num_images; image_iter++){
 
@@ -1783,10 +1853,17 @@ int main(int argc, char* argv[]) {
 	if (dynamic_cast<IsisCameraModel*>(icam.get()) == NULL)
 	  vw_throw( ArgumentErr() << "Expecting an ISIS camera model.\n" );
 
-	vw_out() << "Creating an approx camera model for " << opt.input_cameras[image_iter] << ".\n";
+	vw_out() << "Creating an approx camera model for "
+		 << opt.input_cameras[image_iter] << ".\n";
 	boost::shared_ptr<CameraModel> apcam
 	  (new ApproxCameraModel(icam, dem, geo, nodata_val,
 				 camera_mutex));
+
+	ApproxCameraModel* cam_ptr = dynamic_cast<ApproxCameraModel*>(apcam.get());
+	if (cam_ptr == NULL) 
+	  vw_throw( ArgumentErr() << "Expecting an ApproxCameraModel." );
+	if (opt.crop_input_images)
+	  crop_boxes[0][image_iter].crop(cam_ptr->crop_box());
 	vw_out() << "Done creating the approx camera model.\n";
 
 	// Copy the adjustments over to the approximate camera model
@@ -1803,7 +1880,8 @@ int main(int argc, char* argv[]) {
 	for (int col = 0; col < dem.cols(); col++) {
 	  for (int row = 0; row < dem.rows(); row++) {
 	    Vector2 ll = geo.pixel_to_lonlat(Vector2(col, row));
-	    Vector3 xyz = geo.datum().geodetic_to_cartesian(Vector3(ll[0], ll[1], dem(col, row)));
+	    Vector3 xyz = geo.datum().geodetic_to_cartesian(Vector3(ll[0], ll[1],
+								    dem(col, row)));
 
 	    // Test how unadjusted models compare
 	    Vector2 pix1 = icam->point_to_pixel(xyz);
@@ -1820,6 +1898,20 @@ int main(int argc, char* argv[]) {
       vw_out() << "Approximate model error in pixels: " << max_approx_err << std::endl;
     }
 
+    // Make the crop boxes lower left corner be multiple of 2^level
+    int last_factor = factors.back();
+    for (int image_iter = 0; image_iter < num_images; image_iter++){
+      Vector2i mn = crop_boxes[0][image_iter].min();
+      crop_boxes[0][image_iter].min() = last_factor*(floor(mn/double(last_factor)));
+    }
+
+    // Crop boxes at the coarser resolutions
+    for (int image_iter = 0; image_iter < num_images; image_iter++){
+      for (int level = 1; level <= levels; level++) {
+	crop_boxes[level].push_back(crop_boxes[0][image_iter]/factors[level]);
+      }
+    }
+    
     // Images with bilinear interpolation
     std::vector< ImageViewRef< PixelMask<float> > > masked_images(num_images);
     std::vector<BilinearInterpT> interp_images; // will have to use push_back
@@ -1832,9 +1924,19 @@ int main(int argc, char* argv[]) {
       }
       // Model the shadow threshold
       float shadow_thresh = opt.shadow_threshold_vec[image_iter];
-      masked_images[image_iter]
-	= create_mask_less_or_equal (DiskImageView<float>(img_file),
-				     std::max(img_nodata_val, shadow_thresh));
+       if (opt.use_approx_camera_models && opt.crop_input_images) {
+ 	// Make a copy in memory for faster access
+ 	ImageView<float> cropped_img = 
+ 	  crop(DiskImageView<float>(img_file), crop_boxes[0][image_iter]);
+ 	masked_images[image_iter]
+ 	  = create_mask_less_or_equal(cropped_img,
+ 				      std::max(img_nodata_val, shadow_thresh));
+       }else{
+         masked_images[image_iter]
+           = create_mask_less_or_equal(DiskImageView<float>(img_file),
+                                       std::max(img_nodata_val, shadow_thresh));
+       }
+      
       interp_images.push_back(BilinearInterpT(masked_images[image_iter]));
     }
     g_img_nodata_val = &img_nodata_val;
@@ -1896,6 +1998,7 @@ int main(int argc, char* argv[]) {
 				       gridx, gridy,
 				       model_params[image_iter],
 				       global_params,
+				       crop_boxes[0][image_iter],
 				       interp_images[image_iter],
 				       cameras[image_iter].get(),
 				       reflectance, intensity);
@@ -1941,7 +2044,6 @@ int main(int argc, char* argv[]) {
     g_adjustments = &adjustments;
 
     // Prepare data at each coarseness level
-    int levels = opt.coarse_levels;
     std::vector<GeoReference> geos(levels+1);
     std::vector< ImageView<double> > dems(levels+1), albedos(levels+1);
     std::vector< std::vector< ImageViewRef< PixelMask<float> > > > masked_images_vec(levels+1);
@@ -1949,15 +2051,9 @@ int main(int argc, char* argv[]) {
     dems[0] = dem;
     albedos[0] = albedo;
     masked_images_vec[0] = masked_images;
-    int factor = 2;
     double sub_scale = 1.0/factor;
-    std::vector<int> factors;
-    factors.push_back(1);
 
     for (int level = 1; level <= levels; level++) {
-
-      factors.push_back(factors[level-1]*factor);
-
       geos[level] = resample(geos[level-1], sub_scale);
       dems[level] = pixel_cast<double>(vw::resample_aa
 					  (pixel_cast< PixelMask<double> >
@@ -2011,9 +2107,16 @@ int main(int argc, char* argv[]) {
 	   has_img_georef, img_georef, has_img_nodata, img_nodata_val, opt, tpc);
 
 	// Read it right back
-	masked_images_vec[level][image_iter]
-	  = create_mask(DiskImageView<float>(sub_image), img_nodata_val);
-
+	if (opt.use_approx_camera_models && opt.crop_input_images) {
+	  // Read it fully in memory, as we cropped it before
+	  ImageView<float> memory_img = copy(DiskImageView<float>(sub_image));
+	  masked_images_vec[level][image_iter]
+	    = create_mask(memory_img, img_nodata_val);
+	}else{
+	  // Read just a handle, as the full image could be huge
+	  masked_images_vec[level][image_iter]
+	    = create_mask(DiskImageView<float>(sub_image), img_nodata_val);
+	}  
       }
     }
 
@@ -2045,8 +2148,8 @@ int main(int argc, char* argv[]) {
       run_sfs_level(// Fixed inputs
 		    num_iterations, opt, geos[level],
 		    opt.smoothness_weight*factors[level]*factors[level],
-		    nodata_val, interp_images,
-		      global_params, model_params,
+		    nodata_val, crop_boxes[level], interp_images,
+                    global_params, model_params,
 		    // Quantities that will float
 		    dems[level], albedos[level], cameras,
 		    opt.image_exposures_vec,
@@ -2062,4 +2165,7 @@ int main(int argc, char* argv[]) {
     }
 
   } ASP_STANDARD_CATCHES;
+
+  vw_out() << "Number of times we used the global lock: " << g_num_locks << std::endl;
+  
 }
