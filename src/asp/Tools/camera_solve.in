@@ -94,7 +94,12 @@ def generate_flagfile(options):
     flagfile_path    = os.path.join(options.output_folder, 'theia_flagfile.txt')
     options.theia_output_path = output_path
     options.flagfile_path     = flagfile_path
-       
+
+    # Control solving for intrinsic parameters
+    intrinsics_options = 'NONE'
+    if options.solveIntrinsic: # These are the only values we read out
+        intrinsics_options = 'FOCAL_LENGTH|PRINCIPAL_POINTS|RADIAL_DISTORTION'
+
     # Make sure the output file has the latest options
     if os.path.exists(options.flagfile_path):
         os.remove(options.flagfile_path)
@@ -112,8 +117,6 @@ def generate_flagfile(options):
             return 'true'
         else:
             return 'false'
-
-    # TODO: Solving for intrinsics is disabled until shared params exist!!!
 
     if options.existing_theia_flagfile:
 
@@ -201,10 +204,18 @@ def generate_flagfile(options):
 
 ############### General SfM Options ###############
 --reconstruction_estimator=GLOBAL
+--min_track_length=2
 --max_track_length=50
 --reconstruct_largest_connected_component=false
+
+# Set to true if all views were captured with the same camera. If true, then a
+# single set of camera intrinsic parameters will be used for all views in the
+# reconstruction. --> Always true for ASP use, as solving for intrinsics from one
+#                     image is not very reliable.
+--shared_calibration=true
+
 # If set to true, only views with known calibration are reconstructed.
---only_calibrated_views=true
+--only_calibrated_views=false
 
 ############### Global SfM Options ###############
 --global_position_estimator=NONLINEAR
@@ -238,11 +249,27 @@ def generate_flagfile(options):
 --full_bundle_adjustment_growth_percent=5
 --min_num_absolute_pose_inliers=30
 
+
 ############### Bundle Adjustment Options ###############
-# Set this parameter to change which camera intrinsics should be optimized.
---intrinsics_to_optimize=NONE
-# After BA, remove any points that have a reprojection error greater than this.
+# Set this parameter to a value other than NONE if you want to utilize a robust
+# cost function during bundle adjustment. This can increase robustness to outliers
+# during the optimization.
+--bundle_adjustment_robust_loss_function=NONE
+
+# Set this value to the determine the reprojection error in pixelst at which
+# robustness begins (if a robust cost function is being used).
+--bundle_adjustment_robust_loss_width=10.0
+
+# Set this parameter to change which camera intrinsics should be
+# optimized. Valid options are NONE, ALL, FOCAL_LENGTH, PRINCIPAL_POINTS,
+# RADIAL_DISTORTION, ASPECT_RATIO, and SKEW. This parameter can be set using a
+# bitmask (with no spaces) e.g., FOCAL_LENGTH|RADIAL_DISTORTION
+--intrinsics_to_optimize='''+intrinsics_options+'''
+
+# After BA, remove any points that have a reprojection error greater
+# than this.
 --max_reprojection_error_pixels=4.0
+
 
 ############### Triangulation Options ###############
 --min_triangulation_angle_degrees=4.0
@@ -572,8 +599,6 @@ def main(argsIn):
         # This call handles all the parallel_mapproject specific options.
         (options, args) = parser.parse_args(argsIn)
 
-        options.solveIntrinsic = False # Disable this until we can support it!
-
         # Check the required positional arguments.
         if len(args) < 1:
             parser.print_help()
@@ -591,18 +616,24 @@ def main(argsIn):
         
         # If we don't have input camera params we have to solve for them.
         if not options.camera_param_paths:
-            #if not options.solveIntrinsic:
-            #    print 'Since no calib-file provided, setting --solve-intrinsics.'
+            if not options.solveIntrinsic:
+                print 'Since no calib-file provided, setting --solve-intrinsics.'
             options.solveIntrinsic = True
-            print('Error: camera_solve does not support solving for intrinsic camera parameters!')
-            return -1
+            
         else:
-        
             # Handle if a list of camera files were passed in.
             options.camera_param_paths = options.camera_param_paths.split()
-            if (len(options.camera_param_paths) > 1) and (len(options.camera_param_paths) != len(options.input_images)):
-                print('Error: If multiple camera files are used, there must be one per input image.')
-                return -1
+
+            if (len(options.camera_param_paths) > 1):
+                # Num cameras must equal num images
+                if (len(options.camera_param_paths) != len(options.input_images)):
+                    print('Error: If multiple camera files are used, there must be one per input image.')
+                    return -1
+                    
+                # Don't use intrinsic solving with multiple models, it is too fragile.
+                if options.solveIntrinsic:
+                    print('Error: Solving for intrinsics is not supported with multiple camera models.')
+                    return -1
             
             # Otherwise rewrite a zero-distortion copy of the camera param file which Theia can read.
             alt_param_path = os.path.join(options.output_folder, 'expanded_camera_configs.txt')
