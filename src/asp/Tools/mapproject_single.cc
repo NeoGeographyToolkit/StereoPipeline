@@ -124,7 +124,7 @@ struct Options : vw::cartography::GdalWriteOptions {
 
   // Settings
   std::string target_srs_string;
-  double nodata_value, mpp, ppd, datum_offset;
+  double nodata_value, tr, mpp, ppd, datum_offset;
   BBox2 target_projwin, target_pixelwin;
 };
 
@@ -136,6 +136,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "No-data value to use unless specified in the input image.")
     ("t_srs",            po::value(&opt.target_srs_string)->default_value(""),
      "Specify the projection (PROJ.4 string). If not provided, use the one from the DEM.")
+    ("tr",              po::value(&opt.tr)->default_value(NaN),
+     "Set the output file resolution in projection space coordinates.")
     ("mpp",              po::value(&opt.mpp)->default_value(NaN),
      "Set the output file resolution in meters per pixel.")
     ("ppd",              po::value(&opt.ppd)->default_value(NaN),
@@ -348,9 +350,8 @@ void calc_target_geom(// Inputs
     }
   }
 
-  double current_resolution;
-
   // Use auto-calculated ground resolution if that option was selected
+  double current_resolution;
   if (calc_target_res)
     current_resolution = auto_res;
   else {
@@ -672,17 +673,23 @@ int main( int argc, char* argv[] ) {
     }
     // Finished setting up the datum
 
-    // Find the target resolution based on mpp or ppd if provided. Do
+    // Find the target resolution based --tr, --mpp, and --ppd if provided. Do
     // the math to convert pixel-per-degree to meter-per-pixel and vice-versa.
-    int sum = (!std::isnan(opt.mpp)) + (!std::isnan(opt.ppd));
+    int sum = (!std::isnan(opt.tr)) + (!std::isnan(opt.mpp)) + (!std::isnan(opt.ppd));
     if (sum >= 2){
-      //vw_throw( ArgumentErr() << "Must specify at most one of the options: --tr, --mpp, --ppd.\n" );
-      vw_throw( ArgumentErr() << "Must specify at most one of the options: --mpp, --ppd.\n" );
+      vw_throw( ArgumentErr() << "Must specify at most one of the options: --tr, --mpp, --ppd.\n" );
     }
     double radius = dem_georef.datum().semi_major_axis();
+    if ( !std::isnan(opt.tr) ){ // --tr was set
+      if (dem_georef.is_projected())
+        opt.mpp = opt.tr; // User must have provided be meters per pixel
+      else
+        opt.ppd = 1.0/opt.tr; // User must have provided degrees per pixel
+    }
     if ( !std::isnan(opt.mpp) ){ // Meters per pixel was set
       opt.ppd = 2.0*M_PI*radius/(360.0*opt.mpp);
-    }else if ( !std::isnan(opt.ppd) ){ // Pixels per degree was set
+    }
+    if ( !std::isnan(opt.ppd) ){ // Pixels per degree was set
       opt.mpp = 2.0*M_PI*radius/(360.0*opt.ppd);
     }
     // pixels per degree now available
