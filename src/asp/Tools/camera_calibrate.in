@@ -37,7 +37,6 @@ import asp_file_utils, asp_system_utils, asp_cmd_utils, asp_image_utils
 
 asp_system_utils.verify_python_version_is_supported()
 
-
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
@@ -45,15 +44,11 @@ def make_image_list(options):
     '''Generate an OpenCV compatible image list'''
 
     # Call in this manner so that the image wildcard does not get expanded  
-    # - Execute from install dir so we can find the executable
-    cmd = ['../libexec/opencv_imagelist_creator ' 
+    cmd = ['opencv_imagelist_creator ' 
             +  os.path.abspath(options.xml_list_path) +' '+ os.path.abspath(options.image_wildcard)]
     #print cmd
-    curr_dir = os.getcwd()
-    os.chdir(libexecpath)              
     proc   = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output = proc.communicate()
-    os.chdir(curr_dir) # Return to original directory
     
     if not os.path.exists(options.xml_list_path):
         print(cmd)
@@ -64,21 +59,17 @@ def make_image_list(options):
 def calibrate_camera(options):
     '''Perform camera calibration using the input images'''
 
-    # Execute from install dir so we can find the executable
     output_abs_path = os.path.abspath(options.ocv_params_path)
-    cmd = ['../libexec/opencv_calibrate', '-pt', 'chessboard', 
+    cmd = ['opencv_calibrate', '-pt', 'chessboard', 
            '-o', output_abs_path,
            '-p', os.path.abspath(options.xml_list_path), 
            '-w', str(options.board_size[0]), '-h', str(options.board_size[1])]
-    curr_dir = os.getcwd()
-    os.chdir(libexecpath)              
+            
     if options.box_size_cm:
         box_size_meters = options.box_size_cm/100.0
         cmd += ['-s', str(box_size_meters)]
     asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppress_output, 
                                  outputPath=output_abs_path, force=options.overwrite)
-
-    os.chdir(curr_dir) # Return to original directory
 
     if not os.path.exists(options.ocv_params_path):
         raise Exception('Failed to calibrate the camera!')
