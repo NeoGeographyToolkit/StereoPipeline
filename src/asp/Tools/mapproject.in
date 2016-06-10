@@ -33,19 +33,9 @@ sys.path.insert(0, basepath) # prepend to Python path
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
-
-import asp_system_utils
+import asp_file_utils, asp_system_utils, asp_cmd_utils, asp_image_utils
 asp_system_utils.verify_python_version_is_supported()
 
-# The path to the ASP python files
-basepath    = os.path.abspath(sys.path[0])
-pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
-libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
-sys.path.insert(0, basepath) # prepend to Python path
-sys.path.insert(0, pythonpath)
-sys.path.insert(0, libexecpath)
-
-import asp_file_utils, asp_system_utils, asp_cmd_utils, asp_image_utils
 
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
