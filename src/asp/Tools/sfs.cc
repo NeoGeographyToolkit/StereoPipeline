@@ -60,6 +60,7 @@ using namespace vw::camera;
 using namespace vw::cartography;
 
 typedef InterpolationView<ImageViewRef< PixelMask<float> >, BilinearInterpolation> BilinearInterpT;
+typedef ImageViewRef< PixelMask<float> > MaskedImgT;
 
 // TODO: Study why using tabulated camera model and multiple resolutions does
 // not work as well as it should.
@@ -772,7 +773,7 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
 				    ModelParams const& model_params,
 				    GlobalParams const& global_params,
 				    BBox2i const& crop_box,
-				    BilinearInterpT const & image,
+				    MaskedImgT const & image,
 				    CameraModel const* camera,
 				    PixelMask<double> &reflectance,
 				    PixelMask<double> & intensity) {
@@ -858,7 +859,12 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
     return false;
   }
 
-  intensity = image(pix[0], pix[1]); // this interpolates
+  InterpolationView<EdgeExtensionView<MaskedImgT, ConstantEdgeExtension>, BilinearInterpolation>
+    interp_image = interpolate(image, BilinearInterpolation(),
+			       ConstantEdgeExtension());
+  
+  intensity = interp_image(pix[0], pix[1]); // this interpolates
+
   if (!is_valid(intensity)) {
     reflectance = 0; reflectance.invalidate();
     intensity = 0;   intensity.invalidate();
@@ -889,7 +895,7 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
 				    ModelParams const& model_params,
 				    GlobalParams const& global_params,
 				    BBox2i const& crop_box,
-				    BilinearInterpT const & image,
+				    MaskedImgT const & image,
 				    CameraModel const* camera,
 				    ImageView< PixelMask<double> > & reflectance,
 				    ImageView< PixelMask<double> > & intensity) {
@@ -954,7 +960,7 @@ cartography::GeoReference              const * g_geo;
 GlobalParams                           const * g_global_params;
 std::vector<ModelParams>               const * g_model_params;
 std::vector<BBox2i>                    const * g_crop_boxes;
-std::vector<BilinearInterpT>           const * g_interp_images;
+std::vector<MaskedImgT>                const * g_masked_images;
 std::vector<boost::shared_ptr<CameraModel> > * g_cameras;
 double                                       * g_nodata_val;
 float                                        * g_img_nodata_val;
@@ -983,7 +989,7 @@ public:
     vw_out() << "Finished iteration: " << g_iter << std::endl;
 
     // Apply the most recent adjustments to the cameras.
-    for (size_t image_iter = 0; image_iter < (*g_interp_images).size(); image_iter++) {
+    for (size_t image_iter = 0; image_iter < (*g_masked_images).size(); image_iter++) {
       AdjustedCameraModel * icam
 	= dynamic_cast<AdjustedCameraModel*>((*g_cameras)[image_iter].get());
       if (icam == NULL)
@@ -1035,7 +1041,7 @@ public:
 			   *g_opt, tpc);
 
     // If there's just one image, print reflectance and other things
-    for (size_t image_iter = 0; image_iter < (*g_interp_images).size();
+    for (size_t image_iter = 0; image_iter < (*g_masked_images).size();
 	 image_iter++) {
 
       // Separate into blocks for each image
@@ -1067,7 +1073,7 @@ public:
 				     (*g_model_params)[image_iter],
 				     *g_global_params,
 				     (*g_crop_boxes)[image_iter],
-				     (*g_interp_images)[image_iter],
+				     (*g_masked_images)[image_iter],
 				     (*g_cameras)[image_iter].get(),
 				     reflectance, intensity);
 
@@ -1164,7 +1170,7 @@ struct IntensityError {
 		 GlobalParams const& global_params,
 		 ModelParams const& model_params,
 		 BBox2i const& crop_box,
-		 BilinearInterpT const& image,
+		 MaskedImgT const& image,
 		 boost::shared_ptr<CameraModel> const& camera):
     m_col(col), m_row(row), m_dem(dem), m_geo(geo),
     m_model_shadows(model_shadows),
@@ -1250,7 +1256,7 @@ struct IntensityError {
 				     GlobalParams const& global_params,
 				     ModelParams const& model_params,
 				     BBox2i const& crop_box,
-				     BilinearInterpT const& image,
+				     MaskedImgT const& image,
 				     boost::shared_ptr<CameraModel> const& camera){
     return (new ceres::NumericDiffCostFunction<IntensityError,
 	    ceres::CENTRAL, 1, 1, 1, 1, 1, 1, 1, 1, 6>
@@ -1273,7 +1279,7 @@ struct IntensityError {
   GlobalParams                      const & m_global_params;  // alias
   ModelParams                       const & m_model_params;   // alias
   BBox2i                                    m_crop_box;
-  BilinearInterpT                   const & m_image;          // alias
+  MaskedImgT                   const & m_image;          // alias
   boost::shared_ptr<CameraModel>    const & m_camera;         // alias
 };
 
@@ -1607,7 +1613,7 @@ void run_sfs_level(// Fixed inputs
 		   double smoothness_weight,
 		   double nodata_val,
 		   std::vector<BBox2i> const& crop_boxes,
-		   std::vector<BilinearInterpT> const& interp_images,
+		   std::vector<MaskedImgT> const& masked_images,
 		   GlobalParams const& global_params,
 		   std::vector<ModelParams> const & model_params,
 		   // Quantities that will float
@@ -1662,7 +1668,7 @@ void run_sfs_level(// Fixed inputs
 				 gridx, gridy,
 				 global_params, model_params[image_iter],
 				 crop_boxes[image_iter],
-				 interp_images[image_iter],
+				 masked_images[image_iter],
 				 cameras[image_iter]);
 	ceres::LossFunction* loss_function_img = NULL;
 	problem.AddResidualBlock(cost_function_img, loss_function_img,
@@ -1761,7 +1767,7 @@ void run_sfs_level(// Fixed inputs
   g_global_params  = &global_params;
   g_model_params   = &model_params;
   g_crop_boxes     = &crop_boxes;
-  g_interp_images  = &interp_images;
+  g_masked_images  = &masked_images;
   g_cameras        = &cameras;
   g_iter           = -1; // reset the iterations for each level
   g_final_iter     = false;
@@ -1980,8 +1986,7 @@ int main(int argc, char* argv[]) {
     }
     
     // Images with bilinear interpolation
-    std::vector< ImageViewRef< PixelMask<float> > > masked_images(num_images);
-    std::vector<BilinearInterpT> interp_images; // will have to use push_back
+    std::vector<MaskedImgT> masked_images(num_images);
     float img_nodata_val = -std::numeric_limits<float>::max();
     for (int image_iter = 0; image_iter < num_images; image_iter++){
       std::string img_file = opt.input_images[image_iter];
@@ -2003,8 +2008,6 @@ int main(int argc, char* argv[]) {
            = create_mask_less_or_equal(DiskImageView<float>(img_file),
                                        std::max(img_nodata_val, shadow_thresh));
        }
-      
-      interp_images.push_back(BilinearInterpT(masked_images[image_iter]));
     }
     g_img_nodata_val = &img_nodata_val;
 
@@ -2066,7 +2069,7 @@ int main(int argc, char* argv[]) {
 				       model_params[image_iter],
 				       global_params,
 				       crop_boxes[0][image_iter],
-				       interp_images[image_iter],
+				       masked_images[image_iter],
 				       cameras[image_iter].get(),
 				       reflectance, intensity);
 
@@ -2134,7 +2137,7 @@ int main(int argc, char* argv[]) {
 	geos.resize(levels+1);
 	dems.resize(levels+1);
 	albedos.resize(levels+1);
-	masked_images.resize(levels+1);
+	masked_images_vec.resize(levels+1);
 	factors.resize(levels+1);
 	break;
       }
@@ -2192,11 +2195,6 @@ int main(int argc, char* argv[]) {
 
       g_level = level;
 
-      std::vector<BilinearInterpT> interp_images; // will have to use push_back
-      for (int image_iter = 0; image_iter < num_images; image_iter++) {
-	interp_images.push_back(BilinearInterpT(masked_images_vec[level][image_iter]));
-      }
-
       int num_iterations;
       if (level == 0)
 	num_iterations = opt.max_iterations;
@@ -2215,7 +2213,7 @@ int main(int argc, char* argv[]) {
       run_sfs_level(// Fixed inputs
 		    num_iterations, opt, geos[level],
 		    opt.smoothness_weight*factors[level]*factors[level],
-		    nodata_val, crop_boxes[level], interp_images,
+		    nodata_val, crop_boxes[level], masked_images_vec[level],
                     global_params, model_params,
 		    // Quantities that will float
 		    dems[level], albedos[level], cameras,
