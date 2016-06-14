@@ -987,6 +987,9 @@ several large tiles, and to invoke the tool for each of the output tiles
 with the option \texttt{-\/-tile-index}. Later, \texttt{dem\_mosaic} can be
 invoked again to merge these tiles into a single DEM.
 
+If the DEMs have reasonably regular boundaries and no holes, smoother 
+blending may be obtained by using \texttt{-\/-use-centerline-weights}.
+
 Example 1 (erode 3 pixels from input DEMs and blend them):
 \begin{verbatim}
   dem_mosaic --erode-length 3 dem1.tif dem2.tif -o blended
@@ -1095,6 +1098,10 @@ The standard deviation of the Gaussian used to blur the weights. Higher value re
 
 \texttt{-\/-weights-exponent \textit{integer (=1)} } &
 The weights used to blend the DEMs should increase away from the boundary as a power with this exponent. Higher values will result in smoother but faster-growing weights.
+\\ \hline
+
+\texttt{-\/-use-centerline-weights} &
+Compute weights based on a DEM centerline algorithm. Produces smoother weights if the input DEMs don't have holes or complicated boundary.
 \\ \hline
 
 \texttt{-\/-extra-crop-length \textit{integer(=200)}} &
@@ -2385,7 +2392,7 @@ Option & Description \\ \hline \hline
 \texttt{-\/-datum  \textit{string}} & The datum to use when calibrating.  Default is WGS84.\\ \hline
 \texttt{-\/-calib-file  \textit{string}} & Path to an ASP compatible pinhole model file containing 
 camera model information. The position and pose information will be ignored. If you want 
-to use a unique file for each input image, pass a space seperated list of files surrounded by quotes.\\ \hline
+to use a unique file for each input image, pass a space separated list of files surrounded by quotes.\\ \hline
 \texttt{-\/-gcp-file  \textit{string}} & Path to a ground control point file.  This allows
 the tool to generate cameras in a global coordinate system.\\ \hline
 \texttt{-\/-bundle-adjust-params  \textit{string}} & Additional parameters (in single quotes)
@@ -2465,7 +2472,7 @@ Option & Description \\ \hline \hline
 \texttt{-h | -\/-help } & Display this help message.\\ \hline
 \texttt{-\/-name  \textit{string}} & Assign a name to the KML file.\\ \hline
 \texttt{-\/-color  \textit{string}} & Draw plots in one of (red | green | blue)\\ \hline
-\texttt{-\/-skip  \textit{int(=1)}} & When loading a data file, plot only every N'th point.
+\texttt{-\/-skip  \textit{int(=1)}} & When loading a data file, plot only every N-th point.
 Has no effect on boundary files.\\ \hline
 \end{longtable}
 

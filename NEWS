@@ -28,6 +28,10 @@ Other
  - dem_mosaic
    * Fix a bug with mosaicking of DEMs over very large extent.
    * Fix a bug with 360 degree longitude offset.
+   * Added the option --use-centerline-weights. It will compute
+     blending weights based on a DEM centerline algorithm. Produces 
+     smoother weights if the input DEMs don't have holes or complicated
+     boundary.
 
  - colormap
    * Added a new colormap scheme, 'cubehelix', that works better for

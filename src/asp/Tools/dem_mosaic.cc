@@ -114,6 +114,153 @@ struct BigOrZero: public ReturnFixedType<PixelT> {
   }
 };
 
+
+// A weight at a given pixel, based on an image row. Return
+// zero where image values are not valid, and positive where
+// valid.
+double ComputeLineWeightsH(Vector2 const& pix,
+			   std::vector<double> const& hCenterLine,
+			   std::vector<double> const& hMaxDistArray){
+  
+  // We round below, to avoid issues when we are within numerical value
+  // to an integer value for pix[1].
+  // To do: Need to do interpolation here.
+
+  int pos = (int)round(pix[1]);
+  if (pos < 0                          ||
+      pos >= (int)hMaxDistArray.size() ||
+      pos >= (int)hCenterLine.size() )
+    return 0;
+  
+  double maxDist = hMaxDistArray[pos]/2.0;
+  double center  = hCenterLine[pos];
+  double dist    = fabs(pix[0]-center);
+
+  if (maxDist <= 0 || dist < 0) return 0;
+
+  // We want to make sure the weight is positive (even if small) at
+  // the first/last valid pixel.
+  double tol = 1e-8*maxDist;
+  
+  //double weight = std::max(double(0.0), maxDist - dist + tol);
+  double weight = std::max(double(0.0), (maxDist - dist + tol)/maxDist);
+
+  return weight;
+}
+
+// Analogous to ComputeLineWeightsH().
+double ComputeLineWeightsV(Vector2 const& pix,
+			   std::vector<double> const& vCenterLine,
+			   std::vector<double> const& vMaxDistArray){
+  
+  int pos = (int)round(pix[0]);
+  if (pos < 0                          ||
+      pos >= (int)vMaxDistArray.size() ||
+      pos >= (int)vCenterLine.size() ) return 0;
+
+  double maxDist = vMaxDistArray[pos]/2.0;
+  double center  = vCenterLine[pos];
+  double dist    = fabs(pix[1]-center);
+
+  if (maxDist <= 0 || dist < 0) return 0;
+
+  // We want to make sure the weight is positive (even if small) at
+  // the first/last valid pixel.
+  double tol = 1e-8*maxDist;
+  
+  //double weight = std::max(double(0.0), maxDist - dist + tol);
+  double weight = std::max(double(0.0), (maxDist - dist + tol)/maxDist);
+  
+  return weight;
+}
+
+// A function that compute weights (positive in the image and zero
+// outside) based on finding where each image line data values start
+// and end and the centerline. The same thing is repeated for columns.
+// Then two such functions are multiplied. This works better than
+// grassfire for images with simple boundary and without holes.
+template<class ImageT>
+ImageView<double> weights_from_centerline(ImageT const& img){
+
+  int numRows = img.rows();
+  int numCols = img.cols();
+
+  // Arrays to be returned out of this function
+  std::vector<double> hCenterLine  (numRows, 0);
+  std::vector<double> hMaxDistArray(numRows, 0);
+  std::vector<double> vCenterLine  (numCols, 0);
+  std::vector<double> vMaxDistArray(numCols, 0);
+
+  std::vector<int> minValInRow(numRows, 0);
+  std::vector<int> maxValInRow(numRows, 0);
+  std::vector<int> minValInCol(numCols, 0);
+  std::vector<int> maxValInCol(numCols, 0);
+
+  for (int k = 0; k < numRows; k++){
+    minValInRow[k] = numCols;
+    maxValInRow[k] = 0;
+  }
+  for (int col = 0; col < numCols; col++){
+    minValInCol[col] = numRows;
+    maxValInCol[col] = 0;
+  }
+
+  // Note that we do just a single pass through the image to compute
+  // both the horizontal and vertical min/max values.
+  for (int row = 0 ; row < numRows; row++) {
+    for (int col = 0; col < numCols; col++) {
+
+      if ( !is_valid(img(col,row)) ) continue;
+            
+      if (col < minValInRow[row]) minValInRow[row] = col;
+      if (col > maxValInRow[row]) maxValInRow[row] = col;
+      
+      if (row < minValInCol[col]) minValInCol[col] = row;
+      if (row > maxValInCol[col]) maxValInCol[col] = row;
+      
+    }
+  }
+    
+  for (int row = 0; row < numRows; row++) {
+    hCenterLine   [row] = (minValInRow[row] + maxValInRow[row])/2.0;
+    hMaxDistArray [row] =  maxValInRow[row] - minValInRow[row];
+    if (hMaxDistArray[row] < 0){
+      hMaxDistArray[row]=0;
+    }
+  }
+
+  for (int col = 0 ; col < numCols; col++) {
+    vCenterLine   [col] = (minValInCol[col] + maxValInCol[col])/2.0;
+    vMaxDistArray [col] =  maxValInCol[col] - minValInCol[col];
+    if (vMaxDistArray[col] < 0){
+      vMaxDistArray[col]=0;
+    }
+  }
+
+
+  ImageView<double> weights(numCols, numRows);
+  fill(weights, 0);
+    
+  for (int row = 0; row < weights.rows(); row++){
+    for (int col = 0; col < weights.cols(); col++){
+      Vector2 pix(col, row);
+      float weightH = ComputeLineWeightsH(pix, hCenterLine, hMaxDistArray);
+      float weightV = ComputeLineWeightsV(pix, vCenterLine, vMaxDistArray);
+      weights(col, row) = weightH*weightV;
+    }
+  }
+
+  return weights;
+}
+
+template<class ImageT>
+ImageView<double> compute_weights(ImageT const& img, bool use_centerline_weights){
+  if (use_centerline_weights) 
+    return weights_from_centerline(img);
+
+  return grassfire(img);
+}
+
 void blur_weights(ImageView<double> & weights, double sigma){
 
   if (sigma <= 0)
@@ -219,12 +366,14 @@ struct Options : vw::cartography::GdalWriteOptions {
   bool   has_out_nodata;
   double out_nodata_value;
   int    tile_size, tile_index, erode_len, priority_blending_len, extra_crop_len, hole_fill_len, weights_blur_sigma, weights_exp, save_dem_weight;
-  bool   first, last, min, max, mean, stddev, median, count, save_index_map;
+  bool   first, last, min, max, mean, stddev, median, count, save_index_map, use_centerline_weights;
   BBox2 projwin;
   Options(): tr(0), geo_tile_size(0), has_out_nodata(false), tile_index(-1),
-	     erode_len(0), priority_blending_len(0), extra_crop_len(0), hole_fill_len(0), weights_blur_sigma(0), weights_exp(0), save_dem_weight(-1),
+	     erode_len(0), priority_blending_len(0), extra_crop_len(0),
+	     hole_fill_len(0), weights_blur_sigma(0), weights_exp(0), save_dem_weight(-1),
 	     first(false), last(false), min(false), max(false),
-	     mean(false), stddev(false), median(false), count(false), save_index_map(false){}
+	     mean(false), stddev(false), median(false), count(false), save_index_map(false),
+	     use_centerline_weights(false){}
 };
 
 /// Return the number of no-blending options selected.
@@ -409,8 +558,7 @@ public:
       }
 
       // Crop the disk dem to a 2-channel in-memory image. First
-      // channel is the image pixels, second will be the grassfire
-      // weights.
+      // channel is the image pixels, second will be the weights.
       ImageViewRef<double> disk_dem = pixel_cast<double>(m_imgMgr.get_handle(dem_iter, bbox));
       ImageView<RealGrayA> dem = crop(disk_dem, in_box);
       
@@ -419,9 +567,22 @@ public:
       // their number becomes too large.
       m_imgMgr.release(dem_iter);
       
-      // Use grassfire weights for smooth blending
+      // Compute linear weights
       ImageView<double> local_wts = grassfire(notnodata(select_channel(dem, 0), nodata_value));
-
+      if (m_opt.use_centerline_weights) {
+	// Erode based on grassfire weights.
+	ImageView<RealGrayA> dem2 = copy(dem);
+	for (int col = 0; col < dem2.cols(); col++) {
+	  for (int row = 0; row < dem2.rows(); row++) {
+	    if (local_wts(col, row) <= m_opt.erode_len) {
+	      dem2(col, row) = RealGrayA(nodata_value);
+	    }
+	  }
+	}
+	local_wts = weights_from_centerline
+          (create_mask_less_or_equal(select_channel(dem2, 0), nodata_value));
+      }
+      
       // If we don't limit the weights from above, we will have tiling artifacts,
       // as in different tiles the weights grow to different heights since
       // they are cropped to different regions. for priority blending length,
@@ -433,14 +594,16 @@ public:
           }
         }
       }
-
-      // Erode
-      int max_cutoff = max_pixel_value(local_wts);
-      int min_cutoff = m_opt.erode_len;
-      if (max_cutoff <= min_cutoff)
-        max_cutoff = min_cutoff + 1; // precaution
-      local_wts = clamp(local_wts - min_cutoff, 0.0, max_cutoff - min_cutoff);
-
+      
+      // Erode. We already did that if centerline weights are used.
+      if (!m_opt.use_centerline_weights){
+	int max_cutoff = max_pixel_value(local_wts);
+	int min_cutoff = m_opt.erode_len;
+	if (max_cutoff <= min_cutoff)
+	  max_cutoff = min_cutoff + 1; // precaution
+	local_wts = clamp(local_wts - min_cutoff, 0.0, max_cutoff - min_cutoff);
+      }
+      
       // Blur the weights. If priority blending length is on, we'll do the blur later,
       // after weights from different DEMs are combined.
       if (m_opt.weights_blur_sigma > 0 && m_opt.priority_blending_len <= 0)
@@ -696,9 +859,11 @@ public:
 	      tile_vec[clip_iter](col, row) = m_opt.out_nodata_value;
 	  }
 	}
-	weight_vec[clip_iter] = grassfire(notnodata(tile_vec[clip_iter], m_opt.out_nodata_value));
+        
+        weight_vec[clip_iter] = grassfire(notnodata(tile_vec[clip_iter],
+                                                      m_opt.out_nodata_value));
       }
-
+      
       // Don't allow the weights to grow too fast, for uniqueness.
       for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
         for (int col = 0; col < weight_vec[clip_iter].cols(); col++) {
@@ -952,6 +1117,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 	   "The standard deviation of the Gaussian used to blur the weights. Higher value results in smoother weights and blending. Set to 0 to not use blurring.")
     ("weights-exponent",   po::value<int>(&opt.weights_exp)->default_value(1),
 	   "The weights used to blend the DEMs should increase away from the boundary as a power with this exponent. Higher values will result in smoother but faster-growing weights.")
+    ("use-centerline-weights",   po::bool_switch(&opt.use_centerline_weights)->default_value(false),
+     "Compute weights based on a DEM centerline algorithm. Produces smoother weights if the input DEMs don't have holes or complicated boundary.")
     ("extra-crop-length", po::value<int>(&opt.extra_crop_len)->default_value(200),
      "Crop the DEMs this far from the current tile (measured in pixels) before blending them (a small value may result in artifacts).")
     ("save-dem-weight",      po::value<int>(&opt.save_dem_weight),
