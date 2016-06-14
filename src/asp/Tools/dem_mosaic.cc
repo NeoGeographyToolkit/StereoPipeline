@@ -244,8 +244,8 @@ ImageView<double> weights_from_centerline(ImageT const& img){
   for (int row = 0; row < weights.rows(); row++){
     for (int col = 0; col < weights.cols(); col++){
       Vector2 pix(col, row);
-      float weightH = ComputeLineWeightsH(pix, hCenterLine, hMaxDistArray);
-      float weightV = ComputeLineWeightsV(pix, vCenterLine, vMaxDistArray);
+      double weightH = ComputeLineWeightsH(pix, hCenterLine, hMaxDistArray);
+      double weightV = ComputeLineWeightsV(pix, vCenterLine, vMaxDistArray);
       weights(col, row) = weightH*weightV;
     }
   }
@@ -1275,10 +1275,15 @@ int main( int argc, char *argv[] ) {
       if (in_rsrc.has_nodata_read()) opt.out_nodata_value = in_rsrc.nodata_read();
     }
 
-    // Watch for underflow, if mixing doubles and float
-    if (opt.out_nodata_value < static_cast<double>(-numeric_limits<RealT>::max())) {
+    // Watch for underflow, if mixing doubles and float. Particularly problematic
+    // is when the nodata_value cannot be represented exactly as a float.
+    if (opt.out_nodata_value < static_cast<double>(-numeric_limits<RealT>::max()) ||
+	float(opt.out_nodata_value)  != double(opt.out_nodata_value) ) {
+      vw_out() << "The no-data value cannot be represented exactly as a float. "
+	       << "Have to change it.\n";
       opt.out_nodata_value = static_cast<double>(-numeric_limits<RealT>::max());
     }
+
     vw_out() << "Using output no-data value: " << opt.out_nodata_value << endl;
 
     // Form the mosaic georef. The georef of the first DEM is used as
@@ -1320,7 +1325,7 @@ int main( int argc, char *argv[] ) {
     // Use desired spacing if user-specified
     if (spacing > 0.0){
       // Get lonlat bounding box of the first DEM.
-      DiskImageView<float> dem0(opt.dem_files[0]);
+      DiskImageView<RealT> dem0(opt.dem_files[0]);
       BBox2 llbox0 = mosaic_georef.pixel_to_lonlat_bbox(bounding_box(dem0));
       
       // Reset transform with user provided spacing.
@@ -1519,7 +1524,7 @@ int main( int argc, char *argv[] ) {
       ImageViewRef<RealT> out_dem = crop(DemMosaicView(cols, rows, bias, opt,
                                                 imgMgr, georefs,
                                                 mosaic_georef, nodata_values,
-                                                                                    dem_pixel_bboxes),
+						       dem_pixel_bboxes),
                                          tile_box);
       GeoReference crop_georef = crop(mosaic_georef, tile_box.min().x(),
 				      tile_box.min().y());
