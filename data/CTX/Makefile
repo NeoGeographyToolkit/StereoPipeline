@@ -1,22 +1,5 @@
 # This is makefile to run the demo for MRO CTX of North Terra Meridiani
 
-# Users with custom paths must override this variable
-# EXECDIR  == executable directory
-# EEXECDIR == executable directory if in a result dir. (For handling
-#             relative paths)
-EXECDIR ?= ../../bin/
-ifeq ($(EXECDIR),)
-	EEXECDIR=$(EXECDIR)
-else
-	EEXECDIR=../$(EXECDIR)
-endif
-
-# Executables
-STEREO = $(EXECDIR)stereo
-POINT2DEM = $(EEXECDIR)point2dem
-HILLSHADE = $(EEXECDIR)hillshade
-COLORMAP = $(EEXECDIR)colormap
-CAM2MAP4STEREO = $(EXECDIR)cam2map4stereo.py
 
 all: nonmap/nonmap-DEM_CMAP.tif map/map-DEM_CMAP.tif
 
@@ -29,39 +12,42 @@ P03_002258_1817_XI_01N356W.IMG:
 %.cal.cub: %.IMG
 	mroctx2isis from= $< to= $<.temp.cub
 	spiceinit from= $<.temp.cub
-	ctxcal from= $<.temp.cub to= $@
+	ctxcal from= $<.temp.cub to= $<.temp2.cub
+	crop from=$<.temp2.cub to=$@ line=10000 nlines=3000
 	rm $<.temp.cub
+	rm $<.temp2.cub
+
 
 nonmapprojected: P02_001981_1823_XI_02N356W.cal.cub P03_002258_1817_XI_01N356W.cal.cub
 
 mapprojected: nonmapprojected
-	if [ ! -e P02_001981_1823_XI_02N356W.map.cub ] && [ ! -e P03_002258_1817_XI_01N356W.map.cub ]; then $(CAM2MAP4STEREO) P02_001981_1823_XI_02N356W.cal.cub P03_002258_1817_XI_01N356W.cal.cub; fi
+	if [ ! -e P02_001981_1823_XI_02N356W.map.cub ] && [ ! -e P03_002258_1817_XI_01N356W.map.cub ]; then cam2map4stereo.py P02_001981_1823_XI_02N356W.cal.cub P03_002258_1817_XI_01N356W.cal.cub; fi
 
 map/map-PC.tif: mapprojected
-	if [ ! -e map/map-PC.tif ]; then $(STEREO) P02_001981_1823_XI_02N356W.map.cub P03_002258_1817_XI_01N356W.map.cub map/map -s stereo.map; fi
+	if [ ! -e map/map-PC.tif ]; then stereo P02_001981_1823_XI_02N356W.map.cub P03_002258_1817_XI_01N356W.map.cub map/map -s stereo.map; fi
 
 map/map-DEM.tif: map/map-PC.tif
 	cd map; \
-	$(POINT2DEM) -r mars --nodata -32767 map-PC.tif --error --orthoimage map-L.tif
+	point2dem -r mars --nodata -32767 map-PC.tif --error --orthoimage map-L.tif
 
 map/map-DEM_CMAP.tif: map/map-DEM.tif
 	cd map; \
-	$(HILLSHADE) map-DEM.tif; \
-	$(COLORMAP) -s map-DEM_HILLSHADE.tif map-DEM.tif; \
-	$(COLORMAP) map-IntersectionErr.tif --colormap-style ../../TriangulationError.lut
+	hillshade map-DEM.tif; \
+	colormap -s map-DEM_HILLSHADE.tif map-DEM.tif; \
+	colormap map-IntersectionErr.tif --colormap-style ../../TriangulationError.lut
 
 nonmap/nonmap-PC.tif: nonmapprojected
-	if [ ! -e nonmap/nonmap-PC.tif ]; then $(STEREO) P02_001981_1823_XI_02N356W.cal.cub P03_002258_1817_XI_01N356W.cal.cub nonmap/nonmap -s stereo.nonmap; fi
+	if [ ! -e nonmap/nonmap-PC.tif ]; then stereo P02_001981_1823_XI_02N356W.cal.cub P03_002258_1817_XI_01N356W.cal.cub nonmap/nonmap -s stereo.nonmap; fi
 
 nonmap/nonmap-DEM.tif: nonmap/nonmap-PC.tif
 	cd nonmap; \
-	$(POINT2DEM) -r mars --nodata -32767 nonmap-PC.tif --error
+	point2dem -r mars --nodata -32767 nonmap-PC.tif --errorimage
 
 nonmap/nonmap-DEM_CMAP.tif: nonmap/nonmap-DEM.tif
 	cd nonmap; \
-	$(HILLSHADE) nonmap-DEM.tif; \
-	$(COLORMAP) -s nonmap-DEM_HILLSHADE.tif nonmap-DEM.tif; \
-	$(COLORMAP) nonmap-IntersectionErr.tif --colormap-style ../../TriangulationError.lut
+	hillshade nonmap-DEM.tif; \
+	colormap -s nonmap-DEM_HILLSHADE.tif nonmap-DEM.tif; \
+	colormap nonmap-IntersectionErr.tif
 
 clean:
 	rm -rf nonmap map *.vwip
