@@ -679,19 +679,22 @@ int main( int argc, char* argv[] ) {
     if (sum >= 2){
       vw_throw( ArgumentErr() << "Must specify at most one of the options: --tr, --mpp, --ppd.\n" );
     }
+
     double radius = dem_georef.datum().semi_major_axis();
     if ( !std::isnan(opt.tr) ){ // --tr was set
-      if (dem_georef.is_projected())
-        opt.mpp = opt.tr; // User must have provided be meters per pixel
-      else
-        opt.ppd = 1.0/opt.tr; // User must have provided degrees per pixel
+      if (dem_georef.is_projected()) {
+	if (std::isnan(opt.mpp)) opt.mpp = opt.tr; // User must have provided be meters per pixel
+      }else {
+	if (std::isnan(opt.ppd)) opt.ppd = 1.0/opt.tr; // User must have provided degrees per pixel
+      }
     }
-    if ( !std::isnan(opt.mpp) ){ // Meters per pixel was set
-      opt.ppd = 2.0*M_PI*radius/(360.0*opt.mpp);
+    if (!std::isnan(opt.mpp)){ // Meters per pixel was set
+      if (std::isnan(opt.ppd)) opt.ppd = 2.0*M_PI*radius/(360.0*opt.mpp);
     }
-    if ( !std::isnan(opt.ppd) ){ // Pixels per degree was set
-      opt.mpp = 2.0*M_PI*radius/(360.0*opt.ppd);
+    if (!std::isnan(opt.ppd)){ // Pixels per degree was set
+      if (std::isnan(opt.mpp)) opt.mpp = 2.0*M_PI*radius/(360.0*opt.ppd);
     }
+    
     // pixels per degree now available
     bool user_provided_resolution = (!std::isnan(opt.ppd));
 
@@ -831,9 +834,8 @@ int main( int argc, char* argv[] ) {
     }
     else {
       // If the input image is not RGB, only single channel images are supported.
-      if (num_input_channels != 1)
+      if (num_input_channels != 1 || image_fmt.planes != 1)
         vw_throw( ArgumentErr() << "Input images must be single channel or RGB!\n" );
-      
       // This will cast to float but will not rescale the pixel values.
       project_image_nodata_pick_transform<float>(opt, dem_georef, target_georef, croppedGeoRef, image_size, 
                            Vector2i(virtual_image_width, virtual_image_height),
