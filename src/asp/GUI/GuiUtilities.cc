@@ -200,25 +200,25 @@ chooseFilesDlg::chooseFilesDlg(QWidget * parent):
   QWidget(parent){
 
   setWindowModality(Qt::ApplicationModal);
-
+  
   int spacing = 0;
-
+  
   QVBoxLayout * vBoxLayout = new QVBoxLayout(this);
   vBoxLayout->setSpacing(spacing);
   vBoxLayout->setAlignment(Qt::AlignLeft);
-
+  
   // The layout having the file names. It will be filled in
   // dynamically later.
   m_filesTable = new QTableWidget();
-
+  
   m_filesTable->horizontalHeader()->hide();
   m_filesTable->verticalHeader()->hide();
-
+  
   vBoxLayout->addWidget(m_filesTable);
-
+  
   return;
 }
-
+  
 chooseFilesDlg::~chooseFilesDlg(){}
 
 void chooseFilesDlg::chooseFiles(const std::vector<imageData> & images){

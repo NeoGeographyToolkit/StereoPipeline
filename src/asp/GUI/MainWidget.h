@@ -103,9 +103,10 @@ namespace vw { namespace gui {
     signals:
     void refreshAllMatches();
 
-              public slots:
-              void sizeToFit();
+public slots:
+    void sizeToFit();
     void showFilesChosenByUser(int rowClicked, int columnClicked);
+    void customMenuRequested(QPoint pos);
     void viewUnthreshImages();
     void viewThreshImages();
     void viewHillshadedImages(bool hillshade_mode);
@@ -113,6 +114,7 @@ namespace vw { namespace gui {
     void addMatchPoint();    ///< Add a new interest point (from right click menu)
     void deleteMatchPoint(); ///< Delete an interest point (from right click menu)
     void toggleHillshade();    ///< Turn on/off hillshading per image (from right click menu)
+    void refreshHillshade();    ///< We modified m_hillshade_mode. Update the display.
 
   protected:
 
@@ -146,7 +148,8 @@ namespace vw { namespace gui {
     const int m_image_id; ///< An ID number assigned to this widget when it is created
     std::string & m_output_prefix; // alias
     std::vector<std::string> m_image_files;
-
+    std::vector<bool> m_hillshade_mode;
+    
     /// A set of matching interest points for each image.
     /// - Note that this is an alias wrapping an object passed in through the constructor.
     std::vector<std::vector<vw::ip::InterestPoint> > & m_matches;
@@ -210,15 +213,16 @@ namespace vw { namespace gui {
     QAction* m_addMatchPoint;
     QAction* m_deleteMatchPoint;
     QAction* m_toggleHillshade;
+    QAction* m_toggleHillshadeFromTable;
 
     double m_shadow_thresh;
     bool   m_shadow_thresh_calc_mode;
     bool   m_shadow_thresh_view_mode;
     std::vector<imageData> m_shadow_thresh_images;
 
-    bool m_hillshade_mode;
     std::vector<imageData> m_hillshaded_images;
-
+    std::set<int> m_indicesWithAction;
+    
     bool m_viewMatches; ///< Control if IP's are drawn
 
     // Drawing is driven by QPaintEvent, which calls out to drawImage()
@@ -240,6 +244,7 @@ namespace vw { namespace gui {
     void updateRubberBand(QRect & R);
     void refreshPixmap();
     void genHillshadedImages();
+    void putImageOnTop(int image_index);
   };
 
 

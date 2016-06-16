@@ -143,8 +143,14 @@ namespace vw { namespace gui {
     : QWidget(parent), m_opt(opt), m_chooseFilesDlg(chooseFiles),
       m_image_id(image_id), m_output_prefix(output_prefix),
       m_image_files(image_files), m_matches(matches),  m_use_georef(use_georef),
-      m_hillshade_mode(hillshade), m_viewMatches(view_matches){
+      m_viewMatches(view_matches){
 
+    // Each image can be hillshaded independently of the other ones
+    m_hillshade_mode.resize(m_image_files.size());
+    for (size_t image_iter = 0; image_iter < m_hillshade_mode.size(); image_iter++) {
+      m_hillshade_mode[image_iter] = hillshade;
+    }
+    
     installEventFilter(this);
 
     m_firstPaintEvent = true;
@@ -217,6 +223,12 @@ namespace vw { namespace gui {
                        this,
                        SLOT(showFilesChosenByUser(int, int)));
       m_chooseFilesDlg->chooseFiles(m_images);
+
+      m_chooseFilesDlg->getFilesTable()->setContextMenuPolicy(Qt::CustomContextMenu);
+      connect(m_chooseFilesDlg->getFilesTable(), SIGNAL(customContextMenuRequested(QPoint)),
+	      this, SLOT(customMenuRequested(QPoint)));
+  
+      
     }
 
     // Right-click context menu
@@ -229,8 +241,7 @@ namespace vw { namespace gui {
     connect(m_deleteMatchPoint, SIGNAL(triggered()),this,SLOT(deleteMatchPoint()));
     connect(m_toggleHillshade,  SIGNAL(triggered()),this,SLOT(toggleHillshade()));
 
-    if (m_hillshade_mode)
-      MainWidget::genHillshadedImages();
+    MainWidget::genHillshadedImages();
   } // End constructor
 
 
@@ -241,6 +252,29 @@ namespace vw { namespace gui {
     return QWidget::eventFilter(obj, E);
   }
 
+  void MainWidget::customMenuRequested(QPoint pos){
+
+    // Process user's choice from m_chooseFilesDlg.
+    if (!m_chooseFilesDlg)
+      return;
+
+    QTableWidget * filesTable = m_chooseFilesDlg->getFilesTable();
+
+    QModelIndex tablePos=filesTable->indexAt(pos);
+    int imageIndex = tablePos.row();
+
+    m_indicesWithAction.clear();
+    m_indicesWithAction.insert(imageIndex);
+    
+    QMenu *menu=new QMenu(this);
+
+    m_toggleHillshadeFromTable = menu->addAction("Toggle hillshade");
+    connect(m_toggleHillshadeFromTable, SIGNAL(triggered()),this,SLOT(refreshHillshade()));
+
+    menu->exec(filesTable->mapToGlobal(pos));
+    
+  }
+  
   void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
 
     // Process user's choice from m_chooseFilesDlg.
@@ -263,13 +297,9 @@ namespace vw { namespace gui {
     // If we just checked a certain image, it will be shown on top of the other ones.
     QTableWidgetItem *item = filesTable->item(rowClicked, 0);
     if (item->checkState() == Qt::Checked){
-      std::vector<int>::iterator it = std::find(m_filesOrder.begin(), m_filesOrder.end(), rowClicked);
-      if (it != m_filesOrder.end()){
-        m_filesOrder.erase(it);
-        m_filesOrder.push_back(rowClicked); // show last, so on top
-      }
+      putImageOnTop(rowClicked);
     }
-
+    
     refreshPixmap();
 
     return;
@@ -312,13 +342,18 @@ namespace vw { namespace gui {
 
   void MainWidget::viewUnthreshImages(){
     m_shadow_thresh_view_mode = false;
-    m_hillshade_mode = false;
+
+    for (size_t image_iter = 0; image_iter < m_hillshade_mode.size(); image_iter++) 
+      m_hillshade_mode[image_iter] = false;
+
     refreshPixmap();
   }
 
   void MainWidget::viewThreshImages(){
     m_shadow_thresh_view_mode = true;
-    m_hillshade_mode = false;
+
+    for (size_t image_iter = 0; image_iter < m_hillshade_mode.size(); image_iter++) 
+      m_hillshade_mode[image_iter] = false;
 
     if (m_images.size() != 1) {
       popUp("Must have just one image in each window to be able to view thresholded images.");
@@ -379,9 +414,11 @@ namespace vw { namespace gui {
     // it each time as perhaps the hillshade parameters changed.
     for (int image_iter = 0; image_iter < num_images; image_iter++) {
 
+      if (!m_hillshade_mode[image_iter]) continue;
+
       if (!m_images[image_iter].has_georef) {
         popUp("Hill-shading requires georeferenced images.");
-        m_hillshade_mode = false;
+        m_hillshade_mode[image_iter] = false;
         return;
       }
 
@@ -389,7 +426,7 @@ namespace vw { namespace gui {
       int num_channels = get_num_channels(input_file);
       if (num_channels != 1) {
         popUp("Hill-shading makes sense only for single-channel images.");
-        m_hillshade_mode = false;
+        m_hillshade_mode[image_iter] = false;
         return;
       }
 
@@ -397,7 +434,7 @@ namespace vw { namespace gui {
       std::string hillshaded_file;
       bool success = write_hillshade(m_opt, input_file, hillshaded_file);
       if (!success) {
-        m_hillshade_mode = false;
+        m_hillshade_mode[image_iter] = false;
         return;
       }
 
@@ -406,21 +443,50 @@ namespace vw { namespace gui {
     }
   }
 
-  void MainWidget::viewHillshadedImages(bool hillshade_mode){
-    m_hillshade_mode = hillshade_mode;
+  void MainWidget::refreshHillshade(){
+
+    for (std::set<int>::iterator it = m_indicesWithAction.begin();
+	 it != m_indicesWithAction.end(); it++) {
+      m_hillshade_mode[*it] = !m_hillshade_mode[*it];
+
+      // We will assume if the user wants to see the hillshade
+      // status of this image change, he'll also want it on top.
+      putImageOnTop(*it); 
+    }
+
     m_shadow_thresh_calc_mode = false;
     m_shadow_thresh_view_mode = false;
+    MainWidget::genHillshadedImages();
 
-    if (m_hillshade_mode)
-      MainWidget::genHillshadedImages();
-
+    m_indicesWithAction.clear();
+    
     refreshPixmap();
   }
 
-  void MainWidget::toggleHillshade(){
-    viewHillshadedImages(!m_hillshade_mode);
+  void MainWidget::viewHillshadedImages(bool hillshade_mode){
+
+    for (size_t image_iter = 0; image_iter < m_hillshade_mode.size(); image_iter++) 
+      m_hillshade_mode[image_iter] = hillshade_mode;
+    
+    refreshHillshade();
   }
-  
+
+  void MainWidget::toggleHillshade(){
+    for (size_t image_iter = 0; image_iter < m_hillshade_mode.size(); image_iter++) 
+      m_hillshade_mode[image_iter] = !m_hillshade_mode[image_iter];
+
+    refreshHillshade();
+  }
+
+  // The image with the given index will be on top when shown.
+  void MainWidget::putImageOnTop(int image_index){
+    std::vector<int>::iterator it = std::find(m_filesOrder.begin(), m_filesOrder.end(), image_index);
+    if (it != m_filesOrder.end()){
+      m_filesOrder.erase(it);
+      m_filesOrder.push_back(image_index); // show last, so on top
+    }
+  }
+    
   // Convert the crop window to original pixel coordinates from
   // pixel coordinates on the screen.
   // TODO: Make screen2world() do it, to take an input a QRect (or BBox2)
@@ -527,7 +593,7 @@ namespace vw { namespace gui {
         m_shadow_thresh_images[i].img.get_image_clip(scale, image_box,
                                                      highlight_nodata,
                                                      qimg, scale_out, region_out);
-      }else if (m_hillshade_mode){
+      }else if (m_hillshade_mode[i]){
         m_hillshaded_images[i].img.get_image_clip(scale, image_box,
                                                   highlight_nodata,
                                                   qimg, scale_out, region_out);

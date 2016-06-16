@@ -251,9 +251,11 @@ namespace vw { namespace gui {
 
     QTableWidget * getFilesTable(){ return m_filesTable; }
     static QString selectFilesTag(){ return ""; }
+
   private:
     QTableWidget * m_filesTable;
-                                                                   private slots:
+    
+    private slots:
   };
 
 
