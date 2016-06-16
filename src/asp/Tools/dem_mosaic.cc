@@ -472,7 +472,7 @@ public:
     // We will do all computations in double precision, regardless
     // of the precision of the inputs, for increased accuracy.
     // - The image data buffers are initialized here
-    typedef PixelGrayA<double> RealGrayA;
+    typedef PixelGrayA<double> DoubleGrayA;
     ImageView<double> tile   (bbox.width(), bbox.height());
     ImageView<double> weights(bbox.width(), bbox.height());
     fill( tile, m_opt.out_nodata_value );
@@ -560,7 +560,7 @@ public:
       // Crop the disk dem to a 2-channel in-memory image. First
       // channel is the image pixels, second will be the weights.
       ImageViewRef<double> disk_dem = pixel_cast<double>(m_imgMgr.get_handle(dem_iter, bbox));
-      ImageView<RealGrayA> dem = crop(disk_dem, in_box);
+      ImageView<DoubleGrayA> dem = crop(disk_dem, in_box);
       
       // Mark the handle to the image as not in use, though we still
       // keep that image file open, for increased performance, unless
@@ -571,11 +571,11 @@ public:
       ImageView<double> local_wts = grassfire(notnodata(select_channel(dem, 0), nodata_value));
       if (m_opt.use_centerline_weights) {
 	// Erode based on grassfire weights.
-	ImageView<RealGrayA> dem2 = copy(dem);
+	ImageView<DoubleGrayA> dem2 = copy(dem);
 	for (int col = 0; col < dem2.cols(); col++) {
 	  for (int row = 0; row < dem2.rows(); row++) {
 	    if (local_wts(col, row) <= m_opt.erode_len) {
-	      dem2(col, row) = RealGrayA(nodata_value);
+	      dem2(col, row) = DoubleGrayA(nodata_value);
 	    }
 	  }
 	}
@@ -640,7 +640,7 @@ public:
       }
 
       // Prepare the DEM for interpolation
-      ImageViewRef<RealGrayA> interp_dem
+      ImageViewRef<DoubleGrayA> interp_dem
 	= interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
 
       // Loop through each output pixel
@@ -655,7 +655,7 @@ public:
 	  // Input DEM pixel relative to loaded bbox
 	  double x = in_pix[0] - in_box.min().x();
 	  double y = in_pix[1] - in_box.min().y();
-	  RealGrayA pval;
+	  DoubleGrayA pval;
 
 	  int i0 = round(x),  // Round to nearest integer location
 	      j0 = round(y);
