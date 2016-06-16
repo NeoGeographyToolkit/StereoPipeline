@@ -50,22 +50,20 @@ class Usage(Exception):
         self.msg = msg
 
 class CCDs(dict):
+    ''''''
     def __init__(self, cubes, match=5):
         self.prefix = os.path.commonprefix( cubes )
         dict.__init__(self)
         for cub in cubes:
             number = int( cub[len(self.prefix)] )
             self[number] = cub
-        self.set_match( int(match) )
+        self.match = int(match)
 
     def min(self):
         return min( self.keys() )
 
     def max(self):
         return max( self.keys() )
-
-    def set_match(self, cube):
-        self.match = cube
 
     def matchcube(self):
         return self[self.match]
@@ -89,14 +87,14 @@ def read_flatfile( flat ):
     averages = [0.0,0.0]
     for line in f:
         if ( line.rfind("Average Sample Offset:") > 0 ):
-            index = line.rfind("Offset:");
-            index_e = line.rfind("StdDev:");
-            crop = line[index+7:index_e];
+            index       = line.rfind("Offset:");
+            index_e     = line.rfind("StdDev:");
+            crop        = line[index+7:index_e];
             averages[0] = float(crop);
         elif ( line.rfind("Average Line Offset:") > 0 ):
-            index = line.rfind("Offset:");
-            index_e = line.rfind("StdDev:");
-            crop = line[index+7:index_e];
+            index       = line.rfind("Offset:");
+            index_e     = line.rfind("StdDev:");
+            crop        = line[index+7:index_e];
             averages[1] = float(crop);
     return averages;
 
@@ -183,7 +181,7 @@ def histitch( cub_files, threads, delete=False ):
     for cub in cub_files:
         match = re.match( pattern, cub[len(prefix):] )
         if( match ):
-            ccd = match.group(1)
+            ccd     = match.group(1)
             channel = match.group(2)
             # print 'ccd: ' + ccd + ' channel: '+ channel
             channel_files[int(ccd)][int(channel)] = cub
@@ -280,7 +278,7 @@ def mosaic( noprojed_CCDs, averages ):
     mosaic = noprojed_CCDs.prefix+'.mos_hijitreged.cub'
     shutil.copy( noprojed_CCDs.matchcube(), mosaic )
     sample_sum = 1;
-    line_sum = 1;
+    line_sum   = 1;
     for i in range( noprojed_CCDs.match-1, noprojed_CCDs.min()-1, -1):
         if( i not in noprojed_CCDs): continue
         sample_sum  += averages[i][0]
@@ -318,7 +316,7 @@ def handmos( fromcub, tocub, outsamp, outline ):
 
 def cubenorm( fromcub, delete=False ):
     tocub = os.path.splitext(fromcub)[0] + '.norm.cub'
-    cmd = 'cubenorm from= '+ fromcub+' to= '+ tocub
+    cmd   = 'cubenorm from= '+ fromcub+' to= '+ tocub
     print(cmd)
     os.system(cmd)
     if( delete ):
@@ -352,7 +350,17 @@ def main():
 
             (options, args) = parser.parse_args()
 
-            if not args: parser.error("need .IMG files")
+            if not args: 
+                parser.error("need .IMG files")
+            
+            # Make sure there is a valid match CCD
+            if len(args) % 2 != 0:
+                raise Exception('An even number of input CCD files is required!')
+            numCcds = len(args) / 2
+            if options.match >= numCcds:
+                print 'Warning: match argument is greater than number of input CCDs, forcing it lower!'
+                options.match = numCcds - 1
+
 
         except optparse.OptionError as msg:
             raise Usage(msg)
