@@ -595,7 +595,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   int max_iterations, max_coarse_iterations, reflectance_type, coarse_levels;
   bool float_albedo, float_exposure, float_cameras, model_shadows,
     use_approx_camera_models, crop_input_images, float_dem_at_boundary;
-  double smoothness_weight, init_dem_height, max_height_change,
+  double smoothness_weight, init_dem_height, nodata_val, max_height_change,
     height_change_weight, camera_position_step_size;
   Options():max_iterations(0), max_coarse_iterations(0), reflectance_type(0),
 	    coarse_levels(0), float_albedo(false), float_exposure(false), float_cameras(false),
@@ -1474,6 +1474,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Optional initial guess image exposures to use, otherwise they are computed automatically (a list of real values in quotes).")
     ("init-dem-height", po::value(&opt.init_dem_height)->default_value(std::numeric_limits<double>::quiet_NaN()),
      "Use this value for initial DEM heights. An input DEM still needs to be provided for georeference information.")
+    ("nodata-value", po::value(&opt.nodata_val)->default_value(std::numeric_limits<double>::quiet_NaN()),
+     "Use this as the DEM no-data value, over-riding what is in the initial guess DEM.")
     ("float-dem-at-boundary",   po::bool_switch(&opt.float_dem_at_boundary)->default_value(false)->implicit_value(true),
      "Allow the DEM values at the boundary of the region to also float (not advised).")
     ("camera-position-step-size", po::value(&opt.camera_position_step_size)->default_value(1.0),
@@ -1796,6 +1798,11 @@ int main(int argc, char* argv[]) {
     if (vw::read_nodata_val(opt.input_dem, nodata_val)){
       vw_out() << "Found DEM nodata value: " << nodata_val << std::endl;
     }
+    if (!boost::math::isnan(opt.nodata_val)) {
+      nodata_val = opt.nodata_val;
+      vw_out() << "Over-riding the DEM nodata value with: " << nodata_val << std::endl;
+    }
+
     g_nodata_val = &nodata_val;
     // Replace no-data values with the mean of valid values
     double mean = 0, num = 0;
