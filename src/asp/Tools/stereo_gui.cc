@@ -161,10 +161,6 @@ int main(int argc, char* argv[]) {
         vw_throw(ArgumentErr() << e.what() << "\n");
     }
 
-    // Create the application. Must be done before trying to read
-    // images as that call uses pop-ups.
-    StereoApplication app(argc, argv);
-
     if (stereo_settings().create_image_pyramids_only) {
       // Just create the image pyramids and exit.
       for (size_t i = 0; i < images.size(); i++) {
@@ -173,6 +169,10 @@ int main(int argc, char* argv[]) {
       }
       return 0;
     }
+
+    // Create the application. Must be done before trying to read
+    // images as that call uses pop-ups.
+    StereoApplication app(argc, argv);
 
     vw::create_out_dir(output_prefix);
 

@@ -136,10 +136,9 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
 }
 
 
+// Create a new central widget. Qt is smart enough to de-allocate
+// the previous widget and all of its children.
 void MainWindow::createLayout() {
-
-  // Create a new central widget. Qt is smart enough to de-allocate
-  // the previous widget and all of its children.
 
   QWidget * centralWidget = new QWidget(this);
   setCentralWidget(centralWidget);
@@ -204,6 +203,7 @@ void MainWindow::createLayout() {
     // Intercept this widget's request to view (or refresh) the matches in all
     // the widgets, not just this one's.
     connect(m_widgets[i], SIGNAL(refreshAllMatches()), this, SLOT(viewExistingMatches()));
+    connect(m_widgets[i], SIGNAL(removeImageAndRefreshSignal()), this, SLOT(deleteImageFromWidget()));
   }
   QWidget *container = new QWidget(centralWidget);
   container->setLayout(grid);
@@ -415,6 +415,29 @@ void MainWindow::viewAsTiles(){
 void MainWindow::viewExistingMatches(){
   m_matches_were_loaded = true;
   MainWindow::viewMatches();
+}
+
+// Delete an image from the widget based on the index we query from the widget
+void MainWindow::deleteImageFromWidget(){
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (!m_widgets[i]) continue;
+    std::set<int> & indicesWithAction = m_widgets[i]->indicesWithAction(); // alias
+    if (indicesWithAction.empty()) continue;
+    int index = *indicesWithAction.begin();
+
+    if (index >= 0 && index < (int)m_image_paths.size() ) 
+      m_image_paths.erase(m_image_paths.begin() + index);
+
+    if (index >= 0 && index < (int)m_matches.size() ) 
+      m_matches.erase(m_matches.begin() + index);
+
+    // Mark the action as done. Not strictly necessary, since
+    // all widgets will be wiped and recreated anyway.
+    indicesWithAction.clear();
+  }
+
+  // Must re-create everything
+  createLayout();
 }
 
 // Show or hide matches depending on the value of m_viewMatches.

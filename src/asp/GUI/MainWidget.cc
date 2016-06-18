@@ -237,11 +237,11 @@ namespace vw { namespace gui {
     m_addMatchPoint    = m_ContextMenu->addAction("Add match point");
     m_deleteMatchPoint = m_ContextMenu->addAction("Delete match point");
     m_toggleHillshade  = m_ContextMenu->addAction("Toggle hillshaded display");
-    connect(m_addMatchPoint,    SIGNAL(triggered()),this,SLOT(addMatchPoint()));
-    connect(m_deleteMatchPoint, SIGNAL(triggered()),this,SLOT(deleteMatchPoint()));
-    connect(m_toggleHillshade,  SIGNAL(triggered()),this,SLOT(toggleHillshade()));
+    connect(m_addMatchPoint,    SIGNAL(triggered()), this, SLOT(addMatchPoint()));
+    connect(m_deleteMatchPoint, SIGNAL(triggered()), this, SLOT(deleteMatchPoint()));
+    connect(m_toggleHillshade,  SIGNAL(triggered()), this, SLOT(toggleHillshade()));
 
-    MainWidget::genHillshadedImages();
+    MainWidget::maybeGenHillshade();
   } // End constructor
 
 
@@ -252,6 +252,8 @@ namespace vw { namespace gui {
     return QWidget::eventFilter(obj, E);
   }
 
+  // What will happen when the user right-clicks on the table
+  // listing the files.
   void MainWidget::customMenuRequested(QPoint pos){
 
     // Process user's choice from m_chooseFilesDlg.
@@ -268,11 +270,13 @@ namespace vw { namespace gui {
     
     QMenu *menu=new QMenu(this);
 
-    m_toggleHillshadeFromTable = menu->addAction("Toggle hillshade");
-    connect(m_toggleHillshadeFromTable, SIGNAL(triggered()),this,SLOT(refreshHillshade()));
+    m_toggleHillshadeFromTable = menu->addAction("Toggle hillshade display");
+    connect(m_toggleHillshadeFromTable, SIGNAL(triggered()), this, SLOT(refreshHillshade()));
+    
+    m_deleteImage = menu->addAction("Delete image");
+    connect(m_deleteImage, SIGNAL(triggered()), this, SLOT(deleteImage()));
 
     menu->exec(filesTable->mapToGlobal(pos));
-    
   }
   
   void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
@@ -404,7 +408,7 @@ namespace vw { namespace gui {
     refreshPixmap();
   }
 
-  void MainWidget::genHillshadedImages(){
+  void MainWidget::maybeGenHillshade(){
 
     int num_images = m_images.size();
     m_hillshaded_images.clear(); // wipe the old copy
@@ -443,6 +447,11 @@ namespace vw { namespace gui {
     }
   }
 
+  // Delete an image from the list
+  void MainWidget::deleteImage(){
+    emit removeImageAndRefreshSignal();
+  }
+  
   void MainWidget::refreshHillshade(){
 
     for (std::set<int>::iterator it = m_indicesWithAction.begin();
@@ -456,7 +465,7 @@ namespace vw { namespace gui {
 
     m_shadow_thresh_calc_mode = false;
     m_shadow_thresh_view_mode = false;
-    MainWidget::genHillshadedImages();
+    MainWidget::maybeGenHillshade();
 
     m_indicesWithAction.clear();
     

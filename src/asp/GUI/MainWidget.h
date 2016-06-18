@@ -99,9 +99,11 @@ namespace vw { namespace gui {
     void viewMatches(bool hide);
 
     void setShadowThreshMode(bool turnOn) { m_shadow_thresh_calc_mode = turnOn;}
-
+    std::set<int> & indicesWithAction() { return m_indicesWithAction; }
+    
     signals:
     void refreshAllMatches();
+    void removeImageAndRefreshSignal();
 
 public slots:
     void sizeToFit();
@@ -115,6 +117,7 @@ public slots:
     void deleteMatchPoint(); ///< Delete an interest point (from right click menu)
     void toggleHillshade();    ///< Turn on/off hillshading per image (from right click menu)
     void refreshHillshade();    ///< We modified m_hillshade_mode. Update the display.
+    void deleteImage();         ///< Delete an image from the gui and refresh
 
   protected:
 
@@ -214,6 +217,7 @@ public slots:
     QAction* m_deleteMatchPoint;
     QAction* m_toggleHillshade;
     QAction* m_toggleHillshadeFromTable;
+    QAction* m_deleteImage;
 
     double m_shadow_thresh;
     bool   m_shadow_thresh_calc_mode;
@@ -243,7 +247,7 @@ public slots:
     void updateCurrentMousePosition();
     void updateRubberBand(QRect & R);
     void refreshPixmap();
-    void genHillshadedImages();
+    void maybeGenHillshade();
     void putImageOnTop(int image_index);
   };
 

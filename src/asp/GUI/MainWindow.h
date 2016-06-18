@@ -68,6 +68,7 @@ namespace vw { namespace gui {
     void viewSideBySide();
     void viewAsTiles();
     void viewExistingMatches();
+    void deleteImageFromWidget();
     void viewMatches();
     void addDelMatches();
     void saveMatches();
@@ -96,7 +97,6 @@ namespace vw { namespace gui {
     void closeEvent (QCloseEvent *);
 
     vw::cartography::GdalWriteOptions          m_opt;
-    std::vector<std::string>  m_image_paths; ///< Loaded image files
     std::string               m_output_prefix;
     double                    m_widRatio;    // ratio of sidebar to entire win wid
     std::vector<MainWidget*>  m_widgets;     ///< One of these for each seperate image pane.
@@ -134,6 +134,11 @@ namespace vw { namespace gui {
     char **  m_argv;
     bool     m_matches_were_loaded;
     std::string m_match_file;
+
+    // Any vector of size equal to number of images must be adjusted when the function
+    // deleteImageFromWidget() is invoked. That includes m_image_paths and m_matches.
+    
+    std::vector<std::string>  m_image_paths; ///< Loaded image files
 
     /// A set of interest points for each input image
     /// - There is always one set of matched interest points shared among all images.
