@@ -555,6 +555,12 @@ asp::CsvConv::CsvRecord asp::CsvConv::parse_csv_line(bool & is_first_line, bool 
 
   } // End loop through columns
 
+  if (!is_first_line && !line.empty() && line[0] == '#') {
+    vw_out() << "Ignoring line starting with comment: " << line << std::endl;
+    success = false;
+    return values;
+  }
+  
   if (num_values_read != this->num_targets)
     success = false;
 

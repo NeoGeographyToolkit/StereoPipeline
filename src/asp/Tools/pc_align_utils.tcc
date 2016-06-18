@@ -232,6 +232,11 @@ int load_csv_aux(std::string const& file_name, int num_points_to_load,
   line = "";
   while ( getline(file, line, '\n') ){
 
+    if (!is_first_line && !line.empty() && line[0] == '#') {
+      vw::vw_out() << "Ignoring line starting with comment: " << line << std::endl;
+      continue;
+    }
+    
     if (points_count >= num_points_to_load)
       break;
 
