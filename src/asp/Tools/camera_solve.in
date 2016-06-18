@@ -97,8 +97,11 @@ def generate_flagfile(options):
 
     # Control solving for intrinsic parameters
     intrinsics_options = 'NONE'
-    if options.solveIntrinsic: # These are the only values we read out
-        intrinsics_options = 'FOCAL_LENGTH|PRINCIPAL_POINTS|RADIAL_DISTORTION'
+    if options.solveIntrinsic:
+        # We read focal length and principal point so let those vary
+        # - Enabling radial distortion *significantly* changes the results!
+        intrinsics_options = 'FOCAL_LENGTH|PRINCIPAL_POINTS'
+        #intrinsics_options = 'FOCAL_LENGTH|PRINCIPAL_POINTS|RADIAL_DISTORTION'
 
     # Make sure the output file has the latest options
     if os.path.exists(options.flagfile_path):
@@ -313,7 +316,6 @@ def build_reconstruction(options):
             raise Exception('Theia failed to generate a camera reconstruction')
         shutil.move(theia_temp_output_path, options.theia_output_path)
 
-
     return options.theia_output_path
 
 
@@ -384,27 +386,27 @@ def guided_build_reconstruction(options):
 def update_tsai_file(input_camera_path, new_pose_path, output_camera_path):
     '''Copies a .tsai camera file with an updated position from another .tsai camera file.'''
 
-    # Read in the C and R lines from new_pose_path
-    c_line = ''
-    r_line = ''
+    # Read in the lines of interest from new_pose_path
+    # - We never update the distortion parameters since we won't be using
+    #   exactly the same lens distortion model.
+    keys = ['fu', 'fv', 'cu', 'cv', 'C', 'R'] # The values we want to copy
+    replacements = dict()
     f_in  = open(new_pose_path,  'r')
     for line in f_in:
-        if 'C =' in line:
-            c_line = line
-        elif 'R =' in line:
-            r_line = line
+        for k in keys: # Look for target values
+            if (k+' =') in line:
+                replacements[k] = line
     f_in.close()
 
-    # Copy each line of the input file except for the updated pose data
+    # Copy each line of the input file as-is except for the updated fields
     f_in  = open(input_camera_path,  'r')
     f_out = open(output_camera_path, 'w')
     for line in f_in:
-        if 'C =' in line:
-            f_out.write(c_line)
-        elif 'R =' in line:
-            f_out.write(r_line)
-        else:
-            f_out.write(line)
+        thisLine = line
+        for k in keys: # See if this is a line we should replace
+            if (k+' =') in line:
+                thisLine = replacements[k]
+        f_out.write(thisLine)
     f_in.close()
     f_out.close()
     
@@ -461,13 +463,23 @@ def run_bundle_adjust(options):
     if options.gcp_path or have_camera_positions:
       cam_type = 'nadirpinhole' # This is better, but can only use with global coordinates.
     ba_params = ['--local-pinhole', '-t', cam_type, '--datum', options.datum]
+    
+    if options.solveIntrinsic:
+        # Add flag to bundle adjust but make sure it is not added twice
+        ba_params += ['--solve-intrinsics']
+        if options.bundle_params and ('--solve-intrinsics' in options.bundle_params):
+            options.bundle_params = options.bundle_params.replace('--solve-intrinsics', '')
+    
     if options.bundle_params:
         ba_params += shlex.split(options.bundle_params) # Split on spaces but keep quoted parts together
+
+
+            
 
     # Always run this step as otherwise there was no point to calling the tool
 
     # Run ASP's bundle_adjust tool    
-    cmd = ['bundle_adjust'] + options.input_images + options.theia_camera_models
+    cmd = ['/home/smcmich1/repo/StereoPipeline/src/asp/Tools/bundle_adjust'] + options.input_images + options.theia_camera_models
     if options.gcp_path:
       cmd += [options.gcp_path]
     cmd += ['-o', output_prefix]
@@ -589,8 +601,8 @@ def main(argsIn):
                                                                                  
         
         # Solving for intrinsics is disabled until either Theia or our bundle adjustment tool supports it!
-        #parser.add_option("--solve-intrinsics", action="store_true", default=False,
-        #                                       dest="solveIntrinsic",  help="Use the optimizer to improve the intrinsic camera parameter estimates.")
+        parser.add_option("--solve-intrinsics", action="store_true", default=False,
+                                               dest="solveIntrinsic",  help="Use the optimizer to improve the intrinsic camera parameter estimates.")
         parser.add_option('--bundle-adjust-params',  dest='bundle_params', default=None,
                                          help='Params string (in single quotes '') passed to the bundle_adjust tool')
         parser.add_option('--theia-flagfile',  dest='existing_theia_flagfile', default=None,
@@ -671,14 +683,12 @@ def main(argsIn):
 
     # Step 2 - Call an extra tool to export Theia's camera output.
     export_cameras_to_vw(options)
-    # TODO: Update this tool to match the latest format?
     
     print('Finished extracting camera models')
 
     # Step 3 - Call ASP's bundle_adjust to adjust for lens distortion and 
     #          to move the cameras into global coordinates if possible.
     run_bundle_adjust(options)
-
 
     endTime = time.time()
     print("Finished in " + str(endTime - startTime) + " seconds.")

@@ -35,42 +35,8 @@
 
 #include <asp/Core/BundleAdjustUtils.h>
 
-// TODO: Why is this in a seperate namespace?
-namespace asp{
+// TODO: Move these classes to another file so they can be cleaned up properly!
 
-  /// Grab the extrinsic camera parameters from the parameter vector
-  template<class camera_vector_t>
-  void parse_camera_parameters(camera_vector_t cam_j,
-                               vw::Vector3 &position_correction,
-                               vw::Quat    &pose_correction) {
-    position_correction = subvector(cam_j, 0, 3);
-    pose_correction     = axis_angle_to_quaternion( subvector(cam_j,3,3) );
-  }
-
-  /// Copy the extrinsic camera parameters into the parameter vector
-  template<class camera_vector_t>
-  void set_camera_params(camera_vector_t & cam_j,
-                         vw::Vector3 const& position_correction,
-                         vw::Quat    const& pose_correction) {
-    subvector(cam_j, 0, 3) = position_correction;
-    subvector(cam_j, 3, 3) = pose_correction.axis_angle();
-  }
-
-
-  /// Copy both extrinsics and intrinsics into a presized parameter vector.
-  template<class ModelT>
-  void concat_extrinsics_intrinsics(const double* const extrinsics,
-                                    const double* const intrinsics,
-                                    typename ModelT::camera_intr_vector_t & concat){
-    int intr_len = ModelT::intrinsic_params_n, 
-        cam_len  = ModelT::camera_params_n;
-    for (int c = 0; c < cam_len; c++)
-      concat[c] = extrinsics[c];
-    for (int i = 0; i < intr_len; i++)
-      concat[cam_len + i] = intrinsics[i];
-  }
-
-}
 
 // Bundle adjustment functor
 class BundleAdjustmentModel:
@@ -80,11 +46,9 @@ public:
   typedef vw::Vector<double,camera_params_n>         camera_vector_t;
   typedef vw::Vector<double,point_params_n >         point_vector_t;
   typedef boost::shared_ptr<vw::camera::CameraModel> cam_ptr_t;
-  // No intrinsic params
-  const static size_t intrinsic_params_n = 0;
-  typedef vw::Vector<double,intrinsic_params_n> intrinsic_vector_t;
-  typedef vw::Vector<double,camera_params_n
-                     +intrinsic_params_n> camera_intr_vector_t;
+  // No intrinsic params with this class
+  typedef vw::Vector<double,0> intrinsic_vector_t;
+  typedef vw::Vector<double,camera_params_n+0> camera_intr_vector_t;
 private:
   std::vector<cam_ptr_t>                    m_cameras;
   boost::shared_ptr<vw::ba::ControlNetwork> m_network;
@@ -115,6 +79,8 @@ public:
     }
   }
 
+  size_t num_intrinsic_params() const {return 0;}
+
   // Return a reference to the camera and point parameters.
   camera_vector_t cam_params  (int j) const { return m_cam_vec[j];   }
   point_vector_t  point_params(int i) const { return m_point_vec[i]; }
@@ -129,6 +95,31 @@ public:
   unsigned num_cameras()            const { return m_cam_vec.size();         }
   unsigned num_points ()            const { return m_point_vec.size();       }
   unsigned num_pixel_observations() const { return m_num_pixel_observations; }
+
+
+  /// Copy both extrinsics and intrinsics into a presized parameter vector.
+  void concat_extrinsics_intrinsics(const double* const extrinsics,
+                                    const double* const intrinsics,
+                                    camera_intr_vector_t & concat){
+    for (size_t c = 0; c < camera_params_n; c++)
+      concat[c] = extrinsics[c];
+  }
+
+  /// Grab the extrinsic camera parameters from the parameter vector
+  void parse_camera_parameters(camera_vector_t const& cam_j,
+                               vw::Vector3 &position_correction,
+                               vw::Quat    &pose_correction) const {
+    position_correction = subvector(cam_j, 0, 3);
+    pose_correction     = axis_angle_to_quaternion( subvector(cam_j,3,3) );
+  }
+
+  /// Copy the extrinsic camera parameters into the parameter vector
+  void pack_camera_params(camera_vector_t & cam_j,
+                         vw::Vector3 const& position_correction,
+                         vw::Quat    const& pose_correction) {
+    subvector(cam_j, 0, 3) = position_correction;
+    subvector(cam_j, 3, 3) = pose_correction.axis_angle();
+  }
 
   /// Return the covariance of the camera parameters for camera j.
   inline vw::Matrix<double,camera_params_n,camera_params_n>
@@ -162,7 +153,7 @@ public:
 			                  point_vector_t  const& point_i) const {
     vw::Vector3 position_correction;
     vw::Quat    pose_correction;
-    asp::parse_camera_parameters(cam_j, position_correction, pose_correction);
+    parse_camera_parameters(cam_j, position_correction, pose_correction);
     vw::camera::AdjustedCameraModel cam(m_cameras[j],
                                         position_correction,
                                         pose_correction);
@@ -180,7 +171,7 @@ public:
   void write_adjustment(int j, std::string const& filename) const {
     vw::Vector3 position_correction;
     vw::Quat pose_correction;
-    asp::parse_camera_parameters(m_cam_vec[j], position_correction, pose_correction);
+    parse_camera_parameters(m_cam_vec[j], position_correction, pose_correction);
     asp::write_adjustments(filename, position_correction, pose_correction);
   }
 
@@ -190,7 +181,7 @@ public:
     for (unsigned j = 0; j < result.size(); ++j) {
       vw::Vector3 position_correction;
       vw::Quat pose_correction;
-      asp::parse_camera_parameters(m_cam_vec[j], position_correction, pose_correction);
+      parse_camera_parameters(m_cam_vec[j], position_correction, pose_correction);
       result[j] = cam_ptr_t( new vw::camera::AdjustedCameraModel( m_cameras[j], position_correction, 
                                                                                 pose_correction ) );
     }
@@ -227,7 +218,7 @@ public:
     for ( unsigned j = 0; j < m_cam_vec.size(); j++ ) {
       vw::Vector3 position_correction;
       vw::Quat pose_correction;
-      asp::parse_camera_parameters(m_cam_vec[j], position_correction, pose_correction);
+      parse_camera_parameters(m_cam_vec[j], position_correction, pose_correction);
       vw::camera::AdjustedCameraModel cam(m_cameras[j],
                                           position_correction,
                                           pose_correction);
@@ -250,16 +241,18 @@ public:
   }
 }; // End class BundleAdjustmentModel
 
+
+//==========================================================================
+
+
 /// Model to be used to float all parameters of a pinhole model.  There
 /// are 6 camera parameters, corresponding to: camera center (3), and
 /// camera orientation (3). Also there are three intrinsic parameters:
 /// focal length (1), and pixel offsets (2), which are shared
 /// among the cameras.
-/// - Accomodate any lens distortion model.
-/// - Adjusting the input intrinsic values is not currently supported.
-/// - If we want to enable solving for intrinsics, we should drop our old
-///   bundle adjust code so we only have to fix things once.
-class BAPinholeModel : public vw::ba::ModelBase<BAPinholeModel, 6, 3> {
+/// - This accomodates any lens distortion model.
+/// - Intrinsic parameters are shared across all cameras which must all be the same type.
+class BAPinholeModel  : public vw::ba::ModelBase<BAPinholeModel, 6, 3> {
 
 public: // Definitions
 
@@ -267,17 +260,10 @@ public: // Definitions
   typedef vw::Vector<double,point_params_n >          point_vector_t;
   typedef boost::shared_ptr<vw::camera::PinholeModel> pin_cam_ptr_t;
   typedef boost::shared_ptr<vw::camera::CameraModel>  cam_ptr_t;
-  // Currently all the intrinsic parameters are kept hidden within the class.
-  const static size_t intrinsic_params_n = 0;
-  typedef vw::Vector<double> intrinsic_vector_t; ///< Vector containing intrinsic parameters
-  typedef vw::Vector<double,camera_params_n
-                     +intrinsic_params_n> camera_intr_vector_t; ///< Vector containing all parameters
   
-  // TODO: We don't solve from scratch, remove this!
-  // Need this scale to force the rotations to not change that wildly
-  // when determining pinhole cameras from scratch.
-  const static double pose_scale = 1.0;//1.0e+3;
-  
+  typedef vw::Vector<double> intrinsic_vector_t;   ///< Vector containing intrinsic parameters
+  typedef vw::Vector<double> camera_intr_vector_t; ///< Vector containing all parameters
+    
 private: // Variables
 
   std::vector<cam_ptr_t>                    m_cameras; ///< Input camera models, barely used.
@@ -285,20 +271,27 @@ private: // Variables
   std::vector<camera_intr_vector_t>         m_cam_vec; ///< Vector of param vectors for each camera
   intrinsic_vector_t                        m_shared_intrinsics; ///< Record shared intrinsic values
   boost::shared_ptr<vw::camera::LensDistortion>  m_shared_lens_distortion; ///< Copy of input lens distortion object
+  size_t m_num_intrinsics;
+  bool   m_solve_intrinsics;
 
 public:
   /// Contructor requires a list of input pinhole models
   /// - Set constant_intrinsics if you do not want them changed
   BAPinholeModel(std::vector<cam_ptr_t> const& cameras,
-                 boost::shared_ptr<vw::ba::ControlNetwork> network) :
-    m_cameras(cameras), m_network(network), m_cam_vec(cameras.size()){
+                 boost::shared_ptr<vw::ba::ControlNetwork> network,
+                 bool solve_intrinsics) :
+    m_cameras(cameras), m_network(network), m_cam_vec(cameras.size()),
+    m_num_intrinsics(0), m_solve_intrinsics(solve_intrinsics){
 
     // Copy the (shared) intrinsic values from the first camera
     const pin_cam_ptr_t pinhole_ptr = boost::dynamic_pointer_cast<vw::camera::PinholeModel>(cameras[0]);
-    intrinsic_params_from_model(*pinhole_ptr, 
-                                m_shared_intrinsics);
+    intrinsic_params_from_model(*pinhole_ptr, m_shared_intrinsics);
+    m_num_intrinsics = m_shared_intrinsics.size();
+    
     // Make a copy of the lens distortion model object
-    m_shared_lens_distortion =pinhole_ptr->lens_distortion()->copy();
+    // - If we are not changing intrinsic parameters, we can just re-use this.
+    // - Otherwise we use it as a makeshift factory.
+    m_shared_lens_distortion = pinhole_ptr->lens_distortion()->copy();
   
     // Copy all of the input camera model information to the internal 
     //  camera parameters vector
@@ -316,7 +309,12 @@ public:
   
   } // End constructor
 
-  bool are_intrinsics_constant() const {return true; }
+  /// Note that this call is the "external facing" number of intrinsic parameters, 
+  ///  ie the number we are solving for.  If you need the actual number being used
+  ///  internally, use the private member variable instead.
+  size_t num_intrinsic_params   () const { if (!m_solve_intrinsics) return 0; else return m_num_intrinsics; }
+  bool   are_intrinsics_constant() const { return !m_solve_intrinsics; }
+  
 
   unsigned num_cameras() const { return m_cameras.size();  }
   unsigned num_points () const { return m_network->size(); }
@@ -324,79 +322,140 @@ public:
   void set_cam_params(int j, camera_intr_vector_t const& cam_j)       { m_cam_vec[j] = cam_j;       }
   void get_cam_params(int j, camera_intr_vector_t      & cam_j) const { cam_j        = m_cam_vec[j];}
 
+
+  /// Copy both extrinsics and intrinsics into a presized parameter vector.
+  void concat_extrinsics_intrinsics(const double* const extrinsics,
+                                    const double* const intrinsics,
+                                    camera_intr_vector_t & concat){
+    const size_t intr_len = num_intrinsic_params();
+    concat.set_size(camera_params_n+intr_len);
+    for (size_t c = 0; c < camera_params_n; c++)
+      concat[c] = extrinsics[c];
+    for (size_t i = 0; i < intr_len; i++)
+      concat[camera_params_n + i] = intrinsics[i];
+  }
+
+  /// Grab and set up the camera parameters from the parameter vector
+  void parse_camera_parameters(camera_intr_vector_t const& cam_j,
+                               vw::Vector3 &position_correction,
+                               vw::Quat    &pose_correction,
+                               intrinsic_vector_t &intrinsics) const {
+    position_correction = subvector(cam_j, 0, 3);
+    pose_correction     = axis_angle_to_quaternion( subvector(cam_j,3,3) );
+    if (!are_intrinsics_constant())
+      intrinsics = subvector(cam_j,6,num_intrinsic_params());
+    else
+      intrinsics = intrinsic_vector_t();
+  }
+
+  /// Copy all camera parameters into the parameter vector
+  void pack_camera_params(camera_intr_vector_t & cam_j,
+                         vw::Vector3        const& position,
+                         vw::Quat           const& pose,
+                         intrinsic_vector_t const& intrinsics) const{
+    const size_t num_intrinsics = num_intrinsic_params();
+    cam_j.set_size(6+num_intrinsics);
+    std::cout << "subvector S: " << cam_j << std::endl;
+    std::cout << "subvector S: " << intrinsics << std::endl;
+    subvector(cam_j, 0, 3) = position;
+    subvector(cam_j, 3, 3) = pose.axis_angle();
+    if (!are_intrinsics_constant())
+      subvector(cam_j, 6, num_intrinsics) = intrinsics;
+  }
+
   /// Return the i'th camera model using the current parameters
   vw::camera::PinholeModel get_camera_model(int icam) {
-    return params_to_model(m_cam_vec[icam]);
+    camera_intr_vector_t params = m_cam_vec[icam];
+    return params_to_model(params);
+  }
+
+  /// Obtain a lens distortion model given the intrinsics vector
+  /// - This safely ignores the non-distortion intrinsic parameters.
+  boost::shared_ptr<vw::camera::LensDistortion> 
+      get_lens_distortion_model(intrinsic_vector_t const& intrinsics) const{
+    // In constant case, always use existing model.
+    if (are_intrinsics_constant()) 
+      return m_shared_lens_distortion;
+    // Otherwise, make a copy of the stored lens model and then change the parameters.
+    boost::shared_ptr<vw::camera::LensDistortion> output = m_shared_lens_distortion->copy();
+    
+    const size_t NUM_PINHOLE_INTRINSICS = 4; // Focal length and focal point x,y offset, pixel_pitch.
+    const size_t num_lens_params = num_intrinsic_params() - NUM_PINHOLE_INTRINSICS;
+    
+    vw::Vector<double> lens_params(num_lens_params);
+    lens_params = subvector(intrinsics,NUM_PINHOLE_INTRINSICS,num_lens_params);
+    output->set_distortion_parameters(lens_params);
+    return output;
   }
 
   /// Generate a pinhole camera model given input parametrs
-  vw::camera::PinholeModel params_to_model(camera_intr_vector_t const& cam_vec){
+  vw::camera::PinholeModel params_to_model(camera_intr_vector_t const& cam_vec) const{
 
-    camera_intr_vector_t scaled_cam_vec = cam_vec;
-
-    // Undo the scale of the rotation variables
-    subvector(scaled_cam_vec,3,3) /= pose_scale;
-
+    // Unpack the parameters and reconstitute as useful objects
     vw::Vector3 position;
     vw::Quat    pose;
-    asp::parse_camera_parameters(scaled_cam_vec, position, pose);
+    intrinsic_vector_t intrinsics;
+    parse_camera_parameters(cam_vec, position, pose, intrinsics);
+    
+    if (are_intrinsics_constant()) // If true, intrinsics still needs to be set.
+      intrinsics = m_shared_intrinsics;
+
+    boost::shared_ptr<vw::camera::LensDistortion> lens_model = 
+      get_lens_distortion_model(intrinsics);
 
     // Make a new PinholeModel object with a copy of the shared distortion model
     return vw::camera::PinholeModel(position,
                                     pose.rotation_matrix(),
-                                    m_shared_intrinsics[0], m_shared_intrinsics[0], // focal lengths
-                                    m_shared_intrinsics[1], m_shared_intrinsics[2], // pixel offsets
-                                    *(m_shared_lens_distortion.get()),
-                                     m_shared_intrinsics[3]); //pixel pitch
+                                    intrinsics[0], intrinsics[0], // focal lengths
+                                    intrinsics[1], intrinsics[2], // pixel offsets
+                                    *(lens_model.get()),
+                                    intrinsics[3]); //pixel pitch
 
   }
 
-  /// Extract the intrinsic parameters only from a model
+  /// Extract all of the intrinsic parameters only from a model
   /// - Currently we pull them all out, but we never look at most of them again.
   void intrinsic_params_from_model(const vw::camera::PinholeModel & model,
-                                         intrinsic_vector_t       & cam_vec) const{
+                                         intrinsic_vector_t       & intrinsics) const{
 
     const size_t NUM_PINHOLE_INTRINSICS = 4; // Focal length and focal point x,y offset, pixel_pitch.
     
     // Get the lens distortion parameters and allocate the output vector
     vw::Vector<double> lens_distortion_params = model.lens_distortion()->distortion_parameters();
     const size_t num_lens_params = lens_distortion_params.size();
-    cam_vec.set_size(num_lens_params + NUM_PINHOLE_INTRINSICS);
+    intrinsics.set_size(num_lens_params + NUM_PINHOLE_INTRINSICS);
     
     // Get the parameters that are the same for all pinhole cameras
     vw::Vector2 fl = model.focal_length();
     vw::Vector2 po = model.point_offset();
-    cam_vec[0] = fl[0];
-    cam_vec[1] = po[0];
-    cam_vec[2] = po[1];
-    cam_vec[3] = model.pixel_pitch();
+    intrinsics[0] = fl[0];
+    intrinsics[1] = po[0];
+    intrinsics[2] = po[1];
+    intrinsics[3] = model.pixel_pitch();
     
     // Copy the lens distortion parameters -> Not currently used!
     for (size_t i=0; i<num_lens_params; ++i)
-      cam_vec[i+NUM_PINHOLE_INTRINSICS] = lens_distortion_params[i];
+      intrinsics[i+NUM_PINHOLE_INTRINSICS] = lens_distortion_params[i];
   }
 
   /// Extract the camera parameter vector from a pinhole model
   void params_from_model(const vw::camera::PinholeModel & model,
-                               camera_intr_vector_t     & cam_vec){
+                               camera_intr_vector_t     & cam_vec) const{
 
     vw::Vector3 position = model.camera_center();
     vw::Quat    pose     = model.camera_pose();
+    
+    intrinsic_vector_t intrinsics;
+    intrinsic_params_from_model(model, intrinsics);
 
-    // Set the extrinsics (params 0-5)
-    asp::set_camera_params(cam_vec, position, pose);
-    // Scale the rotation variables
-    subvector(cam_vec,3,3) *= pose_scale;
-
-    // We don't import any of the intrinsic params here.
+    // Set all of the values
+    pack_camera_params(cam_vec, position, pose, intrinsics);
   }
 
 
   /// Given the 'cam_vec' vector (camera model parameters) for the j'th
   /// image, and the 'm_point_vec' vector (3D point location) for the i'th
   /// point, return the location of point_i on imager j in pixel coordinates.
-  /// - For this class we modify the camera model directly instead of using 
-  ///   the AdjustedCameraModel class.
   vw::Vector2 cam_pixel(unsigned /*i*/, unsigned j,
 			camera_intr_vector_t const& cam_j,
 			point_vector_t       const& point_i) {
