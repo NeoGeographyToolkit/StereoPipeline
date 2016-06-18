@@ -247,11 +247,8 @@ public:
 
 /// Model to be used to float all parameters of a pinhole model.  There
 /// are 6 camera parameters, corresponding to: camera center (3), and
-/// camera orientation (3). Also there are three intrinsic parameters:
-/// focal length (1), and pixel offsets (2), which are shared
-/// among the cameras.
-/// - This accomodates any lens distortion model.
-/// - Intrinsic parameters are shared across all cameras which must all be the same type.
+/// camera orientation (3). It can optionally solve for the intrinsic 
+/// parameters including the lens distortion parameters.
 class BAPinholeModel  : public vw::ba::ModelBase<BAPinholeModel, 6, 3> {
 
 public: // Definitions
@@ -271,8 +268,9 @@ private: // Variables
   std::vector<camera_intr_vector_t>         m_cam_vec; ///< Vector of param vectors for each camera
   intrinsic_vector_t                        m_shared_intrinsics; ///< Record shared intrinsic values
   boost::shared_ptr<vw::camera::LensDistortion>  m_shared_lens_distortion; ///< Copy of input lens distortion object
-  size_t m_num_intrinsics;
-  bool   m_solve_intrinsics;
+  size_t m_num_intrinsics;   ///< Number of intrinsic parameters which can be solve for.
+  bool   m_solve_intrinsics; ///< If true, include intrinisic parameters in the solution.
+  double m_pixel_pitch;      ///< This pinhole intrinsic param is always kept constant.
 
 public:
   /// Contructor requires a list of input pinhole models
@@ -292,6 +290,7 @@ public:
     // - If we are not changing intrinsic parameters, we can just re-use this.
     // - Otherwise we use it as a makeshift factory.
     m_shared_lens_distortion = pinhole_ptr->lens_distortion()->copy();
+    m_pixel_pitch = pinhole_ptr->pixel_pitch(); // Record this, it is kept constant.
   
     // Copy all of the input camera model information to the internal 
     //  camera parameters vector
@@ -355,8 +354,6 @@ public:
                          intrinsic_vector_t const& intrinsics) const{
     const size_t num_intrinsics = num_intrinsic_params();
     cam_j.set_size(6+num_intrinsics);
-    std::cout << "subvector S: " << cam_j << std::endl;
-    std::cout << "subvector S: " << intrinsics << std::endl;
     subvector(cam_j, 0, 3) = position;
     subvector(cam_j, 3, 3) = pose.axis_angle();
     if (!are_intrinsics_constant())
@@ -379,7 +376,7 @@ public:
     // Otherwise, make a copy of the stored lens model and then change the parameters.
     boost::shared_ptr<vw::camera::LensDistortion> output = m_shared_lens_distortion->copy();
     
-    const size_t NUM_PINHOLE_INTRINSICS = 4; // Focal length and focal point x,y offset, pixel_pitch.
+    const size_t NUM_PINHOLE_INTRINSICS = 3; // Focal length and focal point x,y offset.
     const size_t num_lens_params = num_intrinsic_params() - NUM_PINHOLE_INTRINSICS;
     
     vw::Vector<double> lens_params(num_lens_params);
@@ -408,8 +405,7 @@ public:
                                     pose.rotation_matrix(),
                                     intrinsics[0], intrinsics[0], // focal lengths
                                     intrinsics[1], intrinsics[2], // pixel offsets
-                                    *(lens_model.get()),
-                                    intrinsics[3]); //pixel pitch
+                                    *(lens_model.get()), m_pixel_pitch);
 
   }
 
@@ -418,7 +414,7 @@ public:
   void intrinsic_params_from_model(const vw::camera::PinholeModel & model,
                                          intrinsic_vector_t       & intrinsics) const{
 
-    const size_t NUM_PINHOLE_INTRINSICS = 4; // Focal length and focal point x,y offset, pixel_pitch.
+    const size_t NUM_PINHOLE_INTRINSICS = 3; // Focal length and focal point x,y offset.
     
     // Get the lens distortion parameters and allocate the output vector
     vw::Vector<double> lens_distortion_params = model.lens_distortion()->distortion_parameters();
@@ -431,7 +427,6 @@ public:
     intrinsics[0] = fl[0];
     intrinsics[1] = po[0];
     intrinsics[2] = po[1];
-    intrinsics[3] = model.pixel_pitch();
     
     // Copy the lens distortion parameters -> Not currently used!
     for (size_t i=0; i<num_lens_params; ++i)

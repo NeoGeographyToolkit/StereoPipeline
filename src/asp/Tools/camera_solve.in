@@ -479,7 +479,7 @@ def run_bundle_adjust(options):
     # Always run this step as otherwise there was no point to calling the tool
 
     # Run ASP's bundle_adjust tool    
-    cmd = ['/home/smcmich1/repo/StereoPipeline/src/asp/Tools/bundle_adjust'] + options.input_images + options.theia_camera_models
+    cmd = ['bundle_adjust'] + options.input_images + options.theia_camera_models
     if options.gcp_path:
       cmd += [options.gcp_path]
     cmd += ['-o', output_prefix]

@@ -199,7 +199,6 @@ struct BaReprojectionError {
       residuals[1] = (prediction[1] - m_observation[1])/m_pixel_sigma[1];
 
     } catch (std::exception const& e) {
-
       // Failed to compute residuals
 
       Mutex::Lock lock( g_ba_mutex );
@@ -240,7 +239,6 @@ struct BaReprojectionError {
   size_t m_icam, m_ipt;
 };
 
-// TODO: Consolidate with the class above!
 /// A ceres cost function. Here we float a pinhole camera's intrinsic
 /// and extrinsic parameters. The result is the residual, the
 /// difference in the observation and the projection of the point into
@@ -1361,12 +1359,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 int main(int argc, char* argv[]) {
 
   Options opt;
-  //try {
+  try {
     xercesc::XMLPlatformUtils::Initialize();
     
     handle_arguments( argc, argv, opt );
-
-    std::cout << "USING DEBUG VERSION!@!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
 
     int num_images = opt.image_files.size();
     // Create the stereo session. Try to auto-guess the session type.
@@ -1611,5 +1607,5 @@ int main(int argc, char* argv[]) {
 
     xercesc::XMLPlatformUtils::Terminate();
 
-  //} ASP_STANDARD_CATCHES;
+  } ASP_STANDARD_CATCHES;
 }
