@@ -119,7 +119,7 @@ namespace vw { namespace camera {
     vw::Mutex& m_camera_mutex;
     Vector2 m_uncompValue;
     mutable int m_begX, m_endX, m_begY, m_endY;
-    mutable bool m_compute_mean;
+    mutable bool m_compute_mean, m_stop_growing_range;
     mutable int m_count;
 
     void comp_entries_in_table() const{
@@ -182,6 +182,7 @@ namespace vw { namespace camera {
       int big = 1e+8;
       m_uncompValue = Vector2(-big, -big);
       m_compute_mean = true; // We'll set this to false when we finish estimating the mean
+      m_stop_growing_range = false; // stop when it does not help
       
       if (dynamic_cast<IsisCameraModel*>(exact_camera.get()) == NULL)
 	vw_throw( ArgumentErr()
@@ -344,7 +345,7 @@ namespace vw { namespace camera {
 				  y < m_begY || y >= m_endY-1);
 
 	// If we are not out of range, but we need to expand the computed table, do that
-	if (!out_of_range && out_of_comp_range) {
+	if (!m_stop_growing_range && !out_of_range && out_of_comp_range) {
 	  vw::Mutex::Lock lock(m_camera_mutex);
 	  g_num_locks++;
 	  vw_out(WarningMessage) << "Pixel outside of computed range. "
@@ -353,6 +354,9 @@ namespace vw { namespace camera {
 	  // If we have to expand, do it by a lot
 	  int extrax = std::max(10, int(0.1*(m_endX - m_begX)));
 	  int extray = std::max(10, int(0.1*(m_endY - m_begY)));
+
+          int old_begX = m_begX, old_begY = m_begY;
+          int old_endX = m_endX, old_endY = m_endY;
 
 	  m_begX = std::min(m_begX, int(floor(x))) - extrax; m_begX = std::max(0, m_begX);
 	  m_begY = std::min(m_begY, int(floor(y))) - extray; m_begY = std::max(0, m_begY);
@@ -369,15 +373,25 @@ namespace vw { namespace camera {
 	  // Update this
 	  out_of_comp_range = (x < m_begX || x >= m_endX-1 ||
 			       y < m_begY || y >= m_endY-1);
+
+          // Avoid an infinite loop if we can't grow the table
+          if (old_begX == m_begX && old_begY == m_begY &&
+              old_endX == m_endX && old_endY == m_endY ) {
+            m_stop_growing_range = true;
+          }
 	}
-	
+
 	if (out_of_range || out_of_comp_range){
 	  vw::Mutex::Lock lock(m_camera_mutex);
 	  g_num_locks++;
-	  vw_out(WarningMessage) << "Pixel outside of range. Current values and range: "  << ' '
-				 << x << ' ' << y << ' '
-				 << m_pixel_to_vec_mat.cols() << ' ' << m_pixel_to_vec_mat.rows()
-				 << std::endl;
+	  if (g_num_locks < 1000) // stop after printing this many warnings
+            vw_out(WarningMessage) << "Pixel outside of range. Current values and range: "  << ' '
+                                   << x << ' ' << y << ' '
+                                   << m_pixel_to_vec_mat.cols() << ' ' << m_pixel_to_vec_mat.rows()
+                                   << std::endl;
+          if (g_num_locks == 1000)
+            vw_out(WarningMessage) << "Will stop printing more warnings about pixel outside of range."
+                                   << std::endl;
 	  return m_exact_camera->point_to_pixel(xyz);
 	}
 	PixelMask<Vector3> masked_dir = pixel_to_vec_interp(x, y);
@@ -1065,6 +1079,18 @@ public:
       Quaternion<double> rotation = icam->rotation();
       asp::write_adjustments(out_camera_file, translation, rotation);
 
+      // Save adjusted files in the format <out prefix>-<input-img>.adjust
+      // so we can later read them with --bundle-adjust-prefix to be
+      // used in another SfS run.
+      if ( g_level == 0 && g_final_iter ) {
+	std::string out_camera_file
+	  = asp::bundle_adjust_file_name(g_opt->out_prefix,
+					 g_opt->input_images[image_iter],
+					 g_opt->input_cameras[image_iter]);
+	vw_out() << "Writing: " << out_camera_file << std::endl;
+	asp::write_adjustments(out_camera_file, translation, rotation);
+      }
+      
       // Compute reflectance and intensity with optimized DEM
       computeReflectanceAndIntensity(*g_dem, *g_geo,
 				     g_opt->model_shadows,
