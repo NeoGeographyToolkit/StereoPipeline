@@ -31,7 +31,7 @@ if MAKE_APP_STEREO
   bin_PROGRAMS     += stereo_corr stereo_fltr stereo_pprc stereo_rfne
   libexec_PROGRAMS += stereo_parse
   stereo_corr_LDADD       = $(APP_STEREO_LIBS)
-  stereo_corr_SOURCES     = stereo_corr.cc stereo.cc
+  stereo_corr_SOURCES     = stereo_corr.cc stereo.cc NewCorrelation.h NewCorrelation.tcc
   stereo_fltr_LDADD       = $(APP_STEREO_LIBS)
   stereo_fltr_SOURCES     = stereo_fltr.cc stereo.cc
   stereo_parse_LDADD      = $(APP_STEREO_LIBS)
@@ -47,6 +47,7 @@ if MAKE_APP_STEREO
 endif
 
 # Need this separate since it also depends on CERES
+# TODO: Pretty sure no one is going to use ASP without this!
 if MAKE_APP_STEREO_TRI
   bin_PROGRAMS        += stereo_tri
   stereo_tri_LDADD     = $(APP_STEREO_TRI_LIBS)
