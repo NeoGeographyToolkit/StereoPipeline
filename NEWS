@@ -46,7 +46,7 @@ Other
      having projected coordinates outside of the range expected by PROJ.4.
    * Removed the deprecated orthoproject tool. Now mapproject should be used. 
  
-*** RELEASE 2.5.2, Feb 29, 2015 ***
+*** RELEASE 2.5.2, Feb 29, 2016 ***
 
 Highlights
 
