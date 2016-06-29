@@ -27,6 +27,7 @@
 #include <vw/Image/AlgorithmFunctions.h>
 #include <vw/Image/PerPixelAccessorViews.h>
 #include <vw/Image/BlockRasterize.h>
+#include <vw/Stereo/StereoModel.h>
 #include <vw/Stereo/Correlation.h>
 #include <vw/Stereo/CorrelationView.h>
 #include <vw/Stereo/Correlate.h>
@@ -38,6 +39,13 @@
 #include <vw/FileIO.h>
 #include <ctime>
 #include <boost/foreach.hpp>
+#include <boost/shared_ptr.hpp>
+/*
+// DEBUG!!!!!!!!!
+#include "opencv2/core/core.hpp"
+#include "opencv2/imgproc/imgproc.hpp"
+#include "opencv2/calib3d/calib3d.hpp"
+*/
 
 /**
   Testbed for new stereo algorithm development!
@@ -62,6 +70,8 @@ namespace stereo {
     Image2T          m_right_image;
     Mask1T           m_left_mask;
     Mask2T           m_right_mask;
+    boost::shared_ptr<vw::stereo::StereoModel> m_stereo_model;
+    
     // These two variables pick a prefilter which is applied to each pyramid level
     vw::uint16 m_prefilter_mode; ///< 0 = None, 1 = Gaussian Blur, 2 = Log Filter
     float m_prefilter_width;     ///< Preprocessing filter width
@@ -74,6 +84,8 @@ namespace stereo {
     float  m_consistency_threshold; // < 0 = means don't do a consistency check
     int32  m_max_level_by_search;
 
+    /// Downsample a mask by two.
+    /// - If at least two mask pixels in a 2x2 region are on, the output pixel is on.
     struct SubsampleMaskByTwoFunc : public ReturnFixedType<uint8> {
       BBox2i work_area() const { return BBox2i(0,0,2,2); }
 
@@ -126,6 +138,7 @@ namespace stereo {
                         ImageViewBase<Image2T> const& right,
                         ImageViewBase<Mask1T > const& left_mask,
                         ImageViewBase<Mask2T > const& right_mask,
+                        boost::shared_ptr<vw::stereo::StereoModel> const& stereo_model,
                         vw::uint16 prefilter_mode, float prefilter_width,
                         BBox2i const& search_region, Vector2i const& kernel_size,
                         stereo::CostFunctionType cost_type,
@@ -134,13 +147,14 @@ namespace stereo {
                         int32 max_pyramid_levels) :
       m_left_image(left.impl()),     m_right_image(right.impl()),
       m_left_mask(left_mask.impl()), m_right_mask(right_mask.impl()),
+      m_stereo_model(stereo_model),
       m_prefilter_mode(prefilter_mode), m_prefilter_width(prefilter_width),
       m_search_region(search_region), m_kernel_size(kernel_size),
       m_cost_type(cost_type),
       m_corr_timeout(corr_timeout), m_seconds_per_op(seconds_per_op),
       m_consistency_threshold(consistency_threshold){
-      // Calculating max pyramid levels according to the supplied
-      // search region.
+      
+      // Calculating max pyramid levels according to the supplied search region.
       int32 largest_search = max( search_region.size() );
       m_max_level_by_search = std::floor(std::log(float(largest_search))/std::log(2.0f)) - 1;
       if ( m_max_level_by_search > max_pyramid_levels )
@@ -177,6 +191,7 @@ namespace stereo {
                  ImageViewBase<Image2T> const& right,
                  ImageViewBase<Mask1T > const& left_mask,
                  ImageViewBase<Mask2T > const& right_mask,
+                 boost::shared_ptr<vw::stereo::StereoModel> const& stereo_model,
                  vw::uint16 prefilter_mode, float prefilter_width,
                  BBox2i const& search_region, Vector2i const& kernel_size,
                  stereo::CostFunctionType cost_type,
@@ -185,7 +200,8 @@ namespace stereo {
                  int32 max_pyramid_levels) {
     typedef NewCorrelationView<Image1T,Image2T,Mask1T,Mask2T> result_type;
     return result_type( left.impl(),      right.impl(), 
-                        left_mask.impl(), right_mask.impl(), 
+                        left_mask.impl(), right_mask.impl(),
+                        stereo_model,
                         prefilter_mode, prefilter_width,
                         search_region,
                         kernel_size, cost_type,

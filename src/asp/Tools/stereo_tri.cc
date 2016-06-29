@@ -253,10 +253,12 @@ void compute_matches_from_disp(vector<DisparityT> const& disparities,
 
       int posy = round( (biny+0.5)*bin_len );
 
-      if (posx >= disp.cols() || posy >= disp.rows()) continue;
+      if (posx >= disp.cols() || posy >= disp.rows()) 
+        continue;
       typedef typename DisparityT::pixel_type DispPixelT;
       DispPixelT dpix = disp(posx, posy);
-      if (!is_valid(dpix)) continue;
+      if (!is_valid(dpix))
+        continue;
 
       // De-warp left and right pixels to be in the camera coordinate system
       Vector2 left_pix  = left_trans.reverse ( Vector2(posx, posy) );

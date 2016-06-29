@@ -50,6 +50,8 @@ namespace asp {
                    bool least_squares_refine = false):
       vw::stereo::StereoModel(camera_model1, camera_model2, least_squares_refine){}
     
+    virtual ~RPCStereoModel() {}
+    
     //------------------------------------------------------------------
     // Public Methods
     //------------------------------------------------------------------

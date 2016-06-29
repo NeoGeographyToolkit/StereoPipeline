@@ -22,7 +22,6 @@
 #include <vw/InterestPoint.h>
 #include <boost/accumulators/accumulators.hpp>
 #include <boost/accumulators/statistics.hpp>
-#include <vw/Stereo/PreFilter.h>
 #include <vw/Stereo/CorrelationView.h>
 #include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/DisparityMap.h>
@@ -111,6 +110,9 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
     // TODO: All of these should really be enums higher up!
     const vw::uint16 PREFILTER_CODE_LOG = 2;
 
+
+
+    boost::shared_ptr<vw::stereo::StereoModel> empty_stereo_model;
     if (stereo_settings().rm_quantile_multiple <= 0.0)
     {
       // Warning: A giant function call approaches!
@@ -121,6 +123,7 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
               vw::stereo::new_correlate( // Compute image correlation using the PyramidCorrelationView class
                   left_sub, right_sub,
                   left_mask_sub, right_mask_sub,
+                  empty_stereo_model,
                   PREFILTER_CODE_LOG, stereo_settings().slogW,
                   search_range, kernel_size, cost_mode,
                   corr_timeout, seconds_per_op,
@@ -147,11 +150,11 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
     }
     else { // Use quantile based filtering - This filter needs to be profiled to improve its speed.
     
-      // TODO: Why does only this one not work with the new class??
       // Compute image correlation using the PyramidCorrelationView class
       ImageView< PixelMask<Vector2i> > disp_image = vw::stereo::new_correlate( 
                   left_sub, right_sub,
                   left_mask_sub, right_mask_sub,
+                  empty_stereo_model,
                   PREFILTER_CODE_LOG, stereo_settings().slogW,
                   search_range, kernel_size, cost_mode,
                   corr_timeout, seconds_per_op,
@@ -168,7 +171,6 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
           TerminalProgressCallback("asp", "\t--> Low-resolution disparity:")
       );
     }
-
 
   }else if ( stereo_settings().seed_mode == 2 ) {
     // Use a DEM to get the low-res disparity
@@ -218,6 +220,9 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
   		         opt.out_prefix+"-R_sub.tif",
   		         sub_scale );
     } else {
+      // Use the IP we recorded to set the search range.
+      // - Currently we just make it large enough to contain all the matched IP!
+    
       // There exists a matchfile out there.
       vector<ip::InterestPoint> ip1, ip2;
       ip::read_binary_match_file( match_filename, ip1, ip2 );
@@ -232,27 +237,30 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
       Vector2 left_size  = file_image_size( opt.out_prefix+"-L.tif" );
       Vector2 right_size = file_image_size( opt.out_prefix+"-R.tif" );
 
+      // Loop through all the IP we found
       BBox2 search_range;
       for ( size_t i = 0; i < ip1.size(); i++ ) {
+        // Apply the alignment transforms to the recorded IP
         Vector3 r = align_right_matrix * Vector3(ip2[i].x, ip2[i].y, 1);
         Vector3 l = align_left_matrix  * Vector3(ip1[i].x, ip1[i].y, 1);
 
-	      // Don't divide by 0
-	      if (l[2] == 0 || r[2] == 0) continue;
-
+	      // Normalize the coordinates, but don't divide by 0
+	      if (l[2] == 0 || r[2] == 0) 
+          continue;
 	      r /= r[2];
 	      l /= l[2];
 
 	      // Bugfix: skip obvious outliers, points way out there
 	      if (std::abs(l[0]) > 2*left_size[0]   || std::abs(l[1]) > 2*left_size[1]  ||
-	          std::abs(r[0]) > 2*right_size[0]  || std::abs(r[1]) > 2*right_size[1] ) continue;
+	          std::abs(r[0]) > 2*right_size[0]  || std::abs(r[1]) > 2*right_size[1] ) 
+          continue;
 
-	      search_range.grow( subvector(r,0,2) - subvector(l,0,2) );
+        Vector2 this_disparity = subvector(r,0,2) - subvector(l,0,2);
+	      search_range.grow(this_disparity);
       }
       stereo_settings().search_range = grow_bbox_to_int( search_range );
     }
-    vw_out() << "\t--> Detected search range: "
-	     << stereo_settings().search_range << "\n";
+    vw_out() << "\t--> Detected search range: " << stereo_settings().search_range << "\n";
   } // End of case where we had to calculate the search range
 
   // At this point stereo_settings().search_range is populated
@@ -309,17 +317,15 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
 
 /// This correlator takes a low resolution disparity image as an input
 /// so that it may narrow its search range for each tile that is processed.
-template <class Image1T, class Image2T, 
-          class Mask1T,  class Mask2T, class SeedDispT>
-class SeededCorrelatorView : public ImageViewBase<SeededCorrelatorView<Image1T, Image2T, 
-                                                           Mask1T, Mask2T, SeedDispT > > {
-  Image1T   m_left_image;
-  Image2T   m_right_image;
-  Mask1T    m_left_mask;
-  Mask2T    m_right_mask;
-  SeedDispT m_sub_disp;
-  SeedDispT m_sub_disp_spread;
+class SeededCorrelatorView : public ImageViewBase<SeededCorrelatorView> {
+  DiskImageView<PixelGray<float> >   m_left_image;
+  DiskImageView<PixelGray<float> >   m_right_image;
+  DiskImageView<vw::uint8> m_left_mask;
+  DiskImageView<vw::uint8> m_right_mask;
+  ImageViewRef<PixelMask<Vector2i> > m_sub_disp;
+  ImageViewRef<PixelMask<Vector2i> > m_sub_disp_spread;
   ImageView<Matrix3x3> const& m_local_hom;
+  boost::shared_ptr<vw::stereo::StereoModel> m_stereo_model;
 
   // Settings
   Vector2  m_upscale_factor;
@@ -331,13 +337,21 @@ class SeededCorrelatorView : public ImageViewBase<SeededCorrelatorView<Image1T, 
   double   m_seconds_per_op;
 
 public:
-  SeededCorrelatorView( ImageViewBase<Image1T>   const& left_image,
-                        ImageViewBase<Image2T>   const& right_image,
-                        ImageViewBase<Mask1T>    const& left_mask,
-                        ImageViewBase<Mask2T>    const& right_mask,
-                        ImageViewBase<SeedDispT> const& sub_disp,
-                        ImageViewBase<SeedDispT> const& sub_disp_spread,
-                        ImageView<Matrix3x3>     const& local_hom,
+
+  // Set these input types here instead of making them template arguments
+  typedef DiskImageView<PixelGray<float> >   ImageType;
+  typedef DiskImageView<vw::uint8>           MaskType;
+  typedef ImageViewRef<PixelMask<Vector2i> > DispSeedImageType;
+  typedef ImageType::pixel_type InputPixelType;
+
+  SeededCorrelatorView( ImageType             const& left_image,
+                        ImageType             const& right_image,
+                        MaskType              const& left_mask,
+                        MaskType              const& right_mask,
+                        DispSeedImageType     const& sub_disp,
+                        DispSeedImageType     const& sub_disp_spread,
+                        ImageView<Matrix3x3>  const& local_hom,
+                        boost::shared_ptr<vw::stereo::StereoModel> const &stereo_model,
                         BBox2i   trans_crop_win,
                         Vector2i const& kernel_size,
                         stereo::CostFunctionType cost_mode,
@@ -345,7 +359,7 @@ public:
     m_left_image(left_image.impl()), m_right_image(right_image.impl()),
     m_left_mask (left_mask.impl ()), m_right_mask (right_mask.impl ()),
     m_sub_disp(sub_disp.impl()), m_sub_disp_spread(sub_disp_spread.impl()),
-    m_local_hom(local_hom),
+    m_local_hom(local_hom), m_stereo_model(stereo_model),
     m_trans_crop_win(trans_crop_win),
     m_kernel_size(kernel_size),  m_cost_mode(cost_mode),
     m_corr_timeout(corr_timeout), m_seconds_per_op(seconds_per_op){
@@ -406,8 +420,8 @@ public:
 
     Matrix<double> lowres_hom  = math::identity_matrix<3>();
     Matrix<double> fullres_hom = math::identity_matrix<3>();
-    ImageViewRef<typename Image2T::pixel_type> right_trans_img;
-    ImageViewRef<typename Mask2T::pixel_type > right_trans_mask;
+    ImageViewRef<InputPixelType> right_trans_img;
+    ImageViewRef<vw::uint8     > right_trans_mask;
 
     bool do_round = true; // round integer disparities after transform
 
@@ -421,7 +435,7 @@ public:
       seed_bbox.expand(1);
       seed_bbox.crop( m_seed_bbox );
       VW_OUT(DebugMessage, "stereo") << "Getting disparity range for : " << seed_bbox << "\n";
-      SeedDispT disparity_in_box = crop( m_sub_disp, seed_bbox );
+      DispSeedImageType disparity_in_box = crop( m_sub_disp, seed_bbox );
 
       if (!use_local_homography){
         local_search_range = stereo::get_disparity_range( disparity_in_box );
@@ -444,17 +458,17 @@ public:
 
       if (has_sub_disp_spread){
         // Expand the disparity range by m_sub_disp_spread.
-        SeedDispT spread_in_box = crop( m_sub_disp_spread, seed_bbox );
+        DispSeedImageType spread_in_box = crop( m_sub_disp_spread, seed_bbox );
 
         if (!use_local_homography){
           BBox2f spread = stereo::get_disparity_range( spread_in_box );
           local_search_range.min() -= spread.max();
           local_search_range.max() += spread.max();
         }else{
-          SeedDispT upper_disp = transform_disparities(do_round, seed_bbox, lowres_hom,
-                                                       disparity_in_box + spread_in_box);
-          SeedDispT lower_disp = transform_disparities(do_round, seed_bbox, lowres_hom,
-                                                       disparity_in_box - spread_in_box);
+          DispSeedImageType upper_disp = transform_disparities(do_round, seed_bbox, lowres_hom,
+                                                               disparity_in_box + spread_in_box);
+          DispSeedImageType lower_disp = transform_disparities(do_round, seed_bbox, lowres_hom,
+                                                               disparity_in_box - spread_in_box);
           BBox2f upper_range = stereo::get_disparity_range(upper_disp);
           BBox2f lower_range = stereo::get_disparity_range(lower_disp);
 
@@ -468,7 +482,7 @@ public:
         Vector3 dnscale( 1.0/m_upscale_factor[0], 1.0/m_upscale_factor[1], 1 );
         fullres_hom = diagonal_matrix(upscale)*lowres_hom*diagonal_matrix(dnscale);
 
-        ImageViewRef< PixelMask<typename Image2T::pixel_type> >
+        ImageViewRef< PixelMask<InputPixelType> >
           right_trans_masked_img
           = transform (copy_mask( m_right_image.impl(),
 			          create_mask(m_right_mask.impl()) ),
@@ -501,10 +515,11 @@ public:
 
     // Now we are ready to actually perform correlation
     if (use_local_homography){
-      typedef vw::stereo::NewCorrelationView<Image1T, ImageViewRef<typename Image2T::pixel_type>, 
-                                             Mask1T,  ImageViewRef<typename Mask2T::pixel_type > > CorrView;
+      typedef vw::stereo::NewCorrelationView<ImageType, ImageViewRef<InputPixelType>, 
+                                             MaskType,  ImageViewRef<vw::uint8     > > CorrView;
       CorrView corr_view( m_left_image,   right_trans_img,
                           m_left_mask,    right_trans_mask,
+                          m_stereo_model,
                           stereo_settings().pre_filter_mode,
                           stereo_settings().slogW,
                           local_search_range,
@@ -514,9 +529,10 @@ public:
                           stereo_settings().corr_max_levels );
       return corr_view.prerasterize(bbox);
     }else{
-      typedef vw::stereo::NewCorrelationView<Image1T, Image2T, Mask1T, Mask2T> CorrView;
+      typedef vw::stereo::NewCorrelationView<ImageType, ImageType, MaskType, MaskType > CorrView;
       CorrView corr_view( m_left_image,   m_right_image,
                           m_left_mask,    m_right_mask,
+                          m_stereo_model,
                           stereo_settings().pre_filter_mode,
                           stereo_settings().slogW,
                           local_search_range,
@@ -526,6 +542,7 @@ public:
                           stereo_settings().corr_max_levels );
       return corr_view.prerasterize(bbox);
     }
+    
   } // End function prerasterize_helper
 
   template <class DestT>
@@ -533,29 +550,6 @@ public:
     vw::rasterize(prerasterize(bbox), dest, bbox);
   }
 }; // End class SeededCorrelatorView
-
-
-template <class Image1T, class Image2T, class Mask1T, class Mask2T, class SeedDispT>
-SeededCorrelatorView<Image1T, Image2T, Mask1T, Mask2T, SeedDispT>
-seeded_correlation( ImageViewBase<Image1T>        const& left,
-		                ImageViewBase<Image2T>        const& right,
-		                ImageViewBase<Mask1T>         const& lmask,
-		                ImageViewBase<Mask2T>         const& rmask,
-		                ImageViewBase<SeedDispT>      const& sub_disp,
-		                ImageViewBase<SeedDispT>      const& sub_disp_spread,
-		                ImageView<Matrix3x3>          const& local_hom,
-		                BBox2i trans_crop_win,
-		                Vector2i const& kernel_size,
-		                stereo::CostFunctionType cost_type,
-		                int corr_timeout, double seconds_per_op) {
-  typedef SeededCorrelatorView<Image1T, Image2T, Mask1T, Mask2T, SeedDispT> return_type;
-  return return_type( left.impl(), right.impl(), lmask.impl(), rmask.impl(),
-		      sub_disp.impl(), sub_disp_spread.impl(),
-		      local_hom, trans_crop_win, kernel_size,
-		      cost_type, corr_timeout, seconds_per_op );
-}
-
-
 
 
 /// Main stereo correlation function, called after parsing input arguments.
@@ -620,6 +614,21 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
     read_local_homographies(local_hom_file, local_hom);
   }
 
+  // TODO: Need more infrastructure than this!
+  // TODO: Wrap in an option!!!
+  // If the intersection filtering is enabled, set up the stereo models.
+  boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
+  boost::shared_ptr<vw::stereo::StereoModel> stereo_model;
+  if (true) {
+
+    // Use the session object to load the two camera models
+    opt.session->camera_models(left_camera_model, right_camera_model);
+
+    // Strip the smart pointers and form the stereo model
+    stereo_model.reset(new vw::stereo::StereoModel(left_camera_model.get(),
+                       right_camera_model.get(), stereo_settings().use_least_squares));
+  }
+
   stereo::CostFunctionType cost_mode;
   if      (stereo_settings().cost_mode == 0) cost_mode = stereo::ABSOLUTE_DIFFERENCE;
   else if (stereo_settings().cost_mode == 1) cost_mode = stereo::SQUARED_DIFFERENCE;
@@ -628,7 +637,6 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
     vw_throw( ArgumentErr() << "Unknown value " << stereo_settings().cost_mode
 	                          << " for cost-mode.\n" );
 
-  ImageViewRef<PixelMask<Vector2i> > fullres_disparity;
   Vector2i kernel_size    = stereo_settings().corr_kernel;
   BBox2i   trans_crop_win = stereo_settings().trans_crop_win;
   int      corr_timeout   = stereo_settings().corr_timeout;
@@ -636,11 +644,12 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
   if (corr_timeout > 0)
     seconds_per_op = calc_seconds_per_op(cost_mode, left_disk_image, right_disk_image, kernel_size);
 
-    fullres_disparity =
-      seeded_correlation( left_disk_image, right_disk_image, Lmask, Rmask,
-			  sub_disp, sub_disp_spread, local_hom,
+  // Use 
+  ImageViewRef<PixelMask<Vector2i> > fullres_disparity;
+  fullres_disparity = SeededCorrelatorView( left_disk_image, right_disk_image, Lmask, Rmask,
+			  sub_disp, sub_disp_spread, local_hom, stereo_model,
 			  trans_crop_win, kernel_size, cost_mode, corr_timeout,
-			  seconds_per_op );    
+			  seconds_per_op );
     
   switch(stereo_settings().pre_filter_mode){
   case 2:
@@ -699,3 +708,4 @@ int main(int argc, char* argv[]) {
 
   return 0;
 }
+
