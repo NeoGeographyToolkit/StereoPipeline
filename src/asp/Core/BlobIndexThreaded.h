@@ -366,11 +366,9 @@ class BlobIndexThreaded {
   // Constructor does most of the processing work
   template <class SourceT>
   BlobIndexThreaded( vw::ImageViewBase<SourceT> const& src,
-                     vw::int32 const& max_area = 0,
-                     vw::int32 const& tile_size
-                     = vw::vw_settings().default_tile_size(),
-                     vw::int32 const& num_threads
-                     = vw::vw_settings().default_num_threads()
+                     vw::int32 const& max_area    = 0,
+                     vw::int32 const& tile_size   = vw::vw_settings().default_tile_size(),
+                     vw::int32 const& num_threads = vw::vw_settings().default_num_threads()
                      )
     : m_max_area(max_area), m_tile_size(tile_size) {
     

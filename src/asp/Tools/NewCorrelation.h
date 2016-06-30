@@ -34,6 +34,9 @@
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Stereo/PreFilter.h>
 
+#include <asp/Core/StereoSettings.h>
+#include <asp/Core/BlobIndexThreaded.h>
+#include <asp/Core/ErodeView.h>
 
 
 #include <vw/FileIO.h>

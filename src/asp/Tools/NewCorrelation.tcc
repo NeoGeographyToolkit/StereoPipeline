@@ -626,6 +626,38 @@ void intersection_filter(ImageView<PixelMask<Vector2i> > &disparity,
   }
 }
 
+/// Filter out small blobs of valid pixels (they are usually bad)
+void disparity_blob_filter(ImageView<PixelMask<Vector2i> > &disparity, int level) {
+
+  // Throw out blobs with this many pixels or fewer
+  int scaling = 1 << level;
+  int area    = asp::stereo_settings().erode_max_size / scaling;
+  if (area < 1)
+    return; // Skip if erode turned off
+  std::cout << "Removing blobs smaller than: " << area << std::endl;
+
+
+  if (1) { // DEBUG
+    std::cout << "Writing pre-blob image...\n";
+    std::ostringstream ostr;
+    ostr << "disparity_preblob_" << level;
+    write_image( ostr.str() + ".tif", pixel_cast<PixelMask<Vector2f> >(disparity) );
+    std::cout << "Finished writing DEBUG data...\n";
+  } // End DEBUG
+
+  // Do the entire image at once!
+  BBox2i tile_size = bounding_box(disparity);
+  int big_size = tile_size.width();
+  if (tile_size.height() > big_size) 
+    big_size = tile_size.height();
+    
+  BlobIndexThreaded smallBlobIndex(disparity, area, big_size);
+  ImageView<PixelMask<Vector2i> > filtered_image = applyErodeView(disparity, smallBlobIndex);
+
+  disparity = filtered_image;
+}
+
+
 
 template <class Image1T, class Image2T, class Mask1T, class Mask2T>
 typename NewCorrelationView<Image1T, Image2T, Mask1T, Mask2T>::prerasterize_type
@@ -803,7 +835,7 @@ prerasterize(vw::BBox2i const& bbox) const {
       //std::cout << "Applying stats filter...\n";
       //disparity_stats_filter(disparity);
       //std::cout << "Finished applying stats filter!\n";
-      
+     
 
       // 3.2a) Filter the disparity so we are not processing more than we need to.
       //       - Inner function filtering is only to catch "speckle" type noise of individual ouliers.
@@ -811,6 +843,8 @@ prerasterize(vw::BBox2i const& bbox) const {
       const int32 rm_half_kernel = 5;
       const float rm_min_matches_percent = 0.5;
       const float rm_threshold = 3.0;
+
+      std::cout << "Applying kernel filter...\n";
 
       if ( !on_last_level ) {
         disparity = disparity_mask(disparity_cleanup_using_thresh
@@ -831,6 +865,12 @@ prerasterize(vw::BBox2i const& bbox) const {
                                      right_mask_pyramid[level]);
       }
 
+
+      // The kernel based filtering tends to leave isolated blobs behind.
+      std::cout << "Applying blob filter...\n";
+      disparity_blob_filter(disparity, level);
+      std::cout << "Finished applying blob filter!\n";
+
       // 3.2b) Refine search estimates but never let them go beyond
       // the search region defined by the user
       if ( !on_last_level ) {
@@ -840,7 +880,8 @@ prerasterize(vw::BBox2i const& bbox) const {
         // On the next resolution level, break up the image area into multiple
         // smaller zones with similar disparities.  This helps minimize
         // the total amount of searching done on the image.
-        subdivide_regions( disparity, bounding_box(disparity),
+        std::cout << "Subdividing zones...\n";
+        subdivide_regions2( disparity, bounding_box(disparity),
                            zones, m_kernel_size );
 
         
@@ -863,29 +904,33 @@ prerasterize(vw::BBox2i const& bbox) const {
           zone.disparity_range() *= 2;
           zone.disparity_range().expand(2); // This is practically required. Our
           // correlation will fail if the search has only one solution.
-          //zone.disparity_range().expand(6); // Don't let the range get too tight!
-          zone.disparity_range().crop( scale_search_region );
-          
-        if (0) { // DEBUG
-          BBox2i scaled = bbox/2;
-          std::ostringstream ostr;
-          ostr << "disparity_" << scaled.min()[0] << "_"
-               << scaled.min()[1] << "_" << scaled.max()[0] << "_"
-               << scaled.max()[1] << "_" << level;
-          write_image( ostr.str() + ".tif", pixel_cast<PixelMask<Vector2f> >(disparity) );
-          std::ofstream f( (ostr.str() + "_zone.txt").c_str() );
-          BOOST_FOREACH( SearchParam& zone, zones ) {
-            f << zone.image_region() << " " << zone.disparity_range() << "\n";
-          }
-          write_image( ostr.str() + "left.tif",  left_pyramid [level] );
-          write_image( ostr.str() + "right.tif", right_pyramid[level] );
-          write_image( ostr.str() + "lmask.tif", left_mask_pyramid [level] );
-          write_image( ostr.str() + "rmask.tif", right_mask_pyramid[level] );
-          f.close();
-        } // End DEBUG
-          
-        }
+          // - Increasing this expansion number improves results slightly but
+          //   significantly increases the processing times.
+          zone.disparity_range().crop( scale_search_region );         
+        } // End zone update loop
+        
       } // End not the last level case
+      
+      if (1) { // DEBUG
+        std::cout << "Writing DEBUG data...\n";
+        BBox2i scaled = bbox/2;
+        std::ostringstream ostr;
+        ostr << "disparity_" << scaled.min()[0] << "_"
+             << scaled.min()[1] << "_" << scaled.max()[0] << "_"
+             << scaled.max()[1] << "_" << level;
+        write_image( ostr.str() + ".tif", pixel_cast<PixelMask<Vector2f> >(disparity) );
+        std::ofstream f( (ostr.str() + "_zone.txt").c_str() );
+        BOOST_FOREACH( SearchParam& zone, zones ) {
+          f << zone.image_region() << " " << zone.disparity_range() << "\n";
+        }
+        write_image( ostr.str() + "left.tif",  left_pyramid [level] );
+        write_image( ostr.str() + "right.tif", right_pyramid[level] );
+        write_image( ostr.str() + "lmask.tif", left_mask_pyramid [level] );
+        write_image( ostr.str() + "rmask.tif", right_mask_pyramid[level] );
+        f.close();
+        std::cout << "Finished writing DEBUG data...\n";
+      } // End DEBUG
+      
     } // End of the level loop
 
     VW_ASSERT( bbox.size() == bounding_box(disparity).size(),
