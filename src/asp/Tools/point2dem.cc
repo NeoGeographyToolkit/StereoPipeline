@@ -25,7 +25,7 @@
 #include <asp/Core/Common.h>
 #include <asp/Core/StereoSettings.h>
 #include <vw/Image/AntiAliasing.h>
-#include <asp/Core/InpaintView.h>
+#include <vw/Image/InpaintView.h>
 
 #include <vw/Core/Stopwatch.h>
 #include <vw/Core/StringUtils.h>

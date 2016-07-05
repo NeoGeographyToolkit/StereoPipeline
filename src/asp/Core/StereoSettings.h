@@ -108,7 +108,6 @@ namespace asp {
     vw::uint16 pre_filter_mode;       // 0 = None
                                       // 1 = Gaussian Blur
                                       // 2 = Log Filter
-                                      // 3 = SLog Filter
 
     vw::uint16  seed_mode;            // 0 = None, use global search for each tile
                                       // 1 = Use low-res disparity from stereo

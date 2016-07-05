@@ -22,16 +22,14 @@
 
 if MAKE_MODULE_CORE
 
-TestBlobIndexThreaded_SOURCES  = TestBlobIndexThreaded.cxx
 TestCommon_SOURCES             = TestCommon.cxx
-TestErodeView_SOURCES          = TestErodeView.cxx
 TestIntegralAutoGainDetector_SOURCES = TestIntegralAutoGainDetector.cxx
 TestInterestPointMatching_SOURCES = TestInterestPointMatching.cxx
 TestThreadedEdgeMask_SOURCES   = TestThreadedEdgeMask.cxx
 TestSoftwareRenderer_SOURCES   = TestSoftwareRenderer.cxx
 TestPointUtils_SOURCES   = TestPointUtils.cxx
 
-TESTS = TestErodeView TestBlobIndexThreaded TestThreadedEdgeMask                    \
+TESTS = TestThreadedEdgeMask                    \
         TestInterestPointMatching TestSoftwareRenderer TestIntegralAutoGainDetector \
         TestCommon TestPointUtils
 

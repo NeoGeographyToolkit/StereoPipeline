@@ -32,13 +32,13 @@
 #include <vw/Math/BBox.h>
 #include <vw/Math/Statistics.h>
 #include <vw/Image/Filter.h>
+#include <vw/Image/InpaintView.h>
 
 #include <asp/Core/SoftwareRenderer.h>
 #include <asp/Core/Point2Grid.h>
 #include <boost/foreach.hpp>
 #include <boost/math/special_functions/next.hpp>
 #include <asp/Core/OrthoRasterizer.h>
-#include <asp/Core/InpaintView.h>
 #include <valarray>
 
 namespace asp{

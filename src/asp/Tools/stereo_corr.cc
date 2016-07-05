@@ -107,12 +107,7 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
     if (corr_timeout > 0)
       seconds_per_op = calc_seconds_per_op(cost_mode, left_sub, right_sub, kernel_size);
 
-    // TODO: All of these should really be enums higher up!
-    const vw::uint16 PREFILTER_CODE_LOG = 2;
 
-
-
-    boost::shared_ptr<vw::stereo::StereoModel> empty_stereo_model;
     if (stereo_settings().rm_quantile_multiple <= 0.0)
     {
       // Warning: A giant function call approaches!
@@ -120,11 +115,10 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
       vw::cartography::block_write_gdal_image( // Write to disk
           opt.out_prefix + "-D_sub.tif",
           rm_outliers_using_thresh( // Throw out individual pixels that are far from any neighbors
-              vw::stereo::new_correlate( // Compute image correlation using the PyramidCorrelationView class
+              vw::stereo::pyramid_correlate( // Compute image correlation using the PyramidCorrelationView class
                   left_sub, right_sub,
                   left_mask_sub, right_mask_sub,
-                  empty_stereo_model,
-                  PREFILTER_CODE_LOG, stereo_settings().slogW,
+                  vw::stereo::PREFILTER_LOG, stereo_settings().slogW,
                   search_range, kernel_size, cost_mode,
                   corr_timeout, seconds_per_op,
                   stereo_settings().xcorr_threshold, stereo_settings().corr_max_levels
@@ -151,11 +145,10 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
     else { // Use quantile based filtering - This filter needs to be profiled to improve its speed.
     
       // Compute image correlation using the PyramidCorrelationView class
-      ImageView< PixelMask<Vector2i> > disp_image = vw::stereo::new_correlate( 
+      ImageView< PixelMask<Vector2i> > disp_image = vw::stereo::pyramid_correlate( 
                   left_sub, right_sub,
                   left_mask_sub, right_mask_sub,
-                  empty_stereo_model,
-                  PREFILTER_CODE_LOG, stereo_settings().slogW,
+                  vw::stereo::PREFILTER_LOG, stereo_settings().slogW,
                   search_range, kernel_size, cost_mode,
                   corr_timeout, seconds_per_op,
                   stereo_settings().xcorr_threshold, stereo_settings().corr_max_levels
@@ -325,7 +318,6 @@ class SeededCorrelatorView : public ImageViewBase<SeededCorrelatorView> {
   ImageViewRef<PixelMask<Vector2i> > m_sub_disp;
   ImageViewRef<PixelMask<Vector2i> > m_sub_disp_spread;
   ImageView<Matrix3x3> const& m_local_hom;
-  boost::shared_ptr<vw::stereo::StereoModel> m_stereo_model;
 
   // Settings
   Vector2  m_upscale_factor;
@@ -351,7 +343,6 @@ public:
                         DispSeedImageType     const& sub_disp,
                         DispSeedImageType     const& sub_disp_spread,
                         ImageView<Matrix3x3>  const& local_hom,
-                        boost::shared_ptr<vw::stereo::StereoModel> const &stereo_model,
                         BBox2i   trans_crop_win,
                         Vector2i const& kernel_size,
                         stereo::CostFunctionType cost_mode,
@@ -359,7 +350,7 @@ public:
     m_left_image(left_image.impl()), m_right_image(right_image.impl()),
     m_left_mask (left_mask.impl ()), m_right_mask (right_mask.impl ()),
     m_sub_disp(sub_disp.impl()), m_sub_disp_spread(sub_disp_spread.impl()),
-    m_local_hom(local_hom), m_stereo_model(stereo_model),
+    m_local_hom(local_hom),
     m_trans_crop_win(trans_crop_win),
     m_kernel_size(kernel_size),  m_cost_mode(cost_mode),
     m_corr_timeout(corr_timeout), m_seconds_per_op(seconds_per_op){
@@ -515,12 +506,11 @@ public:
 
     // Now we are ready to actually perform correlation
     if (use_local_homography){
-      typedef vw::stereo::NewCorrelationView<ImageType, ImageViewRef<InputPixelType>, 
+      typedef vw::stereo::PyramidCorrelationView<ImageType, ImageViewRef<InputPixelType>, 
                                              MaskType,  ImageViewRef<vw::uint8     > > CorrView;
       CorrView corr_view( m_left_image,   right_trans_img,
                           m_left_mask,    right_trans_mask,
-                          m_stereo_model,
-                          stereo_settings().pre_filter_mode,
+                          static_cast<vw::stereo::PrefilterModeType>(stereo_settings().pre_filter_mode),
                           stereo_settings().slogW,
                           local_search_range,
                           m_kernel_size,  m_cost_mode,
@@ -529,11 +519,10 @@ public:
                           stereo_settings().corr_max_levels );
       return corr_view.prerasterize(bbox);
     }else{
-      typedef vw::stereo::NewCorrelationView<ImageType, ImageType, MaskType, MaskType > CorrView;
+      typedef vw::stereo::PyramidCorrelationView<ImageType, ImageType, MaskType, MaskType > CorrView;
       CorrView corr_view( m_left_image,   m_right_image,
                           m_left_mask,    m_right_mask,
-                          m_stereo_model,
-                          stereo_settings().pre_filter_mode,
+                          static_cast<vw::stereo::PrefilterModeType>(stereo_settings().pre_filter_mode),
                           stereo_settings().slogW,
                           local_search_range,
                           m_kernel_size,  m_cost_mode,
@@ -614,21 +603,6 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
     read_local_homographies(local_hom_file, local_hom);
   }
 
-  // TODO: Need more infrastructure than this!
-  // TODO: Wrap in an option!!!
-  // If the intersection filtering is enabled, set up the stereo models.
-  boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
-  boost::shared_ptr<vw::stereo::StereoModel> stereo_model;
-  if (true) {
-
-    // Use the session object to load the two camera models
-    opt.session->camera_models(left_camera_model, right_camera_model);
-
-    // Strip the smart pointers and form the stereo model
-    stereo_model.reset(new vw::stereo::StereoModel(left_camera_model.get(),
-                       right_camera_model.get(), stereo_settings().use_least_squares));
-  }
-
   stereo::CostFunctionType cost_mode;
   if      (stereo_settings().cost_mode == 0) cost_mode = stereo::ABSOLUTE_DIFFERENCE;
   else if (stereo_settings().cost_mode == 1) cost_mode = stereo::SQUARED_DIFFERENCE;
@@ -647,7 +621,7 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
   // Use 
   ImageViewRef<PixelMask<Vector2i> > fullres_disparity;
   fullres_disparity = SeededCorrelatorView( left_disk_image, right_disk_image, Lmask, Rmask,
-			  sub_disp, sub_disp_spread, local_hom, stereo_model,
+			  sub_disp, sub_disp_spread, local_hom, 
 			  trans_crop_win, kernel_size, cost_mode, corr_timeout,
 			  seconds_per_op );
     

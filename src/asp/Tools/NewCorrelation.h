@@ -35,8 +35,8 @@
 #include <vw/Stereo/PreFilter.h>
 
 #include <asp/Core/StereoSettings.h>
-#include <asp/Core/BlobIndexThreaded.h>
-#include <asp/Core/ErodeView.h>
+#include <vw/Image/BlobIndex.h>
+#include <vw/Image/ErodeView.h>
 
 
 #include <vw/FileIO.h>

@@ -637,7 +637,7 @@ void disparity_blob_filter(ImageView<PixelMask<Vector2i> > &disparity, int level
   std::cout << "Removing blobs smaller than: " << area << std::endl;
 
 
-  if (1) { // DEBUG
+  if (0) { // DEBUG
     std::cout << "Writing pre-blob image...\n";
     std::ostringstream ostr;
     ostr << "disparity_preblob_" << level;
@@ -911,7 +911,7 @@ prerasterize(vw::BBox2i const& bbox) const {
         
       } // End not the last level case
       
-      if (1) { // DEBUG
+      if (0) { // DEBUG
         std::cout << "Writing DEBUG data...\n";
         BBox2i scaled = bbox/2;
         std::ostringstream ostr;

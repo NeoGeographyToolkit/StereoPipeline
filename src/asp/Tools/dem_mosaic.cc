@@ -46,9 +46,10 @@
 #include <vw/Cartography.h>
 #include <vw/Math.h>
 #include <vw/FileIO/DiskImageManager.h>
+#include <vw/Image/InpaintView.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
-#include <asp/Core/InpaintView.h>
+
 
 #include <boost/math/special_functions/fpclassify.hpp>
 #include <boost/math/special_functions/erf.hpp>
@@ -950,7 +951,7 @@ public:
 
     // Fill holes
     if (m_opt.hole_fill_len > 0){
-      tile = apply_mask(asp::fill_holes_grass
+      tile = apply_mask(vw::fill_holes_grass
 			   (create_mask(tile, m_opt.out_nodata_value),
 			    m_opt.hole_fill_len),
 			m_opt.out_nodata_value);

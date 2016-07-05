@@ -19,12 +19,13 @@
 /// \file stereo_pprc.cc
 ///
 #include <vw/Image/AntiAliasing.h>
+#include <vw/Image/BlobIndex.h>
+#include <vw/Image/InpaintView.h>
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Math/Functors.h>
 #include <asp/Tools/stereo.h>
 #include <asp/Core/ThreadedEdgeMask.h>
-#include <asp/Core/InpaintView.h>
 #include <asp/Sessions/ResourceLoader.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
@@ -60,7 +61,7 @@ struct BlobHolder {
   // This object will ensure that the current BlobIndexThreaded object
   // is not de-allocated while still being used to fill holes in a
   // given mask.
-  boost::shared_ptr<BlobIndexThreaded> m_blobPtr;
+  boost::shared_ptr<vw::BlobIndexThreaded> m_blobPtr;
 
   // Member function which does the hole-filling.
   ImageViewRef< PixelMask<uint8> > mask_and_fill_holes( ImageViewRef< PixelGray<float> > const& img,

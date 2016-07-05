@@ -19,12 +19,13 @@
 /// \file stereo_fltr.cc
 ///
 #include <asp/Tools/stereo.h>
+
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
+#include <vw/Image/BlobIndex.h>
+#include <vw/Image/ErodeView.h>
+#include <vw/Image/InpaintView.h>
 
-#include <asp/Core/BlobIndexThreaded.h>
-#include <asp/Core/InpaintView.h>
-#include <asp/Core/ErodeView.h>
 #include <asp/Core/ThreadedEdgeMask.h>
 #include <asp/Sessions/StereoSession.h>
 #include <xercesc/util/PlatformUtils.hpp>

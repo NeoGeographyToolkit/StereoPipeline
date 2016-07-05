@@ -29,16 +29,16 @@ ba_sources = BundleAdjustUtils.cc
 
 endif
 
-include_HEADERS = BlobIndexThreaded.h StereoSettings.h SparseView.h        \
-                  InpaintView.h MedianFilter.h OrthoRasterizer.h           \
-                  SoftwareRenderer.h ErodeView.h $(ba_headers) Macros.h    \
+include_HEADERS = StereoSettings.h        \
+                  MedianFilter.h OrthoRasterizer.h           \
+                  SoftwareRenderer.h $(ba_headers) Macros.h    \
                   Common.h Common.tcc ThreadedEdgeMask.h                   \
                   InterestPointMatching.h FileUtils.h \
                   DemDisparity.h LocalHomography.h AffineEpipolar.h        \
                   Point2Grid.h PointUtils.h PhotometricOutlier.h
 
 
-libaspCore_la_SOURCES = BlobIndexThreaded.cc Common.cc MedianFilter.cc   \
+libaspCore_la_SOURCES = Common.cc MedianFilter.cc   \
                   SoftwareRenderer.cc StereoSettings.cc $(ba_sources)    \
                   InterestPointMatching.cc DemDisparity.cc               \
                   LocalHomography.cc AffineEpipolar.cc Point2Grid.cc     \
