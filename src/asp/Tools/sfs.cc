@@ -54,6 +54,7 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 int g_num_locks = 0;
+const size_t g_num_model_coeffs = 4;
 
 using namespace vw;
 using namespace vw::camera;
@@ -62,6 +63,9 @@ using namespace vw::cartography;
 typedef InterpolationView<ImageViewRef< PixelMask<float> >, BilinearInterpolation> BilinearInterpT;
 typedef ImageViewRef< PixelMask<float> > MaskedImgT;
 
+// TODO: Rename opt.max_height_change to new usage.
+// TODO: Study more floating model coefficients.
+// TODO: Rm half lunar lambert.
 // TODO: Study why using tabulated camera model and multiple resolutions does
 // not work as well as it should.
 // TODO: When using approx camera, we assume the DEM and image grids are very similar.
@@ -235,8 +239,10 @@ namespace vw { namespace camera {
 
       vw_out() << "Size of lookup table: " << numx << ' ' << numy << std::endl;
 
-      m_begX = 0.25*numx; m_endX = 0.75*numx;
-      m_begY = 0.25*numy; m_endY = 0.75*numy;
+      // Choose f so that the width from m_begX to m_endX is 2 x original wx
+      double f = (extra-0.5)/(2.0*extra+1.0);
+      m_begX = f*numx; m_endX = (1.0-f)*numx;
+      m_begY = f*numy; m_endY = (1.0-f)*numy;
       
       vw_out() << "Size of actually pre-computed table: "
 	       << m_endX - m_begX << ' ' << m_endY - m_begY << std::endl;
@@ -602,19 +608,21 @@ void areInShadow(Vector3 & sunPos, ImageView<double> const& dem,
 struct Options : public vw::cartography::GdalWriteOptions {
   std::string input_dem, out_prefix, stereo_session_string, bundle_adjust_prefix;
   std::vector<std::string> input_images, input_cameras;
-  std::string shadow_thresholds, image_exposures;
+  std::string shadow_thresholds, image_exposure_prefix, model_coeffs_prefix;
   std::vector<float> shadow_threshold_vec;
   std::vector<double> image_exposures_vec;
+  std::vector<double> model_coeffs_vec;
 
   int max_iterations, max_coarse_iterations, reflectance_type, coarse_levels;
   bool float_albedo, float_exposure, float_cameras, model_shadows,
-    use_approx_camera_models, crop_input_images, float_dem_at_boundary;
+    use_approx_camera_models, crop_input_images, float_dem_at_boundary, float_reflectance_model;
   double smoothness_weight, init_dem_height, nodata_val, max_height_change,
     height_change_weight, camera_position_step_size;
   Options():max_iterations(0), max_coarse_iterations(0), reflectance_type(0),
 	    coarse_levels(0), float_albedo(false), float_exposure(false), float_cameras(false),
 	    model_shadows(false), use_approx_camera_models(false),
 	    crop_input_images(false), float_dem_at_boundary(false),
+            float_reflectance_model(false),
 	    smoothness_weight(0), max_height_change(0), height_change_weight(0),
 	    camera_position_step_size(1.0) {};
 };
@@ -632,7 +640,7 @@ struct ModelParams {
   ~ModelParams(){}
 };
 
-enum {NO_REFL = 0, LAMBERT, LUNAR_LAMBERT};
+enum {NO_REFL = 0, LAMBERT, LUNAR_LAMBERT, HALF_LUNAR_LAMBERT};
 
 // computes the Lambertian reflectance model (cosine of the light
 // direction and the normal to the Moon) Vector3 sunpos: the 3D
@@ -658,7 +666,8 @@ double computeLunarLambertianReflectanceFromNormal(Vector3 const& sunPos,
 						   Vector3 const& normal,
 						   double phaseCoeffC1,
 						   double phaseCoeffC2,
-						   double & alpha) {
+						   double & alpha,
+                                                   const double * coeffs) {
   double reflectance;
   double L;
 
@@ -704,12 +713,13 @@ double computeLunarLambertianReflectanceFromNormal(Vector3 const& sunPos,
   //L = exp(-deg_alpha/60.0);
 
   //Alfred McEwen's model
-  double A = -0.019;
-  double B =  0.000242;//0.242*1e-3;
-  double C = -0.00000146;//-1.46*1e-6;
+  double O = coeffs[0]; // 1
+  double A = coeffs[1]; //-0.019;
+  double B = coeffs[2]; // 0.000242;//0.242*1e-3;
+  double C = coeffs[3]; // -0.00000146;//-1.46*1e-6;
 
-  L = 1.0 + A*deg_alpha + B*deg_alpha*deg_alpha + C*deg_alpha*deg_alpha*deg_alpha;
-
+  L = O + A*deg_alpha + B*deg_alpha*deg_alpha + C*deg_alpha*deg_alpha*deg_alpha;
+ 
   //printf(" deg_alpha = %f, L = %f\n", deg_alpha, L);
 
   //if (mu_0 < 0.0){
@@ -741,11 +751,106 @@ double computeLunarLambertianReflectanceFromNormal(Vector3 const& sunPos,
   return reflectance;
 }
 
+double computeHalfLunarLambertianReflectanceFromNormal(Vector3 const& sunPos,
+						   Vector3 const& viewPos,
+						   Vector3 const& xyz,
+						   Vector3 const& normal,
+						   double phaseCoeffC1,
+						   double phaseCoeffC2,
+						   double & alpha,
+                                                   const double * coeffs) {
+  double reflectance;
+  double L;
+
+  double len = dot_prod(normal, normal);
+  if (abs(len - 1.0) > 1.0e-4){
+    std::cerr << "Error: Expecting unit normal in the reflectance computation, in "
+	      << __FILE__ << " at line " << __LINE__ << std::endl;
+    exit(1);
+  }
+
+  //compute /mu_0 = cosine of the angle between the light direction and the surface normal.
+  //sun coordinates relative to the xyz point on the Moon surface
+  //Vector3 sunDirection = -normalize(sunPos-xyz);
+  Vector3 sunDirection = normalize(sunPos-xyz);
+  double mu_0 = dot_prod(sunDirection, normal);
+
+  //double tol = 0.3;
+  //if (mu_0 < tol){
+  //  // Sun is too low, reflectance is too close to 0, the albedo will be inaccurate
+  //  return 0.0;
+  // }
+
+  //compute  /mu = cosine of the angle between the viewer direction and the surface normal.
+  //viewer coordinates relative to the xyz point on the Moon surface
+  Vector3 viewDirection = normalize(viewPos-xyz);
+  double mu = dot_prod(viewDirection,normal);
+
+  //compute the phase angle (alpha) between the viewing direction and the light source direction
+  double deg_alpha;
+  double cos_alpha;
+
+  cos_alpha = dot_prod(sunDirection,viewDirection);
+  if ((cos_alpha > 1)||(cos_alpha< -1)){
+    printf("cos_alpha error\n");
+  }
+
+  alpha     = acos(cos_alpha);  // phase angle in radians
+  deg_alpha = alpha*180.0/M_PI; // phase angle in degrees
+
+  //printf("deg_alpha = %f\n", deg_alpha);
+
+  //Bob Gaskell's model
+  //L = exp(-deg_alpha/60.0);
+
+  //Alfred McEwen's model
+  double O = coeffs[0]; // 1
+  double A = coeffs[1]; //-0.019;
+  double B = coeffs[2]; // 0.000242;//0.242*1e-3;
+  double C = coeffs[3]; // -0.00000146;//-1.46*1e-6;
+
+  L = O + A*deg_alpha + B*deg_alpha*deg_alpha + C*deg_alpha*deg_alpha*deg_alpha;
+ 
+  //printf(" deg_alpha = %f, L = %f\n", deg_alpha, L);
+
+  //if (mu_0 < 0.0){
+  //  return 0.0;
+  // }
+
+  //  if (mu < 0.0){ //emission angle is > 90
+  //  mu = 0.0;
+  //}
+
+  //if (mu_0 + mu == 0){
+  //  //printf("negative reflectance\n");
+  //  return 0.0;
+  //}
+  //else{
+  reflectance = 2*L*mu_0/(mu_0+mu) + (1-L)*mu_0;
+
+  double reflectance2 = sunDirection[0]*normal[0] + sunDirection[1]*normal[1] + sunDirection[2]*normal[2];
+  
+  //}
+  
+  if (mu < 0 || mu_0 < 0 || mu_0 + mu <= 0 ||  reflectance <= 0 || reflectance != reflectance){
+    return 0.0;
+  }
+
+  // Attempt to compensate for points on the terrain being too bright
+  // if the sun is behind the spacecraft as seen from those points.
+
+  //reflectance *= std::max(0.4, exp(-alpha*alpha));
+  reflectance *= ( exp(-phaseCoeffC1*alpha) + phaseCoeffC2 );
+
+  return 0.5*(reflectance + reflectance2);
+}
+
 double ComputeReflectance(Vector3 const& cameraPosition,
 			  Vector3 const& normal, Vector3 const& xyz,
 			  ModelParams const& input_img_params,
 			  GlobalParams const& global_params,
-			  double & phase_angle) {
+			  double & phase_angle,
+                          const double * coeffs) {
   double input_img_reflectance;
 
   switch ( global_params.reflectanceType )
@@ -758,8 +863,19 @@ double ComputeReflectance(Vector3 const& cameraPosition,
 						      xyz,  normal,
 						      global_params.phaseCoeffC1,
 						      global_params.phaseCoeffC2,
-						      phase_angle // output
-						      );
+						      phase_angle, // output
+                                                      coeffs);
+      break;
+    case HALF_LUNAR_LAMBERT:
+      //printf("Lunar Lambert\n");
+      input_img_reflectance
+	= computeHalfLunarLambertianReflectanceFromNormal(input_img_params.sunPosition,
+						      cameraPosition,
+						      xyz,  normal,
+						      global_params.phaseCoeffC1,
+						      global_params.phaseCoeffC2,
+						      phase_angle, // output
+                                                      coeffs);
       break;
     case LAMBERT:
       //printf("Lambert\n");
@@ -790,7 +906,8 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
 				    MaskedImgT const & image,
 				    CameraModel const* camera,
 				    PixelMask<double> &reflectance,
-				    PixelMask<double> & intensity) {
+				    PixelMask<double> & intensity,
+                                    const double * coeffs) {
 
   // Set output values
   reflectance = 0; reflectance.invalidate();
@@ -858,7 +975,8 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   double phase_angle;
   reflectance = ComputeReflectance(cameraPosition,
 				   normal, base, local_model_params,
-				   global_params, phase_angle);
+				   global_params, phase_angle,
+                                   coeffs);
   reflectance.validate();
 
 
@@ -912,7 +1030,8 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
 				    MaskedImgT const & image,
 				    CameraModel const* camera,
 				    ImageView< PixelMask<double> > & reflectance,
-				    ImageView< PixelMask<double> > & intensity) {
+				    ImageView< PixelMask<double> > & intensity,
+                                    const double * coeffs) {
 
   // Update max_dem_height
   max_dem_height = -std::numeric_limits<double>::max();
@@ -944,11 +1063,20 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
 				     gridx, gridy,
 				     model_params, global_params,
 				     crop_box, image, camera,
-				     reflectance(col, row), intensity(col, row));
+				     reflectance(col, row), intensity(col, row),
+                                     coeffs);
     }
   }
 
   return;
+}
+
+std::string exposure_file_name(std::string const& prefix){
+  return prefix + "-exposures.txt";
+}
+
+std::string model_coeffs_file_name(std::string const& prefix){
+  return prefix + "-model_coeffs.txt";
 }
 
 // Form a finer resolution image with given dimensions from a coarse image.
@@ -985,6 +1113,7 @@ double                                       * g_gridx;
 double                                       * g_gridy;
 int                                            g_level = -1;
 bool                                           g_final_iter = false;
+double                                       * g_coeffs; 
 
 // When floating the camera position and orientation, multiply the
 // position variables by this factor times
@@ -1054,6 +1183,31 @@ public:
 			   has_nodata, *g_nodata_val,
 			   *g_opt, tpc);
 
+    std::string exposure_file = exposure_file_name(g_opt->out_prefix);
+    vw_out() << "Writing: " << exposure_file << std::endl;
+    std::ofstream exf(exposure_file.c_str());
+    exf.precision(18);
+    for (size_t image_iter = 0; image_iter < (*g_masked_images).size();
+	 image_iter++){
+      exf << g_exposures[image_iter] << " ";
+    }
+    exf << "\n";
+    exf.close();
+    
+    std::string model_coeffs_file = model_coeffs_file_name(g_opt->out_prefix);
+    vw_out() << "Writing: " << model_coeffs_file << std::endl;
+    std::ofstream mcf(model_coeffs_file.c_str());
+    mcf.precision(18);
+    for (size_t coeff_iter = 0; coeff_iter < g_num_model_coeffs; coeff_iter++){
+      mcf << g_coeffs[coeff_iter] << " ";
+    }
+    mcf << "\n";
+    mcf.close();
+
+    vw_out() << "Model coefficients: "; 
+    for (size_t i = 0; i < g_num_model_coeffs; i++) vw_out() << g_coeffs[i] << " ";
+    vw_out() << std::endl;
+    
     // If there's just one image, print reflectance and other things
     for (size_t image_iter = 0; image_iter < (*g_masked_images).size();
 	 image_iter++) {
@@ -1101,7 +1255,8 @@ public:
 				     (*g_crop_boxes)[image_iter],
 				     (*g_masked_images)[image_iter],
 				     (*g_cameras)[image_iter].get(),
-				     reflectance, intensity);
+				     reflectance, intensity,
+                                     g_coeffs);
 
       std::string out_intensity_file = g_opt->out_prefix + "-meas-intensity"
 	+ iter_str2 + ".tif";
@@ -1218,7 +1373,8 @@ struct IntensityError {
 		  const F* const top,
 		  const F* const albedo,
 		  const F* const adjustments, // camera adjustments
-		  F* residuals) const {
+		  const F* const coeffs, // Lunar lambertian model coeffs
+                  F* residuals) const {
 
     // Default residuals. Using here 0 rather than some big number tuned out to
     // work better than the alternative.
@@ -1255,7 +1411,7 @@ struct IntensityError {
 				       m_gridx, m_gridy,
 				       m_model_params,  m_global_params,
 				       m_crop_box, m_image, &adj_cam_copy,
-				       reflectance, intensity);
+				       reflectance, intensity, coeffs);
       if (success && is_valid(intensity) && is_valid(reflectance))
 	residuals[0] = (intensity - albedo[0]*exposure[0]*reflectance).child();
 
@@ -1285,7 +1441,7 @@ struct IntensityError {
 				     MaskedImgT const& image,
 				     boost::shared_ptr<CameraModel> const& camera){
     return (new ceres::NumericDiffCostFunction<IntensityError,
-	    ceres::CENTRAL, 1, 1, 1, 1, 1, 1, 1, 1, 6>
+	    ceres::CENTRAL, 1, 1, 1, 1, 1, 1, 1, 1, 6, g_num_model_coeffs>
 	    (new IntensityError(col, row, dem, geo,
 				model_shadows,
 				camera_position_step_size,
@@ -1305,7 +1461,7 @@ struct IntensityError {
   GlobalParams                      const & m_global_params;  // alias
   ModelParams                       const & m_model_params;   // alias
   BBox2i                                    m_crop_box;
-  MaskedImgT                   const & m_image;          // alias
+  MaskedImgT                        const & m_image;          // alias
   boost::shared_ptr<CameraModel>    const & m_camera;         // alias
 };
 
@@ -1331,16 +1487,16 @@ struct SmoothnessError {
 
   template <typename T>
   bool operator()(const T* const bl,   const T* const bottom,    const T* const br,
-		  const T* const left, const T* const center, const T* const right,
-		  const T* const tl,   const T* const top, const T* const tr,
+		  const T* const left, const T* const center,    const T* const right,
+		  const T* const tl,   const T* const top,       const T* const tr,
 		  T* residuals) const {
     try{
 
-      // Normalize by grid size seems to make the functional less,
+      // Normalize by grid size seems to make the functional less
       // sensitive to the actual grid size used.
       residuals[0] = (left[0] + right[0] - 2*center[0])/m_gridx/m_gridx;   // u_xx
       residuals[1] = (br[0] + tl[0] - bl[0] - tr[0] )/4.0/m_gridx/m_gridy; // u_xy
-      residuals[2] = residuals[1];                                           // u_yx
+      residuals[2] = residuals[1];                                         // u_yx
       residuals[3] = (bottom[0] + top[0] - 2*center[0])/m_gridy/m_gridy;   // u_yy
 
       for (int i = 0; i < 4; i++)
@@ -1401,6 +1557,48 @@ struct HeightChangeError {
     return (new ceres::NumericDiffCostFunction<HeightChangeError,
 	    ceres::CENTRAL, 1, 1>
 	    (new HeightChangeError(orig_height, max_height_change,
+				   height_change_weight)));
+  }
+
+  double m_orig_height, m_max_height_change, m_height_change_weight;
+};
+
+// A cost function that will penalize deviating by more than
+// a given value from the original height
+struct LinearHeightChangeError {
+  LinearHeightChangeError(double orig_height, double max_height_change,
+		    double height_change_weight):
+    m_orig_height(orig_height), m_max_height_change(max_height_change),
+    m_height_change_weight(height_change_weight){}
+
+  template <typename T>
+  bool operator()(const T* const center, T* residuals) const {
+
+    double delta = pow(std::abs(center[0] - m_orig_height)/m_max_height_change,
+                       m_height_change_weight);
+    residuals[0] = delta;
+
+    return true;
+    
+//     if (delta < m_max_height_change) {
+//       residuals[0] = T(0);
+//     }else{
+//       // Use a smooth function here, with a value of 0
+//       // when delta == m_max_height_change.
+//       double delta2 = delta - m_max_height_change;
+//       residuals[0] = T( delta2*delta2*m_height_change_weight );
+//     }
+//     return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(double orig_height,
+				     double max_height_change,
+				     double height_change_weight){
+    return (new ceres::NumericDiffCostFunction<LinearHeightChangeError,
+	    ceres::CENTRAL, 1, 1>
+	    (new LinearHeightChangeError(orig_height, max_height_change,
 				   height_change_weight)));
   }
 
@@ -1496,14 +1694,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Crop the images and keep them fully in memory, for speed.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Use the camera adjustments obtained by previously running bundle_adjust with this output prefix.")
-    ("image-exposures", po::value(&opt.image_exposures)->default_value(""),
-     "Optional initial guess image exposures to use, otherwise they are computed automatically (a list of real values in quotes).")
+    ("image-exposures-prefix", po::value(&opt.image_exposure_prefix)->default_value(""),
+     "Use this prefix to optionally read initial exposures (filename is <prefix>-exposures.txt).")
+    ("model-coeffs-prefix", po::value(&opt.model_coeffs_prefix)->default_value(""),
+     "Use this prefix to optionally read Lunar Lambertian model coefficients from a file (filename is <prefix>-model_coeffs.txt).")
     ("init-dem-height", po::value(&opt.init_dem_height)->default_value(std::numeric_limits<double>::quiet_NaN()),
      "Use this value for initial DEM heights. An input DEM still needs to be provided for georeference information.")
     ("nodata-value", po::value(&opt.nodata_val)->default_value(std::numeric_limits<double>::quiet_NaN()),
      "Use this as the DEM no-data value, over-riding what is in the initial guess DEM.")
     ("float-dem-at-boundary",   po::bool_switch(&opt.float_dem_at_boundary)->default_value(false)->implicit_value(true),
      "Allow the DEM values at the boundary of the region to also float (not advised).")
+    ("float-reflectance-model",   po::bool_switch(&opt.float_reflectance_model)->default_value(false)->implicit_value(true),
+     "Allow the coefficients of the Lunar-Lambertian model to float (not recommended).")
     ("camera-position-step-size", po::value(&opt.camera_position_step_size)->default_value(1.0),
      "Larger step size will result in more aggressiveness in varying the camera position if it is being floated (which may result in a better solution or in divergence).")
     ("max-height-change", po::value(&opt.max_height_change)->default_value(0),
@@ -1564,6 +1766,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   vw_throw( ArgumentErr() << "Missing input images.\n"
 	    << usage << general_options );
 
+  // Create the output directory
+  vw::create_out_dir(opt.out_prefix);
+
+  // Turn on logging to file
+  asp::log_to_file(argc, argv, "", opt.out_prefix);
+
   // Parse shadow thresholds
   std::istringstream ist(opt.shadow_thresholds);
   opt.shadow_threshold_vec.clear();
@@ -1589,7 +1797,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
 
   // Initial image exposures, if provided
-  std::istringstream ise(opt.image_exposures);
+  std::string exposure_file = exposure_file_name(opt.image_exposure_prefix);
+  std::ifstream ise(exposure_file.c_str());
   opt.image_exposures_vec.clear();
   double dval;
   while (ise >> dval)
@@ -1598,10 +1807,26 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.image_exposures_vec.size() != opt.input_images.size())
     vw_throw(ArgumentErr()
 	     << "If specified, there must be as many image exposures as images.\n");
-
+  ise.close();
   for (size_t i = 0; i < opt.image_exposures_vec.size(); i++) {
     vw_out() << "Image exposure for " << opt.input_images[i] << ' '
 	     << opt.image_exposures_vec[i] << std::endl;
+  }
+
+  // Initial model coefficients, if provided
+  std::string model_coeffs_file = model_coeffs_file_name(opt.model_coeffs_prefix);
+  std::ifstream ism(model_coeffs_file.c_str());
+  opt.model_coeffs_vec.clear();
+  while (ism >> dval)
+    opt.model_coeffs_vec.push_back(dval);
+  if (!opt.model_coeffs_vec.empty() &&
+      opt.model_coeffs_vec.size() != g_num_model_coeffs)
+    vw_throw(ArgumentErr()
+	     << "If specified, there must be " << g_num_model_coeffs << " coefficients.\n");
+  ism.close();
+  for (size_t i = 0; i < opt.model_coeffs_vec.size(); i++) {
+    vw_out() << "Image model_coeffs for " << opt.input_images[i] << ' '
+	     << opt.model_coeffs_vec[i] << std::endl;
   }
 
   // Sanity check
@@ -1613,12 +1838,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Need this to be able to load adjusted camera models. That will happen
   // in the stereo session.
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
-
-  // Create the output directory
-  vw::create_out_dir(opt.out_prefix);
-
-  // Turn on logging to file
-  asp::log_to_file(argc, argv, "", opt.out_prefix);
 
   if (opt.input_images.size() <=1 && opt.float_albedo)
     vw_throw(ArgumentErr()
@@ -1649,7 +1868,8 @@ void run_sfs_level(// Fixed inputs
 		   ImageView<double> & albedo,
 		   std::vector<boost::shared_ptr<CameraModel> > & cameras,
 		   std::vector<double> & exposures,
-		   std::vector<double> & adjustments){
+		   std::vector<double> & adjustments,
+                   std::vector<double> & coeffs){
 
   int num_images = opt.input_images.size();
 
@@ -1707,8 +1927,9 @@ void run_sfs_level(// Fixed inputs
 				 &dem(col, row+1),            // bottom
 				 &dem(col, row-1),            // top
 				 &albedo(col, row),           // albedo
-				 &adjustments[6*image_iter]); // camera
-
+				 &adjustments[6*image_iter],  // camera
+                                 &coeffs[0]);                 // reflectance model coeffs
+        
 	// If to float the albedo
 	if (!opt.float_albedo)
 	  problem.SetParameterBlockConstant(&albedo(col, row));
@@ -1728,9 +1949,9 @@ void run_sfs_level(// Fixed inputs
 
       // Deviation from prescribed height constraint
       if (opt.max_height_change > 0 && opt.height_change_weight > 0) {
-	ceres::LossFunction* loss_function_hc = NULL;
+	ceres::LossFunction* loss_function_hc = NULL; // Need fixing here!
 	ceres::CostFunction* cost_function_hc =
-	  HeightChangeError::Create(orig_dem(col, row),
+	  LinearHeightChangeError::Create(orig_dem(col, row),
 				    opt.max_height_change,
 				    opt.height_change_weight);
 	problem.AddResidualBlock(cost_function_hc, loss_function_hc,
@@ -1768,6 +1989,11 @@ void run_sfs_level(// Fixed inputs
     }
   }
 
+  // If to float the reflectance model coefficients
+  if (!opt.float_reflectance_model) {
+    problem.SetParameterBlockConstant(&coeffs[0]);
+  }
+  
   if (opt.num_threads > 1 && !opt.use_approx_camera_models) {
     vw_out() << "Using exact ISIS camera models. Can run with only a single thread.\n";
     opt.num_threads = 1;
@@ -1818,6 +2044,16 @@ int main(int argc, char* argv[]) {
   try {
     handle_arguments( argc, argv, opt );
 
+    // Default model coefficients, unless they were read already
+    if (opt.model_coeffs_vec.empty()) {
+      opt.model_coeffs_vec.resize(g_num_model_coeffs);
+      opt.model_coeffs_vec[0] = 1;
+      opt.model_coeffs_vec[1] = -0.019;
+      opt.model_coeffs_vec[2] =  0.000242;   //0.242*1e-3;
+      opt.model_coeffs_vec[3] = -0.00000146; //-1.46*1e-6;
+    }
+    g_coeffs = &opt.model_coeffs_vec[0];
+    
     ImageView<double> dem
       = copy(DiskImageView<double>(opt.input_dem) );
     double nodata_val = -std::numeric_limits<float>::max(); // note we use a float nodata
@@ -2049,6 +2285,8 @@ int main(int argc, char* argv[]) {
       global_params.reflectanceType = LAMBERT;
     else if (opt.reflectance_type == 1)
       global_params.reflectanceType = LUNAR_LAMBERT;
+    else if (opt.reflectance_type == 2)
+      global_params.reflectanceType = HALF_LUNAR_LAMBERT;
     else
       vw_throw( ArgumentErr()
 		<< "Expecting Lambertian or Lunar-Lambertian reflectance." );
@@ -2104,7 +2342,8 @@ int main(int argc, char* argv[]) {
 				       crop_boxes[0][image_iter],
 				       masked_images[image_iter],
 				       cameras[image_iter].get(),
-				       reflectance, intensity);
+				       reflectance, intensity,
+                                       &opt.model_coeffs_vec[0]);
 
 	double imgmean, imgstdev, refmean, refstdev;
 	compute_image_stats(intensity, imgmean, imgstdev);
@@ -2251,7 +2490,7 @@ int main(int argc, char* argv[]) {
 		    // Quantities that will float
 		    dems[level], albedos[level], cameras,
 		    opt.image_exposures_vec,
-		    adjustments);
+		    adjustments, opt.model_coeffs_vec);
 
       // TODO: Study this. Discarding the coarse DEM and exposure so
       // keeping only the cameras seem to work better.
