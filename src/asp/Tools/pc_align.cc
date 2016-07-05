@@ -64,6 +64,8 @@
 #include <cstring>
 
 #include <pointmatcher/PointMatcher.h>
+#include <ceres/ceres.h>
+#include <ceres/loss_function.h>
 
 #include <asp/Tools/pc_align_utils.h>
 
@@ -144,7 +146,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("max-num-source-points",    po::value(&opt.max_num_source_points)->default_value(100000),
                                  "Maximum number of (randomly picked) source points to use (after discarding gross outliers).")
     ("alignment-method",         po::value(&opt.alignment_method)->default_value("point-to-plane"),
-                                 "The type of iterative closest point method to use. [point-to-plane, point-to-point, similarity-point-to-point]")
+                                 "The type of iterative closest point method to use. [point-to-plane, point-to-point, similarity-point-to-point, least-squares]")
     ("highest-accuracy",         po::bool_switch(&opt.highest_accuracy)->default_value(false)->implicit_value(true),
                                  "Compute with highest accuracy for point-to-plane (can be much slower).")
     ("csv-format",               po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
@@ -257,11 +259,18 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_out() << "Initial guess transform:\n" << opt.init_transform << endl;
   }
 
-  if (opt.alignment_method != "point-to-plane" && opt.alignment_method != "point-to-point" &&
-      opt.alignment_method != "similarity-point-to-point" )
-    vw_throw( ArgumentErr() << "Only the following alignment methods are supported: point-to-plane, point-to-point, and similarity-point-to-point.\n"
+  if (opt.alignment_method != "point-to-plane"            &&
+      opt.alignment_method != "point-to-point"            &&
+      opt.alignment_method != "similarity-point-to-point" &&
+      opt.alignment_method != "least-squares" )
+    vw_throw( ArgumentErr() << "Only the following alignment methods are supported: "
+	      << "point-to-plane, point-to-point, similarity-point-to-point, and least-squares.\n"
 	      << usage << general_options );
-  
+
+  if (opt.alignment_method == "least-squares" && get_file_type(opt.reference) != "DEM")
+    vw_throw( ArgumentErr()
+	      << "Least squares alignment can be used only when the "
+	      << "reference cloud is a DEM.\n" );
 }
 
 /// Try to read the georef/datum info, need it to read CSV files.
@@ -592,6 +601,140 @@ void calcErrorsWithDem(DP          const& point_cloud,
 
 }
 
+template<class F>
+void extract_rotation_translation(F       * transform, 
+				  Quat    & rotation,
+				  Vector3 & translation){
+
+  
+  Vector3 axis_angle;
+  for (int i = 0; i < 3; i++){
+    translation[i] = transform[i];
+    axis_angle[i]  = transform[i+3];
+  }
+  rotation = axis_angle_to_quaternion(axis_angle);
+}
+
+// Discrepancy between a 3D point with the rotation to be solved
+// applied to it, and its projection straight down onto the DEM. Used
+// with the least squares method of finding the best transform between
+// clouds.
+struct PointToDemError {
+  PointToDemError(Vector3 const& point,
+		 ImageViewRef< PixelMask<float> > const& dem,
+		 cartography::GeoReference const& geo):
+    m_point(point), m_dem(dem), m_geo(geo){}
+
+  template <typename F>
+  bool operator()(const F* const transform, F* residuals) const {
+
+    // Default residuals are zero, if we can't project into the DEM
+    residuals[0] = F(0.0);
+
+    // Extract the translation and rotation
+    Vector3 translation;
+    Quat rotation;
+    extract_rotation_translation(transform, rotation, translation);
+
+    Vector3 trans_point = rotation.rotate(m_point) + translation;
+    
+    // Convert from GDC to GCC
+    Vector3 llh = m_geo.datum().cartesian_to_geodetic(trans_point); // lon-lat-height
+
+    // Interpolate the point at this location
+    double dem_height_here;
+    if (!interp_dem_height(m_dem, m_geo, llh, dem_height_here)) {
+      // If we did not intersect the DEM, record a flag error value here.
+      residuals[0] = F(0.0);
+      return true;
+    }
+    
+    residuals[0] = llh[2] - dem_height_here;
+    return true;
+  }
+  
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(Vector3 const& point,
+				     ImageViewRef< PixelMask<float> > const& dem,
+				     vw::cartography::GeoReference const& geo){
+    return (new ceres::NumericDiffCostFunction<PointToDemError,
+	    ceres::CENTRAL, 1, 6>
+	    (new PointToDemError(point, dem, geo)));
+  }
+
+  Vector3                                  m_point;
+  ImageViewRef< PixelMask<float> > const & m_dem;    // alias
+  cartography::GeoReference        const & m_geo;    // alias
+};
+
+/// Compute alignment using least squares
+PointMatcher<RealT>::Matrix
+least_squares_alignment(DP & source_point_cloud, // Should not be modified
+			vw::Vector3 const& point_cloud_shift,
+			vw::cartography::GeoReference        const& dem_georef,
+			vw::ImageViewRef< PixelMask<float> > const& dem_ref,
+			Options const& opt) {
+
+  ceres::Problem problem;
+
+  // The final transform as a axis angle and translation pair
+  std::vector<double> transform(6, 0.0);
+
+  // Add a residual block for every source point
+  const int num_pts = source_point_cloud.features.cols();
+
+  // Loop through every point in the point cloud
+  for(int i = 0; i < num_pts; ++i){
+    
+    // Extract and un-shift the point to get the real GCC coordinate
+    Vector3 gcc_coord = get_cloud_gcc_coord(source_point_cloud, point_cloud_shift, i);
+
+    ceres::CostFunction* cost_function =
+      PointToDemError::Create(gcc_coord, dem_ref, dem_georef);
+    ceres::LossFunction* loss_function = new ceres::CauchyLoss(0.5); // NULL;
+    problem.AddResidualBlock(cost_function, loss_function, &transform[0]);
+    
+  } // End loop through all points
+
+  ceres::Solver::Options options;
+  options.gradient_tolerance = 1e-16;
+  options.function_tolerance = 1e-16;
+  options.max_num_iterations = opt.num_iter;
+  options.minimizer_progress_to_stdout = 1;
+  options.num_threads = opt.num_threads;
+  options.linear_solver_type = ceres::SPARSE_SCHUR;
+
+  // Solve the problem
+  ceres::Solver::Summary summary;
+  ceres::Solve(options, &problem, &summary);
+
+  vw_out() << summary.FullReport() << "\n" << std::endl;
+
+  Quat rotation;
+  Vector3 translation;
+  extract_rotation_translation(&transform[0], rotation, translation);
+  Matrix<double,3,3> rot_matrix = rotation.rotation_matrix();
+  
+  PointMatcher<RealT>::Matrix T = PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1);
+  for (int row = 0; row < DIM; row++){
+    for (int col = 0; col < DIM; col++){
+      T(row, col) = rot_matrix(col, row);
+    }
+  }
+
+  for (int row = 0; row < DIM; row++)
+    T(row, DIM) = translation[row];
+
+
+  // This transform is in the world coordinate system (as that's the natural
+  // coord system for the DEM). Transform it to the internal shifted coordinate
+  // system.
+  T = apply_shift(T, point_cloud_shift);
+
+  return T;
+}
+
 /// Filters out all points from point_cloud with an error entry higher than cutoff
 void filterPointsByError(DP & point_cloud, PointMatcher<RealT>::Matrix &errors, double cutoff) {
 
@@ -740,6 +883,13 @@ Eigen::Vector3d vw_vector3_to_eigen(vw::Vector3 const& vw_vector) {
   return Eigen::Vector3d(vw_vector[0], vw_vector[1], vw_vector[2]);
 }
 
+// Need this to placate libpointmatcher.
+std::string alignment_method_fallback(std::string const& alignment_method){
+  if (alignment_method == "least-squares") 
+    return "point-to-plane";
+  return alignment_method;
+}
+  
 
 // Compute a manual transform based on tie points (interest point matches).
 void manual_transform(Options & opt){
@@ -985,18 +1135,22 @@ int main( int argc, char *argv[] ) {
     // Filter the reference and initialize the reference tree
     double elapsed_time;
     PM::ICP icp; // LibpointMatcher object
+
     Stopwatch sw3;
     if (opt.verbose)
       vw_out() << "Building the reference cloud tree." << endl;
     sw3.start();
-    icp.initRefTree(ref_point_cloud, opt.alignment_method, opt.highest_accuracy, false /*opt.verbose*/);
+    icp.initRefTree(ref_point_cloud, alignment_method_fallback(opt.alignment_method),
+		    opt.highest_accuracy, false /*opt.verbose*/);
     sw3.stop();
     if (opt.verbose)
       vw_out() << "Reference point cloud processing took " << sw3.elapsed_seconds() << " [s]" << endl;
-
     // Apply the initial guess transform to the source point cloud.
-    icp.transformations.apply(source_point_cloud, initT);
-
+    //icp.transformations.apply(source_point_cloud, initT); // buggy, do manually below
+    for (int col = 0; col < source_point_cloud.features.cols(); col++) {
+      source_point_cloud.features.col(col) = initT*source_point_cloud.features.col(col);
+    }
+    
     PointMatcher<RealT>::Matrix beg_errors;
     if (opt.max_disp > 0.0){
       // Filter gross outliers
@@ -1026,7 +1180,7 @@ int main( int argc, char *argv[] ) {
       // Read the options from the command line
       icp.setParams(opt.out_prefix, opt.num_iter, opt.outlier_ratio,
                     (2.0*M_PI/360.0)*opt.diff_rotation_err, // convert to radians
-                    opt.diff_translation_err, opt.alignment_method,
+                    opt.diff_translation_err, alignment_method_fallback(opt.alignment_method),
                     false/*opt.verbose*/);
     }else{
       vw_out() << "Will read the options from: " << opt.config_file << endl;
@@ -1036,17 +1190,24 @@ int main( int argc, char *argv[] ) {
                   << opt.config_file << "\n" );
       icp.loadFromYaml(ifs);
     }
+
     // We bypass calling ICP if the user explicitely asks for 0 iterations.
     PointMatcher<RealT>::Matrix T = Id;
     if (opt.num_iter > 0){
-      T = icp(source_point_cloud, ref_point_cloud, Id,
-              opt.compute_translation_only);
-      vw_out() << "Match ratio: "
-               << icp.errorMinimizer->getWeightedPointUsedRatio() << endl;
+      if (opt.alignment_method != "least-squares") {
+	T = icp(source_point_cloud, ref_point_cloud, Id,
+		opt.compute_translation_only);
+	vw_out() << "Match ratio: "
+		 << icp.errorMinimizer->getWeightedPointUsedRatio() << endl;
+      }else{
+	T = least_squares_alignment(source_point_cloud, shift,
+				    dem_georef, reference_dem_ref, opt);
+      }
+      
     }
     sw4.stop();
     if (opt.verbose)
-      vw_out() << "ICP took " << sw4.elapsed_seconds() << " [s]" << endl;
+      vw_out() << "Alignment took " << sw4.elapsed_seconds() << " [s]" << endl;
 
     // Transform the source to make it close to reference.
     DP trans_source_point_cloud(source_point_cloud);
