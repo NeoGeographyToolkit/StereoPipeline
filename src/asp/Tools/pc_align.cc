@@ -851,7 +851,7 @@ void filter_source_cloud(DP          const& ref_point_cloud,
       filterPointsByError(source_point_cloud, error_matrix, opt.max_disp);
     } else { // LPM only method
         // Points in source_point_cloud further than opt.max_disp from ref_point_cloud are deleted!
-        pm_icp_object.filterGrossOutliersAndCalcErrors(ref_point_cloud, opt.max_disp*opt.max_disp,
+        pm_icp_object.filterGrossOutliersAndCalcErrors(ref_point_cloud, opt.max_disp,
                                                        source_point_cloud, error_matrix);
     }
   }catch(const PointMatcher<RealT>::ConvergenceError & e){
