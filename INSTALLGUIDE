@@ -41,6 +41,7 @@ Python (version >= 2.6.1)
 g++, gfortran (version >= 4.4.7)
 csh
 libtool
+libtool-bin
 autoconf
 automake
 git-core
@@ -59,7 +60,7 @@ freeglut3-dev
 If you have root access on your machine you can install them on a
 Debian-based distribution using the following command:
 
-sudo apt-get install g++ gfortran csh libtool autoconf automake   \
+sudo apt-get install g++ gfortran csh libtool libtool-bin autoconf automake   \
   git-core subversion xserver-xorg-dev xorg-dev libx11-dev        \
   libxext-dev libxmu6 libxmu-dev libxi-dev libgl1-mesa-dev        \
   libglu1-mesa-dev freeglut3-dev
