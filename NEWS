@@ -45,6 +45,8 @@ Other
    * Make ASP handle gracefully georeferenced images with some pixels
      having projected coordinates outside of the range expected by PROJ.4.
    * Removed the deprecated orthoproject tool. Now mapproject should be used. 
+   * Fixed a bug in pc_align which caused the --max-disp argument to be misread
+     in some situations.
  
 *** RELEASE 2.5.2, Feb 29, 2016 ***
 

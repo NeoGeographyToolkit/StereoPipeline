@@ -297,9 +297,8 @@ terrain obtained from ASP to an accurate set of ground
 measurements.
 
 In the next two sections we will show how to process unmodified and
-map-projected variants of World View imagery. This steps will be the
-same for Digital Globe's other satellites. The imagery we are using are
-from the free stereo pair example of Lucknow, India available from
+map-projected variants of World View imagery. The imagery we are using is
+from the free stereo pair example of Guangzhou, China available from
 Digital Globe's website \cite{digital-globe:samples}. These images
 represent a non-ideal problem for us since this is an urban location,
 but at least you should be able to download this imagery yourself and
@@ -308,19 +307,19 @@ follow along.
 \section{Processing Raw}
 \label{rawdg}
 
-After you have downloaded the example stereo imagery of India, you
+After you have downloaded the example stereo imagery of China, you
 will find a directory titled
 
 \begin{verbatim}
-  052783824050_01_P001_PAN
+  053950035030_01_P001_PAN
 \end{verbatim}
 
 It has a lot of files and many of them contain redundant information
 just displayed in different formats. We are interested only in the TIF
 or NTF imagery and the similarly named XML files.
 
-Further investigation of the files downloaded will show that there are
-in fact 4 image files. This is because Digital Globe breaks down a
+Some Worldview folders will contain multiple image files. 
+This is because Digital Globe breaks down a
 single observation into multiple files for what we assume are size
 reasons. These files have a pattern string of ``\_R[N]C1-'', where N
 increments for every subframe of the full observation. The tool named
@@ -333,7 +332,9 @@ and create an appropriate camera file
 \end{verbatim}
 
 and analogously for the second set. See section \ref{dgmosaic} for more
-details. The \texttt{stereo} program can use either the original or the mosaicked images.
+details. The \texttt{stereo} program can use either the original or the 
+mosaicked images.  This sample data only contains two image files so we 
+do not need to use the \texttt{dg\_mosaic} tool.
 
 Since we are ingesting these images raw, it is strongly recommended that
 you use affine epipolar alignment to reduce the search range. The
@@ -341,10 +342,10 @@ you use affine epipolar alignment to reduce the search range. The
 
 \begin{verbatim}
     > stereo -t dg --subpixel-mode 1 --alignment-method affineepipolar \
-             12FEB12053305-P1BS_R2C1-052783824050_01_P001.TIF          \
-             12FEB12053341-P1BS_R2C1-052783824050_01_P001.TIF          \
-             12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML          \
-             12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML dg/dg
+             13DEC28032941-P1BS-053950035030_01_P001.TIF          \
+             13DEC28033039-P1BS-053950035030_01_P001.TIF          \
+             13DEC28032941-P1BS-053950035030_01_P001.XML          \
+             13DEC28033039-P1BS-053950035030_01_P001.XML dg/dg
 \end{verbatim}
 
 Alternatively, the \texttt{stereo\_gui} frontend can be invoked, with
@@ -352,10 +353,9 @@ the same options, as described in section \ref{stereo_gui}.
 
 \begin{figure}[h!]
 \centering
-  \includegraphics[width=2.0in]{images/examples/dg/DigitalGlobeContext_400px.png}
-  \includegraphics[width=2.0in]{images/examples/dg/DigitalGlobeCloseUp_400px.png}
-  \includegraphics[width=2.0in]{images/examples/dg/DigitalGlobeCloseUpDRG_400px.png}
-\caption{Example colorized height map and ortho image output.}
+  \includegraphics[width=3.0in]{images/examples/dg/wv_tutorial_input.png}
+  \includegraphics[width=3.0in]{images/examples/dg/wv_tutorial_colormap.png}
+\caption{Example WV image section and colorized height map.}
 \label{fig:dg-nomap-example}
 \end{figure}
 
