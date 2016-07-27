@@ -84,7 +84,8 @@ public:
 
   inline result_type operator()( size_t col, size_t row, size_t p=0 ) const {
 
-    if ( m_img(col, row, p) == m_nodata_val ) return m_nodata_val;
+    if ( m_img(col, row, p) == m_nodata_val )
+      return m_nodata_val; // Skip invalid pixels
 
     Vector2 lonlat = m_georef.pixel_to_lonlat(Vector2(col, row));
 
@@ -92,6 +93,8 @@ public:
     //lonlat[0] = -121;   lonlat[1] = 37;   // mainland US
     //lonlat[0] = -152;   lonlat[1] = 66;   // Alaska
     //lonlat[0] = -155.5; lonlat[1] = 19.5; // Hawaii
+
+    // TODO: This wrapping needs to be integrated in the Georef class!
 
     // Need to carefully wrap lonlat to the [0, 360) x [-90, 90) box.
     // Note that lon = 25, lat = 91 is the same as lon = 180 + 25, lat = 89
@@ -109,6 +112,8 @@ public:
     while( lonlat[0] <   0.0  ) lonlat[0] += 360.0;
     while( lonlat[0] >= 360.0 ) lonlat[0] -= 360.0;
 
+
+
     result_type geoid_height = 0.0;
     if (m_is_egm2008){
       int nr = m_geoid.rows(), 
@@ -120,13 +125,15 @@ public:
       // Use our own interpolation into the geoid image
       Vector2  pix = m_geoid_georef.lonlat_to_pixel(lonlat);
       PixelMask<double> interp_val = m_geoid(pix[0], pix[1]);
-      if (!is_valid(interp_val)) return m_nodata_val;
+      if (!is_valid(interp_val))
+        return m_nodata_val;
       geoid_height = interp_val.child();
     }
 
     geoid_height += m_correction;
 
     result_type height_above_ellipsoid = m_img(col, row, p);
+    
     // Compute height above the geoid
     // - See the note in the main program about the formula below
     if (m_reverse_adjustment)
@@ -376,7 +383,6 @@ int main( int argc, char *argv[] ) {
     GeoReference geoid_georef;
     read_georeference(geoid_georef, geoid_rsrc);
 
-
     if (is_wgs84 && !is_egm2008){
       // Convert the egm96 int16 JPEG2000-encoded geoid to float.
       double a =  0, 
@@ -436,6 +442,9 @@ int main( int argc, char *argv[] ) {
       = interpolate(create_mask( pixel_cast<double>(geoid_img), 
                                  geoid_nodata_val ),
                     BicubicInterpolation(), ZeroEdgeExtension());
+
+    //vw_out() << "Input DEM georef: " << dem_georef << std::endl;
+    //vw_out() << "Geoid georef: " << geoid_georef << std::endl;
 
     // Set up conversion image view
     ImageViewRef<double> adj_dem = dem_geoid(dem_img, dem_georef,

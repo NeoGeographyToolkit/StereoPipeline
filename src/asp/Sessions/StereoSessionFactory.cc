@@ -102,6 +102,11 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
         actual_session_type = "isismapisis";
         VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: isismapisis" << std::endl;
       }
+      if (!input_dem.empty() && actual_session_type == "spot5") {
+        // User says SPOT5 .. but also gives a DEM.
+        actual_session_type = "spot5maprpc";
+        VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: spot5maprpc" << std::endl;
+      }
       if (!input_dem.empty() && actual_session_type == "aster") {
         // User says ASTER .. but also gives a DEM.
         actual_session_type = "astermaprpc";
@@ -130,7 +135,7 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
     VW_ASSERT(!actual_session_type.empty(),
               vw::ArgumentErr() << "Could not determine stereo session type. "
               << "Please set it explicitly using the -t switch.\n"
-              << "Options include: [pinhole isis dg rpc spot5 aster pinholemappinhole isismapisis dgmaprpc rpcmaprpc astermaprpc].\n");
+              << "Options include: [pinhole isis dg rpc spot5 aster pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc astermaprpc].\n");
     VW_OUT(vw::DebugMessage,"asp") << "Using session: " << actual_session_type << std::endl;
 
     // Compare the current session name to all recognized types
@@ -150,6 +155,8 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
       session_new = StereoSessionRPCMapRPC::construct();
     else if (actual_session_type == "pinholemappinhole")
       session_new = StereoSessionPinholeMapPinhole::construct();
+    else if (actual_session_type == "spot5maprpc")
+        session_new = StereoSessionSpot5MapRPC::construct();
     else if (actual_session_type == "astermaprpc")
         session_new = StereoSessionASTERMapRPC::construct();
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1

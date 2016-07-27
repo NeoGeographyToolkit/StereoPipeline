@@ -590,7 +590,6 @@ int main( int argc, char* argv[] ) {
 
   Options opt;
   try {
-
     handle_arguments( argc, argv, opt );
 
     // TODO: Replace this using the new CameraModelLoader functions
@@ -796,7 +795,8 @@ int main( int argc, char* argv[] ) {
     }
 
     // Determine the pixel type of the input image
-    boost::scoped_ptr<SrcImageResource> image_rsrc(DiskImageResource::open(opt.image_file));
+    boost::shared_ptr<DiskImageResource> image_rsrc = asp::load_disk_image_resource(opt.image_file, 
+                                                                            opt.camera_model_file);
     ImageFormat image_fmt = image_rsrc->format();
     const int num_input_channels = num_channels(image_fmt.pixel_format);
 

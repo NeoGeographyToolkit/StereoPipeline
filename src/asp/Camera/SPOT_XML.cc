@@ -116,6 +116,25 @@ vw::ImageFormat SpotXML::get_image_format(std::string const& xml_path) {
   return xml_reader.get_image_format();
 }
 
+BBox2 SpotXML::get_estimated_bounds(std::string const& xml_path) {
+  SpotXML xml_reader;
+  DOMElement * root = xml_reader.open_xml_file(xml_path);
+  // Just get this one node we need to find the four corners
+  DOMElement* raster_dims_node = get_node<DOMElement>(root, "Dataset_Frame");
+  xml_reader.read_corners(raster_dims_node);
+  
+  return xml_reader.get_estimated_bounds();
+}
+
+std::vector<vw::Vector2> SpotXML::get_lonlat_corners(std::string const& xml_path) {
+  SpotXML xml_reader;
+  DOMElement * root = xml_reader.open_xml_file(xml_path);
+  // Just get this one node we need to find the four corners
+  DOMElement* raster_dims_node = get_node<DOMElement>(root, "Dataset_Frame");
+  xml_reader.read_corners(raster_dims_node);
+  return xml_reader.lonlat_corners;
+}
+
 void SpotXML::parse_xml(xercesc::DOMElement* node) {
 
   //std::cout << "Find dataset\n";
@@ -311,6 +330,7 @@ void SpotXML::read_corners(xercesc::DOMElement* dataset_frame_node) {
   pixel_corners.resize(NUM_CORNERS);
 
   // Look through the four vertex nodes
+  // - Currently we assume they are always in the same order!
   DOMNodeList* children = dataset_frame_node->getChildNodes();
   size_t count = 0;
   for ( XMLSize_t i = 0; i < children->getLength(); ++i ) {
@@ -328,7 +348,6 @@ void SpotXML::read_corners(xercesc::DOMElement* dataset_frame_node) {
     XmlUtils::cast_xmlch(XmlUtils::get_node<DOMElement>(curr_element, "FRAME_LAT")->getTextContent(), lonlat_corners[count].y());
     XmlUtils::cast_xmlch(XmlUtils::get_node<DOMElement>(curr_element, "FRAME_ROW")->getTextContent(), pixel_corners[count].y());
     XmlUtils::cast_xmlch(XmlUtils::get_node<DOMElement>(curr_element, "FRAME_COL")->getTextContent(), pixel_corners[count].x());
-    lonlat_corners[count].z() = 0;
     ++count;
     if (count == NUM_CORNERS)
       return;
@@ -366,6 +385,15 @@ vw::ImageFormat SpotXML::get_image_format() const {
   format.channel_type  = VW_CHANNEL_UINT8;
   format.premultiplied = true; // Don't do anything funny to the data
   return format;
+}
+
+vw::BBox2 SpotXML::get_estimated_bounds() const {
+  // Just expand a bounding box to contain all the corners listed in the file.
+  vw::BBox2 output;
+  for (size_t i=0; i<lonlat_corners.size(); ++i) {
+    output.grow(lonlat_corners[i]);
+  }
+  return output;
 }
 
 

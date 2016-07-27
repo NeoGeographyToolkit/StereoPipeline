@@ -47,7 +47,7 @@ namespace asp {
     DISKTRANSFORM_TYPE_MAP_PROJECT_RPC     = 2,  // RPC     map projected image
     DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS    = 3,  // ISIS    map projected image
     DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE = 4,  // Pinhole map projected image
-    //DISKTRANSFORM_TYPE_MAP_PROJECT_SPOT5 = 5   // Spot5   map projected image
+    DISKTRANSFORM_TYPE_MAP_PROJECT_SPOT5   = 5,  // Spot5   map projected image
     DISKTRANSFORM_TYPE_MAP_PROJECT_ASTER   = 6   // ASTER   map projected image
   };
   /// List of stereo model options
@@ -76,7 +76,7 @@ namespace asp {
   template <> struct DiskTransformType2Class<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC    > { typedef vw::cartography::Map2CamTrans type; };
   template <> struct DiskTransformType2Class<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS   > { typedef vw::cartography::Map2CamTrans type; };
   template <> struct DiskTransformType2Class<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE> { typedef vw::cartography::Map2CamTrans type; };
-//  template <> struct DiskTransformType2Class<DISKTRANSFORM_TYPE_MAP_PROJECT_SPOT5> { typedef vw::cartography::Map2CamTrans type; };
+  template <> struct DiskTransformType2Class<DISKTRANSFORM_TYPE_MAP_PROJECT_SPOT5> { typedef vw::cartography::Map2CamTrans type; };
   template <> struct DiskTransformType2Class<DISKTRANSFORM_TYPE_MAP_PROJECT_ASTER> { typedef vw::cartography::Map2CamTrans type; };
 
   /// Utility for converting STEREOMODEL_TYPE into the corresponding class
@@ -89,7 +89,7 @@ namespace asp {
   template <> struct IsTypeMapProjected<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC    > { static const bool value=true; };
   template <> struct IsTypeMapProjected<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS   > { static const bool value=true; };
   template <> struct IsTypeMapProjected<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE> { static const bool value=true; };
-//  template <> struct IsTypeMapProjected<DISKTRANSFORM_TYPE_MAP_PROJECT_SPOT5> { static const bool value=true; };
+  template <> struct IsTypeMapProjected<DISKTRANSFORM_TYPE_MAP_PROJECT_SPOT5> { static const bool value=true; };
   template <> struct IsTypeMapProjected<DISKTRANSFORM_TYPE_MAP_PROJECT_ASTER> { static const bool value=true; };
 
   /// Derived class of StereoSession with different configuration options
@@ -187,12 +187,16 @@ namespace asp {
     tx_type tx_left (Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC    >) const;
     tx_type tx_left (Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS   >) const;
     tx_type tx_left (Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE>) const;
+    tx_type tx_left (Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_SPOT5  >) const;
+    tx_type tx_left (Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_ASTER  >) const;
 
     tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MATRIX             >) const;
     tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MATRIX_RIGHT       >) const;
     tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC    >) const;
     tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_ISIS   >) const;
     tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_PINHOLE>) const;
+    tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_SPOT5  >) const;
+    tx_type tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_ASTER  >) const;
 
   };
 

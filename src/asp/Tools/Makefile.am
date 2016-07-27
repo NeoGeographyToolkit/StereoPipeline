@@ -220,6 +220,11 @@ if MAKE_APP_RPC_GEN
   libexec_PROGRAMS += rpc_gen
   rpc_gen_SOURCES = rpc_gen.cc
   rpc_gen_LDADD   = $(APP_RPC_GEN_LIBS)
+  
+  # Just add this here, it has no extra dependencies.
+  libexec_PROGRAMS += add_spot_rpc
+  add_spot_rpc_SOURCES = add_spot_rpc.cc
+  add_spot_rpc_LDADD   = $(APP_ADD_SPOT_RPC_LIBS)  
 endif
 
 if MAKE_APP_TIF_MOSAIC

@@ -199,6 +199,7 @@ void generate_point_pairs(RPC_gen_Options opt,
     // Load up the Digital Globe camera model from the camera file
     XMLPlatformUtils::Initialize();
 
+    // TODO: Replace with direct call?
     // Load the DG camera model. The API is kind of ugly.
     std::string session_name = "DG";
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;

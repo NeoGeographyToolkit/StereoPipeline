@@ -207,8 +207,7 @@ template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
 boost::shared_ptr<vw::camera::CameraModel>
 StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::camera_model(std::string const& image_file,
                                                                          std::string const& camera_file) {
-  vw_out() << "Loading camera model: " << image_file << ' ' << camera_file
-           << "\n";
+  vw_out() << "Loading camera model: " << image_file << ' ' << camera_file << "\n";
 
   if (camera_file == "") // No camera file provided, use the image file.
     return load_camera_model(STEREOMODEL_TYPE, image_file, image_file);
@@ -247,9 +246,10 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
                                image_file, camera_file, pixel_offset);
   case STEREOMODEL_TYPE_RPC:
     try {
-      if (camera_file != "")
+      if (camera_file != ""){
         return load_adjusted_model(m_camera_loader.load_rpc_camera_model(camera_file),
                                    image_file, camera_file, pixel_offset);
+      }
     }
     catch(std::exception const& e1) {
       err1 = e1.what();
@@ -410,7 +410,15 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DI
                                     right_mapproj(m_right_image_file, m_out_prefix),
                                     m_right_map_proj_model);
 }
-/*
+
+template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
+          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
+typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
+StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_left(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_SPOT5>) const {
+  return getTransformFromMapProject(m_input_dem,
+                                    left_mapproj(m_left_image_file, m_out_prefix),
+                                    m_left_map_proj_model);
+}
 template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
           STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
 typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
@@ -419,6 +427,22 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DI
                                     right_mapproj(m_right_image_file, m_out_prefix),
                                     m_right_map_proj_model);
 }
-*/
+
+template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
+          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
+typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
+StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_left(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_ASTER>) const {
+  return getTransformFromMapProject(m_input_dem,
+                                    left_mapproj(m_left_image_file, m_out_prefix),
+                                    m_left_map_proj_model);
+}
+template <STEREOSESSION_DISKTRANSFORM_TYPE  DISKTRANSFORM_TYPE,
+          STEREOSESSION_STEREOMODEL_TYPE    STEREOMODEL_TYPE>
+typename StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_type
+StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::tx_right(Int2Type<DISKTRANSFORM_TYPE_MAP_PROJECT_ASTER>) const {
+  return getTransformFromMapProject(m_input_dem,
+                                    right_mapproj(m_right_image_file, m_out_prefix),
+                                    m_right_map_proj_model);
+}
 
 } // End namespace asp

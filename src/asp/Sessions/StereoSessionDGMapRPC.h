@@ -86,6 +86,17 @@ namespace asp {
     static StereoSession* construct() { return new StereoSessionPinholeMapPinhole; }
   };
 
+  /// Specialization of the StereoSessionGDAL class to use (RPC) map-projected inputs with the SPOT5 sensor model.
+  class StereoSessionSpot5MapRPC : public StereoSessionGdal<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC, STEREOMODEL_TYPE_SPOT5>  {
+  public:
+    StereoSessionSpot5MapRPC(){};
+    virtual ~StereoSessionSpot5MapRPC(){};
+
+    virtual std::string name() const { return "spot5maprpc"; }
+
+    static StereoSession* construct() { return new StereoSessionSpot5MapRPC; }
+  };
+
   /// Specialization of the StereoSessionGDAL class to use (RPC) map-projected inputs with the ASTER sensor model.
   class StereoSessionASTERMapRPC : public StereoSessionGdal<DISKTRANSFORM_TYPE_MAP_PROJECT_RPC, STEREOMODEL_TYPE_ASTER>  {
   public:

@@ -78,7 +78,7 @@ namespace asp {
     SpotXML() : m_time_ref_functor(boost::posix_time::time_from_string("2002-05-04 00:00:00.00")) {}
 
     // The reader will populate these fields
-    std::vector<vw::Vector3> lonlat_corners;
+    std::vector<vw::Vector2> lonlat_corners;
     std::vector<vw::Vector2> pixel_corners;
     std::vector<std::pair<int,         vw::Vector2> > look_angles;   // (column, psi_x/psi_y)
     std::list  <std::pair<std::string, vw::Vector3> > pose_logs;     // (time,   yaw/pitch/roll)
@@ -98,9 +98,19 @@ namespace asp {
 
     /// Fills in an ImageFormat object required to read the associated .BIL file.
     static vw::ImageFormat get_image_format(std::string const& xml_path);
+
+    /// Load the estimated image lonlat bounds from the XML file
+    static vw::BBox2 get_estimated_bounds(std::string const& xml_path);
+    
+    /// Load the estimated image lonlat corners from the XML file
+    /// - Corners are returned in clockwise order.
+    static std::vector<vw::Vector2> get_lonlat_corners(std::string const& xml_path);
     
     /// Faster overload for when the file has already been parsed.
     vw::ImageFormat get_image_format() const;
+
+    /// Faster overload for when the file has already been parsed.
+    vw::BBox2 get_estimated_bounds() const;
 
     // Functions to setup functors which manage the raw input data.
     vw::camera::LagrangianInterpolation setup_position_func() const;
