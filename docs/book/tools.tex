@@ -2230,6 +2230,56 @@ Option & Description \\ \hline \hline
 \texttt{-h | -\/-help } & Display this help message.\\ \hline
 \end{longtable}
 
+
+\section{add\_spot\_rpc}
+\label{app:addspotrpc}
+
+The \texttt{add\_spot\_rpc} tool creates an RPC model to approximate a
+SPOT5 sensor model.  The RPC model can be appended to the end of a
+SPOT5 metadata file, allowing it to be used with the RPC session type
+in other ASP tools.  The most important application is to map project
+SPOT5 images, then to perform stereo on the map projected images with
+the \texttt{spot5maprpc} session type.
+
+If the output file does not exist, a new file is created containing the
+RPC model.  Otherwise the RPC model is appended to an existing file.
+When an existing SPOT5 metadata file is the output file, the new RPC
+model is properly inserted into the file so that it is ready to use.
+
+An example for how to use this tool is given in section \ref{sec:spot5}.
+
+
+Usage:
+\begin{verbatim}
+  add_spot_rpc <input metadata file> -o <output file>
+\end{verbatim}
+
+It is important to note that the tool expects the minimum and maximum
+simulation box heights (in meters, above the datum) in which to compute
+the RPC approximation. The defaults are 0 and 8000, corresponding to sea
+level and the highest location on Earth. Narrowing down these numbers
+(if it is known what range of terrain heights is expected) may result in
+slightly more accurate models.
+
+\begin{longtable}{|l|p{7.5cm}|}
+\caption{Command-line options for add\_spot\_rpc}
+\label{tbl:addspotrpc}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Option & Description \\ \hline \hline
+\texttt{-o | -\/-output-prefix  arg} & Specify the output prefix.\\ \hline
+\texttt{-\/-min-height arg (=0)} & The minimum height (in meters) above the WGS84 datum of the simulation box in which to compute the RPC approximation.\\ \hline
+\texttt{-\/-max-height arg (=8000)} & The maximum height (in meters) above the WGS84 datum of the simulation box in which to compute the RPC approximation.\\ \hline
+\texttt{-\/-num-samples arg (=100)} & How many samples to use between the minimum and maximum heights.\\ \hline
+\texttt{-\/-penalty-weight arg (=0.1)} & Penalty weight to use to keep the higher-order RPC coefficients small. Higher penalty weight results in smaller such coefficients.\\ \hline
+\texttt{-v | -\/-version } & Display the version of software.\\ \hline
+\texttt{-h | -\/-help } & Display this help message.\\ \hline
+\end{longtable}
+
+
 \section{sfs}
 \label{sfs}
 
