@@ -1147,6 +1147,11 @@ the IAU reference spheroid for Mars of radius 3,396,190~m. The areoid at that so
 relative to the Mars radius of 3,396,000~m. Yet \texttt{dem\_geoid} can adjust
 correctly Mars DEMs created in respect to either spheroid.
 
+Example: Go from a DEM in respect to the WGS84 datum to one in respect to the EGM2008 geoid:
+\begin{verbatim}
+  dem_geoid input-DEM.tif --geoid egm2008
+\end{verbatim}
+
 \begin{longtable}{|l|p{10cm}|}
 \caption{Command-line options for dem\_geoid}
 \label{tbl:demgeoid}
@@ -1158,8 +1163,7 @@ correctly Mars DEMs created in respect to either spheroid.
 Options & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message.\\ \hline
 \texttt{-\/-nodata-value \textit{float(=-32768)}} & The value of no-data pixels, unless specified in the DEM. \\ \hline
-\texttt{-\/-geoid \textit{string}} & Specify the geoid to use for Earth WGS84 DEMs.
-			       Options: EGM96, EGM2008. Default: EGM96. \\ \hline
+\texttt{-\/-geoid \textit{string}} &Specify the geoid to use for the given datum. For WGS84 use EGM96 or EGM2008. Default: EGM96. For Mars use MOLA or leave blank. For NAD83 use NAVD88 or leave blank. When not specified it will be auto-detected. \\ \hline
 \texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix. \\ \hline
 \texttt{-\/-double} & Output using double precision (64 bit) instead of float (32 bit).\\ \hline
 \texttt{-\/-reverse-adjustment} & Go from DEM relative to the geoid/areoid to DEM relative to the datum ellipsoid.\\ \hline
