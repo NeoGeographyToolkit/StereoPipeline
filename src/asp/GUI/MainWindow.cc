@@ -543,7 +543,16 @@ void MainWindow::saveMatches(){
   }
 
   for (int i = 0; i < int(m_image_paths.size()); i++) {
-    for (int j = int(i+1); j < int(m_image_paths.size()); j++) {
+
+    // Save both i to j matches and j to i matches if there are more than two images.
+    // This is useful for SfS, though it is a bit of a hack.
+    int beg = i + 1;
+    if (m_image_paths.size() > 2) 
+      beg = 0;
+    
+    for (int j = beg; j < int(m_image_paths.size()); j++) {
+
+      if (i == j) continue; // don't save i <-> i matches
 
       std::string match_file = m_match_file;
       if (match_file == "")

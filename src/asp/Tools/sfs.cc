@@ -40,6 +40,7 @@
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Camera/RPCModelGen.h>
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
 
@@ -54,7 +55,7 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 int g_num_locks = 0;
-const size_t g_num_model_coeffs = 4;
+const size_t g_num_model_coeffs = 16;
 
 using namespace vw;
 using namespace vw::camera;
@@ -65,7 +66,6 @@ typedef ImageViewRef< PixelMask<float> > MaskedImgT;
 
 // TODO: Rename opt.max_height_change to new usage.
 // TODO: Study more floating model coefficients.
-// TODO: Rm half lunar lambert.
 // TODO: Study why using tabulated camera model and multiple resolutions does
 // not work as well as it should.
 // TODO: When using approx camera, we assume the DEM and image grids are very similar.
@@ -120,12 +120,111 @@ namespace vw { namespace camera {
     ImageView< PixelMask<Vector3> > m_camera_center_mat;
     double m_gridx, m_gridy;
     mutable BBox2 m_point_box, m_crop_box;
+    bool m_use_rpc_approximation;
     vw::Mutex& m_camera_mutex;
     Vector2 m_uncompValue;
     mutable int m_begX, m_endX, m_begY, m_endY;
     mutable bool m_compute_mean, m_stop_growing_range;
     mutable int m_count;
+    boost::shared_ptr<asp::RPCModel> m_rpc_model;
 
+    void comp_rpc_approx_table(boost::shared_ptr<CameraModel> exact_camera,
+			       ImageView<double> const& dem,
+			       GeoReference const& geo,
+			       double rpc_penalty_weight){
+
+      // Generate point pairs
+      int num_total_pts = dem.cols()*dem.rows();
+      std::vector<Vector3> all_llh (num_total_pts);
+      std::vector<Vector2> all_pixels(num_total_pts);
+
+      vw_out() << "Projecting pixels into the camera to generate the RPC model.\n";
+      vw::TerminalProgressCallback tpc("asp", "\t--> ");
+      double inc_amount = 1.0 / double(dem.cols());
+      tpc.report_progress(0);
+      
+      int count = 0;
+      for (int col = 0; col < dem.cols(); col++) {
+	for (int row = 0; row < dem.rows(); row++) {
+	  Vector2 pix(col, row);
+	  Vector2 lonlat = geo.pixel_to_lonlat(pix);
+	  
+	  // Lon lat height
+	  Vector3 llh;
+	  llh[0] = lonlat[0]; llh[1] = lonlat[1]; llh[2] = dem(col, row);
+	  
+	  Vector3 xyz = geo.datum().geodetic_to_cartesian(llh);
+	  Vector2 cam_pix = exact_camera->point_to_pixel(xyz);
+	  m_crop_box.grow(cam_pix);
+
+	  all_llh[count] = llh;
+	  all_pixels[count] = cam_pix;
+	  count++;
+	}
+
+	tpc.report_incremental_progress( inc_amount );
+      }
+      tpc.report_finished();
+
+      // Find the range of lon-lat-heights
+      BBox3 llh_box;
+      for (size_t i = 0; i < all_llh.size(); i++) 
+	llh_box.grow(all_llh[i]);
+      
+      // Find the range of pixels
+      BBox2 pixel_box;
+      for (size_t i = 0; i < all_pixels.size(); i++) 
+	pixel_box.grow(all_pixels[i]);
+
+      Vector3 llh_scale  = (llh_box.max() - llh_box.min())/2.0; // half range
+      Vector3 llh_offset = (llh_box.max() + llh_box.min())/2.0; // center point
+      
+      Vector2 pixel_scale  = (pixel_box.max() - pixel_box.min())/2.0; // half range 
+      Vector2 pixel_offset = (pixel_box.max() + pixel_box.min())/2.0; // center point
+      
+      vw_out() << "Lon-lat-height box for the RPC approx: " << llh_box   << std::endl;
+      vw_out() << "Camera pixel box for the RPC approx:   " << pixel_box << std::endl;
+
+      Vector<double> normalized_llh;
+      Vector<double> normalized_pixels;
+      normalized_llh.set_size(asp::RPCModel::GEODETIC_COORD_SIZE*num_total_pts);
+      normalized_pixels.set_size(asp::RPCModel::IMAGE_COORD_SIZE*num_total_pts
+				 + asp::RpcSolveLMA::NUM_PENALTY_TERMS);
+      for (size_t i = 0; i < normalized_pixels.size(); i++) {
+	// Important: The extra penalty terms are all set to zero here.
+	normalized_pixels[i] = 0.0; 
+      }
+      
+      // Form the arrays of normalized pixels and normalized llh
+      for (int pt = 0; pt < num_total_pts; pt++) {
+	
+	// Normalize the pixel to -1 <> 1 range
+	Vector3 llh_n   = elem_quot(all_llh[pt]    - llh_offset,   llh_scale);
+	Vector2 pixel_n = elem_quot(all_pixels[pt] - pixel_offset, pixel_scale);
+	
+	subvector(normalized_llh, asp::RPCModel::GEODETIC_COORD_SIZE*pt,
+		  asp::RPCModel::GEODETIC_COORD_SIZE) = llh_n;
+	subvector(normalized_pixels, asp::RPCModel::IMAGE_COORD_SIZE*pt,
+		  asp::RPCModel::IMAGE_COORD_SIZE   ) = pixel_n;
+	
+      }
+
+      // Find the RPC coefficients
+      asp::RPCModel::CoeffVec line_num, line_den, samp_num, samp_den;
+      std::string output_prefix = ""; 
+      asp::gen_rpc(// Inputs
+		   rpc_penalty_weight, output_prefix,
+		   normalized_llh, normalized_pixels,  
+		   llh_scale, llh_offset, pixel_scale, pixel_offset,
+		   // Outputs
+		   line_num, line_den, samp_num, samp_den);
+
+      m_rpc_model = boost::shared_ptr<asp::RPCModel>
+	(new asp::RPCModel(geo.datum(), line_num, line_den,
+			   samp_num, samp_den, pixel_offset, pixel_scale,
+			   llh_offset, llh_scale));
+    }
+    
     void comp_entries_in_table() const{
       for (int x = m_begX; x <= m_endX; x++) {
 	for (int y = m_begY; y <= m_endY; y++) {
@@ -170,8 +269,10 @@ namespace vw { namespace camera {
     
   public:
 
-    // The range of pixels in the image we are actually expected to use. 
-    BBox2i crop_box(){
+    // The range of pixels in the image we are actually expected to use.
+    // Note that the function returns an alias, so that we can modify the
+    // crop box from outside.
+    BBox2 & crop_box(){
       return m_crop_box;
     }
 
@@ -179,8 +280,11 @@ namespace vw { namespace camera {
 		      ImageView<double> const& dem,
 		      GeoReference const& geo,
 		      double nodata_val,
+		      bool use_rpc_approximation, double rpc_penalty_weight,
 		      vw::Mutex &camera_mutex):
-      m_exact_camera(exact_camera), m_geo(geo), m_camera_mutex(camera_mutex)
+      m_exact_camera(exact_camera), m_geo(geo),
+      m_use_rpc_approximation(use_rpc_approximation),
+      m_camera_mutex(camera_mutex)
     {
 
       int big = 1e+8;
@@ -221,13 +325,34 @@ namespace vw { namespace camera {
       // Expand the box, as later the DEM will change. This expanded box
       // is huge, so pre-compute values only in an inner area. Later,
       // if needed, pre-compute more values by growing that area.
-      double extra = 1.5;
+      double extra = 1.25; // may need to lower here!
       m_point_box.min().x() -= extra*wx; m_point_box.max().x() += extra*wx;
       m_point_box.min().y() -= extra*wy; m_point_box.max().y() += extra*wy;
       wx = m_point_box.width();
       wy = m_point_box.height();
 
       vw_out() << "Approximation proj box: " << m_point_box << std::endl;
+
+      // Bypass everything if doing RPC
+      if (m_use_rpc_approximation) {
+	comp_rpc_approx_table(exact_camera, dem,  geo, rpc_penalty_weight);
+
+      // Ensure the box is valid
+      if (m_crop_box.empty()) m_crop_box = BBox2(0, 0, 2, 2);
+
+#if 1
+	// Expand the box a bit, as later the DEM will change and values at some
+	// new pixels will be needed.
+	m_crop_box.min().x() -= extra*m_crop_box.width();
+	// Bug here, the width already changed!
+	m_crop_box.max().x() += extra*m_crop_box.width();
+	m_crop_box.min().y() -= extra*m_crop_box.height();
+	m_crop_box.max().y() += extra*m_crop_box.height();
+	m_crop_box = grow_bbox_to_int(m_crop_box);
+#endif
+	
+	return;
+      }
 
       // We will tabulate the point_to_pixel function at half the grid,
       // and we'll use interpolation for anything in between.
@@ -279,7 +404,7 @@ namespace vw { namespace camera {
       m_crop_box.max().y() += extra*m_crop_box.height();
       m_crop_box = grow_bbox_to_int(m_crop_box);
 #endif
-      
+
       // Tabulate the camera_center function
       vw_out() << "Pixel box look up table: " << m_crop_box << std::endl;
       m_camera_center_mat.set_size(m_crop_box.width(), m_crop_box.height());
@@ -310,6 +435,9 @@ namespace vw { namespace camera {
     // so we iterate to find it.
     virtual Vector2 point_to_pixel(Vector3 const& xyz) const{
 
+      if (m_use_rpc_approximation) 
+	return m_rpc_model->point_to_pixel(xyz);
+      
       // TODO: What happens if we use bicubic interpolation?
       InterpolationView<EdgeExtensionView< ImageView< PixelMask<Vector3> >, ConstantEdgeExtension >, BilinearInterpolation> pixel_to_vec_interp
 	= interpolate(m_pixel_to_vec_mat, BilinearInterpolation(),
@@ -373,7 +501,8 @@ namespace vw { namespace camera {
 	  m_endY = std::max(m_endY, int(ceil(y))) + extray;
 	  m_endY = std::min(m_pixel_to_vec_mat.rows()-1, m_endY);
 	  
-	  vw_out() << "Updated table: " << m_begX << ' ' << m_begY << ' ' << m_endX << ' ' << m_endY << std::endl;
+	  vw_out() << "Updated table: " << m_begX << ' ' << m_begY << ' '
+		   << m_endX << ' ' << m_endY << std::endl;
 	  comp_entries_in_table();
 
 	  // Update this
@@ -423,7 +552,11 @@ namespace vw { namespace camera {
     virtual ~ApproxCameraModel(){}
     virtual std::string type() const{ return "ApproxIsis"; }
 
-    virtual Vector3 pixel_to_vector (Vector2 const& pix) const {
+    virtual Vector3 pixel_to_vector(Vector2 const& pix) const {
+      if (m_use_rpc_approximation){
+	return m_rpc_model->pixel_to_vector(pix);
+      }
+      
       vw::Mutex::Lock lock(m_camera_mutex);
       g_num_locks++;
       vw_out(WarningMessage) << "Invoked exact camera model pixel_to_vector for pixel: "
@@ -431,7 +564,18 @@ namespace vw { namespace camera {
       return this->exact_camera()->pixel_to_vector(pix);
     }
 
-    virtual Vector3 camera_center (Vector2 const& pix) const{
+    virtual Vector3 camera_center(Vector2 const& pix) const{
+
+      if (m_use_rpc_approximation){
+	// Failed to interpolate
+	vw::Mutex::Lock lock(m_camera_mutex);
+	g_num_locks++;
+	//vw_out(WarningMessage) << "Invoked the camera center function for pixel: "
+        //                       << pix << std::endl;
+	return this->exact_camera()->camera_center(pix);
+	//return m_rpc_model->camera_center(pix);
+      }
+
       // TODO: Is this function invoked? Should just the underlying exact model
       // camera center be used all the time?
       InterpolationView<EdgeExtensionView< ImageView< PixelMask<Vector3> >, ConstantEdgeExtension >, BilinearInterpolation> camera_center_interp
@@ -608,23 +752,25 @@ void areInShadow(Vector3 & sunPos, ImageView<double> const& dem,
 struct Options : public vw::cartography::GdalWriteOptions {
   std::string input_dem, out_prefix, stereo_session_string, bundle_adjust_prefix;
   std::vector<std::string> input_images, input_cameras;
-  std::string shadow_thresholds, image_exposure_prefix, model_coeffs_prefix;
+  std::string shadow_thresholds, image_exposure_prefix, model_coeffs_prefix, model_coeffs;
   std::vector<float> shadow_threshold_vec;
   std::vector<double> image_exposures_vec;
   std::vector<double> model_coeffs_vec;
 
   int max_iterations, max_coarse_iterations, reflectance_type, coarse_levels;
   bool float_albedo, float_exposure, float_cameras, model_shadows,
-    use_approx_camera_models, crop_input_images, float_dem_at_boundary, float_reflectance_model;
+    use_approx_camera_models, use_rpc_approximation, crop_input_images,
+    float_dem_at_boundary, fix_dem, float_reflectance_model;
   double smoothness_weight, init_dem_height, nodata_val, max_height_change,
-    height_change_weight, camera_position_step_size;
+    height_change_weight, camera_position_step_size, rpc_penalty_weight;
   Options():max_iterations(0), max_coarse_iterations(0), reflectance_type(0),
 	    coarse_levels(0), float_albedo(false), float_exposure(false), float_cameras(false),
 	    model_shadows(false), use_approx_camera_models(false),
-	    crop_input_images(false), float_dem_at_boundary(false),
+	    use_rpc_approximation(false),
+	    crop_input_images(false), float_dem_at_boundary(false), fix_dem(false),
             float_reflectance_model(false),
 	    smoothness_weight(0), max_height_change(0), height_change_weight(0),
-	    camera_position_step_size(1.0) {};
+	    camera_position_step_size(1.0), rpc_penalty_weight(0.0) {};
 };
 
 struct GlobalParams{
@@ -640,7 +786,7 @@ struct ModelParams {
   ~ModelParams(){}
 };
 
-enum {NO_REFL = 0, LAMBERT, LUNAR_LAMBERT, HALF_LUNAR_LAMBERT};
+enum {NO_REFL = 0, LAMBERT, LUNAR_LAMBERT, HAPKE, ARBITRARY_MODEL};
 
 // computes the Lambertian reflectance model (cosine of the light
 // direction and the normal to the Moon) Vector3 sunpos: the 3D
@@ -738,7 +884,8 @@ double computeLunarLambertianReflectanceFromNormal(Vector3 const& sunPos,
   reflectance = 2*L*mu_0/(mu_0+mu) + (1-L)*mu_0;
   //}
   
-  if (mu < 0 || mu_0 < 0 || mu_0 + mu <= 0 ||  reflectance <= 0 || reflectance != reflectance){
+  //if (mu < 0 || mu_0 < 0 || mu_0 + mu <= 0 ||  reflectance <= 0 || reflectance != reflectance){
+  if (mu_0 + mu == 0 || reflectance != reflectance){
     return 0.0;
   }
 
@@ -751,16 +898,94 @@ double computeLunarLambertianReflectanceFromNormal(Vector3 const& sunPos,
   return reflectance;
 }
 
-double computeHalfLunarLambertianReflectanceFromNormal(Vector3 const& sunPos,
-						   Vector3 const& viewPos,
-						   Vector3 const& xyz,
-						   Vector3 const& normal,
-						   double phaseCoeffC1,
-						   double phaseCoeffC2,
-						   double & alpha,
-                                                   const double * coeffs) {
+// Hapke's model.
+// See: An Experimental Study of Light Scattering by Large, Irregular Particles
+// Audrey F. McGuire, Bruce W. Hapke. 1995. The reflectance used is R(g), in equation
+// above Equation 21. The p(g) function is given by Equation (14), yet this one uses
+// an old convention. The updated p(g) is given in:
+// Spectrophotometric properties of materials observed by Pancam on the Mars Exploration Rovers: 1.
+// Spirit. JR Johnson, 2006.
+// We Use the two-term p(g), and the parameter c, not c'=1-c.
+// We also use the values of w(=omega), b, and c from that table.
+// Note that we use the updated Hapke model, having the term B(g). This one is given in
+// "Modeling spectral and bidirectional reflectance", Jacquemoud, 1992. It has the params
+// B0 and h.
+// The ultimate reference is probably Hapke, 1986, having all pieces in one place, but
+// that one is not available. 
+// We use mostly the parameter values for omega, b, c, B0 and h from:
+// Surface reflectance of Mars observed by CRISM/MRO: 2.
+// Estimation of surface photometric properties in Gusev Crater and Meridiani Planum by J. Fernando. 
+// See equations (1), (2) and (4) in that paper.
+// Example values for the params: w=omega=0.68, b=0.17, c=0.62, B0=0.52, h=0.52.
+// But we don't use equation (3) from that paper, we use instead what they call the formula H93,
+// which is the H(x) from McGuire and Hapke 1995 mentioned above.
+// See the complete formulas below.
+double computeHapkeReflectanceFromNormal(Vector3 const& sunPos,
+                                         Vector3 const& viewPos,
+                                         Vector3 const& xyz,
+                                         Vector3 const& normal,
+                                         double phaseCoeffC1,
+                                         double phaseCoeffC2,
+                                         double & alpha,
+                                         const double * coeffs) {
+
+  double len = dot_prod(normal, normal);
+  if (abs(len - 1.0) > 1.0e-4){
+    std::cerr << "Error: Expecting unit normal in the reflectance computation, in "
+	      << __FILE__ << " at line " << __LINE__ << std::endl;
+    exit(1);
+  }
+
+  //compute mu_0 = cosine of the angle between the light direction and the surface normal.
+  //sun coordinates relative to the xyz point on the Moon surface
+  Vector3 sunDirection = normalize(sunPos-xyz);
+  double mu_0 = dot_prod(sunDirection, normal);
+
+  //compute mu = cosine of the angle between the viewer direction and the surface normal.
+  //viewer coordinates relative to the xyz point on the Moon surface
+  Vector3 viewDirection = normalize(viewPos-xyz);
+  double mu = dot_prod(viewDirection,normal);
+
+  //compute the phase angle (g) between the viewing direction and the light source direction
+  // in radians
+  double cos_g = dot_prod(sunDirection, viewDirection);
+  double g = acos(cos_g);  // phase angle in radians
+
+  // Hapke params
+  double omega = std::abs(coeffs[0]); // also known as w
+  double b     = std::abs(coeffs[1]);
+  double c     = std::abs(coeffs[2]);
+  double B0    = std::abs(coeffs[3]);    // The older Hapke model lacks the B0 and h terms
+  double h     = std::abs(coeffs[4]);   
+
+  double J = 1.0; // does not matter, we'll factor out the constant scale as camera exposures anyway
+  
+  // The P(g) term
+  double Pg 
+    = (1.0 - c) * (1.0 - b*b) / pow(1.0 + 2.0*b*cos_g + b*b, 1.5)
+    + c         * (1.0 - b*b) / pow(1.0 - 2.0*b*cos_g + b*b, 1.5);
+    
+  // The B(g) term
+  double Bg = B0 / ( 1.0 + (1.0/h)*tan(g/2.0) );
+
+  double H_mu0 = (1.0 + 2*mu_0) / (1.0 + 2*mu_0 * sqrt(1.0 - omega));
+  double H_mu  = (1.0 + 2*mu  ) / (1.0 + 2*mu   * sqrt(1.0 - omega));
+
+  // The reflectance
+  double R = (J*omega/4.0/M_PI) * ( mu_0/(mu_0+mu) ) * ( (1.0 + Bg)*Pg + H_mu0*H_mu - 1.0 );
+  
+  return R;
+}
+
+double computeArbitraryLambertianReflectanceFromNormal(Vector3 const& sunPos,
+                                                    Vector3 const& viewPos,
+                                                    Vector3 const& xyz,
+                                                    Vector3 const& normal,
+                                                    double phaseCoeffC1,
+                                                    double phaseCoeffC2,
+                                                    double & alpha,
+                                                    const double * coeffs) {
   double reflectance;
-  double L;
 
   double len = dot_prod(normal, normal);
   if (abs(len - 1.0) > 1.0e-4){
@@ -804,13 +1029,32 @@ double computeHalfLunarLambertianReflectanceFromNormal(Vector3 const& sunPos,
   //L = exp(-deg_alpha/60.0);
 
   //Alfred McEwen's model
-  double O = coeffs[0]; // 1
-  double A = coeffs[1]; //-0.019;
-  double B = coeffs[2]; // 0.000242;//0.242*1e-3;
-  double C = coeffs[3]; // -0.00000146;//-1.46*1e-6;
+  double O1 = coeffs[0]; // 1
+  double A1 = coeffs[1]; //-0.019;
+  double B1 = coeffs[2]; // 0.000242;//0.242*1e-3;
+  double C1 = coeffs[3]; // -0.00000146;//-1.46*1e-6;
+  double D1 = coeffs[4]; 
+  double E1 = coeffs[5]; 
+  double F1 = coeffs[6]; 
+  double G1 = coeffs[7]; 
 
-  L = O + A*deg_alpha + B*deg_alpha*deg_alpha + C*deg_alpha*deg_alpha*deg_alpha;
- 
+  double O2 = coeffs[8]; // 1
+  double A2 = coeffs[9]; //-0.019;
+  double B2 = coeffs[10]; // 0.000242;//0.242*1e-3;
+  double C2 = coeffs[11]; // -0.00000146;//-1.46*1e-6;
+  double D2 = coeffs[12]; 
+  double E2 = coeffs[13]; 
+  double F2 = coeffs[14]; 
+  double G2 = coeffs[15]; 
+  
+  double L1 = O1 + A1*deg_alpha + B1*deg_alpha*deg_alpha + C1*deg_alpha*deg_alpha*deg_alpha;
+  double K1 = D1 + E1*deg_alpha + F1*deg_alpha*deg_alpha + G1*deg_alpha*deg_alpha*deg_alpha;
+  if (K1 == 0) K1 = 1;
+    
+  double L2 = O2 + A2*deg_alpha + B2*deg_alpha*deg_alpha + C2*deg_alpha*deg_alpha*deg_alpha;
+  double K2 = D2 + E2*deg_alpha + F2*deg_alpha*deg_alpha + G2*deg_alpha*deg_alpha*deg_alpha;
+  if (K2 == 0) K2 = 1;
+  
   //printf(" deg_alpha = %f, L = %f\n", deg_alpha, L);
 
   //if (mu_0 < 0.0){
@@ -826,13 +1070,11 @@ double computeHalfLunarLambertianReflectanceFromNormal(Vector3 const& sunPos,
   //  return 0.0;
   //}
   //else{
-  reflectance = 2*L*mu_0/(mu_0+mu) + (1-L)*mu_0;
-
-  double reflectance2 = sunDirection[0]*normal[0] + sunDirection[1]*normal[1] + sunDirection[2]*normal[2];
-  
+  reflectance = 2*L1*mu_0/(mu_0+mu)/K1 + (1-L2)*mu_0/K2;
   //}
   
-  if (mu < 0 || mu_0 < 0 || mu_0 + mu <= 0 ||  reflectance <= 0 || reflectance != reflectance){
+  //if (mu < 0 || mu_0 < 0 || mu_0 + mu <= 0 ||  reflectance <= 0 || reflectance != reflectance){
+  if (mu_0 + mu == 0 || reflectance != reflectance){
     return 0.0;
   }
 
@@ -842,7 +1084,7 @@ double computeHalfLunarLambertianReflectanceFromNormal(Vector3 const& sunPos,
   //reflectance *= std::max(0.4, exp(-alpha*alpha));
   reflectance *= ( exp(-phaseCoeffC1*alpha) + phaseCoeffC2 );
 
-  return 0.5*(reflectance + reflectance2);
+  return reflectance;
 }
 
 double ComputeReflectance(Vector3 const& cameraPosition,
@@ -856,7 +1098,6 @@ double ComputeReflectance(Vector3 const& cameraPosition,
   switch ( global_params.reflectanceType )
     {
     case LUNAR_LAMBERT:
-      //printf("Lunar Lambert\n");
       input_img_reflectance
 	= computeLunarLambertianReflectanceFromNormal(input_img_params.sunPosition,
 						      cameraPosition,
@@ -866,10 +1107,9 @@ double ComputeReflectance(Vector3 const& cameraPosition,
 						      phase_angle, // output
                                                       coeffs);
       break;
-    case HALF_LUNAR_LAMBERT:
-      //printf("Lunar Lambert\n");
+    case ARBITRARY_MODEL:
       input_img_reflectance
-	= computeHalfLunarLambertianReflectanceFromNormal(input_img_params.sunPosition,
+	= computeArbitraryLambertianReflectanceFromNormal(input_img_params.sunPosition,
 						      cameraPosition,
 						      xyz,  normal,
 						      global_params.phaseCoeffC1,
@@ -877,15 +1117,23 @@ double ComputeReflectance(Vector3 const& cameraPosition,
 						      phase_angle, // output
                                                       coeffs);
       break;
+    case HAPKE:
+      input_img_reflectance
+	= computeHapkeReflectanceFromNormal(input_img_params.sunPosition,
+                                            cameraPosition,
+                                            xyz,  normal,
+                                            global_params.phaseCoeffC1,
+                                            global_params.phaseCoeffC2,
+                                            phase_angle, // output
+                                            coeffs);
+      break;
     case LAMBERT:
-      //printf("Lambert\n");
       input_img_reflectance
 	= computeLambertianReflectanceFromNormal(input_img_params.sunPosition,
 						 xyz,  normal);
       break;
 
     default:
-      //printf("No reflectance model\n");
       input_img_reflectance = 1;
     }
 
@@ -964,14 +1212,19 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   Vector2 pix;
   Vector3 cameraPosition;
   try {
-     pix = camera->point_to_pixel(base);
-    cameraPosition = camera->camera_center(pix);
+    pix = camera->point_to_pixel(base);
+    
+    // Need camera center only for Lunar Lambertian
+    if ( global_params.reflectanceType != LAMBERT ) {
+      cameraPosition = camera->camera_center(pix);
+    }
+    
   } catch(...){
     reflectance = 0; reflectance.invalidate();
     intensity = 0;   intensity.invalidate();
     return false;
   }
-
+  
   double phase_angle;
   reflectance = ComputeReflectance(cameraPosition,
 				   normal, base, local_model_params,
@@ -982,7 +1235,7 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
 
   // Since our image is cropped
   pix -= crop_box.min();
-  
+
   // Check for out of range
   if (pix[0] < 0 || pix[0] >= image.cols()-1 ||
       pix[1] < 0 || pix[1] >= image.rows()-1) {
@@ -1690,6 +1943,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Optional shadow thresholds for the input images (a list of real values in quotes).")
     ("use-approx-camera-models",   po::bool_switch(&opt.use_approx_camera_models)->default_value(false)->implicit_value(true),
      "Use approximate camera models for speed.")
+    ("use-rpc-approximation",   po::bool_switch(&opt.use_rpc_approximation)->default_value(false)->implicit_value(true),
+     "Use RPC approximations for the camera models instead of approximate tabulated camera models (invoke with --use-approx-camera-models).")
+    ("rpc-penalty-weight", po::value(&opt.rpc_penalty_weight)->default_value(0.1),
+     "The RPC penalty weight to use to keep the higher-order RPC coefficients small, if the RPC model approximation is used. Higher penalty weight results in smaller such coefficients.")
     ("crop-input-images",   po::bool_switch(&opt.crop_input_images)->default_value(false)->implicit_value(true),
      "Crop the images and keep them fully in memory, for speed.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
@@ -1697,13 +1954,17 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("image-exposures-prefix", po::value(&opt.image_exposure_prefix)->default_value(""),
      "Use this prefix to optionally read initial exposures (filename is <prefix>-exposures.txt).")
     ("model-coeffs-prefix", po::value(&opt.model_coeffs_prefix)->default_value(""),
-     "Use this prefix to optionally read Lunar Lambertian model coefficients from a file (filename is <prefix>-model_coeffs.txt).")
+     "Use this prefix to optionally read Lunar Lambertian or Hapke model coefficients from a file (filename is <prefix>-model_coeffs.txt).")
+    ("model-coeffs", po::value(&opt.model_coeffs)->default_value(""),
+     "Use the model coefficients specified as a list in quotes. Lunar-Lambertian: O(=1), A, B, C. Hapke: omega, b, c, B0, h.")
     ("init-dem-height", po::value(&opt.init_dem_height)->default_value(std::numeric_limits<double>::quiet_NaN()),
      "Use this value for initial DEM heights. An input DEM still needs to be provided for georeference information.")
     ("nodata-value", po::value(&opt.nodata_val)->default_value(std::numeric_limits<double>::quiet_NaN()),
      "Use this as the DEM no-data value, over-riding what is in the initial guess DEM.")
     ("float-dem-at-boundary",   po::bool_switch(&opt.float_dem_at_boundary)->default_value(false)->implicit_value(true),
      "Allow the DEM values at the boundary of the region to also float (not advised).")
+    ("fix-dem",   po::bool_switch(&opt.fix_dem)->default_value(false)->implicit_value(true),
+     "Do not float the DEM at all. Useful when floating the model params.")
     ("float-reflectance-model",   po::bool_switch(&opt.float_reflectance_model)->default_value(false)->implicit_value(true),
      "Allow the coefficients of the Lunar-Lambertian model to float (not recommended).")
     ("camera-position-step-size", po::value(&opt.camera_position_step_size)->default_value(1.0),
@@ -1813,22 +2074,37 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 	     << opt.image_exposures_vec[i] << std::endl;
   }
 
-  // Initial model coefficients, if provided
-  std::string model_coeffs_file = model_coeffs_file_name(opt.model_coeffs_prefix);
-  std::ifstream ism(model_coeffs_file.c_str());
-  opt.model_coeffs_vec.clear();
-  while (ism >> dval)
-    opt.model_coeffs_vec.push_back(dval);
-  if (!opt.model_coeffs_vec.empty() &&
-      opt.model_coeffs_vec.size() != g_num_model_coeffs)
-    vw_throw(ArgumentErr()
-	     << "If specified, there must be " << g_num_model_coeffs << " coefficients.\n");
-  ism.close();
-  for (size_t i = 0; i < opt.model_coeffs_vec.size(); i++) {
-    vw_out() << "Image model_coeffs for " << opt.input_images[i] << ' '
-	     << opt.model_coeffs_vec[i] << std::endl;
+  // Initial model coeffs, if passed on the command line
+  if (opt.model_coeffs != "") {
+    vw_out() << "Parsing model coefficients: " << opt.model_coeffs << std::endl;
+    std::istringstream is(opt.model_coeffs);
+    double val;
+    while( is >> val){
+      opt.model_coeffs_vec.push_back(val);
+    }
+  }
+  
+  // Initial model coefficients, if provided in the file
+  if (opt.model_coeffs_prefix != "") {
+    std::string model_coeffs_file = model_coeffs_file_name(opt.model_coeffs_prefix);
+    vw_out() << "Reading model coefficients from file: " << model_coeffs_file << std::endl;
+    std::ifstream ism(model_coeffs_file.c_str());
+    opt.model_coeffs_vec.clear();
+    while (ism >> dval)
+      opt.model_coeffs_vec.push_back(dval);
+    ism.close();
   }
 
+  if (!opt.model_coeffs_vec.empty()) {
+    // Pad with zeros if needed, as the Lunar Lambertian has 4 params, while Hapke has 5 of them.
+    while (opt.model_coeffs_vec.size() < g_num_model_coeffs)
+      opt.model_coeffs_vec.push_back(0);
+
+    if (opt.model_coeffs_vec.size() != g_num_model_coeffs)
+      vw_throw(ArgumentErr()
+             << "If specified, there must be " << g_num_model_coeffs << " coefficients.\n");
+  }
+  
   // Sanity check
   if (opt.camera_position_step_size <= 0) {
     vw_throw(ArgumentErr()
@@ -1864,6 +2140,7 @@ void run_sfs_level(// Fixed inputs
 		   GlobalParams const& global_params,
 		   std::vector<ModelParams> const & model_params,
 		   // Quantities that will float
+		   ImageView<double> const& orig_dem, // unmodified
 		   ImageView<double> & dem,
 		   ImageView<double> & albedo,
 		   std::vector<boost::shared_ptr<CameraModel> > & cameras,
@@ -1872,9 +2149,6 @@ void run_sfs_level(// Fixed inputs
                    std::vector<double> & coeffs){
 
   int num_images = opt.input_images.size();
-
-  // Keep here the unmodified copy of the DEM
-  ImageView<double> orig_dem = copy(dem);
 
   int ncols = dem.cols(), nrows = dem.rows();
   vw_out() << "DEM cols and rows: " << ncols << " " << nrows << std::endl;
@@ -1989,6 +2263,14 @@ void run_sfs_level(// Fixed inputs
     }
   }
 
+  if (opt.fix_dem) {
+    for (int col = 0; col < dem.cols(); col++) {
+      for (int row = 0; row < dem.rows(); row++) {
+	problem.SetParameterBlockConstant(&dem(col, row));
+      }
+    }
+  }
+  
   // If to float the reflectance model coefficients
   if (!opt.float_reflectance_model) {
     problem.SetParameterBlockConstant(&coeffs[0]);
@@ -2044,13 +2326,47 @@ int main(int argc, char* argv[]) {
   try {
     handle_arguments( argc, argv, opt );
 
+    GlobalParams global_params;
+    if (opt.reflectance_type == 0)
+      global_params.reflectanceType = LAMBERT;
+    else if (opt.reflectance_type == 1)
+      global_params.reflectanceType = LUNAR_LAMBERT;
+    else if (opt.reflectance_type == 2)
+      global_params.reflectanceType = HAPKE;
+    else if (opt.reflectance_type == 3)
+      global_params.reflectanceType = ARBITRARY_MODEL;
+    else
+      vw_throw( ArgumentErr()
+		<< "Expecting Lambertian or Lunar-Lambertian reflectance." );
+    global_params.phaseCoeffC1 = 0; //1.383488;
+    global_params.phaseCoeffC2 = 0; //0.501149;
+    
     // Default model coefficients, unless they were read already
     if (opt.model_coeffs_vec.empty()) {
-      opt.model_coeffs_vec.resize(g_num_model_coeffs);
-      opt.model_coeffs_vec[0] = 1;
-      opt.model_coeffs_vec[1] = -0.019;
-      opt.model_coeffs_vec[2] =  0.000242;   //0.242*1e-3;
-      opt.model_coeffs_vec[3] = -0.00000146; //-1.46*1e-6;
+      if (global_params.reflectanceType != HAPKE) {
+        // Lunar lambertian
+        opt.model_coeffs_vec.resize(g_num_model_coeffs);
+        opt.model_coeffs_vec[0] = 1;
+        opt.model_coeffs_vec[1] = -0.019;
+        opt.model_coeffs_vec[2] =  0.000242;   //0.242*1e-3;
+        opt.model_coeffs_vec[3] = -0.00000146; //-1.46*1e-6;
+        opt.model_coeffs_vec[4] = 1;
+        opt.model_coeffs_vec[5] = 0;
+        opt.model_coeffs_vec[6] = 0;
+        opt.model_coeffs_vec[7] = 0;
+        opt.model_coeffs_vec[8] = 1;
+        opt.model_coeffs_vec[9] = -0.019;
+        opt.model_coeffs_vec[10] =  0.000242;   //0.242*1e-3;
+        opt.model_coeffs_vec[11] = -0.00000146; //-1.46*1e-6;
+        opt.model_coeffs_vec[12] = 1;
+        opt.model_coeffs_vec[13] = 0;
+        opt.model_coeffs_vec[14] = 0;
+        opt.model_coeffs_vec[15] = 0;
+        
+      }else{
+	vw_throw( ArgumentErr() << "The Hapke model coefficients were not set. "
+		  << "Use the --model-coeffs option." );
+      }
     }
     g_coeffs = &opt.model_coeffs_vec[0];
     
@@ -2066,13 +2382,16 @@ int main(int argc, char* argv[]) {
     }
 
     g_nodata_val = &nodata_val;
-    // Replace no-data values with the mean of valid values
-    double mean = 0, num = 0;
+    // Replace no-data values with the min valid value. That is because
+    // no-data values usually come from shadows, and those are low-lying.
+    // This works better than using the mean value.
+    double min_val = std::numeric_limits<double>::max(), mean = 0, num = 0;
     for (int col = 0; col < dem.cols(); col++) {
       for (int row = 0; row < dem.rows(); row++) {
 	if (dem(col, row) != nodata_val) {
 	  mean += dem(col, row);
 	  num += 1;
+          min_val = std::min(min_val, dem(col, row));
 	}
       }
     }
@@ -2080,7 +2399,7 @@ int main(int argc, char* argv[]) {
     for (int col = 0; col < dem.cols(); col++) {
       for (int row = 0; row < dem.rows(); row++) {
 	if (dem(col, row) == nodata_val) {
-	  dem(col, row) = mean;
+	  dem(col, row) = min_val;
 	}
       }
     }
@@ -2198,15 +2517,9 @@ int main(int argc, char* argv[]) {
 	vw_out() << "Creating an approx camera model for "
 		 << opt.input_cameras[image_iter] << ".\n";
 	boost::shared_ptr<CameraModel> apcam
-	  (new ApproxCameraModel(icam, dem, geo, nodata_val,
-				 camera_mutex));
-
-	ApproxCameraModel* cam_ptr = dynamic_cast<ApproxCameraModel*>(apcam.get());
-	if (cam_ptr == NULL) 
-	  vw_throw( ArgumentErr() << "Expecting an ApproxCameraModel." );
-	if (opt.crop_input_images)
-	  crop_boxes[0][image_iter].crop(cam_ptr->crop_box());
-	vw_out() << "Done creating the approx camera model.\n";
+	  (new ApproxCameraModel(icam, dem, geo, nodata_val, opt.use_rpc_approximation,
+				 opt.rpc_penalty_weight, camera_mutex));
+        vw_out() << "Done creating the approx camera model.\n";
 
 	// Copy the adjustments over to the approximate camera model
 	Vector3 translation  = acam.translation();
@@ -2217,6 +2530,15 @@ int main(int argc, char* argv[]) {
 	cameras[image_iter] = boost::shared_ptr<CameraModel>
 	  (new AdjustedCameraModel(apcam, translation,
 				   rotation, pixel_offset, scale));
+
+        // Cast the pointer back to AdjustedCameraModel as we need that.
+        ApproxCameraModel* cam_ptr = dynamic_cast<ApproxCameraModel*>(apcam.get());
+        if (cam_ptr == NULL) 
+          vw_throw( ArgumentErr() << "Expecting an ApproxCameraModel." );
+
+	// Recompute the crop box, can be done more reliably here
+	if (opt.use_rpc_approximation)
+	  cam_ptr->crop_box() = BBox2();
 
 	// Compared original and unadjusted models
 	for (int col = 0; col < dem.cols(); col++) {
@@ -2234,10 +2556,32 @@ int main(int argc, char* argv[]) {
 	    Vector2 pix3 = acam.point_to_pixel(xyz);
 	    Vector2 pix4 = cameras[image_iter]->point_to_pixel(xyz);
 	    max_approx_err = std::max(max_approx_err, norm_2(pix3 - pix4));
+
+            // Use these pixels to expand the crop box, as we now also know the adjustments.
+            // This is a bug fix.
+            cam_ptr->crop_box().grow(pix1);
+            cam_ptr->crop_box().grow(pix2);
+            cam_ptr->crop_box().grow(pix3);
+            cam_ptr->crop_box().grow(pix4);
 	  }
 	}
+
+	if (opt.use_rpc_approximation){
+	  // Grow the box just a bit more, to ensure we still see
+	  // enough of the images during optimization.
+	  double extra = 0.2;
+	  double extrax = extra*cam_ptr->crop_box().width();
+	  double extray = extra*cam_ptr->crop_box().height();
+	  cam_ptr->crop_box().min() -= Vector2(extrax, extray);
+	  cam_ptr->crop_box().max() += Vector2(extrax, extray);
+	}
+        
+        // Copy the crop box
+        if (opt.crop_input_images)
+          crop_boxes[0][image_iter].crop(cam_ptr->crop_box());
       }
-      vw_out() << "Approximate model error in pixels: " << max_approx_err << std::endl;
+      vw_out() << "Max approximate model error in pixels: " << max_approx_err << std::endl;
+
     }
 
     // Make the crop boxes lower left corner be multiple of 2^level
@@ -2279,19 +2623,6 @@ int main(int argc, char* argv[]) {
        }
     }
     g_img_nodata_val = &img_nodata_val;
-
-    GlobalParams global_params;
-    if (opt.reflectance_type == 0)
-      global_params.reflectanceType = LAMBERT;
-    else if (opt.reflectance_type == 1)
-      global_params.reflectanceType = LUNAR_LAMBERT;
-    else if (opt.reflectance_type == 2)
-      global_params.reflectanceType = HALF_LUNAR_LAMBERT;
-    else
-      vw_throw( ArgumentErr()
-		<< "Expecting Lambertian or Lunar-Lambertian reflectance." );
-    global_params.phaseCoeffC1 = 0; //1.383488;
-    global_params.phaseCoeffC2 = 0; //0.501149;
 
     // Get the sun and camera positions from the ISIS cube
     std::vector<ModelParams> model_params;
@@ -2387,26 +2718,29 @@ int main(int argc, char* argv[]) {
 
     // Prepare data at each coarseness level
     std::vector<GeoReference> geos(levels+1);
-    std::vector< ImageView<double> > dems(levels+1), albedos(levels+1);
+    std::vector< ImageView<double> > orig_dems(levels+1), dems(levels+1), albedos(levels+1);
     std::vector< std::vector< ImageViewRef< PixelMask<float> > > > masked_images_vec(levels+1);
     geos[0] = geo;
-    dems[0] = dem;
-    albedos[0] = albedo;
+    orig_dems[0] = copy(dem);
+    dems[0] = copy(dem);
+    albedos[0] = copy(albedo);
     masked_images_vec[0] = masked_images;
     double sub_scale = 1.0/factor;
 
     for (int level = 1; level <= levels; level++) {
       geos[level] = resample(geos[level-1], sub_scale);
-      dems[level] = pixel_cast<double>(vw::resample_aa
-					  (pixel_cast< PixelMask<double> >
-					   (dems[level-1]), sub_scale));
-
+      orig_dems[level] = pixel_cast<double>(vw::resample_aa
+                                            (pixel_cast< PixelMask<double> >
+                                             (orig_dems[level-1]), sub_scale));
+      dems[level] = copy(orig_dems[level]);
+        
       // CERES won't be happy with tiny DEMs
       if (dems[level].cols() < min_dem_size || dems[level].rows() < min_dem_size) {
 	levels = level-1;
 	vw_out(WarningMessage) << "Reducing the number of coarse levels to "
 			       << levels << ".\n";
 	geos.resize(levels+1);
+	orig_dems.resize(levels+1);
 	dems.resize(levels+1);
 	albedos.resize(levels+1);
 	masked_images_vec.resize(levels+1);
@@ -2487,13 +2821,16 @@ int main(int argc, char* argv[]) {
 		    opt.smoothness_weight*factors[level]*factors[level],
 		    nodata_val, crop_boxes[level], masked_images_vec[level],
                     global_params, model_params,
+		    orig_dems[level],
 		    // Quantities that will float
-		    dems[level], albedos[level], cameras,
+                    dems[level], albedos[level], cameras,
 		    opt.image_exposures_vec,
 		    adjustments, opt.model_coeffs_vec);
 
       // TODO: Study this. Discarding the coarse DEM and exposure so
       // keeping only the cameras seem to work better.
+      // Note that we overwrite dems[level-1] by resampling the coarser
+      // dems[level], but we keep orig_dems[level-1] from the beginning.
        if (level > 0) {
 	 interp_image(dems[level],    sub_scale, dems[level-1]);
 	 interp_image(albedos[level], sub_scale, albedos[level-1]);

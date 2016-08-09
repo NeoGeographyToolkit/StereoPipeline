@@ -203,7 +203,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
     ("nodata_value",    po::value(&opt.nodata_value)->default_value(-32768),
          "The value of no-data pixels, unless specified in the DEM.")
     ("geoid",           po::value(&opt.geoid), 
-        "Specify the geoid to use for Earth WGS84 DEMs. Options: EGM96, EGM2008. Default: EGM96.")
+        "Specify the geoid to use for the given datum. For WGS84 use EGM96 or EGM2008. Default: EGM96. For Mars use MOLA or leave blank. For NAD83 use NAVD88 or leave blank. When not specified it will be auto-detected.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
     ("double",          po::bool_switch(&opt.use_double)->default_value(false)->implicit_value(true),
          "Output using double precision (64 bit) instead of float (32 bit).")
@@ -330,6 +330,9 @@ int main( int argc, char *argv[] ) {
                 << datum_name << "\n");
     }
 
+    // Ensure that the value of --geoid is compatible with the datum from the DEM.
+    // Only WGS_1984 datums can be used with EGM geoids, only the NAD83 datum
+    // can be used with NAVD88, and only MOLA can be used with Mars.
     bool is_egm2008 = false;
     if (is_wgs84){
       if (opt.geoid == "egm2008"){
@@ -339,10 +342,22 @@ int main( int argc, char *argv[] ) {
         geoid_file = "egm96-5.jp2"; // The default WGS84 geoid option
       else
         vw_throw( ArgumentErr() << "Unsupported value for geoid: " << opt.geoid << "\n");
+    }else if (lname == "north_american_datum_1983"){
+      if (opt.geoid != "" && opt.geoid != "navd88")
+	vw_throw( ArgumentErr() << "The datum is North_American_Datum_1983. "
+		  << "Hence the value of the --geoid option must be either "
+		  << "empty (auto-detected) or NAVD88. Got instead: "
+		  << opt.geoid << ".\n");
+    }else if (is_mola){
+      if (opt.geoid != "" && opt.geoid != "mola")
+	vw_throw( ArgumentErr() << "Detected a Mars DEM. In that case, the "
+		  << "value of the --geoid option must be either empty "
+		  << "(auto-detected) or MOLA. Got instead: " << opt.geoid << ".\n");
+	
     }else if (opt.geoid != "")
       vw_throw( ArgumentErr() << "The geoid value: " << opt.geoid
                 << " is applicable only for the WGS_1984 datum.\n");
-
+    
     if (is_mola)
       geoid_file = "mola_areoid.tif";
 

@@ -70,7 +70,7 @@ Mutex g_ba_mutex;
 struct Options : public vw::cartography::GdalWriteOptions {
   std::vector<std::string> image_files, camera_files, gcp_files;
   std::string cnet_file, out_prefix, stereo_session_string,
-              cost_function, ba_type;
+    cost_function, ba_type, mapprojected_data;
   int    ip_per_tile;
   double min_angle, lambda, camera_weight, robust_threshold;
   int    report_level, min_matches, max_iterations, overlap_limit;
@@ -1249,6 +1249,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
     ("min-triangulation-angle",             po::value(&opt.min_angle)->default_value(0.1),
      "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.")
+    ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
+                        "Map-projected versions of the input images and the DEM mapprojected onto (niche and experimental, not for general use).")
+    
     ("lambda,l",         po::value(&opt.lambda)->default_value(-1),
                          "Set the initial value of the LM parameter lambda (ignored for the Ceres solver).")
     ("report-level,r",   po::value(&opt.report_level)->default_value(10),
@@ -1390,7 +1393,8 @@ int main(int argc, char* argv[]) {
 
     // Sanity check
     if (num_images != (int)opt.camera_files.size()){
-      vw_out() << "Detected " << num_images << " images and " << opt.camera_files.size() << " cameras.\n";
+      vw_out() << "Detected " << num_images << " images and "
+               << opt.camera_files.size() << " cameras.\n";
       vw_throw(ArgumentErr() << "Must have as many cameras as we have images.\n");
     }
 
@@ -1413,6 +1417,108 @@ int main(int argc, char* argv[]) {
                                                         opt.camera_files[i]));
     } // End loop through images loading all the camera models
 
+    // Create match files from mapprojection.
+    // TODO: This must be documented.
+    if (opt.mapprojected_data != "") {
+      std::istringstream is(opt.mapprojected_data);
+      std::vector<std::string> map_files;
+      std::string file;
+      while (is >> file){
+        map_files.push_back(file); 
+      }
+      std::string dem_file = map_files.back();
+      map_files.erase(map_files.end() - 1);
+      vw_out() << "Loading DEM: " << dem_file << std::endl;
+      double nodata_val = -std::numeric_limits<float>::max(); // note we use a float nodata
+      if (vw::read_nodata_val(dem_file, nodata_val)){
+        vw_out() << "Found DEM nodata value: " << nodata_val << std::endl;
+      }
+      
+      ImageView< PixelMask<double> > dem = create_mask(DiskImageView<double>(dem_file), nodata_val);
+      InterpolationView<EdgeExtensionView< ImageView< PixelMask<double> >, ConstantEdgeExtension >, BilinearInterpolation> interp_dem = interpolate(dem, BilinearInterpolation(),
+		      ConstantEdgeExtension());
+
+      vw::cartography::GeoReference dem_georef;
+      bool is_good = vw::cartography::read_georeference(dem_georef, dem_file);
+      if (!is_good) {
+        vw_throw(ArgumentErr() << "Error: Cannot read georeference from DEM: "
+                 << dem_file << ".\n");
+      }
+      
+      for (size_t i = 0; i < map_files.size(); i++) {
+        for (size_t j = i+1; j < map_files.size(); j++) {
+
+          vw::cartography::GeoReference georef1, georef2;
+          vw_out() << "Reading georef from " << map_files[i] << ' ' << map_files[j] << std::endl;
+          bool is_good1 = vw::cartography::read_georeference(georef1, map_files[i]);
+          bool is_good2 = vw::cartography::read_georeference(georef2, map_files[j]);
+          if (!is_good1 || !is_good2) {
+            vw_throw(ArgumentErr() << "Error: Cannot read georeference.\n");
+          }
+          
+          std::string match_filename = ip::match_filename(opt.out_prefix,
+                                                          map_files[i], map_files[j]);
+          if (!fs::exists(match_filename)) {
+            vw_out() << "Missing: " << match_filename << "\n";
+            continue;
+          }
+          vw_out() << "Reading: " << match_filename << std::endl;
+          std::vector<ip::InterestPoint> ip1, ip2;
+          std::vector<ip::InterestPoint> ip1_cam, ip2_cam;
+          ip::read_binary_match_file( match_filename, ip1, ip2 );
+
+
+          // Undo the map-projection
+          for (size_t ip_iter = 0; ip_iter < ip1.size(); ip_iter++) {
+            
+            vw::ip::InterestPoint P1 = ip1[ip_iter];
+            Vector2 pix1(P1.x, P1.y);
+            Vector2 ll1 = georef1.pixel_to_lonlat(pix1);
+            Vector2 dem_pix1 = dem_georef.lonlat_to_pixel(ll1);
+            if (dem_pix1[0] < 0 || dem_pix1[0] >= dem.cols() - 1) continue;
+            if (dem_pix1[1] < 0 || dem_pix1[1] >= dem.rows() - 1) continue;
+            PixelMask<double> dem_val1 = interp_dem(dem_pix1[0], dem_pix1[1]);
+            if (!is_valid(dem_val1)) continue;
+            Vector3 llh1(ll1[0], ll1[1], dem_val1.child());
+            Vector3 xyz1 = dem_georef.datum().geodetic_to_cartesian(llh1);
+	    Vector2 cam_pix1;
+	    try { cam_pix1 = opt.camera_models[i]->point_to_pixel(xyz1); }
+	    catch(...){ continue; }
+	    P1.x = cam_pix1.x(); P1.y = cam_pix1.y(); P1.ix = P1.x; P1.iy = P1.y;
+	    
+            vw::ip::InterestPoint P2 = ip2[ip_iter];
+            Vector2 pix2(P2.x, P2.y);
+            Vector2 ll2 = georef2.pixel_to_lonlat(pix2);
+            Vector2 dem_pix2 = dem_georef.lonlat_to_pixel(ll2);
+            if (dem_pix2[0] < 0 || dem_pix2[0] >= dem.cols() - 1) continue;
+            if (dem_pix2[1] < 0 || dem_pix2[1] >= dem.rows() - 1) continue;
+            PixelMask<double> dem_val2 = interp_dem(dem_pix2[0], dem_pix2[1]);
+            if (!is_valid(dem_val2)) continue;
+            Vector3 llh2(ll2[0], ll2[1], dem_val2.child());
+            Vector3 xyz2 = dem_georef.datum().geodetic_to_cartesian(llh2);
+	    Vector2 cam_pix2;
+	    try { cam_pix2 = opt.camera_models[j]->point_to_pixel(xyz2); }
+	    catch(...){ continue; }
+	    P2.x = cam_pix2.x(); P2.y = cam_pix2.y(); P2.ix = P2.x; P2.iy = P2.y;
+	    
+	    ip1_cam.push_back(P1);
+	    ip2_cam.push_back(P2);
+          }
+
+	  // TODO: There is a problem if the number of matches changes!!!
+	  vw_out() << "Saving " << ip1_cam.size() << " matches.\n";
+	  std::string image1_path  = opt.image_files[i];
+	  std::string image2_path  = opt.image_files[j];
+	  match_filename = ip::match_filename(opt.out_prefix, image1_path, image2_path);
+
+	  vw_out() << "Writing: " << match_filename << std::endl;
+	  ip::write_binary_match_file(match_filename, ip1_cam, ip2_cam);
+	  
+	  
+        }
+      }
+    }
+    
     // Create the match points
     // Iterate through each pair of input images
     std::map< std::pair<int, int>, std::string> match_files;
@@ -1420,7 +1526,8 @@ int main(int argc, char* argv[]) {
     // Load estimated camera positions if they were provided.
     std::vector<Vector3> estimated_camera_gcc;
     load_estimated_camera_positions(opt, estimated_camera_gcc);
-    const bool got_est_cam_positions = (estimated_camera_gcc.size() == static_cast<size_t>(num_images));
+    const bool got_est_cam_positions
+      = (estimated_camera_gcc.size() == static_cast<size_t>(num_images));
     
     size_t num_pairs_matched = 0;
     for (int i = 0; i < num_images; i++){
@@ -1433,7 +1540,8 @@ int main(int argc, char* argv[]) {
           if ( (this_pos  != Vector3(0,0,0)) && // If both positions are known
                (other_pos != Vector3(0,0,0)) && // and they are too far apart
                (norm_2(this_pos - other_pos) > opt.position_filter_dist) ) {
-            std::cout << "Skipping position: " << this_pos << " and " << other_pos << " with distance " << norm_2(this_pos - other_pos) << std::endl;
+            vw_out() << "Skipping position: " << this_pos << " and "
+		     << other_pos << " with distance " << norm_2(this_pos - other_pos) << std::endl;
             continue; // Skip this image pair
           }
         } // End estimated camera position filtering

@@ -224,6 +224,10 @@ namespace vw { namespace gui {
                        SLOT(showFilesChosenByUser(int, int)));
       m_chooseFilesDlg->chooseFiles(m_images);
 
+      // When the user clicks on the table header on top to toggle all on/off
+      connect(m_chooseFilesDlg->getFilesTable()->horizontalHeader(),
+	      SIGNAL(sectionClicked(int)), this, SLOT(toggleAllOnOff(int)));
+      
       m_chooseFilesDlg->getFilesTable()->setContextMenuPolicy(Qt::CustomContextMenu);
       connect(m_chooseFilesDlg->getFilesTable(), SIGNAL(customContextMenuRequested(QPoint)),
 	      this, SLOT(customMenuRequested(QPoint)));
@@ -237,9 +241,11 @@ namespace vw { namespace gui {
     m_addMatchPoint    = m_ContextMenu->addAction("Add match point");
     m_deleteMatchPoint = m_ContextMenu->addAction("Delete match point");
     m_toggleHillshade  = m_ContextMenu->addAction("Toggle hillshaded display");
+    m_setThreshold     = m_ContextMenu->addAction("View/set shadow threshold");
     connect(m_addMatchPoint,    SIGNAL(triggered()), this, SLOT(addMatchPoint()));
     connect(m_deleteMatchPoint, SIGNAL(triggered()), this, SLOT(deleteMatchPoint()));
     connect(m_toggleHillshade,  SIGNAL(triggered()), this, SLOT(toggleHillshade()));
+    connect(m_setThreshold,    SIGNAL(triggered()), this, SLOT(setTheshold()));
 
     MainWidget::maybeGenHillshade();
   } // End constructor
@@ -309,6 +315,41 @@ namespace vw { namespace gui {
     return;
   }
 
+  void MainWidget::toggleAllOnOff(int columnClicked){
+    
+    // Process user's choice from m_chooseFilesDlg.
+    if (!m_chooseFilesDlg)
+      return;
+
+    QTableWidget * filesTable = m_chooseFilesDlg->getFilesTable();
+    int rows = filesTable->rowCount();
+
+    // See if all files are hidden
+    bool allOff = true;
+    for (int rowIter = 0; rowIter < rows; rowIter++){
+      QTableWidgetItem *item = filesTable->item(rowIter, 0);
+      if (item->checkState() == Qt::Checked){
+	allOff = false;
+      }
+    }
+
+    // If all files are hidden, we will show all. Else hide all.
+    m_filesToHide.clear();
+    for (int rowIter = 0; rowIter < rows; rowIter++){
+      QTableWidgetItem *item = filesTable->item(rowIter, 0);
+      string fileName = (filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
+
+      if (allOff){
+	item->setCheckState(Qt::Checked);
+      }else{
+	item->setCheckState(Qt::Unchecked);
+	m_filesToHide.insert(fileName);
+      }
+    }
+    
+    refreshPixmap();
+  }
+    
   BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
     BBox2 out_box = box;
     double aspect = double(m_window_width) / m_window_height;
@@ -1399,4 +1440,26 @@ namespace vw { namespace gui {
     emit refreshAllMatches();
   }
 
+  // Show the current shadow threshold, and allow the user to change it.
+  void MainWidget::setTheshold(){
+
+    std::string shadowThresh;
+    std::ostringstream oss;
+    oss.precision(18);
+    oss << m_shadow_thresh;
+    shadowThresh = oss.str();
+    bool ans = getStringFromGui(this,
+				"Shadow threshold",
+				"Shadow threshold",
+				shadowThresh,
+				shadowThresh);
+    if (!ans)
+      return;
+
+    m_shadow_thresh = atof(shadowThresh.c_str());
+
+    vw_out() << "Shadow threshold for " << m_image_files[0]
+	     << ": " << m_shadow_thresh << std::endl;
+  }
+  
 }} // namespace vw::gui

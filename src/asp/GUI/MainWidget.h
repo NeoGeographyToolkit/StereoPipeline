@@ -108,14 +108,16 @@ namespace vw { namespace gui {
 public slots:
     void sizeToFit();
     void showFilesChosenByUser(int rowClicked, int columnClicked);
+    void toggleAllOnOff(int columnClicked);
     void customMenuRequested(QPoint pos);
     void viewUnthreshImages();
     void viewThreshImages();
     void viewHillshadedImages(bool hillshade_mode);
 
-    void addMatchPoint();    ///< Add a new interest point (from right click menu)
-    void deleteMatchPoint(); ///< Delete an interest point (from right click menu)
-    void toggleHillshade();    ///< Turn on/off hillshading per image (from right click menu)
+    void addMatchPoint();       ///< Add a new interest point (from right click menu)
+    void deleteMatchPoint();    ///< Delete an interest point (from right click menu)
+    void setTheshold();         ///< Set change shadow threshold (from right click menu)
+    void toggleHillshade();     ///< Turn on/off hillshading per image (from right click menu)
     void refreshHillshade();    ///< We modified m_hillshade_mode. Update the display.
     void deleteImage();         ///< Delete an image from the gui and refresh
 
@@ -216,6 +218,7 @@ public slots:
     QAction* m_addMatchPoint;
     QAction* m_deleteMatchPoint;
     QAction* m_toggleHillshade;
+    QAction* m_setThreshold;
     QAction* m_toggleHillshadeFromTable;
     QAction* m_deleteImage;
 

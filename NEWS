@@ -40,6 +40,7 @@ Other
  - stereo_gui
    * Use transparent pixels for displaying no-data values instead of black.
    * Can delete or hillshade individual images when overlayed.
+   * Add control to hide/show all images when in overlay mode.
 
  - Misc
    * Make ASP handle gracefully georeferenced images with some pixels
