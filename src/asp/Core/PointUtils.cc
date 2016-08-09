@@ -568,7 +568,7 @@ asp::CsvConv::CsvRecord asp::CsvConv::parse_csv_line(bool & is_first_line, bool 
   if (!success){
     if (!is_first_line){
       // Not the header
-      vw_throw( vw::IOErr() << "Failed to read line: " << line << "\n" );
+      vw_out () << "Failed to read line: " << line << "\n";
     }
   }
 
