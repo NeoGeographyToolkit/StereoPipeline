@@ -10,8 +10,8 @@ Highlights
 
  - Added the ability to process SPOT5 images with stereo,
    bundle_adjust, and map_project using a rigorous linescan camera model.
- - Added the add_spot_rpc tool to create RPC models for SPOT5, 
-   similar to the aster2asp tool.
+ - Added the add_spot_rpc tool to create RPC models for SPOT5
+   which allows them to be map projected with the RPC model.
 
  - pc_align 
    * Can solve for a scale change in addition to a rotation and translation 

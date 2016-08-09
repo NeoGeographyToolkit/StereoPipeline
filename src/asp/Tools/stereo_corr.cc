@@ -656,7 +656,7 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
 
 int main(int argc, char* argv[]) {
 
-  //try {
+  try {
     xercesc::XMLPlatformUtils::Initialize();
 
     stereo_register_sessions();
@@ -678,7 +678,7 @@ int main(int argc, char* argv[]) {
     stereo_correlation( opt );
   
     xercesc::XMLPlatformUtils::Terminate();
-  //} ASP_STANDARD_CATCHES;
+  } ASP_STANDARD_CATCHES;
 
   return 0;
 }

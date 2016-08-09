@@ -494,6 +494,11 @@ int main(int argc, char* argv[]) {
                          verbose, output_prefix, opt_vec);
     ASPGlobalOptions opt = opt_vec[0];
 
+    vw_out() << "Using image  files: " << opt.in_file1  << ", " << opt.in_file2  << std::endl;
+    vw_out() << "Using camera files: " << opt.cam_file1 << ", " << opt.cam_file2 << std::endl;
+    if (!opt.input_dem.empty())
+      vw_out() << "Using input DEM: " << opt.input_dem << std::endl;
+
     // We will not adjust the left image size if we do multiview stereo,
     // so we can keep one-to-one correspondence between the several
     // pairwise runs that are part of the multiview run for the time
