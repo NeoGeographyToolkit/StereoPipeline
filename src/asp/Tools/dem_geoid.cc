@@ -341,7 +341,7 @@ int main( int argc, char *argv[] ) {
       }else if (opt.geoid == "egm96" || opt.geoid == "")
         geoid_file = "egm96-5.jp2"; // The default WGS84 geoid option
       else
-        vw_throw( ArgumentErr() << "Unsupported value for geoid: " << opt.geoid << "\n");
+        vw_throw( ArgumentErr() << "The datum is WGS84. The only supported options for the geoid are EGM96 and EGM2008. Got instead: " << opt.geoid << ".\n");
     }else if (lname == "north_american_datum_1983"){
       if (opt.geoid != "" && opt.geoid != "navd88")
 	vw_throw( ArgumentErr() << "The datum is North_American_Datum_1983. "
