@@ -816,7 +816,8 @@ symbolic links to the original header files with different names:
 You can also map project the SPOT5 images before they are passed to the 
 \texttt{stereo} tool.  In order to do so, you must first use the 
 \texttt{add\_spot\_rpc} tool to generate an RPC model approximation of
-the SPOT5 sensor model.
+the SPOT5 sensor model, then use the \texttt{spot5maprpc} session type
+when running stereo on the map projected images.
 
 \begin{verbatim}
     > add_spot_rpc front/SEGMT01/METADATA.DIM -o front/SEGMT01/METADATA.DIM
@@ -827,7 +828,7 @@ the SPOT5 sensor model.
       back_map_proj.tif -t rpc
     > stereo -t spot5maprpc front_map_proj.tif back_map_proj.tif  \ 
       front/SEGMT01/METADATA.DIM back/SEGMT01/METADATA.DIM \ 
-      st_run/out sample_dem.tif -t dgmaprpc
+      st_run/out sample_dem.tif
 \end{verbatim}
 
 \begin{figure}[h!]

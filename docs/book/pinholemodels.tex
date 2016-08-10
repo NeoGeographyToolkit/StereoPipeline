@@ -19,6 +19,7 @@ the four parameters listed above.  This will usually either be 1.0 if they
 are specified in pixel units or alternately the size of a pixel in millimeters.
 \end{itemize}
 
+
 Along with the basic pinhole camera parameters, a lens distortion model
 can be added.  Note that the units used in the distortion model must
 match the units used for the parameters listed above.  For example, if the
@@ -132,8 +133,8 @@ The first half of the file is the same for all pinhole models:
 \item  \texttt{u, v, and w\_direction} = These lines allow an additional permutation of the 
 axes of the camera coordinates.  By default, the positive column direction aligns with x, the
 positive row direction aligns with y, and downward into the image aligns with z.
-\item  \texttt{C} = The location of the camera center, usually in the geocentric coordinate system (GCC).
-\item  \texttt{R} = The rotation matrix describing the camera's pose in the coordinate system.
+\item  \texttt{C} = The location of the camera center, usually in the geocentric coordinate system (GCC/ECEF).
+\item  \texttt{R} = The rotation matrix describing the camera's absolute pose in the coordinate system.
 \item  \texttt{pitch} = The pitch intrinsic parameter described in the previous section.
 \end{itemize}
 
@@ -201,7 +202,9 @@ Also in the past Ames Stereo Pipeline has generated a shorter version of the cur
 format, also with the extension \texttt{.tsai}, which only supported the TSAI lens distortion model.
 Existing files in that format can still be used by ASP.
 
-
+Note that the \texttt{orbitviz} tool can be useful for checking the formatting of \texttt{.tsai}
+files you create and to estimate the position and orientation. To inspect the orientation use 
+the optional \texttt{.dae} model file input option and observe the rotation of the 3D model.
 
 
 
