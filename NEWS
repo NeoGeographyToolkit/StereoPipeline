@@ -50,6 +50,7 @@ Other
    * Removed the deprecated orthoproject tool. Now mapproject should be used. 
    * Fixed a bug in pc_align which caused the --max-disp argument to be misread
      in some situations.
+   * Removed some extraneous code slowing down the datum_convert tool.
  
 *** RELEASE 2.5.2, Feb 29, 2016 ***
 

@@ -259,9 +259,6 @@ void do_work(Options const& opt) {
     asp::set_srs_string(opt.target_srs_string, have_user_datum, user_datum, output_georef);
   }
 
-  vw_out() << "Min input val = " << min_pixel_value(dem_img) << std::endl;
-  vw_out() << "Max input val = " << max_pixel_value(dem_img) << std::endl;
-
   vw_out() << "Input georef:\n"  << dem_georef    << std::endl;
 
   BBox2 output_proj_box = get_output_projected_bbox(dem_georef, output_georef, dem_img);
