@@ -53,6 +53,7 @@ namespace vw {
   template<> struct PixelFormatID<Vector6>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
 }
 
+// This is a list of types the user can specify for output with a dedicated command line flag.
 enum ProjectionType {
   SINUSOIDAL,
   MERCATOR,
@@ -551,7 +552,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   else if ( vm.count("gnomonic") )             opt.projection = GNOMONIC;
   else if ( vm.count("lambert-azimuthal") )    opt.projection = LAMBERTAZIMUTHAL;
   else if ( vm.count("utm") )                  opt.projection = UTM;
-  else                                         opt.projection = PLATECARREE;
+  else                                         opt.projection = PLATECARREE; // Default output projection
 }
 
 // If a pixel has invalid data, fill its value with the average of
@@ -975,8 +976,6 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
     georef.set_transform( transform );
   }
 
-  vw_out() << "\nOutput georeference: \n\t" << georef << std::endl;
-
   // Do not round the DEM heights for small bodies
   if (georef.datum().semi_major_axis() <= asp::MIN_RADIUS_FOR_ROUNDING ||
       georef.datum().semi_minor_axis() <= asp::MIN_RADIUS_FOR_ROUNDING){
@@ -1195,15 +1194,15 @@ int main( int argc, char *argv[] ) {
         output_georef.set_datum( user_datum );
 
       switch( opt.projection ) {
-      case SINUSOIDAL:         output_georef.set_sinusoidal(opt.proj_lon, opt.false_easting, opt.false_northing); break;
-      case MERCATOR:           output_georef.set_mercator(opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
-      case TRANSVERSEMERCATOR: output_georef.set_transverse_mercator(opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
-      case ORTHOGRAPHIC:       output_georef.set_orthographic(opt.proj_lat, opt.proj_lon, opt.false_easting, opt.false_northing); break;
-      case STEREOGRAPHIC:      output_georef.set_stereographic(opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
-      case OSTEREOGRAPHIC:   output_georef.set_oblique_stereographic(opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
-      case GNOMONIC:           output_georef.set_gnomonic(opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
-      case LAMBERTAZIMUTHAL:   output_georef.set_lambert_azimuthal  (opt.proj_lat, opt.proj_lon, opt.false_easting, opt.false_northing); break;
-      case UTM:              output_georef.set_UTM( opt.utm_zone ); break;
+      case SINUSOIDAL:           output_georef.set_sinusoidal           (opt.proj_lon,                               opt.false_easting, opt.false_northing); break;
+      case MERCATOR:             output_georef.set_mercator             (opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
+      case TRANSVERSEMERCATOR:   output_georef.set_transverse_mercator  (opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
+      case ORTHOGRAPHIC:         output_georef.set_orthographic         (opt.proj_lat, opt.proj_lon,                 opt.false_easting, opt.false_northing); break;
+      case STEREOGRAPHIC:        output_georef.set_stereographic        (opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
+      case OSTEREOGRAPHIC:       output_georef.set_oblique_stereographic(opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
+      case GNOMONIC:             output_georef.set_gnomonic             (opt.proj_lat, opt.proj_lon, opt.proj_scale, opt.false_easting, opt.false_northing); break;
+      case LAMBERTAZIMUTHAL:     output_georef.set_lambert_azimuthal    (opt.proj_lat, opt.proj_lon,                 opt.false_easting, opt.false_northing); break;
+      case UTM:                  output_georef.set_UTM( opt.utm_zone ); break;
       default: // Handles plate carree
         break;
       }
@@ -1289,10 +1288,14 @@ int main( int argc, char *argv[] ) {
     // be using [0,360].
     double avg_lon = asp::find_avg_lon(point_image);
     
-    // TODO: Do we need the recenter code now that we have this?
-    output_georef.set_lon_center(avg_lon < 100);
     
-    //std::cout << "output_georef: \n" << output_georef << std::endl;
+    // TODO: Do we need the recenter code now that we have this?
+    // TODO: Modify other code so we don't have to handle this one special case!
+    // Forcing the georef object outside its comfort zone is not safe for all projections!
+    if (output_georef.overall_proj4_str().find("+proj=aea") == std::string::npos)
+      output_georef.set_lon_center(avg_lon < 100);
+    
+    //std::cout << "output_georef after lon center: \n" << output_georef << std::endl;   
 
     // We trade off readability here to avoid ImageViewRef dereferences
     if (opt.lon_offset != 0 || opt.lat_offset != 0 || opt.height_offset != 0) {
