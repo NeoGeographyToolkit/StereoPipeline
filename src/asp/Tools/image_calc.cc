@@ -238,14 +238,8 @@ BOOST_FUSION_ADAPT_STRUCT(
     (std::vector<calc_operation>, inputs)
 )
 
-
-
 //================================================================================
 // - Boost::Spirit equation parsing
-
-
-void print(double const& i) { std::cout << i << std::endl; }
-void printYo() { std::cout << "Yo" << std::endl; }
 
 // Helper constants to aid in accessing a calc_operation struct
 const int OP  = 0;
@@ -574,6 +568,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("input-nodata-value",  po::value(&opt.in_nodata_value), "Value that is no-data in the input images.")
     ("output-nodata-value", po::value(&opt.out_nodata_value), "Value to use for no-data in the output image.")
     ("help,h",            "Display this help message");
+    
+  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+
 
   po::options_description positional("");
   positional.add_options()
@@ -582,27 +579,18 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("input-files", -1);
 
-  po::options_description all_options;
-  all_options.add(general_options).add(positional);
+  std::string usage("[options] <image-files>");
+  bool allow_unregistered = false;
+  std::vector<std::string> unregistered;
+  po::variables_map vm =
+    asp::check_command_line( argc, argv, opt, general_options, general_options,
+			     positional, positional_desc, usage,
+			     allow_unregistered, unregistered );
 
-  po::variables_map vm;
-  try {
-    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
-    po::notify( vm );
-  } catch (const po::error& e) {
-    vw_throw( ArgumentErr() << "Error parsing input:\n\t"
-              << e.what() << general_options );
-  }
-
-  std::ostringstream usage;
-  usage << "Usage: " << argv[0] << " [options] <image-files>\n";
-
-  if ( vm.count("help") )
-    vw_throw( ArgumentErr() << usage.str() << general_options );
   if ( opt.input_files.empty() )
-    vw_throw( ArgumentErr() << "Missing input files!\n" << usage.str() << general_options );
+    vw_throw( ArgumentErr() << "Missing input files!\n" << usage << general_options );
   if ( opt.calc_string.size() == 0)
-    vw_throw( ArgumentErr() << "Missing operation string!\n" << usage.str() << general_options );
+    vw_throw( ArgumentErr() << "Missing operation string!\n" << usage << general_options );
 
   if      (opt.output_data_string == "uint8"  ) opt.output_data_type = DT_UINT8;
   else if (opt.output_data_string == "uint16" ) opt.output_data_type = DT_UINT16;
