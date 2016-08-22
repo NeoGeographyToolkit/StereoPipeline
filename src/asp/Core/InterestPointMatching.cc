@@ -613,7 +613,7 @@ namespace asp {
 	      // deep inside FLANN. Just discard the bad results.
 	      std::vector<int> good_indices;
 	      for (size_t j = 0; j < indices.size(); j++) {
-	        if (indices[j] >= (int)disparity_vector.size()) continue;
+	        if (indices[j] < 0 || indices[j] >= (int)disparity_vector.size()) continue;
 	        good_indices.push_back(indices[j]);
 	      }
 
