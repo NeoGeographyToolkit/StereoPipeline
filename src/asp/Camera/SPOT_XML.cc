@@ -442,7 +442,15 @@ vw::camera::LagrangianInterpolation SpotXML::setup_velocity_func() const {
     //std::cout << "Adding velocity point: " << iter->first 
     //          << " --> " << iter->second << std::endl;
   }
-  return vw::camera::LagrangianInterpolation(velocity, time, INTERP_RADII);
+  
+  // More generic method for variable time intervals
+  //return vw::camera::LagrangianInterpolationVarTime(velocity, time, INTERP_RADII);
+  
+  // A faster method for when we know the time delta is constant
+  double min_time   = time[0];
+  double max_time   = time[time.size()-1];
+  double time_delta = (max_time - min_time) / (time.size()-1);
+  return vw::camera::LagrangianInterpolation(velocity, min_time, time_delta, max_time, INTERP_RADII);
 }
 
 // The position is already in GCC, so just pack into a function.
@@ -461,7 +469,15 @@ vw::camera::LagrangianInterpolation SpotXML::setup_position_func() const {
     //std::cout << "Adding position point: " << convert_time(iter->first)
     //          << " --> " << iter->second << std::endl;
   }
-  return vw::camera::LagrangianInterpolation(position, time, INTERP_RADII);
+  
+  // More generic method for variable time intervals
+  //return vw::camera::LagrangianInterpolationVarTime(position, time, INTERP_RADII);
+  
+  // A faster method for when we know the time delta is constant
+  double min_time   = time[0];
+  double max_time   = time[time.size()-1];
+  double time_delta = (max_time - min_time) / (time.size()-1);
+  return vw::camera::LagrangianInterpolation(position, min_time, time_delta, max_time, INTERP_RADII);
 }
 
 vw::camera::LinearPiecewisePositionInterpolation SpotXML::setup_pose_func(
