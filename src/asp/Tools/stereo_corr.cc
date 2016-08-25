@@ -39,6 +39,9 @@ using namespace asp;
 using namespace std;
 
 
+// TODO: Make this into an option!
+#define COLLAR_SIZE 256
+
 // Read the search range from D_sub, and scale it to the full image
 void read_search_range(ASPGlobalOptions & opt){
 
@@ -121,7 +124,8 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
                   vw::stereo::PREFILTER_LOG, stereo_settings().slogW,
                   search_range, kernel_size, cost_mode,
                   corr_timeout, seconds_per_op,
-                  stereo_settings().xcorr_threshold, stereo_settings().corr_max_levels
+                  stereo_settings().xcorr_threshold, stereo_settings().corr_max_levels,
+                  stereo_settings().use_sgm, COLLAR_SIZE
               ),
               // To do: all these hard-coded values must be replaced with
               // appropriate params from user's stereo.default, for
@@ -151,7 +155,8 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
                   vw::stereo::PREFILTER_LOG, stereo_settings().slogW,
                   search_range, kernel_size, cost_mode,
                   corr_timeout, seconds_per_op,
-                  stereo_settings().xcorr_threshold, stereo_settings().corr_max_levels
+                  stereo_settings().xcorr_threshold, stereo_settings().corr_max_levels,
+                  stereo_settings().use_sgm, COLLAR_SIZE
               );
 
       vw::cartography::write_gdal_image( // Write to disk while removing outliers
@@ -516,7 +521,8 @@ public:
                           m_kernel_size,  m_cost_mode,
                           m_corr_timeout, m_seconds_per_op,
                           stereo_settings().xcorr_threshold,
-                          stereo_settings().corr_max_levels );
+                          stereo_settings().corr_max_levels,
+                          stereo_settings().use_sgm, COLLAR_SIZE );
       return corr_view.prerasterize(bbox);
     }else{
       typedef vw::stereo::PyramidCorrelationView<ImageType, ImageType, MaskType, MaskType > CorrView;
@@ -528,7 +534,8 @@ public:
                           m_kernel_size,  m_cost_mode,
                           m_corr_timeout, m_seconds_per_op,
                           stereo_settings().xcorr_threshold,
-                          stereo_settings().corr_max_levels );
+                          stereo_settings().corr_max_levels,
+                          stereo_settings().use_sgm, COLLAR_SIZE );
       return corr_view.prerasterize(bbox);
     }
     
@@ -656,7 +663,7 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
 
 int main(int argc, char* argv[]) {
 
-  try {
+  //try {
     xercesc::XMLPlatformUtils::Initialize();
 
     stereo_register_sessions();
@@ -671,6 +678,7 @@ int main(int argc, char* argv[]) {
     // Integer correlator requires large tiles
     //---------------------------------------------------------
     int ts = ASPGlobalOptions::corr_tile_size();
+    ts = 1024; // TODO: Option will fall in from VW, but maybe set the default higher here?
     opt.raster_tile_size = Vector2i(ts, ts);
 
     // Internal Processes
@@ -678,7 +686,7 @@ int main(int argc, char* argv[]) {
     stereo_correlation( opt );
   
     xercesc::XMLPlatformUtils::Terminate();
-  } ASP_STANDARD_CATCHES;
+  //} ASP_STANDARD_CATCHES;
 
   return 0;
 }

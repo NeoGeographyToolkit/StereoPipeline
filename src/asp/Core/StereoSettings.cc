@@ -171,7 +171,9 @@ namespace asp {
       ("use-local-homography",   po::bool_switch(&global.use_local_homography)->default_value(false)->implicit_value(true),
                      "Apply a local homography in each tile.")
       ("corr-timeout",           po::value(&global.corr_timeout)->default_value(900),
-                     "Correlation timeout for a tile, in seconds.");
+                     "Correlation timeout for a tile, in seconds.")
+      ("use-sgm",   po::bool_switch(&global.use_sgm)->default_value(false)->implicit_value(true),
+                     "Use a slower but more accurate SGM stereo algorithm for integer correlation.");
 
     po::options_description backwards_compat_options("Aliased backwards compatibility options");
     // Do not add default values here. They may override the values set

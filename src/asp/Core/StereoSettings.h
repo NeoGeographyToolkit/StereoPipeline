@@ -130,6 +130,7 @@ namespace asp {
     double disparity_estimation_dem_error; // Error (in meters) of the disparity estimation DEM
     bool   use_local_homography;      // Apply a local homography in each tile
     int    corr_timeout;              // Correlation timeout for a tile, in seconds
+    bool   use_sgm;                   // Use a slower but more accurate SGM integer correlator algorithm.
 
     // Subpixel Options
     vw::uint16 subpixel_mode;         // 0 = none
