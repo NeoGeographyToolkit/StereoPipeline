@@ -82,7 +82,7 @@ def executeCommand(cmd,
             FNULL = open(os.devnull, 'w')
             subprocess.call(cmd, stdout=FNULL, stderr=subprocess.STDOUT)
         else: # Display output
-            print cmd
+            print " ".join(cmd)
             subprocess.call(cmd)
 
     # Optionally check that the output file was created
