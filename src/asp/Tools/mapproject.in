@@ -206,7 +206,7 @@ def main(argsIn):
                                                 'If not provided, run on the local machine.')
 
         parser.add_option('--tile-size',  dest='tileSize', default=1024, type='int',
-                                           help='Size of square tiles to break up processing in to.')
+                                           help='Size of square tiles to break up processing into.')
 
         # Directory where the job is running
         parser.add_option('--work-dir',  dest='workDir', default=None,
