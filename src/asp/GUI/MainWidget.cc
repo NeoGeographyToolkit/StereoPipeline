@@ -1360,17 +1360,19 @@ namespace vw { namespace gui {
 
     // We will start with an interest point in the left-most image,
     // and add matches to it in the other images.
-    // - Must add the point in each image from left to right, one point at a time.
+    // At any time, an image to the left must have no fewer ip than
+    // images on the right. Upon saving, all images must
+    // have the same number of interest points.
     size_t curr_pts = m_matches[m_image_id].size(); // # Pts from current image
     bool is_good = true;
     for (int i = 0; i < m_image_id; i++) { // Look through lower-id images
-      if (m_matches[i].size() != curr_pts+1) { // They should all have one more IP
+      if (m_matches[i].size() < curr_pts+1) {
         is_good = false;
       }
     }
     // Check all higher-id images, they should have the same # Pts as this one.
     for (int i = m_image_id+1; i < (int)m_matches.size(); i++) {
-      if (m_matches[i].size() != curr_pts) {
+      if (m_matches[i].size() > curr_pts) {
         is_good = false;
       }
     }
@@ -1393,6 +1395,7 @@ namespace vw { namespace gui {
     viewMatches(view_matches);
   }
 
+  // We cannot delete match points unless all images have the same number of them.
   void MainWidget::deleteMatchPoint(){
 
     if (m_matches.empty() || m_matches[0].empty()){

@@ -440,7 +440,11 @@ void MainWindow::deleteImageFromWidget(){
   createLayout();
 }
 
-// Show or hide matches depending on the value of m_viewMatches.
+// Show or hide matches depending on the value of m_viewMatches.  We
+// assume first ip in first image mananages first ip in all other
+// images. We allow ip without matches in other images, that can be
+// useful, but not before saving, when their numbers must agree for
+// all images.
 void MainWindow::viewMatches(){
 
   m_viewMatches = m_viewMatches_action->isChecked();
@@ -456,58 +460,58 @@ void MainWindow::viewMatches(){
     m_matches.clear();
     m_matches.resize(m_image_paths.size());
 
-    // All images must have the same number of matches to be able to view them
     int num_matches = -1;
 
-    for (int i = 0; i < int(m_image_paths.size()); i++) {
-      for (int j = int(i+1); j < int(m_image_paths.size()); j++) {
+    for (int i = 0; i < int(m_image_paths.size())-1; i++) {
+      int j = i + 1; // read the matches between image i and image i + 1
 
-        // If the match file was not specified, look it up.
-        std::string match_file = m_match_file;
-        if (match_file == "")
-          match_file = vw::ip::match_filename(m_output_prefix, m_image_paths[i], m_image_paths[j]);
-
-        // Look for the match file in the default location, and if it
-        // does not appear prompt the user or a path.
+      // If the match file was not specified, look it up.
+      std::string match_file = m_match_file;
+      if (match_file == "")
+        match_file = vw::ip::match_filename(m_output_prefix, m_image_paths[i], m_image_paths[j]);
+      
+      // Look for the match file in the default location, and if it
+      // does not appear prompt the user or a path.
+      std::vector<vw::ip::InterestPoint> left, right;
+      try {
+        ip::read_binary_match_file(match_file, left, right);
+      }catch(...){
         try {
-          ip::read_binary_match_file(match_file, m_matches[i], m_matches[j]);
+          match_file = fileDialog("Manually select the match file...", m_output_prefix);
+          
+          // If we have just two images, save this match file as the
+          // default. For more than two, it gets complicated.
+          if (m_image_paths.size() == 2)
+            m_match_file = match_file;
+          
         }catch(...){
-          try {
-            match_file = fileDialog("Manually select the match file...", m_output_prefix);
-
-            // If we have just two images, save this match file as the
-            // default. For more than two, it gets complicated.
-            if (m_image_paths.size() == 2)
-              m_match_file = match_file;
-
-          }catch(...){
-            popUp("Manually selected file failed to load. Cannot view matches.");
-            return;
-          }
+          popUp("Manually selected file failed to load. Cannot view matches.");
         }
+      }
 
-        vw_out() << "Loading " << match_file << std::endl;
-        try {
-          ip::read_binary_match_file(match_file, m_matches[i], m_matches[j]);
+      // Second attempt. TODO: This logic is confusing.
+      try {
 
-          if (num_matches < 0)
-            num_matches = m_matches[i].size();
+        if (match_file != "") {
+          vw_out() << "Loading " << match_file << std::endl;
+          ip::read_binary_match_file(match_file, left, right);
+        }
+        
+        if (i == 0) m_matches[i] = left;
 
-          if (num_matches != int(m_matches[i].size()) ||
-              num_matches != int(m_matches[j].size()) ) {
-            m_matches.clear();
-            m_matches.resize(m_image_paths.size());
-            popUp(std::string("All image must have the same number of matching ")
-                  + "interest point to be able to display them.");
-            return;
-          }
-
-        }catch(...){
-          m_matches.clear();
-          m_matches.resize(m_image_paths.size());
-          popUp("Could not read matches file: " + match_file);
+        m_matches[j] = right;
+        
+        if (num_matches < 0)
+          num_matches = left.size();
+        
+        if (num_matches != int(right.size())){
+          popUp(std::string("Not all images have the same number of interest points."));
           return;
         }
+        
+      }catch(...){
+        popUp("Could not read matches file: " + match_file);
+        return;
       }
     }
 
