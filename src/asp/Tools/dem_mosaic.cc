@@ -366,12 +366,14 @@ struct Options : vw::cartography::GdalWriteOptions {
   double tr, geo_tile_size;
   bool   has_out_nodata;
   double out_nodata_value;
-  int    tile_size, tile_index, erode_len, priority_blending_len, extra_crop_len, hole_fill_len, weights_blur_sigma, weights_exp, save_dem_weight;
+  int    tile_size, tile_index, erode_len, priority_blending_len, extra_crop_len, hole_fill_len, weights_exp, save_dem_weight;
+  double  weights_blur_sigma, dem_blur_sigma;
   bool   first, last, min, max, mean, stddev, median, count, save_index_map, use_centerline_weights;
   BBox2 projwin;
   Options(): tr(0), geo_tile_size(0), has_out_nodata(false), tile_index(-1),
 	     erode_len(0), priority_blending_len(0), extra_crop_len(0),
-	     hole_fill_len(0), weights_blur_sigma(0), weights_exp(0), save_dem_weight(-1),
+	     hole_fill_len(0), weights_exp(0), save_dem_weight(-1),
+	     weights_blur_sigma(0.0), dem_blur_sigma(0.0),
 	     first(false), last(false), min(false), max(false),
 	     mean(false), stddev(false), median(false), count(false), save_index_map(false),
 	     use_centerline_weights(false){}
@@ -949,6 +951,18 @@ public:
 
     } // end considering the priority blending length
 
+    // Fill-in no-data values a bit and blur. If just the blurring is used,
+    // it will choke on no-data values, leaving large holes around each,
+    // hence the need to fill a little.
+    if (m_opt.dem_blur_sigma > 0.0) {
+      int kernel_size = vw::compute_kernel_size(m_opt.dem_blur_sigma);
+      tile = apply_mask(gaussian_filter(fill_nodata_with_avg
+					(create_mask(tile, m_opt.out_nodata_value),
+					 kernel_size),
+					m_opt.dem_blur_sigma),
+			m_opt.out_nodata_value);
+    }
+    
     // Fill holes
     if (m_opt.hole_fill_len > 0){
       tile = apply_mask(vw::fill_holes_grass
@@ -1114,12 +1128,14 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 	   "Set the tile size in georeferenced (projected) units (e.g., degrees or meters).")
     ("output-nodata-value", po::value<double>(&opt.out_nodata_value),
 	   "No-data value to use on output. Default: use the one from the first DEM to be mosaicked.")
-    ("weights-blur-sigma", po::value<int>(&opt.weights_blur_sigma)->default_value(5),
+    ("weights-blur-sigma", po::value<double>(&opt.weights_blur_sigma)->default_value(5.0),
 	   "The standard deviation of the Gaussian used to blur the weights. Higher value results in smoother weights and blending. Set to 0 to not use blurring.")
     ("weights-exponent",   po::value<int>(&opt.weights_exp)->default_value(1),
 	   "The weights used to blend the DEMs should increase away from the boundary as a power with this exponent. Higher values will result in smoother but faster-growing weights.")
     ("use-centerline-weights",   po::bool_switch(&opt.use_centerline_weights)->default_value(false),
      "Compute weights based on a DEM centerline algorithm. Produces smoother weights if the input DEMs don't have holes or complicated boundary.")
+    ("dem-blur-sigma", po::value<double>(&opt.dem_blur_sigma)->default_value(0.0),
+     "Blur the final DEM with this Gaussian sigma. Default: No blur.")
     ("extra-crop-length", po::value<int>(&opt.extra_crop_len)->default_value(200),
      "Crop the DEMs this far from the current tile (measured in pixels) before blending them (a small value may result in artifacts).")
     ("save-dem-weight",      po::value<int>(&opt.save_dem_weight),
@@ -1210,7 +1226,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (opt.projwin.min().y() > opt.projwin.max().y())
     std::swap(opt.projwin.min().y(), opt.projwin.max().y());
 
-  if (opt.weights_blur_sigma < 0)
+  if (opt.weights_blur_sigma < 0.0)
     vw_throw(ArgumentErr() << "The standard deviation used for blurring must be non-negative.\n"
 			   << usage << general_options );
 
