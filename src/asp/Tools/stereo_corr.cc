@@ -85,6 +85,7 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
 
   Vector2 downsample_scale( double(left_sub.cols()) / double(Lmask.cols()),
                             double(left_sub.rows()) / double(Lmask.rows()) );
+  double mean_scale = (downsample_scale[0] + downsample_scale[1]) / 2.0;
 
   // Compute the initial search range in the subsampled image
   BBox2i search_range( floor(elem_prod(downsample_scale,stereo_settings().search_range.min())),
@@ -125,7 +126,8 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
                   search_range, kernel_size, cost_mode,
                   corr_timeout, seconds_per_op,
                   stereo_settings().xcorr_threshold, stereo_settings().corr_max_levels,
-                  stereo_settings().use_sgm, COLLAR_SIZE
+                  stereo_settings().use_sgm, COLLAR_SIZE,
+                  stereo_settings().corr_blob_filter_area*mean_scale
               ),
               // To do: all these hard-coded values must be replaced with
               // appropriate params from user's stereo.default, for
@@ -157,6 +159,7 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
                   corr_timeout, seconds_per_op,
                   stereo_settings().xcorr_threshold, stereo_settings().corr_max_levels,
                   stereo_settings().use_sgm, COLLAR_SIZE
+                  // Don't combine blob filtering with quantile filtering
               );
 
       vw::cartography::write_gdal_image( // Write to disk while removing outliers
@@ -522,7 +525,8 @@ public:
                           m_corr_timeout, m_seconds_per_op,
                           stereo_settings().xcorr_threshold,
                           stereo_settings().corr_max_levels,
-                          stereo_settings().use_sgm, COLLAR_SIZE );
+                          stereo_settings().use_sgm, COLLAR_SIZE,
+                          stereo_settings().corr_blob_filter_area );
       return corr_view.prerasterize(bbox);
     }else{
       typedef vw::stereo::PyramidCorrelationView<ImageType, ImageType, MaskType, MaskType > CorrView;
@@ -535,7 +539,8 @@ public:
                           m_corr_timeout, m_seconds_per_op,
                           stereo_settings().xcorr_threshold,
                           stereo_settings().corr_max_levels,
-                          stereo_settings().use_sgm, COLLAR_SIZE );
+                          stereo_settings().use_sgm, COLLAR_SIZE,
+                          stereo_settings().corr_blob_filter_area );
       return corr_view.prerasterize(bbox);
     }
     

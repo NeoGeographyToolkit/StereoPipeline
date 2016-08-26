@@ -131,6 +131,7 @@ namespace asp {
     bool   use_local_homography;      // Apply a local homography in each tile
     int    corr_timeout;              // Correlation timeout for a tile, in seconds
     bool   use_sgm;                   // Use a slower but more accurate SGM integer correlator algorithm.
+    int    corr_blob_filter_area;     // Use blob filtering in pyramidal correlation
 
     // Subpixel Options
     vw::uint16 subpixel_mode;         // 0 = none
