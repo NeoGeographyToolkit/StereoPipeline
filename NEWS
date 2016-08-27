@@ -1,5 +1,13 @@
+*** RELEASE 2.5.4, Upcoming ***
+
+ - Improvements, speedups, and much decreased memory usage, together with a lot of testing for sfs.
+ - Added a parallel_sfs tool, to run sfs (shape-from-shading) in parallel.
+
+ - dem_mosaic
+   * Added the option --dem-blur-sigma to blur the output DEM.
+
 *** RELEASE 2.5.3, August 24, 2016 ***
- 
+
 Highlights
  
  - Added the ability to process ASTER L1A VNIR images via the tool
@@ -28,7 +36,6 @@ Highlights
 Other
 
  - dem_mosaic
-   * Added the option --dem-blur-sigma to blur the output DEM.
    * Fix a bug with mosaicking of DEMs over very large extent.
    * Fix a bug with 360 degree longitude offset.
    * Added the option --use-centerline-weights. It will compute
