@@ -1101,7 +1101,11 @@ The weights used to blend the DEMs should increase away from the boundary as a p
 \\ \hline
 
 \texttt{-\/-use-centerline-weights} &
-Compute weights based on a DEM centerline algorithm. Produces smoother weights if the input DEMs don't have holes or complicated boundary.
+Compute weights based on a DEM centerline algorithm. Produces smoother weights if the input DEMs don't have holes or complicated boundary. Use with \texttt{-\/-weights-exponent 2}.
+\\ \hline
+
+\texttt{-\/-dem-blur-sigma \textit{integer (=0)} } &
+Blur the final DEM with this Gaussian sigma. Default: No blur.
 \\ \hline
 
 \texttt{-\/-extra-crop-length \textit{integer(=200)}} &
@@ -2302,6 +2306,7 @@ Option & Description \\ \hline \hline
 \texttt{-n | -\/-max-iterations \textit{int(=100)}} & Set the maximum number of iterations.\\ \hline
 \texttt{-\/-reflectance-type \textit{int(=1)}} & Reflectance type (0 = Lambertian, 1 = Lunar Lambertian).\\ \hline
 \texttt{-\/-smoothness-weight \textit{double(=0.04)}} & A larger value will result in a smoother solution.\\ \hline
+\texttt{-\/-initial-dem-constraint-weight \textit{double(=0.0)}} & A larger value will try harder to keep the SfS optimized DEM closer to the initial guess DEM.\\ \hline
 \texttt{-\/-coarse-levels \textit{int(=0)}} & Solve the problem on a grid coarser than the original by a factor of 2 to this power, then refine the solution on finer grids.\\ \hline
 \texttt{-\/-max-coarse-iterations \textit{int(=50)}} & How many iterations to do at levels of resolution coarser than the final result.\\ \hline
 \texttt{-\/-float-albedo} & Float the albedo for each pixel. Will give incorrect results if only one image is present.\\ \hline
@@ -2315,8 +2320,6 @@ are in the shadow (occluded from the sun).\\ \hline
 \texttt{-\/-init-dem-height \textit{double}} & Use this value for initial DEM heights. An input DEM still needs to be provided for georeference information.\\ \hline
 \texttt{-\/-float-dem-at-boundary} & Allow the DEM values at the boundary of the region to also float (not advised).\\ \hline
 \texttt{-\/-camera-position-step-size \textit{int(=1)}} & Larger step size will result in more aggressiveness in varying the camera position if it is being floated (which may result in a better solution or in divergence).\\ \hline
-\texttt{-\/-max-height-change \textit{int(=0)}} & How much the DEM heights are allowed to differ from the initial guess, in meters. The default is 0, which means this constraint is not applied.\\ \hline
-\texttt{-\/-height-change-weight \textit{int(=0)}} & How much weight to give to the height change penalty (this penalty will only kick in when the DEM height changes by more than max-height-change).\\ \hline
 \texttt{-\/-threads \textit{int(=0)}} & Select the number of processors (threads) to use.\\ \hline
 \texttt{-\/-no-bigtiff} & Tell GDAL to not create bigtiffs.\\ \hline
 \texttt{-\/-tif-compress None|LZW|Deflate|Packbits} & TIFF compression method.\\ \hline
