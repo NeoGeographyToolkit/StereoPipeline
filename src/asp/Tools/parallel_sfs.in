@@ -1,0 +1,419 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# __BEGIN_LICENSE__
+#  Copyright (c) 2009-2013, United States Government as represented by the
+#  Administrator of the National Aeronautics and Space Administration. All
+#  rights reserved.
+#
+#  The NGT platform is licensed under the Apache License, Version 2.0 (the
+#  "License"); you may not use this file except in compliance with the
+#  License. You may obtain a copy of the License at
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+# __END_LICENSE__
+
+'''
+This tool implements a multi-process and multi-machine version of sfs. The input DEM gets split
+into tiles with padding, sfs runs on each tile, and the outputs are mosaicked.
+'''
+
+import sys
+import os, glob, re, shutil, subprocess, string, time, errno, optparse, math
+
+# The path to the ASP python files
+basepath    = os.path.abspath(sys.path[0])
+pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
+libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
+sys.path.insert(0, basepath) # prepend to Python path
+sys.path.insert(0, pythonpath)
+sys.path.insert(0, libexecpath)
+
+import asp_file_utils, asp_system_utils, asp_cmd_utils, asp_image_utils
+asp_system_utils.verify_python_version_is_supported()
+
+# Prepend to system PATH
+os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
+
+def generateTileName(startX, startY, stopX, stopY):
+    """Generate the name of a tile based on its location"""
+
+    tileString = 'tile_' + str(startX) + '_' + str(startY) + '_' + str(stopX) + '_' + str(stopY) 
+    return tileString
+
+# Split a segment of of given length in pieces of about given size.
+# All pieces are about the same length.
+def genSegmentList(length, size, padding):
+    if length <= 0: length = 1
+    if size   <= 0: size   = 1
+    num = int(math.ceil(length/float(size))) # if in doubt, make pieces smaller
+    if num <= 0: num = 1
+
+    goodSize = int(math.floor(length/float(num)))
+    if goodSize <= 0: goodSize = 1
+
+    # numBig segments will have length goodSize + 1, and the rest will have length goodSize
+    numBig = length - goodSize*num
+
+    count = 0
+    L = [0]
+    for c in range(0, num):
+        if count < numBig:
+            curLen = goodSize + 1
+        else:
+            curLen = goodSize
+        count = count + 1
+        pos = L[-1] + curLen
+        L.append(pos)
+
+    return L
+
+def generateTileList(sizeX, sizeY, tileSize, padding):
+    """Generate a full list of tiles for this image"""
+
+    Lx = genSegmentList(sizeX, tileSize, padding)
+    Ly = genSegmentList(sizeY, tileSize, padding)
+
+    tileList = []
+    for x in range(0, len(Lx)-1):
+        for y in range(0, len(Ly)-1):
+
+            begX = Lx[x]; endX = Lx[x+1]
+            begY = Ly[y]; endY = Ly[y+1]
+
+            # apply the padding
+            begX = begX - padding
+            if (begX < 0): begX = 0
+            begY = begY - padding
+            if (begY < 0): begY = 0
+            endX = endX + padding
+            if (endX > sizeX): endX = sizeX
+            endY = endY + padding
+            if (endY > sizeY): endY = sizeY
+            
+            # Create a name for this tile
+            # - Tile format is tile_col_row_width_height_.tif
+            tileString = generateTileName(begX, begY, endX, endY)
+            
+            tileList.append((begX, begY, endX, endY, tileString))
+
+    return (len(Lx)-1, len(Ly)-1, tileList)
+
+def generateTilePrefix(outputFolder, tileName, outputName):
+    return os.path.join(outputFolder, tileName, outputName)
+
+def handleArguments(args):
+    """Split up arguments into required and optional lists which will be passed to subprocess"""
+
+    requiredList = []
+    optionsList  = []
+
+    # Loop through all entries.
+    iterable = iter(range(0, len(args)))
+    for i in iterable:
+        a = args[i]
+        if (i < len(args)-1): # Don't load the next value when we are at the end!
+            n = args[i+1]
+        else:
+            n = '-' # This will just cause us to get out of the loop
+
+        if asp_cmd_utils.isCmdOption(a):      # This is the start of an option.
+            optionsList.append(a)  # Record this entry.
+
+            # The next entry is the start of another option so this one has no values.
+            if asp_cmd_utils.isCmdOption(n): 
+                continue
+
+            optionsList.append(n)  # Otherwise record the next entry as a value.
+            iterable.next()        # Skip the next entry in the loop.
+
+            if (a == '--crop-win'):  # These arguments have four values, not just one.
+                # Add the additional three arguments and skip them in the loop.
+                optionsList.append(args[i+2])           
+                optionsList.append(args[i+3])
+                optionsList.append(args[i+4])
+                iterable.next()
+                iterable.next()
+                iterable.next()
+
+        else: # This is one of the three positional arguments
+            requiredList.append(a)
+
+    # Return the two lists
+    return (requiredList, optionsList)
+
+def runSfs(options, requiredList, outputFolder, outputName):
+    """Run sfs in a single tile."""
+
+    # Determine the name of the tile we need to write
+    tileName = generateTileName(options.pixelStartX, options.pixelStartY,
+                                options.pixelStopX, options.pixelStopY)
+    tilePrefix = generateTilePrefix(outputFolder, tileName, outputName)
+
+    # Bounds for this tile
+    startX = int(options.pixelStartX)
+    stopX  = int(options.pixelStopX)
+    startY = int(options.pixelStartY)
+    stopY  = int(options.pixelStopY)
+
+    extraArgs = []
+    i = 0
+    while i < len(options.extraArgs):
+        arg = options.extraArgs[i]
+
+        if arg == '--crop-win':
+            # If the user passed in the crop-win argument, reconcile
+            # it with the internal ROI we need.  Skip this element and
+            # grab the user provided pixel bounds.
+            userStartX = int(options.extraArgs[i+1])
+            userStopX  = int(options.extraArgs[i+2])
+            userStartY = int(options.extraArgs[i+3])
+            userStopY  = int(options.extraArgs[i+4])
+
+            # Reconcile the bounding box
+            if (startX < userStartX): startX = userStartX
+            if (stopX  > userStopX ): stopX  = userStopX
+            if (startY < userStartY): startY = userStartY
+            if (stopY  > userStopY ): stopY  = userStopY
+
+            # If there is no tile left to generate then we can just return here
+            if ((startX > stopX) or (startY > stopY)):
+                return 0
+            i += 5
+        if arg == '-o' and i + 1 < len(options.extraArgs):
+            # Replace the final output directory with the one for the given tile
+            extraArgs.append(arg)
+            extraArgs.append(tilePrefix)
+            i += 2
+        else:
+            extraArgs.append(arg)
+            i += 1
+
+    # Just call the command for a single tile
+    cmd = ['sfs',  '--crop-win', str(startX), str(startY), str(stopX), str(stopY)]
+    cmd = cmd + requiredList + extraArgs # Append other options
+
+    asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
+
+    return 0
+
+def main(argsIn):
+
+    requiredList = []
+    sfsPath = asp_system_utils.bin_path('sfs')
+    try:
+        try:
+            # Get the help text from the base C++ tool so we can append it to the python help
+            cmd = [sfsPath,  '--help']
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+            baseHelp, err = p.communicate()
+        except OSError:
+            print("Error: Unable to find the required sfs tool!")
+            return -1
+
+        # Extract the version and help text
+        vStart = baseHelp.find('[ASP')
+        vEnd   = baseHelp.find(']', vStart)+1
+        version = baseHelp[vStart:vEnd]
+        baseHelpText = baseHelp[vEnd:]
+
+        # Use parser that ignores unknown options
+        usage  = "usage: parallel_sfs <input image cubes> [options] "
+
+        parser = asp_cmd_utils.PassThroughOptionParser(usage=usage, epilog=baseHelpText)
+
+        parser.add_option('-i', '--input-dem',  dest='input_dem', default='',
+                     help='The input DEM to refine using SfS.')
+        
+        parser.add_option('-o', '--output-prefix',  dest='output_prefix', default='',
+                     help='Prefix for output filenames.')
+        
+        parser.add_option("--num-processes",  dest="numProcesses", type='int', default=None,
+                                              help="Number of processes to use (default program tries to choose best)")
+
+        parser.add_option('--nodes-list',  dest='nodesListPath', default=None,
+                                           help='The list of computing nodes, one per line. ' + \
+                                                'If not provided, run on the local machine.')
+
+        parser.add_option('--tile-size',  dest='tileSize', default=300, type='int',
+                                           help='Size of approximately square tiles to break up processing into (not counting the padding).')
+        parser.add_option('--padding',  dest='padding', default=50, type='int',
+                                           help='How much to expand each tile in each direction. This helps with reducing artifacts in the final mosaicked SfS output.')
+
+        parser.add_option('--threads',  dest='threads', default=1, type='int',
+                          help='How many threads each process should use. The sfs executable is single-threaded in most of its execution, so a large number will not help here.')
+
+        parser.add_option("--suppress-output", action="store_true", default=False,
+                                               dest="suppressOutput",  help="Suppress output of sub-calls.")
+
+        # PRIVATE options
+        # These specify the tile location to request, bypassing the need to query mapproject.
+        parser.add_option('--pixelStartX', dest='pixelStartX', default=None, type='int',
+                                           help=optparse.SUPPRESS_HELP)
+        parser.add_option('--pixelStartY', dest='pixelStartY', default=None, type='int',
+                                           help=optparse.SUPPRESS_HELP)
+        parser.add_option('--pixelStopX',  dest='pixelStopX', default=None, type='int',
+                                           help=optparse.SUPPRESS_HELP)
+        parser.add_option('--pixelStopY',  dest='pixelStopY', default=None, type='int',
+                                           help=optparse.SUPPRESS_HELP)
+
+
+        # This call handles all the parallel_sfs specific options.
+        (options, args) = parser.parse_args(argsIn)
+
+        # This will parse all the parallel_sfs options.
+        requiredList, optionsList = handleArguments(args)
+
+        # The parallel_sfs tool must not take the option --crop-win as it will
+        # work on the entire input DEM.
+        if '--crop-win' in argsIn:
+            parser.print_help()
+            parser.error("parallel_sfs cannot take the --crop-win option. " +
+                         "Use the sfs tool directly if this is desired.\n" );
+
+        # Check the required positional arguments.
+        if len(requiredList) < 1:
+            parser.print_help()
+            parser.error("Missing input image cubes.\n" );
+
+        # Any additional arguments need to be forwarded to the sfs function
+        options.extraArgs = optionsList
+
+    except optparse.OptionError as msg:
+        raise Usage(msg)
+
+    # Pass to the sfs executable the -i and -o options we filtered out
+    options.extraArgs = ['-i', options.input_dem, '-o', options.output_prefix,
+                         '--threads', str(options.threads) ] + options.extraArgs
+    
+    # Set up output folder
+    outputFolder = os.path.dirname(options.output_prefix)
+    if outputFolder == '':
+        outputFolder = './' # Handle calls in same directory
+    outputName = os.path.basename(options.output_prefix)
+    asp_file_utils.createFolder(outputFolder)
+
+    startTime = time.time()
+
+    # Determine if this is a main copy or a spawned copy
+    spawnedCopy = ( (options.pixelStartX is not None) and (options.pixelStartY is not None) and
+                    (options.pixelStopX  is not None) and (options.pixelStopY  is not None) and
+                    outputFolder)
+
+    if spawnedCopy:
+        # This copy was spawned to process a single tile. Just call a
+        # function to handle this and then we are done.
+        return runSfs(options, requiredList, outputFolder, outputName) 
+
+    # Otherwise this is the original called process and there are multiple steps to go through
+
+    # What is the size of the DEM on which to do SfS
+    sep = ","
+    verbose = False
+    settings = asp_system_utils.run_and_parse_output( sfsPath, 
+                                                      requiredList + \
+                                                      options.extraArgs + ['--query'],
+                                                      sep, verbose )
+    sizeX = int(settings['dem_cols'][0])
+    sizeY = int(settings['dem_rows'][0])
+
+    # Compute the number and size of tiles in x and y (width and height).
+    # Make all tiles about the same size.
+    # For now we just break up the image into a user-specified tile size
+    numTilesX, numTilesY, tileList = generateTileList(sizeX, sizeY,
+                                                      options.tileSize, options.padding)
+    numTiles = numTilesX * numTilesY
+
+    print('Splitting into ' + str(numTilesX) + ' by ' + str(numTilesY) + ' tiles.')
+    
+    # If there is only going to be one output tile, just use the non-parallel call
+    if (numTilesX*numTilesY == 1):
+        cmd = [sfsPath] + requiredList + options.extraArgs
+        asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
+        return 0
+    
+    # Generate a text file that contains the boundaries for each tile
+    argumentFilePath = os.path.join(outputFolder, 'argumentList.txt')
+    argumentFile     = file(argumentFilePath, 'w')
+    for tile in tileList:
+        argumentFile.write( str(tile[0]) + '\t' + str(tile[1]) + '\t' \
+                            + str(tile[2]) + '\t' + str(tile[3]) + '\n')
+    argumentFile.close()
+
+    # Indicate to GNU Parallel that there are multiple tab-seperated
+    # variables in the text file we just wrote
+    parallelArgs = ['--colsep', "\\t"]
+
+    # Get the number of available nodes and CPUs per node
+    numNodes = asp_system_utils.getNumNodesInList(options.nodesListPath)
+
+    # We assume all machines have the same number of CPUs (cores)
+    cpusPerNode = asp_system_utils.get_num_cpus()
+
+    # TODO: What is a good number here?
+    processesPerCpu = 2
+
+    # Set the optimal number of processes if the user did not specify
+    if not options.numProcesses:
+        options.numProcesses = numNodes * cpusPerNode * processesPerCpu
+
+    # Note: sfs can run with multiple threads on non-ISIS data but we don't use that
+    #       functionality here since we call sfs with one tile at a time.
+
+    # No need for more processes than their are tiles!
+    if options.numProcesses > numTiles:
+        options.numProcesses = numTiles
+
+    # Build the command line that will be passed to GNU parallel
+    # - The numbers in braces will receive the values from the text file we wrote earlier
+    # - The output path used here does not matter since spawned copies compute the correct tile path.
+    python_path = sys.executable # children must use same Python as parent
+    # We use below the libexec_path to call python, not the shell script
+    parallel_sfs_path = asp_system_utils.libexec_path('parallel_sfs')
+    commandList   = [python_path, parallel_sfs_path,
+                     '--pixelStartX', '{1}',
+                     '--pixelStartY', '{2}',
+                     '--pixelStopX',  '{3}',
+                     '--pixelStopY',  '{4}',
+                     '--threads', str(options.threads)
+                     ]
+    if options.suppressOutput:
+        commandList = commandList + ['--suppress-output']
+    
+    commandList   = commandList + requiredList + options.extraArgs # Append other options
+    commandString = asp_cmd_utils.argListToString(commandList)
+
+    # Use GNU parallel call to distribute the work across computers
+    # - This call will wait until all processes are finished
+    asp_system_utils.runInGnuParallel(options.numProcesses, commandString,
+                                      argumentFilePath, parallelArgs,
+                                      options.nodesListPath, True)#not options.suppressOutput)
+
+    # Create the list of final DEMs that get created at the end 
+    outputDems = []
+    for tile in tileList:
+        tileName = tile[4]
+        tilePrefix = generateTilePrefix(outputFolder, tileName, outputName)
+        outputDems.append(tilePrefix + '-DEM-final.tif')
+        
+    # Mosaic the outputs using dem_mosaic
+    dem_mosaic_path = asp_system_utils.bin_path('dem_mosaic')
+    dem_mosaic_args = ['--weights-exponent', '2', '--use-centerline-weights',
+                       '-o', options.output_prefix]
+    cmd = [dem_mosaic_path] + outputDems + dem_mosaic_args
+    asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
+
+    # Rename from dem_mosaic convention to sfs convention
+    finalDem = options.output_prefix + '-DEM-final.tif'
+    print("Renaming to: " + finalDem)
+    os.rename(options.output_prefix + '-tile-0.tif', finalDem)
+
+    endTime = time.time()
+    print("Finished in " + str(endTime - startTime) + " seconds.")
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

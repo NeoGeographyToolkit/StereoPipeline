@@ -40,7 +40,6 @@ if MAKE_APP_STEREO
   stereo_pprc_SOURCES     = stereo_pprc.cc stereo.cc
   stereo_rfne_LDADD       = $(APP_STEREO_LIBS)
   stereo_rfne_SOURCES     = stereo_rfne.cc stereo.cc
-  
   # bin_PROGRAMS += extract_camera_positions
   # extract_camera_positions_SOURCES = extract_camera_positions.cc
   # extract_camera_positions_LDADD   = $(APP_STEREO_LIBS)
@@ -77,6 +76,7 @@ endif
 
 if MAKE_APP_SFS
   bin_PROGRAMS += sfs
+  bin_SCRIPTS  += parallel_sfs
   sfs_SOURCES = sfs.cc
   sfs_LDADD = $(APP_SFS_LIBS)
 endif
