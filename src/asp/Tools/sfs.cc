@@ -64,7 +64,6 @@ using namespace vw::cartography;
 typedef InterpolationView<ImageViewRef< PixelMask<float> >, BilinearInterpolation> BilinearInterpT;
 typedef ImageViewRef< PixelMask<float> > MaskedImgT;
 
-// TODO: Rename opt.max_height_change to new usage.
 // TODO: Study more floating model coefficients.
 // TODO: Study why using tabulated camera model and multiple resolutions does
 // not work as well as it should.
@@ -758,19 +757,23 @@ struct Options : public vw::cartography::GdalWriteOptions {
   std::vector<double> model_coeffs_vec;
 
   int max_iterations, max_coarse_iterations, reflectance_type, coarse_levels;
-  bool float_albedo, float_exposure, float_cameras, model_shadows,
+  bool float_albedo, float_exposure, float_cameras, float_all_cameras, model_shadows,
     use_approx_camera_models, use_rpc_approximation, crop_input_images,
-    float_dem_at_boundary, fix_dem, float_reflectance_model;
-  double smoothness_weight, init_dem_height, nodata_val, max_height_change,
-    height_change_weight, camera_position_step_size, rpc_penalty_weight;
+    float_dem_at_boundary, fix_dem, float_reflectance_model, query;
+  double smoothness_weight, init_dem_height, nodata_val, initial_dem_constraint_weight,
+    camera_position_step_size, rpc_penalty_weight;
+  vw::BBox2 crop_win;
+
   Options():max_iterations(0), max_coarse_iterations(0), reflectance_type(0),
 	    coarse_levels(0), float_albedo(false), float_exposure(false), float_cameras(false),
+            float_all_cameras(false),
 	    model_shadows(false), use_approx_camera_models(false),
 	    use_rpc_approximation(false),
 	    crop_input_images(false), float_dem_at_boundary(false), fix_dem(false),
-            float_reflectance_model(false),
-	    smoothness_weight(0), max_height_change(0), height_change_weight(0),
-	    camera_position_step_size(1.0), rpc_penalty_weight(0.0) {};
+            float_reflectance_model(false), query(false),
+	    smoothness_weight(0), initial_dem_constraint_weight(0.0),
+	    camera_position_step_size(1.0), rpc_penalty_weight(0.0),
+	    crop_win(BBox2i(0, 0, 0, 0)){}
 };
 
 struct GlobalParams{
@@ -786,7 +789,7 @@ struct ModelParams {
   ~ModelParams(){}
 };
 
-enum {NO_REFL = 0, LAMBERT, LUNAR_LAMBERT, HAPKE, ARBITRARY_MODEL};
+enum {NO_REFL = 0, LAMBERT, LUNAR_LAMBERT, HAPKE, ARBITRARY_MODEL, CHARON};
 
 // computes the Lambertian reflectance model (cosine of the light
 // direction and the normal to the Moon) Vector3 sunpos: the 3D
@@ -977,6 +980,49 @@ double computeHapkeReflectanceFromNormal(Vector3 const& sunPos,
   return R;
 }
 
+// Use the following model:
+// Reflectance = f(alpha) * A * mu_0 /(mu_0 + mu) + (1-A) * mu_0
+// The value of A is either 1 (the so-called lunar-model), or A=0.7.
+// f(alpha) = 0.63.
+double computeCharonReflectanceFromNormal(Vector3 const& sunPos,
+					  Vector3 const& viewPos,
+					  Vector3 const& xyz,
+					  Vector3 const& normal,
+					  double phaseCoeffC1,
+					  double phaseCoeffC2,
+					  double & alpha,
+					  const double * coeffs) {
+
+  double len = dot_prod(normal, normal);
+  if (abs(len - 1.0) > 1.0e-4){
+    std::cerr << "Error: Expecting unit normal in the reflectance computation, in "
+	      << __FILE__ << " at line " << __LINE__ << std::endl;
+    exit(1);
+  }
+
+  //compute mu_0 = cosine of the angle between the light direction and the surface normal.
+  //sun coordinates relative to the xyz point on the Moon surface
+  Vector3 sunDirection = normalize(sunPos-xyz);
+  double mu_0 = dot_prod(sunDirection, normal);
+
+  //compute mu = cosine of the angle between the viewer direction and the surface normal.
+  //viewer coordinates relative to the xyz point on the Moon surface
+  Vector3 viewDirection = normalize(viewPos-xyz);
+  double mu = dot_prod(viewDirection,normal);
+
+  // Charon model params
+  double A       = std::abs(coeffs[0]); // albedo 
+  double f_alpha = std::abs(coeffs[1]); // phase function 
+
+  double reflectance = f_alpha*A*mu_0 / (mu_0 + mu) + (1.0 - A)*mu_0;
+  
+  if (mu_0 + mu == 0 || reflectance != reflectance){
+    return 0.0;
+  }
+
+  return reflectance;
+}
+
 double computeArbitraryLambertianReflectanceFromNormal(Vector3 const& sunPos,
                                                     Vector3 const& viewPos,
                                                     Vector3 const& xyz,
@@ -1126,6 +1172,16 @@ double ComputeReflectance(Vector3 const& cameraPosition,
                                             global_params.phaseCoeffC2,
                                             phase_angle, // output
                                             coeffs);
+      break;
+    case CHARON:
+      input_img_reflectance
+	= computeCharonReflectanceFromNormal(input_img_params.sunPosition,
+					     cameraPosition,
+					     xyz,  normal,
+					     global_params.phaseCoeffC1,
+					     global_params.phaseCoeffC2,
+					     phase_angle, // output
+					     coeffs);
       break;
     case LAMBERT:
       input_img_reflectance
@@ -1415,7 +1471,10 @@ public:
       os << "-final";
     }
 
-    if ((*g_opt).coarse_levels > 0) {
+    // Note that for level 0 we don't append the level as part of
+    // the filename. This way, whether we have levels or not,
+    // the lowest level is always named consistently.
+    if ((*g_opt).coarse_levels > 0 && g_level > 0) {
       os << "-level" << g_level;
     }
     std::string iter_str = os.str();
@@ -1779,83 +1838,27 @@ struct SmoothnessError {
   double m_smoothness_weight, m_gridx, m_gridy;
 };
 
-// A cost function that will penalize deviating by more than
-// a given value from the original height
+// A cost function that will penalize deviating too much from the original height.
 struct HeightChangeError {
-  HeightChangeError(double orig_height, double max_height_change,
-		    double height_change_weight):
-    m_orig_height(orig_height), m_max_height_change(max_height_change),
-    m_height_change_weight(height_change_weight){}
+  HeightChangeError(double orig_height, double initial_dem_constraint_weight):
+    m_orig_height(orig_height), m_initial_dem_constraint_weight(initial_dem_constraint_weight){}
 
   template <typename T>
   bool operator()(const T* const center, T* residuals) const {
-
-    double delta = std::abs(center[0] - m_orig_height);
-    if (delta < m_max_height_change) {
-      residuals[0] = T(0);
-    }else{
-      // Use a smooth function here, with a value of 0
-      // when delta == m_max_height_change.
-      double delta2 = delta - m_max_height_change;
-      residuals[0] = T( delta2*delta2*m_height_change_weight );
-    }
+    residuals[0] = (center[0] - m_orig_height)*m_initial_dem_constraint_weight;
     return true;
   }
 
   // Factory to hide the construction of the CostFunction object from
   // the client code.
   static ceres::CostFunction* Create(double orig_height,
-				     double max_height_change,
-				     double height_change_weight){
+				     double initial_dem_constraint_weight){
     return (new ceres::NumericDiffCostFunction<HeightChangeError,
 	    ceres::CENTRAL, 1, 1>
-	    (new HeightChangeError(orig_height, max_height_change,
-				   height_change_weight)));
+	    (new HeightChangeError(orig_height, initial_dem_constraint_weight)));
   }
 
-  double m_orig_height, m_max_height_change, m_height_change_weight;
-};
-
-// A cost function that will penalize deviating by more than
-// a given value from the original height
-struct LinearHeightChangeError {
-  LinearHeightChangeError(double orig_height, double max_height_change,
-		    double height_change_weight):
-    m_orig_height(orig_height), m_max_height_change(max_height_change),
-    m_height_change_weight(height_change_weight){}
-
-  template <typename T>
-  bool operator()(const T* const center, T* residuals) const {
-
-    double delta = pow(std::abs(center[0] - m_orig_height)/m_max_height_change,
-                       m_height_change_weight);
-    residuals[0] = delta;
-
-    return true;
-    
-//     if (delta < m_max_height_change) {
-//       residuals[0] = T(0);
-//     }else{
-//       // Use a smooth function here, with a value of 0
-//       // when delta == m_max_height_change.
-//       double delta2 = delta - m_max_height_change;
-//       residuals[0] = T( delta2*delta2*m_height_change_weight );
-//     }
-//     return true;
-  }
-
-  // Factory to hide the construction of the CostFunction object from
-  // the client code.
-  static ceres::CostFunction* Create(double orig_height,
-				     double max_height_change,
-				     double height_change_weight){
-    return (new ceres::NumericDiffCostFunction<LinearHeightChangeError,
-	    ceres::CENTRAL, 1, 1>
-	    (new LinearHeightChangeError(orig_height, max_height_change,
-				   height_change_weight)));
-  }
-
-  double m_orig_height, m_max_height_change, m_height_change_weight;
+  double m_orig_height, m_initial_dem_constraint_weight;
 };
 
 // Given a DEM, estimate the median grid size in x and in y in meters.
@@ -1924,9 +1927,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("max-iterations,n", po::value(&opt.max_iterations)->default_value(100),
      "Set the maximum number of iterations.")
     ("reflectance-type", po::value(&opt.reflectance_type)->default_value(1),
-     "Reflectance type (0 = Lambertian, 1 = Lunar Lambertian).")
+     "Reflectance type (0 = Lambertian, 1 = Lunar-Lambert, 2 = Hapke, 3 = Experimental extension of Lunar-Lambert, 4 = Charon model (a variation of Lunar-Lambert)).")
     ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(0.04),
      "A larger value will result in a smoother solution.")
+    ("initial-dem-constraint-weight", po::value(&opt.initial_dem_constraint_weight)->default_value(0),
+     "A larger value will try harder to keep the SfS optimized DEM closer to the initial guess DEM.")
     ("coarse-levels", po::value(&opt.coarse_levels)->default_value(0),
      "Solve the problem on a grid coarser than the original by a factor of 2 to this power, then refine the solution on finer grids.")
     ("max-coarse-iterations", po::value(&opt.max_coarse_iterations)->default_value(50),
@@ -1937,8 +1942,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Float the exposure for each image. Will give incorrect results if only one image is present.")
     ("float-cameras",   po::bool_switch(&opt.float_cameras)->default_value(false)->implicit_value(true),
      "Float the camera pose for each image except the first one.")
+    ("float-all-cameras",   po::bool_switch(&opt.float_all_cameras)->default_value(false)->implicit_value(true),
+     "Float the camera pose for each image, including the first one. Experimental.")
+      ("crop-win", po::value(&opt.crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"),
+       "Crop the input DEM to this region before continuing.")
+    
     ("model-shadows",   po::bool_switch(&opt.model_shadows)->default_value(false)->implicit_value(true),
-     "Model the fact that some points on the DEM are in the shadow (occluded from the sun).")
+     "Model the fact that some points on the DEM are in the shadow (occluded from the Sun).")
     ("shadow-thresholds", po::value(&opt.shadow_thresholds)->default_value(""),
      "Optional shadow thresholds for the input images (a list of real values in quotes).")
     ("use-approx-camera-models",   po::bool_switch(&opt.use_approx_camera_models)->default_value(false)->implicit_value(true),
@@ -1954,9 +1964,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("image-exposures-prefix", po::value(&opt.image_exposure_prefix)->default_value(""),
      "Use this prefix to optionally read initial exposures (filename is <prefix>-exposures.txt).")
     ("model-coeffs-prefix", po::value(&opt.model_coeffs_prefix)->default_value(""),
-     "Use this prefix to optionally read Lunar Lambertian or Hapke model coefficients from a file (filename is <prefix>-model_coeffs.txt).")
+     "Use this prefix to optionally read model coefficients from a file (filename is <prefix>-model_coeffs.txt).")
     ("model-coeffs", po::value(&opt.model_coeffs)->default_value(""),
-     "Use the model coefficients specified as a list in quotes. Lunar-Lambertian: O(=1), A, B, C. Hapke: omega, b, c, B0, h.")
+     "Use the model coefficients specified as a list of numbers in quotes. Lunar-Lambertian: O, A, B, C, e.g., '1 0.019 0.000242 -0.00000146'. Hapke: omega, b, c, B0, h, e.g., '0.68 0.17 0.62 0.52 0.52'. Charon: A, f(alpha), e.g., '0.7 0.63'.")
     ("init-dem-height", po::value(&opt.init_dem_height)->default_value(std::numeric_limits<double>::quiet_NaN()),
      "Use this value for initial DEM heights. An input DEM still needs to be provided for georeference information.")
     ("nodata-value", po::value(&opt.nodata_val)->default_value(std::numeric_limits<double>::quiet_NaN()),
@@ -1966,13 +1976,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("fix-dem",   po::bool_switch(&opt.fix_dem)->default_value(false)->implicit_value(true),
      "Do not float the DEM at all. Useful when floating the model params.")
     ("float-reflectance-model",   po::bool_switch(&opt.float_reflectance_model)->default_value(false)->implicit_value(true),
-     "Allow the coefficients of the Lunar-Lambertian model to float (not recommended).")
+     "Allow the coefficients of the reflectance model to float (not recommended).")
+    ("query",   po::bool_switch(&opt.query)->default_value(false)->implicit_value(true),
+     "Print some info and exit. Invoked from parallel_sfs.")
     ("camera-position-step-size", po::value(&opt.camera_position_step_size)->default_value(1.0),
-     "Larger step size will result in more aggressiveness in varying the camera position if it is being floated (which may result in a better solution or in divergence).")
-    ("max-height-change", po::value(&opt.max_height_change)->default_value(0),
-     "How much the DEM heights are allowed to differ from the initial guess, in meters. The default is 0, which means this constraint is not applied.")
-    ("height-change-weight", po::value(&opt.height_change_weight)->default_value(0),
-     "How much weight to give to the height change penalty (this penalty will only kick in when the DEM height changes by more than max-height-change).");
+     "Larger step size will result in more aggressiveness in varying the camera position if it is being floated (which may result in a better solution or in divergence).");
 
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
@@ -2097,6 +2105,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   if (!opt.model_coeffs_vec.empty()) {
     // Pad with zeros if needed, as the Lunar Lambertian has 4 params, while Hapke has 5 of them.
+    // the Charon one has 2.
     while (opt.model_coeffs_vec.size() < g_num_model_coeffs)
       opt.model_coeffs_vec.push_back(0);
 
@@ -2104,6 +2113,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       vw_throw(ArgumentErr()
              << "If specified, there must be " << g_num_model_coeffs << " coefficients.\n");
   }
+
+
+  // Interpret the crop win as minx, miny, widx, widy
+  opt.crop_win.max() = opt.crop_win.min() + opt.crop_win.max();
   
   // Sanity check
   if (opt.camera_position_step_size <= 0) {
@@ -2222,12 +2235,11 @@ void run_sfs_level(// Fixed inputs
 			       &dem(col+1, row-1));
 
       // Deviation from prescribed height constraint
-      if (opt.max_height_change > 0 && opt.height_change_weight > 0) {
-	ceres::LossFunction* loss_function_hc = NULL; // Need fixing here!
+      if (opt.initial_dem_constraint_weight > 0) {
+	ceres::LossFunction* loss_function_hc = NULL;
 	ceres::CostFunction* cost_function_hc =
-	  LinearHeightChangeError::Create(orig_dem(col, row),
-				    opt.max_height_change,
-				    opt.height_change_weight);
+	  HeightChangeError::Create(orig_dem(col, row),
+				    opt.initial_dem_constraint_weight);
 	problem.AddResidualBlock(cost_function_hc, loss_function_hc,
 				 &dem(col, row));
       }
@@ -2243,12 +2255,20 @@ void run_sfs_level(// Fixed inputs
       problem.SetParameterBlockConstant(&exposures[image_iter]);
   }
 
+  if (opt.float_all_cameras)
+    opt.float_cameras = true;
+  
   if (!opt.float_cameras) {
+    vw_out() << "Not floating cameras." << std::endl;
     for (int image_iter = 0; image_iter < num_images; image_iter++)
       problem.SetParameterBlockConstant(&adjustments[6*image_iter]);
-  }else{
-    // Always fix the first camera, let the other ones conform to it.
+  }else if (!opt.float_all_cameras){
+    // Fix the first camera, let the other ones conform to it.
+    // TODO: This needs further study.
+    vw_out() << "Floating all cameras sans the first one." << std::endl;
     problem.SetParameterBlockConstant(&adjustments[0]);
+  }else{
+    vw_out() << "Floating all cameras, including the first one." << std::endl;
   }
 
   // Variables at the boundary must be fixed.
@@ -2335,6 +2355,8 @@ int main(int argc, char* argv[]) {
       global_params.reflectanceType = HAPKE;
     else if (opt.reflectance_type == 3)
       global_params.reflectanceType = ARBITRARY_MODEL;
+    else if (opt.reflectance_type == 4)
+      global_params.reflectanceType = CHARON;
     else
       vw_throw( ArgumentErr()
 		<< "Expecting Lambertian or Lunar-Lambertian reflectance." );
@@ -2343,8 +2365,10 @@ int main(int argc, char* argv[]) {
     
     // Default model coefficients, unless they were read already
     if (opt.model_coeffs_vec.empty()) {
-      if (global_params.reflectanceType != HAPKE) {
-        // Lunar lambertian
+      opt.model_coeffs_vec.resize(g_num_model_coeffs);
+      if (global_params.reflectanceType == LUNAR_LAMBERT ||
+	  global_params.reflectanceType == ARBITRARY_MODEL ) {
+        // Lunar lambertian or its crazy experimental generalization
         opt.model_coeffs_vec.resize(g_num_model_coeffs);
         opt.model_coeffs_vec[0] = 1;
         opt.model_coeffs_vec[1] = -0.019;
@@ -2362,16 +2386,23 @@ int main(int argc, char* argv[]) {
         opt.model_coeffs_vec[13] = 0;
         opt.model_coeffs_vec[14] = 0;
         opt.model_coeffs_vec[15] = 0;
-        
-      }else{
+      }else if (global_params.reflectanceType == HAPKE) {
+	opt.model_coeffs_vec[0] = 0.68; // omega (also known as w)
+	opt.model_coeffs_vec[1] = 0.17; // b
+	opt.model_coeffs_vec[2] = 0.62; // c
+	opt.model_coeffs_vec[3] = 0.52; // B0
+	opt.model_coeffs_vec[4] = 0.52; // h
+      }else if (global_params.reflectanceType == CHARON) {
+        opt.model_coeffs_vec.resize(g_num_model_coeffs);
+        opt.model_coeffs_vec[0] = 0.7; // A
+        opt.model_coeffs_vec[1] = 0.63; // f(alpha)
+      }else if (global_params.reflectanceType != LAMBERT) {
 	vw_throw( ArgumentErr() << "The Hapke model coefficients were not set. "
 		  << "Use the --model-coeffs option." );
       }
     }
     g_coeffs = &opt.model_coeffs_vec[0];
     
-    ImageView<double> dem
-      = copy(DiskImageView<double>(opt.input_dem) );
     double nodata_val = -std::numeric_limits<float>::max(); // note we use a float nodata
     if (vw::read_nodata_val(opt.input_dem, nodata_val)){
       vw_out() << "Found DEM nodata value: " << nodata_val << std::endl;
@@ -2380,11 +2411,38 @@ int main(int argc, char* argv[]) {
       nodata_val = opt.nodata_val;
       vw_out() << "Over-riding the DEM nodata value with: " << nodata_val << std::endl;
     }
-
     g_nodata_val = &nodata_val;
+
+
+    // Read the DEM
+    ImageView<double> dem = copy(DiskImageView<double>(opt.input_dem) );
+
+    // This must be done before the DEM is cropped.
+    // This stats is queried from parallel_sfs.
+    if (opt.query) {
+      vw_out() << "dem_cols, " << dem.cols() << std::endl;
+      vw_out() << "dem_rows, " << dem.rows() << std::endl;
+      return 0;
+    }
+    
+    // Adjust the crop win
+    opt.crop_win.crop(bounding_box(dem));
+
+    // Read the georeference. 
+    GeoReference geo;
+    if (!read_georeference(geo, opt.input_dem))
+      vw_throw( ArgumentErr() << "The input DEM has no georeference.\n" );
+
+    // Crop the DEM and georef if requested to given box
+    if (!opt.crop_win.empty()) {
+      dem = crop(dem, opt.crop_win);
+      geo = crop(geo, opt.crop_win);
+    }
+    
     // Replace no-data values with the min valid value. That is because
     // no-data values usually come from shadows, and those are low-lying.
     // This works better than using the mean value.
+    // TODO: Maybe do hole-filling instead.
     double min_val = std::numeric_limits<double>::max(), mean = 0, num = 0;
     for (int col = 0; col < dem.cols(); col++) {
       for (int row = 0; row < dem.rows(); row++) {
@@ -2417,11 +2475,6 @@ int main(int argc, char* argv[]) {
     if (dem.cols() < min_dem_size || dem.rows() < min_dem_size) {
       vw_throw( ArgumentErr() << "The input DEM is too small.\n" );
     }
-
-    // Read the georeference
-    GeoReference geo;
-    if (!read_georeference(geo, opt.input_dem))
-      vw_throw( ArgumentErr() << "The input DEM has no georeference.\n" );
 
     // Read in the camera models for the input images.
     int num_images = opt.input_images.size();
