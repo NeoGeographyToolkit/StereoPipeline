@@ -424,7 +424,7 @@ def parallel_run(prog, args, settings, tiles, **kw):
     except OSError as e:
         raise Exception('%s: %s' % (binpath, e))
 
-# Run with one thread
+# Run with one process
 def single_run(prog, args, **kw):
 
     binpath = bin_path(prog)
