@@ -176,9 +176,15 @@ namespace asp {
 
       georef = vw::cartography::GeoReference();
       Matrix3x3 transform = georef.transform();
-      transform(0,2) = 1;
-      transform(1,2) = 1;
+
+      // assume these are degrees, does not mater much, but it needs be small enough
+      double small = 1e-8;
+      transform(0,0) = small;
+      transform(1,1) = small;
+      transform(0,2) = small;
+      transform(1,2) = small;
       georef.set_transform(transform);
+
       georef.set_geographic();
 
       boost::shared_ptr<vw::camera::CameraModel> cam = this->camera_model(m_left_image_file,
