@@ -1931,11 +1931,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("smoothness-weight", po::value(&opt.smoothness_weight)->default_value(0.04),
      "A larger value will result in a smoother solution.")
     ("initial-dem-constraint-weight", po::value(&opt.initial_dem_constraint_weight)->default_value(0),
-     "A larger value will try harder to keep the SfS optimized DEM closer to the initial guess DEM.")
-    ("coarse-levels", po::value(&opt.coarse_levels)->default_value(0),
-     "Solve the problem on a grid coarser than the original by a factor of 2 to this power, then refine the solution on finer grids.")
-    ("max-coarse-iterations", po::value(&opt.max_coarse_iterations)->default_value(50),
-     "How many iterations to do at levels of resolution coarser than the final result.")
+     "A larger value will try harder to keep the SfS-optimized DEM closer to the initial guess DEM.")
+    ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
+     "Use the camera adjustments obtained by previously running bundle_adjust with this output prefix.")
     ("float-albedo",   po::bool_switch(&opt.float_albedo)->default_value(false)->implicit_value(true),
      "Float the albedo for each pixel. Will give incorrect results if only one image is present.")
     ("float-exposure",   po::bool_switch(&opt.float_exposure)->default_value(false)->implicit_value(true),
@@ -1944,23 +1942,22 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Float the camera pose for each image except the first one.")
     ("float-all-cameras",   po::bool_switch(&opt.float_all_cameras)->default_value(false)->implicit_value(true),
      "Float the camera pose for each image, including the first one. Experimental.")
-      ("crop-win", po::value(&opt.crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"),
-       "Crop the input DEM to this region before continuing.")
-    
     ("model-shadows",   po::bool_switch(&opt.model_shadows)->default_value(false)->implicit_value(true),
      "Model the fact that some points on the DEM are in the shadow (occluded from the Sun).")
     ("shadow-thresholds", po::value(&opt.shadow_thresholds)->default_value(""),
-     "Optional shadow thresholds for the input images (a list of real values in quotes).")
+     "Optional shadow thresholds for the input images (a list of real values in quotes, one per image).")
     ("use-approx-camera-models",   po::bool_switch(&opt.use_approx_camera_models)->default_value(false)->implicit_value(true),
      "Use approximate camera models for speed.")
     ("use-rpc-approximation",   po::bool_switch(&opt.use_rpc_approximation)->default_value(false)->implicit_value(true),
      "Use RPC approximations for the camera models instead of approximate tabulated camera models (invoke with --use-approx-camera-models).")
     ("rpc-penalty-weight", po::value(&opt.rpc_penalty_weight)->default_value(0.1),
      "The RPC penalty weight to use to keep the higher-order RPC coefficients small, if the RPC model approximation is used. Higher penalty weight results in smaller such coefficients.")
+    ("coarse-levels", po::value(&opt.coarse_levels)->default_value(0),
+     "Solve the problem on a grid coarser than the original by a factor of 2 to this power, then refine the solution on finer grids.")
+    ("max-coarse-iterations", po::value(&opt.max_coarse_iterations)->default_value(50),
+     "How many iterations to do at levels of resolution coarser than the final result.")
     ("crop-input-images",   po::bool_switch(&opt.crop_input_images)->default_value(false)->implicit_value(true),
-     "Crop the images and keep them fully in memory, for speed.")
-    ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
-     "Use the camera adjustments obtained by previously running bundle_adjust with this output prefix.")
+     "Crop the images to a region that was computed to be large enough, and keep them fully in memory, for speed.")
     ("image-exposures-prefix", po::value(&opt.image_exposure_prefix)->default_value(""),
      "Use this prefix to optionally read initial exposures (filename is <prefix>-exposures.txt).")
     ("model-coeffs-prefix", po::value(&opt.model_coeffs_prefix)->default_value(""),
@@ -1969,6 +1966,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Use the model coefficients specified as a list of numbers in quotes. Lunar-Lambertian: O, A, B, C, e.g., '1 0.019 0.000242 -0.00000146'. Hapke: omega, b, c, B0, h, e.g., '0.68 0.17 0.62 0.52 0.52'. Charon: A, f(alpha), e.g., '0.7 0.63'.")
     ("init-dem-height", po::value(&opt.init_dem_height)->default_value(std::numeric_limits<double>::quiet_NaN()),
      "Use this value for initial DEM heights. An input DEM still needs to be provided for georeference information.")
+    ("crop-win", po::value(&opt.crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"),
+       "Crop the input DEM to this region before continuing.")
     ("nodata-value", po::value(&opt.nodata_val)->default_value(std::numeric_limits<double>::quiet_NaN()),
      "Use this as the DEM no-data value, over-riding what is in the initial guess DEM.")
     ("float-dem-at-boundary",   po::bool_switch(&opt.float_dem_at_boundary)->default_value(false)->implicit_value(true),

@@ -222,7 +222,7 @@ def main(argsIn):
         baseHelpText = baseHelp[vEnd:]
 
         # Use parser that ignores unknown options
-        usage  = "usage: parallel_sfs <input image cubes> [options] "
+        usage  = "usage: parallel_sfs -i <input DEM> -n <max iterations> -o <output prefix> <images> [other options]"
 
         parser = asp_cmd_utils.PassThroughOptionParser(usage=usage, epilog=baseHelpText)
 
@@ -232,17 +232,18 @@ def main(argsIn):
         parser.add_option('-o', '--output-prefix',  dest='output_prefix', default='',
                      help='Prefix for output filenames.')
         
-        parser.add_option("--num-processes",  dest="numProcesses", type='int', default=None,
-                                              help="Number of processes to use (default program tries to choose best)")
-
-        parser.add_option('--nodes-list',  dest='nodesListPath', default=None,
-                                           help='The list of computing nodes, one per line. ' + \
-                                                'If not provided, run on the local machine.')
 
         parser.add_option('--tile-size',  dest='tileSize', default=300, type='int',
                                            help='Size of approximately square tiles to break up processing into (not counting the padding).')
+
         parser.add_option('--padding',  dest='padding', default=50, type='int',
-                                           help='How much to expand each tile in each direction. This helps with reducing artifacts in the final mosaicked SfS output.')
+                                           help='How much to expand a tile in each direction. This helps with reducing artifacts in the final mosaicked SfS output.')
+
+        parser.add_option("--num-processes",  dest="numProcesses", type='int', default=None,
+                                              help="Number of processes to use (the default program tries to choose best).")
+
+        parser.add_option('--nodes-list',  dest='nodesListPath', default=None,
+                                           help='A file containing the list of computing nodes, one per line. If not provided, run on the local machine.')
 
         parser.add_option('--threads',  dest='threads', default=1, type='int',
                           help='How many threads each process should use. The sfs executable is single-threaded in most of its execution, so a large number will not help here.')
@@ -250,7 +251,7 @@ def main(argsIn):
         parser.add_option("--suppress-output", action="store_true", default=False,
                                                dest="suppressOutput",  help="Suppress output of sub-calls.")
 
-        # PRIVATE options
+        # Private options
         # These specify the tile location to request, bypassing the need to query mapproject.
         parser.add_option('--pixelStartX', dest='pixelStartX', default=None, type='int',
                                            help=optparse.SUPPRESS_HELP)
