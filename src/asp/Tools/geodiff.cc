@@ -16,6 +16,7 @@
 // __END_LICENSE__
 
 
+#include <asp/Core/PointUtils.h>
 #include <vw/FileIO.h>
 #include <vw/Image.h>
 #include <vw/Cartography.h>
@@ -35,22 +36,22 @@ namespace fs = boost::filesystem;
 // Function to convert a masked geodetic vector to a masked altitude vector
 class MGeodeticToMAltitude : public ReturnFixedType<PixelMask<double> > {
 public:
-  PixelMask<double> operator()( PixelMask<Vector3> const& v ) const {
-    if ( !is_valid( v ) ) {
+  PixelMask<double> operator()(PixelMask<Vector3> const& v) const {
+    if (!is_valid(v)) {
       return PixelMask<double>();
     }
-    return PixelMask<double>( v.child()[2] );
+    return PixelMask<double>(v.child()[2]);
   }
 };
 
 struct Options : vw::cartography::GdalWriteOptions {
-  string dem1_name, dem2_name, output_prefix;
+  string dem1_file, dem2_file, output_prefix, csv_format_str;
   double nodata_value;
 
   bool use_float, use_absolute;
 };
 
-void handle_arguments( int argc, char *argv[], Options& opt ) {
+void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   general_options.add_options()
     ("nodata-value",    po::value(&opt.nodata_value)->default_value(-32768),      
@@ -60,13 +61,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("float",           po::bool_switch(&opt.use_float)->default_value(false),    
                         "Output using float (32 bit) instead of using doubles (64 bit).")
     ("absolute",        po::bool_switch(&opt.use_absolute)->default_value(false), 
-                        "Output the absolute difference as opposed to just the difference.");
-  general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
+     "Output the absolute difference as opposed to just the difference.")
+    ("csv-format",     po::value(&opt.csv_format_str)->default_value(""),
+     asp::csv_opt_caption().c_str());
+  general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
   positional.add_options()
-    ("dem1", po::value(&opt.dem1_name), "Explicitly specify the first dem")
-    ("dem2", po::value(&opt.dem2_name), "Explicitly specify the second dem");
+    ("dem1", po::value(&opt.dem1_file), "Explicitly specify the first dem")
+    ("dem2", po::value(&opt.dem2_file), "Explicitly specify the second dem");
 
   po::positional_options_description positional_desc;
   positional_desc.add("dem1", 1);
@@ -76,111 +79,272 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
-    asp::check_command_line( argc, argv, opt, general_options, general_options,
+    asp::check_command_line(argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage,
-                             allow_unregistered, unregistered );
+                             allow_unregistered, unregistered);
 
-  if ( opt.dem1_name.empty() || opt.dem2_name.empty() )
-    vw_throw( ArgumentErr() << "Requires <dem1> and <dem2> in order to proceed.\n\n" << usage << general_options );
+  if (opt.dem1_file.empty() || opt.dem2_file.empty())
+    vw_throw(ArgumentErr() << "Requires <dem1> and <dem2> in order to proceed.\n\n"
+             << usage << general_options);
 
-  if ( opt.output_prefix.empty() ) {
-    opt.output_prefix = fs::basename(opt.dem1_name) + "__" + fs::basename(opt.dem2_name);
+  if (opt.output_prefix.empty()) {
+    opt.output_prefix = fs::basename(opt.dem1_file) + "__" + fs::basename(opt.dem2_file);
   }
 
   vw::create_out_dir(opt.output_prefix);
 }
 
-int main( int argc, char *argv[] ) {
+void dem2dem_diff(Options& opt){
+  
+  DiskImageResourceGDAL dem1_rsrc(opt.dem1_file), dem2_rsrc(opt.dem2_file);
+  double dem1_nodata = opt.nodata_value, dem2_nodata = opt.nodata_value;
+  if (dem1_rsrc.has_nodata_read()) {
+    dem1_nodata = dem1_rsrc.nodata_read();
+    opt.nodata_value = dem1_nodata;
+    vw_out() << "\tFound input nodata value for DEM 1: " << dem1_nodata << endl;
+    vw_out() << "Using this nodata value on output.\n";
+  }
+  if (dem2_rsrc.has_nodata_read()) {
+    dem2_nodata = dem2_rsrc.nodata_read();
+    vw_out() << "\tFound input nodata value for DEM 2: " << dem2_nodata << endl;
+  }
+
+  DiskImageView<double> dem1_disk_image_view(dem1_rsrc), dem2_disk_image_view(dem2_rsrc);
+
+  GeoReference dem1_georef, dem2_georef;
+  bool has_georef1 = read_georeference(dem1_georef, dem1_rsrc);
+  bool has_georef2 = read_georeference(dem2_georef, dem2_rsrc);
+  if (!has_georef1 || !has_georef2) 
+    vw_throw(ArgumentErr() << "geodiff cannot difference files without a georeference.\n");
+  
+  // Transform DEM 2 into the same perspective as DEM 1. However, we
+  // don't support datum changes!
+  if (std::abs(dem1_georef.datum().semi_major_axis()
+               - dem2_georef.datum().semi_major_axis()) > 0.1 ||
+      std::abs(dem1_georef.datum().semi_minor_axis()
+               - dem2_georef.datum().semi_minor_axis()) > 0.1 ||
+      dem1_georef.datum().meridian_offset() != dem2_georef.datum().meridian_offset()) {
+    vw_throw(NoImplErr() << "geodiff can't difference DEMs which have differing "
+             << "datum radii or meridian offsets.\n");
+  }
+  if (dem1_georef.datum().semi_major_axis() == dem2_georef.datum().semi_major_axis() &&
+      dem1_georef.datum().semi_minor_axis() == dem2_georef.datum().semi_minor_axis() &&
+      dem1_georef.datum().meridian_offset() == dem2_georef.datum().meridian_offset() &&
+      dem1_georef.datum().proj4_str()       != dem2_georef.datum().proj4_str()) {
+    vw_out(WarningMessage) << "Found DEMs with same datum radii and meridian offsets but "
+                           << "different projection strings. Use some caution.\n";
+  }
+
+  // Generate a bounding box that is the minimum of the two BBox areas
+  BBox2 crop_box = bounding_box(dem1_disk_image_view);
+
+  // Transform the second DEM's bounding box to first DEM's pixels
+  GeoTransform gt(dem2_georef, dem1_georef);
+  BBox2 box21 = gt.forward_bbox(bounding_box(dem2_disk_image_view));
+  crop_box.crop(box21);
+
+  ImageViewRef<PixelMask<double> > dem2_trans =
+    crop
+    (geo_transform
+     (per_pixel_filter(dem_to_geodetic
+                       (create_mask(dem2_disk_image_view, dem2_nodata),
+                        dem2_georef),
+                       MGeodeticToMAltitude()),
+      dem2_georef, dem1_georef,
+      ValueEdgeExtension<PixelMask<double> >(PixelMask<double>())),
+     crop_box);
+    
+  ImageViewRef<double> difference;
+  if (opt.use_absolute) {
+    difference =
+      apply_mask(abs(crop(create_mask(dem1_disk_image_view, dem1_nodata), crop_box) - dem2_trans),
+                 opt.nodata_value);
+  } else {
+    difference =
+      apply_mask(crop(create_mask(dem1_disk_image_view, dem1_nodata), crop_box) - dem2_trans,
+                 opt.nodata_value);
+  }
+    
+  GeoReference crop_georef = crop(dem1_georef, crop_box);
+    
+  std::string output_file = opt.output_prefix + "-diff.tif";
+  vw_out() << "Writing difference file: " << output_file << "\n";
+    
+  if (opt.use_float) {
+    ImageViewRef<float> difference_float = channel_cast<float>(difference);
+    boost::scoped_ptr<DiskImageResourceGDAL>
+      rsrc(vw::cartography::build_gdal_rsrc(output_file,
+                                            difference_float, opt));
+    rsrc->set_nodata_write(opt.nodata_value);
+    write_georeference(*rsrc, crop_georef);
+    block_write_image(*rsrc, difference_float,
+                      TerminalProgressCallback("asp", "\t--> Differencing: "));
+  } else {
+    boost::scoped_ptr<DiskImageResourceGDAL>
+      rsrc(vw::cartography::build_gdal_rsrc(output_file,
+                                            difference, opt));
+    rsrc->set_nodata_write(opt.nodata_value);
+    write_georeference(*rsrc, crop_georef);
+    block_write_image(*rsrc, difference,
+                      TerminalProgressCallback("asp", "\t--> Differencing: "));
+  }
+}
+
+// From a DEM, subtract a csv file. Reverse the sign is 'reverse' is true.
+void dem2csv_diff(Options & opt, std::string const& dem_file,
+                  std::string const & csv_file, bool reverse){
+  
+  if (opt.csv_format_str == "")
+    vw_throw(ArgumentErr() << "CSV files were passed in, but the "
+             << "CSV format string was not set.\n");
+
+  // Read the DEM
+  DiskImageView<double> dem(dem_file);
+
+  // Read the no-data
+  double dem_nodata = opt.nodata_value;
+  {
+    // Use a scope to free up fast this handle
+    DiskImageResourceGDAL dem_rsrc(dem_file);
+    if (dem_rsrc.has_nodata_read()) {
+      dem_nodata = dem_rsrc.nodata_read();
+      opt.nodata_value = dem_nodata;
+      vw_out() << "\tFound input nodata value for DEM: " << dem_nodata << endl;
+    }
+  }
+  
+  // Read the DEM georef
+  GeoReference georef;
+  bool has_georef = read_georeference(georef, dem_file);
+  if (!has_georef) 
+    vw_throw(ArgumentErr() << "geodiff cannot load a georeference from: " << dem_file << ".\n");
+
+  // Configure a CSV converter object according to the input parameters
+  asp::CsvConv csv_conv;
+  std::string csv_proj4_str;
+  csv_conv.parse_csv_format(opt.csv_format_str, csv_proj4_str); // Modifies csv_conv
+  if (!csv_conv.is_configured()) 
+    vw_throw(ArgumentErr() << "Could not configure the csv parser.\n");
+
+  std::list<asp::CsvConv::CsvRecord> csv_records;
+  typedef std::list<asp::CsvConv::CsvRecord>::const_iterator RecordIter;
+  csv_conv.read_csv_file(csv_file, csv_records);
+
+  double mean_csv_lon = 0.0;
+  int count = 0;
+  std::vector<Vector3> csv_llh;
+  for (RecordIter iter = csv_records.begin(); iter != csv_records.end(); iter++) {
+    Vector3 xyz = csv_conv.csv_to_cartesian(*iter, georef);
+    if (xyz == Vector3() || xyz != xyz) continue; // invalid point
+    Vector3 llh = georef.datum().cartesian_to_geodetic(xyz);
+    csv_llh.push_back(llh);
+    mean_csv_lon += llh[0];
+    count++;
+  }
+
+  // The mean longitude in the csv file
+  if (count > 0)
+    mean_csv_lon /= count;
+
+  // The mean longitude in the DEM file
+  Vector2 ll = georef.pixel_to_lonlat(Vector2(dem.cols()/2.0, dem.rows()/2.0));
+  double mean_dem_lon = ll[0];
+
+  // Take care of the occasionally present 360 offset in longitude
+  double lon_offset = 360.0*round((mean_dem_lon - mean_csv_lon)/360.0);
+
+  // We will interpolate into the DEM to find the difference
+  ImageViewRef< PixelMask<double> > interp_dem
+    = interpolate(create_mask(dem, dem_nodata),
+		  BilinearInterpolation(), ConstantEdgeExtension());
+
+
+  // Save the diffs
+  count = 0;
+  double diff_min = std::numeric_limits<double>::max();
+  double diff_max = -diff_min;
+  double diff_mean = 0.0;
+  double diff_std  = 0.0;
+  
+  std::vector<Vector3> csv_diff;
+  for (size_t it = 0; it < csv_llh.size(); it++) {
+
+    Vector3 llh = csv_llh[it];
+    Vector2 ll  = subvector(llh, 0, 2);
+    ll[0] += lon_offset; // Now the lon is in the context of the DEM
+    Vector2 pix = georef.lonlat_to_pixel(ll);
+    
+    // Check for out of range
+    if (pix[0] < 0 || pix[0] > dem.cols() - 1) continue;
+    if (pix[1] < 0 || pix[1] > dem.rows() - 1) continue;
+    PixelMask<double> dem_ht = interp_dem(pix[0], pix[1]);
+    if (!is_valid(dem_ht)) continue;
+
+    double diff = dem_ht.child() - llh[2];
+    if (reverse) diff *= -1;
+    if (opt.use_absolute) diff = std::abs(diff);
+
+    if (diff > diff_max) diff_max = diff;
+    if (diff < diff_min) diff_min = diff;
+
+    diff_mean += diff;
+    diff_std  += diff*diff;
+    count     += 1;
+    csv_diff.push_back(Vector3(ll[0], ll[1], diff));
+  }
+
+  if (count > 0) {
+    diff_mean /= count;
+    diff_std = diff_std/count - diff_mean*diff_mean;
+    if (diff_std < 0) diff_std = 0; // just in case, for numerical noise
+    diff_std = std::sqrt(diff_std);
+  }
+
+  vw_out() << "Max difference:       " << diff_max  << std::endl;
+  vw_out() << "Min difference:       " << diff_min  << std::endl;
+  vw_out() << "Mean difference:      " << diff_mean << std::endl;
+  vw_out() << "StdDev of difference: " << diff_std  << std::endl;
+
+  std::string output_file = opt.output_prefix + "-diff.csv";
+  vw_out() << "Writing difference file: " << output_file << "\n";
+  std::ofstream outfile( output_file.c_str() );
+  outfile.precision(16);
+  outfile << "# longitude,latitude, height diff (m)" << std::endl;
+  outfile << "# " << georef.datum() << std::endl;
+  for (size_t it = 0; it < csv_diff.size(); it++) {
+    Vector3 diff = csv_diff[it];
+    outfile << diff[0] << "," << diff[1] << "," << diff[2] << std::endl;
+  }
+}
+
+// Subtract from the first dem the second. One of them can be a CSV file.
+int main(int argc, char *argv[]) {
 
   Options opt;
   try {
-    handle_arguments( argc, argv, opt );
+    handle_arguments(argc, argv, opt);
 
-    DiskImageResourceGDAL dem1_rsrc(opt.dem1_name), dem2_rsrc(opt.dem2_name);
-    double dem1_nodata = opt.nodata_value, dem2_nodata = opt.nodata_value;
-    if ( dem1_rsrc.has_nodata_read() ) {
-      dem1_nodata = dem1_rsrc.nodata_read();
-      vw_out() << "\tFound input nodata value for DEM 1: " << dem1_nodata << endl;
-    }
-    if ( dem2_rsrc.has_nodata_read() ) {
-      dem2_nodata = dem2_rsrc.nodata_read();
-      vw_out() << "\tFound input nodata value for DEM 2: " << dem2_nodata << endl;
-    }
+    bool is_dem1_csv = asp::is_csv(opt.dem1_file);
+    bool is_dem2_csv = asp::is_csv(opt.dem2_file);
 
-    DiskImageView<double> dem1_disk_image_view(dem1_rsrc), dem2_disk_image_view(dem2_rsrc);
-
-    GeoReference dem1_georef, dem2_georef;
-    read_georeference(dem1_georef, dem1_rsrc);
-    read_georeference(dem2_georef, dem2_rsrc);
-
-    // Transform DEM 2 into the same perspective as DEM 1. However, we
-    // don't support datum changes!
-    if ( std::abs(dem1_georef.datum().semi_major_axis()
-                  - dem2_georef.datum().semi_major_axis() ) > 0.1 ||
-         std::abs(dem1_georef.datum().semi_minor_axis()
-                  - dem2_georef.datum().semi_minor_axis() ) > 0.1 ||
-         dem1_georef.datum().meridian_offset() != dem2_georef.datum().meridian_offset() ) {
-      vw_throw( NoImplErr() << "geodiff can't difference DEMs which have differing "
-                << "datum radii or meridian offsets.\n" );
-    }
-    if ( dem1_georef.datum().semi_major_axis() == dem2_georef.datum().semi_major_axis() &&
-         dem1_georef.datum().semi_minor_axis() == dem2_georef.datum().semi_minor_axis() &&
-         dem1_georef.datum().meridian_offset() == dem2_georef.datum().meridian_offset() &&
-         dem1_georef.datum().proj4_str()       != dem2_georef.datum().proj4_str() ) {
-      vw_out(WarningMessage) << "Found DEMs with same datum radii and meridian offsets but "
-                             << "different projection strings. Use some caution.\n";
-    }
-
-    // Generate a bounding box that is the minimum of the two BBox areas
-    BBox2 crop_box = bounding_box( dem1_disk_image_view );
-
-    // Transform the second DEM's bounding box to first DEM's pixels
-    GeoTransform gt(dem2_georef, dem1_georef);
-    BBox2 box21 = gt.forward_bbox(bounding_box(dem2_disk_image_view));
-    crop_box.crop(box21);
-
-    ImageViewRef<PixelMask<double> > dem2_trans =
-      crop(geo_transform( per_pixel_filter(dem_to_geodetic( create_mask(dem2_disk_image_view, dem2_nodata),
-                                                            dem2_georef),
-                                           MGeodeticToMAltitude()),
-                          dem2_georef, dem1_georef,
-                          ValueEdgeExtension<PixelMask<double> >(PixelMask<double>()) ),
-           crop_box );
-
-    ImageViewRef<double> difference;
-    if ( opt.use_absolute ) {
-      difference =
-        apply_mask(abs(crop(create_mask(dem1_disk_image_view, dem1_nodata), crop_box) - dem2_trans),
-                   opt.nodata_value );
-    } else {
-      difference =
-        apply_mask(crop(create_mask(dem1_disk_image_view, dem1_nodata), crop_box) - dem2_trans,
-                   opt.nodata_value );
-    }
-
-    GeoReference crop_georef = crop(dem1_georef, crop_box);
-
-    std::string output_file = opt.output_prefix + "-diff.tif";
-    vw_out() << "Writing difference: " << output_file << "\n";
-
-    if ( opt.use_float ) {
-      ImageViewRef<float> difference_float = channel_cast<float>( difference );
-      boost::scoped_ptr<DiskImageResourceGDAL> rsrc( vw::cartography::build_gdal_rsrc( output_file,
-                                                                           difference_float, opt ) );
-      rsrc->set_nodata_write( opt.nodata_value );
-      write_georeference( *rsrc, crop_georef );
-      block_write_image( *rsrc, difference_float,
-                         TerminalProgressCallback("asp", "\t--> Differencing: ") );
-    } else {
-      boost::scoped_ptr<DiskImageResourceGDAL> rsrc( vw::cartography::build_gdal_rsrc( output_file,
-                                                                           difference, opt ) );
-      rsrc->set_nodata_write( opt.nodata_value );
-      write_georeference( *rsrc, crop_georef );
-      block_write_image( *rsrc, difference,
-                         TerminalProgressCallback("asp", "\t--> Differencing: ") );
+    if (is_dem1_csv && is_dem2_csv) 
+      vw_throw(ArgumentErr()
+               << "Cannot do the diff of two csv files. One of them "
+               << "can be converted to a DEM using point2dem fist.\n");
+    
+    bool reverse = false; // true if first DEM is a csv
+    if (is_dem1_csv) {
+      reverse = true;
+      dem2csv_diff(opt, opt.dem2_file, opt.dem1_file, reverse);
+    }else if (is_dem2_csv){
+      reverse = false;
+      dem2csv_diff(opt, opt.dem1_file, opt.dem2_file, reverse);
+    }else{
+      // Both are regular DEMs
+      dem2dem_diff(opt);
     }
 
   } ASP_STANDARD_CATCHES;
-
+  
   return 0;
 }

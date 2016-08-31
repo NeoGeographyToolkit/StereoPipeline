@@ -12,6 +12,10 @@
  - dem_mosaic
    * Added the option --dem-blur-sigma to blur the output DEM.
 
+ - geodiff
+   * One of the two input files can be in CSV format.
+
+ 
 *** RELEASE 2.5.3, August 24, 2016 ***
 
 Highlights
