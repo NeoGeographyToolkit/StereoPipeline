@@ -413,13 +413,21 @@ def main(argsIn):
     print(cmd)
     os.system(cmd)
 
-    # Modify the vrt to append some metadata from the original files
 
+    # Find the tiles that were genreated
+    tiles = []
+    for tile in tileList:
+        outTile = os.path.join(tempFolder, tile[4])
+        if os.path.exists(outTile):
+            tiles.append(outTile)
+        else:
+            print("Warning: Skipping non-existing file: ", outTile)
+    if len(tiles) == 0:
+        raise "No mapprojected tif tiles were generated"
+
+    # Modify the vrt to append some metadata from the original tiles
     # Get the metadata
-    files = glob.glob(tempFolder + "*_.tif")
-    if len(files) == 0:
-        raise "No mapprojected tif files were generated"
-    args=[files[0]]
+    args=[tiles[0]]
     sep = "="
     verbose = False
     gdal_settings = asp_system_utils.run_and_parse_output( "gdalinfo", args, sep, verbose)
