@@ -40,7 +40,7 @@ using namespace std;
 
 
 // TODO: Make this into an option?
-#define COLLAR_SIZE 512
+#define DEFAULT_COLLAR_SIZE 512
 #define SAVE_CORR_DEBUG false // Set this to true to generate pyramid correlation debug images
 
 // Read the search range from D_sub, and scale it to the full image
@@ -166,7 +166,7 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
                   search_range, kernel_size, cost_mode,
                   corr_timeout, seconds_per_op,
                   stereo_settings().xcorr_threshold, stereo_settings().corr_max_levels,
-                  stereo_settings().use_sgm, 0 // No collar here, the entire image is written at once.
+                  stereo_settings().use_sgm, 0, // No collar here, the entire image is written at once.
                   0, // Don't combine blob filtering with quantile filtering
                   SAVE_CORR_DEBUG
               );
@@ -534,7 +534,7 @@ public:
                           m_corr_timeout, m_seconds_per_op,
                           stereo_settings().xcorr_threshold,
                           stereo_settings().corr_max_levels,
-                          stereo_settings().use_sgm, COLLAR_SIZE,
+                          stereo_settings().use_sgm, DEFAULT_COLLAR_SIZE,
                           stereo_settings().corr_blob_filter_area,
                           SAVE_CORR_DEBUG );
       return corr_view.prerasterize(bbox);
@@ -549,7 +549,7 @@ public:
                           m_corr_timeout, m_seconds_per_op,
                           stereo_settings().xcorr_threshold,
                           stereo_settings().corr_max_levels,
-                          stereo_settings().use_sgm, COLLAR_SIZE,
+                          stereo_settings().use_sgm, DEFAULT_COLLAR_SIZE,
                           stereo_settings().corr_blob_filter_area,
                           SAVE_CORR_DEBUG );
       return corr_view.prerasterize(bbox);
