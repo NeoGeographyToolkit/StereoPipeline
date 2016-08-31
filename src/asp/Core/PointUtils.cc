@@ -577,8 +577,8 @@ asp::CsvConv::CsvRecord asp::CsvConv::parse_csv_line(bool & is_first_line, bool 
 }
 
 
-size_t asp::CsvConv::parse_entire_file(std::string    const & file_path,
-                                       std::list<CsvRecord> & output_list) const {
+size_t asp::CsvConv::read_csv_file(std::string    const & file_path,
+				   std::list<CsvRecord> & output_list) const {
   // Clear output object
   output_list.clear();
 

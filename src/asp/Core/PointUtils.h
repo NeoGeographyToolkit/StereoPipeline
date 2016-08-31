@@ -108,7 +108,7 @@ namespace asp {
 
     /// Reads an entire CSV file and stores a record for each line.
     /// - Intended for use with smaller files.
-    size_t parse_entire_file(std::string const    & file_path,
+    size_t read_csv_file(std::string const    & file_path,
                              std::list<CsvRecord> & output_list) const;
 
     /// Convert values read from a csv file using parse_csv_line (in the same order they appear in the file)

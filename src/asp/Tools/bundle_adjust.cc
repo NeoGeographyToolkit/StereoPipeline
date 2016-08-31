@@ -938,7 +938,7 @@ size_t load_estimated_camera_positions(Options &opt,
   conv.parse_csv_format(opt.csv_format_str, opt.csv_proj4_str);
   std::list<asp::CsvConv::CsvRecord> pos_records;
   typedef std::list<asp::CsvConv::CsvRecord>::const_iterator RecordIter;
-  conv.parse_entire_file(opt.camera_position_file, pos_records);
+  conv.read_csv_file(opt.camera_position_file, pos_records);
 
   // Set up a GeoReference object using the datum
   vw::cartography::GeoReference geo;
