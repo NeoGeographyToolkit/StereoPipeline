@@ -3,6 +3,12 @@
  - Improvements, speedups, and much decreased memory usage, together with a lot of testing for sfs.
  - Added a parallel_sfs tool, to run sfs (shape-from-shading) in parallel.
 
+ - stereo_corr
+   * Added the option --use-sgm which replaces the standard integer
+     correlator with a new semi-global matching correlator.  SGM is
+     slow and memory intensive but it can produce better results
+     for some challenging input images.
+
  - dem_mosaic
    * Added the option --dem-blur-sigma to blur the output DEM.
 

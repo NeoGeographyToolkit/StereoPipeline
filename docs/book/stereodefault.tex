@@ -118,6 +118,11 @@ If the default method does not perform well, try out one of the other two method
 
 \end{description}
 
+% -------------------------------------------------------------------
+%                           CORRELATION
+% -------------------------------------------------------------------
+
+
 \section{Correlation}
 \label{corr_section}
 \hrule
@@ -281,7 +286,34 @@ If the default method does not perform well, try out one of the other two method
 value will result in no timeout enforcement. A value of 600 seconds
 should be sufficient in most cases.
 
+\item[use-sgm \textnormal (default = false)] \hfill \\
+
+  This flag, if provided, enables using the semi-global matching algorithm instead
+  of the normal ASP integer correlator.  See section \ref{sec:sgm} for details.
+
+\item[corr-blob-filter \textnormal{\small{(\emph{integer})}} (default = 0)]\hfill \\
+
+  Set to apply a blob filter in each level of pyramidal integer correlation.
+  When the correlator fails it often leaves "islands" of erroneous disparity results.
+  Using this blob filter to remove them cleans up the final stereo output and
+  can even reduce processing times by preventing the correlator from searching
+  at large, incorrect disparity amounts.  The value provided is the size of blobs
+  in pixels that will be removed at the full image resolution.
+
+\item[corr-tile-size \textnormal{\small{(\emph{integer})}} (default = 1024)]\hfill \\
+
+  Manually specifies the size of image tiles used by the correlator for multi-threaded
+  processing. Typically there is no need to adjust this value but it is very important
+  when using semi-global matching. See section \ref{sec:sgm} for details.
+
+
+
 \end{description}
+
+% -------------------------------------------------------------------
+%                           SUBPIXEL REFINEMENT
+% -------------------------------------------------------------------
+
 
 \section{Subpixel Refinement}
 \hrule

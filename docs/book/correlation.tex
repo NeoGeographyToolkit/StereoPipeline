@@ -351,6 +351,57 @@ homography transform could not be applied (for example, if interest
 point matching failed). The input low-resolution disparity can be
 computed in several ways, as described earlier in the section.
 
+\subsection{Semi-Global Matching}
+\label{sec:sgm}
+
+A new option for integer stereo correlation available in ASP is the 
+popular semi-global matching algorithm introduced in 
+\citep{hirschmuller_sgm_original}.  The algorithm is not typically used for
+DEM generation but it has been used successfully to process HRSC images
+\citep{hirschmuller_hrsc_with_sgm}.  The version of the algorithm implemented
+by ASP has a few modifications relative to the original implementation.  The
+most significant difference as that ASP's implementation performs a 2D disparity
+search, similar to what is done in the NG-fSGM algorithm described in 
+\citep{xiang_2016_low_complexity_fsgm}.  Since ASP processes a wide variety of
+cameras with varying degrees of metadata quality, the standard assumption 
+with SGM that the disparity search can be performed only along a one-dimensional 
+epipolar line does not hold.  The other major change is that ASP uses a multi-
+resolution heirarchical search combined with a compressed memory scheme similar
+to what is used in the tSGM algorithm described in \citep{rothermel2012sure_isgm}.  With
+these two features the SGM algorithm can be used for unrectified, larger images.
+
+The greatest advantage of the SGM algorithm over the normal ASP correlation algorithm
+is an improved ability to find disparity matches in areas of repetitive or low texture.
+In addition to increasing the number of correctly matched pixels, this feature can 
+avoid the need for a seperate hole filling step if a gapless DEM is desired.  
+This is particularly useful when generating an initial DEM to use for map 
+projection of inputs in preparation for a second stereo pass.
+SGM also produces finer results than the standard correlation algorithm, meaning that
+you may be able to skip running a separate subpixel refinement step 
+(use \texttt{subpixel mode 0}).  The primary disadvantage to using SGM (besides the
+speed and memory requirements) is that it can cause noticable artifacts at tile boundaries.
+We hope to eliminate this issue soon but in the mean time you can mitigate it by
+using as large a tile size as possible.
+
+In order to use the SGM algorithm you must take the following steps
+when you perform integer correlation:
+
+\begin{itemize}
+\item Pass in the \texttt{use-sgm} command line flag to enable the SGM algorithm.
+\item Choose a supported kernel size.  Currently the only sizes supported are 3 and 5.
+\item Choose an appropriate tile size using the \texttt{corr-tile-size} command. The SGM
+algorithm works best on larger tiles so this parameter should be set to as large as your
+available RAM can support.  You should generally shoot for a value where the amount of
+RAM used per tile is equal to the total amount of RAM available divided by the number of
+simultaneous threads that you will be using.  The exact amount of RAM used per thread 
+varies depending on the image content and cannot be exactly predicted in advance so some
+trial and error may be required.
+\item Manually specify the number of threads being used so that you have more control
+over the amount of memory that will be required (see point above).
+\item Consider disabling the left-right consistency check by setting the \texttt{lrthresh}
+parameter to a negative value.  Disabling this check nearly halves the run time of the SGM
+algorithm so consider if the filtering it provides is worth the increased run time.
+\end{itemize}
 
 \section{Sub-pixel Refinement}
 \label{sec:subpixel}
