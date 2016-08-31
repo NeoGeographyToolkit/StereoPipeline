@@ -39,8 +39,9 @@ using namespace asp;
 using namespace std;
 
 
-// TODO: Make this into an option!
-#define COLLAR_SIZE 256
+// TODO: Make this into an option?
+#define COLLAR_SIZE 512
+#define SAVE_CORR_DEBUG false // Set this to true to generate pyramid correlation debug images
 
 // Read the search range from D_sub, and scale it to the full image
 void read_search_range(ASPGlobalOptions & opt){
@@ -114,6 +115,12 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
 
     if (stereo_settings().rm_quantile_multiple <= 0.0)
     {
+      // If we can process the entire image in one tile, don't use a collar.
+      int collar_size = DEFAULT_COLLAR_SIZE;
+      if ((opt.raster_tile_size[0] > left_sub.cols()) &&
+          (opt.raster_tile_size[1] > left_sub.rows())   )
+        collar_size = 0;
+    
       // Warning: A giant function call approaches!
       // TODO: Why the extra filtering step here? PyramidCorrelationView already performs 1-3 iterations of outlier removal!
       vw::cartography::block_write_gdal_image( // Write to disk
@@ -126,8 +133,9 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
                   search_range, kernel_size, cost_mode,
                   corr_timeout, seconds_per_op,
                   stereo_settings().xcorr_threshold, stereo_settings().corr_max_levels,
-                  stereo_settings().use_sgm, COLLAR_SIZE,
-                  stereo_settings().corr_blob_filter_area*mean_scale
+                  stereo_settings().use_sgm, collar_size,
+                  stereo_settings().corr_blob_filter_area*mean_scale,
+                  SAVE_CORR_DEBUG
               ),
               // To do: all these hard-coded values must be replaced with
               // appropriate params from user's stereo.default, for
@@ -158,8 +166,9 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
                   search_range, kernel_size, cost_mode,
                   corr_timeout, seconds_per_op,
                   stereo_settings().xcorr_threshold, stereo_settings().corr_max_levels,
-                  stereo_settings().use_sgm, COLLAR_SIZE
-                  // Don't combine blob filtering with quantile filtering
+                  stereo_settings().use_sgm, 0 // No collar here, the entire image is written at once.
+                  0, // Don't combine blob filtering with quantile filtering
+                  SAVE_CORR_DEBUG
               );
 
       vw::cartography::write_gdal_image( // Write to disk while removing outliers
@@ -526,7 +535,8 @@ public:
                           stereo_settings().xcorr_threshold,
                           stereo_settings().corr_max_levels,
                           stereo_settings().use_sgm, COLLAR_SIZE,
-                          stereo_settings().corr_blob_filter_area );
+                          stereo_settings().corr_blob_filter_area,
+                          SAVE_CORR_DEBUG );
       return corr_view.prerasterize(bbox);
     }else{
       typedef vw::stereo::PyramidCorrelationView<ImageType, ImageType, MaskType, MaskType > CorrView;
@@ -540,7 +550,8 @@ public:
                           stereo_settings().xcorr_threshold,
                           stereo_settings().corr_max_levels,
                           stereo_settings().use_sgm, COLLAR_SIZE,
-                          stereo_settings().corr_blob_filter_area );
+                          stereo_settings().corr_blob_filter_area,
+                          SAVE_CORR_DEBUG );
       return corr_view.prerasterize(bbox);
     }
     
@@ -682,8 +693,7 @@ int main(int argc, char* argv[]) {
 
     // Integer correlator requires large tiles
     //---------------------------------------------------------
-    int ts = ASPGlobalOptions::corr_tile_size();
-    ts = 1024; // TODO: Option will fall in from VW, but maybe set the default higher here?
+    int ts = stereo_settings().corr_tile_size_ovr;
     opt.raster_tile_size = Vector2i(ts, ts);
 
     // Internal Processes

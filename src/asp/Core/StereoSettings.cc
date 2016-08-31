@@ -175,7 +175,9 @@ namespace asp {
       ("use-sgm",   po::bool_switch(&global.use_sgm)->default_value(false)->implicit_value(true),
                      "Use a slower but more accurate SGM stereo algorithm for integer correlation.")
       ("corr-blob-filter",       po::value(&global.corr_blob_filter_area)->default_value(0),
-                     "Filter blobs this size or less in correlation pyramid step.");
+                     "Filter blobs this size or less in correlation pyramid step.")
+      ("corr-tile-size",         po::value(&global.corr_tile_size_ovr)->default_value(ASPGlobalOptions::corr_tile_size()),
+                     "Override the default tile size used for processing.");
 
 
     po::options_description backwards_compat_options("Aliased backwards compatibility options");
