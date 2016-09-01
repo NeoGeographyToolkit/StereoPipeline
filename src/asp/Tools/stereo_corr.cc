@@ -31,8 +31,6 @@
 #include <asp/Sessions/StereoSession.h>
 #include <xercesc/util/PlatformUtils.hpp>
 
-#include <asp/Tools/NewCorrelation.h>
-
 using namespace vw;
 using namespace vw::stereo;
 using namespace asp;
