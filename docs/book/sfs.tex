@@ -52,14 +52,10 @@ more flexibility in optimization but the terrain may move too far from the input
 We use either the regular Lambertian reflectance model,
 or the Lunar-Lambertian model \cite{mcewen1991photometric}, more specifically as given in
 \cite{lohse2006derivation} (equations (3) and (4)).
-Also supported in the Hapke model, 
+Also supported is the Hapke model, 
 \cite{johnson2006spectrophotometric}, \cite{fernando2013surface},
 \cite{hapke2008bidirectional}, \cite{hapke1993opposition}.
-Custom values for the coefficients of these models can be passed in to the program.
-
-Below we show two examples of running \texttt{sfs}, first for one image,
-and then for multiple images with bundle-adjustment and modeling the shadow
-threshold.
+Custom values for the coefficients of these models can be passed to the program.
 
 \section{How to get good test imagery}
 
@@ -71,17 +67,16 @@ A faster (but not as complete) interface is provided by
 \url{http://ode.rsl.wustl.edu/moon/indexproductsearch.aspx}. The related
 site
 \url{http://ode.rsl.wustl.edu/moon/indextools.aspx?displaypage=lolardr}
-can provide LOLA datasets which can be used as ground truth.
+can provide LOLA datasets which can be used as (sparse) ground truth.
 
 We advise the following strategy for picking images. First choose a small
 longitude-latitude window in which to perform a search for imagery. Pick
 two images that are very close in time and with a big amount of overlap
 (ideally they would have consecutive orbit numbers).
-Those can be passed to ASP's \texttt{stereo} tool to create an initial DEM. Then search for 
+Those can be passed to ASP's \texttt{stereo} tool to create an initial DEM. Then, search for 
 other images close to the center of the maximum overlap of the first
 two images. Pick one or more of those, ideally with different illumination
-conditions than the first two, and run SfS for example with the first
-and the third image. 
+conditions than the first two. Those (together with one of the first two images) can be used for SfS.
 
 To locate the area of spatial overlap, the images can be map-projected (either
 with \texttt{cam2map} with a coarse resolution) or with
@@ -94,8 +89,8 @@ different enough, which will help constrain the \texttt{sfs} problem better.
 
 \section{Running sfs at 1 meter/pixel using a single image}
 
-In both this and the next section we will work with LRO NAC images taken
-close to the Lunar South Pole, at $85^\circ$ of latitude (the tool was
+In both this and the next sections we will work with LRO NAC images taken
+close to the Lunar South Pole, at a latitude of $85^\circ$ South (the tool was
 tested on equatorial regions as well). We will use four images,
 M139939938LE, M139946735RE, M173004270LE, and M122270273LE.
 
@@ -158,9 +153,7 @@ Then we run \texttt{sfs}:
 
 The smoothness weight is a parameter that needs tuning. If it is too
 small, SfS will return noisy results, if it is too large, too much
-detail will be blurred. We have chosen to use here the plain Lambertian
-model (reflectance-type 0), as the Lunar Lambertian broke down so far
-South (an issue to be investigated). The meaning of the other
+detail will be blurred. Here we used the Lunar Lambertian model. The meaning of the other
 \texttt{sfs} options can be looked up in section \ref{sfs}.
 
 We show the results of running this program in figure
@@ -257,7 +250,6 @@ before, we'll in fact run SfS with images subsampled by a factor of
     reduce from = ${f}_crop.cub to = ${f}_crop_sub10.cub sscale = 10 lscale = 10
   done
 \end{verbatim}
-and the same for the other images.
 
 We run bundle adjustment and stereo with the subsampled images using
 commands analogous to the above:
@@ -319,12 +311,12 @@ obtained earlier and the same for the final refined DEM using
 
 \begin{verbatim}
   geodiff --absolute run_full2/run-crop-DEM.tif run_sub10/run-crop-DEM.tif
-  gdalinfo -stats run-crop-DEM__run-crop-DEM-diff.tif |grep Mean=  
+  gdalinfo -stats run-crop-DEM__run-crop-DEM-diff.tif | grep Mean=  
 \end{verbatim}
 and after SfS:
 \begin{verbatim}
   geodiff --absolute run_full2/run-crop-DEM.tif sfs_sub10_ref1/run-DEM-final.tif
-  gdalinfo -stats run-crop-DEM__run-DEM-final-diff.tif |grep Mean=
+  gdalinfo -stats run-crop-DEM__run-DEM-final-diff.tif | grep Mean=
 \end{verbatim}
 
 The mean error goes from 2.64~m to 1.29~m, while the standard deviation
@@ -366,17 +358,18 @@ different among the images, and interest point matching may not succeed.
 
 The option \texttt{-\/--coarse-levels \it{int}} can be passed to
 \texttt{sfs}, to solve for the terrain using a multi-resolution
-approach, first starting at a coarse level, where camera errors are
-having less of an impact, and then jointly optimizing the cameras and
+approach, first starting at a coarse level, where camera errors have
+less of an impact, and then jointly optimizing the cameras and
 the terrain at ever increasing levels of resolution. Yet, this may still
 fail if the terrain does not have large and pronounced features on the
 scale bigger than the errors in the cameras.
 
 The approach that we found to work all the time is to manually select
 interest points in the images, as the human eye is much more skilled at
-identifying a given landmark in multiple images, even when the lightning drastically
-changes. Picking about 4 landmarks in each image is sufficient. Ideally
-they should be positioned far from each other, to improve the accuracy.
+identifying a given landmark in multiple images, even when the lightning
+changes drastically. Picking about 4 landmarks in each image is
+sufficient. Ideally they should be positioned far from each other, to
+improve the accuracy.
 
 Below is one example of how we manually select interest points, run SfS,
 and then how we compare to LOLA, which is an independently acquired
@@ -405,18 +398,16 @@ adjustment at this stage yet.
 \end{verbatim}
 
 We would like now to manually pick interest points for the purpose of
-doing bundle adjustment.  We found it it much easier on the user to
+doing bundle adjustment.  We found it it much easier to locate the landmarks if we 
 first map-project the images, which brings them all into the same
-perspective, pick interest points in \texttt{stereo\_gui}, then project
+perspective. We then pick interest points in \texttt{stereo\_gui}, and then project
 them back into the original cameras and do bundle adjustment. Here are
 the steps:
 \begin{verbatim}
   for f in A B C D; do 
-    mapproject --tr 4 run_stereo_noba_sub4/run-DEM.tif ${f}_crop_sub4.cub \ 
+    mapproject --tr 4 run_stereo_noba_sub4/run-DEM.tif ${f}_crop_sub4.cub \
       ${f}_crop_sub4_v1.tif --tile-size 128
   done
-\end{verbatim}
-\begin{verbatim}
   stereo_gui A_crop_sub4_v1.tif B_crop_sub4_v1.tif C_crop_sub4_v1.tif \
     D_crop_sub4_v1.tif run_ba_sub4/run
 \end{verbatim}
@@ -434,14 +425,16 @@ illustration is shown in Figure \ref{fig:sfs3}.
 
 Then bundle adjustment happens:
 \begin{verbatim}
-  bundle_adjust A_crop_sub4.cub B_crop_sub4.cub C_crop_sub4.cub D_crop_sub4.cub      \
-    -o run_ba_sub4/run --mapprojected-data  'A_crop_sub4_v1.tif B_crop_sub4_v1.tif ' \
-'C_crop_sub4_v1.tif D_crop_sub4_v1.tif run_stereo_noba_sub4/run-DEM.tif'             \
+  P='A_crop_sub4_v1.tif B_crop_sub4_v1.tif' # to avoid long lines below
+  Q='C_crop_sub4_v1.tif D_crop_sub4_v1.tif run_stereo_noba_sub4/run-DEM.tif'
+  bundle_adjust A_crop_sub4.cub B_crop_sub4.cub C_crop_sub4.cub D_crop_sub4.cub  \
+    -o run_ba_sub4/run --mapprojected-data  "$P $Q"                              \
     --min-matches 1
 \end{verbatim}
 
-A good sanity check to ensure that now cameras are aligned properly is to map-project
-using the newly obtained camera adjustments and then overlay the new images in the GUI:
+A good sanity check to ensure that at this stage cameras are aligned properly is to map-project
+using the newly obtained camera adjustments and then overlay the obtained images in the GUI.
+The features in all images should be perfectly on top of each other.
 \begin{verbatim}
   for f in A B C D; do 
     mapproject --tr 4 run_stereo_noba_sub4/run-DEM.tif ${f}_crop_sub4.cub  \
@@ -463,7 +456,7 @@ Then we run stereo, followed by SfS.
     C_crop_sub4.cub D_crop_sub4.cub -o sfs_sub4_ref1_th_reg0.12_wt0.001/run    \
     --shadow-thresholds '0.00149055 0.00138248 0.000747531'                    \
     --threads 4 --smoothness-weight 0.12 --initial-dem-constraint-weight 0.001 \
-    --reflectance-type 1 --float-exposure --float-cameras --max-iterations 20  \ 
+    --reflectance-type 1 --float-exposure --float-cameras --max-iterations 20  \
     --use-approx-camera-models --use-rpc-approximation --crop-input-images     \
     --bundle-adjust-prefix run_ba_sub4/run
 \end{verbatim}
@@ -472,10 +465,10 @@ We fetch the portion of the LOLA dataset around the current DEM from the
 site described earlier, and save it as
 \verb#RDR_354E355E_85p5S84SPointPerRow_csv_table.csv#. It is necessary
 to align our stereo DEM with this dataset to be able to compare
-things. We choose to bring the LOLA dataset into the coordinate system
+them. We choose to bring the LOLA dataset into the coordinate system
 of the DEM, using:
 \begin{verbatim}
-  pc_align --max-displacement 280 run_stereo_yesba_sub4/run-DEM.tif \
+  pc_align --max-displacement 280 run_stereo_yesba_sub4/run-DEM.tif             \
     RDR_354E355E_85p5S84SPointPerRow_csv_table.csv -o run_stereo_yesba_sub4/run \
     --save-transformed-source-points
 \end{verbatim}
@@ -499,10 +492,16 @@ from  1.14~m to 0.90~m, while the standard deviation decreases from
 Here are a few suggestions we have found helpful when running \texttt{sfs}:
 
 \begin{itemize}{}
-\item First determine the appropriate smoothing weight, $\mu$ by running a
-small clip, and using just one image. The other weight, $\lambda,$ can
-be set to something small, like $0.0001.$ This can be increased if noticing
+
+\item First determine the appropriate smoothing weight $\mu$ by running a
+small clip, and using just one image. A value between 0.06 and 0.12 seems to work 
+all the time with LRO NAC, even when the images are subsampled. The other weight, $\lambda,$ can
+be set to something small, like $0.0001.$ This can be increased to $0.001$ if noticing
 that the output DEM strays too far. 
+
+\item As stated before, more images with more diverse illumination conditions
+result in more accurate terrain. Ideally there should be at least 3 images, with the shadows
+being, respectively, on the left, right, and then perhaps missing or small. 
 
 \item Bundle-adjustment for multiple images is crucial, to eliminate
   camera errors which will result in \texttt{sfs} converging to a local
@@ -519,4 +518,20 @@ that the output DEM strays too far.
   and not float any variables except the DEM being optimized, and then
   gradually add images and float more variables and select whichever
   approach seems to give better results.
+
+\item If an input DEM is large, it may not be completely covered by a
+  single set of imagery with various illumination conditions.  It should
+  then be broken up into smaller regions (with overlap), the SfS problem
+  can be solved on each region, and then every output terrain can be
+  transformed using \texttt{pc\_align} into LOLA's global coordinate
+  system, where they can be mosaicked together using
+  \texttt{dem\_mosaic}. 
+
+  The easier case is when at least the two images in the stereo pair
+  cover the entire terrain. Then, portions of this terrain can be used
+  as an initial guess for each SfS sub-problem (even as the other images
+  used for SfS change), the results can be mosaicked, and the alignment
+  to LOLA can happen just once, after mosaicking. This approach is
+  preferable, if feasible, as alignment to LOLA is more accurate if the
+  terrain to align is larger in extent.
 \end{itemize}
