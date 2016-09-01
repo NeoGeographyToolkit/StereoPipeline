@@ -744,8 +744,8 @@ prerasterize(vw::BBox2i const& bbox) const {
       disparity.set_size( left_mask_pyramid[level] );
       Vector2i region_offset = max_upscaling*half_kernel/scaling;
       vw_out() << "\nProcessing level: " << level << " with size " << disparity.get_size() << std::endl;
-      std::cout << "region_offset = " << region_offset << std::endl;
-      std::cout << "Number of zones = " << zones.size() << std::endl;
+      //std::cout << "region_offset = " << region_offset << std::endl;
+      //std::cout << "Number of zones = " << zones.size() << std::endl;
 
       // 3.1) Process each zone with their refined search estimates
       // - The zones are subregions of the image with similar disparities
@@ -880,7 +880,7 @@ prerasterize(vw::BBox2i const& bbox) const {
         // On the next resolution level, break up the image area into multiple
         // smaller zones with similar disparities.  This helps minimize
         // the total amount of searching done on the image.
-        std::cout << "Subdividing zones...\n";
+        //std::cout << "Subdividing zones...\n";
         subdivide_regions2( disparity, bounding_box(disparity),
                            zones, m_kernel_size );
 
