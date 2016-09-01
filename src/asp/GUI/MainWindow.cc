@@ -231,6 +231,11 @@ void MainWindow::createMenus() {
   m_exit_action->setStatusTip(tr("Exit the application"));
   connect(m_exit_action, SIGNAL(triggered()), this, SLOT(forceQuit()));
 
+  // Select region
+  m_select_region_action = new QAction(tr("Select region"), this);
+  m_select_region_action->setStatusTip(tr("Select rectangular region."));
+  connect(m_select_region_action, SIGNAL(triggered()), this, SLOT(select_region()));
+  
   // Run stereo
   m_run_stereo_action = new QAction(tr("Run stereo"), this);
   m_run_stereo_action->setStatusTip(tr("Run stereo on selected clips."));
@@ -315,6 +320,7 @@ void MainWindow::createMenus() {
 
   // File menu
   m_file_menu = menu->addMenu(tr("&File"));
+  m_file_menu->addAction(m_select_region_action);
   m_file_menu->addAction(m_exit_action);
 
   // Run menu
@@ -752,6 +758,11 @@ void MainWindow::run_stereo_or_parallel_stereo(std::string const& cmd){
   system(run_cmd.c_str());
   QMessageBox::about(this, tr("stereo_gui"), tr("Done running stereo"));
 
+}
+
+void MainWindow::select_region(){
+  QMessageBox::about(this, tr("Info"), tr("Use Control-Left Mouse to select a region. Its bounds will be printed in a terminal. Stereo can be run on selected regions."));
+  return;
 }
 
 void MainWindow::run_stereo(){

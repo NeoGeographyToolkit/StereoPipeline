@@ -73,6 +73,7 @@ namespace vw { namespace gui {
     void addDelMatches();
     void saveMatches();
     void writeGroundControlPoints(); ///< Write a ground control point file for bundle_adjust
+    void select_region();
     void run_stereo();
     void run_parallel_stereo();
     void shadowThresholdCalc();
@@ -122,6 +123,7 @@ namespace vw { namespace gui {
     QAction *m_addDelMatches_action;
     QAction *m_saveMatches_action;
     QAction *m_writeGcp_action;
+    QAction *m_select_region_action;
     QAction *m_run_stereo_action;
     QAction *m_run_parallel_stereo_action;
     QAction *m_exit_action;
