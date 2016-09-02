@@ -258,12 +258,15 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
 	      r /= r[2];
 	      l /= l[2];
 
-	      // Bugfix: skip obvious outliers, points way out there
-	      if (std::abs(l[0]) > 2*left_size[0]   || std::abs(l[1]) > 2*left_size[1]  ||
-	          std::abs(r[0]) > 2*right_size[0]  || std::abs(r[1]) > 2*right_size[1] ) 
+        // Skip points which fall outside the transformed images
+        // - This is not a very precise check but points should already be filtered.
+        // - Could replace this with a statistical filter if we need to.
+	      if ((l[0] > left_size [0])  || (l[1] > left_size [1]) ||
+	          (r[0] > right_size[0])  || (r[1] > right_size[1]) ||
+	          (l[0] < 0) || (l[1] < 0) || (r[0] < 0) || (r[1] < 0) )
           continue;
 
-        Vector2 this_disparity = subvector(r,0,2) - subvector(l,0,2);
+        Vector2 this_disparity = subvector(r,0,2) - subvector(l,0,2);        
 	      search_range.grow(this_disparity);
       }
       stereo_settings().search_range = grow_bbox_to_int( search_range );

@@ -671,13 +671,13 @@ namespace asp {
     {
       ip::InterestPointList::const_iterator ip1_it = ip1.begin(), ip2_it = ip2.begin();
       for ( size_t i = 0; i < forward_match.size(); i++ ) {
-	if ( forward_match[i] != NULL_INDEX ) {
-	  matched_ip1.push_back( *ip1_it );
-	  ip2_it = ip2.begin();
-	  std::advance( ip2_it, forward_match[i] );
-	  matched_ip2.push_back( *ip2_it );
-	}
-	ip1_it++;
+        if ( forward_match[i] != NULL_INDEX ) {
+          matched_ip1.push_back( *ip1_it );
+          ip2_it = ip2.begin();
+          std::advance( ip2_it, forward_match[i] );
+          matched_ip2.push_back( *ip2_it );
+        }
+        ip1_it++;
       }
     }
 
@@ -746,9 +746,6 @@ namespace asp {
     return true;
   }
 
-  // Calls ip matching above but with an additional step where we
-  // apply a homogrpahy to make right image like left image. This is
-  // useful so that both images have similar scale and similar affine qualities.
   template <class Image1T, class Image2T>
   bool ip_matching_w_alignment( bool single_threaded_camera,
 				vw::camera::CameraModel* cam1,

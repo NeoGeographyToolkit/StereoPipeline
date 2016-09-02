@@ -481,31 +481,32 @@ namespace asp {
     typedef std::vector<double> ArrayT;
     ArrayT error_samples( valid_indices.size() );
 
-    // Create the 'error' samples. Which are triangulation error and
-    // distance to sphere.
+    // Create the 'error' samples. Which are triangulation error and distance to sphere.
     stereo::StereoModel model( cam1, cam2 );
     size_t count = 0;
+    const double HIGH_ERROR = 9999999;
     BOOST_FOREACH( size_t i, valid_indices ) {
-      model( left_tx.reverse(Vector2( matched_ip1[i].x,
-				      matched_ip1[i].y )),
-	     right_tx.reverse(Vector2(matched_ip2[i].x,
-				      matched_ip2[i].y)),
-	     error_samples[count] );
+      model( left_tx.reverse (Vector2(matched_ip1[i].x, matched_ip1[i].y)),
+             right_tx.reverse(Vector2(matched_ip2[i].x, matched_ip2[i].y)), error_samples[count] );
+      // The call returns exactly zero error to indicate a failed ray intersection
+      //  so replace it in those cases with a very high error
+      if (error_samples[count] == 0)
+        error_samples[count] = HIGH_ERROR;
       count++;
     }
     VW_ASSERT( count == valid_indices.size(),
 	       vw::MathErr() << "tri_ip_filtering: Programmer error. Count indices not aligned." );
 
     typedef std::vector<std::pair<Vector<double>, Vector<double> > > ClusterT;
-    ClusterT error_clusters =
-      gaussian_clustering<ArrayT>(error_samples.begin(), error_samples.end(), 2);
+    const size_t NUM_CLUSTERS = 2;
+    ClusterT error_clusters = gaussian_clustering<ArrayT>(error_samples.begin(), error_samples.end(), NUM_CLUSTERS);
 
     // The best triangulation error is the one that has the smallest
     // standard deviations. They are focused on the tight pack of
     // inliers. Bring the smaller std-dev cluster to the front as it
     // is what we are interested in.OB
-    if ( error_clusters.front().second[0] > error_clusters.back().second[0] &&
-	 error_clusters.back().second[0] != std::numeric_limits<double>::epsilon() )
+    if ( (error_clusters.front().second[0] > error_clusters.back().second[0]       ) &&
+         (error_clusters.back().second[0] != std::numeric_limits<double>::epsilon())   )
       std::swap( error_clusters[0], error_clusters[1] );
 
     // Determine if we just wrote nothing but outliers (the variance
@@ -530,8 +531,7 @@ namespace asp {
       // Treat all points below the new cutoff_value as inliers
       std::list<size_t> filtered_indices;
       size_t c=0;
-      for ( std::list<size_t>::iterator i = valid_indices.begin();
-	  i != valid_indices.end(); i++ )
+      for ( std::list<size_t>::iterator i = valid_indices.begin(); i != valid_indices.end(); i++ )
       {
         if (error_samples[c] < cutoff_value)
           filtered_indices.push_back(*i);
@@ -539,11 +539,11 @@ namespace asp {
       }
       valid_indices = filtered_indices;
       return (!valid_indices.empty());
-    }
+    } // End of "nothing but outliers" case
 
     vw_out() << "\t    Inlier cluster:\n"
-	     << "\t      Triangulation Err: " << error_clusters.front().first[0]
-	     << " +- " << sqrt( error_clusters.front().second[0] ) << " meters\n";
+             << "\t      Triangulation Err: " << error_clusters.front().first[0]
+             << " +- " << sqrt( error_clusters.front().second[0] ) << " meters\n";
 
     // Record indices of points that match our clustering result
     const double escalar1 = 1.0 / sqrt( 2.0 * M_PI * error_clusters.front().second[0] ); // outside exp of normal eq
@@ -552,13 +552,12 @@ namespace asp {
     const double escalar4 = 1.0 / (2 * error_clusters.back().second[0] );
     size_t error_idx = 0;
     size_t prior_valid_size = valid_indices.size();
-    for ( std::list<size_t>::iterator i = valid_indices.begin();
-	  i != valid_indices.end(); i++ ) {
+    for ( std::list<size_t>::iterator i = valid_indices.begin(); i != valid_indices.end(); i++ ) {
       double err_diff_front = error_samples[error_idx]-error_clusters.front().first[0];
       double err_diff_back  = error_samples[error_idx]-error_clusters.back().first[0];
 
       if (!((escalar1 * exp( (-err_diff_front * err_diff_front) * escalar3 ) ) >
-            (escalar2 * exp( (-err_diff_back * err_diff_back) * escalar4 ) ) ||
+            (escalar2 * exp( (-err_diff_back  * err_diff_back ) * escalar4 ) ) ||
           error_samples[error_idx] < error_clusters.front().first[0]) ) {
         // It's an outlier!
         i = valid_indices.erase(i);
@@ -618,8 +617,7 @@ namespace asp {
 	        good_indices.push_back(indices[j]);
 	      }
 
-	      // Make an average of the disparities around us and not our own
-	      // measurement
+	      // Make an average of the disparities around us and not our own measurement
 	      Vector2 sum;
 	      for ( size_t j = 1; j < good_indices.size(); j++ ) {
 	        sum += disparity_vector[ good_indices[j] ];
