@@ -483,7 +483,8 @@ namespace vw { namespace camera {
 	  g_num_locks++;
 	  vw_out(WarningMessage) << "Pixel outside of computed range. "
 				 << "Growing the computed table." << std::endl;
-	  vw_out() << "Start table: " << m_begX << ' ' << m_begY << ' ' << m_endX << ' ' << m_endY << std::endl;
+	  vw_out() << "Start table: " << m_begX << ' ' << m_begY << ' '
+		   << m_endX << ' ' << m_endY << std::endl;
 	  // If we have to expand, do it by a lot
 	  int extrax = std::max(10, int(0.1*(m_endX - m_begX)));
 	  int extray = std::max(10, int(0.1*(m_endY - m_begY)));
@@ -758,7 +759,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
 
   int max_iterations, max_coarse_iterations, reflectance_type, coarse_levels;
   bool float_albedo, float_exposure, float_cameras, float_all_cameras, model_shadows,
-    use_approx_camera_models, use_rpc_approximation, crop_input_images,
+    save_dem_with_nodata, use_approx_camera_models, use_rpc_approximation, crop_input_images,
     float_dem_at_boundary, fix_dem, float_reflectance_model, query;
   double smoothness_weight, init_dem_height, nodata_val, initial_dem_constraint_weight,
     camera_position_step_size, rpc_penalty_weight;
@@ -767,7 +768,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
   Options():max_iterations(0), max_coarse_iterations(0), reflectance_type(0),
 	    coarse_levels(0), float_albedo(false), float_exposure(false), float_cameras(false),
             float_all_cameras(false),
-	    model_shadows(false), use_approx_camera_models(false),
+	    model_shadows(false), save_dem_with_nodata(false),
+	    use_approx_camera_models(false),
 	    use_rpc_approximation(false),
 	    crop_input_images(false), float_dem_at_boundary(false), fix_dem(false),
             float_reflectance_model(false), query(false),
@@ -1479,6 +1481,13 @@ public:
     }
     std::string iter_str = os.str();
 
+    // The DEM with no-data where there are no valid image pixels
+    ImageView<double> dem_nodata;
+    if (g_opt->save_dem_with_nodata) {
+      dem_nodata = ImageView<double>((*g_dem).cols(), (*g_dem).rows());
+      fill(dem_nodata, *g_nodata_val);
+    }
+        
     bool has_georef = true, has_nodata = true;
     std::string out_dem_file = g_opt->out_prefix + "-DEM"
       + iter_str + ".tif";
@@ -1584,6 +1593,17 @@ public:
 			     apply_mask(reflectance, *g_img_nodata_val),
 			     has_georef, *g_geo, has_nodata, *g_img_nodata_val, *g_opt, tpc);
 
+
+      // dem_nodata equals to dem if the image has valid pixels and no shadows
+      if (g_opt->save_dem_with_nodata) {
+	for (int col = 0; col < reflectance.cols(); col++) {
+	  for (int row = 0; row < reflectance.rows(); row++) {
+	    if (is_valid(reflectance(col, row))) 
+	      dem_nodata(col, row) = (*g_dem)(col, row);
+	  }
+	}
+      }
+      
       // Find the measured normalized albedo, after correcting for
       // reflectance.
       ImageView<double> measured_albedo;
@@ -1645,6 +1665,16 @@ public:
 
     }
 
+    if (g_opt->save_dem_with_nodata) {
+      std::string out_dem_nodata_file = g_opt->out_prefix + "-DEM-nodata"
+	+ iter_str + ".tif";
+      vw_out() << "Writing: " << out_dem_nodata_file << std::endl;
+      TerminalProgressCallback tpc("asp", ": ");
+      block_write_gdal_image(out_dem_nodata_file, dem_nodata, has_georef, *g_geo,
+			     has_nodata, *g_nodata_val,
+			   *g_opt, tpc);
+    }
+    
     return ceres::SOLVER_CONTINUE;
   }
 };
@@ -1946,6 +1976,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Model the fact that some points on the DEM are in the shadow (occluded from the Sun).")
     ("shadow-thresholds", po::value(&opt.shadow_thresholds)->default_value(""),
      "Optional shadow thresholds for the input images (a list of real values in quotes, one per image).")
+    ("save-dem-with-nodata",   po::bool_switch(&opt.save_dem_with_nodata)->default_value(false)->implicit_value(true),
+     "Save a copy of the DEM while using a no-data value at a DEM grid point where all images show shadows. To be used if shadow thresholds are set.")
     ("use-approx-camera-models",   po::bool_switch(&opt.use_approx_camera_models)->default_value(false)->implicit_value(true),
      "Use approximate camera models for speed.")
     ("use-rpc-approximation",   po::bool_switch(&opt.use_rpc_approximation)->default_value(false)->implicit_value(true),

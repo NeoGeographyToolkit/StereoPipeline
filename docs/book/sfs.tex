@@ -34,16 +34,16 @@ The tool works by minimizing the cost function
 \int\!\! \int \! \sum_k \left[ I_k(\phi)(x, y) - T_k A(x, y)
  R_k(\phi)(x, y) \right]^2\,  \\
 + \mu \left\|\nabla^2 \phi(x, y) \right\|^2  
-+ \lambda \int \! \left[ \phi(x, y) - \phi_0(x, y) \right]^2
-\, dx\, dy
++ \lambda  \left[ \phi(x, y) - \phi_0(x, y) \right]^2
+\, dx\, dy.
 \end{multline}
 
 Here, $I_k(\phi)(x, y)$ is the $k$-th camera image interpolated at
 pixels obtained by projecting into the camera 3D points from the terrain
 $\phi(x, y)$, $T_k$ is the $k$-th image exposure, $A(x, y)$ is the
 per-pixel albedo, $R_k(\phi)(x, y)$ is the reflectance computed from the
-terrain for $k$-th image, $\left\|\nabla^2 \phi \right\|^2 $ is the sum
-of squares all second-order partial derivatives of $\phi$, $\mu > 0$
+terrain for $k$-th image, $\left\|\nabla^2 \phi(x, y) \right\|^2 $ is the sum
+of squares of all second-order partial derivatives of $\phi$, $\mu > 0$
 is a smoothing term, and $\lambda > 0$ determines how close we should
 stay to the input terrain $\phi_0$ (smaller $\mu$ will show more detail
 but may introduce some artifacts, and smaller $\lambda$ may allow for
