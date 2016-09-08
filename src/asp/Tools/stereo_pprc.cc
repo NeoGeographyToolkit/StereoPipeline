@@ -162,10 +162,17 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
   string right_mask_file = opt.out_prefix+"-rMask.tif";
   bool rebuild = crop_left_and_right;
   try {
-    vw_log().console_log().rule_set().add_rule(-1,"fileio");
-    DiskImageView<PixelGray<uint8> > testa(left_mask_file );
-    DiskImageView<PixelGray<uint8> > testb(right_mask_file);
-    vw_settings().reload_config();
+    // If files do not exist, create them. Also if they exist
+    // but are invalid. The second check gives an ugly verbose
+    // message, hence first check for existence with boost.
+    if (!fs::exists(left_mask_file) || !fs::exists(right_mask_file)){
+      rebuild = true;
+    }else{
+      vw_log().console_log().rule_set().add_rule(-1,"fileio");
+      DiskImageView<PixelGray<uint8> > testa(left_mask_file );
+      DiskImageView<PixelGray<uint8> > testb(right_mask_file);
+      vw_settings().reload_config();
+    }
   } catch (vw::IOErr const& e) {
     vw_settings().reload_config();
     rebuild = true;
@@ -339,12 +346,18 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
   rebuild = crop_left_and_right;
 
   try {
-    // This confusing try catch is to see if the subsampled images actually have content.
-    DiskImageView<PixelGray<float> > testl (lsub );
-    DiskImageView<PixelGray<float> > testr (rsub );
-    DiskImageView<uint8>             testlm(lmsub);
-    DiskImageView<uint8>             testrm(rmsub);
-    vw_out() << "\t--> Using cached subsampled images.\n";
+    // First try to see if the subsampled images exist.
+    if (!fs::exists(lsub)  || !fs::exists(rsub) ||
+        !fs::exists(lmsub) || !fs::exists(rmsub)){
+      rebuild = true;
+    }else{
+      // This confusing try catch is to see if the subsampled images actually have content.
+      DiskImageView<PixelGray<float> > testl (lsub );
+      DiskImageView<PixelGray<float> > testr (rsub );
+      DiskImageView<uint8>             testlm(lmsub);
+      DiskImageView<uint8>             testrm(rmsub);
+      vw_out() << "\t--> Using cached subsampled images.\n";
+    }
   } catch (vw::Exception const& e) {
     rebuild = true;
   }
