@@ -29,7 +29,7 @@
 #include <vw/Math/Vector.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Image/MaskViews.h>
-#include <vw/Camera.h>
+#include <vw/Camera/CameraUtilities.h>
 #include <vw/Stereo/DisparityMap.h>
 
 #include <boost/shared_ptr.hpp>
@@ -143,39 +143,10 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
     camera_models( left_cam, right_cam );
 
-    CAHVModel* left_epipolar_cahv  = dynamic_cast<CAHVModel*>(vw::camera::unadjusted_model(&(*left_cam)));
-    CAHVModel* right_epipolar_cahv = dynamic_cast<CAHVModel*>(vw::camera::unadjusted_model(&(*right_cam)));
-
-    // Remove lens distortion and create epipolar rectified images.
-    if (boost::ends_with(lcase_file, ".cahvore")) {
-      CAHVOREModel left_cahvore (m_left_camera_file );
-      CAHVOREModel right_cahvore(m_right_camera_file);
-      Limg = transform(left_masked_image,  CameraTransform<CAHVOREModel, CAHVModel>(left_cahvore,  *left_epipolar_cahv ));
-      Rimg = transform(right_masked_image, CameraTransform<CAHVOREModel, CAHVModel>(right_cahvore, *right_epipolar_cahv));
-    } else if (boost::ends_with(lcase_file, ".cahvor") ||
-               boost::ends_with(lcase_file, ".cmod") ) {
-      CAHVORModel left_cahvor (m_left_camera_file );
-      CAHVORModel right_cahvor(m_right_camera_file);
-      Limg = transform(left_masked_image,  CameraTransform<CAHVORModel, CAHVModel>(left_cahvor,  *left_epipolar_cahv ));
-      Rimg = transform(right_masked_image, CameraTransform<CAHVORModel, CAHVModel>(right_cahvor, *right_epipolar_cahv));
-
-    } else if ( boost::ends_with(lcase_file, ".cahv") ||
-                boost::ends_with(lcase_file, ".pin" )) {
-      CAHVModel left_cahv (m_left_camera_file );
-      CAHVModel right_cahv(m_right_camera_file);
-      Limg = transform(left_masked_image,  CameraTransform<CAHVModel, CAHVModel>(left_cahv,  *left_epipolar_cahv ));
-      Rimg = transform(right_masked_image, CameraTransform<CAHVModel, CAHVModel>(right_cahv, *right_epipolar_cahv));
-
-    } else if ( boost::ends_with(lcase_file, ".pinhole") ||
-                boost::ends_with(lcase_file, ".tsai") ) {
-      PinholeModel left_pin (m_left_camera_file );
-      PinholeModel right_pin(m_right_camera_file);
-      Limg = transform(left_masked_image,  CameraTransform<PinholeModel, CAHVModel>(left_pin,  *left_epipolar_cahv ));
-      Rimg = transform(right_masked_image, CameraTransform<PinholeModel, CAHVModel>(right_pin, *right_epipolar_cahv));
-
-    } else {
-      vw_throw(ArgumentErr() << "PinholeStereoSession: unsupported camera file type.\n");
-    }
+    get_epipolar_transformed_images(m_left_camera_file, m_right_camera_file,
+                                    left_cam, right_cam,
+                                    left_masked_image, right_masked_image,
+                                    Limg, Rimg);
 
   } else if ( stereo_settings().alignment_method == "homography" ) {
 
@@ -222,68 +193,10 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
 
 namespace asp {
 
-// TODO: Move all these functions to some Pinhole camera class.
-
-/// Load a pinhole camera model
-boost::shared_ptr<vw::camera::CameraModel>
-load_pinhole_camera_model(std::string const& path){
-  // Keypoint alignment and everything else just gets camera models
-  std::string lcase_file = boost::to_lower_copy(path);
-  if (boost::ends_with(lcase_file,".cahvore") ) {
-    return boost::shared_ptr<vw::camera::CameraModel>( new vw::camera::CAHVOREModel(path) );
-  } else if (boost::ends_with(lcase_file,".cahvor") ||
-             boost::ends_with(lcase_file,".cmod"  )   ) {
-    return boost::shared_ptr<vw::camera::CameraModel>( new vw::camera::CAHVORModel(path) );
-  } else if ( boost::ends_with(lcase_file,".cahv") ||
-              boost::ends_with(lcase_file,".pin" )   ) {
-    return boost::shared_ptr<vw::camera::CameraModel>( new vw::camera::CAHVModel(path) );
-  } else if ( boost::ends_with(lcase_file,".pinhole") ||
-              boost::ends_with(lcase_file,".tsai"   )   ) {
-    return boost::shared_ptr<vw::camera::CameraModel>( new vw::camera::PinholeModel(path) );
-  } else {
-    vw::vw_throw(vw::ArgumentErr() << "PinholeStereoSession: unsupported camera file type.\n");
-  }
-}
-
-boost::shared_ptr<vw::camera::CAHVModel>
-load_cahv_pinhole_camera_model(std::string const& image_path,
-                               std::string const& camera_path){
-  // Get the image size
-  vw::DiskImageView<float> disk_image(image_path);
-  vw::Vector2i image_size(disk_image.cols(), disk_image.rows());
-
-  // Load the appropriate camera model object and if necessary
-  // convert it to the CAHVModel type.
-  std::string lcase_file = boost::to_lower_copy(camera_path);
-  boost::shared_ptr<vw::camera::CAHVModel> cahv(new vw::camera::CAHVModel);
-  if (boost::ends_with(lcase_file, ".cahvore") ) {
-    vw::camera::CAHVOREModel cahvore(camera_path);
-    *(cahv.get()) = vw::camera::linearize_camera(cahvore, image_size, image_size);
-  } else if (boost::ends_with(lcase_file, ".cahvor")  ||
-             boost::ends_with(lcase_file, ".cmod"  )   ) {
-    vw::camera::CAHVORModel cahvor(camera_path);
-    *(cahv.get()) = vw::camera::linearize_camera(cahvor, image_size, image_size);
-
-  } else if ( boost::ends_with(lcase_file, ".cahv") ||
-              boost::ends_with(lcase_file, ".pin" )) {
-    *(cahv.get()) = vw::camera::CAHVModel(camera_path);
-
-  } else if ( boost::ends_with(lcase_file, ".pinhole") ||
-              boost::ends_with(lcase_file, ".tsai"   )   ) {
-    vw::camera::PinholeModel left_pin(camera_path);
-    *(cahv.get()) = vw::camera::linearize_camera(left_pin);
-
-  } else {
-    vw_throw(vw::ArgumentErr() << "CameraModelLoader::load_cahv_pinhole_camera_model - unsupported camera file type.\n");
-  }
-
-  return cahv;
-}
-
 
 boost::shared_ptr<vw::camera::CameraModel>
-load_adj_pinhole_model(std::string const& image_file, std::string const& camera_file,
-                       std::string const& left_image_file, std::string const& right_image_file,
+load_adj_pinhole_model(std::string const& image_file,       std::string const& camera_file,
+                       std::string const& left_image_file,  std::string const& right_image_file,
                        std::string const& left_camera_file, std::string const& right_camera_file,
                        std::string const& input_dem){
 
@@ -297,7 +210,7 @@ load_adj_pinhole_model(std::string const& image_file, std::string const& camera_
 
   if ( stereo_settings().alignment_method != "epipolar" ) {
     // Not epipolar, just load the camera model.
-    return load_adjusted_model(load_pinhole_camera_model(camera_file),
+    return load_adjusted_model(vw::camera::load_pinhole_camera_model(camera_file),
                                image_file, camera_file, pixel_offset);
   }
   // Otherwise handle the epipolar case
@@ -311,10 +224,8 @@ load_adj_pinhole_model(std::string const& image_file, std::string const& camera_
     (ArgumentErr() << "StereoSessionPinhole: supplied camera model filename does not match the name supplied in the constructor.");
 
   // Fetch CAHV version of the two input pinhole files
-  boost::shared_ptr<CAHVModel> left_cahv
-     = load_cahv_pinhole_camera_model(left_image_file,  left_camera_file);
-  boost::shared_ptr<CAHVModel> right_cahv
-     = load_cahv_pinhole_camera_model(right_image_file, right_camera_file);
+  boost::shared_ptr<CAHVModel> left_cahv  = vw::camera::load_cahv_pinhole_camera_model(left_image_file,  left_camera_file );
+  boost::shared_ptr<CAHVModel> right_cahv = vw::camera::load_cahv_pinhole_camera_model(right_image_file, right_camera_file);
 
   // Create epipolar rectified camera views
   boost::shared_ptr<CAHVModel> epipolar_left_cahv (new CAHVModel);
@@ -328,12 +239,13 @@ load_adj_pinhole_model(std::string const& image_file, std::string const& camera_
   // Right camera
   return load_adjusted_model(epipolar_right_cahv, image_file, camera_file, pixel_offset);
 }
-}
+
+} // end namespace asp
 
 // Redirect to the correct function depending on the template parameters
 boost::shared_ptr<vw::camera::CameraModel>
 asp::StereoSessionPinhole::camera_model(std::string const& image_file,
-                                    std::string const& camera_file) {
+                                        std::string const& camera_file) {
   return asp::load_adj_pinhole_model(image_file, camera_file,
                                 m_left_image_file, m_right_image_file,
                                 m_left_camera_file, m_right_camera_file,

@@ -21,6 +21,7 @@
 
 #include <vw/Camera.h>
 #include <vw/Camera/Extrinsics.h>
+#include <vw/Camera/CameraUtilities.h>
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>
 #include <vw/Math/EulerAngles.h>
@@ -45,9 +46,6 @@
 #include <ostream>
 #include <limits>
 
-// TODO: Break this up. Each of these functions must go back to their
-// individual Session directories rather than being collected here.
-
 namespace asp {
 
 CameraModelLoader::CameraModelLoader()
@@ -60,6 +58,10 @@ CameraModelLoader::~CameraModelLoader()
   xercesc::XMLPlatformUtils::Terminate();
 }
 
+boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_pinhole_camera_model(std::string const& path) const
+{
+  return vw::camera::load_pinhole_camera_model(path);
+}
 
 // Load an RPC camera file
 // - TODO: Move to another file

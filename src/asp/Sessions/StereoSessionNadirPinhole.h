@@ -22,8 +22,6 @@
 /// on Earth. In other word images that we are sure not going to be
 /// looking at the horizon. If that is the case, we can be smarter
 /// about interest point gathering.
-///
-/// This session is specifically meant for testing with KH9 imagery
 
 #ifndef __STEREO_SESSION_NADIR_PINHOLE_H__
 #define __STEREO_SESSION_NADIR_PINHOLE_H__

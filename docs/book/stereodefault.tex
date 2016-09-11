@@ -215,12 +215,14 @@ If the default method does not perform well, try out one of the other two method
   designed to be more robust against image intensity changes and
   slight lighting differences. Normalized cross correlation is about
   2x slower than absolute difference and about 3x slower than squared
-  difference.
+  difference.  The census transform \citep{zabih1994census} can 
+  only be used with the SGM correlator.
 
   \begin{description}
     \item[0 - absolute difference]
     \item[1 - squared difference]
     \item[2 - normalized cross correlation]
+    \item[3 - census transform]
   \end{description}
 
 \item[corr-kernel \textnormal{\small{(\emph{integer integer})}} (default = 25 25)] \hfill \\

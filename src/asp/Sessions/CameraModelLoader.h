@@ -24,13 +24,8 @@
 
 
 #include <vw/Camera.h>
-// TODO: Break this up. Each of these functions must go back to their
-// individual Session directories rather than being collected here.
 
 namespace asp {
-
-  // !!! This class is not meant to be invoked directly !!!
-  // Use instead the interface load_camera_model in StereoSessionConcrete.tcc.
 
   class CameraModelLoader {
   public:
@@ -38,11 +33,13 @@ namespace asp {
     typedef boost::shared_ptr<vw::camera::CameraModel> CameraModelPtr;
 
     // Setup/teardown code is handled here
+    // - Currently this just means the Xerces XML init/deinit functions.
     CameraModelLoader();
     ~CameraModelLoader();
 
+    // TODO: Add a generic loading function.
+
     // Camera model loading functions
-    // All private functions!
     CameraModelPtr load_rpc_camera_model    (std::string const& path) const;
     CameraModelPtr load_dg_camera_model     (std::string const& path) const;
     CameraModelPtr load_pinhole_camera_model(std::string const& path) const;

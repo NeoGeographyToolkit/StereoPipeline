@@ -81,39 +81,10 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
     camera_models( left_cam, right_cam );
 
-    CAHVModel* left_epipolar_cahv  = dynamic_cast<CAHVModel*>(vw::camera::unadjusted_model(&(*left_cam)));
-    CAHVModel* right_epipolar_cahv = dynamic_cast<CAHVModel*>(vw::camera::unadjusted_model(&(*right_cam)));
-
-    // Remove lens distortion and create epipolar rectified images.
-    if (boost::ends_with(lcase_file, ".cahvore")) {
-      CAHVOREModel left_cahvore(m_left_camera_file);
-      CAHVOREModel right_cahvore(m_right_camera_file);
-      Limg = transform(left_masked_image,  CameraTransform<CAHVOREModel, CAHVModel>(left_cahvore,  *left_epipolar_cahv ));
-      Rimg = transform(right_masked_image, CameraTransform<CAHVOREModel, CAHVModel>(right_cahvore, *right_epipolar_cahv));
-    } else if (boost::ends_with(lcase_file, ".cahvor") ||
-               boost::ends_with(lcase_file, ".cmod") ) {
-      CAHVORModel left_cahvor (m_left_camera_file);
-      CAHVORModel right_cahvor(m_right_camera_file);
-      Limg = transform(left_masked_image,  CameraTransform<CAHVORModel, CAHVModel>(left_cahvor,  *left_epipolar_cahv ));
-      Rimg = transform(right_masked_image, CameraTransform<CAHVORModel, CAHVModel>(right_cahvor, *right_epipolar_cahv));
-
-    } else if ( boost::ends_with(lcase_file, ".cahv") ||
-                boost::ends_with(lcase_file, ".pin" )) {
-      CAHVModel left_cahv (m_left_camera_file);
-      CAHVModel right_cahv(m_right_camera_file);
-      Limg = transform(left_masked_image,  CameraTransform<CAHVModel, CAHVModel>(left_cahv,  *left_epipolar_cahv ));
-      Rimg = transform(right_masked_image, CameraTransform<CAHVModel, CAHVModel>(right_cahv, *right_epipolar_cahv));
-
-    } else if ( boost::ends_with(lcase_file, ".pinhole") ||
-                boost::ends_with(lcase_file, ".tsai") ) {
-      PinholeModel left_pin (m_left_camera_file);
-      PinholeModel right_pin(m_right_camera_file);
-      Limg = transform(left_masked_image,  CameraTransform<PinholeModel, CAHVModel>(left_pin,  *left_epipolar_cahv ));
-      Rimg = transform(right_masked_image, CameraTransform<PinholeModel, CAHVModel>(right_pin, *right_epipolar_cahv));
-
-    } else {
-      vw_throw(ArgumentErr() << "PinholeStereoSession: unsupported camera file type.\n");
-    }
+    get_epipolar_transformed_images(m_left_camera_file, m_right_camera_file,
+                                    left_cam, right_cam,
+                                    left_masked_image, right_masked_image,
+                                    Limg, Rimg);
 
   } else if ( stereo_settings().alignment_method == "homography" ||
               stereo_settings().alignment_method == "affineepipolar" ) {

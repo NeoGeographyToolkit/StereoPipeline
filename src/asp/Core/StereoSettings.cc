@@ -142,7 +142,7 @@ namespace asp {
       ("corr-sub-seed-percent",  po::value(&global.seed_percent_pad)->default_value(0.25),
                      "Percent fudge factor for disparity seed's search range.")
       ("cost-mode",              po::value(&global.cost_mode)->default_value(2),
-                     "Correlation cost metric. [0 Absolute, 1 Squared, 2 Normalized Cross Correlation]")
+                     "Correlation cost metric. [0 Absolute, 1 Squared, 2 Normalized Cross Correlation, 3 Census Transform (SGM only)]")
       ("xcorr-threshold",        po::value(&global.xcorr_threshold)->default_value(2),
                      "L-R vs R-L agreement threshold in pixels.")
       ("corr-kernel",            po::value(&global.corr_kernel)->default_value(Vector2i(21,21),"21 21"),

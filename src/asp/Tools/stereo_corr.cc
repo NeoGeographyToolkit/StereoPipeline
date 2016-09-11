@@ -63,7 +63,7 @@ void read_search_range(ASPGlobalOptions & opt){
   read_image(sub_disp, d_sub_file);
   BBox2i search_range = stereo::get_disparity_range( sub_disp );
   search_range.min() = floor(elem_quot(search_range.min(),downsample_scale));
-  search_range.max() = ceil(elem_quot(search_range.max(),downsample_scale));
+  search_range.max() = ceil (elem_quot(search_range.max(),downsample_scale));
   stereo_settings().search_range = search_range;
 }
 
@@ -214,7 +214,7 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
       // low resolution images. This routine should only run for:
       //   Pinhole + Epipolar
       //   Alignment method none
-      // Everything else should gather IP's all the time.
+      // Everything else should gather IP's all the time during stereo_pprc.
       double sub_scale =
         sum(elem_quot( Vector2(file_image_size( opt.out_prefix+"-L_sub.tif" )),
                        Vector2(file_image_size( opt.out_prefix+"-L.tif" ) ) )) +
@@ -267,6 +267,7 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
           continue;
 
         Vector2 this_disparity = subvector(r,0,2) - subvector(l,0,2);        
+        //std::cout << "this_disparity = " << this_disparity << std::endl;
 	      search_range.grow(this_disparity);
       }
       stereo_settings().search_range = grow_bbox_to_int( search_range );
@@ -631,6 +632,12 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
   if      (stereo_settings().cost_mode == 0) cost_mode = stereo::ABSOLUTE_DIFFERENCE;
   else if (stereo_settings().cost_mode == 1) cost_mode = stereo::SQUARED_DIFFERENCE;
   else if (stereo_settings().cost_mode == 2) cost_mode = stereo::CROSS_CORRELATION;
+  else if (stereo_settings().cost_mode == 3) { 
+       if (stereo_settings().use_sgm)
+         cost_mode = stereo::CENSUS_TRANSFORM;
+       else
+         vw_throw( ArgumentErr() << "Cannot use census transform without SGM!\n" );
+       }
   else
     vw_throw( ArgumentErr() << "Unknown value " << stereo_settings().cost_mode
 	                          << " for cost-mode.\n" );
@@ -680,7 +687,7 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
 
 int main(int argc, char* argv[]) {
 
-  //try {
+  try {
     xercesc::XMLPlatformUtils::Initialize();
 
     stereo_register_sessions();
@@ -702,7 +709,7 @@ int main(int argc, char* argv[]) {
     stereo_correlation( opt );
   
     xercesc::XMLPlatformUtils::Terminate();
-  //} ASP_STANDARD_CATCHES;
+  } ASP_STANDARD_CATCHES;
 
   return 0;
 }
