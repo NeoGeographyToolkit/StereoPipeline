@@ -188,8 +188,9 @@ namespace vw { namespace gui {
     // How we create it, depends on the type of image we want to display.
     void get_image_clip(double scale_in, vw::BBox2i region_in,
                       bool highlight_nodata,
-                      QImage & qimg, double & scale_out, vw::BBox2i & region_out);
-
+                      QImage & qimg, double & scale_out, vw::BBox2i & region_out) const;
+    double get_nodata_val() const;
+    
     int32 cols  () const { return m_cols;  }
     int32 rows  () const { return m_rows;  }
     int32 planes() const { return m_num_channels; }
@@ -382,8 +383,6 @@ std::string write_in_orig_or_curr_dir(vw::cartography::GdalWriteOptions const& o
   }
   return output_file;
 }
-
-
 
 }} // namespace vw::gui
 

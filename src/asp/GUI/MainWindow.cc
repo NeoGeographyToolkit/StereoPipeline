@@ -140,6 +140,14 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
 // the previous widget and all of its children.
 void MainWindow::createLayout() {
 
+  // We must cleanup the previous profile before wiping the existing widgets.
+  // Three must be a better way of doing it
+  for (size_t wit = 0; wit < m_widgets.size(); wit++) {
+    bool profile_mode = false;
+    if (m_widgets[wit] != NULL) 
+      m_widgets[wit]->toggleProfileMode(profile_mode);
+  }
+  
   QWidget * centralWidget = new QWidget(this);
   setCentralWidget(centralWidget);
 
@@ -204,6 +212,7 @@ void MainWindow::createLayout() {
     // the widgets, not just this one's.
     connect(m_widgets[i], SIGNAL(refreshAllMatches()), this, SLOT(viewExistingMatches()));
     connect(m_widgets[i], SIGNAL(removeImageAndRefreshSignal()), this, SLOT(deleteImageFromWidget()));
+    connect(m_widgets[i], SIGNAL(uncheckProfileModeCheckbox()), this, SLOT(uncheckProfileModeCheckbox()));
   }
   QWidget *container = new QWidget(centralWidget);
   container->setLayout(grid);
@@ -279,6 +288,7 @@ void MainWindow::createMenus() {
   m_viewOverlayedImages_action->setChecked(m_use_georef && (m_view_type == VIEW_IN_SINGLE_WINDOW));
   connect(m_viewOverlayedImages_action, SIGNAL(triggered()), this, SLOT(viewOverlayedImages()));
 
+  // IP matches
   m_viewMatches_action = new QAction(tr("View IP matches"), this);
   m_viewMatches_action->setStatusTip(tr("View IP matches."));
   m_viewMatches_action->setCheckable(true);
@@ -312,6 +322,13 @@ void MainWindow::createMenus() {
   m_viewUnthreshImages_action = new QAction(tr("View un-thresholded images"), this);
   m_viewUnthreshImages_action->setStatusTip(tr("View un-thresholded images."));
   connect(m_viewUnthreshImages_action, SIGNAL(triggered()), this, SLOT(viewUnthreshImages()));
+
+  // 1D profile mode
+  m_profileMode_action = new QAction(tr("1D profile mode"), this);
+  m_profileMode_action->setStatusTip(tr("Profile mode."));
+  m_profileMode_action->setCheckable(true);
+  m_profileMode_action->setChecked(false);
+  connect(m_profileMode_action, SIGNAL(triggered()), this, SLOT(profileMode()));
 
   // The About box
   m_about_action = new QAction(tr("About stereo_gui"), this);
@@ -349,6 +366,10 @@ void MainWindow::createMenus() {
   m_threshold_menu->addAction(m_shadowCalc_action);
   m_threshold_menu->addAction(m_viewThreshImages_action);
   m_threshold_menu->addAction(m_viewUnthreshImages_action);
+
+  // Profile menu
+  m_profile_menu = menu->addMenu(tr("Profile"));
+  m_profile_menu->addAction(m_profileMode_action);
 
   // Help menu
   m_help_menu = menu->addMenu(tr("&Help"));
@@ -807,6 +828,27 @@ void MainWindow::viewHillshadedImages() {
     }
   }
 }
+
+void MainWindow::uncheckProfileModeCheckbox(){
+  m_profileMode_action->setChecked(false);
+  return;
+}
+
+void MainWindow::profileMode() {
+  bool profile_mode = m_profileMode_action->isChecked();
+  if (profile_mode && m_widgets.size() != 1) {
+    popUp("A profile can be shown only when a single image is present.");
+    uncheckProfileModeCheckbox();
+    return;
+  }
+  
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (m_widgets[i]) {
+      m_widgets[i]->toggleProfileMode(profile_mode);
+    }
+  }
+}
+
 
 void MainWindow::viewOverlayedImages() {
   m_use_georef = m_viewOverlayedImages_action->isChecked();

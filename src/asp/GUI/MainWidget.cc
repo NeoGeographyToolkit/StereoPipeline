@@ -102,7 +102,8 @@ namespace vw { namespace gui {
   // for consistency with how images are plotted.  Convert a world box
   // to a pixel box for the given image.
   Vector2 MainWidget::world2image(Vector2 const& P, int imageIndex) {
-
+    if (!m_use_georef)
+      return P;
     return m_world2image_geotransforms[imageIndex].point_to_pixel(flip_in_y(P));
   }
 
@@ -157,6 +158,8 @@ namespace vw { namespace gui {
     m_emptyRubberBand = QRect(0, 0, 0, 0);
     m_rubberBand      = m_emptyRubberBand;
     m_cropWinMode     = false;
+    m_profileMode     = false;
+    m_profilePlot     = NULL;
 
     m_mousePrsX = 0; m_mousePrsY = 0;
 
@@ -231,8 +234,6 @@ namespace vw { namespace gui {
       m_chooseFilesDlg->getFilesTable()->setContextMenuPolicy(Qt::CustomContextMenu);
       connect(m_chooseFilesDlg->getFilesTable(), SIGNAL(customContextMenuRequested(QPoint)),
 	      this, SLOT(customMenuRequested(QPoint)));
-  
-      
     }
 
     // Right-click context menu
@@ -245,9 +246,10 @@ namespace vw { namespace gui {
     connect(m_addMatchPoint,    SIGNAL(triggered()), this, SLOT(addMatchPoint()));
     connect(m_deleteMatchPoint, SIGNAL(triggered()), this, SLOT(deleteMatchPoint()));
     connect(m_toggleHillshade,  SIGNAL(triggered()), this, SLOT(toggleHillshade()));
-    connect(m_setThreshold,    SIGNAL(triggered()), this, SLOT(setTheshold()));
+    connect(m_setThreshold,     SIGNAL(triggered()), this, SLOT(setTheshold()));
 
     MainWidget::maybeGenHillshade();
+
   } // End constructor
 
 
@@ -390,7 +392,7 @@ namespace vw { namespace gui {
 
     for (size_t image_iter = 0; image_iter < m_hillshade_mode.size(); image_iter++) 
       m_hillshade_mode[image_iter] = false;
-
+    
     refreshPixmap();
   }
 
@@ -420,7 +422,7 @@ namespace vw { namespace gui {
       vw::read_nodata_val(input_file, nodata_val);
       nodata_val = std::max(nodata_val, m_shadow_thresh);
 
-      int num_channels = get_num_channels(input_file);
+      int num_channels = m_images[image_iter].img.planes();
       if (num_channels != 1) {
         popUp("Thresholding makes sense only for single-channel images.");
         m_shadow_thresh_view_mode = false;
@@ -468,7 +470,7 @@ namespace vw { namespace gui {
       }
 
       std::string input_file = m_image_files[image_iter];
-      int num_channels = get_num_channels(input_file);
+      int num_channels = m_images[image_iter].img.planes();
       if (num_channels != 1) {
         popUp("Hill-shading makes sense only for single-channel images.");
         m_hillshade_mode[image_iter] = false;
@@ -626,7 +628,12 @@ namespace vw { namespace gui {
       screen_box_list.push_back(screen_box);
 
       // Go from world coordinates to pixels in the second image.
-      BBox2i image_box = MainWidget::world2image(world_box, i);
+      BBox2 image_box = MainWidget::world2image(world_box, i);
+
+      // Grow a bit to integer, as otherwise we get strange results
+      // if zooming too close.
+      image_box.min() = floor(image_box.min());
+      image_box.max() = ceil(image_box.max());
 
       QImage qimg;
       // Since the image portion contained in image_box could be huge,
@@ -835,7 +842,7 @@ namespace vw { namespace gui {
 
     // Note that we draw from the cached pixmap, instead of redrawing
     // the image from scratch.
-    QStylePainter paint(this);
+    QPainter paint(this);
     paint.drawPixmap(0, 0, m_pixmap);
 
     QColor rubberBandColor = QColor("yellow");
@@ -860,6 +867,9 @@ namespace vw { namespace gui {
       paint.setPen(cropWinColor);
       paint.drawRect(R.normalized().adjusted(0, 0, -1, -1));
     }
+
+    // Plot the polygonal line which we are profiling
+    plotProfilePolyLine(paint, m_profileX, m_profileY);
   }
 
   // Call paintEvent() on the edges of the rubberband
@@ -983,30 +993,204 @@ namespace vw { namespace gui {
 
     updateCurrentMousePosition();
   }
+  
+  // We assume the user picked n points in the image.
+  // Draw n-1 segments in between them. Plot the obtained profile.
+  void MainWidget::plotProfile(std::vector<imageData> const& images,
+			       // indices in the image to profile
+			       std::vector<double> const& profileX, 
+			       std::vector<double> const& profileY){
 
+    if (images.empty()) return; // nothing to do
+
+    // Create the profile window
+    if (m_profilePlot == NULL) 
+      m_profilePlot = new ProfilePlotter(this);
+
+    int imgInd = 0; // just one image is present
+    double nodata_val = images[imgInd].img.get_nodata_val();
+    
+    m_valsX.clear(); m_valsY.clear();
+    int count = 0;
+    
+    int num_pts = profileX.size();
+    for (int pt_iter = 0; pt_iter < num_pts; pt_iter++) {
+
+      // Nothing to do if we are at the last point, unless
+      // there is only one point.
+      if (num_pts > 1 && pt_iter == num_pts - 1) continue;
+	
+      Vector2 begP = MainWidget::world2image(Vector2(profileX[pt_iter], profileY[pt_iter]),
+                                             imgInd);
+
+      Vector2 endP;
+      if (num_pts == 1) {
+	endP = begP; // only one point is present
+      }else{
+	endP = MainWidget::world2image(Vector2(profileX[pt_iter+1], profileY[pt_iter+1]),
+				       imgInd);
+      }
+      
+      int begX = begP.x(),   begY = begP.y();
+      int endX = endP.x(),   endY = endP.y();
+      int seg_len = std::abs(begX - endX) + std::abs(begY - endY);
+      if (seg_len == 0) seg_len = 1; // ensure it is never empty
+      for (int p = 0; p <= seg_len; p++) {
+	double t = double(p)/seg_len;
+	int x = round( begX + t*(endX - begX) );
+	int y = round( begY + t*(endY - begY) );
+	bool is_in = (x >= 0 && x <= images[imgInd].img.cols()-1 &&
+		      y >= 0 && y <= images[imgInd].img.rows()-1 );
+	if (!is_in) continue;
+
+        double pixel_val = images[imgInd].img.get_value_as_double(x, y);
+
+	// TODO: Deal with this NAN
+	if (pixel_val == nodata_val)
+          pixel_val = std::numeric_limits<double>::quiet_NaN();
+        m_valsX.push_back(count);
+        m_valsY.push_back(pixel_val);
+        count++;
+      }
+      
+    }
+
+    if (num_pts == 1) {
+      // Just one point, really
+      m_valsX.resize(1);
+      m_valsY.resize(1);
+    }
+    
+    // Wipe whatever was there before
+    m_profilePlot->detachItems(); 
+    
+    QwtPlotCurve * curve = new QwtPlotCurve("1D Profile");
+    m_profilePlot->setFixedWidth(300);
+    m_profilePlot->setWindowTitle("1D Profile");
+
+    if (!m_valsX.empty()) {
+      
+      double min_x = *std::min_element(m_valsX.begin(), m_valsX.end());
+      double max_x = *std::max_element(m_valsX.begin(), m_valsX.end());
+      double min_y = *std::min_element(m_valsY.begin(), m_valsY.end());
+      double max_y = *std::max_element(m_valsY.begin(), m_valsY.end());
+
+      // Ensure the window is always valid
+      double small = 0.1;
+      if (min_x == max_x) {
+	min_x -= small; max_x += small;
+      }
+      if (min_y == max_y) {
+	min_y -= small; max_y += small;
+      }
+
+      // Plot a point as a fat dot
+      if (num_pts == 1)  {
+	curve->setStyle(QwtPlotCurve::Dots);
+      }
+      
+      curve->setData(new QwtCPointerData(&m_valsX[0], &m_valsY[0], m_valsX.size()));
+      curve->setPen(* new QPen(Qt::red));
+      curve->attach(m_profilePlot);
+      
+      double delta = 0.1;  // expand a bit right to see more x and y labels
+      double widx = max_x - min_x;
+      double widy = max_y - min_y;
+      m_profilePlot->setAxisScale(QwtPlot::xBottom, min_x - delta*widx, max_x + delta*widx);
+      m_profilePlot->setAxisScale(QwtPlot::yLeft,   min_y - delta*widy, max_y + delta*widy);
+    }
+
+    // Finally, refresh the plot
+    m_profilePlot->replot();
+    m_profilePlot->show();
+  }
+  
+  void MainWidget::toggleProfileMode(bool profile_mode){
+    m_profileMode = profile_mode;
+
+    if (!m_profileMode) {
+      // Clean up any profiling related info
+      m_profileX.clear();
+      m_profileY.clear();
+
+      // Close the window. 
+      if (m_profilePlot != NULL) {
+	m_profilePlot->close();
+	m_profilePlot->deleteLater();
+	delete m_profilePlot;
+	m_profilePlot = NULL;
+      }
+
+      // Call back to the main window and tell it to uncheck the profile
+      // mode checkbox.
+      emit uncheckProfileModeCheckbox();
+    }else{
+      // Show the profile window
+      MainWidget::plotProfile(m_images, m_profileX, m_profileY);
+    }
+    
+    refreshPixmap();
+  }
+
+  // Go to the pixel locations on screen, and draw the polygonal line.
+  // This is robust to zooming in the middle of profiling.
+  void MainWidget::plotProfilePolyLine(QPainter & paint,
+                                       std::vector<double> const& profileX, 
+                                       std::vector<double> const& profileY){
+
+    if (profileX.empty()) return;
+
+    //QPainter paint(&m_pixmap);
+    //paint.initFrom(this);
+    
+//     if (!m_profileMode) {
+//       QPoint Q(mouse_rel_pos.x(), mouse_rel_pos.y());
+//       paint.setPen(QColor("red"));
+//       paint.drawEllipse(Q, 2, 2); // Draw the point, and make it a little large
+//     }
+    
+    paint.setPen(QColor("red"));
+    std::vector<QPoint> profilePixels;
+    for (size_t it = 0; it < profileX.size(); it++) {
+      Vector2 P = world2screen(Vector2(profileX[it], profileY[it]));
+      QPoint Q(P.x(), P.y());
+      paint.drawEllipse(Q, 2, 2); // Draw the point, and make it a little large
+      profilePixels.push_back(Q);
+    }
+    paint.drawPolyline(&profilePixels[0], profilePixels.size());
+  }
+  
   void MainWidget::mouseReleaseEvent ( QMouseEvent *event ){
 
     QPoint mouse_rel_pos = event->pos();
 
     if (m_images.empty()) return;
 
-    // If we are in shadow threshold detection mode, and we released
-    // the mouse where we pressed it, that means we want the current
-    // point to be marked as shadow.
     int tol = 3; // pixels
+
+    // If the mouse was released close to where it was pressed
     if (std::abs(m_mousePrsX - mouse_rel_pos.x()) < tol &&
 	std::abs(m_mousePrsY - mouse_rel_pos.y()) < tol ) {
-      
+
       if (!m_shadow_thresh_calc_mode){
-#if 0
-	// Turn this off. The value seems to be off by a few pixels, need to investigate.
-	// Print pixel value.
+
+        Vector2 p = screen2world(Vector2(mouse_rel_pos.x(), mouse_rel_pos.y()));
+        int col = floor(p[0]), row = floor(p[1]);
+        
+        QPainter paint(&m_pixmap);
+        paint.initFrom(this);
+
+        if (!m_profileMode) {
+          QPoint Q(mouse_rel_pos.x(), mouse_rel_pos.y());
+          paint.setPen(QColor("red"));
+          paint.drawEllipse(Q, 2, 2); // Draw the point, and make it a little large
+        }
+        
+        bool can_profile = m_profileMode;
+        
+        // Print pixel coordinates and image value.
 	for (size_t it = 0; it < m_images.size(); it++) {
-
-	  Vector2 p = screen2world(Vector2(mouse_rel_pos.x(), mouse_rel_pos.y()));
-	  std::cout << "p is " << p << std::endl;
-	  int col = round(p[0]), row = round(p[1]);
-
+          
 	  std::string val = "none";
 	  
 	  if (col >= 0 && row >= 0 && col < m_images[it].img.cols() &&
@@ -1014,25 +1198,49 @@ namespace vw { namespace gui {
 	    val = m_images[it].img.get_value_as_str(col, row);
 	  }
 
-	  QPainter paint(&m_pixmap);
-	  paint.initFrom(this);
-	  //
-	  //QPainter paint(this);
-	  //paint.begin(m_pixmap);
-	  //paint.initFrom(this);
-
-	  QPoint Q(mouse_rel_pos.x(), mouse_rel_pos.y());
-	  paint.setPen(QColor("red"));
-	  paint.drawEllipse(Q, 2, 2); // Draw the point!
-
 	  vw_out() << "Pixel and value for " << m_image_files[it] << ": "
 		   << col << ' ' << row << ' ' << val << std::endl;
 	  update();
+
+          if (m_profileMode) {
+
+            // Sanity checks
+            if (m_images.size() != 1) {
+              popUp("A profile can be shown only when a single image is present.");
+              can_profile = false;
+            }
+            int num_channels = m_images[it].img.planes();
+            if (num_channels != 1) {
+              popUp("A profile can be shown only when the image has a single channel.");
+              can_profile = false;
+            }
+            
+            if (!can_profile) {
+              MainWidget::toggleProfileMode(can_profile);
+	      return;
+            }
+            
+	  }
+
+	} // end iterating over images
+
+	if (can_profile) {
+	  // Save the current point the user clicked onto in the
+	  // world coordinate system.
+	  m_profileX.push_back(p.x());
+	  m_profileY.push_back(p.y());
+	  
+	  // PaintEvent() will be called, which will call
+	  // plotProfilePolyLine() to show the polygonal line.
+          
+	  // Now show the profile.
+	  MainWidget::plotProfile(m_images, m_profileX, m_profileY);
 	}
-#endif
-	
+        
       }else{
-	// Shadow threshold mode
+	// Shadow threshold mode. If we released the mouse where we
+	// pressed it, that means we want the current point to be
+	// marked as shadow.
 	if (m_images.size() != 1) {
 	  popUp("Must have just one image in each window to do shadow threshold detection.");
 	  m_shadow_thresh_calc_mode = false;

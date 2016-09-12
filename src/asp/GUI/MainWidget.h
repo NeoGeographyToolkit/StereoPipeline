@@ -36,6 +36,12 @@
 #include <QWidget>
 #include <QPoint>
 
+// Qwt
+#include <qwt_plot.h>
+#include <qwt_plot_curve.h>
+#include <qwt_point_data.h>
+#include <qwt_series_data.h>
+
 // Vision Workbench
 #include <vw/Core/Thread.h>
 #include <vw/Core/Log.h>
@@ -58,6 +64,7 @@
 #include <asp/Core/Common.h>
 #include <asp/GUI/GuiUtilities.h>
 
+
 class QMouseEvent;
 class QWheelEvent;
 class QPoint;
@@ -65,7 +72,7 @@ class QResizeEvent;
 class QTableWidget;
 class QContextMenuEvent;
 class QMenu;
-
+class QStylePainter;
 
 namespace vw { namespace gui {
 
@@ -99,11 +106,20 @@ namespace vw { namespace gui {
     void viewMatches(bool hide);
 
     void setShadowThreshMode(bool turnOn) { m_shadow_thresh_calc_mode = turnOn;}
+    void plotProfile(std::vector<imageData> const& images,
+		     std::vector<double> const& profileX, 
+		     std::vector<double> const& profileY);
+    //void plotProfilePolyLine(QStylePainter & paint,
+    void plotProfilePolyLine(QPainter & paint,
+                             std::vector<double> const& profileX, 
+                             std::vector<double> const& profileY);
+
     std::set<int> & indicesWithAction() { return m_indicesWithAction; }
     
     signals:
     void refreshAllMatches();
     void removeImageAndRefreshSignal();
+    void uncheckProfileModeCheckbox();
 
 public slots:
     void sizeToFit();
@@ -120,6 +136,7 @@ public slots:
     void toggleHillshade();     ///< Turn on/off hillshading per image (from right click menu)
     void refreshHillshade();    ///< We modified m_hillshade_mode. Update the display.
     void deleteImage();         ///< Delete an image from the gui and refresh
+    void toggleProfileMode(bool profile_mode); ///< Turn on and off profiling
 
   protected:
 
@@ -141,6 +158,23 @@ public slots:
 
   private:
 
+    class ProfilePlotter : public QwtPlot {
+    public:
+      ProfilePlotter(MainWidget * parent): QwtPlot(NULL),
+					   m_parent(parent) {}
+      ~ProfilePlotter() {}
+      
+    private:
+      void closeEvent(QCloseEvent *){
+        // Signal to the parent that the window got closed.
+	// Turn off profiling.
+        bool profile_mode = false;
+        m_parent->toggleProfileMode(profile_mode);
+      }
+      
+      MainWidget * m_parent;    
+    };
+    
     vw::cartography::GdalWriteOptions m_opt;
 
     /// Handle to parent GUI panel used to select which of the multiple "owned"
@@ -166,8 +200,14 @@ public slots:
     QRect m_rubberBand;
     BBox2 m_stereoCropWin;
 
-    // if we are selecting a crop win to do stereo in
+    // If we are selecting a crop win to do stereo in
     bool m_cropWinMode;
+    
+    // If we are in the midst of drawing a profile
+    bool m_profileMode;
+    std::vector<double> m_profileX, m_profileY; // indices in the image to profile
+    std::vector<double> m_valsX, m_valsY;    // index and pixel value
+    ProfilePlotter * m_profilePlot;          // the profile window
 
     // Use double buffering: draw to a pixmap first, refresh it only
     // if really necessary, and display it when paintEvent is called.
@@ -253,7 +293,6 @@ public slots:
     void maybeGenHillshade();
     void putImageOnTop(int image_index);
   };
-
 
 }} // namespace vw::gui
 

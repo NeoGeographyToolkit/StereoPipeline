@@ -15,6 +15,9 @@
  - geodiff
    * One of the two input files can be in CSV format.
 
+ - stereo_gui
+  * Clicking on a pixel prints image pixel indicies and value.
+  * Add a 1D profile tool.
  
 *** RELEASE 2.5.3, August 24, 2016 ***
 

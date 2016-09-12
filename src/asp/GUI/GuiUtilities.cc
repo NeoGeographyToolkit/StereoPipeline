@@ -47,13 +47,97 @@ void init_temporary_files() {
 }
 
 TemporaryFiles& temporary_files() {
-  temporary_files_once.run( init_temporary_files );
+  temporary_files_once.run( init_temporary_files);
   return *temporary_files_ptr;
 }
 
+  
 
+#if 0
+void tmpmain(int argc, char **argv)
+{
+  //QApplication app(argc, argv);
+  
+    QwtPlot *myPlot = new QwtPlot(NULL);   
+    
+    // add curves
+    QwtPlotCurve *curve1 = new QwtPlotCurve("Curve 1");
+    QwtPlotCurve *curve2 = new QwtPlotCurve("Curve 2");
+    
+    myPlot->setFixedWidth(300);
+    myPlot->setWindowTitle("Cosinus and Straight Line Graph");
+    
+    
+    double x[3] ={0,10,15};
+    double y[3] ={0,0,0};
+    curve1->setData(new QwtCPointerData(&x[0],&y[0],(size_t)3));    
+    
+    //Create QwtSyntheticPointData (Cosinus data) with 1000 points
+    //You can increase number of points to generate smoother graphs
+    curve2->setData(new CosinusData(1000));
+ 
+    
+    curve1->attach(myPlot);
+    curve2->attach(myPlot);
+   
+    // finally, refresh the plot
+    myPlot->replot();
+    myPlot->show();  
+    
+    //return app.exec();
+}
+#endif
+  
+#if 0
+class ProfilePlot: public QwtPlot {
+public:
+  ProfilePlot(char *name=0, QWidget *parent=0) : QwtPlot(QwtText(name), parent){
+    // Show a title
+    setTitle("This is an Example");
 
+    //// Show a legend at the bottom
+    //setAutoLegend(true);
+    //setLegendPos(Qwt::Bottom);
 
+    // Show the axes
+    setAxisTitle(xBottom, "x");
+    setAxisTitle(yLeft, "y");
+
+    // Insert two curves and get IDs for them
+    //long cSin = insertCurve("y = sin(x)");
+    //long cSign = insertCurve("y = sign(sin(x))");
+
+    QwtPlotCurve *curve1 = new QwtPlotCurve("Curve 1");
+    
+    // Calculate the data, 500 points each
+    const int points = 500;
+    double x[ points ];
+    double sn[ points ];
+    double sg[ points ];
+
+    for(int i=0; i<points; i++) {
+      x[i] = (3.0*3.14/double(points))*double(i);
+    
+      sn[i] = 2.0*sin(x[i]);
+      sg[i] = (sn[i]>0)?1:((sn[i]<0)?-1:0);
+    }
+
+    // Copy the data to the plot
+    //curve1->setData(cSin, x, sn, points);
+    curve1->setData(new QwtCPointerData(&x[0],&sn[0],(size_t)points));
+    
+    //setCurveData(cSign, x, sg, points);
+
+    // Set the style of the curves
+    //setCurvePen(cSin, QPen(blue));
+    //setCurvePen(cSign, QPen(green, 3));
+
+    // Show the plots
+    replot();
+  }
+};
+#endif
+  
 void popUp(std::string msg){
   QMessageBox msgBox;
   msgBox.setText(msg.c_str());
@@ -157,7 +241,7 @@ bool write_hillshade(vw::cartography::GdalWriteOptions const& opt,
                                    nodata_val, blur_sigma);
       }
     }
-  } catch ( const Exception& e ) {
+  } catch (const Exception& e) {
     popUp(e.what());
     return false;
   }
@@ -331,15 +415,31 @@ DiskImagePyramidMultiChannel::DiskImagePyramidMultiChannel(std::string const& ba
     }else{
       vw_throw(ArgumentErr() << "Unsupported image with " << m_num_channels << " bands.\n");
     }
-  } catch ( const Exception& e ) {
+  } catch (const Exception& e) {
       popUp(e.what());
       return;
   }
 }
 
+double DiskImagePyramidMultiChannel::get_nodata_val() const {
+  
+  // Extract the clip, then convert it from VW format to QImage format.
+  if (m_type == CH1_DOUBLE) {
+    return m_img_ch1_double.get_nodata_val();
+  } else if (m_type == CH2_UINT8) {
+    return m_img_ch2_uint8.get_nodata_val();
+  } else if (m_type == CH3_UINT8) {
+    return m_img_ch3_uint8.get_nodata_val();
+  } else if (m_type == CH4_UINT8) {
+    return m_img_ch4_uint8.get_nodata_val();
+  }else{
+    vw_throw(ArgumentErr() << "Unsupported image with " << m_num_channels << " bands\n");
+  }
+}
+  
 void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i region_in,
                   bool highlight_nodata,
-                  QImage & qimg, double & scale_out, vw::BBox2i & region_out) {
+                  QImage & qimg, double & scale_out, vw::BBox2i & region_out) const{
 
   bool scale_pixels = (m_type == CH1_DOUBLE);
   
@@ -362,24 +462,26 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
   } else if (m_type == CH4_UINT8) {
     ImageView<Vector<vw::uint8, 4> > clip;
     m_img_ch4_uint8.get_image_clip(scale_in, region_in, clip,
-                                 scale_out, region_out);
+          scale_out, region_out);
     formQimage(highlight_nodata, scale_pixels, m_img_ch4_uint8.get_nodata_val(), clip, qimg);
   }else{
     vw_throw(ArgumentErr() << "Unsupported image with " << m_num_channels << " bands\n");
   }
 }
 
-std::string DiskImagePyramidMultiChannel::get_value_as_str( int32 x, int32 y) const {
+std::string DiskImagePyramidMultiChannel::get_value_as_str(int32 x, int32 y) const {
 
+  // Below we cast from Vector<uint8> to Vector<double>, as the former
+  // refuses to print well.
   std::ostringstream os;
   if (m_type == CH1_DOUBLE) {
     os << m_img_ch1_double.bottom()(x, y, 0);
   } else if (m_type == CH2_UINT8) {
-    os << m_img_ch2_uint8.bottom()(x, y, 0);
+    os << Vector2(m_img_ch2_uint8.bottom()(x, y, 0));
   } else if (m_type == CH3_UINT8) {
-    os << m_img_ch3_uint8.bottom()(x, y, 0);
+    os << Vector3(m_img_ch3_uint8.bottom()(x, y, 0));
   } else if (m_type == CH4_UINT8) {
-    os << m_img_ch4_uint8.bottom()(x, y, 0);
+    os << Vector4(m_img_ch4_uint8.bottom()(x, y, 0));
   }else{
     vw_throw(ArgumentErr() << "Unsupported image with " << m_num_channels << " bands\n");
   }
@@ -387,13 +489,13 @@ std::string DiskImagePyramidMultiChannel::get_value_as_str( int32 x, int32 y) co
   return os.str();
 }
   
-double DiskImagePyramidMultiChannel::get_value_as_double( int32 x, int32 y) const {
+double DiskImagePyramidMultiChannel::get_value_as_double(int32 x, int32 y) const {
   if (m_type == CH1_DOUBLE) {
     return m_img_ch1_double.bottom()(x, y, 0);
   }else if (m_type == CH2_UINT8){
     return m_img_ch2_uint8.bottom()(x, y, 0)[0];
   }else{
-    vw_throw( ArgumentErr() << "Unsupported image with " << m_num_channels << " bands\n");
+    vw_throw(ArgumentErr() << "Unsupported image with " << m_num_channels << " bands\n");
   }
   return 0;
 }
