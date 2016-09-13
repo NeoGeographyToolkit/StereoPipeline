@@ -385,12 +385,17 @@ Keep in mind the following parameter guidelines when using SGM:
 \begin{itemize}
 \item Pass in the \texttt{use-sgm} command line flag to enable the SGM algorithm.
 \item The \texttt{prefilter-mode} setting is ignored when using SGM.
-\item Decide whether to use the census cost mode (\texttt{cost-mode 3}) or to use
-mean absolute distance (MAD) (any other value).  The census mode tends to perform better
- overall but can produce artifacts on featureless terrain, in which case MAD works better.  
+\item Decide which cost function to use.  Mean absolute distance (MAD) 
+(\texttt{cost-mode <= 2}) is the default option.  
+The census transform mode (\texttt{cost-mode 3}) \citep{zabih1994census} tends to 
+perform better overall but can produce artifacts on featureless terrain.  
+The ternary census transform mode (\texttt{cost-mode 4}) \citep{hua2016texture} 
+is a modification of the census transform that is more stable on low contrast terrain.
 \item Choose a supported kernel size.  SGM kernels must always be symmetric.
-The MAD cost mode can be used with any odd kernel size but the census cost mode 
-can only be used with kernel sizes 3, 5, and 7.  When using the MAD cost mode consider
+The SGM algorithm works with much smaller kernel sizes than the regular integer 
+correlator so the default large kernel is not reccomended.
+The MAD cost mode can be used with any odd kernel size but the census cost modes 
+can only be used with kernel sizes 3, 5, 7, and 9.  When using the MAD cost mode consider
 using a kernel size of 1 as it can produce good results.
 \item Choose an appropriate tile size using the \texttt{corr-tile-size} command. The SGM
 algorithm works best on larger tiles so this parameter should be set as large as your

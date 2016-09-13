@@ -205,7 +205,7 @@ If the default method does not perform well, try out one of the other two method
   search range is grown by this factor for the purpose of computing the
   low-resolution disparity.
 
-\item[cost-mode \textnormal{\small{(= 0,1,2)}}] (default = 2) \hfill \\
+\item[cost-mode \textnormal{\small{(= 0,1,2,3,4)}}] (default = 2) \hfill \\
 
   This defines the cost function used during integer
   correlation. Squared difference is the fastest cost
@@ -215,14 +215,16 @@ If the default method does not perform well, try out one of the other two method
   designed to be more robust against image intensity changes and
   slight lighting differences. Normalized cross correlation is about
   2x slower than absolute difference and about 3x slower than squared
-  difference.  The census transform \citep{zabih1994census} can 
-  only be used with the SGM correlator.
+  difference.  The census transform \citep{zabih1994census} and
+  ternary census transform \citep{hua2016texture} can only be used with the 
+  SGM correlator.  See section \ref{sec:sgm} for details.
 
   \begin{description}
     \item[0 - absolute difference]
     \item[1 - squared difference]
     \item[2 - normalized cross correlation]
     \item[3 - census transform]
+    \item[4 - ternary census transform]
   \end{description}
 
 \item[corr-kernel \textnormal{\small{(\emph{integer integer})}} (default = 25 25)] \hfill \\

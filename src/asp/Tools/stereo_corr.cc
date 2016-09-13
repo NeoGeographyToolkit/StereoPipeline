@@ -629,18 +629,22 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
   }
 
   stereo::CostFunctionType cost_mode;
-  if      (stereo_settings().cost_mode == 0) cost_mode = stereo::ABSOLUTE_DIFFERENCE;
-  else if (stereo_settings().cost_mode == 1) cost_mode = stereo::SQUARED_DIFFERENCE;
-  else if (stereo_settings().cost_mode == 2) cost_mode = stereo::CROSS_CORRELATION;
-  else if (stereo_settings().cost_mode == 3) { 
-       if (stereo_settings().use_sgm)
-         cost_mode = stereo::CENSUS_TRANSFORM;
-       else
-         vw_throw( ArgumentErr() << "Cannot use census transform without SGM!\n" );
-       }
-  else
-    vw_throw( ArgumentErr() << "Unknown value " << stereo_settings().cost_mode
-	                          << " for cost-mode.\n" );
+  switch(stereo_settings().cost_mode) {
+    case 0: cost_mode = stereo::ABSOLUTE_DIFFERENCE; break;
+    case 1: cost_mode = stereo::SQUARED_DIFFERENCE;  break;
+    case 2: cost_mode = stereo::CROSS_CORRELATION;   break;
+    case 3: 
+      if (!stereo_settings().use_sgm)
+        vw_throw( ArgumentErr() << "Cannot use census transform without SGM!\n" );
+      cost_mode = stereo::CENSUS_TRANSFORM;
+      break;
+    case 4:
+      if (!stereo_settings().use_sgm)
+        vw_throw( ArgumentErr() << "Cannot use ternary census transform without SGM!\n" );
+      cost_mode = stereo::TERNARY_CENSUS_TRANSFORM;
+      break;
+    default: vw_throw( ArgumentErr() << "Unknown value " << stereo_settings().cost_mode << " for cost-mode.\n" );
+  };
 
   Vector2i kernel_size    = stereo_settings().corr_kernel;
   BBox2i   trans_crop_win = stereo_settings().trans_crop_win;

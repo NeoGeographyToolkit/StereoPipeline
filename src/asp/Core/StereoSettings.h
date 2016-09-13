@@ -121,6 +121,7 @@ namespace asp {
                                       // 1 = squared difference
                                       // 2 = normalized cross correlation
                                       // 3 = census transform
+                                      // 3 = ternary census transform
     float        xcorr_threshold;     // L-R vs R-L agreement threshold in pixels
     vw::Vector2i corr_kernel;         // Correlation kernel
     vw::BBox2i   search_range;        // Correlation search range
