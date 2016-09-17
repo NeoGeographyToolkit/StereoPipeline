@@ -61,11 +61,21 @@ if MAKE_APP_STEREO_GUI
   stereo_gui_LDADD = $(APP_STEREO_GUI_LIBS)
 endif
 
+if MAKE_APP_ICEBRIDGE
+  bin_PROGRAMS     += correct_icebridge_l3_dem
+  libexec_PROGRAMS += qi2txt
+  bin_SCRIPTS      += icebridge_kmz_to_csv lvis2kml extract_icebridge_ATM_points
+  qi2txt_SOURCES = qi2txt.cc
+  qi2txt_LDADD   =
+  correct_icebridge_l3_dem_SOURCES = correct_icebridge_l3_dem.cc
+  correct_icebridge_l3_dem_LDADD = $(APP_ICEBRIDGE_LIBS)
+endif
+
 if MAKE_APP_BUNDLE_ADJUST
   bin_PROGRAMS     += bundle_adjust 
   libexec_PROGRAMS += opencv_imagelist_creator
   libexec_PROGRAMS += opencv_calibrate 
-  bin_SCRIPTS      += camera_calibrate camera_solve icebridge_kmz_to_csv lvis2kml
+  bin_SCRIPTS      += camera_calibrate camera_solve
   bundle_adjust_SOURCES            = bundle_adjust.cc bundle_adjust.h
   opencv_imagelist_creator_SOURCES = opencv_imagelist_creator.cpp
   opencv_calibrate_SOURCES         = opencv_calibrate.cpp

@@ -323,8 +323,8 @@ results for ten IceBridge images using \texttt{orbitviz}.}
 \end{figure}
 
 
-A final tip for processing IceBridge data is that Land, Vegetation, and Ice Sensor (LVIS)
-lidar data available for some flights can be used to register DEMs created using DMS
+Some IceBridge flights contain data from the Land, Vegetation, and Ice Sensor (LVIS)
+lidar which can be used to register DEMs created using DMS
 imagery.  LVIS data can be downloaded at
 \url{ftp://n5eil01u.ecs.nsidc.org/SAN2/ICEBRIDGE/ILVIS2.001/}. The lidar data comes in plain text
 files that \texttt{pc\_align} and \texttt{point2dem} can parse using the following option:
@@ -364,6 +364,25 @@ The ASP DEM could be improved but the registration is accurate.  Notice how narr
 is compared to the field of view of the camera.}
 \label{fig:pinhole-icebridge-orbitviz}
 \end{figure}
+
+Other IceBridge flights contain data from the Airborne Topographic Mapper (ATM) lidar sensor.  
+Data from this sensor comes packed in one of several formats (variants of .qi or .h5) so
+ASP provides the \texttt{extract\_icebridge\_ATM\_points} tool to convert them into plain
+text files readable using the formatting:
+\begin{verbatim}  --csv-format "1:lat 2:lon 3:height_above_datum"  \end{verbatim}
+To run the tool, just pass in the name of the input file as an argument and a new file with a
+csv extension will be created in the same directory.
+Using the ATM sensor data is similar to using the LVIS sensor data.
+
+For some IceBridge flights, lidar-aligned DEM files generated from the DMS
+image files are available, see the web page here: \url{http://nsidc.org/data/iodms3}
+These files are improperly formatted and cannot be used by ASP as is.  To correct them, run
+the \texttt{correct\_icebridge\_l3\_dem} tool as follows:
+\begin{verbatim}  
+correct_icebridge_l3_dem IODMS3_20120315_21152106_07371_DEM.tif  fixed_dem.tif 1  
+\end{verbatim}
+The third argument should be 1 if the DEM is in the northern hemisphere and 0 otherwise.
+The corrected DEM files can be used with ASP like any other DEM file.
 
 Chapter \ref{nextsteps} will discuss the \texttt{stereo} program in more
 detail and the other tools in ASP.
