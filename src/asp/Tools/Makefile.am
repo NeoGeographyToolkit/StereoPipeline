@@ -65,10 +65,9 @@ if MAKE_APP_ICEBRIDGE
   bin_PROGRAMS     += correct_icebridge_l3_dem
   libexec_PROGRAMS += qi2txt
   bin_SCRIPTS      += icebridge_kmz_to_csv lvis2kml extract_icebridge_ATM_points
-  qi2txt_SOURCES = qi2txt.cc
-  qi2txt_LDADD   =
   correct_icebridge_l3_dem_SOURCES = correct_icebridge_l3_dem.cc
   correct_icebridge_l3_dem_LDADD = $(APP_ICEBRIDGE_LIBS)
+  qi2txt_SOURCES = qi2txt.cc
 endif
 
 if MAKE_APP_BUNDLE_ADJUST

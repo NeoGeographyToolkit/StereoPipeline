@@ -376,36 +376,9 @@ int main(int argc, char *argv[]) {
 
     host_endianness = testendianness();
 
-    if (argc == 2) { // 2 args
-      data_endianness = MY_BIG_ENDIAN;
-      strncpy(infilename, argv[1], MAX_NAME_LENGTH); // Dump first arg name into 1024 long c string
-    }
-    else if (argc==3 && strcmp(argv[1], "-S")==0 ) { // Shortened output
-      short_output = 1;
-      data_endianness = MY_BIG_ENDIAN;
-      strncpy(infilename, argv[2], MAX_NAME_LENGTH);
-    }
-    else if (argc==3 && strcmp(argv[1], "-C")==0 ) { // Coordinates only
-      coordinates_output = 1;
-      data_endianness = MY_BIG_ENDIAN;
-      strncpy(infilename, argv[2], MAX_NAME_LENGTH);
-    }
-    else if (argc==3 && strcmp(argv[1], "-L")==0 ) { // Little endian mode
-      data_endianness = MY_LITTLE_ENDIAN;
-      strncpy(infilename, argv[2], MAX_NAME_LENGTH);
-    }
-    else if (argc==3 && strcmp(argv[1], "-F")==0 ) { // Print first and last records only
-      first_n_last = 1;
-      short_output = 1;
-      data_endianness = MY_BIG_ENDIAN;
-      strncpy(infilename, argv[2], MAX_NAME_LENGTH);
-    }
-    else if (argc==3 && strcmp(argv[1], "-P")==0 ) { // Print all records, even negative
-      printall = 1;
-      data_endianness = MY_BIG_ENDIAN;
-      strncpy(infilename, argv[2], MAX_NAME_LENGTH);
-    }
-    else {
+    // Had to make some edits here to accept more than one argument at once!
+
+    if (argc < 2) {
       fprintf(stderr, "%s version %g\n", argv[0], version );
       fprintf( stderr, "Usage:  %s [-S/-C/-L/-F/-P] inputfile\n", argv[0] );
       fprintf( stderr, "  Use -S to print shortened version (only LAT,LONG,ELEVATION,TIME)\n" );
@@ -420,6 +393,28 @@ int main(int argc, char *argv[]) {
       getchar();
       exit(1);
     }
+
+    // To keep this code simple, this must be the last argument!
+    int file_index = argc - 1;
+    data_endianness = MY_BIG_ENDIAN;
+
+    // Check for flags
+    for (int i=1; i<argc-1; ++i) {
+      if (strcmp(argv[i], "-S")==0) // Short mode
+        short_output = 1;
+      if (strcmp(argv[i], "-C")==0) // Coordinates only
+        coordinates_output = 1;
+      if (strcmp(argv[i], "-L")==0) // Little endian mode
+        data_endianness = MY_LITTLE_ENDIAN;
+      if (strcmp(argv[i], "-F")==0){ // Print first and last records only
+        first_n_last = 1;
+        short_output = 1;
+      }
+      if (strcmp(argv[i], "-P")==0) // Print all records, even negative
+        printall = 1;
+    }
+    
+    strncpy(infilename, argv[file_index], MAX_NAME_LENGTH); // Dump first arg name into 1024 long c string
 
     fprintf(stderr, "%s version %g\n", argv[0], version );
     fprintf(stderr, " Input file:  %s\n", infilename);

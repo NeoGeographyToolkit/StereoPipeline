@@ -8,6 +8,8 @@ libexecpath = os.path.abspath(basepath + '/../libexec')
 sys.path.insert(0, basepath) # prepend to path
 sys.path.insert(0, libexecpath)
 
+os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
+
 def extract_qi_points(inputPath):
     '''Extract data from a n Icebridge qi file.
        Use this ASP format code to read: --csv-format "1:lat 2:lon 3:height_above_datum" '''
