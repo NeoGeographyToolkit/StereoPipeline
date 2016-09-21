@@ -51,8 +51,8 @@ namespace asp {
   ///   N is equal to the number of points.
   /// - The input and output matrices will be modified by this function,
   ///   make copies if you want to uset them again.
-  void find_3D_affine_transform(vw::Matrix<double>     & in, 
-                                vw::Matrix<double>     & out,
+  void find_3D_affine_transform(vw::Matrix<double>     const& in_vec, 
+                                vw::Matrix<double>     const& out_vec,
                                 vw::Matrix<double,3,3> & rotation,
                                 vw::Vector<double,3>   & translation,
                                 double                 & scale);

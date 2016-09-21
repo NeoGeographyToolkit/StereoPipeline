@@ -62,6 +62,7 @@ using namespace vw::camera;
 using namespace vw::ba;
 
 std::string UNSPECIFIED_DATUM = "unspecified_datum";
+typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
 
 int g_ba_num_errors = 0;
 Mutex g_ba_mutex;
@@ -70,7 +71,7 @@ Mutex g_ba_mutex;
 struct Options : public vw::cartography::GdalWriteOptions {
   std::vector<std::string> image_files, camera_files, gcp_files;
   std::string cnet_file, out_prefix, stereo_session_string,
-    cost_function, ba_type, mapprojected_data;
+    cost_function, ba_type, mapprojected_data, ortho_images;
   int    ip_per_tile;
   double min_angle, lambda, camera_weight, robust_threshold;
   int    report_level, min_matches, max_iterations, overlap_limit;
@@ -827,13 +828,29 @@ extract_cameras_bundle_adjust( std::vector<std::string>& image_files ) {
   return cam_files;
 }
 
-/// Apply a scale-rotate-translate transform to pinhole cameras
+/// Apply a scale-rotate-translate transform to a pinhole camera
+void apply_rigid_transform_to_pincam(vw::Matrix3x3 const & rotation,
+				     vw::Vector3   const & translation,
+				     double                scale,
+				     vw::camera::PinholeModel * pincam){
+  // Extract current parameters
+  vw::Vector3 position = pincam->camera_center();
+  vw::Quat    pose     = pincam->camera_pose();
+
+  vw::Quat rotation_quaternion(rotation);
+  
+  // New position and rotation
+  position = scale*rotation*position + translation;
+  pose     = rotation_quaternion*pose;
+  pincam->set_camera_center(position);
+  pincam->set_camera_pose  (pose);
+}  
+
+/// Apply a scale-rotate-translate transform to pinhole cameras and control points
 void apply_rigid_transform(vw::Matrix3x3 const & rotation,
                            vw::Vector3   const & translation,
                            double                scale,
                            Options             & opt) {
-
-  vw::Quat rotation_quaternion(rotation);
 
   // Apply the transform to the cameras
   std::cout << "---Transform camera positions" << std::endl;
@@ -842,15 +859,9 @@ void apply_rigid_transform(vw::Matrix3x3 const & rotation,
       = dynamic_cast<vw::camera::PinholeModel*>(opt.camera_models[icam].get());
     VW_ASSERT(pincam != NULL, vw::ArgumentErr() << "A pinhole camera expected.\n");
 
-    // Extract current parameters
-    vw::Vector3 position = pincam->camera_center();
-    vw::Quat    pose     = pincam->camera_pose();
-
-    // New position and rotation
-    position = scale*rotation*position + translation;
-    pose     = rotation_quaternion*pose;
-    pincam->set_camera_center(position);
-    pincam->set_camera_pose  (pose);
+    apply_rigid_transform_to_pincam(rotation, translation, scale,  
+				    pincam); // output goes here
+    
     //std::cout << "model: " << *pincam << std::endl;
     //std::cout << "New GDC coordinate: " << opt.datum.cartesian_to_geodetic(position) << std::endl;
   } // End loop through cameras
@@ -1006,7 +1017,7 @@ bool init_pinhole_model_with_camera_positions(Options &opt,
     vw_throw( ArgumentErr() << "Not enough camera position matches to initialize sensor models!\n" );
   
   // Populate matrices containing the current and known camera positions.
-  vw::Matrix<double> points_in(3, num_matches_found), points_file(3, num_matches_found);
+  vw::Matrix<double> points_in(3, num_matches_found), points_out(3, num_matches_found);
   typedef vw::math::MatrixCol<vw::Matrix<double> > ColView;
   size_t index = 0;
   for (size_t i=0; i<num_cameras; ++i) {
@@ -1015,14 +1026,14 @@ bool init_pinhole_model_with_camera_positions(Options &opt,
       continue;
 
     // Get the two GCC positions
-    Vector3 gcc_in   = opt.camera_models[i]->camera_center(Vector2(0,0));
-    Vector3 gcc_file = estimated_camera_gcc[i];
+    Vector3 gcc_in  = opt.camera_models[i]->camera_center(Vector2(0,0));
+    Vector3 gcc_out = estimated_camera_gcc[i];
     
     // Store in matrices
-    ColView colIn (points_in,   index); 
-    ColView colOut(points_file, index);
+    ColView colIn (points_in,  index); 
+    ColView colOut(points_out, index);
     colIn  = gcc_in;
-    colOut = gcc_file;
+    colOut = gcc_out;
     ++index;
 
   } // End matrix populating loop
@@ -1031,7 +1042,7 @@ bool init_pinhole_model_with_camera_positions(Options &opt,
   vw::Matrix3x3 rotation;
   vw::Vector3   translation;
   double        scale;
-  asp::find_3D_affine_transform(points_in, points_file, rotation, translation, scale);
+  asp::find_3D_affine_transform(points_in, points_out, rotation, translation, scale);
 
 
 /*
@@ -1043,12 +1054,12 @@ bool init_pinhole_model_with_camera_positions(Options &opt,
 
     // Get the two GCC positions
     Vector3 gcc_in    = opt.camera_models[i]->camera_center(Vector2(0,0));
-    Vector3 gcc_file  = estimated_camera_gcc[i];
+    Vector3 gcc_out  = estimated_camera_gcc[i];
     Vector3 gcc_trans = scale*rotation*gcc_in + translation;
 
-    std::cout << "--gdc_file  is " << opt.datum.cartesian_to_geodetic(gcc_file ) << std::endl;
+    std::cout << "--gdc_file  is " << opt.datum.cartesian_to_geodetic(gcc_out ) << std::endl;
     std::cout << "--gdc_trans is " << opt.datum.cartesian_to_geodetic(gcc_trans) << std::endl;
-    std::cout << "--gcc_diff  is " << norm_2(gcc_trans - gcc_file)               << std::endl;
+    std::cout << "--gcc_diff  is " << norm_2(gcc_trans - gcc_out)               << std::endl;
   } // End debug loop
 */
 
@@ -1116,7 +1127,7 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
     } // End loop through control network points
     */
 
-    vw::Matrix<double> points_in(3, num_good_gcp), points_file(3, num_good_gcp);
+    vw::Matrix<double> points_in(3, num_good_gcp), points_out(3, num_good_gcp);
     typedef vw::math::MatrixCol<vw::Matrix<double> > ColView;
     int index = 0;
     for (int ipt = 0; ipt < num_cnet_points; ipt++){
@@ -1142,8 +1153,8 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
         continue; // Skip points that fail to triangulate
 
       // Store in matrices
-      ColView colIn (points_in,   index); 
-      ColView colOut(points_file, index);
+      ColView colIn (points_in,  index); 
+      ColView colOut(points_out, index);
       colIn  = inp;
       colOut = outp;
 
@@ -1159,7 +1170,7 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
     vw::Matrix3x3 rotation;
     vw::Vector3   translation;
     double        scale;
-    asp::find_3D_affine_transform(points_in, points_file, rotation, translation, scale);
+    asp::find_3D_affine_transform(points_in, points_out, rotation, translation, scale);
 
     if (check_only)
       return true;
@@ -1201,6 +1212,295 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
 } // End function init_pinhole_model_with_gcp
 
 
+
+// If the user map-projected the images and created matches by hand
+// (this is useful when the illumination conditions are too different,
+// and automated matching fails), project those matching ip back
+// into the cameras, creating matches between the raw images
+// that then bundle_adjust can use. 
+void create_matches_from_mapprojected_images(Options const& opt){
+  
+  std::istringstream is(opt.mapprojected_data);
+  std::vector<std::string> map_files;
+  std::string file;
+  while (is >> file){
+    map_files.push_back(file); 
+  }
+  std::string dem_file = map_files.back();
+  map_files.erase(map_files.end() - 1);
+  vw_out() << "Loading DEM: " << dem_file << std::endl;
+  double nodata_val = -std::numeric_limits<float>::max(); // note we use a float nodata
+  if (vw::read_nodata_val(dem_file, nodata_val)){
+    vw_out() << "Found DEM nodata value: " << nodata_val << std::endl;
+  }
+  
+  ImageView< PixelMask<double> > dem = create_mask(DiskImageView<double>(dem_file), nodata_val);
+  InterpolationView<EdgeExtensionView< ImageView< PixelMask<double> >, ConstantEdgeExtension >, BilinearInterpolation> interp_dem = interpolate(dem, BilinearInterpolation(),
+																		ConstantEdgeExtension());
+  
+  vw::cartography::GeoReference dem_georef;
+  bool is_good = vw::cartography::read_georeference(dem_georef, dem_file);
+  if (!is_good) {
+    vw_throw(ArgumentErr() << "Error: Cannot read georeference from DEM: "
+	     << dem_file << ".\n");
+  }
+  
+  for (size_t i = 0; i < map_files.size(); i++) {
+    for (size_t j = i+1; j < map_files.size(); j++) {
+      
+      vw::cartography::GeoReference georef1, georef2;
+      vw_out() << "Reading georef from " << map_files[i] << ' ' << map_files[j] << std::endl;
+      bool is_good1 = vw::cartography::read_georeference(georef1, map_files[i]);
+      bool is_good2 = vw::cartography::read_georeference(georef2, map_files[j]);
+      if (!is_good1 || !is_good2) {
+	vw_throw(ArgumentErr() << "Error: Cannot read georeference.\n");
+      }
+      
+      std::string match_filename = ip::match_filename(opt.out_prefix,
+						      map_files[i], map_files[j]);
+      if (!fs::exists(match_filename)) {
+	vw_out() << "Missing: " << match_filename << "\n";
+            continue;
+      }
+      vw_out() << "Reading: " << match_filename << std::endl;
+      std::vector<ip::InterestPoint> ip1, ip2;
+      std::vector<ip::InterestPoint> ip1_cam, ip2_cam;
+      ip::read_binary_match_file( match_filename, ip1, ip2 );
+      
+      
+      // Undo the map-projection
+      for (size_t ip_iter = 0; ip_iter < ip1.size(); ip_iter++) {
+            
+	vw::ip::InterestPoint P1 = ip1[ip_iter];
+	Vector2 pix1(P1.x, P1.y);
+	Vector2 ll1 = georef1.pixel_to_lonlat(pix1);
+	Vector2 dem_pix1 = dem_georef.lonlat_to_pixel(ll1);
+	if (dem_pix1[0] < 0 || dem_pix1[0] >= dem.cols() - 1) continue;
+	if (dem_pix1[1] < 0 || dem_pix1[1] >= dem.rows() - 1) continue;
+	PixelMask<double> dem_val1 = interp_dem(dem_pix1[0], dem_pix1[1]);
+	if (!is_valid(dem_val1)) continue;
+	Vector3 llh1(ll1[0], ll1[1], dem_val1.child());
+	Vector3 xyz1 = dem_georef.datum().geodetic_to_cartesian(llh1);
+	Vector2 cam_pix1;
+	try { cam_pix1 = opt.camera_models[i]->point_to_pixel(xyz1); }
+	catch(...){ continue; }
+	P1.x = cam_pix1.x(); P1.y = cam_pix1.y(); P1.ix = P1.x; P1.iy = P1.y;
+	
+	vw::ip::InterestPoint P2 = ip2[ip_iter];
+	Vector2 pix2(P2.x, P2.y);
+	Vector2 ll2 = georef2.pixel_to_lonlat(pix2);
+	Vector2 dem_pix2 = dem_georef.lonlat_to_pixel(ll2);
+	if (dem_pix2[0] < 0 || dem_pix2[0] >= dem.cols() - 1) continue;
+	if (dem_pix2[1] < 0 || dem_pix2[1] >= dem.rows() - 1) continue;
+	PixelMask<double> dem_val2 = interp_dem(dem_pix2[0], dem_pix2[1]);
+	if (!is_valid(dem_val2)) continue;
+	Vector3 llh2(ll2[0], ll2[1], dem_val2.child());
+	Vector3 xyz2 = dem_georef.datum().geodetic_to_cartesian(llh2);
+	Vector2 cam_pix2;
+	try { cam_pix2 = opt.camera_models[j]->point_to_pixel(xyz2); }
+	catch(...){ continue; }
+	P2.x = cam_pix2.x(); P2.y = cam_pix2.y(); P2.ix = P2.x; P2.iy = P2.y;
+	
+	ip1_cam.push_back(P1);
+	ip2_cam.push_back(P2);
+      }
+      
+      // TODO: There is a problem if the number of matches changes!!!
+      vw_out() << "Saving " << ip1_cam.size() << " matches.\n";
+      std::string image1_path  = opt.image_files[i];
+      std::string image2_path  = opt.image_files[j];
+      match_filename = ip::match_filename(opt.out_prefix, image1_path, image2_path);
+      
+      vw_out() << "Writing: " << match_filename << std::endl;
+      ip::write_binary_match_file(match_filename, ip1_cam, ip2_cam);
+      
+    }
+  }
+}
+
+// Given a raw image, and a map-projected version of it (an ortho
+// image), use that to find the camera position and orientation from
+// which the image was acquired.  We assume for now that the image is
+// mapprojected onto the datum, that will change. Overwrite
+// the input cameras.
+void create_init_cameras_from_ortho_images(std::string const& raw_img,
+					   std::string const& ortho_img,
+					   std::string const& camera_path, Options& opt,
+					   boost::shared_ptr<CameraModel> & camera){
+  
+  std::string match_filename = ip::match_filename(opt.out_prefix, raw_img, ortho_img);
+  
+  if (fs::exists(match_filename)) {
+    vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
+  }else{
+    
+    boost::shared_ptr<DiskImageResource>
+      rsrc1(asp::load_disk_image_resource(raw_img, camera_path)),
+      rsrc2(asp::load_disk_image_resource(ortho_img, camera_path));
+    if ( (rsrc1->channels() > 1) || (rsrc2->channels() > 1) )
+	    vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n");
+    float nodata1, nodata2;
+    SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
+							 raw_img,  ortho_img,
+							 camera_path, camera_path,
+							 opt.out_prefix
+							 ));
+    session->get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
+    try{
+      // IP matching may not succeed for all pairs
+
+      // Get masked views of the images to get statistics from
+      DiskImageView<float> image1_view(rsrc1), image2_view(rsrc2);
+      ImageViewRef< PixelMask<float> > masked_image1
+	= create_mask_less_or_equal(image1_view,  nodata1);
+      ImageViewRef< PixelMask<float> > masked_image2
+	= create_mask_less_or_equal(image2_view, nodata2);
+      vw::Vector<vw::float32,6> image1_stats = asp::gather_stats(masked_image1, raw_img);
+      vw::Vector<vw::float32,6> image2_stats = asp::gather_stats(masked_image2, ortho_img);
+      
+      session->ip_matching(raw_img, ortho_img,
+			   Vector2(masked_image1.cols(), masked_image1.rows()),
+			   image1_stats,
+			   image2_stats,
+			   opt.ip_per_tile,
+			   nodata1, nodata2, match_filename,
+			   camera.get(),
+			   camera.get()
+			   );
+    } catch ( const std::exception& e ){
+      vw_throw( ArgumentErr()
+		<< "Could not find interest points between images "
+		<< raw_img << " and " << ortho_img << "\n" << e.what() << "\n");
+    } //End try/catch
+    
+  } // End finding match file
+  
+  vw::cartography::GeoReference ortho_georef;
+  bool is_good = vw::cartography::read_georeference(ortho_georef, ortho_img);
+  if (!is_good) {
+    vw_throw(ArgumentErr() << "Error: Cannot read georeference from: "
+	     << ortho_img << ".\n");
+  }
+  
+  // The ortho image file must have the height of the camera above the ground
+  double height_above_ground = 0.0;
+  {
+    std::string alt_str;
+    std::string alt_key = "Altitude";
+    boost::shared_ptr<vw::DiskImageResource> rsrc(new vw::DiskImageResourceGDAL(ortho_img));
+    vw::cartography::read_header_string(*rsrc.get(), alt_key, alt_str);
+    if (alt_str == "") 
+      vw_throw( ArgumentErr() << "Expecting to read the altitude from the file "
+		<< ortho_img << ".\n");
+
+    height_above_ground = atof(alt_str.c_str());
+    //std::cout << "--height above_ground is " << height_above_ground << std::endl;
+  }
+
+
+  std::vector<vw::ip::InterestPoint> raw_ip, ortho_ip;
+  ip::read_binary_match_file(match_filename, raw_ip, ortho_ip);
+
+  vw::camera::PinholeModel *cam = dynamic_cast<vw::camera::PinholeModel*>(camera.get());
+  if (cam == NULL) {
+    vw_throw(ArgumentErr() << "Expecting a pinhole camera model.\n");
+  }
+  //std::cout << "--value is " << *cam << std::endl;
+
+
+  //std::cout << "--camera pose is " << cam->camera_pose() << std::endl;
+  if ( !(cam->camera_pose() == Quaternion<double>(1, 0, 0, 0)) ) {
+    std::cout << "values " << cam->camera_pose() << ' ' << Quaternion<double>(1, 0, 0, 0)
+	      << std::endl;
+    vw_throw(ArgumentErr() << "Expecting the input camera to have identity rotation.\n");
+    
+  }
+
+  vw::Matrix<double> points_in(3, raw_ip.size()), points_out(3, raw_ip.size());
+  typedef vw::math::MatrixCol<vw::Matrix<double> > ColView;
+  for (size_t ip_iter = 0; ip_iter < raw_ip.size(); ip_iter++){
+    Vector2 raw_pix(raw_ip[ip_iter].x, raw_ip[ip_iter].y);
+    //std::cout << "--raw_pix is " << raw_pix << std::endl;
+    Vector3 ctr = cam->camera_center(raw_pix);
+    Vector3 dir = cam->pixel_to_vector(raw_pix);
+
+    
+    // We assume the ground is flat
+    // Intersect rays going from camera with the plane z = height_above_ground.
+    //std::cout << "ctr and dir is " << ctr << ' ' << dir << std::endl;
+    Vector3 gcc_in = ctr + (height_above_ground/dir[2])*dir;
+    //std::cout << "--gcc_in is " << gcc_in << std::endl;
+    //in.push_back(gcc_in);
+
+    
+    Vector2 ortho_pix(ortho_ip[ip_iter].x, ortho_ip[ip_iter].y);
+    Vector2 ll = ortho_georef.pixel_to_lonlat(ortho_pix);
+
+    // Assume that all points are on the datum. This needs
+    // to be fixed. 
+    double ht = 0.0; 
+    Vector3 llh(ll[0], ll[1], ht);
+    Vector3 gcc_out = ortho_georef.datum().geodetic_to_cartesian(llh);
+    //std::cout << "1--llh is " << llh << std::endl;
+    //std::cout << "1--gcc_out is " << gcc_out << std::endl;
+    //out.push_back(gcc_out);
+
+    ColView colIn (points_in,  ip_iter);  colIn = gcc_in;
+    ColView colOut(points_out, ip_iter);  colOut = gcc_out;
+    
+    //std::cout << "1 in out " << colIn << ' ' << colOut << std::endl;
+  }
+
+  // Call function to compute a 3D affine transform between the two point sets
+  vw::Matrix3x3 rotation;
+  vw::Vector3   translation;
+  double        scale;
+  asp::find_3D_affine_transform(points_in, points_out, rotation, translation, scale);
+
+  vw_out() << "Determined camera extrinsics from orthoimage: " << std::endl;
+  vw_out() << "rotation\n" << rotation << std::endl;
+  vw_out() << "translation\n" << translation << std::endl;
+  vw_out() << "scale\n" << scale << std::endl;
+
+  double max_err = 0.0;
+  for (size_t ip_iter = 0; ip_iter < raw_ip.size(); ip_iter++){
+
+    ColView colIn (points_in,  ip_iter); 
+    ColView colOut(points_out, ip_iter);
+    
+    vw::Vector3 gcc_in  = colIn;
+    vw::Vector3 gcc_out = colOut;
+
+    //std::cout << "--3 in and out " << gcc_in << ' ' << gcc_out << std::endl;
+    //std::cout << "in is " << gcc_in << std::endl;
+    //std::cout << "--out is " << gcc_out << std::endl;
+
+    Vector3 in_trans =  scale*rotation*gcc_in + translation;
+    max_err = std::max(max_err,  norm_2(in_trans - gcc_out));
+    //std::cout << "diff is " << in_trans << ' ' << gcc_out << ' ' << norm_2(in_trans - gcc_out)
+    //  	      << std::endl;
+    
+  }
+  
+  if (std::abs(scale - 1.0) > 0.5 ) {
+    vw_throw(ArgumentErr() << "Expecting a rigid transform, got instead a scale of " << scale
+	     << ".\n");
+  }
+
+  vw_out() << "Error on the ground in meters: " << max_err << std::endl;
+  
+  // Apply the transform to the camera. 
+  apply_rigid_transform_to_pincam(rotation, translation, scale, cam);
+  
+  std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix,
+						      raw_img,
+						      camera_path);
+  cam_file = fs::path(cam_file).replace_extension("tsai").string();
+  vw_out() << "Writing: " << cam_file << std::endl;
+
+  cam->write(cam_file);  
+  exit(0); 
+}  
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
@@ -1251,6 +1551,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.")
     ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
                         "Map-projected versions of the input images and the DEM mapprojected onto (niche and experimental, not for general use).")
+    ("ortho-images",  po::value(&opt.ortho_images)->default_value(""),
+                        "Map-projected versions of the input images (niche and experimental, not for general use).")
     
     ("lambda,l",         po::value(&opt.lambda)->default_value(-1),
                          "Set the initial value of the LM parameter lambda (ignored for the Ceres solver).")
@@ -1400,7 +1702,6 @@ int main(int argc, char* argv[]) {
 
     // Create the stereo session. This will attempt to identify the session type.
     // Read in the camera model and image info for the input images.
-    typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
     for (int i = 0; i < num_images; i++){
       vw_out(DebugMessage,"asp") << "Loading: " << opt.image_files [i] << ' '
                                                 << opt.camera_files[i] << "\n";
@@ -1418,104 +1719,29 @@ int main(int argc, char* argv[]) {
     } // End loop through images loading all the camera models
 
     // Create match files from mapprojection.
-    // TODO: This must be documented.
-    if (opt.mapprojected_data != "") {
-      std::istringstream is(opt.mapprojected_data);
-      std::vector<std::string> map_files;
+    if (opt.mapprojected_data != "")
+      create_matches_from_mapprojected_images(opt);
+
+    // Given a raw image and its ortho-rectified version, find the camera
+    // position to get that ortho image.
+    if (opt.ortho_images != "" && opt.stereo_session_string == "pinhole") {
+      std::vector<std::string> ortho_images;
+      std::istringstream is(opt.ortho_images);
       std::string file;
       while (is >> file){
-        map_files.push_back(file); 
+        ortho_images.push_back(file);
       }
-      std::string dem_file = map_files.back();
-      map_files.erase(map_files.end() - 1);
-      vw_out() << "Loading DEM: " << dem_file << std::endl;
-      double nodata_val = -std::numeric_limits<float>::max(); // note we use a float nodata
-      if (vw::read_nodata_val(dem_file, nodata_val)){
-        vw_out() << "Found DEM nodata value: " << nodata_val << std::endl;
+      if (ortho_images.size() != opt.image_files.size()) {
+	vw_throw(ArgumentErr()
+		 << "Error: There must exist as many ortho-images as input images.\n");
       }
-      
-      ImageView< PixelMask<double> > dem = create_mask(DiskImageView<double>(dem_file), nodata_val);
-      InterpolationView<EdgeExtensionView< ImageView< PixelMask<double> >, ConstantEdgeExtension >, BilinearInterpolation> interp_dem = interpolate(dem, BilinearInterpolation(),
-		      ConstantEdgeExtension());
-
-      vw::cartography::GeoReference dem_georef;
-      bool is_good = vw::cartography::read_georeference(dem_georef, dem_file);
-      if (!is_good) {
-        vw_throw(ArgumentErr() << "Error: Cannot read georeference from DEM: "
-                 << dem_file << ".\n");
-      }
-      
-      for (size_t i = 0; i < map_files.size(); i++) {
-        for (size_t j = i+1; j < map_files.size(); j++) {
-
-          vw::cartography::GeoReference georef1, georef2;
-          vw_out() << "Reading georef from " << map_files[i] << ' ' << map_files[j] << std::endl;
-          bool is_good1 = vw::cartography::read_georeference(georef1, map_files[i]);
-          bool is_good2 = vw::cartography::read_georeference(georef2, map_files[j]);
-          if (!is_good1 || !is_good2) {
-            vw_throw(ArgumentErr() << "Error: Cannot read georeference.\n");
-          }
-          
-          std::string match_filename = ip::match_filename(opt.out_prefix,
-                                                          map_files[i], map_files[j]);
-          if (!fs::exists(match_filename)) {
-            vw_out() << "Missing: " << match_filename << "\n";
-            continue;
-          }
-          vw_out() << "Reading: " << match_filename << std::endl;
-          std::vector<ip::InterestPoint> ip1, ip2;
-          std::vector<ip::InterestPoint> ip1_cam, ip2_cam;
-          ip::read_binary_match_file( match_filename, ip1, ip2 );
-
-
-          // Undo the map-projection
-          for (size_t ip_iter = 0; ip_iter < ip1.size(); ip_iter++) {
-            
-            vw::ip::InterestPoint P1 = ip1[ip_iter];
-            Vector2 pix1(P1.x, P1.y);
-            Vector2 ll1 = georef1.pixel_to_lonlat(pix1);
-            Vector2 dem_pix1 = dem_georef.lonlat_to_pixel(ll1);
-            if (dem_pix1[0] < 0 || dem_pix1[0] >= dem.cols() - 1) continue;
-            if (dem_pix1[1] < 0 || dem_pix1[1] >= dem.rows() - 1) continue;
-            PixelMask<double> dem_val1 = interp_dem(dem_pix1[0], dem_pix1[1]);
-            if (!is_valid(dem_val1)) continue;
-            Vector3 llh1(ll1[0], ll1[1], dem_val1.child());
-            Vector3 xyz1 = dem_georef.datum().geodetic_to_cartesian(llh1);
-	    Vector2 cam_pix1;
-	    try { cam_pix1 = opt.camera_models[i]->point_to_pixel(xyz1); }
-	    catch(...){ continue; }
-	    P1.x = cam_pix1.x(); P1.y = cam_pix1.y(); P1.ix = P1.x; P1.iy = P1.y;
-	    
-            vw::ip::InterestPoint P2 = ip2[ip_iter];
-            Vector2 pix2(P2.x, P2.y);
-            Vector2 ll2 = georef2.pixel_to_lonlat(pix2);
-            Vector2 dem_pix2 = dem_georef.lonlat_to_pixel(ll2);
-            if (dem_pix2[0] < 0 || dem_pix2[0] >= dem.cols() - 1) continue;
-            if (dem_pix2[1] < 0 || dem_pix2[1] >= dem.rows() - 1) continue;
-            PixelMask<double> dem_val2 = interp_dem(dem_pix2[0], dem_pix2[1]);
-            if (!is_valid(dem_val2)) continue;
-            Vector3 llh2(ll2[0], ll2[1], dem_val2.child());
-            Vector3 xyz2 = dem_georef.datum().geodetic_to_cartesian(llh2);
-	    Vector2 cam_pix2;
-	    try { cam_pix2 = opt.camera_models[j]->point_to_pixel(xyz2); }
-	    catch(...){ continue; }
-	    P2.x = cam_pix2.x(); P2.y = cam_pix2.y(); P2.ix = P2.x; P2.iy = P2.y;
-	    
-	    ip1_cam.push_back(P1);
-	    ip2_cam.push_back(P2);
-          }
-
-	  // TODO: There is a problem if the number of matches changes!!!
-	  vw_out() << "Saving " << ip1_cam.size() << " matches.\n";
-	  std::string image1_path  = opt.image_files[i];
-	  std::string image2_path  = opt.image_files[j];
-	  match_filename = ip::match_filename(opt.out_prefix, image1_path, image2_path);
-
-	  vw_out() << "Writing: " << match_filename << std::endl;
-	  ip::write_binary_match_file(match_filename, ip1_cam, ip2_cam);
-	  
-	  
-        }
+      for (size_t i = 0; i < opt.image_files.size(); i++) {
+	create_init_cameras_from_ortho_images(opt.image_files[i],
+					      ortho_images[i],
+					      opt.camera_files[i],
+					      opt,
+					      opt.camera_models[i] // will be over-written
+					      );
       }
     }
     

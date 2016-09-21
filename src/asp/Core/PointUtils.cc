@@ -39,11 +39,16 @@ namespace vw {
 namespace asp{
 
 
-  void find_3D_affine_transform(vw::Matrix<double>     & in, 
-                                vw::Matrix<double>     & out,
+  void find_3D_affine_transform(vw::Matrix<double>     const& in_vec, 
+                                vw::Matrix<double>     const& out_vec,
                                 vw::Matrix<double,3,3> & rotation,
                                 vw::Vector<double,3>   & translation,
                                 double                 & scale) {
+
+    // Make copies that we can modify inline
+    vw::Matrix<double> in  = in_vec; 
+    vw::Matrix<double> out = out_vec;
+    
     // Default output
     rotation.set_identity();
     translation.set_all(0.0);
