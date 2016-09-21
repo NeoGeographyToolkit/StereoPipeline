@@ -175,7 +175,7 @@ points (GCPs) which can be identified in the frame images.  This will allow an a
 positioning of the cameras provided that the GCPs and the camera model parameters are
 accurate.  To create GCPs see the instructions for the \texttt{stereo\_gui} tool in
 appendix \ref{bagcp}.
-For the moon there are several ways to get DEMs and in this case we generated GCPs
+For the Moon there are several ways to get DEMs and in this case we generated GCPs
 using \texttt{stereo\_gui} and a DEM generated from LRONAC images.
 
 After running this command:
@@ -239,7 +239,8 @@ are some aspects which are particular to IceBridge.  You can download DMS images
 That includes both raw and geolocated/orthorectified L1B images. A list of
 the available data types can be found at \url{https://nsidc.org/data/icebridge/instr_data_summary.html}.
 This example uses data from the November 5, 2009 flight over Antarctica. 
-The following camera model (icebridge\_model.tsai) was used:
+The following camera model (icebridge\_model.tsai) was used (see chapter
+\ref{chapter:pinholemodels} on camera models):
 
 \begin{verbatim}
 VERSION_3

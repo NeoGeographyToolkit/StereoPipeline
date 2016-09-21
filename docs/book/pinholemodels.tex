@@ -8,16 +8,21 @@ calibration methods.  The generic pinhole model uses the following
 parameters:   
 
 \begin{itemize}{}
-\item  \textit{fx} = The focal length in horizontal units.
-\item  \textit{fy} = The focal length in vertical units.
-\item  \textit{cx} = The horizontal offset of the principal 
-point of the camera in the image plane.
-\item  \textit{cy} = The vertical offset of the principal 
-point of the camera in the image plane.
+\item  \textit{fu} = The focal length in horizontal pixel units.
+\item  \textit{fv} = The focal length in vertical pixel units.
+\item  \textit{cu} = The horizontal offset of the principal 
+point of the camera in the image plane in pixel units.
+\item  \textit{cv} = The vertical offset of the principal 
+point of the camera in the image plane in pixel units.
 \item  \textit{pitch} = The size of each pixel in the units used to specify
 the four parameters listed above.  This will usually either be 1.0 if they
 are specified in pixel units or alternately the size of a pixel in millimeters.
 \end{itemize}
+
+The focal length is sometimes known as the \textit{principal
+distance}. The value $cu$ is computed as half the image width in
+pixels times the pitch, while $cv$ is half the image height in pixels
+time the pitch.
 
 
 Along with the basic pinhole camera parameters, a lens distortion model
@@ -63,7 +68,8 @@ The following lens distortion models are currently supported:
 \[ dr = K_{1}r^{3} + K_{2}r^{5} + K_{3}r^{7} \]
 \[ x(undistorted) = x + x\frac{dr}{r} + P_{1}(r^{2} +2x^{2}) + 2P_{2}xy \]
 \[ y(undistorted) = y + y\frac{dr}{r} + P_{2}(r^{2} +2y^{2}) + 2P_{1}xy \]
-\hfill \\ Note that this model uses non-normalized pixel units.
+\hfill \\ Note that this model uses non-normalized pixel units, so they
+are in mm.
 
 \hfill \\ References:
 \begin{description}
@@ -88,7 +94,8 @@ The following lens distortion models are currently supported:
 \[ dr = K_{1}r^{3} + K_{2}r^{5} + K_{3}r^{7} \]
 \[ x(undistorted) = x + x\frac{dr}{r} - (P_{1}r^{2} +P_{2}r^{4})sin(phi) +  \]
 \[ y(undistorted) = y + y\frac{dr}{r} + (P_{1}r^{2} +P_{2}r^{4})cos(phi) \]
-\hfill \\ Note that this model uses non-normalized pixel units.
+\hfill \\ Note that this model uses non-normalized pixel units, so they
+are in mm.
 
 \end{itemize}
 
@@ -99,7 +106,7 @@ The following lens distortion models are currently supported:
 
 ASP pinhole model files are written in an easy to work with plain text format 
 using the extension \texttt{.tsai}.
-A sample file is shown below:
+A sample file is shown below. 
 
 \begin{verbatim}
 VERSION_3
