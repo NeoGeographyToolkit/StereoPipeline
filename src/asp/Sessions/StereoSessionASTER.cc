@@ -43,13 +43,6 @@ using namespace asp;
 namespace pt = boost::posix_time;
 namespace fs = boost::filesystem;
 
-// Allows FileIO to correctly read/write these pixel types
-namespace vw {
-  template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-  template<> struct PixelFormatID<Vector2f>  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_2_CHANNEL; };
-}
-
-
 namespace asp {
 
   /// Fetch the RPC models for aster. We want to use those, for ip matching, as they are faster.
@@ -57,8 +50,6 @@ namespace asp {
   main_or_rpc_camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
                             boost::shared_ptr<vw::camera::CameraModel> &cam2){
 
-    std::cout << "---now in rpc_camera_models" << std::endl;
-    
     boost::shared_ptr<vw::camera::CameraModel> base_cam1, base_cam2;
     this->camera_models(base_cam1, base_cam2);
 

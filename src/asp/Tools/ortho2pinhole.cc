@@ -80,12 +80,6 @@ struct Options : public vw::cartography::GdalWriteOptions {
 // mapprojected onto the datum, that will change. Overwrite
 // the input cameras.
 void ortho2pinhole(Options const& opt){
-
-  std::cout << "--raw image "   << opt.raw_image << std::endl;
-  std::cout << "--ortho image " << opt.ortho_image << std::endl;
-  std::cout << " input cam " << opt.input_cam << std::endl;
-  std::cout << " output cam " << opt.output_cam << std::endl;
-  
   std::string out_prefix = "tmp-prefix";
   std::string match_filename = ip::match_filename(out_prefix, opt.raw_image, opt.ortho_image);
   
@@ -136,8 +130,6 @@ void ortho2pinhole(Options const& opt){
 	     << opt.ortho_image << ".\n");
   }
 
-  std::cout << "--ip per tile: " << opt.ip_per_tile << std::endl;
-  std::cout << "--orthoimage height " << opt.orthoimage_height << std::endl;
   // The ortho image file must have the height of the camera above the ground.
   // This can be over-written from the command line.
   double cam_height = opt.camera_height;
@@ -152,45 +144,30 @@ void ortho2pinhole(Options const& opt){
                 << ". It should then be specified on the command line as --camera-height.\n");
     
     cam_height = atof(alt_str.c_str());
-    //std::cout << "--height above_ground is " << cam_height << std::endl;
   }
 
-  std::cout << "--camera height " << cam_height << std::endl;
-  std::cout << "--orthoimage height " << opt.orthoimage_height << std::endl;
-        
   std::vector<vw::ip::InterestPoint> raw_ip, ortho_ip;
   ip::read_binary_match_file(match_filename, raw_ip, ortho_ip);
   vw::camera::PinholeModel *pcam = dynamic_cast<vw::camera::PinholeModel*>(cam.get());
   if (pcam == NULL) {
     vw_throw(ArgumentErr() << "Expecting a pinhole camera model.\n");
   }
-  //std::cout << "--value is " << *cam << std::endl;
 
-
-  //std::cout << "--camera pose is " << cam->camera_pose() << std::endl;
   if ( !(pcam->camera_pose() == Quaternion<double>(1, 0, 0, 0)) ) {
-    std::cout << "values " << pcam->camera_pose() << ' ' << Quaternion<double>(1, 0, 0, 0)
-	      << std::endl;
     vw_throw(ArgumentErr() << "Expecting the input camera to have identity rotation.\n");
-    
   }
 
   vw::Matrix<double> points_in(3, raw_ip.size()), points_out(3, raw_ip.size());
   typedef vw::math::MatrixCol<vw::Matrix<double> > ColView;
   for (size_t ip_iter = 0; ip_iter < raw_ip.size(); ip_iter++){
     Vector2 raw_pix(raw_ip[ip_iter].x, raw_ip[ip_iter].y);
-    //std::cout << "--raw_pix is " << raw_pix << std::endl;
     Vector3 ctr = pcam->camera_center(raw_pix);
     Vector3 dir = pcam->pixel_to_vector(raw_pix);
 
     
     // We assume the ground is flat
     // Intersect rays going from camera with the plane z = cam_height.
-    //std::cout << "ctr and dir is " << ctr << ' ' << dir << std::endl;
     Vector3 gcc_in = ctr + (cam_height/dir[2])*dir;
-    //std::cout << "--gcc_in is " << gcc_in << std::endl;
-    //in.push_back(gcc_in);
-
     
     Vector2 ortho_pix(ortho_ip[ip_iter].x, ortho_ip[ip_iter].y);
     Vector2 ll = ortho_georef.pixel_to_lonlat(ortho_pix);
@@ -198,14 +175,9 @@ void ortho2pinhole(Options const& opt){
     // Use given assumed height of orthoimage above the datum.
     Vector3 llh(ll[0], ll[1], opt.orthoimage_height);
     Vector3 gcc_out = ortho_georef.datum().geodetic_to_cartesian(llh);
-    //std::cout << "1--llh is " << llh << std::endl;
-    //std::cout << "1--gcc_out is " << gcc_out << std::endl;
-    //out.push_back(gcc_out);
 
     ColView colIn (points_in,  ip_iter);  colIn = gcc_in;
     ColView colOut(points_out, ip_iter);  colOut = gcc_out;
-    
-    //std::cout << "1 in out " << colIn << ' ' << colOut << std::endl;
   }
 
   // Call function to compute a 3D affine transform between the two point sets
@@ -276,11 +248,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     asp::check_command_line(argc, argv, opt, general_options, general_options,
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
-
-  std::cout << "--raw image "   << opt.raw_image << std::endl;
-  std::cout << "--ortho image " << opt.ortho_image << std::endl;
-  std::cout << " input cam " << opt.input_cam << std::endl;
-  std::cout << " output cam " << opt.output_cam << std::endl;
 
   // Copy the IP settings to the global stereosettings() object
   asp::stereo_settings().ip_matching_method     = opt.ip_detect_method;

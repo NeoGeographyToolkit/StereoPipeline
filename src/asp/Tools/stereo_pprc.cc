@@ -133,7 +133,6 @@ void create_sym_links(string const& left_input_file,
 
 void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
 
-    std::cout << "---now in pre-processing !!! " << std::endl;
   // Normalize the images, unless the user prefers not to.
   string left_image_file, right_image_file;
   bool skip_img_norm = asp::skip_image_normalization(opt);

@@ -40,9 +40,7 @@ class StereoSessionASTER : public StereoSessionGdal<DISKTRANSFORM_TYPE_MATRIX,
                                                     STEREOMODEL_TYPE_ASTER> {
   
 public:
-  StereoSessionASTER(){
-    std::cout << "---aster constructor!!!" << std::endl;
-  }
+  StereoSessionASTER(){}
   virtual ~StereoSessionASTER(){}
   
   virtual std::string name() const { return "aster"; }

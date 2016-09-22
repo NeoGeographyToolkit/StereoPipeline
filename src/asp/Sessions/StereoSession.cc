@@ -82,8 +82,6 @@ namespace asp {
 				  vw::camera::CameraModel* cam1,
 				  vw::camera::CameraModel* cam2){
 
-    std::cout << "--now in ip matching!" << std::endl;
-    
     bool crop_left  = ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
     bool crop_right = ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
     bool crop_left_and_right = crop_left && crop_right;
@@ -113,9 +111,6 @@ namespace asp {
     
     DiskImageView<float> image1(rsrc1), image2(rsrc2);
     ImageViewRef<float> image1_norm=image1, image2_norm=image2;
-    std::cout << "---ip matching method: " << stereo_settings().ip_matching_method << std::endl;
-    std::cout << "stats are " << stats1[0] << ' ' << stats1[1] << std::endl;
-    
     if ( (stereo_settings().ip_matching_method != DETECT_IP_METHOD_INTEGRAL) &&
        (stats1[0] != stats1[1]) ) { // Don't normalize if no stats were provided!
       vw_out() << "\t--> Normalizing images for IP detection using stats " << stats1 << "\n";
@@ -220,7 +215,6 @@ namespace asp {
 					     std::string const& input_file2,
 					     std::string      & output_file1,
 					     std::string      & output_file2) {
-    std::cout << "---main preprocessing hook" << std::endl;
     output_file1 = input_file1;
     output_file2 = input_file2;
   }
