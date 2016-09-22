@@ -283,6 +283,8 @@ gdal_calc.py -A rgb.tif --A_band=1 -B rgb.tif --B_band=2 -C rgb.tif
 gdal_translate -b 1 rgb.jpg gray.jpg
 \end{verbatim}
 
+Or \texttt{gdal\_translate} can be used on the original image to pick a single band rather than combining the three.
+
 Obtaining ground control points for icy locations on Earth can be particularly difficult because
 they are not well surveyed or because the terrain shifts over time.
 This may force you to use estimated camera positions
@@ -317,10 +319,10 @@ altogether.  If a given image has already an orthoimage associated with
 it (check the IceBridge portal page), that provides enough information
 to guess an initial position of the camera, using the
 \texttt{ortho2pinhole} tool. Later, the obtained cameras can be
-bundle-adjusted. Here is how this tool can be used:
+bundle-adjusted. Here is how this tool can be used, on grayscale images:
 
 \begin{verbatim}
- ortho2pinhole gray.jpg ortho.tif icebridge_model.tsai output_pinhole.tsai
+ ortho2pinhole raw_image.tif ortho_image.tif icebridge_model.tsai output_pinhole.tsai
 \end{verbatim}
 
 \begin{figure}[h!]
