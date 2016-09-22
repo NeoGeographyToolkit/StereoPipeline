@@ -94,19 +94,18 @@ g++, gfortran (version >= 4.4.7), the FSF version, not Apple's LLVM hybrid.
 automake
 libtool
 git
-subversion
 xz
 
 Here's an example for how to install some of these. First read
 http://superuser.com/questions/619498/can-i-install-homebrew-without-sudo-privileges
-about how to install homebrew without sudo. Then:
+about how to install homebrew without sudo. Then do:
 
-Add "$HOME/local/bin/" to the PATH variable
+export HOMEBREW_PREFIX=$HOME/usr/local
+export PATH=$HOMEBREW_PREFIX/bin:$PATH
 
-Run:
 brew doctor
-brew install automake libtool git subversion xz
-brew install gcc48 --with-fortran 
+brew install automake libtool git xz
+brew install homebrew/versions/gcc48 --with-fortran
 
 Set the following env variable:
 export DYLD_LIBRARY_PATH=$HOME/local/lib/gcc/4.8/:$DYLD_LIBRARY_PATH
