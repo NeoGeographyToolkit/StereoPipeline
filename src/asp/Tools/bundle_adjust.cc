@@ -95,7 +95,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
              semi_major(0), semi_minor(0),
              datum(cartography::Datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
                                       "Reference Meridian", 1, 1, 0)),
-             ip_detect_method(0){}
+             ip_detect_method(0), individually_normalize(false){}
 };
 
 // TODO: This update stuff should really be done somewhere else!
@@ -828,24 +828,6 @@ extract_cameras_bundle_adjust( std::vector<std::string>& image_files ) {
   return cam_files;
 }
 
-/// Apply a scale-rotate-translate transform to a pinhole camera
-void apply_rigid_transform_to_pincam(vw::Matrix3x3 const & rotation,
-				     vw::Vector3   const & translation,
-				     double                scale,
-				     vw::camera::PinholeModel * pincam){
-  // Extract current parameters
-  vw::Vector3 position = pincam->camera_center();
-  vw::Quat    pose     = pincam->camera_pose();
-
-  vw::Quat rotation_quaternion(rotation);
-  
-  // New position and rotation
-  position = scale*rotation*position + translation;
-  pose     = rotation_quaternion*pose;
-  pincam->set_camera_center(position);
-  pincam->set_camera_pose  (pose);
-}  
-
 /// Apply a scale-rotate-translate transform to pinhole cameras and control points
 void apply_rigid_transform(vw::Matrix3x3 const & rotation,
                            vw::Vector3   const & translation,
@@ -859,8 +841,7 @@ void apply_rigid_transform(vw::Matrix3x3 const & rotation,
       = dynamic_cast<vw::camera::PinholeModel*>(opt.camera_models[icam].get());
     VW_ASSERT(pincam != NULL, vw::ArgumentErr() << "A pinhole camera expected.\n");
 
-    apply_rigid_transform_to_pincam(rotation, translation, scale,  
-				    pincam); // output goes here
+    pincam->apply_transform(rotation, translation, scale);
     
     //std::cout << "model: " << *pincam << std::endl;
     //std::cout << "New GDC coordinate: " << opt.datum.cartesian_to_geodetic(position) << std::endl;
@@ -1490,7 +1471,7 @@ void create_init_cameras_from_ortho_images(std::string const& raw_img,
   vw_out() << "Error on the ground in meters: " << max_err << std::endl;
   
   // Apply the transform to the camera. 
-  apply_rigid_transform_to_pincam(rotation, translation, scale, cam);
+  cam->apply_transform(rotation, translation, scale);
   
   std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix,
 						      raw_img,
