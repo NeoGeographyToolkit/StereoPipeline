@@ -835,7 +835,6 @@ void apply_rigid_transform(vw::Matrix3x3 const & rotation,
                            Options             & opt) {
 
   // Apply the transform to the cameras
-  std::cout << "---Transform camera positions" << std::endl;
   for (size_t icam = 0; icam < opt.camera_models.size(); icam++){
     vw::camera::PinholeModel * pincam
       = dynamic_cast<vw::camera::PinholeModel*>(opt.camera_models[icam].get());
@@ -1192,8 +1191,6 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
   return true;
 } // End function init_pinhole_model_with_gcp
 
-
-
 // If the user map-projected the images and created matches by hand
 // (this is useful when the illumination conditions are too different,
 // and automated matching fails), project those matching ip back
@@ -1218,7 +1215,6 @@ void create_matches_from_mapprojected_images(Options const& opt){
   ImageView< PixelMask<double> > dem = create_mask(DiskImageView<double>(dem_file), nodata_val);
   InterpolationView<EdgeExtensionView< ImageView< PixelMask<double> >, ConstantEdgeExtension >, BilinearInterpolation> interp_dem = interpolate(dem, BilinearInterpolation(),
 																		ConstantEdgeExtension());
-  
   vw::cartography::GeoReference dem_georef;
   bool is_good = vw::cartography::read_georeference(dem_georef, dem_file);
   if (!is_good) {
@@ -1299,190 +1295,6 @@ void create_matches_from_mapprojected_images(Options const& opt){
   }
 }
 
-// Given a raw image, and a map-projected version of it (an ortho
-// image), use that to find the camera position and orientation from
-// which the image was acquired.  We assume for now that the image is
-// mapprojected onto the datum, that will change. Overwrite
-// the input cameras.
-void create_init_cameras_from_ortho_images(std::string const& raw_img,
-					   std::string const& ortho_img,
-					   std::string const& camera_path, Options& opt,
-					   boost::shared_ptr<CameraModel> & camera){
-  
-  std::string match_filename = ip::match_filename(opt.out_prefix, raw_img, ortho_img);
-  
-  if (fs::exists(match_filename)) {
-    vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
-  }else{
-    
-    boost::shared_ptr<DiskImageResource>
-      rsrc1(asp::load_disk_image_resource(raw_img, camera_path)),
-      rsrc2(asp::load_disk_image_resource(ortho_img, camera_path));
-    if ( (rsrc1->channels() > 1) || (rsrc2->channels() > 1) )
-	    vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n");
-    float nodata1, nodata2;
-    SessionPtr session(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,
-							 raw_img,  ortho_img,
-							 camera_path, camera_path,
-							 opt.out_prefix
-							 ));
-    session->get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
-    try{
-      // IP matching may not succeed for all pairs
-
-      // Get masked views of the images to get statistics from
-      DiskImageView<float> image1_view(rsrc1), image2_view(rsrc2);
-      ImageViewRef< PixelMask<float> > masked_image1
-	= create_mask_less_or_equal(image1_view,  nodata1);
-      ImageViewRef< PixelMask<float> > masked_image2
-	= create_mask_less_or_equal(image2_view, nodata2);
-      vw::Vector<vw::float32,6> image1_stats = asp::gather_stats(masked_image1, raw_img);
-      vw::Vector<vw::float32,6> image2_stats = asp::gather_stats(masked_image2, ortho_img);
-      
-      session->ip_matching(raw_img, ortho_img,
-			   Vector2(masked_image1.cols(), masked_image1.rows()),
-			   image1_stats,
-			   image2_stats,
-			   opt.ip_per_tile,
-			   nodata1, nodata2, match_filename,
-			   camera.get(),
-			   camera.get()
-			   );
-    } catch ( const std::exception& e ){
-      vw_throw( ArgumentErr()
-		<< "Could not find interest points between images "
-		<< raw_img << " and " << ortho_img << "\n" << e.what() << "\n");
-    } //End try/catch
-    
-  } // End finding match file
-  
-  vw::cartography::GeoReference ortho_georef;
-  bool is_good = vw::cartography::read_georeference(ortho_georef, ortho_img);
-  if (!is_good) {
-    vw_throw(ArgumentErr() << "Error: Cannot read georeference from: "
-	     << ortho_img << ".\n");
-  }
-  
-  // The ortho image file must have the height of the camera above the ground
-  double height_above_ground = 0.0;
-  {
-    std::string alt_str;
-    std::string alt_key = "Altitude";
-    boost::shared_ptr<vw::DiskImageResource> rsrc(new vw::DiskImageResourceGDAL(ortho_img));
-    vw::cartography::read_header_string(*rsrc.get(), alt_key, alt_str);
-    if (alt_str == "") 
-      vw_throw( ArgumentErr() << "Expecting to read the altitude from the file "
-		<< ortho_img << ".\n");
-
-    height_above_ground = atof(alt_str.c_str());
-    //std::cout << "--height above_ground is " << height_above_ground << std::endl;
-  }
-
-
-  std::vector<vw::ip::InterestPoint> raw_ip, ortho_ip;
-  ip::read_binary_match_file(match_filename, raw_ip, ortho_ip);
-
-  vw::camera::PinholeModel *cam = dynamic_cast<vw::camera::PinholeModel*>(camera.get());
-  if (cam == NULL) {
-    vw_throw(ArgumentErr() << "Expecting a pinhole camera model.\n");
-  }
-  //std::cout << "--value is " << *cam << std::endl;
-
-
-  //std::cout << "--camera pose is " << cam->camera_pose() << std::endl;
-  if ( !(cam->camera_pose() == Quaternion<double>(1, 0, 0, 0)) ) {
-    std::cout << "values " << cam->camera_pose() << ' ' << Quaternion<double>(1, 0, 0, 0)
-	      << std::endl;
-    vw_throw(ArgumentErr() << "Expecting the input camera to have identity rotation.\n");
-    
-  }
-
-  vw::Matrix<double> points_in(3, raw_ip.size()), points_out(3, raw_ip.size());
-  typedef vw::math::MatrixCol<vw::Matrix<double> > ColView;
-  for (size_t ip_iter = 0; ip_iter < raw_ip.size(); ip_iter++){
-    Vector2 raw_pix(raw_ip[ip_iter].x, raw_ip[ip_iter].y);
-    //std::cout << "--raw_pix is " << raw_pix << std::endl;
-    Vector3 ctr = cam->camera_center(raw_pix);
-    Vector3 dir = cam->pixel_to_vector(raw_pix);
-
-    
-    // We assume the ground is flat
-    // Intersect rays going from camera with the plane z = height_above_ground.
-    //std::cout << "ctr and dir is " << ctr << ' ' << dir << std::endl;
-    Vector3 gcc_in = ctr + (height_above_ground/dir[2])*dir;
-    //std::cout << "--gcc_in is " << gcc_in << std::endl;
-    //in.push_back(gcc_in);
-
-    
-    Vector2 ortho_pix(ortho_ip[ip_iter].x, ortho_ip[ip_iter].y);
-    Vector2 ll = ortho_georef.pixel_to_lonlat(ortho_pix);
-
-    // Assume that all points are on the datum. This needs
-    // to be fixed. 
-    double ht = 0.0; 
-    Vector3 llh(ll[0], ll[1], ht);
-    Vector3 gcc_out = ortho_georef.datum().geodetic_to_cartesian(llh);
-    //std::cout << "1--llh is " << llh << std::endl;
-    //std::cout << "1--gcc_out is " << gcc_out << std::endl;
-    //out.push_back(gcc_out);
-
-    ColView colIn (points_in,  ip_iter);  colIn = gcc_in;
-    ColView colOut(points_out, ip_iter);  colOut = gcc_out;
-    
-    //std::cout << "1 in out " << colIn << ' ' << colOut << std::endl;
-  }
-
-  // Call function to compute a 3D affine transform between the two point sets
-  vw::Matrix3x3 rotation;
-  vw::Vector3   translation;
-  double        scale;
-  asp::find_3D_affine_transform(points_in, points_out, rotation, translation, scale);
-
-  vw_out() << "Determined camera extrinsics from orthoimage: " << std::endl;
-  vw_out() << "rotation\n" << rotation << std::endl;
-  vw_out() << "translation\n" << translation << std::endl;
-  vw_out() << "scale\n" << scale << std::endl;
-
-  double max_err = 0.0;
-  for (size_t ip_iter = 0; ip_iter < raw_ip.size(); ip_iter++){
-
-    ColView colIn (points_in,  ip_iter); 
-    ColView colOut(points_out, ip_iter);
-    
-    vw::Vector3 gcc_in  = colIn;
-    vw::Vector3 gcc_out = colOut;
-
-    //std::cout << "--3 in and out " << gcc_in << ' ' << gcc_out << std::endl;
-    //std::cout << "in is " << gcc_in << std::endl;
-    //std::cout << "--out is " << gcc_out << std::endl;
-
-    Vector3 in_trans =  scale*rotation*gcc_in + translation;
-    max_err = std::max(max_err,  norm_2(in_trans - gcc_out));
-    //std::cout << "diff is " << in_trans << ' ' << gcc_out << ' ' << norm_2(in_trans - gcc_out)
-    //  	      << std::endl;
-    
-  }
-  
-  if (std::abs(scale - 1.0) > 0.5 ) {
-    vw_throw(ArgumentErr() << "Expecting a rigid transform, got instead a scale of " << scale
-	     << ".\n");
-  }
-
-  vw_out() << "Error on the ground in meters: " << max_err << std::endl;
-  
-  // Apply the transform to the camera. 
-  cam->apply_transform(rotation, translation, scale);
-  
-  std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix,
-						      raw_img,
-						      camera_path);
-  cam_file = fs::path(cam_file).replace_extension("tsai").string();
-  vw_out() << "Writing: " << cam_file << std::endl;
-
-  cam->write(cam_file);  
-  exit(0); 
-}  
-
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
@@ -1532,9 +1344,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.")
     ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
                         "Map-projected versions of the input images and the DEM mapprojected onto (niche and experimental, not for general use).")
-    ("ortho-images",  po::value(&opt.ortho_images)->default_value(""),
-                        "Map-projected versions of the input images (niche and experimental, not for general use).")
-    
     ("lambda,l",         po::value(&opt.lambda)->default_value(-1),
                          "Set the initial value of the LM parameter lambda (ignored for the Ceres solver).")
     ("report-level,r",   po::value(&opt.report_level)->default_value(10),
@@ -1703,29 +1512,6 @@ int main(int argc, char* argv[]) {
     if (opt.mapprojected_data != "")
       create_matches_from_mapprojected_images(opt);
 
-    // Given a raw image and its ortho-rectified version, find the camera
-    // position to get that ortho image.
-    if (opt.ortho_images != "" && opt.stereo_session_string == "pinhole") {
-      std::vector<std::string> ortho_images;
-      std::istringstream is(opt.ortho_images);
-      std::string file;
-      while (is >> file){
-        ortho_images.push_back(file);
-      }
-      if (ortho_images.size() != opt.image_files.size()) {
-	vw_throw(ArgumentErr()
-		 << "Error: There must exist as many ortho-images as input images.\n");
-      }
-      for (size_t i = 0; i < opt.image_files.size(); i++) {
-	create_init_cameras_from_ortho_images(opt.image_files[i],
-					      ortho_images[i],
-					      opt.camera_files[i],
-					      opt,
-					      opt.camera_models[i] // will be over-written
-					      );
-      }
-    }
-    
     // Create the match points
     // Iterate through each pair of input images
     std::map< std::pair<int, int>, std::string> match_files;
