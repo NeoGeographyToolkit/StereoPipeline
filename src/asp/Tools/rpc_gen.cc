@@ -28,7 +28,7 @@
 #include <fstream>
 
 #include <asp/Camera/RPCModelGen.h>
-#include <asp/Camera/DG_XML.h>
+#include <asp/Camera/RPC_XML.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>

@@ -29,7 +29,7 @@ using namespace vw::cartography;
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
-#include <asp/Camera/DG_XML.h>
+#include <asp/Camera/RPC_XML.h>
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 

@@ -450,6 +450,7 @@ AX_APP(DISP_AVG,         [src/asp/WVCorrect], yes, [CORE])
 AX_APP(ASTER2ASP,        [src/asp/Tools], yes, [CORE CAMERA])
 AX_APP(ADD_SPOT_RPC,     [src/asp/Tools], yes, [CORE CAMERA])
 AX_APP(ICEBRIDGE,        [src/asp/Tools], yes, [VW VW_CARTOGRAPHY])
+AX_APP(ORTHO2PINHOLE,    [src/asp/Tools], yes, [SESSIONS])
 
 # These are here (instead of inside the APP macro where they belong)
 # for backwards compatability with older versions of automake.
@@ -491,7 +492,8 @@ AM_CONDITIONAL(MAKE_APP_PC_MERGE,   [test "$MAKE_APP_PC_MERGE"   = "yes"])
 AM_CONDITIONAL(MAKE_APP_DATUM_CONVERT, [test "$MAKE_APP_DATUM_CONVERT" = "yes"])
 AM_CONDITIONAL(MAKE_APP_DISP_AVG,   [test "$MAKE_APP_DISP_AVG"   = "yes"])
 AM_CONDITIONAL(MAKE_APP_ASTER2ASP,  [test "$MAKE_APP_ASTER2ASP"  = "yes"])
-AM_CONDITIONAL(MAKE_APP_ICEBRIDGE,  [test "$MAKE_APP_ICEBRIDGE"  = "yes"])
+AM_CONDITIONAL(MAKE_APP_ICEBRIDGE,     [test "$MAKE_APP_ICEBRIDGE"  = "yes"])
+AM_CONDITIONAL(MAKE_APP_ORTHO2PINHOLE, [test "$MAKE_APP_ORTHO2PINHOLE" = "yes"])
 
 ##################################################
 # final processing

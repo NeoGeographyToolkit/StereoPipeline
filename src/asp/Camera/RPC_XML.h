@@ -20,8 +20,8 @@
 // to read. They only read and then store the raw values. Other
 // objects will interpret the results.
 
-#ifndef __STEREO_CAMERA_DG_XML_H__
-#define __STEREO_CAMERA_DG_XML_H__
+#ifndef __STEREO_CAMERA_RPC_XML_H__
+#define __STEREO_CAMERA_RPC_XML_H__
 
 #include <vw/Core/FundamentalTypes.h>
 #include <vw/Core/Log.h>
@@ -198,4 +198,4 @@ namespace asp {
 
 } //end namespace asp
 
-#endif//__STEREO_CAMERA_DG_XML_H__
+#endif//__STEREO_CAMERA_RPC_XML_H__

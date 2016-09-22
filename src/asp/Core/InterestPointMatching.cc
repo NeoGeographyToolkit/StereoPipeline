@@ -346,6 +346,12 @@ namespace asp {
     int num = 100;
     left_points.reserve(2*num*num);
     right_points.reserve(2*num*num);
+
+    // Report progress, as this may be slow
+    TerminalProgressCallback tpc("", "\tRough homography--> ");
+    tpc.report_progress(0);
+    double inc_amount = 1.0 / double(num) / double(num);
+    
     for (int i = 0; i < num; i++ ) {
       for ( int j = 0; j < num; j++ ) {
 	try {
@@ -381,8 +387,11 @@ namespace asp {
 	  }
 	}
 	catch (...) {}
+        tpc.report_incremental_progress( inc_amount );
       }
     }
+    tpc.report_finished();
+    
     if (left_points.empty() || right_points.empty())
       vw_throw( ArgumentErr() << "InterestPointMatching: rough_homography_fit failed to generate points!\n" );
 

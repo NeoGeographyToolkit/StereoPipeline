@@ -23,7 +23,7 @@
 #ifndef __STEREO_SESSION_ASTER_H__
 #define __STEREO_SESSION_ASTER_H__
 
-#include <asp/Sessions/StereoSessionDG.h>
+#include <asp/Sessions/StereoSessionGdal.h>
 #include <vw/Stereo/StereoModel.h>
 
 #include <asp/Core/StereoSettings.h>
@@ -40,13 +40,20 @@ class StereoSessionASTER : public StereoSessionGdal<DISKTRANSFORM_TYPE_MATRIX,
                                                     STEREOMODEL_TYPE_ASTER> {
   
 public:
-  StereoSessionASTER(){}
+  StereoSessionASTER(){
+    std::cout << "---aster constructor!!!" << std::endl;
+  }
   virtual ~StereoSessionASTER(){}
   
   virtual std::string name() const { return "aster"; }
   
   /// Simple factory function
   static StereoSession* construct() { return new StereoSessionASTER; }
+  
+  /// This function will be over-written for ASTER
+  virtual void main_or_rpc_camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
+                                         boost::shared_ptr<vw::camera::CameraModel> &cam2);
+  
 };
   
 

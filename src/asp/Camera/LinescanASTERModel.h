@@ -76,6 +76,8 @@ namespace asp {
     virtual vw::Vector3 camera_center(vw::Vector2 const& pix) const;
     
     vw::Vector3 pixel_to_vector(vw::Vector2 const& pixel) const;
+
+    boost::shared_ptr<vw::camera::CameraModel> get_rpc_model() { return m_rpc_model;}
     
   protected:
 

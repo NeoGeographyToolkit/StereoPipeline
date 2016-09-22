@@ -20,7 +20,7 @@
 #include <vw/Math/EulerAngles.h>
 #include <vw/Camera/CameraSolve.h>
 #include <asp/Camera/RPCModel.h>
-#include <asp/Camera/DG_XML.h>
+#include <asp/Camera/RPC_XML.h>
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 namespace asp {
@@ -148,7 +148,7 @@ inline boost::posix_time::ptime parse_time(std::string str)
     return boost::posix_time::time_from_string(str);
   }catch(...){
     vw::vw_throw(vw::ArgumentErr() << "Failed to parse time from string: " << str
-		 << ". If you are not using Digital Globe images, you may need to specify the session as -t rpc or -t rpcmaprpc.\n");
+		 << ". If you are not using Digital Globe images, you may need to specify the session type, such as -t rpc, -t rpcmaprpc, -t aster, etc.\n");
   }
   return boost::posix_time::time_from_string(str); // Never reached!
 }

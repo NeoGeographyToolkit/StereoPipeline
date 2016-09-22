@@ -16,9 +16,9 @@
 // __END_LICENSE__
 
 
-#include <asp/Sessions/StereoSessionDG.h>
+#include <asp/Sessions/StereoSessionGdal.h>
 #include <asp/Camera/XMLBase.h>
-#include <asp/Camera/DG_XML.h>
+#include <asp/Camera/RPC_XML.h>
 #include <asp/Camera/RPCModel.h>
 #include <boost/scoped_ptr.hpp>
 #include <test/Helpers.h>

@@ -23,7 +23,7 @@
 #define __STEREO_SESSION_RPC_H__
 
 #include <asp/Camera/RPCStereoModel.h>
-#include <asp/Sessions/StereoSessionDG.h>
+#include <asp/Sessions/StereoSessionGdal.h>
 
 
 namespace asp {

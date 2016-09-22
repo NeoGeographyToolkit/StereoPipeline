@@ -17,7 +17,7 @@
 
 
 #include <asp/Camera/LinescanDGModel.h>
-#include <asp/Camera/DG_XML.h>
+#include <asp/Camera/RPC_XML.h>
 #include <asp/Camera/XMLBase.h>
 #include <asp/Camera/RPCModel.h>
 #include <boost/scoped_ptr.hpp>

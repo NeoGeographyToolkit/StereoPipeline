@@ -70,6 +70,12 @@ if MAKE_APP_ICEBRIDGE
   qi2txt_SOURCES = qi2txt.cc
 endif
 
+if MAKE_APP_ORTHO2PINHOLE
+  bin_PROGRAMS     += ortho2pinhole
+  ortho2pinhole_SOURCES = ortho2pinhole.cc
+  ortho2pinhole_LDADD = $(APP_ORTHO2PINHOLE_LIBS)
+endif
+
 if MAKE_APP_BUNDLE_ADJUST
   bin_PROGRAMS     += bundle_adjust 
   libexec_PROGRAMS += opencv_imagelist_creator

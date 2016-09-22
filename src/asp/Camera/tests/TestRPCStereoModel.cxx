@@ -25,7 +25,7 @@
 #include <vw/Stereo/StereoModel.h>
 #include <test/Helpers.h>
 #include <asp/Camera/XMLBase.h>
-#include <asp/Camera/DG_XML.h>
+#include <asp/Camera/RPC_XML.h>
 #include <asp/Camera/LinescanDGModel.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/RPCStereoModel.h>

@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 
-/// \file StereoSessionDG.h
+/// \file StereoSessionGdal.h
 ///
 /// This a session to support Digital Globe images from Quickbird and World View.
 
@@ -30,7 +30,7 @@
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Camera/RPCModel.h>
-#include <asp/Camera/DG_XML.h>
+#include <asp/Camera/RPC_XML.h>
 
 namespace asp {
 
@@ -122,7 +122,8 @@ namespace asp {
       // - The output is written directly to file!
       DiskImageView<float> left_orig_image(left_input_file);
       boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
-      this->camera_models(left_cam, right_cam); // Fetch the camera models.
+      //this->camera_models(left_cam, right_cam); // For ASTER we fetch RPC, for speed
+      this->main_or_rpc_camera_models(left_cam, right_cam); // For ASTER we fetch RPC, for speed
       this->ip_matching(left_cropped_file,   right_cropped_file,
 			bounding_box(left_orig_image).size(),
 			left_stats, right_stats,

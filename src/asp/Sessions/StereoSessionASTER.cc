@@ -61,12 +61,22 @@ namespace asp {
     
     boost::shared_ptr<vw::camera::CameraModel> base_cam1, base_cam2;
     this->camera_models(base_cam1, base_cam2);
+
+    // Strip the adjustments
+    boost::shared_ptr<vw::camera::CameraModel> unadj_cam1, unadj_cam2;
+    AdjustedCameraModel* adj_cam1 = dynamic_cast<AdjustedCameraModel*>(base_cam1.get());
+    if (adj_cam1 == NULL) unadj_cam1 = base_cam1;
+    else                  unadj_cam1 = adj_cam1->unadjusted_model();
+    AdjustedCameraModel* adj_cam2 = dynamic_cast<AdjustedCameraModel*>(base_cam2.get());
+    if (adj_cam2 == NULL) unadj_cam2 = base_cam2;
+    else                  unadj_cam2 = adj_cam2->unadjusted_model();
     
-    ASTERCameraModel * aster_cam1 = dynamic_cast<ASTERCameraModel*>(base_cam1.get());
+    
+    ASTERCameraModel * aster_cam1 = dynamic_cast<ASTERCameraModel*>(unadj_cam1.get());
     if (aster_cam1 == NULL) vw_throw( ArgumentErr() << "ASTER camera models are expected." );
     cam1 = aster_cam1->get_rpc_model();
     
-    ASTERCameraModel * aster_cam2 = dynamic_cast<ASTERCameraModel*>(base_cam2.get());
+    ASTERCameraModel * aster_cam2 = dynamic_cast<ASTERCameraModel*>(unadj_cam2.get());
     if (aster_cam2 == NULL) vw_throw( ArgumentErr() << "ASTER camera models are expected." );
     cam2 = aster_cam2->get_rpc_model();
     

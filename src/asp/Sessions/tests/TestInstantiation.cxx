@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 
-#include <asp/Sessions/StereoSessionDG.h>
+#include <asp/Sessions/StereoSessionGdal.h>
 #include <asp/Sessions/StereoSessionDGMapRPC.h>
 #include <asp/Sessions/StereoSessionRPC.h>
 #include <asp/Sessions/StereoSessionIsis.h>

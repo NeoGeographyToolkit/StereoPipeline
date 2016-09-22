@@ -766,6 +766,8 @@ namespace asp {
 
     VW_OUT( DebugMessage, "asp" ) << "Performing IP matching with alignment " << std::endl;
 
+    std::cout << "--- cameras are " << cam1 << ' ' << cam2 << std::endl;
+    
     BBox2i box1 = bounding_box(image1.impl()), box2 = bounding_box(image2.impl());
 
     Matrix<double> rough_homography;
