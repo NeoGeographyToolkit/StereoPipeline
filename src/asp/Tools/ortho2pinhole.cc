@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 
-/// \file orthoimage2pinhole.cc
+/// \file ortho2pinhole.cc
 ///
 
 #include <asp/Core/Macros.h>
@@ -163,7 +163,6 @@ void ortho2pinhole(Options const& opt){
     Vector2 raw_pix(raw_ip[ip_iter].x, raw_ip[ip_iter].y);
     Vector3 ctr = pcam->camera_center(raw_pix);
     Vector3 dir = pcam->pixel_to_vector(raw_pix);
-
     
     // We assume the ground is flat
     // Intersect rays going from camera with the plane z = cam_height.
