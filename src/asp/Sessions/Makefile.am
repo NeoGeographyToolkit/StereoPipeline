@@ -29,7 +29,7 @@ include_HEADERS = StereoSession.h StereoSessionFactory.h StereoSessionFactory.tc
                   StereoSessionSpot.h StereoSessionASTER.h ResourceLoader.h
 
 libaspSessions_la_SOURCES = StereoSession.cc StereoSessionFactory.cc \
-      StereoSessionPinhole.cc StereoSessionDG.cc                     \
+      StereoSessionPinhole.cc StereoSessionGdal.cc                     \
       StereoSessionNadirPinhole.cc StereoSessionSpot.cc StereoSessionASTER.cc \
       CameraModelLoader.cc ResourceLoader.cc
 
