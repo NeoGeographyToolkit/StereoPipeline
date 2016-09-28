@@ -39,7 +39,7 @@ int main( int argc, char *argv[] ) {
 
   // Simple input parsing
   if (argc < 4) {
-    std::cout << "Usage: <input path> <output path> <Pole: North=1, South=0>\n"; 
+    vw_out() << "Usage: <input path> <output path> <Pole: North=1, South=0>\n"; 
     return -1;
   }
   std::string input_path  = argv[1];
@@ -49,16 +49,21 @@ int main( int argc, char *argv[] ) {
   // Load the existing georeference info, then add the projection info.
   DiskImageResourceGDAL in_rsrc(input_path);
   GeoReference georef;
-  read_georeference(georef, in_rsrc);
-  //std::cout << "Georef = " << georef << std::endl;
+  bool has_georef = read_georeference(georef, in_rsrc);
+  if (!has_georef) {
+    vw_throw( ArgumentErr() << "Could not read the georeference from: " << input_path  
+	      << ". Check if the corresponding .tfw file is present.\n");
+  }
+  
+  //vw_out() << "Georef = " << georef << std::endl;
   if (pole) // EPSG:3413
     georef.set_proj4_projection_str("+proj=stere +lat_0=90 +lon_0=-45 +lat_ts=70 +ellps=WGS84 +datum=WGS84 +units=m");
   else // EPSG:3031
     georef.set_proj4_projection_str("+proj=stere +lat_0=-90 +lon_0=0 +lat_ts=-71 +ellps=WGS84 +datum=WGS84 +units=m");
-  //std::cout << "Output Georef = " << georef << std::endl;
+  //vw_out() << "Output Georef = " << georef << std::endl;
 
   // Set nodata if it is not already set.  This should be constant across files.
-  double nodata_val = -32767;
+  double nodata_val = -32768;
   if ( in_rsrc.has_nodata_read() ) {
     nodata_val = in_rsrc.nodata_read();
     vw_out() << "\tFound input nodata value: " << nodata_val << std::endl;
@@ -75,11 +80,9 @@ int main( int argc, char *argv[] ) {
 
   // Write the output file.  
   GdalWriteOptions opt;
-  std::cout << "Writing: " << output_path << std::endl;
+  vw_out() << "Writing: " << output_path << std::endl;
   block_write_gdal_image(output_path, data_out, true, georef, true, nodata_val, opt,
                          TerminalProgressCallback("vw",""));
            
   return 0;
 }
-
-
