@@ -304,7 +304,7 @@ struct BaPinholeError {
     const size_t ncp = BAPinholeModel::camera_params_n;
     const size_t npp = BAPinholeModel::point_params_n;
     const size_t num_intrinsics = ba_model->num_intrinsic_params();
-    
+
     // Create a ceres::NumericDiffCostFunction object templated to the
     // exact problem sizes we need.
     // Unfortunately this seems to be the only way to do this!
@@ -320,6 +320,13 @@ struct BaPinholeError {
     case 6:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp,6>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
     case 7:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp,7>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
     case 8:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp,8>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    case 9:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp,9>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    case 10:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp,10>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    case 11:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp,11>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    case 12:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp,12>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    case 13:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp,13>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    case 14:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp,14>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    case 15:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp,15>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
     default:
       vw_throw(LogicErr() << "bundle_adjust.cc not set up for this many intrinsic params!");
     };
