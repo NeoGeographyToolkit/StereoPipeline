@@ -324,12 +324,15 @@ def find_bands(node):
 
     return bands
 
-# bugfix for the situation ullon = -178.6 and urlon = 178.34
+# bugfix for the situations: ullon = -178.6 and urlon = 178.34
+#                            ullon =  178.6 and urlon = -178.34
 def maybe_swap_add_360(a, b):
-    if b - a > 270:
+    if b - a > 270: # ullon = -178.6 and urlon = 178.34
         tmp = b
         b   = a + 360
         a   = tmp
+    if a - b > 270: # ullon = 178.6 and urlon = -178.34
+        b = b + 360
     return [a, b]
     
 def read_corners(band):
@@ -351,7 +354,7 @@ def read_corners(band):
     lllon = float(band.find("LLLON").text)
     lllat = float(band.find("LLLAT").text)
 
-    # Bugfix for the situation when ullon = -178.6 and urlon = 178.34
+    # Bugfix for the situation when ullon = +/-178.6 and urlon = +/-178.34
     [ullon, urlon] = maybe_swap_add_360(ullon, urlon)
     [lllon, lrlon] = maybe_swap_add_360(lllon, lrlon)
     
