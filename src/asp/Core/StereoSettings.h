@@ -169,7 +169,10 @@ namespace asp {
                                       // to fill
     bool mask_flatfield;              // Masks pixels in the input images that are less
                                       // than 0 (for use with Apollo Metric Camera)
-
+    int   median_filter_size;        // Filter subpixel results with median filter of this size
+    int   disp_smooth_size;           // Adaptive disparity smoothing size
+    float disp_smooth_texture;        // Adaptive disparity smoothing max texture value
+    
     // Triangulation Options
     std::string universe_center;      // Center for the radius clipping
     float  near_universe_radius;      // Radius of the universe in meters

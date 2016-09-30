@@ -21,6 +21,7 @@
 #include <asp/Tools/stereo.h>
 
 #include <vw/Stereo/DisparityMap.h>
+#include <vw/Stereo/Algorithms.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Image/BlobIndex.h>
 #include <vw/Image/ErodeView.h>
@@ -37,6 +38,114 @@ using namespace std;
 namespace vw {
   template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
 }
+
+
+
+
+/// Apply a set of smoothing filters to the subpixel disparity results.
+template <class ImageT, class DispImageT>
+class TextureAwareDisparityFilter: public ImageViewBase<TextureAwareDisparityFilter<ImageT, DispImageT> >{
+  ImageT     m_img;
+  DispImageT m_disp_img;
+  
+  int   m_median_filter_size;     ///< Step 1: Apply a median filter of this size
+  int   m_texture_smooth_range;   ///< Step 2: Compute texture measure of input image with this kernel size
+  float m_texture_max;            ///< Step 3: Perform texture-aware smoothing of the disparity.  m_texture_max
+  int   m_max_smooth_kernel_size; ///<         smooths more pixels, and the smooth_kernel_size increases the smoothing intensity.
+  
+public:
+  TextureAwareDisparityFilter( ImageViewBase<ImageT    > const& img,
+                               ImageViewBase<DispImageT> const& disp_img,
+                               int   median_filter_size,
+                               int   texture_smooth_range,
+                               float texture_max,
+                               int   max_smooth_kernel_size):
+    m_img(img.impl()), m_disp_img(disp_img.impl()),
+    m_median_filter_size(median_filter_size),
+    m_texture_smooth_range(texture_smooth_range),
+    m_texture_max(texture_max),
+    m_max_smooth_kernel_size(max_smooth_kernel_size)
+     {}
+
+  // Image View interface
+  typedef typename DispImageT::pixel_type pixel_type;
+  typedef pixel_type                      result_type;
+  typedef ProceduralPixelAccessor<TextureAwareDisparityFilter> pixel_accessor;
+
+  inline int32 cols  () const { return m_disp_img.cols(); }
+  inline int32 rows  () const { return m_disp_img.rows(); }
+  inline int32 planes() const { return 1; }
+
+  inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
+
+  inline pixel_type operator()( double /*i*/, double /*j*/, int32 /*p*/ = 0 ) const {
+    vw_throw(NoImplErr() << "TextureAwareDisparityFilter::operator()(...) is not implemented");
+    return pixel_type();
+  }
+
+  typedef CropView<ImageView<pixel_type> > prerasterize_type;
+  inline prerasterize_type prerasterize(BBox2i const& bbox) const {
+
+    // Figure out the largest kernel expansion we need to support the filtering
+    int max_half_kernel = m_texture_smooth_range;
+    if (m_max_smooth_kernel_size > max_half_kernel)
+      max_half_kernel = m_max_smooth_kernel_size;
+    max_half_kernel = (max_half_kernel-1) / 2;
+
+    //std::cout << "Rasterizing input images...\n";
+    // Rasterize both input image regions
+    BBox2i bbox2 = bbox;
+    bbox2.expand(max_half_kernel);
+    //std::cout << "bbox2 = " << bbox2 << std::endl;
+    ImageView<typename ImageT::pixel_type> input_tile      = crop(m_img,      bbox2);
+    ImageView<pixel_type                 > input_disp_tile = crop(m_disp_img, bbox2);
+
+    //std::cout << "Generating texture image...\n";
+    ImageView<float> texture_image;
+    vw::stereo::texture_measure(input_tile, texture_image, m_texture_smooth_range);
+    //write_image( "texture_image.tif", texture_image );
+
+
+    ImageView<pixel_type > disp_tile_median;
+    vw::stereo::disparity_median_filter(input_disp_tile, disp_tile_median, m_median_filter_size);
+    
+    //std::cout << "Filtering disparity image...\n";
+    ImageView<pixel_type > disp_tile_filtered;
+    vw::stereo::texture_preserving_disparity_filter(disp_tile_median, disp_tile_filtered, texture_image, 
+                                                    m_texture_max, m_max_smooth_kernel_size);
+    //std::cout << "Done!\n";
+
+
+    // Fake the bounds on the returned image region
+    return prerasterize_type(disp_tile_filtered,
+                             -bbox2.min().x(), -bbox2.min().y(),
+                             cols(), rows() );
+  }
+
+  template <class DestT>
+  inline void rasterize(DestT const& dest, BBox2i bbox) const {
+    vw::rasterize(prerasterize(bbox), dest, bbox);
+  }
+};
+
+template <class ImageT, class DispImageT>
+TextureAwareDisparityFilter<ImageT, DispImageT>
+texture_aware_disparity_filter( ImageViewBase<ImageT    > const& img,
+                                ImageViewBase<DispImageT> const& disp_img,
+                                int   median_filter_size,
+                                int   texture_smooth_range,
+                                float texture_max,
+                                int   max_smooth_kernel_size) {
+  typedef TextureAwareDisparityFilter<ImageT, DispImageT> return_type;
+  return return_type(img.impl(), disp_img.impl(), median_filter_size, 
+                     texture_smooth_range, texture_max, max_smooth_kernel_size);
+}
+
+
+
+
+
+
 
 // Erode blobs from given image by iterating through tiles, biasing
 // each tile by a factor of blob size, removing blobs in the tile,
@@ -267,6 +376,9 @@ void stereo_filtering( ASPGlobalOptions& opt ) {
     DiskImageView<vw::uint8> right_mask( opt.out_prefix+"-rMask.tif" );
     int32 mask_buffer = max( stereo_settings().subpixel_kernel );
 
+
+    DiskImageView<PixelGray<float> > left_disk_image (opt.out_prefix+"-L.tif");
+
     vw_out() << "\t--> Cleaning up disparity map prior to filtering processes ("
              << stereo_settings().rm_cleanup_passes << " pass).\n";
 
@@ -322,9 +434,15 @@ void stereo_filtering( ASPGlobalOptions& opt ) {
              opt);
       }
       else { // No cleanup passes
+        std::cout << "Using smoothing filter!\n";
         write_good_pixel_and_filtered
           (stereo::disparity_mask
-            (disparity_disk_image,
+            (
+             texture_aware_disparity_filter(left_disk_image, disparity_disk_image, 
+                                            stereo_settings().median_filter_size,
+                                            stereo_settings().disp_smooth_size+2, // Compute texture a little larger than smooth radius
+                                            stereo_settings().disp_smooth_texture, 
+                                            stereo_settings().disp_smooth_size),
               apply_mask(asp::threaded_edge_mask(left_mask, 0,mask_buffer,1024)),
               apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024))),
             opt);

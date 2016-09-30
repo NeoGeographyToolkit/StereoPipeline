@@ -42,94 +42,86 @@ template <class Image1T, class Image2T>
 ImageViewRef<PixelMask<Vector2f> >
 refine_disparity(Image1T const& left_image,
                  Image2T const& right_image,
-                 ImageViewRef< PixelMask<Vector2i> > const& integer_disp,
+                 ImageViewRef< PixelMask<Vector2f> > const& integer_disp,
                  ASPGlobalOptions const& opt, bool verbose){
 
   ImageViewRef<PixelMask<Vector2f> > refined_disp =
     pixel_cast<PixelMask<Vector2f> >(integer_disp);
+
+  PrefilterModeType prefilter_mode = 
+    static_cast<vw::stereo::PrefilterModeType>(stereo_settings().pre_filter_mode);
 
   if (stereo_settings().subpixel_mode == 0) {
     // Do nothing
 
   } else if (stereo_settings().subpixel_mode == 1) {
     // Parabola
-    if (verbose) vw_out() << "\t--> Using parabola subpixel mode.\n";
-    if (stereo_settings().pre_filter_mode == 2) {
-      if (verbose) vw_out() << "\t--> Using LOG pre-processing filter with "
-                            << stereo_settings().slogW << " sigma blur.\n";
-      typedef stereo::LaplacianOfGaussian PreFilter;
-      refined_disp =
-        parabola_subpixel( integer_disp,
-                           left_image, right_image,
-                           PreFilter(stereo_settings().slogW),
-                           stereo_settings().subpixel_kernel );
-    } else if (stereo_settings().pre_filter_mode == 1) {
-      if (verbose)  vw_out() << "\t--> Using Subtracted Mean pre-processing filter with "
-                             << stereo_settings().slogW << " sigma blur.\n";
-      typedef stereo::SubtractedMean PreFilter;
-      refined_disp =
-        parabola_subpixel( integer_disp,
-                           left_image, right_image,
-                           PreFilter(stereo_settings().slogW),
-                           stereo_settings().subpixel_kernel );
-    } else {
-      if (verbose) vw_out() << "\t--> NO preprocessing" << endl;
-      typedef stereo::NullOperation PreFilter;
-      refined_disp =
-        parabola_subpixel( integer_disp,
-                           left_image, right_image,
-                           PreFilter(),
-                           stereo_settings().subpixel_kernel );
-    }
-
-  } else if (stereo_settings().subpixel_mode == 2) {
+    
+    if (verbose) {
+      vw_out() << "\t--> Using parabola subpixel mode.\n";
+      if (stereo_settings().pre_filter_mode == 2)
+        vw_out() << "\t--> Using LOG pre-processing filter with "
+                 << stereo_settings().slogW << " sigma blur.\n";
+      else if (stereo_settings().pre_filter_mode == 1)
+        vw_out() << "\t--> Using Subtracted Mean pre-processing filter with "
+                 << stereo_settings().slogW << " sigma blur.\n";
+      else
+        vw_out() << "\t--> NO preprocessing" << endl;
+    } 
+    
+    refined_disp = parabola_subpixel( integer_disp,
+                                      left_image, right_image,
+                                      prefilter_mode, stereo_settings().slogW,
+                                      stereo_settings().subpixel_kernel );
+    
+  } // End parabola cases
+  else if (stereo_settings().subpixel_mode == 2) {
     // Bayes EM
     if (verbose){
       vw_out() << "\t--> Using affine adaptive subpixel mode\n";
       vw_out() << "\t--> Forcing use of LOG filter with "
                << stereo_settings().slogW << " sigma blur.\n";
     }
-    typedef stereo::LaplacianOfGaussian PreFilter;
     refined_disp =
       bayes_em_subpixel( integer_disp,
                          left_image, right_image,
-                         PreFilter(stereo_settings().slogW),
+                         prefilter_mode, stereo_settings().slogW,
                          stereo_settings().subpixel_kernel,
                          stereo_settings().subpixel_max_levels );
 
-  } else if (stereo_settings().subpixel_mode == 3) {
+  } // End Bayes EM cases
+  else if (stereo_settings().subpixel_mode == 3) {
     // Fast affine
     if (verbose){
       vw_out() << "\t--> Using affine subpixel mode\n";
       vw_out() << "\t--> Forcing use of LOG filter with "
                << stereo_settings().slogW << " sigma blur.\n";
     }
-    typedef stereo::LaplacianOfGaussian PreFilter;
     refined_disp =
       affine_subpixel( integer_disp,
                        left_image, right_image,
-                       PreFilter(stereo_settings().slogW),
+                       prefilter_mode, stereo_settings().slogW,
                        stereo_settings().subpixel_kernel,
                        stereo_settings().subpixel_max_levels );
 
-  } else if (stereo_settings().subpixel_mode == 4) {
+  } // End Fast affine cases
+  else if (stereo_settings().subpixel_mode == 4) {
     // Lucas-Kanade
     if (verbose){
       vw_out() << "\t--> Using Lucas-Kanade subpixel mode\n";
       vw_out() << "\t--> Forcing use of LOG filter with "
                << stereo_settings().slogW << " sigma blur.\n";
     }
-    typedef stereo::LaplacianOfGaussian PreFilter;
     refined_disp =
       lk_subpixel( integer_disp,
                    left_image, right_image,
-                   PreFilter(stereo_settings().slogW),
+                   prefilter_mode, stereo_settings().slogW,
                    stereo_settings().subpixel_kernel,
                    stereo_settings().subpixel_max_levels );
 
-  } else if (stereo_settings().subpixel_mode == 5) {
-    // Affine and Bayes subpixel refinement always use the
-    // LogPreprocessingFilter...
+  } // End Lucas-Kanade cases
+  else if (stereo_settings().subpixel_mode == 5) {
+    // Affine and Bayes subpixel refinement always use the LogPreprocessingFilter...
     if (verbose){
       vw_out() << "\t--> Using EM Subpixel mode "
                << stereo_settings().subpixel_mode << endl;
@@ -167,7 +159,8 @@ refine_disparity(Image1T const& left_image,
     refined_disp =
       per_pixel_filter(em_disparity_disk_image,
                        EMCorrelator::ExtractDisparityFunctor());
-  } else {
+  } // End EM subpixel cases 
+  else {
     if (verbose) {
       vw_out() << "\t--> Invalid Subpixel mode selection: " << stereo_settings().subpixel_mode << endl;
       vw_out() << "\t--> Doing nothing\n";
@@ -204,14 +197,13 @@ public:
     m_integer_disp( integer_disp.impl() ), m_sub_disp( sub_disp.impl() ),
     m_local_hom(local_hom), m_opt(opt){
 
-    m_upscale_factor
-      = Vector2(double(m_left_image.impl().cols()) / m_sub_disp.cols(),
-                double(m_left_image.impl().rows()) / m_sub_disp.rows());
+    m_upscale_factor = Vector2(double(m_left_image.impl().cols()) / m_sub_disp.cols(),
+                               double(m_left_image.impl().rows()) / m_sub_disp.rows());
   }
 
   // Image View interface
-  typedef PixelMask<Vector2f> pixel_type;
-  typedef pixel_type result_type;
+  typedef PixelMask<Vector2f>                  pixel_type;
+  typedef pixel_type                           result_type;
   typedef ProceduralPixelAccessor<PerTileRfne> pixel_accessor;
 
   inline int32 cols  () const { return m_left_image.cols(); }
@@ -244,12 +236,10 @@ public:
     if (stereo_settings().seed_mode > 0 && stereo_settings().use_local_homography){
 
       int ts = ASPGlobalOptions::corr_tile_size();
-      Matrix<double>  lowres_hom
-        = m_local_hom(bbox.min().x()/ts, bbox.min().y()/ts);
+      Matrix<double>  lowres_hom = m_local_hom(bbox.min().x()/ts, bbox.min().y()/ts);
       Vector3 upscale( m_upscale_factor[0],     m_upscale_factor[1],     1 );
       Vector3 dnscale( 1.0/m_upscale_factor[0], 1.0/m_upscale_factor[1], 1 );
-      Matrix<double>  fullres_hom
-        = diagonal_matrix(upscale)*lowres_hom*diagonal_matrix(dnscale);
+      Matrix<double>  fullres_hom = diagonal_matrix(upscale)*lowres_hom*diagonal_matrix(dnscale);
 
       // Must transform the right image by the local disparity
       // to be in the same conditions as for stereo correlation.
@@ -258,8 +248,7 @@ public:
         = transform (copy_mask( m_right_image.impl(), create_mask(m_right_mask) ),
                      HomographyTransform(fullres_hom),
                      m_left_image.impl().cols(), m_left_image.impl().rows());
-      ImageViewRef<right_pix_type> right_trans_img
-        = apply_mask(right_trans_masked_img);
+      ImageViewRef<right_pix_type> right_trans_img = apply_mask(right_trans_masked_img);
 
 
       tile_disparity = crop(refine_disparity(m_left_image, right_trans_img,
@@ -275,10 +264,9 @@ public:
                                              m_integer_disp, m_opt, verbose), bbox);
     }
 
-    prerasterize_type disparity
-      = prerasterize_type(tile_disparity,
-                          -bbox.min().x(), -bbox.min().y(),
-                          cols(), rows() );
+    prerasterize_type disparity = prerasterize_type(tile_disparity,
+                                                    -bbox.min().x(), -bbox.min().y(),
+                                                    cols(), rows() );
 
     // Set to invalid the disparity outside trans_crop_win.
     for (int col = bbox.min().x(); col < bbox.max().x(); col++){
@@ -300,12 +288,12 @@ public:
 
 template <class Image1T, class Image2T, class SeedDispT>
 PerTileRfne<Image1T, Image2T, SeedDispT>
-per_tile_rfne( ImageViewBase<Image1T> const& left,
-               ImageViewBase<Image2T> const& right,
-               ImageViewRef<uint8> const& right_mask,
+per_tile_rfne( ImageViewBase<Image1T  > const& left,
+               ImageViewBase<Image2T  > const& right,
+               ImageViewRef<uint8     > const& right_mask,
                ImageViewBase<SeedDispT> const& integer_disp,
                ImageViewBase<SeedDispT> const& sub_disp,
-               ImageView<Matrix3x3> const& local_hom,
+               ImageView<Matrix3x3    > const& local_hom,
                ASPGlobalOptions const& opt) {
   typedef PerTileRfne<Image1T, Image2T, SeedDispT> return_type;
   return return_type( left.impl(), right.impl(), right_mask,
@@ -314,25 +302,25 @@ per_tile_rfne( ImageViewBase<Image1T> const& left,
 
 void stereo_refinement( ASPGlobalOptions const& opt ) {
 
-  ImageViewRef<PixelGray<float> > left_image, right_image;
-  ImageViewRef<uint8> left_mask, right_mask;
-  ImageViewRef<PixelMask<Vector2i> > integer_disp;
-  ImageViewRef<PixelMask<Vector2i> > sub_disp;
+  ImageViewRef<PixelGray<float>    > left_image, right_image;
+  ImageViewRef<uint8               > left_mask,  right_mask;
+  ImageViewRef<PixelMask<Vector2f> > integer_disp;
+  ImageViewRef<PixelMask<Vector2f> > sub_disp;
   ImageView<Matrix3x3> local_hom;
   string left_image_file  = opt.out_prefix+"-L.tif";
   string right_image_file = opt.out_prefix+"-R.tif";
-  string left_mask_file  = opt.out_prefix+"-lMask.tif";
-  string right_mask_file = opt.out_prefix+"-rMask.tif";
+  string left_mask_file   = opt.out_prefix+"-lMask.tif";
+  string right_mask_file  = opt.out_prefix+"-rMask.tif";
 
   try {
-    left_image   = DiskImageView< PixelGray<float> >(left_image_file);
+    left_image   = DiskImageView< PixelGray<float> >(left_image_file );
     right_image  = DiskImageView< PixelGray<float> >(right_image_file);
-    left_mask    = DiskImageView<uint8>(left_mask_file);
+    left_mask    = DiskImageView<uint8>(left_mask_file );
     right_mask   = DiskImageView<uint8>(right_mask_file);
-    integer_disp = DiskImageView< PixelMask<Vector2i> >(opt.out_prefix + "-D.tif");
+    integer_disp = DiskImageView< PixelMask<Vector2f> >(opt.out_prefix + "-D.tif");
     if ( stereo_settings().seed_mode > 0 &&
          stereo_settings().use_local_homography ){
-      sub_disp = DiskImageView<PixelMask<Vector2i> >(opt.out_prefix+"-D_sub.tif");
+      sub_disp = DiskImageView<PixelMask<Vector2f> >(opt.out_prefix+"-D_sub.tif");
 
       string local_hom_file = opt.out_prefix + "-local_hom.txt";
       read_local_homographies(local_hom_file, local_hom);
@@ -353,9 +341,9 @@ void stereo_refinement( ASPGlobalOptions const& opt ) {
 
     Vector<float32> left_stats, right_stats;
     string left_stats_file  = opt.out_prefix+"-lStats.tif";
-    string right_stats_file  = opt.out_prefix+"-rStats.tif";
+    string right_stats_file = opt.out_prefix+"-rStats.tif";
     vw_out() << "Reading: " << left_stats_file << ' ' << right_stats_file << endl;
-    read_vector(left_stats,  left_stats_file);
+    read_vector(left_stats,  left_stats_file );
     read_vector(right_stats, right_stats_file);
     normalize_images(stereo_settings().force_use_entire_range,
                      stereo_settings().individually_normalize,
@@ -370,7 +358,7 @@ void stereo_refinement( ASPGlobalOptions const& opt ) {
   // the relevant messages.
   bool verbose = true;
   ImageView<PixelGray<float>    > left_dummy(1, 1), right_dummy(1, 1);
-  ImageView<PixelMask<Vector2i> > dummy_disp(1, 1);
+  ImageView<PixelMask<Vector2f> > dummy_disp(1, 1);
   refine_disparity(left_dummy, right_dummy, dummy_disp, opt, verbose);
 
   ImageViewRef< PixelMask<Vector2f> > refined_disp
@@ -378,9 +366,9 @@ void stereo_refinement( ASPGlobalOptions const& opt ) {
                     integer_disp, sub_disp, local_hom, opt);
 
   cartography::GeoReference left_georef;
-  bool has_left_georef = read_georeference(left_georef,  opt.out_prefix + "-L.tif");
-  bool has_nodata = false;
-  double nodata = -32768.0;
+  bool   has_left_georef = read_georeference(left_georef,  opt.out_prefix + "-L.tif");
+  bool   has_nodata      = false;
+  double nodata          = -32768.0;
 
   string rd_file = opt.out_prefix + "-RD.tif";
   vw_out() << "Writing: " << rd_file << "\n";

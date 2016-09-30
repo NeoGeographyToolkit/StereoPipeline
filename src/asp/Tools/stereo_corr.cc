@@ -48,18 +48,18 @@ void read_search_range(ASPGlobalOptions & opt){
   if (stereo_settings().seed_mode == 0) return;
 
   DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
-			   Rmask(opt.out_prefix + "-rMask.tif");
+                           Rmask(opt.out_prefix + "-rMask.tif");
 
-  DiskImageView<PixelGray<float> > left_sub( opt.out_prefix+"-L_sub.tif" ),
-				   right_sub( opt.out_prefix+"-R_sub.tif" );
+  DiskImageView<PixelGray<float> > left_sub ( opt.out_prefix+"-L_sub.tif" ),
+                                   right_sub( opt.out_prefix+"-R_sub.tif" );
 
   Vector2 downsample_scale( double(left_sub.cols()) / double(Lmask.cols()),
-			    double(left_sub.rows()) / double(Lmask.rows()) );
+                            double(left_sub.rows()) / double(Lmask.rows()) );
 
   std::string d_sub_file = opt.out_prefix + "-D_sub.tif";
   if (!fs::exists(d_sub_file)) return;
 
-  ImageView<PixelMask<Vector2i> > sub_disp;
+  ImageView<PixelMask<Vector2f> > sub_disp;
   read_image(sub_disp, d_sub_file);
   BBox2i search_range = stereo::get_disparity_range( sub_disp );
   search_range.min() = floor(elem_quot(search_range.min(),downsample_scale));
@@ -120,7 +120,7 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
         collar_size = 0;
     
       // Warning: A giant function call approaches!
-      // TODO: Why the extra filtering step here? PyramidCorrelationView already performs 1-3 iterations of outlier removal!
+      // TODO: Why the extra filtering step here? PyramidCorrelationView already performs 1-3 iterations of outlier removal.
       vw::cartography::block_write_gdal_image( // Write to disk
           opt.out_prefix + "-D_sub.tif",
           rm_outliers_using_thresh( // Throw out individual pixels that are far from any neighbors
@@ -157,7 +157,7 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
     else { // Use quantile based filtering - This filter needs to be profiled to improve its speed.
     
       // Compute image correlation using the PyramidCorrelationView class
-      ImageView< PixelMask<Vector2i> > disp_image = vw::stereo::pyramid_correlate( 
+      ImageView< PixelMask<Vector2f> > disp_image = vw::stereo::pyramid_correlate( 
                   left_sub, right_sub,
                   left_mask_sub, right_mask_sub,
                   vw::stereo::PREFILTER_LOG, stereo_settings().slogW,
@@ -294,7 +294,7 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
     string sub_disp_file = opt.out_prefix+"-D_sub.tif";
     try {
       vw_log().console_log().rule_set().add_rule(-1,"fileio");
-      DiskImageView<PixelMask<Vector2i> > test(sub_disp_file);
+      DiskImageView<PixelMask<Vector2f> > test(sub_disp_file);
       vw_settings().reload_config();
     } catch (vw::IOErr const& e) {
       vw_settings().reload_config();
@@ -334,8 +334,8 @@ class SeededCorrelatorView : public ImageViewBase<SeededCorrelatorView> {
   DiskImageView<PixelGray<float> >   m_right_image;
   DiskImageView<vw::uint8> m_left_mask;
   DiskImageView<vw::uint8> m_right_mask;
-  ImageViewRef<PixelMask<Vector2i> > m_sub_disp;
-  ImageViewRef<PixelMask<Vector2i> > m_sub_disp_spread;
+  ImageViewRef<PixelMask<Vector2f> > m_sub_disp;
+  ImageViewRef<PixelMask<Vector2f> > m_sub_disp_spread;
   ImageView<Matrix3x3> const& m_local_hom;
 
   // Settings
@@ -352,7 +352,7 @@ public:
   // Set these input types here instead of making them template arguments
   typedef DiskImageView<PixelGray<float> >   ImageType;
   typedef DiskImageView<vw::uint8>           MaskType;
-  typedef ImageViewRef<PixelMask<Vector2i> > DispSeedImageType;
+  typedef ImageViewRef<PixelMask<Vector2f> > DispSeedImageType;
   typedef ImageType::pixel_type InputPixelType;
 
   SeededCorrelatorView( ImageType             const& left_image,
@@ -379,7 +379,7 @@ public:
   }
 
   // Image View interface
-  typedef PixelMask<Vector2i> pixel_type;
+  typedef PixelMask<Vector2f> pixel_type;
   typedef pixel_type          result_type;
   typedef ProceduralPixelAccessor<SeededCorrelatorView> pixel_accessor;
 
@@ -602,21 +602,21 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
                                    right_disk_image(opt.out_prefix+"-R.tif");
   DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
                            Rmask(opt.out_prefix + "-rMask.tif");
-  ImageViewRef<PixelMask<Vector2i> > sub_disp;
+  ImageViewRef<PixelMask<Vector2f> > sub_disp;
   std::string dsub_file   = opt.out_prefix+"-D_sub.tif";
   std::string spread_file = opt.out_prefix+"-D_sub_spread.tif";
   
   if ( stereo_settings().seed_mode > 0 )
-    sub_disp = DiskImageView<PixelMask<Vector2i> >(dsub_file);
-  ImageViewRef<PixelMask<Vector2i> > sub_disp_spread;
+    sub_disp = DiskImageView<PixelMask<Vector2f> >(dsub_file);
+  ImageViewRef<PixelMask<Vector2f> > sub_disp_spread;
   if ( stereo_settings().seed_mode == 2 ||  stereo_settings().seed_mode == 3 ){
     // D_sub_spread is mandatory for seed_mode 2 and 3.
-    sub_disp_spread = DiskImageView<PixelMask<Vector2i> >(spread_file);
+    sub_disp_spread = DiskImageView<PixelMask<Vector2f> >(spread_file);
   }else if ( stereo_settings().seed_mode == 1 ){
     // D_sub_spread is optional for seed_mode 1, we use it only if it is provided.
     if (fs::exists(spread_file)) {
       try {
-        sub_disp_spread = DiskImageView<PixelMask<Vector2i> >(spread_file);
+        sub_disp_spread = DiskImageView<PixelMask<Vector2f> >(spread_file);
       }
       catch (...) {}
     }
@@ -653,8 +653,8 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
   if (corr_timeout > 0)
     seconds_per_op = calc_seconds_per_op(cost_mode, left_disk_image, right_disk_image, kernel_size);
 
-  // Use 
-  ImageViewRef<PixelMask<Vector2i> > fullres_disparity;
+  // Set up the reference to the stereo disparity code
+  ImageViewRef<PixelMask<Vector2f> > fullres_disparity;
   fullres_disparity = SeededCorrelatorView( left_disk_image, right_disk_image, Lmask, Rmask,
 			  sub_disp, sub_disp_spread, local_hom, 
 			  trans_crop_win, kernel_size, cost_mode, corr_timeout,
@@ -667,7 +667,7 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
     break;
   case 1:
     vw_out() << "\t--> Using Subtracted Mean pre-processing filter with "
-	     << stereo_settings().slogW << " sigma blur.\n";
+	           << stereo_settings().slogW << " sigma blur.\n";
     break;
   default:
     vw_out() << "\t--> Using NO pre-processing filter." << endl;
@@ -680,10 +680,20 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
 
   string d_file = opt.out_prefix + "-D.tif";
   vw_out() << "Writing: " << d_file << "\n";
-  vw::cartography::block_write_gdal_image(d_file, fullres_disparity,
-			      has_left_georef, left_georef,
-			      has_nodata, nodata, opt,
-			      TerminalProgressCallback("asp", "\t--> Correlation :") );
+  if (stereo_settings().use_sgm) {
+    // SGM performs subpixel correlation in this step, so write out floats.
+    vw::cartography::block_write_gdal_image(d_file, fullres_disparity,
+			        has_left_georef, left_georef,
+			        has_nodata, nodata, opt,
+			        TerminalProgressCallback("asp", "\t--> Correlation :") );
+  } else {
+    // Otherwise cast back to integer results to save on storage space.
+    vw::cartography::block_write_gdal_image(d_file, 
+              pixel_cast<PixelMask<Vector2i> >(fullres_disparity),
+			        has_left_georef, left_georef,
+			        has_nodata, nodata, opt,
+			        TerminalProgressCallback("asp", "\t--> Correlation :") );
+  }
 
   vw_out() << "\n[ " << current_posix_time_string() << " ] : CORRELATION FINISHED \n";
 

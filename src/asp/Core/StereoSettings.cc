@@ -247,6 +247,13 @@ namespace asp {
                               "Holes with no more pixels than this number should be filled in.")
       ("erode-max-size",      po::value(&global.erode_max_size)->default_value(0),
                               "Isolated blobs with no more pixels than this number should be removed.")
+      ("median-filter-size",  po::value(&global.median_filter_size)->default_value(0),
+                              "Filter subpixel results with a median filter of this size.")
+      ("texture_smooth_size",  po::value(&global.disp_smooth_size)->default_value(0),
+                               "Kernel size to perform texture aware disparity smoothing with.")
+      ("texture_smooth_scale", po::value(&global.disp_smooth_texture)->default_value(0.15),
+                               "Scaling factor for texture smoothing.  Larger is more smoothing.")
+                              
       ("mask-flatfield",      po::bool_switch(&global.mask_flatfield)->default_value(false)->implicit_value(true),
                               "Mask dust found on the sensor or film. (For use with Apollo Metric Cameras only!)");
 
