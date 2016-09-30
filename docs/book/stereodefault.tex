@@ -293,7 +293,8 @@ should be sufficient in most cases.
 \item[use-sgm \textnormal (default = false)] \hfill \\
 
   This flag, if provided, enables using the semi-global matching algorithm instead
-  of the normal ASP integer correlator.  See section \ref{sec:sgm} for details.
+  of the normal ASP integer correlator.  See section \ref{sec:sgm} for important details
+  you must keep in mind while using this option.
 
 \item[corr-blob-filter \textnormal{\small{(\emph{integer})}} (default = 0)]\hfill \\
 
@@ -308,7 +309,8 @@ should be sufficient in most cases.
 
   Manually specifies the size of image tiles used by the correlator for multi-threaded
   processing. Typically there is no need to adjust this value but it is very important
-  when using semi-global matching. See section \ref{sec:sgm} for details.
+  when using semi-global matching. See section \ref{sec:sgm} for details.  This value
+  must be a multiple of 16.
 
 
 
@@ -412,6 +414,22 @@ mean those pixels within the window of half-size of
   Select the number of outlier removal passes that are carried out.
   Each pass will erode pixels that do not match their neighbors.  One
   pass is usually sufficient.
+
+\item[median-filter-size \textnormal{\small{(\emph{integer})}} (default = 0)] \hfill \\
+  Apply a median filter of the selected kernel size to the subpixel disparity results.
+  This option can only be used if \texttt{rm-clean-passes} is set to zero.
+
+\item[texture-smooth-size \textnormal{\small{(\emph{integer})}} (default = 0)] \hfill \\
+  Apply an adaptive filter to smooth the disparity results inversely proportional to
+  the amount of texture present in the input image.  This value sets the maximum size 
+  of the smoothing kernel used.
+  This option can only be used if \texttt{rm-clean-passes} is set to zero.
+
+\item[texture-smooth-scale \textnormal{\small{(\emph{float})}} (default = 0.15)] \hfill \\
+  Used in conjunction with \texttt{texture-smooth-size}, this value helps control the 
+  regions of the image that will be smoothed.  A larger value will result in more 
+  smoothing being applied to more of the image.  A smaller value will leave high-texture
+  regions of the image unsmoothed.
 
 \item[enable-fill-holes (default = false)] \hfill \\
 

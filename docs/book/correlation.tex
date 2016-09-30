@@ -380,7 +380,7 @@ situations it can produce noticable artifacts at tile boundaries.  Third, it can
 sometimes produce inaccurate results in textureless regions.  With careful parameter
 selection and usage these disadvantages can be mitigated.
 
-Keep in mind the following parameter guidelines when using SGM:
+Here are some guidelines to setting ASP tool parameters while using SGM:
 
 \begin{itemize}
 \item Pass in the \texttt{use-sgm} command line flag to enable the SGM algorithm.
@@ -390,27 +390,52 @@ Keep in mind the following parameter guidelines when using SGM:
 The census transform mode (\texttt{cost-mode 3}) \citep{zabih1994census} tends to 
 perform better overall but can produce artifacts on featureless terrain.  
 The ternary census transform mode (\texttt{cost-mode 4}) \citep{hua2016texture} 
-is a modification of the census transform that is more stable on low contrast terrain.
+is a modification of the census transform that is more stable on low contrast terrain
+but may be less accurate elsewhere.
 \item Choose a supported kernel size.  SGM kernels must always be symmetric.
 The SGM algorithm works with much smaller kernel sizes than the regular integer 
 correlator so the default large kernel is not reccomended.
-The MAD cost mode can be used with any odd kernel size but the census cost modes 
-can only be used with kernel sizes 3, 5, 7, and 9.  When using the MAD cost mode consider
-using a kernel size of 1 as it can produce good results.
+The MAD cost mode can be used with any odd kernel size (including size 1) but the census 
+cost modes can only be used with kernel sizes 3, 5, 7, and 9.  Size 7 is usually a good choice.
 \item Choose an appropriate tile size using the \texttt{corr-tile-size} command. The SGM
 algorithm works best on larger tiles so this parameter should be set as large as your
-available RAM can support.  You should generally shoot for a value where the amount of
+available RAM can support or larger than the image you wish to process.  
+You should generally shoot for a value where the amount of
 RAM used per tile is equal to the total amount of RAM available divided by the number of
 simultaneous threads that you will be using.  The exact amount of RAM used per thread 
 varies depending on the image content and cannot be exactly predicted in advance so some
 trial and error may be required.  A rough estimate is that each thread will require
-$200*\texttt{tile\_size}^2$ bytes of RAM.
+$300*\texttt{tile\_size}^2$ bytes of RAM.
 \item Manually specify the number of threads being used so that you have more control
 over the amount of memory that will be required (see point above).
 \item Consider disabling the left-right consistency check by setting the \texttt{xcorr-threshold}
-parameter to a negative value.  Disabling this check nearly halves the run time of the SGM
+parameter to a negative value.  Disabling this check nearly halves the (long) run time of the SGM
 algorithm so consider if the filtering it provides is worth the increased run time.
+\item Set \texttt{subpixel-mode} to zero.  The SGM performs parabola subpixel interpolation as part of
+the \texttt{stereo\_corr} step and does no work in the \texttt{stereo\_rfne} module.
+\item Take advantage of the median and texture filters in the \texttt{stereo\_fltr} tool.  These filters
+were designed specifically to clean up output from the SGM algorithm and are especially useful in suppressing
+image artifacts in low-texture portions of the image.  A median filter size of 3 and a texture filter size of 11
+are good starts but the best values will depend on your input images.
 \end{itemize}
+
+
+\begin{verbatim}
+\end{verbatim}
+
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=3.0in]{images/correlation/icebridge_input_crop.png}
+  \includegraphics[width=3.0in]{images/correlation/icebridge_subpix3_crop.png}
+  \includegraphics[width=3.0in]{images/correlation/icebridge_sgm_crop.png}
+  \caption{A pair of hill-shaded DEMs from NASA IceBridge images showing the difference between default ASP processing and
+  processing using the SGM algorithm.  The DEM on the left was generated using the default stereo parameters and 
+  \texttt{subpixel-mode 3}.  The DEM on the right was generated using the following options: 
+  \texttt{--use-sgm --threads 1 xcorr-threshold -1 --corr-kernel 7 7 --corr-tile-size 6400 --cost-mode 4 --subpixel-mode 0 
+  --median-filter-size 3 --texture-smooth-size 13 --texture-smooth-scale 0.13}.}
+  \label{fig:corr-sgm-example}
+\end{figure}
+
 
 
 \section{Sub-pixel Refinement}

@@ -642,6 +642,10 @@ namespace asp {
       vw_throw(ArgumentErr() << "The entries of subpixel-kernel must be odd numbers.\n");
     }
 
+    if (stereo_settings().use_sgm && (stereo_settings().subpixel_mode == 1)   ){
+      vw_throw(ArgumentErr() << "For SGM, parabola subpixel mode is done by default so set subpixel mode to 0.\n");
+    }
+
     // Camera checks
     bool force_throw = false;
     try {
