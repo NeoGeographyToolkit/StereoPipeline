@@ -372,9 +372,8 @@ these two features the SGM algorithm can be used for unrectified, larger images.
 
 The greatest advantage of the SGM algorithm over the normal ASP correlation algorithm
 is an improved ability to find disparity matches in areas of repetitive or low texture.
-SGM also produces finer results than the standard correlation algorithm, meaning that
-depending on how you plan to use the DEM you may be able to skip running the subpixel refinement 
-step (use \texttt{subpixel mode 0}).  Along with these advantages come several disadvantages.
+SGM can also discern finer resolution features than the standard correlation algorithm
+since tends to use much smaller matching kernels.  Along with these advantages come several disadvantages.
 First,  SGM is computationally expensive and requires a lot of memory.  Second, in some
 situations it can produce noticable artifacts at tile boundaries.  Third, it can 
 sometimes produce inaccurate results in textureless regions.  With careful parameter
@@ -407,32 +406,39 @@ varies depending on the image content and cannot be exactly predicted in advance
 trial and error may be required.  A rough estimate is that each thread will require
 $300*\texttt{tile\_size}^2$ bytes of RAM.
 \item Manually specify the number of threads being used so that you have more control
-over the amount of memory that will be required (see point above).
+over the amount of memory that will be required (see point above).  Using a single tile
+restricts you to one thread, which is slower, but eliminates the possibility of inter-tile 
+artifacts.  Note that ONLY the integer correlation step (\texttt{stereo\_corr}) needs to 
+have this careful limit on the number of threads.  The other ASP steps can use a normal 
+thread count to accellerate processing.
 \item Consider disabling the left-right consistency check by setting the \texttt{xcorr-threshold}
-parameter to a negative value.  Disabling this check nearly halves the (long) run time of the SGM
+parameter to -1.  Disabling this check nearly halves the (long) run time of the SGM
 algorithm so consider if the filtering it provides is worth the increased run time.
-\item Set \texttt{subpixel-mode} to zero.  The SGM performs parabola subpixel interpolation as part of
-the \texttt{stereo\_corr} step and does no work in the \texttt{stereo\_rfne} module.
+\item Set \texttt{subpixel-mode} = 0.  The SGM performs parabola subpixel interpolation as part of
+the \texttt{stereo\_corr} step and does no work in the \texttt{stereo\_rfne} module.  This means that
+after dealing with the long SGM processing time you do not need to follow it up with a slow subpixel option!
 \item Take advantage of the median and texture filters in the \texttt{stereo\_fltr} tool.  These filters
 were designed specifically to clean up output from the SGM algorithm and are especially useful in suppressing
 image artifacts in low-texture portions of the image.  A median filter size of 3 and a texture filter size of 11
 are good starts but the best values will depend on your input images.
 \end{itemize}
 
-
-\begin{verbatim}
-\end{verbatim}
-
-\begin{figure}[tb]
+% Would be nice to improve this figure
+\begin{figure}[!htbp]
   \centering
-  \includegraphics[width=3.0in]{images/correlation/icebridge_input_crop.png}
-  \includegraphics[width=3.0in]{images/correlation/icebridge_subpix3_crop.png}
-  \includegraphics[width=3.0in]{images/correlation/icebridge_sgm_crop.png}
-  \caption{A pair of hill-shaded DEMs from NASA IceBridge images showing the difference between default ASP processing and
-  processing using the SGM algorithm.  The DEM on the left was generated using the default stereo parameters and 
-  \texttt{subpixel-mode 3}.  The DEM on the right was generated using the following options: 
-  \texttt{--use-sgm --threads 1 xcorr-threshold -1 --corr-kernel 7 7 --corr-tile-size 6400 --cost-mode 4 --subpixel-mode 0 
-  --median-filter-size 3 --texture-smooth-size 13 --texture-smooth-scale 0.13}.}
+  \subfigure{\includegraphics[width=0.6\textwidth]{images/correlation/icebridge_input_crop.png}}
+  \hfil
+  \begin{subfigure}
+    {\includegraphics[width=0.47\textwidth]{images/correlation/icebridge_subpix3_crop.png}}
+    {\includegraphics[width=0.47\textwidth]{images/correlation/icebridge_sgm_crop.png}}
+  \end{subfigure}
+  \caption{A section of a Nasa IceBridge image with a pair of hill-shaded DEMs below it 
+  showing the difference between default ASP processing and processing using the SGM algorithm. 
+  The DEM on the left was generated using the default stereo parameters and 
+  \texttt{-{}-subpixel-mode 3}.  The DEM on the right was generated using the following options: 
+  \texttt{-{}-use-sgm -{}-threads 1 -{}-xcorr-threshold -1 -{}-corr-kernel 7 7 -{}-corr-tile-size 6400 
+  -{}-cost-mode 4 -{}-subpixel-mode 0 
+  -{}-median-filter-size 3 -{}-texture-smooth-size 13 -{}-texture-smooth-scale 0.13}.}
   \label{fig:corr-sgm-example}
 \end{figure}
 

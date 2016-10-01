@@ -5,8 +5,8 @@
 % \usepackage{float}
 \usepackage{subfigure}
 \usepackage{graphicx}
-\usepackage{amsfonts, psfrag, fancyhdr, layout, subfigure, array}
-\usepackage{amsmath}
+\usepackage{caption}
+\usepackage{amsfonts, psfrag, fancyhdr, layout, array}
 \usepackage{wrapfig}
 \usepackage{color}
 \definecolor{gray}{gray}{0.25}
@@ -16,6 +16,7 @@
 \usepackage{longtable}
 \usepackage{fancyvrb}
 \usepackage{moreverb} % for file listing
+\usepackage{amsmath}
 
 \usepackage{bibentry}
 \nobibliography*
