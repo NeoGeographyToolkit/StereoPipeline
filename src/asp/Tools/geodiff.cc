@@ -230,28 +230,14 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
   typedef std::list<asp::CsvConv::CsvRecord>::const_iterator RecordIter;
   csv_conv.read_csv_file(csv_file, csv_records);
 
-  double mean_csv_lon = 0.0;
-  int count = 0;
   std::vector<Vector3> csv_llh;
   for (RecordIter iter = csv_records.begin(); iter != csv_records.end(); iter++) {
     Vector3 xyz = csv_conv.csv_to_cartesian(*iter, georef);
-    if (xyz == Vector3() || xyz != xyz) continue; // invalid point
+    if (xyz == Vector3() || xyz != xyz)
+      continue; // invalid point
     Vector3 llh = georef.datum().cartesian_to_geodetic(xyz);
     csv_llh.push_back(llh);
-    mean_csv_lon += llh[0];
-    count++;
   }
-
-  // The mean longitude in the csv file
-  if (count > 0)
-    mean_csv_lon /= count;
-
-  // The mean longitude in the DEM file
-  Vector2 ll = georef.pixel_to_lonlat(Vector2(dem.cols()/2.0, dem.rows()/2.0));
-  double mean_dem_lon = ll[0];
-
-  // Take care of the occasionally present 360 offset in longitude
-  double lon_offset = 360.0*round((mean_dem_lon - mean_csv_lon)/360.0);
 
   // We will interpolate into the DEM to find the difference
   ImageViewRef< PixelMask<double> > interp_dem
@@ -260,9 +246,9 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
 
 
   // Save the diffs
-  count = 0;
-  double diff_min = std::numeric_limits<double>::max();
-  double diff_max = -diff_min;
+  int    count     = 0;
+  double diff_min  = std::numeric_limits<double>::max();
+  double diff_max  = -diff_min;
   double diff_mean = 0.0;
   double diff_std  = 0.0;
   
@@ -271,18 +257,20 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
 
     Vector3 llh = csv_llh[it];
     Vector2 ll  = subvector(llh, 0, 2);
-    ll[0] += lon_offset; // Now the lon is in the context of the DEM
     Vector2 pix = georef.lonlat_to_pixel(ll);
     
     // Check for out of range
     if (pix[0] < 0 || pix[0] > dem.cols() - 1) continue;
     if (pix[1] < 0 || pix[1] > dem.rows() - 1) continue;
     PixelMask<double> dem_ht = interp_dem(pix[0], pix[1]);
-    if (!is_valid(dem_ht)) continue;
+    if (!is_valid(dem_ht))
+      continue;
 
     double diff = dem_ht.child() - llh[2];
-    if (reverse) diff *= -1;
-    if (opt.use_absolute) diff = std::abs(diff);
+    if (reverse) 
+      diff *= -1;
+    if (opt.use_absolute)
+      diff = std::abs(diff);
 
     if (diff > diff_max) diff_max = diff;
     if (diff < diff_min) diff_min = diff;
@@ -296,7 +284,8 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
   if (count > 0) {
     diff_mean /= count;
     diff_std = diff_std/count - diff_mean*diff_mean;
-    if (diff_std < 0) diff_std = 0; // just in case, for numerical noise
+    if (diff_std < 0)
+      diff_std = 0; // just in case, for numerical noise
     diff_std = std::sqrt(diff_std);
   }
 
