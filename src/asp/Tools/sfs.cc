@@ -34,6 +34,7 @@
 #include <vw/Image/MaskViews.h>
 #include <vw/Image/AntiAliasing.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
+#include <vw/Core/Stopwatch.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 #include <asp/Sessions/StereoSessionFactory.h>
@@ -61,8 +62,9 @@ using namespace vw;
 using namespace vw::camera;
 using namespace vw::cartography;
 
-typedef InterpolationView<ImageViewRef< PixelMask<float> >, BilinearInterpolation> BilinearInterpT;
 typedef ImageViewRef< PixelMask<float> > MaskedImgT;
+typedef InterpolationView<MaskedImgT, BilinearInterpolation> BilinearInterpT;
+typedef ImageViewRef<double> DoubleImgT;
 
 // TODO: Study more floating model coefficients.
 // TODO: Study why using tabulated camera model and multiple resolutions does
@@ -112,6 +114,7 @@ namespace vw { namespace camera {
   class ApproxCameraModel: public CameraModel {
     boost::shared_ptr<CameraModel>  m_exact_camera;
     mutable Vector3 m_mean_dir; // mean vector from camera to ground
+    BBox2i m_img_bbox;
     GeoReference m_geo;
     double m_mean_ht;
     mutable ImageView< PixelMask<Vector3> > m_pixel_to_vec_mat;
@@ -128,43 +131,53 @@ namespace vw { namespace camera {
     boost::shared_ptr<asp::RPCModel> m_rpc_model;
 
     void comp_rpc_approx_table(boost::shared_ptr<CameraModel> exact_camera,
+                               BBox2i img_bbox,
 			       ImageView<double> const& dem,
 			       GeoReference const& geo,
 			       double rpc_penalty_weight){
 
       // Generate point pairs
-      int num_total_pts = dem.cols()*dem.rows();
-      std::vector<Vector3> all_llh (num_total_pts);
-      std::vector<Vector2> all_pixels(num_total_pts);
+      std::vector<Vector3> all_llh;
+      std::vector<Vector2> all_pixels;
 
       vw_out() << "Projecting pixels into the camera to generate the RPC model.\n";
       vw::TerminalProgressCallback tpc("asp", "\t--> ");
       double inc_amount = 1.0 / double(dem.cols());
       tpc.report_progress(0);
-      
-      int count = 0;
-      for (int col = 0; col < dem.cols(); col++) {
-	for (int row = 0; row < dem.rows(); row++) {
+
+      // If the DEM is too big, we need to skip points. About
+      // 20,000 points should be good enough to determine 78 RPC
+      // coefficients.
+      double delta_col = std::max(1.0, dem.cols()/150.0);
+      double delta_row = std::max(1.0, dem.rows()/150.0);
+      for (double dcol = 0; dcol < dem.cols(); dcol += delta_col) {
+        for (double drow = 0; drow < dem.rows(); drow += delta_row) {
+          int col = dcol, row = drow; // cast to int
 	  Vector2 pix(col, row);
 	  Vector2 lonlat = geo.pixel_to_lonlat(pix);
-	  
+          
 	  // Lon lat height
 	  Vector3 llh;
 	  llh[0] = lonlat[0]; llh[1] = lonlat[1]; llh[2] = dem(col, row);
-	  
 	  Vector3 xyz = geo.datum().geodetic_to_cartesian(llh);
+
+          // Go back to llh. This is a bugfix for the 360 deg offset problem.
+          llh = geo.datum().cartesian_to_geodetic(xyz);
+          
 	  Vector2 cam_pix = exact_camera->point_to_pixel(xyz);
+          //if (!img_bbox.contains(cam_pix)) 
+          //  continue; // skip out of range pixels? Not a good idea.
+         
 	  m_crop_box.grow(cam_pix);
 
-	  all_llh[count] = llh;
-	  all_pixels[count] = cam_pix;
-	  count++;
+	  all_llh.push_back(llh);
+	  all_pixels.push_back(cam_pix);
 	}
 
 	tpc.report_incremental_progress( inc_amount );
       }
       tpc.report_finished();
-
+      
       // Find the range of lon-lat-heights
       BBox3 llh_box;
       for (size_t i = 0; i < all_llh.size(); i++) 
@@ -186,6 +199,7 @@ namespace vw { namespace camera {
 
       Vector<double> normalized_llh;
       Vector<double> normalized_pixels;
+      int num_total_pts = all_llh.size();
       normalized_llh.set_size(asp::RPCModel::GEODETIC_COORD_SIZE*num_total_pts);
       normalized_pixels.set_size(asp::RPCModel::IMAGE_COORD_SIZE*num_total_pts
 				 + asp::RpcSolveLMA::NUM_PENALTY_TERMS);
@@ -200,7 +214,6 @@ namespace vw { namespace camera {
 	// Normalize the pixel to -1 <> 1 range
 	Vector3 llh_n   = elem_quot(all_llh[pt]    - llh_offset,   llh_scale);
 	Vector2 pixel_n = elem_quot(all_pixels[pt] - pixel_offset, pixel_scale);
-	
 	subvector(normalized_llh, asp::RPCModel::GEODETIC_COORD_SIZE*pt,
 		  asp::RPCModel::GEODETIC_COORD_SIZE) = llh_n;
 	subvector(normalized_pixels, asp::RPCModel::IMAGE_COORD_SIZE*pt,
@@ -210,14 +223,15 @@ namespace vw { namespace camera {
 
       // Find the RPC coefficients
       asp::RPCModel::CoeffVec line_num, line_den, samp_num, samp_den;
-      std::string output_prefix = ""; 
+      std::string output_prefix = "";
+      vw_out() << "Generating the RPC approximation using " << num_total_pts << " point pairs.\n";
       asp::gen_rpc(// Inputs
 		   rpc_penalty_weight, output_prefix,
 		   normalized_llh, normalized_pixels,  
 		   llh_scale, llh_offset, pixel_scale, pixel_offset,
 		   // Outputs
 		   line_num, line_den, samp_num, samp_den);
-
+      
       m_rpc_model = boost::shared_ptr<asp::RPCModel>
 	(new asp::RPCModel(geo.datum(), line_num, line_den,
 			   samp_num, samp_den, pixel_offset, pixel_scale,
@@ -243,7 +257,11 @@ namespace vw { namespace camera {
 	  Vector3 vec;
 	  try {
 	    pix = m_exact_camera->point_to_pixel(xyz);
-	    vec = m_exact_camera->pixel_to_vector(pix);
+            //if (true || m_img_bbox.contains(pix))  // Need to think more here
+            vec = m_exact_camera->pixel_to_vector(pix);
+            //else
+            // success = false;
+            
 	  }catch(...){
 	    success = false;
 	  }
@@ -276,12 +294,13 @@ namespace vw { namespace camera {
     }
 
     ApproxCameraModel(boost::shared_ptr<CameraModel> exact_camera,
+                      BBox2i img_bbox, 
 		      ImageView<double> const& dem,
 		      GeoReference const& geo,
 		      double nodata_val,
 		      bool use_rpc_approximation, double rpc_penalty_weight,
 		      vw::Mutex &camera_mutex):
-      m_exact_camera(exact_camera), m_geo(geo),
+      m_exact_camera(exact_camera), m_img_bbox(img_bbox), m_geo(geo),
       m_use_rpc_approximation(use_rpc_approximation),
       m_camera_mutex(camera_mutex)
     {
@@ -334,7 +353,7 @@ namespace vw { namespace camera {
 
       // Bypass everything if doing RPC
       if (m_use_rpc_approximation) {
-	comp_rpc_approx_table(exact_camera, dem,  geo, rpc_penalty_weight);
+	comp_rpc_approx_table(exact_camera, img_bbox, dem,  geo, rpc_penalty_weight);
 
       // Ensure the box is valid
       if (m_crop_box.empty()) m_crop_box = BBox2(0, 0, 2, 2);
@@ -355,8 +374,9 @@ namespace vw { namespace camera {
 
       // We will tabulate the point_to_pixel function at half the grid,
       // and we'll use interpolation for anything in between.
-      m_gridx /= 2.0;
-      m_gridy /= 2.0;
+      // But this results in large memory usage
+      //m_gridx /= 2.0;
+      //m_gridy /= 2.0;
 
       int numx = wx/m_gridx;
       int numy = wy/m_gridy;
@@ -525,8 +545,8 @@ namespace vw { namespace camera {
                                    << m_pixel_to_vec_mat.cols() << ' ' << m_pixel_to_vec_mat.rows()
                                    << std::endl;
           if (g_num_locks == 1000)
-            vw_out(WarningMessage) << "Will stop printing more warnings about pixel outside of range."
-                                   << std::endl;
+            vw_out(WarningMessage) << "Will stop printing more warnings about pixel "
+                                   << "outside of range." << std::endl;
 	  return m_exact_camera->point_to_pixel(xyz);
 	}
 	PixelMask<Vector3> masked_dir = pixel_to_vec_interp(x, y);
@@ -757,24 +777,29 @@ struct Options : public vw::cartography::GdalWriteOptions {
   std::vector<double> image_exposures_vec;
   std::vector<double> model_coeffs_vec;
 
-  int max_iterations, max_coarse_iterations, reflectance_type, coarse_levels;
+  int max_iterations, max_coarse_iterations, reflectance_type, coarse_levels, blending_dist,
+    blending_power;
   bool float_albedo, float_exposure, float_cameras, float_all_cameras, model_shadows,
     save_dem_with_nodata, use_approx_camera_models, use_rpc_approximation, crop_input_images,
+    use_blending_weights,
     float_dem_at_boundary, fix_dem, float_reflectance_model, query;
   double smoothness_weight, init_dem_height, nodata_val, initial_dem_constraint_weight,
-    camera_position_step_size, rpc_penalty_weight;
+    camera_position_step_size, rpc_penalty_weight, unreliable_intensity_threshold;
   vw::BBox2 crop_win;
 
   Options():max_iterations(0), max_coarse_iterations(0), reflectance_type(0),
-	    coarse_levels(0), float_albedo(false), float_exposure(false), float_cameras(false),
+	    coarse_levels(0), blending_dist(10), blending_power(2),
+            float_albedo(false), float_exposure(false), float_cameras(false),
             float_all_cameras(false),
 	    model_shadows(false), save_dem_with_nodata(false),
 	    use_approx_camera_models(false),
 	    use_rpc_approximation(false),
-	    crop_input_images(false), float_dem_at_boundary(false), fix_dem(false),
+	    crop_input_images(false), use_blending_weights(false),
+            float_dem_at_boundary(false), fix_dem(false),
             float_reflectance_model(false), query(false),
 	    smoothness_weight(0), initial_dem_constraint_weight(0.0),
 	    camera_position_step_size(1.0), rpc_penalty_weight(0.0),
+            unreliable_intensity_threshold(0.0),
 	    crop_win(BBox2i(0, 0, 0, 0)){}
 };
 
@@ -1210,15 +1235,18 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
 				    GlobalParams const& global_params,
 				    BBox2i const& crop_box,
 				    MaskedImgT const & image,
+				    DoubleImgT const & blend_weight,
 				    CameraModel const* camera,
-				    PixelMask<double> &reflectance,
+				    PixelMask<double> & reflectance,
 				    PixelMask<double> & intensity,
+				    double            & weight,
                                     const double * coeffs) {
 
   // Set output values
-  reflectance = 0; reflectance.invalidate();
-  intensity = 0;   intensity.invalidate();
-
+  reflectance = 0.0; reflectance.invalidate();
+  intensity   = 0.0; intensity.invalidate();
+  weight      = 0.0;
+  
   if (col >= dem.cols() - 1 || row >= dem.rows() - 1) return false;
 
   // TODO: Investigate various ways of finding the normal.
@@ -1278,8 +1306,9 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
     }
     
   } catch(...){
-    reflectance = 0; reflectance.invalidate();
-    intensity = 0;   intensity.invalidate();
+    reflectance = 0.0; reflectance.invalidate();
+    intensity   = 0.0; intensity.invalidate();
+    weight      = 0.0;
     return false;
   }
   
@@ -1297,20 +1326,29 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   // Check for out of range
   if (pix[0] < 0 || pix[0] >= image.cols()-1 ||
       pix[1] < 0 || pix[1] >= image.rows()-1) {
-    reflectance = 0; reflectance.invalidate();
-    intensity = 0;   intensity.invalidate();
+    reflectance = 0.0; reflectance.invalidate();
+    intensity   = 0.0; intensity.invalidate();
+    weight      = 0.0;
     return false;
   }
 
   InterpolationView<EdgeExtensionView<MaskedImgT, ConstantEdgeExtension>, BilinearInterpolation>
     interp_image = interpolate(image, BilinearInterpolation(),
 			       ConstantEdgeExtension());
-  
   intensity = interp_image(pix[0], pix[1]); // this interpolates
 
+  InterpolationView<EdgeExtensionView<DoubleImgT, ConstantEdgeExtension>, BilinearInterpolation>
+    interp_weight = interpolate(blend_weight, BilinearInterpolation(),
+                                ConstantEdgeExtension());
+  if (blend_weight.cols() > 0 && blend_weight.rows() > 0) // The weight may not exist
+    weight = interp_weight(pix[0], pix[1]); // this interpolates
+  else
+    weight = 1.0;
+
   if (!is_valid(intensity)) {
-    reflectance = 0; reflectance.invalidate();
-    intensity = 0;   intensity.invalidate();
+    reflectance = 0.0; reflectance.invalidate();
+    intensity   = 0.0; intensity.invalidate();
+    weight      = 0.0;
     return false;
   }
 
@@ -1339,9 +1377,11 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
 				    GlobalParams const& global_params,
 				    BBox2i const& crop_box,
 				    MaskedImgT const & image,
+				    DoubleImgT const & blend_weight,
 				    CameraModel const* camera,
 				    ImageView< PixelMask<double> > & reflectance,
 				    ImageView< PixelMask<double> > & intensity,
+				    ImageView< double            > & weight,
                                     const double * coeffs) {
 
   // Update max_dem_height
@@ -1357,10 +1397,12 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
   // Init the reflectance and intensity as invalid
   reflectance.set_size(dem.cols(), dem.rows());
   intensity.set_size(dem.cols(), dem.rows());
+  weight.set_size(dem.cols(), dem.rows());
   for (int col = 0; col < dem.cols(); col++) {
     for (int row = 0; row < dem.rows(); row++) {
       reflectance(col, row).invalidate();
       intensity(col, row).invalidate();
+      weight(col, row) = 0.0;
     }
   }
 
@@ -1373,8 +1415,9 @@ void computeReflectanceAndIntensity(ImageView<double> const& dem,
 				     model_shadows, max_dem_height,
 				     gridx, gridy,
 				     model_params, global_params,
-				     crop_box, image, camera,
+				     crop_box, image, blend_weight, camera,
 				     reflectance(col, row), intensity(col, row),
+                                     weight(col, row),
                                      coeffs);
     }
   }
@@ -1414,6 +1457,7 @@ GlobalParams                           const * g_global_params;
 std::vector<ModelParams>               const * g_model_params;
 std::vector<BBox2i>                    const * g_crop_boxes;
 std::vector<MaskedImgT>                const * g_masked_images;
+std::vector<DoubleImgT>                const * g_blend_weights;
 std::vector<boost::shared_ptr<CameraModel> > * g_cameras;
 double                                       * g_nodata_val;
 float                                        * g_img_nodata_val;
@@ -1537,6 +1581,7 @@ public:
       vw_out() << "\n";
 
       ImageView< PixelMask<double> > reflectance, intensity, comp_intensity;
+      ImageView< double            > blend_weight;
 
       std::ostringstream os;
       os << iter_str << "-img" << image_iter;
@@ -1575,8 +1620,9 @@ public:
 				     *g_global_params,
 				     (*g_crop_boxes)[image_iter],
 				     (*g_masked_images)[image_iter],
+				     (*g_blend_weights)[image_iter],
 				     (*g_cameras)[image_iter].get(),
-				     reflectance, intensity,
+				     reflectance, intensity, blend_weight, 
                                      g_coeffs);
 
       std::string out_intensity_file = g_opt->out_prefix + "-meas-intensity"
@@ -1584,6 +1630,13 @@ public:
       vw_out() << "Writing: " << out_intensity_file << std::endl;
       block_write_gdal_image(out_intensity_file,
 			     apply_mask(intensity, *g_img_nodata_val),
+			     has_georef, *g_geo, has_nodata, *g_img_nodata_val, *g_opt, tpc);
+
+      std::string out_weight_file = g_opt->out_prefix + "-blending-weight"
+	+ iter_str2 + ".tif";
+      vw_out() << "Writing: " << out_weight_file << std::endl;
+      block_write_gdal_image(out_weight_file,
+			     blend_weight,
 			     has_georef, *g_geo, has_nodata, *g_img_nodata_val, *g_opt, tpc);
 
       std::string out_reflectance_file = g_opt->out_prefix + "-comp-reflectance"
@@ -1694,6 +1747,7 @@ struct IntensityError {
 		 ModelParams const& model_params,
 		 BBox2i const& crop_box,
 		 MaskedImgT const& image,
+		 DoubleImgT const& blend_weight,
 		 boost::shared_ptr<CameraModel> const& camera):
     m_col(col), m_row(row), m_dem(dem), m_geo(geo),
     m_model_shadows(model_shadows),
@@ -1703,7 +1757,8 @@ struct IntensityError {
     m_global_params(global_params),
     m_model_params(model_params),
     m_crop_box(crop_box),
-    m_image(image), m_camera(camera) {}
+    m_image(image), m_blend_weight(blend_weight),
+    m_camera(camera) {}
 
   // See SmoothnessError() for the definitions of bottom, top, etc.
   template <typename F>
@@ -1745,6 +1800,7 @@ struct IntensityError {
       adj_cam_copy.set_axis_angle_rotation(axis_angle);
 
       PixelMask<double> reflectance, intensity;
+      double weight;
       bool success =
 	computeReflectanceAndIntensity(left[0], center[0], right[0],
 				       bottom[0], top[0],
@@ -1752,11 +1808,18 @@ struct IntensityError {
 				       m_model_shadows, m_max_dem_height,
 				       m_gridx, m_gridy,
 				       m_model_params,  m_global_params,
-				       m_crop_box, m_image, &adj_cam_copy,
-				       reflectance, intensity, coeffs);
+				       m_crop_box, m_image, m_blend_weight, &adj_cam_copy,
+				       reflectance, intensity, weight, coeffs);
+      
+      if (g_opt->unreliable_intensity_threshold > 0){
+        if (is_valid(intensity) && intensity.child() <= g_opt->unreliable_intensity_threshold) {
+          weight *= intensity.child()/g_opt->unreliable_intensity_threshold;
+        }
+      }
+      
       if (success && is_valid(intensity) && is_valid(reflectance))
-	residuals[0] = (intensity - albedo[0]*exposure[0]*reflectance).child();
-
+	residuals[0] = weight*(intensity - albedo[0]*exposure[0]*reflectance).child();
+      
     } catch (const camera::PointToPixelErr& e) {
       // To be able to handle robustly DEMs that extend beyond the camera,
       // always return true when we fail to project, but with zero residual.
@@ -1781,6 +1844,7 @@ struct IntensityError {
 				     ModelParams const& model_params,
 				     BBox2i const& crop_box,
 				     MaskedImgT const& image,
+				     DoubleImgT const& blend_weight,
 				     boost::shared_ptr<CameraModel> const& camera){
     return (new ceres::NumericDiffCostFunction<IntensityError,
 	    ceres::CENTRAL, 1, 1, 1, 1, 1, 1, 1, 1, 6, g_num_model_coeffs>
@@ -1790,7 +1854,7 @@ struct IntensityError {
 				max_dem_height,
 				gridx, gridy,
 				global_params, model_params,
-				crop_box, image, camera)));
+				crop_box, image, blend_weight, camera)));
   }
 
   int m_col, m_row;
@@ -1804,6 +1868,7 @@ struct IntensityError {
   ModelParams                       const & m_model_params;   // alias
   BBox2i                                    m_crop_box;
   MaskedImgT                        const & m_image;          // alias
+  DoubleImgT                        const & m_blend_weight;   // alias
   boost::shared_ptr<CameraModel>    const & m_camera;         // alias
 };
 
@@ -1947,6 +2012,21 @@ void compute_grid_sizes_in_meters(ImageView<double> const& dem,
   if (!gridy_vec.empty()) gridy = gridy_vec[gridy_vec.size()/2];
 }
 
+ImageView<double> comp_blending_weights(MaskedImgT const& img,
+                                        double blending_dist,
+                                        double blending_power){
+
+  ImageView<double> weights = grassfire(img);
+
+  for (int col = 0; col < weights.cols(); col++) {
+    for (int row = 0; row < weights.rows(); row++) {
+      weights(col, row) = pow( std::min(weights(col, row)/blending_dist, 1.0), blending_power );
+    }
+  }
+  return weights;
+}
+
+
 void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   general_options.add_options()
@@ -1976,6 +2056,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Model the fact that some points on the DEM are in the shadow (occluded from the Sun).")
     ("shadow-thresholds", po::value(&opt.shadow_thresholds)->default_value(""),
      "Optional shadow thresholds for the input images (a list of real values in quotes, one per image).")
+    ("unreliable-intensity-threshold", po::value(&opt.unreliable_intensity_threshold)->default_value(0.0),
+     "Intensities lower than this will be considered unreliable and given less weight.")
+
     ("save-dem-with-nodata",   po::bool_switch(&opt.save_dem_with_nodata)->default_value(false)->implicit_value(true),
      "Save a copy of the DEM while using a no-data value at a DEM grid point where all images show shadows. To be used if shadow thresholds are set.")
     ("use-approx-camera-models",   po::bool_switch(&opt.use_approx_camera_models)->default_value(false)->implicit_value(true),
@@ -1990,6 +2073,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "How many iterations to do at levels of resolution coarser than the final result.")
     ("crop-input-images",   po::bool_switch(&opt.crop_input_images)->default_value(false)->implicit_value(true),
      "Crop the images to a region that was computed to be large enough, and keep them fully in memory, for speed.")
+    ("use-blending-weights", po::bool_switch(&opt.use_blending_weights)->default_value(false)->implicit_value(true),
+     "Give less weight to image pixels close to no-data or boundary values. Enabled only when crop-input-images is true, for performance reasons.")
+    ("blending-dist", po::value(&opt.blending_dist)->default_value(10),
+     "Over how many pixels to blend.")
+    ("blending-power", po::value(&opt.blending_power)->default_value(2),
+     "A higher value will result in smoother blending.")
     ("image-exposures-prefix", po::value(&opt.image_exposure_prefix)->default_value(""),
      "Use this prefix to optionally read initial exposures (filename is <prefix>-exposures.txt).")
     ("model-coeffs-prefix", po::value(&opt.model_coeffs_prefix)->default_value(""),
@@ -2031,6 +2120,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 			     allow_unregistered, unregistered);
 
 
+  if (opt.float_all_cameras)
+    opt.float_cameras = true;
+  
   // If the images are tif files, and the cameras are cub files, separate them
   std::vector<std::string> images, cameras;
   for (size_t i = 0; i < opt.input_images.size(); i++) {
@@ -2145,10 +2237,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
              << "If specified, there must be " << g_num_model_coeffs << " coefficients.\n");
   }
 
-
-  // Interpret the crop win as minx, miny, widx, widy
-  opt.crop_win.max() = opt.crop_win.min() + opt.crop_win.max();
-  
   // Sanity check
   if (opt.camera_position_step_size <= 0) {
     vw_throw(ArgumentErr()
@@ -2181,10 +2269,12 @@ void run_sfs_level(// Fixed inputs
 		   double nodata_val,
 		   std::vector<BBox2i> const& crop_boxes,
 		   std::vector<MaskedImgT> const& masked_images,
+		   std::vector<DoubleImgT> const& blend_weights,
 		   GlobalParams const& global_params,
 		   std::vector<ModelParams> const & model_params,
+		   ImageView<double> const& orig_dem, 
 		   // Quantities that will float
-		   ImageView<double> const& orig_dem, // unmodified
+                   std::set<int> const& skip_images,
 		   ImageView<double> & dem,
 		   ImageView<double> & albedo,
 		   std::vector<boost::shared_ptr<CameraModel> > & cameras,
@@ -2226,6 +2316,10 @@ void run_sfs_level(// Fixed inputs
       // Intensity error for each image
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
 
+        if (skip_images.find(image_iter) != skip_images.end()) {
+          continue;
+        }
+        
 	ceres::CostFunction* cost_function_img =
 	  IntensityError::Create(col, row, dem, geo,
 				 opt.model_shadows,
@@ -2235,6 +2329,7 @@ void run_sfs_level(// Fixed inputs
 				 global_params, model_params[image_iter],
 				 crop_boxes[image_iter],
 				 masked_images[image_iter],
+				 blend_weights[image_iter],
 				 cameras[image_iter]);
 	ceres::LossFunction* loss_function_img = NULL;
 	problem.AddResidualBlock(cost_function_img, loss_function_img,
@@ -2277,38 +2372,46 @@ void run_sfs_level(// Fixed inputs
     }
   }
 
+  int num_skipped = skip_images.size();
+
   // If there's just one image, don't float the exposure,
   // as the problem is under-determined. If we float the
   // albedo, we will implicitly float the exposure, hence
   // keep the exposure itself fixed.
-  if (!opt.float_exposure) {
-    for (int image_iter = 0; image_iter < num_images; image_iter++)
+  if (!opt.float_exposure){
+    for (int image_iter = 0; image_iter < num_images; image_iter++) {
+      if (skip_images.find(image_iter) != skip_images.end()) continue; // was skipped
       problem.SetParameterBlockConstant(&exposures[image_iter]);
+    }
   }
-
-  if (opt.float_all_cameras)
-    opt.float_cameras = true;
   
   if (!opt.float_cameras) {
     vw_out() << "Not floating cameras." << std::endl;
-    for (int image_iter = 0; image_iter < num_images; image_iter++)
+    for (int image_iter = 0; image_iter < num_images; image_iter++){
+      if (skip_images.find(image_iter) != skip_images.end()) continue; // was skipped
       problem.SetParameterBlockConstant(&adjustments[6*image_iter]);
+    }
   }else if (!opt.float_all_cameras){
     // Fix the first camera, let the other ones conform to it.
     // TODO: This needs further study.
     vw_out() << "Floating all cameras sans the first one." << std::endl;
-    problem.SetParameterBlockConstant(&adjustments[0]);
+    int image_iter = 0;
+    if (skip_images.find(image_iter) != skip_images.end()) {
+      // was skipped
+    }else{
+      problem.SetParameterBlockConstant(&adjustments[6*image_iter]);
+    }
   }else{
     vw_out() << "Floating all cameras, including the first one." << std::endl;
   }
-
+  
   // Variables at the boundary must be fixed.
   if (!opt.float_dem_at_boundary) {
     for (int col = 0; col < dem.cols(); col++) {
       for (int row = 0; row < dem.rows(); row++) {
 	if (col == 0 || col == dem.cols() - 1 ||
 	    row == 0 || row == dem.rows() - 1 ) {
-	  problem.SetParameterBlockConstant(&dem(col, row));
+          problem.SetParameterBlockConstant(&dem(col, row));
 	}
       }
     }
@@ -2317,14 +2420,14 @@ void run_sfs_level(// Fixed inputs
   if (opt.fix_dem) {
     for (int col = 0; col < dem.cols(); col++) {
       for (int row = 0; row < dem.rows(); row++) {
-	problem.SetParameterBlockConstant(&dem(col, row));
+        problem.SetParameterBlockConstant(&dem(col, row));
       }
     }
   }
   
   // If to float the reflectance model coefficients
   if (!opt.float_reflectance_model) {
-    problem.SetParameterBlockConstant(&coeffs[0]);
+    if (num_skipped < num_images) problem.SetParameterBlockConstant(&coeffs[0]);
   }
   
   if (opt.num_threads > 1 && !opt.use_approx_camera_models) {
@@ -2355,6 +2458,7 @@ void run_sfs_level(// Fixed inputs
   g_model_params   = &model_params;
   g_crop_boxes     = &crop_boxes;
   g_masked_images  = &masked_images;
+  g_blend_weights  = &blend_weights;
   g_cameras        = &cameras;
   g_iter           = -1; // reset the iterations for each level
   g_final_iter     = false;
@@ -2444,7 +2548,6 @@ int main(int argc, char* argv[]) {
     }
     g_nodata_val = &nodata_val;
 
-
     // Read the DEM
     ImageView<double> dem = copy(DiskImageView<double>(opt.input_dem) );
 
@@ -2469,6 +2572,9 @@ int main(int argc, char* argv[]) {
       dem = crop(dem, opt.crop_win);
       geo = crop(geo, opt.crop_win);
     }
+
+    // This can be useful
+    vw_out() << "DEM cols and rows: " << dem.cols()  << ' ' << dem.rows() << std::endl;
     
     // Replace no-data values with the min valid value. That is because
     // no-data values usually come from shadows, and those are low-lying.
@@ -2598,13 +2704,18 @@ int main(int argc, char* argv[]) {
 	if (dynamic_cast<IsisCameraModel*>(icam.get()) == NULL)
 	  vw_throw( ArgumentErr() << "Expecting an ISIS camera model.\n" );
 
-	vw_out() << "Creating an approx camera model for "
+	vw_out() << "Creating an approximate camera model for "
 		 << opt.input_cameras[image_iter] << ".\n";
+        BBox2i img_bbox = crop_boxes[0][image_iter];
+        Stopwatch sw;
+        sw.start();
 	boost::shared_ptr<CameraModel> apcam
-	  (new ApproxCameraModel(icam, dem, geo, nodata_val, opt.use_rpc_approximation,
+	  (new ApproxCameraModel(icam, img_bbox, dem, geo, nodata_val, opt.use_rpc_approximation,
 				 opt.rpc_penalty_weight, camera_mutex));
-        vw_out() << "Done creating the approx camera model.\n";
-
+        sw.stop();
+        vw_out() << "Approximate model generation time: " << sw.elapsed_seconds()
+                 << " s." << std::endl;
+        
 	// Copy the adjustments over to the approximate camera model
 	Vector3 translation  = acam.translation();
 	Quat rotation        = acam.rotation();
@@ -2625,7 +2736,8 @@ int main(int argc, char* argv[]) {
 	  cam_ptr->crop_box() = BBox2();
 
 	// Compared original and unadjusted models
-	for (int col = 0; col < dem.cols(); col++) {
+        double max_curr_err = 0.0;
+        for (int col = 0; col < dem.cols(); col++) {
 	  for (int row = 0; row < dem.rows(); row++) {
 	    Vector2 ll = geo.pixel_to_lonlat(Vector2(col, row));
 	    Vector3 xyz = geo.datum().geodetic_to_cartesian(Vector3(ll[0], ll[1],
@@ -2633,13 +2745,20 @@ int main(int argc, char* argv[]) {
 
 	    // Test how unadjusted models compare
 	    Vector2 pix1 = icam->point_to_pixel(xyz);
+            //if (!img_bbox.contains(pix1)) continue;
+
 	    Vector2 pix2 = apcam->point_to_pixel(xyz);
-	    max_approx_err = std::max(max_approx_err, norm_2(pix1 - pix2));
+	    max_curr_err = std::max(max_curr_err, norm_2(pix1 - pix2));
+            //std::cout << "orig and approx1 " << pix1 << ' ' << pix2 << ' '
+            //          << norm_2(pix1-pix2) << std::endl;
 
 	    // Test how adjusted models compare
 	    Vector2 pix3 = acam.point_to_pixel(xyz);
+            //if (!img_bbox.contains(pix3)) continue;
 	    Vector2 pix4 = cameras[image_iter]->point_to_pixel(xyz);
-	    max_approx_err = std::max(max_approx_err, norm_2(pix3 - pix4));
+	    max_curr_err = std::max(max_curr_err, norm_2(pix3 - pix4));
+            //std::cout << "orig and approx2 " << pix3 << ' ' << pix4 << ' '
+            //          << norm_2(pix3-pix4) << std::endl;
 
             // Use these pixels to expand the crop box, as we now also know the adjustments.
             // This is a bug fix.
@@ -2650,6 +2769,11 @@ int main(int argc, char* argv[]) {
 	  }
 	}
 
+        vw_out() << "Max approximate model error in pixels for: "
+                 <<  opt.input_cameras[image_iter] << ": " << max_curr_err << std::endl;
+
+        max_approx_err = std::max(max_approx_err, max_curr_err);
+        
 	if (opt.use_rpc_approximation){
 	  // Grow the box just a bit more, to ensure we still see
 	  // enough of the images during optimization.
@@ -2664,8 +2788,7 @@ int main(int argc, char* argv[]) {
         if (opt.crop_input_images)
           crop_boxes[0][image_iter].crop(cam_ptr->crop_box());
       }
-      vw_out() << "Max approximate model error in pixels: " << max_approx_err << std::endl;
-
+      vw_out() << "Max total approximate model error in pixels: " << max_approx_err << std::endl;
     }
 
     // Make the crop boxes lower left corner be multiple of 2^level
@@ -2682,8 +2805,9 @@ int main(int argc, char* argv[]) {
       }
     }
     
-    // Images with bilinear interpolation
+    // Images with bilinear interpolation. And weights.
     std::vector<MaskedImgT> masked_images(num_images);
+    std::vector<DoubleImgT> blend_weights(num_images);
     float img_nodata_val = -std::numeric_limits<float>::max();
     for (int image_iter = 0; image_iter < num_images; image_iter++){
       std::string img_file = opt.input_images[image_iter];
@@ -2700,6 +2824,12 @@ int main(int argc, char* argv[]) {
  	masked_images[image_iter]
  	  = create_mask_less_or_equal(cropped_img,
  				      std::max(img_nodata_val, shadow_thresh));
+
+        // Compute blending weights only when using an approx camera model and
+        // cropping the images. Otherwise the weights are too huge. 
+        if (opt.use_blending_weights)
+          blend_weights[image_iter] = comp_blending_weights(masked_images[image_iter],
+                                                            opt.blending_dist, opt.blending_power);
        }else{
          masked_images[image_iter]
            = create_mask_less_or_equal(DiskImageView<float>(img_file),
@@ -2715,7 +2845,7 @@ int main(int argc, char* argv[]) {
       IsisCameraModel* icam
 	= dynamic_cast<IsisCameraModel*>(get_isis_cam(cameras[image_iter]).get());
       model_params[image_iter].sunPosition    = icam->sun_position();
-      vw_out() << "sun position for image: " << image_iter << " "
+      vw_out() << "Sun position for image: " << image_iter << " "
 	       << model_params[image_iter].sunPosition << std::endl;
     }
 
@@ -2745,10 +2875,12 @@ int main(int argc, char* argv[]) {
     // the exposure as mean(intensity)/mean(reflectance).
     // We will update the exposure later. If the user
     // provided initial exposures, use those.
+    std::set<int> skip_images;
     if (opt.image_exposures_vec.empty()) {
       opt.image_exposures_vec.resize(num_images);
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
 	ImageView< PixelMask<double> > reflectance, intensity;
+	ImageView<double> weight;
 	computeReflectanceAndIntensity(dem, geo,
 				       opt.model_shadows, max_dem_height,
 				       gridx, gridy,
@@ -2756,8 +2888,9 @@ int main(int argc, char* argv[]) {
 				       global_params,
 				       crop_boxes[0][image_iter],
 				       masked_images[image_iter],
+				       blend_weights[image_iter],
 				       cameras[image_iter].get(),
-				       reflectance, intensity,
+				       reflectance, intensity, weight,
                                        &opt.model_coeffs_vec[0]);
 
 	double imgmean, imgstdev, refmean, refstdev;
@@ -2768,6 +2901,13 @@ int main(int argc, char* argv[]) {
 	vw_out() << "ref mean std: " << refmean << ' ' << refstdev << std::endl;
 	vw_out() << "Exposure for image " << image_iter << ": "
 		 <<  opt.image_exposures_vec[image_iter] << std::endl;
+
+        double big = 1e+10; // There's no way image exposure can be bigger than this
+        bool is_good = ( 0 < opt.image_exposures_vec[image_iter] &&
+                         opt.image_exposures_vec[image_iter] < big );
+        if (!is_good) {
+          skip_images.insert(image_iter); // bad exposure, maybe no image in the area
+        }
       }
     }
     g_exposures = &opt.image_exposures_vec[0];
@@ -2803,12 +2943,14 @@ int main(int argc, char* argv[]) {
     // Prepare data at each coarseness level
     std::vector<GeoReference> geos(levels+1);
     std::vector< ImageView<double> > orig_dems(levels+1), dems(levels+1), albedos(levels+1);
-    std::vector< std::vector< ImageViewRef< PixelMask<float> > > > masked_images_vec(levels+1);
+    std::vector< std::vector<MaskedImgT> > masked_images_vec(levels+1);
+    std::vector< std::vector<DoubleImgT> > blend_weights_vec(levels+1);
     geos[0] = geo;
     orig_dems[0] = copy(dem);
     dems[0] = copy(dem);
     albedos[0] = copy(albedo);
     masked_images_vec[0] = masked_images;
+    blend_weights_vec[0] = blend_weights;
     double sub_scale = 1.0/factor;
 
     for (int level = 1; level <= levels; level++) {
@@ -2828,6 +2970,7 @@ int main(int argc, char* argv[]) {
 	dems.resize(levels+1);
 	albedos.resize(levels+1);
 	masked_images_vec.resize(levels+1);
+	blend_weights_vec.resize(levels+1);
 	factors.resize(levels+1);
 	break;
       }
@@ -2843,6 +2986,7 @@ int main(int argc, char* argv[]) {
       // rather than redoing it each time within the optimization
       // loop.
       masked_images_vec[level].resize(num_images);
+      blend_weights_vec[level].resize(num_images);
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
 	fs::path image_path(opt.input_images[image_iter]);
 	std::ostringstream os; os << "-level" << level;
@@ -2865,18 +3009,39 @@ int main(int argc, char* argv[]) {
 	      Vector2i(tile_size,tile_size) * sub_scale),
 	     Vector2i(tile_size, tile_size), sub_threads), img_nodata_val),
 	   has_img_georef, img_georef, has_img_nodata, img_nodata_val, opt, tpc);
-
 	// Read it right back
 	if (opt.use_approx_camera_models && opt.crop_input_images) {
 	  // Read it fully in memory, as we cropped it before
 	  ImageView<float> memory_img = copy(DiskImageView<float>(sub_image));
-	  masked_images_vec[level][image_iter]
-	    = create_mask(memory_img, img_nodata_val);
-	}else{
+	  masked_images_vec[level][image_iter] = create_mask(memory_img, img_nodata_val);
+        }else{
 	  // Read just a handle, as the full image could be huge
 	  masked_images_vec[level][image_iter]
 	    = create_mask(DiskImageView<float>(sub_image), img_nodata_val);
-	}  
+        }
+        
+        if (blend_weights_vec[level-1][image_iter].cols() > 0 &&
+            blend_weights_vec[level-1][image_iter].rows() > 0 ) {
+          fs::path weight_path(opt.input_images[image_iter]);
+          std::string sub_weight = opt.out_prefix + "-wt-"
+            + weight_path.stem().string() + os.str() + ".tif";
+          vw_out() << "Writing subsampled weight: " << sub_weight << "\n";
+          
+          vw::cartography::block_write_gdal_image
+            (sub_weight,
+             apply_mask
+             (block_rasterize
+              (vw::cache_tile_aware_render
+               (vw::resample_aa
+                (create_mask(blend_weights_vec[level-1][image_iter], *g_nodata_val), sub_scale),
+                Vector2i(tile_size,tile_size) * sub_scale),
+               Vector2i(tile_size, tile_size), sub_threads), *g_nodata_val),
+             has_img_georef, img_georef, has_img_nodata, *g_nodata_val, opt, tpc);
+
+          ImageView<double> memory_weight = copy(DiskImageView<double>(sub_weight));
+          blend_weights_vec[level][image_iter] = memory_weight;
+        }
+        
       }
     }
 
@@ -2903,9 +3068,11 @@ int main(int argc, char* argv[]) {
       run_sfs_level(// Fixed inputs
 		    num_iterations, opt, geos[level],
 		    opt.smoothness_weight*factors[level]*factors[level],
-		    nodata_val, crop_boxes[level], masked_images_vec[level],
+		    nodata_val, crop_boxes[level],
+                    masked_images_vec[level], blend_weights_vec[level],
                     global_params, model_params,
 		    orig_dems[level],
+                    skip_images,
 		    // Quantities that will float
                     dems[level], albedos[level], cameras,
 		    opt.image_exposures_vec,
@@ -2924,6 +3091,7 @@ int main(int argc, char* argv[]) {
 
   } ASP_STANDARD_CATCHES;
 
-  vw_out() << "Number of times we used the global lock: " << g_num_locks << std::endl;
+  VW_OUT(DebugMessage, "asp") << "Number of times we used the global lock: "
+                              << g_num_locks << std::endl;
   
 }
