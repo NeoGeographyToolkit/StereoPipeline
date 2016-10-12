@@ -80,6 +80,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
 // mapprojected onto the datum, that will change. Overwrite
 // the input cameras.
 void ortho2pinhole(Options const& opt){
+  // TODO: Wipe tmp-prefix matchfile at the end!
   std::string out_prefix = "tmp-prefix";
   std::string match_filename = ip::match_filename(out_prefix, opt.raw_image, opt.ortho_image);
   
@@ -208,7 +209,11 @@ void ortho2pinhole(Options const& opt){
   pcam->apply_transform(rotation, translation, scale);
   
   vw_out() << "Writing: " << opt.output_cam << std::endl;
-  pcam->write(opt.output_cam);  
+  pcam->write(opt.output_cam);
+
+
+  vw_out() << "Removing: " << match_filename << std::endl;
+  boost::filesystem::remove(match_filename);
 }  
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
