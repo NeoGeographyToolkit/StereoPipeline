@@ -486,6 +486,37 @@ We see that the mean error between the DEM and LOLA goes down, after SfS,
 from  1.14~m to 0.90~m, while the standard deviation decreases from
  1.18~m to 1.06~m.
 
+\section{Running SfS with an external initial guess DEM}
+
+Sometimes it is convenient to run SfS with a DEM not created using ASP's
+\texttt{stereo}. For example, for the Moon, the LOLA gridded DEM is
+available. It is somewhat noisy and the nominal resolution is on the
+order of 10 m/pixel, but it is available even for permanently shadowed
+regions.
+
+The main challenge in such a situation is that the images, such as
+coming from LRO NAC, may not be aligned well to this external DEM and
+among themselves, and then SfS will fail. To get an initial alignment,
+what worked for us to coarsen both this DEM and the images to about 40
+meters/pixel (using the ISIS \texttt{reduce} command and
+\texttt{dem\_mosaic} with the options to blur and change the grid size),
+and then run SfS over a reasonably large area (say about $500 \times
+500$ pixels) with pronounced terrain and where images have a lot of
+overlap with the option \texttt{-\/-float-all-cameras} (and of course
+\texttt{-\/-float-exposure}, and an appropriate \texttt{-\/-shadow-threshold}). 
+Then, the SfS program will find
+adjustments to the cameras, writing them in the output directory. The
+\texttt{mapproject} tool can be used to map-project the coarse images
+onto the input DEM using \texttt{-\/-bundle-adjust-prefix} pointing to
+the \texttt{sfs} output prefix. This should be used to verify that images
+are now aligned correctly, for example by overlaying them in
+\texttt{stereo\_gui}. If so, these adjustments can be used as input for
+SfS with images at finer levels of resolution (by appropriately renaming the
+adjustment files).
+
+Here, a higher value can be used for \texttt{-\/-initial-dem-constraint-weight}
+to ensure we cameras have more motivation to align to the terrain.
+
 \section{Insights for getting the most of SfS}
 \label{sfs:insights}
 
