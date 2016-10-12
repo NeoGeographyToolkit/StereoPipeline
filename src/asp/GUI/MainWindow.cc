@@ -323,6 +323,11 @@ void MainWindow::createMenus() {
   m_viewUnthreshImages_action->setStatusTip(tr("View un-thresholded images."));
   connect(m_viewUnthreshImages_action, SIGNAL(triggered()), this, SLOT(viewUnthreshImages()));
 
+  // View/set shadow threshold
+  m_shadowGetSet_action = new QAction(tr("View/set shadow thresholds"), this);
+  m_shadowGetSet_action->setStatusTip(tr("View/set shadow thresholds."));
+  connect(m_shadowGetSet_action, SIGNAL(triggered()), this, SLOT(shadowThresholdGetSet()));
+
   // 1D profile mode
   m_profileMode_action = new QAction(tr("1D profile mode"), this);
   m_profileMode_action->setStatusTip(tr("Profile mode."));
@@ -366,6 +371,7 @@ void MainWindow::createMenus() {
   m_threshold_menu->addAction(m_shadowCalc_action);
   m_threshold_menu->addAction(m_viewThreshImages_action);
   m_threshold_menu->addAction(m_viewUnthreshImages_action);
+  m_threshold_menu->addAction(m_shadowGetSet_action);
 
   // Profile menu
   m_profile_menu = menu->addMenu(tr("Profile"));
@@ -683,7 +689,7 @@ void MainWindow::writeGroundControlPoints() {
     Vector2 dem_pixel = georef_dem.lonlat_to_pixel(lonlat);
     PixelMask<float> mask_height = interp_dem(dem_pixel[0], dem_pixel[1])[0];
 
-    // We make a seperate bounding box check because the ValueEdgeExtension
+    // We make a separate bounding box check because the ValueEdgeExtension
     //  functionality may not work properly!
     if ( (!image_bb.contains(dem_pixel)) || (!is_valid(mask_height)) ) {
       vw_out() << "Warning: Skipped IP # " << p << " because it does not fall on the DEM.\n";
@@ -710,7 +716,7 @@ void MainWindow::writeGroundControlPoints() {
   } // End loop through IPs
 
   output_handle.close();
-  popUp("Finished writing file " + save_path);
+  popUp("Finished writing file: " + save_path);
 }
 
 
@@ -818,6 +824,47 @@ void MainWindow::viewUnthreshImages() {
       m_widgets[i]->viewUnthreshImages();
     }
   }
+}
+
+void MainWindow::shadowThresholdGetSet() {
+
+  if (m_widgets.size() != m_image_paths.size()) {
+    popUp("Each image must be in its own window to be able to set the shadow thresholds.");
+    return;
+  }
+  
+  std::ostringstream oss;
+  oss.precision(18);
+  
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (m_widgets[i])
+      oss << m_widgets[i]->getThreshold() << " ";
+  }
+  std::string shadowThresh = oss.str();
+  bool ans = getStringFromGui(this,
+                              "Shadow thresholds",
+                              "Shadow thresholds",
+                              shadowThresh,
+                              shadowThresh);
+  if (!ans)
+    return;
+
+  std::istringstream iss(shadowThresh.c_str());
+  std::vector<double> thresholds;
+  double val;
+  while (iss >> val)
+    thresholds.push_back(val);
+
+  if (thresholds.size() != m_widgets.size()) {
+    popUp("There must be as many thresholds as images.");
+    return;
+  }
+  
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (m_widgets[i])
+      m_widgets[i]->setThreshold(thresholds[i]);
+  }
+  
 }
 
 void MainWindow::viewHillshadedImages() {

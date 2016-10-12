@@ -115,6 +115,9 @@ namespace vw { namespace gui {
                              std::vector<double> const& profileY);
 
     std::set<int> & indicesWithAction() { return m_indicesWithAction; }
+
+    void setThreshold(double thresh); ///< Set the shadow threshold 
+    double getThreshold();            ///< Get the shadow threshold
     
     signals:
     void refreshAllMatches();
@@ -132,7 +135,7 @@ public slots:
 
     void addMatchPoint();       ///< Add a new interest point (from right click menu)
     void deleteMatchPoint();    ///< Delete an interest point (from right click menu)
-    void setTheshold();         ///< Set change shadow threshold (from right click menu)
+    void setThreshold();        ///< Set change shadow threshold (from right click menu)
     void toggleHillshade();     ///< Turn on/off hillshading per image (from right click menu)
     void refreshHillshade();    ///< We modified m_hillshade_mode. Update the display.
     void deleteImage();         ///< Delete an image from the gui and refresh

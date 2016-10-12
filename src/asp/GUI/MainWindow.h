@@ -77,6 +77,7 @@ namespace vw { namespace gui {
     void run_stereo();
     void run_parallel_stereo();
     void shadowThresholdCalc();
+    void shadowThresholdGetSet();
     void viewThreshImages();
     void viewUnthreshImages();
     void viewHillshadedImages();
@@ -114,6 +115,7 @@ namespace vw { namespace gui {
 
     QAction *m_about_action;
     QAction *m_shadowCalc_action;
+    QAction *m_shadowGetSet_action;
     QAction *m_sizeToFit_action;
     QAction *m_viewSingleWindow_action;
     QAction *m_viewSideBySide_action;

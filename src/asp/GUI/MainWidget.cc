@@ -246,7 +246,7 @@ namespace vw { namespace gui {
     connect(m_addMatchPoint,    SIGNAL(triggered()), this, SLOT(addMatchPoint()));
     connect(m_deleteMatchPoint, SIGNAL(triggered()), this, SLOT(deleteMatchPoint()));
     connect(m_toggleHillshade,  SIGNAL(triggered()), this, SLOT(toggleHillshade()));
-    connect(m_setThreshold,     SIGNAL(triggered()), this, SLOT(setTheshold()));
+    connect(m_setThreshold,     SIGNAL(triggered()), this, SLOT(setThreshold()));
 
     MainWidget::maybeGenHillshade();
 
@@ -1652,13 +1652,12 @@ namespace vw { namespace gui {
   }
 
   // Show the current shadow threshold, and allow the user to change it.
-  void MainWidget::setTheshold(){
+  void MainWidget::setThreshold(){
 
-    std::string shadowThresh;
     std::ostringstream oss;
     oss.precision(18);
     oss << m_shadow_thresh;
-    shadowThresh = oss.str();
+    std::string shadowThresh = oss.str();
     bool ans = getStringFromGui(this,
 				"Shadow threshold",
 				"Shadow threshold",
@@ -1667,10 +1666,23 @@ namespace vw { namespace gui {
     if (!ans)
       return;
 
-    m_shadow_thresh = atof(shadowThresh.c_str());
+    double thresh = atof(shadowThresh.c_str());
+    MainWidget::setThreshold(thresh);
+  }
 
+  void MainWidget::setThreshold(double thresh){
+    if (m_images.size() != 1) {
+      popUp("Must have just one image in each window to set the shadow threshold.");
+      return;
+    }
+
+    m_shadow_thresh = thresh;
     vw_out() << "Shadow threshold for " << m_image_files[0]
 	     << ": " << m_shadow_thresh << std::endl;
+  }
+
+  double MainWidget::getThreshold(){
+    return m_shadow_thresh;
   }
   
 }} // namespace vw::gui
