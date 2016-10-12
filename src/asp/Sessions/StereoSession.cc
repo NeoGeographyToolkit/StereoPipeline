@@ -91,8 +91,6 @@ namespace asp {
       vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
       return true;
     }
-
-    // Get normalized versions of the images for OpenCV based methods
     
     // Create DiskImageResource objects
     // - A little messy to make sure it works with SPOT5 which will not work without the camera file
@@ -108,9 +106,9 @@ namespace asp {
     else // Tiff input
       rsrc2 = asp::load_disk_image_resource(input_file2);
 
-    
     DiskImageView<float> image1(rsrc1), image2(rsrc2);
     ImageViewRef<float> image1_norm=image1, image2_norm=image2;
+    // Get normalized versions of the images for OpenCV based methods
     if ( (stereo_settings().ip_matching_method != DETECT_IP_METHOD_INTEGRAL) &&
        (stats1[0] != stats1[1]) ) { // Don't normalize if no stats were provided!
       vw_out() << "\t--> Normalizing images for IP detection using stats " << stats1 << "\n";
@@ -147,9 +145,11 @@ namespace asp {
                                        nodata1, nodata2);
     } else { // Not nadir facing
       // Run a simpler purely image based matching function
+      const int inlier_threshold = 10;
       inlier = homography_ip_matching( image1_norm, image2_norm,
                                        ip_per_tile,
                                        match_filename,
+                                       inlier_threshold,
                                        nodata1, nodata2);
     }
     if (!inlier) {
@@ -157,7 +157,7 @@ namespace asp {
       vw_throw(IOErr() << "Unable to match left and right images.");
     }
     return inlier;
-  }
+  } // End function ip_matching()
 
   // Peek inside the images and camera models and return the datum and projection,
   // or at least the datum, packaged in a georef.

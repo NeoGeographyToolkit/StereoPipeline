@@ -19,7 +19,7 @@
 
 """IrgSystemFunctions.py - General systems related utilities"""
 
-import sys, os, re, shutil, subprocess, string, time, errno, multiprocessing
+import sys, os, re, shutil, subprocess, string, time, errno, multiprocessing, shlex
 
 
 
@@ -59,7 +59,11 @@ def argListToString(argList):
 
 def stringToArgList(string):
     """Converts a single argument string into a list of arguments"""
-    return string.split(" ")
+    return shlex.split(string)
+    
+
+class CmdRunException(Exception):
+    pass
 
 # TODO: Improve this function a bit
 def executeCommand(cmd,

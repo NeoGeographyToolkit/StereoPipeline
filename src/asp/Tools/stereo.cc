@@ -725,8 +725,8 @@ namespace asp {
     }
   } // End user_safety_checks
 
-  // approximate search range
-  //  Find interest points and grow them into a search range
+  ///  Find interest points and grow them into a search range
+  /// - Currently this is only used for finding IP in epipolar or no-alignment D_sub images.
   BBox2i
   approximate_search_range(std::string const& out_prefix,
                            std::string const& left_sub_file,
@@ -768,9 +768,12 @@ namespace asp {
       DiskImageView<PixelT> right_sub_image(right_rsrc);
 
       // This will write match_filename to disk.
+      // These are downsampled images so we don't want to allow too much slop in the IP!
+      const int inlier_threshold = 2; 
       bool success = asp::homography_ip_matching(left_sub_image, right_sub_image,
                                                  stereo_settings().ip_per_tile,
                                                  match_filename,
+                                                 inlier_threshold,
                                                  left_nodata_value, right_nodata_value);
       if (!success)
         vw_throw(ArgumentErr() << "Could not find interest points.\n");
@@ -779,6 +782,7 @@ namespace asp {
     vw_out() << "\t    * Using cached match file: " << match_filename << "\n";
     ip::read_binary_match_file(match_filename, matched_ip1, matched_ip2);
 
+    // TODO: Can we compute the range more accurately?
     // Find search window based on interest point matches
     namespace ba = boost::accumulators;
     ba::accumulator_set<float, ba::stats<ba::tag::variance> > acc_x, acc_y;
@@ -787,8 +791,23 @@ namespace asp {
       acc_y(i_scale * (matched_ip2[i].y - matched_ip1[i].y));
     }
     Vector2f mean( ba::mean(acc_x), ba::mean(acc_y) );
+    /* // Debug code to print all the points
+    for (size_t i = 0; i < matched_ip1.size(); i++) {
+      Vector2f diff(i_scale * (matched_ip2[i].x - matched_ip1[i].x), 
+                    i_scale * (matched_ip2[i].y - matched_ip1[i].y));
+      //Vector2f diff(matched_ip2[i].x - matched_ip1[i].x, 
+      //              matched_ip2[i].y - matched_ip1[i].y);
+      std::cout << matched_ip1[i].x <<", "<<matched_ip1[i].y 
+                << " <> " 
+                << matched_ip2[i].x <<", "<<matched_ip2[i].y 
+                 << " DIFF-M " << diff-mean << endl;
+    }
+    */
     vw_out(DebugMessage,"asp") << "Mean search is : " << mean << endl;
     Vector2f stddev(sqrt(ba::variance(acc_x)), sqrt(ba::variance(acc_y)));
+    vw_out(InfoMessage,"asp") << "i_scale is : " << i_scale << endl;
+    vw_out(InfoMessage,"asp") << "Mean search is : " << mean << endl;
+    vw_out(InfoMessage,"asp") << "stddev search is : " << stddev << endl;
     BBox2i search_range(mean - 2.5*stddev,
                         mean + 2.5*stddev);
     return search_range;

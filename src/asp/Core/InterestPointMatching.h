@@ -247,6 +247,7 @@ namespace asp {
 			       vw::ImageViewBase<Image2T> const& image2,
 			       int ip_per_tile,
 			       std::string const& output_name,
+			       int inlier_threshold=10,
 			       double nodata1 = std::numeric_limits<double>::quiet_NaN(),
 			       double nodata2 = std::numeric_limits<double>::quiet_NaN() );
 
@@ -549,6 +550,7 @@ namespace asp {
 			       vw::ImageViewBase<Image2T> const& image2,
 			       int ip_per_tile,
 			       std::string const& output_name,
+			       int inlier_threshold,
 			       double nodata1,
 			       double nodata2 ) {
 
@@ -566,12 +568,11 @@ namespace asp {
     std::vector<size_t> indices;
     try {
       typedef math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric> RansacT;
-      const double INLIER_THRESHOLD       = 10.0;
       const int    MIN_NUM_OUTPUT_INLIERS = ransac_ip1.size()/2;
       const int    NUM_ITERATIONS         = 100;
       RansacT ransac( math::HomographyFittingFunctor(),
 		      math::InterestPointErrorMetric(), NUM_ITERATIONS,
-		      INLIER_THRESHOLD,
+		      inlier_threshold,
 		      MIN_NUM_OUTPUT_INLIERS, true
 		      );
       Matrix<double> H(ransac(ransac_ip2,ransac_ip1)); // 2 then 1 is used here for legacy reasons

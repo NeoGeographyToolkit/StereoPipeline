@@ -96,6 +96,7 @@ public:
     // Rasterize both input image regions
     BBox2i bbox2 = bbox;
     bbox2.expand(max_half_kernel);
+    bbox2.crop(bounding_box(m_img)); // Restrict to valid input area
     //std::cout << "bbox2 = " << bbox2 << std::endl;
     ImageView<typename ImageT::pixel_type> input_tile      = crop(m_img,      bbox2);
     ImageView<pixel_type                 > input_disp_tile = crop(m_disp_img, bbox2);
@@ -351,7 +352,7 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
     }
 
   } // End no hole filling case
-}
+} //end write_good_pixel_and_filtered
 
 void stereo_filtering( ASPGlobalOptions& opt ) {
 
@@ -453,7 +454,7 @@ void stereo_filtering( ASPGlobalOptions& opt ) {
     vw_throw( ArgumentErr() << "\nUnable to start at filtering stage -- could not read input files.\n"
               << e.what() << "\nExiting.\n\n" );
   }
-} // end write_good_pixel_and_filtered
+} // end stereo_filtering()
 
 int main(int argc, char* argv[]) {
 
