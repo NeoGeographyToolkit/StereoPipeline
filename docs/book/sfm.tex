@@ -169,6 +169,9 @@ Band 4 Block=256x256 Type=Float32, ColorInterp=Undefined
     STATISTICS_STDDEV=3.5124044818554
 \end{verbatim}
 
+The tool \texttt{point2mesh} (section \ref{point2mesh}) can be used to
+obtain a visualizable mesh from the point cloud. 
+
 In order to generate a useful DEM, we need to move our cameras from local coordinates
 to global coordinates.  The easiest way to do this is to obtain known ground control
 points (GCPs) which can be identified in the frame images.  This will allow an accurate
@@ -277,13 +280,15 @@ results depending on the contents of your input images.
 Some conversion command examples are shown below:
 
 \begin{verbatim}
-convert  rgb.jpg  -colorspace Gray   gray.jpg
-gdal_calc.py -A rgb.tif --A_band=1 -B rgb.tif --B_band=2 -C rgb.tif
---C_band=3 --outfile=gray.tif --calc="A*0.2989+B*0.5870+C*0.1140"
+convert rgb.jpg -colorspace Gray gray.jpg
+gdal_calc.py  --overwrite --type=Float32 --NoDataValue=-32768       \
+  -A rgb.tif --A_band=1 -B rgb.tif --B_band=2 -C rgb.tif            \
+  --C_band=3 --outfile=gray.tif --calc="A*0.2989+B*0.5870+C*0.1140"
 gdal_translate -b 1 rgb.jpg gray.jpg
 \end{verbatim}
 
-Or \texttt{gdal\_translate} can be used on the original image to pick a single band rather than combining the three.
+In the third command we used \texttt{gdal\_translate} to pick a single
+band rather than combining the three.
 
 Obtaining ground control points for icy locations on Earth can be particularly difficult because
 they are not well surveyed or because the terrain shifts over time.
