@@ -63,7 +63,11 @@ using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-typedef float RealT; // Use double for debugging
+// This tool can handle only DEMs with float pixels. It should have no
+// problem reading DEMs with double or int16 pixels that can be cast
+// to float, but problems can show up if the no-data value cannot be
+// cast properly to float, for example, if it is the smallest double.
+typedef float RealT;
 
 // This is used for various tolerances
 double g_tol = 1e-6;
@@ -1289,13 +1293,15 @@ int main( int argc, char *argv[] ) {
     // Read nodata from first DEM, unless the user chooses to specify it.
     if (!opt.has_out_nodata){
       DiskImageResourceGDAL in_rsrc(opt.dem_files[0]);
-      if (in_rsrc.has_nodata_read()) opt.out_nodata_value = in_rsrc.nodata_read();
+      // Since the DEMs have float pixels, we must read the no-data as float as well.
+      // Yet we store it in a double, which probably is not wise. 
+      if (in_rsrc.has_nodata_read()) opt.out_nodata_value = RealT(in_rsrc.nodata_read());
     }
 
     // Watch for underflow, if mixing doubles and float. Particularly problematic
     // is when the nodata_value cannot be represented exactly as a float.
     if (opt.out_nodata_value < static_cast<double>(-numeric_limits<RealT>::max()) ||
-	float(opt.out_nodata_value)  != double(opt.out_nodata_value) ) {
+	RealT(opt.out_nodata_value)  != double(opt.out_nodata_value) ) {
       vw_out() << "The no-data value cannot be represented exactly as a float. "
 	       << "Have to change it.\n";
       opt.out_nodata_value = static_cast<double>(-numeric_limits<RealT>::max());
@@ -1511,13 +1517,13 @@ int main( int argc, char *argv[] ) {
         // open more handles.
         DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
         if ( in_rsrc.has_nodata_read() )
-          curr_nodata_value = in_rsrc.nodata_read();
+          curr_nodata_value = RealT(in_rsrc.nodata_read());
       }catch(std::exception const& e){
         // Try again
         imgMgr.freeup_handles_not_thread_safe();
         DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
         if ( in_rsrc.has_nodata_read() )
-          curr_nodata_value = in_rsrc.nodata_read();
+          curr_nodata_value = RealT(in_rsrc.nodata_read());
       }
       
       loaded_dems.push_back(opt.dem_files[dem_iter]);
