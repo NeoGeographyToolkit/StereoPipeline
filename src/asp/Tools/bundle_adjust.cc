@@ -71,7 +71,7 @@ Mutex g_ba_mutex;
 struct Options : public vw::cartography::GdalWriteOptions {
   std::vector<std::string> image_files, camera_files, gcp_files;
   std::string cnet_file, out_prefix, stereo_session_string,
-    cost_function, ba_type, mapprojected_data, ortho_images;
+    cost_function, ba_type, mapprojected_data, gcp_data;
   int    ip_per_tile;
   double min_angle, lambda, camera_weight, robust_threshold;
   int    report_level, min_matches, max_iterations, overlap_limit;
@@ -193,7 +193,7 @@ struct BaReprojectionError {
 
       // Project the current point into the current camera
       Vector2 prediction = (*m_ba_model).cam_pixel(m_ipt, m_icam, cam_vec, point_vec);
-
+      
       // The error is the difference between the predicted and observed position,
       // normalized by sigma.
       residuals[0] = (prediction[0] - m_observation[0])/m_pixel_sigma[0]; // Input units are pixels
@@ -549,7 +549,7 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
       Vector2 pixel_sigma = (**fiter).m_scale;
 
       // This is a bugfix
-      if (pixel_sigma != pixel_sigma) // nan check?
+      if (pixel_sigma != pixel_sigma) // nan check
         pixel_sigma = Vector2(1, 1);
 
       // Each observation corresponds to a pair of a camera and a point
@@ -631,8 +631,8 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
   }
 
   // Copy the latest version of the optimized intrinsic variables back
-  // into the the separate parameter vectors in ba_model, right after the already updated
-  // extrinsic parameters.
+  // into the the separate parameter vectors in ba_model, right after
+  // the already updated extrinsic parameters.
   typename ModelT::camera_intr_vector_t concat;
   for (size_t icam = 0; icam < num_cameras; icam++){
     ba_model.concat_extrinsics_intrinsics(&cameras_vec[icam*num_camera_params],
@@ -827,11 +827,11 @@ extract_cameras_bundle_adjust( std::vector<std::string>& image_files ) {
       it = image_files.erase( it );
     } else { // Not a camera, double check that it is an image.
       if (!asp::has_image_extension(*it))
-        vw_throw( ArgumentErr() << "Error - unrecognized input: " << *it );
+        vw_throw( ArgumentErr() << "Error - unrecognized input: '" << *it <<"'");
       it++;
     }
   }
-
+  
   return cam_files;
 }
 
@@ -918,7 +918,7 @@ void check_gcp_dists(Options const &opt) {
 
     double dist = norm_2(mean_ip - mean_gcp);
     if (dist > 100000)
-      std::cout << "WARNING: GCPs are over 100 KM from the other points.  Are your lat/lon GCP coordinates swapped?\n";
+      std::cout << "WARNING: GCPs are over 100 KM from the other points. Are your lat/lon GCP coordinates swapped?\n";
 }
 
 
@@ -1302,6 +1302,161 @@ void create_matches_from_mapprojected_images(Options const& opt){
   }
 }
 
+// If the user map-projected the images and created matches by hand
+// from each map-projected image to the DEM it was map-projected onto,
+// project those matches back into the camera image, and crate gcp
+// tying each camera image match to its desired location on the DEM.
+void create_gcp_from_mapprojected_images(Options const& opt){
+
+  // Read the map-projected images and the dem
+  std::istringstream is(opt.gcp_data);
+  std::vector<std::string> image_files;
+  std::string file;
+  while (is >> file){
+    image_files.push_back(file); 
+  }
+  std::string dem_file = image_files.back();
+  image_files.erase(image_files.end() - 1); // wipe the dem from the list
+  vw_out() << "Loading DEM: " << dem_file << std::endl;
+  double nodata_val = -std::numeric_limits<float>::max(); // note we use a float nodata
+  if (vw::read_nodata_val(dem_file, nodata_val)){
+    vw_out() << "Found DEM nodata value: " << nodata_val << std::endl;
+  }
+  
+  ImageView< PixelMask<double> > dem = create_mask(DiskImageView<double>(dem_file), nodata_val);
+  InterpolationView<EdgeExtensionView< ImageView< PixelMask<double> >, ConstantEdgeExtension >, BilinearInterpolation> interp_dem = interpolate(dem, BilinearInterpolation(),
+																		ConstantEdgeExtension());
+  vw::cartography::GeoReference georef_dem;
+  bool is_good = vw::cartography::read_georeference(georef_dem, dem_file);
+  if (!is_good) {
+    vw_throw(ArgumentErr() << "Error: Cannot read georeference from DEM: "
+	     << dem_file << ".\n");
+  }
+
+  int num_images = image_files.size();
+  std::vector<std::vector<vw::ip::InterestPoint> > matches;
+  std::vector<vw::cartography::GeoReference> img_georefs;
+  matches.resize(num_images + 1); // the last match will be for the DEM
+
+  // Read the matches and georefs
+  for (int i = 0; i < num_images; i++) {
+      
+    vw::cartography::GeoReference img_georef;
+    vw_out() << "Reading georef from " << image_files[i]  << std::endl;
+    bool is_good_img = vw::cartography::read_georeference(img_georef, image_files[i]);
+    if (!is_good_img) {
+      vw_throw(ArgumentErr() << "Error: Cannot read georeference.\n");
+    }
+    img_georefs.push_back(img_georef);
+    
+    std::string match_filename = ip::match_filename(opt.out_prefix,
+                                                    image_files[i], dem_file);
+    if (!fs::exists(match_filename)) 
+      vw_throw(ArgumentErr() << "Missing: " << match_filename << ".\n");
+    
+    vw_out() << "Reading: " << match_filename << std::endl;
+    std::vector<ip::InterestPoint> ip1, ip2;
+    ip::read_binary_match_file( match_filename, ip1, ip2 );
+    
+    if (matches[num_images].size() > 0 && matches[num_images].size() != ip2.size()) {
+      vw_throw(ArgumentErr() << "All match files must have the same number of IP.\n");
+    }
+    matches[i]          = ip1;
+    matches[num_images] = ip2;
+  }
+
+  std::vector<std::vector<vw::ip::InterestPoint> > cam_matches = matches;
+
+  std::string gcp_file;
+  for (int i = 0; i < num_images; i++) {
+    gcp_file += fs::basename(opt.image_files[i]);
+    if (i < num_images - 1) gcp_file += "__"; 
+  }
+  gcp_file = opt.out_prefix + "-" + gcp_file + ".gcp";
+  
+  vw_out() << "Writing: " << gcp_file << std::endl;
+  std::ofstream output_handle(gcp_file.c_str());
+
+  int num_ips = matches[0].size();
+  int num_pts_used = 0;
+  for (int p = 0; p < num_ips; p++) { // Loop through IPs
+
+    // Compute the GDC coordinate of the point
+    ip::InterestPoint dem_ip = matches[num_images][p];
+    Vector2 dem_pixel(dem_ip.x, dem_ip.y);
+    Vector2 lonlat = georef_dem.pixel_to_lonlat(dem_pixel);
+    
+    if (dem_pixel[0] < 0 || dem_pixel[0] >= dem.cols() - 1 ||
+        dem_pixel[1] < 0 || dem_pixel[1] >= dem.rows() - 1) {
+      vw_out() << "Skipping pixel outside of DEM: " << dem_pixel << std::endl;
+      continue;
+    }
+    
+    PixelMask<float> mask_height = interp_dem(dem_pixel[0], dem_pixel[1])[0];
+    if (!is_valid(mask_height)) continue;
+    
+    Vector3 llh(lonlat[0], lonlat[1], mask_height.child());
+    //Vector3 dem_xyz = georef_dem.datum().geodetic_to_cartesian(llh);
+
+    // The ground control point ID
+    output_handle << num_pts_used;
+    
+    // Lat, lon, height
+    output_handle << ", " << lonlat[1] << ", " << lonlat[0] << ", " << mask_height.child();
+
+    // Sigma values
+    output_handle << ", " << 1 << ", " << 1 << ", " << 1;
+
+    // Write the per-image information
+    for (int i = 0; i < num_images; i++) {
+
+      // Take the ip in the map-projected image, and back-project it into
+      // the camera
+      ip::InterestPoint ip = matches[i][p];
+      Vector2 ip_pix(ip.x, ip.y);
+      Vector2 ll = img_georefs[i].pixel_to_lonlat(ip_pix);
+      
+      Vector2 dem_pix = georef_dem.lonlat_to_pixel(ll);
+      if (dem_pix[0] < 0 || dem_pix[0] >= dem.cols() - 1) continue;
+      if (dem_pix[1] < 0 || dem_pix[1] >= dem.rows() - 1) continue;
+      PixelMask<double> dem_val = interp_dem(dem_pix[0], dem_pix[1]);
+      if (!is_valid(dem_val)) continue;
+      Vector3 llh(ll[0], ll[1], dem_val.child());
+      Vector3 xyz = georef_dem.datum().geodetic_to_cartesian(llh);
+      Vector2 cam_pix;
+      try { cam_pix = opt.camera_models[i]->point_to_pixel(xyz); }
+      catch(...){ continue; }
+      ip.x = cam_pix.x(); ip.y = cam_pix.y();
+
+      // TODO: Here we can have a book-keeping problem!
+      cam_matches[i][p] = ip;
+      
+      output_handle << ", " <<  opt.image_files[i];
+      output_handle << ", " << ip.x << ", " << ip.y; // IP location in image
+      output_handle << ", " << 1 << ", " << 1; // Sigma values
+    } // End loop through IP sets
+    output_handle << std::endl; // Finish the line
+    num_pts_used++;
+
+  } // End loop through IPs
+  output_handle.close();
+
+
+  for (int i = 0; i < num_images; i++) {
+    for (int j = i; j < num_images; j++) { // write also for i, i. Useful for only 1 image.
+
+      std::string image1_path  = opt.image_files[i];
+      std::string image2_path  = opt.image_files[j];
+      std::string match_filename = ip::match_filename(opt.out_prefix, image1_path, image2_path);
+      
+      vw_out() << "Writing: " << match_filename << std::endl;
+      ip::write_binary_match_file(match_filename, cam_matches[i], cam_matches[j]);
+      
+    }
+  }
+
+}
+
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
@@ -1350,7 +1505,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("min-triangulation-angle",             po::value(&opt.min_angle)->default_value(0.1),
      "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.")
     ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
-                        "Map-projected versions of the input images and the DEM mapprojected onto (niche and experimental, not for general use).")
+     "Given map-projected versions of the input images and the DEM mapprojected onto, and IP matches among them, create IP matches among the un-projected images before doing bundle adjustment. Niche and experimental, not for general use.")
+    ("gcp-data",  po::value(&opt.gcp_data)->default_value(""),
+     "Given map-projected versions of the input images and the DEM mapprojected onto, create GCP so that during bundle adjustment the original unprojected images are adjusted to mapproject where desired onto the DEM. Niche and experimental, not for general use.")
     ("lambda,l",         po::value(&opt.lambda)->default_value(-1),
                          "Set the initial value of the LM parameter lambda (ignored for the Ceres solver).")
     ("report-level,r",   po::value(&opt.report_level)->default_value(10),
@@ -1468,8 +1625,8 @@ int main(int argc, char* argv[]) {
 
     int num_images = opt.image_files.size();
     // Create the stereo session. Try to auto-guess the session type.
-    if (num_images <= 1)
-      vw_throw( ArgumentErr() << "Must have at least two image files to do bundle adjustment.\n" );
+    //if (num_images <= 1)
+    //  vw_throw( ArgumentErr() << "Must have at least two image files to do bundle adjustment.\n" );
 
     // If there are no camera files, then the image files have the camera information.
     if (opt.camera_files.empty()){
@@ -1519,6 +1676,12 @@ int main(int argc, char* argv[]) {
     if (opt.mapprojected_data != "")
       create_matches_from_mapprojected_images(opt);
 
+    // Create match files from mapprojection.
+    if (opt.gcp_data != "") {
+      create_gcp_from_mapprojected_images(opt);
+      return 0;
+    }
+    
     // Create the match points
     // Iterate through each pair of input images
     std::map< std::pair<int, int>, std::string> match_files;
@@ -1605,9 +1768,9 @@ int main(int argc, char* argv[]) {
       }
     } // End loop through all input image pairs
 
-    if (num_pairs_matched == 0) {
-      vw_throw( ArgumentErr() << "Unable to find an IP based match between any input image pair!\n");
-    }
+    //if (num_pairs_matched == 0) {
+    //  vw_throw( ArgumentErr() << "Unable to find an IP based match between any input image pair!\n");
+    // }
 
     // Try to set up the control network, ie the list of point coordinates.
     // - This triangulates from the camera models to determine the initial
@@ -1624,8 +1787,9 @@ int main(int argc, char* argv[]) {
         vw_out() << "Failed to build a control network. Consider removing "
                  << "the currently found interest point matches and increasing "
                  << "the number of interest points per tile using "
-                 << "--ip-per-tile.\n";
-        return 1;
+                 << "--ip-per-tile, or decreasing --min-matches. Will continue "
+                 << "if ground control points are present.\n";
+        //return 1; // continue, hoping for gcp
       }
 
       vw::ba::add_ground_control_points( (*opt.cnet), opt.image_files,
