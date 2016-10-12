@@ -18,6 +18,7 @@
 
 #include <asp/Camera/RPCModelGen.h>
 #include <asp/Camera/RPCModel.h>
+#include <vw/Math/Geometry.h>
 
 using namespace vw;
 
@@ -145,7 +146,7 @@ namespace asp {
                                               max_iterations );
 
     if (status < 1) { // This means the solver failed to converge!
-      VW_OUT(DebugMessage, "math") << "rpc_gen: WARNING --> Levenberg-Marquardt solver status = " << status << std::endl;
+      VW_OUT(DebugMessage, "asp") << "rpc_gen: WARNING --> Levenberg-Marquardt solver status = " << status << std::endl;
     }
 
     // Otherwise the solver converged, return the final error number.
@@ -189,21 +190,66 @@ namespace asp {
     Vector<double> solution;
     double norm_error;
 
-    // Initialize a zero vector of RPC model coefficients
-    Vector<double> startZero;
-    startZero.set_size(RPCModel::NUM_RPC_COEFFS);
-    for (size_t i = 0; i < startZero.size(); i++)
-      startZero[i] = 0.0;
+    // As initial guess we use the linear part of the RPC transform.
+    int numPts = normalized_geodetics.size()/RPCModel::GEODETIC_COORD_SIZE;
+    int numPts2 = (normalized_pixels.size() - asp::RpcSolveLMA::NUM_PENALTY_TERMS)
+      / RPCModel::IMAGE_COORD_SIZE;
+    
+    if (numPts != numPts2) 
+      vw_throw( ArgumentErr() << "Error in " << __FILE__
+                << ". Number of inputs and outputs do not agree.\n");
+    std::vector< Vector<double, RPCModel::GEODETIC_COORD_SIZE+1> > in(numPts), out(numPts);
+    for (int p = 0; p < numPts; p++) {
 
+      Vector<double, RPCModel::GEODETIC_COORD_SIZE+1> P;
+      for (int q = 0; q < RPCModel::GEODETIC_COORD_SIZE; q++) 
+        P[q] = normalized_geodetics[p*RPCModel::GEODETIC_COORD_SIZE + q]; // P[0], P[1], P[2]
+      P[RPCModel::GEODETIC_COORD_SIZE] = 1; // P[3]
+      in[p] = P;
+      
+      for (int q = 0; q < RPCModel::IMAGE_COORD_SIZE; q++) 
+        P[q] = normalized_pixels[p*RPCModel::IMAGE_COORD_SIZE + q]; // P[0], P[1]
+      P[RPCModel::IMAGE_COORD_SIZE]   = 0; // P[2]
+      P[RPCModel::IMAGE_COORD_SIZE+1] = 1; // P[3]
+      out[p] = P;
+    }
+    Matrix4x4 T = math::AffineFittingFunctorN<RPCModel::GEODETIC_COORD_SIZE>()(in, out);
+
+    // Put this matrix in the format acceptable for the RPC solver
+    for (int p = 0; p < int(line_num.size()); p++) {
+      samp_num[p] = 0; samp_den[p] = 0; // first coordinate of output is sample
+      line_num[p] = 0; line_den[p] = 0; // second coordinate of output is line
+    }
+
+    // The first coordinate of the output
+    samp_num[0] = T(0, 3); // the d value, the translation, in a*x + b*y + c*z + d
+    samp_num[1] = T(0, 0); samp_num[2] = T(0, 1); samp_num[3] = T(0, 2); // linear part, a, b, c
+    
+    // The second coordinate of the output
+    line_num[0] = T(1, 3); // the d value, the translation, in a*x + b*y + c*z + d
+    line_num[1] = T(1, 0); line_num[2] = T(1, 1); line_num[3] = T(1, 2); // linear part, a, b, c
+
+    // The denominator is just 1 to start
+    samp_den[0] = 1;
+    line_den[0] = 1;
+    
+    // Initialize the model
+    Vector<double> startGuess;
+    startGuess.set_size(RPCModel::NUM_RPC_COEFFS);
+    // for (size_t i = 0; i < startGuess.size(); i++) startGuess[i] = 0.0; // start with zero
+    packCoeffs(line_num, line_den, samp_num, samp_den, startGuess);
+
+    VW_OUT(DebugMessage, "asp") << "Initial guess for RPC coeffs: " << startGuess << std::endl;
+    
     // Use the L-M solver to optimize the RPC model coefficient values.
-    //VW_OUT(DebugMessage, "math") << "rpc_gen: Solving with zero seed" << std::endl;
-    int status = find_solution_from_seed(lma_model, startZero, normalized_pixels,
+    int status = find_solution_from_seed(lma_model, startGuess, normalized_pixels,
                                          solution, norm_error);
-    VW_OUT(DebugMessage, "math") << "rpc_gen: norm_error = " << norm_error << std::endl;
-  
+    VW_OUT(DebugMessage, "asp") << "Solved RPC coeffs: " << solution << std::endl;
+    VW_OUT(DebugMessage, "asp") << "rpc_gen: norm_error = " << norm_error << std::endl;
+
     // Dump all the results to disk if the user passed in an output prefix.
     if (output_prefix != "")
-      write_levmar_solver_results(output_prefix, status, startZero,
+      write_levmar_solver_results(output_prefix, status, startGuess,
                                   solution, normalized_pixels, lma_model);
   
     // If we ever want to improve our results further we should
