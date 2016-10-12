@@ -22,7 +22,9 @@
 import sys, os, re, shutil, subprocess, string, time, errno, multiprocessing, shlex
 
 
-
+class CmdRunException(Exception):
+    '''Exception type indicating an error with a cmd call'''
+    pass
 
 def isCmdOption(arg):
     """Returns True if the string is a command line option,
@@ -61,10 +63,6 @@ def stringToArgList(string):
     """Converts a single argument string into a list of arguments"""
     return shlex.split(string)
     
-
-class CmdRunException(Exception):
-    pass
-
 # TODO: Improve this function a bit
 def executeCommand(cmd,
                    outputPath=None,      # If given, throw if the file is not created.  Don't run if it already exists.

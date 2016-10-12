@@ -33,19 +33,13 @@ sys.path.insert(0, basepath) # prepend to Python path
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
+from asp_alg_utils import *
+
 import asp_file_utils, asp_system_utils, asp_cmd_utils, asp_image_utils
 asp_system_utils.verify_python_version_is_supported()
 
-
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
-
-def generateTileName(startX, startY, stopX, stopY):
-    """Generate the name of a tile based on its location"""
-
-    tileString = 'tile_' + str(startX) + '_' + str(startY) + '_' + str(stopX) + '_' + str(stopY) + '_.tif'
-    return tileString
-
 
 def generateTileList(fullWidth, fullHeight, tileSize):
     """Generate a full list of tiles for this image"""
@@ -406,14 +400,6 @@ def main(argsIn):
                                       argumentFilePath, parallelArgs,
                                       options.nodesListPath, True)#not options.suppressOutput)
 
-
-    # Build a gdal VRT file which is composed of all the processed tiles
-    vrtPath = os.path.join(tempFolder, 'mosaic.vrt')
-    cmd = "gdalbuildvrt -resolution highest " + vrtPath + " " + tempFolder + "*_.tif";
-    print(cmd)
-    os.system(cmd)
-
-
     # Find the tiles that were genreated
     tiles = []
     for tile in tileList:
@@ -424,6 +410,12 @@ def main(argsIn):
             print("Warning: Skipping non-existing file: ", outTile)
     if len(tiles) == 0:
         raise "No mapprojected tif tiles were generated"
+
+    # Build a gdal VRT file which is composed of all the processed tiles
+    vrtPath = os.path.join(tempFolder, 'mosaic.vrt')
+    cmd = "gdalbuildvrt -resolution highest " + vrtPath + " " + " ".join(tiles)
+    print(cmd)
+    os.system(cmd)
 
     # Modify the vrt to append some metadata from the original tiles
     # Get the metadata

@@ -33,44 +33,13 @@ sys.path.insert(0, basepath) # prepend to Python path
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
+from asp_alg_utils import *
+
 import asp_file_utils, asp_system_utils, asp_cmd_utils, asp_image_utils
 asp_system_utils.verify_python_version_is_supported()
 
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
-
-def generateTileName(startX, startY, stopX, stopY):
-    """Generate the name of a tile based on its location"""
-
-    tileString = 'tile_' + str(startX) + '_' + str(startY) + '_' + str(stopX) + '_' + str(stopY) 
-    return tileString
-
-# Split a segment of of given length in pieces of about given size.
-# All pieces are about the same length.
-def genSegmentList(length, size, padding):
-    if length <= 0: length = 1
-    if size   <= 0: size   = 1
-    num = int(math.ceil(length/float(size))) # if in doubt, make pieces smaller
-    if num <= 0: num = 1
-
-    goodSize = int(math.floor(length/float(num)))
-    if goodSize <= 0: goodSize = 1
-
-    # numBig segments will have length goodSize + 1, and the rest will have length goodSize
-    numBig = length - goodSize*num
-
-    count = 0
-    L = [0]
-    for c in range(0, num):
-        if count < numBig:
-            curLen = goodSize + 1
-        else:
-            curLen = goodSize
-        count = count + 1
-        pos = L[-1] + curLen
-        L.append(pos)
-
-    return L
 
 def generateTileList(sizeX, sizeY, tileSize, padding):
     """Generate a full list of tiles for this image"""
@@ -97,8 +66,7 @@ def generateTileList(sizeX, sizeY, tileSize, padding):
             
             # Create a name for this tile
             # - Tile format is tile_col_row_width_height_.tif
-            tileString = generateTileName(begX, begY, endX, endY)
-            
+            tileString = generateTileDir(begX, begY, endX, endY)
             tileList.append((begX, begY, endX, endY, tileString))
 
     return (len(Lx)-1, len(Ly)-1, tileList)
@@ -150,8 +118,8 @@ def runSfs(options, requiredList, outputFolder, outputName):
     """Run sfs in a single tile."""
 
     # Determine the name of the tile we need to write
-    tileName = generateTileName(options.pixelStartX, options.pixelStartY,
-                                options.pixelStopX, options.pixelStopY)
+    tileName = generateTileDir(options.pixelStartX, options.pixelStartY,
+                               options.pixelStopX, options.pixelStopY)
     tilePrefix = generateTilePrefix(outputFolder, tileName, outputName)
 
     # Bounds for this tile

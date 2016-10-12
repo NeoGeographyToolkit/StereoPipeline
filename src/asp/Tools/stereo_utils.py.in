@@ -29,6 +29,7 @@ sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
 from asp_system_utils import *
+from asp_alg_utils import *
 
 import asp_system_utils
 asp_system_utils.verify_python_version_is_supported()
@@ -79,32 +80,6 @@ class PassThroughOptionParser(optparse.OptionParser):
                         largs.append(p.group(1))
                 else:
                     largs.append(e.opt_str)
-
-class BBox:
-    def __init__(self, x, y, width, height):
-        self.x = x
-        self.y = y
-        self.width = width
-        self.height = height
-
-    def name_str(self):
-        return "%i_%i_%i_%i" % ( self.x, self.y, self.width, self.height )
-
-    def crop_str(self):
-        return ["--trans-crop-win",str(self.x),
-                str(self.y),str(self.width),str(self.height)]
-
-def intersect_boxes(A, B):
-    axmin = A.x; axmax = A.x + A.width; aymin = A.y; aymax = A.y + A.height
-    bxmin = B.x; bxmax = B.x + B.width; bymin = B.y; bymax = B.y + B.height
-    xmin = max(axmin, bxmin); xmax = min(axmax, bxmax)
-    ymin = max(aymin, bymin); ymax = min(aymax, bymax)
-    C = BBox(0, 0, 0, 0)
-    C.x = xmin; C.width = xmax - xmin
-    if (C.width  < 0): C.width = 0
-    C.y = ymin; C.height = ymax - ymin
-    if (C.height < 0): C.height = 0
-    return C
 
 # A very simple wrapper around subprocess
 def generic_run(cmd, verbose):

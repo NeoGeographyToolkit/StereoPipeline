@@ -22,7 +22,7 @@
 
 bin_PROGRAMS =
 bin_SCRIPTS =
-libexec_SCRIPTS = asp_cmd_utils.py asp_file_utils.py asp_geo_utils.py \
+libexec_SCRIPTS = asp_cmd_utils.py asp_file_utils.py asp_geo_utils.py  asp_alg_utils.py \
 		asp_image_utils.py asp_string_utils.py asp_system_utils.py
 
 all_scripts = $(libexec_SCRIPTS)
