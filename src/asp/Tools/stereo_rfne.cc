@@ -45,16 +45,17 @@ refine_disparity(Image1T const& left_image,
                  ImageViewRef< PixelMask<Vector2f> > const& integer_disp,
                  ASPGlobalOptions const& opt, bool verbose){
 
-  ImageViewRef<PixelMask<Vector2f> > refined_disp =
-    pixel_cast<PixelMask<Vector2f> >(integer_disp);
+  ImageViewRef<PixelMask<Vector2f> > refined_disp = integer_disp;
 
   PrefilterModeType prefilter_mode = 
     static_cast<vw::stereo::PrefilterModeType>(stereo_settings().pre_filter_mode);
 
   if (stereo_settings().subpixel_mode == 0) {
     // Do nothing
-
-  } else if (stereo_settings().subpixel_mode == 1) {
+    if (verbose)
+      vw_out() << "\t--> Skipping subpixel mode.\n";
+  }
+  if (stereo_settings().subpixel_mode == 1) {
     // Parabola
     
     if (verbose) {
@@ -75,7 +76,7 @@ refine_disparity(Image1T const& left_image,
                                       stereo_settings().subpixel_kernel );
     
   } // End parabola cases
-  else if (stereo_settings().subpixel_mode == 2) {
+  if (stereo_settings().subpixel_mode == 2) {
     // Bayes EM
     if (verbose){
       vw_out() << "\t--> Using affine adaptive subpixel mode\n";
@@ -90,7 +91,7 @@ refine_disparity(Image1T const& left_image,
                          stereo_settings().subpixel_max_levels );
 
   } // End Bayes EM cases
-  else if (stereo_settings().subpixel_mode == 3) {
+  if (stereo_settings().subpixel_mode == 3) {
     // Fast affine
     if (verbose){
       vw_out() << "\t--> Using affine subpixel mode\n";
@@ -105,7 +106,7 @@ refine_disparity(Image1T const& left_image,
                        stereo_settings().subpixel_max_levels );
 
   } // End Fast affine cases
-  else if (stereo_settings().subpixel_mode == 4) {
+  if (stereo_settings().subpixel_mode == 4) {
     // Lucas-Kanade
     if (verbose){
       vw_out() << "\t--> Using Lucas-Kanade subpixel mode\n";
@@ -120,7 +121,7 @@ refine_disparity(Image1T const& left_image,
                    stereo_settings().subpixel_max_levels );
 
   } // End Lucas-Kanade cases
-  else if (stereo_settings().subpixel_mode == 5) {
+  if (stereo_settings().subpixel_mode == 5) {
     // Affine and Bayes subpixel refinement always use the LogPreprocessingFilter...
     if (verbose){
       vw_out() << "\t--> Using EM Subpixel mode "
@@ -160,7 +161,7 @@ refine_disparity(Image1T const& left_image,
       per_pixel_filter(em_disparity_disk_image,
                        EMCorrelator::ExtractDisparityFunctor());
   } // End EM subpixel cases 
-  else {
+  if ((stereo_settings().subpixel_mode < 0) || (stereo_settings().subpixel_mode > 5)){
     if (verbose) {
       vw_out() << "\t--> Invalid Subpixel mode selection: " << stereo_settings().subpixel_mode << endl;
       vw_out() << "\t--> Doing nothing\n";
@@ -223,7 +224,8 @@ public:
     // We do stereo only in trans_crop_win. Skip the current tile if
     // it does not intersect this region.
     BBox2i trans_crop_win = stereo_settings().trans_crop_win;
-    BBox2i intersection = bbox; intersection.crop(trans_crop_win);
+    BBox2i intersection = bbox; 
+    intersection.crop(trans_crop_win);
     if (intersection.empty()){
       return prerasterize_type(ImageView<pixel_type>(bbox.width(),
                                                      bbox.height()),
@@ -263,7 +265,7 @@ public:
       tile_disparity = crop(refine_disparity(m_left_image, m_right_image,
                                              m_integer_disp, m_opt, verbose), bbox);
     }
-
+    
     prerasterize_type disparity = prerasterize_type(tile_disparity,
                                                     -bbox.min().x(), -bbox.min().y(),
                                                     cols(), rows() );
@@ -317,7 +319,17 @@ void stereo_refinement( ASPGlobalOptions const& opt ) {
     right_image  = DiskImageView< PixelGray<float> >(right_image_file);
     left_mask    = DiskImageView<uint8>(left_mask_file );
     right_mask   = DiskImageView<uint8>(right_mask_file);
-    integer_disp = DiskImageView< PixelMask<Vector2f> >(opt.out_prefix + "-D.tif");
+
+    // Read the correct type of correlation file (float for SGM/MGM, otherwise integer)
+    std::string disp_file = opt.out_prefix + "-D.tif";
+    boost::scoped_ptr<SrcImageResource> rsrc(DiskImageResource::open(disp_file));
+    ChannelTypeEnum disp_data_type = rsrc->channel_type();
+    if (disp_data_type == VW_CHANNEL_INT32)
+      integer_disp = pixel_cast<PixelMask<Vector2f> >(
+                      DiskImageView< PixelMask<Vector2i> >(disp_file));
+    else // File on disk is float
+      integer_disp = DiskImageView< PixelMask<Vector2f> >(disp_file);
+    
     if ( stereo_settings().seed_mode > 0 &&
          stereo_settings().use_local_homography ){
       sub_disp = DiskImageView<PixelMask<Vector2f> >(opt.out_prefix+"-D_sub.tif");
@@ -327,7 +339,8 @@ void stereo_refinement( ASPGlobalOptions const& opt ) {
     }
 
   } catch (IOErr const& e) {
-    vw_throw( ArgumentErr() << "\nUnable to start at refinement stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n" );
+    vw_throw( ArgumentErr() << "\nUnable to start at refinement stage -- could not read input files.\n" 
+                            << e.what() << "\nExiting.\n\n" );
   }
 
   bool skip_img_norm = asp::skip_image_normalization(opt);
@@ -364,7 +377,7 @@ void stereo_refinement( ASPGlobalOptions const& opt ) {
   ImageViewRef< PixelMask<Vector2f> > refined_disp
     = per_tile_rfne(left_image, right_image, right_mask,
                     integer_disp, sub_disp, local_hom, opt);
-
+  
   cartography::GeoReference left_georef;
   bool   has_left_georef = read_georeference(left_georef,  opt.out_prefix + "-L.tif");
   bool   has_nodata      = false;
