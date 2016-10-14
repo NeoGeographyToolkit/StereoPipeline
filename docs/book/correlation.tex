@@ -360,7 +360,7 @@ popular semi-global matching algorithm introduced in
 DEM generation but it has been used successfully to process HRSC images
 \citep{hirschmuller_hrsc_with_sgm}.  The version of the algorithm implemented
 by ASP has a few modifications relative to the original implementation.  The
-most significant difference as that ASP's implementation performs a 2D disparity
+most significant difference ss that ASP's implementation performs a 2D disparity
 search, similar to what is done in the NG-fSGM algorithm 
 \citep{xiang_2016_low_complexity_fsgm}.  Since ASP processes a wide variety of
 cameras with varying degrees of metadata quality, the standard assumption 
@@ -369,11 +369,14 @@ epipolar line does not hold.  The other major change is that ASP uses a multi-
 resolution heirarchical search combined with a compressed memory scheme similar
 to what is used in the tSGM algorithm \citep{rothermel2012sure_isgm}.  With
 these two features the SGM algorithm can be used for unrectified, larger images.
+ASP also supports a mode using the MGM algorithm \citep{facciolo2015mgm}, referred to
+in some places in the documentation as Smooth SGM.  This algorithm reduces the amount
+of high frequency artifacts in textureless regions at the cost of a longer run time.
 
 The greatest advantage of the SGM algorithm over the normal ASP correlation algorithm
 is an improved ability to find disparity matches in areas of repetitive or low texture.
 SGM can also discern finer resolution features than the standard correlation algorithm
-since tends to use much smaller matching kernels.  Along with these advantages come several disadvantages.
+since it tends to use much smaller matching kernels.  Along with these advantages come several disadvantages.
 First,  SGM is computationally expensive and requires a lot of memory.  Second, in some
 situations it can produce noticable artifacts at tile boundaries.  Third, it can 
 sometimes produce inaccurate results in textureless regions.  With careful parameter
@@ -382,7 +385,8 @@ selection and usage these disadvantages can be mitigated.
 Here are some guidelines to setting ASP tool parameters while using SGM:
 
 \begin{itemize}
-\item Pass in the \texttt{use-sgm} command line flag to enable the SGM algorithm.
+\item Pass in \texttt{stereo-algorithm} 1 to use SGM or 2 to use MGM.  Try SGM first and if 
+you see high frequency or grid pattern artifacts in the output try again with MGM (smooth SGM).
 \item The \texttt{prefilter-mode} setting is ignored when using SGM.
 \item Decide which cost function to use.  Mean absolute distance (MAD) 
 (\texttt{cost-mode <= 2}) is the default option.  
@@ -420,7 +424,8 @@ after dealing with the long SGM processing time you do not need to follow it up 
 \item Take advantage of the median and texture filters in the \texttt{stereo\_fltr} tool.  These filters
 were designed specifically to clean up output from the SGM algorithm and are especially useful in suppressing
 image artifacts in low-texture portions of the image.  A median filter size of 3 and a texture filter size of 11
-are good starts but the best values will depend on your input images.
+are good starts but the best values will depend on your input images. The \texttt{texture-smooth-scale}
+parameter will have to be adjusted to taste, but a range of 0.13 to 0.15 is typical for icy images.
 \end{itemize}
 
 % Would be nice to improve this figure
@@ -436,9 +441,10 @@ are good starts but the best values will depend on your input images.
   showing the difference between default ASP processing and processing using the SGM algorithm. 
   The DEM on the left was generated using the default stereo parameters and 
   \texttt{-{}-subpixel-mode 3}.  The DEM on the right was generated using the following options: 
-  \texttt{-{}-use-sgm -{}-threads 1 -{}-xcorr-threshold -1 -{}-corr-kernel 7 7 -{}-corr-tile-size 6400 
-  -{}-cost-mode 4 -{}-subpixel-mode 0 
-  -{}-median-filter-size 3 -{}-texture-smooth-size 13 -{}-texture-smooth-scale 0.13}.}
+  \texttt{-{}-stereo-algorithm 1 -{}-threads 1 -{}-xcorr-threshold -1 -{}-corr-kernel 7 7 -{}-corr-tile-size 6400 
+  -{}-cost-mode 4 -{}-subpixel-mode 0 -{}-median-filter-size 3 
+  -{}-texture-smooth-size 13 -{}-texture-smooth-scale 0.13}.  Some grid pattern noise is visible in the 
+  image produced using SGM.}
   \label{fig:corr-sgm-example}
 \end{figure}
 

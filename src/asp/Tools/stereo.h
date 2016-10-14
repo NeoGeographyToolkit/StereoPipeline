@@ -96,7 +96,7 @@ namespace asp {
                                       std::string const& left_sub_file,
                                       std::string const& right_sub_file,
                                       float scale,
-                                      int inlier_threshold = 10;);
+                                      int inlier_threshold = 10);
 
   bool skip_image_normalization(ASPGlobalOptions const& opt);
 

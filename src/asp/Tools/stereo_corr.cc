@@ -131,7 +131,8 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
                   search_range, kernel_size, cost_mode,
                   corr_timeout, seconds_per_op,
                   stereo_settings().xcorr_threshold, stereo_settings().corr_max_levels,
-                  stereo_settings().use_sgm, collar_size,
+                  static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm),
+                  collar_size,
                   stereo_settings().corr_blob_filter_area*mean_scale,
                   SAVE_CORR_DEBUG
               ),
@@ -164,7 +165,8 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
                   search_range, kernel_size, cost_mode,
                   corr_timeout, seconds_per_op,
                   stereo_settings().xcorr_threshold, stereo_settings().corr_max_levels,
-                  stereo_settings().use_sgm, 0, // No collar here, the entire image is written at once.
+                  static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm), 
+                  0, // No collar here, the entire image is written at once.
                   0, // Don't combine blob filtering with quantile filtering
                   SAVE_CORR_DEBUG
               );
@@ -536,7 +538,8 @@ public:
                           m_corr_timeout, m_seconds_per_op,
                           stereo_settings().xcorr_threshold,
                           stereo_settings().corr_max_levels,
-                          stereo_settings().use_sgm, DEFAULT_COLLAR_SIZE,
+                          static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm), 
+                          DEFAULT_COLLAR_SIZE,
                           stereo_settings().corr_blob_filter_area,
                           SAVE_CORR_DEBUG );
       return corr_view.prerasterize(bbox);
@@ -551,7 +554,8 @@ public:
                           m_corr_timeout, m_seconds_per_op,
                           stereo_settings().xcorr_threshold,
                           stereo_settings().corr_max_levels,
-                          stereo_settings().use_sgm, DEFAULT_COLLAR_SIZE,
+                          static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm), 
+                          DEFAULT_COLLAR_SIZE,
                           stereo_settings().corr_blob_filter_area,
                           SAVE_CORR_DEBUG );
       return corr_view.prerasterize(bbox);
@@ -634,12 +638,12 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
     case 1: cost_mode = stereo::SQUARED_DIFFERENCE;  break;
     case 2: cost_mode = stereo::CROSS_CORRELATION;   break;
     case 3: 
-      if (!stereo_settings().use_sgm)
+      if (stereo_settings().stereo_algorithm == vw::stereo::CORRELATION_WINDOW)
         vw_throw( ArgumentErr() << "Cannot use census transform without SGM!\n" );
       cost_mode = stereo::CENSUS_TRANSFORM;
       break;
     case 4:
-      if (!stereo_settings().use_sgm)
+      if (stereo_settings().stereo_algorithm == vw::stereo::CORRELATION_WINDOW)
         vw_throw( ArgumentErr() << "Cannot use ternary census transform without SGM!\n" );
       cost_mode = stereo::TERNARY_CENSUS_TRANSFORM;
       break;
@@ -680,7 +684,7 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
 
   string d_file = opt.out_prefix + "-D.tif";
   vw_out() << "Writing: " << d_file << "\n";
-  if (stereo_settings().use_sgm) {
+  if (stereo_settings().stereo_algorithm > vw::stereo::CORRELATION_WINDOW) {
     // SGM performs subpixel correlation in this step, so write out floats.
     vw::cartography::block_write_gdal_image(d_file, fullres_disparity,
 			        has_left_georef, left_georef,

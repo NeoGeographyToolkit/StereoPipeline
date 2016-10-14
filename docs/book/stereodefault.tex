@@ -290,11 +290,22 @@ If the default method does not perform well, try out one of the other two method
 value will result in no timeout enforcement. A value of 600 seconds
 should be sufficient in most cases.
 
-\item[use-sgm \textnormal (default = false)] \hfill \\
+\item[stereo-algorthm \textnormal (default = 0)] \hfill \\
 
-  This flag, if provided, enables using the semi-global matching algorithm instead
-  of the normal ASP integer correlator.  See section \ref{sec:sgm} for important details
-  you must keep in mind while using this option.
+  Use this setting to switch between the different integer correlation options supported by ASP.  
+  \begin{description}
+    \item[0 - Local Search Window] - The default option searches for the best match
+    for a local window around each window using the selected cost mode.  This is the 
+    fastest algorithm and works well for similar images with good texture coverage.
+
+    \item[1 - Semi-Global Matching] - Use the popular SGM algorithm \citep{hirschmuller_sgm_original}.
+    This algorithm is slow and has high memory requirements but it performs better in images with
+    less texture.  See section \ref{sec:sgm} for important details on using this algorithm.
+
+    \item[2 - Smooth Semi-Global Matching] - Uses the MGM variant of the SGM algorithm 
+    \citep{facciolo2015mgm} to reduce high frequency artifacts in the output image at the cost 
+    of increased run time. See section \ref{sec:sgm} for important details on using this algorithm.
+  \end{description}
 
 \item[corr-blob-filter \textnormal{\small{(\emph{integer})}} (default = 0)]\hfill \\
 

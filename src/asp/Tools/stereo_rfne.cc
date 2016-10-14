@@ -134,9 +134,9 @@ refine_disparity(Image1T const& left_image,
     EMCorrelator em_correlator(channels_to_planes(left_image),
                                channels_to_planes(right_image),
                                pixel_cast<PixelMask<Vector2f> >(integer_disp), -1);
-    em_correlator.set_em_iter_max(stereo_settings().subpixel_em_iter);
-    em_correlator.set_inner_iter_max(stereo_settings().subpixel_affine_iter);
-    em_correlator.set_kernel_size(stereo_settings().subpixel_kernel);
+    em_correlator.set_em_iter_max   (stereo_settings().subpixel_em_iter       );
+    em_correlator.set_inner_iter_max(stereo_settings().subpixel_affine_iter   );
+    em_correlator.set_kernel_size   (stereo_settings().subpixel_kernel        );
     em_correlator.set_pyramid_levels(stereo_settings().subpixel_pyramid_levels);
 
     DiskImageResourceOpenEXR em_disparity_map_rsrc(opt.out_prefix + "-F6.exr", em_correlator.format());
