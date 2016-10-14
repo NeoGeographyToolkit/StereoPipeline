@@ -642,7 +642,8 @@ namespace asp {
       vw_throw(ArgumentErr() << "The entries of subpixel-kernel must be odd numbers.\n");
     }
 
-    if (stereo_settings().use_sgm && (stereo_settings().subpixel_mode == 1)   ){
+    if ((stereo_settings().stereo_algorithm > vw::stereo::CORRELATION_WINDOW) &&
+        (stereo_settings().subpixel_mode == 1)   ){
       vw_throw(ArgumentErr() << "For SGM, parabola subpixel mode is done by default so set subpixel mode to 0.\n");
     }
 
@@ -726,12 +727,12 @@ namespace asp {
   } // End user_safety_checks
 
   ///  Find interest points and grow them into a search range
-  /// - Currently this is only used for finding IP in epipolar or no-alignment D_sub images.
   BBox2i
   approximate_search_range(std::string const& out_prefix,
                            std::string const& left_sub_file,
                            std::string const& right_sub_file,
-                           float scale) {
+                           float scale,
+                           int inlier_threshold) {
 
     typedef PixelGray<float32> PixelT;
     vw_out() << "\t--> Using interest points to determine search window.\n";
@@ -768,8 +769,6 @@ namespace asp {
       DiskImageView<PixelT> right_sub_image(right_rsrc);
 
       // This will write match_filename to disk.
-      // These are downsampled images so we don't want to allow too much slop in the IP!
-      const int inlier_threshold = 2; 
       bool success = asp::homography_ip_matching(left_sub_image, right_sub_image,
                                                  stereo_settings().ip_per_tile,
                                                  match_filename,
@@ -803,11 +802,10 @@ namespace asp {
                  << " DIFF-M " << diff-mean << endl;
     }
     */
-    vw_out(DebugMessage,"asp") << "Mean search is : " << mean << endl;
     Vector2f stddev(sqrt(ba::variance(acc_x)), sqrt(ba::variance(acc_y)));
-    vw_out(InfoMessage,"asp") << "i_scale is : " << i_scale << endl;
-    vw_out(InfoMessage,"asp") << "Mean search is : " << mean << endl;
-    vw_out(InfoMessage,"asp") << "stddev search is : " << stddev << endl;
+    vw_out(InfoMessage,"asp") << "i_scale is : "       << i_scale << endl;
+    vw_out(InfoMessage,"asp") << "Mean search is : "   << mean    << endl;
+    vw_out(InfoMessage,"asp") << "stddev search is : " << stddev  << endl;
     BBox2i search_range(mean - 2.5*stddev,
                         mean + 2.5*stddev);
     return search_range;
