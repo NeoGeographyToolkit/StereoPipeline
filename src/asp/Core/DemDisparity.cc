@@ -291,8 +291,6 @@ namespace asp {
                               std::string session_name
                               ) {
 
-    // Use a DEM to get the low-res disparity
-
     if (stereo_settings().is_search_defined())
       vw_out(WarningMessage) << "Computing low-resolution disparity from DEM. "
                              << "Will ignore corr-search value: "
@@ -353,15 +351,15 @@ namespace asp {
     // This image is small enough that we can keep it in memory
     ImageView<PixelMask<Vector2i> > disparity_spread(left_image_sub.cols(), left_image_sub.rows());
 
-    ImageViewRef<PixelMask<Vector2i> > lowres_disparity
-      = dem_disparity(left_image_sub,
-                      dem_error, dem_georef,
-                      dem, downsample_scale,
-                      left_camera_model, right_camera_model,
-                      do_align,
-                      align_left_matrix, align_right_matrix,
-                      pixel_sample, disparity_spread
-                      );
+    ImageViewRef<PixelMask<Vector2f> > lowres_disparity
+      = pixel_cast<PixelMask<Vector2f> >(dem_disparity(left_image_sub,
+                                                       dem_error, dem_georef,
+                                                       dem, downsample_scale,
+                                                       left_camera_model, right_camera_model,
+                                                       do_align,
+                                                       align_left_matrix, align_right_matrix,
+                                                       pixel_sample, disparity_spread
+                                                       ));
     std::string disparity_file = opt.out_prefix + "-D_sub.tif";
     vw_out() << "Writing low-resolution disparity: " << disparity_file << "\n";
     if ( session_name == "isis" ){

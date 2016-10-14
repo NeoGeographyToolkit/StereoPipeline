@@ -255,9 +255,10 @@ bool determineShifts(Parameters & params,
   // Pyramid Correlation works best rasterizing in 1024^2 chunks
   vw_settings().set_default_tile_size(1024);
 
-  int    corr_timeout   = 0;
-  double seconds_per_op = 0.0;
-  DiskCacheImageView<PixelMask<Vector2i> >
+  int    max_pyramid_levels = 5;
+  int    corr_timeout       = 0;
+  double seconds_per_op     = 0.0;
+  DiskCacheImageView<PixelMask<Vector2f> >
     disparity_map
     ( stereo::pyramid_correlate( apply_mask(create_mask_less_or_equal(crop(left_disk_image,  crop_roi),0)),
 				 apply_mask(create_mask_less_or_equal(crop(right_disk_image, crop_roi),0)),
@@ -267,7 +268,7 @@ bool determineShifts(Parameters & params,
 				 searchRegion,
 				 params.kernel,
 				 corr_type, corr_timeout, seconds_per_op,
-				 params.lrthresh, 5 ) );
+				 params.lrthresh, max_pyramid_levels ) );
 
   // Compute the mean horizontal and vertical shifts
   // - Currently disparity_map contains the per-pixel shifts
