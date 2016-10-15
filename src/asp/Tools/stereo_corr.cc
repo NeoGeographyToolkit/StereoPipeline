@@ -337,7 +337,7 @@ class SeededCorrelatorView : public ImageViewBase<SeededCorrelatorView> {
   DiskImageView<vw::uint8> m_left_mask;
   DiskImageView<vw::uint8> m_right_mask;
   ImageViewRef<PixelMask<Vector2f> > m_sub_disp;
-  ImageViewRef<PixelMask<Vector2f> > m_sub_disp_spread;
+  ImageViewRef<PixelMask<Vector2i> > m_sub_disp_spread;
   ImageView<Matrix3x3> const& m_local_hom;
 
   // Settings
@@ -355,6 +355,7 @@ public:
   typedef DiskImageView<PixelGray<float> >   ImageType;
   typedef DiskImageView<vw::uint8>           MaskType;
   typedef ImageViewRef<PixelMask<Vector2f> > DispSeedImageType;
+  typedef ImageViewRef<PixelMask<Vector2i> > SpreadImageType;
   typedef ImageType::pixel_type InputPixelType;
 
   SeededCorrelatorView( ImageType             const& left_image,
@@ -362,7 +363,7 @@ public:
                         MaskType              const& left_mask,
                         MaskType              const& right_mask,
                         DispSeedImageType     const& sub_disp,
-                        DispSeedImageType     const& sub_disp_spread,
+                        SpreadImageType       const& sub_disp_spread,
                         ImageView<Matrix3x3>  const& local_hom,
                         BBox2i   trans_crop_win,
                         Vector2i const& kernel_size,
@@ -470,7 +471,7 @@ public:
 
       if (has_sub_disp_spread){
         // Expand the disparity range by m_sub_disp_spread.
-        DispSeedImageType spread_in_box = crop( m_sub_disp_spread, seed_bbox );
+        SpreadImageType spread_in_box = crop( m_sub_disp_spread, seed_bbox );
 
         if (!use_local_homography){
           BBox2f spread = stereo::get_disparity_range( spread_in_box );
@@ -612,15 +613,15 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
   
   if ( stereo_settings().seed_mode > 0 )
     sub_disp = DiskImageView<PixelMask<Vector2f> >(dsub_file);
-  ImageViewRef<PixelMask<Vector2f> > sub_disp_spread;
+  ImageViewRef<PixelMask<Vector2i> > sub_disp_spread;
   if ( stereo_settings().seed_mode == 2 ||  stereo_settings().seed_mode == 3 ){
     // D_sub_spread is mandatory for seed_mode 2 and 3.
-    sub_disp_spread = DiskImageView<PixelMask<Vector2f> >(spread_file);
+    sub_disp_spread = DiskImageView<PixelMask<Vector2i> >(spread_file);
   }else if ( stereo_settings().seed_mode == 1 ){
     // D_sub_spread is optional for seed_mode 1, we use it only if it is provided.
     if (fs::exists(spread_file)) {
       try {
-        sub_disp_spread = DiskImageView<PixelMask<Vector2f> >(spread_file);
+        sub_disp_spread = DiskImageView<PixelMask<Vector2i> >(spread_file);
       }
       catch (...) {}
     }

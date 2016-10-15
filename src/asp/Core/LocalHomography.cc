@@ -32,10 +32,6 @@ using namespace vw;
 
 namespace asp {
 
-  // We would like to split the numbers 0, ..., n - 1 into k buckets
-  // of approximately equal size. For example, for n = 8 and k = 3,
-  // we will have the split {0, 1, 2}, {3, 4, 5}, {6, 7}.
-
   void split_n_into_k(int n, int k, std::vector<int> & partition){
 
     VW_ASSERT(n >= k && k > 0,
@@ -58,8 +54,8 @@ namespace asp {
 
   }
 
-  // Given a disparity map restricted to a subregion, find the homography
-  // transform which aligns best the two images based on this disparity.
+  /// Given a disparity map restricted to a subregion, find the homography
+  /// transform which aligns best the two images based on this disparity.
   template<class SeedDispT>
   vw::math::Matrix<double> homography_for_disparity(vw::BBox2i subregion,
                                                     SeedDispT const& disparity,
@@ -153,12 +149,12 @@ namespace asp {
     }
   };
 
-  // Create a local homography for each correlation tile
+  
   void create_local_homographies(ASPGlobalOptions const& opt){
 
     DiskImageView< PixelGray<float> > left_sub (opt.out_prefix + "-L_sub.tif");
     DiskImageView< PixelGray<float> > left_img (opt.out_prefix + "-L.tif");
-    DiskImageView< PixelMask<Vector2i> >
+    DiskImageView< PixelMask<Vector2f> >
       sub_disparity(opt.out_prefix + "-D_sub.tif");
 
     Vector2 upscale_factor( double(left_img.cols()) / double(left_sub.cols()),
@@ -241,8 +237,10 @@ namespace asp {
     for (int col = 0; col < local_hom.cols(); col++){
       for (int row = 0; row < local_hom.rows(); row++){
         Vector<double> V = matrix_to_vector(local_hom(col, row));
-        for (int t = 0; t < int(V.size())-1; t++) fh << V[t] << " ";
-        if (V.size() > 0) fh << V[V.size()-1] << std::endl;
+        for (int t = 0; t < int(V.size())-1; t++) 
+          fh << V[t] << " ";
+        if (V.size() > 0) 
+          fh << V[V.size()-1] << std::endl;
       }
     }
     fh.close();
@@ -256,12 +254,12 @@ namespace asp {
     std::ifstream fh(local_hom_file.c_str());
     if (!fh.good())
       vw_throw( IOErr() << "read_local_homographies: File does not exist: "
-                << local_hom_file << ".\n" );
+                        << local_hom_file << ".\n" );
 
     int cols, rows;
     if ( !(fh >> cols >> rows) )
       vw_throw( IOErr() << "read_local_homographies: Invalid file: "
-                << local_hom_file << ".\n" );
+                        << local_hom_file << ".\n" );
 
     local_hom.set_size(cols, rows);
     for (int col = 0; col < local_hom.cols(); col++){
@@ -271,7 +269,7 @@ namespace asp {
         for (int t = 0; t < int(V.size()); t++){
           if (! (fh >> V[t]) )
             vw_throw( IOErr() << "read_local_homographies: Invalid file: "
-                      << local_hom_file << ".\n" );
+                              << local_hom_file << ".\n" );
         }
 
         local_hom(col, row) = vector_to_matrix(V);
