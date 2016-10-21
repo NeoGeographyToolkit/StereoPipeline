@@ -1134,7 +1134,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 	   "No-data value to use on output. Default: use the one from the first DEM to be mosaicked.")
     ("weights-blur-sigma", po::value<double>(&opt.weights_blur_sigma)->default_value(5.0),
 	   "The standard deviation of the Gaussian used to blur the weights. Higher value results in smoother weights and blending. Set to 0 to not use blurring.")
-    ("weights-exponent",   po::value<int>(&opt.weights_exp)->default_value(1),
+    ("weights-exponent",   po::value<int>(&opt.weights_exp)->default_value(2),
 	   "The weights used to blend the DEMs should increase away from the boundary as a power with this exponent. Higher values will result in smoother but faster-growing weights.")
     ("use-centerline-weights",   po::bool_switch(&opt.use_centerline_weights)->default_value(false),
      "Compute weights based on a DEM centerline algorithm. Produces smoother weights if the input DEMs don't have holes or complicated boundary.")
@@ -1290,11 +1290,15 @@ int main( int argc, char *argv[] ) {
 
     handle_arguments( argc, argv, opt );
 
+    // TODO: Fix here. If the DEM is double, read the nodata as double,
+    // without casting to float. If it is float, cast to float.
+    
     // Read nodata from first DEM, unless the user chooses to specify it.
     if (!opt.has_out_nodata){
       DiskImageResourceGDAL in_rsrc(opt.dem_files[0]);
-      // Since the DEMs have float pixels, we must read the no-data as float as well.
-      // Yet we store it in a double, which probably is not wise. 
+      // Since the DEMs have float pixels, we must read the no-data as
+      // float as well. (this is a bug fix). Yet we store it in a
+      // double, as we will cast the DEM pixels to double as well.
       if (in_rsrc.has_nodata_read()) opt.out_nodata_value = RealT(in_rsrc.nodata_read());
     }
 
@@ -1303,7 +1307,7 @@ int main( int argc, char *argv[] ) {
     if (opt.out_nodata_value < static_cast<double>(-numeric_limits<RealT>::max()) ||
 	RealT(opt.out_nodata_value)  != double(opt.out_nodata_value) ) {
       vw_out() << "The no-data value cannot be represented exactly as a float. "
-	       << "Have to change it.\n";
+	       << "Changing it to the smallest float.\n";
       opt.out_nodata_value = static_cast<double>(-numeric_limits<RealT>::max());
     }
 
