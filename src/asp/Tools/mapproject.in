@@ -193,7 +193,7 @@ def main(argsIn):
         parser = asp_cmd_utils.PassThroughOptionParser(usage=usage, epilog=baseHelpText)
 
         parser.add_option("--num-processes",  dest="numProcesses", type='int', default=None,
-                                              help="Number of processes to use (default program tries to choose best)")
+                                              help="Number of processes per machine to use (default program tries to choose best)")
 
         parser.add_option('--nodes-list',  dest='nodesListPath', default=None,
                                            help='The list of computing nodes, one per line. ' + \
@@ -361,7 +361,7 @@ def main(argsIn):
 
     # Set the optimal number of processes if the user did not specify
     if not options.numProcesses:
-        options.numProcesses = numNodes * cpusPerNode * processesPerCpu
+        options.numProcesses = cpusPerNode * processesPerCpu
 
     # Note: mapproject can run with multiple threads on non-ISIS data but we don't use that
     #       functionality here since we call mapproject with one tile at a time.
