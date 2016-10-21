@@ -144,13 +144,12 @@ void dem2dem_diff(Options& opt){
   crop_box.crop(box21);
 
   ImageViewRef<PixelMask<double> > dem2_trans =
-    crop
-    (geo_transform
-     (per_pixel_filter(dem_to_geodetic
-                       (create_mask(dem2_disk_image_view, dem2_nodata),
-                        dem2_georef),
-                       MGeodeticToMAltitude()),
-      dem2_georef, dem1_georef,
+    crop(geo_transform
+	 (per_pixel_filter(dem_to_geodetic
+			   (create_mask(dem2_disk_image_view, dem2_nodata),
+			    dem2_georef),
+			   MGeodeticToMAltitude()),
+	  dem2_georef, dem1_georef,
       ValueEdgeExtension<PixelMask<double> >(PixelMask<double>())),
      crop_box);
     
@@ -300,6 +299,10 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
   outfile.precision(16);
   outfile << "# longitude,latitude, height diff (m)" << std::endl;
   outfile << "# " << georef.datum() << std::endl;
+  outfile << "# Max difference:       " << diff_max  << std::endl;
+  outfile << "# Min difference:       " << diff_min  << std::endl;
+  outfile << "# Mean difference:      " << diff_mean << std::endl;
+  outfile << "# StdDev of difference: " << diff_std  << std::endl;
   for (size_t it = 0; it < csv_diff.size(); it++) {
     Vector3 diff = csv_diff[it];
     outfile << diff[0] << "," << diff[1] << "," << diff[2] << std::endl;
