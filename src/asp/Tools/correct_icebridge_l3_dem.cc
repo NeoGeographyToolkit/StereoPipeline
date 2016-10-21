@@ -63,7 +63,7 @@ int main( int argc, char *argv[] ) {
   //vw_out() << "Output Georef = " << georef << std::endl;
 
   // Set nodata if it is not already set.  This should be constant across files.
-  double nodata_val = -32768;
+  double nodata_val = -32767; // Somehow -32767 is hard-coded in those files.
   if ( in_rsrc.has_nodata_read() ) {
     nodata_val = in_rsrc.nodata_read();
     vw_out() << "\tFound input nodata value: " << nodata_val << std::endl;
