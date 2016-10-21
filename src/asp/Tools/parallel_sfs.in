@@ -162,7 +162,7 @@ def runSfs(options, requiredList, outputFolder, outputName):
             i += 1
 
     # Just call the command for a single tile
-    cmd = ['sfs',  '--crop-win', str(startX), str(startY), str(stopX), str(stopY)]
+    cmd = ['/usr/bin/time', '-f', '"elapsed=%E memory=%M (kb)"', 'sfs',  '--crop-win', str(startX), str(startY), str(stopX), str(stopY)]
     cmd = cmd + requiredList + extraArgs # Append other options
 
     asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
@@ -208,7 +208,7 @@ def main(argsIn):
                                            help='How much to expand a tile in each direction. This helps with reducing artifacts in the final mosaicked SfS output.')
 
         parser.add_option("--num-processes",  dest="numProcesses", type='int', default=None,
-                                              help="Number of processes to use (the default program tries to choose best).")
+                                              help="Number of processes to use per machine (the default program tries to choose best).")
 
         parser.add_option('--nodes-list',  dest='nodesListPath', default=None,
                                            help='A file containing the list of computing nodes, one per line. If not provided, run on the local machine.')
@@ -297,7 +297,8 @@ def main(argsIn):
                                                       options.tileSize, options.padding)
     numTiles = numTilesX * numTilesY
 
-    print('Splitting into ' + str(numTilesX) + ' by ' + str(numTilesY) + ' tiles.')
+    print('Splitting into ' + str(numTilesX) + ' by ' + str(numTilesY) + \
+          ' = ' + str(numTilesX*numTilesY) + ' tiles.')
     
     # If there is only going to be one output tile, just use the non-parallel call
     if (numTilesX*numTilesY == 1):
@@ -328,7 +329,7 @@ def main(argsIn):
 
     # Set the optimal number of processes if the user did not specify
     if not options.numProcesses:
-        options.numProcesses = numNodes * cpusPerNode * processesPerCpu
+        options.numProcesses = cpusPerNode * processesPerCpu
 
     # Note: sfs can run with multiple threads on non-ISIS data but we don't use that
     #       functionality here since we call sfs with one tile at a time.
