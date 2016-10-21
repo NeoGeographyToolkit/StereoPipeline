@@ -19,6 +19,12 @@
 /// \file ortho2pinhole.cc
 ///
 
+// Given a raw image and a map-projected version of it (an ortho
+// image), use that to find the camera position and orientation from
+// which the image was acquired. If no DEM is provided via
+// opt.reference_dem, we assume for now that the image is mapprojected
+// onto the datum. Save on output a gcp file, that may be used to further
+// refine the camera using bundle_adjust.
 #include <asp/Core/Macros.h>
 #include <asp/Sessions/ResourceLoader.h>
 #include <asp/Sessions/StereoSession.h>
@@ -62,7 +68,7 @@ typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
 
 
 struct Options : public vw::cartography::GdalWriteOptions {
-  std::string raw_image, ortho_image, input_cam, output_cam;
+  std::string raw_image, ortho_image, input_cam, output_cam, reference_dem;
   double camera_height, orthoimage_height;
   int ip_per_tile;
   int  ip_detect_method;
@@ -74,13 +80,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
              ip_detect_method(0), individually_normalize(false){}
 };
 
-// Given a raw image, and a map-projected version of it (an ortho
-// image), use that to find the camera position and orientation from
-// which the image was acquired.  We assume for now that the image is
-// mapprojected onto the datum, that will change. Overwrite
-// the input cameras.
 void ortho2pinhole(Options const& opt){
-  // TODO: Wipe tmp-prefix matchfile at the end!
   std::string out_prefix = "tmp-prefix";
   std::string match_filename = ip::match_filename(out_prefix, opt.raw_image, opt.ortho_image);
   
@@ -123,6 +123,26 @@ void ortho2pinhole(Options const& opt){
               << "Could not find interest points between images "
               << opt.raw_image << " and " << opt.ortho_image << "\n" << e.what() << "\n");
   } //End try/catch
+
+  bool has_ref_dem = (opt.reference_dem != "");
+  vw::cartography::GeoReference dem_georef;
+  ImageViewRef< PixelMask<float> > dem;
+  float dem_nodata = -std::numeric_limits<float>::max();
+  if (has_ref_dem) {
+    bool is_good = vw::cartography::read_georeference(dem_georef, opt.reference_dem);
+    if (!is_good) {
+      vw_throw(ArgumentErr() << "Error: Cannot read georeference from: "
+               << opt.reference_dem << ".\n");
+    }
+
+    {
+      // Read the no-data
+      DiskImageResourceGDAL rsrc(opt.reference_dem);
+      if (rsrc.has_nodata_read()) dem_nodata = rsrc.nodata_read();
+    }
+    
+    dem = create_mask(DiskImageView<float>(opt.reference_dem), dem_nodata);
+  }
   
   vw::cartography::GeoReference ortho_georef;
   bool is_good = vw::cartography::read_georeference(ortho_georef, opt.ortho_image);
@@ -155,29 +175,87 @@ void ortho2pinhole(Options const& opt){
   }
 
   if ( !(pcam->camera_pose() == Quaternion<double>(1, 0, 0, 0)) ) {
+    // We like to start with a camera pointing along the z axis. That makes
+    // the lfie easy.
     vw_throw(ArgumentErr() << "Expecting the input camera to have identity rotation.\n");
   }
 
-  vw::Matrix<double> points_in(3, raw_ip.size()), points_out(3, raw_ip.size());
-  typedef vw::math::MatrixCol<vw::Matrix<double> > ColView;
+  // Find pairs of points. First point is in the camera coordinate system,
+  // second in the ground coordinate system. This will allow us to transform
+  // the camera to the latter system.
+  // We use two versions of ground points. In one we assume constant height,
+  // in the second we pull the heights from a DEM. If there are enough
+  // of the latter kind of points, we use those.
+  std::vector<Vector3> points_in1, points_out1, llh1;
+  std::vector<Vector3> points_in2, points_out2, llh2;
+  std::vector<Vector2> pix1, pix2;
+  
   for (size_t ip_iter = 0; ip_iter < raw_ip.size(); ip_iter++){
-    Vector2 raw_pix(raw_ip[ip_iter].x, raw_ip[ip_iter].y);
-    Vector3 ctr = pcam->camera_center(raw_pix);
-    Vector3 dir = pcam->pixel_to_vector(raw_pix);
-    
-    // We assume the ground is flat
-    // Intersect rays going from camera with the plane z = cam_height.
-    Vector3 gcc_in = ctr + (cam_height/dir[2])*dir;
-    
-    Vector2 ortho_pix(ortho_ip[ip_iter].x, ortho_ip[ip_iter].y);
-    Vector2 ll = ortho_georef.pixel_to_lonlat(ortho_pix);
+    try {
+      Vector2 raw_pix(raw_ip[ip_iter].x, raw_ip[ip_iter].y);
+      Vector3 ctr = pcam->camera_center(raw_pix);
+      Vector3 dir = pcam->pixel_to_vector(raw_pix);
+      
+      // We assume the ground is flat. Intersect rays going from camera
+      // with the plane z = cam_height.
+      Vector3 point_in = ctr + (cam_height/dir[2])*dir;
+      
+      Vector2 ortho_pix(ortho_ip[ip_iter].x, ortho_ip[ip_iter].y);
+      Vector2 ll = ortho_georef.pixel_to_lonlat(ortho_pix);
+      
+      // Use given assumed height of orthoimage above the datum.
+      Vector3 llh(ll[0], ll[1], opt.orthoimage_height);
+      Vector3 point_out = ortho_georef.datum().geodetic_to_cartesian(llh);
 
-    // Use given assumed height of orthoimage above the datum.
-    Vector3 llh(ll[0], ll[1], opt.orthoimage_height);
-    Vector3 gcc_out = ortho_georef.datum().geodetic_to_cartesian(llh);
+      points_in1.push_back(point_in);
+      points_out1.push_back(point_out);
+      llh1.push_back(llh);
+      pix1.push_back(raw_pix);
+      
+      // Now let's see if the DEM is any good
+      if (has_ref_dem) {
+        PixelMask<float> dem_val; dem_val.invalidate();
+        Vector2 dem_pix = dem_georef.lonlat_to_pixel(ll);
+        double x = dem_pix.x(), y = dem_pix.y();
+        if (0 <= x && x <= dem.cols() - 1 && 0 <= y && y <= dem.rows() - 1 ) {
+          InterpolationView<EdgeExtensionView< ImageViewRef< PixelMask<float> >, ConstantEdgeExtension >, BilinearInterpolation> interp_dem = interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
+          dem_val = interp_dem(x, y);
+          if (is_valid(dem_val)) {
+            Vector3 llh(ll[0], ll[1], dem_val.child());
+            Vector3 point_out = dem_georef.datum().geodetic_to_cartesian(llh);
+            points_in2.push_back(point_in);
+            points_out2.push_back(point_out);
+            llh2.push_back(llh);
+            pix2.push_back(raw_pix);
+          }
+        } // end considering the reference DEM
+        
+      }
+    }
+    catch(...){} // camera operations can throw an exception
+  }
 
-    ColView colIn (points_in,  ip_iter);  colIn = gcc_in;
-    ColView colOut(points_out, ip_iter);  colOut = gcc_out;
+  // See if enough points on the DEM were found
+  if (has_ref_dem) {
+    int num = 8;
+    if (int(points_out2.size()) < num) {
+      vw_out() << "Less than " << num << " interest points were on the DEM. Igorning the DEM "
+               << "and using the constant height: " << opt.orthoimage_height << "\n";
+    }else{
+      points_in1  = points_in2;
+      points_out1 = points_out2;
+      llh1        = llh2;
+      pix1        = pix2;
+      points_in2.clear(); points_out2.clear(); llh2.clear(); pix2.clear();
+    }
+  }
+  int num_pts = points_in1.size();
+  vw_out() << "Using " << num_pts << " points to create the camera model.\n";
+  vw::Matrix<double> points_in(3, num_pts), points_out(3, num_pts);
+  typedef vw::math::MatrixCol<vw::Matrix<double> > ColView;
+  for (int pt_iter = 0; pt_iter < num_pts; pt_iter++){
+    ColView colIn (points_in,  pt_iter);  colIn  = points_in1[pt_iter];
+    ColView colOut(points_out, pt_iter);  colOut = points_out1[pt_iter];
   }
 
   // Call function to compute a 3D affine transform between the two point sets
@@ -191,19 +269,17 @@ void ortho2pinhole(Options const& opt){
   vw_out() << "translation\n" << translation << std::endl;
   vw_out() << "scale\n" << scale << std::endl;
 
+  // Estimate the error of this transform.
   double max_err = 0.0;
-  for (size_t ip_iter = 0; ip_iter < raw_ip.size(); ip_iter++){
-
-    ColView colIn (points_in,  ip_iter); 
-    ColView colOut(points_out, ip_iter);
-    
-    vw::Vector3 gcc_in  = colIn;
-    vw::Vector3 gcc_out = colOut;
-    Vector3 in_trans =  scale*rotation*gcc_in + translation;
-    max_err = std::max(max_err,  norm_2(in_trans - gcc_out));
+  for (size_t pt_iter = 0; pt_iter < num_pts; pt_iter++){
+    ColView colIn (points_in,  pt_iter); 
+    ColView colOut(points_out, pt_iter);
+    vw::Vector3 point_in  = colIn;
+    vw::Vector3 point_out = colOut;
+    Vector3 in_trans =  scale*rotation*point_in + translation;
+    max_err = std::max(max_err,  norm_2(in_trans - point_out));
   }
-  
-  vw_out() << "Error on the ground in meters: " << max_err << std::endl;
+  vw_out() << "Max error on the ground in meters: " << max_err << std::endl;
   
   // Apply the transform to the camera.
   pcam->apply_transform(rotation, translation, scale);
@@ -211,6 +287,36 @@ void ortho2pinhole(Options const& opt){
   vw_out() << "Writing: " << opt.output_cam << std::endl;
   pcam->write(opt.output_cam);
 
+  // Save a gcp file, later bundle_adjust can use it to improve upon this camera model
+  std::string gcp_file = opt.output_cam + ".gcp";
+  vw_out() << "Writing: " << gcp_file << std::endl;
+  std::ofstream output_handle(gcp_file.c_str());
+  int pts_count = 0;
+  for (int pt_iter = 0; pt_iter < num_pts; pt_iter++) { // Loop through IPs
+
+    Vector3 llh = llh1[pt_iter];
+    Vector2 pix = pix1[pt_iter];
+    Vector2 lonlat = subvector(llh, 0, 2);
+    double height = llh[2];
+
+    // The ground control point ID
+    output_handle << pts_count;
+    
+    // Lat, lon, height
+    output_handle << ", " << lonlat[1] << ", " << lonlat[0] << ", " << height;
+
+    // Sigma values
+    output_handle << ", " << 1 << ", " << 1 << ", " << 1;
+
+    // Pixel value
+    output_handle << ", " <<  opt.raw_image;
+    output_handle << ", " << pix.x() << ", " << pix.y(); // IP location in image
+    output_handle << ", " << 1 << ", " << 1; // Sigma values
+    output_handle << std::endl; // Finish the line
+    pts_count++;
+    
+  } // End loop through IPs
+  output_handle.close();
 
   vw_out() << "Removing: " << match_filename << std::endl;
   boost::filesystem::remove(match_filename);
@@ -228,7 +334,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("ip-detect-method",po::value(&opt.ip_detect_method)->default_value(1),
      "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
     ("individually-normalize",   po::bool_switch(&opt.individually_normalize)->default_value(false)->implicit_value(true),
-     "Individually normalize the input images instead of using common values.");
+     "Individually normalize the input images instead of using common values.")
+    ("reference-dem",             po::value(&opt.reference_dem)->default_value(""),
+     "If provided, extract from this DEM the heights above the ground rather than assuming the value in --orthoimage-height.");
 
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
   
