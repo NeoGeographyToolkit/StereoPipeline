@@ -64,8 +64,6 @@ def generateTileName(startX, startY, stopX, stopY):
 # All pieces are about the same length.
 def genSegmentList(length, size, padding):
 
-    print("---input ", length, size, padding)
-    
     if length <= 0: length = 1
     if size   <= 0: size   = 1
     num = int(math.ceil(length/float(size))) # if in doubt, make pieces smaller
@@ -87,11 +85,6 @@ def genSegmentList(length, size, padding):
         count = count + 1
         pos = L[-1] + curLen
         L.append(pos)
-
-    print("L is ", L)
-    for c in range(0, len(L)-1):
-        print("--output ", L[c+1] - L[c])
     
     return L
-
 
