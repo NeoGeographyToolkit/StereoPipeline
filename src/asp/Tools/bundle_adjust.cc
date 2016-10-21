@@ -1378,7 +1378,7 @@ void create_gcp_from_mapprojected_images(Options const& opt){
   std::ofstream output_handle(gcp_file.c_str());
 
   int num_ips = matches[0].size();
-  int num_pts_used = 0;
+  int pts_count = 0;
   for (int p = 0; p < num_ips; p++) { // Loop through IPs
 
     // Compute the GDC coordinate of the point
@@ -1399,7 +1399,7 @@ void create_gcp_from_mapprojected_images(Options const& opt){
     //Vector3 dem_xyz = georef_dem.datum().geodetic_to_cartesian(llh);
 
     // The ground control point ID
-    output_handle << num_pts_used;
+    output_handle << pts_count;
     
     // Lat, lon, height
     output_handle << ", " << lonlat[1] << ", " << lonlat[0] << ", " << mask_height.child();
@@ -1436,7 +1436,7 @@ void create_gcp_from_mapprojected_images(Options const& opt){
       output_handle << ", " << 1 << ", " << 1; // Sigma values
     } // End loop through IP sets
     output_handle << std::endl; // Finish the line
-    num_pts_used++;
+    pts_count++;
 
   } // End loop through IPs
   output_handle.close();
