@@ -1,16 +1,27 @@
 *** RELEASE 2.5.4, Upcoming ***
 
- - Improvements, speedups, and much decreased memory usage, together with a lot of testing for sfs.
- - Added a parallel_sfs tool, to run sfs (shape-from-shading) in parallel.
+ - IceBridge processing
+    * Added the tools ortho2pinhole and correct_icebridge_l3_dem.
+   
+ - sfs
+    * Improvements, speedups, more documentation, much decreased 
+      memory usage, together with a lot of testing and validation for
+      the Moon.
+    * Added a parallel_sfs tool, to run sfs as multiple processes over
+      multiple machines.
 
+ - stereo_pprc
+   * Large speedup in epipolar alignment.
+ 
  - stereo_corr
    * Added the option --use-sgm which replaces the standard integer
      correlator with a new semi-global matching correlator.  SGM is
      slow and memory intensive but it can produce better results
-     for some challenging input images.
+     for some challenging input images, especially for IceBridge.
 
  - dem_mosaic
    * Added the option --dem-blur-sigma to blur the output DEM.
+   * Use by default --weights-exponent 2 to improve the blending.
 
  - geodiff
    * One of the two input files can be in CSV format.
