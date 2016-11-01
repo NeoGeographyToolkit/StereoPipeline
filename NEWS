@@ -3,13 +3,6 @@
  - IceBridge processing
     * Added the tools ortho2pinhole and correct_icebridge_l3_dem.
    
- - sfs
-    * Improvements, speedups, more documentation, much decreased 
-      memory usage, together with a lot of testing and validation for
-      the Moon.
-    * Added a parallel_sfs tool, to run sfs as multiple processes over
-      multiple machines.
-
  - stereo_pprc
    * Large speedup in epipolar alignment.
  
@@ -22,9 +15,20 @@
  - dem_mosaic
    * Added the option --dem-blur-sigma to blur the output DEM.
    * Use by default --weights-exponent 2 to improve the blending.
+   * Added the options --block-max and --nodata-threshold. 
 
  - geodiff
    * One of the two input files can be in CSV format.
+
+ - sfs
+    * Improvements, speedups, more documentation, usage recipes, 
+      much decreased memory usage, together with a lot of
+      testing and validation for the Moon.
+    * Can run on multiple input DEM clips (which can be chosen as
+    * representative for the desired large input DEM region and images
+    * to solve for adjusted camera positions throughout this region.
+    * Added parallel_sfs, to run sfs as multiple processes over
+      multiple machines.
 
  - stereo_gui
   * Clicking on a pixel prints image pixel indicies and value.
