@@ -370,15 +370,17 @@ struct Options : vw::cartography::GdalWriteOptions {
   double tr, geo_tile_size;
   bool   has_out_nodata;
   double out_nodata_value;
-  int    tile_size, tile_index, erode_len, priority_blending_len, extra_crop_len, hole_fill_len, weights_exp, save_dem_weight;
+  int    tile_size, tile_index, erode_len, priority_blending_len, extra_crop_len, hole_fill_len, weights_exp, block_size, save_dem_weight;
   double  weights_blur_sigma, dem_blur_sigma;
-  bool   first, last, min, max, mean, stddev, median, count, save_index_map, use_centerline_weights;
+  double nodata_threshold;
+  bool   first, last, min, max, block_max, mean, stddev, median, count, save_index_map, use_centerline_weights;
   BBox2 projwin;
   Options(): tr(0), geo_tile_size(0), has_out_nodata(false), tile_index(-1),
 	     erode_len(0), priority_blending_len(0), extra_crop_len(0),
-	     hole_fill_len(0), weights_exp(0), save_dem_weight(-1),
+	     hole_fill_len(0), weights_exp(0), block_size(0), save_dem_weight(-1),
 	     weights_blur_sigma(0.0), dem_blur_sigma(0.0),
-	     first(false), last(false), min(false), max(false),
+	     nodata_threshold(std::numeric_limits<double>::quiet_NaN()),
+	     first(false), last(false), min(false), max(false), block_max(false),
 	     mean(false), stddev(false), median(false), count(false), save_index_map(false),
 	     use_centerline_weights(false){}
 };
@@ -386,19 +388,20 @@ struct Options : vw::cartography::GdalWriteOptions {
 /// Return the number of no-blending options selected.
 int no_blend(Options const& opt){
   return int(opt.first) + int(opt.last) + int(opt.min) + int(opt.max)
-       + int(opt.mean) + int(opt.stddev) + int(opt.median) + int(opt.count);
+    + int(opt.mean) + int(opt.stddev) + int(opt.median) + int(opt.count) + int(opt.block_max);
 }
 
 std::string tile_suffix(Options const& opt){
   std::string ans;
-  if (opt.first ) ans = "-first";
-  if (opt.last  ) ans = "-last";
-  if (opt.min   ) ans = "-min";
-  if (opt.max   ) ans = "-max";
-  if (opt.mean  ) ans = "-mean";
-  if (opt.stddev) ans = "-stddev";
-  if (opt.median) ans = "-median";
-  if (opt.count ) ans = "-count";
+  if (opt.first    ) ans = "-first";
+  if (opt.last     ) ans = "-last";
+  if (opt.min      ) ans = "-min";
+  if (opt.max      ) ans = "-max";
+  if (opt.block_max) ans = "-block-max";
+  if (opt.mean     ) ans = "-mean";
+  if (opt.stddev   ) ans = "-stddev";
+  if (opt.median   ) ans = "-median";
+  if (opt.count    ) ans = "-count";
   if (opt.save_index_map)       ans += "-index-map";
   if (opt.save_dem_weight >= 0) ans += "-weight-dem-index-" + stringify(opt.save_dem_weight);
 
@@ -532,7 +535,6 @@ public:
 
       // Load the information for this DEM
       GeoReference georef = m_georefs[dem_iter];
-      double nodata_value = m_nodata_values[dem_iter];
 
       BBox2i dem_pixel_box = m_dem_pixel_bboxes[dem_iter];
       
@@ -568,7 +570,21 @@ public:
       // channel is the image pixels, second will be the weights.
       ImageViewRef<double> disk_dem = pixel_cast<double>(m_imgMgr.get_handle(dem_iter, bbox));
       ImageView<DoubleGrayA> dem = crop(disk_dem, in_box);
-      
+
+      // If the nodata_threshold is specified, all values no more than this
+      // will be invalidated.
+      double nodata_value = m_nodata_values[dem_iter];
+      if (!boost::math::isnan(m_opt.nodata_threshold)) {
+	nodata_value = m_opt.nodata_threshold;
+	for (int col = 0; col < dem.cols(); col++) {
+	  for (int row = 0; row < dem.rows(); row++) {
+	    if (dem(col, row)[0] <= nodata_value) {
+	      dem(col, row)[0] = nodata_value;
+	    }
+	  }
+	}
+      }
+	
       // Mark the handle to the image as not in use, though we still
       // keep that image file open, for increased performance, unless
       // their number becomes too large.
@@ -630,7 +646,7 @@ public:
       // Dump the weights
       std::ostringstream os;
       os << "weights_" << dem_iter << ".tif";
-      std::cout << "Writing: " << os.str() << std::endl;
+      vw_out() << "Writing: " << os.str() << std::endl;
       bool has_georef = true, has_nodata = true;
       block_write_gdal_image(os.str(), local_wts,
 			     has_georef, georef,
@@ -735,7 +751,8 @@ public:
 	       m_opt.last                                         ||
 	       ( m_opt.min && ( val < tile(c, r) || is_nodata ) ) ||
 	       ( m_opt.max && ( val > tile(c, r) || is_nodata ) ) ||
-	       m_opt.median || m_opt.priority_blending_len > 0 ){
+	       m_opt.median || m_opt.priority_blending_len > 0    ||
+               m_opt.block_max){
 	    // --> Conditions where we replace the current value
 	    tile   (c, r) = val;
 	    weights(c, r) = wt;
@@ -781,8 +798,9 @@ public:
       } // End row loop
 
       // For the median option, keep a copy of the output tile for each input DEM!
-      // - This will be memory intensive
-      if (m_opt.median)
+      // Also do it for max per block.
+      // - This will be memory intensive. 
+      if (m_opt.median || m_opt.block_max)
 	tile_vec.push_back(copy(tile));
 
       // For priority blending, need also to keep all tiles, but also the weights
@@ -822,8 +840,7 @@ public:
 	} // End row loop
       } // End col loop
     } // End stddev case
-
-
+    
     // For the median operation
     if (m_opt.median){
       // Init output pixels to nodata
@@ -847,7 +864,26 @@ public:
       } // End col loop
     } // End median case
 
-
+    // For max per block
+    if (m_opt.block_max) {
+      fill( tile, m_opt.out_nodata_value );
+      int num_tiles = tile_vec.size();
+      std::vector<double> tile_sum(num_tiles, 0);
+      for (int i = 0; i < num_tiles; i++) {
+        for (int c = 0; c < tile_vec[i].cols(); c++) {
+          for (int r = 0; r < tile_vec[i].rows(); r++) {
+            if (tile_vec[i](c, r) != m_opt.out_nodata_value) {
+              tile_sum[i] += tile_vec[i](c, r);
+            }
+          }
+        }
+      }
+      int max_index = std::distance(tile_sum.begin(),
+                                    std::max_element(tile_sum.begin(), tile_sum.end()));
+      if (max_index >= 0 && max_index < num_tiles) 
+        tile = copy(tile_vec[max_index]);
+    }
+    
     // For priority blending length.
     if (m_opt.priority_blending_len > 0) {
 
@@ -943,7 +979,7 @@ public:
 	GeoReference crop_georef = crop(m_out_georef, bbox);
 	std::ostringstream os;
 	os << "tile_weight_" << clip_iter << ".tif";
-	std::cout << "Writing: " << os.str() << std::endl;
+	vw_out() << "Writing: " << os.str() << std::endl;
 	bool has_georef = true, has_nodata = true;
 	block_write_gdal_image(os.str(), weight_vec[clip_iter],
 			       has_georef, crop_georef,
@@ -1019,9 +1055,6 @@ void load_dem_bounding_boxes(Options       const& opt,
   tpc.report_progress(0);
   double inc_amount = 1.0 / double(opt.dem_files.size() );
 
-  //std::cout << "mosaic_georef: \n"<< mosaic_georef << std::endl;
-  //std::cout << "mosaic_bbox: \n"  << mosaic_bbox << std::endl;
-
   // Loop through all DEMs
   for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++){ 
 
@@ -1030,8 +1063,6 @@ void load_dem_bounding_boxes(Options       const& opt,
     DiskImageView<RealT>  img(opt.dem_files[dem_iter]);
     GeoReference          georef = read_georef(opt.dem_files[dem_iter]);
     BBox2i                pixel_box = bounding_box(img);
-
-    //std::cout << "Read georef: \n"<< georef << std::endl;
 
     dem_pixel_bboxes.push_back(pixel_box);
 
@@ -1078,7 +1109,6 @@ void load_dem_bounding_boxes(Options       const& opt,
       }
       
       mosaic_bbox.grow(proj_box);
-      //std::cout << "mosaic_bbox: \n"  << mosaic_bbox << std::endl;
       dem_proj_bboxes.push_back(proj_box);
     } // End second case
 
@@ -1127,7 +1157,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("median",  po::bool_switch(&opt.median)->default_value(false),
 	   "Find the median DEM value (this can be memory-intensive, fewer threads are suggested).")
     ("count",   po::bool_switch(&opt.count)->default_value(false),
-	   "Each pixel is set to the number of valid DEM heights at that pixel.")
+     "Each pixel is set to the number of valid DEM heights at that pixel.")
+    ("block-max", po::bool_switch(&opt.block_max)->default_value(false),
+     "For each block of size --block-size, keep the DEM with the largest sum of values in the block.")
     ("georef-tile-size",    po::value<double>(&opt.geo_tile_size),
 	   "Set the tile size in georeferenced (projected) units (e.g., degrees or meters).")
     ("output-nodata-value", po::value<double>(&opt.out_nodata_value),
@@ -1139,9 +1171,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("use-centerline-weights",   po::bool_switch(&opt.use_centerline_weights)->default_value(false),
      "Compute weights based on a DEM centerline algorithm. Produces smoother weights if the input DEMs don't have holes or complicated boundary.")
     ("dem-blur-sigma", po::value<double>(&opt.dem_blur_sigma)->default_value(0.0),
-     "Blur the final DEM with this Gaussian sigma. Default: No blur.")
+     "Blur the final DEM using a Gaussian with this value of sigma. Default: No blur.")
+    ("nodata-threshold", po::value(&opt.nodata_threshold)->default_value(std::numeric_limits<double>::quiet_NaN()),
+     "Values no larger than this number will be interpreted as no-data.")
     ("extra-crop-length", po::value<int>(&opt.extra_crop_len)->default_value(200),
      "Crop the DEMs this far from the current tile (measured in pixels) before blending them (a small value may result in artifacts).")
+    ("block-size",      po::value<int>(&opt.block_size)->default_value(0),
+     "To be used with --max-per-block. A large value can result in increased memory usage.")
     ("save-dem-weight",      po::value<int>(&opt.save_dem_weight),
      "Save the weight image that tracks how much the input DEM with given index contributed to the output mosaic at each pixel (smallest index is 0).")
     ("save-index-map",   po::bool_switch(&opt.save_index_map)->default_value(false),
@@ -1281,6 +1317,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   }else
     opt.has_out_nodata = true;
 
+  // Cast this to float. All our nodata are float.
+  opt.nodata_threshold = RealT(opt.nodata_threshold);
+  
 } // End function handle_arguments
 
 int main( int argc, char *argv[] ) {
@@ -1431,7 +1470,8 @@ int main( int argc, char *argv[] ) {
     // not fit in memory.
     int block_size = nextpow2(4.0*bias);
     block_size = std::max(block_size, 256); // don't make them too small though
-
+    if (opt.block_size > 0) block_size = opt.block_size;
+    
     int num_tiles_x = (int)ceil((double)cols/double(opt.tile_size));
     int num_tiles_y = (int)ceil((double)rows/double(opt.tile_size));
     if (num_tiles_x <= 0) num_tiles_x = 1;
@@ -1531,6 +1571,9 @@ int main( int argc, char *argv[] ) {
       }
       
       loaded_dems.push_back(opt.dem_files[dem_iter]);
+
+      if (!boost::math::isnan(opt.nodata_threshold)) 
+	curr_nodata_value = opt.nodata_threshold;
       
       // Add the info for this DEM to the appropriate vectors
       nodata_values.push_back(curr_nodata_value);
