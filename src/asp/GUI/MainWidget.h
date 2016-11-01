@@ -139,6 +139,7 @@ public slots:
     void toggleHillshade();     ///< Turn on/off hillshading per image (from right click menu)
     void refreshHillshade();    ///< We modified m_hillshade_mode. Update the display.
     void deleteImage();         ///< Delete an image from the gui and refresh
+    void allowMultipleSelections(); ///< Allow the user to select multiple regions
     void toggleProfileMode(bool profile_mode); ///< Turn on and off profiling
 
   protected:
@@ -203,6 +204,9 @@ public slots:
     QRect m_rubberBand;
     BBox2 m_stereoCropWin;
 
+    bool m_allowMultipleSelections;
+    std::vector<BBox2> m_selectionRectangles;
+    
     // If we are selecting a crop win to do stereo in
     bool m_cropWinMode;
     
@@ -264,6 +268,7 @@ public slots:
     QAction* m_setThreshold;
     QAction* m_toggleHillshadeFromTable;
     QAction* m_deleteImage;
+    QAction* m_allowMultipleSelections_action;
 
     double m_shadow_thresh;
     bool   m_shadow_thresh_calc_mode;

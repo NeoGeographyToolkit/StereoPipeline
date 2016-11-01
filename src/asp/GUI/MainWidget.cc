@@ -236,6 +236,8 @@ namespace vw { namespace gui {
 	      this, SLOT(customMenuRequested(QPoint)));
     }
 
+    m_allowMultipleSelections = false;
+    
     // Right-click context menu
     m_ContextMenu = new QMenu();
     //setContextMenuPolicy(Qt::CustomContextMenu);
@@ -243,10 +245,16 @@ namespace vw { namespace gui {
     m_deleteMatchPoint = m_ContextMenu->addAction("Delete match point");
     m_toggleHillshade  = m_ContextMenu->addAction("Toggle hillshaded display");
     m_setThreshold     = m_ContextMenu->addAction("View/set shadow threshold");
+    m_allowMultipleSelections_action = m_ContextMenu->addAction("Allow multiple selected regions");
+    m_allowMultipleSelections_action->setCheckable(true);
+    m_allowMultipleSelections_action->setChecked(m_allowMultipleSelections);
+    
     connect(m_addMatchPoint,    SIGNAL(triggered()), this, SLOT(addMatchPoint()));
     connect(m_deleteMatchPoint, SIGNAL(triggered()), this, SLOT(deleteMatchPoint()));
     connect(m_toggleHillshade,  SIGNAL(triggered()), this, SLOT(toggleHillshade()));
     connect(m_setThreshold,     SIGNAL(triggered()), this, SLOT(setThreshold()));
+    connect(m_allowMultipleSelections_action, SIGNAL(triggered()), this,
+            SLOT(allowMultipleSelections()));
 
     MainWidget::maybeGenHillshade();
 
@@ -494,7 +502,16 @@ namespace vw { namespace gui {
   void MainWidget::deleteImage(){
     emit removeImageAndRefreshSignal();
   }
-  
+
+  // Allow the user to select multiple windows. 
+  void MainWidget::allowMultipleSelections(){
+    m_allowMultipleSelections = !m_allowMultipleSelections;
+    if (!m_allowMultipleSelections) {
+      m_selectionRectangles.clear();
+      refreshPixmap();
+    }
+  }
+
   void MainWidget::refreshHillshade(){
 
     for (std::set<int>::iterator it = m_indicesWithAction.begin();
@@ -868,6 +885,13 @@ namespace vw { namespace gui {
       paint.drawRect(R.normalized().adjusted(0, 0, -1, -1));
     }
 
+    // If we allow multiple selection windows
+    for (size_t win = 0; win < m_selectionRectangles.size(); win++) {
+      QRect R = bbox2qrect(world2screen(m_selectionRectangles[win]));
+      paint.setPen(cropWinColor);
+      paint.drawRect(R.normalized().adjusted(0, 0, -1, -1));
+    }
+    
     // Plot the polygonal line which we are profiling
     plotProfilePolyLine(paint, m_profileX, m_profileY);
   }
@@ -979,7 +1003,7 @@ namespace vw { namespace gui {
       // the perimeter of the new rubberband, and as can be seen in
       // MainWidget::PaintEvent() the effect is to draw the rubberband.
 
-      if (m_cropWinMode) {
+      if (m_cropWinMode && !m_allowMultipleSelections) {
         // If there is on screen already a crop window, wipe it, as
         // we are now in the process of creating a new one.
         QRect R = bbox2qrect(world2screen(m_stereoCropWin));
@@ -1299,12 +1323,24 @@ namespace vw { namespace gui {
 
     } else if (m_cropWinMode){
 
+      // If now we allow multiple selected regions, but we did not allow at
+      // the time the crop win was formed, save the crop win before it
+      // will be overwritten.
+      if (m_allowMultipleSelections && !m_stereoCropWin.empty()) {
+        if (m_selectionRectangles.empty() || m_selectionRectangles.back() != m_stereoCropWin) {
+          m_selectionRectangles.push_back(m_stereoCropWin);
+        }
+      }
+      
       // User selects the region to use for stereo.  Convert it to world
       // coordinates, and round to integer.  If we use georeferences,
       // the crop win is in projected units for the first image,
       // so we must convert to pixels.
       m_stereoCropWin = screen2world(qrect2bbox(m_rubberBand));
-
+      
+      if (m_allowMultipleSelections && !m_stereoCropWin.empty()) 
+        m_selectionRectangles.push_back(m_stereoCropWin);
+      
       for (size_t i = 0; i < m_images.size(); i++) {
 
         BBox2i image_box = world2image(m_stereoCropWin, i);
