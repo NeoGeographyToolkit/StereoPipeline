@@ -77,14 +77,12 @@ def checkIfToolExists(toolName):
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     translateOut, err = p.communicate()
 
-
     # Check if that command failed to find the file
     failString = 'no ' + toolName + ' in ('
     if translateOut.find(failString) >= 0:
         raise Exception('Missing required executable "' + toolName + '", please add it to your PATH.')
     else:
         return True
-
 
 def getNumNodesInList(nodesListPath):
     """Get number of Pleiades nodes listed in a file"""
@@ -260,3 +258,23 @@ def run_and_parse_output(cmd, args, sep, verbose, **kw ):
             data[keywords[0]] = keywords[1:]
 
     return data
+
+def run_with_return_code(cmd, verbose=False):
+    
+    if verbose:
+        print(" ".join(cmd))
+
+    try:
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    except OSError as e:
+        print('Error: %s: %s' % (" ".join(cmd), e))
+        
+    (stdout, stderr) = p.communicate()
+    p.wait()
+    
+    if p.returncode != 0:
+        print(stdout)
+        print(stderr)
+        print ('Failed executing: ' + " ".join(cmd))
+
+    return p.returncode

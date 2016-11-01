@@ -17,7 +17,10 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-"""IrgSystemFunctions.py - General systems related utilities"""
+# TODO: Wipe this. Some of these functions must go to asp_system_utils.py,
+# and some to asp_alg_utils.py.
+
+"""General systems related utilities"""
 
 import sys, os, re, shutil, subprocess, string, time, errno, multiprocessing, shlex
 
@@ -67,11 +70,11 @@ def stringToArgList(string):
 def executeCommand(cmd,
                    outputPath=None,      # If given, throw if the file is not created.  Don't run if it already exists.
                    suppressOutput=False, # If true, don't print anything!
-                   force=False):         # If true , run even if outputPath already exists.
+                   force=False):         # If true, run even if outputPath already exists.
     '''Executes a command with multiple options'''
 
     if cmd == '': # An empty task
-        return
+        return False
 
     # Convert the input to list format if needed
     if not isNotString(cmd):
