@@ -1084,6 +1084,8 @@ Limit the mosaic to this region, with the corners given in georeferenced coordin
 & Each pixel is set to the number of valid DEM heights at that pixel.
 \\ \hline
 
+\texttt{-\/-block-max} & For each block of size \texttt{-\/-block-size}, keep the DEM with the largest sum of values in the block.\\ \hline
+
 \texttt{-\/-georef-tile-size \textit{double}} &
 Set the tile size in georeferenced (projected) units (e.g., degrees or meters).
 \\ \hline
@@ -1100,18 +1102,20 @@ The weights used to blend the DEMs should increase away from the boundary as a p
 \\ \hline
 
 \texttt{-\/-use-centerline-weights} &
-Compute weights based on a DEM centerline algorithm. Produces smoother weights if the input DEMs don't have holes or complicated boundary. Use with \texttt{-\/-weights-exponent 2}.
+Compute weights based on a DEM centerline algorithm. Produces smoother weights if the input DEMs don't have holes or complicated boundary.
 \\ \hline
 
-\texttt{-\/-dem-blur-sigma \textit{integer (=0)} } &
-Blur the final DEM with this Gaussian sigma. Default: No blur.
-\\ \hline
+\texttt{-\/-dem-blur-sigma \textit{integer (=0)} } & Blur the final DEM using a Gaussian with this value of sigma. Default: No blur. \\ \hline
 
 \texttt{-\/-extra-crop-length \textit{integer(=200)}} &
 Crop the DEMs this far from the current tile (measured in pixels) before blending them (a small value may result in artifacts).
 \\ \hline
 
-\texttt{-\/-save-dem-weight \textit{integer index}} &
+\texttt{-\/-nodata-threshold \textit{float}} & Values no larger than this number will be interpreted as no-data.\\ \hline
+
+\texttt{-\/-block-size arg (=0)} & To be used with -\/-max-per-block.\\ \hline
+
+\texttt{-\/-save-dem-weight \textit{integer}} &
 Save the weight image that tracks how much the input DEM with given index contributed to the output mosaic at each pixel (smallest index is 0).\\ \hline
 
 \texttt{-\/-save-index-map} &
