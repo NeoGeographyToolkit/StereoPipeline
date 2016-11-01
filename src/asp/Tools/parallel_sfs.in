@@ -161,11 +161,23 @@ def runSfs(options, requiredList, outputFolder, outputName):
             extraArgs.append(arg)
             i += 1
 
+    
     # Just call the command for a single tile
     cmd = ['/usr/bin/time', '-f', '"elapsed=%E memory=%M (kb)"', 'sfs',  '--crop-win', str(startX), str(startY), str(stopX), str(stopY)]
     cmd = cmd + requiredList + extraArgs # Append other options
-
-    asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
+    willRun = True
+    if options.resume:
+        finalDem = tilePrefix + '-DEM-final.tif'
+        verbose = True
+        # See if it is a valid tif file
+        ans = asp_system_utils.run_with_return_code(['gdalinfo',
+                                                     finalDem], verbose) 
+        if ans == 0:
+            print("Will skip this tile, as file exists: " + finalDem)
+            willRun = False
+            
+    if willRun:
+        asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
 
     return 0
 
@@ -216,6 +228,9 @@ def main(argsIn):
         parser.add_option('--threads',  dest='threads', default=1, type='int',
                           help='How many threads each process should use. The sfs executable is single-threaded in most of its execution, so a large number will not help here.')
 
+        parser.add_option("--resume", action="store_true", default=False,
+                          dest="resume", help="Only run tiles for which the final DEM is missing or invalid.")
+
         parser.add_option("--suppress-output", action="store_true", default=False,
                                                dest="suppressOutput",  help="Suppress output of sub-calls.")
 
@@ -258,7 +273,7 @@ def main(argsIn):
     # Pass to the sfs executable the -i and -o options we filtered out
     options.extraArgs = ['-i', options.input_dem, '-o', options.output_prefix,
                          '--threads', str(options.threads) ] + options.extraArgs
-    
+
     # Set up output folder
     outputFolder = os.path.dirname(options.output_prefix)
     if outputFolder == '':
@@ -353,7 +368,10 @@ def main(argsIn):
                      ]
     if options.suppressOutput:
         commandList = commandList + ['--suppress-output']
-    
+
+    if options.resume:
+        commandList.append('--resume')
+        
     commandList   = commandList + requiredList + options.extraArgs # Append other options
     commandString = asp_cmd_utils.argListToString(commandList)
 

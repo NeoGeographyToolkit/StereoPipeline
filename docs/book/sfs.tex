@@ -511,11 +511,34 @@ onto the input DEM using \texttt{-\/-bundle-adjust-prefix} pointing to
 the \texttt{sfs} output prefix. This should be used to verify that images
 are now aligned correctly, for example by overlaying them in
 \texttt{stereo\_gui}. If so, these adjustments can be used as input for
-SfS with images at finer levels of resolution (by appropriately renaming the
-adjustment files).
+SfS with images at finer levels of resolution (after appropriately renaming the
+adjustment files and using the \texttt{-\/-bundle-adjust-prefix} option of \texttt{sfs}).
 
 Here, a higher value can be used for \texttt{-\/-initial-dem-constraint-weight}
 to ensure we cameras have more motivation to align to the terrain.
+
+When it comes to running SfS with many large high-resolution
+images, one runs very fast into memory constraints. It is then necessary
+to parallelize the problem using \texttt{parallel\_sfs}, which will run
+\texttt{sfs} on multiple tiles. Yet, the camera adjustments need to be
+determined before running this tool, and then kept fixed when this tool
+is run, as otherwise each single tile will optimize its cameras
+independently, and as result there will be discontinuities at tile
+boundaries. 
+
+If the camera adjustments are determined by first running \texttt{sfs}
+on a clip representative of the entire terrain, far from that clip the
+cameras will start to disagree. For that reason, \texttt{sfs} makes it
+possible to optimize the cameras on an entire collection of clips,
+chosen so they are reasonably spread out over the entire terrain, 
+and that each camera image is covered by at least a handful of such clips.
+The clips can be passed to \texttt{sfs} as a quoted string via the \texttt{-i} option. 
+As before, at the end the \texttt{mapproject}
+program can be used to verify that the camera images mapprojected using the
+obtained camera adjustments are perfectly on top of each other, and if not,
+more clips can be added to the joint optimization problem. When a good
+enough set of camera adjustments is obtained, \texttt{parallel\_sfs} can
+be run as before. 
 
 \section{Insights for getting the most of SfS}
 \label{sfs:insights}
@@ -551,12 +574,15 @@ being, respectively, on the left, right, and then perhaps missing or small.
   approach seems to give better results.
 
 \item If an input DEM is large, it may not be completely covered by a
-  single set of imagery with various illumination conditions.  It should
-  then be broken up into smaller regions (with overlap), the SfS problem
-  can be solved on each region, and then every output terrain can be
-  transformed using \texttt{pc\_align} into LOLA's global coordinate
-  system, where they can be mosaicked together using
-  \texttt{dem\_mosaic}. 
+single set of imagery with various illumination conditions.  It should
+then be broken up into smaller regions (with overlap), the SfS problem
+can be solved on each region, and then every output terrain can be
+transformed using \texttt{pc\_align} into LOLA's global coordinate
+system, where they can be mosaicked together using
+\texttt{dem\_mosaic}. Or, \texttt{sfs} can be run not on one clip, but
+on an entire collection of clips covering this area to get the
+adjustments, and then \texttt{parallel\_sfs} can be run as described in
+the previous section. 
 
   The easier case is when at least the two images in the stereo pair
   cover the entire terrain. Then, portions of this terrain can be used
@@ -565,4 +591,14 @@ being, respectively, on the left, right, and then perhaps missing or small.
   to LOLA can happen just once, after mosaicking. This approach is
   preferable, if feasible, as alignment to LOLA is more accurate if the
   terrain to align is larger in extent.
+
+\item The \texttt{mapproject} program can be used to map-project each image
+onto the resulting SfS DEM (with the camera adjustments solved using
+SfS). These orthoimages can be mosaicked using \texttt{dem\_mosaic}. If the
+\texttt{-\/-max} option is used with this tool, it create a mosaic with
+the most illuminated pixels from this image. If during SfS the camera
+adjustments were solved accurately, this mosaic should have little or no
+blur. An alterantive is to use the \texttt{-\/-block-max} option
+which will pick the most lit of the images per each block, with the latter
+being specified via \texttt{-\/-block-size}. 
 \end{itemize}
