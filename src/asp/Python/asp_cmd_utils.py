@@ -17,9 +17,6 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-# TODO: Wipe this. Some of these functions must go to asp_system_utils.py,
-# and some to asp_alg_utils.py.
-
 """General systems related utilities"""
 
 import sys, os, re, shutil, subprocess, string, time, errno, multiprocessing, shlex
@@ -38,63 +35,7 @@ def isCmdOption(arg):
         return True
     else:
         return False
-
-
-# The following functions are useful for going between string and list
-#  representations of command line arguments
-
-def isNotString(a):
-    """Returns true if the object is not a string"""
-    return (not isinstance(a, basestring))
-
-def argListToString(argList):
-    """Converts a list of arguments into a single argument string"""
-
-    string = ""
-    for arg in argList:
-        stringVersion = str(arg)
-
-        # Wrap arguments with spaces in them in "" so they stay together
-        if stringVersion.find(' ') >= 0:
-            string = string + '"' + stringVersion + '" '
-        else:
-            string = string + stringVersion + ' '
-
-    return string
-
-def stringToArgList(string):
-    """Converts a single argument string into a list of arguments"""
-    return shlex.split(string)
-    
-# TODO: Improve this function a bit
-def executeCommand(cmd,
-                   outputPath=None,      # If given, throw if the file is not created.  Don't run if it already exists.
-                   suppressOutput=False, # If true, don't print anything!
-                   force=False):         # If true, run even if outputPath already exists.
-    '''Executes a command with multiple options'''
-
-    if cmd == '': # An empty task
-        return False
-
-    # Convert the input to list format if needed
-    if not isNotString(cmd):
-        cmd = stringToArgList(cmd)
-
-    # Run the command if conditions are met
-    if force or (not outputPath) or (not os.path.exists(outputPath)):
-
-        if suppressOutput: # Process silently
-            FNULL = open(os.devnull, 'w')
-            subprocess.call(cmd, stdout=FNULL, stderr=subprocess.STDOUT)
-        else: # Display output
-            print " ".join(cmd)
-            subprocess.call(cmd)
-
-    # Optionally check that the output file was created
-    if outputPath and (not os.path.exists(outputPath)):
-        raise CmdRunException('Failed to create output file: ' + outputPath)
-    return True
-
+ 
 #==================================================
 # This class implements a variant of OptionParser which ignores unknown options.
 

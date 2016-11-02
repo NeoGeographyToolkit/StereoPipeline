@@ -23,7 +23,7 @@ General system related utilities
 
 import sys, os, re, shutil, subprocess, string, time, errno, multiprocessing
 import os.path as P
-
+import asp_string_utils
 
 def die(msg, code=-1):
     '''Exit the program with a message'''
@@ -278,3 +278,32 @@ def run_with_return_code(cmd, verbose=False):
         print ('Failed executing: ' + " ".join(cmd))
 
     return p.returncode
+
+# TODO: Improve this function a bit
+def executeCommand(cmd,
+                   outputPath=None,      # If given, throw if the file is not created.  Don't run if it already exists.
+                   suppressOutput=False, # If true, don't print anything!
+                   force=False):         # If true, run even if outputPath already exists.
+    '''Executes a command with multiple options'''
+
+    if cmd == '': # An empty task
+        return False
+
+    # Convert the input to list format if needed
+    if not asp_string_utils.isNotString(cmd):
+        cmd = asp_string_utils.stringToArgList(cmd)
+
+    # Run the command if conditions are met
+    if force or (not outputPath) or (not os.path.exists(outputPath)):
+
+        if suppressOutput: # Process silently
+            FNULL = open(os.devnull, 'w')
+            subprocess.call(cmd, stdout=FNULL, stderr=subprocess.STDOUT)
+        else: # Display output
+            print " ".join(cmd)
+            subprocess.call(cmd)
+
+    # Optionally check that the output file was created
+    if outputPath and (not os.path.exists(outputPath)):
+        raise CmdRunException('Failed to create output file: ' + outputPath)
+    return True

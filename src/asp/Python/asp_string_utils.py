@@ -21,7 +21,7 @@
    Functions to help with string parsing.
 """
 
-import sys, os, re, string, time
+import sys, os, re, string, time, shlex
 
 def isNumber(text):
     """Returns True if the text is a number"""
@@ -98,4 +98,28 @@ def getNumberAfterEqualSign(text, lineStart=0):
     return convertToFloatIfNumber(numberText)
 
 
+# The following functions are useful for going between string and list
+#  representations of command line arguments
+def isNotString(a):
+    """Returns true if the object is not a string"""
+    return (not isinstance(a, basestring))
+
+def argListToString(argList):
+    """Converts a list of arguments into a single argument string"""
+
+    string = ""
+    for arg in argList:
+        stringVersion = str(arg)
+
+        # Wrap arguments with spaces in them in "" so they stay together
+        if stringVersion.find(' ') >= 0:
+            string = string + '"' + stringVersion + '" '
+        else:
+            string = string + stringVersion + ' '
+
+    return string
+
+def stringToArgList(string):
+    """Converts a single argument string into a list of arguments"""
+    return shlex.split(string)
 

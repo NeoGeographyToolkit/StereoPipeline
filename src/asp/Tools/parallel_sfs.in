@@ -35,7 +35,7 @@ sys.path.insert(0, libexecpath)
 
 from asp_alg_utils import *
 
-import asp_file_utils, asp_system_utils, asp_cmd_utils, asp_image_utils
+import asp_file_utils, asp_system_utils, asp_cmd_utils, asp_image_utils, asp_string_utils
 asp_system_utils.verify_python_version_is_supported()
 
 # Prepend to system PATH
@@ -177,7 +177,7 @@ def runSfs(options, requiredList, outputFolder, outputName):
             willRun = False
             
     if willRun:
-        asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
+        asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
 
     return 0
 
@@ -318,7 +318,7 @@ def main(argsIn):
     # If there is only going to be one output tile, just use the non-parallel call
     if (numTilesX*numTilesY == 1):
         cmd = [sfsPath] + requiredList + options.extraArgs
-        asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
+        asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
         return 0
     
     # Generate a text file that contains the boundaries for each tile
@@ -373,7 +373,7 @@ def main(argsIn):
         commandList.append('--resume')
         
     commandList   = commandList + requiredList + options.extraArgs # Append other options
-    commandString = asp_cmd_utils.argListToString(commandList)
+    commandString = asp_string_utils.argListToString(commandList)
 
     # Use GNU parallel call to distribute the work across computers
     # - This call will wait until all processes are finished
@@ -393,7 +393,7 @@ def main(argsIn):
     dem_mosaic_args = ['--weights-exponent', '2', '--use-centerline-weights',
                        '-o', options.output_prefix]
     cmd = [dem_mosaic_path] + outputDems + dem_mosaic_args
-    asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
+    asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
 
     # Rename from dem_mosaic convention to sfs convention
     finalDem = options.output_prefix + '-DEM-final.tif'

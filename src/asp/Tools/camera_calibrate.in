@@ -68,7 +68,7 @@ def calibrate_camera(options):
     if options.box_size_cm:
         box_size_meters = options.box_size_cm/100.0
         cmd += ['-s', str(box_size_meters)]
-    asp_cmd_utils.executeCommand(cmd, suppressOutput=options.suppress_output, 
+    asp_system_utils.executeCommand(cmd, suppressOutput=options.suppress_output, 
                                  outputPath=output_abs_path, force=options.overwrite)
 
     if not os.path.exists(options.ocv_params_path):
