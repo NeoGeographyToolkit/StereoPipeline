@@ -554,7 +554,12 @@ void stereo_triangulation( string          const& output_prefix,
     for (int c = 0; c < num_cams; c++) {
       camera_ptrs.push_back(cameras[c].get());
     }
-    StereoModelT stereo_model( camera_ptrs, stereo_settings().use_least_squares );
+
+    // Convert the angle tol to be in terms of dot product and pass it
+    // to the stereo model.
+    double angle_tol = 1.0 - cos(stereo_settings().min_triangulation_angle*M_PI/180);
+    StereoModelT stereo_model( camera_ptrs, stereo_settings().use_least_squares,
+                               angle_tol);
 
     // Apply radius function and stereo model in one go
     vw_out() << "\t--> Generating a 3D point cloud." << endl;

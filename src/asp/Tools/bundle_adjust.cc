@@ -73,7 +73,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   std::string cnet_file, out_prefix, stereo_session_string,
     cost_function, ba_type, mapprojected_data, gcp_data;
   int    ip_per_tile;
-  double min_angle, lambda, camera_weight, robust_threshold;
+  double min_triangulation_angle, lambda, camera_weight, robust_threshold;
   int    report_level, min_matches, max_iterations, overlap_limit;
 
   bool   save_iteration, local_pinhole_input, solve_intrinsics;
@@ -88,7 +88,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
 
   // Make sure all values are initialized, even though they will be
   // over-written later.
-  Options(): ip_per_tile(0), min_angle(0), lambda(-1.0), camera_weight(-1),
+  Options(): ip_per_tile(0), min_triangulation_angle(0), lambda(-1.0), camera_weight(-1),
              robust_threshold(0), report_level(0), min_matches(0),
              max_iterations(0), overlap_limit(0), save_iteration(false),
              local_pinhole_input(false), solve_intrinsics(false),
@@ -1502,7 +1502,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                          "The weight to give to the constraint that the camera positions/orientations stay close to the original values (only for the Ceres solver).  A higher weight means that the values will change less, a lower weight means more change.")
     ("ip-per-tile",             po::value(&opt.ip_per_tile)->default_value(0),
      "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
-    ("min-triangulation-angle",             po::value(&opt.min_angle)->default_value(0.1),
+    ("min-triangulation-angle",             po::value(&opt.min_triangulation_angle)->default_value(0.1),
      "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.")
     ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
      "Given map-projected versions of the input images and the DEM mapprojected onto, and IP matches among them, create IP matches among the un-projected images before doing bundle adjustment. Niche and experimental, not for general use.")
@@ -1782,7 +1782,7 @@ int main(int argc, char* argv[]) {
                                                     opt.image_files,
                                                     match_files,
                                                     opt.min_matches,
-                                                    opt.min_angle*(M_PI/180));
+                                                    opt.min_triangulation_angle*(M_PI/180));
       if (!success) {
         vw_out() << "Failed to build a control network. Consider removing "
                  << "the currently found interest point matches and increasing "

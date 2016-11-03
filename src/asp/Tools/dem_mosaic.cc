@@ -63,10 +63,8 @@ using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-// This tool can handle only DEMs with float pixels. It should have no
-// problem reading DEMs with double or int16 pixels that can be cast
-// to float, but problems can show up if the no-data value cannot be
-// cast properly to float, for example, if it is the smallest double.
+// This tool casts all input DEMs to float. The processing is done in double
+// precision though. 
 typedef float RealT;
 
 // This is used for various tolerances

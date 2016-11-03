@@ -274,6 +274,8 @@ namespace asp {
                                             "Radius of inner boundary of universe in meters (remove points with radius smaller than that).")
       ("far-universe-radius",               po::value(&global.far_universe_radius)->default_value(0.0),
                                             "Radius of outer boundary of universe in meters (remove points with radius larger than that).")
+      ("min-triangulation-angle",           po::value(&global.min_triangulation_angle)->default_value(0.0),
+                                            "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid. The internal default is somewhat less than 1 degree.")
       ("use-least-squares",                 po::bool_switch(&global.use_least_squares)->default_value(false)->implicit_value(true),
                                             "Use rigorous least squares triangulation process. This is slow for ISIS processes.")
       ("bundle-adjust-prefix", po::value(&global.bundle_adjust_prefix),

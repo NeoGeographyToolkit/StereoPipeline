@@ -64,11 +64,12 @@ Do stereo in a sub-region of the left image [default: use the entire image].
 
 \item[right-image-crop-win \textnormal xoff yoff xsize ysize] \hfill \\
 When combined with \texttt{left-image-crop-win}, do stereo in given subregions
-of left and right images. It is important to note that when both of these
+of left and right images. The crop windows can be determined using \texttt{stereo\_gui}.
+It is important to note that when both of these
 are specified, we explicitly crop the input images to these regions,
 which does not happen when \texttt{left-image-crop-win} alone is specified.
 In that case we use the full images but only restrict the computation
-to the specified region.
+to the specified region. 
 
 \item[force-use-entire-range \textnormal (default = false)] \hfill \\
   By default, the Stereo Pipeline will normalize ISIS images so that
@@ -486,6 +487,11 @@ are:
   \end{description}
 
 \item[bundle-adjust-prefix \textnormal{\small{(\emph{string})}}] \hfill \\ Use the camera adjustments obtained by previously running bundle\_adjust with this output prefix.
+
+\item[min-triangulation-angle \textnormal{\small{(\emph{double})}}] \hfill \\
+The minimum angle, in degrees, at which rays must meet at a triangulated
+point to accept this point as valid. The internal default is somewhat
+less than 1 degree.
 
 \item[point-cloud-rounding-error \textnormal{\small{(\emph{double})}}] \hfill \\
 

@@ -104,12 +104,11 @@ namespace asp {
       if (camDirs.size() < 2) 
           return Vector3();
 
-      if (are_nearly_parallel(m_least_squares, camDirs)) 
+      if (are_nearly_parallel(m_least_squares, m_angle_tol, camDirs)) 
           return Vector3();
 
       // Determine range by triangulation
       Vector3 result = triangulate_point(camDirs, camCtrs, errorVec);
-
 
       if ( m_least_squares ){
 

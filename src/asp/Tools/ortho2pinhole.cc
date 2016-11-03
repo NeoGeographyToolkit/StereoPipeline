@@ -271,7 +271,7 @@ void ortho2pinhole(Options const& opt){
 
   // Estimate the error of this transform.
   double max_err = 0.0;
-  for (size_t pt_iter = 0; pt_iter < num_pts; pt_iter++){
+  for (int pt_iter = 0; pt_iter < num_pts; pt_iter++){
     ColView colIn (points_in,  pt_iter); 
     ColView colOut(points_out, pt_iter);
     vw::Vector3 point_in  = colIn;

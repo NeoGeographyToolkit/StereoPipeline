@@ -33,10 +33,12 @@
  - stereo_gui
   * Clicking on a pixel prints image pixel indicies and value.
   * Add a 1D profile tool.
+ - stereo_tri
+  * Added the option --min-triangulation-angle.
  
  - Misc
   * Minimum supported OSX version is 10.9.
-
+   
 *** RELEASE 2.5.3, August 24, 2016 ***
 
 Highlights
