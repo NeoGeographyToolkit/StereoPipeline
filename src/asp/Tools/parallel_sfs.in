@@ -163,7 +163,8 @@ def runSfs(options, requiredList, outputFolder, outputName):
 
     
     # Just call the command for a single tile
-    cmd = ['/usr/bin/time', '-f', '"elapsed=%E memory=%M (kb)"', 'sfs',  '--crop-win', str(startX), str(startY), str(stopX), str(stopY)]
+    #cmd = ['/usr/bin/time', '-f', '"elapsed=%E memory=%M (kb)"' ...] # not working on mac
+    cmd = ['sfs',  '--crop-win', str(startX), str(startY), str(stopX), str(stopY)]
     cmd = cmd + requiredList + extraArgs # Append other options
     willRun = True
     if options.resume:
