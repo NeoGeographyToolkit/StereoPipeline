@@ -368,8 +368,8 @@ struct Options : vw::cartography::GdalWriteOptions {
   double tr, geo_tile_size;
   bool   has_out_nodata;
   double out_nodata_value;
-  int    tile_size, tile_index, erode_len, priority_blending_len, extra_crop_len, hole_fill_len, weights_exp, block_size, save_dem_weight;
-  double  weights_blur_sigma, dem_blur_sigma;
+  int    tile_size, tile_index, erode_len, priority_blending_len, extra_crop_len, hole_fill_len, block_size, save_dem_weight;
+  double  weights_exp, weights_blur_sigma, dem_blur_sigma;
   double nodata_threshold;
   bool   first, last, min, max, block_max, mean, stddev, median, count, save_index_map, use_centerline_weights;
   BBox2 projwin;
@@ -1164,7 +1164,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 	   "No-data value to use on output. Default: use the one from the first DEM to be mosaicked.")
     ("weights-blur-sigma", po::value<double>(&opt.weights_blur_sigma)->default_value(5.0),
 	   "The standard deviation of the Gaussian used to blur the weights. Higher value results in smoother weights and blending. Set to 0 to not use blurring.")
-    ("weights-exponent",   po::value<int>(&opt.weights_exp)->default_value(2),
+    ("weights-exponent",   po::value<double>(&opt.weights_exp)->default_value(2.0),
 	   "The weights used to blend the DEMs should increase away from the boundary as a power with this exponent. Higher values will result in smoother but faster-growing weights.")
     ("use-centerline-weights",   po::bool_switch(&opt.use_centerline_weights)->default_value(false),
      "Compute weights based on a DEM centerline algorithm. Produces smoother weights if the input DEMs don't have holes or complicated boundary.")
@@ -1239,6 +1239,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 	     << usage << general_options );
   }
 
+  if (opt.priority_blending_len > 0 && opt.weights_exp == 2) {
+    vw_out() << "Increasing --weights-exponent to 3 for smoother blending.\n";
+    opt.weights_exp = 3;
+  }
+  
   if (noblend && !opt.first && !opt.last && !opt.min && !opt.max && !opt.mean
       && opt.save_dem_weight >= 0) {
     vw_throw(ArgumentErr()

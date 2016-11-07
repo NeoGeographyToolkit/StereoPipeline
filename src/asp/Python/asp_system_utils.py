@@ -23,7 +23,7 @@ General system related utilities
 
 import sys, os, re, shutil, subprocess, string, time, errno, multiprocessing
 import os.path as P
-import asp_string_utils
+import asp_string_utils, asp_cmd_utils
 
 def die(msg, code=-1):
     '''Exit the program with a message'''
@@ -305,5 +305,5 @@ def executeCommand(cmd,
 
     # Optionally check that the output file was created
     if outputPath and (not os.path.exists(outputPath)):
-        raise CmdRunException('Failed to create output file: ' + outputPath)
+        raise asp_cmd_utils.CmdRunException('Failed to create output file: ' + outputPath)
     return True

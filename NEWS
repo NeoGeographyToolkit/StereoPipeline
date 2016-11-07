@@ -25,14 +25,15 @@
       much decreased memory usage, together with a lot of
       testing and validation for the Moon.
     * Can run on multiple input DEM clips (which can be chosen as
-    * representative for the desired large input DEM region and images
-    * to solve for adjusted camera positions throughout this region.
+      representative for the desired large input DEM region and images)
+      to solve for adjusted camera positions throughout this region.
     * Added parallel_sfs, to run sfs as multiple processes over
       multiple machines.
 
  - stereo_gui
   * Clicking on a pixel prints image pixel indicies and value.
   * Add a 1D profile tool.
+
  - stereo_tri
   * Added the option --min-triangulation-angle.
  
