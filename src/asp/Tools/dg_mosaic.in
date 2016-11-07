@@ -409,7 +409,6 @@ def read_xml(filename, options, xml_keys):
     for key in xml_keys:
         if IMAGE.find(key) is not None:
             xml_vals[key] = float(IMAGE.find(key).text)
-            print("pulled ", key, xml_vals[key])
         else:
             xml_vals[key] = None
 
