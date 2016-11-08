@@ -35,7 +35,6 @@
 #include <vw/Image.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Stereo/DisparityMap.h>
-#include <vw/tools/Common.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 using namespace vw;
@@ -171,7 +170,7 @@ int main( int argc, char *argv[] ) {
     handle_arguments( argc, argv, opt );
 
     vw_out() << "Opening " << opt.input_file_name << "\n";
-    ImageFormat fmt = tools::image_format(opt.input_file_name);
+    ImageFormat fmt = vw::image_format(opt.input_file_name);
 
     switch(fmt.pixel_format) {
     case VW_PIXEL_GENERIC_2_CHANNEL:

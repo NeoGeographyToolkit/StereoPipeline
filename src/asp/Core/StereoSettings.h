@@ -206,7 +206,7 @@ namespace asp {
     bool use_georef;
     bool hillshade;
     bool view_matches;
-    std::string match_file;
+    std::string match_file, gcp_file;
     bool delete_temporary_files_on_exit;
     bool create_image_pyramids_only;
 

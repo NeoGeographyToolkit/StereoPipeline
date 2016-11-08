@@ -750,7 +750,6 @@ namespace vw { namespace gui {
   } // End function drawImage()
 
 
-
   void MainWidget::drawInterestPoints(QPainter* paint, std::list<BBox2i> const& valid_regions) {
 
     QColor ipColor          = QColor("red"  ); // Hard coded interest point color

@@ -319,6 +319,8 @@ namespace asp {
                             "Locate and display the interest point matches.")
       ("match-file", po::value(&global.match_file)->default_value(""),
        "Display this match file instead of looking one up based on existing conventions (implies --view-matches).")
+      ("gcp-file", po::value(&global.gcp_file)->default_value(""),
+       "Display the GCP pixel coordinates for this GCP file (implies --view-matches).")
       ("delete-temporary-files-on-exit",   po::bool_switch(&global.delete_temporary_files_on_exit)->default_value(false)->implicit_value(true),
        "Delete any subsampled and other files created by the GUI when exiting.")
       ("create-image-pyramids-only",   po::bool_switch(&global.create_image_pyramids_only)->default_value(false)->implicit_value(true),

@@ -20,6 +20,10 @@
  - geodiff
    * One of the two input files can be in CSV format.
 
+ - dg_mosaic
+    * Save on output the mean values for MEANSUNEL, MEANSUNAZ,
+      and a few more.
+
  - sfs
     * Improvements, speedups, more documentation, usage recipes, 
       much decreased memory usage, together with a lot of
@@ -32,7 +36,9 @@
 
  - stereo_gui
   * Clicking on a pixel prints image pixel indicies and value.
-  * Add a 1D profile tool.
+  * Added a 1D profile tool.
+  * Can show the pixel locations for a GCP file (interpretting them as
+    interest points).
 
  - stereo_tri
   * Added the option --min-triangulation-angle.

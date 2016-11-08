@@ -375,8 +375,8 @@ struct Options : vw::cartography::GdalWriteOptions {
   BBox2 projwin;
   Options(): tr(0), geo_tile_size(0), has_out_nodata(false), tile_index(-1),
 	     erode_len(0), priority_blending_len(0), extra_crop_len(0),
-	     hole_fill_len(0), weights_exp(0), block_size(0), save_dem_weight(-1),
-	     weights_blur_sigma(0.0), dem_blur_sigma(0.0),
+	     hole_fill_len(0), block_size(0), save_dem_weight(-1),
+	     weights_exp(0), weights_blur_sigma(0.0), dem_blur_sigma(0.0),
 	     nodata_threshold(std::numeric_limits<double>::quiet_NaN()),
 	     first(false), last(false), min(false), max(false), block_max(false),
 	     mean(false), stddev(false), median(false), count(false), save_index_map(false),

@@ -1793,8 +1793,7 @@ int main(int argc, char* argv[]) {
       }
 
       vw::ba::add_ground_control_points( (*opt.cnet), opt.image_files,
-                                         opt.gcp_files.begin(), opt.gcp_files.end(),
-                                         opt.datum);
+                                         opt.gcp_files, opt.datum);
       // DEBUG
       //opt.cnet->write_binary(opt.out_prefix + "-control");
       //save_cnet_as_csv(opt, opt.out_prefix + "-cnet.csv");
