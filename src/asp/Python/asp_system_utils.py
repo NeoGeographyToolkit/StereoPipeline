@@ -272,9 +272,9 @@ def run_with_return_code(cmd, verbose=False):
     (stdout, stderr) = p.communicate()
     p.wait()
     
-    if p.returncode != 0:
-        print(stdout)
-        print(stderr)
+    if p.returncode != 0 and verbose:
+        if stdout is not None: print(stdout)
+        if stderr is not None: print(stderr)
         print ('Failed executing: ' + " ".join(cmd))
 
     return p.returncode
