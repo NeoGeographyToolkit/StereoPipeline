@@ -492,6 +492,7 @@ public:
     // A vector of images the size of the output tile.
     // - Used for median and stddev calculation.
     std::vector< ImageView<double> > tile_vec, weight_vec;
+    std::vector< std::string > dem_vec;
     if (m_opt.median) // Store each input separately
       tile_vec.reserve(m_imgMgr.size());
     if (m_opt.stddev) { // Need one working image
@@ -558,7 +559,7 @@ public:
       if (in_box.width() <= 1 || in_box.height() <= 1)
         continue; // No overlap with this tile, skip to the next DEM.
 
-      if (m_opt.median || m_opt.priority_blending_len > 0){
+      if (m_opt.median || m_opt.priority_blending_len > 0 || m_opt.block_max){
         // Must use a blank tile each time
         fill( tile, m_opt.out_nodata_value );
         fill( weights, 0.0 );
@@ -568,7 +569,8 @@ public:
       // channel is the image pixels, second will be the weights.
       ImageViewRef<double> disk_dem = pixel_cast<double>(m_imgMgr.get_handle(dem_iter, bbox));
       ImageView<DoubleGrayA> dem = crop(disk_dem, in_box);
-
+      std::string dem_name = m_imgMgr.get_file_name(dem_iter);
+      
       // If the nodata_threshold is specified, all values no more than this
       // will be invalidated.
       double nodata_value = m_nodata_values[dem_iter];
@@ -798,9 +800,11 @@ public:
       // For the median option, keep a copy of the output tile for each input DEM!
       // Also do it for max per block.
       // - This will be memory intensive. 
-      if (m_opt.median || m_opt.block_max)
+      if (m_opt.median || m_opt.block_max) {
 	tile_vec.push_back(copy(tile));
-
+        dem_vec.push_back(dem_name);
+      }
+      
       // For priority blending, need also to keep all tiles, but also the weights
       if (m_opt.priority_blending_len > 0){
 	tile_vec.push_back(copy(tile));
@@ -862,10 +866,12 @@ public:
       } // End col loop
     } // End median case
 
-    // For max per block
+    // For max per block, find the sum of values in each DEM
     if (m_opt.block_max) {
       fill( tile, m_opt.out_nodata_value );
       int num_tiles = tile_vec.size();
+      if (tile_vec.size() != dem_vec.size()) 
+        vw_throw(ArgumentErr() << "Book-keeping error.\n");
       std::vector<double> tile_sum(num_tiles, 0);
       for (int i = 0; i < num_tiles; i++) {
         for (int c = 0; c < tile_vec[i].cols(); c++) {
@@ -875,6 +881,8 @@ public:
             }
           }
         }
+        // The latter is useful later when inspecting the individual DEMs
+        vw_out(DebugMessage,"asp") << "\n" << dem_vec[i] << " sum: " << tile_sum[i] << std::endl;
       }
       int max_index = std::distance(tile_sum.begin(),
                                     std::max_element(tile_sum.begin(), tile_sum.end()));
@@ -1594,11 +1602,12 @@ int main( int argc, char *argv[] ) {
       std::string dem_tile = os.str();
 
       // Set up tile image and metadata
-      ImageViewRef<RealT> out_dem = crop(DemMosaicView(cols, rows, bias, opt,
-                                                imgMgr, georefs,
-                                                mosaic_georef, nodata_values,
-						       dem_pixel_bboxes),
-                                         tile_box);
+      ImageViewRef<RealT> out_dem
+        = crop(DemMosaicView(cols, rows, bias, opt,
+                             imgMgr, georefs,
+                             mosaic_georef, nodata_values,
+                             dem_pixel_bboxes),
+               tile_box);
       GeoReference crop_georef = crop(mosaic_georef, tile_box.min().x(),
 				      tile_box.min().y());
 
