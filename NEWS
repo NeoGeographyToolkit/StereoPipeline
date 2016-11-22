@@ -34,11 +34,19 @@
     * Added parallel_sfs, to run sfs as multiple processes over
       multiple machines.
 
+ - bundle_adjust
+    * Can optimize the intrinsic parameters for pinhole cameras. The
+      focal length, optical center, and distortion parameters can
+      independently of each other be fixed or varied. To be used with
+      --local-pinhole, --solve-intrinsics, --intrinsics-to-float.
+
  - stereo_gui
   * Clicking on a pixel prints image pixel indicies and value.
   * Added a 1D profile tool.
   * Can show the pixel locations for a GCP file (interpretting them as
     interest points).
+  * Can save a screenshot of the current view.
+  * Can zoom to bring any image in full view.
 
  - stereo_tri
   * Added the option --min-triangulation-angle.
