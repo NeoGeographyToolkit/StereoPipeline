@@ -61,6 +61,8 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 int g_num_locks = 0;
+int g_warning_count = 0;
+int g_max_warning_count = 1000;
 const size_t g_num_model_coeffs = 16;
 
 using namespace vw;
@@ -347,9 +349,7 @@ namespace vw { namespace camera {
 		  << "ApproxCameraModel: Expecting a positive grid size.\n");
       }
 
-      // Expand the box, as later the DEM will change. This expanded box
-      // is huge, so pre-compute values only in an inner area. Later,
-      // if needed, pre-compute more values by growing that area.
+      // Expand the box, as later the DEM will change. 
       double extra = 1.00; // may need to lower here!
       m_point_box.min().x() -= extra*wx; m_point_box.max().x() += extra*wx;
       m_point_box.min().y() -= extra*wy; m_point_box.max().y() += extra*wy;
@@ -363,27 +363,30 @@ namespace vw { namespace camera {
 	comp_rpc_approx_table(exact_camera, m_img_bbox, dem,  geo, rpc_penalty_weight);
 	
 	// Ensure the box is valid
-	if (m_crop_box.empty()) m_crop_box = BBox2(0, 0, 2, 2);
+	//if (m_crop_box.empty()) m_crop_box = BBox2(0, 0, 2, 2);
 	
 #if 1
 	// Expand the box a bit, as later the DEM will change and values at some
 	// new pixels will be needed.
-	double wd = m_crop_box.width();
-	double ht = m_crop_box.height();
-	m_crop_box.min().x() -= extra*wd; m_crop_box.max().x() += extra*wd;
-	m_crop_box.min().y() -= extra*ht; m_crop_box.max().y() += extra*ht;
-	m_crop_box = grow_bbox_to_int(m_crop_box);
-	m_crop_box.crop(m_img_bbox);
+        m_crop_box.crop(m_img_bbox);
+        if (!m_crop_box.empty()) {
+          double wd = m_crop_box.width();
+          double ht = m_crop_box.height();
+          m_crop_box.min().x() -= extra*wd; m_crop_box.max().x() += extra*wd;
+          m_crop_box.min().y() -= extra*ht; m_crop_box.max().y() += extra*ht;
+          m_crop_box = grow_bbox_to_int(m_crop_box);
+        }
+        m_crop_box.crop(m_img_bbox);
 #endif
 	
 	return;
       }
       
-      // We will tabulate the point_to_pixel function at half the grid,
-      // and we'll use interpolation for anything in between.
-      // But this results in large memory usage
+      // We will tabulate the point_to_pixel function at a multiple of
+      // the grid, and we'll use interpolation for anything in
+      // between.
       //m_approx_table_gridx /= 2.0; m_approx_table_gridy /= 2.0; // fine
-      m_approx_table_gridx *= 2.0; m_approx_table_gridy *= 2.0; // coarse
+      m_approx_table_gridx *= 2.0; m_approx_table_gridy *= 2.0; // coarse. good enough.
 
       int numx = wx/m_approx_table_gridx;
       int numy = wy/m_approx_table_gridy;
@@ -418,20 +421,22 @@ namespace vw { namespace camera {
       m_compute_mean = false; // done computing the mean
       
       // Ensure the box is valid
-      if (m_crop_box.empty()) m_crop_box = BBox2(0, 0, 2, 2);
+      //if (m_crop_box.empty()) m_crop_box = BBox2(0, 0, 2, 2);
 
 #if 1
       // Expansion should not be necessary, as we already expanded
       // m_point_box and we used that expanded box to compute m_crop_box.
-      
-      // Expand the box a bit, as later the DEM will change and values at some
-      // new pixels will be needed.
-      double wd = m_crop_box.width();
-      double ht = m_crop_box.height();
-      double extra2 = 0.25; // still, just in case, a bit more expansion
-      m_crop_box.min().x() -= extra2*wd; m_crop_box.max().x() += extra2*wd;
-      m_crop_box.min().y() -= extra2*ht; m_crop_box.max().y() += extra2*ht;
-      m_crop_box = grow_bbox_to_int(m_crop_box);
+      m_crop_box.crop(m_img_bbox);
+      if (!m_crop_box.empty()) {
+        // Expand the box a bit, as later the DEM will change and values at some
+        // new pixels will be needed.
+        double wd = m_crop_box.width();
+        double ht = m_crop_box.height();
+        double extra2 = 0.25; // still, just in case, a bit more expansion
+        m_crop_box.min().x() -= extra2*wd; m_crop_box.max().x() += extra2*wd;
+        m_crop_box.min().y() -= extra2*ht; m_crop_box.max().y() += extra2*ht;
+        m_crop_box = grow_bbox_to_int(m_crop_box);
+      }
       m_crop_box.crop(m_img_bbox);
 #endif
 
@@ -490,7 +495,10 @@ namespace vw { namespace camera {
 	  {
 	    vw::Mutex::Lock lock(m_camera_mutex);
 	    g_num_locks++;
-	    vw_out(WarningMessage) << "3D point is inside the planet.\n";
+            if (g_warning_count < g_max_warning_count) {
+              g_warning_count++;
+              vw_out(WarningMessage) << "3D point is inside the planet.\n";
+            }
 	    return m_exact_camera->point_to_pixel(xyz);
 	  }
 	}
@@ -513,10 +521,14 @@ namespace vw { namespace camera {
 	if (!m_stop_growing_range && !out_of_range && out_of_comp_range) {
 	  vw::Mutex::Lock lock(m_camera_mutex);
 	  g_num_locks++;
-	  vw_out(WarningMessage) << "Pixel outside of computed range. "
-				 << "Growing the computed table." << std::endl;
-	  vw_out() << "Start table: " << m_begX << ' ' << m_begY << ' '
-		   << m_endX << ' ' << m_endY << std::endl;
+          if (g_warning_count < g_max_warning_count) {
+            g_warning_count++;
+            vw_out(WarningMessage) << "Pixel outside of computed range. "
+                                   << "Growing the computed table." << std::endl;
+            vw_out(WarningMessage) << "Start table: " << m_begX << ' ' << m_begY << ' '
+                                   << m_endX << ' ' << m_endY << std::endl;
+          }
+          
 	  // If we have to expand, do it by a lot
 	  int extrax = std::max(10, int(0.1*(m_endX - m_begX)));
 	  int extray = std::max(10, int(0.1*(m_endY - m_begY)));
@@ -533,8 +545,10 @@ namespace vw { namespace camera {
 	  m_endY = std::max(m_endY, int(ceil(y))) + extray;
 	  m_endY = std::min(m_pixel_to_vec_mat.rows()-1, m_endY);
 	  
-	  vw_out() << "Updated table: " << m_begX << ' ' << m_begY << ' '
-		   << m_endX << ' ' << m_endY << std::endl;
+          if (g_warning_count < g_max_warning_count) {
+            vw_out(WarningMessage) << "Updated table: " << m_begX << ' ' << m_begY << ' '
+                                   << m_endX << ' ' << m_endY << std::endl;
+          }
 	  comp_entries_in_table();
 
 	  // Update this
@@ -551,14 +565,13 @@ namespace vw { namespace camera {
 	if (out_of_range || out_of_comp_range){
 	  vw::Mutex::Lock lock(m_camera_mutex);
 	  g_num_locks++;
-	  if (g_num_locks < 1000) // stop after printing this many warnings
+          if (g_warning_count < g_max_warning_count) {
+            g_warning_count++;
             vw_out(WarningMessage) << "Pixel outside of range. Current values and range: "  << ' '
                                    << x << ' ' << y << ' '
                                    << m_pixel_to_vec_mat.cols() << ' ' << m_pixel_to_vec_mat.rows()
                                    << std::endl;
-          if (g_num_locks == 1000)
-            vw_out(WarningMessage) << "Will stop printing more warnings about pixel "
-                                   << "outside of range." << std::endl;
+          }
 	  return m_exact_camera->point_to_pixel(xyz);
 	}
 	PixelMask<Vector3> masked_dir = pixel_to_vec_interp(x, y);
@@ -571,8 +584,11 @@ namespace vw { namespace camera {
 	  {
 	    vw::Mutex::Lock lock(m_camera_mutex);
 	    g_num_locks++;
-	    vw_out(WarningMessage) << "Invalid ground to camera direction: "
-                                   << masked_dir << ' ' << masked_pix << std::endl;
+            if (g_warning_count < g_max_warning_count) {
+              g_warning_count++;
+              vw_out(WarningMessage) << "Invalid ground to camera direction: "
+                                     << masked_dir << ' ' << masked_pix << std::endl;
+            }
 	    return m_exact_camera->point_to_pixel(xyz);
 	  }
 	}
@@ -591,8 +607,11 @@ namespace vw { namespace camera {
       
       vw::Mutex::Lock lock(m_camera_mutex);
       g_num_locks++;
-      vw_out(WarningMessage) << "Invoked exact camera model pixel_to_vector for pixel: "
-                             << pix << std::endl;
+      if (g_warning_count < g_max_warning_count) {
+        g_warning_count++;
+        vw_out(WarningMessage) << "Invoked exact camera model pixel_to_vector for pixel: "
+                               << pix << std::endl;
+      }
       return this->exact_camera()->pixel_to_vector(pix);
     }
 
@@ -627,8 +646,11 @@ namespace vw { namespace camera {
 	// Failed to interpolate
 	vw::Mutex::Lock lock(m_camera_mutex);
 	g_num_locks++;
-	vw_out(WarningMessage) << "Invoked the camera center function for pixel: "
-                               << pix << std::endl;
+        if (g_warning_count < g_max_warning_count) {
+          g_warning_count++;
+          vw_out(WarningMessage) << "Invoked the camera center function for pixel: "
+                                 << pix << std::endl;
+        }
 	return this->exact_camera()->camera_center(pix);
       }
 
@@ -637,8 +659,11 @@ namespace vw { namespace camera {
     virtual Quat camera_pose(Vector2 const& pix) const{
       vw::Mutex::Lock lock(m_camera_mutex);
       g_num_locks++;
-      vw_out(WarningMessage) << "Invoked the camera pose function for pixel: "
-                             << pix << std::endl;
+      if (g_warning_count < g_max_warning_count) {
+        g_warning_count++;
+        vw_out(WarningMessage) << "Invoked the camera pose function for pixel: "
+                               << pix << std::endl;
+      }
       return this->exact_camera()->camera_pose(pix);
     }
 
@@ -1295,7 +1320,8 @@ bool computeReflectanceAndIntensity(double left_h, double center_h, double right
   weight      = 0.0;
   
   if (col >= dem.cols() - 1 || row >= dem.rows() - 1) return false;
-
+  if (crop_box.empty()) return false;
+    
   // TODO: Investigate various ways of finding the normal.
 
   // The xyz position at the center grid point
@@ -1665,14 +1691,14 @@ public:
         // Save adjusted files in the format <out prefix>-<input-img>.adjust
         // so we can later read them with --bundle-adjust-prefix to be
         // used in another SfS run.
-        if (g_level == 0) {
-          std::string out_camera_file
-            = asp::bundle_adjust_file_name(g_opt->out_prefix,
-                                           g_opt->input_images[image_iter],
-                                           g_opt->input_cameras[image_iter]);
-          vw_out() << "Writing: " << out_camera_file << std::endl;
-          asp::write_adjustments(out_camera_file, translation, rotation);
-        }
+        //if (g_level == 0) {
+	std::string out_camera_file
+	  = asp::bundle_adjust_file_name(g_opt->out_prefix,
+					 g_opt->input_images[image_iter],
+					 g_opt->input_cameras[image_iter]);
+	vw_out() << "Writing: " << out_camera_file << std::endl;
+	asp::write_adjustments(out_camera_file, translation, rotation);
+	//}
       
         // Compute reflectance and intensity with optimized DEM
         computeReflectanceAndIntensity((*g_dem)[dem_iter], (*g_geo)[dem_iter],
@@ -2270,11 +2296,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr()
 	     << "If specified, there must be as many shadow thresholds as images.\n");
 
-  for (size_t i = 0; i < opt.shadow_threshold_vec.size(); i++) {
-    vw_out() << "Shadow threshold for " << opt.input_images[i] << ' '
-	     << opt.shadow_threshold_vec[i] << std::endl;
-  }
-
   // Default thresholds are the smallest float.
   // Maybe it should be 0?
   if (opt.shadow_threshold_vec.empty()) {
@@ -2440,7 +2461,9 @@ void run_sfs_level(// Fixed inputs
       }
     }
   }
-    
+
+  std::set<int> use_dem, use_albedo; // to avoid a crash in Ceres when a param is fixed but not set
+  
   for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
     
     // Add a residual block for every grid point not at the boundary
@@ -2476,7 +2499,8 @@ void run_sfs_level(// Fixed inputs
                                    &albedos[dem_iter](col, row),           // albedo
                                    &adjustments[6*image_iter],  // camera
                                    &coeffs[0]);                 // reflectance model coeffs
-
+          use_dem.insert(dem_iter); 
+          use_albedo.insert(dem_iter);
         } // end iterating over images
 
         // Smoothness penalty
@@ -2490,7 +2514,8 @@ void run_sfs_level(// Fixed inputs
                                  &dems[dem_iter](col+1, row  ),
                                  &dems[dem_iter](col-1, row-1), &dems[dem_iter](col, row-1),
                                  &dems[dem_iter](col+1, row-1));
-
+        use_dem.insert(dem_iter); 
+        
         // Deviation from prescribed height constraint
         if (opt.initial_dem_constraint_weight > 0) {
           ceres::LossFunction* loss_function_hc = NULL;
@@ -2509,7 +2534,8 @@ void run_sfs_level(// Fixed inputs
         for (int row = 0; row < dems[dem_iter].rows(); row++) {
           if (col == 0 || col == dems[dem_iter].cols() - 1 ||
               row == 0 || row == dems[dem_iter].rows() - 1 ) {
-            problem.SetParameterBlockConstant(&dems[dem_iter](col, row));
+            if (use_dem.find(dem_iter) != use_dem.end())
+              problem.SetParameterBlockConstant(&dems[dem_iter](col, row));
           }
         }
       }
@@ -2518,7 +2544,8 @@ void run_sfs_level(// Fixed inputs
     if (opt.fix_dem) {
       for (int col = 0; col < dems[dem_iter].cols(); col++) {
         for (int row = 0; row < dems[dem_iter].rows(); row++) {
-          problem.SetParameterBlockConstant(&dems[dem_iter](col, row));
+          if (use_dem.find(dem_iter) != use_dem.end())
+            problem.SetParameterBlockConstant(&dems[dem_iter](col, row));
         }
       }
     }
@@ -2539,12 +2566,12 @@ void run_sfs_level(// Fixed inputs
     // If to float the albedo
     for (int col = 1; col < dems[dem_iter].cols() - 1; col++) {
       for (int row = 1; row < dems[dem_iter].rows() - 1; row++) {
-        if (!opt.float_albedo && num_used > 0)
+        if (!opt.float_albedo && num_used > 0 && use_albedo.find(dem_iter) != use_albedo.end())
           problem.SetParameterBlockConstant(&albedos[dem_iter](col, row));
       }
     }
     
-  }
+  } // end iterating over DEMs
 
   // If there's just one image, don't float the exposure, as the
   // problem is under-determined. If we float the albedo, we will
@@ -2559,16 +2586,18 @@ void run_sfs_level(// Fixed inputs
   if (!opt.float_cameras) {
     vw_out() << "Not floating cameras." << std::endl;
     for (int image_iter = 0; image_iter < num_images; image_iter++){
-      if (use_image[image_iter])
+      if (use_image[image_iter]){
         problem.SetParameterBlockConstant(&adjustments[6*image_iter]);
+      }
     }
   }else if (!opt.float_all_cameras){
     // Fix the first camera, let the other ones conform to it.
     // TODO: This needs further study.
     vw_out() << "Floating all cameras sans the first one." << std::endl;
     int image_iter = 0;
-    if (use_image[image_iter])
+    if (use_image[image_iter]){
       problem.SetParameterBlockConstant(&adjustments[6*image_iter]);
+    }
     
   }else{
     vw_out() << "Floating all cameras, including the first one." << std::endl;
@@ -2576,8 +2605,9 @@ void run_sfs_level(// Fixed inputs
   
   
   // If to float the reflectance model coefficients
-  if (!opt.float_reflectance_model && num_used > 0) 
+  if (!opt.float_reflectance_model && num_used > 0) {
     problem.SetParameterBlockConstant(&coeffs[0]);
+  }
   
   if (opt.num_threads > 1 && !opt.use_approx_camera_models) {
     vw_out() << "Using exact ISIS camera models. Can run with only a single thread.\n";
@@ -2961,9 +2991,18 @@ int main(int argc, char* argv[]) {
           vw_out() << "Max approximate model error in pixels for: "
                    <<  opt.input_cameras[image_iter] << ": " << max_curr_err << std::endl;
 
+          if (max_curr_err > 2.0 && !opt.use_rpc_approximation) {
+            // This is a bugfix. When the DEM clip does not intersect the image,
+            // the approx camera model has incorrect values.
+            vw_out() << "Error is too big. Skip this image for clip: " << dem_iter << ".\n";
+            opt.skip_images[dem_iter].insert(image_iter);
+            cam_ptr->crop_box() = BBox2();
+            max_curr_err = 0.0;
+          }
+
           max_approx_err = std::max(max_approx_err, max_curr_err);
         
-          if (opt.use_rpc_approximation){
+          if (opt.use_rpc_approximation && !cam_ptr->crop_box().empty()){
             // Grow the box just a bit more, to ensure we still see
             // enough of the images during optimization.
             double extra = 0.2;
@@ -2978,18 +3017,27 @@ int main(int argc, char* argv[]) {
           // Copy the crop box
           if (opt.crop_input_images)
             crop_boxes[0][dem_iter][image_iter].crop(cam_ptr->crop_box());
-        }
+
+          // Skip images which result in empty crop boxes
+          if (crop_boxes[0][dem_iter][image_iter].empty()) {
+            opt.skip_images[dem_iter].insert(image_iter);
+          }
+          
+        } // end iterating over images
         vw_out() << "Max total approximate model error in pixels: " << max_approx_err << std::endl;
-      }
-    }
+        
+      } // end iterating over dem clips
+    } // end computing the approximate camera model
     
     for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
       
       // Make the crop boxes lower left corner be multiple of 2^level
       int last_factor = factors.back();
       for (int image_iter = 0; image_iter < num_images; image_iter++){
-	Vector2i mn = crop_boxes[0][dem_iter][image_iter].min();
-	crop_boxes[0][dem_iter][image_iter].min() = last_factor*(floor(mn/double(last_factor)));
+        if (!crop_boxes[0][dem_iter][image_iter].empty()) {
+          Vector2i mn = crop_boxes[0][dem_iter][image_iter].min();
+          crop_boxes[0][dem_iter][image_iter].min() = last_factor*(floor(mn/double(last_factor)));
+        }
       }
       
       // Crop boxes at the coarser resolutions
@@ -3027,18 +3075,20 @@ int main(int argc, char* argv[]) {
         float shadow_thresh = opt.shadow_threshold_vec[image_iter];
         if (opt.use_approx_camera_models && opt.crop_input_images) {
           // Make a copy in memory for faster access
-          ImageView<float> cropped_img = 
-            crop(DiskImageView<float>(img_file), crop_boxes[0][dem_iter][image_iter]);
-          masked_images_vec[0][dem_iter][image_iter]
-            = create_mask_less_or_equal(cropped_img,
-                                        std::max(img_nodata_val, shadow_thresh));
-
-          // Compute blending weights only when using an approx camera model and
-          // cropping the images. Otherwise the weights are too huge.
-          if (opt.use_blending_weights)
-            blend_weights_vec[0][dem_iter][image_iter]
-              = comp_blending_weights(masked_images_vec[0][dem_iter][image_iter],
-                                      opt.blending_dist, opt.blending_power);
+          if (!crop_boxes[0][dem_iter][image_iter].empty()) {
+            ImageView<float> cropped_img = 
+              crop(DiskImageView<float>(img_file), crop_boxes[0][dem_iter][image_iter]);
+            masked_images_vec[0][dem_iter][image_iter]
+              = create_mask_less_or_equal(cropped_img,
+                                          std::max(img_nodata_val, shadow_thresh));
+            
+            // Compute blending weights only when using an approx camera model and
+            // cropping the images. Otherwise the weights are too huge.
+            if (opt.use_blending_weights)
+              blend_weights_vec[0][dem_iter][image_iter]
+                = comp_blending_weights(masked_images_vec[0][dem_iter][image_iter],
+                                        opt.blending_dist, opt.blending_power);
+          }
         }else{
           masked_images_vec[0][dem_iter][image_iter]
             = create_mask_less_or_equal(DiskImageView<float>(img_file),

@@ -30,13 +30,16 @@ in the DEM occluded from the Sun. It can refine the positions and orientations
 of the cameras.
 
 The tool works by minimizing the cost function
-\begin{multline}\label{cost}
+\begin{equation}\label{cost}
+%\begin{multline}\label{cost}
 \int\!\! \int \! \sum_k \left[ I_k(\phi)(x, y) - T_k A(x, y)
- R_k(\phi)(x, y) \right]^2\,  \\
+ R_k(\phi)(x, y) \right]^2\,  
+% R_k(\phi)(x, y) \right]^2\,  \\
 + \mu \left\|\nabla^2 \phi(x, y) \right\|^2  
 + \lambda  \left[ \phi(x, y) - \phi_0(x, y) \right]^2
 \, dx\, dy.
-\end{multline}
+\end{equation}
+%\end{multline}
 
 Here, $I_k(\phi)(x, y)$ is the $k$-th camera image interpolated at
 pixels obtained by projecting into the camera 3D points from the terrain
