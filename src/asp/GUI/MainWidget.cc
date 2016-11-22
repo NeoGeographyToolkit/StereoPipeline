@@ -244,6 +244,7 @@ namespace vw { namespace gui {
     m_addMatchPoint    = m_ContextMenu->addAction("Add match point");
     m_deleteMatchPoint = m_ContextMenu->addAction("Delete match point");
     m_toggleHillshade  = m_ContextMenu->addAction("Toggle hillshaded display");
+    m_saveScreenshot   = m_ContextMenu->addAction("Save screenshot");
     m_setThreshold     = m_ContextMenu->addAction("View/set shadow threshold");
     m_allowMultipleSelections_action = m_ContextMenu->addAction("Allow multiple selected regions");
     m_allowMultipleSelections_action->setCheckable(true);
@@ -253,6 +254,7 @@ namespace vw { namespace gui {
     connect(m_deleteMatchPoint, SIGNAL(triggered()), this, SLOT(deleteMatchPoint()));
     connect(m_toggleHillshade,  SIGNAL(triggered()), this, SLOT(toggleHillshade()));
     connect(m_setThreshold,     SIGNAL(triggered()), this, SLOT(setThreshold()));
+    connect(m_saveScreenshot,   SIGNAL(triggered()), this, SLOT(saveScreenshot()));
     connect(m_allowMultipleSelections_action, SIGNAL(triggered()), this,
             SLOT(allowMultipleSelections()));
 
@@ -289,6 +291,9 @@ namespace vw { namespace gui {
     m_toggleHillshadeFromTable = menu->addAction("Toggle hillshade display");
     connect(m_toggleHillshadeFromTable, SIGNAL(triggered()), this, SLOT(refreshHillshade()));
     
+    m_zoomToImageFromTable = menu->addAction("Zoom to image");
+    connect(m_zoomToImageFromTable, SIGNAL(triggered()), this, SLOT(zoomToImage()));
+
     m_deleteImage = menu->addAction("Delete image");
     connect(m_deleteImage, SIGNAL(triggered()), this, SLOT(deleteImage()));
 
@@ -356,22 +361,35 @@ namespace vw { namespace gui {
 	m_filesToHide.insert(fileName);
       }
     }
+
+    if (!allOff) {
+      // Now all files are hidden, per above. So reset the order, so that when
+      // we show them, they are in the original order.
+      int num_images = m_images.size();
+      m_filesOrder.resize(num_images);
+      for (int i = 0; i < num_images; i++)
+        m_filesOrder[i] = i;
+    }
     
     refreshPixmap();
   }
     
   BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
-    BBox2 out_box = box;
+    
+    BBox2 in_box = box;
+    if (in_box.empty()) in_box = BBox2(0, 0, 1, 1); // if it came to worst
+
+    BBox2 out_box = in_box;
     double aspect = double(m_window_width) / m_window_height;
-    if (box.width() / box.height() < aspect) {
+    if (in_box.width() / in_box.height() < aspect) {
       // Width needs to grow
-      double new_width = box.height() * aspect;
-      double delta = (new_width - box.width())/2.0;
+      double new_width = in_box.height() * aspect;
+      double delta = (new_width - in_box.width())/2.0;
       out_box.min().x() -= delta; out_box.max().x() += delta;
-    }else if (box.width() / box.height() > aspect) {
+    }else if (in_box.width() / in_box.height() > aspect) {
       // Height needs to grow
-      double new_height = box.width() / aspect;
-      double delta = (new_height - box.height())/2.0;
+      double new_height = in_box.width() / aspect;
+      double delta = (new_height - in_box.height())/2.0;
       out_box.min().y() -= delta; out_box.max().y() += delta;
     }
     return out_box;
@@ -532,6 +550,24 @@ namespace vw { namespace gui {
     refreshPixmap();
   }
 
+  void MainWidget::zoomToImage(){
+
+    for (std::set<int>::iterator it = m_indicesWithAction.begin();
+	 it != m_indicesWithAction.end(); it++) {
+
+      // We will assume if the user wants to zoom to this image,
+      // it should be on top.
+      putImageOnTop(*it); 
+
+      m_current_view = expand_box_to_keep_aspect_ratio
+        (MainWidget::image2world(m_images[*it].image_bbox, *it));
+    }
+    
+    m_indicesWithAction.clear();
+    
+    refreshPixmap();
+  }
+
   void MainWidget::viewHillshadedImages(bool hillshade_mode){
 
     for (size_t image_iter = 0; image_iter < m_hillshade_mode.size(); image_iter++) 
@@ -596,8 +632,8 @@ namespace vw { namespace gui {
 
   void MainWidget::resizeEvent(QResizeEvent*){
     QRect v       = this->geometry();
-    m_window_width = v.width();
-    m_window_height = v.height();
+    m_window_width  = std::max(v.width(), 1);
+    m_window_height = std::max(v.height(), 1);
     sizeToFit();
     return;
   }
@@ -621,16 +657,10 @@ namespace vw { namespace gui {
       string fileName = m_images[i].name;
       if (m_filesToHide.find(fileName) != m_filesToHide.end()) continue;
 
-      // The current view. If we use georef, the world coordinates are
-      // described in world2image().
-      BBox2 world_box = m_current_view;
-      if (!m_use_georef)
-        world_box.crop(m_images[i].image_bbox);
-      else{
-        // Convert from pixels in image i to projected points in image 0.
-        BBox2 B = MainWidget::image2world(m_images[i].image_bbox, i);
-        world_box.crop(B);
-      }
+      // The current view. 
+      BBox2 world_box = m_current_view; 
+      BBox2 B = MainWidget::image2world(m_images[i].image_bbox, i);
+      world_box.crop(B);
 
       // See where it fits on the screen
       BBox2i screen_box;
@@ -837,7 +867,6 @@ namespace vw { namespace gui {
     //F.setPointSize(m_prefs.fontSize);
     //F.setStyleStrategy(QFont::NoAntialias);
     //paint.setFont(F);
-
     MainWidget::drawImage(&paint);
 
     // Invokes MainWidget::PaintEvent().
@@ -1718,6 +1747,23 @@ namespace vw { namespace gui {
 
   double MainWidget::getThreshold(){
     return m_shadow_thresh;
+  }
+
+  // Save the current view to a file
+  void MainWidget::saveScreenshot(){
+
+    QString fileName = QFileDialog::getSaveFileName(this,
+                                                    tr("Save screenshot"), "./screenshot.bmp",
+                                                    tr("(*.bmp *.xpm)"));
+
+    if (fileName.toStdString() == "") 
+      return;
+
+    QImageWriter writer(fileName);
+    if(!writer.write(m_pixmap.toImage())){
+      popUp(writer.errorString().toStdString());
+    }
+    
   }
   
 }} // namespace vw::gui

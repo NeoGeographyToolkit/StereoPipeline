@@ -138,9 +138,11 @@ public slots:
     void setThreshold();        ///< Set change shadow threshold (from right click menu)
     void toggleHillshade();     ///< Turn on/off hillshading per image (from right click menu)
     void refreshHillshade();    ///< We modified m_hillshade_mode. Update the display.
+    void zoomToImage();         ///< Zoom to have this image in full view.
     void deleteImage();         ///< Delete an image from the gui and refresh
     void allowMultipleSelections(); ///< Allow the user to select multiple regions
-    void toggleProfileMode(bool profile_mode); ///< Turn on and off profiling
+    void toggleProfileMode(bool profile_mode); ///< Turn on and off the 1D profile tool
+    void saveScreenshot();          ///< Save a screenshot of the current imagery
 
   protected:
 
@@ -266,7 +268,9 @@ public slots:
     QAction* m_deleteMatchPoint;
     QAction* m_toggleHillshade;
     QAction* m_setThreshold;
+    QAction* m_saveScreenshot;
     QAction* m_toggleHillshadeFromTable;
+    QAction* m_zoomToImageFromTable;
     QAction* m_deleteImage;
     QAction* m_allowMultipleSelections_action;
 
