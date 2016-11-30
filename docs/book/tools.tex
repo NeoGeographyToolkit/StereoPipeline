@@ -200,7 +200,8 @@ The images can be shown either side-by-side, as tiles on a grid (using
 last usage scenario, the option \texttt{-\/-use-georef} will overlay the
 images correctly if georeference information is present.  It is possible
 to switch among these modes once the GUI has been open, from the GUI
-View menu.
+View menu. When the images are shown side-by-side, the GUI can zoom
+in all images to the same region, for easier comparison among them.
 
 \texttt{stereo\_gui} can show hillshaded DEMs, either via the
 \texttt{-\/-hillshade} option, or by choosing from the GUI View menu the
@@ -333,9 +334,9 @@ only for stage 2, one uses the options:
   --entry-point 2 --stop-point 3
 \end{verbatim}
 
-\texttt{parallel\_stereo} accepts the following options (any additional
-options given to it will be passed to the stereo executables
-for each stage).
+By default, stages 1, 2, and 4 of \texttt{parallel\_stereo} use
+as many processes as there are cores on each node, and one thread per process.
+These can be customized as shown below.
 
 \begin{longtable}{|l|p{7.5cm}|}
 \caption{Command-line options for parallel\_stereo}
@@ -358,51 +359,6 @@ point (start at this stage). \\ \hline
 \texttt{-\/-sparse-disp-options \textit{string} } & Options to pass directly
 to sparse\_disp (section \ref{sparse-disp}). \\ \hline
 \texttt{-\/-verbose } & Display the commands being executed. \\ \hline
-\end{longtable}
-
-\subsection{Advanced usage}
-
-The \texttt{parallel\_stereo} tool tries to take advantage of its inside
-knowledge of the individual \texttt{stereo} sub-programs to decide
-how many threads and processes to use at each stage, and by default, it
-it will try to use all nodes to the fullest.
-
-The advanced user can try to gain finer-level control of the tool, as
-described below. This may not necessarily result in improved performance
-compared to using the default settings.
-
-As an example of using the advanced options, assume that we would like
-to launch the refinement and filtering steps only (stages 2 and 3). We
-will distribute the refinement over a number of nodes, using 4 processes
-on each node, with each process creating 16 threads. For the filtering
-stage, which is done in one process on one machine, we want to use 32
-threads. The appropriate command is then:
-
-\begin{verbatim}
-parallel_stereo --nodes-list machines.txt --processes 4 --threads-multiprocess 16 \
- --threads-singleprocess 32 --entry-point 2 --stop-point 4 <other stereo options>
-\end{verbatim}
-
-To better take advantage of these options, the user should know the following.
-\texttt{parallel\_stereo} starts a process for every image block, whose
-size is by default $2048 \times 2048$ (\texttt{job-size-w} by
-\texttt{job-size-h}). On such a block, the correlation, and subpixel
-refinement stages will use at most 4 and 64 threads respectively (1 and
-16 threads for each $1024 \times 1024$ tile). Triangulation will use at
-most 64 threads as well, except for ISIS cameras, when it is
-single-threaded due to the limitations of ISIS (we account for the
-latter when the number of threads and processes are decided
-automatically, but not when these advanced options are used).
-
-\begin{longtable}{|l|p{7.5cm}|}
-\caption{Advanced options for parallel\_stereo}
-\label{tbl:advancedparallelstereo}
-\endfirsthead
-\endhead
-\endfoot
-\endlastfoot
-\hline
-Options & Description \\ \hline \hline
 \texttt{-\/-job-size-w \textit{integer(=2048)}} & Pixel width of input
 image tile for a single process. \\ \hline
 \texttt{-\/-job-size-h \textit{integer(=2048)}} & Pixel height of input
@@ -517,6 +473,12 @@ Also writes out a standalone .tsai camera model file instead of adjust files. \\
 Only used with the local-pinhole setting to initialize global camera coordinates. If used,
 the csv-format setting must also be set.  The "file" field is searched for strings that are found
 in the input image files to match locations to cameras.\\ \hline
+
+\texttt{-\/-fix-gcp-xyz} & If the GCP are highly accurate, use this option to not float them during the optimization.\\ \hline
+
+\texttt{-\/-solve-intrinsics} & Optimize intrinsic camera parameters. Only used for pinhole cameras.\\ \hline
+
+\texttt{-\/-intrinsics-to-float arg} & If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal\_length, optical\_center, distortion\_params.\\ \hline
 
 \texttt{-\/-csv-format \textit{string}} & Specify the format of input
 CSV files as a list of entries column\_index:column\_type (indices start
