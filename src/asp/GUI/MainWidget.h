@@ -92,7 +92,7 @@ namespace vw { namespace gui {
                std::vector<std::string> const& image_files,
                std::vector<std::vector<ip::InterestPoint> > & matches,
                chooseFilesDlg * chooseFiles, bool use_georef,
-               bool hillshade, bool view_matches);
+               bool hillshade, bool view_matches, bool zoom_all_to_same_region);
     virtual ~MainWidget();
 
     bool get_crop_win(QRect & win);
@@ -118,16 +118,22 @@ namespace vw { namespace gui {
 
     void setThreshold(double thresh); ///< Set the shadow threshold 
     double getThreshold();            ///< Get the shadow threshold
+
+    void setZoomAllToSameRegion(bool zoom_all_to_same_region);
+    vw::BBox2 current_view();
+    void zoom_to_region (vw::BBox2 const& region);
+    
     
     signals:
     void refreshAllMatches();
     void removeImageAndRefreshSignal();
     void uncheckProfileModeCheckbox();
-
+    void zoomAllToSameRegionSignal(int);
+    
 public slots:
     void sizeToFit();
     void showFilesChosenByUser(int rowClicked, int columnClicked);
-    void toggleAllOnOff(int columnClicked);
+    void toggleAllOnOff();
     void customMenuRequested(QPoint pos);
     void viewUnthreshImages();
     void viewThreshImages();
@@ -282,8 +288,11 @@ public slots:
     std::vector<imageData> m_hillshaded_images;
     std::set<int> m_indicesWithAction;
     
-    bool m_viewMatches; ///< Control if IP's are drawn
+    bool m_view_matches; ///< Control if IP's are drawn
 
+    bool m_zoom_all_to_same_region; // if all widgets are forced to zoom to same region
+    bool m_can_emit_zoom_all_signal; 
+    
     // Drawing is driven by QPaintEvent, which calls out to drawImage()
     void drawImage(QPainter* paint);
     /// Add all the interest points to the provided canvas

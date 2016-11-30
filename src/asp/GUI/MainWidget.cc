@@ -140,12 +140,15 @@ namespace vw { namespace gui {
                          std::vector<std::string> const& image_files,
                          std::vector<std::vector<vw::ip::InterestPoint> > & matches,
                          chooseFilesDlg * chooseFiles,
-                         bool use_georef, bool hillshade, bool view_matches)
+                         bool use_georef, bool hillshade, bool view_matches,
+                         bool zoom_all_to_same_region)
     : QWidget(parent), m_opt(opt), m_chooseFilesDlg(chooseFiles),
       m_image_id(image_id), m_output_prefix(output_prefix),
       m_image_files(image_files), m_matches(matches),  m_use_georef(use_georef),
-      m_viewMatches(view_matches){
+      m_view_matches(view_matches), m_zoom_all_to_same_region(zoom_all_to_same_region){
 
+    m_can_emit_zoom_all_signal = false;
+    
     // Each image can be hillshaded independently of the other ones
     m_hillshade_mode.resize(m_image_files.size());
     for (size_t image_iter = 0; image_iter < m_hillshade_mode.size(); image_iter++) {
@@ -229,7 +232,7 @@ namespace vw { namespace gui {
 
       // When the user clicks on the table header on top to toggle all on/off
       connect(m_chooseFilesDlg->getFilesTable()->horizontalHeader(),
-	      SIGNAL(sectionClicked(int)), this, SLOT(toggleAllOnOff(int)));
+	      SIGNAL(sectionClicked(int)), this, SLOT(toggleAllOnOff()));
       
       m_chooseFilesDlg->getFilesTable()->setContextMenuPolicy(Qt::CustomContextMenu);
       connect(m_chooseFilesDlg->getFilesTable(), SIGNAL(customContextMenuRequested(QPoint)),
@@ -324,13 +327,13 @@ namespace vw { namespace gui {
     if (item->checkState() == Qt::Checked){
       putImageOnTop(rowClicked);
     }
-    
+
     refreshPixmap();
 
     return;
   }
 
-  void MainWidget::toggleAllOnOff(int columnClicked){
+  void MainWidget::toggleAllOnOff(){
     
     // Process user's choice from m_chooseFilesDlg.
     if (!m_chooseFilesDlg)
@@ -370,7 +373,7 @@ namespace vw { namespace gui {
       for (int i = 0; i < num_images; i++)
         m_filesOrder[i] = i;
     }
-    
+
     refreshPixmap();
   }
     
@@ -398,7 +401,7 @@ namespace vw { namespace gui {
   void MainWidget::sizeToFit() {
 
     m_current_view = expand_box_to_keep_aspect_ratio(m_images_box);
-
+    
     // If this is the first time we draw the image, so right when
     // we started, invoke update() which will invoke paintEvent().
     // That one will not only call refreshPixmap() but will
@@ -418,7 +421,7 @@ namespace vw { namespace gui {
 
     for (size_t image_iter = 0; image_iter < m_hillshade_mode.size(); image_iter++) 
       m_hillshade_mode[image_iter] = false;
-    
+
     refreshPixmap();
   }
 
@@ -431,6 +434,7 @@ namespace vw { namespace gui {
     if (m_images.size() != 1) {
       popUp("Must have just one image in each window to be able to view thresholded images.");
       m_shadow_thresh_view_mode = false;
+
       refreshPixmap();
       return;
     }
@@ -546,7 +550,6 @@ namespace vw { namespace gui {
     MainWidget::maybeGenHillshade();
 
     m_indicesWithAction.clear();
-    
     refreshPixmap();
   }
 
@@ -564,7 +567,7 @@ namespace vw { namespace gui {
     }
     
     m_indicesWithAction.clear();
-    
+
     refreshPixmap();
   }
 
@@ -590,6 +593,26 @@ namespace vw { namespace gui {
       m_filesOrder.erase(it);
       m_filesOrder.push_back(image_index); // show last, so on top
     }
+
+    // An image on top better be viewable
+    string fileName = m_images[image_index].name;
+    std::set<std::string>::iterator it2 = m_filesToHide.find(fileName);
+    if (it2 != m_filesToHide.end()){
+      m_filesToHide.erase(it2);
+
+      // Then turn on the checkbox in the table
+      QTableWidget * filesTable = m_chooseFilesDlg->getFilesTable();
+      int rows = filesTable->rowCount();
+      
+      for (int rowIter = 0; rowIter < rows; rowIter++){
+        QTableWidgetItem *item = filesTable->item(rowIter, 0);
+        string fileName2 = (filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
+        if (fileName == fileName2) {
+          item->setCheckState(Qt::Checked);
+        }
+      }
+    }
+    
   }
     
   // Convert the crop window to original pixel coordinates from
@@ -626,6 +649,7 @@ namespace vw { namespace gui {
     if (!current_view.empty()){
       // Check to make sure we haven't hit our zoom limits...
       m_current_view = current_view;
+      m_can_emit_zoom_all_signal = true;
       refreshPixmap();
     }
   }
@@ -638,15 +662,17 @@ namespace vw { namespace gui {
     return;
   }
 
-
   // --------------------------------------------------------------
   //             MainWidget Private Methods
   // --------------------------------------------------------------
 
   void MainWidget::drawImage(QPainter* paint) {
 
-    std::list<BBox2i> screen_box_list; // List of regions the images are drawn in
+    // Sometimes we arrive here prematurely, before the window geometry was
+    // determined. Then, there is nothing to do.
+    if (m_current_view.empty()) return;
 
+    std::list<BBox2i> screen_box_list; // List of regions the images are drawn in
     // Loop through input images
     // - These images get drawn in the same
     for (int j = 0; j < (int)m_images.size(); j++){
@@ -757,7 +783,7 @@ namespace vw { namespace gui {
               vw_out() << "Book-keeping failure!";
               vw_throw(ArgumentErr() << "Book-keeping failure.\n");
             }
-            qimg2.setPixel(x-screen_box.min().x(), // Fill the temp QImage object
+	    qimg2.setPixel(x-screen_box.min().x(), // Fill the temp QImage object
                            y-screen_box.min().y(),
                            qimg.pixel(px, py));
           }
@@ -772,7 +798,7 @@ namespace vw { namespace gui {
     } // End loop through input images
 
     // Call another function to handle drawing the interest points
-    if ((static_cast<size_t>(m_image_id) < m_matches.size()) && m_viewMatches) {
+    if ((static_cast<size_t>(m_image_id) < m_matches.size()) && m_view_matches) {
       drawInterestPoints(paint, screen_box_list);
     }
 
@@ -842,6 +868,23 @@ namespace vw { namespace gui {
     m_curr_world_pos = screen2world(m_curr_pixel_pos);
   }
 
+  void MainWidget::setZoomAllToSameRegion(bool zoom_all_to_same_region){
+    m_zoom_all_to_same_region = zoom_all_to_same_region;
+  }
+
+  vw::BBox2 MainWidget::current_view(){
+    return m_current_view;
+  }
+
+  void MainWidget::zoom_to_region(vw::BBox2 const& region){
+    if (region.empty()) {
+      popUp("Cannot zoom to empty region.");
+      return;
+    }
+    m_current_view = expand_box_to_keep_aspect_ratio(region);
+    MainWidget::refreshPixmap();
+  }
+  
   // --------------------------------------------------------------
   //             MainWidget Event Handlers
   // --------------------------------------------------------------
@@ -856,6 +899,15 @@ namespace vw { namespace gui {
     // rubberband, simply pull the view from this cache,
     // and update the rubberband on top of it. This technique
     // is a well-known design pattern in Qt.
+
+    if (m_zoom_all_to_same_region && m_can_emit_zoom_all_signal){
+      m_can_emit_zoom_all_signal = false;
+      emit zoomAllToSameRegionSignal(m_image_id);
+
+      // Now we call the parent, which will set the zoom window,
+      // and call back here for all widgets.
+      return;
+    }
 
     m_pixmap = QPixmap(size());
     m_pixmap.fill(this, 0, 0);
@@ -1180,7 +1232,7 @@ namespace vw { namespace gui {
       // Show the profile window
       MainWidget::plotProfile(m_images, m_profileX, m_profileY);
     }
-    
+
     refreshPixmap();
   }
 
@@ -1227,7 +1279,6 @@ namespace vw { namespace gui {
       if (!m_shadow_thresh_calc_mode){
 
         Vector2 p = screen2world(Vector2(mouse_rel_pos.x(), mouse_rel_pos.y()));
-        int col = floor(p[0]), row = floor(p[1]);
         
         QPainter paint(&m_pixmap);
         paint.initFrom(this);
@@ -1244,7 +1295,9 @@ namespace vw { namespace gui {
 	for (size_t it = 0; it < m_images.size(); it++) {
           
 	  std::string val = "none";
-	  
+	  Vector2 q = world2image(p, it);
+          int col = floor(q[0]), row = floor(q[1]);
+          
 	  if (col >= 0 && row >= 0 && col < m_images[it].img.cols() &&
 	      row < m_images[it].img.rows() ) {
 	    val = m_images[it].img.get_value_as_str(col, row);
@@ -1313,8 +1366,9 @@ namespace vw { namespace gui {
 	}
 	
 	Vector2 p = screen2world(Vector2(mouse_rel_pos.x(), mouse_rel_pos.y()));
-	
-	int col = round(p[0]), row = round(p[1]);
+        Vector2 q = world2image(p, 0);
+
+	int col = round(q[0]), row = round(q[1]);
 	vw_out() << "Clicked on pixel: " << col << ' ' << row << std::endl;
 	
 	if (col >= 0 && row >= 0 && col < m_images[0].img.cols() &&
@@ -1429,6 +1483,8 @@ namespace vw { namespace gui {
       int mouseRelX = event->pos().x();
       int mouseRelY = event->pos().y();
 
+      m_can_emit_zoom_all_signal = true; 
+        
       if (mouseRelX > m_mousePrsX && mouseRelY > m_mousePrsY) {
 
         // Dragging the mouse from upper-left to lower-right zooms in
@@ -1512,21 +1568,25 @@ namespace vw { namespace gui {
     case Qt::Key_Left: // Pan left
       m_current_view.min().x() -= width*factor;
       m_current_view.max().x() -= width*factor;
+      m_can_emit_zoom_all_signal = true;
       refreshPixmap();
       break;
     case Qt::Key_Right: // Pan right
       m_current_view.min().x() += width*factor;
       m_current_view.max().x() += width*factor;
+      m_can_emit_zoom_all_signal = true;
       refreshPixmap();
       break;
     case Qt::Key_Up: // Pan up
       m_current_view.min().y() -= height*factor;
       m_current_view.max().y() -= height*factor;
+      m_can_emit_zoom_all_signal = true;
       refreshPixmap();
       break;
     case Qt::Key_Down: // Pan down
       m_current_view.min().y() += height*factor;
       m_current_view.max().y() += height*factor;
+      m_can_emit_zoom_all_signal = true;
       refreshPixmap();
       break;
 
@@ -1614,7 +1674,7 @@ namespace vw { namespace gui {
       return;
     }
 
-    m_viewMatches = view_matches;
+    m_view_matches = view_matches;
     refreshPixmap();
   }
 

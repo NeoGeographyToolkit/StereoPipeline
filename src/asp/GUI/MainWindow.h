@@ -69,6 +69,7 @@ namespace vw { namespace gui {
     void viewAsTiles();
     void viewExistingMatches();
     void deleteImageFromWidget();
+    void zoomAllToSameRegionAction(int widget_id);
     void viewMatches();
     void addDelMatches();
     void saveMatches();
@@ -81,7 +82,9 @@ namespace vw { namespace gui {
     void viewThreshImages();
     void viewUnthreshImages();
     void viewHillshadedImages();
+    void viewGeoreferencedImages();
     void viewOverlayedImages();
+    void setZoomAllToSameRegion();
     void profileMode();
     void uncheckProfileModeCheckbox();
     void about();
@@ -121,9 +124,11 @@ namespace vw { namespace gui {
     QAction *m_viewSideBySide_action;
     QAction *m_viewAsTiles_action;
     QAction *m_viewHillshadedImages_action;
+    QAction *m_viewGeoreferencedImages_action;
     QAction *m_viewOverlayedImages_action;
     QAction *m_viewThreshImages_action;
     QAction *m_viewUnthreshImages_action;
+    QAction *m_zoomAllToSameRegion_action;
     QAction *m_viewMatches_action;
     QAction *m_addDelMatches_action;
     QAction *m_saveMatches_action;
@@ -136,11 +141,11 @@ namespace vw { namespace gui {
 
     ViewType m_view_type,
              m_view_type_old;
-    int      m_grid_cols;
-    bool     m_use_georef, m_hillshade, m_viewMatches, m_delete_temporary_files_on_exit;
+    int      m_grid_cols, m_grid_cols_old;
+    bool     m_use_georef, m_hillshade, m_view_matches, m_delete_temporary_files_on_exit;
     int      m_argc;
     char **  m_argv;
-    bool     m_matches_were_loaded;
+    bool     m_matches_exist;
     std::string m_match_file;
 
     // Any vector of size equal to number of images must be adjusted when the function

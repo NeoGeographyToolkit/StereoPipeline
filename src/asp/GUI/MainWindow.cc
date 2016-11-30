@@ -76,7 +76,7 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
   m_opt(opt),
   m_output_prefix(output_prefix), m_widRatio(0.3), m_chooseFiles(NULL),
   m_grid_cols(grid_cols),
-  m_use_georef(use_georef), m_hillshade(hillshade), m_viewMatches(view_matches),
+  m_use_georef(use_georef), m_hillshade(hillshade), m_view_matches(view_matches),
   m_delete_temporary_files_on_exit(delete_temporary_files_on_exit),
   m_argc(argc), m_argv(argv) {
 
@@ -107,41 +107,42 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
 
   if (stereo_settings().match_file != "" && stereo_settings().gcp_file != ""){
     popUp("Cannot specify both --match-file and --gcp-file at the same time.");
-    m_viewMatches = false;
+    m_view_matches = false;
     stereo_settings().match_file = "";
     stereo_settings().gcp_file = "";
   }
 
   // If a gcp file was passed in, we will interpret those as matches
   if (stereo_settings().gcp_file != "")
-    m_viewMatches = true;
+    m_view_matches = true;
 
   // If a match file was explicitly specified, use it.
   if (stereo_settings().match_file != ""){
     if (m_image_paths.size() != 2){
       popUp("The --match-file option only works with two valid input images.");
-      m_viewMatches = false;
+      m_view_matches = false;
       stereo_settings().match_file = "";
     }else{
-      m_viewMatches = true;
+      m_view_matches = true;
       m_match_file = stereo_settings().match_file;
     }
   }
   
-  m_matches_were_loaded = false;
+  m_matches_exist = false;
   m_matches.clear();
   m_matches.resize(m_image_paths.size());
 
   m_view_type = VIEW_SIDE_BY_SIDE;
-  if (m_grid_cols > 1) {
+  if (m_grid_cols > 0 && m_grid_cols < int(m_image_paths.size())) {
     m_view_type = VIEW_AS_TILES_ON_GRID;
   }
   if (single_window) {
     m_view_type = VIEW_IN_SINGLE_WINDOW;
   }
   m_view_type_old = m_view_type;
-
-    // Set up the basic layout of the window and its menus.
+  m_grid_cols_old = m_grid_cols;
+  
+  // Set up the basic layout of the window and its menus.
   createMenus();
 
   createLayout();
@@ -173,6 +174,8 @@ void MainWindow::createLayout() {
   // the widgets when the time is right.
   m_widgets.clear();
 
+  bool zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
+  
   if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
 
     // Put all images in a single window, with a dialog for choosing images if
@@ -190,7 +193,8 @@ void MainWindow::createLayout() {
                                          0, m_output_prefix,
                                          m_image_paths, m_matches,
                                          m_chooseFiles,
-                                         m_use_georef, m_hillshade, m_viewMatches);
+                                         m_use_georef, m_hillshade, m_view_matches,
+                                         zoom_all_to_same_region);
     m_widgets.push_back(widget);
 
   } else{
@@ -205,7 +209,8 @@ void MainWindow::createLayout() {
                                            i, m_output_prefix,
                                            local_images, m_matches,
                                            m_chooseFiles,
-                                           m_use_georef, m_hillshade, m_viewMatches);
+                                           m_use_georef, m_hillshade, m_view_matches,
+                                           zoom_all_to_same_region);
       m_widgets.push_back(widget);
     }
   }
@@ -225,6 +230,7 @@ void MainWindow::createLayout() {
     connect(m_widgets[i], SIGNAL(refreshAllMatches()), this, SLOT(viewExistingMatches()));
     connect(m_widgets[i], SIGNAL(removeImageAndRefreshSignal()), this, SLOT(deleteImageFromWidget()));
     connect(m_widgets[i], SIGNAL(uncheckProfileModeCheckbox()), this, SLOT(uncheckProfileModeCheckbox()));
+    connect(m_widgets[i], SIGNAL(zoomAllToSameRegionSignal(int)), this, SLOT(zoomAllToSameRegionAction(int)));
   }
   QWidget *container = new QWidget(centralWidget);
   container->setLayout(grid);
@@ -239,6 +245,11 @@ void MainWindow::createLayout() {
   viewMatches();
 
   // Refresh if this menu should be checked
+  m_viewSingleWindow_action->setChecked(m_view_type == VIEW_IN_SINGLE_WINDOW);
+  m_viewSideBySide_action->setChecked(m_view_type == VIEW_SIDE_BY_SIDE);
+  m_viewAsTiles_action->setChecked(m_view_type == VIEW_AS_TILES_ON_GRID);
+  m_viewHillshadedImages_action->setChecked(m_hillshade);
+  m_viewGeoreferencedImages_action->setChecked(m_use_georef);
   m_viewOverlayedImages_action->setChecked(m_use_georef && (m_view_type == VIEW_IN_SINGLE_WINDOW));
 }
 
@@ -276,14 +287,20 @@ void MainWindow::createMenus() {
 
   m_viewSingleWindow_action = new QAction(tr("Single window"), this);
   m_viewSingleWindow_action->setStatusTip(tr("View images in a single window."));
+  m_viewSingleWindow_action->setCheckable(true);
+  m_viewSingleWindow_action->setChecked(m_view_type == VIEW_IN_SINGLE_WINDOW);
   connect(m_viewSingleWindow_action, SIGNAL(triggered()), this, SLOT(viewSingleWindow()));
 
   m_viewSideBySide_action = new QAction(tr("Side-by-side"), this);
   m_viewSideBySide_action->setStatusTip(tr("View images side-by-side."));
+  m_viewSideBySide_action->setCheckable(true);
+  m_viewSideBySide_action->setChecked(m_view_type == VIEW_SIDE_BY_SIDE);
   connect(m_viewSideBySide_action, SIGNAL(triggered()), this, SLOT(viewSideBySide()));
 
   m_viewAsTiles_action = new QAction(tr("As tiles on grid"), this);
   m_viewAsTiles_action->setStatusTip(tr("View images as tiles on grid."));
+  m_viewAsTiles_action->setCheckable(true);
+  m_viewAsTiles_action->setChecked(m_view_type == VIEW_AS_TILES_ON_GRID);
   connect(m_viewAsTiles_action, SIGNAL(triggered()), this, SLOT(viewAsTiles()));
 
   // View hillshaded images
@@ -294,17 +311,31 @@ void MainWindow::createMenus() {
   connect(m_viewHillshadedImages_action, SIGNAL(triggered()), this, SLOT(viewHillshadedImages()));
 
   // View overlayed
+  m_viewGeoreferencedImages_action = new QAction(tr("View as georeferenced images"), this);
+  m_viewGeoreferencedImages_action->setStatusTip(tr("View as georeferenced images."));
+  m_viewGeoreferencedImages_action->setCheckable(true);
+  m_viewGeoreferencedImages_action->setChecked(m_use_georef);
+  connect(m_viewGeoreferencedImages_action, SIGNAL(triggered()), this, SLOT(viewGeoreferencedImages()));
+  
+  // View overlayed georeferenced images
   m_viewOverlayedImages_action = new QAction(tr("Overlay georeferenced images"), this);
   m_viewOverlayedImages_action->setStatusTip(tr("Overlay georeferenced images."));
   m_viewOverlayedImages_action->setCheckable(true);
   m_viewOverlayedImages_action->setChecked(m_use_georef && (m_view_type == VIEW_IN_SINGLE_WINDOW));
   connect(m_viewOverlayedImages_action, SIGNAL(triggered()), this, SLOT(viewOverlayedImages()));
 
+  // Zoom all images to same region
+  m_zoomAllToSameRegion_action = new QAction(tr("Zoom all images to same region"), this);
+  m_zoomAllToSameRegion_action->setStatusTip(tr("Zoom all images to same region."));
+  m_zoomAllToSameRegion_action->setCheckable(true);
+  m_zoomAllToSameRegion_action->setChecked(false);
+  connect(m_zoomAllToSameRegion_action, SIGNAL(triggered()), this, SLOT(setZoomAllToSameRegion()));
+
   // IP matches
   m_viewMatches_action = new QAction(tr("View IP matches"), this);
   m_viewMatches_action->setStatusTip(tr("View IP matches."));
   m_viewMatches_action->setCheckable(true);
-  m_viewMatches_action->setChecked(m_viewMatches);
+  m_viewMatches_action->setChecked(m_view_matches);
   connect(m_viewMatches_action, SIGNAL(triggered()), this, SLOT(viewMatches()));
 
   m_addDelMatches_action = new QAction(tr("Add/delete IP matches"), this);
@@ -369,7 +400,9 @@ void MainWindow::createMenus() {
   m_view_menu->addAction(m_viewSideBySide_action);
   m_view_menu->addAction(m_viewAsTiles_action);
   m_view_menu->addAction(m_viewHillshadedImages_action);
+  m_view_menu->addAction(m_viewGeoreferencedImages_action);
   m_view_menu->addAction(m_viewOverlayedImages_action);
+  m_view_menu->addAction(m_zoomAllToSameRegion_action);
 
   // Matches menu
   m_matches_menu = menu->addMenu(tr("&IP matches"));
@@ -428,8 +461,26 @@ void MainWindow::sizeToFit(){
 }
 
 void MainWindow::viewSingleWindow(){
-  m_grid_cols = std::numeric_limits<int>::max();
-  m_view_type = VIEW_IN_SINGLE_WINDOW;
+
+  bool single_window = m_viewSingleWindow_action->isChecked();
+
+  if (single_window) {
+
+    m_grid_cols_old = m_grid_cols; 
+    m_grid_cols = std::numeric_limits<int>::max();
+    if (m_view_type != VIEW_IN_SINGLE_WINDOW) m_view_type_old = m_view_type; // back this up
+    m_view_type = VIEW_IN_SINGLE_WINDOW;
+
+  }else{
+
+    m_grid_cols = m_grid_cols_old; // restore this
+    if (m_view_type_old != VIEW_IN_SINGLE_WINDOW) m_view_type = m_view_type_old; // restore this
+    else{
+      // nothing to restore to. Default to side by side.
+      m_view_type = VIEW_SIDE_BY_SIDE;
+    }
+  }
+
   createLayout();
 }
 
@@ -450,15 +501,15 @@ void MainWindow::viewAsTiles(){
   if (!ans)
     return;
 
-  m_grid_cols = atoi(gridColsStr.c_str());
+  m_grid_cols = std::max(atoi(gridColsStr.c_str()), 1);
   m_view_type = VIEW_AS_TILES_ON_GRID;
   createLayout();
 }
 
 // This function will be invoked after matches got deleted. Since we had matches,
-// we must set m_matches_were_loaded to true.
+// we must set m_matches_exist to true.
 void MainWindow::viewExistingMatches(){
-  m_matches_were_loaded = true;
+  m_matches_exist = true;
   MainWindow::viewMatches();
 }
 
@@ -492,12 +543,12 @@ void MainWindow::deleteImageFromWidget(){
 // all images.
 void MainWindow::viewMatches(){
 
-  m_viewMatches = m_viewMatches_action->isChecked();
+  m_view_matches = m_viewMatches_action->isChecked();
 
-  // We will load the matches just once, as we later will add/delete matches manually
-  if (!m_matches_were_loaded && (!m_matches.empty()) && m_matches[0].empty() && m_viewMatches) {
+  // We will load the matches just once, as we later will add/delete matches manually.
+  if (!m_matches_exist && (!m_matches.empty()) && m_matches[0].empty() && m_view_matches) {
 
-    m_matches_were_loaded = true;
+    m_matches_exist = true;
     m_matches.clear();
     m_matches.resize(m_image_paths.size());
     
@@ -608,11 +659,14 @@ void MainWindow::viewMatches(){
   }
   
   for (size_t i = 0; i < m_widgets.size(); i++) {
-    if (m_widgets[i]) m_widgets[i]->viewMatches(m_viewMatches);
+    if (m_widgets[i]) m_widgets[i]->viewMatches(m_view_matches);
   }
 
-  if (m_viewMatches)
-    m_matches_were_loaded = true;
+  // Turn on m_matches_exist even if we did not always actually
+  // read them from disk.  That is because we sometimes create them in
+  // the GUI.
+  if (m_view_matches)
+    m_matches_exist = true;
 }
 
 void MainWindow::saveMatches(){
@@ -656,7 +710,7 @@ void MainWindow::saveMatches(){
     }
   }
 
-  m_matches_were_loaded = true;
+  m_matches_exist = true;
 }
 
 
@@ -929,6 +983,53 @@ void MainWindow::viewHillshadedImages() {
   }
 }
 
+// Pass to the widget the desire to zoom all images to the same region
+// or its cancellation
+void MainWindow::setZoomAllToSameRegion() {
+  bool zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (m_widgets[i]) {
+      m_widgets[i]->setZoomAllToSameRegion(zoom_all_to_same_region);
+    }
+  }
+
+  if (zoom_all_to_same_region) {
+    // If all images are georeferenced, it makes perfect sense
+    // to turn on georeferencing when zooming. The user can later turn it off
+    // from the menu if so desired.
+    bool has_georef = true;
+    for (size_t i = 0; i < m_image_paths.size(); i++) {
+      cartography::GeoReference georef;
+      has_georef = has_georef && vw::cartography::read_georeference(georef, m_image_paths[i]);
+    }
+
+    if (has_georef && !m_use_georef) {
+      m_use_georef = true;
+      m_viewGeoreferencedImages_action->setChecked(m_use_georef);
+      viewGeoreferencedImages();
+    }
+  }
+}
+
+// Zoom all widgets to the same region which comes from widget with given id
+void MainWindow::zoomAllToSameRegionAction(int widget_id){
+  int num_widgets = m_widgets.size();
+  if (widget_id < 0 || widget_id >= num_widgets) {
+    popUp("Invalid widget id.");
+    return;
+  }
+
+  if (!m_widgets[widget_id]) return;
+
+  vw::BBox2 region = m_widgets[widget_id]->current_view();
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (m_widgets[i]) {
+      m_widgets[i]->zoom_to_region(region);
+    }
+  }
+  
+}
+
 void MainWindow::uncheckProfileModeCheckbox(){
   m_profileMode_action->setChecked(false);
   return;
@@ -949,6 +1050,24 @@ void MainWindow::profileMode() {
   }
 }
 
+void MainWindow::viewGeoreferencedImages() {
+  m_use_georef = m_viewGeoreferencedImages_action->isChecked();
+  if (m_use_georef) {
+
+    // Will show in single window with georef. Must first check if all images have georef.
+    for (size_t i = 0; i < m_image_paths.size(); i++) {
+      cartography::GeoReference georef;
+      bool has_georef = vw::cartography::read_georeference(georef, m_image_paths[i]);
+      if (!has_georef) {
+        popUp("Cannot view georeferenced images, as there is no georeference in: "
+              + m_image_paths[i]);
+        return;
+      }
+    }
+  }
+
+  createLayout();
+}
 
 void MainWindow::viewOverlayedImages() {
   m_use_georef = m_viewOverlayedImages_action->isChecked();
@@ -964,10 +1083,17 @@ void MainWindow::viewOverlayedImages() {
       }
     }
 
-    m_view_type_old = m_view_type; // back this up
+    m_grid_cols_old = m_grid_cols; // restore this
+    if (m_view_type != VIEW_IN_SINGLE_WINDOW) m_view_type_old = m_view_type; // back this up
     m_view_type = VIEW_IN_SINGLE_WINDOW;
+
   }else{
-    m_view_type = m_view_type_old; // restore this
+    m_grid_cols = m_grid_cols_old; // restore this
+    if (m_view_type_old != VIEW_IN_SINGLE_WINDOW) m_view_type = m_view_type_old; // restore this
+    else{
+      // nothing to restore to. Default to side by side.
+      m_view_type = VIEW_SIDE_BY_SIDE;
+    }
   }
 
   createLayout();
