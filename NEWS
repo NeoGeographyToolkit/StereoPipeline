@@ -2,7 +2,11 @@
 
  - IceBridge processing
     * Added the tools ortho2pinhole and correct_icebridge_l3_dem.
-   
+
+ - parallel_stereo
+   * By default, use as many processes as there are cores, and one
+     thread per processes.
+     
  - stereo_pprc
    * Large speedup in epipolar alignment.
  
@@ -12,9 +16,24 @@
      slow and memory intensive but it can produce better results
      for some challenging input images, especially for IceBridge.
 
+ - stereo_tri
+  * Added the option --min-triangulation-angle.
+ 
+ - stereo_gui
+  * Zooming in one image can trigger all other side-by-side images to
+    zoom to same region.
+  * Clicking on a pixel prints image pixel indicies and value.
+  * Added a 1D profile tool.
+  * Can visualize the pixel locations for a GCP file (by interpretting
+    them as interest points).
+  * Can save a screenshot of the current view.
+  * Can zoom to bring any image in full view if all images are viewed
+    in same window (from the list of images on the left).
+
  - dem_mosaic
    * Added the option --dem-blur-sigma to blur the output DEM.
-   * Use by default --weights-exponent 2 to improve the blending.
+   * Use by default --weights-exponent 2 to improve the blending,
+     and increase this to 3 if --priority-blending-length is specified.
    * Added the options --block-max and --nodata-threshold. 
 
  - geodiff
@@ -37,20 +56,9 @@
  - bundle_adjust
     * Can optimize the intrinsic parameters for pinhole cameras. The
       focal length, optical center, and distortion parameters can
-      independently of each other be fixed or varied. To be used with
+      be fixed or varied independently of each other. To be used with
       --local-pinhole, --solve-intrinsics, --intrinsics-to-float.
 
- - stereo_gui
-  * Clicking on a pixel prints image pixel indicies and value.
-  * Added a 1D profile tool.
-  * Can show the pixel locations for a GCP file (interpretting them as
-    interest points).
-  * Can save a screenshot of the current view.
-  * Can zoom to bring any image in full view.
-
- - stereo_tri
-  * Added the option --min-triangulation-angle.
- 
  - Misc
   * Minimum supported OSX version is 10.9.
    
