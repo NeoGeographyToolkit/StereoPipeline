@@ -53,7 +53,6 @@
 #undef LOCAL_GCC_VERSION
 #endif
 
-
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -76,8 +75,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
   double min_triangulation_angle, lambda, camera_weight, robust_threshold;
   int    report_level, min_matches, max_iterations, overlap_limit;
 
-  bool   save_iteration, local_pinhole_input, solve_intrinsics;
-  std::string datum_str, camera_position_file, csv_format_str, csv_proj4_str;
+  bool   save_iteration, local_pinhole_input, fix_gcp_xyz, solve_intrinsics;
+  std::string datum_str, camera_position_file, csv_format_str, csv_proj4_str, intrinsics_to_float_str;
   double semi_major, semi_minor, position_filter_dist;
 
   boost::shared_ptr<ControlNetwork> cnet;
@@ -85,13 +84,14 @@ struct Options : public vw::cartography::GdalWriteOptions {
   cartography::Datum datum;
   int  ip_detect_method;
   bool individually_normalize;
-
+  std::set<std::string> intrinsics_to_float;
+  
   // Make sure all values are initialized, even though they will be
   // over-written later.
   Options(): ip_per_tile(0), min_triangulation_angle(0), lambda(-1.0), camera_weight(-1),
              robust_threshold(0), report_level(0), min_matches(0),
              max_iterations(0), overlap_limit(0), save_iteration(false),
-             local_pinhole_input(false), solve_intrinsics(false),
+             local_pinhole_input(false), fix_gcp_xyz(false), solve_intrinsics(false),
              semi_major(0), semi_minor(0),
              datum(cartography::Datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
                                       "Reference Meridian", 1, 1, 0)),
@@ -122,19 +122,19 @@ update_cnet_and_init_cams<BAPinholeModel>(
                           std::vector<double> & intrinsics_vec){
 
   // Set the size of cameras_vec
-  const unsigned int num_cameras           = ba_model.num_cameras();
-  const unsigned int num_params_per_camera = BAPinholeModel::camera_params_n;
-  const unsigned int num_camera_params     = num_cameras * num_params_per_camera;
-  const unsigned int num_intrinsic_params  = ba_model.num_intrinsic_params();
+  const int num_cameras           = ba_model.num_cameras();
+  const int num_params_per_camera = BAPinholeModel::camera_params_n;
+  const int num_camera_params     = num_cameras * num_params_per_camera;
+  const int num_intrinsic_params  = ba_model.num_intrinsic_params();
   cameras_vec.resize(num_camera_params);
 
   // Copy the camera parameters from the model to cameras_vec
-  unsigned int index = 0;
-  for (unsigned int i=0; i<num_cameras; ++i) {
+  int index = 0;
+  for (int i=0; i<num_cameras; ++i) {
     // Note that the inner loop stops before it gets to the intrinsic parameters
     BAPinholeModel::camera_intr_vector_t cam_vec;
     ba_model.get_cam_params(i, cam_vec);
-    for (size_t p=0; p<num_params_per_camera; ++p) {
+    for (int p=0; p<num_params_per_camera; ++p) {
       cameras_vec[index] = cam_vec[p];
       ++index;
     } // End loop through camera parameters
@@ -144,7 +144,7 @@ update_cnet_and_init_cams<BAPinholeModel>(
   intrinsics_vec.resize(num_intrinsic_params);
   BAPinholeModel::camera_intr_vector_t cam_vec;
   ba_model.get_cam_params(0, cam_vec); // Just pull from the first camera
-  for (size_t i=0; i<num_intrinsic_params; ++i) {
+  for (int i=0; i < num_intrinsic_params; ++i) {
     intrinsics_vec[i] = cam_vec[num_params_per_camera+i];
   }
 
@@ -253,18 +253,27 @@ struct BaPinholeError {
     m_icam(icam), m_ipt(ipt){}
 
   /// Compute residuals of observing this point with these camera parameters
-  bool operator()(const double* const camera,    const double* const point,
-                  const double* const intrinsic,       double*       residuals) const {
+  bool operator()(const double * const camera,
+                  const double * const point,
+                  const double * const focal_length,
+                  const double * const optical_center,
+                  const double * const nonlens_intrinsics,
+                  double       * residuals) const {
     try{
-      size_t num_cameras = m_ba_model->num_cameras();
-      size_t num_points  = m_ba_model->num_points();
-      VW_ASSERT(m_icam < num_cameras, ArgumentErr() << "Out of bounds in the number of cameras");
-      VW_ASSERT(m_ipt  < num_points , ArgumentErr() << "Out of bounds in the number of points" );
+      int num_cameras = m_ba_model->num_cameras();
+      int num_points  = m_ba_model->num_points();
+      VW_ASSERT(int(m_icam) < num_cameras, ArgumentErr()
+                << "Out of bounds in the number of cameras");
+      VW_ASSERT(int(m_ipt)  < num_points,  ArgumentErr()
+                << "Out of bounds in the number of points" );
 
       // Copy the input data to structures expected by the BA model
       BAPinholeModel::camera_intr_vector_t cam_intr_vec;
       BAPinholeModel::point_vector_t       point_vec;
-      m_ba_model->concat_extrinsics_intrinsics(camera, intrinsic, cam_intr_vec);
+
+      m_ba_model->concat_extrinsics_intrinsics(camera,
+                                               focal_length, optical_center, nonlens_intrinsics,
+                                               cam_intr_vec);
       for (size_t p = 0; p < point_vec.size(); p++)
         point_vec[p] = point[p];
 
@@ -285,9 +294,32 @@ struct BaPinholeError {
     return true;
   }
   
+  /// Overload for when there is no distortion
+  bool operator()(const double * const camera,
+                  const double * const point,
+                  const double * const focal_length,
+                  const double * const optical_center,
+                  double       * residuals) const {
+    return this->operator()(camera, point, focal_length, optical_center, 0, residuals);
+  }
+  
+  /// Overload for when all intrinsics are in one vector
+  bool operator()(const double * const camera,
+                  const double * const point,
+                  const double * const intrinsic,
+                  double       * residuals) const {
+    
+    int nf = BAPinholeModel::focal_length_params_n;
+    int nc = BAPinholeModel::optical_center_params_n;
+    return this->operator()(camera, point,
+                            intrinsic, intrinsic + nf, intrinsic + nf + nc,
+                            residuals);
+  }
+  
   /// Overload for when intrinsic parameters are not provided.
-  bool operator()(const double* const camera, const double* const point,
-                  double* residuals) const {
+  bool operator()(const double * const camera,
+                  const double * const point,
+                  double       * residuals) const {
     // Just call the other function with a dummy intrinsic vector which will not be used.
     return this->operator()(camera, point, 0, residuals);
   }
@@ -300,33 +332,42 @@ struct BaPinholeError {
                                      size_t icam, // camera index
                                      size_t ipt // point index
                                      ){
-    const size_t nob = 2; // Num observation elements: Column, row
-    const size_t ncp = BAPinholeModel::camera_params_n;
-    const size_t npp = BAPinholeModel::point_params_n;
-    const size_t num_intrinsics = ba_model->num_intrinsic_params();
+    const int nob = 2; // Num observation elements: Column, row
+    const int ncp = BAPinholeModel::camera_params_n;
+    const int npp = BAPinholeModel::point_params_n;
+    const int nf  = BAPinholeModel::focal_length_params_n;
+    const int nc  = BAPinholeModel::optical_center_params_n;
+    const int num_intrinsics        = ba_model->num_intrinsic_params();
 
     // Create a ceres::NumericDiffCostFunction object templated to the
-    // exact problem sizes we need.
-    // Unfortunately this seems to be the only way to do this!
+    // exact problem sizes we need. Notice that if we have more than 3 intrinsics that
+    // means focal length (1 param), optical center (2 params), and the rest are
+    // distortion params.
+    
     switch(num_intrinsics) {
     case 0: // This case is different, it does not set an intrinsic size.
       return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
       // All of the other cases hard code the intrinsic length.
-    case 1:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp,1>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 2:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp,2>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 3:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp,3>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 4:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp,4>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 5:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp,5>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 6:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp,6>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 7:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp,7>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 8:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp,8>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 9:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp,9>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 10:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp,10>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 11:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp,11>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 12:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp,12>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 13:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp,13>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 14:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp,14>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
-    case 15:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp,15>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    case 1:
+      vw_throw(LogicErr() << "bundle_adjust.cc not set up for 1 intrinsic param!");
+    case 2:
+      vw_throw(LogicErr() << "bundle_adjust.cc not set up for 2 intrinsic params!");
+    case 3:
+      return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt))); // no distortion
+      
+    case 4:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 1>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    case 5:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 2>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    case 6:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 3>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    case 7:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 4>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    case 8:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 5>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    case 9:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 6>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    case 10:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 7>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    case 11:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 8>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    case 12:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 9>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    case 13:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 10>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    case 14:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 11>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+    case 15:  return (new ceres::NumericDiffCostFunction<BaPinholeError,ceres::CENTRAL, nob, ncp, npp, nf, nc, 12>(new BaPinholeError(observation, pixel_sigma, ba_model, icam, ipt)));
+      
     default:
       vw_throw(LogicErr() << "bundle_adjust.cc not set up for this many intrinsic params!");
     };
@@ -439,6 +480,7 @@ void add_residual_block(ModelT & ba_model,
                         Vector2 const& observation, Vector2 const& pixel_sigma,
                         size_t icam, size_t ipt,
                         double * camera, double * point, double * intrinsics,
+                        std::set<std::string> const& intrinsics_to_float,
                         ceres::LossFunction* loss_function,
                         ceres::Problem & problem){
 
@@ -455,6 +497,7 @@ void add_residual_block<BAPinholeModel>
                    Vector2 const& observation, Vector2 const& pixel_sigma,
                    size_t icam, size_t ipt,
                    double * camera, double * point, double * intrinsics,
+                   std::set<std::string> const& intrinsics_to_float,
                    ceres::LossFunction* loss_function,
                    ceres::Problem & problem){
   // If the intrinsics are constant use the default method above
@@ -464,11 +507,59 @@ void add_residual_block<BAPinholeModel>
                                                   &ba_model, icam, ipt);
     problem.AddResidualBlock(cost_function, loss_function, camera, point);
   }
-  else { // Otherwise use a special const function using intrinsics
+  else {
+
+    // Use a special const function using intrinsics
+
     ceres::CostFunction* cost_function =
       BaPinholeError::Create(observation, pixel_sigma, &ba_model, icam, ipt);
-    problem.AddResidualBlock(cost_function, loss_function, camera, point, intrinsics);
-  }
+
+    int nf = BAPinholeModel::focal_length_params_n;
+    int nc = BAPinholeModel::optical_center_params_n;
+
+    const int num_distortion_params = ba_model.num_distortion_params();
+    if (num_distortion_params == 0) 
+      problem.AddResidualBlock(cost_function, loss_function, camera, point,
+                               intrinsics,          // focal length
+                               intrinsics + nf      // optical center
+                               );
+    else{
+      problem.AddResidualBlock(cost_function, loss_function, camera, point,
+                               intrinsics,          // focal length      (1 param)
+                               intrinsics + nf,     // optical center    (2 params)
+                               intrinsics + nf + nc // distortion params (all else)
+                               );
+    }
+    
+    // See if to float only certain intrinsics
+    if (!intrinsics_to_float.empty()) {
+
+      if (intrinsics_to_float.find("focal_length") == intrinsics_to_float.end()) {
+        //vw_out() << "Will not float focal length.\n";
+        problem.SetParameterBlockConstant(intrinsics);
+      }else{
+        //vw_out() << "Will float focal length.\n";
+      }
+
+      if (intrinsics_to_float.find("optical_center") == intrinsics_to_float.end()) {
+        //vw_out() << "Will not float optical center.\n";
+        problem.SetParameterBlockConstant(intrinsics + nf);
+      }else{
+        //vw_out() << "Will float optical center.\n";
+      }
+
+      if (intrinsics_to_float.find("distortion_params") == intrinsics_to_float.end()) {
+        //vw_out() << "Will not float distortion parameters.\n";
+        if (num_distortion_params > 0)
+          problem.SetParameterBlockConstant(intrinsics + nf + nc);
+      }else{
+        //vw_out() << "Will float distortion parameters.\n";
+      }
+      
+    } 
+    
+  } // end dealing with intrinsics
+  
 }
 
 
@@ -481,11 +572,11 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
 
   ControlNetwork & cnet = *(ba_model.control_network().get());
 
-  size_t num_camera_params    = ModelT::camera_params_n;
-  size_t num_point_params     = ModelT::point_params_n;
-  size_t num_intrinsic_params = ba_model.num_intrinsic_params();
-  size_t num_cameras          = ba_model.num_cameras();
-  size_t num_points           = ba_model.num_points();
+  int num_camera_params    = ModelT::camera_params_n;
+  int num_point_params     = ModelT::point_params_n;
+  int num_intrinsic_params = ba_model.num_intrinsic_params();
+  int num_cameras          = ba_model.num_cameras();
+  int num_points           = ba_model.num_points();
 
   // The camera adjustment and point variables concatenated into
   // vectors. The camera adjustments start as 0. The points come from the network.
@@ -514,8 +605,8 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
 
   // Points
   std::vector<double> points_vec(num_points*num_point_params, 0.0);
-  for (size_t ipt = 0; ipt < num_points; ipt++){
-    for (size_t q = 0; q < num_point_params; q++){
+  for (int ipt = 0; ipt < num_points; ipt++){
+    for (int q = 0; q < num_point_params; q++){
       points_vec[ipt*num_point_params + q] = cnet[ipt].position()[q];
     }
   }
@@ -538,10 +629,12 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
     for ( crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++ ){
 
       // The index of the 3D point
-      size_t ipt = (**fiter).m_point_id;
+      int ipt = (**fiter).m_point_id;
 
-      VW_ASSERT(icam < num_cameras, ArgumentErr() << "Out of bounds in the number of cameras");
-      VW_ASSERT(ipt < num_points,   ArgumentErr() << "Out of bounds in the number of points");
+      VW_ASSERT(int(icam) < num_cameras,
+                ArgumentErr() << "Out of bounds in the number of cameras");
+      VW_ASSERT(int(ipt)  < num_points,
+                ArgumentErr() << "Out of bounds in the number of points");
 
       // The observed value for the projection of point with index ipt into
       // the camera with index icam.
@@ -561,15 +654,19 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
 
       // Call function to select the appropriate Ceres residual block to add.
       add_residual_block(ba_model, observation, pixel_sigma, icam, ipt,
-                         camera, point, intrinsics, loss_function, problem);
+                         camera, point, intrinsics, opt.intrinsics_to_float,
+                         loss_function, problem);
     }
   }
 
   // Add ground control points
   // - Error goes up as GCP's move from their input positions.
-  for (size_t ipt = 0; ipt < num_points; ipt++){
+  int num_gcp = 0;
+  for (int ipt = 0; ipt < num_points; ipt++){
     if (cnet[ipt].type() != ControlPoint::GroundControlPoint) continue;
 
+    num_gcp++;
+    
     Vector3 observation = cnet[ipt].position();
     Vector3 xyz_sigma   = cnet[ipt].sigma();
 
@@ -579,15 +676,18 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
 
     double * point  = points  + ipt * num_point_params;
     problem.AddResidualBlock(cost_function, loss_function, point);
+
+    if (opt.fix_gcp_xyz) 
+      problem.SetParameterBlockConstant(point);
   }
 
   // Add camera constraints
   // - Error goes up as cameras move and rotate from their input positions.
   if (opt.camera_weight > 0){
-    for (size_t icam = 0; icam < num_cameras; icam++){
+    for (int icam = 0; icam < num_cameras; icam++){
 
       typename ModelT::camera_vector_t orig_cam;
-      for (size_t q = 0; q < num_camera_params; q++)
+      for (int q = 0; q < num_camera_params; q++)
         orig_cam[q] = orig_cameras_vec[icam * num_camera_params + q];
 
       ceres::CostFunction* cost_function = CamError<ModelT>::Create(orig_cam, opt.camera_weight);
@@ -634,12 +734,28 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
   // into the the separate parameter vectors in ba_model, right after
   // the already updated extrinsic parameters.
   typename ModelT::camera_intr_vector_t concat;
-  for (size_t icam = 0; icam < num_cameras; icam++){
+  for (int icam = 0; icam < num_cameras; icam++){
     ba_model.concat_extrinsics_intrinsics(&cameras_vec[icam*num_camera_params],
                                           intrinsics, concat);
     ba_model.set_cam_params(icam, concat);
   }
 
+  // Print stats for optimized gcp
+  if (num_gcp > 0) {
+    vw_out() << "input_gcp_xyz optimized_gcp_xyz diff_norm\n";
+    for (int ipt = 0; ipt < num_points; ipt++){
+      if (cnet[ipt].type() != ControlPoint::GroundControlPoint) continue;
+      
+      Vector3 input_gcp = cnet[ipt].position();
+      
+      double * point  = points  + ipt * num_point_params;
+      Vector3 opt_gcp;
+      for (int p = 0; p < 3; p++) opt_gcp[p] = point[p];
+      
+      vw_out() << input_gcp << ' ' << opt_gcp << ' ' << norm_2(input_gcp - opt_gcp) << std::endl;
+    }
+  }
+  
 } // end do_ba_ceres
 
 
@@ -854,7 +970,6 @@ void apply_rigid_transform(vw::Matrix3x3 const & rotation,
   } // End loop through cameras
 
   // Apply the transform to all of the world points in the ControlNetwork
-  std::cout << "---Correct points in control network" << std::endl;
   ControlNetwork::iterator iter;
   for (iter=opt.cnet->begin(); iter!=opt.cnet->end(); ++iter) {
     if (iter->type() == ControlPoint::GroundControlPoint)
@@ -925,7 +1040,7 @@ void check_gcp_dists(Options const &opt) {
 /// Looks in the input camera position file to generate a GCC position for
 /// each input camera.
 /// - If no match is found, the coordinate is (0,0,0)
-size_t load_estimated_camera_positions(Options &opt,
+int load_estimated_camera_positions(Options &opt,
                                        std::vector<Vector3> & estimated_camera_gcc) {
   estimated_camera_gcc.clear();
   if (opt.camera_position_file == "")
@@ -945,12 +1060,12 @@ size_t load_estimated_camera_positions(Options &opt,
   conv.parse_georef(geo);
 
   // For each input camera, find the matching position in the record list
-  const size_t num_cameras = opt.image_files.size();
+  const int num_cameras = opt.image_files.size();
   estimated_camera_gcc.resize(num_cameras);
   
   const RecordIter no_match = pos_records.end();
-  size_t num_matches_found = 0;
-  for (size_t i=0; i<num_cameras; ++i) {
+  int num_matches_found = 0;
+  for (int i=0; i<num_cameras; ++i) {
 
     // Search for this image file in the records
     std::string file_name = opt.image_files[i];
@@ -986,28 +1101,28 @@ bool init_pinhole_model_with_camera_positions(Options &opt,
   std::cout << "Initializing camera positions from input file..." << std::endl;
 
   // Count the number of matches and check for problems
-  const size_t num_cameras = opt.image_files.size();
-  if (estimated_camera_gcc.size() != num_cameras)
+  const int num_cameras = opt.image_files.size();
+  if (int(estimated_camera_gcc.size()) != num_cameras)
     vw_throw( ArgumentErr() << "No camera matches provided to init function!\n" );
   
   std::cout << "Num cameras: " << num_cameras << std::endl;
     
-  size_t num_matches_found = 0;
-  for (size_t i=0; i<num_cameras; ++i)
+  int num_matches_found = 0;
+  for (int i=0; i<num_cameras; ++i)
     if (estimated_camera_gcc[i] != Vector3(0,0,0))
       ++num_matches_found;
 
   std::cout << "Number of matches found: " << num_matches_found << std::endl;
   
-  const size_t MIN_NUM_MATCHES = 3;
+  const int MIN_NUM_MATCHES = 3;
   if (num_matches_found < MIN_NUM_MATCHES)
     vw_throw( ArgumentErr() << "Not enough camera position matches to initialize sensor models!\n" );
   
   // Populate matrices containing the current and known camera positions.
   vw::Matrix<double> points_in(3, num_matches_found), points_out(3, num_matches_found);
   typedef vw::math::MatrixCol<vw::Matrix<double> > ColView;
-  size_t index = 0;
-  for (size_t i=0; i<num_cameras; ++i) {
+  int index = 0;
+  for (int i=0; i<num_cameras; ++i) {
     // Skip cameras with no matching record
     if (estimated_camera_gcc[i] == Vector3(0,0,0))
       continue;
@@ -1031,10 +1146,9 @@ bool init_pinhole_model_with_camera_positions(Options &opt,
   double        scale;
   asp::find_3D_affine_transform(points_in, points_out, rotation, translation, scale);
 
-
 /*
   // Debug: Test transform on cameras
-  for (size_t i=0; i<num_cameras; ++i) {
+  for (int i=0; i<num_cameras; ++i) {
     // Skip cameras with no matching record
     if (estimated_camera_gcc[i] == Vector3(0,0,0))
       continue;
@@ -1070,7 +1184,6 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
         = dynamic_cast<vw::camera::PinholeModel*>(opt.camera_models[icam].get());
       VW_ASSERT(pincam != NULL,
                 vw::ArgumentErr() << "A pinhole camera expected.\n");
-      //std::cout << "---before rotation, camera is " << *pincam << std::endl;
     }
 
     // Count up the number of good ground control points
@@ -1134,8 +1247,6 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
       // Store the computed and correct position of this point in Eigen matrices
       Vector3 inp  = cp_new.position();
       Vector3 outp = cnet[ipt].position();
-      //std::cout << "---triangulated: " << cnet[ipt].position() << ' '
-      //          << cp_new.position() << std::endl;
       if (inp == Vector3() || outp == Vector3())
         continue; // Skip points that fail to triangulate
 
@@ -1471,8 +1582,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                          "Set the threshold for robust cost functions. Increasing this makes the solver focus harder on the larger errors.")
     ("local-pinhole",    po::bool_switch(&opt.local_pinhole_input)->default_value(false),
                          "Use special methods to handle a local coordinate input pinhole model.")
+    ("fix-gcp-xyz",  po::bool_switch(&opt.fix_gcp_xyz)->default_value(false)->implicit_value(true),
+                         "If the GCP are highly accurate, use this option to not float them during the optimization.")
     ("solve-intrinsics",  po::bool_switch(&opt.solve_intrinsics)->default_value(false)->implicit_value(true),
                          "Optimize intrinsic camera parameters.  Only used for pinhole cameras.")
+    ("intrinsics-to-float", po::value(&opt.intrinsics_to_float_str)->default_value(""),
+     "If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, distortion_params.")
     ("camera-positions", po::value(&opt.camera_position_file)->default_value(""),
           "Specify a csv file path containing the estimated positions of the input cameras.  Only used with the local-pinhole option.")
     ("csv-format",       po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
@@ -1599,6 +1714,17 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   // Turn on logging to file
   asp::log_to_file(argc, argv, "", opt.out_prefix);
 
+  // Parse the intrinsics to float in a vector
+  if (opt.intrinsics_to_float_str != "" && !opt.solve_intrinsics) {
+    vw_throw( ArgumentErr() << "To be able to float only certain intrinsics, the option --solve-intrinsics must be on.\n" );
+  }
+
+  opt.intrinsics_to_float.clear();
+  std::istringstream is(opt.intrinsics_to_float_str);
+  std::string val;
+  while (is >> val) 
+    opt.intrinsics_to_float.insert(val);
+  
   opt.save_iteration = vm.count("save-iteration-data");
   boost::to_lower( opt.stereo_session_string );
   boost::to_lower( opt.ba_type );
@@ -1636,10 +1762,10 @@ int main(int argc, char* argv[]) {
 
     // Ensure that no camera files have duplicate names.  This will cause the output files
     // to overwrite each other!
-    for (size_t i=0; i<opt.camera_files.size()-1; ++i) {   
+    for (int i=0; i< int(opt.camera_files.size()) - 1; ++i) {   
       std::string filename_1 = asp::bundle_adjust_file_name(opt.out_prefix,
                                               opt.image_files[i], opt.camera_files[i]);
-      for (size_t j=i+1; j<opt.camera_files.size(); ++j) {
+      for (int j=i+1; j< int(opt.camera_files.size()); ++j) {
         std::string filename_2 = asp::bundle_adjust_file_name(opt.out_prefix,
                                                 opt.image_files[j], opt.camera_files[j]);
         if (filename_1 == filename_2)
@@ -1692,7 +1818,7 @@ int main(int argc, char* argv[]) {
     const bool got_est_cam_positions
       = (estimated_camera_gcc.size() == static_cast<size_t>(num_images));
     
-    size_t num_pairs_matched = 0;
+    int num_pairs_matched = 0;
     for (int i = 0; i < num_images; i++){
       for (int j = i+1; j <= std::min(num_images-1, i+opt.overlap_limit); j++){
 
