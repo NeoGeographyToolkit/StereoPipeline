@@ -293,37 +293,54 @@ def get_num_nodes(nodes_list):
 
 def get_best_procs_threads(step, settings):
     # Decide the best number of processes to use on a node, and how
-    # many threads to use for each process.
+    # many threads to use for each process.  There used to be some
+    # fancy logic, see below, but it does not work well. ASP mostly
+    # uses 100% CPU per process the vast majority of the time, even
+    # when invoked with a lot of threads.  Not sure why. The file
+    # system could be the bottleneck.  As such, it is faster to just
+    # use many processes and one thread per process.
 
     # We assume all machines have the same number of CPUs (cores)
     num_cpus = get_num_cpus()
 
-    if step == Step.corr:
-        tile_size = int(settings['corr_tile_size'][0])
-    elif step == Step.rfne:
-        tile_size = int(settings['rfne_tile_size'][0])
-    elif step == Step.tri:
-        tile_size = int(settings['tri_tile_size'][0])
-    else:
-        raise Exception('Stereo step %d must be executed on a single machine.' \
-                        % step)
+    # Respect user's choice for the number of processes
+    num_procs = num_cpus
+    if opt.processes is not None:
+        num_procs = opt.processes
 
-    # We use the observation that each tile uses one thread,
-    # so we need to find how many tiles are in the given job.
-    num_threads = int(opt.job_size_w*opt.job_size_h/tile_size/tile_size)
-    if num_threads > num_cpus: num_threads = num_cpus
-    if num_threads <= 0: num_threads = 1
+    # Same for the number of threads.
+    num_threads = 1
+    if opt.threads_multi is not None:
+        num_threads = opt.threads_multi
+        
+    # Old code, now turned off.
+    if 0:
+        if step == Step.corr:
+            tile_size = int(settings['corr_tile_size'][0])
+        elif step == Step.rfne:
+            tile_size = int(settings['rfne_tile_size'][0])
+        elif step == Step.tri:
+            tile_size = int(settings['tri_tile_size'][0])
+        else:
+            raise Exception('Stereo step %d must be executed on a single machine.' \
+                            % step)
 
-    # For triangulation, we need to consider the case of ISIS cameras
-    # when we must use 1 thread no matter what.
-    if step == Step.tri:
-        cam_info = " ".join(settings['in_file1'] + settings['in_file2'] + \
-                            settings['cam_file1'] + settings['cam_file2'])
-        m = re.search('\\.cub\\b', cam_info, re.IGNORECASE)
-        if m:
-            num_threads = 1
+        # We use the observation that each tile uses one thread,
+        # so we need to find how many tiles are in the given job.
+        num_threads = int(opt.job_size_w*opt.job_size_h/tile_size/tile_size)
+        if num_threads > num_cpus: num_threads = num_cpus
+        if num_threads <= 0: num_threads = 1
 
-    num_procs = int(math.ceil(float(num_cpus)/num_threads))
+        # For triangulation, we need to consider the case of ISIS cameras
+        # when we must use 1 thread no matter what.
+        if step == Step.tri:
+            cam_info = " ".join(settings['in_file1'] + settings['in_file2'] + \
+                                settings['cam_file1'] + settings['cam_file2'])
+            m = re.search('\\.cub\\b', cam_info, re.IGNORECASE)
+            if m:
+                num_threads = 1
+
+        num_procs = int(math.ceil(float(num_cpus)/num_threads))
 
     if opt.verbose:
         print("For stage %d, using %d threads and %d processes." %
