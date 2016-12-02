@@ -171,7 +171,7 @@ it is actually split into two levels of pyramid searching. There is a
 \texttt{\textit{output\_prefix}-D\_sub.tif} disparity image that is
 computed from the greatly reduced input images \texttt{*-L\_sub.tif}
 and \texttt{\textit{output\_prefix}-R\_sub.tif}. Those ``sub'' images
-have their size chosen so that their area is around 2.25 mega pixels,
+have their size chosen so that their area is around 2.25 megapixels,
 a size that is easily viewed on the screen unlike the raw source
 imagery. The low-resolution disparity image then defines the per
 thread search range of the higher resolution disparity,
@@ -232,7 +232,7 @@ due to a variety of reasons:
   preprocessing step in aligning the images. The correlator can not
   match images that are rotated differently from each other or have
   different scale/resolution. Mapprojection is used to at least
-  partially rectifly these issues (section \ref{mapproj-example}).
+  partially rectify these issues (section \ref{mapproj-example}).
 \end{itemize}
 
 Bad matches, often called ``blunders'' or ``artifacts'' are also
@@ -332,24 +332,17 @@ files (see chapter \ref{chapter:outputfiles}) instead of the original input file
 \subsection{Local Homography}
 \label{sec:local_hom}
 
-Correlation works by decomposing the left image into tiles, and for each
-pixel in each tile finding the best-matching pixel in the right image.
+Local homography decomposes the left image into tiles,
+and tries to find the best homography transform from each 
+tile to the right image before computing the correlation.
+This is more fine-grained than using a global homography transform.
 
-Depending on user's choices, by this stage either the left or the right
-image (or both) may already be transformed so that they are very
-similar, making the matching process more likely to succeed.
+This approach is experimental. We suggest instead the map-projection
+approach be used (section \ref{mapproj-example}), as that one
+is even more fine-grained, and does not suffer from artifacts
+that may arise from the local homography piecewise approach.
 
-Whether that is the case or not, Stereo Pipeline can estimate, based on
-the low-resolution disparity
-\texttt{\textit{output\_prefix}-D\_sub.tif}, a local homography transform
-for every left image tile, which, when applied to the right image,
-improves the similarity of the right image to the current left image tile. This
-option can be turned on with the flag \texttt{use-local-homography}.
-
-This local homography transform comes in most useful when a global
-homography transform could not be applied (for example, if interest
-point matching failed). The input low-resolution disparity can be
-computed in several ways, as described earlier in the section.
+This option can be turned on with the flag \texttt{use-local-homography}.
 
 \subsection{Semi-Global Matching}
 \label{sec:sgm}
@@ -360,14 +353,14 @@ popular semi-global matching algorithm introduced in
 DEM generation but it has been used successfully to process HRSC images
 \citep{hirschmuller_hrsc_with_sgm}.  The version of the algorithm implemented
 by ASP has a few modifications relative to the original implementation.  The
-most significant difference ss that ASP's implementation performs a 2D disparity
+most significant difference is that ASP's implementation performs a 2D disparity
 search, similar to what is done in the NG-fSGM algorithm 
 \citep{xiang_2016_low_complexity_fsgm}.  Since ASP processes a wide variety of
 cameras with varying degrees of metadata quality, the standard assumption 
 with SGM that the disparity search can be performed only along a one-dimensional 
 epipolar line does not hold.  The other major change is that ASP uses a multi-
-resolution heirarchical search combined with a compressed memory scheme similar
-to what is used in the tSGM algorithm \citep{rothermel2012sure_isgm}.  With
+resolution hierarchical search combined with a compressed memory scheme similar
+to what is used in the SGM algorithm \citep{rothermel2012sure_isgm}.  With
 these two features the SGM algorithm can be used for unrectified, larger images.
 ASP also supports a mode using the MGM algorithm \citep{facciolo2015mgm}, referred to
 in some places in the documentation as Smooth SGM.  This algorithm reduces the amount
@@ -378,7 +371,7 @@ is an improved ability to find disparity matches in areas of repetitive or low t
 SGM can also discern finer resolution features than the standard correlation algorithm
 since it tends to use much smaller matching kernels.  Along with these advantages come several disadvantages.
 First,  SGM is computationally expensive and requires a lot of memory.  Second, in some
-situations it can produce noticable artifacts at tile boundaries.  Third, it can 
+situations it can produce noticeable artifacts at tile boundaries.  Third, it can 
 sometimes produce inaccurate results in textureless regions.  With careful parameter
 selection and usage these disadvantages can be mitigated.
 
@@ -397,7 +390,7 @@ is a modification of the census transform that is more stable on low contrast te
 but may be less accurate elsewhere.
 \item Choose a supported kernel size.  SGM kernels must always be symmetric.
 The SGM algorithm works with much smaller kernel sizes than the regular integer 
-correlator so the default large kernel is not reccomended.
+correlator so the default large kernel is not recommended.
 The MAD cost mode can be used with any odd kernel size (including size 1) but the census 
 cost modes can only be used with kernel sizes 3, 5, 7, and 9.  Size 7 is usually a good choice.
 \item Choose an appropriate tile size using the \texttt{corr-tile-size} command. The SGM
@@ -414,7 +407,7 @@ over the amount of memory that will be required (see point above).  Using a sing
 restricts you to one thread, which is slower, but eliminates the possibility of inter-tile 
 artifacts.  Note that ONLY the integer correlation step (\texttt{stereo\_corr}) needs to 
 have this careful limit on the number of threads.  The other ASP steps can use a normal 
-thread count to accellerate processing.
+thread count to accelerate processing.
 \item Consider disabling the left-right consistency check by setting the \texttt{xcorr-threshold}
 parameter to -1.  Disabling this check nearly halves the (long) run time of the SGM
 algorithm so consider if the filtering it provides is worth the increased run time.
