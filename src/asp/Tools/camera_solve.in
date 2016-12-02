@@ -22,7 +22,7 @@ A helper tool to streamline the process of solving for
 pinhole camera models using Theia and ASP.
 '''
 
-import sys, os
+import sys, os, re
 import shutil, subprocess, string, time, errno, optparse, glob, shlex
 #import register_local_cameras
 
@@ -389,7 +389,11 @@ def update_tsai_file(input_camera_path, new_pose_path, output_camera_path):
     # Read in the lines of interest from new_pose_path
     # - We never update the distortion parameters since we won't be using
     #   exactly the same lens distortion model.
-    keys = ['fu', 'fv', 'cu', 'cv', 'C', 'R'] # The values we want to copy
+    scaled_keys = ['fu', 'fv', 'cu', 'cv'] # keys that we will multiply by pitch 
+    keys = []  # The values we want to copy
+    keys.extend(scaled_keys)
+    keys.extend(['C', 'R'])
+    
     replacements = dict()
     f_in  = open(new_pose_path,  'r')
     for line in f_in:
@@ -398,6 +402,16 @@ def update_tsai_file(input_camera_path, new_pose_path, output_camera_path):
                 replacements[k] = line
     f_in.close()
 
+    # Find the pitch to scale some values by
+    pitch = 1.0
+    f_in  = open(input_camera_path,  'r')
+    for line in f_in:
+        for k in keys: # Look for target values
+            matches = re.match('^pitch = (.*?)$', line)
+            if matches:
+                pitch = float(matches.group(1))
+    f_in.close()
+    
     # Copy each line of the input file as-is except for the updated fields
     f_in  = open(input_camera_path,  'r')
     f_out = open(output_camera_path, 'w')
@@ -406,6 +420,14 @@ def update_tsai_file(input_camera_path, new_pose_path, output_camera_path):
         for k in keys: # See if this is a line we should replace
             if (k+' =') in line:
                 thisLine = replacements[k]
+
+                # See if to scale by the pitch
+                if k in scaled_keys:
+                    matches = re.match('^.*? = (.*?)$', thisLine)
+                    if matches:
+                        val = float(matches.group(1))
+                        thisLine = k + ' = ' + str(val*pitch) + "\n"
+                        
         f_out.write(thisLine)
     f_in.close()
     f_out.close()
@@ -435,7 +457,7 @@ def export_cameras_to_vw(options):
             this_vw_camera_path = options.camera_param_paths[i]
         else:
             this_vw_camera_path = options.camera_param_paths[0]
-        
+
         # Overwrite the file Theia wrote with a copy of the user's camera file with
         #  position and orientation replaced with the Theia values.
         update_tsai_file(this_vw_camera_path, model_path, model_path)
