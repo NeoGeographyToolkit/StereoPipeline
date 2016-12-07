@@ -22,7 +22,7 @@ own \texttt{bundle\_adjust} tool.  The second step improves the solution
 to account for lens distortion and transforms the solution from local
 to global coordinates by making use of additional input data.
 
-Currently the tool only solves for the extrinsic camera parameters
+The tool only solves for the extrinsic camera parameters
 and the user must provide intrinsic camera information.
 You can use the \texttt{camera\_calibrate}
 tool (see Appendix \ref{cameracalibrate}) or other camera calibration software
@@ -31,6 +31,9 @@ The camera calibration information must be contained in a
 .tsai pinhole camera model file and must passed in using the
 \texttt{-\/-calib-file} option.  You can find descriptions of
 our supported pinhole camera models in Appendix \ref{chapter:pinholemodels}.
+
+If no intrinsic camera information is known, it can be guessed by doing some experimentation.
+This is discussed in section \ref{findintrinsics}.
 
 In order to transform the camera models from local to world coordinates,
 one of three pieces of information may be used.  These sources are listed
@@ -382,7 +385,7 @@ image2qtree align_run_big/out-trans_source-DEM_CMAP.tif
   \includegraphics[width=5.5in]{images/examples/pinhole/icebridge_dem_overlay.png}
 \caption{LVIS lidar DEM overlaid on the ASP created DEM, both colormapped to the same elevation range.
 The ASP DEM could be improved but the registration is accurate.  Notice how narrow the LVIS lidar coverage
-is compared to the field of view of the camera.}
+is compared to the field of view of the camera. You may want to experiment using the SGM algorithm to improve the coverage.}
 \label{fig:pinhole-icebridge-orbitviz}
 \end{figure}
 
@@ -407,3 +410,31 @@ The corrected DEM files can be used with ASP like any other DEM file.
 
 Chapter \ref{nextsteps} will discuss the \texttt{stereo} program in more
 detail and the other tools in ASP.
+
+\section{Solving For Intrinsic Camera Parameters}
+\label{findintrinsics}
+
+If nothing is known about the intrinsic camera parameters, it may be
+possible to guess them with some experimentation. One can assume that
+the distortion is non-existent, and that the optical center is at the
+image center, which makes it possible to compute $cu$ and $cv$. The
+pitch can be set to some small number, say $10^{-3}$ or $10^{-4}.$ The
+focal length can be initialized to equal $cu$ or a multiple of it. Then
+\texttt{camera\_solve} can be invoked, followed by \texttt{stereo},
+\texttt{point2mesh}, and \texttt{point2dem -\/-errorimage}. If, at least
+towards the center of the image, things are not exploding, we are on a
+good track.
+
+Later, the camera parameters, especially the focal length, can be
+modified manually, and instead of using \texttt{camera\_solve} again,
+just \texttt{bundle\_adjust} can be called using the camera models found
+earlier, with the options to float some of the intrinsics, that is using
+\texttt{-\/-solve-intrinsics} and \texttt{-\/-intrinsics-to-float}.
+
+If the overall results look good, but the intersection error after invoking \texttt{point2dem} around the image corners
+looks large, it is time to use some distortion model and float it, again using \texttt{bundle\_adjust}. 
+Sometimes if invoking this tool over many iterations the optical center and focal length may drift, and hence it may be
+helpful to have them fixed while solving for distortion. 
+
+If a pre-existing DEM is available, the tool \texttt{geodiff} can be used to compare it with what ASP is creating. 
+

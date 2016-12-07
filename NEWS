@@ -43,6 +43,11 @@
     * Save on output the mean values for MEANSUNEL, MEANSUNAZ,
       and a few more.
 
+ - point2dem
+     * Added the parameter --gaussian-sigma-factor to control the 
+       Gaussian kernel width when creating a DEM (to be used together
+       with --search-radius-factor).
+
  - sfs
     * Improvements, speedups, more documentation, usage recipes, 
       much decreased memory usage, together with a lot of
