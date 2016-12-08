@@ -25,9 +25,9 @@ bin_SCRIPTS =
 libexec_SCRIPTS =
 libexec_PROGRAMS = # Auxiliary C++ executables
 
-natural_neib_LDADD    = $(APP_NATURAL_NEIB_LIBS)
-natural_neib_SOURCES  = natural_neib.cc
-bin_PROGRAMS         += natural_neib
+csv_filter_LDADD    = $(APP_NATURAL_NEIB_LIBS)
+csv_filter_SOURCES  = csv_filter.cc
+bin_PROGRAMS         += csv_filter
 
 # Scripts
 ##############################################################################
