@@ -132,6 +132,10 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
   m_matches.clear();
   m_matches.resize(m_image_paths.size());
 
+  // By default, show the images in one row
+  if (m_grid_cols <= 0)
+    m_grid_cols = std::numeric_limits<int>::max();
+
   m_view_type = VIEW_SIDE_BY_SIDE;
   if (m_grid_cols > 0 && m_grid_cols < int(m_image_paths.size())) {
     m_view_type = VIEW_AS_TILES_ON_GRID;
@@ -139,8 +143,7 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
   if (single_window) {
     m_view_type = VIEW_IN_SINGLE_WINDOW;
   }
-  m_view_type_old = m_view_type;
-  m_grid_cols_old = m_grid_cols;
+  m_view_type_old = m_view_type; // initialize this
   
   // Set up the basic layout of the window and its menus.
   createMenus();
@@ -165,10 +168,6 @@ void MainWindow::createLayout() {
   setCentralWidget(centralWidget);
 
   QSplitter * splitter = new QSplitter(centralWidget);
-
-  // By default, show the images in one row
-  if (m_grid_cols <= 0)
-    m_grid_cols = std::numeric_limits<int>::max();
 
   // Wipe the widgets from the array. Qt will automatically delete
   // the widgets when the time is right.
@@ -217,12 +216,17 @@ void MainWindow::createLayout() {
 
   // Put the images in a grid
   int num_widgets = m_widgets.size();
-
   QGridLayout *grid = new QGridLayout(centralWidget);
+
+  // By default, show the images side-by-side
+  int grid_cols = std::numeric_limits<int>::max();
+  if (m_view_type == VIEW_AS_TILES_ON_GRID) 
+    grid_cols = m_grid_cols;
+  
   for (int i = 0; i < num_widgets; i++) {
     // Add the current widget
-    int row = i / m_grid_cols;
-    int col = i % m_grid_cols;
+    int row = i / grid_cols;
+    int col = i % grid_cols;
     grid->addWidget(m_widgets[i], row, col);
 
     // Intercept this widget's request to view (or refresh) the matches in all
@@ -244,7 +248,7 @@ void MainWindow::createLayout() {
   // This code must be here in order to load the matches if needed
   viewMatches();
 
-  // Refresh if this menu should be checked
+  // Refresh the menu checkboxes
   m_viewSingleWindow_action->setChecked(m_view_type == VIEW_IN_SINGLE_WINDOW);
   m_viewSideBySide_action->setChecked(m_view_type == VIEW_SIDE_BY_SIDE);
   m_viewAsTiles_action->setChecked(m_view_type == VIEW_AS_TILES_ON_GRID);
@@ -465,15 +469,17 @@ void MainWindow::viewSingleWindow(){
   bool single_window = m_viewSingleWindow_action->isChecked();
 
   if (single_window) {
-
-    m_grid_cols_old = m_grid_cols; 
-    m_grid_cols = std::numeric_limits<int>::max();
     if (m_view_type != VIEW_IN_SINGLE_WINDOW) m_view_type_old = m_view_type; // back this up
     m_view_type = VIEW_IN_SINGLE_WINDOW;
 
+    // Turn off zooming all images to same region if all are in the same window
+    bool zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
+    if (zoom_all_to_same_region) {
+      zoom_all_to_same_region = false;
+      setZoomAllToSameRegionAux(zoom_all_to_same_region);
+    }
+    
   }else{
-
-    m_grid_cols = m_grid_cols_old; // restore this
     if (m_view_type_old != VIEW_IN_SINGLE_WINDOW) m_view_type = m_view_type_old; // restore this
     else{
       // nothing to restore to. Default to side by side.
@@ -485,7 +491,6 @@ void MainWindow::viewSingleWindow(){
 }
 
 void MainWindow::viewSideBySide(){
-  m_grid_cols = std::numeric_limits<int>::max();
   m_view_type = VIEW_SIDE_BY_SIDE;
   createLayout();
 }
@@ -985,15 +990,32 @@ void MainWindow::viewHillshadedImages() {
 
 // Pass to the widget the desire to zoom all images to the same region
 // or its cancellation
-void MainWindow::setZoomAllToSameRegion() {
-  bool zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
+void MainWindow::setZoomAllToSameRegionAux(bool do_zoom) {
+
+  m_zoomAllToSameRegion_action->setChecked(do_zoom);
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (m_widgets[i]) {
-      m_widgets[i]->setZoomAllToSameRegion(zoom_all_to_same_region);
+      m_widgets[i]->setZoomAllToSameRegion(do_zoom);
     }
   }
+}
+
+// Pass to the widget the desire to zoom all images to the same region
+// or its cancellation
+void MainWindow::setZoomAllToSameRegion() {
+  
+  bool zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
+  setZoomAllToSameRegionAux(zoom_all_to_same_region);
 
   if (zoom_all_to_same_region) {
+
+    // If zooming to same region, windows better be not on top of each other
+    if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
+      if (m_view_type_old != VIEW_IN_SINGLE_WINDOW) m_view_type = m_view_type_old; // restore this
+      else m_view_type = VIEW_SIDE_BY_SIDE;
+      createLayout();
+    }
+
     // If all images are georeferenced, it makes perfect sense
     // to turn on georeferencing when zooming. The user can later turn it off
     // from the menu if so desired.
@@ -1083,17 +1105,19 @@ void MainWindow::viewOverlayedImages() {
       }
     }
 
-    m_grid_cols_old = m_grid_cols; // restore this
     if (m_view_type != VIEW_IN_SINGLE_WINDOW) m_view_type_old = m_view_type; // back this up
     m_view_type = VIEW_IN_SINGLE_WINDOW;
 
-  }else{
-    m_grid_cols = m_grid_cols_old; // restore this
-    if (m_view_type_old != VIEW_IN_SINGLE_WINDOW) m_view_type = m_view_type_old; // restore this
-    else{
-      // nothing to restore to. Default to side by side.
-      m_view_type = VIEW_SIDE_BY_SIDE;
+    // Turn off zooming all images to same region if all are in the same window
+    bool zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
+    if (zoom_all_to_same_region) {
+      zoom_all_to_same_region = false;
+      setZoomAllToSameRegionAux(zoom_all_to_same_region);
     }
+    
+  }else{
+    if (m_view_type_old != VIEW_IN_SINGLE_WINDOW) m_view_type = m_view_type_old; // restore this
+    else m_view_type = VIEW_SIDE_BY_SIDE; 
   }
 
   createLayout();

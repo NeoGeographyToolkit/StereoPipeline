@@ -85,6 +85,7 @@ namespace vw { namespace gui {
     void viewGeoreferencedImages();
     void viewOverlayedImages();
     void setZoomAllToSameRegion();
+    void setZoomAllToSameRegionAux(bool do_zoom);
     void profileMode();
     void uncheckProfileModeCheckbox();
     void about();
