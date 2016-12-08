@@ -63,6 +63,9 @@
       focal length, optical center, and distortion parameters can
       be fixed or varied independently of each other. To be used with
       --local-pinhole, --solve-intrinsics, --intrinsics-to-float.
+    * Added the option --overlap-list. It can be used to specify which
+      image pairs are expected to overlap and hence to be used to
+      compute matches.
 
  - Misc
   * Minimum supported OSX version is 10.9.

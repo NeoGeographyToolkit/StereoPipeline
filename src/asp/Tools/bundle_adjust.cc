@@ -85,6 +85,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
   int  ip_detect_method;
   bool individually_normalize;
   std::set<std::string> intrinsics_to_float;
+  std::string overlap_list_file;
+  std::set< std::pair<std::string, std::string> > overlap_list;
   
   // Make sure all values are initialized, even though they will be
   // over-written later.
@@ -1611,6 +1613,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                          "Set the maximum number of iterations.")
     ("overlap-limit",    po::value(&opt.overlap_limit)->default_value(0),
                          "Limit the number of subsequent images to search for matches to the current image to this value.  By default match all images.")
+    ("overlap-list",    po::value(&opt.overlap_list_file)->default_value(""),
+     "A list of image pairs, one pair per line, separated by a space, which are expected to overlap. Matches are then computed only among the images in each pair.")
     ("position-filter-dist", po::value(&opt.position_filter_dist)->default_value(-1),
                          "Set a distance in meters and don't perform IP matching on images with an estimated camera center farther apart than this distance.  Requires --camera-positions.")
     ("camera-weight",    po::value(&opt.camera_weight)->default_value(1.0),
@@ -1662,6 +1666,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "Missing input image files.\n"
               << usage << general_options );
 
+  if (opt.overlap_list_file != "" && opt.overlap_limit > 0)
+    vw_throw( ArgumentErr() << "Cannot specify both the overlap limit and the overlap list.\n" << usage << general_options );
+    
   if ( opt.overlap_limit < 0 )
     vw_throw( ArgumentErr() << "Must allow search for matches between "
               << "at least each image and its subsequent one.\n" << usage << general_options );
@@ -1669,6 +1676,19 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if ( opt.overlap_limit == 0 )
     opt.overlap_limit = opt.image_files.size();
 
+  if (opt.overlap_list_file != "") {
+    if (!fs::exists(opt.overlap_list_file))
+      vw_throw( ArgumentErr() << "The overlap list does not exist.\n" << usage << general_options );
+    opt.overlap_list.clear();
+    std::string image1, image2;
+    std::ifstream ifs(opt.overlap_list_file.c_str());
+    while (ifs >> image1 >> image2){
+      opt.overlap_list.insert(std::pair<std::string, std::string>(image1, image2));
+      opt.overlap_list.insert(std::pair<std::string, std::string>(image2, image1));
+    }
+    ifs.close();
+  }
+  
   if ( opt.camera_weight < 0.0 )
     vw_throw( ArgumentErr() << "The camera weight must be non-negative.\n" << usage << general_options );
 
@@ -1822,6 +1842,15 @@ int main(int argc, char* argv[]) {
     for (int i = 0; i < num_images; i++){
       for (int j = i+1; j <= std::min(num_images-1, i+opt.overlap_limit); j++){
 
+        std::string image1_path  = opt.image_files[i];
+        std::string image2_path  = opt.image_files[j];
+        
+        // Look only at these pairs, if specified in a list
+        if (!opt.overlap_list.empty()) {
+          std::pair<std::string, std::string> pair(image1_path, image2_path);
+          if (opt.overlap_list.find(pair) == opt.overlap_list.end()) continue;
+        }
+        
         // If this option is set, don't try to match cameras that are too far apart.
         if (got_est_cam_positions && (opt.position_filter_dist > 0)) {
           Vector3 this_pos  = estimated_camera_gcc[i];
@@ -1838,21 +1867,15 @@ int main(int argc, char* argv[]) {
       
         // Load both images into a new StereoSession object and use it to find interest points.
         // - The points are written to a file on disk.
-        std::string image1_path  = opt.image_files[i];
-        std::string image2_path  = opt.image_files[j];
         std::string camera1_path = opt.camera_files[i];
         std::string camera2_path = opt.camera_files[j];        
-        
         std::string match_filename = ip::match_filename(opt.out_prefix, image1_path, image2_path);
-
         match_files[ std::pair<int, int>(i, j) ] = match_filename;
-
         if (fs::exists(match_filename)) {
           vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
           ++num_pairs_matched;
           continue;
         }
-
         boost::shared_ptr<DiskImageResource>
           rsrc1(asp::load_disk_image_resource(image1_path, camera1_path)),
           rsrc2(asp::load_disk_image_resource(image2_path, camera2_path));
