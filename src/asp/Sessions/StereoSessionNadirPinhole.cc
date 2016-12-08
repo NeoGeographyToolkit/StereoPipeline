@@ -156,15 +156,21 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
                    left_stats, right_stats, Limg, Rimg);
 
   // The output no-data value must be < 0 as we scale the images to [0, 1].
+  bool has_nodata = true;
   float output_nodata = -32768.0;
 
   vw_out() << "\t--> Writing pre-aligned images.\n";
   block_write_gdal_image( left_output_file, apply_mask(Limg, output_nodata),
-                          output_nodata, options,
+                          has_left_georef, left_georef,
+                          has_nodata, output_nodata,
+                          options,
                           TerminalProgressCallback("asp","\t  L:  ") );
   block_write_gdal_image( right_output_file,
-                          apply_mask(crop(edge_extend(Rimg,ZeroEdgeExtension()),bounding_box(Limg)), output_nodata),
-                          output_nodata, options,
+                          apply_mask(crop(edge_extend(Rimg,ZeroEdgeExtension()),
+                                          bounding_box(Limg)), output_nodata),
+                          has_right_georef, right_georef,
+                          has_nodata, output_nodata,
+                          options,
                           TerminalProgressCallback("asp","\t  R:  ") );
 
 }
