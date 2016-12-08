@@ -2150,6 +2150,11 @@ radius is measured in meters from planet center), '3:lat 2:lon
 (need to set \texttt{-\/-csv-proj4}; the height above datum is in
 meters). Can also use radius\_km for column\_type, when it is again
 measured from planet center. \\ \hline
+
+\texttt{-\/-csv-proj4 \textit{string}} & The PROJ.4 string to use to
+interpret the entries in input CSV file. If not specified, it will be
+borrowed from the DEM. \\ \hline
+
 \texttt{-\/-nodata-value \textit{float(=-32768)}} & The no-data value to use, unless present in the DEM geoheaders. \\ \hline
 \texttt{-\/-threads \textit{integer(=0)}} & Set the number of threads to use. 0 means use as many threads as there are cores.\\ \hline
 \texttt{-\/-no-bigtiff} & Tell GDAL to not create bigtiffs.\\ \hline

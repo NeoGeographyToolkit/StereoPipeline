@@ -45,7 +45,7 @@ public:
 };
 
 struct Options : vw::cartography::GdalWriteOptions {
-  string dem1_file, dem2_file, output_prefix, csv_format_str;
+  string dem1_file, dem2_file, output_prefix, csv_format_str, csv_proj4_str;
   double nodata_value;
 
   bool use_float, use_absolute;
@@ -63,7 +63,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("absolute",        po::bool_switch(&opt.use_absolute)->default_value(false), 
      "Output the absolute difference as opposed to just the difference.")
     ("csv-format",     po::value(&opt.csv_format_str)->default_value(""),
-     asp::csv_opt_caption().c_str());
+     asp::csv_opt_caption().c_str())
+    ("csv-proj4",      po::value(&opt.csv_proj4_str)->default_value(""), "The PROJ.4 string to use to interpret the entries in input CSV file. If not specified, it will be borrowed from the DEM.");
   general_options.add(vw::cartography::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
@@ -94,6 +95,27 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   vw::create_out_dir(opt.output_prefix);
 }
 
+void georef_sanity_checks(GeoReference const& georef1, GeoReference const& georef2){
+
+  // We don't support datum changes!
+  if (std::abs(georef1.datum().semi_major_axis()
+               - georef2.datum().semi_major_axis()) > 0.1 ||
+      std::abs(georef1.datum().semi_minor_axis()
+               - georef2.datum().semi_minor_axis()) > 0.1 ||
+      georef1.datum().meridian_offset() != georef2.datum().meridian_offset()) {
+    vw_throw(NoImplErr() << "geodiff can't difference DEMs which have differing "
+             << "datum radii or meridian offsets.\n");
+  }
+  if (georef1.datum().semi_major_axis() == georef2.datum().semi_major_axis() &&
+      georef1.datum().semi_minor_axis() == georef2.datum().semi_minor_axis() &&
+      georef1.datum().meridian_offset() == georef2.datum().meridian_offset() &&
+      georef1.datum().proj4_str()       != georef2.datum().proj4_str()) {
+    vw_out(WarningMessage) << "Found DEMs with same datum radii and meridian offsets but "
+                           << "different projection strings. Use some caution.\n";
+  }
+  
+}
+
 void dem2dem_diff(Options& opt){
   
   DiskImageResourceGDAL dem1_rsrc(opt.dem1_file), dem2_rsrc(opt.dem2_file);
@@ -117,23 +139,7 @@ void dem2dem_diff(Options& opt){
   if (!has_georef1 || !has_georef2) 
     vw_throw(ArgumentErr() << "geodiff cannot difference files without a georeference.\n");
   
-  // Transform DEM 2 into the same perspective as DEM 1. However, we
-  // don't support datum changes!
-  if (std::abs(dem1_georef.datum().semi_major_axis()
-               - dem2_georef.datum().semi_major_axis()) > 0.1 ||
-      std::abs(dem1_georef.datum().semi_minor_axis()
-               - dem2_georef.datum().semi_minor_axis()) > 0.1 ||
-      dem1_georef.datum().meridian_offset() != dem2_georef.datum().meridian_offset()) {
-    vw_throw(NoImplErr() << "geodiff can't difference DEMs which have differing "
-             << "datum radii or meridian offsets.\n");
-  }
-  if (dem1_georef.datum().semi_major_axis() == dem2_georef.datum().semi_major_axis() &&
-      dem1_georef.datum().semi_minor_axis() == dem2_georef.datum().semi_minor_axis() &&
-      dem1_georef.datum().meridian_offset() == dem2_georef.datum().meridian_offset() &&
-      dem1_georef.datum().proj4_str()       != dem2_georef.datum().proj4_str()) {
-    vw_out(WarningMessage) << "Found DEMs with same datum radii and meridian offsets but "
-                           << "different projection strings. Use some caution.\n";
-  }
+  georef_sanity_checks(dem1_georef, dem2_georef);
 
   // Generate a bounding box that is the minimum of the two BBox areas
   BBox2 crop_box = bounding_box(dem1_disk_image_view);
@@ -213,28 +219,39 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
   }
   
   // Read the DEM georef
-  GeoReference georef;
-  bool has_georef = read_georeference(georef, dem_file);
+  GeoReference dem_georef;
+  bool has_georef = read_georeference(dem_georef, dem_file);
   if (!has_georef) 
     vw_throw(ArgumentErr() << "geodiff cannot load a georeference from: " << dem_file << ".\n");
 
+  if (opt.csv_proj4_str == "") {
+    // Copy from the DEM
+    opt.csv_proj4_str = dem_georef.overall_proj4_str();
+  }
+  
   // Configure a CSV converter object according to the input parameters
   asp::CsvConv csv_conv;
-  std::string csv_proj4_str;
-  csv_conv.parse_csv_format(opt.csv_format_str, csv_proj4_str); // Modifies csv_conv
+  csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_proj4_str); // Modifies csv_conv
   if (!csv_conv.is_configured()) 
     vw_throw(ArgumentErr() << "Could not configure the csv parser.\n");
+
+  // Set the georef for CSV files
+  GeoReference csv_georef = dem_georef;
+  csv_conv.parse_georef(csv_georef);
 
   std::list<asp::CsvConv::CsvRecord> csv_records;
   typedef std::list<asp::CsvConv::CsvRecord>::const_iterator RecordIter;
   csv_conv.read_csv_file(csv_file, csv_records);
 
+  // We assume here that the CSV file and the DEM have the same georef!
+  // What if csv_proj4_str was specified?
+  
   std::vector<Vector3> csv_llh;
   for (RecordIter iter = csv_records.begin(); iter != csv_records.end(); iter++) {
-    Vector3 xyz = csv_conv.csv_to_cartesian(*iter, georef);
+    Vector3 xyz = csv_conv.csv_to_cartesian(*iter, csv_georef);
     if (xyz == Vector3() || xyz != xyz)
       continue; // invalid point
-    Vector3 llh = georef.datum().cartesian_to_geodetic(xyz);
+    Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz); // use the dem's datum
     csv_llh.push_back(llh);
   }
 
@@ -256,7 +273,7 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
 
     Vector3 llh = csv_llh[it];
     Vector2 ll  = subvector(llh, 0, 2);
-    Vector2 pix = georef.lonlat_to_pixel(ll);
+    Vector2 pix = dem_georef.lonlat_to_pixel(ll);
     
     // Check for out of range
     if (pix[0] < 0 || pix[0] > dem.cols() - 1) continue;
@@ -298,7 +315,7 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
   std::ofstream outfile( output_file.c_str() );
   outfile.precision(16);
   outfile << "# longitude,latitude, height diff (m)" << std::endl;
-  outfile << "# " << georef.datum() << std::endl;
+  outfile << "# " << csv_georef.datum() << std::endl;
   outfile << "# Max difference:       " << diff_max  << std::endl;
   outfile << "# Min difference:       " << diff_min  << std::endl;
   outfile << "# Mean difference:      " << diff_mean << std::endl;
