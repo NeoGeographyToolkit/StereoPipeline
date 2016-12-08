@@ -242,9 +242,6 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
   std::list<asp::CsvConv::CsvRecord> csv_records;
   typedef std::list<asp::CsvConv::CsvRecord>::const_iterator RecordIter;
   csv_conv.read_csv_file(csv_file, csv_records);
-
-  // We assume here that the CSV file and the DEM have the same georef!
-  // What if csv_proj4_str was specified?
   
   std::vector<Vector3> csv_llh;
   for (RecordIter iter = csv_records.begin(); iter != csv_records.end(); iter++) {
