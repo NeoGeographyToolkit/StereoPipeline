@@ -312,7 +312,7 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
   std::ofstream outfile( output_file.c_str() );
   outfile.precision(16);
   outfile << "# longitude,latitude, height diff (m)" << std::endl;
-  outfile << "# " << csv_georef.datum() << std::endl;
+  outfile << "# " << dem_georef.datum() << std::endl; // dem's datum
   outfile << "# Max difference:       " << diff_max  << std::endl;
   outfile << "# Min difference:       " << diff_min  << std::endl;
   outfile << "# Mean difference:      " << diff_mean << std::endl;
