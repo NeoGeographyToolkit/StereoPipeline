@@ -361,7 +361,7 @@ namespace asp{
 
   OrthoRasterizerView::OrthoRasterizerView
   (ImageViewRef<Vector3> point_image, ImageViewRef<double> texture,
-   double search_radius_factor, bool use_surface_sampling, int pc_tile_size,
+   double search_radius_factor, double sigma_factor, bool use_surface_sampling, int pc_tile_size,
    vw::BBox2 const& projwin,
    bool remove_outliers_with_pct, Vector2 const& remove_outliers_params,
    ImageViewRef<double> const& error_image, double estim_max_error,
@@ -373,6 +373,7 @@ namespace asp{
     m_bbox(BBox3()), m_snapped_bbox(BBox3()), m_spacing(0.0), m_default_spacing(0.0),
     m_default_spacing_x(0.0), m_default_spacing_y(0.0),
     m_search_radius_factor(search_radius_factor),
+    m_sigma_factor(sigma_factor),
     m_use_surface_sampling(use_surface_sampling),
     m_default_value(0),
     m_minz_as_default(true), m_use_alpha(false),
@@ -598,7 +599,7 @@ namespace asp{
 				      local_3d_bbox.min().x(),
 				      local_3d_bbox.min().y(),
 				      m_spacing, m_default_spacing,
-				      search_radius);
+				      search_radius, m_sigma_factor);
 
     // Set up the default color value
     double min_val = 0.0;

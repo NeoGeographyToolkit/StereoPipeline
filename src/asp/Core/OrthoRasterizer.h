@@ -50,6 +50,7 @@ namespace asp{
     double  m_default_spacing_x;
     double  m_default_spacing_y;
     double  m_search_radius_factor;
+    double  m_sigma_factor;
     bool    m_use_surface_sampling;
     double  m_default_value;
     bool    m_minz_as_default;
@@ -82,7 +83,9 @@ namespace asp{
     /// Constructor.  You must call initialize_spacing before using the object!!
     OrthoRasterizerView(ImageViewRef<Vector3> point_image,
 			ImageViewRef<double> texture,
-			double  search_radius_factor, bool use_surface_sampling,
+			double  search_radius_factor,
+			double sigma_factor,
+			bool use_surface_sampling,
 			int     pc_tile_size,
 			vw::BBox2 const& projwin,
 			bool remove_outliers_with_pct,

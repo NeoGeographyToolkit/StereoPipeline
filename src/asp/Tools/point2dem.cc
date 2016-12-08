@@ -93,7 +93,7 @@ struct Options : vw::cartography::GdalWriteOptions {
   Vector2     median_filter_params;
   int         erode_len;
   std::string csv_format_str, csv_proj4_str;
-  double      search_radius_factor;
+  double      search_radius_factor, sigma_factor;
   bool        use_surface_sampling;
   bool        has_las_or_csv;
 
@@ -105,7 +105,7 @@ struct Options : vw::cartography::GdalWriteOptions {
 	      semi_major(0), semi_minor(0), fsaa(1),
 	      dem_hole_fill_len(0), ortho_hole_fill_len(0),
 	      remove_outliers_with_pct(true), max_valid_triangulation_error(0),
-	      erode_len(0), search_radius_factor(0), use_surface_sampling(false),
+	      erode_len(0), search_radius_factor(0), sigma_factor(0), use_surface_sampling(false),
 	      has_las_or_csv(false){}
 };
 
@@ -404,8 +404,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 	    "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")
     ("search-radius-factor", po::value(&opt.search_radius_factor)->default_value(0.0),
 	     "Multiply this factor by dem-spacing to get the search radius. The DEM height at a given grid point is obtained as a weighted average of heights of all points in the cloud within search radius of the grid point, with the weights given by a Gaussian. Default search radius: max(dem-spacing, default_dem_spacing), so the default factor is about 1.")
+    ("gaussian-sigma-factor", po::value(&opt.sigma_factor)->default_value(0.0),
+     "The value s to be used in the Gaussian exp(-s*(x/grid_size)^2) when computing the DEM. The default is -log(0.25) = 1.3863.")
     ("use-surface-sampling", po::bool_switch(&opt.use_surface_sampling)->default_value(false),
-	       "Use the older algorithm, interpret the point cloud as a surface made up of triangles and interpolate into it (prone to aliasing).")
+     "Use the older algorithm, interpret the point cloud as a surface made up of triangles and interpolate into it (prone to aliasing).")
     ("fsaa",   po::value<int>(&opt.fsaa)->default_value(1),            "Oversampling amount to perform antialiasing (obsolete).")
     ("no-dem", po::bool_switch(&opt.no_dem)->default_value(false), "Skip writing a DEM.");
 
@@ -1035,7 +1037,7 @@ void do_software_rasterization_multi_spacing( const ImageViewRef<Vector3>& proj_
   sw1.start();
   asp::OrthoRasterizerView
     rasterizer(proj_point_input.impl(), select_channel(proj_point_input.impl(),2),
-	       opt.search_radius_factor, opt.use_surface_sampling,
+	       opt.search_radius_factor, opt.sigma_factor, opt.use_surface_sampling,
 	       asp::ASPGlobalOptions::tri_tile_size(), // to efficiently process the cloud
 	       opt.target_projwin,
 	       opt.remove_outliers_with_pct, opt.remove_outliers_params,

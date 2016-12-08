@@ -31,7 +31,8 @@ namespace vw { namespace stereo {
     Point2Grid(int width, int height,
                ImageView<double> & buffer, ImageView<double> & weights,
                double x0, double y0,
-               double grid_size, double min_spacing, double radius);
+               double grid_size, double min_spacing, double radius,
+	       double sigma_factor);
     ~Point2Grid(){}
     void Clear(const float val);
     void AddPoint(double x, double y, double z);

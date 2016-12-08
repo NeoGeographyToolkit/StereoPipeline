@@ -36,10 +36,11 @@ using namespace stereo;
 Point2Grid::Point2Grid(int width, int height,
                        ImageView<double> & buffer, ImageView<double> & weights,
                        double x0, double y0, double grid_size, double min_spacing,
-                       double radius): m_width(width), m_height(height),
-                                       m_buffer(buffer), m_weights(weights),
-                                       m_x0(x0), m_y0(y0), m_grid_size(grid_size),
-                                       m_radius(radius){
+                       double radius, double sigma_factor):
+  m_width(width), m_height(height),
+  m_buffer(buffer), m_weights(weights),
+  m_x0(x0), m_y0(y0), m_grid_size(grid_size),
+  m_radius(radius){
   if (m_grid_size <= 0)
     vw_throw( ArgumentErr() << "Point2Grid: Grid size must be > 0.\n" );
   if (m_radius <= 0)
@@ -54,6 +55,10 @@ Point2Grid::Point2Grid(int width, int height,
   double val = 0.25;
   double sigma = -log(val)/spacing/spacing;
 
+  // Override this if passed from outside
+  if (sigma_factor > 0)
+    sigma = sigma_factor/spacing/spacing;
+  
   // Sample the gaussian for speed
   int num_samples = 1000;
   m_dx = m_radius/(num_samples - 1.0);
