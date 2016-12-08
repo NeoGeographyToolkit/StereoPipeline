@@ -451,6 +451,7 @@ AX_APP(ASTER2ASP,        [src/asp/Tools], yes, [CORE CAMERA])
 AX_APP(ADD_SPOT_RPC,     [src/asp/Tools], yes, [CORE CAMERA])
 AX_APP(ICEBRIDGE,        [src/asp/Tools], yes, [VW VW_CARTOGRAPHY])
 AX_APP(ORTHO2PINHOLE,    [src/asp/Tools], yes, [SESSIONS])
+AX_APP(NATURAL_NEIB,     [src/asp/Hidden], yes, [CORE])
 
 # These are here (instead of inside the APP macro where they belong)
 # for backwards compatability with older versions of automake.
@@ -494,6 +495,7 @@ AM_CONDITIONAL(MAKE_APP_DISP_AVG,   [test "$MAKE_APP_DISP_AVG"   = "yes"])
 AM_CONDITIONAL(MAKE_APP_ASTER2ASP,  [test "$MAKE_APP_ASTER2ASP"  = "yes"])
 AM_CONDITIONAL(MAKE_APP_ICEBRIDGE,     [test "$MAKE_APP_ICEBRIDGE"  = "yes"])
 AM_CONDITIONAL(MAKE_APP_ORTHO2PINHOLE, [test "$MAKE_APP_ORTHO2PINHOLE" = "yes"])
+AM_CONDITIONAL(MAKE_APP_NATURAL_NEIB,  [test "$MAKE_APP_NATURAL_NEIB"   = "yes"])
 
 ##################################################
 # final processing
@@ -539,8 +541,9 @@ AC_CONFIG_FILES([                        \
   src/asp/SpiceIO/Makefile               \
   src/asp/GUI/Makefile                   \
   src/asp/Python/Makefile                \
-  src/asp/Tools/Makefile
-  src/asp/WVCorrect/Makefile
+  src/asp/Tools/Makefile                 \
+  src/asp/WVCorrect/Makefile             \
+  src/asp/Hidden/Makefile
 ])
 
 AC_OUTPUT

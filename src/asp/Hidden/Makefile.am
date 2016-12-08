@@ -25,9 +25,9 @@ bin_SCRIPTS =
 libexec_SCRIPTS =
 libexec_PROGRAMS = # Auxiliary C++ executables
 
-disp_avg_LDADD       = $(APP_DISP_AVG_LIBS)
-disp_avg_SOURCES     = disp_avg.cc
-bin_PROGRAMS        += disp_avg
+natural_neib_LDADD    = $(APP_NATURAL_NEIB_LIBS)
+natural_neib_SOURCES  = natural_neib.cc
+bin_PROGRAMS         += natural_neib
 
 # Scripts
 ##############################################################################
@@ -52,6 +52,6 @@ AM_LDFLAGS  = @ASP_LDFLAGS@
 
 SUBDIRS = .
 
-includedir = $(prefix)/include/asp/WVCorrect
+includedir = $(prefix)/include/asp/Hidden
 
 include $(top_srcdir)/config/rules.mak
