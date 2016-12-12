@@ -10,6 +10,9 @@ Official releases at:
 Daily builds of the latest development version at:
   http://byss.arc.nasa.gov/stereopipeline/daily_build/
 
+The software can be unpacked and used from where it was downloaded, 
+hence no installation or administrative rights are necessary.
+
 B. Using the Software
 
 When you unpack the Stereo Pipeline tarball, it will contain a copy of
