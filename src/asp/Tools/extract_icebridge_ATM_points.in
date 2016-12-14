@@ -4,10 +4,21 @@ import sys, os, optparse
 
 # The path to the ASP qi2txt file
 basepath    = os.path.abspath(sys.path[0])
-libexecpath = os.path.abspath(basepath + '/../libexec')
+pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
+libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
 sys.path.insert(0, basepath) # prepend to path
+sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
+os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
+
+import sys
+import os, glob, re, shutil, subprocess, string, time, errno, optparse, math
+
+import asp_system_utils, asp_cmd_utils
+asp_system_utils.verify_python_version_is_supported()
+
+# Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
 def extract_qi_points(inputPath):
@@ -68,8 +79,19 @@ def extract_hdf5_points(inputPath):
 
 def main(argsIn):
 
+    # Use parser that ignores unknown options
+    usage  = "usage: " + os.path.basename(__file__) + " <input cloud>"
+    parser = asp_cmd_utils.PassThroughOptionParser(usage=usage, epilog="")
+
+    # This call handles all the parallel_mapproject specific options.
+    (options, args) = parser.parse_args(argsIn)
+
+    if len(args) < 1:
+        parser.print_help()
+        parser.error("Missing input ATM cloud.\n" );
+        
     # Get the input file and figure out the converter to use
-    inputPath = argsIn[0]
+    inputPath = args[0]
     
     ext = os.path.splitext(inputPath)[1]
 
