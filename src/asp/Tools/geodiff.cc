@@ -149,6 +149,9 @@ void dem2dem_diff(Options& opt){
   BBox2 box21 = gt.forward_bbox(bounding_box(dem2_disk_image_view));
   crop_box.crop(box21);
 
+  if (crop_box.empty()) 
+    vw_throw(ArgumentErr() << "The two DEMs do not have a common area.\n");
+    
   ImageViewRef<PixelMask<double> > dem2_trans =
     crop(geo_transform
 	 (per_pixel_filter(dem_to_geodetic
