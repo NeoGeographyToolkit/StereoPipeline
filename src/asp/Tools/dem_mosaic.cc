@@ -428,7 +428,12 @@ public:
     m_imgMgr(imgMgr), m_georefs(georefs),
     m_out_georef(out_georef), m_nodata_values(nodata_values),
     m_dem_pixel_bboxes(dem_pixel_bboxes){
-    
+
+    if (imgMgr.size() != georefs.size()       ||
+        imgMgr.size() != nodata_values.size() ||
+        imgMgr.size() != dem_pixel_bboxes.size())
+      vw_throw(ArgumentErr() << "Inputs expected to have the same size do not.\n");
+
     // Sanity check, see if datums differ, then the tool won't work
     for (int i = 0; i < (int)m_georefs.size(); i++) {
       if (std::abs(m_georefs[i].datum().semi_major_axis()
@@ -437,8 +442,8 @@ public:
                    - m_out_georef.datum().semi_minor_axis() ) > 0.1 ||
           m_georefs[i].datum().meridian_offset()
           != m_out_georef.datum().meridian_offset() ){
-        vw_throw(NoImplErr() << "Mosaicking of DEMs with differing datum radii or meridian offsets "
-                 << "is not implemented. Datums encountered:\n"
+        vw_throw(NoImplErr() << "Mosaicking of DEMs with differing datum radii "
+                 << " or meridian offsets is not implemented. Datums encountered:\n"
                  << m_georefs[i].datum() << "\n"
                  <<  m_out_georef.datum() << "\n");
       }
@@ -584,7 +589,7 @@ public:
 	  }
 	}
       }
-	
+
       // Mark the handle to the image as not in use, though we still
       // keep that image file open, for increased performance, unless
       // their number becomes too large.
@@ -605,7 +610,7 @@ public:
 	local_wts = weights_from_centerline
           (create_mask_less_or_equal(select_channel(dem2, 0), nodata_value));
       }
-      
+
       // If we don't limit the weights from above, we will have tiling artifacts,
       // as in different tiles the weights grow to different heights since
       // they are cropped to different regions. for priority blending length,
@@ -842,7 +847,7 @@ public:
 	} // End row loop
       } // End col loop
     } // End stddev case
-    
+
     // For the median operation
     if (m_opt.median){
       // Init output pixels to nodata
@@ -1113,7 +1118,7 @@ void load_dem_bounding_boxes(Options       const& opt,
                  << "This can result in an output DEM *much* larger than expected. "
                  << "Consider changing your output georeference options or your inputs.\n";
       }
-      
+
       mosaic_bbox.grow(proj_box);
       dem_proj_bboxes.push_back(proj_box);
     } // End second case
@@ -1432,25 +1437,18 @@ int main( int argc, char *argv[] ) {
     // Load the bounding boxes from all of the DEMs
     BBox2 mosaic_bbox;
     vector<BBox2> dem_proj_bboxes;
-    vector<BBox2i> dem_pixel_bboxes;
+    vector<BBox2i> dem_pixel_bboxes, loaded_dem_pixel_bboxes;
     load_dem_bounding_boxes(opt, mosaic_georef, mosaic_bbox,
                             dem_proj_bboxes, dem_pixel_bboxes);
 
-    // If to create the mosaic only in a given region
-    if (opt.projwin != BBox2())
+    if (opt.projwin != BBox2()) {
+      // If to create the mosaic only in a given region
       mosaic_bbox.crop(opt.projwin);
-
-    // Display which DEMs will end up being used for the current box
-    if (opt.projwin != BBox2()){
-      for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++){
-        BBox2 box = dem_proj_bboxes[dem_iter];
-        box.crop(mosaic_bbox);
-        // Turn this message off. Too verbose.
-        //if (!box.empty())
-        //  vw_out() << "Using: " << opt.dem_files[dem_iter] << std::endl;
-      }
+      // Crop the proj boxes as well
+      for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++)
+        dem_proj_bboxes[dem_iter].crop(opt.projwin);
     }
-
+    
     // First-guess pixel box
     BBox2 pixel_box = custom_point_to_pixel_bbox(mosaic_georef, mosaic_bbox);
 
@@ -1463,7 +1461,6 @@ int main( int argc, char *argv[] ) {
     // Image size
     pixel_box = custom_point_to_pixel_bbox(mosaic_georef, mosaic_bbox);
     Vector2 end_pix = pixel_box.max();
-
     int cols = (int)round(end_pix[0]); // end_pix is the last pix in the image
     int rows = (int)round(end_pix[1]);
 
@@ -1589,6 +1586,7 @@ int main( int argc, char *argv[] ) {
       // Add the info for this DEM to the appropriate vectors
       nodata_values.push_back(curr_nodata_value);
       georefs.push_back(georef);
+      loaded_dem_pixel_bboxes.push_back(dem_pixel_box);
     } // End loop through DEM files
     
     // Time to generate each of the output tiles
@@ -1606,7 +1604,7 @@ int main( int argc, char *argv[] ) {
         = crop(DemMosaicView(cols, rows, bias, opt,
                              imgMgr, georefs,
                              mosaic_georef, nodata_values,
-                             dem_pixel_bboxes),
+                             loaded_dem_pixel_bboxes),
                tile_box);
       GeoReference crop_georef = crop(mosaic_georef, tile_box.min().x(),
 				      tile_box.min().y());
