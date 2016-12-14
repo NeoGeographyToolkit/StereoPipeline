@@ -392,8 +392,10 @@ is compared to the field of view of the camera. You may want to experiment using
 Other IceBridge flights contain data from the Airborne Topographic Mapper (ATM) lidar sensor.  
 Data from this sensor comes packed in one of several formats (variants of .qi or .h5) so
 ASP provides the \texttt{extract\_icebridge\_ATM\_points} tool to convert them into plain
-text files readable using the formatting:
-\begin{verbatim}  --csv-format "1:lat 2:lon 3:height_above_datum"  \end{verbatim}
+text files, which later can be read into other ASP tools using the formatting:
+\begin{verbatim}
+  --csv-format "1:lat 2:lon 3:height_above_datum"
+\end{verbatim}
 To run the tool, just pass in the name of the input file as an argument and a new file with a
 csv extension will be created in the same directory.
 Using the ATM sensor data is similar to using the LVIS sensor data.
