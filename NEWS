@@ -69,7 +69,8 @@
 
  - Misc
   * Minimum supported OSX version is 10.9.
-   
+  * Ship with ASP gdalwarp and gdaldem.
+ 
 *** RELEASE 2.5.3, August 24, 2016 ***
 
 Highlights
