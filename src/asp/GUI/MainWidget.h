@@ -90,6 +90,7 @@ namespace vw { namespace gui {
                int image_id,
                std::string& output_prefix,
                std::vector<std::string> const& image_files,
+               std::string const& base_image_file,
                std::vector<std::vector<ip::InterestPoint> > & matches,
                chooseFilesDlg * chooseFiles, bool use_georef,
                bool hillshade, bool view_matches, bool zoom_all_to_same_region);
@@ -121,9 +122,13 @@ namespace vw { namespace gui {
 
     void setZoomAllToSameRegion(bool zoom_all_to_same_region);
     vw::BBox2 current_view();
-    void zoom_to_region (vw::BBox2 const& region);
-    
-    
+    void zoomToRegion (vw::BBox2 const& region);
+    bool hillshadeMode() const;
+    void setHillshadeMode(bool hillshade_mode);
+    BBox2 firstImagePixelBox() const;
+    BBox2 firstImageWorldBox(vw::BBox2 const& image_box) const;
+    void setWorldBox(vw::BBox2 const& box);
+
     signals:
     void refreshAllMatches();
     void removeImageAndRefreshSignal();
@@ -232,7 +237,13 @@ public slots:
     bool m_use_colormap;
 
     std::vector<imageData> m_images;
-    BBox2 m_images_box;
+
+    // We will render in this image's pixel or projected domain.
+    // This only becomes important if using georeference, and the images
+    // have different projections.
+    imageData m_base_image; 
+
+    BBox2 m_world_box;
     
     std::vector<vw::cartography::GeoTransform> m_world2image_geotransforms;
     std::vector<vw::cartography::GeoTransform> m_image2world_geotransforms;
@@ -299,13 +310,13 @@ public slots:
     /// - Called internally by drawImage
     void drawInterestPoints(QPainter* paint, std::list<BBox2i> const& valid_regions);
 
-    vw::Vector2 world2screen(vw::Vector2 const& p);
-    vw::Vector2 screen2world(vw::Vector2 const& pix);
-    BBox2       world2screen(BBox2 const& R);
-    BBox2       screen2world(BBox2 const& R);
-    Vector2     world2image(Vector2 const& P, int imageIndex);
-    BBox2       world2image(BBox2 const& R, int imageIndex);
-    BBox2       image2world(BBox2 const& R, int imageIndex);
+    vw::Vector2 world2screen(vw::Vector2 const& p) const;
+    vw::Vector2 screen2world(vw::Vector2 const& pix) const;
+    BBox2       world2screen(BBox2 const& R) const;
+    BBox2       screen2world(BBox2 const& R) const;
+    Vector2     world2image(Vector2 const& P, int imageIndex) const;
+    BBox2       world2image(BBox2 const& R, int imageIndex) const;
+    BBox2       image2world(BBox2 const& R, int imageIndex) const;
     vw::BBox2   expand_box_to_keep_aspect_ratio(vw::BBox2 const& box);
 
     void updateCurrentMousePosition();

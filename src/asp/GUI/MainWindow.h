@@ -148,11 +148,12 @@ namespace vw { namespace gui {
     char **  m_argv;
     bool     m_matches_exist;
     std::string m_match_file;
-
-    // Any vector of size equal to number of images must be adjusted when the function
-    // deleteImageFromWidget() is invoked. That includes m_image_paths and m_matches.
+    std::vector<bool> m_hillshade_vec;
     
-    std::vector<std::string>  m_image_paths; ///< Loaded image files
+    // Any vector of size equal to number of images must be adjusted when the function
+    // deleteImageFromWidget() is invoked. That includes m_image_files and m_matches.
+    
+    std::vector<std::string>  m_image_files; ///< Loaded image files
 
     /// A set of interest points for each input image
     /// - There is always one set of matched interest points shared among all images.

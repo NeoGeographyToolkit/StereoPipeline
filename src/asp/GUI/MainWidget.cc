@@ -49,7 +49,7 @@ namespace vw { namespace gui {
   // Convert a position in the world coordinate system to a pixel
   // position as seen on screen (the screen origin is the
   // visible upper-left corner of the widget).
-  vw::Vector2 MainWidget::world2screen(vw::Vector2 const& p){
+  vw::Vector2 MainWidget::world2screen(vw::Vector2 const& p) const{
 
     double x = m_window_width*((p.x() - m_current_view.min().x())
                                /m_current_view.width());
@@ -67,7 +67,7 @@ namespace vw { namespace gui {
 
   // Convert a pixel on the screen to world coordinates.
   // See world2image() for the definition.
-  vw::Vector2 MainWidget::screen2world(vw::Vector2 const& p){
+  vw::Vector2 MainWidget::screen2world(vw::Vector2 const& p) const{
 
     // First undo the empty border margin
     double x = p.x(), y = p.y();
@@ -83,14 +83,14 @@ namespace vw { namespace gui {
     return vw::Vector2(x, y);
   }
 
-  BBox2 MainWidget::screen2world(BBox2 const& R) {
+  BBox2 MainWidget::screen2world(BBox2 const& R) const{
     if (R.empty()) return R;
     Vector2 A = screen2world(R.min());
     Vector2 B = screen2world(R.max());
     return BBox2(A, B);
   }
 
-  BBox2 MainWidget::world2screen(BBox2 const& R) {
+  BBox2 MainWidget::world2screen(BBox2 const& R) const {
     if (R.empty()) return R;
     Vector2 A = world2screen(R.min());
     Vector2 B = world2screen(R.max());
@@ -101,13 +101,13 @@ namespace vw { namespace gui {
   // first image, with y replaced with -y, to keep the y axis downward,
   // for consistency with how images are plotted.  Convert a world box
   // to a pixel box for the given image.
-  Vector2 MainWidget::world2image(Vector2 const& P, int imageIndex) {
+  Vector2 MainWidget::world2image(Vector2 const& P, int imageIndex) const{
     if (!m_use_georef)
       return P;
     return m_world2image_geotransforms[imageIndex].point_to_pixel(flip_in_y(P));
   }
 
-  BBox2 MainWidget::world2image(BBox2 const& R, int imageIndex) {
+  BBox2 MainWidget::world2image(BBox2 const& R, int imageIndex) const{
 
     if (R.empty()) 
       return R;
@@ -121,7 +121,7 @@ namespace vw { namespace gui {
   }
 
   // The reverse of world2image()
-  BBox2 MainWidget::image2world(BBox2 const& R, int imageIndex) {
+  BBox2 MainWidget::image2world(BBox2 const& R, int imageIndex) const{
 
     if (R.empty()) return R;
     if (m_images.empty()) return R;
@@ -138,6 +138,7 @@ namespace vw { namespace gui {
                          int image_id,
                          std::string & output_prefix,
                          std::vector<std::string> const& image_files,
+                         std::string const& base_image_file,
                          std::vector<std::vector<vw::ip::InterestPoint> > & matches,
                          chooseFilesDlg * chooseFiles,
                          bool use_georef, bool hillshade, bool view_matches,
@@ -150,10 +151,7 @@ namespace vw { namespace gui {
     m_can_emit_zoom_all_signal = false;
     
     // Each image can be hillshaded independently of the other ones
-    m_hillshade_mode.resize(m_image_files.size());
-    for (size_t image_iter = 0; image_iter < m_hillshade_mode.size(); image_iter++) {
-      m_hillshade_mode[image_iter] = hillshade;
-    }
+    MainWidget::setHillshadeMode(hillshade);
     
     installEventFilter(this);
 
@@ -163,7 +161,8 @@ namespace vw { namespace gui {
     m_cropWinMode     = false;
     m_profileMode     = false;
     m_profilePlot     = NULL;
-
+    m_world_box       = BBox2();
+    
     m_mousePrsX = 0; m_mousePrsY = 0;
 
     m_border_factor = 0.95;
@@ -200,19 +199,23 @@ namespace vw { namespace gui {
     m_image2world_geotransforms.resize(num_images);
     for (int i = 0; i < num_images; i++){
       m_images[i].read(image_files[i], m_opt, m_use_georef);
+
+      // Read the base image, if different from the current image
+      if (i == 0){
+        if (image_files[i] == base_image_file) {
+          m_base_image = m_images[i];
+        }else{
+          m_base_image.read(base_image_file, m_opt, m_use_georef);
+        }
+      }
       
       // Make sure we set these up before the image2world call below!
-      m_world2image_geotransforms[i] = GeoTransform(m_images[0].georef, m_images[i].georef);
-      m_image2world_geotransforms[i] = GeoTransform(m_images[i].georef, m_images[0].georef);
+      m_world2image_geotransforms[i] = GeoTransform(m_base_image.georef, m_images[i].georef);
+      m_image2world_geotransforms[i] = GeoTransform(m_images[i].georef, m_base_image.georef);
       
       m_filesOrder[i] = i; // start by keeping the order of files being read
-      if (!m_use_georef){
-        m_images_box.grow(m_images[i].image_bbox);
-      }else{
-        // Convert from pixels in image i to world coordinates.
-        BBox2 B = MainWidget::image2world(m_images[i].image_bbox, i);
-        m_images_box.grow(B);
-      }
+      BBox2 B = MainWidget::image2world(m_images[i].image_bbox, i);
+      m_world_box.grow(B);
     }
 
     m_shadow_thresh = -std::numeric_limits<double>::max();
@@ -398,9 +401,16 @@ namespace vw { namespace gui {
     return out_box;
   }
 
+  // Over-ride the world box. Useful when zooming all images to same region.
+  void MainWidget::setWorldBox(BBox2 const& box){
+    m_world_box = box;
+  }
+  
+  // Zoom to show each image fully, unless one messed up with
+  // m_world_box, as it happens when zooming all images to same region.
   void MainWidget::sizeToFit() {
 
-    m_current_view = expand_box_to_keep_aspect_ratio(m_images_box);
+    m_current_view = expand_box_to_keep_aspect_ratio(m_world_box);
     
     // If this is the first time we draw the image, so right when
     // we started, invoke update() which will invoke paintEvent().
@@ -418,18 +428,34 @@ namespace vw { namespace gui {
 
   void MainWidget::viewUnthreshImages(){
     m_shadow_thresh_view_mode = false;
-
-    for (size_t image_iter = 0; image_iter < m_hillshade_mode.size(); image_iter++) 
-      m_hillshade_mode[image_iter] = false;
-
+    MainWidget::setHillshadeMode(false);
     refreshPixmap();
   }
 
+  // The region that is currently viewable, in the first image pixel domain
+  BBox2 MainWidget::firstImagePixelBox() const{
+    
+    if (m_images.size() == 0) {
+      // Must never happen
+      vw_out() << "Did not expect no images!";
+      vw_throw(ArgumentErr() << "Did not expect no images.\n");
+    }
+    return MainWidget::world2image(m_current_view, 0);
+  }
+
+  // The current image box in world coordinates
+  BBox2 MainWidget::firstImageWorldBox(BBox2 const& image_box) const{
+    if (m_images.size() == 0) {
+      // Must never happen
+      vw_out() << "Did not expect no images!";
+      vw_throw(ArgumentErr() << "Did not expect no images.\n");
+    }
+    return MainWidget::image2world(image_box, 0);
+  }
+  
   void MainWidget::viewThreshImages(){
     m_shadow_thresh_view_mode = true;
-
-    for (size_t image_iter = 0; image_iter < m_hillshade_mode.size(); image_iter++) 
-      m_hillshade_mode[image_iter] = false;
+    MainWidget::setHillshadeMode(false);
 
     if (m_images.size() != 1) {
       popUp("Must have just one image in each window to be able to view thresholded images.");
@@ -572,20 +598,36 @@ namespace vw { namespace gui {
   }
 
   void MainWidget::viewHillshadedImages(bool hillshade_mode){
-
-    for (size_t image_iter = 0; image_iter < m_hillshade_mode.size(); image_iter++) 
-      m_hillshade_mode[image_iter] = hillshade_mode;
-    
+    MainWidget::setHillshadeMode(hillshade_mode);
     refreshHillshade();
   }
 
   void MainWidget::toggleHillshade(){
+    m_hillshade_mode.resize(m_image_files.size());
     for (size_t image_iter = 0; image_iter < m_hillshade_mode.size(); image_iter++) 
       m_hillshade_mode[image_iter] = !m_hillshade_mode[image_iter];
 
     refreshHillshade();
   }
 
+  bool MainWidget::hillshadeMode() const {
+    if (m_hillshade_mode.empty()) return false;
+
+    // If we have to return just one value, one image not being
+    // hillshaded will imply that the value is false
+    for (size_t it = 0; it < m_hillshade_mode.size(); it++) {
+      if (!m_hillshade_mode[it]) return false;
+    }
+    return true;
+  }
+
+  // Each image can be hillshaded independently of the others
+  void MainWidget::setHillshadeMode(bool hillshade_mode){
+    m_hillshade_mode.resize(m_image_files.size());
+    for (size_t image_iter = 0; image_iter < m_hillshade_mode.size(); image_iter++) 
+      m_hillshade_mode[image_iter] = hillshade_mode;
+  }
+  
   // The image with the given index will be on top when shown.
   void MainWidget::putImageOnTop(int image_index){
     std::vector<int>::iterator it = std::find(m_filesOrder.begin(), m_filesOrder.end(), image_index);
@@ -862,8 +904,6 @@ namespace vw { namespace gui {
   } // End function drawInterestPoints
 
 
-
-
   void MainWidget::updateCurrentMousePosition() {
     m_curr_world_pos = screen2world(m_curr_pixel_pos);
   }
@@ -876,7 +916,7 @@ namespace vw { namespace gui {
     return m_current_view;
   }
 
-  void MainWidget::zoom_to_region(vw::BBox2 const& region){
+  void MainWidget::zoomToRegion(vw::BBox2 const& region){
     if (region.empty()) {
       popUp("Cannot zoom to empty region.");
       return;
@@ -884,7 +924,7 @@ namespace vw { namespace gui {
     m_current_view = expand_box_to_keep_aspect_ratio(region);
     MainWidget::refreshPixmap();
   }
-  
+
   // --------------------------------------------------------------
   //             MainWidget Event Handlers
   // --------------------------------------------------------------
@@ -1009,7 +1049,6 @@ namespace vw { namespace gui {
   void MainWidget::mouseMoveEvent(QMouseEvent *event) {
 
     if (event->modifiers() & Qt::AltModifier) {
-
 #if 0
       // Diff variables are just the movement of the mouse normalized to
       // 0.0-1.0;

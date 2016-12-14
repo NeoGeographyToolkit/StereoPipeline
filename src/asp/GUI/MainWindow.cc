@@ -42,6 +42,8 @@ using namespace vw::gui;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
+size_t BASE_IMAGE_INDEX = 0;
+
 namespace vw { namespace gui {
 
   void rm_option_and_vals(int argc, char ** argv, std::string const& opt, int num_vals){
@@ -88,7 +90,7 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
   this->setWindowTitle(window_title.c_str());
 
   // Collect only the valid images
-  m_image_paths.clear();
+  m_image_files.clear();
   for (size_t i = 0; i < images.size(); i++) {
     bool is_image = true;
     try {
@@ -97,10 +99,10 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
       is_image = false;
     }
     if (!is_image) continue;
-    m_image_paths.push_back(images[i]);
+    m_image_files.push_back(images[i]);
   }
 
-  if (m_image_paths.empty()) {
+  if (m_image_files.empty()) {
     popUp("No valid images to display.");
     return;
   }
@@ -118,7 +120,7 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
 
   // If a match file was explicitly specified, use it.
   if (stereo_settings().match_file != ""){
-    if (m_image_paths.size() != 2){
+    if (m_image_files.size() != 2){
       popUp("The --match-file option only works with two valid input images.");
       m_view_matches = false;
       stereo_settings().match_file = "";
@@ -130,14 +132,14 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
   
   m_matches_exist = false;
   m_matches.clear();
-  m_matches.resize(m_image_paths.size());
+  m_matches.resize(m_image_files.size());
 
   // By default, show the images in one row
   if (m_grid_cols <= 0)
     m_grid_cols = std::numeric_limits<int>::max();
 
   m_view_type = VIEW_SIDE_BY_SIDE;
-  if (m_grid_cols > 0 && m_grid_cols < int(m_image_paths.size())) {
+  if (m_grid_cols > 0 && m_grid_cols < int(m_image_files.size())) {
     m_view_type = VIEW_AS_TILES_ON_GRID;
   }
   if (single_window) {
@@ -148,6 +150,7 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
   // Set up the basic layout of the window and its menus.
   createMenus();
 
+  // Must happen after menus are created
   createLayout();
 }
 
@@ -156,13 +159,33 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
 // the previous widget and all of its children.
 void MainWindow::createLayout() {
 
-  // We must cleanup the previous profile before wiping the existing widgets.
-  // Three must be a better way of doing it
+  // We must cleanup the previous profiles before wiping the existing
+  // widgets.  There must be a better way of doing it.
   for (size_t wit = 0; wit < m_widgets.size(); wit++) {
     bool profile_mode = false;
     if (m_widgets[wit] != NULL) 
       m_widgets[wit]->toggleProfileMode(profile_mode);
   }
+
+  // Save the previous hillshade flags before wiping the widgets, but only
+  // if each image is in its own widget.
+  if (m_widgets.size() == m_image_files.size()) {
+    m_hillshade_vec.clear();
+    for (size_t wit = 0; wit < m_widgets.size(); wit++) {
+      if (m_widgets[wit] == NULL) 
+        m_hillshade_vec.push_back(false);
+      else
+        m_hillshade_vec.push_back(m_widgets[wit]->hillshadeMode());
+    }
+  }
+
+  if (m_image_files.size() <= BASE_IMAGE_INDEX) {
+    // We should never get here
+    popUp("No images to show.");
+    return;
+  }
+  // When using georef, use this as reference
+  std::string base_image_file = m_image_files[BASE_IMAGE_INDEX];
   
   QWidget * centralWidget = new QWidget(this);
   setCentralWidget(centralWidget);
@@ -174,13 +197,19 @@ void MainWindow::createLayout() {
   m_widgets.clear();
 
   bool zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
+
+  // If there is one image, and it was hillshaded from the right-click menu,
+  // fetch that. 
+  if (!m_hillshade_vec.empty() && m_hillshade_vec.size() == m_image_files.size() &&
+      m_image_files.size() == 1) 
+    m_hillshade = m_hillshade_vec[0];
   
   if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
 
     // Put all images in a single window, with a dialog for choosing images if
     // there's more than one image.
 
-    if (m_image_paths.size() > 1) {
+    if (m_image_files.size() > 1) {
       m_chooseFiles = new chooseFilesDlg(this);
       m_chooseFiles->setMaximumSize(int(m_widRatio*size().width()), size().height());
       splitter->addWidget(m_chooseFiles);
@@ -190,8 +219,8 @@ void MainWindow::createLayout() {
     MainWidget * widget = new MainWidget(centralWidget,
                                          m_opt,
                                          0, m_output_prefix,
-                                         m_image_paths, m_matches,
-                                         m_chooseFiles,
+                                         m_image_files, base_image_file,
+                                         m_matches, m_chooseFiles,
                                          m_use_georef, m_hillshade, m_view_matches,
                                          zoom_all_to_same_region);
     m_widgets.push_back(widget);
@@ -199,16 +228,23 @@ void MainWindow::createLayout() {
   } else{
 
     // Each MainWidget object gets passed a single image
-    for (size_t i = 0; i < m_image_paths.size(); i++) {
+    for (size_t i = 0; i < m_image_files.size(); i++) {
       std::vector<std::string> local_images;
-      local_images.push_back(m_image_paths[i]);
+      local_images.push_back(m_image_files[i]);
       m_chooseFiles = NULL;
+
+      // Recall the previous hillshade choice if possible
+      bool hillshade = m_hillshade;
+      if (!m_hillshade_vec.empty() && m_hillshade_vec.size() == m_image_files.size())
+        hillshade = m_hillshade_vec[i];
+      
       MainWidget * widget = new MainWidget(centralWidget,
                                            m_opt,
                                            i, m_output_prefix,
-                                           local_images, m_matches,
+                                           local_images, base_image_file,
+                                           m_matches,
                                            m_chooseFiles,
-                                           m_use_georef, m_hillshade, m_view_matches,
+                                           m_use_georef, hillshade, m_view_matches,
                                            zoom_all_to_same_region);
       m_widgets.push_back(widget);
     }
@@ -457,7 +493,23 @@ void MainWindow::forceQuit(){
   exit(0); // A fix for an older buggy version of Qt
 }
 
+// Zoom in/out of each image so that it fits fully within its allocated display area.
 void MainWindow::sizeToFit(){
+
+  bool zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
+  if (zoom_all_to_same_region) {
+
+    // Must unlock the zoom windows
+    zoom_all_to_same_region = false;
+    setZoomAllToSameRegionAux(zoom_all_to_same_region);
+
+    // Then must redraw everything completely, in order to compute
+    // each image's full region.
+    createLayout();
+
+    return;
+  }
+
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (m_widgets[i])
       m_widgets[i]->sizeToFit();
@@ -497,6 +549,13 @@ void MainWindow::viewSideBySide(){
 
 void MainWindow::viewAsTiles(){
 
+  if (!m_viewAsTiles_action->isChecked()) {
+    if (m_view_type_old != VIEW_AS_TILES_ON_GRID) m_view_type = m_view_type_old; // restore this
+    else m_view_type = VIEW_SIDE_BY_SIDE;
+    createLayout();
+    return;
+  }
+  
   std::string gridColsStr;
   bool ans = getStringFromGui(this,
                               "Number of columns in the grid",
@@ -507,6 +566,7 @@ void MainWindow::viewAsTiles(){
     return;
 
   m_grid_cols = std::max(atoi(gridColsStr.c_str()), 1);
+  m_view_type_old = m_view_type; // back this up
   m_view_type = VIEW_AS_TILES_ON_GRID;
   createLayout();
 }
@@ -526,8 +586,8 @@ void MainWindow::deleteImageFromWidget(){
     if (indicesWithAction.empty()) continue;
     int index = *indicesWithAction.begin();
 
-    if (index >= 0 && index < (int)m_image_paths.size() ) 
-      m_image_paths.erase(m_image_paths.begin() + index);
+    if (index >= 0 && index < (int)m_image_files.size() ) 
+      m_image_files.erase(m_image_files.begin() + index);
 
     if (index >= 0 && index < (int)m_matches.size() ) 
       m_matches.erase(m_matches.begin() + index);
@@ -555,7 +615,7 @@ void MainWindow::viewMatches(){
 
     m_matches_exist = true;
     m_matches.clear();
-    m_matches.resize(m_image_paths.size());
+    m_matches.resize(m_image_files.size());
     
     // First try to read them from gcp
     if (stereo_settings().gcp_file != "") {
@@ -565,13 +625,13 @@ void MainWindow::viewMatches(){
       ControlNetwork cnet("gcp");
       std::vector<std::string> gcp_files; gcp_files.push_back(stereo_settings().gcp_file);
       vw::cartography::Datum datum; // the actual datum does not matter here
-      add_ground_control_points(cnet, m_image_paths, gcp_files, datum);
+      add_ground_control_points(cnet, m_image_files, gcp_files, datum);
 
       CameraRelationNetwork<JFeature> crn;
       crn.read_controlnetwork(cnet);
   
       typedef CameraNode<JFeature>::iterator crn_iter;
-      if (crn.size() != m_image_paths.size()) {
+      if (crn.size() != m_image_files.size()) {
 	popUp("The number of images in the control network does not agree with the number of images to view.");
 	return;
       }
@@ -589,7 +649,7 @@ void MainWindow::viewMatches(){
 	if (m_matches[0].size() != m_matches[icam].size()) {
 	  popUp("Each GCP must be represented as a pixel in each image.");
 	  m_matches.clear();
-	  m_matches.resize(m_image_paths.size());
+	  m_matches.resize(m_image_files.size());
 	  return;
 	}
       }
@@ -602,13 +662,13 @@ void MainWindow::viewMatches(){
 
       int num_matches = -1;
 
-      for (int i = 0; i < int(m_image_paths.size())-1; i++) {
+      for (int i = 0; i < int(m_image_files.size())-1; i++) {
 	int j = i + 1; // read the matches between image i and image i + 1
 
 	// If the match file was not specified, look it up.
 	std::string match_file = m_match_file;
 	if (match_file == "")
-	  match_file = vw::ip::match_filename(m_output_prefix, m_image_paths[i], m_image_paths[j]);
+	  match_file = vw::ip::match_filename(m_output_prefix, m_image_files[i], m_image_files[j]);
       
 	// Look for the match file in the default location, and if it
 	// does not appear prompt the user or a path.
@@ -621,7 +681,7 @@ void MainWindow::viewMatches(){
           
 	    // If we have just two images, save this match file as the
 	    // default. For more than two, it gets complicated.
-	    if (m_image_paths.size() == 2)
+	    if (m_image_files.size() == 2)
 	      m_match_file = match_file;
           
 	  }catch(...){
@@ -680,7 +740,7 @@ void MainWindow::saveMatches(){
     if (!supplyOutputPrefixIfNeeded(this, m_output_prefix)) return;
 
   // Sanity checks
-  if (m_image_paths.size() != m_matches.size()) {
+  if (m_image_files.size() != m_matches.size()) {
     popUp("The number of sets of interest points does not agree with the number of images.");
     return;
   }
@@ -691,21 +751,21 @@ void MainWindow::saveMatches(){
     }
   }
 
-  for (int i = 0; i < int(m_image_paths.size()); i++) {
+  for (int i = 0; i < int(m_image_files.size()); i++) {
 
     // Save both i to j matches and j to i matches if there are more than two images.
     // This is useful for SfS, though it is a bit of a hack.
     int beg = i + 1;
-    if (m_image_paths.size() > 2) 
+    if (m_image_files.size() > 2) 
       beg = 0;
     
-    for (int j = beg; j < int(m_image_paths.size()); j++) {
+    for (int j = beg; j < int(m_image_files.size()); j++) {
 
       if (i == j) continue; // don't save i <-> i matches
 
       std::string match_file = m_match_file;
       if (match_file == "")
-        match_file = vw::ip::match_filename(m_output_prefix, m_image_paths[i], m_image_paths[j]);
+        match_file = vw::ip::match_filename(m_output_prefix, m_image_files[i], m_image_files[j]);
       try {
         vw_out() << "Writing: " << match_file << std::endl;
         ip::write_binary_match_file(match_file, m_matches[i], m_matches[j]);
@@ -728,7 +788,7 @@ void MainWindow::writeGroundControlPoints() {
     }
   }
   const size_t num_ips    = m_matches[0].size();
-  const size_t num_images = m_image_paths.size();
+  const size_t num_images = m_image_files.size();
   const size_t num_images_to_save = num_images - 1; // Don't record pixels from the last image.
   if (num_images != m_matches.size()) {
     return popUp("Cannot save matches. Image and match vectors are unequal!");
@@ -746,14 +806,14 @@ void MainWindow::writeGroundControlPoints() {
 
   // Load a georeference to use for the GCPs from the last image
   cartography::GeoReference georef_image, georef_dem;
-  const size_t GEOREF_INDEX = m_image_paths.size() - 1;
-  const std::string georef_image_path = m_image_paths[GEOREF_INDEX];
-  bool has_georef = vw::cartography::read_georeference(georef_image, georef_image_path);
+  const size_t GEOREF_INDEX = m_image_files.size() - 1;
+  const std::string georef_image_file = m_image_files[GEOREF_INDEX];
+  bool has_georef = vw::cartography::read_georeference(georef_image, georef_image_file);
   if (!has_georef) {
     return popUp("Error: Could not load a valid georeference to use for ground control points in file: "
-                 + georef_image_path);
+                 + georef_image_file);
   }
-  vw_out() << "Loaded georef from file " << georef_image_path << std::endl;
+  vw_out() << "Loaded georef from file " << georef_image_file << std::endl;
 
   // Init the DEM to use for height interpolation
   boost::shared_ptr<DiskImageResource> dem_rsrc(DiskImageResource::open(dem_path));
@@ -819,7 +879,7 @@ void MainWindow::writeGroundControlPoints() {
     for (size_t i = 0; i < num_images_to_save; i++) {
       // Add this IP to the current line
       ip::InterestPoint ip = m_matches[i][p];
-      output_handle << ", " << m_image_paths[i];
+      output_handle << ", " << m_image_files[i];
       output_handle << ", " << ip.x << ", " << ip.y; // IP location in image
       output_handle << ", " << 1 << ", " << 1; // Sigma values
     } // End loop through IP sets
@@ -940,7 +1000,7 @@ void MainWindow::viewUnthreshImages() {
 
 void MainWindow::shadowThresholdGetSet() {
 
-  if (m_widgets.size() != m_image_paths.size()) {
+  if (m_widgets.size() != m_image_files.size()) {
     popUp("Each image must be in its own window to be able to set the shadow thresholds.");
     return;
   }
@@ -1009,31 +1069,50 @@ void MainWindow::setZoomAllToSameRegion() {
 
   if (zoom_all_to_same_region) {
 
-    // If zooming to same region, windows better be not on top of each other
+    // This can be tricky. First save the image region we are looking at,
+    // before we re-project and re-draw everything.
+    BBox2 pixel_box = m_widgets[BASE_IMAGE_INDEX]->firstImagePixelBox();
+    
+    // If zooming to same region, windows better not be on top of each other
     if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
       if (m_view_type_old != VIEW_IN_SINGLE_WINDOW) m_view_type = m_view_type_old; // restore this
       else m_view_type = VIEW_SIDE_BY_SIDE;
-      createLayout();
     }
 
     // If all images are georeferenced, it makes perfect sense
     // to turn on georeferencing when zooming. The user can later turn it off
     // from the menu if so desired.
     bool has_georef = true;
-    for (size_t i = 0; i < m_image_paths.size(); i++) {
+    for (size_t i = 0; i < m_image_files.size(); i++) {
       cartography::GeoReference georef;
-      has_georef = has_georef && vw::cartography::read_georeference(georef, m_image_paths[i]);
+      has_georef = has_georef && vw::cartography::read_georeference(georef, m_image_files[i]);
     }
 
     if (has_georef && !m_use_georef) {
       m_use_georef = true;
       m_viewGeoreferencedImages_action->setChecked(m_use_georef);
       viewGeoreferencedImages();
+    }else{
+      // In either case must re-create all widgets
+      createLayout();
+    }
+
+    // See where the earlier viewable region ended up in the current world
+    // coordinate system. A lot of things could have changed since then.
+    BBox2 world_box = m_widgets[BASE_IMAGE_INDEX]->firstImageWorldBox(pixel_box);
+
+    // Now let this be the world box in all images. Later, during resizeEvent(),
+    // the sizeToFit() function will be called which will use this box.
+    for (size_t i = 0; i < m_widgets.size(); i++) {
+      if (m_widgets[i])
+        m_widgets[i]->setWorldBox(world_box);
     }
   }
 }
 
-// Zoom all widgets to the same region which comes from widget with given id
+// Zoom all widgets to the same region which comes from widget with given id.
+// There is no need to re-create any layouts now, as nothing changes
+// except the fact that we zoom.
 void MainWindow::zoomAllToSameRegionAction(int widget_id){
   int num_widgets = m_widgets.size();
   if (widget_id < 0 || widget_id >= num_widgets) {
@@ -1046,7 +1125,7 @@ void MainWindow::zoomAllToSameRegionAction(int widget_id){
   vw::BBox2 region = m_widgets[widget_id]->current_view();
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (m_widgets[i]) {
-      m_widgets[i]->zoom_to_region(region);
+      m_widgets[i]->zoomToRegion(region);
     }
   }
   
@@ -1077,12 +1156,12 @@ void MainWindow::viewGeoreferencedImages() {
   if (m_use_georef) {
 
     // Will show in single window with georef. Must first check if all images have georef.
-    for (size_t i = 0; i < m_image_paths.size(); i++) {
+    for (size_t i = 0; i < m_image_files.size(); i++) {
       cartography::GeoReference georef;
-      bool has_georef = vw::cartography::read_georeference(georef, m_image_paths[i]);
+      bool has_georef = vw::cartography::read_georeference(georef, m_image_files[i]);
       if (!has_georef) {
         popUp("Cannot view georeferenced images, as there is no georeference in: "
-              + m_image_paths[i]);
+              + m_image_files[i]);
         return;
       }
     }
@@ -1096,11 +1175,11 @@ void MainWindow::viewOverlayedImages() {
   if (m_use_georef) {
 
     // Will show in single window with georef. Must first check if all images have georef.
-    for (size_t i = 0; i < m_image_paths.size(); i++) {
+    for (size_t i = 0; i < m_image_files.size(); i++) {
       cartography::GeoReference georef;
-      bool has_georef = vw::cartography::read_georeference(georef, m_image_paths[i]);
+      bool has_georef = vw::cartography::read_georeference(georef, m_image_files[i]);
       if (!has_georef) {
-        popUp("Cannot overlay, as there is no georeference in: " + m_image_paths[i]);
+        popUp("Cannot overlay, as there is no georeference in: " + m_image_files[i]);
         return;
       }
     }
