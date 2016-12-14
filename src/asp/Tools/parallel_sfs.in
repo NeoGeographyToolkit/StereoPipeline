@@ -181,6 +181,27 @@ def runSfs(options, requiredList, outputFolder, outputName):
 
     return 0
 
+def mosaic_results(tileList, outputFolder, outputName, options, inFilePrefix, outFilePrefix):
+
+    # Create the list of final DEMs that get created at the end 
+    outputDems = []
+    for tile in tileList:
+        tileName = tile[4]
+        tilePrefix = generateTilePrefix(outputFolder, tileName, outputName)
+        outputDems.append(tilePrefix + '-' + inFilePrefix + '.tif')
+         
+    # Mosaic the outputs using dem_mosaic
+    dem_mosaic_path = asp_system_utils.bin_path('dem_mosaic')
+    dem_mosaic_args = ['--weights-exponent', '2', '--use-centerline-weights',
+                       '-o', options.output_prefix]
+    cmd = [dem_mosaic_path] + outputDems + dem_mosaic_args
+    asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
+
+    # Rename from dem_mosaic convention to sfs convention
+    finalDem = options.output_prefix + '-' + outFilePrefix + '.tif'
+    print("Renaming to: " + finalDem)
+    os.rename(options.output_prefix + '-tile-0.tif', finalDem)
+
 def main(argsIn):
 
     requiredList = []
@@ -262,7 +283,7 @@ def main(argsIn):
         # Check the required positional arguments.
         if len(requiredList) < 1:
             parser.print_help()
-            parser.error("Missing input image cubes.\n" );
+            parser.error("Missing inputs.\n" );
 
         # Any additional arguments need to be forwarded to the sfs function
         options.extraArgs = optionsList
@@ -381,25 +402,13 @@ def main(argsIn):
                                       argumentFilePath, parallelArgs,
                                       options.nodesListPath, True)#not options.suppressOutput)
 
-    # Create the list of final DEMs that get created at the end 
-    outputDems = []
-    for tile in tileList:
-        tileName = tile[4]
-        tilePrefix = generateTilePrefix(outputFolder, tileName, outputName)
-        outputDems.append(tilePrefix + '-DEM-final.tif')
-        
-    # Mosaic the outputs using dem_mosaic
-    dem_mosaic_path = asp_system_utils.bin_path('dem_mosaic')
-    dem_mosaic_args = ['--weights-exponent', '2', '--use-centerline-weights',
-                       '-o', options.output_prefix]
-    cmd = [dem_mosaic_path] + outputDems + dem_mosaic_args
-    asp_system_utils.executeCommand(cmd, suppressOutput=options.suppressOutput)
 
-    # Rename from dem_mosaic convention to sfs convention
-    finalDem = options.output_prefix + '-DEM-final.tif'
-    print("Renaming to: " + finalDem)
-    os.rename(options.output_prefix + '-tile-0.tif', finalDem)
-
+    mosaic_results(tileList, outputFolder, outputName, options,
+                   'DEM-final', 'DEM-final')
+    if '--float-albedo' in argsIn:
+        mosaic_results(tileList, outputFolder, outputName, options,
+                       'comp-albedo-final', 'albedo-final')
+    
     endTime = time.time()
     print("Finished in " + str(endTime - startTime) + " seconds.")
 

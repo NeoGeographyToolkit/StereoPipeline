@@ -2308,6 +2308,7 @@ Option & Description \\ \hline \hline
 \texttt{-\/-reflectance-type arg (=1)} & Reflectance type (0 = Lambertian, 1 = Lunar-Lambert, 2 = Hapke, 3 = Experimental extension of Lunar-Lambert, 4 = Charon model (a variation of Lunar-Lambert)).\\ \hline
 \texttt{-\/-smoothness-weight arg (=0.04)} & A larger value will result in a smoother solution.\\ \hline
 \texttt{-\/-initial-dem-constraint-weight arg (=0)} & A larger value will try harder to keep the SfS-optimized DEM closer to the initial guess DEM.\\ \hline
+\texttt{-\/-albedo-constraint-weight arg (=0)} & If floating the albedo, a larger value will try harder to keep the optimized albedo close to the nominal value of 1.\\ \hline
 \texttt{-\/-bundle-adjust-prefix arg} & Use the camera adjustments obtained by previously running bundle\_adjust with this output prefix.\\ \hline
 \texttt{-\/-float-albedo} & Float the albedo for each pixel. Will give incorrect results if only one image is present.\\ \hline
 \texttt{-\/-float-exposure} & Float the exposure for each image. Will give incorrect results if only one image is present.\\ \hline

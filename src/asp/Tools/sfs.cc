@@ -856,7 +856,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
     use_blending_weights,
     float_dem_at_boundary, fix_dem, float_reflectance_model, query, save_sparingly;
   double smoothness_weight, init_dem_height, nodata_val, initial_dem_constraint_weight,
-    camera_position_step_size, rpc_penalty_weight, unreliable_intensity_threshold;
+    albedo_constraint_weight, camera_position_step_size, rpc_penalty_weight, unreliable_intensity_threshold;
   vw::BBox2 crop_win;
 
   Options():max_iterations(0), max_coarse_iterations(0), reflectance_type(0),
@@ -870,6 +870,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
             float_dem_at_boundary(false), fix_dem(false),
             float_reflectance_model(false), query(false), save_sparingly(false),
 	    smoothness_weight(0), initial_dem_constraint_weight(0.0),
+	    albedo_constraint_weight(0.0),
 	    camera_position_step_size(1.0), rpc_penalty_weight(0.0),
             unreliable_intensity_threshold(0.0),
 	    crop_win(BBox2i(0, 0, 0, 0)){}
@@ -1648,7 +1649,7 @@ public:
                              has_nodata, *g_dem_nodata_val,
                              *g_opt, tpc);
 
-      if (!g_opt->save_sparingly) {
+      if (!g_opt->save_sparingly || (g_final_iter && g_opt->float_albedo) ) {
         std::string out_albedo_file = g_opt->out_prefix + "-comp-albedo"
           + iter_str + ".tif";
         vw_out() << "Writing: " << out_albedo_file << std::endl;
@@ -2036,7 +2037,7 @@ struct SmoothnessError {
   double m_smoothness_weight, m_gridx, m_gridy;
 };
 
-// A cost function that will penalize deviating too much from the original height.
+// A cost function that will penalize deviating too much from the original DEM height.
 struct HeightChangeError {
   HeightChangeError(double orig_height, double initial_dem_constraint_weight):
     m_orig_height(orig_height), m_initial_dem_constraint_weight(initial_dem_constraint_weight){}
@@ -2057,6 +2058,29 @@ struct HeightChangeError {
   }
 
   double m_orig_height, m_initial_dem_constraint_weight;
+};
+
+// A cost function that will penalize deviating too much from the initial albedo.
+struct AlbedoChangeError {
+  AlbedoChangeError(double initial_albedo, double albedo_constraint_weight):
+    m_initial_albedo(initial_albedo), m_albedo_constraint_weight(albedo_constraint_weight){}
+
+  template <typename T>
+  bool operator()(const T* const center, T* residuals) const {
+    residuals[0] = (center[0] - m_initial_albedo)*m_albedo_constraint_weight;
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(double initial_albedo,
+				     double albedo_constraint_weight){
+    return (new ceres::NumericDiffCostFunction<AlbedoChangeError,
+	    ceres::CENTRAL, 1, 1>
+	    (new AlbedoChangeError(initial_albedo, albedo_constraint_weight)));
+  }
+
+  double m_initial_albedo, m_albedo_constraint_weight;
 };
 
 // Given a DEM, estimate the median grid size in x and in y in meters.
@@ -2157,6 +2181,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "A larger value will result in a smoother solution.")
     ("initial-dem-constraint-weight", po::value(&opt.initial_dem_constraint_weight)->default_value(0),
      "A larger value will try harder to keep the SfS-optimized DEM closer to the initial guess DEM.")
+    ("albedo-constraint-weight", po::value(&opt.albedo_constraint_weight)->default_value(0),
+     "If floating the albedo, a larger value will try harder to keep the optimized albedo close to the nominal value of 1.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Use the camera adjustments obtained by previously running bundle_adjust with this output prefix.")
     ("float-albedo",   po::bool_switch(&opt.float_albedo)->default_value(false)->implicit_value(true),
@@ -2369,13 +2395,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // in the stereo session.
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
 
-  if (opt.input_images.size() <= 1 && opt.float_albedo)
+  if (opt.input_images.size() <= 1 && opt.float_albedo && 
+      opt.initial_dem_constraint_weight <= 0 && opt.albedo_constraint_weight <= 0.0)
     vw_throw(ArgumentErr()
-	     << "Floating albedo is ill-posed for just one image.\n");
+	     << "Floating the albedo is ill-posed for just one image without "
+             << "the initial DEM constraint or the albedo constraint.\n");
 
   if (opt.input_images.size() <=1 && opt.float_exposure)
     vw_throw(ArgumentErr()
-	     << "Floating exposure is ill-posed for just one image.\n");
+	     << "Floating the exposure is ill-posed for just one image.\n");
 
   if (opt.input_images.size() <=1 && opt.float_dem_at_boundary)
     vw_throw(ArgumentErr()
@@ -2410,6 +2438,7 @@ void run_sfs_level(// Fixed inputs
 		   GlobalParams const& global_params,
 		   std::vector<ModelParams> const & model_params,
 		   std::vector< ImageView<double> > const& orig_dems, 
+		   double initial_albedo,
 		   // Quantities that will float
 		   std::vector< ImageView<double> > & dems,
 		   std::vector< ImageView<double> > & albedos,
@@ -2524,11 +2553,24 @@ void run_sfs_level(// Fixed inputs
                                       opt.initial_dem_constraint_weight);
           problem.AddResidualBlock(cost_function_hc, loss_function_hc,
                                    &dems[dem_iter](col, row));
+          use_dem.insert(dem_iter); 
         }
+      
+	// Deviation from prescribed albedo
+	if (opt.float_albedo > 0 && opt.albedo_constraint_weight > 0) {
+	  ceres::LossFunction* loss_function_hc = NULL;
+	  ceres::CostFunction* cost_function_hc =
+	    AlbedoChangeError::Create(initial_albedo,
+				      opt.albedo_constraint_weight);
+	  problem.AddResidualBlock(cost_function_hc, loss_function_hc,
+				   &albedos[dem_iter](col, row));
+	  use_albedo.insert(dem_iter);
+	}
+	
       }
     }
-
-    // Variables at the boundary must be fixed.
+    
+    // DEM at the boundary must be fixed.
     if (!opt.float_dem_at_boundary) {
       for (int col = 0; col < dems[dem_iter].cols(); col++) {
         for (int row = 0; row < dems[dem_iter].rows(); row++) {
@@ -2551,12 +2593,14 @@ void run_sfs_level(// Fixed inputs
     }
 
     if (opt.initial_dem_constraint_weight <= 0 && num_used <= 1) {    
-      if (opt.float_albedo ) {
-        vw_out() << "No DEM constraint is used, and there is at most one "
+
+      if (opt.float_albedo && opt.albedo_constraint_weight <= 0) {
+        vw_out() << "No DEM or albedo constraint is used, and there is at most one "
                  << "usable image. Fixing the albedo.\n";
         opt.float_albedo = false;
       }
-      if (opt.float_exposure ) {
+
+      if (opt.float_exposure) {
         vw_out() << "No DEM constraint is used, and there is at most one "
                  << "usable image. Fixing the exposure.\n";
         opt.float_exposure = false;
@@ -3142,12 +3186,12 @@ int main(int argc, char* argv[]) {
     g_max_dem_height = &max_dem_height;
 
     // Initial albedo. This will be updated later.
-    double albedo_val = 1.0;
+    double initial_albedo = 1.0;
     for (int dem_iter = 0; dem_iter < num_dems; dem_iter++) {
       albedos[0][dem_iter].set_size(dems[0][dem_iter].cols(), dems[0][dem_iter].rows());
       for (int col = 0; col < albedos[0][dem_iter].cols(); col++) {
         for (int row = 0; row < albedos[0][dem_iter].rows(); row++) {
-          albedos[0][dem_iter](col, row) = albedo_val;
+          albedos[0][dem_iter](col, row) = initial_albedo;
         }
       }
     }
@@ -3183,7 +3227,7 @@ int main(int argc, char* argv[]) {
         double imgmean, imgstdev, refmean, refstdev;
         compute_image_stats(intensity, imgmean, imgstdev);
         compute_image_stats(reflectance, refmean, refstdev);
-	double exposure = imgmean/refmean/albedo_val;
+	double exposure = imgmean/refmean/initial_albedo;
         vw_out() << "img mean std: " << imgmean << ' ' << imgstdev << std::endl;
         vw_out() << "ref mean std: " << refmean << ' ' << refstdev << std::endl;
 	vw_out() << "Local exposure for image " << image_iter << " and clip "
@@ -3398,7 +3442,7 @@ int main(int argc, char* argv[]) {
                     dem_nodata_val, crop_boxes[level],
                     masked_images_vec[level], blend_weights_vec[level],
                     global_params, model_params,
-                    orig_dems[level],
+                    orig_dems[level], initial_albedo,
                     // Quantities that will float
                     dems[level], albedos[level], cameras,
                     opt.image_exposures_vec,
