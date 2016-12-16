@@ -329,18 +329,21 @@ void MainWindow::createMenus() {
   m_viewSingleWindow_action->setStatusTip(tr("View images in a single window."));
   m_viewSingleWindow_action->setCheckable(true);
   m_viewSingleWindow_action->setChecked(m_view_type == VIEW_IN_SINGLE_WINDOW);
+  m_viewSingleWindow_action->setShortcut(tr("W"));
   connect(m_viewSingleWindow_action, SIGNAL(triggered()), this, SLOT(viewSingleWindow()));
 
   m_viewSideBySide_action = new QAction(tr("Side-by-side"), this);
   m_viewSideBySide_action->setStatusTip(tr("View images side-by-side."));
   m_viewSideBySide_action->setCheckable(true);
   m_viewSideBySide_action->setChecked(m_view_type == VIEW_SIDE_BY_SIDE);
+  m_viewSideBySide_action->setShortcut(tr("S"));
   connect(m_viewSideBySide_action, SIGNAL(triggered()), this, SLOT(viewSideBySide()));
 
   m_viewAsTiles_action = new QAction(tr("As tiles on grid"), this);
   m_viewAsTiles_action->setStatusTip(tr("View images as tiles on grid."));
   m_viewAsTiles_action->setCheckable(true);
   m_viewAsTiles_action->setChecked(m_view_type == VIEW_AS_TILES_ON_GRID);
+  m_viewAsTiles_action->setShortcut(tr("T"));
   connect(m_viewAsTiles_action, SIGNAL(triggered()), this, SLOT(viewAsTiles()));
 
   // View hillshaded images
@@ -348,13 +351,15 @@ void MainWindow::createMenus() {
   m_viewHillshadedImages_action->setStatusTip(tr("View hillshaded images."));
   m_viewHillshadedImages_action->setCheckable(true);
   m_viewHillshadedImages_action->setChecked(m_hillshade);
+  m_viewHillshadedImages_action->setShortcut(tr("H"));
   connect(m_viewHillshadedImages_action, SIGNAL(triggered()), this, SLOT(viewHillshadedImages()));
 
-  // View overlayed
+  // View as georeferenced
   m_viewGeoreferencedImages_action = new QAction(tr("View as georeferenced images"), this);
   m_viewGeoreferencedImages_action->setStatusTip(tr("View as georeferenced images."));
   m_viewGeoreferencedImages_action->setCheckable(true);
   m_viewGeoreferencedImages_action->setChecked(m_use_georef);
+  m_viewGeoreferencedImages_action->setShortcut(tr("G"));
   connect(m_viewGeoreferencedImages_action, SIGNAL(triggered()), this, SLOT(viewGeoreferencedImages()));
   
   // View overlayed georeferenced images
@@ -362,6 +367,7 @@ void MainWindow::createMenus() {
   m_viewOverlayedImages_action->setStatusTip(tr("Overlay georeferenced images."));
   m_viewOverlayedImages_action->setCheckable(true);
   m_viewOverlayedImages_action->setChecked(m_use_georef && (m_view_type == VIEW_IN_SINGLE_WINDOW));
+  m_viewOverlayedImages_action->setShortcut(tr("O"));
   connect(m_viewOverlayedImages_action, SIGNAL(triggered()), this, SLOT(viewOverlayedImages()));
 
   // Zoom all images to same region
@@ -369,6 +375,7 @@ void MainWindow::createMenus() {
   m_zoomAllToSameRegion_action->setStatusTip(tr("Zoom all images to same region."));
   m_zoomAllToSameRegion_action->setCheckable(true);
   m_zoomAllToSameRegion_action->setChecked(false);
+  m_zoomAllToSameRegion_action->setShortcut(tr("Z"));
   connect(m_zoomAllToSameRegion_action, SIGNAL(triggered()), this, SLOT(setZoomAllToSameRegion()));
 
   // IP matches
