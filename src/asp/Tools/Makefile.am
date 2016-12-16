@@ -46,12 +46,11 @@ if MAKE_APP_STEREO
 endif
 
 # Need this separate since it also depends on CERES
-# TODO: Pretty sure no one is going to use ASP without this!
 if MAKE_APP_STEREO_TRI
   bin_PROGRAMS        += stereo_tri
   stereo_tri_LDADD     = $(APP_STEREO_TRI_LIBS)
-  stereo_tri_SOURCES   = stereo_tri.cc jitter_adjust.h jitter_adjust.cc \
-                         ccd_adjust.h ccd_adjust.cc stereo.cc
+  stereo_tri_SOURCES   = stereo_tri.cc stereo.cc jitter_adjust.h jitter_adjust.cc \
+                         ccd_adjust.h ccd_adjust.cc
 endif
 
 # The stereo_gui app is separate as it also depends on Qt
