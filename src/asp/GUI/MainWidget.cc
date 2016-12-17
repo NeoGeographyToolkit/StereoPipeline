@@ -725,10 +725,14 @@ namespace vw { namespace gui {
       string fileName = m_images[i].name;
       if (m_filesToHide.find(fileName) != m_filesToHide.end()) continue;
 
-      // The current view. 
+      // The portion of the image in the current view. 
       BBox2 world_box = m_current_view; 
       BBox2 B = MainWidget::image2world(m_images[i].image_bbox, i);
       world_box.crop(B);
+
+      // This is a bugfix for the case when the world boxes 
+      // of images do not overlap.
+      if (world_box.empty()) continue;
 
       // See where it fits on the screen
       BBox2i screen_box;
