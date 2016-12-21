@@ -221,18 +221,6 @@ public:
   typedef CropView<ImageView<pixel_type> > prerasterize_type;
   inline prerasterize_type prerasterize(BBox2i const& bbox) const {
 
-    // We do stereo only in trans_crop_win. Skip the current tile if
-    // it does not intersect this region.
-    BBox2i trans_crop_win = stereo_settings().trans_crop_win;
-    BBox2i intersection = bbox; 
-    intersection.crop(trans_crop_win);
-    if (intersection.empty()){
-      return prerasterize_type(ImageView<pixel_type>(bbox.width(),
-                                                     bbox.height()),
-                               -bbox.min().x(), -bbox.min().y(),
-                               cols(), rows() );
-    }
-
     ImageView<pixel_type> tile_disparity;
     bool verbose = false;
     if (stereo_settings().seed_mode > 0 && stereo_settings().use_local_homography){
@@ -269,16 +257,6 @@ public:
     prerasterize_type disparity = prerasterize_type(tile_disparity,
                                                     -bbox.min().x(), -bbox.min().y(),
                                                     cols(), rows() );
-
-    // Set to invalid the disparity outside trans_crop_win.
-    for (int col = bbox.min().x(); col < bbox.max().x(); col++){
-      for (int row = bbox.min().y(); row < bbox.max().y(); row++){
-        if (!trans_crop_win.contains(Vector2(col, row))){
-          disparity(col, row) = pixel_type();
-        }
-      }
-    }
-
     return disparity;
   }
 
@@ -375,8 +353,9 @@ void stereo_refinement( ASPGlobalOptions const& opt ) {
   refine_disparity(left_dummy, right_dummy, dummy_disp, opt, verbose);
 
   ImageViewRef< PixelMask<Vector2f> > refined_disp
-    = per_tile_rfne(left_image, right_image, right_mask,
-                    integer_disp, sub_disp, local_hom, opt);
+    = crop(per_tile_rfne(left_image, right_image, right_mask,
+                    integer_disp, sub_disp, local_hom, opt), 
+           stereo_settings().trans_crop_win);
   
   cartography::GeoReference left_georef;
   bool   has_left_georef = read_georeference(left_georef,  opt.out_prefix + "-L.tif");

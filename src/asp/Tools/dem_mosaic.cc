@@ -117,149 +117,13 @@ struct BigOrZero: public ReturnFixedType<PixelT> {
   }
 };
 
-
-// A weight at a given pixel, based on an image row. Return
-// zero where image values are not valid, and positive where
-// valid.
-double ComputeLineWeightsH(Vector2 const& pix,
-			   std::vector<double> const& hCenterLine,
-			   std::vector<double> const& hMaxDistArray){
-  
-  // We round below, to avoid issues when we are within numerical value
-  // to an integer value for pix[1].
-  // To do: Need to do interpolation here.
-
-  int pos = (int)round(pix[1]);
-  if (pos < 0                          ||
-      pos >= (int)hMaxDistArray.size() ||
-      pos >= (int)hCenterLine.size() )
-    return 0;
-  
-  double maxDist = hMaxDistArray[pos]/2.0;
-  double center  = hCenterLine[pos];
-  double dist    = fabs(pix[0]-center);
-
-  if (maxDist <= 0 || dist < 0) return 0;
-
-  // We want to make sure the weight is positive (even if small) at
-  // the first/last valid pixel.
-  double tol = 1e-8*maxDist;
-  
-  //double weight = std::max(double(0.0), maxDist - dist + tol);
-  double weight = std::max(double(0.0), (maxDist - dist + tol)/maxDist);
-
-  return weight;
-}
-
-// Analogous to ComputeLineWeightsH().
-double ComputeLineWeightsV(Vector2 const& pix,
-			   std::vector<double> const& vCenterLine,
-			   std::vector<double> const& vMaxDistArray){
-  
-  int pos = (int)round(pix[0]);
-  if (pos < 0                          ||
-      pos >= (int)vMaxDistArray.size() ||
-      pos >= (int)vCenterLine.size() ) return 0;
-
-  double maxDist = vMaxDistArray[pos]/2.0;
-  double center  = vCenterLine[pos];
-  double dist    = fabs(pix[1]-center);
-
-  if (maxDist <= 0 || dist < 0) return 0;
-
-  // We want to make sure the weight is positive (even if small) at
-  // the first/last valid pixel.
-  double tol = 1e-8*maxDist;
-  
-  //double weight = std::max(double(0.0), maxDist - dist + tol);
-  double weight = std::max(double(0.0), (maxDist - dist + tol)/maxDist);
-  
-  return weight;
-}
-
-// A function that compute weights (positive in the image and zero
-// outside) based on finding where each image line data values start
-// and end and the centerline. The same thing is repeated for columns.
-// Then two such functions are multiplied. This works better than
-// grassfire for images with simple boundary and without holes.
-template<class ImageT>
-ImageView<double> weights_from_centerline(ImageT const& img){
-
-  int numRows = img.rows();
-  int numCols = img.cols();
-
-  // Arrays to be returned out of this function
-  std::vector<double> hCenterLine  (numRows, 0);
-  std::vector<double> hMaxDistArray(numRows, 0);
-  std::vector<double> vCenterLine  (numCols, 0);
-  std::vector<double> vMaxDistArray(numCols, 0);
-
-  std::vector<int> minValInRow(numRows, 0);
-  std::vector<int> maxValInRow(numRows, 0);
-  std::vector<int> minValInCol(numCols, 0);
-  std::vector<int> maxValInCol(numCols, 0);
-
-  for (int k = 0; k < numRows; k++){
-    minValInRow[k] = numCols;
-    maxValInRow[k] = 0;
-  }
-  for (int col = 0; col < numCols; col++){
-    minValInCol[col] = numRows;
-    maxValInCol[col] = 0;
-  }
-
-  // Note that we do just a single pass through the image to compute
-  // both the horizontal and vertical min/max values.
-  for (int row = 0 ; row < numRows; row++) {
-    for (int col = 0; col < numCols; col++) {
-
-      if ( !is_valid(img(col,row)) ) continue;
-            
-      if (col < minValInRow[row]) minValInRow[row] = col;
-      if (col > maxValInRow[row]) maxValInRow[row] = col;
-      
-      if (row < minValInCol[col]) minValInCol[col] = row;
-      if (row > maxValInCol[col]) maxValInCol[col] = row;
-      
-    }
-  }
-    
-  for (int row = 0; row < numRows; row++) {
-    hCenterLine   [row] = (minValInRow[row] + maxValInRow[row])/2.0;
-    hMaxDistArray [row] =  maxValInRow[row] - minValInRow[row];
-    if (hMaxDistArray[row] < 0){
-      hMaxDistArray[row]=0;
-    }
-  }
-
-  for (int col = 0 ; col < numCols; col++) {
-    vCenterLine   [col] = (minValInCol[col] + maxValInCol[col])/2.0;
-    vMaxDistArray [col] =  maxValInCol[col] - minValInCol[col];
-    if (vMaxDistArray[col] < 0){
-      vMaxDistArray[col]=0;
-    }
-  }
-
-
-  ImageView<double> weights(numCols, numRows);
-  fill(weights, 0);
-    
-  for (int row = 0; row < weights.rows(); row++){
-    for (int col = 0; col < weights.cols(); col++){
-      Vector2 pix(col, row);
-      double weightH = ComputeLineWeightsH(pix, hCenterLine, hMaxDistArray);
-      double weightV = ComputeLineWeightsV(pix, vCenterLine, vMaxDistArray);
-      weights(col, row) = weightH*weightV;
-    }
-  }
-
-  return weights;
-}
-
 template<class ImageT>
 ImageView<double> compute_weights(ImageT const& img, bool use_centerline_weights){
-  if (use_centerline_weights) 
-    return weights_from_centerline(img);
+  if (use_centerline_weights) {
+    ImageView<double> result;
+    weights_from_centerline(img, result);
+    return result;
+  }
 
   return grassfire(img);
 }
@@ -598,17 +462,18 @@ public:
       // Compute linear weights
       ImageView<double> local_wts = grassfire(notnodata(select_channel(dem, 0), nodata_value));
       if (m_opt.use_centerline_weights) {
-	// Erode based on grassfire weights.
-	ImageView<DoubleGrayA> dem2 = copy(dem);
-	for (int col = 0; col < dem2.cols(); col++) {
-	  for (int row = 0; row < dem2.rows(); row++) {
-	    if (local_wts(col, row) <= m_opt.erode_len) {
-	      dem2(col, row) = DoubleGrayA(nodata_value);
-	    }
-	  }
-	}
-	local_wts = weights_from_centerline
-          (create_mask_less_or_equal(select_channel(dem2, 0), nodata_value));
+        // Erode based on grassfire weights.
+        ImageView<DoubleGrayA> dem2 = copy(dem);
+        for (int col = 0; col < dem2.cols(); col++) {
+          for (int row = 0; row < dem2.rows(); row++) {
+            if (local_wts(col, row) <= m_opt.erode_len) {
+              dem2(col, row) = DoubleGrayA(nodata_value);
+            }
+          }
+        }
+        centerline_weights
+                (create_mask_less_or_equal(select_channel(dem2, 0), nodata_value),
+                 local_wts);
       }
 
       // If we don't limit the weights from above, we will have tiling artifacts,

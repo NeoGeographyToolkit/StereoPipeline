@@ -214,7 +214,7 @@ namespace asp {
       FifoWorkQueue queue( vw_settings().default_num_threads() );
 
       std::vector<BBox2i> bboxes =
-        image_blocks( m_view, block_size, block_size );
+        subdivide_bbox( m_view, block_size, block_size );
 
       // Figure out an ideal search step size. Smaller means we're
       // more likely to catch small features. Bigger step size means

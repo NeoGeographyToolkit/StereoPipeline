@@ -119,10 +119,16 @@ int main( int argc, char* argv[] ) {
              << transformed_window.width()   << ","
              << transformed_window.height()  << endl;
 
-
-    vw_out() << "corr_tile_size," << ASPGlobalOptions::corr_tile_size() << endl;
+    //vw_out() << "corr_tile_size," << ASPGlobalOptions::corr_tile_size() << endl;
+    vw_out() << "corr_tile_size," << stereo_settings().corr_tile_size_ovr << endl;
     vw_out() << "rfne_tile_size," << ASPGlobalOptions::rfne_tile_size() << endl;
     vw_out() << "tri_tile_size,"  << ASPGlobalOptions::tri_tile_size()  << endl;
+
+    vw_out() << "stereo_algorithm," << stereo_settings().stereo_algorithm << endl;
+    if (stereo_settings().stereo_algorithm == 0)
+      vw_out() << "collar_size," << 0 << endl;
+    else
+      vw_out() << "collar_size," << stereo_settings().sgm_collar_size << endl;
 
     // This block of code should be in its own executable but I am
     // reluctant to create one just for it. This functionality will be
@@ -145,27 +151,27 @@ int main( int argc, char* argv[] ) {
           if (!fs::exists(d_sub_file)) 
             continue;
 
-                bool has_sub_georef = read_georeference(left_sub_georef, d_sub_file);
-                if (has_sub_georef) {
-                  // If D_sub already has a georef, as with seed-mode 3, don't
-                  // overwrite it.
-                  continue;
-                }
+          bool has_sub_georef = read_georeference(left_sub_georef, d_sub_file);
+          if (has_sub_georef) {
+            // If D_sub already has a georef, as with seed-mode 3, don't
+            // overwrite it.
+            continue;
+          }
 
-                ImageView<PixelMask<Vector2f> > d_sub;
-                read_image(d_sub, d_sub_file);
-                // Account for scale.
-                double left_scale = 0.5*( double(d_sub.cols())/left_image.cols()
-                                          + double(d_sub.rows())/left_image.rows());
-                left_sub_georef = resample(left_georef, left_scale);
-                vw::cartography::block_write_gdal_image(d_sub_file, d_sub,
-                                            has_left_georef, left_sub_georef,
-                                            has_nodata, output_nodata,
-                                            opt, TerminalProgressCallback("asp", "\t    D_sub: ")
-                                            );
-        }
-      }
-    }
+          ImageView<PixelMask<Vector2f> > d_sub;
+          read_image(d_sub, d_sub_file);
+          // Account for scale.
+          double left_scale = 0.5*( double(d_sub.cols())/left_image.cols()
+                                    + double(d_sub.rows())/left_image.rows());
+          left_sub_georef = resample(left_georef, left_scale);
+          vw::cartography::block_write_gdal_image(d_sub_file, d_sub,
+                                      has_left_georef, left_sub_georef,
+                                      has_nodata, output_nodata,
+                                      opt, TerminalProgressCallback("asp", "\t    D_sub: ")
+                                      );
+        } // End i loop
+      } // End has_left_georef
+    } // End georef attach ?
 
     xercesc::XMLPlatformUtils::Terminate();
   } ASP_STANDARD_CATCHES;

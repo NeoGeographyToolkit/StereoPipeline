@@ -177,7 +177,9 @@ namespace asp {
       ("corr-blob-filter",       po::value(&global.corr_blob_filter_area)->default_value(0),
                      "Filter blobs this size or less in correlation pyramid step.")
       ("corr-tile-size",         po::value(&global.corr_tile_size_ovr)->default_value(ASPGlobalOptions::corr_tile_size()),
-                     "Override the default tile size used for processing.");
+                     "Override the default tile size used for processing.")
+      ("sgm-collar-size",        po::value(&global.sgm_collar_size)->default_value(512),
+                     "Extend SGM calculation to this distance to increase accuracy at tile borders.");
 
 
     po::options_description backwards_compat_options("Aliased backwards compatibility options");

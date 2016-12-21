@@ -25,28 +25,43 @@ import sys, os, re, string, time, math
 
 class BBox:
     def __init__(self, x, y, width, height):
-        self.x = x
-        self.y = y
-        self.width = width
+        self.x      = x
+        self.y      = y
+        self.width  = width
         self.height = height
+
+    def add_collar(self, size):
+        '''Expands the BBox in all directions by the given size'''
+        self.x      -= size
+        self.y      -= size
+        self.width  += 2*size
+        self.height += 2*size
 
     def name_str(self):
         return "%i_%i_%i_%i" % ( self.x, self.y, self.width, self.height )
 
     def crop_str(self):
+        '''Return an ASP command line option to specify that a process only
+           fill in the pixels from a certain window.'''
         return ["--trans-crop-win",str(self.x),
                 str(self.y),str(self.width),str(self.height)]
+                
+    def __str__(self):
+        return 'BBox('+ str(self.x) +', '+ str(self.y) +', '+ str(self.width) +', '+ str(self.height) +')' 
 
 def intersect_boxes(A, B):
     axmin = A.x; axmax = A.x + A.width; aymin = A.y; aymax = A.y + A.height
     bxmin = B.x; bxmax = B.x + B.width; bymin = B.y; bymax = B.y + B.height
-    xmin = max(axmin, bxmin); xmax = min(axmax, bxmax)
-    ymin = max(aymin, bymin); ymax = min(aymax, bymax)
-    C = BBox(0, 0, 0, 0)
-    C.x = xmin; C.width = xmax - xmin
-    if (C.width  < 0): C.width = 0
-    C.y = ymin; C.height = ymax - ymin
-    if (C.height < 0): C.height = 0
+    xmin  = max(axmin, bxmin); xmax = min(axmax, bxmax)
+    ymin  = max(aymin, bymin); ymax = min(aymax, bymax)
+    C     = BBox(0, 0, 0, 0)
+    C.x   = xmin; C.width = xmax - xmin
+    if (C.width  < 0):
+        C.width = 0
+    C.y      = ymin; 
+    C.height = ymax - ymin
+    if (C.height < 0):
+        C.height = 0
     return C
 
 def generateTileDir(startX, startY, stopX, stopY):

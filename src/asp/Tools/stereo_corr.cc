@@ -38,7 +38,6 @@ using namespace std;
 
 
 // TODO: Make this into an option?
-#define DEFAULT_COLLAR_SIZE 512
 #define SAVE_CORR_DEBUG false // Set this to true to generate pyramid correlation debug images
 
 // Read the search range from D_sub, and scale it to the full image
@@ -114,7 +113,7 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
     if (stereo_settings().rm_quantile_multiple <= 0.0)
     {
       // If we can process the entire image in one tile, don't use a collar.
-      int collar_size = DEFAULT_COLLAR_SIZE;
+      int collar_size = stereo_settings().sgm_collar_size;
       if ((opt.raster_tile_size[0] > left_sub.cols()) &&
           (opt.raster_tile_size[1] > left_sub.rows())   )
         collar_size = 0;
@@ -224,11 +223,13 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
                        Vector2(file_image_size( opt.out_prefix+"-R.tif" ) ) ));
       sub_scale /= 4.0f;
 
+      // TODO: It would be good to try and make this smarter!
+      const int inlier_threshold = 50; // This range is extra large to handle elevation differences.
       stereo_settings().search_range =
         approximate_search_range(opt.out_prefix,
   		         opt.out_prefix+"-L_sub.tif",
   		         opt.out_prefix+"-R_sub.tif",
-  		         sub_scale );
+  		         sub_scale, inlier_threshold );
     } else {
       // Use the IP we recorded to set the search range.
       // - Currently we just make it large enough to contain all the matched IP!
@@ -343,7 +344,6 @@ class SeededCorrelatorView : public ImageViewBase<SeededCorrelatorView> {
   // Settings
   Vector2  m_upscale_factor;
   BBox2i   m_seed_bbox;
-  BBox2i   m_trans_crop_win;
   Vector2i m_kernel_size;
   stereo::CostFunctionType m_cost_mode;
   int      m_corr_timeout;
@@ -365,7 +365,6 @@ public:
                         DispSeedImageType     const& sub_disp,
                         SpreadImageType       const& sub_disp_spread,
                         ImageView<Matrix3x3>  const& local_hom,
-                        BBox2i   trans_crop_win,
                         Vector2i const& kernel_size,
                         stereo::CostFunctionType cost_mode,
                         int corr_timeout, double seconds_per_op) :
@@ -373,7 +372,6 @@ public:
     m_left_mask (left_mask.impl ()), m_right_mask (right_mask.impl ()),
     m_sub_disp(sub_disp.impl()), m_sub_disp_spread(sub_disp_spread.impl()),
     m_local_hom(local_hom),
-    m_trans_crop_win(trans_crop_win),
     m_kernel_size(kernel_size),  m_cost_mode(cost_mode),
     m_corr_timeout(corr_timeout), m_seconds_per_op(seconds_per_op){
     m_upscale_factor[0] = double(m_left_image.cols()) / m_sub_disp.cols();
@@ -397,37 +395,9 @@ public:
     return pixel_type();
   }
 
-  // prerasterize_helper does all the work, this function just takes
-  //  care of the crop window "m_trans_crop_win"
+  /// Does the work
   typedef CropView<ImageView<pixel_type> > prerasterize_type;
   inline prerasterize_type prerasterize(BBox2i const& bbox) const {
-
-    // We do stereo only in m_trans_crop_win. Skip the current tile if
-    // it does not intersect this region.
-    BBox2i intersection = bbox; intersection.crop(m_trans_crop_win);
-    if (intersection.empty()){
-      return prerasterize_type(ImageView<pixel_type>(bbox.width(), bbox.height()),
-                               -bbox.min().x(), -bbox.min().y(),
-                               cols(), rows());
-    }
-
-    // Call the helper function to do all the work inside the window.
-    CropView<ImageView<pixel_type> > disparity = prerasterize_helper(bbox);
-
-    // Set to invalid the disparity outside m_trans_crop_win.
-    for (int col = bbox.min().x(); col < bbox.max().x(); col++){
-      for (int row = bbox.min().y(); row < bbox.max().y(); row++){
-        if (!m_trans_crop_win.contains(Vector2(col, row))){
-          disparity(col, row) = pixel_type();
-        }
-      }
-    }
-
-    return disparity;
-  } // End function prerasterize
-
-  /// The function that does all the work
-  inline prerasterize_type prerasterize_helper(BBox2i const& bbox) const {
 
     bool use_local_homography = stereo_settings().use_local_homography;
 
@@ -540,7 +510,7 @@ public:
                           stereo_settings().xcorr_threshold,
                           stereo_settings().corr_max_levels,
                           static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm), 
-                          DEFAULT_COLLAR_SIZE,
+                          stereo_settings().sgm_collar_size,
                           stereo_settings().corr_blob_filter_area,
                           SAVE_CORR_DEBUG );
       return corr_view.prerasterize(bbox);
@@ -556,7 +526,7 @@ public:
                           stereo_settings().xcorr_threshold,
                           stereo_settings().corr_max_levels,
                           static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm), 
-                          DEFAULT_COLLAR_SIZE,
+                          stereo_settings().sgm_collar_size,
                           stereo_settings().corr_blob_filter_area,
                           SAVE_CORR_DEBUG );
       return corr_view.prerasterize(bbox);
@@ -659,11 +629,12 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
     seconds_per_op = calc_seconds_per_op(cost_mode, left_disk_image, right_disk_image, kernel_size);
 
   // Set up the reference to the stereo disparity code
+  // - Processing is limited to trans_crop_win for use with parallel_stereo.
   ImageViewRef<PixelMask<Vector2f> > fullres_disparity;
-  fullres_disparity = SeededCorrelatorView( left_disk_image, right_disk_image, Lmask, Rmask,
-			  sub_disp, sub_disp_spread, local_hom, 
-			  trans_crop_win, kernel_size, cost_mode, corr_timeout,
-			  seconds_per_op );
+  fullres_disparity = crop(SeededCorrelatorView( left_disk_image, right_disk_image, Lmask, Rmask,
+			                                           sub_disp, sub_disp_spread, local_hom, kernel_size, 
+			                                           cost_mode, corr_timeout, seconds_per_op ), 
+			                     trans_crop_win);
     
   switch(stereo_settings().pre_filter_mode){
   case 2:
@@ -721,6 +692,13 @@ int main(int argc, char* argv[]) {
     // Integer correlator requires large tiles
     //---------------------------------------------------------
     int ts = stereo_settings().corr_tile_size_ovr;
+    
+    // GDAL black write sizes must be a multiple to 16 so if the input value is
+    //  not a multiple of 16 increase it until it is.
+    const int TILE_MULTIPLE = 16;
+    if (ts % TILE_MULTIPLE != 0)
+      ts = ((ts / TILE_MULTIPLE) + 1) * TILE_MULTIPLE;
+      
     opt.raster_tile_size = Vector2i(ts, ts);
 
     // Internal Processes

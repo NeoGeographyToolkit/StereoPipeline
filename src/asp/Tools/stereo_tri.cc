@@ -590,10 +590,8 @@ void stereo_triangulation( string          const& output_prefix,
       return;
     }
 
-    // We are supposed to do the triangulation in trans_crop_win only.
-    // So force rasterization in that box only using crop(), then pad
-    // with zeros, as we want to have the point cloud to have the same
-    // dimensions as L.tif, for the sake of point2dem.
+    // We are supposed to do the triangulation in trans_crop_win only
+    // so force rasterization in that box only using crop().
     BBox2i cbox = stereo_settings().trans_crop_win;
     string point_cloud_file = output_prefix + "-PC.tif";
     if (stereo_settings().compute_error_vector){
@@ -604,16 +602,10 @@ void stereo_triangulation( string          const& output_prefix,
                                << "Setting it to (err_len, 0, 0)." << endl;
 
       ImageViewRef<Vector6> crop_pc = crop(point_cloud, cbox);
-      save_point_cloud(cloud_center,
-                       crop(edge_extend(crop_pc, ZeroEdgeExtension()),
-                            bounding_box(point_cloud) - cbox.min()),
-                       point_cloud_file, opt_vec[0]);
+      save_point_cloud(cloud_center, crop_pc, point_cloud_file, opt_vec[0]);
     }else{
       ImageViewRef<Vector4> crop_pc = crop(point_and_error_norm(point_cloud), cbox);
-      save_point_cloud(cloud_center,
-                       crop(edge_extend(crop_pc, ZeroEdgeExtension()),
-                            bounding_box(point_cloud) - cbox.min()),
-                       point_cloud_file, opt_vec[0]);
+      save_point_cloud(cloud_center, crop_pc, point_cloud_file, opt_vec[0]);
     } // End if/else
 
     // Must print this at the end, as it contains statistics on the number of rejected points.

@@ -28,7 +28,7 @@ libexec_PROGRAMS = # Auxiliary C++ executables
 if MAKE_APP_STEREO
   bin_SCRIPTS      += stereo parallel_stereo sparse_disp dg_mosaic
   libexec_SCRIPTS  += stereo_utils.py
-  bin_PROGRAMS     += stereo_corr stereo_fltr stereo_pprc stereo_rfne
+  bin_PROGRAMS     += stereo_corr stereo_fltr stereo_pprc stereo_rfne stereo_blend
   libexec_PROGRAMS += stereo_parse
   stereo_corr_LDADD       = $(APP_STEREO_LIBS)
   stereo_corr_SOURCES     = stereo_corr.cc stereo.cc
@@ -40,6 +40,8 @@ if MAKE_APP_STEREO
   stereo_pprc_SOURCES     = stereo_pprc.cc stereo.cc
   stereo_rfne_LDADD       = $(APP_STEREO_LIBS)
   stereo_rfne_SOURCES     = stereo_rfne.cc stereo.cc
+  stereo_blend_LDADD      = $(APP_STEREO_LIBS)
+  stereo_blend_SOURCES    = stereo_blend.cc stereo.cc
   # bin_PROGRAMS += extract_camera_positions
   # extract_camera_positions_SOURCES = extract_camera_positions.cc
   # extract_camera_positions_LDADD   = $(APP_STEREO_LIBS)
