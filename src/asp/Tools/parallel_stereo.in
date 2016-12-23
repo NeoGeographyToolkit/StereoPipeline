@@ -198,7 +198,7 @@ def create_symlinks_for_multiview(settings, opt):
                 if os.path.lexists(dst_f): continue
                 os.symlink(rel_src, dst_f)
 
-def build_vrt(settings, georef, postfix, tile_postfix, contract_tiles):
+def build_vrt(settings, georef, postfix, tile_postfix, contract_tiles=False):
     '''Generate a VRT file to treat the separate image tiles as one large image.'''
 
     image_size = settings["trans_left_image_size"]
@@ -440,9 +440,9 @@ def spawn_to_nodes(step, settings, args):
 
 def parallel_run(prog, args, settings, tiles, **kw):
     '''Launch jobs on the current machine'''
-    
-    # Set collar_size argument to zero in all cases.
-    set_option(args, '--sgm-collar-size', [0])
+
+    if prog != 'stereo_blend':  # Set collar_size argument to zero in almost all cases.
+        set_option(args, '--sgm-collar-size', [0])
 
     # Get tool path
     binpath = bin_path(prog)
