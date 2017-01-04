@@ -39,6 +39,7 @@ namespace asp {
     virtual ~StereoSessionDGMapRPC(){};
 
     virtual std::string name() const { return "dgmaprpc"; }
+    virtual bool        uses_map_projected_inputs() const {return true;}
 
     static StereoSession* construct() { return new StereoSessionDGMapRPC; }
   };
@@ -52,6 +53,7 @@ namespace asp {
     virtual ~StereoSessionRPCMapRPC(){};
 
     virtual std::string name() const { return "rpcmaprpc"; }
+    virtual bool        uses_map_projected_inputs() const {return true;}
 
     static StereoSession* construct() { return new StereoSessionRPCMapRPC; }
   };
@@ -71,6 +73,7 @@ namespace asp {
     virtual ~StereoSessionIsisMapIsis(){};
 
     virtual std::string name() const { return "isismapisis"; }
+    virtual bool        uses_map_projected_inputs() const {return true;}
 
     static StereoSession* construct() { return new StereoSessionIsisMapIsis; }
   };
@@ -82,6 +85,7 @@ namespace asp {
     virtual ~StereoSessionPinholeMapPinhole() {}
 
     virtual std::string name() const { return "pinholemappinhole"; }
+    virtual bool        uses_map_projected_inputs() const {return true;}
 
     static StereoSession* construct() { return new StereoSessionPinholeMapPinhole; }
   };
@@ -93,6 +97,7 @@ namespace asp {
     virtual ~StereoSessionSpot5MapRPC(){};
 
     virtual std::string name() const { return "spot5maprpc"; }
+    virtual bool        uses_map_projected_inputs() const {return true;}
 
     static StereoSession* construct() { return new StereoSessionSpot5MapRPC; }
   };
@@ -104,6 +109,7 @@ namespace asp {
     virtual ~StereoSessionASTERMapRPC(){};
 
     virtual std::string name() const { return "astermaprpc"; }
+    virtual bool        uses_map_projected_inputs() const {return true;}
 
     static StereoSession* construct() { return new StereoSessionASTERMapRPC; }
   };

@@ -336,9 +336,8 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions              & optio
     has_right_georef = false;
   }
 
-  bool crop_left_and_right =
-    ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
-    ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
+  bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
 
   // If the output files already exist, and we don't crop both left
   // and right images, then there is nothing to do here.
@@ -346,7 +345,7 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions              & optio
   // get to this part where we exit early.
   if ( boost::filesystem::exists(left_output_file)  &&
        boost::filesystem::exists(right_output_file) &&
-       (!crop_left_and_right)) {
+       (!crop_left) && (!crop_right)) {
     try {
       vw_log().console_log().rule_set().add_rule(-1,"fileio");
       DiskImageView<PixelGray<float32> > out_left (left_output_file );
@@ -363,23 +362,16 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions              & optio
   } // End check for existing output files
 
   // See if to crop the images
-  if (crop_left_and_right) {
-    // Crop the images, will use them from now on. Crop the georef as
-    // well, if available.
-    left_cropped_file  = this->m_out_prefix + "-L-cropped.tif";
-    right_cropped_file = this->m_out_prefix + "-R-cropped.tif";
+  if (crop_left) {
+    // Crop the image, will use them from now on. Crop the georef as well, if available.
+    left_cropped_file = this->m_out_prefix + "-L-cropped.tif";
 
-    has_left_georef  = read_georeference(left_georef,  left_input_file);
-    has_right_georef = read_georeference(right_georef, right_input_file);
+    has_left_georef = read_georeference(left_georef, left_input_file);
     bool has_nodata = true;
 
     DiskImageView<float> left_orig_image(left_input_file);
-    DiskImageView<float> right_orig_image(right_input_file);
-    BBox2i left_win  = stereo_settings().left_image_crop_win;
-    BBox2i right_win = stereo_settings().right_image_crop_win;
-    left_win.crop (bounding_box(left_orig_image ));
-    right_win.crop(bounding_box(right_orig_image));
-
+    BBox2i left_win = stereo_settings().left_image_crop_win;
+    left_win.crop (bounding_box(left_orig_image));
 
     vw_out() << "\t--> Writing cropped image: " << left_cropped_file << "\n";
     block_write_gdal_image(left_cropped_file,
@@ -388,6 +380,17 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions              & optio
 			   has_nodata, left_nodata_value,
 			   options,
 			   TerminalProgressCallback("asp", "\t:  "));
+  }
+  if (crop_right) {
+    // Crop the image, will use them from now on. Crop the georef as well, if available.
+    right_cropped_file = this->m_out_prefix + "-R-cropped.tif";
+
+    has_right_georef = read_georeference(right_georef, right_input_file);
+    bool has_nodata = true;
+
+    DiskImageView<float> right_orig_image(right_input_file);
+    BBox2i right_win = stereo_settings().right_image_crop_win;
+    right_win.crop(bounding_box(right_orig_image));
 
     vw_out() << "\t--> Writing cropped image: " << right_cropped_file << "\n";
     block_write_gdal_image(right_cropped_file,
@@ -398,6 +401,7 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions              & optio
 			   options,
 			   TerminalProgressCallback("asp", "\t:  "));
   }
+
 
   // Re-read the georef, since it changed above.
   has_left_georef  = read_georeference(left_georef,  left_cropped_file);
@@ -427,12 +431,12 @@ vw::Vector2 camera_pixel_offset(std::string const& input_dem,
   if (input_dem != "")
     return Vector2();
 
+  bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
   vw::Vector2 left_pixel_offset, right_pixel_offset;
-  if ( ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
-       ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) ) ){
-    left_pixel_offset  = stereo_settings().left_image_crop_win.min();
-    right_pixel_offset = stereo_settings().right_image_crop_win.min();
-  }
+  if (crop_left ) left_pixel_offset  = stereo_settings().left_image_crop_win.min();
+  if (crop_right) right_pixel_offset = stereo_settings().right_image_crop_win.min();
+  
   if (curr_image_file == left_image_file)
     return left_pixel_offset;
   else if (curr_image_file == right_image_file)
@@ -491,23 +495,23 @@ load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
       DiskImageView<float> img(image_file);
       Vector2i image_size(img.cols(), img.rows());
 
-       if ( session == "dg" || session == "dgmaprpc") {
+      if ( session == "dg" || session == "dgmaprpc") {
 
-	// Create the adjusted DG model
-	boost::shared_ptr<camera::CameraModel> adj_dg_cam
-	  (new AdjustedLinescanDGModel(cam,
-				       stereo_settings().piecewise_adjustment_interp_type,
-				       adjustment_bounds, position_correction,
-				       pose_correction, image_size));
-	
-	// Apply the pixel offset and pose corrections. So this a second adjustment
-	// on top of the first.
-	boost::shared_ptr<camera::CameraModel> adj_dg_cam2
-	  (new vw::camera::AdjustedCameraModel(adj_dg_cam, Vector3(),
-					       Quat(math::identity_matrix<3>()), pixel_offset));
-	
-	return adj_dg_cam2;
-       }else{
+        // Create the adjusted DG model
+        boost::shared_ptr<camera::CameraModel> adj_dg_cam
+          (new AdjustedLinescanDGModel(cam,
+		                 stereo_settings().piecewise_adjustment_interp_type,
+		                 adjustment_bounds, position_correction,
+		                 pose_correction, image_size));
+
+        // Apply the pixel offset and pose corrections. So this a second adjustment
+        // on top of the first.
+        boost::shared_ptr<camera::CameraModel> adj_dg_cam2
+          (new vw::camera::AdjustedCameraModel(adj_dg_cam, Vector3(),
+			                 Quat(math::identity_matrix<3>()), pixel_offset));
+
+        return adj_dg_cam2;
+      }else{
          // Create the generic adjusted model
          boost::shared_ptr<camera::CameraModel> adj_generic_cam
            (new PiecewiseAdjustedLinescanModel(cam,
@@ -522,7 +526,7 @@ load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
                                                 Quat(math::identity_matrix<3>()), pixel_offset));
          
          return adj_generic_cam2;
-       }
+      }
        
     } // End case for piecewise DG adjustment
     

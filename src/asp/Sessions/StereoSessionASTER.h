@@ -32,8 +32,6 @@
 
 namespace asp {
 
-//TODO: Add STEREOSESSION_DISKTRANSFORM_TYPE template so we can support map projected ASTER images. 
-
 /// Generic stereoSession implementation for images which we can read/write with GDAL.
 /// - This class adds a "preprocessing hook" which aligns and normalizes the images using the specified methods.
 class StereoSessionASTER : public StereoSessionGdal<DISKTRANSFORM_TYPE_MATRIX,   

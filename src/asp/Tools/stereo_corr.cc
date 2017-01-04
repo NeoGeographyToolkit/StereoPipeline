@@ -630,12 +630,12 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
 
   // Set up the reference to the stereo disparity code
   // - Processing is limited to trans_crop_win for use with parallel_stereo.
-  ImageViewRef<PixelMask<Vector2f> > fullres_disparity;
-  fullres_disparity = crop(SeededCorrelatorView( left_disk_image, right_disk_image, Lmask, Rmask,
-			                                           sub_disp, sub_disp_spread, local_hom, kernel_size, 
-			                                           cost_mode, corr_timeout, seconds_per_op ), 
-			                     trans_crop_win);
-    
+  ImageViewRef<PixelMask<Vector2f> > fullres_disparity =
+    crop(SeededCorrelatorView( left_disk_image, right_disk_image, Lmask, Rmask,
+                               sub_disp, sub_disp_spread, local_hom, kernel_size, 
+                               cost_mode, corr_timeout, seconds_per_op ), 
+         trans_crop_win);
+  
   switch(stereo_settings().pre_filter_mode){
   case 2:
     vw_out() << "\t--> Using LOG pre-processing filter with "

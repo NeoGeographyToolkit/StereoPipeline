@@ -414,12 +414,12 @@ namespace asp {
 
     // Interpret the the last two coordinates of the crop win boxes as
     // width and height rather than max_x and max_y.
-    BBox2i b = stereo_settings().left_image_crop_win;
-    stereo_settings().left_image_crop_win = BBox2i(b.min().x(), b.min().y(), b.max().x(), b.max().y());
-    b = stereo_settings().right_image_crop_win;
-    stereo_settings().right_image_crop_win = BBox2i(b.min().x(), b.min().y(), b.max().x(), b.max().y());
-    b = stereo_settings().trans_crop_win;
-    stereo_settings().trans_crop_win = BBox2i(b.min().x(), b.min().y(), b.max().x(), b.max().y());
+    BBox2i bl = stereo_settings().left_image_crop_win;
+    BBox2i br = stereo_settings().right_image_crop_win;
+    BBox2i bt = stereo_settings().trans_crop_win;
+    stereo_settings().left_image_crop_win  = BBox2i(bl.min().x(), bl.min().y(), bl.max().x(), bl.max().y());
+    stereo_settings().right_image_crop_win = BBox2i(br.min().x(), br.min().y(), br.max().x(), br.max().y());
+    stereo_settings().trans_crop_win       = BBox2i(bt.min().x(), bt.min().y(), bt.max().x(), bt.max().y());
 
     // Ensure the crop windows are always contained in the images.
     boost::shared_ptr<vw::DiskImageResource> left_resource, right_resource;
@@ -432,36 +432,32 @@ namespace asp {
 
     bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
     bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
-    bool crop_left_and_right = (crop_left && crop_right);
-    
+
     // If crops were specified, check that they are valid.
     if (crop_left && stereo_settings().left_image_crop_win.empty())
       vw_throw(ArgumentErr() << "Invalid left crop window specified!\n");
     if (crop_right && stereo_settings().right_image_crop_win.empty())
       vw_throw(ArgumentErr() << "Invalid right crop window specified!\n");
     
-    if (!crop_left_and_right) {
+    // Make sure the trans_crop_win value is correct going forwards.
+    if (!crop_left) {
       // The crop window after transforming the left image via
       // affine epipolar or homography alignment.
-      if (stereo_settings().trans_crop_win == BBox2i(0, 0, 0, 0)){
+      if (stereo_settings().trans_crop_win == BBox2i(0, 0, 0, 0))
         stereo_settings().trans_crop_win = transformed_crop_win(opt);
-      }
 
       // Intersect with L.tif which is the transformed and processed left image.
       if ( fs::exists(opt.out_prefix+"-L.tif") ){
         DiskImageView<PixelGray<float> > L_img(opt.out_prefix+"-L.tif");
         stereo_settings().trans_crop_win.crop(bounding_box(L_img));
       }
-    }else{
-
-      // If both left_image_crop_win and right_image_crop_win are
-      // specified, as can be see in
+    }else{ 
+      // If left_image_crop_win is specified, as can be see in
       // StereoSession::pre_preprocessing_hook(), we actually
-      // physically crop both images, rather than keeping the full
-      // images and just restricting the domain of computation.  The
-      // trans_crop_win as passed here from parallel_stereo will
-      // already be a tile in the cropped image. So we just use it as
-      // it is. If it is not defined, we set it to the entire cropped image.
+      // physically crop the image.  The trans_crop_win as passed 
+      // here from parallel_stereo will already be a tile in the 
+      // cropped image. So we just use it as it is. If it is not defined, 
+      // we set it to the entire cropped image.
       if (stereo_settings().trans_crop_win == BBox2i(0, 0, 0, 0)) {
         stereo_settings().trans_crop_win = bounding_box(left_image);
         if ( fs::exists(opt.out_prefix+"-L.tif") ){
@@ -471,6 +467,7 @@ namespace asp {
       }
     } // End crop checking case
 
+    // TODO: May need to update this check for individual crop cases.
     // Sanity check. Don't run it if we have L-cropped.tif or R-cropped.tif,
     // in that case we have ran the gui before, and the sizes of the subimages
     // could be anything. We'll regenerate any of those anyway soon.
@@ -581,13 +578,8 @@ namespace asp {
                              << "provided for stereo to give correct results.\n";
     }
 
-    // TODO: Clean this up using session function calls!
-
     // Check that if the user provided a dem that we are using a map projection method
-    if (dem_provided
-        && opt.session->name() != "dgmaprpc"    && opt.session->name() != "rpcmaprpc"
-        && opt.session->name() != "isismapisis" && opt.session->name() != "pinholemappinhole"
-        && opt.session->name() != "spot5maprpc" && opt.session->name() != "astermaprpc") {
+    if (dem_provided && !opt.session->uses_map_projected_inputs()) {
       vw_throw(ArgumentErr() << "Cannot use map-projected images with a session of type: "
                              << opt.session->name() << ".\n");
     }
@@ -629,7 +621,7 @@ namespace asp {
                  << l_cam_type << "\" and \"" << r_cam_type << "\".\n");
       }
 
-    }
+    } // End if dem_provided
 
     if (stereo_settings().corr_kernel[0]%2 == 0 ||
         stereo_settings().corr_kernel[1]%2 == 0   ){
@@ -743,12 +735,10 @@ namespace asp {
 
     string match_filename = ip::match_filename(out_prefix, left_sub_file, right_sub_file);
 
-    bool crop_left_and_right =
-      ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
-      ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
+    bool crop_applied = (stereo_settings().left_image_crop_win != BBox2i(0, 0, 0, 0));
 
     // Building / Loading Interest point data
-    if (!fs::exists(match_filename) || crop_left_and_right) {
+    if (!fs::exists(match_filename) || crop_applied) {
 
       // No interest point operations have been performed before
       vw_out() << "\t    * Locating Interest Points\n";

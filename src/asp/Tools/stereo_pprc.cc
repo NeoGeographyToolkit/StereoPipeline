@@ -68,11 +68,11 @@ struct BlobHolder {
                                                         double threshold );
 };
 
+/// Create the mask of pixels above threshold. Fix any holes in it.
 ImageViewRef< PixelMask<uint8> >
 BlobHolder::mask_and_fill_holes( ImageViewRef< PixelGray<float> > const& img,
                                  double threshold ){
 
-  // Create the mask of pixels above threshold. Fix any holes in it.
   ImageViewRef< PixelMask<uint8> > thresh_mask = mask_above_threshold(img, threshold);
   int max_area = 0; // fill arbitrarily big holes
   bool use_grassfire = false; // fill with default value
@@ -83,14 +83,14 @@ BlobHolder::mask_and_fill_holes( ImageViewRef< PixelGray<float> > const& img,
   return inpaint(thresh_mask.impl(), *m_blobPtr.get(), use_grassfire, default_inpaint_val);
 }
 
+
+/// Instead of writing L.tif and R.tif, just create sym links from
+/// input left and right images. Creating symbolic links can be tricky.
 void create_sym_links(string const& left_input_file,
                       string const& right_input_file,
                       string const& out_prefix,
                       string & left_output_file,
                       string & right_output_file) {
-
-  // Instead of writing L.tif and R.tif, just create sym links from
-  // input left and right images. Creating symbolic links can be tricky.
 
   vw_out(WarningMessage) << "Skipping image normalization.\n";
 
@@ -128,12 +128,13 @@ void create_sym_links(string const& left_input_file,
     VW_ASSERT( ret == 0,
                ArgumentErr() << "Failed to execute: " << cmd << "\n" );
   }
+} // End function create_sym_links
 
-}
-
+/// The main preprocessing function
 void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
 
-  // Normalize the images, unless the user prefers not to.
+  // Normalize the images, or create symlinks to the original
+  // images if the user chose not to normalize.
   string left_image_file, right_image_file;
   bool skip_img_norm = asp::skip_image_normalization(opt);
   if (skip_img_norm)
@@ -143,6 +144,7 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     opt.session->pre_preprocessing_hook(adjust_left_image_size,
                                         opt.in_file1,    opt.in_file2,
                                         left_image_file, right_image_file);
+
 
   boost::shared_ptr<DiskImageResource>
     left_rsrc (asp::load_disk_image_resource(left_image_file,  opt.cam_file1)),
@@ -154,13 +156,12 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
 
   // If we crop the images, we must always rebuild the masks
   // and subsample the images and masks.
-  bool crop_left_and_right =
-    ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
-    ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
+  bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
 
   string left_mask_file  = opt.out_prefix+"-lMask.tif";
   string right_mask_file = opt.out_prefix+"-rMask.tif";
-  bool rebuild = crop_left_and_right;
+  bool rebuild = crop_left || crop_right;
   try {
     // If files do not exist, create them. Also if they exist
     // but are invalid. The second check gives an ugly verbose
@@ -189,6 +190,8 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
   // The output no-data value must be < 0 as the images are scaled to around [0, 1].
   bool has_nodata = true;
   float output_nodata = -32768.0;
+
+
 
   if (!rebuild) {
     vw_out() << "\t--> Using cached masks.\n";
@@ -271,22 +274,16 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
       right_mask = intersect_mask(right_mask, right_thresh_mask);
     }
 
-    bool crop_left_and_right =
-      ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
-      ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
+    // Handle cropped images
     std::string left_cropped_file  = opt.in_file1;
     std::string right_cropped_file = opt.in_file2;
-    if (crop_left_and_right) {
-      // Use the cropped images.
-      left_cropped_file  = opt.out_prefix + "-L-cropped.tif";
-      right_cropped_file = opt.out_prefix + "-R-cropped.tif";
-    }
+    if (crop_left)  left_cropped_file  = opt.out_prefix + "-L-cropped.tif";
+    if (crop_right) right_cropped_file = opt.out_prefix + "-R-cropped.tif";
 
     // Intersect the left mask with the warped version of the right
     // mask, and vice-versa to reduce noise, if the images
     // are map-projected.
-    vw_out() << "Writing masks: " << left_mask_file << ' '
-             << right_mask_file << ".\n";
+    vw_out() << "Writing masks: " << left_mask_file << ' ' << right_mask_file << ".\n";
     if (has_left_georef && has_right_georef && !opt.input_dem.empty()){
       ImageViewRef< PixelMask<uint8> > warped_left_mask // Left image mask transformed into right coordinates
         = crop(vw::cartography::geo_transform
@@ -343,7 +340,7 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
   string rmsub = opt.out_prefix+"-rMask_sub.tif";
 
   // We must always redo the subsampling if we are allowed to crop the images
-  rebuild = crop_left_and_right;
+  rebuild = crop_left || crop_right;
 
   try {
     // First try to see if the subsampled images exist.
@@ -403,8 +400,10 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     if ( sub_scale > 0.5 ) {
       // When we are near the pixel input to output ratio, standard
       // interpolation gives the best possible results.
-      left_sub_image  = block_rasterize(resample(copy_mask(left_image,  create_mask(left_mask)),  sub_scale), sub_tile_size_vec, sub_threads);
-      right_sub_image = block_rasterize(resample(copy_mask(right_image, create_mask(right_mask)), sub_scale), sub_tile_size_vec, sub_threads);
+      left_sub_image  = block_rasterize(resample(copy_mask(left_image,  create_mask(left_mask)),  sub_scale), 
+                                        sub_tile_size_vec, sub_threads);
+      right_sub_image = block_rasterize(resample(copy_mask(right_image, create_mask(right_mask)), sub_scale), 
+                                        sub_tile_size_vec, sub_threads);
     } else {
       // When we heavily reduce the image size, super sampling seems
       // like the best approach. The method below should be equivalent.
@@ -430,13 +429,13 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     if (has_left_georef) {
       // Account for scale.
       double left_scale = 0.5*( double(left_sub_image.cols())/left_image.cols()
-                                + double(left_sub_image.rows())/left_image.rows());
+                              + double(left_sub_image.rows())/left_image.rows());
       left_sub_georef = resample(left_georef, left_scale);
     }
     if (has_right_georef) {
       // Account for scale.
       double right_scale = 0.5*( double(right_sub_image.cols())/right_image.cols()
-                                + double(right_sub_image.rows())/right_image.rows());
+                               + double(right_sub_image.rows())/right_image.rows());
       right_sub_georef = resample(right_georef, right_scale);
     }
 
@@ -477,10 +476,10 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
       = copy_mask(left_image, create_mask(left_mask));
     ImageViewRef< PixelMask< PixelGray<float> > > right_masked_image
       = copy_mask(right_image, create_mask(right_mask));
-    Vector6f left_stats  = gather_stats( left_masked_image,  "left" );
-    Vector6f right_stats = gather_stats( right_masked_image, "right" );
-    string left_stats_file   = opt.out_prefix+"-lStats.tif";
-    string right_stats_file  = opt.out_prefix+"-rStats.tif";
+    Vector6f left_stats       = gather_stats( left_masked_image,  "left" );
+    Vector6f right_stats      = gather_stats( right_masked_image, "right" );
+    string   left_stats_file  = opt.out_prefix + "-lStats.tif";
+    string   right_stats_file = opt.out_prefix + "-rStats.tif";
 
     vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << endl;
     Vector<float32> left_stats2  = left_stats;  // cast
