@@ -107,13 +107,20 @@ def wipe_option(options, opt, n):
 def set_option(options, opt, new_values):
     # In the array 'options', find the entry with value 'opt'.
     # Replace the next values with new_values.
-    r = options.index(opt)
-    if r < len(options):
-        r += 1
-        for i in range(len(new_values)):
-            if r < len(options):
-              options[r] = str(new_values[i])
+
+    if opt in options:
+        # The option is already included, update its value.
+        r = options.index(opt)       
+        if r < len(options):
             r += 1
+            for i in range(len(new_values)):
+                if r < len(options):
+                  options[r] = str(new_values[i])
+                r += 1
+    else: # The option is not present, add it.
+        options.append(opt)
+        for i in new_values:
+            options.append(str(new_values[i]))
 
 def create_subproject_dirs( settings, **kw ):
 
