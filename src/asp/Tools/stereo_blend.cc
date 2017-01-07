@@ -26,7 +26,6 @@ when running the SGM algorithm on large data sets using parallel_stereo.
 #include <asp/Tools/stereo.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <asp/Sessions/ResourceLoader.h>
-//#include <xercesc/util/PlatformUtils.hpp>
 #include <boost/filesystem.hpp>
 
 using namespace vw;
@@ -79,7 +78,13 @@ Position get_opposed_position(Position p) {
 }
 
 /// Given "out-2048_0_1487_2048" return "2048_0_1487_2048"
-std::string extract_process_folder_bbox_string(std::string const& s) {
+std::string extract_process_folder_bbox_string(std::string  s) {
+  // If the filename was included, throw it out first.
+  if (s.find("-Dnosym.tif") != std::string::npos) {
+    size_t pt = s.rfind("/");
+    s = s.substr(0, pt);
+    //std::cout << "s2 = " << s << std::endl;
+  }
   size_t num_start = s.rfind("-");
   if (num_start == std::string::npos)
     vw_throw( ArgumentErr() << "Error parsing folder string: " << s );
@@ -89,6 +94,7 @@ std::string extract_process_folder_bbox_string(std::string const& s) {
 /// Constructs a BBox2i from a parallel_stereo formatted folder.
 BBox2i bbox_from_folder(std::string const& s) {
   std::string cropped = extract_process_folder_bbox_string(s);
+  //std::cout << "cropped = " << cropped << std::endl;
   int x, y, width, height;
   sscanf(cropped.c_str(), "%d_%d_%d_%d", &x, &y, &width, &height);
   return BBox2i(x, y, width, height);
@@ -111,27 +117,39 @@ bool get_roi_from_tile(std::string const& tile_path, Position pos,
                               bool buffers_stripped=false) {
 
   // Get the ROI of this tile and of the entire processing job
-  BBox2i tile_roi = bbox_from_folder(tile_path);
-  BBox2i full_roi = stereo_settings().left_image_crop_win;
+  //std::cout << "tile_path = " << tile_path << std::endl;
+  BBox2i unbuffered_roi = bbox_from_folder(tile_path);
+  //BBox2i full_roi = stereo_settings().left_image_crop_win;
+  //std::cout << "unbuffered_roi = " << unbuffered_roi << std::endl;
+  //std::cout << "full_roi = " << full_roi << std::endl;
+  Vector2i image_size = file_image_size(tile_path, tile_path);
+  if (buffers_stripped)
+    image_size = Vector2i(unbuffered_roi.width(), unbuffered_roi.height());
+  
   
   // Determine if this tile sits on the border of the tiles.
-  bool left_edge  = (tile_roi.min().x() == full_roi.min().x());
-  bool top_edge   = (tile_roi.min().y() == full_roi.min().y());
-  bool right_edge = (tile_roi.max().x() == full_roi.max().x());
-  bool bot_edge   = (tile_roi.max().y() == full_roi.max().y());
+  bool left_edge  = (unbuffered_roi.min().x() == 0);
+  bool top_edge   = (unbuffered_roi.min().y() == 0);
+  bool right_edge = (unbuffered_roi.width () != stereo_settings().corr_tile_size_ovr);
+  bool bot_edge   = (unbuffered_roi.height() != stereo_settings().corr_tile_size_ovr);
   if (buffers_stripped) {
     left_edge = top_edge = right_edge = bot_edge = true;
   }
   
-  // Get the size of the buffers on each edge
+  // Get the size of the buffers on each edge (no buffer if on the edge)
   int left_offset  = (left_edge ) ? 0 : buffer_size;
   int right_offset = (right_edge) ? 0 : buffer_size;
   int top_offset   = (top_edge  ) ? 0 : buffer_size;
   int bot_offset   = (bot_edge  ) ? 0 : buffer_size;
+  //printf("Offsets: %d, %d, %d, %d\n", left_offset, right_offset, top_offset, bot_offset);
   
   // Adjust the size of the output ROI according to the available buffer area
-  int roi_width  = tile_roi.width()  - (left_offset + right_offset);
-  int roi_height = tile_roi.height() - (top_offset  + bot_offset  );
+  //int roi_width  = image_size[0] - (left_offset + right_offset);
+  //int roi_height = image_size[1] - (top_offset  + bot_offset  );
+  int roi_width    = unbuffered_roi.width();   // Size with no buffers
+  int roi_height   = unbuffered_roi.height();
+  int image_width  = image_size[0];  // Size with buffers included
+  int image_height = image_size[1];
   
   // The three sizes of bboxes that will be used.
   Vector2i corner_size         (buffer_size, buffer_size);
@@ -162,9 +180,9 @@ bool get_roi_from_tile(std::string const& tile_path, Position pos,
     if (get_buffer) {
       if (right_edge || top_edge)
           return false;
-      output_roi = BBox2i(Vector2i(tile_roi.width()-buffer_size, 0), dummy);
+      output_roi = BBox2i(Vector2i(image_width-buffer_size, 0), dummy);
     } else
-      output_roi = BBox2i(Vector2i(tile_roi.width()-buffer_size-right_offset, top_offset), dummy);
+      output_roi = BBox2i(Vector2i(image_width-buffer_size-right_offset, top_offset), dummy);
     output_roi.set_size(corner_size);
     break;
   case L:
@@ -180,37 +198,37 @@ bool get_roi_from_tile(std::string const& tile_path, Position pos,
     if (get_buffer) {
       if (right_edge)
         return false;
-      output_roi = BBox2i(Vector2i(tile_roi.width()-buffer_size, 0), dummy);
+      output_roi = BBox2i(Vector2i(image_width-buffer_size, top_offset), dummy);
     } else
-      output_roi = BBox2i(Vector2i(tile_roi.width()-buffer_size-right_offset, top_offset), dummy);
+      output_roi = BBox2i(Vector2i(image_width-buffer_size-right_offset, top_offset), dummy);
     output_roi.set_size(vertical_edge_size);
     break;
   case BL:
     if (get_buffer) {
       if (left_edge || bot_edge)
         return false;
-      output_roi = BBox2i(Vector2i(0, tile_roi.height()-buffer_size), dummy);
+      output_roi = BBox2i(Vector2i(0, image_height-buffer_size), dummy);
     } else
-      output_roi = BBox2i(Vector2i(left_offset, tile_roi.height()-buffer_size-bot_offset), dummy);
+      output_roi = BBox2i(Vector2i(left_offset, image_height-buffer_size-bot_offset), dummy);
     output_roi.set_size(corner_size);
     break;
   case B:
     if (get_buffer) {
       if (bot_edge)
         return false;
-      output_roi = BBox2i(Vector2i(left_offset, tile_roi.height()-buffer_size), dummy);
+      output_roi = BBox2i(Vector2i(left_offset, image_height-buffer_size), dummy);
     } else
-      output_roi = BBox2i(Vector2i(left_offset, tile_roi.height()-buffer_size-bot_offset), dummy);
+      output_roi = BBox2i(Vector2i(left_offset, image_height-buffer_size-bot_offset), dummy);
     output_roi.set_size(horizontal_edge_size);
     break;
   case BR:
     if (get_buffer) {
       if (right_edge || bot_edge) 
         return false;
-      output_roi = BBox2i(Vector2i(tile_roi.width()-buffer_size, tile_roi.height()-buffer_size), dummy);
+      output_roi = BBox2i(Vector2i(image_width-buffer_size, image_height-buffer_size), dummy);
     } else
-      output_roi = BBox2i(Vector2i(tile_roi.width() -buffer_size-right_offset, 
-                                 tile_roi.height()-buffer_size-bot_offset), dummy);
+      output_roi = BBox2i(Vector2i(image_width -buffer_size-right_offset, 
+                                   image_height-buffer_size-bot_offset), dummy);
     output_roi.set_size(corner_size);
     break;
   default: // M (central area, everything except for the buffers)
@@ -223,74 +241,6 @@ bool get_roi_from_tile(std::string const& tile_path, Position pos,
   return true;
 }
 
-/*
-/// Compute the bounding boxes for blending with one neigboring tile
-/// - Note that the edge ROIs include the corner ROIs
-void compute_rois(BBox2i const& input_bbox, ///< BBox in the input (center) tile.
-                  Position pos, 
-                  Vector2i const& tile_size, int buffer_size, 
-                  BBox2i& tile_roi, BBox2i& input_roi) {
-
-  // No tile should ever be smaller than buffer_size in width and height
-  
-  // The three sizes of bboxes that will be used.
-  Vector2i corner_size         (buffer_size,        buffer_size);
-  Vector2i horizontal_edge_size(input_bbox.width(), buffer_size);
-  Vector2i vertical_edge_size  (buffer_size,        input_bbox.height());
-  Vector2i dummy(0,0);
-
-  switch(pos) {
-  case TL: 
-    tile_roi  = BBox2i(Vector2i(tile_size[0]-buffer_size, tile_size[1]-buffer_size), dummy);
-    input_roi = BBox2i(input_bbox.min(), dummy);
-    tile_roi.set_size (corner_size);
-    input_roi.set_size(corner_size);
-    break;
-  case T:
-    tile_roi  = BBox2i(Vector2i(buffer_size, tile_size[1]-buffer_size), dummy);
-    input_roi = BBox2i(input_bbox.min(), dummy);
-    tile_roi.set_size (horizontal_edge_size);
-    input_roi.set_size(horizontal_edge_size);
-    break;             
-  case TR:
-    tile_roi  = BBox2i(Vector2i(0, tile_size[1]-buffer_size),  dummy);
-    input_roi = BBox2i(input_bbox.min() + Vector2i(input_bbox.width()-buffer_size, 0), dummy);
-    tile_roi.set_size (corner_size);
-    input_roi.set_size(corner_size);
-    break;
-  case L:
-    tile_roi  = BBox2i(Vector2i(tile_size[0]-buffer_size, buffer_size), dummy);
-    input_roi = BBox2i(input_bbox.min(), dummy);
-    tile_roi.set_size (vertical_edge_size);
-    input_roi.set_size(vertical_edge_size);
-    break;
-  case R:
-    tile_roi  = BBox2i(Vector2i(0, buffer_size), dummy);
-    input_roi = BBox2i(input_bbox.min() + Vector2i(input_bbox.width()-buffer_size, 0), dummy);
-    tile_roi.set_size (vertical_edge_size);
-    input_roi.set_size(vertical_edge_size);
-    break;
-  case BL:
-    tile_roi  = BBox2i(Vector2i(tile_size[0]-buffer_size, 0), dummy);
-    input_roi = BBox2i(input_bbox.min() + Vector2i(0, input_bbox.height()-buffer_size), dummy);
-    tile_roi.set_size (corner_size);
-    input_roi.set_size(corner_size);
-    break;
-  case B:
-    tile_roi  = BBox2i(Vector2i(buffer_size, 0), dummy);
-    input_roi = BBox2i(input_bbox.min() + Vector2i(0, input_bbox.height()-buffer_size), dummy);
-    tile_roi.set_size (horizontal_edge_size);
-    input_roi.set_size(horizontal_edge_size);
-    break;
-  default: // BR
-    tile_roi  = BBox2i(Vector2i(0, 0), dummy);
-    input_roi = BBox2i(input_bbox.max() - Vector2i(buffer_size, buffer_size), dummy);
-    tile_roi.set_size (corner_size);
-    input_roi.set_size(corner_size);
-    break;
-  };
-}
-*/
 /// Load the desired portion of a disparity tile and associated image weights.
 bool load_image_and_weights(std::string const& file_path, BBox2i const& roi,
                             DispImageType & image, WeightsType & weights) {
@@ -306,6 +256,7 @@ bool load_image_and_weights(std::string const& file_path, BBox2i const& roi,
   
   // Extract the desired portion of the full image
   image = crop(full_image, roi);
+  
   return true;
 }
 
@@ -352,8 +303,9 @@ tile_blend( DispImageType const& input_image,
   // The amount of padding applied to each tile.
   int buff_size = opt.sgm_collar_size;
 
-  const bool GET_BUFFER = true;
-  const bool NOT_BUFFER = false;
+  const bool GET_BUFFER   = true;
+  const bool NOT_BUFFER   = false;
+  const bool BUFFERS_GONE = true;
 
   // Retrieve the output bounding box in the input image
   BBox2i output_bbox;
@@ -362,9 +314,9 @@ tile_blend( DispImageType const& input_image,
   // The bbox of the input image and the bbox that will be written as
   //  output (with the padding removed)
   BBox2i input_bbox  = bounding_box(input_image);  
-  std::cout << "Input bbox = " << input_bbox << std::endl;
-  std::cout << "Output bbox = " << output_bbox << std::endl;
-  
+  //std::cout << "Input bbox = " << input_bbox << std::endl;
+  //std::cout << "Output bbox = " << output_bbox << std::endl;
+
   // Allocate the output image as a copy of the input image.
   // - This sets the non-blended portion of the image.
   DispImageType output_image = crop(input_image, output_bbox);
@@ -373,7 +325,7 @@ tile_blend( DispImageType const& input_image,
   WeightsType main_weights;
   centerline_weights(input_image, main_weights, output_bbox);
 
-  write_image("main_weights.tif", main_weights);
+  //write_image("main_weights.tif", main_weights);
 
   // Load the neighboring eight tiles
   //Vector2i      tile_sizes [NUM_NEIGHBORS];
@@ -386,16 +338,14 @@ tile_blend( DispImageType const& input_image,
   for (size_t i=0; i<NUM_NEIGHBORS; ++i) {
     if (opt.tile_paths[i] == "")
       continue;
-    //tile_sizes[i] = asp::file_image_size(opt.tile_paths[i]);
-    //compute_rois(output_bbox, Position(i), tile_sizes[i], buff_size, tile_rois[i], input_rois[i]);
-    
+
     // Get the ROI from the cropped input image, then from the neighboring tile
-    get_roi_from_tile(opt.main_path, Position(i), buff_size, NOT_BUFFER, input_rois[i], true);
+    get_roi_from_tile(opt.main_path, Position(i), buff_size, NOT_BUFFER, input_rois[i], BUFFERS_GONE);
     get_roi_from_tile(opt.tile_paths[i], get_opposed_position(Position(i)), 
                       buff_size, GET_BUFFER, tile_rois[i]);
     
-    std::cout << "For tile " << position_string(i) << ", tile roi = " 
-              << tile_rois[i] << ", input_roi = " << input_rois[i] << std::endl;
+    //std::cout << "For tile " << position_string(i) << ", tile roi = " 
+    //          << tile_rois[i] << ", input_roi = " << input_rois[i] << std::endl;
     //std::cout << opt.tile_paths[i] << std::endl;
     
     load_image_and_weights(opt.tile_paths[i], tile_rois[i], images[i], weights[i]);
@@ -405,8 +355,8 @@ tile_blend( DispImageType const& input_image,
 
 //vw_throw( ArgumentErr() << "DEBUG!" );
 
-  std::cout << "BBox output = " << bounding_box(output_image) << std::endl;
-  std::cout << "BBox weights = " << bounding_box(main_weights) << std::endl;
+  //std::cout << "BBox output = " << bounding_box(output_image) << std::endl;
+  //std::cout << "BBox weights = " << bounding_box(main_weights) << std::endl;
   
   // Multiply the main image values by blend weights
   output_image *= main_weights;
@@ -418,8 +368,10 @@ tile_blend( DispImageType const& input_image,
     if (opt.tile_paths[i] == "")
       continue;
     std::cout << "Blending tile " << position_string(i) << std::endl;
-    blend_tile_region(output_image, main_weights, input_rois[i],
-                      images[i],    weights[i],   tile_rois[i]);
+    // We discard the neighboring tile mask here because the weights will take 
+    //  care of those pixels and we don't want to OR in the mask of the neighbor.
+    blend_tile_region(output_image,             main_weights, input_rois[i],
+                      validate_mask(images[i]), weights[i],   tile_rois[i]);
   }
 
   std::cout << "Postmultiply...\n";
@@ -439,13 +391,9 @@ void fill_blend_options(ASPGlobalOptions const& opt, BlendOptions & blend_option
   //std::cout << "right_image_crop_win = " << stereo_settings().right_image_crop_win << std::endl;
   //std::cout << "trans_crop_win = " << stereo_settings().trans_crop_win << std::endl;
   
-  boost::filesystem::path parallel_stereo_folder(opt.out_prefix);
-  
-  std::cout << "parallel_stereo_folder = " << parallel_stereo_folder.string() << std::endl;
-  
+  // Get the top level output folder for parallel_stereo
+  boost::filesystem::path parallel_stereo_folder(opt.out_prefix); 
   parallel_stereo_folder = parallel_stereo_folder.parent_path().parent_path();
-  
-  std::cout << "parallel_stereo_folder = " << parallel_stereo_folder.string() << std::endl;
   
   // Get a list of all the folders in the parallel_stereo output directory
   std::vector<std::string> folder_list;
@@ -459,18 +407,18 @@ void fill_blend_options(ASPGlobalOptions const& opt, BlendOptions & blend_option
     //std::cout << '\n';
   }
   
-  // Get the main tile bbox
+  // Get the main tile bbox from the subfolder name
   boost::filesystem::path mpath(blend_options.main_path);
   std::string mbb = mpath.parent_path().filename().string();
-  std::cout << "mbb = " << mbb << std::endl;
+  //std::cout << "mbb = " << mbb << std::endl;
   blend_options.main_roi = bbox_from_folder(mbb);
   BBox2i main_bbox = blend_options.main_roi;
-  std::cout << "mbb = " << main_bbox << std::endl;
+  //std::cout << "mbb = " << main_bbox << std::endl;
    
   // Figure out where each folder goes
   for (size_t i=0; i<folder_list.size(); ++i) {
     BBox2i bbox = bbox_from_folder(folder_list[i]);
-    std::cout << folder_list[i] << " ---> " << bbox << "\n";
+    //std::cout << folder_list[i] << " ---> " << bbox << "\n";
     
     std::string bbox_string = extract_process_folder_bbox_string(folder_list[i]);
     
@@ -575,8 +523,7 @@ void stereo_blending( ASPGlobalOptions const& opt ) {
 
 int main(int argc, char* argv[]) {
 
-  //try {
-    //xercesc::XMLPlatformUtils::Initialize();
+  try {
 
     vw_out() << "\n[ " << current_posix_time_string()
              << " ] : Stage 2 --> BLENDING \n";
@@ -602,8 +549,7 @@ int main(int argc, char* argv[]) {
     vw_out() << "\n[ " << current_posix_time_string()
              << " ] : BLENDING FINISHED \n";
 
-    //xercesc::XMLPlatformUtils::Terminate();
-  //} ASP_STANDARD_CATCHES;
+  } ASP_STANDARD_CATCHES;
 
   return 0;
 }
