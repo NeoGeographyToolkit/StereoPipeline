@@ -93,7 +93,9 @@ namespace vw { namespace gui {
                std::string const& base_image_file,
                std::vector<std::vector<ip::InterestPoint> > & matches,
                chooseFilesDlg * chooseFiles, bool use_georef,
-               bool hillshade, bool view_matches, bool zoom_all_to_same_region);
+               bool hillshade, bool view_matches, bool zoom_all_to_same_region,
+	       bool & allowMultipleSelections // alias
+	       );
     virtual ~MainWidget();
 
     bool get_crop_win(QRect & win);
@@ -130,7 +132,8 @@ namespace vw { namespace gui {
     void setWorldBox(vw::BBox2 const& box);
 
     signals:
-    void refreshAllMatches();
+    void turnOnViewMatchesSignal();
+    void turnOffViewMatchesSignal();
     void removeImageAndRefreshSignal();
     void uncheckProfileModeCheckbox();
     void zoomAllToSameRegionSignal(int);
@@ -217,7 +220,6 @@ public slots:
     QRect m_rubberBand;
     BBox2 m_stereoCropWin;
 
-    bool m_allowMultipleSelections;
     std::vector<BBox2> m_selectionRectangles;
     
     // If we are selecting a crop win to do stereo in
@@ -303,7 +305,8 @@ public slots:
 
     bool m_zoom_all_to_same_region; // if all widgets are forced to zoom to same region
     bool m_can_emit_zoom_all_signal; 
-    
+    bool & m_allowMultipleSelections; // alias, this is controlled from MainWindow for all widgets
+
     // Drawing is driven by QPaintEvent, which calls out to drawImage()
     void drawImage(QPainter* paint);
     /// Add all the interest points to the provided canvas

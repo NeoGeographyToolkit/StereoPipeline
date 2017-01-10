@@ -80,6 +80,7 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
   m_grid_cols(grid_cols),
   m_use_georef(use_georef), m_hillshade(hillshade), m_view_matches(view_matches),
   m_delete_temporary_files_on_exit(delete_temporary_files_on_exit),
+  m_allowMultipleSelections(false),
   m_argc(argc), m_argv(argv) {
 
   // Window size
@@ -222,7 +223,8 @@ void MainWindow::createLayout() {
                                          m_image_files, base_image_file,
                                          m_matches, m_chooseFiles,
                                          m_use_georef, m_hillshade, m_view_matches,
-                                         zoom_all_to_same_region);
+                                         zoom_all_to_same_region,
+					 m_allowMultipleSelections);
     m_widgets.push_back(widget);
 
   } else{
@@ -245,7 +247,8 @@ void MainWindow::createLayout() {
                                            m_matches,
                                            m_chooseFiles,
                                            m_use_georef, hillshade, m_view_matches,
-                                           zoom_all_to_same_region);
+                                           zoom_all_to_same_region,
+					   m_allowMultipleSelections);
       m_widgets.push_back(widget);
     }
   }
@@ -267,7 +270,8 @@ void MainWindow::createLayout() {
 
     // Intercept this widget's request to view (or refresh) the matches in all
     // the widgets, not just this one's.
-    connect(m_widgets[i], SIGNAL(refreshAllMatches()), this, SLOT(viewExistingMatches()));
+    connect(m_widgets[i], SIGNAL(turnOnViewMatchesSignal()), this, SLOT(turnOnViewMatches()));
+    connect(m_widgets[i], SIGNAL(turnOffViewMatchesSignal()), this, SLOT(turnOffViewMatches()));
     connect(m_widgets[i], SIGNAL(removeImageAndRefreshSignal()), this, SLOT(deleteImageFromWidget()));
     connect(m_widgets[i], SIGNAL(uncheckProfileModeCheckbox()), this, SLOT(uncheckProfileModeCheckbox()));
     connect(m_widgets[i], SIGNAL(zoomAllToSameRegionSignal(int)), this, SLOT(zoomAllToSameRegionAction(int)));
@@ -302,6 +306,11 @@ void MainWindow::createMenus() {
   m_exit_action->setShortcut(tr("Q"));
   m_exit_action->setStatusTip(tr("Exit the application"));
   connect(m_exit_action, SIGNAL(triggered()), this, SLOT(forceQuit()));
+
+  // Save screenshot
+  m_save_screenshot_action = new QAction(tr("Save screenshot"), this);
+  m_save_screenshot_action->setStatusTip(tr("Save screenshot."));
+  connect(m_save_screenshot_action, SIGNAL(triggered()), this, SLOT(save_screenshot()));
 
   // Select region
   m_select_region_action = new QAction(tr("Select region"), this);
@@ -432,6 +441,7 @@ void MainWindow::createMenus() {
 
   // File menu
   m_file_menu = menu->addMenu(tr("&File"));
+  m_file_menu->addAction(m_save_screenshot_action);
   m_file_menu->addAction(m_select_region_action);
   m_file_menu->addAction(m_exit_action);
 
@@ -578,11 +588,24 @@ void MainWindow::viewAsTiles(){
   createLayout();
 }
 
-// This function will be invoked after matches got deleted. Since we had matches,
+// This function will be invoked after matches got added or deleted.
 // we must set m_matches_exist to true.
-void MainWindow::viewExistingMatches(){
+void MainWindow::turnOnViewMatches(){
   m_matches_exist = true;
+  m_view_matches = true;
+  m_viewMatches_action->setChecked(m_view_matches);
   MainWindow::viewMatches();
+}
+
+// This function will be invoked when we cannot add/show/delete matches.
+void MainWindow::turnOffViewMatches(){
+  m_view_matches = false;
+  m_viewMatches_action->setChecked(m_view_matches);
+  MainWindow::viewMatches();
+
+  // This must come at the end, after we turned off viewing matches in all
+  // widgets, otherwise each widget will send us back here.
+  popUp("Must have just one image in each window to deal with IP matches.");
 }
 
 // Delete an image from the widget based on the index we query from the widget
@@ -599,6 +622,10 @@ void MainWindow::deleteImageFromWidget(){
     if (index >= 0 && index < (int)m_matches.size() ) 
       m_matches.erase(m_matches.begin() + index);
 
+    if (m_hillshade_vec.size() == m_widgets.size() &&
+        index >= 0 && index < (int)m_hillshade_vec.size() ) 
+      m_hillshade_vec.erase(m_hillshade_vec.begin() + index);
+    
     // Mark the action as done. Not strictly necessary, since
     // all widgets will be wiped and recreated anyway.
     indicesWithAction.clear();
@@ -735,7 +762,7 @@ void MainWindow::viewMatches(){
   }
 
   // Turn on m_matches_exist even if we did not always actually
-  // read them from disk.  That is because we sometimes create them in
+  // read them from disk. That is because we sometimes create them in
   // the GUI.
   if (m_view_matches)
     m_matches_exist = true;
@@ -966,6 +993,11 @@ void MainWindow::run_stereo_or_parallel_stereo(std::string const& cmd){
 
 }
 
+void MainWindow::save_screenshot(){
+  QMessageBox::about(this, tr("Info"), tr("To save a screenshot, right-click on an image."));
+  return;
+}
+
 void MainWindow::select_region(){
   QMessageBox::about(this, tr("Info"), tr("Use Control-Left Mouse to select a region. Its bounds will be printed in a terminal. Stereo can be run on selected regions."));
   return;
@@ -1169,6 +1201,9 @@ void MainWindow::viewGeoreferencedImages() {
       if (!has_georef) {
         popUp("Cannot view georeferenced images, as there is no georeference in: "
               + m_image_files[i]);
+        m_use_georef = false;
+        m_viewGeoreferencedImages_action->setChecked(m_use_georef);
+        m_viewOverlayedImages_action->setChecked(m_use_georef);
         return;
       }
     }
@@ -1187,6 +1222,9 @@ void MainWindow::viewOverlayedImages() {
       bool has_georef = vw::cartography::read_georeference(georef, m_image_files[i]);
       if (!has_georef) {
         popUp("Cannot overlay, as there is no georeference in: " + m_image_files[i]);
+        m_use_georef = false;
+        m_viewGeoreferencedImages_action->setChecked(m_use_georef);
+        m_viewOverlayedImages_action->setChecked(m_use_georef);
         return;
       }
     }

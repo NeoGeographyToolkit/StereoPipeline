@@ -142,13 +142,12 @@ namespace vw { namespace gui {
                          std::vector<std::vector<vw::ip::InterestPoint> > & matches,
                          chooseFilesDlg * chooseFiles,
                          bool use_georef, bool hillshade, bool view_matches,
-                         bool zoom_all_to_same_region)
+                         bool zoom_all_to_same_region, bool & allowMultipleSelections)
     : QWidget(parent), m_opt(opt), m_chooseFilesDlg(chooseFiles),
       m_image_id(image_id), m_output_prefix(output_prefix),
       m_image_files(image_files), m_matches(matches),  m_use_georef(use_georef),
-      m_view_matches(view_matches), m_zoom_all_to_same_region(zoom_all_to_same_region){
-
-    m_can_emit_zoom_all_signal = false;
+      m_view_matches(view_matches), m_zoom_all_to_same_region(zoom_all_to_same_region),
+      m_allowMultipleSelections(allowMultipleSelections), m_can_emit_zoom_all_signal(false){
     
     // Each image can be hillshaded independently of the other ones
     MainWidget::setHillshadeMode(hillshade);
@@ -242,8 +241,6 @@ namespace vw { namespace gui {
 	      this, SLOT(customMenuRequested(QPoint)));
     }
 
-    m_allowMultipleSelections = false;
-    
     // Right-click context menu
     m_ContextMenu = new QMenu();
     //setContextMenuPolicy(Qt::CustomContextMenu);
@@ -554,6 +551,7 @@ namespace vw { namespace gui {
   // Allow the user to select multiple windows. 
   void MainWidget::allowMultipleSelections(){
     m_allowMultipleSelections = !m_allowMultipleSelections;
+    m_allowMultipleSelections_action->setChecked(m_allowMultipleSelections);
     if (!m_allowMultipleSelections) {
       m_selectionRectangles.clear();
       refreshPixmap();
@@ -869,7 +867,8 @@ namespace vw { namespace gui {
     std::vector<vw::ip::InterestPoint> & ip = m_matches[m_image_id]; // IP's for this image
 
     if (m_images.size() != 1 && !ip.empty()) {
-      popUp("Must have just one image in each window to view matches.");
+      // Must refresh the matches in all the images, not just this one
+      emit turnOffViewMatchesSignal();
       return;
     }
 
@@ -1271,6 +1270,7 @@ namespace vw { namespace gui {
       // Call back to the main window and tell it to uncheck the profile
       // mode checkbox.
       emit uncheckProfileModeCheckbox();
+      return;
     }else{
       // Show the profile window
       MainWidget::plotProfile(m_images, m_profileX, m_profileY);
@@ -1704,6 +1704,10 @@ namespace vw { namespace gui {
     int x = event->x(), y = event->y();
     m_mousePrsX = x;
     m_mousePrsY = y;
+
+    // Refresh this from the variable, before popping up the menu
+    m_allowMultipleSelections_action->setChecked(m_allowMultipleSelections);
+
     m_ContextMenu->popup(mapToGlobal(QPoint(x,y)));
     return;
   }
@@ -1711,9 +1715,7 @@ namespace vw { namespace gui {
   void MainWidget::viewMatches(bool view_matches){
     // Complain if there are multiple images and matches was turned on
     if ((m_images.size() != 1) && view_matches) {
-      popUp("Must have just one image in each window to view matches.");
-
-      refreshPixmap();
+      emit turnOffViewMatchesSignal();
       return;
     }
 
@@ -1729,7 +1731,7 @@ namespace vw { namespace gui {
     }
 
     if (m_images.size() != 1) {
-      popUp("Must have just one image in each window to add matches.");
+      emit turnOffViewMatchesSignal();
       return;
     }
 
@@ -1768,6 +1770,9 @@ namespace vw { namespace gui {
 
     bool view_matches = true;
     viewMatches(view_matches);
+
+    // Must refresh the matches in all the images, not just this one
+    emit turnOnViewMatchesSignal();
   }
 
   // We cannot delete match points unless all images have the same number of them.
@@ -1815,7 +1820,7 @@ namespace vw { namespace gui {
     }
 
     // Must refresh the matches in all the images, not just this one
-    emit refreshAllMatches();
+    emit turnOnViewMatchesSignal();
   }
 
   // Show the current shadow threshold, and allow the user to change it.

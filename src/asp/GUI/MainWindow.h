@@ -67,13 +67,15 @@ namespace vw { namespace gui {
     void viewSingleWindow();
     void viewSideBySide();
     void viewAsTiles();
-    void viewExistingMatches();
+    void turnOnViewMatches();
+    void turnOffViewMatches();
     void deleteImageFromWidget();
     void zoomAllToSameRegionAction(int widget_id);
     void viewMatches();
     void addDelMatches();
     void saveMatches();
     void writeGroundControlPoints(); ///< Write a ground control point file for bundle_adjust
+    void save_screenshot();
     void select_region();
     void run_stereo();
     void run_parallel_stereo();
@@ -134,6 +136,7 @@ namespace vw { namespace gui {
     QAction *m_addDelMatches_action;
     QAction *m_saveMatches_action;
     QAction *m_writeGcp_action;
+    QAction *m_save_screenshot_action;
     QAction *m_select_region_action;
     QAction *m_run_stereo_action;
     QAction *m_run_parallel_stereo_action;
@@ -144,6 +147,7 @@ namespace vw { namespace gui {
              m_view_type_old;
     int      m_grid_cols, m_grid_cols_old;
     bool     m_use_georef, m_hillshade, m_view_matches, m_delete_temporary_files_on_exit;
+    bool     m_allowMultipleSelections;
     int      m_argc;
     char **  m_argv;
     bool     m_matches_exist;
