@@ -146,7 +146,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("max-num-source-points",    po::value(&opt.max_num_source_points)->default_value(100000),
                                  "Maximum number of (randomly picked) source points to use (after discarding gross outliers).")
     ("alignment-method",         po::value(&opt.alignment_method)->default_value("point-to-plane"),
-                                 "The type of iterative closest point method to use. [point-to-plane, point-to-point, similarity-point-to-point, least-squares]")
+                                 "The type of iterative closest point method to use. [point-to-plane, point-to-point, similarity-point-to-point, least-squares, similarity-least-squares]")
     ("highest-accuracy",         po::bool_switch(&opt.highest_accuracy)->default_value(false)->implicit_value(true),
                                  "Compute with highest accuracy for point-to-plane (can be much slower).")
     ("csv-format",               po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
@@ -262,12 +262,17 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (opt.alignment_method != "point-to-plane"            &&
       opt.alignment_method != "point-to-point"            &&
       opt.alignment_method != "similarity-point-to-point" &&
-      opt.alignment_method != "least-squares" )
+      opt.alignment_method != "least-squares"             &&
+      opt.alignment_method != "similarity-least-squares"
+      )
     vw_throw( ArgumentErr() << "Only the following alignment methods are supported: "
-	      << "point-to-plane, point-to-point, similarity-point-to-point, and least-squares.\n"
+	      << "point-to-plane, point-to-point, similarity-point-to-point, "
+	      << "least-squares, and similarity-least-squares.\n"
 	      << usage << general_options );
 
-  if (opt.alignment_method == "least-squares" && get_file_type(opt.reference) != "DEM")
+  if ( (opt.alignment_method == "least-squares" ||
+	opt.alignment_method == "similarity-least-squares")
+       && get_file_type(opt.reference) != "DEM")
     vw_throw( ArgumentErr()
 	      << "Least squares alignment can be used only when the "
 	      << "reference cloud is a DEM.\n" );
@@ -626,17 +631,17 @@ struct PointToDemError {
     m_point(point), m_dem(dem), m_geo(geo){}
 
   template <typename F>
-  bool operator()(const F* const transform, F* residuals) const {
+  bool operator()(const F* const transform, const F* const scale, F* residuals) const {
 
     // Default residuals are zero, if we can't project into the DEM
     residuals[0] = F(0.0);
 
-    // Extract the translation and rotation
+    // Extract the translation, and rotation
     Vector3 translation;
     Quat rotation;
     extract_rotation_translation(transform, rotation, translation);
 
-    Vector3 trans_point = rotation.rotate(m_point) + translation;
+    Vector3 trans_point = scale[0]*rotation.rotate(m_point) + translation;
     
     // Convert from GDC to GCC
     Vector3 llh = m_geo.datum().cartesian_to_geodetic(trans_point); // lon-lat-height
@@ -659,7 +664,7 @@ struct PointToDemError {
 				     ImageViewRef< PixelMask<float> > const& dem,
 				     vw::cartography::GeoReference const& geo){
     return (new ceres::NumericDiffCostFunction<PointToDemError,
-	    ceres::CENTRAL, 1, 6>
+	    ceres::CENTRAL, 1, 6, 1>
 	    (new PointToDemError(point, dem, geo)));
   }
 
@@ -681,6 +686,8 @@ least_squares_alignment(DP & source_point_cloud, // Should not be modified
   // The final transform as a axis angle and translation pair
   std::vector<double> transform(6, 0.0);
 
+  double scale = 1.0;
+  
   // Add a residual block for every source point
   const int num_pts = source_point_cloud.features.cols();
 
@@ -693,10 +700,15 @@ least_squares_alignment(DP & source_point_cloud, // Should not be modified
     ceres::CostFunction* cost_function =
       PointToDemError::Create(gcc_coord, dem_ref, dem_georef);
     ceres::LossFunction* loss_function = new ceres::CauchyLoss(0.5); // NULL;
-    problem.AddResidualBlock(cost_function, loss_function, &transform[0]);
+    problem.AddResidualBlock(cost_function, loss_function, &transform[0], &scale);
     
   } // End loop through all points
 
+  if (opt.alignment_method == "least-squares") {
+    // Only solve for rotation and translation
+    problem.SetParameterBlockConstant(&scale);
+  }
+  
   ceres::Solver::Options options;
   options.gradient_tolerance = 1e-16;
   options.function_tolerance = 1e-16;
@@ -719,13 +731,12 @@ least_squares_alignment(DP & source_point_cloud, // Should not be modified
   PointMatcher<RealT>::Matrix T = PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1);
   for (int row = 0; row < DIM; row++){
     for (int col = 0; col < DIM; col++){
-      T(row, col) = rot_matrix(col, row);
+      T(row, col) = scale*rot_matrix(col, row);
     }
   }
 
   for (int row = 0; row < DIM; row++)
     T(row, DIM) = translation[row];
-
 
   // This transform is in the world coordinate system (as that's the natural
   // coord system for the DEM). Transform it to the internal shifted coordinate
@@ -885,7 +896,7 @@ Eigen::Vector3d vw_vector3_to_eigen(vw::Vector3 const& vw_vector) {
 
 // Need this to placate libpointmatcher.
 std::string alignment_method_fallback(std::string const& alignment_method){
-  if (alignment_method == "least-squares") 
+  if (alignment_method == "least-squares" || alignment_method == "similarity-least-squares") 
     return "point-to-plane";
   return alignment_method;
 }
@@ -1194,7 +1205,8 @@ int main( int argc, char *argv[] ) {
     // We bypass calling ICP if the user explicitely asks for 0 iterations.
     PointMatcher<RealT>::Matrix T = Id;
     if (opt.num_iter > 0){
-      if (opt.alignment_method != "least-squares") {
+      if (opt.alignment_method != "least-squares" &&
+	  opt.alignment_method != "similarity-least-squares") {
 	T = icp(source_point_cloud, ref_point_cloud, Id,
 		opt.compute_translation_only);
 	vw_out() << "Match ratio: "
@@ -1264,6 +1276,16 @@ int main( int argc, char *argv[] ) {
     for (int r = 0; r < DIM; r++)
       for (int c = 0; c < DIM; c++)
         rot(r, c) = globalT(r, c);
+
+    if (opt.alignment_method == "similarity-point-to-point" ||
+	opt.alignment_method == "similarity-least-squares"){
+      double scale = pow(det(rot), 1.0/3.0);
+      for (int r = 0; r < DIM; r++)
+        for (int c = 0; c < DIM; c++)
+          rot(r, c) /= scale;
+      vw_out() << "Scale - 1 = " << (scale-1.0) << std::endl;
+    }
+    
     Vector3 euler_angles = math::rotation_matrix_to_euler_xyz(rot) * 180/M_PI;
     Vector3 axis_angles = math::matrix_to_axis_angle(rot) * 180/M_PI;
     vw_out() << "Euler angles (degrees): " << euler_angles  << endl;

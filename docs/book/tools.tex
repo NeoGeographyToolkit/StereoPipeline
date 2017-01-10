@@ -1505,11 +1505,13 @@ Compress using laszip. \\ \hline
 \section{pc\_align}
 \label{pcalign}
 
-This tool can be used to align two point clouds using Point-to-Plane or
-Point-to-Point Iterative Closest Point (ICP). With the latter method it
-can also handle a scale as part of the alignment transform, not just a
-rigid transformation. It uses the \texttt{libpointmatcher}
-library~\cite{Pomerleau12comp}
+This tool can be used to align two point clouds using Point-to-Plane,
+Point-to-Point, or Similarity-Point-to-Point Iterative Closest Point
+(ICP). (The latter method handles a scale as part of the
+alignment transform, not just a rigid transformation.) As an alternative
+to ICP, it can use least squares (with outlier handling) to find the
+transform, if the reference cloud is a DEM. It uses the
+\texttt{libpointmatcher} library~\cite{Pomerleau12comp}
 (\url{https://github.com/ethz-asl/libpointmatcher}).
 
 \medskip
@@ -1570,8 +1572,16 @@ The default alignment transform is rigid, that is, a combination of
 rotation and translation. With Point-to-Point ICP, it is also possible
 to solve for a scale change (to obtain a so-called \texttt{similarity
 transform}). It is suggested this approach be used only when a scale
-change is expected. It can be turned on by using
-\texttt{-\/-alignment-method similarity-point-to-point}.
+change is expected. It can be turned on by setting
+\texttt{-\/-alignment-method similarity-point-to-point}. 
+
+As an alternative to ICP, least squares (with outlier handling
+using a robust cost function) can be used to find the transform, if the
+reference cloud is a DEM. For this, one should specify the alignment
+method as \texttt{least-squares} or \texttt{similarity-least-squares}
+(the latter also solves for scale).  It is suggested that the input
+clouds be very close or otherwise the \texttt{-\/-initial-transform}
+option be used, for the method to converge.
 
 \subsection{File formats}
 
@@ -1746,7 +1756,7 @@ for removing gross outliers in the source (movable) point cloud.\\ \hline
 \texttt{-\/-max-num-reference-points \textit{default: $10^8$}} &
 Maximum number of (randomly picked) reference points to use. \\ \hline
 \texttt{-\/-max-num-source-points \textit{default: $10^5$}} & Maximum number of (randomly picked) source points to use (after discarding gross outliers). \\ \hline
-\texttt{-\/-alignment-method \textit{default: point-to-plane}} & The type of iterative closest point method to use. [point-to-plane, point-to-point, similarity-point-to-point]\\ \hline
+\texttt{-\/-alignment-method \textit{default: point-to-plane}} & The type of iterative closest point method to use. [point-to-plane, point-to-point, similarity-point-to-point, least-squares, similarity-least-squares]\\ \hline
 \texttt{-\/-highest-accuracy} & Compute with highest accuracy for point-to-plane (can be much slower). \\ \hline
 
 \texttt{-\/-datum \textit{string}} & Use this datum for CSV files. Options: WGS\_1984, D\_MOON (1,737,400 meters), D\_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), and Moon (=D\_MOON). \\ \hline

@@ -67,10 +67,18 @@
       image pairs are expected to overlap and hence to be used to
       compute matches.
 
+ - pc_align
+   * Can solve for a rotation + translation or for rotation +
+     translation + scale using least squares instead of ICP, if the
+     first cloud is a DEM. It is suggested that the input clouds be 
+     very close or otherwise the --initial-transform option be used,
+     for the method to converge. The option is:
+     --alignment-method [ least-squares | similarity-least-squares ]
+
  - Misc
   * Minimum supported OSX version is 10.9.
   * Ship with ASP gdalwarp and gdaldem.
- 
+
 *** RELEASE 2.5.3, August 24, 2016 ***
 
 Highlights
