@@ -318,9 +318,6 @@ void ortho2pinhole(Options const& opt){
   } // End loop through IPs
   output_handle.close();
 
-  std::cout << "--camera pose " << pcam->camera_pose() << std::endl;
-  std::cout << "--inv camera pose " << inverse(pcam->camera_pose()) << std::endl;
-  
   vw_out() << "Removing: " << match_filename << std::endl;
   boost::filesystem::remove(match_filename);
 }  
