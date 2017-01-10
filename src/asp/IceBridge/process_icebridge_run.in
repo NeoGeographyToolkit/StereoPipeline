@@ -45,8 +45,6 @@ sys.path.insert(0, basepath) # prepend to Python path
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
-print("---path is ", sys.path)
-
 import asp_system_utils, asp_alg_utils, asp_geo_utils
 asp_system_utils.verify_python_version_is_supported()
 
@@ -86,7 +84,6 @@ def processPair(imageA, imageB, cameraA, cameraB, lidarFolder,
            % (imageA, imageB, cameraA, cameraB, lidarFolder, outputFolder, options,
               imageC, cameraC))
 
-    print("---here ", cmd)
     asp_system_utils.executeCommand(cmd, None, suppressOutput, redo)
 
 def getFrameNumberFromFilename(f):

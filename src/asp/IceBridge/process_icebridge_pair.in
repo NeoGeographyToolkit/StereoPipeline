@@ -103,14 +103,10 @@ def findMatchingLidarFile(imageFile, lidarFolder):
     '''Given an image file, find the best lidar file to use for alignment.'''
     # TODO: This does not always return the best file
     
-    print ("--input file is " + imageFile)
-
     vals = parseTimeStamps(imageFile)
     if len(vals) < 2:
         raise Exception('Failed to parse the date and time from: ' + imageFile)
-
     imageDateTime = parseDateTimeStrings(vals[0], vals[1])
-    print("---imageDateTime is ", imageDateTime)
     
     # Search for the matching file in the lidar folder.
     # - We are looking for the closest lidar time that starts BEFORE the image time.
@@ -120,8 +116,6 @@ def findMatchingLidarFile(imageFile, lidarFolder):
     lidarFiles    = os.listdir(lidarFolder)
     zeroDelta     = datetime.timedelta()
 
-    #print("---lidarFiles ", lidarFiles)
-    
     for f in lidarFiles:
 
         if '.csv' not in f: # Skip other files
@@ -196,7 +190,6 @@ def main(argsIn):
 
         (options, args) = parser.parse_args(argsIn)
 
-        print("number of args is ", len(args))
         if len(args) < 7:
             print usage
             return 0
@@ -217,8 +210,6 @@ def main(argsIn):
     except optparse.OptionError, msg:
         raise Usage(msg)
 
-    print("---now in pair!!!")
-    
     # Pick the output projection to be used
     PROJ_STRING_NORTH = '"+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"'
     PROJ_STRING_SOUTH = '"+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"'
@@ -271,11 +262,12 @@ def main(argsIn):
         cmd = ('bundle_adjust %s %s %s %s -o %s %s -t nadirpinhole --local-pinhole' 
                      % (imageA, imageB, cameraA, cameraB, bundlePrefix, threadText))
         if options.triView:
-            #cmd = ('bundle_adjust %s %s %s %s %s %s -o %s %s -t nadirpinhole --local-pinhole' 
-            #       % (imageA, imageB, imageC, cameraA, cameraB, cameraC, bundlePrefix, threadText))
-            print("---temporary!")
-            cmd = ('bundle_adjust %s %s %s %s %s %s -o %s %s -t nadirpinhole --local-pinhole --overlap-limit 1 ' 
-                   % (imageC, imageA, imageB, cameraC, cameraA, cameraB, bundlePrefix, threadText))
+            cmd = ('bundle_adjust %s %s %s %s %s %s -o %s %s -t nadirpinhole --local-pinhole' 
+                   % (imageA, imageB, imageC, cameraA, cameraB, cameraC, bundlePrefix, threadText))
+
+            # temporary test
+            #cmd = ('bundle_adjust %s %s %s %s %s %s -o %s %s -t nadirpinhole --local-pinhole --overlap-limit 1 ' 
+            #       % (imageC, imageA, imageB, cameraC, cameraA, cameraB, bundlePrefix, threadText))
         
         if options.solve_intr:
             cmd += ' --solve-intrinsics'
