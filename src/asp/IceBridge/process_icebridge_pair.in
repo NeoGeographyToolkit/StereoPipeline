@@ -1,0 +1,453 @@
+#!/usr/bin/env python
+# __BEGIN_LICENSE__
+#  Copyright (c) 2009-2013, United States Government as represented by the
+#  Administrator of the National Aeronautics and Space Administration. All
+#  rights reserved.
+#
+#  The NGT platform is licensed under the Apache License, Version 2.0 (the
+#  "License"); you may not use this file except in compliance with the
+#  License. You may obtain a copy of the License at
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+# __END_LICENSE__
+
+# Run bundle adjustment, stereo, generate a DEM, perform alignment, etc,
+# for a single pair of icebridge images
+
+import os, sys, optparse, datetime
+import os.path as P
+
+# The path to the ASP python files
+basepath    = os.path.abspath(sys.path[0])
+pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
+libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
+sys.path.insert(0, basepath) # prepend to Python path
+sys.path.insert(0, pythonpath)
+sys.path.insert(0, libexecpath)
+
+import asp_system_utils, asp_alg_utils, asp_geo_utils
+asp_system_utils.verify_python_version_is_supported()
+
+# Prepend to system PATH
+os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
+
+def parseDateTimeStrings(dateString, timeString):
+    '''Parse strings in the format 20110323_17433900'''
+    
+    MILLISECOND_TO_MICROSECOND = 10000
+    
+    #print dateString
+    #print timeString
+    
+    year    = int(dateString[0:4])
+    month   = int(dateString[4:6])
+    day     = int(dateString[6:8])
+    hour    = int(timeString[0:2])
+    minute  = int(timeString[2:4])
+    second  = int(timeString[4:6])
+    usecond = 0
+    if len(timeString) > 6:
+        usecond = int(timeString[6:8]) * MILLISECOND_TO_MICROSECOND
+    
+    return datetime.datetime(year, month, day, hour, minute, second, usecond)
+
+# Pull two six or eight digit values from the given file name
+# as the time and date stamps.
+def parseTimeStamps(fileName):
+
+    fileName = os.path.basename(fileName)
+    fileName = fileName.replace('.', '_')
+    fileName = fileName.replace('-', '_')
+    parts    = fileName.split('_')
+
+    imageDateString = ""
+    imageTimeString = ""
+
+    for part in parts:
+
+        if len(part) != 6 and len(part) != 8:
+            continue
+        
+        if len(part) == 6:
+            if part < '000000' or part > '999999':
+                continue
+
+        if len(part) == 8:
+            if part < '00000000' or part > '99999999':
+                continue
+
+        if imageDateString == "" and len(part) == 8:
+            # The date must always be 8 digits (YYYYMMDD)
+            imageDateString = part
+            continue
+
+        if imageTimeString == "":
+            # The time can be hhmmss or hhmmssff (ff = hundreds of seconds)
+            imageTimeString = part
+            continue
+            
+    if imageDateString == "":
+        return []
+
+    if imageTimeString == "":
+        return []
+
+    return [imageDateString, imageTimeString]
+    
+def findMatchingLidarFile(imageFile, lidarFolder):
+    '''Given an image file, find the best lidar file to use for alignment.'''
+    # TODO: This does not always return the best file
+    
+    print ("--input file is " + imageFile)
+
+    vals = parseTimeStamps(imageFile)
+    if len(vals) < 2:
+        raise Exception('Failed to parse the date and time from: ' + imageFile)
+
+    imageDateTime = parseDateTimeStrings(vals[0], vals[1])
+    print("---imageDateTime is ", imageDateTime)
+    
+    # Search for the matching file in the lidar folder.
+    # - We are looking for the closest lidar time that starts BEFORE the image time.
+    # - It is possible for an image to span lidar files, we will address that if we need to!
+    bestTimeDelta = datetime.timedelta.max
+    bestLidarFile = 'NA'
+    lidarFiles    = os.listdir(lidarFolder)
+    zeroDelta     = datetime.timedelta()
+
+    #print("---lidarFiles ", lidarFiles)
+    
+    for f in lidarFiles:
+
+        if '.csv' not in f: # Skip other files
+            continue
+
+        # Extract time for this file
+        lidarPath = os.path.join(lidarFolder, f)
+
+        vals = parseTimeStamps(lidarPath)
+        if len(vals) < 2: continue # ignore bad files
+
+        lidarDateTime = parseDateTimeStrings(vals[0], vals[1])
+
+        # Compare time to the image time
+        timeDelta       = imageDateTime - lidarDateTime
+        if ( (timeDelta > zeroDelta) and (timeDelta < bestTimeDelta) ):
+            bestLidarFile = lidarPath
+            bestTimeDelta = timeDelta
+
+    if bestLidarFile == 'NA':
+        raise Exception('Failed to find matching lidar file for image ' + imageFile)
+
+    return bestLidarFile
+
+
+def main(argsIn):
+
+    try:
+        usage = '''usage: process_icebridge_pair <imageA> <imageB> <cameraA> <cameraB>
+                      <lidar_folder> <output_folder> [ --tri-view <imageC> <cameraC> ]
+
+  [ASP [@]ASP_VERSION[@]]'''
+        
+        parser = optparse.OptionParser(usage=usage)
+
+        parser.add_option('--south', action='store_true', default=False, dest='isSouth',  
+                          help='MUST be set if the images are in the southern hemisphere.')
+                          
+        parser.add_option('--lidar-overlay', action='store_true', default=False, dest='lidarOverlay',  
+                          help='Generate a lidar overlay for debugging.')
+
+        parser.add_option('--bundle-adjust', action='store_true', default=False, dest='bundleAdjust',  
+                          help='Run bundle adjustment between the two images.')
+
+        parser.add_option('--num-threads', dest='numThreads', default=None,
+                          type='int', help='The number of threads to use for processing.')
+
+        parser.add_option('--dem-resolution', dest='demResolution', default=0.4,
+                          type='float', help='Generate output DEMs at this resolution.')
+
+        parser.add_option('--max-displacement', dest='maxDisplacement', default=20,
+                          type='float', help='Max displacement value passed to pc_align.')
+
+        parser.add_option('--use-sgm', action='store_true', default=False, dest='use_sgm',  
+                          help='If to use SGM.')
+
+        parser.add_option('--solve-intrinsics', action='store_true', default=False,
+                          dest='solve_intr',  
+                          help='If to float the intrinsics params.')
+
+        parser.add_option('--subpixel-mode', dest='subpix_mode', default=1,
+                          type='int', help='Subpixel mode (1 = fast but low quality, 3 = slow). Only applicable for non-SGM runs.')
+
+        parser.add_option('--pc-align', action='store_true', default=False, dest='pc_align',  
+                          help='If to use pc_align.')
+
+        parser.add_option('--stereo-algorithm', dest='stereoAlgo', default=1,
+                          type='int', help='The SGM stereo algorithm to use.')
+
+        parser.add_option('--tri-view', action='store_true', default=False,
+                          dest='triView', help='Run stereo with three images.')
+
+        (options, args) = parser.parse_args(argsIn)
+
+        print("number of args is ", len(args))
+        if len(args) < 7:
+            print usage
+            return 0
+
+        imageA       = args[1]
+        imageB       = args[2]
+        cameraA      = args[3]
+        cameraB      = args[4]
+        lidarFolder  = args[5]
+        outputFolder = args[6]
+
+        imageC       = ""
+        cameraC      = ""
+        if options.triView:
+            imageC       = args[7]
+            cameraC      = args[8]
+
+    except optparse.OptionError, msg:
+        raise Usage(msg)
+
+    print("---now in pair!!!")
+    
+    # Pick the output projection to be used
+    PROJ_STRING_NORTH = '"+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"'
+    PROJ_STRING_SOUTH = '"+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"'
+    
+    projString = PROJ_STRING_NORTH
+    if options.isSouth:
+        projString = PROJ_STRING_SOUTH
+
+    # Check the inputs
+    files = [imageA, imageB, cameraA, cameraB, lidarFolder]
+    if options.triView:
+        files.extend([imageC, cameraC])
+    for f in files:   
+        if not os.path.exists(f):
+            print 'Input file '+ f +' does not exist!'
+            return 0
+    if not os.path.exists(outputFolder):
+        os.mkdir(outputFolder)
+
+    print 'Searching for matching lidar file...'
+    lidarFile = findMatchingLidarFile(imageA, lidarFolder)
+    print 'Found matching lidar file ' + lidarFile
+
+    # Does this ever change?
+    csvFormatString = '"1:lat 2:lon 3:height_above_datum"'
+
+    suppressOutput = False
+    redo           = False
+
+    print '\nStarting processing...'
+
+    #outputFolder += "_tmp" # temporary!
+    
+    outputPrefix  = os.path.join(outputFolder, 'out')
+        
+    baseArgString = ('%s %s %s %s %s -t nadirpinhole --alignment-method epipolar' 
+                     % (imageA, imageB, cameraA, cameraB, outputPrefix))
+
+    if options.triView:
+        baseArgString = ('%s %s %s %s %s %s %s -t nadirpinhole --alignment-method epipolar' 
+                         % (imageA, imageB, imageC, cameraA, cameraB, cameraC, outputPrefix))
+        
+    threadText = ''
+    if options.numThreads:
+        threadText = ' --threads ' + str(options.numThreads) +' '
+    
+    # BUNDLE_ADJUST
+    if options.bundleAdjust:
+        bundlePrefix = os.path.join(outputFolder, 'bundle/out')
+        cmd = ('bundle_adjust %s %s %s %s -o %s %s -t nadirpinhole --local-pinhole' 
+                     % (imageA, imageB, cameraA, cameraB, bundlePrefix, threadText))
+        if options.triView:
+            #cmd = ('bundle_adjust %s %s %s %s %s %s -o %s %s -t nadirpinhole --local-pinhole' 
+            #       % (imageA, imageB, imageC, cameraA, cameraB, cameraC, bundlePrefix, threadText))
+            print("---temporary!")
+            cmd = ('bundle_adjust %s %s %s %s %s %s -o %s %s -t nadirpinhole --local-pinhole --overlap-limit 1 ' 
+                   % (imageC, imageA, imageB, cameraC, cameraA, cameraB, bundlePrefix, threadText))
+        
+        if options.solve_intr:
+            cmd += ' --solve-intrinsics'
+
+        #cmd += '  --ip-per-tile 2000 --ip-detect-method 1' # temporary!!!
+        
+        # Point to the new camera models
+        cameraA = bundlePrefix +'-'+ os.path.basename(cameraA)
+        cameraB = bundlePrefix +'-'+ os.path.basename(cameraB)
+        if options.triView:
+            cameraC = bundlePrefix +'-'+ os.path.basename(cameraC)
+            
+        asp_system_utils.executeCommand(cmd, cameraA, suppressOutput, redo)
+
+        # Update the baseArgString
+        baseArgString = ('%s %s %s %s %s -t nadirpinhole --alignment-method epipolar' 
+                         % (imageA, imageB, cameraA, cameraB, outputPrefix))
+
+        if options.triView:
+            baseArgString = ('%s %s %s %s %s %s %s  -t nadirpinhole --alignment-method epipolar' 
+                             % (imageA, imageB, imageC, cameraA, cameraB, cameraC, outputPrefix))
+
+            # temporary!!!
+            #baseArgString = ('%s %s %s %s %s  -t nadirpinhole --alignment-method epipolar' 
+            #                 % (imageC, imageA, cameraC, cameraA, outputPrefix))
+
+    if options.use_sgm:
+        # PPRC
+        cmd = ('stereo -e 0 --stop-point 1 %s %s' % (baseArgString, threadText))
+        pprcOutput = outputPrefix + '-L.tif'
+        asp_system_utils.executeCommand(cmd, pprcOutput, suppressOutput, redo)
+
+        # CORR
+        # - This should be single threaded to use the SGM processing.
+        # - TODO: Use blob filtering to reduce outliers?
+        # - TODO: Can we shrink the search range?
+        correlationArgString = ('--threads 1 --xcorr-threshold -1 --corr-kernel 7 7' 
+                                + ' --corr-tile-size 6400 --cost-mode 4 '
+                                + '--subpixel-mode ' + str(options.subpix_mode)  
+                                + ' --stereo-algorithm ' + str(options.stereoAlgo))
+                               #+ ' --corr-blob-filter 100 --compute-low-res-disparity-only')
+        cmd = ('stereo -e 1 --stop-point 2 %s %s ' % (correlationArgString, baseArgString))
+        corrOutput = outputPrefix + '-D.tif'
+        if options.triView:
+            corrOutput = outputPrefix + '-pair2/2-D.tif'
+        asp_system_utils.executeCommand(cmd, corrOutput, suppressOutput, redo)
+
+        #raise Exception('DEBUG')
+
+        # RFNE
+        cmd = ('stereo -e 2 --stop-point 3 --subpixel-mode %s %s %s' %
+               (options.subpix_mode, baseArgString, threadText))
+        rfneOutput = outputPrefix + '-RD.tif'
+        if options.triView:
+            rfneOutput = outputPrefix + '-pair2/2-RD.tif'
+        asp_system_utils.executeCommand(cmd, rfneOutput, suppressOutput, redo)
+
+        # FLTR
+        filterArgString = '--rm-cleanup-passes 0 --median-filter-size 5 ' + \
+                          '--texture-smooth-size 17 --texture-smooth-scale 0.14'
+        cmd = ('stereo -e 3 --stop-point 4 %s %s %s' % (filterArgString, baseArgString, threadText))
+        fltrOutput = outputPrefix + '-F.tif'
+        if options.triView:
+            fltrOutput = outputPrefix + '-pair2/2-F.tif'
+        asp_system_utils.executeCommand(cmd, fltrOutput, suppressOutput, redo)
+
+        # TRI
+        cmd = ('stereo -e 4 --stop-point 5 %s %s' % (baseArgString, threadText))
+        triOutput = outputPrefix + '-PC.tif'
+        asp_system_utils.executeCommand(cmd, triOutput, suppressOutput, redo)
+
+        #raise Exception('DEBUG')
+    else: # No SGM
+        cmd = ('stereo %s %s --corr-blob-filter 10000 --subpixel-mode %s --corr-timeout 120' % \
+               (baseArgString, threadText, options.subpix_mode))
+        
+        # Fine level control when using subpixel-mode 3. TODO: This
+        # needs to be done better.
+        #lOutput = outputPrefix + '-L.tif'
+        #asp_system_utils.executeCommand(cmd, lOutput, suppressOutput, redo)
+
+        #cmd = ('stereo -e 1 --stop-point 2 --compute-low-res-disparity-only %s %s --corr-max-levels 2 --corr-seed-mode 3 --subpixel-mode 3' % (baseArgString, threadText)) 
+        #dOutput = outputPrefix + '-D_sub.tif'
+        #asp_system_utils.executeCommand(cmd, dOutput, suppressOutput, redo)
+
+        #cmd = ('stereo_corr --skip-low-res-disparity-comp --corr-blob-filter 0 %s %s --corr-max-levels 2 --corr-seed-mode 3 --subpixel-mode 3' % (baseArgString, threadText))
+        #dOutput = outputPrefix + '-D.tif'
+        #asp_system_utils.executeCommand(cmd, dOutput, suppressOutput, redo)
+
+        #cmd = ('stereo -e 2 --skip-low-res-disparity-comp --corr-blob-filter 0 %s %s --corr-max-levels 2 --corr-seed-mode 3 --subpixel-mode 3' % (baseArgString, threadText))
+        
+        triOutput = outputPrefix + '-PC.tif'
+        asp_system_utils.executeCommand(cmd, triOutput, suppressOutput, redo)
+
+    # point2dem on the result of ASP
+    cmd = ('point2dem --tr %lf --t_srs %s %s %s --errorimage' 
+           % (options.demResolution, projString, triOutput, threadText))
+    p2dOutput = outputPrefix + '-DEM.tif'
+    asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput, redo)
+
+    if options.pc_align:
+        # PC_ALIGN
+        alignPrefix = os.path.join(outputFolder, 'align/out')
+        alignOptions = ( ('--max-displacement %f --csv-format %s ' +   \
+                          '--save-inv-transformed-reference-points') % \
+                         (options.maxDisplacement, csvFormatString))
+        cmd = ('pc_align %s %s %s -o %s %s' %
+               (alignOptions, triOutput, lidarFile, alignPrefix, threadText))
+        alignOutput = alignPrefix+'-trans_reference.tif'
+        asp_system_utils.executeCommand(cmd, alignOutput, suppressOutput, redo)
+        
+        # POINT2DEM on the aligned PC file
+        cmd = ('point2dem --tr %lf --t_srs %s %s %s --errorimage' 
+               % (options.demResolution, projString, alignOutput, threadText))
+        p2dOutput = alignPrefix+'-trans_reference-DEM.tif'
+        asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput, redo)
+       
+        # Create a symlink to the DEM in the main directory
+        demSymlinkPath = outputPrefix + '-align-DEM.tif'
+        try:    os.remove(demSymlinkPath)
+        except: pass  
+        print("ln -s " + os.path.abspath(p2dOutput) + " " + demSymlinkPath)
+        os.symlink(os.path.abspath(p2dOutput), demSymlinkPath)
+        p2dOutput = demSymlinkPath
+    
+    cmd = ('geodiff --absolute --csv-format %s %s %s -o %s' % \
+           (csvFormatString, p2dOutput, lidarFile, outputPrefix))
+    print(cmd)
+    asp_system_utils.executeCommand(cmd, outputPrefix + "-diff.csv", suppressOutput, redo)
+
+    # HILLSHADE
+    hillOutput = outputPrefix+'-DEM_HILLSHADE.tif'
+    cmd = 'hillshade ' + p2dOutput +' -o ' + hillOutput
+    asp_system_utils.executeCommand(cmd, hillOutput, suppressOutput, redo)
+    
+    # COLORMAP
+    colormapMin = -10
+    colormapMax =  10
+    colorOutput = outputPrefix+'-DEM_CMAP.tif'
+    cmd = ('colormap --min %f --max %f %s -o %s' 
+           % (colormapMin, colormapMax, p2dOutput, colorOutput))
+    asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
+
+    if options.lidarOverlay:
+        LIDAR_DEM_RESOLUTION     = 5
+        LIDAR_PROJ_BUFFER_METERS = 100
+    
+        # Get buffered projection bounds of this image
+        demGeoInfo = asp_geo_utils.getImageGeoInfo(p2dOutput, getStats=False)
+        projBounds = demGeoInfo['projection_bounds']
+        minX = projBounds[0] - LIDAR_PROJ_BUFFER_METERS # Expand the bounds a bit
+        minY = projBounds[2] - LIDAR_PROJ_BUFFER_METERS
+        maxX = projBounds[1] + LIDAR_PROJ_BUFFER_METERS
+        maxY = projBounds[3] + LIDAR_PROJ_BUFFER_METERS
+
+        # Generate a DEM from the lidar point cloud in this region        
+        lidarDemPrefix = os.path.join(outputFolder, 'cropped_lidar')
+        cmd = ('point2dem --t_projwin %f %f %f %f --tr %lf --t_srs %s %s %s --csv-format %s -o %s' 
+               % (minX, minY, maxX, maxY,
+                  LIDAR_DEM_RESOLUTION, projString, lidarFile, threadText, 
+                  csvFormatString, lidarDemPrefix))
+        lidarDemOutput = lidarDemPrefix+'-DEM.tif'
+        asp_system_utils.executeCommand(cmd, lidarDemOutput, suppressOutput, redo)
+            
+        colorOutput = lidarDemPrefix+'-DEM_CMAP.tif'
+        cmd = ('colormap --min %f --max %f %s -o %s' 
+               % (colormapMin, colormapMax, lidarDemOutput, colorOutput))
+        asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
+
+    print 'Finished!'
+
+# Run main function if file used from shell
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
+

@@ -441,12 +441,12 @@ AX_APP(IMAGE_CALC,       [src/asp/Tools], yes, [CORE])
 AX_APP(PANSHARP,         [src/asp/Tools], yes, [CORE CAMERA])
 AX_APP(PC_MERGE,         [src/asp/Tools], yes, [CORE])
 AX_APP(DATUM_CONVERT,    [src/asp/Tools], yes, [CORE])
-AX_APP(DISP_AVG,         [src/asp/WVCorrect], yes, [CORE])
 AX_APP(ASTER2ASP,        [src/asp/Tools], yes, [CORE CAMERA])
 AX_APP(ADD_SPOT_RPC,     [src/asp/Tools], yes, [CORE CAMERA])
-AX_APP(ICEBRIDGE,        [src/asp/Tools], yes, [VW VW_CARTOGRAPHY])
-AX_APP(ORTHO2PINHOLE,    [src/asp/Tools], yes, [SESSIONS])
-AX_APP(CSV_FILTER,     [src/asp/Hidden], yes, [CORE])
+AX_APP(DISP_AVG,         [src/asp/WVCorrect], yes, [CORE])
+AX_APP(ICEBRIDGE,        [src/asp/IceBridge], yes, [CORE])
+AX_APP(ORTHO2PINHOLE,    [src/asp/IceBridge], yes, [SESSIONS])
+AX_APP(CSV_FILTER,       [src/asp/Hidden], yes, [CORE])
 
 # These are here (instead of inside the APP macro where they belong)
 # for backwards compatability with older versions of automake.
@@ -538,6 +538,7 @@ AC_CONFIG_FILES([                        \
   src/asp/Python/Makefile                \
   src/asp/Tools/Makefile                 \
   src/asp/WVCorrect/Makefile             \
+  src/asp/IceBridge/Makefile             \
   src/asp/Hidden/Makefile
 ])
 

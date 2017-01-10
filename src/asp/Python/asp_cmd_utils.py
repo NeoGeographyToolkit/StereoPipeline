@@ -17,6 +17,8 @@
 #  limitations under the License.
 # __END_LICENSE__
 
+# TODO: Move this to asp_system_utils
+
 """General systems related utilities"""
 
 import sys, os, re, shutil, subprocess, string, time, errno, multiprocessing, shlex
@@ -51,7 +53,8 @@ class PassThroughOptionParser(OptionParser):
         while rargs:
             try:
                 self._process_args2(largs,rargs,values)
-            except (BadOptionError,AmbiguousOptionError) as e:  # On failure, pass option to output list
+            except (BadOptionError,AmbiguousOptionError) as e:
+                # On failure, pass option to output list
                 if sys.version_info < (2, 6, 0):
                     # Port to Python 2.4
                     p = re.match("^.*?no such option:\s*(.*?)$", e.msg)

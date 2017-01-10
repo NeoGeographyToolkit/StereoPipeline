@@ -62,21 +62,6 @@ if MAKE_APP_STEREO_GUI
   stereo_gui_LDADD = $(APP_STEREO_GUI_LIBS)
 endif
 
-if MAKE_APP_ICEBRIDGE
-  bin_PROGRAMS     += correct_icebridge_l3_dem
-  libexec_PROGRAMS += qi2txt
-  bin_SCRIPTS      += icebridge_kmz_to_csv lvis2kml extract_icebridge_ATM_points
-  correct_icebridge_l3_dem_SOURCES = correct_icebridge_l3_dem.cc
-  correct_icebridge_l3_dem_LDADD = $(APP_ICEBRIDGE_LIBS)
-  qi2txt_SOURCES = qi2txt.cc
-endif
-
-if MAKE_APP_ORTHO2PINHOLE
-  bin_PROGRAMS     += ortho2pinhole
-  ortho2pinhole_SOURCES = ortho2pinhole.cc
-  ortho2pinhole_LDADD = $(APP_ORTHO2PINHOLE_LIBS)
-endif
-
 if MAKE_APP_BUNDLE_ADJUST
   bin_PROGRAMS     += bundle_adjust 
   libexec_PROGRAMS += opencv_imagelist_creator
@@ -236,7 +221,7 @@ if MAKE_APP_RPC_GEN
   libexec_PROGRAMS += rpc_gen
   rpc_gen_SOURCES = rpc_gen.cc
   rpc_gen_LDADD   = $(APP_RPC_GEN_LIBS)
-  
+
   # Just add this here, it has no extra dependencies.
   bin_PROGRAMS += add_spot_rpc
   add_spot_rpc_SOURCES = add_spot_rpc.cc

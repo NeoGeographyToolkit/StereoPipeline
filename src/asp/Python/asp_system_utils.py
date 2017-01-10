@@ -283,7 +283,7 @@ def run_with_return_code(cmd, verbose=False):
 def executeCommand(cmd,
                    outputPath=None,      # If given, throw if the file is not created.  Don't run if it already exists.
                    suppressOutput=False, # If true, don't print anything!
-                   force=False):         # If true, run even if outputPath already exists.
+                   redo=False):          # If true, run even if outputPath already exists.
     '''Executes a command with multiple options'''
 
     if cmd == '': # An empty task
@@ -294,7 +294,7 @@ def executeCommand(cmd,
         cmd = asp_string_utils.stringToArgList(cmd)
 
     # Run the command if conditions are met
-    if force or (not outputPath) or (not os.path.exists(outputPath)):
+    if redo or (not outputPath) or (not os.path.exists(outputPath)):
 
         if suppressOutput: # Process silently
             FNULL = open(os.devnull, 'w')
