@@ -301,9 +301,8 @@ unshared_preprocessing_hook(vw::cartography::GdalWriteOptions              & opt
     has_right_georef = false;
   }
 
-  bool crop_left_and_right =
-    ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
-    ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
+  bool crop_left  = ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+  bool crop_right = ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
 
   // If the output files already exist, and we don't crop both left
   // and right images, then there is nothing to do here.
@@ -311,7 +310,7 @@ unshared_preprocessing_hook(vw::cartography::GdalWriteOptions              & opt
   // get to this part where we exit early.
   if ( boost::filesystem::exists(left_output_file)  &&
        boost::filesystem::exists(right_output_file) &&
-       (!crop_left_and_right)) {
+       !crop_left && !crop_right) {
     try {
       vw_log().console_log().rule_set().add_rule(-1,"fileio");
       DiskImageView<PixelGray<float32> > out_left (left_output_file );
@@ -327,25 +326,20 @@ unshared_preprocessing_hook(vw::cartography::GdalWriteOptions              & opt
     }
   } // End check for existing output files
 
+  
+
   // See if to crop the images
-  if (crop_left_and_right) {
-    // Crop the images, will use them from now on. Crop the georef as
-    // well, if available.
+  if (crop_left) {
+    // Crop the images, will use them from now on. Crop the georef as well, if available.
     left_cropped_file  = this->m_out_prefix + "-L-cropped.tif";
-    right_cropped_file = this->m_out_prefix + "-R-cropped.tif";
 
     // SPOT5 images do not have a georef.  Will have to change this to support map projection.
     has_left_georef  = false;
-    has_right_georef = false;
     bool has_nodata = true;
 
     DiskImageView<float> left_orig_image(left_rsrc);
-    DiskImageView<float> right_orig_image(right_rsrc);
     BBox2i left_win  = stereo_settings().left_image_crop_win;
-    BBox2i right_win = stereo_settings().right_image_crop_win;
     left_win.crop (bounding_box(left_orig_image ));
-    right_win.crop(bounding_box(right_orig_image));
-
 
     vw_out() << "\t--> Writing cropped image: " << left_cropped_file << "\n";
     block_write_gdal_image(left_cropped_file,
@@ -354,6 +348,18 @@ unshared_preprocessing_hook(vw::cartography::GdalWriteOptions              & opt
 			   has_nodata, left_nodata_value,
 			   options,
 			   TerminalProgressCallback("asp", "\t:  "));
+  }
+  if (crop_right) {
+    // Crop the images, will use them from now on. Crop the georef as well, if available.
+    right_cropped_file = this->m_out_prefix + "-R-cropped.tif";
+
+    // SPOT5 images do not have a georef.  Will have to change this to support map projection.
+    has_right_georef = false;
+    bool has_nodata = true;
+
+    DiskImageView<float> right_orig_image(right_rsrc);
+    BBox2i right_win = stereo_settings().right_image_crop_win;
+    right_win.crop(bounding_box(right_orig_image));
 
     vw_out() << "\t--> Writing cropped image: " << right_cropped_file << "\n";
     block_write_gdal_image(right_cropped_file,
@@ -364,6 +370,7 @@ unshared_preprocessing_hook(vw::cartography::GdalWriteOptions              & opt
 			   options,
 			   TerminalProgressCallback("asp", "\t:  "));
   }
+
 
   // Re-read the georef, since it changed above.
   // - SPOT5 images do not have a georef.  Will have to change this to support map projection.

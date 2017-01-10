@@ -44,7 +44,8 @@ using namespace std;
 void read_search_range(ASPGlobalOptions & opt){
 
   // No D_sub is generated or should be used for seed mode 0.
-  if (stereo_settings().seed_mode == 0) return;
+  if (stereo_settings().seed_mode == 0)
+    return;
 
   DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
                            Rmask(opt.out_prefix + "-rMask.tif");
@@ -56,7 +57,8 @@ void read_search_range(ASPGlobalOptions & opt){
                             double(left_sub.rows()) / double(Lmask.rows()) );
 
   std::string d_sub_file = opt.out_prefix + "-D_sub.tif";
-  if (!fs::exists(d_sub_file)) return;
+  if (!fs::exists(d_sub_file))
+    return;
 
   ImageView<PixelMask<Vector2f> > sub_disp;
   read_image(sub_disp, d_sub_file);
@@ -224,7 +226,7 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
       sub_scale /= 4.0f;
 
       // TODO: It would be good to try and make this smarter!
-      const int inlier_threshold = 50; // This range is extra large to handle elevation differences.
+      const int inlier_threshold = 10; // This range is extra large to handle elevation differences.
       stereo_settings().search_range =
         approximate_search_range(opt.out_prefix,
   		         opt.out_prefix+"-L_sub.tif",
@@ -289,10 +291,9 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
     // Reuse prior existing D_sub if it exists, unless we
     // are cropping the images each time, when D_sub must
     // be computed anew each time.
-    bool crop_left_and_right =
-      ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
-      ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
-    bool rebuild = crop_left_and_right;
+    bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+    bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+    bool rebuild    = crop_left || crop_right;
 
     string sub_disp_file = opt.out_prefix+"-D_sub.tif";
     try {
@@ -309,7 +310,7 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
     }
 
     if ( rebuild )
-      produce_lowres_disparity( opt );
+      produce_lowres_disparity(opt); // Note: This does not always remake D_sub!
     else
       vw_out() << "\t--> Using cached low-resolution disparity: " << sub_disp_file << "\n";
   }
@@ -414,9 +415,10 @@ public:
 
       // The low-res version of bbox
       BBox2i seed_bbox( elem_quot(bbox.min(), m_upscale_factor),
-			elem_quot(bbox.max(), m_upscale_factor) );
+			                  elem_quot(bbox.max(), m_upscale_factor) );
       seed_bbox.expand(1);
       seed_bbox.crop( m_seed_bbox );
+      // Get the disparity range in d_sub corresponding to this tile.
       VW_OUT(DebugMessage, "stereo") << "Getting disparity range for : " << seed_bbox << "\n";
       DispSeedImageType disparity_in_box = crop( m_sub_disp, seed_bbox );
 
@@ -457,7 +459,7 @@ public:
 
           local_search_range = upper_range;
           local_search_range.grow(lower_range);
-        }
+        } //endif use_local_homography
       } //endif has_sub_disp_spread
 
       if (use_local_homography){
@@ -499,7 +501,7 @@ public:
     // Now we are ready to actually perform correlation
     if (use_local_homography){
       typedef vw::stereo::PyramidCorrelationView<ImageType, ImageViewRef<InputPixelType>, 
-                                             MaskType,  ImageViewRef<vw::uint8     > > CorrView;
+                                                 MaskType,  ImageViewRef<vw::uint8     > > CorrView;
       CorrView corr_view( m_left_image,   right_trans_img,
                           m_left_mask,    right_trans_mask,
                           static_cast<vw::stereo::PrefilterModeType>(stereo_settings().pre_filter_mode),
@@ -693,7 +695,7 @@ int main(int argc, char* argv[]) {
     //---------------------------------------------------------
     int ts = stereo_settings().corr_tile_size_ovr;
     
-    // GDAL black write sizes must be a multiple to 16 so if the input value is
+    // GDAL block write sizes must be a multiple to 16 so if the input value is
     //  not a multiple of 16 increase it until it is.
     const int TILE_MULTIPLE = 16;
     if (ts % TILE_MULTIPLE != 0)

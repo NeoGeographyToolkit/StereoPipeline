@@ -284,16 +284,14 @@ StereoSessionConcrete<DISKTRANSFORM_TYPE,STEREOMODEL_TYPE>::load_camera_model
 // as the input images unless it is desired to use cropped images.
 inline std::string left_mapproj(std::string const& left_image,
                                 std::string const& out_prefix){
-  if ( ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
-       ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) ) ){
+  if ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)){
     return out_prefix + "-L-cropped.tif";
   }
   return left_image;
 }
 inline std::string right_mapproj(std::string const& right_image,
                                       std::string const& out_prefix){
-  if ( ( stereo_settings().right_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
-       ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) ) ){
+  if ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) ){
     return out_prefix + "-R-cropped.tif";
   }
   return right_image;

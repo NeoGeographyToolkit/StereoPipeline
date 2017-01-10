@@ -102,13 +102,10 @@ int main( int argc, char* argv[] ) {
     // and created L.tif. Hence, we will work on the bd box on L.tif. However,
     // if just left-image-crop-win was set, we still use the full images,
     // but just the domain of computation is restricted. Hence we take user's
-    // crop window, transform it to be in the L.tif coordinates, and use
-    // that one.
-    bool crop_left_and_right =
-      ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
-      ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
+    // crop window, transform it to be in the L.tif coordinates, and use that one.
+    bool crop_left = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
     BBox2i transformed_window;
-    if (crop_left_and_right) {
+    if (crop_left) {
       transformed_window.min() = Vector2(0, 0);
       transformed_window.max() = trans_left_image_size;
     }else{
@@ -139,9 +136,9 @@ int main( int argc, char* argv[] ) {
         fs::exists(left_image_file) ) {
 
       cartography::GeoReference left_georef, left_sub_georef;
-      bool has_left_georef = read_georeference(left_georef, left_image_file);
-      bool has_nodata = false;
-      double output_nodata = -32768.0;
+      bool   has_left_georef = read_georeference(left_georef, left_image_file);
+      bool   has_nodata      = false;
+      double output_nodata   = -32768.0;
       if (has_left_georef) {
 
         DiskImageView<float> left_image(left_image_file);
@@ -153,16 +150,15 @@ int main( int argc, char* argv[] ) {
 
           bool has_sub_georef = read_georeference(left_sub_georef, d_sub_file);
           if (has_sub_georef) {
-            // If D_sub already has a georef, as with seed-mode 3, don't
-            // overwrite it.
+            // If D_sub already has a georef, as with seed-mode 3, don't overwrite it.
             continue;
           }
 
           ImageView<PixelMask<Vector2f> > d_sub;
           read_image(d_sub, d_sub_file);
           // Account for scale.
-          double left_scale = 0.5*( double(d_sub.cols())/left_image.cols()
-                                    + double(d_sub.rows())/left_image.rows());
+          double left_scale = 0.5*( double(d_sub.cols())/left_image.cols() +
+                                    double(d_sub.rows())/left_image.rows());
           left_sub_georef = resample(left_georef, left_scale);
           vw::cartography::block_write_gdal_image(d_sub_file, d_sub,
                                       has_left_georef, left_sub_georef,

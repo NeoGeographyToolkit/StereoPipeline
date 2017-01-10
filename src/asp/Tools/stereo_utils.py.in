@@ -161,6 +161,8 @@ def run_sparse_disp(args, opt):
         os.environ['PYTHONPATH'] = os.environ.get('ASP_PYTHON_MODULES_PATH') + ":" + \
                                    os.environ.get('PYTHONPATH')
 
+    print 'Running sparse disp with arguments: ' + str(sparse_args) +'\nand options: ' + str(opt)
+
     stereo_run('sparse_disp', sparse_args, opt,
                msg='%d: Low-res correlation with sparse_disp' % Step.corr)
 

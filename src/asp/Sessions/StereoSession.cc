@@ -84,10 +84,9 @@ namespace asp {
 
     bool crop_left  = ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
     bool crop_right = ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
-    bool crop_left_and_right = crop_left && crop_right;
 
     // If we crop the images we must always create new matching files
-    if (!crop_left_and_right && boost::filesystem::exists(match_filename)) {
+    if (!crop_left && !crop_right && boost::filesystem::exists(match_filename)) {
       vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
       return true;
     }

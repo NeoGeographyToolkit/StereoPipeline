@@ -802,13 +802,12 @@ namespace asp {
 
   bool skip_image_normalization(ASPGlobalOptions const& opt ){
 
-    bool crop_left_and_right =
-      ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0)) &&
-      ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0) );
+    bool crop_left  = ( stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+    bool crop_right = ( stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
 
     // Respect user's choice for skipping the normalization of the input
     // images, if feasible.
-    return((!crop_left_and_right)                       &&
+    return(!crop_left && !crop_right                    &&
            stereo_settings().skip_image_normalization   &&
            stereo_settings().alignment_method == "none" &&
            stereo_settings().cost_mode == 2             &&

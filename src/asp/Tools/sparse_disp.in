@@ -850,16 +850,19 @@ def est_epipolar_vec(dxy, C, C_tol, ep_vec_initial, F_use):
     if ep_vec_initial is not None:
         return ep_vec_initial, np.zeros([1,2])
 
-    P_use=100*np.array([(1-F_use)/2., (F_use+1.)/2.])
-    ctr_vals=(dxy[:,0] >= ss.scoreatpercentile(dxy[:,0], P_use[0])) & (dxy[:,0] <= ss.scoreatpercentile(dxy[:,0], P_use[1])) & (dxy[:,1] >= ss.scoreatpercentile(dxy[:,1], P_use[0])) & (dxy[:,1] <= ss.scoreatpercentile(dxy[:,1], P_use[1]))
-    good=ctr_vals & np.array(C.ravel()>C_tol, dtype=bool)
-    dxy1=np.array(dxy[good.ravel(),:])
-    dxy_ctr=np.array([np.median(dxy1[:,0]), np.median(dxy1[:,1])])
-    dxy_0=dxy1.copy()
-    dxy_0[:,0]=dxy_0[:,0]-dxy_ctr[0]
-    dxy_0[:,1]=dxy_0[:,1]-dxy_ctr[1]
-    vals, vecs=np.linalg.eig(np.dot(dxy_0.transpose(), dxy_0))
-    biggest_vec=vecs[:,np.argmax(abs(vals)) ]
+    P_use   =100*np.array([(1-F_use)/2., (F_use+1.)/2.])
+    ctr_vals=((dxy[:,0] >= ss.scoreatpercentile(dxy[:,0], P_use[0])) & 
+              (dxy[:,0] <= ss.scoreatpercentile(dxy[:,0], P_use[1])) & 
+              (dxy[:,1] >= ss.scoreatpercentile(dxy[:,1], P_use[0])) & 
+              (dxy[:,1] <= ss.scoreatpercentile(dxy[:,1], P_use[1]))  )
+    good        = ctr_vals & np.array(C.ravel()>C_tol, dtype=bool)
+    dxy1        = np.array(dxy[good.ravel(),:])
+    dxy_ctr     = np.array([np.median(dxy1[:,0]), np.median(dxy1[:,1])])
+    dxy_0       = dxy1.copy()
+    dxy_0[:,0]  = dxy_0[:,0]-dxy_ctr[0]
+    dxy_0[:,1]  = dxy_0[:,1]-dxy_ctr[1]
+    vals, vecs  = np.linalg.eig(np.dot(dxy_0.transpose(), dxy_0))
+    biggest_vec = vecs[:,np.argmax(abs(vals)) ]
     return biggest_vec, dxy_ctr
 
 def img_interpolate_linear( x, y, I, GT, nodata_val=np.NaN):
@@ -965,6 +968,11 @@ def main():
     continues until the point spacing reaches fine_skip, or until no points
     need to be refined.
 
+    Writes the output disparity image files:
+      [output_prefix]/-D_sub.tif
+      [output_prefix]/-D_sub_spread.tif
+
+    ???
     Results are written to oufile:
         pixel_x
         pixel_y
@@ -979,7 +987,7 @@ def main():
 
   ''' + get_asp_version()
 
-    parser=OptionParser(usage=usage)
+    parser = OptionParser(usage=usage)
     parser.set_defaults(epipolar_fltr=True)
     parser.add_option("-x", "--xsearch",   dest="search_range_x", default=1024-56, type="int",
                       help="initial x search range, pixels (%default)")
@@ -1031,7 +1039,7 @@ def main():
     else:
         in_mask=None
 
-    #undocumented options#
+    # undocumented options #
     F_ep_pts_to_use = 0.9
     ep_tol_max      = 24
     ep_tol_min      = 4
@@ -1047,7 +1055,7 @@ def main():
     print("search_file   = " + search_file  )
     print("output_prefix = " + output_prefix)
 
-    #Minimum number of coarse points in any dimension
+    # Minimum number of coarse points in any dimension
     min_npts = 8
 
     # Adjust the input parameters based on the images. This
@@ -1055,6 +1063,7 @@ def main():
     T_ds   = gdal.Open(template_file, gdalconst.GA_ReadOnly)
     T_band = T_ds.GetRasterBand(1)
     # Limit search range to less than a quarter of the image size
+    # - This appears to be a hard limitation imposed by the FFT usage??
     prev2x = prevpow2( T_band.XSize)
     if options.search_range_x > prev2x/4:
         options.search_range_x = prev2x/4
@@ -1064,13 +1073,13 @@ def main():
         options.search_range_y = prev2y/4
         print("Warning: Decreasing ysearch value to: %d" % options.search_range_y)
 
-    #Automatically set coarse_skip if not specified
+    # Automatically set coarse_skip if not specified
     if options.coarse_skip is None:
         options.coarse_skip = np.min([prev2x/min_npts, prev2y/min_npts])
         print("Setting coarse skip to: %d" % options.coarse_skip)
     else:
-        #Check to make sure coarse_skip isn't TOO coarse
-        #Minimum of 4 points in smallest dimension
+        # Check to make sure coarse_skip isn't TOO coarse
+        # Minimum of 4 points in smallest dimension
         if options.coarse_skip > np.min([prev2x/min_npts, prev2y/min_npts]):
             options.coarse_skip = np.min([prev2x/min_npts, prev2y/min_npts])
             print("Warning: decreasing coarse skip to: %d" % options.coarse_skip)
@@ -1079,20 +1088,22 @@ def main():
     search_range_y = options.search_range_y
     template_size  = options.template_size
 
+    # If the user specified an epipolar axis, limit the search range to primarily along that axis
+    #  with only a small search range perpendicular to that axis.
     if options.epipolar_axis is not None: # Handle user epipolar axis input
-        ep_vec_initial=np.zeros([1,2])
-        ep_vec_initial[options.epipolar_axis]=1.
-        if options.epipolar_axis==0:
-            search_range_y=np.min([search_range_y, search_range_x/10.]);
-        else:
-            search_range_x=np.min([search_range_x, search_range_y/10.]);
+        ep_vec_initial = np.zeros([1,2])
+        ep_vec_initial[options.epipolar_axis] = 1.
+        if options.epipolar_axis == 0: # X axis
+            search_range_y = np.min([search_range_y, search_range_x/10.]);
+        else: # Y axis
+            search_range_x = np.min([search_range_x, search_range_y/10.]);
     else:
-        ep_vec_initial=None
+        ep_vec_initial = None
 
     # Create the output directory
     out_dir = os.path.dirname(output_prefix)
-    if len(out_dir)==0: 
-        out_dir='.'
+    if len(out_dir) == 0: 
+        out_dir = '.'
     if not os.path.exists(out_dir): 
         os.mkdir(out_dir)
 
@@ -1151,7 +1162,7 @@ def main():
         ep_tol = np.minimum(ep_tol_max, np.maximum(ep_tol_min, ep_f90))
         
         # If any points were marked as bad in the first epipolar test...
-        if ep_vec_initial is not None and np.any(~good_indices):
+        if (ep_vec_initial is not None) and np.any(~good_indices):
             # Run the fit again with just good points and recompute the epipolar tolerance.
             ep_vec, dxy_ctr = est_epipolar_vec(dxy        [good_indices,:], 
                                                corr_scores[good_indices,:], 
