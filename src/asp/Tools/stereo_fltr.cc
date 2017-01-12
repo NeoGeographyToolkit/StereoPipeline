@@ -371,11 +371,12 @@ void stereo_filtering( ASPGlobalOptions& opt ) {
     input_type disparity_disk_image(post_correlation_fname);
 
     // Applying additional clipping from the edge. We make new
-    // mask files to avoid a weird and tricky segfault due to
-    // ownership issues.
+    // mask files to avoid a weird and tricky segfault due to ownership issues.
     DiskImageView<vw::uint8> left_mask ( opt.out_prefix+"-lMask.tif" );
     DiskImageView<vw::uint8> right_mask( opt.out_prefix+"-rMask.tif" );
-    int32 mask_buffer = max( stereo_settings().subpixel_kernel );
+    int32 mask_buffer = stereo_settings().mask_buffer_size;
+    if (mask_buffer < 0) // If Unset, set to the subpixel kernel size.
+      max( stereo_settings().subpixel_kernel );
 
 
     DiskImageView<PixelGray<float> > left_disk_image (opt.out_prefix+"-L.tif");
@@ -422,7 +423,7 @@ void stereo_filtering( ASPGlobalOptions& opt ) {
       write_good_pixel_and_filtered
         ( ErodeView<ImageViewRef<PixelMask<Vector2f> > >(filtered_disparity,
                                                          bindex ), opt );
-    } else {
+    } else { // mask_flatfield == false
       // No Erosion step
       if ( stereo_settings().rm_cleanup_passes >= 1 ) {
         // Apply an outlier removal filter

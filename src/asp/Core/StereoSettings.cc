@@ -247,6 +247,8 @@ namespace asp {
                               "Disable filling of holes using an inpainting method. Ignored and obsolete. To be removed in future versions of the software.")
       ("fill-holes-max-size", po::value(&global.fill_hole_max_size)->default_value(100000),
                               "Holes with no more pixels than this number should be filled in.")
+      ("edge-buffer-size",    po::value(&global.mask_buffer_size)->default_value(-1),
+                              "Size of region filtered off the image border.  If unset, equal to the subpixel kernel size.")
       ("erode-max-size",      po::value(&global.erode_max_size)->default_value(0),
                               "Isolated blobs with no more pixels than this number should be removed.")
       ("median-filter-size",  po::value(&global.median_filter_size)->default_value(0),

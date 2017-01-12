@@ -26,6 +26,7 @@
 
 namespace asp {
 
+  /// Quick way to check which pixels are inside the valid input mask??
   template <class ViewT>
   class ThreadedEdgeMaskView : public vw::ImageViewBase<ThreadedEdgeMaskView<ViewT> > {
 
@@ -50,7 +51,7 @@ namespace asp {
       typedef std::vector<vw::int32> Array;
       typedef boost::shared_array<vw::int32> SharedArray;
       SharedArray g_left, g_right, g_top, g_bottom;
-      Array m_left, m_right, m_top, m_bottom;
+      Array       m_left, m_right, m_top, m_bottom;
       // This how much we increment after we test a pixel. Set to 1 if
       // you wish to test every pixel.
       const vw::int32 STEP_SIZE;
@@ -60,11 +61,14 @@ namespace asp {
                    vw::int32 search_step,
                    vw::BBox2i bbox, SharedArray left, SharedArray right,
                    SharedArray top, SharedArray bottom ) :
-        m_view(view), m_mask_value(mask_value), m_bbox(bbox), g_left(left), g_right(right), g_top(top), g_bottom(bottom), m_left( m_bbox.height() ), m_right( m_bbox.height() ), m_top( m_bbox.width() ), m_bottom( m_bbox.width() ), STEP_SIZE(search_step) {
+        m_view(view), m_mask_value(mask_value), m_bbox(bbox), 
+        g_left(left), g_right(right), g_top(top), g_bottom(bottom), 
+        m_left( m_bbox.height() ), m_right( m_bbox.height() ), 
+        m_top( m_bbox.width() ), m_bottom( m_bbox.width() ), STEP_SIZE(search_step) {
 
-        std::fill( m_left.begin(), m_left.end(), -1 );
-        std::fill( m_right.begin(), m_right.end(), -1 );
-        std::fill( m_top.begin(), m_top.end(), -1 );
+        std::fill( m_left.begin  (), m_left.end  (), -1 );
+        std::fill( m_right.begin (), m_right.end (), -1 );
+        std::fill( m_top.begin   (), m_top.end   (), -1 );
         std::fill( m_bottom.begin(), m_bottom.end(), -1 );
       }
 
@@ -205,35 +209,36 @@ namespace asp {
       m_top( new vw::int32[view.cols()] ), m_bottom( new vw::int32[view.cols()] ) {
       using namespace vw;
 
-      std::fill( m_left.get(), m_left.get()+view.rows(), view.cols() );
-      std::fill( m_right.get(), m_right.get()+view.rows(), 0 );
-      std::fill( m_top.get(), m_top.get()+view.cols(), view.rows() );
-      std::fill( m_bottom.get(), m_bottom.get()+view.cols(), 0 );
+      std::fill( m_left.get(),   m_left.get  ()+view.rows(), view.cols() );
+      std::fill( m_right.get(),  m_right.get ()+view.rows(), 0           );
+      std::fill( m_top.get(),    m_top.get   ()+view.cols(), view.rows() );
+      std::fill( m_bottom.get(), m_bottom.get()+view.cols(), 0           );
 
       // Calculating edges in parallel
       FifoWorkQueue queue( vw_settings().default_num_threads() );
 
-      std::vector<BBox2i> bboxes =
-        subdivide_bbox( m_view, block_size, block_size );
+      std::vector<BBox2i> bboxes = subdivide_bbox( m_view, block_size, block_size );
 
       // Figure out an ideal search step size. Smaller means we're
       // more likely to catch small features. Bigger step size means
       // will move a lot faster.
       int32 search_step = norm_2(Vector2i(m_view.cols(),m_view.rows())) / 500;
-      if (search_step < 1 ) search_step = 1;
-      else if ( search_step > 10 ) search_step = 10;
-      VW_OUT(DebugMessage, "threadededgemask")
-        << "Setting search step to " << search_step << std::endl;
+      if (search_step < 1 )
+        search_step = 1;
+      if ( search_step > 10 ) 
+        search_step = 10;
+      VW_OUT(DebugMessage, "threadededgemask") << "Setting search step to " << search_step << std::endl;
 
+      // Find the outermost valid pixel coming in from each line/direction.
       BOOST_FOREACH( BBox2i const& box, bboxes ) {
-        VW_OUT(DebugMessage, "threadededgemask")
-          << "Created EdgeMaskTask for " << box << std::endl;
-        boost::shared_ptr<EdgeMaskTask> task(new EdgeMaskTask(m_view, mask_value, search_step, box, m_left, m_right, m_top, m_bottom ) );
+        VW_OUT(DebugMessage, "threadededgemask") << "Created EdgeMaskTask for " << box << std::endl;
+        boost::shared_ptr<EdgeMaskTask> task(new EdgeMaskTask(m_view, mask_value, search_step, box, 
+                                                              m_left, m_right, m_top, m_bottom ) );
         queue.add_task(task);
       }
-      queue.join_all();
+      queue.join_all(); // Wait for all tasks to complete
 
-      // Apply mask_buffer
+      // Erode the valid area by mask_buffer size on each side.
       std::for_each( m_left.get(), m_left.get()+view.rows(),
                      vw::ArgValInPlaceSumFunctor<vw::int32>( mask_buffer ) );
       std::for_each( m_right.get(), m_right.get()+view.rows(),
@@ -244,8 +249,8 @@ namespace asp {
                      vw::ArgValInPlaceDifferenceFunctor<vw::int32>( mask_buffer ) );
     }
 
-    inline vw::int32 cols() const { return m_view.cols(); }
-    inline vw::int32 rows() const { return m_view.rows(); }
+    inline vw::int32 cols  () const { return m_view.cols  (); }
+    inline vw::int32 rows  () const { return m_view.rows  (); }
     inline vw::int32 planes() const { return m_view.planes(); }
 
     inline pixel_accessor origin() const { return pixel_accessor(*this); }
@@ -258,14 +263,10 @@ namespace asp {
     }
 
     vw::BBox2i active_area() const {
-      return vw::BBox2i( vw::Vector2i(*std::min_element(&m_left[0],
-                                                        &m_left[rows()])+1,
-                                      *std::min_element(&m_top[0],
-                                                        &m_top[cols()])+1),
-                         vw::Vector2i(*std::max_element(&m_right[0],
-                                                        &m_right[rows()]),
-                                      *std::max_element(&m_bottom[0],
-                                                        &m_bottom[cols()])) );
+      return vw::BBox2i( vw::Vector2i(*std::min_element(&m_left  [0], &m_left  [rows()])+1,
+                                      *std::min_element(&m_top   [0], &m_top   [cols()])+1),
+                         vw::Vector2i(*std::max_element(&m_right [0], &m_right [rows()]),
+                                      *std::max_element(&m_bottom[0], &m_bottom[cols()])) );
     }
 
     typedef vw::CropView<ThreadedEdgeMaskView<vw::CropView<typename ViewT::prerasterize_type> > > prerasterize_type;
@@ -293,8 +294,7 @@ namespace asp {
                                                   typename ViewT::pixel_type value,
                                                   vw::int32 mask_buffer = 0,
                                                   vw::int32 block_size = vw::vw_settings().default_tile_size()) {
-    return ThreadedEdgeMaskView<ViewT>( v.impl(), value, mask_buffer,
-                                        block_size );
+    return ThreadedEdgeMaskView<ViewT>( v.impl(), value, mask_buffer, block_size );
   }
 }
 
