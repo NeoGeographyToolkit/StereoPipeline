@@ -69,7 +69,7 @@ def calibrate_camera(options):
         box_size_meters = options.box_size_cm/100.0
         cmd += ['-s', str(box_size_meters)]
     asp_system_utils.executeCommand(cmd, suppressOutput=options.suppress_output, 
-                                 outputPath=output_abs_path, force=options.overwrite)
+                                 outputPath=output_abs_path, redo=options.overwrite)
 
     if not os.path.exists(options.ocv_params_path):
         raise Exception('Failed to calibrate the camera!')
