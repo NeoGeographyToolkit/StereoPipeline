@@ -208,7 +208,7 @@ struct calc_operation {
         if (numInputs < 1)
           vw_throw(LogicErr() << "Insufficient inputs for this operation!\n");
         case OP_negate:   return T(-1 * inputResults[0]);
-        case OP_abs:      return T(abs(inputResults[0]));
+        case OP_abs:      return T(std::abs(inputResults[0])); // regular abs casts to integer!
         // Binary
         if (numInputs < 2)
           vw_throw(LogicErr() << "Insufficient inputs for this operation!\n");
