@@ -87,14 +87,6 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
                             double(left_sub.rows()) / double(Lmask.rows()) );
   double mean_scale = (downsample_scale[0] + downsample_scale[1]) / 2.0;
 
-  // Update initial search range based on input crops
-  bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
-  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
-  if (crop_left && !crop_right)
-    stereo_settings().search_range += stereo_settings().left_image_crop_win.min();
-  if (!crop_left && crop_right)
-    stereo_settings().search_range -= stereo_settings().right_image_crop_win.min();
-
   // Compute the initial search range in the subsampled image
   BBox2i search_range( floor(elem_prod(downsample_scale,stereo_settings().search_range.min())),
                        ceil (elem_prod(downsample_scale,stereo_settings().search_range.max())) );
@@ -118,7 +110,6 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
     double seconds_per_op = 0.0;
     if (corr_timeout > 0)
       seconds_per_op = calc_seconds_per_op(cost_mode, left_sub, right_sub, kernel_size);
-
 
     if (stereo_settings().rm_quantile_multiple <= 0.0)
     {
@@ -211,10 +202,19 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
   // Working out search range if need be
   if (stereo_settings().is_search_defined()) {
     vw_out() << "\t--> Using user-defined search range.\n";
+
+    // Update user provided search range based on input crops
+    bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+    bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+    if (crop_left && !crop_right)
+      stereo_settings().search_range += stereo_settings().left_image_crop_win.min();
+    if (!crop_left && crop_right)
+      stereo_settings().search_range -= stereo_settings().right_image_crop_win.min();
+
   }else if (stereo_settings().seed_mode == 2){
     // Do nothing as we will compute the search range based on D_sub
   }else if (stereo_settings().seed_mode == 3){
-    // Do nothing as low-res disparity is already done by sparse_disp
+    // Do nothing as low-res disparity (D_sub) is already provided by sparse_disp
   } else { // Regular seed mode
 
     // Define the file name containing IP match information.

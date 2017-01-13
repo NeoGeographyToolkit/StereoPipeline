@@ -376,7 +376,7 @@ void stereo_filtering( ASPGlobalOptions& opt ) {
     DiskImageView<vw::uint8> right_mask( opt.out_prefix+"-rMask.tif" );
     int32 mask_buffer = stereo_settings().mask_buffer_size;
     if (mask_buffer < 0) // If Unset, set to the subpixel kernel size.
-      max( stereo_settings().subpixel_kernel );
+      mask_buffer = max( stereo_settings().subpixel_kernel );
 
 
     DiskImageView<PixelGray<float> > left_disk_image (opt.out_prefix+"-L.tif");

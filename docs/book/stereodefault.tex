@@ -451,7 +451,8 @@ functionality.
 
 \item[fill-holes-max-size \textnormal{\small{(\emph{integer})}} (default = 100,000)] \hfill \\
   Holes with no more pixels than this number should be filled in.
-
+\item[edge-buffer-size \textnormal{\small{(\emph{integer})}} (default = -1)] \hfill \\
+  Crop to be applied around image borders during filtering.  If not set, default to subpixel kernel size.
 \item[erode-max-size \textnormal{\small{(\emph{integer})}} (default = 0)] \hfill \\
   Isolated blobs with no more pixels than this number should be removed.
 
