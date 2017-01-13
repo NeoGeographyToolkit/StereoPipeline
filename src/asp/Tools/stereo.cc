@@ -633,10 +633,19 @@ namespace asp {
       vw_throw(ArgumentErr() << "The entries of subpixel-kernel must be odd numbers.\n");
     }
 
-    if ((stereo_settings().stereo_algorithm > vw::stereo::CORRELATION_WINDOW) &&
-        (stereo_settings().subpixel_mode == 1)   ){
-      vw_throw(ArgumentErr() << "For SGM, parabola subpixel mode is done by default so set subpixel mode to 0.\n");
+    // Check some SGM related settings.
+    if (stereo_settings().stereo_algorithm > vw::stereo::CORRELATION_WINDOW) {
+      if (stereo_settings().subpixel_mode != 0)
+        vw_out(WarningMessage) << "SGM mode detected, setting subpixel mode to the required value of zero.\n";
     }
+    else { // Non-SGM mode
+      if (stereo_settings().cost_mode == 3)
+        vw_throw( ArgumentErr() << "Cannot use census transform without SGM!\n" );
+      if (stereo_settings().cost_mode == 4)
+        vw_throw( ArgumentErr() << "Cannot use ternary census transform without SGM!\n" );
+    }
+    if (stereo_settings().cost_mode > 4)
+      vw_throw( ArgumentErr() << "Unknown value " << stereo_settings().cost_mode << " for cost-mode.\n" );
 
     // Camera checks
     bool force_throw = false;
@@ -717,6 +726,72 @@ namespace asp {
     }
   } // End user_safety_checks
 
+
+// TODO: Move this histogram code!  Merge with image histogram code!
+
+
+  /// Compute simple histogram from a vector of data
+  void histogram( std::vector<double> const& values, int num_bins, double min_val, double max_val,
+                  std::vector<double> &hist, std::vector<double> &bin_centers){
+    
+    VW_ASSERT(num_bins > 0, ArgumentErr() << "histogram: number of input bins must be positive");
+    
+    // TODO: Verify max/min values!
+    
+    // Populate the list of bin centers
+    // The min and max vals represent the outer limits of the available bins.
+    const double range     = max_val - min_val;
+    const double bin_width = range / num_bins;
+    bin_centers.resize(num_bins);
+    for (int i=0; i<num_bins; ++i)
+      bin_centers[i] = min_val + i*bin_width + bin_width/2.0;
+    
+    hist.assign(num_bins, 0.0);
+    for (size_t i = 0; i < values.size(); ++i){
+      double val = values[i];
+      int bin = (int)round( (num_bins - 1) * ((val - min_val)/range) );
+      
+      // Saturate the bin assignment to prevent a memory exception.
+      if (bin < 0)
+        bin = 0;
+      if (bin > num_bins-1)
+        bin = num_bins-1;
+        
+      ++(hist[bin]);
+    }
+    return;
+  }
+
+  /// Returns the histogram bin index corresponding to the specified percentile
+  inline size_t get_histogram_percentile(std::vector<double> const& hist, double percentile) {
+  
+    // Verify the input percentile is in the legal range
+    if ((percentile < 0) || (percentile > 1.0)) {
+      vw_throw(ArgumentErr() << "get_histogram_percentile: illegal percentile request: " << percentile << "\n");
+    }
+
+    // Get the total pixel count
+    const size_t num_bins = hist.size();
+    double num_pixels = 0;
+    for (size_t i=0; i<num_bins; ++i)
+      num_pixels += hist[i];
+
+    // Now go through and find the requested percentile
+    double running_percentile = 0;
+    for (size_t i=0; i<num_bins; ++i) {
+      double this_percent = hist[i] / num_pixels;
+      running_percentile += this_percent;
+      //std::cout << "p - " << running_percentile << std::endl;
+      if (running_percentile >= percentile)
+        return i;
+    }
+    vw_throw(LogicErr() << "get_histogram_percentile: Illegal histogram encountered!");
+  }
+
+
+
+
+
   ///  Find interest points and grow them into a search range
   BBox2i
   approximate_search_range(std::string const& out_prefix,
@@ -770,35 +845,67 @@ namespace asp {
     vw_out() << "\t    * Using cached match file: " << match_filename << "\n";
     ip::read_binary_match_file(match_filename, matched_ip1, matched_ip2);
 
-    // TODO: Can we compute the range more accurately?
     // Find search window based on interest point matches
-    namespace ba = boost::accumulators;
-    ba::accumulator_set<float, ba::stats<ba::tag::variance> > acc_x, acc_y;
-    for (size_t i = 0; i < matched_ip1.size(); i++) {
-      acc_x(i_scale * (matched_ip2[i].x - matched_ip1[i].x));
-      acc_y(i_scale * (matched_ip2[i].y - matched_ip1[i].y));
+
+    // Record the disparities for each point pair
+    const size_t num_ip = matched_ip1.size();
+    std::vector<double> dx(num_ip), dy(num_ip);
+    double min_dx, min_dy, max_dx, max_dy;
+    min_dx = min_dy = std::numeric_limits<double>::max();
+    max_dx = max_dy = std::numeric_limits<double>::min();
+    for (size_t i = 0; i < num_ip; i++) {
+      dx[i] = i_scale * (matched_ip2[i].x - matched_ip1[i].x);
+      dy[i] = i_scale * (matched_ip2[i].y - matched_ip1[i].y);
+      if (dx[i] < min_dx) min_dx = dx[i];  // Could be smarter about how this is done.
+      if (dy[i] < min_dy) min_dy = dy[i];
+      if (dx[i] > max_dx) max_dx = dx[i];
+      if (dy[i] > max_dy) max_dy = dy[i];
     }
-    Vector2f mean( ba::mean(acc_x), ba::mean(acc_y) );
-    /* // Debug code to print all the points
+    
+    // Compute histograms
+    const int NUM_BINS = 2000; // Accuracy is important with scaled pixels
+    std::vector<double> hist_x, centers_x, hist_y, centers_y;
+    histogram(dx, NUM_BINS, min_dx, max_dx, hist_x, centers_x);
+    histogram(dy, NUM_BINS, min_dy, max_dy, hist_y, centers_y);
+    
+    // Compute search ranges
+    const double MAX_PERCENTILE = 0.98;
+    const double MIN_PERCENTILE = 0.02;
+    double search_scale = 1.4;
+    size_t min_bin_x = get_histogram_percentile(hist_x, MIN_PERCENTILE);
+    size_t min_bin_y = get_histogram_percentile(hist_y, MIN_PERCENTILE);
+    size_t max_bin_x = get_histogram_percentile(hist_x, MAX_PERCENTILE);
+    size_t max_bin_y = get_histogram_percentile(hist_y, MAX_PERCENTILE);
+    Vector2 search_min(centers_x[min_bin_x],
+                       centers_y[min_bin_y]);
+    Vector2 search_max(centers_x[max_bin_x],
+                       centers_y[max_bin_y]);
+    //std::cout << "Unscaled search range = " << BBox2i(search_min, search_max) << std::endl;
+    Vector2 search_center = (search_max - search_min) / 2.0;
+    Vector2 d_min = search_min - search_center; // TODO: Make into a bbox function!
+    Vector2 d_max = search_max - search_center;
+    search_min = d_min*search_scale + search_center;
+    search_max = d_max*search_scale + search_center;
+    
+/*
+     // Debug code to print all the points
     for (size_t i = 0; i < matched_ip1.size(); i++) {
       Vector2f diff(i_scale * (matched_ip2[i].x - matched_ip1[i].x), 
                     i_scale * (matched_ip2[i].y - matched_ip1[i].y));
       //Vector2f diff(matched_ip2[i].x - matched_ip1[i].x, 
       //              matched_ip2[i].y - matched_ip1[i].y);
-      std::cout << matched_ip1[i].x <<", "<<matched_ip1[i].y 
+      vw_out(InfoMessage,"asp") << matched_ip1[i].x <<", "<<matched_ip1[i].y 
                 << " <> " 
                 << matched_ip2[i].x <<", "<<matched_ip2[i].y 
-                 << " DIFF-M " << diff-mean << endl;
+                 << " DIFF " << diff << " DIFF-M " << diff-mean << endl;
+      //std::cout << diff[0] << ", " << diff[1] << endl;
     }
-    */
-    Vector2f stddev(sqrt(ba::variance(acc_x)), sqrt(ba::variance(acc_y)));
+*/
+    
     vw_out(InfoMessage,"asp") << "i_scale is : "       << i_scale << endl;
-    vw_out(InfoMessage,"asp") << "Mean search is : "   << mean    << endl;
-    vw_out(InfoMessage,"asp") << "stddev search is : " << stddev  << endl;
-    BBox2i search_range(mean - 2.5*stddev,
-                        mean + 2.5*stddev);
+    BBox2i search_range(search_min, search_max);
     return search_range;
-  }
+  } // End function approximate_search_range
 
   bool skip_image_normalization(ASPGlobalOptions const& opt ){
 
@@ -813,6 +920,6 @@ namespace asp {
            stereo_settings().cost_mode == 2             &&
            has_tif_or_ntf_extension(opt.in_file1)       &&
            has_tif_or_ntf_extension(opt.in_file2));
-  }
+  } // End function skip_image_normalization
 
 } // end namespace asp
