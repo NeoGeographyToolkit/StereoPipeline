@@ -304,8 +304,8 @@ public slots:
     bool m_view_matches; ///< Control if IP's are drawn
 
     bool m_zoom_all_to_same_region; // if all widgets are forced to zoom to same region
-    bool m_can_emit_zoom_all_signal; 
     bool & m_allowMultipleSelections; // alias, this is controlled from MainWindow for all widgets
+    bool m_can_emit_zoom_all_signal; 
 
     // Drawing is driven by QPaintEvent, which calls out to drawImage()
     void drawImage(QPainter* paint);
