@@ -204,6 +204,11 @@ AX_PKG_ONE_OF(LAPACK,
 
 AX_PKG(RABBITMQ_C, [], [-lrabbitmq], [stdlib.h stdint.h amqp.h])
 AX_PKG(ZEROMQ,     [], [-lzmq],      [zmq.hpp])
+AX_PKG(PROTOBUF, [PTHREADS], [-lprotobuf], [google/protobuf/stubs/common.h])
+AC_PATH_TOOL( PROTOC, [protoc], [no], [$PKG_PATHS_PROTOBUF/bin$PATH_SEPARATOR$PATH])
+if test x"$PROTOC" = "xno" && test x"$HAVE_PKG_PROTOBUF" = "xyes"; then
+  AC_MSG_ERROR([cannot find protoc used by protobuf])
+fi
 AX_PKG(FLANN, [], [-lflann_cpp], [flann/flann.hpp])
 AX_PKG(Z, [], [-lz], [zlib.h])
 AX_PKG(PNG, [Z], [-lpng], [png.h])
@@ -247,9 +252,9 @@ AX_PKG(VW_PLATE,          [VW_FILEIO PROTOBUF], [-lvwPlate],        [vw/Plate/Pl
 if test x"$HAVE_PKG_ZEROMQ" = "xno" && test x"$HAVE_PKG_RABBITMQ_C" = "xno" && test x"$HAVE_PKG_VW_PLATE" = "xyes"; then
    AC_MSG_ERROR([VW_PLATE requires either ZEROMQ or RABBITMQ_C or BOTH.])
 fi
-AX_PKG(VW_CAMERA,         [VW PROTOBUF PROJ4 BOOST_IOSTREAMS], [-lvwCamera],       [vw/Camera/CAHVModel.h])
+AX_PKG(VW_CAMERA,         [VW PROJ4 BOOST_IOSTREAMS], [-lvwCamera],       [vw/Camera/CAHVModel.h])
 AX_PKG(VW_STEREO,         [VW_CAMERA],          [-lvwStereo],       [vw/Stereo/CostFunctions.h])
-AX_PKG(VW_CARTOGRAPHY,    [VW_CAMERA],          [-lvwCartography],  [vw/Cartography/GeoReference.h], [], [], [], [PROTOBUF])
+AX_PKG(VW_CARTOGRAPHY,    [VW_CAMERA],          [-lvwCartography],  [vw/Cartography/GeoReference.h], [], [], [], [])
 AX_PKG(VW_MOSAIC,         [VW_CARTOGRAPHY],     [-lvwMosaic],       [vw/Mosaic/ImageComposite.h])
 AX_PKG(VW_INTEREST_POINT, [VW],                 [-lvwInterestPoint],[vw/InterestPoint/InterestData.h])
 AX_PKG(VW_BUNDLEADJUSTMENT, [VW_INTEREST_POINT VW_CARTOGRAPHY VW_STEREO], [-lvwBundleAdjustment], [vw/BundleAdjustment/AdjustBase.h])
