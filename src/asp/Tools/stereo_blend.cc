@@ -117,7 +117,7 @@ bool get_roi_from_tile(std::string const& tile_path, Position pos,
                               bool buffers_stripped=false) {
 
   // Get the ROI of this tile and of the entire processing job
-  //std::cout << "tile_path = " << tile_path << std::endl;
+  //std::cout << "get_roi_from_tile(): tile_path = " << tile_path << std::endl;
   BBox2i unbuffered_roi = bbox_from_folder(tile_path);
   //BBox2i full_roi = stereo_settings().left_image_crop_win;
   //std::cout << "unbuffered_roi = " << unbuffered_roi << std::endl;
@@ -292,7 +292,27 @@ struct BlendOptions {
 };
 
 
+// TODO: Add a similar function to BBox.h!
+/// Make sure the default ROIs are safe given the output image size
+void check_roi_bounds(BBox2i & input_roi, BBox2i & tile_roi, BBox2i const& output_roi) {
 
+  BBox2i original_input_roi = input_roi;
+  input_roi.crop(output_roi);
+  
+  Vector2i min_movement = input_roi.min() - original_input_roi.min();
+  Vector2i max_movement = input_roi.max() - original_input_roi.max();
+  
+  BBox2i original_tile_roi = tile_roi;
+  tile_roi.min() += min_movement;
+  tile_roi.max() += max_movement;
+
+  //std::cout << "Original input ROI = " << original_input_roi << std::endl;
+  //std::cout << "Safe input ROI     = " << input_roi << std::endl;
+  //std::cout << "min_movement = " << min_movement << std::endl;
+  //std::cout << "max_movement = " << max_movement << std::endl;
+  //std::cout << "Original tile ROI = " << original_tile_roi << std::endl;
+  //std::cout << "Safe tile ROI     = " << tile_roi << std::endl;
+}
 
 
 /// Blend the borders of an input disparity tile using the adjacent disparity tiles.
@@ -325,6 +345,7 @@ tile_blend( DispImageType const& input_image,
   WeightsType main_weights;
   centerline_weights(input_image, main_weights, output_bbox);
 
+  //write_image("main_image.tif", output_image);
   //write_image("main_weights.tif", main_weights);
 
   // Load the neighboring eight tiles
@@ -344,11 +365,16 @@ tile_blend( DispImageType const& input_image,
     get_roi_from_tile(opt.tile_paths[i], get_opposed_position(Position(i)), 
                       buff_size, GET_BUFFER, tile_rois[i]);
     
-    //std::cout << "For tile " << position_string(i) << ", tile roi = " 
-    //          << tile_rois[i] << ", input_roi = " << input_rois[i] << std::endl;
+    check_roi_bounds(input_rois[i], tile_rois[i], bounding_box(output_image));
+    
+    VW_OUT(DebugMessage,"stereo")  << "For tile " << position_string(i) << ", tile roi = " 
+                                   << tile_rois[i] << ", input_roi = " << input_rois[i] << std::endl;
     //std::cout << opt.tile_paths[i] << std::endl;
     
     load_image_and_weights(opt.tile_paths[i], tile_rois[i], images[i], weights[i]);
+    
+    //write_image("tile_image.tif", images[i]);
+    //write_image("tile_weights.tif", weights[i]);
   }
 
   std::cout << "Premultiply...\n";
