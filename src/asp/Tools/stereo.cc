@@ -868,10 +868,12 @@ namespace asp {
     histogram(dx, NUM_BINS, min_dx, max_dx, hist_x, centers_x);
     histogram(dy, NUM_BINS, min_dy, max_dy, hist_y, centers_y);
     
+    //printf("min x,y = %lf, %lf, max x,y = %lf, %lf\n", min_dx, min_dy, max_dx, max_dy);
+    
     // Compute search ranges
-    const double MAX_PERCENTILE = 0.98;
-    const double MIN_PERCENTILE = 0.02;
-    double search_scale = 1.4;
+    const double MAX_PERCENTILE = 0.95;
+    const double MIN_PERCENTILE = 0.05;
+    double search_scale = 2.0;
     size_t min_bin_x = get_histogram_percentile(hist_x, MIN_PERCENTILE);
     size_t min_bin_y = get_histogram_percentile(hist_y, MIN_PERCENTILE);
     size_t max_bin_x = get_histogram_percentile(hist_x, MAX_PERCENTILE);
@@ -881,11 +883,15 @@ namespace asp {
     Vector2 search_max(centers_x[max_bin_x],
                        centers_y[max_bin_y]);
     //std::cout << "Unscaled search range = " << BBox2i(search_min, search_max) << std::endl;
-    Vector2 search_center = (search_max - search_min) / 2.0;
+    Vector2 search_center = (search_max + search_min) / 2.0;
+    //std::cout << "search_center = " << search_center << std::endl;
     Vector2 d_min = search_min - search_center; // TODO: Make into a bbox function!
     Vector2 d_max = search_max - search_center;
+    //std::cout << "d_min = " << d_min << std::endl;
+    //std::cout << "d_max = " << d_max << std::endl;
     search_min = d_min*search_scale + search_center;
     search_max = d_max*search_scale + search_center;
+    //std::cout << "Scaled search range = " << BBox2i(search_min, search_max) << std::endl;
     
 /*
      // Debug code to print all the points
