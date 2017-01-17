@@ -506,7 +506,7 @@ bool asp::CsvConv::parse_georef(vw::cartography::GeoReference & georef) const {
     return true;
   }else{ // No UTM, no proj4 string
     if (this->format == EASTING_HEIGHT_NORTHING)
-      vw_throw( ArgumentErr() << "When a CSV file has easting and northing, the PROJ.4 string must be set via --csv_proj4.\n" );
+      vw_throw( ArgumentErr() << "When a CSV file has easting and northing, the PROJ.4 string must be set via --csv-proj4.\n" );
   }
   return false;
 }

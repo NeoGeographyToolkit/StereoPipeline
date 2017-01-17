@@ -76,7 +76,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
   int    report_level, min_matches, max_iterations, overlap_limit;
 
   bool   save_iteration, local_pinhole_input, fix_gcp_xyz, solve_intrinsics;
-  std::string datum_str, camera_position_file, csv_format_str, csv_proj4_str, intrinsics_to_float_str;
+  std::string datum_str, camera_position_file, csv_format_str, csv_proj4_str,
+    intrinsics_to_float_str, init_transform_file;
   double semi_major, semi_minor, position_filter_dist;
 
   boost::shared_ptr<ControlNetwork> cnet;
@@ -585,6 +586,29 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
   std::vector<double> cameras_vec(num_cameras*num_camera_params, 0.0);
   std::vector<double> intrinsics_vec(num_intrinsic_params, 0.0);
 
+  // Read initial adjustments
+  if (opt.init_transform_file != "") {
+    Matrix4x4 T;
+    std::ifstream is(opt.init_transform_file.c_str());
+    for (int row = 0; row < 4; row++){
+      for (int col = 0; col < 4; col++){
+        double a;
+        if (! (is >> a) )
+          vw_throw( vw::IOErr() << "Failed to read initial transform from: "
+                                << opt.init_transform_file << "\n" );
+        T(row, col) = a;
+      }
+    }
+    vw_out() << "Initial guess transform:\n" << T << "\n";
+    Matrix3x3 rot = submatrix(T,0,0,3,3);
+    std::cout << "--rot is " << rot << std::endl;
+    vw::Quat q(rot);
+    Vector3 P = matrix_to_vector(submatrix(T,0,3,1,3));
+    std::cout << "P is " << P << std::endl;
+    Vector3 axis_angle = q.axis_angle();
+    std::cout << "--axis angle is " << axis_angle << std::endl;
+  }
+  
   // Do any init required for this camera model.
   // - Currently we don't do anything except for pinhole models with no input cameras.
   update_cnet_and_init_cams(ba_model, opt, (*opt.cnet), cameras_vec, intrinsics_vec);
@@ -1623,6 +1647,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
     ("min-triangulation-angle",             po::value(&opt.min_triangulation_angle)->default_value(0.1),
      "The minimum angle, in degrees, at which rays must meet at a triangulated point to accept this point as valid.")
+    ("initial-transform",        po::value(&opt.init_transform_file)->default_value(""),
+     "A file containing a 4x4 rotation + translation matrix to be used to initialize the adjustments (rather than using the identity). For example, a transform output by pc_align can be used.")
+    
     ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
      "Given map-projected versions of the input images and the DEM mapprojected onto, and IP matches among them, create IP matches among the un-projected images before doing bundle adjustment. Niche and experimental, not for general use.")
     ("gcp-data",  po::value(&opt.gcp_data)->default_value(""),

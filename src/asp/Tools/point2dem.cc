@@ -399,7 +399,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("erode-length",   po::value<int>(&opt.erode_len)->default_value(0),
 	    "Erode input point clouds by this many pixels at boundary (after outliers are removed, but before filling in holes).")
     ("csv-format",     po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
-    ("csv-proj4",      po::value(&opt.csv_proj4_str)->default_value(""), "The PROJ.4 string to use to interpret the entries in input CSV files.")
+    ("csv-proj4",      po::value(&opt.csv_proj4_str)->default_value(""), "The PROJ.4 string to use to interpret the entries in input CSV files, if those files contain Easting and Northing fields. If not specified, --t_srs will be used.")
     ("rounding-error", po::value(&opt.rounding_error)->default_value(asp::APPROX_ONE_MM),
 	    "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")
     ("search-radius-factor", po::value(&opt.search_radius_factor)->default_value(0.0),
@@ -531,6 +531,20 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_out() << "Cropping to " << opt.target_projwin << " pt. " << std::endl;
   }
 
+  // If the input PROJ.4 string is empty, use the output one. 
+  if ( opt.csv_proj4_str.empty() && !opt.target_srs_string.empty()) {
+    opt.csv_proj4_str = opt.target_srs_string;
+  }
+  
+  // If the user specified a PROJ.4 string to use to interpret the
+  // input in CSV files, use the same string to create output DEMs,
+  // unless the user explicitly sets the output PROJ.4 string.
+  if ( !opt.csv_proj4_str.empty() && opt.target_srs_string.empty()) {
+    vw_out() << "The PROJ.4 string for reading CSV files was set. "
+             << "Will use it for output as well.\n";
+    opt.target_srs_string = opt.csv_proj4_str;
+  }
+  
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
 
@@ -1103,15 +1117,6 @@ int main( int argc, char *argv[] ) {
 						opt.datum,
 						user_datum);
 
-
-    // If the user specified a PROJ.4 string to use to interpret the
-    // input in CSV files, use the same string to create output DEMs,
-    // unless the user explicitly sets the output PROJ.4 string.
-    if ( !opt.csv_proj4_str.empty() && opt.target_srs_string.empty()) {
-      vw_out() << "The PROJ.4 string for reading CSV files was set. "
-	       << "Will use it for output as well.\n";
-      opt.target_srs_string = opt.csv_proj4_str;
-    }
 
     // If the data was left in cartesian coordinates, we need to give
     // the DEM a projection that uses some physical units (meters),
