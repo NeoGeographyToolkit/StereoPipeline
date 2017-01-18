@@ -1490,7 +1490,7 @@ int main( int argc, char *argv[] ) {
 
       // Get the bounding box we previously computed
       BBox2i tile_box = tile_pixel_bboxes[tile_id - start_tile];
-      
+
       ostringstream os;
       os << opt.out_prefix << "-tile-"
          << std::setfill('0') << std::setw(num_digits) << tile_id
