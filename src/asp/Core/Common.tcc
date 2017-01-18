@@ -121,7 +121,7 @@ namespace asp {
       vw::DiskImageView<typename ImageT::pixel_type> tmp_img(tmp_file);
       opt.raster_tile_size = orig_block_size;
       vw::vw_out() << "Re-writing with blocks of size: "
-                   << opt.raster_tile_size[0] << " x " << opt.raster_tile_size[1] << std::endl;
+                   << opt.raster_tile_size[0] << " x " << opt.raster_tile_size[1] << ".\n";
       vw::cartography::block_write_gdal_image(filename, tmp_img, has_georef, georef,
                                   has_nodata, nodata, opt, tpc);
       boost::filesystem::remove(tmp_file);

@@ -279,6 +279,8 @@ class DemMosaicView: public ImageViewBase<DemMosaicView>{
   GeoReference                   m_out_georef;
   vector<double>          const& m_nodata_values;    // alias
   vector<BBox2i>          const& m_dem_pixel_bboxes; // alias
+  long long int                & m_num_valid_pixels; // alias, to populate on output
+  vw::Mutex                    & m_count_mutex;      // alias, a lock for m_num_valid_pixels
 
 public:
   DemMosaicView(int cols, int rows, int bias,
@@ -287,12 +289,18 @@ public:
 		vector<GeoReference>   const& georefs,
 		GeoReference           const& out_georef,
 		vector<double>         const& nodata_values,
-                vector<BBox2i>         const& dem_pixel_bboxes):
+                vector<BBox2i>         const& dem_pixel_bboxes,
+                long long int               & num_valid_pixels,
+                vw::Mutex                   & count_mutex):
     m_cols(cols), m_rows(rows), m_bias(bias), m_opt(opt),
     m_imgMgr(imgMgr), m_georefs(georefs),
     m_out_georef(out_georef), m_nodata_values(nodata_values),
-    m_dem_pixel_bboxes(dem_pixel_bboxes){
+    m_dem_pixel_bboxes(dem_pixel_bboxes), m_num_valid_pixels(num_valid_pixels),
+    m_count_mutex(count_mutex) {
 
+    // How many valid pixels we will have
+    m_num_valid_pixels = 0;
+    
     if (imgMgr.size() != georefs.size()       ||
         imgMgr.size() != nodata_values.size() ||
         imgMgr.size() != dem_pixel_bboxes.size())
@@ -895,6 +903,21 @@ public:
     if (m_opt.save_index_map)
       tile = index_map;
 
+
+    // How many valid pixels are there in the tile
+    long long int num_valid_in_tile = 0;
+    for (int col = 0; col < tile.cols(); col++) {
+      for (int row = 0; row < tile.rows(); row++) {
+        if (tile(col, row) == m_opt.out_nodata_value) continue;
+        num_valid_in_tile++;
+      }
+    }
+    {
+      // Lock and update the total number of valid pixels
+      vw::Mutex::Lock lock(m_count_mutex);
+      m_num_valid_pixels += num_valid_in_tile;
+    }
+    
     // Return the tile we created with fake borders to make it look
     // the size of the entire output image. So far we operated
     // on doubles, here we cast to RealT.
@@ -1453,23 +1476,37 @@ int main( int argc, char *argv[] ) {
       georefs.push_back(georef);
       loaded_dem_pixel_bboxes.push_back(dem_pixel_box);
     } // End loop through DEM files
+
+    // If there are 17 tiles, let them be tile-00, ..., tile-16.
+    int num_digits = 1;
+    int tens = 10;
+    while (num_tiles - 1 >= tens){
+      num_digits++;
+      tens *= 10;
+    }
     
     // Time to generate each of the output tiles
     for (int tile_id = start_tile; tile_id < end_tile; tile_id++){
 
       // Get the bounding box we previously computed
       BBox2i tile_box = tile_pixel_bboxes[tile_id - start_tile];
-
+      
       ostringstream os;
-      os << opt.out_prefix << "-tile-" << tile_id << tile_suffix(opt) << ".tif";
+      os << opt.out_prefix << "-tile-"
+         << std::setfill('0') << std::setw(num_digits) << tile_id
+         << tile_suffix(opt) << ".tif";
       std::string dem_tile = os.str();
 
       // Set up tile image and metadata
+      long long int num_valid_pixels; // Will be populated when saving to disk
+      vw::Mutex count_mutex; // to lock when updating num_valid_pixels
+
       ImageViewRef<RealT> out_dem
         = crop(DemMosaicView(cols, rows, bias, opt,
                              imgMgr, georefs,
                              mosaic_georef, nodata_values,
-                             loaded_dem_pixel_bboxes),
+                             loaded_dem_pixel_bboxes,
+                             num_valid_pixels, count_mutex),
                tile_box);
       GeoReference crop_georef = crop(mosaic_georef, tile_box.min().x(),
 				      tile_box.min().y());
@@ -1480,7 +1517,13 @@ int main( int argc, char *argv[] ) {
       asp::save_with_temp_big_blocks(block_size, dem_tile, out_dem, crop_georef,
 				     opt.out_nodata_value, opt, tpc);
 
-
+      vw_out() << "Number of valid (not no-data) pixels written: " << num_valid_pixels
+               << "."<< std::endl;
+      if (num_valid_pixels == 0) {
+        vw_out() << "Removing tile with no valid pixels: " << dem_tile << std::endl;
+        boost::filesystem::remove(dem_tile);
+      }
+      
     } // End loop through tiles
 
     // Write the name of each DEM file that was used together with its index

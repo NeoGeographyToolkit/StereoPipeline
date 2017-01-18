@@ -35,6 +35,8 @@
    * Use by default --weights-exponent 2 to improve the blending,
      and increase this to 3 if --priority-blending-length is specified.
    * Added the options --block-max and --nodata-threshold. 
+   * Display the number of valid pixels written. 
+   * Do not write empty tiles. 
 
  - geodiff
    * One of the two input files can be in CSV format.
