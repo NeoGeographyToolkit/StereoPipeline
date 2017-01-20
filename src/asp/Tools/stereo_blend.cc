@@ -302,7 +302,7 @@ void check_roi_bounds(BBox2i & input_roi, BBox2i & tile_roi, BBox2i const& outpu
   Vector2i min_movement = input_roi.min() - original_input_roi.min();
   Vector2i max_movement = input_roi.max() - original_input_roi.max();
   
-  BBox2i original_tile_roi = tile_roi;
+  //BBox2i original_tile_roi = tile_roi;
   tile_roi.min() += min_movement;
   tile_roi.max() += max_movement;
 
@@ -320,6 +320,8 @@ DispImageType
 tile_blend( DispImageType const& input_image,
             BlendOptions const& opt) {
 
+  const bool debug = false;
+
   // The amount of padding applied to each tile.
   int buff_size = opt.sgm_collar_size;
 
@@ -333,7 +335,7 @@ tile_blend( DispImageType const& input_image,
 
   // The bbox of the input image and the bbox that will be written as
   //  output (with the padding removed)
-  BBox2i input_bbox  = bounding_box(input_image);  
+  //BBox2i input_bbox  = bounding_box(input_image);  
   //std::cout << "Input bbox = " << input_bbox << std::endl;
   //std::cout << "Output bbox = " << output_bbox << std::endl;
 
@@ -345,8 +347,10 @@ tile_blend( DispImageType const& input_image,
   WeightsType main_weights;
   centerline_weights(input_image, main_weights, output_bbox);
 
-  //write_image("main_image.tif", output_image);
-  //write_image("main_weights.tif", main_weights);
+  if (debug) {
+    write_image("main_image.tif", output_image);
+    write_image("main_weights.tif", main_weights);
+  }
 
   // Load the neighboring eight tiles
   //Vector2i      tile_sizes [NUM_NEIGHBORS];
@@ -368,13 +372,15 @@ tile_blend( DispImageType const& input_image,
     check_roi_bounds(input_rois[i], tile_rois[i], bounding_box(output_image));
     
     VW_OUT(DebugMessage,"stereo")  << "For tile " << position_string(i) << ", tile roi = " 
-                                   << tile_rois[i] << ", input_roi = " << input_rois[i] << std::endl;
-    //std::cout << opt.tile_paths[i] << std::endl;
+                                   << tile_rois[i] << ", input_roi = " << input_rois[i] 
+                                   << ", path = " << opt.tile_paths[i] << std::endl;
     
     load_image_and_weights(opt.tile_paths[i], tile_rois[i], images[i], weights[i]);
     
-    //write_image("tile_image.tif", images[i]);
-    //write_image("tile_weights.tif", weights[i]);
+    if (debug) {
+      write_image("tile_image_"+position_string(i)+".tif", images[i]);
+      write_image("tile_weights_"+position_string(i)+".tif", weights[i]);
+    }
   }
 
   std::cout << "Premultiply...\n";
@@ -425,7 +431,7 @@ void fill_blend_options(ASPGlobalOptions const& opt, BlendOptions & blend_option
   std::vector<std::string> folder_list;
   for (boost::filesystem::directory_iterator iter(parallel_stereo_folder); 
        iter!=boost::filesystem::directory_iterator(); ++iter) {
-    //std::cout << itr->path();;
+    //std::cout << iter->path();;
     if (boost::filesystem::is_directory(iter->status())) {
       //std::cout << " is a folder";
       folder_list.push_back(iter->path().filename().string());
@@ -436,10 +442,10 @@ void fill_blend_options(ASPGlobalOptions const& opt, BlendOptions & blend_option
   // Get the main tile bbox from the subfolder name
   boost::filesystem::path mpath(blend_options.main_path);
   std::string mbb = mpath.parent_path().filename().string();
-  //std::cout << "mbb = " << mbb << std::endl;
+  std::cout << "mbb = " << mbb << std::endl;
   blend_options.main_roi = bbox_from_folder(mbb);
   BBox2i main_bbox = blend_options.main_roi;
-  //std::cout << "mbb = " << main_bbox << std::endl;
+  std::cout << "mbb = " << main_bbox << std::endl;
    
   // Figure out where each folder goes
   for (size_t i=0; i<folder_list.size(); ++i) {
@@ -450,53 +456,54 @@ void fill_blend_options(ASPGlobalOptions const& opt, BlendOptions & blend_option
     
     const std::string abs_path = parallel_stereo_folder.string() + 
         "/" + folder_list[i] + "/" + bbox_string + "-Dnosym.tif";
-    
-    if (bbox == main_bbox)
-      continue;
-    if (bbox.min().x() < main_bbox.min().x()) { // Tiles to the left
-      if (bbox.min().y() < main_bbox.min().y()) { // Top left
+      
+    if (bbox.max().x() == main_bbox.min().x()) { // Tiles one column to left
+      if (bbox.max().y() == main_bbox.min().y()) { // Top left
         blend_options.tile_paths[TL] = abs_path;
         blend_options.rois      [TL] = bbox;
         continue;
       }
-      if (bbox.min().y() > main_bbox.min().y()) { // Bot left
+      if (bbox.min().y() == main_bbox.min().y()) { // Left
+        blend_options.tile_paths[L] = abs_path;
+        blend_options.rois      [L] = bbox;
+        continue;
+      }
+      if (bbox.min().y() == main_bbox.max().y()) { // Bot left
         blend_options.tile_paths[BL] = abs_path;
         blend_options.rois      [BL] = bbox;
         continue;
       }
-      // Left
-      blend_options.tile_paths[L] = abs_path;
-      blend_options.rois      [L] = bbox;
-      continue;
-    }
-    if (bbox.min().x() > main_bbox.min().x()) { // Tiles to the right
-      if (bbox.min().y() < main_bbox.min().y()) { // Top right
+    } // End left tiles
+    if (bbox.min().x() == main_bbox.max().x()) { // Tiles one column to right
+      if (bbox.max().y() == main_bbox.min().y()) { // Top right
         blend_options.tile_paths[TR] = abs_path;
         blend_options.rois      [TR] = bbox;
         continue;
       }
-      if (bbox.min().y() > main_bbox.min().y()) { // Bot right
+      if (bbox.min().y() == main_bbox.min().y()) { // Right
+        blend_options.tile_paths[R] = abs_path;
+        blend_options.rois      [R] = bbox;
+        continue;
+      }
+      if (bbox.min().y() == main_bbox.max().y()) { // Bot right
         blend_options.tile_paths[BR] = abs_path;
         blend_options.rois      [BR] = bbox;
         continue;
       }
-      // Right
-      blend_options.tile_paths[R] = abs_path;
-      blend_options.rois      [R] = bbox;
-      continue;
+    } // End right tiles
+    if (bbox.min().x() == main_bbox.min().x()) { // Tiles in same column
+      if (bbox.max().y() == main_bbox.min().y()) { // Top
+        blend_options.tile_paths[T] = abs_path;
+        blend_options.rois      [T] = bbox;
+        continue;
+      }
+      if (bbox.min().y() == main_bbox.max().y()) { // Bottom
+        blend_options.tile_paths[B] = abs_path;
+        blend_options.rois      [B] = bbox;
+        continue;
+      }
     }
-    // Top and bottom tiles
-    if (bbox.min().y() < main_bbox.min().y()) { // Top
-      blend_options.tile_paths[T] = abs_path;
-      blend_options.rois      [T] = bbox;
-      continue;
-    }
-    if (bbox.min().y() > main_bbox.min().y()) { // Bottom
-      blend_options.tile_paths[B] = abs_path;
-      blend_options.rois      [B] = bbox;
-      continue;
-    }
-    vw_throw( ArgumentErr() << "Unrecognized folder location: " << folder_list[i] );
+    //vw_throw( ArgumentErr() << "Unrecognized folder location: " << folder_list[i] );
   }
   
   //vw_throw( ArgumentErr() << "DEBUG!" );
