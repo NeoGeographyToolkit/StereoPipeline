@@ -291,7 +291,7 @@ If the default method does not perform well, try out one of the other two method
 value will result in no timeout enforcement. A value of 600 seconds
 should be sufficient in most cases.
 
-\item[stereo-algorthm \textnormal (default = 0)] \hfill \\
+\item[stereo-algorithm \textnormal (default = 0)] \hfill \\
 
   Use this setting to switch between the different integer correlation options supported by ASP.  
   \begin{description}
@@ -324,7 +324,12 @@ should be sufficient in most cases.
   when using semi-global matching. See section \ref{sec:sgm} for details.  This value
   must be a multiple of 16.
 
+\item[sgm-collar-size \textnormal{\small{(\emph{integer})}} (default = 512)]\hfill \\
 
+  Specify the size of a region of additional processing around each correlation tile when
+  using SGM or MGM processing.  This helps reduce seam artifacts at tile borders when
+  processing an image that needs to be broken up into tiles at the cost of additional
+  processing time.  This has no effect if the entire image can fit in one tile.
 
 \end{description}
 

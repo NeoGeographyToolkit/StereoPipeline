@@ -441,6 +441,28 @@ parameter will have to be adjusted to taste, but a range of 0.13 to 0.15 is typi
   \label{fig:corr-sgm-example}
 \end{figure}
 
+Semi-Global Matching also requires special care when processing large images.  Since the results in each pixel
+are affected by the rest of the image, processing a large image in separate tiles in the usual ASP fashion
+can lead to seam artifacts along tile borders.  You may be able to remove these artifacts entirely just by using
+the \texttt{sgm-collar-size} option but it may not be sufficient.  A more powerful option is to use the 
+\texttt{parallel\_stereo} program instead of the \texttt{stereo} program.  \texttt{parallel\_stereo} replaces
+the refinement stage with a new seam blending stage to suppress artifacts along tile borders.  In order to 
+properly use \texttt{parallel\_stereo} with SGM, use the following guidelines:
+
+\begin{itemize}
+\item Specify the \texttt{collar-size} option or leave it at the default value.
+\item Set the \texttt{corr-tile-size} option just as you would when using \texttt{stereo}.  Keep in mind that
+the collar size you selected will enlarge the processed tile size.
+\item Set \texttt{job-size-w} and \texttt{job-size-h} exactly equal to \texttt{corr-tile-size}.
+\item Set the \texttt{processes} option keeping in mind memory constraints as discussed earlier.  Each process will 
+run one simultaneous SGM instance and consume memory.
+\item Set all other SGM parameters as described above.
+\end{itemize}
+
+By setting these parameters in the manner described, each process will generate a single SGM tile which will then be
+blended in the new blend step.  Each process can use multiple threads with \texttt{threads-singleprocess} without
+affecting the stereo results.  MGM is currently limited to 8 threads.  Eventually these steps will be streamlined
+ but for now it is up to the user to ensure that things are set properly.
 
 
 \section{Sub-pixel Refinement}
