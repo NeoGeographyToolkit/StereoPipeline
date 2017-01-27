@@ -245,7 +245,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
           "Select the stereo session type to use for processing. [options: pinhole isis spot5 dg aster]")
     ("load-camera-solve",       po::bool_switch(&opt.load_camera_solve)->default_value(false)->implicit_value(true),
           "Load the results from a run of the camera-solve tool. The only positional argument must be the path to the camera-solve output folder.")
-    ("reference-spheroid,r",    po::value(&opt.datum)->default_value("moon"),
+    ("reference-spheroid,r",    po::value(&opt.datum)->default_value(""),
           "Set a reference surface to a hard coded value (one of [moon, mars, wgs84].)")
     ("use-path-to-dae-model,u", po::value(&opt.path_to_outside_model),
           "Instead of using an icon to mark a camera, use a 3D model with extension .dae")
@@ -365,6 +365,9 @@ int main(int argc, char* argv[]) {
     // TODO: There should be a datum parsing function!
     // Load up datum
     cartography::Datum datum;
+    if ( opt.datum == "" ) 
+      vw_throw( IOErr() << "The datum must be specified.\n" );
+    
     if ( opt.datum == "mars" ) {
       datum.set_well_known_datum("D_MARS");
     } else if ( opt.datum == "moon" ) {
