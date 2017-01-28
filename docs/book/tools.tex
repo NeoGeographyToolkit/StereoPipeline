@@ -1329,7 +1329,7 @@ Options & Description \\ \hline \hline
 \label{orbitviz}
 
 Produces a Google Earth \ac{KML} file useful for visualizing camera
-position. The input for this tool is one or more \texttt{*.cub} files.
+positions. The input for this tool is one or image and camera files.
 
 \begin{figure}[!b]
   \begin{center}
@@ -1341,6 +1341,11 @@ position. The input for this tool is one or more \texttt{*.cub} files.
   \label{fig:orbitviz_example}
 \end{figure}
 
+Usage:
+\begin{verbatim}
+  orbitviz [options] <input image> <input camera model> <...and repeat...>
+\end{verbatim}
+
 \begin{longtable}{|l|p{10cm}|}
 \caption{Command-line options for orbitviz}
 \label{tbl:orbitviz}
@@ -1351,13 +1356,27 @@ position. The input for this tool is one or more \texttt{*.cub} files.
 \hline
 Options & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message\\ \hline
-\texttt{-\/-output|-o \textit{filename(=orbit.kml)}} & Specifies the output file name \\ \hline
-\texttt{-\/-scale|-s \textit{float(=1)}} & Scale the size of the coordinate axes by this amount. Ex: To scale axis sizes up to Earth size, use 3.66 \\ \hline
-\texttt{-\/-use\_path\_to\_dae\_model|-u \textit{fullpath}} & Use this dae model to represent camera location. \emph{Google Sketch up can create these.} \\ \hline
+
+\texttt{-\/-output|-o \textit{filename(=orbit.kml)}} & The output kml file that will be written \\ \hline
+
+\texttt{-\/-model-scale | -s \textit{float(=1)}} & Scale the size of the coordinate axes by this amount. Ex: To scale axis sizes up to Earth size, use 3.66 \\ \hline
+
+\texttt{-\/-use-path-to-dae-model|-u \textit{fullpath}} & Use this dae model to represent camera location. \emph{Google Sketch up can create these.} \\ \hline
+
+\texttt{-r | -\/-reference-spheroid arg} & Set a reference spheroid [moon, mars, wgs84].\\ \hline
+
+\texttt{-t | -\/-session-type  arg} & Select the stereo session type to use for processing. [options: pinhole isis spot5 dg aster]\\ \hline
+
 \texttt{-\/-load-camera-solve} & Use a specialized display for showing the results of the \texttt{camera\_solve} tool.
 When using this option, only pass in the path to the \texttt{camera\_solve} output folder as a positional argument.
 Green lines drawn between the camera positions indicate a successful interest point match between those two images.\\ \hline
+
 \texttt{-\/-hide-labels} & Hide image names unless the camera is highlighted.\\ \hline
+
+\texttt{-\/-bundle-adjust-prefix arg} & Use the camera adjustment obtained by previously running bundle\_adjust with this output prefix.\\ \hline
+
+\texttt{-\/-write-csv} & Write a csv file with the orbital the data.\\ \hline
+
 \end{longtable}
 
 \clearpage

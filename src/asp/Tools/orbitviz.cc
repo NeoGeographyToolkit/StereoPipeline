@@ -241,22 +241,22 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add_options()
     ("output,o",                po::value(&opt.out_file)->default_value("orbit.kml"),
           "The output kml file that will be written")
-    ("session-type,t",          po::value(&opt.stereo_session_string),
-          "Select the stereo session type to use for processing. [options: pinhole isis spot5 dg aster]")
-    ("load-camera-solve",       po::bool_switch(&opt.load_camera_solve)->default_value(false)->implicit_value(true),
-          "Load the results from a run of the camera-solve tool. The only positional argument must be the path to the camera-solve output folder.")
     ("reference-spheroid,r",    po::value(&opt.datum)->default_value(""),
-          "Set a reference surface to a hard coded value (one of [moon, mars, wgs84].)")
+          "Set a reference spheroid [moon, mars, wgs84].")
     ("use-path-to-dae-model,u", po::value(&opt.path_to_outside_model),
           "Instead of using an icon to mark a camera, use a 3D model with extension .dae")
-    // The KML class applies a model scale of 3000 * this value.
-    ("model-scale",             po::value(&opt.model_scale)->default_value(1.0/30.0),
-          "Scale factor applied to 3D model size.")
     ("linescan-line",          po::value(&opt.linescan_line)->default_value(0),
           "Show the position of the camera when this line was captured.")
     ("hide-labels",             po::bool_switch(&opt.hide_labels)->default_value(false)->implicit_value(true),
           "Hide image names unless the camera is highlighted.")
-    ("write-csv", "write a csv file with the orbital the data.")
+    // The KML class applies a model scale of 3000 * this value.
+    ("model-scale",             po::value(&opt.model_scale)->default_value(1.0/30.0),
+          "Scale factor applied to 3D model size.")
+    ("session-type,t",          po::value(&opt.stereo_session_string),
+          "Select the stereo session type to use for processing. [options: pinhole isis spot5 dg aster]")
+    ("load-camera-solve",       po::bool_switch(&opt.load_camera_solve)->default_value(false)->implicit_value(true),
+          "Load the results from a run of the camera-solve tool. The only positional argument must be the path to the camera-solve output folder.")
+    ("write-csv", "Write a csv file with the orbital the data.")
     ("bundle-adjust-prefix",    po::value(&opt.bundle_adjust_prefix),
           "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.");
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
@@ -366,7 +366,7 @@ int main(int argc, char* argv[]) {
     // Load up datum
     cartography::Datum datum;
     if ( opt.datum == "" ) 
-      vw_throw( IOErr() << "The datum must be specified.\n" );
+      vw_throw( IOErr() << "The reference spheroid (datum) must be specified.\n" );
     
     if ( opt.datum == "mars" ) {
       datum.set_well_known_datum("D_MARS");
