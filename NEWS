@@ -34,7 +34,7 @@
    * Added the option --dem-blur-sigma to blur the output DEM.
    * Use by default --weights-exponent 2 to improve the blending,
      and increase this to 3 if --priority-blending-length is specified.
-   * Added the options --block-max and --nodata-threshold. 
+   * Added the options --tile-range, --block-max, and --nodata-threshold. 
    * Display the number of valid pixels written. 
    * Do not write empty tiles. 
 

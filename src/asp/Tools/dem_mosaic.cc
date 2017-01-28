@@ -236,6 +236,7 @@ struct Options : vw::cartography::GdalWriteOptions {
   double  weights_exp, weights_blur_sigma, dem_blur_sigma;
   double nodata_threshold;
   bool   first, last, min, max, block_max, mean, stddev, median, count, save_index_map, use_centerline_weights;
+  Vector2i tile_range;
   BBox2 projwin;
   Options(): tr(0), geo_tile_size(0), has_out_nodata(false), tile_index(-1),
 	     erode_len(0), priority_blending_len(0), extra_crop_len(0),
@@ -244,7 +245,7 @@ struct Options : vw::cartography::GdalWriteOptions {
 	     nodata_threshold(std::numeric_limits<double>::quiet_NaN()),
 	     first(false), last(false), min(false), max(false), block_max(false),
 	     mean(false), stddev(false), median(false), count(false), save_index_map(false),
-	     use_centerline_weights(false){}
+	     use_centerline_weights(false), tile_range(Vector2(-1, -1)){}
 };
 
 /// Return the number of no-blending options selected.
@@ -1028,7 +1029,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("tile-size",       po::value<int>(&opt.tile_size)->default_value(1000000),
 	   "The maximum size of output DEM tile files to write, in pixels.")
     ("tile-index",      po::value<int>(&opt.tile_index),
-	   "The index of the tile to save (starting from zero). When this program is invoked, it will print out how many tiles are there. Default: save all tiles.")
+     "The index of the tile to save (starting from zero). When this program is invoked, it will print out how many tiles are there. Default: save all tiles.")
+    ("tile-range",      po::value(&opt.tile_range)->default_value(Vector2i(-1,-1),"beg end"),
+     "Write tiles with indices in [beg, end). A tile index starts from 0.")
     ("erode-length",    po::value<int>(&opt.erode_len)->default_value(0),
 	   "Erode input DEMs by this many pixels at boundary before mosaicking them.")
     ("priority-blending-length", po::value<int>(&opt.priority_blending_len)->default_value(0),
@@ -1389,6 +1392,16 @@ int main( int argc, char *argv[] ) {
       end_tile = num_tiles;
     }
 
+    // If to use a range
+    if (opt.tile_range[1] > opt.tile_range[0]) {
+      if (opt.tile_index >= 0) 
+        vw_throw(ArgumentErr() << "Cannot specify both tile index and tile range.\n");
+
+      start_tile = std::max(opt.tile_range[0], 0);
+      end_tile = std::min(opt.tile_range[1], num_tiles);
+      vw_out() << "Saving tiles in the range: [ " << start_tile << ", " << end_tile << ")\n";
+    }
+    
     // Compute the bounding box of each output tile
     std::vector<BBox2i> tile_pixel_bboxes;
     for (int tile_id = start_tile; tile_id < end_tile; tile_id++){
