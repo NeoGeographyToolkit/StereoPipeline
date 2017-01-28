@@ -1377,8 +1377,8 @@ int main( int argc, char *argv[] ) {
     if (num_tiles_y <= 0) num_tiles_y = 1;
     int num_tiles = num_tiles_x*num_tiles_y;
     vw_out() << "Number of tiles: " << num_tiles_x << " x "
-	           << num_tiles_y << " = " << num_tiles << std::endl;
-
+             << num_tiles_y << " = " << num_tiles << ".\n";
+    
     if (opt.tile_index >= num_tiles){
       vw_out() << "Tile with index: " << opt.tile_index
 	             << " is out of bounds." << std::endl;
@@ -1399,7 +1399,7 @@ int main( int argc, char *argv[] ) {
 
       start_tile = std::max(opt.tile_range[0], 0);
       end_tile = std::min(opt.tile_range[1], num_tiles);
-      vw_out() << "Saving tiles in the range: [ " << start_tile << ", " << end_tile << ")\n";
+      vw_out() << "Saving tiles in the range: [" << start_tile << ", " << end_tile << ").\n";
     }
     
     // Compute the bounding box of each output tile
