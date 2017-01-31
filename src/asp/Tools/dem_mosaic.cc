@@ -39,7 +39,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <limits>
-
+#include <algorithm>
 
 #include <vw/FileIO.h>
 #include <vw/Image.h>
@@ -1227,12 +1227,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   // Cast this to float. All our nodata are float.
   opt.nodata_threshold = RealT(opt.nodata_threshold);
 
-  // Parse the list of tiles to save
+  // Parse the list of tiles to save. First replace commas and semicolons by a space.
+  std::replace(opt.tile_list_str.begin(), opt.tile_list_str.end(), ',', ' ');
+  std::replace(opt.tile_list_str.begin(), opt.tile_list_str.end(), ';', ' ');
   opt.tile_list.clear();
   std::istringstream os(opt.tile_list_str);
   int val;
   while (os >> val){
-    std::cout << "--adding " << val << std::endl;
     opt.tile_list.insert(val);
   }
   
