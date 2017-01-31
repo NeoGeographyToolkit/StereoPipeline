@@ -2686,9 +2686,12 @@ void run_sfs_level(// Fixed inputs
   g_iter           = -1; // reset the iterations for each level
   g_final_iter     = false;
 
-  // Solve the problem
+  // Solve the problem if asked to do iterations. Otherwise
+  // just keep the DEM at the initial guess, while saving
+  // all the output data as if iterations happened.
   ceres::Solver::Summary summary;
-  ceres::Solve(options, &problem, &summary);
+  if (options.max_num_iterations > 0)
+    ceres::Solve(options, &problem, &summary);
 
   // Save the final results
   g_final_iter = true;
