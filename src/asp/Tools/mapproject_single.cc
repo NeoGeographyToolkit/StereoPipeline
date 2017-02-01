@@ -170,7 +170,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   positional_desc.add("camera-model",1);
   positional_desc.add("output-file", 1);
 
-  std::string usage("[options] <dem> <camera-image> <camera-model> <output>");
+  std::string usage("[options] <dem> <camera-image> <camera-model> <output>\nInstead of the DEM file, a datum can be provided, such as\nWGS84, NAD83, NAD27, D_MOON, D_MARS, and MOLA.");
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
@@ -352,16 +352,17 @@ void calc_target_geom(// Inputs
 
   // Use auto-calculated ground resolution if that option was selected
   double current_resolution;
-  if (calc_target_res)
+  if (calc_target_res) {
     current_resolution = auto_res;
-  else {
+  } else {
     // Set the resolution from input options
     if (target_georef.is_projected()) {
       current_resolution = opt.mpp; // Use units of meters
     } else { // Not projected, GDC coordinates only.
       current_resolution = 1/opt.ppd; // Use units of degrees
                                       // Lat/lon degrees are different so we never want to do this!
-    }  
+    }
+    
   }
   //vw_out() << "current_resolution = " << current_resolution << std::endl;
 
@@ -672,31 +673,6 @@ int main( int argc, char* argv[] ) {
     }
     // Finished setting up the datum
 
-    // Find the target resolution based --tr, --mpp, and --ppd if provided. Do
-    // the math to convert pixel-per-degree to meter-per-pixel and vice-versa.
-    int sum = (!std::isnan(opt.tr)) + (!std::isnan(opt.mpp)) + (!std::isnan(opt.ppd));
-    if (sum >= 2){
-      vw_throw( ArgumentErr() << "Must specify at most one of the options: --tr, --mpp, --ppd.\n" );
-    }
-
-    double radius = dem_georef.datum().semi_major_axis();
-    if ( !std::isnan(opt.tr) ){ // --tr was set
-      if (dem_georef.is_projected()) {
-	if (std::isnan(opt.mpp)) opt.mpp = opt.tr; // User must have provided be meters per pixel
-      }else {
-	if (std::isnan(opt.ppd)) opt.ppd = 1.0/opt.tr; // User must have provided degrees per pixel
-      }
-    }
-    if (!std::isnan(opt.mpp)){ // Meters per pixel was set
-      if (std::isnan(opt.ppd)) opt.ppd = 2.0*M_PI*radius/(360.0*opt.mpp);
-    }
-    if (!std::isnan(opt.ppd)){ // Pixels per degree was set
-      if (std::isnan(opt.mpp)) opt.mpp = 2.0*M_PI*radius/(360.0*opt.ppd);
-    }
-    
-    // pixels per degree now available
-    bool user_provided_resolution = (!std::isnan(opt.ppd));
-
     // Read projection. Work out output bounding box in points using original camera model.
     GeoReference target_georef = dem_georef;
 
@@ -707,9 +683,31 @@ int main( int argc, char* argv[] ) {
       asp::set_srs_string(opt.target_srs_string, have_user_datum, user_datum, target_georef);
     }
 
-    //vw_out() << "\n\nDEM georeference:\n"        << dem_georef << std::endl;
-    //vw_out() << "\nTARGET georeference:\n"        << target_georef << std::endl;
+    // Find the target resolution based --tr, --mpp, and --ppd if provided. Do
+    // the math to convert pixel-per-degree to meter-per-pixel and vice-versa.
+    int sum = (!std::isnan(opt.tr)) + (!std::isnan(opt.mpp)) + (!std::isnan(opt.ppd));
+    if (sum >= 2){
+      vw_throw( ArgumentErr() << "Must specify at most one of the options: --tr, --mpp, --ppd.\n" );
+    }
 
+    double radius = target_georef.datum().semi_major_axis();
+    if ( !std::isnan(opt.tr) ){ // --tr was set
+      if (target_georef.is_projected()) {
+	if (std::isnan(opt.mpp)) opt.mpp = opt.tr; // User must have provided be meters per pixel
+      }else {
+	if (std::isnan(opt.ppd)) opt.ppd = 1.0/opt.tr; // User must have provided degrees per pixel
+      }
+    }
+    
+    if (!std::isnan(opt.mpp)){ // Meters per pixel was set
+      if (std::isnan(opt.ppd)) opt.ppd = 2.0*M_PI*radius/(360.0*opt.mpp);
+    }
+    if (!std::isnan(opt.ppd)){ // Pixels per degree was set
+      if (std::isnan(opt.mpp)) opt.mpp = 2.0*M_PI*radius/(360.0*opt.ppd);
+    }
+    
+    // pixels per degree now available
+    bool user_provided_resolution = (!std::isnan(opt.ppd));
 
     // Compute the dem BBox in the output projected space.
     // Here we could have used target_georef.lonlat_to_point_bbox(dem_georef.pixel_to_lonlat_bbox)

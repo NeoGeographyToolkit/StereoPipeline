@@ -189,7 +189,7 @@ def main(argsIn):
         baseHelpText = baseHelp[vEnd:]
 
         # Use parser that ignores unknown options
-        usage  = "usage: mapproject [options] <dem> <camera-image> <output>"
+        usage  = "usage: mapproject [options] <dem> <camera-image> <output>\nInstead of the DEM file, a datum can be provided, such as\nWGS84, NAD83, NAD27, D_MOON, D_MARS, and MOLA."
         parser = asp_cmd_utils.PassThroughOptionParser(usage=usage, epilog=baseHelpText)
 
         parser.add_option("--num-processes",  dest="numProcesses", type='int', default=None,
