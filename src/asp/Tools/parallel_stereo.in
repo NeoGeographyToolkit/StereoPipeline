@@ -222,10 +222,7 @@ def build_vrt(settings, georef, postfix, tile_postfix, contract_tiles=False):
 
     tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h )
 
-    # If a tile is missing, for example, in the case we
-    # skipped it when it does not intersect user's crop box,
-    # substitute it with a different one, to ensure the mosaic
-    # does not have holes.
+    # Locate a known good tile
     goodFilename = ""
     for tile in tiles:
         directory = tile_dir(settings['out_prefix'][0], tile)
@@ -236,7 +233,7 @@ def build_vrt(settings, georef, postfix, tile_postfix, contract_tiles=False):
     if goodFilename == "":
         raise Exception('No tiles were generated')
 
-    # Do gdalinfo on the file to get metadata
+    # Do gdalinfo on the good tile to get metadata
     args=[goodFilename]
     sep = "="
     gdal_settings=run_and_parse_output( "gdalinfo", args, sep, opt.verbose )
@@ -267,14 +264,16 @@ def build_vrt(settings, georef, postfix, tile_postfix, contract_tiles=False):
 
     # Write each band
     for b in range( 1, num_bands + 1 ):
-        f.write("  <VRTRasterBand dataType=\"%s\" band=\"%i\">\n" %
-                (data_type,b) )
+        f.write("  <VRTRasterBand dataType=\"%s\" band=\"%i\">\n" % (data_type,b) )
 
         for tile in tiles:
             directory = tile_dir(settings['out_prefix'][0], tile)
             filename  = directory + "/" + tile.name_str() + tile_postfix
 
-            if not os.path.isfile(filename): filename = goodFilename
+            # Handle non-existent tiles
+            if not os.path.isfile(filename):
+                #filename = goodFilename # TODO: Use a blank tile!
+                continue # Leave empty
 
             relative  = os.path.relpath(filename, os.path.dirname( settings['out_prefix'][0] ) )
             f.write("    <SimpleSource>\n")
@@ -301,7 +300,9 @@ def build_vrt(settings, georef, postfix, tile_postfix, contract_tiles=False):
             f.write('       <DstRect xOff="%i" yOff="%i" xSize="%i" ySize="%i"/>\n' %
                     (tile.x, tile.y, tile.width, tile.height) )
             f.write("    </SimpleSource>\n")
+        # End tile loop
         f.write("  </VRTRasterBand>\n")
+    # End band loop
     f.write("</VRTDataset>\n")
     f.close()
 

@@ -318,7 +318,7 @@ void check_roi_bounds(BBox2i & input_roi, BBox2i & tile_roi, BBox2i const& outpu
 /// Blend the borders of an input disparity tile using the adjacent disparity tiles.
 DispImageType
 tile_blend( DispImageType const& input_image,
-            BlendOptions const& opt) {
+            BlendOptions       & opt) {
 
   const bool debug = false;
 
@@ -364,23 +364,32 @@ tile_blend( DispImageType const& input_image,
     if (opt.tile_paths[i] == "")
       continue;
 
-    // Get the ROI from the cropped input image, then from the neighboring tile
-    get_roi_from_tile(opt.main_path, Position(i), buff_size, NOT_BUFFER, input_rois[i], BUFFERS_GONE);
-    get_roi_from_tile(opt.tile_paths[i], get_opposed_position(Position(i)), 
-                      buff_size, GET_BUFFER, tile_rois[i]);
-    
-    check_roi_bounds(input_rois[i], tile_rois[i], bounding_box(output_image));
-    
-    VW_OUT(DebugMessage,"stereo")  << "For tile " << position_string(i) << ", tile roi = " 
-                                   << tile_rois[i] << ", input_roi = " << input_rois[i] 
-                                   << ", path = " << opt.tile_paths[i] << std::endl;
-    
-    load_image_and_weights(opt.tile_paths[i], tile_rois[i], images[i], weights[i]);
-    
-    if (debug) {
-      write_image("tile_image_"+position_string(i)+".tif", images[i]);
-      write_image("tile_weights_"+position_string(i)+".tif", weights[i]);
+    try {
+
+      // Get the ROI from the cropped input image, then from the neighboring tile
+      get_roi_from_tile(opt.main_path, Position(i), buff_size, NOT_BUFFER, input_rois[i], BUFFERS_GONE);
+      get_roi_from_tile(opt.tile_paths[i], get_opposed_position(Position(i)), 
+                        buff_size, GET_BUFFER, tile_rois[i]);
+      
+      check_roi_bounds(input_rois[i], tile_rois[i], bounding_box(output_image));
+      
+      VW_OUT(DebugMessage,"stereo")  << "For tile " << position_string(i) << ", tile roi = " 
+                                     << tile_rois[i] << ", input_roi = " << input_rois[i] 
+                                     << ", path = " << opt.tile_paths[i] << std::endl;
+     
+      load_image_and_weights(opt.tile_paths[i], tile_rois[i], images[i], weights[i]);
+      
+      if (debug) {
+        write_image("tile_image_"+position_string(i)+".tif", images[i]);
+        write_image("tile_weights_"+position_string(i)+".tif", weights[i]);
+      }
+      
+    } catch(...) {
+      vw_out(WarningMessage) << "Error loading tile " << opt.tile_paths[i] 
+                             << " but will proceed with the available tiles.\n";
+      opt.tile_paths[i] = ""; // Mark this tile as invalid
     }
+
   }
 
   std::cout << "Premultiply...\n";
@@ -397,7 +406,7 @@ tile_blend( DispImageType const& input_image,
 
   // Blend in the neighbors one section at a time.
   for (size_t i=0; i<NUM_NEIGHBORS; ++i) {
-    if (opt.tile_paths[i] == "")
+    if (opt.tile_paths[i] == "") // Check tile validity
       continue;
     std::cout << "Blending tile " << position_string(i) << std::endl;
     // We discard the neighboring tile mask here because the weights will take 
