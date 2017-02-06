@@ -21,6 +21,7 @@
 /// The stereo_gui main window class.
 ///
 #include <QtGui>
+#include <QtWidgets>
 #include <asp/GUI/MainWindow.h>
 #include <asp/GUI/MainWidget.h>
 #include <asp/Core/StereoSettings.h>

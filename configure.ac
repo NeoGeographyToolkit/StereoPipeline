@@ -221,8 +221,7 @@ AX_PKG(GDAL, [GEOTIFF PNG], [-lgdal], [gdal.h])
 AX_PKG(ILMBASE, [M Z PTHREADS], [-lImath -lHalf -lIex -lIlmThread], [Iex.h], [OpenEXR])
 AX_PKG(OPENEXR, [ILMBASE], [-lIlmImf], [ImfOutputFile.h], [OpenEXR])
 
-# We don't build all the components in BinaryBuilder, so only include certain headers.
-AX_PKG(OPENCV,     [], [-lopencv_core -lopencv_imgproc -lopencv_features2d -lopencv_calib3d -lopencv_flann -lopencv_nonfree],  [ opencv2/core/core_c.h opencv2/core/core.hpp  opencv2/imgproc/imgproc_c.h opencv2/imgproc/imgproc.hpp opencv2/features2d/features2d.hpp opencv2/objdetect/objdetect.hpp opencv2/calib3d/calib3d.hpp opencv2/nonfree/nonfree.hpp opencv2/nonfree/features2d.hpp ])
+AX_PKG(OPENCV,     [], [-lopencv_core -lopencv_imgproc -lopencv_features2d -lopencv_xfeatures2d -lopencv_flann],  [ opencv2/core.hpp  opencv2/imgproc/imgproc.hpp opencv2/features2d.hpp opencv2/xfeatures2d.hpp opencv2/objdetect.hpp opencv2/calib3d.hpp])
 
 AX_PKG(LASZIP,  [], [-llaszip], [laszip/laszip.hpp])
 AX_PKG(LIBLAS,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS LASZIP GDAL], [-llas], [liblas/liblas.hpp])
@@ -409,7 +408,7 @@ AX_GROUP_PKG(BOOST_MOST, [BOOST_DATETIME BOOST_IOSTREAMS BOOST])
 
 # Module
 # Usage: AX_MODULE(<name>, <directory>, <library>, <default>, <prerequisites>, <required dependencies>[, <optional dependencies>])
-AX_MODULE(CORE,     [src/asp/Core],     [libaspCore.la],     yes, [], [VW_ALL LASZIP LIBLAS], [LAPACK])
+AX_MODULE(CORE,     [src/asp/Core],     [libaspCore.la],     yes, [], [VW_ALL LASZIP LIBLAS OPENCV], [LAPACK])
 AX_MODULE(CAMERA,   [src/asp/Camera],   [libaspCamera.la],   yes, [CORE], [VW], [XERCESC])
 AX_MODULE(SPICEIO,  [src/asp/SpiceIO],  [libaspSpiceIO.la],  yes, [CORE], [VW SPICE])
 AX_MODULE(ISISIO,   [src/asp/IsisIO],   [libaspIsisIO.la],   yes, [CORE], [ISIS VW_CARTOGRAPHY])

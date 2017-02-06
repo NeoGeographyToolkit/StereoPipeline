@@ -24,7 +24,7 @@
 #include <string>
 #include <vector>
 #include <QtGui>
-#include <QContextMenuEvent>
+#include <QtWidgets>
 
 #include <vw/Image.h>
 #include <vw/FileIO.h>
