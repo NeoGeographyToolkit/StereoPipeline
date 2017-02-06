@@ -202,8 +202,6 @@ AX_PKG_ONE_OF(LAPACK,
      AX_PKG(STANDALONE_FLAPACK, [STANDALONE_FBLAS STANDALONE_F2C], [-llapack], [], [], [], [dgelss_])
      AX_GROUP_PKG(STANDALONE_FLAPACK_FBLAS, [STANDALONE_FLAPACK STANDALONE_FBLAS STANDALONE_F2C])])
 
-AX_PKG(RABBITMQ_C, [], [-lrabbitmq], [stdlib.h stdint.h amqp.h])
-AX_PKG(ZEROMQ,     [], [-lzmq],      [zmq.hpp])
 AX_PKG(PROTOBUF, [PTHREADS], [-lprotobuf], [google/protobuf/stubs/common.h])
 AC_PATH_TOOL( PROTOC, [protoc], [no], [$PKG_PATHS_PROTOBUF/bin$PATH_SEPARATOR$PATH])
 if test x"$PROTOC" = "xno" && test x"$HAVE_PKG_PROTOBUF" = "xyes"; then
@@ -247,10 +245,6 @@ if test x"$HAVE_PKG_VW_CORE" = "xyes"; then
 fi
 
 # Vision Workbench Secondaries
-AX_PKG(VW_PLATE,          [VW_FILEIO PROTOBUF], [-lvwPlate],        [vw/Plate/PlateFile.h], [], [], [], [ZEROMQ RABBITMQ_C])
-if test x"$HAVE_PKG_ZEROMQ" = "xno" && test x"$HAVE_PKG_RABBITMQ_C" = "xno" && test x"$HAVE_PKG_VW_PLATE" = "xyes"; then
-   AC_MSG_ERROR([VW_PLATE requires either ZEROMQ or RABBITMQ_C or BOTH.])
-fi
 AX_PKG(VW_CAMERA,         [VW PROJ4 BOOST_IOSTREAMS], [-lvwCamera],       [vw/Camera/CAHVModel.h])
 AX_PKG(VW_STEREO,         [VW_CAMERA],          [-lvwStereo],       [vw/Stereo/CostFunctions.h])
 AX_PKG(VW_CARTOGRAPHY,    [VW_CAMERA],          [-lvwCartography],  [vw/Cartography/GeoReference.h], [], [], [], [])
@@ -342,6 +336,7 @@ AX_PKG(SUITESPARSE, [], [-lsuitesparseconfig], [SuiteSparse_config.h])
 AX_PKG(AMD, [], [-lamd], [], [], [], [], [SUITESPARSE])
 AX_PKG(COLAMD, [], [-lcolamd], [], [], [], [], [SUITESPARSE])
 AX_PKG(CHOLMOD, [AMD COLAMD LAPACK], [-lcholmod])
+AX_PKG(HDF5, [], [-lhdf5 -lhdf5_hl -lhdf5_cpp -lhdf5_hl_cpp])
 AX_PKG(GLOG,    [], [-lglog], [glog/logging.h])
 AX_PKG(CERES, [CHOLMOD GLOG], [-lceres], [ceres/ceres.h])
 AX_PKG_ONE_OF(SUPERLU,
@@ -354,9 +349,9 @@ AX_PKG_ONE_OF(KAKADU,
     KAKADU_63_JOIN, [AX_PKG(KAKADU_63_JOIN, [], [-lkdu_a63R])])
 
 if test x"$host_vendor" = "xapple"; then
-    AX_PKG(ISIS3RDPARTY, [LAPACK GSL QWT GEOS DSK SPICE XERCESC PROTOBUF CHOLMOD GEOTIFF TIFF],        [],[],[],[],[],[KAKADU])
+    AX_PKG(ISIS3RDPARTY, [LAPACK GSL QWT GEOS DSK SPICE XERCESC PROTOBUF CHOLMOD GEOTIFF TIFF HDF5],        [],[],[],[],[],[KAKADU])
 else
-    AX_PKG(ISIS3RDPARTY, [LAPACK GSL QWT GEOS DSK SPICE XERCESC SUPERLU PROTOBUF CHOLMOD GEOTIFF TIFF],[],[],[],[],[],[KAKADU])
+    AX_PKG(ISIS3RDPARTY, [LAPACK GSL QWT GEOS DSK SPICE XERCESC SUPERLU PROTOBUF CHOLMOD GEOTIFF TIFF HDF5],[],[],[],[],[],[KAKADU])
 fi
 
 AX_PKG(ISIS, [ISIS3RDPARTY QT], [-lisis3], [SpecialPixel.h])
@@ -368,34 +363,12 @@ AX_PKG(EIGEN,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS], [], [])
 AX_PKG(LIBNABO, [], [-lnabo], [])
 AX_PKG(LIBPOINTMATCHER, [LIBNABO EIGEN BOOST_THREAD BOOST_FILESYSTEM BOOST_SYSTEM BOOST_PROGRAM_OPTIONS BOOST_DATETIME], [-lpointmatcher], [])
 
-dnl check for recent rabbitmq; this can go away soon, it's just to prevent a
-dnl flag-day upgrade
-old_CXXFLAGS="$CXXFLAGS"
-old_LDFLAGS="$LDFLAGS"
-CXXFLAGS="$CXXFLAGS $PKG_RABBITMQ_C_CPPFLAGS"
-LDFLAGS="$LDFLAGS $PKG_RABBITMQ_C_LIBS"
-if test x"$HAVE_PKG_RABBITMQ_C" = "xyes"; then
-  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-    #include <stdlib.h>
-    #include <stdint.h>
-    #include <amqp.h>
-  ]], [[
-    amqp_rpc_reply_t x;
-    x.library_error;
-  ]])], [], [
-    HAVE_PKG_RABBITMQ_C="no:current version is too old"
-    AX_PKG(RABBITMQ_C, [], [-lrabbitmq], [stdlib.h stdint.h amqp.h])])
-fi
-CXXFLAGS="$old_CXXFLAGS"
-LDFLAGS="$old_LDFLAGS"
-
 # These are here (instead of inside the PKG macro where they belong)
 # for backwards compatability with older versions of automake.
 AM_CONDITIONAL(HAVE_PKG_DSK,            [test "$HAVE_PKG_DSK" = "yes"])
 AM_CONDITIONAL(HAVE_PKG_SPICE,          [test "$HAVE_PKG_SPICE" = "yes"])
 AM_CONDITIONAL(HAVE_PKG_ISIS,           [test "$HAVE_PKG_ISIS" = "yes"])
 AM_CONDITIONAL(HAVE_PKG_OPENSCENEGRAPH, [test "$HAVE_PKG_OPENSCENEGRAPH" = "yes"])
-AM_CONDITIONAL(HAVE_PKG_RABBITMQ_C,     [test "$HAVE_PKG_RABBITMQ_C" = "yes"])
 AM_CONDITIONAL(HAVE_PKG_PROTOBUF,       [test "$HAVE_PKG_PROTOBUF" = "yes"])
 AM_CONDITIONAL(HAVE_PKG_FLANN,          [test "$HAVE_PKG_FLANN" = "yes"])
 AM_CONDITIONAL(HAVE_PKG_OPENCV,         [test "$HAVE_PKG_OPENCV"     = "yes"])
