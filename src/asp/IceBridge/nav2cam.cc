@@ -324,7 +324,6 @@ int main(int argc, char* argv[]) {
 
     double big  = 1000000;
     double lon0 = big;
-    double lat0 = big; 
     Datum D("WGS84");
     
     std::ifstream ifs(opt.nav_file.c_str());
@@ -413,7 +412,6 @@ int main(int argc, char* argv[]) {
         if (lon0 == big){
           // First value for these variables.
           lon0 = lon;
-          lat0 = lat;
         }
         std::cout << "--temporary!!!" << std::endl;
         lon0 = -65;
