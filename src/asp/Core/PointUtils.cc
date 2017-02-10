@@ -299,7 +299,10 @@ namespace asp{
           break;
       }
 
-      // ??
+      // Take the points just read, and put them in groups by spatial
+      // location, so that later point2dem does not need to read every
+      // input point when writing a given tile, but only certain
+      // groups.
       ImageView<Vector3> Img;
       Chipper(in, m_block_size, m_reader->m_has_georef, m_reader->m_georef, num_cols, num_rows, Img);
 
@@ -638,33 +641,41 @@ vw::Vector3 asp::CsvConv::unsort_vector3(vw::Vector3 const& csv) const {
 
 
 // There is a lot of repeated code for the next three functions in order to
-//  improve the speed of parsing points by doing the minimum number of conversions.
+// improve the speed of parsing points by doing the minimum number of conversions.
 
+// Return either xyz or a projected point. Note that the flag return_point_height
+// is not necessarily respected. 
 Vector3 asp::CsvConv::csv_to_cartesian_or_point_height(CsvRecord const& csv,
                                                        GeoReference const& geo,
                                                        bool return_point_height) const{
+
   Vector3 ordered_csv = sort_parsed_vector3(csv);
 
-  if (this->format == XYZ)
+  // If the format is XYZ, there is a good chance we don't even have a reference.
+  // So we cannot return a point_height. We need things this way for the chipper,
+  // but this is quite confusing. 
+  if (this->format == XYZ) 
     return ordered_csv; // already as xyz
 
+  // Convert from CSV to Cartesian. Later we may convert to point_height format,
+  // which, due to the projection in the georeference, may not be the same
+  // as the input CSV format. E.g., input CSV may be lon, lat, height,
+  // but the output of this function may be easting, northing, height.
+  
   Vector3 xyz;
-
   if (this->format == EASTING_HEIGHT_NORTHING){
-    Vector3 point_height = Vector3(ordered_csv[0], ordered_csv[1], ordered_csv[2]);
-    if (return_point_height) return point_height;
 
-    Vector2 ll  = geo.point_to_lonlat(Vector2(point_height[0], point_height[1]));
-    Vector3 llh = Vector3(ll[0], ll[1], point_height[2]); // now lon, lat, height
-    xyz = geo.datum().geodetic_to_cartesian(llh);
-
+  Vector3 point_height = Vector3(ordered_csv[0], ordered_csv[1], ordered_csv[2]);
+  Vector2 ll  = geo.point_to_lonlat(Vector2(point_height[0], point_height[1]));
+  Vector3 llh = Vector3(ll[0], ll[1], point_height[2]); // now lon, lat, height
+  xyz = geo.datum().geodetic_to_cartesian(llh);
+  
   }else if (this->format == HEIGHT_LAT_LON){
-    if (return_point_height)
-      return ordered_csv;
 
     xyz = geo.datum().geodetic_to_cartesian(ordered_csv);
 
   }else{ // Handle asp::LAT_LON_RADIUS_M and asp::LAT_LON_RADIUS_KM
+
     if (this->format == LAT_LON_RADIUS_KM)
       ordered_csv[2] *= 1000.0; // now lon, lat, radius_m
 
@@ -673,9 +684,12 @@ Vector3 asp::CsvConv::csv_to_cartesian_or_point_height(CsvRecord const& csv,
 
     // Update the radius
     xyz = ordered_csv[2]*(xyz/norm_2(xyz));
-    if (return_point_height)
-      return geo.datum().cartesian_to_geodetic(xyz);
+
   }
+  
+  if (return_point_height)
+    return geo.geodetic_to_point(geo.datum().cartesian_to_geodetic(xyz));
+  
   return xyz;
 }
 
