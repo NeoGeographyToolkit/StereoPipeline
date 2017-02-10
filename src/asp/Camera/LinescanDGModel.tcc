@@ -163,8 +163,15 @@ boost::shared_ptr<DGCameraModel> load_dg_camera_model_from_xml(std::string const
   EphemerisXML eph;
   ImageXML     img;
   RPCXML       rpc;
-  read_xml( path, geo, att, eph, img, rpc );
 
+  try {
+    read_xml( path, geo, att, eph, img, rpc );
+  } catch ( const std::exception& e ){
+    vw::vw_throw(vw::ArgumentErr() << "Invalid Digital Globe XML file: " << path
+		 << ". If you are not using Digital Globe images, you may need to specify the session type, such as -t rpc, -t rpcmaprpc, -t aster, etc.\n"
+		 << e.what() << "\n");
+  }
+  
   // Convert measurements in millimeters to pixels.
   geo.principal_distance /= geo.detector_pixel_pitch;
   geo.detector_origin    /= geo.detector_pixel_pitch;
