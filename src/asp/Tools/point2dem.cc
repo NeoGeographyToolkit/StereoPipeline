@@ -1154,7 +1154,7 @@ int main( int argc, char *argv[] ) {
     las_or_csv_to_tifs(opt, output_georef.datum(), tmp_tifs);
 
     // Generate a merged xyz point cloud consisting of all inputs
-    // - By this point each input exists in tif format.
+    // - By now, each input exists in xyz tif format.
     ImageViewRef<Vector3> point_image = asp::form_point_cloud_composite<Vector3>(opt.pointcloud_files,
 						  asp::OrthoRasterizerView::max_subblock_size());
 
