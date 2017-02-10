@@ -687,7 +687,7 @@ void asp::read_xml( std::string const& filename,
       }
     }
   } catch ( const std::exception& e ) {                
-    vw_throw( ArgumentErr() << e.what() << "XML file \"" << filename << "\" is invalid.\n" );
+    vw_throw( ArgumentErr() << e.what() << " XML file \"" << filename << "\" is invalid.\n" );
   }
 
 }
