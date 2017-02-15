@@ -197,18 +197,15 @@ namespace asp{
       std::string line;
       asp::CsvConv::CsvRecord vals;
 
-      // Need to try twice, since perhaps the first time the header
-      // was encountered. The routine below will throw if the second
-      // pass did not succeed or if we try two passes more than once.
-
-      for (int i = 0; i < 2; i++){
-
+      // Keep on reading, until a valid point is hit or the end of the file
+      // is reached.
+      while (1){
+	
         m_has_valid_point = getline(*m_ifs, line, '\n');
         if (!m_has_valid_point) return m_has_valid_point; // reached end of file
 
-        bool success;
-        vals = m_csv_conv.parse_csv_line(m_is_first_line, success, line);
-        if (success) break;
+        vals = m_csv_conv.parse_csv_line(m_is_first_line, m_has_valid_point, line);
+        if (m_has_valid_point) break;
       }
 
       // Will return projected point and height or xyz. We really
@@ -216,7 +213,8 @@ namespace asp{
       // easier time grouping spatially points close together, as it
       // operates the first two coordinates.
       bool return_point_height = true;
-      m_curr_point = m_csv_conv.csv_to_cartesian_or_point_height(vals, m_georef, return_point_height);
+      m_curr_point
+	= m_csv_conv.csv_to_cartesian_or_point_height(vals, m_georef, return_point_height);
 
       return m_has_valid_point;
     }
@@ -532,8 +530,18 @@ asp::CsvConv::CsvRecord asp::CsvConv::parse_csv_line(bool & is_first_line, bool 
   int num_floats_read = 0;
   int num_values_read = 0;
 
-  char * ptr = temp;
   CsvRecord values;
+  // Be prepared for the fact that the first line may be the header,
+  // so almost certainly we won't read it correctly, but don't
+  // complain about it.
+  if (!line.empty() && line[0] == '#') {
+    if (!is_first_line) vw_out() << "Ignoring line starting with comment: " << line << std::endl;
+    success = false;
+    is_first_line = false;
+    return values;
+  }
+
+  char * ptr = temp;
   while(1){
 
     col_index++; // Increment the column counter
@@ -562,17 +570,10 @@ asp::CsvConv::CsvRecord asp::CsvConv::parse_csv_line(bool & is_first_line, bool 
     num_values_read++;
 
   } // End loop through columns
-
-  if (!is_first_line && !line.empty() && line[0] == '#') {
-    vw_out() << "Ignoring line starting with comment: " << line << std::endl;
-    success = false;
-    return values;
-  }
   
   if (num_values_read != this->num_targets)
     success = false;
 
-  // Be prepared for the fact that the first line may be the header.
   if (!success){
     if (!is_first_line){
       // Not the header
