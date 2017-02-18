@@ -18,6 +18,7 @@
 *#
 /.vimrc.local
 /.project.root
+/.idea
 /vw.tags
 /tags
 /build
@@ -178,3 +179,5 @@ docs/photometry/*pdf
 docs/photometry/*toc
 docs/photometry/graph/*pdf
 /.project
+
+
