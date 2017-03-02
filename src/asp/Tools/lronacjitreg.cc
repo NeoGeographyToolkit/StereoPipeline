@@ -255,6 +255,7 @@ bool determineShifts(Parameters & params,
   // Pyramid Correlation works best rasterizing in 1024^2 chunks
   vw_settings().set_default_tile_size(1024);
 
+  int    filter_kernel_size = 5;
   int    max_pyramid_levels = 5;
   int    corr_timeout       = 0;
   double seconds_per_op     = 0.0;
@@ -268,7 +269,7 @@ bool determineShifts(Parameters & params,
 				 searchRegion,
 				 params.kernel,
 				 corr_type, corr_timeout, seconds_per_op,
-				 params.lrthresh, max_pyramid_levels ) );
+				 params.lrthresh, filter_kernel_size, max_pyramid_levels ) );
 
   // Compute the mean horizontal and vertical shifts
   // - Currently disparity_map contains the per-pixel shifts

@@ -23,6 +23,9 @@
 # in various ways.  To use it, rename or copy it to "config.options"
 # and uncomment or modify the appropriate lines below.
 
+# config.options.example_full is an example of a full file used by
+# the developers for building.
+
 
 ### Configure Options
 #

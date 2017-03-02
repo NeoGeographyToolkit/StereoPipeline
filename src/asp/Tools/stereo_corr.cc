@@ -119,6 +119,7 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
     stereo::CostFunctionType cost_mode = get_cost_mode_value();
     Vector2i kernel_size  = stereo_settings().corr_kernel;
     int corr_timeout      = 5*stereo_settings().corr_timeout; // 5x, so try hard
+    const int rm_half_kernel = 5; // Filter kernel size used by CorrelationView
     double seconds_per_op = 0.0;
     if (corr_timeout > 0)
       seconds_per_op = calc_seconds_per_op(cost_mode, left_sub, right_sub, kernel_size);
@@ -142,7 +143,8 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
                   vw::stereo::PREFILTER_LOG, stereo_settings().slogW,
                   search_range, kernel_size, cost_mode,
                   corr_timeout, seconds_per_op,
-                  stereo_settings().xcorr_threshold, stereo_settings().corr_max_levels,
+                  stereo_settings().xcorr_threshold, rm_half_kernel,
+                  stereo_settings().corr_max_levels,
                   static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm),
                   collar_size,
                   stereo_settings().corr_blob_filter_area*mean_scale,
@@ -176,7 +178,8 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
                   vw::stereo::PREFILTER_LOG, stereo_settings().slogW,
                   search_range, kernel_size, cost_mode,
                   corr_timeout, seconds_per_op,
-                  stereo_settings().xcorr_threshold, stereo_settings().corr_max_levels,
+                  stereo_settings().xcorr_threshold, rm_half_kernel,
+                  stereo_settings().corr_max_levels,
                   static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm), 
                   0, // No collar here, the entire image is written at once.
                   0, // Don't combine blob filtering with quantile filtering
@@ -527,6 +530,7 @@ public:
     }
 
     // Now we are ready to actually perform correlation
+    const int rm_half_kernel = 5; // Filter kernel size used by CorrelationView
     if (use_local_homography){
       typedef vw::stereo::PyramidCorrelationView<ImageType, ImageViewRef<InputPixelType>, 
                                                  MaskType,  ImageViewRef<vw::uint8     > > CorrView;
@@ -538,6 +542,7 @@ public:
                           m_kernel_size,  m_cost_mode,
                           m_corr_timeout, m_seconds_per_op,
                           stereo_settings().xcorr_threshold,
+                          rm_half_kernel,
                           stereo_settings().corr_max_levels,
                           static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm), 
                           stereo_settings().sgm_collar_size,
@@ -554,6 +559,7 @@ public:
                           m_kernel_size,  m_cost_mode,
                           m_corr_timeout, m_seconds_per_op,
                           stereo_settings().xcorr_threshold,
+                          rm_half_kernel,
                           stereo_settings().corr_max_levels,
                           static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm), 
                           stereo_settings().sgm_collar_size,

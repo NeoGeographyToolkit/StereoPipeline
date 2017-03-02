@@ -303,19 +303,19 @@ AX_PKG_ONE_OF(QT,
       fi],
     APPLE_QMAKE_QT, [AX_PKG_APPLE(QMAKE_QT, [GL QT_QMAKE], [])],
     LINUX_QMAKE_QT,
-     [AX_PKG(QT_QMAKE_OPENGL,  [QT_QMAKE], [], [QtOpenGL])
+     [AX_PKG(QT_QMAKE_OPENGL,  [QT_QMAKE], [], [Qt5OpenGL])
       AX_PKG(QT_QMAKE_GUI,     [QT_QMAKE], [], [QLabel])
-      AX_PKG(QT_QMAKE_SQL,     [QT_QMAKE], [], [QtSql])
+      AX_PKG(QT_QMAKE_SQL,     [QT_QMAKE], [], [Qt5Sql])
       AX_PKG(QT_QMAKE_NETWORK, [QT_QMAKE], [], [QtNetwork])
       AX_GROUP_PKG(LINUX_QMAKE_QT, [QT_QMAKE QT_QMAKE_GUI QT_QMAKE_OPENGL QT_QMAKE_SQL QT_QMAKE_NETWORK])],
     GUESS_QT,
      [PKG_QT_GUESS_BASE_CPPFLAGS="$PKG_QT_GUESS_BASE_CPPFLAGS -DQT_SHARED"
       AX_PKG(QT_GUESS_BASE,   [],                           [],           [QtCore/qstring.h])
-      AX_PKG(QT_GUESS_CORE,   [QT_GUESS_BASE],              [-lQtCore],   [QtCore],   [QtCore])
-      AX_PKG(QT_GUESS_GUI,    [QT_GUESS_CORE],              [-lQtGui],    [QtGui],    [QtGui])
-      AX_PKG(QT_GUESS_SQL,    [QT_GUESS_CORE],              [-lQtSql],    [QtSql],    [QtSql])
-      AX_PKG(QT_GUESS_NETWORK,[QT_GUESS_CORE],              [-lQtNetwork],[QtNetwork],[QtNetwork])
-      AX_PKG(QT_GUESS_OPENGL, [QT_GUESS_CORE QT_GUESS_GUI], [-lQtOpenGL], [QtOpenGL], [QtOpenGL])
+      AX_PKG(QT_GUESS_CORE,   [QT_GUESS_BASE],              [-lQt5Core],   [Qt5Core],   [Qt5Core])
+      AX_PKG(QT_GUESS_GUI,    [QT_GUESS_CORE],              [-lQt5Gui],    [Qt5Gui],    [Qt5Gui])
+      AX_PKG(QT_GUESS_SQL,    [QT_GUESS_CORE],              [-lQt5Sql],    [Qt5Sql],    [Qt5Sql])
+      AX_PKG(QT_GUESS_NETWORK,[QT_GUESS_CORE],              [-lQt5Network],[Qt5Network],[Qt5Network])
+      AX_PKG(QT_GUESS_OPENGL, [QT_GUESS_CORE QT_GUESS_GUI], [-lQt5OpenGL], [Qt5OpenGL], [Qt5OpenGL])
       AX_GROUP_PKG(GUESS_QT,  [QT_GUESS_BASE QT_GUESS_CORE QT_GUESS_GUI QT_GUESS_SQL QT_GUESS_NETWORK QT_GUESS_OPENGL])])
 
 AX_PKG_ONE_OF(QWT,
