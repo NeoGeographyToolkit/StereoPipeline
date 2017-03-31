@@ -46,7 +46,8 @@ csh
 libtool
 autoconf
 automake
-git-core
+openssl-dev
+git (version >= 1.6) 
 subversion
 zip
 xserver-xorg-dev
@@ -56,6 +57,7 @@ libxext-dev
 libxmu
 libxmu-dev
 libxi-dev
+libxcb-dev
 libgl1-mesa-dev
 libglu1-mesa-dev
 freeglut3-dev
@@ -63,26 +65,27 @@ freeglut3-dev
 If you have root access on your machine you can install them on a
 Debian-based distribution using the following command:
 
-sudo apt-get install -y python g++ gfortran csh libtool libtool-bin   \
-  autoconf automake git-core subversion zip xserver-xorg-dev          \
-  xorg-dev libx11-dev libxext-dev libxmu6 libxmu-dev libxi-dev        \
-  libgl1-mesa-dev libglu1-mesa-dev freeglut3-dev
+sudo apt-get install -y python g++ gfortran csh libtool libtool-bin       \
+  autoconf automake openssl-dev git-core subversion zip xserver-xorg-dev  \
+  xorg-dev libx11-dev libxext-dev libxmu6 libxmu-dev libxi-dev            \
+  '^libxcb.*-dev' libx11-xcb-dev libgl1-mesa-dev libglu1-mesa-dev freeglut3-dev 
 
 If the package libtool-bin is not available (on older Linux versions),
 it can be simply removed, as libtool has all the functionality.
 
-For Red Hat-based distributions one can do instead:
+For Red Hat-based distributions (use at least version 6) one can do instead:
 
-sudo yum -y install python gcc-c++ gcc-gfortran tcsh libtool autoconf \
-  automake git subversion xorg-x11-server-Xorg libX11-devel           \
-  libXext-devel libXmu libXmu-devel libXi-devel mesa-libGL-devel      \
-  freeglut-devel 
+sudo yum -y install python gcc-c++ gcc-gfortran tcsh libtool autoconf       \
+  automake openssl-devel git subversion xorg-x11-server-Xorg libX11-devel   \
+  libXext-devel libXmu libXmu-devel libXi-devel libxcb libxcb-devel xcb-util \
+  xcb-util-devel mesa-libGL-devel freeglut-devel 
 
 If your git install fails on Red Hat, you may need to enable the EPEL
-repository.
+repository. 
 
-It is important to check that the gcc, g++, and gfortran versions
-are as above.
+It is important to check that the gcc, g++, and gfortran versions are
+as above. If your gcc is too old, you can fetch and use devtoolset-3 
+(on Red Hat, CentOS, etc).
 
 Set: 
 export LD_LIBRARY_PATH=<path to libstdc++ for your version compliant gcc>:$LD_LIBRARY_PATH
