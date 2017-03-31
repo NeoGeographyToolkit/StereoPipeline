@@ -22,13 +22,18 @@
  - stereo_gui
   * Zooming in one image can trigger all other side-by-side images to
     zoom to same region.
-  * Clicking on a pixel prints image pixel indicies and value.
-  * Added a 1D profile tool.
+  * Clicking on a pixel prints image pixel indicies, value, and image 
+    name. Selecting a region with Control+Mouse prints its bounds in 
+    pixels, and, if georeferenced, in projected and degree units. 
+  * Added a 1D profile tool for DEMs.
   * Can visualize the pixel locations for a GCP file (by interpretting
     them as interest points).
   * Can save a screenshot of the current view.
-  * Can zoom to bring any image in full view if all images are viewed
-    in same window (from the list of images on the left).
+  * If all images are in the same window, can show a given image above
+    or below all others. Also can zoom to bring any image in full view
+    (from the list of images on the left).
+  * Options to set the azimuth and elevation when showing hillshaded 
+    images.
 
  - dem_mosaic
    * Added the option --dem-blur-sigma to blur the output DEM.
@@ -68,6 +73,9 @@
     * Added the option --overlap-list. It can be used to specify which
       image pairs are expected to overlap and hence to be used to
       compute matches.
+    * Added the option --initial-transform to initialize the adjustments
+      based on a 4x4 rotation + translation transform, such as coming
+      from pc_align. 
 
  - pc_align
    * Can solve for a rotation + translation or for rotation +
