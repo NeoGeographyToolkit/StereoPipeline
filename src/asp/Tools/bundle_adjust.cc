@@ -132,7 +132,7 @@ update_cnet_and_init_cams<BAPinholeModel>(
 
   // Copy the camera parameters from the model to cameras_vec
   int index = 0;
-  for (int i=0; i<num_cameras; ++i) {
+  for (int i=0; i < num_cameras; ++i) {
     // Note that the inner loop stops before it gets to the intrinsic parameters
     BAPinholeModel::camera_intr_vector_t cam_vec;
     ba_model.get_cam_params(i, cam_vec);
@@ -1338,8 +1338,8 @@ void create_matches_from_mapprojected_images(Options const& opt){
   vw::cartography::GeoReference dem_georef;
   bool is_good = vw::cartography::read_georeference(dem_georef, dem_file);
   if (!is_good) {
-    vw_throw(ArgumentErr() << "Error: Cannot read georeference from DEM: "
-	     << dem_file << ".\n");
+    vw_throw(ArgumentErr()
+             << "Error: Cannot read georeference from DEM: " << dem_file << ".\n");
   }
   
   for (size_t i = 0; i < map_files.size(); i++) {
@@ -1364,42 +1364,41 @@ void create_matches_from_mapprojected_images(Options const& opt){
       std::vector<ip::InterestPoint> ip1_cam, ip2_cam;
       ip::read_binary_match_file( match_filename, ip1, ip2 );
       
-      
       // Undo the map-projection
       for (size_t ip_iter = 0; ip_iter < ip1.size(); ip_iter++) {
             
-	vw::ip::InterestPoint P1 = ip1[ip_iter];
-	Vector2 pix1(P1.x, P1.y);
-	Vector2 ll1 = georef1.pixel_to_lonlat(pix1);
-	Vector2 dem_pix1 = dem_georef.lonlat_to_pixel(ll1);
-	if (dem_pix1[0] < 0 || dem_pix1[0] >= dem.cols() - 1) continue;
-	if (dem_pix1[1] < 0 || dem_pix1[1] >= dem.rows() - 1) continue;
-	PixelMask<double> dem_val1 = interp_dem(dem_pix1[0], dem_pix1[1]);
-	if (!is_valid(dem_val1)) continue;
-	Vector3 llh1(ll1[0], ll1[1], dem_val1.child());
-	Vector3 xyz1 = dem_georef.datum().geodetic_to_cartesian(llh1);
-	Vector2 cam_pix1;
-	try { cam_pix1 = opt.camera_models[i]->point_to_pixel(xyz1); }
-	catch(...){ continue; }
-	P1.x = cam_pix1.x(); P1.y = cam_pix1.y(); P1.ix = P1.x; P1.iy = P1.y;
-	
-	vw::ip::InterestPoint P2 = ip2[ip_iter];
-	Vector2 pix2(P2.x, P2.y);
-	Vector2 ll2 = georef2.pixel_to_lonlat(pix2);
-	Vector2 dem_pix2 = dem_georef.lonlat_to_pixel(ll2);
-	if (dem_pix2[0] < 0 || dem_pix2[0] >= dem.cols() - 1) continue;
-	if (dem_pix2[1] < 0 || dem_pix2[1] >= dem.rows() - 1) continue;
-	PixelMask<double> dem_val2 = interp_dem(dem_pix2[0], dem_pix2[1]);
-	if (!is_valid(dem_val2)) continue;
-	Vector3 llh2(ll2[0], ll2[1], dem_val2.child());
-	Vector3 xyz2 = dem_georef.datum().geodetic_to_cartesian(llh2);
-	Vector2 cam_pix2;
-	try { cam_pix2 = opt.camera_models[j]->point_to_pixel(xyz2); }
-	catch(...){ continue; }
-	P2.x = cam_pix2.x(); P2.y = cam_pix2.y(); P2.ix = P2.x; P2.iy = P2.y;
-	
-	ip1_cam.push_back(P1);
-	ip2_cam.push_back(P2);
+        vw::ip::InterestPoint P1 = ip1[ip_iter];
+        Vector2 pix1(P1.x, P1.y);
+        Vector2 ll1 = georef1.pixel_to_lonlat(pix1);
+        Vector2 dem_pix1 = dem_georef.lonlat_to_pixel(ll1);
+        if (dem_pix1[0] < 0 || dem_pix1[0] >= dem.cols() - 1) continue;
+        if (dem_pix1[1] < 0 || dem_pix1[1] >= dem.rows() - 1) continue;
+        PixelMask<double> dem_val1 = interp_dem(dem_pix1[0], dem_pix1[1]);
+        if (!is_valid(dem_val1)) continue;
+        Vector3 llh1(ll1[0], ll1[1], dem_val1.child());
+        Vector3 xyz1 = dem_georef.datum().geodetic_to_cartesian(llh1);
+        Vector2 cam_pix1;
+        try { cam_pix1 = opt.camera_models[i]->point_to_pixel(xyz1); }
+        catch(...){ continue; }
+        P1.x = cam_pix1.x(); P1.y = cam_pix1.y(); P1.ix = P1.x; P1.iy = P1.y;
+        
+        vw::ip::InterestPoint P2 = ip2[ip_iter];
+        Vector2 pix2(P2.x, P2.y);
+        Vector2 ll2 = georef2.pixel_to_lonlat(pix2);
+        Vector2 dem_pix2 = dem_georef.lonlat_to_pixel(ll2);
+        if (dem_pix2[0] < 0 || dem_pix2[0] >= dem.cols() - 1) continue;
+        if (dem_pix2[1] < 0 || dem_pix2[1] >= dem.rows() - 1) continue;
+        PixelMask<double> dem_val2 = interp_dem(dem_pix2[0], dem_pix2[1]);
+        if (!is_valid(dem_val2)) continue;
+        Vector3 llh2(ll2[0], ll2[1], dem_val2.child());
+        Vector3 xyz2 = dem_georef.datum().geodetic_to_cartesian(llh2);
+        Vector2 cam_pix2;
+        try { cam_pix2 = opt.camera_models[j]->point_to_pixel(xyz2); }
+        catch(...){ continue; }
+        P2.x = cam_pix2.x(); P2.y = cam_pix2.y(); P2.ix = P2.x; P2.iy = P2.y;
+        
+        ip1_cam.push_back(P1);
+        ip2_cam.push_back(P2);
       }
       
       // TODO: There is a problem if the number of matches changes!!!
@@ -1437,13 +1436,13 @@ void create_gcp_from_mapprojected_images(Options const& opt){
   }
   
   ImageView< PixelMask<double> > dem = create_mask(DiskImageView<double>(dem_file), nodata_val);
-  InterpolationView<EdgeExtensionView< ImageView< PixelMask<double> >, ConstantEdgeExtension >, BilinearInterpolation> interp_dem = interpolate(dem, BilinearInterpolation(),
-																		ConstantEdgeExtension());
+  InterpolationView<EdgeExtensionView< ImageView< PixelMask<double> >, ConstantEdgeExtension >, BilinearInterpolation>
+    interp_dem = interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
   vw::cartography::GeoReference georef_dem;
   bool is_good = vw::cartography::read_georeference(georef_dem, dem_file);
   if (!is_good) {
     vw_throw(ArgumentErr() << "Error: Cannot read georeference from DEM: "
-	     << dem_file << ".\n");
+             << dem_file << ".\n");
   }
 
   int num_images = image_files.size();
@@ -1859,11 +1858,10 @@ int main(int argc, char* argv[]) {
                (other_pos != Vector3(0,0,0)) && // and they are too far apart
                (norm_2(this_pos - other_pos) > opt.position_filter_dist) ) {
             vw_out() << "Skipping position: " << this_pos << " and "
-		     << other_pos << " with distance " << norm_2(this_pos - other_pos) << std::endl;
+                     << other_pos << " with distance " << norm_2(this_pos - other_pos) << std::endl;
             continue; // Skip this image pair
           }
         } // End estimated camera position filtering
-
       
         // Load both images into a new StereoSession object and use it to find interest points.
         // - The points are written to a file on disk.
@@ -1989,8 +1987,9 @@ int main(int argc, char* argv[]) {
 
     if (opt.local_pinhole_input == false) {
       do_ba_with_model<BundleAdjustmentModel>(opt);
-    }
-    else{ // Use for local pinhole models, could also be used for other pinhole models.
+    } else {
+
+      // Use for local pinhole models, could also be used for other pinhole models.
 
       BAPinholeModel ba_model(opt.camera_models, opt.cnet, opt.solve_intrinsics);
 

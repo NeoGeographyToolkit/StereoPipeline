@@ -284,6 +284,28 @@ public:
     m_cameras(cameras), m_network(network), m_cam_vec(cameras.size()),
     m_num_intrinsics(0), m_solve_intrinsics(solve_intrinsics){
 
+    // Must check that all cameras have same intrinsics
+    {
+      intrinsic_vector_t intrinsics_0;
+      const pin_cam_ptr_t pinhole_ptr_0 =
+        boost::dynamic_pointer_cast<vw::camera::PinholeModel>(m_cameras[0]);
+      intrinsic_params_from_model(*pinhole_ptr_0, intrinsics_0);
+      for (size_t i = 1; i < m_cameras.size(); i++) {
+        intrinsic_vector_t intrinsics_i;
+        const pin_cam_ptr_t pinhole_ptr_i =
+          boost::dynamic_pointer_cast<vw::camera::PinholeModel>(m_cameras[i]);
+        intrinsic_params_from_model(*pinhole_ptr_i, intrinsics_i);
+        for (size_t j = 0; j < intrinsics_0.size(); j++) {
+          if (intrinsics_0[j] != intrinsics_i[j]) {
+            vw::vw_throw( vw::ArgumentErr() 
+                          << "When using --local-pinhole, all cameras "
+                          << "must have the same intrinsics.\n" );
+          }
+        }
+      }
+    }
+    
+    
     // Copy the (shared) intrinsic values from the first camera
     intrinsic_params_from_first_model(m_shared_intrinsics);
     m_num_intrinsics = m_shared_intrinsics.size();
