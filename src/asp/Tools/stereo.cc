@@ -829,6 +829,8 @@ namespace asp {
       if (left_rsrc->has_nodata_read ()) left_nodata_value  = left_rsrc->nodata_read();
       if (right_rsrc->has_nodata_read()) right_nodata_value = right_rsrc->nodata_read();
 
+      // TODO: Convert to float from PixelGray<float>, and make the function
+      // asp::homography_ip_matching() non-templated.
       DiskImageView<PixelT> left_sub_image (left_rsrc );
       DiskImageView<PixelT> right_sub_image(right_rsrc);
 
