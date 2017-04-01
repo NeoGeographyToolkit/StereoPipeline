@@ -109,6 +109,7 @@ QRect bbox2qrect(BBox2 const& B){
 }
 
 bool write_hillshade(vw::cartography::GdalWriteOptions const& opt,
+                     double azimuth, double elevation,
                      std::string const& input_file,
                      std::string      & output_file) {
 
@@ -120,15 +121,13 @@ bool write_hillshade(vw::cartography::GdalWriteOptions const& opt,
     return false;
   }
 
-  // TODO: Expose these to the user
-  int elevation = 20;
-  int azimuth   = 300;
-
   double scale       = 0.0;
   double blur_sigma  = std::numeric_limits<double>::quiet_NaN();
   double nodata_val  = std::numeric_limits<double>::quiet_NaN();
   vw::read_nodata_val(input_file, nodata_val);
-  std::string suffix = "_hillshade.tif";
+  std::ostringstream oss;
+  oss << "_hillshade_a" << azimuth << "_e" << elevation << ".tif"; 
+  std::string suffix = oss.str();
 
   output_file = vw::mosaic::filename_from_suffix1(input_file, suffix);
   try {

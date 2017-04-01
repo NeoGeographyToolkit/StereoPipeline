@@ -93,7 +93,7 @@ namespace vw { namespace gui {
                std::string const& base_image_file,
                std::vector<std::vector<ip::InterestPoint> > & matches,
                chooseFilesDlg * chooseFiles, bool use_georef,
-               bool hillshade, bool view_matches, bool zoom_all_to_same_region,
+               std::vector<bool> const& hillshade, bool view_matches, bool zoom_all_to_same_region,
 	       bool & allowMultipleSelections // alias
 	       );
     virtual ~MainWidget();
@@ -126,6 +126,7 @@ namespace vw { namespace gui {
     vw::BBox2 current_view();
     void zoomToRegion (vw::BBox2 const& region);
     bool hillshadeMode() const;
+    std::vector<bool> hillshadeModeVec() const {return m_hillshade_mode;}
     void setHillshadeMode(bool hillshade_mode);
     BBox2 firstImagePixelBox() const;
     BBox2 firstImageWorldBox(vw::BBox2 const& image_box) const;
@@ -147,14 +148,18 @@ public slots:
     void viewThreshImages();
     void viewHillshadedImages(bool hillshade_mode);
 
-    void addMatchPoint();       ///< Add a new interest point (from right click menu)
-    void deleteMatchPoint();    ///< Delete an interest point (from right click menu)
-    void setThreshold();        ///< Set change shadow threshold (from right click menu)
-    void toggleHillshade();     ///< Turn on/off hillshading per image (from right click menu)
-    void refreshHillshade();    ///< We modified m_hillshade_mode. Update the display.
-    void zoomToImage();         ///< Zoom to have this image in full view.
-    void deleteImage();         ///< Delete an image from the gui and refresh
+    void addMatchPoint();           ///< Add a new interest point (from right click menu)
+    void deleteMatchPoint();        ///< Delete an interest point (from right click menu)
+    void setThreshold();            ///< Set change shadow threshold (from right click menu)
+    void setHillshadeParams();      ///< Set the azimuth and elevation for hillshaded images.
+    void toggleHillshade();         ///< Turn on/off hillshading per image (from right click menu)
+    void refreshHillshade();        ///< We modified m_hillshade_mode. Update the display.
+    void bringImageOnTopSlot();     ///< Show this image on top of other images.
+    void pushImageToBottomSlot();   ///< Show all other images on top of this
+    void zoomToImage();             ///< Zoom to have this image in full view.
+    void deleteImage();             ///< Delete an image from the gui and refresh
     void allowMultipleSelections(); ///< Allow the user to select multiple regions
+    void deleteSelection();         ///< Delete an area selected with the mouse at the current point
     void toggleProfileMode(bool profile_mode); ///< Turn on and off the 1D profile tool
     void saveScreenshot();          ///< Save a screenshot of the current imagery
 
@@ -208,6 +213,7 @@ public slots:
     std::string & m_output_prefix; // alias
     std::vector<std::string> m_image_files;
     std::vector<bool> m_hillshade_mode;
+    double m_hillshade_azimuth, m_hillshade_elevation;
     
     /// A set of matching interest points for each image.
     /// - Note that this is an alias wrapping an object passed in through the constructor.
@@ -287,11 +293,15 @@ public slots:
     QAction* m_deleteMatchPoint;
     QAction* m_toggleHillshade;
     QAction* m_setThreshold;
+    QAction* m_setHillshadeParams;
     QAction* m_saveScreenshot;
     QAction* m_toggleHillshadeFromTable;
     QAction* m_zoomToImageFromTable;
+    QAction* m_bringImageOnTopFromTable;
+    QAction* m_pushImageToBottomFromTable;
     QAction* m_deleteImage;
     QAction* m_allowMultipleSelections_action;
+    QAction* m_deleteSelection;
 
     double m_shadow_thresh;
     bool   m_shadow_thresh_calc_mode;
@@ -326,7 +336,9 @@ public slots:
     void updateRubberBand(QRect & R);
     void refreshPixmap();
     void maybeGenHillshade();
-    void putImageOnTop(int image_index);
+    void showImage(std::string const& image_name);
+    void bringImageOnTop(int image_index);
+    void pushImageToBottom(int image_index);
   };
 
 }} // namespace vw::gui

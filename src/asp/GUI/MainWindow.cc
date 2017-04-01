@@ -169,9 +169,12 @@ void MainWindow::createLayout() {
       m_widgets[wit]->toggleProfileMode(profile_mode);
   }
 
-  // Save the previous hillshade flags before wiping the widgets, but only
-  // if each image is in its own widget.
-  if (m_widgets.size() == m_image_files.size()) {
+  // Save the previous hillshade flags before wiping the widgets.
+  if (m_widgets.size() == 1) {
+    if (m_widgets[0]->hillshadeModeVec().size() == m_image_files.size()) {
+      m_hillshade_vec = m_widgets[0]->hillshadeModeVec();
+    }
+  }else if (m_widgets.size() == m_image_files.size()) {
     m_hillshade_vec.clear();
     for (size_t wit = 0; wit < m_widgets.size(); wit++) {
       if (m_widgets[wit] == NULL) 
@@ -179,6 +182,10 @@ void MainWindow::createLayout() {
       else
         m_hillshade_vec.push_back(m_widgets[wit]->hillshadeMode());
     }
+  }else{
+    m_hillshade_vec.resize(m_image_files.size());
+    for (size_t wit = 0; wit < m_image_files.size(); wit++)
+      m_hillshade_vec[wit] = m_hillshade;
   }
 
   if (m_image_files.size() <= BASE_IMAGE_INDEX) {
@@ -223,7 +230,7 @@ void MainWindow::createLayout() {
                                          0, m_output_prefix,
                                          m_image_files, base_image_file,
                                          m_matches, m_chooseFiles,
-                                         m_use_georef, m_hillshade, m_view_matches,
+                                         m_use_georef, m_hillshade_vec, m_view_matches,
                                          zoom_all_to_same_region,
 					 m_allowMultipleSelections);
     m_widgets.push_back(widget);
@@ -237,9 +244,11 @@ void MainWindow::createLayout() {
       m_chooseFiles = NULL;
 
       // Recall the previous hillshade choice if possible
-      bool hillshade = m_hillshade;
-      if (!m_hillshade_vec.empty() && m_hillshade_vec.size() == m_image_files.size())
-        hillshade = m_hillshade_vec[i];
+      std::vector<bool> local_hillshade;
+      if (m_hillshade_vec.size() == m_image_files.size())
+	local_hillshade.push_back(m_hillshade_vec[i]);
+      else
+	local_hillshade.push_back(m_hillshade);
       
       MainWidget * widget = new MainWidget(centralWidget,
                                            m_opt,
@@ -247,7 +256,7 @@ void MainWindow::createLayout() {
                                            local_images, base_image_file,
                                            m_matches,
                                            m_chooseFiles,
-                                           m_use_georef, hillshade, m_view_matches,
+                                           m_use_georef, local_hillshade, m_view_matches,
                                            zoom_all_to_same_region,
 					   m_allowMultipleSelections);
       m_widgets.push_back(widget);
@@ -514,24 +523,16 @@ void MainWindow::forceQuit(){
 // Zoom in/out of each image so that it fits fully within its allocated display area.
 void MainWindow::sizeToFit(){
 
-  bool zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
-  if (zoom_all_to_same_region) {
-
-    // Must unlock the zoom windows
-    zoom_all_to_same_region = false;
-    setZoomAllToSameRegionAux(zoom_all_to_same_region);
-
-    // Then must redraw everything completely, in order to compute
-    // each image's full region.
-    createLayout();
-
-    return;
-  }
-
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (m_widgets[i])
       m_widgets[i]->sizeToFit();
   }
+    
+  bool zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
+  if (zoom_all_to_same_region) {
+    MainWindow::setZoomAllToSameRegion();
+  }
+  
 }
 
 void MainWindow::viewSingleWindow(){

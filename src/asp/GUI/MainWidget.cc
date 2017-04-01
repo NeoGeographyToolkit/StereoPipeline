@@ -34,6 +34,7 @@
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Cartography/GeoTransform.h>
 #include <asp/GUI/MainWidget.h>
+#include <asp/Core/StereoSettings.h>
 
 using namespace vw;
 using namespace vw::gui;
@@ -141,16 +142,13 @@ namespace vw { namespace gui {
                          std::string const& base_image_file,
                          std::vector<std::vector<vw::ip::InterestPoint> > & matches,
                          chooseFilesDlg * chooseFiles,
-                         bool use_georef, bool hillshade, bool view_matches,
+                         bool use_georef, std::vector<bool> const& hillshade, bool view_matches,
                          bool zoom_all_to_same_region, bool & allowMultipleSelections)
     : QWidget(parent), m_opt(opt), m_chooseFilesDlg(chooseFiles),
       m_image_id(image_id), m_output_prefix(output_prefix),
       m_image_files(image_files), m_matches(matches),  m_use_georef(use_georef),
       m_view_matches(view_matches), m_zoom_all_to_same_region(zoom_all_to_same_region),
       m_allowMultipleSelections(allowMultipleSelections), m_can_emit_zoom_all_signal(false){
-    
-    // Each image can be hillshaded independently of the other ones
-    MainWidget::setHillshadeMode(hillshade);
     
     installEventFilter(this);
 
@@ -217,6 +215,12 @@ namespace vw { namespace gui {
       m_world_box.grow(B);
     }
 
+    // Each image can be hillshaded independently of the other ones
+    m_hillshade_mode = hillshade;
+    m_hillshade_azimuth = asp::stereo_settings().hillshade_azimuth;
+    m_hillshade_elevation = asp::stereo_settings().hillshade_elevation;
+    
+    // Shadow threshold
     m_shadow_thresh = -std::numeric_limits<double>::max();
     m_shadow_thresh_calc_mode = false;
     m_shadow_thresh_view_mode = false;
@@ -247,19 +251,23 @@ namespace vw { namespace gui {
     m_addMatchPoint    = m_ContextMenu->addAction("Add match point");
     m_deleteMatchPoint = m_ContextMenu->addAction("Delete match point");
     m_toggleHillshade  = m_ContextMenu->addAction("Toggle hillshaded display");
+    m_setHillshadeParams = m_ContextMenu->addAction("View/set hillshade azimuth and elevation");
     m_saveScreenshot   = m_ContextMenu->addAction("Save screenshot");
     m_setThreshold     = m_ContextMenu->addAction("View/set shadow threshold");
     m_allowMultipleSelections_action = m_ContextMenu->addAction("Allow multiple selected regions");
     m_allowMultipleSelections_action->setCheckable(true);
     m_allowMultipleSelections_action->setChecked(m_allowMultipleSelections);
+    m_deleteSelection = m_ContextMenu->addAction("Delete selected regions around this point");
     
-    connect(m_addMatchPoint,    SIGNAL(triggered()), this, SLOT(addMatchPoint()));
-    connect(m_deleteMatchPoint, SIGNAL(triggered()), this, SLOT(deleteMatchPoint()));
-    connect(m_toggleHillshade,  SIGNAL(triggered()), this, SLOT(toggleHillshade()));
-    connect(m_setThreshold,     SIGNAL(triggered()), this, SLOT(setThreshold()));
-    connect(m_saveScreenshot,   SIGNAL(triggered()), this, SLOT(saveScreenshot()));
+    connect(m_addMatchPoint,       SIGNAL(triggered()), this, SLOT(addMatchPoint()));
+    connect(m_deleteMatchPoint,    SIGNAL(triggered()), this, SLOT(deleteMatchPoint()));
+    connect(m_toggleHillshade,     SIGNAL(triggered()), this, SLOT(toggleHillshade()));
+    connect(m_setHillshadeParams,  SIGNAL(triggered()), this, SLOT(setHillshadeParams()));
+    connect(m_setThreshold,        SIGNAL(triggered()), this, SLOT(setThreshold()));
+    connect(m_saveScreenshot,      SIGNAL(triggered()), this, SLOT(saveScreenshot()));
     connect(m_allowMultipleSelections_action, SIGNAL(triggered()), this,
             SLOT(allowMultipleSelections()));
+    connect(m_deleteSelection,    SIGNAL(triggered()), this, SLOT(deleteSelection()));
 
     MainWidget::maybeGenHillshade();
 
@@ -294,6 +302,12 @@ namespace vw { namespace gui {
     m_toggleHillshadeFromTable = menu->addAction("Toggle hillshade display");
     connect(m_toggleHillshadeFromTable, SIGNAL(triggered()), this, SLOT(refreshHillshade()));
     
+    m_bringImageOnTopFromTable = menu->addAction("Bring image on top");
+    connect(m_bringImageOnTopFromTable, SIGNAL(triggered()), this, SLOT(bringImageOnTopSlot()));
+
+    m_pushImageToBottomFromTable = menu->addAction("Push image to bottom");
+    connect(m_pushImageToBottomFromTable, SIGNAL(triggered()), this, SLOT(pushImageToBottomSlot()));
+
     m_zoomToImageFromTable = menu->addAction("Zoom to image");
     connect(m_zoomToImageFromTable, SIGNAL(triggered()), this, SLOT(zoomToImage()));
 
@@ -325,7 +339,7 @@ namespace vw { namespace gui {
     // If we just checked a certain image, it will be shown on top of the other ones.
     QTableWidgetItem *item = filesTable->item(rowClicked, 0);
     if (item->checkState() == Qt::Checked){
-      putImageOnTop(rowClicked);
+      bringImageOnTop(rowClicked);
     }
 
     refreshPixmap();
@@ -532,12 +546,16 @@ namespace vw { namespace gui {
 
       // Save the hillshaded images to disk
       std::string hillshaded_file;
-      bool success = write_hillshade(m_opt, input_file, hillshaded_file);
+      bool success = write_hillshade(m_opt,
+                                     m_hillshade_azimuth,
+                                     m_hillshade_elevation,
+                                     input_file, hillshaded_file);
       if (!success) {
         m_hillshade_mode[image_iter] = false;
         return;
       }
 
+      vw_out() << "Reading: " << hillshaded_file << std::endl;
       m_hillshaded_images[image_iter].read(hillshaded_file, m_opt, m_use_georef);
       temporary_files().files.insert(hillshaded_file);
     }
@@ -566,7 +584,7 @@ namespace vw { namespace gui {
 
       // We will assume if the user wants to see the hillshade
       // status of this image change, he'll also want it on top.
-      putImageOnTop(*it); 
+      bringImageOnTop(*it); 
     }
 
     m_shadow_thresh_calc_mode = false;
@@ -584,10 +602,34 @@ namespace vw { namespace gui {
 
       // We will assume if the user wants to zoom to this image,
       // it should be on top.
-      putImageOnTop(*it); 
+      bringImageOnTop(*it); 
 
       m_current_view = expand_box_to_keep_aspect_ratio
         (MainWidget::image2world(m_images[*it].image_bbox, *it));
+    }
+    
+    m_indicesWithAction.clear();
+
+    refreshPixmap();
+  }
+
+  void MainWidget::bringImageOnTopSlot(){
+
+    for (std::set<int>::iterator it = m_indicesWithAction.begin();
+	 it != m_indicesWithAction.end(); it++) {
+      bringImageOnTop(*it); 
+    }
+    
+    m_indicesWithAction.clear();
+
+    refreshPixmap();
+  }
+
+  void MainWidget::pushImageToBottomSlot(){
+
+    for (std::set<int>::iterator it = m_indicesWithAction.begin();
+	 it != m_indicesWithAction.end(); it++) {
+      pushImageToBottom(*it); 
     }
     
     m_indicesWithAction.clear();
@@ -625,18 +667,10 @@ namespace vw { namespace gui {
     for (size_t image_iter = 0; image_iter < m_hillshade_mode.size(); image_iter++) 
       m_hillshade_mode[image_iter] = hillshade_mode;
   }
-  
-  // The image with the given index will be on top when shown.
-  void MainWidget::putImageOnTop(int image_index){
-    std::vector<int>::iterator it = std::find(m_filesOrder.begin(), m_filesOrder.end(), image_index);
-    if (it != m_filesOrder.end()){
-      m_filesOrder.erase(it);
-      m_filesOrder.push_back(image_index); // show last, so on top
-    }
 
-    // An image on top better be viewable
-    string fileName = m_images[image_index].name;
-    std::set<std::string>::iterator it2 = m_filesToHide.find(fileName);
+  // Ensure the current image is displayed
+  void MainWidget::showImage(std::string const& image_name){
+    std::set<std::string>::iterator it2 = m_filesToHide.find(image_name);
     if (it2 != m_filesToHide.end()){
       m_filesToHide.erase(it2);
 
@@ -646,15 +680,38 @@ namespace vw { namespace gui {
       
       for (int rowIter = 0; rowIter < rows; rowIter++){
         QTableWidgetItem *item = filesTable->item(rowIter, 0);
-        string fileName2 = (filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
-        if (fileName == fileName2) {
+        string image_name2 = (filesTable->item(rowIter, 1)->data(0)).toString().toStdString();
+        if (image_name == image_name2) {
           item->setCheckState(Qt::Checked);
         }
       }
     }
-    
   }
-    
+  
+  // The image with the given index will be on top when shown.
+  void MainWidget::bringImageOnTop(int image_index){
+    std::vector<int>::iterator it = std::find(m_filesOrder.begin(), m_filesOrder.end(), image_index);
+    if (it != m_filesOrder.end()){
+      m_filesOrder.erase(it);
+      m_filesOrder.push_back(image_index); // show last, so on top
+    }
+
+    // The image should be visible
+    MainWidget::showImage(m_images[image_index].name);
+  }
+
+  // The image with the given index will be on top when shown.
+  void MainWidget::pushImageToBottom(int image_index){
+    std::vector<int>::iterator it = std::find(m_filesOrder.begin(), m_filesOrder.end(), image_index);
+    if (it != m_filesOrder.end()){
+      m_filesOrder.erase(it);
+      m_filesOrder.insert(m_filesOrder.begin(), image_index); // show first, so at the bottom
+    }
+
+    // The image should be visible
+    MainWidget::showImage(m_images[image_index].name);
+  }
+  
   // Convert the crop window to original pixel coordinates from
   // pixel coordinates on the screen.
   // TODO: Make screen2world() do it, to take an input a QRect (or BBox2)
@@ -1036,7 +1093,6 @@ namespace vw { namespace gui {
     // for rubberband
     m_mousePrsX  = event->pos().x();
     m_mousePrsY  = event->pos().y();
-
     m_rubberBand = m_emptyRubberBand;
 
     m_curr_pixel_pos = QPoint2Vec(QPoint(m_mousePrsX, m_mousePrsY));
@@ -1462,12 +1518,19 @@ namespace vw { namespace gui {
       // the crop win is in projected units for the first image,
       // so we must convert to pixels.
       m_stereoCropWin = screen2world(qrect2bbox(m_rubberBand));
-      
-      if (m_allowMultipleSelections && !m_stereoCropWin.empty()) 
-        m_selectionRectangles.push_back(m_stereoCropWin);
-      
-      for (size_t i = 0; i < m_images.size(); i++) {
 
+      if (m_allowMultipleSelections && !m_stereoCropWin.empty()) {
+        m_selectionRectangles.push_back(m_stereoCropWin);
+      }
+      
+      for (int j = 0; j < (int)m_images.size(); j++){
+        
+        int i = m_filesOrder[j];
+        
+        // Don't show files the user wants hidden
+        string fileName = m_images[i].name;
+        if (m_filesToHide.find(fileName) != m_filesToHide.end()) continue;
+        
         BBox2i image_box = world2image(m_stereoCropWin, i);
         vw_out().precision(8);
         vw_out() << "Crop src win for  "
@@ -1823,6 +1886,33 @@ namespace vw { namespace gui {
     emit turnOnViewMatchesSignal();
   }
 
+  // We cannot delete match points unless all images have the same number of them.
+  void MainWidget::deleteSelection(){
+
+    // Delete the selections that contain the current point
+    Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
+
+    // The main crop win
+    if (m_stereoCropWin.contains(P)){
+      QRect R = bbox2qrect(world2screen(m_stereoCropWin));
+      updateRubberBand(R); // mark that later we should redraw this polygonal line
+      m_stereoCropWin = BBox2();
+    }
+
+    std::vector<BBox2> curr_rects;
+    for (size_t it = 0; it < m_selectionRectangles.size(); it++) {
+      if (!m_selectionRectangles[it].contains(P)) {
+        curr_rects.push_back(m_selectionRectangles[it]);
+      }else{
+	QRect R = bbox2qrect(world2screen(m_selectionRectangles[it]));
+	updateRubberBand(R); // mark that later we should redraw this polygonal line
+      }
+    }
+    m_selectionRectangles = curr_rects;
+
+    return;
+  }
+
   // Show the current shadow threshold, and allow the user to change it.
   void MainWidget::setThreshold(){
 
@@ -1855,6 +1945,44 @@ namespace vw { namespace gui {
 
   double MainWidget::getThreshold(){
     return m_shadow_thresh;
+  }
+
+
+  // Set the azimuth and elevation for hillshaded images
+  void MainWidget::setHillshadeParams(){
+
+    std::ostringstream oss;
+    oss.precision(18);
+    oss << m_hillshade_azimuth
+        << " "
+        << m_hillshade_elevation << std::endl;
+
+    std::string azimuthElevation = oss.str();
+    bool ans = getStringFromGui(this,
+				"Hillshade azimuth and elevation",
+				"Hillshade azimuth and elevation",
+				azimuthElevation,
+				azimuthElevation);
+    if (!ans)
+      return;
+
+    std::istringstream iss(azimuthElevation);
+    double a, e; 
+    if (! (iss >> a >> e) ) {
+      popUp("Could not read the hillshade azimuth and elevation values.");
+      return;
+    }
+    m_hillshade_azimuth = a;
+    m_hillshade_elevation = e;
+
+    MainWidget::maybeGenHillshade();
+    refreshPixmap();
+
+    vw_out() << "Hillshade azimuth and elevation for " << m_image_files[0]
+	     << ": "
+             << m_hillshade_azimuth << ' '
+             << m_hillshade_elevation << std::endl;
+      
   }
 
   // Save the current view to a file

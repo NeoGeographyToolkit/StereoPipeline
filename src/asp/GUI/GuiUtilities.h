@@ -146,6 +146,7 @@ namespace vw { namespace gui {
 
   /// ?
   bool write_hillshade(vw::cartography::GdalWriteOptions const& opt,
+                       double azimuth, double elevation,
                        std::string const& input_file,
                        std::string      & output_file);
 
