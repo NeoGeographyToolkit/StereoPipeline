@@ -37,6 +37,25 @@
 
 // TODO: Move these classes to another file so they can be cleaned up properly!
 
+// Copy adjustments to an array, first translation, and then rotation.
+// The array is expected to have size 6.
+template <class ModelT>
+void pack_camera_params_base(ModelT const& model, 
+                             double * cam,
+                             vw::Vector3 const& position_correction,
+                             vw::Quat    const& pose_correction) {
+
+  if (ModelT::camera_params_n != 6) 
+    vw::vw_throw( vw::ArgumentErr() 
+                  << "Expecting 6 rotation + translation parameters.\n" );
+  
+  vw::Vector3 pose_vec = pose_correction.axis_angle();
+
+  for (size_t i = 0; i < ModelT::camera_params_n/2; i++) {
+    cam[i] = position_correction[i];
+    cam[i + ModelT::camera_params_n/2] = pose_vec[i];
+  }
+}
 
 // Bundle adjustment functor
 class BundleAdjustmentModel:
@@ -118,9 +137,8 @@ public:
   /// Copy the extrinsic camera parameters into the parameter vector
   void pack_camera_params(camera_vector_t & cam_j,
                          vw::Vector3 const& position_correction,
-                         vw::Quat    const& pose_correction) {
-    subvector(cam_j, 0, camera_params_n/2) = position_correction;
-    subvector(cam_j, camera_params_n/2, camera_params_n/2) = pose_correction.axis_angle();
+                          vw::Quat    const& pose_correction) {
+    pack_camera_params_base(*this, &cam_j[0], position_correction, pose_correction);
   }
 
   /// Return the covariance of the camera parameters for camera j.
@@ -242,6 +260,24 @@ public:
            << p[1] << "\t" << p[2] << "\n";
     }
   }
+
+  // Given a transform with origin at the planet center, apply it to
+  // the adjustments, and save it in the adjustments vector.
+  void import_transform(vw::Matrix4x4 const& M,
+                       std::vector<double> & cameras_vec){
+
+    for ( unsigned j = 0; j < m_cam_vec.size(); j++ ) {
+      
+      vw::camera::AdjustedCameraModel cam(m_cameras[j]);
+      cam.apply_transform(M);
+
+      vw::Vector3 position_correction = cam.translation();
+      vw::Quat    pose_correction     = cam.rotation();
+      pack_camera_params_base(*this, &cameras_vec[camera_params_n*j],
+                              position_correction, pose_correction);
+    }
+  }
+  
 }; // End class BundleAdjustmentModel
 
 
@@ -418,8 +454,9 @@ public:
                          intrinsic_vector_t const& intrinsics) const{
     const size_t num_intrinsics = num_intrinsic_params();
     cam_j.set_size(camera_params_n + num_intrinsics);
-    subvector(cam_j, 0, camera_params_n/2) = position;
-    subvector(cam_j, camera_params_n/2, camera_params_n/2) = pose.axis_angle();
+
+    pack_camera_params_base(*this, &cam_j[0], position, pose);
+
     if (!are_intrinsics_constant())
       subvector(cam_j, camera_params_n, num_intrinsics) = intrinsics;
   }
@@ -554,6 +591,32 @@ public:
       std::cout << "Writing output model: " << model << std::endl;      
     }
 
+  }
+
+  // Given a transform with origin at the planet center, apply it to
+  // the pinhole cameras. We do not export the result to cameras_vec,
+  // it is enough to keep this internal, and it will be fetched from
+  // the model when need be.
+  void import_transform(vw::Matrix4x4 const& M,
+                       std::vector<double> & cameras_vec){
+
+    vw::Matrix3x3 R = submatrix(M, 0, 0, 3, 3);
+    vw::Vector3   T;
+    for (int r = 0; r < 3; r++) 
+      T[r] = M(r, 3);
+    double scale = 1.0;
+
+    for (size_t i=0; i< m_cameras.size(); ++i) {
+      cam_ptr_t     cam_ptr = m_cameras[i];
+      pin_cam_ptr_t pin_ptr = boost::dynamic_pointer_cast<vw::camera::PinholeModel>(cam_ptr);
+      if (!pin_ptr)
+        vw::vw_throw( vw::ArgumentErr() 
+                      << "Non-pinhole camera inside BAPinholeModel class!\n" );
+
+      pin_ptr->apply_transform(R, T, scale);
+      params_from_model(*pin_ptr, m_cam_vec[i]);
+    }
+    
   }
   
 }; // End class BAPinholeModel

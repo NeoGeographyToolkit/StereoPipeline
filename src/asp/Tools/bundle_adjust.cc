@@ -76,7 +76,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
   int    report_level, min_matches, max_iterations, overlap_limit;
 
   bool   save_iteration, local_pinhole_input, fix_gcp_xyz, solve_intrinsics;
-  std::string datum_str, camera_position_file, csv_format_str, csv_proj4_str, intrinsics_to_float_str;
+  std::string datum_str, camera_position_file, initial_transform_file, csv_format_str, csv_proj4_str,
+    intrinsics_to_float_str;
   double semi_major, semi_minor, position_filter_dist;
 
   boost::shared_ptr<ControlNetwork> cnet;
@@ -87,6 +88,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   std::set<std::string> intrinsics_to_float;
   std::string overlap_list_file;
   std::set< std::pair<std::string, std::string> > overlap_list;
+  vw::Matrix4x4 initial_transform;
   
   // Make sure all values are initialized, even though they will be
   // over-written later.
@@ -103,14 +105,20 @@ struct Options : public vw::cartography::GdalWriteOptions {
 // TODO: This update stuff should really be done somewhere else!
 //       Also the comments may be wrong.
 
-/// This version does nothing.  All camera parameters will start at zero.
-/// - This is for the BundleAdjustmentModel class where the camera parameters
-///   are a rotation/offset that is applied on top of the existing camera model.
+// This version does nothing, all camera parameters will start at zero,
+// unless an initial transform is to be applied.
+// - This is for the BundleAdjustmentModel class where the camera parameters
+//   are a rotation/offset that is applied on top of the existing camera model.
 template<class ModelT> void
 update_cnet_and_init_cams(ModelT & ba_model, Options & opt,
                           ControlNetwork& cnet,
                           std::vector<double> & cameras_vec,
                           std::vector<double> & intrinsics_vec){
+
+  if (opt.initial_transform_file != "") {
+    ba_model.import_transform(opt.initial_transform, cameras_vec);
+  }
+  
 }
 
 /// This function should be called when no input cameras were
@@ -130,6 +138,11 @@ update_cnet_and_init_cams<BAPinholeModel>(
   const int num_intrinsic_params  = ba_model.num_intrinsic_params();
   cameras_vec.resize(num_camera_params);
 
+  // First apply any transform to the pinhole cameras
+  if (opt.initial_transform_file != "") {
+    ba_model.import_transform(opt.initial_transform, cameras_vec);
+  }
+  
   // Copy the camera parameters from the model to cameras_vec
   int index = 0;
   for (int i=0; i < num_cameras; ++i) {
@@ -588,7 +601,8 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
   // Do any init required for this camera model.
   // - Currently we don't do anything except for pinhole models with no input cameras.
   update_cnet_and_init_cams(ba_model, opt, (*opt.cnet), cameras_vec, intrinsics_vec);
-/*
+
+  /*
   // DEBUG
   std::cout << "Initial camera parameters: ";
   for (size_t i=0; i<cameras_vec.size(); ++i)
@@ -1591,6 +1605,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "If solving for intrinsics and desired to float only a few of them, specify here, in quotes, one or more of: focal_length, optical_center, distortion_params.")
     ("camera-positions", po::value(&opt.camera_position_file)->default_value(""),
           "Specify a csv file path containing the estimated positions of the input cameras.  Only used with the local-pinhole option.")
+    ("initial-transform", po::value(&opt.initial_transform_file)->default_value(""),
+     "Before optimizing the cameras, apply to them the 4x4 rotation + translation transform from this file. The transform is in respect to the planet center, such as output by pc_align's source-to-reference or reference-to-source alignment transform. One may set the number of iterations to 0 to just stop at this step.")
     ("csv-format",       po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
     ("csv-proj4",        po::value(&opt.csv_proj4_str)->default_value(""),
                                  "The PROJ.4 string to use to interpret the entries in input CSV files.")
@@ -1756,6 +1772,21 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
           ) )
     vw_throw( ArgumentErr() << "Unknown bundle adjustment version: " << opt.ba_type
               << ". Options are: [Ceres, RobustSparse, RobustRef, Sparse, Ref]\n" );
+
+  if (opt.initial_transform_file != "") {
+    std::ifstream is(opt.initial_transform_file.c_str());
+    for (size_t row = 0; row < opt.initial_transform.rows(); row++){
+      for (size_t col = 0; col < opt.initial_transform.cols(); col++){
+        double a;
+        if (! (is >> a) )
+          vw_throw( vw::IOErr() << "Failed to read initial transform from: "
+                                << opt.initial_transform_file << "\n" );
+        opt.initial_transform(row, col) = a;
+      }
+    }
+    vw_out() << "Initial transform:\n" << opt.initial_transform << std::endl;
+  }
+  
 }
 
 // ================================================================================
