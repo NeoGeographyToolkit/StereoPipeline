@@ -187,6 +187,8 @@ def libexec_path(prog, **kw):
         # this tool is somewhere in user's path.
         print("Could not find: " + libexecpath)
         libexecpath = which(prog)
+        if libexecpath is None:
+            raise Exception('Could not find: ' + prog)
         print("Using instead: " + libexecpath)
 
     return libexecpath
