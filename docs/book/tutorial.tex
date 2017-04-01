@@ -795,7 +795,9 @@ value should be converted to degrees). If the output resolution is not
 correct, there will be artifacts in the stereo results.
 
 Some experimentation on a small area may be necessary to obtain the best
-results.
+results. Once images are map-projected, they can be cropped to a small
+shared region using \texttt{gdal\_translate -projwin} and then 
+stereo with these clips can be invoked. 
 
 \subsubsection{Example for ISIS images}
 

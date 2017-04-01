@@ -210,7 +210,13 @@ in all images to the same region, for easier comparison among them.
 This program can also display the output of the ASP \texttt{colormap}
 tool (section \ref{sec:colormap}).
 
-It can also save a screenshot to disk in the BMP or XPM format. 
+When clicking on a pixel, the pixel indices and value will be printed on screen.
+When selecting a region by pressing the \texttt{Control} key while dragging the mouse, 
+its bounds will be displayed on screen. If the image is geo-referenced,
+the extent of the region in projected coordinates and in the longitude-latitude domain 
+will be shown as well. 
+
+The program can also save a screenshot to disk in the BMP or XPM format. 
 
 \subsection{Other Functionality}
 
@@ -277,6 +283,9 @@ Option & Description \\ \hline \hline
 \texttt{-w | -\/-single-window } & Show all images in the same window (with a dialog to choose among them) rather than next to each other.\\ \hline
 \texttt{-\/-use-georef} & Plot the images in the projected coordinate system given by image georeferences.\\ \hline
 \texttt{-\/-hillshade} & Interpret the input images as DEMs and hillshade them.\\ \hline
+\texttt{-\/-hillshade-azimuth} & The azimuth value when showing hillshaded images.\\ \hline
+\texttt{-\/-hillshade-elevation} & The elevation value when showing hillshaded images.\\ \hline
+
 \texttt{-\/-view-matches} & Locate and display the interest point matches.\\ \hline
 \texttt{-\/-match-file} & Display this match file instead of looking one up based on existing conventions (implies \texttt{-\/-view-matches}). \\ \hline
 \texttt{-\/-gcp-file} & Display the GCP pixel coordinates for this GCP file (implies \texttt{-\/-view-matches}). \\ \hline
@@ -475,6 +484,9 @@ Also writes out a standalone .tsai camera model file instead of adjust files. \\
 Only used with the local-pinhole setting to initialize global camera coordinates. If used,
 the csv-format setting must also be set.  The "file" field is searched for strings that are found
 in the input image files to match locations to cameras.\\ \hline
+
+
+\texttt{-\/-initial-transform \textit{filename}} & Before optimizing the cameras, apply to them the 4x4 rotation + translation transform from this file. The transform is in respect to the planet center, such as output by pc\_align's source-to-reference or reference-to-source alignment transform. One may set the number of iterations to 0 to just stop at this step. \\ \hline
 
 \texttt{-\/-fix-gcp-xyz} & If the GCP are highly accurate, use this option to not float them during the optimization.\\ \hline
 
@@ -770,7 +782,7 @@ Options & Description \\ \hline \hline
 
 \texttt{-\/-search-radius-factor \textit{float(=$0$)}} & Multiply this factor by \texttt{dem-spacing} to get the search radius. The DEM height at a given grid point is obtained as a weighted average of heights of all points in the cloud within search radius of the grid point, with the weights given by a Gaussian. Default search radius: max(\texttt{dem-spacing}, default\_dem\_spacing), so the default factor is about 1.\\ \hline
 
-\texttt{-\/-gaussian-sigma-factor \textit{float(=$0$)}} & The value $s$ to be used in the Gaussian $exp(-s*(x/grid\_size)^2)$ when computing the DEM. The default is -log(0.25) = 1.3863.) \\ \hline
+\texttt{-\/-gaussian-sigma-factor \textit{float(=$0$)}} & The value $s$ to be used in the Gaussian $exp(-s*(x/grid\_size)^2)$ when computing the DEM. The default is -log(0.25) = 1.3863. A smaller value will result in a smoother terrain. \\ \hline
  
 \texttt{-\/-csv-format \textit{string}} & Specify the format of input
 CSV files as a list of entries column\_index:column\_type (indices start
@@ -1193,7 +1205,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-target-resolution} &
 Choose the output resolution in meters per pixel on the ground (note that a coarse resolution may result in aliasing). \\ \hline
 \texttt{-\/-reduce-percent \textit{integer(=100)}} &
-Render a reduced resolution image and XML based on this percentage. \\ \hline
+Render a reduced resolution image and XML based on this percentage. This can result in aliasing artifacts. \\ \hline
 \texttt{-\/-skip-rpc-gen \textit{[default: false]}} &
 Skip RPC model generation.\\ \hline
 \texttt{-\/-rpc-penalty-weight \textit{float(=0.1)}} &
@@ -1600,13 +1612,15 @@ transform}). It is suggested this approach be used only when a scale
 change is expected. It can be turned on by setting
 \texttt{-\/-alignment-method similarity-point-to-point}. 
 
-As an alternative to ICP, least squares (with outlier handling
-using a robust cost function) can be used to find the transform, if the
+As an alternative to ICP, least squares (with outlier handling using a
+robust cost function) can be used to find the transform, if the
 reference cloud is a DEM. For this, one should specify the alignment
 method as \texttt{least-squares} or \texttt{similarity-least-squares}
-(the latter also solves for scale).  It is suggested that the input
-clouds be very close or otherwise the \texttt{-\/-initial-transform}
-option be used, for the method to converge.
+(the latter also solves for scale). This method is somewhat
+experimental. It is suggested that the input clouds be very close or
+otherwise the \texttt{-\/-initial-transform} option be used, for the
+method to converge. Also, fewer iterations than the default may be
+needed.
 
 \subsection{File formats}
 
