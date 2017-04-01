@@ -409,6 +409,8 @@ def main(argsIn):
         else:
             print("Warning: Skipping non-existing file: ", outTile)
     if len(tiles) == 0:
+        print("Removing: " + tempFolder)
+        asp_file_utils.removeFolderIfExists(tempFolder)
         raise "No mapprojected tif tiles were generated"
 
     # Build a gdal VRT file which is composed of all the processed tiles
