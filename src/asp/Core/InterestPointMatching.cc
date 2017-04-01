@@ -667,6 +667,92 @@ namespace asp {
     return valid_indices.size();
   }
 
+  bool ip_matching_w_alignment( bool single_threaded_camera,
+				vw::camera::CameraModel* cam1,
+				vw::camera::CameraModel* cam2,
+				vw::ImageViewRef<float> const& image1,
+				vw::ImageViewRef<float> const& image2,
+				int ip_per_tile,
+				vw::cartography::Datum const& datum,
+				std::string const& output_name,
+				double epipolar_threshold,
+				double match_seperation_threshold,
+				double nodata1,
+				double nodata2,
+				vw::TransformRef const& left_tx,
+				vw::TransformRef const& right_tx ) {
+
+    using namespace vw;
+
+    VW_OUT( DebugMessage, "asp" ) << "Performing IP matching with alignment " << std::endl;
+
+    BBox2i box1 = bounding_box(image1.impl()), box2 = bounding_box(image2.impl());
+
+    Matrix<double> rough_homography;
+    try {
+      // Homography is defined in the original camera coordinates
+      rough_homography =  rough_homography_fit( cam1, cam2, left_tx.reverse_bbox(box1),
+						right_tx.reverse_bbox(box2), datum );
+    } catch(...) {
+      VW_OUT( DebugMessage, "asp" ) << "Rough homography fit failed, trying with identity transform. " << std::endl;
+      rough_homography.set_identity(3);
+    }
+
+    // Remove the main translation and solve for BBox that fits the
+    // image. If we used the translation from the solved homography with
+    // poorly position cameras, the right image might be moved out of frame.
+    rough_homography(0,2) = rough_homography(1,2) = 0;
+    VW_OUT( DebugMessage, "asp" ) << "Aligning right to left for IP capture using rough homography: " << rough_homography << std::endl;
+
+    { // Check to see if this rough homography works
+      HomographyTransform func( rough_homography );
+      VW_ASSERT( box1.intersects( func.forward_bbox( box2 ) ),
+		 LogicErr() << "The rough homography alignment based on datum and camera geometry shows that input images do not overlap at all. Unable to proceed.\n" );
+    }
+
+    TransformRef tx( compose(right_tx, HomographyTransform(rough_homography)) );
+    BBox2i raster_box = tx.forward_bbox( right_tx.reverse_bbox(box2) );
+    tx = TransformRef(compose(TranslateTransform(-raster_box.min()),
+			      right_tx, HomographyTransform(rough_homography)));
+    raster_box -= Vector2i(raster_box.min());
+
+    // With a transform applied to the input images, try to match interest points between them.
+    // - It is important that we use NearestPixelInterpolation in the
+    //   next step. Using anything else will interpolate nodata values
+    //   and stop them from being masked out.
+    vw::ImageViewRef<float> image2_trans =
+      transform(image2.impl(), compose(tx, inverse(right_tx)),
+                ValueEdgeExtension<float>(boost::math::isnan(nodata2) ? 0 : nodata2),
+                NearestPixelInterpolation());
+    raster_box.crop(bounding_box(image2_trans));
+    bool inlier =
+      ip_matching( single_threaded_camera,
+		   cam1, cam2, image1.impl(),
+		   crop(image2_trans, raster_box),
+		   ip_per_tile,
+		   datum, output_name, epipolar_threshold, match_seperation_threshold,
+		   nodata1, nodata2, left_tx, tx );
+    if (!inlier)
+      return inlier;
+
+    // For some reason ip_matching writes its points to file instead of returning them, so read them from disk.
+    std::vector<ip::InterestPoint> ip1_copy, ip2_copy;
+    ip::read_binary_match_file( output_name, ip1_copy, ip2_copy );
+
+    // Use the interest points that we found to compute an aligning homography transform for the two images
+    bool adjust_left_image_size = true;
+    Matrix<double> matrix1, matrix2;
+    homography_rectification( adjust_left_image_size,
+			      raster_box.size(), raster_box.size(),
+			      ip1_copy, ip2_copy, matrix1, matrix2 );
+    if ( sum(abs(submatrix(rough_homography,0,0,2,2) - submatrix(matrix2,0,0,2,2))) > 4 ) {
+      vw_out() << "Post homography has largely different scale and skew from rough fit. Post solution is " << matrix2 << "\n";
+      //return false;
+    }
+
+    return inlier;
+  }
+
   // Do IP matching, return, the best translation+scale fitting functor.
   vw::Matrix<double> translation_ip_matching(vw::ImageView<float> const& image1,
                                               vw::ImageView<float> const& image2,
