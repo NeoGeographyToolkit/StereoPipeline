@@ -997,6 +997,12 @@ void manual_transform(Options & opt){
 	   << "To have pc_align not further refine this transform, invoke it with 0 iterations.\n";
 }
 
+void apply_transform_to_cloud(PointMatcher<RealT>::Matrix const& T, DP & point_cloud){
+  for (int col = 0; col < point_cloud.features.cols(); col++) {
+    point_cloud.features.col(col) = T*point_cloud.features.col(col);
+  }
+}
+
 int main( int argc, char *argv[] ) {
 
   // Mandatory line for Eigen
@@ -1030,7 +1036,8 @@ int main( int argc, char *argv[] ) {
     int num_sample_pts = std::max(4000000,
                                   std::max(opt.max_num_source_points,
                                            opt.max_num_reference_points)/4);
-
+    num_sample_pts = std::min(9000000, num_sample_pts); // avoid being slow
+    
     // Compute GDC bounding box of the source and reference clouds
     vw_out() << "Computing the intersection of the bounding boxes "
              << "of the reference and source points." << endl;
@@ -1039,6 +1046,17 @@ int main( int argc, char *argv[] ) {
                                            opt.reference, opt.max_disp);
     source_box = calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
                                            opt.source,    opt.max_disp);
+
+    // When boxes are huge, it is hard to do the optimization of intersecting
+    // them, as they may differ not by 0 or 360, but by 180. Better do nothing
+    // in that case. The solution may degrade a bit, as we may load points
+    // not in the intersection of the boxes, but at least it won't be wrong.
+    // In this case, there is a chance the boxes were computed wrong anyway.
+    if (ref_box.width() > 180.0 || source_box.width() > 180.0) {
+      ref_box = BBox2();
+      source_box = BBox2();
+    }
+    
     vw_out() << "Reference box: " << ref_box << std::endl;
     vw_out() << "Source box:    " << source_box << std::endl;
 
@@ -1156,11 +1174,9 @@ int main( int argc, char *argv[] ) {
     sw3.stop();
     if (opt.verbose)
       vw_out() << "Reference point cloud processing took " << sw3.elapsed_seconds() << " [s]" << endl;
+
     // Apply the initial guess transform to the source point cloud.
-    //icp.transformations.apply(source_point_cloud, initT); // buggy, do manually below
-    for (int col = 0; col < source_point_cloud.features.cols(); col++) {
-      source_point_cloud.features.col(col) = initT*source_point_cloud.features.col(col);
-    }
+    apply_transform_to_cloud(initT, source_point_cloud);
     
     PointMatcher<RealT>::Matrix beg_errors;
     if (opt.max_disp > 0.0){
@@ -1223,7 +1239,7 @@ int main( int argc, char *argv[] ) {
 
     // Transform the source to make it close to reference.
     DP trans_source_point_cloud(source_point_cloud);
-    icp.transformations.apply(trans_source_point_cloud, T);
+    apply_transform_to_cloud(T, trans_source_point_cloud);
 
     // Calculate by how much points move as result of T
     calc_max_displacment(source_point_cloud, trans_source_point_cloud);

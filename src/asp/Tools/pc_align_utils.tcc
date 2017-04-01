@@ -449,6 +449,19 @@ void load_dem(bool verbose, std::string const& file_name,
 
   PointMatcherSupport::validateFile(file_name);
 
+  // We do not support DEMs in double format. It would be a lot of code changes
+  // in many places to make it work properly.
+  {
+    boost::shared_ptr<vw::DiskImageResource> dem_rsrc( new vw::DiskImageResourceGDAL(file_name) );
+    vw::ImageFormat image_fmt = dem_rsrc->format();
+    if (image_fmt.channel_type == vw::VW_CHANNEL_FLOAT64) {
+      vw::vw_throw(vw::ArgumentErr()
+               << "The file: " << file_name
+               << " has double precision values, which is not supported. " 
+               << "Use a DEM which has float values.\n");
+    }
+  }
+  
   data.features.conservativeResize(DIM+1, num_points_to_load);
   data.featureLabels = form_labels<T>(DIM);
 
@@ -460,10 +473,12 @@ void load_dem(bool verbose, std::string const& file_name,
 
   vw::DiskImageView<float> dem(file_name);
   double nodata = std::numeric_limits<double>::quiet_NaN();
-  boost::shared_ptr<vw::DiskImageResource> dem_rsrc( new vw::DiskImageResourceGDAL(file_name) );
-  if (dem_rsrc->has_nodata_read())
-    nodata = dem_rsrc->nodata_read();
-
+  {
+    boost::shared_ptr<vw::DiskImageResource> dem_rsrc( new vw::DiskImageResourceGDAL(file_name) );
+    if (dem_rsrc->has_nodata_read())
+      nodata = dem_rsrc->nodata_read();
+  }
+  
   // Load only points within lonlat_box
   vw::BBox2i pix_box;
   if (!lonlat_box.empty()){
@@ -506,9 +521,9 @@ void load_dem(bool verbose, std::string const& file_name,
       if (r > load_ratio)
         continue;
 
-      if (dem(i, j) == nodata)
+      if ( dem(i, j) == nodata || std::isnan(dem(i, j)) || std::isinf(dem(i, j)) )
         continue;
-
+      
       vw::Vector2 lonlat = dem_geo.pixel_to_lonlat( vw::Vector2(i,j) );
 
       // Skip points outside the given box
@@ -1042,10 +1057,11 @@ void save_trans_point_cloud(vw::cartography::GdalWriteOptions const& opt,
 
     vw::DiskImageView<float> dem(input_file);
     double nodata = std::numeric_limits<double>::quiet_NaN();
-    boost::shared_ptr<vw::DiskImageResource> dem_rsrc
-      ( new vw::DiskImageResourceGDAL(input_file) );
-    if (dem_rsrc->has_nodata_read()) nodata = dem_rsrc->nodata_read();
-
+    {
+      boost::shared_ptr<vw::DiskImageResource> dem_rsrc
+        ( new vw::DiskImageResourceGDAL(input_file) );
+      if (dem_rsrc->has_nodata_read()) nodata = dem_rsrc->nodata_read();
+    }
     vw::ImageViewRef<vw::Vector3> point_cloud =
       geodetic_to_cartesian( dem_to_geodetic( create_mask(dem, nodata),
                                               dem_geo ),
@@ -1212,10 +1228,12 @@ InterpolationReadyDem load_interpolation_ready_dem(std::string                  
   // Set up file handle to the DEM and read the nodata value
   vw::DiskImageView<float> dem(dem_path);
   double nodata = std::numeric_limits<double>::quiet_NaN();
-  boost::shared_ptr<vw::DiskImageResource> dem_rsrc( new vw::DiskImageResourceGDAL(dem_path) );
-  if (dem_rsrc->has_nodata_read())
-    nodata = dem_rsrc->nodata_read();
-
+  {
+    boost::shared_ptr<vw::DiskImageResource> dem_rsrc( new vw::DiskImageResourceGDAL(dem_path) );
+    if (dem_rsrc->has_nodata_read())
+      nodata = dem_rsrc->nodata_read();
+  }
+  
   // Set up interpolation + mask view of the DEM
   vw::ImageViewRef< vw::PixelMask<float> > masked_dem = create_mask(dem, nodata);
   return InterpolationReadyDem(interpolate(masked_dem));
