@@ -628,7 +628,7 @@ def main():
             parser.add_option("--target_resolution", dest="target_resolution", type="float",
                               help="Choose the output resolution in meters per pixel on the ground (note that a coarse resolution may result in aliasing).")
             parser.add_option("--reduce-percent", dest="reduce_percent", type="float",
-                              help="Render a reduced resolution image and xml based on this percentage.")
+                              help="Render a reduced resolution image and xml based on this percentage. This can result in aliasing artifacts.")
             parser.add_option("-o", "--output-prefix", dest="output_prefix", type="str",
                               help="The prefix for the output .tif and .xml files.")
             parser.add_option("--band", dest="band", type="int",
