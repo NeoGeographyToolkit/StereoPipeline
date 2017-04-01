@@ -354,7 +354,7 @@ def main():
                 parser.error("need .IMG files")
             
             # Make sure there is a valid match CCD
-            if len(args) % 2 != 0:
+            if len(args) % 2 != 0 and not options.resume_no_proj:
                 raise Exception('An even number of input CCD files is required!')
             numCcds = len(args) / 2
             if options.match >= numCcds:
