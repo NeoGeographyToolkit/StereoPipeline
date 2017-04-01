@@ -197,7 +197,6 @@ namespace vw { namespace camera {
         BBox2 ll_box;
         ll_box.min() = subvector(llh_box.min(), 0, 2);
         ll_box.max() = subvector(llh_box.max(), 0, 2);
-        BBox2 dem_pix_box = geo.lonlat_to_pixel_bbox(ll_box);
 
         BBox2 cropped_pixel_box = pixel_box;
         cropped_pixel_box.crop(m_img_bbox);

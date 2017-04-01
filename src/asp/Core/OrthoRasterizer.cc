@@ -534,6 +534,12 @@ namespace asp{
     // with the same grid size and overlapping grids have those
     // grids match perfectly.
     m_snapped_bbox = m_bbox;
+
+    // If the user wants to use m_search_radius_factor to do filling,
+    // expand the box to allow the DEM to grow.
+    if (m_search_radius_factor > 0) 
+      m_snapped_bbox.expand(spacing*m_search_radius_factor);
+    
     snap_bbox(m_spacing, m_snapped_bbox); // TODO: Class function!
 
     // Override with user's projwin, if specified
