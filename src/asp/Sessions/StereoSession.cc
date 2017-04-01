@@ -106,7 +106,7 @@ namespace asp {
       rsrc2 = asp::load_disk_image_resource(input_file2);
 
     DiskImageView<float> image1(rsrc1), image2(rsrc2);
-    ImageViewRef<float> image1_norm=image1, image2_norm=image2;
+    ImageViewRef<float> image1_norm = image1, image2_norm = image2;
     // Get normalized versions of the images for OpenCV based methods
     if ( (stereo_settings().ip_matching_method != DETECT_IP_METHOD_INTEGRAL) &&
        (stats1[0] != stats1[1]) ) { // Don't normalize if no stats were provided!
@@ -142,7 +142,14 @@ namespace asp {
                                        datum, match_filename,
                                        epipolar_threshold, match_seperation_threshold,
                                        nodata1, nodata2);
-    } else { // Not nadir facing
+    }
+
+    // Not nadir facing or nadir facing ip matching failed
+    if (!inlier) {
+
+      if (nadir_facing)
+        vw_out() << "Interest point matching with alignment failed. Trying without alignment.\n";
+    
       // Run a simpler purely image based matching function
       const int inlier_threshold = 10;
       inlier = homography_ip_matching( image1_norm, image2_norm,
@@ -151,6 +158,7 @@ namespace asp {
                                        inlier_threshold,
                                        nodata1, nodata2);
     }
+    
     if (!inlier) {
       boost::filesystem::remove(match_filename);
       vw_throw(IOErr() << "Unable to match left and right images.");
