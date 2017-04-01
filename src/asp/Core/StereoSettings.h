@@ -206,6 +206,7 @@ namespace asp {
     bool single_window;
     bool use_georef;
     bool hillshade;
+    double hillshade_azimuth, hillshade_elevation;
     bool view_matches;
     std::string match_file, gcp_file;
     bool delete_temporary_files_on_exit;

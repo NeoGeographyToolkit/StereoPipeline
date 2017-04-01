@@ -319,6 +319,11 @@ namespace asp {
                             "Plot the images in the projected coordinate system given by the georeference of the images.")
       ("hillshade",         po::bool_switch(&global.hillshade)->default_value(false)->implicit_value(true),
                             "Interpret the input images as DEMs and hillshade them.")
+
+      ("hillshade-azimuth", po::value(&global.hillshade_azimuth)->default_value(300),
+                            "The azimuth value when showing hillshaded images.")
+      ("hillshade-elevation", po::value(&global.hillshade_elevation)->default_value(20),
+                            "The elevation value when showing hillshaded images.")
       ("view-matches",   po::bool_switch(&global.view_matches)->default_value(false)->implicit_value(true),
                             "Locate and display the interest point matches.")
       ("match-file", po::value(&global.match_file)->default_value(""),
