@@ -68,7 +68,7 @@ def generateTileList(sizeX, sizeY, tileSize, padding):
             # - Tile format is tile_col_row_width_height_.tif
             tileString = generateTileDir(begX, begY, endX, endY)
             tileList.append((begX, begY, endX, endY, tileString))
-
+            
     return (len(Lx)-1, len(Ly)-1, tileList)
 
 def generateTilePrefix(outputFolder, tileName, outputName):
@@ -334,8 +334,8 @@ def main(argsIn):
     numTiles = numTilesX * numTilesY
 
     print('Splitting into ' + str(numTilesX) + ' by ' + str(numTilesY) + \
-          ' = ' + str(numTilesX*numTilesY) + ' tiles.')
-    
+          ' = ' + str(numTilesX*numTilesY) + ' tiles.\n')
+
     # If there is only going to be one output tile, just use the non-parallel call
     if (numTilesX*numTilesY == 1):
         cmd = [sfsPath] + requiredList + options.extraArgs
