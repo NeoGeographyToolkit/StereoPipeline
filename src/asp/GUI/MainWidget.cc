@@ -1010,7 +1010,7 @@ namespace vw { namespace gui {
     }
 
     m_pixmap = QPixmap(size());
-    m_pixmap.fill(this, 0, 0);
+    m_pixmap.fill(QColor("black"));
 
     QPainter paint(&m_pixmap);
     paint.initFrom(this);
