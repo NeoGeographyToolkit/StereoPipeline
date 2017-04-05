@@ -1053,6 +1053,8 @@ int main( int argc, char *argv[] ) {
     // not in the intersection of the boxes, but at least it won't be wrong.
     // In this case, there is a chance the boxes were computed wrong anyway.
     if (ref_box.width() > 180.0 || source_box.width() > 180.0) {
+      vw_out() << "Warning: Your input point clouds are spread over more than half the planet. "
+               << "It is suggested that they be cropped, to get more accurate results.\n";
       ref_box = BBox2();
       source_box = BBox2();
     }
