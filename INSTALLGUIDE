@@ -37,6 +37,10 @@ how to invoke it.
 
 1. Base dependencies - LINUX
 
+It may be potentially easier to build Stereo Pipeline and its
+dependencies in a virtual machine. How to set one up is described in
+the file VIRTMACHINES.
+
 The following packages need to be installed in order to build Stereo
 Pipeline:
 
