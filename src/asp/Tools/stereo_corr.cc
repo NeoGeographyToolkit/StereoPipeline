@@ -708,6 +708,18 @@ int main(int argc, char* argv[]) {
 			 verbose, output_prefix, opt_vec);
     ASPGlobalOptions opt = opt_vec[0];
 
+    // Leave the number of parallel block threads equal to the default unless we
+    //  are using SGM in which case only one block at a time should be processed.
+    // - Processing multiple blocks is possible, but it is better to use a larger blocks
+    //   with more threads applied to the single block.
+    // - Thread handling is still a little confusing because opt.num_threads is ONLY used
+    //   to control the number of parallel image blocks written at a time.  Everything else
+    //   reads directly from vw_settings().default_num_threads()
+    const bool using_sgm = (stereo_settings().stereo_algorithm > vw::stereo::CORRELATION_WINDOW);
+    opt.num_threads = vw_settings().default_num_threads();
+    if (using_sgm)
+      opt.num_threads = 1;
+
     // Integer correlator requires large tiles
     //---------------------------------------------------------
     int ts = stereo_settings().corr_tile_size_ovr;

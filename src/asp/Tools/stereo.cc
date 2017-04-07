@@ -482,6 +482,47 @@ namespace asp {
     if ( (left_resource->channels() > 1) || (right_resource->channels() > 1) )
       vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n" << usage << general_options );
 
+    // Replace normal default values with these when SGM is enabled.
+    // - TODO: Move these somewhere easier to find!
+    const int SGM_DEFAULT_COST_MODE            = 4;
+    const int SGM_DEFAULT_KERNELSIZE           = 5;
+    const int SGM_DEFAULT_XCORR_THRESHOLD      = -1;
+    const int SGM_DEFAULT_RM_CLEANUP_PASSES    = 0;
+    const int SGM_DEFAULT_MEDIAN_FILTER_SIZE   = 3;
+    const int SGM_DEFAULT_TEXTURE_SMOOTH_SIZE  = 11;
+    const double SGM_DEFAULT_TEXTURE_SMOOTH_SCALE = 0.13;
+    
+    // TODO: Modify SGM tile sizes?
+
+    bool using_sgm = (stereo_settings().stereo_algorithm > vw::stereo::CORRELATION_WINDOW);
+    if (using_sgm) {
+      if (stereo_settings().subpixel_mode != 0)
+        vw_out() << "SGM mode detected, setting subpixel mode to the required value of zero.\n";
+      stereo_settings().subpixel_mode = 0;
+      
+      // If these parameters were not specified by the user, override the normal default values.
+      if (vm["cost-mode"].defaulted())
+        stereo_settings().cost_mode = SGM_DEFAULT_COST_MODE;
+      if (vm["corr-kernel"].defaulted())
+        stereo_settings().corr_kernel = Vector2i(SGM_DEFAULT_KERNELSIZE, SGM_DEFAULT_KERNELSIZE);
+      if (vm["xcorr-threshold"].defaulted())
+        stereo_settings().xcorr_threshold = SGM_DEFAULT_XCORR_THRESHOLD;
+      if (vm["rm-cleanup-passes"].defaulted())
+        stereo_settings().rm_cleanup_passes = SGM_DEFAULT_RM_CLEANUP_PASSES;
+      if (vm["median-filter-size"].defaulted())
+        stereo_settings().median_filter_size = SGM_DEFAULT_MEDIAN_FILTER_SIZE;
+      if (vm["texture-smooth-size"].defaulted())
+        stereo_settings().disp_smooth_size = SGM_DEFAULT_TEXTURE_SMOOTH_SIZE;
+      if (vm["texture-smooth-scale"].defaulted())
+        stereo_settings().disp_smooth_texture = SGM_DEFAULT_TEXTURE_SMOOTH_SCALE;
+    } 
+    else{
+      // No need for a collar when we are not using SGM.
+      stereo_settings().sgm_collar_size = 0;
+    } // End SGM checks
+
+
+
     // The StereoSession call automatically determines the type of object to create from the input parameters.
     opt.session.reset(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,// i/o
                                                         opt.in_file1,   opt.in_file2,
@@ -633,12 +674,9 @@ namespace asp {
       vw_throw(ArgumentErr() << "The entries of subpixel-kernel must be odd numbers.\n");
     }
 
-    // Check some SGM related settings.
-    if (stereo_settings().stereo_algorithm > vw::stereo::CORRELATION_WINDOW) {
-      if (stereo_settings().subpixel_mode != 0)
-        vw_out(WarningMessage) << "SGM mode detected, setting subpixel mode to the required value of zero.\n";
-    }
-    else { // Non-SGM mode
+    // Check SGM related settings.
+    bool using_sgm = (stereo_settings().stereo_algorithm > vw::stereo::CORRELATION_WINDOW);
+    if (!using_sgm) {
       if (stereo_settings().cost_mode == 3)
         vw_throw( ArgumentErr() << "Cannot use census transform without SGM!\n" );
       if (stereo_settings().cost_mode == 4)
