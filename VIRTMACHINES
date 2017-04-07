@@ -25,21 +25,31 @@ root drives, which makes it hard to use the storage efficiently. That
 should be disabled, or otherwise more storage can be pre-allocated, or
 the build can be built partially in /home and partially in /.
 
+Also, CentOS does not start the network on boot, that can be rectified by running,
+as root:
+
+ cd /etc/sysconfig/network-scripts/ 
+ sed -i -e 's@^ONBOOT="no@ONBOOT="yes@' ifcfg-eth0
+
+and rebooting. Or, for the current session, with:
+
+  ifup eth0
+
 Use virt-viewer <machine> to open a GUI into the guest. Use 
 
-virsh list --all 
+  virsh list --all 
 
 to view the guests, 
 
-virsh destroy <machine> 
+  virsh destroy <machine> 
 
 to force shutting down the guest, and 
 
-virsh undefine <guest> 
+  virsh undefine <guest> 
 
 followed by 
 
-rm -rf ~/projects/libvrt 
+  rm -rf ~/projects/libvrt 
 
 to wipe any trace of all guest machines (use with extreme care!).
 
@@ -52,12 +62,11 @@ forwarding (there should be a better way). Enter in guest's crontab:
 
 Then, from HOST, one should be able to connect to the guest via:
 
-ssh localhost -p 6000 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l GUESTUSER
+  ssh localhost -p 6000 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l GUESTUSER
 
 The sshd daemon may need to be installed or restarted on the guest,
-and the guest must be configured to allow incoming ssh
-connections. Longer term, this syntax can be avoided by having in
-HOST's .ssh/config the lines:
+and the guest must be configured to allow incoming ssh connections. If
+the following lines are added to HOST's .ssh/config:
 
 Host GUEST
   Hostname localhost
@@ -65,6 +74,11 @@ Host GUEST
   CheckHostIP no
   Port 6000
   User GUESTUSER
+
+then one should be able to connect to the guest simply by running 
+ssh GUEST. 
+
+Occasionally a port may become unavailable, and hence will need to be changed.
 
 Note that the network speed between HOST and GUEST can be very
 slow. It can be greatly sped up using virtio. Also, the number of CPUs

@@ -45,12 +45,14 @@ The following packages need to be installed in order to build Stereo
 Pipeline:
 
 Python (version >= 2.6.1)
-g++, gfortran (version >= 4.4.7)
+g++, gfortran (version >= 4.9)
 csh
 libtool
 autoconf
 automake
 openssl-dev
+wget
+curl
 git (version >= 1.6) 
 subversion
 zip
@@ -70,7 +72,7 @@ If you have root access on your machine you can install them on a
 Debian-based distribution using the following command:
 
 sudo apt-get install -y python g++ gfortran csh libtool libtool-bin       \
-  autoconf automake openssl-dev git-core subversion zip xserver-xorg-dev  \
+  autoconf automake openssl-dev wget curl git-core subversion zip xserver-xorg-dev  \
   xorg-dev libx11-dev libxext-dev libxmu6 libxmu-dev libxi-dev            \
   '^libxcb.*-dev' libx11-xcb-dev libgl1-mesa-dev libglu1-mesa-dev freeglut3-dev 
 
@@ -80,7 +82,7 @@ it can be simply removed, as libtool has all the functionality.
 For Red Hat-based distributions (use at least version 6) one can do instead:
 
 sudo yum -y install python gcc-c++ gcc-gfortran tcsh libtool autoconf       \
-  automake openssl-devel git subversion xorg-x11-server-Xorg libX11-devel   \
+  automake openssl-devel wget curl git subversion xorg-x11-server-Xorg libX11-devel   \
   libXext-devel libXmu libXmu-devel libXi-devel libxcb libxcb-devel xcb-util \
   xcb-util-devel mesa-libGL-devel freeglut-devel 
 
@@ -100,10 +102,13 @@ First install Homebrew or Macports, if you do not already have it.
 
 Next you need the following packages:
 
-g++, gfortran (version >= 4.4.7), the FSF version, not Apple's LLVM hybrid.
+gcc, g++, gfortran (version >= 4.9), the FSF version, not Apple's LLVM hybrid.
 automake
 libtool
+openssl
 git
+wget 
+curl
 xz
 
 Here's an example for how to install some of these. First read
@@ -114,11 +119,11 @@ export HOMEBREW_PREFIX=$HOME/usr/local
 export PATH=$HOMEBREW_PREFIX/bin:$PATH
 
 brew doctor
-brew install automake libtool git xz
-brew install homebrew/versions/gcc48 --with-fortran
+brew install automake libtool openssl git wget curl xz
+brew install homebrew/versions/gcc49 --with-fortran
 
 Set the following env variable:
-export DYLD_LIBRARY_PATH=$HOME/local/lib/gcc/4.8/:$DYLD_LIBRARY_PATH
+export DYLD_LIBRARY_PATH=$HOME/local/lib/gcc/4.9/:$DYLD_LIBRARY_PATH
 
 3. Invoking Binary Builder
 
