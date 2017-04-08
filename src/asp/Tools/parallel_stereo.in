@@ -664,11 +664,14 @@ if __name__ == '__main__':
     georef["WKT"] = "".join(georef["WKT"])
     georef["GeoTransform"] = "".join(georef["GeoTransform"])
 
-    
-    # TODO: When using parallel SGM:
-    # - Memory constraint vs job size * num_processes
-    # - Probably want tile size == job size, but not required.
-    # - Collar size applies to job size, not to tile size.
+    # Set the job size by default when using SGM
+    if (settings['stereo_algorithm'][0] > '0'):
+        # If the user did not manually specify the job size, set it equal
+        #  to the correlation tile size.
+        if ('--job-size-w' not in sys.argv[1:]) and ('--job-size-h' not in sys.argv[1:]):
+            opt.job_size_w = int(settings['corr_tile_size'][0])
+            opt.job_size_h = opt.job_size_w
+            print 'Setting SGM job size to : ' + str(opt.job_size_w)
 
     if opt.tile_id is None:
 
@@ -815,7 +818,7 @@ if __name__ == '__main__':
                 if (settings['stereo_algorithm'][0] == '0'):
                     parallel_run('stereo_rfne', args, settings, tiles,
                                  msg='%d: Refinement' % opt.entry_point)
-                else:
+                else: # SGM
                     parallel_run('stereo_blend', args, settings, tiles,
                                  msg='%d: Blending' % opt.entry_point)
                              

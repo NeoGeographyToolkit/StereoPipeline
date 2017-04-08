@@ -394,17 +394,17 @@ properly use \texttt{parallel\_stereo} with SGM, use the following guidelines:
 \item Specify the \texttt{collar-size} option or leave it at the default value.
 \item Set the \texttt{corr-tile-size} option just as you would when using \texttt{stereo}.  Keep in mind that
 the collar size you selected will enlarge the processed tile size.
-\item Set \texttt{job-size-w} and \texttt{job-size-h} exactly equal to \texttt{corr-tile-size}.
 \item Set the \texttt{processes} option keeping in mind memory constraints as discussed earlier.  Each process will 
 run one simultaneous SGM instance and consume memory.
+\item By default, \texttt{job-size-w} and \texttt{job-size-h} are set equal to \texttt{corr-tile-size}.
+Do not override this without a good reason!
 \end{itemize}
 
 By setting these parameters in the manner described, each process will generate a single SGM tile which will then be
 blended in the new blend step.  Each process can use multiple threads with \texttt{threads-singleprocess} without
-affecting the stereo results.  Eventually these steps will be streamlined
- but for now it is up to the user to ensure that things are set properly.
+affecting the stereo results.
 
-When SGM or MGM is specified, certain other parameters have their default values
+When SGM or MGM is specified, certain stereo parameters have their default values
 replaced with values that will work with SGM.  You can still manually specify these
 options.
 
