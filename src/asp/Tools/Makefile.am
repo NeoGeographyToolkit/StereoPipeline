@@ -213,6 +213,12 @@ if MAKE_APP_ASTER2ASP
   aster2asp_LDADD = $(APP_ASTER2ASP_LIBS)
 endif
 
+if MAKE_APP_CAM2RPC
+  bin_PROGRAMS += cam2rpc
+  cam2rpc_SOURCES = cam2rpc.cc
+  cam2rpc_LDADD = $(APP_CAM2RPC_LIBS)
+endif
+
 
 # Auxiliary tools in libexec
 ##############################################################################

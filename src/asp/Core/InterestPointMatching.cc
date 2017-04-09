@@ -34,10 +34,11 @@ namespace asp {
 // Class EpipolarLinePointMatcher
 
   EpipolarLinePointMatcher::EpipolarLinePointMatcher( bool single_threaded_camera,
-						      double threshold, double epipolar_threshold,
+						      double uniqueness_threshold,
+                                                      double inlier_threshold,
 						      vw::cartography::Datum const& datum) :
-    m_single_threaded_camera(single_threaded_camera), m_threshold(threshold),
-    m_epipolar_threshold(epipolar_threshold), m_datum(datum) {}
+    m_single_threaded_camera(single_threaded_camera), m_uniqueness_threshold(uniqueness_threshold),
+    m_inlier_threshold(inlier_threshold), m_datum(datum) {}
 
   Vector3 EpipolarLinePointMatcher::epipolar_line( Vector2 const& feature,
 						   cartography::Datum const& datum,
@@ -187,7 +188,7 @@ namespace asp {
 	//vw_out() << "Indices: " << indices << std::endl;
 
 	// Loop through the N "nearest" points and keep only the ones within
-	//   m_matcher.m_epipolar_threshold pixel distance from the epipolar line
+	//   m_matcher.m_inlier_threshold pixel distance from the epipolar line
 	for ( size_t i = 0; i < num_matches_valid; i++ ) {
 	  IPListIter ip2_it = m_ip_other.begin();
 	  std::advance( ip2_it, indices[i] );
@@ -195,7 +196,7 @@ namespace asp {
 	  if (found_epipolar){
 	    Vector2 ip2_org_coord = m_tx2.reverse( Vector2( ip2_it->x, ip2_it->y ) );
 	    double line_distance = m_matcher.distance_point_line( line_eq, ip2_org_coord );
-	    if ( line_distance < m_matcher.m_epipolar_threshold ) {
+	    if ( line_distance < m_matcher.m_inlier_threshold ) {
 	      kept_indices.push_back( std::pair<float,int>( distances[i], indices[i] ) );
 	    }
 	    else {
@@ -203,13 +204,14 @@ namespace asp {
 	      //double normDist = norm_2(ip1_coord - ip2_org_coord);
 	      //vw_out() << "Discarding match between " << ip1_coord << " and " << ip2_org_coord
 	      //        << " because distance is " << line_distance << " and threshold is "
-	      //        << m_matcher.m_epipolar_threshold << " norm dist = " << normDist<<"\n";
+	      //        << m_matcher.m_inlier_threshold << " norm dist = " << normDist<<"\n";
 	    }
 	  }
 	} // End loop for match prunining
 
 	// If we only found one match or the first descriptor match is much better than the second
-	if ( ( (kept_indices.size() > 2) && (kept_indices[0].first < m_matcher.m_threshold * kept_indices[1].first) )
+	if ( ( (kept_indices.size() > 2) &&
+               (kept_indices[0].first < m_matcher.m_uniqueness_threshold * kept_indices[1].first) )
 	      || (kept_indices.size() == 1) ){
 	  *m_output++ = kept_indices[0].second; // Return the first of the matches we found
 	  //vw_out() << "Kept distance: " << kept_indices[0].first << std::endl;
@@ -395,11 +397,13 @@ namespace asp {
     if (left_points.empty() || right_points.empty())
       vw_throw( ArgumentErr() << "InterestPointMatching: rough_homography_fit failed to generate points!\n" );
 
+    double thresh_factor = stereo_settings().ip_inlier_thresh; // 1/15 by default
+
     typedef math::HomographyFittingFunctor hfit_func;
     math::RandomSampleConsensus<hfit_func, math::InterestPointErrorMetric>
       ransac( hfit_func(), math::InterestPointErrorMetric(),
 	      100, // num iterations
-	      norm_2(Vector2(box1.width(),box1.height())) / 10, // inlier threshold
+	      norm_2(Vector2(box1.width(),box1.height())) * (1.5*thresh_factor), // inlier threshold
 	      left_points.size()/2 // min output inliers
 	      );
     Matrix<double> H = ransac( right_points, left_points );
@@ -425,12 +429,14 @@ namespace asp {
     std::vector<Vector3>  right_copy = iplist_to_vectorlist(right_ip),
 			  left_copy  = iplist_to_vectorlist(left_ip);
 
+    double thresh_factor = stereo_settings().ip_inlier_thresh; // 1/15 by default
+    
     // Use RANSAC to determine a good homography transform between the images
     math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric>
       ransac( math::HomographyFittingFunctor(),
 	      math::InterestPointErrorMetric(),
 	      100, // num iter
-	      norm_2(Vector2(left_size.x(),left_size.y())) / 10, // inlier threshold
+              norm_2(Vector2(left_size.x(),left_size.y())) * (1.5*thresh_factor), // inlier thresh
 	      left_copy.size()*2/3 // min output inliers
 	      );
     Matrix<double> H = ransac(right_copy, left_copy);

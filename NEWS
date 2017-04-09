@@ -9,7 +9,9 @@
      
  - stereo_pprc
    * Large speedup in epipolar alignment.
- 
+   * Added the options --ip-inlier-threshold and --ip-uniqueness-threshold
+     for finer-grained control over interest point generation.
+
  - stereo_corr
    * Added the option --use-sgm which replaces the standard integer
      correlator with a new semi-global matching correlator.  SGM is
@@ -17,7 +19,8 @@
      for some challenging input images, especially for IceBridge.
 
  - stereo_tri
-  * Added the option --min-triangulation-angle.
+  * Added the option --min-triangulation-angle to not triangulate
+    when rays have an angle less than this. 
  
  - stereo_gui
   * Zooming in one image can trigger all other side-by-side images to
@@ -56,8 +59,8 @@
        with --search-radius-factor).
 
  - sfs
-    * Improvements, speedups, more documentation, usage recipes, 
-      much decreased memory usage, together with a lot of
+    * Improvements, speedups, bug fixes, more documentation, usage
+      recipes, much decreased memory usage, together with a lot of
       testing and validation for the Moon.
     * Can run on multiple input DEM clips (which can be chosen as
       representative for the desired large input DEM region and images)
@@ -86,8 +89,10 @@
      --alignment-method [ least-squares | similarity-least-squares ]
 
  - Misc
-  * Minimum supported OSX version is 10.9.
-  * Ship with ASP gdalwarp and gdaldem.
+  * Minimum supported OSX version is 10.9. Minimum Linux versions
+    are RHEL 6, SUSE 11, and Ubuntu 14 (stereo_gui does not work on 
+    SUSE 11 but works on SUSE 12).
+  * Ship with GDAL's gdalwarp and gdaldem.
 
 *** RELEASE 2.5.3, August 24, 2016 ***
 

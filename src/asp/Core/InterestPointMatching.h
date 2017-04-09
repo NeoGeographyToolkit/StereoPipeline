@@ -150,13 +150,13 @@ namespace asp {
   /// their descriptor distance is sufficiently far apart.
   class EpipolarLinePointMatcher {
     bool   m_single_threaded_camera;
-    double m_threshold, m_epipolar_threshold;
+    double m_uniqueness_threshold, m_inlier_threshold;
     vw::cartography::Datum m_datum;
 
   public:
     /// Constructor.
     EpipolarLinePointMatcher( bool single_threaded_camera,
-			      double threshold, double epipolar_threshold,
+			      double uniqueness_threshold, double inlier_threshold,
 			      vw::cartography::Datum const& datum);
 
     /// This only returns the indicies
@@ -286,8 +286,8 @@ namespace asp {
 		    int ip_per_tile,
 		    vw::cartography::Datum const& datum,
 		    std::string const& output_name,
-		    double epipolar_threshold,
-		    double match_seperation_threshold = 0.5,
+		    double inlier_threshold,
+		    double uniqueness_threshold,
 		    double nodata1 = std::numeric_limits<double>::quiet_NaN(),
 		    double nodata2 = std::numeric_limits<double>::quiet_NaN(),
 		    vw::TransformRef const& left_tx  = vw::TransformRef(vw::TranslateTransform(0,0)),
@@ -306,8 +306,8 @@ namespace asp {
 				int ip_per_tile,
 				vw::cartography::Datum const& datum,
 				std::string const& output_name,
-				double epipolar_threshold,
-				double match_seperation_threshold = 0.5,
+				double inlier_threshold,
+				double uniqueness_threshold,
 				double nodata1 = std::numeric_limits<double>::quiet_NaN(),
 				double nodata2 = std::numeric_limits<double>::quiet_NaN(),
 				vw::TransformRef const& left_tx  = vw::TransformRef(vw::TranslateTransform(0,0)),
@@ -516,17 +516,18 @@ namespace asp {
 
     DetectIpMethod detect_method = static_cast<DetectIpMethod>(stereo_settings().ip_matching_method);
 
-    const double threshold = 0.8; // Best point must be closer than the next best point
+    // Best point must be closer than the next best point
+    const double uniqueness_threshold = (0.8/0.7)*stereo_settings().ip_uniqueness_thresh; 
 
     if (detect_method != DETECT_IP_METHOD_ORB) {
       // For all L2Norm distance metrics
-      ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(threshold);
+      ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(uniqueness_threshold);
       matcher( ip1_copy, ip2_copy, matched_ip1, matched_ip2,
 	       TerminalProgressCallback( "asp", "\t   Matching: " ));
     }
     else {
       // For Hamming distance metrics
-      ip::InterestPointMatcher<ip::HammingMetric,ip::NullConstraint> matcher(threshold);
+      ip::InterestPointMatcher<ip::HammingMetric,ip::NullConstraint> matcher(uniqueness_threshold);
       matcher( ip1_copy, ip2_copy, matched_ip1, matched_ip2,
 	       TerminalProgressCallback( "asp", "\t   Matching: " ));
     }
@@ -615,8 +616,8 @@ namespace asp {
 		    int ip_per_tile,
 		    vw::cartography::Datum const& datum,
 		    std::string const& output_name,
-		    double epipolar_threshold,
-		    double match_seperation_threshold,
+		    double inlier_threshold,
+		    double uniqueness_threshold,
 		    double nodata1,
 		    double nodata2,
 		    vw::TransformRef const& left_tx,
@@ -640,7 +641,7 @@ namespace asp {
     std::vector<size_t> forward_match, backward_match;
     vw_out() << "\t--> Matching interest points" << std::endl;
     EpipolarLinePointMatcher matcher(single_threaded_camera,
-				     match_seperation_threshold, epipolar_threshold, datum );
+				     uniqueness_threshold, inlier_threshold, datum );
     vw_out() << "\t    Matching Forward" << std::endl;
     matcher( ip1, ip2, detect_method, cam1, cam2, left_tx, right_tx, forward_match );
     vw_out() << "\t    ---> Obtained " << forward_match.size() << " matches." << std::endl;
@@ -756,8 +757,8 @@ namespace asp {
 				int ip_per_tile,
 				vw::cartography::Datum const& datum,
 				std::string const& output_name,
-				double epipolar_threshold,
-				double match_seperation_threshold,
+				double inlier_threshold,
+				double uniqueness_threshold,
 				double nodata1,
 				double nodata2,
 				vw::TransformRef const& left_tx,
@@ -809,7 +810,7 @@ namespace asp {
 				  ValueEdgeExtension<typename Image2T::pixel_type>(boost::math::isnan(nodata2) ? 0 : nodata2),
 				  NearestPixelInterpolation()), raster_box),
 		   ip_per_tile,
-		   datum, output_name, epipolar_threshold, match_seperation_threshold,
+		   datum, output_name, inlier_threshold, uniqueness_threshold,
 		   nodata1, nodata2, left_tx, tx );
     if (!inlier)
       return inlier;

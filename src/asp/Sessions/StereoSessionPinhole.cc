@@ -85,9 +85,13 @@ asp::StereoSessionPinhole::determine_image_align(std::string const& out_prefix,
   Matrix<double> T;
   try {
 
+    double ip_inlier_factor = stereo_settings().ip_inlier_thresh; // default is 1/15
     vw::math::RandomSampleConsensus<vw::math::HomographyFittingFunctor,       
       vw::math::InterestPointErrorMetric> ransac( vw::math::HomographyFittingFunctor(), 
-      vw::math::InterestPointErrorMetric(), 100, 10, ransac_ip1.size()/2, true);
+                                                  vw::math::InterestPointErrorMetric(),
+                                                  100, // number of iterations
+                                                  10*(15.0*ip_inlier_factor), // inlier thresh
+                                                  ransac_ip1.size()/2, true);
     T = ransac( ransac_ip2, ransac_ip1 );
     std::vector<size_t> indices = ransac.inlier_indices(T, ransac_ip2, ransac_ip1 );
     vw_out(DebugMessage,"asp") << "\t--> AlignMatrix: " << T << std::endl;

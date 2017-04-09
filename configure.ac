@@ -427,6 +427,7 @@ AX_APP(DISP_AVG,         [src/asp/WVCorrect], yes, [CORE])
 AX_APP(ICEBRIDGE,        [src/asp/IceBridge], yes, [CORE])
 AX_APP(ORTHO2PINHOLE,    [src/asp/IceBridge], yes, [SESSIONS])
 AX_APP(CSV_FILTER,       [src/asp/Hidden], yes, [CORE])
+AX_APP(CAM2RPC,          [src/asp/Tools], yes, [SESSIONS])
 
 # These are here (instead of inside the APP macro where they belong)
 # for backwards compatability with older versions of automake.
@@ -471,6 +472,7 @@ AM_CONDITIONAL(MAKE_APP_ASTER2ASP,  [test "$MAKE_APP_ASTER2ASP"  = "yes"])
 AM_CONDITIONAL(MAKE_APP_ICEBRIDGE,     [test "$MAKE_APP_ICEBRIDGE"  = "yes"])
 AM_CONDITIONAL(MAKE_APP_ORTHO2PINHOLE, [test "$MAKE_APP_ORTHO2PINHOLE" = "yes"])
 AM_CONDITIONAL(MAKE_APP_CSV_FILTER,  [test "$MAKE_APP_CSV_FILTER"   = "yes"])
+AM_CONDITIONAL(MAKE_APP_CAM2RPC, [test "$MAKE_APP_CAM2RPC" = "yes"])
 
 ##################################################
 # final processing

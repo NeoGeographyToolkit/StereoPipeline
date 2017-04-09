@@ -56,7 +56,7 @@ to wipe any trace of all guest machines (use with extreme care!).
 A connection from the host to a guest can be done by reverse port 
 forwarding (there should be a better way). Enter in guest's crontab:
 
-* * * * *  ssh -f -N HOSTUSER@HOST -R 6000:localhost:22
+0 0 * * *  ssh -f -N HOSTUSER@HOST -R 6000:localhost:22
 
 (Also run this once in a terminal on the guest.)
 

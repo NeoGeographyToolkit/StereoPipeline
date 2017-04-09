@@ -96,7 +96,7 @@ namespace asp {
                                             // 0 = Zack's integral Obalog method
                                             // 1 = OpenCV SIFT method
                                             // 2 = OpenCV ORB method
-    double epipolar_threshold;              // Max distance from epipolar line to search for IP matches.
+    double ip_inlier_thresh, ip_uniqueness_thresh;
     double nodata_value;                    ///< Pixels with values less than or equal to this number are treated as no-data.
                                             //   This overrides the nodata values from input images.
     double nodata_pixel_percentage;         ///< Percentage of low-value pixels treated as no-data
