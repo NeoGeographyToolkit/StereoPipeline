@@ -26,7 +26,7 @@ libexec_SCRIPTS = asp_cmd_utils.py asp_file_utils.py asp_geo_utils.py  asp_alg_u
 		asp_image_utils.py asp_string_utils.py asp_system_utils.py
 
 all_scripts = $(libexec_SCRIPTS)
-CLEANFILES = $(all_scripts)
+CLEANFILES =
 
 ##############################################################################
 

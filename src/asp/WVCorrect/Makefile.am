@@ -25,9 +25,11 @@ bin_SCRIPTS =
 libexec_SCRIPTS =
 libexec_PROGRAMS = # Auxiliary C++ executables
 
-disp_avg_LDADD       = $(APP_DISP_AVG_LIBS)
-disp_avg_SOURCES     = disp_avg.cc
-bin_PROGRAMS        += disp_avg
+if MAKE_APP_WV_CORRECT
+  disp_avg_LDADD       = $(APP_DISP_AVG_LIBS)
+  disp_avg_SOURCES     = disp_avg.cc
+  bin_PROGRAMS        += disp_avg
+endif
 
 # Scripts
 ##############################################################################

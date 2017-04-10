@@ -25,9 +25,11 @@ bin_SCRIPTS =
 libexec_SCRIPTS =
 libexec_PROGRAMS = # Auxiliary C++ executables
 
-csv_filter_LDADD    = $(APP_CSV_FILTER_LIBS)
-csv_filter_SOURCES  = csv_filter.cc
-bin_PROGRAMS         += csv_filter
+if MAKE_APP_CSV_FILTER
+  csv_filter_LDADD    = $(APP_CSV_FILTER_LIBS)
+  csv_filter_SOURCES  = csv_filter.cc
+  bin_PROGRAMS         += csv_filter
+endif
 
 # Scripts
 ##############################################################################
