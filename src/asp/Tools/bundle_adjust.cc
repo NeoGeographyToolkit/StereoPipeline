@@ -84,6 +84,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   std::vector<boost::shared_ptr<CameraModel> > camera_models;
   cartography::Datum datum;
   int  ip_detect_method;
+  double epipolar_threshold;
   bool individually_normalize;
   std::set<std::string> intrinsics_to_float;
   std::string overlap_list_file;
@@ -1620,8 +1621,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                          "Select the stereo session type to use for processing. Options: pinhole isis dg rpc spot5 aster. Usually the program can select this automatically by the file extension.")
     ("min-matches",      po::value(&opt.min_matches)->default_value(30),
                          "Set the minimum  number of matches between images that will be considered.")
-    ("ip-detect-method",po::value(&opt.ip_detect_method)->default_value(0),
+    ("ip-detect-method", po::value(&opt.ip_detect_method)->default_value(0),
                          "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
+    ("epipolar-threshold", po::value(&opt.epipolar_threshold)->default_value(-1),
+                           "Max distance from epipolar line so search for IP matches. (default: automatic calculation).")
     ("individually-normalize",   po::bool_switch(&opt.individually_normalize)->default_value(false)->implicit_value(true),
                         "Individually normalize the input images instead of using common values.")
     ("max-iterations",   po::value(&opt.max_iterations)->default_value(1000),
@@ -1713,8 +1716,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (!opt.local_pinhole_input && opt.solve_intrinsics)
     vw_throw( ArgumentErr() << "Solving for intrinsic parameters is only supported with pinhole cameras.\n");
 
-  // Copy the IP settings to the global stereosettings() object
+  // Copy the IP settings to the global stereo_settings() object
   asp::stereo_settings().ip_matching_method     = opt.ip_detect_method;
+  asp::stereo_settings().epipolar_threshold     = opt.epipolar_threshold;
   asp::stereo_settings().individually_normalize = opt.individually_normalize;
 
   if (!opt.camera_position_file.empty() && opt.csv_format_str == "")
