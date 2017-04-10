@@ -113,6 +113,13 @@ What type of interest point detection algorithm to use for image alignment.
 2 = ORB implementation from OpenCV
 If the default method does not perform well, try out one of the other two methods.
 
+\item[epipolar-threshold]  \hfill \\
+Maximum distance in pixels from the epipolar line to search for matches from each
+interest point.  Due to the way ASP finds matches, reducing this value can actually
+increase the number of interest points detected.  If image alignment seems to be working
+well but you are not getting enough interest points to get a good search range estimate,
+try setting this value to a small number, perhaps in the low double digits.
+
 \item[nodata-value \textnormal (default = none)] \hfill \\
   Pixels with values less than or equal to this number are treated as
   no-data. This overrides the nodata values from input images.

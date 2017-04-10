@@ -131,10 +131,14 @@ namespace asp {
       // Min % distance between closest and second closest descriptor matches
       const double match_seperation_threshold = 0.7;
 
+      // TODO: Improve calculation of epipolar parameter!
       // This computes a distance used for throwing out interest points.
       // - It has to be computed using the entire (not cropped) image size!
-      const double epipolar_threshold = norm_2(uncropped_image_size)/15;
-      VW_OUT( DebugMessage, "asp" ) << "Epipolar threshold = " << epipolar_threshold << std::endl;
+      // - The user can override the automatic calculation in the settings.
+      double epipolar_threshold = norm_2(uncropped_image_size)/15;
+      if (stereo_settings().epipolar_threshold > 0)
+        epipolar_threshold = stereo_settings().epipolar_threshold;
+      VW_OUT( DebugMessage, "asp" ) << "Using epipolar threshold = " << epipolar_threshold << std::endl;
 
       inlier = ip_matching_w_alignment(single_threaded_camera, cam1, cam2,
                                        image1_norm, image2_norm,

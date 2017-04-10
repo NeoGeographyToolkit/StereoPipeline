@@ -56,7 +56,8 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
 					     left_nodata_value, right_nodata_value,
 					     has_left_georef,   has_right_georef,
 					     left_georef,       right_georef);
-  if (exit_early) return;
+  if (exit_early) 
+    return;
 
   // Load the cropped images
   DiskImageView<float> left_disk_image(left_cropped_file),
