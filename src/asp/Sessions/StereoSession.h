@@ -172,7 +172,7 @@ namespace asp {
 
     /// Helper function that retrieves both cameras.
     virtual void camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
-			       boost::shared_ptr<vw::camera::CameraModel> &cam2);
+                               boost::shared_ptr<vw::camera::CameraModel> &cam2);
 
     /// This function will be over-written for ASTER
     virtual void main_or_rpc_camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,

@@ -145,12 +145,27 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
 
     // Load the two images and fetch the two camera models
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
-    camera_models( left_cam, right_cam );
 
-    get_epipolar_transformed_images(m_left_camera_file, m_right_camera_file,
-                                    left_cam, right_cam,
-                                    left_masked_image, right_masked_image,
-                                    Limg, Rimg);
+    if ( boost::ends_with(lcase_file, ".pinhole") ||
+         boost::ends_with(lcase_file, ".tsai"   )   ) {
+
+      Vector2i left_out_size, right_out_size;
+      load_camera_models( left_cam, right_cam, left_out_size, right_out_size );
+      
+      get_epipolar_transformed_pinhole_images(m_left_camera_file, m_right_camera_file,
+                                      left_cam, right_cam,
+                                      left_masked_image, right_masked_image,
+                                      left_out_size, right_out_size,
+                                      Limg, Rimg);
+    } else { // Handle CAHV derived models
+    
+      camera_models( left_cam, right_cam );
+    
+      get_epipolar_transformed_images(m_left_camera_file, m_right_camera_file,
+                                      left_cam, right_cam,
+                                      left_masked_image, right_masked_image,
+                                      Limg, Rimg);
+    }                                    
 
   } else if ( stereo_settings().alignment_method == "homography" ) {
 
@@ -234,26 +249,54 @@ load_adj_pinhole_model(std::string const& image_file,       std::string const& c
   else
     (ArgumentErr() << "StereoSessionPinhole: supplied camera model filename does not match the name supplied in the constructor.");
 
-  // Fetch CAHV version of the two input pinhole files
-  boost::shared_ptr<CAHVModel> left_cahv  = vw::camera::load_cahv_pinhole_camera_model(left_image_file,  left_camera_file );
-  boost::shared_ptr<CAHVModel> right_cahv = vw::camera::load_cahv_pinhole_camera_model(right_image_file, right_camera_file);
 
-  // Create epipolar rectified camera views
-  boost::shared_ptr<CAHVModel> epipolar_left_cahv (new CAHVModel);
-  boost::shared_ptr<CAHVModel> epipolar_right_cahv(new CAHVModel);
-  epipolar(*(left_cahv.get()),  *(right_cahv.get()),
-           *epipolar_left_cahv, *epipolar_right_cahv);
+  std::string lcase_file = boost::to_lower_copy(left_camera_file);
+  if ( boost::ends_with(lcase_file, ".pinhole") ||
+       boost::ends_with(lcase_file, ".tsai"   )   ) {
+    // Use PinholeModel epipolar code
 
-  if (is_left_camera)
-    return load_adjusted_model(epipolar_left_cahv, image_file, camera_file, pixel_offset);
+    PinholeModel left_pin (left_camera_file );
+    PinholeModel right_pin(right_camera_file);
 
-  // Right camera
-  return load_adjusted_model(epipolar_right_cahv, image_file, camera_file, pixel_offset);
+    // Create epipolar rectified camera views
+    boost::shared_ptr<PinholeModel> epipolar_left_pin (new PinholeModel);
+    boost::shared_ptr<PinholeModel> epipolar_right_pin(new PinholeModel);
+    epipolar(left_pin,  right_pin, *epipolar_left_pin, *epipolar_right_pin);
+
+    // Expand epipolar cameras to contain the entire source images.
+    Vector2i left_size  = file_image_size(left_image_file );
+    Vector2i right_size = file_image_size(right_image_file);
+    Vector2i epi_size1, epi_size2; // TODO: Use these!
+    resize_epipolar_cameras_to_fit(left_pin, right_pin,
+                                   *(epipolar_left_pin.get()), *(epipolar_right_pin.get()),
+                                   left_size, right_size, epi_size1, epi_size2);
+
+    if (is_left_camera)
+      return load_adjusted_model(epipolar_left_pin, image_file, camera_file, pixel_offset);
+    // Right camera
+    return load_adjusted_model(epipolar_right_pin, image_file, camera_file, pixel_offset);
+       
+  } else { // Not PinholeModel, use CAHV epipolar code.
+
+    // Fetch CAHV version of the two input pinhole files
+    boost::shared_ptr<CAHVModel> left_cahv  = vw::camera::load_cahv_pinhole_camera_model(left_image_file,  left_camera_file );
+    boost::shared_ptr<CAHVModel> right_cahv = vw::camera::load_cahv_pinhole_camera_model(right_image_file, right_camera_file);
+
+    // Create epipolar rectified camera views
+    boost::shared_ptr<CAHVModel> epipolar_left_cahv (new CAHVModel);
+    boost::shared_ptr<CAHVModel> epipolar_right_cahv(new CAHVModel);
+    epipolar(*(left_cahv.get()),  *(right_cahv.get()),
+             *epipolar_left_cahv, *epipolar_right_cahv);
+
+    if (is_left_camera)
+      return load_adjusted_model(epipolar_left_cahv, image_file, camera_file, pixel_offset);
+    // Right camera
+    return load_adjusted_model(epipolar_right_cahv, image_file, camera_file, pixel_offset);
+  }
 }
 
 } // end namespace asp
 
-// Redirect to the correct function depending on the template parameters
 boost::shared_ptr<vw::camera::CameraModel>
 asp::StereoSessionPinhole::camera_model(std::string const& image_file,
                                         std::string const& camera_file) {
@@ -261,7 +304,53 @@ asp::StereoSessionPinhole::camera_model(std::string const& image_file,
                                 m_left_image_file, m_right_image_file,
                                 m_left_camera_file, m_right_camera_file,
                                 m_input_dem);
+}
 
+
+
+void asp::StereoSessionPinhole::load_camera_models(
+                   boost::shared_ptr<vw::camera::CameraModel> &left_cam,
+                   boost::shared_ptr<vw::camera::CameraModel> &right_cam,
+                   Vector2i &left_out_size, Vector2i &right_out_size) {
+
+  std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
+  if ( (stereo_settings().alignment_method != "epipolar") ||
+       ( !boost::ends_with(lcase_file, ".pinhole") &&
+         !boost::ends_with(lcase_file, ".tsai"   )   ) ) {
+    // Non-PinholeModel and non-epipolar case, just use the simpler handling method
+    // and leave the sizes unset, they won't be used.
+    camera_models(left_cam, right_cam);
+    return;
+  }
+
+  // PinholeModel case is more complicated
+  // TODO: Don't duplicate as much code!
+  // TODO: Verify this works with offsets!
+
+  PinholeModel left_pin (m_left_camera_file );
+  PinholeModel right_pin(m_right_camera_file);
+
+  // Create epipolar rectified camera views
+  boost::shared_ptr<PinholeModel> epipolar_left_pin (new PinholeModel);
+  boost::shared_ptr<PinholeModel> epipolar_right_pin(new PinholeModel);
+  epipolar(left_pin,  right_pin, *epipolar_left_pin, *epipolar_right_pin);
+
+  // Expand epipolar cameras to contain the entire source images.
+  Vector2i left_size  = file_image_size(m_left_image_file );
+  Vector2i right_size = file_image_size(m_right_image_file);
+  resize_epipolar_cameras_to_fit(left_pin, right_pin,
+                                 *(epipolar_left_pin.get()), *(epipolar_right_pin.get()),
+                                 left_size, right_size, left_out_size, right_out_size);
+
+
+  // Retrieve the pixel offset (if any) to cropped images
+  vw::Vector2 left_pixel_offset  = camera_pixel_offset(m_input_dem, m_left_image_file,
+                                                       m_right_image_file, m_left_image_file);
+  vw::Vector2 right_pixel_offset = camera_pixel_offset(m_input_dem, m_left_image_file,
+                                                       m_right_image_file, m_right_image_file);
+
+  left_cam  = load_adjusted_model(epipolar_left_pin,  m_left_image_file,  m_left_camera_file,  left_pixel_offset );
+  right_cam = load_adjusted_model(epipolar_right_pin, m_right_image_file, m_right_camera_file, right_pixel_offset);
 }
 
 

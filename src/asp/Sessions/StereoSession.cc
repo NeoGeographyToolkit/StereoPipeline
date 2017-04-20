@@ -203,7 +203,7 @@ namespace asp {
 
   // Default implementation of this function.  Derived classes will probably override this.
   void StereoSession::camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
-				    boost::shared_ptr<vw::camera::CameraModel> &cam2) {
+                                    boost::shared_ptr<vw::camera::CameraModel> &cam2) {
     cam1 = camera_model(m_left_image_file,  m_left_camera_file);
     cam2 = camera_model(m_right_image_file, m_right_camera_file);
   }

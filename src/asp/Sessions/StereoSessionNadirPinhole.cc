@@ -80,12 +80,27 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
 
     // Load the two images and fetch the two camera models
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
-    camera_models( left_cam, right_cam );
 
-    get_epipolar_transformed_images(m_left_camera_file, m_right_camera_file,
-                                    left_cam, right_cam,
-                                    left_masked_image, right_masked_image,
-                                    Limg, Rimg);
+    if ( boost::ends_with(lcase_file, ".pinhole") ||
+         boost::ends_with(lcase_file, ".tsai"   )   ) {
+
+      Vector2i left_out_size, right_out_size;
+      load_camera_models( left_cam, right_cam, left_out_size, right_out_size );
+      
+      get_epipolar_transformed_pinhole_images(m_left_camera_file, m_right_camera_file,
+                                      left_cam, right_cam,
+                                      left_masked_image, right_masked_image,
+                                      left_out_size, right_out_size,
+                                      Limg, Rimg);
+    } else { // Handle CAHV derived models
+    
+      camera_models( left_cam, right_cam );
+    
+      get_epipolar_transformed_images(m_left_camera_file, m_right_camera_file,
+                                      left_cam, right_cam,
+                                      left_masked_image, right_masked_image,
+                                      Limg, Rimg);
+    }                                    
 
   } else if ( stereo_settings().alignment_method == "homography" ||
               stereo_settings().alignment_method == "affineepipolar" ) {

@@ -47,9 +47,15 @@ namespace asp {
 
     static StereoSession* construct() { return new StereoSessionPinhole; }
 
+    /// Override this function
     virtual boost::shared_ptr<vw::camera::CameraModel>
     camera_model(std::string const& image_file,
                  std::string const& camera_file = "");
+
+    /// Specialized function to load both camera models and find their output sizes
+    void load_camera_models(boost::shared_ptr<vw::camera::CameraModel> &left_cam,
+                            boost::shared_ptr<vw::camera::CameraModel> &right_cam,
+                            vw::Vector2i &left_out_size, vw::Vector2i &right_out_size);
 
     /// Transforms from pixel coordinates on disk to original unwarped image coordinates.
     /// - For reversing our arithmetic applied in preprocessing.
