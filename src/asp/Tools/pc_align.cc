@@ -257,6 +257,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
       }
     }
     vw_out() << "Initial guess transform:\n" << opt.init_transform << endl;
+
+    if (opt.init_transform(DIM, DIM) != 1) {
+      vw_throw( ArgumentErr() << "The initial transform must have a 1 in the lower-right corner.\n");
+    }
   }
 
   if (opt.alignment_method != "point-to-plane"            &&
@@ -1195,7 +1199,8 @@ int main( int argc, char *argv[] ) {
     //dump_llh("src.csv", datum, source, shift);
 
     elapsed_time = compute_registration_error(ref_point_cloud, source_point_cloud, icp,
-                                              shift, dem_georef, reference_dem_ref, opt, beg_errors);
+                                              shift, dem_georef, reference_dem_ref,
+					      opt, beg_errors);
     calc_stats("Input", beg_errors);
     if (opt.verbose)
       vw_out() << "Initial error computation took " << elapsed_time << " [s]" << endl;
@@ -1254,7 +1259,8 @@ int main( int argc, char *argv[] ) {
     // For each point, compute the distance to the nearest reference point.
     PointMatcher<RealT>::Matrix end_errors;
     elapsed_time = compute_registration_error(ref_point_cloud, trans_source_point_cloud, icp,
-                                              shift, dem_georef, reference_dem_ref, opt, end_errors);
+                                              shift, dem_georef, reference_dem_ref, opt,
+					      end_errors);
     calc_stats("Output", end_errors);
     if (opt.verbose)
       vw_out() << "Final error computation took " << elapsed_time << " [s]" << endl;

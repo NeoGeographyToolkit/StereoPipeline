@@ -54,11 +54,11 @@ followed by
 to wipe any trace of all guest machines (use with extreme care!).
 
 A connection from the host to a guest can be done by reverse port 
-forwarding (there should be a better way). Enter in guest's crontab:
+forwarding (there should be a better way). 
 
-0 0 * * *  ssh -f -N HOSTUSER@HOST -R 6000:localhost:22
+Here is an example:
 
-(Also run this once in a terminal on the guest.)
+ssh -f -N HOSTUSER@HOST -R 6000:localhost:22
 
 Then, from HOST, one should be able to connect to the guest via:
 
