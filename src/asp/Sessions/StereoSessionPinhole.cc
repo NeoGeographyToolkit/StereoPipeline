@@ -152,6 +152,10 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
       Vector2i left_out_size, right_out_size;
       load_camera_models( left_cam, right_cam, left_out_size, right_out_size );
       
+      // Write out the camera models used to generate the aligned images.
+      dynamic_cast<PinholeModel*>(left_cam.get ())->write(m_out_prefix + "-L.tsai");
+      dynamic_cast<PinholeModel*>(right_cam.get())->write(m_out_prefix + "-R.tsai");
+      
       get_epipolar_transformed_pinhole_images(m_left_camera_file, m_right_camera_file,
                                       left_cam, right_cam,
                                       left_masked_image, right_masked_image,
