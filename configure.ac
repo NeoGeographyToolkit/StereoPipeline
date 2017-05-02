@@ -179,7 +179,7 @@ AX_PKG(M, [], [-lm], [math.h])
 
 AX_PKG_ONE_OF(LAPACK,
   APPLE_LAPACK,
-    [AX_PKG_APPLE(LAPACK, [], [-framework vecLib])],
+    [AX_PKG_APPLE(LAPACK, [], [-framework Accelerate])],
   INTEL_LAPACK,
     [case $host_cpu in
        ia64)   AX_PKG(INTEL_LAPACK, [PTHREADS M], [-lmkl_lapack -lmkl -lmkl_i2p -lguide], [mkl_lapack.h], [], [64],    [dgelss_]);;
