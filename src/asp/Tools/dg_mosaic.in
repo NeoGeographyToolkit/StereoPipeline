@@ -187,10 +187,10 @@ def sort_by_miny(imgVec, boxVec):
         imgVec.append(S[i].img_str)
     return imgVec
 
-def set_or_wipe_image_tags(IMAGE, avg_vals):
+def set_or_wipe_image_tags(IMAGE, merged_vals):
 
     # Wipe most image tags as they differ from image to image.
-    # Replace some tags with their average values across the images.
+    # Replace some tags with their average/min/max values across the images.
 
     # Values we are supposed to keep, by borrowing them from one image.
     keep_ar = ["SATID", "MODE", "SCANDIRECTION", "CATID", "TLCTIME",
@@ -200,7 +200,7 @@ def set_or_wipe_image_tags(IMAGE, avg_vals):
                "ATTITUDEKNOWLEDGESRC", "REVNUMBER"]
 
     # Values we will average
-    for key in avg_vals:
+    for key in merged_vals:
         keep_ar.append(key)
     
     # Put in a set
@@ -218,9 +218,9 @@ def set_or_wipe_image_tags(IMAGE, avg_vals):
             IMAGE.remove( IMAGE.find (tag) )
 
     # Set the averages
-    for key in avg_vals:
+    for key in merged_vals:
         if IMAGE.find(key) is not None:
-            IMAGE.find(key).text = str(avg_vals[key])
+            IMAGE.find(key).text = str(merged_vals[key])
                   
 def get_corners(A, B, indices):
     # Each corner of C will be picked either from A or from B,
@@ -654,6 +654,8 @@ def main():
                               action='store_true', help="Skip RPC model generation")
             parser.add_option('--skip-tif-gen', dest='skip_tif_gen', default=False,
                               action='store_true', help="Skip TIF file generation.")
+            parser.add_option('--wipe-att-eph', dest='wipe_att_eph', default=False,
+                              action='store_true', help="Wipe ATT and EPH from final RPC.")
             # This option is obsolete. We now ship gdal_translate with ASP.
             parser.add_option("--gdal-dir", dest="gdaldir", help=optparse.SUPPRESS_HELP)
 
@@ -686,11 +688,16 @@ def main():
         if not os.path.exists(out_dir): os.makedirs(out_dir)
 
         # Read these fields from each XML, and then find the average
-        # value for each field.
-        xml_keys = ["MEANPRODUCTGSD", "MEANCOLLECTEDGSD", "MEANSUNEL", 
+        # or min or max value for each field.
+        xml_keys = ["MEANPRODUCTGSD", "MEANCOLLECTEDGSD",
+                    "MINCOLLECTEDROWGSD", "MAXCOLLECTEDROWGSD", 
+                    "MEANCOLLECTEDROWGSD", "MINCOLLECTEDCOLGSD", 
+                    "MAXCOLLECTEDCOLGSD", "MEANCOLLECTEDCOLGSD",
+                    "MEANSUNEL", 
                     "MEANSUNAZ", "MEANSATAZ", "MEANSATEL", "MEANINTRACKVIEWANGLE",
-                    "MEANCROSSTRACKVIEWANGLE", "MEANOFFNADIRVIEWANGLE"]
-                    
+                    "MEANCROSSTRACKVIEWANGLE", "MEANOFFNADIRVIEWANGLE"
+                    ]
+        
         # Do a couple of passes at parsing the xml files and
         # extracting and combining the data. At the second pass, the
         # files (stored in args) and all other data will be in the
@@ -700,12 +707,18 @@ def main():
             all_ll_corners = []
             tlclist_arr    = []
 
-            avg_vals = {}
+            # Initialize merged_vals
+            merged_vals = {}
             num_vals = {}
             for key in xml_keys:
-                avg_vals[key] = 0
-                num_vals[key] = 0
-                
+                m = re.match('^.*?MEAN', key, re.IGNORECASE)
+                if m:
+                    merged_vals[key] = 0
+                    num_vals[key] = 0
+                else:
+                    merged_vals[key] = None
+                    num_vals[key] = None
+                    
             # We reference everything from the perspective of the first
             # image. So lets load it up first into our special variables.
             [ref_tlctime, ref_tlclist, ref_firstlinetime, ref_image_size,
@@ -717,9 +730,9 @@ def main():
 
             for key in xml_keys:
                 if key in xml_vals and xml_vals[key] is not None:
-                    avg_vals[key] += xml_vals[key]
-                    num_vals[key] += 1
-
+                    merged_vals[key] = xml_vals[key]
+                    num_vals[key] = 1
+             
             # orig_sizes[i] holds the original size of i-th image. After
             # we scale i-th image by i_th_image_pitch/0_th_image_pitch, we
             # store the new image box in placements[i].
@@ -792,15 +805,32 @@ def main():
                 ref_htbox.expand_with_box(htbox)
 
                 for key in xml_keys:
-                    if key in xml_vals and xml_vals[key] is not None:
-                        avg_vals[key] += xml_vals[key]
+                    if xml_vals[key] is None: continue
+                    m_mean = re.match('^.*?MEAN', key, re.IGNORECASE)
+                    m_max  = re.match('^.*?MAX',  key, re.IGNORECASE)
+                    m_min  = re.match('^.*?MIN',  key, re.IGNORECASE)
+                    if m_mean:
+                        # Mean of all means
+                        merged_vals[key] += xml_vals[key]
                         num_vals[key] += 1
-
+                    elif m_max:
+                        # Max of all max
+                        if merged_vals[key] is not None:
+                            merged_vals[key] = max(merged_vals[key], xml_vals[key])
+                        else: 
+                            merged_vals[key] = xml_vals[key]
+                    elif m_min:
+                        # Min of all min
+                        if merged_vals[key] is not None:
+                            merged_vals[key] = min(merged_vals[key], xml_vals[key])
+                        else: 
+                            merged_vals[key] = xml_vals[key]
 
             # Complete the process of computing the averages
             for key in xml_keys:
-                if num_vals[key] != 0:
-                    avg_vals[key] /= num_vals[key]
+                m_mean = re.match('^.*?MEAN', key, re.IGNORECASE)
+                if m_mean and num_vals[key] != 0:
+                    merged_vals[key] /= num_vals[key]
 
             boundary = BBox()
             for placement in placements:
@@ -867,7 +897,6 @@ def main():
                                + format_microsec(str(tlc_lookup.microsecond)) + "Z"
 
         sep = ","
-
         if not options.skip_rpc_gen:
             # Find the best-fitting RPC coefficients.
             temp_xml_file = tempfile.NamedTemporaryFile(suffix = ".xml",
@@ -885,8 +914,12 @@ def main():
             try:
                 # Set the RPC model info. Wipe all other outdated info.
                 RPI = root.find("RPB").find("IMAGE")
-                if RPI.find("ERRBIAS") != None: RPI.remove( RPI.find ("ERRBIAS") )
-                if RPI.find("ERRRAND") != None: RPI.remove( RPI.find ("ERRRAND") )
+
+                # TODO: Note that we keep the first encountered value.
+                # May need to do some tweaks.
+                # Need to keep them for SETSM to parse things properly.
+                #if RPI.find("ERRBIAS") != None: RPI.remove( RPI.find ("ERRBIAS") )
+                #if RPI.find("ERRRAND") != None: RPI.remove( RPI.find ("ERRRAND") )
 
                 RPI.find("SAMPSCALE").text    = rpc_model["uv_scale"][0]
                 RPI.find("LINESCALE").text    = rpc_model["uv_scale"][1]
@@ -920,8 +953,15 @@ def main():
         for band in find_bands(imd):
             adjust_camera_corners(band, all_ll_corners, ref_htbox)
 
-        # Keep some values, average some, and wipe the rest
-        set_or_wipe_image_tags(root.find("IMD").find("IMAGE"), avg_vals)
+        # Adjust the GSD if images are reduced in resolution
+        if options.reduce_percent != 100:
+            for key in merged_vals:
+                m = re.match('^.*?GSD', key)
+                if m:
+                    merged_vals[key] *= 100.0/float(options.reduce_percent)
+
+        # Keep some values, average/combine some, and wipe the rest
+        set_or_wipe_image_tags(root.find("IMD").find("IMAGE"), merged_vals)
 
         # Scale the xml file
         # Update NUMROWS and NUMCOLUMNS
@@ -959,10 +999,17 @@ def main():
             scale_xml_element(RPI.find("SAMPOFFSET"), scale)
             scale_xml_element(RPI.find("LINEOFFSET"), scale)
 
+        if options.wipe_att_eph:
+            root = tree.getroot()
+            try: root.remove(root.find("ATT"))
+            except: pass
+            try: root.remove(root.find("EPH"))
+            except: pass
+
         xml_file = options.output_prefix + suffix + ".xml"
         print("Writing: " + xml_file)
         tree.write(xml_file)
-
+        
         if not options.skip_tif_gen:
 
             tif_mosaic_opts = "%d,%d," % (boundary.width(), boundary.height())
@@ -993,10 +1040,12 @@ def main():
                 mosaic_args += ['--output-nodata-value', str(options.output_nodata_value)]
             if options.fix_seams:
                 mosaic_args += ['--fix-seams']
-
-            print("Writing: " + tif_file)
             subprocess.call([mosaic_cmd] +  mosaic_args)
 
+            # For some reason, the xml file goes missing when
+            # tif_mosaic is invoked. Very strange. Write it again, for now.
+            tree.write(xml_file)
+            
             # Make a preview image
             if options.preview:
 
