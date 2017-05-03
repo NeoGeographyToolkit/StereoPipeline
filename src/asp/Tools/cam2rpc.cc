@@ -16,9 +16,12 @@
 // __END_LICENSE__
 
 // Create an RPC model from point pairs obtained by sampling the xyz
-// bounding box of the given DEM. 
+// bounding box of the given DEM. Imitate to some extent the DG WV camera
+// model.
 
-// This code needs serious cleanup!
+// This code needs serious cleanup! Particularly, inputs must be
+// passed properly by parsing arguments. Not ready for release in any
+// way!  This is an internal debug tool for now.
 
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <vw/FileIO/DiskImageView.h>
@@ -50,16 +53,19 @@ using namespace vw::cartography;
 
 struct Options : public vw::cartography::GdalWriteOptions {
   string input_dir, output_prefix; 
+  double gsd; // ground sample distance
   double min_height, max_height;
   int num_samples;
   double penalty_weight;
-  Options(): min_height(-1), max_height(-1), num_samples(-1), penalty_weight(-1) {}
+  Options(): gsd(-1), min_height(-1), max_height(-1), num_samples(-1), penalty_weight(-1) {}
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   general_options.add_options()
     ("output-prefix,o",   po::value(&opt.output_prefix), "Specify the output prefix.")
+    ("gsd",     po::value(&opt.gsd)->default_value(-1),
+     "Expected resolution on the ground, in meters.")
     ("min-height",     po::value(&opt.min_height)->default_value(0),
      "The minimum height (in meters) above the WGS84 datum of the simulation box in which to compute the RPC approximation.")
     ("max-height",     po::value(&opt.max_height)->default_value(8.0e+3),
@@ -107,13 +113,16 @@ int main( int argc, char *argv[] ) {
     std::string rpc_file = argv[4];
     std::string session_name  = argv[5];
 
-    std::cout << "--argc is " << argc << std::endl;
     std::string crop_img;
     if (argc >= 7) {
       crop_img = argv[6];
     }
-    std::cout << "--crop_img is " << crop_img << std::endl;
-    
+
+    double gsd = -1;
+    if (argc >= 8) {
+      gsd = atof(argv[7]);
+    }
+
     double rpc_penalty_weight = 0.03;
 
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
@@ -124,14 +133,10 @@ int main( int argc, char *argv[] ) {
     vw_out() << "Loading image and camera: " << img_file << ' ' << cam_file << ".\n";
     boost::shared_ptr<CameraModel> cam = session->camera_model(img_file, cam_file);
 
-    std::cout << "img cam dem " << img_file << ' ' << cam_file << ' ' << dem_file << std::endl;
-
-    float nodata_val = -std::numeric_limits<float>::max(); 
-    vw::read_nodata_val(dem_file, nodata_val);
-    std::cout << "nodata is " << nodata_val << std::endl;
+    float dem_nodata_val = -std::numeric_limits<float>::max(); 
+    vw::read_nodata_val(dem_file, dem_nodata_val);
     ImageView< PixelMask<double> > dem = create_mask
-      (channel_cast<double>(DiskImageView<float>(dem_file)), nodata_val);
-    std::cout << "--dem size is " << dem.cols() << ' ' << dem.rows() << std::endl;
+      (channel_cast<double>(DiskImageView<float>(dem_file)), dem_nodata_val);
 
     double min_ht = std::numeric_limits<double>::max(); 
     double max_ht = -min_ht;
@@ -142,23 +147,22 @@ int main( int argc, char *argv[] ) {
 	max_ht = std::max(max_ht, dem(col, row).child());
       }
     }
-    std::cout << "---min and max " << min_ht << ' ' << max_ht << std::endl;
 
-    GeoReference geo;
-    if (!read_georeference(geo, dem_file))
+    GeoReference dem_geo;
+    if (!read_georeference(dem_geo, dem_file))
       vw_throw( ArgumentErr() << "Missing georef.\n");
-    std::cout << "georef is " << geo << std::endl;
 
-    int image_cols, image_rows;
-    DiskImageView<float> input_img(img_file);
-    image_cols = input_img.cols();
-    image_rows = input_img.rows();
-    std::cout << "--image cols and rows " << image_cols << ' ' << image_rows << std::endl;
+    float img_nodata_val = -std::numeric_limits<float>::max(); 
+    bool has_img_nodata = vw::read_nodata_val(img_file, img_nodata_val);
+    ImageView< PixelMask<float> > input_img
+      = create_mask(DiskImageView<float>(img_file), img_nodata_val);
+    
+    int image_cols = input_img.cols();
+    int image_rows = input_img.rows();
     
     BBox2 big_pixel_box;
     big_pixel_box.grow(Vector2(0, 0));
     big_pixel_box.grow(Vector2(image_cols, image_rows));
-    std::cout << "---pixelbox2 " << big_pixel_box << std::endl;
     
     //vw_out() << "Loading camera model file: " << cam_file << "\n";
     //PinholeModel cam(cam_file);
@@ -200,15 +204,15 @@ int main( int argc, char *argv[] ) {
 	if (!is_valid(dem(col, row))) continue;
 	
 	Vector2 pix(col, row);
-	Vector2 lonlat = geo.pixel_to_lonlat(pix);
+	Vector2 lonlat = dem_geo.pixel_to_lonlat(pix);
           
 	// Lon lat height
 	Vector3 llh;
 	llh[0] = lonlat[0]; llh[1] = lonlat[1]; llh[2] = dem(col, row).child();
-	Vector3 xyz = geo.datum().geodetic_to_cartesian(llh);
+	Vector3 xyz = dem_geo.datum().geodetic_to_cartesian(llh);
 
 	// Go back to llh. This is a bugfix for the 360 deg offset problem.
-	llh = geo.datum().cartesian_to_geodetic(xyz);
+	llh = dem_geo.datum().cartesian_to_geodetic(xyz);
           
 	Vector2 cam_pix = cam->point_to_pixel(xyz);
 
@@ -224,7 +228,6 @@ int main( int argc, char *argv[] ) {
     }
     tpc.report_finished();
     
-    std::cout << "--ll box " << llh_box << std::endl;
     //InterpolationView<EdgeExtensionView< ImageView< PixelMask<double> >, ConstantEdgeExtension >, BilinearInterpolation> interp_dem
     // = interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
 #if 0
@@ -260,7 +263,7 @@ int main( int argc, char *argv[] ) {
 
 #if 0
           Vector2 lonlat(dlon, dlat);
-          Vector2 pix = geo.lonlat_to_pixel(lonlat);
+          Vector2 pix = dem_geo.lonlat_to_pixel(lonlat);
           
           //std::cout << "--dlon dlat " << dlon << ' ' << dlat << std::endl;
           
@@ -275,7 +278,7 @@ int main( int argc, char *argv[] ) {
           
           // Updated pix and lonlat
           pix = Vector2(col, row);
-          lonlat = geo.pixel_to_lonlat(pix);
+          lonlat = dem_geo.pixel_to_lonlat(pix);
           
           //std::cout << "pix lonlat height " << pix << ' ' << lonlat << ' ' << dem(col, row)
           //		  << std::endl;
@@ -289,10 +292,10 @@ int main( int argc, char *argv[] ) {
           // Lon lat height
           Vector3 llh(dlon, dlat, dh);
 
-          Vector3 xyz = geo.datum().geodetic_to_cartesian(llh);
+          Vector3 xyz = dem_geo.datum().geodetic_to_cartesian(llh);
           
           // Go back to llh. This is a bugfix for the 360 deg offset problem.
-          llh = geo.datum().cartesian_to_geodetic(xyz);
+          llh = dem_geo.datum().cartesian_to_geodetic(xyz);
           
           Vector2 cam_pix = cam->point_to_pixel(xyz);
 	  if (big_pixel_box.contains(cam_pix) && llh_box2.contains(llh)) {
@@ -312,7 +315,6 @@ int main( int argc, char *argv[] ) {
     
 #endif
 
-    std::cout << "--llh box2 "<< llh_box  << std::endl;
     BBox2 pixel_box;
     // Find the range of pixels
     for (size_t i = 0; i < all_pixels.size(); i++) {
@@ -320,23 +322,23 @@ int main( int argc, char *argv[] ) {
         pixel_box.grow(all_pixels[i]);
       }
     }
-    std::cout << "-pixel box " << pixel_box << std::endl;
 
     if (crop_img == "crop") {
-      std::cout << "--will crop!" << std::endl;
-
       // Cast to int so that we can crop properly
       pixel_box.min() = floor(pixel_box.min());
       pixel_box.max() = floor(pixel_box.max());
       pixel_box.crop(big_pixel_box);
 
-      std::cout << "big pixel box " << big_pixel_box << std::endl;
-      std::cout << "rounded box: " << pixel_box  << std::endl;
-      
-      std::string out_img = img_file + "_crop.tif";
+      std::string out_img = fs::path(rpc_file).replace_extension("tif").string();
       vw_out() << "Writing: " << out_img << std::endl;
+
+      GeoReference img_geo;
+      bool has_img_geo = false;
       vw::cartography::block_write_gdal_image(out_img,
-                                              crop(input_img, pixel_box), 
+                                              apply_mask(crop(input_img, pixel_box),
+							 img_nodata_val),
+					      has_img_geo, img_geo,
+					      has_img_nodata, img_nodata_val,
                                               opt,
                                               TerminalProgressCallback("asp", "\t-->: "));
       for (size_t i = 0; i < all_pixels.size(); i++) {
@@ -344,8 +346,6 @@ int main( int argc, char *argv[] ) {
       }
       Vector2 shift = pixel_box.min(); // copy the corner before overwriting it below
       pixel_box -= shift;
-
-      std::cout << "--cropped box " << pixel_box << std::endl;
     }
     
     Vector3 llh_scale  = (llh_box.max() - llh_box.min())/2.0; // half range
@@ -428,6 +428,8 @@ int main( int argc, char *argv[] ) {
   std::string sampnumcoef = vw::vec_to_str(samp_num);
   std::string sampdencoef = vw::vec_to_str(samp_den);
   
+  std::string gsd_str = vw::num_to_str(gsd);
+  
   vw_out() << "Writing: " << rpc_file << std::endl;
   std::ofstream ofs(rpc_file.c_str());
   ofs.precision(18);
@@ -476,12 +478,34 @@ int main( int argc, char *argv[] ) {
   ofs << "        </BAND_P>\n";
   ofs << "        <IMAGE>\n";
   ofs << "            <SATID>WV01</SATID>\n";
+  ofs << "            <MODE>FullSwath</MODE>\n";
+  ofs << "            <SCANDIRECTION>Forward</SCANDIRECTION>\n";
+  ofs << "            <CATID>0</CATID>\n";
+  ofs << "            <TLCTIME>2010-06-21T21:32:55.534775Z</TLCTIME>\n";
+  ofs << "            <NUMTLC>2</NUMTLC>\n";   
+  ofs << "            <TLCLISTList>\n";                                        
+  ofs << "               <TLCLIST>0.0 0.000000000000000e+00</TLCLIST>\n";     
+  ofs << "               <TLCLIST>27572.0 1.378600000000000e+00</TLCLIST>\n"; 
+  ofs << "            </TLCLISTList>\n";                                       
+  ofs << "            <FIRSTLINETIME>2010-06-21T21:32:55.534775Z</FIRSTLINETIME>\n";
+  ofs << "            <AVGLINERATE>20000.0</AVGLINERATE>\n";                        
+  ofs << "            <EXPOSUREDURATION>0.0016</EXPOSUREDURATION>\n";               
+  ofs << "            <MINCOLLECTEDROWGSD>"   << gsd_str << "</MINCOLLECTEDROWGSD>\n";            
+  ofs << "            <MAXCOLLECTEDROWGSD>"   << gsd_str << "</MAXCOLLECTEDROWGSD>\n";            
+  ofs << "            <MEANCOLLECTEDROWGSD>"  << gsd_str << "</MEANCOLLECTEDROWGSD>\n";          
+  ofs << "            <MINCOLLECTEDCOLGSD>"   << gsd_str << "</MINCOLLECTEDCOLGSD>\n";            
+  ofs << "            <MAXCOLLECTEDCOLGSD>"   << gsd_str << "</MAXCOLLECTEDCOLGSD>\n";            
+  ofs << "            <MEANCOLLECTEDCOLGSD>"  << gsd_str << "</MEANCOLLECTEDCOLGSD>\n";          
+  ofs << "            <MEANCOLLECTEDGSD>"     << gsd_str << "</MEANCOLLECTEDGSD>\n";                 
+  ofs << "            <MEANPRODUCTGSD>"       << gsd_str << "</MEANPRODUCTGSD>\n";                       
   ofs << "        </IMAGE>\n";
   ofs << "   </IMD>\n";
 
   // RPC
   ofs << "    <RPB>\n";
   ofs << "        <SATID>WV01</SATID>\n";
+  ofs << "         <BANDID>P</BANDID>\n";
+  ofs << "         <SPECID>RPC00B</SPECID>\n";
   ofs << "        <IMAGE>\n";
   ofs << "	        <ERRBIAS>1.006000000000000e+01</ERRBIAS>\n"; // why?
   ofs << "	        <ERRRAND>1.100000000000000e-01</ERRRAND>\n"; // why?
