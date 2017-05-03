@@ -2439,11 +2439,12 @@ Option & Description \\ \hline \hline
 
 The \texttt{undistort\_image} program takes as input an image and a pinhole model .tsai file
 describing the image.  The tool will generate a copy of the input image with the lens distortion
-specified in the pinhole model file removed.
+specified in the pinhole model file removed. It will also save the corresponding pinhole
+camera model file without the distortion. 
 
 Usage:
 \begin{verbatim}
-  > undistort_image [options] <input image> <camera model>
+  > undistort_image [options] <input image> <camera model> -o <output image>
 \end{verbatim}
 
 \begin{longtable}{|l|p{7.5cm}|}
@@ -2457,12 +2458,17 @@ Usage:
 Option & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message. \\ \hline
 \texttt{-\/-output-file|-o \textit{filename}} & Specify the output file. \\ \hline
-\texttt{-\/-output-nodata-value \textit{float}} & 
-Set the output nodata value. Only applicable if the output is a single-channel image with pixels that are float or double. The default is the smallest value for the current data type.  \\ \hline
+\texttt{-\/-output-nodata-value \textit{double(=0)}} & 
+Set the output nodata value. Only applicable if the output is a single-channel 
+image with pixels that are float or double.  \\ \hline
 
 \texttt{-\/-preserve-pixel-type} & 
 Save the undistorted image with integer pixels if so is the input. This may 
 result in reduced accuracy.
+\\ \hline
+
+\texttt{-\/-interpolation-method \textit{string}} & 
+Interpolation method. Options: bilinear, bicubic. Default: bilinear. 
 \\ \hline
 
 \end{longtable}
