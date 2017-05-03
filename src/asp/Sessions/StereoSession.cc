@@ -139,7 +139,7 @@ namespace asp {
       double inlier_thresh = norm_2(uncropped_image_size)*ip_inlier_factor;
       vw_out() << "IP inlier threshold factor  = " << ip_inlier_factor << std::endl;
       vw_out() << "IP inlier threshold         = " << inlier_thresh << std::endl;
-      vw_out() << "IP uniqueness thresh        = " << ip_uniqueness_thresh  << std::endl;
+      vw_out() << "IP uniqueness threshold     = " << ip_uniqueness_thresh  << std::endl;
 
       inlier = ip_matching_w_alignment(single_threaded_camera, cam1, cam2,
                                        image1_norm, image2_norm,

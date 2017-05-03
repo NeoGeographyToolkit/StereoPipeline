@@ -643,7 +643,7 @@ namespace asp {
     vw_out() << "\t--> Matching interest points" << std::endl;
 
     vw_out() << "Uniqueness threshold: " << uniqueness_threshold << "\n";
-    vw_out() << "Inlier     threshold: " << inlier_threshold     << "\n";
+    vw_out() << "Inlier threshold:     " << inlier_threshold     << "\n";
     
     EpipolarLinePointMatcher matcher(single_threaded_camera,
 				     uniqueness_threshold, inlier_threshold, datum );
