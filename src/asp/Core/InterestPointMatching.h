@@ -518,7 +518,8 @@ namespace asp {
 
     // Best point must be closer than the next best point
     const double uniqueness_threshold = (0.8/0.7)*stereo_settings().ip_uniqueness_thresh; 
-
+    vw_out() << "Uniqueness threshold: " << uniqueness_threshold << "\n";
+    
     if (detect_method != DETECT_IP_METHOD_ORB) {
       // For all L2Norm distance metrics
       ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(uniqueness_threshold);
@@ -640,6 +641,10 @@ namespace asp {
     DetectIpMethod detect_method = static_cast<DetectIpMethod>(stereo_settings().ip_matching_method);
     std::vector<size_t> forward_match, backward_match;
     vw_out() << "\t--> Matching interest points" << std::endl;
+
+    vw_out() << "Uniqueness threshold: " << uniqueness_threshold << "\n";
+    vw_out() << "Inlier     threshold: " << inlier_threshold     << "\n";
+    
     EpipolarLinePointMatcher matcher(single_threaded_camera,
 				     uniqueness_threshold, inlier_threshold, datum );
     vw_out() << "\t    Matching Forward" << std::endl;
