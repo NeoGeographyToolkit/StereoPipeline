@@ -84,7 +84,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   std::vector<boost::shared_ptr<CameraModel> > camera_models;
   cartography::Datum datum;
   int  ip_detect_method;
-  double epipolar_threshold;
+  double ip_inlier_thresh, ip_uniqueness_thresh;
   bool individually_normalize;
   std::set<std::string> intrinsics_to_float;
   std::string overlap_list_file;
@@ -1623,8 +1623,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                          "Set the minimum  number of matches between images that will be considered.")
     ("ip-detect-method", po::value(&opt.ip_detect_method)->default_value(0),
                          "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
-    ("epipolar-threshold", po::value(&opt.epipolar_threshold)->default_value(-1),
-                           "Max distance from epipolar line so search for IP matches. (default: automatic calculation).")
+    ("ip-inlier-threshold",          po::value(&opt.ip_inlier_thresh)->default_value(1.0/15.0),
+     "A higher threshold will result in more interest points, but perhaps also more outliers.")
+    ("ip-uniqueness-threshold",          po::value(&opt.ip_uniqueness_thresh)->default_value(0.7),
+     "A higher threshold will result in more interest points, but perhaps less unique ones.")
     ("individually-normalize",   po::bool_switch(&opt.individually_normalize)->default_value(false)->implicit_value(true),
                         "Individually normalize the input images instead of using common values.")
     ("max-iterations",   po::value(&opt.max_iterations)->default_value(1000),
@@ -1718,7 +1720,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   // Copy the IP settings to the global stereo_settings() object
   asp::stereo_settings().ip_matching_method     = opt.ip_detect_method;
-  asp::stereo_settings().epipolar_threshold     = opt.epipolar_threshold;
+  asp::stereo_settings().ip_inlier_thresh       = opt.ip_inlier_thresh;
+  asp::stereo_settings().ip_uniqueness_thresh   = opt.ip_uniqueness_thresh;
   asp::stereo_settings().individually_normalize = opt.individually_normalize;
 
   if (!opt.camera_position_file.empty() && opt.csv_format_str == "")

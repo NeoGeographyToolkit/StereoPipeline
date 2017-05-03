@@ -79,6 +79,8 @@
     * Added the option --initial-transform to initialize the adjustments
       based on a 4x4 rotation + translation transform, such as coming
       from pc_align. 
+   * Added the options --ip-inlier-threshold and --ip-uniqueness-threshold
+     for finer-grained control over interest point generation.
 
  - pc_align
    * Can solve for a rotation + translation or for rotation +

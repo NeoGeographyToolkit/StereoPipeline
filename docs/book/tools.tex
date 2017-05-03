@@ -478,8 +478,18 @@ determination).
 \texttt{-\/-ip-detect-method \textit{string [default: OBAloG]}} & Choose an interest point
 detection method from: 0=OBAloG, 1=SIFT, 2=ORB. \\ \hline
 
-\texttt{-\/-local-pinhole} & Optimize processing for inputs which are local coordinate pinhole models.
-Also writes out a standalone .tsai camera model file instead of adjust files. \\ \hline
+\texttt{-\/-ip-inlier-threshold \textit{double(=1.0/15)}} & 
+A higher threshold will result in more interest points, but perhaps also more outliers.
+\\ \hline
+
+\texttt{-\/-ip-uniqueness-threshold \textit{double(=0.7)}} & 
+A higher threshold will result in more interest points, but perhaps less unique ones.
+\\ \hline
+
+\texttt{-\/-local-pinhole} & Optimize processing for inputs which are local coordinate 
+pinhole models.
+Also writes out a standalone .tsai camera model file instead of adjust files. 
+\\ \hline
 
 \texttt{-\/-camera-positions \textit{filename}} & CSV file containing estimated positions of each camera.
 Only used with the local-pinhole setting to initialize global camera coordinates. If used,
