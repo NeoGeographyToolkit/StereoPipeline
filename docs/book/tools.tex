@@ -313,10 +313,11 @@ with the addition of the list of nodes to use (if using multiple nodes).
   parallel_stereo --nodes-list machines.txt <other stereo options>
 \end{verbatim}
 
-It will create the same output files as \texttt{stereo}. (Internally
-some of them will be GDAL VRT files, that is, virtual mosaics of files created
-by individual processes; ASP and GDAL tools are able to use these
-virtual files in the same way as regular binary TIF files.)
+It will create the same output files as \texttt{stereo}. Internally
+some of them will be GDAL VRT files, that is, plain text virtual mosaics 
+of files created by individual processes, with the actual files in subdirectories;
+ASP and GDAL tools are able to use these
+virtual files in the same way as regular binary TIF files.
 
 If your jobs are launched on a cluster or supercomputer, the name of the
 file containing the list of nodes may exist as an environmental
@@ -2446,8 +2447,15 @@ Usage:
 Option & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message. \\ \hline
 \texttt{-\/-output-file|-o \textit{filename}} & Specify the output file. \\ \hline
-\end{longtable}
+\texttt{-\/-output-nodata-value \textit{float}} & 
+Set the output nodata value. Only applicable if the output is a single-channel image with pixels that are float or double. The default is the smallest value for the current data type.  \\ \hline
 
+\texttt{-\/-preserve-pixel-type} & 
+Save the undistorted image with integer pixels if so is the input. This may 
+result in reduced accuracy.
+\\ \hline
+
+\end{longtable}
 
 \section{camera\_calibrate}
 \label{cameracalibrate}
