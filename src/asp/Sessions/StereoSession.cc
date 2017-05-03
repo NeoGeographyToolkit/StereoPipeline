@@ -137,7 +137,7 @@ namespace asp {
       // A larger value will keep more (but of lower quality) points.
       double ip_inlier_factor = stereo_settings().ip_inlier_thresh; // default is 1/15
       double inlier_thresh = norm_2(uncropped_image_size)*ip_inlier_factor;
-      vw_out() << "IP inlier threshold factor  = " << ip_nlier_factor << std::endl;
+      vw_out() << "IP inlier threshold factor  = " << ip_inlier_factor << std::endl;
       vw_out() << "IP inlier threshold         = " << inlier_thresh << std::endl;
       vw_out() << "IP uniqueness thresh        = " << ip_uniqueness_thresh  << std::endl;
 
