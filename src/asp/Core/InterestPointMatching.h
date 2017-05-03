@@ -517,8 +517,8 @@ namespace asp {
     DetectIpMethod detect_method = static_cast<DetectIpMethod>(stereo_settings().ip_matching_method);
 
     // Best point must be closer than the next best point
-    const double uniqueness_threshold = (0.8/0.7)*stereo_settings().ip_uniqueness_thresh; 
-    vw_out() << "Uniqueness threshold: " << uniqueness_threshold << "\n";
+    vw_out() << "Uniqueness threshold: " << stereo_settings().ip_uniqueness_thresh << "\n";
+    const double uniqueness_threshold = (0.8/0.7)*stereo_settings().ip_uniqueness_thresh;  // adj
     
     if (detect_method != DETECT_IP_METHOD_ORB) {
       // For all L2Norm distance metrics
