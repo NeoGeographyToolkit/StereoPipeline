@@ -47,7 +47,7 @@ namespace asp{
 
   class compare_bboxes { // simple comparison function
   public:
-    bool operator()(const BBox2i A, const BBox2i B) {
+    bool operator()(const BBox2i A, const BBox2i B) const {
       return ( A.min().x() < B.min().x() );
     }
   };
@@ -636,7 +636,9 @@ namespace asp{
     // cloud blocks which fall within the same 256 x 256 tile, to do
     // their union instead of them individually, for reasons of
     // speed.
-    std::map<BBox2i, BBox2i, compare_bboxes> blocks_map;
+    typedef std::map<BBox2i, BBox2i, compare_bboxes> BlockMapType;
+    typedef BlockMapType::iterator MapIterType;
+    BlockMapType blocks_map;
     BOOST_FOREACH( BBoxPair const& boundary,
 		   m_point_image_boundaries ) {
       if (! local_3d_bbox.intersects(boundary.first) ) continue;
@@ -646,7 +648,7 @@ namespace asp{
       BBox2i snapped_block;
       snapped_block.min() = m_block_size*floor(pc_block.min()/double(m_block_size));
       snapped_block.max() = m_block_size*ceil( pc_block.max()/double(m_block_size));
-      std::map<BBox2i, BBox2i, compare_bboxes>::iterator it = blocks_map.find(snapped_block);
+      MapIterType it = blocks_map.find(snapped_block);
       if (it != blocks_map.end() ){
 	(it->second).grow(pc_block);
       }else{
@@ -673,7 +675,7 @@ namespace asp{
     // pixel we need to see its next up and right neighbors.
     int d = (int)m_use_surface_sampling;
 
-    for (std::map<BBox2i, BBox2i, compare_bboxes>::iterator it = blocks_map.begin();
+    for (MapIterType it = blocks_map.begin();
 	 it != blocks_map.end(); it++){
 
       BBox2i block = it->second;

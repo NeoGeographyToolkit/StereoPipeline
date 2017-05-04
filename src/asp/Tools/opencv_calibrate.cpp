@@ -63,7 +63,7 @@ static void help()
 }
 
 enum { DETECTION = 0, CAPTURING = 1, CALIBRATED = 2 };
-enum Pattern { CHESSBOARD, CIRCLES_GRID, ASYMMETRIC_CIRCLES_GRID };
+enum BoardPattern { CHESSBOARD, CIRCLES_GRID, ASYMMETRIC_CIRCLES_GRID };
 
 static double computeReprojectionErrors(
         const vector<vector<Point3f> >& objectPoints,
@@ -91,7 +91,7 @@ static double computeReprojectionErrors(
     return std::sqrt(totalErr/totalPoints);
 }
 
-static void calcChessboardCorners(Size boardSize, float squareSize, vector<Point3f>& corners, Pattern patternType = CHESSBOARD)
+static void calcChessboardCorners(cv::Size boardSize, float squareSize, vector<Point3f>& corners, BoardPattern patternType = CHESSBOARD)
 {
     corners.resize(0);
 
@@ -118,7 +118,7 @@ static void calcChessboardCorners(Size boardSize, float squareSize, vector<Point
 }
 
 static bool runCalibration( vector<vector<Point2f> > imagePoints,
-                    Size imageSize, Size boardSize, Pattern patternType,
+                    cv::Size imageSize, cv::Size boardSize, BoardPattern patternType,
                     float squareSize, float aspectRatio,
                     int flags, Mat& cameraMatrix, Mat& distCoeffs,
                     vector<Mat>& rvecs, vector<Mat>& tvecs,
@@ -152,7 +152,7 @@ static bool runCalibration( vector<vector<Point2f> > imagePoints,
 
 
 static void saveCameraParams( const string& filename,
-                       Size imageSize, Size boardSize,
+                       cv::Size imageSize, cv::Size boardSize,
                        float squareSize, float aspectRatio, int flags,
                        const Mat& cameraMatrix, const Mat& distCoeffs,
                        const vector<Mat>& rvecs, const vector<Mat>& tvecs,
@@ -259,7 +259,7 @@ static bool readStringList( const string& filename, const string& tempFile, vect
 
 static bool runAndSave(const string& outputFilename,
                 const vector<vector<Point2f> >& imagePoints,
-                Size imageSize, Size boardSize, Pattern patternType, float squareSize,
+                cv::Size imageSize, cv::Size boardSize, BoardPattern patternType, float squareSize,
                 float aspectRatio, int flags, Mat& cameraMatrix,
                 Mat& distCoeffs, bool writeExtrinsics, bool writePoints )
 {
@@ -306,7 +306,7 @@ cv::Mat vw_imread(const std::string fileName,
 
 int main( int argc, char** argv )
 {
-    Size boardSize, imageSize;
+    cv::Size boardSize, imageSize;
     float squareSize = 1.f, aspectRatio = 1.f;
     Mat cameraMatrix, distCoeffs;
     const char* outputFilename = "out_camera_data.yml";
@@ -318,7 +318,7 @@ int main( int argc, char** argv )
     int mode = DETECTION;
     vector<vector<Point2f> > imagePoints;
     vector<string> imageList;
-    Pattern pattern = CHESSBOARD;
+    BoardPattern pattern = CHESSBOARD;
 
     if( argc < 2 )
     {
@@ -457,8 +457,8 @@ int main( int argc, char** argv )
         }
 
        // improve the found corners' coordinate accuracy
-        if( pattern == CHESSBOARD && found) cornerSubPix( view, pointbuf, Size(11,11),
-            Size(-1,-1), TermCriteria( CV_TERMCRIT_EPS+CV_TERMCRIT_ITER, 30, 0.1 ));
+        if( pattern == CHESSBOARD && found) cornerSubPix( view, pointbuf, cv::Size(11,11),
+            cv::Size(-1,-1), TermCriteria( CV_TERMCRIT_EPS+CV_TERMCRIT_ITER, 30, 0.1 ));
 
         if( mode == CAPTURING && found )
         {
@@ -471,8 +471,8 @@ int main( int argc, char** argv )
         string msg = mode == CAPTURING ? "100/100" :
             mode == CALIBRATED ? "Calibrated" : "Press 'g' to start";
         int baseLine = 0;
-        Size textSize = getTextSize(msg, 1, 1, 1, &baseLine);
-        Point textOrigin(view.cols - 2*textSize.width - 10, view.rows - 2*baseLine - 10);
+        cv::Size textSize = getTextSize(msg, 1, 1, 1, &baseLine);
+        cv::Point textOrigin(view.cols - 2*textSize.width - 10, view.rows - 2*baseLine - 10);
 
         if( mode == CAPTURING )
         {
