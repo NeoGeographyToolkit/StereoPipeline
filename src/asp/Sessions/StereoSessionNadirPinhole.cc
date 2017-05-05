@@ -74,9 +74,10 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
   ImageViewRef< PixelMask<float> > Limg, Rimg;
   std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
 
-  // Use no-data in interpolation.
+  // Use no-data in interpolation and edge extension.
   PixelMask<float> nodata_pix(0);
   nodata_pix.invalidate();
+  ValueEdgeExtension< PixelMask<float> > ext(nodata_pix); 
 
   if ( stereo_settings().alignment_method == "epipolar" ) {
 
@@ -99,8 +100,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
                                               left_cam, right_cam,
                                               left_masked_image, right_masked_image,
                                               left_out_size, right_out_size,
-                                              Limg, Rimg,
-                                              ValueEdgeExtension< PixelMask<float> >(nodata_pix));
+                                              Limg, Rimg, ext);
     } else { // Handle CAHV derived models
       
       camera_models( left_cam, right_cam );
@@ -108,8 +108,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
       get_epipolar_transformed_images(m_left_camera_file, m_right_camera_file,
                                       left_cam, right_cam,
                                       left_masked_image, right_masked_image,
-                                      Limg, Rimg,
-                                      ValueEdgeExtension< PixelMask<float> >(nodata_pix));
+                                      Limg, Rimg, ext);
   }                                    
 
   } else if ( stereo_settings().alignment_method == "homography" ||
@@ -192,7 +191,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
                           options,
                           TerminalProgressCallback("asp","\t  L:  ") );
   block_write_gdal_image( right_output_file,
-                          apply_mask(crop(edge_extend(Rimg,ZeroEdgeExtension()),
+                          apply_mask(crop(edge_extend(Rimg, ext),
                                           bounding_box(Limg)), output_nodata),
                           has_right_georef, right_georef,
                           has_nodata, output_nodata,

@@ -138,9 +138,10 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
   Vector6f left_stats  = gather_stats(left_masked_image,  "left" );
   Vector6f right_stats = gather_stats(right_masked_image, "right");
 
-  // Use no-data in interpolation.
+  // Use no-data in interpolation and edge extension.
   PixelMask<float> nodata_pix(0);
   nodata_pix.invalidate();
+  ValueEdgeExtension< PixelMask<float> > ext(nodata_pix); 
   
   ImageViewRef< PixelMask<float> > Limg, Rimg;
   std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
@@ -166,8 +167,7 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
                                               left_cam, right_cam,
                                               left_masked_image, right_masked_image,
                                               left_out_size, right_out_size,
-                                              Limg, Rimg,
-                                              ValueEdgeExtension< PixelMask<float> >(nodata_pix));
+                                              Limg, Rimg, ext);
     } else { // Handle CAHV derived models
     
       camera_models( left_cam, right_cam );
@@ -175,8 +175,7 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
       get_epipolar_transformed_images(m_left_camera_file, m_right_camera_file,
                                       left_cam, right_cam,
                                       left_masked_image, right_masked_image,
-                                      Limg, Rimg,
-                                      ValueEdgeExtension< PixelMask<float> >(nodata_pix));
+                                      Limg, Rimg, ext);
     }                                    
 
   } else if ( stereo_settings().alignment_method == "homography" ) {
@@ -221,7 +220,7 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
                           options,
                           TerminalProgressCallback("asp","\t  L:  ") );
   block_write_gdal_image( right_output_file,
-                          apply_mask(crop(edge_extend(Rimg,ConstantEdgeExtension()),
+                          apply_mask(crop(edge_extend(Rimg, ext),
                                           bounding_box(Limg)), output_nodata),
                           has_right_georef, right_georef,
                           has_nodata, output_nodata,
