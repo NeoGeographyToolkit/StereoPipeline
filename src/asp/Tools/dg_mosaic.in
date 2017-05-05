@@ -572,7 +572,7 @@ def listlist_to_str(listlist):
             ans += str(val) + " "
     return ans
 
-def examine_discrepancy_in_arrays(A, B):
+def examine_discrepancy_in_arrays(A, B, ignore_incon):
 
     if len(A) != len(B):
         raise Exception('InputError', 'Cannot process arrays of different lengths.')
@@ -604,8 +604,11 @@ def examine_discrepancy_in_arrays(A, B):
                     
     print('Maximum observed relative discrepancy is ' + str(observed_max_err))
     if observed_max_err > max_err:
-        raise Exception('InputError', 'Error is too large')
-
+        if not ignore_incon:
+            print("Error is too large. You can force dg_mosaic to continue working with these potentially inconsistent files by using the option --ignore-inconsistencies. You are doing this at your own risk.")
+            raise Exception('InputError', 'Bailing out.')
+        else:
+            print("Will continue working with these inconsistent files. You are doing this at your own risk.")
 
 def main():
 
@@ -642,6 +645,8 @@ def main():
                               help="The weight to use to penalize higher order RPC coefficients when generating the combined RPC model. Higher penalty weight results in smaller such coefficients.")
             parser.add_option('--fix-seams', dest='fix_seams', default=False,
                               action='store_true', help="Fix seams in the output mosaic due to inconsistencies between image and camera data using interest point matching.")
+            parser.add_option('--ignore-inconsistencies', dest='ignore_incon', default=False,
+                              action='store_true', help="Ignore the fact that some of the files to be mosaicked have inconsistent EPHEM/ATT values. Do this at your own risk.")
             parser.add_option("--preview", dest="preview",
                               action="store_true",
                               help="Render a small 8 bit png of the input for preview.")
@@ -773,7 +778,7 @@ def main():
                     # minor, and thow an error if they are major.
                     print("Warning: ephem values must be identical in " \
                           + xml_name(args[0]) + ' and ' + xml_name(filename))
-                    examine_discrepancy_in_arrays(ref_eph_list, eph_list)
+                    examine_discrepancy_in_arrays(ref_eph_list, eph_list, options.ignore_incon)
 
                 if len(ref_att_list) != len(att_list):
                     raise Exception('InputError', 'Must have the same number of att values in: '
@@ -783,7 +788,7 @@ def main():
                     # Same thing as for ephem.
                     print("Warning: att values must be identical in " \
                           + xml_name(args[0]) + ' and ' + xml_name(filename))
-                    examine_discrepancy_in_arrays(ref_att_list, att_list)
+                    examine_discrepancy_in_arrays(ref_att_list, att_list, options.ignore_incon)
 
                 orig_sizes.append(image_size)
 
