@@ -74,6 +74,10 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
   ImageViewRef< PixelMask<float> > Limg, Rimg;
   std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
 
+  // Use no-data in interpolation.
+  PixelMask<float> nodata_pix(0);
+  nodata_pix.invalidate();
+
   if ( stereo_settings().alignment_method == "epipolar" ) {
 
     vw_out() << "\t--> Performing epipolar alignment\n";
@@ -92,19 +96,21 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
       dynamic_cast<PinholeModel*>(right_cam.get())->write(m_out_prefix + "-R.tsai");
       
       get_epipolar_transformed_pinhole_images(m_left_camera_file, m_right_camera_file,
-                                      left_cam, right_cam,
-                                      left_masked_image, right_masked_image,
-                                      left_out_size, right_out_size,
-                                      Limg, Rimg);
+                                              left_cam, right_cam,
+                                              left_masked_image, right_masked_image,
+                                              left_out_size, right_out_size,
+                                              Limg, Rimg,
+                                              ValueEdgeExtension< PixelMask<float> >(nodata_pix));
     } else { // Handle CAHV derived models
-    
+      
       camera_models( left_cam, right_cam );
     
       get_epipolar_transformed_images(m_left_camera_file, m_right_camera_file,
                                       left_cam, right_cam,
                                       left_masked_image, right_masked_image,
-                                      Limg, Rimg);
-    }                                    
+                                      Limg, Rimg,
+                                      ValueEdgeExtension< PixelMask<float> >(nodata_pix));
+  }                                    
 
   } else if ( stereo_settings().alignment_method == "homography" ||
               stereo_settings().alignment_method == "affineepipolar" ) {

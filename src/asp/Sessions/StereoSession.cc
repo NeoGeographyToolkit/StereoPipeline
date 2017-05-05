@@ -426,10 +426,10 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions              & optio
 // we crop the images to these boxes, and hence the need to keep
 // the upper-left corners of the crop windows to handle the cameras correctly.
 vw::Vector2 camera_pixel_offset(std::string const& input_dem,
-				       std::string const& left_image_file,
-				       std::string const& right_image_file,
-				       std::string const& curr_image_file){
-
+                                std::string const& left_image_file,
+                                std::string const& right_image_file,
+                                std::string const& curr_image_file){
+  
   // For map-projected images we don't apply a pixel offset.
   // When we need to do stereo on cropped images, we just
   // crop the images together with their georeferences.
