@@ -646,7 +646,7 @@ def main():
             parser.add_option('--fix-seams', dest='fix_seams', default=False,
                               action='store_true', help="Fix seams in the output mosaic due to inconsistencies between image and camera data using interest point matching.")
             parser.add_option('--ignore-inconsistencies', dest='ignore_incon', default=False,
-                              action='store_true', help="Ignore the fact that some of the files to be mosaicked have inconsistent EPHEM/ATT values. Do this at your own risk.")
+                              action='store_true', help="Ignore the fact that some of the files to be mosaicked have inconsistent EPH/ATT values. Do this at your own risk.")
             parser.add_option("--preview", dest="preview",
                               action="store_true",
                               help="Render a small 8 bit png of the input for preview.")
