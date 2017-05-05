@@ -150,6 +150,11 @@ void write_preprocessed_isis_image( vw::cartography::GdalWriteOptions const& opt
   ImageViewRef<float> processed_image
     = remove_isis_special_pixels(image_sans_mask, isis_lo, isis_hi, out_lo);
 
+  // Use no-data in interpolation and edge extension.
+  PixelMask<float> nodata_pix(0);
+  nodata_pix.invalidate();
+  ValueEdgeExtension< PixelMask<float> > ext(nodata_pix); 
+  
   if (will_apply_user_nodata){
 
     // If the user specifies a no-data value, mask all pixels <= that
@@ -163,7 +168,7 @@ void write_preprocessed_isis_image( vw::cartography::GdalWriteOptions const& opt
 
     ImageViewRef< PixelMask<float> > applied_image;
     if ( matrix == math::identity_matrix<3>() ) {
-      applied_image = crop(edge_extend(normalized_image, ZeroEdgeExtension()),
+      applied_image = crop(edge_extend(normalized_image, ext),
 			   0, 0, crop_size[0], crop_size[1]);
     } else {
       applied_image = transform(normalized_image, HomographyTransform(matrix),
@@ -186,7 +191,7 @@ void write_preprocessed_isis_image( vw::cartography::GdalWriteOptions const& opt
 
     ImageViewRef<float> applied_image;
     if ( matrix == math::identity_matrix<3>() ) {
-      applied_image = crop(edge_extend(normalized_image, ZeroEdgeExtension()),
+      applied_image = crop(edge_extend(normalized_image, ext),
 			   0, 0, crop_size[0], crop_size[1]);
     } else {
       applied_image = transform(normalized_image, HomographyTransform(matrix),
