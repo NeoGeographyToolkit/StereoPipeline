@@ -577,7 +577,7 @@ def examine_discrepancy_in_arrays(A, B, ignore_incon):
     if len(A) != len(B):
         raise Exception('InputError', 'Cannot process arrays of different lengths.')
 
-    max_err = 1.0e-10
+    max_err = 1.0e-8
     print("Will go on if the relative discrepancies are less than %g." % max_err)
 
     observed_max_err = 0
