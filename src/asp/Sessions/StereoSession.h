@@ -32,6 +32,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <asp/Core/Common.h>
+#include <asp/Core/StereoSettings.h>
 
 namespace asp {
 
@@ -201,7 +202,7 @@ namespace asp {
     /// Returns the target datum to use for a given camera model
     virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,
 					     bool use_sphere_for_isis) const {
-      return vw::cartography::Datum("WGS84");
+      return vw::cartography::Datum(asp::stereo_settings().datum);
     }
 
     // Peek inside the images and camera models and return the datum and projection,

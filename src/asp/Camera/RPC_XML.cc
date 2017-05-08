@@ -25,6 +25,7 @@
 #include <asp/Camera/RPC_XML.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/XMLBase.h>
+#include <asp/Core/StereoSettings.h>
 
 #include <xercesc/parsers/XercesDOMParser.hpp>
 #include <xercesc/sax/HandlerBase.hpp>
@@ -511,15 +512,15 @@ void asp::RPCXML::parse_rpb( xercesc::DOMElement* node ) {
 
   // Push into the RPC Model so that it is easier to work with
   //
-  // The choice of using the WGS84 datum comes from Digital Globe's
-  // QuickBird Imagery Products : Products Guide. Section 11.1 makes a
-  // blanket statement that all heights are meters against the WGS 84 ellipsoid.
-  m_rpc.reset( new RPCModel( cartography::Datum("WGS84"),
-                             line_num_coeff, line_den_coeff,
-                             samp_num_coeff, samp_den_coeff,
-                             xy_offset, xy_scale,
-                             geodetic_offset, geodetic_scale ) );
-
+  // The choice of using the WGS_1984 datum comes from Digital Globe's
+  // QuickBird Imagery Products Guide. Section 11.1 makes a
+  // blanket statement that all heights are meters against this ellipsoid.
+  m_rpc.reset( new RPCModel(cartography::Datum(asp::stereo_settings().datum),
+			    line_num_coeff, line_den_coeff,
+			    samp_num_coeff, samp_den_coeff,
+			    xy_offset, xy_scale,
+			    geodetic_offset, geodetic_scale) );
+  
 }
 
 void asp::RPCXML::parse_rational_function_model( xercesc::DOMElement* node ) {
@@ -633,11 +634,11 @@ void asp::RPCXML::parse_rational_function_model( xercesc::DOMElement* node ) {
   xy_offset -= Vector2i(1,1);
 
   // Push into the RPC Model so that it is easier to work with
-  m_rpc.reset( new RPCModel( cartography::Datum("WGS84"),
-                             line_num_coeff, line_den_coeff,
-                             samp_num_coeff, samp_den_coeff,
-                             xy_offset, xy_scale,
-                             geodetic_offset, geodetic_scale ) );
+  m_rpc.reset( new RPCModel(cartography::Datum(asp::stereo_settings().datum),
+			    line_num_coeff, line_den_coeff,
+			    samp_num_coeff, samp_den_coeff,
+			    xy_offset, xy_scale,
+			    geodetic_offset, geodetic_scale ) );
 
 }
 

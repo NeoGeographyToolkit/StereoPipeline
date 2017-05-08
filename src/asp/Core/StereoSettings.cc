@@ -129,9 +129,12 @@ namespace asp {
       ("nodata-optimal-threshold-factor", po::value(&global.nodata_optimal_threshold_factor)->default_value(nan),
                      "Pixels with values less than this factor times the optimal Otsu threshold are treated as no-data. Suggested value: 0.1 to 0.2.")
       ("skip-image-normalization", po::bool_switch(&global.skip_image_normalization)->default_value(false)->implicit_value(true),
-                     "Skip the step of normalizing the values of input images and removing nodata-pixels. Create instead symbolic links to original images.")
+       "Skip the step of normalizing the values of input images and removing nodata-pixels. Create instead symbolic links to original images.")
       ("part-of-multiview-run", po::bool_switch(&global.part_of_multiview_run)->default_value(false)->implicit_value(true),
-                    "If the current run is part of a larger multiview run.");
+       "If the current run is part of a larger multiview run.")
+      ("datum",                    po::value(&global.datum)->default_value("WGS_1984"),
+									   "Set the datum to use with RPC camera models. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).");
+       
   }
 
   CorrelationDescription::CorrelationDescription() : po::options_description("Correlation Options") {
