@@ -1240,7 +1240,7 @@ The weight to use to penalize higher order RPC coefficients when generating the 
 \label{mapproject}
 
 The tool \texttt{mapproject} is used to orthorectify (map-project) a camera image onto
-a DEM or datum. (ASP is able to use map-projected images to run stereo, section
+a DEM or datum. (ASP is able to use map-projected images to run stereo, see section
 \ref{mapproj-example}.)
 
 The \texttt{mapproject} program can be run using multiple processes and can be
@@ -1255,17 +1255,17 @@ Examples:
 
 Map-project a .cub file (it has both image and camera information):
 \begin{verbatim}
-mapproject -t isis DEM.tif image.cub output.tif --ppd 256
+  mapproject -t isis DEM.tif image.cub output.tif --ppd 256
 \end{verbatim}
 
 Map-project an image file with associated .xml camera file:
 \begin{verbatim}
-mapproject -t rpc DEM.tif image.tif image.xml output.tif --mpp 20
+  mapproject -t rpc DEM.tif image.tif image.xml output.tif --mpp 20
 \end{verbatim}
 
 Mapproject onto a datum rather than a DEM:
 \begin{verbatim}
-mapproject WGS84 image.tif image.xml output.tif --mpp 10
+  mapproject WGS84 image.tif image.xml output.tif --mpp 10
 \end{verbatim}
 
 The first argument can either be a path to a DEM file or the name of a standard datum.
@@ -1278,6 +1278,11 @@ as measured on the ground (in degree or meter units, depending on the projection
 If the imagery is from Digital Globe, both the exact DG model from the XML file
 can be used for map-projection (\texttt{-t dg}) and its RPC approximation (\texttt{-t rpc}).
 The former is more accurate but much smaller.
+
+Usage:
+\begin{verbatim}
+  mapproject [options] <dem> <camera-image> <camera-model> <output-image>
+\end{verbatim}
 
 \begin{longtable}{|l|p{10cm}|}
 \caption{Command-line options for mapproject}
