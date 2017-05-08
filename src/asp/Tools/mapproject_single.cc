@@ -118,7 +118,7 @@ typedef PixelMask<float> DemPixelT;
 
 struct Options : vw::cartography::GdalWriteOptions {
   // Input
-  std::string dem_file, image_file, camera_model_file, output_file, stereo_session,
+  std::string dem_file, image_file, camera_file, output_file, stereo_session,
     bundle_adjust_prefix;
   bool isQuery;
 
@@ -161,16 +161,16 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   positional.add_options()
     ("dem",          po::value(&opt.dem_file))
     ("camera-image", po::value(&opt.image_file))
-    ("camera-model", po::value(&opt.camera_model_file))
-    ("output-file" , po::value(&opt.output_file));
+    ("camera-model", po::value(&opt.camera_file))
+    ("output-image" , po::value(&opt.output_file));
 
   po::positional_options_description positional_desc;
-  positional_desc.add("dem",         1);
-  positional_desc.add("camera-image",1);
-  positional_desc.add("camera-model",1);
-  positional_desc.add("output-file", 1);
+  positional_desc.add("dem",          1);
+  positional_desc.add("camera-image", 1);
+  positional_desc.add("camera-model", 1);
+  positional_desc.add("output-image", 1);
 
-  std::string usage("[options] <dem> <camera-image> <camera-model> <output>\nInstead of the DEM file, a datum can be provided, such as\nWGS84, NAD83, NAD27, D_MOON, D_MARS, and MOLA.");
+  std::string usage("[options] <dem> <camera-image> <camera-model> <output-image>\nInstead of the DEM file, a datum can be provided, such as\nWGS84, NAD83, NAD27, D_MOON, D_MARS, and MOLA.");
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
@@ -188,7 +188,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_out(WarningMessage) << "Images map-projected using the 'dg' camera model cannot be used later to run stereo with the 'dg' session. If that is desired, please specify here the 'rpc' camera model instead.\n";
   }
 
-  if ( boost::iends_with(boost::to_lower_copy(opt.camera_model_file), ".xml") &&
+  if ( boost::iends_with(boost::to_lower_copy(opt.camera_file), ".xml") &&
        opt.stereo_session == "" ){
     opt.stereo_session = "rpc";
   }
@@ -442,7 +442,7 @@ void project_image_nodata(Options & opt,
 
     // Create handle to input image to be projected on to the map
     boost::shared_ptr<DiskImageResource> img_rsrc = 
-          asp::load_disk_image_resource(opt.image_file, opt.camera_model_file);   
+          asp::load_disk_image_resource(opt.image_file, opt.camera_file);   
 
     // Update the nodata value from the input file if it is present.
     if (img_rsrc->has_nodata_read()) 
@@ -487,7 +487,7 @@ void project_image_alpha(Options & opt,
 
     // Create handle to input image to be projected on to the map
     boost::shared_ptr<DiskImageResource> img_rsrc = 
-          asp::load_disk_image_resource(opt.image_file, opt.camera_model_file);   
+          asp::load_disk_image_resource(opt.image_file, opt.camera_file);   
 
     const bool        has_img_nodata    = false;
     const ImagePixelT transparent_pixel = ImagePixelT();
@@ -600,29 +600,32 @@ int main( int argc, char* argv[] ) {
     // pipeline's ability to generate camera models for various
     // missions.  Hence, we create two identical camera models, but only one is used.
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-    SessionPtr session( asp::StereoSessionFactory::create(opt.stereo_session, // in-out
-                                                          opt,
-                                                          opt.image_file, opt.image_file, // The same file is passed in twice
-                                                          opt.camera_model_file,
-                                                          opt.camera_model_file,
-                                                          opt.output_file,
-                                                          opt.dem_file,
-                                                          false) ); // Do not allow promotion from normal to map projected session types!!!!
-    // TODO: Take care of this in handle_argumensests?
+    SessionPtr session( asp::StereoSessionFactory::create
+                        (opt.stereo_session, // in-out
+                         opt,
+                         opt.image_file, opt.image_file, // The same file is passed in twice
+                         opt.camera_file, opt.camera_file,
+                         opt.output_file,
+                         opt.dem_file,
+                         false) ); // Do not allow promotion from normal to map projected session
+    
+    // If the session was above auto-guessed as isis, adjust for the fact
+    // that the isis .cub file also has camera info.
     if ((session->name() == "isis" || session->name() == "isismapisis")
           && opt.output_file.empty() ){
       // The user did not provide an output file. Then the camera
       // information is contained within the image file and what is in
       // the camera file is actually the output file.
-      opt.output_file       = opt.camera_model_file;
-      opt.camera_model_file = opt.image_file;
+      opt.output_file = opt.camera_file;
+      opt.camera_file = opt.image_file;
     }
+
     if ( opt.output_file.empty() )
       vw_throw( ArgumentErr() << "Missing output filename.\n" );
 
     // Initialize a camera model
     boost::shared_ptr<camera::CameraModel> camera_model =
-      session->camera_model(opt.image_file, opt.camera_model_file);
+      session->camera_model(opt.image_file, opt.camera_file);
 
     {
       // Safety check that the users are not trying to map project map
@@ -721,7 +724,7 @@ int main( int argc, char* argv[] ) {
     // coordinate system (which makes it grow), and then we tighten it
     // in target's coordinate system.
     bool     calc_target_res = !user_provided_resolution;
-    Vector2i image_size      = asp::file_image_size(opt.image_file, opt.camera_model_file);
+    Vector2i image_size      = asp::file_image_size(opt.image_file, opt.camera_file);
     BBox2    cam_box;
     // First pass
     bool first_pass = true;
@@ -794,7 +797,7 @@ int main( int argc, char* argv[] ) {
 
     // Determine the pixel type of the input image
     boost::shared_ptr<DiskImageResource> image_rsrc = asp::load_disk_image_resource(opt.image_file, 
-                                                                            opt.camera_model_file);
+                                                                            opt.camera_file);
     ImageFormat image_fmt = image_rsrc->format();
     const int num_input_channels = num_channels(image_fmt.pixel_format);
 
@@ -809,22 +812,26 @@ int main( int argc, char* argv[] ) {
         // - Always use an alpha channel with RGB images.
         switch(image_fmt.channel_type) {
         case VW_CHANNEL_UINT8:
-          project_image_alpha_pick_transform<PixelRGBA<uint8> >(opt, dem_georef, target_georef, croppedGeoRef, image_size, 
+          project_image_alpha_pick_transform<PixelRGBA<uint8> >(opt, dem_georef, target_georef,
+                                                                croppedGeoRef, image_size, 
                         Vector2i(virtual_image_width, virtual_image_height),
                         croppedImageBB, camera_model);
           break;
         case VW_CHANNEL_INT16:
-          project_image_alpha_pick_transform<PixelRGBA<int16> >(opt, dem_georef, target_georef, croppedGeoRef, image_size, 
+          project_image_alpha_pick_transform<PixelRGBA<int16> >(opt, dem_georef, target_georef,
+                                                                croppedGeoRef, image_size, 
                         Vector2i(virtual_image_width, virtual_image_height),
                         croppedImageBB, camera_model);
           break;
         case VW_CHANNEL_UINT16:
-          project_image_alpha_pick_transform<PixelRGBA<uint16> >(opt, dem_georef, target_georef, croppedGeoRef, image_size, 
+          project_image_alpha_pick_transform<PixelRGBA<uint16> >(opt, dem_georef, target_georef,
+                                                                 croppedGeoRef, image_size, 
                         Vector2i(virtual_image_width, virtual_image_height),
                         croppedImageBB, camera_model);
           break;
         default:
-          project_image_alpha_pick_transform<PixelRGBA<float32> >(opt, dem_georef, target_georef, croppedGeoRef, image_size, 
+          project_image_alpha_pick_transform<PixelRGBA<float32> >(opt, dem_georef, target_georef,
+                                                                  croppedGeoRef, image_size, 
                         Vector2i(virtual_image_width, virtual_image_height),
                         croppedImageBB, camera_model);
           break;
@@ -835,7 +842,8 @@ int main( int argc, char* argv[] ) {
       if (num_input_channels != 1 || image_fmt.planes != 1)
         vw_throw( ArgumentErr() << "Input images must be single channel or RGB!\n" );
       // This will cast to float but will not rescale the pixel values.
-      project_image_nodata_pick_transform<float>(opt, dem_georef, target_georef, croppedGeoRef, image_size, 
+      project_image_nodata_pick_transform<float>(opt, dem_georef, target_georef, croppedGeoRef,
+                                                 image_size, 
                            Vector2i(virtual_image_width, virtual_image_height),
                            croppedImageBB, camera_model);
     } 
