@@ -219,7 +219,7 @@ def set_or_wipe_image_tags(IMAGE, merged_vals):
 
     # Set the averages
     for key in merged_vals:
-        if IMAGE.find(key) is not None:
+        if IMAGE.find(key) is not None and merged_vals[key] is not None:
             IMAGE.find(key).text = str(merged_vals[key])
                   
 def get_corners(A, B, indices):
@@ -834,7 +834,7 @@ def main():
             # Complete the process of computing the averages
             for key in xml_keys:
                 m_mean = re.match('^.*?MEAN', key, re.IGNORECASE)
-                if m_mean and num_vals[key] != 0:
+                if m_mean and num_vals[key] != 0 and merged_vals[key] is not None:
                     merged_vals[key] /= num_vals[key]
 
             boundary = BBox()
@@ -962,7 +962,7 @@ def main():
         if options.reduce_percent != 100:
             for key in merged_vals:
                 m = re.match('^.*?GSD', key)
-                if m:
+                if m and merged_vals[key] is not None:
                     merged_vals[key] *= 100.0/float(options.reduce_percent)
 
         # Keep some values, average/combine some, and wipe the rest
