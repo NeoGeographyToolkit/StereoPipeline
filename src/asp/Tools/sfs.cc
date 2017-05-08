@@ -158,8 +158,8 @@ namespace vw { namespace camera {
         // 40,000 points should be good enough to determine 78 RPC
         // coefficients.
         double num = 200.0;
-        double delta_col = std::max(1.0, dem.cols()/num);
-        double delta_row = std::max(1.0, dem.rows()/num);
+        double delta_col = std::max(1.0, dem.cols()/double(num));
+        double delta_row = std::max(1.0, dem.rows()/double(num));
         BBox3 llh_box;
         BBox2 pixel_box;
         for (double dcol = 0; dcol < dem.cols(); dcol += delta_col) {
@@ -215,7 +215,7 @@ namespace vw { namespace camera {
         // and horizontal, rather than in a box which is rotated.
         vw_out() << "Re-projecting pixels into the camera to improve accuracy.\n";
         vw::TerminalProgressCallback tpc2("asp", "\t--> ");
-        double inc_amount2 = 1.0 / num;
+        double inc_amount2 = 1.0 / double(num);
         tpc2.report_progress(0);
         llh_box = BBox3();
         pixel_box = BBox2();
@@ -223,8 +223,8 @@ namespace vw { namespace camera {
         all_pixels.clear();
         ImageViewRef<double> interp_dem
           = interpolate(dem, BicubicInterpolation(), ConstantEdgeExtension());
-        double delta_lon = (ll_box.max()[0] - ll_box.min()[0])/num;
-        double delta_lat = (ll_box.max()[1] - ll_box.min()[1])/num;
+        double delta_lon = (ll_box.max()[0] - ll_box.min()[0])/double(num);
+        double delta_lat = (ll_box.max()[1] - ll_box.min()[1])/double(num);
         for (double lon = ll_box.min()[0]; lon <= ll_box.max()[0] + delta_lon; lon += delta_lon) {
           for (double lat = ll_box.min()[1]; lat <= ll_box.max()[1] + delta_lat; lat += delta_lat) {
 
