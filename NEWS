@@ -1,4 +1,7 @@
-*** RELEASE 2.5.4, Upcoming ***
+*** RELEASE 2.6.0, Upcoming ***
+
+ - ISIS update
+    * Now built with ISIS version 3.5.0
 
  - IceBridge processing
     * Added the tool correct_icebridge_l3_dem.
@@ -13,10 +16,12 @@
      for finer-grained control over interest point generation.
 
  - stereo_corr
-   * Added the option --use-sgm which replaces the standard integer
-     correlator with a new semi-global matching correlator.  SGM is
+   * Added new option --stereo-algorithm.  Choices 1 and 2 replaces
+     the standard integer correlator with a new semi-global matching 
+     (SGM) correlator or an MGM correlator respectively.  SGM/MGM is
      slow and memory intensive but it can produce better results
      for some challenging input images, especially for IceBridge.
+     See the manual for more details.
 
  - stereo_tri
   * Added the option --min-triangulation-angle to not triangulate

@@ -350,9 +350,14 @@ AX_PKG_ONE_OF(KAKADU,
 
 if test x"$host_vendor" = "xapple"; then
     AX_PKG(ISIS3RDPARTY, [LAPACK GSL QWT GEOS DSK SPICE XERCESC PROTOBUF CHOLMOD GEOTIFF TIFF HDF5],        [],[],[],[],[],[KAKADU])
+    OPENMPFLAGS=""
+    AC_DEFINE([OSX_BUILD], [1], [Building on OSX?])
 else
     AX_PKG(ISIS3RDPARTY, [LAPACK GSL QWT GEOS DSK SPICE XERCESC SUPERLU PROTOBUF CHOLMOD GEOTIFF TIFF HDF5],[],[],[],[],[],[KAKADU])
+    OPENMPFLAGS="-fopenmp"
+    AC_DEFINE([OSX_BUILD], [0], [Building on OSX?])
 fi
+AC_SUBST(OPENMPFLAGS)
 
 AX_PKG(ISIS, [ISIS3RDPARTY QT], [-lisis3], [SpecialPixel.h])
 if test x"$HAVE_PKG_ISIS" = "xyes"; then

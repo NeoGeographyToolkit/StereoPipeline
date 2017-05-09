@@ -1017,7 +1017,8 @@ int main( int argc, char *argv[] ) {
     handle_arguments( argc, argv, opt );
 
 // TODO: Enable on OSX when clang supports OpenMP!
-#if !(defined(VW_HAVE_PKG_APPLE_LAPACK) && VW_HAVE_PKG_APPLE_LAPACK==1)
+#if (defined(SYSTEM_IS_OSX) && SYSTEM_IS_OSX==1)
+#else
     // Set the number of threads for OpenMP
     omp_set_num_threads(opt.num_threads);
 #endif
