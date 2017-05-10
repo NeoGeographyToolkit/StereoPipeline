@@ -82,7 +82,7 @@ Note that the network speed between HOST and GUEST can be very
 slow. It can be greatly sped up using virtio. This can be done as
 follows:
 
-Shut down the machine, then dump and edit some xml files:
+Shut down the machine, then dump and edit an xml file:
 
 virsh undefine centos-6.0
 virsh dumpxml centos-6.0 > centos-6.0.xml
@@ -99,6 +99,8 @@ add the line:
 Save this file and exit. Then run:
 
 virsh create centos-6.0.xml
+
+and restart the machine. 
 
 Also, the number of CPUs and RAM for GUEST can be changed each time
 before starting it by again editing the xml file.
