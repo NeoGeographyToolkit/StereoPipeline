@@ -5,6 +5,7 @@
 
  - IceBridge processing
     * Added the tool correct_icebridge_l3_dem.
+    * Added the tool fetch_icebridge_data.
 
  - parallel_stereo
    * By default, use as many processes as there are cores, and one

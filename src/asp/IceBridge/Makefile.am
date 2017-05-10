@@ -29,7 +29,7 @@ if MAKE_APP_ICEBRIDGE
   bin_PROGRAMS     += correct_icebridge_l3_dem nav2cam
   libexec_PROGRAMS += qi2txt
   bin_SCRIPTS      += icebridge_kmz_to_csv lvis2kml extract_icebridge_ATM_points \
-			process_icebridge_run process_icebridge_pair
+			process_icebridge_run process_icebridge_pair fetch_icebridge_data
 
   correct_icebridge_l3_dem_SOURCES = correct_icebridge_l3_dem.cc
   correct_icebridge_l3_dem_LDADD = $(APP_ICEBRIDGE_LIBS)
