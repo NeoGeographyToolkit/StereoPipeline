@@ -53,17 +53,6 @@ def makeDateFolder(year, month, day, fileType):
         datePart = ('%04d.%02d.%02d') % (year, month, day)
         return datePart
 
-#def makeFileName(year, month, day, frame, fileType):
-#    
-#    datePart = ('%04d_%02d_%02d_%05d') % (year, month, day, frame)
-#    if fileType == 'image':
-#        ext = 'JPG'
-#    if fileType == 'ortho':
-#        ext = 'tif' # TODO
-#    if fileType == 'dem':
-#        ext = 'tif' # TODO 
-#    return datePart +'.'+ ext
-
 def getFolderUrl(year, month, day, site, fileType):
     '''Get full URL to the location where the files are kept.'''
     
@@ -130,7 +119,7 @@ def main(argsIn):
 
     # Command line parsing
     try:
-        usage  = "usage: fetch_icebridge_data.py [options] output_prefix"
+        usage  = "usage: fetch_icebridge_data.py [options] output_folder"
         parser = optparse.OptionParser(usage=usage)
 
         parser.add_option("--year",  dest="year", type='int', default=None,
@@ -164,10 +153,10 @@ def main(argsIn):
         (options, args) = parser.parse_args(argsIn)
 
         if len(args) == 0:
+            print 'Error: Missing output folder.'
             print usage
             return -1
-        outputPrefix = args[0]
-        outputFolder = os.path.dirname(outputPrefix)
+        outputFolder = os.path.dirname(args[0])
         os.system('mkdir -p ' + outputFolder)
 
         # Handle unified date option
@@ -182,15 +171,18 @@ def main(argsIn):
         # Error checking
         if (not options.year) or (not options.month) or (not options.day):
             print 'Error: year, month, and day must be provided.'
+            print usage
             return -1
         
         # Ortho and DEM files don't need this information to find them.
         if (options.type == 'image') and not (options.site == 'AN' or options.site == 'GR'):
             print 'Error, site must be AN or GR for images.'
+            print usage
             return -1
 
         if not (options.type == 'image' or options.type== 'ortho' or options.type== 'dem'):
             print 'Error, type must be image, ortho, or dem'
+            print usage
             return -1
 
     except optparse.OptionError, msg:
@@ -201,7 +193,7 @@ def main(argsIn):
     
     # Fetch the index for this folder
     filename        = getIndexFileName(options.type)
-    indexPath       = outputPrefix + filename
+    indexPath       = os.path.join(outputFolder, filename)
     parsedIndexPath = indexPath + '.csv'
     if options.refetchIndex:
         os.system('rm -f ' + indexPath)
@@ -227,9 +219,6 @@ def main(argsIn):
             if frameNumber > lastFrame:
                 lastFrame = frameNumber
 
-    #print frameDict
-    #raise Exception('DEBUG')
-    
     if options.allFrames:
         options.frame     = firstFrame
         options.frameStop = lastFrame
@@ -241,27 +230,39 @@ def main(argsIn):
                'Last  available frame is: ' + str(lastFrame )+'.\n')
         return -1
     
+    # Init the big curl command
+    # - We will add multiple file targets and then execute the command
+    cookiePaths = ' -b ~/.urs_cookies -c ~/.urs_cookies '
+    baseCmd     = 'curl -n -L ' + cookiePaths
+    curlCmd     = baseCmd
+    
+    # What is the maximum number of files that can be downloaded with one call?
+    MAX_IN_ONE_CALL = 100
+    
+    # Loop through all requested frames
+    currentFileCount = 0
     for frame in range(options.frame, options.frameStop+1):
-       
-        # Verify that this frame exists in the index file
         
-        #filename   = makeFileName(options.year, options.month, options.day, frame, options.type)
         filename   = frameDict[frame]
         url        = os.path.join(folderUrl, filename)
-        outputPath = outputPrefix + filename
-        
+        outputPath = os.path.join(outputFolder, filename)
+            
         if fileExists(outputPath):
             print 'File ' + outputPath + ' already exists, skipping it.'
         else:
-            # Set up the command
-            cookiePaths = ' --load-cookies ~/.urs_cookies --save-cookies ~/.urs_cookies '
-            wgetOpts    = ' --keep-session-cookies --no-check-certificate --auth-no-challenge=on -r --reject "index.html*" -np -e robots=off '
-            cmd = 'wget ' + cookiePaths + wgetOpts + url + ' -O ' + outputPath
+            # Add to the command
+            curlCmd += ' -O ' + url
+            currentFileCount += 1 # Number of files in the current download command
         
-            # Download the file
-            print cmd
+        # Download the indicated files when we hit the limit or run out of files
+        if (currentFileCount >= MAX_IN_ONE_CALL) or (frame == options.frameStop):
+            print curlCmd
             if not options.dryRun:
-                os.system(cmd)
+                p = subprocess.Popen(curlCmd, cwd=outputFolder, shell=True)
+                os.waitpid(p.pid, 0)
+            # Start command fresh for the next file
+            currentFileCount = 0
+            curlCmd          = baseCmd
 
 
 if __name__ == "__main__":
