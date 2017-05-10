@@ -167,7 +167,9 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
                                               left_cam, right_cam,
                                               left_masked_image, right_masked_image,
                                               left_out_size, right_out_size,
-                                              Limg, Rimg, ext);
+                                              Limg, Rimg,
+                                              ext,
+                                              BilinearInterpolation());
     } else { // Handle CAHV derived models
     
       camera_models( left_cam, right_cam );

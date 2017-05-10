@@ -25,11 +25,9 @@ root drives, which makes it hard to use the storage efficiently. That
 should be disabled, or otherwise more storage can be pre-allocated, or
 the build can be built partially in /home and partially in /.
 
-Also, CentOS does not start the network on boot, that can be rectified by running,
-as root:
+Also, CentOS does not start the network on boot, that can be rectified by running:
 
- cd /etc/sysconfig/network-scripts/ 
- sed -i -e 's@^ONBOOT="no@ONBOOT="yes@' ifcfg-eth0
+sudo sed -i -e 's@^ONBOOT="no@ONBOOT="yes@' /etc/sysconfig/network-scripts/ifcfg-eth0
 
 and rebooting. Or, for the current session, with:
 
@@ -81,11 +79,47 @@ ssh GUEST.
 Occasionally a port may become unavailable, and hence will need to be changed.
 
 Note that the network speed between HOST and GUEST can be very
-slow. It can be greatly sped up using virtio. Also, the number of CPUs
-and RAM for GUEST can be changed each time before starting it.
+slow. It can be greatly sped up using virtio. This can be done as
+follows:
+
+Shut down the machine, then dump and edit some xml files:
+
+virsh undefine centos-6.0
+virsh dumpxml centos-6.0 > centos-6.0.xml
+vim centos-6.0.xml
+
+Under the line
+
+ <mac address='...'/> 
+
+add the line:
+
+ <model type='virtio'/>   
+
+Save this file and exit. Then run:
+
+virsh create centos-6.0.xml
+
+Also, the number of CPUs and RAM for GUEST can be changed each time
+before starting it by again editing the xml file.
+
+To allow the user to use sudo to install packages, follow the instructions at:
+
+https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux_OpenStack_Platform/2/html/Getting_Started_Guide/ch02s03.html        
 
 If the development tools on CentOS are old, they can be updated by
-using devtoolset-3. The PATH variable may need to be updated to point
-to the new version of the tools.
+using devtoolset-3:
 
+sudo yum -y install centos-release-scl
 
+sudo yum -y install devtoolset-3-gcc devtoolset-3-gcc-c++ devtoolset-3-gcc-gfortran
+
+After the new tools are installed, run:
+
+scl enable devtoolset-3 bash
+
+The path to the new compilers, e.g., /opt/rh/devtoolset-3/root/usr/bin,
+can be saved so that in the future one need not invoke scl each time. 
+
+See INSTALLGUIDE for how to continue the installation of dependencies
+and building ASP.
