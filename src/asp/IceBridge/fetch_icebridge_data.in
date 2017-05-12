@@ -152,18 +152,17 @@ def main(argsIn):
         # This call handles all the parallel_mapproject specific options.
         (options, args) = parser.parse_args(argsIn)
 
-        if len(args) == 0:
+        if len(args) != 1:
             print 'Error: Missing output folder.'
             print usage
             return -1
-        outputFolder = os.path.dirname(args[0])
-        os.system('mkdir -p ' + outputFolder)
+        outputFolder = os.path.abspath(args[0])
 
         # Handle unified date option
         if options.yyyymmdd:
-            options.year  = int(options.yyyymmdd[0,4])
-            options.month = int(options.yyyymmdd[4,6])
-            options.day   = int(options.yyyymmdd[6,8])
+            options.year  = int(options.yyyymmdd[0:4])
+            options.month = int(options.yyyymmdd[4:6])
+            options.day   = int(options.yyyymmdd[6:8])
 
         if not options.frameStop:
             options.frameStop = options.frame
@@ -187,6 +186,16 @@ def main(argsIn):
 
     except optparse.OptionError, msg:
         raise Exception(msg)
+
+    # Verify that required files exist
+    home = os.path.expanduser("~")
+    if not (os.path.exists(home+'/.netrc') and os.path.exists(home+'/.urs_cookies')):
+        print 'Missing a required authentication file!  See instructions here:'
+        print '    https://nsidc.org/support/faq/what-options-are-available-bulk-downloading-data-https-earthdata-login-enabled'
+        return -1
+    
+    print 'Creating output folder: ' + outputFolder
+    os.system('mkdir -p ' + outputFolder)
 
     # This URL contains all of the files
     folderUrl = getFolderUrl(options.year, options.month, options.day, options.site, options.type)
