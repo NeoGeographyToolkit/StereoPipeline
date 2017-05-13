@@ -92,16 +92,13 @@ public:
       max_half_kernel = m_max_smooth_kernel_size;
     max_half_kernel = (max_half_kernel-1) / 2;
 
-    //std::cout << "Rasterizing input images...\n";
     // Rasterize both input image regions
     BBox2i bbox2 = bbox;
     bbox2.expand(max_half_kernel);
     bbox2.crop(bounding_box(m_img)); // Restrict to valid input area
-    //std::cout << "bbox2 = " << bbox2 << std::endl;
     ImageView<typename ImageT::pixel_type> input_tile      = crop(m_img,      bbox2);
     ImageView<pixel_type                 > input_disp_tile = crop(m_disp_img, bbox2);
 
-    //std::cout << "Generating texture image...\n";
     ImageView<float> texture_image;
     vw::stereo::texture_measure(input_tile, texture_image, m_texture_smooth_range);
     //write_image( "texture_image.tif", texture_image );
@@ -110,12 +107,9 @@ public:
     ImageView<pixel_type > disp_tile_median;
     vw::stereo::disparity_median_filter(input_disp_tile, disp_tile_median, m_median_filter_size);
     
-    //std::cout << "Filtering disparity image...\n";
     ImageView<pixel_type > disp_tile_filtered;
     vw::stereo::texture_preserving_disparity_filter(disp_tile_median, disp_tile_filtered, texture_image, 
                                                     m_texture_max, m_max_smooth_kernel_size);
-    //std::cout << "Done!\n";
-
 
     // Fake the bounds on the returned image region
     return prerasterize_type(disp_tile_filtered,
@@ -436,7 +430,6 @@ void stereo_filtering( ASPGlobalOptions& opt ) {
              opt);
       }
       else { // No cleanup passes
-        std::cout << "Using smoothing filter!\n";
         write_good_pixel_and_filtered
           (stereo::disparity_mask
             (
