@@ -1,11 +1,12 @@
 *** RELEASE 2.6.0, Upcoming ***
 
- - ISIS update
-    * Now built with ISIS version 3.5.0
-
- - IceBridge processing
-    * Added the tool correct_icebridge_l3_dem.
-    * Added the tool fetch_icebridge_data.
+ - New tools
+    * Added cam2rpc, a tool to create an RPC model from any
+      ASP-supported camera. Such cameras can be used with ASP for
+      Earth and planetary data (stereo's --datum option must be set),
+      or passed to third-party stereo tools S2P and SETSM. 
+    * Added correct_icebridge_l3_dem for IceBridge.
+    * Added fetch_icebridge_data for IceBridge.
 
  - parallel_stereo
    * By default, use as many processes as there are cores, and one
@@ -97,6 +98,7 @@
      --alignment-method [ least-squares | similarity-least-squares ]
 
  - Misc
+  * Built with ISIS 3.5.0.
   * Minimum supported OS versions are OSX 10.11, RHEL 6, SUSE 12, and
     Ubuntu 14.
   * Ship with GDAL's gdalwarp and gdaldem.
