@@ -31,6 +31,18 @@ if MAKE_APP_CSV_FILTER
   bin_PROGRAMS         += csv_filter
 endif
 
+if MAKE_APP_S2P_PPRC
+  s2p_pprc_LDADD    = $(APP_S2P_PPRC_LIBS)
+  s2p_pprc_SOURCES  = s2p_pprc.cc
+  bin_PROGRAMS     += s2p_pprc
+endif
+
+if MAKE_APP_S2P_FLTR
+  s2p_fltr_LDADD    = $(APP_S2P_FLTR_LIBS)
+  s2p_fltr_SOURCES  = s2p_fltr.cc
+  bin_PROGRAMS     += s2p_fltr
+endif
+
 # Scripts
 ##############################################################################
 
