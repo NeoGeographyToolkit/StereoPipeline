@@ -12,8 +12,8 @@ A sample \texttt{stereo.default.example} file is included in the
 \texttt{examples/} directory of the Stereo Pipeline software
 distribution.
 
-As mentioned in section \ref{cmdline}, all the \texttt{stereo} parameters can also be specified on the
-command line.
+As mentioned in section \ref{cmdline}, all the \texttt{stereo}
+parameters can also be specified on the command line.
 
 Listed below are the parameters used by \texttt{stereo}, grouped by
 processing stage.
@@ -120,8 +120,14 @@ A higher threshold will result in more interest points, but perhaps also more ou
 A higher threshold will result in more interest points, but perhaps less unique ones.
 
 \item[nodata-value \textnormal (default = none)] \hfill \\
-  Pixels with values less than or equal to this number are treated as
-  no-data. This overrides the nodata values from input images.
+Pixels with values less than or equal to this number are treated as
+no-data. This overrides the nodata values from input images.
+
+\item[datum \textnormal (default = WGS\_1984)] \hfill \\ Set the datum
+to use with RPC camera models. Options: WGS\_1984, D\_MOON (1,737,400
+meters), D\_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83,
+WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), Moon
+(=D\_MOON).
 
 \end{description}
 

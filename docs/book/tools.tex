@@ -1284,7 +1284,7 @@ Usage:
   mapproject [options] <dem> <camera-image> <camera-model> <output-image>
 \end{verbatim}
 
-\begin{longtable}{|l|p{10cm}|}
+\begin{longtable}{|l|p{9.5cm}|}
 \caption{Command-line options for mapproject}
 \label{tbl:mapproject}
 \endfirsthead
@@ -1316,6 +1316,82 @@ output prefix. \\ \hline
 \texttt{-\/-no-bigtiff} & Tell GDAL to not create bigtiffs.\\ \hline
 \texttt{-\/-tif-compress None|LZW|Deflate|Packbits} & TIFF compression method.\\ \hline
 \end{longtable}
+
+\clearpage
+
+\section{cam2rpc}
+\label{cam2rpc}
+
+This tool is used to generate an approximate RPC model for any camera
+model supported by ASP, in a given longitude-latitude-height region for
+a given datum, or for a terrain covered by a given DEM. If
+\texttt{-\/-save-tif-image} is specified, the image portion
+corresponding to the RPC model will be saved in the TIF format. 
+
+The obtained RPC models and images can be used with \texttt{stereo}
+(when the latter is invoked with \texttt{-\/-session-type rpc} and the
+correct datum is specified via \texttt{-\/-datum}). These can also be
+passed to the third-party \texttt{S2P} and \texttt{SETSM} stereo
+software, though both of these packages work for Earth only.
+
+The accuracy of RPC models generally degrades if expected to cover
+very large regions. Hence, they can be used piecewise, and
+the obtained terrain models from ASP can be then mosaicked together
+using \texttt{dem\_mosaic}.
+
+Example for ISIS cub cameras for Mars:
+
+\begin{verbatim}
+ cam2rpc input.cub output.xml --session-type isis --datum D_MARS --save-tif-image \
+   --height-range -10000 -9000 --lon-lat-range 141.50 34.43 141.61 34.15          \
+   --num-samples 40 --penalty-weight 0.03 --gsd 1
+\end{verbatim}
+
+Example for pinhole cameras, where instead of sampling a lon-lat-height box,
+values from a DEM are used.
+\begin{verbatim}
+ cam2rpc input.tif input.tsai output.xml --session-type nadirpinhole             \
+   --dem-file DEM.tif --save-tif-image --image-crop-box 90 70 5511 3675
+\end{verbatim}
+
+Here we have constrained the RPC camera model and output image to not go beyond
+a given bounding box. 
+
+Usage:
+\begin{verbatim}
+  cam2rpc [options] <camera-image> <camera-model> <output-rpc>
+\end{verbatim}
+
+\begin{longtable}{|l|p{7.0cm}|}
+\caption{Command-line options for cam2rpc}
+\label{tbl:cam2rpc}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Option & Description \\ \hline \hline
+\texttt{-\/-datum arg} & Use this datum to interpret the heights. Options: WGS\_1984, D\_MOON (1,737,400 meters), D\_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), Moon (=D\_MOON).\\ \hline
+\texttt{-\/-lon-lat-range arg (=0 0 0 0)} & The longitude-latitude range in which to compute the RPC model. Specify in the format: lon\_min lat\_min lon\_max lat\_max.\\ \hline
+\texttt{-\/-height-range arg (=0 0)} & Minimum and maximum heights above the datum in which to compute the RPC model.\\ \hline
+\texttt{-\/-num-samples arg (=40)} & How many samples to use in each direction in the longitude-latitude-height range.\\ \hline
+\texttt{-\/-penalty-weight arg (=0.03)} & A higher penalty weight will result in smaller higher-order RPC coefficients.\\ \hline
+\texttt{-\/-save-tif-image} & Save a TIF version of the input image that approximately corresponds to the input longitude-latitude-height range and which can be used for stereo together with the RPC model.\\ \hline
+\texttt{-\/-output-nodata-value arg (=-3.40282347e+38)} & Set the image output nodata value.\\ \hline
+\texttt{-t | -\/-session-type  arg} & Select the input camera model type. Normally this is auto-detected, but may need to be specified if the input camera model is in XML format. Options: pinhole isis rpc dg spot5 aster.\\ \hline
+\texttt{-\/-image-crop-box arg (=0 0 0 0)} & The output image and RPC model should not exceed this box, specified in input image pixels as minx miny widx widy.\\ \hline
+\texttt{-\/-no-crop} & Try to create an RPC model over the entire input image, even if the input longitude-latitude-height box covers just a small portion of it. Not recommended.\\ \hline
+\texttt{-\/-skip-computing-rpc} & Skip computing the RPC model.\\ \hline
+\texttt{-\/-dem-file arg} & Instead of using a longitude-latitude-height box, sample the surface of this DEM.\\ \hline
+\texttt{-\/-gsd arg (=-1)} & Expected resolution on the ground, in meters. This is needed for SETSM.\\ \hline
+\texttt{-\/-threads arg (=0)} & Select the number of processors (threads) to use.\\ \hline
+\texttt{-\/-tile-size arg (=256, 256)} & Image tile size used for multi-threaded processing.\\ \hline
+\texttt{-\/-no-bigtiff} & Tell GDAL to not create bigtiffs.\\ \hline
+\texttt{-\/-tif-compress arg (=LZW)} & TIFF Compression method. [None, LZW, Deflate, Packbits]\\ \hline
+\texttt{-v | -\/-version } & Display the version of software.\\ \hline
+\texttt{-h | -\/-help } & Display this help message.\\ \hline
+\end{longtable}
+
 
 \clearpage
 
@@ -2465,7 +2541,7 @@ Usage:
 Option & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message. \\ \hline
 \texttt{-\/-output-file|-o \textit{filename}} & Specify the output file. \\ \hline
-\texttt{-\/-output-nodata-value \textit{double(=0)}} & 
+\texttt{-\/-output-nodata-value \textit{double(=smallest float)}} & 
 Set the output nodata value. Only applicable if the output is a single-channel 
 image with pixels that are float or double.  \\ \hline
 

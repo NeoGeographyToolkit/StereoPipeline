@@ -725,35 +725,44 @@ Download the N1511700120\_1.IMG and W1567133629\_1.IMG images and their label (.
 Processing of Digital Globe images is described extensively in the
 tutorial in chapter \ref{ch:dg_tutorial}.
 
-\section{GeoEye and Astrium Imagery / RPC Imagery}
+\section{RPC Imagery, including GeoEye and Astrium}
 \label{rpc}
 
-GeoEye provides imagery from Ikonos and the two GeoEye
-satellites. Astrium provides imagery from SPOT and Pleiades
-satellites. Both companies provide only Rational Polynomial Camera
-(RPC) models. RPC represents four 20-element
-polynomials that map geodetic coordinates to image coordinates. Since
-they are easy to implement, RPC represents a universal camera model
-and can be had from many imaging providers; Digital Globe also
-provides them. The only downside is that it has less precision in our
-opinion compared to the linear camera model provided by Digital
-Globe. For GeoEye and Astrium, the only option is using RPC.
+Some vendors, such as GeoEye with its Ikonos and two GeoEye satellites,
+and Astrium, with its SPOT and Pleiades satellites, provide only
+Rational Polynomial Camera (RPC) models. Digital Globe provides both
+exact linescan camera models and their RPC approximations.
+
+RPC represents four 20-element polynomials that map geodetic coordinates
+(longitude-latitude-height above datum)
+to image pixels. Since they are easy to implement and fast to
+evaluate, RPC represents a universal camera model providing a simple
+approximation to complex exact camera models that are unique to each
+vendor. The only downside is that it has less precision in our
+opinion compared to the exact camera models.
+
+ASP provides a tool named \texttt{cam2rpc} (section \ref{cam2rpc}), that can be
+used to create RPC camera models from ISIS and all other cameras
+that we support, including for non-Earth planets. How to use
+such models with stereo is shown below.   
 
 Our RPC read driver is GDAL. If the command \texttt{gdalinfo} can identify
 the RPC information inside the headers of your files, ASP will likely
 be able to see it as well. This means that sometimes we can get away
 with only providing a left and right image, with no extra files
 containing camera information. This is specifically the
-case for GeoEye.
+case for GeoEye. Otherwise, the camera files must be specified 
+separately in XML files, as done for Digital
+Globe images (section \ref{rawdg}).  
 
-You can download an example stereo pair from GeoEye's website at
-\cite{geoeye:samples}. When we accessed the site, we downloaded a
-GeoEye-1 image of Hobart, Australia. As previously stated in the
-Digital Globe section, these types of images are not ideal for
-ASP. This is both a forest and a urban area which makes
-correlation difficult. ASP was designed more for modeling bare rock
-and ice. Any results we produce in other environments is a bonus but
-is not our objective.
+For a first test, you can download an example stereo pair from GeoEye's
+website at \cite{geoeye:samples}. When we accessed the site, we
+downloaded a GeoEye-1 image of Hobart, Australia. As previously stated
+in the Digital Globe section, these types of images are not ideal for
+ASP. This is both a forest and a urban area which makes correlation
+difficult. ASP was designed more for modeling bare rock and ice. Any
+results we produce in other environments is a bonus but is not our
+objective.
 
 \begin{figure}[h!]
 \centering
@@ -764,17 +773,21 @@ is not our objective.
 \label{fig:geoeye-nomap-example}
 \end{figure}
 
-\subsubsection*{Commands}
+\subsubsection*{Command}
 
 \begin{verbatim}
-    > stereo -t rpc po_312012_pan_0000000.tif po_312012_pan_0010000.tif geoeye/geoeye
+   stereo -t rpc po_312012_pan_0000000.tif po_312012_pan_0010000.tif geoeye/geoeye
 \end{verbatim}
 
-In case the image files do not contain the RPC models, separate XML
-files having this information need to be provided, as done for Digital
-Globe images (section \ref{rawdg}).
+If RPC cameras are specified separately, the \texttt{stereo} command
+looks as follows. This example is for Mars, with the RPC models created
+with \texttt{cam2rpc} from ISIS cubes.  So the datum has to be set.
 
-For terrain having steep slopes, we recommend that images be map-projected
+\begin{verbatim}
+  stereo -t rpc --datum D_MARS left.tif right.tif left.xml right.xml run/run
+\end{verbatim}
+
+For terrains having steep slopes, we recommend that images be map-projected
 onto an existing DEM before running stereo. This is described in section
 \ref{mapproj-example}.
 
@@ -1018,3 +1031,4 @@ using a finer resolution results in longer run-time.
 
 We also tried to first bundle-adjust the cameras, using ASP's \texttt{bundle\_adjust}.
 We did not notice a noticeable improvement in results. 
+
