@@ -81,7 +81,7 @@ sudo apt-get install -y python g++ gfortran csh libtool libtool-bin             
 If the package libtool-bin is not available (on older Linux versions),
 it can be simply removed, as libtool has all the functionality.
 
-For Red Hat-based distributions (use at least version 6) one can do instead:
+For Red Hat-based distributions (CentOS/RHEL version >= 6) one can do instead:
 
 sudo yum -y install python gcc-c++ gcc-gfortran tcsh libtool autoconf               \
   automake openssl-devel wget curl git subversion xorg-x11-server-Xorg libX11-devel \
