@@ -1,0 +1,227 @@
+#!/usr/bin/env python
+# __BEGIN_LICENSE__
+#  Copyright (c) 2009-2013, United States Government as represented by the
+#  Administrator of the National Aeronautics and Space Administration. All
+#  rights reserved.
+#
+#  The NGT platform is licensed under the Apache License, Version 2.0 (the
+#  "License"); you may not use this file except in compliance with the
+#  License. You may obtain a copy of the License at
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+# __END_LICENSE__
+
+# Fetch all the data for a run and then process all the data.
+
+import os, sys, optparse, datetime, multiprocessing, time
+import fetch_icebridge_data
+import process_icebridge_run
+import extract_icebridge_ATM_points
+
+# The path to the ASP python files
+basepath    = os.path.abspath(sys.path[0])
+pythonpath  = os.path.abspath(basepath + '/../Python')     # for dev ASP
+libexecpath = os.path.abspath(basepath + '/../libexec')    # for packaged ASP
+sys.path.insert(0, basepath) # prepend to Python path
+sys.path.insert(0, pythonpath)
+sys.path.insert(0, libexecpath)
+
+import asp_system_utils, asp_alg_utils, asp_geo_utils
+asp_system_utils.verify_python_version_is_supported()
+
+# Prepend to system PATH
+os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
+os.environ["PATH"] = basepath    + os.pathsep + os.environ["PATH"]
+
+
+def fetchAllRunData(yyyymmdd, site, outputFolder):
+    '''Download all data needed to process a run'''
+    
+    print 'Downloading all data for the run!  This could take a while...'
+    
+    # TODO: Provide options for this
+    frameStart = 100
+    frameStop  = 110
+    
+    imageFolder = os.path.join(outputFolder, 'jpeg')
+    orthoFolder = os.path.join(outputFolder, 'ortho')
+    demFolder   = os.path.join(outputFolder, 'fireball')
+    lidarFolder = os.path.join(outputFolder, 'lidar')
+    
+    baseCommand = (('--yyyymmdd %s --site %s --frame %d --frame-stop %d')
+                   % (yyyymmdd, site, frameStart, frameStop))
+    imageCommand = '--type image ' + baseCommand +' '+ imageFolder
+    orthoCommand = '--type ortho ' + baseCommand +' '+ orthoFolder
+    demCommand   = '--type dem   ' + baseCommand +' '+ demFolder
+    lidarCommand = '--type lidar ' + baseCommand +' '+ lidarFolder
+    
+    # TODO: Handle runs without DEM or ORTHO data.
+    
+    # Try to do all the downloads one after another
+    # - On a failure the error message should already be printed.
+    # - The fetching tool will not redownload existing data.
+    if fetch_icebridge_data.main(imageCommand) < 0:
+        return -1
+    if fetch_icebridge_data.main(orthoCommand) < 0:
+        return -1
+    if fetch_icebridge_data.main(demCommand  ) < 0:
+        print 'DEM data is optional, continuing run.'
+    if fetch_icebridge_data.main(lidarCommand) < 0:
+        return -1
+
+    return (imageFolder, orthoFolder, demFolder, lidarFolder)
+
+
+# TODO: Move these kinds of functions to another file!
+
+def getImageFrameNumber(filename):
+    '''Return the frame number from an input image file'''
+    return int(filename[12:17])
+
+def getOrthoFrameNumber(filename):
+    '''Return the frame number from an input ortho file'''
+    return int(filename[13:18])
+
+
+
+def getCameraFileName(imageFileName):
+    '''Get the camera file name we associate with an input image file'''
+    return imageFile.replace('.jpeg', '.tsai')
+
+def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCamFile, cameraFolder):
+    '''Generate camera models from the ortho files'''
+    
+    print 'Generating camera models from ortho images...'
+    
+    imageFiles = os.listdir(imageFolder)
+    orthoFiles = os.listdir(orthoFolder)
+    
+    # Make a dictionary of ortho files by frame
+    orthoFrames = {}
+    for f in orthoFiles:
+        frame = getOrthoFrameNumber(f)
+        orthoFrames[frame] = f
+
+    # Loop through all input images
+    for imageFile in imageFiles:
+        
+        # Get associated orthofile
+        frame     = getImageFrameNumber(imageFile)       
+        orthoFile = orthoFrames[frame]
+        
+        # Check output file
+        outputCamFile = os.path.join(cameraFolder, getCameraFileName(imageFile))
+        if os.path.exists(outputCamFile):
+            continue
+        
+        # Call conversion command
+        cmd = (('ortho2pinhole ') % (imageFile, orthoFile, inputCamFile, outputCamFile))
+        os.system(cmd)
+        if not os.path.exists(outputCamFile):
+            raise Exception('Failed to parse LIDAR file: ' + orthoFile)
+
+def convertLidarData(lidarFolder):
+    '''Make sure all lidar data is available in a readable text format'''
+
+    print 'Converting LIDAR files...'
+    
+    # Loop through all lidar files in the folder
+    lidarFiles = os.listdir(lidarFolder)
+    for f in lidarFiles:
+        extension = os.path.splitext(f)[1]
+        
+        # Only interested in .hdf5 and .qi files
+        if (extension != '.qi') and (extension != '.hdf5'):
+           continue
+
+        # Handle paths
+        fullPath   = os.path.join(lidarFolder, f)
+        outputPath = os.path.join(lidarFolder, os.path.splitext(f)[0]+'.csv')
+        if os.path.exists(outputPath):
+            continue
+        
+        # Call the conversion
+        extract_icebridge_ATM_points.main(fullPath)
+        if not os.path.exists(outputPath):
+            raise Exception('Failed to parse LIDAR file: ' + fullPath)
+
+def processTheRun(imageFolder, orthoFolder, lidarFolder, outputFolder, isSouth):
+    '''Do all the run processing'''
+
+    processFolder = os.path.join(outputFolder, 'processed')
+    processCommand = (('%s %s %s %s %s --use-sgm --processing-algorithm')
+                      % (imageFolder, cameraFolder, lidarFolder, processFolder))
+    if isSouth:
+        processCommand += ' --south'
+        
+    print processCommand
+    raise Exception('DEBUG')
+        
+    process_icebridge_run(processCommand)
+    #process_icebridge_run inputs/image_files inputs/camera_files_ortho2pin inputs/lidar run_tmp_ortho2pin
+    # --num-processes 1 --start-frame $i --stop-frame $j --subpixel-mode 1 --bundle-adjust
+    # --pc-align --south --max-displacement 100 --use-sgm --tri-view
+
+    
+def main(argsIn):
+
+    try:
+        usage = '''usage: full_processing_script.py <output_folder> <camera_file>
+
+  [ASP [@]ASP_VERSION[@]]'''
+                      
+        parser = optparse.OptionParser(usage=usage)
+
+        # TODO: Import needed options
+        
+        parser.add_option("--yyyymmdd",  dest="yyyymmdd", default=None,
+                          help="Specify the year, month, and day in one YYMMDD string.")
+        parser.add_option("--site",  dest="site", default=None,
+                          help="Name of the location of the images (AN or GR)")
+        
+        (options, args) = parser.parse_args(argsIn)
+
+        if len(args) != 2:
+            print usage
+            return -1
+        
+        outputFolder = os.path.abspath(args[0])
+        cameraFile   = os.path.abspath(args[1])
+
+    except optparse.OptionError, msg:
+        raise Usage(msg)
+
+    # Call data fetch routine and check the result
+    fetchResult = fetchAllRunData(options.yyyymmdd, options.site, outputFolder)
+    if fetchResult == -1:
+        return -1
+    (imageFolder, orthoFolder, demFolder, lidarFolder) = fetchResult
+    
+    # TODO: Handle case where orthofiles are not present!
+    # TODO: What arguments need to be passed in here!
+    cameraFolder = os.path.join(outputFolder, 'camera')
+    getCameraModelsFromOrtho(imageFolder, orthoFolder, cameraFile, cameraFolder)
+    
+    convertLidarData(lidarFolder)
+    
+    south = (options.site == 'AN')
+
+    # TODO: Add more options!
+    # Call the processing routine
+    processTheRun(imageFolder, orthoFolder, lidarFolder, outputFolder, isSouth)
+
+#process_icebridge_run inputs/camera_files inputs/camera_files inputs/lidar run_output2 --num-processes $num --start-frame $beg --stop-frame $end --bundle-adjust --tri-view --pc-align --max-displacement 30 --subpixel-mode 1 --use-sgm
+
+    
+
+# Run main function if file used from shell
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
+
+
+
