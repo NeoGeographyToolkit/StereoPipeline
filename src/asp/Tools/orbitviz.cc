@@ -50,15 +50,13 @@ using namespace vw;
 using namespace vw::camera;
 using namespace vw::cartography;
 namespace po = boost::program_options;
-//namespace fs = boost::filesystem;
+namespace fs = boost::filesystem;
 
 struct Options : public vw::cartography::GdalWriteOptions {
   Options() : seperate_camera_files(true) {}
   // Input
   std::vector<std::string> input_files;
-  std::string stereo_session_string, 
-              path_to_outside_model, 
-              bundle_adjust_prefix;
+  std::string stereo_session_string, path_to_outside_model, bundle_adjust_prefix;
 
   // Settings
   bool seperate_camera_files, write_csv, load_camera_solve, hide_labels;
@@ -126,8 +124,6 @@ size_t get_files_in_folder(std::string              const& folder,
   }
   return output.size();
 }
-
-
 
 // TODO: Eliminate bool input and move somewhere else.
 /// Seperates a list of files into camera files and image files.
@@ -232,17 +228,13 @@ size_t get_files_from_solver_folder(std::string                 const& solver_fo
   return num_images;
 }
 
-
-
-// MAIN
-//***********************************************************************
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
     ("output,o",                po::value(&opt.out_file)->default_value("orbit.kml"),
           "The output kml file that will be written")
-    ("reference-spheroid,r",    po::value(&opt.datum)->default_value(""),
-          "Set a reference spheroid [moon, mars, wgs84].")
+    ("reference-spheroid,r",    po::value(&opt.datum)->default_value("WGS_1984"),
+     "Use this reference spheroid (datum). Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("use-path-to-dae-model,u", po::value(&opt.path_to_outside_model),
           "Instead of using an icon to mark a camera, use a 3D model with extension .dae")
     ("linescan-line",          po::value(&opt.linescan_line)->default_value(0),
@@ -253,12 +245,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("model-scale",             po::value(&opt.model_scale)->default_value(1.0/30.0),
           "Scale factor applied to 3D model size.")
     ("session-type,t",          po::value(&opt.stereo_session_string),
-          "Select the stereo session type to use for processing. [options: pinhole isis spot5 dg aster]")
+          "Select the stereo session type to use for processing. Options: pinhole isis spot5 dg aster.")
     ("load-camera-solve",       po::bool_switch(&opt.load_camera_solve)->default_value(false)->implicit_value(true),
           "Load the results from a run of the camera-solve tool. The only positional argument must be the path to the camera-solve output folder.")
-    ("write-csv", "Write a csv file with the orbital the data.")
+    ("write-csv", po::bool_switch(&opt.write_csv)->default_value(false),
+     "Write a csv file with the orbital data.")
     ("bundle-adjust-prefix",    po::value(&opt.bundle_adjust_prefix),
-          "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.");
+     "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.");
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
@@ -268,7 +261,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("input-files", -1);
 
-  std::string usage("[options] <input image> <input camera model> <...and repeat...>\nNote: All cameras and their images must be of the same session type. Camera models only can be used as input for stereo sessions pinhole and isis.");
+  std::string usage("[options] <input images and cameras>\nNote: All cameras and their images must be of the same session type.");
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
@@ -276,55 +269,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                              positional, positional_desc, usage,
                              allow_unregistered, unregistered  );
 
-  // Determining if feed only camera model
-  if ( opt.input_files.size() == 1 )
-    opt.seperate_camera_files = false;
-  else if ( opt.input_files.size() > 1 ) {
-    // If the files have different extensions, set opt.seperate_camera_files
-    std::string first_extension = get_extension(opt.input_files[0], false);
-    //std::cout << "first_extension = " << first_extension << std::endl;
-    if ( boost::iends_with(opt.input_files[1], first_extension ) )
-      opt.seperate_camera_files = false;
-  }
-  //std::cout << "opt.seperate_camera_files = " << opt.seperate_camera_files << std::endl;
-
-  if ( opt.input_files.size() == 0 ||
-       (opt.seperate_camera_files && opt.input_files.size() < 2) )
-    vw_throw( ArgumentErr() << usage << general_options );
-
-  opt.write_csv = vm.count("write-csv");
-
   // Need this to be able to load adjusted camera models. That will happen
   // in the stereo session.
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
-
-  // Look up for session type based on file extensions
-  if (opt.stereo_session_string.empty()) {
-    std::string type_containing_string = opt.input_files[0];
-    if ( opt.seperate_camera_files ) // Look in camera model file instead of image file
-      type_containing_string = opt.input_files[1];
-    
-    if ( boost::iends_with(type_containing_string, ".cahvor") ||
-         boost::iends_with(type_containing_string, ".cahv"  ) ||
-         boost::iends_with(type_containing_string, ".pin"   ) ||
-         boost::iends_with(type_containing_string, ".tsai"  ) ) {
-      vw_out() << "\t--> Detected pinhole camera file\n";
-      opt.stereo_session_string = "pinhole";
-    } else if (boost::iends_with(type_containing_string, ".cub") ) {
-      vw_out() << "\t--> Detected ISIS cube file\n";
-      opt.stereo_session_string = "isis";
-    } else if (boost::iends_with(type_containing_string, ".bil") ) {
-      vw_out() << "\t--> Detected SPOT5 file\n";
-      opt.stereo_session_string = "spot5";
-    } else {
-      vw_throw( ArgumentErr() 
-                << "\n\n******************************************************************\n"
-                << "Could not determine stereo session type.   Please set it explicitly\n"
-                << "using the -t switch.\n"
-                << "******************************************************************\n\n" );
-    }
-  }
-
 }
 
 int main(int argc, char* argv[]) {
@@ -335,21 +282,38 @@ int main(int argc, char* argv[]) {
 
 
     // Get the list of image files and camera model files
-    size_t num_cameras;
+    size_t num_cameras = 0;
     std::vector<std::string> image_files, camera_files;
     std::vector<std::vector<int> > matched_cameras;
-    if (!opt.load_camera_solve)
-      num_cameras = split_files_list(opt.input_files, image_files, camera_files, 
-                                     opt.seperate_camera_files);
-    else
+    if (!opt.load_camera_solve) {
+      image_files = opt.input_files;
+      asp::separate_cameras_from_images(image_files, camera_files);
+      num_cameras = image_files.size();
+    }else{
       num_cameras = get_files_from_solver_folder(opt.input_files[0], image_files, 
                                                  camera_files, matched_cameras);
+    }
 
+    if ( image_files.empty() ) vw_throw( ArgumentErr() << "No image files detected.\n" );
+    
+    std::string first_image = image_files[0];
+    std::string first_camera = first_image;
+    if (!camera_files.empty()) 
+      first_camera = camera_files[0];
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-    SessionPtr session( asp::StereoSessionFactory::create(opt.stereo_session_string, opt) );
+    SessionPtr session
+      (asp::StereoSessionFactory::create(opt.stereo_session_string, // may change inside
+                                         opt,
+                                         first_image, first_image,
+                                         first_camera, first_camera
+                                         ) );
 
+    // Prepare output directory
+    vw::create_out_dir(opt.out_file);
+    
     // Create the KML file.
     KMLFile kml( opt.out_file, "orbitviz" );
+
     // Style listing
     if ( opt.path_to_outside_model.empty() ) {
       // Placemark Style
@@ -362,55 +326,54 @@ int main(int argc, char* argv[]) {
                            "plane_highlight" );
     }
 
-    // TODO: There should be a datum parsing function!
-    // Load up datum
-    cartography::Datum datum;
-    if ( opt.datum == "" ) 
-      vw_throw( IOErr() << "The reference spheroid (datum) must be specified.\n" );
+    // Load up the datum
+    cartography::Datum datum(opt.datum);
+    vw_out() << "Using datum: " << datum << std::endl;
+
+    std::string csv_file = fs::path(opt.out_file).replace_extension("csv").string();
+    std::ofstream csv_handle;
+    if ( opt.write_csv ) {
+      csv_handle.open(csv_file.c_str());
     
-    if ( opt.datum == "mars" ) {
-      datum.set_well_known_datum("D_MARS");
-    } else if ( opt.datum == "moon" ) {
-      datum.set_well_known_datum("D_MOON");
-    } else if ( opt.datum == "wgs84" ) {
-      datum.set_well_known_datum("WGS84");
-    } else {
-      vw_out() << "Unknown spheriod request: " << opt.datum << "\n";
-      vw_out() << "->  Defaulting to WGS84\n";
-      datum.set_well_known_datum("WGS84");
+      if ( !csv_handle.is_open() )
+        vw_throw( IOErr() << "Unable to open output file.\n" );
     }
-
-    std::ofstream csv_file("orbit_positions.csv");
-    if ( !csv_file.is_open() )
-      vw_throw( IOErr() << "Unable to open output file.\n" );
-
+    
     Vector2 camera_pixel(0, opt.linescan_line);
 
     // Building Camera Models and then writing to KML
     std::vector<Vector3> camera_positions(num_cameras);
     for (size_t i=0; i < num_cameras; i++) {
       boost::shared_ptr<camera::CameraModel> current_camera;
-      current_camera = session->camera_model(image_files [i],
-                                             camera_files[i]);
+
+      // This is so clumsy, a new stereo session needs to be loaded for each
+      // input camera.
+      SessionPtr session
+        (asp::StereoSessionFactory::create(opt.stereo_session_string, // may change inside
+                                           opt,
+                                           image_files[i],  image_files[i],
+                                           camera_files[i], camera_files[i]
+                                           ) );
+      current_camera = session->camera_model(image_files[i], camera_files[i]);
 
       if ( opt.write_csv ) {
-        csv_file << image_files[i] << ", ";
+        csv_handle << image_files[i] << ", ";
 
         // Add the ISIS camera serial number if applicable
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
         boost::shared_ptr<IsisCameraModel> isis_cam =
           boost::dynamic_pointer_cast<IsisCameraModel>(current_camera);
         if ( isis_cam != NULL ) {
-          csv_file << isis_cam->serial_number() << ", ";
+          csv_handle << isis_cam->serial_number() << ", ";
         }
 #endif
 
         Vector3 xyz = current_camera->camera_center(camera_pixel);
-        csv_file << std::setprecision(12);
-        csv_file << xyz[0] << ", "
-                 << xyz[1] << ", " << xyz[2] << "\n";
+        csv_handle << std::setprecision(12);
+        csv_handle << xyz[0] << ", "
+                   << xyz[1] << ", " << xyz[2] << "\n";
       } // End csv write condition
-
+      
       // Compute and record the GDC coordinates
       Vector3 lon_lat_alt = datum.cartesian_to_geodetic(
                                 current_camera->camera_center(camera_pixel));
@@ -446,8 +409,16 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    csv_file.close();
+
+    // Put the Writing: messages here, so that they show up after all other info.
+    vw_out() << "Writing: " << opt.out_file << std::endl; 
     kml.close_kml();
+
+    if (opt.write_csv){
+      vw_out() << "Writing: " << csv_file << std::endl;
+      csv_handle.close();
+    }
+    
   } ASP_STANDARD_CATCHES;
 
   return 0;
