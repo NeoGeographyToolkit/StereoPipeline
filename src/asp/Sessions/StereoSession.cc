@@ -134,23 +134,23 @@ namespace asp {
       // TODO: Improve calculation of epipolar parameter!
       // This computes a distance used for throwing out interest points.
       // - It has to be computed using the entire (not cropped) image size!
-      // A larger value will keep more (but of lower quality) points.
-      double ip_inlier_factor = stereo_settings().ip_inlier_thresh; // default is 1/15
-      double inlier_thresh = norm_2(uncropped_image_size)*ip_inlier_factor;
-      vw_out() << "IP inlier threshold factor  = " << ip_inlier_factor << std::endl;
-      vw_out() << "IP inlier threshold         = " << inlier_thresh << std::endl;
+      // A larger value will keep more (but of lower quality) points.     
+      double epipolar_threshold = norm_2(uncropped_image_size)/15;
+      if (stereo_settings().epipolar_threshold > 0)
+        epipolar_threshold = stereo_settings().epipolar_threshold;
+      vw_out() << "Using epipolar threshold = " << epipolar_threshold << std::endl;
       vw_out() << "IP uniqueness threshold     = " << ip_uniqueness_thresh  << std::endl;
 
       inlier = ip_matching_w_alignment(single_threaded_camera, cam1, cam2,
                                        image1_norm, image2_norm,
                                        ip_per_tile,
                                        datum, match_filename,
-                                       inlier_thresh, ip_uniqueness_thresh,
+                                       epipolar_threshold, ip_uniqueness_thresh,
                                        nodata1, nodata2);
     } else { // Not nadir facing
       // Run a simpler purely image based matching function
-      double ip_inlier_factor = stereo_settings().ip_inlier_thresh;
-      const int inlier_threshold = round(ip_inlier_factor*150.0); // by default this is 10.
+      double ip_inlier_factor = stereo_settings().ip_inlier_factor;
+      int    inlier_threshold = round(ip_inlier_factor*150.0); // by default this is 10.
       inlier = homography_ip_matching( image1_norm, image2_norm,
                                        ip_per_tile,
                                        match_filename,

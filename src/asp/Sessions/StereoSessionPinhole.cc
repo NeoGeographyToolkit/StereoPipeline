@@ -85,7 +85,7 @@ asp::StereoSessionPinhole::determine_image_align(std::string const& out_prefix,
   Matrix<double> T;
   try {
 
-    double ip_inlier_factor = stereo_settings().ip_inlier_thresh; // default is 1/15
+    double ip_inlier_factor = stereo_settings().ip_inlier_factor; // default is 1/15
     vw::math::RandomSampleConsensus<vw::math::HomographyFittingFunctor,       
       vw::math::InterestPointErrorMetric> ransac( vw::math::HomographyFittingFunctor(), 
                                                   vw::math::InterestPointErrorMetric(),

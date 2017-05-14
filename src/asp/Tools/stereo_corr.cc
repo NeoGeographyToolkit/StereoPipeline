@@ -253,7 +253,7 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
       sub_scale /= 4.0f;
 
       // TODO: Depending on alignment method, we can tailor the IP filtering strategy.
-      double thresh_factor = stereo_settings().ip_inlier_thresh; // 1/15 by default
+      double thresh_factor = stereo_settings().ip_inlier_factor; // 1/15 by default
 
       // This range is extra large to handle elevation differences.
       const int inlier_threshold = 200*(15.0*thresh_factor);  // 200 by default

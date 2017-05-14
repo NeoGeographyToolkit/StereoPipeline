@@ -33,12 +33,12 @@ namespace asp {
 //-------------------------------------------------------------------------------------------------
 // Class EpipolarLinePointMatcher
 
-  EpipolarLinePointMatcher::EpipolarLinePointMatcher( bool single_threaded_camera,
-						      double uniqueness_threshold,
-                                                      double inlier_threshold,
-						      vw::cartography::Datum const& datum) :
+  EpipolarLinePointMatcher::EpipolarLinePointMatcher( bool   single_threaded_camera,
+                                                      double uniqueness_threshold,
+                                                      double epipolar_threshold,
+                                                      vw::cartography::Datum const& datum) :
     m_single_threaded_camera(single_threaded_camera), m_uniqueness_threshold(uniqueness_threshold),
-    m_inlier_threshold(inlier_threshold), m_datum(datum) {}
+    m_epipolar_threshold(epipolar_threshold), m_datum(datum) {}
 
   Vector3 EpipolarLinePointMatcher::epipolar_line( Vector2 const& feature,
 						   cartography::Datum const& datum,
@@ -188,7 +188,7 @@ namespace asp {
 	//vw_out() << "Indices: " << indices << std::endl;
 
 	// Loop through the N "nearest" points and keep only the ones within
-	//   m_matcher.m_inlier_threshold pixel distance from the epipolar line
+	//   m_matcher.m_epipolar_threshold pixel distance from the epipolar line
 	for ( size_t i = 0; i < num_matches_valid; i++ ) {
 	  IPListIter ip2_it = m_ip_other.begin();
 	  std::advance( ip2_it, indices[i] );
@@ -196,7 +196,7 @@ namespace asp {
 	  if (found_epipolar){
 	    Vector2 ip2_org_coord = m_tx2.reverse( Vector2( ip2_it->x, ip2_it->y ) );
 	    double line_distance = m_matcher.distance_point_line( line_eq, ip2_org_coord );
-	    if ( line_distance < m_matcher.m_inlier_threshold ) {
+	    if ( line_distance < m_matcher.m_epipolar_threshold ) {
 	      kept_indices.push_back( std::pair<float,int>( distances[i], indices[i] ) );
 	    }
 	    else {
@@ -204,7 +204,7 @@ namespace asp {
 	      //double normDist = norm_2(ip1_coord - ip2_org_coord);
 	      //vw_out() << "Discarding match between " << ip1_coord << " and " << ip2_org_coord
 	      //        << " because distance is " << line_distance << " and threshold is "
-	      //        << m_matcher.m_inlier_threshold << " norm dist = " << normDist<<"\n";
+	      //        << m_matcher.m_epipolar_threshold << " norm dist = " << normDist<<"\n";
 	    }
 	  }
 	} // End loop for match prunining
@@ -315,18 +315,16 @@ namespace asp {
     // Sanity checks. If these fail, most likely the two images are too different
     // for stereo to succeed.
     if ( indices.size() < std::min( right_points.size(), left_points.size() )/2 ){
-      vw_out(WarningMessage)
-	<< "InterestPointMatching: The number of inliers is less "
-	<< "than 1/2 of the number of points. The inputs may be invalid.\n";
+      vw_out(WarningMessage) << "InterestPointMatching: The number of inliers is less "
+                             << "than 1/2 of the number of points. The inputs may be invalid.\n";
     }
 
     double det = fabs(H(0, 0)*H(1, 1) - H(0, 1)*H(1, 0));
     if (det <= 0.1 || det >= 10.0){
-      vw_out(WarningMessage)
-	<< "InterestPointMatching: The determinant of the 2x2 submatrix "
-	<< "of the homography matrix " << H << " is " << det
-	<< ". There could be a large scale discrepancy among the input images "
-	<< "or the inputs may be an invalid stereo pair.\n";
+      vw_out(WarningMessage) << "InterestPointMatching: The determinant of the 2x2 submatrix "
+                             << "of the homography matrix " << H << " is " << det
+                             << ". There could be a large scale discrepancy among the input images "
+                             << "or the inputs may be an invalid stereo pair.\n";
     }
 
   }
@@ -356,39 +354,39 @@ namespace asp {
     
     for (int i = 0; i < num; i++ ) {
       for ( int j = 0; j < num; j++ ) {
-	try {
-	  Vector2 l( double(box1.width()  - 1) * i / (num-1.0),
-		     double(box1.height() - 1) * j / (num-1.0) );
+        try {
+          Vector2 l( double(box1.width()  - 1) * i / (num-1.0),
+	             double(box1.height() - 1) * j / (num-1.0) );
 
-	  Vector3 intersection = cartography::datum_intersection( datum, cam1, l );
-	  if ( intersection == Vector3() )
-	    continue;
+          Vector3 intersection = cartography::datum_intersection( datum, cam1, l );
+          if ( intersection == Vector3() )
+            continue;
 
-	  Vector2 r = cam2->point_to_pixel( intersection );
+          Vector2 r = cam2->point_to_pixel( intersection );
 
-	  if ( box2.contains( r ) ){
-	    left_points.push_back(  Vector3(l[0],l[1],1) );
-	    right_points.push_back( Vector3(r[0],r[1],1) );
-	  }
-	}
-	catch (...) {}
+          if ( box2.contains( r ) ){
+            left_points.push_back(  Vector3(l[0],l[1],1) );
+            right_points.push_back( Vector3(r[0],r[1],1) );
+          }
+        }
+        catch (...) {}
 
-	try {
-	  Vector2 r( double(box2.width()  - 1) * i / (num-1.0),
-		     double(box2.height() - 1) * j / (num-1.0) );
+        try {
+          Vector2 r( double(box2.width()  - 1) * i / (num-1.0),
+	             double(box2.height() - 1) * j / (num-1.0) );
 
-	  Vector3 intersection = cartography::datum_intersection( datum, cam2, r );
-	  if ( intersection == Vector3() )
-	    continue;
+          Vector3 intersection = cartography::datum_intersection( datum, cam2, r );
+          if ( intersection == Vector3() )
+            continue;
 
-	  Vector2 l = cam1->point_to_pixel( intersection );
+          Vector2 l = cam1->point_to_pixel( intersection );
 
-	  if ( box1.contains( l ) ) {
-	    left_points.push_back( Vector3(l[0],l[1],1) );
-	    right_points.push_back( Vector3(r[0],r[1],1) );
-	  }
-	}
-	catch (...) {}
+          if ( box1.contains( l ) ) {
+            left_points.push_back( Vector3(l[0],l[1],1) );
+            right_points.push_back( Vector3(r[0],r[1],1) );
+          }
+        }
+        catch (...) {}
         tpc.report_incremental_progress( inc_amount );
       }
     }
@@ -397,7 +395,7 @@ namespace asp {
     if (left_points.empty() || right_points.empty())
       vw_throw( ArgumentErr() << "InterestPointMatching: rough_homography_fit failed to generate points!\n" );
 
-    double thresh_factor = stereo_settings().ip_inlier_thresh; // 1/15 by default
+    double thresh_factor = stereo_settings().ip_inlier_factor; // 1/15 by default
 
     typedef math::HomographyFittingFunctor hfit_func;
     math::RandomSampleConsensus<hfit_func, math::InterestPointErrorMetric>
@@ -429,7 +427,7 @@ namespace asp {
     std::vector<Vector3>  right_copy = iplist_to_vectorlist(right_ip),
 			  left_copy  = iplist_to_vectorlist(left_ip);
 
-    double thresh_factor = stereo_settings().ip_inlier_thresh; // 1/15 by default
+    double thresh_factor = stereo_settings().ip_inlier_factor; // 1/15 by default
     
     // Use RANSAC to determine a good homography transform between the images
     math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric>

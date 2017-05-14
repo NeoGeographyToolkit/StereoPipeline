@@ -14,8 +14,9 @@
      
  - stereo_pprc
    * Large speedup in epipolar alignment.
-   * Added the options --ip-inlier-threshold and --ip-uniqueness-threshold
-     for finer-grained control over interest point generation.
+   * Added the options --epipolar-threshold, --ip-inlier-factor 
+     and --ip-uniqueness-threshold for finer-grained control 
+     over interest point generation.
 
  - stereo_corr
    * Added new option --stereo-algorithm.  Choices 1 and 2 replaces

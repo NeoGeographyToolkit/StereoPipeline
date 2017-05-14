@@ -150,7 +150,7 @@ namespace asp {
   /// their descriptor distance is sufficiently far apart.
   class EpipolarLinePointMatcher {
     bool   m_single_threaded_camera;
-    double m_uniqueness_threshold, m_inlier_threshold;
+    double m_uniqueness_threshold, m_epipolar_threshold;
     vw::cartography::Datum m_datum;
 
   public:
@@ -286,7 +286,7 @@ namespace asp {
 		    int ip_per_tile,
 		    vw::cartography::Datum const& datum,
 		    std::string const& output_name,
-		    double inlier_threshold,
+		    double epipolar_threshold,
 		    double uniqueness_threshold,
 		    double nodata1 = std::numeric_limits<double>::quiet_NaN(),
 		    double nodata2 = std::numeric_limits<double>::quiet_NaN(),
@@ -306,7 +306,7 @@ namespace asp {
 				int ip_per_tile,
 				vw::cartography::Datum const& datum,
 				std::string const& output_name,
-				double inlier_threshold,
+				double epipolar_threshold,
 				double uniqueness_threshold,
 				double nodata1 = std::numeric_limits<double>::quiet_NaN(),
 				double nodata2 = std::numeric_limits<double>::quiet_NaN(),
@@ -401,42 +401,41 @@ namespace asp {
 
       vw_out() << "\t    Processing left image" << std::endl;
       if ( boost::math::isnan(nodata1) )
-	ip1 = detect_interest_points( image1.impl(), detector );
+        ip1 = detect_interest_points( image1.impl(), detector );
       else
-	ip1 = detect_interest_points( apply_mask(create_mask_less_or_equal(image1.impl(),nodata1)), detector );
+        ip1 = detect_interest_points( apply_mask(create_mask_less_or_equal(image1.impl(),nodata1)), detector );
       vw_out() << "\t    Processing right image" << std::endl;
       if ( boost::math::isnan(nodata2) )
-	ip2 = detect_interest_points( image2.impl(), detector );
+        ip2 = detect_interest_points( image2.impl(), detector );
       else
-	ip2 = detect_interest_points( apply_mask(create_mask_less_or_equal(image2.impl(),nodata2)), detector );
-
+        ip2 = detect_interest_points( apply_mask(create_mask_less_or_equal(image2.impl(),nodata2)), detector );
     } else {
 
       // Initialize the OpenCV detector.  Conveniently we can just pass in the type argument.
       // - If VW was not build with OpenCV, this call will just throw an exception.
       vw::ip::OpenCvIpDetectorType cv_method = vw::ip::OPENCV_IP_DETECTOR_TYPE_SIFT;
       if (detect_method == DETECT_IP_METHOD_ORB)
-	cv_method = vw::ip::OPENCV_IP_DETECTOR_TYPE_ORB;
+        cv_method = vw::ip::OPENCV_IP_DETECTOR_TYPE_ORB;
 
       // The opencv detector only works if the inputs are normalized, so do it here if it was not done before.
       // - If the images are already normalized most of the data will be in the 0-1 range.
       bool opencv_normalize = stereo_settings().skip_image_normalization;
       if (opencv_normalize)
-	vw_out() << "Normalizing OpenCV images...\n";
+        vw_out() << "Normalizing OpenCV images...\n";
 
       bool build_opencv_descriptors = true;
       vw::ip::OpenCvInterestPointDetector detector(cv_method, opencv_normalize, build_opencv_descriptors, points_per_tile);
 
       vw_out() << "\t    Processing left image" << std::endl;
       if ( boost::math::isnan(nodata1) )
-	ip1 = detect_interest_points( image1.impl(), detector );
+        ip1 = detect_interest_points( image1.impl(), detector );
       else
-	ip1 = detect_interest_points( apply_mask(create_mask_less_or_equal(image1.impl(),nodata1)), detector );
+        ip1 = detect_interest_points( apply_mask(create_mask_less_or_equal(image1.impl(),nodata1)), detector );
       vw_out() << "\t    Processing right image" << std::endl;
       if ( boost::math::isnan(nodata2) )
-	ip2 = detect_interest_points( image2.impl(), detector );
+        ip2 = detect_interest_points( image2.impl(), detector );
       else
-	ip2 = detect_interest_points( apply_mask(create_mask_less_or_equal(image2.impl(),nodata2)), detector );
+        ip2 = detect_interest_points( apply_mask(create_mask_less_or_equal(image2.impl(),nodata2)), detector );
     } // End OpenCV case
 
     sw.stop();
@@ -469,20 +468,19 @@ namespace asp {
       vw_out() << "\t    Building descriptors" << std::endl;
       ip::SGradDescriptorGenerator descriptor;
       if ( boost::math::isnan(nodata1) )
-	describe_interest_points( image1.impl(), descriptor, ip1 );
+        describe_interest_points( image1.impl(), descriptor, ip1 );
       else
-	describe_interest_points( apply_mask(create_mask_less_or_equal(image1.impl(),nodata1)), descriptor, ip1 );
+        describe_interest_points( apply_mask(create_mask_less_or_equal(image1.impl(),nodata1)), descriptor, ip1 );
       if ( boost::math::isnan(nodata2) )
-	describe_interest_points( image2.impl(), descriptor, ip2 );
+        describe_interest_points( image2.impl(), descriptor, ip2 );
       else
-	describe_interest_points( apply_mask(create_mask_less_or_equal(image2.impl(),nodata2)), descriptor, ip2 );
+        describe_interest_points( apply_mask(create_mask_less_or_equal(image2.impl(),nodata2)), descriptor, ip2 );
 
       vw_out(DebugMessage,"asp") << "Building descriptors elapsed time: "
 				 << sw.elapsed_seconds() << " s." << std::endl;
     }
 
-    vw_out() << "\t    Found interest points:\n"
-	     << "\t      left: " << ip1.size() << std::endl;
+    vw_out() << "\t    Found interest points:\n" << "\t      left: " << ip1.size() << std::endl;
     vw_out() << "\t     right: " << ip2.size() << std::endl;
   }
 
@@ -617,7 +615,7 @@ namespace asp {
 		    int ip_per_tile,
 		    vw::cartography::Datum const& datum,
 		    std::string const& output_name,
-		    double inlier_threshold,
+		    double epipolar_threshold,
 		    double uniqueness_threshold,
 		    double nodata1,
 		    double nodata2,
@@ -643,10 +641,10 @@ namespace asp {
     vw_out() << "\t--> Matching interest points" << std::endl;
 
     vw_out() << "Uniqueness threshold: " << uniqueness_threshold << "\n";
-    vw_out() << "Inlier threshold:     " << inlier_threshold     << "\n";
+    vw_out() << "Inlier threshold:     " << epipolar_threshold   << "\n";
     
     EpipolarLinePointMatcher matcher(single_threaded_camera,
-				     uniqueness_threshold, inlier_threshold, datum );
+				     uniqueness_threshold, epipolar_threshold, datum );
     vw_out() << "\t    Matching Forward" << std::endl;
     matcher( ip1, ip2, detect_method, cam1, cam2, left_tx, right_tx, forward_match );
     vw_out() << "\t    ---> Obtained " << forward_match.size() << " matches." << std::endl;
@@ -720,7 +718,7 @@ namespace asp {
     BOOST_FOREACH( size_t index, good_indices ) {
       Vector2 l( matched_ip1[index].x, matched_ip1[index].y );
       if ( transform_to_original_coord )
-	l = left_tx.reverse( l );
+        l = left_tx.reverse( l );
       matched_ip1[index].ix = matched_ip1[index].x = l.x();
       matched_ip1[index].iy = matched_ip1[index].y = l.y();
       buffer[w_index] = matched_ip1[index];
@@ -733,7 +731,7 @@ namespace asp {
     BOOST_FOREACH( size_t index, good_indices ) {
       Vector2 r( matched_ip2[index].x, matched_ip2[index].y );
       if ( transform_to_original_coord )
-	r = right_tx.reverse( r );
+        r = right_tx.reverse( r );
       matched_ip2[index].ix = matched_ip2[index].x = r.x();
       matched_ip2[index].iy = matched_ip2[index].y = r.y();
       buffer[w_index] = matched_ip2[index];
@@ -762,7 +760,7 @@ namespace asp {
 				int ip_per_tile,
 				vw::cartography::Datum const& datum,
 				std::string const& output_name,
-				double inlier_threshold,
+				double epipolar_threshold,
 				double uniqueness_threshold,
 				double nodata1,
 				double nodata2,
@@ -815,7 +813,7 @@ namespace asp {
 				  ValueEdgeExtension<typename Image2T::pixel_type>(boost::math::isnan(nodata2) ? 0 : nodata2),
 				  NearestPixelInterpolation()), raster_box),
 		   ip_per_tile,
-		   datum, output_name, inlier_threshold, uniqueness_threshold,
+		   datum, output_name, epipolar_threshold, uniqueness_threshold,
 		   nodata1, nodata2, left_tx, tx );
     if (!inlier)
       return inlier;
