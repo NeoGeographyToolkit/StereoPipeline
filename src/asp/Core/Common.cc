@@ -92,7 +92,6 @@ bool asp::all_files_have_extension(std::vector<std::string> const& files, std::s
 }
 
 
-
 std::vector<std::string>
 asp::get_files_with_ext( std::vector<std::string>& files, std::string const& ext, bool prune_input_list ) {
   std::vector<std::string> match_files;
@@ -111,7 +110,42 @@ asp::get_files_with_ext( std::vector<std::string>& files, std::string const& ext
   return match_files;
 }
 
+// Given a list of images/cameras, move the cameras to its own vector.
+// Note: .cub files will end up in both places.
+void asp::separate_cameras_from_images(std::vector<std::string> & image_files,
+                                       std::vector<std::string> & camera_files){
 
+  std::vector<std::string> new_images;
+  new_images.clear();
+  camera_files.clear();
+  
+  for (size_t it = 0; it < image_files.size(); it++) {
+    
+    std::string const& val = image_files[it];
+    bool is_good = false;
+    
+    if (asp::has_image_extension(val)){
+      is_good = true;
+      new_images.push_back(val);
+    }
+    
+    if (asp::has_cam_extension(val)){
+      is_good = true;
+      camera_files.push_back(val);
+    }
+
+    if (!is_good) 
+      vw_throw( ArgumentErr() << "Expecting an image or a camera file. Got instead: "
+                << val <<".\n" );
+  }
+
+  // Overwrite the image files
+  image_files = new_images;
+
+  if (image_files.size() != camera_files.size())
+    vw_throw( ArgumentErr() << "Expecting as many images as cameras.\n" );
+  
+}
 
 /// Parse the list of files specified as positional arguments on the command lin
 bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,

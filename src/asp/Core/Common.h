@@ -64,6 +64,11 @@ namespace asp {
   get_files_with_ext( std::vector<std::string>& files, std::string const& ext, 
                       bool prune_input_list );
 
+  /// Given a list of images/cameras, move the cameras to its own vector.
+  /// Note: .cub files will end up in both places.
+  void separate_cameras_from_images(std::vector<std::string> & image_files,
+                                    std::vector<std::string> & camera_files);
+  
   /// Parse the list of files specified as positional arguments on the command lin
   bool parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
                                  std::vector<std::string>       &image_paths,

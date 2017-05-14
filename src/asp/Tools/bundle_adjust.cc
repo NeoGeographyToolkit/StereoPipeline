@@ -944,30 +944,6 @@ void do_ba_with_model(Options& opt){
   }
 }
 
-/// Given a vector of strings, identify and store separately the list of camera models.
-std::vector<std::string>
-extract_cameras_bundle_adjust( std::vector<std::string>& image_files ) {
-  std::vector<std::string> cam_files;
-  std::vector<std::string>::iterator it = image_files.begin();
-  while ( it != image_files.end() ) {
-
-    if (asp::has_pinhole_extension(*it) ||
-        boost::iends_with(boost::to_lower_copy(*it), ".xml") || // TODO: This should be a function call!
-        boost::iends_with(boost::to_lower_copy(*it), ".cub") ||
-        boost::iends_with(boost::to_lower_copy(*it), ".dim")
-        ){
-      cam_files.push_back( *it );
-      it = image_files.erase( it );
-    } else { // Not a camera, double check that it is an image.
-      if (!asp::has_image_extension(*it))
-        vw_throw( ArgumentErr() << "Error - unrecognized input: '" << *it <<"'");
-      it++;
-    }
-  }
-  
-  return cam_files;
-}
-
 /// Apply a scale-rotate-translate transform to pinhole cameras and control points
 void apply_rigid_transform(vw::Matrix3x3 const & rotation,
                            vw::Vector3   const & translation,
@@ -1673,12 +1649,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                             positional, positional_desc, usage,
                              allow_unregistered, unregistered);
 
-  opt.gcp_files    = asp::get_files_with_ext( opt.image_files, ".gcp", true ); // Seperate out GCP files
-  opt.camera_files = extract_cameras_bundle_adjust( opt.image_files );
+  boost::to_lower( opt.stereo_session_string );
+  
+  // Separate out GCP files
+  opt.gcp_files = asp::get_files_with_ext( opt.image_files, ".gcp", true );
 
-  // If all we have are cubes, those are both images and cameras
-  if (opt.image_files.empty())
-    opt.image_files = opt.camera_files;
+  // Separate the cameras from the images
+  asp::separate_cameras_from_images(opt.image_files,  opt.camera_files);
 
   // TODO: Check for duplicates in opt.image_files!
 
@@ -1710,7 +1687,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   }
   
   if ( opt.camera_weight < 0.0 )
-    vw_throw( ArgumentErr() << "The camera weight must be non-negative.\n" << usage << general_options );
+    vw_throw( ArgumentErr() << "The camera weight must be non-negative.\n" << usage
+              << general_options );
 
   if (opt.local_pinhole_input && !asp::has_pinhole_extension(opt.camera_files[0]))
     vw_throw( ArgumentErr() << "Can't use special pinhole handling with non-pinhole input!\n");
@@ -1728,11 +1706,14 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "When using a camera position file, the csv-format option must be set.\n"
                             << usage << general_options );
 
-  if ( !opt.gcp_files.empty() || !opt.camera_position_file.empty() ){
-    // Need to read the datum if we have gcps or a camera position file.
+  // Need to read the datum if we have gcps or a camera position file, or for the RPC
+  // session, as then the RPC model can be outside of Earth.
+  if ( !opt.gcp_files.empty() || !opt.camera_position_file.empty() ||
+       opt.stereo_session_string == "rpc"){
     if (opt.datum_str != ""){
       // If the user set the datum, use it.
       opt.datum.set_well_known_datum(opt.datum_str);
+      asp::stereo_settings().datum = opt.datum_str; // for RPC
     }else if (opt.semi_major > 0 && opt.semi_minor > 0){
       // Otherwise, if the user set the semi-axes, use that.
       opt.datum = cartography::Datum("User Specified Datum",
@@ -1740,11 +1721,18 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                                      "Reference Meridian",
                                      opt.semi_major, opt.semi_minor, 0.0);
     }else{
-      vw_throw( ArgumentErr() << "When ground control points or a camera position file are used, "
-                              << "the datum must be specified.\n" << usage << general_options );
+      if ( !opt.gcp_files.empty() || !opt.camera_position_file.empty() )
+        vw_throw( ArgumentErr() << "When ground control points or a camera position file are used, "
+                  << "the datum must be specified.\n" << usage << general_options );
     }
+    
+    if (opt.stereo_session_string == "rpc" && opt.datum_str == "")
+      vw_throw( ArgumentErr() << "When the session type is RPC, the datum must be specified.\n"
+                << usage << general_options );
+    
     vw_out() << "Will use datum: " << opt.datum << std::endl;
-  } // End datum finding
+  }
+  // End datum finding
 
   if ( opt.out_prefix.empty() )
     vw_throw( ArgumentErr() << "Missing output prefix.\n"
@@ -1768,7 +1756,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     opt.intrinsics_to_float.insert(val);
   
   opt.save_iteration = vm.count("save-iteration-data");
-  boost::to_lower( opt.stereo_session_string );
   boost::to_lower( opt.ba_type );
   boost::to_lower( opt.cost_function );
   if ( !( opt.ba_type == "ceres"        ||
