@@ -51,14 +51,17 @@ using namespace vw::cartography;
 
 struct Options : public vw::cartography::GdalWriteOptions {
   double penalty_weight;
-  string image_file, camera_file, output_rpc, stereo_session, datum_str, dem_file;
-  bool no_crop, save_tif, has_output_nodata;
+  string image_file, camera_file, output_rpc, stereo_session, bundle_adjust_prefix,
+    datum_str, dem_file;
+  bool no_crop, skip_computing_rpc, save_tif, has_output_nodata;
   BBox2 lon_lat_range;
+  BBox2i image_crop_box;
   Vector2 height_range;
   float output_nodata_value;
   double gsd;
   int num_samples;
-  Options(): penalty_weight(-1.0), no_crop(false), save_tif(false), has_output_nodata(false),
+  Options(): penalty_weight(-1.0), no_crop(false),
+             skip_computing_rpc(false), save_tif(false), has_output_nodata(false),
              output_nodata_value(-std::numeric_limits<float>::max()),
              gsd(-1.0), num_samples(-1) {}
 };
@@ -79,11 +82,17 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("save-tif-image", po::bool_switch(&opt.save_tif)->default_value(false),
      "Save a TIF version of the input image that approximately corresponds to the input longitude-latitude-height range and which can be used for stereo together with the RPC model.")
     ("output-nodata-value", po::value(&opt.output_nodata_value)->default_value(-std::numeric_limits<float>::max()),
-     "Set the output nodata value.")
+     "Set the image output nodata value.")
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
-     "Select the input camera model type. Normally this is auto-detected, but may need to be specified if the input camera model is in XML format. [options: pinhole isis rpc dg spot5 aster]")
+     "Select the input camera model type. Normally this is auto-detected, but may need to be specified if the input camera model is in XML format. Options: pinhole isis rpc dg spot5 aster.")
+    ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
+     "Use the camera adjustment obtained by previously running bundle_adjust with this output prefix.")
+    ("image-crop-box", po::value(&opt.image_crop_box)->default_value(BBox2i(0,0,0,0), "0 0 0 0"),
+     "The output image and RPC model should not exceed this box, specified in input image pixels as minx miny widx widy.")
     ("no-crop", po::bool_switch(&opt.no_crop)->default_value(false),
       "Try to create an RPC model over the entire input image, even if the input longitude-latitude-height box covers just a small portion of it. Not recommended.")
+    ("skip-computing-rpc", po::bool_switch(&opt.skip_computing_rpc)->default_value(false),
+     "Skip computing the RPC model.")
     ("dem-file",   po::value(&opt.dem_file)->default_value(""),
      "Instead of using a longitude-latitude-height box, sample the surface of this DEM.")
     ("gsd",     po::value(&opt.gsd)->default_value(-1),
@@ -118,6 +127,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (boost::iends_with(opt.image_file, ".cub") && opt.stereo_session == "" )
     opt.stereo_session = "isis";
 
+  // Need this to be able to load adjusted camera models. That will happen
+  // in the stereo session.
+  asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
+
   // Swap min and max if need be
   if ( opt.lon_lat_range.min().x() > opt.lon_lat_range.max().x() )
     std::swap( opt.lon_lat_range.min().x(), opt.lon_lat_range.max().x() );
@@ -148,7 +161,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_out() << "Since an input DEM was specified, increasing the number of samples "
              << "on its surface to " << opt.num_samples << "^2.\n";
   }
-  
+
+  // Convert from width and height to min and max
+  if (!opt.image_crop_box.empty()) {
+    BBox2 b = opt.image_crop_box; // make a copy
+    opt.image_crop_box = BBox2i(b.min().x(), b.min().y(), b.max().x(), b.max().y());
+  }
 }
 
 int main( int argc, char *argv[] ) {
@@ -160,7 +178,8 @@ int main( int argc, char *argv[] ) {
 
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
     SessionPtr session(asp::StereoSessionFactory::create
-		       (opt.stereo_session, opt,
+		       (opt.stereo_session, // may change inside
+                        opt,
 			opt.image_file, opt.image_file,
                         opt.camera_file, opt.camera_file,
                         opt.output_rpc,
@@ -202,9 +221,11 @@ int main( int argc, char *argv[] ) {
     // Read the image as float and mask it right away
     ImageViewRef< PixelMask<float> > input_img
       = create_mask(DiskImageView<float>(opt.image_file), input_nodata_value);
-    int image_cols = input_img.cols();
-    int image_rows = input_img.rows();
+
+    // The bounding box
     BBox2 image_box = bounding_box(input_img);
+    if (!opt.image_crop_box.empty()) 
+      image_box.crop(opt.image_crop_box);
     
     // TODO: Merge this code with what is in sfs.cc!
     // Generate point pairs
@@ -310,7 +331,7 @@ int main( int argc, char *argv[] ) {
     if (!opt.no_crop) {
       // Cast to int so that we can crop properly
       pixel_box.min() = floor(pixel_box.min());
-      pixel_box.max() = floor(pixel_box.max());
+      pixel_box.max() = ceil(pixel_box.max());
       pixel_box.crop(image_box);
 
       crop_box = pixel_box; // save it before we modify pixel_box
@@ -324,9 +345,14 @@ int main( int argc, char *argv[] ) {
       pixel_box -= shift;
     }
 
+    // We need this line for other tools
+    vw_out() << "crop_box "
+             << crop_box.min().x() << ' ' << crop_box.min().y() << ' '
+             << crop_box.max().x() << ' ' << crop_box.max().y() << std::endl;
+    
     if (opt.save_tif) {
       
-      ImageViewRef< PixelMask<float> > output_img = input_img;
+      ImageView< PixelMask<float> > output_img = input_img;
       if (!opt.no_crop) 
         output_img = crop(input_img, crop_box);
       
@@ -343,6 +369,9 @@ int main( int argc, char *argv[] ) {
                                               opt,
                                               TerminalProgressCallback("asp", "\t-->: "));
     }
+
+    if (opt.skip_computing_rpc) 
+      return 0;
     
     Vector3 llh_scale  = (llh_box.max() - llh_box.min())/2.0; // half range
     Vector3 llh_offset = (llh_box.max() + llh_box.min())/2.0; // center point
@@ -386,7 +415,8 @@ int main( int argc, char *argv[] ) {
 		 // Outputs
 		 line_num, line_den, samp_num, samp_den);
 
-    // TODO: Integrate this with aster2asp existing fun!
+    // TODO: Integrate this with aster2asp existing functionality!
+    // Have a generic function for saving WV RPC files. 
     std::string lineoffset   = vw::num_to_str(pixel_offset.y());
     std::string sampoffset   = vw::num_to_str(pixel_offset.x());
     std::string latoffset    = vw::num_to_str(llh_offset.y());
@@ -415,6 +445,8 @@ int main( int argc, char *argv[] ) {
     ofs << "<isd>\n";
 
     // Image params
+    int image_cols = input_img.cols();
+    int image_rows = input_img.rows();
     ofs << "   <IMD>\n";
     ofs << "        <NUMROWS>" << image_rows << "</NUMROWS>\n";
     ofs << "        <NUMCOLUMNS>" << image_cols << "</NUMCOLUMNS>\n";
