@@ -1371,23 +1371,26 @@ Usage:
 \endlastfoot
 \hline
 Option & Description \\ \hline \hline
-\texttt{-\/-datum arg} & Use this datum to interpret the heights. Options: WGS\_1984, D\_MOON (1,737,400 meters), D\_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), Moon (=D\_MOON).\\ \hline
+\texttt{-\/-datum \textit{string}} & Use this datum to interpret the heights. Options: WGS\_1984, D\_MOON (1,737,400 meters), D\_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), Moon (=D\_MOON).\\ \hline
 \texttt{-\/-lon-lat-range arg (=0 0 0 0)} & The longitude-latitude range in which to compute the RPC model. Specify in the format: lon\_min lat\_min lon\_max lat\_max.\\ \hline
 \texttt{-\/-height-range arg (=0 0)} & Minimum and maximum heights above the datum in which to compute the RPC model.\\ \hline
 \texttt{-\/-num-samples arg (=40)} & How many samples to use in each direction in the longitude-latitude-height range.\\ \hline
 \texttt{-\/-penalty-weight arg (=0.03)} & A higher penalty weight will result in smaller higher-order RPC coefficients.\\ \hline
 \texttt{-\/-save-tif-image} & Save a TIF version of the input image that approximately corresponds to the input longitude-latitude-height range and which can be used for stereo together with the RPC model.\\ \hline
 \texttt{-\/-output-nodata-value arg (=-3.40282347e+38)} & Set the image output nodata value.\\ \hline
-\texttt{-t | -\/-session-type  arg} & Select the input camera model type. Normally this is auto-detected, but may need to be specified if the input camera model is in XML format. Options: pinhole isis rpc dg spot5 aster.\\ \hline
+\texttt{-t | -\/-session-type  \textit{string}} & Select the input camera model type. Normally this is auto-detected, but may need to be specified if the input camera model is in XML format. Options: pinhole isis rpc dg spot5 aster.\\ \hline
+\texttt{-\/-bundle-adjust-prefix \textit{string}} & Use the camera
+adjustment obtained by previously running bundle\_adjust with this
+output prefix. \\ \hline
 \texttt{-\/-image-crop-box arg (=0 0 0 0)} & The output image and RPC model should not exceed this box, specified in input image pixels as minx miny widx widy.\\ \hline
 \texttt{-\/-no-crop} & Try to create an RPC model over the entire input image, even if the input longitude-latitude-height box covers just a small portion of it. Not recommended.\\ \hline
 \texttt{-\/-skip-computing-rpc} & Skip computing the RPC model.\\ \hline
-\texttt{-\/-dem-file arg} & Instead of using a longitude-latitude-height box, sample the surface of this DEM.\\ \hline
+\texttt{-\/-dem-file \textit{string}} & Instead of using a longitude-latitude-height box, sample the surface of this DEM.\\ \hline
 \texttt{-\/-gsd arg (=-1)} & Expected resolution on the ground, in meters. This is needed for SETSM.\\ \hline
 \texttt{-\/-threads arg (=0)} & Select the number of processors (threads) to use.\\ \hline
 \texttt{-\/-tile-size arg (=256, 256)} & Image tile size used for multi-threaded processing.\\ \hline
 \texttt{-\/-no-bigtiff} & Tell GDAL to not create bigtiffs.\\ \hline
-\texttt{-\/-tif-compress arg (=LZW)} & TIFF Compression method. [None, LZW, Deflate, Packbits]\\ \hline
+\texttt{-\/-tif-compress \textit{string} (=LZW)} & TIFF Compression method. [None, LZW, Deflate, Packbits]\\ \hline
 \texttt{-v | -\/-version } & Display the version of software.\\ \hline
 \texttt{-h | -\/-help } & Display this help message.\\ \hline
 \end{longtable}
@@ -1454,7 +1457,7 @@ positions. The input for this tool is one or image and camera files.
 
 Usage:
 \begin{verbatim}
-  orbitviz [options] <input image> <input camera model> <...and repeat...>
+  orbitviz [options] <input images and cameras> 
 \end{verbatim}
 
 \begin{longtable}{|l|p{10cm}|}
@@ -1474,9 +1477,9 @@ Options & Description \\ \hline \hline
 
 \texttt{-\/-use-path-to-dae-model|-u \textit{fullpath}} & Use this dae model to represent camera location. \emph{Google Sketch up can create these.} \\ \hline
 
-\texttt{-r | -\/-reference-spheroid arg} & Set a reference spheroid [moon, mars, wgs84].\\ \hline
+\texttt{-r | -\/-reference-spheroid \textit{string=WGS\_1984}} & Use this reference spheroid (datum). Options: WGS\_1984, D\_MOON (1,737,400 meters), D\_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), Moon (=D\_MOON). \\ \hline
 
-\texttt{-t | -\/-session-type  arg} & Select the stereo session type to use for processing. [options: pinhole isis spot5 dg aster]\\ \hline
+\texttt{-t | -\/-session-type  \textit{string}} & Select the stereo session type to use for processing. Options: pinhole isis spot5 dg aster.\\ \hline
 
 \texttt{-\/-load-camera-solve} & Use a specialized display for showing the results of the \texttt{camera\_solve} tool.
 When using this option, only pass in the path to the \texttt{camera\_solve} output folder as a positional argument.
@@ -1484,9 +1487,9 @@ Green lines drawn between the camera positions indicate a successful interest po
 
 \texttt{-\/-hide-labels} & Hide image names unless the camera is highlighted.\\ \hline
 
-\texttt{-\/-bundle-adjust-prefix arg} & Use the camera adjustment obtained by previously running bundle\_adjust with this output prefix.\\ \hline
+\texttt{-\/-bundle-adjust-prefix \textit{string}} & Use the camera adjustment obtained by previously running bundle\_adjust with this output prefix.\\ \hline
 
-\texttt{-\/-write-csv} & Write a csv file with the orbital the data.\\ \hline
+\texttt{-\/-write-csv} & Write a csv file with the orbital data.\\ \hline
 
 \end{longtable}
 
