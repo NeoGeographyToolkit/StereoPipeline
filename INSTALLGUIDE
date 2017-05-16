@@ -104,7 +104,6 @@ First install Homebrew or Macports, if you do not already have it.
 
 Next you need the following packages:
 
-gcc, g++, gfortran (version >= 4.9), the FSF version, not Apple's LLVM hybrid.
 automake
 libtool
 openssl
@@ -120,6 +119,7 @@ about how to install homebrew without sudo. Then do:
 export HOMEBREW_PREFIX=$HOME/usr/local
 export PATH=$HOMEBREW_PREFIX/bin:$PATH
 
+brew update
 brew doctor
 brew install automake libtool openssl git wget curl xz
 brew install homebrew/versions/gcc49 --with-fortran

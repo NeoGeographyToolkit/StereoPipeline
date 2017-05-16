@@ -1,4 +1,11 @@
-*** RELEASE 2.6.0, Upcoming ***
+*** RELEASE 2.6.0, May 15, 2017 ***
+
+ - New Stereo Algorithms
+   * ASP now supports the Semi Global Matching (SGM) and 
+     More Global Matching (MGM) stereo algorithms. 
+     They do particularly well for Earth imagery, better 
+     than the present approaches. They can be invoked with 
+     --stereo-algorithm 1 and 2 respectively. 
 
  - New tools
     * Added cam2rpc, a tool to create an RPC model from any
@@ -14,9 +21,9 @@
      
  - stereo_pprc
    * Large speedup in epipolar alignment.
-   * Added the options --epipolar-threshold, --ip-inlier-factor 
-     and --ip-uniqueness-threshold for finer-grained control 
-     over interest point generation.
+   * Improved epipolar alignment quality with standard pinhole cameras.
+   * Added the options --ip-inlier-threshold and --ip-uniqueness-threshold
+     for finer-grained control over interest point generation.
 
  - stereo_corr
    * Added new option --stereo-algorithm.  Choices 1 and 2 replaces
