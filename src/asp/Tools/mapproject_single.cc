@@ -304,15 +304,14 @@ void expandBboxToContainCornerIntersections(boost::shared_ptr<camera::CameraMode
 
 /// Compute output georeference to use
 void calc_target_geom(// Inputs
-                      bool first_pass,
                       bool calc_target_res,
                       Vector2i const& image_size,
                       boost::shared_ptr<camera::CameraModel> const& camera_model,
                       ImageViewRef<DemPixelT> const& dem,
-                      GeoReference dem_georef, // make copy on purpose
-                      BBox2  dem_box,         // make copy on purpose
+                      GeoReference const& dem_georef, 
+                      Options const & opt,
                       // Outputs
-                      Options & opt, BBox2 & cam_box, GeoReference & target_georef){
+                      BBox2 & cam_box, GeoReference & target_georef){
 
   // Find the camera bbox and the target resolution unless user-supplied.
   // - This call returns the bounding box of the camera view on the ground.
@@ -322,33 +321,10 @@ void calc_target_geom(// Inputs
   // - This call WILL intersect pixels outside the dem valid area!
   // - TODO: Modify this function to optionally disable intersection outside the DEM
   float auto_res;
-  cam_box = camera_bbox(dem, dem_georef, camera_model,
+  cam_box = camera_bbox(dem, dem_georef,
+			target_georef, 
+			camera_model,
                         image_size.x(), image_size.y(), auto_res);
-
-  //vw_out() << "\ncam_box calc1:\n" << cam_box << std::endl;
-
-  // The next two cam_box adjustments are not valid with a flat datum DEM.
-  const bool flat_datum_dem = (fs::path(opt.dem_file).extension() == "");
-  if (!flat_datum_dem) {
-
-    if (first_pass) {
-      // Project the four corners of the DEM into the camera; if any of them intersect,
-      //  expand the bbox to include their coordinates
-      // - This is not valid in the second pass because the dem_georef is no longer accurate!
-      expandBboxToContainCornerIntersections(camera_model, dem, dem_georef, image_size, cam_box);
-    }
-
-    //vw_out() << "\ncam_box calc dem expanded:\n" << cam_box << std::endl;
-
-    if (first_pass){
-      // Convert bounding box from dem_georef coordinate system to
-      //  target_georef coordinate system
-      cam_box = target_georef.lonlat_to_point_bbox
-        (dem_georef.point_to_lonlat_bbox(cam_box));
-
-      //vw_out() << "\ncam_box calc trans:\n" << cam_box << std::endl;
-    }
-  }
 
   // Use auto-calculated ground resolution if that option was selected
   double current_resolution;
@@ -364,7 +340,7 @@ void calc_target_geom(// Inputs
     }
     
   }
-  //vw_out() << "current_resolution = " << current_resolution << std::endl;
+  vw_out() << "Output pixel size: " << current_resolution << std::endl;
 
   // If an image bounding box (projected coordinates) was passed in,
   // override the camera's view on the ground with the custom box.
@@ -376,17 +352,6 @@ void calc_target_geom(// Inputs
       std::swap( cam_box.min().y(), cam_box.max().y() );
     cam_box.max().x() -= current_resolution; //TODO: What are these adjustments?
     cam_box.min().y() += current_resolution;
-    //vw_out() << "\ncam_box projwin1:\n" << cam_box << std::endl;
-  }
-
-  if ( (opt.target_projwin == BBox2()) && (!flat_datum_dem) ) {
-    // Ensure the camera box does not extend beyond the DEM box.
-    // Apply this only if the user did not explicitly request
-    // a custom proj win.
-    dem_box.max().x() -= current_resolution; //TODO: What are these adjustments?
-    dem_box.min().y() += current_resolution;
-    cam_box.crop(dem_box);
-    //vw_out() << "\ncam_box projwin2:\n" << cam_box << std::endl;
   }
 
   // In principle the corners of the projection box can be
@@ -403,8 +368,6 @@ void calc_target_geom(// Inputs
   int output_width  = (int)round(cam_box.width()   / s);
   int output_height = (int)round(cam_box.height()  / s);
   cam_box = s * BBox2(min_x, min_y, output_width, output_height);
-  //vw_out() << "\ncam_box calc scaled:\n" << cam_box << std::endl;
-
 
   // This transform is from pixel to projected coordinates
   Matrix3x3 T = target_georef.transform();
@@ -425,6 +388,13 @@ void calc_target_geom(// Inputs
   }
   target_georef.set_transform( T ); // Overwrite the existing transform in target_georef
 
+
+  // Compute output image size in pixels using bounding box in output projected space
+  BBox2i target_image_size = target_georef.point_to_pixel_bbox( cam_box );
+
+  // Last adjustment, to ensure 0 0 is always in the box corner
+  target_georef = crop(target_georef, target_image_size.min().x(), target_image_size.min().y());
+  
   return;
 }
 
@@ -709,58 +679,23 @@ int main( int argc, char* argv[] ) {
       if (std::isnan(opt.mpp)) opt.mpp = 2.0*M_PI*radius/(360.0*opt.ppd);
     }
     
-    // pixels per degree now available
     bool user_provided_resolution = (!std::isnan(opt.ppd));
-
-    // Compute the dem BBox in the output projected space.
-    // Here we could have used target_georef.lonlat_to_point_bbox(dem_georef.pixel_to_lonlat_bbox)
-    // but that grows the box needlessly big. We will ensure the mapprojected image does
-    // not go beyond dem_box.
-    cartography::GeoTransform T(dem_georef, target_georef);
-    BBox2 dem_box = T.pixel_to_point_bbox(bounding_box(dem));
-
-    // We compute the target_georef and camera box in two passes,
-    // first in the DEM coordinate system and we rotate it to target's
-    // coordinate system (which makes it grow), and then we tighten it
-    // in target's coordinate system.
     bool     calc_target_res = !user_provided_resolution;
     Vector2i image_size      = asp::file_image_size(opt.image_file, opt.camera_file);
     BBox2    cam_box;
-    // First pass
-    bool first_pass = true;
     calc_target_geom(// Inputs
-                     first_pass, calc_target_res, image_size, camera_model,
-                     dem, dem_georef, dem_box,
-                     // Outputs
-                     opt, cam_box, target_georef);
-    // target_georef is now in the output coordinate system and location!
-    vw_out() << "Calculated initial projected space bounding box: " << cam_box << std::endl;
-
-    //vw_out() << "\nTARGET georeference 2:\n"        << target_georef << std::endl;
-
-    // Second pass
-    first_pass = false;
-
-    // Transformed view indexes DEM based on target georeference
-    // - Note that the width and height of trans_dem don't make sense!
-    ImageViewRef<DemPixelT> trans_dem
-      = geo_transform(dem, dem_georef, target_georef,
-                      ValueEdgeExtension<DemPixelT>(DemPixelT()),
-                      BilinearInterpolation());
-
-    calc_target_geom(// Inputs
-                     first_pass, calc_target_res, image_size, camera_model,
-                     trans_dem, target_georef, dem_box,
+                     calc_target_res, image_size, camera_model,
+                     dem, dem_georef, 
                      // Outputs
                      opt, cam_box, target_georef);
 
-    //vw_out() << "\nTARGET georeference 3:\n"        << target_georef << std::endl;
-
-    vw_out() << "Refined projected space bounding box: " << cam_box << std::endl;
+    vw_out() << "Projected space bounding box: " << cam_box << std::endl;
 
     // Compute output image size in pixels using bounding box in output projected space
     BBox2i target_image_size = target_georef.point_to_pixel_bbox( cam_box );
 
+    vw_out() << "Image box: " << target_image_size << std::endl;
+    
     // Very important note: this box may be in the middle of the
     // image.  However, the virtual image we create with
     // transform_nodata() below is assumed to start at (0, 0), and in
