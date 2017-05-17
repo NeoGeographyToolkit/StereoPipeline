@@ -416,10 +416,12 @@ using it is in Figure \ref{fig:ccd-artifact-example}.
 
 In this section we will talk about the second largest source of
 inaccuracies in Digital Globe imagery, after CCD artifacts, namely
-jitter, and how to correct it.
+jitter, and how to correct it. 
 
-It is very important to note, right from the beginning, that the order
-in which these corrections need to be handled is the following. First,
+It is important to note that jitter correction is highly experimental,
+and while it usually works, it may not be production-ready. 
+
+The order in which these corrections need to be handled is the following. First,
 CCD artifacts are corrected. Then, optionally, images are mosaicked with
 \texttt{dg\_mosaic} and map-projected. And jitter should be handled
 last, during stereo. An exception is made for WV03 images, for which CCD
