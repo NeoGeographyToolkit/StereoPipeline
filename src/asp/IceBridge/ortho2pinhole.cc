@@ -85,14 +85,14 @@ void ortho2pinhole(Options const& opt){
   std::string match_filename = ip::match_filename(out_prefix, opt.raw_image, opt.ortho_image);
   
   boost::shared_ptr<DiskImageResource>
-    rsrc1(asp::load_disk_image_resource(opt.raw_image, opt.input_cam)),
+    rsrc1(asp::load_disk_image_resource(opt.raw_image,   opt.input_cam)),
     rsrc2(asp::load_disk_image_resource(opt.ortho_image, opt.input_cam));
   if ( (rsrc1->channels() > 1) || (rsrc2->channels() > 1) )
     vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n");
   std::string stereo_session_string = "pinhole";
   float nodata1, nodata2;
   SessionPtr session(asp::StereoSessionFactory::create(stereo_session_string, opt,
-                                                       opt.raw_image,  opt.ortho_image,
+                                                       opt.raw_image, opt.ortho_image,
                                                        opt.input_cam, opt.input_cam,
                                                        out_prefix));
   session->get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
@@ -108,7 +108,7 @@ void ortho2pinhole(Options const& opt){
       = create_mask_less_or_equal(image1_view,  nodata1);
     ImageViewRef< PixelMask<float> > masked_image2
       = create_mask_less_or_equal(image2_view, nodata2);
-    vw::Vector<vw::float32,6> image1_stats = asp::gather_stats(masked_image1, opt.raw_image);
+    vw::Vector<vw::float32,6> image1_stats = asp::gather_stats(masked_image1, opt.raw_image  );
     vw::Vector<vw::float32,6> image2_stats = asp::gather_stats(masked_image2, opt.ortho_image);
     
     session->ip_matching(opt.raw_image, opt.ortho_image,
@@ -322,6 +322,36 @@ void ortho2pinhole(Options const& opt){
   boost::filesystem::remove(match_filename);
 }  
 
+/// If an rgb input image was passed in, convert to a temporary grayscale
+///  image and work on that instead.
+/// - This is useful for the Icebridge case.
+std::string handle_rgb_input(std::string const& input_path, Options const& opt) {
+
+  boost::shared_ptr<DiskImageResource> rsrc(vw::DiskImageResource::open(input_path));
+  if (rsrc->channels() != 3)
+    return input_path; // Nothing to do in this case
+
+  vw_out() << "Assuming input image is RGB format...\n";
+  std::string gray_path = input_path + "_gray.tif";
+
+  // Read the misc header strings from the file so we can propogate them
+  // to the output file.
+  std::map<std::string, std::string> keywords;
+  vw::cartography::read_header_strings(*rsrc.get(), keywords);
+
+  vw::cartography::GeoReference georef;
+  bool   has_georef = vw::cartography::read_georeference(georef, input_path);
+  bool   has_nodata = true;
+  double nodata     = 0.0;
+  block_write_gdal_image(gray_path,
+                         weighted_rgb_to_gray(DiskImageView<PixelRGB<uint8> >(input_path)),
+                         has_georef, georef,
+                         has_nodata, nodata, opt,
+                         ProgressCallback::dummy_instance(), keywords);
+  return gray_path;
+
+}
+
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
@@ -388,6 +418,10 @@ int main(int argc, char* argv[]) {
   Options opt;
   try {
     handle_arguments( argc, argv, opt );
+    
+    opt.raw_image   = handle_rgb_input(opt.raw_image,   opt);
+    opt.ortho_image = handle_rgb_input(opt.ortho_image, opt);
+    
     ortho2pinhole(opt);
   } ASP_STANDARD_CATCHES;
 }

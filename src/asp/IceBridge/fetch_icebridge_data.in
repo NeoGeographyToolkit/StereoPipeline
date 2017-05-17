@@ -23,18 +23,23 @@ Tool for downloading IceBridge data
 
 import sys, os, re, subprocess, optparse
 
+import httplib
+from urlparse import urlparse
+
 #------------------------------------------------------------------------------
 
+# Constants
+LIDAR_TYPES = ['lvis', 'atm1', 'atm2']
 
-def getIndexFileName(fileType):
-    '''Choose the name of the downloaded index file'''
-   
-    if fileType == 'image':
-        return 'jpeg_index.html'
-    if fileType == 'ortho':
-        return 'ortho_index.html'
-    if fileType == 'dem':
-        return 'dem_index.html'
+def checkIfUrlExists(url):
+    '''Return true if the given IceBrige folder URL is valid'''
+    p    = urlparse(url)
+    conn = httplib.HTTPConnection(p.netloc)
+    conn.request('HEAD', p.path)
+    resp = conn.getresponse()
+    # Invalid pages return 404, valid pages should return one of the numbers below.
+    #print 'URL response = ' + str(resp.status)
+    return (resp.status == 403) or (resp.status == 301)
 
 def makeYearFolder(year, site):
     '''Generate part of the URL.  Only used for images.'''
@@ -46,10 +51,7 @@ def makeDateFolder(year, month, day, fileType):
     if fileType == 'image':
         datePart = ('%02d%02d%04d') % (month, day, year)
         return datePart +'_raw'
-    if fileType == 'ortho':
-        datePart = ('%04d.%02d.%02d') % (year, month, day)
-        return datePart
-    if fileType == 'dem':
+    else: # Used for all other cases
         datePart = ('%04d.%02d.%02d') % (year, month, day)
         return datePart
 
@@ -61,14 +63,20 @@ def getFolderUrl(year, month, day, site, fileType):
         yearFolder = makeYearFolder(year, site)
         dateFolder = makeDateFolder(year, month, day, fileType)
         folderUrl  = os.path.join(base, yearFolder, dateFolder)
+        return folderUrl
+    # The other types share more formatting
     if fileType == 'ortho':
-        base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/IODMS1B.001'
-        dateFolder = makeDateFolder(year, month, day, fileType)
-        folderUrl  = os.path.join(base, dateFolder)
+        base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/IODMS1B.001'       
     if fileType == 'dem':
         base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/IODMS3.001'
-        dateFolder = makeDateFolder(year, month, day, fileType)
-        folderUrl  = os.path.join(base, dateFolder)
+    if fileType == 'lvis':
+        base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILVIS2.001/'
+    if fileType == 'atm1':
+        base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILATM1B.001/'
+    if fileType == 'atm2':
+        base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILATM1B.002/'
+    dateFolder = makeDateFolder(year, month, day, fileType)
+    folderUrl  = os.path.join(base, dateFolder)
     return folderUrl
 
 
@@ -95,7 +103,7 @@ def fetchAndParseIndexFile(folderUrl, path, parsedPath, fileType):
     print 'Extracting file name list from index.html file...'
     with open(path, 'r') as f:
         indexText = f.read()
-    
+    print fileType
     # Extract just the file names
     if fileType == 'image':
         fileList = re.findall(">[0-9_]*.JPG", indexText)
@@ -103,6 +111,15 @@ def fetchAndParseIndexFile(folderUrl, path, parsedPath, fileType):
         fileList = re.findall(">DMS_[0-9_]*.tif<", indexText)
     if fileType == 'dem':
         fileList = re.findall(">IODMS[0-9_]*_DEM.tif", indexText)
+    if fileType == 'lvis':
+        fileList = re.findall(">ILVIS2[GLAQR0-9_]*.TXT", indexText)
+    if fileType == 'atm1':
+        fileList = re.findall(">ILATM1B[0-9_]*.ATM4BT[0-9].qi", indexText)
+#                               >ILATM1B_20111018_145455.ATM4BT4.qi
+    if fileType == 'atm2':
+        fileList = re.findall(">ILATM1B[0-9_]*.ATM4BT4.h5", indexText)
+    
+    print fileList
     
     # For each entry that matched the regex, record: the "frame" number, the file name.
     with open(parsedPath, 'w') as f:
@@ -113,6 +130,10 @@ def fetchAndParseIndexFile(folderUrl, path, parsedPath, fileType):
                 f.write(x[13:18] +', '+ x[1:-1] + '\n')
             if fileType == 'dem':
                 f.write(x[26:31] +', '+ x[1:] + '\n')
+            if fileType == 'lvis':
+                f.write(x[27:32] +', '+ x[1:] + '\n')
+            if (fileType == 'atm1') or (fileType == 'atm2'):
+                f.write(x[18:24] +', '+ x[1:] + '\n')
 
 
 def main(argsIn):
@@ -147,7 +168,7 @@ def main(argsIn):
                           help="Force refetch of the index file.")
 
         parser.add_option("--type",  dest="type", default='image',
-                          help="File type to download ([image], ortho, dem)")
+                          help="File type to download ([image], ortho, dem, lidar)")
 
         # This call handles all the parallel_mapproject specific options.
         (options, args) = parser.parse_args(argsIn)
@@ -179,7 +200,8 @@ def main(argsIn):
             print usage
             return -1
 
-        if not (options.type == 'image' or options.type== 'ortho' or options.type== 'dem'):
+        KNOWN_TYPES = ['image', 'ortho', 'dem', 'lidar']
+        if not (options.type.lower() in KNOWN_TYPES):
             print 'Error, type must be image, ortho, or dem'
             print usage
             return -1
@@ -198,16 +220,31 @@ def main(argsIn):
     os.system('mkdir -p ' + outputFolder)
 
     # This URL contains all of the files
-    folderUrl = getFolderUrl(options.year, options.month, options.day, options.site, options.type)
+    if options.type == 'lidar':
+        options.allFrames = True # For lidar, always get all the frames!
+        
+        # For lidar, the data can come from one of three sources.
+        for lidar in LIDAR_TYPES:
+            folderUrl = getFolderUrl(options.year, options.month, options.day, options.site, lidar)
+            print 'Checking lidar URL: ' + folderUrl
+            if checkIfUrlExists(folderUrl):
+                print 'Found match with lidar type: ' + lidar
+                options.type = lidar
+                break
+            if lidar == LIDAR_TYPES[-1]: # If we tried all the lidar types...
+                print 'ERROR: Could not find any lidar data for the given date!'
+                return -1
+    else: # Other cases are simpler
+        folderUrl = getFolderUrl(options.year, options.month, options.day, options.site, options.type)
     
     # Fetch the index for this folder
-    filename        = getIndexFileName(options.type)
+    filename        = options.type + '_index.html'
     indexPath       = os.path.join(outputFolder, filename)
     parsedIndexPath = indexPath + '.csv'
     if options.refetchIndex:
         os.system('rm -f ' + indexPath)
         os.system('rm -f ' + parsedIndexPath)
-    if fileExists(indexPath):
+    if fileExists(parsedIndexPath):
         print 'Already have the index file ' + indexPath + ', keeping it.'
     else:
         fetchAndParseIndexFile(folderUrl, indexPath, parsedIndexPath, options.type)
@@ -248,23 +285,26 @@ def main(argsIn):
     # What is the maximum number of files that can be downloaded with one call?
     MAX_IN_ONE_CALL = 100
     
-    # Loop through all requested frames
+    # Loop through all found frames within the provided range
     currentFileCount = 0
-    for frame in range(options.frame, options.frameStop+1):
-        
-        filename   = frameDict[frame]
-        url        = os.path.join(folderUrl, filename)
-        outputPath = os.path.join(outputFolder, filename)
-            
-        if fileExists(outputPath):
-            print 'File ' + outputPath + ' already exists, skipping it.'
-        else:
-            # Add to the command
-            curlCmd += ' -O ' + url
-            currentFileCount += 1 # Number of files in the current download command
+    for frame in sorted(frameDict.keys()):
+        #print frame
+        if (frame >= options.frame) and (frame <= options.frameStop):
+
+            filename   = frameDict[frame]
+            url        = os.path.join(folderUrl, filename)
+            outputPath = os.path.join(outputFolder, filename)
+                
+            if not fileExists(outputPath):
+                # Add to the command
+                curlCmd += ' -O ' + url
+                # Download the accompanying XML file if any
+                if (options.type in LIDAR_TYPES) or (options.type == 'ortho'): 
+                    curlCmd += '.xml -O ' + url
+                currentFileCount += 1 # Number of files in the current download command
         
         # Download the indicated files when we hit the limit or run out of files
-        if (currentFileCount >= MAX_IN_ONE_CALL) or (frame == options.frameStop):
+        if (currentFileCount >= MAX_IN_ONE_CALL) or ((frame == options.frameStop) and (currentFileCount > 0)):
             print curlCmd
             if not options.dryRun:
                 p = subprocess.Popen(curlCmd, cwd=outputFolder, shell=True)
@@ -273,6 +313,9 @@ def main(argsIn):
             currentFileCount = 0
             curlCmd          = baseCmd
 
-
+    return 0
+    
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))
+
+

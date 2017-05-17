@@ -203,10 +203,10 @@ AX_PKG_ONE_OF(LAPACK,
      AX_GROUP_PKG(STANDALONE_FLAPACK_FBLAS, [STANDALONE_FLAPACK STANDALONE_FBLAS STANDALONE_F2C])])
 
 AX_PKG(PROTOBUF, [PTHREADS], [-lprotobuf], [google/protobuf/stubs/common.h])
-AC_PATH_TOOL( PROTOC, [protoc], [no], [$PKG_PATHS_PROTOBUF/bin$PATH_SEPARATOR$PATH])
-if test x"$PROTOC" = "xno" && test x"$HAVE_PKG_PROTOBUF" = "xyes"; then
-  AC_MSG_ERROR([cannot find protoc used by protobuf])
-fi
+#AC_PATH_TOOL( PROTOC, [protoc], [no], [$PKG_PATHS_PROTOBUF/bin$PATH_SEPARATOR$PATH])
+#if test x"$PROTOC" = "xno" && test x"$HAVE_PKG_PROTOBUF" = "xyes"; then
+#  AC_MSG_ERROR([cannot find protoc used by protobuf])
+#fi
 AX_PKG(FLANN, [], [-lflann_cpp], [flann/flann.hpp])
 AX_PKG(Z, [], [-lz], [zlib.h])
 AX_PKG(PNG, [Z], [-lpng], [png.h])
