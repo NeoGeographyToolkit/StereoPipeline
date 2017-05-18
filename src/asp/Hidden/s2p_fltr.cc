@@ -45,32 +45,31 @@ namespace vw {
 }
 
 struct Options : vw::cartography::GdalWriteOptions {
-  string input_dem, output_dem, output_datum, target_srs_string;
-  double nodata_value;
-  bool   use_double;
+  string input_RD, disp_1d_file, mask_1d_file, output_F, input_file, output_file;
+  Vector2i left_crop, right_crop, shrink, grow;
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ){
 
   po::options_description general_options("");
   general_options.add_options()
-    ("output-datum", po::value(&opt.output_datum), " The datum to convert to. Supported options: WGS_1984, NAD83, WGS72, and NAD27.")
-    ("t_srs",        po::value(&opt.target_srs_string)->default_value(""), "Specify the output datum via the PROJ.4 string.")
-    ("nodata_value", po::value(&opt.nodata_value)->default_value(-32768),
-     "The value of no-data pixels, unless specified in the DEM.")
-    ("double", po::bool_switch(&opt.use_double)->default_value(false)->implicit_value(true),
-     "Output using double precision (64 bit) instead of float (32 bit).");
+    ("input-RD", po::value(&opt.input_RD),     "The ASP RD file to read the disparity size from.")
+    ("disp-1d", po::value(&opt.disp_1d_file),  "The S2P 1D disparity file to read.")
+    ("mask-1d", po::value(&opt.mask_1d_file),  "The S2P 1D mask file to read.")
+    ("left-crop", po::value(&opt.left_crop),   "How much the S2P left image was cropped.")
+    ("right-crop", po::value(&opt.right_crop), "How much the S2P right image was cropped.")
+    ("shrink", po::value(&opt.shrink)->default_value(Vector2i(0, 0)),
+     "Simply take an image, and shrink from all corners by this, if non-zero.")
+    ("grow", po::value(&opt.grow)->default_value(Vector2i(0, 0)),
+     "Simply take an image, and grow from all corners by this amount if nonzero, using the zero value.")
+    ("input", po::value(&opt.input_file), "The file to read and shrink/grow.")
+    ("output", po::value(&opt.output_file), "The file to write after shrinking/growing.");
 
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
-  positional.add_options()
-    ("input-dem",    po::value(&opt.input_dem  ), "The path to the input DEM file.")
-    ("output-dem",   po::value(&opt.output_dem ), "The path to the output DEM file.");
-
+  //positional.add_options();
   po::positional_options_description positional_desc;
-  positional_desc.add("input-dem",    1);
-  positional_desc.add("output-dem",   1);
 
   string usage("[options] <input dem> <output dem>");
   bool allow_unregistered = false;
@@ -80,19 +79,19 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
                              positional, positional_desc, usage,
                              allow_unregistered, unregistered);
 
-  if ( opt.input_dem.empty() )
-    vw_throw( ArgumentErr() << "Missing input arguments.\n\n"     << usage << general_options );
-  if ( opt.output_dem.empty() )
-    vw_throw( ArgumentErr() << "Requires <output dem> in order to proceed.\n\n"  << usage << general_options );
-  if ( opt.output_datum.empty() && opt.target_srs_string.empty())
-    vw_throw( ArgumentErr() << "Requires <output datum> or PROJ.4 string in order to proceed.\n\n" << usage << general_options );
+//   if ( opt.input_dem.empty() )
+//     vw_throw( ArgumentErr() << "Missing input arguments.\n\n"     << usage << general_options );
+//   if ( opt.output_dem.empty() )
+//     vw_throw( ArgumentErr() << "Requires <output dem> in order to proceed.\n\n"  << usage << general_options );
+//   if ( opt.output_datum.empty() && opt.target_srs_string.empty())
+//     vw_throw( ArgumentErr() << "Requires <output datum> or PROJ.4 string in order to proceed.\n\n" << usage << general_options );
 
-  if ( !opt.output_datum.empty() && !opt.target_srs_string.empty())
-    vw_out(WarningMessage) << "Both the output datum and the PROJ.4 string were specified. The former takes precedence.\n";
+//   if ( !opt.output_datum.empty() && !opt.target_srs_string.empty())
+//     vw_out(WarningMessage) << "Both the output datum and the PROJ.4 string were specified. The former takes precedence.\n";
 
-  boost::to_lower(opt.output_datum);
+//   boost::to_lower(opt.output_datum);
 
-  vw::create_out_dir(opt.output_dem);
+//   vw::create_out_dir(opt.output_dem);
 
   //// Turn on logging to file
   //asp::log_to_file(argc, argv, "", opt.out_prefix);
@@ -108,19 +107,72 @@ int main( int argc, char *argv[] ) {
 
     Options opt;
     
-    //handle_arguments( argc, argv, opt );
+    handle_arguments( argc, argv, opt );
+    
+    if (opt.input_file != "" && opt.output_file != "") {
 
-    std::string RD_file      = argv[1];
-    std::string F_file       = argv[2];
-    std::string disp_1d_file = argv[3];
-    std::string mask_1d_file = argv[4];
-    int left_crop_x          = atoi(argv[5]);
-    int left_crop_y          = atoi(argv[6]);
-    int right_crop_x         = atoi(argv[7]);
-    int right_crop_y         = atoi(argv[8]);
+      ImageFormat fmt = vw::image_format(opt.input_file);
+      
+      DiskImageView<float> input_img(opt.input_file);
+      int cols = input_img.cols();
+      int rows = input_img.rows();
 
-    std::cout << "Input vals are " << RD_file << " " << F_file << ' '
-              << disp_1d_file << ' ' << mask_1d_file << ' '
+      ImageView<float> output_img = copy(input_img);
+
+      if (opt.shrink != Vector2()) {
+        std::cout << "Will shrink by " << opt.shrink << std::endl;
+
+        BBox2i box = bounding_box(input_img);
+        std::cout << "input box " << box << std::endl;
+        box.min() += opt.shrink;
+        box.max() -= opt.shrink;
+        std::cout << "output box " << box << std::endl;
+        output_img = crop(input_img, box);
+        
+      } else if (opt.grow != Vector2()) {
+
+        int bx = opt.grow[0];
+        int by = opt.grow[1];
+        
+        output_img.set_size(cols + 2*bx, rows + 2*by);
+        for (int col = 0; col < output_img.cols(); col++) {
+          for (int row = 0; row < output_img.rows(); row++) {
+            output_img(col, row) = 0;
+          }
+        }
+
+        for (int col = 0; col < cols; col++) {
+          for (int row = 0; row < rows; row++) {
+            output_img(col + bx, row + by) = input_img(col, row);
+          }
+        }
+
+      }
+      
+      vw_out() << "Output size: " << output_img.cols() << ' ' << output_img.rows() << std::endl;
+      
+      vw_out() << "Writing: " << opt.output_file << std::endl;
+      
+      if (fmt.channel_type == VW_CHANNEL_UINT8) {
+        std::cout << "--unint8!" << std::endl;
+        write_image(opt.output_file, channel_cast<uint8>(output_img));
+      }else if (fmt.channel_type== VW_CHANNEL_FLOAT32) {
+        std::cout << "--float32" << std::endl;
+        write_image(opt.output_file, output_img);
+      }else{
+        vw_throw(ArgumentErr() << "Unknown channel type!\n");
+      }
+
+      return 0;
+    }
+    
+    int left_crop_x   = opt.left_crop[0];
+    int left_crop_y   = opt.left_crop[1];
+    int right_crop_x  = opt.right_crop[0];
+    int right_crop_y  = opt.right_crop[1];
+
+    std::cout << "Input vals are " << opt.input_RD << " " << opt.output_F << ' '
+              << opt.disp_1d_file << ' ' << opt.mask_1d_file << ' '
               << left_crop_x << ' '  << left_crop_y << " " 
               << right_crop_x << ' ' << right_crop_y << std::endl;
 
@@ -130,7 +182,7 @@ int main( int argc, char *argv[] ) {
     ImageView<PixelMask<Vector2f> > F;
     {
       // Peek inside of the RD file to find the size
-      DiskImageView<PixelMask<Vector2f> > RD(RD_file);
+      DiskImageView<PixelMask<Vector2f> > RD(opt.input_RD);
       F.set_size(RD.cols(), RD.rows());
     }
 
@@ -142,8 +194,8 @@ int main( int argc, char *argv[] ) {
       }
     }
 
-    ImageView<float> disp_1d = DiskImageView<float>( disp_1d_file );
-    ImageView<uint8> mask_1d = DiskImageView<uint8>( mask_1d_file );
+    ImageView<float> disp_1d = DiskImageView<float>( opt.disp_1d_file );
+    ImageView<uint8> mask_1d = DiskImageView<uint8>( opt.mask_1d_file );
 
     int num_valid = 0;
     for (int col = 0; col < disp_1d.cols(); col++) {
@@ -185,8 +237,8 @@ int main( int argc, char *argv[] ) {
     bool has_nodata = false;
     double nodata = -32768.0;
 
-    vw_out() << "Writing: " << F_file << endl;
-    vw::cartography::block_write_gdal_image(F_file, F,
+    vw_out() << "Writing: " << opt.output_F << endl;
+    vw::cartography::block_write_gdal_image(opt.output_F, F,
                                             has_georef, georef,
                                             has_nodata, nodata, opt,
                                             TerminalProgressCallback
