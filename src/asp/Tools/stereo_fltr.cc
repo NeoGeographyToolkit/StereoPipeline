@@ -90,7 +90,8 @@ public:
     int max_half_kernel = m_texture_smooth_range;
     if (m_max_smooth_kernel_size > max_half_kernel)
       max_half_kernel = m_max_smooth_kernel_size;
-    max_half_kernel = (max_half_kernel-1) / 2;
+    max_half_kernel += m_median_filter_size; // Don't forget we apply two kernels in succession
+    max_half_kernel /= 2;
 
     // Rasterize both input image regions
     BBox2i bbox2 = bbox;
