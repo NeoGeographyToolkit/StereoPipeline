@@ -113,7 +113,7 @@ def set_option(options, opt, new_values):
         r = options.index(opt)       
         if r < len(options):
             r += 1
-            for i in new_values):
+            for i in new_values:
                 if r < len(options):
                   options[r] = str(i)
                 r += 1
