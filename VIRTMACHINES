@@ -33,7 +33,15 @@ and rebooting. Or, for the current session, with:
 
   ifup eth0
 
-Use virt-viewer <machine> to open a GUI into the guest. Use 
+To open a GUI in the machine, use either:
+
+  vncviewer localhost:5950
+
+(the same VNC port used when the machine was created), or 
+
+  virt-viewer centos-6.0
+
+Use
 
   virsh list --all 
 
