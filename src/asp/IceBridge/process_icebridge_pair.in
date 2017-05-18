@@ -30,83 +30,24 @@ sys.path.insert(0, basepath) # prepend to Python path
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
+import icebridge_common
 import asp_system_utils, asp_alg_utils, asp_geo_utils
 asp_system_utils.verify_python_version_is_supported()
 
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
-def parseDateTimeStrings(dateString, timeString):
-    '''Parse strings in the format 20110323_17433900'''
-    
-    MILLISECOND_TO_MICROSECOND = 10000
-    
-    #print dateString
-    #print timeString
-    
-    year    = int(dateString[0:4])
-    month   = int(dateString[4:6])
-    day     = int(dateString[6:8])
-    hour    = int(timeString[0:2])
-    minute  = int(timeString[2:4])
-    second  = int(timeString[4:6])
-    usecond = 0
-    if len(timeString) > 6:
-        usecond = int(timeString[6:8]) * MILLISECOND_TO_MICROSECOND
-    
-    return datetime.datetime(year, month, day, hour, minute, second, usecond)
-
-# Pull two six or eight digit values from the given file name
-# as the time and date stamps.
-def parseTimeStamps(fileName):
-
-    fileName = os.path.basename(fileName)
-    fileName = fileName.replace('.', '_')
-    fileName = fileName.replace('-', '_')
-    parts    = fileName.split('_')
-
-    imageDateString = ""
-    imageTimeString = ""
-
-    for part in parts:
-
-        if len(part) != 6 and len(part) != 8:
-            continue
-        
-        if len(part) == 6:
-            if part < '000000' or part > '999999':
-                continue
-
-        if len(part) == 8:
-            if part < '00000000' or part > '99999999':
-                continue
-
-        if imageDateString == "" and len(part) == 8:
-            # The date must always be 8 digits (YYYYMMDD)
-            imageDateString = part
-            continue
-
-        if imageTimeString == "":
-            # The time can be hhmmss or hhmmssff (ff = hundreds of seconds)
-            imageTimeString = part
-            continue
-            
-    if imageDateString == "":
-        return []
-
-    if imageTimeString == "":
-        return []
-
-    return [imageDateString, imageTimeString]
     
 def findMatchingLidarFile(imageFile, lidarFolder):
     '''Given an image file, find the best lidar file to use for alignment.'''
     # TODO: This does not always return the best file
     
-    vals = parseTimeStamps(imageFile)
+    vals = icebridge_common.parseTimeStamps(imageFile)
     if len(vals) < 2:
         raise Exception('Failed to parse the date and time from: ' + imageFile)
-    imageDateTime = parseDateTimeStrings(vals[0], vals[1])
+    imageDateTime = icebridge_common.parseDateTimeStrings(vals[0], vals[1])
+    
+    #print 'INPUT = ' + str(imageDateTime)
     
     # Search for the matching file in the lidar folder.
     # - We are looking for the closest lidar time that starts BEFORE the image time.
@@ -124,13 +65,17 @@ def findMatchingLidarFile(imageFile, lidarFolder):
         # Extract time for this file
         lidarPath = os.path.join(lidarFolder, f)
 
-        vals = parseTimeStamps(lidarPath)
+        vals = icebridge_common.parseTimeStamps(lidarPath)
         if len(vals) < 2: continue # ignore bad files
 
-        lidarDateTime = parseDateTimeStrings(vals[0], vals[1])
+        lidarDateTime = icebridge_common.parseDateTimeStrings(vals[0], vals[1])
+
+        #print 'THIS = ' + str(lidarDateTime)
 
         # Compare time to the image time
         timeDelta       = imageDateTime - lidarDateTime
+        #print 'DELTA = ' + str(timeDelta)
+        # Select the closest lidar time that occurred before the image time.
         if ( (timeDelta > zeroDelta) and (timeDelta < bestTimeDelta) ):
             bestLidarFile = lidarPath
             bestTimeDelta = timeDelta
@@ -169,15 +114,12 @@ def main(argsIn):
         parser.add_option('--max-displacement', dest='maxDisplacement', default=20,
                           type='float', help='Max displacement value passed to pc_align.')
 
-        parser.add_option('--use-sgm', action='store_true', default=False, dest='use_sgm',  
-                          help='If to use SGM.')
-
         parser.add_option('--solve-intrinsics', action='store_true', default=False,
                           dest='solve_intr',  
                           help='If to float the intrinsics params.')
 
-        parser.add_option('--subpixel-mode', dest='subpix_mode', default=1,
-                          type='int', help='Subpixel mode (1 = fast but low quality, 3 = slow). Only applicable for non-SGM runs.')
+        parser.add_option('--subpixel-mode', dest='subpix_mode', default=0,
+                          type='int', help='Subpixel mode (0 = none, 1 = fast but low quality, 3 = slow). Only applicable for non-SGM runs.')
 
         parser.add_option('--pc-align', action='store_true', default=False, dest='pc_align',  
                           help='If to use pc_align.')
@@ -190,22 +132,22 @@ def main(argsIn):
 
         (options, args) = parser.parse_args(argsIn)
 
-        if len(args) < 7:
+        if len(args) < 6:
             print usage
             return 0
 
-        imageA       = args[1]
-        imageB       = args[2]
-        cameraA      = args[3]
-        cameraB      = args[4]
-        lidarFolder  = args[5]
-        outputFolder = args[6]
+        imageA       = args[0]
+        imageB       = args[1]
+        cameraA      = args[2]
+        cameraB      = args[3]
+        lidarFolder  = args[4]
+        outputFolder = args[5]
 
         imageC       = ""
         cameraC      = ""
         if options.triView:
-            imageC       = args[7]
-            cameraC      = args[8]
+            imageC       = args[6]
+            cameraC      = args[7]
 
     except optparse.OptionError, msg:
         raise Usage(msg)
@@ -294,7 +236,7 @@ def main(argsIn):
             #baseArgString = ('%s %s %s %s %s  -t nadirpinhole --alignment-method epipolar' 
             #                 % (imageC, imageA, cameraC, cameraA, outputPrefix))
 
-    if options.use_sgm:
+    if options.stereoAlgo > 0:
         # PPRC
         cmd = ('stereo -e 0 --stop-point 1 %s %s' % (baseArgString, threadText))
         pprcOutput = outputPrefix + '-L.tif'
@@ -304,10 +246,9 @@ def main(argsIn):
         # - This should be single threaded to use the SGM processing.
         # - TODO: Use blob filtering to reduce outliers?
         # - TODO: Can we shrink the search range?
-        correlationArgString = ('--threads 1 --xcorr-threshold -1 --corr-kernel 7 7' 
+        correlationArgString = ('--xcorr-threshold -1 --corr-kernel 7 7' 
                                 + ' --corr-tile-size 6400 --cost-mode 4 '
-                                + '--subpixel-mode ' + str(options.subpix_mode)  
-                                + ' --stereo-algorithm ' + str(options.stereoAlgo))
+                                + ' --stereo-algorithm ' + str(options.stereoAlgo) + threadText)
                                #+ ' --corr-blob-filter 100 --compute-low-res-disparity-only')
         cmd = ('stereo -e 1 --stop-point 2 %s %s ' % (correlationArgString, baseArgString))
         corrOutput = outputPrefix + '-D.tif'
@@ -318,8 +259,8 @@ def main(argsIn):
         #raise Exception('DEBUG')
 
         # RFNE
-        cmd = ('stereo -e 2 --stop-point 3 --subpixel-mode %s %s %s' %
-               (options.subpix_mode, baseArgString, threadText))
+        cmd = ('stereo -e 2 --stop-point 3 --subpixel-mode %s --stereo-algorithm %d %s %s ' %
+               (options.subpix_mode, options.stereoAlgo, baseArgString, threadText))
         rfneOutput = outputPrefix + '-RD.tif'
         if options.triView:
             rfneOutput = outputPrefix + '-pair2/2-RD.tif'
@@ -368,6 +309,8 @@ def main(argsIn):
     p2dOutput = outputPrefix + '-DEM.tif'
     asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput, redo)
 
+    redo = True
+
     if options.pc_align:
         # PC_ALIGN
         alignPrefix = os.path.join(outputFolder, 'align/out')
@@ -384,7 +327,7 @@ def main(argsIn):
                % (options.demResolution, projString, alignOutput, threadText))
         p2dOutput = alignPrefix+'-trans_reference-DEM.tif'
         asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput, redo)
-       
+
         # Create a symlink to the DEM in the main directory
         demSymlinkPath = outputPrefix + '-align-DEM.tif'
         try:    os.remove(demSymlinkPath)
@@ -392,7 +335,7 @@ def main(argsIn):
         print("ln -s " + os.path.abspath(p2dOutput) + " " + demSymlinkPath)
         os.symlink(os.path.abspath(p2dOutput), demSymlinkPath)
         p2dOutput = demSymlinkPath
-    
+
     cmd = ('geodiff --absolute --csv-format %s %s %s -o %s' % \
            (csvFormatString, p2dOutput, lidarFile, outputPrefix))
     print(cmd)
@@ -441,5 +384,5 @@ def main(argsIn):
 
 # Run main function if file used from shell
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    sys.exit(main(sys.argv[1:]))
 

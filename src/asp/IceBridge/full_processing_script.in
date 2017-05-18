@@ -18,7 +18,8 @@
 
 # Fetch all the data for a run and then process all the data.
 
-import os, sys, optparse, datetime, multiprocessing, time
+import os, sys, optparse, datetime, time, subprocess
+import icebridge_common
 import fetch_icebridge_data
 import process_icebridge_run
 import extract_icebridge_ATM_points
@@ -39,26 +40,10 @@ asp_system_utils.verify_python_version_is_supported()
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = basepath    + os.pathsep + os.environ["PATH"]
 
-# TODO: MOVE THIS
-def copyGeoTiffInfo(inputGeoTiffPath, inputTiffPath, outputPath):
-    '''Copies geo information from a GeoTiff to a plain Tiff'''
 
-    # Extract geo information from the input geotiff
-    geoInfoPath = inputGeoTiffPath + '.metadata'
-    cmd = 'listgeo ' + inputGeoTiffPath +' > '+ geoInfoPath
-    print cmd
-    os.system(cmd)
-    
-    # Paste the geo information into the output file
-    cmd = 'geotifcp ' + inputTiffPath +' '+ outputPath +' -g '+ geoInfoPath
-    print cmd
-    os.system(cmd)
-    
-    # Clean up temporary file
-    os.remove(geoInfoPath)
-    
 
-def fetchAllRunData(yyyymmdd, site, outputFolder):
+def fetchAllRunData(yyyymmdd, site, outputFolder,
+                    jpegFolder, orthoFolder, demFolder, lidarFolder):
     '''Download all data needed to process a run'''
     
     print 'Downloading all data for the run!  This could take a while...'
@@ -66,11 +51,6 @@ def fetchAllRunData(yyyymmdd, site, outputFolder):
     # TODO: Provide options for this
     frameStart = 350
     frameStop  = 360
-    
-    jpegFolder  = os.path.join(outputFolder, 'jpeg')
-    orthoFolder = os.path.join(outputFolder, 'ortho')
-    demFolder   = os.path.join(outputFolder, 'fireball')
-    lidarFolder = os.path.join(outputFolder, 'lidar')
     
     baseCommand = (('--yyyymmdd %s --site %s --frame %d --frame-stop %d')
                    % (yyyymmdd, site, frameStart, frameStop))
@@ -95,19 +75,29 @@ def fetchAllRunData(yyyymmdd, site, outputFolder):
 
     return (jpegFolder, orthoFolder, demFolder, lidarFolder)
 
-# TODO: Move these kinds of functions to another file!
+def getJpegDateTime(filepath):
+    '''Get the date and time from a raw jpeg file.'''
+    
+    # TODO: For some files it is probably in the name.
+    
+    # Use this tool to extract the metadata
+    cmd      = ['gdalinfo', filepath]
+    p        = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    out, err = p.communicate()
+    
+    lines = out.split('\n')
 
-def getImageFrameNumber(filename):
-    '''Return the frame number from an input image file'''
-    return int(filename[11:16])
+    for line in lines:
+        if 'EXIF_DateTimeOriginal' not in line:
+            continue
+        parts = line.replace('=',' ').split()
+        dateString = parts[1].strip().replace(':','')
+        timeString = parts[2].strip().replace(':','')
+        
+        return (dateString, timeString)
 
-def getOrthoFrameNumber(filename):
-    '''Return the frame number from an input ortho file'''
-    return int(filename[12:17])
 
-def getCameraFileName(imageFileName):
-    '''Get the camera file name we associate with an input image file'''
-    return imageFileName.replace('.tif', '.tsai')
+    raise Exception('Failed to read date/time from file: ' + filepath)
 
 def convertJpegs(jpegFolder, imageFolder):
     '''Convert jpeg images from RGB to single channel'''
@@ -119,21 +109,28 @@ def convertJpegs(jpegFolder, imageFolder):
     jpegFiles = os.listdir(jpegFolder)
     for jpegFile in jpegFiles:
         
+        inputPath = os.path.join(jpegFolder, jpegFile)
+        
         # Skip non-image files
         ext = os.path.splitext(jpegFile)[1]
         if ext != '.JPG':
             continue
         
+        # Make sure the timestamp and frame number are in the output file name
+        (dateStr, timeStr) = getJpegDateTime(inputPath)
+        frameNumber = icebridge_common.getFrameNumberFromFilename(inputPath)
+        outputName = ('DMS_%s_%s_%05d.tif') % (dateStr, timeStr, frameNumber)
+        outputPath = os.path.join(imageFolder, outputName)
+        
         # Skip existing files
-        outputFile = os.path.join(imageFolder, jpegFile.replace('.JPG', '.tif'))
-        if os.path.exists(outputFile):
+        if os.path.exists(outputPath):
             continue
         
         # Use ImageMagick tool to convert from RGB to grayscale
-        cmd = (('convert %s -colorspace Gray %s') % (os.path.join(jpegFolder, jpegFile), outputFile))
+        cmd = (('convert %s -colorspace Gray %s') % (inputPath, outputPath))
         print cmd
         os.system(cmd)
-        if not os.path.exists(outputFile):
+        if not os.path.exists(outputPath):
             raise Exception('Failed to convert jpeg file: ' + jpegFile)
 
 def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCamFile, cameraFolder):
@@ -142,6 +139,7 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCamFile, cameraFolde
     print 'Generating camera models from ortho images...'
 
     # TODO: DEM/height options for this tool
+    # TODO: Use multiprocessing for this step?
     
     imageFiles = os.listdir(imageFolder)
     orthoFiles = os.listdir(orthoFolder)
@@ -153,7 +151,7 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCamFile, cameraFolde
         ext = os.path.splitext(f)[1]
         if ext != '.tif':
             continue
-        frame = getOrthoFrameNumber(f)
+        frame = icebridge_common.getFrameNumberFromFilename(f)
         orthoFrames[frame] = f
 
     # Loop through all input images
@@ -165,13 +163,13 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCamFile, cameraFolde
             continue
         
         # Get associated orthofile
-        frame     = getImageFrameNumber(imageFile)       
+        frame     = icebridge_common.getFrameNumberFromFilename(imageFile)       
         orthoFile = orthoFrames[frame]
         
         # Check output file
         inputPath     = os.path.join(imageFolder, imageFile)
         orthoPath     = os.path.join(orthoFolder, orthoFile)
-        outputCamFile = os.path.join(cameraFolder, getCameraFileName(imageFile))
+        outputCamFile = os.path.join(cameraFolder, icebridge_common.getCameraFileName(imageFile))
         if os.path.exists(outputCamFile):
             continue
                
@@ -209,18 +207,17 @@ def convertLidarData(lidarFolder):
         if not os.path.exists(outputPath):
             raise Exception('Failed to parse LIDAR file: ' + fullPath)
 
-def processTheRun(imageFolder, orthoFolder, lidarFolder, outputFolder, isSouth):
+def processTheRun(imageFolder, cameraFolder, lidarFolder, processFolder, isSouth, 
+                  numProcesses, numThreads):
     '''Do all the run processing'''
 
-    processFolder = os.path.join(outputFolder, 'processed')
-    processCommand = (('%s %s %s %s %s --use-sgm --processing-algorithm')
-                      % (imageFolder, cameraFolder, lidarFolder, processFolder))
+    processCommand = (('%s %s %s %s --stereo-algorithm 1 --num-processes %s --num-threads %s --pc-align --start-frame 353 --stop-frame 353')
+                      % (imageFolder, cameraFolder, lidarFolder, processFolder, numProcesses, numThreads))
     if isSouth:
         processCommand += ' --south'
         
     print processCommand
-    raise Exception('DEBUG')
-    process_icebridge_run(processCommand.split())
+    process_icebridge_run.main(processCommand.split())
     #process_icebridge_run inputs/image_files inputs/camera_files_ortho2pin inputs/lidar run_tmp_ortho2pin
     # --num-processes 1 --start-frame $i --stop-frame $j --subpixel-mode 1 --bundle-adjust
     # --pc-align --south --max-displacement 100 --use-sgm --tri-view
@@ -243,6 +240,18 @@ def main(argsIn):
                           help="Name of the location of the images (AN or GR)")
         parser.add_option("--fetch-only", action="store_true", dest="fetchOnly", default=False,
                           help="Just fetch the data, don't do any processing.")
+        parser.add_option("--skip-fetch", action="store_true", dest="noFetch", default=False,
+                          help="Skip data fetching.")
+        parser.add_option("--skip-convert", action="store_true", dest="noConvert", default=False,
+                          help="Skip data conversion.")
+        parser.add_option("--stop-after-fetch", action="store_true", dest="stopAfterFetch", default=False,
+                          help="Stop program after data fetching.")
+        parser.add_option("--stop-after-convert", action="store_true", dest="stopAfterConvert", default=False,
+                          help="Stop program after data conversion.")
+        parser.add_option('--num-processes', dest='numProcesses', default=1,
+                          type='int', help='The number of simultaneous processes to run.')
+        parser.add_option('--num-threads', dest='numThreads', default=1,
+                          type='int', help='The number of threads per process.')
         (options, args) = parser.parse_args(argsIn)
 
         if len(args) != 2:
@@ -255,32 +264,46 @@ def main(argsIn):
     except optparse.OptionError, msg:
         raise Usage(msg)
 
-    cameraFolder = os.path.join(outputFolder, 'camera')
-    imageFolder  = os.path.join(outputFolder, 'image')
+    # Set up the output folders
+    cameraFolder  = os.path.join(outputFolder, 'camera')
+    imageFolder   = os.path.join(outputFolder, 'image')
+    jpegFolder    = os.path.join(outputFolder, 'jpeg')
+    orthoFolder   = os.path.join(outputFolder, 'ortho')
+    demFolder     = os.path.join(outputFolder, 'fireball')
+    lidarFolder   = os.path.join(outputFolder, 'lidar')
+    processFolder = os.path.join(outputFolder, 'processed')
 
-    # Call data fetch routine and check the result
-    fetchResult = fetchAllRunData(options.yyyymmdd, options.site, outputFolder)
-    if fetchResult == -1:
-        return -1
-    (jpegFolder, orthoFolder, demFolder, lidarFolder) = fetchResult
-    
-    if options.fetchOnly:
+    if not options.noFetch:
+
+        # Call data fetch routine and check the result
+        fetchResult = fetchAllRunData(options.yyyymmdd, options.site, outputFolder,
+                                      jpegFolder, orthoFolder, demFolder, lidarFolder)
+        if fetchResult == -1:
+            return -1
+        
+    if options.stopAfterFetch:
         print 'Fetching complete, finished!'
         return 0
+
+    if not options.noConvert:        
+        convertJpegs(jpegFolder, imageFolder)
+        
+        # TODO: Handle case where orthofiles are not present!
+        # TODO: What arguments need to be passed in here!
+        getCameraModelsFromOrtho(imageFolder, orthoFolder, cameraFile, cameraFolder)
+       
+        convertLidarData(lidarFolder)
+
+    if options.stopAfterConvert:
+        print 'Conversion complete, finished!'
+        return 0
     
-    convertJpegs(jpegFolder, imageFolder)
-    
-    # TODO: Handle case where orthofiles are not present!
-    # TODO: What arguments need to be passed in here!
-    getCameraModelsFromOrtho(imageFolder, orthoFolder, cameraFile, cameraFolder)
-   
-    convertLidarData(lidarFolder)
-    
-    south = (options.site == 'AN')
+    isSouth = (options.site == 'AN')
 
     # TODO: Add more options!
     # Call the processing routine
-    processTheRun(imageFolder, orthoFolder, lidarFolder, outputFolder, isSouth)
+    processTheRun(imageFolder, cameraFolder, lidarFolder, processFolder, isSouth,
+                  options.numProcesses, options.numThreads)
 
    
 

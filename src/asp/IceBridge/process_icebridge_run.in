@@ -45,6 +45,9 @@ sys.path.insert(0, basepath) # prepend to Python path
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
+import icebridge_common
+import process_icebridge_pair
+
 import asp_system_utils, asp_alg_utils, asp_geo_utils
 asp_system_utils.verify_python_version_is_supported()
 
@@ -78,31 +81,18 @@ def processPair(imageA, imageB, cameraA, cameraB, lidarFolder,
     suppressOutput = False
     redo           = False
 
+    # TODO: Call the function directly.
     # Just set the options and call the pair python tool.
     # We can try out bundle adjustment for intrinsic parameters here.
-    cmd = ('process_icebridge_pair --lidar-overlay %s %s %s %s %s %s %s %s %s' 
+    cmd = ('--lidar-overlay %s %s %s %s %s %s %s %s %s' 
            % (imageA, imageB, cameraA, cameraB, lidarFolder, outputFolder, options,
               imageC, cameraC))
-
-    asp_system_utils.executeCommand(cmd, None, suppressOutput, redo)
-
-def getFrameNumberFromFilename(f):
-    '''Return the frame number of an image or camera file'''
-    # Look for a 5 digit number, that is usually the frame name.
-    # Other parts of the file, like the date and time stamp
-    # have more digits.
-    base = os.path.basename(f)
-    base = base.replace('.', '_') # To deal with the extension
-    parts = os.path.basename(f).split('_')
-    for part in parts:
-        if len(part) != 5:
-            continue
-        if part < '00000' or part > '99999':
-            continue
-        return int(part)
-
-    raise Exception('Cannot parse the frame number from ' + f)
-    return 0
+    print cmd
+    try:
+        process_icebridge_pair.main(cmd.split())
+    except Exception as e:
+        print 'Pair processing failed!'
+        print str(e)
     
 def main(argsIn):
 
@@ -124,10 +114,10 @@ def main(argsIn):
 
         parser.add_option('--num-processes', dest='numProcesses', default=1,
                           type='int', help='The number of simultaneous processes to run.')
-                          
-        parser.add_option('--use-sgm', action='store_true', default=False, dest='use_sgm',  
-                          help='If to use SGM.')
 
+        parser.add_option('--num-threads', dest='numThreads', default=None,
+                          type='int', help='The number threads to use per process.')
+                          
         parser.add_option('--subpixel-mode', dest='subpix_mode', default=1,
                           type='int', help='Subpixel mode (1 = fast but low quality, 3 = slow). Only applicable for non-SGM runs.')
         
@@ -166,14 +156,14 @@ def main(argsIn):
 
         (options, args) = parser.parse_args(argsIn)
 
-        if len(args) < 5:
+        if len(args) < 4:
             print usage
             return 0
 
-        imageFolder  = args[1]
-        cameraFolder = args[2]
-        lidarFolder  = args[3]
-        outputFolder = args[4]
+        imageFolder  = args[0]
+        cameraFolder = args[1]
+        lidarFolder  = args[2]
+        outputFolder = args[3]
 
     except optparse.OptionError, msg:
         raise Usage(msg)
@@ -212,8 +202,8 @@ def main(argsIn):
     imageString  = ''
     cameraString = ''
     for (image, camera) in zip(imageFiles, cameraFiles): 
-        frameNumber = getFrameNumberFromFilename(image)
-        if (getFrameNumberFromFilename(camera) != frameNumber):
+        frameNumber = icebridge_common.getFrameNumberFromFilename(image)
+        if (icebridge_common.getFrameNumberFromFilename(camera) != frameNumber):
           print 'Error: input files do not align!'
           print (image, camera)
           return -1
@@ -274,7 +264,7 @@ def main(argsIn):
         cameraB = cameraFiles[i+1]
 
         # Check if this is inside the user specified frame range
-        frameNumber = getFrameNumberFromFilename(imageA)
+        frameNumber = icebridge_common.getFrameNumberFromFilename(imageA)
         if options.startFrame and (frameNumber < options.startFrame):
             continue
         if options.stopFrame and (frameNumber > options.stopFrame):
@@ -292,19 +282,17 @@ def main(argsIn):
             
         extraOptions = ''
         thisOutputFolder = os.path.join(outputFolder, str(frameNumber))
-        if options.use_sgm:
-            extraOptions += ' --use-sgm'
+        extraOptions += ' --stereo-algorithm ' + str(options.stereoAlgo)
+        if options.stereoAlgo > 0:
             thisOutputFolder += '_sgm_alg' + str(options.stereoAlgo)
-            extraOptions += ' --stereo-algorithm ' + str(options.stereoAlgo)
         else:
             thisOutputFolder += '_nosgm'
-
-        # With SGM must use subpixel-mode 0
-        if options.use_sgm:
-            options.subpix_mode = 0
-            
+           
         extraOptions += ' --subpixel-mode ' + str(options.subpix_mode)
         thisOutputFolder += '_subpix' + str(options.subpix_mode)
+
+        if options.numThreads:
+            extraOptions += ' --num-threads ' + str(options.numThreads)
 
         if options.solve_intr:
             extraOptions += ' --solve-intrinsics'
@@ -387,7 +375,7 @@ def main(argsIn):
 
 # Run main function if file used from shell
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    sys.exit(main(sys.argv[1:]))
 
 
 
