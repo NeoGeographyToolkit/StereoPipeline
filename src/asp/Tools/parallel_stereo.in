@@ -113,14 +113,14 @@ def set_option(options, opt, new_values):
         r = options.index(opt)       
         if r < len(options):
             r += 1
-            for i in range(len(new_values)):
+            for i in new_values):
                 if r < len(options):
-                  options[r] = str(new_values[i])
+                  options[r] = str(i)
                 r += 1
     else: # The option is not present, add it.
         options.append(opt)
         for i in new_values:
-            options.append(str(new_values[i]))
+            options.append(str(i))
 
 def create_subproject_dirs( settings, **kw ):
 
