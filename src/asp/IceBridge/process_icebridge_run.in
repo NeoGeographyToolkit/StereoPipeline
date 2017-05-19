@@ -46,7 +46,8 @@ sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
 import icebridge_common
-import process_icebridge_pair
+#import process_icebridge_pair
+import process_icebridge_batch
 
 import asp_system_utils, asp_alg_utils, asp_geo_utils
 asp_system_utils.verify_python_version_is_supported()
@@ -81,7 +82,6 @@ def processPair(imageA, imageB, cameraA, cameraB, lidarFolder,
     suppressOutput = False
     redo           = False
 
-    # TODO: Call the function directly.
     # Just set the options and call the pair python tool.
     # We can try out bundle adjustment for intrinsic parameters here.
     cmd = ('--lidar-overlay %s %s %s %s %s %s %s %s %s' 
@@ -93,7 +93,31 @@ def processPair(imageA, imageB, cameraA, cameraB, lidarFolder,
     except Exception as e:
         print 'Pair processing failed!'
         print str(e)
-    
+
+def processBatch(imageCameraPairs, lidarFolder, outputFolder, options):
+    '''Processes a batch of images at once'''
+
+    suppressOutput = False
+    redo           = False
+
+    argString = ''
+    for pair in imageCameraPairs:
+        argString += pair[0] + ' '
+    for pair in imageCameraPairs:
+        argString += pair[1] + ' '
+
+    # Just set the options and call the pair python tool.
+    # We can try out bundle adjustment for intrinsic parameters here.
+    cmd = ('--lidar-overlay --lidar-folder %s %s %s %s' 
+           % (lidarFolder, outputFolder, argString, options))
+    print cmd
+    try:
+        process_icebridge_batch.main(cmd.split())
+    except Exception as e:
+        print 'Pair processing failed!'
+        print str(e)
+
+
 def main(argsIn):
 
     try:
@@ -104,35 +128,22 @@ def main(argsIn):
                       
         parser = optparse.OptionParser(usage=usage)
 
+        # Data selection optios
         parser.add_option('--start-frame', dest='startFrame', default=-1,
                           type='int', help='The frame number to start processing with.')
         parser.add_option('--stop-frame', dest='stopFrame', default=-1,
                           type='int', help='The frame number to finish processing with.')        
-
         parser.add_option('--south', action='store_true', default=False, dest='isSouth',  
                           help='MUST be set if the images are in the southern hemisphere.')
 
-        parser.add_option('--num-processes', dest='numProcesses', default=1,
-                          type='int', help='The number of simultaneous processes to run.')
-
-        parser.add_option('--num-threads', dest='numThreads', default=None,
-                          type='int', help='The number threads to use per process.')
-                          
+        # Processing options
+        parser.add_option('--stereo-algorithm', dest='stereoAlgo', default=1,
+                          type='int', help='The SGM stereo algorithm to use.')
         parser.add_option('--subpixel-mode', dest='subpix_mode', default=1,
                           type='int', help='Subpixel mode (1 = fast but low quality, 3 = slow). Only applicable for non-SGM runs.')
-        
-        parser.add_option('--interactive', action='store_true', default=False, dest='interactive',  
-                          help='If to wait on user input to terminate the jobs.')
-        #parser.add_option('--lidar-overlay', action='store_true', default=False, dest='lidarOverlay',  
-        #                  help='Generate a lidar overlay for debugging')
 
-        parser.add_option('--global-bundle-adjust', action='store_true', default=False,
-                          dest='globalBundleAdjust',  
-                          help='Run bundle adjustment between all the images.')
-
-        parser.add_option('--bundle-adjust', action='store_true', default=False,
-                          dest='bundleAdjust',  
-                          help='Run bundle adjustment between two consecutive images.')
+        parser.add_option('--bundle-length', dest='bundleLength', default=2,
+                          type='int', help='Number of images to bundle adjust and process at once.')
 
         parser.add_option('--solve-intrinsics', action='store_true', default=False,
                           dest='solve_intr',  
@@ -141,8 +152,6 @@ def main(argsIn):
         parser.add_option('--pc-align', action='store_true', default=False,
                           dest='pc_align', help='Run pc_align after stereo.')
 
-        parser.add_option('--stereo-algorithm', dest='stereoAlgo', default=1,
-                          type='int', help='The SGM stereo algorithm to use.')
 
         #parser.add_option('--dem-resolution', dest='demResolution', default=0.4,
         #                  type='float', help='Generate output DEMs at this resolution.')
@@ -150,9 +159,19 @@ def main(argsIn):
         parser.add_option('--max-displacement', dest='maxDisplacement', default=20,
                           type='float', help='Max displacement value passed to pc_align.')
 
-        parser.add_option('--tri-view', action='store_true', default=False,
-                          dest='triView',  
-                          help='Run stereo with three images.')
+
+        # Performance options
+        parser.add_option('--num-processes', dest='numProcesses', default=1,
+                          type='int', help='The number of simultaneous processes to run.')
+        parser.add_option('--num-threads', dest='numThreads', default=None,
+                          type='int', help='The number threads to use per process.')                         
+
+        # Action options
+        parser.add_option('--interactive', action='store_true', default=False, dest='interactive',  
+                          help='If to wait on user input to terminate the jobs.')
+        #parser.add_option('--lidar-overlay', action='store_true', default=False, dest='lidarOverlay',  
+        #                  help='Generate a lidar overlay for debugging')
+
 
         (options, args) = parser.parse_args(argsIn)
 
@@ -197,121 +216,64 @@ def main(argsIn):
     if (len(cameraFiles) != numFiles):
         print 'Error: Number of image files and number of camera files must match!'
         return -1
+        
+    imageCameraPairs = zip(imageFiles, cameraFiles)
     
     # Check that the files are properly aligned
-    imageString  = ''
-    cameraString = ''
-    for (image, camera) in zip(imageFiles, cameraFiles): 
+    for (image, camera) in imageCameraPairs: 
         frameNumber = icebridge_common.getFrameNumberFromFilename(image)
         if (icebridge_common.getFrameNumberFromFilename(camera) != frameNumber):
           print 'Error: input files do not align!'
           print (image, camera)
           return -1
-        imageString  += image +' ' # Build strings for the bundle_adjust step
-        cameraString += camera+' '
         
     # Generate a map of initial camera positions
     orbitvizBefore = os.path.join(outputFolder, 'cameras_in.kml')
     vizString  = ''
-    for (image, camera) in zip(imageFiles, cameraFiles): 
+    for (image, camera) in imageCameraPairs: 
         vizString += image +' ' + camera+' '
     cmd = 'orbitviz --hide-labels -t nadirpinhole -r wgs84 -o '+ orbitvizBefore +' '+ vizString
     asp_system_utils.executeCommand(cmd, orbitvizBefore, suppressOutput, redo)
-
-    if options.globalBundleAdjust:
-        # TODO: Intrinsics???
-        # Bundle adjust all of the cameras
-        # - Could use an overlap of 4 but there is very little overlap at that point.
-        # - If we start dealing with crossover paths we can use the KML overlap method.
-        print 'Setting up bundle adjustment...'
-        baFolder = os.path.join(outputFolder, 'group_bundle')
-        baPrefix = os.path.join(baFolder,     'out')
-        cmd = ('bundle_adjust '+ imageString + cameraString 
-               + ' --overlap-limit 3 --local-pinhole -o '+ baPrefix)
-        if options.solve_intr:
-            cmd += ' --solve-intrinsics'
-        suppressOutput = False
-        redo           = False
-        baOutFile = baPrefix +'-'+ os.path.basename(cameraFiles[-1])
-        asp_system_utils.executeCommand(cmd, baOutFile, suppressOutput, redo)
-        print 'Bundle adjustment finished!'
-    
-        # Update the list of camera files to the ba files
-        baOutFiles  = os.listdir(baFolder)
-        cameraFiles = [os.path.join(baFolder, f) for f in baOutFiles if '.tsai' in f]
-        cameraFiles.sort()
-
-        # Generate a map of post-bundle_adjust camera positions
-        orbitvizAfter  = os.path.join(outputFolder, 'cameras_post_ba.kml')
-        vizString  = ''
-        for (image, camera) in zip(imageFiles, cameraFiles): 
-            vizString += image +' ' + camera+' '
-        cmd = 'orbitviz --hide-labels -t nadirpinhole -r wgs84 -o '+ orbitvizAfter +' '+ vizString
-        asp_system_utils.executeCommand(cmd, orbitvizAfter, suppressOutput, redo)
     
     print 'Starting processing pool with ' + str(options.numProcesses) +' processes.'
     pool = multiprocessing.Pool(options.numProcesses)
     
     MAX_COUNT = 2 # DEBUG
+
+    # Set up options for process_icebridge_batch
+    extraOptions = ' --stereo-algorithm ' + str(options.stereoAlgo)           
+    if options.numThreads:
+        extraOptions += ' --num-threads ' + str(options.numThreads)
+    if options.solve_intr:
+        extraOptions += ' --solve-intrinsics'
+    if options.isSouth:
+        extraOptions += ' --south'           
+    if options.pc_align:
+        extraOptions += ' --pc-align --max-displacement ' + str(options.maxDisplacement)
     
     # Call process_icebridge_pair on each pair of images.
-    taskHandles = []
+    taskHandles           = []
+    batchImageCameraPairs = []
+    frameNumbers          = []
     for i in range(0,numFiles-1):
     
-        imageA  = imageFiles [i  ]
-        imageB  = imageFiles [i+1]
-        cameraA = cameraFiles[i  ]
-        cameraB = cameraFiles[i+1]
-
         # Check if this is inside the user specified frame range
         frameNumber = icebridge_common.getFrameNumberFromFilename(imageA)
         if options.startFrame and (frameNumber < options.startFrame):
             continue
         if options.stopFrame and (frameNumber > options.stopFrame):
             continue
-
         print 'Processing frame number: ' + str(frameNumber)
+
+        # Add frame to the list for the current batch
+        batchImageCameraPairs.append(imageCameraPairs[i])
+        frameNumbers.append(frameNumber)
         
-        imageC  = ""
-        cameraC = ""
-        if options.triView:
-            if i == 0:
-                raise Exception('Cannot run tri-view stereo with first two images')
-            imageC  = imageFiles [i-1]
-            cameraC = cameraFiles[i-1]
-            
-        extraOptions = ''
-        thisOutputFolder = os.path.join(outputFolder, str(frameNumber))
-        extraOptions += ' --stereo-algorithm ' + str(options.stereoAlgo)
-        if options.stereoAlgo > 0:
-            thisOutputFolder += '_sgm_alg' + str(options.stereoAlgo)
-        else:
-            thisOutputFolder += '_nosgm'
-           
-        extraOptions += ' --subpixel-mode ' + str(options.subpix_mode)
-        thisOutputFolder += '_subpix' + str(options.subpix_mode)
-
-        if options.numThreads:
-            extraOptions += ' --num-threads ' + str(options.numThreads)
-
-        if options.solve_intr:
-            extraOptions += ' --solve-intrinsics'
-
-        if options.triView:
-            thisOutputFolder += "_triView"
-            
-        if options.bundleAdjust:
-            extraOptions += ' --bundle-adjust'
-
-        if options.isSouth:
-            extraOptions += ' --south'
-            
-        if options.pc_align:
-            extraOptions += ' --pc-align --max-displacement ' + \
-                            str(options.maxDisplacement)
-
-        if options.triView:
-            extraOptions += ' --tri-view'
+        numPairs = len(batchImageCameraPairs)
+        
+        # Keep adding frames until we get enough or hit the last frame
+        if (numPairs < options.bundleLength) and (frameNumber < options.stopFrame):
+            continue
 
         # Check if the output file already exists.
         #thisDemFile      = os.path.join(thisOutputFolder, 'DEM.tif')
@@ -319,10 +281,19 @@ def main(argsIn):
         #    print("Skipping frame as file exists: " + thisDemFile)
         #    continue
           
+        # The output folder is named after the first and last frame in the batch
+        thisOutputFolder = os.path.join(outputFolder, 'batch_'+str(frameNumbers[0])+'_'+str(frameNumbers[-1]))
+
+        print 'Running processing batch in output folder: ' + thisOutputFolder
+        
         # Generate the command call
         taskHandles.append(pool.apply_async(processPair, 
-            (imageA, imageB, cameraA, cameraB, lidarFolder, thisOutputFolder, extraOptions,
-             imageC, cameraC)))
+            (batchImageCameraPairs, lidarFolder, thisOutputFolder, extraOptions)))
+            
+        # Reset variables to start from the last frame in the current set.
+        # - This assumes one frame overlap between successive batches!
+        batchImageCameraPairs = [batchImageCameraPairs[-1]]
+        frameNumbers          = [frameNumbers[-1]]
             
         #if len(taskHandles) >= MAX_COUNT:
         #    break # DEBUG

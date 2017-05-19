@@ -208,20 +208,16 @@ def convertLidarData(lidarFolder):
             raise Exception('Failed to parse LIDAR file: ' + fullPath)
 
 def processTheRun(imageFolder, cameraFolder, lidarFolder, processFolder, isSouth, 
-                  numProcesses, numThreads):
+                  bundleLength, numProcesses, numThreads):
     '''Do all the run processing'''
 
-    processCommand = (('%s %s %s %s --stereo-algorithm 1 --num-processes %s --num-threads %s --pc-align --start-frame 353 --stop-frame 353')
-                      % (imageFolder, cameraFolder, lidarFolder, processFolder, numProcesses, numThreads))
+    processCommand = (('%s %s %s %s --bundle-length %d --stereo-algorithm 1 --num-processes %d --num-threads %d --pc-align --start-frame 353 --stop-frame 353')
+                      % (imageFolder, cameraFolder, lidarFolder, processFolder, bundleLength, numProcesses, numThreads))
     if isSouth:
         processCommand += ' --south'
         
     print processCommand
     process_icebridge_run.main(processCommand.split())
-    #process_icebridge_run inputs/image_files inputs/camera_files_ortho2pin inputs/lidar run_tmp_ortho2pin
-    # --num-processes 1 --start-frame $i --stop-frame $j --subpixel-mode 1 --bundle-adjust
-    # --pc-align --south --max-displacement 100 --use-sgm --tri-view
-
     
 def main(argsIn):
 
@@ -232,12 +228,26 @@ def main(argsIn):
                       
         parser = optparse.OptionParser(usage=usage)
 
-        # TODO: Import needed options
-        
+        # TODO: Add options to allow spreading work across supercomputer nodes
+
+
+        # Run selection
         parser.add_option("--yyyymmdd",  dest="yyyymmdd", default=None,
                           help="Specify the year, month, and day in one YYMMDD string.")
         parser.add_option("--site",  dest="site", default=None,
                           help="Name of the location of the images (AN or GR)")
+
+        # Processing options
+        parser.add_option('--bundle-length', dest='bundleLength', default=2,
+                          type='int', help='The number of images to bundle adjust and process in a single batch.')
+
+        # Performance options  
+        parser.add_option('--num-processes', dest='numProcesses', default=1,
+                          type='int', help='The number of simultaneous processes to run.')
+        parser.add_option('--num-threads', dest='numThreads', default=1,
+                          type='int', help='The number of threads per process.')
+
+        # Action control
         parser.add_option("--fetch-only", action="store_true", dest="fetchOnly", default=False,
                           help="Just fetch the data, don't do any processing.")
         parser.add_option("--skip-fetch", action="store_true", dest="noFetch", default=False,
@@ -248,10 +258,7 @@ def main(argsIn):
                           help="Stop program after data fetching.")
         parser.add_option("--stop-after-convert", action="store_true", dest="stopAfterConvert", default=False,
                           help="Stop program after data conversion.")
-        parser.add_option('--num-processes', dest='numProcesses', default=1,
-                          type='int', help='The number of simultaneous processes to run.')
-        parser.add_option('--num-threads', dest='numThreads', default=1,
-                          type='int', help='The number of threads per process.')
+                          
         (options, args) = parser.parse_args(argsIn)
 
         if len(args) != 2:
@@ -303,7 +310,7 @@ def main(argsIn):
     # TODO: Add more options!
     # Call the processing routine
     processTheRun(imageFolder, cameraFolder, lidarFolder, processFolder, isSouth,
-                  options.numProcesses, options.numThreads)
+                  options.bundleLength, options.numProcesses, options.numThreads)
 
    
 

@@ -37,54 +37,6 @@ asp_system_utils.verify_python_version_is_supported()
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
-    
-def findMatchingLidarFile(imageFile, lidarFolder):
-    '''Given an image file, find the best lidar file to use for alignment.'''
-    # TODO: This does not always return the best file
-    
-    vals = icebridge_common.parseTimeStamps(imageFile)
-    if len(vals) < 2:
-        raise Exception('Failed to parse the date and time from: ' + imageFile)
-    imageDateTime = icebridge_common.parseDateTimeStrings(vals[0], vals[1])
-    
-    #print 'INPUT = ' + str(imageDateTime)
-    
-    # Search for the matching file in the lidar folder.
-    # - We are looking for the closest lidar time that starts BEFORE the image time.
-    # - It is possible for an image to span lidar files, we will address that if we need to!
-    bestTimeDelta = datetime.timedelta.max
-    bestLidarFile = 'NA'
-    lidarFiles    = os.listdir(lidarFolder)
-    zeroDelta     = datetime.timedelta()
-
-    for f in lidarFiles:
-
-        if '.csv' not in f: # Skip other files
-            continue
-
-        # Extract time for this file
-        lidarPath = os.path.join(lidarFolder, f)
-
-        vals = icebridge_common.parseTimeStamps(lidarPath)
-        if len(vals) < 2: continue # ignore bad files
-
-        lidarDateTime = icebridge_common.parseDateTimeStrings(vals[0], vals[1])
-
-        #print 'THIS = ' + str(lidarDateTime)
-
-        # Compare time to the image time
-        timeDelta       = imageDateTime - lidarDateTime
-        #print 'DELTA = ' + str(timeDelta)
-        # Select the closest lidar time that occurred before the image time.
-        if ( (timeDelta > zeroDelta) and (timeDelta < bestTimeDelta) ):
-            bestLidarFile = lidarPath
-            bestTimeDelta = timeDelta
-
-    if bestLidarFile == 'NA':
-        raise Exception('Failed to find matching lidar file for image ' + imageFile)
-
-    return bestLidarFile
-
 
 def main(argsIn):
 
@@ -308,8 +260,6 @@ def main(argsIn):
            % (options.demResolution, projString, triOutput, threadText))
     p2dOutput = outputPrefix + '-DEM.tif'
     asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput, redo)
-
-    redo = True
 
     if options.pc_align:
         # PC_ALIGN
