@@ -22,6 +22,8 @@ GeoEye, or perspective imagery do not need to download anything else.
 ASP releases for Linux and OSX can be downloaded at:
 
 http://ti.arc.nasa.gov/tech/asr/intelligent-robotics/ngt/stereo/
+or
+https://github.com/NeoGeographyToolkit/StereoPipeline/releases
 
 The latest development builds (see the NEWS file for the most recent
 additions) can be found at:
@@ -33,7 +35,7 @@ http://byss.arc.nasa.gov/stereopipeline/daily_build/
 
 A. Copyright and License Summary
 
-Copyright (c) 2009-2012, United States Government as represented by
+Copyright (c) 2009-2017, United States Government as represented by
 the Administrator of the National Aeronautics and Space
 Administration. All rights reserved.
 
@@ -111,6 +113,14 @@ their experience developing computer vision techniques for autonomous
 vehicle control systems.
 
 See the AUTHORS file for a complete list of developers.
+
+Complete details for how to reference ASP in your published works can be
+found in the asp_book.pdf file, and in addition to the recommended references
+there, in order to help you better cite the specific version of ASP that you 
+are using in a work, we have started using Zenodo to create digital object 
+identifiers (DOIs) for each ASP release.  Every new release of ASP will have 
+its own unique DOI, which can be found at this URL: 
+https://zenodo.org/badge/latestdoi/714891
 
 ************************************************************************
 6. Neo-Geography Toolkit

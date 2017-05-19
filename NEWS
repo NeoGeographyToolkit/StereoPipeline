@@ -110,6 +110,8 @@
   * Minimum supported OS versions are OSX 10.11, RHEL 6, SUSE 12, and
     Ubuntu 14.
   * Ship with GDAL's gdalwarp and gdaldem.
+  * Added integration with Zenodo so that this and all future ASP 
+	releases wil have a DOI.  More info in the asp_book.pdf
 
 *** RELEASE 2.5.3, August 24, 2016 ***
 
