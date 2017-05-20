@@ -128,10 +128,10 @@ def parseTimeStamps(fileName):
 def findMatchingLidarFile(imageFile, lidarFolder):
     '''Given an image file, find the best lidar file to use for alignment.'''
     
-    vals = icebridge_common.parseTimeStamps(imageFile)
+    vals = parseTimeStamps(imageFile)
     if len(vals) < 2:
         raise Exception('Failed to parse the date and time from: ' + imageFile)
-    imageDateTime = icebridge_common.parseDateTimeStrings(vals[0], vals[1])
+    imageDateTime = parseDateTimeStrings(vals[0], vals[1])
     
     #print 'INPUT = ' + str(imageDateTime)
     
@@ -151,10 +151,10 @@ def findMatchingLidarFile(imageFile, lidarFolder):
         # Extract time for this file
         lidarPath = os.path.join(lidarFolder, f)
 
-        vals = icebridge_common.parseTimeStamps(lidarPath)
+        vals = parseTimeStamps(lidarPath)
         if len(vals) < 2: continue # ignore bad files
 
-        lidarDateTime = icebridge_common.parseDateTimeStrings(vals[0], vals[1])
+        lidarDateTime = parseDateTimeStrings(vals[0], vals[1])
 
         #print 'THIS = ' + str(lidarDateTime)
 

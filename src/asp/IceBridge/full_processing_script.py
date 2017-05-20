@@ -174,7 +174,7 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCamFile, cameraFolde
             continue
                
         # Call ortho2pinhole command
-        cmd = (('/home/smcmich1/repo/StereoPipeline/src/asp/IceBridge/ortho2pinhole %s %s %s %s') % (inputPath, orthoPath, inputCamFile, outputCamFile))
+        cmd = (('ortho2pinhole %s %s %s %s') % (inputPath, orthoPath, inputCamFile, outputCamFile))
         print cmd
         os.system(cmd)
         if not os.path.exists(outputCamFile):
@@ -208,13 +208,17 @@ def convertLidarData(lidarFolder):
             raise Exception('Failed to parse LIDAR file: ' + fullPath)
 
 def processTheRun(imageFolder, cameraFolder, lidarFolder, processFolder, isSouth, 
-                  bundleLength, numProcesses, numThreads):
+                  bundleLength, startFrame, stopFrame, numProcesses, numThreads):
     '''Do all the run processing'''
 
-    processCommand = (('%s %s %s %s --bundle-length %d --stereo-algorithm 1 --num-processes %d --num-threads %d --pc-align --start-frame 353 --stop-frame 353')
+    processCommand = (('%s %s %s %s --bundle-length %d --stereo-algorithm 1 --num-processes %d --num-threads %d')
                       % (imageFolder, cameraFolder, lidarFolder, processFolder, bundleLength, numProcesses, numThreads))
     if isSouth:
         processCommand += ' --south'
+    if startFrame:
+        processCommand += ' --start-frame ' + str(startFrame)
+    if stopFrame:
+        processCommand += ' --stop-frame ' + str(stopFrame)
         
     print processCommand
     process_icebridge_run.main(processCommand.split())
@@ -240,6 +244,10 @@ def main(argsIn):
         # Processing options
         parser.add_option('--bundle-length', dest='bundleLength', default=2,
                           type='int', help='The number of images to bundle adjust and process in a single batch.')
+        parser.add_option('--start-frame', dest='startFrame', default=None,
+                          type='int', help='Frame to start with.  Leave this and stop-frame blank to process all frames.')
+        parser.add_option('--stop-frame', dest='stopFrame', default=None,
+                          type='int', help='Frame to stop on.')
 
         # Performance options  
         parser.add_option('--num-processes', dest='numProcesses', default=1,
@@ -307,10 +315,10 @@ def main(argsIn):
     
     isSouth = (options.site == 'AN')
 
-    # TODO: Add more options!
     # Call the processing routine
     processTheRun(imageFolder, cameraFolder, lidarFolder, processFolder, isSouth,
-                  options.bundleLength, options.numProcesses, options.numThreads)
+                  options.bundleLength, options.startFrame, options.stopFrame,
+                  options.numProcesses, options.numThreads)
 
    
 

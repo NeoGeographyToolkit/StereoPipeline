@@ -42,9 +42,7 @@ def main(argsIn):
 
     try:
         usage = '''usage: process_icebridge_pair <imageA> <imageB> <cameraA> <cameraB>
-                      <lidar_folder> <output_folder> [ --tri-view <imageC> <cameraC> ]
-
-  [ASP [@]ASP_VERSION[@]]'''
+                      <lidar_folder> <output_folder> [ --tri-view <imageC> <cameraC> ]'''
         
         parser = optparse.OptionParser(usage=usage)
 

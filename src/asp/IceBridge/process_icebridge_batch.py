@@ -24,6 +24,7 @@ import os.path as P
 
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
+pythonpath  = os.path.abspath(basepath + '/../IceBridge')  # for dev ASP
 pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
 libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
 sys.path.insert(0, basepath) # prepend to Python path
@@ -96,7 +97,7 @@ def main(argsIn):
             return 0
 
         # Verify all input files exist
-        for i in range(1,numArgs)
+        for i in range(1,numArgs):
             if not os.path.exists(args[i]):
                 print 'Input file '+ args[i] +' does not exist!'
                 return 0
@@ -107,7 +108,7 @@ def main(argsIn):
         for i in range(0,numCameras):
             image  = args[i+1]
             camera = args[i+1 + numCameras]
-            inputPairs.append((image, camera))
+            inputPairs.append([image, camera])
         imageCameraString = ' '.join(args[1:])
        
         print 'Read input pairs: ' + str(inputPairs)
@@ -130,7 +131,7 @@ def main(argsIn):
     lidarFile = None
     if options.lidarFolder:
         print 'Searching for matching lidar file...'
-        lidarFile = findMatchingLidarFile(imageA, lidarFolder)
+        lidarFile = icebridge_common.findMatchingLidarFile(inputPairs[0][0], options.lidarFolder)
         print 'Found matching lidar file ' + lidarFile
 
     # Does this ever change?
@@ -164,14 +165,13 @@ def main(argsIn):
     # Run the BA command
     asp_system_utils.executeCommand(cmd, newCamera, suppressOutput, redo)
 
-    print 'New inputPairs = ' + str(inputPairs)
-    raise Exception('DEBUG')
+    #print 'New inputPairs = ' + str(inputPairs)
 
     # STEREO
     
     # Call stereo seperately on each pair of cameras
     demFiles = []
-    for i in range(0:numCameras-1):
+    for i in range(0,numCameras-1):
         thisPairPrefix = os.path.join(outputFolder, 'stereo_pair_'+str(i)+'/out')
         argString      = ('%s %s %s %s ' % (inputPairs[i][0],  inputPairs[i+1][0], inputPairs[i][1],  inputPairs[i+1][1]))
     
@@ -199,20 +199,22 @@ def main(argsIn):
 
     # DEM_MOSAIC
     
-    allDemPath = outputPrefix + 'DEM.tif'
+    allDemPath = outputPrefix + '-DEM.tif'
     if numCameras == 2:
         # If there are only two files just skip this step
         makeSymLink(demFiles[0], allDemPath)
     else:
         demString = ' '.join(demFiles)
-        cmd = ('dem_mosaic %s --tr %lf --t_srs %s %s %s' 
-               % (demString, options.demResolution, projString, threadText))
-        mosaicOutput = outputPrefix + '-tile-0.tif'
+        # TODO: --mean is not very good but the over options are even worse!
+        cmd = ('dem_mosaic --mean %s --tr %lf --t_srs %s %s -o %s' 
+               % (demString, options.demResolution, projString, threadText, outputPrefix))
+        mosaicOutput = outputPrefix + '-tile-0-mean.tif'
         asp_system_utils.executeCommand(cmd, mosaicOutput, suppressOutput, redo)
         
         # Create a symlink to the mosaic file with a better name
         makeSymLink(mosaicOutput, allDemPath)
     
+       
     if lidarFile:
         # PC_ALIGN
         alignPrefix = os.path.join(outputFolder, 'align/out')
@@ -232,7 +234,7 @@ def main(argsIn):
 
         # Create a symlink to the DEM in the main directory
         demSymlinkPath = outputPrefix + '-align-DEM.tif'
-        makeSymLink(allDemPath, demSymlinkPath)
+        makeSymLink(p2dOutput, demSymlinkPath)
         allDemPath = demSymlinkPath
 
     cmd = ('geodiff --absolute --csv-format %s %s %s -o %s' % \
@@ -246,8 +248,8 @@ def main(argsIn):
     asp_system_utils.executeCommand(cmd, hillOutput, suppressOutput, redo)
     
     # COLORMAP
-    colormapMin = -10
-    colormapMax =  10
+    colormapMin = -10 # TODO: Automate these?
+    colormapMax =  20
     colorOutput = outputPrefix+'-DEM_CMAP.tif'
     cmd = ('colormap --min %f --max %f %s -o %s' 
            % (colormapMin, colormapMax, allDemPath, colorOutput))

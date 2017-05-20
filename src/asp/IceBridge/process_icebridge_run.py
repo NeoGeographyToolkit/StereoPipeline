@@ -17,16 +17,7 @@
 # __END_LICENSE__
 
 # Process an entire run of icebrige images. Multiple runs will be started in parallel.
-# Example usage:
-# python process_icebridge_run inputs/camera_files inputs/camera_files inputs/lidar \
-#   run_output --num-processes 4 --start-frame 658 --stop-frame 658
-#   --use-sgm --bundle-adjust --pc-align
 
-# TODO: The South flag is annoying! Based on the pinhole C z, determine that!
-
-#python ~/projects/StereoPipeline/src/asp/IceBridge/process_icebridge_run inputs/image_files inputs/camera_files_ortho2pin inputs/lidar run_tmp_ortho2pin --num-processes 1 --start-frame $i --stop-frame $j --subpixel-mode 1 --bundle-adjust --pc-align --south --max-displacement 100 --use-sgm --tri-view
-
-#python ~/projects/StereoPipeline/src/asp/IceBridge/process_icebridge_run inputs/camera_files inputs/camera_files inputs/lidar run_output2 --num-processes $num --start-frame $beg --stop-frame $end --bundle-adjust --tri-view --pc-align --max-displacement 30 --subpixel-mode 1 --use-sgm
 
 # All the image, camera, and lidar files must have date and time stamps,
 # like the orthoimages and the Fireball DEMs. As such, raw image
@@ -39,6 +30,7 @@ import os.path as P
 
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
+pythonpath  = os.path.abspath(basepath + '/../IceBridge')  # for dev ASP
 pythonpath  = os.path.abspath(basepath + '/../Python')     # for dev ASP
 libexecpath = os.path.abspath(basepath + '/../libexec')    # for packaged ASP
 sys.path.insert(0, basepath) # prepend to Python path
@@ -111,6 +103,7 @@ def processBatch(imageCameraPairs, lidarFolder, outputFolder, options):
     cmd = ('--lidar-overlay --lidar-folder %s %s %s %s' 
            % (lidarFolder, outputFolder, argString, options))
     print cmd
+    #return 0
     try:
         process_icebridge_batch.main(cmd.split())
     except Exception as e:
@@ -122,9 +115,7 @@ def main(argsIn):
 
     try:
         usage = '''usage: process_icebridge_run.py <image_folder> <camera_folder>
-                      <lidar_folder> <output_folder>
-
-  [ASP [@]ASP_VERSION[@]]'''
+                      <lidar_folder> <output_folder>'''
                       
         parser = optparse.OptionParser(usage=usage)
 
@@ -148,10 +139,6 @@ def main(argsIn):
         parser.add_option('--solve-intrinsics', action='store_true', default=False,
                           dest='solve_intr',  
                           help='If to float the intrinsics params.')
-
-        parser.add_option('--pc-align', action='store_true', default=False,
-                          dest='pc_align', help='Run pc_align after stereo.')
-
 
         #parser.add_option('--dem-resolution', dest='demResolution', default=0.4,
         #                  type='float', help='Generate output DEMs at this resolution.')
@@ -245,20 +232,20 @@ def main(argsIn):
     if options.numThreads:
         extraOptions += ' --num-threads ' + str(options.numThreads)
     if options.solve_intr:
-        extraOptions += ' --solve-intrinsics'
+        extraOptions += ' --solve-intrinsics '
     if options.isSouth:
-        extraOptions += ' --south'           
-    if options.pc_align:
-        extraOptions += ' --pc-align --max-displacement ' + str(options.maxDisplacement)
+        extraOptions += ' --south '
+    if options.maxDisplacement:
+        extraOptions += ' --max-displacement ' + str(options.maxDisplacement)
     
     # Call process_icebridge_pair on each pair of images.
     taskHandles           = []
     batchImageCameraPairs = []
     frameNumbers          = []
-    for i in range(0,numFiles-1):
+    for i in range(0,numFiles):
     
         # Check if this is inside the user specified frame range
-        frameNumber = icebridge_common.getFrameNumberFromFilename(imageA)
+        frameNumber = icebridge_common.getFrameNumberFromFilename(imageCameraPairs[i][0])
         if options.startFrame and (frameNumber < options.startFrame):
             continue
         if options.stopFrame and (frameNumber > options.stopFrame):
@@ -287,7 +274,7 @@ def main(argsIn):
         print 'Running processing batch in output folder: ' + thisOutputFolder
         
         # Generate the command call
-        taskHandles.append(pool.apply_async(processPair, 
+        taskHandles.append(pool.apply_async(processBatch, 
             (batchImageCameraPairs, lidarFolder, thisOutputFolder, extraOptions)))
             
         # Reset variables to start from the last frame in the current set.
