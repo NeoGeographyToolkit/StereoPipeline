@@ -83,27 +83,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
                              positional, positional_desc, usage,
                              allow_unregistered, unregistered);
 
-//   if ( opt.input_dem.empty() )
-//     vw_throw( ArgumentErr() << "Missing input arguments.\n\n"     << usage << general_options );
-//   if ( opt.output_dem.empty() )
-//     vw_throw( ArgumentErr() << "Requires <output dem> in order to proceed.\n\n"  << usage << general_options );
-//   if ( opt.output_datum.empty() && opt.target_srs_string.empty())
-//     vw_throw( ArgumentErr() << "Requires <output datum> or PROJ.4 string in order to proceed.\n\n" << usage << general_options );
 
-//   if ( !opt.output_datum.empty() && !opt.target_srs_string.empty())
-//     vw_out(WarningMessage) << "Both the output datum and the PROJ.4 string were specified. The former takes precedence.\n";
-
-//   boost::to_lower(opt.output_datum);
-
-//   vw::create_out_dir(opt.output_dem);
+   vw::create_out_dir(opt.output_F);
 
   //// Turn on logging to file
   //asp::log_to_file(argc, argv, "", opt.out_prefix);
 
 }
-
-// TODO: This tool is in need of a serious cleanup!
-// Not ready for general usage.
 
 int main( int argc, char *argv[] ) {
 
@@ -130,17 +116,13 @@ int main( int argc, char *argv[] ) {
       ImageView<float> output_img = copy(input_img);
 
       if (opt.shrink != Vector2()) {
-        std::cout << "Will shrink by " << opt.shrink << std::endl;
-
+        vw_out() << "Will shrink by " << opt.shrink << std::endl;
         BBox2i box = bounding_box(input_img);
-        std::cout << "input box " << box << std::endl;
         box.min() += opt.shrink;
         box.max() -= opt.shrink;
-        std::cout << "output box " << box << std::endl;
         output_img = crop(input_img, box);
         
       } else if (opt.grow != Vector2()) {
-
         vw_out() << "Will grow by " << opt.grow << std::endl;
         int bx = opt.grow[0];
         int by = opt.grow[1];
@@ -159,7 +141,6 @@ int main( int argc, char *argv[] ) {
       }
       
       vw_out() << "Output size: " << output_img.cols() << ' ' << output_img.rows() << std::endl;
-      
       vw_out() << "Writing: " << opt.output_file << std::endl;
       
       if (fmt.channel_type == VW_CHANNEL_UINT8) {
@@ -177,11 +158,6 @@ int main( int argc, char *argv[] ) {
     int left_crop_y   = opt.left_crop[1];
     int right_crop_x  = opt.right_crop[0];
     int right_crop_y  = opt.right_crop[1];
-
-    std::cout << "Input vals are " << opt.input_RD << " " << opt.output_F << ' '
-              << opt.disp_1d_file << ' ' << opt.mask_1d_file << ' '
-              << left_crop_x << ' '  << left_crop_y << " " 
-              << right_crop_x << ' ' << right_crop_y << std::endl;
 
     if (left_crop_y != right_crop_y) 
       vw_throw(ArgumentErr() << "Left and right crop y must be the same\n");
@@ -204,7 +180,6 @@ int main( int argc, char *argv[] ) {
     ImageView<float> disp_1d = DiskImageView<float>( opt.disp_1d_file );
     ImageView<uint8> mask_1d = DiskImageView<uint8>( opt.mask_1d_file );
 
-    int num_valid = 0;
     for (int col = 0; col < disp_1d.cols(); col++) {
       for (int row = 0; row < disp_1d.rows(); row++) {
 
@@ -230,15 +205,12 @@ int main( int argc, char *argv[] ) {
           if (Q == Q) {
             F(left_pixel_x, left_pixel_y) = Q;
             F(left_pixel_x, left_pixel_y).validate();
-            num_valid++;
           }
         }
       
       }
     }
 
-    vw_out() << "num valid disparities" << num_valid << std::endl;
-  
     bool has_georef = false;
     cartography::GeoReference georef;
     bool has_nodata = false;
