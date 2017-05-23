@@ -332,6 +332,46 @@ generally well with all MOC-NA pairs. Just set \texttt{alignment-method}
 to \texttt{none} when using map-projected imagery. If the images are not
 map-projected, use \texttt{homography} or \texttt{affineepipolar}.
 
+% \section{HRSC}
+
+% Explain about p12 vs n12, etc.
+
+% http://hrscview.fu-berlin.de/cgi-bin/ion-p?page=entry2.ion 
+
+% Select the HRSC Archive DTM resolution map.
+
+% Or get them from PDS
+
+
+% wget http://pds-geosciences.wustl.edu/mex/mex-m-hrsc-3-rdr-v3/mexhrs_1001/data/0068/h0068_0009_s12.img
+% wget http://pds-geosciences.wustl.edu/mex/mex-m-hrsc-3-rdr-v3/mexhrs_1001/data/0068/h0068_0009_s22.img
+
+% Another pair we have tested ASP with was:  h5124_0009_p12.img and h5124_0009_p22.img
+
+% hrsc2isis from=h5124_0009_p12.img to=h5124_0009_p12.cub
+% hrsc2isis from=h5124_0009_p22.img to=h5124_0009_p22.cub
+% spiceinit from=h5124_0009_p12.cub ckpredicted=true
+% spiceinit from=h5124_0009_p22.cub ckpredicted=true
+
+% ASP unfortunately could not do an HRSC session entirely in auto so I had to manually pick a search range. You'll have to play with the numbers a bit as they change for every observation. Here's my settings file:
+
+% Code: [Select]
+% DO_INTERESTPOINT_ALIGNMENT 0
+% INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
+% DO_EPIPOLAR_ALIGNMENT 0
+
+% FORCE_USE_ENTIRE_RANGE 1
+% DO_INDIVIDUAL_NORMALIZATION 0
+
+% PREPROCESSING_FILTER_MODE 2
+% SLOG_KERNEL_WIDTH 1.5
+
+% COST_MODE 0
+% COST_BLUR 0
+
+% H_KERNEL 17
+% V_KERNEL 17
+
 \section{Mars Exploration Rovers}\label{mer:example}
 
 The Mars Exploration Rovers (MER) have several cameras on board
