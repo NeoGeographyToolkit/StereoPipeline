@@ -100,8 +100,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
              << usage << general_options << "\n");
 
   input_nodata_value_was_set = vm.count("input-nodata-value");
-  std::cout << "--input nodata value was set: " << input_nodata_value_was_set << std::endl;
-  
 }
 
 // To find the corners, find 45 and -45 degree diagonal lines bounding
@@ -140,11 +138,6 @@ void find_corners(ImageView<PixelMask<float> > const& img,
       if (intercept135 > ur_val) { ur_val = intercept135; ur = P; }
     }
   }
-
-  std::cout << "ll " << ll << std::endl;
-  std::cout << "lr " << lr << std::endl;
-  std::cout << "ul " << ul << std::endl;
-  std::cout << "ur " << ur << std::endl;
 }
 
 void replace_nodata_with_mean(ImageView<PixelMask<float> > & img){
@@ -163,8 +156,6 @@ void replace_nodata_with_mean(ImageView<PixelMask<float> > & img){
   if (num >= 1) 
     mean_val /= double(num);
   
-  std::cout << "mean_val " << mean_val << std::endl;
-
   for (int col = 0; col < img.cols(); col++) {
     for (int row = 0; row < img.rows(); row++) {
       if (!is_valid(img(col, row))){
@@ -255,9 +246,6 @@ int main(int argc, char *argv[]) {
     BBox2 right_crop_box(right_crop_min_x, right_crop_min_y,
                      right_crop_max_x - right_crop_min_x + 1,
                      right_crop_max_y - right_crop_min_y + 1);
-
-    std::cout << "left box " << left_crop_box.min() << ' ' << left_crop_box.max() << std::endl;
-    std::cout << "right box " << right_crop_box.min() << ' ' << right_crop_box.max() << std::endl;
 
     // S2P does not handle well no-data values, so replace those with a valid value.
     //TODO: Better use mean of neighbors!
