@@ -231,6 +231,8 @@ void las_or_csv_to_tifs(Options& opt,
   GeoReference csv_georef;
   csv_conv.parse_georef(csv_georef);
 
+  // TODO: This may be a bug. What if the csv-proj4 and t_srs strings use
+  // datums with different radii? 
   csv_georef.set_datum(datum);
 
   if (!have_pc_georef) // if we have no georef so far, the csv georef is our best guess.
