@@ -134,8 +134,10 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
     
       // Warning: A giant function call approaches!
       // TODO: Why the extra filtering step here? PyramidCorrelationView already performs 1-3 iterations of outlier removal.
+      std::string d_sub_file = opt.out_prefix + "-D_sub.tif";
+      vw_out() << "Writing: " << d_sub_file << std::endl;
       vw::cartography::block_write_gdal_image( // Write to disk
-          opt.out_prefix + "-D_sub.tif",
+          d_sub_file,
           rm_outliers_using_thresh( // Throw out individual pixels that are far from any neighbors
               vw::stereo::pyramid_correlate( // Compute image correlation using the PyramidCorrelationView class
                   left_sub, right_sub,
@@ -186,8 +188,10 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
                   SAVE_CORR_DEBUG
               );
 
+      std::string d_sub_file = opt.out_prefix + "-D_sub.tif";
+      vw_out() << "Writing: " << d_sub_file << std::endl;
       vw::cartography::write_gdal_image( // Write to disk while removing outliers
-          opt.out_prefix + "-D_sub.tif",
+          d_sub_file,
           rm_outliers_using_quantiles( // Throw out individual pixels that are far from any neighbors
               disp_image,
               stereo_settings().rm_quantile_percentile, stereo_settings().rm_quantile_multiple
