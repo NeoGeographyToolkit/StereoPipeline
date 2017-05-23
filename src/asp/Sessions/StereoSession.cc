@@ -128,6 +128,36 @@ namespace asp {
       bool use_sphere_for_isis = false; // Assume Mars is not a sphere
       cartography::Datum datum = this->get_datum(cam1, use_sphere_for_isis);
 
+      // This is a bugfix. For RPC models, we must never intersect with
+      // a datum whose height is outside of the domain of applicability
+      // of the RPC model, as that can lead to very incorrect results.  
+      const asp::RPCModel *rpc_cam
+	= dynamic_cast<const asp::RPCModel*>(vw::camera::unadjusted_model(cam1));
+      if (rpc_cam != NULL) {
+	Vector3 lonlatheight_offset = rpc_cam->lonlatheight_offset();
+	Vector3 lonlatheight_scale  = rpc_cam->lonlatheight_scale();
+	double mid_ht = lonlatheight_offset[2];
+	double min_ht = mid_ht - lonlatheight_scale[2];
+	double max_ht = mid_ht + lonlatheight_scale[2];
+	if (max_ht < 0) 
+	  vw_out() << "Warning: The RPC model maximum height is below the zero datum.\n";
+
+	if (min_ht > 0) 
+	  vw_out() << "Warning: The RPC model minimum height is above the zero datum.\n";
+
+	if (max_ht < 0 || min_ht > 0) {
+	  vw_out() << "RPC model min and max heights above datum: "
+		   << min_ht << ' ' << max_ht << ".\n";
+	  vw_out() << "Adjusting the datum to compensate, for the purpose of alignment.\n";
+	  vw_out() << "The new datum height will be at " << mid_ht
+		   << " relative to the previous one.\n";
+	  vw_out() << "Old datum: " << datum << std::endl;
+	  datum.set_semi_major_axis(datum.semi_major_axis() + mid_ht);
+	  datum.set_semi_minor_axis(datum.semi_minor_axis() + mid_ht);
+	  vw_out() << "New datum: " << datum << std::endl;
+	}
+      }
+      
       // A smaller value here makes IP more unique, but also fewer. 
       double ip_uniqueness_thresh = stereo_settings().ip_uniqueness_thresh;
 

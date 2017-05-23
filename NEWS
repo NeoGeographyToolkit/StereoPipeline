@@ -24,7 +24,9 @@
    * Improved epipolar alignment quality with standard pinhole cameras.
    * Added the options --ip-inlier-threshold and --ip-uniqueness-threshold
      for finer-grained control over interest point generation.
-
+   * Fix a bug with interest point matching the camera model is RPC
+     and the RPC approximation domain does not itersect the datum.
+  
  - stereo_corr
    * Added new option --stereo-algorithm.  Choices 1 and 2 replaces
      the standard integer correlator with a new semi-global matching 
