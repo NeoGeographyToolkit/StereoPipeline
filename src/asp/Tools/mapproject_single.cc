@@ -196,6 +196,19 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   // Need this to be able to load adjusted camera models. That will happen
   // in the stereo session.
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
+
+  if (fs::path(opt.dem_file).extension() != "") {
+    // A path to a real DEM file was provided, load it!
+    GeoReference dem_georef;
+    bool has_georef = asp::read_georeference_asp(dem_georef, opt.dem_file);
+    if (!has_georef)
+      vw_throw( ArgumentErr() << "There is no georeference information in: "
+                << opt.dem_file << ".\n" );
+
+    // Store the datum from the DEM
+    asp::stereo_settings().datum = dem_georef.datum().name(); // TODO: Not robust
+  }
+  
 }
 
 
