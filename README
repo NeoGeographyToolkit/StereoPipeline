@@ -82,15 +82,10 @@ this package.
 
 A. Mailing List
 
-All bugs, feature requests, and general discussion should be sent to
-the ASP user mailing list:
+All bugs, feature requests, and general discussion should be posted
+on the ASP support forum:
 
-  stereo-pipeline@lists.nasa.gov
-
-To subscribe to this list, send an empty email message with the
-subject 'subscribe' (without the quotes) to
-
-  stereo-pipeline-request@lists.nasa.gov
+  https://groups.google.com/forum/#!forum/ames-stereo-pipeline-support
 
 To contact the lead developers and project manager directly, send mail
 to:
@@ -98,7 +93,7 @@ to:
   stereo-pipeline-owner@lists.nasa.gov
 
 Please do NOT use this second list for technical inquiries, which
-should all be sent to the main stereo-pipeline list above.
+should all be posted in the Google group.
 
 B. Credits
 
@@ -122,21 +117,3 @@ identifiers (DOIs) for each ASP release.  Every new release of ASP will have
 its own unique DOI, which can be found at this URL: 
 https://zenodo.org/badge/latestdoi/714891
 
-************************************************************************
-6. Neo-Geography Toolkit
-
-ASP is part of the Neo-Geography Toolkit (NGT), a collection of tools
-for automated processing of geospatial data, including images and
-maps. It is capable of processing raw raster data from remote sensing
-instruments and transforming it into useful cartographic products,
-such as visible image base maps, topographic models, etc.
-Additionally, components of the NGT can perform data processing on
-extremely large geospatial data sets (up to several tens of terabytes)
-via parallel processing pipelines. Finally, it can also transform raw
-metadata (i.e., SPICE kernels and PDS image labels), vector data
-(e.g., 2D/3D shape files), and geo-tagged data sets into standard
-NeoGeography data formats, such as KML. NGT is an evolving collection
-of loosely connected open-source modules designed by the NASA Ames
-Intelligent Robotics Group. Modules of the NGT will be released one at
-a time, as they reach maturity. To date, we have completed only one
-module: the NASA Ames Stereo Pipeline, but more will soon follow.
