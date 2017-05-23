@@ -44,8 +44,11 @@ using namespace vw;
 using namespace std;
 using namespace vw::cartography;
 
+bool input_nodata_value_was_set = false;
+
 struct Options : public vw::cartography::GdalWriteOptions {
   int crop_y_left, crop_y_right;
+  double input_nodata_value; // override the nodata value from the input files
   std::string left_in, right_in, left_out, right_out;
   Options():crop_y_left(-1), crop_y_right(-1){}
 
@@ -57,8 +60,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("crop-y-left",   po::value(&opt.crop_y_left)->default_value(0),
      "How much the left image was cropped on top from the original")
     ("crop-y-right",   po::value(&opt.crop_y_right)->default_value(0),
-     "How much the right image was cropped on top from the original");
-    
+     "How much the right image was cropped on top from the original")
+    ("input-nodata-value",
+     po::value(&opt.input_nodata_value)->default_value(-std::numeric_limits<float>::max()),
+     "Override the nodata-value from the input files.");
+  
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
   po::options_description positional("");
@@ -92,6 +98,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw(ArgumentErr()
              << "The crop heights must be non-negative.\n"
              << usage << general_options << "\n");
+
+  input_nodata_value_was_set = vm.count("input-nodata-value");
+  std::cout << "--input nodata value was set: " << input_nodata_value_was_set << std::endl;
   
 }
 
@@ -198,9 +207,15 @@ int main(int argc, char *argv[]) {
              << std::endl;
 
 
-    ImageView<PixelMask<float> > left = create_mask(DiskImageView<float>(opt.left_in),
+    if (input_nodata_value_was_set) {
+      vw_out() << "Over-riding nodata values with " << opt.input_nodata_value << std::endl;
+      left_nodata_value = opt.input_nodata_value;
+      right_nodata_value = opt.input_nodata_value;
+    }
+    
+    ImageView<PixelMask<float> > left = create_mask_less_or_equal(DiskImageView<float>(opt.left_in),
                                                     left_nodata_value);
-    ImageView<PixelMask<float> > right = create_mask(DiskImageView<float>(opt.right_in),
+    ImageView<PixelMask<float> > right = create_mask_less_or_equal(DiskImageView<float>(opt.right_in),
                                                      right_nodata_value);
 
     //  Corners of valid data

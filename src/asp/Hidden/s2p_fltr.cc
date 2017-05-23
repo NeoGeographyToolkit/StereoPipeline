@@ -47,6 +47,7 @@ namespace vw {
 struct Options : vw::cartography::GdalWriteOptions {
   string input_RD, disp_1d_file, mask_1d_file, output_F, input_file, output_file;
   Vector2i left_crop, right_crop, shrink, grow;
+  bool fill_with_nan;
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ){
@@ -54,6 +55,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
   po::options_description general_options("");
   general_options.add_options()
     ("input-RD", po::value(&opt.input_RD),     "The ASP RD file to read the disparity size from.")
+    ("output-F", po::value(&opt.output_F),     "The ASP F file to write the disparity size to.")
     ("disp-1d", po::value(&opt.disp_1d_file),  "The S2P 1D disparity file to read.")
     ("mask-1d", po::value(&opt.mask_1d_file),  "The S2P 1D mask file to read.")
     ("left-crop", po::value(&opt.left_crop),   "How much the S2P left image was cropped.")
@@ -63,7 +65,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
     ("grow", po::value(&opt.grow)->default_value(Vector2i(0, 0)),
      "Simply take an image, and grow from all corners by this amount if nonzero, using the zero value.")
     ("input", po::value(&opt.input_file), "The file to read and shrink/grow.")
-    ("output", po::value(&opt.output_file), "The file to write after shrinking/growing.");
+    ("output", po::value(&opt.output_file), "The file to write after shrinking/growing.")
+    ("fill-with-nan", po::bool_switch(&opt.fill_with_nan)->default_value(false),
+     "Fill expanded images with NaN.");
 
   general_options.add( vw::cartography::GdalWriteOptionsDescription(opt) );
 
@@ -111,11 +115,17 @@ int main( int argc, char *argv[] ) {
     
     if (opt.input_file != "" && opt.output_file != "") {
 
+      // In this mode we will either shrink or grow
+      // an image at boundaries.
+
       ImageFormat fmt = vw::image_format(opt.input_file);
-      
       DiskImageView<float> input_img(opt.input_file);
       int cols = input_img.cols();
       int rows = input_img.rows();
+
+      float nan = std::numeric_limits<float>::quiet_NaN();
+      float fill = 0;
+      if (opt.fill_with_nan) fill = nan;
 
       ImageView<float> output_img = copy(input_img);
 
@@ -131,16 +141,15 @@ int main( int argc, char *argv[] ) {
         
       } else if (opt.grow != Vector2()) {
 
+        vw_out() << "Will grow by " << opt.grow << std::endl;
         int bx = opt.grow[0];
         int by = opt.grow[1];
-        
         output_img.set_size(cols + 2*bx, rows + 2*by);
         for (int col = 0; col < output_img.cols(); col++) {
           for (int row = 0; row < output_img.rows(); row++) {
-            output_img(col, row) = 0;
+            output_img(col, row) = fill;
           }
         }
-
         for (int col = 0; col < cols; col++) {
           for (int row = 0; row < rows; row++) {
             output_img(col + bx, row + by) = input_img(col, row);
@@ -154,10 +163,8 @@ int main( int argc, char *argv[] ) {
       vw_out() << "Writing: " << opt.output_file << std::endl;
       
       if (fmt.channel_type == VW_CHANNEL_UINT8) {
-        std::cout << "--unint8!" << std::endl;
         write_image(opt.output_file, channel_cast<uint8>(output_img));
       }else if (fmt.channel_type== VW_CHANNEL_FLOAT32) {
-        std::cout << "--float32" << std::endl;
         write_image(opt.output_file, output_img);
       }else{
         vw_throw(ArgumentErr() << "Unknown channel type!\n");
@@ -217,7 +224,7 @@ int main( int argc, char *argv[] ) {
             left_pixel_y >= 0 && left_pixel_y < F.rows()){
           PixelMask<Vector2f> Q;
           Q.validate();
-          Q.child() = Vector2f(right_pixel_x-left_pixel_x, right_pixel_y - left_pixel_y);
+          Q.child() = Vector2f(right_pixel_x - left_pixel_x, right_pixel_y - left_pixel_y);
 
           // Watch for NaNs
           if (Q == Q) {
