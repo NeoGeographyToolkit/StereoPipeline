@@ -377,28 +377,25 @@ sometimes produce inaccurate results in textureless regions.  With careful param
 selection and usage these disadvantages can be mitigated.
 
 In order to use SGM, pass in \texttt{stereo-algorithm}.  Use 1 to use SGM or 2 to use MGM.
-When using SGM in is important to choose an appropriate tile size using the 
-\texttt{corr-tile-size} command.  The SGM algorithm works best on larger tiles so this parameter should be set as large as your available RAM can support or larger than the image you wish to process.  
-The exact amount of RAM used varies depending on the image content and cannot be exactly predicted in advance so some trial and error may be required.  When running SGM, ASP will process only one
-tile at a time but it will use multiple threads per tile.  MGM is currently limited to using
-8 simultaneous threads.
-
-Semi-Global Matching requires special care when processing large images.  Since the results in each pixel
-are affected by the rest of the image, processing a large image in separate tiles in the usual ASP fashion
-can lead to seam artifacts along tile borders.  You may be able to remove these artifacts entirely just by using
-the \texttt{sgm-collar-size} option but it may not be sufficient.  A more powerful option is to use the 
-\texttt{parallel\_stereo} program instead of the \texttt{stereo} program.  \texttt{parallel\_stereo} replaces
-the refinement stage with a new seam blending stage to suppress artifacts along tile borders.  In order to 
-properly use \texttt{parallel\_stereo} with SGM, use the following guidelines:
+To process large images you must use the \texttt{parallel\_stereo} program instead 
+of the \texttt{stereo} program.  \texttt{parallel\_stereo} replaces the refinement stage 
+with a new seam blending stage to suppress artifacts along tile borders.  Without this step
+SGM can produce artifacts along tile borders.  The 
+\texttt{stereo} program can be used as long as the \texttt{corr-tile-size} command
+is set large enough to fit the entire image into a single processing tile.
+When running SGM, a single ASP  process will handle only one tile at a time but it 
+will use multiple threads per tile, as opposed to normal stereo where each tile uses its 
+own thread.  MGM is currently limited to using 8 simultaneous threads but SGM does not have a limit.
+When running \texttt{parallel\_stereo} use the following options:
 
 \begin{itemize}
-\item Specify the \texttt{collar-size} option or leave it at the default value.
-\item Set the \texttt{corr-tile-size} option just as you would when using \texttt{stereo}.  Keep in mind that
-the collar size you selected will enlarge the processed tile size.
+\item Specify the \texttt{collar-size} option or leave it at the default value.  Increasing this value decreases
+the chances of seeing artifacts along tile borders but increases processing time and memory usage.
+\item Set the \texttt{corr-tile-size} option to determine the tile size, keeping in mind that larger tile sizes
+produce better results but consume more memory.  The collar size you selected will enlarge the processed tile size.
 \item Set the \texttt{processes} option keeping in mind memory constraints as discussed earlier.  Each process will 
 run one simultaneous SGM instance and consume memory.
-\item By default, \texttt{job-size-w} and \texttt{job-size-h} are set equal to \texttt{corr-tile-size}.
-Do not override this without a good reason!
+\item \texttt{job-size-w} and \texttt{job-size-h} are set equal to \texttt{corr-tile-size}.  Do not override them!
 \end{itemize}
 
 By setting these parameters in the manner described, each process will generate a single SGM tile which will then be
@@ -431,7 +428,9 @@ are good starts but the best values will depend on your input images. The \textt
 parameter will have to be adjusted to taste, but a range of 0.13 to 0.15 is typical for icy images.  These
 values are enabled by default and must be manually disabled.
 \item The \texttt{prefilter-mode} setting is ignored when using SGM.
-\item The \texttt{subpixel-mode} setting is ignored when using SGM.  The SGM performs parabola subpixel interpolation as part of
+\item The \texttt{subpixel-mode} setting is ignored when using SGM unless it is set to
+one of the "SGM" modes, 6 through 10.  You can try these modes, particularly the cosine algorithm,
+but the default subpixel algorithm should work well.  The SGM performs parabola subpixel interpolation as part of
 the \texttt{stereo\_corr} step and does no work in the \texttt{stereo\_rfne} module.  This means that
 after dealing with the long SGM processing time you do not need to follow it up with a slow subpixel option!
 \end{itemize}

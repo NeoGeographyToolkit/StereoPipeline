@@ -496,9 +496,10 @@ namespace asp {
 
     bool using_sgm = (stereo_settings().stereo_algorithm > vw::stereo::CORRELATION_WINDOW);
     if (using_sgm) {
-      if (stereo_settings().subpixel_mode != 0)
-        vw_out() << "SGM mode detected, setting subpixel mode to the required value of zero.\n";
-      stereo_settings().subpixel_mode = 0;
+      if (stereo_settings().subpixel_mode < 6) {
+        vw_out() << "SGM subpixel mode not specified, using the default subpixel method.\n";
+        stereo_settings().subpixel_mode = 0; // Make sure stereo_rfne does not do anything
+      }
       
       // If these parameters were not specified by the user, override the normal default values.
       if (vm["cost-mode"].defaulted())

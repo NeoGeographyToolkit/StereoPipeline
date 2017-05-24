@@ -50,8 +50,8 @@ refine_disparity(Image1T const& left_image,
   PrefilterModeType prefilter_mode = 
     static_cast<vw::stereo::PrefilterModeType>(stereo_settings().pre_filter_mode);
 
-  if (stereo_settings().subpixel_mode == 0) {
-    // Do nothing
+  if ((stereo_settings().subpixel_mode == 0) || (stereo_settings().subpixel_mode > 5)) {
+    // Do nothing (includes SGM specific subpixel modes)
     if (verbose)
       vw_out() << "\t--> Skipping subpixel mode.\n";
   }

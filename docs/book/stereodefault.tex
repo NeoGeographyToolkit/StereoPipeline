@@ -373,6 +373,11 @@ should be sufficient in most cases.
   then they  will look even better with subpixel mode 2.  For inputs with
   little noise, the affine method (subpixel mode 3) may produce results
   equivalent to Bayes EM in a shorter time.
+  
+  Subpixel modes 4 and 5 are experimental.  Modes 6 and up are only used to
+  override the default subpixel method used when performing SGM or MGM 
+  correlation.  The default subpixel method for SGM/MGM is a custom 
+  algorithm that should work well but the Cosine algorithm also works well.
 
   \begin{description}
     \item[0 - no subpixel refinement]
@@ -381,6 +386,11 @@ should be sufficient in most cases.
     \item[3 - affine window ]
     \item[4 - Lucas-Kanade method (experimental)]
     \item[5 - affine adaptive window, Bayes EM with Gamma Noise Distribution (experimental) ]
+    \item[6 - SGM linear ]
+    \item[7 - SGM Poly4 ]
+    \item[8 - SGM Cosine ]
+    \item[9 - SGM Parabola ]
+    \item[10 - SGM None ]
   \end{description}
 
   For a visual comparison of the quality of these subpixel modes,

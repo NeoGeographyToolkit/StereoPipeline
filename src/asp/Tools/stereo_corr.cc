@@ -53,6 +53,19 @@ stereo::CostFunctionType get_cost_mode_value() {
   };
 }
 
+/// Determine the proper subpixel mode to be used with SGM correlation
+SemiGlobalMatcher::SgmSubpixelMode get_sgm_subpixel_mode() {
+
+  switch(stereo_settings().subpixel_mode) {
+    case  6: return SemiGlobalMatcher::SUBPIXEL_LINEAR;
+    case  7: return SemiGlobalMatcher::SUBPIXEL_POLY4;
+    case  8: return SemiGlobalMatcher::SUBPIXEL_COSINE;
+    case  9: return SemiGlobalMatcher::SUBPIXEL_PARABOLA;
+    case 10: return SemiGlobalMatcher::SUBPIXEL_NONE;
+    default: return SemiGlobalMatcher::SUBPIXEL_LC_BLEND;
+  };
+}
+
 
 // Read the search range from D_sub, and scale it to the full image
 void read_search_range_from_dsub(ASPGlobalOptions & opt){
@@ -124,6 +137,8 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
     if (corr_timeout > 0)
       seconds_per_op = calc_seconds_per_op(cost_mode, left_sub, right_sub, kernel_size);
 
+    SemiGlobalMatcher::SgmSubpixelMode sgm_subpixel_mode = get_sgm_subpixel_mode();
+
     if (stereo_settings().rm_quantile_multiple <= 0.0)
     {
       // If we can process the entire image in one tile, don't use a collar.
@@ -148,7 +163,7 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
                   stereo_settings().xcorr_threshold, rm_half_kernel,
                   stereo_settings().corr_max_levels,
                   static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm),
-                  collar_size,
+                  collar_size, sgm_subpixel_mode,
                   stereo_settings().corr_blob_filter_area*mean_scale,
                   SAVE_CORR_DEBUG
               ),
@@ -184,6 +199,7 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
                   stereo_settings().corr_max_levels,
                   static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm), 
                   0, // No collar here, the entire image is written at once.
+                  sgm_subpixel_mode,
                   0, // Don't combine blob filtering with quantile filtering
                   SAVE_CORR_DEBUG
               );
@@ -536,6 +552,8 @@ public:
 				    << stereo_settings().search_range << "\n";
     }
 
+    SemiGlobalMatcher::SgmSubpixelMode sgm_subpixel_mode = get_sgm_subpixel_mode();
+
     // Now we are ready to actually perform correlation
     const int rm_half_kernel = 5; // Filter kernel size used by CorrelationView
     if (use_local_homography){
@@ -553,6 +571,7 @@ public:
                           stereo_settings().corr_max_levels,
                           static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm), 
                           stereo_settings().sgm_collar_size,
+                          sgm_subpixel_mode,
                           stereo_settings().corr_blob_filter_area,
                           SAVE_CORR_DEBUG );
       return corr_view.prerasterize(bbox);
@@ -570,6 +589,7 @@ public:
                           stereo_settings().corr_max_levels,
                           static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm), 
                           stereo_settings().sgm_collar_size,
+                          sgm_subpixel_mode,
                           stereo_settings().corr_blob_filter_area,
                           SAVE_CORR_DEBUG );
       return corr_view.prerasterize(bbox);
