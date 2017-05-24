@@ -500,30 +500,6 @@ namespace asp {
         vw_out() << "SGM mode detected, setting subpixel mode to the required value of zero.\n";
       stereo_settings().subpixel_mode = 0;
       
-      /* Removing this check, it requires more sophisticated changes to parallel_stereo for this to work.
-      Vector2i image_size = bounding_box(left_image).size();
-      if (crop_left)
-        image_size = stereo_settings().left_image_crop_win.size();
-      int max_dim = image_size[0];
-      if (image_size[1] < max_dim)
-        max_dim = image_size[1];
-      if (stereo_settings().trans_crop_win.width() < max_dim)
-        max_dim = stereo_settings().trans_crop_win.width();
-      if (stereo_settings().trans_crop_win.height() < max_dim)
-        max_dim = stereo_settings().trans_crop_win.height();
-        
-      if (stereo_settings().corr_tile_size_ovr <= max_dim) {
-        std::cout << "Image size = " << bounding_box(left_image).size() << std::endl;
-        std::cout << "Left crop size = " << stereo_settings().left_image_crop_win.size() << std::endl;
-        std::cout << "Trans crop size = " << stereo_settings().trans_crop_win.size() << std::endl;
-        std::cout << "Corr tile size = " << stereo_settings().corr_tile_size_ovr << std::endl;
-        vw_throw(ArgumentErr() << "Error: SGM processing is not permitted with a tile size smaller than the image!\n"
-                               << " Set --corr-tile-size so the entire image fits in one tile, or use parallel_stereo.\n\n"
-                               << usage << general_options );
-      }
-      */
-      
-      
       // If these parameters were not specified by the user, override the normal default values.
       if (vm["cost-mode"].defaulted())
         stereo_settings().cost_mode = SGM_DEFAULT_COST_MODE;
@@ -547,7 +523,8 @@ namespace asp {
 
 
 
-    // The StereoSession call automatically determines the type of object to create from the input parameters.
+    // The StereoSession call automatically determines the type of
+    // object to create from the input parameters.
     opt.session.reset(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,// i/o
                                                         opt.in_file1,   opt.in_file2,
                                                         opt.cam_file1,  opt.cam_file2,

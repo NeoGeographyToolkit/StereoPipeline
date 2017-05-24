@@ -661,6 +661,20 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
                                sub_disp, sub_disp_spread, local_hom, kernel_size, 
                                cost_mode, corr_timeout, seconds_per_op ), 
          trans_crop_win);
+
+  // With SGM, we must do the entire image chunk as one tile. Otherwise,
+  // if it gets done in smaller tiles, there will be artifacts at tile boundaries.
+  bool using_sgm = (stereo_settings().stereo_algorithm > vw::stereo::CORRELATION_WINDOW);
+  if (using_sgm) {
+    Vector2i image_size = bounding_box(fullres_disparity).size();
+    int max_dim = std::max(image_size[0], image_size[1]);
+    if (stereo_settings().corr_tile_size_ovr <= max_dim)
+      vw_throw(ArgumentErr()
+               << "Error: SGM processing is not permitted with a tile size smaller than the image!\n"
+               << "Increase --corr-tile-size so the entire image fits in one tile, or "
+               << "use parallel_stereo. Not that making --corr-tile-size larger than 9000 or so may "
+               << "cause GDAL to crash.\n\n");
+  }
   
   switch(stereo_settings().pre_filter_mode){
   case 2:
