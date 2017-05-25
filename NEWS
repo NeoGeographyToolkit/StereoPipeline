@@ -1,3 +1,10 @@
+*** RELEASE 2.6.X, TBA ***
+
+ - stereo_corr
+   * Added new options for post-SGM subpixel stereo.
+     Previously only a parabola method was used.
+
+
 *** RELEASE 2.6.0, May 15, 2017 ***
 
  - New Stereo Algorithms

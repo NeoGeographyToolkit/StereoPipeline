@@ -73,7 +73,7 @@ def main(argsIn):
         parser.add_option('--stereo-algorithm', dest='stereoAlgo', default=1,
                           type='int', help='The SGM stereo algorithm to use, must be 1 or 2.')
                           
-        parser.add_option('--overlap-limit', dest='overlapLimit', default=1,
+        parser.add_option('--overlap-limit', dest='overlapLimit', default=3,
                           type='int', help='Number of successive images to treat as overlapping.')
 
         # Output options
@@ -149,6 +149,8 @@ def main(argsIn):
     if options.numThreads:
         threadText = ' --threads ' + str(options.numThreads) +' '
     
+    #redo = True
+    
     # BUNDLE_ADJUST
     # - Bundle adjust all of the input images at the same time.
     bundlePrefix = os.path.join(outputFolder, 'bundle/out')
@@ -165,7 +167,13 @@ def main(argsIn):
     # Run the BA command
     asp_system_utils.executeCommand(cmd, newCamera, suppressOutput, redo)
 
-    #print 'New inputPairs = ' + str(inputPairs)
+    # Generate a map of initial camera positions
+    orbitvizAfter = os.path.join(outputFolder, 'cameras_out.kml')
+    vizString  = ''
+    for (image, camera) in inputPairs: 
+        vizString += image +' ' + camera+' '
+    cmd = 'orbitviz --hide-labels -t nadirpinhole -r wgs84 -o '+ orbitvizAfter +' '+ vizString
+    asp_system_utils.executeCommand(cmd, orbitvizAfter, suppressOutput, redo)
 
     # STEREO
     
@@ -175,7 +183,7 @@ def main(argsIn):
         thisPairPrefix = os.path.join(outputFolder, 'stereo_pair_'+str(i)+'/out')
         argString      = ('%s %s %s %s ' % (inputPairs[i][0],  inputPairs[i+1][0], inputPairs[i][1],  inputPairs[i+1][1]))
     
-        stereoCmd = ('stereo %s %s -t nadirpinhole --alignment-method epipolar %s' % (argString, thisPairPrefix, threadText))
+        stereoCmd = ('/home/smcmich1/repo/StereoPipeline/build/bin/stereo %s %s -t nadirpinhole --alignment-method epipolar %s' % (argString, thisPairPrefix, threadText))
         correlationArgString = (' --xcorr-threshold -1 --corr-kernel 7 7 --subpixel-mode 0' 
                                 + ' --corr-tile-size 6400 --cost-mode 4 '
                                 + ' --stereo-algorithm ' + str(options.stereoAlgo))
@@ -195,26 +203,34 @@ def main(argsIn):
         asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput, redo)
         demFiles.append(p2dOutput)
 
+        # COLORMAP
+        colormapMin = -20 # TODO: Automate these?
+        colormapMax =  20
+        colorOutput = thisPairPrefix+'-DEM_CMAP.tif'
+        cmd = ('colormap --min %f --max %f %s -o %s' 
+               % (colormapMin, colormapMax, p2dOutput, colorOutput))
+        asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
+
+    #raise Exception('BA DEBUG')
     print 'Finished running all stereo instances.  Now merging DEMs...'
 
     # DEM_MOSAIC
-    
     allDemPath = outputPrefix + '-DEM.tif'
     if numCameras == 2:
         # If there are only two files just skip this step
         makeSymLink(demFiles[0], allDemPath)
     else:
         demString = ' '.join(demFiles)
-        # TODO: --mean is not very good but the over options are even worse!
-        cmd = ('dem_mosaic --mean %s --tr %lf --t_srs %s %s -o %s' 
+        # Only the default blend method produces good results but the DEMs must not be too 
+        #  far off for it to work.
+        cmd = ('dem_mosaic  %s --tr %lf --t_srs %s %s -o %s' 
                % (demString, options.demResolution, projString, threadText, outputPrefix))
-        mosaicOutput = outputPrefix + '-tile-0-mean.tif'
+        mosaicOutput = outputPrefix + '-tile-0.tif'
         asp_system_utils.executeCommand(cmd, mosaicOutput, suppressOutput, redo)
         
         # Create a symlink to the mosaic file with a better name
         makeSymLink(mosaicOutput, allDemPath)
     
-       
     if lidarFile:
         # PC_ALIGN
         alignPrefix = os.path.join(outputFolder, 'align/out')
@@ -255,6 +271,7 @@ def main(argsIn):
            % (colormapMin, colormapMax, allDemPath, colorOutput))
     asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
 
+    redo = False
     # Optional visualization of the LIDAR file
     if options.lidarOverlay and lidarFile:
         LIDAR_DEM_RESOLUTION     = 5

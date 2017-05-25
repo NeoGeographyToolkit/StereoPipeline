@@ -244,6 +244,9 @@ def main(argsIn):
         # Processing options
         parser.add_option('--bundle-length', dest='bundleLength', default=2,
                           type='int', help='The number of images to bundle adjust and process in a single batch.')
+        # TODO: Compute this automatically??
+        parser.add_option('--overlap-limit', dest='overlapLimit', default=2,
+                          type='int', help='The number of images to treat as overlapping for bundle adjustment.')
         parser.add_option('--start-frame', dest='startFrame', default=None,
                           type='int', help='Frame to start with.  Leave this and stop-frame blank to process all frames.')
         parser.add_option('--stop-frame', dest='stopFrame', default=None,

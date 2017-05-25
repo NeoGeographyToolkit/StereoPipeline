@@ -67,25 +67,6 @@ def nonBlockingRawInput(prompt='', timeout=20):
     return ''
     
 
-def processPair(imageA, imageB, cameraA, cameraB, lidarFolder,
-                outputFolder, options, imageC, cameraC):
-    '''Processes a single image pair'''
-
-    suppressOutput = False
-    redo           = False
-
-    # Just set the options and call the pair python tool.
-    # We can try out bundle adjustment for intrinsic parameters here.
-    cmd = ('--lidar-overlay %s %s %s %s %s %s %s %s %s' 
-           % (imageA, imageB, cameraA, cameraB, lidarFolder, outputFolder, options,
-              imageC, cameraC))
-    print cmd
-    try:
-        process_icebridge_pair.main(cmd.split())
-    except Exception as e:
-        print 'Pair processing failed!'
-        print str(e)
-
 def processBatch(imageCameraPairs, lidarFolder, outputFolder, options):
     '''Processes a batch of images at once'''
 
@@ -135,6 +116,8 @@ def main(argsIn):
 
         parser.add_option('--bundle-length', dest='bundleLength', default=2,
                           type='int', help='Number of images to bundle adjust and process at once.')
+        parser.add_option('--overlap-limit', dest='overlapLimit', default=2,
+                          type='int', help='Number of images to treat as overlapping for bundle adjustment.')
 
         parser.add_option('--solve-intrinsics', action='store_true', default=False,
                           dest='solve_intr',  
@@ -228,7 +211,8 @@ def main(argsIn):
     MAX_COUNT = 2 # DEBUG
 
     # Set up options for process_icebridge_batch
-    extraOptions = ' --stereo-algorithm ' + str(options.stereoAlgo)           
+    extraOptions = ' --stereo-algorithm ' + str(options.stereoAlgo)
+    extraOptions += ' --overlap-limit ' + str(options.overlapLimit)
     if options.numThreads:
         extraOptions += ' --num-threads ' + str(options.numThreads)
     if options.solve_intr:
@@ -237,6 +221,7 @@ def main(argsIn):
         extraOptions += ' --south '
     if options.maxDisplacement:
         extraOptions += ' --max-displacement ' + str(options.maxDisplacement)
+    
     
     # Call process_icebridge_pair on each pair of images.
     taskHandles           = []
@@ -301,7 +286,7 @@ def main(argsIn):
                 break
         else:
             print("Waiting on " + str(notReady) + ' process(es).')
-            time.sleep(5)
+            time.sleep(20)
             
         # Otherwise count up the tasks we are still waiting on.
         notReady = 0
