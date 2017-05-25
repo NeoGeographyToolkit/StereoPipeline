@@ -668,10 +668,19 @@ if __name__ == '__main__':
     if (settings['stereo_algorithm'][0] > '0'):
         # If the user did not manually specify the job size, set it equal
         #  to the correlation tile size.
+        corr_tile_size = int(settings['corr_tile_size'][0])
         if ('--job-size-w' not in sys.argv[1:]) and ('--job-size-h' not in sys.argv[1:]):
-            opt.job_size_w = int(settings['corr_tile_size'][0])
+            opt.job_size_w = corr_tile_size
             opt.job_size_h = opt.job_size_w
-            print 'Setting SGM job size to : ' + str(opt.job_size_w)
+            print 'Setting SGM job size to: ' + str(opt.job_size_w)
+        else:
+            # The current code does not work correctly if these numbers differ
+            if '--job-size-w' in sys.argv[1:] and opt.job_size_w != corr_tile_size:
+                raise Exception('If --stereo-algorithm is not 0, must use the same value ' + \
+                                'for --job-size-w and --corr-tile-size.')
+            if '--job-size-h' in sys.argv[1:] and opt.job_size_h != corr_tile_size:
+                raise Exception('If --stereo-algorithm is not 0, must use the same value ' + \
+                      'for --job-size-h and --corr-tile-size.')
 
     if opt.tile_id is None:
 
