@@ -92,6 +92,79 @@ def processBatch(imageCameraPairs, lidarFolder, outputFolder, options):
         print str(e)
 
 
+
+def getImageSpacing(orthoFolder):
+    '''Find a good image stereo spacing interval that gives us a good
+       balance between coverage and baseline width.'''
+
+    # Do nothing if this option was not provided
+    if not orthoFolder:
+        return None
+   
+    print 'Computing optimal image stereo interval...'
+   
+    # Generate a list of valid, full path ortho files
+    fileList = os.listdir(orthoFolder)
+    orthoFiles = []
+    for orthoFile in fileList:     
+        # Skip non-image files (including junk from stereo_gui) and duplicate grayscale files
+        ext = os.path.splitext(orthoFile)[1]
+        if (ext != '.tif') or ('_sub' in orthoFile) or ('.tif_gray.tif' in orthoFile):
+            continue
+        orthoPath = os.path.join(orthoFolder, orthoFile)
+        orthoFiles.append(orthoPath)
+    orthoFiles.sort()
+    numOrthos = len(orthoFiles)
+
+    # Get the bounding box of each ortho image
+    print 'Loading bounding boxes...'
+    bboxes = []
+    for i in range(0, numOrthos):
+        imageGeoInfo = asp_geo_utils.getImageGeoInfo(orthoFiles[i], getStats=False)
+        thisBox = imageGeoInfo['projection_bounds']    
+        bboxes.append(thisBox)
+
+    # Since we are only comparing the image bounding boxes, not their exact corners,
+    #  these ratios are only estimates.
+    MAX_RATIO = 0.8 # Increase skip until we get below this...
+    MIN_RATIO = 0.4 # ... but don't go below this value!
+
+    # Iterate over stereo image intervals to try to get our target numbers
+    interval  = 0
+    meanRatio = 1.0
+    while meanRatio > MAX_RATIO:
+        meanRatio = 0
+        count     = 0
+        interval  = interval + 1
+        print 'Trying stereo image interval ' + str(interval)
+        for i in range(0, numOrthos-interval):
+            
+            # Compute intersection area between this and next image
+            thisBox   = bboxes[i  ]
+            lastBox   = bboxes[i+interval]
+            intersect = [max(lastBox[0], thisBox[0]),
+                         min(lastBox[1], thisBox[1]),
+                         max(lastBox[2], thisBox[2]),
+                         min(lastBox[3], thisBox[3])]
+            thisArea  = (thisBox[1] - thisBox[0]) * (thisBox[3] - thisBox[2])
+            area      = (intersect[1] - intersect[0]) * (intersect[3] - intersect[2])
+            ratio     = area / thisArea
+            #print 'Ratio = ' + str(ratio)
+            meanRatio = meanRatio + ratio
+            count     = count + 1
+        # Get the mean intersection ratio
+        meanRatio = meanRatio / count
+        print '  --> meanRatio = ' + str(meanRatio)
+
+    # If we increased the interval too much, back it off by one step.
+    if (meanRatio < MIN_RATIO) and (interval > 1):
+        interval = interval - 1
+        
+    print 'Computed automatic image stereo interval: ' + str(interval)
+    
+    return interval
+
+
 def main(argsIn):
 
     try:
@@ -116,8 +189,8 @@ def main(argsIn):
 
         parser.add_option('--bundle-length', dest='bundleLength', default=2,
                           type='int', help='Number of images to bundle adjust and process at once.')
-        parser.add_option('--overlap-limit', dest='overlapLimit', default=2,
-                          type='int', help='Number of images to treat as overlapping for bundle adjustment.')
+        parser.add_option('--image-stereo-interval', dest='imageStereoInterval', default=None,
+                          type='int', help='Advance this many frames to get the stereo pair.  Default is auto-calculate')
 
         parser.add_option('--solve-intrinsics', action='store_true', default=False,
                           dest='solve_intr',  
@@ -141,6 +214,9 @@ def main(argsIn):
                           help='If to wait on user input to terminate the jobs.')
         #parser.add_option('--lidar-overlay', action='store_true', default=False, dest='lidarOverlay',  
         #                  help='Generate a lidar overlay for debugging')
+
+        parser.add_option('--ortho-folder', dest='orthoFolder', default=None,
+                          help='Use ortho files to adjust processing to the image spacing.')
 
 
         (options, args) = parser.parse_args(argsIn)
@@ -175,7 +251,7 @@ def main(argsIn):
     imageFiles  = os.listdir(imageFolder)
     cameraFiles = os.listdir(cameraFolder)
     # Filter the file types
-    imageFiles  = [f for f in imageFiles  if (os.path.splitext(f)[1] == '.tif') and ('sub' not in f)] 
+    imageFiles  = [f for f in imageFiles  if (os.path.splitext(f)[1] == '.tif') and ('_sub' not in f)] 
     cameraFiles = [f for f in cameraFiles if os.path.splitext(f)[1] == '.tsai']
     imageFiles.sort() # Put in order so the frames line up
     cameraFiles.sort()
@@ -208,11 +284,8 @@ def main(argsIn):
     print 'Starting processing pool with ' + str(options.numProcesses) +' processes.'
     pool = multiprocessing.Pool(options.numProcesses)
     
-    MAX_COUNT = 2 # DEBUG
-
     # Set up options for process_icebridge_batch
     extraOptions = ' --stereo-algorithm ' + str(options.stereoAlgo)
-    extraOptions += ' --overlap-limit ' + str(options.overlapLimit)
     if options.numThreads:
         extraOptions += ' --num-threads ' + str(options.numThreads)
     if options.solve_intr:
@@ -221,9 +294,15 @@ def main(argsIn):
         extraOptions += ' --south '
     if options.maxDisplacement:
         extraOptions += ' --max-displacement ' + str(options.maxDisplacement)
+   
+    if options.imageStereoInterval: 
+        print 'Using manually specified image stereo interval: ' + str(options.imageStereoInterval)
+    else:
+        options.imageStereoInterval = getImageSpacing(options.orthoFolder)
+    extraOptions += ' --stereo-image-interval ' + str(options.imageStereoInterval)
     
-    
-    # Call process_icebridge_pair on each pair of images.
+    # Call process_icebridge_batch on each batch of images.
+    # - Batch size should be the largest number of images which can be effectively bundle-adjusted.
     taskHandles           = []
     batchImageCameraPairs = []
     frameNumbers          = []
@@ -262,13 +341,12 @@ def main(argsIn):
         taskHandles.append(pool.apply_async(processBatch, 
             (batchImageCameraPairs, lidarFolder, thisOutputFolder, extraOptions)))
             
-        # Reset variables to start from the last frame in the current set.
-        # - This assumes one frame overlap between successive batches!
-        batchImageCameraPairs = [batchImageCameraPairs[-1]]
-        frameNumbers          = [frameNumbers[-1]]
-            
-        #if len(taskHandles) >= MAX_COUNT:
-        #    break # DEBUG
+        # Reset variables to start from a frame near the end of the current set.
+        # - The amount of frame overlap is equal to the image stereo interval,
+        #   this makes it so that that each image gets to be the left image in a stereo pair.
+        batchOverlapCount = -1 * options.imageStereoInterval
+        batchImageCameraPairs = batchImageCameraPairs[batchOverlapCount:]
+        frameNumbers          = frameNumbers[batchOverlapCount:]
             
     # End of loop through input file pairs
     notReady = len(taskHandles)

@@ -46,6 +46,9 @@ def getGdalInfoTagValue(text, tag):
 def getImageGeoInfo(imagePath, getStats=True):
     """Obtains some image geo information from gdalinfo in dictionary format"""
     
+    if not os.path.exists(imagePath):
+        raise Exception('Error: input file ' + imagePath + ' does not exist!')
+    
     outputDict = {}
     
     # Call command line tool silently

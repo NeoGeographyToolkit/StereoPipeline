@@ -73,8 +73,8 @@ def main(argsIn):
         parser.add_option('--stereo-algorithm', dest='stereoAlgo', default=1,
                           type='int', help='The SGM stereo algorithm to use, must be 1 or 2.')
                           
-        parser.add_option('--overlap-limit', dest='overlapLimit', default=3,
-                          type='int', help='Number of successive images to treat as overlapping.')
+        parser.add_option('--stereo-image-interval', dest='stereoImageInterval', default=1,
+                          type='int', help='Advance this many frames to get the stereo pair.  Also sets bundle adjust overlap limit.')
 
         # Output options
         parser.add_option('--lidar-overlay', action='store_true', default=False, dest='lidarOverlay',  
@@ -153,9 +153,10 @@ def main(argsIn):
     
     # BUNDLE_ADJUST
     # - Bundle adjust all of the input images at the same time.
-    bundlePrefix = os.path.join(outputFolder, 'bundle/out')
+    bundlePrefix   = os.path.join(outputFolder, 'bundle/out')
+    baOverlapLimit = options.stereoImageInterval # TODO: Maybe adjust this a bit
     cmd = ('bundle_adjust %s -o %s %s -t nadirpinhole --local-pinhole --overlap-limit %d' 
-                 % (imageCameraString, bundlePrefix, threadText, options.overlapLimit))
+                 % (imageCameraString, bundlePrefix, threadText, baOverlapLimit))
     if options.solve_intr:
         cmd += ' --solve-intrinsics'
     
@@ -178,14 +179,20 @@ def main(argsIn):
     # STEREO
     
     # Call stereo seperately on each pair of cameras
+
     demFiles = []
-    for i in range(0,numCameras-1):
+    for i in range(0, numCameras-options.stereoImageInterval):
+
+        # Get the appropriate image to use as a stereo pair    
+        pairIndex = i + options.stereoImageInterval
+    
         thisPairPrefix = os.path.join(outputFolder, 'stereo_pair_'+str(i)+'/out')
-        argString      = ('%s %s %s %s ' % (inputPairs[i][0],  inputPairs[i+1][0], inputPairs[i][1],  inputPairs[i+1][1]))
+        argString      = ('%s %s %s %s ' % (inputPairs[i][0],  inputPairs[pairIndex][0], 
+                                            inputPairs[i][1],  inputPairs[pairIndex][1]))
     
         stereoCmd = ('/home/smcmich1/repo/StereoPipeline/build/bin/stereo %s %s -t nadirpinhole --alignment-method epipolar %s' % (argString, thisPairPrefix, threadText))
         correlationArgString = (' --xcorr-threshold -1 --corr-kernel 7 7 --subpixel-mode 0' 
-                                + ' --corr-tile-size 6400 --cost-mode 4 '
+                                + ' --corr-tile-size 6400 --cost-mode 4 --sgm-search-buffer 4 1 '
                                 + ' --stereo-algorithm ' + str(options.stereoAlgo))
                                #+ ' --corr-blob-filter 100')
         filterArgString = (' --rm-cleanup-passes 0 --median-filter-size 5 ' +
@@ -271,13 +278,12 @@ def main(argsIn):
            % (colormapMin, colormapMax, allDemPath, colorOutput))
     asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
 
-    redo = False
     # Optional visualization of the LIDAR file
     if options.lidarOverlay and lidarFile:
         LIDAR_DEM_RESOLUTION     = 5
         LIDAR_PROJ_BUFFER_METERS = 100
     
-        # Get buffered projection bounds of this image
+        # Get buffered projection bounds of this image so it is easier to compare the LIDAR
         demGeoInfo = asp_geo_utils.getImageGeoInfo(p2dOutput, getStats=False)
         projBounds = demGeoInfo['projection_bounds']
         minX = projBounds[0] - LIDAR_PROJ_BUFFER_METERS # Expand the bounds a bit

@@ -157,9 +157,9 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCamFile, cameraFolde
     # Loop through all input images
     for imageFile in imageFiles:
         
-        # Skip non-image files
+        # Skip non-image files (including junk from stereo_gui)
         ext = os.path.splitext(imageFile)[1]
-        if ext != '.tif':
+        if (ext != '.tif') or ('_sub' in imageFile):
             continue
         
         # Get associated orthofile
@@ -182,7 +182,7 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCamFile, cameraFolde
             
         # TODO: Clean up the .gcp files?
 
-def convertLidarData(lidarFolder):
+def convertLidarDataToCsv(lidarFolder):
     '''Make sure all lidar data is available in a readable text format'''
 
     print 'Converting LIDAR files...'
@@ -207,12 +207,66 @@ def convertLidarData(lidarFolder):
         if not os.path.exists(outputPath):
             raise Exception('Failed to parse LIDAR file: ' + fullPath)
 
-def processTheRun(imageFolder, cameraFolder, lidarFolder, processFolder, isSouth, 
+def pairLidarFiles(lidarFolder):
+    '''For each pair of lidar files generate a double size point cloud.
+       We can use these later since they do not have any gaps between adjacent files.'''
+    
+    # Create the output folder
+    pairFolder = os.path.join(lidarFolder, 'paired')
+    os.system('mkdir -p ' + pairFolder)
+    
+    # All files in the folder
+    lidarFiles = os.listdir(lidarFolder)
+    
+    # Get just the files we converted to csv format
+    csvFiles = []    
+    for f in lidarFiles:
+        extension = os.path.splitext(f)[1]
+        if extension == '.csv':
+           csvFiles.append(f)
+    csvFiles.sort()
+    numCsvFiles = len(csvFiles)
+        
+    # Loop through all pairs of csv files in the folder    
+    for i in range(0,numCsvFiles-2):
+
+        thisFile = csvFiles[i  ]
+        nextFile = csvFiles[i+1]
+
+        #date1, time1 = icebridge_common.parseTimeStamps(thisFile)
+        date2, time2 = icebridge_common.parseTimeStamps(nextFile)
+        
+        # Record the name with the second file
+        # - More useful because the time for the second file represents the middle of the file.
+        outputName = 'LIDAR_PAIR_' + date2 +'_'+ time2 + '.csv'
+
+        # Handle paths
+        path1      = os.path.join(lidarFolder, thisFile)
+        path2      = os.path.join(lidarFolder, nextFile)
+        outputPath = os.path.join(pairFolder, outputName)
+        if os.path.exists(outputPath):
+            continue
+        
+        # Concatenate the two files
+        cmd1 = 'cat ' + path1 + ' > ' + outputPath
+        cmd2 = 'tail -n +2 -q ' + path2 + ' >> ' + outputPath
+        print cmd1
+        p        = subprocess.Popen(cmd1, stdout=subprocess.PIPE, shell=True)
+        out, err = p.communicate()
+        print cmd2
+        p        = subprocess.Popen(cmd2, stdout=subprocess.PIPE, shell=True)
+        out, err = p.communicate()
+               
+        if not os.path.exists(outputPath):
+            raise Exception('Failed to generate merged LIDAR file: ' + outputPath)
+    
+
+def processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFolder, isSouth, 
                   bundleLength, startFrame, stopFrame, numProcesses, numThreads):
     '''Do all the run processing'''
 
-    processCommand = (('%s %s %s %s --bundle-length %d --stereo-algorithm 1 --num-processes %d --num-threads %d')
-                      % (imageFolder, cameraFolder, lidarFolder, processFolder, bundleLength, numProcesses, numThreads))
+    processCommand = (('%s %s %s %s --bundle-length %d --stereo-algorithm 1 --ortho-folder %s --num-processes %d --num-threads %d')
+                      % (imageFolder, cameraFolder, lidarFolder, processFolder, bundleLength, orthoFolder, numProcesses, numThreads))
     if isSouth:
         processCommand += ' --south'
     if startFrame:
@@ -288,7 +342,7 @@ def main(argsIn):
     jpegFolder    = os.path.join(outputFolder, 'jpeg')
     orthoFolder   = os.path.join(outputFolder, 'ortho')
     demFolder     = os.path.join(outputFolder, 'fireball')
-    lidarFolder   = os.path.join(outputFolder, 'lidar')
+    lidarFolder   = os.path.join(outputFolder, 'lidar') # Paired files go in /paired
     processFolder = os.path.join(outputFolder, 'processed')
 
     if not options.noFetch:
@@ -310,7 +364,9 @@ def main(argsIn):
         # TODO: What arguments need to be passed in here!
         getCameraModelsFromOrtho(imageFolder, orthoFolder, cameraFile, cameraFolder)
        
-        convertLidarData(lidarFolder)
+        convertLidarDataToCsv(lidarFolder)
+        
+        pairLidarFiles(lidarFolder)
 
     if options.stopAfterConvert:
         print 'Conversion complete, finished!'
@@ -319,9 +375,9 @@ def main(argsIn):
     isSouth = (options.site == 'AN')
 
     # Call the processing routine
-    processTheRun(imageFolder, cameraFolder, lidarFolder, processFolder, isSouth,
+    processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFolder, isSouth,
                   options.bundleLength, options.startFrame, options.stopFrame,
-                  options.numProcesses, options.numThreads)
+                  options.numProcesses, options.numThreads, )
 
    
 

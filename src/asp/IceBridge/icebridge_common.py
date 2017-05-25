@@ -128,6 +128,9 @@ def parseTimeStamps(fileName):
 def findMatchingLidarFile(imageFile, lidarFolder):
     '''Given an image file, find the best lidar file to use for alignment.'''
     
+    # Look in the paired lidar folder, not the original lidar folder.
+    pairedFolder = os.path.join(lidarFolder, 'paired')
+    
     vals = parseTimeStamps(imageFile)
     if len(vals) < 2:
         raise Exception('Failed to parse the date and time from: ' + imageFile)
@@ -140,7 +143,7 @@ def findMatchingLidarFile(imageFile, lidarFolder):
     # - It is possible for an image to span lidar files, we will address that if we need to!
     bestTimeDelta = datetime.timedelta.max
     bestLidarFile = 'NA'
-    lidarFiles    = os.listdir(lidarFolder)
+    lidarFiles    = os.listdir(pairedFolder)
     zeroDelta     = datetime.timedelta()
 
     for f in lidarFiles:
@@ -149,7 +152,7 @@ def findMatchingLidarFile(imageFile, lidarFolder):
             continue
 
         # Extract time for this file
-        lidarPath = os.path.join(lidarFolder, f)
+        lidarPath = os.path.join(pairedFolder, f)
 
         vals = parseTimeStamps(lidarPath)
         if len(vals) < 2: continue # ignore bad files
@@ -159,10 +162,13 @@ def findMatchingLidarFile(imageFile, lidarFolder):
         #print 'THIS = ' + str(lidarDateTime)
 
         # Compare time to the image time
-        timeDelta       = imageDateTime - lidarDateTime
+        timeDelta       = abs(imageDateTime - lidarDateTime)
         #print 'DELTA = ' + str(timeDelta)
-        # Select the closest lidar time that occurred before the image time.
-        if ( (timeDelta > zeroDelta) and (timeDelta < bestTimeDelta) ):
+        # Select the closest lidar time
+        # - Since we are using the paired files, the file time is in the middle 
+        #   of the (large) file so being close to the middle should make sure the DEM
+        #   is fully covered by LIDAR data.
+        if timeDelta < bestTimeDelta:
             bestLidarFile = lidarPath
             bestTimeDelta = timeDelta
 
