@@ -142,6 +142,7 @@ namespace asp {
     int    corr_blob_filter_area;     // Use blob filtering in pyramidal correlation
     int    corr_tile_size_ovr;        // Override the default tile size used for processing.
     int    sgm_collar_size;           // Extra tile padding used for SGM calculation.
+    vw::Vector2i sgm_search_buffer;   // Search padding in SGM around previous pyramid level disparity value.
 
     // Subpixel Options
     vw::uint16 subpixel_mode;         // 0 = none
