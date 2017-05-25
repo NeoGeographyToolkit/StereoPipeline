@@ -350,6 +350,13 @@ should be sufficient in most cases.
   processing an image that needs to be broken up into tiles at the cost of additional
   processing time.  This has no effect if the entire image can fit in one tile.
 
+\item[sgm-search-buffer \textnormal{\small{(\emph{integer integer})}} (default = 4 4)] \hfill \\
+  This option determines the size (in pixels) searches around the expected
+  disparity location in successive levels of the correlation pyramid.  A smaller
+  value will decrease run time and memory usage but will increase the chance of 
+  blunders.  Consider decreasing the Y (second) component if the alignment step is
+  reducing the vertical disparity to a very small value throughout the image.
+
 \end{description}
 
 % -------------------------------------------------------------------

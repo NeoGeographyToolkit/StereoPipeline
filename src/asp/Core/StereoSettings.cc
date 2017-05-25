@@ -187,8 +187,8 @@ namespace asp {
       ("corr-tile-size",         po::value(&global.corr_tile_size_ovr)->default_value(ASPGlobalOptions::corr_tile_size()),
                      "Override the default tile size used for processing.")
       ("sgm-collar-size",        po::value(&global.sgm_collar_size)->default_value(512),
-                     "Extend SGM calculation to this distance to increase accuracy at tile borders.");
-      ("sgm-search-buffer",        po::value(&global.sgm_search_buffer)->default_value(Vector2i(4,4)),
+                     "Extend SGM calculation to this distance to increase accuracy at tile borders.")
+      ("sgm-search-buffer",        po::value(&global.sgm_search_buffer)->default_value(Vector2i(4,4),"4 4"),
                      "Search range expansion for SGM down stereo pyramid levels.  Smaller values are faster, but greater change of blunders.");
 
     po::options_description backwards_compat_options("Aliased backwards compatibility options");
