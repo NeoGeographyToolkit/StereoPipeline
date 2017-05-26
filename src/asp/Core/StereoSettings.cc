@@ -189,7 +189,9 @@ namespace asp {
       ("sgm-collar-size",        po::value(&global.sgm_collar_size)->default_value(512),
                      "Extend SGM calculation to this distance to increase accuracy at tile borders.")
       ("sgm-search-buffer",        po::value(&global.sgm_search_buffer)->default_value(Vector2i(4,4),"4 4"),
-                     "Search range expansion for SGM down stereo pyramid levels.  Smaller values are faster, but greater change of blunders.");
+                     "Search range expansion for SGM down stereo pyramid levels.  Smaller values are faster, but greater change of blunders.")
+      ("stereo-debug",   po::bool_switch(&global.stereo_debug)->default_value(false)->implicit_value(true),
+                     "Write stereo debug images and output.");
 
     po::options_description backwards_compat_options("Aliased backwards compatibility options");
     // Do not add default values here. They may override the values set

@@ -36,10 +36,6 @@ using namespace vw::stereo;
 using namespace asp;
 using namespace std;
 
-
-// TODO: Make this into an option?
-#define SAVE_CORR_DEBUG false // Set this to true to generate pyramid correlation debug images
-
 /// Returns the properly cast cost mode type
 stereo::CostFunctionType get_cost_mode_value() {
   switch(stereo_settings().cost_mode) {
@@ -166,7 +162,7 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
                   static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm),
                   collar_size, sgm_subpixel_mode, sgm_search_buffer,
                   stereo_settings().corr_blob_filter_area*mean_scale,
-                  SAVE_CORR_DEBUG
+                  stereo_settings().stereo_debug
               ),
               // To do: all these hard-coded values must be replaced with
               // appropriate params from user's stereo.default, for
@@ -202,7 +198,7 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
                   0, // No collar here, the entire image is written at once.
                   sgm_subpixel_mode, sgm_search_buffer,
                   0, // Don't combine blob filtering with quantile filtering
-                  SAVE_CORR_DEBUG
+                  stereo_settings().stereo_debug
               );
 
       std::string d_sub_file = opt.out_prefix + "-D_sub.tif";
@@ -575,7 +571,7 @@ public:
                           stereo_settings().sgm_collar_size,
                           sgm_subpixel_mode, sgm_search_buffer,
                           stereo_settings().corr_blob_filter_area,
-                          SAVE_CORR_DEBUG );
+                          stereo_settings().stereo_debug );
       return corr_view.prerasterize(bbox);
     }else{
       typedef vw::stereo::PyramidCorrelationView<ImageType, ImageType, MaskType, MaskType > CorrView;
@@ -593,7 +589,7 @@ public:
                           stereo_settings().sgm_collar_size,
                           sgm_subpixel_mode, sgm_search_buffer,
                           stereo_settings().corr_blob_filter_area,
-                          SAVE_CORR_DEBUG );
+                          stereo_settings().stereo_debug );
       return corr_view.prerasterize(bbox);
     }
     
