@@ -18,7 +18,7 @@
 
 # Fetch all the data for a run and then process all the data.
 
-import os, sys, optparse, datetime, time, subprocess
+import os, sys, optparse, datetime, time, subprocess, logging
 import icebridge_common
 import fetch_icebridge_data
 import process_icebridge_run
@@ -42,15 +42,12 @@ os.environ["PATH"] = basepath    + os.pathsep + os.environ["PATH"]
 
 
 
-def fetchAllRunData(yyyymmdd, site, outputFolder,
+def fetchAllRunData(yyyymmdd, site, frameStart, frameStop, outputFolder,
                     jpegFolder, orthoFolder, demFolder, lidarFolder):
     '''Download all data needed to process a run'''
     
     print 'Downloading all data for the run!  This could take a while...'
     
-    # TODO: Provide options for this
-    frameStart = 350
-    frameStop  = 360
     
     baseCommand = (('--yyyymmdd %s --site %s --frame %d --frame-stop %d')
                    % (yyyymmdd, site, frameStart, frameStop))
@@ -102,7 +99,8 @@ def getJpegDateTime(filepath):
 def convertJpegs(jpegFolder, imageFolder):
     '''Convert jpeg images from RGB to single channel'''
 
-    print 'Converting input images to grayscale...'
+    logger = logging.getLogger(__name__)
+    logger.info('Converting input images to grayscale...')
 
     # Loop through all the input images
     os.system('mkdir -p ' + imageFolder)
@@ -128,7 +126,7 @@ def convertJpegs(jpegFolder, imageFolder):
         
         # Use ImageMagick tool to convert from RGB to grayscale
         cmd = (('convert %s -colorspace Gray %s') % (inputPath, outputPath))
-        print cmd
+        logger.info(cmd)
         os.system(cmd)
         if not os.path.exists(outputPath):
             raise Exception('Failed to convert jpeg file: ' + jpegFile)
@@ -136,7 +134,8 @@ def convertJpegs(jpegFolder, imageFolder):
 def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCamFile, cameraFolder):
     '''Generate camera models from the ortho files'''
     
-    print 'Generating camera models from ortho images...'
+    logger = logging.getLogger(__name__)
+    logger.info('Generating camera models from ortho images...')
 
     # TODO: DEM/height options for this tool
     # TODO: Use multiprocessing for this step?
@@ -175,7 +174,7 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCamFile, cameraFolde
                
         # Call ortho2pinhole command
         cmd = (('ortho2pinhole %s %s %s %s') % (inputPath, orthoPath, inputCamFile, outputCamFile))
-        print cmd
+        logger.info(cmd)
         os.system(cmd)
         if not os.path.exists(outputCamFile):
             raise Exception('Failed to convert ortho file: ' + orthoFile)
@@ -185,7 +184,8 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCamFile, cameraFolde
 def convertLidarDataToCsv(lidarFolder):
     '''Make sure all lidar data is available in a readable text format'''
 
-    print 'Converting LIDAR files...'
+    logger = logging.getLogger(__name__)
+    logger.info('Converting LIDAR files...')
     
     # Loop through all lidar files in the folder
     lidarFiles = os.listdir(lidarFolder)
@@ -210,6 +210,9 @@ def convertLidarDataToCsv(lidarFolder):
 def pairLidarFiles(lidarFolder):
     '''For each pair of lidar files generate a double size point cloud.
        We can use these later since they do not have any gaps between adjacent files.'''
+    
+    logger = logging.getLogger(__name__)
+    logger.info('Generating lidar pairs...')
     
     # Create the output folder
     pairFolder = os.path.join(lidarFolder, 'paired')
@@ -250,10 +253,10 @@ def pairLidarFiles(lidarFolder):
         # Concatenate the two files
         cmd1 = 'cat ' + path1 + ' > ' + outputPath
         cmd2 = 'tail -n +2 -q ' + path2 + ' >> ' + outputPath
-        print cmd1
+        logger.info(cmd1)
         p        = subprocess.Popen(cmd1, stdout=subprocess.PIPE, shell=True)
         out, err = p.communicate()
-        print cmd2
+        logger.info(cmd2)
         p        = subprocess.Popen(cmd2, stdout=subprocess.PIPE, shell=True)
         out, err = p.communicate()
                
@@ -273,10 +276,31 @@ def processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFo
         processCommand += ' --start-frame ' + str(startFrame)
     if stopFrame:
         processCommand += ' --stop-frame ' + str(stopFrame)
-        
-    print processCommand
+
+    logger = logging.getLogger(__name__)
+    logger.info('Process command: ' + processCommand)
     process_icebridge_run.main(processCommand.split())
+
+def setUpLogger(outputFolder, logLevel):
+    '''Set up the root logger so all called files will write to the same output file'''
+
+    # Generate a timestamped log file in the output folder
+    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    logName   = 'icebridge_processing_log_' + timestamp + '.txt'
+    logPath   = os.path.join(outputFolder, logName)
     
+    logger = logging.getLogger()    # Call with no argument to configure the root logger.
+    logger.setLevel(level=logLevel)
+    
+    fileHandler = logging.FileHandler(logPath)
+    formatter   = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    fileHandler.setFormatter(formatter)
+    logger.addHandler(fileHandler)
+    logger.addHandler(logging.StreamHandler()) # Mirror logging to console
+
+    logger = logging.getLogger(__name__) # We configured root, but continue logging with the normal name.
+    return logger
+
 def main(argsIn):
 
     try:
@@ -336,6 +360,9 @@ def main(argsIn):
     except optparse.OptionError, msg:
         raise Usage(msg)
 
+    logLevel = logging.INFO # Make this an option??
+    logger   = setUpLogger(outputFolder, logLevel)
+
     # Set up the output folders
     cameraFolder  = os.path.join(outputFolder, 'camera')
     imageFolder   = os.path.join(outputFolder, 'image')
@@ -345,19 +372,24 @@ def main(argsIn):
     lidarFolder   = os.path.join(outputFolder, 'lidar') # Paired files go in /paired
     processFolder = os.path.join(outputFolder, 'processed')
 
-    if not options.noFetch:
 
+    if options.noFetch:
+        logger.info('Skipping fetch.')
+    else:
         # Call data fetch routine and check the result
-        fetchResult = fetchAllRunData(options.yyyymmdd, options.site, outputFolder,
+        fetchResult = fetchAllRunData(options.yyyymmdd, options.site, 
+                                      options.startFrame, options.stopFrame, outputFolder,
                                       jpegFolder, orthoFolder, demFolder, lidarFolder)
         if fetchResult == -1:
             return -1
         
     if options.stopAfterFetch:
-        print 'Fetching complete, finished!'
+        logger.info('Fetching complete, finished!')
         return 0
 
-    if not options.noConvert:        
+    if options.noConvert:        
+        logger.info('Skipping convert')
+    else:
         convertJpegs(jpegFolder, imageFolder)
         
         # TODO: Handle case where orthofiles are not present!

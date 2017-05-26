@@ -18,7 +18,7 @@
 
 # Icebridge utility functions
 
-import os, sys, datetime, time, subprocess
+import os, sys, datetime, time, subprocess, logging
 
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
@@ -31,8 +31,6 @@ sys.path.insert(0, libexecpath)
 
 import asp_system_utils, asp_alg_utils, asp_geo_utils
 asp_system_utils.verify_python_version_is_supported()
-
-    
 
 #def getImageFrameNumber(filename):
 #    '''Return the frame number from an input image file'''

@@ -25,7 +25,7 @@
 # No other files must be present in those directries.
 # Image files must be single-channel, so use for example gdal_translate -b 1.
 
-import os, sys, optparse, datetime, multiprocessing, time
+import os, sys, optparse, datetime, multiprocessing, time, logging
 import os.path as P
 
 # The path to the ASP python files
@@ -43,6 +43,8 @@ import process_icebridge_batch
 
 import asp_system_utils, asp_alg_utils, asp_geo_utils
 asp_system_utils.verify_python_version_is_supported()
+
+logger = logging.getLogger(__name__)
 
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
@@ -88,8 +90,7 @@ def processBatch(imageCameraPairs, lidarFolder, outputFolder, options):
     try:
         process_icebridge_batch.main(cmd.split())
     except Exception as e:
-        print 'Pair processing failed!'
-        print str(e)
+        logger.error('Pair processing failed!\n' + str(e))
 
 
 
@@ -101,7 +102,7 @@ def getImageSpacing(orthoFolder):
     if not orthoFolder:
         return None
    
-    print 'Computing optimal image stereo interval...'
+    logger.info('Computing optimal image stereo interval...')
    
     # Generate a list of valid, full path ortho files
     fileList = os.listdir(orthoFolder)
@@ -117,7 +118,7 @@ def getImageSpacing(orthoFolder):
     numOrthos = len(orthoFiles)
 
     # Get the bounding box of each ortho image
-    print 'Loading bounding boxes...'
+    logger.info('Loading bounding boxes...')
     bboxes = []
     for i in range(0, numOrthos):
         imageGeoInfo = asp_geo_utils.getImageGeoInfo(orthoFiles[i], getStats=False)
@@ -136,7 +137,7 @@ def getImageSpacing(orthoFolder):
         meanRatio = 0
         count     = 0
         interval  = interval + 1
-        print 'Trying stereo image interval ' + str(interval)
+        logger.info('Trying stereo image interval ' + str(interval))
         for i in range(0, numOrthos-interval):
             
             # Compute intersection area between this and next image
@@ -154,13 +155,13 @@ def getImageSpacing(orthoFolder):
             count     = count + 1
         # Get the mean intersection ratio
         meanRatio = meanRatio / count
-        print '  --> meanRatio = ' + str(meanRatio)
+        logger.info('  --> meanRatio = ' + str(meanRatio))
 
     # If we increased the interval too much, back it off by one step.
     if (meanRatio < MIN_RATIO) and (interval > 1):
         interval = interval - 1
         
-    print 'Computed automatic image stereo interval: ' + str(interval)
+    logger.info('Computed automatic image stereo interval: ' + str(interval))
     
     return interval
 
@@ -212,8 +213,8 @@ def main(argsIn):
         # Action options
         parser.add_option('--interactive', action='store_true', default=False, dest='interactive',  
                           help='If to wait on user input to terminate the jobs.')
-        #parser.add_option('--lidar-overlay', action='store_true', default=False, dest='lidarOverlay',  
-        #                  help='Generate a lidar overlay for debugging')
+        parser.add_option('--dry-run', action='store_true', default=False, dest='dryRun',  
+                          help="Print but don't launch the processing jobs.")
 
         parser.add_option('--ortho-folder', dest='orthoFolder', default=None,
                           help='Use ortho files to adjust processing to the image spacing.')
@@ -222,7 +223,7 @@ def main(argsIn):
         (options, args) = parser.parse_args(argsIn)
 
         if len(args) < 4:
-            print usage
+            logger.info(usage)
             return 0
 
         imageFolder  = args[0]
@@ -237,7 +238,7 @@ def main(argsIn):
     # Check the inputs
     for f in [imageFolder, cameraFolder, lidarFolder]:
         if not os.path.exists(f):
-            print 'Input file '+ f +' does not exist!'
+            logger.error('Input file '+ f +' does not exist!')
             return 0
     if not os.path.exists(outputFolder):
         os.mkdir(outputFolder)
@@ -245,7 +246,7 @@ def main(argsIn):
     suppressOutput = False
     redo           = False
 
-    print '\nStarting processing...'
+    logger.info('\nStarting processing...')
     
     # Get a list of all the input files
     imageFiles  = os.listdir(imageFolder)
@@ -260,7 +261,7 @@ def main(argsIn):
 
     numFiles = len(imageFiles)
     if (len(cameraFiles) != numFiles):
-        print 'Error: Number of image files and number of camera files must match!'
+        logger.error('Error: Number of image files and number of camera files must match!')
         return -1
         
     imageCameraPairs = zip(imageFiles, cameraFiles)
@@ -269,8 +270,7 @@ def main(argsIn):
     for (image, camera) in imageCameraPairs: 
         frameNumber = icebridge_common.getFrameNumberFromFilename(image)
         if (icebridge_common.getFrameNumberFromFilename(camera) != frameNumber):
-          print 'Error: input files do not align!'
-          print (image, camera)
+          logger.error('Error: input files do not align!\n' + str((image, camera)))
           return -1
         
     # Generate a map of initial camera positions
@@ -281,7 +281,7 @@ def main(argsIn):
     cmd = 'orbitviz --hide-labels -t nadirpinhole -r wgs84 -o '+ orbitvizBefore +' '+ vizString
     asp_system_utils.executeCommand(cmd, orbitvizBefore, suppressOutput, redo)
     
-    print 'Starting processing pool with ' + str(options.numProcesses) +' processes.'
+    logger.info('Starting processing pool with ' + str(options.numProcesses) +' processes.')
     pool = multiprocessing.Pool(options.numProcesses)
     
     # Set up options for process_icebridge_batch
@@ -296,7 +296,7 @@ def main(argsIn):
         extraOptions += ' --max-displacement ' + str(options.maxDisplacement)
    
     if options.imageStereoInterval: 
-        print 'Using manually specified image stereo interval: ' + str(options.imageStereoInterval)
+        logger.info('Using manually specified image stereo interval: ' + str(options.imageStereoInterval))
     else:
         options.imageStereoInterval = getImageSpacing(options.orthoFolder)
     extraOptions += ' --stereo-image-interval ' + str(options.imageStereoInterval)
@@ -314,7 +314,7 @@ def main(argsIn):
             continue
         if options.stopFrame and (frameNumber > options.stopFrame):
             continue
-        print 'Processing frame number: ' + str(frameNumber)
+        logger.info('Processing frame number: ' + str(frameNumber))
 
         # Add frame to the list for the current batch
         batchImageCameraPairs.append(imageCameraPairs[i])
@@ -335,11 +335,13 @@ def main(argsIn):
         # The output folder is named after the first and last frame in the batch
         thisOutputFolder = os.path.join(outputFolder, 'batch_'+str(frameNumbers[0])+'_'+str(frameNumbers[-1]))
 
-        print 'Running processing batch in output folder: ' + thisOutputFolder
+        logger.info('Running processing batch in output folder: ' + thisOutputFolder + '\n' + 
+                    'with options: ' + extraOptions)
         
-        # Generate the command call
-        taskHandles.append(pool.apply_async(processBatch, 
-            (batchImageCameraPairs, lidarFolder, thisOutputFolder, extraOptions)))
+        if not options.dryRun:
+            # Generate the command call
+            taskHandles.append(pool.apply_async(processBatch, 
+                (batchImageCameraPairs, lidarFolder, thisOutputFolder, extraOptions)))
             
         # Reset variables to start from a frame near the end of the current set.
         # - The amount of frame overlap is equal to the image stereo interval,
@@ -350,7 +352,7 @@ def main(argsIn):
             
     # End of loop through input file pairs
     notReady = len(taskHandles)
-    print 'Finished adding ' + str(notReady) + ' tasks to the pool.'
+    logger.info('Finished adding ' + str(notReady) + ' tasks to the pool.')
     
     # Wait for all the tasks to complete
     while notReady > 0:
@@ -360,10 +362,10 @@ def main(argsIn):
             msg = 'Waiting on ' + str(notReady) + ' process(es), press q<Enter> to abort...\n'
             keypress = nonBlockingRawInput(prompt=msg, timeout=20)
             if keypress == 'q':
-                print 'Recieved quit command!'
+                logger.info('Recieved quit command!')
                 break
         else:
-            print("Waiting on " + str(notReady) + ' process(es).')
+            print("There are " + str(notReady) + ' incomplete tasks.')
             time.sleep(20)
             
         # Otherwise count up the tasks we are still waiting on.

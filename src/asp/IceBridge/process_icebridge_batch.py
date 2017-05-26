@@ -19,8 +19,7 @@
 # Run bundle adjustment, stereo, generate DEMs, merge dems, perform alignment, etc,
 # for a series of icebridge images
 
-import os, sys, optparse, datetime
-import os.path as P
+import os, sys, optparse, datetime, logging
 
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
@@ -34,6 +33,8 @@ sys.path.insert(0, libexecpath)
 import icebridge_common
 import asp_system_utils, asp_alg_utils, asp_geo_utils
 asp_system_utils.verify_python_version_is_supported()
+
+logger = logging.getLogger(__name__)
 
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
@@ -130,9 +131,9 @@ def main(argsIn):
     # If a lidar folder was specified, find the best lidar file.
     lidarFile = None
     if options.lidarFolder:
-        print 'Searching for matching lidar file...'
+        logger.info('Searching for matching lidar file...')
         lidarFile = icebridge_common.findMatchingLidarFile(inputPairs[0][0], options.lidarFolder)
-        print 'Found matching lidar file ' + lidarFile
+        logger.info('Found matching lidar file ' + lidarFile)
 
     # Does this ever change?
     # This format is used for reading LIDAR files.
@@ -141,7 +142,7 @@ def main(argsIn):
     suppressOutput = False
     redo           = False
 
-    print '\nStarting processing...'
+    logger.info('Starting processing...')
    
     outputPrefix  = os.path.join(outputFolder, 'out')
          
@@ -219,7 +220,7 @@ def main(argsIn):
         asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
 
     #raise Exception('BA DEBUG')
-    print 'Finished running all stereo instances.  Now merging DEMs...'
+    logger.info('Finished running all stereo instances.  Now merging DEMs...')
 
     # DEM_MOSAIC
     allDemPath = outputPrefix + '-DEM.tif'
@@ -262,7 +263,7 @@ def main(argsIn):
 
     cmd = ('geodiff --absolute --csv-format %s %s %s -o %s' % \
            (LIDAR_CSV_FORMAT_STRING, allDemPath, lidarFile, outputPrefix))
-    print(cmd)
+    logger.info(cmd)
     asp_system_utils.executeCommand(cmd, outputPrefix + "-diff.csv", suppressOutput, redo)
 
     # HILLSHADE
@@ -305,7 +306,7 @@ def main(argsIn):
                % (colormapMin, colormapMax, lidarDemOutput, colorOutput))
         asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
 
-    print 'Finished!'
+    logger.info('Finished!')
 
 # Run main function if file used from shell
 if __name__ == "__main__":

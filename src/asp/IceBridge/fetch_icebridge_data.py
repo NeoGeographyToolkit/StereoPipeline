@@ -21,10 +21,12 @@
 Tool for downloading IceBridge data
 '''
 
-import sys, os, re, subprocess, optparse
-
+import sys, os, re, subprocess, optparse, logging
+import icebridge_common
 import httplib
 from urlparse import urlparse
+
+logger = logging.getLogger(__name__)
 
 #------------------------------------------------------------------------------
 
@@ -91,19 +93,18 @@ def fetchAndParseIndexFile(folderUrl, path, parsedPath, fileType):
     # Set up the command
     cookiePaths = ' -b ~/.urs_cookies -c ~/.urs_cookies '
     curlOpts    = ' -n -L '
-    cmd = 'curl ' + cookiePaths + curlOpts + folderUrl + ' > ' + path
-
+    cmd = '/home/smcmich1/programs/curl-install/bin/curl ' + cookiePaths + curlOpts + folderUrl + ' > ' + path
     # Download the file
-    print cmd
+    logger.info(cmd)
     p = subprocess.Popen(cmd, shell=True)
     os.waitpid(p.pid, 0)
     
     # Find all the file names in the index file and
     #  dump them to a new index file
-    print 'Extracting file name list from index.html file...'
+    logger.info('Extracting file name list from index.html file...')
     with open(path, 'r') as f:
         indexText = f.read()
-    print fileType
+
     # Extract just the file names
     if fileType == 'image':
         fileList = re.findall(">[0-9_]*.JPG", indexText)
@@ -118,8 +119,6 @@ def fetchAndParseIndexFile(folderUrl, path, parsedPath, fileType):
 #                               >ILATM1B_20111018_145455.ATM4BT4.qi
     if fileType == 'atm2':
         fileList = re.findall(">ILATM1B[0-9_]*.ATM4BT4.h5", indexText)
-    
-    print fileList
     
     # For each entry that matched the regex, record: the "frame" number, the file name.
     with open(parsedPath, 'w') as f:
@@ -174,8 +173,7 @@ def main(argsIn):
         (options, args) = parser.parse_args(argsIn)
 
         if len(args) != 1:
-            print 'Error: Missing output folder.'
-            print usage
+            logger.info('Error: Missing output folder.\n' + usage)
             return -1
         outputFolder = os.path.abspath(args[0])
 
@@ -190,20 +188,17 @@ def main(argsIn):
 
         # Error checking
         if (not options.year) or (not options.month) or (not options.day):
-            print 'Error: year, month, and day must be provided.'
-            print usage
+            logger.error('Error: year, month, and day must be provided.\n' + usage)
             return -1
         
         # Ortho and DEM files don't need this information to find them.
         if (options.type == 'image') and not (options.site == 'AN' or options.site == 'GR'):
-            print 'Error, site must be AN or GR for images.'
-            print usage
+            logger.error('Error, site must be AN or GR for images.\n' + usage)
             return -1
 
         KNOWN_TYPES = ['image', 'ortho', 'dem', 'lidar']
         if not (options.type.lower() in KNOWN_TYPES):
-            print 'Error, type must be image, ortho, or dem'
-            print usage
+            logger.error('Error, type must be image, ortho, or dem.\n' + usage)
             return -1
 
     except optparse.OptionError, msg:
@@ -212,12 +207,12 @@ def main(argsIn):
     # Verify that required files exist
     home = os.path.expanduser("~")
     if not (os.path.exists(home+'/.netrc') and os.path.exists(home+'/.urs_cookies')):
-        print 'Missing a required authentication file!  See instructions here:'
-        print '    https://nsidc.org/support/faq/what-options-are-available-bulk-downloading-data-https-earthdata-login-enabled'
+        logger.error('Missing a required authentication file!  See instructions here:\n' +
+                     '    https://nsidc.org/support/faq/what-options-are-available-bulk-downloading-data-https-earthdata-login-enabled')
         return -1
     
-    print 'Creating output folder: ' + outputFolder
-    os.system('mkdir -p ' + outputFolder)
+    logger.info('Creating output folder: ' + outputFolder)
+    os.system('mkdir -p ' + outputFolder)  
 
     # This URL contains all of the files
     if options.type == 'lidar':
@@ -226,13 +221,13 @@ def main(argsIn):
         # For lidar, the data can come from one of three sources.
         for lidar in LIDAR_TYPES:
             folderUrl = getFolderUrl(options.year, options.month, options.day, options.site, lidar)
-            print 'Checking lidar URL: ' + folderUrl
+            logger.info('Checking lidar URL: ' + folderUrl)
             if checkIfUrlExists(folderUrl):
-                print 'Found match with lidar type: ' + lidar
+                logger.info('Found match with lidar type: ' + lidar)
                 options.type = lidar
                 break
             if lidar == LIDAR_TYPES[-1]: # If we tried all the lidar types...
-                print 'ERROR: Could not find any lidar data for the given date!'
+                logger.error('ERROR: Could not find any lidar data for the given date!')
                 return -1
     else: # Other cases are simpler
         folderUrl = getFolderUrl(options.year, options.month, options.day, options.site, options.type)
@@ -245,13 +240,13 @@ def main(argsIn):
         os.system('rm -f ' + indexPath)
         os.system('rm -f ' + parsedIndexPath)
     if fileExists(parsedIndexPath):
-        print 'Already have the index file ' + indexPath + ', keeping it.'
+        logger.info('Already have the index file ' + indexPath + ', keeping it.')
     else:
         fetchAndParseIndexFile(folderUrl, indexPath, parsedIndexPath, options.type)
     
     # Store file information in a dictionary
     # - Keep track of the earliest and latest frame
-    print 'Reading file list...'
+    logger.info('Reading file list...')
     frameDict = {}
     firstFrame = 99999999999
     lastFrame  = 0
@@ -271,15 +266,15 @@ def main(argsIn):
     
     if ((options.frame not in frameDict) or
         (options.frameStop and options.frameStop not in frameDict) ):
-        print ('Error: Requested frame(s) not found in this flight.\n'+
-               'First available frame is: ' + str(firstFrame)+'.\n'+
-               'Last  available frame is: ' + str(lastFrame )+'.\n')
+        logger.error('Error: Requested frame(s) not found in this flight.\n'+
+                    'First available frame is: ' + str(firstFrame)+'.\n'+
+                    'Last  available frame is: ' + str(lastFrame )+'.\n')
         return -1
     
     # Init the big curl command
     # - We will add multiple file targets and then execute the command
     cookiePaths = ' -b ~/.urs_cookies -c ~/.urs_cookies '
-    baseCmd     = 'curl -n -L ' + cookiePaths
+    baseCmd     = '/home/smcmich1/programs/curl-install/bin/curl -n -L ' + cookiePaths
     curlCmd     = baseCmd
     
     # What is the maximum number of files that can be downloaded with one call?
@@ -288,7 +283,7 @@ def main(argsIn):
     # Loop through all found frames within the provided range
     currentFileCount = 0
     for frame in sorted(frameDict.keys()):
-        #print frame
+
         if (frame >= options.frame) and (frame <= options.frameStop):
 
             filename   = frameDict[frame]
@@ -305,7 +300,7 @@ def main(argsIn):
         
         # Download the indicated files when we hit the limit or run out of files
         if (currentFileCount >= MAX_IN_ONE_CALL) or ((frame == options.frameStop) and (currentFileCount > 0)):
-            print curlCmd
+            logger.info(curlCmd)
             if not options.dryRun:
                 p = subprocess.Popen(curlCmd, cwd=outputFolder, shell=True)
                 os.waitpid(p.pid, 0)
