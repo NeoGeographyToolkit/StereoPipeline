@@ -45,8 +45,6 @@ AC_CANONICAL_HOST
 AM_INIT_AUTOMAKE([nostdinc 1.8.5])
 AX_CONFIG_HEADER_PREFIX([src/asp/asp_config.h], [ASP_])
 
-AX_PKG_SET_QT_PLUGINS_PATH([$BASE])
-
 dnl Fix for early autoconf that doesn't export these
 AC_SUBST([abs_top_srcdir])
 AC_SUBST([abs_top_builddir])
@@ -317,6 +315,9 @@ AX_PKG_ONE_OF(QT,
       AX_PKG(QT_GUESS_NETWORK,[QT_GUESS_CORE],              [-lQt5Network],[Qt5Network],[Qt5Network])
       AX_PKG(QT_GUESS_OPENGL, [QT_GUESS_CORE QT_GUESS_GUI], [-lQt5OpenGL], [Qt5OpenGL], [Qt5OpenGL])
       AX_GROUP_PKG(GUESS_QT,  [QT_GUESS_BASE QT_GUESS_CORE QT_GUESS_GUI QT_GUESS_SQL QT_GUESS_NETWORK QT_GUESS_OPENGL])])
+
+# Create qt.conf so that we can run stereo_gui in dev mode
+AX_PKG_SET_QT_PLUGINS_PATH([$BASE])
 
 AX_PKG_ONE_OF(QWT,
     APPLE_QWT, [AX_PKG_APPLE(QWT, [QT], [-framework qwt])],
