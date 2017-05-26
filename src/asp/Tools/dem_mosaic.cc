@@ -165,7 +165,7 @@ void blur_weights(ImageView<double> & weights, double sigma){
   for (int col = 0; col < cols; col++) {
     for (int row = 0; row < rows; row++) {
       if (weights(col, row) > 0) {
-	weights(col, row) = blurred_wts(col + extra, row + extra);
+        weights(col, row) = blurred_wts(col + extra, row + extra);
       }
       //weights(col, row) = std::min(weights(col, row), blurred_wts(col + extra, row + extra));
     }
@@ -453,14 +453,14 @@ public:
       // will be invalidated.
       double nodata_value = m_nodata_values[dem_iter];
       if (!boost::math::isnan(m_opt.nodata_threshold)) {
-	nodata_value = m_opt.nodata_threshold;
-	for (int col = 0; col < dem.cols(); col++) {
-	  for (int row = 0; row < dem.rows(); row++) {
-	    if (dem(col, row)[0] <= nodata_value) {
-	      dem(col, row)[0] = nodata_value;
-	    }
-	  }
-	}
+        nodata_value = m_opt.nodata_threshold;
+        for (int col = 0; col < dem.cols(); col++) {
+          for (int row = 0; row < dem.rows(); row++) {
+            if (dem(col, row)[0] <= nodata_value) {
+              dem(col, row)[0] = nodata_value;
+            }
+          }
+        }
       }
 
       // Mark the handle to the image as not in use, though we still
@@ -499,11 +499,11 @@ public:
       
       // Erode. We already did that if centerline weights are used.
       if (!m_opt.use_centerline_weights){
-	int max_cutoff = max_pixel_value(local_wts);
-	int min_cutoff = m_opt.erode_len;
-	if (max_cutoff <= min_cutoff)
-	  max_cutoff = min_cutoff + 1; // precaution
-	local_wts = clamp(local_wts - min_cutoff, 0.0, max_cutoff - min_cutoff);
+        int max_cutoff = max_pixel_value(local_wts);
+        int min_cutoff = m_opt.erode_len;
+        if (max_cutoff <= min_cutoff)
+          max_cutoff = min_cutoff + 1; // precaution
+        local_wts = clamp(local_wts - min_cutoff, 0.0, max_cutoff - min_cutoff);
       }
       
       // Blur the weights. If priority blending length is on, we'll do the blur later,
@@ -536,159 +536,159 @@ public:
 
       // Set the weights in the alpha channel
       for (int col = 0; col < dem.cols(); col++){
-	for (int row = 0; row < dem.rows(); row++){
-	  dem(col, row).a() = local_wts(col, row);
-	}
+        for (int row = 0; row < dem.rows(); row++){
+          dem(col, row).a() = local_wts(col, row);
+        }
       }
 
       // Prepare the DEM for interpolation
       ImageViewRef<DoubleGrayA> interp_dem
-	= interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
+        = interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
 
       // Loop through each output pixel
       for (int c = 0; c < bbox.width(); c++){
-	for (int r = 0; r < bbox.height(); r++){
+        for (int r = 0; r < bbox.height(); r++){
 
-	  // Coordinates in the output mosaic
-	  Vector2 out_pix(c +  bbox.min().x(), r +  bbox.min().y());
-	  // Coordinate in this input DEM
-	  Vector2 in_pix = geotrans.reverse(out_pix);
+          // Coordinates in the output mosaic
+          Vector2 out_pix(c +  bbox.min().x(), r +  bbox.min().y());
+          // Coordinate in this input DEM
+          Vector2 in_pix = geotrans.reverse(out_pix);
 
-	  // Input DEM pixel relative to loaded bbox
-	  double x = in_pix[0] - in_box.min().x();
-	  double y = in_pix[1] - in_box.min().y();
-	  DoubleGrayA pval;
+          // Input DEM pixel relative to loaded bbox
+          double x = in_pix[0] - in_box.min().x();
+          double y = in_pix[1] - in_box.min().y();
+          DoubleGrayA pval;
 
-	  int i0 = round(x),  // Round to nearest integer location
-	      j0 = round(y);
-	  if ((fabs(x-i0) < g_tol) && (fabs(y-j0) < g_tol) &&
-	      ((i0 >= 0) && (i0 <= dem.cols()-1) &&
-	       (j0 >= 0) && (j0 <= dem.rows()-1)) ){
+          int i0 = round(x),  // Round to nearest integer location
+              j0 = round(y);
+          if ((fabs(x-i0) < g_tol) && (fabs(y-j0) < g_tol) &&
+              ((i0 >= 0) && (i0 <= dem.cols()-1) &&
+               (j0 >= 0) && (j0 <= dem.rows()-1)) ){
 
-	    // A lot of care is needed here. We are at an integer
-	    // pixel, save for numerical error. Just borrow pixel's
-	    // value, and don't interpolate. Interpolation can result
-	    // in invalid pixels if the current pixel is valid but its
-	    // neighbors are not. It can also make it appear is if the
-	    // current indices are out of bounds while in fact they
-	    // are barely so.
-	    pval = dem(i0, j0);
+            // A lot of care is needed here. We are at an integer
+            // pixel, save for numerical error. Just borrow pixel's
+            // value, and don't interpolate. Interpolation can result
+            // in invalid pixels if the current pixel is valid but its
+            // neighbors are not. It can also make it appear is if the
+            // current indices are out of bounds while in fact they
+            // are barely so.
+            pval = dem(i0, j0);
 
-	  }else{ // We are not right on an integer pixel and we need to interpolate
+          }else{ // We are not right on an integer pixel and we need to interpolate
 
-	    // Below must use x <= cols()-1 as x is double
-	    bool is_good = ((x >= 0) && (x <= dem.cols()-1) && // TODO: should be an image function!
-			    (y >= 0) && (y <= dem.rows()-1));
-	    if (!is_good)
-	      continue; // Outside the loaded DEM bounds, skip to the next pixel
+            // Below must use x <= cols()-1 as x is double
+            bool is_good = ((x >= 0) && (x <= dem.cols()-1) && // TODO: should be an image function!
+		            (y >= 0) && (y <= dem.rows()-1));
+            if (!is_good)
+              continue; // Outside the loaded DEM bounds, skip to the next pixel
 
-	    // If we have weights of 0, that means there are invalid pixels, so skip this point.
-	    int i0 = (int)floor(x), j0 = (int)floor(y);
-	    int i1 = (int)ceil(x),  j1 = (int)ceil(y);
-	    if ((dem(i0, j0).a() <= 0) || (dem(i1, j0).a() <= 0) ||
-		(dem(i0, j1).a() <= 0) || (dem(i1, j1).a() <= 0))
-	      continue;
+            // If we have weights of 0, that means there are invalid pixels, so skip this point.
+            int i0 = (int)floor(x), j0 = (int)floor(y);
+            int i1 = (int)ceil(x),  j1 = (int)ceil(y);
+            if ((dem(i0, j0).a() <= 0) || (dem(i1, j0).a() <= 0) ||
+	        (dem(i0, j1).a() <= 0) || (dem(i1, j1).a() <= 0))
+              continue;
 
-	    pval = interp_dem(x, y); // Things checked out, do the interpolation.
-	  }
-	  // Seperate the value and alpha for this pixel.
-	  double val = pval.v();
-	  double wt  = pval.a();
+            pval = interp_dem(x, y); // Things checked out, do the interpolation.
+          }
+          // Seperate the value and alpha for this pixel.
+          double val = pval.v();
+          double wt  = pval.a();
 
-	  if (m_opt.priority_blending_len > 0) {
-	    // The priority blending, pixels from earlier DEMs at this location
-	    // are used unmodified unless close to that DEM boundary.
-	    wt = std::min(weight_modifier(c, r), wt);
+          if (m_opt.priority_blending_len > 0) {
+            // The priority blending, pixels from earlier DEMs at this location
+            // are used unmodified unless close to that DEM boundary.
+            wt = std::min(weight_modifier(c, r), wt);
 
-	    // Now ensure that the current DEM values will be used
-	    // unmodified unless close to the boundary for subsequent
-	    // DEMs. The weight w2 will be 0 well inside the DEM, and
-	    // increase towards the boundary.
-	    double wt2 = wt;
-	    wt2 = std::max(0.0, m_opt.priority_blending_len - wt2);
-	    weight_modifier(c, r) = std::min(weight_modifier(c, r), wt2);
-	  }
+            // Now ensure that the current DEM values will be used
+            // unmodified unless close to the boundary for subsequent
+            // DEMs. The weight w2 will be 0 well inside the DEM, and
+            // increase towards the boundary.
+            double wt2 = wt;
+            wt2 = std::max(0.0, m_opt.priority_blending_len - wt2);
+            weight_modifier(c, r) = std::min(weight_modifier(c, r), wt2);
+          }
 
-	  if (wt <= 0)
-	    continue; // No need to continue if the weight is zero
+          if (wt <= 0)
+            continue; // No need to continue if the weight is zero
 
-	  // Check if the current output value at this pixel is nodata
-	  bool is_nodata = ((tile(c, r) == m_opt.out_nodata_value));
+          // Check if the current output value at this pixel is nodata
+          bool is_nodata = ((tile(c, r) == m_opt.out_nodata_value));
 
-	  // Initialize the tile if not done already.
-	  // Init to zero not needed with some types.
-	  if (!m_opt.stddev && !m_opt.median && !m_opt.min && !m_opt.max &&
-	      m_opt.priority_blending_len <= 0){
-	    if ( is_nodata ){
-	      tile   (c, r) = 0;
-	      weights(c, r) = 0.0;
-	    }
-	  }
+          // Initialize the tile if not done already.
+          // Init to zero not needed with some types.
+          if (!m_opt.stddev && !m_opt.median && !m_opt.min && !m_opt.max &&
+              m_opt.priority_blending_len <= 0){
+            if ( is_nodata ){
+              tile   (c, r) = 0;
+              weights(c, r) = 0.0;
+            }
+          }
 
-	  // Update the output value according to the commanded mode
-	  if ( ( m_opt.first && is_nodata)                        ||
-	       m_opt.last                                         ||
-	       ( m_opt.min && ( val < tile(c, r) || is_nodata ) ) ||
-	       ( m_opt.max && ( val > tile(c, r) || is_nodata ) ) ||
-	       m_opt.median || m_opt.priority_blending_len > 0    ||
-               m_opt.block_max){
-	    // --> Conditions where we replace the current value
-	    tile   (c, r) = val;
-	    weights(c, r) = wt;
+          // Update the output value according to the commanded mode
+          if ( ( m_opt.first && is_nodata)                        ||
+               m_opt.last                                         ||
+               ( m_opt.min && ( val < tile(c, r) || is_nodata ) ) ||
+               ( m_opt.max && ( val > tile(c, r) || is_nodata ) ) ||
+               m_opt.median || m_opt.priority_blending_len > 0    ||
+                     m_opt.block_max){
+            // --> Conditions where we replace the current value
+            tile   (c, r) = val;
+            weights(c, r) = wt;
 
-	    // In these cases, the saved weight will be 1 or 0, since either
-	    // a given DEM gives it all, or nothing at all.
-	    if (m_opt.save_dem_weight >= 0 && (m_opt.first || m_opt.last ||
-						      m_opt.min || m_opt.max))
-	      saved_weight(c, r) = (m_opt.save_dem_weight == dem_iter);
+            // In these cases, the saved weight will be 1 or 0, since either
+            // a given DEM gives it all, or nothing at all.
+            if (m_opt.save_dem_weight >= 0 && (m_opt.first || m_opt.last ||
+					              m_opt.min || m_opt.max))
+              saved_weight(c, r) = (m_opt.save_dem_weight == dem_iter);
 
-	    // In these cases, the saved weight will be 1 or 0, since either
-	    // a given DEM gives it all, or nothing at all.
-	    if (m_opt.save_index_map && (m_opt.first || m_opt.last ||
-					 m_opt.min || m_opt.max))
-	      index_map(c, r) = dem_iter;
+            // In these cases, the saved weight will be 1 or 0, since either
+            // a given DEM gives it all, or nothing at all.
+            if (m_opt.save_index_map && (m_opt.first || m_opt.last ||
+				         m_opt.min || m_opt.max))
+              index_map(c, r) = dem_iter;
 
-	  }else if (m_opt.mean){ // Mean --> Accumulate the value
-	    tile(c, r) += val;
-	    weights(c, r)++;
+          }else if (m_opt.mean){ // Mean --> Accumulate the value
+            tile(c, r) += val;
+            weights(c, r)++;
 
-	    if (m_opt.save_dem_weight == dem_iter)
-	      saved_weight(c, r) = 1;
+            if (m_opt.save_dem_weight == dem_iter)
+              saved_weight(c, r) = 1;
 
-	  }else if (m_opt.count){ // Count --> Increment the value
-	    tile(c, r)++;
-	    weights(c, r) += wt;
-	  }else if (m_opt.stddev){ // Standard Deviation --> Keep running calculation
-	    weights(c, r) += 1.0;
-	    double curr_mean = tile_vec[0](c,r);
-	    double delta     = val - curr_mean;
-	    curr_mean     += delta / weights(c, r);
-	    double newVal = tile(c, r) + delta*(val - curr_mean);
-	    tile(c, r)    = newVal;
-	    tile_vec[0](c,r) = curr_mean;
-	  }else if (!noblend){ // Blending --> Weighted average
-	    tile(c, r) += wt*val;
-	    weights(c, r) += wt;
-	    if (m_opt.save_dem_weight == dem_iter)
-	      saved_weight(c, r) = wt;
-	  }
+          }else if (m_opt.count){ // Count --> Increment the value
+            tile(c, r)++;
+            weights(c, r) += wt;
+          }else if (m_opt.stddev){ // Standard Deviation --> Keep running calculation
+            weights(c, r) += 1.0;
+            double curr_mean = tile_vec[0](c,r);
+            double delta     = val - curr_mean;
+            curr_mean     += delta / weights(c, r);
+            double newVal = tile(c, r) + delta*(val - curr_mean);
+            tile(c, r)    = newVal;
+            tile_vec[0](c,r) = curr_mean;
+          }else if (!noblend){ // Blending --> Weighted average
+            tile(c, r) += wt*val;
+            weights(c, r) += wt;
+            if (m_opt.save_dem_weight == dem_iter)
+              saved_weight(c, r) = wt;
+          }
 
-	} // End col loop
+        } // End col loop
       } // End row loop
 
       // For the median option, keep a copy of the output tile for each input DEM!
       // Also do it for max per block.
       // - This will be memory intensive. 
       if (m_opt.median || m_opt.block_max) {
-	tile_vec.push_back(copy(tile));
+        tile_vec.push_back(copy(tile));
         dem_vec.push_back(dem_name);
       }
       
       // For priority blending, need also to keep all tiles, but also the weights
       if (m_opt.priority_blending_len > 0){
-	tile_vec.push_back(copy(tile));
-	weight_vec.push_back(copy(weights));
-	clip2dem_index.push_back(dem_iter);
+        tile_vec.push_back(copy(tile));
+        weight_vec.push_back(copy(weights));
+        clip2dem_index.push_back(dem_iter);
       }
 
     } // End iterating over DEMs
@@ -696,14 +696,14 @@ public:
     // Divide by the weights in blend, mean
     if (!noblend || m_opt.mean){
       for (int c = 0; c < bbox.width(); c++){ // Iterate over all pixels!
-	for (int r = 0; r < bbox.height(); r++){
-	  if ( weights(c, r) > 0 )
-	    tile(c, r) /= weights(c, r);
+        for (int r = 0; r < bbox.height(); r++){
+          if ( weights(c, r) > 0 )
+            tile(c, r) /= weights(c, r);
 
-	  if (m_opt.save_dem_weight >= 0 && weights(c, r) > 0)
-	    saved_weight(c, r) /= weights(c, r);
+          if (m_opt.save_dem_weight >= 0 && weights(c, r) > 0)
+            saved_weight(c, r) /= weights(c, r);
 
-	} // End row loop
+        } // End row loop
       } // End col loop
     } // End dividing case
 
@@ -711,14 +711,14 @@ public:
     // Finish stddev calculations
     if (m_opt.stddev){
       for (int c = 0; c < bbox.width(); c++){ // Iterate over all pixels!
-	for (int r = 0; r < bbox.height(); r++){
+        for (int r = 0; r < bbox.height(); r++){
 
-	  if ( weights(c, r) > 1.0 ){
-	    tile(c, r) = sqrt( tile(c, r) / (weights(c, r) - 1.0) );
-	  } else { // Invalid pixel!
-	    tile(c, r) = m_opt.out_nodata_value;
-	  }
-	} // End row loop
+          if ( weights(c, r) > 1.0 ){
+            tile(c, r) = sqrt( tile(c, r) / (weights(c, r) - 1.0) );
+          } else { // Invalid pixel!
+            tile(c, r) = m_opt.out_nodata_value;
+          }
+        } // End row loop
       } // End col loop
     } // End stddev case
 
@@ -729,19 +729,19 @@ public:
       vector<double> vals(tile_vec.size());
       // Iterate through all pixels
       for (int c = 0; c < bbox.width(); c++){
-	for (int r = 0; r < bbox.height(); r++){
-	  // Compute the median for this pixel
-	  vals.clear();
-	  for (int i = 0; i < (int)tile_vec.size(); i++){
-	    ImageView<double> & tile_ref = tile_vec[i];
-	    if ( tile_ref(c, r) == m_opt.out_nodata_value )
-	      continue;
-	    vals.push_back(tile_ref(c, r));
-	  }
-	  if (!vals.empty()){
-	    tile(c, r) = math::destructive_median(vals);
-	  }
-	}// End row loop
+        for (int r = 0; r < bbox.height(); r++){
+          // Compute the median for this pixel
+          vals.clear();
+          for (int i = 0; i < (int)tile_vec.size(); i++){
+            ImageView<double> & tile_ref = tile_vec[i];
+            if ( tile_ref(c, r) == m_opt.out_nodata_value )
+              continue;
+            vals.push_back(tile_ref(c, r));
+          }
+          if (!vals.empty()){
+            tile(c, r) = math::destructive_median(vals);
+          }
+        }// End row loop
       } // End col loop
     } // End median case
 
@@ -773,7 +773,7 @@ public:
     if (m_opt.priority_blending_len > 0) {
 
       if (tile_vec.size() != weight_vec.size() || tile_vec.size() != clip2dem_index.size())
-	vw_throw(ArgumentErr() << "There must be as many dem tiles as weight tiles.\n");
+        vw_throw(ArgumentErr() << "There must be as many dem tiles as weight tiles.\n");
 
       // We will use the weights created so far only to burn holes in
       // the DEMs where we don't want blending. Then we will have to
@@ -781,12 +781,12 @@ public:
       // been interpolated from a different grid, and won't handle
       // erosion and bluring well.
       for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
-	for (int col = 0; col < weight_vec[clip_iter].cols(); col++){
-	  for (int row = 0; row < weight_vec[clip_iter].rows(); row++){
-	    if (weight_vec[clip_iter](col, row) <= 0)
-	      tile_vec[clip_iter](col, row) = m_opt.out_nodata_value;
-	  }
-	}
+        for (int col = 0; col < weight_vec[clip_iter].cols(); col++){
+          for (int row = 0; row < weight_vec[clip_iter].rows(); row++){
+            if (weight_vec[clip_iter](col, row) <= 0)
+              tile_vec[clip_iter](col, row) = m_opt.out_nodata_value;
+          }
+        }
         
         weight_vec[clip_iter] = grassfire(notnodata(tile_vec[clip_iter],
                                                       m_opt.out_nodata_value));
@@ -804,7 +804,7 @@ public:
 
       // Blur the weights.
       for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
-	blur_weights(weight_vec[clip_iter], m_opt.weights_blur_sigma);
+        blur_weights(weight_vec[clip_iter], m_opt.weights_blur_sigma);
       }
 
       // Raise to power
@@ -824,38 +824,38 @@ public:
       fill( weights, 0.0 );
 
       if (m_opt.save_dem_weight >= 0)
-	fill(saved_weight, 0.0);
+        fill(saved_weight, 0.0);
 
       for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
-	for (int col = 0; col < weight_vec[clip_iter].cols(); col++){
-	  for (int row = 0; row < weight_vec[clip_iter].rows(); row++){
+        for (int col = 0; col < weight_vec[clip_iter].cols(); col++){
+          for (int row = 0; row < weight_vec[clip_iter].rows(); row++){
 
-	    double wt = weight_vec[clip_iter](col, row);
-	    if (wt <= 0) continue; // nothing to do
+            double wt = weight_vec[clip_iter](col, row);
+            if (wt <= 0) continue; // nothing to do
 
-	    // Initialize the tile
-	    if (tile(col, row) == m_opt.out_nodata_value)
-	      tile(col, row) = 0;
+            // Initialize the tile
+            if (tile(col, row) == m_opt.out_nodata_value)
+              tile(col, row) = 0;
 
-	    tile(col, row)    += wt*tile_vec[clip_iter](col, row);
-	    weights(col, row) += wt;
+            tile(col, row)    += wt*tile_vec[clip_iter](col, row);
+            weights(col, row) += wt;
 
-	    if (clip2dem_index[clip_iter] == m_opt.save_dem_weight)
-	      saved_weight(col, row) = wt;
-	  }
-	}
+            if (clip2dem_index[clip_iter] == m_opt.save_dem_weight)
+              saved_weight(col, row) = wt;
+          }
+        }
       }
 
       // Compute the weighted average
       for (int col = 0; col < tile.cols(); col++){
-	for (int row = 0; row < weights.rows(); row++){
-	  if ( weights(col, row) > 0 )
-	    tile(col, row) /= weights(col, row);
+        for (int row = 0; row < weights.rows(); row++){
+          if ( weights(col, row) > 0 )
+            tile(col, row) /= weights(col, row);
 
-	  if (m_opt.save_dem_weight >= 0 && weights(col, row) > 0)
-	    saved_weight(col, row) /= weights(col, row);
+          if (m_opt.save_dem_weight >= 0 && weights(col, row) > 0)
+            saved_weight(col, row) /= weights(col, row);
 
-	}
+        }
       }
 
 #if 0
