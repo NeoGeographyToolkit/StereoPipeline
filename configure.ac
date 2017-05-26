@@ -45,6 +45,8 @@ AC_CANONICAL_HOST
 AM_INIT_AUTOMAKE([nostdinc 1.8.5])
 AX_CONFIG_HEADER_PREFIX([src/asp/asp_config.h], [ASP_])
 
+AX_PKG_SET_QT_PLUGINS_PATH([$BASE])
+
 dnl Fix for early autoconf that doesn't export these
 AC_SUBST([abs_top_srcdir])
 AC_SUBST([abs_top_builddir])
