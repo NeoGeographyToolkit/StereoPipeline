@@ -114,15 +114,20 @@ What type of interest point detection algorithm to use for image alignment.
 If the default method does not perform well, try out one of the other two methods.
 
 \item[epipolar-threshold]  \hfill \\
-Maximum distance in pixels from the epipolar line to search for matches from each
+Maximum distance in pixels from the epipolar line to search for matches for each
 interest point.  Due to the way ASP finds matches, reducing this value can actually
 increase the number of interest points detected.  If image alignment seems to be working
 well but you are not getting enough interest points to get a good search range estimate,
 try setting this value to a small number, perhaps in the low double digits.
 
-\item[ip-inlier-factor \textnormal (default = 1.0/15)] \hfill \\
-A higher threshold will result in more interest points, but perhaps also more outliers.
-
+\item[ip-inlier-factor \textnormal (default = 1.0/15)] \hfill \\ A
+higher threshold will result in more interest points, but perhaps also
+more outliers.  It is important to note that this parameter overlaps
+somewhat in scope and effect with \texttt{epipolar-threshold} and
+sometimes not both are active. It is suggested to experiement with both,
+as well as with \texttt{ip-uniqueness-threshold} below, which has a
+different justification but also somewhat similar effects.
+ 
 \item[ip-uniqueness-threshold \textnormal (default = 0.7)] \hfill \\
 A higher threshold will result in more interest points, but perhaps less unique ones.
 

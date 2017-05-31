@@ -119,7 +119,7 @@ namespace asp {
       ("ip-detect-method",          po::value(&global.ip_matching_method)->default_value(0),
        "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
       ("epipolar-threshold",       po::value(&global.epipolar_threshold)->default_value(-1),
-                     "Max distance from epipolar line so search for IP matches. (default: automatic calculation).")
+                     "Maximum distance from the epipolar line to search for IP matches. Default: automatic calculation.")
       ("ip-inlier-factor",          po::value(&global.ip_inlier_factor)->default_value(1.0/15.0),
        "General scaling factor for IP finding, a larger value allows more IPs to match.")
       ("ip-uniqueness-threshold",          po::value(&global.ip_uniqueness_thresh)->default_value(0.7),

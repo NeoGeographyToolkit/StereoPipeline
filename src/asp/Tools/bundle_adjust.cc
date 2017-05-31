@@ -84,6 +84,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   std::vector<boost::shared_ptr<CameraModel> > camera_models;
   cartography::Datum datum;
   int  ip_detect_method;
+  double epipolar_threshold; // Max distance from epipolar line to search for IP matches.
   double ip_inlier_factor, ip_uniqueness_thresh;
   bool individually_normalize;
   std::set<std::string> intrinsics_to_float;
@@ -1599,6 +1600,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                          "Set the minimum  number of matches between images that will be considered.")
     ("ip-detect-method", po::value(&opt.ip_detect_method)->default_value(0),
                          "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
+    ("epipolar-threshold",       po::value(&opt.epipolar_threshold)->default_value(-1),
+     "Maximum distance from the epipolar line to search for IP matches. Default: automatic calculation.")
     ("ip-inlier-factor",          po::value(&opt.ip_inlier_factor)->default_value(1.0/15.0),
      "A higher threshold will result in more interest points, but perhaps also more outliers.")
     ("ip-uniqueness-threshold",          po::value(&opt.ip_uniqueness_thresh)->default_value(0.7),
@@ -1698,6 +1701,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   // Copy the IP settings to the global stereo_settings() object
   asp::stereo_settings().ip_matching_method     = opt.ip_detect_method;
+  asp::stereo_settings().epipolar_threshold     = opt.epipolar_threshold;
   asp::stereo_settings().ip_inlier_factor       = opt.ip_inlier_factor;
   asp::stereo_settings().ip_uniqueness_thresh   = opt.ip_uniqueness_thresh;
   asp::stereo_settings().individually_normalize = opt.individually_normalize;
