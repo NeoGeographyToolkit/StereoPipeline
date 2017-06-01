@@ -72,7 +72,8 @@ namespace asp {
                        additional_options,
                        bool verbose,
                        std::string & output_prefix,
-                       std::vector<ASPGlobalOptions> & opt_vec);
+                       std::vector<ASPGlobalOptions> & opt_vec,
+                       bool exit_early = false);
 
   /// Parse input command line arguments
   void handle_arguments( int argc, char *argv[], ASPGlobalOptions& opt,
@@ -80,7 +81,7 @@ namespace asp {
                          additional_options,
                          bool allow_unregistered,
                          std::vector<std::string> & unregistered,
-                         std::string & usage);
+                         std::string & usage, bool exit_early = false);
 
   /// Register DiskImageResource types that are not included in Vision Workbench.
   void stereo_register_sessions();

@@ -102,7 +102,7 @@ public:
   }
 };
 
-int main(int argc, char* argv[]) {
+int main(int argc, char** argv) {
 
   try {
     xercesc::XMLPlatformUtils::Initialize();
@@ -113,9 +113,16 @@ int main(int argc, char* argv[]) {
     string output_prefix;
     std::vector<std::string> images;
     try {
+
+      // For some reason, there is a crash with ISIS sometimes if
+      // going through the full flow of parsing arguments. ISIS and Qt
+      // mis-communicate.  Stop before loading any cameras. This
+      // should be safe enough in GUI mode.
+      bool exit_early = true;
+
       // See if we passed all the correct options for stereo
       asp::parse_multiview(argc, argv, asp::GUIDescription(),
-                           verbose, output_prefix, opt_vec);
+                           verbose, output_prefix, opt_vec, exit_early);
       // Extract the images from the options, not the cameras though.
       for (size_t i = 0; i < opt_vec.size(); i++) {
         if (i == 0) images.push_back(opt_vec[i].in_file1);
@@ -170,11 +177,11 @@ int main(int argc, char* argv[]) {
       return 0;
     }
 
+    vw::create_out_dir(output_prefix);
+
     // Create the application. Must be done before trying to read
     // images as that call uses pop-ups.
     StereoApplication app(argc, argv);
-
-    vw::create_out_dir(output_prefix);
 
     // Start up the Qt GUI
     vw::gui::MainWindow main_window(opt_vec[0],
@@ -187,9 +194,10 @@ int main(int argc, char* argv[]) {
                                     stereo_settings().view_matches,
                                     stereo_settings().delete_temporary_files_on_exit,
                                     argc, argv);
+
     main_window.show();
     app.exec();
-
+    
     xercesc::XMLPlatformUtils::Terminate();
   } ASP_STANDARD_CATCHES;
 

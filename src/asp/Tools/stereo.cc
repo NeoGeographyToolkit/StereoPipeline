@@ -85,7 +85,8 @@ namespace asp {
                        additional_options,
                        bool verbose,
                        string & output_prefix,
-                       vector<ASPGlobalOptions> & opt_vec){
+                       vector<ASPGlobalOptions> & opt_vec,
+                       bool exit_early){
 
     // If a stereo program is invoked as:
 
@@ -108,7 +109,7 @@ namespace asp {
     ASPGlobalOptions opt;
     std::string usage;
     handle_arguments(argc, argv, opt, additional_options,
-                     is_multiview, files, usage);
+                     is_multiview, files, usage, exit_early);
 
     // Need this for the GUI, ensure that opt_vec is never empty, even on failures
     opt_vec.push_back(opt);
@@ -255,7 +256,7 @@ namespace asp {
       bool is_multiview = false;
       vector<string> files;
       handle_arguments( largc, &largv[0], opt, additional_options,
-                        is_multiview, files, usage);
+                        is_multiview, files, usage, exit_early);
       opt_vec[p-1] = opt;
 
       if (verbose){
@@ -284,7 +285,7 @@ namespace asp {
                          boost::program_options::options_description const&
                          additional_options,
                          bool is_multiview, vector<string> & input_files,
-                         std::string & usage ){
+                         std::string & usage, bool exit_early ){
 
     po::options_description general_options_sub("");
     general_options_sub.add_options()
@@ -522,8 +523,9 @@ namespace asp {
       stereo_settings().sgm_collar_size = 0;
     } // End SGM checks
 
-
-
+    if (exit_early) 
+      return;
+    
     // The StereoSession call automatically determines the type of
     // object to create from the input parameters.
     opt.session.reset(asp::StereoSessionFactory::create(opt.stereo_session_string, opt,// i/o
