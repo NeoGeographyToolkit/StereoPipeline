@@ -403,9 +403,12 @@ namespace asp {
     // Create the output directory
     vw::create_out_dir(opt.out_prefix);
 
-    // Turn on logging to file
-    asp::log_to_file(argc, argv, opt.stereo_default_filename, opt.out_prefix);
-
+    // Turn on logging to file, except for stereo_parse, as that one is called
+    // all the time.
+    std::string prog_name = extract_prog_name(argv[0]);
+    if (prog_name.find("stereo_parse") == std::string::npos) 
+      asp::log_to_file(argc, argv, opt.stereo_default_filename, opt.out_prefix);
+    
     // There are two crop win boxes, in respect to original left
     // image, named left_image_crop_win, and in respect to the
     // transformed left image (L.tif), named trans_crop_win. We use
