@@ -399,24 +399,37 @@ Usage:
 
 Example (for ISIS):
 \begin{verbatim}
-  bundle_adjust file1.cub file2.cub file3.cub -o results/run
+  bundle_adjust file1.cub file2.cub file3.cub -o run_ba/run
 \end{verbatim}
 
 Example (for Digital Globe Earth data, using ground control points):
 \begin{verbatim}
   bundle_adjust file1.tif file2.tif file1.xml file2.xml gcp_file.gcp \
-    --datum WGS_1984 -o results/run
+    --datum WGS_1984 -o run_ba/run
 \end{verbatim}
 
 Example (for generic pinhole camera data, using estimated camera positions):
 \begin{verbatim}
-  bundle_adjust file1.JPG file2.JPG file1.tsai file2.tsai -o results/out \
+  bundle_adjust file1.JPG file2.JPG file1.tsai file2.tsai -o run_ba/run          \
      -t pinhole --local-pinhole --datum WGS_1984 --camera-positions nav_data.csv \
      --csv-format "1:file 6:lat 7:lon 9:height_above_datum"
 \end{verbatim}
 
-The \texttt{stereo} program can then be told to use the adjusted cameras
-via the option \texttt{-\/-bundle-adjust-prefix}.
+This tool will write the adjustments to the cameras as \texttt{*.adjust}
+files starting with the specified output prefix. In order for
+\texttt{stereo} to use the adjusted cameras, it should be passed
+this output prefix via the option \texttt{-\/-bundle-adjust-prefix}. For example,
+\begin{verbatim}
+  stereo file1.cub file2.cub run_stereo/run --bundle-adjust-prefix run_ba/run
+\end{verbatim}
+
+If the \texttt{-\/-local-pinhole} option is used, no separate adjustments
+will be written, rather, the tool will save to disk copies of the input
+cameras with adjustments applied to them. These output cameras can then be
+passed directly to stereo:
+\begin{verbatim}
+  stereo file1.JPG file2.JPG run_ba/run-file1.tsai run_ba/run-file2.tsai run_stereo/run
+\end{verbatim} 
 
 \begin{longtable}{|l|p{7.5cm}|}
 \caption{Command-line options for bundle\_adjust}
