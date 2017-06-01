@@ -85,7 +85,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   cartography::Datum datum;
   int  ip_detect_method;
   double epipolar_threshold; // Max distance from epipolar line to search for IP matches.
-  double ip_inlier_factor, ip_uniqueness_thresh;
+  double ip_inlier_factor, ip_uniqueness_thresh, nodata_value;
   bool individually_normalize;
   std::set<std::string> intrinsics_to_float;
   std::string overlap_list_file;
@@ -1562,6 +1562,7 @@ void create_gcp_from_mapprojected_images(Options const& opt){
 }
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
+  double nan = std::numeric_limits<double>::quiet_NaN();
   po::options_description general_options("");
   general_options.add_options()
 //     ("cnet,c", po::value(&opt.cnet_file),
@@ -1603,9 +1604,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("epipolar-threshold",       po::value(&opt.epipolar_threshold)->default_value(-1),
      "Maximum distance from the epipolar line to search for IP matches. Default: automatic calculation.")
     ("ip-inlier-factor",          po::value(&opt.ip_inlier_factor)->default_value(1.0/15.0),
-     "A higher threshold will result in more interest points, but perhaps also more outliers.")
+     "A higher factor will result in more interest points, but perhaps also more outliers.")
     ("ip-uniqueness-threshold",          po::value(&opt.ip_uniqueness_thresh)->default_value(0.7),
      "A higher threshold will result in more interest points, but perhaps less unique ones.")
+    ("nodata-value",             po::value(&opt.nodata_value)->default_value(nan),
+     "Pixels with values less than or equal to this number are treated as no-data. This overrides the no-data values from input images.")
     ("individually-normalize",   po::bool_switch(&opt.individually_normalize)->default_value(false)->implicit_value(true),
                         "Individually normalize the input images instead of using common values.")
     ("max-iterations",   po::value(&opt.max_iterations)->default_value(1000),
@@ -1704,6 +1707,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   asp::stereo_settings().epipolar_threshold     = opt.epipolar_threshold;
   asp::stereo_settings().ip_inlier_factor       = opt.ip_inlier_factor;
   asp::stereo_settings().ip_uniqueness_thresh   = opt.ip_uniqueness_thresh;
+  asp::stereo_settings().nodata_value           = opt.nodata_value;
   asp::stereo_settings().individually_normalize = opt.individually_normalize;
 
   if (!opt.camera_position_file.empty() && opt.csv_format_str == "")

@@ -483,12 +483,19 @@ detection method from: 0=OBAloG, 1=SIFT, 2=ORB. \\ \hline
 Maximum distance from the epipolar line to search for IP matches. Default: automatic calculation.
 \\ \hline
 
-\texttt{-\/-ip-inlier-threshold \textit{double(=1.0/15)}} & 
-A higher threshold will result in more interest points, but perhaps also more outliers.
+\texttt{-\/-ip-inlier-factor \textit{double(=1.0/15)}} & 
+A higher factor will result in more interest points, but perhaps also more outliers.
 \\ \hline
 
 \texttt{-\/-ip-uniqueness-threshold \textit{double(=0.7)}} & 
 A higher threshold will result in more interest points, but perhaps less unique ones.
+\\ \hline
+
+\texttt{-\/-nodata-value \textit{double(=NaN)}} & 
+Pixels with values less than or equal to this number are treated as no-data. This overrides the no-data values from input images.
+\\ \hline
+
+\texttt{-\/-individually-normalize} & Individually normalize the input images instead of using common values.
 \\ \hline
 
 \texttt{-\/-local-pinhole} & Optimize processing for inputs which are local coordinate 

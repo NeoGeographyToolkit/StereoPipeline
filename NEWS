@@ -4,6 +4,8 @@
    * Added new options for post-SGM subpixel stereo.
      Previously only a parabola method was used.
 
+ - bundle_adjust
+   * Added the parameter --nodata-value. 
 
 *** RELEASE 2.6.0, May 15, 2017 ***
 

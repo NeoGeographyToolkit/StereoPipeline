@@ -121,7 +121,7 @@ namespace asp {
       ("epipolar-threshold",       po::value(&global.epipolar_threshold)->default_value(-1),
                      "Maximum distance from the epipolar line to search for IP matches. Default: automatic calculation.")
       ("ip-inlier-factor",          po::value(&global.ip_inlier_factor)->default_value(1.0/15.0),
-       "General scaling factor for IP finding, a larger value allows more IPs to match.")
+       " A higher factor will result in more interest points, but perhaps also more outliers.")
       ("ip-uniqueness-threshold",          po::value(&global.ip_uniqueness_thresh)->default_value(0.7),
        "Min percentage distance between closest and second closest IP descriptors, a larger value allows more IP matches.")
       ("nodata-value",             po::value(&global.nodata_value)->default_value(nan),
