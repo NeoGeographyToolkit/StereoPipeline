@@ -1183,10 +1183,12 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
     // Count up the number of good ground control points
     // - Maybe this should be a function of the ControlNet class?
     const int num_cnet_points = static_cast<int>(cnet.size());
+    int num_gcp      = 0;
     int num_good_gcp = 0;
     for (int ipt = 0; ipt < num_cnet_points; ipt++){
       if (cnet[ipt].type() != ControlPoint::GroundControlPoint)
         continue;
+      ++num_gcp;
         
       // Use triangulation to estimate the position of this control point using
       //   the current set of camera models.
@@ -1196,12 +1198,18 @@ bool init_pinhole_model_with_gcp(Options &opt, bool check_only=false) {
       vw::ba::triangulate_control_point(cp_new, opt.camera_models, minimum_angle);
       if (cp_new.position() != Vector3() && cnet[ipt].position() != Vector3())
         ++num_good_gcp; // Only count points that triangulate
+      else {
+        vw_out() << "Discarding GCP: " << cnet[ipt] << "\n" << cp_new << std::endl;
+      }
     }
     
     // Update the number of GCP that we are using
     const int MIN_NUM_GOOD_GCP = 3;
-    if (num_good_gcp < MIN_NUM_GOOD_GCP)
+    if (num_good_gcp < MIN_NUM_GOOD_GCP) {
+      vw_out() << "Num GCP       = " << num_gcp         << std::endl;
+      vw_out() << "Num valid GCP = " << num_good_gcp    << std::endl;
       vw_throw( ArgumentErr() << "Not enough valid GCPs for affine initalization!\n" );
+    }
     
     /*
     // DEBUG: Print out a measure of the triangulation error
@@ -1342,14 +1350,14 @@ void create_matches_from_mapprojected_images(Options const& opt){
       bool is_good1 = vw::cartography::read_georeference(georef1, map_files[i]);
       bool is_good2 = vw::cartography::read_georeference(georef2, map_files[j]);
       if (!is_good1 || !is_good2) {
-	vw_throw(ArgumentErr() << "Error: Cannot read georeference.\n");
+        vw_throw(ArgumentErr() << "Error: Cannot read georeference.\n");
       }
       
       std::string match_filename = ip::match_filename(opt.out_prefix,
 						      map_files[i], map_files[j]);
       if (!fs::exists(match_filename)) {
-	vw_out() << "Missing: " << match_filename << "\n";
-            continue;
+        vw_out() << "Missing: " << match_filename << "\n";
+        continue;
       }
       vw_out() << "Reading: " << match_filename << std::endl;
       std::vector<ip::InterestPoint> ip1, ip2;
@@ -1659,6 +1667,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   
   // Separate out GCP files
   opt.gcp_files = asp::get_files_with_ext( opt.image_files, ".gcp", true );
+  const size_t num_gcp_files = opt.gcp_files.size();
+  vw_out() << "Found " << num_gcp_files << " GCP files on the command line.\n";
+  
 
   // Separate the cameras from the images
   asp::separate_cameras_from_images(opt.image_files,  opt.camera_files);
@@ -1971,7 +1982,7 @@ int main(int argc, char* argv[]) {
                  << "if ground control points are present.\n";
         //return 1; // continue, hoping for gcp
       }
-
+      vw_out() << "Loading GCP files...\n";
       vw::ba::add_ground_control_points( (*opt.cnet), opt.image_files,
                                          opt.gcp_files, opt.datum);
       // DEBUG
