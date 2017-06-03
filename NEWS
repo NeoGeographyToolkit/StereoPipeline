@@ -3,6 +3,9 @@
  - stereo_corr
    * Added new options for post-SGM subpixel stereo.
      Previously only a parabola method was used.
+   * Added option to perform cross-correlation checks on
+     multiple resolution levels while using SGM/MGM.
+   
 
  - bundle_adjust
    * Added the parameter --nodata-value. 
