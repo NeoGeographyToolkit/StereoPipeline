@@ -420,7 +420,9 @@ correlator so the default large kernel is not recommended.
 The MAD cost mode can be used with any odd kernel size (including size 1) but the census 
 cost modes can only be used with kernel sizes 3, 5, 7, and 9.  Size 7 is usually a good choice.
 \item Xcorr-Threshold. By default, this is disabled in order to nearly halve the (long) run time of the SGM
-algorithm.  Set \texttt{xcorr-threshold} to >= 0 to turn it back on.
+algorithm.  Set \texttt{xcorr-threshold} to >= 0 to turn it back on.  If you set the
+\texttt{min-xcorr-level} parameter to 1 you can perform cross correlation on the smaller resolution levels
+without spending the time to run it on the largest resolution level.
 \item The median and texture filters in the \texttt{stereo\_fltr} tool.  These filters
 were designed specifically to clean up output from the SGM algorithm and are especially useful in suppressing
 image artifacts in low-texture portions of the image.  A median filter size of 3 and a texture filter size of 11

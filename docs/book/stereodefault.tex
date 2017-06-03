@@ -291,6 +291,17 @@ WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), Moon
   result. This will drastically improve speed at the cost of
   additional noise.
 
+\item[min-xcorr-level \textnormal{\small{(\emph{integer})}} (default = 0)] \hfill \\
+
+  When using the cross-correlation check controlled by xcorr-threshold, this parameter
+  sets the minimum pyramid resolution level that the check will be performed at.  By 
+  default the check will be performed at every resolution level but you may wish to increase
+  this value to save time by not doubling up on processing the largest levels.
+  
+  Currently this feature is not enabled when using the default block-matching correlation
+  method.  In that case cross correlation is only ever performed on the last resolution level.
+
+
 \item[rm-quantile-percentile \textnormal{\small{(\emph{double})}} (default = 0.85)] \hfill \\
   See rm-quantile-multiple for details.
 

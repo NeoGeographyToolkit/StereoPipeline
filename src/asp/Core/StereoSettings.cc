@@ -153,6 +153,8 @@ namespace asp {
                      "Correlation cost metric. [0 Absolute, 1 Squared, 2 Normalized Cross Correlation, 3 Census Transform (SGM only), 4 Ternary Census Transform (SGM only)]")
       ("xcorr-threshold",        po::value(&global.xcorr_threshold)->default_value(2),
                      "L-R vs R-L agreement threshold in pixels.")
+      ("min-xcorr-level",        po::value(&global.min_xcorr_level)->default_value(0),
+                     "Minimum level to run xcorr check on (SGM only).")
       ("corr-kernel",            po::value(&global.corr_kernel)->default_value(Vector2i(21,21),"21 21"),
                     "Kernel size used for integer correlator.")
       ("corr-search",            po::value(&global.search_range)->default_value(BBox2i(0,0,0,0), "auto"),

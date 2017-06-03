@@ -127,6 +127,7 @@ namespace asp {
                                       // 3 = census transform
                                       // 3 = ternary census transform
     float        xcorr_threshold;     // L-R vs R-L agreement threshold in pixels
+    int          min_xcorr_level;     // Min level to perform xcorr check at, if specified.
     vw::Vector2i corr_kernel;         // Correlation kernel
     vw::BBox2i   search_range;        // Correlation search range
     vw::uint16   corr_max_levels;     // Max pyramid levels to process. 0 hits only once.
