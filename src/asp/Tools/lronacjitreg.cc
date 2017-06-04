@@ -258,6 +258,7 @@ bool determineShifts(Parameters & params,
   int    filter_kernel_size = 5;
   int    max_pyramid_levels = 5;
   int    corr_timeout       = 0;
+  int    min_lr_level = 0;
   double seconds_per_op     = 0.0;
   DiskCacheImageView<PixelMask<Vector2f> >
     disparity_map
@@ -269,7 +270,7 @@ bool determineShifts(Parameters & params,
 				 searchRegion,
 				 params.kernel,
 				 corr_type, corr_timeout, seconds_per_op,
-				 params.lrthresh, filter_kernel_size, max_pyramid_levels ) );
+				 params.lrthresh, min_lr_level, filter_kernel_size, max_pyramid_levels ) );
 
   // Compute the mean horizontal and vertical shifts
   // - Currently disparity_map contains the per-pixel shifts
