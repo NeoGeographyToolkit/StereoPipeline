@@ -765,11 +765,12 @@ Download the N1511700120\_1.IMG and W1567133629\_1.IMG images and their label (.
 Processing of Digital Globe images is described extensively in the
 tutorial in chapter \ref{ch:dg_tutorial}.
 
-\section{RPC Imagery, including GeoEye and Astrium}
+\section{RPC Imagery, including GeoEye, Astrium, and Cartosat-1}
 \label{rpc}
 
 Some vendors, such as GeoEye with its Ikonos and two GeoEye satellites,
-and Astrium, with its SPOT and Pleiades satellites, provide only
+and Astrium, with its SPOT and Pleiades satellites, and the Indian Cartosat-1 
+satellite, provide only
 Rational Polynomial Camera (RPC) models. Digital Globe provides both
 exact linescan camera models and their RPC approximations.
 
@@ -791,7 +792,7 @@ the RPC information inside the headers of your files, ASP will likely
 be able to see it as well. This means that sometimes we can get away
 with only providing a left and right image, with no extra files
 containing camera information. This is specifically the
-case for GeoEye. Otherwise, the camera files must be specified 
+case for GeoEye and Cartosat-1. Otherwise, the camera files must be specified 
 separately in XML files, as done for Digital
 Globe images (section \ref{rawdg}).  
 
@@ -827,11 +828,12 @@ with \texttt{cam2rpc} from ISIS cubes.  So the datum has to be set.
   stereo -t rpc --datum D_MARS left.tif right.tif left.xml right.xml run/run
 \end{verbatim}
 
-For terrains having steep slopes, we recommend that images be map-projected
-onto an existing DEM before running stereo. This is described in section
-\ref{mapproj-example}. If the RPC coefficients are not stored in the orignal
-Tif images, but rather in associated .RPB or \_RPC.TXT files, analogous
-files must be created for each map-projected image. 
+For terrains having steep slopes, we recommend that images be
+map-projected onto an existing DEM before running stereo. This is
+described in section \ref{mapproj-example}. If the RPC coefficients are
+not stored in the orignal Tif images, but rather in associated .RPB or
+\_RPC.TXT files, \texttt{mapproject} creates
+these files automatically for each map-projected image.
 
 \subsubsection*{stereo.default}
 
