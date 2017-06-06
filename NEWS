@@ -6,13 +6,18 @@
    * Added option to perform cross-correlation checks on
      multiple resolution levels while using SGM/MGM.
    
-
  - bundle_adjust
    * Added the parameter --nodata-value. 
 
+ - Misc
+   * The tools work correctly with Cartosat-1. 
+   * Handle properly in bundle_adjust, orbitviz, and stereo 
+     with mapprojected images the case when, for RPC cameras,
+     these coefficients are stored in _RPC.TXT files.
+
 *** RELEASE 2.6.0, May 15, 2017 ***
 
- - New Stereo Algorithms
+ - New stereo algorithms
    * ASP now supports the Semi Global Matching (SGM) and 
      More Global Matching (MGM) stereo algorithms. 
      They do particularly well for Earth imagery, better 
