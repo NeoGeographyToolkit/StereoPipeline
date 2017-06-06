@@ -441,27 +441,14 @@ void load_csv(std::string const& file_name,
 }
 
 // Load a DEM
-template<typename T>
-void load_dem(bool verbose, std::string const& file_name,
-              int num_points_to_load, vw::BBox2 const& lonlat_box,
-              bool calc_shift, vw::Vector3 & shift,
-              typename PointMatcher<T>::DataPoints & data){
-
+template<typename T, typename DemPixelType>
+void load_dem_pixel_type(bool verbose, std::string const& file_name,
+                         int num_points_to_load, vw::BBox2 const& lonlat_box,
+                         bool calc_shift, vw::Vector3 & shift,
+                         typename PointMatcher<T>::DataPoints & data){
+  
   PointMatcherSupport::validateFile(file_name);
 
-  // We do not support DEMs in double format. It would be a lot of code changes
-  // in many places to make it work properly.
-  {
-    boost::shared_ptr<vw::DiskImageResource> dem_rsrc( new vw::DiskImageResourceGDAL(file_name) );
-    vw::ImageFormat image_fmt = dem_rsrc->format();
-    if (image_fmt.channel_type == vw::VW_CHANNEL_FLOAT64) {
-      vw::vw_throw(vw::ArgumentErr()
-               << "The file: " << file_name
-               << " has double precision values, which is not supported. " 
-               << "Use a DEM which has float values.\n");
-    }
-  }
-  
   data.features.conservativeResize(DIM+1, num_points_to_load);
   data.featureLabels = form_labels<T>(DIM);
 
@@ -471,8 +458,8 @@ void load_dem(bool verbose, std::string const& file_name,
     vw_throw(vw::ArgumentErr() << "DEM: " << file_name
                                << " does not have a georeference.\n");
 
-  vw::DiskImageView<float> dem(file_name);
-  double nodata = std::numeric_limits<double>::quiet_NaN();
+  vw::DiskImageView<DemPixelType> dem(file_name);
+  DemPixelType nodata = std::numeric_limits<DemPixelType>::quiet_NaN();
   {
     boost::shared_ptr<vw::DiskImageResource> dem_rsrc( new vw::DiskImageResourceGDAL(file_name) );
     if (dem_rsrc->has_nodata_read())
@@ -555,6 +542,34 @@ void load_dem(bool verbose, std::string const& file_name,
 
   data.features.conservativeResize(Eigen::NoChange, points_count);
 
+}
+
+
+// Load a DEM
+template<typename T>
+void load_dem(bool verbose, std::string const& file_name,
+              int num_points_to_load, vw::BBox2 const& lonlat_box,
+              bool calc_shift, vw::Vector3 & shift,
+              typename PointMatcher<T>::DataPoints & data){
+
+  PointMatcherSupport::validateFile(file_name);
+
+  boost::shared_ptr<vw::DiskImageResource> dem_rsrc( new vw::DiskImageResourceGDAL(file_name) );
+  vw::ImageFormat image_fmt = dem_rsrc->format();
+  if (image_fmt.channel_type == vw::VW_CHANNEL_FLOAT64) {
+    // We could have loaded this DEM as float, the difference in the
+    // final transform is very minor if we do so, but it is better to
+    // use the full input accuracy.
+    load_dem_pixel_type<T, double>(verbose, file_name,  
+                                   num_points_to_load, lonlat_box,  
+                                   calc_shift, shift,  
+                                   data);
+  }else{
+    load_dem_pixel_type<T, float>(verbose, file_name,  
+                                  num_points_to_load, lonlat_box,  
+                                  calc_shift, shift,  
+                                  data);
+  }
 }
 
 template<typename T>
