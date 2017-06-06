@@ -68,17 +68,6 @@ struct Options : public vw::cartography::GdalWriteOptions {
   std::string out_file;
 };
 
-
-// TODO: Update the function in VW
-/// Returns the extension of a file.
-std::string get_extension( std::string const& input, bool make_lower=true ) {
-  boost::filesystem::path ipath( input );
-  std::string ext = ipath.extension().string();
-  if (make_lower)
-    boost::algorithm::to_lower(ext);
-  return ext;
-}
-
 /// Strip the directory out of a file path
 std::string strip_directory( std::string const& input){
  boost::filesystem::path p(input); 

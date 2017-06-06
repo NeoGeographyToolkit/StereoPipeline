@@ -78,6 +78,23 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
       }
     }
 
+    try {
+      if (actual_session_type.empty()) {
+        // RPC can be in the main file or it can be in the camera file.
+        // DG sessions are always RPC sessions because they contain that
+        //   as an extra camera model. Thus this RPC check must happen last.
+        StereoSessionRPC session;
+        boost::shared_ptr<vw::camera::CameraModel>
+          left_model  = session.camera_model(left_image_file,  left_camera_file ),
+          right_model = session.camera_model(right_image_file, right_camera_file);
+        actual_session_type = "rpc";
+      }
+    } catch (vw::NotFoundErr const& e) {
+      // If it throws, it wasn't RPC
+    } catch (...) {
+      // It didn't even have XML!
+    }
+
     if (allow_map_promote) {
       if (!input_dem.empty() && actual_session_type == "dg") {
         // User says DG .. but also gives a DEM.
@@ -110,23 +127,6 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
         VW_OUT(vw::DebugMessage,"asp") << "Changing session type to: astermaprpc" << std::endl;
       }
     } // End map promotion section
-
-    try {
-      if (actual_session_type.empty()) {
-        // RPC can be in the main file or it can be in the camera file.
-        // DG sessions are always RPC sessions because they contain that
-        //   as an extra camera model. Thus this RPC check must happen last.
-        StereoSessionRPC session;
-        boost::shared_ptr<vw::camera::CameraModel>
-          left_model  = session.camera_model(left_image_file,  left_camera_file ),
-          right_model = session.camera_model(right_image_file, right_camera_file);
-        actual_session_type = "rpc";
-      }
-    } catch (vw::NotFoundErr const& e) {
-      // If it throws, it wasn't RPC
-    } catch (...) {
-      // It didn't even have XML!
-    }
 
     // We should know the session type by now.
     VW_ASSERT(!actual_session_type.empty(),

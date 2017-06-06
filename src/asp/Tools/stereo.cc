@@ -146,24 +146,6 @@ namespace asp {
     if (!parse_multiview_cmd_files(files, images, cameras, output_prefix, input_dem))
       vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n" << usage );
 
-    if (fs::exists(output_prefix))
-      vw_out(WarningMessage)
-        << "It appears that the output prefix exists as a file: "
-        << output_prefix << ". Perhaps this was not intended." << endl;
-
-    // Verify that the images and cameras exist, otherwise GDAL prints funny messages later.
-    for (int i = 0; i < (int)images.size(); i++){
-      if (!fs::exists(images[i]))
-        vw_throw(ArgumentErr() << "Cannot find the image file: " << images[i] << ".\n");
-    }
-    for (int i = 0; i < (int)cameras.size(); i++){
-      if (!fs::exists(cameras[i]))
-        vw_throw(ArgumentErr() << "Cannot find the camera file: " << cameras[i] << ".\n");
-    }
-
-    if (images.size() != cameras.size() && !cameras.empty())
-      vw_throw(ArgumentErr() << "Expecting the number of images and cameras to agree.\n");
-
     int num_pairs = (int)images.size() - 1;
     if (num_pairs <= 0)
       vw_throw(ArgumentErr() << "Insufficient number of images provided.\n");
@@ -377,28 +359,27 @@ namespace asp {
       return;
     }
 
-    if (opt.in_file1.empty() || opt.in_file2.empty() || opt.cam_file1.empty())
+    // Re-use the logic in parse_multiview_cmd_files, but just for two images/cameras.
+    std::vector<std::string> files;
+    std::vector<std::string> images, cameras;
+    if (!opt.in_file1.empty())   files.push_back(opt.in_file1);
+    if (!opt.in_file2.empty())   files.push_back(opt.in_file2);
+    if (!opt.cam_file1.empty())  files.push_back(opt.cam_file1);
+    if (!opt.cam_file2.empty())  files.push_back(opt.cam_file2);
+    if (!opt.out_prefix.empty()) files.push_back(opt.out_prefix);
+    if (!opt.input_dem.empty())  files.push_back(opt.input_dem);
+    if (!parse_multiview_cmd_files(files, // inputs
+                                   images, cameras, opt.out_prefix, opt.input_dem // outputs
+                                   ))
       vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n" << usage );
 
-    // There are 3 valid methods of input into this application
-    // 1.) <image1> <image2> <cam1> <cam2> <prefix> <dem>
-    // 2.) <image1> <image2> <cam1> <cam2> <prefix>
-    // 3.) <image1> <image2> <prefix>
+    opt.in_file1 = "";  if (images.size() >= 1)  opt.in_file1  = images[0];
+    opt.in_file2 = "";  if (images.size() >= 2)  opt.in_file2  = images[1];
+    opt.cam_file1 = ""; if (cameras.size() >= 1) opt.cam_file1 = cameras[0];
+    opt.cam_file2 = ""; if (cameras.size() >= 2) opt.cam_file2 = cameras[1];
 
-    // Correcting for Case 3:
-    bool this_is_case3 = false;
-    if (opt.out_prefix.empty() && opt.cam_file2.empty()) {
-      opt.out_prefix = opt.cam_file1;
-      opt.cam_file1.clear();
-      this_is_case3 = true;
-    }
-
-    // Error checking
-    if (opt.out_prefix.empty())                  vw_throw(ArgumentErr() << "Missing output prefix"    );
-    if (opt.in_file1.empty())                    vw_throw(ArgumentErr() << "Missing left input image" );
-    if (opt.in_file2.empty())                    vw_throw(ArgumentErr() << "Missing right input image");
-    if (!this_is_case3 && opt.cam_file1.empty()) vw_throw(ArgumentErr() << "Missing left camera file" );
-    if (!this_is_case3 && opt.cam_file2.empty()) vw_throw(ArgumentErr() << "Missing right camera file");
+    if (opt.in_file1.empty() || opt.in_file2.empty() || opt.out_prefix.empty())
+      vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n" << usage );
 
     // Create the output directory
     vw::create_out_dir(opt.out_prefix);

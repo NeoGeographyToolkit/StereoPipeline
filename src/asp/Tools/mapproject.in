@@ -169,6 +169,18 @@ def writeSingleTile(options):
 
 #------------------------------------------------------------------------------
 
+# If there is an input _RPC.TXT or .RPB, create such an output file as well,
+# to store there the RPC coefficients. Need this for stereo later on. 
+# For some reason, this function must be invoked after the writing
+# of the output tif file has been competed. Otherwise something wipes it.
+def maybe_copy_rpc(inputPath, outputPath):
+    for ext in ['_RPC.TXT', '.RPB']:
+        input_rpc = os.path.splitext(inputPath)[0] + ext
+        output_rpc = os.path.splitext(outputPath)[0] + ext
+        if os.path.exists(input_rpc):
+            print("Copied " + input_rpc + " to " + output_rpc)
+            shutil.copy(input_rpc, output_rpc)
+
 def main(argsIn):
 
     relOutputPath = ""
@@ -245,7 +257,6 @@ def main(argsIn):
             parser.print_help()
             parser.error("Missing output filename.\n" );
 
-        # Make sure we have absolute paths here
         options.demPath    = requiredList[0]
         options.imagePath  = requiredList[1]
         if len(requiredList) == 3:
@@ -282,6 +293,7 @@ def main(argsIn):
         print(" ".join(cmd))
         ans = subprocess.call(cmd)
         if ans == 0: print("Wrote: " + relOutputPath)
+        maybe_copy_rpc(options.imagePath, options.outputPath)
         return 0
 
     # Otherwise this is the original called process and there are multiple steps to go through
@@ -321,6 +333,7 @@ def main(argsIn):
         ans = subprocess.call(cmd)
         if ans == 0: 
             print("Wrote: " + relOutputPath)
+            maybe_copy_rpc(options.imagePath, options.outputPath)
         return 0
 
 
@@ -453,6 +466,7 @@ def main(argsIn):
 
     if ans == 0: 
         print("Wrote: " + relOutputPath)
+        maybe_copy_rpc(options.imagePath, options.outputPath)
 
     endTime = time.time()
     print("Finished in " + str(endTime - startTime) + " seconds.")

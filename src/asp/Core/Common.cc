@@ -176,61 +176,105 @@ bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
     dem_path = "";
   }
 
-  if (files.size() < 3) // Check for the minimum number of files
+  if (files.size() < 3){
+    vw_out(ErrorMessage) << "Expecting at least three inputs to stereo.\n";
     return false;
-
+  }
+  
   // Find the output prefix
   prefix = files.back(); // Dem, if present, was already popped off the back.
 
   // An output prefix cannot be an image or a camera
-  if (asp::has_image_extension(prefix) || asp::has_cam_extension(prefix)) {
-    prefix = "";
+  if (asp::has_image_extension(prefix) || asp::has_cam_extension(prefix) || prefix == "" ) {
+    vw_out(ErrorMessage) << "Invalid output prefix: " << prefix << ".\n";
     return false;
   }
 
   files.pop_back();
 
   // Now there are N images and possibly N camera paths
-  // - Need to figure out of the camera paths are there!
+  // - Need to figure out if the camera paths are there!
 
-  // If there is an odd number of files then this is easy
-  bool has_camera_paths = (files.size() % 2 == 0);
-  // Otherwise we need to do more checks
-  if (has_camera_paths) {
-    //int  num_image_files     = 0;
-    //int  num_camera_files    = 0;
-    bool multiple_extensions = false;
+  // There are several situations
+  // 1. img1.cub ... imgN.cub for ISIS with non-proj images
+  // 2. img1.tif ... imgN.tif img1.cub ... imgN.cub for ISIS with proj images
+  // 3. img1.tif ... imgN.tif for RPC with embedded RPC in the tif files 
+  // 4. img1.tif ... imgN.tif cam1 .... camN for all other cases.
 
-    for (size_t i=0; i<files.size(); ++i) {
-      //if (has_image_extension(files[i]))
-      //  num_image_files++;
-      //if (has_camera_extension(files[i]))
-      //  num_camera_files++;
-      std::string ext = get_extension(files[i]);
-      if (ext != get_extension(files[0]))
-        multiple_extensions = true;
+  bool has_cub    = false;
+  bool has_nocub  = false;
+  bool has_cam    = false;
+  
+  for (size_t i = 0; i < files.size(); i++) {
+    
+    std::string ext = get_extension(files[i]);
+    
+    if (ext == ".cub")                    has_cub   = true;
+    if (ext != ".cub")                    has_nocub = true;
+    if (asp::has_cam_extension(files[i])) has_cam   = true;
+  }
+  
+  if ( (has_cub && !has_nocub) || (!has_cam) ) {
+    
+    // Only cubes, or only non-cameras, cases 1 and 3 above
+    for (size_t i=0; i < files.size(); ++i) 
+      image_paths.push_back(files[i]);
+    
+  } else{
+    
+    // Images and cameras (cameras could be cubes)
+    if (files.size() % 2 != 0) {
+      vw_out(ErrorMessage) << "Expecting as many images as cameras.\n";
+      return false;
     }
+    
+    int half = files.size()/2;
+    for (int i = 0;    i < half;   i++) image_paths.push_back(files[i]);
+    for (int i = half; i < 2*half; i++) camera_paths.push_back(files[i]);
 
-    //if (num_image_files < files.size()) // Must be camera files
-    //  break;
-    if (!multiple_extensions)
-      has_camera_paths = false; // Two types of files, some must be camera files.
-
-  } // End check for camera file presence
-
-
-  if (has_camera_paths) { // Move the cameras out of the files vector
-    const size_t half = files.size()/2;
-    camera_paths.resize(half);
-    for (size_t i=0; i<half; ++i) {
-      camera_paths[half-i-1] = files.back();
-      files.pop_back();
+  }
+  
+  // Verification for images
+  for (size_t i = 0; i < image_paths.size(); i++) {
+    if (!has_image_extension(image_paths[i])) {
+      vw_out(ErrorMessage) << "Expecting an image, got: " << image_paths[i] << ".\n";
+      return false;
     }
   }
-  else // camera_paths = image_paths
-    camera_paths = files;
-  image_paths = files;
 
+  // Verification for cameras
+  for (size_t i = 0; i < camera_paths.size(); i++) {
+    if (!has_cam_extension(camera_paths[i])) {
+      vw_out(ErrorMessage) << "Expecting a camera, got: " << camera_paths[i] << ".\n";
+      return false;
+    }
+  }
+
+  if (fs::exists(prefix))
+      vw_out(WarningMessage)
+        << "It appears that the output prefix exists as a file: "
+        << prefix << ". Perhaps this was not intended.\n";
+
+  // Verify that the images and cameras exist, otherwise GDAL prints funny messages later.
+  for (int i = 0; i < (int)image_paths.size(); i++){
+    if (!fs::exists(image_paths[i])) {
+      vw_out(ErrorMessage) << "Cannot find the image file: " << image_paths[i] << ".\n";
+      return false;
+    }
+  }
+  
+  for (int i = 0; i < (int)camera_paths.size(); i++){
+    if (!fs::exists(camera_paths[i])) {
+      vw_out(ErrorMessage) << "Cannot find the camera file: " << camera_paths[i] << ".\n";
+      return false;
+    }
+  }
+  
+  if (image_paths.size() != camera_paths.size() && !camera_paths.empty()) {
+    vw_out(ErrorMessage) << "Expecting the number of images and cameras to agree.\n";
+    return false;
+  }
+  
   return true;
 }
 
