@@ -48,8 +48,8 @@ class StereoSessionFactory {
 
 
   // Given a list of images and cameras, separate the two. Handle carefully
-  // the case of ISIS .cub images and some Tif images that have the camera
-  // mdoel embedded in them.
+  // the case of ISIS .cub images, and of Tif images that have the camera
+  // model embedded in them.
   // We put this function here, as it needs to be aware of StereoSessionFactory.
   void separate_cameras_from_images_with_session(std::vector<std::string> & image_files,
                                                  std::vector<std::string> & camera_files,
