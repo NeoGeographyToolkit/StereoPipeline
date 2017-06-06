@@ -792,7 +792,7 @@ namespace asp {
     { // Check to see if this rough homography works
       HomographyTransform func( rough_homography );
       VW_ASSERT( box1.intersects( func.forward_bbox( box2 ) ),
-		 LogicErr() << "The rough homography alignment based on datum and camera geometry shows that input images do not overlap at all. Unable to proceed.\n" );
+		 LogicErr() << "The rough homography alignment based on datum and camera geometry shows that input images do not overlap at all. Unable to proceed. Examine your images, or consider using the option --skip-rough-homography.\n" );
     }
 
     TransformRef tx( compose(right_tx, HomographyTransform(rough_homography)) );
@@ -829,7 +829,7 @@ namespace asp {
 			      raster_box.size(), raster_box.size(),
 			      ip1_copy, ip2_copy, matrix1, matrix2 );
     if ( sum(abs(submatrix(rough_homography,0,0,2,2) - submatrix(matrix2,0,0,2,2))) > 4 ) {
-      vw_out() << "Post homography has largely different scale and skew from rough fit. Post solution is " << matrix2 << "\n";
+      vw_out() << "Post homography has largely different scale and skew from rough fit. Post solution is " << matrix2 << ". Examine your images, or consider using the option --skip-rough-homography.\n";
       //return false;
     }
 

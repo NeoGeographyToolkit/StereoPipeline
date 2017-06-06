@@ -393,7 +393,7 @@ namespace asp {
     tpc.report_finished();
     
     if (left_points.empty() || right_points.empty())
-      vw_throw( ArgumentErr() << "InterestPointMatching: rough_homography_fit failed to generate points!\n" );
+      vw_throw( ArgumentErr() << "InterestPointMatching: rough_homography_fit failed to generate points! Examine your images, or consider using the option --skip-rough-homography.\n" );
 
     double thresh_factor = stereo_settings().ip_inlier_factor; // 1/15 by default
 

@@ -118,8 +118,11 @@ namespace asp {
                        image1_norm, image2_norm);
     }
 
-    const bool nadir_facing = this->is_nadir_facing();
+    bool nadir_facing = this->is_nadir_facing();
 
+    if (stereo_settings().skip_rough_homography) 
+      nadir_facing = false;
+    
     bool inlier = false;
     if (nadir_facing) {
       // Run an IP matching function that takes the camera and datum info into account
@@ -151,10 +154,10 @@ namespace asp {
 	  vw_out() << "Adjusting the datum to compensate, for the purpose of alignment.\n";
 	  vw_out() << "The new datum height will be at " << mid_ht
 		   << " relative to the previous one.\n";
-	  vw_out() << "Old datum: " << datum << std::endl;
+	  //vw_out() << "Old datum: " << datum << std::endl;
 	  datum.set_semi_major_axis(datum.semi_major_axis() + mid_ht);
 	  datum.set_semi_minor_axis(datum.semi_minor_axis() + mid_ht);
-	  vw_out() << "New datum: " << datum << std::endl;
+	  //vw_out() << "New datum: " << datum << std::endl;
 	}
       }
       
