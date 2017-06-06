@@ -133,7 +133,7 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
               vw::ArgumentErr() << "Could not determine stereo session type. "
               << "Please set it explicitly using the -t switch.\n"
               << "Options include: [pinhole isis dg rpc spot5 aster pinholemappinhole isismapisis dgmaprpc rpcmaprpc spot5maprpc astermaprpc].\n");
-    VW_OUT(DebugMessage) << "Using session: " << actual_session_type << ".\n";
+    VW_OUT(vw::DebugMessage,"asp") << "Using session: " << actual_session_type << ".\n";
 
     // Compare the current session name to all recognized types
     // - Only one of these will ever get triggered
