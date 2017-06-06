@@ -86,7 +86,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   int  ip_detect_method;
   double epipolar_threshold; // Max distance from epipolar line to search for IP matches.
   double ip_inlier_factor, ip_uniqueness_thresh, nodata_value;
-  bool individually_normalize;
+  bool skip_rough_homography, individually_normalize;
   std::set<std::string> intrinsics_to_float;
   std::string overlap_list_file;
   std::set< std::pair<std::string, std::string> > overlap_list;
@@ -101,7 +101,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
              semi_major(0), semi_minor(0),
              datum(cartography::Datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
                                       "Reference Meridian", 1, 1, 0)),
-             ip_detect_method(0), individually_normalize(false){}
+             ip_detect_method(0), skip_rough_homography(false), individually_normalize(false){}
 };
 
 // TODO: This update stuff should really be done somewhere else!
@@ -1598,7 +1598,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("csv-proj4",        po::value(&opt.csv_proj4_str)->default_value(""),
                                  "The PROJ.4 string to use to interpret the entries in input CSV files.")
     ("datum",            po::value(&opt.datum_str)->default_value(""),
-                         "Use this datum (needed only for ground control points or a camera position file). Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
+                         "Use this datum. Needed only for ground control points, a camera position file, or for RPC sessions. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
     ("semi-major-axis",  po::value(&opt.semi_major)->default_value(0),
                          "Explicitly set the datum semi-major axis in meters (needed only if ground control points are used).")
     ("semi-minor-axis",  po::value(&opt.semi_minor)->default_value(0),
@@ -1617,6 +1617,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "A higher threshold will result in more interest points, but perhaps less unique ones.")
     ("nodata-value",             po::value(&opt.nodata_value)->default_value(nan),
      "Pixels with values less than or equal to this number are treated as no-data. This overrides the no-data values from input images.")
+    ("skip-rough-homography", po::bool_switch(&opt.skip_rough_homography)->default_value(false)->implicit_value(true),
+     "Skip the step of performing datum-based rough homography if it fails.")
     ("individually-normalize",   po::bool_switch(&opt.individually_normalize)->default_value(false)->implicit_value(true),
                         "Individually normalize the input images instead of using common values.")
     ("max-iterations",   po::value(&opt.max_iterations)->default_value(1000),
@@ -1672,8 +1674,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   
 
   // Separate the cameras from the images
-  asp::separate_cameras_from_images(opt.image_files,  opt.camera_files);
-
+  asp::separate_cameras_from_images_with_session(opt.image_files, opt.camera_files,  
+                                                 opt.stereo_session_string,  // in-out variable
+                                                 opt, opt.out_prefix);
+  
   // TODO: Check for duplicates in opt.image_files!
 
   if ( opt.image_files.empty() )
@@ -1719,12 +1723,26 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   asp::stereo_settings().ip_inlier_factor       = opt.ip_inlier_factor;
   asp::stereo_settings().ip_uniqueness_thresh   = opt.ip_uniqueness_thresh;
   asp::stereo_settings().nodata_value           = opt.nodata_value;
+  asp::stereo_settings().skip_rough_homography  = opt.skip_rough_homography;
   asp::stereo_settings().individually_normalize = opt.individually_normalize;
 
   if (!opt.camera_position_file.empty() && opt.csv_format_str == "")
     vw_throw( ArgumentErr() << "When using a camera position file, the csv-format option must be set.\n"
                             << usage << general_options );
 
+  // Try to infer the datum, if possible, from the images. For
+  // example, Cartosat-1 has that info in the Tif file.
+  if (opt.datum_str == "") {
+    vw::cartography::GeoReference georef;
+    for (size_t it = 0; it < opt.image_files.size(); it++) {
+      bool is_good = vw::cartography::read_georeference(georef, opt.image_files[it]);
+      if (is_good && opt.datum_str == "" ){
+        opt.datum_str = georef.datum().name();
+        vw_out() << "Using the datum: " << opt.datum_str << ".\n";
+      }
+    }
+  }
+  
   // Need to read the datum if we have gcps or a camera position file, or for the RPC
   // session, as then the RPC model can be outside of Earth.
   if ( !opt.gcp_files.empty() || !opt.camera_position_file.empty() ||

@@ -829,7 +829,9 @@ with \texttt{cam2rpc} from ISIS cubes.  So the datum has to be set.
 
 For terrains having steep slopes, we recommend that images be map-projected
 onto an existing DEM before running stereo. This is described in section
-\ref{mapproj-example}.
+\ref{mapproj-example}. If the RPC coefficients are not stored in the orignal
+Tif images, but rather in associated .RPB or \_RPC.TXT files, analogous
+files must be created for each map-projected image. 
 
 \subsubsection*{stereo.default}
 

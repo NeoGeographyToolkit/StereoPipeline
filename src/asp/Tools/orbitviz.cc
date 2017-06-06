@@ -287,7 +287,9 @@ int main(int argc, char* argv[]) {
     std::vector<std::vector<int> > matched_cameras;
     if (!opt.load_camera_solve) {
       image_files = opt.input_files;
-      asp::separate_cameras_from_images(image_files, camera_files);
+      asp::separate_cameras_from_images_with_session(image_files, camera_files,  
+                                                     opt.stereo_session_string,  // in-out variable
+                                                     opt, "");
       num_cameras = image_files.size();
     }else{
       num_cameras = get_files_from_solver_folder(opt.input_files[0], image_files, 
