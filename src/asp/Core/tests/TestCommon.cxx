@@ -83,11 +83,9 @@ TEST( Common, StereoMultiCmdCheck ) {
 
   parse_multiview_cmd_files(files, image_paths, camera_paths, prefix, dem_path);
   EXPECT_EQ(2, image_paths.size ());
-  EXPECT_EQ(2, camera_paths.size());
+  EXPECT_EQ(0, camera_paths.size());
   EXPECT_EQ("img1.cub", image_paths [0]);
   EXPECT_EQ("img2.cub", image_paths [1]);
-  EXPECT_EQ("img1.cub", camera_paths[0]);
-  EXPECT_EQ("img2.cub", camera_paths[1]);
   EXPECT_EQ("run/run" , prefix);
   EXPECT_EQ("",         dem_path);
 
@@ -121,15 +119,11 @@ TEST( Common, StereoMultiCmdCheck ) {
 
   parse_multiview_cmd_files(files, image_paths, camera_paths, prefix, dem_path);
   EXPECT_EQ(4, image_paths.size());
-  EXPECT_EQ(4, camera_paths.size());
+  EXPECT_EQ(0, camera_paths.size());
   EXPECT_EQ("img1.tif", image_paths [0]);
   EXPECT_EQ("img2.tif", image_paths [1]);
   EXPECT_EQ("img3.tif", image_paths [2]);
   EXPECT_EQ("img4.tif", image_paths [3]);
-  EXPECT_EQ("img1.tif", camera_paths[0]);
-  EXPECT_EQ("img2.tif", camera_paths[1]);
-  EXPECT_EQ("img3.tif", camera_paths[2]);
-  EXPECT_EQ("img4.tif", camera_paths[3]);
   EXPECT_EQ("run/run" , prefix);
   EXPECT_EQ("dem.tif" , dem_path);
 
