@@ -177,47 +177,5 @@ StereoSession* StereoSessionFactory::create(std::string        & session_type, /
     return session_new;
 } // End function create()
 
-
-  void separate_cameras_from_images_with_session(std::vector<std::string> & image_files,
-                                                 std::vector<std::string> & camera_files,
-                                                 std::string        & session_type, // in-out variable
-                                                 vw::cartography::GdalWriteOptions const& options,
-                                                 std::string const& out_prefix){
-
-    try{
-      
-      asp::separate_cameras_from_images(image_files, camera_files);
-      
-    }catch(std::exception const& e){
-
-      // If there is nothing we can do
-      if (image_files.empty())
-        vw_throw( ArgumentErr() << e.what() << "\n" );
-      
-      // For the RPC session, the images may have all the camera info, so no separate
-      // camera files may be necessary.
-      std::string camera_file = "";
-      if (!camera_files.empty()) 
-        camera_file = camera_files[0];
-      typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-      SessionPtr session(asp::StereoSessionFactory::create(session_type, // may change
-                                                           options,
-                                                           image_files[0], image_files[0],
-                                                           camera_file, camera_file,
-                                                           out_prefix
-                                                           ));
-      
-      if (session_type == "rpc") {
-        while (camera_files.size() < image_files.size())
-          camera_files.push_back("");
-      }else{
-        // Nothing we can do
-        vw_throw( ArgumentErr() << e.what() << "\n");
-      }
-      
-    }
-    
-  }
-  
   
 } // end namespace asp

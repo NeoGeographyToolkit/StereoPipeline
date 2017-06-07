@@ -110,40 +110,77 @@ asp::get_files_with_ext( std::vector<std::string>& files, std::string const& ext
   return match_files;
 }
 
-// Given a list of images/cameras, move the cameras to its own vector.
-// Note: .cub files will end up in both places.
-void asp::separate_cameras_from_images(std::vector<std::string> & image_files,
-                                       std::vector<std::string> & camera_files){
+// Given a list of images/cameras, put the images and the cameras
+// in separate vectors.
+void asp::separate_images_from_cameras(std::vector<std::string> const& inputs,
+				       std::vector<std::string>      & images,
+                                       std::vector<std::string>      & cameras,
+				       bool ensure_equal_sizes){
 
-  std::vector<std::string> new_images;
-  new_images.clear();
-  camera_files.clear();
+  // There are N images and possibly N camera paths.
+  // There are several situations:
+  // 1. img1.cub ... imgN.cub for ISIS with non-proj images
+  // 2. img1.tif ... imgN.tif img1.cub ... imgN.cub for ISIS with proj images
+  // 3. img1.tif ... imgN.tif for RPC with embedded RPC in the tif files 
+  // 4. img1.tif ... imgN.tif cam1 .... camN for all other cases.
+
+  images.clear();
+  cameras.clear();
   
-  for (size_t it = 0; it < image_files.size(); it++) {
+  bool has_cub    = false;
+  bool has_nocub  = false;
+  bool has_cam    = false;
+  
+  for (size_t i = 0; i < inputs.size(); i++) {
     
-    std::string const& val = image_files[it];
-    bool is_good = false;
+    std::string ext = get_extension(inputs[i]);
     
-    if (asp::has_image_extension(val)){
-      is_good = true;
-      new_images.push_back(val);
+    if (ext == ".cub")                    has_cub    = true;
+    if (ext != ".cub")                    has_nocub  = true;
+    if (asp::has_cam_extension(inputs[i])) has_cam   = true;
+  }
+  
+  if ( (has_cub && !has_nocub) || (!has_cam) ) {
+    
+    // Only cubes, or only non-cameras, cases 1 and 3 above
+    for (size_t i=0; i < inputs.size(); ++i) 
+      images.push_back(inputs[i]);
+    
+  } else{
+    
+    // Images and cameras (cameras could be cubes)
+    if (inputs.size() % 2 != 0) {
+      vw_throw( ArgumentErr() << "Expecting as many images as cameras.\n");
     }
     
-    if (asp::has_cam_extension(val)){
-      is_good = true;
-      camera_files.push_back(val);
-    }
+    int half = inputs.size()/2;
+    for (int i = 0;    i < half;   i++) images.push_back(inputs[i]);
+    for (int i = half; i < 2*half; i++) cameras.push_back(inputs[i]);
 
-    if (!is_good) 
-      vw_throw( ArgumentErr() << "Expecting an image or a camera file. Got instead: "
-                << val <<".\n" );
+  }
+  
+  // Verification for images
+  for (size_t i = 0; i < images.size(); i++) {
+    if (!has_image_extension(images[i])) {
+      vw_throw( ArgumentErr() << "Expecting an image, got: " << images[i] << ".\n");
+    }
   }
 
-  // Overwrite the image files
-  image_files = new_images;
+  // Verification for cameras
+  for (size_t i = 0; i < cameras.size(); i++) {
+    if (!has_cam_extension(cameras[i])) {
+      vw_throw( ArgumentErr() << "Expecting a camera, got: " << cameras[i] << ".\n");
+    }
+  }
 
-  if (image_files.size() != camera_files.size())
-    vw_throw( ArgumentErr() << "Expecting as many images as cameras.\n" );
+  if (images.size() != cameras.size() && !cameras.empty()) {
+    vw_throw( ArgumentErr() << "Expecting the number of images and cameras to agree.\n");
+  }
+
+  if (ensure_equal_sizes) {
+    while (cameras.size() < images.size())
+      cameras.push_back("");
+  }
   
 }
 
@@ -193,63 +230,11 @@ bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
   files.pop_back();
 
   // Now there are N images and possibly N camera paths
-  // - Need to figure out if the camera paths are there!
+  bool ensure_equal_sizes = false;
+  asp::separate_images_from_cameras(files, image_paths, camera_paths,  ensure_equal_sizes);
 
-  // There are several situations
-  // 1. img1.cub ... imgN.cub for ISIS with non-proj images
-  // 2. img1.tif ... imgN.tif img1.cub ... imgN.cub for ISIS with proj images
-  // 3. img1.tif ... imgN.tif for RPC with embedded RPC in the tif files 
-  // 4. img1.tif ... imgN.tif cam1 .... camN for all other cases.
-
-  bool has_cub    = false;
-  bool has_nocub  = false;
-  bool has_cam    = false;
+  // Verifications
   
-  for (size_t i = 0; i < files.size(); i++) {
-    
-    std::string ext = get_extension(files[i]);
-    
-    if (ext == ".cub")                    has_cub   = true;
-    if (ext != ".cub")                    has_nocub = true;
-    if (asp::has_cam_extension(files[i])) has_cam   = true;
-  }
-  
-  if ( (has_cub && !has_nocub) || (!has_cam) ) {
-    
-    // Only cubes, or only non-cameras, cases 1 and 3 above
-    for (size_t i=0; i < files.size(); ++i) 
-      image_paths.push_back(files[i]);
-    
-  } else{
-    
-    // Images and cameras (cameras could be cubes)
-    if (files.size() % 2 != 0) {
-      vw_out(ErrorMessage) << "Expecting as many images as cameras.\n";
-      return false;
-    }
-    
-    int half = files.size()/2;
-    for (int i = 0;    i < half;   i++) image_paths.push_back(files[i]);
-    for (int i = half; i < 2*half; i++) camera_paths.push_back(files[i]);
-
-  }
-  
-  // Verification for images
-  for (size_t i = 0; i < image_paths.size(); i++) {
-    if (!has_image_extension(image_paths[i])) {
-      vw_out(ErrorMessage) << "Expecting an image, got: " << image_paths[i] << ".\n";
-      return false;
-    }
-  }
-
-  // Verification for cameras
-  for (size_t i = 0; i < camera_paths.size(); i++) {
-    if (!has_cam_extension(camera_paths[i])) {
-      vw_out(ErrorMessage) << "Expecting a camera, got: " << camera_paths[i] << ".\n";
-      return false;
-    }
-  }
-
   if (fs::exists(prefix))
       vw_out(WarningMessage)
         << "It appears that the output prefix exists as a file: "
@@ -268,11 +253,6 @@ bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
       vw_out(ErrorMessage) << "Cannot find the camera file: " << camera_paths[i] << ".\n";
       return false;
     }
-  }
-  
-  if (image_paths.size() != camera_paths.size() && !camera_paths.empty()) {
-    vw_out(ErrorMessage) << "Expecting the number of images and cameras to agree.\n";
-    return false;
   }
   
   return true;

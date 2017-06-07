@@ -46,17 +46,6 @@ class StereoSessionFactory {
 
 }; // End class StereoSessionFactory
 
-
-  // Given a list of images and cameras, separate the two. Handle carefully
-  // the case of ISIS .cub images, and of Tif images that have the camera
-  // model embedded in them.
-  // We put this function here, as it needs to be aware of StereoSessionFactory.
-  void separate_cameras_from_images_with_session(std::vector<std::string> & image_files,
-                                                 std::vector<std::string> & camera_files,
-                                                 std::string        & session_type, // in-out variable
-                                                 vw::cartography::GdalWriteOptions const& options,
-                                                 std::string const& out_prefix);
-  
 } // end namespace asp
 
 #include <asp/Sessions/StereoSessionFactory.tcc>

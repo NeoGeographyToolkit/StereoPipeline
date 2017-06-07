@@ -1674,9 +1674,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   
 
   // Separate the cameras from the images
-  asp::separate_cameras_from_images_with_session(opt.image_files, opt.camera_files,  
-                                                 opt.stereo_session_string,  // in-out variable
-                                                 opt, opt.out_prefix);
+  std::vector<std::string> inputs = opt.image_files;
+  bool ensure_equal_sizes = true;
+  asp::separate_images_from_cameras(inputs,
+				    opt.image_files, opt.camera_files, // outputs
+				    ensure_equal_sizes); 
   
   // TODO: Check for duplicates in opt.image_files!
 
