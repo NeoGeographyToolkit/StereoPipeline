@@ -38,7 +38,6 @@ sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
 import icebridge_common
-#import process_icebridge_pair
 import process_icebridge_batch
 
 import asp_system_utils, asp_alg_utils, asp_geo_utils
@@ -299,6 +298,8 @@ def main(argsIn):
         logger.info('Using manually specified image stereo interval: ' + str(options.imageStereoInterval))
     else:
         options.imageStereoInterval = getImageSpacing(options.orthoFolder)
+        if options.imageStereoInterval >= numFiles:
+            raise Exception('Error: Automatic skip interval is greater than the number of input files!')       
     extraOptions += ' --stereo-image-interval ' + str(options.imageStereoInterval)
     
     # Call process_icebridge_batch on each batch of images.
@@ -365,7 +366,7 @@ def main(argsIn):
                 logger.info('Recieved quit command!')
                 break
         else:
-            print("There are " + str(notReady) + ' incomplete tasks.')
+            print("Waiting on " + str(notReady) + ' incomplete tasks.')
             time.sleep(20)
             
         # Otherwise count up the tasks we are still waiting on.

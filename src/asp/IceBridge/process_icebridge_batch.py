@@ -192,7 +192,7 @@ def main(argsIn):
                                             inputPairs[i][1],  inputPairs[pairIndex][1]))
     
         stereoCmd = ('/home/smcmich1/repo/StereoPipeline/build/bin/stereo %s %s -t nadirpinhole --alignment-method epipolar %s' % (argString, thisPairPrefix, threadText))
-        correlationArgString = (' --xcorr-threshold -1 --corr-kernel 7 7 --subpixel-mode 0' 
+        correlationArgString = (' --xcorr-threshold 2 --min-xcorr-level 1 --corr-kernel 7 7 --subpixel-mode 0' 
                                 + ' --corr-tile-size 6400 --cost-mode 4 --sgm-search-buffer 4 1 '
                                 + ' --stereo-algorithm ' + str(options.stereoAlgo))
                                #+ ' --corr-blob-filter 100')
@@ -231,7 +231,7 @@ def main(argsIn):
         demString = ' '.join(demFiles)
         # Only the default blend method produces good results but the DEMs must not be too 
         #  far off for it to work.
-        cmd = ('dem_mosaic  %s --tr %lf --t_srs %s %s -o %s' 
+        cmd = ('dem_mosaic %s --tr %lf --t_srs %s %s -o %s' 
                % (demString, options.demResolution, projString, threadText, outputPrefix))
         mosaicOutput = outputPrefix + '-tile-0.tif'
         asp_system_utils.executeCommand(cmd, mosaicOutput, suppressOutput, redo)

@@ -330,6 +330,9 @@ def main(argsIn):
         parser.add_option('--stop-frame', dest='stopFrame', default=None,
                           type='int', help='Frame to stop on.')
 
+        parser.add_option("--processing-subfolder",  dest="processingSubfolder", default=None,
+                          help="Specify a subfolder name where the processing outputs will go.  Default is no additional folder")
+
         # Performance options  
         parser.add_option('--num-processes', dest='numProcesses', default=1,
                           type='int', help='The number of simultaneous processes to run.')
@@ -371,7 +374,11 @@ def main(argsIn):
     demFolder     = os.path.join(outputFolder, 'fireball')
     lidarFolder   = os.path.join(outputFolder, 'lidar') # Paired files go in /paired
     processFolder = os.path.join(outputFolder, 'processed')
-
+    
+    # Handle subfolder option.  This is useful for comparing results with different parameters!
+    if options.processingSubfolder:
+        processFolder = os.path.join(processFolder, options.processingSubfolder)
+        logger.info('Will write to processing subfolder: ' + options.processingSubfolder)
 
     if options.noFetch:
         logger.info('Skipping fetch.')
