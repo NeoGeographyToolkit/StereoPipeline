@@ -223,8 +223,8 @@ bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
 
   // An output prefix cannot be an image or a camera
   if (asp::has_image_extension(prefix) || asp::has_cam_extension(prefix) || prefix == "" ) {
-    vw_out(ErrorMessage) << "Invalid output prefix: " << prefix << ".\n";
-    return false;
+    // Throw here, as we don't want this printed in stereo_gui
+    vw_throw( ArgumentErr() << "Invalid output prefix: " << prefix << ".\n");
   }
 
   files.pop_back();

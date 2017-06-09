@@ -965,9 +965,9 @@ void areInShadow(Vector3 & sunPos, ImageView<double> const& dem,
 struct Options : public vw::cartography::GdalWriteOptions {
   std::string input_dems_str, out_prefix, stereo_session_string, bundle_adjust_prefix;
   std::vector<std::string> input_dems, input_images, input_cameras;
-  std::string shadow_thresholds, skip_images_str, image_exposure_prefix,
+  std::string shadow_thresholds, max_valid_image_vals, skip_images_str, image_exposure_prefix,
     model_coeffs_prefix, model_coeffs;
-  std::vector<float> shadow_threshold_vec;
+  std::vector<float> shadow_threshold_vec, max_valid_image_vals_vec;
   std::vector<double> image_exposures_vec;
   std::vector<double> model_coeffs_vec;
   std::vector< std::set<int> > skip_images;
@@ -1697,9 +1697,8 @@ public:
     std::ofstream exf(exposure_file.c_str());
     exf.precision(18);
     for (size_t image_iter = 0; image_iter < (*g_exposures).size(); image_iter++){
-      exf << (*g_exposures)[image_iter] << " ";
+      exf << g_opt->input_images[image_iter] << " " << (*g_exposures)[image_iter] << "\n";
     }
-    exf << "\n";
     exf.close();
     
     std::string model_coeffs_file = model_coeffs_file_name(g_opt->out_prefix);
@@ -1828,7 +1827,7 @@ public:
 	  asp::write_adjustments(out_camera_file, translation, rotation);
 	}
 
-        if (g_opt->save_sparingly) 
+        if (g_opt->save_sparingly && !g_opt->save_dem_with_nodata) 
           continue; // don't write too many things
         
 	// Manufacture an output prefix for the other data associated with this camera
@@ -1858,7 +1857,10 @@ public:
             }
           }
         }
-      
+
+        if (g_opt->save_sparingly)
+          continue;
+        
         // Find the computed intensity
         comp_intensity.set_size(reflectance.cols(), reflectance.rows());
         for (int col = 0; col < comp_intensity.cols(); col++) {
@@ -1947,13 +1949,15 @@ public:
       }
 
       if (g_opt->save_dem_with_nodata) {
-	std::string out_dem_nodata_file = g_opt->out_prefix + "-DEM-nodata"
-	  + iter_str + ".tif";
-        vw_out() << "Writing: " << out_dem_nodata_file << std::endl;
-        TerminalProgressCallback tpc("asp", ": ");
-        block_write_gdal_image(out_dem_nodata_file, dem_nodata, has_georef, (*g_geo)[dem_iter],
-                               has_nodata, *g_dem_nodata_val,
-                               *g_opt, tpc);
+        if ( !g_opt->save_sparingly || g_final_iter ) {
+          std::string out_dem_nodata_file = g_opt->out_prefix + "-DEM-nodata"
+            + iter_str + ".tif";
+          vw_out() << "Writing: " << out_dem_nodata_file << std::endl;
+          TerminalProgressCallback tpc("asp", ": ");
+          block_write_gdal_image(out_dem_nodata_file, dem_nodata, has_georef, (*g_geo)[dem_iter],
+                                 has_nodata, *g_dem_nodata_val,
+                                 *g_opt, tpc);
+        }
       }
     }
     
@@ -2476,6 +2480,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Do not run any optimization. Simply compute the intensity for a given DEM with exposures, camera positions, etc, coming from a previous SfS run. Useful with --model-shadows.")
     ("shadow-thresholds", po::value(&opt.shadow_thresholds)->default_value(""),
      "Optional shadow thresholds for the input images (a list of real values in quotes, one per image).")
+    ("max-valid-image-vals", po::value(&opt.max_valid_image_vals)->default_value(""),
+     "Optional values for the largest valid image value in each image (a list of real values in quotes, one per image).")
     ("unreliable-intensity-threshold", po::value(&opt.unreliable_intensity_threshold)->default_value(0.0),
      "Intensities lower than this will be considered unreliable and given less weight.")
     ("skip-images", po::value(&opt.skip_images_str)->default_value(""), "Skip images with these indices (indices start from 0).")
@@ -2610,26 +2616,58 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.shadow_threshold_vec.push_back(-std::numeric_limits<float>::max());
     }
   }
-  for (size_t i = 0; i < opt.shadow_threshold_vec.size(); i++) {
-    vw_out() << "Shadow threshold for " << opt.input_images[i] << ' '
-	     << opt.shadow_threshold_vec[i] << std::endl;
+
+  // Parse max valid image vals
+  std::istringstream ism(opt.max_valid_image_vals);
+  opt.max_valid_image_vals_vec.clear();
+  while (ism >> val)
+    opt.max_valid_image_vals_vec.push_back(val);
+  if (!opt.max_valid_image_vals_vec.empty() &&
+      opt.max_valid_image_vals_vec.size() != opt.input_images.size())
+    vw_throw(ArgumentErr()
+	     << "If specified, there must be as many max valid image vals as images.\n");
+
+  if (opt.max_valid_image_vals_vec.empty()) {
+    for (size_t i = 0; i < opt.input_images.size(); i++) {
+      opt.max_valid_image_vals_vec.push_back(std::numeric_limits<float>::max());
+    }
   }
 
-  // Initial image exposures, if provided
-  std::string exposure_file = exposure_file_name(opt.image_exposure_prefix);
-  std::ifstream ise(exposure_file.c_str());
-  opt.image_exposures_vec.clear();
-  double dval;
-  while (ise >> dval)
-    opt.image_exposures_vec.push_back(dval);
-  ise.close();
-  if (!opt.image_exposures_vec.empty() &&
-      opt.image_exposures_vec.size() != opt.input_images.size())
-    vw_throw(ArgumentErr()
-	     << "If specified, there must be as many image exposures as images.\n");
+  for (size_t i = 0; i < opt.input_images.size(); i++) {
+    vw_out() << "Shadow threshold and max valid value for " << opt.input_images[i] << ' '
+	     << opt.shadow_threshold_vec[i] << ' ' << opt.max_valid_image_vals_vec[i] << std::endl;
+  }
 
-  if (!opt.image_exposures_vec.empty())
-      vw_out() << "Using exposures from: " << exposure_file << std::endl;
+
+  // Initial image exposures, if provided. First read them in a map,
+  // as perhaps the initial exposures were created using more images
+  // than what we have here. 
+  std::string exposure_file = exposure_file_name(opt.image_exposure_prefix);
+  opt.image_exposures_vec.clear();
+  std::map<std::string, double> img2exp;
+  std::string name;
+  double dval;
+  std::ifstream ise(exposure_file.c_str());
+  int exp_count = 0;
+  while (ise >> name >> dval){
+    img2exp[name] = dval;
+    exp_count++;
+  }
+  ise.close();
+  if (exp_count > 0) {
+    vw_out() << "Using exposures from: " << exposure_file << std::endl;
+    for (size_t i = 0; i < opt.input_images.size(); i++) {
+      std::string img = opt.input_images[i];
+      std::map<std::string, double>::iterator it = img2exp.find(img);
+      if (it == img2exp.end()) {
+	vw_throw(ArgumentErr()
+		 << "Could not find the exposure for image: " << img << ".\n");
+      }
+      double exp_val = it->second;
+      vw_out() << "Exposure for " << img << ": " << exp_val << std::endl;
+      opt.image_exposures_vec.push_back(exp_val);
+    }
+  }
       
   // Initial model coeffs, if passed on the command line
   if (opt.model_coeffs != "") {
@@ -3488,8 +3526,10 @@ int main(int argc, char* argv[]) {
             ImageView<float> cropped_img = 
               crop(DiskImageView<float>(img_file), crop_boxes[0][dem_iter][image_iter]);
             masked_images_vec[0][dem_iter][image_iter]
-              = create_mask_less_or_equal(cropped_img,
-                                          std::max(img_nodata_val, shadow_thresh));
+              = create_pixel_range_mask2(cropped_img,
+					 std::max(img_nodata_val, shadow_thresh),
+					 opt.max_valid_image_vals_vec[image_iter]
+					 );
             
             // Compute blending weights only when using an approx camera model and
             // cropping the images. Otherwise the weights are too huge.
@@ -3500,8 +3540,10 @@ int main(int argc, char* argv[]) {
           }
         }else{
           masked_images_vec[0][dem_iter][image_iter]
-            = create_mask_less_or_equal(DiskImageView<float>(img_file),
-                                        std::max(img_nodata_val, shadow_thresh));
+            = create_pixel_range_mask2(DiskImageView<float>(img_file),
+				       std::max(img_nodata_val, shadow_thresh),
+				       opt.max_valid_image_vals_vec[image_iter]
+				       );
         }
       }
     }
