@@ -2149,6 +2149,36 @@ Options & Description \\ \hline \hline
 \texttt{-\/-output-file|-o} & Specify the output file instead of using a default.\\ \hline
 \end{longtable}
 
+\section{hsv\_merge}
+\label{hsvmerge}
+
+Replaces the intensity information in an RGB image with the provided grayscale image
+by temporarily converting to HSV.  Both input image must be the same size.
+
+Mimicks \texttt{hsv\_merge.py} by Frank Warmerdam and Trent Hare. Use it to combine results from gdaldem.
+
+\medskip
+
+Usage:
+\begin{verbatim}
+  hsv_merge [options] <rgb_image> <gray_image>
+\end{verbatim}
+
+\medskip
+
+\begin{longtable}{|l|p{10cm}|}
+\caption{Command-line options for hsv\_merge}
+\label{tbl:hsvmerge}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Options & Description \\ \hline \hline
+\texttt{-\/-help} & Display the help message.\\ \hline
+\texttt{-\/-output-file|-o} & Specify the output file.  Required!\\ \hline
+\end{longtable}
+
 
 \section{colormap}
 \label{sec:colormap}
