@@ -32,13 +32,6 @@ sys.path.insert(0, libexecpath)
 import asp_system_utils, asp_alg_utils, asp_geo_utils
 asp_system_utils.verify_python_version_is_supported()
 
-#def getImageFrameNumber(filename):
-#    '''Return the frame number from an input image file'''
-#    return int(filename[11:16])
-
-#def getOrthoFrameNumber(filename):
-#    '''Return the frame number from an input ortho file'''
-#    return int(filename[12:17])
 
 def getCameraFileName(imageFileName):
     '''Get the camera file name we associate with an input image file'''
@@ -62,7 +55,7 @@ def getFrameNumberFromFilename(f):
     raise Exception('Cannot parse the frame number from ' + f)
     return 0
 
-def parseDateTimeStrings(dateString, timeString):
+def parseDateTimeStrings(dateString, timeString, secFix=False):
     '''Parse strings in the format 20110323_17433900'''
     
     MILLISECOND_TO_MICROSECOND = 10000
@@ -73,6 +66,8 @@ def parseDateTimeStrings(dateString, timeString):
     hour    = int(timeString[0:2])
     minute  = int(timeString[2:4])
     second  = int(timeString[4:6])
+    if secFix: # Some files number the seconds from 1-60!
+        second  = second - 1
     usecond = 0
     if len(timeString) > 6:
         usecond = int(timeString[6:8]) * MILLISECOND_TO_MICROSECOND
@@ -155,7 +150,11 @@ def findMatchingLidarFile(imageFile, lidarFolder):
         vals = parseTimeStamps(lidarPath)
         if len(vals) < 2: continue # ignore bad files
 
-        lidarDateTime = parseDateTimeStrings(vals[0], vals[1])
+        try:
+            lidarDateTime = parseDateTimeStrings(vals[0], vals[1], secFix=True)
+        except Exception as e:
+            raise Exception('Failed to parse datetime for lidar file: ' + f + '\n' +
+                            'Error is: ' + str(e))
 
         #print 'THIS = ' + str(lidarDateTime)
 
@@ -174,5 +173,61 @@ def findMatchingLidarFile(imageFile, lidarFolder):
         raise Exception('Failed to find matching lidar file for image ' + imageFile)
 
     return bestLidarFile
+
+
+# This block of code is just to get a non-blocking keyboard check!
+import signal
+class AlarmException(Exception):
+    pass
+def alarmHandler(signum, frame):
+    raise AlarmException
+def nonBlockingRawInput(prompt='', timeout=20):
+    '''Return a key if pressed or an empty string otherwise.
+       Waits for timeout, non-blocking.'''
+    signal.signal(signal.SIGALRM, alarmHandler)
+    signal.alarm(timeout)
+    try:
+        text = raw_input(prompt)
+        signal.alarm(0)
+        return text
+    except AlarmException:
+        pass # Timeout
+    signal.signal(signal.SIGALRM, signal.SIG_IGN)
+    return ''
+
+
+def waitForTaskCompletionOrKeypress(taskHandles, interactive=True, quitKey='q'):
+    '''Block in this function until the user presses a key or all tasks complete.'''
+
+    # Wait for all the tasks to complete
+    notReady = len(taskHandles)
+    while notReady > 0:
+        
+        if interactive:
+            # Wait and see if the user presses a key
+            msg = 'Waiting on ' + str(notReady) + ' process(es), press '+str(quitKey)+'<Enter> to abort...\n'
+            keypress = nonBlockingRawInput(prompt=msg, timeout=20)
+            if keypress == quitKey:
+                logger.info('Recieved quit command!')
+                break
+        else:
+            print("Waiting on " + str(notReady) + ' incomplete tasks.')
+            time.sleep(20)
+            
+        # Otherwise count up the tasks we are still waiting on.
+        notReady = 0
+        for task in taskHandles:
+            if not task.ready():
+                notReady += 1
+    return
+
+def stopTaskPool(pool):
+    '''Stop remaining tasks and kill the pool '''
+
+    PROCESS_POOL_KILL_TIMEOUT = 3
+    pool.close()
+    time.sleep(PROCESS_POOL_KILL_TIMEOUT)
+    pool.terminate()
+    pool.join()
 
 

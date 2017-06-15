@@ -18,7 +18,7 @@
 
 # Fetch all the data for a run and then process all the data.
 
-import os, sys, optparse, datetime, time, subprocess, logging
+import os, sys, optparse, datetime, time, subprocess, logging, multiprocessing
 import icebridge_common
 import fetch_icebridge_data
 import process_icebridge_run
@@ -131,14 +131,29 @@ def convertJpegs(jpegFolder, imageFolder):
         if not os.path.exists(outputPath):
             raise Exception('Failed to convert jpeg file: ' + jpegFile)
 
-def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCamFile, cameraFolder):
+def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile):
+    '''Generate a camera model from a single ortho file'''
+
+    logger = logging.getLogger(__name__)
+
+    # Call ortho2pinhole command
+    cmd = (('ortho2pinhole %s %s %s %s') % (inputPath, orthoPath, inputCamFile, outputCamFile))
+    logger.info(cmd)
+    os.system(cmd)
+    if not os.path.exists(outputCamFile):
+        # This function is getting called from a pool, so just log the failure.
+        logger.error('Failed to convert ortho file: ' + orthoFile)
+            
+    # TODO: Clean up the .gcp file?
+
+
+def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCamFile, cameraFolder, numProcesses):
     '''Generate camera models from the ortho files'''
     
     logger = logging.getLogger(__name__)
     logger.info('Generating camera models from ortho images...')
 
     # TODO: DEM/height options for this tool
-    # TODO: Use multiprocessing for this step?
     
     imageFiles = os.listdir(imageFolder)
     orthoFiles = os.listdir(orthoFolder)
@@ -153,7 +168,11 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCamFile, cameraFolde
         frame = icebridge_common.getFrameNumberFromFilename(f)
         orthoFrames[frame] = f
 
+    logger.info('Starting ortho processing pool with ' + str(numProcesses) +' processes.')
+    pool = multiprocessing.Pool(numProcesses)
+
     # Loop through all input images
+    taskHandles = []
     for imageFile in imageFiles:
         
         # Skip non-image files (including junk from stereo_gui)
@@ -172,14 +191,22 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCamFile, cameraFolde
         if os.path.exists(outputCamFile):
             continue
                
-        # Call ortho2pinhole command
-        cmd = (('ortho2pinhole %s %s %s %s') % (inputPath, orthoPath, inputCamFile, outputCamFile))
-        logger.info(cmd)
-        os.system(cmd)
-        if not os.path.exists(outputCamFile):
-            raise Exception('Failed to convert ortho file: ' + orthoFile)
-            
-        # TODO: Clean up the .gcp files?
+        # Add ortho2pinhole command to the task pool
+        taskHandles.append(pool.apply_async(cameraFromOrthoWrapper, (inputPath, orthoPath, inputCamFile, outputCamFile)))
+
+    # Wait for all the tasks to complete
+    logger.info('Finished adding ' + str(len(taskHandles)) + ' tasks to the pool.')
+    icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, interactive=False, quitKey='q')
+
+
+    # All tasks should be finished, clean up the processing pool
+    logger.info('Cleaning up the ortho processing pool...')
+    icebridge_common.stopTaskPool(pool)
+    logger.info('Finished cleaning up the ortho processing pool')
+    
+    
+    
+    
 
 def convertLidarDataToCsv(lidarFolder):
     '''Make sure all lidar data is available in a readable text format'''
@@ -192,8 +219,8 @@ def convertLidarDataToCsv(lidarFolder):
     for f in lidarFiles:
         extension = os.path.splitext(f)[1]
         
-        # Only interested in .hdf5 and .qi files
-        if (extension != '.qi') and (extension != '.hdf5'):
+        # Only interested in a few file types
+        if (extension != '.qi') and (extension != '.hdf5') and (extension != '.h5'):
            continue
 
         # Handle paths
@@ -229,7 +256,7 @@ def pairLidarFiles(lidarFolder):
            csvFiles.append(f)
     csvFiles.sort()
     numCsvFiles = len(csvFiles)
-        
+    
     # Loop through all pairs of csv files in the folder    
     for i in range(0,numCsvFiles-2):
 
@@ -304,9 +331,7 @@ def setUpLogger(outputFolder, logLevel):
 def main(argsIn):
 
     try:
-        usage = '''usage: full_processing_script.py <output_folder> <camera_file>
-
-  [ASP [@]ASP_VERSION[@]]'''
+        usage = '''usage: full_processing_script.py <output_folder> <camera_file>'''
                       
         parser = optparse.OptionParser(usage=usage)
 
@@ -363,6 +388,8 @@ def main(argsIn):
     except optparse.OptionError, msg:
         raise Usage(msg)
 
+    os.system('mkdir -p ' + outputFolder)
+
     logLevel = logging.INFO # Make this an option??
     logger   = setUpLogger(outputFolder, logLevel)
 
@@ -401,7 +428,7 @@ def main(argsIn):
         
         # TODO: Handle case where orthofiles are not present!
         # TODO: What arguments need to be passed in here!
-        getCameraModelsFromOrtho(imageFolder, orthoFolder, cameraFile, cameraFolder)
+        getCameraModelsFromOrtho(imageFolder, orthoFolder, cameraFile, cameraFolder, options.numProcesses)
        
         convertLidarDataToCsv(lidarFolder)
         

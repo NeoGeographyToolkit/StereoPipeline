@@ -49,24 +49,7 @@ logger = logging.getLogger(__name__)
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = basepath    + os.pathsep + os.environ["PATH"]
 
-# This block of code is just to get a non-blocking keyboard check!
-import signal
-class AlarmException(Exception):
-    pass
-def alarmHandler(signum, frame):
-    raise AlarmException
-def nonBlockingRawInput(prompt='', timeout=20):
-    signal.signal(signal.SIGALRM, alarmHandler)
-    signal.alarm(timeout)
-    try:
-        text = raw_input(prompt)
-        signal.alarm(0)
-        return text
-    except AlarmException:
-        pass # Timeout
-    signal.signal(signal.SIGALRM, signal.SIG_IGN)
-    return ''
-    
+   
 
 def processBatch(imageCameraPairs, lidarFolder, outputFolder, options):
     '''Processes a batch of images at once'''
@@ -352,49 +335,14 @@ def main(argsIn):
         frameNumbers          = frameNumbers[batchOverlapCount:]
             
     # End of loop through input file pairs
-    notReady = len(taskHandles)
-    logger.info('Finished adding ' + str(notReady) + ' tasks to the pool.')
+    logger.info('Finished adding ' + str(len(taskHandles)) + ' tasks to the pool.')
     
     # Wait for all the tasks to complete
-    while notReady > 0:
-        
-        if options.interactive:
-            # Wait and see if the user presses a key
-            msg = 'Waiting on ' + str(notReady) + ' process(es), press q<Enter> to abort...\n'
-            keypress = nonBlockingRawInput(prompt=msg, timeout=20)
-            if keypress == 'q':
-                logger.info('Recieved quit command!')
-                break
-        else:
-            print("Waiting on " + str(notReady) + ' incomplete tasks.')
-            time.sleep(20)
-            
-        # Otherwise count up the tasks we are still waiting on.
-        notReady = 0
-        for task in taskHandles:
-            if not task.ready():
-                notReady += 1
+    icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, options.interactive, quitKey='q')
     
     # Either all the tasks are finished or the user requested a cancel.
     # Clean up the processing pool
-    PROCESS_POOL_KILL_TIMEOUT = 3
-    pool.close()
-    time.sleep(PROCESS_POOL_KILL_TIMEOUT)
-    pool.terminate()
-    pool.join()
-    
-    # BUNDLE_ADJUST
-
-    ## TODO: Solve for intrinsics?
-    #bundlePrefix = os.path.join(outputFolder, 'bundle/out')
-    #cmd = ('bundle_adjust %s %s %s %s -o %s %s -t nadirpinhole --local-pinhole' 
-    #             % (imageA, imageB, cameraA, cameraB, bundlePrefix, threadText))
-    ## Point to the new camera models
-    #cameraA = bundlePrefix +'-'+ os.path.basename(cameraA)
-    #cameraB = bundlePrefix +'-'+ os.path.basename(cameraB)
-    #asp_system_utils.executeCommand(cmd, cameraA, suppressOutput, redo)
-
-
+    icebridge_common.stopTaskPool(pool)
 
 
 # Run main function if file used from shell

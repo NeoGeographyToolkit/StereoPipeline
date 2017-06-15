@@ -118,7 +118,7 @@ def fetchAndParseIndexFile(folderUrl, path, parsedPath, fileType):
         fileList = re.findall(">ILATM1B[0-9_]*.ATM4BT[0-9].qi", indexText)
 #                               >ILATM1B_20111018_145455.ATM4BT4.qi
     if fileType == 'atm2':
-        fileList = re.findall(">ILATM1B[0-9_]*.ATM4BT4.h5", indexText)
+        fileList = re.findall(">ILATM1B[0-9_]*.ATM[45]BT[45].h5", indexText)
     
     # For each entry that matched the regex, record: the "frame" number, the file name.
     with open(parsedPath, 'w') as f:
