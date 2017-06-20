@@ -1089,12 +1089,12 @@ namespace vw { namespace gui {
       // Polygons that we finished drawing
       for (size_t vi  = 0; vi < m_polyVec.size(); vi++){
         
-        dPoly const& poly        = m_polyVec[vi];
-        const double * xv        = poly.get_xv();
-        const double * yv        = poly.get_yv();
-        const int    * numVerts  = poly.get_numVerts();
-        int numPolys             = poly.get_numPolys();
-        int start                = 0;
+        vw::geometry::dPoly const& poly = m_polyVec[vi];
+        const double * xv        	= poly.get_xv();
+        const double * yv        	= poly.get_yv();
+        const int    * numVerts  	= poly.get_numVerts();
+        int numPolys             	= poly.get_numPolys();
+        int start                	= 0;
         for (int pIter = 0; pIter < numPolys; pIter++){
           
           if (pIter > 0) start += numVerts[pIter - 1];
@@ -1411,7 +1411,7 @@ namespace vw { namespace gui {
     return norm_2(p-q);
   }
   
-  void MainWidget::appendToPolyVec(const dPoly & P){
+  void MainWidget::appendToPolyVec(const vw::geometry::dPoly & P){
     
     // Append the new polygon to the list of polygons. If we have several
     // clips already, append it to the last clip. If we have no clips,
@@ -1452,7 +1452,7 @@ namespace vw { namespace gui {
     // adding points and append the current polygon.
 
     // Form the new polygon
-    dPoly P;
+    vw::geometry::dPoly P;
     bool isPolyClosed = true;
     P.reset();
     std::string color, layer;

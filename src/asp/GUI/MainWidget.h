@@ -344,16 +344,16 @@ public slots:
 
     // For polygon drawing
     bool m_vectorLayerMode;
-    std::vector<dPoly> m_polyVec;
+    std::vector<vw::geometry::dPoly> m_polyVec;
 
     // Used for undo
     int m_posInUndoStack;
-    std::vector< std::vector<dPoly> >       m_polyVecStack;
-    std::vector< std::vector<dPoly> >       m_highlightsStack;
+    std::vector< std::vector<vw::geometry::dPoly> >       m_polyVecStack;
+    std::vector< std::vector<vw::geometry::dPoly> >       m_highlightsStack;
     std::vector<char>                       m_resetViewStack;
     
     bool m_showFilledPolys;
-    std::vector<dPoly> m_highlights;
+    std::vector<vw::geometry::dPoly> m_highlights;
 
     int m_showEdges, m_showPoints, m_showPointsEdges, m_toggleShowPointsEdges;
     bool m_changeDisplayOrder, m_showVertIndexAnno, m_showLayerAnno;
@@ -378,14 +378,14 @@ public slots:
     int    m_polyIndexInCurrPoly;
     int    m_vertIndexInCurrPoly;
     double m_mousePressWorldX, m_mousePressWorldY;
-    dPoly  m_polyBeforeShift;
+    vw::geometry::dPoly  m_polyBeforeShift;
     std::map< int, std::map<int, int> > m_selectedPolyIndices;
-    std::vector<dPoly> m_polyVecBeforeShift;
-    std::vector<dPoly> m_copiedPolyVec;
+    std::vector<vw::geometry::dPoly> m_polyVecBeforeShift;
+    std::vector<vw::geometry::dPoly> m_copiedPolyVec;
     bool m_movingPolysInHlts;
 
     double pixelToWorldDist(double pd);
-    void appendToPolyVec(const dPoly & P);
+    void appendToPolyVec(const vw::geometry::dPoly & P);
     void addPolyVert(double px, double py);
     
   };
