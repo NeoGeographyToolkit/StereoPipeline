@@ -214,7 +214,7 @@ bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
   }
 
   if (files.size() < 3){
-    vw_out(ErrorMessage) << "Expecting at least three inputs to stereo.\n";
+    vw_throw( ArgumentErr() << "Expecting at least three inputs to stereo.\n");
     return false;
   }
   
@@ -243,14 +243,14 @@ bool asp::parse_multiview_cmd_files(std::vector<std::string> const &filesIn,
   // Verify that the images and cameras exist, otherwise GDAL prints funny messages later.
   for (int i = 0; i < (int)image_paths.size(); i++){
     if (!fs::exists(image_paths[i])) {
-      vw_out(ErrorMessage) << "Cannot find the image file: " << image_paths[i] << ".\n";
+      vw_throw( ArgumentErr() << "Cannot find the image file: " << image_paths[i] << ".\n");
       return false;
     }
   }
   
   for (int i = 0; i < (int)camera_paths.size(); i++){
     if (!fs::exists(camera_paths[i])) {
-      vw_out(ErrorMessage) << "Cannot find the camera file: " << camera_paths[i] << ".\n";
+      vw_throw( ArgumentErr() << "Cannot find the camera file: " << camera_paths[i] << ".\n");
       return false;
     }
   }
