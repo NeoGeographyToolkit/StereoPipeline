@@ -59,11 +59,11 @@
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/InterestPoint/InterestData.h>
+#include <vw/Geometry/dPoly.h>
 
 // ASP
 #include <asp/Core/Common.h>
 #include <asp/GUI/GuiUtilities.h>
-#include <asp/GUI/dPoly.h>
 
 class QMouseEvent;
 class QWheelEvent;
