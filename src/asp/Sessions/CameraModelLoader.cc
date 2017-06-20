@@ -76,7 +76,7 @@ boost::shared_ptr<vw::camera::CameraModel> CameraModelLoader::load_rpc_camera_mo
   } catch (...) {}
   if (!rpc_model) // The default loading method failed, try the backup method.
   {
-    rpc_model = new RPCModel(path); // This is for reading .tif files
+    rpc_model = new RPCModel(path); // This is for reading RPC data via the GDAL driver from image files.
   }
 
   // We don't catch an error here because the user will need to
