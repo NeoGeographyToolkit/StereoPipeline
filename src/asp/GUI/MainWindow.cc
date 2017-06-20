@@ -1205,7 +1205,6 @@ void MainWindow::profileMode() {
 }
 
 void MainWindow::uncheckVectorLayerModeCheckbox(){
-  std::cout << "uncheck the menu!" << std::endl;
   m_vectorLayerMode_action->setChecked(false);
   return;
 }
