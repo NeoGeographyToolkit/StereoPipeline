@@ -63,7 +63,7 @@
 // ASP
 #include <asp/Core/Common.h>
 #include <asp/GUI/GuiUtilities.h>
-
+#include <asp/GUI/dPoly.h>
 
 class QMouseEvent;
 class QWheelEvent;
@@ -137,6 +137,7 @@ namespace vw { namespace gui {
     void turnOffViewMatchesSignal();
     void removeImageAndRefreshSignal();
     void uncheckProfileModeCheckbox();
+    void uncheckVectorLayerModeCheckbox();
     void zoomAllToSameRegionSignal(int);
     
 public slots:
@@ -161,6 +162,7 @@ public slots:
     void allowMultipleSelections(); ///< Allow the user to select multiple regions
     void deleteSelection();         ///< Delete an area selected with the mouse at the current point
     void toggleProfileMode(bool profile_mode); ///< Turn on and off the 1D profile tool
+    void toggleVectorLayerMode(bool vectorLayerMode); ///< Turn on and off the vector layer drawing
     void saveScreenshot();          ///< Save a screenshot of the current imagery
 
   protected:
@@ -339,8 +341,55 @@ public slots:
     void showImage(std::string const& image_name);
     void bringImageOnTop(int image_index);
     void pushImageToBottom(int image_index);
-  };
 
+    // For polygon drawing
+    bool m_vectorLayerMode;
+    std::vector<dPoly> m_polyVec;
+
+    // Used for undo
+    int m_posInUndoStack;
+    std::vector< std::vector<dPoly> >       m_polyVecStack;
+    std::vector< std::vector<dPoly> >       m_highlightsStack;
+    std::vector<char>                       m_resetViewStack;
+    
+    bool m_showFilledPolys;
+    std::vector<dPoly> m_highlights;
+
+    int m_showEdges, m_showPoints, m_showPointsEdges, m_toggleShowPointsEdges;
+    bool m_changeDisplayOrder, m_showVertIndexAnno, m_showLayerAnno;
+
+    bool m_createPoly, m_snapPolyTo45DegreeIntGrid;
+    std::vector<double> m_currPolyX, m_currPolyY;
+    std::vector<double> m_markX, m_markY;
+    
+    // Points closer than this are in some situations considered equal
+    int m_pixelTol;
+    
+    std::vector<int> m_polyVecOrder;
+    
+    // Edit mode
+    bool   m_moveVertices;
+    bool   m_moveEdges;
+    bool   m_movePolys;
+    bool   m_movingVertsOrEdgesOrPolysNow;
+    bool   m_deletingPolyNow;
+    int    m_toggleShowPointsEdgesBk;
+    int    m_polyVecIndex;
+    int    m_polyIndexInCurrPoly;
+    int    m_vertIndexInCurrPoly;
+    double m_mousePressWorldX, m_mousePressWorldY;
+    dPoly  m_polyBeforeShift;
+    std::map< int, std::map<int, int> > m_selectedPolyIndices;
+    std::vector<dPoly> m_polyVecBeforeShift;
+    std::vector<dPoly> m_copiedPolyVec;
+    bool m_movingPolysInHlts;
+
+    double pixelToWorldDist(double pd);
+    void appendToPolyVec(const dPoly & P);
+    void addPolyVert(double px, double py);
+    
+  };
+  
 }} // namespace vw::gui
 
 #endif  // __STEREO_GUI_MAIN_WIDGET_H__

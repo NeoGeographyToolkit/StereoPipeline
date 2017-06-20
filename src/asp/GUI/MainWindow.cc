@@ -284,6 +284,7 @@ void MainWindow::createLayout() {
     connect(m_widgets[i], SIGNAL(turnOffViewMatchesSignal()), this, SLOT(turnOffViewMatches()));
     connect(m_widgets[i], SIGNAL(removeImageAndRefreshSignal()), this, SLOT(deleteImageFromWidget()));
     connect(m_widgets[i], SIGNAL(uncheckProfileModeCheckbox()), this, SLOT(uncheckProfileModeCheckbox()));
+    connect(m_widgets[i], SIGNAL(uncheckVectorLayerModeCheckbox()), this, SLOT(uncheckVectorLayerModeCheckbox()));
     connect(m_widgets[i], SIGNAL(zoomAllToSameRegionSignal(int)), this, SLOT(zoomAllToSameRegionAction(int)));
   }
   QWidget *container = new QWidget(centralWidget);
@@ -444,6 +445,13 @@ void MainWindow::createMenus() {
   m_profileMode_action->setChecked(false);
   connect(m_profileMode_action, SIGNAL(triggered()), this, SLOT(profileMode()));
 
+  // Vector layer mode
+  m_vectorLayerMode_action = new QAction(tr("Vector layer mode"), this);
+  m_vectorLayerMode_action->setStatusTip(tr("Vector layer mode."));
+  m_vectorLayerMode_action->setCheckable(true);
+  m_vectorLayerMode_action->setChecked(false);
+  connect(m_vectorLayerMode_action, SIGNAL(triggered()), this, SLOT(vectorLayerMode()));
+
   // The About box
   m_about_action = new QAction(tr("About stereo_gui"), this);
   m_about_action->setStatusTip(tr("Show the stereo_gui about box."));
@@ -488,6 +496,10 @@ void MainWindow::createMenus() {
   // Profile menu
   m_profile_menu = menu->addMenu(tr("Profile"));
   m_profile_menu->addAction(m_profileMode_action);
+
+  // Vector layer menu
+  m_vector_layer_menu = menu->addMenu(tr("Vector Layer"));
+  m_vector_layer_menu->addAction(m_vectorLayerMode_action);
 
   // Help menu
   m_help_menu = menu->addMenu(tr("&Help"));
@@ -1188,6 +1200,22 @@ void MainWindow::profileMode() {
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (m_widgets[i]) {
       m_widgets[i]->toggleProfileMode(profile_mode);
+    }
+  }
+}
+
+void MainWindow::uncheckVectorLayerModeCheckbox(){
+  std::cout << "uncheck the menu!" << std::endl;
+  m_vectorLayerMode_action->setChecked(false);
+  return;
+}
+
+void MainWindow::vectorLayerMode() {
+  bool vectorLayerMode = m_vectorLayerMode_action->isChecked();
+  
+  for (size_t i = 0; i < m_widgets.size(); i++) {
+    if (m_widgets[i]) {
+      m_widgets[i]->toggleVectorLayerMode(vectorLayerMode);
     }
   }
 }

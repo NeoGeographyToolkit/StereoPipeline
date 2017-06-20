@@ -28,7 +28,8 @@ CLEANFILES = *.moc.cc
 include_HEADERS =               \
   GuiUtilities.h                \
   MainWidget.h                  \
-  MainWindow.h                  
+  MainWindow.h                  \
+  geomUtils.h edgeUtils.h dPoly.h cutPoly.h baseUtils.h 
 
 BUILT_SOURCES =                 \
   GuiUtilities.moc.cc           \
@@ -39,8 +40,8 @@ libaspGUI_la_SOURCES =          \
   $(BUILT_SOURCES)              \
   GuiUtilities.cc               \
   MainWidget.cc                 \
-  MainWindow.cc                 
-
+  MainWindow.cc                 \
+  geomUtils.cc edgeUtils.cc cutPoly.cc dPoly.cc 
 
 libaspGUI_la_LIBADD = @MODULE_GUI_LIBS@
 

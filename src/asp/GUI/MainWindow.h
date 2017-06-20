@@ -89,7 +89,9 @@ namespace vw { namespace gui {
     void setZoomAllToSameRegion();
     void setZoomAllToSameRegionAux(bool do_zoom);
     void profileMode();
+    void vectorLayerMode();
     void uncheckProfileModeCheckbox();
+    void uncheckVectorLayerModeCheckbox();
     void about();
 
   protected:
@@ -117,6 +119,7 @@ namespace vw { namespace gui {
     QMenu *m_matches_menu;
     QMenu *m_threshold_menu;
     QMenu *m_profile_menu;
+    QMenu *m_vector_layer_menu;
     QMenu *m_help_menu;
 
     QAction *m_about_action;
@@ -142,6 +145,7 @@ namespace vw { namespace gui {
     QAction *m_run_parallel_stereo_action;
     QAction *m_exit_action;
     QAction *m_profileMode_action;
+    QAction *m_vectorLayerMode_action;
 
     ViewType m_view_type,
              m_view_type_old;

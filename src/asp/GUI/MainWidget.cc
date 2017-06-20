@@ -148,7 +148,8 @@ namespace vw { namespace gui {
       m_image_id(image_id), m_output_prefix(output_prefix),
       m_image_files(image_files), m_matches(matches),  m_use_georef(use_georef),
       m_view_matches(view_matches), m_zoom_all_to_same_region(zoom_all_to_same_region),
-      m_allowMultipleSelections(allowMultipleSelections), m_can_emit_zoom_all_signal(false){
+      m_allowMultipleSelections(allowMultipleSelections), m_can_emit_zoom_all_signal(false),
+      m_pixelTol(6) {
     
     installEventFilter(this);
 
@@ -271,6 +272,9 @@ namespace vw { namespace gui {
 
     MainWidget::maybeGenHillshade();
 
+    // For polygon creation
+    m_vectorLayerMode = false;
+    
   } // End constructor
 
 
@@ -982,7 +986,7 @@ namespace vw { namespace gui {
       return;
     }
     m_current_view = expand_box_to_keep_aspect_ratio(region);
-    MainWidget::refreshPixmap();
+    refreshPixmap();
   }
 
   // --------------------------------------------------------------
@@ -1073,9 +1077,48 @@ namespace vw { namespace gui {
     }
     
     // Plot the polygonal line which we are profiling
-    plotProfilePolyLine(paint, m_profileX, m_profileY);
-  }
+    if (m_profileMode)
+      plotProfilePolyLine(paint, m_profileX, m_profileY);
 
+    // If to draw the polygons
+    if (m_vectorLayerMode) {
+
+      // Current polygon being drawn
+      plotProfilePolyLine(paint, m_currPolyX, m_currPolyY);
+
+      // Polygons that we finished drawing
+      for (size_t vi  = 0; vi < m_polyVec.size(); vi++){
+        
+        dPoly const& poly        = m_polyVec[vi];
+        const double * xv        = poly.get_xv();
+        const double * yv        = poly.get_yv();
+        const int    * numVerts  = poly.get_numVerts();
+        int numPolys             = poly.get_numPolys();
+        int start                = 0;
+        for (int pIter = 0; pIter < numPolys; pIter++){
+          
+          if (pIter > 0) start += numVerts[pIter - 1];
+
+          int pSize = numVerts[pIter];
+          std::vector<double> polyX, polyY;
+          for (int vIter = 0; vIter < pSize; vIter++){
+            polyX.push_back(xv[start + vIter]);
+            polyY.push_back(yv[start + vIter]);
+          }
+          // Close the polygon
+          if (pSize > 0) {
+            polyX.push_back(xv[start]);
+            polyY.push_back(yv[start]);
+          }
+          
+          plotProfilePolyLine(paint, polyX, polyY);
+
+        } // end iterating over the individual polygon
+      } // end iterating over the polygon set
+    } // end iterating over the polygon vector
+    
+  }
+  
   // Call paintEvent() on the edges of the rubberband
   void MainWidget::updateRubberBand(QRect & R){
     QRect rect = R.normalized();
@@ -1328,6 +1371,9 @@ namespace vw { namespace gui {
       emit uncheckProfileModeCheckbox();
       return;
     }else{
+      
+      toggleVectorLayerMode(false);
+      
       // Show the profile window
       MainWidget::plotProfile(m_images, m_profileX, m_profileY);
     }
@@ -1335,8 +1381,99 @@ namespace vw { namespace gui {
     refreshPixmap();
   }
 
+  void MainWidget::toggleVectorLayerMode(bool vectorLayerMode){
+    m_vectorLayerMode = vectorLayerMode;
+
+    if (!m_vectorLayerMode) {
+      // Clean up any vector layer mode
+      m_currPolyX.clear();
+      m_currPolyY.clear();
+      m_polyVec.clear();
+      
+      // Call back to the main window and tell it to uncheck the profile
+      // mode checkbox.
+      emit uncheckVectorLayerModeCheckbox();
+      return;
+    }else{
+      toggleProfileMode(false);
+    }
+
+    refreshPixmap();
+  }
+
+
+  // Convert a length in pixels to a length in world coordinates
+  double MainWidget::pixelToWorldDist(double pd){
+    
+    Vector2 p = screen2world(Vector2(0, 0));
+    Vector2 q = screen2world(Vector2(pd, 0));
+    
+    return norm_2(p-q);
+  }
+  
+  void MainWidget::appendToPolyVec(const dPoly & P){
+    
+    // Append the new polygon to the list of polygons. If we have several
+    // clips already, append it to the last clip. If we have no clips,
+    // create a new clip.
+    if (m_polyVec.size() == 0){
+      m_polyVec.push_back(P);
+    }else{
+      m_polyVec.back().appendPolygons(P);
+    }
+    
+    return;
+  }
+  
+  // Add a point to the polygon being drawn or stop drawing and append
+  // the drawn polygon to the list of polygons.
+  void MainWidget::addPolyVert(double px, double py){
+
+    Vector2 w = screen2world(Vector2(px, py));
+    double wtol = pixelToWorldDist(m_pixelTol);
+    int pSize   = m_currPolyX.size();
+
+    if (pSize <= 0 || norm_2(Vector2(m_currPolyX[0], m_currPolyY[0]) - w) > wtol ){
+      
+      // We did not arrive at the starting point of the polygon being
+      // drawn. Add the current point.
+      
+      m_currPolyX.push_back(w.x());
+      m_currPolyY.push_back(w.y());
+      pSize = m_currPolyX.size();
+      
+      // This will call paintEvent which will draw the current poly line
+      update();
+
+      return;
+    }
+
+    // We arrived at the starting point of the polygon being drawn. Stop
+    // adding points and append the current polygon.
+
+    // Form the new polygon
+    dPoly P;
+    bool isPolyClosed = true;
+    P.reset();
+    std::string color, layer;
+    P.appendPolygon(pSize, &m_currPolyX[0], &m_currPolyY[0],
+                    isPolyClosed, color, layer);
+
+    appendToPolyVec(P);
+
+    m_currPolyX.clear();
+    m_currPolyY.clear();
+    //setStandardCursor();
+    //refreshPixmap();
+    
+    update();
+    
+    return;
+  }
+  
   // Go to the pixel locations on screen, and draw the polygonal line.
   // This is robust to zooming in the middle of profiling.
+  // TODO: This will function badly when zooming.
   void MainWidget::plotProfilePolyLine(QPainter & paint,
                                        std::vector<double> const& profileX, 
                                        std::vector<double> const& profileY){
@@ -1369,11 +1506,9 @@ namespace vw { namespace gui {
 
     if (m_images.empty()) return;
 
-    int tol = 3; // pixels
-
     // If the mouse was released close to where it was pressed
-    if (std::abs(m_mousePrsX - mouse_rel_pos.x()) < tol &&
-	std::abs(m_mousePrsY - mouse_rel_pos.y()) < tol ) {
+    if (std::abs(m_mousePrsX - mouse_rel_pos.x()) < m_pixelTol &&
+	std::abs(m_mousePrsY - mouse_rel_pos.y()) < m_pixelTol ) {
 
       if (!m_shadow_thresh_calc_mode){
 
@@ -1425,7 +1560,7 @@ namespace vw { namespace gui {
             }
             
 	  }
-
+        
 	} // end iterating over images
 
 	if (can_profile) {
@@ -1441,6 +1576,10 @@ namespace vw { namespace gui {
 	  MainWidget::plotProfile(m_images, m_profileX, m_profileY);
 	}
         
+        if (m_vectorLayerMode) {
+          addPolyVert(mouse_rel_pos.x(), mouse_rel_pos.y());
+        }
+          
       }else{
 	// Shadow threshold mode. If we released the mouse where we
 	// pressed it, that means we want the current point to be
@@ -1480,16 +1619,17 @@ namespace vw { namespace gui {
 		 << ": " << m_shadow_thresh << std::endl;
 	return;
       }
-    }
-    
+
+    } // end the case when the mouse was released close to where it was pressed
+
     if( (event->buttons() & Qt::LeftButton) &&
         (event->modifiers() & Qt::ControlModifier) ){
       m_cropWinMode = true;
     }
 
     if (event->buttons() & Qt::RightButton) {
-      if (std::abs(mouse_rel_pos.x() - m_mousePrsX) < tol &&
-          std::abs(mouse_rel_pos.y() - m_mousePrsY) < tol
+      if (std::abs(mouse_rel_pos.x() - m_mousePrsX) < m_pixelTol &&
+          std::abs(mouse_rel_pos.y() - m_mousePrsY) < m_pixelTol
           ){
         // If the mouse was released too close to where it was clicked,
         // do nothing.
@@ -1615,7 +1755,7 @@ namespace vw { namespace gui {
       }
 
     }
-
+    
     // At this stage the user is supposed to release the control key, so
     // we are no longer in crop win mode, even if we were so far.
     m_cropWinMode = false;
