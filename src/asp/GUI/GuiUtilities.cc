@@ -22,6 +22,7 @@
 
 #include <string>
 #include <vector>
+#include <QPolygon>
 #include <QtGui>
 #include <QtWidgets>
 
@@ -49,6 +50,16 @@ void init_temporary_files() {
 TemporaryFiles& temporary_files() {
   temporary_files_once.run( init_temporary_files);
   return *temporary_files_ptr;
+}
+
+bool isPolyZeroDim(const QPolygon & pa){
+  
+  int numPts = pa.size();
+  for (int s = 1; s < numPts; s++){
+    if (pa[0] != pa[s]) return false;
+  }
+  
+  return true;
 }
   
 void popUp(std::string msg){

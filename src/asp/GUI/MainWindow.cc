@@ -166,7 +166,7 @@ void MainWindow::createLayout() {
   for (size_t wit = 0; wit < m_widgets.size(); wit++) {
     bool profile_mode = false;
     if (m_widgets[wit] != NULL) 
-      m_widgets[wit]->toggleProfileMode(profile_mode);
+      m_widgets[wit]->setProfileMode(profile_mode);
   }
 
   // Save the previous hillshade flags before wiping the widgets.
@@ -1199,7 +1199,7 @@ void MainWindow::profileMode() {
   
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (m_widgets[i]) {
-      m_widgets[i]->toggleProfileMode(profile_mode);
+      m_widgets[i]->setProfileMode(profile_mode);
     }
   }
 }
@@ -1214,7 +1214,7 @@ void MainWindow::vectorLayerMode() {
   
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (m_widgets[i]) {
-      m_widgets[i]->toggleVectorLayerMode(vectorLayerMode);
+      m_widgets[i]->setVectorLayerMode(vectorLayerMode);
     }
   }
 }

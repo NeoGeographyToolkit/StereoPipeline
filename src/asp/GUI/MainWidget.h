@@ -112,6 +112,18 @@ namespace vw { namespace gui {
     void plotProfile(std::vector<imageData> const& images,
 		     std::vector<double> const& profileX, 
 		     std::vector<double> const& profileY);
+    
+    void drawOneVertex(int x0, int y0, QColor color, int lineWidth,
+                       int drawVertIndex, QPainter &paint);
+    
+    void plotDPoly(bool plotPoints, bool plotEdges,
+                   bool plotFilled, int lineWidth,
+                   int drawVertIndex, // 0 is a good choice here
+                   QColor const& color,
+                   QPainter &paint,
+                   vw::geometry::dPoly currPoly // Make a local copy on purpose
+                   );
+    
     //void plotProfilePolyLine(QStylePainter & paint,
     void plotProfilePolyLine(QPainter & paint,
                              std::vector<double> const& profileX, 
@@ -161,8 +173,8 @@ public slots:
     void deleteImage();             ///< Delete an image from the gui and refresh
     void allowMultipleSelections(); ///< Allow the user to select multiple regions
     void deleteSelection();         ///< Delete an area selected with the mouse at the current point
-    void toggleProfileMode(bool profile_mode); ///< Turn on and off the 1D profile tool
-    void toggleVectorLayerMode(bool vectorLayerMode); ///< Turn on and off the vector layer drawing
+    void setProfileMode(bool profile_mode); ///< Turn on and off the 1D profile tool
+    void setVectorLayerMode(bool vectorLayerMode); ///< Turn on and off the vector layer drawing
     void saveScreenshot();          ///< Save a screenshot of the current imagery
 
   protected:
@@ -196,7 +208,7 @@ public slots:
         // Signal to the parent that the window got closed.
 	// Turn off profiling.
         bool profile_mode = false;
-        m_parent->toggleProfileMode(profile_mode);
+        m_parent->setProfileMode(profile_mode);
       }
       
       MainWidget * m_parent;    
@@ -364,6 +376,8 @@ public slots:
     
     // Points closer than this are in some situations considered equal
     int m_pixelTol;
+
+    QColor m_backgroundColor;
     
     std::vector<int> m_polyVecOrder;
     

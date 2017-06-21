@@ -65,6 +65,7 @@ class QResizeEvent;
 class QTableWidget;
 class QContextMenuEvent;
 class QMenu;
+class QPolygon;
 
 namespace vw {
   // To be able to write multi-channel images
@@ -78,6 +79,8 @@ namespace vw { namespace gui {
 
   namespace fs = boost::filesystem;
 
+  bool isPolyZeroDim(const QPolygon & pa);
+  
   /// A global structure to hold all the temporary files we have created
   struct TemporaryFiles {
     std::set<std::string> files;

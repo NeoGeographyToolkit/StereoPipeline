@@ -149,7 +149,7 @@ namespace vw { namespace gui {
       m_image_files(image_files), m_matches(matches),  m_use_georef(use_georef),
       m_view_matches(view_matches), m_zoom_all_to_same_region(zoom_all_to_same_region),
       m_allowMultipleSelections(allowMultipleSelections), m_can_emit_zoom_all_signal(false),
-      m_pixelTol(6) {
+      m_pixelTol(6), m_backgroundColor(QColor("black")) {
     
     installEventFilter(this);
 
@@ -1014,7 +1014,7 @@ namespace vw { namespace gui {
     }
 
     m_pixmap = QPixmap(size());
-    m_pixmap.fill(QColor("black"));
+    m_pixmap.fill(m_backgroundColor);
 
     QPainter paint(&m_pixmap);
     paint.initFrom(this);
@@ -1047,7 +1047,8 @@ namespace vw { namespace gui {
     paint.drawPixmap(0, 0, m_pixmap);
 
     QColor rubberBandColor = QColor("yellow");
-    QColor cropWinColor = QColor("red");
+    std::string red = "red";
+    QColor cropWinColor = QColor(red.c_str());
 
     // We will color the rubberband in the crop win color if we are
     // in crop win mode.
@@ -1076,46 +1077,46 @@ namespace vw { namespace gui {
       paint.drawRect(R.normalized().adjusted(0, 0, -1, -1));
     }
     
+    bool plotPoints = false, plotEdges = true, plotFilled = false;
+    int drawVertIndex = 0, lineWidth = 1;
+    bool isPolyClosed = false;
+    std::string layer = "";
+    
     // Plot the polygonal line which we are profiling
-    if (m_profileMode)
-      plotProfilePolyLine(paint, m_profileX, m_profileY);
-
+    if (m_profileMode) {
+      vw::geometry::dPoly poly;
+      poly.appendPolygon(m_profileX.size(),  
+                         vw::geometry::vecPtr(m_profileX),  
+                         vw::geometry::vecPtr(m_profileY),  
+                         isPolyClosed, red, layer);
+      MainWidget::plotDPoly(plotPoints, plotEdges, plotFilled, lineWidth,  
+                            drawVertIndex, cropWinColor, paint,  
+                            poly);
+    }
+    
     // If to draw the polygons
     if (m_vectorLayerMode) {
 
       // Current polygon being drawn
-      plotProfilePolyLine(paint, m_currPolyX, m_currPolyY);
+      vw::geometry::dPoly poly;
+      poly.appendPolygon(m_currPolyX.size(),  
+                         vw::geometry::vecPtr(m_currPolyX),  
+                         vw::geometry::vecPtr(m_currPolyY),  
+                         isPolyClosed, red, layer);
+      MainWidget::plotDPoly(plotPoints, plotEdges, plotFilled, lineWidth,  
+                            drawVertIndex, cropWinColor, paint,  
+                            poly);
 
       // Polygons that we finished drawing
-      for (size_t vi  = 0; vi < m_polyVec.size(); vi++){
-        
-        vw::geometry::dPoly const& poly = m_polyVec[vi];
-        const double * xv        	= poly.get_xv();
-        const double * yv        	= poly.get_yv();
-        const int    * numVerts  	= poly.get_numVerts();
-        int numPolys             	= poly.get_numPolys();
-        int start                	= 0;
-        for (int pIter = 0; pIter < numPolys; pIter++){
-          
-          if (pIter > 0) start += numVerts[pIter - 1];
-
-          int pSize = numVerts[pIter];
-          std::vector<double> polyX, polyY;
-          for (int vIter = 0; vIter < pSize; vIter++){
-            polyX.push_back(xv[start + vIter]);
-            polyY.push_back(yv[start + vIter]);
-          }
-          // Close the polygon
-          if (pSize > 0) {
-            polyX.push_back(xv[start]);
-            polyY.push_back(yv[start]);
-          }
-          
-          plotProfilePolyLine(paint, polyX, polyY);
-
-        } // end iterating over the individual polygon
-      } // end iterating over the polygon set
-    } // end iterating over the polygon vector
+      for (size_t vi = 0; vi < m_polyVec.size(); vi++){
+        MainWidget::plotDPoly(plotPoints, plotEdges,  
+                              plotFilled, lineWidth, drawVertIndex, 
+                              cropWinColor, paint,  
+                              m_polyVec[vi] // Make a local copy on purpose
+                              );
+      }
+      
+    }
     
   }
   
@@ -1350,7 +1351,7 @@ namespace vw { namespace gui {
     m_profilePlot->show();
   }
   
-  void MainWidget::toggleProfileMode(bool profile_mode){
+  void MainWidget::setProfileMode(bool profile_mode){
     m_profileMode = profile_mode;
 
     if (!m_profileMode) {
@@ -1372,7 +1373,7 @@ namespace vw { namespace gui {
       return;
     }else{
       
-      toggleVectorLayerMode(false);
+      setVectorLayerMode(false);
       
       // Show the profile window
       MainWidget::plotProfile(m_images, m_profileX, m_profileY);
@@ -1381,7 +1382,7 @@ namespace vw { namespace gui {
     refreshPixmap();
   }
 
-  void MainWidget::toggleVectorLayerMode(bool vectorLayerMode){
+  void MainWidget::setVectorLayerMode(bool vectorLayerMode){
     m_vectorLayerMode = vectorLayerMode;
 
     if (!m_vectorLayerMode) {
@@ -1395,7 +1396,7 @@ namespace vw { namespace gui {
       emit uncheckVectorLayerModeCheckbox();
       return;
     }else{
-      toggleProfileMode(false);
+      setProfileMode(false);
     }
 
     refreshPixmap();
@@ -1464,12 +1465,191 @@ namespace vw { namespace gui {
     m_currPolyX.clear();
     m_currPolyY.clear();
     //setStandardCursor();
-    //refreshPixmap();
-    
-    update();
+    refreshPixmap();
+    //update();
     
     return;
   }
+
+  void MainWidget::drawOneVertex(int x0, int y0, QColor color, int lineWidth,
+                                 int drawVertIndex, QPainter &paint){
+
+    // Draw a vertex as a small shape (a circle, rectangle, triangle)
+
+    // Use variable size shapes to distinguish better points on top of
+    // each other
+    int len = 3*(drawVertIndex+1);
+    len = min(len, 8); // limit how big this can get
+
+    paint.setPen( QPen(color, lineWidth) );
+
+    int numTypes = 4;
+    if (drawVertIndex < 0){
+
+      // This will be reached only for the case when a polygon
+      // is so small that it collapses into a point.
+      len = lineWidth;
+      paint.setBrush( color );
+      paint.drawRect(x0 - len, y0 - len, 2*len, 2*len);
+
+    } else if (drawVertIndex%numTypes == 0){
+
+      // Draw a small empty ellipse
+      paint.setBrush( Qt::NoBrush );
+      paint.drawEllipse(x0 - len, y0 - len, 2*len, 2*len);
+
+    }else if (drawVertIndex%numTypes == 1){
+
+      // Draw an empty square
+      paint.setBrush( Qt::NoBrush );
+      paint.drawRect(x0 - len, y0 - len, 2*len, 2*len);
+
+    }else if (drawVertIndex%numTypes == 2){
+
+      // Draw an empty triangle
+      paint.setBrush( Qt::NoBrush );
+      paint.drawLine(x0 - len, y0 - len, x0 + len, y0 - len);
+      paint.drawLine(x0 - len, y0 - len, x0 + 0,   y0 + len);
+      paint.drawLine(x0 + len, y0 - len, x0 + 0,   y0 + len);
+
+    }else{
+
+      // Draw an empty reversed triangle
+      paint.setBrush( Qt::NoBrush );
+      paint.drawLine(x0 - len, y0 + len, x0 + len, y0 + len);
+      paint.drawLine(x0 - len, y0 + len, x0 + 0,   y0 - len);
+      paint.drawLine(x0 + len, y0 + len, x0 + 0,   y0 - len);
+
+    }
+
+    return;
+  }
+  
+  void MainWidget::plotDPoly(bool plotPoints, bool plotEdges,
+                             bool plotFilled, int lineWidth,
+                             int drawVertIndex, // 0 is a good choice here
+                             QColor const& color,
+                             QPainter &paint,
+                             vw::geometry::dPoly currPoly // Make a local copy on purpose
+                             ){
+
+    using namespace vw::geometry;
+
+    if (m_world_box.empty()) return;
+      
+    // The box in world coordinates
+    double x_min = m_world_box.min().x();
+    double y_min = m_world_box.min().y();
+    double x_max = m_world_box.max().x();
+    double y_max = m_world_box.max().y();
+
+    double screen_min_x = 0, screen_min_y = 0;
+
+    // When polys are filled, plot largest polys first
+    if (plotFilled)
+      currPoly.sortBySizeAndMaybeAddBigContainingRect(x_min,  y_min, x_max, y_max);
+
+    // Clip the polygon a bit beyond the viewing window, as to not see
+    // the edges where the cut took place. It is a bit tricky to
+    // decide how much the extra should be.
+    double tol    = 1e-12;
+    double pixelSize = max(m_world_box.width()/m_window_width, m_world_box.height()/m_window_height);
+
+    double extra  = 2*pixelSize*lineWidth;
+    double extraX = extra + tol*max(abs(x_min), abs(x_max));
+    double extraY = extra + tol*max(abs(y_min), abs(y_max));
+
+    dPoly clippedPoly;
+    currPoly.clipPoly(x_min - extraX, y_min - extraY, x_max + extraX, y_max + extraY, // inputs
+                      clippedPoly // output
+                      );
+    
+    const double * xv               = clippedPoly.get_xv();
+    const double * yv               = clippedPoly.get_yv();
+    const int    * numVerts         = clippedPoly.get_numVerts();
+    int numPolys                    = clippedPoly.get_numPolys();
+    const vector<char> isPolyClosed = clippedPoly.get_isPolyClosed();
+    const vector<string> colors     = clippedPoly.get_colors();
+    //int numVerts                  = clippedPoly.get_totalNumVerts();
+
+    
+    int start = 0;
+    for (int pIter = 0; pIter < numPolys; pIter++){
+
+      if (pIter > 0) start += numVerts[pIter - 1];
+
+
+      int pSize = numVerts[pIter];
+
+      // Determine the orientation of polygons
+      double signedArea = 0.0;
+      if (plotFilled && isPolyClosed[pIter]){
+        signedArea = signedPolyArea(pSize, xv + start, yv + start);
+      }
+
+      QPolygon pa(pSize);
+      for (int vIter = 0; vIter < pSize; vIter++){
+
+        Vector2 P = world2screen(Vector2(xv[start + vIter], yv[start + vIter]));
+        pa[vIter] = QPoint(P.x(), P.y());
+
+        // Qt's built in points are too small. Instead of drawing a point
+        // draw a small shape.
+        int tol = 4; // This is a bug fix for missing points. I don't understand
+        //           // why this is necessary and why the number 4 is right.
+        if ( plotPoints                                                                 &&
+             P.x() > screen_min_x - tol && P.x() < screen_min_x + m_window_width  + tol &&
+             P.y() > screen_min_y - tol && P.y() < screen_min_y + m_window_height + tol
+             ){
+          drawOneVertex(P.x(), P.y(), color, lineWidth, drawVertIndex, paint);
+        }
+      }
+
+      if (pa.size() <= 0) continue;
+
+      if (plotEdges){
+
+        if (plotFilled && isPolyClosed[pIter]){
+          if (signedArea >= 0.0) paint.setBrush( color );
+          else                   paint.setBrush( m_backgroundColor );
+          paint.setPen( Qt::NoPen );
+        }else {
+          paint.setBrush( Qt::NoBrush );
+          paint.setPen( QPen(color, lineWidth) );
+        }
+
+        if ( isPolyZeroDim(pa) ){
+          // Treat the case of polygons which are made up of just one point
+          int l_drawVertIndex = -1;
+          drawOneVertex(pa[0].x(), pa[0].y(), color, lineWidth, l_drawVertIndex,
+                        paint);
+        }else if (isPolyClosed[pIter]){
+
+          if (plotFilled){
+            paint.drawPolygon( pa );
+          }else{
+            // In some versions of Qt, drawPolygon is buggy when not
+            // called to fill polygons. Don't use it, just draw the
+            // edges one by one.
+            int n = pa.size();
+            for (int k = 0; k < n; k++){
+              QPolygon pb;
+              int x0, y0; pa.point(k, &x0, &y0);       pb << QPoint(x0, y0);
+              int x1, y1; pa.point((k+1)%n, &x1, &y1); pb << QPoint(x1, y1);
+              paint.drawPolyline(pb);
+            }
+          }
+
+        }else{
+          paint.drawPolyline(pa); // don't join the last vertex to the first
+        }
+
+      }
+    }
+
+    return;
+  }
+  
   
   // Go to the pixel locations on screen, and draw the polygonal line.
   // This is robust to zooming in the middle of profiling.
@@ -1514,10 +1694,9 @@ namespace vw { namespace gui {
 
         Vector2 p = screen2world(Vector2(mouse_rel_pos.x(), mouse_rel_pos.y()));
         
-        QPainter paint(&m_pixmap);
-        paint.initFrom(this);
-
-        if (!m_profileMode) {
+        if (!m_profileMode && !m_vectorLayerMode) {
+          QPainter paint(&m_pixmap);
+          paint.initFrom(this);
           QPoint Q(mouse_rel_pos.x(), mouse_rel_pos.y());
           paint.setPen(QColor("red"));
           paint.drawEllipse(Q, 2, 2); // Draw the point, and make it a little large
@@ -1539,7 +1718,8 @@ namespace vw { namespace gui {
 
 	  vw_out() << "Pixel and value for " << m_image_files[it] << ": "
 		   << col << ' ' << row << ' ' << val << std::endl;
-	  update();
+
+          update();
 
           if (m_profileMode) {
 
@@ -1555,7 +1735,7 @@ namespace vw { namespace gui {
             }
             
             if (!can_profile) {
-              MainWidget::toggleProfileMode(can_profile);
+              MainWidget::setProfileMode(can_profile);
 	      return;
             }
             
@@ -1575,10 +1755,9 @@ namespace vw { namespace gui {
 	  // Now show the profile.
 	  MainWidget::plotProfile(m_images, m_profileX, m_profileY);
 	}
-        
-        if (m_vectorLayerMode) {
+
+        if (m_vectorLayerMode) 
           addPolyVert(mouse_rel_pos.x(), mouse_rel_pos.y());
-        }
           
       }else{
 	// Shadow threshold mode. If we released the mouse where we

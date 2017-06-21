@@ -228,6 +228,8 @@ AX_PKG(VW_CORE,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS LAPACK], [-lvwCore], 
 AX_PKG(VW_MATH,  [VW_CORE],                   [-lvwMath],   [vw/Math/LinearAlgebra.h], [], [], [], [FLANN])
 AX_PKG(VW_IMAGE, [VW_CORE],                   [-lvwImage],  [vw/Image/ImageView.h])
 AX_PKG(VW_FILEIO,[VW_IMAGE Z OPENEXR GDAL BOOST_SYSTEM BOOST_FILESYSTEM],     [-lvwFileIO], [vw/FileIO/DiskImageResourceOpenEXR.h vw/FileIO/DiskImageResourceGDAL.h])
+AX_PKG(VW_GEOMETRY, [VW_CORE], [-lvwGeometry], [vw/Geometry/Box.h])
+
 AX_PKG(VW, [VW_FILEIO VW_IMAGE VW_MATH VW_CORE], [-lvwTools], [vw/tools/Common.h])
 
 # Double Check again that VW_FILEIO really was built with the correct 3rdParty.
@@ -394,7 +396,7 @@ AX_MODULE(CAMERA,   [src/asp/Camera],   [libaspCamera.la],   yes, [CORE], [VW], 
 AX_MODULE(SPICEIO,  [src/asp/SpiceIO],  [libaspSpiceIO.la],  yes, [CORE], [VW SPICE])
 AX_MODULE(ISISIO,   [src/asp/IsisIO],   [libaspIsisIO.la],   yes, [CORE], [ISIS VW_CARTOGRAPHY])
 AX_MODULE(SESSIONS, [src/asp/Sessions], [libaspSessions.la], yes, [CORE], [CAMERA ISISIO SPICEIO], [])
-AX_MODULE(GUI,      [src/asp/GUI],      [libaspGUI.la],      yes, [CORE], [QT], [])
+AX_MODULE(GUI,      [src/asp/GUI],      [libaspGUI.la],      yes, [CORE VW_GEOMETRY], [QT], [])
 AX_MODULE(PYTHON,   [src/asp/Python],   [],                  yes, [],     [],   [])
 
 # Tools - The yes/no means to enable by default

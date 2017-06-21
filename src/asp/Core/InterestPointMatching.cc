@@ -495,7 +495,9 @@ namespace asp {
     ArrayT error_samples( valid_indices.size() );
 
     // Create the 'error' samples. Which are triangulation error and distance to sphere.
-    stereo::StereoModel model( cam1, cam2 );
+    double angle_tol = vw::stereo::StereoModel::robust_1_minus_cos(stereo_settings().min_triangulation_angle*M_PI/180);
+
+    stereo::StereoModel model( cam1, cam2, stereo_settings().use_least_squares, angle_tol );
     size_t count = 0;
     const double HIGH_ERROR = 9999999;
     BOOST_FOREACH( size_t i, valid_indices ) {

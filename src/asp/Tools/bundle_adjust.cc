@@ -1727,6 +1727,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   asp::stereo_settings().nodata_value           = opt.nodata_value;
   asp::stereo_settings().skip_rough_homography  = opt.skip_rough_homography;
   asp::stereo_settings().individually_normalize = opt.individually_normalize;
+  asp::stereo_settings().min_triangulation_angle = opt.min_triangulation_angle;
 
   if (!opt.camera_position_file.empty() && opt.csv_format_str == "")
     vw_throw( ArgumentErr() << "When using a camera position file, the csv-format option must be set.\n"
