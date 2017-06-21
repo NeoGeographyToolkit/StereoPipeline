@@ -122,13 +122,13 @@ namespace vw { namespace gui {
   template<class PixelT>
   typename boost::enable_if<boost::is_same<PixelT,double>, void>::type
   formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
-             ImageView<PixelT> const& clip,
-             QImage & qimg);
+	     vw::Vector2 const& bounds,
+             ImageView<PixelT> const& clip, QImage & qimg);
 
   template<class PixelT>
   typename boost::enable_if<boost::is_same<PixelT, vw::Vector<vw::uint8, 2> >, void>::type
   formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
-             ImageView<PixelT> const& clip,
+	     vw::Vector2 const& bounds, ImageView<PixelT> const& clip,
              QImage & qimg);
 
   template<class PixelT>
@@ -136,8 +136,8 @@ namespace vw { namespace gui {
                                               boost::is_same<PixelT, vw::Vector<vw::uint8, 2> > >, void >::type
   formQimage(bool highlight_nodata,
              bool scale_pixels, double nodata_val,
-             ImageView<PixelT> const& clip,
-             QImage & qimg);
+	     vw::Vector2 const& bounds,
+	     ImageView<PixelT> const& clip, QImage & qimg);
   
   /// Convert a QRect object to a BBox2 object.
   inline BBox2 qrect2bbox(QRect const& R){
@@ -172,6 +172,7 @@ namespace vw { namespace gui {
   // pre-defined member functions for an image class. This class
   // is not a perfect solution, but there seem to be no easy way
   // in ASP to handle images with variable numbers of channels.
+  // TODO: Add the case when multi-channel images also have float or double pixels
   struct DiskImagePyramidMultiChannel{
     vw::cartography::GdalWriteOptions m_opt;
     vw::mosaic::DiskImagePyramid< double               > m_img_ch1_double;
@@ -271,8 +272,8 @@ namespace vw { namespace gui {
 template<class PixelT>
 typename boost::enable_if<boost::is_same<PixelT,double>, void>::type
 formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
-           ImageView<PixelT> const& clip,
-           QImage & qimg){
+	   vw::Vector2 const& bounds,
+           ImageView<PixelT> const& clip, QImage & qimg){
 
   double min_val = std::numeric_limits<double>::max();
   double max_val = -std::numeric_limits<double>::max();
@@ -284,6 +285,12 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
         if (clip(col, row) > max_val) max_val = clip(col, row);
       }
     }
+
+    // These bounds may contain outliers, so correct for that
+    min_val = std::max(min_val, bounds[0]);
+    max_val = std::min(max_val, bounds[1]);
+
+    // A safety measure
     if (min_val >= max_val)
       max_val = min_val + 1.0;
   }
@@ -291,16 +298,18 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
   qimg = QImage(clip.cols(), clip.rows(), QImage::Format_ARGB32_Premultiplied);
   for (int col = 0; col < clip.cols(); col++){
     for (int row = 0; row < clip.rows(); row++){
-      double v = clip(col, row);
-      if (scale_pixels)
-        v = round(255*(std::max(v, min_val) - min_val)/(max_val-min_val));
 
-      // The comparison below is false when nodata_val is NaN
+      double v = clip(col, row);
+      if (scale_pixels) 
+        v = round(255*(std::max(v, min_val) - min_val)/(max_val-min_val));
+     
+      v = std::min(std::max(0.0, v), 255.0);
+      
       if (clip(col, row) <= nodata_val || std::isnan(clip(col, row)) ){
         
         if (!highlight_nodata){
           // transparent
-          qimg.setPixel(col, row, QColor(0, 0, 0, 0).rgba());
+          qimg.setPixel(col, row, Qt::transparent);
         }else{
          // highlight in red
           qimg.setPixel(col, row, qRgb(255, 0, 0));
@@ -317,8 +326,8 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
 template<class PixelT>
 typename boost::enable_if<boost::is_same<PixelT, vw::Vector<vw::uint8, 2> >, void>::type
 formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
-           ImageView<PixelT> const& clip,
-           QImage & qimg){
+	   vw::Vector2 const& bounds,
+           ImageView<PixelT> const& clip, QImage & qimg){
 
   qimg = QImage(clip.cols(), clip.rows(), QImage::Format_ARGB32_Premultiplied);
   for (int col = 0; col < clip.cols(); col++){
@@ -339,6 +348,7 @@ template<class PixelT>
 typename boost::disable_if<boost::mpl::or_< boost::is_same<PixelT,double>,
                                             boost::is_same<PixelT, vw::Vector<vw::uint8, 2> > >, void >::type
 formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
+	   vw::Vector2 const& bounds,
            ImageView<PixelT> const& clip, QImage & qimg){
 
   qimg = QImage(clip.cols(), clip.rows(), QImage::Format_ARGB32_Premultiplied);
@@ -350,7 +360,7 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
       else if (v.size() == 3)
         qimg.setPixel(col, row, QColor(v[0], v[1], v[2], 255).rgba()); // color
       else if (v.size() > 3)
-        qimg.setPixel(col, row, QColor(v[0], v[1], v[2], 255*(v[3] > 0) ).rgba()); // color or transparent
+        qimg.setPixel(col, row, QColor(v[0], v[1], v[2], 255*(v[3] > 0) ).rgba()); // transp or color
 
       else
         qimg.setPixel(col, row, QColor(v[0], v[0], v[0], 255).rgba()); // grayscale
