@@ -1,4 +1,5 @@
-This document describes the process of processing IceBridge images. 
+This document describes the process of processing IceBridge images to
+create DEMs that are aligned to the LIDAR ground reference.
 
 The data is available from
 
@@ -16,16 +17,17 @@ For some flights, the camera (and hence its calibration file) changed in mid-fli
 
 https://nsidc.org/data/IODCC0/versions/1
 
-in the "User Guide" tab, while all the camera calibration files can be
-fetched recursively using the command:
+in the "User Guide" tab. The camera calibration files can be fetched
+recursively using the command:
 
 wget -e robots=off --load-cookies ~/.urs_cookies --save-cookies ~/.urs_cookies --keep-session-cookies --no-check-certificate --auth-no-challenge=on --no-parent -r -l 10 https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/IODCC0.001/
 
-A pdf file containing camera information can be converted to the .tsai format used by ASP using the script
+These files are in the PDF format, and can be converted to the .tsai
+format used by ASP using the script
 
 StereoPipeline/src/asp/IceBridge/process_calibration_file.py 
 
-The images can then be processed via the script:
+The images can then be processed via the tool:
 
 StereoPipeline/src/asp/IceBridge/full_processing_script.py 
 
