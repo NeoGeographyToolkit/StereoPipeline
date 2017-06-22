@@ -84,6 +84,27 @@ def checkIfToolExists(toolName):
     else:
         return True
 
+# Find if a program is in the path
+def which(program):
+
+    checkIfToolExists(program)
+    
+    def is_exe(fpath):
+        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+    fpath, fname = os.path.split(program)
+    if fpath:
+        if is_exe(program):
+            return program
+    else:
+        for path in os.environ["PATH"].split(os.pathsep):
+            path = path.strip('"')
+            exe_file = os.path.join(path, program)
+            if is_exe(exe_file):
+                return exe_file
+
+    return None
+
 def getNumNodesInList(nodesListPath):
     """Get number of Pleiades nodes listed in a file"""
 
@@ -192,24 +213,6 @@ def libexec_path(prog, **kw):
         print("Using instead: " + libexecpath)
 
     return libexecpath
-
-# Find if a program is in the path
-def which(program):
-    def is_exe(fpath):
-        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
-
-    fpath, fname = os.path.split(program)
-    if fpath:
-        if is_exe(program):
-            return program
-    else:
-        for path in os.environ["PATH"].split(os.pathsep):
-            path = path.strip('"')
-            exe_file = os.path.join(path, program)
-            if is_exe(exe_file):
-                return exe_file
-
-    return None
 
 # mkdir without throw
 def mkdir_p(path):

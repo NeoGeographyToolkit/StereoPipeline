@@ -28,6 +28,22 @@ from urlparse import urlparse
 
 logger = logging.getLogger(__name__)
 
+# The path to the ASP python files
+basepath    = os.path.abspath(sys.path[0])
+pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
+libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
+sys.path.insert(0, basepath) # prepend to Python path
+sys.path.insert(0, pythonpath)
+sys.path.insert(0, libexecpath)
+
+import asp_system_utils
+
+asp_system_utils.verify_python_version_is_supported()
+
+# Prepend to system PATH
+os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
+os.environ["PATH"] = basepath    + os.pathsep + os.environ["PATH"]
+
 #------------------------------------------------------------------------------
 
 # Constants
@@ -93,7 +109,9 @@ def fetchAndParseIndexFile(folderUrl, path, parsedPath, fileType):
     # Set up the command
     cookiePaths = ' -b ~/.urs_cookies -c ~/.urs_cookies '
     curlOpts    = ' -n -L '
-    cmd = '/home/smcmich1/programs/curl-install/bin/curl ' + cookiePaths + curlOpts + folderUrl + ' > ' + path
+    curlPath = asp_system_utils.which("curl")
+    print("Using curl from " + curlPath)
+    cmd = curlPath + ' ' + cookiePaths + curlOpts + folderUrl + ' > ' + path
     # Download the file
     logger.info(cmd)
     p = subprocess.Popen(cmd, shell=True)
@@ -274,7 +292,9 @@ def main(argsIn):
     # Init the big curl command
     # - We will add multiple file targets and then execute the command
     cookiePaths = ' -b ~/.urs_cookies -c ~/.urs_cookies '
-    baseCmd     = '/home/smcmich1/programs/curl-install/bin/curl -n -L ' + cookiePaths
+    curlPath = asp_system_utils.which("curl")
+    print("Using curl from " + curlPath)
+    baseCmd     = curlPath + ' -n -L ' + cookiePaths
     curlCmd     = baseCmd
     
     # What is the maximum number of files that can be downloaded with one call?

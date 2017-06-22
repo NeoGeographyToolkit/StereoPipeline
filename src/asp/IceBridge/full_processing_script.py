@@ -17,6 +17,8 @@
 # __END_LICENSE__
 
 # Fetch all the data for a run and then process all the data.
+# Sample usage:
+# python ~/projects/StereoPipeline/src/asp/IceBridge/full_processing_script.py --yyyymmdd 20111018 --site AN AN_2011_10_18 camera_calib/5D_MII_28mm_DMS\#04_03Oct2011.tsai --num-processes 1 --num-threads 12 --bundle-length 12 --start-frame 350 --stop-frame 400
 
 import os, sys, optparse, datetime, time, subprocess, logging, multiprocessing
 import icebridge_common
@@ -39,8 +41,6 @@ asp_system_utils.verify_python_version_is_supported()
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = basepath    + os.pathsep + os.environ["PATH"]
-
-
 
 def fetchAllRunData(yyyymmdd, site, frameStart, frameStop, outputFolder,
                     jpegFolder, orthoFolder, demFolder, lidarFolder):
