@@ -124,6 +124,19 @@ void asp::separate_images_from_cameras(std::vector<std::string> const& inputs,
   // 3. img1.tif ... imgN.tif for RPC with embedded RPC in the tif files 
   // 4. img1.tif ... imgN.tif cam1 .... camN for all other cases.
 
+  // In addition, For orbitviz, images and cameras may be interleaved.
+  // Hence reorder them first. 
+  images.clear();
+  cameras.clear();
+  for (size_t i = 0; i < inputs.size(); i++) {
+    if (has_image_extension(inputs[i]))
+      images.push_back(inputs[i]);
+    else
+      cameras.push_back(inputs[i]);
+  }
+  std::vector<std::string> inputs2;
+  for (size_t i = 0; i < images.size(); i++)  inputs2.push_back(images[i]);
+  for (size_t i = 0; i < cameras.size(); i++) inputs2.push_back(cameras[i]);
   images.clear();
   cameras.clear();
   
@@ -131,31 +144,31 @@ void asp::separate_images_from_cameras(std::vector<std::string> const& inputs,
   bool has_nocub  = false;
   bool has_cam    = false;
   
-  for (size_t i = 0; i < inputs.size(); i++) {
+  for (size_t i = 0; i < inputs2.size(); i++) {
     
-    std::string ext = get_extension(inputs[i]);
+    std::string ext = get_extension(inputs2[i]);
     
     if (ext == ".cub")                    has_cub    = true;
     if (ext != ".cub")                    has_nocub  = true;
-    if (asp::has_cam_extension(inputs[i])) has_cam   = true;
+    if (asp::has_cam_extension(inputs2[i])) has_cam   = true;
   }
   
   if ( (has_cub && !has_nocub) || (!has_cam) ) {
     
     // Only cubes, or only non-cameras, cases 1 and 3 above
-    for (size_t i=0; i < inputs.size(); ++i) 
-      images.push_back(inputs[i]);
+    for (size_t i=0; i < inputs2.size(); ++i) 
+      images.push_back(inputs2[i]);
     
   } else{
     
     // Images and cameras (cameras could be cubes)
-    if (inputs.size() % 2 != 0) {
+    if (inputs2.size() % 2 != 0) {
       vw_throw( ArgumentErr() << "Expecting as many images as cameras.\n");
     }
     
-    int half = inputs.size()/2;
-    for (int i = 0;    i < half;   i++) images.push_back(inputs[i]);
-    for (int i = half; i < 2*half; i++) cameras.push_back(inputs[i]);
+    int half = inputs2.size()/2;
+    for (int i = 0;    i < half;   i++) images.push_back(inputs2[i]);
+    for (int i = half; i < 2*half; i++) cameras.push_back(inputs2[i]);
 
   }
   
