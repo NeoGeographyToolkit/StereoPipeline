@@ -36,14 +36,9 @@ asp_system_utils.verify_python_version_is_supported()
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = basepath    + os.pathsep + os.environ["PATH"]
 
-
-
 #------------------------------------------------------------------------------
 
 # Constants
-
-
-
 
 def fetchAndParseIndexFile(folderUrl, path, parsedPath, fileType):
     '''Retrieve the index file for a folder of data and create
@@ -93,7 +88,7 @@ def main(argsIn):
 
     # Command line parsing
     try:
-        usage  = "usage: fetch_icebridge_data.py output_path"
+        usage  = "usage: get_date_list.py output_path"
         parser = optparse.OptionParser(usage=usage)
 
         # This call handles all the parallel_mapproject specific options.

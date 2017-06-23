@@ -110,7 +110,7 @@ def fetchAndParseIndexFile(folderUrl, path, parsedPath, fileType):
     cookiePaths = ' -b ~/.urs_cookies -c ~/.urs_cookies '
     curlOpts    = ' -n -L '
     curlPath = asp_system_utils.which("curl")
-    print("Using curl from " + curlPath)
+    #logger.info("Using curl from " + curlPath)
     cmd = curlPath + ' ' + cookiePaths + curlOpts + folderUrl + ' > ' + path
     # Download the file
     logger.info(cmd)
@@ -167,11 +167,11 @@ def main(argsIn):
         parser.add_option("--day",  dest="day", type='int', default=None,
                           help="Number of processes to use (default program tries to choose best)")
         parser.add_option("--yyyymmdd",  dest="yyyymmdd", default=None,
-                          help="Specify the year, month, and day in one YYMMDD string.")
+                          help="Specify the year, month, and day in one YYYYMMDD string.")
         parser.add_option("--site",  dest="site", default=None,
                           help="Name of the location of the images (AN or GR)")
         
-        parser.add_option("--frame",  dest="frame", type='int', default=None,
+        parser.add_option("--frame-start",  dest="frameStart", type='int', default=None,
                           help="Frame number or start of frame sequence")
         parser.add_option("--frame-stop",  dest="frameStop", type='int', default=None,
                           help="End of frame sequence to download.")
@@ -202,7 +202,7 @@ def main(argsIn):
             options.day   = int(options.yyyymmdd[6:8])
 
         if not options.frameStop:
-            options.frameStop = options.frame
+            options.frameStop = options.frameStart
 
         # Error checking
         if (not options.year) or (not options.month) or (not options.day):
@@ -249,6 +249,7 @@ def main(argsIn):
                 return -1
     else: # Other cases are simpler
         folderUrl = getFolderUrl(options.year, options.month, options.day, options.site, options.type)
+    #logger.info('Fetching from URL: ' + folderUrl)
     
     # Fetch the index for this folder
     filename        = options.type + '_index.html'
@@ -264,7 +265,7 @@ def main(argsIn):
     
     # Store file information in a dictionary
     # - Keep track of the earliest and latest frame
-    logger.info('Reading file list...')
+    logger.info('Reading file list from ' + parsedIndexPath)
     frameDict = {}
     firstFrame = 99999999999
     lastFrame  = 0
@@ -279,10 +280,10 @@ def main(argsIn):
                 lastFrame = frameNumber
 
     if options.allFrames:
-        options.frame     = firstFrame
-        options.frameStop = lastFrame
+        options.frameStart = firstFrame
+        options.frameStop  = lastFrame
     
-    if ((options.frame not in frameDict) or
+    if ((options.frameStart not in frameDict) or
         (options.frameStop and options.frameStop not in frameDict) ):
         logger.error('Error: Requested frame(s) not found in this flight.\n'+
                     'First available frame is: ' + str(firstFrame)+'.\n'+
@@ -293,7 +294,7 @@ def main(argsIn):
     # - We will add multiple file targets and then execute the command
     cookiePaths = ' -b ~/.urs_cookies -c ~/.urs_cookies '
     curlPath = asp_system_utils.which("curl")
-    print("Using curl from " + curlPath)
+    #logger.info("Using curl from " + curlPath)
     baseCmd     = curlPath + ' -n -L ' + cookiePaths
     curlCmd     = baseCmd
     
@@ -304,7 +305,7 @@ def main(argsIn):
     currentFileCount = 0
     for frame in sorted(frameDict.keys()):
 
-        if (frame >= options.frame) and (frame <= options.frameStop):
+        if (frame >= options.frameStart) and (frame <= options.frameStop):
 
             filename   = frameDict[frame]
             url        = os.path.join(folderUrl, filename)
@@ -322,6 +323,7 @@ def main(argsIn):
         if (currentFileCount >= MAX_IN_ONE_CALL) or ((frame == options.frameStop) and (currentFileCount > 0)):
             logger.info(curlCmd)
             if not options.dryRun:
+                logger.info("Saving the data in " + outputFolder)
                 p = subprocess.Popen(curlCmd, cwd=outputFolder, shell=True)
                 os.waitpid(p.pid, 0)
             # Start command fresh for the next file

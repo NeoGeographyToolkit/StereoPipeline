@@ -21,35 +21,38 @@
 # python ~/projects/StereoPipeline/src/asp/IceBridge/full_processing_script.py --yyyymmdd 20111018 --site AN AN_2011_10_18 camera_calib/5D_MII_28mm_DMS\#04_03Oct2011.tsai --num-processes 1 --num-threads 12 --bundle-length 12 --start-frame 350 --stop-frame 400
 
 import os, sys, optparse, datetime, time, subprocess, logging, multiprocessing
-import icebridge_common
-import fetch_icebridge_data
-import process_icebridge_run
-import extract_icebridge_ATM_points
 
-# The path to the ASP python files
-basepath    = os.path.abspath(sys.path[0])
-pythonpath  = os.path.abspath(basepath + '/../IceBridge')  # for dev ASP
-pythonpath  = os.path.abspath(basepath + '/../Python')     # for dev ASP
-libexecpath = os.path.abspath(basepath + '/../libexec')    # for packaged ASP
-sys.path.insert(0, basepath) # prepend to Python path
+# The path to the ASP python files and tools
+basepath      = os.path.abspath(sys.path[0])
+pythonpath    = os.path.abspath(basepath + '/../Python')     # for dev ASP
+libexecpath   = os.path.abspath(basepath + '/../libexec')    # for packaged ASP
+icebridgepath = os.path.abspath(basepath + '/../IceBridge')  # IceBridge tools
+
+# Prepend to Python path
+sys.path.insert(0, basepath)
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
+sys.path.insert(0, icebridgepath)
 
+import icebridge_common, fetch_icebridge_data, process_icebridge_run, extract_icebridge_ATM_points
 import asp_system_utils, asp_alg_utils, asp_geo_utils
+
 asp_system_utils.verify_python_version_is_supported()
 
 # Prepend to system PATH
-os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
-os.environ["PATH"] = basepath    + os.pathsep + os.environ["PATH"]
+os.environ["PATH"] = basepath       + os.pathsep + os.environ["PATH"]
+os.environ["PATH"] = pythonpath     + os.pathsep + os.environ["PATH"]
+os.environ["PATH"] = libexecpath    + os.pathsep + os.environ["PATH"]
+os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 
 def fetchAllRunData(yyyymmdd, site, frameStart, frameStop, outputFolder,
                     jpegFolder, orthoFolder, demFolder, lidarFolder):
     '''Download all data needed to process a run'''
     
-    print 'Downloading all data for the run!  This could take a while...'
+    logger = logging.getLogger(__name__)
+    logger.info('Downloading all data for the run! This could take a while.')
     
-    
-    baseCommand = (('--yyyymmdd %s --site %s --frame %d --frame-stop %d')
+    baseCommand = (('--yyyymmdd %s --site %s --frame-start %d --frame-stop %d')
                    % (yyyymmdd, site, frameStart, frameStop))
     jpegCommand  = '--type image ' + baseCommand +' '+ jpegFolder
     orthoCommand = '--type ortho ' + baseCommand +' '+ orthoFolder
@@ -119,9 +122,10 @@ def convertJpegs(jpegFolder, imageFolder):
         frameNumber = icebridge_common.getFrameNumberFromFilename(inputPath)
         outputName = ('DMS_%s_%s_%05d.tif') % (dateStr, timeStr, frameNumber)
         outputPath = os.path.join(imageFolder, outputName)
-        
+
         # Skip existing files
         if os.path.exists(outputPath):
+            logger.info("File exists, skipping: " + outputPath)
             continue
         
         # Use ImageMagick tool to convert from RGB to grayscale
@@ -137,9 +141,12 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile):
     logger = logging.getLogger(__name__)
 
     # Call ortho2pinhole command
-    cmd = (('ortho2pinhole %s %s %s %s') % (inputPath, orthoPath, inputCamFile, outputCamFile))
+    ortho2pinhole = asp_system_utils.which("ortho2pinhole")
+    cmd = (('%s %s %s %s %s') % (ortho2pinhole, inputPath, orthoPath,
+                                 inputCamFile, outputCamFile))
     logger.info(cmd)
     os.system(cmd)
+    
     if not os.path.exists(outputCamFile):
         # This function is getting called from a pool, so just log the failure.
         logger.error('Failed to convert ortho file: ' + orthoFile)
@@ -189,6 +196,7 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCamFile, cameraFolde
         orthoPath     = os.path.join(orthoFolder, orthoFile)
         outputCamFile = os.path.join(cameraFolder, icebridge_common.getCameraFileName(imageFile))
         if os.path.exists(outputCamFile):
+            logger.info("File exists, skipping: " + outputCamFile)
             continue
                
         # Add ortho2pinhole command to the task pool
@@ -336,7 +344,6 @@ def main(argsIn):
         parser = optparse.OptionParser(usage=usage)
 
         # TODO: Add options to allow spreading work across supercomputer nodes
-
 
         # Run selection
         parser.add_option("--yyyymmdd",  dest="yyyymmdd", default=None,

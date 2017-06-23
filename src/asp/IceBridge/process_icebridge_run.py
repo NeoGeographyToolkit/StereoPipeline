@@ -30,16 +30,18 @@ import os.path as P
 
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
-pythonpath  = os.path.abspath(basepath + '/../IceBridge')  # for dev ASP
-pythonpath  = os.path.abspath(basepath + '/../Python')     # for dev ASP
-libexecpath = os.path.abspath(basepath + '/../libexec')    # for packaged ASP
+pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
+libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
+icebridgepath = os.path.abspath(basepath + '/../IceBridge')  # IceBridge tools
+toolspath = os.path.abspath(basepath + '/../Tools')  # ASP Tools
 sys.path.insert(0, basepath) # prepend to Python path
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
+sys.path.insert(0, icebridgepath)
+sys.path.insert(0, libexecpath)
+sys.path.insert(0, toolspath)
 
-import icebridge_common
-import process_icebridge_batch
-
+import icebridge_common, process_icebridge_batch
 import asp_system_utils, asp_alg_utils, asp_geo_utils
 asp_system_utils.verify_python_version_is_supported()
 
@@ -47,9 +49,7 @@ logger = logging.getLogger(__name__)
 
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
-os.environ["PATH"] = basepath    + os.pathsep + os.environ["PATH"]
-
-   
+os.environ["PATH"] = toolspath   + os.pathsep + os.environ["PATH"]
 
 def processBatch(imageCameraPairs, lidarFolder, outputFolder, options):
     '''Processes a batch of images at once'''
@@ -73,8 +73,6 @@ def processBatch(imageCameraPairs, lidarFolder, outputFolder, options):
         process_icebridge_batch.main(cmd.split())
     except Exception as e:
         logger.error('Pair processing failed!\n' + str(e))
-
-
 
 def getImageSpacing(orthoFolder):
     '''Find a good image stereo spacing interval that gives us a good
@@ -120,6 +118,11 @@ def getImageSpacing(orthoFolder):
         count     = 0
         interval  = interval + 1
         logger.info('Trying stereo image interval ' + str(interval))
+
+        if numOrthos <= interval:
+            raise Exception('Error: There are too few images and they overlap too much. ' + \
+                            'Consider processing more images in the given batch.')       
+
         for i in range(0, numOrthos-interval):
             
             # Compute intersection area between this and next image
@@ -132,9 +135,9 @@ def getImageSpacing(orthoFolder):
             thisArea  = (thisBox[1] - thisBox[0]) * (thisBox[3] - thisBox[2])
             area      = (intersect[1] - intersect[0]) * (intersect[3] - intersect[2])
             ratio     = area / thisArea
-            #print 'Ratio = ' + str(ratio)
             meanRatio = meanRatio + ratio
             count     = count + 1
+            
         # Get the mean intersection ratio
         meanRatio = meanRatio / count
         logger.info('  --> meanRatio = ' + str(meanRatio))

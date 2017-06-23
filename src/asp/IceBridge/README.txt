@@ -1,12 +1,12 @@
-This document describes the process of processing IceBridge images to
-create DEMs that are aligned to the LIDAR ground reference.
+This document describes how to process IceBridge images to create DEMs
+that are aligned to the LIDAR ground reference.
 
 The data is available from
 
 https://nsidc.org/data/icebridge/data_summaries.html#camera
 
-including camera information, raw imagery, orthorectified imagery, LIDAR point clouds
-that can be used for alignment, and pre-existing DEMs for some of the flights. 
+including camera information, raw imagery, orthorectified imagery,
+LIDAR point clouds, and pre-existing DEMs for some of the flights.
 
 To be able to fetch any data, one should create an account with NSIDC,
 and then set up bulk downloading by following the instructions at

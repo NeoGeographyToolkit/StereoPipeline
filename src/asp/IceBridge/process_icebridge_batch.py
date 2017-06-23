@@ -23,12 +23,16 @@ import os, sys, optparse, datetime, logging
 
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
-pythonpath  = os.path.abspath(basepath + '/../IceBridge')  # for dev ASP
 pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
 libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
+icebridgepath = os.path.abspath(basepath + '/../IceBridge')  # IceBridge tools
+toolspath = os.path.abspath(basepath + '/../Tools')  # ASP Tools
 sys.path.insert(0, basepath) # prepend to Python path
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
+sys.path.insert(0, icebridgepath)
+sys.path.insert(0, libexecpath)
+sys.path.insert(0, toolspath)
 
 import icebridge_common
 import asp_system_utils, asp_alg_utils, asp_geo_utils
@@ -38,6 +42,7 @@ logger = logging.getLogger(__name__)
 
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
+os.environ["PATH"] = toolspath   + os.pathsep + os.environ["PATH"]
 
 def makeSymLink(oldFile, newFile):
     '''Safely create a symlink'''
@@ -174,7 +179,8 @@ def main(argsIn):
     vizString  = ''
     for (image, camera) in inputPairs: 
         vizString += image +' ' + camera+' '
-    cmd = 'orbitviz --hide-labels -t nadirpinhole -r wgs84 -o '+ orbitvizAfter +' '+ vizString
+    cmd = 'orbitviz --hide-labels -t nadirpinhole -r wgs84 -o ' + \
+          orbitvizAfter +' '+ vizString
     asp_system_utils.executeCommand(cmd, orbitvizAfter, suppressOutput, redo)
 
     # STEREO
@@ -190,8 +196,8 @@ def main(argsIn):
         thisPairPrefix = os.path.join(outputFolder, 'stereo_pair_'+str(i)+'/out')
         argString      = ('%s %s %s %s ' % (inputPairs[i][0],  inputPairs[pairIndex][0], 
                                             inputPairs[i][1],  inputPairs[pairIndex][1]))
-    
-        stereoCmd = ('/home/smcmich1/repo/StereoPipeline/build/bin/stereo %s %s -t nadirpinhole --alignment-method epipolar %s' % (argString, thisPairPrefix, threadText))
+
+        stereoCmd = ('stereo %s %s -t nadirpinhole --alignment-method epipolar %s' % (argString, thisPairPrefix, threadText))
         correlationArgString = (' --xcorr-threshold 2 --min-xcorr-level 1 --corr-kernel 7 7 --subpixel-mode 0' 
                                 + ' --corr-tile-size 6400 --cost-mode 4 --sgm-search-buffer 4 1 '
                                 + ' --stereo-algorithm ' + str(options.stereoAlgo))
