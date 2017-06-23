@@ -581,6 +581,10 @@ respect to a geoid, etc.
 \section{Stereo Pipeline in More Detail}
 \label{running-stereo}
 
+\subsection{Stereo Algorithms}
+
+The default stereo algorithm in ASP is block-matching, with various values for subpixel refinement, as seen below. The latest version of ASP includes the SGM and MGM algorithms, which overall can perform better, but are more experimental. For details about how to invoke these algorithms, see section \ref{sec:sgm}.
+
 \subsection{Setting Options in the \texttt{stereo.default} File}
 \label{settingoptionsinstereodefault}
 

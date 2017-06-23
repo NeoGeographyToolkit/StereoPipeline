@@ -42,7 +42,7 @@ cost-mode 0
 # Initialization step: correlation kernel size
 corr-kernel 25 25
 
-# Initializaion step: correlation search range
+# Initialization step: correlation search range
 #
 # Uncomment the following to use explicit search ranges. Otherwise, a
 # value will be choosen for you.
