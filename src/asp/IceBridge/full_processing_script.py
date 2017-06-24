@@ -444,7 +444,10 @@ def main(argsIn):
     if options.stopAfterConvert:
         print 'Conversion complete, finished!'
         return 0
-    
+
+    if options.site != "AN" and options.site != "GR":
+        raise Exception("Site must be either AN or GR.")
+        
     isSouth = (options.site == 'AN')
 
     # Call the processing routine
