@@ -465,17 +465,22 @@ void fill_blend_options(ASPGlobalOptions const& opt, BlendOptions & blend_option
   blend_options.main_path = opt.out_prefix + "-Dnosym.tif";
 
   // Get the top level output folder for parallel_stereo
-  boost::filesystem::path parallel_stereo_folder(opt.out_prefix); 
+  boost::filesystem::path parallel_stereo_folder(opt.out_prefix);
+
   parallel_stereo_folder = parallel_stereo_folder.parent_path().parent_path();
-  
-  // Get a list of all the folders in the parallel_stereo output directory
+
+  // This must be sync-ed up with parallel_stereo. Read the list of
+  // dirs that parallel_stereo made.
   std::vector<std::string> folder_list;
-  for (boost::filesystem::directory_iterator iter(parallel_stereo_folder); 
-       iter!=boost::filesystem::directory_iterator(); ++iter) {
-    if (boost::filesystem::is_directory(iter->status())) {
-      folder_list.push_back(iter->path().filename().string());
-    }
+  std::string dir;
+  std::string dirList = opt.out_prefix + "-dirList.txt";
+  std::ifstream ifs(dirList.c_str());
+  while (ifs >> dir){
+    folder_list.push_back(dir);
   }
+  ifs.close();
+  if (folder_list.empty()) 
+    vw_throw( ArgumentErr() << "Something is corrupted. Found an empty file: " << dirList << ".\n" );
   
   // Get the main tile bbox from the subfolder name
   boost::filesystem::path mpath(blend_options.main_path);

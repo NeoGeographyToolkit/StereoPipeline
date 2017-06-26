@@ -130,8 +130,20 @@ def create_subproject_dirs( settings, **kw ):
     # Don't symlink to RD.tif or PC.tif as those will be files which
     # actually need to be created in each subdirectory.
 
+    out_prefix = settings['out_prefix'][0]
+        
+    # Save the list of subdirectories to disk. This is used in stereo_blend.
+    dirList = out_prefix + '-dirList.txt'
+    try:
+        parentDir = os.path.dirname(dirList)
+        mkdir_p(parentDir)
+    except:
+        pass
+    
+    print ("Writing: " + dirList)
+    fout = open(dirList, 'w')
+    
     for tile in produce_tiles( settings, opt.job_size_w, opt.job_size_h ):
-        out_prefix     = settings['out_prefix'][0]
         subproject_dir = tile_dir(out_prefix, tile)
         tile_prefix    = subproject_dir + "/" + tile.name_str()
         if opt.dryrun:
@@ -139,6 +151,8 @@ def create_subproject_dirs( settings, **kw ):
             print("soft linking via %s %s" % (tile_prefix, out_prefix))
         else:
             mkdir_p(subproject_dir)
+
+            fout.write(subproject_dir + "\n")
 
             # Get list of files in the output (not tile) directory
             files = glob.glob(out_prefix + '*')
@@ -152,6 +166,8 @@ def create_subproject_dirs( settings, **kw ):
                 if os.path.lexists(dst_f): continue
                 os.symlink(rel_src, dst_f)
 
+    fout.close()
+    
 def rename_files( settings, postfix_in, postfix_out, **kw ):
 
     # Rename tile_dir/file_in.tif to tile_dir/file_out.tif
