@@ -282,14 +282,16 @@ def main(argsIn):
     if options.allFrames:
         options.frameStart = firstFrame
         options.frameStop  = lastFrame
-    
-    if ((options.frameStart not in frameDict) or
-        (options.frameStop and options.frameStop not in frameDict) ):
-        logger.error('Error: Requested frame(s) not found in this flight.\n'+
-                    'First available frame is: ' + str(firstFrame)+'.\n'+
-                    'Last  available frame is: ' + str(lastFrame )+'.\n')
-        return -1
-    
+
+    # There is always a chance that not all requested frames are available.
+    # That is particularly true for Fireball DEMs. Instead of failing,
+    # just download what is present and give a warning. 
+    if options.frameStart not in frameDict:
+        logger.info("Warning: Frame " + str(options.frameStart) + " is not found in this flight.")
+                    
+    if options.frameStop and (options.frameStop not in frameDict):
+        logger.info("Warning: Frame " + str(options.frameStop) + " is not found in this flight.")
+                    
     # Init the big curl command
     # - We will add multiple file targets and then execute the command
     cookiePaths = ' -b ~/.urs_cookies -c ~/.urs_cookies '

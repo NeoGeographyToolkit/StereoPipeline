@@ -31,3 +31,7 @@ The images can then be processed via the tool:
 
 StereoPipeline/src/asp/IceBridge/full_processing_script.py 
 
+It is important to note that sometimes the camera changes in
+mid-flight. One should not process together images that do not all
+have the same camera calibration file.
+

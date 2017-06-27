@@ -58,7 +58,7 @@ def fetchAllRunData(yyyymmdd, site, frameStart, frameStop, outputFolder,
     orthoCommand = '--type ortho ' + baseCommand +' '+ orthoFolder
     demCommand   = '--type dem   ' + baseCommand +' '+ demFolder
     lidarCommand = '--type lidar ' + baseCommand +' '+ lidarFolder
-    
+
     # TODO: Handle runs without DEM or ORTHO data.
     
     # Try to do all the downloads one after another
@@ -397,6 +397,9 @@ def main(argsIn):
 
     os.system('mkdir -p ' + outputFolder)
 
+    if not os.path.isfile(cameraFile):
+        raise Exception("Missing camera file: " + cameraFile)
+                          
     logLevel = logging.INFO # Make this an option??
     logger   = setUpLogger(outputFolder, logLevel)
 
@@ -423,7 +426,7 @@ def main(argsIn):
                                       jpegFolder, orthoFolder, demFolder, lidarFolder)
         if fetchResult == -1:
             return -1
-        
+       
     if options.stopAfterFetch:
         logger.info('Fetching complete, finished!')
         return 0
