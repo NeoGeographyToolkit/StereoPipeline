@@ -849,12 +849,31 @@ resolution 40 times as coarse, so we use a grid size of $0.0013$ degrees
 here is \texttt{longlat}).
 
 \begin{verbatim}
-  point2dem  -r moon --nodata-value -32768 --tr 0.0013 run_nomap/run-PC.tif
+  point2dem --search-radius-factor 5 --tr 0.0013 run_nomap/run-PC.tif 
 \end{verbatim}
 
 As mentioned earlier, some tweaks to the parameters used by \texttt{point2dem}
 may be necessary for this low-resolution DEM to be smooth enough and
 with no holes.
+
+Note that we used \texttt{-\/-search-radius-factor 5} to expand the DEM
+a bit, to counteract future erosion in stereo due to the correlation kernel
+size.
+
+If this terrain is close to the poles, say within 25 degrees of
+latitude, it is advised to use a stereographic projection, centered
+either at the nearest pole, or close to the center of the current
+DEM. Its center's longitude and latitude can be found with
+\texttt{gdalinfo -stats}, which can then be passed to \texttt{point2dem}
+such as
+
+\begin{verbatim}
+  point2dem --stereographic --proj-lon <lon_ctr> --proj-lat <lat_ctr> ...
+\end{verbatim}
+
+By calling \texttt{gdalinfo -proj4}, the PROJ.4 string of the obtained DEM can
+be found, which can be used in mapprojection later, and with the resolution
+switched to meters from degrees (see section \ref{dg-mapproj} for more details). 
 
 Next, we map-project the images onto this DEM, using the original resolution
 of $3.3 \times 10^{-5}$ degrees.
@@ -887,7 +906,7 @@ will be the final point cloud and we want the increased accuracy.
 
 Lastly, we create a DEM at 1 meter resolution:
 \begin{verbatim}
-  point2dem  -r moon --nodata-value -32768 --tr 0.000033 run_map/run-PC.tif
+  point2dem --nodata-value -32768 --tr 0.000033 run_map/run-PC.tif
 \end{verbatim}
 Note here that we could have used a coarser resolution for the final
 DEM, such as 4 meters/pixel, since we won't see detail at the level of
@@ -1251,7 +1270,7 @@ option and specify the use of the left image file as the texture file
 to use for the projection:
 
 \begin{verbatim}
-  >  point2dem -r mars  results/output-PC.tif --orthoimage results/output-L.tif
+  >  point2dem results/output-PC.tif --orthoimage results/output-L.tif
 \end{verbatim}
 
 The texture file must always be specified after the point cloud
