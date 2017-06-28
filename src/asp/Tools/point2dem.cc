@@ -347,7 +347,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::options_description projection_options("Projection options");
   projection_options.add_options()
-    ("t_srs",         po::value(&opt.target_srs_string)->default_value(""), "Specify the output projection (PROJ.4 string).")
+    ("t_srs",         po::value(&opt.target_srs_string)->default_value(""), "Specify the output projection (PROJ.4 string). Can also be an URL or in WKT format, as in GDAL.")
     ("t_projwin",     po::value(&opt.target_projwin),
      "The output DEM will have corners with these georeferenced coordinates.")
     ("dem-spacing,s", po::value(&dem_spacing1)->default_value(""),

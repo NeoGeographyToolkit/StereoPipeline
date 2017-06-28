@@ -502,12 +502,11 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
   // Set srs_string into given georef. Note that this may leave the
   // georef's affine transform inconsistent.
 
+  // The srs string can also be an URL, e.g.,
+  // http://spatialreference.org/ref/iau2000/49900/
+  
   // Use the target_srs_string
 #if defined(VW_HAVE_PKG_GDAL) && VW_HAVE_PKG_GDAL==1
-
-  // User convenience, convert 'IAU2000:' to 'DICT:IAU2000.wkt,'
-  boost::replace_first(srs_string,
-                       "IAU2000:","DICT:IAU2000.wkt,");
 
   // TODO: The line below is fishy. A better choice would be
   // srs_string = georef.overall_proj4_str() but this needs testing.
@@ -528,8 +527,10 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
 
   // Re-apply the user's datum. The important values were already
   // there (major/minor axis), we're just re-applying to make sure
-  // the name of the datum is there.
-  if ( have_user_datum )
+  // the name of the datum is there in case it was not resolved so far.
+  // This may also change the axes if what t_srs had was different.
+  if ( have_user_datum &&
+       boost::to_lower_copy(georef.datum().name()).find("unknown") != std::string::npos )
     georef.set_datum( user_datum );
 
 #else

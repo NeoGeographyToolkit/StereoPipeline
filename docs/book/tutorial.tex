@@ -1291,9 +1291,10 @@ defined in the target spatial reference set. The following examples
 produce the same output.
 
 \begin {verbatim}
-  >  point2dem --t_srs IAU2000:49900 results/output-PC.tif
-  >  point2dem --t_srs "+proj=longlat +a=3396190 +b=3376200"
-       results/output-PC.tif
+  point2dem --t_srs http://spatialreference.org/ref/iau2000/49900/ \
+     results/output-PC.tif
+  point2dem --t_srs "+proj=longlat +a=3396190 +b=3376200"
+     results/output-PC.tif
 \end{verbatim}
 
 The \texttt{point2dem} program can be used in many different ways. The
