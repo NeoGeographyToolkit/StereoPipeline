@@ -150,6 +150,7 @@ namespace asp {
 
     void parse_rpb( xercesc::DOMElement* node ); ///< Digital Globe XML
     void parse_rational_function_model( xercesc::DOMElement* node ); ///< Pleiades / Astrium
+    void parse_perusat_model( xercesc::DOMElement* node ); ///< PeruSat-1
 
     void parse_bbox( xercesc::DOMElement* node ); ///< Read the valid sensor model bounds
 

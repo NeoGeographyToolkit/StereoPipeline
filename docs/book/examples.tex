@@ -765,14 +765,16 @@ Download the N1511700120\_1.IMG and W1567133629\_1.IMG images and their label (.
 Processing of Digital Globe images is described extensively in the
 tutorial in chapter \ref{ch:dg_tutorial}.
 
-\section{RPC Imagery, including GeoEye, Astrium, and Cartosat-1}
+\section{RPC Imagery, including GeoEye, Astrium, Cartosat-1, and PeruSat-1}
 \label{rpc}
 
 Some vendors, such as GeoEye with its Ikonos and two GeoEye satellites,
-and Astrium, with its SPOT and Pleiades satellites, and the Indian Cartosat-1 
-satellite, provide only
+and Astrium, with its SPOT and Pleiades satellites, the Indian Cartosat-1 
+satellite provide only
 Rational Polynomial Camera (RPC) models. Digital Globe provides both
-exact linescan camera models and their RPC approximations.
+exact linescan camera models and their RPC approximations and ASP supports both. 
+Apparently such is the case as well for PeruSat-1, but ASP supports only 
+the RPC model for this satellite. 
 
 RPC represents four 20-element polynomials that map geodetic coordinates
 (longitude-latitude-height above datum)
@@ -782,19 +784,23 @@ approximation to complex exact camera models that are unique to each
 vendor. The only downside is that it has less precision in our
 opinion compared to the exact camera models.
 
-ASP provides a tool named \texttt{cam2rpc} (section \ref{cam2rpc}), that can be
-used to create RPC camera models from ISIS and all other cameras
-that we support, including for non-Earth planets. How to use
-such models with stereo is shown below.   
+In addition to supporting vendor-provided RPC models, ASP provides a
+tool named \texttt{cam2rpc} (section \ref{cam2rpc}), that can be used to
+create RPC camera models from ISIS and all other cameras that ASP
+understands, including for non-Earth planets (currently only the Earth, Moon
+and Mars are supported). In such situations, the planet datum must be
+passed to the tools reading the RPC models, as shown below.
 
-Our RPC read driver is GDAL. If the command \texttt{gdalinfo} can identify
-the RPC information inside the headers of your files, ASP will likely
-be able to see it as well. This means that sometimes we can get away
-with only providing a left and right image, with no extra files
-containing camera information. This is specifically the
-case for GeoEye and Cartosat-1. Otherwise, the camera files must be specified 
-separately in XML files, as done for Digital
-Globe images (section \ref{rawdg}).  
+Our RPC read driver is GDAL. If the command \texttt{gdalinfo} can
+identify the RPC information inside the headers of your image files (whether
+that information is actually embedeed in the images, or stored
+separately in some auxiliary files with a convention GDAL understands),
+ASP will likely be able to see it as well. This means that sometimes we
+can get away with only providing a left and right image, with no extra
+files containing camera information. This is specifically the case for
+GeoEye, and Cartosat-1. Otherwise, the camera files must be specified
+separately in XML files, as done for Digital Globe images (section
+\ref{rawdg}) and PeruSat-1.
 
 For a first test, you can download an example stereo pair from GeoEye's
 website at \cite{geoeye:samples}. When we accessed the site, we
