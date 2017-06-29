@@ -18,12 +18,13 @@
 
 # Fetch all the data for a run and then process all the data.
 # Sample usage:
-# python ~/projects/StereoPipeline/src/asp/IceBridge/full_processing_script.py --yyyymmdd 20111018 --site AN AN_2011_10_18 camera_calib/5D_MII_28mm_DMS\#04_03Oct2011.tsai --num-processes 1 --num-threads 12 --bundle-length 12 --start-frame 350 --stop-frame 400
+# python ~/projects/StereoPipeline/src/asp/IceBridge/full_processing_script.py --yyyymmdd 20091016 --site AN AN_2009_10_16 --num-processes 1 --num-threads 12 --bundle-length 12 --start-frame 350 --stop-frame 353
 
-import os, sys, optparse, datetime, time, subprocess, logging, multiprocessing
+import os, sys, optparse, datetime, time, subprocess, logging, multiprocessing, re
+import os.path as P
 
 # The path to the ASP python files and tools
-basepath      = os.path.abspath(sys.path[0])
+basepath      = os.path.dirname(os.path.realpath(__file__)) # won't change, unlike syspath
 pythonpath    = os.path.abspath(basepath + '/../Python')     # for dev ASP
 libexecpath   = os.path.abspath(basepath + '/../libexec')    # for packaged ASP
 icebridgepath = os.path.abspath(basepath + '/../IceBridge')  # IceBridge tools
@@ -44,6 +45,26 @@ os.environ["PATH"] = basepath       + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = pythonpath     + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = libexecpath    + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
+
+def lookupCamera(cameraLoopkupFile, yyyymmdd, site):
+
+    camera = ""
+    
+    with open(cameraLoopkupFile, "r") as cf:
+        for line in cf:
+            line = line.strip()
+            vals = re.split('\s+', line)
+            if len(vals) < 3: continue
+            if vals[0] != site or vals[1] != yyyymmdd: continue
+            camera = vals[2]
+
+    if camera == "":
+        raise Exception('Failed to parse the camera.')
+
+    # Switch the extension to .tsai
+    camera = camera[:-4] + '.tsai'
+
+    return camera
 
 def fetchAllRunData(yyyymmdd, site, frameStart, frameStop, outputFolder,
                     jpegFolder, orthoFolder, demFolder, lidarFolder):
@@ -339,7 +360,8 @@ def setUpLogger(outputFolder, logLevel):
 def main(argsIn):
 
     try:
-        usage = '''usage: full_processing_script.py <output_folder> <camera_file>'''
+        # See an example of usage on top of this file.
+        usage = '''usage: full_processing_script.py <options> <output_folder>'''
                       
         parser = optparse.OptionParser(usage=usage)
 
@@ -350,6 +372,12 @@ def main(argsIn):
                           help="Specify the year, month, and day in one YYMMDD string.")
         parser.add_option("--site",  dest="site", default=None,
                           help="Name of the location of the images (AN or GR)")
+
+        parser.add_option("--camera-lookup-file",  dest="cameraLookupFile", default=None,
+                          help="The file to use to find which camera was used for which flight. By default it is in the same directory as this script and named camera_lookup.txt.")
+        
+        parser.add_option("--camera-file",  dest="cameraFile", default=None,
+                          help="The camera calibration file for the given flight. If not specified it is looked up automatically.")
 
         # Processing options
         parser.add_option('--bundle-length', dest='bundleLength', default=2,
@@ -385,21 +413,26 @@ def main(argsIn):
                           
         (options, args) = parser.parse_args(argsIn)
 
-        if len(args) != 2:
+        if len(args) != 1:
             print usage
             return -1
         
         outputFolder = os.path.abspath(args[0])
-        cameraFile   = os.path.abspath(args[1])
 
     except optparse.OptionError, msg:
         raise Usage(msg)
 
+    if options.cameraLookupFile is None:
+        options.cameraLookupFile = P.join(basepath, 'camera_lookup.txt')
+        
+    if options.cameraFile is None:
+        options.cameraFile = lookupCamera(options.cameraLookupFile, options.yyyymmdd, options.site)
+
+    if not os.path.isfile(options.cameraFile):
+        raise Exception("Missing camera file: " + options.cameraFile)
+                          
     os.system('mkdir -p ' + outputFolder)
 
-    if not os.path.isfile(cameraFile):
-        raise Exception("Missing camera file: " + cameraFile)
-                          
     logLevel = logging.INFO # Make this an option??
     logger   = setUpLogger(outputFolder, logLevel)
 
@@ -438,7 +471,8 @@ def main(argsIn):
         
         # TODO: Handle case where orthofiles are not present!
         # TODO: What arguments need to be passed in here!
-        getCameraModelsFromOrtho(imageFolder, orthoFolder, cameraFile, cameraFolder, options.numProcesses)
+        getCameraModelsFromOrtho(imageFolder, orthoFolder, options.cameraFile,
+                                 cameraFolder, options.numProcesses)
        
         convertLidarDataToCsv(lidarFolder)
         
