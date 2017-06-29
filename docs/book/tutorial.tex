@@ -1293,8 +1293,15 @@ produce the same output.
 \begin {verbatim}
   point2dem --t_srs http://spatialreference.org/ref/iau2000/49900/ \
      results/output-PC.tif
+
   point2dem --t_srs "+proj=longlat +a=3396190 +b=3376200"
      results/output-PC.tif
+
+   point2dem --t_srs 'GEOGCS["Geographic Coordinate System",                     
+                         DATUM["D_Mars_2000",
+                         SPHEROID["Mars_2000_IAU_IAG",3396190,169.894447223611]],
+                         PRIMEM["Greenwich",0],
+                         UNIT["degree",0.0174532925199433]]' results/output-PC.tif
 \end{verbatim}
 
 The \texttt{point2dem} program can be used in many different ways. The

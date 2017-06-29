@@ -528,11 +528,13 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
   // Re-apply the user's datum. The important values were already
   // there (major/minor axis), we're just re-applying to make sure
   // the name of the datum is there in case it was not resolved so far.
-  // This may also change the axes if what t_srs had was different.
   if ( have_user_datum &&
-       boost::to_lower_copy(georef.datum().name()).find("unknown") != std::string::npos )
+       boost::to_lower_copy(georef.datum().name()).find("unknown") != std::string::npos &&
+       georef.datum().semi_major_axis() == user_datum.semi_major_axis() &&
+       georef.datum().semi_minor_axis() == user_datum.semi_minor_axis() ) {
     georef.set_datum( user_datum );
-
+  }
+  
 #else
   vw_throw( NoImplErr() << "Target SRS option is not available without GDAL support. Please rebuild VW and ASP with GDAL." );
 #endif
