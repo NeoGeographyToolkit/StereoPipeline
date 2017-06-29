@@ -1273,13 +1273,17 @@ to use for the projection:
   >  point2dem results/output-PC.tif --orthoimage results/output-L.tif
 \end{verbatim}
 
-The texture file must always be specified after the point cloud
-file. See figure \ref{p19-norm_ortho} on the right for the output of
-this command.
+The texture file must always be specified after the point cloud file in
+this command. See figure \ref{p19-norm_ortho} on the right for the
+output image.
 
-If the DEM has holes, which can be inevitable, those holes will also
-show up in the orthoimage. They can be filled in using the option
-\texttt{-\/-orthoimage-hole-fill-len} with a value passed to it.
+To fill in any holes in the obtained orthoimage, one can invoke it
+with a larger value of the grid size (the \texttt{-\/-tr} option)
+and/or with a variation of the options:
+
+\begin{verbatim}
+   --no-dem --orthoimage-hole-fill-len 100 --search-radius-factor 2 
+\end{verbatim}
 
 The \texttt{point2dem} program is also able to accept output
 projection options the same way as the tools in GDAL. Well-known EPSG,
@@ -1288,13 +1292,15 @@ target spatial reference set flag, \texttt{-\/-t\_srs}. If the target
 spatial reference flag is applied with any of the reference spheroid
 options, the reference spheroid option will overwrite the datum
 defined in the target spatial reference set. The following examples
-produce the same output.
+produce the same output. However, the last two results will also 
+show correctly the name of the datum in the geoheader, not just the values
+of its axes.
 
 \begin {verbatim}
-  point2dem --t_srs http://spatialreference.org/ref/iau2000/49900/ \
+  point2dem --t_srs "+proj=longlat +a=3396190 +b=3376200"
      results/output-PC.tif
 
-  point2dem --t_srs "+proj=longlat +a=3396190 +b=3376200"
+  point2dem --t_srs http://spatialreference.org/ref/iau2000/49900/ \
      results/output-PC.tif
 
    point2dem --t_srs 'GEOGCS["Geographic Coordinate System",                     
