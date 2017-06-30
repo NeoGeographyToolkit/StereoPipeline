@@ -75,13 +75,16 @@ def processBatch(imageCameraPairs, lidarFolder, outputFolder, options):
 
 def getImageSpacing(orthoFolder):
     '''Find a good image stereo spacing interval that gives us a good
-       balance between coverage and baseline width.'''
+       balance between coverage and baseline width.
+       Also detect all frames where this is a large break after the current frame.'''
 
     # Do nothing if this option was not provided
     if not orthoFolder:
         return None
    
     logger.info('Computing optimal image stereo interval...')
+
+    breaks = []
    
     # Generate a list of valid, full path ortho files
     fileList = os.listdir(orthoFolder)
@@ -96,18 +99,29 @@ def getImageSpacing(orthoFolder):
     orthoFiles.sort()
     numOrthos = len(orthoFiles)
 
-    # Get the bounding box of each ortho image
+    # Get the bounding box and frame number of each ortho image
     logger.info('Loading bounding boxes...')
     bboxes = []
+    frames = []
     for i in range(0, numOrthos):
         imageGeoInfo = asp_geo_utils.getImageGeoInfo(orthoFiles[i], getStats=False)
-        thisBox = imageGeoInfo['projection_bounds']    
+        thisBox      = imageGeoInfo['projection_bounds']
+        thisFrame    = icebridge_common.getFrameNumberFromFilename(orthoFiles[i])
         bboxes.append(thisBox)
+        frames.append(thisFrame)
 
     # Since we are only comparing the image bounding boxes, not their exact corners,
     #  these ratios are only estimates.
     MAX_RATIO = 0.8 # Increase skip until we get below this...
     MIN_RATIO = 0.4 # ... but don't go below this value!
+
+    def getBboxArea(bbox):
+        '''Return the area of a bounding box in form of (minX, maxX, minY, maxY)'''
+        width  = bbox[1] - bbox[0]
+        height = bbox[3] - bbox[2]
+        if (width < 0) or (height < 0):
+            return 0
+        return width*height
 
     # Iterate over stereo image intervals to try to get our target numbers
     interval  = 0
@@ -127,15 +141,28 @@ def getImageSpacing(orthoFolder):
             # Compute intersection area between this and next image
             thisBox   = bboxes[i  ]
             lastBox   = bboxes[i+interval]
-            intersect = [max(lastBox[0], thisBox[0]),
-                         min(lastBox[1], thisBox[1]),
-                         max(lastBox[2], thisBox[2]),
-                         min(lastBox[3], thisBox[3])]
-            thisArea  = (thisBox[1] - thisBox[0]) * (thisBox[3] - thisBox[2])
-            area      = (intersect[1] - intersect[0]) * (intersect[3] - intersect[2])
+            intersect = [max(lastBox[0], thisBox[0]), # Min X
+                         min(lastBox[1], thisBox[1]), # Max X
+                         max(lastBox[2], thisBox[2]), # Min Y
+                         min(lastBox[3], thisBox[3])] # Max Y
+            thisArea  = getBboxArea(thisBox)
+            area      = getBboxArea(intersect)
             ratio     = area / thisArea
-            meanRatio = meanRatio + ratio
-            count     = count + 1
+            #print 'thisBox = ' + str(thisBox)
+            #print 'lastBox = ' + str(lastBox)
+            #print 'intersect = ' + str(intersect)
+            #print 'thisArea = ' + str(thisArea)
+            #print 'area = ' + str(area)
+            #print 'ratio = ' + str(ratio)
+            # Don't include non-overlapping frames in the statistics
+            if area > 0:
+                meanRatio = meanRatio + ratio
+                count     = count + 1
+            
+            # On the first pass (with interval 1) check for gaps in coverage.
+            if (interval == 1) and (area <= 0):
+                breaks.append(frames[i])
+                logger.info('Detected large break after frame ' + str(frames[i]))
             
         # Get the mean intersection ratio
         meanRatio = meanRatio / count
@@ -146,8 +173,9 @@ def getImageSpacing(orthoFolder):
         interval = interval - 1
         
     logger.info('Computed automatic image stereo interval: ' + str(interval))
+    logger.info('Detected ' + str(interval) + ' breaks in image coverage.')
     
-    return interval
+    return (interval, breaks)
 
 
 def main(argsIn):
@@ -265,9 +293,6 @@ def main(argsIn):
     cmd = 'orbitviz --hide-labels -t nadirpinhole -r wgs84 -o '+ orbitvizBefore +' '+ vizString
     asp_system_utils.executeCommand(cmd, orbitvizBefore, suppressOutput, redo)
     
-    logger.info('Starting processing pool with ' + str(options.numProcesses) +' processes.')
-    pool = multiprocessing.Pool(options.numProcesses)
-    
     # Set up options for process_icebridge_batch
     extraOptions = ' --stereo-algorithm ' + str(options.stereoAlgo)
     if options.numThreads:
@@ -279,13 +304,20 @@ def main(argsIn):
     if options.maxDisplacement:
         extraOptions += ' --max-displacement ' + str(options.maxDisplacement)
    
+    (autoStereoInterval, breaks) = getImageSpacing(options.orthoFolder)
     if options.imageStereoInterval: 
         logger.info('Using manually specified image stereo interval: ' + str(options.imageStereoInterval))
     else:
-        options.imageStereoInterval = getImageSpacing(options.orthoFolder)
+        logger.info('Using automatic stereo interval: ' + str(autoStereoInterval))
+        options.imageStereoInterval = autoStereoInterval
         if options.imageStereoInterval >= numFiles:
             raise Exception('Error: Automatic skip interval is greater than the number of input files!')       
     extraOptions += ' --stereo-image-interval ' + str(options.imageStereoInterval)
+
+    logger.info('Detected frame breaks: ' + str(breaks))
+
+    logger.info('Starting processing pool with ' + str(options.numProcesses) +' processes.')
+    pool = multiprocessing.Pool(options.numProcesses)
     
     # Call process_icebridge_batch on each batch of images.
     # - Batch size should be the largest number of images which can be effectively bundle-adjusted.
@@ -308,8 +340,9 @@ def main(argsIn):
         
         numPairs = len(batchImageCameraPairs)
         
-        # Keep adding frames until we get enough or hit the last frame
-        if (numPairs < options.bundleLength) and (frameNumber < options.stopFrame):
+        # Keep adding frames until we get enough or hit the last frame or hit a break
+        hitBreakFrame = frameNumber in breaks
+        if (numPairs < options.bundleLength) and (frameNumber < options.stopFrame) and (not hitBreakFrame):
             continue
 
         # Check if the output file already exists.
@@ -328,13 +361,18 @@ def main(argsIn):
             # Generate the command call
             taskHandles.append(pool.apply_async(processBatch, 
                 (batchImageCameraPairs, lidarFolder, thisOutputFolder, extraOptions)))
-            
-        # Reset variables to start from a frame near the end of the current set.
-        # - The amount of frame overlap is equal to the image stereo interval,
-        #   this makes it so that that each image gets to be the left image in a stereo pair.
-        batchOverlapCount = -1 * options.imageStereoInterval
-        batchImageCameraPairs = batchImageCameraPairs[batchOverlapCount:]
-        frameNumbers          = frameNumbers[batchOverlapCount:]
+        
+        if hitBreakFrame:
+            # When we hit a break in the frames we need to start the next batch after the break frame
+            batchImageCameraPairs = []
+            frameNumbers          = []
+        else:
+            # Reset variables to start from a frame near the end of the current set.
+            # - The amount of frame overlap is equal to the image stereo interval,
+            #   this makes it so that that each image gets to be the left image in a stereo pair.
+            batchOverlapCount     = -1 * options.imageStereoInterval
+            batchImageCameraPairs = batchImageCameraPairs[batchOverlapCount:]
+            frameNumbers          = frameNumbers[batchOverlapCount:]
             
     # End of loop through input file pairs
     logger.info('Finished adding ' + str(len(taskHandles)) + ' tasks to the pool.')

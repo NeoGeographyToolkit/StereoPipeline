@@ -46,64 +46,6 @@ os.environ["PATH"] = pythonpath     + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = libexecpath    + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 
-# Find the calibrated camera to use for given flight and date range.
-# Need to parse a table having the specifics. 
-def lookupCamera(cameraLoopkupFile, yyyymmdd, site, startFrame, stopFrame):
-
-    frame2cam = {}
-    
-    with open(cameraLoopkupFile, "r") as cf:
-        for line in cf:
-
-            line = line.strip()
-            vals = re.split('\s+', line)
-            if len(vals) < 3: continue
-            if vals[0] != site or vals[1] != yyyymmdd: continue
-            
-            curr_camera = vals[2]
-            if curr_camera == "":
-                raise Exception('Found an empty camera for day and site: ' + yyyymmdd + ' ' + site)
-                
-            # There is one default camera, and possible a backup camera for a range
-            # of frames
-            m = re.match("^.*?frames\s+(\d+)-(\d+)", line)
-            if not m:
-                # The default camera, it is always before the backup one in the list.
-                # So this map must not be populated yet with this key.
-                for i in range(startFrame, stopFrame+1):
-                    if i in frame2cam:
-                        raise Exception('Book-keeping failure.')
-                    frame2cam[i] = curr_camera
-            else:
-                # The backup camera for a range
-                startRange = int(m.group(1))
-                stopRange  = int(m.group(2))
-                for i in range(startRange, stopRange+1):
-                    if i < startFrame or i > stopFrame: continue
-                    frame2cam[i] = curr_camera
-
-    # There must be only one camera for the current range
-    camera = ""
-    for frame in frame2cam.keys():
-
-        curr_camera = frame2cam[frame]
-
-        if camera == "":
-            camera = curr_camera
-
-        if camera != "" and curr_camera != camera:
-            raise Exception('Found two cameras for the current range ' + \
-                            '%d - %d: %s and %s. Cannot proceed.'
-                            % (startFrame, stopFrame, camera, curr_camera) )
-
-    if camera == "":
-        raise Exception('Failed to parse the camera.')
-
-    # Switch the extension to .tsai
-    camera = camera[:-4] + '.tsai'
-
-    return camera
-
 def fetchAllRunData(yyyymmdd, site, startFrame, stopFrame, outputFolder,
                     jpegFolder, orthoFolder, demFolder, lidarFolder):
     '''Download all data needed to process a run'''
@@ -194,15 +136,66 @@ def convertJpegs(jpegFolder, imageFolder):
         if not os.path.exists(outputPath):
             raise Exception('Failed to convert jpeg file: ' + jpegFile)
 
-def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile):
+def getCalibrationFileForFrame(cameraLoopkupFile, inputCalFolder, frame, yyyymmdd, site):
+    '''Return the camera model file to be used with a given input frame.'''
+
+    # To manually force a certain camera file, use this spot!
+    #name = 'IODCC0_2015_GR_NASA_DMS20.tsai'
+    #return os.path.join(inputCalFolder, name)
+
+    camera = ''
+    
+    # Iterate through lines in lookup file
+    with open(cameraLoopkupFile, "r") as cf:
+        for line in cf:
+
+            # Split line into parts and match site/date entries
+            line = line.strip()
+            vals = re.split('\s+', line)
+            if len(vals) < 3:
+                continue
+            if vals[0] != site or vals[1] != yyyymmdd:
+                continue
+            
+            curr_camera = vals[2]
+            if curr_camera == "":
+                raise Exception('Found an empty camera for day and site: ' + yyyymmdd + ' ' + site)
+                
+            # There is one default camera, and possible a backup camera for a range
+            # of frames
+            m = re.match("^.*?frames\s+(\d+)-(\d+)", line)
+            if not m:
+                # The default camera, it is always before the backup one in the list.
+                # So this map must not be populated yet with this key.
+                camera = curr_camera
+            else:
+                # The backup camera for a range
+                startRange = int(m.group(1))
+                stopRange  = int(m.group(2))
+                if (frame >= startRange) and (frame <= stopRange):
+                    camera = curr_camera
+
+            break # Each frame will match only one line
+
+    if camera == "":
+        raise Exception('Failed to parse the camera.')
+
+    # Switch the extension to .tsai
+    camera = camera[:-4] + '.tsai'
+
+    return os.path.join(inputCalFolder, camera)
+
+
+
+def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile, refDemPath, numThreads):
     '''Generate a camera model from a single ortho file'''
 
     logger = logging.getLogger(__name__)
 
     # Call ortho2pinhole command
     ortho2pinhole = asp_system_utils.which("ortho2pinhole")
-    cmd = (('%s %s %s %s %s') % (ortho2pinhole, inputPath, orthoPath,
-                                 inputCamFile, outputCamFile))
+    cmd = (('%s %s %s %s %s --reference-dem %s --threads %d') % (ortho2pinhole, inputPath, orthoPath,
+                                 inputCamFile, outputCamFile, refDemPath, numThreads))
     logger.info(cmd)
     os.system(cmd)
     
@@ -213,13 +206,13 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile):
     # TODO: Clean up the .gcp file?
 
 
-def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCamFile, cameraFolder, numProcesses):
+def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
+                             cameraLookupPath, yyyymmdd, site,
+                             refDemPath, cameraFolder, numProcesses, numThreads):
     '''Generate camera models from the ortho files'''
     
     logger = logging.getLogger(__name__)
     logger.info('Generating camera models from ortho images...')
-
-    # TODO: DEM/height options for this tool
     
     imageFiles = os.listdir(imageFolder)
     orthoFiles = os.listdir(orthoFolder)
@@ -257,9 +250,13 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCamFile, cameraFolde
         if os.path.exists(outputCamFile):
             logger.info("File exists, skipping: " + outputCamFile)
             continue
+
+        # Determine which input camera file will be used for this frame
+        inputCamFile = getCalibrationFileForFrame(cameraLookupPath, inputCalFolder, frame, yyyymmdd, site)
                
         # Add ortho2pinhole command to the task pool
-        taskHandles.append(pool.apply_async(cameraFromOrthoWrapper, (inputPath, orthoPath, inputCamFile, outputCamFile)))
+        taskHandles.append(pool.apply_async(cameraFromOrthoWrapper, 
+                                            (inputPath, orthoPath, inputCamFile, outputCamFile, refDemPath, numThreads)))
 
     # Wait for all the tasks to complete
     logger.info('Finished adding ' + str(len(taskHandles)) + ' tasks to the pool.')
@@ -270,7 +267,8 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCamFile, cameraFolde
     logger.info('Cleaning up the ortho processing pool...')
     icebridge_common.stopTaskPool(pool)
     logger.info('Finished cleaning up the ortho processing pool')
-    
+
+
 def convertLidarDataToCsv(lidarFolder):
     '''Make sure all lidar data is available in a readable text format'''
 
@@ -296,6 +294,7 @@ def convertLidarDataToCsv(lidarFolder):
         extract_icebridge_ATM_points.main([fullPath])
         if not os.path.exists(outputPath):
             raise Exception('Failed to parse LIDAR file: ' + fullPath)
+
 
 def pairLidarFiles(lidarFolder):
     '''For each pair of lidar files generate a double size point cloud.
@@ -371,6 +370,7 @@ def processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFo
     logger.info('Process command: ' + processCommand)
     process_icebridge_run.main(processCommand.split())
 
+
 def setUpLogger(outputFolder, logLevel):
     '''Set up the root logger so all called files will write to the same output file'''
 
@@ -391,11 +391,12 @@ def setUpLogger(outputFolder, logLevel):
     logger = logging.getLogger(__name__) # We configured root, but continue logging with the normal name.
     return logger
 
+
 def main(argsIn):
 
     try:
         # See an example of usage on top of this file.
-        usage = '''usage: full_processing_script.py <options> <output_folder>'''
+        usage = '''usage: full_processing_script.py <output_folder> <camera_calibration_folder> <ref_dem_folder>'''
                       
         parser = optparse.OptionParser(usage=usage)
 
@@ -410,9 +411,6 @@ def main(argsIn):
         parser.add_option("--camera-lookup-file",  dest="cameraLookupFile", default=None,
                           help="The file to use to find which camera was used for which flight. By default it is in the same directory as this script and named camera_lookup.txt.")
         
-        parser.add_option("--camera-file",  dest="cameraFile", default=None,
-                          help="The camera calibration file for the given flight. If not specified it is looked up automatically.")
-
         # Processing options
         parser.add_option('--bundle-length', dest='bundleLength', default=2,
                           type='int', help='The number of images to bundle adjust and process in a single batch.')
@@ -450,11 +448,13 @@ def main(argsIn):
                           
         (options, args) = parser.parse_args(argsIn)
 
-        if len(args) != 1:
+        if len(args) != 3:
             print usage
             return -1
         
-        outputFolder = os.path.abspath(args[0])
+        outputFolder   = os.path.abspath(args[0])
+        inputCalFolder = os.path.abspath(args[1])
+        refDemFolder   = os.path.abspath(args[2])
 
     except optparse.OptionError, msg:
         raise Usage(msg)
@@ -473,17 +473,33 @@ def main(argsIn):
 
     if options.cameraLookupFile is None:
         options.cameraLookupFile = P.join(basepath, 'camera_lookup.txt')
+    if not os.path.isfile(options.cameraLookupFile):
+        raise Exception("Missing camera file: " + options.cameraLookupFile)
         
-    if options.cameraFile is None:
-        options.cameraFile = lookupCamera(options.cameraLookupFile,
-                                          options.yyyymmdd, options.site,
-                                          startFrame, stopFrame)
-        
-    if not os.path.isfile(options.cameraFile):
-        raise Exception("Missing camera file: " + options.cameraFile)
-                          
-    logger.info('Using camera file: ' + options.cameraFile)
 
+    # Perform some input checks
+    if not os.path.exists(inputCalFolder):
+        raise Exception("Missing camera calibration folder: " + inputCalFolder)
+    if not os.path.exists(refDemFolder):
+        raise Exception("Missing reference DEM folder: " + refDemFolder)       
+    if not options.yyyymmdd:
+        raise Exception("The run date must be specified!")
+    if not options.site:
+        raise Exception("The run site must be specified!")
+
+    os.system('mkdir -p ' + outputFolder)
+    
+    # Get the low resolution reference DEM to use
+    if options.site == 'AN':
+        refDemPath = 'krigged_dem_nsidc_ndv0_fill.tif'
+    if options.site == 'GR':
+        refDemPath = 'gimpdem_90m_v1.1.tif'
+    if options.site == 'AL':
+        refDemPath = 'akdem300m.tif'
+    refDemPath = os.path.join(refDemFolder, refDemPath)
+    if not os.path.exists(refDemPath):
+        raise Exception("Missing reference DEM: " + refDemPath)
+                          
     # Set up the output folders
     cameraFolder  = os.path.join(outputFolder, 'camera')
     imageFolder   = os.path.join(outputFolder, 'image')
@@ -517,10 +533,9 @@ def main(argsIn):
     else:
         convertJpegs(jpegFolder, imageFolder)
         
-        # TODO: Handle case where orthofiles are not present!
-        # TODO: What arguments need to be passed in here!
-        getCameraModelsFromOrtho(imageFolder, orthoFolder, options.cameraFile,
-                                 cameraFolder, options.numProcesses)
+        getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder, 
+                                 options.cameraLookupFile, options.yyyymmdd, options.site, 
+                                 refDemPath, cameraFolder, options.numProcesses, options.numThreads)
        
         convertLidarDataToCsv(lidarFolder)
         
