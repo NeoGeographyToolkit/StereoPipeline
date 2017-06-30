@@ -17,12 +17,7 @@
 # __END_LICENSE__
 
 # Fetch all the data for a run and then process all the data.
-# Sample usage:
-# python ~/projects/StereoPipeline/src/asp/IceBridge/full_processing_script.py --yyyymmdd 20091016 --site AN --num-processes 1 --num-threads 12 --bundle-length 12 --start-frame 350 --stop-frame 353
-
-# An output folder will be crated automatically (with a name like
-# AN_20091016), or its name can be specified via the --output-folder
-# option.
+# See sample usage below.
 
 import os, sys, optparse, datetime, time, subprocess, logging, multiprocessing, re
 import os.path as P
@@ -399,7 +394,13 @@ def setUpLogger(outputFolder, logLevel):
 def main(argsIn):
 
     try:
-        # See an example of usage on top of this file.
+        # Sample usage:
+        # python ~/projects/StereoPipeline/src/asp/IceBridge/full_processing_script.py \
+        #   --yyyymmdd 20091016 --site AN --num-processes 1 --num-threads 12 --bundle-length 12 \
+        #   --start-frame 350 --stop-frame 353 camera_calib ref_dem_folder
+        # An output folder will be crated automatically (with a name like
+        # AN_20091016), or its name can be specified via the --output-folder
+        # option.
         usage = '''usage: full_processing_script.py <options> <camera_calibration_folder> <ref_dem_folder>'''
                       
         parser = optparse.OptionParser(usage=usage)
@@ -495,22 +496,6 @@ def main(argsIn):
     logLevel = logging.INFO # Make this an option??
     logger   = setUpLogger(options.outputFolder, logLevel)
 
-    # Skip the camera logic if we just fetch, as we don't know properly
-    # then the ranges we will later process, and this function will error out.
-    if not options.stopAfterFetch:
-        if options.cameraLookupFile is None:
-            options.cameraLookupFile = P.join(basepath, 'camera_lookup.txt')
-            
-        if options.cameraFile is None:
-            options.cameraFile = lookupCamera(options.cameraLookupFile,
-                                              options.yyyymmdd, options.site,
-                                              startFrame, stopFrame)
-        
-        if not os.path.isfile(options.cameraFile):
-            raise Exception("Missing camera file: " + options.cameraFile)
-                          
-        logger.info('Using camera file: ' + options.cameraFile)
-
     # Perform some input checks
     if not os.path.exists(inputCalFolder):
         raise Exception("Missing camera calibration folder: " + inputCalFolder)
@@ -521,18 +506,19 @@ def main(argsIn):
     if not options.site:
         raise Exception("The run site must be specified!")
 
-    os.system('mkdir -p ' + outputFolder)
+    os.system('mkdir -p ' + options.outputFolder)
     
-    # Get the low resolution reference DEM to use
-    if options.site == 'AN':
-        refDemPath = 'krigged_dem_nsidc_ndv0_fill.tif'
-    if options.site == 'GR':
-        refDemPath = 'gimpdem_90m_v1.1.tif'
-    if options.site == 'AL':
-        refDemPath = 'akdem300m.tif'
-    refDemPath = os.path.join(refDemFolder, refDemPath)
-    if not os.path.exists(refDemPath):
-        raise Exception("Missing reference DEM: " + refDemPath)
+    # Get the low resolution reference DEM to use. Bypass this if only fetching is desired.
+    if not options.stopAfterFetch and not options.dryRun:
+        if options.site == 'AN':
+            refDemPath = 'krigged_dem_nsidc_ndv0_fill.tif'
+        if options.site == 'GR':
+            refDemPath = 'gimpdem_90m_v1.1.tif'
+        if options.site == 'AL':
+            refDemPath = 'akdem300m.tif'
+        refDemPath = os.path.join(refDemFolder, refDemPath)
+        if not os.path.exists(refDemPath):
+            raise Exception("Missing reference DEM: " + refDemPath)
                           
     # Set up the output folders
     cameraFolder  = os.path.join(options.outputFolder, 'camera')
