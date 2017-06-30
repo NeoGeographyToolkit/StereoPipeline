@@ -533,3 +533,26 @@ AN 20161117 camera_calib/IODCC0_2016_AN_NASA_DMS22.pdf
 AN 20161118 camera_calib/IODCC0_2016_AN_NASA_DMS22.pdf
 
 
+# Orthoimage directories that have no corresponding raw
+# image directory. The data itself exists though. For
+# example, orthoimages from 2009.10.29
+# https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/IODMS1B.001/2009.10.26/
+# have their raw data stored in the dir for the prev day
+# https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/2009_AN_NASA/10252009_raw/
+20091026
+20091106
+20091110
+20091113
+20101027
+20101111
+20120318
+20121108
+20131121
+20131128
+20150328
+20150331
+20150912
+20150927
+20160422
+20160716
+

@@ -46,17 +46,55 @@ os.environ["PATH"] = pythonpath     + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = libexecpath    + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 
-def lookupCamera(cameraLoopkupFile, yyyymmdd, site):
+# Find the calibrated camera to use for given flight and date range.
+# Need to parse a table having the specifics. 
+def lookupCamera(cameraLoopkupFile, yyyymmdd, site, startFrame, stopFrame):
 
-    camera = ""
+    frame2cam = {}
     
     with open(cameraLoopkupFile, "r") as cf:
         for line in cf:
+
             line = line.strip()
             vals = re.split('\s+', line)
             if len(vals) < 3: continue
             if vals[0] != site or vals[1] != yyyymmdd: continue
-            camera = vals[2]
+            
+            curr_camera = vals[2]
+            if curr_camera == "":
+                raise Exception('Found an empty camera for day and site: ' + yyyymmdd + ' ' + site)
+                
+            # There is one default camera, and possible a backup camera for a range
+            # of frames
+            m = re.match("^.*?frames\s+(\d+)-(\d+)", line)
+            if not m:
+                # The default camera, it is always before the backup one in the list.
+                # So this map must not be populated yet with this key.
+                for i in range(startFrame, stopFrame+1):
+                    if i in frame2cam:
+                        raise Exception('Book-keeping failure.')
+                    frame2cam[i] = curr_camera
+            else:
+                # The backup camera for a range
+                startRange = int(m.group(1))
+                stopRange  = int(m.group(2))
+                for i in range(startRange, stopRange+1):
+                    if i < startFrame or i > stopFrame: continue
+                    frame2cam[i] = curr_camera
+
+    # There must be only one camera for the current range
+    camera = ""
+    for frame in frame2cam.keys():
+
+        curr_camera = frame2cam[frame]
+
+        if camera == "":
+            camera = curr_camera
+
+        if camera != "" and curr_camera != camera:
+            raise Exception('Found two cameras for the current range ' + \
+                            '%d - %d: %s and %s. Cannot proceed.'
+                            % (startFrame, stopFrame, camera, curr_camera) )
 
     if camera == "":
         raise Exception('Failed to parse the camera.')
@@ -66,7 +104,7 @@ def lookupCamera(cameraLoopkupFile, yyyymmdd, site):
 
     return camera
 
-def fetchAllRunData(yyyymmdd, site, frameStart, frameStop, outputFolder,
+def fetchAllRunData(yyyymmdd, site, startFrame, stopFrame, outputFolder,
                     jpegFolder, orthoFolder, demFolder, lidarFolder):
     '''Download all data needed to process a run'''
     
@@ -74,7 +112,7 @@ def fetchAllRunData(yyyymmdd, site, frameStart, frameStop, outputFolder,
     logger.info('Downloading all data for the run! This could take a while.')
     
     baseCommand = (('--yyyymmdd %s --site %s --frame-start %d --frame-stop %d')
-                   % (yyyymmdd, site, frameStart, frameStop))
+                   % (yyyymmdd, site, startFrame, stopFrame))
     jpegCommand  = '--type image ' + baseCommand +' '+ jpegFolder
     orthoCommand = '--type ortho ' + baseCommand +' '+ orthoFolder
     demCommand   = '--type dem   ' + baseCommand +' '+ demFolder
@@ -422,19 +460,26 @@ def main(argsIn):
     except optparse.OptionError, msg:
         raise Usage(msg)
 
+    os.system('mkdir -p ' + outputFolder)
+    logLevel = logging.INFO # Make this an option??
+    logger   = setUpLogger(outputFolder, logLevel)
+
+    if options.site != "AN" and options.site != "GR":
+        raise Exception("Site must be either AN or GR.")
+    isSouth = (options.site == 'AN')
+
     if options.cameraLookupFile is None:
         options.cameraLookupFile = P.join(basepath, 'camera_lookup.txt')
         
     if options.cameraFile is None:
-        options.cameraFile = lookupCamera(options.cameraLookupFile, options.yyyymmdd, options.site)
-
+        options.cameraFile = lookupCamera(options.cameraLookupFile,
+                                          options.yyyymmdd, options.site,
+                                          options.startFrame, options.stopFrame)
+        
     if not os.path.isfile(options.cameraFile):
         raise Exception("Missing camera file: " + options.cameraFile)
                           
-    os.system('mkdir -p ' + outputFolder)
-
-    logLevel = logging.INFO # Make this an option??
-    logger   = setUpLogger(outputFolder, logLevel)
+    logger.info('Using camera file: ' + options.cameraFile)
 
     # Set up the output folders
     cameraFolder  = os.path.join(outputFolder, 'camera')
@@ -481,11 +526,6 @@ def main(argsIn):
     if options.stopAfterConvert:
         print 'Conversion complete, finished!'
         return 0
-
-    if options.site != "AN" and options.site != "GR":
-        raise Exception("Site must be either AN or GR.")
-        
-    isSouth = (options.site == 'AN')
 
     # Call the processing routine
     processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFolder, isSouth,
