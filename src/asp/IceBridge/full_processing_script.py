@@ -111,7 +111,7 @@ def fetchAllRunData(yyyymmdd, site, startFrame, stopFrame, outputFolder,
     logger = logging.getLogger(__name__)
     logger.info('Downloading all data for the run! This could take a while.')
     
-    baseCommand = (('--yyyymmdd %s --site %s --frame-start %d --frame-stop %d')
+    baseCommand = (('--yyyymmdd %s --site %s --start-frame %d --stop-frame %d')
                    % (yyyymmdd, site, startFrame, stopFrame))
     jpegCommand  = '--type image ' + baseCommand +' '+ jpegFolder
     orthoCommand = '--type ortho ' + baseCommand +' '+ orthoFolder
@@ -271,10 +271,6 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCamFile, cameraFolde
     icebridge_common.stopTaskPool(pool)
     logger.info('Finished cleaning up the ortho processing pool')
     
-    
-    
-    
-
 def convertLidarDataToCsv(lidarFolder):
     '''Make sure all lidar data is available in a readable text format'''
 
@@ -423,10 +419,13 @@ def main(argsIn):
         # TODO: Compute this automatically??
         parser.add_option('--overlap-limit', dest='overlapLimit', default=2,
                           type='int', help='The number of images to treat as overlapping for bundle adjustment.')
-        parser.add_option('--start-frame', dest='startFrame', default=None,
-                          type='int', help='Frame to start with.  Leave this and stop-frame blank to process all frames.')
-        parser.add_option('--stop-frame', dest='stopFrame', default=None,
-                          type='int', help='Frame to stop on.')
+
+        # Python treats numbers starting with 0 as being in octal rather than decimal.
+        # Ridiculous. So read them as strings and convert to int. 
+        parser.add_option('--start-frame', dest='startFrameStr', default=None,
+                          help='Frame to start with.  Leave this and stop-frame blank to process all frames.')
+        parser.add_option('--stop-frame', dest='stopFrameStr', default=None,
+                          help='Frame to stop on.')
 
         parser.add_option("--processing-subfolder",  dest="processingSubfolder", default=None,
                           help="Specify a subfolder name where the processing outputs will go.  Default is no additional folder")
@@ -460,6 +459,10 @@ def main(argsIn):
     except optparse.OptionError, msg:
         raise Usage(msg)
 
+    # Explicitely go from strings to integers, per earlier note. 
+    startFrame = int(options.startFrameStr)
+    stopFrame  = int(options.stopFrameStr)
+    
     os.system('mkdir -p ' + outputFolder)
     logLevel = logging.INFO # Make this an option??
     logger   = setUpLogger(outputFolder, logLevel)
@@ -474,7 +477,7 @@ def main(argsIn):
     if options.cameraFile is None:
         options.cameraFile = lookupCamera(options.cameraLookupFile,
                                           options.yyyymmdd, options.site,
-                                          options.startFrame, options.stopFrame)
+                                          startFrame, stopFrame)
         
     if not os.path.isfile(options.cameraFile):
         raise Exception("Missing camera file: " + options.cameraFile)
@@ -500,7 +503,7 @@ def main(argsIn):
     else:
         # Call data fetch routine and check the result
         fetchResult = fetchAllRunData(options.yyyymmdd, options.site, 
-                                      options.startFrame, options.stopFrame, outputFolder,
+                                      startFrame, stopFrame, outputFolder,
                                       jpegFolder, orthoFolder, demFolder, lidarFolder)
         if fetchResult == -1:
             return -1
@@ -529,7 +532,7 @@ def main(argsIn):
 
     # Call the processing routine
     processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFolder, isSouth,
-                  options.bundleLength, options.startFrame, options.stopFrame,
+                  options.bundleLength, startFrame, stopFrame,
                   options.numProcesses, options.numThreads, )
 
    

@@ -171,9 +171,9 @@ def main(argsIn):
         parser.add_option("--site",  dest="site", default=None,
                           help="Name of the location of the images (AN or GR)")
         
-        parser.add_option("--frame-start",  dest="frameStart", type='int', default=None,
+        parser.add_option("--start-frame",  dest="startFrame", type='int', default=None,
                           help="Frame number or start of frame sequence")
-        parser.add_option("--frame-stop",  dest="frameStop", type='int', default=None,
+        parser.add_option("--stop-frame",  dest="stopFrame", type='int', default=None,
                           help="End of frame sequence to download.")
         parser.add_option("--all-frames", action="store_true", dest="allFrames", default=False,
                           help="Fetch all frames for this flight.")
@@ -201,9 +201,9 @@ def main(argsIn):
             options.month = int(options.yyyymmdd[4:6])
             options.day   = int(options.yyyymmdd[6:8])
 
-        if not options.frameStop:
-            options.frameStop = options.frameStart
-
+        if not options.stopFrame:
+            options.stopFrame = options.startFrame
+        
         # Error checking
         if (not options.year) or (not options.month) or (not options.day):
             logger.error('Error: year, month, and day must be provided.\n' + usage)
@@ -280,17 +280,17 @@ def main(argsIn):
                 lastFrame = frameNumber
 
     if options.allFrames:
-        options.frameStart = firstFrame
-        options.frameStop  = lastFrame
+        options.startFrame = firstFrame
+        options.stopFrame  = lastFrame
 
     # There is always a chance that not all requested frames are available.
     # That is particularly true for Fireball DEMs. Instead of failing,
     # just download what is present and give a warning. 
-    if options.frameStart not in frameDict:
-        logger.info("Warning: Frame " + str(options.frameStart) + " is not found in this flight.")
+    if options.startFrame not in frameDict:
+        logger.info("Warning: Frame " + str(options.startFrame) + " is not found in this flight.")
                     
-    if options.frameStop and (options.frameStop not in frameDict):
-        logger.info("Warning: Frame " + str(options.frameStop) + " is not found in this flight.")
+    if options.stopFrame and (options.stopFrame not in frameDict):
+        logger.info("Warning: Frame " + str(options.stopFrame) + " is not found in this flight.")
                     
     # Init the big curl command
     # - We will add multiple file targets and then execute the command
@@ -307,7 +307,7 @@ def main(argsIn):
     currentFileCount = 0
     for frame in sorted(frameDict.keys()):
 
-        if (frame >= options.frameStart) and (frame <= options.frameStop):
+        if (frame >= options.startFrame) and (frame <= options.stopFrame):
 
             filename   = frameDict[frame]
             url        = os.path.join(folderUrl, filename)
@@ -322,7 +322,7 @@ def main(argsIn):
                 currentFileCount += 1 # Number of files in the current download command
         
         # Download the indicated files when we hit the limit or run out of files
-        if (currentFileCount >= MAX_IN_ONE_CALL) or ((frame == options.frameStop) and (currentFileCount > 0)):
+        if (currentFileCount >= MAX_IN_ONE_CALL) or ((frame == options.stopFrame) and (currentFileCount > 0)):
             logger.info(curlCmd)
             if not options.dryRun:
                 logger.info("Saving the data in " + outputFolder)

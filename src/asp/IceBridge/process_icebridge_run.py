@@ -18,7 +18,6 @@
 
 # Process an entire run of icebrige images. Multiple runs will be started in parallel.
 
-
 # All the image, camera, and lidar files must have date and time stamps,
 # like the orthoimages and the Fireball DEMs. As such, raw image
 # files must be renamed to be similar to the ortho image files.
