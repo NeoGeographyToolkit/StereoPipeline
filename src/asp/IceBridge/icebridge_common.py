@@ -18,7 +18,7 @@
 
 # Icebridge utility functions
 
-import os, sys, datetime, time, subprocess, logging
+import os, sys, datetime, time, subprocess, logging, re
 
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
@@ -32,11 +32,18 @@ sys.path.insert(0, libexecpath)
 import asp_system_utils, asp_alg_utils, asp_geo_utils
 asp_system_utils.verify_python_version_is_supported()
 
+def getSmallestFrame():
+    return 0
+
+def getLargestFrame():
+    return 99999999 # 100 million should be enough
 
 def getCameraFileName(imageFileName):
     '''Get the camera file name we associate with an input image file'''
     return imageFileName.replace('.tif', '.tsai')
 
+# TODO: Integrate this with getFrameNumberFromFilename2() with a lot of care!
+# This function may not be robust if the number is 4 digits instead of 5.
 def getFrameNumberFromFilename(f):
     '''Return the frame number of an image or camera file'''
     # Look for a 5 digit number, that is usually the frame name.
@@ -54,6 +61,33 @@ def getFrameNumberFromFilename(f):
 
     raise Exception('Cannot parse the frame number from ' + f)
     return 0
+
+# This function works for raw images, orthoimages, DEMs, lvis, atm1, and atm2 files.
+# It does not work yet for tsai files.
+def getFrameNumberFromFilename2(filename):
+
+    # Match 2009_10_16_<several digits>.JPG
+    m = re.match("^.*?(\d+\_\d+\_\d+\_)(\d+)(\.JPG)", filename, re.IGNORECASE)
+    if m: return int(m.group(2))
+
+    # Match DMS_1000109_03939_20091016_23310503_V02.tif
+    m = re.match("^.*?(DMS\_\d+\_)(\d+)(\w+\.tif)", filename, re.IGNORECASE)
+    if m: return int(m.group(2))
+
+    # Match IODMS3_20111018_14295436_00347_DEM.tif
+    m = re.match("^.*?(IODMS[a-zA-Z0-9]*?\_\d+\_\d+\_)(\d+)(\w+DEM\.tif)", filename, re.IGNORECASE)
+    if m: return int(m.group(2))
+    
+    # Match ILVIS2_AQ2015_0929_R1605_060226.TXT
+    m = re.match("^.*?(ILVIS.*?_)(\d+)(.TXT)", filename, re.IGNORECASE)
+    if m: return int(m.group(2))
+
+    # Match ILATM1B_20091016_193033.atm4cT3.qi
+    # or    ILATM1B_20160713_195419.ATM5BT5.h5
+    m = re.match("^.*?(ILATM\w+\_\d+\_)(\d+)\.\w+\.(h5|qi)", filename, re.IGNORECASE)
+    if m: return int(m.group(2))
+
+    raise Exception('Could not parse: ' + filename)
 
 def parseDateTimeStrings(dateString, timeString, secFix=False):
     '''Parse strings in the format 20110323_17433900'''

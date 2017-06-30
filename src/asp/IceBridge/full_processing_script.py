@@ -18,7 +18,11 @@
 
 # Fetch all the data for a run and then process all the data.
 # Sample usage:
-# python ~/projects/StereoPipeline/src/asp/IceBridge/full_processing_script.py --yyyymmdd 20091016 --site AN AN_2009_10_16 --num-processes 1 --num-threads 12 --bundle-length 12 --start-frame 350 --stop-frame 353
+# python ~/projects/StereoPipeline/src/asp/IceBridge/full_processing_script.py --yyyymmdd 20091016 --site AN --num-processes 1 --num-threads 12 --bundle-length 12 --start-frame 350 --stop-frame 353
+
+# An output folder will be crated automatically (with a name like
+# AN_20091016), or its name can be specified via the --output-folder
+# option.
 
 import os, sys, optparse, datetime, time, subprocess, logging, multiprocessing, re
 import os.path as P
@@ -46,7 +50,7 @@ os.environ["PATH"] = pythonpath     + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = libexecpath    + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 
-def fetchAllRunData(yyyymmdd, site, startFrame, stopFrame, outputFolder,
+def fetchAllRunData(yyyymmdd, site, dryRun, startFrame, stopFrame, outputFolder,
                     jpegFolder, orthoFolder, demFolder, lidarFolder):
     '''Download all data needed to process a run'''
     
@@ -55,6 +59,9 @@ def fetchAllRunData(yyyymmdd, site, startFrame, stopFrame, outputFolder,
     
     baseCommand = (('--yyyymmdd %s --site %s --start-frame %d --stop-frame %d')
                    % (yyyymmdd, site, startFrame, stopFrame))
+    if dryRun:
+        baseCommand += ' --dry-run'
+        
     jpegCommand  = '--type image ' + baseCommand +' '+ jpegFolder
     orthoCommand = '--type ortho ' + baseCommand +' '+ orthoFolder
     demCommand   = '--type dem   ' + baseCommand +' '+ demFolder
@@ -96,7 +103,6 @@ def getJpegDateTime(filepath):
         timeString = parts[2].strip().replace(':','')
         
         return (dateString, timeString)
-
 
     raise Exception('Failed to read date/time from file: ' + filepath)
 
@@ -184,8 +190,6 @@ def getCalibrationFileForFrame(cameraLoopkupFile, inputCalFolder, frame, yyyymmd
     camera = camera[:-4] + '.tsai'
 
     return os.path.join(inputCalFolder, camera)
-
-
 
 def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile, refDemPath, numThreads):
     '''Generate a camera model from a single ortho file'''
@@ -396,7 +400,7 @@ def main(argsIn):
 
     try:
         # See an example of usage on top of this file.
-        usage = '''usage: full_processing_script.py <output_folder> <camera_calibration_folder> <ref_dem_folder>'''
+        usage = '''usage: full_processing_script.py <options> <camera_calibration_folder> <ref_dem_folder>'''
                       
         parser = optparse.OptionParser(usage=usage)
 
@@ -404,9 +408,12 @@ def main(argsIn):
 
         # Run selection
         parser.add_option("--yyyymmdd",  dest="yyyymmdd", default=None,
-                          help="Specify the year, month, and day in one YYMMDD string.")
+                          help="Specify the year, month, and day in one YYYYMMDD string.")
         parser.add_option("--site",  dest="site", default=None,
                           help="Name of the location of the images (AN or GR)")
+
+        parser.add_option("--output-folder",  dest="outputFolder", default=None,
+                          help="Name of the output folder. If not specified, use something like AN_YYYYMMDD.")
 
         parser.add_option("--camera-lookup-file",  dest="cameraLookupFile", default=None,
                           help="The file to use to find which camera was used for which flight. By default it is in the same directory as this script and named camera_lookup.txt.")
@@ -445,27 +452,19 @@ def main(argsIn):
                           help="Stop program after data fetching.")
         parser.add_option("--stop-after-convert", action="store_true", dest="stopAfterConvert", default=False,
                           help="Stop program after data conversion.")
+        parser.add_option("--dry-run", action="store_true", dest="dryRun", default=False,
+                          help="Set up the input directories but do not fetch/process any imagery.")
                           
         (options, args) = parser.parse_args(argsIn)
 
-        if len(args) != 3:
+        if len(args) != 2:
             print usage
             return -1
-        
-        outputFolder   = os.path.abspath(args[0])
-        inputCalFolder = os.path.abspath(args[1])
-        refDemFolder   = os.path.abspath(args[2])
+        inputCalFolder = os.path.abspath(args[0])
+        refDemFolder   = os.path.abspath(args[1])
 
     except optparse.OptionError, msg:
         raise Usage(msg)
-
-    # Explicitely go from strings to integers, per earlier note. 
-    startFrame = int(options.startFrameStr)
-    stopFrame  = int(options.stopFrameStr)
-    
-    os.system('mkdir -p ' + outputFolder)
-    logLevel = logging.INFO # Make this an option??
-    logger   = setUpLogger(outputFolder, logLevel)
 
     if options.site != "AN" and options.site != "GR":
         raise Exception("Site must be either AN or GR.")
@@ -476,6 +475,41 @@ def main(argsIn):
     if not os.path.isfile(options.cameraLookupFile):
         raise Exception("Missing camera file: " + options.cameraLookupFile)
         
+    if len(options.yyyymmdd) != 8:
+        raise Exception("The --yyyymmdd field must have length 8.")
+
+    if options.outputFolder is None:
+        options.outputFolder = options.site + '_' + options.yyyymmdd
+
+    # Explicitely go from strings to integers, per earlier note.
+    if options.startFrameStr is not None:
+        startFrame = int(options.startFrameStr)
+    else:
+        startFrame = icebridge_common.getSmallestFrame()
+    if options.stopFrameStr is not None:
+        stopFrame  = int(options.stopFrameStr)
+    else:
+        stopFrame = icebridge_common.getLargestFrame()
+    
+    os.system('mkdir -p ' + options.outputFolder)
+    logLevel = logging.INFO # Make this an option??
+    logger   = setUpLogger(options.outputFolder, logLevel)
+
+    # Skip the camera logic if we just fetch, as we don't know properly
+    # then the ranges we will later process, and this function will error out.
+    if not options.stopAfterFetch:
+        if options.cameraLookupFile is None:
+            options.cameraLookupFile = P.join(basepath, 'camera_lookup.txt')
+            
+        if options.cameraFile is None:
+            options.cameraFile = lookupCamera(options.cameraLookupFile,
+                                              options.yyyymmdd, options.site,
+                                              startFrame, stopFrame)
+        
+        if not os.path.isfile(options.cameraFile):
+            raise Exception("Missing camera file: " + options.cameraFile)
+                          
+        logger.info('Using camera file: ' + options.cameraFile)
 
     # Perform some input checks
     if not os.path.exists(inputCalFolder):
@@ -501,13 +535,13 @@ def main(argsIn):
         raise Exception("Missing reference DEM: " + refDemPath)
                           
     # Set up the output folders
-    cameraFolder  = os.path.join(outputFolder, 'camera')
-    imageFolder   = os.path.join(outputFolder, 'image')
-    jpegFolder    = os.path.join(outputFolder, 'jpeg')
-    orthoFolder   = os.path.join(outputFolder, 'ortho')
-    demFolder     = os.path.join(outputFolder, 'fireball')
-    lidarFolder   = os.path.join(outputFolder, 'lidar') # Paired files go in /paired
-    processFolder = os.path.join(outputFolder, 'processed')
+    cameraFolder  = os.path.join(options.outputFolder, 'camera')
+    imageFolder   = os.path.join(options.outputFolder, 'image')
+    jpegFolder    = os.path.join(options.outputFolder, 'jpeg')
+    orthoFolder   = os.path.join(options.outputFolder, 'ortho')
+    demFolder     = os.path.join(options.outputFolder, 'fireball')
+    lidarFolder   = os.path.join(options.outputFolder, 'lidar') # Paired files go in /paired
+    processFolder = os.path.join(options.outputFolder, 'processed')
     
     # Handle subfolder option.  This is useful for comparing results with different parameters!
     if options.processingSubfolder:
@@ -518,13 +552,13 @@ def main(argsIn):
         logger.info('Skipping fetch.')
     else:
         # Call data fetch routine and check the result
-        fetchResult = fetchAllRunData(options.yyyymmdd, options.site, 
-                                      startFrame, stopFrame, outputFolder,
+        fetchResult = fetchAllRunData(options.yyyymmdd, options.site, options.dryRun,
+                                      startFrame, stopFrame, options.outputFolder,
                                       jpegFolder, orthoFolder, demFolder, lidarFolder)
         if fetchResult == -1:
             return -1
        
-    if options.stopAfterFetch:
+    if options.stopAfterFetch or options.dryRun:
         logger.info('Fetching complete, finished!')
         return 0
 

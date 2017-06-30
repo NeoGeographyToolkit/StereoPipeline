@@ -125,33 +125,29 @@ def fetchAndParseIndexFile(folderUrl, path, parsedPath, fileType):
 
     # Extract just the file names
     if fileType == 'image':
-        fileList = re.findall(">[0-9_]*.JPG", indexText)
+        fileList = re.findall(">[0-9_]*.JPG", indexText, re.IGNORECASE)
     if fileType == 'ortho':
-        fileList = re.findall(">DMS_[0-9_]*.tif<", indexText)
+        fileList = re.findall(">DMS\w*.tif<", indexText, re.IGNORECASE) 
     if fileType == 'dem':
-        fileList = re.findall(">IODMS[0-9_]*_DEM.tif", indexText)
+        fileList = re.findall(">IODMS\w*DEM.tif", indexText, re.IGNORECASE)
     if fileType == 'lvis':
-        fileList = re.findall(">ILVIS2[GLAQR0-9_]*.TXT", indexText)
+        fileList = re.findall(">ILVIS\w+.TXT", indexText, re.IGNORECASE)
     if fileType == 'atm1':
-        fileList = re.findall(">ILATM1B[0-9_]*.ATM4BT[0-9].qi", indexText)
-#                               >ILATM1B_20111018_145455.ATM4BT4.qi
+        fileList = re.findall(">ILATM1B[0-9_]*.ATM4\w+.qi", indexText, re.IGNORECASE)
+        #                      >ILATM1B_20111018_145455.ATM4BT4.qi
+        #   or                 >ILATM1B_20091016_165112.atm4cT3.qi
     if fileType == 'atm2':
-        fileList = re.findall(">ILATM1B[0-9_]*.ATM[45]BT[45].h5", indexText)
+        # Match ILATM1B_20160713_195419.ATM5BT5.h5 
+        fileList = re.findall(">ILATM1B[0-9_]*.ATM\w+.h5", indexText, re.IGNORECASE)
     
-    # For each entry that matched the regex, record: the "frame" number, the file name.
+    # For each entry that matched the regex, record: the frame number and the file name.
     with open(parsedPath, 'w') as f:
-        for x in fileList:
-            if fileType == 'image':
-                f.write(x[12:17] +', '+ x[1:] + '\n')
-            if fileType == 'ortho':
-                f.write(x[13:18] +', '+ x[1:-1] + '\n')
-            if fileType == 'dem':
-                f.write(x[26:31] +', '+ x[1:] + '\n')
-            if fileType == 'lvis':
-                f.write(x[27:32] +', '+ x[1:] + '\n')
-            if (fileType == 'atm1') or (fileType == 'atm2'):
-                f.write(x[18:24] +', '+ x[1:] + '\n')
-
+        for filename in fileList:
+            # Get rid of '>' and '<'
+            filename = filename.replace(">", "")
+            filename = filename.replace("<", "")
+            frame = icebridge_common.getFrameNumberFromFilename2(filename)
+            f.write(str(frame) + ', ' + filename + '\n')
 
 def main(argsIn):
 
@@ -267,8 +263,8 @@ def main(argsIn):
     # - Keep track of the earliest and latest frame
     logger.info('Reading file list from ' + parsedIndexPath)
     frameDict = {}
-    firstFrame = 99999999999
-    lastFrame  = 0
+    firstFrame = icebridge_common.getLargestFrame()    # start big
+    lastFrame  = icebridge_common.getSmallestFrame()   # start small
     with open(parsedIndexPath, 'r') as f:
         for line in f:
             parts       = line.strip().split(',')
