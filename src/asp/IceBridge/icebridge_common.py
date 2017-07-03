@@ -38,6 +38,31 @@ def getSmallestFrame():
 def getLargestFrame():
     return 99999999 # 100 million should be enough
 
+# Return, for example, .tif
+def fileExtension(filename):
+    return os.path.splitext(filename)[1]
+
+def hasImageExtension(filename):
+    extension = fileExtension(filename).lower()
+    if extension == '.tif' or extension == '.jpg' or extension == '.jpeg' or extension == '.ntf':
+        return True
+    return False
+
+def isValidImage(filename):
+    
+    if not os.path.exists(filename):
+        return False
+    
+    gdalinfoPath = asp_system_utils.which("gdalinfo")
+    cmd = gdalinfoPath + ' ' + filename
+    
+    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+    output, error = p.communicate()
+    if p.returncode != 0:
+        return False
+    
+    return True
+     
 def getCameraFileName(imageFileName):
     '''Get the camera file name we associate with an input image file'''
     return imageFileName.replace('.tif', '.tsai')

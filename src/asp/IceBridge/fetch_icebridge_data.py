@@ -176,6 +176,9 @@ def main(argsIn):
         
         parser.add_option("--dry-run", action="store_true", dest="dryRun", default=False,
                           help="Just print the image/ortho/dem download commands.")
+
+        parser.add_option("--zip-if-all-fetched", action="store_true", dest="zipIfAllFetched", default=False,
+                          help="This will fail if not all the required files exist.")
         
         parser.add_option("--refetch-index", action="store_true", dest="refetchIndex", default=False,
                           help="Force refetch of the index file.")
@@ -254,10 +257,21 @@ def main(argsIn):
     if options.refetchIndex:
         os.system('rm -f ' + indexPath)
         os.system('rm -f ' + parsedIndexPath)
+
     if fileExists(parsedIndexPath):
         logger.info('Already have the index file ' + indexPath + ', keeping it.')
     else:
         fetchAndParseIndexFile(folderUrl, indexPath, parsedIndexPath, options.type)
+    
+    if options.zipIfAllFetched and not fileExists(parsedIndexPath):
+        if options.type != 'dem':
+            raise Exception('Cannot zip, missing file: ' + parsedIndexPath)
+        else:
+            # The DEMs need not be there
+            logger.info('Warning: Missing index file: ' + parsedIndexPath)
+
+    # Files that we will fetch. We will check the success later. 
+    allFilesToFetch=[]
     
     # Store file information in a dictionary
     # - Keep track of the earliest and latest frame
@@ -301,24 +315,34 @@ def main(argsIn):
     
     # Loop through all found frames within the provided range
     currentFileCount = 0
-    for frame in sorted(frameDict.keys()):
-
+    allFrames = sorted(frameDict.keys())
+    lastFrame = ""
+    if len(allFrames) > 0:
+        lastFrame = allFrames[len(allFrames)-1]
+        
+    for frame in allFrames:
         if (frame >= options.startFrame) and (frame <= options.stopFrame):
 
-            filename   = frameDict[frame]
-            url        = os.path.join(folderUrl, filename)
-            outputPath = os.path.join(outputFolder, filename)
+            filename = frameDict[frame]
+
+            # Some files have an associated xml file.
+            # TODO: Don't DEMs also have an associated file, with some other exension? 
+            currFilesToFetch = [filename]
+            if (options.type in LIDAR_TYPES) or (options.type == 'ortho'): 
+                currFilesToFetch.append( filename + '.xml')
+
+            for filename in currFilesToFetch:    
+                url        = os.path.join(folderUrl, filename)
+                outputPath = os.path.join(outputFolder, filename)
+                allFilesToFetch.append(outputPath)
                 
-            if not fileExists(outputPath):
-                # Add to the command
-                curlCmd += ' -O ' + url
-                # Download the accompanying XML file if any
-                if (options.type in LIDAR_TYPES) or (options.type == 'ortho'): 
-                    curlCmd += '.xml -O ' + url
-                currentFileCount += 1 # Number of files in the current download command
+                if not fileExists(outputPath):
+                    # Add to the command
+                    curlCmd += ' -O ' + url
+                    currentFileCount += 1 # Number of files in the current download command
         
         # Download the indicated files when we hit the limit or run out of files
-        if (currentFileCount >= MAX_IN_ONE_CALL) or ((frame == options.stopFrame) and (currentFileCount > 0)):
+        if ((currentFileCount >= MAX_IN_ONE_CALL) or (frame == lastFrame)) and currentFileCount > 0:
             logger.info(curlCmd)
             if not options.dryRun:
                 logger.info("Saving the data in " + outputFolder)
@@ -326,7 +350,24 @@ def main(argsIn):
                 os.waitpid(p.pid, 0)
             # Start command fresh for the next file
             currentFileCount = 0
-            curlCmd          = baseCmd
+            curlCmd = baseCmd
+
+
+    # Verify that all files were fetched
+    if options.zipIfAllFetched:
+        for outputPath in allFilesToFetch:
+            if not fileExists(outputPath): 
+                raise Exception('Cannot zip, missing file: ' + outputPath)
+
+            if icebridge_common.hasImageExtension(outputPath):
+                if not icebridge_common.isValidImage(outputPath):
+                    os.remove(outputPath)
+                    raise Exception('Found an invalid image. Cannot zip. ' +
+                                    'Please rerun fetching. Will wipe the invalid image: ' +
+                                    outputPath)
+                else:
+                    logger.info("Found valid image: " + outputPath)
+                    
 
     return 0
     

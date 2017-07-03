@@ -19,7 +19,7 @@
 # Fetch all the data for a run and then process all the data.
 # See sample usage below.
 
-import os, sys, optparse, datetime, time, subprocess, logging, multiprocessing, re
+import os, sys, optparse, datetime, time, subprocess, logging, multiprocessing, re, shutil, time
 import os.path as P
 
 # The path to the ASP python files and tools
@@ -45,7 +45,9 @@ os.environ["PATH"] = pythonpath     + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = libexecpath    + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 
-def fetchAllRunData(yyyymmdd, site, dryRun, startFrame, stopFrame, outputFolder,
+def fetchAllRunData(yyyymmdd, site, dryRun,
+                    zipIfAllFetched,
+                    startFrame, stopFrame, outputFolder,
                     jpegFolder, orthoFolder, demFolder, lidarFolder):
     '''Download all data needed to process a run'''
     
@@ -57,6 +59,9 @@ def fetchAllRunData(yyyymmdd, site, dryRun, startFrame, stopFrame, outputFolder,
     if dryRun:
         baseCommand += ' --dry-run'
         
+    if zipIfAllFetched:
+        baseCommand += ' --zip-if-all-fetched'
+
     jpegCommand  = '--type image ' + baseCommand +' '+ jpegFolder
     orthoCommand = '--type ortho ' + baseCommand +' '+ orthoFolder
     demCommand   = '--type dem   ' + baseCommand +' '+ demFolder
@@ -277,7 +282,7 @@ def convertLidarDataToCsv(lidarFolder):
     # Loop through all lidar files in the folder
     lidarFiles = os.listdir(lidarFolder)
     for f in lidarFiles:
-        extension = os.path.splitext(f)[1]
+        extension = icebridge_common.fileExtension(f)
         
         # Only interested in a few file types
         if (extension != '.qi') and (extension != '.hdf5') and (extension != '.h5'):
@@ -453,6 +458,8 @@ def main(argsIn):
                           help="Stop program after data fetching.")
         parser.add_option("--stop-after-convert", action="store_true", dest="stopAfterConvert", default=False,
                           help="Stop program after data conversion.")
+        parser.add_option("--zip-if-all-fetched", action="store_true", dest="zipIfAllFetched", default=False,
+                          help="If all files are fetched, check that all image files are valid using gdalinfo, then make a tarball and wipe the files. Otherwise error out.")
         parser.add_option("--dry-run", action="store_true", dest="dryRun", default=False,
                           help="Set up the input directories but do not fetch/process any imagery.")
                           
@@ -539,11 +546,63 @@ def main(argsIn):
     else:
         # Call data fetch routine and check the result
         fetchResult = fetchAllRunData(options.yyyymmdd, options.site, options.dryRun,
+                                      options.zipIfAllFetched,
                                       startFrame, stopFrame, options.outputFolder,
                                       jpegFolder, orthoFolder, demFolder, lidarFolder)
         if fetchResult == -1:
             return -1
-       
+
+        if options.zipIfAllFetched:
+
+            # Sanity checks
+            if not options.stopAfterFetch:
+                raise Exception('Must stop after fetch to be able to zip inputs.')
+            if options.noFetch:
+                raise Exception('Must fetch to be able to zip inputs.')
+        
+            logger.info("All files were fetched and checks passed. Will zip and wipe.")
+            cmd = 'tar czfv ' + options.outputFolder + '.tar.gz ' + options.outputFolder
+            logger.info(cmd)
+            p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+            output, error = p.communicate()
+            if p.returncode != 0:
+                raise Exception('Failed to zip file.')
+
+            if options.outputFolder == "" or options.outputFolder[0] == '.':
+                raise Exception('Output folder is not as expected. ' +
+                                'Not deleting anything just in case.')
+
+            logger.info('Will wipe: ' + options.outputFolder)
+            try:
+                shutil.rmtree(options.outputFolder)
+            except Exception as e:
+                # TODO: Can't wipe it as still logging there
+                print("Failed to wipe " + options.outputFolder)
+                
+            #cmd = '/bin/rm -rfv ' + options.outputFolder
+            #logger.info(cmd)
+            #p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+            #output, error = p.communicate()
+            #if p.returncode != 0:
+            #    raise Exception('Failed to remove files.')
+            
+            cmd = 'rsync -P -avz ' + options.outputFolder + \
+                  '.tar.gz oalexan1@lfe:projects/data/icebridge'
+            logger.info(cmd)
+            p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+            output, error = p.communicate()
+            if p.returncode != 0:
+                raise Exception('Failed to copy files.')
+
+            logger.info('Will wipe: ' + options.outputFolder + '.tar.gz')
+            os.remove(options.outputFolder + '.tar.gz')
+            #cmd = 'rm -fv ' + options.outputFolder + '.tar.gz'
+            #logger.info(cmd)
+            #p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+            #output, error = p.communicate()
+            #if p.returncode != 0:
+            #    raise Exception('Failed to remove file.')
+         
     if options.stopAfterFetch or options.dryRun:
         logger.info('Fetching complete, finished!')
         return 0
