@@ -335,6 +335,13 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
     vw_out() << "\t--> Detected search range: " << stereo_settings().search_range << "\n";
   } // End of case where we had to calculate the search range
 
+  // If the user specified a search range limit, apply it here.
+  if ((stereo_settings().search_range_limit.min() != Vector2i()) || 
+      (stereo_settings().search_range_limit.max() != Vector2i())   ) {     
+    stereo_settings().search_range.crop(stereo_settings().search_range_limit);
+    vw_out() << "\t--> Detected search range constrained to: " << stereo_settings().search_range << "\n";
+  }
+
   // At this point stereo_settings().search_range is populated
 
   DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
@@ -479,7 +486,7 @@ public:
 
       if (!use_local_homography){
         local_search_range = stereo::get_disparity_range( disparity_in_box );
-      }else{ // seed_mode == 0
+      }else{ // use local homography
         int ts = ASPGlobalOptions::corr_tile_size();
         lowres_hom = m_local_hom(bbox.min().x()/ts, bbox.min().y()/ts);
         local_search_range = stereo::get_disparity_range
@@ -542,12 +549,19 @@ public:
       local_search_range.min() = floor(elem_prod(local_search_range.min(),m_upscale_factor));
       local_search_range.max() = ceil (elem_prod(local_search_range.max(),m_upscale_factor));
 
+      // If the user specified a search range limit, apply it here.
+      if ((stereo_settings().search_range_limit.min() != Vector2i()) || 
+          (stereo_settings().search_range_limit.max() != Vector2i())   ) {     
+        local_search_range.crop(stereo_settings().search_range_limit);
+        vw_out() << "\t--> Local search range constrained to: " << local_search_range << "\n";
+      }
+
       VW_OUT(DebugMessage, "stereo") << "SeededCorrelatorView("
-				     << bbox << ") search range "
+				     << bbox << ") local search range "
 				     << local_search_range << " vs "
 				     << stereo_settings().search_range << "\n";
 
-    } else{
+    } else{ // seed mode == 0
       local_search_range = stereo_settings().search_range;
       VW_OUT(DebugMessage,"stereo") << "Searching with "
 				    << stereo_settings().search_range << "\n";
@@ -625,6 +639,14 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
   vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 1 --> CORRELATION \n";
 
   read_search_range_from_dsub(opt);
+
+  // If the user specified a search range limit, apply it here.
+  if ((stereo_settings().search_range_limit.min() != Vector2i()) || 
+      (stereo_settings().search_range_limit.max() != Vector2i())   ) {     
+    stereo_settings().search_range.crop(stereo_settings().search_range_limit);
+    vw_out() << "\t--> Detected search range constrained to: " << stereo_settings().search_range << "\n";
+  }
+
 
   // Provide the user with some feedback of what we are actually going to use.
   vw_out()   << "\t--------------------------------------------------\n";

@@ -8,6 +8,8 @@
      Previously only a parabola method was used.
    * Added option to perform cross-correlation checks on
      multiple resolution levels while using SGM/MGM.
+   * Added option --corr-search-limit to constrain the 
+     automatically computed correlation search range.
    
  - bundle_adjust
    * Added the parameter --nodata-value. 

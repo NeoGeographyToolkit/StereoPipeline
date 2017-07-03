@@ -198,9 +198,14 @@ def main(argsIn):
                                             inputPairs[i][1],  inputPairs[pairIndex][1]))
 
         stereoCmd = ('stereo %s %s -t nadirpinhole --alignment-method epipolar %s' % (argString, thisPairPrefix, threadText))
+        VERTICAL_SEARCH_LIMIT = 10
+        searchLimitString = (' --corr-search-limit -9999 -'+str(VERTICAL_SEARCH_LIMIT)+
+                                                  ' 9999 '+ str(VERTICAL_SEARCH_LIMIT) )
         correlationArgString = (' --xcorr-threshold 2 --min-xcorr-level 1 --corr-kernel 7 7 --subpixel-mode 0' 
-                                + ' --corr-tile-size 6400 --cost-mode 4 --sgm-search-buffer 4 1 '
-                                + ' --stereo-algorithm ' + str(options.stereoAlgo))
+                                + ' --corr-tile-size 9000 --cost-mode 4 --sgm-search-buffer 4 1 '
+                                + ' --stereo-algorithm ' + str(options.stereoAlgo)
+                                + searchLimitString
+                                )
                                #+ ' --corr-blob-filter 100')
         filterArgString = (' --rm-cleanup-passes 0 --median-filter-size 5 ' +
                            ' --texture-smooth-size 17 --texture-smooth-scale 0.14 ')

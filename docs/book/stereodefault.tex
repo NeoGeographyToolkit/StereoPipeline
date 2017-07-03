@@ -270,12 +270,20 @@ WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), Moon
   of erroneous matches, so it can be advantageous to tune the
   search range for a particular data set.
 
-  Commenting out these settings will cause \texttt{stereo} to make an
+  If this option is not provided, \texttt{stereo} will make an
   attempt to guess its search range using interest points.
 
   These four integers define the minimum horizontal and
   vertical disparity and then the maximum horizontal and vertical
   disparity.
+
+\item[corr-search-limit \textnormal{\small{(\emph{integer integer integer integer})}}] \hfill \\
+  Set these parameters to constrain the search range that \texttt{stereo}
+  automatically computes when \texttt{corr-search} is not set.
+  This setting is useful when you have a good idea of the alignment quality
+  in the vertical direction but not in the horizontal direction.  For example,
+  when using pinhole frame cameras with epipolar alignment the actual vertical
+  search range may be much smaller than the automatically computed search range.
 
 \item[xcorr-threshold \textnormal{\small{(\emph{integer})}} (default = 2)] \hfill \\
 
