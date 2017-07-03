@@ -175,15 +175,97 @@ int main( int argc, char *argv[] ) {
         }
       else if( poGeometry != NULL
                && wkbFlatten(poGeometry->getGeometryType()) == wkbPolygon ){
-        std::cout << "---polygon " << std::endl;
-        //OGRPoint *poPoint = (OGRPoint *) poGeometry;
+        
+        std::cout << "--5-polygon " << std::endl;
+        OGRPolygon *poPolygon = (OGRPolygon *) poGeometry;
+        std::cout << "poly is " << poPolygon << std::endl;
+        std::cout << "size is " << poPolygon->getNumInteriorRings() << std::endl;
+
+        // Fetch GetGeometryRef(i)
+        // i is 0 is exterior ring, elseinterior rings!
+        
         //printf( "%.3f,%3.f\n", poPoint->getX(), poPoint->getY() );
         FILE * fp = NULL;
         char ** papszOptions = NULL;
+        char * prefix = "apa";
         poGeometry->dumpReadable( fp, "", papszOptions );
-        std::cout << "--end dumpreadable polygon" << std::endl;
-      }else{
-        printf( "no point geometry\n" );
+
+        std::cout << "--54end dumpreadable polygon" << std::endl;
+
+        const char* pszDisplayGeometry =
+          CSLFetchNameValue(papszOptions, "DISPLAY_GEOMETRY");
+
+        std::cout << "---ffdfgeometry9" << std::endl;
+        //std::cout << "--9geomeytryu " << pszDisplayGeometry << std::endl;
+        std::cout << "---now have a break" << std::endl;
+        std::cout << std::endl;
+        
+        char        *pszWkt = NULL;
+        std::cout << "---now will check" << std::endl;
+        if (pszDisplayGeometry == NULL || CSLTestBoolean(pszDisplayGeometry) ||
+            EQUAL(pszDisplayGeometry, "WKT")) {
+          std::cout << "---the WHT testcase" << std::endl;
+          std::cout << "+++true" << std::endl;
+
+          std::cout << "--gem is " << poGeometry->getCoordinateDimension() << std::endl;
+          
+          printf("999try export to wkt\n");
+          if( poGeometry->exportToWkt( &pszWkt ) == OGRERR_NONE ){
+            printf("***** idfdfdafda %s pp1pp2 %s\n", prefix, pszWkt );
+            CPLFree( pszWkt );
+          }
+          
+        }else{
+          std::cout << "-0x--no WTJTT!" << std::endl;
+          std::cout << "+++ false" << std::endl;
+        }
+        std::cout << std::endl;
+        
+        //OGRPolygon *poly = ( * OGRPolygon) poGeometry;
+
+//         switch( poGeometry->getGeometryType() ){
+//         case wkbUnknown:
+//         case wkbNone:
+//         case wkbPoint:
+//         case wkbPoint25D:
+//           fprintf( fp, "\n");
+//           break;
+//         case wkbLineString:
+//         case wkbLineString25D:
+//         case wkbCircularString:
+//         case wkbPolygon:
+//           std::cout << "---44polygon " << std::endl;
+//           int ir;
+//           OGRCurvePolygon * poPoly = (OGRCurvePolygon*)(poGeometry);
+//           OGRCurve* poRing = poPoly->getExteriorRingCurve();
+//           int nRings = poPoly->getNumInteriorRings();
+//           std::cout << "rings is " << nRings << ' ' << poRing << std::endl;
+//           if (poRing == NULL)
+//             fprintf( fp, "empty");
+//           else{
+//             fprintf( fp, "%d points", poRing->getNumPoints() );
+//             if( wkbFlatten(poRing->getGeometryType()) == wkbCompoundCurve ){
+//               fprintf( fp, " (");
+//               poRing->dumpReadable(fp, NULL, papszOptions);
+//               fprintf( fp, ")");
+//             }if (nRings){
+//               fprintf( fp, ", %d inner rings (", nRings);
+//               for( ir = 0; ir < nRings; ir++){
+//                 poRing = poPoly->getInteriorRingCurve(ir);
+//                 if (ir)
+//                   fprintf( fp, ", ");
+//                 fprintf( fp, "%d points", poRing->getNumPoints() );
+//                 if( wkbFlatten(poRing->getGeometryType()) == wkbCompoundCurve ){   
+//                   fprintf( fp, " (");
+//                   poRing->dumpReadable(fp, NULL, papszOptions);
+//                   fprintf( fp, ")");
+//                 }
+//               }
+//               fprintf( fp, ")");
+//             }
+//           }
+//           fprintf( fp, "\n");
+//           break;
       }
       OGRFeature::DestroyFeature( poFeature );
     }
