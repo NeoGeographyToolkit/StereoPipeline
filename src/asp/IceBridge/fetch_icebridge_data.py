@@ -124,6 +124,7 @@ def fetchAndParseIndexFile(folderUrl, path, parsedPath, fileType):
         indexText = f.read()
 
     # Extract just the file names
+    fileList = [] # ensure initialization
     if fileType == 'image':
         fileList = re.findall(">[0-9_]*.JPG", indexText, re.IGNORECASE)
     if fileType == 'ortho':
@@ -244,8 +245,12 @@ def main(argsIn):
                 options.type = lidar
                 break
             if lidar == LIDAR_TYPES[-1]: # If we tried all the lidar types...
-                logger.error('ERROR: Could not find any lidar data for the given date!')
-                return -1
+                if options.zipIfAllFetched:
+                    # Have no choice here, will study this later
+                    logger.info('WARNING: Could not find any lidar data for the given date!')
+                else:
+                    logger.error('ERROR: Could not find any lidar data for the given date!')
+                    return -1
     else: # Other cases are simpler
         folderUrl = getFolderUrl(options.year, options.month, options.day, options.site, options.type)
     #logger.info('Fetching from URL: ' + folderUrl)
@@ -264,7 +269,7 @@ def main(argsIn):
         fetchAndParseIndexFile(folderUrl, indexPath, parsedIndexPath, options.type)
     
     if options.zipIfAllFetched and not fileExists(parsedIndexPath):
-        if options.type != 'dem':
+        if options.type != 'dem' and options.type != 'lidar': # be gentle about these
             raise Exception('Cannot zip, missing file: ' + parsedIndexPath)
         else:
             # The DEMs need not be there
@@ -335,7 +340,14 @@ def main(argsIn):
                 url        = os.path.join(folderUrl, filename)
                 outputPath = os.path.join(outputFolder, filename)
                 allFilesToFetch.append(outputPath)
-                
+
+                # This is very important. If something killed curl, it may leave incomplete
+                # images.
+                if options.zipIfAllFetched and icebridge_common.hasImageExtension(outputPath):
+                    if fileExists(outputPath) and not icebridge_common.isValidImage(outputPath):
+                        os.remove(outputPath)
+                        logger.info('Wiped invalid image: ' + outputPath)
+                    
                 if not fileExists(outputPath):
                     # Add to the command
                     curlCmd += ' -O ' + url
@@ -353,12 +365,14 @@ def main(argsIn):
             curlCmd = baseCmd
 
 
-    # Verify that all files were fetched
+    # Verify for the last time that all files were fetched and are in good shape
     if options.zipIfAllFetched:
         for outputPath in allFilesToFetch:
             if not fileExists(outputPath): 
                 raise Exception('Cannot zip, missing file: ' + outputPath)
 
+            #continue # For debugging purposes
+        
             if icebridge_common.hasImageExtension(outputPath):
                 if not icebridge_common.isValidImage(outputPath):
                     os.remove(outputPath)
