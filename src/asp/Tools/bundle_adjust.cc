@@ -747,6 +747,37 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
     // Print a clarifying message, so the user does not think that the algorithm failed.
     vw_out() << "Found a valid solution, but did not reach the actual minimum." << std::endl;
   }
+/*
+  // TODO: Associate residuals with cameras!
+  // Generate some additional diagnostic info
+  vw_out() << "Writing residual files..." << std::endl;
+  double cost=0;
+  ceres::Problem::EvaluateOptions eval_options;
+  eval_options.apply_loss_function = true;
+  eval_options.num_threads = opt.num_threads;
+  std::vector<double> residuals;
+  problem.Evaluate(eval_options, &cost, &residuals, 0, 0);
+  const size_t num_residuals = residuals.size();
+  std::string residual_path = opt.out_prefix + "-residuals_loss_function.txt";
+  std::ofstream residual_file;
+  residual_file.open(residual_path.c_str());
+  residual_file << "Cost = " << cost << std::endl;
+  for (size_t i=0; i<num_residuals; ++i) {
+    residual_file << i << ", " << residuals[i] << std::endl;
+  }
+  residual_file.close();
+
+  eval_options.apply_loss_function = false;
+  problem.Evaluate(eval_options, &cost, &residuals, 0, 0);
+  residual_path = opt.out_prefix + "-residuals_no_loss_function.txt";
+  std::ofstream residual_file2;
+  residual_file2.open(residual_path.c_str());
+  residual_file2 << "Cost = " << cost << std::endl;
+  for (size_t i=0; i<num_residuals; ++i) {
+    residual_file2 << i << ", " << residuals[i] << std::endl;
+  }
+  residual_file2.close();
+*/
 
   // Copy the latest version of the optimized intrinsic variables back
   // into the the separate parameter vectors in ba_model, right after
@@ -1738,7 +1769,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (opt.datum_str == "") {
     vw::cartography::GeoReference georef;
     for (size_t it = 0; it < opt.image_files.size(); it++) {
-      bool is_good = vw::cartography::read_georeference(georef, opt.image_files[it]);
+      bool is_good = asp::read_georeference_asp(georef, opt.image_files[it], opt.camera_files[it]);
       if (is_good && opt.datum_str == "" ){
         opt.datum_str = georef.datum().name();
         vw_out() << "Using the datum: " << opt.datum_str << ".\n";
