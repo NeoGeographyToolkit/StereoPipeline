@@ -53,6 +53,7 @@
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/InterestPoint/InterestData.h>
 #include <vw/Mosaic/DiskImagePyramid.h>
+#include <vw/Geometry/dPoly.h>
 
 // ASP
 #include <asp/Core/Common.h>
@@ -147,7 +148,7 @@ namespace vw { namespace gui {
   /// Convert a BBox2 object to a QRect object.
   QRect bbox2qrect(BBox2 const& B);
 
-  /// ?
+  /// Save a hillshaded file
   bool write_hillshade(vw::cartography::GdalWriteOptions const& opt,
                        double azimuth, double elevation,
                        std::string const& input_file,
@@ -167,6 +168,57 @@ namespace vw { namespace gui {
                                         bool has_nodata,
                                         double nodata_val);
 
+  // Shape file (vector layer) functions
+
+  void read_shapefile(std::string const& file,
+		      std::string const& poly_color,
+		      bool & has_geo, 
+		      vw::cartography::GeoReference & geo,
+		      std::vector<vw::geometry::dPoly> & polyVec);
+  
+  void write_shapefile(std::string const& file,
+		       bool has_geo,
+		       vw::cartography::GeoReference const& geo, 
+		       std::vector<vw::geometry::dPoly> const& polyVec);
+  
+  void shapefile_bdbox(const std::vector<vw::geometry::dPoly> & polyVec,
+		       // outputs
+		       double & xll, double & yll,
+		       double & xur, double & yur);
+  
+  
+  // This will tweak the georeference so that point_to_pixel() is the identity.
+  bool read_georef_from_shapefile(vw::cartography::GeoReference & georef,
+				  std::string const& file);
+  
+  bool read_georef_from_image_or_shapefile(vw::cartography::GeoReference & georef,
+					   std::string const& file);
+  
+  // Find the closest point in a given vector of polygons to a given point.
+  void findClosestPolyVertex(// inputs
+			     double x0, double y0,
+			     const std::vector<vw::geometry::dPoly> & polyVec,
+			     // outputs
+			     int & polyVecIndex,
+			     int & polyIndexInCurrPoly,
+			     int & vertIndexInCurrPoly,
+			     double & minX, double & minY,
+			     double & minDist
+			     );
+  
+  
+  // Find the closest edge in a given vector of polygons to a given point.
+  void findClosestPolyEdge(// inputs
+			   double x0, double y0,
+			   const std::vector<vw::geometry::dPoly> & polyVec,
+			   // outputs
+			   int & polyVecIndex,
+			   int & polyIndexInCurrPoly,
+			   int & vertIndexInCurrPoly,
+			   double & minX, double & minY,
+			   double & minDist
+			   );
+  
   // An image class that supports 1 to 3 channels.  We use
   // DiskImagePyramid<double> to be able to use some of the
   // pre-defined member functions for an image class. This class
@@ -216,11 +268,15 @@ namespace vw { namespace gui {
     bool             has_georef;
     vw::cartography::GeoReference georef;
     BBox2            image_bbox;
-    BBox2            lonlat_bbox;
     DiskImagePyramidMultiChannel img;
-
+    std::vector<vw::geometry::dPoly> polyVec; // a shapefile
+    
     /// Load an image from disk into img and set the other variables.
-    void read(std::string const& image, vw::cartography::GdalWriteOptions const& opt, bool use_georef);
+    void read(std::string const& image,
+	      vw::cartography::GdalWriteOptions const& opt,
+	      bool use_georef);
+
+    bool isPoly() const { return asp::has_shp_extension(name); }
   };
 
   // QT conversion functions

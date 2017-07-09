@@ -89,9 +89,9 @@ namespace vw { namespace gui {
     void setZoomAllToSameRegion();
     void setZoomAllToSameRegionAux(bool do_zoom);
     void profileMode();
-    void vectorLayerMode();
+    void polyEditMode();
     void uncheckProfileModeCheckbox();
-    void uncheckVectorLayerModeCheckbox();
+    void uncheckPolyEditModeCheckbox();
     void about();
 
   protected:
@@ -145,7 +145,7 @@ namespace vw { namespace gui {
     QAction *m_run_parallel_stereo_action;
     QAction *m_exit_action;
     QAction *m_profileMode_action;
-    QAction *m_vectorLayerMode_action;
+    QAction *m_polyEditMode_action;
 
     ViewType m_view_type,
              m_view_type_old;

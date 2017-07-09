@@ -142,17 +142,23 @@ int main(int argc, char** argv) {
         // Try to load each input file as a standalone image one at a time
         for (size_t i = 0; i < all_images.size(); i++) {
           std::string image = all_images[i];
-          bool is_image = true;
-          try { DiskImageView<float> tmp(image); }
-          catch(...){
+          bool is_image = false;
+          try {
+	    DiskImageView<float> tmp(image);
+	    is_image = true;
+	  }catch(...){
             if (!image.empty() && image[0] != '-') {
-              vw_out() << "Not a valid image: " << image << ".\n";
-              if (!fs::exists(image)) {
-                vw_out() << "Using this as the output prefix.\n";
-                output_prefix = image;
-              }
-            }
-            is_image = false;
+              if (asp::has_shp_extension(image)) {
+		vw_out() << "Reading shapefile: " << image << std::endl;
+		is_image = true;
+	      }else{
+		vw_out() << "Not a valid image: " << image << ".\n";
+		if (!fs::exists(image)) {
+		  vw_out() << "Using this as the output prefix.\n";
+		  output_prefix = image;
+		}
+	      }
+	    }
           }
           if (is_image)
             images.push_back(image);

@@ -100,7 +100,11 @@ MainWindow::MainWindow(vw::cartography::GdalWriteOptions const& opt,
     }catch(...){
       is_image = false;
     }
-    if (!is_image) continue;
+    
+    // Accept shape files along image files
+    if (!is_image && !asp::has_shp_extension(images[i]))
+      continue;
+    
     m_image_files.push_back(images[i]);
   }
 
@@ -284,7 +288,7 @@ void MainWindow::createLayout() {
     connect(m_widgets[i], SIGNAL(turnOffViewMatchesSignal()), this, SLOT(turnOffViewMatches()));
     connect(m_widgets[i], SIGNAL(removeImageAndRefreshSignal()), this, SLOT(deleteImageFromWidget()));
     connect(m_widgets[i], SIGNAL(uncheckProfileModeCheckbox()), this, SLOT(uncheckProfileModeCheckbox()));
-    connect(m_widgets[i], SIGNAL(uncheckVectorLayerModeCheckbox()), this, SLOT(uncheckVectorLayerModeCheckbox()));
+    connect(m_widgets[i], SIGNAL(uncheckPolyEditModeCheckbox()), this, SLOT(uncheckPolyEditModeCheckbox()));
     connect(m_widgets[i], SIGNAL(zoomAllToSameRegionSignal(int)), this, SLOT(zoomAllToSameRegionAction(int)));
   }
   QWidget *container = new QWidget(centralWidget);
@@ -320,47 +324,47 @@ void MainWindow::createMenus() {
 
   // Save screenshot
   m_save_screenshot_action = new QAction(tr("Save screenshot"), this);
-  m_save_screenshot_action->setStatusTip(tr("Save screenshot."));
+  m_save_screenshot_action->setStatusTip(tr("Save screenshot"));
   connect(m_save_screenshot_action, SIGNAL(triggered()), this, SLOT(save_screenshot()));
 
   // Select region
   m_select_region_action = new QAction(tr("Select region"), this);
-  m_select_region_action->setStatusTip(tr("Select rectangular region."));
+  m_select_region_action->setStatusTip(tr("Select rectangular region"));
   connect(m_select_region_action, SIGNAL(triggered()), this, SLOT(select_region()));
   
   // Run stereo
   m_run_stereo_action = new QAction(tr("Run stereo"), this);
-  m_run_stereo_action->setStatusTip(tr("Run stereo on selected clips."));
+  m_run_stereo_action->setStatusTip(tr("Run stereo on selected clips"));
   connect(m_run_stereo_action, SIGNAL(triggered()), this, SLOT(run_stereo()));
   m_run_stereo_action->setShortcut(tr("R"));
 
   // Run parallel_stereo
   m_run_parallel_stereo_action = new QAction(tr("Run parallel_stereo"), this);
-  m_run_parallel_stereo_action->setStatusTip(tr("Run parallel_stereo on selected clips."));
+  m_run_parallel_stereo_action->setStatusTip(tr("Run parallel_stereo on selected clips"));
   connect(m_run_parallel_stereo_action, SIGNAL(triggered()), this, SLOT(run_parallel_stereo()));
 
   // Size to fit
   m_sizeToFit_action = new QAction(tr("Size to fit"), this);
-  m_sizeToFit_action->setStatusTip(tr("Change the view to encompass the images."));
+  m_sizeToFit_action->setStatusTip(tr("Change the view to encompass the images"));
   connect(m_sizeToFit_action, SIGNAL(triggered()), this, SLOT(sizeToFit()));
   m_sizeToFit_action->setShortcut(tr("F"));
 
   m_viewSingleWindow_action = new QAction(tr("Single window"), this);
-  m_viewSingleWindow_action->setStatusTip(tr("View images in a single window."));
+  m_viewSingleWindow_action->setStatusTip(tr("View images in a single window"));
   m_viewSingleWindow_action->setCheckable(true);
   m_viewSingleWindow_action->setChecked(m_view_type == VIEW_IN_SINGLE_WINDOW);
   m_viewSingleWindow_action->setShortcut(tr("W"));
   connect(m_viewSingleWindow_action, SIGNAL(triggered()), this, SLOT(viewSingleWindow()));
 
   m_viewSideBySide_action = new QAction(tr("Side-by-side"), this);
-  m_viewSideBySide_action->setStatusTip(tr("View images side-by-side."));
+  m_viewSideBySide_action->setStatusTip(tr("View images side-by-side"));
   m_viewSideBySide_action->setCheckable(true);
   m_viewSideBySide_action->setChecked(m_view_type == VIEW_SIDE_BY_SIDE);
   m_viewSideBySide_action->setShortcut(tr("S"));
   connect(m_viewSideBySide_action, SIGNAL(triggered()), this, SLOT(viewSideBySide()));
 
   m_viewAsTiles_action = new QAction(tr("As tiles on grid"), this);
-  m_viewAsTiles_action->setStatusTip(tr("View images as tiles on grid."));
+  m_viewAsTiles_action->setStatusTip(tr("View images as tiles on grid"));
   m_viewAsTiles_action->setCheckable(true);
   m_viewAsTiles_action->setChecked(m_view_type == VIEW_AS_TILES_ON_GRID);
   m_viewAsTiles_action->setShortcut(tr("T"));
@@ -368,7 +372,7 @@ void MainWindow::createMenus() {
 
   // View hillshaded images
   m_viewHillshadedImages_action = new QAction(tr("Hillshaded images"), this);
-  m_viewHillshadedImages_action->setStatusTip(tr("View hillshaded images."));
+  m_viewHillshadedImages_action->setStatusTip(tr("View hillshaded images"));
   m_viewHillshadedImages_action->setCheckable(true);
   m_viewHillshadedImages_action->setChecked(m_hillshade);
   m_viewHillshadedImages_action->setShortcut(tr("H"));
@@ -376,7 +380,7 @@ void MainWindow::createMenus() {
 
   // View as georeferenced
   m_viewGeoreferencedImages_action = new QAction(tr("View as georeferenced images"), this);
-  m_viewGeoreferencedImages_action->setStatusTip(tr("View as georeferenced images."));
+  m_viewGeoreferencedImages_action->setStatusTip(tr("View as georeferenced images"));
   m_viewGeoreferencedImages_action->setCheckable(true);
   m_viewGeoreferencedImages_action->setChecked(m_use_georef);
   m_viewGeoreferencedImages_action->setShortcut(tr("G"));
@@ -384,7 +388,7 @@ void MainWindow::createMenus() {
   
   // View overlayed georeferenced images
   m_viewOverlayedImages_action = new QAction(tr("Overlay georeferenced images"), this);
-  m_viewOverlayedImages_action->setStatusTip(tr("Overlay georeferenced images."));
+  m_viewOverlayedImages_action->setStatusTip(tr("Overlay georeferenced images"));
   m_viewOverlayedImages_action->setCheckable(true);
   m_viewOverlayedImages_action->setChecked(m_use_georef && (m_view_type == VIEW_IN_SINGLE_WINDOW));
   m_viewOverlayedImages_action->setShortcut(tr("O"));
@@ -392,7 +396,7 @@ void MainWindow::createMenus() {
 
   // Zoom all images to same region
   m_zoomAllToSameRegion_action = new QAction(tr("Zoom all images to same region"), this);
-  m_zoomAllToSameRegion_action->setStatusTip(tr("Zoom all images to same region."));
+  m_zoomAllToSameRegion_action->setStatusTip(tr("Zoom all images to same region"));
   m_zoomAllToSameRegion_action->setCheckable(true);
   m_zoomAllToSameRegion_action->setChecked(false);
   m_zoomAllToSameRegion_action->setShortcut(tr("Z"));
@@ -400,61 +404,61 @@ void MainWindow::createMenus() {
 
   // IP matches
   m_viewMatches_action = new QAction(tr("View IP matches"), this);
-  m_viewMatches_action->setStatusTip(tr("View IP matches."));
+  m_viewMatches_action->setStatusTip(tr("View IP matches"));
   m_viewMatches_action->setCheckable(true);
   m_viewMatches_action->setChecked(m_view_matches);
   connect(m_viewMatches_action, SIGNAL(triggered()), this, SLOT(viewMatches()));
 
   m_addDelMatches_action = new QAction(tr("Add/delete IP matches"), this);
-  m_addDelMatches_action->setStatusTip(tr("Add/delete interest point matches."));
+  m_addDelMatches_action->setStatusTip(tr("Add/delete interest point matches"));
   connect(m_addDelMatches_action, SIGNAL(triggered()), this, SLOT(addDelMatches()));
 
   m_saveMatches_action = new QAction(tr("Save IP matches"), this);
-  m_saveMatches_action->setStatusTip(tr("Save interest point matches."));
+  m_saveMatches_action->setStatusTip(tr("Save interest point matches"));
   connect(m_saveMatches_action, SIGNAL(triggered()), this, SLOT(saveMatches()));
 
   m_writeGcp_action = new QAction(tr("Write GCP file"), this);
-  m_writeGcp_action->setStatusTip(tr("Save interest point matches in a GCP format for bundle_adjust."));
+  m_writeGcp_action->setStatusTip(tr("Save interest point matches in a GCP format for bundle_adjust"));
   connect(m_writeGcp_action, SIGNAL(triggered()), this, SLOT(writeGroundControlPoints()));
 
   // Shadow threshold calculation
   m_shadowCalc_action = new QAction(tr("Shadow threshold detection"), this);
-  m_shadowCalc_action->setStatusTip(tr("Shadow threshold detection."));
+  m_shadowCalc_action->setStatusTip(tr("Shadow threshold detection"));
   m_shadowCalc_action->setCheckable(true);
   connect(m_shadowCalc_action, SIGNAL(triggered()), this, SLOT(shadowThresholdCalc()));
 
   // Shadow threshold visualization
   m_viewThreshImages_action = new QAction(tr("View shadow-thresholded images"), this);
-  m_viewThreshImages_action->setStatusTip(tr("View shadow-thresholded images."));
+  m_viewThreshImages_action->setStatusTip(tr("View shadow-thresholded images"));
   connect(m_viewThreshImages_action, SIGNAL(triggered()), this, SLOT(viewThreshImages()));
 
   // Shadow threshold visualization
   m_viewUnthreshImages_action = new QAction(tr("View un-thresholded images"), this);
-  m_viewUnthreshImages_action->setStatusTip(tr("View un-thresholded images."));
+  m_viewUnthreshImages_action->setStatusTip(tr("View un-thresholded images"));
   connect(m_viewUnthreshImages_action, SIGNAL(triggered()), this, SLOT(viewUnthreshImages()));
 
   // View/set shadow threshold
   m_shadowGetSet_action = new QAction(tr("View/set shadow thresholds"), this);
-  m_shadowGetSet_action->setStatusTip(tr("View/set shadow thresholds."));
+  m_shadowGetSet_action->setStatusTip(tr("View/set shadow thresholds"));
   connect(m_shadowGetSet_action, SIGNAL(triggered()), this, SLOT(shadowThresholdGetSet()));
 
   // 1D profile mode
   m_profileMode_action = new QAction(tr("1D profile mode"), this);
-  m_profileMode_action->setStatusTip(tr("Profile mode."));
+  m_profileMode_action->setStatusTip(tr("Profile mode"));
   m_profileMode_action->setCheckable(true);
   m_profileMode_action->setChecked(false);
   connect(m_profileMode_action, SIGNAL(triggered()), this, SLOT(profileMode()));
 
   // Vector layer mode
-  m_vectorLayerMode_action = new QAction(tr("Vector layer mode"), this);
-  m_vectorLayerMode_action->setStatusTip(tr("Vector layer mode."));
-  m_vectorLayerMode_action->setCheckable(true);
-  m_vectorLayerMode_action->setChecked(false);
-  connect(m_vectorLayerMode_action, SIGNAL(triggered()), this, SLOT(vectorLayerMode()));
+  m_polyEditMode_action = new QAction(tr("Polygon edit mode"), this);
+  m_polyEditMode_action->setStatusTip(tr("Polygon edit mode"));
+  m_polyEditMode_action->setCheckable(true);
+  m_polyEditMode_action->setChecked(false);
+  connect(m_polyEditMode_action, SIGNAL(triggered()), this, SLOT(polyEditMode()));
 
   // The About box
   m_about_action = new QAction(tr("About stereo_gui"), this);
-  m_about_action->setStatusTip(tr("Show the stereo_gui about box."));
+  m_about_action->setStatusTip(tr("Show the stereo_gui about box"));
   connect(m_about_action, SIGNAL(triggered()), this, SLOT(about()));
 
   // File menu
@@ -499,7 +503,7 @@ void MainWindow::createMenus() {
 
   // Vector layer menu
   m_vector_layer_menu = menu->addMenu(tr("Vector Layer"));
-  m_vector_layer_menu->addAction(m_vectorLayerMode_action);
+  m_vector_layer_menu->addAction(m_polyEditMode_action);
 
   // Help menu
   m_help_menu = menu->addMenu(tr("&Help"));
@@ -1138,7 +1142,7 @@ void MainWindow::setZoomAllToSameRegion() {
     bool has_georef = true;
     for (size_t i = 0; i < m_image_files.size(); i++) {
       cartography::GeoReference georef;
-      has_georef = has_georef && vw::cartography::read_georeference(georef, m_image_files[i]);
+      has_georef = has_georef && read_georef_from_image_or_shapefile(georef, m_image_files[i]);
     }
 
     if (has_georef && !m_use_georef) {
@@ -1204,17 +1208,32 @@ void MainWindow::profileMode() {
   }
 }
 
-void MainWindow::uncheckVectorLayerModeCheckbox(){
-  m_vectorLayerMode_action->setChecked(false);
+void MainWindow::uncheckPolyEditModeCheckbox(){
+  m_polyEditMode_action->setChecked(false);
   return;
 }
 
-void MainWindow::vectorLayerMode() {
-  bool vectorLayerMode = m_vectorLayerMode_action->isChecked();
+void MainWindow::polyEditMode() {
+  bool polyEditMode = m_polyEditMode_action->isChecked();
+
+  // Can't have a vector layer without georeferences
+  if (polyEditMode) {
+    for (size_t i = 0; i < m_image_files.size(); i++) {
+      cartography::GeoReference georef;
+      bool has_georef = read_georef_from_image_or_shapefile(georef, m_image_files[i]);
+      if (!has_georef) {
+        popUp("Cannot turn on the vector layer edit mode if there is no georeference in: "
+              + m_image_files[i]);
+        polyEditMode = false;
+        m_polyEditMode_action->setChecked(polyEditMode);
+        break; // Continue with the next loop to turn off vector layer mode in all widgets
+      }
+    }
+  }
   
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (m_widgets[i]) {
-      m_widgets[i]->setVectorLayerMode(vectorLayerMode);
+      m_widgets[i]->setPolyEditMode(polyEditMode);
     }
   }
 }
@@ -1226,7 +1245,7 @@ void MainWindow::viewGeoreferencedImages() {
     // Will show in single window with georef. Must first check if all images have georef.
     for (size_t i = 0; i < m_image_files.size(); i++) {
       cartography::GeoReference georef;
-      bool has_georef = vw::cartography::read_georeference(georef, m_image_files[i]);
+      bool has_georef = read_georef_from_image_or_shapefile(georef, m_image_files[i]);
       if (!has_georef) {
         popUp("Cannot view georeferenced images, as there is no georeference in: "
               + m_image_files[i]);
@@ -1248,7 +1267,7 @@ void MainWindow::viewOverlayedImages() {
     // Will show in single window with georef. Must first check if all images have georef.
     for (size_t i = 0; i < m_image_files.size(); i++) {
       cartography::GeoReference georef;
-      bool has_georef = vw::cartography::read_georeference(georef, m_image_files[i]);
+      bool has_georef = read_georef_from_image_or_shapefile(georef, m_image_files[i]);
       if (!has_georef) {
         popUp("Cannot overlay, as there is no georeference in: " + m_image_files[i]);
         m_use_georef = false;

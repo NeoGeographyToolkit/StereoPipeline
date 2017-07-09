@@ -83,6 +83,13 @@ bool asp::has_tif_or_ntf_extension(std::string const& input){
   return false;
 }
 
+bool asp::has_shp_extension( std::string const& input ) {
+  std::string ext = get_extension(input);
+  if ( ext == ".shp")
+    return true;
+  return false;
+}
+
 bool asp::all_files_have_extension(std::vector<std::string> const& files, std::string const& ext){
   for (size_t i = 0; i < files.size(); i++){
     if ( ! boost::iends_with(boost::to_lower_copy(files[i]), ext) )

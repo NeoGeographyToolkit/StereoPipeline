@@ -149,7 +149,7 @@ namespace vw { namespace gui {
     void turnOffViewMatchesSignal();
     void removeImageAndRefreshSignal();
     void uncheckProfileModeCheckbox();
-    void uncheckVectorLayerModeCheckbox();
+    void uncheckPolyEditModeCheckbox();
     void zoomAllToSameRegionSignal(int);
     
 public slots:
@@ -172,9 +172,12 @@ public slots:
     void zoomToImage();             ///< Zoom to have this image in full view.
     void deleteImage();             ///< Delete an image from the gui and refresh
     void allowMultipleSelections(); ///< Allow the user to select multiple regions
-    void deleteSelection();         ///< Delete an area selected with the mouse at the current point
+    void deleteSelection();         ///< Delete an area selected with the mouse at current point
+    void saveVectorLayer();         ///< Delete current vector layer
     void setProfileMode(bool profile_mode); ///< Turn on and off the 1D profile tool
-    void setVectorLayerMode(bool vectorLayerMode); ///< Turn on and off the vector layer drawing
+    void setPolyEditMode(bool polyEditMode); ///< Turn on and off the vector layer drawing
+    void deleteVertex();            ///< Delete a vertex from a vector layer
+    void insertVertex();            ///< Insert an intermediate vertex at right-click
     void saveScreenshot();          ///< Save a screenshot of the current imagery
 
   protected:
@@ -316,7 +319,11 @@ public slots:
     QAction* m_deleteImage;
     QAction* m_allowMultipleSelections_action;
     QAction* m_deleteSelection;
-
+    QAction* m_saveVectorLayer;
+    QAction* m_deleteVertex;
+    QAction* m_insertVertex;
+    QAction* m_moveVertex;
+    
     double m_shadow_thresh;
     bool   m_shadow_thresh_calc_mode;
     bool   m_shadow_thresh_view_mode;
@@ -342,8 +349,11 @@ public slots:
     BBox2       world2screen(BBox2 const& R) const;
     BBox2       screen2world(BBox2 const& R) const;
     Vector2     world2image(Vector2 const& P, int imageIndex) const;
+    Vector2     image2world(Vector2 const& P, int imageIndex) const;
     BBox2       world2image(BBox2 const& R, int imageIndex) const;
     BBox2       image2world(BBox2 const& R, int imageIndex) const;
+    vw::Vector2 world2projpoint(vw::Vector2 P, int imageIndex) const;
+    vw::Vector2 projpoint2world(vw::Vector2 P, int imageIndex) const;
     vw::BBox2   expand_box_to_keep_aspect_ratio(vw::BBox2 const& box);
 
     void updateCurrentMousePosition();
@@ -355,24 +365,18 @@ public slots:
     void pushImageToBottom(int image_index);
 
     // For polygon drawing
-    bool m_vectorLayerMode;
+    bool m_polyEditMode;
     std::vector<vw::geometry::dPoly> m_polyVec;
-
-    // Used for undo
-    int m_posInUndoStack;
-    std::vector< std::vector<vw::geometry::dPoly> >       m_polyVecStack;
-    std::vector< std::vector<vw::geometry::dPoly> >       m_highlightsStack;
-    std::vector<char>                       m_resetViewStack;
+    int m_polyVecIndex; // which of the current images owns the poly vector layer
+    vw::Vector2 m_startPolyScreenPix; // The first poly vertex being drawn 
     
     bool m_showFilledPolys;
-    std::vector<vw::geometry::dPoly> m_highlights;
 
     int m_showEdges, m_showPoints, m_showPointsEdges, m_toggleShowPointsEdges;
     bool m_changeDisplayOrder, m_showVertIndexAnno, m_showLayerAnno;
 
-    bool m_createPoly, m_snapPolyTo45DegreeIntGrid;
     std::vector<double> m_currPolyX, m_currPolyY;
-    std::vector<double> m_markX, m_markY;
+    int m_editPolyVecIndex, m_editIndexInCurrPoly, m_editVertIndexInCurrPoly; 
     
     // Points closer than this are in some situations considered equal
     int m_pixelTol;
@@ -381,23 +385,6 @@ public slots:
     
     std::vector<int> m_polyVecOrder;
     
-    // Edit mode
-    bool   m_moveVertices;
-    bool   m_moveEdges;
-    bool   m_movePolys;
-    bool   m_movingVertsOrEdgesOrPolysNow;
-    bool   m_deletingPolyNow;
-    int    m_toggleShowPointsEdgesBk;
-    int    m_polyVecIndex;
-    int    m_polyIndexInCurrPoly;
-    int    m_vertIndexInCurrPoly;
-    double m_mousePressWorldX, m_mousePressWorldY;
-    vw::geometry::dPoly  m_polyBeforeShift;
-    std::map< int, std::map<int, int> > m_selectedPolyIndices;
-    std::vector<vw::geometry::dPoly> m_polyVecBeforeShift;
-    std::vector<vw::geometry::dPoly> m_copiedPolyVec;
-    bool m_movingPolysInHlts;
-
     double pixelToWorldDist(double pd);
     void appendToPolyVec(const vw::geometry::dPoly & P);
     void addPolyVert(double px, double py);
