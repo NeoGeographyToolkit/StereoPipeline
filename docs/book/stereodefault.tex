@@ -422,6 +422,7 @@ should be sufficient in most cases.
     \item[8 - SGM Cosine ]
     \item[9 - SGM Parabola ]
     \item[10 - SGM None ]
+    \item[10 - SGM Blend ]
   \end{description}
 
   For a visual comparison of the quality of these subpixel modes,
@@ -499,7 +500,7 @@ mean those pixels within the window of half-size of
 \item[texture-smooth-size \textnormal{\small{(\emph{integer})}} (default = 0)] \hfill \\
   Apply an adaptive filter to smooth the disparity results inversely proportional to
   the amount of texture present in the input image.  This value sets the maximum size 
-  of the smoothing kernel used.
+  of the smoothing kernel used (in pixels).
   This option can only be used if \texttt{rm-cleanup-passes} is set to zero.
 
 \item[texture-smooth-scale \textnormal{\small{(\emph{float})}} (default = 0.15)] \hfill \\
