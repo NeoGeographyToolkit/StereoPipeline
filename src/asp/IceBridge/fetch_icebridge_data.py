@@ -150,6 +150,171 @@ def fetchAndParseIndexFile(folderUrl, path, parsedPath, fileType):
             frame = icebridge_common.getFrameNumberFromFilename2(filename)
             f.write(str(frame) + ', ' + filename + '\n')
 
+def doFetch(options, outputFolder):
+    
+    # Verify that required files exist
+    home = os.path.expanduser("~")
+    if not (os.path.exists(home+'/.netrc') and os.path.exists(home+'/.urs_cookies')):
+        logger.error('Missing a required authentication file!  See instructions here:\n' +
+                     '    https://nsidc.org/support/faq/what-options-are-available-bulk-downloading-data-https-earthdata-login-enabled')
+        return -1
+    
+    logger.info('Creating output folder: ' + outputFolder)
+    os.system('mkdir -p ' + outputFolder)  
+
+    # This URL contains all of the files
+    if options.type == 'lidar':
+        options.allFrames = True # For lidar, always get all the frames!
+        
+        # For lidar, the data can come from one of three sources.
+        for lidar in LIDAR_TYPES:
+            folderUrl = getFolderUrl(options.year, options.month, options.day, options.site, lidar)
+            logger.info('Checking lidar URL: ' + folderUrl)
+            if checkIfUrlExists(folderUrl):
+                logger.info('Found match with lidar type: ' + lidar)
+                options.type = lidar
+                break
+            if lidar == LIDAR_TYPES[-1]: # If we tried all the lidar types...
+                if options.zipIfAllFetched:
+                    # Have no choice here, will study this later
+                    logger.info('WARNING: Could not find any lidar data for the given date!')
+                else:
+                    logger.error('ERROR: Could not find any lidar data for the given date!')
+                    return -1
+    else: # Other cases are simpler
+        folderUrl = getFolderUrl(options.year, options.month, options.day, options.site, options.type)
+    #logger.info('Fetching from URL: ' + folderUrl)
+    
+    # Fetch the index for this folder
+    filename        = options.type + '_index.html'
+    indexPath       = os.path.join(outputFolder, filename)
+    parsedIndexPath = indexPath + '.csv'
+    if options.refetchIndex:
+        os.system('rm -f ' + indexPath)
+        os.system('rm -f ' + parsedIndexPath)
+
+    if fileExists(parsedIndexPath):
+        logger.info('Already have the index file ' + indexPath + ', keeping it.')
+    else:
+        fetchAndParseIndexFile(folderUrl, indexPath, parsedIndexPath, options.type)
+    
+    if options.zipIfAllFetched and not fileExists(parsedIndexPath):
+        if options.type != 'dem' and options.type != 'lidar': # be gentle about these
+            raise Exception('Cannot zip, missing file: ' + parsedIndexPath)
+        else:
+            # The DEMs need not be there
+            logger.info('Warning: Missing index file: ' + parsedIndexPath)
+
+    # Store file information in a dictionary
+    # - Keep track of the earliest and latest frame
+    logger.info('Reading file list from ' + parsedIndexPath)
+    frameDict = {}
+    firstFrame = icebridge_common.getLargestFrame()    # start big
+    lastFrame  = icebridge_common.getSmallestFrame()   # start small
+    with open(parsedIndexPath, 'r') as f:
+        for line in f:
+            parts       = line.strip().split(',')
+            frameNumber = int(parts[0])
+            frameDict[frameNumber] = parts[1].strip()
+            if frameNumber < firstFrame:
+                firstFrame = frameNumber
+            if frameNumber > lastFrame:
+                lastFrame = frameNumber
+
+    if options.allFrames:
+        options.startFrame = firstFrame
+        options.stopFrame  = lastFrame
+
+    # There is always a chance that not all requested frames are available.
+    # That is particularly true for Fireball DEMs. Instead of failing,
+    # just download what is present and give a warning. 
+    if options.startFrame not in frameDict:
+        logger.info("Warning: Frame " + str(options.startFrame) + " is not found in this flight.")
+                    
+    if options.stopFrame and (options.stopFrame not in frameDict):
+        logger.info("Warning: Frame " + str(options.stopFrame) + " is not found in this flight.")
+                    
+    # Files that we will fetch. We will check the success later. 
+    allFilesToFetch = []
+    
+    # Init the big curl command
+    # - We will add multiple file targets and then execute the command
+    cookiePaths = ' -b ~/.urs_cookies -c ~/.urs_cookies '
+    curlPath = asp_system_utils.which("curl")
+    #logger.info("Using curl from " + curlPath)
+    baseCmd     = curlPath + ' -n -L ' + cookiePaths
+    curlCmd     = baseCmd
+    
+    # What is the maximum number of files that can be downloaded with one call?
+    MAX_IN_ONE_CALL = 100
+    
+    # Loop through all found frames within the provided range
+    currentFileCount = 0
+    allFrames = sorted(frameDict.keys())
+    lastFrame = ""
+    if len(allFrames) > 0:
+        lastFrame = allFrames[len(allFrames)-1]
+        
+    for frame in allFrames:
+        if (frame >= options.startFrame) and (frame <= options.stopFrame):
+
+            filename = frameDict[frame]
+
+            # Some files have an associated xml file.
+            # TODO: Don't DEMs also have an associated file, with some other exension? 
+            currFilesToFetch = [filename]
+            if (options.type in LIDAR_TYPES) or (options.type == 'ortho'): 
+                currFilesToFetch.append( filename + '.xml')
+
+            for filename in currFilesToFetch:    
+                url        = os.path.join(folderUrl, filename)
+                outputPath = os.path.join(outputFolder, filename)
+                allFilesToFetch.append(outputPath)
+
+                # This is very important. If something killed curl, it may leave incomplete
+                # images. # tmp!
+                if False and \
+                       options.zipIfAllFetched and icebridge_common.hasImageExtension(outputPath):
+                    if fileExists(outputPath) and not icebridge_common.isValidImage(outputPath):
+                        os.remove(outputPath)
+                        logger.info('Wiped invalid image: ' + outputPath)
+
+                if not fileExists(outputPath):
+                    # Add to the command
+                    curlCmd += ' -O ' + url
+                    currentFileCount += 1 # Number of files in the current download command
+        
+        # Download the indicated files when we hit the limit or run out of files
+        if ((currentFileCount >= MAX_IN_ONE_CALL) or (frame == lastFrame)) and currentFileCount > 0:
+            logger.info(curlCmd)
+            if not options.dryRun:
+                logger.info("Saving the data in " + outputFolder)
+                p = subprocess.Popen(curlCmd, cwd=outputFolder, shell=True)
+                os.waitpid(p.pid, 0)
+            # Start command fresh for the next file
+            currentFileCount = 0
+            curlCmd = baseCmd
+
+    # Verify for the last time that all files were fetched and are in good shape
+    failedFiles = []
+    if options.zipIfAllFetched:
+        for outputPath in allFilesToFetch:
+            if not fileExists(outputPath):
+                logger.info('Missing file: ' + outputPath)
+                failedFiles.append(outputPath)
+        
+            if icebridge_common.hasImageExtension(outputPath) and \
+                   not icebridge_common.isValidImage(outputPath):
+                os.remove(outputPath)
+                logger.info('Found an invalid image. Will wipe it:' + outputPath)
+                failedFiles.append(outputPath)
+
+    numFailed = len(failedFiles)
+    if numFailed > 0:
+        logger.info("Number of files that could not be processed: " + numFailed)
+        
+    return numFailed
+
 def main(argsIn):
 
     # Command line parsing
@@ -222,168 +387,24 @@ def main(argsIn):
     except optparse.OptionError, msg:
         raise Exception(msg)
 
-    # Verify that required files exist
-    home = os.path.expanduser("~")
-    if not (os.path.exists(home+'/.netrc') and os.path.exists(home+'/.urs_cookies')):
-        logger.error('Missing a required authentication file!  See instructions here:\n' +
-                     '    https://nsidc.org/support/faq/what-options-are-available-bulk-downloading-data-https-earthdata-login-enabled')
-        return -1
-    
-    logger.info('Creating output folder: ' + outputFolder)
-    os.system('mkdir -p ' + outputFolder)  
 
-    # This URL contains all of the files
-    if options.type == 'lidar':
-        options.allFrames = True # For lidar, always get all the frames!
+    # If we want to zip the fetched files, try several attempts. Stop
+    # if there is no progress.
+    numPrevFailed = -1
+    numFailed = -1
+    for attempt in range(10):
+        numFailed = doFetch(options, outputFolder)
         
-        # For lidar, the data can come from one of three sources.
-        for lidar in LIDAR_TYPES:
-            folderUrl = getFolderUrl(options.year, options.month, options.day, options.site, lidar)
-            logger.info('Checking lidar URL: ' + folderUrl)
-            if checkIfUrlExists(folderUrl):
-                logger.info('Found match with lidar type: ' + lidar)
-                options.type = lidar
-                break
-            if lidar == LIDAR_TYPES[-1]: # If we tried all the lidar types...
-                if options.zipIfAllFetched:
-                    # Have no choice here, will study this later
-                    logger.info('WARNING: Could not find any lidar data for the given date!')
-                else:
-                    logger.error('ERROR: Could not find any lidar data for the given date!')
-                    return -1
-    else: # Other cases are simpler
-        folderUrl = getFolderUrl(options.year, options.month, options.day, options.site, options.type)
-    #logger.info('Fetching from URL: ' + folderUrl)
-    
-    # Fetch the index for this folder
-    filename        = options.type + '_index.html'
-    indexPath       = os.path.join(outputFolder, filename)
-    parsedIndexPath = indexPath + '.csv'
-    if options.refetchIndex:
-        os.system('rm -f ' + indexPath)
-        os.system('rm -f ' + parsedIndexPath)
+        if numFailed <= 0 or not options.zipIfAllFetched:
+            return numFailed
 
-    if fileExists(parsedIndexPath):
-        logger.info('Already have the index file ' + indexPath + ', keeping it.')
-    else:
-        fetchAndParseIndexFile(folderUrl, indexPath, parsedIndexPath, options.type)
-    
-    if options.zipIfAllFetched and not fileExists(parsedIndexPath):
-        if options.type != 'dem' and options.type != 'lidar': # be gentle about these
-            raise Exception('Cannot zip, missing file: ' + parsedIndexPath)
-        else:
-            # The DEMs need not be there
-            logger.info('Warning: Missing index file: ' + parsedIndexPath)
+        if numFailed == numPrevFailed:
+            logger.info("No progress in attempt %d" % (attempt+1))
+            return -1
 
-    # Files that we will fetch. We will check the success later. 
-    allFilesToFetch=[]
-    
-    # Store file information in a dictionary
-    # - Keep track of the earliest and latest frame
-    logger.info('Reading file list from ' + parsedIndexPath)
-    frameDict = {}
-    firstFrame = icebridge_common.getLargestFrame()    # start big
-    lastFrame  = icebridge_common.getSmallestFrame()   # start small
-    with open(parsedIndexPath, 'r') as f:
-        for line in f:
-            parts       = line.strip().split(',')
-            frameNumber = int(parts[0])
-            frameDict[frameNumber] = parts[1].strip()
-            if frameNumber < firstFrame:
-                firstFrame = frameNumber
-            if frameNumber > lastFrame:
-                lastFrame = frameNumber
-
-    if options.allFrames:
-        options.startFrame = firstFrame
-        options.stopFrame  = lastFrame
-
-    # There is always a chance that not all requested frames are available.
-    # That is particularly true for Fireball DEMs. Instead of failing,
-    # just download what is present and give a warning. 
-    if options.startFrame not in frameDict:
-        logger.info("Warning: Frame " + str(options.startFrame) + " is not found in this flight.")
-                    
-    if options.stopFrame and (options.stopFrame not in frameDict):
-        logger.info("Warning: Frame " + str(options.stopFrame) + " is not found in this flight.")
-                    
-    # Init the big curl command
-    # - We will add multiple file targets and then execute the command
-    cookiePaths = ' -b ~/.urs_cookies -c ~/.urs_cookies '
-    curlPath = asp_system_utils.which("curl")
-    #logger.info("Using curl from " + curlPath)
-    baseCmd     = curlPath + ' -n -L ' + cookiePaths
-    curlCmd     = baseCmd
-    
-    # What is the maximum number of files that can be downloaded with one call?
-    MAX_IN_ONE_CALL = 100
-    
-    # Loop through all found frames within the provided range
-    currentFileCount = 0
-    allFrames = sorted(frameDict.keys())
-    lastFrame = ""
-    if len(allFrames) > 0:
-        lastFrame = allFrames[len(allFrames)-1]
-        
-    for frame in allFrames:
-        if (frame >= options.startFrame) and (frame <= options.stopFrame):
-
-            filename = frameDict[frame]
-
-            # Some files have an associated xml file.
-            # TODO: Don't DEMs also have an associated file, with some other exension? 
-            currFilesToFetch = [filename]
-            if (options.type in LIDAR_TYPES) or (options.type == 'ortho'): 
-                currFilesToFetch.append( filename + '.xml')
-
-            for filename in currFilesToFetch:    
-                url        = os.path.join(folderUrl, filename)
-                outputPath = os.path.join(outputFolder, filename)
-                allFilesToFetch.append(outputPath)
-
-                # This is very important. If something killed curl, it may leave incomplete
-                # images.
-                if options.zipIfAllFetched and icebridge_common.hasImageExtension(outputPath):
-                    if fileExists(outputPath) and not icebridge_common.isValidImage(outputPath):
-                        os.remove(outputPath)
-                        logger.info('Wiped invalid image: ' + outputPath)
-                    
-                if not fileExists(outputPath):
-                    # Add to the command
-                    curlCmd += ' -O ' + url
-                    currentFileCount += 1 # Number of files in the current download command
-        
-        # Download the indicated files when we hit the limit or run out of files
-        if ((currentFileCount >= MAX_IN_ONE_CALL) or (frame == lastFrame)) and currentFileCount > 0:
-            logger.info(curlCmd)
-            if not options.dryRun:
-                logger.info("Saving the data in " + outputFolder)
-                p = subprocess.Popen(curlCmd, cwd=outputFolder, shell=True)
-                os.waitpid(p.pid, 0)
-            # Start command fresh for the next file
-            currentFileCount = 0
-            curlCmd = baseCmd
-
-
-    # Verify for the last time that all files were fetched and are in good shape
-    if options.zipIfAllFetched:
-        for outputPath in allFilesToFetch:
-            if not fileExists(outputPath): 
-                raise Exception('Cannot zip, missing file: ' + outputPath)
-
-            #continue # For debugging purposes
-        
-            if icebridge_common.hasImageExtension(outputPath):
-                if not icebridge_common.isValidImage(outputPath):
-                    os.remove(outputPath)
-                    raise Exception('Found an invalid image. Cannot zip. ' +
-                                    'Please rerun fetching. Will wipe the invalid image: ' +
-                                    outputPath)
-                else:
-                    logger.info("Found valid image: " + outputPath)
-                    
-
-    return 0
+        # Try again
+        logger.info("Failed to fetch all in attempt %d, will try again.\n" % (attempt+1))
+        numPrevFailed = numFailed
     
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))
