@@ -534,6 +534,7 @@ ceres::LossFunction* get_loss_function(Options const& opt ){
   return loss_function;
 }
 
+
 // Add residual block without floating intrinsics
 template<class ModelT>
 void add_residual_block(ModelT & ba_model,
@@ -623,6 +624,123 @@ void add_residual_block<BAPinholeModel>
 }
 
 
+
+void write_residual_log(std::string const& residual_prefix, bool apply_loss_function,
+                        Options const& opt, size_t num_cameras, 
+                        std::vector<size_t> const& cam_residual_counts,
+                        size_t num_gcp_residuals, ceres::Problem &problem) {
+
+  const size_t PIXEL_RESIDUAL_SIZE = 2;
+  const size_t GCP_RESIDUAL_SIZE   = 3;
+  const size_t CAM_RESIDUAL_SIZE   = 6;
+
+  const std::string residual_path            = residual_prefix + "_averages.txt";
+  const std::string residual_raw_pixels_path = residual_prefix + "_raw_pixels.txt";
+  const std::string residual_raw_gcp_path    = residual_prefix + "_raw_gcp.txt";
+  const std::string residual_raw_cams_path   = residual_prefix + "_raw_cameras.txt";
+
+  // TODO: Associate residuals with cameras!
+  // Generate some additional diagnostic info
+  double cost=0;
+  ceres::Problem::EvaluateOptions eval_options;
+  eval_options.apply_loss_function = apply_loss_function;
+  eval_options.num_threads = opt.num_threads;
+  std::vector<double> residuals;
+  problem.Evaluate(eval_options, &cost, &residuals, 0, 0);
+  const size_t num_residuals = residuals.size();
+  
+  // Verify our residual calculations are correct
+  size_t num_expected_residuals = num_gcp_residuals*GCP_RESIDUAL_SIZE;
+  for (size_t i=0; i<num_cameras; ++i)
+    num_expected_residuals += cam_residual_counts[i]*PIXEL_RESIDUAL_SIZE;
+  if (opt.camera_weight > 0)
+    num_expected_residuals += num_cameras*CAM_RESIDUAL_SIZE;
+  if (num_expected_residuals != num_residuals)
+    vw_throw( LogicErr() << "Expected " << num_expected_residuals << " residuals but instead got " << num_residuals);
+    
+  // Write a report on residual errors
+  std::ofstream residual_file, residual_file_raw_pixels, residual_file_raw_gcp, residual_file_raw_cams;
+  residual_file.open(residual_path.c_str());
+  residual_file_raw_pixels.open(residual_raw_pixels_path.c_str());
+  residual_file_raw_cams.open(residual_raw_cams_path.c_str());
+  size_t index = 0;
+  // For each camera, average together all the point observation residuals
+  residual_file << "Mean residual error and point count for cameras:\n";
+  for (size_t c=0; c<num_cameras; ++c) {
+    size_t num_this_cam_residuals = cam_residual_counts[c];
+    
+    // Write header for the raw file
+    residual_file_raw_pixels << opt.camera_files[c] << ", " << num_this_cam_residuals << std::endl;
+    
+    double mean_residual = 0; // Take average of all pixel coord errors
+    for (size_t i=0; i<num_this_cam_residuals; ++i) {
+      double ex = residuals[index];
+      ++index;
+      double ey = residuals[index];
+      ++index;
+      mean_residual += fabs(ex) + fabs(ey);
+      
+      residual_file_raw_pixels << ex << ", " << ey << std::endl; // Write ex, ey on raw file
+    }
+    // Write line for the summary file
+    mean_residual /= static_cast<double>(num_this_cam_residuals);
+    residual_file << opt.camera_files[c] << ", " << mean_residual << ", " << num_this_cam_residuals << std::endl;
+  }
+  residual_file_raw_pixels.close();
+  // List the GCP residuals
+  if (num_gcp_residuals > 0) {
+    residual_file_raw_gcp.open(residual_raw_gcp_path.c_str());
+    residual_file << "GCP residual errors:\n";
+    for (size_t i=0; i<num_gcp_residuals; ++i) {
+      double mean_residual = 0; // Take average of XYZ error for each point
+      residual_file_raw_gcp << i;
+      for (size_t j=0; j<GCP_RESIDUAL_SIZE; ++j) {
+        mean_residual += fabs(residuals[index]);
+        residual_file_raw_gcp << ", " << residuals[index]; // Write all values in this file
+        ++index;
+      }
+      mean_residual /= static_cast<double>(GCP_RESIDUAL_SIZE);
+      residual_file << i << ", " << mean_residual << std::endl;
+      residual_file_raw_gcp << std::endl;
+    }
+    residual_file_raw_gcp.close();
+  }
+  // List the camera weight residuals
+  if (opt.camera_weight > 0){
+    residual_file << "Camera weight position and orientation residual errors:\n";
+    const size_t part_size = CAM_RESIDUAL_SIZE/2;
+    for (size_t c=0; c<num_cameras; ++c) {
+      residual_file_raw_cams << opt.camera_files[c];
+      // Separately compute the mean position and rotation error
+      double mean_residual_pos = 0, mean_residual_rot = 0;
+      for (size_t j=0; j<part_size; ++j) {
+        mean_residual_pos += fabs(residuals[index]);
+        residual_file_raw_cams << ", " << residuals[index]; // Write all values in this file
+        ++index;
+      }
+      for (size_t j=0; j<part_size; ++j) {
+        mean_residual_rot += fabs(residuals[index]);
+        residual_file_raw_cams << ", " << residuals[index]; // Write all values in this file
+        ++index;
+      }
+      mean_residual_pos /= static_cast<double>(part_size);
+      mean_residual_rot /= static_cast<double>(part_size);
+    
+      residual_file << opt.camera_files[c] << ", " << mean_residual_pos << ", " << mean_residual_rot << std::endl;
+      residual_file_raw_cams << std::endl;
+    }
+  }
+  residual_file_raw_cams.close();
+  residual_file.close();
+  
+  if (index != num_residuals)
+    vw_throw( LogicErr() << "Have " << num_residuals << " residuals but iterated through " << index);
+  
+} // End function write_residual_log
+
+
+
+
 // Use Ceres to do bundle adjustment. The camera and point variables
 // are stored in arrays.  The projection of point into camera is
 // accomplished by interfacing with the bundle adjustment model. In
@@ -632,11 +750,11 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
 
   ControlNetwork & cnet = *(ba_model.control_network().get());
 
-  int num_camera_params    = ModelT::camera_params_n;
-  int num_point_params     = ModelT::point_params_n;
-  int num_intrinsic_params = ba_model.num_intrinsic_params();
-  int num_cameras          = ba_model.num_cameras();
-  int num_points           = ba_model.num_points();
+  const int num_camera_params    = ModelT::camera_params_n;
+  const int num_point_params     = ModelT::point_params_n;
+  const int num_intrinsic_params = ba_model.num_intrinsic_params();
+  const int num_cameras          = ba_model.num_cameras();
+  const int num_points           = ba_model.num_points();
 
   // The camera adjustment and point variables concatenated into
   // vectors. The camera adjustments start as 0. The points come from the network.
@@ -686,7 +804,11 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
   // Add the cost function component for difference of pixel observations
   // - Reduce error by making pixel projection consistent with observations.
   typedef CameraNode<JFeature>::iterator crn_iter;
-  for ( size_t icam = 0; icam < crn.size(); icam++ ) {
+  if (num_cameras != static_cast<int>(crn.size()))
+    vw_throw( LogicErr() << "Expected " << num_cameras << " cameras but crn has " << crn.size());
+  std::vector<size_t> cam_residual_counts(num_cameras);
+  for ( int icam = 0; icam < num_cameras; icam++ ) {
+    cam_residual_counts[icam] = 0;
     for ( crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++ ){
 
       // The index of the 3D point
@@ -717,12 +839,15 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
       add_residual_block(ba_model, observation, pixel_sigma, icam, ipt,
                          camera, point, intrinsics, opt.intrinsics_to_float,
                          loss_function, problem);
+                         
+      cam_residual_counts[icam] += 1; // Track the number of residual blocks for each camera
     }
   }
 
   // Add ground control points
   // - Error goes up as GCP's move from their input positions.
   int num_gcp = 0;
+  size_t num_gcp_residuals = 0;
   for (int ipt = 0; ipt < num_points; ipt++){
     if (cnet[ipt].type() != ControlPoint::GroundControlPoint) continue;
 
@@ -737,6 +862,7 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
 
     double * point  = points  + ipt * num_point_params;
     problem.AddResidualBlock(cost_function, loss_function, point);
+    ++num_gcp_residuals;
 
     if (opt.fix_gcp_xyz) 
       problem.SetParameterBlockConstant(point);
@@ -778,20 +904,37 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
     }
   }
 
+  vw_out() << "Writing initial residual files..." << std::endl;
+  std::string residual_prefix = opt.out_prefix + "-initial_residuals_loss_function";
+  write_residual_log(residual_prefix, true, opt, num_cameras, cam_residual_counts, num_gcp_residuals, problem);
+  residual_prefix = opt.out_prefix + "-initial_residuals_no_loss_function";
+  write_residual_log(residual_prefix, false, opt, num_cameras, cam_residual_counts, num_gcp_residuals, problem);
+
   // Solve the problem
   ceres::Solver::Options options;
   options.gradient_tolerance = 1e-16;
   options.function_tolerance = 1e-16;
   options.max_num_iterations = opt.max_iterations;
   options.max_num_consecutive_invalid_steps = std::max(5, opt.max_iterations/5); // try hard
-  options.minimizer_progress_to_stdout = (opt.report_level >= vw::ba::ReportFile);
+  options.minimizer_progress_to_stdout = true;//(opt.report_level >= vw::ba::ReportFile);
 
   if (opt.stereo_session_string == "isis")
     options.num_threads = 1;
   else
     options.num_threads = opt.num_threads;
 
+  // Set solver options according to the reccomendations in the Ceres solving FAQs
   options.linear_solver_type = ceres::SPARSE_SCHUR;
+  if (num_cameras < 100)
+    options.linear_solver_type = ceres::DENSE_SCHUR;
+  if (num_cameras > 3500) {
+    options.use_explicit_schur_complement = true; // This is supposed to help with speed in a certain size range
+    options.linear_solver_type  = ceres::ITERATIVE_SCHUR;
+    options.preconditioner_type = ceres::SCHUR_JACOBI;
+  }
+  if (num_cameras > 7000)
+    options.use_explicit_schur_complement = false; // Only matters with ITERATIVE_SCHUR
+
   //options.ordering_type = ceres::SCHUR;
   //options.eta = 1e-3; // FLAGS_eta;
   //options->max_solver_time_in_seconds = FLAGS_max_solver_time;
@@ -808,37 +951,15 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
     // Print a clarifying message, so the user does not think that the algorithm failed.
     vw_out() << "Found a valid solution, but did not reach the actual minimum." << std::endl;
   }
-/*
-  // TODO: Associate residuals with cameras!
-  // Generate some additional diagnostic info
-  vw_out() << "Writing residual files..." << std::endl;
-  double cost=0;
-  ceres::Problem::EvaluateOptions eval_options;
-  eval_options.apply_loss_function = true;
-  eval_options.num_threads = opt.num_threads;
-  std::vector<double> residuals;
-  problem.Evaluate(eval_options, &cost, &residuals, 0, 0);
-  const size_t num_residuals = residuals.size();
-  std::string residual_path = opt.out_prefix + "-residuals_loss_function.txt";
-  std::ofstream residual_file;
-  residual_file.open(residual_path.c_str());
-  residual_file << "Cost = " << cost << std::endl;
-  for (size_t i=0; i<num_residuals; ++i) {
-    residual_file << i << ", " << residuals[i] << std::endl;
-  }
-  residual_file.close();
 
-  eval_options.apply_loss_function = false;
-  problem.Evaluate(eval_options, &cost, &residuals, 0, 0);
-  residual_path = opt.out_prefix + "-residuals_no_loss_function.txt";
-  std::ofstream residual_file2;
-  residual_file2.open(residual_path.c_str());
-  residual_file2 << "Cost = " << cost << std::endl;
-  for (size_t i=0; i<num_residuals; ++i) {
-    residual_file2 << i << ", " << residuals[i] << std::endl;
-  }
-  residual_file2.close();
-*/
+
+  vw_out() << "Writing final residual files..." << std::endl;
+  residual_prefix = opt.out_prefix + "-final_residuals_loss_function";
+  write_residual_log(residual_prefix, true, opt, num_cameras, cam_residual_counts, num_gcp_residuals, problem);
+  residual_prefix = opt.out_prefix + "-final_residuals_no_loss_function";
+  write_residual_log(residual_prefix, false, opt, num_cameras, cam_residual_counts, num_gcp_residuals, problem);
+
+
 
   // Copy the latest version of the optimized intrinsic variables back
   // into the the separate parameter vectors in ba_model, right after
@@ -875,7 +996,7 @@ template <class AdjusterT>
 void do_ba_nonceres(typename AdjusterT::model_type & ba_model,
                     typename AdjusterT::cost_type const& cost_function,
                     Options const& opt) {
-
+/*
   AdjusterT bundle_adjuster(ba_model, cost_function, false, false);
 
   if ( opt.lambda > 0 )
@@ -932,7 +1053,7 @@ void do_ba_nonceres(typename AdjusterT::model_type & ba_model,
       no_improvement_count = 0;
   }
   reporter.end_tie_in();
-
+*/
 } // end do_ba_nonceres
 
 void save_cnet_as_csv(Options& opt, std::string const& cnetFile){
@@ -997,13 +1118,13 @@ void do_ba_costfun(CostFunType const& cost_fun, Options& opt){
   if ( opt.ba_type == "ceres" ) {
     do_ba_ceres<ModelType>(ba_model, opt);
   } else if ( opt.ba_type == "robustsparse" ) {
-    do_ba_nonceres<AdjustRobustSparse< ModelType,CostFunType> >(ba_model, cost_fun, opt);
+    //do_ba_nonceres<AdjustRobustSparse< ModelType,CostFunType> >(ba_model, cost_fun, opt);
   } else if ( opt.ba_type == "robustref" ) {
-    do_ba_nonceres<AdjustRobustRef< ModelType,CostFunType> >(ba_model, cost_fun, opt);
+    //do_ba_nonceres<AdjustRobustRef< ModelType,CostFunType> >(ba_model, cost_fun, opt);
   } else if ( opt.ba_type == "sparse" ) {
-    do_ba_nonceres<AdjustSparse< ModelType, CostFunType > >(ba_model, cost_fun, opt);
+    //do_ba_nonceres<AdjustSparse< ModelType, CostFunType > >(ba_model, cost_fun, opt);
   }else if ( opt.ba_type == "ref" ) {
-    do_ba_nonceres<AdjustRef< ModelType, CostFunType > >(ba_model, cost_fun, opt);
+    //do_ba_nonceres<AdjustRef< ModelType, CostFunType > >(ba_model, cost_fun, opt);
   }
 
   // Save the models to disk.
