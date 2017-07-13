@@ -233,6 +233,8 @@ void read_shapefile(std::string const& file,
   polyVec.clear();
   
   std::string layer_str = fs::path(file).stem().string();
+
+  vw_out() << "Reading layer: " << layer_str << " from: " << file << "\n";
   
   GDALAllRegister();
   GDALDataset * poDS;
@@ -243,7 +245,8 @@ void read_shapefile(std::string const& file,
   OGRLayer  *poLayer;
   poLayer = poDS->GetLayerByName( layer_str.c_str() );
   if (poLayer == NULL)
-    vw_throw(ArgumentErr() << "Could not find layer " << layer_str << " in file " << file << ".\n");
+    vw_throw(ArgumentErr() << "Could not find layer " << layer_str << " in file: "
+	     << file << ".\n");
 
   // Read the georef.
   int nGeomFieldCount = poLayer->GetLayerDefn()->GetGeomFieldCount();
@@ -316,6 +319,7 @@ void read_shapefile(std::string const& file,
 	OGRPolygon *poPolygon = (OGRPolygon *) currPolyGeom;
 	vw::geometry::dPoly poly;
 	readPolyFromOGR(poPolygon, poly_color, layer_str, poly);
+
 	polyVec.push_back(poly);
 	
       }
@@ -326,7 +330,6 @@ void read_shapefile(std::string const& file,
       vw::geometry::dPoly poly;
       readPolyFromOGR(poPolygon, poly_color, layer_str, poly);
       polyVec.push_back(poly);
-
     }
     
     OGRFeature::DestroyFeature( poFeature );
@@ -339,9 +342,11 @@ void write_shapefile(std::string const& file,
 		       bool has_geo,
 		       vw::cartography::GeoReference const& geo, 
 		       std::vector<vw::geometry::dPoly> const& polyVec){
-    
-  std::string layer = fs::path(file).stem().string();
-  
+
+  std::string layer_str = fs::path(file).stem().string();
+
+  vw_out() << "Writing layer: " << layer_str << " to: " << file << "\n";
+
   const char *pszDriverName = "ESRI Shapefile";
   GDALDriver *poDriver;
   GDALAllRegister();
@@ -364,15 +369,17 @@ void write_shapefile(std::string const& file,
     spatial_ref_ptr = &spatial_ref;
   }
   
-  OGRLayer *poLayer = poDS->CreateLayer(layer.c_str(), spatial_ref_ptr, wkbPolygon, NULL );
+  OGRLayer *poLayer = poDS->CreateLayer(layer_str.c_str(),
+					spatial_ref_ptr, wkbPolygon, NULL );
   if (poLayer == NULL)
-    vw_throw(ArgumentErr() << "Failed creating layer: " << layer << ".\n");
+    vw_throw(ArgumentErr() << "Failed creating layer: " << layer_str << ".\n");
 
 #if 0
   OGRFieldDefn oField( "Name", OFTString );
   oField.SetWidth(32);
   if( poLayer->CreateField( &oField ) != OGRERR_NONE ) 
-    vw_throw(ArgumentErr() << "Failed creating name field for layer: " << layer << ".\n");
+    vw_throw(ArgumentErr() << "Failed creating name field for layer: " << layer_str
+	     << ".\n");
 #endif
   
   for (size_t vecIter = 0; vecIter < polyVec.size(); vecIter++){

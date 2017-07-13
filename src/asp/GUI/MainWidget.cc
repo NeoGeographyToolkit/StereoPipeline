@@ -285,18 +285,16 @@ namespace vw { namespace gui {
 
     // Polygon editing mode, they will be visible only when editing happens
     m_insertVertex = m_ContextMenu->addAction("Insert vertex");
-    m_insertVertex->setVisible(!m_polyEditMode);
-
     m_deleteVertex = m_ContextMenu->addAction("Delete vertex");
-    m_deleteVertex->setVisible(!m_polyEditMode);
-
     m_moveVertex = m_ContextMenu->addAction("Move vertices");
     m_moveVertex->setCheckable(true);
     m_moveVertex->setChecked(false);
-    m_moveVertex->setVisible(!m_polyEditMode);
+
+    m_showPolysFilled = m_ContextMenu->addAction("Show polygons filled");
+    m_showPolysFilled->setCheckable(true);
+    m_showPolysFilled->setChecked(false);
 
     m_saveVectorLayer = m_ContextMenu->addAction("Save vector layer as shape file");
-    m_saveVectorLayer->setVisible(!m_polyEditMode);
       
     // Other options
     m_addMatchPoint    = m_ContextMenu->addAction("Add match point");
@@ -1170,6 +1168,9 @@ namespace vw { namespace gui {
 	poly = m_polyVec[polyIter-1]; // make a deep copy
       }
       
+      double val1 = vw::geometry::signedPolyArea(poly.get_totalNumVerts(),
+					 poly.get_xv(), poly.get_yv());
+
       // Convert to world units
       int            numVerts  = poly.get_totalNumVerts();
       double *             xv  = poly.get_xv();
@@ -1187,8 +1188,17 @@ namespace vw { namespace gui {
 	drawVertIndex = 0;
 	plotPoints = false;
       }
-      
-      MainWidget::plotDPoly(plotPoints, plotEdges, plotFilled, lineWidth,  
+
+      double val2 = vw::geometry::signedPolyArea(poly.get_totalNumVerts(),
+					 poly.get_xv(), poly.get_yv());
+
+      // If the conversion to world coords flips the orientation, correct for that.
+      // TODO: This seems necessary. More thought is needed. 
+      if (val1 * val2 < 0)
+	poly.reverse();
+    
+      MainWidget::plotDPoly(plotPoints, plotEdges, m_showPolysFilled->isChecked(),
+			    lineWidth,  
 			    drawVertIndex, cropWinColor, paint, poly);
     }
 
@@ -1567,10 +1577,14 @@ namespace vw { namespace gui {
 
     Vector2 S(px, py); // current point in screen pixels
     int pSize = m_currPolyX.size();
+
+    // Starting point in this polygon. It is absolutely essential that we
+    // keep it in world units. Otherwise, if we zoom while the polygon
+    // is being drawn, we will not be able to close it properly.
     if (pSize == 0)
-      m_startPolyScreenPix = S; // starting point in this polygon
+      m_startPix = screen2world(S); 
     
-    if (pSize <= 0 || norm_2(S - m_startPolyScreenPix) > m_pixelTol ){
+    if (pSize <= 0 || norm_2(world2screen(m_startPix) - S) > m_pixelTol ){
       
       // We did not arrive yet at the starting point of the polygon being
       // drawn. Add the current point.
@@ -1593,16 +1607,45 @@ namespace vw { namespace gui {
     }
 
     // Form the newly finished polygon
-    vw::geometry::dPoly P;
-    P.reset();
+    vw::geometry::dPoly poly;
+    poly.reset();
     bool isPolyClosed = true;
     std::string color, layer;
-    P.appendPolygon(pSize,
+    poly.appendPolygon(pSize,
 		    vw::geometry::vecPtr(m_currPolyX), vw::geometry::vecPtr(m_currPolyY),
                     isPolyClosed, color, layer);
 
-    appendToPolyVec(P);
+    double val1 = vw::geometry::signedPolyArea(poly.get_totalNumVerts(),
+					      poly.get_xv(), poly.get_yv());
 
+
+#if 1
+    // If conversion to world units flip the orientation, that means
+    // reverse the original polygon.
+    // TODO: This looks like a hack. But it works. 
+    vw::geometry::dPoly poly2 = poly;
+
+    double val2 = vw::geometry::signedPolyArea(poly2.get_totalNumVerts(),
+					      poly2.get_xv(), poly2.get_yv());
+
+    // Convert to world units
+    int            numVerts  = poly2.get_totalNumVerts();
+    double *             xv  = poly2.get_xv();
+    double *             yv  = poly2.get_yv();
+    for (int vIter = 0; vIter < numVerts; vIter++){
+      Vector2 P = projpoint2world(Vector2(xv[vIter], yv[vIter]), m_polyVecIndex); 
+      xv[vIter] = P.x();
+      yv[vIter] = P.y();
+    }
+    
+    val2 = vw::geometry::signedPolyArea(poly2.get_totalNumVerts(),
+					poly2.get_xv(), poly2.get_yv());
+    if (val1*val2 < 0)
+      poly.reverse();
+#endif
+
+    appendToPolyVec(poly);
+    
     m_currPolyX.clear();
     m_currPolyY.clear();
     //setStandardCursor();
@@ -1790,9 +1833,15 @@ namespace vw { namespace gui {
     double screen_min_x = 0, screen_min_y = 0;
 
     // When polys are filled, plot largest polys first
-    if (plotFilled)
-      currPoly.sortBySizeAndMaybeAddBigContainingRect(x_min,  y_min, x_max, y_max);
-
+    if (plotFilled) {
+      // What on screen looks counter-clockwise, internally is clockwise,
+      // because the screen y axis is in fact pointing down.
+      // We need to reverse the orientation for the logic below to work properly
+      //currPoly.reverse();  
+      //currPoly.sortBySizeAndMaybeAddBigContainingRect(x_min,  y_min, x_max, y_max);
+      //currPoly.reverse();
+    }
+    
     // Clip the polygon a bit beyond the viewing window, as to not see
     // the edges where the cut took place. It is a bit tricky to
     // decide how much the extra should be.
@@ -1815,7 +1864,7 @@ namespace vw { namespace gui {
     const int    * numVerts         = clippedPoly.get_numVerts();
     int numPolys                    = clippedPoly.get_numPolys();
     const vector<char> isPolyClosed = clippedPoly.get_isPolyClosed();
-    const vector<string> colors     = clippedPoly.get_colors();
+    const vector<string> colors     = clippedPoly.get_colors(); // we ignore these
     //int numVerts                  = clippedPoly.get_totalNumVerts();
 
     int start = 0;
@@ -1853,7 +1902,11 @@ namespace vw { namespace gui {
       if (plotEdges){
 
         if (plotFilled && isPolyClosed[pIter]){
-          if (signedArea >= 0.0) paint.setBrush( color );
+	  // Notice that we fill clockwise polygons, those with negative area.
+	  // That because on screen they in fact appear counter-clockwise,
+	  // since the screen y axis is always down, and because
+	  // ESRI Shpefile format expects an outer polygon to be clockwise.
+          if (signedArea < 0.0)  paint.setBrush( color );
           else                   paint.setBrush( m_backgroundColor );
           paint.setPen( Qt::NoPen );
         }else {
@@ -2360,6 +2413,7 @@ namespace vw { namespace gui {
     m_deleteVertex->setVisible(m_polyEditMode);
     m_insertVertex->setVisible(m_polyEditMode);
     m_moveVertex->setVisible(m_polyEditMode);
+    m_showPolysFilled->setVisible(m_polyEditMode);
     m_saveVectorLayer->setVisible(m_polyEditMode);
     
     // Refresh this from the variable, before popping up the menu

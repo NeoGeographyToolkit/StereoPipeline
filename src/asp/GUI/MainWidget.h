@@ -323,6 +323,7 @@ public slots:
     QAction* m_deleteVertex;
     QAction* m_insertVertex;
     QAction* m_moveVertex;
+    QAction* m_showPolysFilled;
     
     double m_shadow_thresh;
     bool   m_shadow_thresh_calc_mode;
@@ -368,13 +369,7 @@ public slots:
     bool m_polyEditMode;
     std::vector<vw::geometry::dPoly> m_polyVec;
     int m_polyVecIndex; // which of the current images owns the poly vector layer
-    vw::Vector2 m_startPolyScreenPix; // The first poly vertex being drawn 
-    
-    bool m_showFilledPolys;
-
-    int m_showEdges, m_showPoints, m_showPointsEdges, m_toggleShowPointsEdges;
-    bool m_changeDisplayOrder, m_showVertIndexAnno, m_showLayerAnno;
-
+    vw::Vector2 m_startPix; // The first poly vertex being drawn in world coords
     std::vector<double> m_currPolyX, m_currPolyY;
     int m_editPolyVecIndex, m_editIndexInCurrPoly, m_editVertIndexInCurrPoly; 
     
@@ -382,8 +377,6 @@ public slots:
     int m_pixelTol;
 
     QColor m_backgroundColor;
-    
-    std::vector<int> m_polyVecOrder;
     
     double pixelToWorldDist(double pd);
     void appendToPolyVec(const vw::geometry::dPoly & P);
