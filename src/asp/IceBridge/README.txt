@@ -13,7 +13,8 @@ and then set up bulk downloading by following the instructions at
 
 https://nsidc.org/support/faq/what-options-are-available-bulk-downloading-data-https-earthdata-login-enabled
 
-For some flights, the camera (and hence its calibration file) changed in mid-flight, detailed info about this is available at 
+For some flights, the camera (and hence its calibration file) changed
+in mid-flight, detailed info about this is available at
 
 https://nsidc.org/data/IODCC0/versions/1
 
@@ -31,7 +32,8 @@ The images can then be processed via the tool:
 
 StereoPipeline/src/asp/IceBridge/full_processing_script.py 
 
-It is important to note that sometimes the camera changes in
-mid-flight. One should not process together images that do not all
-have the same camera calibration file.
+The complete list of cameras for all flights is in camera_lookup.txt
+which is parsed automatically by full_processing_script.py,
+handling cameras that changed in mid-flight.
 
+See also the notes at special_cases.txt.
