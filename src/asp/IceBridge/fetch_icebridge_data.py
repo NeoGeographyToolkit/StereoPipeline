@@ -63,23 +63,23 @@ def makeYearFolder(year, site):
     '''Generate part of the URL.  Only used for images.'''
     return str(year) + '_' + site + '_NASA'
 
-def makeDateFolder(year, month, day, fileType):
+def makeDateFolder(year, month, day, ext, fileType):
     '''Generate part of the URL.'''
 
     if fileType == 'image':
-        datePart = ('%02d%02d%04d') % (month, day, year)
+        datePart = ('%02d%02d%04d%s') % (month, day, year, ext)
         return datePart +'_raw'
     else: # Used for all other cases
-        datePart = ('%04d.%02d.%02d') % (year, month, day)
+        datePart = ('%04d.%02d.%02d%s') % (year, month, day, ext)
         return datePart
 
-def getFolderUrl(year, month, day, site, fileType):
+def getFolderUrl(year, month, day, ext, site, fileType):
     '''Get full URL to the location where the files are kept.'''
     
     if fileType == 'image':
         base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01'
         yearFolder = makeYearFolder(year, site)
-        dateFolder = makeDateFolder(year, month, day, fileType)
+        dateFolder = makeDateFolder(year, month, day, ext, fileType)
         folderUrl  = os.path.join(base, yearFolder, dateFolder)
         return folderUrl
     # The other types share more formatting
@@ -93,7 +93,7 @@ def getFolderUrl(year, month, day, site, fileType):
         base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILATM1B.001/'
     if fileType == 'atm2':
         base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILATM1B.002/'
-    dateFolder = makeDateFolder(year, month, day, fileType)
+    dateFolder = makeDateFolder(year, month, day, ext, fileType)
     folderUrl  = os.path.join(base, dateFolder)
     return folderUrl
 
@@ -168,7 +168,7 @@ def doFetch(options, outputFolder):
         
         # For lidar, the data can come from one of three sources.
         for lidar in LIDAR_TYPES:
-            folderUrl = getFolderUrl(options.year, options.month, options.day, options.site, lidar)
+            folderUrl = getFolderUrl(options.year, options.month, options.day, options.ext, options.site, lidar)
             logger.info('Checking lidar URL: ' + folderUrl)
             if checkIfUrlExists(folderUrl):
                 logger.info('Found match with lidar type: ' + lidar)
@@ -182,7 +182,7 @@ def doFetch(options, outputFolder):
                     logger.error('ERROR: Could not find any lidar data for the given date!')
                     return -1
     else: # Other cases are simpler
-        folderUrl = getFolderUrl(options.year, options.month, options.day, options.site, options.type)
+        folderUrl = getFolderUrl(options.year, options.month, options.day, options.ext, options.site, options.type)
     #logger.info('Fetching from URL: ' + folderUrl)
     
     # Fetch the index for this folder
@@ -198,12 +198,14 @@ def doFetch(options, outputFolder):
     else:
         fetchAndParseIndexFile(folderUrl, indexPath, parsedIndexPath, options.type)
     
-    if options.zipIfAllFetched and not fileExists(parsedIndexPath):
-        if options.type != 'dem' and options.type != 'lidar': # be gentle about these
-            raise Exception('Cannot zip, missing file: ' + parsedIndexPath)
-        else:
-            # The DEMs need not be there
+    if not fileExists(parsedIndexPath):
+        if options.zipIfAllFetched or options.type == 'dem':
+            # Some dirs are weird, both images, dems, and ortho.
+            # In fetch and zip mode, just accept whatever there is.
+            # Also, the DEMs need not be there. 
             logger.info('Warning: Missing index file: ' + parsedIndexPath)
+        else:
+            raise Exception('Cannot zip, missing file: ' + parsedIndexPath)
 
     # Store file information in a dictionary
     # - Keep track of the earliest and latest frame
@@ -272,15 +274,6 @@ def doFetch(options, outputFolder):
                 outputPath = os.path.join(outputFolder, filename)
                 allFilesToFetch.append(outputPath)
 
-                # This is very important. If something killed curl, it may leave incomplete
-                if options.zipIfAllFetched and icebridge_common.hasImageExtension(outputPath):
-                    if fileExists(outputPath):
-                        if not icebridge_common.isValidImage(outputPath):
-                            os.remove(outputPath)
-                            logger.info('Wiped invalid image: ' + outputPath)
-                        else:
-                            logger.info('Found valid image: ' + outputPath)
-                        
                 if not fileExists(outputPath):
                     # Add to the command
                     curlCmd += ' -O ' + url
@@ -298,7 +291,7 @@ def doFetch(options, outputFolder):
             currentFileCount = 0
             curlCmd = baseCmd
 
-    # Verify for the last time that all files were fetched and are in good shape
+    # Verify that all files were fetched and are in good shape
     failedFiles = []
     if options.zipIfAllFetched:
         for outputPath in allFilesToFetch:
@@ -307,12 +300,15 @@ def doFetch(options, outputFolder):
                 failedFiles.append(outputPath)
                 continue
             
-            if icebridge_common.hasImageExtension(outputPath) and \
-                   not icebridge_common.isValidImage(outputPath):
-                if os.path.exists(outputPath): os.remove(outputPath)
-                logger.info('Found an invalid image. Will wipe it:' + outputPath)
-                failedFiles.append(outputPath)
-                continue
+            if icebridge_common.hasImageExtension(outputPath):
+                if not icebridge_common.isValidImage(outputPath):
+                    logger.info('Found an invalid image. Will wipe it:' + outputPath)
+                    if os.path.exists(outputPath): os.remove(outputPath)
+                    failedFiles.append(outputPath)
+                    continue
+                else:
+                    logger.info('Valid image:' + outputPath)
+                    
             
             # Verify the chcksum    
             if hasXml and len(outputPath) >= 4 and outputPath[-4:] != '.xml':
@@ -379,10 +375,13 @@ def main(argsIn):
         outputFolder = os.path.abspath(args[0])
 
         # Handle unified date option
+        options.ext = '' # some dirs have appended to them 'a' or 'b'
         if options.yyyymmdd:
             options.year  = int(options.yyyymmdd[0:4])
             options.month = int(options.yyyymmdd[4:6])
             options.day   = int(options.yyyymmdd[6:8])
+            if len(options.yyyymmdd) == 9:
+                options.ext = options.yyyymmdd[8]
 
         if not options.stopFrame:
             options.stopFrame = options.startFrame

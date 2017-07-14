@@ -1,0 +1,28 @@
+1. For GR_04222010, raw images are split into two dirs:
+
+https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/2010_GR_NASA/04222010a_raw/
+https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/2010_GR_NASA/04222010b_raw/
+
+but the ortho images and lidar are in one dir:
+
+https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/IODMS1B.001/2010.04.22/
+https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILVIS2.001/2010.04.22/
+
+The raw images need copying to the single directory for the other
+datasets, and their index files need to be concatenated there.
+
+2. The raw image folder 
+
+https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/2009_AN_NASA/10252009_raw/
+
+has images for both 10/25 and for 10/26. The ortho images though are split into two:
+
+https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/IODMS1B.001/2009.10.25/
+https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/IODMS1B.001/2009.10.26/
+
+The raw images must be distributed properly to the two folder before processing, and
+raw index files must be modified accordingly. 
+
+There is only one LIDAR file though:
+
+https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILVIS2.001/2009.10.25/

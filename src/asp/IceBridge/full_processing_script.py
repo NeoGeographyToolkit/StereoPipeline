@@ -374,7 +374,6 @@ def processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFo
     logger.info('Process command: ' + processCommand)
     process_icebridge_run.main(processCommand.split())
 
-
 def setUpLogger(outputFolder, logLevel):
     '''Set up the root logger so all called files will write to the same output file'''
 
@@ -483,8 +482,9 @@ def main(argsIn):
     if not os.path.isfile(options.cameraLookupFile):
         raise Exception("Missing camera file: " + options.cameraLookupFile)
         
-    if len(options.yyyymmdd) != 8:
-        raise Exception("The --yyyymmdd field must have length 8.")
+    if len(options.yyyymmdd) != 8 and len(options.yyyymmdd) != 9:
+        # Make an exception for 20100422a
+        raise Exception("The --yyyymmdd field must have length 8 or 9.")
 
     if options.outputFolder is None:
         options.outputFolder = options.site + '_' + options.yyyymmdd
@@ -579,8 +579,8 @@ def main(argsIn):
                 raise Exception("Could not match %s in %s " % (user, currDir))
             pfePath = '/nobackupnfs2/' + user + '/' + m.group(1) # path on pfe
             lfePath = '/u/'            + user + '/' + m.group(1) # path on lfe 
-            lfeCmd = 'cd ' + pfePath + '; tar cfv ' + lfePath + '/' + options.outputFolder + \
-                     '.tar ' + options.outputFolder
+            lfeCmd = 'cd ' + pfePath + '; tar cfv ' + lfePath + '/' + \
+                     options.outputFolder + '.tar ' + options.outputFolder
             
             cmd = 'ssh ' + user + '@lfe "' + lfeCmd + '"'
             logger.info(cmd)
@@ -613,7 +613,8 @@ def main(argsIn):
         
         getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder, 
                                  options.cameraLookupFile, options.yyyymmdd, options.site, 
-                                 refDemPath, cameraFolder, options.numProcesses, options.numThreads)
+                                 refDemPath, cameraFolder, options.numProcesses,
+                                 options.numThreads)
        
         convertLidarDataToCsv(lidarFolder)
         
@@ -624,7 +625,8 @@ def main(argsIn):
         return 0
 
     # Call the processing routine
-    processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFolder, isSouth,
+    processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder,
+                  processFolder, isSouth,
                   options.bundleLength, startFrame, stopFrame,
                   options.numProcesses, options.numThreads, )
 
