@@ -19,6 +19,7 @@
 /// \file bundle_adjust.cc
 ///
 
+#include <vw/FileIO/KML.h>
 #include <asp/Core/Macros.h>
 #include <asp/Sessions/ResourceLoader.h>
 #include <asp/Sessions/StereoSession.h>
@@ -189,7 +190,7 @@ struct BaReprojectionError {
     m_icam(icam), m_ipt(ipt){}
 
   template <typename T>
-  bool operator()(const T* const camera, const T* const point,
+  bool operator()(const T* camera, const T* point,
                   T* residuals) const {
 
     try{
@@ -203,11 +204,11 @@ struct BaReprojectionError {
       typename ModelT::camera_vector_t cam_vec;
       int cam_len = cam_vec.size();
       for (int c = 0; c < cam_len; c++)
-        cam_vec[c] = (double)camera[c];
+        cam_vec[c] = camera[c];
 
       typename ModelT::point_vector_t  point_vec;
       for (size_t p = 0; p < point_vec.size(); p++)
-        point_vec[p]  = (double)point[p];
+        point_vec[p] = point[p];
 
       // Project the current point into the current camera
       Vector2 prediction = (*m_ba_model).cam_pixel(m_ipt, m_icam, cam_vec, point_vec);
@@ -249,7 +250,6 @@ struct BaReprojectionError {
             ceres::CENTRAL, 2, ModelT::camera_params_n, ModelT::point_params_n>
             (new BaReprojectionError(observation, pixel_sigma,
                                      ba_model, icam, ipt)));
-
   }
 
   Vector2 m_observation;
@@ -357,7 +357,7 @@ struct BaPinholeError {
     const int nc  = BAPinholeModel::optical_center_params_n;
     const int num_intrinsics        = ba_model->num_intrinsic_params();
 
-    // Create a ceres::NumericDiffCostFunction object templated to the
+    // Create a ceres::AutoDiffCostFunction object templated to the
     // exact problem sizes we need. Notice that if we have more than 3 intrinsics that
     // means focal length (1 param), optical center (2 params), and the rest are
     // distortion params.
@@ -390,7 +390,7 @@ struct BaPinholeError {
       vw_throw(LogicErr() << "bundle_adjust.cc not set up for this many intrinsic params!");
     };
     return 0;
-  }
+  } // End function Create
 
   Vector2 m_observation;
   Vector2 m_pixel_sigma;
@@ -407,9 +407,9 @@ struct XYZError {
     m_observation(observation), m_xyz_sigma(xyz_sigma){}
 
   template <typename T>
-  bool operator()(const T* const point, T* residuals) const {
+  bool operator()(const T* point, T* residuals) const {
     for (size_t p = 0; p < m_observation.size(); p++)
-      residuals[p] = ((double)point[p] - m_observation[p])/m_xyz_sigma[p]; // Input units are meters
+      residuals[p] = (point[p] - m_observation[p])/m_xyz_sigma[p]; // Input units are meters
 
     return true;
   }
@@ -418,9 +418,8 @@ struct XYZError {
   // the client code.
   static ceres::CostFunction* Create(Vector3 const& observation,
                                      Vector3 const& xyz_sigma){
-    return (new ceres::NumericDiffCostFunction<XYZError, ceres::CENTRAL, 3, 3>
+    return (new ceres::AutoDiffCostFunction<XYZError, 3, 3>
             (new XYZError(observation, xyz_sigma)));
-
   }
 
   Vector3 m_observation;
@@ -439,7 +438,7 @@ struct CamError {
     m_orig_cam(orig_cam), m_weight(weight){}
 
   template <typename T>
-  bool operator()(const T* const cam_vec, T* residuals) const {
+  bool operator()(const T* cam_vec, T* residuals) const {
 
     const double POSITION_WEIGHT = 1e-2;  // Units are meters.  Don't lock the camera down too tightly.
     const double ROTATION_WEIGHT = 5e1;   // Units are in radianish range 
@@ -462,10 +461,8 @@ struct CamError {
   // Factory to hide the construction of the CostFunction object from
   // the client code.
   static ceres::CostFunction* Create(CamVecT const& orig_cam, double weight){
-    return (new ceres::NumericDiffCostFunction<CamError, ceres::CENTRAL,
-            ModelT::camera_params_n, ModelT::camera_params_n>
+    return (new ceres::AutoDiffCostFunction<CamError, ModelT::camera_params_n, ModelT::camera_params_n>
             (new CamError(orig_cam, weight)));
-
   }
 
   CamVecT m_orig_cam;
@@ -739,12 +736,54 @@ void write_residual_log(std::string const& residual_prefix, bool apply_loss_func
 } // End function write_residual_log
 
 
+// TODO: Move this somewhere else?
+/// Create a KML file containing the positions of the given points.
+/// - Points are stored as x,y,z in the points vector up to num_points.
+/// - Only every skip'th point is recorded to the file.
+void record_points_to_kml(const std::string &kml_path, const cartography::Datum& datum,
+                          const double *points, const size_t num_points,
+                          const size_t skip=100, const std::string name="points",
+                          const std::string icon="http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png") {
 
+  if (datum.name() == UNSPECIFIED_DATUM) {
+    vw_out(WarningMessage) << "No datum specified, can't write file: " << kml_path << std::endl;
+    return;
+  }
 
-// Use Ceres to do bundle adjustment. The camera and point variables
-// are stored in arrays.  The projection of point into camera is
-// accomplished by interfacing with the bundle adjustment model. In
-// the future this class can be bypassed.
+  // Open the file
+  KMLFile kml(kml_path, name);
+
+  // Set up a simple point icon with no labels
+  const bool hide_labels = true;
+  kml.append_style( "point", "", 1.0, icon, hide_labels);
+  kml.append_style( "point_highlight", "", 1.1, icon, hide_labels);
+  kml.append_stylemap( "point_placemark", "point",
+                       "point_highlight");
+
+  // Loop through the points
+  const size_t POINT_SIZE = 3;
+  const bool extrude = true;
+  for (size_t i=0; i<num_points; i+=skip) {
+
+    // Convert the point to GDC coords
+    size_t index = i*POINT_SIZE;
+    Vector3 xyz(points[index], points[index+1], points[index+2]);
+
+    Vector3 lon_lat_alt = datum.cartesian_to_geodetic(xyz);
+      
+    // Add this to the output file
+    kml.append_placemark( lon_lat_alt.x(), lon_lat_alt.y(),
+                          "", "", "point_placemark",
+                          lon_lat_alt[2], extrude );
+        
+  }
+  kml.close_kml();
+}
+
+/// Use Ceres to do bundle adjustment. The camera and point variables
+/// are stored in arrays.  The projection of point into camera is
+/// accomplished by interfacing with the bundle adjustment model. In
+/// the future this class can be bypassed.
 template <class ModelT>
 void do_ba_ceres(ModelT & ba_model, Options& opt ){
 
@@ -858,7 +897,9 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
 
     ceres::CostFunction* cost_function = XYZError::Create(observation, xyz_sigma);
 
-    ceres::LossFunction* loss_function = get_loss_function(opt);
+    // Don't use the same loss function as for pixels since that one discounts
+    //  outliers and the cameras should never be discounted.
+    ceres::LossFunction* loss_function = new ceres::TrivialLoss();
 
     double * point  = points  + ipt * num_point_params;
     problem.AddResidualBlock(cost_function, loss_function, point);
@@ -879,7 +920,9 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
 
       ceres::CostFunction* cost_function = CamError<ModelT>::Create(orig_cam, opt.camera_weight);
 
-      ceres::LossFunction* loss_function = get_loss_function(opt);
+      // Don't use the same loss function as for pixels since that one discounts
+      //  outliers and the cameras should never be discounted.
+      ceres::LossFunction* loss_function = new ceres::TrivialLoss();
 
       double * camera  = cameras  + icam * num_camera_params;
       problem.AddResidualBlock(cost_function, loss_function, camera);
@@ -904,11 +947,17 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
     }
   }
 
-  vw_out() << "Writing initial residual files..." << std::endl;
+  vw_out() << "Writing initial condition files..." << std::endl;
+
   std::string residual_prefix = opt.out_prefix + "-initial_residuals_loss_function";
   write_residual_log(residual_prefix, true, opt, num_cameras, cam_residual_counts, num_gcp_residuals, problem);
   residual_prefix = opt.out_prefix + "-initial_residuals_no_loss_function";
   write_residual_log(residual_prefix, false, opt, num_cameras, cam_residual_counts, num_gcp_residuals, problem);
+
+  const size_t KML_POINT_SKIP = 30;
+  std::string point_kml_path = opt.out_prefix + "-initial_points.kml";
+  record_points_to_kml(point_kml_path, opt.datum, points, num_points, KML_POINT_SKIP, "initial_points",
+                      "http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png");
 
   // Solve the problem
   ceres::Solver::Options options;
@@ -953,13 +1002,15 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
   }
 
 
-  vw_out() << "Writing final residual files..." << std::endl;
+  vw_out() << "Writing final condition log files..." << std::endl;
   residual_prefix = opt.out_prefix + "-final_residuals_loss_function";
   write_residual_log(residual_prefix, true, opt, num_cameras, cam_residual_counts, num_gcp_residuals, problem);
   residual_prefix = opt.out_prefix + "-final_residuals_no_loss_function";
   write_residual_log(residual_prefix, false, opt, num_cameras, cam_residual_counts, num_gcp_residuals, problem);
 
-
+  point_kml_path = opt.out_prefix + "-final_points.kml";
+  record_points_to_kml(point_kml_path, opt.datum, points, num_points, KML_POINT_SKIP, "final_points",
+                       "http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png");
 
   // Copy the latest version of the optimized intrinsic variables back
   // into the the separate parameter vectors in ba_model, right after
@@ -1970,33 +2021,28 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     }
   }
   
-  // Need to read the datum if we have gcps or a camera position file, or for the RPC
-  // session, as then the RPC model can be outside of Earth.
-  if ( !opt.gcp_files.empty() || !opt.camera_position_file.empty() ||
-       opt.stereo_session_string == "rpc"){
-    if (opt.datum_str != ""){
-      // If the user set the datum, use it.
-      opt.datum.set_well_known_datum(opt.datum_str);
-      asp::stereo_settings().datum = opt.datum_str; // for RPC
-    }else if (opt.semi_major > 0 && opt.semi_minor > 0){
-      // Otherwise, if the user set the semi-axes, use that.
-      opt.datum = cartography::Datum("User Specified Datum",
-                                     "User Specified Spheroid",
-                                     "Reference Meridian",
-                                     opt.semi_major, opt.semi_minor, 0.0);
-    }else{
-      if ( !opt.gcp_files.empty() || !opt.camera_position_file.empty() )
-        vw_throw( ArgumentErr() << "When ground control points or a camera position file are used, "
-                  << "the datum must be specified.\n" << usage << general_options );
-    }
-    
-    if (opt.stereo_session_string == "rpc" && opt.datum_str == "")
-      vw_throw( ArgumentErr() << "When the session type is RPC, the datum must be specified.\n"
-                << usage << general_options );
-    
+  if (opt.stereo_session_string == "rpc" && opt.datum_str == "")
+    vw_throw( ArgumentErr() << "When the session type is RPC, the datum must be specified.\n"
+              << usage << general_options );       
+       
+  if (opt.datum_str != ""){
+    // If the user set the datum, use it.
+    opt.datum.set_well_known_datum(opt.datum_str);
+    asp::stereo_settings().datum = opt.datum_str; // for RPC
     vw_out() << "Will use datum: " << opt.datum << std::endl;
+  }else if (opt.semi_major > 0 && opt.semi_minor > 0){
+    // Otherwise, if the user set the semi-axes, use that.
+    opt.datum = cartography::Datum("User Specified Datum",
+                                   "User Specified Spheroid",
+                                   "Reference Meridian",
+                                   opt.semi_major, opt.semi_minor, 0.0);
+    vw_out() << "Will use datum: " << opt.datum << std::endl;
+  }else{ // Datum not specified
+    if ( !opt.gcp_files.empty() || !opt.camera_position_file.empty() )
+      vw_throw( ArgumentErr() << "When ground control points or a camera position file are used, "
+                << "the datum must be specified.\n" << usage << general_options );
   }
-  // End datum finding
+  
 
   if ( opt.out_prefix.empty() )
     vw_throw( ArgumentErr() << "Missing output prefix.\n"
