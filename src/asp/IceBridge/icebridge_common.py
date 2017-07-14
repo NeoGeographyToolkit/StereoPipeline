@@ -18,7 +18,7 @@
 
 # Icebridge utility functions
 
-import os, sys, datetime, time, subprocess, logging, re
+import os, sys, datetime, time, subprocess, logging, re, hashlib
 
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
@@ -62,7 +62,35 @@ def isValidImage(filename):
         return False
     
     return True
-     
+
+# Some files have an xml file containing the chksum. If so, varify
+# its validity.
+def hasValidChkSum(filename):
+    
+    if not os.path.exists(filename):
+        return False
+    
+    xml_file = filename + '.xml'
+    if not os.path.exists(xml_file):
+        return False
+
+    expectedChksum = ''
+    with open(xml_file, "r") as xf:
+        for line in xf:
+            m = re.match("^.*?\<Checksum\>(\w+)\<", line, re.IGNORECASE)
+            if m:
+                expectedChksum = m.group(1)
+
+    if expectedChksum == "":
+        return False
+
+    actualChksum = hashlib.md5(open(filename,'rb').read()).hexdigest()
+
+    if actualChksum != expectedChksum:
+        return False
+
+    return True
+
 def getCameraFileName(imageFileName):
     '''Get the camera file name we associate with an input image file'''
     return imageFileName.replace('.tif', '.tsai')

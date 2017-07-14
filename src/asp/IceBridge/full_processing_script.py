@@ -541,6 +541,13 @@ def main(argsIn):
         processFolder = os.path.join(processFolder, options.processingSubfolder)
         logger.info('Will write to processing subfolder: ' + options.processingSubfolder)
 
+    # Sanity checks
+    if options.zipIfAllFetched:
+        if not options.stopAfterFetch:
+            raise Exception('Must stop after fetch to be able to zip inputs.')
+        if options.noFetch:
+            raise Exception('Must fetch to be able to zip inputs.')
+        
     if options.noFetch:
         logger.info('Skipping fetch.')
     else:
@@ -549,24 +556,38 @@ def main(argsIn):
                                       options.zipIfAllFetched,
                                       startFrame, stopFrame, options.outputFolder,
                                       jpegFolder, orthoFolder, demFolder, lidarFolder)
-        if fetchResult == -1:
+        if fetchResult < 0:
             return -1
 
         if options.zipIfAllFetched:
+            
+            logger.info("All files were fetched and checks passed. " +
+                        "Will tar to lou and wipe the dir.")
 
-            # Sanity checks
-            if not options.stopAfterFetch:
-                raise Exception('Must stop after fetch to be able to zip inputs.')
-            if options.noFetch:
-                raise Exception('Must fetch to be able to zip inputs.')
-        
-            logger.info("All files were fetched and checks passed. Will zip and wipe.")
-            cmd = 'tar czfv ' + options.outputFolder + '.tar.gz ' + options.outputFolder
+            # Per https://www.nas.nasa.gov/hecc/support/kb/using-
+            # shift-for-local-transfers-and-tar-operations_512.html
+            # one can tar and push to lfe at the same time if
+            # connecting to lfe first, from where one can see the pfe
+            # filesystem. Avoid though using the suggested shift
+            # command. It may be faster, but it detaches and is hard
+            # to manage. Note: To untar and transfer in one step, one
+            # should as well go to lfe first.
+            currDir = os.getcwd()
+            user = 'oalexan1' # hard-coded
+            m = re.match("^.*?/" + user + "/(.*?)$", currDir)
+            if not m:
+                raise Exception("Could not match %s in %s " % (user, currDir))
+            pfePath = '/nobackupnfs2/' + user + '/' + m.group(1) # path on pfe
+            lfePath = '/u/'            + user + '/' + m.group(1) # path on lfe 
+            lfeCmd = 'cd ' + pfePath + '; tar cfv ' + lfePath + '/' + options.outputFolder + \
+                     '.tar ' + options.outputFolder
+            
+            cmd = 'ssh ' + user + '@lfe "' + lfeCmd + '"'
             logger.info(cmd)
             p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
             output, error = p.communicate()
             if p.returncode != 0:
-                raise Exception('Failed to zip file.')
+                raise Exception('Failed to tar file.')
 
             if options.outputFolder == "" or options.outputFolder[0] == '.':
                 raise Exception('Output folder is not as expected. ' +
@@ -579,30 +600,8 @@ def main(argsIn):
                 # TODO: Can't wipe it as still logging there
                 print("Failed to wipe " + options.outputFolder)
                 
-            #cmd = '/bin/rm -rfv ' + options.outputFolder
-            #logger.info(cmd)
-            #p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
-            #output, error = p.communicate()
-            #if p.returncode != 0:
-            #    raise Exception('Failed to remove files.')
-            
-            cmd = 'rsync -P -avz ' + options.outputFolder + \
-                  '.tar.gz oalexan1@lfe:projects/data/icebridge'
-            logger.info(cmd)
-            p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
-            output, error = p.communicate()
-            if p.returncode != 0:
-                raise Exception('Failed to copy files.')
-
-            logger.info('Will wipe: ' + options.outputFolder + '.tar.gz')
-            os.remove(options.outputFolder + '.tar.gz')
-            #cmd = 'rm -fv ' + options.outputFolder + '.tar.gz'
-            #logger.info(cmd)
-            #p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
-            #output, error = p.communicate()
-            #if p.returncode != 0:
-            #    raise Exception('Failed to remove file.')
-         
+            return 0
+        
     if options.stopAfterFetch or options.dryRun:
         logger.info('Fetching complete, finished!')
         return 0

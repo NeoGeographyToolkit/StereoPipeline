@@ -254,7 +254,8 @@ def doFetch(options, outputFolder):
     lastFrame = ""
     if len(allFrames) > 0:
         lastFrame = allFrames[len(allFrames)-1]
-        
+
+    hasXml = ( (options.type in LIDAR_TYPES) or (options.type == 'ortho') )    
     for frame in allFrames:
         if (frame >= options.startFrame) and (frame <= options.stopFrame):
 
@@ -263,8 +264,8 @@ def doFetch(options, outputFolder):
             # Some files have an associated xml file.
             # TODO: Don't DEMs also have an associated file, with some other exension? 
             currFilesToFetch = [filename]
-            if (options.type in LIDAR_TYPES) or (options.type == 'ortho'): 
-                currFilesToFetch.append( filename + '.xml')
+            if hasXml: 
+                currFilesToFetch.append(filename + '.xml')
 
             for filename in currFilesToFetch:    
                 url        = os.path.join(folderUrl, filename)
@@ -272,13 +273,14 @@ def doFetch(options, outputFolder):
                 allFilesToFetch.append(outputPath)
 
                 # This is very important. If something killed curl, it may leave incomplete
-                # images. # tmp!
-                if False and \
-                       options.zipIfAllFetched and icebridge_common.hasImageExtension(outputPath):
-                    if fileExists(outputPath) and not icebridge_common.isValidImage(outputPath):
-                        os.remove(outputPath)
-                        logger.info('Wiped invalid image: ' + outputPath)
-
+                if options.zipIfAllFetched and icebridge_common.hasImageExtension(outputPath):
+                    if fileExists(outputPath):
+                        if not icebridge_common.isValidImage(outputPath):
+                            os.remove(outputPath)
+                            logger.info('Wiped invalid image: ' + outputPath)
+                        else:
+                            logger.info('Found valid image: ' + outputPath)
+                        
                 if not fileExists(outputPath):
                     # Add to the command
                     curlCmd += ' -O ' + url
@@ -291,6 +293,7 @@ def doFetch(options, outputFolder):
                 logger.info("Saving the data in " + outputFolder)
                 p = subprocess.Popen(curlCmd, cwd=outputFolder, shell=True)
                 os.waitpid(p.pid, 0)
+                
             # Start command fresh for the next file
             currentFileCount = 0
             curlCmd = baseCmd
@@ -302,16 +305,31 @@ def doFetch(options, outputFolder):
             if not fileExists(outputPath):
                 logger.info('Missing file: ' + outputPath)
                 failedFiles.append(outputPath)
-        
+                continue
+            
             if icebridge_common.hasImageExtension(outputPath) and \
                    not icebridge_common.isValidImage(outputPath):
-                os.remove(outputPath)
+                if os.path.exists(outputPath): os.remove(outputPath)
                 logger.info('Found an invalid image. Will wipe it:' + outputPath)
                 failedFiles.append(outputPath)
-
+                continue
+            
+            # Verify the chcksum    
+            if hasXml and len(outputPath) >= 4 and outputPath[-4:] != '.xml':
+                isGood = icebridge_common.hasValidChkSum(outputPath)
+                logger.info('Valid chksum: ' + outputPath + ' ' + str(isGood))
+                if not isGood:
+                    xmlFile = outputPath + '.xml'
+                    logger.info('Found invalid data. Will wipe it: ' + outputPath + ' ' + xmlFile)
+                    if os.path.exists(outputPath): os.remove(outputPath)
+                    if os.path.exists(xmlFile):    os.remove(xmlFile)
+                    failedFiles.append(outputPath)
+                    failedFiles.append(xmlFile)
+                    continue
+                
     numFailed = len(failedFiles)
     if numFailed > 0:
-        logger.info("Number of files that could not be processed: " + numFailed)
+        logger.info("Number of files that could not be processed: " + str(numFailed))
         
     return numFailed
 
@@ -387,8 +405,7 @@ def main(argsIn):
     except optparse.OptionError, msg:
         raise Exception(msg)
 
-
-    # If we want to zip the fetched files, try several attempts. Stop
+    # If we want to zip the fetched files, make several attempts. Stop
     # if there is no progress.
     numPrevFailed = -1
     numFailed = -1
@@ -396,7 +413,9 @@ def main(argsIn):
         numFailed = doFetch(options, outputFolder)
         
         if numFailed <= 0 or not options.zipIfAllFetched:
-            return numFailed
+            if numFailed != 0:
+                return -1 # Fail
+            return 0      # Success
 
         if numFailed == numPrevFailed:
             logger.info("No progress in attempt %d" % (attempt+1))
