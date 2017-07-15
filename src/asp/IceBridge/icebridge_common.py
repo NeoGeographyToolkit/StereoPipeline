@@ -63,33 +63,97 @@ def isValidImage(filename):
     
     return True
 
+def isDEM(filename):
+    return (len(filename) >= 8 and filename[-8:] == '_DEM.tif')
+
+def xmlFile(filename):
+    
+    if (len(filename) >= 8 and filename[-7:-4] == 'DEM'): # DEM.tif and DEM.tfw
+        #file_DEM.tif and file_DEM.tfw becomes file.xml
+        return filename[:-8] + '.xml'
+    
+    # For other types
+    return filename + '.xml'
+
+def tfwFile(filename):
+    return filename[:-4] + '.tfw'
+
+
+def isFloat(value):
+  try:
+    float(value)
+    return True
+  except:
+    return False
+
+
 # Some files have an xml file containing the chksum. If so, varify
-# its validity.
+# its validity. This applies to orthoimages, DEMs, and tfw files.
 def hasValidChkSum(filename):
+
+    isTfw = (fileExtension(filename) == '.tfw')
     
     if not os.path.exists(filename):
         return False
+
+    baseFile = os.path.basename(filename)
     
-    xml_file = filename + '.xml'
+    xml_file = xmlFile(filename)
     if not os.path.exists(xml_file):
         return False
-
+    
     expectedChksum = ''
+    chkSumCount = 0
+    currFile = ''
     with open(xml_file, "r") as xf:
         for line in xf:
-            m = re.match("^.*?\<Checksum\>(\w+)\<", line, re.IGNORECASE)
+
+            # There can be multiple files
+            m = re.match("^.*?\<DistributedFileName\>(.*?)\<", line, re.IGNORECASE)
             if m:
-                expectedChksum = m.group(1)
+                currFile = m.group(1)
+                
+            # Encompass both kinds of checksum
+            m = re.match("^.*?\<Checksum\>(\w+)(\||\<)", line, re.IGNORECASE)
+            if m:
+                chkSumCount += 1
 
-    if expectedChksum == "":
-        return False
-
+                # There can be multiple checksums. The file can give a hint:
+                if currFile != '':
+                    if currFile == baseFile:
+                        expectedChksum = m.group(1)
+                else:
+                    # Just pick the first chksum
+                    if chkSumCount == 1:
+                        expectedChksum = m.group(1)
+                    
     actualChksum = hashlib.md5(open(filename,'rb').read()).hexdigest()
 
-    if actualChksum != expectedChksum:
+    if actualChksum != expectedChksum or actualChksum == '' or expectedChksum == '':
+        print("Computed chksum: ", actualChksum)
+        print("Expected chksum: ", expectedChksum)
+        
+        return False
+    
+    return True
+
+# This file must have 6 lines of floats and a valid chksum
+def isValidTfw(filename):
+    
+    if fileExtension(filename) != '.tfw':
         return False
 
-    return True
+    if not hasValidChkSum(filename):
+        return False
+    
+    count = 0
+    with open(filename, "r") as xf:
+        for line in xf:
+            line = line.strip()
+            if isFloat(line):
+                count += 1
+    return (count >= 6)
+
 
 def getCameraFileName(imageFileName):
     '''Get the camera file name we associate with an input image file'''

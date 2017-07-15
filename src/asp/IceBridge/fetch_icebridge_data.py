@@ -175,12 +175,8 @@ def doFetch(options, outputFolder):
                 options.type = lidar
                 break
             if lidar == LIDAR_TYPES[-1]: # If we tried all the lidar types...
-                if options.zipIfAllFetched:
-                    # Have no choice here, will study this later
-                    logger.info('WARNING: Could not find any lidar data for the given date!')
-                else:
-                    logger.error('ERROR: Could not find any lidar data for the given date!')
-                    return -1
+                logger.info('WARNING: Could not find any lidar data for the given date!')
+
     else: # Other cases are simpler
         folderUrl = getFolderUrl(options.year, options.month, options.day, options.ext, options.site, options.type)
     #logger.info('Fetching from URL: ' + folderUrl)
@@ -199,13 +195,9 @@ def doFetch(options, outputFolder):
         fetchAndParseIndexFile(folderUrl, indexPath, parsedIndexPath, options.type)
     
     if not fileExists(parsedIndexPath):
-        if options.zipIfAllFetched or options.type == 'dem':
-            # Some dirs are weird, both images, dems, and ortho.
-            # In fetch and zip mode, just accept whatever there is.
-            # Also, the DEMs need not be there. 
-            logger.info('Warning: Missing index file: ' + parsedIndexPath)
-        else:
-            raise Exception('Cannot zip, missing file: ' + parsedIndexPath)
+        # Some dirs are weird, both images, dems, and ortho.
+        # Just accept whatever there is, but with a warning.
+        logger.info('Warning: Missing index file: ' + parsedIndexPath)
 
     # Store file information in a dictionary
     # - Keep track of the earliest and latest frame
@@ -249,7 +241,9 @@ def doFetch(options, outputFolder):
     
     # What is the maximum number of files that can be downloaded with one call?
     MAX_IN_ONE_CALL = 100
-    
+    if options.maxNumToFetch > 0 and MAX_IN_ONE_CALL > options.maxNumToFetch:
+        MAX_IN_ONE_CALL = options.maxNumToFetch
+        
     # Loop through all found frames within the provided range
     currentFileCount = 0
     allFrames = sorted(frameDict.keys())
@@ -257,30 +251,38 @@ def doFetch(options, outputFolder):
     if len(allFrames) > 0:
         lastFrame = allFrames[len(allFrames)-1]
 
-    hasXml = ( (options.type in LIDAR_TYPES) or (options.type == 'ortho') )    
+    hasTfw = (options.type == 'dem')
+    hasXml = ( (options.type in LIDAR_TYPES) or (options.type == 'ortho') or hasTfw)
+    numFetched = 0
     for frame in allFrames:
         if (frame >= options.startFrame) and (frame <= options.stopFrame):
 
             filename = frameDict[frame]
-
+            
             # Some files have an associated xml file.
             # TODO: Don't DEMs also have an associated file, with some other exension? 
             currFilesToFetch = [filename]
             if hasXml: 
-                currFilesToFetch.append(filename + '.xml')
+                currFilesToFetch.append(icebridge_common.xmlFile(filename))
+            if hasTfw: 
+                currFilesToFetch.append(icebridge_common.tfwFile(filename))
 
             for filename in currFilesToFetch:    
                 url        = os.path.join(folderUrl, filename)
                 outputPath = os.path.join(outputFolder, filename)
+                if options.maxNumToFetch > 0 and len(allFilesToFetch) >= options.maxNumToFetch:
+                    continue
                 allFilesToFetch.append(outputPath)
 
                 if not fileExists(outputPath):
                     # Add to the command
                     curlCmd += ' -O ' + url
                     currentFileCount += 1 # Number of files in the current download command
-        
+                    numFetched += 1       # This does not get reset each time 
+
         # Download the indicated files when we hit the limit or run out of files
-        if ((currentFileCount >= MAX_IN_ONE_CALL) or (frame == lastFrame)) and currentFileCount > 0:
+        if ( (currentFileCount >= MAX_IN_ONE_CALL) or (frame == lastFrame) ) and \
+               currentFileCount > 0:
             logger.info(curlCmd)
             if not options.dryRun:
                 logger.info("Saving the data in " + outputFolder)
@@ -291,38 +293,60 @@ def doFetch(options, outputFolder):
             currentFileCount = 0
             curlCmd = baseCmd
 
+        if options.maxNumToFetch > 0 and numFetched > options.maxNumToFetch:
+            break
+        
     # Verify that all files were fetched and are in good shape
     failedFiles = []
-    if options.zipIfAllFetched:
-        for outputPath in allFilesToFetch:
-            if not fileExists(outputPath):
-                logger.info('Missing file: ' + outputPath)
+    for outputPath in allFilesToFetch:
+
+        if options.skipValidate: continue
+        
+        if not fileExists(outputPath):
+            logger.info('Missing file: ' + outputPath)
+            failedFiles.append(outputPath)
+            continue
+
+        if icebridge_common.hasImageExtension(outputPath):
+            if not icebridge_common.isValidImage(outputPath):
+                logger.info('Found an invalid image. Will wipe it: ' + outputPath)
+                if os.path.exists(outputPath): os.remove(outputPath)
                 failedFiles.append(outputPath)
                 continue
-            
-            if icebridge_common.hasImageExtension(outputPath):
-                if not icebridge_common.isValidImage(outputPath):
-                    logger.info('Found an invalid image. Will wipe it:' + outputPath)
-                    if os.path.exists(outputPath): os.remove(outputPath)
-                    failedFiles.append(outputPath)
-                    continue
-                else:
-                    logger.info('Valid image:' + outputPath)
-                    
-            
-            # Verify the chcksum    
-            if hasXml and len(outputPath) >= 4 and outputPath[-4:] != '.xml':
-                isGood = icebridge_common.hasValidChkSum(outputPath)
-                logger.info('Valid chksum: ' + outputPath + ' ' + str(isGood))
-                if not isGood:
-                    xmlFile = outputPath + '.xml'
-                    logger.info('Found invalid data. Will wipe it: ' + outputPath + ' ' + xmlFile)
-                    if os.path.exists(outputPath): os.remove(outputPath)
-                    if os.path.exists(xmlFile):    os.remove(xmlFile)
-                    failedFiles.append(outputPath)
-                    failedFiles.append(xmlFile)
-                    continue
+            else:
+                logger.info('Valid image: ' + outputPath)
+
+
+        # Verify the chcksum    
+        if hasXml and len(outputPath) >= 4 and outputPath[-4:] != '.xml' \
+               and outputPath[-4:] != '.tfw':
+            isGood = icebridge_common.hasValidChkSum(outputPath)
+            if not isGood:
+                xmlFile = icebridge_common.xmlFile(outputPath)
+                logger.info('Found invalid data. Will wipe it: ' + outputPath + ' ' + xmlFile)
+                if os.path.exists(outputPath): os.remove(outputPath)
+                if os.path.exists(xmlFile):    os.remove(xmlFile)
+                failedFiles.append(outputPath)
+                failedFiles.append(xmlFile)
+                continue
+            else:
+                logger.info('Valid chksum: ' + outputPath)
+
+
+        if hasTfw and icebridge_common.fileExtension(outputPath) == '.tfw':
+            isGood = icebridge_common.isValidTfw(outputPath)
+            if not isGood:
+                xmlFile = icebridge_common.xmlFile(outputPath)
+                logger.info('Found invalid data. Will wipe it: ' + outputPath + ' ' + xmlFile)
+                if os.path.exists(outputPath): os.remove(outputPath)
+                if os.path.exists(xmlFile):    os.remove(xmlFile)
+                failedFiles.append(outputPath)
+                failedFiles.append(xmlFile)
+                continue
+            else:
+                logger.info('Valid tfw file: ' + outputPath)
                 
+            
     numFailed = len(failedFiles)
     if numFailed > 0:
         logger.info("Number of files that could not be processed: " + str(numFailed))
@@ -354,12 +378,15 @@ def main(argsIn):
         parser.add_option("--all-frames", action="store_true", dest="allFrames", default=False,
                           help="Fetch all frames for this flight.")
         
+        parser.add_option('--max-num-to-fetch', dest='maxNumToFetch', default=-1,
+                          type='int', help='The maximum number to fetch of each kind of file. This is used in debugging.')
+
+        parser.add_option("--skip-validate", action="store_true", dest="skipValidate", default=False,
+                          help="Skip input data validation.")
+
         parser.add_option("--dry-run", action="store_true", dest="dryRun", default=False,
                           help="Just print the image/ortho/dem download commands.")
 
-        parser.add_option("--zip-if-all-fetched", action="store_true", dest="zipIfAllFetched", default=False,
-                          help="This will fail if not all the required files exist.")
-        
         parser.add_option("--refetch-index", action="store_true", dest="refetchIndex", default=False,
                           help="Force refetch of the index file.")
 
@@ -404,16 +431,13 @@ def main(argsIn):
     except optparse.OptionError, msg:
         raise Exception(msg)
 
-    # If we want to zip the fetched files, make several attempts. Stop
-    # if there is no progress.
+    # Make several attempts. Stop if there is no progress.
     numPrevFailed = -1
     numFailed = -1
     for attempt in range(10):
         numFailed = doFetch(options, outputFolder)
         
-        if numFailed <= 0 or not options.zipIfAllFetched:
-            if numFailed != 0:
-                return -1 # Fail
+        if numFailed == 0:
             return 0      # Success
 
         if numFailed == numPrevFailed:
@@ -423,7 +447,9 @@ def main(argsIn):
         # Try again
         logger.info("Failed to fetch all in attempt %d, will try again.\n" % (attempt+1))
         numPrevFailed = numFailed
-    
+
+    return -1 # We should not come all the way to here
+
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))
 

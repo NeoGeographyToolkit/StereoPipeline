@@ -46,8 +46,7 @@ os.environ["PATH"] = libexecpath    + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 
 def fetchAllRunData(yyyymmdd, site, dryRun,
-                    zipIfAllFetched,
-                    startFrame, stopFrame, outputFolder,
+                    startFrame, stopFrame, maxNumToFetch, skipValidate, outputFolder,
                     jpegFolder, orthoFolder, demFolder, lidarFolder):
     '''Download all data needed to process a run'''
     
@@ -56,11 +55,15 @@ def fetchAllRunData(yyyymmdd, site, dryRun,
     
     baseCommand = (('--yyyymmdd %s --site %s --start-frame %d --stop-frame %d')
                    % (yyyymmdd, site, startFrame, stopFrame))
+
+    if maxNumToFetch >= 0:
+        baseCommand += ' --max-num-to-fetch ' + str(maxNumToFetch)
+        
+    if skipValidate:
+        baseCommand += ' --skip-validate'
+
     if dryRun:
         baseCommand += ' --dry-run'
-        
-    if zipIfAllFetched:
-        baseCommand += ' --zip-if-all-fetched'
 
     jpegCommand  = '--type image ' + baseCommand +' '+ jpegFolder
     orthoCommand = '--type ortho ' + baseCommand +' '+ orthoFolder
@@ -142,6 +145,37 @@ def convertJpegs(jpegFolder, imageFolder):
         if not os.path.exists(outputPath):
             raise Exception('Failed to convert jpeg file: ' + jpegFile)
 
+def corrFireball(demFolder, corrDemFolder, isNorth):
+    '''Correct Fireball DEMs'''
+
+    logger = logging.getLogger(__name__)
+    logger.info('Correcting Fireball DEMs ...')
+
+    # Loop through all the input images
+    os.system('mkdir -p ' + corrDemFolder)
+    demFiles = os.listdir(demFolder)
+    for demFile in demFiles:
+
+        inputPath = os.path.join(demFolder, demFile)
+        if not icebridge_common.isDEM(inputPath): continue
+
+        # Make sure the timestamp and frame number are in the output file name
+        outputPath = os.path.join(corrDemFolder, os.path.basename(inputPath))
+
+        # Skip existing files
+        if os.path.exists(outputPath):
+            logger.info("File exists, skipping: " + outputPath)
+            continue
+
+        execPath = asp_system_utils.which('correct_icebridge_l3_dem')
+        cmd = (('%s %s %s %d') %
+               (execPath, inputPath, outputPath, isNorth))
+
+        logger.info(cmd)
+        os.system(cmd)
+        if not icebridge_common.isValidImage(outputPath):
+            raise Exception('Failed to convert dem file: ' + demFile)
+
 def getCalibrationFileForFrame(cameraLoopkupFile, inputCalFolder, frame, yyyymmdd, site):
     '''Return the camera model file to be used with a given input frame.'''
 
@@ -191,7 +225,8 @@ def getCalibrationFileForFrame(cameraLoopkupFile, inputCalFolder, frame, yyyymmd
 
     return os.path.join(inputCalFolder, camera)
 
-def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile, refDemPath, numThreads):
+def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile, \
+                           refDemPath, numThreads):
     '''Generate a camera model from a single ortho file'''
 
     logger = logging.getLogger(__name__)
@@ -250,21 +285,25 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
         # Check output file
         inputPath     = os.path.join(imageFolder, imageFile)
         orthoPath     = os.path.join(orthoFolder, orthoFile)
-        outputCamFile = os.path.join(cameraFolder, icebridge_common.getCameraFileName(imageFile))
+        outputCamFile = os.path.join(cameraFolder,
+                                     icebridge_common.getCameraFileName(imageFile))
         if os.path.exists(outputCamFile):
             logger.info("File exists, skipping: " + outputCamFile)
             continue
 
         # Determine which input camera file will be used for this frame
-        inputCamFile = getCalibrationFileForFrame(cameraLookupPath, inputCalFolder, frame, yyyymmdd, site)
+        inputCamFile = getCalibrationFileForFrame(cameraLookupPath, inputCalFolder,
+                                                  frame, yyyymmdd, site)
                
         # Add ortho2pinhole command to the task pool
         taskHandles.append(pool.apply_async(cameraFromOrthoWrapper, 
-                                            (inputPath, orthoPath, inputCamFile, outputCamFile, refDemPath, numThreads)))
+                                            (inputPath, orthoPath, inputCamFile,
+                                             outputCamFile, refDemPath, numThreads)))
 
     # Wait for all the tasks to complete
     logger.info('Finished adding ' + str(len(taskHandles)) + ' tasks to the pool.')
-    icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, interactive=False, quitKey='q')
+    icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, interactive=False,
+                                                     quitKey='q')
 
 
     # All tasks should be finished, clean up the processing pool
@@ -400,8 +439,8 @@ def main(argsIn):
     try:
         # Sample usage:
         # python ~/projects/StereoPipeline/src/asp/IceBridge/full_processing_script.py \
-        #   --yyyymmdd 20091016 --site AN --num-processes 1 --num-threads 12 --bundle-length 12 \
-        #   --start-frame 350 --stop-frame 353 camera_calib ref_dem_folder
+        #  --yyyymmdd 20091016 --site AN --num-processes 1 --num-threads 12 --bundle-length 12 \
+        #  --start-frame 350 --stop-frame 353 --skip-validate camera_calib ref_dem_folder
         # An output folder will be crated automatically (with a name like
         # AN_20091016), or its name can be specified via the --output-folder
         # option.
@@ -457,8 +496,12 @@ def main(argsIn):
                           help="Stop program after data fetching.")
         parser.add_option("--stop-after-convert", action="store_true", dest="stopAfterConvert", default=False,
                           help="Stop program after data conversion.")
+        parser.add_option("--skip-validate", action="store_true", dest="skipValidate", default=False,
+                          help="Skip input data validation.")
         parser.add_option("--zip-if-all-fetched", action="store_true", dest="zipIfAllFetched", default=False,
                           help="If all files are fetched, check that all image files are valid using gdalinfo, then make a tarball and wipe the files. Otherwise error out.")
+        parser.add_option('--max-num-to-fetch', dest='maxNumToFetch', default=-1,
+                          type='int', help='The maximum number to fetch of each kind of file. This is used in debugging.')
         parser.add_option("--dry-run", action="store_true", dest="dryRun", default=False,
                           help="Set up the input directories but do not fetch/process any imagery.")
                           
@@ -533,6 +576,7 @@ def main(argsIn):
     jpegFolder    = os.path.join(options.outputFolder, 'jpeg')
     orthoFolder   = os.path.join(options.outputFolder, 'ortho')
     demFolder     = os.path.join(options.outputFolder, 'fireball')
+    corrDemFolder = os.path.join(options.outputFolder, 'corr_fireball')
     lidarFolder   = os.path.join(options.outputFolder, 'lidar') # Paired files go in /paired
     processFolder = os.path.join(options.outputFolder, 'processed')
     
@@ -547,14 +591,24 @@ def main(argsIn):
             raise Exception('Must stop after fetch to be able to zip inputs.')
         if options.noFetch:
             raise Exception('Must fetch to be able to zip inputs.')
-        
+
+    if options.maxNumToFetch > 0:
+        rem = options.maxNumToFetch % 6
+        if rem != 0:
+            # This is tricky. Do this so that for every ortho file
+            # we fetch its .xml file, and for every dem file
+            # we fetch its .xml and .tfw file.
+            options.maxNumToFetch = options.maxNumToFetch - rem + 6
+            logger.info('Increasing maxNumToFetch to ' + str(options.maxNumToFetch))
+            
     if options.noFetch:
         logger.info('Skipping fetch.')
     else:
         # Call data fetch routine and check the result
         fetchResult = fetchAllRunData(options.yyyymmdd, options.site, options.dryRun,
-                                      options.zipIfAllFetched,
-                                      startFrame, stopFrame, options.outputFolder,
+                                      startFrame, stopFrame, options.maxNumToFetch,
+                                      options.skipValidate,
+                                      options.outputFolder,
                                       jpegFolder, orthoFolder, demFolder, lidarFolder)
         if fetchResult < 0:
             return -1
@@ -609,6 +663,9 @@ def main(argsIn):
     if options.noConvert:        
         logger.info('Skipping convert')
     else:
+
+        corrFireball(demFolder, corrDemFolder, (not isSouth))
+
         convertJpegs(jpegFolder, imageFolder)
         
         getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder, 
