@@ -219,7 +219,7 @@ AX_PKG(GDAL, [GEOTIFF PNG], [-lgdal], [gdal.h])
 AX_PKG(ILMBASE, [M Z PTHREADS], [-lImath -lHalf -lIex -lIlmThread], [Iex.h], [OpenEXR])
 AX_PKG(OPENEXR, [ILMBASE], [-lIlmImf], [ImfOutputFile.h], [OpenEXR])
 
-AX_PKG(OPENCV,     [], [-lopencv_core -lopencv_imgproc -lopencv_features2d -lopencv_xfeatures2d -lopencv_flann -lopencv_calib3d],  [ opencv2/core.hpp  opencv2/imgproc/imgproc.hpp opencv2/features2d.hpp opencv2/xfeatures2d.hpp opencv2/objdetect.hpp opencv2/calib3d.hpp])
+AX_PKG(OPENCV,     [], [-lopencv_core -lopencv_imgproc -lopencv_highgui -lopencv_ml -lopencv_videoio -lopencv_imgcodecs -lopencv_shape -lopencv_video -lopencv_superres -lopencv_objdetect -lopencv_stitching -lopencv_photo -lopencv_features2d -lopencv_xfeatures2d -lopencv_flann -lopencv_calib3d],  [ opencv2/core.hpp  opencv2/imgproc/imgproc.hpp opencv2/features2d.hpp opencv2/xfeatures2d.hpp opencv2/objdetect.hpp opencv2/calib3d.hpp])
 
 AX_PKG(LASZIP,  [], [-llaszip], [laszip/laszip.hpp])
 AX_PKG(LIBLAS,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS LASZIP GDAL], [-llas], [liblas/liblas.hpp])
