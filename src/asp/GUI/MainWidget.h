@@ -178,6 +178,7 @@ public slots:
     void setPolyEditMode(bool polyEditMode); ///< Turn on and off the vector layer drawing
     void deleteVertex();            ///< Delete a vertex from a vector layer
     void insertVertex();            ///< Insert an intermediate vertex at right-click
+    void mergePolys();              ///< Merge existing polygons
     void saveScreenshot();          ///< Save a screenshot of the current imagery
 
   protected:
@@ -323,6 +324,7 @@ public slots:
     QAction* m_deleteVertex;
     QAction* m_insertVertex;
     QAction* m_moveVertex;
+    QAction* m_mergePolys;
     QAction* m_showPolysFilled;
     
     double m_shadow_thresh;

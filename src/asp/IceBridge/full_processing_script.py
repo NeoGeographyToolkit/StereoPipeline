@@ -641,8 +641,10 @@ def main(argsIn):
             p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
             output, error = p.communicate()
             if p.returncode != 0:
-                raise Exception('Failed to tar file.')
-
+                raise Exception('Failed to tar and copy to lfe.')
+            else:
+                logger.info('Success tarring and copying to lfe.')
+                
             if options.outputFolder == "" or options.outputFolder[0] == '.':
                 raise Exception('Output folder is not as expected. ' +
                                 'Not deleting anything just in case.')

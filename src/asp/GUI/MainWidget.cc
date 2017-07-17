@@ -294,6 +294,8 @@ namespace vw { namespace gui {
     m_showPolysFilled->setCheckable(true);
     m_showPolysFilled->setChecked(false);
 
+    m_mergePolys = m_ContextMenu->addAction("Merge polygons");
+    
     m_saveVectorLayer = m_ContextMenu->addAction("Save vector layer as shape file");
       
     // Other options
@@ -320,6 +322,7 @@ namespace vw { namespace gui {
     connect(m_saveVectorLayer,    SIGNAL(triggered()), this, SLOT(saveVectorLayer()));
     connect(m_deleteVertex,       SIGNAL(triggered()), this, SLOT(deleteVertex()));
     connect(m_insertVertex,       SIGNAL(triggered()), this, SLOT(insertVertex()));
+    connect(m_mergePolys,         SIGNAL(triggered()), this, SLOT(mergePolys()));
 
     MainWidget::maybeGenHillshade();
 
@@ -1732,6 +1735,11 @@ namespace vw { namespace gui {
     return;
   }
 
+  // Merge existing polygons
+  void MainWidget::mergePolys(){
+    vw::gui::mergePolys(m_polyVec);
+  }
+  
   // Save the currently created vector layer
   void MainWidget::saveVectorLayer(){
     
@@ -2415,6 +2423,7 @@ namespace vw { namespace gui {
     m_moveVertex->setVisible(m_polyEditMode);
     m_showPolysFilled->setVisible(m_polyEditMode);
     m_saveVectorLayer->setVisible(m_polyEditMode);
+    m_mergePolys->setVisible(m_polyEditMode);
     
     // Refresh this from the variable, before popping up the menu
     m_allowMultipleSelections_action->setChecked(m_allowMultipleSelections);

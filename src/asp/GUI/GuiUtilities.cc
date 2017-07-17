@@ -173,9 +173,65 @@ bool write_hillshade(vw::cartography::GdalWriteOptions const& opt,
   return true;
 }
 
-void readPolyFromOGR(OGRPolygon *poPolygon, std::string const& layer_str,
-		     std::string const& poly_color,
-		     vw::geometry::dPoly & poly){
+
+// Convert a single polygon in a set of polygons to an ORG ring.  
+void toOGR(const double * xv, const double * yv, int startPos, int numVerts,
+	     OGRLinearRing & R){
+
+  R = OGRLinearRing(); // init
+
+  for (int vIter = 0; vIter < numVerts; vIter++){
+    double x = xv[startPos + vIter], y = yv[startPos + vIter];
+    R.addPoint(x, y);
+  }
+  
+  // An OGRLinearRing must end with the same point as what it starts with
+  double x = xv[startPos], y = yv[startPos];
+  if (numVerts >= 2 &&
+      x == xv[startPos + numVerts - 1] &&
+      y == yv[startPos + numVerts - 1]) {
+    // Do nothing, the polygon already starts and ends with the same point 
+  }else{
+    // Ensure the ring is closed
+    R.addPoint(x, y);
+  }
+
+  // A ring must have at least 4 points (but the first is same as last)
+  if (R.getNumPoints() <= 3) 
+    R = OGRLinearRing(); 
+  
+}
+  
+void toOGR(vw::geometry::dPoly const& poly, OGRPolygon & P){
+  
+  P = OGRPolygon(); // reset
+
+  const double * xv        = poly.get_xv();
+  const double * yv        = poly.get_yv();
+  const int    * numVerts  = poly.get_numVerts();
+  int numPolys             = poly.get_numPolys();
+  
+  // Iterate over polygon rings, adding them one by one
+  int startPos = 0;
+  for (int pIter = 0; pIter < numPolys; pIter++){
+    
+    if (pIter > 0) startPos += numVerts[pIter - 1];
+    int numCurrPolyVerts = numVerts[pIter];
+    
+    OGRLinearRing R;
+    toOGR(xv, yv, startPos, numCurrPolyVerts, R);
+
+    if (R.getNumPoints() >= 4 ){
+      if (P.addRing(&R) != OGRERR_NONE )
+	vw_throw(ArgumentErr() << "Failed add ring to polygon.\n");
+    }
+  }
+  
+}
+  
+  
+void fromOGR(OGRPolygon *poPolygon, std::string const& poly_color,
+	     std::string const& layer_str, vw::geometry::dPoly & poly){
 
   bool isPolyClosed = true; // only closed polygons are supported
   
@@ -215,9 +271,181 @@ void readPolyFromOGR(OGRPolygon *poPolygon, std::string const& layer_str,
       x.push_back(poPoint.getX());
       y.push_back(poPoint.getY());
     }
-    poly.appendPolygon(x.size(), vw::geometry::vecPtr(x), vw::geometry::vecPtr(y),
+
+    // Don't record the last element if the same as the first
+    int len = x.size();
+    if (len >= 2 && x[0] == x[len-1] && y[0] == y[len-1]){
+      len--;
+      x.resize(len);
+      y.resize(len);
+    }
+    
+    poly.appendPolygon(len, vw::geometry::vecPtr(x), vw::geometry::vecPtr(y),
 		       isPolyClosed, poly_color, layer_str);
     
+  }
+}
+
+void fromOGR(OGRMultiPolygon *poMultiPolygon, std::string const& poly_color,
+	     std::string const& layer_str, std::vector<vw::geometry::dPoly> & polyVec,
+	     bool append){
+
+
+  if (!append) polyVec.clear();
+
+  int numGeom = poMultiPolygon->getNumGeometries();
+  for (int iGeom = 0; iGeom < numGeom; iGeom++){
+    
+    const OGRGeometry *currPolyGeom = poMultiPolygon->getGeometryRef(iGeom);
+    if (wkbFlatten(currPolyGeom->getGeometryType()) != wkbPolygon) continue;
+    
+    OGRPolygon *poPolygon = (OGRPolygon *) currPolyGeom;
+    vw::geometry::dPoly poly;
+    fromOGR(poPolygon, poly_color, layer_str, poly);
+    polyVec.push_back(poly);
+  }
+}
+
+void fromOGR(OGRGeometry *poGeometry, std::string const& poly_color,
+	     std::string const& layer_str, std::vector<vw::geometry::dPoly> & polyVec,
+	     bool append){
+  
+  if (!append) polyVec.clear();
+  
+  if( poGeometry == NULL) {
+    
+    // nothing to do
+    
+  } else if (wkbFlatten(poGeometry->getGeometryType()) == wkbPoint ) {
+    
+    // Create a polygon with just one point
+    
+    OGRPoint *poPoint = (OGRPoint *) poGeometry;
+    std::vector<double> x, y;
+    x.push_back(poPoint->getX());
+    y.push_back(poPoint->getY());
+    
+    vw::geometry::dPoly poly;
+    bool isPolyClosed = true; // only closed polygons are supported
+    poly.setPolygon(x.size(), vw::geometry::vecPtr(x), vw::geometry::vecPtr(y),
+		    isPolyClosed, poly_color, layer_str);
+    polyVec.push_back(poly);
+    
+  } else if (wkbFlatten(poGeometry->getGeometryType()) == wkbMultiPolygon){
+    
+    bool append = true; 
+    OGRMultiPolygon *poMultiPolygon = (OGRMultiPolygon *) poGeometry;
+    fromOGR(poMultiPolygon, poly_color, layer_str, polyVec, append);
+    
+  } else if (wkbFlatten(poGeometry->getGeometryType()) == wkbPolygon){
+    
+    OGRPolygon *poPolygon = (OGRPolygon *) poGeometry;
+    vw::geometry::dPoly poly;
+    fromOGR(poPolygon, poly_color, layer_str, poly);
+    polyVec.push_back(poly);
+  }
+  
+}
+  
+// Here we assume that each dPoly is a set of polygons.
+// So, polyVec holds several such sets, like layers.   
+void mergePolys(std::vector<vw::geometry::dPoly> & polyVec){
+
+  try {
+  // We will infer these from existing polygons
+  std::string poly_color, layer_str;
+  
+  // We must first organize all those user-drawn curves into meaningful polygons.
+  // This can flip orientations and order of polygons. 
+  std::vector<OGRGeometry*> ogr_polys;
+  
+  for (size_t vecIter = 0; vecIter < polyVec.size(); vecIter++) {
+
+    if (poly_color == ""){
+      std::vector<std::string> colors = polyVec[vecIter].get_colors();
+      if (!colors.empty()) 
+	poly_color = colors[0];
+    }
+      
+    if (layer_str == "") {
+      std::vector<std::string> layers = polyVec[vecIter].get_layers();
+      if (!layers.empty()) 
+	layer_str = layers[0];
+    }
+
+    // We story in poly a set of polygons
+    vw::geometry::dPoly & poly = polyVec[vecIter]; // alias
+    
+    const double * xv        = poly.get_xv();
+    const double * yv        = poly.get_yv();
+    const int    * numVerts  = poly.get_numVerts();
+    int numPolys             = poly.get_numPolys();
+    
+    // Iterate over polygon rings in the given polygon set
+    int startPos = 0;
+    for (int pIter = 0; pIter < numPolys; pIter++){
+      
+      if (pIter > 0) startPos += numVerts[pIter - 1];
+      int numCurrPolyVerts = numVerts[pIter];
+      
+      OGRLinearRing R;
+      toOGR(xv, yv, startPos, numCurrPolyVerts, R);
+
+      OGRPolygon * P = new OGRPolygon;
+      if (P->addRing(&R) != OGRERR_NONE )
+	vw_throw(ArgumentErr() << "Failed add ring to polygon.\n");
+
+      ogr_polys.push_back(P);
+    }
+    
+  }
+
+  // The doc of this function says that the elements in ogr_polys will
+  // be taken care of. We are responsible only for the vector of pointers
+  // and for the output of this function.
+  int pbIsValidGeometry = 0;
+  const char** papszOptions = NULL; 
+  OGRGeometry* good_geom
+    = OGRGeometryFactory::organizePolygons(vw::geometry::vecPtr(ogr_polys),
+					   ogr_polys.size(),
+					   &pbIsValidGeometry,
+					   papszOptions);
+  
+  // Single polygon, nothing to do
+  if (wkbFlatten(good_geom->getGeometryType()) == wkbPolygon || 
+      wkbFlatten(good_geom->getGeometryType()) == wkbPoint) {
+    bool append = false; 
+    fromOGR(good_geom, poly_color, layer_str, polyVec, append);
+  }else if (wkbFlatten(good_geom->getGeometryType()) == wkbMultiPolygon) {
+
+    // We can merge
+    OGRGeometry * merged_geom = new OGRPolygon;
+    
+    OGRMultiPolygon *poMultiPolygon = (OGRMultiPolygon*)good_geom;
+    
+    int numGeom = poMultiPolygon->getNumGeometries();
+    for (int iGeom = 0; iGeom < numGeom; iGeom++){
+      
+      const OGRGeometry *currPolyGeom = poMultiPolygon->getGeometryRef(iGeom);
+      if (wkbFlatten(currPolyGeom->getGeometryType()) != wkbPolygon) continue;
+
+      OGRPolygon *poPolygon = (OGRPolygon *) currPolyGeom;
+      OGRGeometry * local_merged = merged_geom->Union(poPolygon);
+
+      // Keep the pointer to the new geometry
+      if (merged_geom != NULL)
+	OGRGeometryFactory::destroyGeometry(merged_geom);
+      merged_geom = local_merged;
+    }    
+
+    bool append = false;
+    fromOGR(merged_geom, poly_color, layer_str, polyVec, append);
+    OGRGeometryFactory::destroyGeometry(merged_geom);
+  }
+  
+  OGRGeometryFactory::destroyGeometry(good_geom);
+  }catch(std::exception &e ){
+    std::cout << "--failed at " << e.what() << std::endl;
   }
 }
   
@@ -281,60 +509,19 @@ void read_shapefile(std::string const& file,
   // that the map from projected coordinates to pixel coordinates (point_to_pixel())
   // to be the identity.
   geo.set_pixel_interpretation(vw::cartography::GeoReference::PixelAsPoint);
-  
+
   OGRFeature *poFeature;
   poLayer->ResetReading();
   while ( (poFeature = poLayer->GetNextFeature()) != NULL ) {
 
-    OGRGeometry *poGeometry;
-    poGeometry = poFeature->GetGeometryRef();
-    
-    if( poGeometry == NULL) {
-      
-      // nothing to do
-      
-    } else if (wkbFlatten(poGeometry->getGeometryType()) == wkbPoint ) {
+    OGRGeometry *poGeometry = poFeature->GetGeometryRef();
 
-      // Create a polygon with just one point
-      
-      OGRPoint *poPoint = (OGRPoint *) poGeometry;
-      std::vector<double> x, y;
-      x.push_back(poPoint->getX());
-      y.push_back(poPoint->getY());
-      
-      vw::geometry::dPoly poly;
-      bool isPolyClosed = true; // only closed polygons are supported
-      poly.setPolygon(x.size(), vw::geometry::vecPtr(x), vw::geometry::vecPtr(y),
-		      isPolyClosed, poly_color, layer_str);
-      polyVec.push_back(poly);
-      
-    } else if (wkbFlatten(poGeometry->getGeometryType()) == wkbMultiPolygon){
-
-      OGRMultiPolygon *poMultiPolygon = (OGRMultiPolygon *) poGeometry;
-      int numGeom = poMultiPolygon->getNumGeometries();
-      for (int iGeom = 0; iGeom < numGeom; iGeom++){
-	
-	const OGRGeometry *currPolyGeom = poMultiPolygon->getGeometryRef(iGeom);
-	if (wkbFlatten(currPolyGeom->getGeometryType()) != wkbPolygon) continue;
-	OGRPolygon *poPolygon = (OGRPolygon *) currPolyGeom;
-	vw::geometry::dPoly poly;
-	readPolyFromOGR(poPolygon, poly_color, layer_str, poly);
-
-	polyVec.push_back(poly);
-	
-      }
-      
-    } else if (wkbFlatten(poGeometry->getGeometryType()) == wkbPolygon){
-    
-      OGRPolygon *poPolygon = (OGRPolygon *) poGeometry;
-      vw::geometry::dPoly poly;
-      readPolyFromOGR(poPolygon, poly_color, layer_str, poly);
-      polyVec.push_back(poly);
-    }
+    bool append = true; 
+    fromOGR(poGeometry, poly_color, layer_str, polyVec,  append);
     
     OGRFeature::DestroyFeature( poFeature );
   }
-  
+
   GDALClose( poDS );
 }
 
@@ -392,31 +579,8 @@ void write_shapefile(std::string const& file,
     poFeature->SetField( "Name", "ToBeFilledIn" );
 #endif
     
-    const double * xv           = poly.get_xv();
-    const double * yv           = poly.get_yv();
-    const int    * numVerts     = poly.get_numVerts();
-    int numPolys                = poly.get_numPolys();
-
-    // Iterate over polygon rings, adding them one by one
     OGRPolygon P;
-    int start = 0;
-    for (int pIter = 0; pIter < numPolys; pIter++){
-
-      if (pIter > 0) start += numVerts[pIter - 1];
-      int pSize = numVerts[pIter];
-
-      OGRLinearRing R;
-      for (int vIter = 0; vIter < pSize; vIter++){
-	double x = xv[start + vIter], y = yv[start + vIter];
-	R.addPoint(x, y);
-      }
-    
-      if (P.addRing(&R) != OGRERR_NONE ){
-	// Presumably not much can be done if this failed
-      }
-
-    }
-    
+    toOGR(poly, P);
     poFeature->SetGeometry(&P); 
     
     if (poLayer->CreateFeature( poFeature ) != OGRERR_NONE)

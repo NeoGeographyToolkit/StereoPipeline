@@ -186,6 +186,7 @@ namespace vw { namespace gui {
 		       double & xll, double & yll,
 		       double & xur, double & yur);
   
+  void mergePolys(std::vector<vw::geometry::dPoly> & polyVec);
   
   // This will tweak the georeference so that point_to_pixel() is the identity.
   bool read_georef_from_shapefile(vw::cartography::GeoReference & georef,
