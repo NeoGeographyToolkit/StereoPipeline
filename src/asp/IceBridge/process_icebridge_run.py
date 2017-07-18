@@ -273,7 +273,11 @@ def main(argsIn):
 
     numFiles = len(imageFiles)
     if (len(cameraFiles) != numFiles):
-        logger.error('Error: Number of image files and number of camera files must match!')
+        print imageFiles
+        print cameraFiles
+        logger.error('process_icebridge.py: counted ' + str(len(imageFiles)) + ' image files.\n'+
+                     'and ' + str(len(cameraFiles)) + ' camera files.\n'+
+                     'Error: Number of image files and number of camera files must match!')
         return -1
         
     imageCameraPairs = zip(imageFiles, cameraFiles)
@@ -291,6 +295,7 @@ def main(argsIn):
     for (image, camera) in imageCameraPairs: 
         vizString += image +' ' + camera+' '
     cmd = 'orbitviz --hide-labels -t nadirpinhole -r wgs84 -o '+ orbitvizBefore +' '+ vizString
+    logger.info(cmd)
     asp_system_utils.executeCommand(cmd, orbitvizBefore, suppressOutput, redo)
     
     # Set up options for process_icebridge_batch

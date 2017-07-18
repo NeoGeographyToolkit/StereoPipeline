@@ -33,6 +33,8 @@
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <vw/Camera/PinholeModel.h>
+#include <boost/core/null_deleter.hpp>
+
 
 // Turn off warnings from eigen
 #if defined(__GNUC__) || defined(__GNUG__)
@@ -79,6 +81,156 @@ struct Options : public vw::cartography::GdalWriteOptions {
   Options(): camera_height(-1), orthoimage_height(0), ip_per_tile(0),
              ip_detect_method(0), individually_normalize(false){}
 };
+
+
+/// Read the camera height above ground from the ortho file, unless it was user-specified.
+double get_cam_height_estimate(Options const& opt) {
+  double cam_height = opt.camera_height;
+  if (cam_height < 0){
+    const std::string alt_key = "Altitude";
+    std::string alt_str;
+    boost::shared_ptr<vw::DiskImageResource> rsrc(new vw::DiskImageResourceGDAL(opt.ortho_image));
+    vw::cartography::read_header_string(*rsrc.get(), alt_key, alt_str);
+    if (alt_str == "") 
+      vw_throw( ArgumentErr() << "Cannot find the 'Altitude' metadata in the image: " 
+                              << opt.ortho_image
+                  << ". It should then be specified on the command line as --camera-height.\n");
+    
+    cam_height = atof(alt_str.c_str());
+  }
+  return cam_height;
+}
+
+
+
+// Unpack six parameters into a translation and rotation
+void unpack_parameters(Vector<double> const &C,
+                       Vector3   &translation,
+                       Matrix3x3 &rotation) {
+  translation = Vector3(C[3], C[4], C[5]);
+  Vector3 angles(C[0], C[1], C[2]);
+  rotation = axis_angle_to_matrix(angles);
+}
+
+/// Find the camera model that best explains the DEM pixel observations
+class OtpSolveLMA : public vw::math::LeastSquaresModelBase<OtpSolveLMA> {
+  
+  // TODO: Normalize!
+  /// The normalized values are in the -1 to 1 range.
+  std::vector<vw::Vector3> const& m_gcc_coords;
+  std::vector<vw::Vector2> const& m_pixel_coords;
+  boost::shared_ptr<CameraModel> m_camera_model;
+  mutable size_t m_iter_count;
+  
+public:
+ 
+
+  typedef vw::Vector<double> result_type;   // normalized pixels
+  typedef result_type        domain_type;   // Camera parameters: x,y,z,
+  typedef vw::Matrix<double> jacobian_type;
+
+  /// Instantiate the solver with a set of GCC <--> Pixel pairs.
+  OtpSolveLMA(std::vector<vw::Vector3> const& gcc_coords,
+              std::vector<vw::Vector2> const& pixel_coords,
+              boost::shared_ptr<CameraModel> camera_model):
+    m_gcc_coords(gcc_coords),
+    m_pixel_coords(pixel_coords),
+    m_camera_model(camera_model), m_iter_count(0){
+    std::cout << "Init model with " << m_gcc_coords.size() << " points.\n";
+  }
+
+  /// Given a set of RPC coefficients, compute the projected pixels.
+  inline result_type operator()( domain_type const& C ) const {
+
+
+    // Set up the camera with the proposed rotation/translation
+    Vector3   translation;
+    Quat rotation;
+    //unpack_parameters(C, translation, rotation);
+    translation = Vector3(C[3], C[4], C[5]);
+    Vector3 angles(C[0], C[1], C[2]);
+    rotation = axis_angle_to_quaternion(angles);
+    
+    //std::cout << "Testing translation: " << translation << std::endl;
+    //std::cout << "Testing rotation: " << rotation << std::endl;
+    
+    AdjustedCameraModel adj_cam(m_camera_model, translation, rotation);
+    
+    // Compute the error scores
+    const size_t result_size = m_gcc_coords.size() * 2;
+    result_type result;
+    result.set_size(result_size);
+    //double mean_error = 0;
+    for (size_t i=0; i<m_gcc_coords.size(); ++i) {
+      Vector2 pixel = adj_cam.point_to_pixel(m_gcc_coords[i]);
+      //std::cout << pixel << " vs " << m_pixel_coords[i] << std::endl;
+      result[2*i  ] = pixel[0];
+      result[2*i+1] = pixel[1];
+      //mean_error += (fabs(pixel[0] - m_pixel_coords[i][0]) + fabs(pixel[1] - m_pixel_coords[i][1]))/2.0;
+    }
+    
+    //std::cout << "Iter " << m_iter_count << " -> mean error = " << mean_error/m_gcc_coords.size() << std::endl;
+    //++m_iter_count;
+    
+    return result;
+  }
+
+}; // End class OtpSolveLMA
+
+
+/// Solve for a camera translation/rotation based on pixel/gcc coordinate pairs.
+int solve_for_cam_adjust(boost::shared_ptr<PinholeModel> camera_model,
+                         std::vector<Vector2> const& pixel_coords,
+                         std::vector<Vector3> const& gcc_coords,
+                         vw::Vector3         & translation,
+                         vw::Matrix3x3       & rotation,
+                         double              & norm_error) {
+
+  // Set up the optimizer model
+  OtpSolveLMA lma_model(gcc_coords, pixel_coords, camera_model);
+
+  int status;
+
+  // Use the L-M solver to optimize the camera position.
+  const double abs_tolerance  = 1e-24;
+  const double rel_tolerance  = 1e-24;
+  const int    max_iterations = 2000;
+
+  // Set up with identity transform  
+  const size_t NUM_PARAMS = 6;
+  Vector<double> seed_params(NUM_PARAMS);
+  for (size_t i=0; i<NUM_PARAMS; ++i)
+    seed_params[i] = 0.0;
+
+  // Pack the target pixel observations
+  const size_t num_observations = pixel_coords.size()*2;
+  Vector<double> packed_observations(num_observations);
+  for(size_t i=0; i<pixel_coords.size(); ++i) {
+    packed_observations[2*i  ] = pixel_coords[i][0];
+    packed_observations[2*i+1] = pixel_coords[i][1];
+  }
+
+  // Run the observation
+  Vector<double> final_params;
+  final_params = math::levenberg_marquardt( lma_model, seed_params, packed_observations,
+                                            status, abs_tolerance, rel_tolerance,
+                                            max_iterations );
+
+  if (status < 1) { // This means the solver failed to converge!
+    VW_OUT(DebugMessage, "asp") << "ortho2pinhole: WARNING --> Levenberg-Marquardt solver status = " 
+                                << status << std::endl;
+  }
+
+  // Otherwise the solver converged, compute the final error number.
+  Vector<double> final_projected = lma_model(final_params);
+  Vector<double> final_error     = lma_model.difference(final_projected, packed_observations);
+  norm_error = norm_2(final_error);
+
+  unpack_parameters(final_params, translation, rotation);
+  
+  return status;
+}
+    
 
 void ortho2pinhole(Options const& opt){
   std::string out_prefix = "tmp-prefix";
@@ -153,19 +305,7 @@ void ortho2pinhole(Options const& opt){
 
   // The ortho image file must have the height of the camera above the ground.
   // This can be over-written from the command line.
-  double cam_height = opt.camera_height;
-  if (cam_height < 0){
-    std::string alt_str;
-    std::string alt_key = "Altitude";
-    boost::shared_ptr<vw::DiskImageResource> rsrc(new vw::DiskImageResourceGDAL(opt.ortho_image));
-    vw::cartography::read_header_string(*rsrc.get(), alt_key, alt_str);
-    if (alt_str == "") 
-      vw_throw( ArgumentErr() << "Cannot find the 'Altitude' metadata in the image: " 
-		<< opt.ortho_image
-                << ". It should then be specified on the command line as --camera-height.\n");
-    
-    cam_height = atof(alt_str.c_str());
-  }
+  double cam_height = get_cam_height_estimate(opt);
 
   std::vector<vw::ip::InterestPoint> raw_ip, ortho_ip;
   ip::read_binary_match_file(match_filename, raw_ip, ortho_ip);
@@ -186,12 +326,14 @@ void ortho2pinhole(Options const& opt){
   // We use two versions of ground points. In one we assume constant height,
   // in the second we pull the heights from a DEM. If there are enough
   // of the latter kind of points, we use those.
-  std::vector<Vector3> points_in1, points_out1, llh1;
-  std::vector<Vector3> points_in2, points_out2, llh2;
-  std::vector<Vector2> pix1, pix2;
+  // - The "2" variables go with the "ortho_dem" variables.
+  std::vector<Vector3> raw_flat_xyz, ortho_flat_xyz, ortho_flat_llh;
+  std::vector<Vector3> raw_flat_xyz2, ortho_dem_xyz, ortho_dem_llh;
+  std::vector<Vector2> raw_pixels, raw_pixels2;
   
   for (size_t ip_iter = 0; ip_iter < raw_ip.size(); ip_iter++){
     try {
+      // Get ray from the raw image pixel
       Vector2 raw_pix(raw_ip[ip_iter].x, raw_ip[ip_iter].y);
       Vector3 ctr = pcam->camera_center(raw_pix);
       Vector3 dir = pcam->pixel_to_vector(raw_pix);
@@ -200,6 +342,7 @@ void ortho2pinhole(Options const& opt){
       // with the plane z = cam_height.
       Vector3 point_in = ctr + (cam_height/dir[2])*dir;
       
+      // Get lonlan location for this IP IP.
       Vector2 ortho_pix(ortho_ip[ip_iter].x, ortho_ip[ip_iter].y);
       Vector2 ll = ortho_georef.pixel_to_lonlat(ortho_pix);
       
@@ -207,55 +350,69 @@ void ortho2pinhole(Options const& opt){
       Vector3 llh(ll[0], ll[1], opt.orthoimage_height);
       Vector3 point_out = ortho_georef.datum().geodetic_to_cartesian(llh);
 
-      points_in1.push_back(point_in);
-      points_out1.push_back(point_out);
-      llh1.push_back(llh);
-      pix1.push_back(raw_pix);
+      raw_flat_xyz.push_back(point_in);
+      ortho_flat_xyz.push_back(point_out);
+      ortho_flat_llh.push_back(llh);
+      raw_pixels.push_back(raw_pix);
+      
+      if (!has_ref_dem)
+        continue;
       
       // Now let's see if the DEM is any good
-      if (has_ref_dem) {
-        PixelMask<float> dem_val; dem_val.invalidate();
-        Vector2 dem_pix = dem_georef.lonlat_to_pixel(ll);
-        double x = dem_pix.x(), y = dem_pix.y();
-        if (0 <= x && x <= dem.cols() - 1 && 0 <= y && y <= dem.rows() - 1 ) {
-          InterpolationView<EdgeExtensionView< ImageViewRef< PixelMask<float> >, ConstantEdgeExtension >, BilinearInterpolation> interp_dem = interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
-          dem_val = interp_dem(x, y);
-          if (is_valid(dem_val)) {
-            Vector3 llh(ll[0], ll[1], dem_val.child());
-            Vector3 point_out = dem_georef.datum().geodetic_to_cartesian(llh);
-            points_in2.push_back(point_in);
-            points_out2.push_back(point_out);
-            llh2.push_back(llh);
-            pix2.push_back(raw_pix);
-          }
-        } // end considering the reference DEM
         
-      }
+      PixelMask<float> dem_val; 
+      dem_val.invalidate();
+      Vector2 dem_pix = dem_georef.lonlat_to_pixel(ll);
+      double x = dem_pix.x(), y = dem_pix.y();
+      // Is this pixel contained in the DEM?
+      if (0 <= x && x <= dem.cols() - 1 && 0 <= y && y <= dem.rows() - 1 ) {
+        InterpolationView<EdgeExtensionView< ImageViewRef< PixelMask<float> >, 
+                                             ConstantEdgeExtension >, 
+                          BilinearInterpolation> interp_dem = 
+            interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
+        dem_val = interp_dem(x, y);
+        if (is_valid(dem_val)) {
+          Vector3 llh(ll[0], ll[1], dem_val.child());
+          Vector3 point_out = dem_georef.datum().geodetic_to_cartesian(llh);
+          raw_flat_xyz2.push_back(point_in);
+          ortho_dem_xyz.push_back(point_out);
+          ortho_dem_llh.push_back(llh);
+          raw_pixels2.push_back(raw_pix);
+        }
+      } // end considering the reference DEM
+        
+
     }
-    catch(...){} // camera operations can throw an exception
+    catch(...){} // Ignore any points which trigger a camera exception
   }
 
   // See if enough points on the DEM were found
+  bool use_dem_points = false;
   if (has_ref_dem) {
-    int num = 8;
-    if (int(points_out2.size()) < num) {
-      vw_out() << "Less than " << num << " interest points were on the DEM. Igorning the DEM "
+    const int MIN_NUM_DEM_POINTS = 8;
+    
+    if (int(ortho_dem_xyz.size()) < MIN_NUM_DEM_POINTS) {
+      vw_out() << "Less than " << MIN_NUM_DEM_POINTS 
+               << " interest points were on the DEM. Igorning the DEM "
                << "and using the constant height: " << opt.orthoimage_height << "\n";
-    }else{
-      points_in1  = points_in2;
-      points_out1 = points_out2;
-      llh1        = llh2;
-      pix1        = pix2;
-      points_in2.clear(); points_out2.clear(); llh2.clear(); pix2.clear();
+    }else{ // Use the DEM points
+      use_dem_points = true;
+      raw_flat_xyz   = raw_flat_xyz2;
+      ortho_flat_xyz = ortho_dem_xyz;
+      ortho_flat_llh = ortho_dem_llh;
+      raw_pixels     = raw_pixels2;
     }
   }
-  int num_pts = points_in1.size();
+  // Pack the in/out point pairs into two matrices.
+  int num_pts = raw_flat_xyz.size();
   vw_out() << "Using " << num_pts << " points to create the camera model.\n";
   vw::Matrix<double> points_in(3, num_pts), points_out(3, num_pts);
   typedef vw::math::MatrixCol<vw::Matrix<double> > ColView;
   for (int pt_iter = 0; pt_iter < num_pts; pt_iter++){
-    ColView colIn (points_in,  pt_iter);  colIn  = points_in1[pt_iter];
-    ColView colOut(points_out, pt_iter);  colOut = points_out1[pt_iter];
+    ColView colIn (points_in,  pt_iter);
+    ColView colOut(points_out, pt_iter);
+    colIn  = raw_flat_xyz  [pt_iter];
+    colOut = ortho_flat_xyz[pt_iter];
   }
 
   // Call function to compute a 3D affine transform between the two point sets
@@ -265,9 +422,9 @@ void ortho2pinhole(Options const& opt){
   asp::find_3D_affine_transform(points_in, points_out, rotation, translation, scale);
 
   vw_out() << "Determined camera extrinsics from orthoimage: " << std::endl;
-  vw_out() << "rotation\n" << rotation << std::endl;
-  vw_out() << "translation\n" << translation << std::endl;
-  vw_out() << "scale\n" << scale << std::endl;
+  vw_out() << "rotation: " << rotation << std::endl;
+  vw_out() << "translation: " << translation << std::endl;
+  vw_out() << "scale: " << scale << std::endl;
 
   // Estimate the error of this transform.
   double max_err = 0.0;
@@ -280,10 +437,46 @@ void ortho2pinhole(Options const& opt){
     max_err = std::max(max_err,  norm_2(in_trans - point_out));
   }
   vw_out() << "Max error on the ground in meters: " << max_err << std::endl;
-  
+
   // Apply the transform to the camera.
   pcam->apply_transform(rotation, translation, scale);
-  
+
+  Vector3 llh_cam = ortho_georef.datum().cartesian_to_geodetic(pcam->camera_center(Vector2()));
+  vw_out() << "Cam center 2 located at " << llh_cam << std::endl;
+
+  if (use_dem_points) {
+    // Refine our initial estimate of the camera position using an LM solver with the camera model.
+    double norm_error;
+    int status = solve_for_cam_adjust(boost::shared_ptr<PinholeModel>(pcam, boost::null_deleter()),
+                                      raw_pixels2, ortho_dem_xyz,
+                                      translation, rotation, norm_error);
+
+    vw_out() << "LM solver status: " << status << std::endl;
+    if (status < 1)
+      vw_out() << "LM solver failed, using the initial camera estimate.\n";
+    else {
+      vw_out() << "LM solver error: " << norm_error << std::endl;
+
+      vw_out() << "Optimized camera extrinsics from orthoimage: " << std::endl;
+      vw_out() << "rotation: " << rotation << std::endl;
+      vw_out() << "translation: " << translation << std::endl;
+
+      // TODO: Make a function for this?
+      // Apply the transform to the camera.     
+      Quat rot_q(rotation);
+      AdjustedCameraModel adj_cam(boost::shared_ptr<PinholeModel>(pcam, boost::null_deleter()), translation, rot_q);
+      Quat    pose   = adj_cam.camera_pose(Vector2());
+      Vector3 center = adj_cam.camera_center(Vector2());
+      pcam->set_camera_pose(pose);
+      pcam->set_camera_center(center);
+      
+      
+      llh_cam = ortho_georef.datum().cartesian_to_geodetic(center);
+      vw_out() << "Cam center 3 located at " << llh_cam << std::endl;
+      
+    }
+  } // End of LM optimization attempt
+
   vw_out() << "Writing: " << opt.output_cam << std::endl;
   pcam->write(opt.output_cam);
 
@@ -294,8 +487,8 @@ void ortho2pinhole(Options const& opt){
   int pts_count = 0;
   for (int pt_iter = 0; pt_iter < num_pts; pt_iter++) { // Loop through IPs
 
-    Vector3 llh = llh1[pt_iter];
-    Vector2 pix = pix1[pt_iter];
+    Vector3 llh = ortho_flat_llh[pt_iter];
+    Vector2 pix = raw_pixels[pt_iter];
     Vector2 lonlat = subvector(llh, 0, 2);
     double height = llh[2];
 

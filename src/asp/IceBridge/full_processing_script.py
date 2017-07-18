@@ -203,6 +203,7 @@ def getCalibrationFileForFrame(cameraLoopkupFile, inputCalFolder, frame, yyyymmd
                 
             # There is one default camera, and possible a backup camera for a range
             # of frames
+            # - Currently these are on separate lines
             m = re.match("^.*?frames\s+(\d+)-(\d+)", line)
             if not m:
                 # The default camera, it is always before the backup one in the list.
@@ -215,7 +216,8 @@ def getCalibrationFileForFrame(cameraLoopkupFile, inputCalFolder, frame, yyyymmd
                 if (frame >= startRange) and (frame <= stopRange):
                     camera = curr_camera
 
-            break # Each frame will match only one line
+            # TODO: Modify file format so each flight has all info on a single line!
+            #break # Each frame will match only one line
 
     if camera == "":
         raise Exception('Failed to parse the camera.')
@@ -261,7 +263,7 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
     for f in orthoFiles:
         # Skip non-image files
         ext = os.path.splitext(f)[1]
-        if ext != '.tif':
+        if (ext != '.tif') or ('_sub' in f):
             continue
         frame = icebridge_common.getFrameNumberFromFilename(f)
         orthoFrames[frame] = f
@@ -277,7 +279,7 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
         ext = os.path.splitext(imageFile)[1]
         if (ext != '.tif') or ('_sub' in imageFile):
             continue
-        
+
         # Get associated orthofile
         frame     = icebridge_common.getFrameNumberFromFilename(imageFile)       
         orthoFile = orthoFrames[frame]
@@ -563,7 +565,8 @@ def main(argsIn):
         if options.site == 'AN':
             refDemPath = 'krigged_dem_nsidc_ndv0_fill.tif'
         if options.site == 'GR':
-            refDemPath = 'gimpdem_90m_v1.1.tif'
+            #refDemPath = 'gimpdem_90m_v1.1.tif' # Higher resolution
+            refDemPath = 'NSIDC_Grn1km_wgs84_elev.tif' # Used to produce the orthos
         if options.site == 'AL':
             refDemPath = 'akdem300m.tif'
         refDemPath = os.path.join(refDemFolder, refDemPath)

@@ -428,7 +428,8 @@ were designed specifically to clean up output from the SGM algorithm and are esp
 image artifacts in low-texture portions of the image.  A median filter size of 3 and a texture filter size of 11
 are good starts but the best values will depend on your input images. The \texttt{texture-smooth-scale}
 parameter will have to be adjusted to taste, but a range of 0.13 to 0.15 is typical for icy images.  These
-values are enabled by default and must be manually disabled.
+values are enabled by default and must be manually disabled.  If your images have good texture throughout
+it may be best to disable these filters.
 \item The \texttt{prefilter-mode} setting is ignored when using SGM.
 \item The \texttt{subpixel-mode} setting is ignored when using SGM unless it is set to
 one of the "SGM" modes, 6 through 10.  You can try these modes, particularly the cosine algorithm,

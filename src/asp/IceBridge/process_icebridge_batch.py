@@ -158,11 +158,18 @@ def main(argsIn):
     #redo = True
     
     # BUNDLE_ADJUST
-    # - Bundle adjust all of the input images at the same time.
+    # - Bundle adjust all of the input images in the batch at the same time.
+    # - An overlap number less than 2 is prone to very bad bundle adjust results so
+    #   don't use less than that.  If there is really only enough overlap for one we
+    #   will have to examine the results very carefully!
+    MIN_BA_OVERLAP = 2
+    CAMERA_WEIGHT  = 1.0 # TODO: Find the best value here
     bundlePrefix   = os.path.join(outputFolder, 'bundle/out')
     baOverlapLimit = options.stereoImageInterval # TODO: Maybe adjust this a bit
-    cmd = ('bundle_adjust %s -o %s %s -t nadirpinhole --local-pinhole --overlap-limit %d' 
-                 % (imageCameraString, bundlePrefix, threadText, baOverlapLimit))
+    if baOverlapLimit < MIN_BA_OVERLAP:
+        baOverlapLimit = MIN_BA_OVERLAP
+    cmd = ('bundle_adjust %s -o %s %s --camera-weight %d -t nadirpinhole --local-pinhole --overlap-limit %d' 
+                 % (imageCameraString, bundlePrefix, threadText, CAMERA_WEIGHT, baOverlapLimit))
     if options.solve_intr:
         cmd += ' --solve-intrinsics'
     
