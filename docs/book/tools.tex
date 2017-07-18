@@ -478,10 +478,18 @@ value.  By default try to match all images.\\ \hline
 \texttt{-\/-overlap-list \textit{string}} & A list of image pairs, one pair per line, separated by a space, which are expected to overlap. Matches are then computed only among the images in each pair.
 \\ \hline
 
+\texttt{-\/-rotation-weight \textit{double(=0.0)}} &
+A higher weight will penalize more rotation deviations from the original configuration.
+\\ \hline
+
+\texttt{-\/-translation-weight \textit{double(=0.0)}} &
+A higher weight will penalize more translation deviations from the original configuration.
+\\ \hline
+
 \texttt{-\/-camera-weight \textit{double(=1.0)}} &
 The weight to give to the constraint that the camera positions/orientations stay close to
 the original values (only for the Ceres solver).  A higher weight means that the values will
-change less, a lower weight means more change.
+change less.  The options -\/-rotation-weight and -\/-translation-weight can be used for finer-grained control and a stronger response.
 \\ \hline
 
 \texttt{-\/-ip-per-tile \textit{int}} &
@@ -2155,7 +2163,7 @@ Options & Description \\ \hline \hline
 Replaces the intensity information in an RGB image with the provided grayscale image
 by temporarily converting to HSV.  Both input image must be the same size.
 
-Mimicks \texttt{hsv\_merge.py} by Frank Warmerdam and Trent Hare. Use it to combine results from gdaldem.
+Mimics \texttt{hsv\_merge.py} by Frank Warmerdam and Trent Hare. Use it to combine results from gdaldem.
 
 \medskip
 

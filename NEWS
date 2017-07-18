@@ -13,6 +13,8 @@
    
  - bundle_adjust
    * Added the parameter --nodata-value. 
+   * Added the parameters --rotation-weight and --translation-weight
+     to penalize large rotation and translation changes.
 
  - Misc
    * Handle properly in bundle_adjust, orbitviz, and stereo 

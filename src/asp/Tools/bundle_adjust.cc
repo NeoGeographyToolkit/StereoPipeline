@@ -72,7 +72,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   std::string cnet_file, out_prefix, stereo_session_string,
     cost_function, ba_type, mapprojected_data, gcp_data;
   int    ip_per_tile;
-  double min_triangulation_angle, lambda, camera_weight, robust_threshold;
+  double min_triangulation_angle, lambda, camera_weight, rotation_weight, translation_weight, robust_threshold;
   int    report_level, min_matches, max_iterations, overlap_limit;
 
   bool   save_iteration, local_pinhole_input, fix_gcp_xyz, solve_intrinsics;
@@ -95,6 +95,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   // Make sure all values are initialized, even though they will be
   // over-written later.
   Options(): ip_per_tile(0), min_triangulation_angle(0), lambda(-1.0), camera_weight(-1),
+             rotation_weight(0), translation_weight(0),
              robust_threshold(0), report_level(0), min_matches(0),
              max_iterations(0), overlap_limit(0), save_iteration(false),
              local_pinhole_input(false), fix_gcp_xyz(false), solve_intrinsics(false),
@@ -471,6 +472,48 @@ struct CamError {
   double m_weight;
 };
 
+// A ceres cost function. The residual is the rotation + translation
+// vector difference, each multiplied by a weight. Hence, a larger
+// rotation weight will result in less rotation change in the final
+// result, etc. This is somewhat different than CamError as there is no
+// penalty here for this cost function going very large, the scaling is
+// different, and there is finger-grained control. 
+template<class ModelT>
+struct RotTransError {
+  typedef typename ModelT::camera_vector_t CamVecT;
+
+  RotTransError(CamVecT const& orig_cam, double rotation_weight, double translation_weight):
+    m_orig_cam(orig_cam), m_rotation_weight(rotation_weight), m_translation_weight(translation_weight) {}
+
+  template <typename T>
+  bool operator()(const T* const cam_vec, T* residuals) const {
+
+    for (size_t p = 0; p < 3; p++) {
+      residuals[p] = m_translation_weight*(cam_vec[p] - m_orig_cam[p]);
+    }
+
+    for (size_t p = 3; p < m_orig_cam.size(); p++) {
+      residuals[p] = m_rotation_weight*(cam_vec[p] - m_orig_cam[p]);
+    }
+
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(CamVecT const& orig_cam,
+                                     double rotation_weight, double translation_weight){
+    return (new ceres::NumericDiffCostFunction<RotTransError, ceres::CENTRAL,
+            ModelT::camera_params_n, ModelT::camera_params_n>
+            (new RotTransError(orig_cam, rotation_weight, translation_weight)));
+
+  }
+
+  CamVecT m_orig_cam;
+  double m_rotation_weight, m_translation_weight;
+};
+
+
 //=========================================================================
 
 ceres::LossFunction* get_loss_function(Options const& opt ){
@@ -711,6 +754,24 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
       ceres::CostFunction* cost_function = CamError<ModelT>::Create(orig_cam, opt.camera_weight);
 
       ceres::LossFunction* loss_function = get_loss_function(opt);
+
+      double * camera  = cameras  + icam * num_camera_params;
+      problem.AddResidualBlock(cost_function, loss_function, camera);
+    }
+  }
+
+  // Finer level control of only rotation and translation.
+  // This will need to be merged with the above but note that the loss is NULL here. 
+  // - Error goes up as cameras move and rotate from their input positions.
+  if (opt.rotation_weight > 0 || opt.translation_weight > 0){
+    for (int icam = 0; icam < num_cameras; icam++){
+
+      typename ModelT::camera_vector_t orig_cam;
+      for (int q = 0; q < num_camera_params; q++)
+        orig_cam[q] = orig_cameras_vec[icam * num_camera_params + q];
+
+      ceres::CostFunction* cost_function = RotTransError<ModelT>::Create(orig_cam, opt.rotation_weight, opt.translation_weight);
+      ceres::LossFunction* loss_function = NULL;
 
       double * camera  = cameras  + icam * num_camera_params;
       problem.AddResidualBlock(cost_function, loss_function, camera);
@@ -1660,8 +1721,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "A list of image pairs, one pair per line, separated by a space, which are expected to overlap. Matches are then computed only among the images in each pair.")
     ("position-filter-dist", po::value(&opt.position_filter_dist)->default_value(-1),
                          "Set a distance in meters and don't perform IP matching on images with an estimated camera center farther apart than this distance.  Requires --camera-positions.")
+    ("rotation-weight",  po::value(&opt.rotation_weight)->default_value(0.0), "A higher weight will penalize more rotation deviations from the original configuration.")
+    ("translation-weight",  po::value(&opt.translation_weight)->default_value(0.0), "A higher weight will penalize more translation deviations from the original configuration.")
     ("camera-weight",    po::value(&opt.camera_weight)->default_value(1.0),
-                         "The weight to give to the constraint that the camera positions/orientations stay close to the original values (only for the Ceres solver).  A higher weight means that the values will change less, a lower weight means more change.")
+                         "The weight to give to the constraint that the camera positions/orientations stay close to the original values (only for the Ceres solver).  A higher weight means that the values will change less. The options --rotation-weight and --translation-weight can be used for finer-grained control and a stronger response.")
     ("ip-per-tile",             po::value(&opt.ip_per_tile)->default_value(0),
      "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
     ("min-triangulation-angle",             po::value(&opt.min_triangulation_angle)->default_value(0.1),
@@ -1743,6 +1806,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if ( opt.camera_weight < 0.0 )
     vw_throw( ArgumentErr() << "The camera weight must be non-negative.\n" << usage
               << general_options );
+
+  if ( opt.rotation_weight < 0.0 )
+    vw_throw( ArgumentErr() << "The rotation weight must be non-negative.\n" << usage
+              << general_options );
+
+  if ( opt.translation_weight < 0.0 )
+    vw_throw( ArgumentErr() << "The translation weight must be non-negative.\n" << usage
+              << general_options );
+
 
   if (opt.local_pinhole_input && !asp::has_pinhole_extension(opt.camera_files[0]))
     vw_throw( ArgumentErr() << "Can't use special pinhole handling with non-pinhole input!\n");
