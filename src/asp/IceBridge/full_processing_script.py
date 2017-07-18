@@ -563,7 +563,8 @@ def main(argsIn):
     # Get the low resolution reference DEM to use. Bypass this if only fetching is desired.
     if not options.stopAfterFetch and not options.dryRun:
         if options.site == 'AN':
-            refDemPath = 'krigged_dem_nsidc_ndv0_fill.tif'
+            #refDemPath = 'krigged_dem_nsidc_ndv0_fill.tif' # Higher resolution
+            refDemPath = 'ramp200dem_wgs_v2.tif' # Used to produce the orthos
         if options.site == 'GR':
             #refDemPath = 'gimpdem_90m_v1.1.tif' # Higher resolution
             refDemPath = 'NSIDC_Grn1km_wgs84_elev.tif' # Used to produce the orthos
