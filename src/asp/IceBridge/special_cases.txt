@@ -11,7 +11,7 @@ https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILVIS2.001/2010.04.22/
 The raw images need copying to the single directory for the other
 datasets, and their index files need to be concatenated there.
 
-2. The raw image folder 
+2. For flight AN 20091026, the raw image folder 
 
 https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/2009_AN_NASA/10252009_raw/
 
@@ -20,9 +20,38 @@ has images for both 10/25 and for 10/26. The ortho images though are split into 
 https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/IODMS1B.001/2009.10.25/
 https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/IODMS1B.001/2009.10.26/
 
-The raw images must be distributed properly to the two folder before processing, and
-raw index files must be modified accordingly. 
-
-There is only one LIDAR file though:
+There is only one LIDAR file:
 
 https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILVIS2.001/2009.10.25/
+
+For processing, it will be convenient to move data to a single
+directory, for the earliest of these two dates, and concatenate the
+orthoimage indicies from both directories, and the same for the raw
+image index and DEM index files (the latter are empty in this case).
+
+When it comes to submitting the data for archival, it perhaps makes
+most sense to follow the same convention as for orthoimages (so
+splitting things back), and need to verify the convention used in the
+Fireball DEMs.
+
+Here is the complete list of flights containing orthoimages but no raw
+images, and which need to be appended instead to previous day's flight
+for processing.
+
+AN 20091026
+AN 20091106
+AN 20091110
+AN 20091113
+AN 20101027
+AN 20101111
+GR 20120318
+AN 20121108
+AN 20131121
+AN 20131128
+GR 20150328
+GR 20150331
+AN 20150912
+AN 20150927
+GR 20160422
+GR 20160716
+
