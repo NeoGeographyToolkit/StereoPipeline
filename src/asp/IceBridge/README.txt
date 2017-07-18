@@ -32,8 +32,19 @@ The images can then be processed via the tool:
 
 StereoPipeline/src/asp/IceBridge/full_processing_script.py 
 
+(see inside this tool for an example usage).
+
 The complete list of cameras for all flights is in camera_lookup.txt
 which is parsed automatically by full_processing_script.py,
-handling cameras that changed in mid-flight.
+handling cameras that changed in mid-flight (in directory 
+StereoPipeline/src/asp/IceBridge).
 
-See also the notes at special_cases.txt.
+See also the notes at special_cases.txt at the same location.
+
+The data are archived on lou, at 
+
+/u/oalexan1/projects/data/icebridge
+
+The DEMs that were used to create the orthoimages and which we use to
+create the camera models are in the reference_dems/ subdirectory.
+

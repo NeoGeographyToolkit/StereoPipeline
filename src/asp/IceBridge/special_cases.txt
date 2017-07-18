@@ -55,3 +55,34 @@ AN 20150927
 GR 20160422
 GR 20160716
 
+3. There exist runs with the same flight day in the North and South
+Hemisphere. For example, consider the raw images:
+
+https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/2015_GR_NASA/09242015_raw/2015_09_24_00280.JPG
+https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/2015_AN_NASA/09242015_raw/2015_09_24_00280.JPG
+
+Their ortho images are in the same output directory, with same frame number, but with a different timestamp:
+
+https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/IODMS1B.001/2015.09.24/DMS_1552503_00280_20150924_13202038.tif (GR)
+
+https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/IODMS1B.001/2015.09.24/DMS_1567708_00280_20150924_15010401.tif (AN)
+
+Here are the pairs of such directories:
+
+20150924 corresp to:
+2015_AN_NASA 09242015_raw
+2015_GR_NASA 09242015_raw
+
+20151005 corresp to:
+2015_AN_NASA 10052015_raw
+2015_GR_NASA 10052015_raw
+
+20151020 corresp to:
+2015_AN_NASA 10202015_raw
+2015_GR_NASA 10202015_raw
+
+20151022 corresp to:
+2015_AN_NASA 10222015_raw
+2015_GR_NASA 10222015_raw
+
+
