@@ -50,7 +50,12 @@ logger = logging.getLogger(__name__)
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = toolspath   + os.pathsep + os.environ["PATH"]
 
-def processBatch(imageCameraPairs, lidarFolder, outputFolder, options):
+# This is the file name in the output folder where batch commands will
+#  be written to with the --log-batches option.
+BATCH_COMMAND_LOG_FILE = 'batch_commands_log.txt'
+
+def processBatch(imageCameraPairs, lidarFolder, outputFolder, extraOptions, 
+                 batchNum, batchLogPath=''):
     '''Processes a batch of images at once'''
 
     suppressOutput = False
@@ -65,9 +70,17 @@ def processBatch(imageCameraPairs, lidarFolder, outputFolder, options):
     # Just set the options and call the pair python tool.
     # We can try out bundle adjustment for intrinsic parameters here.
     cmd = ('--lidar-overlay --lidar-folder %s %s %s %s' 
-           % (lidarFolder, outputFolder, argString, options))
-    print cmd
-    #return 0
+           % (lidarFolder, outputFolder, argString, extraOptions))
+    
+    if batchLogPath:
+        # With this option we just log the commands to a text file
+        # - Setting this option limits to one process so there will be only one 
+        #   simultaneous file writer.
+        with open(batchLogPath, 'a') as f:
+            # Prepend the batch number to each line
+            f.write(str(batchNum)+': '+ cmd + '\n')
+        return
+    
     try:
         process_icebridge_batch.main(cmd.split())
     except Exception as e:
@@ -148,12 +161,7 @@ def getImageSpacing(orthoFolder):
             thisArea  = getBboxArea(thisBox)
             area      = getBboxArea(intersect)
             ratio     = area / thisArea
-            #print 'thisBox = ' + str(thisBox)
-            #print 'lastBox = ' + str(lastBox)
-            #print 'intersect = ' + str(intersect)
-            #print 'thisArea = ' + str(thisArea)
-            #print 'area = ' + str(area)
-            #print 'ratio = ' + str(ratio)
+
             # Don't include non-overlapping frames in the statistics
             if area > 0:
                 meanRatio = meanRatio + ratio
@@ -227,6 +235,9 @@ def main(argsIn):
                           help='If to wait on user input to terminate the jobs.')
         parser.add_option('--dry-run', action='store_true', default=False, dest='dryRun',  
                           help="Print but don't launch the processing jobs.")
+        parser.add_option('--log-batches', action='store_true', default=False, dest='logBatches',  
+                          help="Just log the batch commands to a file.")
+
 
         parser.add_option('--ortho-folder', dest='orthoFolder', default=None,
                           help='Use ortho files to adjust processing to the image spacing.')
@@ -245,7 +256,6 @@ def main(argsIn):
 
     except optparse.OptionError, msg:
         raise Usage(msg)
-
     
     # Check the inputs
     for f in [imageFolder, cameraFolder, lidarFolder]:
@@ -321,6 +331,19 @@ def main(argsIn):
 
     logger.info('Detected frame breaks: ' + str(breaks))
 
+    sleepTime = 20
+
+    # If all we are doing is logging commands then one process is sufficient.
+    # - Wipe the output file while we are at it.
+    batchLogPath = ''
+    batchNum = 0
+    if options.logBatches:
+        options.numProcesses = 1
+        sleepTime    = 1
+        batchLogPath = os.path.join(outputFolder, BATCH_COMMAND_LOG_FILE)
+        os.system('rm -f ' + batchLogPath)
+        logger.info('Just generating batch log file '+batchLogPath+', no processing will occur.')
+
     logger.info('Starting processing pool with ' + str(options.numProcesses) +' processes.')
     pool = multiprocessing.Pool(options.numProcesses)
     
@@ -337,7 +360,8 @@ def main(argsIn):
             continue
         if options.stopFrame and (frameNumber > options.stopFrame):
             continue
-        logger.info('Processing frame number: ' + str(frameNumber))
+        if not options.logBatches:
+            logger.info('Processing frame number: ' + str(frameNumber))
 
         # Add frame to the list for the current batch
         batchImageCameraPairs.append(imageCameraPairs[i])
@@ -359,13 +383,16 @@ def main(argsIn):
         # The output folder is named after the first and last frame in the batch
         thisOutputFolder = os.path.join(outputFolder, 'batch_'+str(frameNumbers[0])+'_'+str(frameNumbers[-1]))
 
-        logger.info('Running processing batch in output folder: ' + thisOutputFolder + '\n' + 
-                    'with options: ' + extraOptions)
+        if not options.logBatches:
+            logger.info('Running processing batch in output folder: ' + thisOutputFolder + '\n' + 
+                        'with options: ' + extraOptions)
         
         if not options.dryRun:
             # Generate the command call
             taskHandles.append(pool.apply_async(processBatch, 
-                (batchImageCameraPairs, lidarFolder, thisOutputFolder, extraOptions)))
+                (batchImageCameraPairs, lidarFolder, thisOutputFolder, extraOptions, 
+                 batchNum, batchLogPath)))
+        batchNum += 1
         
         if hitBreakFrame:
             # When we hit a break in the frames we need to start the next batch after the break frame
@@ -383,7 +410,8 @@ def main(argsIn):
     logger.info('Finished adding ' + str(len(taskHandles)) + ' tasks to the pool.')
     
     # Wait for all the tasks to complete
-    icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, options.interactive, quitKey='q')
+    icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, options.interactive, 
+                                                     quitKey='q', sleepTime=sleepTime)
     
     # Either all the tasks are finished or the user requested a cancel.
     # Clean up the processing pool

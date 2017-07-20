@@ -347,7 +347,7 @@ def nonBlockingRawInput(prompt='', timeout=20):
     return ''
 
 
-def waitForTaskCompletionOrKeypress(taskHandles, interactive=True, quitKey='q'):
+def waitForTaskCompletionOrKeypress(taskHandles, interactive=True, quitKey='q', sleepTime=20):
     '''Block in this function until the user presses a key or all tasks complete.'''
 
     # Wait for all the tasks to complete
@@ -357,13 +357,13 @@ def waitForTaskCompletionOrKeypress(taskHandles, interactive=True, quitKey='q'):
         if interactive:
             # Wait and see if the user presses a key
             msg = 'Waiting on ' + str(notReady) + ' process(es), press '+str(quitKey)+'<Enter> to abort...\n'
-            keypress = nonBlockingRawInput(prompt=msg, timeout=20)
+            keypress = nonBlockingRawInput(prompt=msg, timeout=sleepTime)
             if keypress == quitKey:
                 logger.info('Recieved quit command!')
                 break
         else:
             print("Waiting on " + str(notReady) + ' incomplete tasks.')
-            time.sleep(20)
+            time.sleep(sleepTime)
             
         # Otherwise count up the tasks we are still waiting on.
         notReady = 0

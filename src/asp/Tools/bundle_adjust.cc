@@ -1047,7 +1047,7 @@ template <class AdjusterT>
 void do_ba_nonceres(typename AdjusterT::model_type & ba_model,
                     typename AdjusterT::cost_type const& cost_function,
                     Options const& opt) {
-/*
+
   AdjusterT bundle_adjuster(ba_model, cost_function, false, false);
 
   if ( opt.lambda > 0 )
@@ -1104,7 +1104,7 @@ void do_ba_nonceres(typename AdjusterT::model_type & ba_model,
       no_improvement_count = 0;
   }
   reporter.end_tie_in();
-*/
+
 } // end do_ba_nonceres
 
 void save_cnet_as_csv(Options& opt, std::string const& cnetFile){
@@ -1169,13 +1169,13 @@ void do_ba_costfun(CostFunType const& cost_fun, Options& opt){
   if ( opt.ba_type == "ceres" ) {
     do_ba_ceres<ModelType>(ba_model, opt);
   } else if ( opt.ba_type == "robustsparse" ) {
-    //do_ba_nonceres<AdjustRobustSparse< ModelType,CostFunType> >(ba_model, cost_fun, opt);
+    do_ba_nonceres<AdjustRobustSparse< ModelType,CostFunType> >(ba_model, cost_fun, opt);
   } else if ( opt.ba_type == "robustref" ) {
-    //do_ba_nonceres<AdjustRobustRef< ModelType,CostFunType> >(ba_model, cost_fun, opt);
+    do_ba_nonceres<AdjustRobustRef< ModelType,CostFunType> >(ba_model, cost_fun, opt);
   } else if ( opt.ba_type == "sparse" ) {
-    //do_ba_nonceres<AdjustSparse< ModelType, CostFunType > >(ba_model, cost_fun, opt);
+    do_ba_nonceres<AdjustSparse< ModelType, CostFunType > >(ba_model, cost_fun, opt);
   }else if ( opt.ba_type == "ref" ) {
-    //do_ba_nonceres<AdjustRef< ModelType, CostFunType > >(ba_model, cost_fun, opt);
+    do_ba_nonceres<AdjustRef< ModelType, CostFunType > >(ba_model, cost_fun, opt);
   }
 
   // Save the models to disk.
