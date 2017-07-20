@@ -344,21 +344,26 @@ def findMatchingLidarFile(imageFile, lidarFolder):
 
     return bestLidarFile
 
+def fileNonEmpty(path):
+    '''Make sure file exists and is non-empty'''
+    return os.path.exists(path) and (os.path.getsize(path) > 0)
+
 # It is faster to invoke one curl command for multiple files.
 # Do not fetch files that already exist. Note that we expect
 # that each file looks like outputFolder/name.<ext>,
 # and each url looks like https://.../name.<ext>.
-def fetchFilesInBatches(baseCurlCmd, batchSize, outputFolder, files, urls, logger):
+def fetchFilesInBatches(baseCurlCmd, batchSize, dryRun, outputFolder, files, urls, logger):
 
+    curlCmd = baseCurlCmd
     numFiles = len(files)
-    
+
     if numFiles != len(urls):
         raise Exception("Expecting as many files as urls.")
     
     currentFileCount = 0
     for fileIter in range(numFiles):
         
-        if not fileExists(files[fileIter]):
+        if not fileNonEmpty(files[fileIter]):
             # Add to the command
             curlCmd += ' -O ' + urls[fileIter]
             currentFileCount += 1 # Number of files in the current download command
@@ -367,7 +372,7 @@ def fetchFilesInBatches(baseCurlCmd, batchSize, outputFolder, files, urls, logge
         if ( (currentFileCount >= batchSize) or (fileIter == numFiles - 1) ) and \
                currentFileCount > 0:
             logger.info(curlCmd)
-            if not options.dryRun:
+            if not dryRun:
                 logger.info("Saving the data in " + outputFolder)
                 p = subprocess.Popen(curlCmd, cwd=outputFolder, shell=True)
                 os.waitpid(p.pid, 0)
@@ -375,7 +380,6 @@ def fetchFilesInBatches(baseCurlCmd, batchSize, outputFolder, files, urls, logge
             # Start command fresh for the next file
             currentFileCount = 0
             curlCmd = baseCurlCmd
-    
     
 # This block of code is just to get a non-blocking keyboard check!
 import signal
