@@ -91,7 +91,17 @@ Here are the pairs of such directories:
 2015_AN_NASA 10222015_raw
 2015_GR_NASA 10222015_raw
 
-In addition, for 20151019, there are both LVIS and ATM clouds:
+There are corresponding LIDAR files, some for AN and some for GR.
+For example, for 20150924, there are:
+
+https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILVIS2.001/2015.09.24/
+
+and
+
+https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILATM1B.002/2015.09.24/
+
+
+4. For 20151019, there are both LVIS and ATM clouds:
 
 https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILATM1B.002/2015.10.19/
 https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILVIS2.001/2015.10.19/

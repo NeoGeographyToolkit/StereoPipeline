@@ -118,19 +118,15 @@ def readIndexFile(parsedIndexPath):
 
     return (frameDict, urlDict)
 
-def fetchAndParseIndexFileAux(folderUrl, path, fileType):
+def fetchAndParseIndexFileAux(baseCurlCmd, folderUrl, path, fileType):
     '''Retrieve the index file for a folder of data and create
     a parsed version of it that contains frame number / filename pairs.'''
 
-    # Set up the command
-    cookiePaths = ' -b ~/.urs_cookies -c ~/.urs_cookies '
-    curlOpts    = ' -n -L '
-    curlPath = asp_system_utils.which("curl")
-    #logger.info("Using curl from " + curlPath)
-    cmd = curlPath + ' ' + cookiePaths + curlOpts + folderUrl + ' > ' + path
+    curlCmd = baseCurlCmd + ' ' + folderUrl + ' > ' + path
+    
     # Download the file
-    logger.info(cmd)
-    p = subprocess.Popen(cmd, shell=True)
+    logger.info(curlCmd)
+    p = subprocess.Popen(curlCmd, shell=True)
     os.waitpid(p.pid, 0)
     
     # Find all the file names in the index file and
@@ -139,6 +135,8 @@ def fetchAndParseIndexFileAux(folderUrl, path, fileType):
     with open(path, 'r') as f:
         indexText = f.read()
 
+    if os.path.exists(path): os.remove(path) # don't need this anymore
+    
     # Extract just the file names
     fileList = [] # ensure initialization
     if fileType == 'image':
@@ -167,12 +165,14 @@ def fetchAndParseIndexFileAux(folderUrl, path, fileType):
         filename = filename.replace("<", "")
         frame = icebridge_common.getFrameNumberFromFilename2(filename)
         frameDict[frame] = filename
+        # note that folderUrl can vary among orthoimages, as sometimes
+        # some of them are in a folder for the next day.
         urlDict[frame]   = folderUrl
         
     return (frameDict, urlDict)
 
 # Create a list of all files that must be fetched unless done already.
-def fetchAndParseIndexFile(options, logger, outputFolder):
+def fetchAndParseIndexFile(options, baseCurlCmd, logger, outputFolder):
 
     # If we need to parse the next flight day as well, as expected in some runs,
     # we will fetch two html files, but create a single index out of them.
@@ -187,11 +187,10 @@ def fetchAndParseIndexFile(options, logger, outputFolder):
     parsedIndexPath = indexPath + '.csv'
     
     if options.refetchIndex:
-        os.system('rm -f ' + indexPath)
         os.system('rm -f ' + parsedIndexPath)
 
     if fileExists(parsedIndexPath):
-        logger.info('Already have the index file ' + indexPath + ', keeping it.')
+        logger.info('Already have the index file ' + parsedIndexPath + ', keeping it.')
         return parsedIndexPath
     
     frameDict  = {}
@@ -199,17 +198,15 @@ def fetchAndParseIndexFile(options, logger, outputFolder):
 
     for dayVal in dayVals:
 
-        if dayVal != 0:
-            # If we fetch for next day as well, keep that html in a separate file
-            indexPath = indexPath + ".next"
-            if options.refetchIndex:
-                os.system('rm -f ' + indexPath)
-            
-        # This URL contains all of the files
+        # Find folderUrl which contains all of the files
         if options.type == 'lidar':
             options.allFrames = True # For lidar, always get all the frames!
-
+            
             # For lidar, the data can come from one of three sources.
+            # Unfortunately sometimes there is more than one source, and then
+            # we need to pick by latitude.
+            folderUrls = []
+            lidar_types = []
             for lidar in LIDAR_TYPES:
                 folderUrl = getFolderUrl(options.year, options.month,
                                          options.day + dayVal, # note here the dayVal
@@ -217,11 +214,55 @@ def fetchAndParseIndexFile(options, logger, outputFolder):
                 logger.info('Checking lidar URL: ' + folderUrl)
                 if checkIfUrlExists(folderUrl):
                     logger.info('Found match with lidar type: ' + lidar)
-                    options.type = lidar
-                    break
-                if lidar == LIDAR_TYPES[-1]: # If we tried all the lidar types...
-                    logger.info('WARNING: Could not find any lidar data for the given date!')
+                    folderUrls.append(folderUrl)
+                    lidar_types.append(lidar)
 
+            if len(folderUrls) == 0:
+                logger.info('WARNING: Could not find any lidar data for the given date!')
+
+            elif len(folderUrls) == 1:
+                # Unique solution
+                folderUrl = folderUrls[0]
+                options.type = lidar_types[0]
+
+            elif len(folderUrls) >= 2:
+                # Multiple solutions. Pick the good one by latitude.
+                logger.info("Multiples URLs to search: " + " ".join(folderUrls))
+                count = -1
+                isGood = False
+                isSouth = (options.site == 'AN')
+                for folderUrl in folderUrls:
+                    count += 1
+                    (localFrameDict, localUrlDict) = \
+                                     fetchAndParseIndexFileAux(baseCurlCmd, folderUrl,
+                                                               indexPath, lidar_types[count])
+                    for frame in sorted(localFrameDict.keys()):
+                        filename = localFrameDict[frame]
+                        xmlFile  = icebridge_common.xmlFile(filename)
+                        url      = os.path.join(folderUrl, xmlFile)
+                                        
+                        # Download the file
+                        curlCmd = baseCurlCmd + ' ' + url + ' > ' + xmlFile
+                        logger.info(curlCmd)
+                        p = subprocess.Popen(curlCmd, shell=True)
+                        os.waitpid(p.pid, 0)
+                        
+                        latitude = icebridge_common.parseLatitude(xmlFile)
+                        if os.path.exists(xmlFile): os.remove(xmlFile)
+
+                        if (isSouth and latitude < 0) or ( (not isSouth) and latitude > 0 ):
+                            isGood = True
+                            options.type = lidar_types[count]
+
+                        # Stop at first file no matter what
+                        break
+
+                    if isGood:
+                        break
+
+                if not isGood:
+                    raise Exception("None of these URLs are good: " + " ".join(folderUrls))
+                
         else: # Other cases are simpler
             folderUrl = getFolderUrl(options.year, options.month,
                                      options.day + dayVal, # note here the dayVal
@@ -230,7 +271,7 @@ def fetchAndParseIndexFile(options, logger, outputFolder):
         logger.info('Fetching from URL: ' + folderUrl)
 
         (localFrameDict, localUrlDict) = \
-                         fetchAndParseIndexFileAux(folderUrl, indexPath, options.type)
+                         fetchAndParseIndexFileAux(baseCurlCmd, folderUrl, indexPath, options.type)
 
         # Append to the main index
         for frame in sorted(localFrameDict.keys()):
@@ -256,10 +297,17 @@ def doFetch(options, outputFolder):
                      '    https://nsidc.org/support/faq/what-options-are-available-bulk-downloading-data-https-earthdata-login-enabled')
         return -1
     
+    curlPath = asp_system_utils.which("curl")
+    curlOpts    = ' -n -L '
+    cookiePaths = ' -b ~/.urs_cookies -c ~/.urs_cookies '
+
+    #logger.info("Using curl from " + curlPath)
+    baseCurlCmd = curlPath + curlOpts + cookiePaths
+
     logger.info('Creating output folder: ' + outputFolder)
     os.system('mkdir -p ' + outputFolder)  
     
-    parsedIndexPath = fetchAndParseIndexFile(options, logger, outputFolder)
+    parsedIndexPath = fetchAndParseIndexFile(options, baseCurlCmd, logger, outputFolder)
     if not fileExists(parsedIndexPath):
         # Some dirs are weird, both images, dems, and ortho.
         # Just accept whatever there is, but with a warning.
@@ -274,7 +322,7 @@ def doFetch(options, outputFolder):
         # We probably ran into old format index file. Must refetch.
         logger.info('Could not read index file. Try again.')
         options.refetchIndex = True
-        parsedIndexPath = fetchAndParseIndexFile(options, logger, outputFolder)
+        parsedIndexPath = fetchAndParseIndexFile(options, baseCurlCmd, logger, outputFolder)
         (frameDict, urlDict) = readIndexFile(parsedIndexPath)
         
     allFrames = sorted(frameDict.keys())
@@ -301,16 +349,12 @@ def doFetch(options, outputFolder):
         logger.info("Warning: Frame " + str(options.stopFrame) + \
                     " is not found in this flight.")
                     
-    # Files that we will fetch. We will check the success later. 
-    allFilesToFetch = []
+    allFilesToFetch = [] # Files that we will fetch, relative to the current dir. 
+    allUrlsToFetch  = [] # Full url of each file.
     
     # Init the big curl command
     # - We will add multiple file targets and then execute the command
-    cookiePaths = ' -b ~/.urs_cookies -c ~/.urs_cookies '
-    curlPath = asp_system_utils.which("curl")
-    #logger.info("Using curl from " + curlPath)
-    baseCmd = curlPath + ' -n -L ' + cookiePaths
-    curlCmd = baseCmd
+    curlCmd = baseCurlCmd
     
     # What is the maximum number of files that can be downloaded with one call?
     MAX_IN_ONE_CALL = 100
@@ -331,8 +375,7 @@ def doFetch(options, outputFolder):
 
             filename = frameDict[frame]
             
-            # Some files have an associated xml file.
-            # TODO: Don't DEMs also have an associated file, with some other exension? 
+            # Some files have an associated xml file. DEMs also have a tfw file.
             currFilesToFetch = [filename]
             if hasXml: 
                 currFilesToFetch.append(icebridge_common.xmlFile(filename))
@@ -345,12 +388,13 @@ def doFetch(options, outputFolder):
                 if options.maxNumToFetch > 0 and len(allFilesToFetch) >= options.maxNumToFetch:
                     continue
                 allFilesToFetch.append(outputPath)
-
+                allUrlsToFetch.append(outputPath)
+                numFetched += 1       # This does not get reset each time 
+                
                 if not fileExists(outputPath):
                     # Add to the command
                     curlCmd += ' -O ' + url
                     currentFileCount += 1 # Number of files in the current download command
-                    numFetched += 1       # This does not get reset each time 
 
         # Download the indicated files when we hit the limit or run out of files
         if ( (currentFileCount >= MAX_IN_ONE_CALL) or (frame == lastFrame) ) and \
@@ -363,7 +407,7 @@ def doFetch(options, outputFolder):
                 
             # Start command fresh for the next file
             currentFileCount = 0
-            curlCmd = baseCmd
+            curlCmd = baseCurlCmd
 
         if options.maxNumToFetch > 0 and numFetched > options.maxNumToFetch:
             break

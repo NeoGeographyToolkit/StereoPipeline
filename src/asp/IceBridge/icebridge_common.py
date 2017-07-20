@@ -130,8 +130,8 @@ def hasValidChkSum(filename):
     actualChksum = hashlib.md5(open(filename,'rb').read()).hexdigest()
 
     if actualChksum != expectedChksum or actualChksum == '' or expectedChksum == '':
-        print("Computed chksum: ", actualChksum)
-        print("Expected chksum: ", expectedChksum)
+        print("Computed chksum: ", actualChksum, filename)
+        print("Expected chksum: ", expectedChksum, filename)
         
         return False
     
@@ -154,6 +154,25 @@ def isValidTfw(filename):
                 count += 1
     return (count >= 6)
 
+# Some files have an xml file containing the chksum. If so, varify
+# its validity. This applies to orthoimages, DEMs, and tfw files.
+def parseLatitude(filename):
+
+    if not os.path.exists(filename):
+        raise Exception("Could not find file: " + filename)
+
+    latitude = None
+    with open(filename, "r") as xf:
+        for line in xf:
+            m = re.match("^.*?\<PointLatitude\>(.*?)\<", line, re.IGNORECASE)
+            if m:
+                latitude = float(m.group(1))
+                break
+
+    if latitude is None:
+        raise Exception("Could not parse positve or negative latitude from: " + filename)
+
+    return latitude
 
 def getCameraFileName(imageFileName):
     '''Get the camera file name we associate with an input image file'''
@@ -325,7 +344,39 @@ def findMatchingLidarFile(imageFile, lidarFolder):
 
     return bestLidarFile
 
+# It is faster to invoke one curl command for multiple files.
+# Do not fetch files that already exist. Note that we expect
+# that each file looks like outputFolder/name.<ext>,
+# and each url looks like https://.../name.<ext>.
+def fetchFilesInBatches(baseCurlCmd, batchSize, outputFolder, files, urls, logger):
 
+    numFiles = len(files)
+    
+    if numFiles != len(urls):
+        raise Exception("Expecting as many files as urls.")
+    
+    currentFileCount = 0
+    for fileIter in range(numFiles):
+        
+        if not fileExists(files[fileIter]):
+            # Add to the command
+            curlCmd += ' -O ' + urls[fileIter]
+            currentFileCount += 1 # Number of files in the current download command
+
+        # Download the indicated files when we hit the limit or run out of files
+        if ( (currentFileCount >= batchSize) or (fileIter == numFiles - 1) ) and \
+               currentFileCount > 0:
+            logger.info(curlCmd)
+            if not options.dryRun:
+                logger.info("Saving the data in " + outputFolder)
+                p = subprocess.Popen(curlCmd, cwd=outputFolder, shell=True)
+                os.waitpid(p.pid, 0)
+                
+            # Start command fresh for the next file
+            currentFileCount = 0
+            curlCmd = baseCurlCmd
+    
+    
 # This block of code is just to get a non-blocking keyboard check!
 import signal
 class AlarmException(Exception):
