@@ -8,10 +8,10 @@ but the ortho images and lidar are in one dir:
 https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/IODMS1B.001/2010.04.22/
 https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILVIS2.001/2010.04.22/
 
-The raw images were copied manually to GR_20100422, and their csv index files
-were concatenated. There orthoimages and lidar were already
-there. There are no fireball DEMs. The validity of all data was
-verified with gdalinfo and checksums whenever present.
+The raw images were copied manually to GR_20100422, and their csv
+index files were concatenated. There orthoimages and lidar were
+already there. There are no fireball DEMs. The validity of all data
+was verified with gdalinfo and checksums whenever present.
 
 2. For flight AN 20091026, the raw image folder 
 
@@ -103,5 +103,5 @@ https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/2015_GR_NASA/1019
 and no AN dataset. The closest is for 10202015:
 
 https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/2015_AN_NASA/10202015_raw/
-
+	
 
