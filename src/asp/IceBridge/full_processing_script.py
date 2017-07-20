@@ -46,7 +46,8 @@ os.environ["PATH"] = libexecpath    + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 
 def fetchAllRunData(yyyymmdd, site, dryRun,
-                    startFrame, stopFrame, maxNumToFetch, skipValidate, outputFolder,
+                    startFrame, stopFrame, maxNumToFetch,
+                    fetchNextDay, skipValidate, outputFolder,
                     jpegFolder, orthoFolder, demFolder, lidarFolder):
     '''Download all data needed to process a run'''
     
@@ -58,6 +59,9 @@ def fetchAllRunData(yyyymmdd, site, dryRun,
 
     if maxNumToFetch >= 0:
         baseCommand += ' --max-num-to-fetch ' + str(maxNumToFetch)
+
+    if fetchNextDay:
+        baseCommand += ' --fetch-from-next-day-also'
         
     if skipValidate:
         baseCommand += ' --skip-validate'
@@ -498,6 +502,8 @@ def main(argsIn):
                           help="Stop program after data fetching.")
         parser.add_option("--stop-after-convert", action="store_true", dest="stopAfterConvert", default=False,
                           help="Stop program after data conversion.")
+        parser.add_option("--fetch-from-next-day-also", action="store_true", dest="fetchNextDay", default=False,
+                          help="Sometimes some files are stored in next day's runs as well.")
         parser.add_option("--skip-validate", action="store_true", dest="skipValidate", default=False,
                           help="Skip input data validation.")
         parser.add_option("--zip-if-all-fetched", action="store_true", dest="zipIfAllFetched", default=False,
@@ -611,7 +617,7 @@ def main(argsIn):
         # Call data fetch routine and check the result
         fetchResult = fetchAllRunData(options.yyyymmdd, options.site, options.dryRun,
                                       startFrame, stopFrame, options.maxNumToFetch,
-                                      options.skipValidate,
+                                      options.fetchNextDay, options.skipValidate,
                                       options.outputFolder,
                                       jpegFolder, orthoFolder, demFolder, lidarFolder)
         if fetchResult < 0:

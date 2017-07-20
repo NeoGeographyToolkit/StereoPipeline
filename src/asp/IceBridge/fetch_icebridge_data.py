@@ -102,7 +102,23 @@ def fileExists(path):
     '''Make sure file exists and is non-empty'''
     return os.path.exists(path) and (os.path.getsize(path) > 0)
 
-def fetchAndParseIndexFile(folderUrl, path, parsedPath, fileType):
+def readIndexFile(parsedIndexPath):
+    frameDict  = {}
+    urlDict    = {}
+    with open(parsedIndexPath, 'r') as f:
+        for line in f:
+            parts = line.strip().split(',')
+            if len(parts) <= 2:
+                # Od index file
+                raise Exception("Invalid index file.")
+            
+            frameNumber = int(parts[0])
+            frameDict[frameNumber] = parts[1].strip()
+            urlDict[frameNumber]   = parts[2].strip()
+
+    return (frameDict, urlDict)
+
+def fetchAndParseIndexFileAux(folderUrl, path, fileType):
     '''Retrieve the index file for a folder of data and create
     a parsed version of it that contains frame number / filename pairs.'''
 
@@ -141,17 +157,98 @@ def fetchAndParseIndexFile(folderUrl, path, parsedPath, fileType):
         # Match ILATM1B_20160713_195419.ATM5BT5.h5 
         fileList = re.findall(">ILATM1B[0-9_]*.ATM\w+.h5", indexText, re.IGNORECASE)
     
+    frameDict  = {}
+    urlDict    = {}
+
     # For each entry that matched the regex, record: the frame number and the file name.
-    with open(parsedPath, 'w') as f:
-        for filename in fileList:
-            # Get rid of '>' and '<'
-            filename = filename.replace(">", "")
-            filename = filename.replace("<", "")
-            frame = icebridge_common.getFrameNumberFromFilename2(filename)
-            f.write(str(frame) + ', ' + filename + '\n')
+    for filename in fileList:
+        # Get rid of '>' and '<'
+        filename = filename.replace(">", "")
+        filename = filename.replace("<", "")
+        frame = icebridge_common.getFrameNumberFromFilename2(filename)
+        frameDict[frame] = filename
+        urlDict[frame]   = folderUrl
+        
+    return (frameDict, urlDict)
+
+# Create a list of all files that must be fetched unless done already.
+def fetchAndParseIndexFile(options, logger, outputFolder):
+
+    # If we need to parse the next flight day as well, as expected in some runs,
+    # we will fetch two html files, but create a single index out of them.
+    dayVals = [0]
+    if options.fetchNextDay:
+        dayVals.append(1)
+        options.refetchIndex = True # Force refetch, to help with old archives
+        
+    # See if to wipe the index
+    filename        = options.type + '_index.html'
+    indexPath       = os.path.join(outputFolder, filename)
+    parsedIndexPath = indexPath + '.csv'
+    
+    if options.refetchIndex:
+        os.system('rm -f ' + indexPath)
+        os.system('rm -f ' + parsedIndexPath)
+
+    if fileExists(parsedIndexPath):
+        logger.info('Already have the index file ' + indexPath + ', keeping it.')
+        return parsedIndexPath
+    
+    frameDict  = {}
+    urlDict    = {}
+
+    for dayVal in dayVals:
+
+        if dayVal != 0:
+            # If we fetch for next day as well, keep that html in a separate file
+            indexPath = indexPath + ".next"
+            if options.refetchIndex:
+                os.system('rm -f ' + indexPath)
+            
+        # This URL contains all of the files
+        if options.type == 'lidar':
+            options.allFrames = True # For lidar, always get all the frames!
+
+            # For lidar, the data can come from one of three sources.
+            for lidar in LIDAR_TYPES:
+                folderUrl = getFolderUrl(options.year, options.month,
+                                         options.day + dayVal, # note here the dayVal
+                                         options.ext, options.site, lidar)
+                logger.info('Checking lidar URL: ' + folderUrl)
+                if checkIfUrlExists(folderUrl):
+                    logger.info('Found match with lidar type: ' + lidar)
+                    options.type = lidar
+                    break
+                if lidar == LIDAR_TYPES[-1]: # If we tried all the lidar types...
+                    logger.info('WARNING: Could not find any lidar data for the given date!')
+
+        else: # Other cases are simpler
+            folderUrl = getFolderUrl(options.year, options.month,
+                                     options.day + dayVal, # note here the dayVal
+                                     options.ext, options.site, options.type)
+
+        logger.info('Fetching from URL: ' + folderUrl)
+
+        (localFrameDict, localUrlDict) = \
+                         fetchAndParseIndexFileAux(folderUrl, indexPath, options.type)
+
+        # Append to the main index
+        for frame in sorted(localFrameDict.keys()):
+            # If we already have this frame, don't read it from the current day
+            # as that's a recipe for mix-up
+            if frame not in frameDict.keys():
+                frameDict[frame] = localFrameDict[frame]
+                urlDict[frame]   = localUrlDict[frame]
+        
+    # Write the combined index file
+    with open(parsedIndexPath, 'w') as f:
+        for frame in sorted(frameDict.keys()):
+            f.write(str(frame) + ', ' + frameDict[frame] + ', ' + urlDict[frame] + '\n')
+            
+    return parsedIndexPath
 
 def doFetch(options, outputFolder):
-    
+
     # Verify that required files exist
     home = os.path.expanduser("~")
     if not (os.path.exists(home+'/.netrc') and os.path.exists(home+'/.urs_cookies')):
@@ -161,39 +258,8 @@ def doFetch(options, outputFolder):
     
     logger.info('Creating output folder: ' + outputFolder)
     os.system('mkdir -p ' + outputFolder)  
-
-    # This URL contains all of the files
-    if options.type == 'lidar':
-        options.allFrames = True # For lidar, always get all the frames!
-        
-        # For lidar, the data can come from one of three sources.
-        for lidar in LIDAR_TYPES:
-            folderUrl = getFolderUrl(options.year, options.month, options.day, options.ext, options.site, lidar)
-            logger.info('Checking lidar URL: ' + folderUrl)
-            if checkIfUrlExists(folderUrl):
-                logger.info('Found match with lidar type: ' + lidar)
-                options.type = lidar
-                break
-            if lidar == LIDAR_TYPES[-1]: # If we tried all the lidar types...
-                logger.info('WARNING: Could not find any lidar data for the given date!')
-
-    else: # Other cases are simpler
-        folderUrl = getFolderUrl(options.year, options.month, options.day, options.ext, options.site, options.type)
-    #logger.info('Fetching from URL: ' + folderUrl)
     
-    # Fetch the index for this folder
-    filename        = options.type + '_index.html'
-    indexPath       = os.path.join(outputFolder, filename)
-    parsedIndexPath = indexPath + '.csv'
-    if options.refetchIndex:
-        os.system('rm -f ' + indexPath)
-        os.system('rm -f ' + parsedIndexPath)
-
-    if fileExists(parsedIndexPath):
-        logger.info('Already have the index file ' + indexPath + ', keeping it.')
-    else:
-        fetchAndParseIndexFile(folderUrl, indexPath, parsedIndexPath, options.type)
-    
+    parsedIndexPath = fetchAndParseIndexFile(options, logger, outputFolder)
     if not fileExists(parsedIndexPath):
         # Some dirs are weird, both images, dems, and ortho.
         # Just accept whatever there is, but with a warning.
@@ -202,19 +268,24 @@ def doFetch(options, outputFolder):
     # Store file information in a dictionary
     # - Keep track of the earliest and latest frame
     logger.info('Reading file list from ' + parsedIndexPath)
-    frameDict = {}
+    try:
+        (frameDict, urlDict) = readIndexFile(parsedIndexPath)
+    except:
+        # We probably ran into old format index file. Must refetch.
+        logger.info('Could not read index file. Try again.')
+        options.refetchIndex = True
+        parsedIndexPath = fetchAndParseIndexFile(options, logger, outputFolder)
+        (frameDict, urlDict) = readIndexFile(parsedIndexPath)
+        
+    allFrames = sorted(frameDict.keys())
     firstFrame = icebridge_common.getLargestFrame()    # start big
     lastFrame  = icebridge_common.getSmallestFrame()   # start small
-    with open(parsedIndexPath, 'r') as f:
-        for line in f:
-            parts       = line.strip().split(',')
-            frameNumber = int(parts[0])
-            frameDict[frameNumber] = parts[1].strip()
-            if frameNumber < firstFrame:
-                firstFrame = frameNumber
-            if frameNumber > lastFrame:
-                lastFrame = frameNumber
-
+    for frameNumber in allFrames:
+        if frameNumber < firstFrame:
+            firstFrame = frameNumber
+        if frameNumber > lastFrame:
+            lastFrame = frameNumber
+            
     if options.allFrames:
         options.startFrame = firstFrame
         options.stopFrame  = lastFrame
@@ -223,10 +294,12 @@ def doFetch(options, outputFolder):
     # That is particularly true for Fireball DEMs. Instead of failing,
     # just download what is present and give a warning. 
     if options.startFrame not in frameDict:
-        logger.info("Warning: Frame " + str(options.startFrame) + " is not found in this flight.")
+        logger.info("Warning: Frame " + str(options.startFrame) + \
+                    " is not found in this flight.")
                     
     if options.stopFrame and (options.stopFrame not in frameDict):
-        logger.info("Warning: Frame " + str(options.stopFrame) + " is not found in this flight.")
+        logger.info("Warning: Frame " + str(options.stopFrame) + \
+                    " is not found in this flight.")
                     
     # Files that we will fetch. We will check the success later. 
     allFilesToFetch = []
@@ -236,8 +309,8 @@ def doFetch(options, outputFolder):
     cookiePaths = ' -b ~/.urs_cookies -c ~/.urs_cookies '
     curlPath = asp_system_utils.which("curl")
     #logger.info("Using curl from " + curlPath)
-    baseCmd     = curlPath + ' -n -L ' + cookiePaths
-    curlCmd     = baseCmd
+    baseCmd = curlPath + ' -n -L ' + cookiePaths
+    curlCmd = baseCmd
     
     # What is the maximum number of files that can be downloaded with one call?
     MAX_IN_ONE_CALL = 100
@@ -246,13 +319,12 @@ def doFetch(options, outputFolder):
         
     # Loop through all found frames within the provided range
     currentFileCount = 0
-    allFrames = sorted(frameDict.keys())
     lastFrame = ""
     if len(allFrames) > 0:
         lastFrame = allFrames[len(allFrames)-1]
 
     hasTfw = (options.type == 'dem')
-    hasXml = ( (options.type in LIDAR_TYPES) or (options.type == 'ortho') or hasTfw)
+    hasXml = ( (options.type in LIDAR_TYPES) or (options.type == 'ortho') or hasTfw )
     numFetched = 0
     for frame in allFrames:
         if (frame >= options.startFrame) and (frame <= options.stopFrame):
@@ -268,7 +340,7 @@ def doFetch(options, outputFolder):
                 currFilesToFetch.append(icebridge_common.tfwFile(filename))
 
             for filename in currFilesToFetch:    
-                url        = os.path.join(folderUrl, filename)
+                url        = os.path.join(urlDict[frame], filename)
                 outputPath = os.path.join(outputFolder, filename)
                 if options.maxNumToFetch > 0 and len(allFilesToFetch) >= options.maxNumToFetch:
                     continue
@@ -370,28 +442,29 @@ def main(argsIn):
                           help="Specify the year, month, and day in one YYYYMMDD string.")
         parser.add_option("--site",  dest="site", default=None,
                           help="Name of the location of the images (AN or GR)")
-        
         parser.add_option("--start-frame",  dest="startFrame", type='int', default=None,
                           help="Frame number or start of frame sequence")
         parser.add_option("--stop-frame",  dest="stopFrame", type='int', default=None,
                           help="End of frame sequence to download.")
         parser.add_option("--all-frames", action="store_true", dest="allFrames", default=False,
                           help="Fetch all frames for this flight.")
-        
-        parser.add_option('--max-num-to-fetch', dest='maxNumToFetch', default=-1,
-                          type='int', help='The maximum number to fetch of each kind of file. This is used in debugging.')
-
-        parser.add_option("--skip-validate", action="store_true", dest="skipValidate", default=False,
+        parser.add_option("--fetch-from-next-day-also", action="store_true", dest="fetchNextDay",
+                          default=False,
+                          help="Sometimes some files are stored in next day's runs as well.")
+        parser.add_option("--skip-validate", action="store_true", dest="skipValidate",
+                          default=False,
                           help="Skip input data validation.")
-
-        parser.add_option("--dry-run", action="store_true", dest="dryRun", default=False,
+        parser.add_option("--dry-run", action="store_true", dest="dryRun",
+                          default=False,
                           help="Just print the image/ortho/dem download commands.")
-
-        parser.add_option("--refetch-index", action="store_true", dest="refetchIndex", default=False,
+        parser.add_option("--refetch-index", action="store_true", dest="refetchIndex",
+                          default=False,
                           help="Force refetch of the index file.")
-
         parser.add_option("--type",  dest="type", default='image',
                           help="File type to download ([image], ortho, dem, lidar)")
+        parser.add_option('--max-num-to-fetch', dest='maxNumToFetch', default=-1,
+                          type='int', help='The maximum number to fetch of each kind of file. ' + \
+                          'This is used in debugging.')
 
         # This call handles all the parallel_mapproject specific options.
         (options, args) = parser.parse_args(argsIn)
