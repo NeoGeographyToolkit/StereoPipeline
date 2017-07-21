@@ -72,6 +72,11 @@ def isDEM(filename):
     '''Return true if a file is a recognized DEM.'''
     return (len(filename) >= 8 and filename[-8:] == '_DEM.tif')
 
+def isLidar(filename):
+    extension = fileExtension(filename)
+    return (extension == '.qi') or (extension == '.hdf5') or \
+           (extension == '.h5') or (extension == '.TXT')
+
 def xmlFile(filename):
     '''Return the matching xml file path for the input file.'''
     
@@ -243,7 +248,8 @@ def getFrameNumberFromFilename2(filename):
 
     raise Exception('Could not parse: ' + filename)
 
-def getOrthoImages(folder):
+# This returns the files without the folder name prepeneded to them
+def getTifs(folder):
 
     files = []
     for f in os.listdir(folder):
@@ -256,7 +262,58 @@ def getOrthoImages(folder):
 
     return files
 
-    
+# This returns the files without the folder name prepeneded to them
+def getJpegs(folder):
+
+    files = []
+    for f in os.listdir(folder):
+
+        ext = os.path.splitext(f)[1]
+        if ext != '.JPG':
+            continue
+        files.append(f)
+
+    return files
+
+# This returns the files without the folder name prepeneded to them
+def getCsv(folder):
+
+    files = []
+    for f in os.listdir(folder):
+
+        ext = os.path.splitext(f)[1]
+        if ext != '.csv':
+            continue
+        files.append(f)
+
+    return files
+
+
+# This returns the files without the folder name prepeneded to them
+def getDems(folder):
+
+    files = []
+    for f in os.listdir(folder):
+
+        if not isDEM(f):
+            continue
+        files.append(f)
+
+    return files
+
+# This returns the files without the folder name prepeneded to them
+def getLidar(folder):
+
+    files = []
+    for f in os.listdir(folder):
+
+        if not isLidar(f):
+            continue
+        files.append(f)
+
+    return files
+
+
 def parseDateTimeStrings(dateString, timeString, secFix=False):
     '''Parse strings in the format 20110323_17433900'''
     
