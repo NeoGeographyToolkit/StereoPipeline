@@ -8,6 +8,10 @@ https://nsidc.org/data/icebridge/data_summaries.html#camera
 including camera information, raw imagery, orthorectified imagery,
 LIDAR point clouds, and pre-existing DEMs for some of the flights.
 
+Flight paths can be visualized here:
+
+https://asapdata.arc.nasa.gov/dms/missions.html
+
 To be able to fetch any data, one should create an account with NSIDC,
 and then set up bulk downloading by following the instructions at
 

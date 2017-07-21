@@ -95,10 +95,15 @@ There are corresponding LIDAR files, some for AN and some for GR.
 For example, for 20150924, there are:
 
 https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILVIS2.001/2015.09.24/
-
+        
 and
 
 https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILATM1B.002/2015.09.24/
+
+The fetching tool can correctly fetch the ortho images by first
+fetching the corresponding XML files for each orthoimage and then
+filtering by latitude. It also determines which LIDAR file to get
+using similar logic. None of these have Fireball DEMs.
 
 4. For 20151019, there are both LVIS and ATM clouds:
 
@@ -113,3 +118,22 @@ and no AN dataset. The closest is for 10202015:
 
 https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/2015_AN_NASA/10202015_raw/
 	
+The software is able to fetch the right LIDAR for the GR run, and
+should not be invoked for the AN run.
+
+5. Some AN test flights are in fact over California, or en
+route. Those should be ignored, as they have no LIDAR.
+
+AN 20111004 (https://asapdata.arc.nasa.gov/dms/flight_html/1281702.html)
+AN 20111009 (https://asapdata.arc.nasa.gov/dms/flight_html/1281704.html)
+
+This has LIDAR though but it is en-route:
+
+AN 20111010 (https://asapdata.arc.nasa.gov/dms/flight_html/1281705.html)
+
+Some flights have both LVIS and ATM and they are both valid:
+
+https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILVIS2.001/2011.10.12 
+https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILATM1B.001/2011.10.12
+
+We need to think of what to do in such a situation.
