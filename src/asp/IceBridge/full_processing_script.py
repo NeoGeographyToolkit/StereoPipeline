@@ -35,6 +35,7 @@ sys.path.insert(0, libexecpath)
 sys.path.insert(0, icebridgepath)
 
 import icebridge_common, fetch_icebridge_data, process_icebridge_run, extract_icebridge_ATM_points
+import input_conversions
 import asp_system_utils, asp_alg_utils, asp_geo_utils
 
 asp_system_utils.verify_python_version_is_supported()
@@ -90,328 +91,8 @@ def fetchAllRunData(yyyymmdd, site, dryRun,
 
     return (jpegFolder, orthoFolder, demFolder, lidarFolder)
 
-def getJpegDateTime(filepath):
-    '''Get the date and time from a raw jpeg file.'''
-    
-    # TODO: For some files it is probably in the name.
-    
-    # Use this tool to extract the metadata
-    cmd      = ['gdalinfo', filepath]
-    p        = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-    out, err = p.communicate()
-    
-    lines = out.split('\n')
-
-    for line in lines:
-        if 'EXIF_DateTimeOriginal' not in line:
-            continue
-        parts = line.replace('=',' ').split()
-        dateString = parts[1].strip().replace(':','')
-        timeString = parts[2].strip().replace(':','')
-        
-        return (dateString, timeString)
-
-    raise Exception('Failed to read date/time from file: ' + filepath)
-
-def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame):
-    '''Convert jpeg images from RGB to single channel'''
-
-    logger = logging.getLogger(__name__)
-    logger.info('Converting input images to grayscale...')
-
-    # Loop through all the input images
-    os.system('mkdir -p ' + imageFolder)
-    jpegFiles = os.listdir(jpegFolder)
-    for jpegFile in jpegFiles:
-        
-        inputPath = os.path.join(jpegFolder, jpegFile)
-        
-        # Skip non-image files
-        ext = os.path.splitext(jpegFile)[1]
-        if ext != '.JPG':
-            continue
-
-        # Make sure the timestamp and frame number are in the output file name
-        (dateStr, timeStr) = getJpegDateTime(inputPath)
-
-        frame = icebridge_common.getFrameNumberFromFilename2(inputPath)
-        if not ( (frame >= startFrame) and (frame <= stopFrame) ): continue
-
-        outputName = ('DMS_%s_%s_%05d.tif') % (dateStr, timeStr, frame)
-        outputPath = os.path.join(imageFolder, outputName)
-
-        # Skip existing files
-        if os.path.exists(outputPath):
-            logger.info("File exists, skipping: " + outputPath)
-            continue
-        
-        # Use ImageMagick tool to convert from RGB to grayscale
-        cmd = (('convert %s -colorspace Gray %s') % (inputPath, outputPath))
-        logger.info(cmd)
-        os.system(cmd)
-        if not os.path.exists(outputPath):
-            raise Exception('Failed to convert jpeg file: ' + jpegFile)
-
-def corrFireball(demFolder, corrDemFolder, startFrame, stopFrame, isNorth):
-    '''Correct Fireball DEMs'''
-
-    logger = logging.getLogger(__name__)
-    logger.info('Correcting Fireball DEMs ...')
-
-    # Loop through all the input images
-    os.system('mkdir -p ' + corrDemFolder)
-    demFiles = os.listdir(demFolder)
-    for demFile in demFiles:
-        
-        inputPath = os.path.join(demFolder, demFile)
-        if not icebridge_common.isDEM(inputPath): continue
-
-        frame = icebridge_common.getFrameNumberFromFilename2(demFile)
-        if not ( (frame >= startFrame) and (frame <= stopFrame) ): continue
-
-        # Make sure the timestamp and frame number are in the output file name
-        outputPath = os.path.join(corrDemFolder, os.path.basename(inputPath))
-
-        # Skip existing files
-        if os.path.exists(outputPath):
-            logger.info("File exists, skipping: " + outputPath)
-            continue
-
-        execPath = asp_system_utils.which('correct_icebridge_l3_dem')
-        cmd = (('%s %s %s %d') %
-               (execPath, inputPath, outputPath, isNorth))
-
-        logger.info(cmd)
-        os.system(cmd)
-        if not icebridge_common.isValidImage(outputPath):
-            raise Exception('Failed to convert dem file: ' + demFile)
-
-def getCalibrationFileForFrame(cameraLoopkupFile, inputCalFolder, frame, yyyymmdd, site):
-    '''Return the camera model file to be used with a given input frame.'''
-
-    # To manually force a certain camera file, use this spot!
-    #name = 'IODCC0_2015_GR_NASA_DMS20.tsai'
-    #return os.path.join(inputCalFolder, name)
-
-    camera = ''
-    
-    # Iterate through lines in lookup file
-    with open(cameraLoopkupFile, "r") as cf:
-        for line in cf:
-
-            # Split line into parts and match site/date entries
-            line = line.strip()
-            vals = re.split('\s+', line)
-            if len(vals) < 3:
-                continue
-            if vals[0] != site or vals[1] != yyyymmdd:
-                continue
-            
-            curr_camera = vals[2]
-            if curr_camera == "":
-                raise Exception('Found an empty camera for day and site: ' + yyyymmdd + ' ' + site)
-                
-            # There is one default camera, and possible a backup camera for a range
-            # of frames
-            # - Currently these are on separate lines
-            m = re.match("^.*?frames\s+(\d+)-(\d+)", line)
-            if not m:
-                # The default camera, it is always before the backup one in the list.
-                # So this map must not be populated yet with this key.
-                camera = curr_camera
-            else:
-                # The backup camera for a range
-                startRange = int(m.group(1))
-                stopRange  = int(m.group(2))
-                if (frame >= startRange) and (frame <= stopRange):
-                    camera = curr_camera
-
-            # TODO: Modify file format so each flight has all info on a single line!
-            #break # Each frame will match only one line
-
-    if camera == "":
-        raise Exception('Failed to parse the camera.')
-
-    # Switch the extension to .tsai
-    camera = camera[:-4] + '.tsai'
-
-    return os.path.join(inputCalFolder, camera)
-
-def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile, \
-                           refDemPath, numThreads):
-    '''Generate a camera model from a single ortho file'''
-
-    logger = logging.getLogger(__name__)
-
-    # Call ortho2pinhole command
-    ortho2pinhole = asp_system_utils.which("ortho2pinhole")
-    cmd = (('%s %s %s %s %s --reference-dem %s --threads %d') % (ortho2pinhole, inputPath, orthoPath,
-                                 inputCamFile, outputCamFile, refDemPath, numThreads))
-    logger.info(cmd)
-    os.system(cmd)
-    
-    if not os.path.exists(outputCamFile):
-        # This function is getting called from a pool, so just log the failure.
-        logger.error('Failed to convert ortho file: ' + orthoFile)
-            
-    # TODO: Clean up the .gcp file?
-
-
-def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
-                             cameraLookupPath, yyyymmdd, site,
-                             refDemPath, cameraFolder,
-                             startFrame, stopFrame,
-                             numProcesses, numThreads):
-    '''Generate camera models from the ortho files'''
-    
-    logger = logging.getLogger(__name__)
-    logger.info('Generating camera models from ortho images...')
-    
-    imageFiles = os.listdir(imageFolder)
-    orthoFiles = icebridge_common.getOrthoImages(orthoFolder)
-    
-    # Make a dictionary of ortho files by frame
-    orthoFrames = {}
-    for f in orthoFiles:
-        frame = icebridge_common.getFrameNumberFromFilename2(f)
-
-        if not ( (frame >= startFrame) and (frame <= stopFrame) ): continue
-        orthoFrames[frame] = f
-
-    logger.info('Starting ortho processing pool with ' + str(numProcesses) +' processes.')
-    pool = multiprocessing.Pool(numProcesses)
-
-    # Loop through all input images
-    taskHandles = []
-    for imageFile in imageFiles:
-        
-        # Skip non-image files (including junk from stereo_gui)
-        ext = os.path.splitext(imageFile)[1]
-        if (ext != '.tif') or ('_sub' in imageFile):
-            continue
-
-        # Get associated orthofile
-        frame = icebridge_common.getFrameNumberFromFilename2(imageFile)
-        if not ( (frame >= startFrame) and (frame <= stopFrame) ): continue
-
-        orthoFile = orthoFrames[frame]
-        
-        # Check output file
-        inputPath     = os.path.join(imageFolder, imageFile)
-        orthoPath     = os.path.join(orthoFolder, orthoFile)
-        outputCamFile = os.path.join(cameraFolder,
-                                     icebridge_common.getCameraFileName(imageFile))
-        if os.path.exists(outputCamFile):
-            logger.info("File exists, skipping: " + outputCamFile)
-            continue
-
-        # Determine which input camera file will be used for this frame
-        inputCamFile = getCalibrationFileForFrame(cameraLookupPath, inputCalFolder,
-                                                  frame, yyyymmdd, site)
-               
-        # Add ortho2pinhole command to the task pool
-        taskHandles.append(pool.apply_async(cameraFromOrthoWrapper, 
-                                            (inputPath, orthoPath, inputCamFile,
-                                             outputCamFile, refDemPath, numThreads)))
-
-    # Wait for all the tasks to complete
-    logger.info('Finished adding ' + str(len(taskHandles)) + ' tasks to the pool.')
-    icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, interactive=False,
-                                                     quitKey='q')
-
-
-    # All tasks should be finished, clean up the processing pool
-    logger.info('Cleaning up the ortho processing pool...')
-    icebridge_common.stopTaskPool(pool)
-    logger.info('Finished cleaning up the ortho processing pool')
-
-
-def convertLidarDataToCsv(lidarFolder):
-    '''Make sure all lidar data is available in a readable text format'''
-
-    logger = logging.getLogger(__name__)
-    logger.info('Converting LIDAR files...')
-    
-    # Loop through all lidar files in the folder
-    lidarFiles = os.listdir(lidarFolder)
-    for f in lidarFiles:
-        extension = icebridge_common.fileExtension(f)
-        
-        # Only interested in a few file types
-        if (extension != '.qi') and (extension != '.hdf5') and (extension != '.h5'):
-           continue
-
-        # Handle paths
-        fullPath   = os.path.join(lidarFolder, f)
-        outputPath = os.path.join(lidarFolder, os.path.splitext(f)[0]+'.csv')
-        if os.path.exists(outputPath):
-            continue
-        
-        # Call the conversion
-        extract_icebridge_ATM_points.main([fullPath])
-        if not os.path.exists(outputPath):
-            raise Exception('Failed to parse LIDAR file: ' + fullPath)
-
-
-def pairLidarFiles(lidarFolder):
-    '''For each pair of lidar files generate a double size point cloud.
-       We can use these later since they do not have any gaps between adjacent files.'''
-    
-    logger = logging.getLogger(__name__)
-    logger.info('Generating lidar pairs...')
-    
-    # Create the output folder
-    pairFolder = os.path.join(lidarFolder, 'paired')
-    os.system('mkdir -p ' + pairFolder)
-    
-    # All files in the folder
-    lidarFiles = os.listdir(lidarFolder)
-    
-    # Get just the files we converted to csv format
-    csvFiles = []    
-    for f in lidarFiles:
-        extension = os.path.splitext(f)[1]
-        if extension == '.csv':
-           csvFiles.append(f)
-    csvFiles.sort()
-    numCsvFiles = len(csvFiles)
-    
-    # Loop through all pairs of csv files in the folder    
-    for i in range(0,numCsvFiles-2):
-
-        thisFile = csvFiles[i  ]
-        nextFile = csvFiles[i+1]
-
-        #date1, time1 = icebridge_common.parseTimeStamps(thisFile)
-        date2, time2 = icebridge_common.parseTimeStamps(nextFile)
-        
-        # Record the name with the second file
-        # - More useful because the time for the second file represents the middle of the file.
-        outputName = 'LIDAR_PAIR_' + date2 +'_'+ time2 + '.csv'
-
-        # Handle paths
-        path1      = os.path.join(lidarFolder, thisFile)
-        path2      = os.path.join(lidarFolder, nextFile)
-        outputPath = os.path.join(pairFolder, outputName)
-        if os.path.exists(outputPath):
-            continue
-        
-        # Concatenate the two files
-        cmd1 = 'cat ' + path1 + ' > ' + outputPath
-        cmd2 = 'tail -n +2 -q ' + path2 + ' >> ' + outputPath
-        logger.info(cmd1)
-        p        = subprocess.Popen(cmd1, stdout=subprocess.PIPE, shell=True)
-        out, err = p.communicate()
-        logger.info(cmd2)
-        p        = subprocess.Popen(cmd2, stdout=subprocess.PIPE, shell=True)
-        out, err = p.communicate()
-               
-        if not os.path.exists(outputPath):
-            raise Exception('Failed to generate merged LIDAR file: ' + outputPath)
-    
-
 def processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFolder, isSouth, 
-                  bundleLength, startFrame, stopFrame, numProcesses, numThreads):
+                  bundleLength, startFrame, stopFrame, logBatches, numProcesses, numThreads):
     '''Do all the run processing'''
 
     processCommand = (('%s %s %s %s --bundle-length %d --stereo-algorithm 1 --ortho-folder %s --num-processes %d --num-threads %d')
@@ -422,31 +103,12 @@ def processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFo
         processCommand += ' --start-frame ' + str(startFrame)
     if stopFrame:
         processCommand += ' --stop-frame ' + str(stopFrame)
+    if logBatches:
+        processCommand += ' --log-batches'
 
     logger = logging.getLogger(__name__)
     logger.info('Process command: ' + processCommand)
     process_icebridge_run.main(processCommand.split())
-
-def setUpLogger(outputFolder, logLevel):
-    '''Set up the root logger so all called files will write to the same output file'''
-
-    # Generate a timestamped log file in the output folder
-    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-    logName   = 'icebridge_processing_log_' + timestamp + '.txt'
-    logPath   = os.path.join(outputFolder, logName)
-    
-    logger = logging.getLogger()    # Call with no argument to configure the root logger.
-    logger.setLevel(level=logLevel)
-    
-    fileHandler = logging.FileHandler(logPath)
-    formatter   = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    fileHandler.setFormatter(formatter)
-    logger.addHandler(fileHandler)
-    logger.addHandler(logging.StreamHandler()) # Mirror logging to console
-
-    logger = logging.getLogger(__name__) # We configured root, but continue logging with the normal name.
-    return logger
-
 
 def main(argsIn):
 
@@ -468,7 +130,7 @@ def main(argsIn):
         parser.add_option("--yyyymmdd",  dest="yyyymmdd", default=None,
                           help="Specify the year, month, and day in one YYYYMMDD string.")
         parser.add_option("--site",  dest="site", default=None,
-                          help="Name of the location of the images (AN or GR)")
+                          help="Name of the location of the images (AN, GR, or AL)")
 
         parser.add_option("--output-folder",  dest="outputFolder", default=None,
                           help="Name of the output folder. If not specified, use something like AN_YYYYMMDD.")
@@ -514,12 +176,25 @@ def main(argsIn):
                           help="Sometimes some files are stored in next day's runs as well.")
         parser.add_option("--skip-validate", action="store_true", dest="skipValidate", default=False,
                           help="Skip input data validation.")
-        parser.add_option("--zip-if-all-fetched", action="store_true", dest="zipIfAllFetched", default=False,
-                          help="If all files are fetched, check that all image files are valid using gdalinfo, then make a tarball and wipe the files. Otherwise error out.")
-        parser.add_option('--max-num-to-fetch', dest='maxNumToFetch', default=-1,
-                          type='int', help='The maximum number to fetch of each kind of file. This is used in debugging.')
+        parser.add_option("--log-batches", action="store_true", dest="logBatches", default=False,
+                          help="Log the required batch commands without running them.")
         parser.add_option("--dry-run", action="store_true", dest="dryRun", default=False,
                           help="Set up the input directories but do not fetch/process any imagery.")
+
+
+
+        # The following options are intended for use on the supercomputer                          
+        parser.add_option("--zip-if-all-fetched", action="store_true", dest="zipIfAllFetched", default=False,
+                          help="If all files are fetched, check that all image files are valid using gdalinfo, then make a tarball and wipe the files. Otherwise error out. Only valid on Pleiades!")
+        parser.add_option('--max-num-to-fetch', dest='maxNumToFetch', default=-1,
+                          type='int', help='The maximum number to fetch of each kind of file. This is used in debugging.')
+
+        parser.add_option("--only-ortho-convert", action="store_true", dest="onlyOrthoConvert", default=False,
+                          help="Skip non-ortho conversion steps.")                          
+        parser.add_option("--non-ortho-convert", action="store_true", dest="nonOrthoConvert", default=False,
+                          help="Perform multi process non-ortho conversion.")
+                          
+
                           
         (options, args) = parser.parse_args(argsIn)
 
@@ -532,8 +207,9 @@ def main(argsIn):
     except optparse.OptionError, msg:
         raise Usage(msg)
 
-    if options.site != "AN" and options.site != "GR":
-        raise Exception("Site must be either AN or GR.")
+    possibleSites = ['AN', 'GR', 'AL']
+    if options.site not in possibleSites:
+        raise Exception("Site must be either AN, GR, or AL.")
     isSouth = (options.site == 'AN')
 
     if options.cameraLookupFile is None:
@@ -560,7 +236,7 @@ def main(argsIn):
     
     os.system('mkdir -p ' + options.outputFolder)
     logLevel = logging.INFO # Make this an option??
-    logger   = setUpLogger(options.outputFolder, logLevel)
+    logger   = icebridge_common.setUpLogger(options.outputFolder, logLevel, 'icebridge_processing_log')
 
     # Perform some input checks
     if not os.path.exists(inputCalFolder):
@@ -583,6 +259,10 @@ def main(argsIn):
             #refDemPath = 'gimpdem_90m_v1.1.tif' # Higher resolution
             refDemPath = 'NSIDC_Grn1km_wgs84_elev.tif' # Used to produce the orthos
         if options.site == 'AL':
+            # Supposedly these were produced with the SRTM map but that map
+            #  does not seem to actually include Alaska.  This may mean the NED
+            #  map (60 meter) was used but this would require tile handling logic
+            #  so for now we will try to use this single 300m DEM.
             refDemPath = 'akdem300m.tif'
         refDemPath = os.path.join(refDemFolder, refDemPath)
         if not os.path.exists(refDemPath):
@@ -684,19 +364,28 @@ def main(argsIn):
         logger.info('Skipping convert')
     else:
 
-        corrFireball(demFolder, corrDemFolder, startFrame, stopFrame, (not isSouth))
+        if options.nonOrthoConvert:
+            # Multi-process method to run all non-ortho conversions
+            input_conversions.convertAllButOrtho(jpegFolder, imageFolder, lidarFolder, demFolder, correctedDemFolder, isSouth, startFrame, stopFrame)
+        else:
 
-        convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame)
-        
-        getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder, 
-                                 options.cameraLookupFile, options.yyyymmdd, options.site, 
-                                 refDemPath, cameraFolder,
-                                 startFrame, stopFrame,
-                                 options.numProcesses, options.numThreads)
-       
-        convertLidarDataToCsv(lidarFolder)
-        
-        pairLidarFiles(lidarFolder)
+            if not options.onlyOrthoConvert:
+
+                # Run non-ortho conversions without any multiprocessing (they are pretty fast)
+                input_conversions.correctFireballDems(demFolder, corrDemFolder, startFrame, stopFrame, (not isSouth))
+
+                input_conversions.convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, )
+                       
+                input_conversions.convertLidarDataToCsv(lidarFolder)
+                
+                input_conversions.pairLidarFiles(lidarFolder)
+
+            # Multi-process call to convert ortho images
+            input_conversions.getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder, 
+                                                       options.cameraLookupFile, options.yyyymmdd, options.site, 
+                                                       refDemPath, cameraFolder, 
+                                                       startFrame, stopFrame,
+                                                       options.numProcesses, options.numThreads)        
 
     if options.stopAfterConvert:
         print 'Conversion complete, finished!'
@@ -705,7 +394,7 @@ def main(argsIn):
     # Call the processing routine
     processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder,
                   processFolder, isSouth,
-                  options.bundleLength, startFrame, stopFrame,
+                  options.bundleLength, startFrame, stopFrame, options.logBatches,
                   options.numProcesses, options.numThreads)
 
    

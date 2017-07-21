@@ -33,22 +33,27 @@ import asp_system_utils, asp_alg_utils, asp_geo_utils
 asp_system_utils.verify_python_version_is_supported()
 
 def getSmallestFrame():
+    '''Return the smallest possible frame number'''
     return 0
 
 def getLargestFrame():
+    '''Return the largest possible frame number'''
     return 99999999 # 100 million should be enough
 
-# Return, for example, .tif
 def fileExtension(filename):
+    '''Convenience function to get the file extension'''
     return os.path.splitext(filename)[1]
 
 def hasImageExtension(filename):
+    '''Return true if the file is a recognized image extension'''
     extension = fileExtension(filename).lower()
-    if extension == '.tif' or extension == '.jpg' or extension == '.jpeg' or extension == '.ntf':
+    validExtensions = ['.tif', '.jpg', '.jpeg', '.ntf']
+    if extension in validExtensions:
         return True
     return False
 
 def isValidImage(filename):
+    '''Check that an image file is not corrupted in some way'''
     
     if not os.path.exists(filename):
         return False
@@ -64,9 +69,11 @@ def isValidImage(filename):
     return True
 
 def isDEM(filename):
+    '''Return true if a file is a recognized DEM.'''
     return (len(filename) >= 8 and filename[-8:] == '_DEM.tif')
 
 def xmlFile(filename):
+    '''Return the matching xml file path for the input file.'''
     
     if (len(filename) >= 8 and filename[-7:-4] == 'DEM'): # DEM.tif and DEM.tfw
         #file_DEM.tif and file_DEM.tfw becomes file.xml
@@ -81,20 +88,22 @@ def xmlToImage(filename):
     return filename[:-4]
     
 def tfwFile(filename):
+    '''Return the matching tfw file path for the input file.'''
     return filename[:-4] + '.tfw'
 
 
 def isFloat(value):
-  try:
-    float(value)
-    return True
-  except:
-    return False
+    '''Return true if the input value can be converted to a float.'''
+    try:
+      float(value)
+      return True
+    except:
+      return False
 
 
-# Some files have an xml file containing the chksum. If so, varify
-# its validity. This applies to orthoimages, DEMs, and tfw files.
 def hasValidChkSum(filename):
+    '''Some files have an xml file containing the chksum. If so, varify
+       its validity. This applies to orthoimages, DEMs, and tfw files.'''
 
     isTfw = (fileExtension(filename) == '.tfw')
     
@@ -142,8 +151,8 @@ def hasValidChkSum(filename):
     
     return True
 
-# This file must have 6 lines of floats and a valid chksum
 def isValidTfw(filename):
+    '''This file must have 6 lines of floats and a valid chksum'''
     
     if fileExtension(filename) != '.tfw':
         return False
@@ -159,9 +168,8 @@ def isValidTfw(filename):
                 count += 1
     return (count >= 6)
 
-# Some files have an xml file containing the chksum. If so, varify
-# its validity. This applies to orthoimages, DEMs, and tfw files.
 def parseLatitude(filename):
+    '''Find the <PointLatitude> value in the given file.'''
 
     if not os.path.exists(filename):
         raise Exception("Could not find file: " + filename)
@@ -175,7 +183,7 @@ def parseLatitude(filename):
                 break
 
     if latitude is None:
-        raise Exception("Could not parse positve or negative latitude from: " + filename)
+        raise Exception("Could not parse positive or negative latitude from: " + filename)
 
     return latitude
 
@@ -267,9 +275,9 @@ def parseDateTimeStrings(dateString, timeString, secFix=False):
     
     return datetime.datetime(year, month, day, hour, minute, second, usecond)
 
-# Pull two six or eight digit values from the given file name
-# as the time and date stamps.
 def parseTimeStamps(fileName):
+    '''Pull two six or eight digit values from the given file name
+       as the time and date stamps.'''
 
     fileName = os.path.basename(fileName)
     fileName = fileName.replace('.', '_')
@@ -376,6 +384,7 @@ def fileNonEmpty(path):
 # that each file looks like outputFolder/name.<ext>,
 # and each url looks like https://.../name.<ext>.
 def fetchFilesInBatches(baseCurlCmd, batchSize, dryRun, outputFolder, files, urls, logger):
+    '''Fetch a list of files in batches using curl'''
 
     curlCmd = baseCurlCmd
     numFiles = len(files)
@@ -458,5 +467,26 @@ def stopTaskPool(pool):
     time.sleep(PROCESS_POOL_KILL_TIMEOUT)
     pool.terminate()
     pool.join()
+
+
+def setUpLogger(outputFolder, logLevel, logPathPrefix):
+    '''Set up the root logger so all called files will write to the same output file'''
+
+    # Generate a timestamped log file in the output folder
+    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    logName   = logPathPrefix +'_'+ timestamp + '.txt'
+    logPath   = os.path.join(outputFolder, logName)
+    
+    logger = logging.getLogger()    # Call with no argument to configure the root logger.
+    logger.setLevel(level=logLevel)
+    
+    fileHandler = logging.FileHandler(logPath)
+    formatter   = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    fileHandler.setFormatter(formatter)
+    logger.addHandler(fileHandler)
+    logger.addHandler(logging.StreamHandler()) # Mirror logging to console
+
+    logger = logging.getLogger(__name__) # We configured root, but continue logging with the normal name.
+    return logger
 
 

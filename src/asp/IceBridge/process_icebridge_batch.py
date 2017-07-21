@@ -168,7 +168,7 @@ def main(argsIn):
     baOverlapLimit = options.stereoImageInterval # TODO: Maybe adjust this a bit
     if baOverlapLimit < MIN_BA_OVERLAP:
         baOverlapLimit = MIN_BA_OVERLAP
-    cmd = ('bundle_adjust %s -o %s %s --camera-weight %d -t nadirpinhole --local-pinhole --overlap-limit %d' 
+    cmd = ('/home/smcmich1/repo/StereoPipeline/src/asp/Tools/bundle_adjust %s -o %s %s --camera-weight %d -t nadirpinhole --local-pinhole --overlap-limit %d' 
                  % (imageCameraString, bundlePrefix, threadText, CAMERA_WEIGHT, baOverlapLimit))
     if options.solve_intr:
         cmd += ' --solve-intrinsics'
@@ -204,11 +204,11 @@ def main(argsIn):
         argString      = ('%s %s %s %s ' % (inputPairs[i][0],  inputPairs[pairIndex][0], 
                                             inputPairs[i][1],  inputPairs[pairIndex][1]))
 
-        stereoCmd = ('stereo %s %s -t nadirpinhole --alignment-method epipolar %s' % (argString, thisPairPrefix, threadText))
+        stereoCmd = ('/home/smcmich1/repo/StereoPipeline/src/asp/Tools/stereo %s %s -t nadirpinhole --alignment-method epipolar %s' % (argString, thisPairPrefix, threadText))
         VERTICAL_SEARCH_LIMIT = 10
         searchLimitString = (' --corr-search-limit -9999 -'+str(VERTICAL_SEARCH_LIMIT)+
                                                   ' 9999 '+ str(VERTICAL_SEARCH_LIMIT) )
-        correlationArgString = (' --xcorr-threshold 2 --min-xcorr-level 1 --corr-kernel 7 7 --subpixel-mode 0' 
+        correlationArgString = (' --xcorr-threshold 2 --min-xcorr-level 1 --corr-kernel 7 7 ' 
                                 + ' --corr-tile-size 9000 --cost-mode 4 --sgm-search-buffer 4 1 '
                                 + ' --stereo-algorithm ' + str(options.stereoAlgo)
                                 + searchLimitString
@@ -230,11 +230,13 @@ def main(argsIn):
         demFiles.append(p2dOutput)
 
         # COLORMAP
-        colormapMin = -20 # TODO: Automate these?
-        colormapMax =  20
+        #colormapMin = -20 # To really be useful we need to read the range off the lidar and use it for all files.
+        #colormapMax =  20
         colorOutput = thisPairPrefix+'-DEM_CMAP.tif'
-        cmd = ('colormap --min %f --max %f %s -o %s' 
-               % (colormapMin, colormapMax, p2dOutput, colorOutput))
+        #cmd = ('colormap --min %f --max %f %s -o %s'
+        #     % (colormapMin, colormapMax, p2dOutput, colorOutput))
+        cmd = ('colormap %s -o %s'  
+               % (p2dOutput, colorOutput))
         asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
 
     #raise Exception('BA DEBUG')
@@ -290,11 +292,13 @@ def main(argsIn):
     asp_system_utils.executeCommand(cmd, hillOutput, suppressOutput, redo)
     
     # COLORMAP
-    colormapMin = -10 # TODO: Automate these?
-    colormapMax =  20
+    #colormapMin = -10 # TODO: Automate these?
+    #colormapMax =  20
     colorOutput = outputPrefix+'-DEM_CMAP.tif'
-    cmd = ('colormap --min %f --max %f %s -o %s' 
-           % (colormapMin, colormapMax, allDemPath, colorOutput))
+    #cmd = ('colormap --min %f --max %f %s -o %s' 
+    #       % (colormapMin, colormapMax, allDemPath, colorOutput))
+    cmd = ('colormap  %s -o %s' 
+           % (allDemPath, colorOutput))
     asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
 
     # Optional visualization of the LIDAR file
@@ -320,8 +324,10 @@ def main(argsIn):
         asp_system_utils.executeCommand(cmd, lidarDemOutput, suppressOutput, redo)
             
         colorOutput = lidarDemPrefix+'-DEM_CMAP.tif'
-        cmd = ('colormap --min %f --max %f %s -o %s' 
-               % (colormapMin, colormapMax, lidarDemOutput, colorOutput))
+        cmd = ('colormap  %s -o %s' 
+               % ( lidarDemOutput, colorOutput))
+        #cmd = ('colormap --min %f --max %f %s -o %s'
+        #       % (colormapMin, colormapMax, lidarDemOutput, colorOutput))
         asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
 
     logger.info('Finished!')
