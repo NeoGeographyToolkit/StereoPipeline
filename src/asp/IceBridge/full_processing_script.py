@@ -113,7 +113,7 @@ def getJpegDateTime(filepath):
 
     raise Exception('Failed to read date/time from file: ' + filepath)
 
-def convertJpegs(jpegFolder, imageFolder):
+def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame):
     '''Convert jpeg images from RGB to single channel'''
 
     logger = logging.getLogger(__name__)
@@ -130,11 +130,14 @@ def convertJpegs(jpegFolder, imageFolder):
         ext = os.path.splitext(jpegFile)[1]
         if ext != '.JPG':
             continue
-        
+
         # Make sure the timestamp and frame number are in the output file name
         (dateStr, timeStr) = getJpegDateTime(inputPath)
-        frameNumber = icebridge_common.getFrameNumberFromFilename(inputPath)
-        outputName = ('DMS_%s_%s_%05d.tif') % (dateStr, timeStr, frameNumber)
+
+        frame = icebridge_common.getFrameNumberFromFilename2(inputPath)
+        if not ( (frame >= startFrame) and (frame <= stopFrame) ): continue
+
+        outputName = ('DMS_%s_%s_%05d.tif') % (dateStr, timeStr, frame)
         outputPath = os.path.join(imageFolder, outputName)
 
         # Skip existing files
@@ -149,7 +152,7 @@ def convertJpegs(jpegFolder, imageFolder):
         if not os.path.exists(outputPath):
             raise Exception('Failed to convert jpeg file: ' + jpegFile)
 
-def corrFireball(demFolder, corrDemFolder, isNorth):
+def corrFireball(demFolder, corrDemFolder, startFrame, stopFrame, isNorth):
     '''Correct Fireball DEMs'''
 
     logger = logging.getLogger(__name__)
@@ -159,9 +162,12 @@ def corrFireball(demFolder, corrDemFolder, isNorth):
     os.system('mkdir -p ' + corrDemFolder)
     demFiles = os.listdir(demFolder)
     for demFile in demFiles:
-
+        
         inputPath = os.path.join(demFolder, demFile)
         if not icebridge_common.isDEM(inputPath): continue
+
+        frame = icebridge_common.getFrameNumberFromFilename2(demFile)
+        if not ( (frame >= startFrame) and (frame <= stopFrame) ): continue
 
         # Make sure the timestamp and frame number are in the output file name
         outputPath = os.path.join(corrDemFolder, os.path.basename(inputPath))
@@ -253,23 +259,23 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile, \
 
 def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
                              cameraLookupPath, yyyymmdd, site,
-                             refDemPath, cameraFolder, numProcesses, numThreads):
+                             refDemPath, cameraFolder,
+                             startFrame, stopFrame,
+                             numProcesses, numThreads):
     '''Generate camera models from the ortho files'''
     
     logger = logging.getLogger(__name__)
     logger.info('Generating camera models from ortho images...')
     
     imageFiles = os.listdir(imageFolder)
-    orthoFiles = os.listdir(orthoFolder)
+    orthoFiles = icebridge_common.getOrthoImages(orthoFolder)
     
     # Make a dictionary of ortho files by frame
     orthoFrames = {}
     for f in orthoFiles:
-        # Skip non-image files
-        ext = os.path.splitext(f)[1]
-        if (ext != '.tif') or ('_sub' in f):
-            continue
-        frame = icebridge_common.getFrameNumberFromFilename(f)
+        frame = icebridge_common.getFrameNumberFromFilename2(f)
+
+        if not ( (frame >= startFrame) and (frame <= stopFrame) ): continue
         orthoFrames[frame] = f
 
     logger.info('Starting ortho processing pool with ' + str(numProcesses) +' processes.')
@@ -285,7 +291,9 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
             continue
 
         # Get associated orthofile
-        frame     = icebridge_common.getFrameNumberFromFilename(imageFile)       
+        frame = icebridge_common.getFrameNumberFromFilename2(imageFile)
+        if not ( (frame >= startFrame) and (frame <= stopFrame) ): continue
+
         orthoFile = orthoFrames[frame]
         
         # Check output file
@@ -676,14 +684,15 @@ def main(argsIn):
         logger.info('Skipping convert')
     else:
 
-        corrFireball(demFolder, corrDemFolder, (not isSouth))
+        corrFireball(demFolder, corrDemFolder, startFrame, stopFrame, (not isSouth))
 
-        convertJpegs(jpegFolder, imageFolder)
+        convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame)
         
         getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder, 
                                  options.cameraLookupFile, options.yyyymmdd, options.site, 
-                                 refDemPath, cameraFolder, options.numProcesses,
-                                 options.numThreads)
+                                 refDemPath, cameraFolder,
+                                 startFrame, stopFrame,
+                                 options.numProcesses, options.numThreads)
        
         convertLidarDataToCsv(lidarFolder)
         
@@ -697,7 +706,7 @@ def main(argsIn):
     processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder,
                   processFolder, isSouth,
                   options.bundleLength, startFrame, stopFrame,
-                  options.numProcesses, options.numThreads, )
+                  options.numProcesses, options.numThreads)
 
    
 

@@ -208,28 +208,46 @@ def getFrameNumberFromFilename(f):
 def getFrameNumberFromFilename2(filename):
 
     # Match 2009_10_16_<several digits>.JPG
-    m = re.match("^.*?(\d+\_\d+\_\d+\_)(\d+)(\.JPG)", filename, re.IGNORECASE)
-    if m: return int(m.group(2))
+    m = re.match("^.*?\d+\_\d+\_\d+\_(\d+)\.JPG", filename, re.IGNORECASE)
+    if m: return int(m.group(1))
 
-    # Match DMS_1000109_03939_20091016_23310503_V02.tif
-    m = re.match("^.*?(DMS\_\d+\_)(\d+)(\w+\.tif)", filename, re.IGNORECASE)
-    if m: return int(m.group(2))
+    # Match DMS_20111012_145559_00156.tif (created by our convertJpegs)
+    m = re.match("^.*?DMS\_\d+\_\d+\_(\d+)\.tif", filename, re.IGNORECASE)
+    if m: return int(m.group(1))
+    
+    # Match DMS_1000109_03939_20091016_23310503_V02.tif (fetched from NSIDC)
+    m = re.match("^.*?DMS\_\d+\_(\d+)\w+\.tif", filename, re.IGNORECASE)
+    if m: return int(m.group(1))
 
     # Match IODMS3_20111018_14295436_00347_DEM.tif
-    m = re.match("^.*?(IODMS[a-zA-Z0-9]*?\_\d+\_\d+\_)(\d+)(\w+DEM\.tif)", filename, re.IGNORECASE)
-    if m: return int(m.group(2))
+    m = re.match("^.*?IODMS[a-zA-Z0-9]*?\_\d+\_\d+\_(\d+)\w+DEM\.tif", filename, re.IGNORECASE)
+    if m: return int(m.group(1))
     
     # Match ILVIS2_AQ2015_0929_R1605_060226.TXT
-    m = re.match("^.*?(ILVIS.*?_)(\d+)(.TXT)", filename, re.IGNORECASE)
-    if m: return int(m.group(2))
+    m = re.match("^.*?ILVIS.*?_(\d+)(.TXT)", filename, re.IGNORECASE)
+    if m: return int(m.group(1))
 
     # Match ILATM1B_20091016_193033.atm4cT3.qi
     # or    ILATM1B_20160713_195419.ATM5BT5.h5
-    m = re.match("^.*?(ILATM\w+\_\d+\_)(\d+)\.\w+\.(h5|qi)", filename, re.IGNORECASE)
-    if m: return int(m.group(2))
+    m = re.match("^.*?ILATM\w+\_\d+\_(\d+)\.\w+\.(h5|qi)", filename, re.IGNORECASE)
+    if m: return int(m.group(1))
 
     raise Exception('Could not parse: ' + filename)
 
+def getOrthoImages(folder):
+
+    files = []
+    for f in os.listdir(folder):
+
+        # Skip non-image files and sub-images
+        ext = os.path.splitext(f)[1]
+        if (ext != '.tif') or ('_sub' in f):
+            continue
+        files.append(f)
+
+    return files
+
+    
 def parseDateTimeStrings(dateString, timeString, secFix=False):
     '''Parse strings in the format 20110323_17433900'''
     

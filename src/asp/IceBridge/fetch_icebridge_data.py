@@ -412,14 +412,16 @@ def doFetch(options, outputFolder):
         options.startFrame = firstFrame
         options.stopFrame  = lastFrame
 
+    isLidar = (options.type in LIDAR_TYPES)
+
     # There is always a chance that not all requested frames are available.
     # That is particularly true for Fireball DEMs. Instead of failing,
     # just download what is present and give a warning. 
-    if options.startFrame not in frameDict:
+    if options.startFrame not in frameDict and not isLidar:
         logger.info("Warning: Frame " + str(options.startFrame) + \
                     " is not found in this flight.")
                     
-    if options.stopFrame and (options.stopFrame not in frameDict):
+    if options.stopFrame and (options.stopFrame not in frameDict) and not isLidar:
         logger.info("Warning: Frame " + str(options.stopFrame) + \
                     " is not found in this flight.")
 
@@ -433,10 +435,10 @@ def doFetch(options, outputFolder):
         lastFrame = allFrames[len(allFrames)-1]
 
     hasTfw = (options.type == 'dem')
-    hasXml = ( (options.type in LIDAR_TYPES) or (options.type == 'ortho') or hasTfw )
+    hasXml = ( isLidar or (options.type == 'ortho') or hasTfw )
     numFetched = 0
     for frame in allFrames:
-        if (frame >= options.startFrame) and (frame <= options.stopFrame):
+        if ((frame >= options.startFrame) and (frame <= options.stopFrame) ) or isLidar:
 
             filename = frameDict[frame]
             
