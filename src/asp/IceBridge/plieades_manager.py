@@ -18,7 +18,9 @@
 
 # Top level program that 
 
-import os, sys, optparse, datetime, time, subprocess, logging, multiprocessing, re, shutil, time
+import os, sys, optparse, datetime, time, subprocess, logging, multiprocessing
+import re, shutil, time, getpass
+
 import os.path as P
 
 # The path to the ASP python files and tools
@@ -71,8 +73,8 @@ REFERENCE_DEM_FOLDER    = ''
 
 
 def getUser():
-    '''Return the current user name'''
-    return 'smcmich1' # TODO: Figure this out automatically
+    '''Return the current user name.'''
+    return getpass.getuser()
 
 def readRunList(path):
     '''Reads a list of runs in this format: GR 20110411.

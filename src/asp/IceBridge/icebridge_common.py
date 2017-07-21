@@ -33,19 +33,19 @@ import asp_system_utils, asp_alg_utils, asp_geo_utils
 asp_system_utils.verify_python_version_is_supported()
 
 def getSmallestFrame():
-    '''Return the smallest possible frame number'''
+    '''Return the smallest possible frame number.'''
     return 0
 
 def getLargestFrame():
-    '''Return the largest possible frame number'''
+    '''Return the largest possible frame number.'''
     return 99999999 # 100 million should be enough
 
 def fileExtension(filename):
-    '''Convenience function to get the file extension'''
+    '''Convenience function to get the file extension.'''
     return os.path.splitext(filename)[1]
 
 def hasImageExtension(filename):
-    '''Return true if the file is a recognized image extension'''
+    '''Return true if the file is a recognized image extension.'''
     extension = fileExtension(filename).lower()
     validExtensions = ['.tif', '.jpg', '.jpeg', '.ntf']
     if extension in validExtensions:
@@ -53,7 +53,7 @@ def hasImageExtension(filename):
     return False
 
 def isValidImage(filename):
-    '''Check that an image file is not corrupted in some way'''
+    '''Check that an image file is not corrupted in some way.'''
     
     if not os.path.exists(filename):
         return False
@@ -104,7 +104,6 @@ def isFloat(value):
       return True
     except:
       return False
-
 
 def hasValidChkSum(filename):
     '''Some files have an xml file containing the chksum. If so, varify
@@ -157,7 +156,7 @@ def hasValidChkSum(filename):
     return True
 
 def isValidTfw(filename):
-    '''This file must have 6 lines of floats and a valid chksum'''
+    '''This file must have 6 lines of floats and a valid chksum.'''
     
     if fileExtension(filename) != '.tfw':
         return False
@@ -193,13 +192,13 @@ def parseLatitude(filename):
     return latitude
 
 def getCameraFileName(imageFileName):
-    '''Get the camera file name we associate with an input image file'''
+    '''Get the camera file name we associate with an input image file.'''
     return imageFileName.replace('.tif', '.tsai')
 
 # TODO: Integrate this with getFrameNumberFromFilename2() with a lot of care!
 # This function may not be robust if the number is 4 digits instead of 5.
 def getFrameNumberFromFilename(f):
-    '''Return the frame number of an image or camera file'''
+    '''Return the frame number of an image or camera file.'''
     # Look for a 5 digit number, that is usually the frame name.
     # Other parts of the file, like the date and time stamp
     # have more digits.
@@ -248,9 +247,9 @@ def getFrameNumberFromFilename2(filename):
 
     raise Exception('Could not parse: ' + filename)
 
-# This returns the files without the folder name prepeneded to them
 def getTifs(folder):
-
+    '''Get tif files in given directory, ignoring _sub files.
+    This returns the files without the folder name prepeneded to them.'''
     files = []
     for f in os.listdir(folder):
 
@@ -262,8 +261,9 @@ def getTifs(folder):
 
     return files
 
-# This returns the files without the folder name prepeneded to them
 def getJpegs(folder):
+    '''Get jpeg files in given directory. This returns the files
+    without the folder name prepeneded to them.'''
 
     files = []
     for f in os.listdir(folder):
@@ -275,9 +275,8 @@ def getJpegs(folder):
 
     return files
 
-# This returns the files without the folder name prepeneded to them
 def getCsv(folder):
-
+    '''Get CSV files. This returns the files without the folder name prepeneded to them.'''
     files = []
     for f in os.listdir(folder):
 
@@ -288,9 +287,8 @@ def getCsv(folder):
 
     return files
 
-
-# This returns the files without the folder name prepeneded to them
 def getDems(folder):
+    '''Get DEM files. This returns the files without the folder name prepeneded to them.'''
 
     files = []
     for f in os.listdir(folder):
@@ -303,19 +301,18 @@ def getDems(folder):
 
 # This returns the files without the folder name prepeneded to them
 def getLidar(folder):
+    '''Get LIDAR files. This returns the files without the folder name prepeneded to them.'''
 
     files = []
     for f in os.listdir(folder):
-
         if not isLidar(f):
             continue
         files.append(f)
 
     return files
 
-
 def parseDateTimeStrings(dateString, timeString, secFix=False):
-    '''Parse strings in the format 20110323_17433900'''
+    '''Parse strings in the format 20110323_17433900.'''
     
     MILLISECOND_TO_MICROSECOND = 10000
     
@@ -434,7 +431,7 @@ def findMatchingLidarFile(imageFile, lidarFolder):
     return bestLidarFile
 
 def fileNonEmpty(path):
-    '''Make sure file exists and is non-empty'''
+    '''Make sure file exists and is non-empty.'''
     return os.path.exists(path) and (os.path.getsize(path) > 0)
 
 # It is faster to invoke one curl command for multiple files.
@@ -442,7 +439,7 @@ def fileNonEmpty(path):
 # that each file looks like outputFolder/name.<ext>,
 # and each url looks like https://.../name.<ext>.
 def fetchFilesInBatches(baseCurlCmd, batchSize, dryRun, outputFolder, files, urls, logger):
-    '''Fetch a list of files in batches using curl'''
+    '''Fetch a list of files in batches using curl.'''
 
     curlCmd = baseCurlCmd
     numFiles = len(files)
@@ -518,7 +515,7 @@ def waitForTaskCompletionOrKeypress(taskHandles, interactive=True, quitKey='q', 
     return
 
 def stopTaskPool(pool):
-    '''Stop remaining tasks and kill the pool '''
+    '''Stop remaining tasks and kill the pool.'''
 
     PROCESS_POOL_KILL_TIMEOUT = 3
     pool.close()
@@ -528,7 +525,7 @@ def stopTaskPool(pool):
 
 
 def setUpLogger(outputFolder, logLevel, logPathPrefix):
-    '''Set up the root logger so all called files will write to the same output file'''
+    '''Set up the root logger so all called files will write to the same output file.'''
 
     # Generate a timestamped log file in the output folder
     timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')

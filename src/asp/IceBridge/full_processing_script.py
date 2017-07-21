@@ -23,10 +23,12 @@ import os, sys, optparse, datetime, time, subprocess, logging, multiprocessing, 
 import os.path as P
 
 # The path to the ASP python files and tools
-basepath      = os.path.dirname(os.path.realpath(__file__)) # won't change, unlike syspath
+basepath      = os.path.dirname(os.path.realpath(__file__))  # won't change, unlike syspath
 pythonpath    = os.path.abspath(basepath + '/../Python')     # for dev ASP
 libexecpath   = os.path.abspath(basepath + '/../libexec')    # for packaged ASP
+binpath       = os.path.abspath(basepath + '/../bin')        # for packaged ASP
 icebridgepath = os.path.abspath(basepath + '/../IceBridge')  # IceBridge tools
+toolspath     = os.path.abspath(basepath + '/../Tools')      # ASP Tools
 
 # Prepend to Python path
 sys.path.insert(0, basepath)
@@ -45,6 +47,8 @@ os.environ["PATH"] = basepath       + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = pythonpath     + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = libexecpath    + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
+os.environ["PATH"] = toolspath      + os.pathsep + os.environ["PATH"]
+os.environ["PATH"] = binpath        + os.pathsep + os.environ["PATH"]
 
 def fetchAllRunData(yyyymmdd, site, dryRun,
                     startFrame, stopFrame, maxNumToFetch,

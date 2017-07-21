@@ -22,11 +22,12 @@
 import os, sys, optparse, datetime, logging
 
 # The path to the ASP python files
-basepath    = os.path.abspath(sys.path[0])
-pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
-libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
+basepath      = os.path.dirname(os.path.realpath(__file__))  # won't change, unlike syspath
+pythonpath    = os.path.abspath(basepath + '/../Python')     # for dev ASP
+libexecpath   = os.path.abspath(basepath + '/../libexec')    # for packaged ASP
+binpath       = os.path.abspath(basepath + '/../bin')        # for packaged ASP
 icebridgepath = os.path.abspath(basepath + '/../IceBridge')  # IceBridge tools
-toolspath = os.path.abspath(basepath + '/../Tools')  # ASP Tools
+toolspath     = os.path.abspath(basepath + '/../Tools')      # ASP Tools
 sys.path.insert(0, basepath) # prepend to Python path
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
@@ -43,6 +44,7 @@ logger = logging.getLogger(__name__)
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = toolspath   + os.pathsep + os.environ["PATH"]
+os.environ["PATH"] = binpath     + os.pathsep + os.environ["PATH"]
 
 def makeSymLink(oldFile, newFile):
     '''Safely create a symlink'''
@@ -168,7 +170,7 @@ def main(argsIn):
     baOverlapLimit = options.stereoImageInterval # TODO: Maybe adjust this a bit
     if baOverlapLimit < MIN_BA_OVERLAP:
         baOverlapLimit = MIN_BA_OVERLAP
-    cmd = ('/home/smcmich1/repo/StereoPipeline/src/asp/Tools/bundle_adjust %s -o %s %s --camera-weight %d -t nadirpinhole --local-pinhole --overlap-limit %d' 
+    cmd = ('bundle_adjust %s -o %s %s --camera-weight %d -t nadirpinhole --local-pinhole --overlap-limit %d' 
                  % (imageCameraString, bundlePrefix, threadText, CAMERA_WEIGHT, baOverlapLimit))
     if options.solve_intr:
         cmd += ' --solve-intrinsics'
@@ -204,7 +206,7 @@ def main(argsIn):
         argString      = ('%s %s %s %s ' % (inputPairs[i][0],  inputPairs[pairIndex][0], 
                                             inputPairs[i][1],  inputPairs[pairIndex][1]))
 
-        stereoCmd = ('/home/smcmich1/repo/StereoPipeline/src/asp/Tools/stereo %s %s -t nadirpinhole --alignment-method epipolar %s' % (argString, thisPairPrefix, threadText))
+        stereoCmd = ('stereo %s %s -t nadirpinhole --alignment-method epipolar %s' % (argString, thisPairPrefix, threadText))
         VERTICAL_SEARCH_LIMIT = 10
         searchLimitString = (' --corr-search-limit -9999 -'+str(VERTICAL_SEARCH_LIMIT)+
                                                   ' 9999 '+ str(VERTICAL_SEARCH_LIMIT) )
