@@ -211,6 +211,7 @@ def getFrameNumberFromFilename(f):
     raise Exception('Cannot parse the frame number from ' + f)
     return 0
 
+# TODO: Rename this!
 # This function works for raw images, orthoimages, DEMs, lvis, atm1, and atm2 files.
 # It does not work yet for tsai files.
 def getFrameNumberFromFilename2(filename):

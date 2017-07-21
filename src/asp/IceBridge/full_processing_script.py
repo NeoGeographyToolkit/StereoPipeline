@@ -182,18 +182,13 @@ def main(argsIn):
                           help="Set up the input directories but do not fetch/process any imagery.")
 
 
-
         # The following options are intended for use on the supercomputer                          
         parser.add_option("--zip-if-all-fetched", action="store_true", dest="zipIfAllFetched", default=False,
                           help="If all files are fetched, check that all image files are valid using gdalinfo, then make a tarball and wipe the files. Otherwise error out. Only valid on Pleiades!")
         parser.add_option('--max-num-to-fetch', dest='maxNumToFetch', default=-1,
                           type='int', help='The maximum number to fetch of each kind of file. This is used in debugging.')
-
-        parser.add_option("--only-ortho-convert", action="store_true", dest="onlyOrthoConvert", default=False,
-                          help="Skip non-ortho conversion steps.")                          
-        parser.add_option("--non-ortho-convert", action="store_true", dest="nonOrthoConvert", default=False,
-                          help="Perform multi process non-ortho conversion.")
-                          
+        parser.add_option("--no-lidar-convert", action="store_true", dest="noLidarConvert", default=False,
+                          help="Skip lidar files in the conversion step.")
 
                           
         (options, args) = parser.parse_args(argsIn)
@@ -364,28 +359,23 @@ def main(argsIn):
         logger.info('Skipping convert')
     else:
 
-        if options.nonOrthoConvert:
-            # Multi-process method to run all non-ortho conversions
-            input_conversions.convertAllButOrtho(jpegFolder, imageFolder, lidarFolder, demFolder, correctedDemFolder, isSouth, startFrame, stopFrame)
-        else:
+          # Run non-ortho conversions without any multiprocessing (they are pretty fast)
+          # TODO: May be worth doing the faster functions with multiprocessing in the future
+          input_conversions.correctFireballDems(demFolder, corrDemFolder, startFrame, stopFrame, (not isSouth))
 
-            if not options.onlyOrthoConvert:
+          input_conversions.convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame)
 
-                # Run non-ortho conversions without any multiprocessing (they are pretty fast)
-                input_conversions.correctFireballDems(demFolder, corrDemFolder, startFrame, stopFrame, (not isSouth))
+          # Multi-process call to convert ortho images
+          input_conversions.getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder, 
+                                                     options.cameraLookupFile, options.yyyymmdd, options.site, 
+                                                     refDemPath, cameraFolder, 
+                                                     startFrame, stopFrame,
+                                                     options.numProcesses, options.numThreads)        
 
-                input_conversions.convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, )
-                       
-                input_conversions.convertLidarDataToCsv(lidarFolder)
-                
-                input_conversions.pairLidarFiles(lidarFolder)
-
-            # Multi-process call to convert ortho images
-            input_conversions.getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder, 
-                                                       options.cameraLookupFile, options.yyyymmdd, options.site, 
-                                                       refDemPath, cameraFolder, 
-                                                       startFrame, stopFrame,
-                                                       options.numProcesses, options.numThreads)        
+          if not options.noLidarConvert:           
+              input_conversions.convertLidarDataToCsv(lidarFolder)
+              
+              input_conversions.pairLidarFiles(lidarFolder)
 
     if options.stopAfterConvert:
         print 'Conversion complete, finished!'

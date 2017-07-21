@@ -63,7 +63,7 @@ def getJpegDateTime(filepath):
 
     raise Exception('Failed to read date/time from file: ' + filepath)
 
-def convertJpegs(jpegFolder, imageFolder):
+def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame):
     '''Convert jpeg images from RGB to single channel'''
 
     logger = logging.getLogger(__name__)
@@ -83,8 +83,10 @@ def convertJpegs(jpegFolder, imageFolder):
         
         # Make sure the timestamp and frame number are in the output file name
         (dateStr, timeStr) = getJpegDateTime(inputPath)
-        frameNumber = icebridge_common.getFrameNumberFromFilename(inputPath)
-        outputName = ('DMS_%s_%s_%05d.tif') % (dateStr, timeStr, frameNumber)
+        frame = icebridge_common.getFrameNumberFromFilename2(inputPath)
+        if not ( (frame >= startFrame) and (frame <= stopFrame) ):
+            continue
+        outputName = ('DMS_%s_%s_%05d.tif') % (dateStr, timeStr, frame)
         outputPath = os.path.join(imageFolder, outputName)
 
         # Skip existing files
@@ -99,7 +101,7 @@ def convertJpegs(jpegFolder, imageFolder):
         if not os.path.exists(outputPath):
             raise Exception('Failed to convert jpeg file: ' + jpegFile)
 
-def correctFireballDems(demFolder, correctedDemFolder, isNorth):
+def correctFireballDems(demFolder, correctedDemFolder, startFrame, stopFrame, isNorth):
     '''Fix the header problem in Fireball DEMs'''
 
     logger = logging.getLogger(__name__)
@@ -112,6 +114,10 @@ def correctFireballDems(demFolder, correctedDemFolder, isNorth):
 
         inputPath = os.path.join(demFolder, demFile)
         if not icebridge_common.isDEM(inputPath):
+            continue
+
+        frame = icebridge_common.getFrameNumberFromFilename2(demFile)
+        if not ( (frame >= startFrame) and (frame <= stopFrame) ): 
             continue
 
         # Make sure the timestamp and frame number are in the output file name
@@ -204,23 +210,23 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile, \
 
 def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
                              cameraLookupPath, yyyymmdd, site,
-                             refDemPath, cameraFolder, numProcesses, numThreads):
+                             refDemPath, cameraFolder, 
+                             startFrame, stopFrame,
+                             numProcesses, numThreads):
     '''Generate camera models from the ortho files'''
     
     logger = logging.getLogger(__name__)
     logger.info('Generating camera models from ortho images...')
     
     imageFiles = os.listdir(imageFolder)
-    orthoFiles = os.listdir(orthoFolder)
+    orthoFiles = icebridge_common.getOrthoImages(orthoFolder)
     
     # Make a dictionary of ortho files by frame
     orthoFrames = {}
     for f in orthoFiles:
-        # Skip non-image files
-        ext = os.path.splitext(f)[1]
-        if (ext != '.tif') or ('_sub' in f):
+        frame = icebridge_common.getFrameNumberFromFilename2(f)
+        if not ( (frame >= startFrame) and (frame <= stopFrame) ):
             continue
-        frame = icebridge_common.getFrameNumberFromFilename(f)
         orthoFrames[frame] = f
 
     logger.info('Starting ortho processing pool with ' + str(numProcesses) +' processes.')
@@ -236,7 +242,9 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
             continue
 
         # Get associated orthofile
-        frame     = icebridge_common.getFrameNumberFromFilename(imageFile)       
+        frame = icebridge_common.getFrameNumberFromFilename2(imageFile)
+        if not ( (frame >= startFrame) and (frame <= stopFrame) ):
+            continue
         orthoFile = orthoFrames[frame]
         
         # Check output file
@@ -353,8 +361,8 @@ def pairLidarFiles(lidarFolder):
             raise Exception('Failed to generate merged LIDAR file: ' + outputPath)
     
 
-
-def convertAllButOrtho(jpegFolder, imageFolder, lidarFolder, demFolder, correctedDemFolder, isSouth):
+# TODO: This function is obsolete!
+def convertAllButOrtho(jpegFolder, imageFolder, lidarFolder, demFolder, correctedDemFolder, isSouth, startFrame, stopFrame):
     '''Perform the non-ortho (faster) conversions in parallel.'''
 
     logger = logging.getLogger(__name__)
@@ -371,9 +379,9 @@ def convertAllButOrtho(jpegFolder, imageFolder, lidarFolder, demFolder, correcte
                
     # Add the four tasks to the processing pool
 
-    taskHandles.append(pool.apply_async(correctFireballDems, (demFolder, correctedDemFolder, (not isSouth))))
+    taskHandles.append(pool.apply_async(correctFireballDems, (demFolder, correctedDemFolder, startFrame, stopFrame, (not isSouth))))
 
-    taskHandles.append(pool.apply_async(convertJpegs, (jpegFolder, imageFolder)))
+    taskHandles.append(pool.apply_async(convertJpegs, (jpegFolder, imageFolder, startFrame, stopFrame)))
    
     taskHandles.append(pool.apply_async(convertLidarDataToCsv, (lidarFolder)))
     

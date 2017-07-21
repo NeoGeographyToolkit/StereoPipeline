@@ -108,22 +108,14 @@ def retrieveRunData(run):
 
 def runConversion(run):
     '''Run the conversion tasks for this run on the supercomputer nodes'''
-
-    # Use a single node to do all of the non-ortho (fast) conversions
-    # pleiades_job_runner full_processing_script --skip-fetch --non-ortho-convert
-    
-    def submitJob(jobName, queueName, maxHours, groupId, nodeType, scriptPath, args, logPrefix):
-    
-    # Wait for conversions to finish
-    
-    raise Exception('DEBUG')
     
     # Get the frame range for the data.
     
     raise Exception('DEBUG')
     
-    # Split the ortho conversions across multiple nodes
-    # pleiades_job_runner full_processing_script --skip-fetch --only-ortho-convert
+    # Split the conversions across multiple nodes using frame ranges
+    # - The first job submitted will be the only one that converts the lidar data
+    # pleiades_job_runner full_processing_script --skip-fetch --stop-after-convert --no-lidar-convert
 
     # Wait for conversions to finish
 
