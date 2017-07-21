@@ -2013,7 +2013,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (opt.datum_str == "") {
     vw::cartography::GeoReference georef;
     for (size_t it = 0; it < opt.image_files.size(); it++) {
-      bool is_good = asp::read_georeference_asp(georef, opt.image_files[it], opt.camera_files[it]);
+      bool is_good = vw::cartography::read_georeference(georef, opt.image_files[it]);
       if (is_good && opt.datum_str == "" ){
         opt.datum_str = georef.datum().name();
         vw_out() << "Using the datum: " << opt.datum_str << ".\n";

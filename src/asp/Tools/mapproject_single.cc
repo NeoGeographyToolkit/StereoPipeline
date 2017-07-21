@@ -200,7 +200,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (fs::path(opt.dem_file).extension() != "") {
     // A path to a real DEM file was provided, load it!
     GeoReference dem_georef;
-    bool has_georef = asp::read_georeference_asp(dem_georef, opt.dem_file);
+    bool has_georef = vw::cartography::read_georeference(dem_georef, opt.dem_file);
     if (!has_georef)
       vw_throw( ArgumentErr() << "There is no georeference information in: "
                 << opt.dem_file << ".\n" );
@@ -615,7 +615,7 @@ int main( int argc, char* argv[] ) {
       // projected images. This should not be an error as sometimes
       // even raw images have some half-baked georeference attached to them.
       GeoReference dummy_georef;
-      bool has_georef = asp::read_georeference_asp( dummy_georef, opt.image_file );
+      bool has_georef = vw::cartography::read_georeference( dummy_georef, opt.image_file );
       if (has_georef)
         vw_out(WarningMessage) << "Your input camera image is already map-"
                                << "projected. The expected input is required "
@@ -628,7 +628,7 @@ int main( int argc, char* argv[] ) {
     if (fs::path(opt.dem_file).extension() != "") {
       // A path to a real DEM file was provided, load it!
 
-      bool has_georef = asp::read_georeference_asp(dem_georef, opt.dem_file);
+      bool has_georef = vw::cartography::read_georeference(dem_georef, opt.dem_file);
       if (!has_georef)
         vw_throw( ArgumentErr() << "There is no georeference information in: " << opt.dem_file << ".\n" );
 

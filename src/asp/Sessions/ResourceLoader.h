@@ -42,23 +42,11 @@ namespace asp {
 /// Overload of the function in asp/core/Common.h which can handle Spot5 data.
 vw::Vector2i file_image_size( std::string const& input, std::string const& camera_file);
 
-/// Return true if the image_file/camera file combination represents a SPOT5 camera file.
-/// - Returns false if the camera_file input is empty.
-bool has_spot5_extension(std::string const& image_file, std::string const& camera_file="");
-
-
 /// Function to load a DiskImageResource from a supported camera image.
 /// - This function is required because Spot5 images are not self-contained
 ///   and our generic loading function does not handle them.
 boost::shared_ptr<vw::DiskImageResource> load_disk_image_resource(std::string const& image_file,
                                                                   std::string const& camera_file="");
-
-/// Function to load a GeoReference from a supported camera image.
-/// - This function is required because Spot5 images are not self-contained
-///   and our generic loading function does not handle them.
-bool read_georeference_asp(vw::cartography::GeoReference &georef, 
-                           std::string const& image_file,
-                           std::string const& camera_file="");
 
 } // end namespace asp
 

@@ -577,8 +577,8 @@ namespace asp {
 
     // Must use map-projected images if input DEM is provided
     GeoReference georef1, georef2;
-    bool has_georef1 = asp::read_georeference_asp(georef1, opt.in_file1);
-    bool has_georef2 = asp::read_georeference_asp(georef2, opt.in_file2);
+    bool has_georef1 = vw::cartography::read_georeference(georef1, opt.in_file1);
+    bool has_georef2 = vw::cartography::read_georeference(georef2, opt.in_file2);
     if (dem_provided && (!has_georef1 || !has_georef2)){
       vw_throw( ArgumentErr() << "The images are not map-projected, "
                 << "cannot use the provided DEM: " << opt.input_dem << "\n");
