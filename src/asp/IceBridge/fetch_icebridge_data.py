@@ -48,6 +48,7 @@ os.environ["PATH"] = basepath    + os.pathsep + os.environ["PATH"]
 
 # Constants
 LIDAR_TYPES = ['lvis', 'atm1', 'atm2']
+MAX_IN_ONE_CALL = 100 # when fetching in batches
 
 def checkIfUrlExists(url):
     '''Return true if the given IceBrige folder URL is valid'''
@@ -117,24 +118,32 @@ def readIndexFile(parsedIndexPath):
 
     return (frameDict, urlDict)
 
-def fetchAndParseIndexFileAux(baseCurlCmd, folderUrl, path, fileType):
+def hasGoodLat(latitude, isSouth):
+    if (isSouth and latitude < 0) or ( (not isSouth) and latitude > 0 ):
+        return True
+
+    return False
+    
+def fetchAndParseIndexFileAux(isSouth, tryToSeparateByLat, baseCurlCmd, folderUrl, path, fileType):
     '''Retrieve the index file for a folder of data and create
     a parsed version of it that contains frame number / filename pairs.'''
 
+    # Download the html file
     curlCmd = baseCurlCmd + ' ' + folderUrl + ' > ' + path
-    
-    # Download the file
     logger.info(curlCmd)
     p = subprocess.Popen(curlCmd, shell=True)
     os.waitpid(p.pid, 0)
-    
+
     # Find all the file names in the index file and
     #  dump them to a new index file
     logger.info('Extracting file name list from index.html file...')
     with open(path, 'r') as f:
         indexText = f.read()
 
-    if os.path.exists(path): os.remove(path) # don't need this anymore
+    # Must wipe this html file. We fetch it too often in different
+    # contexts.  If not wiped, the code fails to work in some
+    # very rare but real situations.
+    if os.path.exists(path): os.remove(path)
     
     # Extract just the file names
     fileList = [] # ensure initialization
@@ -153,16 +162,70 @@ def fetchAndParseIndexFileAux(baseCurlCmd, folderUrl, path, fileType):
     if fileType == 'atm2':
         # Match ILATM1B_20160713_195419.ATM5BT5.h5 
         fileList = re.findall(">ILATM1B[0-9_]*.ATM\w+.h5", indexText, re.IGNORECASE)
-    
-    frameDict  = {}
-    urlDict    = {}
 
-    # For each entry that matched the regex, record: the frame number and the file name.
+    # Get rid of '>' and '<'
+    for fileIter in range(len(fileList)):
+        fileList[fileIter] = fileList[fileIter].replace(">", "")
+        fileList[fileIter] = fileList[fileIter].replace("<", "")
+
+    # Some runs, eg, https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/IODMS1B.001/2015.09.24
+    # have files for both GR and AN, with same frame number. Those need to be separated
+    # by latitude. This is a problem only with orthoimages.
+    haveToSeparateByLat = False
+    frameDict  = {}
     for filename in fileList:
-        # Get rid of '>' and '<'
-        filename = filename.replace(">", "")
-        filename = filename.replace("<", "")
+        if not tryToSeparateByLat: continue 
         frame = icebridge_common.getFrameNumberFromFilename2(filename)
+        if frame in frameDict.keys():
+            haveToSeparateByLat = True
+            logger.info("Found a run with files from both AN and GR.")
+            logger.info("Files with same frame number: " + frameDict[frame] +
+                       " and " + filename)
+            logger.info("Need to see which to keep.")
+            break
+        frameDict[frame] = filename
+
+    badXmls = set()
+    outputFolder = os.path.dirname(path)
+    if haveToSeparateByLat:
+        allFilesToFetch = []
+        allUrlsToFetch = []
+        for filename in fileList:
+            xmlFile  = icebridge_common.xmlFile(filename)
+            url      = os.path.join(folderUrl, xmlFile)
+            outputPath = os.path.join(outputFolder, xmlFile)
+            allFilesToFetch.append(outputPath)
+            allUrlsToFetch.append(url)
+            
+        dryRun = False
+        icebridge_common.fetchFilesInBatches(baseCurlCmd, MAX_IN_ONE_CALL,
+                                             dryRun, outputFolder,
+                                             allFilesToFetch, allUrlsToFetch,
+                                             logger)
+
+        # Mark the bad ones and wipe them too
+        for xmlFile in allFilesToFetch:
+            latitude = icebridge_common.parseLatitude(xmlFile)
+            isGood = hasGoodLat(latitude, isSouth)
+            if not isGood:
+                badXmls.add(xmlFile)
+                if os.path.exists(xmlFile): os.remove(xmlFile)
+            
+    # For each entry that matched the regex, record: the frame number and the file name.
+    frameDict = {}
+    urlDict   = {}
+    for filename in fileList:
+
+        xmlFile  = os.path.join(outputFolder, icebridge_common.xmlFile(filename))
+        if xmlFile in badXmls:
+            continue
+            
+        frame = icebridge_common.getFrameNumberFromFilename2(filename)
+        if frame in frameDict.keys() and haveToSeparateByLat:
+            # This time the same frame must not occur twice
+            raise Exception("Found two file names with same frame number: " + \
+                            frameDict[frame] + " and " + filename)
+
         frameDict[frame] = filename
         # note that folderUrl can vary among orthoimages, as sometimes
         # some of them are in a folder for the next day.
@@ -171,7 +234,7 @@ def fetchAndParseIndexFileAux(baseCurlCmd, folderUrl, path, fileType):
     return (frameDict, urlDict)
 
 # Create a list of all files that must be fetched unless done already.
-def fetchAndParseIndexFile(options, baseCurlCmd, outputFolder):
+def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
 
     # If we need to parse the next flight day as well, as expected in some runs,
     # we will fetch two html files, but create a single index out of them.
@@ -190,6 +253,7 @@ def fetchAndParseIndexFile(options, baseCurlCmd, outputFolder):
     parsedIndexPath = indexPath + '.csv'
 
     if options.refetchIndex:
+        os.system('rm -f ' + indexPath)
         os.system('rm -f ' + parsedIndexPath)
 
     if icebridge_common.fileNonEmpty(parsedIndexPath):
@@ -199,8 +263,15 @@ def fetchAndParseIndexFile(options, baseCurlCmd, outputFolder):
     frameDict  = {}
     urlDict    = {}
 
+    tryToSeparateByLat = (options.type == 'ortho')
+    
     for dayVal in dayVals:
 
+        if len(dayVals) > 1:
+            indexPath = indexPath + '.day' + str(dayVal)
+            if options.refetchIndex:
+                os.system('rm -f ' + indexPath)
+            
         # Find folderUrl which contains all of the files
         if options.type in LIDAR_TYPES:
             options.allFrames = True # For lidar, always get all the frames!
@@ -233,11 +304,11 @@ def fetchAndParseIndexFile(options, baseCurlCmd, outputFolder):
                 logger.info("Multiples URLs to search: " + " ".join(folderUrls))
                 count = -1
                 isGood = False
-                isSouth = (options.site == 'AN')
                 for folderUrl in folderUrls:
                     count += 1
                     (localFrameDict, localUrlDict) = \
-                                     fetchAndParseIndexFileAux(baseCurlCmd, folderUrl,
+                                     fetchAndParseIndexFileAux(isSouth, tryToSeparateByLat,
+                                                               baseCurlCmd, folderUrl,
                                                                indexPath, lidar_types[count])
                     for frame in sorted(localFrameDict.keys()):
                         filename = localFrameDict[frame]
@@ -253,7 +324,7 @@ def fetchAndParseIndexFile(options, baseCurlCmd, outputFolder):
                         latitude = icebridge_common.parseLatitude(xmlFile)
                         if os.path.exists(xmlFile): os.remove(xmlFile)
 
-                        if (isSouth and latitude < 0) or ( (not isSouth) and latitude > 0 ):
+                        if hasGoodLat(latitude, isSouth):
                             isGood = True
                             options.type = lidar_types[count]
 
@@ -272,9 +343,10 @@ def fetchAndParseIndexFile(options, baseCurlCmd, outputFolder):
                                      options.ext, options.site, options.type)
 
         logger.info('Fetching from URL: ' + folderUrl)
-
         (localFrameDict, localUrlDict) = \
-                         fetchAndParseIndexFileAux(baseCurlCmd, folderUrl, indexPath, options.type)
+                         fetchAndParseIndexFileAux(isSouth, tryToSeparateByLat,
+                                                   baseCurlCmd, folderUrl,
+                                                   indexPath, options.type)
 
         # Append to the main index
         for frame in sorted(localFrameDict.keys()):
@@ -308,7 +380,8 @@ def doFetch(options, outputFolder):
     logger.info('Creating output folder: ' + outputFolder)
     os.system('mkdir -p ' + outputFolder)  
 
-    parsedIndexPath = fetchAndParseIndexFile(options, baseCurlCmd, outputFolder)
+    isSouth = (options.site == 'AN')
+    parsedIndexPath = fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder)
     if not icebridge_common.fileNonEmpty(parsedIndexPath):
         # Some dirs are weird, both images, dems, and ortho.
         # Just accept whatever there is, but with a warning.
@@ -323,7 +396,7 @@ def doFetch(options, outputFolder):
         # We probably ran into old format index file. Must refetch.
         logger.info('Could not read index file. Try again.')
         options.refetchIndex = True
-        parsedIndexPath = fetchAndParseIndexFile(options, baseCurlCmd, outputFolder)
+        parsedIndexPath = fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder)
         (frameDict, urlDict) = readIndexFile(parsedIndexPath)
 
     allFrames = sorted(frameDict.keys())
@@ -353,9 +426,6 @@ def doFetch(options, outputFolder):
     allFilesToFetch = [] # Files that we will fetch, relative to the current dir. 
     allUrlsToFetch  = [] # Full url of each file.
     
-    # What is the maximum number of files that can be downloaded with one call?
-    MAX_IN_ONE_CALL = 100
-        
     # Loop through all found frames within the provided range
     currentFileCount = 0
     lastFrame = ""
@@ -410,6 +480,21 @@ def doFetch(options, outputFolder):
             else:
                 logger.info('Valid image: ' + outputPath)
 
+        # Sanity check: XML files must have the right latitude.
+        if icebridge_common.fileExtension(outputPath) == '.xml':
+            if os.path.exists(outputPath):
+                latitude = icebridge_common.parseLatitude(outputPath)
+                isGood = hasGoodLat(latitude, isSouth)
+                if not isGood:
+                    logger.info("Wiping XML file " + outputPath + " with bad latitude " + \
+                                str(latitude))
+                    os.remove(outputPath)
+                    imageFile = icebridge_common.xmlToImage(outputPath)
+                    if os.path.exists(imageFile):
+                        logger.info("Wiping TIF file " + imageFile + " with bad latitude " + \
+                                    str(latitude))
+                        os.remove(imageFile)
+                    
         # Verify the chcksum    
         if hasXml and len(outputPath) >= 4 and outputPath[-4:] != '.xml' \
                and outputPath[-4:] != '.tfw':

@@ -100,7 +100,6 @@ and
 
 https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILATM1B.002/2015.09.24/
 
-
 4. For 20151019, there are both LVIS and ATM clouds:
 
 https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILATM1B.002/2015.10.19/
@@ -114,4 +113,3 @@ and no AN dataset. The closest is for 10202015:
 
 https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/2015_AN_NASA/10202015_raw/
 	
-

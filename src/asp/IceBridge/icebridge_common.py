@@ -75,6 +75,11 @@ def xmlFile(filename):
     # For other types
     return filename + '.xml'
 
+def xmlToImage(filename):
+    if fileExtension(filename) != '.xml':
+        raise Exception("Not an XML file: " + filename)
+    return filename[:-4]
+    
 def tfwFile(filename):
     return filename[:-4] + '.tfw'
 
