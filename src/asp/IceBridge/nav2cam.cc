@@ -42,7 +42,6 @@
 // and write down the camera intrinsics + extrinsics tsai file.
 
 #include <asp/Core/Macros.h>
-#include <asp/Sessions/ResourceLoader.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/PointUtils.h>
 #include <vw/Camera/PinholeModel.h>

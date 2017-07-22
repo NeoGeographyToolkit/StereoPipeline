@@ -318,7 +318,7 @@ namespace asp {
 
     DiskImageView<float> dem_disk_image(dem_file);
     ImageViewRef<PixelMask<float > > dem = pixel_cast<PixelMask<float> >(dem_disk_image);
-    boost::scoped_ptr<SrcImageResource> rsrc( DiskImageResource::open(dem_file) );
+    boost::shared_ptr<DiskImageResource> rsrc( DiskImageResourcePtr(dem_file) );
     if ( rsrc->has_nodata_read() ){
       double nodata_value = rsrc->nodata_read();
       if ( !std::isnan(nodata_value) )

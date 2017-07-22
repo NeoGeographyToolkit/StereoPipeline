@@ -31,7 +31,6 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Common.h>
 #include <asp/Sessions/StereoSession.h>
-#include <asp/Sessions/ResourceLoader.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Camera/AdjustedLinescanDGModel.h>
@@ -97,13 +96,13 @@ namespace asp {
     // - Ideally there would be a function to make this cleaner.
     boost::shared_ptr<DiskImageResource> rsrc1, rsrc2;
     if (input_file1 == m_left_image_file)
-      rsrc1 = asp::load_disk_image_resource(m_left_image_file, m_left_camera_file);
+      rsrc1 = vw::DiskImageResourcePtr(m_left_image_file);
     else // Tiff input
-      rsrc1 = asp::load_disk_image_resource(input_file1);
+      rsrc1 = vw::DiskImageResourcePtr(input_file1);
     if (input_file2 == m_right_image_file)
-      rsrc2 = asp::load_disk_image_resource(m_right_image_file, m_right_camera_file);
+      rsrc2 = vw::DiskImageResourcePtr(m_right_image_file);
     else // Tiff input
-      rsrc2 = asp::load_disk_image_resource(input_file2);
+      rsrc2 = vw::DiskImageResourcePtr(input_file2);
 
     DiskImageView<float> image1(rsrc1), image2(rsrc2);
     ImageViewRef<float> image1_norm=image1, image2_norm=image2;
@@ -348,8 +347,8 @@ shared_preprocessing_hook(vw::cartography::GdalWriteOptions              & optio
     // DiskImageResource class.  - This happens in "stereo.cc", so
     // these calls will create DiskImageResourceIsis objects.
     boost::shared_ptr<DiskImageResource>
-      left_rsrc (DiskImageResource::open(left_input_file )),
-      right_rsrc(DiskImageResource::open(right_input_file));
+      left_rsrc (DiskImageResourcePtr(left_input_file )),
+      right_rsrc(DiskImageResourcePtr(right_input_file));
     this->get_nodata_values(left_rsrc, right_rsrc,
 			    left_nodata_value, right_nodata_value);
   }

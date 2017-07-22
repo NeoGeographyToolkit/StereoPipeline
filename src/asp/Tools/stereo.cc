@@ -28,7 +28,6 @@
 #include <asp/Tools/stereo.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Sessions/StereoSessionFactory.h>
-#include <asp/Sessions/ResourceLoader.h>
 #include <asp/Core/InterestPointMatching.h>
 
 #include <boost/accumulators/accumulators.hpp>
@@ -45,7 +44,7 @@ namespace asp {
 
     BBox2i b = stereo_settings().left_image_crop_win;
     boost::shared_ptr<vw::DiskImageResource> rsrc = 
-            load_disk_image_resource(opt.in_file1, opt.cam_file1);
+            vw::DiskImageResourcePtr(opt.in_file1);
     DiskImageView<PixelGray<float> > left_image(rsrc);
     BBox2i full_box = bounding_box(left_image);
     if (b == BBox2i(0, 0, 0, 0)){
@@ -408,8 +407,8 @@ namespace asp {
 
     // Ensure the crop windows are always contained in the images.
     boost::shared_ptr<vw::DiskImageResource> left_resource, right_resource;
-    left_resource  = asp::load_disk_image_resource(opt.in_file1, opt.cam_file1);
-    right_resource = asp::load_disk_image_resource(opt.in_file2, opt.cam_file2);
+    left_resource  = vw::DiskImageResourcePtr(opt.in_file1);
+    right_resource = vw::DiskImageResourcePtr(opt.in_file2);
     DiskImageView<float> left_image(left_resource);
     DiskImageView<float> right_image(right_resource);
     stereo_settings().left_image_crop_win.crop(bounding_box(left_image));
@@ -845,8 +844,8 @@ namespace asp {
       vw_out() << "\t    * Locating Interest Points\n";
 
       boost::shared_ptr<DiskImageResource>
-        left_rsrc (DiskImageResource::open(left_sub_file )),
-        right_rsrc(DiskImageResource::open(right_sub_file));
+        left_rsrc (DiskImageResourcePtr(left_sub_file )),
+        right_rsrc(DiskImageResourcePtr(right_sub_file));
 
       // Read the no-data values written to disk previously when
       // the normalized left and right sub-images were created.

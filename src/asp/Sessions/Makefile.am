@@ -26,12 +26,12 @@ include_HEADERS = StereoSession.h StereoSessionFactory.h StereoSessionFactory.tc
                   StereoSessionConcrete.h CameraModelLoader.h                     \
       StereoSessionPinhole.h StereoSessionNadirPinhole.h                          \
                   StereoSessionRPC.h StereoSessionGdal.h StereoSessionDGMapRPC.h    \
-                  StereoSessionSpot.h StereoSessionASTER.h ResourceLoader.h
+                  StereoSessionSpot.h StereoSessionASTER.h
 
 libaspSessions_la_SOURCES = StereoSession.cc StereoSessionFactory.cc \
       StereoSessionPinhole.cc StereoSessionGdal.cc                     \
       StereoSessionNadirPinhole.cc StereoSessionSpot.cc StereoSessionASTER.cc \
-      CameraModelLoader.cc ResourceLoader.cc
+      CameraModelLoader.cc
 
 libaspSessions_la_LIBADD = @MODULE_SESSIONS_LIBS@
 

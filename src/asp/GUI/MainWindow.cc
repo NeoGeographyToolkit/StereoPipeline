@@ -868,7 +868,7 @@ void MainWindow::writeGroundControlPoints() {
   vw_out() << "Loaded georef from file " << georef_image_file << std::endl;
 
   // Init the DEM to use for height interpolation
-  boost::shared_ptr<DiskImageResource> dem_rsrc(DiskImageResource::open(dem_path));
+  boost::shared_ptr<DiskImageResource> dem_rsrc(DiskImageResourcePtr(dem_path));
   DiskImageView<float> dem_disk_image(dem_path);
   vw::ImageViewRef<PixelMask<float> > raw_dem;
   float nodata_val = -std::numeric_limits<float>::max();

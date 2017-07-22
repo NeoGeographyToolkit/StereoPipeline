@@ -26,7 +26,6 @@
 // onto the datum. Save on output a gcp file, that may be used to further
 // refine the camera using bundle_adjust.
 #include <asp/Core/Macros.h>
-#include <asp/Sessions/ResourceLoader.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/StereoSettings.h>
@@ -237,8 +236,8 @@ void ortho2pinhole(Options const& opt){
   std::string match_filename = ip::match_filename(out_prefix, opt.raw_image, opt.ortho_image);
   
   boost::shared_ptr<DiskImageResource>
-    rsrc1(asp::load_disk_image_resource(opt.raw_image,   opt.input_cam)),
-    rsrc2(asp::load_disk_image_resource(opt.ortho_image, opt.input_cam));
+    rsrc1(vw::DiskImageResourcePtr(opt.raw_image)),
+    rsrc2(vw::DiskImageResourcePtr(opt.ortho_image));
   if ( (rsrc1->channels() > 1) || (rsrc2->channels() > 1) )
     vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n");
   std::string stereo_session_string = "pinhole";
@@ -520,7 +519,7 @@ void ortho2pinhole(Options const& opt){
 /// - This is useful for the Icebridge case.
 std::string handle_rgb_input(std::string const& input_path, Options const& opt) {
 
-  boost::shared_ptr<DiskImageResource> rsrc(vw::DiskImageResource::open(input_path));
+  boost::shared_ptr<DiskImageResource> rsrc(vw::DiskImageResourcePtr(input_path));
   if (rsrc->channels() != 3)
     return input_path; // Nothing to do in this case
 

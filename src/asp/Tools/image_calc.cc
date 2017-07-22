@@ -673,7 +673,7 @@ void load_inputs_and_process(Options &opt, const std::string &output_file, const
     }
 
     // Determining the format of the input
-    boost::scoped_ptr<SrcImageResource> rsrc(DiskImageResource::open(input));
+    boost::shared_ptr<vw::DiskImageResource> rsrc(vw::DiskImageResourcePtr(input));
     //ChannelTypeEnum channel_type = rsrc->channel_type();
     //PixelFormatEnum pixel_format = rsrc->pixel_format();
 
@@ -763,7 +763,7 @@ int main( int argc, char *argv[] ) {
     }
 
     // Determining the format of the input images (all are assumed to be the same type!)
-    boost::scoped_ptr<SrcImageResource> rsrc(DiskImageResource::open(firstFile));
+    boost::shared_ptr<vw::DiskImageResource> rsrc(vw::DiskImageResourcePtr(firstFile));
     ChannelTypeEnum input_data_type = rsrc->channel_type();
     //PixelFormatEnum pixel_format = rsrc->pixel_format();
 

@@ -27,7 +27,6 @@
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Camera/SPOT_XML.h>
-#include <asp/Sessions/ResourceLoader.h>
 #include <asp/Sessions/StereoSessionSpot.h>
 
 
@@ -102,13 +101,13 @@ namespace asp {
     // - A significant refactoring would address this problem.
     bool exit_early =
       unshared_preprocessing_hook(options,
-				 	                        left_input_file,   right_input_file,
-					                        left_output_file,  right_output_file,
-					                        left_cropped_file, right_cropped_file,
-					                        left_nodata_value, right_nodata_value,
-					                        has_left_georef,   has_right_georef,
-					                        left_georef,       right_georef);
-
+                                  left_input_file,   right_input_file,
+                                  left_output_file,  right_output_file,
+                                  left_cropped_file, right_cropped_file,
+                                  left_nodata_value, right_nodata_value,
+                                  has_left_georef,   has_right_georef,
+                                  left_georef,       right_georef);
+    
     if (exit_early) return;
 
     const bool left_is_cropped  = (left_cropped_file  != left_input_file);
@@ -118,15 +117,15 @@ namespace asp {
     // - These can be either SPOT5 images (no crop) or GDAL images (cropped)
     // - In the cropped case we don't have a camera model file.
     boost::shared_ptr<DiskImageResource> left_rsrc, right_rsrc, left_input_rsrc;
-    left_input_rsrc = load_disk_image_resource(left_input_file, m_left_camera_file);
+    left_input_rsrc = vw::DiskImageResourcePtr(left_input_file);
     if (left_is_cropped) // GDAL format
-      left_rsrc = load_disk_image_resource(left_cropped_file);
+      left_rsrc = vw::DiskImageResourcePtr(left_cropped_file);
     else // SPOT format
       left_rsrc = left_input_rsrc; // Use the resource we already loaded.   
     if (right_is_cropped) // GDAL format
-      right_rsrc = load_disk_image_resource(right_cropped_file);
+      right_rsrc = vw::DiskImageResourcePtr(right_cropped_file);
     else // SPOT format
-      right_rsrc = load_disk_image_resource(right_input_file, m_right_camera_file);
+      right_rsrc = vw::DiskImageResourcePtr(right_input_file);
 
     // Now load the DiskImageResource objects into DiskImageViews.
     DiskImageView<float> left_disk_image (left_rsrc ),
@@ -177,12 +176,12 @@ namespace asp {
       if (left_is_cropped) // GDAL format
         left_size  = file_image_size(left_cropped_file);
       else // SPOT5 format
-        left_size  = file_image_size(left_cropped_file, m_left_camera_file);
+        left_size  = file_image_size(left_cropped_file);
 
       if (right_is_cropped) // GDAL format
         right_size  = file_image_size(right_cropped_file);
       else // SPOT5 format
-        right_size  = file_image_size(right_cropped_file, m_right_camera_file);
+        right_size  = file_image_size(right_cropped_file);
 
       // Compute the appropriate alignment matrix based on the input points
       if ( stereo_settings().alignment_method == "homography" ) {
@@ -276,8 +275,8 @@ unshared_preprocessing_hook(vw::cartography::GdalWriteOptions              & opt
   // Retrieve nodata values and let the handles go out of scope right away.
   // - SPOT5 does not support nodata values, but this will handle user-provided values.
   boost::shared_ptr<DiskImageResource>
-    left_rsrc (load_disk_image_resource(left_input_file,  m_left_camera_file )),
-    right_rsrc(load_disk_image_resource(right_input_file, m_right_camera_file));
+    left_rsrc (vw::DiskImageResourcePtr(left_input_file)),
+    right_rsrc(vw::DiskImageResourcePtr(right_input_file));
   this->get_nodata_values(left_rsrc,         right_rsrc,
                           left_nodata_value, right_nodata_value);
 

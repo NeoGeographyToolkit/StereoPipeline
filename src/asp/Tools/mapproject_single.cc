@@ -27,7 +27,6 @@
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
-#include <asp/Sessions/ResourceLoader.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/StereoSettings.h>
 
@@ -425,7 +424,7 @@ void project_image_nodata(Options & opt,
 
     // Create handle to input image to be projected on to the map
     boost::shared_ptr<DiskImageResource> img_rsrc = 
-          asp::load_disk_image_resource(opt.image_file, opt.camera_file);   
+          vw::DiskImageResourcePtr(opt.image_file);   
 
     // Update the nodata value from the input file if it is present.
     if (img_rsrc->has_nodata_read()) 
@@ -470,7 +469,7 @@ void project_image_alpha(Options & opt,
 
     // Create handle to input image to be projected on to the map
     boost::shared_ptr<DiskImageResource> img_rsrc = 
-          asp::load_disk_image_resource(opt.image_file, opt.camera_file);   
+          vw::DiskImageResourcePtr(opt.image_file);   
 
     const bool        has_img_nodata    = false;
     const ImagePixelT transparent_pixel = ImagePixelT();
@@ -632,7 +631,7 @@ int main( int argc, char* argv[] ) {
       if (!has_georef)
         vw_throw( ArgumentErr() << "There is no georeference information in: " << opt.dem_file << ".\n" );
 
-      boost::shared_ptr<DiskImageResource> dem_rsrc(DiskImageResource::open(opt.dem_file));
+      boost::shared_ptr<DiskImageResource> dem_rsrc(DiskImageResourcePtr(opt.dem_file));
 
       // If we have a nodata value, create a mask.
       DiskImageView<float> dem_disk_image(opt.dem_file);
@@ -694,7 +693,7 @@ int main( int argc, char* argv[] ) {
     
     bool user_provided_resolution = (!std::isnan(opt.ppd));
     bool     calc_target_res = !user_provided_resolution;
-    Vector2i image_size      = asp::file_image_size(opt.image_file, opt.camera_file);
+    Vector2i image_size      = asp::file_image_size(opt.image_file);
     BBox2    cam_box;
     calc_target_geom(// Inputs
                      calc_target_res, image_size, camera_model,
@@ -744,8 +743,7 @@ int main( int argc, char* argv[] ) {
     }
 
     // Determine the pixel type of the input image
-    boost::shared_ptr<DiskImageResource> image_rsrc = asp::load_disk_image_resource(opt.image_file, 
-                                                                            opt.camera_file);
+    boost::shared_ptr<DiskImageResource> image_rsrc = vw::DiskImageResourcePtr(opt.image_file);
     ImageFormat image_fmt = image_rsrc->format();
     const int num_input_channels = num_channels(image_fmt.pixel_format);
 

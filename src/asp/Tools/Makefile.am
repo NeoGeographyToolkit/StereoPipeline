@@ -157,12 +157,6 @@ if MAKE_APP_GEODIFF
   geodiff_LDADD = $(APP_GEODIFF_LIBS)
 endif
 
-if MAKE_APP_DEMPROFILE
-  bin_PROGRAMS += dem_profile
-  dem_profile_SOURCES = dem_profile.cc
-  dem_profile_LDADD = $(APP_DEMPROFILE_LIBS)
-endif
-
 if MAKE_APP_HSVMERGE
   bin_PROGRAMS += hsv_merge
   hsv_merge_SOURCES = hsv_merge.cc

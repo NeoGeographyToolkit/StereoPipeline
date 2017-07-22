@@ -113,9 +113,8 @@ int main( int argc, char *argv[] ) {
                 << usage << general_options );
 
     // Get the input RGB's type
-    DiskImageResource *rsrc = DiskImageResource::open(opt.input_rgb);
+    boost::shared_ptr<DiskImageResource> rsrc = DiskImageResourcePtr(opt.input_rgb);
     ChannelTypeEnum channel_type = rsrc->channel_type();
-    delete rsrc;
 
     switch( channel_type ) {
     case VW_CHANNEL_UINT8: do_merge<uint8>( opt ); break;

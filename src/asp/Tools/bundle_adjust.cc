@@ -21,7 +21,6 @@
 
 #include <vw/FileIO/KML.h>
 #include <asp/Core/Macros.h>
-#include <asp/Sessions/ResourceLoader.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/StereoSettings.h>
@@ -2210,8 +2209,8 @@ int main(int argc, char* argv[]) {
           continue;
         }
         boost::shared_ptr<DiskImageResource>
-          rsrc1(asp::load_disk_image_resource(image1_path, camera1_path)),
-          rsrc2(asp::load_disk_image_resource(image2_path, camera2_path));
+          rsrc1(vw::DiskImageResourcePtr(image1_path)),
+          rsrc2(vw::DiskImageResourcePtr(image2_path));
         if ( (rsrc1->channels() > 1) || (rsrc2->channels() > 1) )
           vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n");
         float nodata1, nodata2;

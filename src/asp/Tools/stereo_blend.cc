@@ -36,7 +36,6 @@
 
 #include <asp/Tools/stereo.h>
 #include <vw/Stereo/DisparityMap.h>
-#include <asp/Sessions/ResourceLoader.h>
 #include <boost/filesystem.hpp>
 
 using namespace vw;
@@ -130,7 +129,7 @@ bool get_roi_from_tile(std::string const& tile_path, Position pos,
   // The unbuffered roi is before we expand it with buffer on the sides.
   BBox2i unbuffered_roi = bbox_from_folder(tile_path); // extract from 2048_5120_1024_394
   
-  Vector2i image_size = file_image_size(tile_path, tile_path);
+  Vector2i image_size = file_image_size(tile_path);
   if (buffers_stripped)
     image_size = Vector2i(unbuffered_roi.width(), unbuffered_roi.height());
 
@@ -568,7 +567,7 @@ void stereo_blending( ASPGlobalOptions const& opt ) {
 
     // Verify that the input correlation file is float, indicating SGM processing.
     // - No need to run the blend operation on integer files!
-    boost::scoped_ptr<SrcImageResource> rsrc(DiskImageResource::open(blend_options.main_path));
+    boost::shared_ptr<DiskImageResource> rsrc(DiskImageResourcePtr(blend_options.main_path));
     ChannelTypeEnum disp_data_type = rsrc->channel_type();
     if (disp_data_type == VW_CHANNEL_INT32)
       vw_throw(ArgumentErr() << "Error: stereo_blend should only be called after SGM correlation.");

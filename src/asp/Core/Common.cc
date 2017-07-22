@@ -496,8 +496,7 @@ asp::check_command_line( int argc, char *argv[], vw::cartography::GdalWriteOptio
 
 
 Vector2i asp::file_image_size( std::string const& input ) {
-  boost::scoped_ptr<SrcImageResource>
-    rsrc( DiskImageResource::open( input ) );
+  boost::shared_ptr<DiskImageResource> rsrc( DiskImageResourcePtr(input));
   Vector2i size( rsrc->cols(), rsrc->rows() );
   return size;
 }

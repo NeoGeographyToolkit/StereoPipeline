@@ -146,7 +146,7 @@ int main(int argc, char** argv) {
           try {
 	    DiskImageView<float> tmp(image);
 	    is_image = true;
-	  }catch(...){
+    	  }catch(std::exception & e){
             if (!image.empty() && image[0] != '-') {
               if (asp::has_shp_extension(image)) {
 		vw_out() << "Reading shapefile: " << image << std::endl;

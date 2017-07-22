@@ -26,7 +26,6 @@
 #include <vw/Math/Functors.h>
 #include <asp/Tools/stereo.h>
 #include <asp/Core/ThreadedEdgeMask.h>
-#include <asp/Sessions/ResourceLoader.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <xercesc/util/PlatformUtils.hpp>
@@ -147,8 +146,8 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
 
 
   boost::shared_ptr<DiskImageResource>
-    left_rsrc (asp::load_disk_image_resource(left_image_file,  opt.cam_file1)),
-    right_rsrc(asp::load_disk_image_resource(right_image_file, opt.cam_file2));
+    left_rsrc (vw::DiskImageResourcePtr(left_image_file)),
+    right_rsrc(vw::DiskImageResourcePtr(right_image_file));
 
   // Load the normalized images.
   DiskImageView<PixelGray<float> > left_image (left_rsrc ),

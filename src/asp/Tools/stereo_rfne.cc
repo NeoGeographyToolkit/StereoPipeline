@@ -300,7 +300,7 @@ void stereo_refinement( ASPGlobalOptions const& opt ) {
 
     // Read the correct type of correlation file (float for SGM/MGM, otherwise integer)
     std::string disp_file = opt.out_prefix + "-D.tif";
-    boost::scoped_ptr<SrcImageResource> rsrc(DiskImageResource::open(disp_file));
+    boost::shared_ptr<DiskImageResource> rsrc(DiskImageResourcePtr(disp_file));
     ChannelTypeEnum disp_data_type = rsrc->channel_type();
     if (disp_data_type == VW_CHANNEL_INT32)
       integer_disp = pixel_cast<PixelMask<Vector2f> >(

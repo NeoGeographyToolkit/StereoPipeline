@@ -27,7 +27,6 @@
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Camera/LinescanASTERModel.h>
-#include <asp/Sessions/ResourceLoader.h>
 #include <asp/Sessions/StereoSessionASTER.h>
 
 
