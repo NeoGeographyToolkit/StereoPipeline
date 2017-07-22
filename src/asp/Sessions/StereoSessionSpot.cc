@@ -84,12 +84,6 @@ namespace asp {
 			 std::string      & left_output_file,
 			 std::string      & right_output_file) {
 
-
-    // Fill in the input formats, we will need them later.
-    m_left_input_format  = SpotXML::get_image_format(m_left_camera_file);
-    m_right_input_format = SpotXML::get_image_format(m_right_camera_file);
-
-
     std::string left_cropped_file, right_cropped_file;
     vw::cartography::GdalWriteOptions options;
     float left_nodata_value, right_nodata_value;

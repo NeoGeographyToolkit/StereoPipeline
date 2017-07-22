@@ -78,9 +78,6 @@ namespace asp {
     /// Simple factory function
     static StereoSession* construct() { return new StereoSessionSpot; }
    
-   private:
-    // Cache these so we don't have to keep reloading them.
-    vw::ImageFormat m_left_input_format,   m_right_input_format;
   };
 
 

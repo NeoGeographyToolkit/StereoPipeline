@@ -105,17 +105,6 @@ void SpotXML::read_xml(std::string const& xml_path) {
   parse_xml(elementRoot);
 }
 
-vw::ImageFormat SpotXML::get_image_format(std::string const& xml_path) {
-  SpotXML xml_reader;
-  DOMElement * root = xml_reader.open_xml_file(xml_path);
-  // Just get this one node we need to find the image size  
-  DOMElement* raster_dims_node = get_node<DOMElement>(root, "Raster_Dimensions");
-  xml_reader.read_image_size(raster_dims_node);
-  
-  // The image size is the only thing we need to call this function.
-  return xml_reader.get_image_format();
-}
-
 BBox2 SpotXML::get_estimated_bounds(std::string const& xml_path) {
   SpotXML xml_reader;
   DOMElement * root = xml_reader.open_xml_file(xml_path);
@@ -375,17 +364,6 @@ void SpotXML::read_line_times(xercesc::DOMElement* sensor_config_node) {
 
 
 // ----- These functions help convert the input data to a useable format ------
-
-vw::ImageFormat SpotXML::get_image_format() const {
-  vw::ImageFormat format;
-  format.cols          = image_size[0];
-  format.rows          = image_size[1];
-  format.planes        = 1;
-  format.pixel_format  = VW_PIXEL_GRAY; // This should be constant
-  format.channel_type  = VW_CHANNEL_UINT8;
-  format.premultiplied = true; // Don't do anything funny to the data
-  return format;
-}
 
 vw::BBox2 SpotXML::get_estimated_bounds() const {
   // Just expand a bounding box to contain all the corners listed in the file.

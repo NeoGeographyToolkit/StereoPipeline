@@ -96,9 +96,6 @@ namespace asp {
     /// Parse an XML tree to populate the data
     void parse_xml(xercesc::DOMElement* node);
 
-    /// Fills in an ImageFormat object required to read the associated .BIL file.
-    static vw::ImageFormat get_image_format(std::string const& xml_path);
-
     /// Load the estimated image lonlat bounds from the XML file
     static vw::BBox2 get_estimated_bounds(std::string const& xml_path);
     
@@ -106,9 +103,6 @@ namespace asp {
     /// - Corners are returned in clockwise order.
     static std::vector<vw::Vector2> get_lonlat_corners(std::string const& xml_path);
     
-    /// Faster overload for when the file has already been parsed.
-    vw::ImageFormat get_image_format() const;
-
     /// Faster overload for when the file has already been parsed.
     vw::BBox2 get_estimated_bounds() const;
 

@@ -793,7 +793,7 @@ passed to the tools reading the RPC models, as shown below.
 
 Our RPC read driver is GDAL. If the command \texttt{gdalinfo} can
 identify the RPC information inside the headers of your image files (whether
-that information is actually embedeed in the images, or stored
+that information is actually embedded in the images, or stored
 separately in some auxiliary files with a convention GDAL understands),
 ASP will likely be able to see it as well. This means that sometimes we
 can get away with only providing a left and right image, with no extra
@@ -837,7 +837,7 @@ with \texttt{cam2rpc} from ISIS cubes.  So the datum has to be set.
 For terrains having steep slopes, we recommend that images be
 map-projected onto an existing DEM before running stereo. This is
 described in section \ref{mapproj-example}. If the RPC coefficients are
-not stored in the orignal Tif images, but rather in associated .RPB or
+not stored in the original Tif images, but rather in associated .RPB or
 \_RPC.TXT files, \texttt{mapproject} creates
 these files automatically for each map-projected image.
 
@@ -862,9 +862,15 @@ ASP supports only images from the HRS sensors on SPOT5.  These images come in
 two parts, the data file (extension \texttt{.bil} or \texttt{.tif}) and the header file
 the data file (extension \texttt{.dim}).  The data file can be either a plain 
 binary file with no header information or a GeoTIFF file.  The header file is a 
-plain text XML file.  When using SPOT5 images with ASP tools pass in the data file
-as the image file and the header file as the camera model file.  ASP tools
-which do not accept camera model files as inputs do not support SPOT5 imagery.
+plain text XML file.  When using SPOT5 images with ASP tools, pass in the data file
+as the image file and the header file as the camera model file.
+
+All ASP tools can handle \texttt{.bil} images (and also \texttt{.bip}
+and \texttt{.bsq}) as long as a similarly named \texttt{.dim} file
+exists that can be looked up. The lookup succeeds if, for example, the
+\texttt{.dim} and \texttt{.bil} files differ only by extension (lower or
+upper case), or, as below, when an IMAGERY.BIL file has a corresponding
+METADATA file.
 
 You can find a sample SPOT5 image at 
 \url{http://www.geo-airbusds.com/en/23-sample-imagery}.

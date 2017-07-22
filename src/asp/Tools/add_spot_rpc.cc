@@ -28,6 +28,7 @@
 #include <vw/Image.h>
 #include <vw/Cartography/Datum.h>
 #include <vw/Cartography/GeoReference.h>
+#include <vw/FileIO/DiskImageResourceRaw.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/FileUtils.h>
@@ -112,12 +113,12 @@ void generate_point_pairs(Options opt,
     xercesc::XMLPlatformUtils::Initialize();
 
     // Load the input camera model
-    boost::shared_ptr<camera::CameraModel> cam_ptr = asp::load_spot5_camera_model_from_xml(opt.input_path);
+    boost::shared_ptr<camera::CameraModel> cam_ptr
+      = asp::load_spot5_camera_model_from_xml(opt.input_path);
 
     // Load some image info
-    vw::ImageFormat format     = asp::SpotXML::get_image_format(opt.input_path);
+    vw::ImageFormat format     = vw::image_format_from_DIM(opt.input_path);
     Vector2         image_size = Vector2(format.cols, format.rows);
-
 
     // Will have to change this if any SPOT5 data uses a different datum.
     vw::cartography::Datum datum("WGS84");

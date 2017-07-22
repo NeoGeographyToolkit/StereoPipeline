@@ -16,13 +16,17 @@
    * Added the parameters --rotation-weight and --translation-weight
      to penalize large rotation and translation changes.
 
+ - stereo_gui
+
+   * Can view SPOT5 .BIL files.
+
  - Misc
    * Handle properly in bundle_adjust, orbitviz, and stereo 
      with mapprojected images the case when, for RPC cameras,
      these coefficients are stored in _RPC.TXT files.
    * Support for web-based PROJ.4 strings, e.g., 
      point2dem --t_srs http://spatialreference.org/ref/iau2000/49900/
-
+   
 *** RELEASE 2.6.0, May 15, 2017 ***
 
  - New stereo algorithms

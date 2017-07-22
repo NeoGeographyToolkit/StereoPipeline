@@ -131,9 +131,6 @@ namespace asp {
       return point_to_pixel(point, -1); // Redirect to the function with no initial guess
     }
  
-    /// Fills in an ImageFormat object required to read the associated .BIL file.
-    vw::ImageFormat get_image_format() const;
- 
     // ---- Users probably won't ever need to call these functions ----
  
     /// Given the satellite's position and velocity in GCC coordinates, return
