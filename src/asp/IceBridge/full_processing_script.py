@@ -365,7 +365,8 @@ def main(argsIn):
 
           # Run non-ortho conversions without any multiprocessing (they are pretty fast)
           # TODO: May be worth doing the faster functions with multiprocessing in the future
-          input_conversions.correctFireballDems(demFolder, corrDemFolder, startFrame, stopFrame, (not isSouth))
+          input_conversions.correctFireballDems(demFolder, corrDemFolder,
+                                                startFrame, stopFrame, (not isSouth))
 
           input_conversions.convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame)
 

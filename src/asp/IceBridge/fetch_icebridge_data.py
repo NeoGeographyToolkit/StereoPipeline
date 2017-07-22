@@ -175,7 +175,7 @@ def fetchAndParseIndexFileAux(isSouth, tryToSeparateByLat, baseCurlCmd, folderUr
     frameDict  = {}
     for filename in fileList:
         if not tryToSeparateByLat: continue 
-        frame = icebridge_common.getFrameNumberFromFilename2(filename)
+        frame = icebridge_common.getFrameNumberFromFilename(filename)
         if frame in frameDict.keys():
             haveToSeparateByLat = True
             logger.info("Found a run with files from both AN and GR.")
@@ -220,7 +220,7 @@ def fetchAndParseIndexFileAux(isSouth, tryToSeparateByLat, baseCurlCmd, folderUr
         if xmlFile in badXmls:
             continue
             
-        frame = icebridge_common.getFrameNumberFromFilename2(filename)
+        frame = icebridge_common.getFrameNumberFromFilename(filename)
         if frame in frameDict.keys() and haveToSeparateByLat:
             # This time the same frame must not occur twice
             raise Exception("Found two file names with same frame number: " + \

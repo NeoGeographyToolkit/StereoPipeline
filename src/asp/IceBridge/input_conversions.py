@@ -66,6 +66,8 @@ def getJpegDateTime(filepath):
 def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame):
     '''Convert jpeg images from RGB to single channel'''
 
+    badFiles = False
+    
     logger = logging.getLogger(__name__)
     logger.info('Converting input images to grayscale...')
 
@@ -83,9 +85,8 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame):
         
         # Make sure the timestamp and frame number are in the output file name
         (dateStr, timeStr) = getJpegDateTime(inputPath)
-        frame = icebridge_common.getFrameNumberFromFilename2(inputPath)
-        if not ( (frame >= startFrame) and (frame <= stopFrame) ):
-            continue
+        frame = icebridge_common.getFrameNumberFromFilename(inputPath)
+        if not ( (frame >= startFrame) and (frame <= stopFrame) ): continue
         outputName = ('DMS_%s_%s_%05d.tif') % (dateStr, timeStr, frame)
         outputPath = os.path.join(imageFolder, outputName)
 
@@ -97,10 +98,33 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame):
         # Use ImageMagick tool to convert from RGB to grayscale
         cmd = (('convert %s -colorspace Gray %s') % (inputPath, outputPath))
         logger.info(cmd)
-        os.system(cmd)
-        if not os.path.exists(outputPath):
-            raise Exception('Failed to convert jpeg file: ' + jpegFile)
 
+        # Run command and fetch its output
+        p = subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output, error = p.communicate()
+        if p.returncode != 0:
+            logger.info("Command failed.")
+            badFiles = True
+
+        if not os.path.exists(outputPath):
+            badFiles = True
+            logger.info('Failed to convert jpeg file: ' + jpegFile)
+
+        # Check for corrupted files
+        if error is not None:
+            output += error
+        m = re.match("^.*?premature\s+end", output, re.IGNORECASE)
+        if m:
+            logger.info(output)
+            logger.info("Wiping bad files: " + inputPath + " and " + outputPath)
+            if os.path.exists(inputPath):  os.remove(inputPath)
+            if os.path.exists(outputPath): os.remove(outputPath)
+            badFiles = True
+            
+        if badFiles:
+            raise Exception("Converstion of JPEGs failed. If any files were corrupted, " +
+                            "they were removed, and need to be re-fetched.")
+        
 def correctFireballDems(demFolder, correctedDemFolder, startFrame, stopFrame, isNorth):
     '''Fix the header problem in Fireball DEMs'''
 
@@ -116,9 +140,8 @@ def correctFireballDems(demFolder, correctedDemFolder, startFrame, stopFrame, is
         if not icebridge_common.isDEM(inputPath):
             continue
 
-        frame = icebridge_common.getFrameNumberFromFilename2(demFile)
-        if not ( (frame >= startFrame) and (frame <= stopFrame) ): 
-            continue
+        frame = icebridge_common.getFrameNumberFromFilename(demFile)
+        if not ( (frame >= startFrame) and (frame <= stopFrame) ): continue
 
         # Make sure the timestamp and frame number are in the output file name
         outputPath = os.path.join(correctedDemFolder, os.path.basename(inputPath))
@@ -224,9 +247,8 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
     # Make a dictionary of ortho files by frame
     orthoFrames = {}
     for f in orthoFiles:
-        frame = icebridge_common.getFrameNumberFromFilename2(f)
-        if not ( (frame >= startFrame) and (frame <= stopFrame) ):
-            continue
+        frame = icebridge_common.getFrameNumberFromFilename(f)
+        if not ( (frame >= startFrame) and (frame <= stopFrame) ): continue
         orthoFrames[frame] = f
 
     logger.info('Starting ortho processing pool with ' + str(numProcesses) +' processes.')
@@ -242,9 +264,8 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
             continue
 
         # Get associated orthofile
-        frame = icebridge_common.getFrameNumberFromFilename2(imageFile)
-        if not ( (frame >= startFrame) and (frame <= stopFrame) ):
-            continue
+        frame = icebridge_common.getFrameNumberFromFilename(imageFile)
+        if not ( (frame >= startFrame) and (frame <= stopFrame) ): continue
         orthoFile = orthoFrames[frame]
         
         # Check output file
@@ -373,7 +394,8 @@ def pairLidarFiles(lidarFolder):
     
 
 # TODO: This function is obsolete!
-def convertAllButOrtho(jpegFolder, imageFolder, lidarFolder, demFolder, correctedDemFolder, isSouth, startFrame, stopFrame):
+def convertAllButOrtho(jpegFolder, imageFolder, lidarFolder, demFolder,
+                       correctedDemFolder, isSouth, startFrame, stopFrame):
     '''Perform the non-ortho (faster) conversions in parallel.'''
 
     logger = logging.getLogger(__name__)
@@ -390,9 +412,12 @@ def convertAllButOrtho(jpegFolder, imageFolder, lidarFolder, demFolder, correcte
                
     # Add the four tasks to the processing pool
 
-    taskHandles.append(pool.apply_async(correctFireballDems, (demFolder, correctedDemFolder, startFrame, stopFrame, (not isSouth))))
+    taskHandles.append(pool.apply_async(correctFireballDems,
+                                        (demFolder, correctedDemFolder, startFrame, stopFrame,
+                                         (not isSouth))))
 
-    taskHandles.append(pool.apply_async(convertJpegs, (jpegFolder, imageFolder, startFrame, stopFrame)))
+    taskHandles.append(pool.apply_async(convertJpegs,
+                                        (jpegFolder, imageFolder, startFrame, stopFrame)))
    
     taskHandles.append(pool.apply_async(convertLidarDataToCsv, (lidarFolder)))
     

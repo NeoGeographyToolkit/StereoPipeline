@@ -53,7 +53,7 @@ def hasImageExtension(filename):
     return False
 
 def isValidImage(filename):
-    '''Check that an image file is not corrupted in some way.'''
+    '''Check that an image file is not corrupted in some way. This check is not enough.'''
     
     if not os.path.exists(filename):
         return False
@@ -65,7 +65,7 @@ def isValidImage(filename):
     output, error = p.communicate()
     if p.returncode != 0:
         return False
-    
+
     return True
 
 def isDEM(filename):
@@ -195,37 +195,16 @@ def getCameraFileName(imageFileName):
     '''Get the camera file name we associate with an input image file.'''
     return imageFileName.replace('.tif', '.tsai')
 
-# TODO: Integrate this with getFrameNumberFromFilename2() with a lot of care!
-# This function may not be robust if the number is 4 digits instead of 5.
-def getFrameNumberFromFilename(f):
-    '''Return the frame number of an image or camera file.'''
-    # Look for a 5 digit number, that is usually the frame name.
-    # Other parts of the file, like the date and time stamp
-    # have more digits.
-    base  = os.path.basename(f)
-    base  = base.replace('.', '_') # To deal with the extension
-    parts = base.split('_')
-    for part in parts:
-        if len(part) != 5:
-            continue
-        if part < '00000' or part > '99999':
-            continue
-        return int(part)
-
-    raise Exception('Cannot parse the frame number from ' + f)
-    return 0
-
-# TODO: Rename this!
-# This function works for raw images, orthoimages, DEMs, lvis, atm1, and atm2 files.
-# It does not work yet for tsai files.
-def getFrameNumberFromFilename2(filename):
+# This function works for raw images, camera tsai files, orthoimages,
+# DEMs, lvis, atm1, and atm2 files.
+def getFrameNumberFromFilename(filename):
 
     # Match 2009_10_16_<several digits>.JPG
     m = re.match("^.*?\d+\_\d+\_\d+\_(\d+)\.JPG", filename, re.IGNORECASE)
     if m: return int(m.group(1))
 
-    # Match DMS_20111012_145559_00156.tif (created by our convertJpegs)
-    m = re.match("^.*?DMS\_\d+\_\d+\_(\d+)\.tif", filename, re.IGNORECASE)
+    # Match DMS_20111012_145559_00156.tif or .tsai (created by our python scripts)
+    m = re.match("^.*?DMS\_\d+\_\d+\_(\d+)\.(tif|tsai)", filename, re.IGNORECASE)
     if m: return int(m.group(1))
     
     # Match DMS_1000109_03939_20091016_23310503_V02.tif (fetched from NSIDC)
@@ -249,7 +228,7 @@ def getFrameNumberFromFilename2(filename):
 
 def getTifs(folder):
     '''Get tif files in given directory, ignoring _sub files.
-    This returns the files without the folder name prepeneded to them.'''
+    This returns the files without sorting or the folder name prepended to them.'''
     files = []
     for f in os.listdir(folder):
 
@@ -263,7 +242,7 @@ def getTifs(folder):
 
 def getJpegs(folder):
     '''Get jpeg files in given directory. This returns the files
-    without the folder name prepeneded to them.'''
+    without sorting or the folder name prepended to them.'''
 
     files = []
     for f in os.listdir(folder):
@@ -275,20 +254,22 @@ def getJpegs(folder):
 
     return files
 
-def getCsv(folder):
-    '''Get CSV files. This returns the files without the folder name prepeneded to them.'''
+def getByExtension(folder, ext):
+    '''Get files with given extension. This returns the files without
+    sorting or the folder name prepended to them.'''
     files = []
     for f in os.listdir(folder):
 
-        ext = os.path.splitext(f)[1]
-        if ext != '.csv':
+        curr_ext = os.path.splitext(f)[1]
+        if ext != curr_ext:
             continue
         files.append(f)
-
+        
     return files
 
 def getDems(folder):
-    '''Get DEM files. This returns the files without the folder name prepeneded to them.'''
+    '''Get DEM files. This returns the files without sorting or the
+    folder name prepended to them.'''
 
     files = []
     for f in os.listdir(folder):
@@ -299,9 +280,9 @@ def getDems(folder):
 
     return files
 
-# This returns the files without the folder name prepeneded to them
 def getLidar(folder):
-    '''Get LIDAR files. This returns the files without the folder name prepeneded to them.'''
+    '''Get LIDAR files. This returns the files without sorting or the
+    folder name prepended to them.'''
 
     files = []
     for f in os.listdir(folder):

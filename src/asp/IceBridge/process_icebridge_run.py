@@ -271,14 +271,26 @@ def main(argsIn):
     logger.info('\nStarting processing...')
     
     # Get a list of all the input files
-    imageFiles  = os.listdir(imageFolder)
-    cameraFiles = os.listdir(cameraFolder)
-    # Filter the file types
-    imageFiles  = [f for f in imageFiles  if (os.path.splitext(f)[1] == '.tif') and ('_sub' not in f)] 
-    cameraFiles = [f for f in cameraFiles if os.path.splitext(f)[1] == '.tsai']
-    imageFiles.sort() # Put in order so the frames line up
-    cameraFiles.sort()
-    imageFiles  = [os.path.join(imageFolder, f) for f in imageFiles ] # Get full paths
+    allImageFiles  = icebridge_common.getTifs(imageFolder)
+    allCameraFiles = icebridge_common.getByExtension(cameraFolder, '.tsai')
+    allImageFiles.sort() # Put in order so the frames line up
+    allCameraFiles.sort()
+
+    # Keop only the images and cameras within the given range
+    imageFiles = []
+    for image in allImageFiles:
+        frame = icebridge_common.getFrameNumberFromFilename(image)
+        if not ( (frame >= options.startFrame) and (frame <= options.stopFrame) ):  continue
+        imageFiles.append(image)
+        
+    cameraFiles = []
+    for camera in allCameraFiles:
+        frame = icebridge_common.getFrameNumberFromFilename(camera)
+        if not ( (frame >= options.startFrame) and (frame <= options.stopFrame) ):  continue
+        cameraFiles.append(camera)
+
+    # Get full paths
+    imageFiles  = [os.path.join(imageFolder, f) for f in imageFiles ]
     cameraFiles = [os.path.join(cameraFolder,f) for f in cameraFiles]
 
     numFiles = len(imageFiles)
@@ -356,10 +368,6 @@ def main(argsIn):
     
         # Check if this is inside the user specified frame range
         frameNumber = icebridge_common.getFrameNumberFromFilename(imageCameraPairs[i][0])
-        if options.startFrame and (frameNumber < options.startFrame):
-            continue
-        if options.stopFrame and (frameNumber > options.stopFrame):
-            continue
         if not options.logBatches:
             logger.info('Processing frame number: ' + str(frameNumber))
 
@@ -371,7 +379,8 @@ def main(argsIn):
         
         # Keep adding frames until we get enough or hit the last frame or hit a break
         hitBreakFrame = frameNumber in breaks
-        if (numPairs < options.bundleLength) and (frameNumber < options.stopFrame) and (not hitBreakFrame):
+        if (numPairs < options.bundleLength) and (frameNumber < options.stopFrame) and \
+               (not hitBreakFrame):
             continue
 
         # Check if the output file already exists.
