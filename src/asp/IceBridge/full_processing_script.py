@@ -369,17 +369,18 @@ def main(argsIn):
 
           input_conversions.convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame)
 
-          # Multi-process call to convert ortho images
-          input_conversions.getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder, 
-                                                     options.cameraLookupFile, options.yyyymmdd, options.site, 
-                                                     refDemPath, cameraFolder, 
-                                                     startFrame, stopFrame,
-                                                     options.numProcesses, options.numThreads)        
-
           if not options.noLidarConvert:           
               input_conversions.convertLidarDataToCsv(lidarFolder)
-              
               input_conversions.pairLidarFiles(lidarFolder)
+              
+          # Multi-process call to convert ortho images
+          input_conversions.getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder, 
+                                                     options.cameraLookupFile,
+                                                     options.yyyymmdd, options.site, 
+                                                     refDemPath, cameraFolder, 
+                                                     startFrame, stopFrame,
+                                                     options.numProcesses, options.numThreads)
+
 
     if options.stopAfterConvert:
         print 'Conversion complete, finished!'

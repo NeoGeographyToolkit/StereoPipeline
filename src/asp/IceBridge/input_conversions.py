@@ -219,7 +219,7 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
     logger.info('Generating camera models from ortho images...')
     
     imageFiles = os.listdir(imageFolder)
-    orthoFiles = icebridge_common.getOrthoImages(orthoFolder)
+    orthoFiles = icebridge_common.getTifs(orthoFolder)
     
     # Make a dictionary of ortho files by frame
     orthoFrames = {}
@@ -283,9 +283,9 @@ def convertLidarDataToCsv(lidarFolder):
     logger = logging.getLogger(__name__)
     logger.info('Converting LIDAR files...')
     
-    # Loop through all lidar files in the folder
-    lidarFiles = os.listdir(lidarFolder)
-    for f in lidarFiles:
+    # Loop through all files in the folder
+    allFiles = os.listdir(lidarFolder)
+    for f in allFiles:
         extension = icebridge_common.fileExtension(f)
         
         # Only interested in a few file types
@@ -316,16 +316,27 @@ def pairLidarFiles(lidarFolder):
     os.system('mkdir -p ' + pairFolder)
     
     # All files in the folder
-    lidarFiles = os.listdir(lidarFolder)
-    
-    # Get just the files we converted to csv format
+    allFiles = os.listdir(lidarFolder)
+
+    # See based on existing files if we are dealing with LVIS
+    isLVIS = False
+    for f in allFiles:
+        m = re.match("^.*?ILVIS.*?\d+\.TXT", f, re.IGNORECASE)
+        if m:
+            isLVIS = True
+            
+    # Get just the files we converted to csv format or plain text LVIS files
     csvFiles = []    
-    for f in lidarFiles:
+    for f in allFiles:
         extension = os.path.splitext(f)[1]
-        if extension == '.csv':
+        if 'html.csv' in f: continue # skip index.html.csv
+        if (not isLVIS and extension == '.csv') or (isLVIS and extension == '.TXT'):
            csvFiles.append(f)
     csvFiles.sort()
     numCsvFiles = len(csvFiles)
+
+    outExt = '.csv'
+    if isLVIS: outExt = '.TXT'
     
     # Loop through all pairs of csv files in the folder    
     for i in range(0,numCsvFiles-2):
@@ -338,7 +349,7 @@ def pairLidarFiles(lidarFolder):
         
         # Record the name with the second file
         # - More useful because the time for the second file represents the middle of the file.
-        outputName = 'LIDAR_PAIR_' + date2 +'_'+ time2 + '.csv'
+        outputName = 'LIDAR_PAIR_' + date2 +'_'+ time2 + outExt
 
         # Handle paths
         path1      = os.path.join(lidarFolder, thisFile)

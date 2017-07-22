@@ -334,6 +334,14 @@ def parseTimeStamps(fileName):
     '''Pull two six or eight digit values from the given file name
        as the time and date stamps.'''
 
+    # Start by handling ILVIS2_AQ2011_1012_R1203_049752.TXT
+    m = re.match("^.*?ILVIS\d\_[A-Z][A-Z](\d\d\d\d)\_(\d\d\d\d)\_.*?\_(\d+)\.TXT",
+                 fileName, re.IGNORECASE)
+    if m:
+        imageDateString = m.group(1) + m.group(2)
+        imageTimeString = m.group(3)
+        return [imageDateString, imageTimeString]
+
     fileName = os.path.basename(fileName)
     fileName = fileName.replace('.', '_')
     fileName = fileName.replace('-', '_')
