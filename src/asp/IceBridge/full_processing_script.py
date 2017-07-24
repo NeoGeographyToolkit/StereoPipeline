@@ -219,8 +219,6 @@ def main(argsIn):
                           type='int', help='The number of threads per process.')
 
         # Action control
-        parser.add_option("--fetch-only", action="store_true", dest="fetchOnly", default=False,
-                          help="Just fetch the data, don't do any processing.")
         parser.add_option("--skip-fetch", action="store_true", dest="noFetch", default=False,
                           help="Skip data fetching.")
         parser.add_option("--skip-convert", action="store_true", dest="noConvert", default=False,
