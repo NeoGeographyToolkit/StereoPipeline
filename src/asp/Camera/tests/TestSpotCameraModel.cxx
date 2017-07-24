@@ -105,7 +105,7 @@ TEST(SPOT_camera, SensorTest) {
 
   std::cout << "Loading model" << std::endl;
   //boost::shared_ptr<asp::SPOTCameraModel> cam_ptr = 
-  //    asp::load_spot5_camera_model_from_xml("/home/smcmich1/data/spot/METADATA.DIM");
+  //    asp::load_spot5_camera_model_from_xml("METADATA.DIM");
   
   std::cout << std::endl;
 

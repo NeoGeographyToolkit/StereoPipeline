@@ -114,6 +114,51 @@ def processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFo
     logger.info('Process command: ' + processCommand)
     process_icebridge_run.main(processCommand.split())
 
+def tarAndWipe(options):
+
+    logger.info("All files were fetched and checks passed. " +
+                "Will tar to lou and wipe the dir.")
+
+    # Per https://www.nas.nasa.gov/hecc/support/kb/using-
+    # shift-for-local-transfers-and-tar-operations_512.html
+    # one can tar and push to lfe at the same time if
+    # connecting to lfe first, from where one can see the pfe
+    # filesystem. Avoid though using the suggested shift
+    # command. It may be faster, but it detaches and is hard
+    # to manage. Note: To untar and transfer in one step, one
+    # should as well go to lfe first.
+    currDir = os.getcwd()
+    user = 'oalexan1' # all data is in this user's dir
+    m = re.match("^.*?/" + user + "/(.*?)$", currDir)
+    if not m:
+        raise Exception("Could not match %s in %s " % (user, currDir))
+    pfePath = '/nobackupnfs2/' + user + '/' + m.group(1) # path on pfe
+    lfePath = '/u/'            + user + '/' + m.group(1) # path on lfe 
+    lfeCmd = 'cd ' + pfePath + '; tar cfv ' + lfePath + '/' + \
+             options.outputFolder + '.tar ' + options.outputFolder
+
+    cmd = 'ssh ' + user + '@lfe "' + lfeCmd + '"'
+    logger.info(cmd)
+    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+    output, error = p.communicate()
+    if p.returncode != 0:
+        raise Exception('Failed to tar and copy to lfe.')
+    else:
+        logger.info('Success tarring and copying to lfe.')
+
+    if options.outputFolder == "" or options.outputFolder[0] == '.':
+        raise Exception('Output folder is not as expected. ' +
+                        'Not deleting anything just in case.')
+
+    logger.info('Will wipe: ' + options.outputFolder)
+    try:
+        shutil.rmtree(options.outputFolder)
+    except Exception as e:
+        # TODO: Can't wipe it as still logging there
+        print("Failed to wipe " + options.outputFolder)
+
+    return 0
+    
 def main(argsIn):
 
     try:
@@ -124,7 +169,8 @@ def main(argsIn):
         # An output folder will be crated automatically (with a name like
         # AN_20091016), or its name can be specified via the --output-folder
         # option.
-        usage = '''usage: full_processing_script.py <options> <camera_calibration_folder> <ref_dem_folder>'''
+        usage = '''usage: full_processing_script.py <options> <camera_calibration_folder>
+        <ref_dem_folder>'''
                       
         parser = optparse.OptionParser(usage=usage)
 
@@ -137,27 +183,34 @@ def main(argsIn):
                           help="Name of the location of the images (AN, GR, or AL)")
 
         parser.add_option("--output-folder",  dest="outputFolder", default=None,
-                          help="Name of the output folder. If not specified, use something like AN_YYYYMMDD.")
+                          help="Name of the output folder. If not specified, " + \
+                          "use something like AN_YYYYMMDD.")
 
         parser.add_option("--camera-lookup-file",  dest="cameraLookupFile", default=None,
-                          help="The file to use to find which camera was used for which flight. By default it is in the same directory as this script and named camera_lookup.txt.")
+                          help="The file to use to find which camera was used for which flight. " + \
+                          "By default it is in the same directory as this script and named " + \
+                          "camera_lookup.txt.")
         
         # Processing options
         parser.add_option('--bundle-length', dest='bundleLength', default=2,
-                          type='int', help='The number of images to bundle adjust and process in a single batch.')
+                          type='int', help="The number of images to bundle adjust and process " + \
+                          "in a single batch.")
         # TODO: Compute this automatically??
         parser.add_option('--overlap-limit', dest='overlapLimit', default=2,
-                          type='int', help='The number of images to treat as overlapping for bundle adjustment.')
+                          type='int', help="The number of images to treat as overlapping for " + \
+                          "bundle adjustment.")
 
         # Python treats numbers starting with 0 as being in octal rather than decimal.
         # Ridiculous. So read them as strings and convert to int. 
         parser.add_option('--start-frame', dest='startFrameStr', default=None,
-                          help='Frame to start with.  Leave this and stop-frame blank to process all frames.')
+                          help="Frame to start with.  Leave this and stop-frame blank to " + \
+                          "process all frames.")
         parser.add_option('--stop-frame', dest='stopFrameStr', default=None,
                           help='Frame to stop on.')
-
+        
         parser.add_option("--processing-subfolder",  dest="processingSubfolder", default=None,
-                          help="Specify a subfolder name where the processing outputs will go.  Default is no additional folder")
+                          help="Specify a subfolder name where the processing outputs will go. " + \
+                          "fault is no additional folder")
 
         # Performance options  
         parser.add_option('--num-processes', dest='numProcesses', default=1,
@@ -172,11 +225,14 @@ def main(argsIn):
                           help="Skip data fetching.")
         parser.add_option("--skip-convert", action="store_true", dest="noConvert", default=False,
                           help="Skip data conversion.")
-        parser.add_option("--stop-after-fetch", action="store_true", dest="stopAfterFetch", default=False,
+        parser.add_option("--stop-after-fetch", action="store_true", dest="stopAfterFetch",
+                          default=False,
                           help="Stop program after data fetching.")
-        parser.add_option("--stop-after-convert", action="store_true", dest="stopAfterConvert", default=False,
+        parser.add_option("--stop-after-convert", action="store_true", dest="stopAfterConvert",
+                          default=False,
                           help="Stop program after data conversion.")
-        parser.add_option("--fetch-from-next-day-also", action="store_true", dest="fetchNextDay", default=False,
+        parser.add_option("--fetch-from-next-day-also", action="store_true", dest="fetchNextDay",
+                          default=False,
                           help="Sometimes some files are stored in next day's runs as well.")
         parser.add_option("--skip-validate", action="store_true", dest="skipValidate", default=False,
                           help="Skip input data validation.")
@@ -187,11 +243,15 @@ def main(argsIn):
 
 
         # The following options are intended for use on the supercomputer                          
-        parser.add_option("--zip-if-all-fetched", action="store_true", dest="zipIfAllFetched", default=False,
-                          help="If all files are fetched, check that all image files are valid using gdalinfo, then make a tarball and wipe the files. Otherwise error out. Only valid on Pleiades!")
+        parser.add_option("--tar-and-wipe", action="store_true", dest="tarAndWipe", default=False,
+                          help="After fetching all data and performing all conversions and " + \
+                          "validations, make a tarball on lou and wipe the directory. "      + \
+                          "Only valid on Pleiades!")
         parser.add_option('--max-num-to-fetch', dest='maxNumToFetch', default=-1,
-                          type='int', help='The maximum number to fetch of each kind of file. This is used in debugging.')
-        parser.add_option("--no-lidar-convert", action="store_true", dest="noLidarConvert", default=False,
+                          type='int', help="The maximum number to fetch of each kind of file. " + \
+                          "is is used in debugging.")
+        parser.add_option("--no-lidar-convert", action="store_true", dest="noLidarConvert",
+                          default=False,
                           help="Skip lidar files in the conversion step.")
 
                           
@@ -235,7 +295,8 @@ def main(argsIn):
     
     os.system('mkdir -p ' + options.outputFolder)
     logLevel = logging.INFO # Make this an option??
-    logger   = icebridge_common.setUpLogger(options.outputFolder, logLevel, 'icebridge_processing_log')
+    logger   = icebridge_common.setUpLogger(options.outputFolder, logLevel,
+                                            'icebridge_processing_log')
 
     # Perform some input checks
     if not os.path.exists(inputCalFolder):
@@ -283,11 +344,11 @@ def main(argsIn):
         logger.info('Will write to processing subfolder: ' + options.processingSubfolder)
 
     # Sanity checks
-    if options.zipIfAllFetched:
+    if options.tarAndWipe:
         if not options.stopAfterFetch:
-            raise Exception('Must stop after fetch to be able to zip inputs.')
+            raise Exception('Must stop after fetch to be able to be tar the inputs.')
         if options.noFetch:
-            raise Exception('Must fetch to be able to zip inputs.')
+            raise Exception('Must fetch to be able to tar the inputs.')
 
     if options.maxNumToFetch > 0:
         rem = options.maxNumToFetch % 6
@@ -301,60 +362,42 @@ def main(argsIn):
     if options.noFetch:
         logger.info('Skipping fetch.')
     else:
-        # Call data fetch routine and check the result
-        fetchResult = fetchAllRunData(options.yyyymmdd, options.site, options.dryRun,
-                                      startFrame, stopFrame, options.maxNumToFetch,
-                                      options.fetchNextDay, options.skipValidate,
-                                      options.outputFolder,
-                                      jpegFolder, orthoFolder, demFolder, lidarFolder)
-        if fetchResult < 0:
-            return -1
 
-        if options.zipIfAllFetched:
-            
-            logger.info("All files were fetched and checks passed. " +
-                        "Will tar to lou and wipe the dir.")
-
-            # Per https://www.nas.nasa.gov/hecc/support/kb/using-
-            # shift-for-local-transfers-and-tar-operations_512.html
-            # one can tar and push to lfe at the same time if
-            # connecting to lfe first, from where one can see the pfe
-            # filesystem. Avoid though using the suggested shift
-            # command. It may be faster, but it detaches and is hard
-            # to manage. Note: To untar and transfer in one step, one
-            # should as well go to lfe first.
-            currDir = os.getcwd()
-            user = 'oalexan1' # hard-coded
-            m = re.match("^.*?/" + user + "/(.*?)$", currDir)
-            if not m:
-                raise Exception("Could not match %s in %s " % (user, currDir))
-            pfePath = '/nobackupnfs2/' + user + '/' + m.group(1) # path on pfe
-            lfePath = '/u/'            + user + '/' + m.group(1) # path on lfe 
-            lfeCmd = 'cd ' + pfePath + '; tar cfv ' + lfePath + '/' + \
-                     options.outputFolder + '.tar ' + options.outputFolder
-            
-            cmd = 'ssh ' + user + '@lfe "' + lfeCmd + '"'
-            logger.info(cmd)
-            p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
-            output, error = p.communicate()
-            if p.returncode != 0:
-                raise Exception('Failed to tar and copy to lfe.')
-            else:
-                logger.info('Success tarring and copying to lfe.')
-                
-            if options.outputFolder == "" or options.outputFolder[0] == '.':
-                raise Exception('Output folder is not as expected. ' +
-                                'Not deleting anything just in case.')
-
-            logger.info('Will wipe: ' + options.outputFolder)
+        # Do one more attempt if at the jpeg conversion stage some files were wiped
+        # because they were invalid.
+        for attempt in range(2):
             try:
-                shutil.rmtree(options.outputFolder)
+                # Call data fetch routine and check the result
+                fetchResult = fetchAllRunData(options.yyyymmdd, options.site, options.dryRun,
+                                              startFrame, stopFrame, options.maxNumToFetch,
+                                              options.fetchNextDay, options.skipValidate,
+                                              options.outputFolder,
+                                              jpegFolder, orthoFolder, demFolder, lidarFolder)
+                if fetchResult < 0:
+                    return -1
+
+                # Run these simple operations as part of fetching as they are simple.
+
+                # Run non-ortho conversions without any multiprocessing (they are pretty fast)
+                # TODO: May be worth doing the faster functions with multiprocessing in the future
+                input_conversions.correctFireballDems(demFolder, corrDemFolder,
+                                                      startFrame, stopFrame, (not isSouth))
+
+                # This will throw an exception if invalid files are found
+                input_conversions.convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame)
+
+                if not options.noLidarConvert:           
+                    input_conversions.convertLidarDataToCsv(lidarFolder)
+                    input_conversions.pairLidarFiles(lidarFolder)
+
+                break # all good, no exception
+            
             except Exception as e:
-                # TODO: Can't wipe it as still logging there
-                print("Failed to wipe " + options.outputFolder)
+                print(e)
                 
-            return 0
-        
+        if options.tarAndWipe:
+            tarAndWipe(options)
+            
     if options.stopAfterFetch or options.dryRun:
         logger.info('Fetching complete, finished!')
         return 0
@@ -363,17 +406,6 @@ def main(argsIn):
         logger.info('Skipping convert')
     else:
 
-          # Run non-ortho conversions without any multiprocessing (they are pretty fast)
-          # TODO: May be worth doing the faster functions with multiprocessing in the future
-          input_conversions.correctFireballDems(demFolder, corrDemFolder,
-                                                startFrame, stopFrame, (not isSouth))
-
-          input_conversions.convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame)
-
-          if not options.noLidarConvert:           
-              input_conversions.convertLidarDataToCsv(lidarFolder)
-              input_conversions.pairLidarFiles(lidarFolder)
-              
           # Multi-process call to convert ortho images
           input_conversions.getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder, 
                                                      options.cameraLookupFile,

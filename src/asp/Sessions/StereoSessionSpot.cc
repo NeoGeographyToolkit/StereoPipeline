@@ -51,8 +51,6 @@ namespace vw {
 
 namespace asp {
 
-
-
   vw::cartography::GeoReference StereoSessionSpot::get_georef() {
 
     // SPOT5 images never have georef information!
