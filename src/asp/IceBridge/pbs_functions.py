@@ -3,6 +3,8 @@ import os
 
 '''Contains functions for working with the PBS job system on the Pleiades supercomputer'''
 
+# Constants
+MAX_PBS_NAME_LENGTH = 15
 
 def getNumActiveJobs(user):
   '''Return the current number of active PBS jobs'''
@@ -22,7 +24,7 @@ def getActiveJobs(user):
 
 def checkForJobName(user, name):
   '''Check if the given job name is in the queue'''
-  result = os.system('qstat -u '+user+' | grep '+name+' | wc -l'
+  result = os.system('qstat -u '+user+' | grep '+name+' | wc -l')
   return result != ''
 
 
@@ -43,9 +45,8 @@ def getNumCores(nodeType):
 def submitJob(jobName, queueName, maxHours, groupId, nodeType, scriptPath, args, logPrefix):
     '''Submits a job to the PBS system'''
     
-    MAX_NAME_LENGTH = 15
-    if len(queueName) > MAX_NAME_LENGTH:
-        raise Exception('Job name "'+queueName+'" exceeds the maximum length of ' + str(MAX_NAME_LENGTH))
+    if len(queueName) > MAX_PBS_NAME_LENGTH:
+        raise Exception('Job name "'+queueName+'" exceeds the maximum length of ' + str(MAX_PBS_NAME_LENGTH))
     
     numCpus = getNumCores(nodeType) # Cores or CPUs?
     
@@ -56,6 +57,10 @@ def submitJob(jobName, queueName, maxHours, groupId, nodeType, scriptPath, args,
     
     workDir = os.cwd()
     
-    command = ('qsub -q %s -N %s -l walltime=%s -W group_list=%s -j oe -e %s -o %s -S /bin/bash -V -C %s -l select=1:ncpus=%d:model=%s -m eb -- %s %s' % 
+    # TODO: Does this need to be wrapped in a shell script?
+    # The "-m eb" option sends the user an email when the process begins and when it ends.
+    command = ('qsub -q %s -N %s -l walltime=%s -W group_list=%s -j oe -e %s -o %s -S /bin/bash -V -C %s -l select=1:ncpus=%d:model=%s  -- %s %s' % 
                (queueName, jobName, hourString, groupId, errorsPath, outputPath, workDir, numCpus, nodeType, scriptPath, args))
     os.system(command)
+    
+    

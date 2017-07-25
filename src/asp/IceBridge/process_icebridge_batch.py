@@ -142,7 +142,7 @@ def main(argsIn):
         lidarFile = icebridge_common.findMatchingLidarFile(inputPairs[0][0], options.lidarFolder)
         logger.info('Found matching lidar file ' + lidarFile)
 
-    # Does this ever change?
+    # TODO: Test with all LIDAR types!
     # This format is used for reading LIDAR files.
     LIDAR_CSV_FORMAT_STRING = '"1:lat 2:lon 3:height_above_datum"'
 

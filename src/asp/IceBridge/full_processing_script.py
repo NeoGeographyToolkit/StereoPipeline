@@ -235,24 +235,20 @@ def main(argsIn):
 
         parser.add_option("--camera-lookup-file",  dest="cameraLookupFile", default=None,
                           help="The file to use to find which camera was used for which flight. " + \
-                          "By default it is in the same directory as this script and named " + \
-                          "camera_lookup.txt.")
+                          "By default it is in the same directory as this script and named camera_lookup.txt.")
         
         # Processing options
         parser.add_option('--bundle-length', dest='bundleLength', default=2,
-                          type='int', help="The number of images to bundle adjust and process " + \
-                          "in a single batch.")
+                          type='int', help="The number of images to bundle adjust and process in a single batch.")
         # TODO: Compute this automatically??
         parser.add_option('--overlap-limit', dest='overlapLimit', default=2,
-                          type='int', help="The number of images to treat as overlapping for " + \
-                          "bundle adjustment.")
+                          type='int', help="The number of images to treat as overlapping for bundle adjustment.")
 
         # Python treats numbers starting with 0 as being in octal rather than decimal.
         # Ridiculous. So read them as strings and convert to int. 
-        parser.add_option('--start-frame', dest='startFrameStr', default=None,
-                          help="Frame to start with.  Leave this and stop-frame blank to " + \
-                          "process all frames.")
-        parser.add_option('--stop-frame', dest='stopFrameStr', default=None,
+        parser.add_option('--start-frame', dest='startFrame', default=None, type='int',
+                          help='Frame to start with.  Leave this and stop-frame blank to process all frames.')
+        parser.add_option('--stop-frame', dest='stopFrame', default=None, type='int',
                           help='Frame to stop on.')
         
         parser.add_option("--processing-subfolder",  dest="processingSubfolder", default=None,
@@ -330,13 +326,9 @@ def main(argsIn):
         options.outputFolder = options.site + '_' + options.yyyymmdd
 
     # Explicitely go from strings to integers, per earlier note.
-    if options.startFrameStr is not None:
-        startFrame = int(options.startFrameStr)
-    else:
+    if options.startFrame is None:
         startFrame = icebridge_common.getSmallestFrame()
-    if options.stopFrameStr is not None:
-        stopFrame  = int(options.stopFrameStr)
-    else:
+    if options.stopFrame is None:
         stopFrame = icebridge_common.getLargestFrame()
     
     os.system('mkdir -p ' + options.outputFolder)
