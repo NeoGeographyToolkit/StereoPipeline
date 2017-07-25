@@ -49,7 +49,7 @@ os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 
 
 # Constants used in this file
-PBS_QUEUE = 'devel'
+PBS_QUEUE = 'devel' # devel, debug, long
 #NODE_TYPE = 'san' # Sandy bridge = 16 core,  32 GB mem, SBU 1.82
 NODE_TYPE = 'ivy' # Ivy bridge   = 20 core,  64 GB mem, SBU 2.52
 #NODE_TYPE = 'has' # Haswell      = 24 core, 128 GB mem, SBU 3.34
@@ -60,8 +60,8 @@ NUM_ORTHO_THREADS   = 2
 NUM_BATCH_NODES     = 1
 NUM_BATCH_THREADS   = 8 # MGM is limited to 8 threads
 NUM_BATCH_PROCESSES = 3
-GROUP_ID = 1234 # TODO
-MAX_PROCESS_HOURS = 40
+GROUP_ID = 's1827'
+MAX_PROCESS_HOURS = 2#40 # devel limit is 2, long limit is 120, normal is 8
 
 # Wait this long between checking for job completion
 SLEEP_TIME = 30
@@ -184,7 +184,7 @@ def getFrameRange(run):
             continue
         
         # Update frame range
-        frame = icebridge_common.getFrameNumberFromFilename2(inputPath)
+        frame = icebridge_common.getFrameNumberFromFilename(inputPath)
         if frame < minFrame:
             minFrame = frame
         if frame > maxFrame:
@@ -201,11 +201,13 @@ def getFrameRange(run):
 #    if len(name) > pbs_functions.MAX_PBS_NAME_LENGTH:
 #        raise Exception('Computed name ' +name+' for run '+str(run)+' and frame '+startFrame+' but it is too long')
 
-def conversionIsFinished(run):
+def conversionIsFinished(run, fullCheck=False):
     '''Return true if this run is present and conversion has finished running on it'''
     outputFolder = getOutputFolder(run)
-    return os.path.exists(os.path.join(outputFolder, 'conversion_complete'))
-    # TODO: Option to do a full check for files here!
+    if not fullCheck:
+        return os.path.exists(os.path.join(outputFolder, 'conversion_complete'))
+    
+    raise Exception('TODO: Option to do a full check for files here!')
 
 def runConversion(run):
     '''Run the conversion tasks for this run on the supercomputer nodes'''
@@ -215,39 +217,48 @@ def runConversion(run):
     # Get the frame range for the data.
     (minFrame, maxFrame) = getFrameRange(run)
     
+    logger.info('Detected frame range: ' + str((minFrame, maxFrame)))
+    
     # Split the conversions across multiple nodes using frame ranges
     # - The first job submitted will be the only one that converts the lidar data
     numFrames        = maxFrame - minFrame + 1
     numFramesPerNode = numFrames / NUM_ORTHO_NODES
     numFramesPerNode += 1 # Make sure we don't cut off a few frames at the end
     
+    outputFolder = getOutputFolder(run)
+    
     # TODO: Is using the default output folder ok here?
-    scriptPath = 'full_processing_script.py' # TODO
-    args       = ('%s %s --site %s --yyyymmdd %d --skip-fetch --stop-after-convert --num-threads %d --num-processes %d' 
-                  % (CALIBRATION_FILE_FOLDER, REFERENCE_DEM_FOLDER, run[0], run[1], NUM_ORTHO_THREADS, NUM_ORTHO_PROCESSES))
+    scriptPath = '/u/smcmich1/repo/StereoPipeline/src/asp/IceBridge/full_processing_script.py' # TODO
+    args       = ('%s %s --site %s --yyyymmdd %s --skip-fetch --stop-after-convert --num-threads %d --num-processes %d --output-folder %s' 
+                  % (CALIBRATION_FILE_FOLDER, REFERENCE_DEM_FOLDER, run[0], run[1], NUM_ORTHO_THREADS, NUM_ORTHO_PROCESSES, outputFolder))
     
     baseName = run[0] + run[1][2:] # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
 
     # Get the location to store the logs    
-    outputFolder = getOutputFolder(run)
-    pbsLogFolder = os.path.join(outputFolder, 'pbsLogs')
-    os.mkdir(pbsLogFolder)
+    pbsLogFolder = os.path.join(outputFolder, 'pbsLogs/out')
+    os.system('mkdir -p ' + pbsLogFolder)
     
-    currentFrame = 0
+    currentFrame = minFrame
     for i in range(0,NUM_ORTHO_NODES):
         jobName  = str(currentFrame) + baseName
-        thisArgs = args
+        thisArgs = (args + ' --start-frame ' + str(currentFrame)
+                         + ' --stop-frame '  + str(currentFrame+numFramesPerNode-1) )
         if i != 0: # Only the first job will convert lidar files
             thisArgs += ' --no-lidar-convert'
         logPrefix = os.path.join(pbsLogFolder + '_convert_' + jobName)
         logger.info('Submitting conversion job with args: '+thisArgs)
-        pbs_functions.submitJob(jobName, scriptPath, thisArgs, logPrefix)
+        submitJob(jobName, scriptPath, thisArgs, logPrefix)
+        currentFrame += numFramesPerNode
 
     # Wait for conversions to finish
     waitForRunCompletion(baseName)
 
+    raise Exception('DEBUG')
+
     # Create a file to mark that conversion is finished for this folder
     os.system('touch '+ os.path.join(outputFolder, 'conversion_complete'))
+    
+    raise Exception('DEBUG')
 
 def generateBatchList(run):
     '''Generate a list of all the processing batches required for a run'''
@@ -272,7 +283,7 @@ def submitBatchJobs(run, batchListPath):
     # Number of batches = number of lines in the file
     p = subprocess.Popen('wc -l '+batchListPath , stdout=subprocess.PIPE)
     textOutput, err = p.communicate()
-    numBatches        = int(textOutput.split()[0])
+    numBatches      = int(textOutput.split()[0])
     
     numBatchesPerNode = numBatches / NUM_BATCH_NODES
     numBatchesPerNode += 1 # Make sure we don't cut off a few batches at the end
@@ -302,18 +313,24 @@ def submitBatchJobs(run, batchListPath):
 def waitForRunCompletion(text):
     '''Sleep until all of the submitted jobs containing the provided text have completed'''
 
+    print 'Waiting for jobs with text: ' + text
+
+    jobsRunning = []
     user = getUser()
     stillWorking = True
     while stillWorking:
-        os.sleep(SLEEP_TIME)
+        time.sleep(SLEEP_TIME)
         stillWorking = False
 
         # Look through the list for jobs with the run's date in the name        
         jobList = pbs_functions.getActiveJobs(user)
-        for job in jobList():
-            if text in job:
+        for (job, status) in jobList:
+            if text in job: # Matching job found so we keep waiting
                 stillWorking = True
-                break
+                # Print a message if this is the first time we saw the job as running
+                if (status == 'R') and (job not in jobsRunning):
+                    jobsRunning.append(job)
+                    print 'Job launched: ' + job
 
 def checkResults(batchListPath):
     '''Return (numOutputs, numProduced) to help validate our results'''

@@ -1,5 +1,5 @@
 
-import os
+import os, subprocess
 
 '''Contains functions for working with the PBS job system on the Pleiades supercomputer'''
 
@@ -18,9 +18,33 @@ def getNumActiveJobs(user):
 
 
 def getActiveJobs(user):
-    '''Returns a list of the currently active jobs'''
+    '''Returns a list of the currently active jobs and their status'''
 
-    return ['TODO']
+    # Run qstat command to get a list of all active jobs by this user
+    cmd = ['qstat', '-u', user]
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    textOutput, err = p.communicate()
+    lines = textOutput.split('\n')
+    
+    # Strip header lines
+    NUM_HEADER_LINES = 3
+    NAME_INDEX       = 3
+    STATUS_INDEX     = 7
+    if len(lines) <= NUM_HEADER_LINES:
+        return []
+    lines = lines[NUM_HEADER_LINES:]
+
+    # Pick out all the job names and put them in a list
+    jobs = []
+    for line in lines:
+        parts = line.split()
+        if len(parts) < STATUS_INDEX:
+            continue
+        name   = parts[NAME_INDEX]
+        status = parts[STATUS_INDEX]
+        jobs.append((name, status))
+    return jobs
+    
 
 def checkForJobName(user, name):
   '''Check if the given job name is in the queue'''
@@ -52,15 +76,16 @@ def submitJob(jobName, queueName, maxHours, groupId, nodeType, scriptPath, args,
     
     hourString = '"'+str(maxHours)+':00:00"'
     
-    errorsPath = log_prefix + '_errors.log'
-    outputPath = log_prefix + '_output.log'
+    errorsPath = logPrefix + '_errors.log'
+    outputPath = logPrefix + '_output.log'
     
-    workDir = os.cwd()
+    workDir = os.getcwd()
     
     # TODO: Does this need to be wrapped in a shell script?
     # The "-m eb" option sends the user an email when the process begins and when it ends.
     command = ('qsub -q %s -N %s -l walltime=%s -W group_list=%s -j oe -e %s -o %s -S /bin/bash -V -C %s -l select=1:ncpus=%d:model=%s  -- %s %s' % 
                (queueName, jobName, hourString, groupId, errorsPath, outputPath, workDir, numCpus, nodeType, scriptPath, args))
+    print command
     os.system(command)
     
     

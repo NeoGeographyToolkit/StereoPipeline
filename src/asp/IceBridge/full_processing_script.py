@@ -295,7 +295,12 @@ def main(argsIn):
         parser.add_option("--no-lidar-convert", action="store_true", dest="noLidarConvert",
                           default=False,
                           help="Skip lidar files in the conversion step.")
-
+        parser.add_option("--no-ortho-convert", action="store_true", dest="noOrthoConvert",
+                          default=False,
+                          help="Skip generating camera models in the conversion step.")
+        parser.add_option("--skip-fast-conversions", action="store_true", dest="skipFastConvert",
+                          default=False,
+                          help="Skips all non-ortho conversions.")
                           
         (options, args) = parser.parse_args(argsIn)
 
@@ -327,9 +332,9 @@ def main(argsIn):
 
     # Explicitely go from strings to integers, per earlier note.
     if options.startFrame is None:
-        startFrame = icebridge_common.getSmallestFrame()
+        options.startFrame = icebridge_common.getSmallestFrame()
     if options.stopFrame is None:
-        stopFrame = icebridge_common.getLargestFrame()
+        options.stopFrame = icebridge_common.getLargestFrame()
     
     os.system('mkdir -p ' + options.outputFolder)
     logLevel = logging.INFO # Make this an option??
@@ -408,34 +413,15 @@ def main(argsIn):
         for attempt in range(2):
             # Call data fetch routine and check the result
             fetchResult = fetchAllRunData(options.yyyymmdd, options.site, options.dryRun,
-                                          startFrame, stopFrame, options.maxNumToFetch,
+                                          options.startFrame, options.stopFrame, options.maxNumToFetch,
                                           fetchNextDay(options.outputFolder),
                                           options.skipValidate,
                                           options.outputFolder,
                                           jpegFolder, orthoFolder, demFolder, lidarFolder)
             if fetchResult < 0:
+                logger.Error("Fetching failed, quitting the program!")
                 return -1
-
-            # Run these simple operations as part of fetching as they are simple.
-
-            # Run non-ortho conversions without any multiprocessing (they are pretty fast)
-            # TODO: May be worth doing the faster functions with multiprocessing in the future
-            input_conversions.correctFireballDems(demFolder, corrDemFolder,
-                                                  startFrame, stopFrame, (not isSouth))
-
-            # See note above. 
-            isGood = input_conversions.convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame)
-
-            if not options.noLidarConvert:           
-                input_conversions.convertLidarDataToCsv(lidarFolder)
-                input_conversions.pairLidarFiles(lidarFolder)
-                
-            if isGood:
-                break
-            
-        if options.tarAndWipe:
-            tarAndWipe(options, logger)
-            
+           
     if options.stopAfterFetch or options.dryRun:
         logger.info('Fetching complete, finished!')
         return 0
@@ -444,13 +430,35 @@ def main(argsIn):
         logger.info('Skipping convert')
     else:
 
-          # Multi-process call to convert ortho images
-          input_conversions.getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder, 
-                                                     options.cameraLookupFile,
-                                                     options.yyyymmdd, options.site, 
-                                                     refDemPath, cameraFolder, 
-                                                     startFrame, stopFrame,
-                                                     options.numProcesses, options.numThreads)
+        # When files fail in these conversion functions we log the error and keep going
+
+        if not skipFastConvert:
+         
+            # Run non-ortho conversions without any multiprocessing (they are pretty fast)
+            # TODO: May be worth doing the faster functions with multiprocessing in the future
+            input_conversions.correctFireballDems(demFolder, corrDemFolder,
+                                                  options.startFrame, options.stopFrame, (not isSouth))
+
+            input_conversions.convertJpegs(jpegFolder, imageFolder, options.startFrame, options.stopFrame)
+
+            if not options.noLidarConvert:
+                input_conversions.convertLidarDataToCsv(lidarFolder)
+                input_conversions.pairLidarFiles(lidarFolder)
+
+
+        if not options.noOrthoConvert
+            # Multi-process call to convert ortho images
+            input_conversions.getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder, 
+                                                       options.cameraLookupFile,
+                                                       options.yyyymmdd, options.site, 
+                                                       refDemPath, cameraFolder, 
+                                                       options.startFrame, options.stopFrame,
+                                                       options.numProcesses, options.numThreads)
+
+
+    # This option happens just after conversion to allow it to be paired with the stopAfterConvert option.
+    if options.tarAndWipe:
+        tarAndWipe(options, logger)
 
 
     if options.stopAfterConvert:
@@ -460,7 +468,7 @@ def main(argsIn):
     # Call the processing routine
     processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder,
                   processFolder, isSouth,
-                  options.bundleLength, startFrame, stopFrame, options.logBatches,
+                  options.bundleLength, options.startFrame, options.stopFrame, options.logBatches,
                   options.numProcesses, options.numThreads)
 
    
