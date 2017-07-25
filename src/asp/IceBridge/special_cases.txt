@@ -13,7 +13,7 @@ index files were concatenated. There orthoimages and lidar were
 already there. There are no fireball DEMs. The validity of all data
 was verified with gdalinfo and checksums whenever present.
 
-2. For flight AN 20091026, the raw image folder 
+2. For flight AN 20091025, the raw image folder 
 
 https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/2009_AN_NASA/10252009_raw/
 
@@ -36,30 +36,27 @@ most sense to follow the same convention as for orthoimages (so
 splitting things back), and need to verify the convention used in the
 Fireball DEMs.
 
-Here is the complete list of flights containing orthoimages but no raw
-images, and which need to be appended instead to previous day's flight
-for processing.
+Here is the complete list of flights for which we will have to fetch
+orthoimages from the next day's dataset.
 
-AN 20091026
-AN 20091106
-AN 20091110
-AN 20091113
-AN 20101027
-AN 20101111
-GR 20120318 # Need to resume here
-AN 20121108
-AN 20131121
-AN 20131128
-GR 20150328
-GR 20150331
-AN 20150912
-AN 20150927
-GR 20160422
-GR 20160716
+AN 20091025
+AN 20091105
+AN 20091109
+AN 20091112
+AN 20101026
+AN 20101110
+GR 20120317 # Need to resume here. Refetch index for all!
+AN 20121107
+AN 20131120
+AN 20131127
+GR 20150327
+GR 20150330
+AN 20150911
+AN 20150926
+GR 20160421
+GR 20160715
 
-With these, full_processing_script.py needs to be invoked for the
-previous day, with the option: --fetch-from-next-day-also, to append
-this extra data. This was done so far for just several flights.
+The script will do this automatically.
 
 3. There exist runs with the same flight day in the North and South
 Hemisphere. For example, consider the raw images:

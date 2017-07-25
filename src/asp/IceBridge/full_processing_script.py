@@ -50,6 +50,8 @@ os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = toolspath      + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = binpath        + os.pathsep + os.environ["PATH"]
 
+louUser = 'oalexan1' # all data is stored under this user name
+
 def fetchAllRunData(yyyymmdd, site, dryRun,
                     startFrame, stopFrame, maxNumToFetch,
                     fetchNextDay, skipValidate, outputFolder,
@@ -67,6 +69,7 @@ def fetchAllRunData(yyyymmdd, site, dryRun,
 
     if fetchNextDay:
         baseCommand += ' --fetch-from-next-day-also'
+        baseCommand += ' --refetch-index' # this was not right in older fetched runs
         
     if skipValidate:
         baseCommand += ' --skip-validate'
@@ -114,7 +117,17 @@ def processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFo
     logger.info('Process command: ' + processCommand)
     process_icebridge_run.main(processCommand.split())
 
-def tarAndWipe(options):
+def workDirs():
+    currDir = os.getcwd()
+    m = re.match("^.*?/" + louUser + "/(.*?)$", currDir)
+    if not m:
+        raise Exception("Could not match %s in %s " % (louUser, currDir))
+    pfePath = '/nobackupnfs2/' + louUser + '/' + m.group(1) # path on pfe
+    lfePath = '/u/'            + louUser + '/' + m.group(1) # path on lfe
+    
+    return (pfePath, lfePath)
+    
+def tarAndWipe(options, logger):
 
     logger.info("All files were fetched and checks passed. " +
                 "Will tar to lou and wipe the dir.")
@@ -127,17 +140,13 @@ def tarAndWipe(options):
     # command. It may be faster, but it detaches and is hard
     # to manage. Note: To untar and transfer in one step, one
     # should as well go to lfe first.
-    currDir = os.getcwd()
-    user = 'oalexan1' # all data is in this user's dir
-    m = re.match("^.*?/" + user + "/(.*?)$", currDir)
-    if not m:
-        raise Exception("Could not match %s in %s " % (user, currDir))
-    pfePath = '/nobackupnfs2/' + user + '/' + m.group(1) # path on pfe
-    lfePath = '/u/'            + user + '/' + m.group(1) # path on lfe 
+
+    (pfePath, lfePath) = workDirs()
+    
     lfeCmd = 'cd ' + pfePath + '; tar cfv ' + lfePath + '/' + \
              options.outputFolder + '.tar ' + options.outputFolder
 
-    cmd = 'ssh ' + user + '@lfe "' + lfeCmd + '"'
+    cmd = 'ssh ' + louUser + '@lfe "' + lfeCmd + '"'
     logger.info(cmd)
     p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
     output, error = p.communicate()
@@ -158,6 +167,44 @@ def tarAndWipe(options):
         print("Failed to wipe " + options.outputFolder)
 
     return 0
+
+def startWithLouArchive(options, logger):
+
+    (pfePath, lfePath) = workDirs()
+
+    # See tarAndWipe() for the logic of how one can work with pfe and lfe
+    lfeCmd = 'cd ' + lfePath + '; tar xfv ' + lfePath + '/' + options.outputFolder + '.tar' + \
+             ' -C ' + pfePath
+
+    cmd = 'ssh ' + louUser + '@lfe "' + lfeCmd + '"'
+    logger.info(cmd)
+    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+    output, error = p.communicate()
+    if p.returncode != 0:
+        raise Exception('Failed to untar lfe archive: ' + options.outputFolder + '.tar')
+    else:
+        logger.info('Success untarring lfe archive.')
+
+    return 0
+
+def fetchNextDay(outputFolder):
+
+    return outputFolder in ['AN_20091025',
+                            'AN_20091105',
+                            'AN_20091109',
+                            'AN_20091112',
+                            'AN_20101026',
+                            'AN_20101110',
+                            'GR_20120317',
+                            'AN_20121107',
+                            'AN_20131120',
+                            'AN_20131127',
+                            'GR_20150327',
+                            'GR_20150330',
+                            'AN_20150911',
+                            'AN_20150926',
+                            'GR_20160421',
+                            'GR_20160715'];
     
 def main(argsIn):
 
@@ -229,9 +276,6 @@ def main(argsIn):
         parser.add_option("--stop-after-convert", action="store_true", dest="stopAfterConvert",
                           default=False,
                           help="Stop program after data conversion.")
-        parser.add_option("--fetch-from-next-day-also", action="store_true", dest="fetchNextDay",
-                          default=False,
-                          help="Sometimes some files are stored in next day's runs as well.")
         parser.add_option("--skip-validate", action="store_true", dest="skipValidate", default=False,
                           help="Skip input data validation.")
         parser.add_option("--log-batches", action="store_true", dest="logBatches", default=False,
@@ -245,6 +289,10 @@ def main(argsIn):
                           help="After fetching all data and performing all conversions and " + \
                           "validations, make a tarball on lou and wipe the directory. "      + \
                           "Only valid on Pleiades!")
+        parser.add_option("--start-with-lou-archive", action="store_true",
+                          dest="startWithLouArchive", default=False,
+                          help="Untar an existing archive from lou, then continue.")
+                
         parser.add_option('--max-num-to-fetch', dest='maxNumToFetch', default=-1,
                           type='int', help="The maximum number to fetch of each kind of file. " + \
                           "is is used in debugging.")
@@ -356,45 +404,45 @@ def main(argsIn):
             # we fetch its .xml and .tfw file.
             options.maxNumToFetch = options.maxNumToFetch - rem + 6
             logger.info('Increasing maxNumToFetch to ' + str(options.maxNumToFetch))
-            
+
+    if options.startWithLouArchive:
+        startWithLouArchive(options, logger)
+        
     if options.noFetch:
         logger.info('Skipping fetch.')
     else:
-
         # Do one more attempt if at the jpeg conversion stage some files were wiped
         # because they were invalid.
         for attempt in range(2):
-            try:
-                # Call data fetch routine and check the result
-                fetchResult = fetchAllRunData(options.yyyymmdd, options.site, options.dryRun,
-                                              startFrame, stopFrame, options.maxNumToFetch,
-                                              options.fetchNextDay, options.skipValidate,
-                                              options.outputFolder,
-                                              jpegFolder, orthoFolder, demFolder, lidarFolder)
-                if fetchResult < 0:
-                    return -1
+            # Call data fetch routine and check the result
+            fetchResult = fetchAllRunData(options.yyyymmdd, options.site, options.dryRun,
+                                          startFrame, stopFrame, options.maxNumToFetch,
+                                          fetchNextDay(options.outputFolder),
+                                          options.skipValidate,
+                                          options.outputFolder,
+                                          jpegFolder, orthoFolder, demFolder, lidarFolder)
+            if fetchResult < 0:
+                return -1
 
-                # Run these simple operations as part of fetching as they are simple.
+            # Run these simple operations as part of fetching as they are simple.
 
-                # Run non-ortho conversions without any multiprocessing (they are pretty fast)
-                # TODO: May be worth doing the faster functions with multiprocessing in the future
-                input_conversions.correctFireballDems(demFolder, corrDemFolder,
-                                                      startFrame, stopFrame, (not isSouth))
+            # Run non-ortho conversions without any multiprocessing (they are pretty fast)
+            # TODO: May be worth doing the faster functions with multiprocessing in the future
+            input_conversions.correctFireballDems(demFolder, corrDemFolder,
+                                                  startFrame, stopFrame, (not isSouth))
 
-                # This will throw an exception if invalid files are found
-                input_conversions.convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame)
+            # See note above. 
+            isGood = input_conversions.convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame)
 
-                if not options.noLidarConvert:           
-                    input_conversions.convertLidarDataToCsv(lidarFolder)
-                    input_conversions.pairLidarFiles(lidarFolder)
-
-                break # all good, no exception
-            
-            except Exception as e:
-                print(e)
+            if not options.noLidarConvert:           
+                input_conversions.convertLidarDataToCsv(lidarFolder)
+                input_conversions.pairLidarFiles(lidarFolder)
                 
+            if isGood:
+                break
+            
         if options.tarAndWipe:
-            tarAndWipe(options)
+            tarAndWipe(options, logger)
             
     if options.stopAfterFetch or options.dryRun:
         logger.info('Fetching complete, finished!')

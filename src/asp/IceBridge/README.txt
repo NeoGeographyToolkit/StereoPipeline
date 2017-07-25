@@ -53,10 +53,6 @@ To only fetch, validate, and do some conversions, use the option:
 
   --stop-after-fetch
 
-To archive data to lou after fetching, use:
-
-  --tar-and-wipe
-
 To control which files are fetched and later processed use:
 
  --start-frame and --stop-frame 
@@ -78,8 +74,22 @@ The fetched data are stored on lou, at
 The DEMs that were used to create the orthoimages and which we use to
 create the camera models are in the reference_dems/ subdirectory.
 
-To bring data back to pfe for processing, connect to lou and run
-from the data directory a command similar to:
+To archive data to lou after fetching, use:
+
+  --tar-and-wipe
+
+To start with an existing lou archive, use:
+
+  --start-with-lou-archive
+
+These assume user name is oalexan1 for reasons too long to describe. 
+
+The tool will attempt to update the dataset once fetched and
+untarred. If necessary, it can be pushed back to lou afterwards as
+described above.
+
+Alternatively, to bring data back to pfe for processing, connect to
+lou and run from the data directory a command similar to:
 
 tar xfv AN_20091026.tar -C /nobackupnfs2/your/work/dir
 
