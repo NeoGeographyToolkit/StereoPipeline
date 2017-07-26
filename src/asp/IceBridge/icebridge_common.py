@@ -77,6 +77,24 @@ def isLidar(filename):
     return (extension == '.qi') or (extension == '.hdf5') or \
            (extension == '.h5') or (extension == '.TXT')
 
+def getFrameRangeFromBatchFolder(folder):
+    '''Returns (startFrame, endFrame) for a batch folder'''
+
+    # Extract just the desired folder name    
+    m = re.search('batch_[0-9]+_[0-9]+', folder)
+    if not m:
+        raise Exception('Failed to find batch frames in folder:' + folder)
+    text = m.group(0)
+    
+    # Parse the two frame numbers
+    batchLen   = len('batch')
+    start      = text.find('batch_')
+    next       = text.find('_', start+batchLen+1)
+    startFrame = int(text[batchLen+1:next])
+    endFrame   = int(text[next+1:])
+    
+    return (startFrame, endFrame)
+
 def xmlFile(filename):
     '''Return the matching xml file path for the input file.'''
     
@@ -533,4 +551,8 @@ def setUpLogger(outputFolder, logLevel, logPathPrefix):
     logger = logging.getLogger(__name__) # We configured root, but continue logging with the normal name.
     return logger
 
+
+# For debugging functions
+#if __name__ == "__main__":
+#    print getFrameRangeFromBatchFolder('/home/test/batch_234_1425/')
 

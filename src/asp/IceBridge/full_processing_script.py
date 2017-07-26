@@ -432,7 +432,7 @@ def main(argsIn):
 
         # When files fail in these conversion functions we log the error and keep going
 
-        if not skipFastConvert:
+        if not options.skipFastConvert:
          
             # Run non-ortho conversions without any multiprocessing (they are pretty fast)
             # TODO: May be worth doing the faster functions with multiprocessing in the future
@@ -446,7 +446,7 @@ def main(argsIn):
                 input_conversions.pairLidarFiles(lidarFolder)
 
 
-        if not options.noOrthoConvert
+        if not options.noOrthoConvert:
             # Multi-process call to convert ortho images
             input_conversions.getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder, 
                                                        options.cameraLookupFile,

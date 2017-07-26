@@ -64,7 +64,8 @@ def getJpegDateTime(filepath):
     raise Exception('Failed to read date/time from file: ' + filepath)
 
 def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame):
-    '''Convert jpeg images from RGB to single channel'''
+    '''Convert jpeg images from RGB to single channel.
+       Returns false if any files failed.'''
 
     badFiles = False
     
@@ -104,8 +105,8 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame):
         p = subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, error = p.communicate()
         if p.returncode != 0:
-            logger.error("Command failed.")
             badFiles = True
+            logger.error("Command failed.")
 
         if not os.path.exists(outputPath):
             badFiles = True
@@ -116,9 +117,9 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame):
             output += error
         m = re.match("^.*?premature\s+end", output, re.IGNORECASE)
         if m:
-            logger.info(output)
-            logger.info("Wiping bad files: " + inputPath + " and " + outputPath)
-            if os.path.exists(inputPath):  os.remove(inputPath)
+            logger.error("Wiping bad files: " + inputPath + " and " + outputPath +'\n'
+                         + output)
+            if os.path.exists(inputPath ): os.remove(inputPath)
             if os.path.exists(outputPath): os.remove(outputPath)
             badFiles = True
             
@@ -139,10 +140,12 @@ def correctFireballDems(demFolder, correctedDemFolder, startFrame, stopFrame, is
     badFiles = False
     for demFile in demFiles:
 
+        # Skip other files
         inputPath = os.path.join(demFolder, demFile)
         if not icebridge_common.isDEM(inputPath):
             continue
 
+        # Skip if outside the frame range
         frame = icebridge_common.getFrameNumberFromFilename(demFile)
         if not ( (frame >= startFrame) and (frame <= stopFrame) ):
             continue
@@ -155,16 +158,19 @@ def correctFireballDems(demFolder, correctedDemFolder, startFrame, stopFrame, is
             logger.info("File exists, skipping: " + outputPath)
             continue
 
+        # Run the correction script
         execPath = asp_system_utils.which('correct_icebridge_l3_dem')
         cmd = (('%s %s %s %d') %
                (execPath, inputPath, outputPath, isNorth))
-
         logger.info(cmd)
         os.system(cmd)
+        
+        # Check if the output file is good
         if not icebridge_common.isValidImage(outputPath):
             logger.error('Failed to convert dem file: ' + demFile)
             badFiles = True
-    return notBadFiles
+
+    return not badFiles
             
 
 def getCalibrationFileForFrame(cameraLoopkupFile, inputCalFolder, frame, yyyymmdd, site):
@@ -244,7 +250,8 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
                              refDemPath, cameraFolder, 
                              startFrame, stopFrame,
                              numProcesses, numThreads):
-    '''Generate camera models from the ortho files'''
+    '''Generate camera models from the ortho files.
+       Returns false if any files were not generated.'''
     
     logger = logging.getLogger(__name__)
     logger.info('Generating camera models from ortho images...')
@@ -264,6 +271,7 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
 
     # Loop through all input images
     taskHandles = []
+    outputFiles = []
     for imageFile in imageFiles:
         
         # Skip non-image files (including junk from stereo_gui)
@@ -281,6 +289,7 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
         orthoPath     = os.path.join(orthoFolder, orthoFile)
         outputCamFile = os.path.join(cameraFolder,
                                      icebridge_common.getCameraFileName(imageFile))
+        outputFiles.append(outputCamFile)
         if os.path.exists(outputCamFile):
             logger.info("File exists, skipping: " + outputCamFile)
             continue
@@ -299,23 +308,28 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
     icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, interactive=False,
                                                      quitKey='q')
 
-
-    # TODO: Run a check to make sure we got all the output files
-
     # All tasks should be finished, clean up the processing pool
     logger.info('Cleaning up the ortho processing pool...')
     icebridge_common.stopTaskPool(pool)
     logger.info('Finished cleaning up the ortho processing pool')
 
+    # Run a check to see if we got all the output files
+    for f in outputFiles:
+        if not os.path.exists(f):
+            return False
+    return True
+
 
 def convertLidarDataToCsv(lidarFolder):
-    '''Make sure all lidar data is available in a readable text format'''
+    '''Make sure all lidar data is available in a readable text format.
+       Returns false if any files failed to convert.'''
 
     logger = logging.getLogger(__name__)
     logger.info('Converting LIDAR files...')
     
     # Loop through all files in the folder
     allFiles = os.listdir(lidarFolder)
+    badFiles = False
     for f in allFiles:
         extension = icebridge_common.fileExtension(f)
         
@@ -331,8 +345,13 @@ def convertLidarDataToCsv(lidarFolder):
         
         # Call the conversion
         extract_icebridge_ATM_points.main([fullPath])
+        
+        # Check the result
         if not os.path.exists(outputPath):
-            raise Exception('Failed to parse LIDAR file: ' + fullPath)
+            logger.error('Failed to parse LIDAR file: ' + fullPath)
+            badFiles = True
+            
+    return not badFiles
 
 
 def pairLidarFiles(lidarFolder):
@@ -405,45 +424,7 @@ def pairLidarFiles(lidarFolder):
         if not os.path.exists(outputPath):
             logger.error('Failed to generate merged LIDAR file: ' + outputPath)
             badFiles = True
+            
     return badFiles
 
-# TODO: This function is obsolete!
-def convertAllButOrtho(jpegFolder, imageFolder, lidarFolder, demFolder,
-                       correctedDemFolder, isSouth, startFrame, stopFrame):
-    '''Perform the non-ortho (faster) conversions in parallel.'''
-
-    logger = logging.getLogger(__name__)
-
-    # One process per task that needs to be run.
-    # - These processes are fairly fast so hopefully this is sufficient.
-    NUM_PROCESSES = 4
-    logger.info('Starting non-ortho conversion pool with ' + str(NUM_PROCESSES) +' processes.')
-    pool = multiprocessing.Pool(NUM_PROCESSES)
-
-    # Loop through all input images
-    taskHandles = []
-
-               
-    # Add the four tasks to the processing pool
-
-    taskHandles.append(pool.apply_async(correctFireballDems,
-                                        (demFolder, correctedDemFolder, startFrame, stopFrame,
-                                         (not isSouth))))
-
-    taskHandles.append(pool.apply_async(convertJpegs,
-                                        (jpegFolder, imageFolder, startFrame, stopFrame)))
-   
-    taskHandles.append(pool.apply_async(convertLidarDataToCsv, (lidarFolder)))
-    
-    taskHandles.append(pool.apply_async(pairLidarFiles, (lidarFolder)))
-
-    # Wait for all the tasks to complete
-    logger.info('Finished adding ' + str(len(taskHandles)) + ' tasks to the pool.')
-    icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, interactive=False)
-
-
-    # All tasks should be finished, clean up the processing pool
-    logger.info('Cleaning up the non-ortho conversion pool...')
-    icebridge_common.stopTaskPool(pool)
-    logger.info('Finished cleaning up the non-ortho conversion pool')
 

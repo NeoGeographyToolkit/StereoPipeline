@@ -50,12 +50,12 @@ os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 
 # Constants used in this file
 PBS_QUEUE = 'devel' # devel, debug, long
-#NODE_TYPE = 'san' # Sandy bridge = 16 core,  32 GB mem, SBU 1.82
-NODE_TYPE = 'ivy' # Ivy bridge   = 20 core,  64 GB mem, SBU 2.52
+NODE_TYPE = 'san' # Sandy bridge = 16 core,  32 GB mem, SBU 1.82
+#NODE_TYPE = 'ivy' # Ivy bridge   = 20 core,  64 GB mem, SBU 2.52
 #NODE_TYPE = 'has' # Haswell      = 24 core, 128 GB mem, SBU 3.34
 #NODE_TYPE = '???' # Broadwell    = 28 core, 128 GB mem, SBU 4.04
 NUM_ORTHO_NODES     = 1
-NUM_ORTHO_PROCESSES = 10
+NUM_ORTHO_PROCESSES = 8
 NUM_ORTHO_THREADS   = 2
 NUM_BATCH_NODES     = 1
 NUM_BATCH_THREADS   = 8 # MGM is limited to 8 threads
@@ -75,7 +75,8 @@ UNPACK_FOLDER           = '/u/smcmich1/icebridge/data'
 CALIBRATION_FILE_FOLDER = '/u/smcmich1/icebridge/calib_files'
 REFERENCE_DEM_FOLDER    = '/u/smcmich1/icebridge/reference_dems'
 REMOTE_INPUT_FOLDER     = 'lou:/u/oalexan1/projects/data/icebridge'
-REMOTE_OUTPUT_FOLDER    = 'lou:/u/oalexan1/projects/data/icebridge'
+REMOTE_CAMERA_FOLDER    = 'lou:/u/smcmich1/icebridge/camera'
+REMOTE_OUTPUT_FOLDER    = 'lou:/u/smcmich1/icebridge/output'
 
 
 BUNDLE_LENGTH = 10
@@ -150,6 +151,8 @@ def retrieveRunData(run):
         logger.info('No need to retrieve run ' + str(run) + ', it is already on disk.')
         return
 
+    # First check that we have enough space available
+
     logger.info('Retrieving data for run ' + str(run))
 
     fileName = run[0]+'_'+run[1]+'.tar'
@@ -160,6 +163,11 @@ def retrieveRunData(run):
     status = os.system(cmd)
     if status != 0:
         raise Exception('Failed to copy data for run ' + str(run))
+
+    # Retrieve a preprocessed set of camera files if we have it
+    fetchCameraFolder(run)
+    
+    # TODO: Is it safe to set the conversion finished flag if we get the camera folder?
 
 
 def getFrameRange(run):
@@ -206,8 +214,23 @@ def conversionIsFinished(run, fullCheck=False):
     outputFolder = getOutputFolder(run)
     if not fullCheck:
         return os.path.exists(os.path.join(outputFolder, 'conversion_complete'))
+
+    # For a full check, make sure that there is a camera file for
+    #  each input image file.    
+    jpegFolder   = os.path.join(outputFolder, 'jpeg')
+    cameraFolder = os.path.join(outputFolder, 'camera')
+    jpegList = os.listdir(jpegFolder)
     
-    raise Exception('TODO: Option to do a full check for files here!')
+    for jpeg in jpegList:
+        if os.path.splitext(jpeg)[1] != '.JPG':
+            continue
+        camFile = os.path.join(cameraFolder,
+                               icebridge_common.getCameraFileName(jpeg))
+        if not os.path.exists(camFile):
+            return False
+    
+    # Add a lidar file check here if that turns out to be necessary
+    return True
 
 def runConversion(run):
     '''Run the conversion tasks for this run on the supercomputer nodes'''
@@ -257,6 +280,9 @@ def runConversion(run):
 
     # Create a file to mark that conversion is finished for this folder
     os.system('touch '+ os.path.join(outputFolder, 'conversion_complete'))
+
+    # Pack up camera folder and store it for later
+    gotCameras = packAndSendCameraFolder(run)
     
     raise Exception('DEBUG')
 
@@ -332,9 +358,33 @@ def waitForRunCompletion(text):
                     jobsRunning.append(job)
                     print 'Job launched: ' + job
 
-def checkResults(batchListPath):
-    '''Return (numOutputs, numProduced) to help validate our results'''
+def checkResults(run, batchListPath):
+    '''Return (numOutputs, numProduced, errorCount) to help validate our results'''
     
+    # TODO: Check more carefully!
+    runFolder = getOutputFolder(run)
+    
+    packedErrorLog = os.path.join(runFolder, 'packedErrors.log')
+    with open(packedErrorLog, 'w') as errorLog:
+    
+        # Look for errors in the log files
+        #logFileList =  [TODO]
+        errorCount = 0
+        errorWords = ['error', 'Error']
+        for log in logFileList:
+            with open(log, 'r') as f:
+                for line in f:
+                    hasError = False
+                    for word in errorWords:
+                        if word in line:
+                            hasError = True
+                    # Count up the errors and copy them to the packed error log.
+                    if hasError:
+                        packedErrorLog.write(line)
+                        errorCount += 1
+    logger.info('Counted ' + errorCount + ' errors in log files!')
+    
+    # Make sure each batch produced the aligned DEM file
     batchOutputName = 'out-align-DEM.tif'
     
     numOutputs  = 0
@@ -348,11 +398,63 @@ def checkResults(batchListPath):
             if os.path.exists(targetPath):
                 numProduced += 1
             
-    return (numOutputs, numProduced)    
+    return (numOutputs, numProduced, errorCount)
 
 
-def packAndSendCompletedRun(runFolder, tarPath):
+
+def fetchCameraFolder(run):
+    '''Fetch a camera folder from the archive if it exists.
+       Returns True if we got the file.'''
+    
+    logger = logging.getLogger(__name__)
+    logger.info('Fetching camera folder for ' + str(run))
+    
+    runFolder    = getOutputFolder(run)
+    cameraFolder = os.path.join(runFolder, 'camera')
+    
+    # Tar up the camera files and send them at the same time using the shiftc command
+    outputFileName =  'CAMERA_'+run[0]+'_'+run[1]+'.tar.gz'
+    louPath = os.path.join(REMOTE_CAMERA_FOLDER, fileName)
+
+    cmd = 'shiftc  --wait --extract-tar ' + louPath + ' ' + cameraFolder
+    logger.info(cmd)
+    status = os.system(cmd)
+    if status != 0:
+        logger.info('Did not find camera file for run.')
+        return False
+    else:
+        logger.info('Finished sending cameras to lou.')
+        return True
+
+
+def packAndSendCameraFolder(run):
+    '''Archive the camera folder for later use'''
+    
+    logger = logging.getLogger(__name__)
+    logger.info('Archiving camera folder for run ' + str(run))
+    
+    runFolder    = getOutputFolder(run)
+    cameraFolder = os.path.join(runFolder, 'camera')
+    
+    # Tar up the camera files and send them at the same time using the shiftc command
+    outputFileName =  'CAMERA_'+run[0]+'_'+run[1]+'.tar.gz'
+    louPath = os.path.join(REMOTE_CAMERA_FOLDER, fileName)
+
+    cmd = 'shiftc --wait --create-tar ' + cameraFolder + ' ' + louPath
+    logger.info(cmd)
+    status = os.system(cmd)
+    if status != 0:
+        raise Exception('Failed to pack/send cameras for run ' + str(run))
+    logger.info('Finished sending cameras to lou.')
+
+
+def packAndSendCompletedRun(run):
     '''Assembles and compresses the deliverable parts of the run'''
+    
+    logger = logging.getLogger(__name__)
+    logger.info('Getting ready to pack up run ' + str(run))
+    
+    runFolder = getOutputFolder(run)
     
     # TODO: What do we want to deliver?
     # - The aligned DEM file from each batch folder
@@ -360,20 +462,46 @@ def packAndSendCompletedRun(runFolder, tarPath):
     # - Camera calibration files used?
     # - Information about how we created the run (process date, ASP version, etc)
 
-    # Reassemble the files in a new folder or can we use links to do this?
-    assemblyFolder = 'TODO'
+    # Use symlinks to assemble a fake file structure to tar up
+    processFolder  = os.path.join(runFolder, 'processed')
+    assemblyFolder = os.path.join(runFolder, 'tarAssembly')
+    
+    # For each batch folder, start adding links to files that we want in the tarball
+    batchFolders  = os.listdir(processFolder)
+    batchFolders  = [os.path.join(processFolder,x) for x in batchFolders if 'batch_' in x]
+        
+    for batch in batchFolders:
+        alignDemFile = os.path.join(batch,'out-align-DEM.tif')
+        
+        # Need to change the name of these files when they go in the output folder
+        (startFrame, stopFrame) = getFrameRangeFromBatchFolder(batch)
+        prefix = ('F_%d_%d' % (startFrame, stopFrame))
+        prefix = os.path.join(assemblyFolder, prefix)
+        
+        os.symlink(alignDemFile, prefix+'_aligned_DEM.tif')
     
     
     # Tar up the assembled files and send them at the same time using the shiftc command
     # - No need to use a compression algorithm here
-    localFolder = 'TODO'
-    
+    outputFileName =  'DEM_'+run[0]+'_'+run[1]+'.tar'
     louPath = os.path.join(REMOTE_OUTPUT_FOLDER, fileName)
 
-    cmd = 'shiftc --wait --sync --extract-tar ' + assemblyFolder + ' ' + louPath
-    status = os.system(cmd)
+    # TODO: Don't use the wait command here, and clean up after this transfer is finished!
+
+    logger.info('Sending run to lou...')
+    cmd = 'shiftc --dereference --create-tar ' + assemblyFolder + ' ' + louPath
+    logger.info(cmd)
+    #status = os.system(cmd)
     if status != 0:
         raise Exception('Failed to pack/send results for run ' + str(run))
+    logger.info('Finished sending run to lou.')
+
+
+def cleanupRun(run):
+    '''Clean up a run after we are finished with it'''
+
+    runFolder = getOutputFolder(run)
+    os.system('rm -rf ' + runFolder)
 
 
 def main(argsIn):
@@ -450,12 +578,24 @@ def main(argsIn):
         logger.info('All jobs finished for run '+str(run))
         
         # Log the run as completed
+        # - If the run was not processed correctly it will have to be looked at manually
         addToRunList(COMPLETED_RUN_LIST, run)
 
         # Generate a simple report of the results
-        (numOutputs, numProduced) = checkResults(batchListPath)
-        resultText = 'Created ' + str(numProduced) + ' out of ' + str(numOutputs) + ' output targets.'
+        (numOutputs, numProduced, errorCount) = checkResults(run, batchListPath)
+        resultText = ('Created %d out of %d output targets with %d errors.' % 
+                      (numOutputs, numProduced, errorCount))
         logger.info(resultText)
+
+        # Don't pack or clean up the run if it did not generate all the output files.
+        if numProduced == numOutputs:
+            print 'TODO: Automatically send the completed files to lou and clean up the run!'
+
+            # Pack up all the files to lou, then delete the local copies.            
+            #packAndSendCompletedRun(run)
+            #cleanupRun(run)
+            
+            # TODO: Don't wait on the pack/send operation to finish!
 
         # Notify that the run is done processing
         sendEmail('scott.t.mcmichael@nasa.gov', 'IB run complete: '+run[0]+'_'+run[1], resultText)
