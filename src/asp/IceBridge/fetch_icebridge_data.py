@@ -57,7 +57,6 @@ def checkIfUrlExists(url):
     conn.request('HEAD', p.path)
     resp = conn.getresponse()
     # Invalid pages return 404, valid pages should return one of the numbers below.
-    #print 'URL response = ' + str(resp.status)
     return (resp.status == 403) or (resp.status == 301)
 
 def makeYearFolder(year, site):
@@ -196,11 +195,8 @@ def fetchAndParseIndexFileAux(isSouth, separateByLat, numDays, dayVal,
         prevStamp = -1
         for filename in fileList:
             [imageDateString, imageTimeString] = icebridge_common.parseTimeStamps(filename)
-            #print("vals are ", filename, imageDateString, imageTimeString)
             currStamp = float(imageTimeString)/1000000.0 # hours
-            #print("--currStamp is ", currStamp)
             if prevStamp < 0:
-                #print("--goes to list 1", filename)
                 list1.append(filename)
                 prevStamp = currStamp
                 continue
@@ -210,10 +206,8 @@ def fetchAndParseIndexFileAux(isSouth, separateByLat, numDays, dayVal,
             if currStamp - prevStamp >= 6: # six hour gap is a lot
                 isBigGap = True
             if not isBigGap:
-                #print("---goes to list1111 ", filename)
                 list1.append(filename)
             else:
-                #print("---goes to list2222", filename)
                 list2.append(filename)
 
             prevStamp = currStamp # for next iteration
