@@ -51,10 +51,15 @@ def get_prog_version(prog):
     if p.returncode != 0:
         raise Exception("Checking " + prog + " version caused errors")
 
-    m = re.match("^.*? ([\d\.]+)", out)
-    if not m:
-        raise Exception("Could not find " + prog + " version")
-    return m.group(1)
+    # This is a fix for sometimes GNU Parallel printing a warning at the beginning
+    for line in out.split("\n"):
+        m = re.match("^.*?warning", line, re.IGNORECASE)
+        if m: continue
+        m = re.match("^.*? ([\d\.]+)", line)
+        if not m:
+           raise Exception("Could not find " + prog + " version")
+        return m.group(1)
+    return ""
 
 def get_num_cpus():
     """Return the number of CPUs on the current machine."""
