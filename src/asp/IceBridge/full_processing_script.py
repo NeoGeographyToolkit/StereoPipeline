@@ -52,29 +52,45 @@ os.environ["PATH"] = binpath        + os.pathsep + os.environ["PATH"]
 
 louUser = 'oalexan1' # all data is stored under this user name
 
-def fetchAllRunData(yyyymmdd, site, dryRun,
-                    startFrame, stopFrame, maxNumToFetch,
-                    fetchNextDay, skipValidate, outputFolder,
-                    jpegFolder, orthoFolder, demFolder, lidarFolder):
+def indexFile(folder):
+
+    indexFiles = []
+    for f in os.listdir(folder):
+        if 'index.html.csv' in f:
+            indexFiles.append(os.path.join(folder, f))
+    if len(indexFiles) == 0:
+        raise Exception("Could not find the index file for: " + folder)
+    if len(indexFiles) > 1:
+        raise Exception("Found index files: " + " ".join(indexFiles))
+
+    return indexFiles[0]
+    
+def fetchAllRunData(options, startFrame, stopFrame, 
+                    fetchNextDay, jpegFolder, orthoFolder, demFolder, lidarFolder):
     '''Download all data needed to process a run'''
     
     logger = logging.getLogger(__name__)
     logger.info('Downloading all data for the run! This could take a while.')
-    
-    baseCommand = (('--yyyymmdd %s --site %s --start-frame %d --stop-frame %d')
-                   % (yyyymmdd, site, startFrame, stopFrame))
 
-    if maxNumToFetch >= 0:
+    baseCommand = (('--yyyymmdd %s --site %s --start-frame %d --stop-frame %d')
+                   % (options.yyyymmdd, options.site, startFrame, stopFrame))
+
+    if options.maxNumToFetch >= 0:
         baseCommand += ' --max-num-to-fetch ' + str(maxNumToFetch)
 
     if fetchNextDay:
         baseCommand += ' --fetch-from-next-day-also'
+
+    if fetchNextDay or options.refetchIndex:
         baseCommand += ' --refetch-index' # this was not right in older fetched runs
         
-    if skipValidate:
+    if options.stopAfterIndexFetch:
+        baseCommand += ' --stop-after-index-fetch' 
+
+    if options.skipValidate:
         baseCommand += ' --skip-validate'
 
-    if dryRun:
+    if options.dryRun:
         baseCommand += ' --dry-run'
 
     jpegCommand  = '--type image ' + baseCommand +' '+ jpegFolder
@@ -96,6 +112,22 @@ def fetchAllRunData(yyyymmdd, site, dryRun,
     if fetch_icebridge_data.main(lidarCommand.split()) < 0:
         return -1
 
+    # jpeg and ortho indices must be consistent
+    jpegIndex = indexFile(jpegFolder)
+    orthoIndex = indexFile(orthoFolder)
+    (jpegFrameDict, jpegUrlDict)   = icebridge_common.readIndexFile(jpegIndex)
+    (orthoFrameDict, orthoUrlDict) = icebridge_common.readIndexFile(orthoIndex)
+    
+    for jpegFrame in jpegFrameDict.keys():
+        if jpegFrame not in orthoFrameDict.keys():
+            raise Exception ("Found jpeg frame missing from ortho:" + str(jpegFrame))
+
+    for orthoFrame in orthoFrameDict.keys():
+        if orthoFrame not in jpegFrameDict.keys():
+            raise Exception ("Found ortho frame missing from jpeg:" + str(orthoFrame))
+
+    # TODO: Wipe any ortho and jpeg images not in the index, or at least warn about it.
+    
     return (jpegFolder, orthoFolder, demFolder, lidarFolder)
 
 def processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFolder, isSouth, 
@@ -257,20 +289,24 @@ def main(argsIn):
 
         parser.add_option("--camera-lookup-file",  dest="cameraLookupFile", default=None,
                           help="The file to use to find which camera was used for which flight. " + \
-                          "By default it is in the same directory as this script and named camera_lookup.txt.")
+                          "By default it is in the same directory as this script and named " + \
+                          "camera_lookup.txt.")
         
         # Processing options
         parser.add_option('--bundle-length', dest='bundleLength', default=2,
-                          type='int', help="The number of images to bundle adjust and process in a single batch.")
+                          type='int', help="The number of images to bundle adjust and process " + \
+                          "in a single batch.")
         # TODO: Compute this automatically??
         parser.add_option('--overlap-limit', dest='overlapLimit', default=2,
-                          type='int', help="The number of images to treat as overlapping for bundle adjustment.")
+                          type='int', help="The number of images to treat as overlapping for " + \
+                          "bundle adjustment.")
 
         # Python treats numbers starting with 0 as being in octal rather than decimal.
         # Ridiculous. So read them as strings and convert to int. 
-        parser.add_option('--start-frame', dest='startFrame', default=None, type='int',
-                          help='Frame to start with.  Leave this and stop-frame blank to process all frames.')
-        parser.add_option('--stop-frame', dest='stopFrame', default=None, type='int',
+        parser.add_option('--start-frame', dest='startFrameStr', default=None,
+                          help="Frame to start with.  Leave this and stop-frame blank to " + \
+                          "process all frames.")
+        parser.add_option('--stop-frame', dest='stopFrameStr', default=None,
                           help='Frame to stop on.')
         
         parser.add_option("--processing-subfolder",  dest="processingSubfolder", default=None,
@@ -302,7 +338,14 @@ def main(argsIn):
                           help="Set up the input directories but do not fetch/process any imagery.")
 
 
-        # The following options are intended for use on the supercomputer                          
+        # The following options are intended for use on the supercomputer
+        parser.add_option("--refetch-index", action="store_true", dest="refetchIndex",
+                          default=False,
+                          help="Force refetch of the index file.")
+        parser.add_option("--stop-after-index-fetch", action="store_true",
+                          dest="stopAfterIndexFetch", default=False,
+                          help="Stop after fetching the indices.")
+        
         parser.add_option("--tar-and-wipe", action="store_true", dest="tarAndWipe", default=False,
                           help="After fetching all data and performing all conversions and " + \
                           "validations, make a tarball on lou and wipe the directory. "      + \
@@ -353,11 +396,18 @@ def main(argsIn):
         options.outputFolder = options.site + '_' + options.yyyymmdd
 
     # Explicitely go from strings to integers, per earlier note.
-    if options.startFrame is None:
-        options.startFrame = icebridge_common.getSmallestFrame()
-    if options.stopFrame is None:
-        options.stopFrame = icebridge_common.getLargestFrame()
-    
+    if options.startFrameStr is not None:
+        startFrame = int(options.startFrameStr)
+    else:
+        startFrame = icebridge_common.getSmallestFrame()
+    if options.stopFrameStr is not None:
+        stopFrame  = int(options.stopFrameStr)
+    else:
+        stopFrame = icebridge_common.getLargestFrame()
+
+    if options.stopAfterIndexFetch:
+        options.stopAfterFetch = True
+        
     os.system('mkdir -p ' + options.outputFolder)
     logLevel = logging.INFO # Make this an option??
     logger   = icebridge_common.setUpLogger(options.outputFolder, logLevel,
@@ -419,19 +469,13 @@ def main(argsIn):
     if options.noFetch:
         logger.info('Skipping fetch.')
     else:
-        # Do one more attempt if at the jpeg conversion stage some files were wiped
-        # because they were invalid.
-        for attempt in range(2):
-            # Call data fetch routine and check the result
-            fetchResult = fetchAllRunData(options.yyyymmdd, options.site, options.dryRun,
-                                          options.startFrame, options.stopFrame, options.maxNumToFetch,
-                                          fetchNextDay(options.outputFolder),
-                                          options.skipValidate,
-                                          options.outputFolder,
-                                          jpegFolder, orthoFolder, demFolder, lidarFolder)
-            if fetchResult < 0:
-                logger.Error("Fetching failed, quitting the program!")
-                return -1
+        # Call data fetch routine and check the result
+        fetchResult = fetchAllRunData(options, startFrame, stopFrame,
+                                      fetchNextDay(options.outputFolder),
+                                      jpegFolder, orthoFolder, demFolder, lidarFolder)
+        if fetchResult < 0:
+            logger.Error("Fetching failed, quitting the program!")
+            return -1
            
     if options.stopAfterFetch or options.dryRun:
         logger.info('Fetching complete, finished!')
@@ -448,10 +492,30 @@ def main(argsIn):
             # Run non-ortho conversions without any multiprocessing (they are pretty fast)
             # TODO: May be worth doing the faster functions with multiprocessing in the future
             input_conversions.correctFireballDems(demFolder, corrDemFolder,
-                                                  options.startFrame, options.stopFrame, (not isSouth))
+                                                  options.startFrame, options.stopFrame,
+                                                  (not isSouth))
 
-            input_conversions.convertJpegs(jpegFolder, imageFolder, options.startFrame, options.stopFrame)
-
+            isGood = input_conversions.convertJpegs(jpegFolder, imageFolder, options.startFrame,
+                                                    options.stopFrame)
+            if not isGood:
+                if options.noFetch:
+                    logger.Error("Conversions failed, quitting the program!")
+                    return -1
+                else:
+                    # Can try again to fetch, this can fix invalid files
+                    fetchResult = fetchAllRunData(options, startFrame, stopFrame,
+                                                  fetchNextDay(options.outputFolder),
+                                                  jpegFolder, orthoFolder, demFolder, lidarFolder)
+                    if fetchResult < 0:
+                        logger.Error("Second fetching failed, quitting the program!")
+                        return -1
+                    isGood = input_conversions.convertJpegs(jpegFolder, imageFolder,
+                                                            options.startFrame,  options.stopFrame)
+                    if not isGood:
+                        logger.Error("Second conversion failed, quitting the program!")
+                        return -1
+                    
+                
             if not options.noLidarConvert:
                 input_conversions.convertLidarDataToCsv(lidarFolder)
                 input_conversions.pairLidarFiles(lidarFolder)
@@ -467,10 +531,10 @@ def main(argsIn):
                                                        options.numProcesses, options.numThreads)
 
 
-    # This option happens just after conversion to allow it to be paired with the stopAfterConvert option.
+    # This option happens just after conversion to allow it to be
+    # paired with the stopAfterConvert option.
     if options.tarAndWipe:
         tarAndWipe(options, logger)
-
 
     if options.stopAfterConvert:
         print 'Conversion complete, finished!'
@@ -479,7 +543,7 @@ def main(argsIn):
     # Call the processing routine
     processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder,
                   processFolder, isSouth,
-                  options.bundleLength, options.startFrame, options.stopFrame, options.logBatches,
+                  options.bundleLength, startFrame, stopFrame, options.logBatches,
                   options.numProcesses, options.numThreads)
 
    

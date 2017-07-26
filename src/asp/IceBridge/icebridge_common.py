@@ -52,6 +52,23 @@ def hasImageExtension(filename):
         return True
     return False
 
+def readIndexFile(parsedIndexPath):
+    '''Read an index file having frame number, filename, and url it came from.'''
+    frameDict  = {}
+    urlDict    = {}
+    with open(parsedIndexPath, 'r') as f:
+        for line in f:
+            parts = line.strip().split(',')
+            if len(parts) <= 2:
+                # Odd index file
+                raise Exception("Invalid index file.")
+            
+            frameNumber = int(parts[0])
+            frameDict[frameNumber] = parts[1].strip()
+            urlDict[frameNumber]   = parts[2].strip()
+
+    return (frameDict, urlDict)
+
 def isValidImage(filename):
     '''Check that an image file is not corrupted in some way. This check is not enough.'''
     
@@ -379,7 +396,6 @@ def parseTimeStamps(fileName):
         return []
 
     return [imageDateString, imageTimeString]
-
 
 def findMatchingLidarFile(imageFile, lidarFolder):
     '''Given an image file, find the best lidar file to use for alignment.'''

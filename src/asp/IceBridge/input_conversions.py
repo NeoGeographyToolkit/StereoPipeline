@@ -126,7 +126,7 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame):
     if badFiles:
         logger.error("Converstion of JPEGs failed. If any files were corrupted, " +
                      "they were removed, and need to be re-fetched.")
-    return not badFiles
+    return (not badFiles)
             
 def correctFireballDems(demFolder, correctedDemFolder, startFrame, stopFrame, isNorth):
     '''Fix the header problem in Fireball DEMs'''

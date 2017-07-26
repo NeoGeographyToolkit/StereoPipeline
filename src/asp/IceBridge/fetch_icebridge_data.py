@@ -102,29 +102,17 @@ def getFolderUrl(year, month, day, ext, site, fileType):
     
     return folderUrl
 
-def readIndexFile(parsedIndexPath):
-    frameDict  = {}
-    urlDict    = {}
-    with open(parsedIndexPath, 'r') as f:
-        for line in f:
-            parts = line.strip().split(',')
-            if len(parts) <= 2:
-                # Od index file
-                raise Exception("Invalid index file.")
-            
-            frameNumber = int(parts[0])
-            frameDict[frameNumber] = parts[1].strip()
-            urlDict[frameNumber]   = parts[2].strip()
-
-    return (frameDict, urlDict)
-
 def hasGoodLat(latitude, isSouth):
     if (isSouth and latitude < 0) or ( (not isSouth) and latitude > 0 ):
         return True
 
     return False
+
+# These exist both in AN and GR, all mixed up, and have to separate by lat
+def isInSeparateByLatTable(site):
+    return site in ['20150924', '20151005', '20151020', '20151022'];
     
-def fetchAndParseIndexFileAux(isSouth, tryToSeparateByLat, dayVal,
+def fetchAndParseIndexFileAux(isSouth, separateByLat, numDays, dayVal,
                               baseCurlCmd, folderUrl, path, fileType):
     '''Retrieve the index file for a folder of data and create
     a parsed version of it that contains frame number / filename pairs.'''
@@ -172,25 +160,11 @@ def fetchAndParseIndexFileAux(isSouth, tryToSeparateByLat, dayVal,
     # Some runs, eg, https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/IODMS1B.001/2015.09.24
     # have files for both GR and AN, with same frame number. Those need to be separated
     # by latitude. This is a problem only with orthoimages.
-    haveToSeparateByLat = False
-    frameDict  = {}
-    for filename in fileList:
-        if not tryToSeparateByLat: continue 
-        frame = icebridge_common.getFrameNumberFromFilename(filename)
-        if frame in frameDict.keys():
-            haveToSeparateByLat = True
-            logger.info("Found a run with files from both AN and GR.")
-            logger.info("Files with same frame number: " + frameDict[frame] +
-                       " and " + filename)
-            logger.info("Need to see which to keep.")
-            break
-        frameDict[frame] = filename
-
     badXmls = set()
     outputFolder = os.path.dirname(path)
-    if haveToSeparateByLat:
+    if separateByLat:
         allFilesToFetch = []
-        allUrlsToFetch = []
+        allUrlsToFetch  = []
         for filename in fileList:
             xmlFile  = icebridge_common.xmlFile(filename)
             url      = os.path.join(folderUrl, xmlFile)
@@ -204,50 +178,79 @@ def fetchAndParseIndexFileAux(isSouth, tryToSeparateByLat, dayVal,
                                              allFilesToFetch, allUrlsToFetch,
                                              logger)
 
-        # Mark the bad ones and wipe them too
+        # Mark the bad ones
         for xmlFile in allFilesToFetch:
             latitude = icebridge_common.parseLatitude(xmlFile)
             isGood = hasGoodLat(latitude, isSouth)
             if not isGood:
                 badXmls.add(xmlFile)
-                if os.path.exists(xmlFile): os.remove(xmlFile)
+                
+    elif (fileType == 'ortho' or fileType == 'dem'):
+        # Sometimes there is a large gap in the timestamp. That means orthoimages 
+        # from previous day are spilling over. If dayVal is 0, we must ignore
+        # the spillover images. If dayVal is 1, we must keep the spillover images
+        # and igore the others.
+        list1 = []
+        list2 = []
+        isBigGap = False
+        prevStamp = -1
+        for filename in fileList:
+            [imageDateString, imageTimeString] = icebridge_common.parseTimeStamps(filename)
+            #print("vals are ", filename, imageDateString, imageTimeString)
+            currStamp = float(imageTimeString)/1000000.0 # hours
+            #print("--currStamp is ", currStamp)
+            if prevStamp < 0:
+                #print("--goes to list 1", filename)
+                list1.append(filename)
+                prevStamp = currStamp
+                continue
             
+            # Note that once isBigGap becomes true, it stays true
+            # even when the gap gets small again
+            if currStamp - prevStamp >= 6: # six hour gap is a lot
+                isBigGap = True
+            if not isBigGap:
+                #print("---goes to list1111 ", filename)
+                list1.append(filename)
+            else:
+                #print("---goes to list2222", filename)
+                list2.append(filename)
+
+            prevStamp = currStamp # for next iteration
+            
+        if isBigGap:
+           if dayVal == 0: 
+               fileList = list2[:] # current day
+           else:
+               fileList = list1[:] # spillover from prev day
+
     # For each entry that matched the regex, record: the frame number and the file name.
     frameDict = {}
     urlDict   = {}
     badFiles = []
     for filename in fileList:
 
-        xmlFile  = os.path.join(outputFolder, icebridge_common.xmlFile(filename))
-        if xmlFile in badXmls:
-            continue
+        if len(badXmls) > 0:
+            xmlFile  = os.path.join(outputFolder, icebridge_common.xmlFile(filename))
+            if xmlFile in badXmls:
+                continue
             
         frame = icebridge_common.getFrameNumberFromFilename(filename)
-        if frame in frameDict.keys() and haveToSeparateByLat:
+        if frame in frameDict.keys():
             
-            # This time the same frame must not occur twice.
-            logger.info("Warning: Found two file names with same frame number: " + \
-                        frameDict[frame] + " and " + filename)
-
-            # The solution for this is the following: if dayVal is 1, that means
-            # that we are now processing the images from the next day,
-            # which sometimes have on top images left over from the current day.
-            # Hence keep the first occurence. If however dayVal is 0,
-            # we are processing the current day, hence whatever is on top is
-            # a spillover from the previous day, so ignore that.
-            if dayVal > 0:
-                logger.info("Keep: " + frameDict[frame] + " and wipe " + filename)
+            # The same frame must not occur twice.
+            if fileType not in LIDAR_TYPES:
+                logger.error("Error: Found two file names with same frame number: " + \
+                             frameDict[frame] + " and " + filename)
                 badFiles.append(filename)
-                continue
-            else:
-                logger.info("Keep: " + filename + " and wipe " + frameDict[frame])
                 badFiles.append(frameDict[frame])
-
-        frameDict[frame] = filename
+                            
         # note that folderUrl can vary among orthoimages, as sometimes
         # some of them are in a folder for the next day.
+        frameDict[frame] = filename
         urlDict[frame]   = folderUrl
-
+        
+    # Wipe them all, to be sorted later
     for badFile in badFiles:
         if os.path.exists(badFile):
             logger.info("Deleting: " + badFile)
@@ -256,16 +259,23 @@ def fetchAndParseIndexFileAux(isSouth, tryToSeparateByLat, dayVal,
         if os.path.exists(xmlFile):
             logger.info("Deleting: " + xmlFile)
             os.remove(xmlFile)
-        
+
+    if len(badFiles) > 0:
+        raise Exception("Found files with same frame number")
+    
     return (frameDict, urlDict)
 
 # Create a list of all files that must be fetched unless done already.
 def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
 
+    separateByLat = (options.type == 'ortho' and isInSeparateByLatTable(options.site))
+    if separateByLat:
+        options.fetchNextDay = False
+        
     # If we need to parse the next flight day as well, as expected in some runs,
     # we will fetch two html files, but create a single index out of them.
     dayVals = [0]
-    if options.fetchNextDay:
+    if options.fetchNextDay and ( (options.type == 'ortho') or (options.type == 'dem') ):
         dayVals.append(1)
         options.refetchIndex = True # Force refetch, to help with old archives
         
@@ -276,7 +286,8 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
         filename = options.type + '_index.html'
         
     indexPath       = os.path.join(outputFolder, filename)
-    parsedIndexPath = indexPath + '.csv'
+    currIndexPath   = indexPath
+    parsedIndexPath = indexPath + '.csv' # we count later on this convention
 
     if options.refetchIndex:
         os.system('rm -f ' + indexPath)
@@ -289,14 +300,12 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
     frameDict  = {}
     urlDict    = {}
 
-    tryToSeparateByLat = (options.type == 'ortho')
-    
     for dayVal in dayVals:
 
         if len(dayVals) > 1:
-            indexPath = indexPath + '.day' + str(dayVal)
+            currIndexPath = indexPath + '.day' + str(dayVal)
             if options.refetchIndex:
-                os.system('rm -f ' + indexPath)
+                os.system('rm -f ' + currIndexPath)
             
         # Find folderUrl which contains all of the files
         if options.type in LIDAR_TYPES:
@@ -334,9 +343,9 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
                     count += 1
                     (localFrameDict, localUrlDict) = \
                                      fetchAndParseIndexFileAux(isSouth,
-                                                               tryToSeparateByLat, dayVal,
+                                                               separateByLat, len(dayVals), dayVal,
                                                                baseCurlCmd, folderUrl,
-                                                               indexPath, lidar_types[count])
+                                                               currIndexPath, lidar_types[count])
                     for frame in sorted(localFrameDict.keys()):
                         filename = localFrameDict[frame]
                         xmlFile  = icebridge_common.xmlFile(filename)
@@ -371,17 +380,22 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
 
         logger.info('Fetching from URL: ' + folderUrl)
         (localFrameDict, localUrlDict) = \
-                         fetchAndParseIndexFileAux(isSouth, tryToSeparateByLat, dayVal,
+                         fetchAndParseIndexFileAux(isSouth,
+                                                   separateByLat, len(dayVals), dayVal,
                                                    baseCurlCmd, folderUrl,
-                                                   indexPath, options.type)
+                                                   currIndexPath, options.type)
 
         # Append to the main index
         for frame in sorted(localFrameDict.keys()):
-            # If we already have this frame, don't read it from the current day
-            # as that's a recipe for mix-up
-            if frame not in frameDict.keys():
-                frameDict[frame] = localFrameDict[frame]
-                urlDict[frame]   = localUrlDict[frame]
+
+            # If we already have this frame, that's a problem, we
+            # should have cleaned that up by now.
+            if (not options.type in LIDAR_TYPES) and (frame in frameDict.keys()):
+                raise Exception("Found duplicate frame: " + \
+                                frameDict[frame] + " " + localFrameDict[frame])
+            
+            frameDict[frame] = localFrameDict[frame]
+            urlDict[frame]   = localUrlDict[frame]
         
     # Write the combined index file
     with open(parsedIndexPath, 'w') as f:
@@ -418,14 +432,17 @@ def doFetch(options, outputFolder):
     # - Keep track of the earliest and latest frame
     logger.info('Reading file list from ' + parsedIndexPath)
     try:
-        (frameDict, urlDict) = readIndexFile(parsedIndexPath)
+        (frameDict, urlDict) = icebridge_common.readIndexFile(parsedIndexPath)
     except:
         # We probably ran into old format index file. Must refetch.
         logger.info('Could not read index file. Try again.')
         options.refetchIndex = True
         parsedIndexPath = fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder)
-        (frameDict, urlDict) = readIndexFile(parsedIndexPath)
+        (frameDict, urlDict) = icebridge_common.readIndexFile(parsedIndexPath)
 
+    if options.stopAfterIndexFetch:
+        return 0
+    
     allFrames = sorted(frameDict.keys())
     firstFrame = icebridge_common.getLargestFrame()    # start big
     lastFrame  = icebridge_common.getSmallestFrame()   # start small
@@ -602,6 +619,9 @@ def main(argsIn):
         parser.add_option("--refetch-index", action="store_true", dest="refetchIndex",
                           default=False,
                           help="Force refetch of the index file.")
+        parser.add_option("--stop-after-index-fetch", action="store_true",
+                          dest="stopAfterIndexFetch", default=False,
+                          help="Stop after fetching the indices.")
         parser.add_option("--type",  dest="type", default='image',
                           help="File type to download ([image], ortho, dem, lidar)")
         parser.add_option('--max-num-to-fetch', dest='maxNumToFetch', default=-1,
