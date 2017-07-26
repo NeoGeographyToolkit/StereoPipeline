@@ -40,6 +40,8 @@ Here is the complete list of flights for which we will have to fetch
 orthoimages from the next day's dataset.
 
 AN 20091025
+AN 20091103
+AN 20091104
 AN 20091105
 AN 20091109
 AN 20091112

@@ -67,9 +67,9 @@ def extract_hdf5_points(inputPath):
     cmd = 'paste ' + tempLat +' '+ tempLon +' '+ tempAlt +' > '+ outputPath
     os.system(cmd)
     
-    os.remove(tempLat)
-    os.remove(tempLon)
-    os.remove(tempAlt)
+    if os.path.exists(tempLat): os.remove(tempLat)
+    if os.path.exists(tempLon): os.remove(tempLon)
+    if os.path.exists(tempAlt): os.remove(tempAlt)
     
     if os.path.exists(outputPath):
         print 'Wrote file: ' + outputPath

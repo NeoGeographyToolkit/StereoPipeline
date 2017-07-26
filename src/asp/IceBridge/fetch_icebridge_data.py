@@ -124,7 +124,8 @@ def hasGoodLat(latitude, isSouth):
 
     return False
     
-def fetchAndParseIndexFileAux(isSouth, tryToSeparateByLat, baseCurlCmd, folderUrl, path, fileType):
+def fetchAndParseIndexFileAux(isSouth, tryToSeparateByLat, dayVal,
+                              baseCurlCmd, folderUrl, path, fileType):
     '''Retrieve the index file for a folder of data and create
     a parsed version of it that contains frame number / filename pairs.'''
 
@@ -214,6 +215,7 @@ def fetchAndParseIndexFileAux(isSouth, tryToSeparateByLat, baseCurlCmd, folderUr
     # For each entry that matched the regex, record: the frame number and the file name.
     frameDict = {}
     urlDict   = {}
+    badFiles = []
     for filename in fileList:
 
         xmlFile  = os.path.join(outputFolder, icebridge_common.xmlFile(filename))
@@ -222,14 +224,38 @@ def fetchAndParseIndexFileAux(isSouth, tryToSeparateByLat, baseCurlCmd, folderUr
             
         frame = icebridge_common.getFrameNumberFromFilename(filename)
         if frame in frameDict.keys() and haveToSeparateByLat:
-            # This time the same frame must not occur twice
-            raise Exception("Found two file names with same frame number: " + \
-                            frameDict[frame] + " and " + filename)
+            
+            # This time the same frame must not occur twice.
+            logger.info("Warning: Found two file names with same frame number: " + \
+                        frameDict[frame] + " and " + filename)
+
+            # The solution for this is the following: if dayVal is 1, that means
+            # that we are now processing the images from the next day,
+            # which sometimes have on top images left over from the current day.
+            # Hence keep the first occurence. If however dayVal is 0,
+            # we are processing the current day, hence whatever is on top is
+            # a spillover from the previous day, so ignore that.
+            if dayVal > 0:
+                logger.info("Keep: " + frameDict[frame] + " and wipe " + filename)
+                badFiles.append(filename)
+                continue
+            else:
+                logger.info("Keep: " + filename + " and wipe " + frameDict[frame])
+                badFiles.append(frameDict[frame])
 
         frameDict[frame] = filename
         # note that folderUrl can vary among orthoimages, as sometimes
         # some of them are in a folder for the next day.
         urlDict[frame]   = folderUrl
+
+    for badFile in badFiles:
+        if os.path.exists(badFile):
+            logger.info("Deleting: " + badFile)
+            os.remove(badFile)
+        xmlFile  = icebridge_common.xmlFile(badFile)
+        if os.path.exists(xmlFile):
+            logger.info("Deleting: " + xmlFile)
+            os.remove(xmlFile)
         
     return (frameDict, urlDict)
 
@@ -307,7 +333,8 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
                 for folderUrl in folderUrls:
                     count += 1
                     (localFrameDict, localUrlDict) = \
-                                     fetchAndParseIndexFileAux(isSouth, tryToSeparateByLat,
+                                     fetchAndParseIndexFileAux(isSouth,
+                                                               tryToSeparateByLat, dayVal,
                                                                baseCurlCmd, folderUrl,
                                                                indexPath, lidar_types[count])
                     for frame in sorted(localFrameDict.keys()):
@@ -344,7 +371,7 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
 
         logger.info('Fetching from URL: ' + folderUrl)
         (localFrameDict, localUrlDict) = \
-                         fetchAndParseIndexFileAux(isSouth, tryToSeparateByLat,
+                         fetchAndParseIndexFileAux(isSouth, tryToSeparateByLat, dayVal,
                                                    baseCurlCmd, folderUrl,
                                                    indexPath, options.type)
 
@@ -485,7 +512,14 @@ def doFetch(options, outputFolder):
         # Sanity check: XML files must have the right latitude.
         if icebridge_common.fileExtension(outputPath) == '.xml':
             if os.path.exists(outputPath):
-                latitude = icebridge_common.parseLatitude(outputPath)
+                try:
+                    latitude = icebridge_common.parseLatitude(outputPath)
+                except:
+                    # Corrupted file
+                    logger.info("Failed to parse latitude, will wipe: " + outputPath)
+                    if os.path.exists(outputPath): os.remove(outputPath)
+                    failedFiles.append(outputPath)
+                    
                 isGood = hasGoodLat(latitude, isSouth)
                 if not isGood:
                     logger.info("Wiping XML file " + outputPath + " with bad latitude " + \

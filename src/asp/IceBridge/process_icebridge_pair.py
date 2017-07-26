@@ -121,9 +121,9 @@ def main(argsIn):
     if not os.path.exists(outputFolder):
         os.mkdir(outputFolder)
 
-    print 'Searching for matching lidar file...'
-    lidarFile = findMatchingLidarFile(imageA, lidarFolder)
-    print 'Found matching lidar file ' + lidarFile
+    #print 'Searching for matching lidar file...'
+    #lidarFile = findMatchingLidarFile(imageA, lidarFolder)
+    #print 'Found matching lidar file ' + lidarFile
 
     # Does this ever change?
     csvFormatString = '"1:lat 2:lon 3:height_above_datum"'

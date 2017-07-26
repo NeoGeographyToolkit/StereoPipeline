@@ -194,6 +194,8 @@ def fetchNextDay(outputFolder):
     '''???'''
 
     return outputFolder in ['AN_20091025',
+                            'AN_20091103',
+                            'AN_20091104',
                             'AN_20091105',
                             'AN_20091109',
                             'AN_20091112',
