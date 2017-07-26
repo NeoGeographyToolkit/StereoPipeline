@@ -35,6 +35,7 @@ sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 sys.path.insert(0, icebridgepath)
 
+import icebridge_common
 
 # Prepend to system PATH
 os.environ["PATH"] = basepath       + os.pathsep + os.environ["PATH"]
@@ -82,7 +83,7 @@ class RunHelper():
 
     def _internalLoc(self, path):
         '''Returns a folder relative to getFolder()'''
-        return os.path.join(self.getFolder(), string)
+        return os.path.join(self.getFolder(), path)
 
     def getJpegFolder(self):
         return self._internalLoc('jpeg')
@@ -129,7 +130,7 @@ class RunHelper():
         return output
 
 
-    def isRunReadyForProcessing(self):
+    def isReadyForProcessing(self):
         '''Return true if all the required source data has been downloaded'''
     
         # Just check if all the subfolders are there.

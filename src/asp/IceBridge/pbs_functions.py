@@ -55,6 +55,8 @@ def checkForJobName(user, name):
 def getNumCores(nodeType):
     '''Return the number of cores available for a given node type'''
 
+    if nodeType == 'wes': # Merope
+        return 12
     if nodeType == 'san':
         return 16
     if nodeType == 'ivy':

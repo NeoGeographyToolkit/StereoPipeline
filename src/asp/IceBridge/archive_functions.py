@@ -58,7 +58,7 @@ def retrieveRunData(run):
     logger = logging.getLogger(__name__)
     
     # Skip retrieval if we already have the data
-    if isRunReadyForProcessing(run):
+    if run.isReadyForProcessing():
         logger.info('No need to retrieve run ' + str(run) + ', it is already on disk.')
         return
 

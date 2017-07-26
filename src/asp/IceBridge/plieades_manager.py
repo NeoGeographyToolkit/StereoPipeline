@@ -50,6 +50,7 @@ os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 
 # Constants used in this file
 PBS_QUEUE = 'devel' # devel, debug, long
+#NODE_TYPE = 'wes' # Westmere = 12 core,  48 GB mem, SBU 1.0, Launch from mfe1 only!
 NODE_TYPE = 'san' # Sandy bridge = 16 core,  32 GB mem, SBU 1.82
 #NODE_TYPE = 'ivy' # Ivy bridge   = 20 core,  64 GB mem, SBU 2.52
 #NODE_TYPE = 'has' # Haswell      = 24 core, 128 GB mem, SBU 3.34
@@ -103,7 +104,7 @@ def readRunList(path):
                 continue
             parts = line.split() # Site, yyyymmdd
             # Set up a class object to help manage the run
-            runList.append(run_helper.RunHelper(parts[0], parts[1], UNPACK_FOLDER)
+            runList.append(run_helper.RunHelper(parts[0], parts[1], UNPACK_FOLDER))
     return runList
 
 def addToRunList(path, run):
@@ -173,7 +174,7 @@ def runConversion(run):
     # TODO: Is using the default output folder ok here?
     scriptPath = '/u/smcmich1/repo/StereoPipeline/src/asp/IceBridge/full_processing_script.py' # TODO
     args       = ('%s %s --site %s --yyyymmdd %s --skip-fetch --stop-after-convert --num-threads %d --num-processes %d --output-folder %s' 
-                  % (CALIBRATION_FILE_FOLDER, REFERENCE_DEM_FOLDER, run[0], run[1], NUM_ORTHO_THREADS, NUM_ORTHO_PROCESSES, outputFolder))
+                  % (CALIBRATION_FILE_FOLDER, REFERENCE_DEM_FOLDER, run.site, run.yyyymmdd, NUM_ORTHO_THREADS, NUM_ORTHO_PROCESSES, outputFolder))
     
     baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
 
