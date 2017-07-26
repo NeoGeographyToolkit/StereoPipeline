@@ -118,6 +118,7 @@ def processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFo
     process_icebridge_run.main(processCommand.split())
 
 def workDirs():
+    '''???'''
     currDir = os.getcwd()
     m = re.match("^.*?/" + louUser + "/(.*?)$", currDir)
     if not m:
@@ -128,6 +129,7 @@ def workDirs():
     return (pfePath, lfePath)
     
 def tarAndWipe(options, logger):
+    '''???'''
 
     logger.info("All files were fetched and checks passed. " +
                 "Will tar to lou and wipe the dir.")
@@ -169,6 +171,7 @@ def tarAndWipe(options, logger):
     return 0
 
 def startWithLouArchive(options, logger):
+    '''???'''
 
     (pfePath, lfePath) = workDirs()
 
@@ -188,6 +191,7 @@ def startWithLouArchive(options, logger):
     return 0
 
 def fetchNextDay(outputFolder):
+    '''???'''
 
     return outputFolder in ['AN_20091025',
                             'AN_20091105',
@@ -205,7 +209,23 @@ def fetchNextDay(outputFolder):
                             'AN_20150926',
                             'GR_20160421',
                             'GR_20160715'];
-    
+
+def getReferenceDemName(site):
+    '''Returns the DEM name to use for a given location'''
+
+    if site == 'AN':
+        #return 'krigged_dem_nsidc_ndv0_fill.tif' # Higher resolution
+        return 'ramp200dem_wgs_v2.tif' # Used to produce the orthos
+    if site == 'GR':
+        #return 'gimpdem_90m_v1.1.tif' # Higher resolution
+        return 'NSIDC_Grn1km_wgs84_elev.tif' # Used to produce the orthos
+    if site == 'AL':
+        # Supposedly these were produced with the SRTM map but that map
+        #  does not seem to actually include Alaska.  This may mean the NED
+        #  map (60 meter) was used but this would require tile handling logic
+        #  so for now we will try to use this single 300m DEM.
+        return 'akdem300m.tif'
+
 def main(argsIn):
 
     try:
@@ -355,19 +375,8 @@ def main(argsIn):
     
     # Get the low resolution reference DEM to use. Bypass this if only fetching is desired.
     if not options.stopAfterFetch and not options.dryRun:
-        if options.site == 'AN':
-            #refDemPath = 'krigged_dem_nsidc_ndv0_fill.tif' # Higher resolution
-            refDemPath = 'ramp200dem_wgs_v2.tif' # Used to produce the orthos
-        if options.site == 'GR':
-            #refDemPath = 'gimpdem_90m_v1.1.tif' # Higher resolution
-            refDemPath = 'NSIDC_Grn1km_wgs84_elev.tif' # Used to produce the orthos
-        if options.site == 'AL':
-            # Supposedly these were produced with the SRTM map but that map
-            #  does not seem to actually include Alaska.  This may mean the NED
-            #  map (60 meter) was used but this would require tile handling logic
-            #  so for now we will try to use this single 300m DEM.
-            refDemPath = 'akdem300m.tif'
-        refDemPath = os.path.join(refDemFolder, refDemPath)
+        refDemName = getReferenceDemName(options.site)
+        refDemPath = os.path.join(refDemFolder, refDemName)
         if not os.path.exists(refDemPath):
             raise Exception("Missing reference DEM: " + refDemPath)
                           

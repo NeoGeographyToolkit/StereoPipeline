@@ -35,7 +35,7 @@ sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 sys.path.insert(0, icebridgepath)
 
-import icebridge_common, pbs_functions
+import icebridge_common, pbs_functions, archive_functions, run_helper
 
 #asp_system_utils.verify_python_version_is_supported()
 
@@ -54,10 +54,10 @@ NODE_TYPE = 'san' # Sandy bridge = 16 core,  32 GB mem, SBU 1.82
 #NODE_TYPE = 'ivy' # Ivy bridge   = 20 core,  64 GB mem, SBU 2.52
 #NODE_TYPE = 'has' # Haswell      = 24 core, 128 GB mem, SBU 3.34
 #NODE_TYPE = '???' # Broadwell    = 28 core, 128 GB mem, SBU 4.04
-NUM_ORTHO_NODES     = 1
+NUM_ORTHO_JOBS      = 1
 NUM_ORTHO_PROCESSES = 8
 NUM_ORTHO_THREADS   = 2
-NUM_BATCH_NODES     = 1
+NUM_BATCH_JOBS      = 1
 NUM_BATCH_THREADS   = 8 # MGM is limited to 8 threads
 NUM_BATCH_PROCESSES = 3
 GROUP_ID = 's1827'
@@ -74,17 +74,9 @@ LOG_FOLDER              = '/u/smcmich1/icebridge/manager_logs'
 UNPACK_FOLDER           = '/u/smcmich1/icebridge/data'
 CALIBRATION_FILE_FOLDER = '/u/smcmich1/icebridge/calib_files'
 REFERENCE_DEM_FOLDER    = '/u/smcmich1/icebridge/reference_dems'
-REMOTE_INPUT_FOLDER     = 'lou:/u/oalexan1/projects/data/icebridge'
-REMOTE_CAMERA_FOLDER    = 'lou:/u/smcmich1/icebridge/camera'
-REMOTE_OUTPUT_FOLDER    = 'lou:/u/smcmich1/icebridge/output'
 
 
 BUNDLE_LENGTH = 10
-
-# TODO: Move this!
-def getOutputFolder(run):
-    '''Get the output folder for a run'''
-    return os.path.join(UNPACK_FOLDER, run[0] +'_'+ run[1])
 
 def getUser():
     '''Return the current user name.'''
@@ -98,6 +90,8 @@ def sendEmail(address, subject, body):
     '''Send a simple email from the command line'''
     os.system('mail -s '+subject+' '+address+' <<< '+body)
 
+#---------------------------------------------------------------------
+
 def readRunList(path):
     '''Reads a list of runs in this format: GR 20110411.
        Output is a list of (site, yyyymmdd) pairs.'''
@@ -108,7 +102,8 @@ def readRunList(path):
             if line[0] == '#': # Skip comments
                 continue
             parts = line.split() # Site, yyyymmdd
-            runList.append(parts)
+            # Set up a class object to help manage the run
+            runList.append(run_helper.RunHelper(parts[0], parts[1], UNPACK_FOLDER)
     return runList
 
 def addToRunList(path, run):
@@ -116,7 +111,6 @@ def addToRunList(path, run):
     with open(path, 'a') as f:
         f.write(path[0]+' '+path[1]+'\n')
     
-
 def getRunsToProcess(allRuns, skipRuns, doneRuns):
     '''Go through the run lists to get the list of runs that
        should be processed.'''
@@ -128,78 +122,7 @@ def getRunsToProcess(allRuns, skipRuns, doneRuns):
         runList.append(run)
     return runList
 
-def isRunReadyForProcessing(run):
-    '''Return true if the run is unpacked locally'''
-    
-    # Just check if all the subfolders are there.
-    # - If anything is missing it should be handled in a future processing step
-    runFolder = getOutputFolder(run)
-    subFolders = ['jpeg', 'lidar', 'ortho']
-    for f in subFolders:
-        path = os.path.join(runFolder, f)
-        if not os.path.exists(path):
-            return False
-    return True
-
-def retrieveRunData(run):
-    '''Retrieve the data for the specified run from Lou.'''
-
-    logger = logging.getLogger(__name__)
-    
-    # Skip retrieval if we already have the data
-    if isRunReadyForProcessing(run):
-        logger.info('No need to retrieve run ' + str(run) + ', it is already on disk.')
-        return
-
-    # First check that we have enough space available
-
-    logger.info('Retrieving data for run ' + str(run))
-
-    fileName = run[0]+'_'+run[1]+'.tar'
-    louPath  = os.path.join(REMOTE_INPUT_FOLDER, fileName)
-
-    cmd = 'shiftc --wait --sync --verify --extract-tar ' + louPath + ' ' + UNPACK_FOLDER
-    logger.info(cmd)
-    status = os.system(cmd)
-    if status != 0:
-        raise Exception('Failed to copy data for run ' + str(run))
-
-    # Retrieve a preprocessed set of camera files if we have it
-    fetchCameraFolder(run)
-    
-    # TODO: Is it safe to set the conversion finished flag if we get the camera folder?
-
-
-def getFrameRange(run):
-    '''Return the min and max frame which exists on disk for a run'''
-
-    # Loop through all the files in the jpeg folder to get the frame range
-    outputFolder = getOutputFolder(run)
-    jpegFolder   = os.path.join(outputFolder, 'jpeg')
-    if not os.path.exists(jpegFolder):
-        raise Exception('Cannot get frame range from run, data not available: ' + str(run))
-
-    minFrame = 9999999
-    maxFrame = 0
-    jpegFiles = os.listdir(jpegFolder)
-    for jpegFile in jpegFiles:
-        
-        inputPath = os.path.join(jpegFolder, jpegFile)
-        
-        # Skip non-image files
-        ext = os.path.splitext(jpegFile)[1]
-        if ext != '.JPG':
-            continue
-        
-        # Update frame range
-        frame = icebridge_common.getFrameNumberFromFilename(inputPath)
-        if frame < minFrame:
-            minFrame = frame
-        if frame > maxFrame:
-            maxFrame = frame
-
-    return (minFrame, maxFrame)
-
+#---------------------------------------------------------------------
 
 # Do we need this function?
 #def getConversionJobName(run, startFrame):
@@ -213,17 +136,14 @@ def conversionIsFinished(run, fullCheck=False):
     '''Return true if this run is present and conversion has finished running on it'''
     outputFolder = getOutputFolder(run)
     if not fullCheck:
-        return os.path.exists(os.path.join(outputFolder, 'conversion_complete'))
+        return run.checkFlag('conversion_complete')
 
     # For a full check, make sure that there is a camera file for
     #  each input image file.    
-    jpegFolder   = os.path.join(outputFolder, 'jpeg')
-    cameraFolder = os.path.join(outputFolder, 'camera')
-    jpegList = os.listdir(jpegFolder)
+    cameraFolder = run.getCameraFolder()
+    jpegList     = run.getJpegList()
     
     for jpeg in jpegList:
-        if os.path.splitext(jpeg)[1] != '.JPG':
-            continue
         camFile = os.path.join(cameraFolder,
                                icebridge_common.getCameraFileName(jpeg))
         if not os.path.exists(camFile):
@@ -238,37 +158,37 @@ def runConversion(run):
     logger = logging.getLogger(__name__)
     
     # Get the frame range for the data.
-    (minFrame, maxFrame) = getFrameRange(run)
+    (minFrame, maxFrame) = run.getFrameRange()
     
     logger.info('Detected frame range: ' + str((minFrame, maxFrame)))
     
     # Split the conversions across multiple nodes using frame ranges
     # - The first job submitted will be the only one that converts the lidar data
     numFrames        = maxFrame - minFrame + 1
-    numFramesPerNode = numFrames / NUM_ORTHO_NODES
+    numFramesPerNode = numFrames / NUM_ORTHO_JOBS
     numFramesPerNode += 1 # Make sure we don't cut off a few frames at the end
     
-    outputFolder = getOutputFolder(run)
+    outputFolder = run.getFolder()
     
     # TODO: Is using the default output folder ok here?
     scriptPath = '/u/smcmich1/repo/StereoPipeline/src/asp/IceBridge/full_processing_script.py' # TODO
     args       = ('%s %s --site %s --yyyymmdd %s --skip-fetch --stop-after-convert --num-threads %d --num-processes %d --output-folder %s' 
                   % (CALIBRATION_FILE_FOLDER, REFERENCE_DEM_FOLDER, run[0], run[1], NUM_ORTHO_THREADS, NUM_ORTHO_PROCESSES, outputFolder))
     
-    baseName = run[0] + run[1][2:] # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
+    baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
 
     # Get the location to store the logs    
-    pbsLogFolder = os.path.join(outputFolder, 'pbsLogs/out')
+    pbsLogFolder = run.getPbsLogFolder()
     os.system('mkdir -p ' + pbsLogFolder)
     
     currentFrame = minFrame
-    for i in range(0,NUM_ORTHO_NODES):
+    for i in range(0,NUM_ORTHO_JOBS):
         jobName  = str(currentFrame) + baseName
         thisArgs = (args + ' --start-frame ' + str(currentFrame)
                          + ' --stop-frame '  + str(currentFrame+numFramesPerNode-1) )
         if i != 0: # Only the first job will convert lidar files
             thisArgs += ' --no-lidar-convert'
-        logPrefix = os.path.join(pbsLogFolder + '_convert_' + jobName)
+        logPrefix = os.path.join(pbsLogFolder, 'convert_' + jobName)
         logger.info('Submitting conversion job with args: '+thisArgs)
         submitJob(jobName, scriptPath, thisArgs, logPrefix)
         currentFrame += numFramesPerNode
@@ -279,10 +199,10 @@ def runConversion(run):
     raise Exception('DEBUG')
 
     # Create a file to mark that conversion is finished for this folder
-    os.system('touch '+ os.path.join(outputFolder, 'conversion_complete'))
+    run.setFlag('conversion_complete')
 
     # Pack up camera folder and store it for later
-    gotCameras = packAndSendCameraFolder(run)
+    gotCameras = archive_functions.packAndSendCameraFolder(run)
     
     raise Exception('DEBUG')
 
@@ -290,8 +210,8 @@ def generateBatchList(run):
     '''Generate a list of all the processing batches required for a run'''
 
     # No actual processing is being done here so it can run on the PFE
-    outputFolder = getOutputFolder(run)
-    cmd = ('python full_processing_script.py --yyyymmdd %s --site %s --output-folder %s %s %s   --num-processes 1 --num-threads 1  --bundle-length %d  --skip-fetch  --skip-convert' % (run[1], run[0], outputFolder, CALIBRATION_FILE_FOLDER, REFERENCE_DEM_FOLDER, BUNDLE_LENGTH))
+    outputFolder = run.getFolder()
+    cmd = ('python full_processing_script.py --yyyymmdd %s --site %s --output-folder %s %s %s   --num-processes 1 --num-threads 1  --bundle-length %d  --skip-fetch  --skip-convert' % (run.yyyymmdd, run.site, outputFolder, CALIBRATION_FILE_FOLDER, REFERENCE_DEM_FOLDER, BUNDLE_LENGTH))
     os.system(cmd)
     
     listPath = os.path.join(outputFolder, 'processed/batch_commands_log.txt')
@@ -311,31 +231,31 @@ def submitBatchJobs(run, batchListPath):
     textOutput, err = p.communicate()
     numBatches      = int(textOutput.split()[0])
     
-    numBatchesPerNode = numBatches / NUM_BATCH_NODES
+    numBatchesPerNode = numBatches / NUM_BATCH_JOBS
     numBatchesPerNode += 1 # Make sure we don't cut off a few batches at the end
 
-    baseName = run[0] + run[1][2:] # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
+    baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
 
     # Call the tool which just executes commands from a file
     scriptPath = 'multi_process_command.py' # TODO
 
-    outputFolder = getOutputFolder(run)
-    pbsLogFolder = os.path.join(outputFolder, 'pbsLogs')
+    outputFolder = run.getFolder()
+    pbsLogFolder = run.getPbsLogFolder()
 
     currentBatch = 0
-    for i in range(0,NUM_BATCH_NODES):
+    for i in range(0,NUM_BATCH_JOBS):
         jobName  = str(currentBatch) + baseName
 
         # Specify the range of lines in the file we want this node to execute
         args = ('%s, %d, %d, %d' % (batchListPath, NUM_BATCH_PROCESSES, currentBatch, currentBatch+numBatchesPerNode))
 
-        logPrefix = os.path.join(pbsLogFolder + '_batch_' + jobName)
+        logPrefix = os.path.join(pbsLogFolder, 'batch_' + jobName)
         logger.info('Submitting batch job with args: '+args)
         pbs_functions.submitJob(jobName, scriptPath, args, logPrefix)
 
     # Waiting on these jobs happens outside this function
 
-
+# TODO: Move this
 def waitForRunCompletion(text):
     '''Sleep until all of the submitted jobs containing the provided text have completed'''
 
@@ -362,15 +282,15 @@ def checkResults(run, batchListPath):
     '''Return (numOutputs, numProduced, errorCount) to help validate our results'''
     
     # TODO: Check more carefully!
-    runFolder = getOutputFolder(run)
+    runFolder = run.getFolder()
     
     packedErrorLog = os.path.join(runFolder, 'packedErrors.log')
     with open(packedErrorLog, 'w') as errorLog:
     
         # Look for errors in the log files
-        #logFileList =  [TODO]
+        logFileList = [] # TODO, probably in run class
         errorCount = 0
-        errorWords = ['error', 'Error']
+        errorWords = ['error', 'Error'] # TODO: Fix this!
         for log in logFileList:
             with open(log, 'r') as f:
                 for line in f:
@@ -400,108 +320,6 @@ def checkResults(run, batchListPath):
             
     return (numOutputs, numProduced, errorCount)
 
-
-
-def fetchCameraFolder(run):
-    '''Fetch a camera folder from the archive if it exists.
-       Returns True if we got the file.'''
-    
-    logger = logging.getLogger(__name__)
-    logger.info('Fetching camera folder for ' + str(run))
-    
-    runFolder    = getOutputFolder(run)
-    cameraFolder = os.path.join(runFolder, 'camera')
-    
-    # Tar up the camera files and send them at the same time using the shiftc command
-    outputFileName =  'CAMERA_'+run[0]+'_'+run[1]+'.tar.gz'
-    louPath = os.path.join(REMOTE_CAMERA_FOLDER, fileName)
-
-    cmd = 'shiftc  --wait --extract-tar ' + louPath + ' ' + cameraFolder
-    logger.info(cmd)
-    status = os.system(cmd)
-    if status != 0:
-        logger.info('Did not find camera file for run.')
-        return False
-    else:
-        logger.info('Finished sending cameras to lou.')
-        return True
-
-
-def packAndSendCameraFolder(run):
-    '''Archive the camera folder for later use'''
-    
-    logger = logging.getLogger(__name__)
-    logger.info('Archiving camera folder for run ' + str(run))
-    
-    runFolder    = getOutputFolder(run)
-    cameraFolder = os.path.join(runFolder, 'camera')
-    
-    # Tar up the camera files and send them at the same time using the shiftc command
-    outputFileName =  'CAMERA_'+run[0]+'_'+run[1]+'.tar.gz'
-    louPath = os.path.join(REMOTE_CAMERA_FOLDER, fileName)
-
-    cmd = 'shiftc --wait --create-tar ' + cameraFolder + ' ' + louPath
-    logger.info(cmd)
-    status = os.system(cmd)
-    if status != 0:
-        raise Exception('Failed to pack/send cameras for run ' + str(run))
-    logger.info('Finished sending cameras to lou.')
-
-
-def packAndSendCompletedRun(run):
-    '''Assembles and compresses the deliverable parts of the run'''
-    
-    logger = logging.getLogger(__name__)
-    logger.info('Getting ready to pack up run ' + str(run))
-    
-    runFolder = getOutputFolder(run)
-    
-    # TODO: What do we want to deliver?
-    # - The aligned DEM file from each batch folder
-    # - Some low-size diagnostic information about the run
-    # - Camera calibration files used?
-    # - Information about how we created the run (process date, ASP version, etc)
-
-    # Use symlinks to assemble a fake file structure to tar up
-    processFolder  = os.path.join(runFolder, 'processed')
-    assemblyFolder = os.path.join(runFolder, 'tarAssembly')
-    
-    # For each batch folder, start adding links to files that we want in the tarball
-    batchFolders  = os.listdir(processFolder)
-    batchFolders  = [os.path.join(processFolder,x) for x in batchFolders if 'batch_' in x]
-        
-    for batch in batchFolders:
-        alignDemFile = os.path.join(batch,'out-align-DEM.tif')
-        
-        # Need to change the name of these files when they go in the output folder
-        (startFrame, stopFrame) = getFrameRangeFromBatchFolder(batch)
-        prefix = ('F_%d_%d' % (startFrame, stopFrame))
-        prefix = os.path.join(assemblyFolder, prefix)
-        
-        os.symlink(alignDemFile, prefix+'_aligned_DEM.tif')
-    
-    
-    # Tar up the assembled files and send them at the same time using the shiftc command
-    # - No need to use a compression algorithm here
-    outputFileName =  'DEM_'+run[0]+'_'+run[1]+'.tar'
-    louPath = os.path.join(REMOTE_OUTPUT_FOLDER, fileName)
-
-    # TODO: Don't use the wait command here, and clean up after this transfer is finished!
-
-    logger.info('Sending run to lou...')
-    cmd = 'shiftc --dereference --create-tar ' + assemblyFolder + ' ' + louPath
-    logger.info(cmd)
-    #status = os.system(cmd)
-    if status != 0:
-        raise Exception('Failed to pack/send results for run ' + str(run))
-    logger.info('Finished sending run to lou.')
-
-
-def cleanupRun(run):
-    '''Clean up a run after we are finished with it'''
-
-    runFolder = getOutputFolder(run)
-    os.system('rm -rf ' + runFolder)
 
 
 def main(argsIn):
@@ -542,7 +360,7 @@ def main(argsIn):
     
     runList = getRunsToProcess(allRuns, skipRuns, doneRuns)
 
-    runList = [('GR','20110504')] # DEBUG
+    runList = [run_helper.RunHelper('GR','20110504', UNPACK_FOLDER)] # DEBUG
 
    
     # Loop through the incomplete runs
@@ -551,9 +369,9 @@ def main(argsIn):
         # TODO: Put this in a try/except block so it keeps going
 
         # Obtain the data for a run
-        retrieveRunData(run)
+        archive_functions.retrieveRunData(run)
         
-        if not conversionIsFinished(run):
+        if not run.checkFlag('conversion_complete'):
             # TODO: There needs to be a logging system
             logger.info('Converting data for run ' + str(run))
             runConversion(run)
@@ -574,7 +392,7 @@ def main(argsIn):
         
         # Wait for all the jobs to finish
         logger.info('Waiting for job completion of run ' + str(run))
-        waitForRunCompletion(run[0]) # TODO: Specialize this!
+        waitForRunCompletion(run.site) # TODO: Specialize this!
         logger.info('All jobs finished for run '+str(run))
         
         # Log the run as completed
@@ -588,17 +406,17 @@ def main(argsIn):
         logger.info(resultText)
 
         # Don't pack or clean up the run if it did not generate all the output files.
-        if numProduced == numOutputs:
+        if (numProduced == numOutputs) and (errorCount == 0):
             print 'TODO: Automatically send the completed files to lou and clean up the run!'
 
             # Pack up all the files to lou, then delete the local copies.            
-            #packAndSendCompletedRun(run)
+            #archive_functions.packAndSendCompletedRun(run)
             #cleanupRun(run)
             
             # TODO: Don't wait on the pack/send operation to finish!
 
         # Notify that the run is done processing
-        sendEmail('scott.t.mcmichael@nasa.gov', 'IB run complete: '+run[0]+'_'+run[1], resultText)
+        sendEmail('scott.t.mcmichael@nasa.gov', 'IB run complete: '+str(run), resultText)
         
         raise Exception('DEBUG')
         

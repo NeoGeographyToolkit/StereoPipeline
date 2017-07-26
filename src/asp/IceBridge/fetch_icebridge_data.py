@@ -372,8 +372,7 @@ def doFetch(options, outputFolder):
                      '    https://nsidc.org/support/faq/what-options-are-available-bulk-downloading-data-https-earthdata-login-enabled')
         return -1
     
-    #curlPath = asp_system_utils.which("curl")
-    curlPath = '/home/smcmich1/programs/curl-install/bin/curl'
+    curlPath = asp_system_utils.which("curl")
     curlOpts    = ' -n -L '
     cookiePaths = ' -b ~/.urs_cookies -c ~/.urs_cookies '
     baseCurlCmd = curlPath + curlOpts + cookiePaths
