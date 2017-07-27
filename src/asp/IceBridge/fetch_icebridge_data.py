@@ -73,44 +73,12 @@ def makeDateFolder(year, month, day, ext, fileType):
         datePart = ('%04d.%02d.%02d%s') % (year, month, day, ext)
         return datePart
 
-def getFolderUrl(year, month, day, ext, site, fileType):
-    '''Get full URL to the location where the files are kept.'''
-
-    if fileType == 'jpeg':
-        base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01'
-        yearFolder = makeYearFolder(year, site)
-        dateFolder = makeDateFolder(year, month, day, ext, fileType)
-        folderUrl  = os.path.join(base, yearFolder, dateFolder)
-        return folderUrl
-    # The other types share more formatting
-    if fileType == 'ortho':
-        base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/IODMS1B.001'       
-    elif fileType == 'fireball':
-        base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/IODMS3.001'
-    elif fileType == 'lvis':
-        base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILVIS2.001/'
-    elif fileType == 'atm1':
-        base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILATM1B.001/'
-    elif fileType == 'atm2':
-        base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILATM1B.002/'
-    else:
-        raise("Unknown type: " + fileType)
-    
-    dateFolder = makeDateFolder(year, month, day, ext, fileType)
-    folderUrl  = os.path.join(base, dateFolder)
-    
-    return folderUrl
-
 def hasGoodLat(latitude, isSouth):
     if (isSouth and latitude < 0) or ( (not isSouth) and latitude > 0 ):
         return True
 
     return False
 
-# These exist both in AN and GR, all mixed up, and have to separate by lat
-def isInSeparateByLatTable(site):
-    return site in ['20150924', '20151005', '20151020', '20151022'];
-    
 def fetchAndParseIndexFileAux(isSouth, separateByLat, dayVal,
                               baseCurlCmd, folderUrl, path, fileType):
     '''Retrieve the index file for a folder of data and create
@@ -260,17 +228,94 @@ def fetchAndParseIndexFileAux(isSouth, separateByLat, dayVal,
     
     return (frameDict, urlDict)
 
+# These exist both in AN and GR, all mixed up, and have to separate by lat
+def isInSeparateByLatTable(yyyymmdd):
+    return yyyymmdd in ['20150924', '20151005', '20151020', '20151022'];
+    
+def twoFlightsInOneDay(site, yyyymmdd):
+    # For this day, there are GR_20100422a and GR_20100422b
+    if site == 'GR' and yyyymmdd == '20100422':
+        return True
+    return False
+
+def getFolderUrl(yyyymmdd, year, month, day,
+                 dayInc, # if to add one to the day
+                 site, fileType):
+    '''Get full URL to the location where the files are kept.'''
+
+    # Note that yyyymmdd can equal 20100422a.
+    ext = ''
+    if len(yyyymmdd) == 9:
+        ext = yyyymmdd[8]
+
+    if fileType == 'jpeg':
+
+        # If yyyymmdd is 20100422, put a or b depending on dayVal
+        if twoFlightsInOneDay(site, yyyymmdd):
+            if dayInc == 0:
+                ext = 'a'
+            else:
+                ext = 'b'
+            dayInc = 0
+            
+        base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01'
+        yearFolder = makeYearFolder(year, site)
+        dateFolder = makeDateFolder(year, month, day + dayInc, ext, fileType)
+        folderUrl  = os.path.join(base, yearFolder, dateFolder)
+        return folderUrl
+    
+    # The other types share more formatting
+    if twoFlightsInOneDay(site, yyyymmdd):
+        dayInc = 0 # for this particular day, one should not look at the next day
+        
+    if fileType == 'ortho':
+        base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/IODMS1B.001'       
+    elif fileType == 'fireball':
+        base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/IODMS3.001'
+    elif fileType == 'lvis':
+        base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILVIS2.001/'
+    elif fileType == 'atm1':
+        base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILATM1B.001/'
+    elif fileType == 'atm2':
+        base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILATM1B.002/'
+    else:
+        raise("Unknown type: " + fileType)
+    
+    dateFolder = makeDateFolder(year, month, day + dayInc, ext, fileType)
+    folderUrl  = os.path.join(base, dateFolder)
+    
+    return folderUrl
+
 # Create a list of all files that must be fetched unless done already.
 def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
 
+    # For AN 20091112, etc, some of the ortho images are stored at the
+    # beginning of the next day's flight. Need to sort this out, and
+    # it is tricky. More comments within the code. 
+    fetchNextDay = True
+    
     separateByLat = (options.type == 'ortho' and isInSeparateByLatTable(options.yyyymmdd))
     if separateByLat:
-        options.fetchNextDay = False
-        
+        # Here we won't fetch the next day, we will just separate by latitude within
+        # a given day
+        fetchNextDay = False
+
+    orthoOrFireball = ( (options.type == 'ortho') or (options.type == 'fireball') )
+
+    if fetchNextDay:
+        # Normally we fetch for next day only for ortho or fireball. However,
+        # for one single special flight, we do it for jpeg too, as then
+        # the jpegs are also split. 
+       if orthoOrFireball or \
+          ( (options.type == 'jpeg') and twoFlightsInOneDay(options.site, options.yyyymmdd) ):
+           fetchNextDay = True
+       else:
+           fetchNextDay = False
+           
     # If we need to parse the next flight day as well, as expected in some runs,
     # we will fetch two html files, but create a single index out of them.
     dayVals = [0]
-    if options.fetchNextDay and ( (options.type == 'ortho') or (options.type == 'fireball') ):
+    if fetchNextDay:
         dayVals.append(1)
         options.refetchIndex = True # Force refetch, to help with old archives
 
@@ -293,7 +338,7 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
     # We need the list of jpeg frames. Sometimes when fetching ortho images,
     # and we have to fetch from the next day, don't fetch unless
     # in the jpeg index.
-    if len(dayVals) > 1:
+    if len(dayVals) > 1 and options.type != 'jpeg':
         jpegIndexPath = icebridge_common.csvIndexFile(options.jpegFolder)
         (jpegFrameDict, jpegUrlDict) = icebridge_common.readIndexFile(jpegIndexPath)
         
@@ -314,9 +359,9 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
             folderUrls = []
             lidar_types = []
             for lidar in LIDAR_TYPES:
-                folderUrl = getFolderUrl(options.year, options.month,
-                                         options.day + dayVal, # note here the dayVal
-                                         options.ext, options.site, lidar)
+                folderUrl = getFolderUrl(options.yyyymmdd, options.year, options.month,
+                                         options.day, dayVal, # note here the dayVal
+                                         options.site, lidar)
                 logger.info('Checking lidar URL: ' + folderUrl)
                 if checkIfUrlExists(folderUrl):
                     logger.info('Found match with lidar type: ' + lidar)
@@ -371,9 +416,9 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
                     raise Exception("None of these URLs are good: " + " ".join(folderUrls))
                 
         else: # Other cases are simpler
-            folderUrl = getFolderUrl(options.year, options.month,
-                                     options.day + dayVal, # note here the dayVal
-                                     options.ext, options.site, options.type)
+            folderUrl = getFolderUrl(options.yyyymmdd, options.year, options.month,
+                                     options.day, dayVal, # note here the dayVal
+                                     options.site, options.type)
 
         logger.info('Fetching from URL: ' + folderUrl)
         (localFrameDict, localUrlDict) = \
@@ -387,7 +432,7 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
 
             # Fetch from next day, unless already have a value. And don't fetch
             # frames not in the jpeg index.
-            if len(dayVals) > 1:
+            if len(dayVals) > 1 and options.type != 'jpeg':
                 if not frame in jpegFrameDict.keys(): continue
                 if frame in frameDict.keys(): continue
                 
@@ -607,9 +652,6 @@ def main(argsIn):
         parser.add_option("--jpeg-folder",  dest="jpegFolder", default=None,
                           help="The location of the jpeg folder. This is neeed to " +
                           "fetch indices of ortho images and DEMs.")
-        parser.add_option("--fetch-from-next-day-also", action="store_true", dest="fetchNextDay",
-                          default=False,
-                          help="Sometimes some files are stored in next day's runs as well.")
         parser.add_option("--skip-validate", action="store_true", dest="skipValidate",
                           default=False,
                           help="Skip input data validation.")
@@ -639,13 +681,10 @@ def main(argsIn):
             options.type = LIDAR_TYPES[0]
             
         # Handle unified date option
-        options.ext = '' # some dirs have appended to them 'a' or 'b'
         if options.yyyymmdd:
             options.year  = int(options.yyyymmdd[0:4])
             options.month = int(options.yyyymmdd[4:6])
             options.day   = int(options.yyyymmdd[6:8])
-            if len(options.yyyymmdd) == 9:
-                options.ext = options.yyyymmdd[8]
 
         if not options.stopFrame:
             options.stopFrame = options.startFrame

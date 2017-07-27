@@ -53,7 +53,7 @@ os.environ["PATH"] = binpath        + os.pathsep + os.environ["PATH"]
 louUser = 'oalexan1' # all data is stored under this user name
 
 def fetchAllRunData(options, startFrame, stopFrame, 
-                    fetchNextDay, jpegFolder, orthoFolder, fireballFolder, lidarFolder):
+                    jpegFolder, orthoFolder, fireballFolder, lidarFolder):
     '''Download all data needed to process a run'''
     
     logger = logging.getLogger(__name__)
@@ -65,10 +65,7 @@ def fetchAllRunData(options, startFrame, stopFrame,
     if options.maxNumToFetch >= 0:
         baseCommand += ' --max-num-to-fetch ' + str(options.maxNumToFetch)
 
-    if fetchNextDay:
-        baseCommand += ' --fetch-from-next-day-also'
-
-    if fetchNextDay or options.refetchIndex:
+    if options.refetchIndex:
         baseCommand += ' --refetch-index' # this was not right in older fetched runs
         
     if options.stopAfterIndexFetch:
@@ -212,36 +209,6 @@ def startWithLouArchive(options, logger):
         logger.info('Success untarring lfe archive.')
 
     return 0
-
-def fetchNextDay(outputFolder):
-    '''If a flight spills into next day, fetch that as well.'''
-    # This happens quite a lot. Just fetch from next day all the
-    # time. Use the current day' jpeg index to throw away unneeded
-    # ortho frames for next day (and there is some logic to see which
-    # ortho images from current day we don't need).
-    # TODO: Move this to fetch_icebridge_data.py. But this will require careful
-    # testing then.
-    return True
-
-    # Always check for this 
-    return outputFolder in ['AN_20091025',
-                            'AN_20091103',
-                            'AN_20091104',
-                            'AN_20091105',
-                            'AN_20091109',
-                            'AN_20091112',
-                            'AN_20101026',
-                            'AN_20101110',
-                            'GR_20120317',
-                            'AN_20121107',
-                            'AN_20131120',
-                            'AN_20131127',
-                            'GR_20150327',
-                            'GR_20150330',
-                            'AN_20150911',
-                            'AN_20150926',
-                            'GR_20160421',
-                            'GR_20160715'];
 
 def getReferenceDemName(site):
     '''Returns the DEM name to use for a given location'''
@@ -472,7 +439,6 @@ def main(argsIn):
     else:
         # Call data fetch routine and check the result
         fetchResult = fetchAllRunData(options, startFrame, stopFrame,
-                                      fetchNextDay(options.outputFolder),
                                       jpegFolder, orthoFolder, fireballFolder, lidarFolder)
         if fetchResult < 0:
             logger.error("Fetching failed, quitting the program!")
@@ -504,7 +470,6 @@ def main(argsIn):
                 else:
                     # Can try again to fetch, this can fix invalid files
                     fetchResult = fetchAllRunData(options, startFrame, stopFrame,
-                                                  fetchNextDay(options.outputFolder),
                                                   jpegFolder, orthoFolder, fireballFolder,
                                                   lidarFolder)
                     if fetchResult < 0:
