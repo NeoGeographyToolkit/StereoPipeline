@@ -52,31 +52,18 @@ os.environ["PATH"] = binpath        + os.pathsep + os.environ["PATH"]
 
 louUser = 'oalexan1' # all data is stored under this user name
 
-def indexFile(folder):
-
-    indexFiles = []
-    for f in os.listdir(folder):
-        if 'index.html.csv' in f:
-            indexFiles.append(os.path.join(folder, f))
-    if len(indexFiles) == 0:
-        raise Exception("Could not find the index file for: " + folder)
-    if len(indexFiles) > 1:
-        raise Exception("Found index files: " + " ".join(indexFiles))
-
-    return indexFiles[0]
-    
 def fetchAllRunData(options, startFrame, stopFrame, 
-                    fetchNextDay, jpegFolder, orthoFolder, demFolder, lidarFolder):
+                    fetchNextDay, jpegFolder, orthoFolder, fireballFolder, lidarFolder):
     '''Download all data needed to process a run'''
     
     logger = logging.getLogger(__name__)
     logger.info('Downloading all data for the run! This could take a while.')
 
-    baseCommand = (('--yyyymmdd %s --site %s --start-frame %d --stop-frame %d')
-                   % (options.yyyymmdd, options.site, startFrame, stopFrame))
+    baseCommand = (('--yyyymmdd %s --site %s --start-frame %d --stop-frame %d --jpeg-folder %s')
+                   % (options.yyyymmdd, options.site, startFrame, stopFrame, jpegFolder))
 
     if options.maxNumToFetch >= 0:
-        baseCommand += ' --max-num-to-fetch ' + str(maxNumToFetch)
+        baseCommand += ' --max-num-to-fetch ' + str(options.maxNumToFetch)
 
     if fetchNextDay:
         baseCommand += ' --fetch-from-next-day-also'
@@ -93,10 +80,10 @@ def fetchAllRunData(options, startFrame, stopFrame,
     if options.dryRun:
         baseCommand += ' --dry-run'
 
-    jpegCommand  = '--type image ' + baseCommand +' '+ jpegFolder
-    orthoCommand = '--type ortho ' + baseCommand +' '+ orthoFolder
-    demCommand   = '--type dem   ' + baseCommand +' '+ demFolder
-    lidarCommand = '--type lidar ' + baseCommand +' '+ lidarFolder
+    jpegCommand      = baseCommand + ' ' + jpegFolder
+    orthoCommand     = baseCommand + ' ' + orthoFolder
+    fireballCommand  = baseCommand + ' ' + fireballFolder
+    lidarCommand     = baseCommand + ' ' + lidarFolder
 
     # TODO: Handle runs without DEM or ORTHO data.
     
@@ -107,28 +94,32 @@ def fetchAllRunData(options, startFrame, stopFrame,
         return -1
     if fetch_icebridge_data.main(orthoCommand.split()) < 0:
         return -1
-    if fetch_icebridge_data.main(demCommand.split()) < 0:
-        print 'DEM data is optional, continuing run.'
+    if fetch_icebridge_data.main(fireballCommand.split()) < 0:
+        print 'Fireball DEM data is optional, continuing run.'
     if fetch_icebridge_data.main(lidarCommand.split()) < 0:
         return -1
 
     # jpeg and ortho indices must be consistent
-    jpegIndex = indexFile(jpegFolder)
-    orthoIndex = indexFile(orthoFolder)
+    jpegIndex  = icebridge_common.csvIndexFile(jpegFolder)
+    orthoIndex = icebridge_common.csvIndexFile(orthoFolder)
+    
     (jpegFrameDict, jpegUrlDict)   = icebridge_common.readIndexFile(jpegIndex)
     (orthoFrameDict, orthoUrlDict) = icebridge_common.readIndexFile(orthoIndex)
     
     for jpegFrame in jpegFrameDict.keys():
         if jpegFrame not in orthoFrameDict.keys():
-            raise Exception ("Found jpeg frame missing from ortho:" + str(jpegFrame))
+            logger.info("Found jpeg frame missing from ortho: " + str(jpegFrame))
+            #raise Exception ("Found jpeg frame missing from ortho:" + str(jpegFrame))
 
     for orthoFrame in orthoFrameDict.keys():
         if orthoFrame not in jpegFrameDict.keys():
-            raise Exception ("Found ortho frame missing from jpeg:" + str(orthoFrame))
+            # This can happen, don't die because of it
+            logger.info("Found ortho frame missing from jpeg: " + str(orthoFrame))
+            #raise Exception ("Found ortho frame missing from jpeg:" + str(orthoFrame))
 
     # TODO: Wipe any ortho and jpeg images not in the index, or at least warn about it.
     
-    return (jpegFolder, orthoFolder, demFolder, lidarFolder)
+    return (jpegFolder, orthoFolder, fireballFolder, lidarFolder)
 
 def processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFolder, isSouth, 
                   bundleLength, startFrame, stopFrame, logBatches, numProcesses, numThreads):
@@ -223,8 +214,9 @@ def startWithLouArchive(options, logger):
     return 0
 
 def fetchNextDay(outputFolder):
-    '''???'''
-
+    '''If a flight spills into next day, fetch that as well.'''
+    return True
+    # Always check for this 
     return outputFolder in ['AN_20091025',
                             'AN_20091103',
                             'AN_20091104',
@@ -433,14 +425,14 @@ def main(argsIn):
             raise Exception("Missing reference DEM: " + refDemPath)
                           
     # Set up the output folders
-    cameraFolder  = os.path.join(options.outputFolder, 'camera')
-    imageFolder   = os.path.join(options.outputFolder, 'image')
-    jpegFolder    = os.path.join(options.outputFolder, 'jpeg')
-    orthoFolder   = os.path.join(options.outputFolder, 'ortho')
-    demFolder     = os.path.join(options.outputFolder, 'fireball')
-    corrDemFolder = os.path.join(options.outputFolder, 'corr_fireball')
-    lidarFolder   = os.path.join(options.outputFolder, 'lidar') # Paired files go in /paired
-    processFolder = os.path.join(options.outputFolder, 'processed')
+    cameraFolder       = os.path.join(options.outputFolder, 'camera')
+    imageFolder        = os.path.join(options.outputFolder, 'image')
+    jpegFolder         = os.path.join(options.outputFolder, 'jpeg')
+    orthoFolder        = os.path.join(options.outputFolder, 'ortho')
+    fireballFolder     = os.path.join(options.outputFolder, 'fireball')
+    corrFireballFolder = os.path.join(options.outputFolder, 'corr_fireball')
+    lidarFolder        = os.path.join(options.outputFolder, 'lidar') # Paired files go in /paired
+    processFolder      = os.path.join(options.outputFolder, 'processed')
     
     # Handle subfolder option.  This is useful for comparing results with different parameters!
     if options.processingSubfolder:
@@ -449,16 +441,18 @@ def main(argsIn):
 
     # Sanity checks
     if options.tarAndWipe:
-        if not options.stopAfterFetch:
-            raise Exception('Must stop after fetch to be able to be tar the inputs.')
+        if not options.stopAfterFetch and not options.stopAfterConvert:
+            raise Exception('Must stop after fetch/convert to be able to be tar the inputs.')
         if options.noFetch:
             raise Exception('Must fetch to be able to tar the inputs.')
-
+        if not options.noOrthoConvert:
+            raise Exception('Must nost convert cameras if we want to tar and wipe.')
+            
     if options.maxNumToFetch > 0:
         rem = options.maxNumToFetch % 6
         if rem != 0:
             # This is tricky. Do this so that for every ortho file
-            # we fetch its .xml file, and for every dem file
+            # we fetch its .xml file, and for every fireball file
             # we fetch its .xml and .tfw file.
             options.maxNumToFetch = options.maxNumToFetch - rem + 6
             logger.info('Increasing maxNumToFetch to ' + str(options.maxNumToFetch))
@@ -472,9 +466,9 @@ def main(argsIn):
         # Call data fetch routine and check the result
         fetchResult = fetchAllRunData(options, startFrame, stopFrame,
                                       fetchNextDay(options.outputFolder),
-                                      jpegFolder, orthoFolder, demFolder, lidarFolder)
+                                      jpegFolder, orthoFolder, fireballFolder, lidarFolder)
         if fetchResult < 0:
-            logger.Error("Fetching failed, quitting the program!")
+            logger.error("Fetching failed, quitting the program!")
             return -1
            
     if options.stopAfterFetch or options.dryRun:
@@ -491,12 +485,11 @@ def main(argsIn):
          
             # Run non-ortho conversions without any multiprocessing (they are pretty fast)
             # TODO: May be worth doing the faster functions with multiprocessing in the future
-            input_conversions.correctFireballDems(demFolder, corrDemFolder,
-                                                  options.startFrame, options.stopFrame,
+            input_conversions.correctFireballDems(fireballFolder, corrFireballFolder,
+                                                  startFrame, stopFrame,
                                                   (not isSouth))
 
-            isGood = input_conversions.convertJpegs(jpegFolder, imageFolder, options.startFrame,
-                                                    options.stopFrame)
+            isGood = input_conversions.convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame)
             if not isGood:
                 if options.noFetch:
                     logger.Error("Conversions failed, quitting the program!")
@@ -505,12 +498,13 @@ def main(argsIn):
                     # Can try again to fetch, this can fix invalid files
                     fetchResult = fetchAllRunData(options, startFrame, stopFrame,
                                                   fetchNextDay(options.outputFolder),
-                                                  jpegFolder, orthoFolder, demFolder, lidarFolder)
+                                                  jpegFolder, orthoFolder, fireballFolder,
+                                                  lidarFolder)
                     if fetchResult < 0:
                         logger.Error("Second fetching failed, quitting the program!")
                         return -1
                     isGood = input_conversions.convertJpegs(jpegFolder, imageFolder,
-                                                            options.startFrame,  options.stopFrame)
+                                                            startFrame,  stopFrame)
                     if not isGood:
                         logger.Error("Second conversion failed, quitting the program!")
                         return -1
@@ -527,7 +521,7 @@ def main(argsIn):
                                                        options.cameraLookupFile,
                                                        options.yyyymmdd, options.site, 
                                                        refDemPath, cameraFolder, 
-                                                       options.startFrame, options.stopFrame,
+                                                       startFrame, stopFrame,
                                                        options.numProcesses, options.numThreads)
 
 

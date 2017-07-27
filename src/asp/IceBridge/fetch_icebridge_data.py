@@ -66,7 +66,7 @@ def makeYearFolder(year, site):
 def makeDateFolder(year, month, day, ext, fileType):
     '''Generate part of the URL.'''
 
-    if fileType == 'image':
+    if fileType == 'jpeg':
         datePart = ('%02d%02d%04d%s') % (month, day, year, ext)
         return datePart +'_raw'
     else: # Used for all other cases
@@ -76,7 +76,7 @@ def makeDateFolder(year, month, day, ext, fileType):
 def getFolderUrl(year, month, day, ext, site, fileType):
     '''Get full URL to the location where the files are kept.'''
 
-    if fileType == 'image':
+    if fileType == 'jpeg':
         base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01'
         yearFolder = makeYearFolder(year, site)
         dateFolder = makeDateFolder(year, month, day, ext, fileType)
@@ -85,7 +85,7 @@ def getFolderUrl(year, month, day, ext, site, fileType):
     # The other types share more formatting
     if fileType == 'ortho':
         base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/IODMS1B.001'       
-    elif fileType == 'dem':
+    elif fileType == 'fireball':
         base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/IODMS3.001'
     elif fileType == 'lvis':
         base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILVIS2.001/'
@@ -111,7 +111,7 @@ def hasGoodLat(latitude, isSouth):
 def isInSeparateByLatTable(site):
     return site in ['20150924', '20151005', '20151020', '20151022'];
     
-def fetchAndParseIndexFileAux(isSouth, separateByLat, numDays, dayVal,
+def fetchAndParseIndexFileAux(isSouth, separateByLat, dayVal,
                               baseCurlCmd, folderUrl, path, fileType):
     '''Retrieve the index file for a folder of data and create
     a parsed version of it that contains frame number / filename pairs.'''
@@ -135,11 +135,12 @@ def fetchAndParseIndexFileAux(isSouth, separateByLat, numDays, dayVal,
     
     # Extract just the file names
     fileList = [] # ensure initialization
-    if fileType == 'image':
+    if fileType == 'jpeg':
         fileList = re.findall(">[0-9_]*.JPG", indexText, re.IGNORECASE)
     if fileType == 'ortho':
         fileList = re.findall(">DMS\w*.tif<", indexText, re.IGNORECASE) 
-    if fileType == 'dem':
+    if fileType == 'fireball':
+        # Fireball DEMs
         fileList = re.findall(">IODMS\w*DEM.tif", indexText, re.IGNORECASE)
     if fileType == 'lvis':
         fileList = re.findall(">ILVIS\w+.TXT", indexText, re.IGNORECASE)
@@ -184,7 +185,7 @@ def fetchAndParseIndexFileAux(isSouth, separateByLat, numDays, dayVal,
             if not isGood:
                 badXmls.add(xmlFile)
                 
-    elif (fileType == 'ortho' or fileType == 'dem'):
+    elif (fileType == 'ortho' or fileType == 'fireball'):
         # Sometimes there is a large gap in the timestamp. That means orthoimages 
         # from previous day are spilling over. If dayVal is 0, we must ignore
         # the spillover images. If dayVal is 1, we must keep the spillover images
@@ -262,26 +263,21 @@ def fetchAndParseIndexFileAux(isSouth, separateByLat, numDays, dayVal,
 # Create a list of all files that must be fetched unless done already.
 def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
 
-    separateByLat = (options.type == 'ortho' and isInSeparateByLatTable(options.site))
+    separateByLat = (options.type == 'ortho' and isInSeparateByLatTable(options.yyyymmdd))
     if separateByLat:
         options.fetchNextDay = False
         
     # If we need to parse the next flight day as well, as expected in some runs,
     # we will fetch two html files, but create a single index out of them.
     dayVals = [0]
-    if options.fetchNextDay and ( (options.type == 'ortho') or (options.type == 'dem') ):
+    if options.fetchNextDay and ( (options.type == 'ortho') or (options.type == 'fireball') ):
         dayVals.append(1)
         options.refetchIndex = True # Force refetch, to help with old archives
-        
-    # See if to wipe the index
-    if options.type in LIDAR_TYPES:
-        filename = 'lidar' + '_index.html'
-    else:
-        filename = options.type + '_index.html'
-        
-    indexPath       = os.path.join(outputFolder, filename)
+
+    indexPath       = icebridge_common.htmlIndexFile(outputFolder)
+    
     currIndexPath   = indexPath
-    parsedIndexPath = indexPath + '.csv' # we count later on this convention
+    parsedIndexPath = icebridge_common.csvIndexFile(outputFolder)
 
     if options.refetchIndex:
         os.system('rm -f ' + indexPath)
@@ -294,6 +290,13 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
     frameDict  = {}
     urlDict    = {}
 
+    # We need the list of jpeg frames. Sometimes when fetching ortho images,
+    # and we have to fetch from the next day, don't fetch unless
+    # in the jpeg index.
+    if len(dayVals) > 1:
+        jpegIndexPath = icebridge_common.csvIndexFile(options.jpegFolder)
+        (jpegFrameDict, jpegUrlDict) = icebridge_common.readIndexFile(jpegIndexPath)
+        
     for dayVal in dayVals:
 
         if len(dayVals) > 1:
@@ -337,7 +340,7 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
                     count += 1
                     (localFrameDict, localUrlDict) = \
                                      fetchAndParseIndexFileAux(isSouth,
-                                                               separateByLat, len(dayVals), dayVal,
+                                                               separateByLat, dayVal,
                                                                baseCurlCmd, folderUrl,
                                                                currIndexPath, lidar_types[count])
                     for frame in sorted(localFrameDict.keys()):
@@ -375,19 +378,19 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
         logger.info('Fetching from URL: ' + folderUrl)
         (localFrameDict, localUrlDict) = \
                          fetchAndParseIndexFileAux(isSouth,
-                                                   separateByLat, len(dayVals), dayVal,
+                                                   separateByLat, dayVal,
                                                    baseCurlCmd, folderUrl,
                                                    currIndexPath, options.type)
 
         # Append to the main index
         for frame in sorted(localFrameDict.keys()):
 
-            # If we already have this frame, that's a problem, we
-            # should have cleaned that up by now.
-            if (not options.type in LIDAR_TYPES) and (frame in frameDict.keys()):
-                raise Exception("Found duplicate frame: " + \
-                                frameDict[frame] + " " + localFrameDict[frame])
-            
+            # Fetch from next day, unless already have a value. And don't fetch
+            # frames not in the jpeg index.
+            if len(dayVals) > 1:
+                if not frame in jpegFrameDict.keys(): continue
+                if frame in frameDict.keys(): continue
+                
             frameDict[frame] = localFrameDict[frame]
             urlDict[frame]   = localUrlDict[frame]
         
@@ -418,7 +421,7 @@ def doFetch(options, outputFolder):
     isSouth = (options.site == 'AN')
     parsedIndexPath = fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder)
     if not icebridge_common.fileNonEmpty(parsedIndexPath):
-        # Some dirs are weird, both images, dems, and ortho.
+        # Some dirs are weird, both images, fireball dems, and ortho.
         # Just accept whatever there is, but with a warning.
         logger.info('Warning: Missing index file: ' + parsedIndexPath)
 
@@ -472,7 +475,7 @@ def doFetch(options, outputFolder):
     if len(allFrames) > 0:
         lastFrame = allFrames[len(allFrames)-1]
 
-    hasTfw = (options.type == 'dem')
+    hasTfw = (options.type == 'fireball')
     hasXml = ( isLidar or (options.type == 'ortho') or hasTfw )
     numFetched = 0
     for frame in allFrames:
@@ -480,7 +483,7 @@ def doFetch(options, outputFolder):
 
             filename = frameDict[frame]
             
-            # Some files have an associated xml file. DEMs also have a tfw file.
+            # Some files have an associated xml file. Fireball DEMs also have a tfw file.
             currFilesToFetch = [filename]
             if hasXml: 
                 currFilesToFetch.append(icebridge_common.xmlFile(filename))
@@ -601,6 +604,9 @@ def main(argsIn):
                           help="End of frame sequence to download.")
         parser.add_option("--all-frames", action="store_true", dest="allFrames", default=False,
                           help="Fetch all frames for this flight.")
+        parser.add_option("--jpeg-folder",  dest="jpegFolder", default=None,
+                          help="The location of the jpeg folder. This is neeed to " +
+                          "fetch indices of ortho images and DEMs.")
         parser.add_option("--fetch-from-next-day-also", action="store_true", dest="fetchNextDay",
                           default=False,
                           help="Sometimes some files are stored in next day's runs as well.")
@@ -609,15 +615,13 @@ def main(argsIn):
                           help="Skip input data validation.")
         parser.add_option("--dry-run", action="store_true", dest="dryRun",
                           default=False,
-                          help="Just print the image/ortho/dem download commands.")
+                          help="Just print the image/ortho/fireball download commands.")
         parser.add_option("--refetch-index", action="store_true", dest="refetchIndex",
                           default=False,
                           help="Force refetch of the index file.")
         parser.add_option("--stop-after-index-fetch", action="store_true",
                           dest="stopAfterIndexFetch", default=False,
                           help="Stop after fetching the indices.")
-        parser.add_option("--type",  dest="type", default='image',
-                          help="File type to download ([image], ortho, dem, lidar)")
         parser.add_option('--max-num-to-fetch', dest='maxNumToFetch', default=-1,
                           type='int', help='The maximum number to fetch of each kind of file. ' + \
                           'This is used in debugging.')
@@ -625,15 +629,15 @@ def main(argsIn):
         # This call handles all the parallel_mapproject specific options.
         (options, args) = parser.parse_args(argsIn)
 
-        # Some of the code does not work unless a specific lidar type is used
-        if options.type == 'lidar':
-            options.type = LIDAR_TYPES[0]
-            
         if len(args) != 1:
             logger.info('Error: Missing output folder.\n' + usage)
             return -1
         outputFolder = os.path.abspath(args[0])
 
+        options.type = icebridge_common.folderToType(outputFolder)
+        if options.type == 'lidar':
+            options.type = LIDAR_TYPES[0]
+            
         # Handle unified date option
         options.ext = '' # some dirs have appended to them 'a' or 'b'
         if options.yyyymmdd:
@@ -651,14 +655,14 @@ def main(argsIn):
             logger.error('Error: year, month, and day must be provided.\n' + usage)
             return -1
         
-        # Ortho and DEM files don't need this information to find them.
-        if (options.type == 'image') and not (options.site == 'AN' or options.site == 'GR'):
+        # Ortho and Fireball DEM files don't need this information to find them.
+        if (options.type == 'jpeg') and not (options.site == 'AN' or options.site == 'GR'):
             logger.error('Error, site must be AN or GR for images.\n' + usage)
             return -1
 
-        KNOWN_TYPES = ['image', 'ortho', 'dem'] + LIDAR_TYPES
+        KNOWN_TYPES = ['jpeg', 'ortho', 'fireball'] + LIDAR_TYPES
         if not (options.type.lower() in KNOWN_TYPES):
-            logger.error('Error, type must be image, ortho, dem, or a lidar type.\n' + usage)
+            logger.error('Error, type must be image, ortho, fireball, or a lidar type.\n' + usage)
             return -1
 
     except optparse.OptionError, msg:

@@ -52,6 +52,15 @@ def hasImageExtension(filename):
         return True
     return False
 
+def folderToType(folder):
+    return os.path.basename(folder)
+
+def htmlIndexFile(folder):
+    return os.path.join(folder, folderToType(folder) + "_index.html")
+    
+def csvIndexFile(folder):
+    return htmlIndexFile(folder) + ".csv"
+    
 def readIndexFile(parsedIndexPath):
     '''Read an index file having frame number, filename, and url it came from.'''
     frameDict  = {}
