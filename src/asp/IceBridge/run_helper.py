@@ -73,6 +73,10 @@ class RunHelper():
         '''Return the file name used to tar up the generated camera files'''
         return 'CAMERA_' + self.name() + '.tar.gz'
 
+    def getSummaryTarName(self):
+        '''Return the file name used to tar up the generated camera files'''
+        return 'SUMMARY_' + self.name() + '.tar'
+
     def getOutputTarName(self):
         '''Return the file name used to tar up the final results'''
         return 'DEM_' + self.name() + '.tar'
@@ -119,15 +123,16 @@ class RunHelper():
         return batchFolders
 
     def getOutputDemList(self):
-        '''Return a list containing all the output DEM files in the run'''
+        '''Return a list containing all the output DEM files in the run and the associated frames'''
         
         batchList = self.getBatchFolderList()
 
         demName = 'out-align-DEM.tif'
         output = []
         for batch in batchList:
+            frames = icebridge_common.getFrameRangeFromBatchFolder(batch)
             path = os.path.join(batch, demName)
-            output.append(path)
+            output.append((path, frames))
         return output
 
 

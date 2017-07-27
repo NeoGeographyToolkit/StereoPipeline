@@ -50,14 +50,14 @@ print os.environ["PATH"]
 
 
 # Constants used in this file
-PBS_QUEUE = 'devel' # devel, debug, long
+PBS_QUEUE = 'debug' # devel, debug, long
 #NODE_TYPE = 'wes' # Westmere = 12 core,  48 GB mem, SBU 1.0, Launch from mfe1 only!
-NODE_TYPE = 'san' # Sandy bridge = 16 core,  32 GB mem, SBU 1.82
-#NODE_TYPE = 'ivy' # Ivy bridge   = 20 core,  64 GB mem, SBU 2.52
+#NODE_TYPE = 'san' # Sandy bridge = 16 core,  32 GB mem, SBU 1.82
+NODE_TYPE = 'ivy' # Ivy bridge   = 20 core,  64 GB mem, SBU 2.52
 #NODE_TYPE = 'has' # Haswell      = 24 core, 128 GB mem, SBU 3.34
 #NODE_TYPE = '???' # Broadwell    = 28 core, 128 GB mem, SBU 4.04
-NUM_ORTHO_JOBS      = 1
-NUM_ORTHO_PROCESSES = 8
+NUM_ORTHO_JOBS      = 2
+NUM_ORTHO_PROCESSES = 10
 NUM_ORTHO_THREADS   = 2
 NUM_BATCH_JOBS      = 1
 NUM_BATCH_THREADS   = 8 # MGM is limited to 8 threads
@@ -78,6 +78,7 @@ LOG_FOLDER              = '/nobackup/smcmich1/icebridge/manager_logs'
 UNPACK_FOLDER           = '/nobackup/smcmich1/icebridge/data'
 CALIBRATION_FILE_FOLDER = '/nobackup/smcmich1/icebridge/calib_files'
 REFERENCE_DEM_FOLDER    = '/nobackup/smcmich1/icebridge/reference_dems'
+SUMMARY_FOLDER          = '/nobackup/smcmich1/icebridge/summaries'
 
 
 BUNDLE_LENGTH = 10
@@ -219,7 +220,8 @@ def generateBatchList(run):
     
 
 def submitBatchJobs(run, batchListPath):
-    '''Read all the batch jobs required for a run and distribute them across job submissions'''
+    '''Read all the batch jobs required for a run and distribute them across job submissions.
+       Returns the common string in the job names.'''
 
     logger = logging.getLogger(__name__)
 
@@ -237,7 +239,6 @@ def submitBatchJobs(run, batchListPath):
 
     baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
 
-    # TODO: Why is PBS path not working?
     # Call the tool which just executes commands from a file
     scriptPath = 'multi_process_command_runner.py'
 
@@ -256,6 +257,7 @@ def submitBatchJobs(run, batchListPath):
         submitJob(jobName, scriptPath, args, logPrefix)
 
     # Waiting on these jobs happens outside this function
+    return baseName
 
 # TODO: Move this
 def waitForRunCompletion(text):
@@ -292,7 +294,9 @@ def checkResults(run, batchListPath):
     with open(packedErrorLog, 'w') as errorLog:
     
         # Look for errors in the log files
-        logFileList = [] # TODO, probably in run class
+        pbsLogFolder = run.getPbsLogFolder()
+        logFileList = os.listdir(pbsLogFolder)
+        logFileList = [os.path.join(pbsLogFolder, x) for x in logFileList]
         errorCount = 0
         errorWords = ['error', 'Error'] # TODO: Fix this!
         for log in logFileList:
@@ -324,7 +328,24 @@ def checkResults(run, batchListPath):
             
     return (numOutputs, numProduced, errorCount)
 
-
+def generateSummaryFolder(run, outputFolder):
+    '''Generate a folder containing handy debugging files including output thumbnails'''
+    
+    # Copy logs to the output folder
+    os.system('mkdir -p ' + outputFolder)
+    runFolder = run.getFolder()
+    packedErrorLog = os.path.join(runFolder, 'packedErrors.log')
+    shutil.copy(packedErrorLog, outputFolder)
+    shutil.copy(packedErrorLog, outputFolder)
+    
+    # Make thumbnail versions of all the output DEM files
+    demList = run.getOutputDemList()
+    for (dem, frames) in demList:
+        thumbName = ('dem_%d_%d_browse.tif' % (frames[0], frames[1]))
+        thumbPath = os.path.join(outputFolder, thumbName)
+        cmd = 'gdal_translate '+dem+' '+thumbPath+' -of GTiff -outsize 10% 10% -b 1 -co "COMPRESS=JPEG"'
+        os.system(cmd)
+        
 
 def main(argsIn):
 
@@ -364,7 +385,7 @@ def main(argsIn):
     
     runList = getRunsToProcess(allRuns, skipRuns, doneRuns)
 
-    runList = [run_helper.RunHelper('GR','20110504', UNPACK_FOLDER)] # DEBUG
+    runList = [run_helper.RunHelper('AN','20111010', UNPACK_FOLDER)] # DEBUG
 
    
     # Loop through the incomplete runs
@@ -373,27 +394,29 @@ def main(argsIn):
         # TODO: Put this in a try/except block so it keeps going on error
 
         # Obtain the data for a run
-        archive_functions.retrieveRunData(run)
+        archive_functions.retrieveRunData(run, UNPACK_FOLDER)
         
         if run.checkFlag('conversion_complete'):
             logger.info('Conversion is already complete.')
         else:
             logger.info('Converting data for run ' + str(run))
             runConversion(run)
-         
+
         # Run command to generate the list of batch jobs for this run
         logger.info('Fetching batch list for run ' + str(run))
         batchListPath = generateBatchList(run)
+
+        raise Exception('DEBUG')
         
         # Divide up batches into jobs and submit them to machines.
         logger.info('Submitting jobs for run ' + str(run))
-        submitBatchJobs(run, batchListPath)
+        baseName = submitBatchJobs(run, batchListPath)
         
         # TODO: Don't wait for one run to finish before starting the next one!
         
         # Wait for all the jobs to finish
         logger.info('Waiting for job completion of run ' + str(run))
-        waitForRunCompletion(run.site) # TODO: Specialize this!
+        waitForRunCompletion(baseName)
         logger.info('All jobs finished for run '+str(run))
         
         # Log the run as completed
@@ -405,6 +428,14 @@ def main(argsIn):
         resultText = ('"Created %d out of %d output targets with %d errors."' % 
                       (numProduced, numOutputs, errorCount))
         logger.info(resultText)
+
+        # Generate a summary folder and send a copy to Lou
+        # - Currently the summary folders need to be deleted manually, but they should not
+        #   take up much space due to the large amount of compression used.
+        summaryFolder = os.path.join(SUMMARY_FOLDER, run.name())
+        generateSummaryFolder(run, summaryFolder):
+        packAndSendSummaryFolder(run, summaryFolder)
+        # TODO: Automatically scp these to lunokhod?
 
         # Don't pack or clean up the run if it did not generate all the output files.
         if (numProduced == numOutputs) and (errorCount == 0):
@@ -422,7 +453,7 @@ def main(argsIn):
         raise Exception('DEBUG')
         
     # End loop through runs
-    logger.info('==== plieades_manager script has finished! ====')
+    logger.info('==== pleiades_manager script has finished! ====')
 
 
 # Run main function if file used from shell

@@ -49,10 +49,10 @@ os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 REMOTE_INPUT_FOLDER     = 'lou:/u/oalexan1/projects/data/icebridge'
 REMOTE_CAMERA_FOLDER    = 'lou:/u/smcmich1/icebridge/camera'
 REMOTE_OUTPUT_FOLDER    = 'lou:/u/smcmich1/icebridge/output'
+REMOTE_SUMMARY_FOLDER   = 'lou:/u/smcmich1/icebridge/summaries'
 
 
-
-def retrieveRunData(run):
+def retrieveRunData(run, unpackFolder):
     '''Retrieve the data for the specified run from Lou.'''
 
     logger = logging.getLogger(__name__)
@@ -69,7 +69,7 @@ def retrieveRunData(run):
     fileName = run.getInputTarName()
     louPath  = os.path.join(REMOTE_INPUT_FOLDER, fileName)
 
-    cmd = 'shiftc --wait --sync --verify --extract-tar ' + louPath + ' ' + UNPACK_FOLDER
+    cmd = 'shiftc --wait --verify --extract-tar ' + louPath + ' ' + unpackFolder
     logger.info(cmd)
     status = os.system(cmd)
     if status != 0:
@@ -96,7 +96,7 @@ def fetchCameraFolder(run):
     fileName     = run.getCameraTarName()
     louPath      = os.path.join(REMOTE_CAMERA_FOLDER, fileName)
 
-    cmd = 'shiftc  --wait --extract-tar ' + louPath + ' ' + cameraFolder
+    cmd = 'shiftc --wait --extract-tar ' + louPath + ' ' + cameraFolder
     logger.info(cmd)
     status = os.system(cmd)
     if status != 0:
@@ -124,6 +124,23 @@ def packAndSendCameraFolder(run):
     if status != 0:
         raise Exception('Failed to pack/send cameras for run ' + str(run))
     logger.info('Finished sending cameras to lou.')
+
+def packAndSendSummaryFolder(run, folder):
+    '''Archive the summary folder in case we want to look at it later'''
+    
+    logger = logging.getLogger(__name__)
+    logger.info('Archiving summary folder for run ' + str(run))
+    
+    # Tar up the summary folder send it at the same time using the shiftc command
+    fileName = run.getSummaryTarName()
+    louPath  = os.path.join(REMOTE_SUMMARY_FOLDER, fileName)
+
+    cmd = 'shiftc --wait --create-tar ' + cameraFolder + ' ' + louPath
+    logger.info(cmd)
+    status = os.system(cmd)
+    if status != 0:
+        raise Exception('Failed to pack/send summary folder for run ' + str(run))
+    logger.info('Finished sending summary to lou.')
 
 
 def packAndSendCompletedRun(run):
