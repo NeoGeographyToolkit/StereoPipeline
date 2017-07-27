@@ -44,6 +44,7 @@ os.environ["PATH"] = basepath       + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = pythonpath     + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = libexecpath    + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
+print os.environ["PATH"]
 
 
 
@@ -64,17 +65,19 @@ NUM_BATCH_PROCESSES = 3
 GROUP_ID = 's1827'
 MAX_PROCESS_HOURS = 2#40 # devel limit is 2, long limit is 120, normal is 8
 
+STEREO_ALGORITHM = 2 # 1 = SGM, 2 = MGM
+
 # Wait this long between checking for job completion
 SLEEP_TIME = 30
 
-ALL_RUN_LIST       = '/u/smcmich1/icebridge/full_run_list.txt'
-SKIP_RUN_LIST      = '/u/smcmich1/icebridge/run_skip_list.txt'
-COMPLETED_RUN_LIST = '/u/smcmich1/icebridge/completed_run_list.txt'
+ALL_RUN_LIST       = '/nobackup/smcmich1/icebridge/full_run_list.txt'
+SKIP_RUN_LIST      = '/nobackup/smcmich1/icebridge/run_skip_list.txt'
+COMPLETED_RUN_LIST = '/nobackup/smcmich1/icebridge/completed_run_list.txt'
 
-LOG_FOLDER              = '/u/smcmich1/icebridge/manager_logs'
-UNPACK_FOLDER           = '/u/smcmich1/icebridge/data'
-CALIBRATION_FILE_FOLDER = '/u/smcmich1/icebridge/calib_files'
-REFERENCE_DEM_FOLDER    = '/u/smcmich1/icebridge/reference_dems'
+LOG_FOLDER              = '/nobackup/smcmich1/icebridge/manager_logs'
+UNPACK_FOLDER           = '/nobackup/smcmich1/icebridge/data'
+CALIBRATION_FILE_FOLDER = '/nobackup/smcmich1/icebridge/calib_files'
+REFERENCE_DEM_FOLDER    = '/nobackup/smcmich1/icebridge/reference_dems'
 
 
 BUNDLE_LENGTH = 10
@@ -172,7 +175,7 @@ def runConversion(run):
     outputFolder = run.getFolder()
     
     # TODO: Is using the default output folder ok here?
-    scriptPath = '/u/smcmich1/repo/StereoPipeline/src/asp/IceBridge/full_processing_script.py' # TODO
+    scriptPath = 'full_processing_script.py'
     args       = ('%s %s --site %s --yyyymmdd %s --skip-fetch --stop-after-convert --num-threads %d --num-processes %d --output-folder %s' 
                   % (CALIBRATION_FILE_FOLDER, REFERENCE_DEM_FOLDER, run.site, run.yyyymmdd, NUM_ORTHO_THREADS, NUM_ORTHO_PROCESSES, outputFolder))
     
@@ -197,38 +200,35 @@ def runConversion(run):
     # Wait for conversions to finish
     waitForRunCompletion(baseName)
 
-    raise Exception('DEBUG')
-
     # Create a file to mark that conversion is finished for this folder
     run.setFlag('conversion_complete')
 
     # Pack up camera folder and store it for later
     gotCameras = archive_functions.packAndSendCameraFolder(run)
-    
-    raise Exception('DEBUG')
 
 def generateBatchList(run):
     '''Generate a list of all the processing batches required for a run'''
 
     # No actual processing is being done here so it can run on the PFE
-    outputFolder = run.getFolder()
-    cmd = ('python full_processing_script.py --yyyymmdd %s --site %s --output-folder %s %s %s   --num-processes 1 --num-threads 1  --bundle-length %d  --skip-fetch  --skip-convert' % (run.yyyymmdd, run.site, outputFolder, CALIBRATION_FILE_FOLDER, REFERENCE_DEM_FOLDER, BUNDLE_LENGTH))
-    os.system(cmd)
+    # - This is very fast so we can re-run it every time.
+    cmd = ('process_icebridge_run.py %s %s %s %s --ortho-folder %s --num-threads %d  --bundle-length %d --stereo-algorithm %d  --stop-frame 99999999  --log-batches' % (run.getImageFolder(), run.getCameraFolder(), run.getLidarFolder(), run.getProcessFolder(), run.getOrthoFolder(), NUM_BATCH_THREADS, BUNDLE_LENGTH, STEREO_ALGORITHM))
+#    os.system(cmd)
     
-    listPath = os.path.join(outputFolder, 'processed/batch_commands_log.txt')
+    listPath = os.path.join(run.getProcessFolder(), 'batch_commands_log.txt')
     return listPath
-    
-
     
 
 def submitBatchJobs(run, batchListPath):
     '''Read all the batch jobs required for a run and distribute them across job submissions'''
 
+    logger = logging.getLogger(__name__)
+
     if not os.path.exists(batchListPath):
+        logger.error('Failed to generate batch list file: ' + batchListPath)
         raise Exception('Failed to generate batch list file: ' + batchListPath)
 
     # Number of batches = number of lines in the file
-    p = subprocess.Popen('wc -l '+batchListPath , stdout=subprocess.PIPE)
+    p = subprocess.Popen(['wc', '-l', batchListPath], stdout=subprocess.PIPE)
     textOutput, err = p.communicate()
     numBatches      = int(textOutput.split()[0])
     
@@ -237,8 +237,9 @@ def submitBatchJobs(run, batchListPath):
 
     baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
 
+    # TODO: Why is PBS path not working?
     # Call the tool which just executes commands from a file
-    scriptPath = 'multi_process_command.py' # TODO
+    scriptPath = 'multi_process_command_runner.py'
 
     outputFolder = run.getFolder()
     pbsLogFolder = run.getPbsLogFolder()
@@ -248,11 +249,11 @@ def submitBatchJobs(run, batchListPath):
         jobName  = str(currentBatch) + baseName
 
         # Specify the range of lines in the file we want this node to execute
-        args = ('%s, %d, %d, %d' % (batchListPath, NUM_BATCH_PROCESSES, currentBatch, currentBatch+numBatchesPerNode))
+        args = ('%s %d %d %d' % (batchListPath, NUM_BATCH_PROCESSES, currentBatch, currentBatch+numBatchesPerNode))
 
         logPrefix = os.path.join(pbsLogFolder, 'batch_' + jobName)
         logger.info('Submitting batch job with args: '+args)
-        pbs_functions.submitJob(jobName, scriptPath, args, logPrefix)
+        submitJob(jobName, scriptPath, args, logPrefix)
 
     # Waiting on these jobs happens outside this function
 
@@ -282,6 +283,8 @@ def waitForRunCompletion(text):
 def checkResults(run, batchListPath):
     '''Return (numOutputs, numProduced, errorCount) to help validate our results'''
     
+    logger = logging.getLogger(__name__)
+    
     # TODO: Check more carefully!
     runFolder = run.getFolder()
     
@@ -303,7 +306,7 @@ def checkResults(run, batchListPath):
                     if hasError:
                         packedErrorLog.write(line)
                         errorCount += 1
-    logger.info('Counted ' + errorCount + ' errors in log files!')
+    logger.info('Counted ' + str(errorCount) + ' errors in log files!')
     
     # Make sure each batch produced the aligned DEM file
     batchOutputName = 'out-align-DEM.tif'
@@ -367,23 +370,20 @@ def main(argsIn):
     # Loop through the incomplete runs
     for run in runList:
 
-        # TODO: Put this in a try/except block so it keeps going
+        # TODO: Put this in a try/except block so it keeps going on error
 
         # Obtain the data for a run
         archive_functions.retrieveRunData(run)
         
-        if not run.checkFlag('conversion_complete'):
-            # TODO: There needs to be a logging system
+        if run.checkFlag('conversion_complete'):
+            logger.info('Conversion is already complete.')
+        else:
             logger.info('Converting data for run ' + str(run))
             runConversion(run)
-         
-        raise Exception('DEBUG')
          
         # Run command to generate the list of batch jobs for this run
         logger.info('Fetching batch list for run ' + str(run))
         batchListPath = generateBatchList(run)
-        
-        raise Exception('DEBUG')
         
         # Divide up batches into jobs and submit them to machines.
         logger.info('Submitting jobs for run ' + str(run))
@@ -402,8 +402,8 @@ def main(argsIn):
 
         # Generate a simple report of the results
         (numOutputs, numProduced, errorCount) = checkResults(run, batchListPath)
-        resultText = ('Created %d out of %d output targets with %d errors.' % 
-                      (numOutputs, numProduced, errorCount))
+        resultText = ('"Created %d out of %d output targets with %d errors."' % 
+                      (numProduced, numOutputs, errorCount))
         logger.info(resultText)
 
         # Don't pack or clean up the run if it did not generate all the output files.
@@ -417,7 +417,7 @@ def main(argsIn):
             # TODO: Don't wait on the pack/send operation to finish!
 
         # Notify that the run is done processing
-        sendEmail('scott.t.mcmichael@nasa.gov', 'IB run complete: '+str(run), resultText)
+        sendEmail('scott.t.mcmichael@nasa.gov', '"IB run complete - '+str(run)+'"', resultText)
         
         raise Exception('DEBUG')
         

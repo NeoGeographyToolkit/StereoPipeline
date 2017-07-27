@@ -170,7 +170,7 @@ def getImageSpacing(orthoFolder):
             if (interval == 1) and (area <= 0):
                 breaks.append(frames[i])
                 logger.info('Detected large break after frame ' + str(frames[i]))
-            
+
         # Get the mean intersection ratio
         meanRatio = meanRatio / count
         logger.info('  --> meanRatio = ' + str(meanRatio))
@@ -178,10 +178,10 @@ def getImageSpacing(orthoFolder):
     # If we increased the interval too much, back it off by one step.
     if (meanRatio < MIN_RATIO) and (interval > 1):
         interval = interval - 1
-        
+
     logger.info('Computed automatic image stereo interval: ' + str(interval))
-    logger.info('Detected ' + str(interval) + ' breaks in image coverage.')
-    
+    logger.info('Detected ' + str(len(breaks)) + ' breaks in image coverage.')
+
     return (interval, breaks)
 
 
@@ -312,7 +312,7 @@ def main(argsIn):
         
     # Generate a map of initial camera positions
     orbitvizBefore = os.path.join(outputFolder, 'cameras_in.kml')
-    vizString  = ''
+    vizString      = ''
     for (image, camera) in imageCameraPairs: 
         vizString += image +' ' + camera+' '
     cmd = 'orbitviz --hide-labels -t nadirpinhole -r wgs84 -o '+ orbitvizBefore +' '+ vizString

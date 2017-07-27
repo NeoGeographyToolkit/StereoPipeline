@@ -115,6 +115,7 @@ class RunHelper():
         pFolder       = self.getProcessFolder()
         batchFolders  = os.listdir(pFolder)
         batchFolders  = [os.path.join(pFolder,x) for x in batchFolders if 'batch_' in x]
+        batchFolders  = [x for x in batchFolders if os.path.isdir(x)]
         return batchFolders
 
     def getOutputDemList(self):

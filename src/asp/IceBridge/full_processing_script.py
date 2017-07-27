@@ -449,7 +449,7 @@ def main(argsIn):
         return 0
 
     if options.noConvert:        
-        logger.info('Skipping convert')
+        logger.info('Skipping convert.')
     else:
 
         # When files fail in these conversion functions we log the error and keep going
