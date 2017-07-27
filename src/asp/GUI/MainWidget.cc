@@ -286,13 +286,17 @@ namespace vw { namespace gui {
     // Polygon editing mode, they will be visible only when editing happens
     m_insertVertex = m_ContextMenu->addAction("Insert vertex");
     m_deleteVertex = m_ContextMenu->addAction("Delete vertex");
-    m_moveVertex = m_ContextMenu->addAction("Move vertices");
+    m_moveVertex   = m_ContextMenu->addAction("Move vertices");
     m_moveVertex->setCheckable(true);
     m_moveVertex->setChecked(false);
 
     m_showPolysFilled = m_ContextMenu->addAction("Show polygons filled");
     m_showPolysFilled->setCheckable(true);
     m_showPolysFilled->setChecked(false);
+
+    m_showIndices = m_ContextMenu->addAction("Show vertex indeces");
+    m_showIndices->setCheckable(true);
+    m_showIndices->setChecked(false);
 
     m_mergePolys = m_ContextMenu->addAction("Merge polygons");
     
@@ -1144,11 +1148,12 @@ namespace vw { namespace gui {
                          vw::geometry::vecPtr(m_profileX),  
                          vw::geometry::vecPtr(m_profileY),  
                          isPolyClosed, color, layer);
-      MainWidget::plotDPoly(plotPoints, plotEdges, plotFilled, lineWidth,  
+      bool showIndices = false;
+      MainWidget::plotDPoly(plotPoints, plotEdges, plotFilled, showIndices,
+                            lineWidth,  
                             drawVertIndex, cropWinColor, paint,  
                             poly);
     }
-    
     
     // Plot the polygon being drawn now, and pre-existing polygons
     for (size_t polyIter = 0; polyIter < m_polyVec.size() + 1; polyIter++){
@@ -1199,9 +1204,10 @@ namespace vw { namespace gui {
       // TODO: This seems necessary. More thought is needed. 
       if (val1 * val2 < 0)
 	poly.reverse();
-    
+
       MainWidget::plotDPoly(plotPoints, plotEdges, m_showPolysFilled->isChecked(),
-			    lineWidth,  
+                            m_showIndices->isChecked(),
+                            lineWidth,  
 			    drawVertIndex, cropWinColor, paint, poly);
     }
 
@@ -1529,6 +1535,7 @@ namespace vw { namespace gui {
 
     // Turn off moving vertices any time we turn on or off poly editing
     m_moveVertex->setChecked(false);
+    m_showIndices->setChecked(false);
 
     if (!m_polyEditMode) {
       // Clean up any vector layer mode
@@ -1821,7 +1828,8 @@ namespace vw { namespace gui {
   }
   
   void MainWidget::plotDPoly(bool plotPoints, bool plotEdges,
-                             bool plotFilled, int lineWidth,
+                             bool plotFilled, bool showIndices,
+                             int lineWidth,
                              int drawVertIndex, // 0 is a good choice here
                              QColor const& color,
                              QPainter &paint,
@@ -1866,6 +1874,12 @@ namespace vw { namespace gui {
 		      x_max + extraX, y_max + extraY, // inputs
                       clippedPoly // output
                       );
+    
+    std::vector<vw::geometry::anno> annotations;
+    if (showIndices) {
+      clippedPoly.compVertIndexAnno();
+      clippedPoly.get_vertIndexAnno(annotations);
+    }
     
     const double * xv               = clippedPoly.get_xv();
     const double * yv               = clippedPoly.get_yv();
@@ -1951,6 +1965,17 @@ namespace vw { namespace gui {
       }
     }
 
+    // Plot the annotations
+    int numAnno = annotations.size();
+    for (int aIter = 0; aIter < numAnno; aIter++){
+      const anno & A = annotations[aIter];
+      // Avoid points close to boundary, as were we clipped artificially
+      if (! (A.x >= x_min && A.x <= x_max && A.y >= y_min && A.y <= y_max ) ) continue;
+      Vector2 P = world2screen(Vector2(A.x, A.y));
+      paint.setPen( QPen(QColor("gold"), lineWidth) );
+      paint.drawText(P.x(), P.y(), (A.label).c_str());
+    } // End plotting annotations
+    
     return;
   }
   
@@ -2421,6 +2446,7 @@ namespace vw { namespace gui {
     m_deleteVertex->setVisible(m_polyEditMode);
     m_insertVertex->setVisible(m_polyEditMode);
     m_moveVertex->setVisible(m_polyEditMode);
+    m_showIndices->setVisible(m_polyEditMode);
     m_showPolysFilled->setVisible(m_polyEditMode);
     m_saveVectorLayer->setVisible(m_polyEditMode);
     m_mergePolys->setVisible(m_polyEditMode);

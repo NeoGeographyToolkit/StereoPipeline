@@ -117,7 +117,7 @@ namespace vw { namespace gui {
                        int drawVertIndex, QPainter &paint);
     
     void plotDPoly(bool plotPoints, bool plotEdges,
-                   bool plotFilled, int lineWidth,
+                   bool plotFilled, bool showIndices, int lineWidth,
                    int drawVertIndex, // 0 is a good choice here
                    QColor const& color,
                    QPainter &paint,
@@ -324,6 +324,7 @@ public slots:
     QAction* m_deleteVertex;
     QAction* m_insertVertex;
     QAction* m_moveVertex;
+    QAction* m_showIndices;
     QAction* m_mergePolys;
     QAction* m_showPolysFilled;
     
