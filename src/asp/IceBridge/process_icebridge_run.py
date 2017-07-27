@@ -332,12 +332,14 @@ def main(argsIn):
    
     (autoStereoInterval, breaks) = getImageSpacing(options.orthoFolder)
     if options.imageStereoInterval: 
-        logger.info('Using manually specified image stereo interval: ' + str(options.imageStereoInterval))
+        logger.info('Using manually specified image stereo interval: ' +
+                    str(options.imageStereoInterval))
     else:
         logger.info('Using automatic stereo interval: ' + str(autoStereoInterval))
         options.imageStereoInterval = autoStereoInterval
         if options.imageStereoInterval >= numFiles:
-            raise Exception('Error: Automatic skip interval is greater than the number of input files!')       
+            raise Exception('Error: Automatic skip interval is greater than the ' +
+                            'number of input files!')       
     extraOptions += ' --stereo-image-interval ' + str(options.imageStereoInterval)
 
     logger.info('Detected frame breaks: ' + str(breaks))
@@ -389,7 +391,8 @@ def main(argsIn):
         #    continue
           
         # The output folder is named after the first and last frame in the batch
-        thisOutputFolder = os.path.join(outputFolder, 'batch_'+str(frameNumbers[0])+'_'+str(frameNumbers[-1]))
+        thisOutputFolder = os.path.join(outputFolder,
+                                        'batch_'+str(frameNumbers[0])+'_'+str(frameNumbers[-1]))
 
         if not options.logBatches:
             logger.info('Running processing batch in output folder: ' + thisOutputFolder + '\n' + 
@@ -403,7 +406,8 @@ def main(argsIn):
         batchNum += 1
         
         if hitBreakFrame:
-            # When we hit a break in the frames we need to start the next batch after the break frame
+            # When we hit a break in the frames we need to start the
+            # next batch after the break frame
             batchImageCameraPairs = []
             frameNumbers          = []
         else:

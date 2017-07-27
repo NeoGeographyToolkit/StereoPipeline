@@ -336,9 +336,9 @@ def getLidar(folder):
 
     return files
 
-def parseDateTimeStrings(dateString, timeString, secFix=False):
+def parseDateTimeStrings(dateString, timeString, secondFix, returnSecondOnly):
     '''Parse strings in the format 20110323_17433900.'''
-    
+
     MILLISECOND_TO_MICROSECOND = 10000
     
     year    = int(dateString[0:4])
@@ -347,7 +347,11 @@ def parseDateTimeStrings(dateString, timeString, secFix=False):
     hour    = int(timeString[0:2])
     minute  = int(timeString[2:4])
     second  = int(timeString[4:6])
-    if secFix: # Some files number the seconds from 1-60!
+
+    if returnSecondOnly:
+        return second
+    
+    if secondFix: # Some files number the seconds from 1-60!
         second  = second - 1
     usecond = 0
     if len(timeString) > 6:
@@ -406,6 +410,59 @@ def parseTimeStamps(fileName):
 
     return [imageDateString, imageTimeString]
 
+def lidarFiles(lidarFolder):
+    '''Find lidar files in given folder. Note that the folder
+    name is not prepended to the file names.'''
+    
+    # All files in the folder
+    allFiles = os.listdir(lidarFolder)
+
+    # See based on existing files if we are dealing with LVIS
+    isLVIS = False
+    for f in allFiles:
+        m = re.match("^.*?ILVIS.*?\d+\.TXT", f, re.IGNORECASE)
+        if m:
+            isLVIS = True
+            
+    # Get just the files we converted to csv format or plain text LVIS files
+    lidarFiles = []    
+    for f in allFiles:
+        extension = os.path.splitext(f)[1]
+        if 'html.csv' in f:
+            continue # skip index.html.csv
+        if (not isLVIS and extension == '.csv') or (isLVIS and extension == '.TXT'):
+           lidarFiles.append(f)
+    lidarFiles.sort()
+
+    lidarExt = '.csv'
+    if isLVIS:
+        lidarExt = '.TXT'
+
+    return (lidarFiles, lidarExt, isLVIS)
+
+def lidar_pair_prefix():
+    return 'LIDAR_PAIR_'
+
+def pairFiles(pairedFolder):
+    '''Find the lidar pairs. Here we prepend the folder name to the files.'''
+
+    allFiles   = os.listdir(pairedFolder)
+    pairs = []
+    
+    for f in allFiles:
+
+        # Filter by lidar pair prefix. Do not filter by extension or do it well. That
+        # one can be .csv or .TXT.
+        if lidar_pair_prefix() not in f:
+            continue
+
+        # Extract time for this file
+        fullPath = os.path.join(pairedFolder, f)
+        pairs.append(fullPath)
+        
+    return pairs
+
+    
 def findMatchingLidarFile(imageFile, lidarFolder):
     '''Given an image file, find the best lidar file to use for alignment.'''
     
@@ -415,7 +472,9 @@ def findMatchingLidarFile(imageFile, lidarFolder):
     vals = parseTimeStamps(imageFile)
     if len(vals) < 2:
         raise Exception('Failed to parse the date and time from: ' + imageFile)
-    imageDateTime = parseDateTimeStrings(vals[0], vals[1])
+    secondFix = False
+    returnSecondOnly = False
+    imageDateTime = parseDateTimeStrings(vals[0], vals[1], secondFix, returnSecondOnly)
     
     #print 'INPUT = ' + str(imageDateTime)
     
@@ -424,24 +483,48 @@ def findMatchingLidarFile(imageFile, lidarFolder):
     # - It is possible for an image to span lidar files, we will address that if we need to!
     bestTimeDelta = datetime.timedelta.max
     bestLidarFile = 'NA'
-    lidarFiles    = os.listdir(pairedFolder)
+    lidarFiles    = pairFiles(pairedFolder)
     zeroDelta     = datetime.timedelta()
 
-    for f in lidarFiles:
+    if len(lidarFiles) <= 0:
+        raise Exception("Empty directory of pairs in " + pairedFolder)
+    
+    # First see if we need correction for sometimes seconds going from 1 to 60.
+    minSec = 60
+    maxSec = 0
+    for lidarPath in lidarFiles:
+        
+        vals = parseTimeStamps(lidarPath)
+        if len(vals) < 2: continue # ignore bad files
 
-        if '.csv' not in f: # Skip other files
-            continue
+        secondFix = False
+        returnSecondOnly = True
+        second = parseDateTimeStrings(vals[0], vals[1], secondFix, returnSecondOnly)
+        if second < minSec:
+            minSec = second
+        if second > maxSec:
+            maxSec = second
 
-        # Extract time for this file
-        lidarPath = os.path.join(pairedFolder, f)
+    if minSec > maxSec:
+        raise Exception("Failure parsing " + pairedFolder)
+
+    if minSec <= 0 and maxSec >= 60:
+        raise Exception("The second range goes from  " + str(minSec) + " to " + str(maxSec))
+
+    secondFix = False
+    if maxSec >= 60:
+        secondFix = True
+        
+    for lidarPath in lidarFiles:
 
         vals = parseTimeStamps(lidarPath)
         if len(vals) < 2: continue # ignore bad files
 
         try:
-            lidarDateTime = parseDateTimeStrings(vals[0], vals[1], secFix=True)
+            returnSecondOnly = False
+            lidarDateTime = parseDateTimeStrings(vals[0], vals[1], secondFix, returnSecondOnly)
         except Exception as e:
-            raise Exception('Failed to parse datetime for lidar file: ' + f + '\n' +
+            raise Exception('Failed to parse datetime for lidar file: ' + lidarPath + '\n' +
                             'Error is: ' + str(e))
 
         #print 'THIS = ' + str(lidarDateTime)
@@ -519,7 +602,6 @@ def nonBlockingRawInput(prompt='', timeout=20):
         pass # Timeout
     signal.signal(signal.SIGALRM, signal.SIG_IGN)
     return ''
-
 
 def waitForTaskCompletionOrKeypress(taskHandles, interactive=True, quitKey='q', sleepTime=20):
     '''Block in this function until the user presses a key or all tasks complete.'''

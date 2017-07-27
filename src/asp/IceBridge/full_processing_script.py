@@ -97,22 +97,24 @@ def fetchAllRunData(options, startFrame, stopFrame,
         return -1
 
     # jpeg and ortho indices must be consistent
-    jpegIndex  = icebridge_common.csvIndexFile(jpegFolder)
-    orthoIndex = icebridge_common.csvIndexFile(orthoFolder)
-    
-    (jpegFrameDict, jpegUrlDict)   = icebridge_common.readIndexFile(jpegIndex)
-    (orthoFrameDict, orthoUrlDict) = icebridge_common.readIndexFile(orthoIndex)
-    
-    for jpegFrame in jpegFrameDict.keys():
-        if jpegFrame not in orthoFrameDict.keys():
-            logger.info("Found jpeg frame missing from ortho: " + str(jpegFrame))
-            #raise Exception ("Found jpeg frame missing from ortho:" + str(jpegFrame))
+    if not options.skipValidate:
+        logger.info("Check for consistency between raw and ortho images.")
+        jpegIndex  = icebridge_common.csvIndexFile(jpegFolder)
+        orthoIndex = icebridge_common.csvIndexFile(orthoFolder)
+        
+        (jpegFrameDict, jpegUrlDict)   = icebridge_common.readIndexFile(jpegIndex)
+        (orthoFrameDict, orthoUrlDict) = icebridge_common.readIndexFile(orthoIndex)
+        
+        for jpegFrame in jpegFrameDict.keys():
+            if jpegFrame not in orthoFrameDict.keys():
+                logger.info("Found jpeg frame missing from ortho: " + str(jpegFrame))
+                #raise Exception ("Found jpeg frame missing from ortho:" + str(jpegFrame))
 
-    for orthoFrame in orthoFrameDict.keys():
-        if orthoFrame not in jpegFrameDict.keys():
-            # This can happen, don't die because of it
-            logger.info("Found ortho frame missing from jpeg: " + str(orthoFrame))
-            #raise Exception ("Found ortho frame missing from jpeg:" + str(orthoFrame))
+        for orthoFrame in orthoFrameDict.keys():
+            if orthoFrame not in jpegFrameDict.keys():
+                # This can happen, don't die because of it
+                logger.info("Found ortho frame missing from jpeg: " + str(orthoFrame))
+                #raise Exception ("Found ortho frame missing from jpeg:" + str(orthoFrame))
 
     # TODO: Wipe any ortho and jpeg images not in the index, or at least warn about it.
     

@@ -364,45 +364,24 @@ def pairLidarFiles(lidarFolder):
     # Create the output folder
     pairFolder = os.path.join(lidarFolder, 'paired')
     os.system('mkdir -p ' + pairFolder)
+
+    (lidarFiles, lidarExt, isLVIS) = icebridge_common.lidarFiles(lidarFolder)
     
-    # All files in the folder
-    allFiles = os.listdir(lidarFolder)
-
-    # See based on existing files if we are dealing with LVIS
-    isLVIS = False
-    for f in allFiles:
-        m = re.match("^.*?ILVIS.*?\d+\.TXT", f, re.IGNORECASE)
-        if m:
-            isLVIS = True
-            
-    # Get just the files we converted to csv format or plain text LVIS files
-    csvFiles = []    
-    for f in allFiles:
-        extension = os.path.splitext(f)[1]
-        if 'html.csv' in f:
-            continue # skip index.html.csv
-        if (not isLVIS and extension == '.csv') or (isLVIS and extension == '.TXT'):
-           csvFiles.append(f)
-    csvFiles.sort()
-    numCsvFiles = len(csvFiles)
-
-    outExt = '.csv'
-    if isLVIS:
-        outExt = '.TXT'
+    numLidarFiles = len(lidarFiles)
     
     # Loop through all pairs of csv files in the folder    
     badFiles = False
-    for i in range(0,numCsvFiles-2):
+    for i in range(0, numLidarFiles-2):
 
-        thisFile = csvFiles[i  ]
-        nextFile = csvFiles[i+1]
+        thisFile = lidarFiles[i  ]
+        nextFile = lidarFiles[i+1]
 
         #date1, time1 = icebridge_common.parseTimeStamps(thisFile)
         date2, time2 = icebridge_common.parseTimeStamps(nextFile)
         
         # Record the name with the second file
         # - More useful because the time for the second file represents the middle of the file.
-        outputName = 'LIDAR_PAIR_' + date2 +'_'+ time2 + outExt
+        outputName = icebridge_common.lidar_pair_prefix() + date2 +'_'+ time2 + lidarExt
 
         # Handle paths
         path1      = os.path.join(lidarFolder, thisFile)

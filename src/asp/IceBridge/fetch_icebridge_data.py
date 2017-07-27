@@ -307,7 +307,7 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
         # for one single special flight, we do it for jpeg too, as then
         # the jpegs are also split. 
        if orthoOrFireball or \
-          ( (options.type == 'jpeg') and twoFlightsInOneDay(options.site, options.yyyymmdd) ):
+          ((options.type == 'jpeg') and twoFlightsInOneDay(options.site, options.yyyymmdd)):
            fetchNextDay = True
        else:
            fetchNextDay = False
@@ -317,7 +317,6 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
     dayVals = [0]
     if fetchNextDay:
         dayVals.append(1)
-        options.refetchIndex = True # Force refetch, to help with old archives
 
     indexPath       = icebridge_common.htmlIndexFile(outputFolder)
     
@@ -387,7 +386,8 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
                                      fetchAndParseIndexFileAux(isSouth,
                                                                separateByLat, dayVal,
                                                                baseCurlCmd, folderUrl,
-                                                               currIndexPath, lidar_types[count])
+                                                               currIndexPath,
+                                                               lidar_types[count])
                     for frame in sorted(localFrameDict.keys()):
                         filename = localFrameDict[frame]
                         xmlFile  = icebridge_common.xmlFile(filename)
@@ -452,7 +452,8 @@ def doFetch(options, outputFolder):
     home = os.path.expanduser("~")
     if not (os.path.exists(home+'/.netrc') and os.path.exists(home+'/.urs_cookies')):
         logger.error('Missing a required authentication file!  See instructions here:\n' +
-                     '    https://nsidc.org/support/faq/what-options-are-available-bulk-downloading-data-https-earthdata-login-enabled')
+                     '    https://nsidc.org/support/faq/what-options-are-available-bulk-' +
+                     'downloading-data-https-earthdata-login-enabled')
         return -1
     
     curlPath = asp_system_utils.which("curl")
