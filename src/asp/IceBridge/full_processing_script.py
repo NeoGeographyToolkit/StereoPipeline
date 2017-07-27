@@ -215,7 +215,14 @@ def startWithLouArchive(options, logger):
 
 def fetchNextDay(outputFolder):
     '''If a flight spills into next day, fetch that as well.'''
+    # This happens quite a lot. Just fetch from next day all the
+    # time. Use the current day' jpeg index to throw away unneeded
+    # ortho frames for next day (and there is some logic to see which
+    # ortho images from current day we don't need).
+    # TODO: Move this to fetch_icebridge_data.py. But this will require careful
+    # testing then.
     return True
+
     # Always check for this 
     return outputFolder in ['AN_20091025',
                             'AN_20091103',
