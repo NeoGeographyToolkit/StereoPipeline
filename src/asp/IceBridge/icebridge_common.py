@@ -87,14 +87,31 @@ def isValidImage(filename):
     if not os.path.exists(filename):
         return False
     
+    # Must always wipe .aux.xml. Always. Otherwise, if this function is called first time
+    # it may return False, but if called second time it may return True.
+    auxFile = filename + '.aux.xml'
+    if os.path.exists(auxFile):
+        os.remove(auxFile)
+        
     gdalinfoPath = asp_system_utils.which("gdalinfo")
     cmd = gdalinfoPath + ' -stats ' + filename
     
-    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+    if os.path.exists(auxFile):
+        os.remove(auxFile)
+        
+    p = subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, error = p.communicate()
     if p.returncode != 0:
         return False
-
+    
+    if error is not None:
+        output += error
+        
+    m = re.match("^.*?(Block\s+failed|Premature\s+end)", output,
+                re.IGNORECASE|re.MULTILINE|re.DOTALL)
+    if m:
+        return False
+    
     return True
 
 def isDEM(filename):

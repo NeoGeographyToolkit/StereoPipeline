@@ -92,9 +92,9 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame):
         outputName = ('DMS_%s_%s_%05d.tif') % (dateStr, timeStr, frame)
         outputPath = os.path.join(imageFolder, outputName)
 
-        # Skip existing files
-        if os.path.exists(outputPath):
-            logger.info("File exists, skipping: " + outputPath)
+        # Skip existing valid files
+        if icebridge_common.isValidImage(outputPath):
+            logger.info("File exists and is valid, skipping: " + outputPath)
             continue
         
         # Use ImageMagick tool to convert from RGB to grayscale
@@ -115,7 +115,7 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame):
         # Check for corrupted files
         if error is not None:
             output += error
-        m = re.match("^.*?premature\s+end", output, re.IGNORECASE)
+        m = re.match("^.*?premature\s+end", output, re.IGNORECASE|re.MULTILINE|re.DOTALL)
         if m:
             logger.error("Wiping bad files: " + inputPath + " and " + outputPath +'\n'
                          + output)
@@ -153,9 +153,9 @@ def correctFireballDems(demFolder, correctedDemFolder, startFrame, stopFrame, is
         # Make sure the timestamp and frame number are in the output file name
         outputPath = os.path.join(correctedDemFolder, os.path.basename(inputPath))
 
-        # Skip existing files
-        if os.path.exists(outputPath):
-            logger.info("File exists, skipping: " + outputPath)
+        # Skip existing valid files
+        if icebridge_common.isValidImage(outputPath):
+            logger.info("File exists and is valid, skipping: " + outputPath)
             continue
 
         # Run the correction script
