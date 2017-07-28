@@ -82,10 +82,12 @@ def main(argsIn):
                           type='int', help='The SGM stereo algorithm to use, must be 1 or 2.')
                           
         parser.add_option('--stereo-image-interval', dest='stereoImageInterval', default=1,
-                          type='int', help='Advance this many frames to get the stereo pair.  Also sets bundle adjust overlap limit.')
+                          type='int', help='Advance this many frames to get the stereo pair. ' + \
+                          ' Also sets bundle adjust overlap limit.')
 
         # Output options
-        parser.add_option('--lidar-overlay', action='store_true', default=False, dest='lidarOverlay',  
+        parser.add_option('--lidar-overlay', action='store_true', default=False,
+                          dest='lidarOverlay',  
                           help='Generate a lidar overlay for debugging.')
 
         parser.add_option('--dem-resolution', dest='demResolution', default=0.4,
@@ -206,10 +208,11 @@ def main(argsIn):
         argString      = ('%s %s %s %s ' % (inputPairs[i][0],  inputPairs[pairIndex][0], 
                                             inputPairs[i][1],  inputPairs[pairIndex][1]))
 
-        stereoCmd = ('stereo %s %s -t nadirpinhole --alignment-method epipolar %s' % (argString, thisPairPrefix, threadText))
+        stereoCmd = ('stereo %s %s -t nadirpinhole --alignment-method epipolar %s' %
+                     (argString, thisPairPrefix, threadText))
         VERTICAL_SEARCH_LIMIT = 10
-        searchLimitString = (' --corr-search-limit -9999 -'+str(VERTICAL_SEARCH_LIMIT)+
-                                                  ' 9999 '+ str(VERTICAL_SEARCH_LIMIT) )
+        searchLimitString = (' --corr-search-limit -9999 -' + str(VERTICAL_SEARCH_LIMIT) +
+                             ' 9999 ' + str(VERTICAL_SEARCH_LIMIT) )
         correlationArgString = (' --xcorr-threshold 2 --min-xcorr-level 1 --corr-kernel 7 7 ' 
                                 + ' --corr-tile-size 9000 --cost-mode 4 --sgm-search-buffer 4 1 '
                                 + ' --stereo-algorithm ' + str(options.stereoAlgo)
@@ -232,7 +235,8 @@ def main(argsIn):
         demFiles.append(p2dOutput)
 
         # COLORMAP
-        #colormapMin = -20 # To really be useful we need to read the range off the lidar and use it for all files.
+        #colormapMin = -20 # To really be useful we need to read the range off the
+        # lidar and use it for all files.
         #colormapMax =  20
         colorOutput = thisPairPrefix+'-DEM_CMAP.tif'
         #cmd = ('colormap --min %f --max %f %s -o %s'
@@ -242,7 +246,7 @@ def main(argsIn):
         asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
 
     #raise Exception('BA DEBUG')
-    logger.info('Finished running all stereo instances.  Now merging DEMs...')
+    logger.info('Finished running all stereo instances. Now merging DEMs...')
 
     # DEM_MOSAIC
     allDemPath = outputPrefix + '-DEM.tif'

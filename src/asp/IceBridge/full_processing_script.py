@@ -62,8 +62,8 @@ def fetchAllRunData(options, startFrame, stopFrame,
     baseCommand = (('--yyyymmdd %s --site %s --start-frame %d --stop-frame %d --jpeg-folder %s')
                    % (options.yyyymmdd, options.site, startFrame, stopFrame, jpegFolder))
 
-    if options.maxNumToFetch >= 0:
-        baseCommand += ' --max-num-to-fetch ' + str(options.maxNumToFetch)
+    if options.maxNumLidarToFetch >= 0:
+        baseCommand += ' --max-num-lidar-to-fetch ' + str(options.maxNumLidarToFetch)
 
     if options.refetchIndex:
         baseCommand += ' --refetch-index' # this was not right in older fetched runs
@@ -256,9 +256,9 @@ def main(argsIn):
                           "use something like AN_YYYYMMDD.")
 
         parser.add_option("--camera-lookup-file",  dest="cameraLookupFile", default=None,
-                          help="The file to use to find which camera was used for which flight. " + \
-                          "By default it is in the same directory as this script and named " + \
-                          "camera_lookup.txt.")
+                          help="The file to use to find which camera was used for which "  + \
+                          "flight. By default it is in the same directory as this script " + \
+                          "and named camera_lookup.txt.")
         
         # Processing options
         parser.add_option('--bundle-length', dest='bundleLength', default=2,
@@ -322,7 +322,7 @@ def main(argsIn):
                           dest="startWithLouArchive", default=False,
                           help="Untar an existing archive from lou, then continue.")
                 
-        parser.add_option('--max-num-to-fetch', dest='maxNumToFetch', default=-1,
+        parser.add_option('--max-num-lidar-to-fetch', dest='maxNumLidarToFetch', default=-1,
                           type='int', help="The maximum number to fetch of each kind of file. " + \
                           "is is used in debugging.")
         parser.add_option("--no-lidar-convert", action="store_true", dest="noLidarConvert",
@@ -424,15 +424,6 @@ def main(argsIn):
         if not options.noOrthoConvert:
             raise Exception('Must nost convert cameras if we want to tar and wipe.')
             
-    if options.maxNumToFetch > 0:
-        rem = options.maxNumToFetch % 6
-        if rem != 0:
-            # This is tricky. Do this so that for every ortho file
-            # we fetch its .xml file, and for every fireball file
-            # we fetch its .xml and .tfw file.
-            options.maxNumToFetch = options.maxNumToFetch - rem + 6
-            logger.info('Increasing maxNumToFetch to ' + str(options.maxNumToFetch))
-
     if options.startWithLouArchive:
         startWithLouArchive(options, logger)
         

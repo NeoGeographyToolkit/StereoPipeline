@@ -85,7 +85,7 @@ def isValidImage(filename):
         return False
     
     gdalinfoPath = asp_system_utils.which("gdalinfo")
-    cmd = gdalinfoPath + ' ' + filename
+    cmd = gdalinfoPath + ' -stats ' + filename
     
     p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
     output, error = p.communicate()

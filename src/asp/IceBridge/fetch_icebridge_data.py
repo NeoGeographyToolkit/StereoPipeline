@@ -500,7 +500,7 @@ def doFetch(options, outputFolder):
         options.stopFrame  = lastFrame
 
     isLidar = (options.type in LIDAR_TYPES)
-
+    
     # There is always a chance that not all requested frames are available.
     # That is particularly true for Fireball DEMs. Instead of failing,
     # just download what is present and give a warning. 
@@ -542,9 +542,10 @@ def doFetch(options, outputFolder):
                 allFilesToFetch.append(outputPath)
                 allUrlsToFetch.append(url)
 
-    if options.maxNumToFetch > 0 and len(allFilesToFetch) > options.maxNumToFetch:
-        allFilesToFetch = allFilesToFetch[0:options.maxNumToFetch]
-        allUrlsToFetch = allUrlsToFetch[0:options.maxNumToFetch]
+    if isLidar and options.maxNumLidarToFetch > 0 and \
+           len(allFilesToFetch) > options.maxNumLidarToFetch:
+        allFilesToFetch = allFilesToFetch[0:options.maxNumLidarToFetch]
+        allUrlsToFetch = allUrlsToFetch[0:options.maxNumLidarToFetch]
                 
     icebridge_common.fetchFilesInBatches(baseCurlCmd, MAX_IN_ONE_CALL, options.dryRun, outputFolder,
                                          allFilesToFetch, allUrlsToFetch, logger)
@@ -665,8 +666,8 @@ def main(argsIn):
         parser.add_option("--stop-after-index-fetch", action="store_true",
                           dest="stopAfterIndexFetch", default=False,
                           help="Stop after fetching the indices.")
-        parser.add_option('--max-num-to-fetch', dest='maxNumToFetch', default=-1,
-                          type='int', help='The maximum number to fetch of each kind of file. ' + \
+        parser.add_option('--max-num-lidar-to-fetch', dest='maxNumLidarToFetch', default=-1,
+                          type='int', help='The maximum number of lidar files to fetch. ' + \
                           'This is used in debugging.')
 
         # This call handles all the parallel_mapproject specific options.
