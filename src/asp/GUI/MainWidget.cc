@@ -264,19 +264,25 @@ namespace vw { namespace gui {
 
     // Choose which files to hide/show in the GUI
     if (m_chooseFilesDlg){
+      
+      m_chooseFilesDlg->chooseFiles(m_images);
+
+      // When the user clicks on a table entry, say by modifying a 
+      // checkbox, update the display.
       QObject::connect(m_chooseFilesDlg->getFilesTable(),
                        SIGNAL(cellClicked(int, int)),
                        this,
                        SLOT(showFilesChosenByUser(int, int)));
-      m_chooseFilesDlg->chooseFiles(m_images);
-
+      
       // When the user clicks on the table header on top to toggle all on/off
-      connect(m_chooseFilesDlg->getFilesTable()->horizontalHeader(),
-	      SIGNAL(sectionClicked(int)), this, SLOT(toggleAllOnOff()));
+      QObject::connect(m_chooseFilesDlg->getFilesTable()->horizontalHeader(),
+                       SIGNAL(sectionClicked(int)), this, SLOT(toggleAllOnOff()));
       
       m_chooseFilesDlg->getFilesTable()->setContextMenuPolicy(Qt::CustomContextMenu);
-      connect(m_chooseFilesDlg->getFilesTable(), SIGNAL(customContextMenuRequested(QPoint)),
-	      this, SLOT(customMenuRequested(QPoint)));
+      QObject::connect(m_chooseFilesDlg->getFilesTable(),
+                       SIGNAL(customContextMenuRequested(QPoint)),
+                       this, SLOT(customMenuRequested(QPoint)));
+      
     }
 
     // Right-click context menu
@@ -351,9 +357,11 @@ namespace vw { namespace gui {
 
     QTableWidget * filesTable = m_chooseFilesDlg->getFilesTable();
 
+    // Determine which row of the table the user clicked on
     QModelIndex tablePos=filesTable->indexAt(pos);
     int imageIndex = tablePos.row();
 
+    // We will pass this index to the slots via this global variable
     m_indicesWithAction.clear();
     m_indicesWithAction.insert(imageIndex);
     
@@ -376,7 +384,7 @@ namespace vw { namespace gui {
 
     menu->exec(filesTable->mapToGlobal(pos));
   }
-  
+
   void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked){
 
     // Process user's choice from m_chooseFilesDlg.
@@ -387,6 +395,13 @@ namespace vw { namespace gui {
     QTableWidget * filesTable = m_chooseFilesDlg->getFilesTable();
     int rows = filesTable->rowCount();
 
+    // If we did not click on the checkbox, but on the image name,
+    // make it checked
+    if (columnClicked > 0) {
+      QTableWidgetItem *item = filesTable->item(rowClicked, 0);
+      item->setCheckState(Qt::Checked);
+    }
+    
     // Make list of all the unchecked files
     for (int rowIter = 0; rowIter < rows; rowIter++){
       QTableWidgetItem *item = filesTable->item(rowIter, 0);
@@ -402,13 +417,28 @@ namespace vw { namespace gui {
       bringImageOnTop(rowClicked);
     }
 
-    refreshPixmap();
-
+    // If we clicked on the image name, zoom to it.
+    if (columnClicked > 0) {
+      // I could not use this functionality from a double click event.
+      MainWidget::zoomToImageInTableCell(rowClicked, columnClicked);
+    }
+    else
+      refreshPixmap();
+      
     return;
   }
 
+  void MainWidget::zoomToImageInTableCell(int rowClicked, int columnClicked){
+    // We will pass this index to the desired slot via this global variable
+    m_indicesWithAction.clear();
+    m_indicesWithAction.insert(rowClicked);
+
+    // Do the actual work for given value
+    zoomToImage();
+  }
+  
   void MainWidget::toggleAllOnOff(){
-    
+
     // Process user's choice from m_chooseFilesDlg.
     if (!m_chooseFilesDlg)
       return;
@@ -450,7 +480,7 @@ namespace vw { namespace gui {
 
     refreshPixmap();
   }
-    
+
   BBox2 MainWidget::expand_box_to_keep_aspect_ratio(BBox2 const& box) {
     
     BBox2 in_box = box;
@@ -664,12 +694,15 @@ namespace vw { namespace gui {
       // it should be on top.
       bringImageOnTop(*it); 
 
+      // Set the view window to be the region encompassing the image
       m_current_view = expand_box_to_keep_aspect_ratio
         (MainWidget::image2world(m_images[*it].image_bbox, *it));
     }
-    
+
+    // This is no longer needed
     m_indicesWithAction.clear();
 
+    // Redraw in the computed window
     refreshPixmap();
   }
 
@@ -832,7 +865,7 @@ namespace vw { namespace gui {
     std::list<BBox2i> screen_box_list; // List of regions the images are drawn in
     // Loop through input images
     // - These images get drawn in the same
-    for (int j = 0; j < (int)m_images.size(); j++){
+    for (size_t j = 0; j < m_images.size(); j++){
 
       int i = m_filesOrder[j];
 
@@ -2035,7 +2068,13 @@ namespace vw { namespace gui {
         bool can_profile = m_profileMode;
         
         // Print pixel coordinates and image value.
-	for (size_t it = 0; it < m_images.size(); it++) {
+        for (size_t j = 0; j < m_images.size(); j++){
+          
+          int it = m_filesOrder[j];
+          
+          // Don't show files the user wants hidden
+          string fileName = m_images[it].name;
+          if (m_filesToHide.find(fileName) != m_filesToHide.end()) continue;
           
 	  std::string val = "none";
 	  Vector2 q = world2image(p, it);

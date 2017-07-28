@@ -70,6 +70,7 @@ class QWheelEvent;
 class QPoint;
 class QResizeEvent;
 class QTableWidget;
+class QTableWidgetItem;
 class QContextMenuEvent;
 class QMenu;
 class QStylePainter;
@@ -155,6 +156,7 @@ namespace vw { namespace gui {
 public slots:
     void sizeToFit();
     void showFilesChosenByUser(int rowClicked, int columnClicked);
+    void zoomToImageInTableCell(int rowClicked, int columnClicked);
     void toggleAllOnOff();
     void customMenuRequested(QPoint pos);
     void viewUnthreshImages();
