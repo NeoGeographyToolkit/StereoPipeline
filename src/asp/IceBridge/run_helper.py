@@ -71,15 +71,15 @@ class RunHelper():
 
     def getCameraTarName(self):
         '''Return the file name used to tar up the generated camera files'''
-        return 'CAMERA_' + self.name() + '.tar.gz'
+        return 'CAMERA_' + self.name() + '_V1.tar.gz'
 
     def getSummaryTarName(self):
         '''Return the file name used to tar up the generated camera files'''
-        return 'SUMMARY_' + self.name() + '.tar'
+        return 'SUMMARY_' + self.name() + '_V1.tar'
 
     def getOutputTarName(self):
         '''Return the file name used to tar up the final results'''
-        return 'DEM_' + self.name() + '.tar'
+        return 'DEM_' + self.name() + '_V1.tar'
 
     def getFolder(self):
         '''Returns the folder where this run will be stored'''
@@ -136,16 +136,19 @@ class RunHelper():
         return output
 
 
-    def isReadyForProcessing(self):
+    def allSourceDataFetched(self):
         '''Return true if all the required source data has been downloaded'''
     
-        # Just check if all the subfolders are there.
-        # - If anything is missing it should be handled in a future processing step
-        subFolders = ['jpeg', 'lidar', 'ortho']
-        for f in subFolders:
-            path = os.path.join(self.getFolder(), f)
-            if not os.path.exists(path):
-                return False
+        # Verify these input folders
+        subFolders = [getJpegFolder(), getLidarFolder(), getOrthoFolder()]
+        for folder in subFolders:
+        
+            # Make sure all the files specified in the parsed index file are present
+            (fileDict, urlDict) = readIndexFile(csvIndexFile(folder))
+            for f in fileDict.itervalues():
+                path = os.path.join(frame, f)
+                if not os.path.exists(path):
+                    return False
         return True
 
 

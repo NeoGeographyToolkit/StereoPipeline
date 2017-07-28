@@ -36,8 +36,9 @@ sys.path.insert(0, libexecpath)
 sys.path.insert(0, icebridgepath)
 
 import icebridge_common, pbs_functions, archive_functions, run_helper
+import asp_system_utils
 
-#asp_system_utils.verify_python_version_is_supported()
+asp_system_utils.verify_python_version_is_supported()
 
 # Prepend to system PATH
 os.environ["PATH"] = basepath       + os.pathsep + os.environ["PATH"]
@@ -50,20 +51,28 @@ print os.environ["PATH"]
 
 
 # Constants used in this file
-PBS_QUEUE = 'debug' # devel, debug, long
 #NODE_TYPE = 'wes' # Westmere = 12 core,  48 GB mem, SBU 1.0, Launch from mfe1 only!
 #NODE_TYPE = 'san' # Sandy bridge = 16 core,  32 GB mem, SBU 1.82
 NODE_TYPE = 'ivy' # Ivy bridge   = 20 core,  64 GB mem, SBU 2.52
 #NODE_TYPE = 'has' # Haswell      = 24 core, 128 GB mem, SBU 3.34
 #NODE_TYPE = '???' # Broadwell    = 28 core, 128 GB mem, SBU 4.04
+
 NUM_ORTHO_JOBS      = 2
 NUM_ORTHO_PROCESSES = 10
 NUM_ORTHO_THREADS   = 2
-NUM_BATCH_JOBS      = 1
+ORTHO_PBS_QUEUE     = 'normal'
+MAX_ORTHO_HOURS     = 2
+
+NUM_BATCH_JOBS      = 4
 NUM_BATCH_THREADS   = 8 # MGM is limited to 8 threads
 NUM_BATCH_PROCESSES = 3
+BATCH_PBS_QUEUE     = 'normal'
+MAX_BATCH_HOURS     = 8 # devel limit is 2, long limit is 120, normal is 8
+
+CONTACT_EMAIL = 'scott.t.mcmichael@nasa.gov'
+
 GROUP_ID = 's1827'
-MAX_PROCESS_HOURS = 2#40 # devel limit is 2, long limit is 120, normal is 8
+
 
 STEREO_ALGORITHM = 2 # 1 = SGM, 2 = MGM
 
@@ -87,9 +96,9 @@ def getUser():
     '''Return the current user name.'''
     return getpass.getuser()
 
-def submitJob(jobName, scriptPath, args, logPrefix):
+def submitJob(jobName, pbsQueue, maxHours, scriptPath, args, logPrefix):
     '''Trivial wrapper to fill in the parts of the job command that never change'''
-    return pbs_functions.submitJob(jobName, PBS_QUEUE, MAX_PROCESS_HOURS, GROUP_ID, NODE_TYPE, scriptPath, args, logPrefix)
+    return pbs_functions.submitJob(jobName, pbsQueue, maxHours, GROUP_ID, NODE_TYPE, scriptPath, args, logPrefix)
 
 def sendEmail(address, subject, body):
     '''Send a simple email from the command line'''
@@ -129,17 +138,9 @@ def getRunsToProcess(allRuns, skipRuns, doneRuns):
 
 #---------------------------------------------------------------------
 
-# Do we need this function?
-#def getConversionJobName(run, startFrame):
-#    '''Get the PBS name to use for a conversion job'''
-#    # PBS job names are limited to 15 characters
-#    name = str(startFrame) + run[0] + run[1][2:]
-#    if len(name) > pbs_functions.MAX_PBS_NAME_LENGTH:
-#        raise Exception('Computed name ' +name+' for run '+str(run)+' and frame '+startFrame+' but it is too long')
-
 def conversionIsFinished(run, fullCheck=False):
     '''Return true if this run is present and conversion has finished running on it'''
-    outputFolder = getOutputFolder(run)
+    outputFolder = run.getFolder()
     if not fullCheck:
         return run.checkFlag('conversion_complete')
 
@@ -157,10 +158,38 @@ def conversionIsFinished(run, fullCheck=False):
     # Add a lidar file check here if that turns out to be necessary
     return True
 
+
+
+def runFetch(run):
+    '''Fetch all the data for a run if it is not already available'''
+
+    # Check if already done
+    if run.allSourceDataFetched()
+        logger.info('Fetch is already complete.')
+        return
+
+    # Call the fetch command
+    archive_functions.retrieveRunData(run, UNPACK_FOLDER)
+    
+    # Check results
+    if not run.allSourceDataFetched()
+        raise Exception('Failed to fetch run ' + str(run))
+
+    run.setFlag('fetch_complete')
+            
+
 def runConversion(run):
     '''Run the conversion tasks for this run on the supercomputer nodes'''
     
     logger = logging.getLogger(__name__)
+    
+    # Check if already done
+    if conversionIsFinished(run, fullCheck=True):
+        logger.info('Conversion is already complete.')
+        return
+        
+    logger.info('Converting data for run ' + str(run))
+            
     
     # Get the frame range for the data.
     (minFrame, maxFrame) = run.getFrameRange()
@@ -176,7 +205,7 @@ def runConversion(run):
     outputFolder = run.getFolder()
     
     # TODO: Is using the default output folder ok here?
-    scriptPath = 'full_processing_script.py'
+    scriptPath = asp_system_utils.which('full_processing_script.py')
     args       = ('%s %s --site %s --yyyymmdd %s --skip-fetch --stop-after-convert --num-threads %d --num-processes %d --output-folder %s' 
                   % (CALIBRATION_FILE_FOLDER, REFERENCE_DEM_FOLDER, run.site, run.yyyymmdd, NUM_ORTHO_THREADS, NUM_ORTHO_PROCESSES, outputFolder))
     
@@ -195,25 +224,33 @@ def runConversion(run):
             thisArgs += ' --no-lidar-convert'
         logPrefix = os.path.join(pbsLogFolder, 'convert_' + jobName)
         logger.info('Submitting conversion job with args: '+thisArgs)
-        submitJob(jobName, scriptPath, thisArgs, logPrefix)
+        submitJob(jobName, ORTHO_PBS_QUEUE, MAX_ORTHO_HOURS, scriptPath, thisArgs, logPrefix)
         currentFrame += numFramesPerNode
 
     # Wait for conversions to finish
     waitForRunCompletion(baseName)
 
-    # Create a file to mark that conversion is finished for this folder
+    # Check the results
+    if not conversionIsFinished(run, fullCheck=True):
+        raise Exception('Failed to convert run ' + str(run))
+        
     run.setFlag('conversion_complete')
 
     # Pack up camera folder and store it for later
     gotCameras = archive_functions.packAndSendCameraFolder(run)
 
+
+
 def generateBatchList(run):
     '''Generate a list of all the processing batches required for a run'''
 
+    logger = logging.getLogger(__name__)
+    
     # No actual processing is being done here so it can run on the PFE
     # - This is very fast so we can re-run it every time.
     cmd = ('process_icebridge_run.py %s %s %s %s --ortho-folder %s --num-threads %d  --bundle-length %d --stereo-algorithm %d  --stop-frame 99999999  --log-batches' % (run.getImageFolder(), run.getCameraFolder(), run.getLidarFolder(), run.getProcessFolder(), run.getOrthoFolder(), NUM_BATCH_THREADS, BUNDLE_LENGTH, STEREO_ALGORITHM))
-#    os.system(cmd)
+    logger.info(cmd)
+    os.system(cmd)
     
     listPath = os.path.join(run.getProcessFolder(), 'batch_commands_log.txt')
     return listPath
@@ -240,7 +277,7 @@ def submitBatchJobs(run, batchListPath):
     baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
 
     # Call the tool which just executes commands from a file
-    scriptPath = 'multi_process_command_runner.py'
+    scriptPath = asp_system_utils.which('multi_process_command_runner.py')
 
     outputFolder = run.getFolder()
     pbsLogFolder = run.getPbsLogFolder()
@@ -254,7 +291,7 @@ def submitBatchJobs(run, batchListPath):
 
         logPrefix = os.path.join(pbsLogFolder, 'batch_' + jobName)
         logger.info('Submitting batch job with args: '+args)
-        submitJob(jobName, scriptPath, args, logPrefix)
+        submitJob(jobName, BATCH_PBS_QUEUE, MAX_BATCH_HOURS, scriptPath, args, logPrefix)
 
     # Waiting on these jobs happens outside this function
     return baseName
@@ -393,20 +430,15 @@ def main(argsIn):
 
         # TODO: Put this in a try/except block so it keeps going on error
 
-        # Obtain the data for a run
-        archive_functions.retrieveRunData(run, UNPACK_FOLDER)
+        # Obtain the data for a run if it is not already done
+        runFetch(run)       
         
-        if run.checkFlag('conversion_complete'):
-            logger.info('Conversion is already complete.')
-        else:
-            logger.info('Converting data for run ' + str(run))
-            runConversion(run)
+        # Run conversion and archive results if not already done        
+        runConversion(run)
 
         # Run command to generate the list of batch jobs for this run
         logger.info('Fetching batch list for run ' + str(run))
         batchListPath = generateBatchList(run)
-
-        raise Exception('DEBUG')
         
         # Divide up batches into jobs and submit them to machines.
         logger.info('Submitting jobs for run ' + str(run))
@@ -433,7 +465,7 @@ def main(argsIn):
         # - Currently the summary folders need to be deleted manually, but they should not
         #   take up much space due to the large amount of compression used.
         summaryFolder = os.path.join(SUMMARY_FOLDER, run.name())
-        generateSummaryFolder(run, summaryFolder):
+        generateSummaryFolder(run, summaryFolder)
         packAndSendSummaryFolder(run, summaryFolder)
         # TODO: Automatically scp these to lunokhod?
 
@@ -443,12 +475,13 @@ def main(argsIn):
 
             # Pack up all the files to lou, then delete the local copies.            
             #archive_functions.packAndSendCompletedRun(run)
-            #cleanupRun(run)
+            #cleanupRun(run) # <-- Should this always be manual??
             
             # TODO: Don't wait on the pack/send operation to finish!
-
-        # Notify that the run is done processing
-        sendEmail('scott.t.mcmichael@nasa.gov', '"IB run complete - '+str(run)+'"', resultText)
+            
+            sendEmail(CONTACT_EMAIL, '"IB run passed - '+str(run)+'"', resultText)
+        else:
+            sendEmail(CONTACT_EMAIL, '"IB run failed - '+str(run)+'"', resultText)
         
         raise Exception('DEBUG')
         

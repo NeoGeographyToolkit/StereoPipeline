@@ -57,11 +57,6 @@ def retrieveRunData(run, unpackFolder):
 
     logger = logging.getLogger(__name__)
     
-    # Skip retrieval if we already have the data
-    if run.isReadyForProcessing():
-        logger.info('No need to retrieve run ' + str(run) + ', it is already on disk.')
-        return
-
     # First check that we have enough space available
 
     logger.info('Retrieving data for run ' + str(run))
@@ -77,10 +72,6 @@ def retrieveRunData(run, unpackFolder):
 
     # Retrieve a preprocessed set of camera files if we have it
     fetchCameraFolder(run)
-    
-    # TODO: Is it safe to set the conversion finished flag if we get the camera folder?
-    
-
 
 
 

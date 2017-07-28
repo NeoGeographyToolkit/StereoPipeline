@@ -53,12 +53,15 @@ def hasImageExtension(filename):
     return False
 
 def folderToType(folder):
+    '''???'''
     return os.path.basename(folder)
 
 def htmlIndexFile(folder):
+    '''Return the html index file for this folder (if appropriate)'''
     return os.path.join(folder, folderToType(folder) + "_index.html")
     
 def csvIndexFile(folder):
+    '''Return the clean csv version of the html index file for this folder (if appropriate) '''
     return htmlIndexFile(folder) + ".csv"
     
 def readIndexFile(parsedIndexPath):
