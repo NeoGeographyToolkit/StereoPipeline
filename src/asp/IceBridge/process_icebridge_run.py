@@ -296,7 +296,8 @@ def main(argsIn):
     if (len(cameraFiles) != numFiles):
         print imageFiles
         print cameraFiles
-        logger.error('process_icebridge_run.py: counted ' + str(len(imageFiles)) + ' image files.\n'+
+        logger.error('process_icebridge_run.py: counted ' + str(len(imageFiles)) + \
+                     ' image files.\n' +
                      'and ' + str(len(cameraFiles)) + ' camera files.\n'+
                      'Error: Number of image files and number of camera files must match!')
         return -1

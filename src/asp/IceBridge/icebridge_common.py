@@ -32,6 +32,13 @@ sys.path.insert(0, libexecpath)
 import asp_system_utils, asp_alg_utils, asp_geo_utils
 asp_system_utils.verify_python_version_is_supported()
 
+def makeSymLink(oldFile, newFile):
+    '''Safely create a symlink'''
+    try:    os.remove(newFile)
+    except: pass  
+    print("ln -s " + os.path.abspath(oldFile) + " " + newFile)
+    os.symlink(os.path.abspath(oldFile), newFile)
+
 def getSmallestFrame():
     '''Return the smallest possible frame number.'''
     return 0

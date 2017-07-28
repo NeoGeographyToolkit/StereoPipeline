@@ -46,13 +46,6 @@ os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = toolspath   + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = binpath     + os.pathsep + os.environ["PATH"]
 
-def makeSymLink(oldFile, newFile):
-    '''Safely create a symlink'''
-    try:    os.remove(newFile)
-    except: pass  
-    print("ln -s " + os.path.abspath(oldFile) + " " + newFile)
-    os.symlink(os.path.abspath(oldFile), newFile)
-
 def main(argsIn):
 
     try:
@@ -252,7 +245,7 @@ def main(argsIn):
     allDemPath = outputPrefix + '-DEM.tif'
     if numCameras == 2:
         # If there are only two files just skip this step
-        makeSymLink(demFiles[0], allDemPath)
+        icebridge_common.makeSymLink(demFiles[0], allDemPath)
     else:
         demString = ' '.join(demFiles)
         # Only the default blend method produces good results but the DEMs must not be too 
@@ -263,7 +256,7 @@ def main(argsIn):
         asp_system_utils.executeCommand(cmd, mosaicOutput, suppressOutput, redo)
         
         # Create a symlink to the mosaic file with a better name
-        makeSymLink(mosaicOutput, allDemPath)
+        icebridge_common.makeSymLink(mosaicOutput, allDemPath)
     
     if lidarFile:
         # PC_ALIGN
@@ -284,7 +277,7 @@ def main(argsIn):
 
         # Create a symlink to the DEM in the main directory
         demSymlinkPath = outputPrefix + '-align-DEM.tif'
-        makeSymLink(p2dOutput, demSymlinkPath)
+        icebridge_common.makeSymLink(p2dOutput, demSymlinkPath)
         allDemPath = demSymlinkPath
 
     cmd = ('geodiff --absolute --csv-format %s %s %s -o %s' % \

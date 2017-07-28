@@ -124,8 +124,10 @@ def processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFo
                   bundleLength, startFrame, stopFrame, logBatches, numProcesses, numThreads):
     '''Do all the run processing'''
 
-    processCommand = (('%s %s %s %s --bundle-length %d --stereo-algorithm 1 --ortho-folder %s --num-processes %d --num-threads %d')
-                      % (imageFolder, cameraFolder, lidarFolder, processFolder, bundleLength, orthoFolder, numProcesses, numThreads))
+    processCommand = (('%s %s %s %s --bundle-length %d --stereo-algorithm 1 ' + \
+                       '--ortho-folder %s --num-processes %d --num-threads %d')
+                      % (imageFolder, cameraFolder, lidarFolder, processFolder,
+                         bundleLength, orthoFolder, numProcesses, numThreads))
     if isSouth:
         processCommand += ' --south'
     if startFrame:
@@ -136,11 +138,13 @@ def processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFo
         processCommand += ' --log-batches'
 
     logger = logging.getLogger(__name__)
-    logger.info('Process command: ' + processCommand)
+    logger.info('Process command: process_icebridge_run ' + processCommand)
     process_icebridge_run.main(processCommand.split())
-
+    logger.info('Finished process_icebridge_run.') # to avoid ending a log with 'waiting ...'
+    
 def workDirs():
-    '''???'''
+    '''When fetching data, return the paths where it is stored temporarily on pfe,
+    and for archival, on lou.'''
     currDir = os.getcwd()
     m = re.match("^.*?/" + louUser + "/(.*?)$", currDir)
     if not m:
@@ -151,7 +155,7 @@ def workDirs():
     return (pfePath, lfePath)
     
 def tarAndWipe(options, logger):
-    '''???'''
+    '''Connect to lou from where we can se the files, then tar and wipe the current run.'''
 
     logger.info("All files were fetched and checks passed. " +
                 "Will tar to lou and wipe the dir.")
@@ -193,7 +197,7 @@ def tarAndWipe(options, logger):
     return 0
 
 def startWithLouArchive(options, logger):
-    '''???'''
+    '''Connect to lou, and untar a given archive on pfe.'''
 
     (pfePath, lfePath) = workDirs()
 
