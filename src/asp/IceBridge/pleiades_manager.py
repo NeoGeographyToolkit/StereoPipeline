@@ -16,7 +16,9 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-# Top level program that 
+# Top level program to process all of the Icebridge data.
+# - This program is not sophisticated enough to handle everything and will need to be
+#   superceded by another script.
 
 import os, sys, optparse, datetime, time, subprocess, logging, multiprocessing
 import re, shutil, time, getpass
@@ -45,9 +47,6 @@ os.environ["PATH"] = basepath       + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = pythonpath     + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = libexecpath    + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
-print os.environ["PATH"]
-
-
 
 
 # Constants used in this file
@@ -138,55 +137,43 @@ def getRunsToProcess(allRuns, skipRuns, doneRuns):
 
 #---------------------------------------------------------------------
 
-def conversionIsFinished(run, fullCheck=False):
-    '''Return true if this run is present and conversion has finished running on it'''
-    outputFolder = run.getFolder()
-    if not fullCheck:
-        return run.checkFlag('conversion_complete')
-
-    # For a full check, make sure that there is a camera file for
-    #  each input image file.    
-    cameraFolder = run.getCameraFolder()
-    jpegList     = run.getJpegList()
-    
-    for jpeg in jpegList:
-        camFile = os.path.join(cameraFolder,
-                               icebridge_common.getCameraFileName(jpeg))
-        if not os.path.exists(camFile):
-            return False
-    
-    # Add a lidar file check here if that turns out to be necessary
-    return True
-
-
 
 def runFetch(run):
     '''Fetch all the data for a run if it is not already available'''
 
+    logger = logging.getLogger(__name__)
+
     # Check if already done
-    if run.allSourceDataFetched()
-        logger.info('Fetch is already complete.')
-        return
+    try:
+        if run.allSourceDataFetched():
+            logger.info('Fetch is already complete.')
+            return
+    except Exception, e:
+        logger.warning('Caught error checking fetch status, re-running fetch.\n'
+                       + str(e))
 
     # Call the fetch command
     archive_functions.retrieveRunData(run, UNPACK_FOLDER)
     
-    # Check results
-    if not run.allSourceDataFetched()
-        raise Exception('Failed to fetch run ' + str(run))
+    # Don't need to check results, should be cleaned out in conversion call.
 
     run.setFlag('fetch_complete')
             
 
 def runConversion(run):
-    '''Run the conversion tasks for this run on the supercomputer nodes'''
+    '''Run the conversion tasks for this run on the supercomputer nodes.
+       This will also run through the fetch step to make sure we have everything we need.'''
     
     logger = logging.getLogger(__name__)
     
     # Check if already done
-    if conversionIsFinished(run, fullCheck=True):
-        logger.info('Conversion is already complete.')
-        return
+    try:
+        if run.conversionIsFinished():
+            logger.info('Conversion is already complete.')
+            return
+    except Exception, e:
+        logger.warning('Caught error checking conversion status, re-running conversion.\n'
+                       + str(e))
         
     logger.info('Converting data for run ' + str(run))
             
@@ -204,9 +191,8 @@ def runConversion(run):
     
     outputFolder = run.getFolder()
     
-    # TODO: Is using the default output folder ok here?
     scriptPath = asp_system_utils.which('full_processing_script.py')
-    args       = ('%s %s --site %s --yyyymmdd %s --skip-fetch --stop-after-convert --num-threads %d --num-processes %d --output-folder %s' 
+    args       = ('%s %s --site %s --yyyymmdd %s --stop-after-convert --num-threads %d --num-processes %d --output-folder %s --skip-validate' 
                   % (CALIBRATION_FILE_FOLDER, REFERENCE_DEM_FOLDER, run.site, run.yyyymmdd, NUM_ORTHO_THREADS, NUM_ORTHO_PROCESSES, outputFolder))
     
     baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
@@ -231,7 +217,7 @@ def runConversion(run):
     waitForRunCompletion(baseName)
 
     # Check the results
-    if not conversionIsFinished(run, fullCheck=True):
+    if not run.conversionIsFinished(verbose=True):
         raise Exception('Failed to convert run ' + str(run))
         
     run.setFlag('conversion_complete')
@@ -292,6 +278,8 @@ def submitBatchJobs(run, batchListPath):
         logPrefix = os.path.join(pbsLogFolder, 'batch_' + jobName)
         logger.info('Submitting batch job with args: '+args)
         submitJob(jobName, BATCH_PBS_QUEUE, MAX_BATCH_HOURS, scriptPath, args, logPrefix)
+        
+        currentBatch += numBatchesPerNode
 
     # Waiting on these jobs happens outside this function
     return baseName
@@ -345,7 +333,7 @@ def checkResults(run, batchListPath):
                             hasError = True
                     # Count up the errors and copy them to the packed error log.
                     if hasError:
-                        packedErrorLog.write(line)
+                        errorLog.write(line)
                         errorCount += 1
     logger.info('Counted ' + str(errorCount) + ' errors in log files!')
     
@@ -389,7 +377,7 @@ def main(argsIn):
 
     try:
 
-        usage = '''usage: plieades_manager.py <options> '''
+        usage = '''usage: pleiades_manager.py <options> '''
                       
         parser = optparse.OptionParser(usage=usage)
 
@@ -412,7 +400,7 @@ def main(argsIn):
         raise Usage(msg)
 
     logLevel = logging.INFO
-    logger   = icebridge_common.setUpLogger(LOG_FOLDER, logLevel, 'plieades_manager_log')
+    logger   = icebridge_common.setUpLogger(LOG_FOLDER, logLevel, 'pleiades_manager_log')
 
     # Get the list of runs to process
     logger.info('Reading run lists...')
@@ -430,9 +418,11 @@ def main(argsIn):
 
         # TODO: Put this in a try/except block so it keeps going on error
 
+        # TODO: Prefetch the next run while waiting on this run!
+
         # Obtain the data for a run if it is not already done
         runFetch(run)       
-        
+               
         # Run conversion and archive results if not already done        
         runConversion(run)
 
@@ -444,7 +434,6 @@ def main(argsIn):
         logger.info('Submitting jobs for run ' + str(run))
         baseName = submitBatchJobs(run, batchListPath)
         
-        # TODO: Don't wait for one run to finish before starting the next one!
         
         # Wait for all the jobs to finish
         logger.info('Waiting for job completion of run ' + str(run))
@@ -466,7 +455,7 @@ def main(argsIn):
         #   take up much space due to the large amount of compression used.
         summaryFolder = os.path.join(SUMMARY_FOLDER, run.name())
         generateSummaryFolder(run, summaryFolder)
-        packAndSendSummaryFolder(run, summaryFolder)
+        archive_functions.packAndSendSummaryFolder(run, summaryFolder)
         # TODO: Automatically scp these to lunokhod?
 
         # Don't pack or clean up the run if it did not generate all the output files.

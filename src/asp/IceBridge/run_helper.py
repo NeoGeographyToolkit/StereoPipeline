@@ -65,17 +65,18 @@ class RunHelper():
         '''Return a name in SSYYMMDD format'''
         return self.site + self.yyyymmdd[2:]
 
+    # TODO: Add version numbers to these in a way that is easily handled!
     def getInputTarName(self):
         '''Return the file name used to tar up the downloaded input data'''
         return self.name() + '.tar'
 
     def getCameraTarName(self):
         '''Return the file name used to tar up the generated camera files'''
-        return 'CAMERA_' + self.name() + '_V1.tar.gz'
+        return 'CAMERA_' + self.name() + '.tar.gz'
 
     def getSummaryTarName(self):
         '''Return the file name used to tar up the generated camera files'''
-        return 'SUMMARY_' + self.name() + '_V1.tar'
+        return 'SUMMARY_' + self.name() + '.tar'
 
     def getOutputTarName(self):
         '''Return the file name used to tar up the final results'''
@@ -95,6 +96,8 @@ class RunHelper():
         return self._internalLoc('image')
     def getLidarFolder(self):
         return self._internalLoc('lidar')
+    def getLidarPairFolder(self):
+        return os.path.join(self.getLidarFolder(), 'paired')
     def getCameraFolder(self):
         return self._internalLoc('camera')
     def getOrthoFolder(self):
@@ -114,7 +117,24 @@ class RunHelper():
             jpegs = [os.path.join(jpegFolder, x) for x in jpegs]
         return jpegs
 
-    def getBatchFolderList():
+    def getImageList(self, prependFolder=False):
+        '''Return a list containing all the currently stored image files'''
+        imageFolder = self.getImageFolder()
+        images = icebridge_common.getTifs(imageFolder)
+        if prependFolder:
+            images = [os.path.join(imageFolder, x) for x in images]
+        return images
+
+    def getLidarList(self, paired=False):
+        '''Return a list containing all the currently stored lidar files.
+           This does not return converted csv files.'''
+        lidarFolder = self.getLidarFolder()
+        if paired:
+            lidarFolder = os.path.join(lidarFolder, 'paired')
+        return icebridge_common.getLidar(lidarFolder)
+        
+
+    def getBatchFolderList(self):
         '''Return a list of all the batch folders'''
         pFolder       = self.getProcessFolder()
         batchFolders  = os.listdir(pFolder)
@@ -136,21 +156,55 @@ class RunHelper():
         return output
 
 
-    def allSourceDataFetched(self):
+    def allSourceDataFetched(self, verbose=False):
         '''Return true if all the required source data has been downloaded'''
     
+        logger = logging.getLogger(__name__)
+    
         # Verify these input folders
-        subFolders = [getJpegFolder(), getLidarFolder(), getOrthoFolder()]
+        subFolders = [self.getJpegFolder(), self.getLidarFolder(), self.getOrthoFolder()]
         for folder in subFolders:
         
             # Make sure all the files specified in the parsed index file are present
-            (fileDict, urlDict) = readIndexFile(csvIndexFile(folder))
+            indexFile = icebridge_common.csvIndexFile(folder)
+            (fileDict, urlDict) = icebridge_common.readIndexFile(indexFile)
             for f in fileDict.itervalues():
-                path = os.path.join(frame, f)
+                path = os.path.join(folder, f)
                 if not os.path.exists(path):
+                    if verbose:
+                        logger.error('Missing file ' + camFile)
                     return False
-        return True
 
+        return True # Success!
+
+
+    def conversionIsFinished(self, verbose=False):
+        '''Return true if this run is present and conversion has finished running on it'''
+        
+        logger = logging.getLogger(__name__)
+
+        # Make sure that there is a camera file for input image file.    
+        # - This could be a more expansive check.
+        cameraFolder = self.getCameraFolder()
+        
+        imageList = self.getImageList()
+        for imageFile in imageList:
+            camFile   = os.path.join(cameraFolder,
+                                     icebridge_common.getCameraFileName(imageFile))
+            if not os.path.exists(camFile):
+                if verbose:
+                    logger.error('Missing file ' + camFile)
+                return False
+        
+        # Do a simple check of the lidar files
+        lidarFiles       = self.getLidarList(paired=False)
+        pairedLidarFiles = self.getLidarList(paired=True )
+        if len(lidarFiles) != (len(pairedLidarFiles)+1):
+            logger.error('Not enough paired lidar files found')
+            return False       
+
+        return True # Success!
+    
 
     def getFrameRange(self):
         '''Return the min and max frame currently stored for the run'''

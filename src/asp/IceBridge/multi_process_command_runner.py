@@ -74,6 +74,7 @@ def main(argsIn):
 
     # Open the file and loop through all the lines
     # - Count the lines as we go so we only process the desired lines
+    print 'Opening command file ' + commandFilePath
     text = ''
     with open(commandFilePath, 'r') as f:
         text = f.read()
@@ -81,13 +82,17 @@ def main(argsIn):
     index = 0
     for line in text.split('\n'):
     
+        print index
+    
         # Check line indices
         if index < startLine:
+            index += 1
             continue
         if stopLine and (index >= stopLine):
             break
                       
         # Add the command to the task pool
+        print line
         taskHandles.append(pool.apply_async(runCommand, (line,)))
         index += 1
 

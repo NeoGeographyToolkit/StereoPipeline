@@ -368,15 +368,15 @@ def pairLidarFiles(lidarFolder):
     (lidarFiles, lidarExt, isLVIS) = icebridge_common.lidarFiles(lidarFolder)
     
     numLidarFiles = len(lidarFiles)
+    print numLidarFiles
     
     # Loop through all pairs of csv files in the folder    
     badFiles = False
-    for i in range(0, numLidarFiles-2):
+    for i in range(0, numLidarFiles-1):
 
         thisFile = lidarFiles[i  ]
         nextFile = lidarFiles[i+1]
 
-        #date1, time1 = icebridge_common.parseTimeStamps(thisFile)
         date2, time2 = icebridge_common.parseTimeStamps(nextFile)
         
         # Record the name with the second file
@@ -399,7 +399,7 @@ def pairLidarFiles(lidarFolder):
         logger.info(cmd2)
         p        = subprocess.Popen(cmd2, stdout=subprocess.PIPE, shell=True)
         out, err = p.communicate()
-               
+
         if not os.path.exists(outputPath):
             logger.error('Failed to generate merged LIDAR file: ' + outputPath)
             badFiles = True

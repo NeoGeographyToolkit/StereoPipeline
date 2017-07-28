@@ -79,13 +79,13 @@ def readIndexFile(parsedIndexPath):
     with open(parsedIndexPath, 'r') as f:
         for line in f:
             parts = line.strip().split(',')
-            if len(parts) <= 2:
+            if len(parts) < 3:
                 # Odd index file
-                raise Exception("Invalid index file.")
+                raise Exception("Invalid index file: " + parsedIndexPath)
             
             frameNumber = int(parts[0])
             frameDict[frameNumber] = parts[1].strip()
-            urlDict[frameNumber]   = parts[2].strip()
+            urlDict[frameNumber] = parts[2].strip()
 
     return (frameDict, urlDict)
 
@@ -385,7 +385,23 @@ def parseDateTimeStrings(dateString, timeString, secondFix, returnSecondOnly):
     if len(timeString) > 6:
         usecond = int(timeString[6:8]) * MILLISECOND_TO_MICROSECOND
     
-    return datetime.datetime(year, month, day, hour, minute, second, usecond)
+    try:
+        result = datetime.datetime(year, month, day, hour, minute, second, usecond)
+        return result
+    except Exception, e:
+        raise Exception('Caught exception processing dateString: ' 
+                        + dateString +', timeString: ' + timeString
+                        +'\n with values: ' + str((year, month, day, hour, minute, second, usecond))
+                        +'\n' + str(e))
+
+def secondsSinceMidnightToHHMMSS(secondsSinceMidnight):
+    '''Convert from integer number to HHMMSS string.'''
+
+    hours, remainder = divmod(secondsSinceMidnight, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    
+    return ('%02d%02d%02d' % (hours, minutes, seconds))
+    
 
 def parseTimeStamps(fileName):
     '''Pull two six or eight digit values from the given file name
@@ -395,9 +411,10 @@ def parseTimeStamps(fileName):
     m = re.match("^.*?ILVIS\d\_[A-Z][A-Z](\d\d\d\d)\_(\d\d\d\d)\_.*?\_(\d+)\.TXT",
                  fileName, re.IGNORECASE)
     if m:
-        imageDateString = m.group(1) + m.group(2)
-        imageTimeString = m.group(3)
-        return [imageDateString, imageTimeString]
+        lidarDateString = m.group(1) + m.group(2)
+        secondsInDay    = int(m.group(3))
+        lidarTimeString = secondsSinceMidnightToHHMMSS(secondsInDay)
+        return [lidarDateString, lidarTimeString]
 
     fileName = os.path.basename(fileName)
     fileName = fileName.replace('.', '_')
@@ -546,7 +563,8 @@ def findMatchingLidarFile(imageFile, lidarFolder):
     for lidarPath in lidarFiles:
 
         vals = parseTimeStamps(lidarPath)
-        if len(vals) < 2: continue # ignore bad files
+        if len(vals) < 2:
+            continue # ignore bad files
 
         try:
             returnSecondOnly = False
@@ -686,6 +704,29 @@ def setUpLogger(outputFolder, logLevel, logPathPrefix):
     logger = logging.getLogger(__name__) # We configured root, but continue logging with the normal name.
     return logger
 
+def checkSite(site):
+    '''Verify the site is legal and return True if it is in the southern hemisphere.'''
+    possibleSites = ['AN', 'GR', 'AL']
+    if site not in possibleSites:
+        raise Exception("Site must be either AN, GR, or AL.")
+    isSouth = (site == 'AN')
+    return isSouth
+
+def getReferenceDemName(site):
+    '''Returns the DEM name to use for a given location'''
+
+    if site == 'AN':
+        #return 'krigged_dem_nsidc_ndv0_fill.tif' # Higher resolution
+        return 'ramp200dem_wgs_v2.tif' # Used to produce the orthos
+    if site == 'GR':
+        #return 'gimpdem_90m_v1.1.tif' # Higher resolution
+        return 'NSIDC_Grn1km_wgs84_elev.tif' # Used to produce the orthos
+    if site == 'AL':
+        # Supposedly these were produced with the SRTM map but that map
+        #  does not seem to actually include Alaska.  This may mean the NED
+        #  map (60 meter) was used but this would require tile handling logic
+        #  so for now we will try to use this single 300m DEM.
+        return 'akdem300m.tif'
 
 # For debugging functions
 #if __name__ == "__main__":
