@@ -82,8 +82,6 @@ def main(argsIn):
     index = 0
     for line in text.split('\n'):
     
-        print index
-    
         # Check line indices
         if index < startLine:
             index += 1
@@ -92,7 +90,6 @@ def main(argsIn):
             break
                       
         # Add the command to the task pool
-        print line
         taskHandles.append(pool.apply_async(runCommand, (line,)))
         index += 1
 

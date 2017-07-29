@@ -85,10 +85,10 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame):
             continue
         
         # Make sure the timestamp and frame number are in the output file name
-        (dateStr, timeStr) = getJpegDateTime(inputPath)
         frame = icebridge_common.getFrameNumberFromFilename(inputPath)
         if not ( (frame >= startFrame) and (frame <= stopFrame) ):
             continue
+        (dateStr, timeStr) = getJpegDateTime(inputPath)
         outputName = ('DMS_%s_%s_%05d.tif') % (dateStr, timeStr, frame)
         outputPath = os.path.join(imageFolder, outputName)
 

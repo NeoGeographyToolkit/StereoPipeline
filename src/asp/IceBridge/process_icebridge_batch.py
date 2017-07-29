@@ -136,10 +136,7 @@ def main(argsIn):
         logger.info('Searching for matching lidar file...')
         lidarFile = icebridge_common.findMatchingLidarFile(inputPairs[0][0], options.lidarFolder)
         logger.info('Found matching lidar file ' + lidarFile)
-
-    # TODO: Test with all LIDAR types!
-    # This format is used for reading LIDAR files.
-    LIDAR_CSV_FORMAT_STRING = '"1:lat 2:lon 3:height_above_datum"'
+        lidarCsvFormatString = icebridge_common.getLidarCsvFormat(lidarFile)
 
     suppressOutput = False
     redo           = False
@@ -263,7 +260,7 @@ def main(argsIn):
         alignPrefix = os.path.join(outputFolder, 'align/out')
         alignOptions = ( ('--max-displacement %f --csv-format %s ' +   \
                           '--save-inv-transformed-reference-points') % \
-                         (options.maxDisplacement, LIDAR_CSV_FORMAT_STRING))
+                         (options.maxDisplacement, lidarCsvFormatString))
         cmd = ('pc_align %s %s %s -o %s %s' %
                (alignOptions, allDemPath, lidarFile, alignPrefix, threadText))
         alignOutput = alignPrefix+'-trans_reference.tif'
@@ -281,7 +278,7 @@ def main(argsIn):
         allDemPath = demSymlinkPath
 
     cmd = ('geodiff --absolute --csv-format %s %s %s -o %s' % \
-           (LIDAR_CSV_FORMAT_STRING, allDemPath, lidarFile, outputPrefix))
+           (lidarCsvFormatString, allDemPath, lidarFile, outputPrefix))
     logger.info(cmd)
     asp_system_utils.executeCommand(cmd, outputPrefix + "-diff.csv", suppressOutput, redo)
 
@@ -318,7 +315,7 @@ def main(argsIn):
         cmd = ('point2dem --t_projwin %f %f %f %f --tr %lf --t_srs %s %s %s --csv-format %s -o %s' 
                % (minX, minY, maxX, maxY,
                   LIDAR_DEM_RESOLUTION, projString, lidarFile, threadText, 
-                  LIDAR_CSV_FORMAT_STRING, lidarDemPrefix))
+                  lidarCsvFormatString, lidarDemPrefix))
         lidarDemOutput = lidarDemPrefix+'-DEM.tif'
         asp_system_utils.executeCommand(cmd, lidarDemOutput, suppressOutput, redo)
             

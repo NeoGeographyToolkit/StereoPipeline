@@ -126,7 +126,7 @@ def packAndSendSummaryFolder(run, folder):
     fileName = run.getSummaryTarName()
     louPath  = os.path.join(REMOTE_SUMMARY_FOLDER, fileName)
 
-    cmd = 'shiftc --wait --create-tar ' + cameraFolder + ' ' + louPath
+    cmd = 'shiftc --wait --create-tar ' + folder + ' ' + louPath
     logger.info(cmd)
     status = os.system(cmd)
     if status != 0:

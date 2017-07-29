@@ -64,7 +64,7 @@ MAX_ORTHO_HOURS     = 2
 
 NUM_BATCH_JOBS      = 4
 NUM_BATCH_THREADS   = 8 # MGM is limited to 8 threads
-NUM_BATCH_PROCESSES = 3
+NUM_BATCH_PROCESSES = 2 # TODO: Get a handle on memory usage!
 BATCH_PBS_QUEUE     = 'normal'
 MAX_BATCH_HOURS     = 8 # devel limit is 2, long limit is 120, normal is 8
 
@@ -366,6 +366,8 @@ def generateSummaryFolder(run, outputFolder):
     # Make thumbnail versions of all the output DEM files
     demList = run.getOutputDemList()
     for (dem, frames) in demList:
+        if not os.path.exists(dem):
+            continue
         thumbName = ('dem_%d_%d_browse.tif' % (frames[0], frames[1]))
         thumbPath = os.path.join(outputFolder, thumbName)
         cmd = 'gdal_translate '+dem+' '+thumbPath+' -of GTiff -outsize 10% 10% -b 1 -co "COMPRESS=JPEG"'

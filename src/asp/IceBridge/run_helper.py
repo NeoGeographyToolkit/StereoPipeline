@@ -138,6 +138,7 @@ class RunHelper():
         '''Return a list of all the batch folders'''
         pFolder       = self.getProcessFolder()
         batchFolders  = os.listdir(pFolder)
+        batchFolders.sort()
         batchFolders  = [os.path.join(pFolder,x) for x in batchFolders if 'batch_' in x]
         batchFolders  = [x for x in batchFolders if os.path.isdir(x)]
         return batchFolders

@@ -127,9 +127,19 @@ def isDEM(filename):
     return (len(filename) >= 8 and filename[-8:] == '_DEM.tif')
 
 def isLidar(filename):
+    '''Return true if the file is an input (not converted) lidar format'''
     extension = fileExtension(filename)
     return (extension == '.qi') or (extension == '.hdf5') or \
            (extension == '.h5') or (extension == '.TXT')
+
+def getLidarCsvFormat(filename):
+    '''Returns the ASP CSV format string to use for a lidar file'''
+    extension = fileExtension(filename)
+    if ext == '.TXT' # LVIS
+        return '"5:lat 4:lon 6:height_above_datum"'
+    return '"1:lat 2:lon 3:height_above_datum"' # ATM
+    
+    
 
 def getFrameRangeFromBatchFolder(folder):
     '''Returns (startFrame, endFrame) for a batch folder'''
