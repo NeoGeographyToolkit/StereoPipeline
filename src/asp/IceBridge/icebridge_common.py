@@ -135,7 +135,7 @@ def isLidar(filename):
 def getLidarCsvFormat(filename):
     '''Returns the ASP CSV format string to use for a lidar file'''
     extension = fileExtension(filename)
-    if ext == '.TXT' # LVIS
+    if ext == '.TXT': # LVIS
         return '"5:lat 4:lon 6:height_above_datum"'
     return '"1:lat 2:lon 3:height_above_datum"' # ATM
     

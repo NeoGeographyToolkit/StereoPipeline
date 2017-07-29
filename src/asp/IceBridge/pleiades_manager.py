@@ -62,7 +62,7 @@ NUM_ORTHO_THREADS   = 2
 ORTHO_PBS_QUEUE     = 'normal'
 MAX_ORTHO_HOURS     = 2
 
-NUM_BATCH_JOBS      = 4
+NUM_BATCH_JOBS      = 4 # The number of PBS requests we will submit.
 NUM_BATCH_THREADS   = 8 # MGM is limited to 8 threads
 NUM_BATCH_PROCESSES = 2 # TODO: Get a handle on memory usage!
 BATCH_PBS_QUEUE     = 'normal'
@@ -412,7 +412,7 @@ def main(argsIn):
     
     runList = getRunsToProcess(allRuns, skipRuns, doneRuns)
 
-    runList = [run_helper.RunHelper('AN','20111010', UNPACK_FOLDER)] # DEBUG
+    runList = [run_helper.RunHelper('AN','20101104', UNPACK_FOLDER)] # DEBUG
 
    
     # Loop through the incomplete runs
