@@ -290,7 +290,7 @@ def main(argsIn):
     except optparse.OptionError, msg:
         raise Usage(msg)
 
-    isSouth = checkSite(options.site)
+    isSouth = icebridge_common.checkSite(options.site)
 
     if options.cameraLookupFile is None:
         options.cameraLookupFile = P.join(basepath, 'camera_lookup.txt')

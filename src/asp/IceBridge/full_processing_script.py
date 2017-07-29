@@ -178,7 +178,7 @@ def main(argsIn):
         # Python treats numbers starting with 0 as being in octal rather than decimal.
         # Ridiculous. So read them as strings and convert to int. 
         parser.add_option('--start-frame', dest='startFrame',
-                          default=icebridge_common.getSmallestFrame(), type=int
+                          default=icebridge_common.getSmallestFrame(), type=int,
                           help="Frame to start with.  Leave this and stop-frame blank to " + \
                           "process all frames.")
         parser.add_option('--stop-frame', dest='stopFrame', 
@@ -243,7 +243,7 @@ def main(argsIn):
     except optparse.OptionError, msg:
         raise Usage(msg)
 
-    isSouth = checkSite(options.site)
+    isSouth = icebridge_common.checkSite(options.site)
 
     if options.cameraLookupFile is None:
         options.cameraLookupFile = P.join(basepath, 'camera_lookup.txt')
@@ -303,7 +303,7 @@ def main(argsIn):
         logger.info('Skipping fetch.')
     else:
         # Call data fetch routine and check the result
-        fetchResult = fetchAllRunData(options, startFrame, stopFrame,
+        fetchResult = fetchAllRunData(options, options.startFrame, options.stopFrame,
                                       jpegFolder, orthoFolder, fireballFolder, lidarFolder)
         if fetchResult < 0:
             logger.error("Fetching failed, quitting the program!")
@@ -329,10 +329,11 @@ def main(argsIn):
                 input_conversions.pairLidarFiles(lidarFolder)
          
             input_conversions.correctFireballDems(fireballFolder, corrFireballFolder,
-                                                  startFrame, stopFrame,
+                                                  options.startFrame, options.stopFrame,
                                                   (not isSouth))
 
-            isGood = input_conversions.convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame)
+            isGood = input_conversions.convertJpegs(jpegFolder, imageFolder, 
+                                                    options.startFrame, options.stopFrame)
             if not isGood:
                 logger.Error("Jpeg conversions failed, quitting the program!")
                 return -1
@@ -345,7 +346,7 @@ def main(argsIn):
                                                        options.cameraLookupFile,
                                                        options.yyyymmdd, options.site, 
                                                        refDemPath, cameraFolder, 
-                                                       startFrame, stopFrame,
+                                                       options.startFrame, options.stopFrame,
                                                        options.numProcesses, options.numThreads)
     if options.stopAfterConvert:
         print 'Conversion complete, finished!'
@@ -354,7 +355,7 @@ def main(argsIn):
     # Call the processing routine
     processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder,
                   processFolder, isSouth,
-                  options.bundleLength, startFrame, stopFrame, options.logBatches,
+                  options.bundleLength, options.startFrame, options.stopFrame, options.logBatches,
                   options.numProcesses, options.numThreads)
 
    

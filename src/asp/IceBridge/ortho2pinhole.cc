@@ -73,12 +73,12 @@ struct Options : public vw::cartography::GdalWriteOptions {
   double camera_height, orthoimage_height;
   int ip_per_tile;
   int  ip_detect_method;
-  bool individually_normalize;
+  bool individually_normalize, keep_match_file;
 
   // Make sure all values are initialized, even though they will be
   // over-written later.
   Options(): camera_height(-1), orthoimage_height(0), ip_per_tile(0),
-             ip_detect_method(0), individually_normalize(false){}
+             ip_detect_method(0), individually_normalize(false), keep_match_file(false){}
 };
 
 
@@ -510,8 +510,10 @@ void ortho2pinhole(Options const& opt){
   } // End loop through IPs
   output_handle.close();
 
-  vw_out() << "Removing: " << match_filename << std::endl;
-  boost::filesystem::remove(match_filename);
+  if (!opt.keep_match_file) {
+    vw_out() << "Removing: " << match_filename << std::endl;
+    boost::filesystem::remove(match_filename);
+  }
 }  
 
 /// If an rgb input image was passed in, convert to a temporary grayscale
@@ -554,9 +556,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("ip-per-tile",             po::value(&opt.ip_per_tile)->default_value(0),
      "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
     ("ip-detect-method",po::value(&opt.ip_detect_method)->default_value(1),
-     "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
+     "Interest point detection algorithm (0: Integral OBALoG, 1: OpenCV SIFT (default), 2: OpenCV ORB.")
     ("individually-normalize",   po::bool_switch(&opt.individually_normalize)->default_value(false)->implicit_value(true),
      "Individually normalize the input images instead of using common values.")
+    ("keep-match-file",   po::bool_switch(&opt.keep_match_file)->default_value(false)->implicit_value(true),
+     "Don't delete the .match file after running.")
     ("reference-dem",             po::value(&opt.reference_dem)->default_value(""),
      "If provided, extract from this DEM the heights above the ground rather than assuming the value in --orthoimage-height.");
 

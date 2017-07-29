@@ -155,7 +155,12 @@ def runFetch(run):
     # Call the fetch command
     archive_functions.retrieveRunData(run, UNPACK_FOLDER)
     
-    # Don't need to check results, should be cleaned out in conversion call.
+    # Go ahead and refetch the indices since it helps to have these up-to-date.
+    cmd = ('full_processing_script.py %s %s --site %s --yyyymmdd %s --output-folder %s --refetch-index --stop-after-index-fetch' % (CALIBRATION_FILE_FOLDER, REFERENCE_DEM_FOLDER, run.site, run.yyyymmdd, run.getFolder()))
+    logger.info(cmd)
+    os.system(cmd)
+    
+    # Don't need to check results, they should be cleaned out in conversion call.
 
     run.setFlag('fetch_complete')
             

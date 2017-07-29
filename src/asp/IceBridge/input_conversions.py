@@ -231,12 +231,20 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile, \
 
     logger = logging.getLogger(__name__)
 
-    # Call ortho2pinhole command
-    ortho2pinhole = asp_system_utils.which("ortho2pinhole")
-    cmd = (('%s %s %s %s %s --reference-dem %s --threads %d') % (ortho2pinhole, inputPath, orthoPath,
-                                 inputCamFile, outputCamFile, refDemPath, numThreads))
-    logger.info(cmd)
-    os.system(cmd)
+    # If the call fails, try it again with different IP algorithm options to see
+    #  if we can get it to work.
+    IP_OPTIONS = ['1', '0', '2']
+
+    for ip_option in IP_OPTIONS:
+    
+        # Call ortho2pinhole command
+        ortho2pinhole = asp_system_utils.which("ortho2pinhole")
+        cmd = (('%s %s %s %s %s --reference-dem %s --threads %d --ip-detect-method %s') % (ortho2pinhole, inputPath, orthoPath, inputCamFile, outputCamFile, refDemPath, numThreads, ip_option))
+        logger.info(cmd)
+        os.system(cmd)
+        
+        if os.path.exists(outputCamFile): # If we wrote the file stop calling this
+            break
     
     if not os.path.exists(outputCamFile):
         # This function is getting called from a pool, so just log the failure.
@@ -263,8 +271,11 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
     orthoFrames = {}
     for f in orthoFiles:
         frame = icebridge_common.getFrameNumberFromFilename(f)
-        if not ( (frame >= startFrame) and (frame <= stopFrame) ): continue
+        if not ( (frame >= startFrame) and (frame <= stopFrame) ):
+            continue
         orthoFrames[frame] = f
+
+    imageFiles.sort()
 
     logger.info('Starting ortho processing pool with ' + str(numProcesses) +' processes.')
     pool = multiprocessing.Pool(numProcesses)
@@ -281,7 +292,8 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
 
         # Get associated orthofile
         frame = icebridge_common.getFrameNumberFromFilename(imageFile)
-        if not ( (frame >= startFrame) and (frame <= stopFrame) ): continue
+        if not ( (frame >= startFrame) and (frame <= stopFrame) ):
+            continue
         orthoFile = orthoFrames[frame]
         
         # Check output file

@@ -115,6 +115,7 @@ class RunHelper():
         jpegs = icebridge_common.getJpegs(jpegFolder)
         if prependFolder:
             jpegs = [os.path.join(jpegFolder, x) for x in jpegs]
+        jpegs.sort()
         return jpegs
 
     def getImageList(self, prependFolder=False):
@@ -123,6 +124,7 @@ class RunHelper():
         images = icebridge_common.getTifs(imageFolder)
         if prependFolder:
             images = [os.path.join(imageFolder, x) for x in images]
+        images.sort()
         return images
 
     def getLidarList(self, paired=False):
@@ -187,11 +189,10 @@ class RunHelper():
         # Make sure that there is a camera file for input image file.    
         # - This could be a more expansive check.
         cameraFolder = self.getCameraFolder()
-        
-        imageList = self.getImageList()
+        imageList    = self.getImageList()
         for imageFile in imageList:
-            camFile   = os.path.join(cameraFolder,
-                                     icebridge_common.getCameraFileName(imageFile))
+            camFile = os.path.join(cameraFolder,
+                                   icebridge_common.getCameraFileName(imageFile))
             if not os.path.exists(camFile):
                 if verbose:
                     logger.error('Missing file ' + camFile)
