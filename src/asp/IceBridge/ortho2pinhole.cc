@@ -71,8 +71,7 @@ typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
 struct Options : public vw::cartography::GdalWriteOptions {
   std::string raw_image, ortho_image, input_cam, output_cam, reference_dem;
   double camera_height, orthoimage_height;
-  int ip_per_tile;
-  int  ip_detect_method;
+  int ip_per_tile, ip_detect_method, min_ip;
   bool individually_normalize, keep_match_file;
 
   // Make sure all values are initialized, even though they will be
@@ -385,12 +384,18 @@ void ortho2pinhole(Options const& opt){
     catch(...){} // Ignore any points which trigger a camera exception
   }
 
+  // See if enough points were found
+  const int num_ip_found     = static_cast<int>(raw_pixels.size());
+  const int num_dem_ip_found = static_cast<int>(ortho_dem_xyz.size());
+  if (num_ip_found < opt.min_ip)
+    vw_throw(ArgumentErr() << "Error: Only found " << num_ip_found << " interest points, quitting.\n");
+
   // See if enough points on the DEM were found
   bool use_dem_points = false;
   if (has_ref_dem) {
     const int MIN_NUM_DEM_POINTS = 8;
     
-    if (int(ortho_dem_xyz.size()) < MIN_NUM_DEM_POINTS) {
+    if ((num_ip_found > num_dem_ip_found) && (num_dem_ip_found < MIN_NUM_DEM_POINTS)) {
       vw_out() << "Less than " << MIN_NUM_DEM_POINTS 
                << " interest points were on the DEM. Igorning the DEM "
                << "and using the constant height: " << opt.orthoimage_height << "\n";
@@ -557,6 +562,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
     ("ip-detect-method",po::value(&opt.ip_detect_method)->default_value(1),
      "Interest point detection algorithm (0: Integral OBALoG, 1: OpenCV SIFT (default), 2: OpenCV ORB.")
+    ("minimum-ip",             po::value(&opt.min_ip)->default_value(5),
+     "Don't create camera if fewer than this many IP match.")
     ("individually-normalize",   po::bool_switch(&opt.individually_normalize)->default_value(false)->implicit_value(true),
      "Individually normalize the input images instead of using common values.")
     ("keep-match-file",   po::bool_switch(&opt.keep_match_file)->default_value(false)->implicit_value(true),
