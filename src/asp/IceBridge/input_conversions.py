@@ -225,30 +225,31 @@ def getCalibrationFileForFrame(cameraLoopkupFile, inputCalFolder, frame, yyyymmd
 
     return os.path.join(inputCalFolder, camera)
 
-def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile, \
+def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile,
                            refDemPath, numThreads):
     '''Generate a camera model from a single ortho file'''
-
-    logger = logging.getLogger(__name__)
 
     # If the call fails, try it again with different IP algorithm options to see
     #  if we can get it to work.
     IP_OPTIONS = ['1', '0', '2']
+    MIN_IP = 10 # Require more IP to make sure we don't get bogus camera models
 
     for ip_option in IP_OPTIONS:
     
         # Call ortho2pinhole command
         ortho2pinhole = asp_system_utils.which("ortho2pinhole")
-        cmd = (('%s %s %s %s %s --reference-dem %s --threads %d --ip-detect-method %s') % (ortho2pinhole, inputPath, orthoPath, inputCamFile, outputCamFile, refDemPath, numThreads, ip_option))
-        logger.info(cmd)
+        cmd = (('%s %s %s %s %s --reference-dem %s --threads %d --ip-detect-method %s --minimum-ip %d') % (ortho2pinhole, inputPath, orthoPath, inputCamFile, outputCamFile, refDemPath, numThreads, ip_option, MIN_IP))
+        print cmd
+        #logger.info(cmd) # TODO: Check on logging here
         os.system(cmd)
+        #logger.info('done2')
         
         if os.path.exists(outputCamFile): # If we wrote the file stop calling this
             break
     
     if not os.path.exists(outputCamFile):
         # This function is getting called from a pool, so just log the failure.
-        logger.error('Failed to convert ortho file: ' + orthoFile)
+        logger.error('Failed to convert ortho file: ' + orthoPath)
             
     # TODO: Clean up the .gcp file?
 
@@ -309,7 +310,7 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
         # Determine which input camera file will be used for this frame
         inputCamFile = getCalibrationFileForFrame(cameraLookupPath, inputCalFolder,
                                                   frame, yyyymmdd, site)
-               
+
         # Add ortho2pinhole command to the task pool
         taskHandles.append(pool.apply_async(cameraFromOrthoWrapper, 
                                             (inputPath, orthoPath, inputCamFile,

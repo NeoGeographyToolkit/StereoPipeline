@@ -44,6 +44,8 @@ import icebridge_common, process_icebridge_batch
 import asp_system_utils, asp_alg_utils, asp_geo_utils
 asp_system_utils.verify_python_version_is_supported()
 
+# TODO: Fix the logging!
+logging.info('DEBUG')
 logger = logging.getLogger(__name__)
 
 # Prepend to system PATH
@@ -185,6 +187,65 @@ def getImageSpacing(orthoFolder):
     return (interval, breaks)
 
 
+
+def getImageCameraPairs(imageFolder, cameraFolder, startFrame, stopFrame):
+    '''Return a list of paired image/camera files.'''
+
+    # Get a list of all the input files
+    allImageFiles  = icebridge_common.getTifs(imageFolder)
+    allCameraFiles = icebridge_common.getByExtension(cameraFolder, '.tsai')
+    allImageFiles.sort() # Put in order so the frames line up
+    allCameraFiles.sort()
+
+    # Keep only the images and cameras within the given range
+    imageFiles  = []
+    imageFrames = []
+    for image in allImageFiles:
+        frame = icebridge_common.getFrameNumberFromFilename(image)
+        if not ( (frame >= startFrame) and (frame <= stopFrame) ):
+            continue
+        imageFiles.append(image)
+        imageFrames.append(frame)
+        
+    cameraFiles  = []
+    cameraFrames = []
+    for camera in allCameraFiles:
+        frame = icebridge_common.getFrameNumberFromFilename(camera)
+        if not ( (frame >= startFrame) and (frame <= stopFrame) ):
+            continue
+        cameraFiles.append(camera)
+        cameraFrames.append(frame)
+
+    # Remove files without a matching pair
+    goodImages  = []
+    goodCameras = []
+    for frame in imageFrames:
+        goodImages.append(frame in cameraFrames)
+    for frame in cameraFrames:
+        goodCameras.append(frame in imageFrames)
+    
+    imageFiles  = [p[0] for p in zip(imageFiles,  goodImages ) if p[1]]
+    cameraFiles = [p[0] for p in zip(cameraFiles, goodCameras) if p[1]]
+    
+    logger.info('Of %d input images in range, using %d with camera files.' 
+                % (len(goodImages), len(imageFiles)))
+
+    # Get full paths
+    imageFiles  = [os.path.join(imageFolder, f) for f in imageFiles ]
+    cameraFiles = [os.path.join(cameraFolder,f) for f in cameraFiles]
+
+    numFiles = len(imageFiles)
+    if (len(cameraFiles) != numFiles):
+        logger.error('process_icebridge_run.py: counted ' + str(len(imageFiles)) + \
+                     ' image files.\n' +
+                     'and ' + str(len(cameraFiles)) + ' camera files.\n'+
+                     'Error: Number of image files and number of camera files must match!')
+        return -1
+        
+    imageCameraPairs = zip(imageFiles, cameraFiles)
+    return imageCameraPairs
+
+
 def main(argsIn):
 
     try:
@@ -245,7 +306,7 @@ def main(argsIn):
         (options, args) = parser.parse_args(argsIn)
 
         if len(args) < 4:
-            logger.info(usage)
+            print usage
             return 0
 
         imageFolder  = args[0]
@@ -270,39 +331,8 @@ def main(argsIn):
     logger.info('\nStarting processing...')
     
     # Get a list of all the input files
-    allImageFiles  = icebridge_common.getTifs(imageFolder)
-    allCameraFiles = icebridge_common.getByExtension(cameraFolder, '.tsai')
-    allImageFiles.sort() # Put in order so the frames line up
-    allCameraFiles.sort()
-
-    # Keop only the images and cameras within the given range
-    imageFiles = []
-    for image in allImageFiles:
-        frame = icebridge_common.getFrameNumberFromFilename(image)
-        if not ( (frame >= options.startFrame) and (frame <= options.stopFrame) ):  continue
-        imageFiles.append(image)
-        
-    cameraFiles = []
-    for camera in allCameraFiles:
-        frame = icebridge_common.getFrameNumberFromFilename(camera)
-        if not ( (frame >= options.startFrame) and (frame <= options.stopFrame) ):  continue
-        cameraFiles.append(camera)
-
-    # Get full paths
-    imageFiles  = [os.path.join(imageFolder, f) for f in imageFiles ]
-    cameraFiles = [os.path.join(cameraFolder,f) for f in cameraFiles]
-
-    numFiles = len(imageFiles)
-    if (len(cameraFiles) != numFiles):
-        print imageFiles
-        print cameraFiles
-        logger.error('process_icebridge_run.py: counted ' + str(len(imageFiles)) + \
-                     ' image files.\n' +
-                     'and ' + str(len(cameraFiles)) + ' camera files.\n'+
-                     'Error: Number of image files and number of camera files must match!')
-        return -1
-        
-    imageCameraPairs = zip(imageFiles, cameraFiles)
+    imageCameraPairs = getImageCameraPairs(imageFolder, cameraFolder, 
+                                           options.startFrame, options.stopFrame)
     
     # Check that the files are properly aligned
     for (image, camera) in imageCameraPairs: 
@@ -317,8 +347,9 @@ def main(argsIn):
     for (image, camera) in imageCameraPairs: 
         vizString += image +' ' + camera+' '
     cmd = 'orbitviz --hide-labels -t nadirpinhole -r wgs84 -o '+ orbitvizBefore +' '+ vizString
-    logger.info(cmd)
-    asp_system_utils.executeCommand(cmd, orbitvizBefore, suppressOutput, redo)
+    logger.info('Running orbitviz on input files...')
+    redo = True
+    asp_system_utils.executeCommand(cmd, orbitvizBefore, True, redo)
     
     # Set up options for process_icebridge_batch
     extraOptions = ' --stereo-algorithm ' + str(options.stereoAlgo)
