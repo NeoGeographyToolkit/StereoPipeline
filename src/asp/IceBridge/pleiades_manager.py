@@ -62,7 +62,7 @@ NUM_ORTHO_THREADS   = 2
 ORTHO_PBS_QUEUE     = 'normal'
 MAX_ORTHO_HOURS     = 2
 
-NUM_BATCH_JOBS      = 4 # The number of PBS requests we will submit.
+NUM_BATCH_JOBS      = 8 # The number of PBS requests we will submit.
 NUM_BATCH_THREADS   = 8 # MGM is limited to 8 threads
 NUM_BATCH_PROCESSES = 2 # TODO: Get a handle on memory usage!
 BATCH_PBS_QUEUE     = 'normal'
@@ -372,17 +372,16 @@ def generateSummaryFolder(run, outputFolder):
     shutil.copy(packedErrorLog, outputFolder)
     shutil.copy(packedErrorLog, outputFolder)
     
-    # Make thumbnail versions of all the output DEM files
+    # Link to thumbnails of all the output DEM files
     demList = run.getOutputDemList()
     for (dem, frames) in demList:
-        if not os.path.exists(dem):
+        hillshadePath = dem.replace('out-align-DEM.tif', 'out-DEM_HILLSHADE_browse.tif')
+        if not os.path.exists(hillshadePath):
             continue
-        hillshadePath = dem.replace('out-align-DEM.tif', 'out-DEM_HILLSHADE.tif')
+        
         thumbName = ('dem_%d_%d_browse.tif' % (frames[0], frames[1]))
         thumbPath = os.path.join(outputFolder, thumbName)
-        cmd = 'gdal_translate '+hillshadePath+' '+thumbPath+' -of GTiff -outsize 10% 10% -b 1 -co "COMPRESS=JPEG"'
-        print cmd
-        os.system(cmd)
+        icebridge_common.makeSymLink(hillshadePath, thumbPath, verbose=False)
         
 
 def main(argsIn):

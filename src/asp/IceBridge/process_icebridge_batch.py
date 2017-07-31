@@ -286,7 +286,12 @@ def main(argsIn):
     hillOutput = outputPrefix+'-DEM_HILLSHADE.tif'
     cmd = 'hillshade ' + allDemPath +' -o ' + hillOutput
     asp_system_utils.executeCommand(cmd, hillOutput, suppressOutput, redo)
-    
+
+    # Generate a low resolution compressed thumbnail of the hillshade for debugging
+    thumbOutput = outputPrefix + '-DEM_HILLSHADE_browse.tif'
+    cmd = 'gdal_translate '+hillOutput+' '+thumbOutput+' -of GTiff -outsize 10% 10% -b 1 -co "COMPRESS=JPEG"'
+    asp_system_utils.executeCommand(cmd, thumbOutput, suppressOutput, redo)
+
     # COLORMAP
     #colormapMin = -10 # TODO: Automate these?
     #colormapMax =  20

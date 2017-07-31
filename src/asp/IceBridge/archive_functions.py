@@ -50,6 +50,7 @@ REMOTE_INPUT_FOLDER     = 'lou:/u/oalexan1/projects/data/icebridge'
 REMOTE_CAMERA_FOLDER    = 'lou:/u/smcmich1/icebridge/camera'
 REMOTE_OUTPUT_FOLDER    = 'lou:/u/smcmich1/icebridge/output'
 REMOTE_SUMMARY_FOLDER   = 'lou:/u/smcmich1/icebridge/summaries'
+L2_SUMMARY_FOLDER       = 'lunokhod2:/home/smcmich1/data/icebridge_summaries'
 
 
 def retrieveRunData(run, unpackFolder):
@@ -122,17 +123,38 @@ def packAndSendSummaryFolder(run, folder):
     logger = logging.getLogger(__name__)
     logger.info('Archiving summary folder for run ' + str(run))
     
-    # Tar up the summary folder send it at the same time using the shiftc command
+    # Delete any existing copy of the file on lou and L2
     fileName = run.getSummaryTarName()
     louPath  = os.path.join(REMOTE_SUMMARY_FOLDER, fileName)
+    l2Path   = os.path.join(L2_SUMMARY_FOLDER,     fileName)
+    cmd      = "ssh lou 'rm -f "+louPath+"'"
+    logger.info(cmd)
+    os.system(cmd)
+    cmd      = "ssh lunokhod2 'rm -f "+l2Path+"'"
+    logger.info(cmd)
+    os.system(cmd)
 
-    cmd = 'shiftc --wait --create-tar ' + folder + ' ' + louPath
+    # Create a local tar file
+    # - Some fiddling to make the packed folders convenient
+    cmd = 'tar -chf '+ fileName +' -C '+ folder +'/.. ' + os.path.basename(folder)
+    logger.info(cmd)
+    os.system(cmd)
+
+    # Send a copy of the file to Lunokhod2 for convenience
+    cmd = 'scp ' + fileName +' '+ l2Path
+    logger.info(cmd)
+    os.system(cmd)
+
+    # Send the file to lou using shiftc
+    cmd = 'shiftc --wait  ' + fileName + ' ' + louPath
     logger.info(cmd)
     status = os.system(cmd)
     if status != 0:
         raise Exception('Failed to pack/send summary folder for run ' + str(run))
     logger.info('Finished sending summary to lou.')
 
+    # Clean up the local tar file
+    os.system('rm -f ' + fileName)
 
 def packAndSendCompletedRun(run):
     '''Assembles and compresses the deliverable parts of the run'''
