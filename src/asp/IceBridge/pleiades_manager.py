@@ -222,8 +222,10 @@ def runConversion(run):
     waitForRunCompletion(baseName)
 
     # Check the results
+    # - If we didn't get everything keep going and process as much as we can.
     if not run.conversionIsFinished(verbose=True):
-        raise Exception('Failed to convert run ' + str(run))
+        #raise Exception('Failed to convert run ' + str(run))
+        logger.warning('Could not fully convert run ' + str(run))
         
     run.setFlag('conversion_complete')
 
@@ -240,9 +242,10 @@ def generateBatchList(run):
     # No actual processing is being done here so it can run on the PFE
     # - This is very fast so we can re-run it every time.
     cmd = ('process_icebridge_run.py %s %s %s %s --ortho-folder %s --num-threads %d  --bundle-length %d --stereo-algorithm %d  --stop-frame 99999999  --log-batches' % (run.getImageFolder(), run.getCameraFolder(), run.getLidarFolder(), run.getProcessFolder(), run.getOrthoFolder(), NUM_BATCH_THREADS, BUNDLE_LENGTH, STEREO_ALGORITHM))
+    if icebridge_common.checkSite(run.site):
+        cmd += ' --south'
     logger.info(cmd)
     os.system(cmd)
-    
     listPath = os.path.join(run.getProcessFolder(), 'batch_commands_log.txt')
     return listPath
     
@@ -358,6 +361,7 @@ def checkResults(run, batchListPath):
             
     return (numOutputs, numProduced, errorCount)
 
+# TODO: Generate the thumbnails in the batch process!
 def generateSummaryFolder(run, outputFolder):
     '''Generate a folder containing handy debugging files including output thumbnails'''
     
@@ -373,9 +377,11 @@ def generateSummaryFolder(run, outputFolder):
     for (dem, frames) in demList:
         if not os.path.exists(dem):
             continue
+        hillshadePath = dem.replace('out-align-DEM.tif', 'out-DEM_HILLSHADE.tif')
         thumbName = ('dem_%d_%d_browse.tif' % (frames[0], frames[1]))
         thumbPath = os.path.join(outputFolder, thumbName)
-        cmd = 'gdal_translate '+dem+' '+thumbPath+' -of GTiff -outsize 10% 10% -b 1 -co "COMPRESS=JPEG"'
+        cmd = 'gdal_translate '+hillshadePath+' '+thumbPath+' -of GTiff -outsize 10% 10% -b 1 -co "COMPRESS=JPEG"'
+        print cmd
         os.system(cmd)
         
 

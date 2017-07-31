@@ -948,14 +948,20 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
       // Note that we first cache the tiles of the rasterized DEM, and
       // fill holes later. This greatly improves the performance.
       dem = apply_mask
-	(asp::fill_holes_grass(create_mask
-			       (block_cache(dem, tile_size, opt.num_threads),
-				opt.nodata_value),
-			       hole_fill_len),
-	 opt.nodata_value);
+        (asp::fill_holes_grass(create_mask
+                                          (block_cache(dem, tile_size, opt.num_threads),
+                                           opt.nodata_value),
+		                           hole_fill_len),
+         opt.nodata_value);
     }
 
-    vw_out()<< "Creating output file that is " << bounding_box(dem).size() << " px.\n";
+    // Stop the program if it is going to create too large a DEM, this will 
+    //  cause a crash.
+    const int MAX_OUTPUT_DIMENSION = 1000000;
+    Vector2i dem_size = bounding_box(dem).size();
+    vw_out()<< "Creating output file that is " << dem_size << " px.\n";
+    if ((dem_size[0] > MAX_OUTPUT_DIMENSION) || (dem_size[1] > MAX_OUTPUT_DIMENSION))
+      vw_throw( ArgumentErr() << "Requested DEM size is too large!\n" );
 
     asp::save_image(opt, dem, georef, hole_fill_len, "DEM");
     sw2.stop();
@@ -988,12 +994,12 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
       ImageViewRef<Vector3> ned_err = asp::error_to_NED(point_disk_image, georef);
       std::vector< ImageViewRef< PixelGray<float> > >  rasterized(3);
       for (int ch_index = 0; ch_index < 3; ch_index++){
-	ImageViewRef<double> ch = select_channel(ned_err, ch_index);
-	rasterizer.set_texture(ch);
-	rasterizer.set_hole_fill_len(hole_fill_len);
-	rasterizer_fsaa = generate_fsaa_raster( rasterizer, opt );
-	rasterized[ch_index] =
-	  block_cache(rasterizer_fsaa, tile_size, opt.num_threads);
+        ImageViewRef<double> ch = select_channel(ned_err, ch_index);
+        rasterizer.set_texture(ch);
+        rasterizer.set_hole_fill_len(hole_fill_len);
+        rasterizer_fsaa = generate_fsaa_raster( rasterizer, opt );
+        rasterized[ch_index] =
+          block_cache(rasterizer_fsaa, tile_size, opt.num_threads);
       }
       save_image(opt,
 		 asp::round_image_pixels_skip_nodata

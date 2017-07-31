@@ -333,6 +333,7 @@ def main(argsIn):
     # Get a list of all the input files
     imageCameraPairs = getImageCameraPairs(imageFolder, cameraFolder, 
                                            options.startFrame, options.stopFrame)
+    numFiles = len(imageCameraPairs)
     
     # Check that the files are properly aligned
     for (image, camera) in imageCameraPairs: 
@@ -412,8 +413,8 @@ def main(argsIn):
         
         # Keep adding frames until we get enough or hit the last frame or hit a break
         hitBreakFrame = frameNumber in breaks
-        if (numPairs < options.bundleLength) and (frameNumber < options.stopFrame) and \
-               (not hitBreakFrame):
+        if ((numPairs < options.bundleLength) and (frameNumber < options.stopFrame) and 
+               (not hitBreakFrame)):
             continue
 
         # Check if the output file already exists.
