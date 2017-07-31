@@ -91,7 +91,7 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate):
 
         # Make sure the timestamp and frame number are in the output file name
         (dateStr, timeStr) = getJpegDateTime(inputPath)
-		outputName = ('DMS_%s_%s_%05d.tif') % (dateStr, timeStr, frame)
+        outputName = ('DMS_%s_%s_%05d.tif') % (dateStr, timeStr, frame)
         outputPath = os.path.join(imageFolder, outputName)
 
         # Skip existing valid files

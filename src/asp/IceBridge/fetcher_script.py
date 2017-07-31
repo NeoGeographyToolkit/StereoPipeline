@@ -244,7 +244,8 @@ def main(argsIn):
         parser.add_option("--stop-after-fetch", action="store_true", dest="stopAfterFetch",
                           default=False,
                           help="Stop program after data fetching.")
-        parser.add_option("--skip-validate", action="store_true", dest="skipValidate", default=False,
+        parser.add_option("--skip-validate", action="store_true", dest="skipValidate",
+                          default=False,
                           help="Skip input data validation.")
         parser.add_option("--dry-run", action="store_true", dest="dryRun", default=False,
                           help="Set up the input directories but do not fetch/process any imagery.")
@@ -385,9 +386,10 @@ def main(argsIn):
         # TODO: May be worth doing the faster functions with multiprocessing in the future
         input_conversions.correctFireballDems(fireballFolder, corrFireballFolder,
                                               startFrame, stopFrame,
-                                              (not isSouth))
+                                              (not isSouth), options.skipValidate)
 
-        isGood = input_conversions.convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame)
+        isGood = input_conversions.convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame,
+                                                options.skipValidate)
         if not isGood:
             if options.noFetch:
                 logger.Error("Conversions failed, quitting the program!")
@@ -401,11 +403,11 @@ def main(argsIn):
                     logger.Error("Second fetching failed, quitting the program!")
                     return -1
                 isGood = input_conversions.convertJpegs(jpegFolder, imageFolder,
-                                                        startFrame,  stopFrame)
+                                                        startFrame, stopFrame,
+                                                        options.skipValidate)
                 if not isGood:
                     logger.Error("Second conversion failed, quitting the program!")
                     return -1
-                
             
         if not options.noLidarConvert:
             input_conversions.convertLidarDataToCsv(lidarFolder)

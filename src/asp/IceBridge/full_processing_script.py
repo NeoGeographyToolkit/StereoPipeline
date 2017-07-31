@@ -216,7 +216,8 @@ def main(argsIn):
         parser.add_option("--stop-after-convert", action="store_true", dest="stopAfterConvert",
                           default=False,
                           help="Stop program after data conversion.")
-        parser.add_option("--skip-validate", action="store_true", dest="skipValidate", default=False,
+        parser.add_option("--skip-validate", action="store_true", dest="skipValidate",
+                          default=False,
                           help="Skip input data validation.")
         parser.add_option("--log-batches", action="store_true", dest="logBatches", default=False,
                           help="Log the required batch commands without running them.")
@@ -225,6 +226,9 @@ def main(argsIn):
 
 
         # The following options are intended for use on the supercomputer
+        parser.add_option("--refetch", action="store_true", dest="reFetch", default=False,
+                          help="Try fetching again if some files turned out invalid " + \
+                          "during conversions.")
         parser.add_option("--refetch-index", action="store_true", dest="refetchIndex",
                           default=False,
                           help="Force refetch of the index file.")
@@ -333,30 +337,7 @@ def main(argsIn):
 
             # Run non-ortho conversions without any multiprocessing (they are pretty fast)
             # TODO: May be worth doing the faster functions with multiprocessing in the future
-            input_conversions.correctFireballDems(fireballFolder, corrFireballFolder,
-                                                  startFrame, stopFrame,
-                                                  (not isSouth), options.skipValidate)
 
-           isGood = input_conversions.convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame,
-                                                    options.skipValidate)
-            if not isGood:
-                if options.noFetch:
-                    logger.Error("Conversions failed, quitting the program!")
-                    return -1
-                else:
-                    # Can try again to fetch, this can fix invalid files
-                    fetchResult = fetchAllRunData(options, startFrame, stopFrame,
-                                                  jpegFolder, orthoFolder, fireballFolder,
-                                                  lidarFolder)
-                    if fetchResult < 0:
-                        logger.Error("Second fetching failed, quitting the program!")
-                        return -1
-                    isGood = input_conversions.convertJpegs(jpegFolder, imageFolder,
-                                                            startFrame,  stopFrame)
-                    if not isGood:
-                        logger.Error("Second conversion failed, quitting the program!")
-                        return -1
-                    
             if not options.noLidarConvert:
                 input_conversions.convertLidarDataToCsv(lidarFolder)
                 input_conversions.pairLidarFiles(lidarFolder)
@@ -368,10 +349,24 @@ def main(argsIn):
             isGood = input_conversions.convertJpegs(jpegFolder, imageFolder, 
                                                     options.startFrame, options.stopFrame)
             if not isGood:
-                logger.Error("Jpeg conversions failed, quitting the program!")
-                return -1
-            # TODO: Quit on all failures?
-
+                if options.reFetch and (not options.noFetch):
+                    # During conversion we may realize some data is bad. 
+                    logger.info("Cconversions failed. Trying to re-fetch problematic files.")
+                    fetchResult = fetchAllRunData(options, options.startFrame, options.stopFrame,
+                                                  jpegFolder, orthoFolder, fireballFolder,
+                                                  lidarFolder)
+                    if fetchResult < 0:
+                        logger.error("Fetching failed, quitting the program!")
+                        return -1
+                    isGood = input_conversions.convertJpegs(jpegFolder, imageFolder, 
+                                                            options.startFrame, options.stopFrame)
+                    if not isGood:
+                        logger.Error("Jpeg conversions failed, quitting the program!")
+                        return -1
+                
+                else:
+                    logger.Error("Jpeg conversions failed, quitting the program!")
+                    return -1
 
         if not options.noOrthoConvert:
             # Multi-process call to convert ortho images
@@ -389,7 +384,6 @@ def main(argsIn):
     processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder,
                   processFolder, isSouth,
                   options.bundleLength, options.startFrame, options.stopFrame, options.logBatches,
-                  options.numProcesses, options.numThreads)
                   options.numProcesses, options.numThreads, options.numProcessesPerBatch)
 
    
