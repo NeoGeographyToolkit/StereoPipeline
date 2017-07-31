@@ -367,10 +367,25 @@ def generateSummaryFolder(run, outputFolder):
     
     # Copy logs to the output folder
     os.system('mkdir -p ' + outputFolder)
-    runFolder = run.getFolder()
+    runFolder  = run.getFolder()
+    procFolder = run.getProcessFolder()
     packedErrorLog = os.path.join(runFolder, 'packedErrors.log')
     shutil.copy(packedErrorLog, outputFolder)
-    shutil.copy(packedErrorLog, outputFolder)
+    
+    # Copy the input camera kml file
+    camerasInKmlPath = os.path.join(procFolder, 'cameras_in.kml')
+    shutil.copy(camerasInKmlPath, outputFolder)
+    
+    # Create a merged version of all the bundle adjusted camera files
+    print 'Merging output camera kml files...'
+    cmd = "find "+procFolder+" -name cameras_out.kml"
+    p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, shell=False)
+    textOutput, err = p.communicate()
+    camKmlFiles = textOutput.replace('\n', ' ')
+    
+    outputKml = os.path.join(outputFolder, 'cameras_out.kml')
+    cmd = 'merge_orbitviz.py ' + outputKml +' '+ camKmlFiles
+    os.system(cmd)
     
     # Link to thumbnails of all the output DEM files
     demList = run.getOutputDemList()
