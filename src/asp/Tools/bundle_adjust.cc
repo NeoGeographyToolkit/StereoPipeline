@@ -708,7 +708,9 @@ void write_residual_log(std::string const& residual_prefix, bool apply_loss_func
     residual_file_raw_gcp.close();
   }
   // List the camera weight residuals
-  if (opt.camera_weight > 0 || opt.rotation_weight > 0 || opt.translation_weight > 0){
+  int num_passes = int(opt.camera_weight > 0) +
+    int(opt.rotation_weight > 0 || opt.translation_weight > 0);
+  for (int pas = 0; pas < num_passes; pas++) {
     residual_file << "Camera weight position and orientation residual errors:\n";
     const size_t part_size = CAM_RESIDUAL_SIZE/2;
     for (size_t c=0; c<num_cameras; ++c) {
@@ -914,16 +916,10 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
       problem.SetParameterBlockConstant(point);
   }
 
-  std::cout << "---camera weight " << opt.camera_weight << std::endl;
-  std::cout << "---rot trans weight " << opt.rotation_weight << ' ' << opt.translation_weight
-	    << std::endl;
-  
   // Add camera constraints
   // - Error goes up as cameras move and rotate from their input positions.
   if (opt.camera_weight > 0){
 
-    std::cout << "--positive camera weight!!!" << std::endl;
-    
     for (int icam = 0; icam < num_cameras; icam++){
 
       typename ModelT::camera_vector_t orig_cam;
@@ -946,7 +942,6 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
   // - Error goes up as cameras move and rotate from their input positions.
   if (opt.rotation_weight > 0 || opt.translation_weight > 0){
 
-    std::cout << "--positive rot trans weight!" << std::endl;
     for (int icam = 0; icam < num_cameras; icam++){
 
       typename ModelT::camera_vector_t orig_cam;
