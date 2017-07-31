@@ -66,6 +66,56 @@ small way made this open source stereo pipeline possible, and we thank
 Dr.~Michael Caplinger, Joe Fahle and others at MSSS for their help and
 technical assistance.
 
+% The following text is from an e-mail from Larry Edwards on 18 July 2017,
+% in response to some questions about the version of ASP that he uses which
+% was forked from the original more than a decade ago and the history of the
+% code before that.  I don't know that there is a great place for this to go, 
+% but I don't want to loose it, so I'm including it here as commented-out text,
+% just in case someone wants the info.  --Ross Beyer
+%
+% Larry Edwards wrote:
+% The version I use for MRO was, as you say, branched maybe 9-10 years
+% ago.. don’t recall exactly. At some point I updated the autoconf
+% config files based on work Mike Lundy had done, but that's the only
+% thing I pulled over after the split.
+% 
+% The version used for MRO has some error analysis/characterization
+% tools that are (were?) missing from what's now the open source
+% version. Also, some manual masking and editing tools. The correlator
+% hasn’t changed much over the years... some additional validity
+% checks and filtering options, but fundamentally the same block
+% matching algorithm. I think the open source version implemented a
+% new hole interpolation method, we still use the original multi-level
+% b-spline approximation code. The camera model support may be slightly
+% different, and the only camera models that I know work reasonably
+% well are MGS MOC and MRO CTX. There is MRO HiRISE support, but that
+% needs some additional work. Also, the MRO version doesn't integrate
+% with ISIS, and we directly support MSSS' DDD image format. Not sure
+% if the open source version still does.
+% 
+% For MSL, I use an even older C language ASP version which has fairly
+% direct mission heritage going back to MPF. At this point, although
+% the basic algorithm is shared, it likely shares no code with either
+% the MRO or open source versions. This version only supports framing
+% cameras.
+% 
+% There are a couple of other ASP variants around as well circa 2001,
+% Judd Bowman and I developed a "modernized" C++ version of the
+% original ASP which I continued to develop over the years, but don't
+% actually use for MSL. Well, I use part of that code base for image
+% rectification, but not the correlator. An intern also implemented
+% graph-cuts and maximum likelihood correlators in this code base.
+% If I recall, Broxton and I used the block matching correlator from
+% this code base as the basis for what became the open source and MRO
+% ASP versions.
+% 
+% Back in the ~2003 time frame Randy Sargent rolled his own version
+% as well... he called it the Ames Stereo Engine I believe. It was used
+% onboard the K9 rover, and had a number of speed optimizations. I
+% think he also had another stereo code base that used an iterative
+% approach to refine the 3D reconstruction, but I don’t believe that
+% saw much use (I think it was quite slow).
+
 We'd also like to thank our friends and collaborators Dr.~Randolph
 Kirk, Dr.~Brent Archinal, Trent Hare, and Mark Rosiek of the
 \aclu{USGS}'s (\acs{USGS}'s) Astrogeology Science Center in Flagstaff,
