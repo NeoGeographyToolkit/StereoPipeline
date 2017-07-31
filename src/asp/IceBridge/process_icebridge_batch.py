@@ -19,7 +19,7 @@
 # Run bundle adjustment, stereo, generate DEMs, merge dems, perform alignment, etc,
 # for a series of icebridge images
 
-import os, sys, optparse, datetime, logging
+import os, sys, optparse, datetime, logging, multiprocessing
 
 # The path to the ASP python files
 basepath      = os.path.dirname(os.path.realpath(__file__))  # won't change, unlike syspath
@@ -46,6 +46,61 @@ os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = toolspath   + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = binpath     + os.pathsep + os.environ["PATH"]
 
+def genDEM(i, options, inputPairs, prefixes, demFiles, projString, threadText, suppressOutput, redo):
+    
+    # Get the appropriate image to use as a stereo pair    
+    pairIndex = i + options.stereoImageInterval
+
+    thisPairPrefix = prefixes[i]
+    argString      = ('%s %s %s %s ' % (inputPairs[i][0],  inputPairs[pairIndex][0], 
+                                        inputPairs[i][1],  inputPairs[pairIndex][1]))
+
+    stereoCmd = ('stereo %s %s -t nadirpinhole --alignment-method epipolar %s' %
+                 (argString, thisPairPrefix, threadText))
+    VERTICAL_SEARCH_LIMIT = 10
+    searchLimitString = (' --corr-search-limit -9999 -' + str(VERTICAL_SEARCH_LIMIT) +
+                         ' 9999 ' + str(VERTICAL_SEARCH_LIMIT) )
+    if options.stereoAlgo > 0:
+        correlationArgString = (' --xcorr-threshold 2 --min-xcorr-level 1 --corr-kernel 7 7 ' 
+                                + ' --corr-tile-size 9000 --cost-mode 4 --sgm-search-buffer 4 1 '
+                                + ' --stereo-algorithm ' + str(options.stereoAlgo)
+                                + searchLimitString
+                                )
+        #+ ' --corr-blob-filter 100')
+        filterArgString = (' --rm-cleanup-passes 0 --median-filter-size 5 ' +
+                           ' --texture-smooth-size 17 --texture-smooth-scale 0.14 ')
+    else:
+        correlationArgString = ' --stereo-algorithm ' + str(options.stereoAlgo)
+        filterArgString = ''
+        
+    stereoCmd += correlationArgString
+    stereoCmd += filterArgString
+
+    triOutput = thisPairPrefix + '-PC.tif'
+    asp_system_utils.executeCommand(stereoCmd, triOutput, suppressOutput, redo)
+
+#     # temporary!!!
+#     cmd = ('cp tmp.txt tmp2.txt') 
+#     p2dOutput = 'tm'
+#     asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput, redo)
+
+    # point2dem on the result of ASP
+    cmd = ('point2dem --tr %lf --t_srs %s %s %s --errorimage' 
+           % (options.demResolution, projString, triOutput, threadText))
+    p2dOutput = demFiles[i]
+    asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput, redo)
+
+    # COLORMAP
+    #colormapMin = -20 # To really be useful we need to read the range off the
+    # lidar and use it for all files.
+    #colormapMax =  20
+    colorOutput = thisPairPrefix+'-DEM_CMAP.tif'
+    #cmd = ('colormap --min %f --max %f %s -o %s'
+    #     % (colormapMin, colormapMax, p2dOutput, colorOutput))
+    cmd = ('colormap %s -o %s'  
+           % (p2dOutput, colorOutput))
+    asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
+    
 def main(argsIn):
 
     try:
@@ -62,6 +117,9 @@ def main(argsIn):
                           
         parser.add_option('--lidar-folder', default=None, dest='lidarFolder',  
                           help='Use pc-align to match the closest lidar file.')
+
+        parser.add_option('--output-folder', default=None, dest='outputFolder',  
+                          help='The folder used for output.')
 
         # Processing options
         parser.add_option('--max-displacement', dest='maxDisplacement', default=20,
@@ -90,29 +148,33 @@ def main(argsIn):
         parser.add_option('--num-threads', dest='numThreads', default=None,
                           type='int', help='The number of threads to use for processing.')
 
+        parser.add_option('--num-processes-per-batch', dest='numProcessesPerBatch', default=1,
+                          type='int', help='The number of simultaneous processes to run ' + \
+                          'for each batch. This better be kept at 1 if running more than one batch.')
+
         (options, args) = parser.parse_args(argsIn)
 
         # Check argument count
         numArgs    = len(args)
-        numCameras = (numArgs - 1) / 2
-        if (not (1 + 2*numCameras - numArgs) == 0) or (numCameras < 2):
+        numCameras = (numArgs) / 2
+        if ( (2*numCameras - numArgs) != 0) or (numCameras < 2):
+            print("Expecting as many images as cameras. Got: " + " ".join(args))
             print usage
             return 0
 
         # Verify all input files exist
-        for i in range(1,numArgs):
+        for i in range(0,numArgs):
             if not os.path.exists(args[i]):
                 print 'Input file '+ args[i] +' does not exist!'
                 return 0
 
         # Parse input files
-        outputFolder = args[0]
         inputPairs   = []
-        for i in range(0,numCameras):
-            image  = args[i+1]
-            camera = args[i+1 + numCameras]
+        for i in range(0, numCameras):
+            image  = args[i]
+            camera = args[i + numCameras]
             inputPairs.append([image, camera])
-        imageCameraString = ' '.join(args[1:])
+        imageCameraString = ' '.join(args)
        
         print 'Read input pairs: ' + str(inputPairs)
 
@@ -127,8 +189,8 @@ def main(argsIn):
     if options.isSouth:
         projString = PROJ_STRING_SOUTH
        
-    if not os.path.exists(outputFolder):
-        os.mkdir(outputFolder)
+    if not os.path.exists(options.outputFolder):
+        os.mkdir(options.outputFolder)
 
     # If a lidar folder was specified, find the best lidar file.
     lidarFile = None
@@ -143,7 +205,7 @@ def main(argsIn):
 
     logger.info('Starting processing...')
    
-    outputPrefix  = os.path.join(outputFolder, 'out')
+    outputPrefix  = os.path.join(options.outputFolder, 'out')
          
     threadText = ''
     if options.numThreads:
@@ -158,12 +220,15 @@ def main(argsIn):
     #   will have to examine the results very carefully!
     MIN_BA_OVERLAP = 2
     CAMERA_WEIGHT  = 1.0 # TODO: Find the best value here
-    bundlePrefix   = os.path.join(outputFolder, 'bundle/out')
+    bundlePrefix   = os.path.join(options.outputFolder, 'bundle/out')
     baOverlapLimit = options.stereoImageInterval # TODO: Maybe adjust this a bit
     if baOverlapLimit < MIN_BA_OVERLAP:
         baOverlapLimit = MIN_BA_OVERLAP
-    cmd = ('bundle_adjust %s -o %s %s --camera-weight %d -t nadirpinhole --local-pinhole --overlap-limit %d' 
-                 % (imageCameraString, bundlePrefix, threadText, CAMERA_WEIGHT, baOverlapLimit))
+        
+    cmd = (('bundle_adjust %s -o %s %s --camera-weight %d -t nadirpinhole ' + \
+           '--local-pinhole --overlap-limit %d')  \
+           % (imageCameraString, bundlePrefix, threadText, CAMERA_WEIGHT, baOverlapLimit))
+    
     if options.solve_intr:
         cmd += ' --solve-intrinsics'
     
@@ -176,64 +241,51 @@ def main(argsIn):
     asp_system_utils.executeCommand(cmd, newCamera, suppressOutput, redo)
 
     # Generate a map of initial camera positions
-    orbitvizAfter = os.path.join(outputFolder, 'cameras_out.kml')
+    orbitvizAfter = os.path.join(options.outputFolder, 'cameras_out.kml')
     vizString  = ''
     for (image, camera) in inputPairs: 
-        vizString += image +' ' + camera+' '
-    cmd = 'orbitviz --hide-labels -t nadirpinhole -r wgs84 -o ' + \
-          orbitvizAfter +' '+ vizString
-    asp_system_utils.executeCommand(cmd, orbitvizAfter, suppressOutput, redo)
-
+        vizString += image + ' ' + camera + ' '
+        cmd = 'orbitviz --hide-labels -t nadirpinhole -r wgs84 -o ' + \
+              orbitvizAfter + ' '+ vizString
+        asp_system_utils.executeCommand(cmd, orbitvizAfter, suppressOutput, redo)
+        
     # STEREO
     
-    # Call stereo seperately on each pair of cameras
+    # Call stereo seperately on each pair of cameras and create a DEM
+    numRuns = numCameras - options.stereoImageInterval
 
+    prefixes = []
     demFiles = []
-    for i in range(0, numCameras-options.stereoImageInterval):
-
-        # Get the appropriate image to use as a stereo pair    
-        pairIndex = i + options.stereoImageInterval
-    
-        thisPairPrefix = os.path.join(outputFolder, 'stereo_pair_'+str(i)+'/out')
-        argString      = ('%s %s %s %s ' % (inputPairs[i][0],  inputPairs[pairIndex][0], 
-                                            inputPairs[i][1],  inputPairs[pairIndex][1]))
-
-        stereoCmd = ('stereo %s %s -t nadirpinhole --alignment-method epipolar %s' %
-                     (argString, thisPairPrefix, threadText))
-        VERTICAL_SEARCH_LIMIT = 10
-        searchLimitString = (' --corr-search-limit -9999 -' + str(VERTICAL_SEARCH_LIMIT) +
-                             ' 9999 ' + str(VERTICAL_SEARCH_LIMIT) )
-        correlationArgString = (' --xcorr-threshold 2 --min-xcorr-level 1 --corr-kernel 7 7 ' 
-                                + ' --corr-tile-size 9000 --cost-mode 4 --sgm-search-buffer 4 1 '
-                                + ' --stereo-algorithm ' + str(options.stereoAlgo)
-                                + searchLimitString
-                                )
-                               #+ ' --corr-blob-filter 100')
-        filterArgString = (' --rm-cleanup-passes 0 --median-filter-size 5 ' +
-                           ' --texture-smooth-size 17 --texture-smooth-scale 0.14 ')
-        stereoCmd += correlationArgString
-        stereoCmd += filterArgString
-
-        triOutput = thisPairPrefix + '-PC.tif'
-        asp_system_utils.executeCommand(stereoCmd, triOutput, suppressOutput, redo)
-
-        # point2dem on the result of ASP
-        cmd = ('point2dem --tr %lf --t_srs %s %s %s --errorimage' 
-               % (options.demResolution, projString, triOutput, threadText))
+    for i in range(0, numRuns):
+        thisPairPrefix = os.path.join(options.outputFolder, 'stereo_pair_'+str(i)+'/out')
+        prefixes.append(thisPairPrefix)
         p2dOutput = thisPairPrefix + '-DEM.tif'
-        asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput, redo)
         demFiles.append(p2dOutput)
 
-        # COLORMAP
-        #colormapMin = -20 # To really be useful we need to read the range off the
-        # lidar and use it for all files.
-        #colormapMax =  20
-        colorOutput = thisPairPrefix+'-DEM_CMAP.tif'
-        #cmd = ('colormap --min %f --max %f %s -o %s'
-        #     % (colormapMin, colormapMax, p2dOutput, colorOutput))
-        cmd = ('colormap %s -o %s'  
-               % (p2dOutput, colorOutput))
-        asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
+    # We can either process the batch serially, or in parallel For
+    # many batches the former is preferred, with the batches
+    # themselves being in parallel.
+    if options.numProcessesPerBatch > 1:
+        logger.info('Starting processing pool for given batch with ' + \
+                    str(options.numProcessesPerBatch) + ' processes.')
+        pool = multiprocessing.Pool(options.numProcessesPerBatch)
+        taskHandles = []
+        for i in range(0, numRuns):
+            taskHandles.append(pool.apply_async(genDEM, 
+                                                (i, options, inputPairs, prefixes, demFiles,
+                                                 projString, threadText, suppressOutput, redo)))
+        # Wait for all the tasks to complete
+        icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, interactive = False, 
+                                                         quitKey='q', sleepTime=20)
+        
+        # Either all the tasks are finished or the user requested a cancel.
+        # Clean up the processing pool
+        icebridge_common.stopTaskPool(pool)
+
+    else:
+        for i in range(0, numRuns):
+            genDEM(i, options, inputPairs, prefixes, demFiles, projString, threadText,
+                   suppressOutput, redo)
 
     #raise Exception('BA DEBUG')
     logger.info('Finished running all stereo instances. Now merging DEMs...')
@@ -257,7 +309,7 @@ def main(argsIn):
     
     if lidarFile:
         # PC_ALIGN
-        alignPrefix = os.path.join(outputFolder, 'align/out')
+        alignPrefix = os.path.join(options.outputFolder, 'align/out')
         alignOptions = ( ('--max-displacement %f --csv-format %s ' +   \
                           '--save-inv-transformed-reference-points') % \
                          (options.maxDisplacement, lidarCsvFormatString))
@@ -316,7 +368,7 @@ def main(argsIn):
         maxY = projBounds[3] + LIDAR_PROJ_BUFFER_METERS
 
         # Generate a DEM from the lidar point cloud in this region        
-        lidarDemPrefix = os.path.join(outputFolder, 'cropped_lidar')
+        lidarDemPrefix = os.path.join(options.outputFolder, 'cropped_lidar')
         cmd = ('point2dem --t_projwin %f %f %f %f --tr %lf --t_srs %s %s %s --csv-format %s -o %s' 
                % (minX, minY, maxX, maxY,
                   LIDAR_DEM_RESOLUTION, projString, lidarFile, threadText, 

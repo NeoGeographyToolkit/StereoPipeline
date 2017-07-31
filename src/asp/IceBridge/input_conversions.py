@@ -46,7 +46,7 @@ def getJpegDateTime(filepath):
     # TODO: For some files it is probably in the name.
     
     # Use this tool to extract the metadata
-    cmd      = ['gdalinfo', filepath]
+    cmd      = [asp_system_utils.which('gdalinfo'), filepath]
     p        = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     out, err = p.communicate()
     
@@ -63,7 +63,7 @@ def getJpegDateTime(filepath):
 
     raise Exception('Failed to read date/time from file: ' + filepath)
 
-def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame):
+def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate):
     '''Convert jpeg images from RGB to single channel.
        Returns false if any files failed.'''
 
@@ -84,18 +84,25 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame):
         if ext != '.JPG':
             continue
         
-        # Make sure the timestamp and frame number are in the output file name
+        # Only deal with frames in range
         frame = icebridge_common.getFrameNumberFromFilename(inputPath)
         if not ( (frame >= startFrame) and (frame <= stopFrame) ):
             continue
+
+        # Make sure the timestamp and frame number are in the output file name
         (dateStr, timeStr) = getJpegDateTime(inputPath)
-        outputName = ('DMS_%s_%s_%05d.tif') % (dateStr, timeStr, frame)
+		outputName = ('DMS_%s_%s_%05d.tif') % (dateStr, timeStr, frame)
         outputPath = os.path.join(imageFolder, outputName)
 
         # Skip existing valid files
-        if icebridge_common.isValidImage(outputPath):
-            logger.info("File exists and is valid, skipping: " + outputPath)
-            continue
+        if skipValidate:
+            if os.path.exists(outputPath):
+                logger.info("File exists, skipping: " + outputPath)
+                continue
+        else:
+            if icebridge_common.isValidImage(outputPath):
+                logger.info("File exists and is valid, skipping: " + outputPath)
+                continue
         
         # Use ImageMagick tool to convert from RGB to grayscale
         cmd = (('convert %s -colorspace Gray %s') % (inputPath, outputPath))
@@ -126,9 +133,10 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame):
     if badFiles:
         logger.error("Converstion of JPEGs failed. If any files were corrupted, " +
                      "they were removed, and need to be re-fetched.")
+    
     return (not badFiles)
             
-def correctFireballDems(demFolder, correctedDemFolder, startFrame, stopFrame, isNorth):
+def correctFireballDems(demFolder, correctedDemFolder, startFrame, stopFrame, isNorth, skipValidate):
     '''Fix the header problem in Fireball DEMs'''
 
     logger = logging.getLogger(__name__)
@@ -154,10 +162,15 @@ def correctFireballDems(demFolder, correctedDemFolder, startFrame, stopFrame, is
         outputPath = os.path.join(correctedDemFolder, os.path.basename(inputPath))
 
         # Skip existing valid files
-        if icebridge_common.isValidImage(outputPath):
-            logger.info("File exists and is valid, skipping: " + outputPath)
-            continue
-
+        if skipValidate:
+            if os.path.exists(outputPath):
+                logger.info("File exists, skipping: " + outputPath)
+                continue
+        else:
+            if icebridge_common.isValidImage(outputPath):
+                logger.info("File exists and is valid, skipping: " + outputPath)
+                continue
+        
         # Run the correction script
         execPath = asp_system_utils.which('correct_icebridge_l3_dem')
         cmd = (('%s %s %s %d') %
@@ -286,7 +299,7 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
     outputFiles = []
     for imageFile in imageFiles:
         
-        # Skip non-image files (including junk from stereo_gui)
+        # Skip non-image files (including _sub images made by stereo_gui)
         ext = os.path.splitext(imageFile)[1]
         if (ext != '.tif') or ('_sub' in imageFile):
             continue
@@ -354,9 +367,11 @@ def convertLidarDataToCsv(lidarFolder):
         fullPath   = os.path.join(lidarFolder, f)
         outputPath = os.path.join(lidarFolder, os.path.splitext(f)[0]+'.csv')
         if os.path.exists(outputPath):
+            logger.info("File exists, skipping: " + outputPath)
             continue
         
         # Call the conversion
+        logger.info("Process " + fullPath)
         extract_icebridge_ATM_points.main([fullPath])
         
         # Check the result
@@ -366,14 +381,13 @@ def convertLidarDataToCsv(lidarFolder):
             
     return not badFiles
 
-
 def pairLidarFiles(lidarFolder):
     '''For each pair of lidar files generate a double size point cloud.
        We can use these later since they do not have any gaps between adjacent files.'''
     
     logger = logging.getLogger(__name__)
     logger.info('Generating lidar pairs...')
-    
+
     # Create the output folder
     pairFolder = os.path.join(lidarFolder, 'paired')
     os.system('mkdir -p ' + pairFolder)

@@ -114,13 +114,17 @@ def fetchAllRunData(options, startFrame, stopFrame,
     return (jpegFolder, orthoFolder, fireballFolder, lidarFolder)
 
 def processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFolder, isSouth, 
-                  bundleLength, startFrame, stopFrame, logBatches, numProcesses, numThreads):
+                  bundleLength, stereoAlgo, startFrame, stopFrame, logBatches,
+                  numProcesses, numThreads,
+                  numProcessesPerBatch):
     '''Do all the run processing'''
 
-    processCommand = (('%s %s %s %s --bundle-length %d --stereo-algorithm 1 ' + \
-                       '--ortho-folder %s --num-processes %d --num-threads %d')
+    processCommand = (('%s %s %s %s --bundle-length %d --stereo-algorithm %d ' + \
+                       '--ortho-folder %s --num-processes %d --num-threads %d ' + \
+                       '--num-processes-per-batch %d')
                       % (imageFolder, cameraFolder, lidarFolder, processFolder,
-                         bundleLength, orthoFolder, numProcesses, numThreads))
+                         bundleLength, stereoAlgo, orthoFolder, numProcesses,
+                         numThreads, numProcessesPerBatch))
     if isSouth:
         processCommand += ' --south'
     if startFrame:
@@ -174,6 +178,9 @@ def main(argsIn):
         parser.add_option('--overlap-limit', dest='overlapLimit', default=2,
                           type='int', help="The number of images to treat as overlapping for " + \
                           "bundle adjustment.")
+        
+        parser.add_option('--stereo-algorithm', dest='stereoAlgo', default=1,
+                          type='int', help='The SGM stereo algorithm to use.')
 
         # Python treats numbers starting with 0 as being in octal rather than decimal.
         # Ridiculous. So read them as strings and convert to int. 
@@ -194,6 +201,9 @@ def main(argsIn):
                           type='int', help='The number of simultaneous processes to run.')
         parser.add_option('--num-threads', dest='numThreads', default=1,
                           type='int', help='The number of threads per process.')
+        parser.add_option('--num-processes-per-batch', dest='numProcessesPerBatch', default=1,
+                          type='int', help='The number of simultaneous processes to run ' + \
+                          'for each batch. This better be kept at 1 if running more than one batch.')
 
         # Action control
         parser.add_option("--skip-fetch", action="store_true", dest="noFetch", default=False,
@@ -323,7 +333,30 @@ def main(argsIn):
 
             # Run non-ortho conversions without any multiprocessing (they are pretty fast)
             # TODO: May be worth doing the faster functions with multiprocessing in the future
+            input_conversions.correctFireballDems(fireballFolder, corrFireballFolder,
+                                                  startFrame, stopFrame,
+                                                  (not isSouth), options.skipValidate)
 
+           isGood = input_conversions.convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame,
+                                                    options.skipValidate)
+            if not isGood:
+                if options.noFetch:
+                    logger.Error("Conversions failed, quitting the program!")
+                    return -1
+                else:
+                    # Can try again to fetch, this can fix invalid files
+                    fetchResult = fetchAllRunData(options, startFrame, stopFrame,
+                                                  jpegFolder, orthoFolder, fireballFolder,
+                                                  lidarFolder)
+                    if fetchResult < 0:
+                        logger.Error("Second fetching failed, quitting the program!")
+                        return -1
+                    isGood = input_conversions.convertJpegs(jpegFolder, imageFolder,
+                                                            startFrame,  stopFrame)
+                    if not isGood:
+                        logger.Error("Second conversion failed, quitting the program!")
+                        return -1
+                    
             if not options.noLidarConvert:
                 input_conversions.convertLidarDataToCsv(lidarFolder)
                 input_conversions.pairLidarFiles(lidarFolder)
@@ -357,6 +390,7 @@ def main(argsIn):
                   processFolder, isSouth,
                   options.bundleLength, options.startFrame, options.stopFrame, options.logBatches,
                   options.numProcesses, options.numThreads)
+                  options.numProcesses, options.numThreads, options.numProcessesPerBatch)
 
    
 

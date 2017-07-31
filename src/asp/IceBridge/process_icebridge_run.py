@@ -27,6 +27,10 @@
 import os, sys, optparse, datetime, multiprocessing, time, logging
 import os.path as P
 
+# We must import this explicitly, it is not imported by the top-level
+# multiprocessing module.
+import multiprocessing.pool
+
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
 pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
@@ -71,7 +75,7 @@ def processBatch(imageCameraPairs, lidarFolder, outputFolder, extraOptions,
 
     # Just set the options and call the pair python tool.
     # We can try out bundle adjustment for intrinsic parameters here.
-    cmd = ('--lidar-overlay --lidar-folder %s %s %s %s' 
+    cmd = ('--lidar-overlay --lidar-folder %s --output-folder %s %s %s' 
            % (lidarFolder, outputFolder, argString, extraOptions))
     
     if batchLogPath:
@@ -87,7 +91,7 @@ def processBatch(imageCameraPairs, lidarFolder, outputFolder, extraOptions,
     except Exception as e:
         logger.error('Pair processing failed!\n' + str(e))
 
-def getImageSpacing(orthoFolder):
+def getImageSpacing(orthoFolder, startFrame, stopFrame):
     '''Find a good image stereo spacing interval that gives us a good
        balance between coverage and baseline width.
        Also detect all frames where this is a large break after the current frame.'''
@@ -109,6 +113,11 @@ def getImageSpacing(orthoFolder):
         if (ext != '.tif') or ('_sub' in orthoFile) or ('.tif_gray.tif' in orthoFile):
             continue
         orthoPath = os.path.join(orthoFolder, orthoFile)
+
+        # Only process frames within the range
+        frame = icebridge_common.getFrameNumberFromFilename(orthoPath)
+        if not ( (frame >= startFrame) and (frame <= stopFrame) ):  continue
+        
         orthoFiles.append(orthoPath)
     orthoFiles.sort()
     numOrthos = len(orthoFiles)
@@ -186,6 +195,18 @@ def getImageSpacing(orthoFolder):
     
     return (interval, breaks)
 
+class NoDaemonProcess(multiprocessing.Process):
+    # make 'daemon' attribute always return False
+    def _get_daemon(self):
+        return False
+    def _set_daemon(self, value):
+        pass
+    daemon = property(_get_daemon, _set_daemon)
+
+# A pool that allows each process to have its own pool of subprocesses.
+# This should be used with care.
+class NonDaemonPool(multiprocessing.pool.Pool):
+    Process = NoDaemonProcess
 
 
 def getImageCameraPairs(imageFolder, cameraFolder, startFrame, stopFrame):
@@ -288,7 +309,10 @@ def main(argsIn):
         parser.add_option('--num-processes', dest='numProcesses', default=1,
                           type='int', help='The number of simultaneous processes to run.')
         parser.add_option('--num-threads', dest='numThreads', default=None,
-                          type='int', help='The number threads to use per process.')                         
+                          type='int', help='The number threads to use per process.')
+        parser.add_option('--num-processes-per-batch', dest='numProcessesPerBatch', default=1,
+                          type='int', help='The number of simultaneous processes to run ' + \
+                          'for each batch. This better be kept at 1 if running more than one batch.')
 
         # Action options
         parser.add_option('--interactive', action='store_true', default=False, dest='interactive',  
@@ -356,6 +380,8 @@ def main(argsIn):
     extraOptions = ' --stereo-algorithm ' + str(options.stereoAlgo)
     if options.numThreads:
         extraOptions += ' --num-threads ' + str(options.numThreads)
+    if options.numProcessesPerBatch:
+        extraOptions += ' --num-processes-per-batch ' + str(options.numProcessesPerBatch)
     if options.solve_intr:
         extraOptions += ' --solve-intrinsics '
     if options.isSouth:
@@ -363,7 +389,8 @@ def main(argsIn):
     if options.maxDisplacement:
         extraOptions += ' --max-displacement ' + str(options.maxDisplacement)
    
-    (autoStereoInterval, breaks) = getImageSpacing(options.orthoFolder)
+    (autoStereoInterval, breaks) = getImageSpacing(options.orthoFolder,
+                                                   options.startFrame, options.stopFrame)
     if options.imageStereoInterval: 
         logger.info('Using manually specified image stereo interval: ' +
                     str(options.imageStereoInterval))
@@ -385,13 +412,14 @@ def main(argsIn):
     batchNum = 0
     if options.logBatches:
         options.numProcesses = 1
+        options.numProcessesPerBatch = 1
         sleepTime    = 1
         batchLogPath = os.path.join(outputFolder, BATCH_COMMAND_LOG_FILE)
         os.system('rm -f ' + batchLogPath)
         logger.info('Just generating batch log file '+batchLogPath+', no processing will occur.')
 
     logger.info('Starting processing pool with ' + str(options.numProcesses) +' processes.')
-    pool = multiprocessing.Pool(options.numProcesses)
+    pool = NonDaemonPool(options.numProcesses)
     
     # Call process_icebridge_batch on each batch of images.
     # - Batch size should be the largest number of images which can be effectively bundle-adjusted.
