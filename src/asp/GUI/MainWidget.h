@@ -179,6 +179,7 @@ public slots:
     void setProfileMode(bool profile_mode); ///< Turn on and off the 1D profile tool
     void setPolyEditMode(bool polyEditMode); ///< Turn on and off the vector layer drawing
     void deleteVertex();            ///< Delete a vertex from a vector layer
+    void deleteVertices();          ///< Delete poly vertices in selected region
     void insertVertex();            ///< Insert an intermediate vertex at right-click
     void mergePolys();              ///< Merge existing polygons
     void saveScreenshot();          ///< Save a screenshot of the current imagery
@@ -324,6 +325,7 @@ public slots:
     QAction* m_deleteSelection;
     QAction* m_saveVectorLayer;
     QAction* m_deleteVertex;
+    QAction* m_deleteVertices;
     QAction* m_insertVertex;
     QAction* m_moveVertex;
     QAction* m_showIndices;

@@ -292,6 +292,7 @@ namespace vw { namespace gui {
     // Polygon editing mode, they will be visible only when editing happens
     m_insertVertex = m_ContextMenu->addAction("Insert vertex");
     m_deleteVertex = m_ContextMenu->addAction("Delete vertex");
+    m_deleteVertices = m_ContextMenu->addAction("Delete vertices in selected region");
     m_moveVertex   = m_ContextMenu->addAction("Move vertices");
     m_moveVertex->setCheckable(true);
     m_moveVertex->setChecked(false);
@@ -331,6 +332,7 @@ namespace vw { namespace gui {
     connect(m_deleteSelection,    SIGNAL(triggered()), this, SLOT(deleteSelection()));
     connect(m_saveVectorLayer,    SIGNAL(triggered()), this, SLOT(saveVectorLayer()));
     connect(m_deleteVertex,       SIGNAL(triggered()), this, SLOT(deleteVertex()));
+    connect(m_deleteVertices,     SIGNAL(triggered()), this, SLOT(deleteVertices()));
     connect(m_insertVertex,       SIGNAL(triggered()), this, SLOT(insertVertex()));
     connect(m_mergePolys,         SIGNAL(triggered()), this, SLOT(mergePolys()));
 
@@ -1139,8 +1141,9 @@ namespace vw { namespace gui {
     paint.drawPixmap(0, 0, m_pixmap);
 
     QColor rubberBandColor = QColor("yellow");
-    std::string color = "red";
-    QColor cropWinColor = QColor(color.c_str());
+    QColor cropWinColor = QColor("red");
+    std::string polyColorStr = "green";
+    QColor polyColor = QColor(polyColorStr.c_str());
 
     // We will color the rubberband in the crop win color if we are
     // in crop win mode.
@@ -1180,11 +1183,11 @@ namespace vw { namespace gui {
       poly.appendPolygon(m_profileX.size(),  
                          vw::geometry::vecPtr(m_profileX),  
                          vw::geometry::vecPtr(m_profileY),  
-                         isPolyClosed, color, layer);
+                         isPolyClosed, polyColorStr, layer);
       bool showIndices = false;
       MainWidget::plotDPoly(plotPoints, plotEdges, plotFilled, showIndices,
                             lineWidth,  
-                            drawVertIndex, cropWinColor, paint,  
+                            drawVertIndex, polyColor, paint,  
                             poly);
     }
     
@@ -1204,7 +1207,7 @@ namespace vw { namespace gui {
 	poly.appendPolygon(m_currPolyX.size(),  
 			   vw::geometry::vecPtr(m_currPolyX),  
 			   vw::geometry::vecPtr(m_currPolyY),  
-			   isPolyClosed, color, layer);
+			   isPolyClosed, polyColorStr, layer);
       }else{
 	poly = m_polyVec[polyIter-1]; // make a deep copy
       }
@@ -1241,7 +1244,7 @@ namespace vw { namespace gui {
       MainWidget::plotDPoly(plotPoints, plotEdges, m_showPolysFilled->isChecked(),
                             m_showIndices->isChecked(),
                             lineWidth,  
-			    drawVertIndex, cropWinColor, paint, poly);
+			    drawVertIndex, polyColor, paint, poly);
     }
 
   } // end paint event
@@ -1274,7 +1277,10 @@ namespace vw { namespace gui {
     // Need this for panning
     m_last_view = m_current_view;
 
-    if (m_polyEditMode && m_moveVertex->isChecked()){
+    m_cropWinMode = ( (event->buttons() & Qt::LeftButton) &&
+                      (event->modifiers() & Qt::ControlModifier) );
+
+    if (m_polyEditMode && m_moveVertex->isChecked() && !m_cropWinMode){
 
       // Ensure these are always initialized
       m_editPolyVecIndex = -1; m_editIndexInCurrPoly = -1; m_editVertIndexInCurrPoly = -1;
@@ -1307,6 +1313,9 @@ namespace vw { namespace gui {
     QPoint Q = event->pos();
     int mouseMoveX = Q.x(), mouseMoveY = Q.y();
     
+    m_curr_pixel_pos = QPoint2Vec(event->pos());
+    updateCurrentMousePosition();
+
     if (event->modifiers() & Qt::AltModifier) {
 #if 0
       // Diff variables are just the movement of the mouse normalized to
@@ -1349,76 +1358,74 @@ namespace vw { namespace gui {
         break;
       }
 #endif
-
-    } else if (event->buttons() & Qt::LeftButton) {
-
-      // The mouse is pressed and moving
-      
-      if (m_polyEditMode && m_moveVertex->isChecked()){
-
-	// If moving vertices
-	if (m_editPolyVecIndex        < 0 ||
-	    m_editIndexInCurrPoly     < 0 ||
-	    m_editVertIndexInCurrPoly < 0) return;
-	
-	Vector2 P = screen2world(Vector2(mouseMoveX, mouseMoveY));
-
-	m_world_box.grow(P); // to not cut when plotting later
-	P = world2projpoint(P, m_polyVecIndex); // projected units
-	m_polyVec[m_editPolyVecIndex].changeVertexValue(m_editIndexInCurrPoly,
-							m_editVertIndexInCurrPoly,
-							P.x(), P.y());
-	
-	// This will redraw just the polygons, not the pixmap
-	update();
-	
-      } else {
-
-	// Doing the rubber band
-	
-	if (event->modifiers() & Qt::ControlModifier)
-	  m_cropWinMode = true;
-	
-	// Standard Qt rubberband trick. This is highly confusing.  The
-	// explanation for what is going on is the following.  We need to
-	// wipe the old rubberband, and draw a new one.  Hence just the
-	// perimeters of these two rectangles need to be re-painted,
-	// nothing else changes. The first updateRubberBand() call below
-	// schedules that the perimeter of the current rubberband be
-	// repainted, but the actual repainting, and this is the key, WILL
-	// HAPPEN LATER! Then we change m_rubberBand to the new value,
-	// then we schedule the repaint event on the new rubberband.
-	// Continued below.
-	updateRubberBand(m_rubberBand);
-	m_rubberBand = QRect( min(m_mousePrsX, mouseMoveX),
-			      min(m_mousePrsY, mouseMoveY),
-			      abs(mouseMoveX - m_mousePrsX),
-			      abs(mouseMoveY - m_mousePrsY) );
-	updateRubberBand(m_rubberBand);
-	// Only now, a single call to MainWidget::PaintEvent() happens,
-	// even though it appears from above that two calls could happen
-	// since we requested two updates. This call updates the perimeter
-	// of the old rubberband, in effect wiping it, since the region
-	// occupied by the old rubberband is scheduled to be repainted,
-	// but the rubberband itself is already changed.  It also updates
-	// the perimeter of the new rubberband, and as can be seen in
-	// MainWidget::PaintEvent() the effect is to draw the rubberband.
-	
-	if (m_cropWinMode && !m_allowMultipleSelections) {
-	  // If there is on screen already a crop window, wipe it, as
-	  // we are now in the process of creating a new one.
-	  QRect R = bbox2qrect(world2screen(m_stereoCropWin));
-	  updateRubberBand(R);
-	  m_stereoCropWin = BBox2();
-	  R = bbox2qrect(world2screen(m_stereoCropWin));
-	  updateRubberBand(R);
-	}
-      }
+      return;
       
     }
 
-    // Must happen at the end, to be used in the future
-    updateCurrentMousePosition();
+    if (! ((event->buttons() & Qt::LeftButton)) ) return;
+
+    // The mouse is pressed and moving
+
+    m_cropWinMode = ( (event->buttons() & Qt::LeftButton) &&
+                      (event->modifiers() & Qt::ControlModifier) );
+      
+    if (m_polyEditMode && m_moveVertex->isChecked() && !m_cropWinMode){
+
+      // If moving vertices
+      if (m_editPolyVecIndex        < 0 ||
+          m_editIndexInCurrPoly     < 0 ||
+          m_editVertIndexInCurrPoly < 0) return;
+      
+      Vector2 P = screen2world(Vector2(mouseMoveX, mouseMoveY));
+      
+      m_world_box.grow(P); // to not cut when plotting later
+      P = world2projpoint(P, m_polyVecIndex); // projected units
+      m_polyVec[m_editPolyVecIndex].changeVertexValue(m_editIndexInCurrPoly,
+                                                      m_editVertIndexInCurrPoly,
+                                                      P.x(), P.y());
+      
+      // This will redraw just the polygons, not the pixmap
+      update();
+
+      return;
+    }
+
+    // Standard Qt rubberband trick. This is highly confusing.  The
+    // explanation for what is going on is the following.  We need to
+    // wipe the old rubberband, and draw a new one.  Hence just the
+    // perimeters of these two rectangles need to be re-painted,
+    // nothing else changes. The first updateRubberBand() call below
+    // schedules that the perimeter of the current rubberband be
+    // repainted, but the actual repainting, and this is the key, WILL
+    // HAPPEN LATER! Then we change m_rubberBand to the new value,
+    // then we schedule the repaint event on the new rubberband.
+    // Continued below.
+    updateRubberBand(m_rubberBand);
+    m_rubberBand = QRect( min(m_mousePrsX, mouseMoveX),
+                          min(m_mousePrsY, mouseMoveY),
+                          abs(mouseMoveX - m_mousePrsX),
+                          abs(mouseMoveY - m_mousePrsY) );
+    updateRubberBand(m_rubberBand);
+    // Only now, a single call to MainWidget::PaintEvent() happens,
+    // even though it appears from above that two calls could happen
+    // since we requested two updates. This call updates the perimeter
+    // of the old rubberband, in effect wiping it, since the region
+    // occupied by the old rubberband is scheduled to be repainted,
+    // but the rubberband itself is already changed.  It also updates
+    // the perimeter of the new rubberband, and as can be seen in
+    // MainWidget::PaintEvent() the effect is to draw the rubberband.
+	
+    if (m_cropWinMode && !m_allowMultipleSelections) {
+      // If there is on screen already a crop window, wipe it, as
+      // we are now in the process of creating a new one.
+      QRect R = bbox2qrect(world2screen(m_stereoCropWin));
+      updateRubberBand(R);
+      m_stereoCropWin = BBox2();
+      R = bbox2qrect(world2screen(m_stereoCropWin));
+      updateRubberBand(R);
+    }
+
+    return;
   }
   
   // We assume the user picked n points in the image.
@@ -1730,6 +1737,66 @@ namespace vw { namespace gui {
     return;
   }
 
+  void MainWidget::deleteVertices(){
+
+    if (m_stereoCropWin.empty()) {
+      popUp("No region is selected.");
+      return;
+    }
+
+    for (size_t layerIter = 0; layerIter < m_polyVec.size(); layerIter++) {
+
+      // TODO: This lower level code should be moved to VW
+
+      vw::geometry::dPoly & poly     = m_polyVec[layerIter]; // alias
+      int                   numPolys = poly.get_numPolys();
+      const int           * numVerts = poly.get_numVerts();
+      const double        * xv       = poly.get_xv();
+      const double        * yv       = poly.get_yv();
+      std::vector<string>   colors   = poly.get_colors();
+      std::vector<string>   layers   = poly.get_layers();
+
+      vw::geometry::dPoly poly_out;
+      int start = 0;
+      for (int polyIter = 0; polyIter < numPolys; polyIter++){
+        
+        if (polyIter > 0) start += numVerts[polyIter - 1];
+        int pSize = numVerts[polyIter];
+
+        std::vector<double> out_xv, out_yv;
+        for (int vIter = 0; vIter < pSize; vIter++){
+          double  x = xv[start + vIter];
+          double  y = yv[start + vIter];
+          Vector2 P = projpoint2world(Vector2(x, y), m_polyVecIndex);
+
+          // This vertex will be deleted
+          if (m_stereoCropWin.contains(P)) continue;
+
+          out_xv.push_back(x);
+          out_yv.push_back(y);
+        }
+
+        // If no viable polygon is left
+        if (out_xv.size() < 3) continue; 
+          
+        bool isPolyClosed = true;
+	poly_out.appendPolygon(out_xv.size(),  
+                               vw::geometry::vecPtr(out_xv),  
+                               vw::geometry::vecPtr(out_yv),  
+                               isPolyClosed, colors[polyIter], layers[layerIter]);
+      }
+
+      // Overwrite the polygon
+      m_polyVec[layerIter] = poly_out;
+    }      
+
+    // The selection has done its job
+    m_stereoCropWin = BBox2();
+    
+    // This will redraw just the polygons, not the pixmap
+    update();
+  }
+    
   // Insert intermediate vertex where the mouse right-clicks
   void MainWidget::insertVertex(){
 
@@ -2047,6 +2114,11 @@ namespace vw { namespace gui {
     QPoint mouse_rel_pos = event->pos();
     int mouseRelX = mouse_rel_pos.x(), mouseRelY = mouse_rel_pos.y();
 
+    if( (event->buttons() & Qt::LeftButton) &&
+        (event->modifiers() & Qt::ControlModifier) ){
+      m_cropWinMode = true;
+    }
+
     if (m_images.empty()) return;
 
     // If the mouse was released close to where it was pressed
@@ -2124,7 +2196,7 @@ namespace vw { namespace gui {
 	  // Now show the profile.
 	  MainWidget::plotProfile(m_images, m_profileX, m_profileY);
 
-	} else if (m_polyEditMode && m_moveVertex->isChecked()){
+	} else if (m_polyEditMode && m_moveVertex->isChecked() && !m_cropWinMode){
 	  // Move vertex
 
 	  if (m_editPolyVecIndex        < 0 ||
@@ -2192,27 +2264,15 @@ namespace vw { namespace gui {
 	return;
       }
 
+      return;
     } // end the case when the mouse was released close to where it was pressed
 
-    else if (m_polyEditMode && m_moveVertex->isChecked()){
+    if (m_polyEditMode && m_moveVertex->isChecked() && !m_cropWinMode){
       // Do not zoom or do other funny stuff if we are moving vertices
       return;
     }
     
-    if( (event->buttons() & Qt::LeftButton) &&
-        (event->modifiers() & Qt::ControlModifier) ){
-      m_cropWinMode = true;
-    }
-
     if (event->buttons() & Qt::RightButton) {
-      if (std::abs(mouseRelX - m_mousePrsX) < m_pixelTol &&
-          std::abs(mouseRelY - m_mousePrsY) < m_pixelTol
-          ){
-        // If the mouse was released too close to where it was clicked,
-        // do nothing.
-        return;
-      }
-
       // Drag the image along the mouse movement
       m_current_view -= (screen2world(QPoint2Vec(mouse_rel_pos)) -
                          screen2world(QPoint2Vec(QPoint(m_mousePrsX, m_mousePrsY))));
@@ -2483,6 +2543,7 @@ namespace vw { namespace gui {
     m_mousePrsY = y;
     
     m_deleteVertex->setVisible(m_polyEditMode);
+    m_deleteVertices->setVisible(m_polyEditMode);
     m_insertVertex->setVisible(m_polyEditMode);
     m_moveVertex->setVisible(m_polyEditMode);
     m_showIndices->setVisible(m_polyEditMode);
@@ -2500,7 +2561,7 @@ namespace vw { namespace gui {
     m_setHillshadeParams->setVisible(!m_polyEditMode); 
     m_setThreshold->setVisible(!m_polyEditMode); 
     m_allowMultipleSelections_action->setVisible(!m_polyEditMode); 
-    m_deleteSelection->setVisible(!m_polyEditMode);
+    m_deleteSelection->setVisible(true);
     
     m_saveScreenshot->setVisible(true); // always visible
     
