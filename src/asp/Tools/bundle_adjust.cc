@@ -460,7 +460,8 @@ struct CamError {
   // Factory to hide the construction of the CostFunction object from
   // the client code.
   static ceres::CostFunction* Create(CamVecT const& orig_cam, double weight){
-    return (new ceres::AutoDiffCostFunction<CamError, ModelT::camera_params_n, ModelT::camera_params_n>
+    return (new ceres::AutoDiffCostFunction<CamError, ModelT::camera_params_n,
+            ModelT::camera_params_n>
             (new CamError(orig_cam, weight)));
   }
 
@@ -479,7 +480,8 @@ struct RotTransError {
   typedef typename ModelT::camera_vector_t CamVecT;
 
   RotTransError(CamVecT const& orig_cam, double rotation_weight, double translation_weight):
-    m_orig_cam(orig_cam), m_rotation_weight(rotation_weight), m_translation_weight(translation_weight) {}
+    m_orig_cam(orig_cam), m_rotation_weight(rotation_weight),
+    m_translation_weight(translation_weight) {}
 
   template <typename T>
   bool operator()(const T* const cam_vec, T* residuals) const {
@@ -499,8 +501,8 @@ struct RotTransError {
   // the client code.
   static ceres::CostFunction* Create(CamVecT const& orig_cam,
                                      double rotation_weight, double translation_weight){
-    return (new ceres::NumericDiffCostFunction<RotTransError, ceres::CENTRAL,
-            ModelT::camera_params_n, ModelT::camera_params_n>
+    return (new ceres::AutoDiffCostFunction<RotTransError, ModelT::camera_params_n,
+            ModelT::camera_params_n>
             (new RotTransError(orig_cam, rotation_weight, translation_weight)));
 
   }
@@ -651,8 +653,12 @@ void write_residual_log(std::string const& residual_prefix, bool apply_loss_func
     num_expected_residuals += cam_residual_counts[i]*PIXEL_RESIDUAL_SIZE;
   if (opt.camera_weight > 0)
     num_expected_residuals += num_cameras*CAM_RESIDUAL_SIZE;
+  if (opt.rotation_weight > 0 || opt.translation_weight > 0)
+    num_expected_residuals += num_cameras*CAM_RESIDUAL_SIZE;
+  
   if (num_expected_residuals != num_residuals)
-    vw_throw( LogicErr() << "Expected " << num_expected_residuals << " residuals but instead got " << num_residuals);
+    vw_throw( LogicErr() << "Expected " << num_expected_residuals
+	      << " residuals but instead got " << num_residuals);
     
   // Write a report on residual errors
   std::ofstream residual_file, residual_file_raw_pixels, residual_file_raw_gcp, residual_file_raw_cams;
@@ -702,7 +708,7 @@ void write_residual_log(std::string const& residual_prefix, bool apply_loss_func
     residual_file_raw_gcp.close();
   }
   // List the camera weight residuals
-  if (opt.camera_weight > 0){
+  if (opt.camera_weight > 0 || opt.rotation_weight > 0 || opt.translation_weight > 0){
     residual_file << "Camera weight position and orientation residual errors:\n";
     const size_t part_size = CAM_RESIDUAL_SIZE/2;
     for (size_t c=0; c<num_cameras; ++c) {
@@ -908,9 +914,16 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
       problem.SetParameterBlockConstant(point);
   }
 
+  std::cout << "---camera weight " << opt.camera_weight << std::endl;
+  std::cout << "---rot trans weight " << opt.rotation_weight << ' ' << opt.translation_weight
+	    << std::endl;
+  
   // Add camera constraints
   // - Error goes up as cameras move and rotate from their input positions.
   if (opt.camera_weight > 0){
+
+    std::cout << "--positive camera weight!!!" << std::endl;
+    
     for (int icam = 0; icam < num_cameras; icam++){
 
       typename ModelT::camera_vector_t orig_cam;
@@ -932,14 +945,17 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
   // This will need to be merged with the above but note that the loss is NULL here. 
   // - Error goes up as cameras move and rotate from their input positions.
   if (opt.rotation_weight > 0 || opt.translation_weight > 0){
+
+    std::cout << "--positive rot trans weight!" << std::endl;
     for (int icam = 0; icam < num_cameras; icam++){
 
       typename ModelT::camera_vector_t orig_cam;
       for (int q = 0; q < num_camera_params; q++)
         orig_cam[q] = orig_cameras_vec[icam * num_camera_params + q];
 
-      ceres::CostFunction* cost_function = RotTransError<ModelT>::Create(orig_cam, opt.rotation_weight, opt.translation_weight);
-      ceres::LossFunction* loss_function = NULL;
+      ceres::CostFunction* cost_function
+        = RotTransError<ModelT>::Create(orig_cam, opt.rotation_weight, opt.translation_weight);
+      ceres::LossFunction* loss_function = new ceres::TrivialLoss();
 
       double * camera  = cameras  + icam * num_camera_params;
       problem.AddResidualBlock(cost_function, loss_function, camera);
