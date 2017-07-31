@@ -113,10 +113,10 @@ def fetchAllRunData(options, startFrame, stopFrame,
     
     return (jpegFolder, orthoFolder, fireballFolder, lidarFolder)
 
-def processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFolder, isSouth, 
-                  bundleLength, stereoAlgo, startFrame, stopFrame, logBatches,
-                  numProcesses, numThreads,
-                  numProcessesPerBatch):
+def processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFolder,
+                  isSouth, bundleLength, stereoAlgo,
+                  startFrame, stopFrame, logBatches,
+                  numProcesses, numThreads, numProcessesPerBatch):
     '''Do all the run processing'''
 
     processCommand = (('%s %s %s %s --bundle-length %d --stereo-algorithm %d ' + \
@@ -344,10 +344,11 @@ def main(argsIn):
          
             input_conversions.correctFireballDems(fireballFolder, corrFireballFolder,
                                                   options.startFrame, options.stopFrame,
-                                                  (not isSouth))
+                                                  (not isSouth), options.skipValidate)
 
             isGood = input_conversions.convertJpegs(jpegFolder, imageFolder, 
-                                                    options.startFrame, options.stopFrame)
+                                                    options.startFrame, options.stopFrame,
+                                                    options.skipValidate)
             if not isGood:
                 if options.reFetch and (not options.noFetch):
                     # During conversion we may realize some data is bad. 
@@ -381,9 +382,9 @@ def main(argsIn):
         return 0
 
     # Call the processing routine
-    processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder,
-                  processFolder, isSouth,
-                  options.bundleLength, options.startFrame, options.stopFrame, options.logBatches,
+    processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFolder,
+                  isSouth, options.bundleLength, options.stereoAlgo,
+                  options.startFrame, options.stopFrame, options.logBatches,
                   options.numProcesses, options.numThreads, options.numProcessesPerBatch)
 
    
