@@ -36,8 +36,8 @@ sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 sys.path.insert(0, icebridgepath)
 
-import full_processing_script
 import asp_system_utils, asp_alg_utils, asp_geo_utils
+import icebridge_common, full_processing_script
 
 asp_system_utils.verify_python_version_is_supported()
 
@@ -129,7 +129,7 @@ def main(argsIn):
 
     try:
         # Sample usage:
-        # python ~/projects/StereoPipeline/src/asp/IceBridge/fetcher_script.py \
+        # python fetcher_script.py \
         #  --yyyymmdd 20091016 --site AN --start-frame 350 --stop-frame 353 --skip-validate
         # An output folder will be crated automatically (with a name like
         # AN_20091016), or its name can be specified via the --output-folder
@@ -143,10 +143,6 @@ def main(argsIn):
                           help="Specify the year, month, and day in one YYYYMMDD string.")
         parser.add_option("--site",  dest="site", default=None,
                           help="Name of the location of the images (AN, GR, or AL)")
-
-        parser.add_option("--output-folder",  dest="outputFolder", default=None,
-                          help="Name of the output folder. If not specified, " + \
-                          "use something like AN_YYYYMMDD.")
 
         # Python treats numbers starting with 0 as being in octal rather than decimal.
         # Ridiculous. So read them as strings and convert to int. 
@@ -162,11 +158,13 @@ def main(argsIn):
                           default=False,
                           help="Skip input data validation.")
 
-        # The following options are intended for use on the supercomputer
         parser.add_option("--refetch-index", action="store_true", dest="refetchIndex",
                           default=False,
                           help="Force refetch of the index file.")
-        
+        parser.add_option("--stop-after-index-fetch", action="store_true",
+                          dest="stopAfterIndexFetch", default=False,
+                          help="Stop after fetching the indices.")
+
         parser.add_option("--tar-and-wipe", action="store_true", dest="tarAndWipe", default=False,
                           help="After fetching all data and performing all conversions and " + \
                           "validations, make a tarball on lou and wipe the directory. "      + \
@@ -180,6 +178,17 @@ def main(argsIn):
     except optparse.OptionError, msg:
         raise Usage(msg)
 
+    if options.yyyymmdd is None or options.site is None:
+        print("The flight date and site must be specified.")
+        return -1
+
+    options.outputFolder = icebridge_common.outputFolder(options.site, options.yyyymmdd)
+    os.system('mkdir -p ' + options.outputFolder)
+    
+    logLevel = logging.INFO
+    logger   = icebridge_common.setUpLogger(options.outputFolder, logLevel,
+                                            'icebridge_fetcher_log')
+
     # Explicitely go from strings to integers, per earlier note.
     if options.startFrameStr is not None:
         startFrame = int(options.startFrameStr)
@@ -190,14 +199,29 @@ def main(argsIn):
     else:
         stopFrame = icebridge_common.getLargestFrame()
 
+    # Unarchive, then continue with fetching
     if options.startWithLouArchive:
         startWithLouArchive(options, logger)
+
+    cmd = (('--yyyymmdd %s --site %s --start-frame %d --stop-frame %d ' +
+            '--max-num-lidar-to-fetch %d --stop-after-convert --no-ortho-convert')
+           % (options.yyyymmdd, options.site, startFrame, stopFrame,
+              options.maxNumLidarToFetch))
+    if options.refetchIndex:
+        cmd += ' --refetch-index' # this was not right in older fetched runs
+    if options.stopAfterIndexFetch:
+        cmd += ' --stop-after-index-fetch' 
+    if options.skipValidate:
+        cmd += ' --skip-validate'
         
-    # This option happens just after conversion to allow it to be
-    # paired with the stopAfterConvert option.
+    logger.info("full_processing_script.py " + cmd)
+    
+    if full_processing_script.main(cmd.split()) < 0:
+        return -1
+
+    # Archive after fetching
     if options.tarAndWipe:
         tarAndWipe(options, logger)
-   
 
 # Run main function if file used from shell
 if __name__ == "__main__":

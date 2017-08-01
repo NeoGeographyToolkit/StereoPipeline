@@ -239,7 +239,6 @@ def main(argsIn):
                           help="Set up the input directories but do not fetch/process any imagery.")
 
 
-        # The following options are intended for use on the supercomputer
         parser.add_option("--refetch", action="store_true", dest="reFetch", default=False,
                           help="Try fetching again if some files turned out invalid " + \
                           "during conversions.")
@@ -265,6 +264,10 @@ def main(argsIn):
     except optparse.OptionError, msg:
         raise Usage(msg)
 
+    if options.yyyymmdd is None or options.site is None:
+        print("The flight date and site must be specified.")
+        return -1
+        
     isSouth = icebridge_common.checkSite(options.site)
 
     if options.cameraLookupFile is None:
@@ -277,7 +280,7 @@ def main(argsIn):
         raise Exception("The --yyyymmdd field must have length 8 or 9.")
 
     if options.outputFolder is None:
-        options.outputFolder = options.site + '_' + options.yyyymmdd
+        options.outputFolder = icebridge_common.outputFolder(options.site, options.yyyymmdd)
 
     # Explicitely go from strings to integers, per earlier note.
     if options.startFrameStr is not None:
