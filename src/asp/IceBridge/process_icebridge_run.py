@@ -454,7 +454,9 @@ def main(argsIn):
           
         # The output folder is named after the first and last frame in the batch
         thisOutputFolder = os.path.join(outputFolder,
-                                        'batch_'+str(frameNumbers[0])+'_'+str(frameNumbers[-1]))
+                                        'batch_'+str(frameNumbers[0]) + \
+                                        '_' + str(frameNumbers[-1])   +
+                                        '_' + str(options.bundleLength))
 
         if not options.logBatches:
             logger.info('Running processing batch in output folder: ' + thisOutputFolder + '\n' + 
