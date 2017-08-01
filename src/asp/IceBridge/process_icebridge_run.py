@@ -91,7 +91,7 @@ def processBatch(imageCameraPairs, lidarFolder, outputFolder, extraOptions,
     try:
         process_icebridge_batch.main(cmd.split())
     except Exception as e:
-        logger.error('Pair processing failed!\n' + str(e))
+        logger.error('Batch processing failed!\n' + str(e))
 
 def getImageSpacing(orthoFolder, startFrame, stopFrame):
     '''Find a good image stereo spacing interval that gives us a good
@@ -375,9 +375,8 @@ def main(argsIn):
         vizString += image +' ' + camera+' '
     cmd = 'orbitviz --hide-labels -t nadirpinhole -r wgs84 -o '+ orbitvizBefore +' '+ vizString
     logger.info('Running orbitviz on input files...')
-    redo = True
-    asp_system_utils.executeCommand(cmd, orbitvizBefore, True, redo)
-    
+    asp_system_utils.executeCommand(cmd, orbitvizBefore, True, redo) # Suppress (potentially long) output
+
     # Set up options for process_icebridge_batch
     extraOptions = ' --stereo-algorithm ' + str(options.stereoAlgo)
     if options.numThreads:

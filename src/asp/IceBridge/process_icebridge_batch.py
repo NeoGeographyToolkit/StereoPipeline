@@ -245,10 +245,10 @@ def main(argsIn):
     vizString  = ''
     for (image, camera) in inputPairs: 
         vizString += image + ' ' + camera + ' '
-        cmd = 'orbitviz --hide-labels -t nadirpinhole -r wgs84 -o ' + \
-              orbitvizAfter + ' '+ vizString
-        asp_system_utils.executeCommand(cmd, orbitvizAfter, suppressOutput, redo)
-        
+    cmd = 'orbitviz --hide-labels -t nadirpinhole -r wgs84 -o ' + \
+          orbitvizAfter + ' '+ vizString
+    asp_system_utils.executeCommand(cmd, orbitvizAfter, suppressOutput, redo)
+
     # STEREO
     
     # Call stereo seperately on each pair of cameras and create a DEM

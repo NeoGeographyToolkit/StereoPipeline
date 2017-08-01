@@ -387,8 +387,13 @@ void ortho2pinhole(Options const& opt){
   // See if enough points were found
   const int num_ip_found     = static_cast<int>(raw_pixels.size());
   const int num_dem_ip_found = static_cast<int>(ortho_dem_xyz.size());
-  if (num_ip_found < opt.min_ip)
+  if (num_ip_found < opt.min_ip) {
+    if (!opt.keep_match_file) {
+      vw_out() << "Removing: " << match_filename << std::endl;
+      boost::filesystem::remove(match_filename);
+    }
     vw_throw(ArgumentErr() << "Error: Only found " << num_ip_found << " interest points, quitting.\n");
+  }
 
   // See if enough points on the DEM were found
   bool use_dem_points = false;

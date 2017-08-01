@@ -245,20 +245,36 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile,
     # If the call fails, try it again with different IP algorithm options to see
     #  if we can get it to work.
     IP_OPTIONS = ['1', '0', '2']
-    MIN_IP = 10 # Require more IP to make sure we don't get bogus camera models
+   
+    MIN_IP     = 10  # Require more IP to make sure we don't get bogus camera models
+    DESIRED_IP = 100 # If we don't hit this number, try other methods before taking the best one.
 
+    bestIpCount = 0
+    tempFilePath = outputCamFile + '_temp' # Used to hold the current best result
     for ip_option in IP_OPTIONS:
     
         # Call ortho2pinhole command
         ortho2pinhole = asp_system_utils.which("ortho2pinhole")
         cmd = (('%s %s %s %s %s --reference-dem %s --threads %d --ip-detect-method %s --minimum-ip %d') % (ortho2pinhole, inputPath, orthoPath, inputCamFile, outputCamFile, refDemPath, numThreads, ip_option, MIN_IP))
         print cmd
-        #logger.info(cmd) # TODO: Check on logging here
-        os.system(cmd)
-        #logger.info('done2')
+        #logger.info(cmd) # TODO: Check on logging here       
+        p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
+        textOutput, err = p.communicate()
+        print textOutput
+        if not os.path.exists(outputCamFile): # Keep trying if no output file produced
+            continue
         
-        if os.path.exists(outputCamFile): # If we wrote the file stop calling this
+        # Check the number of IP used
+        m = re.findall(r"Init model with (\d+) points", textOutput)
+        numPoints = int(m[0])
+        if numPoints >= DESIRED_IP: # Got a lot of points, quit
             break
+        if numPoints > bestIpCount: # Got some points but not many, try other options 
+            bestIpCount = numPoints #  to see if we can beat this result.
+            shutil.move(outputCamFile, tempFilePath)
+
+    if numPoints < DESIRED_IP: # If we never got the desired # of points
+        shutil.move(tempFilePath, outputCamFile) # Use the camera file with the most points found
     
     if not os.path.exists(outputCamFile):
         # This function is getting called from a pool, so just log the failure.
