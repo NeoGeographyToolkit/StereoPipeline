@@ -156,8 +156,7 @@ def main(argsIn):
         # An output folder will be crated automatically (with a name like
         # AN_20091016), or its name can be specified via the --output-folder
         # option.
-        usage = '''usage: full_processing_script.py <options> <camera_calibration_folder>
-        <ref_dem_folder>'''
+        usage = '''usage: full_processing_script.py <options>'''
                       
         parser = optparse.OptionParser(usage=usage)
 

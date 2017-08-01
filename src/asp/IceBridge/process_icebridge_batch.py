@@ -104,7 +104,7 @@ def genDEM(i, options, inputPairs, prefixes, demFiles, projString, threadText, s
 def main(argsIn):
 
     try:
-        usage = '''usage: process_icebridge_batch <output_folder> <imageA> <imageB> [imageC ...] <cameraA> <cameraB> [cameraC ...]
+        usage = '''usage: process_icebridge_batch <imageA> <imageB> [imageC ...] <cameraA> <cameraB> [cameraC ...]
                       
 
   [ASP [@]ASP_VERSION[@]]'''
@@ -176,7 +176,7 @@ def main(argsIn):
             inputPairs.append([image, camera])
         imageCameraString = ' '.join(args)
        
-        print 'Read input pairs: ' + str(inputPairs)
+        #print 'Read input pairs: ' + str(inputPairs)
 
     except optparse.OptionError, msg:
         raise Usage(msg)
@@ -221,11 +221,11 @@ def main(argsIn):
     MIN_BA_OVERLAP = 2
     CAMERA_WEIGHT  = 1.0 # TODO: Find the best value here
     bundlePrefix   = os.path.join(options.outputFolder, 'bundle/out')
-    baOverlapLimit = options.stereoImageInterval # TODO: Maybe adjust this a bit
+    baOverlapLimit = options.stereoImageInterval + 1
     if baOverlapLimit < MIN_BA_OVERLAP:
         baOverlapLimit = MIN_BA_OVERLAP
         
-    cmd = (('bundle_adjust %s -o %s %s --camera-weight %d -t nadirpinhole ' + \
+    cmd = (('bundle_adjust %s -o %s %s --datum wgs84 --camera-weight %d -t nadirpinhole ' + \
            '--local-pinhole --overlap-limit %d')  \
            % (imageCameraString, bundlePrefix, threadText, CAMERA_WEIGHT, baOverlapLimit))
     

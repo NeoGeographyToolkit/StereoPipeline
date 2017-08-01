@@ -287,9 +287,9 @@ public:
   DemMosaicView(int cols, int rows, int bias,
                 Options                const& opt,
                 DiskImageManager<RealT>     & imgMgr,
-		vector<GeoReference>   const& georefs,
-		GeoReference           const& out_georef,
-		vector<double>         const& nodata_values,
+                vector<GeoReference>   const& georefs,
+                GeoReference           const& out_georef,
+                vector<double>         const& nodata_values,
                 vector<BBox2i>         const& dem_pixel_bboxes,
                 long long int               & num_valid_pixels,
                 vw::Mutex                   & count_mutex):
@@ -308,11 +308,13 @@ public:
       vw_throw(ArgumentErr() << "Inputs expected to have the same size do not.\n");
 
     // Sanity check, see if datums differ, then the tool won't work
+    const double out_major_axis = m_out_georef.datum().semi_major_axis();
+    const double out_minor_axis = m_out_georef.datum().semi_minor_axis();
     for (int i = 0; i < (int)m_georefs.size(); i++) {
-      if (std::abs(m_georefs[i].datum().semi_major_axis()
-                   - m_out_georef.datum().semi_major_axis() ) > 0.1 ||
-          std::abs(m_georefs[i].datum().semi_minor_axis()
-                   - m_out_georef.datum().semi_minor_axis() ) > 0.1 ||
+      double this_major_axis = m_georefs[i].datum().semi_major_axis();
+      double this_minor_axis = m_georefs[i].datum().semi_minor_axis();
+      if (std::abs(this_major_axis - out_major_axis) > 0.1 || 
+          std::abs(this_minor_axis - out_minor_axis) > 0.1 ||
           m_georefs[i].datum().meridian_offset()
           != m_out_georef.datum().meridian_offset() ){
         vw_throw(NoImplErr() << "Mosaicking of DEMs with differing datum radii "
@@ -321,12 +323,12 @@ public:
                  <<  m_out_georef.datum() << "\n");
       }
       if (m_georefs[i].datum().name() != m_out_georef.datum().name() &&
-          m_georefs[i].datum().semi_major_axis() == m_out_georef.datum().semi_major_axis() &&
-          m_georefs[i].datum().semi_minor_axis() == m_out_georef.datum().semi_minor_axis() &&
+          this_major_axis == out_major_axis &&
+          this_minor_axis == out_minor_axis &&
           m_georefs[i].datum().meridian_offset() == m_out_georef.datum().meridian_offset() ){
         vw_out(WarningMessage) << "Found DEMs with the same radii and meridian offsets, "
                                << "but different names: "
-                               <<  m_georefs[i].datum().name() << " and "
+                               << m_georefs[i].datum().name() << " and "
                                << m_out_georef.datum().name() << "\n";
       }
     }
@@ -377,10 +379,10 @@ public:
       tile_vec.push_back(ImageView<double>(bbox.width(), bbox.height()));
       // Each pixel starts at zero, nodata is handled later
       fill( tile_vec[0], 0.0 );
-      fill( tile,     0.0 );
+      fill( tile,        0.0 );
     }
     if (m_opt.priority_blending_len > 0) { // Store each weight separately
-      tile_vec.reserve(m_imgMgr.size());
+      tile_vec.reserve  (m_imgMgr.size());
       weight_vec.reserve(m_imgMgr.size());
     }
 
@@ -411,9 +413,8 @@ public:
     for (int dem_iter = 0; dem_iter < (int)m_imgMgr.size(); dem_iter++){
 
       // Load the information for this DEM
-      GeoReference georef = m_georefs[dem_iter];
-
-      BBox2i dem_pixel_box = m_dem_pixel_bboxes[dem_iter];
+      GeoReference georef        = m_georefs         [dem_iter];
+      BBox2i       dem_pixel_box = m_dem_pixel_bboxes[dem_iter];
       
       // The GeoTransform will hide the messy details of conversions
       // from pixels to points and lon-lat.
@@ -445,8 +446,8 @@ public:
 
       // Crop the disk dem to a 2-channel in-memory image. First
       // channel is the image pixels, second will be the weights.
-      ImageViewRef<double> disk_dem = pixel_cast<double>(m_imgMgr.get_handle(dem_iter, bbox));
-      ImageView<DoubleGrayA> dem = crop(disk_dem, in_box);
+      ImageViewRef<double     > disk_dem = pixel_cast<double>(m_imgMgr.get_handle(dem_iter, bbox));
+      ImageView   <DoubleGrayA> dem      = crop(disk_dem, in_box);
       std::string dem_name = m_imgMgr.get_file_name(dem_iter);
       
       // If the nodata_threshold is specified, all values no more than this
@@ -1261,7 +1262,7 @@ int main( int argc, char *argv[] ) {
     // Watch for underflow, if mixing doubles and float. Particularly problematic
     // is when the nodata_value cannot be represented exactly as a float.
     if (opt.out_nodata_value < static_cast<double>(-numeric_limits<RealT>::max()) ||
-	RealT(opt.out_nodata_value)  != double(opt.out_nodata_value) ) {
+        RealT(opt.out_nodata_value)  != double(opt.out_nodata_value) ) {
       vw_out() << "The no-data value cannot be represented exactly as a float. "
 	       << "Changing it to the smallest float.\n";
       opt.out_nodata_value = static_cast<double>(-numeric_limits<RealT>::max());
@@ -1379,7 +1380,8 @@ int main( int argc, char *argv[] ) {
     // not fit in memory.
     int block_size = nextpow2(4.0*bias);
     block_size = std::max(block_size, 256); // don't make them too small though
-    if (opt.block_size > 0) block_size = opt.block_size;
+    if (opt.block_size > 0)
+      block_size = opt.block_size;
     
     int num_tiles_x = (int)ceil((double)cols/double(opt.tile_size));
     int num_tiles_y = (int)ceil((double)rows/double(opt.tile_size));
@@ -1424,9 +1426,9 @@ int main( int argc, char *argv[] ) {
 
     // Store the no-data values, pointers to images, and georeferences (for speed).
     vw_out() << "Reading the input DEMs.\n";
-    vector<double> nodata_values;
-    vector<GeoReference>          georefs;
-    std::vector<string>           loaded_dems;
+    vector<double>          nodata_values;
+    vector<GeoReference>    georefs;
+    std::vector<string>     loaded_dems;
     DiskImageManager<RealT> imgMgr;
 
     BBox2i output_dem_box = BBox2i(0, 0, cols, rows); // output DEM box
@@ -1489,7 +1491,7 @@ int main( int argc, char *argv[] ) {
       loaded_dems.push_back(opt.dem_files[dem_iter]);
 
       if (!boost::math::isnan(opt.nodata_threshold)) 
-	curr_nodata_value = opt.nodata_threshold;
+        curr_nodata_value = opt.nodata_threshold;
       
       // Add the info for this DEM to the appropriate vectors
       nodata_values.push_back(curr_nodata_value);
