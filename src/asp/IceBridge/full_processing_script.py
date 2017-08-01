@@ -61,8 +61,12 @@ def fetchAllRunData(options, startFrame, stopFrame,
     baseCommand = (('--yyyymmdd %s --site %s --start-frame %d --stop-frame %d --jpeg-folder %s')
                    % (options.yyyymmdd, options.site, startFrame, stopFrame, jpegFolder))
 
+    if options.maxNumLidarToFetch >= 0:
+        baseCommand += ' --max-num-lidar-to-fetch ' + str(options.maxNumLidarToFetch)
+
     if options.refetchIndex:
-        baseCommand += ' --refetch-index'
+        baseCommand += ' --refetch-index' # this was not right in older fetched runs
+        
     if options.stopAfterIndexFetch:
         baseCommand += ' --stop-after-index-fetch' 
     if options.skipValidate:
@@ -146,7 +150,9 @@ def main(argsIn):
         # Sample usage:
         # python full_processing_script.py \
         #  --yyyymmdd 20091016 --site AN --num-processes 1 --num-threads 12 --bundle-length 12 \
-        #  --start-frame 350 --stop-frame 353 --skip-validate camera_calib ref_dem_folder
+        #  --start-frame 350 --stop-frame 353 --skip-validate \
+        # --camera-calibration-folder camera_calib  \
+        # --reference-dem-folder ref_dem_folder
         # An output folder will be crated automatically (with a name like
         # AN_20091016), or its name can be specified via the --output-folder
         # option.
@@ -182,16 +188,24 @@ def main(argsIn):
         parser.add_option('--stereo-algorithm', dest='stereoAlgo', default=1,
                           type='int', help='The SGM stereo algorithm to use.')
 
-        # Python treats numbers starting with 0 as being in octal rather than decimal.
-        # Ridiculous. So read them as strings and convert to int. 
-        parser.add_option('--start-frame', dest='startFrame',
-                          default=icebridge_common.getSmallestFrame(), type=int,
+        # There is a sublte bug in Python where numbers starting with
+        # 0 passed in as an option value are treated as being in octal
+        # rather than decimal. So read them as strings and convert to
+        # int.
+        parser.add_option('--start-frame', dest='startFrameStr', default=None,
                           help="Frame to start with.  Leave this and stop-frame blank to " + \
                           "process all frames.")
-        parser.add_option('--stop-frame', dest='stopFrame', 
-                          default=icebridge_common.getSmallestFrame(), type=int,
+        parser.add_option('--stop-frame', dest='stopFrameStr', default=None,
                           help='Frame to stop on.')
+        parser.add_option('--max-num-lidar-to-fetch', dest='maxNumLidarToFetch', default=-1,
+                          type='int', help="The maximum number of lidar files to fetch. " + \
+                          "This is used in debugging.")
         
+        parser.add_option("--camera-calibration-folder",  dest="inputCalFolder", default=None,
+                          help="The folder containing camera calibration.")
+        parser.add_option("--reference-dem-folder",  dest="refDemFolder", default=None,
+                          help="The folder containing DEMs that created orthoimages.")
+
         parser.add_option("--processing-subfolder",  dest="processingSubfolder", default=None,
                           help="Specify a subfolder name where the processing outputs will go. " + \
                           "fault is no additional folder")
@@ -248,12 +262,6 @@ def main(argsIn):
                           
         (options, args) = parser.parse_args(argsIn)
 
-        if len(args) != 2:
-            print usage
-            return -1
-        inputCalFolder = os.path.abspath(args[0])
-        refDemFolder   = os.path.abspath(args[1])
-
     except optparse.OptionError, msg:
         raise Usage(msg)
 
@@ -271,6 +279,16 @@ def main(argsIn):
     if options.outputFolder is None:
         options.outputFolder = options.site + '_' + options.yyyymmdd
 
+    # Explicitely go from strings to integers, per earlier note.
+    if options.startFrameStr is not None:
+        startFrame = int(options.startFrameStr)
+    else:
+        startFrame = icebridge_common.getSmallestFrame()
+    if options.stopFrameStr is not None:
+        stopFrame  = int(options.stopFrameStr)
+    else:
+        stopFrame = icebridge_common.getLargestFrame()
+
     if options.stopAfterIndexFetch:
         options.stopAfterFetch = True
         
@@ -279,24 +297,25 @@ def main(argsIn):
     logger   = icebridge_common.setUpLogger(options.outputFolder, logLevel,
                                             'icebridge_processing_log')
 
-    # Perform some input checks
-    if not os.path.exists(inputCalFolder):
-        raise Exception("Missing camera calibration folder: " + inputCalFolder)
-    if not os.path.exists(refDemFolder):
-        raise Exception("Missing reference DEM folder: " + refDemFolder)       
+    # Perform some input checks and initializations
+    if not options.noOrthoConvert:
+        # These are not needed unless cameras are initialized 
+        if not os.path.exists(options.inputCalFolder):
+            raise Exception("Missing camera calibration folder: " + options.inputCalFolder)
+        if not os.path.exists(options.refDemFolder):
+            raise Exception("Missing reference DEM folder: " + options.refDemFolder)
+
+        refDemName = icebridge_common.getReferenceDemName(options.site)
+        refDemPath = os.path.join(options.refDemFolder, refDemName)
+        if not os.path.exists(refDemPath):
+            raise Exception("Missing reference DEM: " + refDemPath)
+        
     if not options.yyyymmdd:
         raise Exception("The run date must be specified!")
     if not options.site:
         raise Exception("The run site must be specified!")
 
     os.system('mkdir -p ' + options.outputFolder)
-    
-    # Get the low resolution reference DEM to use. Bypass this if only fetching is desired.
-    if not options.stopAfterFetch and not options.dryRun:
-        refDemName = icebridge_common.getReferenceDemName(options.site)
-        refDemPath = os.path.join(refDemFolder, refDemName)
-        if not os.path.exists(refDemPath):
-            raise Exception("Missing reference DEM: " + refDemPath)
                           
     # Set up the output folders
     cameraFolder       = os.path.join(options.outputFolder, 'camera')
@@ -317,7 +336,7 @@ def main(argsIn):
         logger.info('Skipping fetch.')
     else:
         # Call data fetch routine and check the result
-        fetchResult = fetchAllRunData(options, options.startFrame, options.stopFrame,
+        fetchResult = fetchAllRunData(options, startFrame, stopFrame,
                                       jpegFolder, orthoFolder, fireballFolder, lidarFolder)
         if fetchResult < 0:
             logger.error("Fetching failed, quitting the program!")
@@ -343,24 +362,24 @@ def main(argsIn):
                 input_conversions.pairLidarFiles(lidarFolder)
          
             input_conversions.correctFireballDems(fireballFolder, corrFireballFolder,
-                                                  options.startFrame, options.stopFrame,
+                                                  startFrame, stopFrame,
                                                   (not isSouth), options.skipValidate)
 
             isGood = input_conversions.convertJpegs(jpegFolder, imageFolder, 
-                                                    options.startFrame, options.stopFrame,
+                                                    startFrame, stopFrame,
                                                     options.skipValidate)
             if not isGood:
                 if options.reFetch and (not options.noFetch):
                     # During conversion we may realize some data is bad. 
                     logger.info("Cconversions failed. Trying to re-fetch problematic files.")
-                    fetchResult = fetchAllRunData(options, options.startFrame, options.stopFrame,
+                    fetchResult = fetchAllRunData(options, startFrame, stopFrame,
                                                   jpegFolder, orthoFolder, fireballFolder,
                                                   lidarFolder)
                     if fetchResult < 0:
                         logger.error("Fetching failed, quitting the program!")
                         return -1
                     isGood = input_conversions.convertJpegs(jpegFolder, imageFolder, 
-                                                            options.startFrame, options.stopFrame)
+                                                            startFrame, stopFrame)
                     if not isGood:
                         logger.Error("Jpeg conversions failed, quitting the program!")
                         return -1
@@ -371,11 +390,12 @@ def main(argsIn):
 
         if not options.noOrthoConvert:
             # Multi-process call to convert ortho images
-            input_conversions.getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder, 
+            input_conversions.getCameraModelsFromOrtho(imageFolder, orthoFolder,
+                                                       options.inputCalFolder, 
                                                        options.cameraLookupFile,
                                                        options.yyyymmdd, options.site, 
                                                        refDemPath, cameraFolder, 
-                                                       options.startFrame, options.stopFrame,
+                                                       startFrame, stopFrame,
                                                        options.numProcesses, options.numThreads)
     if options.stopAfterConvert:
         print 'Conversion complete, finished!'
@@ -384,7 +404,7 @@ def main(argsIn):
     # Call the processing routine
     processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFolder,
                   isSouth, options.bundleLength, options.stereoAlgo,
-                  options.startFrame, options.stopFrame, options.logBatches,
+                  startFrame, stopFrame, options.logBatches,
                   options.numProcesses, options.numThreads, options.numProcessesPerBatch)
 
    

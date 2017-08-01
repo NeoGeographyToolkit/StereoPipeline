@@ -156,7 +156,7 @@ def runFetch(run):
     archive_functions.retrieveRunData(run, UNPACK_FOLDER)
     
     # Go ahead and refetch the indices since it helps to have these up-to-date.
-    cmd = ('full_processing_script.py %s %s --site %s --yyyymmdd %s --output-folder %s --refetch-index --stop-after-index-fetch' % (CALIBRATION_FILE_FOLDER, REFERENCE_DEM_FOLDER, run.site, run.yyyymmdd, run.getFolder()))
+    cmd = ('full_processing_script.py --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --refetch-index --stop-after-index-fetch' % (CALIBRATION_FILE_FOLDER, REFERENCE_DEM_FOLDER, run.site, run.yyyymmdd, run.getFolder()))
     logger.info(cmd)
     os.system(cmd)
     
@@ -197,7 +197,7 @@ def runConversion(run):
     outputFolder = run.getFolder()
     
     scriptPath = asp_system_utils.which('full_processing_script.py')
-    args       = ('%s %s --site %s --yyyymmdd %s --stop-after-convert --num-threads %d --num-processes %d --output-folder %s --skip-validate' 
+    args       = ('--camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --stop-after-convert --num-threads %d --num-processes %d --output-folder %s --skip-validate' 
                   % (CALIBRATION_FILE_FOLDER, REFERENCE_DEM_FOLDER, run.site, run.yyyymmdd, NUM_ORTHO_THREADS, NUM_ORTHO_PROCESSES, outputFolder))
     
     baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
