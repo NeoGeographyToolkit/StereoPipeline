@@ -12,10 +12,14 @@
      automatically computed correlation search range.
    
  - bundle_adjust
-   * Added the parameter --nodata-value. 
+   * The tool is a lot more sensitive now to --camera-weight,
+     existing results may change a lot.  
    * Added the parameters --rotation-weight and --translation-weight
-     to penalize large rotation and translation changes.
+     to penalize large rotation and translation changes. For example
+     bundle_adjust can effectively constrain the adjustments to be
+     translation only.
 
+   * Added the parameter --nodata-value. 
  - stereo_gui
 
    * Can view SPOT5 .BIL files.
