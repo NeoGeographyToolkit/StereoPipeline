@@ -141,8 +141,6 @@ def processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFo
     logger = logging.getLogger(__name__)
     logger.info('Process command: process_icebridge_run ' + processCommand)
     process_icebridge_run.main(processCommand.split())
-    logger.info('Finished process_icebridge_run.') # to avoid ending a log with 'waiting ...'
-
 
 def main(argsIn):
 
@@ -299,6 +297,9 @@ def main(argsIn):
     logger   = icebridge_common.setUpLogger(options.outputFolder, logLevel,
                                             'icebridge_processing_log')
 
+    (status, out, err) = asp_system_utils.run_return_outputs(['uname', '-a'], verbose=False)
+    logger.info("Running on machine: " + out)
+    
     # Perform some input checks and initializations
     if not options.noOrthoConvert:
         # These are not needed unless cameras are initialized 

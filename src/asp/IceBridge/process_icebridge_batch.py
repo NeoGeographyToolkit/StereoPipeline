@@ -275,7 +275,7 @@ def main(argsIn):
                                                 (i, options, inputPairs, prefixes, demFiles,
                                                  projString, threadText, suppressOutput, redo)))
         # Wait for all the tasks to complete
-        icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, interactive = False, 
+        icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, logger, interactive = False, 
                                                          quitKey='q', sleepTime=20)
         
         # Either all the tasks are finished or the user requested a cancel.

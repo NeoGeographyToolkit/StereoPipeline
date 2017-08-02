@@ -210,7 +210,6 @@ class NoDaemonProcess(multiprocessing.Process):
 class NonDaemonPool(multiprocessing.pool.Pool):
     Process = NoDaemonProcess
 
-
 def getImageCameraPairs(imageFolder, cameraFolder, startFrame, stopFrame):
     '''Return a list of paired image/camera files.'''
 
@@ -486,13 +485,14 @@ def main(argsIn):
     logger.info('Finished adding ' + str(len(taskHandles)) + ' tasks to the pool.')
     
     # Wait for all the tasks to complete
-    icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, options.interactive, 
+    icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, logger, options.interactive, 
                                                      quitKey='q', sleepTime=sleepTime)
-    
+
     # Either all the tasks are finished or the user requested a cancel.
     # Clean up the processing pool
     icebridge_common.stopTaskPool(pool)
 
+    logger.info('Finished process_icebridge_run.') # to avoid ending a log with 'waiting ...'
 
 # Run main function if file used from shell
 if __name__ == "__main__":

@@ -664,7 +664,15 @@ def nonBlockingRawInput(prompt='', timeout=20):
     signal.signal(signal.SIGALRM, signal.SIG_IGN)
     return ''
 
-def waitForTaskCompletionOrKeypress(taskHandles, interactive=True, quitKey='q', sleepTime=20):
+def logger_print(logger, msg):
+    '''Print to logger, if present. This helps keeps all messages in sync.'''
+    if logger is not None:
+        logger.info(msg)
+    else:
+        print(msg)
+        
+def waitForTaskCompletionOrKeypress(taskHandles, logger = None, interactive=True, quitKey='q',
+                                    sleepTime=20):
     '''Block in this function until the user presses a key or all tasks complete.'''
 
     # Wait for all the tasks to complete
@@ -676,10 +684,10 @@ def waitForTaskCompletionOrKeypress(taskHandles, interactive=True, quitKey='q', 
             msg = 'Waiting on ' + str(notReady) + ' process(es), press '+str(quitKey)+'<Enter> to abort...\n'
             keypress = nonBlockingRawInput(prompt=msg, timeout=sleepTime)
             if keypress == quitKey:
-                logger.info('Recieved quit command!')
+                logger_print(logger, 'Recieved quit command!')
                 break
         else:
-            print("Waiting on " + str(notReady) + ' incomplete tasks.')
+            logger_print(logger, "Waiting on " + str(notReady) + ' incomplete tasks.')
             time.sleep(sleepTime)
             
         # Otherwise count up the tasks we are still waiting on.

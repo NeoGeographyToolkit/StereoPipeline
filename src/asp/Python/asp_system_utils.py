@@ -289,6 +289,27 @@ def run_with_return_code(cmd, verbose=False):
 
     return p.returncode
 
+def run_return_outputs(cmd, verbose=False):
+    '''Start a process. Wait until it finishes. Return the exit
+    status, output, and error. If any of these are None, convert them
+    to empty strings to make them easier to use.'''
+    if verbose:
+        print(" ".join(cmd))
+
+    try:
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except OSError as e:
+        print('Error: %s: %s' % (" ".join(cmd), e))
+        
+    (stdout, stderr) = p.communicate()
+    p.wait()
+    status = p.returncode
+    
+    if stdout is None: stdout = ""
+    if stderr is None: stderr = ""
+        
+    return (status, stdout, stderr)
+
 # TODO: Improve this function a bit
 def executeCommand(cmd,
                    outputPath=None,      # If given, throw if the file is not created.  Don't run if it already exists.

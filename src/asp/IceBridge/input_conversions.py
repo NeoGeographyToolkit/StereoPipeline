@@ -347,20 +347,18 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
 
     # Wait for all the tasks to complete
     logger.info('Finished adding ' + str(len(taskHandles)) + ' tasks to the pool.')
-    icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, interactive=False,
+    icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, logger, interactive=False,
                                                      quitKey='q')
 
-    # All tasks should be finished, clean up the processing pool
-    logger.info('Cleaning up the ortho processing pool...')
+    # All tasks should be finished
     icebridge_common.stopTaskPool(pool)
-    logger.info('Finished cleaning up the ortho processing pool')
+    logger.info('Finished ortho processing.')
 
     # Run a check to see if we got all the output files
     for f in outputFiles:
         if not os.path.exists(f):
             return False
     return True
-
 
 def convertLidarDataToCsv(lidarFolder):
     '''Make sure all lidar data is available in a readable text format.
