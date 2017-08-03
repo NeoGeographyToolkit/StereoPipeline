@@ -437,6 +437,7 @@ AX_APP(CSV_FILTER,       [src/asp/Hidden], yes, [CORE])
 AX_APP(S2P_PPRC,         [src/asp/Hidden], yes, [CORE])
 AX_APP(S2P_FLTR,         [src/asp/Hidden], yes, [CORE])
 AX_APP(CAM2RPC,          [src/asp/Tools], yes, [SESSIONS])
+AX_APP(CAMERA_FOOTPRINT, [src/asp/Tools], yes, [SESSIONS])
 
 # These are here (instead of inside the APP macro where they belong)
 # for backwards compatability with older versions of automake.
@@ -484,6 +485,7 @@ AM_CONDITIONAL(MAKE_APP_CSV_FILTER,  [test "$MAKE_APP_CSV_FILTER"   = "yes"])
 AM_CONDITIONAL(MAKE_APP_CAM2RPC, [test "$MAKE_APP_CAM2RPC" = "yes"])
 AM_CONDITIONAL(MAKE_APP_S2P_PPRC,  [test "$MAKE_APP_S2P_PPRC"   = "yes"])
 AM_CONDITIONAL(MAKE_APP_S2P_FLTR,  [test "$MAKE_APP_S2P_FLTR"   = "yes"])
+AM_CONDITIONAL(MAKE_APP_CAMERA_FOOTPRINT,   [test "$MAKE_APP_CAMERA_FOOTPRINT"   = "yes"])
 
 ##################################################
 # final processing
