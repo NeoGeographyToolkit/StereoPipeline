@@ -196,6 +196,8 @@ namespace asp {
                      "Extend SGM calculation to this distance to increase accuracy at tile borders.")
       ("sgm-search-buffer",        po::value(&global.sgm_search_buffer)->default_value(Vector2i(4,4),"4 4"),
                      "Search range expansion for SGM down stereo pyramid levels.  Smaller values are faster, but greater change of blunders.")
+      ("corr-memory-limit-mb",     po::value(&global.corr_memory_limit_mb)->default_value(6*1024),
+                     "Keep correlation memory usage (per tile) close to this limit.  Important for SGM/MGM.")
       ("stereo-debug",   po::bool_switch(&global.stereo_debug)->default_value(false)->implicit_value(true),
                      "Write stereo debug images and output.");
 

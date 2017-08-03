@@ -163,7 +163,7 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
                   rm_half_kernel,
                   stereo_settings().corr_max_levels,
                   static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm),
-                  collar_size, sgm_subpixel_mode, sgm_search_buffer,
+                  collar_size, sgm_subpixel_mode, sgm_search_buffer, stereo_settings().corr_memory_limit_mb,
                   stereo_settings().corr_blob_filter_area*mean_scale,
                   stereo_settings().stereo_debug
               ),
@@ -201,7 +201,7 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
                   stereo_settings().corr_max_levels,
                   static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm), 
                   0, // No collar here, the entire image is written at once.
-                  sgm_subpixel_mode, sgm_search_buffer,
+                  sgm_subpixel_mode, sgm_search_buffer, stereo_settings().corr_memory_limit_mb,
                   0, // Don't combine blob filtering with quantile filtering
                   stereo_settings().stereo_debug
               );
@@ -589,7 +589,7 @@ public:
                           stereo_settings().corr_max_levels,
                           static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm), 
                           stereo_settings().sgm_collar_size,
-                          sgm_subpixel_mode, sgm_search_buffer,
+                          sgm_subpixel_mode, sgm_search_buffer, stereo_settings().corr_memory_limit_mb,
                           stereo_settings().corr_blob_filter_area,
                           stereo_settings().stereo_debug );
       return corr_view.prerasterize(bbox);
@@ -608,7 +608,7 @@ public:
                           stereo_settings().corr_max_levels,
                           static_cast<vw::stereo::CorrelationAlgorithm>(stereo_settings().stereo_algorithm), 
                           stereo_settings().sgm_collar_size,
-                          sgm_subpixel_mode, sgm_search_buffer,
+                          sgm_subpixel_mode, sgm_search_buffer, stereo_settings().corr_memory_limit_mb,
                           stereo_settings().corr_blob_filter_area,
                           stereo_settings().stereo_debug );
       return corr_view.prerasterize(bbox);

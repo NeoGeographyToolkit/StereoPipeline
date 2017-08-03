@@ -395,6 +395,9 @@ the chances of seeing artifacts along tile borders but increases processing time
 produce better results but consume more memory.  The collar size you selected will enlarge the processed tile size.
 \item Set the \texttt{processes} option keeping in mind memory constraints as discussed earlier.  Each process will 
 run one simultaneous SGM instance and consume memory.
+\item The \texttt{corr-memory-limit-mb} parameter limits the number of megabytes of memory that can be used by SGM/MGM.
+This limit is per-process. To be safe, make sure that you have more RAM available than the value of this parameter
+multiplied by the number of processes.
 \item \texttt{job-size-w} and \texttt{job-size-h} are set equal to \texttt{corr-tile-size}.  Do not override them!
 \end{itemize}
 

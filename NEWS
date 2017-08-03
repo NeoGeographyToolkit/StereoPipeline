@@ -10,6 +10,8 @@
      multiple resolution levels while using SGM/MGM.
    * Added option --corr-search-limit to constrain the 
      automatically computed correlation search range.
+   * Added --corr-memory-limit-mb option to limit the
+     memory usage of the SGM/MGM algorithms.
    
  - bundle_adjust
    * The tool is a lot more sensitive now to --camera-weight,

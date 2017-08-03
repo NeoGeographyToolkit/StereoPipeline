@@ -146,6 +146,7 @@ namespace asp {
     int    corr_tile_size_ovr;        // Override the default tile size used for processing.
     int    sgm_collar_size;           // Extra tile padding used for SGM calculation.
     vw::Vector2i sgm_search_buffer;   // Search padding in SGM around previous pyramid level disparity value.
+    size_t corr_memory_limit_mb;      // Correlation memory limit, only important for SGM/MGM.
     bool   stereo_debug;              // Write stereo debug images and messages
 
     // Subpixel Options

@@ -381,6 +381,15 @@ should be sufficient in most cases.
   blunders.  Consider decreasing the Y (second) component if the alignment step is
   reducing the vertical disparity to a very small value throughout the image.
 
+\item[corr-memory-limit-mb \textnormal{\small{(\emph{integer})}} (default = 6144)]\hfill \\
+
+  Restrict the amount of memory used by the correlation step to be slightly above this value.
+  This only really affects SGM/MGM which use a pair of large memory buffer in their computation.
+  The total memory usage of these buffers is compared to this limit, and if it is greater then
+  smaller search ranges will be used for uncertain pixels in order to reduce memory usage. If 
+  the required memory is still over this limit then the program will error out. The unit is
+  in megabytes.
+
 \end{description}
 
 % -------------------------------------------------------------------
