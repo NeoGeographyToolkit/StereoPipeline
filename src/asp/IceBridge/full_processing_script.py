@@ -19,7 +19,7 @@
 # Fetch all the data for a run and then process all the data.
 # See sample usage below.
 
-import os, sys, optparse, datetime, time, subprocess, logging, multiprocessing, re, shutil, time
+import os, sys, argparse, datetime, time, subprocess, logging, multiprocessing, re, shutil, time
 import os.path as P
 
 # The path to the ASP python files and tools
@@ -118,17 +118,17 @@ def fetchAllRunData(options, startFrame, stopFrame,
     return (jpegFolder, orthoFolder, fireballFolder, lidarFolder)
 
 def processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFolder,
-                  isSouth, bundleLength, stereoAlgo,
+                  isSouth, bundleLength, stereoAlgo, referenceDem,
                   startFrame, stopFrame, logBatches,
                   numProcesses, numThreads, numProcessesPerBatch):
     '''Do all the run processing'''
 
     processCommand = (('%s %s %s %s --bundle-length %d --stereo-algorithm %d ' + \
                        '--ortho-folder %s --num-processes %d --num-threads %d ' + \
-                       '--num-processes-per-batch %d')
+                       '--num-processes-per-batch %d --reference-dem %s')
                       % (imageFolder, cameraFolder, lidarFolder, processFolder,
                          bundleLength, stereoAlgo, orthoFolder, numProcesses,
-                         numThreads, numProcessesPerBatch))
+                         numThreads, numProcessesPerBatch, referenceDem))
     if isSouth:
         processCommand += ' --south'
     if startFrame:
@@ -156,114 +156,112 @@ def main(argsIn):
         # option.
         usage = '''usage: full_processing_script.py <options>'''
                       
-        parser = optparse.OptionParser(usage=usage)
+        parser = argparse.ArgumentParser(usage=usage)
 
         # Run selection
-        parser.add_option("--yyyymmdd",  dest="yyyymmdd", default=None,
+        parser.add_argument("--yyyymmdd",  dest="yyyymmdd", required=True,
                           help="Specify the year, month, and day in one YYYYMMDD string.")
-        parser.add_option("--site",  dest="site", default=None,
+        parser.add_argument("--site",  dest="site", required=True,
                           help="Name of the location of the images (AN, GR, or AL)")
 
-        parser.add_option("--output-folder",  dest="outputFolder", default=None,
+        parser.add_argument("--output-folder",  dest="outputFolder", default=None,
                           help="Name of the output folder. If not specified, " + \
                           "use something like AN_YYYYMMDD.")
 
-        parser.add_option("--camera-lookup-file",  dest="cameraLookupFile", default=None,
+        parser.add_argument("--camera-lookup-file",  dest="cameraLookupFile", default=None,
                           help="The file to use to find which camera was used for which "  + \
                           "flight. By default it is in the same directory as this script " + \
                           "and named camera_lookup.txt.")
         
         # Processing options
-        parser.add_option('--bundle-length', dest='bundleLength', default=2,
-                          type='int', help="The number of images to bundle adjust and process " + \
+        parser.add_argument('--bundle-length', dest='bundleLength', default=2,
+                          type=int, help="The number of images to bundle adjust and process " + \
                           "in a single batch.")
         # TODO: Compute this automatically??
-        parser.add_option('--overlap-limit', dest='overlapLimit', default=2,
-                          type='int', help="The number of images to treat as overlapping for " + \
+        parser.add_argument('--overlap-limit', dest='overlapLimit', default=2,
+                          type=int, help="The number of images to treat as overlapping for " + \
                           "bundle adjustment.")
         
-        parser.add_option('--stereo-algorithm', dest='stereoAlgo', default=1,
-                          type='int', help='The SGM stereo algorithm to use.')
+        parser.add_argument('--stereo-algorithm', dest='stereoAlgo', default=1,
+                          type=int, help='The SGM stereo algorithm to use.')
 
         # There is a sublte bug in Python where numbers starting with
         # 0 passed in as an option value are treated as being in octal
         # rather than decimal. So read them as strings and convert to
         # int.
-        parser.add_option('--start-frame', dest='startFrameStr', default=None,
+        parser.add_argument('--start-frame', dest='startFrame', type=int,
+                          default=icebridge_common.getSmallestFrame(),
                           help="Frame to start with.  Leave this and stop-frame blank to " + \
                           "process all frames.")
-        parser.add_option('--stop-frame', dest='stopFrameStr', default=None,
+        parser.add_argument('--stop-frame', dest='stopFrame', type=int,
+                          default=icebridge_common.getLargestFrame(),
                           help='Frame to stop on.')
-        parser.add_option('--max-num-lidar-to-fetch', dest='maxNumLidarToFetch', default=-1,
-                          type='int', help="The maximum number of lidar files to fetch. " + \
+        parser.add_argument('--max-num-lidar-to-fetch', dest='maxNumLidarToFetch', default=-1,
+                          type=int, help="The maximum number of lidar files to fetch. " + \
                           "This is used in debugging.")
         
-        parser.add_option("--camera-calibration-folder",  dest="inputCalFolder", default=None,
+        parser.add_argument("--camera-calibration-folder",  dest="inputCalFolder", default=None,
                           help="The folder containing camera calibration.")
-        parser.add_option("--reference-dem-folder",  dest="refDemFolder", default=None,
+        parser.add_argument("--reference-dem-folder",  dest="refDemFolder", default=None,
                           help="The folder containing DEMs that created orthoimages.")
 
-        parser.add_option("--processing-subfolder",  dest="processingSubfolder", default=None,
+        parser.add_argument("--processing-subfolder",  dest="processingSubfolder", default=None,
                           help="Specify a subfolder name where the processing outputs will go. " + \
                           "fault is no additional folder")
 
         # Performance options  
-        parser.add_option('--num-processes', dest='numProcesses', default=1,
-                          type='int', help='The number of simultaneous processes to run.')
-        parser.add_option('--num-threads', dest='numThreads', default=1,
-                          type='int', help='The number of threads per process.')
-        parser.add_option('--num-processes-per-batch', dest='numProcessesPerBatch', default=1,
-                          type='int', help='The number of simultaneous processes to run ' + \
+        parser.add_argument('--num-processes', dest='numProcesses', default=1,
+                          type=int, help='The number of simultaneous processes to run.')
+        parser.add_argument('--num-threads', dest='numThreads', default=1,
+                          type=int, help='The number of threads per process.')
+        parser.add_argument('--num-processes-per-batch', dest='numProcessesPerBatch', default=1,
+                          type=int, help='The number of simultaneous processes to run ' + \
                           'for each batch. This better be kept at 1 if running more than one batch.')
 
         # Action control
-        parser.add_option("--skip-fetch", action="store_true", dest="noFetch", default=False,
+        parser.add_argument("--skip-fetch", action="store_true", dest="noFetch", default=False,
                           help="Skip data fetching.")
-        parser.add_option("--skip-convert", action="store_true", dest="noConvert", default=False,
+        parser.add_argument("--skip-convert", action="store_true", dest="noConvert", default=False,
                           help="Skip data conversion.")
-        parser.add_option("--stop-after-fetch", action="store_true", dest="stopAfterFetch",
+        parser.add_argument("--stop-after-fetch", action="store_true", dest="stopAfterFetch",
                           default=False,
                           help="Stop program after data fetching.")
-        parser.add_option("--stop-after-convert", action="store_true", dest="stopAfterConvert",
+        parser.add_argument("--stop-after-convert", action="store_true", dest="stopAfterConvert",
                           default=False,
                           help="Stop program after data conversion.")
-        parser.add_option("--skip-validate", action="store_true", dest="skipValidate",
+        parser.add_argument("--skip-validate", action="store_true", dest="skipValidate",
                           default=False,
                           help="Skip input data validation.")
-        parser.add_option("--log-batches", action="store_true", dest="logBatches", default=False,
+        parser.add_argument("--log-batches", action="store_true", dest="logBatches", default=False,
                           help="Log the required batch commands without running them.")
-        parser.add_option("--dry-run", action="store_true", dest="dryRun", default=False,
+        parser.add_argument("--dry-run", action="store_true", dest="dryRun", default=False,
                           help="Set up the input directories but do not fetch/process any imagery.")
 
 
-        parser.add_option("--refetch", action="store_true", dest="reFetch", default=False,
+        parser.add_argument("--refetch", action="store_true", dest="reFetch", default=False,
                           help="Try fetching again if some files turned out invalid " + \
                           "during conversions.")
-        parser.add_option("--refetch-index", action="store_true", dest="refetchIndex",
+        parser.add_argument("--refetch-index", action="store_true", dest="refetchIndex",
                           default=False,
                           help="Force refetch of the index file.")
-        parser.add_option("--stop-after-index-fetch", action="store_true",
+        parser.add_argument("--stop-after-index-fetch", action="store_true",
                           dest="stopAfterIndexFetch", default=False,
                           help="Stop after fetching the indices.")
                        
-        parser.add_option("--no-lidar-convert", action="store_true", dest="noLidarConvert",
+        parser.add_argument("--no-lidar-convert", action="store_true", dest="noLidarConvert",
                           default=False,
                           help="Skip lidar files in the conversion step.")
-        parser.add_option("--no-ortho-convert", action="store_true", dest="noOrthoConvert",
+        parser.add_argument("--no-ortho-convert", action="store_true", dest="noOrthoConvert",
                           default=False,
                           help="Skip generating camera models in the conversion step.")
-        parser.add_option("--skip-fast-conversions", action="store_true", dest="skipFastConvert",
+        parser.add_argument("--skip-fast-conversions", action="store_true", dest="skipFastConvert",
                           default=False,
                           help="Skips all non-ortho conversions.")
                           
-        (options, args) = parser.parse_args(argsIn)
+        options = parser.parse_args(argsIn)
 
-    except optparse.OptionError, msg:
+    except argparse.ArgumentError, msg:
         raise Usage(msg)
-
-    if options.yyyymmdd is None or options.site is None:
-        print("The flight date and site must be specified.")
-        return -1
         
     isSouth = icebridge_common.checkSite(options.site)
 
@@ -278,16 +276,6 @@ def main(argsIn):
 
     if options.outputFolder is None:
         options.outputFolder = icebridge_common.outputFolder(options.site, options.yyyymmdd)
-
-    # Explicitely go from strings to integers, per earlier note.
-    if options.startFrameStr is not None:
-        startFrame = int(options.startFrameStr)
-    else:
-        startFrame = icebridge_common.getSmallestFrame()
-    if options.stopFrameStr is not None:
-        stopFrame  = int(options.stopFrameStr)
-    else:
-        stopFrame = icebridge_common.getLargestFrame()
 
     if options.stopAfterIndexFetch:
         options.stopAfterFetch = True
@@ -312,11 +300,6 @@ def main(argsIn):
         refDemPath = os.path.join(options.refDemFolder, refDemName)
         if not os.path.exists(refDemPath):
             raise Exception("Missing reference DEM: " + refDemPath)
-        
-    if not options.yyyymmdd:
-        raise Exception("The run date must be specified!")
-    if not options.site:
-        raise Exception("The run site must be specified!")
 
     os.system('mkdir -p ' + options.outputFolder)
                           
@@ -339,7 +322,7 @@ def main(argsIn):
         logger.info('Skipping fetch.')
     else:
         # Call data fetch routine and check the result
-        fetchResult = fetchAllRunData(options, startFrame, stopFrame,
+        fetchResult = fetchAllRunData(options, options.startFrame, options.stopFrame,
                                       jpegFolder, orthoFolder, fireballFolder, lidarFolder)
         if fetchResult < 0:
             logger.error("Fetching failed, quitting the program!")
@@ -365,24 +348,24 @@ def main(argsIn):
                 input_conversions.pairLidarFiles(lidarFolder)
          
             input_conversions.correctFireballDems(fireballFolder, corrFireballFolder,
-                                                  startFrame, stopFrame,
+                                                  options.startFrame, options.stopFrame,
                                                   (not isSouth), options.skipValidate)
 
             isGood = input_conversions.convertJpegs(jpegFolder, imageFolder, 
-                                                    startFrame, stopFrame,
+                                                    options.startFrame, options.stopFrame,
                                                     options.skipValidate)
             if not isGood:
                 if options.reFetch and (not options.noFetch):
                     # During conversion we may realize some data is bad. 
                     logger.info("Cconversions failed. Trying to re-fetch problematic files.")
-                    fetchResult = fetchAllRunData(options, startFrame, stopFrame,
+                    fetchResult = fetchAllRunData(options, options.startFrame, options.stopFrame,
                                                   jpegFolder, orthoFolder, fireballFolder,
                                                   lidarFolder)
                     if fetchResult < 0:
                         logger.error("Fetching failed, quitting the program!")
                         return -1
                     isGood = input_conversions.convertJpegs(jpegFolder, imageFolder, 
-                                                            startFrame, stopFrame)
+                                                            options.startFrame, options.stopFrame)
                     if not isGood:
                         logger.Error("Jpeg conversions failed, quitting the program!")
                         return -1
@@ -398,7 +381,7 @@ def main(argsIn):
                                                        options.cameraLookupFile,
                                                        options.yyyymmdd, options.site, 
                                                        refDemPath, cameraFolder, 
-                                                       startFrame, stopFrame,
+                                                       options.startFrame, options.stopFrame,
                                                        options.numProcesses, options.numThreads)
     if options.stopAfterConvert:
         print 'Conversion complete, finished!'
@@ -406,8 +389,8 @@ def main(argsIn):
 
     # Call the processing routine
     processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFolder,
-                  isSouth, options.bundleLength, options.stereoAlgo,
-                  startFrame, stopFrame, options.logBatches,
+                  isSouth, options.bundleLength, options.stereoAlgo, refDemPath,
+                  options.startFrame, options.stopFrame, options.logBatches,
                   options.numProcesses, options.numThreads, options.numProcessesPerBatch)
 
    

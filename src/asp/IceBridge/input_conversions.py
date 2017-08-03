@@ -266,6 +266,8 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile,
         
         # Check the number of IP used
         m = re.findall(r"Init model with (\d+) points", textOutput)
+        if len(m) != 1: # An unknown error occurred, move on.
+            continue
         numPoints = int(m[0])
         if numPoints >= DESIRED_IP: # Got a lot of points, quit
             break

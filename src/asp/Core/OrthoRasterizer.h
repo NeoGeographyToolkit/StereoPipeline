@@ -84,11 +84,11 @@ namespace asp{
     OrthoRasterizerView(ImageViewRef<Vector3> point_image,
 			ImageViewRef<double> texture,
 			double  search_radius_factor,
-			double sigma_factor,
-			bool use_surface_sampling,
+			double  sigma_factor,
+			bool    use_surface_sampling,
 			int     pc_tile_size,
 			vw::BBox2 const& projwin,
-			bool remove_outliers_with_pct,
+			bool    remove_outliers_with_pct,
 			Vector2 const& remove_outliers_params,
 			ImageViewRef<double> const& error_image,
 			double  estim_max_error,
@@ -108,14 +108,14 @@ namespace asp{
     template <class TextureViewT>
     void set_texture(TextureViewT texture) {
       VW_ASSERT(texture.impl().cols() == m_point_image.cols() &&
-		texture.impl().rows() == m_point_image.rows(),
-		ArgumentErr() << "Orthorasterizer: set_texture() failed."
-		<< " Texture dimensions must match point image dimensions.");
+                texture.impl().rows() == m_point_image.rows(),
+      ArgumentErr() << "Orthorasterizer: set_texture() failed."
+                    << " Texture dimensions must match point image dimensions.");
       m_texture = channel_cast<float>(channels_to_planes(texture.impl()));
     }
 
-    inline int32 cols() const { return (int) round((fabs(m_snapped_bbox.max().x() - m_snapped_bbox.min().x()) / m_spacing)) + 1; }
-    inline int32 rows() const { return (int) round((fabs(m_snapped_bbox.max().y() - m_snapped_bbox.min().y()) / m_spacing)) + 1; }
+    inline int32 cols() const {return (int)round((fabs(m_snapped_bbox.max().x() - m_snapped_bbox.min().x()) / m_spacing)) + 1;}
+    inline int32 rows() const {return (int)round((fabs(m_snapped_bbox.max().y() - m_snapped_bbox.min().y()) / m_spacing)) + 1;}
 
     inline int32 planes() const { return 1; }
 
@@ -150,9 +150,9 @@ namespace asp{
     /// original image.
     void set_spacing(double val) {
       if (val == 0.0) {
-	m_spacing = m_default_spacing;
+        m_spacing = m_default_spacing;
       } else {
-	m_spacing = val;
+        m_spacing = val;
       }
 
     }
@@ -165,15 +165,15 @@ namespace asp{
       // Need this check, as sometimes m_default_spacing which we use
       // below may not be set.
       if (hole_fill_len == 0){
-	m_hole_fill_len = 0;
-	return;
+        m_hole_fill_len = 0;
+        return;
       }
 
       // Important: the hole fill len was set in DEM pixels. We convert it
       // here to point cloud pixels, as what we will fill is holes
       // in the point cloud before creating the image.
       VW_ASSERT(m_spacing > 0 && m_default_spacing > 0,
-		ArgumentErr() << "Expecting positive DEM spacing.");
+                ArgumentErr() << "Expecting positive DEM spacing.");
       m_hole_fill_len = (int)round((m_spacing/m_default_spacing)*hole_fill_len);
     }
 

@@ -170,10 +170,12 @@ if MAKE_APP_MER2CAMERA
 endif
 
 if MAKE_APP_MAPPROJECT
-  libexec_PROGRAMS += mapproject_single
+  libexec_PROGRAMS += mapproject_single camera_footprint
   bin_SCRIPTS  += mapproject
   mapproject_single_SOURCES = mapproject_single.cc
   mapproject_single_LDADD   = $(APP_MAPPROJECT_LIBS)
+  camera_footprint_SOURCES = camera_footprint.cc
+  camera_footprint_LDADD   = $(APP_MAPPROJECT_LIBS)
 endif
 
 if MAKE_APP_LRONACJITREG

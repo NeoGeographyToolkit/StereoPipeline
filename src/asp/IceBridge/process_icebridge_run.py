@@ -24,7 +24,7 @@
 # No other files must be present in those directries.
 # Image files must be single-channel, so use for example gdal_translate -b 1.
 
-import os, sys, optparse, datetime, multiprocessing, time, logging
+import os, sys, optparse, datetime, multiprocessing, time, logging, subprocess, re
 import os.path as P
 
 # We must import this explicitly, it is not imported by the top-level
@@ -61,7 +61,7 @@ os.environ["PATH"] = toolspath   + os.pathsep + os.environ["PATH"]
 BATCH_COMMAND_LOG_FILE = 'batch_commands_log.txt'
 
 def processBatch(imageCameraPairs, lidarFolder, outputFolder, extraOptions, 
-                 batchNum, batchLogPath=''):
+                 outputResolution, batchNum, batchLogPath=''):
     '''Processes a batch of images at once'''
 
     suppressOutput = False
@@ -73,12 +73,10 @@ def processBatch(imageCameraPairs, lidarFolder, outputFolder, extraOptions,
     for pair in imageCameraPairs:
         argString += pair[1] + ' '
 
-    demResolution = 0.5 # TODO: Find a better way to select this!!
-
     # Just set the options and call the pair python tool.
     # We can try out bundle adjustment for intrinsic parameters here.
     cmd = ('--lidar-overlay --lidar-folder %s --dem-resolution %f --output-folder %s %s %s' 
-           % (lidarFolder, demResolution, outputFolder, argString, extraOptions))
+           % (lidarFolder, outputResolution, outputFolder, argString, extraOptions))
     
     if batchLogPath:
         # With this option we just log the commands to a text file
@@ -196,6 +194,42 @@ def getImageSpacing(orthoFolder, startFrame, stopFrame):
     logger.info('Detected ' + str(interval) + ' breaks in image coverage.')
     
     return (interval, breaks)
+
+
+def getRunMeanGsd(imageCameraPairs, referenceDem, frameSkip=1):
+    '''Compute the mean GSD of the images across the run'''
+
+    logger.info('Computing mean input image GSD...')
+
+    # Iterate through the input pairs
+    numPairs  = len(imageCameraPairs)
+    meanGsd   = 0.0
+    numChecks = 0.0
+    for i in range(0, numPairs, frameSkip):
+        pair = imageCameraPairs[i]
+
+        # Run GSD too 
+        tool = asp_system_utils.which('camera_footprint')
+        cmd = ('%s --quick --datum wgs84 -t nadirpinhole --dem-file %s %s %s' %
+                (tool, referenceDem, pair[0], pair[1]))
+        print cmd
+        p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
+        textOutput, err = p.communicate()       
+        logger.info(textOutput)
+        
+        # Get the gsd
+        m = re.findall(r"Computed mean gsd: (\d+\.*\d*)", textOutput)
+        if len(m) != 1: # An unknown error occurred, move on.
+            continue
+        gsd = float(m[0])
+        meanGsd   += gsd
+        numChecks += 1.0
+
+    meanGsd = meanGsd / numChecks
+        
+    logger.info('Computed input image mean GSD: ' + str(meanGsd))
+    return meanGsd
+        
 
 class NoDaemonProcess(multiprocessing.Process):
     # make 'daemon' attribute always return False
@@ -327,6 +361,8 @@ def main(argsIn):
         parser.add_option('--ortho-folder', dest='orthoFolder', default=None,
                           help='Use ortho files to adjust processing to the image spacing.')
 
+        parser.add_option('--reference-dem', dest='referenceDem', default=None,
+                          help='Reference DEM used to calculate the expected GSD.')
 
         (options, args) = parser.parse_args(argsIn)
 
@@ -366,7 +402,11 @@ def main(argsIn):
         if (icebridge_common.getFrameNumberFromFilename(camera) != frameNumber):
           logger.error('Error: input files do not align!\n' + str((image, camera)))
           return -1
-        
+
+    # TODO: Decide what to do here!
+    # Set the output resolution as the computed mean GSD
+    outputResolution = getRunMeanGsd(imageCameraPairs, options.referenceDem, frameSkip=3)   
+
     # Generate a map of initial camera positions
     orbitvizBefore = os.path.join(outputFolder, 'cameras_in.kml')
     vizString  = ''
@@ -374,6 +414,7 @@ def main(argsIn):
         vizString += image +' ' + camera+' '
     cmd = 'orbitviz --hide-labels -t nadirpinhole -r wgs84 -o '+ orbitvizBefore +' '+ vizString
     logger.info('Running orbitviz on input files...')
+    redo=True
     asp_system_utils.executeCommand(cmd, orbitvizBefore, True, redo) # Suppress (potentially long) output
 
     # Set up options for process_icebridge_batch
@@ -465,7 +506,7 @@ def main(argsIn):
             # Generate the command call
             taskHandles.append(pool.apply_async(processBatch, 
                 (batchImageCameraPairs, lidarFolder, thisOutputFolder, extraOptions, 
-                 batchNum, batchLogPath)))
+                 outputResolution, batchNum, batchLogPath)))
         batchNum += 1
         
         if hitBreakFrame:

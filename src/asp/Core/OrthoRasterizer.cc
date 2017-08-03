@@ -58,9 +58,9 @@ namespace asp{
     NaN2Mask(){}
     PixelMask<VectorT> operator() (VectorT const& vec) const {
       if (boost::math::isnan(vec.z()))
-	return PixelMask<VectorT>(); // invalid
+        return PixelMask<VectorT>(); // invalid
       else
-	return PixelMask<VectorT>(vec); // valid
+        return PixelMask<VectorT>(vec); // valid
     }
   };
 
@@ -70,9 +70,9 @@ namespace asp{
     Mask2NaN(){}
     VectorT operator() (PixelMask<VectorT> const& pvec) const {
       if (!is_valid(pvec))
-	return VectorT(0, 0, std::numeric_limits<typename VectorT::value_type>::quiet_NaN());
+        return VectorT(0, 0, std::numeric_limits<typename VectorT::value_type>::quiet_NaN());
       else
-	return pvec.child();
+        return pvec.child();
     }
   };
 
@@ -94,9 +94,9 @@ namespace asp{
     ImageView<Vector3> crop_img = crop(I, lbox);
     for (int col = 0; col < crop_img.cols(); col++){
       for (int row = 0; row < crop_img.rows(); row++){
-	Vector3 p = crop_img(col, row);
-	if (boost::math::isnan(p.z())) continue;
-	of << p.x() << ' ' << p.y()  << ' ' << p.z() << std::endl;
+        Vector3 p = crop_img(col, row);
+        if (boost::math::isnan(p.z())) continue;
+        of << p.x() << ' ' << p.y()  << ' ' << p.z() << std::endl;
       }
     }
     of.close();
@@ -105,7 +105,7 @@ namespace asp{
   // Task to parallelize the generation of bounding boxes for each block.
   class SubBlockBoundaryTask : public Task, private boost::noncopyable {
     ImageViewRef<Vector3> m_view;
-    int m_sub_block_size;
+    int    m_sub_block_size;
     BBox2i m_image_bbox;
     BBox3& m_global_bbox;
     std::vector<BBoxPair>& m_point_image_boundaries;
@@ -122,8 +122,8 @@ namespace asp{
     struct GrowBBoxAccumulator {
       BBox3 bbox;
       void operator()( Vector3 const& v ) {
-	if ( !boost::math::isnan(v.z()) )
-	  bbox.grow(v);
+        if ( !boost::math::isnan(v.z()) )
+          bbox.grow(v);
       }
     };
 
@@ -131,12 +131,12 @@ namespace asp{
       std::vector<double> & m_hist;
       double m_max_val;
       ErrorHistAccumulator(std::vector<double>& hist, double max_val):
-	m_hist(hist), m_max_val(max_val){}
+        m_hist(hist), m_max_val(max_val){}
       void operator()(double err){
-	if (err == 0) return; // null errors come from invalid pixels
-	int len = m_hist.size();
-	int k = round((len-1)*std::min(err, m_max_val)/m_max_val);
-	m_hist[k]++;
+        if (err == 0) return; // null errors come from invalid pixels
+        int len = m_hist.size();
+        int k = round((len-1)*std::min(err, m_max_val)/m_max_val);
+        m_hist[k]++;
       }
     };
 
@@ -155,85 +155,84 @@ namespace asp{
       m_error_image(error_image), m_estim_max_error(estim_max_error),
       m_errors_hist(errors_hist), m_max_valid_triangulation_error(max_valid_triangulation_error),
       m_mutex( mutex ), m_progress( progress ), m_inc_amt( inc_amt ) {}
+      
     void operator()() {
-      ImageView<Vector3 > local_image =
-	crop( m_view, m_image_bbox );
+      ImageView<Vector3 > local_image = crop( m_view, m_image_bbox );
 
       bool remove_outliers_with_pct = (!m_errors_hist.empty());
       ImageView<double> local_error;
       if (remove_outliers_with_pct || m_max_valid_triangulation_error > 0.0)
-	local_error = crop( m_error_image, m_image_bbox );
+        local_error = crop( m_error_image, m_image_bbox );
 
       // Further subdivide into boundaries so
       // that prerasterize will only query what it needs.
-      std::vector<BBox2i> blocks =
-	subdivide_bbox( m_image_bbox, m_sub_block_size, m_sub_block_size );
+      std::vector<BBox2i> blocks = subdivide_bbox( m_image_bbox, m_sub_block_size, m_sub_block_size );
       BBox3 local_union;
       std::list<BBoxPair> solutions;
       std::vector<double> local_hist(m_errors_hist.size(), 0);
       for ( size_t i = 0; i < blocks.size(); i++ ) {
-	BBox3 pts_bdbox;
-	ImageView<Vector3 > local_image2 =
-	  crop( local_image, blocks[i] - m_image_bbox.min() );
-	if (m_max_valid_triangulation_error <= 0){
-	  GrowBBoxAccumulator accum;
-	  for_each_pixel( local_image2, accum );
-	  pts_bdbox = accum.bbox;
-	}else{
-	  // Skip points with error > m_max_valid_triangulation_error
-	  ImageView<double> local_error2 =
-	    crop( local_error, blocks[i] - m_image_bbox.min() );
-	  for (int col = 0; col < local_image2.cols(); col++){
-	    for (int row = 0; row < local_image2.rows(); row++){
-	      if (boost::math::isnan(local_image2(col, row).z())) continue;
-	      if (local_error2(col, row) > m_max_valid_triangulation_error) continue;
-	      pts_bdbox.grow(local_image2(col, row));
-	    }
-	  }
-	}
+      
+        BBox3 pts_bdbox;
+        ImageView<Vector3 > local_image2 = crop( local_image, blocks[i] - m_image_bbox.min() );
+        if (m_max_valid_triangulation_error <= 0){
+          GrowBBoxAccumulator accum;
+          for_each_pixel( local_image2, accum );
+          pts_bdbox = accum.bbox;
+        }else{
+          // Skip points with error > m_max_valid_triangulation_error
+          ImageView<double> local_error2 =
+            crop( local_error, blocks[i] - m_image_bbox.min() );
+          for (int col = 0; col < local_image2.cols(); col++){
+            for (int row = 0; row < local_image2.rows(); row++){
+              if (boost::math::isnan(local_image2(col, row).z())) continue;
+              if (local_error2(col, row) > m_max_valid_triangulation_error) continue;
+              pts_bdbox.grow(local_image2(col, row));
+            }
+          }
+	      }
 
-	if ( pts_bdbox.min().x() <= pts_bdbox.max().x() &&
-	     pts_bdbox.min().y() <= pts_bdbox.max().y() ) {
-	  // pts_bdbox has at least one point. A box of just one
-	  // point is considered empty by VW. For that reason,
-	  // grow this box to make it definitely non-empty.
-	  // Note: for local_union, which will end up contributing
-	  // to the global bounding box, we don't use the float_next
-	  // gimmick, as we need the precise box.
-	  local_union.grow( pts_bdbox );
-	  pts_bdbox.max()[0] = boost::math::float_next(pts_bdbox.max()[0]);
-	  pts_bdbox.max()[1] = boost::math::float_next(pts_bdbox.max()[1]);
-	  solutions.push_back( std::make_pair( pts_bdbox, blocks[i] ) );
-	}
+        if ( pts_bdbox.min().x() <= pts_bdbox.max().x() &&
+             pts_bdbox.min().y() <= pts_bdbox.max().y() ) {
+          // pts_bdbox has at least one point. A box of just one
+          // point is considered empty by VW. For that reason,
+          // grow this box to make it definitely non-empty.
+          // Note: for local_union, which will end up contributing
+          // to the global bounding box, we don't use the float_next
+          // gimmick, as we need the precise box.
+          local_union.grow( pts_bdbox );
+          pts_bdbox.max()[0] = boost::math::float_next(pts_bdbox.max()[0]);
+          pts_bdbox.max()[1] = boost::math::float_next(pts_bdbox.max()[1]);
+          solutions.push_back( std::make_pair( pts_bdbox, blocks[i] ) );
+        }
 
-	if (remove_outliers_with_pct){
-	  ErrorHistAccumulator error_accum(local_hist, m_estim_max_error);
-	  for_each_pixel( crop( local_error, blocks[i] - m_image_bbox.min() ),
-			  error_accum );
+        if (remove_outliers_with_pct){
+          ErrorHistAccumulator error_accum(local_hist, m_estim_max_error);
+          for_each_pixel( crop( local_error, blocks[i] - m_image_bbox.min() ),
+		          error_accum );
 
-	}
+        }
 
       }
 
       // Append to the global list of boxes and expand the point
       // cloud bounding box.
       if ( local_union != BBox3() ) {
-	Mutex::Lock lock( m_mutex );
-	for ( std::list<BBoxPair>::const_iterator it = solutions.begin();
-	      it != solutions.end(); it++ ) {
-	  m_point_image_boundaries.push_back( *it );
-	}
+        Mutex::Lock lock( m_mutex );
+        for ( std::list<BBoxPair>::const_iterator it = solutions.begin();
+              it != solutions.end(); it++ ) {
+          m_point_image_boundaries.push_back( *it );
+        }
 
-	m_global_bbox.grow( local_union );
+        m_global_bbox.grow( local_union );
 
-	if (remove_outliers_with_pct)
-	  for (int i = 0; i < (int)m_errors_hist.size(); i++)
-	    m_errors_hist[i] += local_hist[i];
+        if (remove_outliers_with_pct)
+          for (int i = 0; i < (int)m_errors_hist.size(); i++)
+            m_errors_hist[i] += local_hist[i];
 
-	m_progress.report_incremental_progress( m_inc_amt );
+        m_progress.report_incremental_progress( m_inc_amt );
       }
     }
-  };
+  }; // End function operator()
 
 
   void remove_outliers(ImageView<Vector3> & image, ImageViewRef<double> const& errors,
@@ -251,9 +250,9 @@ namespace asp{
 
     for (int col = 0; col < image.cols(); col++){
       for (int row = 0; row < image.rows(); row++){
-	if ( error_copy(col, row) > error_cutoff ){
-	  image(col, row).z() = nan;
-	}
+        if ( error_copy(col, row) > error_cutoff ){
+          image(col, row).z() = nan;
+        }
       }
     }
 
@@ -278,20 +277,20 @@ namespace asp{
     for (int col = 0; col < image.cols(); col++){
       for (int row = 0; row < image.rows(); row++){
 
-	if (boost::math::isnan(image(col, row).z()))
-	  continue;
+        if (boost::math::isnan(image(col, row).z()))
+          continue;
 
-	std::vector<double> vals;
-	for (int c = std::max(col-half, 0); c <= std::min(col+half, nc-1); c++){
-	  for (int r = std::max(row-half, 0); r <= std::min(row+half, nr-1); r++){
-	    if (boost::math::isnan(image(c, r).z())) continue;
-	    vals.push_back(image(c, r).z());
-	  }
-	}
-	double median = vw::math::destructive_median(vals);
-	if (fabs(median - image(col, row).z()) > thresh){
-	  image_out(col, row).z() = nan;
-	}
+        std::vector<double> vals;
+        for (int c = std::max(col-half, 0); c <= std::min(col+half, nc-1); c++){
+          for (int r = std::max(row-half, 0); r <= std::min(row+half, nr-1); r++){
+            if (boost::math::isnan(image(c, r).z())) continue;
+            vals.push_back(image(c, r).z());
+          }
+        }
+        double median = vw::math::destructive_median(vals);
+        if (fabs(median - image(col, row).z()) > thresh){
+          image_out(col, row).z() = nan;
+        }
       }
     }
 
@@ -451,15 +450,15 @@ namespace asp{
       int hist_size = errors_hist.size();
       vw::int64 num_errors = 0;
       for (int s = 0; s < hist_size; s++)
-	num_errors += errors_hist[s];
+        num_errors += errors_hist[s];
       int cutoff_index = 0;
       vw::int64 sum = 0;
       for (int s = 0; s < hist_size; s++){
-	sum += errors_hist[s];
-	if (sum >= pct*num_errors){
-	  cutoff_index = s;
-	  break;
-	}
+        sum += errors_hist[s];
+        if (sum >= pct*num_errors){
+          cutoff_index = s;
+          break;
+        }
       }
       // The below is equivalent to sorting all errors in increasing order,
       // and looking at the error at index pct*num_errors.
@@ -467,11 +466,11 @@ namespace asp{
       // Multiply by the outlier factor
       m_error_cutoff = factor*error_percentile;
       vw_out() << "Automatic triangulation error cutoff is "
-	       << m_error_cutoff << " meters.\n";
+               << m_error_cutoff << " meters.\n";
     }else if (max_valid_triangulation_error > 0.0){
       m_error_cutoff = max_valid_triangulation_error;
       vw_out() << "Manual triangulation error cutoff is "
-	       << m_error_cutoff << " meters.\n";
+               << m_error_cutoff << " meters.\n";
     }
 
 
@@ -485,16 +484,17 @@ namespace asp{
       vx.reserve(len); vx.clear();
       vy.reserve(len); vy.clear();
       BOOST_FOREACH( BBoxPair const& boundary, m_point_image_boundaries ) {
-	if (boundary.first.empty()) continue;
-	vx.push_back(boundary.first.width() /sub_block_size);
-	vy.push_back(boundary.first.height()/sub_block_size);
+        if (boundary.first.empty())
+          continue;
+        vx.push_back(boundary.first.width() /sub_block_size);
+        vy.push_back(boundary.first.height()/sub_block_size);
       }
       std::sort(vx.begin(), vx.end());
       std::sort(vy.begin(), vy.end());
       if (len > 0){
-	// Get the median
-	m_default_spacing_x = vx[(int)(0.5*len)];
-	m_default_spacing_y = vy[(int)(0.5*len)];
+        // Get the median
+        m_default_spacing_x = vx[(int)(0.5*len)];
+        m_default_spacing_y = vy[(int)(0.5*len)];
       }
     }
 
@@ -517,9 +517,8 @@ namespace asp{
       double input_image_height = m_point_image.rows();
       // The formula below is not so good, its output depends strongly
       // on how many rows and columns are in the point cloud.
-      m_default_spacing
-	= std::max(bbox_width, bbox_height) / std::max(input_image_width,
-						       input_image_height);
+      m_default_spacing = std::max(bbox_width, bbox_height) / std::max(input_image_width,
+						                       input_image_height);
     }else{
       // We choose the coarsest of the two spacings
       m_default_spacing = std::max(m_default_spacing_x, m_default_spacing_y);
@@ -650,21 +649,21 @@ namespace asp{
       snapped_block.max() = m_block_size*ceil( pc_block.max()/double(m_block_size));
       MapIterType it = blocks_map.find(snapped_block);
       if (it != blocks_map.end() ){
-	(it->second).grow(pc_block);
+        (it->second).grow(pc_block);
       }else{
-	blocks_map.insert(std::pair<BBox2, BBox2>(snapped_block, pc_block));
+        blocks_map.insert(std::pair<BBox2, BBox2>(snapped_block, pc_block));
       }
 
     }
 
     if ( blocks_map.empty() ){
       if (m_use_surface_sampling){
-	return prerasterize_type( render_buffer,
+        return prerasterize_type( render_buffer,
 				  BBox2i(-bbox_1.min().x(),
 					 -bbox_1.min().y(),
 					 cols(), rows()) );
       }else{
-	return prerasterize_type( d_buffer,
+        return prerasterize_type( d_buffer,
 				  BBox2i(-bbox_1.min().x(),
 					 -bbox_1.min().y(),
 					 cols(), rows()) );
@@ -675,8 +674,7 @@ namespace asp{
     // pixel we need to see its next up and right neighbors.
     int d = (int)m_use_surface_sampling;
 
-    for (MapIterType it = blocks_map.begin();
-	 it != blocks_map.end(); it++){
+    for (MapIterType it = blocks_map.begin(); it != blocks_map.end(); it++){
 
       BBox2i block = it->second;
 
@@ -696,7 +694,7 @@ namespace asp{
       erode_image(point_copy, m_erode_len);
 
       if (m_hole_fill_len > 0)
-	point_copy = per_pixel_filter(asp::fill_holes_grass
+        point_copy = per_pixel_filter(asp::fill_holes_grass
 				      (per_pixel_filter(point_copy,
 							NaN2Mask<Vector3>()),
 				       m_hole_fill_len),
@@ -710,58 +708,58 @@ namespace asp{
       typedef ImageView<Vector3>::pixel_accessor PointAcc;
       PointAcc row_acc = point_copy.origin();
       for ( int32 row = 0; row < point_copy.rows()-d; ++row ) {
-	PointAcc point_ul = row_acc;
+        PointAcc point_ul = row_acc;
 
-	for ( int32 col = 0; col < point_copy.cols()-d; ++col ) {
+	    for ( int32 col = 0; col < point_copy.cols()-d; ++col ) {
 
-	  PointAcc point_ur = point_ul; point_ur.next_col();
-	  PointAcc point_ll = point_ul; point_ll.next_row();
-	  PointAcc point_lr = point_ul; point_lr.advance(1,1);
+        PointAcc point_ur = point_ul; point_ur.next_col();
+        PointAcc point_ll = point_ul; point_ll.next_row();
+        PointAcc point_lr = point_ul; point_lr.advance(1,1);
 
-	  if (m_use_surface_sampling){
+        if (m_use_surface_sampling){
 
-	    // This loop rasterizes a quad indexed by the upper left.
-	    if ( !boost::math::isnan((*point_ul).z()) &&
-		 !boost::math::isnan((*point_lr).z()) ) {
+          // This loop rasterizes a quad indexed by the upper left.
+          if ( !boost::math::isnan((*point_ul).z()) &&
+               !boost::math::isnan((*point_lr).z()) ) {
 
-	      vertices[0] = (*point_ul).x(); // UL
-	      vertices[1] = (*point_ul).y();
-	      vertices[2] = (*point_ll).x(); // LL
-	      vertices[3] = (*point_ll).y();
-	      vertices[4] = (*point_lr).x(); // LR
-	      vertices[5] = (*point_lr).y();
-	      vertices[6] = (*point_ur).x(); // UR
-	      vertices[7] = (*point_ur).y();
-	      vertices[8] = (*point_ul).x(); // UL
-	      vertices[9] = (*point_ul).y();
+            vertices[0] = (*point_ul).x(); // UL
+            vertices[1] = (*point_ul).y();
+            vertices[2] = (*point_ll).x(); // LL
+            vertices[3] = (*point_ll).y();
+            vertices[4] = (*point_lr).x(); // LR
+            vertices[5] = (*point_lr).y();
+            vertices[6] = (*point_ur).x(); // UR
+            vertices[7] = (*point_ur).y();
+            vertices[8] = (*point_ul).x(); // UL
+            vertices[9] = (*point_ul).y();
 
-	      intensities[0] = texture_copy(col,  row);
-	      intensities[1] = texture_copy(col,row+1);
-	      intensities[2] = texture_copy(col+1,  row+1);
-	      intensities[3] = texture_copy(col+1,row);
-	      intensities[4] = texture_copy(col,row);
+            intensities[0] = texture_copy(col,  row);
+            intensities[1] = texture_copy(col,row+1);
+            intensities[2] = texture_copy(col+1,  row+1);
+            intensities[3] = texture_copy(col+1,row);
+            intensities[4] = texture_copy(col,row);
 
-	      if ( !boost::math::isnan((*point_ll).z()) ) {
-		// triangle 1 is: UL LL LR
-		renderer.DrawPolygon(0, 3);
-	      }
-	      if ( !boost::math::isnan((*point_ur).z()) ) {
-		// triangle 2 is: LR, UR, UL
-		renderer.DrawPolygon(2, 3);
-	      }
-	    }
+            if ( !boost::math::isnan((*point_ll).z()) ) {
+              // triangle 1 is: UL LL LR
+              renderer.DrawPolygon(0, 3);
+            }
+            if ( !boost::math::isnan((*point_ur).z()) ) {
+              // triangle 2 is: LR, UR, UL
+              renderer.DrawPolygon(2, 3);
+            }
+          }
 
-	  }else{
-	    // The new engine
-	    if ( !boost::math::isnan(point_copy(col, row).z()) ){
-	      point2grid.AddPoint(point_copy(col, row).x(),
-				  point_copy(col, row).y(),
-				  texture_copy(col,  row));
-	    }
-	  }
-	  point_ul.next_col();
-	}
-	row_acc.next_row();
+          }else{
+            // The new engine
+            if ( !boost::math::isnan(point_copy(col, row).z()) ){
+              point2grid.AddPoint(point_copy(col, row).x(),
+                point_copy(col, row).y(),
+                texture_copy(col,  row));
+            }
+          }
+          point_ul.next_col();
+        }
+        row_acc.next_row();
       }
 
     }

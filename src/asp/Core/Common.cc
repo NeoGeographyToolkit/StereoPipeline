@@ -494,13 +494,6 @@ asp::check_command_line( int argc, char *argv[], vw::cartography::GdalWriteOptio
   return vm;
 }
 
-
-Vector2i asp::file_image_size( std::string const& input ) {
-  boost::shared_ptr<DiskImageResource> rsrc( DiskImageResourcePtr(input));
-  Vector2i size( rsrc->cols(), rsrc->rows() );
-  return size;
-}
-
 void asp::set_srs_string(std::string srs_string, bool have_user_datum,
                          vw::cartography::Datum const& user_datum,
                          vw::cartography::GeoReference & georef){

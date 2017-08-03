@@ -110,6 +110,12 @@ def packAndSendCameraFolder(run):
     fileName     = run.getCameraTarName()
     louPath      = os.path.join(REMOTE_CAMERA_FOLDER, fileName)
 
+    # First remove any existing tar file
+    cmd      = "ssh lou 'rm -f "+louPath+"'"
+    logger.info(cmd)
+    os.system(cmd)
+
+    # Do the new file
     cmd = 'shiftc --wait --create-tar ' + cameraFolder + ' ' + louPath
     logger.info(cmd)
     status = os.system(cmd)

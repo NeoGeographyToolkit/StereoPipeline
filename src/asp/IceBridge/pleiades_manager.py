@@ -385,6 +385,7 @@ def generateSummaryFolder(run, outputFolder):
     
     outputKml = os.path.join(outputFolder, 'cameras_out.kml')
     cmd = 'merge_orbitviz.py ' + outputKml +' '+ camKmlFiles
+    print cmd
     os.system(cmd)
     
     # Link to thumbnails of all the output DEM files
@@ -397,7 +398,21 @@ def generateSummaryFolder(run, outputFolder):
         thumbName = ('dem_%d_%d_browse.tif' % (frames[0], frames[1]))
         thumbPath = os.path.join(outputFolder, thumbName)
         icebridge_common.makeSymLink(hillshadePath, thumbPath, verbose=False)
-        
+
+def checkRequiredTools():
+    '''Verify that we have all the tools we will be calling during the script.'''
+
+    tools = ['full_processing_script.py',
+             'multi_process_command_runner.py',
+             'merge_orbitviz.py',
+             'process_icebridge_run.py',
+             'process_icebridge_batch.py',
+             'ortho2pinhole',
+#             'camera_footprint'
+            ]
+
+  for tool in tools:
+      asp_system_utils.checkIfToolExists(tool)
 
 def main(argsIn):
 
@@ -429,6 +444,8 @@ def main(argsIn):
     logLevel = logging.INFO
     logger   = icebridge_common.setUpLogger(LOG_FOLDER, logLevel, 'pleiades_manager_log')
 
+    checkRequiredTools() # Make sure all the needed tools can be found before we start
+
     # Get the list of runs to process
     logger.info('Reading run lists...')
     allRuns  = readRunList(ALL_RUN_LIST      )
@@ -448,10 +465,10 @@ def main(argsIn):
         # TODO: Prefetch the next run while waiting on this run!
 
         # Obtain the data for a run if it is not already done
-        runFetch(run)       
+        #runFetch(run)       
                
         # Run conversion and archive results if not already done        
-        runConversion(run)
+        #runConversion(run)
 
         # Run command to generate the list of batch jobs for this run
         logger.info('Fetching batch list for run ' + str(run))

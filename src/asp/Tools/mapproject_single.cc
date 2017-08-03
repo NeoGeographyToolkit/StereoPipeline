@@ -693,7 +693,7 @@ int main( int argc, char* argv[] ) {
     
     bool user_provided_resolution = (!std::isnan(opt.ppd));
     bool     calc_target_res = !user_provided_resolution;
-    Vector2i image_size      = asp::file_image_size(opt.image_file);
+    Vector2i image_size      = vw::file_image_size(opt.image_file);
     BBox2    cam_box;
     calc_target_geom(// Inputs
                      calc_target_res, image_size, camera_model,

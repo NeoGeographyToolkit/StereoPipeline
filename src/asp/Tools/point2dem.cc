@@ -879,10 +879,10 @@ namespace asp{
 
 /// Do more work!
 void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
-				Options& opt,
-				cartography::GeoReference& georef,
-				ImageViewRef<double> const& error_image,
-				double estim_max_error) {
+                                Options& opt,
+                                cartography::GeoReference& georef,
+                                ImageViewRef<double> const& error_image,
+                                double estim_max_error) {
 
   vw_out() << "\t-- Starting DEM rasterization --\n";
   vw_out() << "\t--> DEM spacing: " <<     rasterizer.spacing() << " pt/px\n";
@@ -1089,8 +1089,7 @@ void do_software_rasterization_multi_spacing( const ImageViewRef<Vector3>& proj_
       opt.out_prefix = base_out_prefix;
     else // Write later iterations to a different path!!
       opt.out_prefix = base_out_prefix + "_" + vw::num_to_str(i);
-    do_software_rasterization( rasterizer, opt, georef,
-			       error_image, estim_max_error);
+    do_software_rasterization( rasterizer, opt, georef, error_image, estim_max_error);
   } // End loop through spacings
 
   opt.out_prefix = base_out_prefix; // Restore the original value
@@ -1244,23 +1243,23 @@ int main( int argc, char *argv[] ) {
       vw_out() << "\t--> Applying offset: " << opt.lon_offset
 	       << " " << opt.lat_offset << " " << opt.height_offset << "\n";
       do_software_rasterization_multi_spacing
-	  (geodetic_to_point  // GDC to XYZ
-	      (asp::point_image_offset  // Add user coordinate offset
-		  (asp::recenter_longitude(cartesian_to_geodetic(point_image,output_georef), // XYZ to GDC, then normalize longitude
-					   avg_lon),
-		   Vector3(opt.lon_offset,
-			   opt.lat_offset,
-			   opt.height_offset)),
-	       output_georef),
-	   opt, output_georef, error_image, estim_max_error);
+        (geodetic_to_point  // GDC to XYZ
+            (asp::point_image_offset  // Add user coordinate offset
+              (asp::recenter_longitude(cartesian_to_geodetic(point_image,output_georef), // XYZ to GDC, then normalize longitude
+			               avg_lon),
+           Vector3(opt.lon_offset,
+	           opt.lat_offset,
+	           opt.height_offset)),
+             output_georef),
+         opt, output_georef, error_image, estim_max_error);
     } else {
       do_software_rasterization_multi_spacing
-	  (geodetic_to_point
-	      (asp::recenter_longitude
-		  (cartesian_to_geodetic(point_image, output_georef),
-		   avg_lon),
-	       output_georef),
-	  opt, output_georef, error_image, estim_max_error);
+        (geodetic_to_point
+            (asp::recenter_longitude
+              (cartesian_to_geodetic(point_image, output_georef),
+               avg_lon),
+             output_georef),
+        opt, output_georef, error_image, estim_max_error);
     }
 
     // Wipe the temporary files
