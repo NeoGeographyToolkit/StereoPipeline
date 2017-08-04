@@ -72,7 +72,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   std::string cnet_file, out_prefix, stereo_session_string,
     cost_function, ba_type, mapprojected_data, gcp_data;
   int    ip_per_tile;
-  double min_triangulation_angle, lambda, camera_weight, rotation_weight, translation_weight, robust_threshold;
+  double min_triangulation_angle, lambda, camera_weight, rotation_weight, translation_weight, overlap_exponent, robust_threshold;
   int    report_level, min_matches, max_iterations, overlap_limit;
 
   bool   save_iteration, local_pinhole_input, fix_gcp_xyz, solve_intrinsics;
@@ -95,7 +95,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   // Make sure all values are initialized, even though they will be
   // over-written later.
   Options(): ip_per_tile(0), min_triangulation_angle(0), lambda(-1.0), camera_weight(-1),
-             rotation_weight(0), translation_weight(0),
+             rotation_weight(0), translation_weight(0), overlap_exponent(0), 
              robust_threshold(0), report_level(0), min_matches(0),
              max_iterations(0), overlap_limit(0), save_iteration(false),
              local_pinhole_input(false), fix_gcp_xyz(false), solve_intrinsics(false),
@@ -845,13 +845,26 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
   CameraRelationNetwork<JFeature> crn;
   crn.read_controlnetwork(cnet);
   
-  // Now add the various cost functions the solver will optimize over.
-
+  
   // Add the cost function component for difference of pixel observations
   // - Reduce error by making pixel projection consistent with observations.
   typedef CameraNode<JFeature>::iterator crn_iter;
   if (num_cameras != static_cast<int>(crn.size()))
     vw_throw( LogicErr() << "Expected " << num_cameras << " cameras but crn has " << crn.size());
+
+  // How many times an xyz point shows up in the problem
+  std::map<double*, int> count_map;
+  if (opt.overlap_exponent > 0) {
+    for ( int icam = 0; icam < num_cameras; icam++ ) {
+      for ( crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++ ){
+        int ipt = (**fiter).m_point_id;
+        double * point  = points  + ipt  * num_point_params;
+        count_map[point]++;
+      }
+    }
+  }
+  
+  // Add the various cost functions the solver will optimize over.
   std::vector<size_t> cam_residual_counts(num_cameras);
   for ( int icam = 0; icam < num_cameras; icam++ ) {
     cam_residual_counts[icam] = 0;
@@ -879,6 +892,14 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
       double * camera = cameras + icam * num_camera_params;
       double * point  = points  + ipt  * num_point_params;
 
+      double p = opt.overlap_exponent;
+      if (p > 0 && count_map.find(point) != count_map.end() && count_map[point] > 1) {
+        // Give more weight to points that are seen in more images.
+        // This should not be overused. 
+        double delta = pow(count_map[point] - 1.0, p);
+        pixel_sigma /= delta;
+      }
+      
       ceres::LossFunction* loss_function = get_loss_function(opt);
 
       // Call function to select the appropriate Ceres residual block to add.
@@ -1907,6 +1928,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("translation-weight",  po::value(&opt.translation_weight)->default_value(0.0), "A higher weight will penalize more translation deviations from the original configuration.")
     ("camera-weight",    po::value(&opt.camera_weight)->default_value(1.0),
                          "The weight to give to the constraint that the camera positions/orientations stay close to the original values (only for the Ceres solver).  A higher weight means that the values will change less. The options --rotation-weight and --translation-weight can be used for finer-grained control and a stronger response.")
+    ("overlap-exponent",    po::value(&opt.overlap_exponent)->default_value(0.0),
+     "If a feature is seen in n >= 2 images, give it a weight proportional with (n-1)^exponent.")
     ("ip-per-tile",             po::value(&opt.ip_per_tile)->default_value(0),
      "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
     ("min-triangulation-angle",             po::value(&opt.min_triangulation_angle)->default_value(0.1),
