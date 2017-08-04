@@ -320,6 +320,7 @@ namespace vw { namespace gui {
     m_allowMultipleSelections_action->setCheckable(true);
     m_allowMultipleSelections_action->setChecked(m_allowMultipleSelections);
     m_deleteSelection = m_ContextMenu->addAction("Delete selected regions around this point");
+    m_hideImagesNotInRegion = m_ContextMenu->addAction("Hide images not intersecting selected region");
 
     connect(m_addMatchPoint,       SIGNAL(triggered()), this, SLOT(addMatchPoint()));
     connect(m_deleteMatchPoint,    SIGNAL(triggered()), this, SLOT(deleteMatchPoint()));
@@ -330,6 +331,7 @@ namespace vw { namespace gui {
     connect(m_allowMultipleSelections_action, SIGNAL(triggered()), this,
             SLOT(allowMultipleSelections()));
     connect(m_deleteSelection,    SIGNAL(triggered()), this, SLOT(deleteSelection()));
+    connect(m_hideImagesNotInRegion, SIGNAL(triggered()), this, SLOT(hideImagesNotInRegion()));
     connect(m_saveVectorLayer,    SIGNAL(triggered()), this, SLOT(saveVectorLayer()));
     connect(m_deleteVertex,       SIGNAL(triggered()), this, SLOT(deleteVertex()));
     connect(m_deleteVertices,     SIGNAL(triggered()), this, SLOT(deleteVertices()));
@@ -2562,6 +2564,7 @@ namespace vw { namespace gui {
     m_setThreshold->setVisible(!m_polyEditMode); 
     m_allowMultipleSelections_action->setVisible(!m_polyEditMode); 
     m_deleteSelection->setVisible(true);
+    m_hideImagesNotInRegion->setVisible(true);
     
     m_saveScreenshot->setVisible(true); // always visible
     
@@ -2706,6 +2709,43 @@ namespace vw { namespace gui {
     return;
   }
   
+  // Hide images not intersecting given selected region
+  void MainWidget::hideImagesNotInRegion(){
+
+    if (m_stereoCropWin.empty()) {
+      popUp("Must select a region with Control-Mouse before invoking this.");
+      return;
+    }
+    
+    m_filesToHide.clear();
+
+    QTableWidget * filesTable = m_chooseFilesDlg->getFilesTable();
+
+    for (int j = 0; j < (int)m_images.size(); j++){
+      
+      int i = m_filesOrder[j];
+      
+      string fileName = m_images[i].name;
+      
+      BBox2i image_box = world2image(m_stereoCropWin, i);
+      image_box.crop(BBox2(0, 0, m_images[i].img.cols(), m_images[i].img.rows()));
+
+      QTableWidgetItem *item = filesTable->item(i, 0);
+
+      if (image_box.empty()) {
+	item->setCheckState(Qt::Unchecked);
+	m_filesToHide.insert(fileName);
+      }else{
+	item->setCheckState(Qt::Checked);
+      }	
+      
+    }
+    
+    refreshPixmap();
+
+    return;
+  }
+
   // Show the current shadow threshold, and allow the user to change it.
   void MainWidget::setThreshold(){
 
