@@ -295,7 +295,7 @@ namespace asp {
 		    bool transform_to_original_coord = true );
 
   /// Calls ip matching above but with an additional step where we
-  /// apply a homogrpahy to make right image like left image. This is
+  /// apply a homography to make right image like left image. This is
   /// useful so that both images have similar scale and similar affine qualities.
   template <class Image1T, class Image2T>
   bool ip_matching_w_alignment( bool single_threaded_camera,
@@ -657,11 +657,11 @@ namespace asp {
     const size_t NULL_INDEX = (size_t)(-1);
     for ( size_t i = 0; i < forward_match.size(); i++ ) {
       if ( forward_match[i] != NULL_INDEX ) {
-	if ( backward_match[forward_match[i]] != i ) {
-	  forward_match[i] = NULL_INDEX;
-	} else {
-	  valid_count++;
-	}
+        if ( backward_match[forward_match[i]] != i ) {
+          forward_match[i] = NULL_INDEX;
+        } else {
+          valid_count++;
+        }
       }
     }
     vw_out() << "\t    Matched " << valid_count << " points." << std::endl;

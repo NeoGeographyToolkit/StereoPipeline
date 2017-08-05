@@ -189,19 +189,19 @@ namespace asp {
 
     /// Specialization for how interest points are found
     bool ip_matching(std::string  const& input_file1,
-		     std::string  const& input_file2,
-		     vw::Vector2  const& uncropped_image_size,
-		     Vector6f const& stats1,
-		     Vector6f const& stats2,
-		     int ip_per_tile,
-		     float nodata1, float nodata2,
-		     std::string const& match_filename,
-		     vw::camera::CameraModel* cam1,
-		     vw::camera::CameraModel* cam2);
+                     std::string  const& input_file2,
+                     vw::Vector2  const& uncropped_image_size,
+                     Vector6f     const& stats1,
+                     Vector6f     const& stats2,
+                     int   ip_per_tile,
+                     float nodata1, float nodata2,
+                     std::string const& match_filename,
+                     vw::camera::CameraModel* cam1,
+                     vw::camera::CameraModel* cam2);
 
     /// Returns the target datum to use for a given camera model
     virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,
-					     bool use_sphere_for_isis) const {
+                                             bool use_sphere_for_isis) const {
       return vw::cartography::Datum(asp::stereo_settings().datum);
     }
 

@@ -132,6 +132,7 @@ namespace asp {
     vw::Vector2i corr_kernel;         // Correlation kernel
     vw::BBox2i   search_range;        // Correlation search range
     vw::BBox2i   search_range_limit;  // Correlation search range limit
+    vw::Vector2i elevation_limit;     // Expected range of elevation to limit results to.
     vw::uint16   corr_max_levels;     // Max pyramid levels to process. 0 hits only once.
     bool compute_low_res_disparity_only;      // Skip the full-resolution disparity computation
     bool skip_low_res_disparity_comp;

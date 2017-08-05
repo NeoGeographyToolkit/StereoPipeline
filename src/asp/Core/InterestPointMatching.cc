@@ -38,7 +38,15 @@ namespace asp {
                                                       double epipolar_threshold,
                                                       vw::cartography::Datum const& datum) :
     m_single_threaded_camera(single_threaded_camera), m_uniqueness_threshold(uniqueness_threshold),
-    m_epipolar_threshold(epipolar_threshold), m_datum(datum) {}
+    m_epipolar_threshold(epipolar_threshold), m_datum(datum) {
+    // Detect some problems before they result in strange math errors
+    if (epipolar_threshold < 1)
+      vw_throw( ArgumentErr() << "EpipolarLinePointMatcher: epipolar threshold is < 1.\n" );
+    if (uniqueness_threshold < 0.1)
+      vw_throw( ArgumentErr() << "EpipolarLinePointMatcher: uniqueness threshold is < 0.1.\n" );
+    if (uniqueness_threshold > 0.99)
+      vw_throw( ArgumentErr() << "EpipolarLinePointMatcher: uniqueness threshold is > 0.99.\n" );
+  }
 
   Vector3 EpipolarLinePointMatcher::epipolar_line( Vector2 const& feature,
 						   cartography::Datum const& datum,
@@ -73,6 +81,7 @@ namespace asp {
         return Vector3();
       }
 
+      // If the input matrix is bad this can result in some weird errors!
       Matrix<double> nsp = nullspace( matrix );
       if (nsp.cols() <= 0 || nsp.rows() <= 0){ // Failed to find the nullspace
         success = false;
@@ -145,79 +154,79 @@ namespace asp {
       Vector<double> distances(NUM_MATCHES_TO_FIND);
 
       for ( IPListIter ip = m_start; ip != m_end; ip++ ) {
-	Vector2 ip_org_coord = m_tx1.reverse( Vector2( ip->x, ip->y ) );
-	Vector3 line_eq;
+        Vector2 ip_org_coord = m_tx1.reverse( Vector2( ip->x, ip->y ) );
+        Vector3 line_eq;
 
-	// Find the equation that describes the epipolar line
-	bool found_epipolar = false;
-	if (m_single_threaded_camera){
-	  // ISIS camera is single-threaded
-	  Mutex::Lock lock( m_camera_mutex );
-	  line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, m_cam1, m_cam2, found_epipolar);
-	}else{
-	  line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, m_cam1, m_cam2, found_epipolar);
-	}
+        // Find the equation that describes the epipolar line
+        bool found_epipolar = false;
+        if (m_single_threaded_camera){
+          // ISIS camera is single-threaded
+          Mutex::Lock lock( m_camera_mutex );
+          line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, m_cam1, m_cam2, found_epipolar);
+        }else{
+          line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, m_cam1, m_cam2, found_epipolar);
+        }
 
-	if (!found_epipolar) {
-	  *m_output++ = (size_t)(-1); // Failed to find a match, return a flag!
-	  continue; // Skip to the next IP
-	}
+        if (!found_epipolar) {
+          *m_output++ = (size_t)(-1); // Failed to find a match, return a flag!
+          continue; // Skip to the next IP
+        }
 
-	// Use FLANN tree to find the N nearest neighbors according to the IP region descriptor?
-	std::vector<std::pair<float,int> > kept_indices;
-	kept_indices.reserve(NUM_MATCHES_TO_FIND);
+        // Use FLANN tree to find the N nearest neighbors according to the IP region descriptor?
+        std::vector<std::pair<float,int> > kept_indices;
+        kept_indices.reserve(NUM_MATCHES_TO_FIND);
 
-	// Call the correct FLANN tree for the matching type
-	size_t num_matches_valid = 0;
-	if (m_use_uchar_tree) {
-	  vw::Vector<unsigned char> uchar_descriptor(ip->descriptor.size());
-	  for (size_t i=0; i<ip->descriptor.size(); ++i)
-	    uchar_descriptor[i] = static_cast<unsigned char>(ip->descriptor[i]);
-	  num_matches_valid = m_tree_uchar.knn_search( uchar_descriptor, indices, distances, NUM_MATCHES_TO_FIND );
-	} else {
-	  num_matches_valid = m_tree_float.knn_search( ip->descriptor, indices, distances, NUM_MATCHES_TO_FIND );
-	}
+        // Call the correct FLANN tree for the matching type
+        size_t num_matches_valid = 0;
+        if (m_use_uchar_tree) {
+          vw::Vector<unsigned char> uchar_descriptor(ip->descriptor.size());
+          for (size_t i=0; i<ip->descriptor.size(); ++i)
+            uchar_descriptor[i] = static_cast<unsigned char>(ip->descriptor[i]);
+          num_matches_valid = m_tree_uchar.knn_search( uchar_descriptor, indices, distances, NUM_MATCHES_TO_FIND );
+        } else {
+          num_matches_valid = m_tree_float.knn_search( ip->descriptor, indices, distances, NUM_MATCHES_TO_FIND );
+        }
 
-	if (num_matches_valid < 1) {
-	  *m_output++ = (size_t)(-1); // Failed to find a match, return a flag!
-	  continue; // Skip to the next IP
-	}
+        if (num_matches_valid < 1) {
+          *m_output++ = (size_t)(-1); // Failed to find a match, return a flag!
+          continue; // Skip to the next IP
+        }
 
-	//vw_out() << "For descriptor: " << ip->descriptor << std::endl;
-	//vw_out() << num_matches_valid << " Best match distances: " << distances << std::endl;
-	//vw_out() << "Indices: " << indices << std::endl;
+        //vw_out() << "For descriptor: " << ip->descriptor << std::endl;
+        //vw_out() << num_matches_valid << " Best match distances: " << distances << std::endl;
+        //vw_out() << "Indices: " << indices << std::endl;
 
-	// Loop through the N "nearest" points and keep only the ones within
-	//   m_matcher.m_epipolar_threshold pixel distance from the epipolar line
-	for ( size_t i = 0; i < num_matches_valid; i++ ) {
-	  IPListIter ip2_it = m_ip_other.begin();
-	  std::advance( ip2_it, indices[i] );
+        // Loop through the N "nearest" points and keep only the ones within
+        //   m_matcher.m_epipolar_threshold pixel distance from the epipolar line
+        for ( size_t i = 0; i < num_matches_valid; i++ ) {
+          IPListIter ip2_it = m_ip_other.begin();
+          std::advance( ip2_it, indices[i] );
 
-	  if (found_epipolar){
-	    Vector2 ip2_org_coord = m_tx2.reverse( Vector2( ip2_it->x, ip2_it->y ) );
-	    double line_distance = m_matcher.distance_point_line( line_eq, ip2_org_coord );
-	    if ( line_distance < m_matcher.m_epipolar_threshold ) {
-	      kept_indices.push_back( std::pair<float,int>( distances[i], indices[i] ) );
-	    }
-	    else {
-	      Vector2 ip1_coord( ip->x, ip->y );
-	      //double normDist = norm_2(ip1_coord - ip2_org_coord);
-	      //vw_out() << "Discarding match between " << ip1_coord << " and " << ip2_org_coord
-	      //        << " because distance is " << line_distance << " and threshold is "
-	      //        << m_matcher.m_epipolar_threshold << " norm dist = " << normDist<<"\n";
-	    }
-	  }
-	} // End loop for match prunining
+          if (found_epipolar){
+            Vector2 ip2_org_coord = m_tx2.reverse( Vector2( ip2_it->x, ip2_it->y ) );
+            double line_distance = m_matcher.distance_point_line( line_eq, ip2_org_coord );
+            if ( line_distance < m_matcher.m_epipolar_threshold ) {
+              kept_indices.push_back( std::pair<float,int>( distances[i], indices[i] ) );
+            }
+            else {
+              Vector2 ip1_coord( ip->x, ip->y );
+              //double normDist = norm_2(ip1_coord - ip2_org_coord);
+              //vw_out() << "Discarding match between " << ip1_coord << " and " << ip2_org_coord
+              //        << " because distance is " << line_distance << " and threshold is "
+              //        << m_matcher.m_epipolar_threshold << " norm dist = " << normDist<<"\n";
+            }
+          }
+        } // End loop for match prunining
 
-	// If we only found one match or the first descriptor match is much better than the second
-	if ( ( (kept_indices.size() > 2) &&
-               (kept_indices[0].first < m_matcher.m_uniqueness_threshold * kept_indices[1].first) )
-	      || (kept_indices.size() == 1) ){
-	  *m_output++ = kept_indices[0].second; // Return the first of the matches we found
-	  //vw_out() << "Kept distance: " << kept_indices[0].first << std::endl;
-	} else { // No matches or no clear winner
-	  *m_output++ = (size_t)(-1); // Failed to find a match, return a flag!
-	}
+        // If we only found one match or the first descriptor match is much better than the second
+        if ( ( (kept_indices.size() > 2) &&
+                     (kept_indices[0].first < m_matcher.m_uniqueness_threshold * kept_indices[1].first) )
+              || (kept_indices.size() == 1) ){
+          *m_output++ = kept_indices[0].second; // Return the first of the matches we found
+          //vw_out() << "Kept distance: " << kept_indices[0].first << std::endl;
+        } else { // No matches or no clear winner
+          *m_output++ = (size_t)(-1); // Failed to find a match, return a flag!
+        }
       } // End loop through IP
     } // End function operator()
 
@@ -485,12 +494,12 @@ namespace asp {
 
   bool
   tri_ip_filtering( std::vector<ip::InterestPoint> const& matched_ip1,
-		    std::vector<ip::InterestPoint> const& matched_ip2,
-		    vw::camera::CameraModel* cam1,
-		    vw::camera::CameraModel* cam2,
-		    std::list<size_t>& valid_indices,
-		    vw::TransformRef const& left_tx,
-		    vw::TransformRef const& right_tx ) {
+                    std::vector<ip::InterestPoint> const& matched_ip2,
+                    vw::camera::CameraModel* cam1,
+                    vw::camera::CameraModel* cam2,
+                    std::list<size_t>& valid_indices,
+                    vw::TransformRef const& left_tx,
+                    vw::TransformRef const& right_tx ) {
     typedef std::vector<double> ArrayT;
     ArrayT error_samples( valid_indices.size() );
 
@@ -507,6 +516,9 @@ namespace asp {
       //  so replace it in those cases with a very high error
       if (error_samples[count] == 0)
         error_samples[count] = HIGH_ERROR;
+      //vw_out() << "error_samples["<< count <<"] = " << error_samples[count] << std::endl;
+      //vw_out() << "diff = " << Vector2(matched_ip1[i].x, matched_ip1[i].y) - 
+      //                         Vector2(matched_ip2[i].x, matched_ip2[i].y)                                
       count++;
     }
     VW_ASSERT( count == valid_indices.size(),
@@ -575,6 +587,7 @@ namespace asp {
             (escalar2 * exp( (-err_diff_back  * err_diff_back ) * escalar4 ) ) ||
           error_samples[error_idx] < error_clusters.front().first[0]) ) {
         // It's an outlier!
+        //vw_out() << "Removing error_samples["<< error_idx <<"] = " << error_samples[error_idx] << std::endl;
         i = valid_indices.erase(i);
         i--; // For loop is going to increment this back up
       }

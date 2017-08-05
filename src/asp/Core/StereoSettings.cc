@@ -163,6 +163,8 @@ namespace asp {
                      "Disparity search range. Specify in format: hmin vmin hmax vmax.")
       ("corr-search-limit",      po::value(&global.search_range_limit)->default_value(BBox2i(0,0,0,0), "auto"),
                      "Limit on automatically computed disparity search range: hmin vmin hmax vmax.")
+      ("elevation-limit",        po::value(&global.elevation_limit)->default_value(Vector2i(0,0), "auto"),
+                     "Limit on expected elevation range: min max.")
       ("corr-max-levels",        po::value(&global.corr_max_levels)->default_value(5),
                      "Max pyramid levels to process when using the integer correlator. (0 is just a single level).")
       // TODO: These parameters are used here, but are only set as filter options.

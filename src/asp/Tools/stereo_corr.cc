@@ -31,6 +31,9 @@
 #include <asp/Sessions/StereoSession.h>
 #include <xercesc/util/PlatformUtils.hpp>
 
+#include <asp/Core/InterestPointMatching.h>
+#include <vw/Stereo/StereoModel.h>
+
 using namespace vw;
 using namespace vw::stereo;
 using namespace asp;
@@ -90,6 +93,8 @@ void read_search_range_from_dsub(ASPGlobalOptions & opt){
   search_range.min() = floor(elem_quot(search_range.min(),downsample_scale));
   search_range.max() = ceil (elem_quot(search_range.max(),downsample_scale));
   stereo_settings().search_range = search_range;
+  
+  vw_out() << "\t--> Read search range from D_sub: " << search_range << "\n";
 }
 
 
@@ -231,6 +236,305 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
   read_search_range_from_dsub(opt); // TODO: We already call this when needed!
 } // End produce_lowres_disparity
 
+
+// TODO: Move this to InterestPointMatching.cc!
+size_t filter_ip_by_elevation(boost::shared_ptr<camera::CameraModel> const& left_camera_model,
+                              boost::shared_ptr<camera::CameraModel> const& right_camera_model,
+                              cartography::Datum        const& datum,
+                              vector<ip::InterestPoint> const& ip1_in,
+                              vector<ip::InterestPoint> const& ip2_in,
+                              double min_elevation,
+                              double max_elevation,
+                              vector<ip::InterestPoint> & ip1_out,
+                              vector<ip::InterestPoint> & ip2_out) {
+                              
+    // Handle case where the elevations are not set
+    const size_t num_ip = ip1_in.size();                              
+    if (max_elevation <= min_elevation) {
+      ip1_out = ip1_in;
+      ip2_out = ip2_in;
+      return num_ip;
+    }
+    
+    vw_out() << "\t    * Applying elevation restriction: " << min_elevation
+             << " to " << max_elevation << ".\n";
+                              
+    // Init output vectors
+    ip1_out.clear();
+    ip2_out.clear();
+    ip1_out.reserve(num_ip);
+    ip2_out.reserve(num_ip);
+
+    // Set up stereo model
+    double angle_tolerance = vw::stereo::StereoModel::robust_1_minus_cos(
+                                stereo_settings().min_triangulation_angle*M_PI/180);
+    vw::stereo::StereoModel model(left_camera_model.get(), right_camera_model.get(), 
+                                  stereo_settings().use_least_squares, angle_tolerance );
+    
+    // For each interest point, compute the height and only keep it if the height falls within
+    // the specified range.
+    for (size_t i=0; i<num_ip; ++i) {
+      double error;
+      Vector2 p1(ip1_in[i].x, ip1_in[i].y);
+      Vector2 p2(ip2_in[i].x, ip2_in[i].y);
+      
+      Vector3 pt  = model(p1, p2, error);
+      Vector3 llh = datum.cartesian_to_geodetic(pt);
+      if ((llh[2] < min_elevation) || (llh[2] > max_elevation)) {
+        //vw_out() << "Removing IP diff: " << p2 - p1 << " with llh " << llh << std::endl;
+        continue;
+      }
+      ip1_out.push_back(ip1_in[i]);
+      ip2_out.push_back(ip2_in[i]);
+    }
+    vw_out() << "\t    * Removed " << ip1_in.size() - ip1_out.size() << " ip in using elevation filtering.\n";
+    
+    return ip1_out.size();
+} // End filter_ip_by_elevation
+
+
+/// Detect IP in the _sub images or the original images if they are not too large.
+/// - Usually an IP file is written in stereo_pprc, but for some input scenarios
+///   this function will need to be used to generate them here.
+/// - Returns the scale from the image used for IP to the full size image.
+/// - The binary interest point file will be written to disk.
+double compute_ip(ASPGlobalOptions & opt, std::string const& match_filename) {
+
+  vw_out() << "\t    * Loading images for IP detection.\n";
+
+  // Choose whether to use the full or _sub images
+
+  // Use the full image if all dimensions are smaller than this.
+  const int SIZE_CUTOFF = 6000;
+
+  const std::string left_image_path_full  = opt.out_prefix+"-L.tif";
+  const std::string right_image_path_full = opt.out_prefix+"-R.tif";
+  const std::string left_image_path_sub   = opt.out_prefix+"-L_sub.tif";
+  const std::string right_image_path_sub  = opt.out_prefix+"-R_sub.tif";
+  
+  
+  std::string left_image_path  = left_image_path_full;
+  std::string right_image_path = right_image_path_full;
+  Vector2i full_size = file_image_size(left_image_path_full);
+  bool use_full_size = ((full_size[0] < SIZE_CUTOFF) && (full_size[1] < SIZE_CUTOFF));
+  
+  double scale = 1.0;
+  if (!use_full_size) {
+    left_image_path  = left_image_path_sub;
+    right_image_path = right_image_path_sub;
+    
+    scale = sum(elem_quot( Vector2(file_image_size( opt.out_prefix+"-L_sub.tif" )),
+                           Vector2(file_image_size( opt.out_prefix+"-L.tif" ) ) )) +
+            sum(elem_quot( Vector2(file_image_size( opt.out_prefix+"-R_sub.tif" )),
+                           Vector2(file_image_size( opt.out_prefix+"-R.tif" ) ) ));
+    scale /= 4.0f;
+  }
+  
+  // Load the images
+  boost::shared_ptr<DiskImageResource> left_rsrc (DiskImageResourcePtr(left_image_path )),
+                                       right_rsrc(DiskImageResourcePtr(right_image_path));
+
+  // Read the no-data values written to disk previously when
+  // the normalized left and right sub-images were created.
+  float left_nodata_value  = numeric_limits<float>::quiet_NaN();
+  float right_nodata_value = numeric_limits<float>::quiet_NaN();
+  if (left_rsrc->has_nodata_read ()) left_nodata_value  = left_rsrc->nodata_read();
+  if (right_rsrc->has_nodata_read()) right_nodata_value = right_rsrc->nodata_read();
+  
+  // These images should be small enough to fit in memory
+  ImageView<float> left_image  = DiskImageView<float>(left_rsrc);
+  ImageView<float> right_image = DiskImageView<float>(right_rsrc);
+
+  // No interest point operations have been performed before
+  vw_out() << "\t    * Locating Interest Points\n";
+
+  // Use this code in a relatively specific case
+  // - Only tested with IceBridge data so far!
+  // - Some changes will be required for this to work in more general cases.
+  bool success = false;
+  if (use_full_size && opt.session->is_nadir_facing() && 
+      (stereo_settings().alignment_method == "epipolar") ) {
+
+    // Load camera models
+    boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
+    opt.session->camera_models(left_camera_model, right_camera_model);
+    
+    // Obtain the datum
+    const bool use_sphere_for_isis = false;
+    cartography::Datum datum = opt.session->get_datum(left_camera_model.get(), use_sphere_for_isis);
+
+    // Since these are epipolar aligned images it should be small
+    double epipolar_threshold = 5;
+    if (stereo_settings().epipolar_threshold > 0)
+      epipolar_threshold = stereo_settings().epipolar_threshold;
+
+    const bool single_threaded_camera = false;
+    success = ip_matching(single_threaded_camera,
+                          left_camera_model.get(), right_camera_model.get(),
+                          left_image, right_image,
+                          stereo_settings().ip_per_tile,
+                          datum, match_filename, epipolar_threshold,
+                          stereo_settings().ip_uniqueness_thresh,
+                          left_nodata_value, right_nodata_value);
+  } // End nadir epipolar full image case
+  else {
+    // In all other cases, run a more general IP matcher.
+    
+    // TODO: Depending on alignment method, we can tailor the IP filtering strategy.
+    double thresh_factor = stereo_settings().ip_inlier_factor; // 1/15 by default
+
+    // This range is extra large to handle elevation differences.
+    const int inlier_threshold = 200*(15.0*thresh_factor);  // 200 by default
+    
+    success = asp::homography_ip_matching(left_image, right_image,
+                                          stereo_settings().ip_per_tile,
+                                          match_filename, inlier_threshold,
+                                          left_nodata_value, right_nodata_value);
+  }
+
+  if (!success)
+    vw_throw(ArgumentErr() << "Could not find interest points.\n");
+
+  return scale;
+}
+
+
+
+
+// TODO: Move this histogram code!  Merge with image histogram code!
+
+
+  /// Compute simple histogram from a vector of data
+  void histogram( std::vector<double> const& values, int num_bins, double min_val, double max_val,
+                  std::vector<double> &hist, std::vector<double> &bin_centers){
+    
+    VW_ASSERT(num_bins > 0, ArgumentErr() << "histogram: number of input bins must be positive");
+    
+    // TODO: Verify max/min values!
+    
+    // Populate the list of bin centers
+    // The min and max vals represent the outer limits of the available bins.
+    const double range     = max_val - min_val;
+    const double bin_width = range / num_bins;
+    bin_centers.resize(num_bins);
+    for (int i=0; i<num_bins; ++i)
+      bin_centers[i] = min_val + i*bin_width + bin_width/2.0;
+    
+    hist.assign(num_bins, 0.0);
+    for (size_t i = 0; i < values.size(); ++i){
+      double val = values[i];
+      int bin = (int)round( (num_bins - 1) * ((val - min_val)/range) );
+      
+      // Saturate the bin assignment to prevent a memory exception.
+      if (bin < 0)
+        bin = 0;
+      if (bin > num_bins-1)
+        bin = num_bins-1;
+        
+      ++(hist[bin]);
+    }
+    return;
+  }
+
+/// Use existing interest points to compute a search range
+/// - This function could use improvement!
+/// - Should it be used in all cases?
+BBox2i approximate_search_range(ASPGlobalOptions & opt, 
+                                float scale, std::string const& match_filename) {
+
+  vw_out() << "\t--> Using interest points to determine search window.\n";
+  vector<ip::InterestPoint> in_ip1, in_ip2, matched_ip1, matched_ip2;
+  float i_scale = 1.0/scale;
+
+  // The interest points must have been created outside this function
+  if (!fs::exists(match_filename))
+    vw_throw( ArgumentErr() << "Missing IP file: " << match_filename);
+
+  vw_out() << "\t    * Using cached match file: " << match_filename << "\n";
+  ip::read_binary_match_file(match_filename, in_ip1, in_ip2);
+
+  // Filter out IPs which fall outside the specified elevation range
+  double min_elevation = stereo_settings().elevation_limit[0];
+  double max_elevation = stereo_settings().elevation_limit[1];
+  boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
+  opt.session->camera_models(left_camera_model, right_camera_model);
+  cartography::Datum datum = opt.session->get_datum(left_camera_model.get(), false);
+
+  filter_ip_by_elevation(left_camera_model, right_camera_model, datum, in_ip1, in_ip2,
+                         min_elevation, max_elevation, matched_ip1, matched_ip2);
+
+  // Find search window based on interest point matches
+
+  // Record the disparities for each point pair
+  size_t num_ip = matched_ip1.size();
+  std::vector<double> dx, dy;
+  double min_dx, min_dy, max_dx, max_dy;
+  min_dx = min_dy = std::numeric_limits<double>::max();
+  max_dx = max_dy = std::numeric_limits<double>::min();
+  for (size_t i = 0; i < num_ip; i++) {
+    double diffX = i_scale * (matched_ip2[i].x - matched_ip1[i].x);
+    double diffY = i_scale * (matched_ip2[i].y - matched_ip1[i].y);      
+    dx.push_back(diffX);
+    dy.push_back(diffY);
+    
+    if (diffX < min_dx) min_dx = diffX;  // Could be smarter about how this is done.
+    if (diffY < min_dy) min_dy = diffY;
+    if (diffX > max_dx) max_dx = diffX;
+    if (diffY > max_dy) max_dy = diffY;
+  }
+  num_ip = dx.size();
+  
+  // Compute histograms
+  const int NUM_BINS = 2000; // Accuracy is important with scaled pixels
+  std::vector<double> hist_x, centers_x, hist_y, centers_y;
+  histogram(dx, NUM_BINS, min_dx, max_dx, hist_x, centers_x);
+  histogram(dy, NUM_BINS, min_dy, max_dy, hist_y, centers_y);
+  
+  //printf("min x,y = %lf, %lf, max x,y = %lf, %lf\n", min_dx, min_dy, max_dx, max_dy);
+  
+  // Compute search ranges
+  const double MAX_PERCENTILE = 0.95;
+  const double MIN_PERCENTILE = 0.05;
+  double search_scale = 2.0;
+  size_t min_bin_x = get_histogram_percentile(hist_x, MIN_PERCENTILE);
+  size_t min_bin_y = get_histogram_percentile(hist_y, MIN_PERCENTILE);
+  size_t max_bin_x = get_histogram_percentile(hist_x, MAX_PERCENTILE);
+  size_t max_bin_y = get_histogram_percentile(hist_y, MAX_PERCENTILE);
+  Vector2 search_min(centers_x[min_bin_x],
+                     centers_y[min_bin_y]);
+  Vector2 search_max(centers_x[max_bin_x],
+                     centers_y[max_bin_y]);
+  //std::cout << "Unscaled search range = " << BBox2i(search_min, search_max) << std::endl;
+  Vector2 search_center = (search_max + search_min) / 2.0;
+  //std::cout << "search_center = " << search_center << std::endl;
+  Vector2 d_min = search_min - search_center; // TODO: Make into a bbox function!
+  Vector2 d_max = search_max - search_center;
+  //std::cout << "d_min = " << d_min << std::endl;
+  //std::cout << "d_max = " << d_max << std::endl;
+  search_min = d_min*search_scale + search_center;
+  search_max = d_max*search_scale + search_center;
+  //std::cout << "Scaled search range = " << BBox2i(search_min, search_max) << std::endl;
+  
+/*
+   // Debug code to print all the points
+  for (size_t i = 0; i < matched_ip1.size(); i++) {
+    Vector2f diff(i_scale * (matched_ip2[i].x - matched_ip1[i].x), 
+                  i_scale * (matched_ip2[i].y - matched_ip1[i].y));
+    //Vector2f diff(matched_ip2[i].x - matched_ip1[i].x, 
+    //              matched_ip2[i].y - matched_ip1[i].y);
+    vw_out(InfoMessage,"asp") << matched_ip1[i].x <<", "<<matched_ip1[i].y 
+              << " <> " 
+              << matched_ip2[i].x <<", "<<matched_ip2[i].y 
+               << " DIFF " << diff << " DIFF-M " << diff-mean << endl;
+  }
+*/
+  
+  //vw_out(InfoMessage,"asp") << "i_scale is : "       << i_scale << endl;
+  BBox2i search_range(search_min, search_max);
+  return search_range;
+} // End function approximate_search_range
+
+
 /// The first step of correlation computation.
 void lowres_correlation( ASPGlobalOptions & opt ) {
 
@@ -257,38 +561,28 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
     // Define the file name containing IP match information.
     string match_filename = ip::match_filename(opt.out_prefix, opt.in_file1, opt.in_file2);
 
-    std::cout << "Looking for IP file: " << match_filename << std::endl;
+    vw_out() << "Looking for IP file: " << match_filename << std::endl;
 
-    // TODO: Merge IP functionality
-    if (!fs::exists(match_filename)) {
-      // If there is no match file for the input images, gather some IP from the
-      // low resolution images. This routine should only run for:
-      //   Pinhole + Epipolar
-      //   Alignment method none
-      //   Cases where either input image is cropped, in which case the IP name is different.
-      // Everything else should gather IP's all the time during stereo_pprc.
-      double sub_scale =
-        sum(elem_quot( Vector2(file_image_size( opt.out_prefix+"-L_sub.tif" )),
-                       Vector2(file_image_size( opt.out_prefix+"-L.tif" ) ) )) +
-        sum(elem_quot( Vector2(file_image_size( opt.out_prefix+"-R_sub.tif" )),
-                       Vector2(file_image_size( opt.out_prefix+"-R.tif" ) ) ));
-      sub_scale /= 4.0f;
-
-      // TODO: Depending on alignment method, we can tailor the IP filtering strategy.
-      double thresh_factor = stereo_settings().ip_inlier_factor; // 1/15 by default
-
-      // This range is extra large to handle elevation differences.
-      const int inlier_threshold = 200*(15.0*thresh_factor);  // 200 by default
-      stereo_settings().search_range =
-        approximate_search_range(opt.out_prefix,
-  		         opt.out_prefix+"-L_sub.tif",
-  		         opt.out_prefix+"-R_sub.tif",
-  		         sub_scale, inlier_threshold );
+    // If there is no match file for the input images, gather some IP from the
+    // low resolution images. This routine should only run for:
+    //   Pinhole + Epipolar
+    //   Alignment method none
+    //   Cases where either input image is cropped, in which case the IP name is different.
+    // Everything else should gather IP's all the time during stereo_pprc.
+    // - TODO: When inputs are cropped, use the cropped IP!
+    double ip_scale = 1.0;
+    if (!fs::exists(match_filename)) {   
+      // Compute new IP and write them to disk.
+      // - This function will choose an appropriate IP computation based on the input images.
+      ip_scale = compute_ip(opt, match_filename);
+ 
+      // This function applies filtering to find good points
+      stereo_settings().search_range = approximate_search_range(opt, ip_scale, match_filename);
     } else {
       // Use the IP we recorded to set the search range.
       // - Currently we just make it large enough to contain all the matched IP!
     
-      // TODO: Why do we handle this differently than the IP in approximate_search_range?
+      // TODO: Use the same filtering in all cases!
     
       std::cout << "Loading existing IP... " << std::endl;
     
@@ -564,8 +858,7 @@ public:
 
     } else{ // seed mode == 0
       local_search_range = stereo_settings().search_range;
-      VW_OUT(DebugMessage,"stereo") << "Searching with "
-				    << stereo_settings().search_range << "\n";
+      VW_OUT(DebugMessage,"stereo") << "Searching with " << stereo_settings().search_range << "\n";
     }
 
     SemiGlobalMatcher::SgmSubpixelMode sgm_subpixel_mode = get_sgm_subpixel_mode();
@@ -766,7 +1059,7 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
 
 int main(int argc, char* argv[]) {
 
-  try {
+  //try {
     xercesc::XMLPlatformUtils::Initialize();
 
     stereo_register_sessions();
@@ -807,7 +1100,7 @@ int main(int argc, char* argv[]) {
     stereo_correlation( opt );
   
     xercesc::XMLPlatformUtils::Terminate();
-  } ASP_STANDARD_CATCHES;
+  //} ASP_STANDARD_CATCHES;
 
   return 0;
 }

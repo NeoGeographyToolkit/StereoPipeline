@@ -158,7 +158,7 @@ namespace asp {
           datum.set_semi_minor_axis(datum.semi_minor_axis() + mid_ht);
           //vw_out() << "New datum: " << datum << std::endl;
         }
-      }
+      } // End RPC case
       
       // A smaller value here makes IP more unique, but also fewer. 
       double ip_uniqueness_thresh = stereo_settings().ip_uniqueness_thresh;

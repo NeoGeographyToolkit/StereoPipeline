@@ -90,14 +90,6 @@ namespace asp {
   /// - Throws if any incompatible settings are found.
   void user_safety_checks(ASPGlobalOptions const& opt);
 
-  /// Approximate search range by looking at interest point match file
-  /// - TODO: The loose inlier threshold is necessary for some test cases to work, 
-  ///         but it really is a lot of slop in a downsampled image!!!
-  vw::BBox2i approximate_search_range(std::string const& out_prefix,
-                                      std::string const& left_sub_file,
-                                      std::string const& right_sub_file,
-                                      float scale,
-                                      int inlier_threshold = 10);
 
   bool skip_image_normalization(ASPGlobalOptions const& opt);
 
