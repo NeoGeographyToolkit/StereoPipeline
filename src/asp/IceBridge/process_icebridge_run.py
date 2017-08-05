@@ -61,7 +61,7 @@ os.environ["PATH"] = toolspath   + os.pathsep + os.environ["PATH"]
 BATCH_COMMAND_LOG_FILE = 'batch_commands_log.txt'
 
 def processBatch(imageCameraPairs, lidarFolder, outputFolder, extraOptions, 
-                 outputResolution, batchNum, batchLogPath=''):
+                 outputResolution, stereoArgs, batchNum, batchLogPath=''):
     '''Processes a batch of images at once'''
 
     suppressOutput = False
@@ -75,19 +75,21 @@ def processBatch(imageCameraPairs, lidarFolder, outputFolder, extraOptions,
 
     # Just set the options and call the pair python tool.
     # We can try out bundle adjustment for intrinsic parameters here.
-    cmd = ('--lidar-overlay --lidar-folder %s --dem-resolution %f --output-folder %s %s %s' 
+    cmd = ('--lidar-overlay --lidar-folder %s --dem-resolution %f --output-folder %s %s %s --stereo-arguments ' 
            % (lidarFolder, outputResolution, outputFolder, argString, extraOptions))
-    
+        
     if batchLogPath:
         # With this option we just log the commands to a text file
         # - Setting this option limits to one process so there will be only one 
         #   simultaneous file writer.
         with open(batchLogPath, 'a') as f:
-            f.write('process_icebridge_batch.py ' + cmd + '\n')
+            f.write('process_icebridge_batch.py ' + cmd + stereoArgs +'\n')
         return
     
     try:
-        process_icebridge_batch.main(cmd.split())
+        args = cmd.split()
+        args += (stereoArgs.strip(),) # Make sure this is properly passed
+        process_icebridge_batch.main(args)
     except Exception as e:
         logger.error('Batch processing failed!\n' + str(e))
 
@@ -319,10 +321,8 @@ def main(argsIn):
                           help='MUST be set if the images are in the southern hemisphere.')
 
         # Processing options
-        parser.add_option('--stereo-algorithm', dest='stereoAlgo', default=1,
-                          type='int', help='The SGM stereo algorithm to use.')
-        parser.add_option('--subpixel-mode', dest='subpix_mode', default=1,
-                          type='int', help='Subpixel mode (1 = fast but low quality, 3 = slow). Only applicable for non-SGM runs.')
+        parser.add_option('--stereo-arguments', dest='stereoArgs', default='',
+                          help='Additional argument string to be passed to the stereo command.')
 
         parser.add_option('--bundle-length', dest='bundleLength', default=2,
                           type='int', help='Number of images to bundle adjust and process at once.')
@@ -403,9 +403,17 @@ def main(argsIn):
           logger.error('Error: input files do not align!\n' + str((image, camera)))
           return -1
 
-    # TODO: Decide what to do here!
     # Set the output resolution as the computed mean GSD
-    outputResolution = getRunMeanGsd(imageCameraPairs, options.referenceDem, frameSkip=3)   
+    # - Currently we process ten frames total but this should be increased for production!
+    NUM_GSD_FRAMES = 10
+    logger.info('Computing GSD with ' + str(NUM_GSD_FRAMES) + ' frames.')
+    gsdFrameSkip = len(imageCameraPairs) / NUM_GSD_FRAMES
+    if gsdFrameSkip < 1:
+        gsdFrameSkip = 1
+    outputResolution = getRunMeanGsd(imageCameraPairs, options.referenceDem, gsdFrameSkip)
+    logger.info('OUTPUT_RESOLUTION: ' + str(outputResolution))
+    #return 0
+    
 
     # Generate a map of initial camera positions
     orbitvizBefore = os.path.join(outputFolder, 'cameras_in.kml')
@@ -418,7 +426,7 @@ def main(argsIn):
     asp_system_utils.executeCommand(cmd, orbitvizBefore, True, redo) # Suppress (potentially long) output
 
     # Set up options for process_icebridge_batch
-    extraOptions = ' --stereo-algorithm ' + str(options.stereoAlgo)
+    extraOptions = ''
     if options.numThreads:
         extraOptions += ' --num-threads ' + str(options.numThreads)
     if options.numProcessesPerBatch:
@@ -500,13 +508,13 @@ def main(argsIn):
 
         if not options.logBatches:
             logger.info('Running processing batch in output folder: ' + thisOutputFolder + '\n' + 
-                        'with options: ' + extraOptions)
+                        'with options: ' + extraOptions +' --stereo-arguments '+ options.stereoArgs)
         
         if not options.dryRun:
             # Generate the command call
             taskHandles.append(pool.apply_async(processBatch, 
                 (batchImageCameraPairs, lidarFolder, thisOutputFolder, extraOptions, 
-                 outputResolution, batchNum, batchLogPath)))
+                 outputResolution, options.stereoArgs, batchNum, batchLogPath)))
         batchNum += 1
         
         if hitBreakFrame:

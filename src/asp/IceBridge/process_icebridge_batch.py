@@ -47,6 +47,7 @@ os.environ["PATH"] = toolspath   + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = binpath     + os.pathsep + os.environ["PATH"]
 
 def genDEM(i, options, inputPairs, prefixes, demFiles, projString, threadText, suppressOutput, redo):
+    '''Create a DEM from a pair of images'''
     
     # Get the appropriate image to use as a stereo pair    
     pairIndex = i + options.stereoImageInterval
@@ -60,17 +61,17 @@ def genDEM(i, options, inputPairs, prefixes, demFiles, projString, threadText, s
     VERTICAL_SEARCH_LIMIT = 10
     searchLimitString = (' --corr-search-limit -9999 -' + str(VERTICAL_SEARCH_LIMIT) +
                          ' 9999 ' + str(VERTICAL_SEARCH_LIMIT) )
-    if options.stereoAlgo > 0:
+    if '--stereo-algorithm 0' not in options.stereoArgs:
         correlationArgString = (' --xcorr-threshold 2 --min-xcorr-level 1 --corr-kernel 7 7 ' 
                                 + ' --corr-tile-size 9000 --cost-mode 4 --sgm-search-buffer 4 1 '
-                                + ' --stereo-algorithm ' + str(options.stereoAlgo)
-                                + searchLimitString
-                                )
+                                + searchLimitString +' --corr-memory-limit-mb 20000 '
+                                + options.stereoArgs
+                               )
         #+ ' --corr-blob-filter 100')
         filterArgString = (' --rm-cleanup-passes 0 --median-filter-size 5 ' +
                            ' --texture-smooth-size 17 --texture-smooth-scale 0.14 ')
     else:
-        correlationArgString = ' --stereo-algorithm ' + str(options.stereoAlgo)
+        correlationArgString = options.stereoArgs
         filterArgString = ''
         
     stereoCmd += correlationArgString
@@ -129,8 +130,8 @@ def main(argsIn):
                           dest='solve_intr',  
                           help='If to float the intrinsics params.')
 
-        parser.add_option('--stereo-algorithm', dest='stereoAlgo', default=1,
-                          type='int', help='The SGM stereo algorithm to use, must be 1 or 2.')
+        parser.add_option('--stereo-arguments', dest='stereoArgs', default='',
+                          help='Additional argument string to be passed to the stereo command.')
                           
         parser.add_option('--stereo-image-interval', dest='stereoImageInterval', default=1,
                           type='int', help='Advance this many frames to get the stereo pair. ' + \
@@ -256,11 +257,15 @@ def main(argsIn):
 
     prefixes = []
     demFiles = []
+    atLeastOneDemMissing = False
     for i in range(0, numRuns):
         thisPairPrefix = os.path.join(options.outputFolder, 'stereo_pair_'+str(i)+'/out')
         prefixes.append(thisPairPrefix)
         p2dOutput = thisPairPrefix + '-DEM.tif'
         demFiles.append(p2dOutput)
+        if not os.path.exists(p2dOutput):
+            atLeastOneDemMissing = True
+        
 
     # We can either process the batch serially, or in parallel For
     # many batches the former is preferred, with the batches
@@ -286,6 +291,10 @@ def main(argsIn):
         for i in range(0, numRuns):
             genDEM(i, options, inputPairs, prefixes, demFiles, projString, threadText,
                    suppressOutput, redo)
+
+    # If we had to create at least one DEM, need to redo all the DEM mosaic steps
+    if atLeastOneDemMissing:
+        redo = True
 
     #raise Exception('BA DEBUG')
     logger.info('Finished running all stereo instances. Now merging DEMs...')

@@ -63,7 +63,7 @@ ORTHO_PBS_QUEUE     = 'normal'
 MAX_ORTHO_HOURS     = 2
 
 NUM_BATCH_JOBS      = 8 # The number of PBS requests we will submit.
-NUM_BATCH_THREADS   = 8 # MGM is limited to 8 threads
+NUM_BATCH_THREADS   = 10 # MGM is limited to 8 threads
 NUM_BATCH_PROCESSES = 2 # TODO: Get a handle on memory usage!
 BATCH_PBS_QUEUE     = 'normal'
 MAX_BATCH_HOURS     = 8 # devel limit is 2, long limit is 120, normal is 8
@@ -239,14 +239,23 @@ def generateBatchList(run):
 
     logger = logging.getLogger(__name__)
     
+    refDemName = icebridge_common.getReferenceDemName(run.site)
+    refDemPath = os.path.join(REFERENCE_DEM_FOLDER, refDemName)
+
     # No actual processing is being done here so it can run on the PFE
     # - This is very fast so we can re-run it every time.
-    cmd = ('process_icebridge_run.py %s %s %s %s --ortho-folder %s --num-threads %d  --bundle-length %d --stereo-algorithm %d  --stop-frame 99999999  --log-batches' % (run.getImageFolder(), run.getCameraFolder(), run.getLidarFolder(), run.getProcessFolder(), run.getOrthoFolder(), NUM_BATCH_THREADS, BUNDLE_LENGTH, STEREO_ALGORITHM))
+    scriptPath = asp_system_utils.which('process_icebridge_run.py')
+    cmd = ('%s %s %s %s %s --ortho-folder %s --num-threads %d  --bundle-length %d --stereo-algorithm %d  --stop-frame 99999999  --log-batches --reference-dem %s' % (scriptPath, run.getImageFolder(), run.getCameraFolder(), run.getLidarFolder(), run.getProcessFolder(), run.getOrthoFolder(), NUM_BATCH_THREADS, BUNDLE_LENGTH, STEREO_ALGORITHM, refDemPath))
     if icebridge_common.checkSite(run.site):
         cmd += ' --south'
+
+# TODO: Find out what takes so long here!
+# - Also fix the logging!
+
     logger.info(cmd)
     os.system(cmd)
     listPath = os.path.join(run.getProcessFolder(), 'batch_commands_log.txt')
+    #raise Exception('DEBUG')
     return listPath
     
 
@@ -331,7 +340,7 @@ def checkResults(run, batchListPath):
         logFileList = os.listdir(pbsLogFolder)
         logFileList = [os.path.join(pbsLogFolder, x) for x in logFileList]
         errorCount = 0
-        errorWords = ['error', 'Error'] # TODO: Fix this!
+        errorWords = ['TODO_ERROR_MESSAGES'] # TODO: Fix this!
         for log in logFileList:
             with open(log, 'r') as f:
                 for line in f:
@@ -411,8 +420,8 @@ def checkRequiredTools():
 #             'camera_footprint'
             ]
 
-  for tool in tools:
-      asp_system_utils.checkIfToolExists(tool)
+    for tool in tools:
+        asp_system_utils.checkIfToolExists(tool)
 
 def main(argsIn):
 

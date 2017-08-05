@@ -56,7 +56,7 @@ def fetchAllRunData(options, startFrame, stopFrame,
     '''Download all data needed to process a run'''
     
     logger = logging.getLogger(__name__)
-    logger.info('Downloading all data for the run! This could take a while.')
+    logger.info('Downloading data for the run...')
 
     baseCommand = (('--yyyymmdd %s --site %s --start-frame %d --stop-frame %d --jpeg-folder %s')
                    % (options.yyyymmdd, options.site, startFrame, stopFrame, jpegFolder))
@@ -90,8 +90,10 @@ def fetchAllRunData(options, startFrame, stopFrame,
         return -1
     if fetch_icebridge_data.main(fireballCommand.split()) < 0:
         print 'Fireball DEM data is optional, continuing run.'
-    if fetch_icebridge_data.main(lidarCommand.split()) < 0:
-        return -1
+    # Skip the lidar fetch if the user requested no lidar files
+    if (options.maxNumLidarToFetch == None) or (options.maxNumLidarToFetch > 0):
+        if fetch_icebridge_data.main(lidarCommand.split()) < 0:
+            return -1
 
     # jpeg and ortho indices must be consistent
     if not options.skipValidate:
@@ -118,16 +120,17 @@ def fetchAllRunData(options, startFrame, stopFrame,
     return (jpegFolder, orthoFolder, fireballFolder, lidarFolder)
 
 def processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFolder,
-                  isSouth, bundleLength, stereoAlgo, referenceDem,
+                  isSouth, bundleLength, referenceDem, stereoArgs,
                   startFrame, stopFrame, logBatches,
                   numProcesses, numThreads, numProcessesPerBatch):
     '''Do all the run processing'''
 
-    processCommand = (('%s %s %s %s --bundle-length %d --stereo-algorithm %d ' + \
-                       '--ortho-folder %s --num-processes %d --num-threads %d ' + \
+    # Some care is taken with the --stereo-arguments argument to make sure it is passed correctly.
+    processCommand = (('%s %s %s %s --bundle-length %d ' +
+                       '--ortho-folder %s --num-processes %d --num-threads %d ' +
                        '--num-processes-per-batch %d --reference-dem %s')
                       % (imageFolder, cameraFolder, lidarFolder, processFolder,
-                         bundleLength, stereoAlgo, orthoFolder, numProcesses,
+                         bundleLength, orthoFolder, numProcesses,
                          numThreads, numProcessesPerBatch, referenceDem))
     if isSouth:
         processCommand += ' --south'
@@ -137,10 +140,13 @@ def processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFo
         processCommand += ' --stop-frame ' + str(stopFrame)
     if logBatches:
         processCommand += ' --log-batches'
+    processCommand += ' --stereo-arguments '
 
     logger = logging.getLogger(__name__)
-    logger.info('Process command: process_icebridge_run ' + processCommand)
-    process_icebridge_run.main(processCommand.split())
+    logger.info('Process command: process_icebridge_run ' + processCommand + stereoArgs.strip())
+    args = processCommand.split()
+    args += (stereoArgs.strip(),) # Make sure this is properly passed
+    process_icebridge_run.main(args)
 
 def main(argsIn):
 
@@ -154,7 +160,7 @@ def main(argsIn):
         # An output folder will be crated automatically (with a name like
         # AN_20091016), or its name can be specified via the --output-folder
         # option.
-        usage = '''usage: full_processing_script.py <options>'''
+        usage = '''full_processing_script.py <options>'''
                       
         parser = argparse.ArgumentParser(usage=usage)
 
@@ -182,8 +188,8 @@ def main(argsIn):
                           type=int, help="The number of images to treat as overlapping for " + \
                           "bundle adjustment.")
         
-        parser.add_argument('--stereo-algorithm', dest='stereoAlgo', default=1,
-                          type=int, help='The SGM stereo algorithm to use.')
+        parser.add_argument('--stereo-arguments', dest='stereoArgs', default='--stereo-algorithm 1',
+                            help='Extra arguments to pass to stereo.')
 
         # There is a sublte bug in Python where numbers starting with
         # 0 passed in as an option value are treated as being in octal
@@ -261,9 +267,14 @@ def main(argsIn):
         options = parser.parse_args(argsIn)
 
     except argparse.ArgumentError, msg:
-        raise Usage(msg)
+        parser.error(msg)
         
     isSouth = icebridge_common.checkSite(options.site)
+
+    # Add the site based elevation limits to the stereoArgs option
+    altLimits = icebridge_common.getElevationLimits(options.site)
+    options.stereoArgs = (' %s --elevation-limit %f %f ' 
+                          % (options.stereoArgs, altLimits[0], altLimits[1]))
 
     if options.cameraLookupFile is None:
         options.cameraLookupFile = P.join(basepath, 'camera_lookup.txt')
@@ -389,7 +400,7 @@ def main(argsIn):
 
     # Call the processing routine
     processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFolder,
-                  isSouth, options.bundleLength, options.stereoAlgo, refDemPath,
+                  isSouth, options.bundleLength, refDemPath, options.stereoArgs,
                   options.startFrame, options.stopFrame, options.logBatches,
                   options.numProcesses, options.numThreads, options.numProcessesPerBatch)
 

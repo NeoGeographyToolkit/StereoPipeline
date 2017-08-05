@@ -735,6 +735,16 @@ def checkSite(site):
     isSouth = (site == 'AN')
     return isSouth
 
+def getElevationLimits(site):
+    '''Return the min and max elevation expected at a given site'''
+    # Would it work better to compute this on a per-flight or per-DEM basis?
+    if site == 'AN':
+        return (-50, 4500)
+    if site == 'GR':
+        return (-50, 3500)
+    if site == 'AL':
+        return (-50, 3500)
+
 def getReferenceDemName(site):
     '''Returns the DEM name to use for a given location'''
 
