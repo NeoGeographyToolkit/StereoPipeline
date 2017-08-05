@@ -96,6 +96,7 @@ struct Options : vw::cartography::GdalWriteOptions {
   double      search_radius_factor, sigma_factor;
   bool        use_surface_sampling;
   bool        has_las_or_csv;
+  Vector2i    max_output_size;
 
   // Output
   std::string out_prefix, output_file_type;
@@ -106,7 +107,7 @@ struct Options : vw::cartography::GdalWriteOptions {
 	      dem_hole_fill_len(0), ortho_hole_fill_len(0),
 	      remove_outliers_with_pct(true), max_valid_triangulation_error(0),
 	      erode_len(0), search_radius_factor(0), sigma_factor(0), use_surface_sampling(false),
-	      has_las_or_csv(false){}
+	      has_las_or_csv(false), max_output_size(9999999, 9999999){}
 };
 
 void parse_input_clouds_textures(std::vector<std::string> const& files,
@@ -396,6 +397,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 	    "Outlier removal based on percentage. Points with triangulation error larger than pct-th percentile times factor will be removed as outliers. [default: pct=75.0, factor=3.0]")
     ("max-valid-triangulation-error", po::value(&opt.max_valid_triangulation_error)->default_value(0),
 	    "Outlier removal based on threshold. Points with triangulation error larger than this (in meters) will be removed from the cloud.")
+    ("max-output-size",          po::value(&opt.max_output_size)->default_value(Vector2(9999999, 9999999)),
+	    "Don't write the output DEM if it is calculated to be this size or greater.")
     ("median-filter-params",          po::value(&opt.median_filter_params)->default_value(Vector2(0, 0),
 	    "window_size threshold"), "If the point cloud height at the current point differs by more than the given threshold from the median of heights in the window of given size centered at the point, remove it as an outlier. Use for example 11 and 40.0.")
     ("erode-length",   po::value<int>(&opt.erode_len)->default_value(0),
@@ -957,11 +960,11 @@ void do_software_rasterization( asp::OrthoRasterizerView& rasterizer,
 
     // Stop the program if it is going to create too large a DEM, this will 
     //  cause a crash.
-    const int MAX_OUTPUT_DIMENSION = 1000000;
     Vector2i dem_size = bounding_box(dem).size();
     vw_out()<< "Creating output file that is " << dem_size << " px.\n";
-    if ((dem_size[0] > MAX_OUTPUT_DIMENSION) || (dem_size[1] > MAX_OUTPUT_DIMENSION))
-      vw_throw( ArgumentErr() << "Requested DEM size is too large!\n" );
+    if ((dem_size[0] > opt.max_output_size[0]) || (dem_size[1] > opt.max_output_size[1]))
+      vw_throw( ArgumentErr() << "Requested DEM size is too large, max allowed output size is "
+                              << opt.max_output_size << " pixels.\n" );
 
     asp::save_image(opt, dem, georef, hole_fill_len, "DEM");
     sw2.stop();
