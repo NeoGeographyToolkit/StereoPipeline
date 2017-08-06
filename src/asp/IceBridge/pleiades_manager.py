@@ -234,7 +234,7 @@ def runConversion(run):
 
 
 
-def generateBatchList(run):
+def generateBatchList(run, listPath):
     '''Generate a list of all the processing batches required for a run'''
 
     logger = logging.getLogger(__name__)
@@ -243,20 +243,17 @@ def generateBatchList(run):
     refDemPath = os.path.join(REFERENCE_DEM_FOLDER, refDemName)
 
     # No actual processing is being done here so it can run on the PFE
-    # - This is very fast so we can re-run it every time.
-    scriptPath = asp_system_utils.which('process_icebridge_run.py')
-    cmd = ('%s %s %s %s %s --ortho-folder %s --num-threads %d  --bundle-length %d --stereo-algorithm %d  --stop-frame 99999999  --log-batches --reference-dem %s' % (scriptPath, run.getImageFolder(), run.getCameraFolder(), run.getLidarFolder(), run.getProcessFolder(), run.getOrthoFolder(), NUM_BATCH_THREADS, BUNDLE_LENGTH, STEREO_ALGORITHM, refDemPath))
-    if icebridge_common.checkSite(run.site):
-        cmd += ' --south'
+    # - This is very fast so we can re-run it every time. (Maybe not...)
+    scriptPath = asp_system_utils.which('full_processing_script.py')
+    cmd       = ('%s --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --skip-fetch --skip-convert --num-threads %d --num-processes %d --output-folder %s --bundle-length %d --log-batches' 
+                  % (scriptPath, CALIBRATION_FILE_FOLDER, REFERENCE_DEM_FOLDER, run.site, run.yyyymmdd, NUM_BATCH_THREADS, NUM_BATCH_PROCESSES, run.getFolder(), BUNDLE_LENGTH))
+
 
 # TODO: Find out what takes so long here!
 # - Also fix the logging!
 
     logger.info(cmd)
     os.system(cmd)
-    listPath = os.path.join(run.getProcessFolder(), 'batch_commands_log.txt')
-    #raise Exception('DEBUG')
-    return listPath
     
 
 def submitBatchJobs(run, batchListPath):
@@ -362,11 +359,15 @@ def checkResults(run, batchListPath):
     with open(batchListPath, 'r') as f:
         for line in f:
             parts        = line.split()
-            outputFolder = parts[4] # This needs to be kept up to date with the file format!
-            targetPath = os.path.join(outputFolder, batchOutputName)
+            outputFolder = parts[9] # This needs to be kept up to date with the file format!
+            targetPath   = os.path.join(outputFolder, batchOutputName)
             numOutputs += 1
             if os.path.exists(targetPath):
                 numProduced += 1
+            else:
+                logger.info('Did not find: ' + targetPath(
+                if not os.path.exists(outputFolder):
+                    logger.error('Check output folder position in batch log file!')
             
     return (numOutputs, numProduced, errorCount)
 
@@ -401,6 +402,7 @@ def generateSummaryFolder(run, outputFolder):
     demList = run.getOutputDemList()
     for (dem, frames) in demList:
         hillshadePath = dem.replace('out-align-DEM.tif', 'out-DEM_HILLSHADE_browse.tif')
+        print hillshadePath
         if not os.path.exists(hillshadePath):
             continue
         
@@ -481,16 +483,17 @@ def main(argsIn):
 
         # Run command to generate the list of batch jobs for this run
         logger.info('Fetching batch list for run ' + str(run))
-        batchListPath = generateBatchList(run)
-        
+        batchListPath = os.path.join(run.getProcessFolder(), 'batch_commands_log.txt')
+        #batchListPath = generateBatchList(run, batchListPath)
+       
         # Divide up batches into jobs and submit them to machines.
         logger.info('Submitting jobs for run ' + str(run))
-        baseName = submitBatchJobs(run, batchListPath)
+        #baseName = submitBatchJobs(run, batchListPath)
         
         
         # Wait for all the jobs to finish
         logger.info('Waiting for job completion of run ' + str(run))
-        waitForRunCompletion(baseName)
+        #waitForRunCompletion(baseName)
         logger.info('All jobs finished for run '+str(run))
         
         # Log the run as completed
@@ -502,6 +505,8 @@ def main(argsIn):
         resultText = ('"Created %d out of %d output targets with %d errors."' % 
                       (numProduced, numOutputs, errorCount))
         logger.info(resultText)
+
+        raise Exception('DEBUG')
 
         # Generate a summary folder and send a copy to Lou
         # - Currently the summary folders need to be deleted manually, but they should not
@@ -525,7 +530,7 @@ def main(argsIn):
         else:
             sendEmail(CONTACT_EMAIL, '"IB run failed - '+str(run)+'"', resultText)
         
-        raise Exception('DEBUG')
+        raise Exception('DEBUG - END LOOP')
         
     # End loop through runs
     logger.info('==== pleiades_manager script has finished! ====')

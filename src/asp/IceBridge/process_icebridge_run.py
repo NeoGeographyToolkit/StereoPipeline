@@ -60,7 +60,7 @@ os.environ["PATH"] = toolspath   + os.pathsep + os.environ["PATH"]
 #  be written to with the --log-batches option.
 BATCH_COMMAND_LOG_FILE = 'batch_commands_log.txt'
 
-def processBatch(imageCameraPairs, lidarFolder, outputFolder, extraOptions, 
+def processBatch(imageCameraPairs, lidarFolder, referenceDem, outputFolder, extraOptions, 
                  outputResolution, stereoArgs, batchNum, batchLogPath=''):
     '''Processes a batch of images at once'''
 
@@ -75,15 +75,15 @@ def processBatch(imageCameraPairs, lidarFolder, outputFolder, extraOptions,
 
     # Just set the options and call the pair python tool.
     # We can try out bundle adjustment for intrinsic parameters here.
-    cmd = ('--lidar-overlay --lidar-folder %s --dem-resolution %f --output-folder %s %s %s --stereo-arguments ' 
-           % (lidarFolder, outputResolution, outputFolder, argString, extraOptions))
+    cmd = ('--lidar-overlay --lidar-folder %s --reference-dem %s --dem-resolution %f --output-folder %s %s %s --stereo-arguments ' 
+           % (lidarFolder, referenceDem, outputResolution, outputFolder, argString, extraOptions))
         
     if batchLogPath:
         # With this option we just log the commands to a text file
         # - Setting this option limits to one process so there will be only one 
         #   simultaneous file writer.
         with open(batchLogPath, 'a') as f:
-            f.write('process_icebridge_batch.py ' + cmd + stereoArgs +'\n')
+            f.write('process_icebridge_batch.py ' + cmd +'"'+ stereoArgs +'"\n')
         return
     
     try:
@@ -197,7 +197,6 @@ def getImageSpacing(orthoFolder, startFrame, stopFrame):
     
     return (interval, breaks)
 
-
 def getRunMeanGsd(imageCameraPairs, referenceDem, frameSkip=1):
     '''Compute the mean GSD of the images across the run'''
 
@@ -209,21 +208,12 @@ def getRunMeanGsd(imageCameraPairs, referenceDem, frameSkip=1):
     numChecks = 0.0
     for i in range(0, numPairs, frameSkip):
         pair = imageCameraPairs[i]
-
-        # Run GSD too 
-        tool = asp_system_utils.which('camera_footprint')
-        cmd = ('%s --quick --datum wgs84 -t nadirpinhole --dem-file %s %s %s' %
-                (tool, referenceDem, pair[0], pair[1]))
-        print cmd
-        p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
-        textOutput, err = p.communicate()       
-        logger.info(textOutput)
         
-        # Get the gsd
-        m = re.findall(r"Computed mean gsd: (\d+\.*\d*)", textOutput)
-        if len(m) != 1: # An unknown error occurred, move on.
-            continue
-        gsd = float(m[0])
+        # Average in the GSD for each file we can process
+        #try:
+        gsd = icebridge_common.getCameraGsd(pair[0], pair[1], referenceDem, logger)
+        #except: # Move on to the next file on failure
+        #    continue
         meanGsd   += gsd
         numChecks += 1.0
 
@@ -513,7 +503,7 @@ def main(argsIn):
         if not options.dryRun:
             # Generate the command call
             taskHandles.append(pool.apply_async(processBatch, 
-                (batchImageCameraPairs, lidarFolder, thisOutputFolder, extraOptions, 
+                (batchImageCameraPairs, lidarFolder, options.referenceDem, thisOutputFolder, extraOptions, 
                  outputResolution, options.stereoArgs, batchNum, batchLogPath)))
         batchNum += 1
         

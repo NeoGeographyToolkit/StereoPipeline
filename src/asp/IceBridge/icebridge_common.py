@@ -145,6 +145,24 @@ def getLidarCsvFormat(filename):
     return '"1:lat 2:lon 3:height_above_datum"' # ATM
     
     
+def getCameraGsd(imagePath, cameraPath, referenceDem, logger=None):
+    '''Compute the GSD of a single camera'''
+    
+    # Run GSD too l
+    tool = asp_system_utils.which('camera_footprint')
+    cmd = ('%s --quick --datum wgs84 -t nadirpinhole --dem-file %s %s %s' %
+            (tool, referenceDem, imagePath, cameraPath))
+    print cmd
+    p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
+    textOutput, err = p.communicate()
+    if logger:
+        logger.info(textOutput)
+    
+    # Extract the gsd from the output text
+    m = re.findall(r"Computed mean gsd: (\d+\.*\d*)", textOutput)
+    if len(m) != 1: # An unknown error occurred, move on.
+        raise Exception('Unable to compute GSD for file: ' + cameraPath)
+    return float(m[0])
 
 def getFrameRangeFromBatchFolder(folder):
     '''Returns (startFrame, endFrame) for a batch folder'''

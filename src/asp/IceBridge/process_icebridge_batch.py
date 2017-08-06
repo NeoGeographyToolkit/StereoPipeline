@@ -86,7 +86,9 @@ def genDEM(i, options, inputPairs, prefixes, demFiles, projString, threadText, s
 #     asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput, redo)
 
     # point2dem on the result of ASP
-    cmd = ('point2dem --tr %lf --t_srs %s %s %s --errorimage' 
+    # - The size limit is to prevent bad point clouds from creating giant DEM files which
+    #   cause the processing node to crash.
+    cmd = ('point2dem --max-output-size 10000 10000 --tr %lf --t_srs %s %s %s --errorimage' 
            % (options.demResolution, projString, triOutput, threadText))
     p2dOutput = demFiles[i]
     asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput, redo)
@@ -105,10 +107,7 @@ def genDEM(i, options, inputPairs, prefixes, demFiles, projString, threadText, s
 def main(argsIn):
 
     try:
-        usage = '''usage: process_icebridge_batch <imageA> <imageB> [imageC ...] <cameraA> <cameraB> [cameraC ...]
-                      
-
-  [ASP [@]ASP_VERSION[@]]'''
+        usage = '''usage: process_icebridge_batch <imageA> <imageB> [imageC ...] <cameraA> <cameraB> [cameraC ...]'''
         
         parser = optparse.OptionParser(usage=usage)
 
@@ -121,6 +120,9 @@ def main(argsIn):
 
         parser.add_option('--output-folder', default=None, dest='outputFolder',  
                           help='The folder used for output.')
+
+        parser.add_option('--reference-dem', default=None, dest='referenceDem',  
+                          help='Low resolution DEM used for certain checks.')
 
         # Processing options
         parser.add_option('--max-displacement', dest='maxDisplacement', default=20,
@@ -193,6 +195,29 @@ def main(argsIn):
     if not os.path.exists(options.outputFolder):
         os.mkdir(options.outputFolder)
 
+
+    # Check that the output GSD is not set too much lower than the native resolution
+    if options.referenceDem:
+        MAX_OVERSAMPLING = 0.7
+        computedGsd = options.demResolution
+        try:
+            # Compute the native GSD of the first input camera
+            computedGsd = icebridge_common.getCameraGsd(inputPairs[0][0], inputPairs[0][1], 
+                                                        options.referenceDem, logger)            
+            print 'GSD = ' + str(computedGsd)
+        except:
+            logger.Warning('Failed to compute GSD for camera: ' + inputPairs[0][1])
+        if options.demResolution < (computedGsd*MAX_OVERSAMPLING):
+            logger.Warning('Specified GSD ' + options.demResolution + 
+                           ' is too fine for camera with computed GSD ' + computedGsd +
+                           '.  Switching to native GSD.)')
+            options.demResolution = computedGsd
+        # Undersampling is not as dangerous, just print a warning.
+        if options.demResolution > 2*computedGsd:
+            logger.Warning('Specified GSD ' + options.demResolution + 
+                           ' is much larger than computed GSD ' + computedGsd)
+                           
+
     # If a lidar folder was specified, find the best lidar file.
     lidarFile = None
     if options.lidarFolder:
@@ -211,8 +236,6 @@ def main(argsIn):
     threadText = ''
     if options.numThreads:
         threadText = ' --threads ' + str(options.numThreads) +' '
-    
-    #redo = True
     
     # BUNDLE_ADJUST
     # - Bundle adjust all of the input images in the batch at the same time.
@@ -378,7 +401,7 @@ def main(argsIn):
 
         # Generate a DEM from the lidar point cloud in this region        
         lidarDemPrefix = os.path.join(options.outputFolder, 'cropped_lidar')
-        cmd = ('point2dem --t_projwin %f %f %f %f --tr %lf --t_srs %s %s %s --csv-format %s -o %s' 
+        cmd = ('point2dem --max-output-size 10000 10000 --t_projwin %f %f %f %f --tr %lf --t_srs %s %s %s --csv-format %s -o %s' 
                % (minX, minY, maxX, maxY,
                   LIDAR_DEM_RESOLUTION, projString, lidarFile, threadText, 
                   lidarCsvFormatString, lidarDemPrefix))
