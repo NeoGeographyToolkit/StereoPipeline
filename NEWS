@@ -12,6 +12,9 @@
      automatically computed correlation search range.
    * Added --corr-memory-limit-mb option to limit the
      memory usage of the SGM/MGM algorithms.
+   * Improved search range estimation in nadir epipolar 
+     alignment cases. Added --elevation-limit option to
+     help constrain this search range.
    
  - bundle_adjust
    * The tool is a lot more sensitive now to --camera-weight,
@@ -32,6 +35,8 @@
      these coefficients are stored in _RPC.TXT files.
    * Support for web-based PROJ.4 strings, e.g., 
      point2dem --t_srs http://spatialreference.org/ref/iau2000/49900/
+   * Added --max-output-size option to point2dem to prevent against
+     creation of too large DEMs.
    
 *** RELEASE 2.6.0, May 15, 2017 ***
 

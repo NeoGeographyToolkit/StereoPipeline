@@ -857,6 +857,7 @@ and Northing fields. If not specified, -\/-t\_srs will be used.  \\
 \texttt{-\/-orthoimage-hole-fill-len \textit{int(=0)}} & Maximum dimensions of a hole in the output orthoimage to fill in, in pixels. \\ \hline
 \texttt{-\/-remove-outliers-params  \textit{pct (float) factor (float) [default: 75.0 3.0]}} & Outlier removal based on percentage. Points with triangulation error larger than pct-th percentile times factor will be removed as outliers. \\ \hline
 \texttt{-\/-max-valid-triangulation-error \textit{float(=0)}} & Outlier removal based on threshold. Points with triangulation error larger than this (in meters) will be removed from the cloud. \\ \hline
+\texttt{-\/-max-output-size \textit{columns rows} } & Creating of the DEM will be aborted if it is calculated to exceed this size in pixels. \\ \hline
 \texttt{-\/-median-filter-params \textit{window\_size (int) threshold (double)}} & If the point cloud height at the current point differs by more than the given threshold from the median of heights in the window of given size centered at the point, remove it as an outlier. Use for example 11 and 40.0.\\ \hline
 \texttt{-\/-erode-length \textit{length (int)}} & Erode input point clouds by this many pixels at boundary (after outliers are removed, but before filling in holes). \\ \hline
 \texttt{-\/-use-surface-sampling \textit{[default: false]}} & Use the older algorithm, interpret the point cloud as a surface made up of triangles and sample it (prone to aliasing).\\ \hline

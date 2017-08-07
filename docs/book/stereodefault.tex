@@ -285,6 +285,11 @@ WGS72, and NAD27. Also accepted: Earth (=WGS\_1984), Mars (=D\_MARS), Moon
   when using pinhole frame cameras with epipolar alignment the actual vertical
   search range may be much smaller than the automatically computed search range.
 
+\item[elevation-limit \textnormal{\small{(\emph{float float})}}] \hfill \\
+  Notify ASP that all elevations are expected to fall in this range relative to
+  the datum. Currently only used to restrict the search range estimate in 
+  nadir epipolar alignment cases.
+
 \item[xcorr-threshold \textnormal{\small{(\emph{integer})}} (default = 2)] \hfill \\
 
   Integer correlation to a limited sense performs a correlation
