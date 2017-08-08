@@ -93,8 +93,13 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
       load_camera_models( left_cam, right_cam, left_out_size, right_out_size );
       
       // Write out the camera models used to generate the aligned images.
-      dynamic_cast<PinholeModel*>(left_cam.get ())->write(m_out_prefix + "-L.tsai");
-      dynamic_cast<PinholeModel*>(right_cam.get())->write(m_out_prefix + "-R.tsai");
+      // - Currently this won't work if we used .adjust files from bundle_adjust!
+      PinholeModel* left_pin_model  = dynamic_cast<PinholeModel*>(left_cam.get ());
+      PinholeModel* right_pin_model = dynamic_cast<PinholeModel*>(right_cam.get());
+      if (left_pin_model)
+        left_pin_model->write(m_out_prefix + "-L.tsai");
+      if (right_pin_model)
+        right_pin_model->write(m_out_prefix + "-R.tsai");
       
       get_epipolar_transformed_pinhole_images(m_left_camera_file, m_right_camera_file,
                                               left_cam, right_cam,
