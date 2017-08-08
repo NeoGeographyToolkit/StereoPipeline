@@ -72,9 +72,9 @@ struct Options : public vw::cartography::GdalWriteOptions {
   std::string cnet_file, out_prefix, stereo_session_string,
     cost_function, ba_type, mapprojected_data, gcp_data;
   int    ip_per_tile;
-  double min_triangulation_angle, lambda, camera_weight, rotation_weight, translation_weight, overlap_exponent, robust_threshold;
+  double min_triangulation_angle, lambda, camera_weight, rotation_weight, 
+         translation_weight, overlap_exponent, robust_threshold;
   int    report_level, min_matches, max_iterations, overlap_limit;
-
   bool   save_iteration, local_pinhole_input, fix_gcp_xyz, solve_intrinsics;
   std::string datum_str, camera_position_file, initial_transform_file, csv_format_str, csv_proj4_str,
     intrinsics_to_float_str;
@@ -83,12 +83,12 @@ struct Options : public vw::cartography::GdalWriteOptions {
   boost::shared_ptr<ControlNetwork> cnet;
   std::vector<boost::shared_ptr<CameraModel> > camera_models;
   cartography::Datum datum;
-  int  ip_detect_method;
+  int    ip_detect_method;
   double epipolar_threshold; // Max distance from epipolar line to search for IP matches.
   double ip_inlier_factor, ip_uniqueness_thresh, nodata_value;
-  bool skip_rough_homography, individually_normalize;
+  bool   skip_rough_homography, individually_normalize;
   std::set<std::string> intrinsics_to_float;
-  std::string overlap_list_file;
+  std::string           overlap_list_file;
   std::set< std::pair<std::string, std::string> > overlap_list;
   vw::Matrix4x4 initial_transform;
   
@@ -124,9 +124,8 @@ update_cnet_and_init_cams(ModelT & ba_model, Options & opt,
   
 }
 
-/// This function should be called when no input cameras were
-/// provided. We set initial guesses for the control point
-/// positions and for the (pinhole) cameras.
+/// Specialization for pinhole cameras, copy the camera
+///  parameters from the control network into the vectors.
 template<> void
 update_cnet_and_init_cams<BAPinholeModel>(
                           BAPinholeModel & ba_model, Options & opt,
@@ -291,8 +290,9 @@ struct BaPinholeError {
       m_ba_model->concat_extrinsics_intrinsics(camera,
                                                focal_length, optical_center, nonlens_intrinsics,
                                                cam_intr_vec);
+      Vector3 offset(393898.51796331455, 209453.73827364066, -6350895.8432638068);
       for (size_t p = 0; p < point_vec.size(); p++)
-        point_vec[p] = point[p];
+        point_vec[p] = point[p];// + offset[p];
 
       // Project the current point into the current camera
       Vector2 prediction = m_ba_model->cam_pixel(m_ipt, m_icam, cam_intr_vec, point_vec);
@@ -622,11 +622,77 @@ void add_residual_block<BAPinholeModel>
 }
 
 
+/// Write out a .csv file recording the residual error at each location on the ground
+void write_residual_map(std::string const& output_prefix, CameraRelationNetwork<JFeature> & crn,
+                        std::vector<double> const& residuals,
+                        const double *points, const size_t num_points, const size_t num_cameras,
+                        Options const& opt) {
 
-void write_residual_log(std::string const& residual_prefix, bool apply_loss_function,
+  // Connect each observation (and residual) with the corresponding point.
+
+  std::vector<int>    num_point_observations(num_points);
+  std::vector<double> point_residuals(num_points);
+
+  // Observation residuals are stored at the beginning of the residual vector in the 
+  //  same order they were originally added to Ceres.
+  
+  size_t residual_index = 0;
+  // Double loop through cameras and crn entries will give us the correct order
+  for ( size_t icam = 0; icam < num_cameras; icam++ ) {
+    typedef CameraNode<JFeature>::const_iterator crn_iter;
+    for ( crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++ ){
+
+      // Get the residual error for this observation
+      double errorX = residuals[residual_index ];
+      double errorY = residuals[residual_index+1];
+      double residual_error = (fabs(errorX) + fabs(errorY)) / 2;
+      residual_index += 2;
+
+      // The index of the 3D point
+      int ipt = (**fiter).m_point_id;
+
+      // Update information for this point
+      num_point_observations[ipt] += 1;
+      point_residuals       [ipt] += residual_error;
+    }
+  } // End double loop through all the observations
+  
+  // Open the output file and write the header
+  std::string output_path = output_prefix + "_point_log.csv";
+  std::ofstream file;
+  file.open(output_path.c_str());
+  file << "lon, lat, alt, mean_residual, num_observations\n";
+  
+  // Now write all the points to the file
+  for (size_t i=0; i<num_points; ++i) {
+
+      // The final GCC coordinate of this point
+      const int NUM_POINT_PARAMS = 3;
+      const double * point = points + i * NUM_POINT_PARAMS;
+      Vector3 xyz(point[0], point[1], point[2]);
+      //xyz = xyz + Vector3(393898.51796331455, 209453.73827364066, -6350895.8432638068);
+  
+      Vector3 llh = opt.datum.cartesian_to_geodetic(xyz);
+  
+     // Compute the average point residual across all observations
+     double mean_residual = point_residuals[i] / static_cast<double>(num_point_observations[i]);
+  
+     file << llh[0] <<", "<< llh[1] <<", "<< llh[2] <<", "<< mean_residual <<", "
+          << num_point_observations[i] << std::endl;
+  }
+  file.close();
+    
+} // End function write_residual_map
+
+
+/// Write log files describing all the residual errors.
+void write_residual_logs(std::string const& residual_prefix, bool apply_loss_function,
                         Options const& opt, size_t num_cameras, 
                         std::vector<size_t> const& cam_residual_counts,
-                        size_t num_gcp_residuals, ceres::Problem &problem) {
+                        size_t num_gcp_residuals, 
+                        CameraRelationNetwork<JFeature> & crn,
+                        const double *points, const size_t num_points,
+                        ceres::Problem &problem) {
 
   const size_t PIXEL_RESIDUAL_SIZE = 2;
   const size_t GCP_RESIDUAL_SIZE   = 3;
@@ -658,7 +724,7 @@ void write_residual_log(std::string const& residual_prefix, bool apply_loss_func
   
   if (num_expected_residuals != num_residuals)
     vw_throw( LogicErr() << "Expected " << num_expected_residuals
-	      << " residuals but instead got " << num_residuals);
+                         << " residuals but instead got " << num_residuals);
     
   // Write a report on residual errors
   std::ofstream residual_file, residual_file_raw_pixels, residual_file_raw_gcp, residual_file_raw_cams;
@@ -689,6 +755,7 @@ void write_residual_log(std::string const& residual_prefix, bool apply_loss_func
     residual_file << opt.camera_files[c] << ", " << mean_residual << ", " << num_this_cam_residuals << std::endl;
   }
   residual_file_raw_pixels.close();
+  
   // List the GCP residuals
   if (num_gcp_residuals > 0) {
     residual_file_raw_gcp.open(residual_raw_gcp_path.c_str());
@@ -707,6 +774,7 @@ void write_residual_log(std::string const& residual_prefix, bool apply_loss_func
     }
     residual_file_raw_gcp.close();
   }
+  
   // List the camera weight residuals
   int num_passes = int(opt.camera_weight > 0) +
     int(opt.rotation_weight > 0 || opt.translation_weight > 0);
@@ -739,8 +807,12 @@ void write_residual_log(std::string const& residual_prefix, bool apply_loss_func
   
   if (index != num_residuals)
     vw_throw( LogicErr() << "Have " << num_residuals << " residuals but iterated through " << index);
-  
-} // End function write_residual_log
+
+  // Generate the location based files
+  std::string map_prefix = residual_prefix + "_pointmap";
+  write_residual_map(map_prefix, crn, residuals, points, num_points, num_cameras, opt);
+
+} // End function write_residual_logs
 
 
 // TODO: Move this somewhere else?
@@ -807,8 +879,8 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
   std::vector<double> cameras_vec(num_cameras*num_camera_params, 0.0);
   std::vector<double> intrinsics_vec(num_intrinsic_params, 0.0);
 
-  // Do any init required for this camera model.
-  // - Currently we don't do anything except for pinhole models with no input cameras.
+  // Fill in the camera vectors with their starting values.
+  // TODO: This does not update the cnet anymore!
   update_cnet_and_init_cams(ba_model, opt, (*opt.cnet), cameras_vec, intrinsics_vec);
 
   /*
@@ -830,9 +902,10 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
 
   // Points
   std::vector<double> points_vec(num_points*num_point_params, 0.0);
+  Vector3 offset(393898.51796331455, 209453.73827364066, -6350895.8432638068);
   for (int ipt = 0; ipt < num_points; ipt++){
     for (int q = 0; q < num_point_params; q++){
-      points_vec[ipt*num_point_params + q] = cnet[ipt].position()[q];
+      points_vec[ipt*num_point_params + q] = cnet[ipt].position()[q];// - offset[q];
     }
   }
   double* points = &points_vec[0];
@@ -981,9 +1054,9 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
   vw_out() << "Writing initial condition files..." << std::endl;
 
   std::string residual_prefix = opt.out_prefix + "-initial_residuals_loss_function";
-  write_residual_log(residual_prefix, true, opt, num_cameras, cam_residual_counts, num_gcp_residuals, problem);
+  write_residual_logs(residual_prefix, true,  opt, num_cameras, cam_residual_counts, num_gcp_residuals, crn, points, num_points, problem);
   residual_prefix = opt.out_prefix + "-initial_residuals_no_loss_function";
-  write_residual_log(residual_prefix, false, opt, num_cameras, cam_residual_counts, num_gcp_residuals, problem);
+  write_residual_logs(residual_prefix, false, opt, num_cameras, cam_residual_counts, num_gcp_residuals, crn, points, num_points, problem);
 
   const size_t KML_POINT_SKIP = 30;
   std::string point_kml_path = opt.out_prefix + "-initial_points.kml";
@@ -1035,9 +1108,9 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
 
   vw_out() << "Writing final condition log files..." << std::endl;
   residual_prefix = opt.out_prefix + "-final_residuals_loss_function";
-  write_residual_log(residual_prefix, true, opt, num_cameras, cam_residual_counts, num_gcp_residuals, problem);
+  write_residual_logs(residual_prefix, true,  opt, num_cameras, cam_residual_counts, num_gcp_residuals, crn, points, num_points, problem);
   residual_prefix = opt.out_prefix + "-final_residuals_no_loss_function";
-  write_residual_log(residual_prefix, false, opt, num_cameras, cam_residual_counts, num_gcp_residuals, problem);
+  write_residual_logs(residual_prefix, false, opt, num_cameras, cam_residual_counts, num_gcp_residuals, crn, points, num_points, problem);
 
   point_kml_path = opt.out_prefix + "-final_points.kml";
   record_points_to_kml(point_kml_path, opt.datum, points, num_points, KML_POINT_SKIP, "final_points",
@@ -1192,21 +1265,21 @@ void save_cnet_as_csv(Options& opt, std::string const& cnetFile){
 //        require all the template switches.
 
 // Use given cost function. Switch based on solver.
-template<class ModelType, class CostFunType>
+template<class CostFunType>
 void do_ba_costfun(CostFunType const& cost_fun, Options& opt){
 
-  ModelType ba_model(opt.camera_models, opt.cnet);
+  BundleAdjustmentModel ba_model(opt.camera_models, opt.cnet);
 
   if ( opt.ba_type == "ceres" ) {
-    do_ba_ceres<ModelType>(ba_model, opt);
+    do_ba_ceres<BundleAdjustmentModel>(ba_model, opt);
   } else if ( opt.ba_type == "robustsparse" ) {
-    do_ba_nonceres<AdjustRobustSparse< ModelType,CostFunType> >(ba_model, cost_fun, opt);
+    do_ba_nonceres<AdjustRobustSparse< BundleAdjustmentModel,CostFunType> >(ba_model, cost_fun, opt);
   } else if ( opt.ba_type == "robustref" ) {
-    do_ba_nonceres<AdjustRobustRef< ModelType,CostFunType> >(ba_model, cost_fun, opt);
+    do_ba_nonceres<AdjustRobustRef< BundleAdjustmentModel,CostFunType> >(ba_model, cost_fun, opt);
   } else if ( opt.ba_type == "sparse" ) {
-    do_ba_nonceres<AdjustSparse< ModelType, CostFunType > >(ba_model, cost_fun, opt);
+    do_ba_nonceres<AdjustSparse< BundleAdjustmentModel, CostFunType > >(ba_model, cost_fun, opt);
   }else if ( opt.ba_type == "ref" ) {
-    do_ba_nonceres<AdjustRef< ModelType, CostFunType > >(ba_model, cost_fun, opt);
+    do_ba_nonceres<AdjustRef< BundleAdjustmentModel, CostFunType > >(ba_model, cost_fun, opt);
   }
 
   // Save the models to disk.
@@ -1220,20 +1293,19 @@ void do_ba_costfun(CostFunType const& cost_fun, Options& opt){
 
 }
 
-// Do BA with given model. Switch based on cost function.
-template<class ModelType>
+// Do BA with BundleAdjustmentModel model. Switch based on cost function.
 void do_ba_with_model(Options& opt){
 
   if ( opt.cost_function == "cauchy" ) {
-    do_ba_costfun<ModelType, CauchyError>(CauchyError(opt.robust_threshold), opt);
+    do_ba_costfun<CauchyError>(CauchyError(opt.robust_threshold), opt);
   }else if ( opt.cost_function == "pseudohuber" ) {
-    do_ba_costfun<ModelType, PseudoHuberError>(PseudoHuberError(opt.robust_threshold), opt );
+    do_ba_costfun<PseudoHuberError>(PseudoHuberError(opt.robust_threshold), opt );
   } else if ( opt.cost_function == "huber" ) {
-    do_ba_costfun<ModelType, HuberError>(HuberError(opt.robust_threshold), opt );
+    do_ba_costfun<HuberError>(HuberError(opt.robust_threshold), opt );
   } else if ( opt.cost_function == "l1" ) {
-    do_ba_costfun<ModelType, L1Error>( L1Error(), opt );
+    do_ba_costfun<L1Error>( L1Error(), opt );
   } else if ( opt.cost_function == "l2" ) {
-    do_ba_costfun<ModelType, L2Error>( L2Error(), opt );
+    do_ba_costfun<L2Error>( L2Error(), opt );
   }else{
     vw_throw( ArgumentErr() << "Unknown cost function: " << opt.cost_function
               << ". Options are: Cauchy, PseudoHuber, Huber, L1, L2.\n" );
@@ -2202,8 +2274,7 @@ int main(int argc, char* argv[]) {
     // Load estimated camera positions if they were provided.
     std::vector<Vector3> estimated_camera_gcc;
     load_estimated_camera_positions(opt, estimated_camera_gcc);
-    const bool got_est_cam_positions
-      = (estimated_camera_gcc.size() == static_cast<size_t>(num_images));
+    const bool got_est_cam_positions = (estimated_camera_gcc.size() == static_cast<size_t>(num_images));
     
     int num_pairs_matched = 0;
     for (int i = 0; i < num_images; i++){
@@ -2329,7 +2400,7 @@ int main(int argc, char* argv[]) {
         opt.cnet->read_binary( opt.cnet_file );
       } else {
         vw_throw( IOErr() << "Unknown Control Network file extension, \""
-                  << tokens.back() << "\"." );
+                          << tokens.back() << "\"." );
       }
     } // End control network loading case
 
@@ -2354,7 +2425,7 @@ int main(int argc, char* argv[]) {
 
 
     if (opt.local_pinhole_input == false) {
-      do_ba_with_model<BundleAdjustmentModel>(opt);
+      do_ba_with_model(opt);
     } else {
 
       // Use for local pinhole models, could also be used for other pinhole models.
