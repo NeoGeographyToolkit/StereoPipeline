@@ -187,13 +187,9 @@ interface to the file driver.
 It is usually best to set this parameter equal to the number of
 processors on your system. Be sure to include the number of logical
 processors in your arithmetic if your system supports hyper-threading.
-
 Adding more threads for rasterization increases the memory demands of
 Stereo Pipeline. If your system is memory limited, it might be best to
-lower the \texttt{default\_num\_threads} option. Remember that 32 bit
-systems can only allocate 4 GB of memory per process. Despite Stereo
-Pipeline being a multi-threaded application, it is still a single
-process.
+lower the \texttt{default\_num\_threads} option.
 
 \item[write\_pool\_size \textnormal (default=21)] \hfill \\
 The \texttt{write\_pool\_size} option represents the max waiting pool
@@ -208,9 +204,10 @@ Pipeline perform like it is only using a single processor.
 
 Increasing the \texttt{write\_pool\_size} makes Stereo Pipeline more
 able to use all processing cores in the system. Having this value too
-large can mean excessive use of memory. For 32 bit systems again, they
-can run out of memory if this value is too high for the same reason as
-described for \texttt{default\_num\_threads}.
+large can mean excessive use of memory as it must keep more portions
+of the image around in memory while they wait to be written. This 
+number should be larger than the number of threads, perhaps by
+about 20.
 
 \item[system\_cache\_size \textnormal (default=805306368)] \hfill \\
 Accessing a file from the hard drive can be very slow. It is especially
@@ -222,9 +219,13 @@ known as the 'system cache' and its max size is dictated by
 
 Setting this value too high can cause your application to crash. It is
 usually recommend to keep this value around 1/4 of the maximum
-available memory on the system. For 32 bit systems, this means don't
-set this value any greater than 1 GB. The units of this property is in
+available memory on the system. The units of this property is in
 bytes.
+
+The reccomendations for these values are based on use of the block
+matching algorithm in ASP.  When using memory intensive algorithms
+such as SGM you may wish to lower some of these values (such as
+the cache size) to leave more memory available for the algorithm to use.
 
 \end{description}
 
