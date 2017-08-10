@@ -316,10 +316,12 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
     taskHandles = []
     outputFiles = []
     for imageFile in imageFiles:
-        
+
         # Skip non-image files (including _sub images made by stereo_gui)
+        # TODO: Use a function here from icebridge_common. Also replace
+        # all similar locations.
         ext = os.path.splitext(imageFile)[1]
-        if (ext != '.tif') or ('_sub' in imageFile):
+        if (ext != '.tif') or ('_sub' in imageFile) or ('pct.tif' in imageFile):
             continue
 
         # Get associated orthofile
@@ -342,6 +344,25 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
         inputCamFile = getCalibrationFileForFrame(cameraLookupPath, inputCalFolder,
                                                   frame, yyyymmdd, site)
 
+        # Experimental. Using the lidar file instead of the datum works better in the open water.
+        #lidarFile = icebridge_common.findMatchingLidarFile(imageFile, lidarFolder)
+        #isSouth = icebridge_common.checkSite(site)
+        #lidarDemFile = lidarFile[:-4] + '-DEM.tif'
+        #if os.path.exists(lidarDemFile):
+        #    refDemPath = lidarDemFile
+        #else:
+        #    projString = icebridge_common.getProjection(isSouth)
+        #    lidarCsvFormatString = icebridge_common.getLidarCsvFormat(lidarFile)
+        #    cmd = "point2dem --tr 1 --search-radius-factor 4 --t_srs " + projString + ' --csv-format ' + lidarCsvFormatString + ' --datum wgs84 ' + lidarFile
+        #    suppressOutput = False
+        #    redo = False
+        #    logger.info(cmd)
+        #    asp_system_utils.executeCommand(cmd, lidarDemFile, suppressOutput, redo)
+        #    
+        #    if os.path.exists(lidarDemFile):
+        #        refDemPath = lidarDemFile 
+        #logger.info("Using dem path: " + refDemPath)
+        
         # Add ortho2pinhole command to the task pool
         taskHandles.append(pool.apply_async(cameraFromOrthoWrapper, 
                                             (inputPath, orthoPath, inputCamFile,
