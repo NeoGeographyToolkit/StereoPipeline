@@ -39,8 +39,10 @@ def extract_qi_points(inputPath):
         endianFlag = ' ' # Earlier dates are big endian, later dates are little endian.
 
     outputPath = inputPath.replace('.qi', '.csv')
-    
-    cmd = 'qi2txt -S'+ endianFlag + inputPath +' > '+ outputPath
+
+    lookInLibexec = True
+    execPath = asp_system_utils.which('qi2txt', lookInLibexec)
+    cmd = execPath + ' -S' + endianFlag + inputPath + ' > ' + outputPath
     os.system(cmd)  
     if os.path.exists(outputPath):
         print 'Wrote file: ' + outputPath
@@ -56,15 +58,19 @@ def extract_hdf5_points(inputPath):
     tempLat = inputPath + '_lat.txt'
     tempLon = inputPath + '_lon.txt'
     tempAlt = inputPath + '_alt.txt'
+
+    lookInLibexec = True
+    execPath = asp_system_utils.which('h5dump', lookInLibexec)
     
-    cmd = 'h5dump -o '+tempLat+' -m "%.7f" --noindex  -w 20 --dataset=latitude  ' + inputPath
+    cmd = execPath + ' -o '+tempLat+' -m "%.7f" --noindex  -w 20 --dataset=latitude  ' + inputPath
     os.system(cmd)
-    cmd = 'h5dump -o '+tempLon+' -m "%.7f" --noindex  -w 20 --dataset=longitude ' + inputPath
+    cmd = execPath + ' -o '+tempLon+' -m "%.7f" --noindex  -w 20 --dataset=longitude ' + inputPath
     os.system(cmd)
-    cmd = 'h5dump -o '+tempAlt+' -m "%.7f" --noindex  -w 20 --dataset=elevation ' + inputPath
+    cmd = execPath + ' -o '+tempAlt+' -m "%.7f" --noindex  -w 20 --dataset=elevation ' + inputPath
     os.system(cmd)
     
-    cmd = 'paste ' + tempLat +' '+ tempLon +' '+ tempAlt +' > '+ outputPath
+    execPath = asp_system_utils.which('paste', lookInLibexec)
+    cmd = execPath + ' ' + tempLat + ' ' + tempLon + ' ' + tempAlt + ' > ' + outputPath
     os.system(cmd)
     
     if os.path.exists(tempLat): os.remove(tempLat)
