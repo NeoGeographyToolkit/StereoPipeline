@@ -144,16 +144,6 @@ def getLidarCsvFormat(filename):
         return '"5:lat 4:lon 6:height_above_datum"'
     return '"1:lat 2:lon 3:height_above_datum"' # ATM
     
-def getProjection(isSouth):
-    # Pick the output projection to be used
-    PROJ_STRING_NORTH = '"+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"'
-    PROJ_STRING_SOUTH = '"+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"'
-    projString = PROJ_STRING_NORTH
-    if isSouth:
-        projString = PROJ_STRING_SOUTH
-        
-    return projString
-
 def getCameraGsd(imagePath, cameraPath, referenceDem=None, projString="", logger=None):
     '''Compute the GSD of a single camera.
        Use the DEM is provided, otherwise use the datum.'''

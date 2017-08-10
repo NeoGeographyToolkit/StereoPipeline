@@ -278,15 +278,30 @@ def main(argsIn):
     #   don't use less than that.  If there is really only enough overlap for one we
     #   will have to examine the results very carefully!
     MIN_BA_OVERLAP = 2
-    CAMERA_WEIGHT  = 1.0 # TODO: Find the best value here
+    CAMERA_WEIGHT  = 1.0   # TODO: Find the best value here
+    ROBUST_THRESHOLD = 0.5 # TODO: Find the best value here
+    OVERLAP_EXPONENT = 0   # TODO: Find the best value here
+    
     bundlePrefix   = os.path.join(options.outputFolder, 'bundle/out')
     baOverlapLimit = options.stereoImageInterval + 1
     if baOverlapLimit < MIN_BA_OVERLAP:
         baOverlapLimit = MIN_BA_OVERLAP
         
+<<<<<<< HEAD
     cmd = (('bundle_adjust %s -o %s %s --datum wgs84 --camera-weight %d -t nadirpinhole ' +
            '--local-pinhole --overlap-limit %d')
            % (imageCameraString, bundlePrefix, threadText, CAMERA_WEIGHT, baOverlapLimit))
+||||||| merged common ancestors
+    cmd = (('bundle_adjust %s -o %s %s --datum wgs84 --camera-weight %d -t nadirpinhole ' + \
+           '--local-pinhole --overlap-limit %d')  \
+           % (imageCameraString, bundlePrefix, threadText, CAMERA_WEIGHT, baOverlapLimit))
+=======
+    cmd = (('bundle_adjust %s -o %s %s --datum wgs84 --camera-weight %0.16g -t nadirpinhole ' + \
+           '--local-pinhole --overlap-limit %d --robust-threshold %0.16g ' + \
+            '--overlap-exponent %0.16g')  \
+           % (imageCameraString, bundlePrefix, threadText, CAMERA_WEIGHT, baOverlapLimit,
+              ROBUST_THRESHOLD, OVERLAP_EXPONENT))
+>>>>>>> process_batch: more params for bundle adjust
     
     if options.solve_intr:
         cmd += ' --solve-intrinsics'
