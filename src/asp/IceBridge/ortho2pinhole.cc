@@ -473,7 +473,8 @@ void ortho2pinhole(Options const& opt){
       // TODO: Make a function for this?
       // Apply the transform to the camera.     
       Quat rot_q(rotation);
-      AdjustedCameraModel adj_cam(boost::shared_ptr<PinholeModel>(pcam, boost::null_deleter()), translation, rot_q);
+      AdjustedCameraModel adj_cam(boost::shared_ptr<PinholeModel>(pcam, boost::null_deleter()),
+				  translation, rot_q);
       Quat    pose   = adj_cam.camera_pose(Vector2());
       Vector3 center = adj_cam.camera_center(Vector2());
       pcam->set_camera_pose(pose);
@@ -617,6 +618,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   // Create the output directory
   vw::create_out_dir(opt.output_cam);
+
+  // Turn on logging to file
+  asp::log_to_file(argc, argv, "", opt.output_cam);
+  
 }
 
 // ================================================================================
