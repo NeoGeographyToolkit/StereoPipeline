@@ -60,6 +60,8 @@ using namespace vw;
 using namespace vw::camera;
 using namespace vw::ba;
 
+const size_t PIXEL_SIZE = 2;
+
 std::string UNSPECIFIED_DATUM = "unspecified_datum";
 typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
 
@@ -685,19 +687,15 @@ void write_residual_map(std::string const& output_prefix, CameraRelationNetwork<
     
 } // End function write_residual_map
 
-
-/// Write log files describing all the residual errors.
+/// Write log files describing all residual errors.
 void write_residual_logs(std::string const& residual_prefix, bool apply_loss_function,
-                        Options const& opt, size_t num_cameras, 
+                        Options const& opt, size_t num_cameras,
+                        size_t camera_size, size_t xyz_size,
                         std::vector<size_t> const& cam_residual_counts,
                         size_t num_gcp_residuals, 
                         CameraRelationNetwork<JFeature> & crn,
                         const double *points, const size_t num_points,
                         ceres::Problem &problem) {
-
-  const size_t PIXEL_RESIDUAL_SIZE = 2;
-  const size_t GCP_RESIDUAL_SIZE   = 3;
-  const size_t CAM_RESIDUAL_SIZE   = 6;
 
   const std::string residual_path            = residual_prefix + "_averages.txt";
   const std::string residual_raw_pixels_path = residual_prefix + "_raw_pixels.txt";
@@ -715,20 +713,21 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
   const size_t num_residuals = residuals.size();
   
   // Verify our residual calculations are correct
-  size_t num_expected_residuals = num_gcp_residuals*GCP_RESIDUAL_SIZE;
+  size_t num_expected_residuals = num_gcp_residuals*xyz_size;
   for (size_t i=0; i<num_cameras; ++i)
-    num_expected_residuals += cam_residual_counts[i]*PIXEL_RESIDUAL_SIZE;
+    num_expected_residuals += cam_residual_counts[i]*PIXEL_SIZE;
   if (opt.camera_weight > 0)
-    num_expected_residuals += num_cameras*CAM_RESIDUAL_SIZE;
+    num_expected_residuals += num_cameras*camera_size;
   if (opt.rotation_weight > 0 || opt.translation_weight > 0)
-    num_expected_residuals += num_cameras*CAM_RESIDUAL_SIZE;
+    num_expected_residuals += num_cameras*camera_size;
   
   if (num_expected_residuals != num_residuals)
     vw_throw( LogicErr() << "Expected " << num_expected_residuals
                          << " residuals but instead got " << num_residuals);
     
   // Write a report on residual errors
-  std::ofstream residual_file, residual_file_raw_pixels, residual_file_raw_gcp, residual_file_raw_cams;
+  std::ofstream residual_file, residual_file_raw_pixels, residual_file_raw_gcp,
+    residual_file_raw_cams;
   residual_file.open(residual_path.c_str());
   residual_file_raw_pixels.open(residual_raw_pixels_path.c_str());
   residual_file_raw_cams.open(residual_raw_cams_path.c_str());
@@ -764,12 +763,12 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
     for (size_t i=0; i<num_gcp_residuals; ++i) {
       double mean_residual = 0; // Take average of XYZ error for each point
       residual_file_raw_gcp << i;
-      for (size_t j=0; j<GCP_RESIDUAL_SIZE; ++j) {
+      for (size_t j=0; j<xyz_size; ++j) {
         mean_residual += fabs(residuals[index]);
         residual_file_raw_gcp << ", " << residuals[index]; // Write all values in this file
         ++index;
       }
-      mean_residual /= static_cast<double>(GCP_RESIDUAL_SIZE);
+      mean_residual /= static_cast<double>(xyz_size);
       residual_file << i << ", " << mean_residual << std::endl;
       residual_file_raw_gcp << std::endl;
     }
@@ -781,7 +780,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
     int(opt.rotation_weight > 0 || opt.translation_weight > 0);
   for (int pas = 0; pas < num_passes; pas++) {
     residual_file << "Camera weight position and orientation residual errors:\n";
-    const size_t part_size = CAM_RESIDUAL_SIZE/2;
+    const size_t part_size = camera_size/2;
     for (size_t c=0; c<num_cameras; ++c) {
       residual_file_raw_cams << opt.camera_files[c];
       // Separately compute the mean position and rotation error
@@ -1055,9 +1054,9 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
   vw_out() << "Writing initial condition files..." << std::endl;
 
   std::string residual_prefix = opt.out_prefix + "-initial_residuals_loss_function";
-  write_residual_logs(residual_prefix, true,  opt, num_cameras, cam_residual_counts, num_gcp_residuals, crn, points, num_points, problem);
+  write_residual_logs(residual_prefix, true,  opt, num_cameras, num_camera_params, num_point_params, cam_residual_counts, num_gcp_residuals, crn, points, num_points, problem);
   residual_prefix = opt.out_prefix + "-initial_residuals_no_loss_function";
-  write_residual_logs(residual_prefix, false, opt, num_cameras, cam_residual_counts, num_gcp_residuals, crn, points, num_points, problem);
+  write_residual_logs(residual_prefix, false, opt, num_cameras, num_camera_params, num_point_params, cam_residual_counts, num_gcp_residuals, crn, points, num_points, problem);
 
   const size_t KML_POINT_SKIP = 30;
   std::string point_kml_path = opt.out_prefix + "-initial_points.kml";
@@ -1109,9 +1108,9 @@ void do_ba_ceres(ModelT & ba_model, Options& opt ){
 
   vw_out() << "Writing final condition log files..." << std::endl;
   residual_prefix = opt.out_prefix + "-final_residuals_loss_function";
-  write_residual_logs(residual_prefix, true,  opt, num_cameras, cam_residual_counts, num_gcp_residuals, crn, points, num_points, problem);
+  write_residual_logs(residual_prefix, true,  opt, num_cameras, num_camera_params, num_point_params, cam_residual_counts, num_gcp_residuals, crn, points, num_points, problem);
   residual_prefix = opt.out_prefix + "-final_residuals_no_loss_function";
-  write_residual_logs(residual_prefix, false, opt, num_cameras, cam_residual_counts, num_gcp_residuals, crn, points, num_points, problem);
+  write_residual_logs(residual_prefix, false, opt, num_cameras, num_camera_params, num_point_params, cam_residual_counts, num_gcp_residuals, crn, points, num_points, problem);
 
   point_kml_path = opt.out_prefix + "-final_points.kml";
   record_points_to_kml(point_kml_path, opt.datum, points, num_points, KML_POINT_SKIP, "final_points",
