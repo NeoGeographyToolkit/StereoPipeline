@@ -89,10 +89,13 @@ def checkIfToolExists(toolName):
     else:
         return True
 
-# Find if a program is in the path
-def which(program):
+# Find if a program is in the path.
+# Some ASP tools like qi2txt can be only in libexec, hence the option lookInLibexec.
+# TODO: This logic needs serious cleanup, but while making sure that nothing breaks.
+def which(program, lookInLibexec = False):
 
-    checkIfToolExists(program)
+    if not lookInLibexec:
+        checkIfToolExists(program)
     
     def is_exe(fpath):
         return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
@@ -102,11 +105,22 @@ def which(program):
         if is_exe(program):
             return program
     else:
+        paths = []
         for path in os.environ["PATH"].split(os.pathsep):
             path = path.strip('"')
+            paths.append(path)
+
+        for path in paths:
             exe_file = os.path.join(path, program)
             if is_exe(exe_file):
                 return exe_file
+
+        if lookInLibexec:
+            for path in paths:
+                exe_file = os.path.join(os.path.dirname(path), 'libexec', program)
+                if is_exe(exe_file):
+                    return exe_file
+            
 
     return None
 
