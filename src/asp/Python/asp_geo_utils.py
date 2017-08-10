@@ -77,17 +77,24 @@ def getImageGeoInfo(imagePath, getStats=True):
     (minX, maxY)   = asp_string_utils.getNumbersInParentheses(upperLeftLine)
     (maxX, minY)   = asp_string_utils.getNumbersInParentheses(lowerRightLine)
     outputDict['projection_bounds'] = (minX, maxX, minY, maxY)
+    outputDict['projection_center'] = ( (minX+maxX)/2.0, (minY+maxY)/2.0 )
 
     # Get some proj4 values
     outputDict['standard_parallel_1'] = getGdalInfoTagValue(textOutput, 'standard_parallel_1')
     outputDict['central_meridian']    = getGdalInfoTagValue(textOutput, 'central_meridian')
 
-    # TODO: Get the projection type!
+    # Get the projection type
+    projStart = textOutput.find('PROJ.4 string is:')
+    nextLine  = textOutput.find("'", projStart)+1
+    endLine   = textOutput.find("'", nextLine)
+    outputDict['proj_string'] = textOutput[nextLine:endLine]
+    outputDict['projection'] = 'UNKNOWN'
     if '+proj=eqc' in textOutput:
         outputDict['projection'] = 'EQUIRECTANGULAR'
     elif '+proj=ster' in textOutput:
         outputDict['projection'] = 'POLAR STEREOGRAPHIC'
-    outputDict['projection'] = 'UNKNOWN'
+    
+    
     
     # Extract this variable which ASP inserts into its point cloud files
     try:

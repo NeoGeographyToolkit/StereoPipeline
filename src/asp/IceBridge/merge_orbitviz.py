@@ -45,6 +45,12 @@ os.environ["PATH"] = binpath        + os.pathsep + os.environ["PATH"]
 def main(args):
 
     # Parse input arguments
+    
+    if len(args) == 2:
+        # If only one input file was provided, just copy it to the output file.
+        shutil.copyfile(args[1], args[0])
+        return 0
+    
     if len(args) < 3:
         print 'usage: merge_orbitviz.py <output_file> <input_file_1> <input_file_2> ...'
         return -1

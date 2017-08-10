@@ -821,7 +821,9 @@ def getElevationLimits(site):
 
 def getProjString(isSouth, addQuotes=False):
     '''Return the correct proj string for the pole.  Surrounding quotes are optional'''
+    # EPSG 3413 - WGS 84 / NSIDC Sea Ice Polar Stereographic North
     PROJ_STRING_NORTH = '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs'
+    # EPSG 3031 - WGS 84 / Antarctic Polar Stereographic
     PROJ_STRING_SOUTH = '+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs'
     s = PROJ_STRING_NORTH
     if isSouth:
@@ -830,7 +832,16 @@ def getProjString(isSouth, addQuotes=False):
         return '"'+s+'"'
     else:
         return s 
-    
+
+def getEpsgCode(isSouth, asString=True):
+    '''Return EPSG code for a location.  See notes in getProjString.'''
+    code = 3413
+    if isSouth:
+        code = 3031
+    if asString:
+        return 'EPSG:' + str(code)
+    return code
+
 
 def getReferenceDemName(site):
     '''Returns the DEM name to use for a given location'''
@@ -854,7 +865,7 @@ def readGeodiffOutput(inputPath):
        Returns a dictionary containing 'Max', 'Min', 'Mean', and 'StdDev'. '''
 
     if not os.path.exists(inputPath):
-        raise Exception('geodiff output file ' + csvPath + ' does not exist!')
+        raise Exception('geodiff output file ' + inputPath + ' does not exist!')
 
     # Pack the results into a dictionary
     keywords = ['Max', 'Min', 'Mean', 'StdDev']

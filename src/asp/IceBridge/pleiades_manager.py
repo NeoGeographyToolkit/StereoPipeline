@@ -38,7 +38,7 @@ sys.path.insert(0, libexecpath)
 sys.path.insert(0, icebridgepath)
 
 import icebridge_common, pbs_functions, archive_functions, run_helper
-import asp_system_utils
+import asp_system_utils, generate_flight_summary
 
 asp_system_utils.verify_python_version_is_supported()
 
@@ -333,6 +333,7 @@ def checkResults(run, batchListPath):
     with open(packedErrorLog, 'w') as errorLog:
     
         # Look for errors in the log files
+        # TODO: These log files should be in the batch folders now!
         pbsLogFolder = run.getPbsLogFolder()
         logFileList = os.listdir(pbsLogFolder)
         logFileList = [os.path.join(pbsLogFolder, x) for x in logFileList]
@@ -370,45 +371,6 @@ def checkResults(run, batchListPath):
                     logger.error('Check output folder position in batch log file!')
             
     return (numOutputs, numProduced, errorCount)
-
-# TODO: Generate the thumbnails in the batch process!
-def generateSummaryFolder(run, outputFolder):
-    '''Generate a folder containing handy debugging files including output thumbnails'''
-    
-    # Copy logs to the output folder
-    os.system('mkdir -p ' + outputFolder)
-    runFolder  = run.getFolder()
-    procFolder = run.getProcessFolder()
-    packedErrorLog = os.path.join(runFolder, 'packedErrors.log')
-    shutil.copy(packedErrorLog, outputFolder)
-    
-    # Copy the input camera kml file
-    camerasInKmlPath = os.path.join(procFolder, 'cameras_in.kml')
-    shutil.copy(camerasInKmlPath, outputFolder)
-    
-    # Create a merged version of all the bundle adjusted camera files
-    print 'Merging output camera kml files...'
-    cmd = "find "+procFolder+" -name cameras_out.kml"
-    p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, shell=False)
-    textOutput, err = p.communicate()
-    camKmlFiles = textOutput.replace('\n', ' ')
-    
-    outputKml = os.path.join(outputFolder, 'cameras_out.kml')
-    cmd = 'merge_orbitviz.py ' + outputKml +' '+ camKmlFiles
-    print cmd
-    os.system(cmd)
-    
-    # Link to thumbnails of all the output DEM files
-    demList = run.getOutputDemList()
-    for (dem, frames) in demList:
-        hillshadePath = dem.replace('out-align-DEM.tif', 'out-DEM_HILLSHADE_browse.tif')
-        print hillshadePath
-        if not os.path.exists(hillshadePath):
-            continue
-        
-        thumbName = ('dem_%d_%d_browse.tif' % (frames[0], frames[1]))
-        thumbPath = os.path.join(outputFolder, thumbName)
-        icebridge_common.makeSymLink(hillshadePath, thumbPath, verbose=False)
 
 def checkRequiredTools():
     '''Verify that we have all the tools we will be calling during the script.'''
@@ -512,7 +474,7 @@ def main(argsIn):
         # - Currently the summary folders need to be deleted manually, but they should not
         #   take up much space due to the large amount of compression used.
         summaryFolder = os.path.join(SUMMARY_FOLDER, run.name())
-        generateSummaryFolder(run, summaryFolder)
+        generate_flight_summary.generateFlightSummary(run, summaryFolder)
         archive_functions.packAndSendSummaryFolder(run, summaryFolder)
         # TODO: Automatically scp these to lunokhod?
 
