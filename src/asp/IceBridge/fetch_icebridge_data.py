@@ -47,7 +47,7 @@ os.environ["PATH"] = basepath    + os.pathsep + os.environ["PATH"]
 #------------------------------------------------------------------------------
 
 # Constants
-LIDAR_TYPES = ['lvis', 'atm1', 'atm2']
+LIDAR_TYPES = ['atm1', 'atm2', 'lvis']
 MAX_IN_ONE_CALL = 100 # when fetching in batches
 
 def checkIfUrlExists(url):
@@ -272,12 +272,12 @@ def getFolderUrl(yyyymmdd, year, month, day,
         base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/IODMS1B.001'       
     elif fileType == 'fireball':
         base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/IODMS3.001'
-    elif fileType == 'lvis':
-        base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILVIS2.001/'
     elif fileType == 'atm1':
         base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILATM1B.001/'
     elif fileType == 'atm2':
         base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILATM1B.002/'
+    elif fileType == 'lvis':
+        base = 'https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILVIS2.001/'
     else:
         raise("Unknown type: " + fileType)
     
@@ -405,7 +405,12 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
                         if hasGoodLat(latitude, isSouth):
                             isGood = True
                             options.type = lidar_types[count]
-
+                            logger.info("Good latitude " + str(latitude) + ", will use " +
+                                        folderUrl + " of type " + lidar_types[count])
+                        else:
+                            logger.info("Bad latitude " + str(latitude) + ", will not use " +
+                                        folderUrl + " of type " + lidar_types[count])
+                            
                         # Stop at first file no matter what
                         break
 
