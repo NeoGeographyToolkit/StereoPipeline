@@ -204,7 +204,7 @@ def main(argsIn):
         startWithLouArchive(options, logger)
 
     cmd = (('--yyyymmdd %s --site %s --start-frame %d --stop-frame %d ' +
-            '--max-num-lidar-to-fetch %d --stop-after-convert --no-ortho-convert --refetch-invalid')
+            '--max-num-lidar-to-fetch %d --stop-after-convert --no-ortho-convert --refetch')
            % (options.yyyymmdd, options.site, startFrame, stopFrame,
               options.maxNumLidarToFetch))
     if options.refetchIndex:
