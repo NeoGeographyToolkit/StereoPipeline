@@ -287,21 +287,11 @@ def main(argsIn):
     if baOverlapLimit < MIN_BA_OVERLAP:
         baOverlapLimit = MIN_BA_OVERLAP
         
-<<<<<<< HEAD
-    cmd = (('bundle_adjust %s -o %s %s --datum wgs84 --camera-weight %d -t nadirpinhole ' +
-           '--local-pinhole --overlap-limit %d')
-           % (imageCameraString, bundlePrefix, threadText, CAMERA_WEIGHT, baOverlapLimit))
-||||||| merged common ancestors
-    cmd = (('bundle_adjust %s -o %s %s --datum wgs84 --camera-weight %d -t nadirpinhole ' + \
-           '--local-pinhole --overlap-limit %d')  \
-           % (imageCameraString, bundlePrefix, threadText, CAMERA_WEIGHT, baOverlapLimit))
-=======
     cmd = (('bundle_adjust %s -o %s %s --datum wgs84 --camera-weight %0.16g -t nadirpinhole ' + \
            '--local-pinhole --overlap-limit %d --robust-threshold %0.16g ' + \
             '--overlap-exponent %0.16g')  \
            % (imageCameraString, bundlePrefix, threadText, CAMERA_WEIGHT, baOverlapLimit,
               ROBUST_THRESHOLD, OVERLAP_EXPONENT))
->>>>>>> process_batch: more params for bundle adjust
     
     if options.solve_intr:
         cmd += ' --solve-intrinsics'
