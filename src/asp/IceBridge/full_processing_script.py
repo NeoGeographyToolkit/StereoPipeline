@@ -119,18 +119,18 @@ def fetchAllRunData(options, startFrame, stopFrame,
     
     return (jpegFolder, orthoFolder, fireballFolder, lidarFolder)
 
-def processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFolder,
+def processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, fireballFolder, processFolder,
                   isSouth, bundleLength, referenceDem, stereoArgs,
                   startFrame, stopFrame, logBatches,
                   numProcesses, numThreads, numProcessesPerBatch):
     '''Do all the run processing'''
 
     # Some care is taken with the --stereo-arguments argument to make sure it is passed correctly.
-    processCommand = (('%s %s %s %s --bundle-length %d ' +
+    processCommand = (('%s %s %s %s --bundle-length %d --fireball-folder %s ' +
                        '--ortho-folder %s --num-processes %d --num-threads %d ' +
                        '--num-processes-per-batch %d --reference-dem %s')
                       % (imageFolder, cameraFolder, lidarFolder, processFolder,
-                         bundleLength, orthoFolder, numProcesses,
+                         bundleLength, fireballFolder, orthoFolder, numProcesses,
                          numThreads, numProcessesPerBatch, referenceDem))
     if isSouth:
         processCommand += ' --south'
@@ -191,10 +191,6 @@ def main(argsIn):
         parser.add_argument('--stereo-arguments', dest='stereoArgs', default='--stereo-algorithm 1',
                             help='Extra arguments to pass to stereo.')
 
-        # There is a sublte bug in Python where numbers starting with
-        # 0 passed in as an option value are treated as being in octal
-        # rather than decimal. So read them as strings and convert to
-        # int.
         parser.add_argument('--start-frame', dest='startFrame', type=int,
                           default=icebridge_common.getSmallestFrame(),
                           help="Frame to start with.  Leave this and stop-frame blank to " + \
@@ -202,7 +198,7 @@ def main(argsIn):
         parser.add_argument('--stop-frame', dest='stopFrame', type=int,
                           default=icebridge_common.getLargestFrame(),
                           help='Frame to stop on.')
-        parser.add_argument('--max-num-lidar-to-fetch', dest='maxNumLidarToFetch', default=-1,
+        parser.add_argument('--max-num-lidar-to-fetch', dest='maxNumLidarToFetch', default=None,
                           type=int, help="The maximum number of lidar files to fetch. " + \
                           "This is used in debugging.")
         
@@ -399,7 +395,7 @@ def main(argsIn):
         return 0
 
     # Call the processing routine
-    processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, processFolder,
+    processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, corrFireballFolder, processFolder,
                   isSouth, options.bundleLength, refDemPath, options.stereoArgs,
                   options.startFrame, options.stopFrame, options.logBatches,
                   options.numProcesses, options.numThreads, options.numProcessesPerBatch)

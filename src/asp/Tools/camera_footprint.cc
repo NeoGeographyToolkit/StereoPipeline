@@ -45,9 +45,10 @@ using namespace vw::camera;
 using namespace std;
 using namespace vw::cartography;
 
+
 struct Options : public vw::cartography::GdalWriteOptions {
   string image_file, camera_file, stereo_session, bundle_adjust_prefix,
-         datum_str, dem_file;
+         datum_str, dem_file, target_srs_string;
   bool quick;
   //BBox2i image_crop_box;
 };
@@ -57,6 +58,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   general_options.add_options()
     ("datum",            po::value(&opt.datum_str)->default_value(""),
      "Use this datum to interpret the heights. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
+    ("t_srs",         po::value(&opt.target_srs_string)->default_value(""), "Specify the output projection (PROJ.4 string). Can also be an URL or in WKT format, as in GDAL.")
     ("quick",            po::bool_switch(&opt.quick)->default_value(false),
 	     "Use a faster but less accurate computation.")
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
@@ -100,9 +102,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
 
  
-  // Must specify the DEM or the datum
-  if (opt.dem_file.empty() && opt.datum_str.empty())
-    vw_throw( ArgumentErr() << "Need to provide a DEM or a datum.\n" << usage << general_options );
+  // Must specify the DEM or the datum somehow
+  if (opt.dem_file.empty() && opt.datum_str.empty() && opt.target_srs_string.empty())
+    vw_throw( ArgumentErr() << "Need to provide a DEM, a datum, or a t_srs string.\n" << usage << general_options );
 
 
   //// Convert from width and height to min and max
@@ -162,9 +164,13 @@ int main( int argc, char *argv[] ) {
     float mean_gsd;
     if (opt.dem_file.empty()) { // No DEM available, intersect with the datum.
 
+      // Initialize the georef/datum
+      bool have_user_datum = (opt.datum_str != "");
       cartography::Datum datum(opt.datum_str);
-      vw_out() << "Using datum: " << datum << std::endl;
       GeoReference georef(datum);
+      
+      asp::set_srs_string(opt.target_srs_string, have_user_datum, datum, georef);
+      vw_out() << "Using georef: " << georef << std::endl;
 
       footprint_bbox = camera_bbox(georef, cam, image_size[0], image_size[1], mean_gsd);
       

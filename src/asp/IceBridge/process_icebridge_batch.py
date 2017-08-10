@@ -39,15 +39,50 @@ import icebridge_common
 import asp_system_utils, asp_alg_utils, asp_geo_utils
 asp_system_utils.verify_python_version_is_supported()
 
-logger = logging.getLogger(__name__)
-
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = toolspath   + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = binpath     + os.pathsep + os.environ["PATH"]
 
-def genDEM(i, options, inputPairs, prefixes, demFiles, projString, threadText, suppressOutput, redo):
+
+def consolidateGeodiffResults(inputFiles, outputPath=None):
+    '''Create a summary file of multiple geodiff csv output files'''
+
+    if len(inputFiles) == 0:
+        raise Exception('Error creating geodiff summary: ' + outputPath
+                        + ', no input files provided!\n')
+
+    # Take the max/min of min/max and the mean of mean and stddev
+    keywords = ['Max', 'Min', 'Mean', 'StdDev']
+    mergedResult = {'Max':-999999.0, 'Min':999999.0, 'Mean':0.0, 'StdDev':0.0}
+    for csvPath in inputFiles:
+        results = icebridge_common.readGeodiffOutput(csvPath)
+        if results['Max'] > mergedResult['Max']:
+            mergedResult['Max'] = results['Max']
+        if results['Min'] < mergedResult['Min']:
+            mergedResult['Min'] = results['Min']
+        mergedResult['Mean'  ] += results['Mean'  ]
+        mergedResult['StdDev'] += results['StdDev']
+    mergedResult['Mean'  ] = mergedResult['Mean'  ] / float(len(inputFiles))
+    mergedResult['StdDev'] = mergedResult['StdDev'] / float(len(inputFiles))
+    
+    # If an output path was provided, write out the values in a similar to geodiff format.
+    if outputPath:
+        with open(outputPath, 'w') as f:
+            f.write('# Max difference:       '+str(mergedResult['Max'   ])+'\n')
+            f.write('# Min difference:       '+str(mergedResult['Min'   ])+'\n')
+            f.write('# Mean difference:      '+str(mergedResult['Mean'  ])+'\n')
+            f.write('# StdDev of difference: '+str(mergedResult['StdDev'])+'\n')
+    
+    return mergedResult
+            
+
+def createDem(i, options, inputPairs, prefixes, demFiles, projString, 
+              threadText, suppressOutput, redo, logger):
     '''Create a DEM from a pair of images'''
+
+    # Since we use epipolar alignment our images should be aligned at least this well.
+    VERTICAL_SEARCH_LIMIT = 10
     
     # Get the appropriate image to use as a stereo pair    
     pairIndex = i + options.stereoImageInterval
@@ -58,7 +93,6 @@ def genDEM(i, options, inputPairs, prefixes, demFiles, projString, threadText, s
 
     stereoCmd = ('stereo %s %s -t nadirpinhole --alignment-method epipolar %s' %
                  (argString, thisPairPrefix, threadText))
-    VERTICAL_SEARCH_LIMIT = 10
     searchLimitString = (' --corr-search-limit -9999 -' + str(VERTICAL_SEARCH_LIMIT) +
                          ' 9999 ' + str(VERTICAL_SEARCH_LIMIT) )
     if '--stereo-algorithm 0' not in options.stereoArgs:
@@ -123,6 +157,9 @@ def main(argsIn):
 
         parser.add_option('--reference-dem', default=None, dest='referenceDem',  
                           help='Low resolution DEM used for certain checks.')
+                          
+        parser.add_option('--fireball-folder', default=None, dest='fireballFolder',
+                          help='Folder containing fireball DEMs.')
 
         # Processing options
         parser.add_option('--max-displacement', dest='maxDisplacement', default=20,
@@ -184,16 +221,14 @@ def main(argsIn):
     except optparse.OptionError, msg:
         raise Usage(msg)
 
-    # Pick the output projection to be used
-    PROJ_STRING_NORTH = '"+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"'
-    PROJ_STRING_SOUTH = '"+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"'
-    
-    projString = PROJ_STRING_NORTH
-    if options.isSouth:
-        projString = PROJ_STRING_SOUTH
+    projString = icebridge_common.getProjString(options.isSouth, addQuotes=True)
        
     if not os.path.exists(options.outputFolder):
         os.mkdir(options.outputFolder)
+
+    #logger = logging.getLogger(__name__)
+    logLevel = logging.INFO # Make this an option??
+    logger = icebridge_common.setUpLogger(options.outputFolder, logLevel, 'icebridge_batch_log')
 
 
     # Check that the output GSD is not set too much lower than the native resolution
@@ -202,19 +237,19 @@ def main(argsIn):
         computedGsd = options.demResolution
         try:
             # Compute the native GSD of the first input camera
-            computedGsd = icebridge_common.getCameraGsd(inputPairs[0][0], inputPairs[0][1], 
-                                                        options.referenceDem, logger)            
+            computedGsd = icebridge_common.getCameraGsdRetry(inputPairs[0][0], inputPairs[0][1], 
+                                                             options.referenceDem, logger)            
             print 'GSD = ' + str(computedGsd)
         except:
-            logger.Warning('Failed to compute GSD for camera: ' + inputPairs[0][1])
+            logger.warning('Failed to compute GSD for camera: ' + inputPairs[0][1])
         if options.demResolution < (computedGsd*MAX_OVERSAMPLING):
-            logger.Warning('Specified GSD ' + options.demResolution + 
+            logger.warning('Specified GSD ' + options.demResolution + 
                            ' is too fine for camera with computed GSD ' + computedGsd +
                            '.  Switching to native GSD.)')
             options.demResolution = computedGsd
         # Undersampling is not as dangerous, just print a warning.
         if options.demResolution > 2*computedGsd:
-            logger.Warning('Specified GSD ' + options.demResolution + 
+            logger.warning('Specified GSD ' + options.demResolution + 
                            ' is much larger than computed GSD ' + computedGsd)
                            
 
@@ -249,8 +284,8 @@ def main(argsIn):
     if baOverlapLimit < MIN_BA_OVERLAP:
         baOverlapLimit = MIN_BA_OVERLAP
         
-    cmd = (('bundle_adjust %s -o %s %s --datum wgs84 --camera-weight %d -t nadirpinhole ' + \
-           '--local-pinhole --overlap-limit %d')  \
+    cmd = (('bundle_adjust %s -o %s %s --datum wgs84 --camera-weight %d -t nadirpinhole ' +
+           '--local-pinhole --overlap-limit %d')
            % (imageCameraString, bundlePrefix, threadText, CAMERA_WEIGHT, baOverlapLimit))
     
     if options.solve_intr:
@@ -269,8 +304,8 @@ def main(argsIn):
     vizString  = ''
     for (image, camera) in inputPairs: 
         vizString += image + ' ' + camera + ' '
-    cmd = 'orbitviz --hide-labels -t nadirpinhole -r wgs84 -o ' + \
-          orbitvizAfter + ' '+ vizString
+    cmd = ('orbitviz --hide-labels -t nadirpinhole -r wgs84 -o ' +
+           orbitvizAfter + ' '+ vizString)
     asp_system_utils.executeCommand(cmd, orbitvizAfter, suppressOutput, redo)
 
     # STEREO
@@ -294,14 +329,14 @@ def main(argsIn):
     # many batches the former is preferred, with the batches
     # themselves being in parallel.
     if options.numProcessesPerBatch > 1:
-        logger.info('Starting processing pool for given batch with ' + \
+        logger.info('Starting processing pool for given batch with ' +
                     str(options.numProcessesPerBatch) + ' processes.')
         pool = multiprocessing.Pool(options.numProcessesPerBatch)
         taskHandles = []
         for i in range(0, numRuns):
-            taskHandles.append(pool.apply_async(genDEM, 
+            taskHandles.append(pool.apply_async(createDem, 
                                                 (i, options, inputPairs, prefixes, demFiles,
-                                                 projString, threadText, suppressOutput, redo)))
+                                                 projString, threadText, suppressOutput, redo, logger)))
         # Wait for all the tasks to complete
         icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, logger, interactive = False, 
                                                          quitKey='q', sleepTime=20)
@@ -312,19 +347,47 @@ def main(argsIn):
 
     else:
         for i in range(0, numRuns):
-            genDEM(i, options, inputPairs, prefixes, demFiles, projString, threadText,
-                   suppressOutput, redo)
+            createDem(i, options, inputPairs, prefixes, demFiles, projString, threadText,
+                   suppressOutput, redo, logger)
 
-    # If we had to create at least one DEM, need to redo all the DEM mosaic steps
+    # If we had to create at least one DEM, need to redo all the post-DEM creation steps
     if atLeastOneDemMissing:
         redo = True
 
     #raise Exception('BA DEBUG')
-    logger.info('Finished running all stereo instances. Now merging DEMs...')
+    logger.info('Finished running all stereo instances.')
+    
+    numDems = len(demFiles)
+
+
+    # Check the elevation disparities between the DEMS.  High disparity
+    #  usually means there was an alignment error.
+    INTER_DEM_DIFF_CUTOFF = 1.0 # Meters
+    FIREBALL_DIFF_CUTOFF  = 1.0 # Meters
+    interDiffSummaryPath =  outputPrefix + '_inter_diff_summary.csv'
+    interDiffCsvPaths    = []
+    for i in range(1,numDems):
+        #try:
+        # Call geodiff
+        prefix  = outputPrefix + '_inter_dem_' + str(i)
+        csvPath = prefix + "-diff.tif"
+        cmd = ('geodiff --absolute %s %s -o %s' % (demFiles[0], demFiles[i], prefix))
+        logger.info(cmd)
+        asp_system_utils.executeCommand(cmd, csvPath, suppressOutput, redo)
+        
+        # Read in and examine the results
+        results = icebridge_common.readGeodiffOutput(csvPath)
+        interDiffCsvPaths.append(csvPath)
+        if abs(results['Mean']) > INTER_DEM_DIFF_CUTOFF:
+            logger.warning('Difference between dem ' + demFiles[0] + ' and dem ' + demFiles[i]
+                           + ' is large: ' + str(results['Mean']))
+        #except:
+        #    logger.warning('Difference between dem ' + demFiles[0] + ' and dem ' + demFiles[i] + ' failed!')
+    consolidateGeodiffResults(interDiffCsvPaths, interDiffSummaryPath)
 
     # DEM_MOSAIC
     allDemPath = outputPrefix + '-DEM.tif'
-    if numCameras == 2:
+    if numDems == 1:
         # If there are only two files just skip this step
         icebridge_common.makeSymLink(demFiles[0], allDemPath)
     else:
@@ -338,7 +401,7 @@ def main(argsIn):
         
         # Create a symlink to the mosaic file with a better name
         icebridge_common.makeSymLink(mosaicOutput, allDemPath)
-    
+
     if lidarFile:
         # PC_ALIGN
         alignPrefix = os.path.join(options.outputFolder, 'align/out')
@@ -361,10 +424,64 @@ def main(argsIn):
         icebridge_common.makeSymLink(p2dOutput, demSymlinkPath)
         allDemPath = demSymlinkPath
 
-    cmd = ('geodiff --absolute --csv-format %s %s %s -o %s' % \
-           (lidarCsvFormatString, allDemPath, lidarFile, outputPrefix))
-    logger.info(cmd)
-    asp_system_utils.executeCommand(cmd, outputPrefix + "-diff.csv", suppressOutput, redo)
+        cmd = ('geodiff --absolute --csv-format %s %s %s -o %s' % \
+               (lidarCsvFormatString, allDemPath, lidarFile, outputPrefix))
+        logger.info(cmd)
+        asp_system_utils.executeCommand(cmd, outputPrefix + "-diff.csv", suppressOutput, redo)
+
+                           
+    # Compare to Fireball DEMs if available                           
+    if options.fireballFolder:
+        # Get the fireball DEM for each input image
+        # - Note that each fireball DEM has input from 3+ images so this is an approximation.
+        images, cameras      = zip(*inputPairs)
+        fireballDems         = icebridge_common.getTifs(options.fireballFolder, prependFolder=True)
+        matchingFireballDems = icebridge_common.getMatchingFrames(images, fireballDems)
+
+        fireballDiffSummaryPath  =  outputPrefix + '_fireball_diff_summary.csv'
+        fireLidarDiffSummaryPath =  outputPrefix + '_fireLidar_diff_summary.csv'
+        fireballDiffCsvPaths     = []
+        fireLidarDiffCsvPaths    = []
+    
+        # Loop through matches
+        # - Each fireball DEM is compared to our final output DEM as without the pc_align step
+        #   the errors will be high and won't mean much.
+        for i in range(0,numDems):
+            dem = demFiles[i]
+            fireball = matchingFireballDems[i]
+            if not fireball: # Skip missing fireball file
+                continue
+            #try:
+            prefix  = outputPrefix + '_fireball_' + str(i)
+            csvPath = prefix + "-diff.tif"
+            cmd = ('geodiff --absolute %s %s -o %s' % (allDemPath, fireball, prefix))
+            logger.info(cmd)
+            asp_system_utils.executeCommand(cmd, csvPath, suppressOutput, redo)
+            
+            results = icebridge_common.readGeodiffOutput(csvPath)
+            fireballDiffCsvPaths.append(csvPath)
+            if abs(results['Mean']) > FIREBALL_DIFF_CUTOFF:
+                logger.warning('Difference between dem ' + demFiles[i]
+                               + ' and fireball is large: ' + str(results['Mean']))
+    
+            # If the lidar file is also available, compare Fireball to lidar.
+            if lidarFile:                           
+                prefix  = outputPrefix + '_fireball_lidar_' + str(i)
+                csvPath = prefix + "-diff.csv"
+                cmd = ('geodiff --absolute --csv-format %s %s %s -o %s' % 
+                       (lidarCsvFormatString, fireball, lidarFile, prefix))
+                logger.info(cmd)
+                asp_system_utils.executeCommand(cmd, csvPath, suppressOutput, redo)
+                fireLidarDiffCsvPaths.append(csvPath)
+    
+                               
+            #except:
+            #    logger.warning('Difference between dem ' + demFiles[0] + ' and fireball failed!')
+        consolidateGeodiffResults(fireballDiffCsvPaths,  fireballDiffSummaryPath )
+        consolidateGeodiffResults(fireLidarDiffCsvPaths, fireLidarDiffSummaryPath)
+
+
+
 
     # HILLSHADE
     hillOutput = outputPrefix+'-DEM_HILLSHADE.tif'

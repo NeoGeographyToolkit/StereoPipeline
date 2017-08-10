@@ -29,7 +29,7 @@ sys.path.insert(0, basepath) # prepend to Python path
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
-import asp_system_utils, asp_alg_utils, asp_geo_utils
+import asp_system_utils, asp_alg_utils, asp_geo_utils, asp_image_utils
 asp_system_utils.verify_python_version_is_supported()
 
 def outputFolder(site, yyyymmdd):
@@ -144,25 +144,45 @@ def getLidarCsvFormat(filename):
         return '"5:lat 4:lon 6:height_above_datum"'
     return '"1:lat 2:lon 3:height_above_datum"' # ATM
     
+def getCameraGsd(imagePath, cameraPath, referenceDem=None, projString="", logger=None):
+    '''Compute the GSD of a single camera.
+       Use the DEM is provided, otherwise use the datum.'''
     
-def getCameraGsd(imagePath, cameraPath, referenceDem, logger=None):
-    '''Compute the GSD of a single camera'''
-    
-    # Run GSD too l
+    # Run GSD tool
     tool = asp_system_utils.which('camera_footprint')
-    cmd = ('%s --quick --datum wgs84 -t nadirpinhole --dem-file %s %s %s' %
-            (tool, referenceDem, imagePath, cameraPath))
+    cmd = ('%s --quick --datum wgs84 -t nadirpinhole %s %s' %
+            (tool, imagePath, cameraPath))
+    if referenceDem:
+        cmd += ' --dem-file ' + referenceDem
+    cmd = cmd.split()
+    if projString:
+        cmd.append('--t_srs',)
+        cmd.append(projString,)
     print cmd
-    p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     textOutput, err = p.communicate()
     if logger:
         logger.info(textOutput)
     
     # Extract the gsd from the output text
-    m = re.findall(r"Computed mean gsd: (\d+\.*\d*)", textOutput)
+    m = re.findall(r"Computed mean gsd: (\d+\.*[0-9e\-]*)", textOutput)
     if len(m) != 1: # An unknown error occurred, move on.
         raise Exception('Unable to compute GSD for file: ' + cameraPath)
     return float(m[0])
+
+def getCameraGsdRetry(imagePath, cameraPath, referenceDem, projString="", logger=None):
+    '''As getCameraGsd, but retry with the datum if the DEM fails.'''
+
+    try:
+        # Compute GSD using the DEM
+        # - Only need the projection string when not using a DEM
+        gsd = getCameraGsd(imagePath, cameraPath, referenceDem, "", logger)
+    except:
+        # If that failed, try intersecting with the datum.
+        logger.info('DEM intersection failed, trying with datum...')
+        gsd = getCameraGsd(imagePath, cameraPath, None, projString, logger)       
+     
+    return gsd
 
 def getFrameRangeFromBatchFolder(folder):
     '''Returns (startFrame, endFrame) for a batch folder'''
@@ -331,9 +351,9 @@ def getFrameNumberFromFilename(filename):
 
     raise Exception('Could not parse: ' + filename)
 
-def getTifs(folder):
+def getTifs(folder, prependFolder=False):
     '''Get tif files in given directory, ignoring _sub files.
-    This returns the files without sorting or the folder name prepended to them.'''
+    This returns the files without sorting.'''
     files = []
     for f in os.listdir(folder):
 
@@ -341,7 +361,10 @@ def getTifs(folder):
         ext = os.path.splitext(f)[1]
         if (ext != '.tif') or ('_sub' in f):
             continue
-        files.append(f)
+        if prependFolder:
+            files.append(os.path.join(folder, f))
+        else:
+            files.append(f)
 
     return files
 
@@ -396,6 +419,35 @@ def getLidar(folder):
         files.append(f)
 
     return files
+
+def getMatchingFrames(inputFiles, candidateFiles):
+    '''Given a list of input files and candidate files,
+       returns a list of candidate files having the same
+       frame numbers as the input files in the same order.
+       An entry will be 'None' if there is no matching frame.'''
+       
+    # Init output structure
+    numFiles   = len(inputFiles)
+    outputList = []
+    for i in range(0,numFiles):
+        outputList.append(None)
+    numMatched = 0
+    
+    # Loop through all the candidate files
+    for c in candidateFiles:
+        candidateFrame = getFrameNumberFromFilename(c)
+        # Compare them to each of the input files
+        for i in range(0,numFiles):
+            if outputList[i]: # Skip matched files
+                continue
+            inputFrame = getFrameNumberFromFilename(inputFiles[i])
+            if inputFrame == candidateFrame: # If the frames match, record the file
+                outputList[i] = c
+                numMatched += 1
+                if numMatched == numFiles: # Quit once all files are matched
+                    return outputList
+    return outputList
+            
 
 def parseDateTimeStrings(dateString, timeString, secondFix, returnSecondOnly):
     '''Parse strings in the format 20110323_17433900.'''
@@ -735,6 +787,7 @@ def setUpLogger(outputFolder, logLevel, logPathPrefix):
     
     logger = logging.getLogger()    # Call with no argument to configure the root logger.
     logger.setLevel(level=logLevel)
+    logger.propagate = False # This is a unique logger, don't copy messages to parent modules.
     
     fileHandler = logging.FileHandler(logPath)
     formatter   = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -763,6 +816,19 @@ def getElevationLimits(site):
     if site == 'AL':
         return (-50, 3500)
 
+def getProjString(isSouth, addQuotes=False):
+    '''Return the correct proj string for the pole.  Surrounding quotes are optional'''
+    PROJ_STRING_NORTH = '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs'
+    PROJ_STRING_SOUTH = '+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs'
+    s = PROJ_STRING_NORTH
+    if isSouth:
+        s = PROJ_STRING_SOUTH
+    if addQuotes:
+        return '"'+s+'"'
+    else:
+        return s 
+    
+
 def getReferenceDemName(site):
     '''Returns the DEM name to use for a given location'''
 
@@ -778,6 +844,41 @@ def getReferenceDemName(site):
         #  map (60 meter) was used but this would require tile handling logic
         #  so for now we will try to use this single 300m DEM.
         return 'akdem300m.tif'
+
+
+def readGeodiffOutput(inputPath):
+    '''Read in the header from a geodiff output csv file.
+       Returns a dictionary containing 'Max', 'Min', 'Mean', and 'StdDev'. '''
+
+    if not os.path.exists(inputPath):
+        raise Exception('geodiff output file ' + csvPath + ' does not exist!')
+
+    # Pack the results into a dictionary
+    keywords = ['Max', 'Min', 'Mean', 'StdDev']
+    results = {}
+
+    ext = os.path.splitext(inputPath)[1]
+    if ext == '.csv':
+        with open(inputPath, 'r') as f:
+            for line in f:
+                if '#' not in line: # Quit when we go past the comment lines
+                    break
+                for word in keywords: # Look for the four values
+                    if word in line:
+                        parts = line.split(':') # Extract the number
+                        if len(parts) != 2:
+                            raise Exception('Error parsing geodiff line:\n' + line)
+                        results[word] = float(parts[1])
+                        break # Go on to the next line in the file
+    else: # Handle .tif files
+        stats = asp_image_utils.getImageStats(inputPath)[0]
+        results['Min'   ] = stats[0]
+        results['Max'   ] = stats[1]
+        results['Mean'  ] = stats[2]
+        results['StdDev'] = stats[3]
+        
+    return results
+
 
 # For debugging functions
 #if __name__ == "__main__":

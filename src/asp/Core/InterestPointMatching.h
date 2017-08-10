@@ -185,12 +185,13 @@ namespace asp {
     friend class EpipolarLineMatchTask;
   };
 
-  /// Tool to remove points on or within 1 px of nodata pixels.
+  /// Tool to remove points on or within radius px of nodata pixels.
   /// Note: A nodata pixel is one for which pixel <= nodata.
   template <class ImageT>
   void remove_ip_near_nodata( vw::ImageViewBase<ImageT> const& image,
-			      double nodata,
-			      vw::ip::InterestPointList& ip_list );
+                              double nodata,
+                              vw::ip::InterestPointList& ip_list,
+                              int radius = 1 );
 
   /// Find a rough homography that maps right to left using the camera
   /// and datum information.
@@ -322,40 +323,44 @@ namespace asp {
   // Tool to remove points on or within 1 px of nodata pixels.
   // Note: A nodata pixel is one for which pixel <= nodata.
   template <class ImageT>
-  void remove_ip_near_nodata( vw::ImageViewBase<ImageT> const& image,
-			      double nodata,
-			      vw::ip::InterestPointList& ip_list ){
+  void remove_ip_near_nodata( vw::ImageViewBase<ImageT> const& image,   double nodata,
+                              vw::ip::InterestPointList      & ip_list, int    radius ){
 
     using namespace vw;
     size_t prior_ip = ip_list.size();
 
     typedef ImageView<typename ImageT::pixel_type> CropImageT;
-    CropImageT subsection(3,3);
+    const int width = 2*radius+1;
+    CropImageT subsection(width,width);
 
+    // Get shrunk bounding box
     BBox2i bound = bounding_box( image.impl() );
-    bound.contract(1);
+    bound.contract(radius); 
+    // Loop through all the points
     for ( ip::InterestPointList::iterator ip = ip_list.begin(); ip != ip_list.end(); ++ip ) {
+      
+      // Remove the point if it was too close to the image borders
       if ( !bound.contains( Vector2i(ip->ix,ip->iy) ) ) {
-	ip = ip_list.erase(ip);
-	ip--;
-	continue;
+        ip = ip_list.erase(ip);
+        ip--;
+        continue;
       }
 
-      subsection = crop( image.impl(), ip->ix-1, ip->iy-1, 3, 3 );
+      // Remove the point if any invalid pixels are too close to it
+      subsection = crop( image.impl(), ip->ix-radius, ip->iy-radius, width, width );
       for ( typename CropImageT::iterator pixel = subsection.begin();
 	    pixel != subsection.end(); pixel++ ) {
-	if (*pixel <= nodata) {
-	  ip = ip_list.erase(ip);
-	  ip--;
-	  break;
-	}
+        if (*pixel <= nodata) {
+          ip = ip_list.erase(ip);
+          ip--;
+          break;
+        }
       }
     }
     VW_OUT( DebugMessage, "asp" ) << "Removed " << prior_ip - ip_list.size()
 				  << " interest points due to their proximity to nodata values."
-				  << std::endl << "Nodata value used "
-				  << nodata << std::endl;
-  }
+				  << std::endl << "Nodata value used " << nodata << std::endl;
+  } // End function remove_ip_near_nodata
 
   // Detect InterestPoints
   //
@@ -451,11 +456,12 @@ namespace asp {
     sw.start();
 
     vw_out() << "\t    Removing IP near nodata" << std::endl;
+    const int NODATA_RADIUS = 4;
     if ( !boost::math::isnan(nodata1) )
-      remove_ip_near_nodata( image1.impl(), nodata1, ip1 );
+      remove_ip_near_nodata( image1.impl(), nodata1, ip1, NODATA_RADIUS );
 
     if ( !boost::math::isnan(nodata2) )
-      remove_ip_near_nodata( image2.impl(), nodata2, ip2 );
+      remove_ip_near_nodata( image2.impl(), nodata2, ip2, NODATA_RADIUS );
 
     sw.stop();
     vw_out(DebugMessage,"asp") << "Remove IP elapsed time: "

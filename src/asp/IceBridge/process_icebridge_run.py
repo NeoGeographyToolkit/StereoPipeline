@@ -25,7 +25,7 @@
 # Image files must be single-channel, so use for example gdal_translate -b 1.
 
 import os, sys, optparse, datetime, multiprocessing, time, logging, subprocess, re
-import os.path as P
+import traceback
 
 # We must import this explicitly, it is not imported by the top-level
 # multiprocessing module.
@@ -91,7 +91,8 @@ def processBatch(imageCameraPairs, lidarFolder, referenceDem, outputFolder, extr
         args += (stereoArgs.strip(),) # Make sure this is properly passed
         process_icebridge_batch.main(args)
     except Exception as e:
-        logger.error('Batch processing failed!\n' + str(e))
+        logger.error('Batch processing failed!\n' + str(e) +
+                     traceback.print_exc())
 
 def getImageSpacing(orthoFolder, startFrame, stopFrame):
     '''Find a good image stereo spacing interval that gives us a good
@@ -197,10 +198,12 @@ def getImageSpacing(orthoFolder, startFrame, stopFrame):
     
     return (interval, breaks)
 
-def getRunMeanGsd(imageCameraPairs, referenceDem, frameSkip=1):
+def getRunMeanGsd(imageCameraPairs, referenceDem, isSouth, frameSkip=1):
     '''Compute the mean GSD of the images across the run'''
 
     logger.info('Computing mean input image GSD...')
+
+    projString = icebridge_common.getProjString(isSouth)
 
     # Iterate through the input pairs
     numPairs  = len(imageCameraPairs)
@@ -210,10 +213,9 @@ def getRunMeanGsd(imageCameraPairs, referenceDem, frameSkip=1):
         pair = imageCameraPairs[i]
         
         # Average in the GSD for each file we can process
-        #try:
-        gsd = icebridge_common.getCameraGsd(pair[0], pair[1], referenceDem, logger)
-        #except: # Move on to the next file on failure
-        #    continue
+        gsd = icebridge_common.getCameraGsdRetry(pair[0], pair[1], referenceDem, projString, logger)
+        # TODO Move on to the next file on failure
+         
         meanGsd   += gsd
         numChecks += 1.0
 
@@ -350,6 +352,8 @@ def main(argsIn):
 
         parser.add_option('--ortho-folder', dest='orthoFolder', default=None,
                           help='Use ortho files to adjust processing to the image spacing.')
+        parser.add_option('--fireball-folder', dest='fireballFolder', default=None,
+                          help='Location of fireball DEMs for comparison.')
 
         parser.add_option('--reference-dem', dest='referenceDem', default=None,
                           help='Reference DEM used to calculate the expected GSD.')
@@ -400,7 +404,7 @@ def main(argsIn):
     gsdFrameSkip = len(imageCameraPairs) / NUM_GSD_FRAMES
     if gsdFrameSkip < 1:
         gsdFrameSkip = 1
-    outputResolution = getRunMeanGsd(imageCameraPairs, options.referenceDem, gsdFrameSkip)
+    outputResolution = getRunMeanGsd(imageCameraPairs, options.referenceDem, options.isSouth, gsdFrameSkip)
     logger.info('OUTPUT_RESOLUTION: ' + str(outputResolution))
     #return 0
     
@@ -414,6 +418,7 @@ def main(argsIn):
     logger.info('Running orbitviz on input files...')
     redo=True
     asp_system_utils.executeCommand(cmd, orbitvizBefore, True, redo) # Suppress (potentially long) output
+    #raise Exception('DEBUG')
 
     # Set up options for process_icebridge_batch
     extraOptions = ''
@@ -427,6 +432,8 @@ def main(argsIn):
         extraOptions += ' --south '
     if options.maxDisplacement:
         extraOptions += ' --max-displacement ' + str(options.maxDisplacement)
+    if options.fireballFolder:
+        extraOptions += ' --fireball-folder ' + str(options.fireballFolder)
    
     (autoStereoInterval, breaks) = getImageSpacing(options.orthoFolder,
                                                    options.startFrame, options.stopFrame)
