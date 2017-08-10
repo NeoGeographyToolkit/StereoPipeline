@@ -230,19 +230,21 @@ def isFloat(value):
     except:
       return False
 
-def hasValidChkSum(filename):
+def hasValidChkSum(filename, logger):
     '''Some files have an xml file containing the chksum. If so, varify
        its validity. This applies to orthoimages, DEMs, and tfw files.'''
 
     isTfw = (fileExtension(filename) == '.tfw')
     
     if not os.path.exists(filename):
+        logger.info("File does not exist: " + filename)
         return False
 
     baseFile = os.path.basename(filename)
     
     xml_file = xmlFile(filename)
     if not os.path.exists(xml_file):
+        logger.info("File does not exist: " + xml_file)
         return False
     
     expectedChksum = ''
@@ -273,20 +275,20 @@ def hasValidChkSum(filename):
     actualChksum = hashlib.md5(open(filename,'rb').read()).hexdigest()
 
     if actualChksum != expectedChksum or actualChksum == '' or expectedChksum == '':
-        print("Computed chksum: ", actualChksum, filename)
-        print("Expected chksum: ", expectedChksum, filename)
+        logger.info("Computed chksum: ", actualChksum, filename)
+        logger.info("Expected chksum: ", expectedChksum, filename)
         
         return False
     
     return True
 
-def isValidTfw(filename):
+def isValidTfw(filename, logger):
     '''This file must have 6 lines of floats and a valid chksum.'''
     
     if fileExtension(filename) != '.tfw':
         return False
 
-    if not hasValidChkSum(filename):
+    if not hasValidChkSum(filename, logger):
         return False
     
     count = 0

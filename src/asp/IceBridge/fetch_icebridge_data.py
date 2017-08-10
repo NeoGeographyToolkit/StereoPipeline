@@ -600,7 +600,7 @@ def doFetch(options, outputFolder):
         # Verify the chcksum    
         if hasXml and len(outputPath) >= 4 and outputPath[-4:] != '.xml' \
                and outputPath[-4:] != '.tfw':
-            isGood = icebridge_common.hasValidChkSum(outputPath)
+            isGood = icebridge_common.hasValidChkSum(outputPath, logger)
             if not isGood:
                 xmlFile = icebridge_common.xmlFile(outputPath)
                 logger.info('Found invalid data. Will wipe it: ' + outputPath + ' ' + xmlFile)
@@ -610,14 +610,14 @@ def doFetch(options, outputFolder):
                 failedFiles.append(xmlFile)
                 continue
             else:
-                logger.info('Valid chksum: ' + outputPath)
+                logger.info('Valid file: ' + outputPath)
 
 
         if hasTfw and icebridge_common.fileExtension(outputPath) == '.tfw':
-            isGood = icebridge_common.isValidTfw(outputPath)
+            isGood = icebridge_common.isValidTfw(outputPath, logger)
             if not isGood:
                 xmlFile = icebridge_common.xmlFile(outputPath)
-                logger.info('Found invalid data. Will wipe it: ' + outputPath + ' ' + xmlFile)
+                logger.info('Found invalid tfw. Will wipe: ' + outputPath + ' ' + xmlFile)
                 if os.path.exists(outputPath): os.remove(outputPath)
                 if os.path.exists(xmlFile):    os.remove(xmlFile)
                 failedFiles.append(outputPath)
