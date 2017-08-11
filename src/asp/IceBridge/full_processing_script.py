@@ -351,16 +351,17 @@ def main(argsIn):
             # TODO: May be worth doing the faster functions with multiprocessing in the future
 
             if not options.noLidarConvert:
-                input_conversions.convertLidarDataToCsv(lidarFolder)
-                input_conversions.pairLidarFiles(lidarFolder)
+                input_conversions.convertLidarDataToCsv(lidarFolder, logger)
+                input_conversions.pairLidarFiles(lidarFolder, logger)
          
             input_conversions.correctFireballDems(fireballFolder, corrFireballFolder,
                                                   options.startFrame, options.stopFrame,
-                                                  (not isSouth), options.skipValidate)
+                                                  (not isSouth), options.skipValidate,
+                                                  logger)
 
             isGood = input_conversions.convertJpegs(jpegFolder, imageFolder, 
                                                     options.startFrame, options.stopFrame,
-                                                    options.skipValidate)
+                                                    options.skipValidate, logger)
             if not isGood:
                 if options.reFetch and (not options.noFetch):
                     # During conversion we may realize some data is bad. 
@@ -389,7 +390,8 @@ def main(argsIn):
                                                        options.yyyymmdd, options.site, 
                                                        refDemPath, cameraFolder, 
                                                        options.startFrame, options.stopFrame,
-                                                       options.numProcesses, options.numThreads)
+                                                       options.numProcesses, options.numThreads,
+                                                       logger)
     if options.stopAfterConvert:
         print 'Conversion complete, finished!'
         return 0

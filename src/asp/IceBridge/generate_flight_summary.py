@@ -21,7 +21,7 @@
 #   superceded by another script.
 
 import os, sys, optparse, datetime, time, subprocess, logging, multiprocessing
-import re, shutil, time, getpass
+import re, shutil, time, getpass, argparse
 
 import os.path as P
 
@@ -143,20 +143,39 @@ def generateFlightSummary(run, outputFolder):
 def main(argsIn):
     '''Parse arguments and call the processing function'''
 
-    if len(argsIn) < 4:
-        print 'Usage: generate_flight_summary.py <site> <yyyymmdd> <parent folder> <output folder>'
-        return -1
+    try:
+        # Sample usage:
+        # python generate_flight_summary.py --yyyymmdd 20091016 --site AN 
+        usage = '''generate_flight_summary.py <options>'''
+                      
+        parser = argparse.ArgumentParser(usage=usage)
 
-    site         = argsIn[0]
-    yyyymmdd     = argsIn[1]
-    parentFolder = argsIn[2]
-    outputFolder = argsIn[3]
-    run = run_helper.RunHelper(site, yyyymmdd, parentFolder)
+        parser.add_argument("--yyyymmdd",  dest="yyyymmdd", required=True,
+                          help="Specify the year, month, and day in one YYYYMMDD string.")
+        
+        parser.add_argument("--site",  dest="site", required=True,
+                          help="Name of the location of the images (AN, GR, or AL).")
+
+        parser.add_argument("--output-folder",  dest="outputFolder", default=None,
+                          help="Name of the output folder. If not specified, " + \
+                          "use something like AN_YYYYMMDD.")
+
+        parser.add_argument("--parent-folder",  dest="parentFolder", default=os.getcwd(),
+                            help="The folder having all the runs.")
+
+        options = parser.parse_args(argsIn)
+        
+    except argparse.ArgumentError, msg:
+        parser.error(msg)
+        
+    if options.outputFolder is None:
+        options.outputFolder = icebridge_common.outputFolder(options.site, options.yyyymmdd)
+
+    run = run_helper.RunHelper(options.site, options.yyyymmdd, options.parentFolder)
     
-    generateFlightSummary(run, outputFolder)
+    generateFlightSummary(run, options.outputFolder)
     
     return 0
-
 
 # Run main function if file used from shell
 if __name__ == "__main__":

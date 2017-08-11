@@ -39,7 +39,6 @@ import asp_system_utils, asp_alg_utils, asp_geo_utils
 
 asp_system_utils.verify_python_version_is_supported()
 
-
 def getJpegDateTime(filepath):
     '''Get the date and time from a raw jpeg file.'''
     
@@ -63,13 +62,12 @@ def getJpegDateTime(filepath):
 
     raise Exception('Failed to read date/time from file: ' + filepath)
 
-def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate):
+def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate, logger):
     '''Convert jpeg images from RGB to single channel.
        Returns false if any files failed.'''
 
     badFiles = False
     
-    logger = logging.getLogger(__name__)
     logger.info('Converting input images to grayscale...')
 
     # Loop through all the input images
@@ -138,10 +136,10 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate):
     
     return (not badFiles)
             
-def correctFireballDems(demFolder, correctedDemFolder, startFrame, stopFrame, isNorth, skipValidate):
+def correctFireballDems(demFolder, correctedDemFolder, startFrame, stopFrame, isNorth,
+                        skipValidate, logger):
     '''Fix the header problem in Fireball DEMs'''
 
-    logger = logging.getLogger(__name__)
     logger.info('Correcting Fireball DEMs ...')
 
     # Loop through all the input images
@@ -241,7 +239,7 @@ def getCalibrationFileForFrame(cameraLoopkupFile, inputCalFolder, frame, yyyymmd
     return os.path.join(inputCalFolder, camera)
 
 def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile,
-                           refDemPath, numThreads, logger):
+                           refDemPath, numThreads):
     '''Generate a camera model from a single ortho file'''
 
     # If the call fails, try it again with different IP algorithm options to see
@@ -254,14 +252,19 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile,
     bestIpCount = 0
     tempFilePath = outputCamFile + '_temp' # Used to hold the current best result
     for ip_option in IP_OPTIONS:
-    
+
         # Call ortho2pinhole command
         ortho2pinhole = asp_system_utils.which("ortho2pinhole")
         cmd = (('%s %s %s %s %s --reference-dem %s --threads %d --ip-detect-method %s --minimum-ip %d') % (ortho2pinhole, inputPath, orthoPath, inputCamFile, outputCamFile, refDemPath, numThreads, ip_option, MIN_IP))
-        logger.info(cmd)
+
+        # Use a print statement as the logger fails from multiple processes
+        print(cmd)
+
         p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
         textOutput, err = p.communicate()
-        logger.info(textOutput)
+        p.wait()
+        print(textOutput)
+        
         if not os.path.exists(outputCamFile): # Keep trying if no output file produced
             continue
         
@@ -281,8 +284,11 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile,
     
     if not os.path.exists(outputCamFile):
         # This function is getting called from a pool, so just log the failure.
-        logger.error('Failed to convert ortho file: ' + orthoPath)
-            
+        print('Failed to convert ortho file: ' + orthoPath)
+
+    # I saw this being recommended, to dump all print statements in the current task
+    sys.stdout.flush()
+                
     # TODO: Clean up the .gcp file?
 
 
@@ -290,11 +296,10 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
                              cameraLookupPath, yyyymmdd, site,
                              refDemPath, cameraFolder, 
                              startFrame, stopFrame,
-                             numProcesses, numThreads):
+                             numProcesses, numThreads, logger):
     '''Generate camera models from the ortho files.
        Returns false if any files were not generated.'''
     
-    logger = logging.getLogger(__name__)
     logger.info('Generating camera models from ortho images...')
     
     imageFiles = icebridge_common.getTifs(imageFolder)
@@ -367,7 +372,7 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
         # Add ortho2pinhole command to the task pool
         taskHandles.append(pool.apply_async(cameraFromOrthoWrapper, 
                                             (inputPath, orthoPath, inputCamFile,
-                                             outputCamFile, refDemPath, numThreads, logger)))
+                                             outputCamFile, refDemPath, numThreads)))
 
     # Wait for all the tasks to complete
     logger.info('Finished adding ' + str(len(taskHandles)) + ' tasks to the pool.')
@@ -384,11 +389,10 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
             return False
     return True
 
-def convertLidarDataToCsv(lidarFolder):
+def convertLidarDataToCsv(lidarFolder, logger):
     '''Make sure all lidar data is available in a readable text format.
        Returns false if any files failed to convert.'''
 
-    logger = logging.getLogger(__name__)
     logger.info('Converting LIDAR files...')
     
     # Loop through all files in the folder
@@ -419,11 +423,10 @@ def convertLidarDataToCsv(lidarFolder):
             
     return not badFiles
 
-def pairLidarFiles(lidarFolder):
+def pairLidarFiles(lidarFolder, logger):
     '''For each pair of lidar files generate a double size point cloud.
        We can use these later since they do not have any gaps between adjacent files.'''
     
-    logger = logging.getLogger(__name__)
     logger.info('Generating lidar pairs...')
 
     # Create the output folder
