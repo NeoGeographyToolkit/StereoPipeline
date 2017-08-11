@@ -105,7 +105,9 @@ def convertJpegs(jpegFolder, imageFolder, startFrame, stopFrame, skipValidate):
                 continue
         
         # Use ImageMagick tool to convert from RGB to grayscale
-        cmd = (('convert %s -colorspace Gray %s') % (inputPath, outputPath))
+        
+        cmd = ('%s %s -colorspace Gray %s') % \
+              (asp_system_utils.which('convert'), inputPath, outputPath)
         logger.info(cmd)
 
         # Run command and fetch its output
@@ -239,7 +241,7 @@ def getCalibrationFileForFrame(cameraLoopkupFile, inputCalFolder, frame, yyyymmd
     return os.path.join(inputCalFolder, camera)
 
 def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile,
-                           refDemPath, numThreads):
+                           refDemPath, numThreads, logger):
     '''Generate a camera model from a single ortho file'''
 
     # If the call fails, try it again with different IP algorithm options to see
@@ -256,11 +258,10 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile,
         # Call ortho2pinhole command
         ortho2pinhole = asp_system_utils.which("ortho2pinhole")
         cmd = (('%s %s %s %s %s --reference-dem %s --threads %d --ip-detect-method %s --minimum-ip %d') % (ortho2pinhole, inputPath, orthoPath, inputCamFile, outputCamFile, refDemPath, numThreads, ip_option, MIN_IP))
-        print cmd
-        #logger.info(cmd) # TODO: Check on logging here       
+        logger.info(cmd)
         p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
         textOutput, err = p.communicate()
-        print textOutput
+        logger.info(textOutput)
         if not os.path.exists(outputCamFile): # Keep trying if no output file produced
             continue
         
@@ -366,7 +367,7 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
         # Add ortho2pinhole command to the task pool
         taskHandles.append(pool.apply_async(cameraFromOrthoWrapper, 
                                             (inputPath, orthoPath, inputCamFile,
-                                             outputCamFile, refDemPath, numThreads)))
+                                             outputCamFile, refDemPath, numThreads, logger)))
 
     # Wait for all the tasks to complete
     logger.info('Finished adding ' + str(len(taskHandles)) + ' tasks to the pool.')

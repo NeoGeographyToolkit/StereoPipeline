@@ -23,9 +23,7 @@
 
 import sys, os, glob, re, shutil, subprocess, string, time, errno
 
-import asp_string_utils, asp_image_utils
-
-
+import asp_string_utils, asp_image_utils, asp_system_utils
 
 def getGdalInfoTagValue(text, tag):
     """Gets the value of a gdal parameter in a [""] tag or None if it is absent."""
@@ -52,7 +50,7 @@ def getImageGeoInfo(imagePath, getStats=True):
     outputDict = {}
     
     # Call command line tool silently
-    cmd = ['gdalinfo', imagePath, '-proj4']
+    cmd = [asp_system_utils.which('gdalinfo'), imagePath, '-proj4']
     if getStats:
         cmd.append('-stats')
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
@@ -142,7 +140,7 @@ def doesImageHaveGeoData(imagePath):
         raise Exception('Image file ' + imagePath + ' not found!')
     
     # Call command line tool silently
-    cmd = ['gdalinfo', imagePath, '-proj4']
+    cmd = [asp_system_utils.which('gdalinfo'), imagePath, '-proj4']
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     textOutput, err = p.communicate()
     

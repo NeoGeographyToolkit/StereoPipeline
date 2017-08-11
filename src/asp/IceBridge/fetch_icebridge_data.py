@@ -549,6 +549,10 @@ def doFetch(options, outputFolder):
 
     if isLidar and options.maxNumLidarToFetch > 0 and \
            len(allFilesToFetch) > options.maxNumLidarToFetch:
+
+        # Ensure an even number, to fetch both the lidar file and its xml
+        if options.maxNumLidarToFetch % 2 == 1: options.maxNumLidarToFetch += 1
+        
         allFilesToFetch = allFilesToFetch[0:options.maxNumLidarToFetch]
         allUrlsToFetch = allUrlsToFetch[0:options.maxNumLidarToFetch]
                 

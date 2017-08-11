@@ -121,6 +121,7 @@ def which(program, lookInLibexec = False):
                 if is_exe(exe_file):
                     return exe_file
             
+    raise Exception('Missing required executable "' + program + '", please add it to your PATH.')
 
     return None
 

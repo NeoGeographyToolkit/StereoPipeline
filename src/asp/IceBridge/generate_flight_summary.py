@@ -52,8 +52,7 @@ os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 def convertCoords(x, y, projStringIn, projStringOut):
     '''Convert coordinates from one projection to another'''
 
-    # TODO: Fix the path here!
-    cmd = ['/usr/bin/gdaltransform', '-s_srs', projStringIn, '-t_srs', projStringOut]
+    cmd = [asp_system_utils.which('gdaltransform'), '-s_srs', projStringIn, '-t_srs', projStringOut]
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=False)
     textOutput, err = p.communicate( ('%f %f\n' % (x, y)), timeout=0.1 )
     parts = textOutput.split()
@@ -94,8 +93,8 @@ def generateFlightSummary(run, outputFolder):
     batchInfoPath = os.path.join(outputFolder, 'batchInfoSummary.csv')
     with open(batchInfoPath, 'w') as batchInfoLog:
         # Write the header for the batch log file
-        batchInfoLog.write('# startFrame, stopFrame, centerLon, centerLat, meanAlt, meanLidarDiff, '+
-                           'meanInterDiff, meanFireDiff, meanFireLidarDiff\n')
+        batchInfoLog.write('# startFrame, stopFrame, centerLon, centerLat, meanAlt, ' +
+                           ' meanLidarDiff, meanInterDiff, meanFireDiff, meanFireLidarDiff\n')
         
         demList = run.getOutputDemList()
         for (dem, frames) in demList:
@@ -139,6 +138,8 @@ def generateFlightSummary(run, outputFolder):
                 
     print 'Finished generating flight summary in folder: ' + outputFolder
 
+# The parent folder is where the runs AN_... and GR_..., etc., are
+# stored. Usually it is the current directory.
 def main(argsIn):
     '''Parse arguments and call the processing function'''
 
