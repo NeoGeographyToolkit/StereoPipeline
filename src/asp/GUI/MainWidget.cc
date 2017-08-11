@@ -1024,7 +1024,9 @@ namespace vw { namespace gui {
     std::vector<vw::ip::InterestPoint> & ip = m_matches[m_image_id]; // IP's for this image
 
     if (m_images.size() != 1 && !ip.empty()) {
-      // Must refresh the matches in all the images, not just this one
+      // In order to be able to see matches, each image must be in its own widget.
+      // So, if the current widget has more than an image, they are stacked on top
+      // of each other, and then we just can't show IP.
       emit turnOffViewMatchesSignal();
       return;
     }
