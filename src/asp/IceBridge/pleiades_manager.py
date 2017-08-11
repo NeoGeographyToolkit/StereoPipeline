@@ -52,11 +52,11 @@ os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 # Parameters
 
 # Constants used in this file
-#NODE_TYPE = 'wes' # Westmere = 12 core,  48 GB mem, SBU 1.0, Launch from mfe1 only!
-#NODE_TYPE = 'san' # Sandy bridge = 16 core,  32 GB mem, SBU 1.82
-NODE_TYPE = 'ivy' # Ivy bridge   = 20 core,  64 GB mem, SBU 2.52
-#NODE_TYPE = 'has' # Haswell      = 24 core, 128 GB mem, SBU 3.34
-#NODE_TYPE = '???' # Broadwell    = 28 core, 128 GB mem, SBU 4.04
+#NODE_TYPE = 'wes' # Westmere = 12 cores/24 processors, 48 GB mem, SBU 1.0, Launch from mfe1 only!
+#NODE_TYPE = 'san' # Sandy bridge = 16 cores,  32 GB mem, SBU 1.82
+NODE_TYPE = 'ivy' # Ivy bridge    = 20 cores,  64 GB mem, SBU 2.52
+#NODE_TYPE = 'has' # Haswell      = 24 cores, 128 GB mem, SBU 3.34
+#NODE_TYPE = '???' # Broadwell    = 28 cores, 128 GB mem, SBU 4.04
 
 NUM_ORTHO_JOBS      = 2
 NUM_ORTHO_PROCESSES = 10
