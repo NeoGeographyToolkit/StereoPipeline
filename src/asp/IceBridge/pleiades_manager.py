@@ -48,6 +48,8 @@ os.environ["PATH"] = pythonpath     + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = libexecpath    + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 
+#=========================================================================
+# Parameters
 
 # Constants used in this file
 #NODE_TYPE = 'wes' # Westmere = 12 core,  48 GB mem, SBU 1.0, Launch from mfe1 only!
@@ -68,7 +70,10 @@ NUM_BATCH_PROCESSES = 2 # TODO: Get a handle on memory usage!
 BATCH_PBS_QUEUE     = 'normal'
 MAX_BATCH_HOURS     = 8 # devel limit is 2, long limit is 120, normal is 8
 
+BUNDLE_LENGTH = 10
+
 CONTACT_EMAIL = 'scott.t.mcmichael@nasa.gov'
+HOME_DIR = '/nobackup/smcmich1/icebridge/'
 
 GROUP_ID = 's1827'
 
@@ -78,18 +83,22 @@ STEREO_ALGORITHM = 2 # 1 = SGM, 2 = MGM
 # Wait this long between checking for job completion
 SLEEP_TIME = 30
 
-ALL_RUN_LIST       = '/nobackup/smcmich1/icebridge/full_run_list.txt'
-SKIP_RUN_LIST      = '/nobackup/smcmich1/icebridge/run_skip_list.txt'
-COMPLETED_RUN_LIST = '/nobackup/smcmich1/icebridge/completed_run_list.txt'
 
-LOG_FOLDER              = '/nobackup/smcmich1/icebridge/manager_logs'
-UNPACK_FOLDER           = '/nobackup/smcmich1/icebridge/data'
-CALIBRATION_FILE_FOLDER = '/nobackup/smcmich1/icebridge/calib_files'
-REFERENCE_DEM_FOLDER    = '/nobackup/smcmich1/icebridge/reference_dems'
-SUMMARY_FOLDER          = '/nobackup/smcmich1/icebridge/summaries'
+ALL_RUN_LIST       = HOME_DIR+'full_run_list.txt'
+SKIP_RUN_LIST      = HOME_DIR+'run_skip_list.txt'
+COMPLETED_RUN_LIST = HOME_DIR+'completed_run_list.txt'
+
+LOG_FOLDER              = HOME_DIR+'manager_logs'
+UNPACK_FOLDER           = HOME_DIR+'data'
+CALIBRATION_FILE_FOLDER = HOME_DIR+'calib_files'
+REFERENCE_DEM_FOLDER    = HOME_DIR+'reference_dems'
+SUMMARY_FOLDER          = HOME_DIR+'summaries'
 
 
-BUNDLE_LENGTH = 10
+
+
+
+#=========================================================================
 
 def getUser():
     '''Return the current user name.'''
@@ -381,7 +390,7 @@ def checkRequiredTools():
              'process_icebridge_run.py',
              'process_icebridge_batch.py',
              'ortho2pinhole',
-#             'camera_footprint'
+             'camera_footprint'
             ]
 
     for tool in tools:
@@ -400,9 +409,9 @@ def main(argsIn):
         #parser.add_option("--yyyymmdd",  dest="yyyymmdd", default=None,
         #                  help="Specify the year, month, and day in one YYYYMMDD string.")
 
-        # TODO: What format for defining the run?
-        parser.add_option("--manual-run",  dest="manualRun", default=None,
-                          help="Manually specify a single run to process.") 
+        ## TODO: What format for defining the run?
+        #parser.add_option("--manual-run",  dest="manualRun", default=None,
+        #                  help="Manually specify a single run to process.") 
                           
         (options, args) = parser.parse_args(argsIn)
 
@@ -419,13 +428,13 @@ def main(argsIn):
 
     checkRequiredTools() # Make sure all the needed tools can be found before we start
 
+    # TODO: Uncomment when processing more than one run!
     # Get the list of runs to process
-    logger.info('Reading run lists...')
-    allRuns  = readRunList(ALL_RUN_LIST      )
-    skipRuns = readRunList(SKIP_RUN_LIST     )
-    doneRuns = readRunList(COMPLETED_RUN_LIST)
-    
-    runList = getRunsToProcess(allRuns, skipRuns, doneRuns)
+    #logger.info('Reading run lists...')
+    #allRuns  = readRunList(ALL_RUN_LIST      )
+    #skipRuns = readRunList(SKIP_RUN_LIST     )
+    #doneRuns = readRunList(COMPLETED_RUN_LIST)
+    #runList  = getRunsToProcess(allRuns, skipRuns, doneRuns)
 
     runList = [run_helper.RunHelper('AN','20101104', UNPACK_FOLDER)] # DEBUG
 
@@ -438,29 +447,30 @@ def main(argsIn):
         # TODO: Prefetch the next run while waiting on this run!
 
         # Obtain the data for a run if it is not already done
-        #runFetch(run)       
+        runFetch(run)       
                
         # Run conversion and archive results if not already done        
-        #runConversion(run)
+        runConversion(run)
 
         # Run command to generate the list of batch jobs for this run
         logger.info('Fetching batch list for run ' + str(run))
         batchListPath = os.path.join(run.getProcessFolder(), 'batch_commands_log.txt')
-        #batchListPath = generateBatchList(run, batchListPath)
+        batchListPath = generateBatchList(run, batchListPath)
        
         # Divide up batches into jobs and submit them to machines.
         logger.info('Submitting jobs for run ' + str(run))
-        #baseName = submitBatchJobs(run, batchListPath)
+        baseName = submitBatchJobs(run, batchListPath)
         
         
         # Wait for all the jobs to finish
         logger.info('Waiting for job completion of run ' + str(run))
-        #waitForRunCompletion(baseName)
+        waitForRunCompletion(baseName)
         logger.info('All jobs finished for run '+str(run))
         
-        # Log the run as completed
-        # - If the run was not processed correctly it will have to be looked at manually
-        addToRunList(COMPLETED_RUN_LIST, run)
+        # TODO: Uncomment when processing multiple runs.
+        ## Log the run as completed
+        ## - If the run was not processed correctly it will have to be looked at manually
+        #addToRunList(COMPLETED_RUN_LIST, run)
 
         # Generate a simple report of the results
         (numOutputs, numProduced, errorCount) = checkResults(run, batchListPath)
@@ -468,21 +478,19 @@ def main(argsIn):
                       (numProduced, numOutputs, errorCount))
         logger.info(resultText)
 
-        raise Exception('DEBUG')
-
         # Generate a summary folder and send a copy to Lou
         # - Currently the summary folders need to be deleted manually, but they should not
         #   take up much space due to the large amount of compression used.
         summaryFolder = os.path.join(SUMMARY_FOLDER, run.name())
         generate_flight_summary.generateFlightSummary(run, summaryFolder)
-        archive_functions.packAndSendSummaryFolder(run, summaryFolder)
-        # TODO: Automatically scp these to lunokhod?
+        #archive_functions.packAndSendSummaryFolder(run, summaryFolder) # Sends data to Lunokhod2 location
 
         # Don't pack or clean up the run if it did not generate all the output files.
         if (numProduced == numOutputs) and (errorCount == 0):
             print 'TODO: Automatically send the completed files to lou and clean up the run!'
 
-            # Pack up all the files to lou, then delete the local copies.            
+            # TODO: Uncomment this once our outputs are good.
+            # Pack up all the files to lou, then delete the local copies.          
             #archive_functions.packAndSendCompletedRun(run)
             #cleanupRun(run) # <-- Should this always be manual??
             
