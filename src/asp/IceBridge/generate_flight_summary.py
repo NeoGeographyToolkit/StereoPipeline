@@ -53,13 +53,14 @@ def convertCoords(x, y, projStringIn, projStringOut):
     '''Convert coordinates from one projection to another'''
 
     cmd = [asp_system_utils.which('gdaltransform'), '-s_srs', projStringIn, '-t_srs', projStringOut]
+    print(" ".join(cmd))
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=False)
     textOutput, err = p.communicate( ('%f %f\n' % (x, y)), timeout=0.1 )
     parts = textOutput.split()
     
     return ( float(parts[0]), float(parts[1]) )
 
-def generateFlightSummary(run, outputFolder):
+def generateFlightSummary(run, outputFolder, skipKml = False):
     '''Generate a folder containing handy debugging files including output thumbnails'''
     
     # Copy logs to the output folder
@@ -70,23 +71,24 @@ def generateFlightSummary(run, outputFolder):
     packedErrorLog = os.path.join(runFolder, 'packedErrors.log')
     if os.path.exists(packedErrorLog):
         shutil.copy(packedErrorLog, outputFolder)
-    
-    # Copy the input camera kml file
-    camerasInKmlPath = os.path.join(procFolder, 'cameras_in.kml')
-    shutil.copy(camerasInKmlPath, outputFolder)
-    
-    # Create a merged version of all the bundle adjusted camera files
-    print 'Merging output camera kml files...'
-    cmd = "find "+procFolder+" -name cameras_out.kml"
-    p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, shell=False)
-    textOutput, err = p.communicate()
-    camKmlFiles = textOutput.replace('\n', ' ')
-    
-    outputKml = os.path.join(outputFolder, 'cameras_out.kml')
-    scriptPath = asp_system_utils.which('merge_orbitviz.py')
-    cmd = scriptPath +' '+ outputKml +' '+ camKmlFiles
-    print cmd
-    os.system(cmd)
+
+    if not skipKml:
+        # Copy the input camera kml file
+        camerasInKmlPath = os.path.join(procFolder, 'cameras_in.kml')
+        shutil.copy(camerasInKmlPath, outputFolder)
+        
+        # Create a merged version of all the bundle adjusted camera files
+        print 'Merging output camera kml files...'
+        cmd = "find "+procFolder+" -name cameras_out.kml"
+        p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, shell=False)
+        textOutput, err = p.communicate()
+        camKmlFiles = textOutput.replace('\n', ' ')
+        
+        outputKml = os.path.join(outputFolder, 'cameras_out.kml')
+        scriptPath = asp_system_utils.which('merge_orbitviz.py')
+        cmd = scriptPath +' '+ outputKml +' '+ camKmlFiles
+        print cmd
+        os.system(cmd)
 
     # Collect per-batch information
     print 'Consolidating batch information...'
@@ -163,6 +165,10 @@ def main(argsIn):
         parser.add_argument("--parent-folder",  dest="parentFolder", default=os.getcwd(),
                             help="The folder having all the runs.")
 
+        parser.add_argument("--skip-kml-gen", action="store_true", dest="skipKml",
+                          default=False,
+                          help="Skip combining kml files.")
+        
         options = parser.parse_args(argsIn)
         
     except argparse.ArgumentError, msg:
@@ -173,7 +179,7 @@ def main(argsIn):
 
     run = run_helper.RunHelper(options.site, options.yyyymmdd, options.parentFolder)
     
-    generateFlightSummary(run, options.outputFolder)
+    generateFlightSummary(run, options.outputFolder, options.skipKml)
     
     return 0
 
