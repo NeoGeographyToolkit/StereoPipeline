@@ -244,14 +244,14 @@ def main(argsIn):
         except:
             logger.warning('Failed to compute GSD for camera: ' + inputPairs[0][1])
         if options.demResolution < (computedGsd*MAX_OVERSAMPLING):
-            logger.warning('Specified GSD ' + options.demResolution + 
-                           ' is too fine for camera with computed GSD ' + computedGsd +
+            logger.warning('Specified GSD ' + str(options.demResolution) + 
+                           ' is too fine for camera with computed GSD ' + str(computedGsd) +
                            '.  Switching to native GSD.)')
             options.demResolution = computedGsd
         # Undersampling is not as dangerous, just print a warning.
         if options.demResolution > 2*computedGsd:
-            logger.warning('Specified GSD ' + options.demResolution + 
-                           ' is much larger than computed GSD ' + computedGsd)
+            logger.warning('Specified GSD ' + str(options.demResolution) + 
+                           ' is much larger than computed GSD ' + str(computedGsd))
                            
 
     # If a lidar folder was specified, find the best lidar file.
