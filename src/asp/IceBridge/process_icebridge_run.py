@@ -108,12 +108,12 @@ def getImageSpacing(orthoFolder, startFrame, stopFrame):
     breaks = []
    
     # Generate a list of valid, full path ortho files
-    fileList = os.listdir(orthoFolder)
+    fileList = icebridge_common.getTifs(orthoFolder)
     orthoFiles = []
     for orthoFile in fileList:     
-        # Skip non-image files (including junk from stereo_gui) and duplicate grayscale files
+        # Skip duplicate grayscale files
         ext = os.path.splitext(orthoFile)[1]
-        if (ext != '.tif') or ('_sub' in orthoFile) or ('.tif_gray.tif' in orthoFile):
+        if '.tif_gray.tif' in orthoFile:
             continue
         orthoPath = os.path.join(orthoFolder, orthoFile)
 
@@ -213,7 +213,7 @@ def getRunMeanGsd(imageCameraPairs, referenceDem, isSouth, frameSkip=1):
         pair = imageCameraPairs[i]
         
         # Average in the GSD for each file we can process
-        gsd = icebridge_common.getCameraGsdRetry(pair[0], pair[1], referenceDem, projString, logger)
+        gsd = icebridge_common.getCameraGsdRetry(pair[0], pair[1], logger, referenceDem, projString)
         # TODO Move on to the next file on failure
          
         meanGsd   += gsd

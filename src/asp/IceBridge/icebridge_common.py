@@ -178,7 +178,7 @@ def getLidarCsvFormat(filename):
         return '"5:lat 4:lon 6:height_above_datum"'
     return '"1:lat 2:lon 3:height_above_datum"' # ATM
     
-def getCameraGsd(imagePath, cameraPath, referenceDem=None, projString="", logger=None):
+def getCameraGsd(imagePath, cameraPath, logger, referenceDem=None, projString=""):
     '''Compute the GSD of a single camera.
        Use the DEM is provided, otherwise use the datum.'''
     
@@ -191,12 +191,11 @@ def getCameraGsd(imagePath, cameraPath, referenceDem=None, projString="", logger
     cmd = cmd.split()
     if projString:
         cmd.append('--t_srs',)
-        cmd.append(projString,)
-    print cmd
+        cmd.append(projString)
+    logger.info(" ".join(cmd))
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     textOutput, err = p.communicate()
-    if logger:
-        logger.info(textOutput)
+    logger.info(textOutput)
     
     # Extract the gsd from the output text
     m = re.findall(r"Computed mean gsd: (\d+\.*[0-9e\-]*)", textOutput)
@@ -204,17 +203,17 @@ def getCameraGsd(imagePath, cameraPath, referenceDem=None, projString="", logger
         raise Exception('Unable to compute GSD for file: ' + cameraPath)
     return float(m[0])
 
-def getCameraGsdRetry(imagePath, cameraPath, referenceDem, projString="", logger=None):
+def getCameraGsdRetry(imagePath, cameraPath, logger, referenceDem, projString=""):
     '''As getCameraGsd, but retry with the datum if the DEM fails.'''
 
     try:
         # Compute GSD using the DEM
         # - Only need the projection string when not using a DEM
-        gsd = getCameraGsd(imagePath, cameraPath, referenceDem, "", logger)
+        gsd = getCameraGsd(imagePath, cameraPath, loggger, referenceDem, "")
     except:
         # If that failed, try intersecting with the datum.
         logger.info('DEM intersection failed, trying with datum...')
-        gsd = getCameraGsd(imagePath, cameraPath, None, projString, logger)       
+        gsd = getCameraGsd(imagePath, cameraPath, logger, None, projString)
      
     return gsd
 

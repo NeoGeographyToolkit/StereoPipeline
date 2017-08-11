@@ -188,7 +188,7 @@ def main(argsIn):
                           type=int, help="The number of images to treat as overlapping for " + \
                           "bundle adjustment.")
         
-        parser.add_argument('--stereo-arguments', dest='stereoArgs', default='--stereo-algorithm 1',
+        parser.add_argument('--stereo-arguments', dest='stereoArgs', default='--stereo-algorithm 2',
                             help='Extra arguments to pass to stereo.')
 
         parser.add_argument('--start-frame', dest='startFrame', type=int,
@@ -296,7 +296,7 @@ def main(argsIn):
     logger.info("Running on machine: " + out)
     
     # Perform some input checks and initializations
-    if not options.noOrthoConvert:
+    if not (options.noOrthoConvert and (options.stopAfterConvert or options.stopAfterFetch) ):
         # These are not needed unless cameras are initialized 
         if not os.path.exists(options.inputCalFolder):
             raise Exception("Missing camera calibration folder: " + options.inputCalFolder)
@@ -395,7 +395,8 @@ def main(argsIn):
         return 0
 
     # Call the processing routine
-    processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, corrFireballFolder, processFolder,
+    processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder,
+                  corrFireballFolder, processFolder,
                   isSouth, options.bundleLength, refDemPath, options.stereoArgs,
                   options.startFrame, options.stopFrame, options.logBatches,
                   options.numProcesses, options.numThreads, options.numProcessesPerBatch)

@@ -98,7 +98,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     if '--stereo-algorithm 0' not in options.stereoArgs:
         correlationArgString = (' --xcorr-threshold 2 --min-xcorr-level 1 --corr-kernel 7 7 ' 
                                 + ' --corr-tile-size 9000 --cost-mode 4 --sgm-search-buffer 4 1 '
-                                + searchLimitString +' --corr-memory-limit-mb 20000 '
+                                + searchLimitString + ' --corr-memory-limit-mb 16000 '
                                 + options.stereoArgs
                                )
         #+ ' --corr-blob-filter 100')
@@ -238,7 +238,8 @@ def main(argsIn):
         try:
             # Compute the native GSD of the first input camera
             computedGsd = icebridge_common.getCameraGsdRetry(inputPairs[0][0], inputPairs[0][1], 
-                                                             options.referenceDem, logger)            
+                                                             logger, options.referenceDem)
+            
             print 'GSD = ' + str(computedGsd)
         except:
             logger.warning('Failed to compute GSD for camera: ' + inputPairs[0][1])
