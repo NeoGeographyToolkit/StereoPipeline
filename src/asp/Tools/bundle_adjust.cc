@@ -1993,7 +1993,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("overlap-limit",    po::value(&opt.overlap_limit)->default_value(0),
                          "Limit the number of subsequent images to search for matches to the current image to this value.  By default match all images.")
     ("overlap-list",    po::value(&opt.overlap_list_file)->default_value(""),
-     "A list of image pairs, one pair per line, separated by a space, which are expected to overlap. Matches are then computed only among the images in each pair.")
+     "A file containing a list of image pairs, one pair per line, separated by a space, which are expected to overlap. Matches are then computed only among the images in each pair.")
     ("position-filter-dist", po::value(&opt.position_filter_dist)->default_value(-1),
                          "Set a distance in meters and don't perform IP matching on images with an estimated camera center farther apart than this distance.  Requires --camera-positions.")
     ("rotation-weight",  po::value(&opt.rotation_weight)->default_value(0.0), "A higher weight will penalize more rotation deviations from the original configuration.")
