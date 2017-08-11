@@ -296,7 +296,7 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
     logger = logging.getLogger(__name__)
     logger.info('Generating camera models from ortho images...')
     
-    imageFiles = os.listdir(imageFolder)
+    imageFiles = icebridge_common.getTifs(imageFolder)
     orthoFiles = icebridge_common.getTifs(orthoFolder)
     
     # Make a dictionary of ortho files by frame
@@ -309,7 +309,7 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
 
     imageFiles.sort()
 
-    logger.info('Starting ortho processing pool with ' + str(numProcesses) +' processes.')
+    logger.info('Starting ortho processing pool with ' + str(numProcesses) + ' processes.')
     pool = multiprocessing.Pool(numProcesses)
 
     # Loop through all input images
@@ -403,8 +403,8 @@ def convertLidarDataToCsv(lidarFolder):
         # Handle paths
         fullPath   = os.path.join(lidarFolder, f)
         outputPath = os.path.join(lidarFolder, os.path.splitext(f)[0]+'.csv')
-        if os.path.exists(outputPath):
-            logger.info("File exists, skipping: " + outputPath)
+        if icebridge_common.isValidLidarCSV(outputPath):
+            logger.info("File exists and is valid, skipping: " + outputPath)
             continue
         
         # Call the conversion
@@ -412,7 +412,7 @@ def convertLidarDataToCsv(lidarFolder):
         extract_icebridge_ATM_points.main([fullPath])
         
         # Check the result
-        if not os.path.exists(outputPath):
+        if not icebridge_common.isValidLidarCSV(outputPath):
             logger.error('Failed to parse LIDAR file: ' + fullPath)
             badFiles = True
             
@@ -432,7 +432,6 @@ def pairLidarFiles(lidarFolder):
     (lidarFiles, lidarExt, isLVIS) = icebridge_common.lidarFiles(lidarFolder)
     
     numLidarFiles = len(lidarFiles)
-    print numLidarFiles
     
     # Loop through all pairs of csv files in the folder    
     badFiles = False
@@ -451,7 +450,8 @@ def pairLidarFiles(lidarFolder):
         path1      = os.path.join(lidarFolder, thisFile)
         path2      = os.path.join(lidarFolder, nextFile)
         outputPath = os.path.join(pairFolder, outputName)
-        if os.path.exists(outputPath):
+        if icebridge_common.isValidLidarCSV(outputPath):
+            logger.info("Valid lidar file: " + outputPath)
             continue
         
         # Concatenate the two files
@@ -464,7 +464,7 @@ def pairLidarFiles(lidarFolder):
         p        = subprocess.Popen(cmd2, stdout=subprocess.PIPE, shell=True)
         out, err = p.communicate()
 
-        if not os.path.exists(outputPath):
+        if not icebridge_common.isValidLidarCSV(outputPath):
             logger.error('Failed to generate merged LIDAR file: ' + outputPath)
             badFiles = True
             

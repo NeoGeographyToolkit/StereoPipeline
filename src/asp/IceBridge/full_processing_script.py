@@ -214,7 +214,7 @@ def main(argsIn):
         # Performance options  
         parser.add_argument('--num-processes', dest='numProcesses', default=1,
                           type=int, help='The number of simultaneous processes to run.')
-        parser.add_argument('--num-threads', dest='numThreads', default=1,
+        parser.add_argument('--num-threads', dest='numThreads', default=8,
                           type=int, help='The number of threads per process.')
         parser.add_argument('--num-processes-per-batch', dest='numProcessesPerBatch', default=1,
                           type=int, help='The number of simultaneous processes to run ' + \

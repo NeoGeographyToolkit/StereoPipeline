@@ -341,7 +341,8 @@ def main(argsIn):
         for i in range(0, numRuns):
             taskHandles.append(pool.apply_async(createDem, 
                                                 (i, options, inputPairs, prefixes, demFiles,
-                                                 projString, threadText, suppressOutput, redo, logger)))
+                                                 projString, threadText, suppressOutput, redo,
+                                                 logger)))
         # Wait for all the tasks to complete
         icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, logger, interactive = False, 
                                                          quitKey='q', sleepTime=20)
@@ -371,6 +372,7 @@ def main(argsIn):
     FIREBALL_DIFF_CUTOFF  = 1.0 # Meters
     interDiffSummaryPath =  outputPrefix + '_inter_diff_summary.csv'
     interDiffCsvPaths    = []
+    
     for i in range(1,numDems):
         #try:
         # Call geodiff
@@ -388,8 +390,13 @@ def main(argsIn):
                            + ' is large: ' + str(results['Mean']))
         #except:
         #    logger.warning('Difference between dem ' + demFiles[0] + ' and dem ' + demFiles[i] + ' failed!')
-    consolidateGeodiffResults(interDiffCsvPaths, interDiffSummaryPath)
 
+    # Can do interdiff only if there is more than one DEM
+    if numDems > 1:
+        consolidateGeodiffResults(interDiffCsvPaths, interDiffSummaryPath)
+    else:
+        logger.info("Only one stereo pair is present, cannot create: " + interDiffSummaryPath)
+        
     # DEM_MOSAIC
     allDemPath = outputPrefix + '-DEM.tif'
     if numDems == 1:
@@ -484,9 +491,6 @@ def main(argsIn):
             #    logger.warning('Difference between dem ' + demFiles[0] + ' and fireball failed!')
         consolidateGeodiffResults(fireballDiffCsvPaths,  fireballDiffSummaryPath )
         consolidateGeodiffResults(fireLidarDiffCsvPaths, fireLidarDiffSummaryPath)
-
-
-
 
     # HILLSHADE
     hillOutput = outputPrefix+'-DEM_HILLSHADE.tif'

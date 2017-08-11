@@ -18,7 +18,7 @@
 
 # Icebridge utility functions
 
-import os, sys, datetime, time, subprocess, logging, re, hashlib
+import os, sys, datetime, time, subprocess, logging, re, hashlib, string
 
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
@@ -136,6 +136,40 @@ def isLidar(filename):
     extension = fileExtension(filename)
     return (extension == '.qi') or (extension == '.hdf5') or \
            (extension == '.h5') or (extension == '.TXT')
+
+def isValidLidarCSV(filename):
+    '''Check that a lidar csv file is valid. It must have at least threee entries on one line.'''
+    
+    if not os.path.exists(filename):
+        return False
+
+    with open(filename, "r") as ins:
+        array = []
+        for line in ins:
+
+            # Skip empty lines
+            if len(line) == 0: continue
+
+            # Skip lines starting with spaces followed by #
+            m = re.match("^\s*\#", line)
+            if m:
+                continue
+
+            line = string.replace(line, ',',  ' ')
+            line = string.replace(line, '\t', ' ')
+
+            vals = line.split(' ')
+            num = 0
+            for val in vals:
+                if len(val) == 0: continue
+                num += 1
+
+            if num >= 3:
+                return True
+            else:
+                return False
+
+    return False
 
 def getLidarCsvFormat(filename):
     '''Returns the ASP CSV format string to use for a lidar file'''
@@ -361,7 +395,7 @@ def getTifs(folder, prependFolder=False):
 
         # Skip non-image files and sub-images
         ext = os.path.splitext(f)[1]
-        if (ext != '.tif') or ('_sub' in f):
+        if (ext != '.tif') or ('_sub' in f) or ('pct.tif' in f) or ('_hillshade_' in f):
             continue
         if prependFolder:
             files.append(os.path.join(folder, f))
