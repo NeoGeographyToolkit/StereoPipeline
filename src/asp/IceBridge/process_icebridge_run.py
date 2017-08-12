@@ -399,12 +399,14 @@ def main(argsIn):
 
     # Set the output resolution as the computed mean GSD
     # - Currently we process ten frames total but this should be increased for production!
+    GSD_RESOLUTION_MULTIPLIER = 4.0
     NUM_GSD_FRAMES = 10
     logger.info('Computing GSD with ' + str(NUM_GSD_FRAMES) + ' frames.')
     gsdFrameSkip = len(imageCameraPairs) / NUM_GSD_FRAMES
     if gsdFrameSkip < 1:
         gsdFrameSkip = 1
-    outputResolution = getRunMeanGsd(imageCameraPairs, options.referenceDem, options.isSouth, gsdFrameSkip)
+    meanGsd = getRunMeanGsd(imageCameraPairs, options.referenceDem, options.isSouth, gsdFrameSkip)
+    outputResolution = meanGsd * GSD_RESOLUTION_MULTIPLIER
     logger.info('OUTPUT_RESOLUTION: ' + str(outputResolution))
     #return 0
     
