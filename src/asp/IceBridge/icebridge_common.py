@@ -19,6 +19,7 @@
 # Icebridge utility functions
 
 import os, sys, datetime, time, subprocess, logging, re, hashlib, string
+import psutil
 
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
@@ -783,7 +784,7 @@ def waitForTaskCompletionOrKeypress(taskHandles, logger = None, interactive=True
     # Wait for all the tasks to complete
     notReady = len(taskHandles)
     while notReady > 0:
-        
+
         if interactive:
             # Wait and see if the user presses a key
             msg = 'Waiting on ' + str(notReady) + ' process(es), press '+str(quitKey)+'<Enter> to abort...\n'
@@ -794,6 +795,16 @@ def waitForTaskCompletionOrKeypress(taskHandles, logger = None, interactive=True
         else:
             logger_print(logger, "Waiting on " + str(notReady) + ' incomplete tasks.')
             time.sleep(sleepTime)
+            
+        # As long as we have this process waiting, keep track of our resource consumption.
+        cpuPercentUsage = psutil.cpu_percent()
+        memInfo         = psutil.virtual_memory()
+        memUsed         = memInfo[0] - memInfo[1]
+        memPercentUsage = float(memUsed) / float(memInfo[0])
+
+        usageMessage = ('CPU percent usage = %f, Memory percent usage = %f' 
+                        % (cpuPercentUsage, memPercentUsage))
+        logger_print(logger, usageMessage)
             
         # Otherwise count up the tasks we are still waiting on.
         notReady = 0

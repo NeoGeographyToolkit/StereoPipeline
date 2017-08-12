@@ -108,23 +108,40 @@ def generateFlightSummary(run, outputFolder, skipKml = False):
             fireDiffPath      = dem.replace('out-align-DEM.tif', 'out_fireball_diff_summary.csv')
             fireLidarDiffPath = dem.replace('out-align-DEM.tif', 'out_fireLidar_diff_summary.csv')
 
-            # Read in the diff results
-            lidarDiffResults     = icebridge_common.readGeodiffOutput(lidarDiffPath    )
-            interDiffResults     = icebridge_common.readGeodiffOutput(interDiffPath    )
-            fireDiffResults      = icebridge_common.readGeodiffOutput(fireDiffPath     )
-            fireLidarDiffResults = icebridge_common.readGeodiffOutput(fireLidarDiffPath)
+            # Read in the diff results            
+            try:
+                lidarDiffResults = icebridge_common.readGeodiffOutput(lidarDiffPath)
+            except:
+                lidarDiffResults = {'Mean':-999}
+            try:
+                interDiffResults = icebridge_common.readGeodiffOutput(interDiffPath)
+            except:
+                interDiffResults = {'Mean':-999}
+            try:
+                fireDiffResults  = icebridge_common.readGeodiffOutput(fireDiffPath)
+            except:
+                fireDiffResults  = {'Mean':-999}
+            try:
+                fireLidarDiffResults = icebridge_common.readGeodiffOutput(fireLidarDiffPath)
+            except:
+                fireLidarDiffResults = {'Mean':-999}
 
-            # Get DEM stats
-            geoInfo = asp_geo_utils.getImageGeoInfo(dem, getStats=False)
-            stats   = asp_image_utils.getImageStats(dem)[0]
-            meanAlt = stats[2]
-            centerX, centerY = geoInfo['projection_center']
+            try:
+                # Get DEM stats
+                geoInfo = asp_geo_utils.getImageGeoInfo(dem, getStats=False)
+                stats   = asp_image_utils.getImageStats(dem)[0]
+                meanAlt = stats[2]
+                centerX, centerY = geoInfo['projection_center']
 
-            # Convert from projected coordinates to lonlat coordinates            
-            isSouth    = ('+lat_0=-90' in geoInfo['proj_string'])
-            projString = icebridge_common.getEpsgCode(isSouth, asString=True)
-            PROJ_STR_WGS84 = 'EPSG:4326'
-            centerLon, centerLat = convertCoords(centerX, centerY, projString, PROJ_STR_WGS84)
+                # Convert from projected coordinates to lonlat coordinates            
+                isSouth    = ('+lat_0=-90' in geoInfo['proj_string'])
+                projString = icebridge_common.getEpsgCode(isSouth, asString=True)
+                PROJ_STR_WGS84 = 'EPSG:4326'
+                centerLon, centerLat = convertCoords(centerX, centerY, projString, PROJ_STR_WGS84)
+            except:
+                centerLon = 0
+                centerLat = 0
+                meanAlt   = -999
             
             # Write info to summary file
             batchInfoLog.write('%d, %d, %f, %f, %f, %f, %f, %f, %f\n' % 

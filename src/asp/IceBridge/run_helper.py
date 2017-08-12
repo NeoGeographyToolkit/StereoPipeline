@@ -140,7 +140,13 @@ class RunHelper():
         '''Return a list of all the batch folders'''
         pFolder       = self.getProcessFolder()
         batchFolders  = os.listdir(pFolder)
-        batchFolders.sort()
+        def getFirstFrame(s):
+            try:
+                parts = s.split('_')
+                return int(parts[1])
+            except:
+                return 99999999
+        batchFolders.sort(key=getFirstFrame)
         batchFolders  = [os.path.join(pFolder,x) for x in batchFolders if 'batch_' in x]
         batchFolders  = [x for x in batchFolders if os.path.isdir(x)]
         return batchFolders
@@ -154,7 +160,7 @@ class RunHelper():
         output = []
         for batch in batchList:
             frames = icebridge_common.getFrameRangeFromBatchFolder(batch)
-            path = os.path.join(batch, demName)
+            path   = os.path.join(batch, demName)
             output.append((path, frames))
         return output
 
