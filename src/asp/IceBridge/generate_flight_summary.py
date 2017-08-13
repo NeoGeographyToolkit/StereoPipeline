@@ -21,7 +21,7 @@
 #   superceded by another script.
 
 import os, sys, optparse, datetime, time, subprocess, logging, multiprocessing
-import re, shutil, time, getpass, argparse
+import re, shutil, time, getpass, argparse, subprocess32
 
 import os.path as P
 
@@ -52,9 +52,10 @@ os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 def convertCoords(x, y, projStringIn, projStringOut):
     '''Convert coordinates from one projection to another'''
 
+    # Using subprocess32 to access the timeout argument which is not always present in subprocess
     cmd = [asp_system_utils.which('gdaltransform'), '-s_srs', projStringIn, '-t_srs', projStringOut]
     print(" ".join(cmd))
-    p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=False)
+    p = subprocess32.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=False)
     textOutput, err = p.communicate( ('%f %f\n' % (x, y)), timeout=0.1 )
     parts = textOutput.split()
     
@@ -87,7 +88,7 @@ def generateFlightSummary(run, outputFolder, skipKml = False):
         outputKml = os.path.join(outputFolder, 'cameras_out.kml')
         scriptPath = asp_system_utils.which('merge_orbitviz.py')
         cmd = scriptPath +' '+ outputKml +' '+ camKmlFiles
-        print cmd
+        #print cmd
         os.system(cmd)
 
     # Collect per-batch information
