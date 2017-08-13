@@ -48,9 +48,8 @@ os.environ["PATH"] = binpath     + os.pathsep + os.environ["PATH"]
 def consolidateGeodiffResults(inputFiles, outputPath=None):
     '''Create a summary file of multiple geodiff csv output files'''
 
-    if len(inputFiles) == 0:
-        raise Exception('Error creating geodiff summary: ' + outputPath
-                        + ', no input files provided!\n')
+    if len(inputFiles) == 0: # No input files
+        return None
 
     # Take the max/min of min/max and the mean of mean and stddev
     keywords = ['Max', 'Min', 'Mean', 'StdDev']
@@ -91,7 +90,9 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     argString      = ('%s %s %s %s ' % (inputPairs[i][0],  inputPairs[pairIndex][0], 
                                         inputPairs[i][1],  inputPairs[pairIndex][1]))
 
-    stereoCmd = ('stereo %s %s -t nadirpinhole --alignment-method epipolar %s' %
+    # Testing: Is there any performance hit from using --corr-seed-mode 0 ??
+    #          This skips D_sub creation and saves processing time.
+    stereoCmd = ('stereo %s %s -t nadirpinhole --alignment-method epipolar %s --epipolar-threshold 20' %
                  (argString, thisPairPrefix, threadText))
     searchLimitString = (' --corr-search-limit -9999 -' + str(VERTICAL_SEARCH_LIMIT) +
                          ' 9999 ' + str(VERTICAL_SEARCH_LIMIT) )
@@ -230,27 +231,32 @@ def main(argsIn):
     logLevel = logging.INFO # Make this an option??
     logger = icebridge_common.setUpLogger(options.outputFolder, logLevel, 'icebridge_batch_log')
 
+    suppressOutput = False
+    redo           = False
+
+    logger.info('Starting processing...')
+
 
     # Check that the output GSD is not set too much lower than the native resolution
     if options.referenceDem:
-        MAX_OVERSAMPLING = 0.7
+        MAX_OVERSAMPLING = 2.0
         computedGsd = options.demResolution
         try:
             # Compute the native GSD of the first input camera
             computedGsd = icebridge_common.getCameraGsdRetry(inputPairs[0][0], inputPairs[0][1], 
-                                                             logger, options.referenceDem)
+                                                             logger, options.referenceDem, projString)
             
             print 'GSD = ' + str(computedGsd)
         except:
             logger.warning('Failed to compute GSD for camera: ' + inputPairs[0][1])
         if options.demResolution < (computedGsd*MAX_OVERSAMPLING):
-            logger.warning('Specified GSD ' + str(options.demResolution) + 
+            logger.warning('Specified resolution ' + str(options.demResolution) + 
                            ' is too fine for camera with computed GSD ' + str(computedGsd) +
                            '.  Switching to native GSD.)')
             options.demResolution = computedGsd
         # Undersampling is not as dangerous, just print a warning.
-        if options.demResolution > 2*computedGsd:
-            logger.warning('Specified GSD ' + str(options.demResolution) + 
+        if options.demResolution > 5*computedGsd:
+            logger.warning('Specified resolution ' + str(options.demResolution) + 
                            ' is much larger than computed GSD ' + str(computedGsd))
                            
 
@@ -261,11 +267,6 @@ def main(argsIn):
         lidarFile = icebridge_common.findMatchingLidarFile(inputPairs[0][0], options.lidarFolder)
         logger.info('Found matching lidar file ' + lidarFile)
         lidarCsvFormatString = icebridge_common.getLidarCsvFormat(lidarFile)
-
-    suppressOutput = False
-    redo           = False
-
-    logger.info('Starting processing...')
    
     outputPrefix  = os.path.join(options.outputFolder, 'out')
          
@@ -279,18 +280,18 @@ def main(argsIn):
     #   don't use less than that.  If there is really only enough overlap for one we
     #   will have to examine the results very carefully!
     MIN_BA_OVERLAP = 2
-    CAMERA_WEIGHT  = 1.0   # TODO: Find the best value here
-    ROBUST_THRESHOLD = 0.5 # TODO: Find the best value here
+    CAMERA_WEIGHT  = 0.1   # TODO: Find the best value here
+    ROBUST_THRESHOLD = 2.0 # TODO: Find the best value here
     OVERLAP_EXPONENT = 0   # TODO: Find the best value here
     
     bundlePrefix   = os.path.join(options.outputFolder, 'bundle/out')
-    baOverlapLimit = options.stereoImageInterval + 1
+    baOverlapLimit = options.stereoImageInterval + 3
     if baOverlapLimit < MIN_BA_OVERLAP:
         baOverlapLimit = MIN_BA_OVERLAP
         
-    cmd = (('bundle_adjust %s -o %s %s --datum wgs84 --camera-weight %0.16g -t nadirpinhole ' + \
-           '--local-pinhole --overlap-limit %d --robust-threshold %0.16g ' + \
-            '--overlap-exponent %0.16g')  \
+    cmd = (('bundle_adjust %s -o %s %s --datum wgs84 --camera-weight %0.16g -t nadirpinhole ' +
+           '--local-pinhole --overlap-limit %d --robust-threshold %0.16g ' +
+            '--overlap-exponent %0.16g --epipolar-threshold 20')  \
            % (imageCameraString, bundlePrefix, threadText, CAMERA_WEIGHT, baOverlapLimit,
               ROBUST_THRESHOLD, OVERLAP_EXPONENT))
     
@@ -375,22 +376,23 @@ def main(argsIn):
     interDiffCsvPaths    = []
     
     for i in range(1,numDems):
-        #try:
-        # Call geodiff
-        prefix  = outputPrefix + '_inter_dem_' + str(i)
-        csvPath = prefix + "-diff.tif"
-        cmd = ('geodiff --absolute %s %s -o %s' % (demFiles[0], demFiles[i], prefix))
-        logger.info(cmd)
-        asp_system_utils.executeCommand(cmd, csvPath, suppressOutput, redo)
-        
-        # Read in and examine the results
-        results = icebridge_common.readGeodiffOutput(csvPath)
-        interDiffCsvPaths.append(csvPath)
-        if abs(results['Mean']) > INTER_DEM_DIFF_CUTOFF:
-            logger.warning('Difference between dem ' + demFiles[0] + ' and dem ' + demFiles[i]
-                           + ' is large: ' + str(results['Mean']))
-        #except:
-        #    logger.warning('Difference between dem ' + demFiles[0] + ' and dem ' + demFiles[i] + ' failed!')
+        try:
+            # Call geodiff
+            prefix  = outputPrefix + '_inter_dem_' + str(i)
+            csvPath = prefix + "-diff.tif"
+            cmd = ('geodiff --absolute %s %s -o %s' % (demFiles[0], demFiles[i], prefix))
+            logger.info(cmd)
+            asp_system_utils.executeCommand(cmd, csvPath, suppressOutput, redo)
+            
+            # Read in and examine the results
+            results = icebridge_common.readGeodiffOutput(csvPath)
+            interDiffCsvPaths.append(csvPath)
+            if abs(results['Mean']) > INTER_DEM_DIFF_CUTOFF:
+                logger.warning('Difference between dem ' + demFiles[0] + ' and dem ' + demFiles[i]
+                               + ' is large: ' + str(results['Mean']))
+        except:
+            pass # Files with no overlap will fail here
+            #logger.warning('Difference between dem ' + demFiles[0] + ' and dem ' + demFiles[i] + ' failed!')
 
     # Can do interdiff only if there is more than one DEM
     if numDems > 1:
@@ -407,8 +409,10 @@ def main(argsIn):
         demString = ' '.join(demFiles)
         # Only the default blend method produces good results but the DEMs must not be too 
         #  far off for it to work.
+        print projString
         cmd = ('dem_mosaic %s --tr %lf --t_srs %s %s -o %s' 
                % (demString, options.demResolution, projString, threadText, outputPrefix))
+        print cmd
         mosaicOutput = outputPrefix + '-tile-0.tif'
         asp_system_utils.executeCommand(cmd, mosaicOutput, suppressOutput, redo)
         
