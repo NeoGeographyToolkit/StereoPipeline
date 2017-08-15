@@ -285,6 +285,7 @@ size_t filter_ip_by_elevation(boost::shared_ptr<camera::CameraModel> const& left
                               cartography::Datum        const& datum,
                               vector<ip::InterestPoint> const& ip1_in,
                               vector<ip::InterestPoint> const& ip2_in,
+                              double ip_scale,
                               double min_elevation,
                               double max_elevation,
                               vector<ip::InterestPoint> & ip1_out,
@@ -320,7 +321,7 @@ size_t filter_ip_by_elevation(boost::shared_ptr<camera::CameraModel> const& left
       Vector2 p1(ip1_in[i].x, ip1_in[i].y);
       Vector2 p2(ip2_in[i].x, ip2_in[i].y);
       
-      Vector3 pt  = model(p1, p2, error);
+      Vector3 pt  = model(p1/ip_scale, p2/ip_scale, error);
       Vector3 llh = datum.cartesian_to_geodetic(pt);
       if ((llh[2] < min_elevation) || (llh[2] > max_elevation)) {
         //vw_out() << "Removing IP diff: " << p2 - p1 << " with llh " << llh << std::endl;
@@ -505,6 +506,7 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   // Handle alignment matrices if they are present
   // - Scale is reset to 1.0 if alignment matrices are present.
   ip_scale = adjust_ip_for_align_matrix(opt.out_prefix, in_ip1, in_ip2, ip_scale);
+  vw_out() << "\t    * IP computed at scale: " << ip_scale << "\n";
   float i_scale = 1.0/ip_scale;
 
   // Filter out IPs which fall outside the specified elevation range
@@ -514,8 +516,10 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   opt.session->camera_models(left_camera_model, right_camera_model);
   cartography::Datum datum = opt.session->get_datum(left_camera_model.get(), false);
 
-  filter_ip_by_elevation(left_camera_model, right_camera_model, datum, in_ip1, in_ip2,
-                         min_elevation, max_elevation, matched_ip1, matched_ip2);
+  size_t num_left = filter_ip_by_elevation(left_camera_model, right_camera_model, datum, in_ip1, in_ip2,
+                                           ip_scale, min_elevation, max_elevation, matched_ip1, matched_ip2);
+  if (num_left == 0)
+    vw_throw(ArgumentErr() << "No IPs left after elevation filtering!");
 
   // Find search window based on interest point matches
 
