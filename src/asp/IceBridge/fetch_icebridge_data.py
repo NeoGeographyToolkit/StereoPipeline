@@ -26,6 +26,7 @@ import icebridge_common
 import httplib
 from urlparse import urlparse
 
+logging.info('DEBUG')
 logger = logging.getLogger(__name__)
 
 # The path to the ASP python files
@@ -99,7 +100,8 @@ def fetchAndParseIndexFileAux(isSouth, separateByLat, dayVal,
     # Must wipe this html file. We fetch it too often in different
     # contexts.  If not wiped, the code fails to work in some
     # very rare but real situations.
-    if os.path.exists(path): os.remove(path)
+    if os.path.exists(path):
+        os.remove(path)
     
     # Extract just the file names
     fileList = [] # ensure initialization
@@ -491,7 +493,7 @@ def doFetch(options, outputFolder):
     if options.stopAfterIndexFetch:
         return 0
     
-    allFrames = sorted(frameDict.keys())
+    allFrames  = sorted(frameDict.keys())
     firstFrame = icebridge_common.getLargestFrame()    # start big
     lastFrame  = icebridge_common.getSmallestFrame()   # start small
     for frameNumber in allFrames:
@@ -510,11 +512,11 @@ def doFetch(options, outputFolder):
     # That is particularly true for Fireball DEMs. Instead of failing,
     # just download what is present and give a warning. 
     if options.startFrame not in frameDict and not isLidar:
-        logger.info("Warning: Frame " + str(options.startFrame) + \
+        logger.info("Warning: Frame " + str(options.startFrame) +
                     " is not found in this flight.")
                     
     if options.stopFrame and (options.stopFrame not in frameDict) and not isLidar:
-        logger.info("Warning: Frame " + str(options.stopFrame) + \
+        logger.info("Warning: Frame " + str(options.stopFrame) +
                     " is not found in this flight.")
 
     allFilesToFetch = [] # Files that we will fetch, relative to the current dir. 
@@ -529,32 +531,43 @@ def doFetch(options, outputFolder):
     hasTfw = (options.type == 'fireball')
     hasXml = ( isLidar or (options.type == 'ortho') or hasTfw )
     numFetched = 0
+    skipCount  = 0
     for frame in allFrames:
-        if ((frame >= options.startFrame) and (frame <= options.stopFrame) ) or isLidar:
+        if ((frame < options.startFrame) or (frame > options.stopFrame) ) and not isLidar:
+            continue # Skip frames outside the range
 
-            filename = frameDict[frame]
-            
-            # Some files have an associated xml file. Fireball DEMs also have a tfw file.
-            currFilesToFetch = [filename]
-            if hasXml: 
-                currFilesToFetch.append(icebridge_common.xmlFile(filename))
-            if hasTfw: 
-                currFilesToFetch.append(icebridge_common.tfwFile(filename))
+        # Handle the frame skip option
+        if options.frameSkip > 0: 
+            if skipCount < options.frameSkip:
+                skipCount += 1
+                continue
+            skipCount = 0
 
-            for filename in currFilesToFetch:    
-                url        = os.path.join(urlDict[frame], filename)
-                outputPath = os.path.join(outputFolder, filename)
-                allFilesToFetch.append(outputPath)
-                allUrlsToFetch.append(url)
+        filename = frameDict[frame]
+        
+        # Some files have an associated xml file. Fireball DEMs also have a tfw file.
+        currFilesToFetch = [filename]
+        if hasXml: 
+            currFilesToFetch.append(icebridge_common.xmlFile(filename))
+        if hasTfw: 
+            currFilesToFetch.append(icebridge_common.tfwFile(filename))
 
-    if isLidar and options.maxNumLidarToFetch > 0 and \
-           len(allFilesToFetch) > options.maxNumLidarToFetch:
+        for filename in currFilesToFetch:    
+            url        = os.path.join(urlDict[frame], filename)
+            outputPath = os.path.join(outputFolder, filename)
+            allFilesToFetch.append(outputPath)
+            allUrlsToFetch.append(url)
+
+    # Restrict lidar fetch amount according to the parameter
+    if (isLidar and options.maxNumLidarToFetch > 0 and 
+           len(allFilesToFetch) > options.maxNumLidarToFetch):
 
         # Ensure an even number, to fetch both the lidar file and its xml
-        if options.maxNumLidarToFetch % 2 == 1: options.maxNumLidarToFetch += 1
+        if options.maxNumLidarToFetch % 2 == 1:
+            options.maxNumLidarToFetch += 1
         
         allFilesToFetch = allFilesToFetch[0:options.maxNumLidarToFetch]
-        allUrlsToFetch = allUrlsToFetch[0:options.maxNumLidarToFetch]
+        allUrlsToFetch  = allUrlsToFetch [0:options.maxNumLidarToFetch]
                 
     icebridge_common.fetchFilesInBatches(baseCurlCmd, MAX_IN_ONE_CALL, options.dryRun, outputFolder,
                                          allFilesToFetch, allUrlsToFetch, logger)
@@ -563,7 +576,8 @@ def doFetch(options, outputFolder):
     failedFiles = []
     for outputPath in allFilesToFetch:
 
-        if options.skipValidate: continue
+        if options.skipValidate:
+            continue
         
         if not icebridge_common.fileNonEmpty(outputPath):
             logger.info('Missing file: ' + outputPath)
@@ -666,6 +680,8 @@ def main(argsIn):
         parser.add_option("--skip-validate", action="store_true", dest="skipValidate",
                           default=False,
                           help="Skip input data validation.")
+        parser.add_option("--frame-skip",  dest="frameSkip", type='int', default=0,
+                          help="Skip this many frames between downloads.")
         parser.add_option("--dry-run", action="store_true", dest="dryRun",
                           default=False,
                           help="Just print the image/ortho/fireball download commands.")
@@ -687,6 +703,8 @@ def main(argsIn):
             return -1
         outputFolder = os.path.abspath(args[0])
 
+        # TODO: Restore "type" input parameter so that outside users who do not use
+        #       our folder convention can use this tool.
         options.type = icebridge_common.folderToType(outputFolder)
         if options.type == 'lidar':
             options.type = LIDAR_TYPES[0]
