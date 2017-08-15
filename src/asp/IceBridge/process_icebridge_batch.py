@@ -48,7 +48,7 @@ os.environ["PATH"] = binpath     + os.pathsep + os.environ["PATH"]
 def consolidateGeodiffResults(inputFiles, outputPath=None):
     '''Create a summary file of multiple geodiff csv output files'''
 
-    if len(inputFiles) == 0: # No input files
+    if len(inputFiles) == 0: # No input files, do nothing.
         return None
 
     # Take the max/min of min/max and the mean of mean and stddev
@@ -92,7 +92,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
 
     # Testing: Is there any performance hit from using --corr-seed-mode 0 ??
     #          This skips D_sub creation and saves processing time.
-    stereoCmd = ('stereo %s %s -t nadirpinhole --alignment-method epipolar %s --epipolar-threshold 20' %
+    stereoCmd = ('stereo %s %s -t nadirpinhole --alignment-method epipolar %s --corr-seed-mode 0 --epipolar-threshold 20' %
                  (argString, thisPairPrefix, threadText))
     searchLimitString = (' --corr-search-limit -9999 -' + str(VERTICAL_SEARCH_LIMIT) +
                          ' 9999 ' + str(VERTICAL_SEARCH_LIMIT) )
@@ -419,34 +419,37 @@ def main(argsIn):
         # Create a symlink to the mosaic file with a better name
         icebridge_common.makeSymLink(mosaicOutput, allDemPath)
 
-    if lidarFile:
-        # PC_ALIGN
-        alignPrefix = os.path.join(options.outputFolder, 'align/out')
-        alignOptions = ( ('--max-displacement %f --csv-format %s ' +   \
-                          '--save-inv-transformed-reference-points') % \
-                         (options.maxDisplacement, lidarCsvFormatString))
-        cmd = ('pc_align %s %s %s -o %s %s' %
-               (alignOptions, allDemPath, lidarFile, alignPrefix, threadText))
-        alignOutput = alignPrefix+'-trans_reference.tif'
-        asp_system_utils.executeCommand(cmd, alignOutput, suppressOutput, redo)
-        
-        # POINT2DEM on the aligned PC file
-        cmd = ('point2dem --tr %lf --t_srs %s %s %s --errorimage' 
-               % (options.demResolution, projString, alignOutput, threadText))
-        p2dOutput = alignPrefix+'-trans_reference-DEM.tif'
-        asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput, redo)
 
-        # Create a symlink to the DEM in the main directory
-        demSymlinkPath = outputPrefix + '-align-DEM.tif'
-        icebridge_common.makeSymLink(p2dOutput, demSymlinkPath)
-        allDemPath = demSymlinkPath
+    # Optional visualization of the LIDAR file
+    if options.lidarOverlay and lidarFile:
+        LIDAR_DEM_RESOLUTION     = 5
+        LIDAR_PROJ_BUFFER_METERS = 100
+    
+        # Get buffered projection bounds of this image so it is easier to compare the LIDAR
+        #demGeoInfo = asp_geo_utils.getImageGeoInfo(p2dOutput, getStats=False)
+        demGeoInfo = asp_geo_utils.getImageGeoInfo(allDemPath, getStats=False)
+        projBounds = demGeoInfo['projection_bounds']
+        minX = projBounds[0] - LIDAR_PROJ_BUFFER_METERS # Expand the bounds a bit
+        minY = projBounds[2] - LIDAR_PROJ_BUFFER_METERS
+        maxX = projBounds[1] + LIDAR_PROJ_BUFFER_METERS
+        maxY = projBounds[3] + LIDAR_PROJ_BUFFER_METERS
 
-        cmd = ('geodiff --absolute --csv-format %s %s %s -o %s' % \
-               (lidarCsvFormatString, allDemPath, lidarFile, outputPrefix))
-        logger.info(cmd)
-        asp_system_utils.executeCommand(cmd, outputPrefix + "-diff.csv", suppressOutput, redo)
+        # Generate a DEM from the lidar point cloud in this region        
+        lidarDemPrefix = os.path.join(options.outputFolder, 'cropped_lidar')
+        cmd = ('point2dem --max-output-size 10000 10000 --t_projwin %f %f %f %f --tr %lf --t_srs %s %s %s --csv-format %s -o %s' 
+               % (minX, minY, maxX, maxY,
+                  LIDAR_DEM_RESOLUTION, projString, lidarFile, threadText, 
+                  lidarCsvFormatString, lidarDemPrefix))
+        lidarDemOutput = lidarDemPrefix+'-DEM.tif'
+        asp_system_utils.executeCommand(cmd, lidarDemOutput, suppressOutput, redo)
+            
+        colorOutput = lidarDemPrefix+'-DEM_CMAP.tif'
+        cmd = ('colormap  %s -o %s' 
+               % ( lidarDemOutput, colorOutput))
+        #cmd = ('colormap --min %f --max %f %s -o %s'
+        #       % (colormapMin, colormapMax, lidarDemOutput, colorOutput))
+        asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
 
-                           
     # Compare to Fireball DEMs if available                           
     if options.fireballFolder:
         # Get the fireball DEM for each input image
@@ -497,6 +500,36 @@ def main(argsIn):
         consolidateGeodiffResults(fireballDiffCsvPaths,  fireballDiffSummaryPath )
         consolidateGeodiffResults(fireLidarDiffCsvPaths, fireLidarDiffSummaryPath)
 
+    if lidarFile:
+        # PC_ALIGN
+        alignPrefix = os.path.join(options.outputFolder, 'align/out')
+        alignOptions = ( ('--max-displacement %f --csv-format %s ' +   \
+                          '--save-inv-transformed-reference-points') % \
+                         (options.maxDisplacement, lidarCsvFormatString))
+        cmd = ('pc_align %s %s %s -o %s %s' %
+               (alignOptions, allDemPath, lidarFile, alignPrefix, threadText))
+        alignOutput = alignPrefix+'-trans_reference.tif'
+        asp_system_utils.executeCommand(cmd, alignOutput, suppressOutput, redo)
+        
+        # POINT2DEM on the aligned PC file
+        cmd = ('point2dem --tr %lf --t_srs %s %s %s --errorimage' 
+               % (options.demResolution, projString, alignOutput, threadText))
+        p2dOutput = alignPrefix+'-trans_reference-DEM.tif'
+        asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput, redo)
+
+        # Create a symlink to the DEM in the main directory
+        demSymlinkPath = outputPrefix + '-align-DEM.tif'
+        icebridge_common.makeSymLink(p2dOutput, demSymlinkPath)
+        allDemPath = demSymlinkPath
+
+        cmd = ('geodiff --absolute --csv-format %s %s %s -o %s' % \
+               (lidarCsvFormatString, allDemPath, lidarFile, outputPrefix))
+        logger.info(cmd)
+        asp_system_utils.executeCommand(cmd, outputPrefix + "-diff.csv", suppressOutput, redo)
+
+                           
+
+
     # HILLSHADE
     hillOutput = outputPrefix+'-DEM_HILLSHADE.tif'
     cmd = 'hillshade ' + allDemPath +' -o ' + hillOutput
@@ -517,34 +550,6 @@ def main(argsIn):
            % (allDemPath, colorOutput))
     asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
 
-    # Optional visualization of the LIDAR file
-    if options.lidarOverlay and lidarFile:
-        LIDAR_DEM_RESOLUTION     = 5
-        LIDAR_PROJ_BUFFER_METERS = 100
-    
-        # Get buffered projection bounds of this image so it is easier to compare the LIDAR
-        demGeoInfo = asp_geo_utils.getImageGeoInfo(p2dOutput, getStats=False)
-        projBounds = demGeoInfo['projection_bounds']
-        minX = projBounds[0] - LIDAR_PROJ_BUFFER_METERS # Expand the bounds a bit
-        minY = projBounds[2] - LIDAR_PROJ_BUFFER_METERS
-        maxX = projBounds[1] + LIDAR_PROJ_BUFFER_METERS
-        maxY = projBounds[3] + LIDAR_PROJ_BUFFER_METERS
-
-        # Generate a DEM from the lidar point cloud in this region        
-        lidarDemPrefix = os.path.join(options.outputFolder, 'cropped_lidar')
-        cmd = ('point2dem --max-output-size 10000 10000 --t_projwin %f %f %f %f --tr %lf --t_srs %s %s %s --csv-format %s -o %s' 
-               % (minX, minY, maxX, maxY,
-                  LIDAR_DEM_RESOLUTION, projString, lidarFile, threadText, 
-                  lidarCsvFormatString, lidarDemPrefix))
-        lidarDemOutput = lidarDemPrefix+'-DEM.tif'
-        asp_system_utils.executeCommand(cmd, lidarDemOutput, suppressOutput, redo)
-            
-        colorOutput = lidarDemPrefix+'-DEM_CMAP.tif'
-        cmd = ('colormap  %s -o %s' 
-               % ( lidarDemOutput, colorOutput))
-        #cmd = ('colormap --min %f --max %f %s -o %s'
-        #       % (colormapMin, colormapMax, lidarDemOutput, colorOutput))
-        asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
 
     logger.info('Finished!')
 

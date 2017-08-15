@@ -66,8 +66,7 @@ def hasImageExtension(filename):
     return False
 
 def folderToType(folder):
-    # If input is myRun/ortho, return 'ortho'.
-    # Same for 'fireball', 'lidar', etc.
+    '''If input is myRun/ortho, return 'ortho'. Same for 'fireball', 'lidar', etc.'''
     return os.path.basename(folder)
 
 def htmlIndexFile(folder):

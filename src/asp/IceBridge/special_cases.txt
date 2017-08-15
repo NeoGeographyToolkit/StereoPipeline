@@ -133,3 +133,10 @@ https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILVIS2.001/2011.10.12
 https://n5eil01u.ecs.nsidc.org/ICEBRIDGE/ILATM1B.001/2011.10.12
 
 We need to think of what to do in such a situation.
+
+6. Miscellaneous flight notes:
+
+AN 20101104 - This is a short flight which travels around the South Pole but
+              it suffers from a lot of cloud coverage and missing lidar sections.
+
+

@@ -237,6 +237,48 @@ void produce_lowres_disparity( ASPGlobalOptions & opt ) {
 } // End produce_lowres_disparity
 
 
+/// Adjust IP lists if alignment matrices are present.
+double adjust_ip_for_align_matrix(std::string               const& out_prefix,
+                                  vector<ip::InterestPoint>      & ip_left,
+                                  vector<ip::InterestPoint>      & ip_right,
+                                  double                    const  ip_scale) {
+
+  // Check for alignment files
+  bool left_align  = fs::exists(out_prefix+"-align-L.exr");
+  bool right_align = fs::exists(out_prefix+"-align-R.exr");
+  if (!left_align && !right_align)
+    return ip_scale; // No alignment files -> Nothing to do.
+
+  // Load alignment matrices
+  Matrix<double> align_left_matrix  = math::identity_matrix<3>();
+  Matrix<double> align_right_matrix = math::identity_matrix<3>();
+  if (left_align)
+    read_matrix(align_left_matrix, out_prefix + "-align-L.exr");
+  if (right_align)
+    read_matrix(align_right_matrix, out_prefix + "-align-R.exr");
+
+  // Loop through all the IP we found
+  for ( size_t i = 0; i < ip_left.size(); i++ ) {
+    // Apply the alignment transforms to the recorded IP
+    Vector3 l = align_left_matrix  * Vector3(ip_left [i].x, ip_left [i].y, 1);
+    Vector3 r = align_right_matrix * Vector3(ip_right[i].x, ip_right[i].y, 1);
+
+    // Normalize the coordinates, but don't divide by 0
+    if (l[2] == 0 || r[2] == 0) 
+      continue;
+    l /= l[2];
+    r /= r[2];
+    
+    ip_left [i].x = l[0];
+    ip_left [i].y = l[1];
+    ip_right[i].x = r[0];
+    ip_right[i].y = r[1];
+  }
+  return 1.0; // If alignment files are present they take care of the scaling.
+	      
+} // End adjust_ip_for_align_matrix
+
+
 // TODO: Move this to InterestPointMatching.cc!
 size_t filter_ip_by_elevation(boost::shared_ptr<camera::CameraModel> const& left_camera_model,
                               boost::shared_ptr<camera::CameraModel> const& right_camera_model,
@@ -284,6 +326,7 @@ size_t filter_ip_by_elevation(boost::shared_ptr<camera::CameraModel> const& left
         //vw_out() << "Removing IP diff: " << p2 - p1 << " with llh " << llh << std::endl;
         continue;
       }
+      //vw_out() << "Keeping IP diff: " << p2 - p1 << " with llh " << llh << std::endl;
       ip1_out.push_back(ip1_in[i]);
       ip2_out.push_back(ip2_in[i]);
     }
@@ -315,20 +358,27 @@ double compute_ip(ASPGlobalOptions & opt, std::string const& match_filename) {
   
   std::string left_image_path  = left_image_path_full;
   std::string right_image_path = right_image_path_full;
-  Vector2i full_size = file_image_size(left_image_path_full);
-  bool use_full_size = ((full_size[0] < SIZE_CUTOFF) && (full_size[1] < SIZE_CUTOFF));
-  
-  double scale = 1.0;
+  Vector2i full_size     = file_image_size(left_image_path_full);
+  bool     use_full_size = (((full_size[0] < SIZE_CUTOFF) && (full_size[1] < SIZE_CUTOFF))
+                            || ((stereo_settings().alignment_method != "epipolar") &&
+                                (stereo_settings().alignment_method != "none"    )   ));
+  // Other alignment methods find IP in the stereo_pprc phase using the full size.
+
+  double ip_scale = 1.0;
   if (!use_full_size) {
     left_image_path  = left_image_path_sub;
     right_image_path = right_image_path_sub;
     
-    scale = sum(elem_quot( Vector2(file_image_size( opt.out_prefix+"-L_sub.tif" )),
-                           Vector2(file_image_size( opt.out_prefix+"-L.tif" ) ) )) +
-            sum(elem_quot( Vector2(file_image_size( opt.out_prefix+"-R_sub.tif" )),
-                           Vector2(file_image_size( opt.out_prefix+"-R.tif" ) ) ));
-    scale /= 4.0f;
+    ip_scale = sum(elem_quot( Vector2(file_image_size( opt.out_prefix+"-L_sub.tif" )),
+                              Vector2(file_image_size( opt.out_prefix+"-L.tif" ) ) )) +
+               sum(elem_quot( Vector2(file_image_size( opt.out_prefix+"-R_sub.tif" )),
+                              Vector2(file_image_size( opt.out_prefix+"-R.tif" ) ) ));
+    ip_scale /= 4.0f;
   }
+  
+  // If the match file already exists then just return the scale
+  if (fs::exists(match_filename))
+    return ip_scale;
   
   // Load the images
   boost::shared_ptr<DiskImageResource> left_rsrc (DiskImageResourcePtr(left_image_path )),
@@ -395,7 +445,7 @@ double compute_ip(ASPGlobalOptions & opt, std::string const& match_filename) {
   if (!success)
     vw_throw(ArgumentErr() << "Could not find interest points.\n");
 
-  return scale;
+  return ip_scale;
 }
 
 
@@ -440,18 +490,22 @@ double compute_ip(ASPGlobalOptions & opt, std::string const& match_filename) {
 /// - This function could use improvement!
 /// - Should it be used in all cases?
 BBox2i approximate_search_range(ASPGlobalOptions & opt, 
-                                float scale, std::string const& match_filename) {
+                                double ip_scale, std::string const& match_filename) {
 
   vw_out() << "\t--> Using interest points to determine search window.\n";
   vector<ip::InterestPoint> in_ip1, in_ip2, matched_ip1, matched_ip2;
-  float i_scale = 1.0/scale;
 
   // The interest points must have been created outside this function
   if (!fs::exists(match_filename))
     vw_throw( ArgumentErr() << "Missing IP file: " << match_filename);
 
-  vw_out() << "\t    * Using cached match file: " << match_filename << "\n";
+  vw_out() << "\t    * Loading match file: " << match_filename << "\n";
   ip::read_binary_match_file(match_filename, in_ip1, in_ip2);
+
+  // Handle alignment matrices if they are present
+  // - Scale is reset to 1.0 if alignment matrices are present.
+  ip_scale = adjust_ip_for_align_matrix(opt.out_prefix, in_ip1, in_ip2, ip_scale);
+  float i_scale = 1.0/ip_scale;
 
   // Filter out IPs which fall outside the specified elevation range
   double min_elevation = stereo_settings().elevation_limit[0];
@@ -490,7 +544,7 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   histogram(dx, NUM_BINS, min_dx, max_dx, hist_x, centers_x);
   histogram(dy, NUM_BINS, min_dy, max_dy, hist_y, centers_y);
   
-  //printf("min x,y = %lf, %lf, max x,y = %lf, %lf\n", min_dx, min_dy, max_dx, max_dy);
+  printf("min x,y = %lf, %lf, max x,y = %lf, %lf\n", min_dx, min_dy, max_dx, max_dy);
   
   // Compute search ranges
   const double MAX_PERCENTILE = 0.95;
@@ -504,16 +558,16 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
                      centers_y[min_bin_y]);
   Vector2 search_max(centers_x[max_bin_x],
                      centers_y[max_bin_y]);
-  //std::cout << "Unscaled search range = " << BBox2i(search_min, search_max) << std::endl;
+  std::cout << "Unscaled search range = " << BBox2i(search_min, search_max) << std::endl;
   Vector2 search_center = (search_max + search_min) / 2.0;
-  //std::cout << "search_center = " << search_center << std::endl;
+  std::cout << "search_center = " << search_center << std::endl;
   Vector2 d_min = search_min - search_center; // TODO: Make into a bbox function!
   Vector2 d_max = search_max - search_center;
   //std::cout << "d_min = " << d_min << std::endl;
   //std::cout << "d_max = " << d_max << std::endl;
   search_min = d_min*search_scale + search_center;
   search_max = d_max*search_scale + search_center;
-  //std::cout << "Scaled search range = " << BBox2i(search_min, search_max) << std::endl;
+  std::cout << "Scaled search range = " << BBox2i(search_min, search_max) << std::endl;
   
 /*
    // Debug code to print all the points
@@ -571,62 +625,15 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
     // Everything else should gather IP's all the time during stereo_pprc.
     // - TODO: When inputs are cropped, use the cropped IP!
     double ip_scale = 1.0;
-    if (!fs::exists(match_filename)) {   
-      // Compute new IP and write them to disk.
-      // - This function will choose an appropriate IP computation based on the input images.
-      ip_scale = compute_ip(opt, match_filename);
+
+    // Compute new IP and write them to disk.
+    // - This function will choose an appropriate IP computation based on the input images.
+    ip_scale = compute_ip(opt, match_filename);
+
+    // This function applies filtering to find good points
+    stereo_settings().search_range = approximate_search_range(opt, ip_scale, match_filename);
+  
  
-      // This function applies filtering to find good points
-      stereo_settings().search_range = approximate_search_range(opt, ip_scale, match_filename);
-    } else {
-      // Use the IP we recorded to set the search range.
-      // - Currently we just make it large enough to contain all the matched IP!
-    
-      // TODO: Use the same filtering in all cases!
-    
-      std::cout << "Loading existing IP... " << std::endl;
-    
-      // There exists a matchfile out there.
-      vector<ip::InterestPoint> ip1, ip2;
-      ip::read_binary_match_file( match_filename, ip1, ip2 );
-
-      Matrix<double> align_left_matrix  = math::identity_matrix<3>();
-      Matrix<double> align_right_matrix = math::identity_matrix<3>();
-      if ( fs::exists(opt.out_prefix+"-align-L.exr") )
-        read_matrix(align_left_matrix, opt.out_prefix + "-align-L.exr");
-      if ( fs::exists(opt.out_prefix+"-align-R.exr") )
-        read_matrix(align_right_matrix, opt.out_prefix + "-align-R.exr");
-
-      Vector2 left_size  = file_image_size( opt.out_prefix+"-L.tif" );
-      Vector2 right_size = file_image_size( opt.out_prefix+"-R.tif" );
-
-      // Loop through all the IP we found
-      BBox2 search_range;
-      for ( size_t i = 0; i < ip1.size(); i++ ) {
-        // Apply the alignment transforms to the recorded IP
-        Vector3 r = align_right_matrix * Vector3(ip2[i].x, ip2[i].y, 1);
-        Vector3 l = align_left_matrix  * Vector3(ip1[i].x, ip1[i].y, 1);
-
-	      // Normalize the coordinates, but don't divide by 0
-	      if (l[2] == 0 || r[2] == 0) 
-          continue;
-	      r /= r[2];
-	      l /= l[2];
-
-        // Skip points which fall outside the transformed images
-        // - This is not a very precise check but points should already be filtered.
-        // - Could replace this with a statistical filter if we need to.
-	      if ((l[0] > left_size [0])  || (l[1] > left_size [1]) ||
-	          (r[0] > right_size[0])  || (r[1] > right_size[1]) ||
-	          (l[0] < 0) || (l[1] < 0) || (r[0] < 0) || (r[1] < 0) )
-          continue;
-
-        Vector2 this_disparity = subvector(r,0,2) - subvector(l,0,2);        
-        //std::cout << "this_disparity = " << this_disparity << std::endl;
-	      search_range.grow(this_disparity);
-      }
-      stereo_settings().search_range = grow_bbox_to_int( search_range );
-    }
     vw_out() << "\t--> Detected search range: " << stereo_settings().search_range << "\n";
   } // End of case where we had to calculate the search range
 
