@@ -122,6 +122,13 @@ route. Those should be ignored, as they have no LIDAR.
 
 AN 20111004 (https://asapdata.arc.nasa.gov/dms/flight_html/1281702.html)
 AN 20111009 (https://asapdata.arc.nasa.gov/dms/flight_html/1281704.html)
+AN_20101016
+AN 20131108
+GR 20100423
+GR 20130314
+GR_20100430
+GR_20100317
+
 
 This has LIDAR though but it is en-route:
 
@@ -138,5 +145,32 @@ We need to think of what to do in such a situation.
 
 AN 20101104 - This is a short flight which travels around the South Pole but
               it suffers from a lot of cloud coverage and missing lidar sections.
+GR 20100526 - Includes an airport flyover.
+GR_20110317 - Image quality is poor.
+GR_20100409 - Image quality is poor.
+AN_20111013 - Not great image quality at the beginning.
+AN_20091025 - Mix of fine features and bad images
+GR_20110415 - Mix of large terrain and small features.
+
+7. Flights lacking features
+
+Some combination of altitude, camera quality, and ground features results in some flights
+containing sections of images which have no quality features for us to use. These images are
+are usually flat but are nearly impossible to process.
+
+AN 20101110
+AN_20101104
+GR_20100329
+GR 20110322 - Only a bit of the flight
+GR 20100422 - Only part of the flight
+AN_20091020 - Some features
+GR_20110505 - Moderate features
+
+
+
+
+
+
+
 
 

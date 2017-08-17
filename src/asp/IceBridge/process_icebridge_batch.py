@@ -65,13 +65,20 @@ def consolidateGeodiffResults(inputFiles, outputPath=None):
     mergedResult['Mean'  ] = mergedResult['Mean'  ] / float(len(inputFiles))
     mergedResult['StdDev'] = mergedResult['StdDev'] / float(len(inputFiles))
     
+    if not outputPath:
+        return mergedResult
+    
     # If an output path was provided, write out the values in a similar to geodiff format.
-    if outputPath:
-        with open(outputPath, 'w') as f:
-            f.write('# Max difference:       '+str(mergedResult['Max'   ])+'\n')
-            f.write('# Min difference:       '+str(mergedResult['Min'   ])+'\n')
-            f.write('# Mean difference:      '+str(mergedResult['Mean'  ])+'\n')
-            f.write('# StdDev of difference: '+str(mergedResult['StdDev'])+'\n')
+    with open(outputPath, 'w') as f:
+        f.write('# Max difference:       '+str(mergedResult['Max'   ])+'\n')
+        f.write('# Min difference:       '+str(mergedResult['Min'   ])+'\n')
+        f.write('# Mean difference:      '+str(mergedResult['Mean'  ])+'\n')
+        f.write('# StdDev of difference: '+str(mergedResult['StdDev'])+'\n')
+    
+    # Delete all the input diff files to reduce file bloat if we wrote the output file
+    if os.path.exists(outputPath): 
+        for f in inputFiles:
+            os.system('rm -f ' + f)
     
     return mergedResult
             
@@ -92,7 +99,8 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
 
     # Testing: Is there any performance hit from using --corr-seed-mode 0 ??
     #          This skips D_sub creation and saves processing time.
-    stereoCmd = ('stereo %s %s -t nadirpinhole --alignment-method epipolar %s --corr-seed-mode 0 --epipolar-threshold 20' %
+    # - This epipolar threshold is post camera model based alignment so it can be quite restrictive.
+    stereoCmd = ('stereo %s %s -t nadirpinhole --alignment-method epipolar %s --corr-seed-mode 0 --epipolar-threshold 10' %
                  (argString, thisPairPrefix, threadText))
     searchLimitString = (' --corr-search-limit -9999 -' + str(VERTICAL_SEARCH_LIMIT) +
                          ' 9999 ' + str(VERTICAL_SEARCH_LIMIT) )
@@ -290,8 +298,9 @@ def main(argsIn):
         baOverlapLimit = MIN_BA_OVERLAP
         
     cmd = (('bundle_adjust %s -o %s %s --datum wgs84 --camera-weight %0.16g -t nadirpinhole ' +
-           '--local-pinhole --overlap-limit %d --robust-threshold %0.16g ' +
-            '--overlap-exponent %0.16g --epipolar-threshold 20')  \
+            '--local-pinhole --overlap-limit %d --robust-threshold %0.16g ' +
+            '--ip-detect-method 1 --ip-per-tile 500 ' + 
+            '--overlap-exponent %0.16g --epipolar-threshold 50')  \
            % (imageCameraString, bundlePrefix, threadText, CAMERA_WEIGHT, baOverlapLimit,
               ROBUST_THRESHOLD, OVERLAP_EXPONENT))
     
