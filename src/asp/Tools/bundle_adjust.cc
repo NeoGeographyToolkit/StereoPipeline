@@ -85,7 +85,7 @@ struct Options : public vw::cartography::GdalWriteOptions {
   boost::shared_ptr<ControlNetwork> cnet;
   std::vector<boost::shared_ptr<CameraModel> > camera_models;
   cartography::Datum datum;
-  int    ip_detect_method;
+  int    ip_detect_method, num_scales;
   double epipolar_threshold; // Max distance from epipolar line to search for IP matches.
   double ip_inlier_factor, ip_uniqueness_thresh, nodata_value;
   bool   skip_rough_homography, individually_normalize;
@@ -104,7 +104,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
              semi_major(0), semi_minor(0),
              datum(cartography::Datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
                                       "Reference Meridian", 1, 1, 0)),
-             ip_detect_method(0), skip_rough_homography(false), individually_normalize(false){}
+             ip_detect_method(0), num_scales(-1), skip_rough_homography(false),
+             individually_normalize(false){}
 };
 
 // TODO: This update stuff should really be done somewhere else!
@@ -351,7 +352,7 @@ struct BaPinholeError {
                                      size_t icam, // camera index
                                      size_t ipt // point index
                                      ){
-    const int nob = 2; // Num observation elements: Column, row
+    const int nob = PIXEL_SIZE; // Num observation elements: Column, row
     const int ncp = BAPinholeModel::camera_params_n;
     const int npp = BAPinholeModel::point_params_n;
     const int nf  = BAPinholeModel::focal_length_params_n;
@@ -627,7 +628,9 @@ void add_residual_block<BAPinholeModel>
 /// Write out a .csv file recording the residual error at each location on the ground
 void write_residual_map(std::string const& output_prefix, CameraRelationNetwork<JFeature> & crn,
                         std::vector<double> const& residuals,
-                        const double *points, const size_t num_points, const size_t num_cameras,
+                        const double *points, const size_t num_points,
+                        const size_t xyz_size, 
+                        const size_t num_cameras,
                         Options const& opt) {
 
   // Connect each observation (and residual) with the corresponding point.
@@ -648,7 +651,7 @@ void write_residual_map(std::string const& output_prefix, CameraRelationNetwork<
       double errorX = residuals[residual_index ];
       double errorY = residuals[residual_index+1];
       double residual_error = (fabs(errorX) + fabs(errorY)) / 2;
-      residual_index += 2;
+      residual_index += PIXEL_SIZE;
 
       // The index of the 3D point
       int ipt = (**fiter).m_point_id;
@@ -670,8 +673,7 @@ void write_residual_map(std::string const& output_prefix, CameraRelationNetwork<
   for (size_t i=0; i<num_points; ++i) {
 
       // The final GCC coordinate of this point
-      const int NUM_POINT_PARAMS = 3;
-      const double * point = points + i * NUM_POINT_PARAMS;
+      const double * point = points + i * xyz_size;
       Vector3 xyz(point[0], point[1], point[2]);
       //xyz = xyz + Vector3(393898.51796331455, 209453.73827364066, -6350895.8432638068);
   
@@ -810,7 +812,7 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
 
   // Generate the location based files
   std::string map_prefix = residual_prefix + "_pointmap";
-  write_residual_map(map_prefix, crn, residuals, points, num_points, num_cameras, opt);
+  write_residual_map(map_prefix, crn, residuals, points, num_points, xyz_size, num_cameras, opt);
 
 } // End function write_residual_logs
 
@@ -1982,6 +1984,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "A higher factor will result in more interest points, but perhaps also more outliers.")
     ("ip-uniqueness-threshold",          po::value(&opt.ip_uniqueness_thresh)->default_value(0.7),
      "A higher threshold will result in more interest points, but perhaps less unique ones.")
+    ("num-obalog-scales",              po::value(&opt.num_scales)->default_value(-1),
+     "How many scales to use if detecting interest points with OBALoG. If not specified, 8 will be used. More can help for images with high frequency artifacts.")
     ("nodata-value",             po::value(&opt.nodata_value)->default_value(nan),
      "Pixels with values less than or equal to this number are treated as no-data. This overrides the no-data values from input images.")
     ("skip-rough-homography", po::bool_switch(&opt.skip_rough_homography)->default_value(false)->implicit_value(true),
@@ -2100,13 +2104,14 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "Solving for intrinsic parameters is only supported with pinhole cameras.\n");
 
   // Copy the IP settings to the global stereo_settings() object
-  asp::stereo_settings().ip_matching_method     = opt.ip_detect_method;
-  asp::stereo_settings().epipolar_threshold     = opt.epipolar_threshold;
-  asp::stereo_settings().ip_inlier_factor       = opt.ip_inlier_factor;
-  asp::stereo_settings().ip_uniqueness_thresh   = opt.ip_uniqueness_thresh;
-  asp::stereo_settings().nodata_value           = opt.nodata_value;
-  asp::stereo_settings().skip_rough_homography  = opt.skip_rough_homography;
-  asp::stereo_settings().individually_normalize = opt.individually_normalize;
+  asp::stereo_settings().ip_matching_method      = opt.ip_detect_method;
+  asp::stereo_settings().epipolar_threshold      = opt.epipolar_threshold;
+  asp::stereo_settings().ip_inlier_factor        = opt.ip_inlier_factor;
+  asp::stereo_settings().ip_uniqueness_thresh    = opt.ip_uniqueness_thresh;
+  asp::stereo_settings().num_scales              = opt.num_scales;
+  asp::stereo_settings().nodata_value            = opt.nodata_value;
+  asp::stereo_settings().skip_rough_homography   = opt.skip_rough_homography;
+  asp::stereo_settings().individually_normalize  = opt.individually_normalize;
   asp::stereo_settings().min_triangulation_angle = opt.min_triangulation_angle;
 
   if (!opt.camera_position_file.empty() && opt.csv_format_str == "")

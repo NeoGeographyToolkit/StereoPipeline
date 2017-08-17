@@ -189,11 +189,13 @@ namespace asp {
 
     // The left image is written out with no alignment warping.
     vw_out() << "\t--> Writing pre-aligned images.\n";
+    vw_out() << "\t--> Writing: " << left_output_file << ".\n";
     block_write_gdal_image( left_output_file, apply_mask(Limg, output_nodata),
 			    has_left_georef, left_georef,
 			    has_nodata, output_nodata, options,
 			    TerminalProgressCallback("asp","\t  L:  ") );
 
+    vw_out() << "\t--> Writing: " << right_output_file << ".\n";
     if ( stereo_settings().alignment_method == "none" )
       block_write_gdal_image( right_output_file, apply_mask(Rimg, output_nodata),
 			      has_right_georef, right_georef,
