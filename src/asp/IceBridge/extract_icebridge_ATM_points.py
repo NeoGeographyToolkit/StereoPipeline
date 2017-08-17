@@ -23,7 +23,7 @@ os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
 def extract_qi_points(inputPath):
     '''Extract data from a n Icebridge qi file.
-       Use this ASP format code to read: --csv-format "1:lat 2:lon 3:height_above_datum" '''
+       Use this ASP format code to read: --csv-format 1:lat,2:lon,3:height_above_datum '''
 
     # Extract the data from the name
     name       = os.path.basename(inputPath)
@@ -51,7 +51,7 @@ def extract_qi_points(inputPath):
 
 def extract_hdf5_points(inputPath):
     '''Extract data from an Icebridge hdf5 file.
-       Use this ASP format code to read: --csv-format "1:lat 2:lon 3:height_above_datum" '''
+       Use this ASP format code to read: --csv-format 1:lat,2:lon,3:height_above_datum '''
 
     outputPath = inputPath.replace('.h5', '.csv')
 

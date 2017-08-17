@@ -58,7 +58,7 @@ def workDirs():
     m = re.match("^.*?/" + louUser + "/(.*?)$", currDir)
     if not m:
         raise Exception("Could not match %s in %s " % (louUser, currDir))
-    pfePath = '/nobackupnfs2/' + louUser + '/' + m.group(1) # path on pfe
+    pfePath = '/nobackupp7/' + louUser + '/' + m.group(1) # path on pfe
     lfePath = '/u/'            + louUser + '/' + m.group(1) # path on lfe
     
     return (pfePath, lfePath)
@@ -151,7 +151,7 @@ def main(argsIn):
                           "process all frames.")
         parser.add_option('--stop-frame', dest='stopFrameStr', default=None,
                           help='Frame to stop on.')
-        parser.add_option('--max-num-lidar-to-fetch', dest='maxNumLidarToFetch', default=-1,
+        parser.add_option('--max-num-lidar-to-fetch', dest='maxNumLidarToFetch', default=100000000,
                           type='int', help='The maximum number of lidar files to fetch. ' + \
                           'This is used in debugging.')
         parser.add_option("--skip-validate", action="store_true", dest="skipValidate",

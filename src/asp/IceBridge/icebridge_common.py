@@ -175,8 +175,8 @@ def getLidarCsvFormat(filename):
     '''Returns the ASP CSV format string to use for a lidar file'''
     extension = fileExtension(filename)
     if extension == '.TXT': # LVIS
-        return '"5:lat 4:lon 6:height_above_datum"'
-    return '"1:lat 2:lon 3:height_above_datum"' # ATM
+        return '5:lat,4:lon,6:height_above_datum'
+    return '1:lat,2:lon,3:height_above_datum' # ATM
     
 def getCameraGsd(imagePath, cameraPath, logger, referenceDem=None, projString=""):
     '''Compute the GSD of a single camera.

@@ -61,7 +61,7 @@ def fetchAllRunData(options, startFrame, stopFrame,
     baseCommand = (('--yyyymmdd %s --site %s --start-frame %d --stop-frame %d --jpeg-folder %s')
                    % (options.yyyymmdd, options.site, startFrame, stopFrame, jpegFolder))
 
-    if options.maxNumLidarToFetch >= 0:
+    if options.maxNumLidarToFetch is not None and options.maxNumLidarToFetch >= 0:
         baseCommand += ' --max-num-lidar-to-fetch ' + str(options.maxNumLidarToFetch)
 
     if options.refetchIndex:
@@ -91,7 +91,7 @@ def fetchAllRunData(options, startFrame, stopFrame,
     if fetch_icebridge_data.main(fireballCommand.split()) < 0:
         print 'Fireball DEM data is optional, continuing run.'
     # Skip the lidar fetch if the user requested no lidar files
-    if (options.maxNumLidarToFetch == None) or (options.maxNumLidarToFetch > 0):
+    if (options.maxNumLidarToFetch is None) or (options.maxNumLidarToFetch > 0):
         if fetch_icebridge_data.main(lidarCommand.split()) < 0:
             return -1
 

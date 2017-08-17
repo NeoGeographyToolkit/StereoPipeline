@@ -409,7 +409,6 @@ def main(argsIn):
     outputResolution = meanGsd * GSD_RESOLUTION_MULTIPLIER
     logger.info('OUTPUT_RESOLUTION: ' + str(outputResolution))
     #return 0
-    
 
     # Generate a map of initial camera positions
     orbitvizBefore = os.path.join(outputFolder, 'cameras_in.kml')

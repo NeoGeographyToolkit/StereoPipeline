@@ -359,7 +359,6 @@ def main(argsIn):
                                                          quitKey='q', sleepTime=20)
         
         # Either all the tasks are finished or the user requested a cancel.
-        # Clean up the processing pool
         icebridge_common.stopTaskPool(pool)
 
     else:
@@ -377,8 +376,8 @@ def main(argsIn):
     numDems = len(demFiles)
 
 
-    # Check the elevation disparities between the DEMS.  High disparity
-    #  usually means there was an alignment error.
+    # Check the elevation disparities between the DEMs.  High discrepancy
+    # usually means there was an alignment error.
     INTER_DEM_DIFF_CUTOFF = 1.0 # Meters
     FIREBALL_DIFF_CUTOFF  = 1.0 # Meters
     interDiffSummaryPath =  outputPrefix + '_inter_diff_summary.csv'
@@ -503,7 +502,6 @@ def main(argsIn):
                 asp_system_utils.executeCommand(cmd, csvPath, suppressOutput, redo)
                 fireLidarDiffCsvPaths.append(csvPath)
     
-                               
             #except:
             #    logger.warning('Difference between dem ' + demFiles[0] + ' and fireball failed!')
         consolidateGeodiffResults(fireballDiffCsvPaths,  fireballDiffSummaryPath )
