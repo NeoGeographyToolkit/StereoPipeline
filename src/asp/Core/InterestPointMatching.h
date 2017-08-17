@@ -402,8 +402,15 @@ namespace asp {
     // - Due to templated types we need to duplicate a bunch of code here
     if (detect_method == DETECT_IP_METHOD_INTEGRAL) {
       // Zack's custom detector
-      vw::ip::IntegralAutoGainDetector detector( points_per_tile );
-
+      int num_scales = stereo_settings().num_scales;
+      if (num_scales <= 0) 
+        num_scales = vw::ip::IntegralInterestPointDetector
+          <vw::ip::OBALoGInterestOperator>::IP_DEFAULT_SCALES;
+      else
+        vw_out() << "Using " << num_scales << " scales in OBALoG interest point detection.\n";
+      
+      vw::ip::IntegralAutoGainDetector detector( points_per_tile, num_scales );
+      
       vw_out() << "\t    Processing left image" << std::endl;
       if ( boost::math::isnan(nodata1) )
         ip1 = detect_interest_points( image1.impl(), detector );

@@ -80,25 +80,26 @@ namespace asp {
     // ----------------
 
     // Preprocessing options
-    std::string alignment_method;           // Valid options are: [Homography, Epipolar, None]
+    std::string alignment_method;           /// Valid options are: [Homography, Epipolar, None]
 
     // Note: Below we use BBox2 rather than BBox2i to not choke on float inputs.
     // Do stereo in given regions only.
     vw::BBox2 left_image_crop_win;
     vw::BBox2 right_image_crop_win;
 
-    bool   force_use_entire_range;          // Use entire dynamic range of image
-    bool   individually_normalize;          // If > 1, normalize the images
-                                            //         individually with their
-                                            //         own hi's and lo's
+    bool   force_use_entire_range;          /// Use entire dynamic range of image
+    bool   individually_normalize;          /// If > 1, normalize the images
+                                            ///         individually with their
+                                            ///         own hi's and lo's
     int   ip_per_tile;                      ///< How many ip to find in each 1024^2 tile
     int   ip_matching_method;               ///< Method used for matching interest points
-                                            // 0 = Zack's integral Obalog method
-                                            // 1 = OpenCV SIFT method
-                                            // 2 = OpenCV ORB method
-    double epipolar_threshold;              // Max distance from epipolar line to search for IP matches.
-    double ip_inlier_factor;                // General scaling factor for IP finding, a larger value allows more IPs to match.
-    double ip_uniqueness_thresh;            // Min percentage distance between closest and second closest IP descriptors.
+                                            /// 0 = Zack's integral Obalog method
+                                            /// 1 = OpenCV SIFT method
+                                            /// 2 = OpenCV ORB method
+    double epipolar_threshold;              /// Max distance from epipolar line to search for IP matches.
+    double ip_inlier_factor;                /// General scaling factor for IP finding, a larger value allows more IPs to match.
+    double ip_uniqueness_thresh;            /// Min percentage distance between closest and second closest IP descriptors.
+    int num_scales;                         /// How many scales to use if detecting interest points with OBALoG. If not specified, 8 will be used. 
     double nodata_value;                    ///< Pixels with values less than or equal to this number are treated as no-data.
                                             //  This overrides the nodata values from input images.
     double nodata_pixel_percentage;         ///< Percentage of low-value pixels treated as no-data

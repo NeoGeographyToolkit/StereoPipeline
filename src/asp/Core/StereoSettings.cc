@@ -124,10 +124,12 @@ namespace asp {
        " A higher factor will result in more interest points, but perhaps also more outliers.")
       ("ip-uniqueness-threshold",          po::value(&global.ip_uniqueness_thresh)->default_value(0.7),
        "Min percentage distance between closest and second closest IP descriptors, a larger value allows more IP matches.")
+      ("num-obalog-scales",              po::value(&global.num_scales)->default_value(-1),
+       "How many scales to use if detecting interest points with OBALoG. If not specified, 8 will be used. More can help for images with high frequency artifacts.")
       ("nodata-value",             po::value(&global.nodata_value)->default_value(nan),
-                     "Pixels with values less than or equal to this number are treated as no-data. This overrides the no-data values from input images.")
+       "Pixels with values less than or equal to this number are treated as no-data. This overrides the no-data values from input images.")
       ("nodata-pixel-percentage",  po::value(&global.nodata_pixel_percentage)->default_value(nan),
-                    "The percentage of (low-value) pixels treated as no-data (use a number between 0 and 100).")
+       "The percentage of (low-value) pixels treated as no-data (use a number between 0 and 100).")
       ("nodata-optimal-threshold-factor", po::value(&global.nodata_optimal_threshold_factor)->default_value(nan),
                      "Pixels with values less than this factor times the optimal Otsu threshold are treated as no-data. Suggested value: 0.1 to 0.2.")
       ("skip-rough-homography", po::bool_switch(&global.skip_rough_homography)->default_value(false)->implicit_value(true),
