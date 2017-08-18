@@ -352,10 +352,6 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
     match_filename = sub_match_file; // If not using full size we should expect this file
   }
 
-  // Define the file name containing IP match information.
-  match_filename = ip::match_filename(opt.out_prefix, left_image_path, right_image_path);
-  vw_out() << "Looking for IP file: " << match_filename << std::endl;
-  
   // Check for the file.
   if (fs::exists(sub_match_file)) {
     vw_out() << "IP file found: " << sub_match_file << std::endl;
@@ -366,10 +362,10 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   vw_out() << "No IP file found, computing IP now.\n";
   
   // This will perform IP matching between the aligned files.
-  match_filename = aligned_match_file;
+  vw_out() << "Computing IP for " << left_image_path << ' ' << right_image_path << std::endl;
+  match_filename = ip::match_filename(opt.out_prefix, left_image_path, right_image_path);
 
   // Load the images
-  vw_out() << "Computing IP for " << left_image_path << ' ' << right_image_path << std::endl;
   boost::shared_ptr<DiskImageResource> left_rsrc (DiskImageResourcePtr(left_image_path )),
                                        right_rsrc(DiskImageResourcePtr(right_image_path));
 
