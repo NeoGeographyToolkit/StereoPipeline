@@ -89,6 +89,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
   double epipolar_threshold; // Max distance from epipolar line to search for IP matches.
   double ip_inlier_factor, ip_uniqueness_thresh, nodata_value;
   bool   skip_rough_homography, individually_normalize;
+  vw::Vector2  elevation_limit;     // Expected range of elevation to limit results to.
+  vw::BBox2    lon_lat_limit;       // Limit the triangulated interest points to this lonlat range
   std::set<std::string> intrinsics_to_float;
   std::string           overlap_list_file;
   std::set< std::pair<std::string, std::string> > overlap_list;
@@ -1984,6 +1986,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "A higher factor will result in more interest points, but perhaps also more outliers.")
     ("ip-uniqueness-threshold",          po::value(&opt.ip_uniqueness_thresh)->default_value(0.7),
      "A higher threshold will result in more interest points, but perhaps less unique ones.")
+    ("elevation-limit",        po::value(&opt.elevation_limit)->default_value(Vector2(0,0), "auto"),
+     "Limit on expected elevation range: Specify as two values: min max.")
+    ("lon-lat-limit",     po::value(&opt.lon_lat_limit)->default_value(BBox2(0,0,0,0), "auto"),
+     "Limit the triangulated interest points to this longitude-latitude range. The format is: lon_min lat_min lon_max lat_max.")
     ("num-obalog-scales",              po::value(&opt.num_scales)->default_value(-1),
      "How many scales to use if detecting interest points with OBALoG. If not specified, 8 will be used. More can help for images with high frequency artifacts.")
     ("nodata-value",             po::value(&opt.nodata_value)->default_value(nan),
@@ -2111,6 +2117,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   asp::stereo_settings().num_scales              = opt.num_scales;
   asp::stereo_settings().nodata_value            = opt.nodata_value;
   asp::stereo_settings().skip_rough_homography   = opt.skip_rough_homography;
+  asp::stereo_settings().elevation_limit         = opt.elevation_limit;
+  asp::stereo_settings().lon_lat_limit           = opt.lon_lat_limit;
   asp::stereo_settings().individually_normalize  = opt.individually_normalize;
   asp::stereo_settings().min_triangulation_angle = opt.min_triangulation_angle;
 

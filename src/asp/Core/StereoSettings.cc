@@ -166,9 +166,11 @@ namespace asp {
       ("corr-search-limit",      po::value(&global.search_range_limit)->default_value(BBox2i(0,0,0,0), "auto"),
                      "Limit on automatically computed disparity search range: hmin vmin hmax vmax.")
       ("elevation-limit",        po::value(&global.elevation_limit)->default_value(Vector2(0,0), "auto"),
-                     "Limit on expected elevation range: min max.")
+                     "Limit on expected elevation range: Specify as two values: min max.")
+      ("lon-lat-limit",     po::value(&global.lon_lat_limit)->default_value(BBox2(0,0,0,0), "auto"),
+       "Limit the triangulated interest points to this longitude-latitude range. The format is: lon_min lat_min lon_max lat_max.")
       ("corr-max-levels",        po::value(&global.corr_max_levels)->default_value(5),
-                     "Max pyramid levels to process when using the integer correlator. (0 is just a single level).")
+       "Max pyramid levels to process when using the integer correlator. (0 is just a single level).")
       // TODO: These parameters are used here, but are only set as filter options.
       //("rm-min-matches",      po::value(&global.rm_min_matches)->default_value(60),
       //                        "Minimum number of pixels to be matched to keep sample (for filter mode 2).")

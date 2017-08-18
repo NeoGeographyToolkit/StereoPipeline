@@ -686,6 +686,79 @@ namespace asp {
     return valid_indices.size();
   }
 
+  size_t filter_ip_by_lonlat_and_elevation
+  (vw::camera::CameraModel* left_camera_model,
+   vw::camera::CameraModel* right_camera_model,
+   vw::cartography::Datum        const& datum,
+   std::vector<vw::ip::InterestPoint> const& ip1_in,
+   std::vector<vw::ip::InterestPoint> const& ip2_in,
+   vw::TransformRef const& left_tx, vw::TransformRef const& right_tx, 
+   double ip_scale,
+   vw::Vector2 const & elevation_limit,
+   vw::BBox2   const & lon_lat_limit,
+   std::vector<vw::ip::InterestPoint> & ip1_out,
+   std::vector<vw::ip::InterestPoint> & ip2_out){
+
+    // Handle case where the elevation or lonlat range are not set
+    const size_t num_ip = ip1_in.size();                              
+    if (elevation_limit[1] <= elevation_limit[0] && lon_lat_limit.empty()) {
+      ip1_out = ip1_in;
+      ip2_out = ip2_in;
+      return num_ip;
+    }
+
+    if (elevation_limit[0] < elevation_limit[1]) 
+      vw_out() << "\t    * Applying elevation restriction: " << elevation_limit[0]
+	       << " to " << elevation_limit[1] << ".\n";
+
+    if (!lon_lat_limit.empty()) 
+      vw_out() << "\t    * Applying lon-lat restriction: " << lon_lat_limit.min()
+	       << " to " << lon_lat_limit.max() << ".\n";
+    
+    // Init output vectors
+    ip1_out.clear();
+    ip2_out.clear();
+    ip1_out.reserve(num_ip);
+    ip2_out.reserve(num_ip);
+
+    // Set up stereo model
+    double angle_tolerance = vw::stereo::StereoModel::robust_1_minus_cos(
+                                stereo_settings().min_triangulation_angle*M_PI/180);
+    vw::stereo::StereoModel model(left_camera_model, right_camera_model, 
+                                  stereo_settings().use_least_squares, angle_tolerance );
+    
+    // For each interest point, compute the height and only keep it if the height falls within
+    // the specified range.
+    for (size_t i=0; i<num_ip; ++i) {
+      double error;
+
+      // We must not both apply a transform and a scale at the same time
+      // as these are meant to do the same thing in different circumstances.
+      Vector2 p1 = left_tx.reverse (Vector2(ip1_in[i].x, ip1_in[i].y));
+      Vector2 p2 = right_tx.reverse(Vector2(ip2_in[i].x, ip2_in[i].y));
+      Vector3 pt  = model(p1/ip_scale, p2/ip_scale, error);
+
+      Vector3 llh = datum.cartesian_to_geodetic(pt);
+      if ( (elevation_limit[0] < elevation_limit[1]) && 
+	   ( (llh[2] < elevation_limit[0]) || (llh[2] > elevation_limit[1]) ) ) {
+        //vw_out() << "Removing IP diff: " << p2 - p1 << " with llh " << llh << std::endl;
+        continue;
+      }
+      
+      Vector2 lon_lat = subvector(llh, 0, 2);
+      if ( (!lon_lat_limit.empty()) && (!lon_lat_limit.contains(lon_lat)) ) {
+	continue; 
+      }
+      
+      //vw_out() << "Keeping IP diff: " << p2 - p1 << " with llh " << llh << std::endl;
+      ip1_out.push_back(ip1_in[i]);
+      ip2_out.push_back(ip2_in[i]);
+    }
+    vw_out() << "\t    * Removed " << ip1_in.size() - ip1_out.size() << " ip in using elevation filtering.\n";
+    
+    return ip1_out.size();
+} // End filter_ip_by_elevation
+
   // Do IP matching, return, the best translation+scale fitting functor.
   vw::Matrix<double> translation_ip_matching(vw::ImageView<float> const& image1,
                                               vw::ImageView<float> const& image2,

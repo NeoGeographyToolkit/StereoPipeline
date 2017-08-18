@@ -278,82 +278,6 @@ double adjust_ip_for_align_matrix(std::string               const& out_prefix,
 	      
 } // End adjust_ip_for_align_matrix
 
-
-// TODO: Move this to InterestPointMatching.cc!
-size_t filter_ip_by_elevation(boost::shared_ptr<camera::CameraModel> const& left_camera_model,
-                              boost::shared_ptr<camera::CameraModel> const& right_camera_model,
-                              cartography::Datum        const& datum,
-                              vector<ip::InterestPoint> const& ip1_in,
-                              vector<ip::InterestPoint> const& ip2_in,
-                              double ip_scale,
-                              double min_elevation,
-                              double max_elevation,
-                              vector<ip::InterestPoint> & ip1_out,
-                              vector<ip::InterestPoint> & ip2_out) {
-                              
-    // Handle case where the elevations are not set
-    const size_t num_ip = ip1_in.size();                              
-    if (max_elevation <= min_elevation) {
-      ip1_out = ip1_in;
-      ip2_out = ip2_in;
-      return num_ip;
-    }
-    
-    vw_out() << "\t    * Applying elevation restriction: " << min_elevation
-             << " to " << max_elevation << ".\n";
-                              
-    // Init output vectors
-    ip1_out.clear();
-    ip2_out.clear();
-    ip1_out.reserve(num_ip);
-    ip2_out.reserve(num_ip);
-
-    // Set up stereo model
-    double angle_tolerance = vw::stereo::StereoModel::robust_1_minus_cos(
-                                stereo_settings().min_triangulation_angle*M_PI/180);
-    vw::stereo::StereoModel model(left_camera_model.get(), right_camera_model.get(), 
-                                  stereo_settings().use_least_squares, angle_tolerance );
-    
-    // For each interest point, compute the height and only keep it if the height falls within
-    // the specified range.
-    for (size_t i=0; i<num_ip; ++i) {
-      double error;
-      Vector2 p1(ip1_in[i].x, ip1_in[i].y);
-      Vector2 p2(ip2_in[i].x, ip2_in[i].y);
-      
-      Vector3 pt  = model(p1/ip_scale, p2/ip_scale, error);
-      Vector3 llh = datum.cartesian_to_geodetic(pt);
-      if ((llh[2] < min_elevation) || (llh[2] > max_elevation)) {
-        //vw_out() << "Removing IP diff: " << p2 - p1 << " with llh " << llh << std::endl;
-        continue;
-      }
-      //vw_out() << "Keeping IP diff: " << p2 - p1 << " with llh " << llh << std::endl;
-      ip1_out.push_back(ip1_in[i]);
-      ip2_out.push_back(ip2_in[i]);
-    }
-    vw_out() << "\t    * Removed " << ip1_in.size() - ip1_out.size() << " ip in using elevation filtering.\n";
-    
-    return ip1_out.size();
-} // End filter_ip_by_elevation
-
-
-  // TODO: Duplicate of hidden function in vw/src/InterestPoint/Matcher.cc!
-  std::string strip_path(std::string out_prefix, std::string filename){
-
-    // If filename starts with out_prefix followed by dash, strip both.
-    // Also strip filename extension.
-
-    std::string ss = out_prefix + "-";
-    size_t found = filename.find(ss);
-
-    if (found != std::string::npos)
-      filename.erase(found, ss.length());
-
-    filename = fs::path(filename).stem().string();
-
-    return filename;
-  }
-
 /// Detect IP in the _sub images or the original images if they are not too large.
 /// - Usually an IP file is written in stereo_pprc, but for some input scenarios
 ///   this function will need to be used to generate them here.
@@ -569,15 +493,25 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   float i_scale = 1.0/ip_scale;
 
   // Filter out IPs which fall outside the specified elevation range
-  double min_elevation = stereo_settings().elevation_limit[0];
-  double max_elevation = stereo_settings().elevation_limit[1];
   boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
   opt.session->camera_models(left_camera_model, right_camera_model);
   cartography::Datum datum = opt.session->get_datum(left_camera_model.get(), false);
 
   // TODO: Don't do this with cropped input images!!!!!
-  size_t num_left = filter_ip_by_elevation(left_camera_model, right_camera_model, datum, in_ip1, in_ip2,
-                                           ip_scale, min_elevation, max_elevation, matched_ip1, matched_ip2);
+  // These transforms are the identity here. By now we compensated for any
+  // transform by using the scale.
+  // TODO: the scale may not be needed and here we may need to read the actual transform.
+  vw::TransformRef left_tx  = vw::TransformRef(vw::TranslateTransform(0,0));
+  vw::TransformRef right_tx = vw::TransformRef(vw::TranslateTransform(0,0));
+
+  size_t num_left = asp::filter_ip_by_lonlat_and_elevation(left_camera_model.get(),
+							   right_camera_model.get(),
+							   datum, in_ip1, in_ip2,
+							   left_tx, right_tx, ip_scale,
+							   stereo_settings().elevation_limit,
+							   stereo_settings().lon_lat_limit,
+							   matched_ip1, matched_ip2);
+
   if (num_left == 0)
     vw_throw(ArgumentErr() << "No IPs left after elevation filtering!");
 

@@ -273,6 +273,20 @@ namespace asp {
 			    std::vector<vw::ip::InterestPoint> const& ip2,
 			    std::list<size_t>& valid_indices );
 
+  // Filter IP by ensuring that the triangulated IP are in the given lon-lat-height box
+  size_t filter_ip_by_lonlat_and_elevation
+  (vw::camera::CameraModel* left_camera_model,
+   vw::camera::CameraModel* right_camera_model,
+   vw::cartography::Datum        const& datum,
+   std::vector<vw::ip::InterestPoint> const& ip1_in,
+   std::vector<vw::ip::InterestPoint> const& ip2_in,
+   vw::TransformRef const& left_tx, vw::TransformRef const& right_tx, 
+   double ip_scale,
+   vw::Vector2 const & elevation_limit,
+   vw::BBox2   const & lon_lat_limit,
+   std::vector<vw::ip::InterestPoint> & ip1_out,
+   std::vector<vw::ip::InterestPoint> & ip2_out);
+
   /// Smart IP matching that uses clustering on triangulation and
   /// datum information to determine inliers.
   ///
@@ -634,8 +648,7 @@ namespace asp {
 		    double nodata2,
 		    vw::TransformRef const& left_tx,
 		    vw::TransformRef const& right_tx,
-		    bool transform_to_original_coord
-		     ) {
+		    bool transform_to_original_coord) {
     using namespace vw;
 
     // Detect interest points
@@ -752,6 +765,29 @@ namespace asp {
     }
     matched_ip2 = buffer;
 
+    if (stereo_settings().elevation_limit[0] < stereo_settings().elevation_limit[1] ||
+	!stereo_settings().lon_lat_limit.empty()) {
+
+      vw::TransformRef local_left_tx = vw::TransformRef(vw::TranslateTransform(0,0));
+      vw::TransformRef local_right_tx = vw::TransformRef(vw::TranslateTransform(0,0));
+      if (!transform_to_original_coord) {
+	// The transform to original coords was not applied, need to take it into account.
+	local_left_tx  = left_tx;
+	local_right_tx = right_tx;
+      }
+
+      std::vector<ip::InterestPoint> matched_ip1_out, matched_ip2_out;
+      double ip_scale = 1.0; // left_tx and right_tx already have any scale info
+      filter_ip_by_lonlat_and_elevation(cam1, cam2,  
+					datum,  matched_ip1, matched_ip2, 
+					local_left_tx, local_right_tx,  ip_scale,  
+					stereo_settings().elevation_limit,  
+					stereo_settings().lon_lat_limit,  
+					matched_ip1_out, matched_ip2_out);
+      matched_ip1 = matched_ip1_out;
+      matched_ip2 = matched_ip2_out;
+    }
+    
     vw_out() << "\t    * Writing match file: " << output_name << "\n";
     ip::write_binary_match_file( output_name, matched_ip1, matched_ip2 );
 
@@ -831,11 +867,13 @@ namespace asp {
     if (!inlier)
       return inlier;
 
-    // For some reason ip_matching writes its points to file instead of returning them, so read them from disk.
+    // For some reason ip_matching writes its points to file instead
+    // of returning them, so read them from disk.
     std::vector<ip::InterestPoint> ip1_copy, ip2_copy;
     ip::read_binary_match_file( output_name, ip1_copy, ip2_copy );
 
-    // Use the interest points that we found to compute an aligning homography transform for the two images
+    // Use the interest points that we found to compute an aligning
+    // homography transform for the two images
     bool adjust_left_image_size = true;
     Matrix<double> matrix1, matrix2;
     homography_rectification( adjust_left_image_size,
