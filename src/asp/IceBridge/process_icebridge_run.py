@@ -138,7 +138,8 @@ def getImageSpacing(orthoFolder, startFrame, stopFrame):
 
     # Since we are only comparing the image bounding boxes, not their exact corners,
     #  these ratios are only estimates.
-    MAX_RATIO = 0.8 # Increase skip until we get below this...
+    #MAX_RATIO = 0.8 # Increase skip until we get below this...
+    MAX_RATIO = 1.0 # Increase skip until we get below this...
     MIN_RATIO = 0.4 # ... but don't go below this value!
 
     def getBboxArea(bbox):
@@ -192,7 +193,10 @@ def getImageSpacing(orthoFolder, startFrame, stopFrame):
     # If we increased the interval too much, back it off by one step.
     if (meanRatio < MIN_RATIO) and (interval > 1):
         interval = interval - 1
-        
+    
+    if interval < 1: # Make sure this never happens!
+        interval = 1
+    
     logger.info('Computed automatic image stereo interval: ' + str(interval))
     logger.info('Detected ' + str(interval) + ' breaks in image coverage.')
     
@@ -213,7 +217,7 @@ def getRunMeanGsd(imageCameraPairs, referenceDem, isSouth, frameSkip=1):
         pair = imageCameraPairs[i]
         
         # Average in the GSD for each file we can process
-        gsd = icebridge_common.getCameraGsdRetry(pair[0], pair[1], logger, referenceDem, projString)
+        gsd, bounds = icebridge_common.getCameraGsdAndBoundsRetry(pair[0], pair[1], logger, referenceDem, projString)
         # TODO Move on to the next file on failure
          
         meanGsd   += gsd

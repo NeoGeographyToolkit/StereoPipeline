@@ -36,7 +36,7 @@ sys.path.insert(0, libexecpath)
 sys.path.insert(0, toolspath)
 
 import icebridge_common
-import asp_system_utils, asp_alg_utils, asp_geo_utils
+import asp_system_utils, asp_alg_utils, asp_geo_utils, asp_image_utils
 asp_system_utils.verify_python_version_is_supported()
 
 # Prepend to system PATH
@@ -81,10 +81,64 @@ def consolidateGeodiffResults(inputFiles, outputPath=None):
             os.system('rm -f ' + f)
     
     return mergedResult
-            
 
-def createDem(i, options, inputPairs, prefixes, demFiles, projString, 
-              threadText, suppressOutput, redo, logger):
+
+def lidarCsvToDem(lidarFile, projBounds, projString, outputFolder, threadText, 
+                  suppressOutput, redo):
+        '''Generate a DEM from a lidar file in the given region (plus a buffer)'''
+
+        LIDAR_DEM_RESOLUTION     = 5 # TODO: Vary this
+        LIDAR_PROJ_BUFFER_METERS = 100
+
+        lidarCsvFormatString = icebridge_common.getLidarCsvFormat(lidarFile)
+
+        # Buffer out the input bounds
+        minX = projBounds[0] - LIDAR_PROJ_BUFFER_METERS # Expand the bounds a bit
+        minY = projBounds[1] - LIDAR_PROJ_BUFFER_METERS
+        maxX = projBounds[2] + LIDAR_PROJ_BUFFER_METERS
+        maxY = projBounds[3] + LIDAR_PROJ_BUFFER_METERS
+
+        # Generate a DEM from the lidar point cloud in this region        
+        lidarDemPrefix = os.path.join(outputFolder, 'cropped_lidar')
+        cmd = ('point2dem --max-output-size 10000 10000 --t_projwin %f %f %f %f --tr %lf --t_srs %s %s %s --csv-format %s -o %s' 
+               % (minX, minY, maxX, maxY,
+                  LIDAR_DEM_RESOLUTION, projString, lidarFile, threadText, 
+                  lidarCsvFormatString, lidarDemPrefix))
+        lidarDemOutput = lidarDemPrefix+'-DEM.tif'
+        asp_system_utils.executeCommand(cmd, lidarDemOutput, suppressOutput, redo)
+            
+        colorOutput = lidarDemPrefix+'-DEM_CMAP.tif'
+        cmd = ('colormap  %s -o %s' 
+               % ( lidarDemOutput, colorOutput))
+        asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
+        
+        return lidarDemOutput
+            
+def estimateHeightRange(projBounds, projString, lidarFile, options, threadText, 
+                        suppressOutput, redo):
+    '''Estimate the valid height range in a region based on input height info.'''
+    
+    # Expand the estimate by this much in either direction
+    HEIGHT_BUFFER = 200
+    
+    # Create a lidar DEM at the region
+    lidarDemPath = lidarCsvToDem(lidarFile, projBounds, projString, 
+                                 options.outputFolder, threadText, suppressOutput, redo)
+    
+    # Get the min and max height of the lidar file
+    lidarMin, lidarMax, lidarMean, lidarStd = asp_image_utils.getImageStats(lidarDemPath)[0]
+
+    # TODO: Use the standard deviation here?
+    minHeight = lidarMin - HEIGHT_BUFFER
+    maxHeight = lidarMax + HEIGHT_BUFFER
+    
+    # Generate the height string
+    s = '--elevation-limit ' + str(minHeight) +' '+ str(maxHeight)
+    return s
+    
+
+def createDem(i, options, inputPairs, prefixes, demFiles, projString,
+              extraArgs, suppressOutput, redo, logger):
     '''Create a DEM from a pair of images'''
 
     # Since we use epipolar alignment our images should be aligned at least this well.
@@ -100,8 +154,8 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     # Testing: Is there any performance hit from using --corr-seed-mode 0 ??
     #          This skips D_sub creation and saves processing time.
     # - This epipolar threshold is post camera model based alignment so it can be quite restrictive.
-    stereoCmd = ('stereo %s %s -t nadirpinhole --alignment-method epipolar %s --corr-seed-mode 0 --epipolar-threshold 10' %
-                 (argString, thisPairPrefix, threadText))
+    stereoCmd = ('stereo %s %s %s -t nadirpinhole --alignment-method epipolar --corr-seed-mode 0 --epipolar-threshold 10' %
+                 (argString, thisPairPrefix, extraArgs))
     searchLimitString = (' --corr-search-limit -9999 -' + str(VERTICAL_SEARCH_LIMIT) +
                          ' 9999 ' + str(VERTICAL_SEARCH_LIMIT) )
     if '--stereo-algorithm 0' not in options.stereoArgs:
@@ -119,7 +173,6 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
         
     stereoCmd += correlationArgString
     stereoCmd += filterArgString
-
     triOutput = thisPairPrefix + '-PC.tif'
     asp_system_utils.executeCommand(stereoCmd, triOutput, suppressOutput, redo)
 
@@ -230,7 +283,7 @@ def main(argsIn):
     except optparse.OptionError, msg:
         raise Usage(msg)
 
-    projString = icebridge_common.getProjString(options.isSouth, addQuotes=True)
+    projString = icebridge_common.getProjString(options.isSouth, addQuotes=False)
        
     if not os.path.exists(options.outputFolder):
         os.mkdir(options.outputFolder)
@@ -245,28 +298,9 @@ def main(argsIn):
     logger.info('Starting processing...')
 
 
-    # Check that the output GSD is not set too much lower than the native resolution
-    if options.referenceDem:
-        MAX_OVERSAMPLING = 2.0
-        computedGsd = options.demResolution
-        try:
-            # Compute the native GSD of the first input camera
-            computedGsd = icebridge_common.getCameraGsdRetry(inputPairs[0][0], inputPairs[0][1], 
-                                                             logger, options.referenceDem, projString)
-            
-            print 'GSD = ' + str(computedGsd)
-        except:
-            logger.warning('Failed to compute GSD for camera: ' + inputPairs[0][1])
-        if options.demResolution < (computedGsd*MAX_OVERSAMPLING):
-            logger.warning('Specified resolution ' + str(options.demResolution) + 
-                           ' is too fine for camera with computed GSD ' + str(computedGsd) +
-                           '.  Switching to native GSD.)')
-            options.demResolution = computedGsd
-        # Undersampling is not as dangerous, just print a warning.
-        if options.demResolution > 5*computedGsd:
-            logger.warning('Specified resolution ' + str(options.demResolution) + 
-                           ' is much larger than computed GSD ' + str(computedGsd))
-                           
+    threadText = ''
+    if options.numThreads:
+        threadText = ' --threads ' + str(options.numThreads) +' '
 
     # If a lidar folder was specified, find the best lidar file.
     lidarFile = None
@@ -277,11 +311,55 @@ def main(argsIn):
         lidarCsvFormatString = icebridge_common.getLidarCsvFormat(lidarFile)
    
     outputPrefix  = os.path.join(options.outputFolder, 'out')
-         
-    threadText = ''
-    if options.numThreads:
-        threadText = ' --threads ' + str(options.numThreads) +' '
-    
+
+
+    # Check that the output GSD is not set too much lower than the native resolution
+    heightLimitString = ''
+    if options.referenceDem:
+        MAX_OVERSAMPLING = 2.0
+        computedGsd = options.demResolution
+        meanGsd     = 0
+        totalBounds = [99999999, 99999999, -99999999, -999999999] # minX, minY, maxX, maxY
+        for i in range(0,numCameras):
+            try:
+                # Compute the native GSD of the first input camera
+                computedGsd, bounds = icebridge_common.getCameraGsdAndBoundsRetry(
+                                          inputPairs[i][0], inputPairs[i][1], logger, 
+                                          options.referenceDem, projString)
+                meanGsd += computedGsd
+                # Accumulate the bounding box
+                minX = bounds[0]
+                minY = bounds[1]
+                maxX = minX + bounds[2]
+                maxY = minY + bounds[3]
+                if totalBounds[0] > minX: totalBounds[0] = minX
+                if totalBounds[1] > minY: totalBounds[1] = minY
+                if totalBounds[2] < maxX: totalBounds[2] = maxX
+                if totalBounds[3] < maxY: totalBounds[3] = maxY
+            except:
+                logger.warning('Failed to compute GSD for camera: ' + inputPairs[0][1])
+        meanGsd = meanGsd / numCameras                
+        #print 'GSD = ' + str(meanGsd)
+        #print 'TotalBounds = ' + str(totalBounds)
+        if options.demResolution < (meanGsd*MAX_OVERSAMPLING):
+            logger.warning('Specified resolution ' + str(options.demResolution) + 
+                           ' is too fine for camera with computed GSD ' + str(meanGsd) +
+                           '.  Switching to native GSD.)')
+            options.demResolution = meanGsd
+        # Undersampling is not as dangerous, just print a warning.
+        if options.demResolution > 5*meanGsd:
+            logger.warning('Specified resolution ' + str(options.demResolution) + 
+                           ' is much larger than computed GSD ' + str(meanGsd))
+                           
+        if lidarFile:
+            # Compute a good height limit from the reference DEM
+            # - Can try generating lonlat bounds in the future, but maybe better
+            #   to keep these in projected coordinate space.
+            heightLimitString = estimateHeightRange(totalBounds, projString, lidarFile,
+                                                    options, threadText, 
+                                                    suppressOutput, redo)
+            #raise Exception('DEBUG')
+       
     # BUNDLE_ADJUST
     # - Bundle adjust all of the input images in the batch at the same time.
     # - An overlap number less than 2 is prone to very bad bundle adjust results so
@@ -297,12 +375,12 @@ def main(argsIn):
     if baOverlapLimit < MIN_BA_OVERLAP:
         baOverlapLimit = MIN_BA_OVERLAP
         
-    cmd = (('bundle_adjust %s -o %s %s --datum wgs84 --camera-weight %0.16g -t nadirpinhole ' +
+    cmd = (('bundle_adjust %s -o %s %s %s --datum wgs84 --camera-weight %0.16g -t nadirpinhole ' +
             '--local-pinhole --overlap-limit %d --robust-threshold %0.16g ' +
             '--ip-detect-method 1 --ip-per-tile 500 ' + 
             '--overlap-exponent %0.16g --epipolar-threshold 50')  \
-           % (imageCameraString, bundlePrefix, threadText, CAMERA_WEIGHT, baOverlapLimit,
-              ROBUST_THRESHOLD, OVERLAP_EXPONENT))
+           % (imageCameraString, bundlePrefix, threadText, heightLimitString, 
+              CAMERA_WEIGHT, baOverlapLimit, ROBUST_THRESHOLD, OVERLAP_EXPONENT))
     
     if options.solve_intr:
         cmd += ' --solve-intrinsics'
@@ -343,7 +421,8 @@ def main(argsIn):
 
     # We can either process the batch serially, or in parallel For
     # many batches the former is preferred, with the batches
-    # themselves being in parallel.
+    # themselves being in parallel.   
+    extraArgs = threadText +' '+ heightLimitString
     if options.numProcessesPerBatch > 1:
         logger.info('Starting processing pool for given batch with ' +
                     str(options.numProcessesPerBatch) + ' processes.')
@@ -352,7 +431,7 @@ def main(argsIn):
         for i in range(0, numRuns):
             taskHandles.append(pool.apply_async(createDem, 
                                                 (i, options, inputPairs, prefixes, demFiles,
-                                                 projString, threadText, suppressOutput, redo,
+                                                 projString, extraArgs, suppressOutput, redo,
                                                  logger)))
         # Wait for all the tasks to complete
         icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, logger, interactive = False, 
@@ -363,8 +442,8 @@ def main(argsIn):
 
     else:
         for i in range(0, numRuns):
-            createDem(i, options, inputPairs, prefixes, demFiles, projString, threadText,
-                   suppressOutput, redo, logger)
+            createDem(i, options, inputPairs, prefixes, demFiles, projString, extraArgs,
+                     suppressOutput, redo, logger)
 
     # If we had to create at least one DEM, need to redo all the post-DEM creation steps
     if atLeastOneDemMissing:
@@ -430,33 +509,18 @@ def main(argsIn):
 
     # Optional visualization of the LIDAR file
     if options.lidarOverlay and lidarFile:
-        LIDAR_DEM_RESOLUTION     = 5
-        LIDAR_PROJ_BUFFER_METERS = 100
-    
-        # Get buffered projection bounds of this image so it is easier to compare the LIDAR
-        #demGeoInfo = asp_geo_utils.getImageGeoInfo(p2dOutput, getStats=False)
+
+        # Get projection bounds of our output DEM
+        # - TODO: Avoid doing this if the file exists.
         demGeoInfo = asp_geo_utils.getImageGeoInfo(allDemPath, getStats=False)
         projBounds = demGeoInfo['projection_bounds']
-        minX = projBounds[0] - LIDAR_PROJ_BUFFER_METERS # Expand the bounds a bit
-        minY = projBounds[2] - LIDAR_PROJ_BUFFER_METERS
-        maxX = projBounds[1] + LIDAR_PROJ_BUFFER_METERS
-        maxY = projBounds[3] + LIDAR_PROJ_BUFFER_METERS
+        # Rearrange to minX, minY, maxX, maxY
+        projBounds = (projBounds[0], projBounds[2], projBounds[1], projBounds[3])
 
-        # Generate a DEM from the lidar point cloud in this region        
-        lidarDemPrefix = os.path.join(options.outputFolder, 'cropped_lidar')
-        cmd = ('point2dem --max-output-size 10000 10000 --t_projwin %f %f %f %f --tr %lf --t_srs %s %s %s --csv-format %s -o %s' 
-               % (minX, minY, maxX, maxY,
-                  LIDAR_DEM_RESOLUTION, projString, lidarFile, threadText, 
-                  lidarCsvFormatString, lidarDemPrefix))
-        lidarDemOutput = lidarDemPrefix+'-DEM.tif'
-        asp_system_utils.executeCommand(cmd, lidarDemOutput, suppressOutput, redo)
-            
-        colorOutput = lidarDemPrefix+'-DEM_CMAP.tif'
-        cmd = ('colormap  %s -o %s' 
-               % ( lidarDemOutput, colorOutput))
-        #cmd = ('colormap --min %f --max %f %s -o %s'
-        #       % (colormapMin, colormapMax, lidarDemOutput, colorOutput))
-        asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
+
+        # Generate a DEM from the lidar point cloud in this region
+        lidarDemOutput = lidarCsvToDem(lidarFile, projBounds, projString, options.outputFolder, 
+                                       threadText, suppressOutput, redo)
 
     # Compare to Fireball DEMs if available                           
     if options.fireballFolder:

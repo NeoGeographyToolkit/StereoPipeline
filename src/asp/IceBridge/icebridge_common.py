@@ -178,8 +178,8 @@ def getLidarCsvFormat(filename):
         return '5:lat,4:lon,6:height_above_datum'
     return '1:lat,2:lon,3:height_above_datum' # ATM
     
-def getCameraGsd(imagePath, cameraPath, logger, referenceDem=None, projString=""):
-    '''Compute the GSD of a single camera.
+def getCameraGsdAndBounds(imagePath, cameraPath, logger, referenceDem=None, projString=""):
+    '''Compute the GSD and bounding box of a single camera.
        Use the DEM is provided, otherwise use the datum.'''
     
     # Run GSD tool
@@ -201,21 +201,32 @@ def getCameraGsd(imagePath, cameraPath, logger, referenceDem=None, projString=""
     m = re.findall(r"Computed mean gsd: (\d+\.*[0-9e\-]*)", textOutput)
     if len(m) != 1: # An unknown error occurred, move on.
         raise Exception('Unable to compute GSD for file: ' + cameraPath)
-    return float(m[0])
+    gsd = float(m[0])
 
-def getCameraGsdRetry(imagePath, cameraPath, logger, referenceDem, projString=""):
+    # Extract the bounding box from the output text
+    print textOutput
+    m = re.findall(
+          r"Origin: \(([0-9e\-\.\+]*), ([0-9e\-\.\+]*)\) width: ([0-9e\-\.\+]*) height: ([0-9e\-\.\+]*)",
+          textOutput)
+    if (len(m) != 1) and (len(m[0]) != 4): # An unknown error occurred, move on.
+        raise Exception('Unable to compute GSD for file: ' + cameraPath)    
+    bounds = [float(x) for x in m[0]]
+
+    return (gsd, bounds)
+
+def getCameraGsdAndBoundsRetry(imagePath, cameraPath, logger, referenceDem, projString=""):
     '''As getCameraGsd, but retry with the datum if the DEM fails.'''
 
     try:
         # Compute GSD using the DEM
         # - Only need the projection string when not using a DEM
-        gsd = getCameraGsd(imagePath, cameraPath, loggger, referenceDem, "")
+        results = getCameraGsdAndBounds(imagePath, cameraPath, logger, referenceDem)
     except:
         # If that failed, try intersecting with the datum.
         logger.info('DEM intersection failed, trying with datum...')
-        gsd = getCameraGsd(imagePath, cameraPath, logger, None, projString)
+        results = getCameraGsdAndBounds(imagePath, cameraPath, logger, None, projString)
      
-    return gsd
+    return results
 
 def getFrameRangeFromBatchFolder(folder):
     '''Returns (startFrame, endFrame) for a batch folder'''
@@ -862,20 +873,6 @@ def getElevationLimits(site):
     if site == 'AL':
         return (-50, 3500)
 
-def getProjString(isSouth, addQuotes=False):
-    '''Return the correct proj string for the pole.  Surrounding quotes are optional'''
-    # EPSG 3413 - WGS 84 / NSIDC Sea Ice Polar Stereographic North
-    PROJ_STRING_NORTH = '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs'
-    # EPSG 3031 - WGS 84 / Antarctic Polar Stereographic
-    PROJ_STRING_SOUTH = '+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs'
-    s = PROJ_STRING_NORTH
-    if isSouth:
-        s = PROJ_STRING_SOUTH
-    if addQuotes:
-        return '"'+s+'"'
-    else:
-        return s 
-
 def getEpsgCode(isSouth, asString=True):
     '''Return EPSG code for a location.  See notes in getProjString.'''
     code = 3413
@@ -885,22 +882,40 @@ def getEpsgCode(isSouth, asString=True):
         return 'EPSG:' + str(code)
     return code
 
+def getProjString(isSouth, addQuotes=False):
+    '''Return the correct proj string for the pole.  Surrounding quotes are optional'''
+    # EPSG 3413 - WGS 84 / NSIDC Sea Ice Polar Stereographic North
+    #PROJ_STRING_NORTH = '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs'
+    # EPSG 3031 - WGS 84 / Antarctic Polar Stereographic
+    #PROJ_STRING_SOUTH = '+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs'
+    #s = PROJ_STRING_NORTH
+    #if isSouth:
+    #    s = PROJ_STRING_SOUTH
+    s = getEpsgCode(isSouth, asString=True)
+    if addQuotes:
+        return '"'+s+'"'
+    else:
+        return s 
+
 
 def getReferenceDemName(site):
     '''Returns the DEM name to use for a given location'''
 
+    # Note: The AN and GR DEMs match our projection system for those sites.
+
     if site == 'AN':
         #return 'krigged_dem_nsidc_ndv0_fill.tif' # Higher resolution
-        return 'ramp200dem_wgs_v2.tif' # Used to produce the orthos
+        return 'ramp200dem_wgs_v2.tif' # Used to produce the orthos - EPSG 3031
     if site == 'GR':
         #return 'gimpdem_90m_v1.1.tif' # Higher resolution
-        return 'NSIDC_Grn1km_wgs84_elev.tif' # Used to produce the orthos
+        return 'NSIDC_Grn1km_wgs84_elev.tif' # Used to produce the orthos - EPSG 3413
     if site == 'AL':
         # Supposedly these were produced with the SRTM map but that map
         #  does not seem to actually include Alaska.  This may mean the NED
         #  map (60 meter) was used but this would require tile handling logic
         #  so for now we will try to use this single 300m DEM.
         return 'akdem300m.tif'
+        # Proj string: '+proj=aea +lat_1=55 +lat_2=65 +lat_0=50 +lon_0=-154 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs '
 
 
 def readGeodiffOutput(inputPath):

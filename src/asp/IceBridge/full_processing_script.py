@@ -267,10 +267,12 @@ def main(argsIn):
         
     isSouth = icebridge_common.checkSite(options.site)
 
-    # Add the site based elevation limits to the stereoArgs option
-    altLimits = icebridge_common.getElevationLimits(options.site)
-    options.stereoArgs = (' %s --elevation-limit %f %f ' 
-                          % (options.stereoArgs, altLimits[0], altLimits[1]))
+    # Turned off elevation limits here since they are being set from LIDAR data.
+    ## Add the site based elevation limits to the stereoArgs option
+    #altLimits = icebridge_common.getElevationLimits(options.site)
+    #options.stereoArgs = (' %s --elevation-limit %f %f ' 
+    #                      % (options.stereoArgs, altLimits[0], altLimits[1]))
+    options.stereoArgs = (' %s ' % (options.stereoArgs))
 
     if options.cameraLookupFile is None:
         options.cameraLookupFile = P.join(basepath, 'camera_lookup.txt')
