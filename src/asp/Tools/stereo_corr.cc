@@ -337,12 +337,30 @@ size_t filter_ip_by_elevation(boost::shared_ptr<camera::CameraModel> const& left
 } // End filter_ip_by_elevation
 
 
+  // TODO: Duplicate of hidden function in vw/src/InterestPoint/Matcher.cc!
+  std::string strip_path(std::string out_prefix, std::string filename){
+
+    // If filename starts with out_prefix followed by dash, strip both.
+    // Also strip filename extension.
+
+    std::string ss = out_prefix + "-";
+    size_t found = filename.find(ss);
+
+    if (found != std::string::npos)
+      filename.erase(found, ss.length());
+
+    filename = fs::path(filename).stem().string();
+
+    return filename;
+  }
+
 /// Detect IP in the _sub images or the original images if they are not too large.
 /// - Usually an IP file is written in stereo_pprc, but for some input scenarios
 ///   this function will need to be used to generate them here.
+/// - The input match file path can be changed depending on what exists on disk.
 /// - Returns the scale from the image used for IP to the full size image.
 /// - The binary interest point file will be written to disk.
-double compute_ip(ASPGlobalOptions & opt, std::string const& match_filename) {
+double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
 
   vw_out() << "\t    * Loading images for IP detection.\n";
 
@@ -355,8 +373,39 @@ double compute_ip(ASPGlobalOptions & opt, std::string const& match_filename) {
   const std::string right_image_path_full = opt.out_prefix+"-R.tif";
   const std::string left_image_path_sub   = opt.out_prefix+"-L_sub.tif";
   const std::string right_image_path_sub  = opt.out_prefix+"-R_sub.tif";
-  
-  
+  const std::string full_match_file       = ip::match_filename(opt.out_prefix, opt.in_file1, opt.in_file2);
+  const std::string sub_match_file        = opt.out_prefix + "-L_sub__R_sub.match";
+  const std::string aligned_match_file    = opt.out_prefix + "-L__R.match";
+
+  // Try the full match file first
+  if (fs::exists(full_match_file)) {
+    vw_out() << "IP file found: " << full_match_file << std::endl;
+    match_filename = full_match_file;
+    return 1.0;
+  }
+
+  // TODO: Unify with function in vw/src/InterestPoint/Matcher.h!
+  // filenames longer than this must be chopped, as too long names
+  // cause problems later with boost.
+  int max_len = 40;
+  std::string name1 = strip_path(opt.out_prefix, opt.in_file1).substr(0, max_len);
+  std::string name2 = strip_path(opt.out_prefix, opt.in_file2).substr(0, max_len);
+
+  // Next try the cropped match file names which will be at full scale.
+  std::vector<std::string> match_names;
+  match_names.push_back(opt.out_prefix + "-L-cropped__R-cropped.match");
+  match_names.push_back(opt.out_prefix + "-"+name1+"__R-cropped.match");
+  match_names.push_back(opt.out_prefix + "-L-cropped__"+name2+".match");
+  match_names.push_back(aligned_match_file);
+  for (size_t i=0; i<match_names.size(); ++i) {
+    if (fs::exists(match_names[i])) {
+      vw_out() << "IP file found: " << match_names[i] << std::endl;
+      match_filename = match_names[i];
+      return 1.0;
+    }
+  }
+
+  // Now try the sub match file, which requires us to compute the scale.
   std::string left_image_path  = left_image_path_full;
   std::string right_image_path = right_image_path_full;
   Vector2i full_size     = file_image_size(left_image_path_full);
@@ -365,6 +414,7 @@ double compute_ip(ASPGlobalOptions & opt, std::string const& match_filename) {
                                 (stereo_settings().alignment_method != "none"    )   ));
   // Other alignment methods find IP in the stereo_pprc phase using the full size.
 
+  // Compute the scale.
   double ip_scale = 1.0;
   if (!use_full_size) {
     left_image_path  = left_image_path_sub;
@@ -375,12 +425,21 @@ double compute_ip(ASPGlobalOptions & opt, std::string const& match_filename) {
                sum(elem_quot( Vector2(file_image_size( opt.out_prefix+"-R_sub.tif" )),
                               Vector2(file_image_size( opt.out_prefix+"-R.tif" ) ) ));
     ip_scale /= 4.0f;
+    match_filename = sub_match_file; // If not using full size we should expect this file
   }
   
-  // If the match file already exists then just return the scale
-  if (fs::exists(match_filename))
+  // Check for the file.
+  if (fs::exists(sub_match_file)) {
+    vw_out() << "IP file found: " << sub_match_file << std::endl;
     return ip_scale;
+  }
+
+
+  vw_out() << "No IP file found, computing IP now.\n";
   
+  // This will perform IP matching between the aligned files.
+  match_filename = aligned_match_file;
+
   // Load the images
   boost::shared_ptr<DiskImageResource> left_rsrc (DiskImageResourcePtr(left_image_path )),
                                        right_rsrc(DiskImageResourcePtr(right_image_path));
@@ -516,6 +575,7 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   opt.session->camera_models(left_camera_model, right_camera_model);
   cartography::Datum datum = opt.session->get_datum(left_camera_model.get(), false);
 
+  // TODO: Don't do this with cropped input images!!!!!
   size_t num_left = filter_ip_by_elevation(left_camera_model, right_camera_model, datum, in_ip1, in_ip2,
                                            ip_scale, min_elevation, max_elevation, matched_ip1, matched_ip2);
   if (num_left == 0)
@@ -548,7 +608,7 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   histogram(dx, NUM_BINS, min_dx, max_dx, hist_x, centers_x);
   histogram(dy, NUM_BINS, min_dy, max_dy, hist_y, centers_y);
   
-  printf("min x,y = %lf, %lf, max x,y = %lf, %lf\n", min_dx, min_dy, max_dx, max_dy);
+  //printf("min x,y = %lf, %lf, max x,y = %lf, %lf\n", min_dx, min_dy, max_dx, max_dy);
   
   // Compute search ranges
   const double MAX_PERCENTILE = 0.95;
@@ -562,16 +622,16 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
                      centers_y[min_bin_y]);
   Vector2 search_max(centers_x[max_bin_x],
                      centers_y[max_bin_y]);
-  std::cout << "Unscaled search range = " << BBox2i(search_min, search_max) << std::endl;
+  //std::cout << "Unscaled search range = " << BBox2i(search_min, search_max) << std::endl;
   Vector2 search_center = (search_max + search_min) / 2.0;
-  std::cout << "search_center = " << search_center << std::endl;
+  //std::cout << "search_center = " << search_center << std::endl;
   Vector2 d_min = search_min - search_center; // TODO: Make into a bbox function!
   Vector2 d_max = search_max - search_center;
   //std::cout << "d_min = " << d_min << std::endl;
   //std::cout << "d_max = " << d_max << std::endl;
   search_min = d_min*search_scale + search_center;
   search_max = d_max*search_scale + search_center;
-  std::cout << "Scaled search range = " << BBox2i(search_min, search_max) << std::endl;
+  //std::cout << "Scaled search range = " << BBox2i(search_min, search_max) << std::endl;
   
 /*
    // Debug code to print all the points
@@ -616,11 +676,6 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
     // Do nothing as low-res disparity (D_sub) is already provided by sparse_disp
   } else { // Regular seed mode
 
-    // Define the file name containing IP match information.
-    string match_filename = ip::match_filename(opt.out_prefix, opt.in_file1, opt.in_file2);
-
-    vw_out() << "Looking for IP file: " << match_filename << std::endl;
-
     // If there is no match file for the input images, gather some IP from the
     // low resolution images. This routine should only run for:
     //   Pinhole + Epipolar
@@ -628,10 +683,13 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
     //   Cases where either input image is cropped, in which case the IP name is different.
     // Everything else should gather IP's all the time during stereo_pprc.
     // - TODO: When inputs are cropped, use the cropped IP!
-    double ip_scale = 1.0;
+    
 
     // Compute new IP and write them to disk.
+    // - If IP are already on disk this function will load them instead.
     // - This function will choose an appropriate IP computation based on the input images.
+    string match_filename;
+    double ip_scale;
     ip_scale = compute_ip(opt, match_filename);
 
     // This function applies filtering to find good points
