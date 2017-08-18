@@ -166,7 +166,8 @@ namespace asp {
       ("corr-search-limit",      po::value(&global.search_range_limit)->default_value(BBox2i(0,0,0,0), "auto"),
                      "Limit on automatically computed disparity search range: hmin vmin hmax vmax.")
       ("elevation-limit",        po::value(&global.elevation_limit)->default_value(Vector2(0,0), "auto"),
-                     "Limit on expected elevation range: Specify as two values: min max.")
+       "Limit on expected elevation range: Specify as two values: min max.")
+      // Note that we count later on the default for lon_lat_limit being BBox2(0,0,0,0).
       ("lon-lat-limit",     po::value(&global.lon_lat_limit)->default_value(BBox2(0,0,0,0), "auto"),
        "Limit the triangulated interest points to this longitude-latitude range. The format is: lon_min lat_min lon_max lat_max.")
       ("corr-max-levels",        po::value(&global.corr_max_levels)->default_value(5),

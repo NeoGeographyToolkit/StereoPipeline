@@ -47,17 +47,17 @@ class Step:
     tri  = 4
 
 # Utilities to ensure that the Python parser does not garble negative
-# integers such as '-365' into '-3'.
+# values such as '-365' into '-3'.
 escapeStr='esc_rand_str'
 def escape_vals(vals):
     for index, val in enumerate(vals):
-        p = re.match("^-\d+$", val)
+        p = re.match("^-[\.\d]", val)
         if p:
             vals[index] = escapeStr + val
     return vals
 def unescape_vals(vals):
     for index, val in enumerate(vals):
-        p = re.match("^" + escapeStr + "(-\d+)$", val)
+        p = re.match("^" + escapeStr + "(-.*?)$", val)
         if p:
             vals[index] = p.group(1)
     return vals

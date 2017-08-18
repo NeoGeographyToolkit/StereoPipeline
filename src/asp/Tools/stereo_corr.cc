@@ -351,6 +351,10 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
     ip_scale /= 4.0f;
     match_filename = sub_match_file; // If not using full size we should expect this file
   }
+
+  // Define the file name containing IP match information.
+  match_filename = ip::match_filename(opt.out_prefix, left_image_path, right_image_path);
+  vw_out() << "Looking for IP file: " << match_filename << std::endl;
   
   // Check for the file.
   if (fs::exists(sub_match_file)) {
@@ -365,6 +369,7 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   match_filename = aligned_match_file;
 
   // Load the images
+  vw_out() << "Computing IP for " << left_image_path << ' ' << right_image_path << std::endl;
   boost::shared_ptr<DiskImageResource> left_rsrc (DiskImageResourcePtr(left_image_path )),
                                        right_rsrc(DiskImageResourcePtr(right_image_path));
 
@@ -622,8 +627,8 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
     // Compute new IP and write them to disk.
     // - If IP are already on disk this function will load them instead.
     // - This function will choose an appropriate IP computation based on the input images.
-    string match_filename;
     double ip_scale;
+    std::string match_filename; // will be filled in soon
     ip_scale = compute_ip(opt, match_filename);
 
     // This function applies filtering to find good points

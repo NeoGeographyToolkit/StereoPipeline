@@ -111,25 +111,25 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
     } else { // Handle CAHV derived models
       
       camera_models( left_cam, right_cam );
-    
+      
       get_epipolar_transformed_images(m_left_camera_file, m_right_camera_file,
                                       left_cam, right_cam,
                                       left_masked_image, right_masked_image,
                                       Limg, Rimg, ext);
-  }                                    
-
+    }                                    
+    
   } else if ( stereo_settings().alignment_method == "homography" ||
               stereo_settings().alignment_method == "affineepipolar" ) {
     // Getting left image size. Later alignment options can choose to
     // change this parameters. (Affine Epipolar).
     Vector2i left_size  = file_image_size(left_cropped_file ),
-             right_size = file_image_size(right_cropped_file);
-
+      right_size = file_image_size(right_cropped_file);
+    
     // Define the file name containing IP match information.
     std::string match_filename = ip::match_filename(this->m_out_prefix,
                                                     left_cropped_file,
                                                     right_cropped_file);
-
+    
     DiskImageView<float> left_orig_image(left_input_file);
     boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
     camera_models( left_cam, right_cam );
@@ -158,7 +158,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(bool adjust_left_ima
                                                 left_ip,   right_ip,
                                                 align_left_matrix,
                                                 align_right_matrix );
-
+      
       vw_out() << "\t--> Aligning left and right images using affine matrices:\n"
                << "\t      " << submatrix(align_left_matrix, 0,0,2,3) << "\n"
                << "\t      " << submatrix(align_right_matrix,0,0,2,3) << "\n";

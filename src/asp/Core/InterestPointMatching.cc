@@ -699,6 +699,8 @@ namespace asp {
    std::vector<vw::ip::InterestPoint> & ip1_out,
    std::vector<vw::ip::InterestPoint> & ip2_out){
 
+    std::cout << "--filter box " << lon_lat_limit << std::endl;
+    
     // Handle case where the elevation or lonlat range are not set
     const size_t num_ip = ip1_in.size();                              
     if (elevation_limit[1] <= elevation_limit[0] && lon_lat_limit.empty()) {
@@ -739,6 +741,9 @@ namespace asp {
       Vector3 pt  = model(p1/ip_scale, p2/ip_scale, error);
 
       Vector3 llh = datum.cartesian_to_geodetic(pt);
+
+      std::cout << "--llh is " << llh << std::endl;
+      
       if ( (elevation_limit[0] < elevation_limit[1]) && 
 	   ( (llh[2] < elevation_limit[0]) || (llh[2] > elevation_limit[1]) ) ) {
         //vw_out() << "Removing IP diff: " << p2 - p1 << " with llh " << llh << std::endl;
@@ -754,7 +759,7 @@ namespace asp {
       ip1_out.push_back(ip1_in[i]);
       ip2_out.push_back(ip2_in[i]);
     }
-    vw_out() << "\t    * Removed " << ip1_in.size() - ip1_out.size() << " ip in using elevation filtering.\n";
+    vw_out() << "\t    * Removed " << ip1_in.size() - ip1_out.size() << " ip using elevation/lonlat filtering.\n";
     
     return ip1_out.size();
 } // End filter_ip_by_elevation

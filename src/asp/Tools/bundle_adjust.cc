@@ -1988,6 +1988,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "A higher threshold will result in more interest points, but perhaps less unique ones.")
     ("elevation-limit",        po::value(&opt.elevation_limit)->default_value(Vector2(0,0), "auto"),
      "Limit on expected elevation range: Specify as two values: min max.")
+    // Note that we count later on the default for lon_lat_limit being BBox2(0,0,0,0).
     ("lon-lat-limit",     po::value(&opt.lon_lat_limit)->default_value(BBox2(0,0,0,0), "auto"),
      "Limit the triangulated interest points to this longitude-latitude range. The format is: lon_min lat_min lon_max lat_max.")
     ("num-obalog-scales",              po::value(&opt.num_scales)->default_value(-1),
@@ -2122,10 +2123,23 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   asp::stereo_settings().individually_normalize  = opt.individually_normalize;
   asp::stereo_settings().min_triangulation_angle = opt.min_triangulation_angle;
 
+  // Ensure good order
+  if ( asp::stereo_settings().lon_lat_limit != BBox2(0,0,0,0) ) {
+    if ( asp::stereo_settings().lon_lat_limit.min().y() >
+	 asp::stereo_settings().lon_lat_limit.max().y() ) 
+      std::swap( asp::stereo_settings().lon_lat_limit.min().y(),
+		 asp::stereo_settings().lon_lat_limit.max().y() );
+    if ( asp::stereo_settings().lon_lat_limit.min().x() >
+	 asp::stereo_settings().lon_lat_limit.max().x() ) 
+      std::swap( asp::stereo_settings().lon_lat_limit.min().x(),
+		 asp::stereo_settings().lon_lat_limit.max().x() );
+      
+  }
+  
   if (!opt.camera_position_file.empty() && opt.csv_format_str == "")
     vw_throw( ArgumentErr() << "When using a camera position file, the csv-format option must be set.\n"
-                            << usage << general_options );
-
+	      << usage << general_options );
+  
   // Try to infer the datum, if possible, from the images. For
   // example, Cartosat-1 has that info in the Tif file.
   if (opt.datum_str == "") {
