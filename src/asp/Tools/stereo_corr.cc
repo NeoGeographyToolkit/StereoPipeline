@@ -278,6 +278,23 @@ double adjust_ip_for_align_matrix(std::string               const& out_prefix,
 	      
 } // End adjust_ip_for_align_matrix
 
+  // TODO: Duplicate of hidden function in vw/src/InterestPoint/Matcher.cc!
+  std::string strip_path(std::string out_prefix, std::string filename){
+
+    // If filename starts with out_prefix followed by dash, strip both.
+    // Also strip filename extension.
+
+    std::string ss = out_prefix + "-";
+    size_t found = filename.find(ss);
+
+    if (found != std::string::npos)
+      filename.erase(found, ss.length());
+
+    filename = fs::path(filename).stem().string();
+
+    return filename;
+  }
+
 /// Detect IP in the _sub images or the original images if they are not too large.
 /// - Usually an IP file is written in stereo_pprc, but for some input scenarios
 ///   this function will need to be used to generate them here.
@@ -297,10 +314,18 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   const std::string right_image_path_full = opt.out_prefix+"-R.tif";
   const std::string left_image_path_sub   = opt.out_prefix+"-L_sub.tif";
   const std::string right_image_path_sub  = opt.out_prefix+"-R_sub.tif";
+
+  // TODO: Just call the right function everywhere rather than computing its result by hand.
   const std::string full_match_file       = ip::match_filename(opt.out_prefix, opt.in_file1, opt.in_file2);
   const std::string sub_match_file        = opt.out_prefix + "-L_sub__R_sub.match";
   const std::string aligned_match_file    = opt.out_prefix + "-L__R.match";
 
+  // TODO: The logic below is wrong. Don't read the first match file
+  // that happens to exist on disk and hope for the best.  That could
+  // be an incorrect one. At this stage we know exactly the files that
+  // need processing. Check if the desired file exists, and read that
+  // one, or create it if missing.
+  
   // Try the full match file first
   if (fs::exists(full_match_file)) {
     vw_out() << "IP file found: " << full_match_file << std::endl;
@@ -316,6 +341,8 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   std::string name2 = strip_path(opt.out_prefix, opt.in_file2).substr(0, max_len);
 
   // Next try the cropped match file names which will be at full scale.
+  // TODO: This is unnecessary. Just call the right function to find
+  // the match file.
   std::vector<std::string> match_names;
   match_names.push_back(opt.out_prefix + "-L-cropped__R-cropped.match");
   match_names.push_back(opt.out_prefix + "-"+name1+"__R-cropped.match");
@@ -351,7 +378,7 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
     ip_scale /= 4.0f;
     match_filename = sub_match_file; // If not using full size we should expect this file
   }
-
+  
   // Check for the file.
   if (fs::exists(sub_match_file)) {
     vw_out() << "IP file found: " << sub_match_file << std::endl;
@@ -362,8 +389,7 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   vw_out() << "No IP file found, computing IP now.\n";
   
   // This will perform IP matching between the aligned files.
-  vw_out() << "Computing IP for " << left_image_path << ' ' << right_image_path << std::endl;
-  match_filename = ip::match_filename(opt.out_prefix, left_image_path, right_image_path);
+  match_filename = aligned_match_file;
 
   // Load the images
   boost::shared_ptr<DiskImageResource> left_rsrc (DiskImageResourcePtr(left_image_path )),
@@ -498,13 +524,12 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   opt.session->camera_models(left_camera_model, right_camera_model);
   cartography::Datum datum = opt.session->get_datum(left_camera_model.get(), false);
 
-  // TODO: Don't do this with cropped input images!!!!!
-  // These transforms are the identity here. By now we compensated for any
-  // transform by using the scale.
-  // TODO: the scale may not be needed and here we may need to read the actual transform.
+  // We already corrected for align matrix, so transforms should be identity here.
   vw::TransformRef left_tx  = vw::TransformRef(vw::TranslateTransform(0,0));
   vw::TransformRef right_tx = vw::TransformRef(vw::TranslateTransform(0,0));
 
+  // Filter out IPs which fall outside the specified elevation and lonlat range
+  // TODO: Don't do this with cropped input images!!!!!
   size_t num_left = asp::filter_ip_by_lonlat_and_elevation(left_camera_model.get(),
 							   right_camera_model.get(),
 							   datum, in_ip1, in_ip2,
@@ -512,6 +537,7 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
 							   stereo_settings().elevation_limit,
 							   stereo_settings().lon_lat_limit,
 							   matched_ip1, matched_ip2);
+
 
   if (num_left == 0)
     vw_throw(ArgumentErr() << "No IPs left after elevation filtering!");
@@ -623,8 +649,8 @@ void lowres_correlation( ASPGlobalOptions & opt ) {
     // Compute new IP and write them to disk.
     // - If IP are already on disk this function will load them instead.
     // - This function will choose an appropriate IP computation based on the input images.
+    string match_filename;
     double ip_scale;
-    std::string match_filename; // will be filled in soon
     ip_scale = compute_ip(opt, match_filename);
 
     // This function applies filtering to find good points
