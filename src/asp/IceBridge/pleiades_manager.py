@@ -20,7 +20,7 @@
 # - This program is not sophisticated enough to handle everything and will need to be
 #   superceded by another script.
 
-import os, sys, optparse, datetime, time, subprocess, logging, multiprocessing
+import os, sys, argparse, datetime, time, subprocess, logging, multiprocessing
 import re, shutil, time, getpass
 
 import os.path as P
@@ -73,7 +73,6 @@ MAX_BATCH_HOURS     = 8 # devel limit is 2, long limit is 120, normal is 8
 BUNDLE_LENGTH = 10
 
 CONTACT_EMAIL = 'scott.t.mcmichael@nasa.gov'
-HOME_DIR = '/nobackup/smcmich1/icebridge/'
 
 GROUP_ID = 's1827'
 
@@ -82,20 +81,6 @@ STEREO_ALGORITHM = 2 # 1 = SGM, 2 = MGM
 
 # Wait this long between checking for job completion
 SLEEP_TIME = 30
-
-
-ALL_RUN_LIST       = HOME_DIR+'full_run_list.txt'
-SKIP_RUN_LIST      = HOME_DIR+'run_skip_list.txt'
-COMPLETED_RUN_LIST = HOME_DIR+'completed_run_list.txt'
-
-LOG_FOLDER              = HOME_DIR+'manager_logs'
-UNPACK_FOLDER           = HOME_DIR+'data'
-CALIBRATION_FILE_FOLDER = HOME_DIR+'calib_files'
-REFERENCE_DEM_FOLDER    = HOME_DIR+'reference_dems'
-SUMMARY_FOLDER          = HOME_DIR+'summaries'
-
-
-
 
 
 #=========================================================================
@@ -114,7 +99,7 @@ def sendEmail(address, subject, body):
 
 #---------------------------------------------------------------------
 
-def readRunList(path):
+def readRunList(path, options):
     '''Reads a list of runs in this format: GR 20110411.
        Output is a list of (site, yyyymmdd) pairs.'''
 
@@ -125,7 +110,7 @@ def readRunList(path):
                 continue
             parts = line.split() # Site, yyyymmdd
             # Set up a class object to help manage the run
-            runList.append(run_helper.RunHelper(parts[0], parts[1], UNPACK_FOLDER))
+            runList.append(run_helper.RunHelper(parts[0], parts[1], options.unpackDir))
     return runList
 
 def addToRunList(path, run):
@@ -147,7 +132,7 @@ def getRunsToProcess(allRuns, skipRuns, doneRuns):
 #---------------------------------------------------------------------
 
 
-def runFetch(run):
+def runFetch(run, options):
     '''Fetch all the data for a run if it is not already available'''
 
     logger = logging.getLogger(__name__)
@@ -162,10 +147,10 @@ def runFetch(run):
                        + str(e))
 
     # Call the fetch command
-    archive_functions.retrieveRunData(run, UNPACK_FOLDER)
+    archive_functions.retrieveRunData(run, options.unpackDir)
     
     # Go ahead and refetch the indices since it helps to have these up-to-date.
-    cmd = ('full_processing_script.py --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --refetch-index --stop-after-index-fetch' % (CALIBRATION_FILE_FOLDER, REFERENCE_DEM_FOLDER, run.site, run.yyyymmdd, run.getFolder()))
+    cmd = ('full_processing_script.py --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --refetch-index --stop-after-index-fetch' % (options.inputCalFolder, options.refDemName, run.site, run.yyyymmdd, run.getFolder()))
     logger.info(cmd)
     os.system(cmd)
     
@@ -174,7 +159,7 @@ def runFetch(run):
     run.setFlag('fetch_complete')
             
 
-def runConversion(run):
+def runConversion(run, options):
     '''Run the conversion tasks for this run on the supercomputer nodes.
        This will also run through the fetch step to make sure we have everything we need.'''
     
@@ -207,7 +192,7 @@ def runConversion(run):
     
     scriptPath = asp_system_utils.which('full_processing_script.py')
     args       = ('--camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --stop-after-convert --num-threads %d --num-processes %d --output-folder %s --skip-validate' 
-                  % (CALIBRATION_FILE_FOLDER, REFERENCE_DEM_FOLDER, run.site, run.yyyymmdd, NUM_ORTHO_THREADS, NUM_ORTHO_PROCESSES, outputFolder))
+                  % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, NUM_ORTHO_THREADS, NUM_ORTHO_PROCESSES, outputFolder))
     
     baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
 
@@ -241,21 +226,19 @@ def runConversion(run):
     # Pack up camera folder and store it for later
     gotCameras = archive_functions.packAndSendCameraFolder(run)
 
-
-
-def generateBatchList(run, listPath):
+def generateBatchList(run, options, listPath):
     '''Generate a list of all the processing batches required for a run'''
 
     logger = logging.getLogger(__name__)
     
     refDemName = icebridge_common.getReferenceDemName(run.site)
-    refDemPath = os.path.join(REFERENCE_DEM_FOLDER, refDemName)
+    refDemPath = os.path.join(options.refDemFolder, refDemName)
 
     # No actual processing is being done here so it can run on the PFE
     # - This is very fast so we can re-run it every time. (Maybe not...)
     scriptPath = asp_system_utils.which('full_processing_script.py')
     cmd       = ('%s --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --skip-fetch --skip-convert --num-threads %d --num-processes %d --output-folder %s --bundle-length %d --log-batches' 
-                  % (scriptPath, CALIBRATION_FILE_FOLDER, REFERENCE_DEM_FOLDER, run.site, run.yyyymmdd, NUM_BATCH_THREADS, NUM_BATCH_PROCESSES, run.getFolder(), BUNDLE_LENGTH))
+                  % (scriptPath, options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, NUM_BATCH_THREADS, NUM_BATCH_PROCESSES, run.getFolder(), options.bundleLength))
 
 
 # TODO: Find out what takes so long here!
@@ -375,7 +358,7 @@ def checkResults(run, batchListPath):
             if os.path.exists(targetPath):
                 numProduced += 1
             else:
-                logger.info('Did not find: ' + targetPath(
+                logger.info('Did not find: ' + targetPath)
                 if not os.path.exists(outputFolder):
                     logger.error('Check output folder position in batch log file!')
             
@@ -398,46 +381,75 @@ def checkRequiredTools():
 
 def main(argsIn):
 
-
     try:
-
         usage = '''usage: pleiades_manager.py <options> '''
-                      
-        parser = optparse.OptionParser(usage=usage)
+        parser = argparse.ArgumentParser(usage=usage)
 
         ## Run selection
-        #parser.add_option("--yyyymmdd",  dest="yyyymmdd", default=None,
-        #                  help="Specify the year, month, and day in one YYYYMMDD string.")
+
+        parser.add_argument("--base-dir",  dest="baseDir", default=os.getcwd(),
+                            help="Where all the inputs and outputs are stored.")
+
+        parser.add_argument("--unpack-dir",  dest="unpackDir", default=None,
+                            help="Where to unpack the data.")
+
+        parser.add_argument("--yyyymmdd",  dest="yyyymmdd", default=None,
+                            help="Specify the year, month, and day in one YYYYMMDD string.")
+
+        parser.add_argument("--site",  dest="site", required=True,
+                            help="Name of the location of the images (AN, GR, or AL)")
+        
+        parser.add_argument("--camera-calibration-folder",  dest="inputCalFolder", default=None,
+                          help="The folder containing camera calibration.")
+        parser.add_argument("--reference-dem-folder",  dest="refDemFolder", default=None,
+                          help="The folder containing DEMs that created orthoimages.")
+
+        parser.add_argument('--bundle-length', dest='bundleLength', default=2,
+                          type=int, help="The number of images to bundle adjust and process " + \
+                          "in a single batch.")
 
         ## TODO: What format for defining the run?
         #parser.add_option("--manual-run",  dest="manualRun", default=None,
         #                  help="Manually specify a single run to process.") 
                           
-        (options, args) = parser.parse_args(argsIn)
+        options = parser.parse_args(argsIn)
 
         #if len(args) != 2:
         #    print usage
         #    return -1
 
+    except argparse.ArgumentError, msg:
+        parser.error(msg)
 
-    except optparse.OptionError, msg:
-        raise Usage(msg)
+    ALL_RUN_LIST       = options.baseDir + 'full_run_list.txt'
+    SKIP_RUN_LIST      = options.baseDir + 'run_skip_list.txt'
+    COMPLETED_RUN_LIST = options.baseDir + 'completed_run_list.txt'
+    
+    options.logFolder = options.baseDir + 'manager_logs'
+    os.system('mkdir -p ' + options.logFolder)
 
+    if options.unpackDir is None:
+        options.unpackDir = options.baseDir + 'data'
+        
+    os.system('mkdir -p ' + options.unpackDir)
+
+    options.summaryFolder = options.baseDir + 'summaries'
+    os.system('mkdir -p ' + options.summaryFolder)
+    
     logLevel = logging.INFO
-    logger   = icebridge_common.setUpLogger(LOG_FOLDER, logLevel, 'pleiades_manager_log')
+    logger   = icebridge_common.setUpLogger(options.logFolder, logLevel, 'pleiades_manager_log')
 
     checkRequiredTools() # Make sure all the needed tools can be found before we start
 
     # TODO: Uncomment when processing more than one run!
     # Get the list of runs to process
     #logger.info('Reading run lists...')
-    #allRuns  = readRunList(ALL_RUN_LIST      )
-    #skipRuns = readRunList(SKIP_RUN_LIST     )
-    #doneRuns = readRunList(COMPLETED_RUN_LIST)
+    #allRuns  = readRunList(ALL_RUN_LIST, options)
+    #skipRuns = readRunList(SKIP_RUN_LIST, options)
+    #doneRuns = readRunList(COMPLETED_RUN_LIST, options)
     #runList  = getRunsToProcess(allRuns, skipRuns, doneRuns)
 
-    runList = [run_helper.RunHelper('AN','20101104', UNPACK_FOLDER)] # DEBUG
-
+    runList = [run_helper.RunHelper(options.site, options.yyyymmdd, options.unpackDir)] # DEBUG
    
     # Loop through the incomplete runs
     for run in runList:
@@ -447,15 +459,15 @@ def main(argsIn):
         # TODO: Prefetch the next run while waiting on this run!
 
         # Obtain the data for a run if it is not already done
-        runFetch(run)       
+        runFetch(run, options)       
                
         # Run conversion and archive results if not already done        
-        runConversion(run)
+        runConversion(run, options)
 
         # Run command to generate the list of batch jobs for this run
         logger.info('Fetching batch list for run ' + str(run))
         batchListPath = os.path.join(run.getProcessFolder(), 'batch_commands_log.txt')
-        batchListPath = generateBatchList(run, batchListPath)
+        batchListPath = generateBatchList(run, options, batchListPath)
        
         # Divide up batches into jobs and submit them to machines.
         logger.info('Submitting jobs for run ' + str(run))
@@ -481,7 +493,7 @@ def main(argsIn):
         # Generate a summary folder and send a copy to Lou
         # - Currently the summary folders need to be deleted manually, but they should not
         #   take up much space due to the large amount of compression used.
-        summaryFolder = os.path.join(SUMMARY_FOLDER, run.name())
+        summaryFolder = os.path.join(options.summaryFolder, run.name())
         generate_flight_summary.generateFlightSummary(run, summaryFolder)
         #archive_functions.packAndSendSummaryFolder(run, summaryFolder) # Sends data to Lunokhod2 location
 

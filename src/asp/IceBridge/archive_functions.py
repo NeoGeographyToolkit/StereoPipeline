@@ -46,15 +46,15 @@ os.environ["PATH"] = libexecpath    + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 
 
-REMOTE_INPUT_FOLDER     = 'lou:/u/oalexan1/projects/data/icebridge'
-REMOTE_CAMERA_FOLDER    = 'lou:/u/smcmich1/icebridge/camera'
-REMOTE_OUTPUT_FOLDER    = 'lou:/u/smcmich1/icebridge/output'
-REMOTE_SUMMARY_FOLDER   = 'lou:/u/smcmich1/icebridge/summaries'
+REMOTE_INPUT_FOLDER     = 'lfe:/u/oalexan1/projects/data/icebridge'
+REMOTE_CAMERA_FOLDER    = 'lfe:/u/smcmich1/icebridge/camera'
+REMOTE_OUTPUT_FOLDER    = 'lfe:/u/smcmich1/icebridge/output'
+REMOTE_SUMMARY_FOLDER   = 'lfe:/u/smcmich1/icebridge/summaries'
 L2_SUMMARY_FOLDER       = 'lunokhod2:/home/smcmich1/data/icebridge_summaries'
 
 
 def retrieveRunData(run, unpackFolder):
-    '''Retrieve the data for the specified run from Lou.'''
+    '''Retrieve the data for the specified run from Lfe.'''
 
     logger = logging.getLogger(__name__)
     
@@ -63,9 +63,9 @@ def retrieveRunData(run, unpackFolder):
     logger.info('Retrieving data for run ' + str(run))
 
     fileName = run.getInputTarName()
-    louPath  = os.path.join(REMOTE_INPUT_FOLDER, fileName)
+    lfePath  = os.path.join(REMOTE_INPUT_FOLDER, fileName)
 
-    cmd = 'shiftc --wait --verify --extract-tar ' + louPath + ' ' + unpackFolder
+    cmd = 'shiftc --wait --verify --extract-tar ' + lfePath + ' ' + unpackFolder
     logger.info(cmd)
     status = os.system(cmd)
     if status != 0:
@@ -86,16 +86,16 @@ def fetchCameraFolder(run):
     # Tar up the camera files and send them at the same time using the shiftc command
     cameraFolder = run.getCameraFolder()
     fileName     = run.getCameraTarName()
-    louPath      = os.path.join(REMOTE_CAMERA_FOLDER, fileName)
+    lfePath      = os.path.join(REMOTE_CAMERA_FOLDER, fileName)
 
-    cmd = 'shiftc --wait --extract-tar ' + louPath + ' ' + cameraFolder
+    cmd = 'shiftc --wait --extract-tar ' + lfePath + ' ' + cameraFolder
     logger.info(cmd)
     status = os.system(cmd)
     if status != 0:
         logger.info('Did not find camera file for run.')
         return False
     else:
-        logger.info('Finished sending cameras to lou.')
+        logger.info('Finished sending cameras to lfe.')
         return True
 
 
@@ -108,20 +108,20 @@ def packAndSendCameraFolder(run):
     # Tar up the camera files and send them at the same time using the shiftc command
     cameraFolder = run.getCameraFolder()
     fileName     = run.getCameraTarName()
-    louPath      = os.path.join(REMOTE_CAMERA_FOLDER, fileName)
+    lfePath      = os.path.join(REMOTE_CAMERA_FOLDER, fileName)
 
     # First remove any existing tar file
-    cmd      = "ssh lou 'rm -f "+louPath+"'"
+    cmd      = "ssh lfe 'rm -f "+lfePath+"'"
     logger.info(cmd)
     os.system(cmd)
 
     # Do the new file
-    cmd = 'shiftc --wait --create-tar ' + cameraFolder + ' ' + louPath
+    cmd = 'shiftc --wait --create-tar ' + cameraFolder + ' ' + lfePath
     logger.info(cmd)
     status = os.system(cmd)
     if status != 0:
         raise Exception('Failed to pack/send cameras for run ' + str(run))
-    logger.info('Finished sending cameras to lou.')
+    logger.info('Finished sending cameras to lfe.')
 
 def packAndSendSummaryFolder(run, folder):
     '''Archive the summary folder in case we want to look at it later'''
@@ -129,11 +129,11 @@ def packAndSendSummaryFolder(run, folder):
     logger = logging.getLogger(__name__)
     logger.info('Archiving summary folder for run ' + str(run))
     
-    # Delete any existing copy of the file on lou and L2
+    # Delete any existing copy of the file on lfe and L2
     fileName = run.getSummaryTarName()
-    louPath  = os.path.join(REMOTE_SUMMARY_FOLDER, fileName)
+    lfePath  = os.path.join(REMOTE_SUMMARY_FOLDER, fileName)
     l2Path   = os.path.join(L2_SUMMARY_FOLDER,     fileName)
-    cmd      = "ssh lou 'rm -f "+louPath+"'"
+    cmd      = "ssh lfe 'rm -f "+lfePath+"'"
     logger.info(cmd)
     os.system(cmd)
     cmd      = "ssh lunokhod2 'rm -f "+l2Path+"'"
@@ -151,13 +151,13 @@ def packAndSendSummaryFolder(run, folder):
     logger.info(cmd)
     os.system(cmd)
 
-    # Send the file to lou using shiftc
-    cmd = 'shiftc --wait  ' + fileName + ' ' + louPath
+    # Send the file to lfe using shiftc
+    cmd = 'shiftc --wait  ' + fileName + ' ' + lfePath
     logger.info(cmd)
     status = os.system(cmd)
     if status != 0:
         raise Exception('Failed to pack/send summary folder for run ' + str(run))
-    logger.info('Finished sending summary to lou.')
+    logger.info('Finished sending summary to lfe.')
 
     # Clean up the local tar file
     os.system('rm -f ' + fileName)
@@ -195,17 +195,17 @@ def packAndSendCompletedRun(run):
     # Tar up the assembled files and send them at the same time using the shiftc command
     # - No need to use a compression algorithm here
     fileName = run.getOutputTarName()
-    louPath  = os.path.join(REMOTE_OUTPUT_FOLDER, fileName)
+    lfePath  = os.path.join(REMOTE_OUTPUT_FOLDER, fileName)
 
     # TODO: Don't use the wait command here, and clean up after this transfer is finished!
 
-    logger.info('Sending run to lou...')
-    cmd = 'shiftc --dereference --create-tar ' + assemblyFolder + ' ' + louPath
+    logger.info('Sending run to lfe...')
+    cmd = 'shiftc --dereference --create-tar ' + assemblyFolder + ' ' + lfePath
     logger.info(cmd)
     #status = os.system(cmd)
     if status != 0:
         raise Exception('Failed to pack/send results for run ' + str(run))
-    logger.info('Finished sending run to lou.')
+    logger.info('Finished sending run to lfe.')
     
     
     
