@@ -138,7 +138,7 @@ def estimateHeightRange(projBounds, projString, lidarFile, options, threadText,
     
 
 def createDem(i, options, inputPairs, prefixes, demFiles, projString,
-              extraArgs, suppressOutput, redo, logger):
+              extraArgs, threadText, suppressOutput, redo, logger):
     '''Create a DEM from a pair of images'''
 
     # Since we use epipolar alignment our images should be aligned at least this well.
@@ -431,8 +431,8 @@ def main(argsIn):
         for i in range(0, numRuns):
             taskHandles.append(pool.apply_async(createDem, 
                                                 (i, options, inputPairs, prefixes, demFiles,
-                                                 projString, extraArgs, suppressOutput, redo,
-                                                 logger)))
+                                                 projString, extraArgs, threadText,
+                                                 suppressOutput, redo, logger)))
         # Wait for all the tasks to complete
         icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, logger, interactive = False, 
                                                          quitKey='q', sleepTime=20)
@@ -443,7 +443,7 @@ def main(argsIn):
     else:
         for i in range(0, numRuns):
             createDem(i, options, inputPairs, prefixes, demFiles, projString, extraArgs,
-                     suppressOutput, redo, logger)
+                      threadText, suppressOutput, redo, logger)
 
     # If we had to create at least one DEM, need to redo all the post-DEM creation steps
     if atLeastOneDemMissing:
