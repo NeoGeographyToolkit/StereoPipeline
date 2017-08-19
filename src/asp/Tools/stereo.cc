@@ -463,7 +463,6 @@ namespace asp {
     }
 
     // Ensure good order
-    std::cout << "---box is " << stereo_settings().lon_lat_limit << std::endl;
     if ( stereo_settings().lon_lat_limit != BBox2(0,0,0,0) ) {
       if ( stereo_settings().lon_lat_limit.min().y() > stereo_settings().lon_lat_limit.max().y() ) 
 	std::swap( stereo_settings().lon_lat_limit.min().y(),
@@ -471,12 +470,7 @@ namespace asp {
       if ( stereo_settings().lon_lat_limit.min().x() > stereo_settings().lon_lat_limit.max().x() ) 
 	std::swap( stereo_settings().lon_lat_limit.min().x(),
 		   stereo_settings().lon_lat_limit.max().x() );
-
-      std::cout << "---box2 is " << stereo_settings().lon_lat_limit << std::endl;
-      
     }
-
-    std::cout << "---box3 is " << stereo_settings().lon_lat_limit << std::endl;
     
     // Verify that there is only one channel per input image
     if ( (left_resource->channels() > 1) || (right_resource->channels() > 1) )
