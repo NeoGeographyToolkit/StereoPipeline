@@ -85,7 +85,8 @@ def submitJob(jobName, queueName, maxHours, groupId, nodeType, scriptPath, args,
     
     # TODO: Does this need to be wrapped in a shell script?
     # The "-m eb" option sends the user an email when the process begins and when it ends.
-    command = ('qsub -q %s -N %s -l walltime=%s -W group_list=%s -j oe -e %s -o %s -S /bin/bash -V -C %s -l select=1:ncpus=%d:model=%s  -- %s %s' % 
+    # The -r n ensures the job does not restart if it runs out of memory.
+    command = ('qsub -r n -q %s -N %s -l walltime=%s -W group_list=%s -j oe -e %s -o %s -S /bin/bash -V -C %s -l select=1:ncpus=%d:model=%s  -- %s %s' % 
                (queueName, jobName, hourString, groupId, errorsPath, outputPath, workDir, numCpus, nodeType, scriptPath, args))
     print command
     os.system(command)
