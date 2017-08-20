@@ -381,8 +381,8 @@ def main(argsIn):
         if not os.path.exists(f):
             logger.error('Input file '+ f +' does not exist!')
             return 0
-    if not os.path.exists(outputFolder):
-        os.mkdir(outputFolder)
+
+    asp_system_utils.mkdir_p(outputFolder)
 
     suppressOutput = False
     redo           = False

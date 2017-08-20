@@ -375,7 +375,8 @@ def main(argsIn):
                         logger.error("Fetching failed, quitting the program!")
                         return -1
                     isGood = input_conversions.convertJpegs(jpegFolder, imageFolder, 
-                                                            options.startFrame, options.stopFrame)
+                                                            options.startFrame, options.stopFrame,
+                                                            options.skipValidate, logger)
                     if not isGood:
                         logger.Error("Jpeg conversions failed, quitting the program!")
                         return -1
