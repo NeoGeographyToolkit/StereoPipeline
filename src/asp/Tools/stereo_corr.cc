@@ -308,7 +308,7 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
   // Choose whether to use the full or _sub images
 
   // Use the full image if all dimensions are smaller than this.
-  const int SIZE_CUTOFF = 6000;
+  const int SIZE_CUTOFF = 8000;
 
   const std::string left_image_path_full  = opt.out_prefix+"-L.tif";
   const std::string right_image_path_full = opt.out_prefix+"-R.tif";
@@ -377,20 +377,18 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
                               Vector2(file_image_size( opt.out_prefix+"-R.tif" ) ) ));
     ip_scale /= 4.0f;
     match_filename = sub_match_file; // If not using full size we should expect this file
+    
+    // Check for the file.
+    if (fs::exists(sub_match_file)) {
+      vw_out() << "IP file found: " << sub_match_file << std::endl;
+      return ip_scale;
+    }
   }
-  
-  // Check for the file.
-  if (fs::exists(sub_match_file)) {
-    vw_out() << "IP file found: " << sub_match_file << std::endl;
-    return ip_scale;
-  }
-
+  else
+    match_filename = aligned_match_file;
 
   vw_out() << "No IP file found, computing IP now.\n";
   
-  // This will perform IP matching between the aligned files.
-  match_filename = aligned_match_file;
-
   // Load the images
   boost::shared_ptr<DiskImageResource> left_rsrc (DiskImageResourcePtr(left_image_path )),
                                        right_rsrc(DiskImageResourcePtr(right_image_path));
