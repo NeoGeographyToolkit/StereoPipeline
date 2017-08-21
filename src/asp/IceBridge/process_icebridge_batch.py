@@ -36,13 +36,74 @@ sys.path.insert(0, libexecpath)
 sys.path.insert(0, toolspath)
 
 import icebridge_common
-import asp_system_utils, asp_alg_utils, asp_geo_utils, asp_image_utils
+import asp_system_utils, asp_alg_utils, asp_geo_utils, asp_image_utils, asp_file_utils
 asp_system_utils.verify_python_version_is_supported()
 
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = toolspath   + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = binpath     + os.pathsep + os.environ["PATH"]
+
+# TODO: Move this function!
+def robust_pc_align(options, lidarFile, demPath, threadText, suppressOutput, redo, logger):
+    '''Try pc_align with increasing max displacements until we it completes
+       with enough lidar points used in the comparison'''
+    
+    STARTING_DISPLACEMENT  = 20
+    MAX_DISPLACEMENT       = 100
+    DISPLACEMENT_INCREMENT = 20
+    ERR_HEADER_SIZE        = 3
+    MIN_LIDAR_POINTS       = 300  
+
+    lidarCsvFormatString = icebridge_common.getLidarCsvFormat(lidarFile)
+
+    # Determine the number of points we want
+    currentMaxDisplacement = STARTING_DISPLACEMENT
+    
+    alignPrefix   = os.path.join(options.outputFolder, 'align/out')
+    pcAlignFolder = os.path.dirname(alignPrefix)
+    endErrorPath  = alignPrefix + '-end_errors.csv'
+    alignOutput   = alignPrefix+'-trans_reference.tif'
+    
+    # Check if the file is already there
+    if os.path.exists(alignOutput) and not redo:
+        return alignOutput
+    
+    while(True):
+        
+        # Call pc_align
+        # TODO: Remove options.maxDisplacement
+        alignOptions = ( ('--max-displacement %f --csv-format %s ' +   \
+                          '--save-inv-transformed-reference-points') % \
+                         (currentMaxDisplacement, lidarCsvFormatString))
+        cmd = ('pc_align %s %s %s -o %s %s' %
+               (alignOptions, demPath, lidarFile, alignPrefix, threadText))
+        try:
+            asp_system_utils.executeCommand(cmd, alignOutput, suppressOutput, True) # Redo must be true here
+        except: 
+            pass
+        
+        # Check if finished and the number of points used.
+        if not os.path.exists(endErrorPath):
+            numLidarPointsUsed = 0 # Failed to produce any output, maybe raising the error cutoff will help?
+        else:
+            numLidarPointsUsed = asp_file_utils.getFileLineCount(endErrorPath) - ERR_HEADER_SIZE
+    
+        if (numLidarPointsUsed >= MIN_LIDAR_POINTS):
+            break # Success!
+        elif (currentMaxDisplacement >= MAX_DISPLACEMENT): # Hit the maximum max limit!
+            raise Exception('Error! Unable to find a good value for max-displacement in pc_align.  Wanted '
+                            + str(MIN_LIDAR_POINTS) + ' points, only found ' + str(numLidarPointsUsed))
+        else: # Try again with a higher max limit
+            logger.info('Trying pc_align again, only got ' + str(numLidarPointsUsed)
+                        + ' lola point matches with value ' + str(currentMaxDisplacement))
+            currentMaxDisplacement = currentMaxDisplacement + DISPLACEMENT_INCREMENT            
+
+    # Final success check
+    if not os.path.exists(alignOutput):
+        raise Exception('pc_align call failed!')
+    return alignOutput
+            
 
 
 def consolidateGeodiffResults(inputFiles, outputPath=None):
@@ -154,8 +215,8 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     # Testing: Is there any performance hit from using --corr-seed-mode 0 ??
     #          This skips D_sub creation and saves processing time.
     # - This epipolar threshold is post camera model based alignment so it can be quite restrictive.
-    stereoCmd = ('stereo %s %s %s -t nadirpinhole --alignment-method epipolar --corr-seed-mode 0 --epipolar-threshold 10' %
-                 (argString, thisPairPrefix, extraArgs))
+    stereoCmd = ('stereo %s %s %s %s -t nadirpinhole --alignment-method epipolar --corr-blob-filter 50 --corr-seed-mode 0 --epipolar-threshold 10' %
+                 (argString, thisPairPrefix, threadText, extraArgs))
     searchLimitString = (' --corr-search-limit -9999 -' + str(VERTICAL_SEARCH_LIMIT) +
                          ' 9999 ' + str(VERTICAL_SEARCH_LIMIT) )
     if '--stereo-algorithm 0' not in options.stereoArgs:
@@ -420,8 +481,8 @@ def main(argsIn):
 
     # We can either process the batch serially, or in parallel For
     # many batches the former is preferred, with the batches
-    # themselves being in parallel.   
-    extraArgs = threadText +' '+ heightLimitString
+    # themselves being in parallel.
+    extraArgs = heightLimitString
     if options.numProcessesPerBatch > 1:
         logger.info('Starting processing pool for given batch with ' +
                     str(options.numProcessesPerBatch) + ' processes.')
@@ -572,19 +633,15 @@ def main(argsIn):
 
     if lidarFile:
         # PC_ALIGN
-        alignPrefix = os.path.join(options.outputFolder, 'align/out')
-        alignOptions = ( ('--max-displacement %f --csv-format %s ' +   \
-                          '--save-inv-transformed-reference-points') % \
-                         (options.maxDisplacement, lidarCsvFormatString))
-        cmd = ('pc_align %s %s %s -o %s %s' %
-               (alignOptions, allDemPath, lidarFile, alignPrefix, threadText))
-        alignOutput = alignPrefix+'-trans_reference.tif'
-        asp_system_utils.executeCommand(cmd, alignOutput, suppressOutput, redo)
+        # - Use function to call with increasing max distance limits        
+        alignOutput = robust_pc_align(options, lidarFile, allDemPath, threadText, 
+                                      suppressOutput, redo, logger)
+        
         
         # POINT2DEM on the aligned PC file
         cmd = ('point2dem --tr %lf --t_srs %s %s %s --errorimage' 
                % (options.demResolution, projString, alignOutput, threadText))
-        p2dOutput = alignPrefix+'-trans_reference-DEM.tif'
+        p2dOutput = alignOutput.replace('-trans_reference.tif', '-trans_reference-DEM.tif')
         asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput, redo)
 
         # Create a symlink to the DEM in the main directory
@@ -607,7 +664,7 @@ def main(argsIn):
 
     # Generate a low resolution compressed thumbnail of the hillshade for debugging
     thumbOutput = outputPrefix + '-DEM_HILLSHADE_browse.tif'
-    cmd = 'gdal_translate '+hillOutput+' '+thumbOutput+' -of GTiff -outsize 10% 10% -b 1 -co "COMPRESS=JPEG"'
+    cmd = 'gdal_translate '+hillOutput+' '+thumbOutput+' -of GTiff -outsize 20% 20% -b 1 -co "COMPRESS=JPEG"'
     asp_system_utils.executeCommand(cmd, thumbOutput, suppressOutput, redo)
 
     # COLORMAP

@@ -54,7 +54,7 @@ def convertCoords(x, y, projStringIn, projStringOut):
 
     # Using subprocess32 to access the timeout argument which is not always present in subprocess
     cmd = [asp_system_utils.which('gdaltransform'), '-s_srs', projStringIn, '-t_srs', projStringOut]
-    print(" ".join(cmd))
+    #print(" ".join(cmd))
     p = subprocess32.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=False)
     textOutput, err = p.communicate( ('%f %f\n' % (x, y)), timeout=0.1 )
     parts = textOutput.split()
@@ -79,6 +79,8 @@ def generateFlightSummary(run, outputFolder, skipKml = False):
         shutil.copy(camerasInKmlPath, outputFolder)
         
         # Create a merged version of all the bundle adjusted camera files
+        # - The tool currently includes cameras more than once if they appear
+        #   in multiple bundles.
         print 'Merging output camera kml files...'
         cmd = "find "+procFolder+" -name cameras_out.kml"
         p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, shell=False)
@@ -93,11 +95,13 @@ def generateFlightSummary(run, outputFolder, skipKml = False):
 
     # Collect per-batch information
     print 'Consolidating batch information...'
-    batchInfoPath = os.path.join(outputFolder, 'batchInfoSummary.csv')
-    with open(batchInfoPath, 'w') as batchInfoLog:
+    batchInfoPath   = os.path.join(outputFolder, 'batchInfoSummary.csv')
+    failedBatchPath = os.path.join(outputFolder, 'failedBatchList.csv')
+    with open(batchInfoPath, 'w') as batchInfoLog, open(failedBatchPath, 'w') as failureLog:
         # Write the header for the batch log file
         batchInfoLog.write('# startFrame, stopFrame, centerLon, centerLat, meanAlt, ' +
                            ' meanLidarDiff, meanInterDiff, meanFireDiff, meanFireLidarDiff\n')
+        failureLog.write('# startFrame, stopFrame\n')
         
         demList = run.getOutputDemList()
         for (dem, frames) in demList:
@@ -143,6 +147,9 @@ def generateFlightSummary(run, outputFolder, skipKml = False):
                 centerLon = 0
                 centerLat = 0
                 meanAlt   = -999
+                
+                # Keep a list of batches that failed this step
+                failureLog.write('%d, %d\n' %  (frames[0], frames[1]))
             
             # Write info to summary file
             batchInfoLog.write('%d, %d, %f, %f, %f, %f, %f, %f, %f\n' % 
@@ -152,7 +159,7 @@ def generateFlightSummary(run, outputFolder, skipKml = False):
             
             # Make a link to the thumbnail file in our summary folder
             if os.path.exists(hillshadePath):
-                thumbName = ('dem_%d_%d_browse.tif' % (frames[0], frames[1]))
+                thumbName = ('dem_%05d_%05d_browse.tif' % (frames[0], frames[1]))
                 thumbPath = os.path.join(outputFolder, thumbName)
                 icebridge_common.makeSymLink(hillshadePath, thumbPath, verbose=False)
                 
