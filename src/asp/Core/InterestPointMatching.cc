@@ -198,15 +198,21 @@ namespace asp {
 
         // Loop through the N "nearest" points and keep only the ones within
         //   m_matcher.m_epipolar_threshold pixel distance from the epipolar line
+        const double EPIPOLAR_BAND_EXPANSION = 200;
+        double small_epipolar_threshold = m_matcher.m_epipolar_threshold;
+        double large_epipolar_threshold = small_epipolar_threshold + EPIPOLAR_BAND_EXPANSION;
         for ( size_t i = 0; i < num_matches_valid; i++ ) {
           IPListIter ip2_it = m_ip_other.begin();
           std::advance( ip2_it, indices[i] );
 
           if (found_epipolar){
             Vector2 ip2_org_coord = m_tx2.reverse( Vector2( ip2_it->x, ip2_it->y ) );
-            double line_distance = m_matcher.distance_point_line( line_eq, ip2_org_coord );
-            if ( line_distance < m_matcher.m_epipolar_threshold ) {
-              kept_indices.push_back( std::pair<float,int>( distances[i], indices[i] ) );
+            double  line_distance = m_matcher.distance_point_line( line_eq, ip2_org_coord );
+            if ( line_distance < large_epipolar_threshold ) {
+              if ( line_distance < small_epipolar_threshold )
+                kept_indices.push_back( std::pair<float,int>( distances[i], indices[i] ) );
+              else // In between thresholds
+                kept_indices.push_back( std::pair<float,int>( distances[i], -1 ) );
             }
             else {
               Vector2 ip1_coord( ip->x, ip->y );
@@ -219,7 +225,8 @@ namespace asp {
         } // End loop for match prunining
 
         // If we only found one match or the first descriptor match is much better than the second
-        if ( ( (kept_indices.size() > 2) &&
+        if ( ( (kept_indices.size() > 2)     &&
+               (kept_indices[0].second >= 0) &&
                      (kept_indices[0].first < m_matcher.m_uniqueness_threshold * kept_indices[1].first) )
               || (kept_indices.size() == 1) ){
           *m_output++ = kept_indices[0].second; // Return the first of the matches we found
