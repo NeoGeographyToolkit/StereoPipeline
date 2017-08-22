@@ -397,6 +397,13 @@ def main(argsIn):
    
     outputPrefix  = os.path.join(options.outputFolder, 'out')
 
+    # Check the last output product from this script.  If it exists,
+    #  quit now so we don't regenerate intermediate products.
+    colorOutput = outputPrefix+'-DEM_CMAP.tif'
+    if os.path.exists(colorOutput) and not redo:
+        logger.info('Final output file already exists, quitting script early.')
+        return
+
 
     # Check that the output GSD is not set too much lower than the native resolution
     heightLimitString = ''

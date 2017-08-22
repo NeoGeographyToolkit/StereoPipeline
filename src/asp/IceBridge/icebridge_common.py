@@ -951,6 +951,19 @@ def readGeodiffOutput(inputPath):
         
     return results
 
+def isBatchValid(batchFolder):
+    '''Returns true if the given batch has produced a good output DEM.'''
+
+    # The maximum allowed distance between our DEM and the lidar file.
+    MAX_LIDAR_DEM_DIFF_METERS = 5
+
+    try:
+        diffPath = os.path.join(batchFolder, 'out-diff.csv')
+        results  = readGeodiffOutput(diffPath)
+        
+        return (results['MEAN'] < MAX_LIDAR_DEM_DIFF_METERS)
+    except:
+        return False
 
 # For debugging functions
 #if __name__ == "__main__":
