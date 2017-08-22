@@ -115,7 +115,8 @@ struct Options : public vw::cartography::GdalWriteOptions {
          save_trans_ref,
          highest_accuracy,
          verbose;
-
+  std::string initial_ned_translation;
+  
   // Output
   string out_prefix;
 
@@ -169,6 +170,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
     ("no-dem-distances",         po::bool_switch(&opt.dont_use_dem_distances)->default_value(false)->implicit_value(true),
                                  "For reference point clouds that are DEMs, don't take advantage of the fact that it is possible to interpolate into this DEM when finding the closest distance to it from a point in the source cloud and hence the error metrics.")
+    ("initial-ned-translation", po::value(&opt.initial_ned_translation)->default_value(""),
+                                 "Initialize the alignment transform based on a translation with this vector in the North-East-Down coordinate system. Specify it in quotes, separated by spaces or commas.")
 
     ("match-file", po::value(&opt.match_file)->default_value(""),
      "Compute a translation + rotation + scale transform from the source to the reference point cloud using manually selected point correspondences (obtained for example using stereo_gui).")
@@ -1007,6 +1010,29 @@ void apply_transform_to_cloud(PointMatcher<RealT>::Matrix const& T, DP & point_c
   }
 }
 
+
+// Convert a north-east-down vector at a given location to a vector in reference
+// to the center of the Earth and create a translation matrix from that vector. 
+PointMatcher<RealT>::Matrix ned_to_caresian_transform(vw::cartography::Datum const& datum,
+                                                      std::string& ned_str, 
+                                                      vw::Vector3 const & location){
+
+  vw::string_replace(ned_str, ",", " "); // replace any commas
+  vw::Vector3 ned = vw::str_to_vec<vw::Vector3>(ned_str);
+
+  vw::Vector3 loc_llh = datum.cartesian_to_geodetic(location);
+  vw::Matrix3x3 M = datum.lonlat_to_ned_matrix(subvector(loc_llh, 0, 2));
+  vw::Vector3 xyz_shift = inverse(M)*ned;
+  
+  PointMatcher<RealT>::Matrix T = PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1);
+
+  // Append the transform
+  for (int row = 0; row < DIM; row++)
+    T(row, DIM) = xyz_shift[row];
+
+  return T;
+}
+
 int main( int argc, char *argv[] ) {
 
   // Mandatory line for Eigen
@@ -1155,6 +1181,18 @@ int main( int argc, char *argv[] ) {
     if (opt.verbose)
       vw_out() << "Data shifted internally by subtracting: " << shift << std::endl;
 
+
+    // See if to apply an initial north-east-down translation
+    if (opt.initial_ned_translation != "") {
+      if (opt.init_transform_file != "")
+        vw_throw( ArgumentErr()
+                  << "Cannot specify an initial transform both from file and as a NED vector.\n");
+
+      opt.init_transform = ned_to_caresian_transform(geo.datum(),
+                                                     opt.initial_ned_translation, 
+                                                     shift);
+    }
+    
     // The point clouds are shifted, so shift the initial transform as well.
     PointMatcher<RealT>::Matrix initT = apply_shift(opt.init_transform, shift);
 
