@@ -115,8 +115,8 @@ def consolidateGeodiffResults(inputFiles, outputPath=None):
     # Take the max/min of min/max and the mean of mean and stddev
     keywords = ['Max', 'Min', 'Mean', 'StdDev']
     mergedResult = {'Max':-999999.0, 'Min':999999.0, 'Mean':0.0, 'StdDev':0.0}
-    for csvPath in inputFiles:
-        results = icebridge_common.readGeodiffOutput(csvPath)
+    for path in inputFiles:
+        results = icebridge_common.readGeodiffOutput(path)
         if results['Max'] > mergedResult['Max']:
             mergedResult['Max'] = results['Max']
         if results['Min'] < mergedResult['Min']:
@@ -260,7 +260,29 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     cmd = ('colormap %s -o %s'  
            % (p2dOutput, colorOutput))
     asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
+
+
+def clean_batch(batchFolder, stereoPrefixes, interDiffPaths, fireballDiffPaths, smallFiles=False):
+    '''Clean up all non-output files to conserve space.
+       Setting smallFiles will remove additional low size files.'''
     
+    # Delete all of the stereo folders
+    for s in stereoPrefixes:
+        if smallFiles:
+            folder = os.path.dirname(s)
+            os.system('rm -rf ' + folder)
+        else:
+            os.system('rm -rf ' + s + '*.tif')
+    
+    if smallFiles:
+        # Delete bundle folder
+        os.system('rm -rf ' + os.path.join(batchFolder, 'bundle'))
+    
+    # Delete the diff images
+    for f in (interdiffPaths + fireballDiffPaths):
+        os.system('rm -f ' + f)
+
+
 def main(argsIn):
 
     try:
@@ -306,6 +328,9 @@ def main(argsIn):
 
         parser.add_option('--dem-resolution', dest='demResolution', default=0.4,
                           type='float', help='Generate output DEMs at this resolution.')
+
+        parser.add_option('--cleanup', action='store_true', default=False, dest='cleanup',  
+                          help='If the final result is produced delete intermediate files.')
 
         # Performance options
         parser.add_option('--num-threads', dest='numThreads', default=None,
@@ -519,21 +544,21 @@ def main(argsIn):
     # usually means there was an alignment error.
     INTER_DEM_DIFF_CUTOFF = 1.0 # Meters
     FIREBALL_DIFF_CUTOFF  = 1.0 # Meters
-    interDiffSummaryPath =  outputPrefix + '_inter_diff_summary.csv'
-    interDiffCsvPaths    = []
+    interDiffSummaryPath  = outputPrefix + '_inter_diff_summary.csv'
+    interDiffPaths        = []
     
     for i in range(1,numDems):
         try:
             # Call geodiff
-            prefix  = outputPrefix + '_inter_dem_' + str(i)
-            csvPath = prefix + "-diff.tif"
+            prefix   = outputPrefix + '_inter_dem_' + str(i)
+            diffPath = prefix + "-diff.tif"
             cmd = ('geodiff --absolute %s %s -o %s' % (demFiles[0], demFiles[i], prefix))
             logger.info(cmd)
-            asp_system_utils.executeCommand(cmd, csvPath, suppressOutput, redo)
+            asp_system_utils.executeCommand(cmd, diffPath, suppressOutput, redo)
             
             # Read in and examine the results
-            results = icebridge_common.readGeodiffOutput(csvPath)
-            interDiffCsvPaths.append(csvPath)
+            results = icebridge_common.readGeodiffOutput(diffPath)
+            interDiffPaths.append(diffPath)
             if abs(results['Mean']) > INTER_DEM_DIFF_CUTOFF:
                 logger.warning('Difference between dem ' + demFiles[0] + ' and dem ' + demFiles[i]
                                + ' is large: ' + str(results['Mean']))
@@ -543,7 +568,7 @@ def main(argsIn):
 
     # Can do interdiff only if there is more than one DEM
     if numDems > 1:
-        consolidateGeodiffResults(interDiffCsvPaths, interDiffSummaryPath)
+        consolidateGeodiffResults(interDiffPaths, interDiffSummaryPath)
     else:
         logger.info("Only one stereo pair is present, cannot create: " + interDiffSummaryPath)
         
@@ -582,7 +607,9 @@ def main(argsIn):
         lidarDemOutput = lidarCsvToDem(lidarFile, projBounds, projString, options.outputFolder, 
                                        threadText, suppressOutput, redo)
 
-    # Compare to Fireball DEMs if available                           
+    # Compare to Fireball DEMs if available
+    fireballDiffPaths     = []
+    fireLidarDiffCsvPaths = []                      
     if options.fireballFolder:
         # Get the fireball DEM for each input image
         # - Note that each fireball DEM has input from 3+ images so this is an approximation.
@@ -592,8 +619,6 @@ def main(argsIn):
 
         fireballDiffSummaryPath  =  outputPrefix + '_fireball_diff_summary.csv'
         fireLidarDiffSummaryPath =  outputPrefix + '_fireLidar_diff_summary.csv'
-        fireballDiffCsvPaths     = []
-        fireLidarDiffCsvPaths    = []
     
         # Loop through matches
         # - Each fireball DEM is compared to our final output DEM as without the pc_align step
@@ -605,13 +630,13 @@ def main(argsIn):
                 continue
             #try:
             prefix  = outputPrefix + '_fireball_' + str(i)
-            csvPath = prefix + "-diff.tif"
+            diffPath = prefix + "-diff.tif"
             cmd = ('geodiff --absolute %s %s -o %s' % (allDemPath, fireball, prefix))
             logger.info(cmd)
-            asp_system_utils.executeCommand(cmd, csvPath, suppressOutput, redo)
+            asp_system_utils.executeCommand(cmd, diffPath, suppressOutput, redo)
             
-            results = icebridge_common.readGeodiffOutput(csvPath)
-            fireballDiffCsvPaths.append(csvPath)
+            results = icebridge_common.readGeodiffOutput(diffPath)
+            fireballDiffPaths.append(diffPath)
             if abs(results['Mean']) > FIREBALL_DIFF_CUTOFF:
                 logger.warning('Difference between dem ' + demFiles[i]
                                + ' and fireball is large: ' + str(results['Mean']))
@@ -628,9 +653,10 @@ def main(argsIn):
     
             #except:
             #    logger.warning('Difference between dem ' + demFiles[0] + ' and fireball failed!')
-        consolidateGeodiffResults(fireballDiffCsvPaths,  fireballDiffSummaryPath )
+        consolidateGeodiffResults(fireballDiffPaths,     fireballDiffSummaryPath )
         consolidateGeodiffResults(fireLidarDiffCsvPaths, fireLidarDiffSummaryPath)
 
+    demSymlinkPath = outputPrefix + '-align-DEM.tif'
     if lidarFile:
         # PC_ALIGN
         # - Use function to call with increasing max distance limits        
@@ -645,7 +671,6 @@ def main(argsIn):
         asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput, redo)
 
         # Create a symlink to the DEM in the main directory
-        demSymlinkPath = outputPrefix + '-align-DEM.tif'
         icebridge_common.makeSymLink(p2dOutput, demSymlinkPath)
         allDemPath = demSymlinkPath
 
@@ -677,6 +702,9 @@ def main(argsIn):
            % (allDemPath, colorOutput))
     asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
 
+    if options.cleanup and os.path.exists(demSymlinkPath):
+        # Delete large files that we don't need going forwards.
+        clean_batch(options.outputFolder, prefixes, interDiffPaths, fireballDiffPaths, smallFiles=True)
 
     logger.info('Finished!')
 
