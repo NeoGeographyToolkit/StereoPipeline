@@ -345,8 +345,8 @@ def executeCommand(cmd,
         if suppressOutput: # Process silently
             FNULL = open(os.devnull, 'w')
             subprocess.call(cmd, stdout=FNULL, stderr=subprocess.STDOUT)
-        else: # Display output
-            print " ".join(cmd)
+        else: # Display output, taking care of quotes
+            print asp_string_utils.argListToString(cmd) 
             subprocess.call(cmd)
 
     # Optionally check that the output file was created

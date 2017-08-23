@@ -502,7 +502,8 @@ def main(argsIn):
         #    print("Skipping frame as file exists: " + thisDemFile)
         #    continue
           
-        # The output folder is named after the first and last frame in the batch
+        # The output folder is named after the first and last frame in the batch.
+        # We count on this convention in blend_dems.py.
         thisOutputFolder = os.path.join(outputFolder,
                                         'batch_'+str(frameNumbers[0]) + \
                                         '_' + str(frameNumbers[-1])   +

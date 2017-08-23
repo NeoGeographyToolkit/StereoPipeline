@@ -113,10 +113,13 @@ def argListToString(argList):
 
         # Wrap arguments with spaces in them in "" so they stay together
         if stringVersion.find(' ') >= 0:
-            string = string + '"' + stringVersion + '" '
-        else:
-            string = string + stringVersion + ' '
+            stringVersion = '"' + stringVersion + '" '
 
+        if string == "":
+            string = stringVersion
+        else:
+            string = string + ' ' + stringVersion
+        
     return string
 
 def stringToArgList(string):

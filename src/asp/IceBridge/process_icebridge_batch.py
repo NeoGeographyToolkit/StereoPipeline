@@ -199,7 +199,7 @@ def estimateHeightRange(projBounds, projString, lidarFile, options, threadText,
     
 
 def createDem(i, options, inputPairs, prefixes, demFiles, projString,
-              extraArgs, threadText, suppressOutput, redo, logger):
+              extraArgs, threadText, suppressOutput, redo):
     '''Create a DEM from a pair of images'''
 
     # Since we use epipolar alignment our images should be aligned at least this well.
@@ -236,11 +236,6 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     stereoCmd += filterArgString
     triOutput = thisPairPrefix + '-PC.tif'
     asp_system_utils.executeCommand(stereoCmd, triOutput, suppressOutput, redo)
-
-#     # temporary!!!
-#     cmd = ('cp tmp.txt tmp2.txt') 
-#     p2dOutput = 'tm'
-#     asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput, redo)
 
     # point2dem on the result of ASP
     # - The size limit is to prevent bad point clouds from creating giant DEM files which
@@ -483,6 +478,7 @@ def main(argsIn):
         pair[1] = newCamera
         imageCameraString.replace(pair[1], newCamera)
     # Run the BA command
+    logger.info(cmd) # to make it go to the log, not just on screen
     asp_system_utils.executeCommand(cmd, newCamera, suppressOutput, redo)
 
     # Generate a map of initial camera positions
@@ -492,6 +488,7 @@ def main(argsIn):
         vizString += image + ' ' + camera + ' '
     cmd = ('orbitviz --hide-labels -t nadirpinhole -r wgs84 -o ' +
            orbitvizAfter + ' '+ vizString)
+    logger.info(cmd) # to make it go to the log, not just on screen
     asp_system_utils.executeCommand(cmd, orbitvizAfter, suppressOutput, redo)
 
     # STEREO
@@ -524,7 +521,7 @@ def main(argsIn):
             taskHandles.append(pool.apply_async(createDem, 
                                                 (i, options, inputPairs, prefixes, demFiles,
                                                  projString, extraArgs, threadText,
-                                                 suppressOutput, redo, logger)))
+                                                 suppressOutput, redo)))
         # Wait for all the tasks to complete
         icebridge_common.waitForTaskCompletionOrKeypress(taskHandles, logger, interactive = False, 
                                                          quitKey='q', sleepTime=20)
@@ -535,7 +532,7 @@ def main(argsIn):
     else:
         for i in range(0, numRuns):
             createDem(i, options, inputPairs, prefixes, demFiles, projString, extraArgs,
-                      threadText, suppressOutput, redo, logger)
+                      threadText, suppressOutput, redo)
 
     # If we had to create at least one DEM, need to redo all the post-DEM creation steps
     if atLeastOneDemMissing:
@@ -560,7 +557,7 @@ def main(argsIn):
             prefix   = outputPrefix + '_inter_dem_' + str(i)
             diffPath = prefix + "-diff.tif"
             cmd = ('geodiff --absolute %s %s -o %s' % (demFiles[0], demFiles[i], prefix))
-            logger.info(cmd)
+            logger.info(cmd) # to make it go to the log, not just on screen
             asp_system_utils.executeCommand(cmd, diffPath, suppressOutput, redo)
             
             # Read in and examine the results
@@ -593,6 +590,7 @@ def main(argsIn):
                % (demString, options.demResolution, projString, threadText, outputPrefix))
         print cmd
         mosaicOutput = outputPrefix + '-tile-0.tif'
+        logger.info(cmd) # to make it go to the log, not just on screen
         asp_system_utils.executeCommand(cmd, mosaicOutput, suppressOutput, redo)
         
         # Create a symlink to the mosaic file with a better name
@@ -654,7 +652,7 @@ def main(argsIn):
                 csvPath = prefix + "-diff.csv"
                 cmd = ('geodiff --absolute --csv-format %s %s %s -o %s' % 
                        (lidarCsvFormatString, fireball, lidarFile, prefix))
-                logger.info(cmd)
+                logger.info(cmd) # to make it go to the log, not just on screen
                 asp_system_utils.executeCommand(cmd, csvPath, suppressOutput, redo)
                 fireLidarDiffCsvPaths.append(csvPath)
     
@@ -666,10 +664,10 @@ def main(argsIn):
     demSymlinkPath = outputPrefix + '-align-DEM.tif'
     if lidarFile:
         # PC_ALIGN
+
         # - Use function to call with increasing max distance limits        
         alignOutput = robust_pc_align(options, lidarFile, allDemPath, threadText, 
                                       suppressOutput, redo, logger)
-        
         
         # POINT2DEM on the aligned PC file
         cmd = ('point2dem --tr %lf --t_srs %s %s %s --errorimage' 
@@ -683,11 +681,8 @@ def main(argsIn):
 
         cmd = ('geodiff --absolute --csv-format %s %s %s -o %s' % \
                (lidarCsvFormatString, allDemPath, lidarFile, outputPrefix))
-        logger.info(cmd)
+        logger.info(cmd) # to make it go to the log, not just on screen
         asp_system_utils.executeCommand(cmd, outputPrefix + "-diff.csv", suppressOutput, redo)
-
-                           
-
 
     # HILLSHADE
     hillOutput = outputPrefix+'-DEM_HILLSHADE.tif'
