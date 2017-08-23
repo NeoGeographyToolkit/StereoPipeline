@@ -235,17 +235,17 @@ struct Options : vw::cartography::GdalWriteOptions {
   int    tile_size, tile_index, erode_len, priority_blending_len, extra_crop_len, hole_fill_len, block_size, save_dem_weight;
   double  weights_exp, weights_blur_sigma, dem_blur_sigma;
   double nodata_threshold;
-  bool   first, last, min, max, block_max, mean, stddev, median, count, save_index_map, use_centerline_weights;
+  bool   first, last, min, max, block_max, mean, stddev, median, count, save_index_map, use_centerline_weights, first_dem_as_reference;
   std::set<int> tile_list;
   BBox2 projwin;
   Options(): tr(0), geo_tile_size(0), has_out_nodata(false), tile_index(-1),
 	     erode_len(0), priority_blending_len(0), extra_crop_len(0),
-	     hole_fill_len(0), block_size(0), save_dem_weight(-1),
+	     hole_fill_len(0), block_size(0), save_dem_weight(-1), 
 	     weights_exp(0), weights_blur_sigma(0.0), dem_blur_sigma(0.0),
 	     nodata_threshold(std::numeric_limits<double>::quiet_NaN()),
 	     first(false), last(false), min(false), max(false), block_max(false),
 	     mean(false), stddev(false), median(false), count(false), save_index_map(false),
-	     use_centerline_weights(false) {}
+	     use_centerline_weights(false), first_dem_as_reference(false), projwin(BBox2()) {}
 };
 
 /// Return the number of no-blending options selected.
@@ -409,6 +409,8 @@ public:
       fill(index_map, m_opt.out_nodata_value);
     }
 
+    ImageView<double> first_dem;
+    
     // Loop through all input DEMs
     for (int dem_iter = 0; dem_iter < (int)m_imgMgr.size(); dem_iter++){
 
@@ -448,6 +450,13 @@ public:
       // channel is the image pixels, second will be the weights.
       ImageViewRef<double     > disk_dem = pixel_cast<double>(m_imgMgr.get_handle(dem_iter, bbox));
       ImageView   <DoubleGrayA> dem      = crop(disk_dem, in_box);
+
+      if (m_opt.first_dem_as_reference && dem_iter == 0) {
+        // We need to keep the first DEM, to use it as ref
+        // when merging in the blended DEM
+        first_dem = crop(disk_dem, bbox);
+      }
+      
       std::string dem_name = m_imgMgr.get_file_name(dem_iter);
       
       // If the nodata_threshold is specified, all values no more than this
@@ -464,6 +473,17 @@ public:
         }
       }
 
+      if (m_opt.first_dem_as_reference && dem_iter == 0) {
+        // Convert to the output nodata value
+        for (int col = 0; col < first_dem.cols(); col++) {
+          for (int row = 0; row < first_dem.rows(); row++) {
+            if (first_dem(col, row) == nodata_value) {
+              first_dem(col, row) = m_opt.out_nodata_value;
+            }
+          }
+        }
+      }
+      
       // Mark the handle to the image as not in use, though we still
       // keep that image file open, for increased performance, unless
       // their number becomes too large.
@@ -472,7 +492,8 @@ public:
       // Compute linear weights
       ImageView<double> local_wts = grassfire(notnodata(select_channel(dem, 0), nodata_value));
       if (m_opt.use_centerline_weights) {
-        // Erode based on grassfire weights.
+        // Erode based on grassfire weights, and then overwrite the grassfire
+        // weights with centerline weights
         ImageView<DoubleGrayA> dem2 = copy(dem);
         for (int col = 0; col < dem2.cols(); col++) {
           for (int row = 0; row < dem2.rows(); row++) {
@@ -919,6 +940,27 @@ public:
       vw::Mutex::Lock lock(m_count_mutex);
       m_num_valid_pixels += num_valid_in_tile;
     }
+
+    if (m_opt.first_dem_as_reference) {
+      
+      if (first_dem.cols() != tile.cols() || first_dem.rows() != tile.rows()) {
+        vw_throw(ArgumentErr() << "Book-keeping error when blending into first DEM.\n");
+      }
+
+      // Wipe from the tile all values outside the perimeter of
+      // first_dem. So we don't wipe values that happen to be
+      // in the holes of first_dem.
+      ImageView<double> local_wts;
+      bool fill_holes = true;
+      centerline_weights(create_mask(first_dem, m_opt.out_nodata_value), local_wts,
+                         BBox2(), fill_holes);
+      for (int col = 0; col < tile.cols(); col++) {
+        for (int row = 0; row < tile.rows(); row++) {
+          if (local_wts(col, row) == 0)
+            tile(col, row) = m_opt.out_nodata_value;
+        }
+      }
+    }
     
     // Return the tile we created with fake borders to make it look
     // the size of the entire output image. So far we operated
@@ -956,6 +998,8 @@ void load_dem_bounding_boxes(Options       const& opt,
   tpc.report_progress(0);
   double inc_amount = 1.0 / double(opt.dem_files.size() );
 
+  BBox2 first_dem_proj_box;
+  
   // Loop through all DEMs
   for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++){ 
 
@@ -967,6 +1011,9 @@ void load_dem_bounding_boxes(Options       const& opt,
 
     dem_pixel_bboxes.push_back(pixel_box);
 
+    if (dem_iter == 0) 
+      first_dem_proj_box = georef.bounding_box(img);
+    
     bool has_lonat = (georef.proj4_str().find("+proj=longlat") != std::string::npos ||
                       mosaic_georef.proj4_str().find("+proj=longlat") != std::string::npos );
     
@@ -1016,6 +1063,10 @@ void load_dem_bounding_boxes(Options       const& opt,
     tpc.report_incremental_progress( inc_amount );
   } // End loop through DEM files
   tpc.report_finished();
+
+  // If the first dem is used as reference, no matter what use its own box
+  if (opt.first_dem_as_reference) 
+    mosaic_bbox = first_dem_proj_box;
   
 } // End function load_dem_bounding_boxes
 
@@ -1083,6 +1134,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "To be used with --max-per-block. A large value can result in increased memory usage.")
     ("save-dem-weight",      po::value<int>(&opt.save_dem_weight),
      "Save the weight image that tracks how much the input DEM with given index contributed to the output mosaic at each pixel (smallest index is 0).")
+    ("first-dem-as-reference", po::bool_switch(&opt.first_dem_as_reference)->default_value(false),
+     "The output DEM will have the same size, grid, and georeference as the first one, with the other DEMs blended within its perimeter.")
     ("save-index-map",   po::bool_switch(&opt.save_index_map)->default_value(false),
      "For each output pixel, save the index of the input DEM it came from (applicable only for --first, --last, --min, and --max). A text file with the index assigned to each input DEM is saved as well.")
     ("threads",             po::value<int>(&opt.num_threads)->default_value(4),
@@ -1169,11 +1222,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 	     << usage << general_options );
 
   // For compatibility with the GDAL tools, allow the min and max to be reversed.
-  if (opt.projwin.min().x() > opt.projwin.max().x())
-    std::swap(opt.projwin.min().x(), opt.projwin.max().x());
-  if (opt.projwin.min().y() > opt.projwin.max().y())
-    std::swap(opt.projwin.min().y(), opt.projwin.max().y());
-
+  if (opt.projwin != BBox2()) {
+    if (opt.projwin.min().x() > opt.projwin.max().x())
+      std::swap(opt.projwin.min().x(), opt.projwin.max().x());
+    if (opt.projwin.min().y() > opt.projwin.max().y())
+      std::swap(opt.projwin.min().y(), opt.projwin.max().y());
+  }
+  
   if (opt.weights_blur_sigma < 0.0)
     vw_throw(ArgumentErr() << "The standard deviation used for blurring must be non-negative.\n"
 			   << usage << general_options );
@@ -1277,7 +1332,21 @@ int main( int argc, char *argv[] ) {
 
     // By default the output georef is equal to the first input georef
     GeoReference mosaic_georef = read_georef(opt.dem_files[0]);
-    
+
+    if (opt.first_dem_as_reference) {
+      if (opt.target_srs_string != "" || opt.tr > 0 || opt.projwin != BBox2()) 
+        vw_throw(ArgumentErr()
+                 << "Cannot change the projection, spacing, or output box, if the first DEM "
+                 << "is to be used as reference.\n");
+      if (opt.first || opt.last || opt.min || opt.max || opt.mean || opt.median || opt.stddev ||
+          opt.priority_blending_len > 0 || opt.save_dem_weight >= 0 ||
+          !boost::math::isnan(opt.nodata_threshold)) {
+        vw_throw(ArgumentErr()
+                 << "Cannot do anything except regular blending if the first DEM "
+                 << "is to be used as reference.\n");
+      }
+    }
+  
     double spacing = opt.tr;
     if (opt.target_srs_string != ""                                              &&
       opt.target_srs_string != processed_proj4(mosaic_georef.overall_proj4_str()) &&
