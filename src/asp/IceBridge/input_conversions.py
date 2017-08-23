@@ -394,11 +394,15 @@ def convertLidarDataToCsv(lidarFolder, logger):
        Returns false if any files failed to convert.'''
 
     logger.info('Converting LIDAR files...')
+
+    lidarIndexPath = icebridge_common.csvIndexFile(lidarFolder)
+    (frameDict, urlDict) = icebridge_common.readIndexFile(lidarIndexPath)
     
     # Loop through all files in the folder
-    allFiles = os.listdir(lidarFolder)
     badFiles = False
-    for f in allFiles:
+    for frame in frameDict:
+
+        f = frameDict[frame]
         extension = icebridge_common.fileExtension(f)
         
         # Only interested in a few file types
@@ -406,7 +410,11 @@ def convertLidarDataToCsv(lidarFolder, logger):
            continue
 
         # Handle paths
-        fullPath   = os.path.join(lidarFolder, f)
+        fullPath = os.path.join(lidarFolder, f)
+        if not os.path.exists(fullPath):
+            logger.info("Cannot convert missing file: " + fullPath)
+            continue
+        
         outputPath = os.path.join(lidarFolder, os.path.splitext(f)[0]+'.csv')
         if icebridge_common.isValidLidarCSV(outputPath):
             logger.info("File exists and is valid, skipping: " + outputPath)
