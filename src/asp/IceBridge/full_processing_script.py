@@ -214,6 +214,8 @@ def main(argsIn):
         # Performance options  
         parser.add_argument('--num-processes', dest='numProcesses', default=1,
                           type=int, help='The number of simultaneous processes to run.')
+        parser.add_argument('--num-ortho-processes', dest='numOrthoProcesses', default=-1,
+                          type=int, help='The number of simultaneous ortho processes to run.')
         parser.add_argument('--num-threads', dest='numThreads', default=8,
                           type=int, help='The number of threads per process.')
         parser.add_argument('--num-processes-per-batch', dest='numProcessesPerBatch', default=1,
@@ -264,6 +266,9 @@ def main(argsIn):
 
     except argparse.ArgumentError, msg:
         parser.error(msg)
+
+    if options.numOrthoProcesses < 0:
+        options.numOrthoProcesses = options.numProcesses
         
     isSouth = icebridge_common.checkSite(options.site)
 
@@ -332,7 +337,7 @@ def main(argsIn):
         fetchResult = fetchAllRunData(options, options.startFrame, options.stopFrame,
                                       jpegFolder, orthoFolder, fireballFolder, lidarFolder)
         if fetchResult < 0:
-            logger.info("Fetching failed, quitting the program!") # logger.Error is missing?
+            logger.error("Fetching failed, quitting the program!") 
             return -1
            
     if options.stopAfterFetch or options.dryRun:
@@ -365,23 +370,22 @@ def main(argsIn):
             if not isGood:
                 if options.reFetch and (not options.noFetch):
                     # During conversion we may realize some data is bad. 
-                    logger.info("Cconversions failed. Trying to re-fetch problematic files.")
+                    logger.error("Cconversions failed. Trying to re-fetch problematic files.")
                     fetchResult = fetchAllRunData(options, options.startFrame, options.stopFrame,
                                                   jpegFolder, orthoFolder, fireballFolder,
                                                   lidarFolder)
                     if fetchResult < 0:
-                        logger.info("Fetching failed, quitting the program!")
+                        logger.error("Fetching failed, quitting the program!")
                         return -1
                     isGood = input_conversions.convertJpegs(jpegFolder, imageFolder, 
                                                             options.startFrame, options.stopFrame,
                                                             options.skipValidate, logger)
                     if not isGood:
-                        # logger.Error is missing?
-                        logger.info("Jpeg conversions failed, quitting the program!") 
+                        logger.error("Jpeg conversions failed, quitting the program!") 
                         return -1
                     
                 else:
-                    logger.info("Jpeg conversions failed, quitting the program!")
+                    logger.error("Jpeg conversions failed, quitting the program!")
                     return -1
 
         if not options.noOrthoConvert:
@@ -392,7 +396,7 @@ def main(argsIn):
                                                        options.yyyymmdd, options.site, 
                                                        refDemPath, cameraFolder, 
                                                        options.startFrame, options.stopFrame,
-                                                       options.numProcesses, options.numThreads,
+                                                       options.numOrthoProcesses, options.numThreads,
                                                        logger)
     if options.stopAfterConvert:
         print 'Conversion complete, finished!'

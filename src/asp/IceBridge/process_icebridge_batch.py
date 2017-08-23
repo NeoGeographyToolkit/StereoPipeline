@@ -274,7 +274,7 @@ def clean_batch(batchFolder, stereoPrefixes, interDiffPaths, fireballDiffPaths, 
         os.system('rm -rf ' + os.path.join(batchFolder, 'bundle'))
     
     # Delete the diff images
-    for f in (interdiffPaths + fireballDiffPaths):
+    for f in (interDiffPaths + fireballDiffPaths):
         os.system('rm -f ' + f)
 
 
