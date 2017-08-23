@@ -221,7 +221,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
                          ' 9999 ' + str(VERTICAL_SEARCH_LIMIT) )
     if '--stereo-algorithm 0' not in options.stereoArgs:
         correlationArgString = (' --xcorr-threshold 2 --min-xcorr-level 1 --corr-kernel 7 7 ' 
-                                + ' --corr-tile-size 9000 --cost-mode 4 --sgm-search-buffer 4 1 '
+                                + ' --corr-tile-size 9000 --cost-mode 4 --sgm-search-buffer 4 2 '
                                 + searchLimitString + ' --corr-memory-limit-mb 12000 '
                                 + options.stereoArgs
                                )
