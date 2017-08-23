@@ -332,7 +332,7 @@ def main(argsIn):
         fetchResult = fetchAllRunData(options, options.startFrame, options.stopFrame,
                                       jpegFolder, orthoFolder, fireballFolder, lidarFolder)
         if fetchResult < 0:
-            logger.error("Fetching failed, quitting the program!")
+            logger.info("Fetching failed, quitting the program!") # logger.Error is missing?
             return -1
            
     if options.stopAfterFetch or options.dryRun:
@@ -370,17 +370,18 @@ def main(argsIn):
                                                   jpegFolder, orthoFolder, fireballFolder,
                                                   lidarFolder)
                     if fetchResult < 0:
-                        logger.error("Fetching failed, quitting the program!")
+                        logger.info("Fetching failed, quitting the program!")
                         return -1
                     isGood = input_conversions.convertJpegs(jpegFolder, imageFolder, 
                                                             options.startFrame, options.stopFrame,
                                                             options.skipValidate, logger)
                     if not isGood:
-                        raise Exception("Jpeg conversions failed, quitting the program!")
+                        # logger.Error is missing?
+                        logger.info("Jpeg conversions failed, quitting the program!") 
                         return -1
                     
                 else:
-                    raise Exception("Jpeg conversions failed, quitting the program!")
+                    logger.info("Jpeg conversions failed, quitting the program!")
                     return -1
 
         if not options.noOrthoConvert:
