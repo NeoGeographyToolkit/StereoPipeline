@@ -63,7 +63,7 @@ def getNumCores(nodeType):
         return 20
     if nodeType == 'has':
         return 24
-    if nodeType == 'broadwell': # TODO: What is the code??
+    if nodeType == 'bro':
         return 28
     raise Exception('Unrecognized node type: ' + nodeType)
 

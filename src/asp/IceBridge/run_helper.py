@@ -169,6 +169,9 @@ class RunHelper():
         '''Return true if all the required source data has been downloaded'''
     
         logger = logging.getLogger(__name__)
+
+        # Old file collections use a different naming scheme    
+        altIndexName = 'image_index.html.csv'
     
         # Verify these input folders
         subFolders = [self.getJpegFolder(), self.getLidarFolder(), self.getOrthoFolder()]
@@ -176,6 +179,12 @@ class RunHelper():
         
             # Make sure all the files specified in the parsed index file are present
             indexFile = icebridge_common.csvIndexFile(folder)
+            if not os.path.exists(indexFile):
+                # See if the older naming scheme was used
+                altPath = os.path.join(folder, altIndexName)
+                if os.path.exists(altPath):
+                    indexFile = altPath
+            
             (fileDict, urlDict) = icebridge_common.readIndexFile(indexFile)
             for f in fileDict.itervalues():
                 path = os.path.join(folder, f)

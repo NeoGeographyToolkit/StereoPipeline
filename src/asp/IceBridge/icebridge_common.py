@@ -961,7 +961,7 @@ def isBatchValid(batchFolder):
         diffPath = os.path.join(batchFolder, 'out-diff.csv')
         results  = readGeodiffOutput(diffPath)
         
-        return (results['MEAN'] < MAX_LIDAR_DEM_DIFF_METERS)
+        return (results['MEAN'] <= MAX_LIDAR_DEM_DIFF_METERS)
     except:
         return False
 

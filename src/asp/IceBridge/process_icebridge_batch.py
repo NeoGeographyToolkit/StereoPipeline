@@ -403,7 +403,7 @@ def main(argsIn):
     # Check that the output GSD is not set too much lower than the native resolution
     heightLimitString = ''
     if options.referenceDem:
-        MAX_OVERSAMPLING = 2.0
+        MAX_OVERSAMPLING = 3.0
         computedGsd = options.demResolution
         meanGsd     = 0
         totalBounds = [99999999, 99999999, -99999999, -999999999] # minX, minY, maxX, maxY
@@ -432,7 +432,7 @@ def main(argsIn):
             logger.warning('Specified resolution ' + str(options.demResolution) + 
                            ' is too fine for camera with computed GSD ' + str(meanGsd) +
                            '.  Switching to native GSD.)')
-            options.demResolution = meanGsd
+            options.demResolution = meanGsd*MAX_OVERSAMPLING
         # Undersampling is not as dangerous, just print a warning.
         if options.demResolution > 5*meanGsd:
             logger.warning('Specified resolution ' + str(options.demResolution) + 
