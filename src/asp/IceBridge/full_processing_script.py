@@ -300,18 +300,16 @@ def main(argsIn):
     # Perform some input checks and initializations
     if not (options.noOrthoConvert and (options.stopAfterConvert or options.stopAfterFetch) ):
         # These are not needed unless cameras are initialized 
-        if not os.path.exists(options.inputCalFolder):
-            raise Exception("Missing camera calibration folder: " + options.inputCalFolder)
-        if not os.path.exists(options.refDemFolder):
-            raise Exception("Missing reference DEM folder: " + options.refDemFolder)
+        if options.inputCalFolder is None or not os.path.exists(options.inputCalFolder):
+            raise Exception("Missing camera calibration folder.")
+        if options.refDemFolder is None or not os.path.exists(options.refDemFolder):
+            raise Exception("Missing reference DEM folder.")
 
         refDemName = icebridge_common.getReferenceDemName(options.site)
         refDemPath = os.path.join(options.refDemFolder, refDemName)
         if not os.path.exists(refDemPath):
             raise Exception("Missing reference DEM: " + refDemPath)
 
-    os.system('mkdir -p ' + options.outputFolder)
-                          
     # Set up the output folders
     cameraFolder       = os.path.join(options.outputFolder, 'camera')
     imageFolder        = os.path.join(options.outputFolder, 'image')
@@ -378,11 +376,11 @@ def main(argsIn):
                                                             options.startFrame, options.stopFrame,
                                                             options.skipValidate, logger)
                     if not isGood:
-                        logger.Error("Jpeg conversions failed, quitting the program!")
+                        raise Exception("Jpeg conversions failed, quitting the program!")
                         return -1
-                
+                    
                 else:
-                    logger.Error("Jpeg conversions failed, quitting the program!")
+                    raise Exception("Jpeg conversions failed, quitting the program!")
                     return -1
 
         if not options.noOrthoConvert:
