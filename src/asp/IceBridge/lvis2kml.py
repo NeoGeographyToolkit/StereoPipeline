@@ -30,8 +30,10 @@ def readPositions(positionFilePath):
     if not os.path.exists(positionFilePath):
         raise Exception('File ' + positionFilePath + ' is missing!')
 
-    # Is this a border file or a rawa data file?
+    # Is this a border file or a raw data file?
     isBorderFile = ('.xml' in positionFilePath)
+    
+    isLvisFile = ('.TXT' in positionFilePath)
     
     f = open(positionFilePath, 'r')
     
@@ -54,17 +56,23 @@ def readPositions(positionFilePath):
             if 'PointLatitude' in line:
                 thisPoint = (lon, num)
                 pointList.append(thisPoint)
+
+        else: # Lidar point files (possibly converted to CSV by another tool)
                 
-        else: # Point data file
             if '#' in line: # Skip lines containing the comment symbol
                 continue
             
             strings = line.split()
             
             # Record lot/lat/alt triples
-            lon       = float(strings[3])
-            lat       = float(strings[4])
-            height    = float(strings[5])
+            if isLvisFile:
+                lon    = float(strings[3])
+                lat    = float(strings[4])
+                height = float(strings[5])
+            else: # ATM lidar
+                lon    = float(strings[1])
+                lat    = float(strings[0])
+                height = float(strings[2])                
             thisPoint = (lon, lat, height)
             pointList.append(thisPoint)
         

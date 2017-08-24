@@ -37,7 +37,7 @@ sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 sys.path.insert(0, icebridgepath)
 
-import icebridge_common, pbs_functions, archive_functions, run_helper
+import icebridge_common, pbs_functions, archive_functions, run_helper, lvis2kml
 import asp_system_utils, asp_geo_utils, asp_image_utils
 
 asp_system_utils.verify_python_version_is_supported()
@@ -92,6 +92,19 @@ def generateFlightSummary(run, outputFolder, skipKml = False):
         cmd = scriptPath +' '+ outputKml +' '+ camKmlFiles
         #print cmd
         os.system(cmd)
+        
+        # Generate lidar kml files
+        LIDAR_POINT_SKIP = 477
+        lidarFiles = run.getLidarList()
+        lidarOutputFolder = 
+        os.system('mkdir -p ' + lidarOutputFolder)
+        for f in lidarFiles:
+            inputPath = f + '.csv'
+            outputPath = os.path.join(lidarOutputFolder, os.path.basename(f)+'.kml')
+            args = [inputPath, outputPath, '--skip', str(LIDAR_POINT_SKIP), '--color', 'red']
+            if not os.path.exists(outputPath): # Don't recreate these files
+                lvis2kml.main(args)
+       
 
     # Collect per-batch information
     print 'Consolidating batch information...'
@@ -190,9 +203,8 @@ def main(argsIn):
         parser.add_argument("--parent-folder",  dest="parentFolder", default=os.getcwd(),
                             help="The folder having all the runs.")
 
-        parser.add_argument("--skip-kml-gen", action="store_true", dest="skipKml",
-                          default=False,
-                          help="Skip combining kml files.")
+        parser.add_argument("--skip-kml-gen", action="store_true", dest="skipKml", default=False, 
+                            help="Skip combining kml files.")
         
         options = parser.parse_args(argsIn)
         
