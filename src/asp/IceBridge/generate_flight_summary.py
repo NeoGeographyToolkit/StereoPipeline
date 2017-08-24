@@ -90,22 +90,23 @@ def generateFlightSummary(run, outputFolder, skipKml = False):
         outputKml = os.path.join(outputFolder, 'cameras_out.kml')
         scriptPath = asp_system_utils.which('merge_orbitviz.py')
         cmd = scriptPath +' '+ outputKml +' '+ camKmlFiles
-        #print cmd
+        print cmd
         os.system(cmd)
         
         # Generate lidar kml files
-        LIDAR_POINT_SKIP = 477
-        lidarFiles = run.getLidarList()
-        lidarOutputFolder = 
+        LIDAR_POINT_SKIP = 1527
+        lidarFiles = run.getLidarList(prependFolder=True)
+        lidarOutputFolder = os.path.join(outputFolder, 'lidar')
         os.system('mkdir -p ' + lidarOutputFolder)
         for f in lidarFiles:
-            inputPath = f + '.csv'
+            inputPath = os.path.splitext(f)[0] + '.csv'
             outputPath = os.path.join(lidarOutputFolder, os.path.basename(f)+'.kml')
             args = [inputPath, outputPath, '--skip', str(LIDAR_POINT_SKIP), '--color', 'red']
             if not os.path.exists(outputPath): # Don't recreate these files
                 lvis2kml.main(args)
        
 
+    # TODO: Update to blended data!
     # Collect per-batch information
     print 'Consolidating batch information...'
     batchInfoPath   = os.path.join(outputFolder, 'batchInfoSummary.csv')
@@ -119,56 +120,75 @@ def generateFlightSummary(run, outputFolder, skipKml = False):
         demList = run.getOutputDemList()
         for (dem, frames) in demList:
 
-            # Get paths to the files of interest
-            hillshadePath     = dem.replace('out-align-DEM.tif', 'out-DEM_HILLSHADE_browse.tif')
-            lidarDiffPath     = dem.replace('out-align-DEM.tif', 'out-diff.csv')
-            interDiffPath     = dem.replace('out-align-DEM.tif', 'out_inter_diff_summary.csv')
-            fireDiffPath      = dem.replace('out-align-DEM.tif', 'out_fireball_diff_summary.csv')
-            fireLidarDiffPath = dem.replace('out-align-DEM.tif', 'out_fireLidar_diff_summary.csv')
+            consolidatedStatsPath = dem.replace('out-align-DEM.tif', 'out-consolidated_stats.txt')
+            if os.path.exists(consolidatedStatsPath):
+                with open(consolidatedStatsPath, 'r') as f:
+                    statsText = f.read()
 
-            # Read in the diff results            
-            try:
-                lidarDiffResults = icebridge_common.readGeodiffOutput(lidarDiffPath)
-            except:
-                lidarDiffResults = {'Mean':-999}
-            try:
-                interDiffResults = icebridge_common.readGeodiffOutput(interDiffPath)
-            except:
-                interDiffResults = {'Mean':-999}
-            try:
-                fireDiffResults  = icebridge_common.readGeodiffOutput(fireDiffPath)
-            except:
-                fireDiffResults  = {'Mean':-999}
-            try:
-                fireLidarDiffResults = icebridge_common.readGeodiffOutput(fireLidarDiffPath)
-            except:
-                fireLidarDiffResults = {'Mean':-999}
+                # Write info to summary file
+                batchInfoLog.write('%d, %d, %s\n' % (frames[0], frames[1], statsText))
 
-            try:
-                # Get DEM stats
-                geoInfo = asp_geo_utils.getImageGeoInfo(dem, getStats=False)
-                stats   = asp_image_utils.getImageStats(dem)[0]
-                meanAlt = stats[2]
-                centerX, centerY = geoInfo['projection_center']
+                # Keep a list of batches that did not generate an output DEM
+                parts = statsText.split(',')
+                if (int(parts[0]) == 0) and (int(parts[1]) == 0) and (int(parts[2]) == -999):
+                failureLog.write('%d, %d\n' %  (frames[0], frames[1]))  
 
-                # Convert from projected coordinates to lonlat coordinates            
-                isSouth    = ('+lat_0=-90' in geoInfo['proj_string'])
-                projString = icebridge_common.getEpsgCode(isSouth, asString=True)
-                PROJ_STR_WGS84 = 'EPSG:4326'
-                centerLon, centerLat = convertCoords(centerX, centerY, projString, PROJ_STR_WGS84)
-            except:
-                centerLon = 0
-                centerLat = 0
-                meanAlt   = -999
+            else: 
+
+                # TODO: Remove this deprecated part!
+
+                # Get paths to the files of interest
+                hillshadePath     = dem.replace('out-align-DEM.tif', 'out-DEM_HILLSHADE_browse.tif')
+                lidarDiffPath     = dem.replace('out-align-DEM.tif', 'out-diff.csv')
+                interDiffPath     = dem.replace('out-align-DEM.tif', 'out_inter_diff_summary.csv')
+                fireDiffPath      = dem.replace('out-align-DEM.tif', 'out_fireball_diff_summary.csv')
+                fireLidarDiffPath = dem.replace('out-align-DEM.tif', 'out_fireLidar_diff_summary.csv')
+
+                # Read in the diff results            
+                try:
+                    lidarDiffResults = icebridge_common.readGeodiffOutput(lidarDiffPath)
+                except:
+                    lidarDiffResults = {'Mean':-999}
+                try:
+                    interDiffResults = icebridge_common.readGeodiffOutput(interDiffPath)
+                except:
+                    interDiffResults = {'Mean':-999}
+                try:
+                    fireDiffResults  = icebridge_common.readGeodiffOutput(fireDiffPath)
+                except:
+                    fireDiffResults  = {'Mean':-999}
+                try:
+                    fireLidarDiffResults = icebridge_common.readGeodiffOutput(fireLidarDiffPath)
+                except:
+                    fireLidarDiffResults = {'Mean':-999}
+
+                try:
+                    # Get DEM stats
+                    geoInfo = asp_geo_utils.getImageGeoInfo(dem, getStats=False)
+                    stats   = asp_image_utils.getImageStats(dem)[0]
+                    meanAlt = stats[2]
+                    centerX, centerY = geoInfo['projection_center']
+
+                    # Convert from projected coordinates to lonlat coordinates            
+                    isSouth    = ('+lat_0=-90' in geoInfo['proj_string'])
+                    projString = icebridge_common.getEpsgCode(isSouth, asString=True)
+                    PROJ_STR_WGS84 = 'EPSG:4326'
+                    centerLon, centerLat = convertCoords(centerX, centerY, projString, PROJ_STR_WGS84)
+                except:
+                    centerLon = 0
+                    centerLat = 0
+                    meanAlt   = -999
+                    
+                    # Keep a list of batches that failed this step
+                    failureLog.write('%d, %d\n' %  (frames[0], frames[1]))
                 
-                # Keep a list of batches that failed this step
-                failureLog.write('%d, %d\n' %  (frames[0], frames[1]))
-            
-            # Write info to summary file
-            batchInfoLog.write('%d, %d, %f, %f, %f, %f, %f, %f, %f\n' % 
-                               (frames[0], frames[1], centerLon, centerLat, meanAlt, 
-                                lidarDiffResults['Mean'], interDiffResults    ['Mean'],
-                                fireDiffResults ['Mean'], fireLidarDiffResults['Mean']))
+                # Write info to summary file
+                batchInfoLog.write('%d, %d, %f, %f, %f, %f, %f, %f, %f\n' % 
+                                   (frames[0], frames[1], centerLon, centerLat, meanAlt, 
+                                    lidarDiffResults['Mean'], interDiffResults    ['Mean'],
+                                    fireDiffResults ['Mean'], fireLidarDiffResults['Mean']))
+                                    
+                # End deprecated code section!
             
             # Make a link to the thumbnail file in our summary folder
             if os.path.exists(hillshadePath):
