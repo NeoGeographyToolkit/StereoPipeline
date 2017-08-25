@@ -145,7 +145,7 @@ def consolidateGeodiffResults(inputFiles, outputPath=None):
 
 
 def consolidateStats(lidarDiffPath, interDiffPath, fireDiffPath, fireLidarDiffPath,  
-                     demPath, outputPath):
+                     demPath, outputPath, skipGeo = False):
     '''Consolidate statistics into a single file'''
 
     # Read in the diff results            
@@ -167,18 +167,25 @@ def consolidateStats(lidarDiffPath, interDiffPath, fireDiffPath, fireLidarDiffPa
         fireLidarDiffResults = {'Mean':-999}
 
     # Get DEM stats
-    try:
-        geoInfo = asp_geo_utils.getImageGeoInfo(demPath, getStats=False)
-        stats   = asp_image_utils.getImageStats(demPath)[0]
-        meanAlt = stats[2]
-        centerX, centerY = geoInfo['projection_center']
+    success = True
+    if skipGeo:
+        success = False
+    else:
+        try:
+            geoInfo = asp_geo_utils.getImageGeoInfo(demPath, getStats=False)
+            stats   = asp_image_utils.getImageStats(demPath)[0]
+            meanAlt = stats[2]
+            centerX, centerY = geoInfo['projection_center']
+            
+            # Convert from projected coordinates to lonlat coordinates            
+            isSouth    = ('+lat_0=-90' in geoInfo['proj_string'])
+            projString = icebridge_common.getEpsgCode(isSouth, asString=True)
+            PROJ_STR_WGS84 = 'EPSG:4326'
+            centerLon, centerLat = asp_geo_utils.convertCoords(centerX, centerY, projString, PROJ_STR_WGS84)
+        except:
+            success = False
 
-        # Convert from projected coordinates to lonlat coordinates            
-        isSouth    = ('+lat_0=-90' in geoInfo['proj_string'])
-        projString = icebridge_common.getEpsgCode(isSouth, asString=True)
-        PROJ_STR_WGS84 = 'EPSG:4326'
-        centerLon, centerLat = asp_geo_utils.convertCoords(centerX, centerY, projString, PROJ_STR_WGS84)
-    except:
+    if not success:
         centerLon = 0
         centerLat = 0
         meanAlt   = -999

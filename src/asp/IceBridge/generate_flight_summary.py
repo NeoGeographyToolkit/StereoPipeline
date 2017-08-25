@@ -186,14 +186,16 @@ def generateFlightSummary(run, options):
         demList = run.getOutputDemList()
         for (dem, frames) in demList:
 
-            # Progress indication
-            if frames[0] % 100 == 0:
-                print("Frame: " + str(frames[0]))
-            
             # Handle frame range option
             if (frames[0] < options.startFrame) or (frames[1] > options.stopFrame):
                 continue
 
+            # Progress indication
+            if frames[0] % 100 == 0:
+                print("Frame: " + str(frames[0]))
+                batchInfoLog.flush() # for instant gratification
+                failureLog.flush()
+                
             # Read in blend results which are not part of the consolidated stats file
             blendDiffPath = dem.replace('out-align-DEM.tif', 'out-blend-DEM-diff.csv')
             try:
@@ -214,9 +216,10 @@ def generateFlightSummary(run, options):
                 interDiffPath     = dem.replace('out-align-DEM.tif', 'out_inter_diff_summary.csv')
                 fireDiffPath      = dem.replace('out-align-DEM.tif', 'out_fireball_diff_summary.csv')
                 fireLidarDiffPath = dem.replace('out-align-DEM.tif', 'out_fireLidar_diff_summary.csv')
-
                 process_icebridge_batch.consolidateStats(lidarDiffPath, interDiffPath, fireDiffPath,
-                                                         fireLidarDiffPath, dem, consolidatedStatsPath)
+                                                         fireLidarDiffPath, dem,
+                                                         consolidatedStatsPath,
+                                                         options.skipGeo)
             # Now the consolidated file should always be present
 
             with open(consolidatedStatsPath, 'r') as f:
@@ -275,6 +278,9 @@ def main(argsIn):
         parser.add_argument("--skip-kml-gen", action="store_true", dest="skipKml", default=False, 
                             help="Skip combining kml files.")
 
+        parser.add_argument("--skip-geo-center", action="store_true", dest="skipGeo", default=False, 
+                            help="Skip computing the center of the tile, which is slow.")
+        
         parser.add_argument('--start-frame', dest='startFrame', type=int,
                           default=icebridge_common.getSmallestFrame(),
                           help="Frame to start with.  Leave this and stop-frame blank to " + \
