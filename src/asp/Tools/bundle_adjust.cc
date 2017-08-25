@@ -671,7 +671,7 @@ void compute_mean_residuals_at_xyz(CameraRelationNetwork<JFeature> & crn,
   } // End double loop through all the observations
 
   // Do the averaging
-  for (size_t i=0; i<num_points; ++i) {
+  for (size_t i = 0; i < num_points; ++i) {
     if (outlier_xyz.find(i) != outlier_xyz.end()) {
       // Skip outliers. But initialize to something.
       mean_residuals[i] = std::numeric_limits<double>::quiet_NaN();
@@ -708,7 +708,7 @@ void write_residual_map(std::string const& output_prefix, CameraRelationNetwork<
   file.precision(18);
   
   // Now write all the points to the file
-  for (size_t i=0; i<num_points; ++i) {
+  for (size_t i = 0; i < num_points; ++i) {
 
     if (outlier_xyz.find(i) != outlier_xyz.end()) continue; // skip outliers
     
@@ -876,16 +876,16 @@ void write_residual_logs(std::string const& residual_prefix, bool apply_loss_fun
 } // End function write_residual_logs
 
 /// Add to the outliers based on the large residuals
-void update_outliers(ControlNetwork                  & cnet,
-                     CameraRelationNetwork<JFeature> & crn,
-                     const double *points, const size_t num_points,
-                     std::set<int> & outlier_xyz,
-                     Options const& opt,
-                     size_t num_cameras,
-                     size_t num_camera_params, size_t num_point_params,
-                     std::vector<size_t> const& cam_residual_counts,
-                     size_t num_gcp_residuals, 
-                     ceres::Problem &problem) {
+int update_outliers(ControlNetwork                  & cnet,
+                    CameraRelationNetwork<JFeature> & crn,
+                    const double *points, const size_t num_points,
+                    std::set<int> & outlier_xyz,
+                    Options const& opt,
+                    size_t num_cameras,
+                    size_t num_camera_params, size_t num_point_params,
+                    std::vector<size_t> const& cam_residual_counts,
+                    size_t num_gcp_residuals, 
+                    ceres::Problem &problem) {
 
   // Compute the reprojection error. Hence we should not add the contribution
   // of the loss function.
@@ -988,10 +988,15 @@ void update_outliers(ControlNetwork                  & cnet,
     }
   } // End double loop through all the observations
 
-  vw_out() << "Added " << new_outliers.size() - outlier_xyz.size() << " outliers.\n";
+  int num_new_outliers = new_outliers.size() - outlier_xyz.size();
+  vw_out() << "Added " << num_new_outliers << " outliers.\n";
+
+  // TODO: Write how many outliers were removed because of the lonlat check and elevation check
   
   // Overwrite the outliers
   outlier_xyz = new_outliers;
+
+  return num_new_outliers;
 }
 
 
@@ -1043,7 +1048,7 @@ void record_points_to_kml(const std::string &kml_path, const cartography::Datum&
 }
 
 template <class ModelT>
-void do_ba_ceres_one_pass(ModelT                          & ba_model,
+int do_ba_ceres_one_pass(ModelT                          & ba_model,
                           Options                         & opt,
                           ControlNetwork                  & cnet,
                           CameraRelationNetwork<JFeature> & crn,
@@ -1227,7 +1232,7 @@ void do_ba_ceres_one_pass(ModelT                          & ba_model,
   else
     options.num_threads = opt.num_threads;
 
-  // Set solver options according to the reccomendations in the Ceres solving FAQs
+  // Set solver options according to the recommendations in the Ceres solving FAQs
   options.linear_solver_type = ceres::SPARSE_SCHUR;
   if (num_cameras < 100)
     options.linear_solver_type = ceres::DENSE_SCHUR;
@@ -1255,7 +1260,6 @@ void do_ba_ceres_one_pass(ModelT                          & ba_model,
     // Print a clarifying message, so the user does not think that the algorithm failed.
     vw_out() << "Found a valid solution, but did not reach the actual minimum." << std::endl;
   }
-
 
   vw_out() << "Writing final condition log files..." << std::endl;
   residual_prefix = opt.out_prefix + "-final_residuals_loss_function";
@@ -1289,12 +1293,15 @@ void do_ba_ceres_one_pass(ModelT                          & ba_model,
     }
   }
 
+  int num_new_outliers  = 0;
   if (!last_pass) 
-    update_outliers(cnet, crn, points, num_points,
-                    outlier_xyz,   // in-out
-                    opt, num_cameras, num_camera_params, num_point_params, cam_residual_counts,  
-                    num_gcp_residuals, problem);
+    num_new_outliers =
+      update_outliers(cnet, crn, points, num_points,
+                      outlier_xyz,   // in-out
+                      opt, num_cameras, num_camera_params, num_point_params, cam_residual_counts,  
+                      num_gcp_residuals, problem);
 
+  return num_new_outliers;
 }
 
 /// Use Ceres to do bundle adjustment. The camera and point variables
@@ -1344,6 +1351,12 @@ void do_ba_ceres(ModelT & ba_model, Options & opt ){
   // The camera positions and orientations before we float them
   std::vector<double> orig_cameras_vec = cameras_vec;
 
+  std::vector<double> orig_points_vec, orig_intrinsics_vec;
+  if (opt.num_ba_passes > 1) {
+    orig_points_vec = points_vec;
+    orig_intrinsics_vec = intrinsics_vec;
+  }
+  
   CameraRelationNetwork<JFeature> crn;
   crn.read_controlnetwork(cnet);
 
@@ -1354,33 +1367,42 @@ void do_ba_ceres(ModelT & ba_model, Options & opt ){
     vw_throw(ArgumentErr()
              << "Error: Expecting at least one bundle adjust pass.\n");
   
-  // Camera extrinsics and intrinsics
-  double* cameras    = &cameras_vec[0];
-  double* intrinsics = NULL;
-  if (num_intrinsic_params > 0)
-    intrinsics = &intrinsics_vec[0];
-  
-  double* points = &points_vec[0];
-  
   for (int pass = 0; pass < opt.num_ba_passes; pass++) {
-    bool last_pass = (pass == opt.num_ba_passes - 1);
 
-    if (opt.num_ba_passes > 1) 
+    if (opt.num_ba_passes > 1) {
       vw_out() << "Bundle adjust pass: " << pass << std::endl;
+      // Go back to the original inputs to optimize, sans the outliers. Note that we
+      // copy values, to not disturb the pointer of each vector.
+      for (size_t i = 0; i < cameras_vec.size(); i++)    cameras_vec[i]   = orig_cameras_vec[i];
+      for (size_t i = 0; i < points_vec.size(); i++)     points_vec[i]    = orig_points_vec[i];
+      for (size_t i = 0; i < intrinsics_vec.size(); i++) intrinsics_vec[i]=orig_intrinsics_vec[i];
+    }
     
-    do_ba_ceres_one_pass(ba_model, opt,  cnet,  crn, last_pass,
-                         num_camera_params,  num_point_params,  
-                         num_intrinsic_params, num_cameras, num_points,  
-                         orig_cameras_vec,  cameras,  intrinsics,  points,  
-                         outlier_xyz);
+    // Camera extrinsics and intrinsics
+    double* cameras    = &cameras_vec[0];
+    double* points     = &points_vec[0];
+    double* intrinsics = NULL;
+    if (num_intrinsic_params > 0) intrinsics = &intrinsics_vec[0];
+    
+    bool last_pass = (pass == opt.num_ba_passes - 1);
+    int num_new_outliers = do_ba_ceres_one_pass(ba_model, opt,  cnet,  crn, last_pass,
+                                                num_camera_params,  num_point_params,  
+                                                num_intrinsic_params, num_cameras, num_points,  
+                                                orig_cameras_vec,  cameras,  intrinsics,  points,  
+                                                outlier_xyz);
 
-    // We must not include GCP among outliers no matter what!
+    if (!last_pass && num_new_outliers == 0) {
+      vw_out() << "No new outliers removed. No more passes are needed.\n";
+      break;
+    }
   }
 
   // Copy the latest version of the optimized intrinsic variables back
   // into the the separate parameter vectors in ba_model, right after
   // the already updated extrinsic parameters.
   typename ModelT::camera_intr_vector_t concat;
+  double* intrinsics = NULL;
+  if (num_intrinsic_params > 0) intrinsics = &intrinsics_vec[0];
   for (int icam = 0; icam < num_cameras; icam++){
     ba_model.concat_extrinsics_intrinsics(&cameras_vec[icam*num_camera_params],
                                           intrinsics, concat);
