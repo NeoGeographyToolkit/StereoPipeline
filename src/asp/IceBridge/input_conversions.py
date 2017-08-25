@@ -389,7 +389,7 @@ def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
             return False
     return True
 
-def convertLidarDataToCsv(lidarFolder, logger):
+def convertLidarDataToCsv(lidarFolder, skipValidate, logger):
     '''Make sure all lidar data is available in a readable text format.
        Returns false if any files failed to convert.'''
 
@@ -416,9 +416,16 @@ def convertLidarDataToCsv(lidarFolder, logger):
             continue
         
         outputPath = os.path.join(lidarFolder, os.path.splitext(f)[0]+'.csv')
-        if icebridge_common.isValidLidarCSV(outputPath):
-            logger.info("File exists and is valid, skipping: " + outputPath)
-            continue
+
+        # Skip existing valid files
+        if skipValidate:
+            if os.path.exists(outputPath):
+                logger.info("File exists, skipping: " + outputPath)
+                continue
+        else:
+            if icebridge_common.isValidLidarCSV(outputPath):
+                logger.info("File exists and is valid, skipping: " + outputPath)
+                continue
         
         # Call the conversion
         logger.info("Process " + fullPath)
@@ -431,7 +438,7 @@ def convertLidarDataToCsv(lidarFolder, logger):
             
     return not badFiles
 
-def pairLidarFiles(lidarFolder, logger):
+def pairLidarFiles(lidarFolder, skipValidate, logger):
     '''For each pair of lidar files generate a double size point cloud.
        We can use these later since they do not have any gaps between adjacent files.'''
     
@@ -462,10 +469,17 @@ def pairLidarFiles(lidarFolder, logger):
         path1      = os.path.join(lidarFolder, thisFile)
         path2      = os.path.join(lidarFolder, nextFile)
         outputPath = os.path.join(pairFolder, outputName)
-        if icebridge_common.isValidLidarCSV(outputPath):
-            logger.info("Valid lidar file: " + outputPath)
-            continue
-        
+
+        # Skip existing valid files
+        if skipValidate:
+            if os.path.exists(outputPath):
+                logger.info("File exists, skipping: " + outputPath)
+                continue
+        else:
+            if icebridge_common.isValidLidarCSV(outputPath):
+                logger.info("File exists and is valid, skipping: " + outputPath)
+                continue
+
         # Concatenate the two files
         cmd1 = 'cat ' + path1 + ' > ' + outputPath
         cmd2 = 'tail -n +2 -q ' + path2 + ' >> ' + outputPath

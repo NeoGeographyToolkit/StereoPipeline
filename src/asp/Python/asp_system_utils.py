@@ -252,7 +252,7 @@ def run_and_parse_output(cmd, args, sep, verbose, **kw ):
     call.extend(args)
 
     if verbose:
-        print(" ".join(call))
+        print asp_string_utils.argListToString(call) 
 
     try:
         p = subprocess.Popen(call, stdout=subprocess.PIPE)
@@ -287,7 +287,7 @@ def run_and_parse_output(cmd, args, sep, verbose, **kw ):
 def run_with_return_code(cmd, verbose=False):
     
     if verbose:
-        print(" ".join(cmd))
+        print asp_string_utils.argListToString(cmd) 
 
     try:
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
@@ -304,25 +304,53 @@ def run_with_return_code(cmd, verbose=False):
 
     return p.returncode
 
-def run_return_outputs(cmd, verbose=False):
+def run_return_outputs(
+    # Command to run, as as an array, or as a string
+    cmd,
+    # If given, throw if the file is not created.  Don't run if it already exists.
+    outputPath=None,
+    # If true, don't print anything
+    suppressOutput=False,
+    # If true, run even if outputPath already exists.
+    redo=False):         
+
     '''Start a process. Wait until it finishes. Return the exit
     status, output, and error. If any of these are None, convert them
     to empty strings to make them easier to use.'''
-    if verbose:
-        print(" ".join(cmd))
 
-    try:
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    except OSError as e:
-        print('Error: %s: %s' % (" ".join(cmd), e))
+    if cmd == '' or len(cmd) == 0: # An empty task
+        return (1, "", "")
+
+    # Convert the input to list format if needed
+    if not asp_string_utils.isNotString(cmd):
+        cmd = asp_string_utils.stringToArgList(cmd)
+
+    # Run the command if conditions are met
+    if redo or (not outputPath) or (not os.path.exists(outputPath)):
+
+        if not suppressOutput:
+            print asp_string_utils.argListToString(cmd) 
+
+        try:
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except OSError as e:
+            print('Error: %s: %s' % (asp_string_utils.argListToString(cmd), e))
         
-    (stdout, stderr) = p.communicate()
-    p.wait()
-    status = p.returncode
-    
-    if stdout is None: stdout = ""
-    if stderr is None: stderr = ""
+        (stdout, stderr) = p.communicate()
+        p.wait()
+        status = p.returncode
         
+        if stdout is None: stdout = ""
+        if stderr is None: stderr = ""
+        
+        if not suppressOutput:
+            print(stdout)
+            print(stderr)
+            
+    # Optionally check that the output file was created
+    if outputPath and (not os.path.exists(outputPath)):
+        print('Failed to create output file: ' + outputPath)
+
     return (status, stdout, stderr)
 
 # TODO: Improve this function a bit

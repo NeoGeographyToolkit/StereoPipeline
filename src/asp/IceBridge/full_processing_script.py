@@ -299,7 +299,8 @@ def main(argsIn):
     logger   = icebridge_common.setUpLogger(options.outputFolder, logLevel,
                                             'icebridge_processing_log')
 
-    (status, out, err) = asp_system_utils.run_return_outputs(['uname', '-a'], verbose=False)
+    (status, out, err) = asp_system_utils.run_return_outputs(['uname', '-a'],
+                                                             suppressOutput = True)
     logger.info("Running on machine: " + out)
     
     # Perform some input checks and initializations
@@ -356,8 +357,9 @@ def main(argsIn):
             # TODO: May be worth doing the faster functions with multiprocessing in the future
 
             if not options.noLidarConvert:
-                input_conversions.convertLidarDataToCsv(lidarFolder, logger)
-                input_conversions.pairLidarFiles(lidarFolder, logger)
+                input_conversions.convertLidarDataToCsv(lidarFolder, options.skipValidate,
+                                                        logger)
+                input_conversions.pairLidarFiles(lidarFolder, options.skipValidate, logger)
          
             input_conversions.correctFireballDems(fireballFolder, corrFireballFolder,
                                                   options.startFrame, options.stopFrame,
