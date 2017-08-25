@@ -233,7 +233,10 @@ def estimateHeightRange(projBounds, projString, lidarFile, options, threadText,
                                  options.outputFolder, threadText, suppressOutput, redo)
     
     # Get the min and max height of the lidar file
-    lidarMin, lidarMax, lidarMean, lidarStd = asp_image_utils.getImageStats(lidarDemPath)[0]
+    try:
+        lidarMin, lidarMax, lidarMean, lidarStd = asp_image_utils.getImageStats(lidarDemPath)[0]
+    except:
+        raise Exception('Failed to generate lidar DEM to estimate height range!')
 
     # TODO: Use the standard deviation here?
     minHeight = lidarMin - HEIGHT_BUFFER
@@ -420,7 +423,7 @@ def doWork(options, args, logger):
     # Verify all input files exist
     for i in range(0,numArgs):
         if not os.path.exists(args[i]):
-            print 'Input file '+ args[i] +' does not exist!'
+            logger.error('Arg parsing error: Input file '+ args[i] +' does not exist!')
             return 0
 
     # Parse input files
@@ -456,8 +459,11 @@ def doWork(options, args, logger):
     # Check the last output products from this script.  If they exist,
     #  quit now so we don't regenerate intermediate products.
     consolidatedStatsPath = outputPrefix + '-consolidated_stats.txt'
-    if os.path.exists(consolidatedStatsPath) and not redo:
+    demSymlinkPath        = outputPrefix + '-align-DEM.tif'
+    if ( os.path.exists(consolidatedStatsPath) and 
+         os.path.exists(demSymlinkPath) and not redo ):
         logger.info('Final output file already exists, quitting script early.')
+        logger.info('Finished script process_icebridge_batch!') # Include the same normal completion message
         return
 
 
@@ -727,7 +733,6 @@ def doWork(options, args, logger):
         consolidateGeodiffResults(fireballDiffPaths,     fireballDiffSummaryPath )
         consolidateGeodiffResults(fireLidarDiffCsvPaths, fireLidarDiffSummaryPath)
 
-    demSymlinkPath = outputPrefix + '-align-DEM.tif'
     lidarDiffPath  = outputPrefix + "-diff.csv"
     if lidarFile:
         # PC_ALIGN
@@ -777,7 +782,7 @@ def doWork(options, args, logger):
         # Delete large files that we don't need going forwards.
     #    clean_batch(options.outputFolder, prefixes, interDiffPaths, fireballDiffPaths, smallFiles=True)
 
-    logger.info('Finished!')
+    logger.info('Finished script process_icebridge_batch!')
 
 
 # Run main function if file used from shell

@@ -578,7 +578,7 @@ def main(argsIn):
 
         # TODO: Prefetch the next run while waiting on this run!
 
-        batchListPath = os.path.join(run.getProcessFolder(), 'batch_commands_log.txt')
+        fullBatchListPath = os.path.join(run.getProcessFolder(), 'batch_commands_log.txt')
 
         if not options.skipFetch:
             # Obtain the data for a run if it is not already done
@@ -589,12 +589,13 @@ def main(argsIn):
             runConversion(run, options)
 
         
-        if os.path.exists(batchListPath) and not options.recomputeBatches:
+        if os.path.exists(fullBatchListPath) and not options.recomputeBatches:
             logger.info('Re-using existing batch list file.')
+            batchListPath = fullBatchListPath
         else:
             # Run command to generate the list of batch jobs for this run
             logger.info('Fetching batch list for run ' + str(run))
-            batchListPath = generateBatchList(run, options, batchListPath)
+            batchListPath = generateBatchList(run, options, fullBatchListPath)
     
         if options.failedBatchesOnly:
             logger.info('Assembling batch file with only failed batches...')
@@ -620,7 +621,7 @@ def main(argsIn):
         #addToRunList(COMPLETED_RUN_LIST, run)
 
         # Generate a simple report of the results
-        (numOutputs, numProduced, errorCount) = checkResults(run, batchListPath)
+        (numOutputs, numProduced, errorCount) = checkResults(run, fullBatchListPath)
         resultText = ('"Created %d out of %d output targets with %d errors."' % 
                       (numProduced, numOutputs, errorCount))
         logger.info(resultText)

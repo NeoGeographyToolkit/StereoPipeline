@@ -38,6 +38,7 @@ sys.path.insert(0, libexecpath)
 sys.path.insert(0, icebridgepath)
 
 import icebridge_common, pbs_functions, archive_functions, run_helper, lvis2kml
+import process_icebridge_batch
 import asp_system_utils, asp_geo_utils, asp_image_utils
 
 asp_system_utils.verify_python_version_is_supported()
@@ -47,6 +48,84 @@ os.environ["PATH"] = basepath       + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = pythonpath     + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = libexecpath    + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
+
+# TODO: Move this function!
+def getLastLog(logPrefix):
+    '''Return the path to the latest log file matching a prefix'''
+    
+    # Get all the files in the folder containing the prefix
+    folder   = os.path.dirname(logPrefix)
+    logFiles = os.listdir(folder)
+    logFiles = [os.path.join(folder, x) for x in logFiles]
+    logFiles = [x for x in logFiles if logPrefix in x]
+    
+    # No matches found!
+    if not logFiles:
+        return None
+    
+    # Go through the remaining files and find the one with the latest modify time
+    # - Assumes the modify time is a good replacement for the stamp in the file name.
+    latestFile = logFiles[0]
+    latestTime = os.path.getmtime(latestFile)
+    for log in logFiles:
+        thisTime = os.path.getmtime(log)
+        if thisTime > latestTime:
+            latestTime = thisTime
+            latestFile = log
+
+    return latestFile
+    
+    
+
+def getFailureCause(batchFolder):
+    '''Try to figure out the reason that a DEM failed'''
+    
+    # Define a list of failure reasons and text descriptions
+    UNKNOWN       = -1
+    SUCCESS       = 0
+    FAIL_FILE_MISSING = 1
+    FAIL_LIDAR    = 2
+    FAIL_BUNDLE   = 3
+    FAIL_STEREO   = 4
+    FAIL_PC_ALIGN = 5
+    
+    errorSummaries = {} # Human readable error codes
+    errorSummaries[UNKNOWN      ] = 'Unknown failure'
+    errorSummaries[SUCCESS      ] = 'Success'
+    errorSummaries[FAIL_FILE_MISSING] = 'Missing argument file'
+    errorSummaries[FAIL_LIDAR   ] = 'Failed to generate lidar DEM'
+    errorSummaries[FAIL_BUNDLE  ] = 'Bundle adjust failed'
+    errorSummaries[FAIL_STEREO  ] = 'Stereo failed'
+    errorSummaries[FAIL_PC_ALIGN] = 'pc_align failed'
+    
+    errorLogText = {} # Text in the log file that indicates an error occurred
+    errorLogText[SUCCESS      ] = 'Finished script process_icebridge_batch!'
+    errorLogText[FAIL_FILE_MISSING] = 'Arg parsing error: Input file'  
+    errorLogText[FAIL_LIDAR   ] = 'Failed to generate lidar DEM to estimate height range!'
+    errorLogText[FAIL_BUNDLE  ] = 'Bundle adjustment failed!'
+    errorLogText[FAIL_STEREO  ] = 'Stereo call failed!'
+    errorLogText[FAIL_PC_ALIGN] = 'Unable to find a good value for max-displacement in pc_align.'
+
+    logPrefix = os.path.join(batchFolder, 'icebridge_batch_log_')
+    latestLog = getLastLog(logPrefix)
+    if not latestLog:
+        raise Exception('DEBUG')
+    
+    # Search for errors in chronological order
+    logText = ''
+    with open(latestLog, 'r') as log:
+        logText = log.read()
+    
+    foundError = UNKNOWN
+    for code in errorLogText.iterkeys():
+        if code in (UNKNOWN, SUCCESS): #Skip these codes
+            continue
+        if errorLogText[code] in logText:
+            foundError = code
+            break # Stop at the first error we find
+       
+    return (foundError, errorSummaries[foundError])
+      
 
 def generateFlightSummary(run, options):
     '''Generate a folder containing handy debugging files including output thumbnails'''
@@ -93,7 +172,6 @@ def generateFlightSummary(run, options):
                 lvis2kml.main(args)
        
 
-    # TODO: Update to blended data!
     # Collect per-batch information
     batchInfoPath   = os.path.join(options.outputFolder, 'batchInfoSummary.csv')
     failedBatchPath = os.path.join(options.outputFolder, 'failedBatchList.csv')
@@ -102,105 +180,61 @@ def generateFlightSummary(run, options):
     with open(batchInfoPath, 'w') as batchInfoLog, open(failedBatchPath, 'w') as failureLog:
         # Write the header for the batch log file
         batchInfoLog.write('# startFrame, stopFrame, centerLon, centerLat, meanAlt, ' +
-                           ' meanLidarDiff, meanBlendDiff, meanInterDiff, meanFireDiff, meanFireLidarDiff\n')
-        failureLog.write('# startFrame, stopFrame\n')
+                           ' meanLidarDiff, meanInterDiff, meanFireDiff, meanFireLidarDiff, meanBlendDiff\n')
+        failureLog.write('# startFrame, stopFrame, errorCode, errorText\n')
         
         demList = run.getOutputDemList()
         for (dem, frames) in demList:
 
+            # Progress indication
             if frames[0] % 100 == 0:
                 print("Frame: " + str(frames[0]))
-                      
+            
+            # Handle frame range option
             if (frames[0] < options.startFrame) or (frames[1] > options.stopFrame):
                 continue
+
+            # Read in blend results which are not part of the consolidated stats file
+            blendDiffPath = dem.replace('out-align-DEM.tif', 'out-blend-DEM-diff.csv')
+            try:
+                blendDiffResults = icebridge_common.readGeodiffOutput(blendDiffPath)
+            except:
+                blendDiffResults = {'Mean':-999}
             
+            # All of the other results should be in a consolidated stats file
             consolidatedStatsPath = dem.replace('out-align-DEM.tif', 'out-consolidated_stats.txt')
-            if False:#os.path.exists(consolidatedStatsPath):
-                with open(consolidatedStatsPath, 'r') as f:
-                    statsText = f.read()
 
-                # Write info to summary file
-                batchInfoLog.write('%d, %d, %s\n' % (frames[0], frames[1], statsText))
+            if not os.path.exists(consolidatedStatsPath):
+                # Stats file not present, recreate it.
 
-                # Keep a list of batches that did not generate an output DEM
-                parts = statsText.split(',')
-                if (float(parts[0]) == 0) and (float(parts[1]) == 0) and (float(parts[2]) == -999):
-                    failureLog.write('%d, %d\n' %  (frames[0], frames[1]))  
-
-            else: 
-
-                # TODO: Remove this deprecated part!
+                print 'Recreating missing stats file: ' + consolidatedStatsPath
 
                 # Get paths to the files of interest
                 lidarDiffPath     = dem.replace('out-align-DEM.tif', 'out-diff.csv')
-                blendDiffPath     = dem.replace('out-align-DEM.tif', 'out-blend-DEM-diff.csv')
                 interDiffPath     = dem.replace('out-align-DEM.tif', 'out_inter_diff_summary.csv')
                 fireDiffPath      = dem.replace('out-align-DEM.tif', 'out_fireball_diff_summary.csv')
                 fireLidarDiffPath = dem.replace('out-align-DEM.tif', 'out_fireLidar_diff_summary.csv')
 
-                # Read in the diff results            
-                try:
-                    lidarDiffResults = icebridge_common.readGeodiffOutput(lidarDiffPath)
-                except:
-                    lidarDiffResults = {'Mean':-999}
-                try:
-                    blendDiffResults = icebridge_common.readGeodiffOutput(blendDiffPath)
-                except:
-                    blendDiffResults = {'Mean':-999}
-                try:
-                    interDiffResults = icebridge_common.readGeodiffOutput(interDiffPath)
-                except:
-                    interDiffResults = {'Mean':-999}
-                try:
-                    fireDiffResults  = icebridge_common.readGeodiffOutput(fireDiffPath)
-                except:
-                    fireDiffResults  = {'Mean':-999}
-                try:
-                    fireLidarDiffResults = icebridge_common.readGeodiffOutput(fireLidarDiffPath)
-                except:
-                    fireLidarDiffResults = {'Mean':-999}
+                process_icebridge_batch.consolidateStats(lidarDiffPath, interDiffPath, fireDiffPath,
+                                                         fireLidarDiffPath, dem, consolidatedStatsPath)
+            # Now the consolidated file should always be present
 
-                success = True
-                if options.skipGeo:
-                    success = False
-                else:
-                    try:
-                        # Get DEM stats
-                        geoInfo = asp_geo_utils.getImageGeoInfo(dem, getStats=False)
-                        stats   = asp_image_utils.getImageStats(dem)[0]
-                        meanAlt = stats[2]
-                        centerX, centerY = geoInfo['projection_center']
-                        
-                        # Convert from projected coordinates to lonlat coordinates            
-                        isSouth    = ('+lat_0=-90' in geoInfo['proj_string'])
-                        projString = icebridge_common.getEpsgCode(isSouth, asString=True)
-                        PROJ_STR_WGS84 = 'EPSG:4326'
-                        centerLon, centerLat = asp_geo_utils.convertCoords(centerX, centerY, projString, PROJ_STR_WGS84)
-                    except:
-                        success = False
+            with open(consolidatedStatsPath, 'r') as f:
+                statsText = f.read()
 
-                if not success:
-                    centerLon = 0
-                    centerLat = 0
-                    meanAlt   = -999
-                    
-                    # Keep a list of batches that failed this step
-                    failureLog.write('%d, %d\n' %  (frames[0], frames[1]))
+            # Write info to summary file
+            batchInfoLog.write('%d, %d, %s, %f\n' % 
+                               (frames[0], frames[1], statsText, blendDiffResults['Mean']))
+
+            # Keep a list of batches that did not generate an output DEM
+            parts = statsText.split(',')
+            if (float(parts[0]) == 0) and (float(parts[1]) == 0) and (float(parts[2]) == -999):
+            
+                batchFolder = os.path.dirname(dem)
+                (errorCode, errorText) = getFailureCause(batchFolder)
+
+                failureLog.write('%d, %d, %d, %s\n' %  (frames[0], frames[1], errorCode, errorText))
                 
-                # Write info to summary file
-                batchInfoLog.write('%d, %d, %f, %f, %f, %f, %f, %f, %f, %f\n' % 
-                                   (frames[0], frames[1], centerLon, centerLat, meanAlt, 
-                                    lidarDiffResults['Mean'], blendDiffResults['Mean'],
-                                    interDiffResults ['Mean'],
-                                    fireDiffResults ['Mean'], fireLidarDiffResults['Mean']))
-
-                # Write out the consolidated file for future passes
-                with open(consolidatedStatsPath, 'w') as f:
-                    f.write('%f, %f, %f, %f, %f, %f, %f' % 
-                             (centerLon, centerLat, meanAlt, 
-                              lidarDiffResults['Mean'], interDiffResults    ['Mean'],
-                              fireDiffResults ['Mean'], fireLidarDiffResults['Mean']))
-                # End deprecated code section!
             
             # Make a link to the thumbnail file in our summary folder
             hillshadePath = dem.replace('out-align-DEM.tif', 'out-DEM_HILLSHADE_browse.tif')
@@ -209,6 +243,8 @@ def generateFlightSummary(run, options):
                 thumbPath = os.path.join(options.outputFolder, thumbName)
                 icebridge_common.makeSymLink(hillshadePath, thumbPath, verbose=False)
                 
+    # End loop through expected DEMs
+    
     print 'Finished generating flight summary in folder: ' + options.outputFolder
 
 # The parent folder is where the runs AN_... and GR_..., etc., are
@@ -238,9 +274,6 @@ def main(argsIn):
 
         parser.add_argument("--skip-kml-gen", action="store_true", dest="skipKml", default=False, 
                             help="Skip combining kml files.")
-        
-        parser.add_argument("--skip-geo-center", action="store_true", dest="skipGeo", default=False, 
-                            help="Skip computing the geocenter for each frame, which is expensive.")
 
         parser.add_argument('--start-frame', dest='startFrame', type=int,
                           default=icebridge_common.getSmallestFrame(),
