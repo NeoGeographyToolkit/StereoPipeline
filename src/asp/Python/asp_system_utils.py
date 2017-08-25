@@ -292,7 +292,7 @@ def run_with_return_code(cmd, verbose=False):
     try:
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     except OSError as e:
-        print('Error: %s: %s' % (" ".join(cmd), e))
+        print('Error: %s: %s' % ( asp_string_utils.argListToString(cmd), e))
         
     (stdout, stderr) = p.communicate()
     p.wait()
@@ -312,8 +312,13 @@ def executeCommand(cmd,
                    noThrow=False):       # If true, don't throw if output is missing
     '''Executes a command with multiple options'''
 
+    # Initialize outputs
+    out    = ""
+    status = 0
+    err    = ""
+    
     if cmd == '': # An empty task
-        return False
+        return (out, err, status)
 
     # Convert the input to list format if needed
     if not asp_string_utils.isNotString(cmd):
@@ -325,11 +330,17 @@ def executeCommand(cmd,
         if not suppressOutput:
             print asp_string_utils.argListToString(cmd)
 
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = p.communicate()
-        
-        status = p.returncode
-        
+        try:
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            out, err = p.communicate()
+            status = p.returncode
+        except OSError as e:
+            out = ""
+            err = ('Error: %s: %s' % (asp_string_utils.argListToString(cmd), e))
+            status = 1
+            if not noThrow:
+                raise Exception(err)
+            
         if out is None: out = ""
         if err is None: err = ""
 
@@ -337,9 +348,9 @@ def executeCommand(cmd,
             print out + '\n' + err
             
     else: # Output file already exists, don't re-run
-        status = 0
         out    = ""
         err    = ""
+        status = 0
 
     # Optionally check that the output file was created
     if outputPath and (not os.path.exists(outputPath)) and (not noThrow):

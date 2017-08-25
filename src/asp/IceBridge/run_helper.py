@@ -169,7 +169,6 @@ class RunHelper():
             output.append((path, frames))
         return output
 
-
     def allSourceDataFetched(self, verbose=False):
         '''Return true if all the required source data has been downloaded'''
     
