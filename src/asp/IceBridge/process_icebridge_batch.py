@@ -19,7 +19,7 @@
 # Run bundle adjustment, stereo, generate DEMs, merge dems, perform alignment, etc,
 # for a series of icebridge images
 
-import os, sys, optparse, datetime, logging, multiprocessing
+import os, sys, optparse, datetime, logging, multiprocessing, glob
 
 # The path to the ASP python files
 basepath      = os.path.dirname(os.path.realpath(__file__))  # won't change, unlike syspath
@@ -530,36 +530,56 @@ def doWork(options, args, logger):
     CAMERA_WEIGHT  = 0.1   # TODO: Find the best value here
     ROBUST_THRESHOLD = 2.0 # TODO: Find the best value here
     OVERLAP_EXPONENT = 0   # TODO: Find the best value here
-    
     bundlePrefix   = os.path.join(options.outputFolder, 'bundle/out')
     baOverlapLimit = options.stereoImageInterval + 3
     if baOverlapLimit < MIN_BA_OVERLAP:
         baOverlapLimit = MIN_BA_OVERLAP
-        
-    cmd = (('bundle_adjust %s -o %s %s %s --datum wgs84 --camera-weight %0.16g -t nadirpinhole ' +
-            '--local-pinhole --overlap-limit %d --robust-threshold %0.16g ' +
-            '--ip-detect-method 1 --ip-per-tile 500 ' + 
-            '--overlap-exponent %0.16g --epipolar-threshold 50')  \
-           % (imageCameraString, bundlePrefix, threadText, heightLimitString, 
-              CAMERA_WEIGHT, baOverlapLimit, ROBUST_THRESHOLD, OVERLAP_EXPONENT))
-    
-    if options.solve_intr:
-        cmd += ' --solve-intrinsics'
-    
-    # Point to the new camera models
+
+    # Try several attempts
+    ipMethod  = [1,   0,   2,   1,    0,    2]
+    ipPerTile = [500, 500, 500, 2000, 2000, 2000]
+
+    # The name of one of the camera models to be created
     for pair in inputPairs:       
         newCamera = bundlePrefix +'-'+ os.path.basename(pair[1])
         pair[1] = newCamera
         imageCameraString.replace(pair[1], newCamera)
+    
+    for attempt in range(len(ipPerTile)):
+        
+        cmd = (('bundle_adjust %s -o %s %s %s --datum wgs84 ' +
+                '--camera-weight %0.16g -t nadirpinhole ' +
+                '--local-pinhole --overlap-limit %d --robust-threshold %0.16g ' +
+                '--ip-detect-method %d --ip-per-tile %d ' + 
+                '--overlap-exponent %0.16g --epipolar-threshold 50')  \
+               % (imageCameraString, bundlePrefix, threadText, heightLimitString, 
+                  CAMERA_WEIGHT, baOverlapLimit, ROBUST_THRESHOLD, ipMethod[attempt],
+                  ipPerTile[attempt], OVERLAP_EXPONENT))
+        
+        if options.solve_intr:
+            cmd += ' --solve-intrinsics'
+    
 
-    # Run the BA command and log errors
-    logger.info(cmd) # to make it go to the log, not just on screen
-    (out, err, status) = asp_system_utils.executeCommand(cmd, newCamera, True, redo, noThrow=True)
-    logger.info(out + '\n' + err)
-    if status != 0:
-        raise Exception('Bundle adjustment failed!\n')
+        # Run the BA command and log errors
+        logger.info(cmd) # to make it go to the log, not just on screen
+        (out, err, status) = asp_system_utils.executeCommand(cmd, newCamera, True, redo,
+                                                             noThrow=True)
+        logger.info(out + '\n' + err)
+        
+        if status == 0:
+            logger.info("Bundle adjustment succeded.")
+            break
+        
+        if attempt + 1 == len(ipPerTile):
+            # Even the last attempt failed
+            raise Exception('Bundle adjustment failed!\n')
 
-
+        # Try again. Carefully wipe only relevant files
+        logger.info("Trying bundle adjustment again.")
+        for f in glob.glob(bundlePrefix + '*'):
+            logger.info("Wipe: " + f)
+            os.remove(f)
+        
     # Generate a map of post-bundle camera positions
     orbitvizAfter = os.path.join(options.outputFolder, 'cameras_out.kml')
     vizString  = ''
