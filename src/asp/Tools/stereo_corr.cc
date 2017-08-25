@@ -495,6 +495,8 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
     return;
   }
 
+
+
 /// Use existing interest points to compute a search range
 /// - This function could use improvement!
 /// - Should it be used in all cases?
@@ -536,9 +538,9 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
 							   stereo_settings().lon_lat_limit,
 							   matched_ip1, matched_ip2);
 
-
-  if (num_left == 0)
-    vw_throw(ArgumentErr() << "No IPs left after elevation filtering!");
+  const size_t MIN_NUM_POINTS = 6;
+  if (num_left < MIN_NUM_POINTS)
+    vw_throw(ArgumentErr() << "Too few IPs left after elevation filtering: " << num_left);
 
   // Find search window based on interest point matches
 
@@ -569,29 +571,51 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   
   //printf("min x,y = %lf, %lf, max x,y = %lf, %lf\n", min_dx, min_dy, max_dx, max_dy);
   
+  //for (int i=0; i<NUM_BINS; ++i) {
+  //  printf("%d => X: %lf: %lf,   Y:  %lf: %lf\n", i, centers_x[i], hist_x[i], centers_y[i], hist_y[i]);
+  //}
+  
   // Compute search ranges
-  const double MAX_PERCENTILE = 0.95;
-  const double MIN_PERCENTILE = 0.05;
+  const double  MAX_PERCENTILE = 0.95;
+  const double  MIN_PERCENTILE = 0.05;
+  const Vector2 FORCED_EXPANSION = Vector2(10,2); // Must expand range by at least this much
   double search_scale = 2.0;
   size_t min_bin_x = get_histogram_percentile(hist_x, MIN_PERCENTILE);
   size_t min_bin_y = get_histogram_percentile(hist_y, MIN_PERCENTILE);
   size_t max_bin_x = get_histogram_percentile(hist_x, MAX_PERCENTILE);
   size_t max_bin_y = get_histogram_percentile(hist_y, MAX_PERCENTILE);
-  Vector2 search_min(centers_x[min_bin_x],
-                     centers_y[min_bin_y]);
-  Vector2 search_max(centers_x[max_bin_x],
-                     centers_y[max_bin_y]);
+  //std::cout << "min_bin_x = " << min_bin_x << std::endl;
+  //std::cout << "min_bin_y = " << min_bin_y << std::endl;
+  //std::cout << "max_bin_x = " << max_bin_x << std::endl;
+  //std::cout << "max_bin_y = " << max_bin_y << std::endl;
+  Vector2 search_min(centers_x[min_bin_x], centers_y[min_bin_y]);
+  Vector2 search_max(centers_x[max_bin_x], centers_y[max_bin_y]);
+  //std::cout << "search_min = " << search_min << std::endl;
+  //std::cout << "search_max = " << search_max << std::endl;
   //std::cout << "Unscaled search range = " << BBox2i(search_min, search_max) << std::endl;
   Vector2 search_center = (search_max + search_min) / 2.0;
   //std::cout << "search_center = " << search_center << std::endl;
   Vector2 d_min = search_min - search_center; // TODO: Make into a bbox function!
   Vector2 d_max = search_max - search_center;
+  
   //std::cout << "d_min = " << d_min << std::endl;
   //std::cout << "d_max = " << d_max << std::endl;
-  search_min = d_min*search_scale + search_center;
-  search_max = d_max*search_scale + search_center;
-  //std::cout << "Scaled search range = " << BBox2i(search_min, search_max) << std::endl;
+  // Enforce a minimum expansion on the search range in each direction
+  Vector2 min_expand = d_min*search_scale;
+  Vector2 max_expand = d_max*search_scale;
+  for (int i=0; i<2; ++i) {
+    if (min_expand[i] > -1*FORCED_EXPANSION[i])
+      min_expand[i] = -1*FORCED_EXPANSION[i];
+    if (max_expand[i] < FORCED_EXPANSION[i])
+      max_expand[i] = FORCED_EXPANSION[i];
+  }
   
+  search_min = search_center + min_expand;
+  search_max = search_center + max_expand;
+  Vector2i search_minI(floor(search_min[0]), floor(search_min[1])); // Round outwards
+  Vector2i search_maxI(ceil (search_max[0]), ceil (search_max[1]));
+  //std::cout << "search_min = " << search_minI << std::endl;
+  //std::cout << "search_max = " << search_maxI << std::endl;  
 /*
    // Debug code to print all the points
   for (size_t i = 0; i < matched_ip1.size(); i++) {
@@ -602,12 +626,21 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
     vw_out(InfoMessage,"asp") << matched_ip1[i].x <<", "<<matched_ip1[i].y 
               << " <> " 
               << matched_ip2[i].x <<", "<<matched_ip2[i].y 
-               << " DIFF " << diff << " DIFF-M " << diff-mean << endl;
+               << " DIFF " << diff << endl;
   }
 */
   
   //vw_out(InfoMessage,"asp") << "i_scale is : "       << i_scale << endl;
-  BBox2i search_range(search_min, search_max);
+  BBox2i search_range(search_minI, search_maxI);
+  std::cout << "Scaled search range = " << search_range << std::endl;
+  
+  // Prevent any dimension from being length zero,
+  //  otherwise future parts to ASP will fail.
+  // TODO: Fix ASP and SGM handling of small boxes!
+  //       - Currently code has a minimum search height of 5!
+  if (search_range.empty())
+    vw_throw(ArgumentErr() << "Computed an empty search range!");
+  
   return search_range;
 } // End function approximate_search_range
 
