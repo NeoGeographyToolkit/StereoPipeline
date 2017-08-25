@@ -249,7 +249,8 @@ def main(argsIn):
     logger   = icebridge_common.setUpLogger(options.outputFolder, logLevel,
                                             'icebridge_processing_log')
 
-    (status, out, err) = asp_system_utils.run_return_outputs(['uname', '-a'], verbose=False)
+    (status, out, err) = asp_system_utils.run_return_outputs(['uname', '-a'],
+                                                             suppressOutput = True)
     logger.info("Running on machine: " + out)
     
     processFolder = os.path.join(options.outputFolder, 'processed')
