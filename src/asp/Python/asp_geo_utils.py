@@ -22,7 +22,7 @@
 """
 
 import sys, os, glob, re, shutil, subprocess, string, time, errno
-
+import subprocess32
 import asp_string_utils, asp_image_utils, asp_system_utils
 
 def getGdalInfoTagValue(text, tag):
@@ -467,7 +467,7 @@ def convertCoords(x, y, projStringIn, projStringOut):
     p = subprocess32.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=False)
     textOutput, err = p.communicate( ('%f %f\n' % (x, y)), timeout=0.1 )
     parts = textOutput.split()
-    
+
     return ( float(parts[0]), float(parts[1]) )
     
 

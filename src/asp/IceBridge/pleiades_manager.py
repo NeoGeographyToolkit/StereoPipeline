@@ -83,7 +83,7 @@ def getParallelParams(nodeType, task):
         if nodeType == 'ivy': return (10, 2, 400)
         if nodeType == 'bro': return (14, 2, 500)
     
-    if task == 'batch'
+    if task == 'batch':
         if nodeType == 'ivy': return (3, 8, 80)
         if nodeType == 'bro': return (4, 8, 100)
     
@@ -272,7 +272,7 @@ def generateBatchList(run, options, listPath):
     os.system(cmd)
 
 
-
+# TODO: Share code with the other function
 def filterBatchJobFile(run, batchListPath):
     '''Make a copy of the batch list file which only contains incomplete batches.'''
     
@@ -286,20 +286,20 @@ def filterBatchJobFile(run, batchListPath):
     #batchOutputName = 'out-blend-DEM.tif'
     batchOutputName = 'out-align-DEM.tif'
     
-    with open(batchListPath, 'r') as f, open(newBatchPath, 'w'):
-        for line in f:
+    with open(batchListPath, 'r') as fIn, open(newBatchPath, 'w') as fOut:
+        for line in fIn:
             parts        = line.split()
-            outputFolder = parts[9] # This needs to be kept up to date with the file format!
+            outputFolder = parts[10] # This needs to be kept up to date with the file format!
             targetPath   = os.path.join(outputFolder, batchOutputName)
             if not os.path.exists(targetPath):
-                newBatchPath.write(line)
+                fOut.write(line)
             
     return newBatchPath
     
     
 
 
-def submitBatchJobs(run, batchListPath):
+def submitBatchJobs(run, options, batchListPath):
     '''Read all the batch jobs required for a run and distribute them across job submissions.
        Returns the common string in the job names.'''
 
@@ -331,12 +331,12 @@ def submitBatchJobs(run, batchListPath):
     for i in range(0, numBatchJobs):
         jobName    = str(currentBatch) + baseName
         startBatch = currentBatch
-        stopBatch  = currentBatch+numBatchesPerNode
+        stopBatch  = currentBatch+tasksPerJob
         if (i == numBatchJobs-1):
             stopBatch = numBatches-1 # Make sure nothing is lost at the end
 
         # Specify the range of lines in the file we want this node to execute
-        args = ('%s %d %d %d' % (batchListPath, numProcesses, currentBatch, currentBatch+numBatchesPerNode))
+        args = ('%s %d %d %d' % (batchListPath, numProcesses, startBatch, stopBatch))
 
         logPrefix = os.path.join(pbsLogFolder, 'batch_' + jobName)
         logger.info('Submitting batch job with args: '+args)
@@ -462,7 +462,7 @@ def checkResults(run, batchListPath):
     with open(batchListPath, 'r') as f:
         for line in f:
             parts        = line.split()
-            outputFolder = parts[9] # This needs to be kept up to date with the file format!
+            outputFolder = parts[10] # This needs to be kept up to date with the file format!
             targetPath   = os.path.join(outputFolder, batchOutputName)
             numOutputs += 1
             if os.path.exists(targetPath):
@@ -510,7 +510,7 @@ def main(argsIn):
         parser.add_argument("--site",  dest="site", required=True,
                             help="Name of the location of the images (AN, GR, or AL)")
                             
-        parser.add_argument("--node-type",  dest="nodeType", default='ivy'
+        parser.add_argument("--node-type",  dest="nodeType", default='ivy',
                             help="Node type to use (wes[mfe], san, ivy, has, bro)")
         
         parser.add_argument("--camera-calibration-folder",  dest="inputCalFolder", default=None,
@@ -602,10 +602,10 @@ def main(argsIn):
             batchListPath = generateBatchList(run, options, batchListPath)
     
         if options.failedBatchesOnly:
-            # Replace the batch list with one containing only failed batches
-            batchListPath = filterBatchJobFile(run, batchListPath):
+            logger.info('Assembling batch file with only failed batches...')
+            batchListPath = filterBatchJobFile(run, batchListPath)
         
-        if not skipProcess:
+        if not options.skipProcess:
         
             # Divide up batches into jobs and submit them to machines.
             logger.info('Submitting jobs for run ' + str(run))

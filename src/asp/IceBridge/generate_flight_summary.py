@@ -21,7 +21,7 @@
 #   superceded by another script.
 
 import os, sys, optparse, datetime, time, subprocess, logging, multiprocessing
-import re, shutil, time, getpass, argparse, subprocess32
+import re, shutil, time, getpass, argparse
 
 import os.path as P
 
@@ -108,7 +108,7 @@ def generateFlightSummary(run, outputFolder, skipKml = False):
         for (dem, frames) in demList:
 
             consolidatedStatsPath = dem.replace('out-align-DEM.tif', 'out-consolidated_stats.txt')
-            if os.path.exists(consolidatedStatsPath):
+            if False:#os.path.exists(consolidatedStatsPath):
                 with open(consolidatedStatsPath, 'r') as f:
                     statsText = f.read()
 
@@ -117,15 +117,14 @@ def generateFlightSummary(run, outputFolder, skipKml = False):
 
                 # Keep a list of batches that did not generate an output DEM
                 parts = statsText.split(',')
-                if (int(parts[0]) == 0) and (int(parts[1]) == 0) and (int(parts[2]) == -999):
-                failureLog.write('%d, %d\n' %  (frames[0], frames[1]))  
+                if (float(parts[0]) == 0) and (float(parts[1]) == 0) and (float(parts[2]) == -999):
+                    failureLog.write('%d, %d\n' %  (frames[0], frames[1]))  
 
             else: 
 
                 # TODO: Remove this deprecated part!
 
                 # Get paths to the files of interest
-                hillshadePath     = dem.replace('out-align-DEM.tif', 'out-DEM_HILLSHADE_browse.tif')
                 lidarDiffPath     = dem.replace('out-align-DEM.tif', 'out-diff.csv')
                 interDiffPath     = dem.replace('out-align-DEM.tif', 'out_inter_diff_summary.csv')
                 fireDiffPath      = dem.replace('out-align-DEM.tif', 'out_fireball_diff_summary.csv')
@@ -150,6 +149,7 @@ def generateFlightSummary(run, outputFolder, skipKml = False):
                     fireLidarDiffResults = {'Mean':-999}
 
                 try:
+                #if os.path.exists(dem):
                     # Get DEM stats
                     geoInfo = asp_geo_utils.getImageGeoInfo(dem, getStats=False)
                     stats   = asp_image_utils.getImageStats(dem)[0]
@@ -161,6 +161,7 @@ def generateFlightSummary(run, outputFolder, skipKml = False):
                     projString = icebridge_common.getEpsgCode(isSouth, asString=True)
                     PROJ_STR_WGS84 = 'EPSG:4326'
                     centerLon, centerLat = asp_geo_utils.convertCoords(centerX, centerY, projString, PROJ_STR_WGS84)
+                #else:
                 except:
                     centerLon = 0
                     centerLat = 0
@@ -181,9 +182,11 @@ def generateFlightSummary(run, outputFolder, skipKml = False):
                              (centerLon, centerLat, meanAlt, 
                               lidarDiffResults['Mean'], interDiffResults    ['Mean'],
                               fireDiffResults ['Mean'], fireLidarDiffResults['Mean']))
+                print 'Wrote: ' + consolidatedStatsPath
                 # End deprecated code section!
             
             # Make a link to the thumbnail file in our summary folder
+            hillshadePath = dem.replace('out-align-DEM.tif', 'out-DEM_HILLSHADE_browse.tif')
             if os.path.exists(hillshadePath):
                 thumbName = ('dem_%05d_%05d_browse.tif' % (frames[0], frames[1]))
                 thumbPath = os.path.join(outputFolder, thumbName)

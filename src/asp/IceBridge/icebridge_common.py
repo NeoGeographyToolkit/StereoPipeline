@@ -19,7 +19,7 @@
 # Icebridge utility functions
 
 import os, sys, datetime, time, subprocess, logging, re, hashlib, string
-import psutil
+import psutil, errno
 
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
@@ -39,11 +39,17 @@ def outputFolder(site, yyyymmdd):
 
 def makeSymLink(oldFile, newFile, verbose=True):
     '''Safely create a symlink'''
-    try:    os.remove(newFile)
-    except: pass  
-    if verbose:
-        print("ln -s " + os.path.abspath(oldFile) + " " + newFile)
-    os.symlink(os.path.abspath(oldFile), newFile)
+
+    oldPath = os.path.abspath(oldFile)
+    try:
+        if verbose:
+            print("ln -s " + oldPath + " " + newFile)
+        os.symlink(oldPath, newFile)
+    except OSError, e:
+        if e.errno == errno.EEXIST:
+            os.remove(newFile)
+            os.symlink(oldPath, newFile)
+    
 
 def getSmallestFrame():
     '''Return the smallest possible frame number.'''
