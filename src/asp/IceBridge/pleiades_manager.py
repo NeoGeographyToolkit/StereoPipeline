@@ -296,9 +296,6 @@ def filterBatchJobFile(run, batchListPath):
             
     return newBatchPath
     
-    
-
-
 def submitBatchJobs(run, options, batchListPath):
     '''Read all the batch jobs required for a run and distribute them across job submissions.
        Returns the common string in the job names.'''
@@ -346,8 +343,6 @@ def submitBatchJobs(run, options, batchListPath):
 
     # Waiting on these jobs happens outside this function
     return baseName
-
-
 
 def runBlending(run, options):
     '''Blend together a series of batch DEMs'''

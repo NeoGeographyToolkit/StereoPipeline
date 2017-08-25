@@ -48,22 +48,22 @@ os.environ["PATH"] = pythonpath     + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = libexecpath    + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 
-def generateFlightSummary(run, outputFolder, skipKml = False):
+def generateFlightSummary(run, options):
     '''Generate a folder containing handy debugging files including output thumbnails'''
     
     # Copy logs to the output folder
     print 'Copying log files...'
-    os.system('mkdir -p ' + outputFolder)
+    os.system('mkdir -p ' + options.outputFolder)
     runFolder  = run.getFolder()
     procFolder = run.getProcessFolder()
     packedErrorLog = os.path.join(runFolder, 'packedErrors.log')
     if os.path.exists(packedErrorLog):
-        shutil.copy(packedErrorLog, outputFolder)
+        shutil.copy(packedErrorLog, options.outputFolder)
 
-    if not skipKml:
+    if not options.skipKml:
         # Copy the input camera kml file
         camerasInKmlPath = os.path.join(procFolder, 'cameras_in.kml')
-        shutil.copy(camerasInKmlPath, outputFolder)
+        shutil.copy(camerasInKmlPath, options.outputFolder)
         
         # Create a merged version of all the bundle adjusted camera files
         # - The tool currently includes cameras more than once if they appear
@@ -74,7 +74,7 @@ def generateFlightSummary(run, outputFolder, skipKml = False):
         textOutput, err = p.communicate()
         camKmlFiles = textOutput.replace('\n', ' ')
         
-        outputKml = os.path.join(outputFolder, 'cameras_out.kml')
+        outputKml = os.path.join(options.outputFolder, 'cameras_out.kml')
         scriptPath = asp_system_utils.which('merge_orbitviz.py')
         cmd = scriptPath +' '+ outputKml +' '+ camKmlFiles
         print cmd
@@ -83,7 +83,7 @@ def generateFlightSummary(run, outputFolder, skipKml = False):
         # Generate lidar kml files
         LIDAR_POINT_SKIP = 1527
         lidarFiles = run.getLidarList(prependFolder=True)
-        lidarOutputFolder = os.path.join(outputFolder, 'lidar')
+        lidarOutputFolder = os.path.join(options.outputFolder, 'lidar')
         os.system('mkdir -p ' + lidarOutputFolder)
         for f in lidarFiles:
             inputPath = os.path.splitext(f)[0] + '.csv'
@@ -95,18 +95,22 @@ def generateFlightSummary(run, outputFolder, skipKml = False):
 
     # TODO: Update to blended data!
     # Collect per-batch information
-    print 'Consolidating batch information...'
-    batchInfoPath   = os.path.join(outputFolder, 'batchInfoSummary.csv')
-    failedBatchPath = os.path.join(outputFolder, 'failedBatchList.csv')
+    batchInfoPath   = os.path.join(options.outputFolder, 'batchInfoSummary.csv')
+    failedBatchPath = os.path.join(options.outputFolder, 'failedBatchList.csv')
+    print("Writing statistics to: " + batchInfoPath)
+    print("Writing failures to: " + failedBatchPath)
     with open(batchInfoPath, 'w') as batchInfoLog, open(failedBatchPath, 'w') as failureLog:
         # Write the header for the batch log file
         batchInfoLog.write('# startFrame, stopFrame, centerLon, centerLat, meanAlt, ' +
-                           ' meanLidarDiff, meanInterDiff, meanFireDiff, meanFireLidarDiff\n')
+                           ' meanLidarDiff, meanBlendDiff, meanInterDiff, meanFireDiff, meanFireLidarDiff\n')
         failureLog.write('# startFrame, stopFrame\n')
         
         demList = run.getOutputDemList()
         for (dem, frames) in demList:
 
+            if frames[0] < options.startFrame or frames[1] > options.stopFrame:
+                continue
+            
             consolidatedStatsPath = dem.replace('out-align-DEM.tif', 'out-consolidated_stats.txt')
             if False:#os.path.exists(consolidatedStatsPath):
                 with open(consolidatedStatsPath, 'r') as f:
@@ -126,6 +130,7 @@ def generateFlightSummary(run, outputFolder, skipKml = False):
 
                 # Get paths to the files of interest
                 lidarDiffPath     = dem.replace('out-align-DEM.tif', 'out-diff.csv')
+                blendDiffPath     = dem.replace('out-align-DEM.tif', 'out-blend-DEM-diff.csv')
                 interDiffPath     = dem.replace('out-align-DEM.tif', 'out_inter_diff_summary.csv')
                 fireDiffPath      = dem.replace('out-align-DEM.tif', 'out_fireball_diff_summary.csv')
                 fireLidarDiffPath = dem.replace('out-align-DEM.tif', 'out_fireLidar_diff_summary.csv')
@@ -135,6 +140,10 @@ def generateFlightSummary(run, outputFolder, skipKml = False):
                     lidarDiffResults = icebridge_common.readGeodiffOutput(lidarDiffPath)
                 except:
                     lidarDiffResults = {'Mean':-999}
+                try:
+                    blendDiffResults = icebridge_common.readGeodiffOutput(blendDiffPath)
+                except:
+                    blendDiffResults = {'Mean':-999}
                 try:
                     interDiffResults = icebridge_common.readGeodiffOutput(interDiffPath)
                 except:
@@ -171,9 +180,10 @@ def generateFlightSummary(run, outputFolder, skipKml = False):
                     failureLog.write('%d, %d\n' %  (frames[0], frames[1]))
                 
                 # Write info to summary file
-                batchInfoLog.write('%d, %d, %f, %f, %f, %f, %f, %f, %f\n' % 
+                batchInfoLog.write('%d, %d, %f, %f, %f, %f, %f, %f, %f, %f\n' % 
                                    (frames[0], frames[1], centerLon, centerLat, meanAlt, 
-                                    lidarDiffResults['Mean'], interDiffResults    ['Mean'],
+                                    lidarDiffResults['Mean'], blendDiffResults['Mean'],
+                                    interDiffResults ['Mean'],
                                     fireDiffResults ['Mean'], fireLidarDiffResults['Mean']))
 
                 # Write out the consolidated file for future passes
@@ -182,17 +192,16 @@ def generateFlightSummary(run, outputFolder, skipKml = False):
                              (centerLon, centerLat, meanAlt, 
                               lidarDiffResults['Mean'], interDiffResults    ['Mean'],
                               fireDiffResults ['Mean'], fireLidarDiffResults['Mean']))
-                print 'Wrote: ' + consolidatedStatsPath
                 # End deprecated code section!
             
             # Make a link to the thumbnail file in our summary folder
             hillshadePath = dem.replace('out-align-DEM.tif', 'out-DEM_HILLSHADE_browse.tif')
             if os.path.exists(hillshadePath):
                 thumbName = ('dem_%05d_%05d_browse.tif' % (frames[0], frames[1]))
-                thumbPath = os.path.join(outputFolder, thumbName)
+                thumbPath = os.path.join(options.outputFolder, thumbName)
                 icebridge_common.makeSymLink(hillshadePath, thumbPath, verbose=False)
                 
-    print 'Finished generating flight summary in folder: ' + outputFolder
+    print 'Finished generating flight summary in folder: ' + options.outputFolder
 
 # The parent folder is where the runs AN_... and GR_..., etc., are
 # stored. Usually it is the current directory.
@@ -222,6 +231,14 @@ def main(argsIn):
         parser.add_argument("--skip-kml-gen", action="store_true", dest="skipKml", default=False, 
                             help="Skip combining kml files.")
         
+        parser.add_argument('--start-frame', dest='startFrame', type=int,
+                          default=icebridge_common.getSmallestFrame(),
+                          help="Frame to start with.  Leave this and stop-frame blank to " + \
+                          "process all frames.")
+        parser.add_argument('--stop-frame', dest='stopFrame', type=int,
+                          default=icebridge_common.getLargestFrame(),
+                          help='Frame to stop on.')
+
         options = parser.parse_args(argsIn)
         
     except argparse.ArgumentError, msg:
@@ -232,7 +249,7 @@ def main(argsIn):
 
     run = run_helper.RunHelper(options.site, options.yyyymmdd, options.parentFolder)
     
-    generateFlightSummary(run, options.outputFolder, options.skipKml)
+    generateFlightSummary(run, options)
     
     return 0
 

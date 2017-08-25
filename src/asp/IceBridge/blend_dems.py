@@ -181,7 +181,7 @@ def runBlend(frame, processFolder, lidarFile, bundleLength, threadText, redo, su
         
         for fileName in filesToWipe:
             if os.path.exists(fileName):
-                print("Will wipe: " + fileName)
+                print("Removing: " + fileName)
                 os.remove(fileName)
                 
     except Exception as e:
