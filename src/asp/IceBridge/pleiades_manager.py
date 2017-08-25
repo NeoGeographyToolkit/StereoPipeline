@@ -74,23 +74,24 @@ SLEEP_TIME = 60
 # 'has' = Haswell      = 24 cores, 128 GB mem, SBU 3.34
 # 'bro' = Broadwell    = 28 cores, 128 GB mem, SBU 4.04
 
-def getParallelParams(nodeType, ortho=False):
+def getParallelParams(nodeType, task):
     '''Return (numProcesses, numThreads, tasksPerJob) for running a certain task on a certain node type'''
 
     # Define additional combinations and edit as needed.
 
-    if ortho:
+    if task == 'ortho':
         if nodeType == 'ivy': return (10, 2, 400)
         if nodeType == 'bro': return (14, 2, 500)
     
-    else: # Batch processing
-
+    if task == 'batch'
         if nodeType == 'ivy': return (3, 8, 80)
         if nodeType == 'bro': return (4, 8, 100)
     
-    # TODO: Blend step
+    if task == 'blend':
+        if nodeType == 'ivy': return (10, 2, 240)
+        if nodeType == 'bro': return (14, 2, 300)
     
-    raise Exception('No params defined for node type ' + nodeType + ', ortho = ' + str(ortho))
+    raise Exception('No params defined for node type ' + nodeType + ', task = ' + task)
 
 
 #=========================================================================
@@ -185,8 +186,7 @@ def runConversion(run, options):
             logger.info('Conversion is already complete.')
             return
     except Exception, e:
-        logger.warning('Caught error checking conversion status, re-running conversion.\n'
-                       + str(e))
+        logger.warning('Caught error checking conversion status, re-running conversion.\n' + str(e))
         
     logger.info('Converting data for run ' + str(run))
             
@@ -197,7 +197,7 @@ def runConversion(run, options):
     logger.info('Detected frame range: ' + str((minFrame, maxFrame)))
 
     # Retrieve parallel processing parameters
-    (numProcesses, numThreads, tasksPerJob) = getParallelParams(options.nodeType, ortho=True)
+    (numProcesses, numThreads, tasksPerJob) = getParallelParams(options.nodeType, 'ortho')
     
     # Split the conversions across multiple nodes using frame ranges
     # - The first job submitted will be the only one that converts the lidar data
@@ -256,7 +256,7 @@ def generateBatchList(run, options, listPath):
     refDemPath = os.path.join(options.refDemFolder, refDemName)
 
     # Retrieve parallel processing parameters
-    (numProcesses, numThreads, tasksPerJob) = getParallelParams(options.nodeType, ortho=False)
+    (numProcesses, numThreads, tasksPerJob) = getParallelParams(options.nodeType, 'batch')
 
     # No actual processing is being done here so it can run on the PFE
     # - This is very fast so we can re-run it every time. (Maybe not...)
@@ -270,7 +270,34 @@ def generateBatchList(run, options, listPath):
 
     logger.info(cmd)
     os.system(cmd)
+
+
+
+def filterBatchJobFile(run, batchListPath):
+    '''Make a copy of the batch list file which only contains incomplete batches.'''
     
+    logger = logging.getLogger(__name__)
+    
+    runFolder = run.getFolder()
+    
+    newBatchPath = batchListPath + '_onlyFailed.txt'
+
+    # Make sure each batch produced the aligned DEM file
+    #batchOutputName = 'out-blend-DEM.tif'
+    batchOutputName = 'out-align-DEM.tif'
+    
+    with open(batchListPath, 'r') as f, open(newBatchPath, 'w'):
+        for line in f:
+            parts        = line.split()
+            outputFolder = parts[9] # This needs to be kept up to date with the file format!
+            targetPath   = os.path.join(outputFolder, batchOutputName)
+            if not os.path.exists(targetPath):
+                newBatchPath.write(line)
+            
+    return newBatchPath
+    
+    
+
 
 def submitBatchJobs(run, batchListPath):
     '''Read all the batch jobs required for a run and distribute them across job submissions.
@@ -289,7 +316,7 @@ def submitBatchJobs(run, batchListPath):
     
     
     # Retrieve parallel processing parameters
-    (numProcesses, numThreads, tasksPerJob) = getParallelParams(options.nodeType, ortho=False)   
+    (numProcesses, numThreads, tasksPerJob) = getParallelParams(options.nodeType, 'batch')
     numBatchJobs = numBatches / tasksPerJob
 
     baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
@@ -319,6 +346,58 @@ def submitBatchJobs(run, batchListPath):
 
     # Waiting on these jobs happens outside this function
     return baseName
+
+
+
+def runBlending(run, options):
+    '''Blend together a series of batch DEMs'''
+    
+    logger = logging.getLogger(__name__)
+        
+    logger.info('Blending DEMs for run ' + str(run))
+    
+    # Get the frame range for the data.
+    (minFrame, maxFrame) = run.getFrameRange()
+    
+    logger.info('Detected frame range: ' + str((minFrame, maxFrame)))
+
+    # Retrieve parallel processing parameters
+    (numProcesses, numThreads, tasksPerJob) = getParallelParams(options.nodeType, 'blend')
+    
+    # Split the blends across multiple nodes using frame ranges
+    numFrames    = maxFrame - minFrame + 1
+    numBlendJobs = numFrames / tasksPerJob
+    
+    outputFolder = run.getFolder()
+    
+    scriptPath = asp_system_utils.which('blend_dems.py')
+    args       = ('--site %s --yyyymmdd %s --num-threads %d --num-processes %d --output-folder %s --bundle-length %d ' 
+                  % (run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder, options.bundleLength))
+    
+    baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
+
+    # Get the location to store the logs    
+    pbsLogFolder = run.getPbsLogFolder()
+    
+    # Submit all the jobs
+    currentFrame = minFrame
+    for i in range(0, numBlendJobs):
+        jobName    = str(currentFrame) + baseName
+        startFrame = currentFrame
+        stopFrame  = currentFrame+tasksPerJob-1
+        if (i == numBlendJobs - 1):
+            stopFrame = maxFrame+1 # Make sure nothing is lost at the end
+        thisArgs = (args + ' --start-frame ' + str(startFrame) + ' --stop-frame ' + str(stopFrame) )
+        logPrefix = os.path.join(pbsLogFolder, 'blend_' + jobName)
+        logger.info('Submitting blend job with args: '+thisArgs)
+        pbs_functions.submitJob(jobName, ORTHO_PBS_QUEUE, MAX_ORTHO_HOURS, GROUP_ID, options.nodeType, scriptPath, thisArgs, logPrefix)
+        
+        currentFrame += tasksPerJob
+
+    # Wait for conversions to finish
+    waitForRunCompletion(baseName)
+        
+
 
 # TODO: Move this
 def waitForRunCompletion(text):
@@ -360,7 +439,7 @@ def checkResults(run, batchListPath):
         logFileList = os.listdir(pbsLogFolder)
         logFileList = [os.path.join(pbsLogFolder, x) for x in logFileList]
         errorCount = 0
-        errorWords = ['but crn has'] # TODO: Add more!
+        errorWords = ['but crn has', 'LD_PRELOAD cannot be preloaded'] # TODO: Add more!
         for log in logFileList:
             with open(log, 'r') as f:
                 for line in f:
@@ -375,6 +454,7 @@ def checkResults(run, batchListPath):
     logger.info('Counted ' + str(errorCount) + ' errors in log files!')
     
     # Make sure each batch produced the aligned DEM file
+    #batchOutputName = 'out-blend-DEM.tif'
     batchOutputName = 'out-align-DEM.tif'
     
     numOutputs  = 0
@@ -441,10 +521,22 @@ def main(argsIn):
         parser.add_argument('--bundle-length', dest='bundleLength', default=2,
                           type=int, help="The number of images to bundle adjust and process in a single batch.")
 
-        parser.add_argument("--stop-before-process", action="store_true", dest="dontProcess", default=False, 
+        parser.add_argument("--recompute-batch-file", action="store_true", 
+                            dest="recomputeBatches", default=False, 
+                            help="Recompute an existing batch file.")
+
+        parser.add_argument("--skip-completed-batches", action="store_true", 
+                            dest="failedBatchesOnly", default=False, 
+                            help="Don't reprocess completed batches.")
+
+        parser.add_argument("--skip-fetch", action="store_true", dest="skipFetch", default=False, 
+                            help="Don't fetch.")
+        parser.add_argument("--skip-convert", action="store_true", dest="skipConvert", default=False, 
+                            help="Don't convert.")
+        parser.add_argument("--skip-process", action="store_true", dest="skipProcess", default=False, 
                             help="Don't process the batches.")
-        parser.add_argument("--process-only", action="store_true", dest="processOnly", default=False, 
-                            help="Don't fetch or convert.")
+        parser.add_argument("--skip-blend", action="store_true", dest="skipBlend", default=False, 
+                            help="Skip blending.")
                           
         options = parser.parse_args(argsIn)
 
@@ -493,32 +585,39 @@ def main(argsIn):
 
         batchListPath = os.path.join(run.getProcessFolder(), 'batch_commands_log.txt')
 
-        if not options.processOnly:
+        if not options.skipFetch:
             # Obtain the data for a run if it is not already done
             runFetch(run, options)       
-                   
+
+        if not options.skipConvert:                   
             # Run conversion and archive results if not already done        
             runConversion(run, options)
 
+        
+        if os.path.exists(batchListPath) and not options.recomputeBatches:
+            logger.info('Re-using existing batch list file.')
+        else:
             # Run command to generate the list of batch jobs for this run
             logger.info('Fetching batch list for run ' + str(run))
             batchListPath = generateBatchList(run, options, batchListPath)
-        else:
-            logger.info('Skipping fetch and ortho2pinhole')
-
-        if options.dontProcess:
-            logger.info('Quitting after pre-processing')
-            return
-       
-        # Divide up batches into jobs and submit them to machines.
-        logger.info('Submitting jobs for run ' + str(run))
-        baseName = submitBatchJobs(run, options, batchListPath)
+    
+        if options.failedBatchesOnly:
+            # Replace the batch list with one containing only failed batches
+            batchListPath = filterBatchJobFile(run, batchListPath):
         
+        if not skipProcess:
         
-        # Wait for all the jobs to finish
-        logger.info('Waiting for job completion of run ' + str(run))
-        waitForRunCompletion(baseName)
-        logger.info('All jobs finished for run '+str(run))
+            # Divide up batches into jobs and submit them to machines.
+            logger.info('Submitting jobs for run ' + str(run))
+            baseName = submitBatchJobs(run, options, batchListPath)
+        
+            # Wait for all the jobs to finish
+            logger.info('Waiting for job completion of run ' + str(run))
+            waitForRunCompletion(baseName)
+            logger.info('All jobs finished for run '+str(run))
+        
+        #if not options.skipBlend:
+        #    runBlending(run, options)
         
         # TODO: Uncomment when processing multiple runs.
         ## Log the run as completed

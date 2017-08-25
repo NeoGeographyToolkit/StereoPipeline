@@ -127,13 +127,17 @@ class RunHelper():
         images.sort()
         return images
 
-    def getLidarList(self, paired=False):
+    def getLidarList(self, paired=False, prependFolder=False):
         '''Return a list containing all the currently stored lidar files.
            This does not return converted csv files.'''
         lidarFolder = self.getLidarFolder()
         if paired:
             lidarFolder = os.path.join(lidarFolder, 'paired')
-        return icebridge_common.getLidar(lidarFolder)
+        files = icebridge_common.getLidar(lidarFolder)
+        if prependFolder:
+            files = [os.path.join(lidarFolder, x) for x in files]
+        files.sort()
+        return files
         
 
     def getBatchFolderList(self):
@@ -151,6 +155,7 @@ class RunHelper():
         batchFolders  = [x for x in batchFolders if os.path.isdir(x)]
         return batchFolders
 
+    # TODO: Update to blended data
     def getOutputDemList(self):
         '''Return a list containing all the output DEM files in the run and the associated frames'''
         

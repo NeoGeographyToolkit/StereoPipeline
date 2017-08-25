@@ -329,7 +329,8 @@ def run_return_outputs(cmd, verbose=False):
 def executeCommand(cmd,
                    outputPath=None,      # If given, throw if the file is not created.  Don't run if it already exists.
                    suppressOutput=False, # If true, don't print anything!
-                   redo=False):          # If true, run even if outputPath already exists.
+                   redo=False,           # If true, run even if outputPath already exists.
+                   noThrow=False):       # If true, don't throw if output is missing
     '''Executes a command with multiple options'''
 
     if cmd == '': # An empty task
@@ -342,14 +343,30 @@ def executeCommand(cmd,
     # Run the command if conditions are met
     if redo or (not outputPath) or (not os.path.exists(outputPath)):
 
-        if suppressOutput: # Process silently
-            FNULL = open(os.devnull, 'w')
-            subprocess.call(cmd, stdout=FNULL, stderr=subprocess.STDOUT)
-        else: # Display output, taking care of quotes
-            print asp_string_utils.argListToString(cmd) 
-            subprocess.call(cmd)
+        if not suppressOutput:
+            print asp_string_utils.argListToString(cmd)
+
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = p.communicate()
+        
+        status = p.returncode
+        
+        if out is None: out = ""
+        if err is None: err = ""
+        
+        if not suppressOutput:
+            print out + '\n' + err
+            
+    else: # Output file already exists, don't re-run
+        status = 0
+        out    = ""
+        err    = ""
 
     # Optionally check that the output file was created
-    if outputPath and (not os.path.exists(outputPath)):
+    if outputPath and (not os.path.exists(outputPath)) and (not noThrow):
         raise asp_cmd_utils.CmdRunException('Failed to create output file: ' + outputPath)
-    return True
+        
+    return (out, err, status)
+    
+    
+    

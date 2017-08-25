@@ -48,19 +48,6 @@ os.environ["PATH"] = pythonpath     + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = libexecpath    + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = icebridgepath  + os.pathsep + os.environ["PATH"]
 
-# TODO: Move this function!
-def convertCoords(x, y, projStringIn, projStringOut):
-    '''Convert coordinates from one projection to another'''
-
-    # Using subprocess32 to access the timeout argument which is not always present in subprocess
-    cmd = [asp_system_utils.which('gdaltransform'), '-s_srs', projStringIn, '-t_srs', projStringOut]
-    #print(" ".join(cmd))
-    p = subprocess32.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=False)
-    textOutput, err = p.communicate( ('%f %f\n' % (x, y)), timeout=0.1 )
-    parts = textOutput.split()
-    
-    return ( float(parts[0]), float(parts[1]) )
-
 def generateFlightSummary(run, outputFolder, skipKml = False):
     '''Generate a folder containing handy debugging files including output thumbnails'''
     
@@ -173,7 +160,7 @@ def generateFlightSummary(run, outputFolder, skipKml = False):
                     isSouth    = ('+lat_0=-90' in geoInfo['proj_string'])
                     projString = icebridge_common.getEpsgCode(isSouth, asString=True)
                     PROJ_STR_WGS84 = 'EPSG:4326'
-                    centerLon, centerLat = convertCoords(centerX, centerY, projString, PROJ_STR_WGS84)
+                    centerLon, centerLat = asp_geo_utils.convertCoords(centerX, centerY, projString, PROJ_STR_WGS84)
                 except:
                     centerLon = 0
                     centerLat = 0
@@ -187,7 +174,13 @@ def generateFlightSummary(run, outputFolder, skipKml = False):
                                    (frames[0], frames[1], centerLon, centerLat, meanAlt, 
                                     lidarDiffResults['Mean'], interDiffResults    ['Mean'],
                                     fireDiffResults ['Mean'], fireLidarDiffResults['Mean']))
-                                    
+
+                # Write out the consolidated file for future passes
+                with open(consolidatedStatsPath, 'w') as f:
+                    f.write('%f, %f, %f, %f, %f, %f, %f' % 
+                             (centerLon, centerLat, meanAlt, 
+                              lidarDiffResults['Mean'], interDiffResults    ['Mean'],
+                              fireDiffResults ['Mean'], fireLidarDiffResults['Mean']))
                 # End deprecated code section!
             
             # Make a link to the thumbnail file in our summary folder

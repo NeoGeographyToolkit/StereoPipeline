@@ -144,6 +144,53 @@ def consolidateGeodiffResults(inputFiles, outputPath=None):
     return mergedResult
 
 
+def consolidateStats(lidarDiffPath, interDiffPath, fireDiffPath, fireLidarDiffPath,  
+                     demPath, outputPath):
+    '''Consolidate statistics into a single file'''
+
+    # Read in the diff results            
+    try:
+        lidarDiffResults = icebridge_common.readGeodiffOutput(lidarDiffPath)
+    except:
+        lidarDiffResults = {'Mean':-999}
+    try:
+        interDiffResults = icebridge_common.readGeodiffOutput(interDiffPath)
+    except:
+        interDiffResults = {'Mean':-999}
+    try:
+        fireDiffResults  = icebridge_common.readGeodiffOutput(fireDiffPath)
+    except:
+        fireDiffResults  = {'Mean':-999}
+    try:
+        fireLidarDiffResults = icebridge_common.readGeodiffOutput(fireLidarDiffPath)
+    except:
+        fireLidarDiffResults = {'Mean':-999}
+
+    # Get DEM stats
+    try:
+        geoInfo = asp_geo_utils.getImageGeoInfo(demPath, getStats=False)
+        stats   = asp_image_utils.getImageStats(demPath)[0]
+        meanAlt = stats[2]
+        centerX, centerY = geoInfo['projection_center']
+
+        # Convert from projected coordinates to lonlat coordinates            
+        isSouth    = ('+lat_0=-90' in geoInfo['proj_string'])
+        projString = icebridge_common.getEpsgCode(isSouth, asString=True)
+        PROJ_STR_WGS84 = 'EPSG:4326'
+        centerLon, centerLat = asp_geo_utils.convertCoords(centerX, centerY, projString, PROJ_STR_WGS84)
+    except:
+        centerLon = 0
+        centerLat = 0
+        meanAlt   = -999
+
+    # Write info to summary file        
+    with open(outputPath, 'w') as f:
+        f.write('%f, %f, %f, %f, %f, %f, %f' % 
+                 (centerLon, centerLat, meanAlt, 
+                  lidarDiffResults['Mean'], interDiffResults    ['Mean'],
+                  fireDiffResults ['Mean'], fireLidarDiffResults['Mean']))
+
+
 def lidarCsvToDem(lidarFile, projBounds, projString, outputFolder, threadText, 
                   suppressOutput, redo):
         '''Generate a DEM from a lidar file in the given region (plus a buffer)'''
@@ -168,10 +215,9 @@ def lidarCsvToDem(lidarFile, projBounds, projString, outputFolder, threadText,
         lidarDemOutput = lidarDemPrefix+'-DEM.tif'
         asp_system_utils.executeCommand(cmd, lidarDemOutput, suppressOutput, redo)
             
-        colorOutput = lidarDemPrefix+'-DEM_CMAP.tif'
-        cmd = ('colormap  %s -o %s' 
-               % ( lidarDemOutput, colorOutput))
-        asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
+        #colorOutput = lidarDemPrefix+'-DEM_CMAP.tif'
+        #cmd = ('colormap  %s -o %s' % ( lidarDemOutput, colorOutput))
+        #asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
         
         return lidarDemOutput
             
@@ -180,7 +226,7 @@ def estimateHeightRange(projBounds, projString, lidarFile, options, threadText,
     '''Estimate the valid height range in a region based on input height info.'''
     
     # Expand the estimate by this much in either direction
-    HEIGHT_BUFFER = 200
+    HEIGHT_BUFFER = 120
     
     # Create a lidar DEM at the region
     lidarDemPath = lidarCsvToDem(lidarFile, projBounds, projString, 
@@ -199,7 +245,7 @@ def estimateHeightRange(projBounds, projString, lidarFile, options, threadText,
     
 
 def createDem(i, options, inputPairs, prefixes, demFiles, projString,
-              extraArgs, threadText, suppressOutput, redo):
+              extraArgs, threadText, suppressOutput, redo, logger=None):
     '''Create a DEM from a pair of images'''
 
     # Since we use epipolar alignment our images should be aligned at least this well.
@@ -231,11 +277,18 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     else:
         correlationArgString = options.stereoArgs
         filterArgString = ''
-        
+         
     stereoCmd += correlationArgString
     stereoCmd += filterArgString
+    
+    # Call and check status
     triOutput = thisPairPrefix + '-PC.tif'
-    asp_system_utils.executeCommand(stereoCmd, triOutput, suppressOutput, redo)
+    suppressOutput = (logger != None)
+    (out, err, status) = asp_system_utils.executeCommand(stereoCmd, triOutput, suppressOutput, redo, noThrow=True)
+    if suppressOutput:
+        logger.info(out + '\n' + err)
+    if status != 0:
+        raise Exception('Stereo call failed!')
 
     # point2dem on the result of ASP
     # - The size limit is to prevent bad point clouds from creating giant DEM files which
@@ -246,15 +299,9 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput, redo)
 
     # COLORMAP
-    #colormapMin = -20 # To really be useful we need to read the range off the
-    # lidar and use it for all files.
-    #colormapMax =  20
-    colorOutput = thisPairPrefix+'-DEM_CMAP.tif'
-    #cmd = ('colormap --min %f --max %f %s -o %s'
-    #     % (colormapMin, colormapMax, p2dOutput, colorOutput))
-    cmd = ('colormap %s -o %s'  
-           % (p2dOutput, colorOutput))
-    asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
+    #colorOutput = thisPairPrefix+'-DEM_CMAP.tif'
+    #cmd = ('colormap %s -o %s' % (p2dOutput, colorOutput))
+    #asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
 
 
 def clean_batch(batchFolder, stereoPrefixes, interDiffPaths, fireballDiffPaths, smallFiles=False):
@@ -279,6 +326,7 @@ def clean_batch(batchFolder, stereoPrefixes, interDiffPaths, fireballDiffPaths, 
 
 
 def main(argsIn):
+    '''Handle arguments then call doWork function'''
 
     try:
         usage = '''usage: process_icebridge_batch <imageA> <imageB> [imageC ...] <cameraA> <cameraB> [cameraC ...]'''
@@ -345,32 +393,45 @@ def main(argsIn):
             print usage
             return 0
 
-        # Verify all input files exist
-        for i in range(0,numArgs):
-            if not os.path.exists(args[i]):
-                print 'Input file '+ args[i] +' does not exist!'
-                return 0
-
-        # Parse input files
-        inputPairs   = []
-        for i in range(0, numCameras):
-            image  = args[i]
-            camera = args[i + numCameras]
-            inputPairs.append([image, camera])
-        imageCameraString = ' '.join(args)
-       
-        #print 'Read input pairs: ' + str(inputPairs)
-
     except optparse.OptionError, msg:
         raise Usage(msg)
 
-    projString = icebridge_common.getProjString(options.isSouth, addQuotes=False)
-
-    asp_system_utils.mkdir_p(options.outputFolder)
-
+    # Start up the logger, output will go in the output folder.
     #logger = logging.getLogger(__name__)
     logLevel = logging.INFO # Make this an option??
+    asp_system_utils.mkdir_p(options.outputFolder)
     logger = icebridge_common.setUpLogger(options.outputFolder, logLevel, 'icebridge_batch_log')
+
+    # Run the rest of the code and log any unhandled exceptions.
+    try:
+        doWork(options, args, logger)
+        return 0
+    except Exception, e:
+        logger.exception(e)
+        return -1
+    
+
+def doWork(options, args, logger):
+    '''Do all of the processing.'''
+
+    numArgs    = len(args)
+    numCameras = (numArgs) / 2
+
+    # Verify all input files exist
+    for i in range(0,numArgs):
+        if not os.path.exists(args[i]):
+            print 'Input file '+ args[i] +' does not exist!'
+            return 0
+
+    # Parse input files
+    inputPairs   = []
+    for i in range(0, numCameras):
+        image  = args[i]
+        camera = args[i + numCameras]
+        inputPairs.append([image, camera])
+    imageCameraString = ' '.join(args)
+
+    projString = icebridge_common.getProjString(options.isSouth, addQuotes=False)
 
     suppressOutput = False
     redo           = False
@@ -392,10 +453,10 @@ def main(argsIn):
    
     outputPrefix  = os.path.join(options.outputFolder, 'out')
 
-    # Check the last output product from this script.  If it exists,
+    # Check the last output products from this script.  If they exist,
     #  quit now so we don't regenerate intermediate products.
-    colorOutput = outputPrefix+'-DEM_CMAP.tif'
-    if os.path.exists(colorOutput) and not redo:
+    consolidatedStatsPath = outputPrefix + '-consolidated_stats.txt'
+    if os.path.exists(consolidatedStatsPath) and not redo:
         logger.info('Final output file already exists, quitting script early.')
         return
 
@@ -477,11 +538,16 @@ def main(argsIn):
         newCamera = bundlePrefix +'-'+ os.path.basename(pair[1])
         pair[1] = newCamera
         imageCameraString.replace(pair[1], newCamera)
-    # Run the BA command
-    logger.info(cmd) # to make it go to the log, not just on screen
-    asp_system_utils.executeCommand(cmd, newCamera, suppressOutput, redo)
 
-    # Generate a map of initial camera positions
+    # Run the BA command and log errors
+    logger.info(cmd) # to make it go to the log, not just on screen
+    (out, err, status) = asp_system_utils.executeCommand(cmd, newCamera, True, redo, noThrow=True)
+    logger.info(out + '\n' + err)
+    if status != 0:
+        raise Exception('Bundle adjustment failed!\n')
+
+
+    # Generate a map of post-bundle camera positions
     orbitvizAfter = os.path.join(options.outputFolder, 'cameras_out.kml')
     vizString  = ''
     for (image, camera) in inputPairs: 
@@ -532,7 +598,7 @@ def main(argsIn):
     else:
         for i in range(0, numRuns):
             createDem(i, options, inputPairs, prefixes, demFiles, projString, extraArgs,
-                      threadText, suppressOutput, redo)
+                      threadText, suppressOutput, redo, logger)
 
     # If we had to create at least one DEM, need to redo all the post-DEM creation steps
     if atLeastOneDemMissing:
@@ -662,6 +728,7 @@ def main(argsIn):
         consolidateGeodiffResults(fireLidarDiffCsvPaths, fireLidarDiffSummaryPath)
 
     demSymlinkPath = outputPrefix + '-align-DEM.tif'
+    lidarDiffPath  = outputPrefix + "-diff.csv"
     if lidarFile:
         # PC_ALIGN
 
@@ -682,7 +749,13 @@ def main(argsIn):
         cmd = ('geodiff --absolute --csv-format %s %s %s -o %s' % \
                (lidarCsvFormatString, allDemPath, lidarFile, outputPrefix))
         logger.info(cmd) # to make it go to the log, not just on screen
-        asp_system_utils.executeCommand(cmd, outputPrefix + "-diff.csv", suppressOutput, redo)
+        asp_system_utils.executeCommand(cmd, lidarDiffPath, suppressOutput, redo)
+
+    # Consolidate statistics into a one line summary file
+    consolidateStats(lidarDiffPath, interDiffSummaryPath, 
+                     fireballDiffSummaryPath, fireLidarDiffSummaryPath,  
+                     allDemPath, consolidatedStatsPath)
+
 
     # HILLSHADE
     hillOutput = outputPrefix+'-DEM_HILLSHADE.tif'
@@ -691,24 +764,21 @@ def main(argsIn):
 
     # Generate a low resolution compressed thumbnail of the hillshade for debugging
     thumbOutput = outputPrefix + '-DEM_HILLSHADE_browse.tif'
-    cmd = 'gdal_translate '+hillOutput+' '+thumbOutput+' -of GTiff -outsize 20% 20% -b 1 -co "COMPRESS=JPEG"'
+    cmd = 'gdal_translate '+hillOutput+' '+thumbOutput+' -of GTiff -outsize 40% 40% -b 1 -co "COMPRESS=JPEG"'
     asp_system_utils.executeCommand(cmd, thumbOutput, suppressOutput, redo)
+    #os.remove(hillOutput) # Remove this file to keep down the file count
 
-    # COLORMAP
-    #colormapMin = -10 # TODO: Automate these?
-    #colormapMax =  20
-    colorOutput = outputPrefix+'-DEM_CMAP.tif'
-    #cmd = ('colormap --min %f --max %f %s -o %s' 
-    #       % (colormapMin, colormapMax, allDemPath, colorOutput))
-    cmd = ('colormap  %s -o %s' 
-           % (allDemPath, colorOutput))
-    asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
+    ## COLORMAP
+    #colorOutput = outputPrefix + '-DEM_CMAP.tif'
+    #cmd = ('colormap  %s -o %s' % (allDemPath, colorOutput))
+    #asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
 
-    if options.cleanup and os.path.exists(demSymlinkPath):
+    #if options.cleanup and os.path.exists(demSymlinkPath):
         # Delete large files that we don't need going forwards.
-        clean_batch(options.outputFolder, prefixes, interDiffPaths, fireballDiffPaths, smallFiles=True)
+    #    clean_batch(options.outputFolder, prefixes, interDiffPaths, fireballDiffPaths, smallFiles=True)
 
     logger.info('Finished!')
+
 
 # Run main function if file used from shell
 if __name__ == "__main__":
