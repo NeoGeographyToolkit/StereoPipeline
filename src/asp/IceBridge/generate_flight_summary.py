@@ -108,7 +108,10 @@ def generateFlightSummary(run, options):
         demList = run.getOutputDemList()
         for (dem, frames) in demList:
 
-            if frames[0] < options.startFrame or frames[1] > options.stopFrame:
+            if frames[0] % 100 == 0:
+                print("Frame: " + str(frames[0]))
+                      
+            if (frames[0] < options.startFrame) or (frames[1] > options.stopFrame):
                 continue
             
             consolidatedStatsPath = dem.replace('out-align-DEM.tif', 'out-consolidated_stats.txt')
@@ -157,21 +160,26 @@ def generateFlightSummary(run, options):
                 except:
                     fireLidarDiffResults = {'Mean':-999}
 
-                try:
-                #if os.path.exists(dem):
-                    # Get DEM stats
-                    geoInfo = asp_geo_utils.getImageGeoInfo(dem, getStats=False)
-                    stats   = asp_image_utils.getImageStats(dem)[0]
-                    meanAlt = stats[2]
-                    centerX, centerY = geoInfo['projection_center']
+                success = True
+                if options.skipGeo:
+                    success = False
+                else:
+                    try:
+                        # Get DEM stats
+                        geoInfo = asp_geo_utils.getImageGeoInfo(dem, getStats=False)
+                        stats   = asp_image_utils.getImageStats(dem)[0]
+                        meanAlt = stats[2]
+                        centerX, centerY = geoInfo['projection_center']
+                        
+                        # Convert from projected coordinates to lonlat coordinates            
+                        isSouth    = ('+lat_0=-90' in geoInfo['proj_string'])
+                        projString = icebridge_common.getEpsgCode(isSouth, asString=True)
+                        PROJ_STR_WGS84 = 'EPSG:4326'
+                        centerLon, centerLat = asp_geo_utils.convertCoords(centerX, centerY, projString, PROJ_STR_WGS84)
+                    except:
+                        success = False
 
-                    # Convert from projected coordinates to lonlat coordinates            
-                    isSouth    = ('+lat_0=-90' in geoInfo['proj_string'])
-                    projString = icebridge_common.getEpsgCode(isSouth, asString=True)
-                    PROJ_STR_WGS84 = 'EPSG:4326'
-                    centerLon, centerLat = asp_geo_utils.convertCoords(centerX, centerY, projString, PROJ_STR_WGS84)
-                #else:
-                except:
+                if not success:
                     centerLon = 0
                     centerLat = 0
                     meanAlt   = -999
@@ -231,6 +239,9 @@ def main(argsIn):
         parser.add_argument("--skip-kml-gen", action="store_true", dest="skipKml", default=False, 
                             help="Skip combining kml files.")
         
+        parser.add_argument("--skip-geo-center", action="store_true", dest="skipGeo", default=False, 
+                            help="Skip computing the geocenter for each frame, which is expensive.")
+
         parser.add_argument('--start-frame', dest='startFrame', type=int,
                           default=icebridge_common.getSmallestFrame(),
                           help="Frame to start with.  Leave this and stop-frame blank to " + \
