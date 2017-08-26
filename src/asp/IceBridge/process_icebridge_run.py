@@ -75,7 +75,6 @@ def processBatch(imageCameraPairs, lidarFolder, referenceDem, outputFolder, extr
 
     # Just set the options and call the pair python tool.
     # We can try out bundle adjustment for intrinsic parameters here.
-    # --cleanup 
     cmd = ('--lidar-overlay --lidar-folder %s --reference-dem %s --dem-resolution %f --output-folder %s %s %s --stereo-arguments ' 
            % (lidarFolder, referenceDem, outputResolution, outputFolder, argString, extraOptions))
         
@@ -349,11 +348,12 @@ def main(argsIn):
         # Action options
         parser.add_option('--interactive', action='store_true', default=False, dest='interactive',  
                           help='If to wait on user input to terminate the jobs.')
-        parser.add_option('--dry-run', action='store_true', default=False, dest='dryRun',  
-                          help="Print but don't launch the processing jobs.")
         parser.add_option('--log-batches', action='store_true', default=False, dest='logBatches',  
                           help="Just log the batch commands to a file.")
-
+        parser.add_option('--cleanup', action='store_true', default=False, dest='cleanup',  
+                          help='If the final result is produced delete intermediate files.')
+        parser.add_option('--dry-run', action='store_true', default=False, dest='dryRun',  
+                          help="Print but don't launch the processing jobs.")
 
         parser.add_option('--ortho-folder', dest='orthoFolder', default=None,
                           help='Use ortho files to adjust processing to the image spacing.')
@@ -440,7 +440,9 @@ def main(argsIn):
         extraOptions += ' --max-displacement ' + str(options.maxDisplacement)
     if options.fireballFolder:
         extraOptions += ' --fireball-folder ' + str(options.fireballFolder)
-   
+    if options.cleanup:
+        extraOptions += ' --cleanup '
+
     (autoStereoInterval, breaks) = getImageSpacing(options.orthoFolder,
                                                    options.startFrame, options.stopFrame)
     if options.imageStereoInterval: 
@@ -512,12 +514,13 @@ def main(argsIn):
 
         if not options.logBatches:
             logger.info('Running processing batch in output folder: ' + thisOutputFolder + '\n' + 
-                        'with options: ' + extraOptions +' --stereo-arguments '+ options.stereoArgs)
+                        'with options: ' + extraOptions + ' --stereo-arguments ' + options.stereoArgs)
         
         if not options.dryRun:
             # Generate the command call
             taskHandles.append(pool.apply_async(processBatch, 
-                (batchImageCameraPairs, lidarFolder, options.referenceDem, thisOutputFolder, extraOptions, 
+                (batchImageCameraPairs, lidarFolder, options.referenceDem,
+                 thisOutputFolder, extraOptions, 
                  outputResolution, options.stereoArgs, batchNum, batchLogPath)))
         batchNum += 1
         

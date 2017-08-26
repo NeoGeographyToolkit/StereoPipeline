@@ -119,10 +119,9 @@ def fetchAllRunData(options, startFrame, stopFrame,
     
     return (jpegFolder, orthoFolder, fireballFolder, lidarFolder)
 
-def processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, fireballFolder, processFolder,
-                  isSouth, bundleLength, referenceDem, stereoArgs,
-                  startFrame, stopFrame, logBatches,
-                  numProcesses, numThreads, numProcessesPerBatch):
+def processTheRun(options, imageFolder, cameraFolder, lidarFolder, orthoFolder,
+                  fireballFolder, processFolder, isSouth, referenceDem):
+    
     '''Do all the run processing'''
 
     # Some care is taken with the --stereo-arguments argument to make sure it is passed correctly.
@@ -130,22 +129,26 @@ def processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder, fireballF
                        '--ortho-folder %s --num-processes %d --num-threads %d ' +
                        '--num-processes-per-batch %d --reference-dem %s')
                       % (imageFolder, cameraFolder, lidarFolder, processFolder,
-                         bundleLength, fireballFolder, orthoFolder, numProcesses,
-                         numThreads, numProcessesPerBatch, referenceDem))
+                         options.bundleLength, fireballFolder, orthoFolder, options.numProcesses,
+                         options.numThreads, options.numProcessesPerBatch, referenceDem))
     if isSouth:
         processCommand += ' --south'
-    if startFrame:
-        processCommand += ' --start-frame ' + str(startFrame)
-    if stopFrame:
-        processCommand += ' --stop-frame ' + str(stopFrame)
-    if logBatches:
+    if options.startFrame:
+        processCommand += ' --start-frame ' + str(options.startFrame)
+    if options.stopFrame:
+        processCommand += ' --stop-frame ' + str(options.stopFrame)
+    if options.logBatches:
         processCommand += ' --log-batches'
+    if options.cleanup:
+        processCommand += ' --cleanup'
+        
     processCommand += ' --stereo-arguments '
 
     logger = logging.getLogger(__name__)
-    logger.info('Process command: process_icebridge_run ' + processCommand + stereoArgs.strip())
+    logger.info('Process command: process_icebridge_run ' +
+                processCommand + options.stereoArgs.strip())
     args = processCommand.split()
-    args += (stereoArgs.strip(),) # Make sure this is properly passed
+    args += (options.stereoArgs.strip(),) # Make sure this is properly passed
     process_icebridge_run.main(args)
 
 def main(argsIn):
@@ -238,9 +241,10 @@ def main(argsIn):
                           help="Skip input data validation.")
         parser.add_argument("--log-batches", action="store_true", dest="logBatches", default=False,
                           help="Log the required batch commands without running them.")
+        parser.add_argument('--cleanup', action='store_true', default=False, dest='cleanup',  
+                          help='If the final result is produced delete intermediate files.')
         parser.add_argument("--dry-run", action="store_true", dest="dryRun", default=False,
                           help="Set up the input directories but do not fetch/process any imagery.")
-
 
         parser.add_argument("--refetch", action="store_true", dest="reFetch", default=False,
                           help="Try fetching again if some files turned out invalid " + \
@@ -405,12 +409,9 @@ def main(argsIn):
         return 0
 
     # Call the processing routine
-    processTheRun(imageFolder, cameraFolder, lidarFolder, orthoFolder,
+    processTheRun(options, imageFolder, cameraFolder, lidarFolder, orthoFolder,
                   corrFireballFolder, processFolder,
-                  isSouth, options.bundleLength, refDemPath, options.stereoArgs,
-                  options.startFrame, options.stopFrame, options.logBatches,
-                  options.numProcesses, options.numThreads, options.numProcessesPerBatch)
-
+                  isSouth, refDemPath)
    
 
 # Run main function if file used from shell
