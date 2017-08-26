@@ -88,8 +88,8 @@ def getParallelParams(nodeType, task):
         if nodeType == 'bro': return (4, 8, 100)
     
     if task == 'blend':
-        if nodeType == 'ivy': return (10, 2, 240)
-        if nodeType == 'bro': return (14, 2, 300)
+        if nodeType == 'ivy': return (10, 2, 160)
+        if nodeType == 'bro': return (14, 2, 200)
     
     raise Exception('No params defined for node type ' + nodeType + ', task = ' + task)
 
@@ -491,8 +491,6 @@ def main(argsIn):
         usage = '''usage: pleiades_manager.py <options> '''
         parser = argparse.ArgumentParser(usage=usage)
 
-        ## Run selection
-
         parser.add_argument("--base-dir",  dest="baseDir", default=os.getcwd(),
                             help="Where all the inputs and outputs are stored.")
 
@@ -579,6 +577,7 @@ def main(argsIn):
         # TODO: Prefetch the next run while waiting on this run!
 
         fullBatchListPath = os.path.join(run.getProcessFolder(), 'batch_commands_log.txt')
+        batchListPath = fullBatchListPath
 
         if not options.skipFetch:
             # Obtain the data for a run if it is not already done
@@ -591,11 +590,10 @@ def main(argsIn):
         
         if os.path.exists(fullBatchListPath) and not options.recomputeBatches:
             logger.info('Re-using existing batch list file.')
-            batchListPath = fullBatchListPath
         else:
             # Run command to generate the list of batch jobs for this run
             logger.info('Fetching batch list for run ' + str(run))
-            batchListPath = generateBatchList(run, options, fullBatchListPath)
+            generateBatchList(run, options, fullBatchListPath)
     
         if options.failedBatchesOnly:
             logger.info('Assembling batch file with only failed batches...')
@@ -612,8 +610,11 @@ def main(argsIn):
             waitForRunCompletion(baseName)
             logger.info('All jobs finished for run '+str(run))
         
-        #if not options.skipBlend:
-        #    runBlending(run, options)
+        if not options.skipBlend:
+            try:
+                runBlending(run, options)
+            except:
+                logger.error('Exception in blend step!')
         
         # TODO: Uncomment when processing multiple runs.
         ## Log the run as completed
