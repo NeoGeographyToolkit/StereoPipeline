@@ -340,7 +340,8 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
     # and we have to fetch from the next day, don't fetch unless
     # in the jpeg index.
     if len(dayVals) > 1 and options.type != 'jpeg':
-        jpegIndexPath = icebridge_common.csvIndexFile(options.jpegFolder)
+        jpegFolder = icebridge_common.getJpegFolder(os.path.dirname(outputFolder))
+        jpegIndexPath = icebridge_common.csvIndexFile(jpegFolder)
         (jpegFrameDict, jpegUrlDict) = icebridge_common.readIndexFile(jpegIndexPath)
         
     for dayVal in dayVals:
@@ -447,9 +448,7 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
             urlDict[frame]   = localUrlDict[frame]
         
     # Write the combined index file
-    with open(parsedIndexPath, 'w') as f:
-        for frame in sorted(frameDict.keys()):
-            f.write(str(frame) + ', ' + frameDict[frame] + ', ' + urlDict[frame] + '\n')
+    icebridge_common.writeIndexFile(parsedIndexPath, frameDict, urlDict)
             
     return parsedIndexPath
 
@@ -674,9 +673,6 @@ def main(argsIn):
                           help="End of frame sequence to download.")
         parser.add_option("--all-frames", action="store_true", dest="allFrames", default=False,
                           help="Fetch all frames for this flight.")
-        parser.add_option("--jpeg-folder",  dest="jpegFolder", default=None,
-                          help="The location of the jpeg folder. This is neeed to " +
-                          "fetch indices of ortho images and DEMs.")
         parser.add_option("--skip-validate", action="store_true", dest="skipValidate",
                           default=False,
                           help="Skip input data validation.")

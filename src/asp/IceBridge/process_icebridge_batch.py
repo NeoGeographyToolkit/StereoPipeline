@@ -45,7 +45,9 @@ os.environ["PATH"] = toolspath   + os.pathsep + os.environ["PATH"]
 os.environ["PATH"] = binpath     + os.pathsep + os.environ["PATH"]
 
 # TODO: Move this function!
-def robust_pc_align(options, lidarFile, demPath, threadText, suppressOutput, redo, logger):
+def robust_pc_align(options, outputPrefix, lidarFile, demPath, 
+                    projString, lidarCsvFormatString, threadText,
+                    suppressOutput, redo, logger):
     '''Try pc_align with increasing max displacements until we it completes
        with enough lidar points used in the comparison'''
     
@@ -63,11 +65,15 @@ def robust_pc_align(options, lidarFile, demPath, threadText, suppressOutput, red
     alignPrefix   = os.path.join(options.outputFolder, 'align/out')
     pcAlignFolder = os.path.dirname(alignPrefix)
     endErrorPath  = alignPrefix + '-end_errors.csv'
-    alignOutput   = alignPrefix+'-trans_reference.tif'
-    
+
+    alignedPC      = alignPrefix+'-trans_reference.tif'
+    alignedDem     = alignedPC.replace('-trans_reference.tif', '-trans_reference-DEM.tif')
+    lidarDiffPath  = outputPrefix + "-diff.csv"
+
     # Check if the file is already there
-    if os.path.exists(alignOutput) and not redo:
-        return alignOutput
+    if os.path.exists(alignedDem) and os.path.exists(lidarDiffPath) and not redo:
+        results = icebridge_common.readGeodiffOutput(lidarDiffPath)
+        return alignedDem, lidarDiffPath, results['Mean']
     
     while(True):
         
@@ -79,32 +85,51 @@ def robust_pc_align(options, lidarFile, demPath, threadText, suppressOutput, red
         cmd = ('pc_align %s %s %s -o %s %s' %
                (alignOptions, demPath, lidarFile, alignPrefix, threadText))
         try:
-            asp_system_utils.executeCommand(cmd, alignOutput, suppressOutput, True) # Redo must be true here
+            # Redo must be true here
+            asp_system_utils.executeCommand(cmd, alignedPC, suppressOutput, True) 
         except: 
             pass
         
         # Check if finished and the number of points used.
         if not os.path.exists(endErrorPath):
-            numLidarPointsUsed = 0 # Failed to produce any output, maybe raising the error cutoff will help?
+            # Failed to produce any output, maybe raising the error cutoff will help?
+            numLidarPointsUsed = 0 
         else:
             numLidarPointsUsed = asp_file_utils.getFileLineCount(endErrorPath) - ERR_HEADER_SIZE
     
         if (numLidarPointsUsed >= MIN_LIDAR_POINTS):
             break # Success!
-        elif (currentMaxDisplacement >= MAX_DISPLACEMENT): # Hit the maximum max limit!
-            raise Exception('Error! Unable to find a good value for max-displacement in pc_align.  Wanted '
-                            + str(MIN_LIDAR_POINTS) + ' points, only found ' + str(numLidarPointsUsed))
+        elif (currentMaxDisplacement >= MAX_DISPLACEMENT):
+            # Hit the maximum max limit!
+            raise Exception('Error! Unable to find a good value for max-displacement' + 
+                            ' in pc_align.  Wanted ' + str(MIN_LIDAR_POINTS) +
+                            ' points, only found ' +
+                            str(numLidarPointsUsed))
         else: # Try again with a higher max limit
             logger.info('Trying pc_align again, only got ' + str(numLidarPointsUsed)
                         + ' lola point matches with value ' + str(currentMaxDisplacement))
             currentMaxDisplacement = currentMaxDisplacement + DISPLACEMENT_INCREMENT            
 
     # Final success check
-    if not os.path.exists(alignOutput):
+    if not os.path.exists(alignedPC):
         raise Exception('pc_align call failed!')
-    return alignOutput
 
-         
+
+    # POINT2DEM on the aligned PC file
+    cmd = ('point2dem --tr %lf --t_srs %s %s %s --errorimage' 
+           % (options.demResolution, projString, alignedPC, threadText))
+    asp_system_utils.executeCommand(cmd, alignedDem, suppressOutput, redo)
+    
+    cmd = ('geodiff --absolute --csv-format %s %s %s -o %s' % \
+           (lidarCsvFormatString, alignedDem, lidarFile, outputPrefix))
+    logger.info(cmd) # to make it go to the log, not just on screen
+
+    asp_system_utils.executeCommand(cmd, lidarDiffPath, suppressOutput, redo)
+    
+    results = icebridge_common.readGeodiffOutput(lidarDiffPath)
+    
+    return alignedDem, lidarDiffPath, results['Mean']
+
 def robustBundleAdjust(options, inputPairs, imageCameraString, 
                        suppressOutput, redo,
                        threadText, heightLimitString, logger):
@@ -166,7 +191,6 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
         for f in glob.glob(bundlePrefix + '*'):
             logger.info("Wipe: " + f)
             os.remove(f)
-
 
 def consolidateGeodiffResults(inputFiles, outputPath=None):
     '''Create a summary file of multiple geodiff csv output files'''
@@ -777,28 +801,21 @@ def doWork(options, args, logger):
         consolidateGeodiffResults(fireballDiffPaths,     fireballDiffSummaryPath )
         consolidateGeodiffResults(fireLidarDiffCsvPaths, fireLidarDiffSummaryPath)
 
-    lidarDiffPath  = outputPrefix + "-diff.csv"
+    lidarDiffPath = ''
     if lidarFile:
         # PC_ALIGN
 
-        # - Use function to call with increasing max distance limits        
-        alignOutput = robust_pc_align(options, lidarFile, allDemPath, threadText, 
-                                      suppressOutput, redo, logger)
+        # - Use function to call with increasing max distance limits
+        alignedDem, lidarDiffPath, meanErr = \
+                    robust_pc_align(options, outputPrefix,
+                                    lidarFile, allDemPath,
+                                    projString, lidarCsvFormatString, 
+                                    threadText, 
+                                    suppressOutput, redo, logger)
         
-        # POINT2DEM on the aligned PC file
-        cmd = ('point2dem --tr %lf --t_srs %s %s %s --errorimage' 
-               % (options.demResolution, projString, alignOutput, threadText))
-        p2dOutput = alignOutput.replace('-trans_reference.tif', '-trans_reference-DEM.tif')
-        asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput, redo)
-
         # Create a symlink to the DEM in the main directory
-        icebridge_common.makeSymLink(p2dOutput, demSymlinkPath)
+        icebridge_common.makeSymLink(alignedDem, demSymlinkPath)
         allDemPath = demSymlinkPath
-
-        cmd = ('geodiff --absolute --csv-format %s %s %s -o %s' % \
-               (lidarCsvFormatString, allDemPath, lidarFile, outputPrefix))
-        logger.info(cmd) # to make it go to the log, not just on screen
-        asp_system_utils.executeCommand(cmd, lidarDiffPath, suppressOutput, redo)
 
     # Consolidate statistics into a one line summary file
     consolidateStats(lidarDiffPath, interDiffSummaryPath, 
@@ -824,7 +841,8 @@ def doWork(options, args, logger):
 
     if options.cleanup and os.path.exists(demSymlinkPath):
         # Delete large files that we don't need going forwards.
-        clean_batch(options.outputFolder, prefixes, interDiffPaths, fireballDiffPaths, smallFiles=True)
+        clean_batch(options.outputFolder, prefixes, interDiffPaths, fireballDiffPaths,
+                    smallFiles=True)
 
     logger.info('Finished script process_icebridge_batch!')
 

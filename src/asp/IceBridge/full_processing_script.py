@@ -58,8 +58,8 @@ def fetchAllRunData(options, startFrame, stopFrame,
     logger = logging.getLogger(__name__)
     logger.info('Downloading data for the run...')
 
-    baseCommand = (('--yyyymmdd %s --site %s --start-frame %d --stop-frame %d --jpeg-folder %s')
-                   % (options.yyyymmdd, options.site, startFrame, stopFrame, jpegFolder))
+    baseCommand = (('--yyyymmdd %s --site %s --start-frame %d --stop-frame %d')
+                   % (options.yyyymmdd, options.site, startFrame, stopFrame))
 
     if options.maxNumLidarToFetch is not None and options.maxNumLidarToFetch >= 0:
         baseCommand += ' --max-num-lidar-to-fetch ' + str(options.maxNumLidarToFetch)
@@ -120,7 +120,7 @@ def fetchAllRunData(options, startFrame, stopFrame,
     return (jpegFolder, orthoFolder, fireballFolder, lidarFolder)
 
 def processTheRun(options, imageFolder, cameraFolder, lidarFolder, orthoFolder,
-                  fireballFolder, processFolder, isSouth, referenceDem):
+                  fireballFolder, processedFolder, isSouth, referenceDem):
     
     '''Do all the run processing'''
 
@@ -128,7 +128,7 @@ def processTheRun(options, imageFolder, cameraFolder, lidarFolder, orthoFolder,
     processCommand = (('%s %s %s %s --bundle-length %d --fireball-folder %s ' +
                        '--ortho-folder %s --num-processes %d --num-threads %d ' +
                        '--num-processes-per-batch %d --reference-dem %s')
-                      % (imageFolder, cameraFolder, lidarFolder, processFolder,
+                      % (imageFolder, cameraFolder, lidarFolder, processedFolder,
                          options.bundleLength, fireballFolder, orthoFolder, options.numProcesses,
                          options.numThreads, options.numProcessesPerBatch, referenceDem))
     if isSouth:
@@ -321,18 +321,18 @@ def main(argsIn):
             raise Exception("Missing reference DEM: " + refDemPath)
 
     # Set up the output folders
-    cameraFolder       = os.path.join(options.outputFolder, 'camera')
-    imageFolder        = os.path.join(options.outputFolder, 'image')
-    jpegFolder         = os.path.join(options.outputFolder, 'jpeg')
-    orthoFolder        = os.path.join(options.outputFolder, 'ortho')
-    fireballFolder     = os.path.join(options.outputFolder, 'fireball')
-    corrFireballFolder = os.path.join(options.outputFolder, 'corr_fireball')
-    lidarFolder        = os.path.join(options.outputFolder, 'lidar') # Paired files go in /paired
-    processFolder      = os.path.join(options.outputFolder, 'processed')
+    cameraFolder       = icebridge_common.getCameraFolder(options.outputFolder)
+    imageFolder        = icebridge_common.getImageFolder(options.outputFolder)
+    jpegFolder         = icebridge_common.getJpegFolder(options.outputFolder)
+    orthoFolder        = icebridge_common.getOrthoFolder(options.outputFolder)
+    fireballFolder     = icebridge_common.getFireballFolder(options.outputFolder)
+    corrFireballFolder = icebridge_common.getCorrFireballFolder(options.outputFolder)
+    lidarFolder        = icebridge_common.getLidarFolder(options.outputFolder)
+    processedFolder    = icebridge_common.getProcessedFolder(options.outputFolder)
     
     # Handle subfolder option.  This is useful for comparing results with different parameters!
     if options.processingSubfolder:
-        processFolder = os.path.join(processFolder, options.processingSubfolder)
+        processedFolder = os.path.join(processedFolder, options.processingSubfolder)
         logger.info('Will write to processing subfolder: ' + options.processingSubfolder)
        
     if options.noFetch:
@@ -410,7 +410,7 @@ def main(argsIn):
 
     # Call the processing routine
     processTheRun(options, imageFolder, cameraFolder, lidarFolder, orthoFolder,
-                  corrFireballFolder, processFolder,
+                  corrFireballFolder, processedFolder,
                   isSouth, refDemPath)
    
 

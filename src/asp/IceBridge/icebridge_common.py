@@ -71,6 +71,36 @@ def hasImageExtension(filename):
         return True
     return False
 
+def getCameraFolder(outputFolder):
+    return os.path.join(outputFolder, 'camera')
+
+def getImageFolder(outputFolder):
+    return os.path.join(outputFolder, 'image')
+
+def getJpegFolder(outputFolder):
+    return os.path.join(outputFolder, 'jpeg')
+
+def getOrthoFolder(outputFolder):
+    return os.path.join(outputFolder, 'ortho')
+
+def getFireballFolder(outputFolder):
+    return os.path.join(outputFolder, 'fireball')
+
+def getCorrFireballFolder(outputFolder):
+    return os.path.join(outputFolder, 'corr_fireball')
+
+def getLidarFolder(outputFolder):
+    return os.path.join(outputFolder, 'lidar')
+
+def getProcessedFolder(outputFolder):
+    return os.path.join(outputFolder, 'processed')
+
+def getConvertedLidarIndexFile(lidarFolder):
+    return os.path.join(lidarFolder, 'converted_lidar_index.csv')
+
+def getPairedIndexFile(pairedFolder):
+    return os.path.join(pairedFolder, 'paired_lidar_index.csv')
+
 def folderToType(folder):
     '''If input is myRun/ortho, return 'ortho'. Same for 'fireball', 'lidar', etc.'''
     return os.path.basename(folder)
@@ -99,6 +129,17 @@ def readIndexFile(parsedIndexPath):
             urlDict[frameNumber] = parts[2].strip()
 
     return (frameDict, urlDict)
+
+def writeIndexFile(indexPath, frameDict, urlDict):
+    '''Write an index file, optionally with urls.'''
+    with open(indexPath, 'w') as f:
+        for frame in sorted(frameDict.keys()):
+            frameName = frameDict[frame]
+            urlName = ""
+            if frame in urlDict:
+                urlName = urlDict[frame]
+                
+            f.write(str(frame) + ', ' + frameName + ', ' + urlName + '\n')
 
 def isValidImage(filename):
     '''Check that an image file is not corrupted in some way. This check is not enough.'''

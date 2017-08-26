@@ -397,6 +397,8 @@ def convertLidarDataToCsv(lidarFolder, skipValidate, logger):
 
     lidarIndexPath = icebridge_common.csvIndexFile(lidarFolder)
     (frameDict, urlDict) = icebridge_common.readIndexFile(lidarIndexPath)
+
+    convDict = {}
     
     # Loop through all files in the folder
     badFiles = False
@@ -407,7 +409,11 @@ def convertLidarDataToCsv(lidarFolder, skipValidate, logger):
         
         # Only interested in a few file types
         if (extension != '.qi') and (extension != '.hdf5') and (extension != '.h5'):
-           continue
+            convDict[frame] = f # these are already in plain text
+            continue
+
+        convDict[frame] = os.path.splitext(f)[0] + '.csv'
+        outputPath = os.path.join(lidarFolder, convDict[frame])
 
         # Handle paths
         fullPath = os.path.join(lidarFolder, f)
@@ -415,8 +421,6 @@ def convertLidarDataToCsv(lidarFolder, skipValidate, logger):
             logger.info("Cannot convert missing file: " + fullPath)
             continue
         
-        outputPath = os.path.join(lidarFolder, os.path.splitext(f)[0]+'.csv')
-
         # Skip existing valid files
         if skipValidate:
             if os.path.exists(outputPath):
@@ -435,7 +439,12 @@ def convertLidarDataToCsv(lidarFolder, skipValidate, logger):
         if not icebridge_common.isValidLidarCSV(outputPath):
             logger.error('Failed to parse LIDAR file: ' + fullPath)
             badFiles = True
-            
+
+    convLidarFile = icebridge_common.getConvertedLidarIndexFile(lidarFolder)
+    if not os.path.exists(convLidarFile):
+        logger.info("Writing: " + convLidarFile)
+        icebridge_common.writeIndexFile(convLidarFile, convDict, {})
+        
     return not badFiles
 
 def pairLidarFiles(lidarFolder, skipValidate, logger):
@@ -445,19 +454,29 @@ def pairLidarFiles(lidarFolder, skipValidate, logger):
     logger.info('Generating lidar pairs...')
 
     # Create the output folder
-    pairFolder = os.path.join(lidarFolder, 'paired')
-    os.system('mkdir -p ' + pairFolder)
+    pairedFolder = os.path.join(lidarFolder, 'paired')
+    os.system('mkdir -p ' + pairedFolder)
 
-    (lidarFiles, lidarExt, isLVIS) = icebridge_common.lidarFiles(lidarFolder)
-    
-    numLidarFiles = len(lidarFiles)
+    convLidarFile = icebridge_common.getConvertedLidarIndexFile(lidarFolder)
+    if not os.path.exists(convLidarFile):
+        raise Exception("Missing file: " + convLidarFile)
+
+    (lidarDict, dummyUrlDict) = icebridge_common.readIndexFile(convLidarFile)
+    lidarExt = ''
+    for frame in lidarDict:
+        lidarExt = icebridge_common.fileExtension(lidarDict[frame])
+
+    numLidarFiles = len(lidarDict.keys())
+
+    pairedDict = {}
     
     # Loop through all pairs of csv files in the folder    
     badFiles = False
-    for i in range(0, numLidarFiles-1):
-
-        thisFile = lidarFiles[i  ]
-        nextFile = lidarFiles[i+1]
+    lidarKeys = sorted(lidarDict.keys())
+    for i in range(len(lidarKeys)-1):
+        
+        thisFile = lidarDict[lidarKeys[i  ]]
+        nextFile = lidarDict[lidarKeys[i+1]]
 
         date2, time2 = icebridge_common.parseTimeStamps(nextFile)
         
@@ -465,11 +484,17 @@ def pairLidarFiles(lidarFolder, skipValidate, logger):
         # - More useful because the time for the second file represents the middle of the file.
         outputName = icebridge_common.lidar_pair_prefix() + date2 +'_'+ time2 + lidarExt
 
+        pairedDict[lidarKeys[i]] = outputName
+        
         # Handle paths
         path1      = os.path.join(lidarFolder, thisFile)
         path2      = os.path.join(lidarFolder, nextFile)
-        outputPath = os.path.join(pairFolder, outputName)
+        outputPath = os.path.join(pairedFolder, outputName)
 
+        if not os.path.exists(path1) or not os.path.exists(path2):
+            logger.info("Cannot create " + outputPath + " as we are missing its inputs")
+            continue
+        
         # Skip existing valid files
         if skipValidate:
             if os.path.exists(outputPath):
@@ -493,7 +518,12 @@ def pairLidarFiles(lidarFolder, skipValidate, logger):
         if not icebridge_common.isValidLidarCSV(outputPath):
             logger.error('Failed to generate merged LIDAR file: ' + outputPath)
             badFiles = True
-            
+
+    pairedLidarFile = icebridge_common.getPairedIndexFile(pairedFolder)
+    if not os.path.exists(pairedLidarFile):
+        logger.info("Writing: " + pairedLidarFile)
+        icebridge_common.writeIndexFile(pairedLidarFile, pairedDict, {})
+
     return badFiles
 
 

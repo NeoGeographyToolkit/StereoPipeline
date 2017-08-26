@@ -260,7 +260,7 @@ def main(argsIn):
         processFolder = os.path.join(processFolder, options.processingSubfolder)
         logger.info('Reading from processing subfolder: ' + options.processingSubfolder)
 
-    orthoFolder = os.path.join(options.outputFolder, 'ortho')
+    orthoFolder = icebridge_common.getOrthoFolder(options.outputFolder)
     orthoIndexPath = icebridge_common.csvIndexFile(orthoFolder)
     if not os.path.exists(orthoIndexPath):
         raise Exception("Error: Missing ortho index file: " + orthoIndexPath + ".")
