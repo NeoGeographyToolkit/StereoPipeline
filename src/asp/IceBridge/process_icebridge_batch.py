@@ -798,16 +798,16 @@ def doWork(options, args, logger):
     thumbOutput = outputPrefix + '-DEM_HILLSHADE_browse.tif'
     cmd = 'gdal_translate '+hillOutput+' '+thumbOutput+' -of GTiff -outsize 40% 40% -b 1 -co "COMPRESS=JPEG"'
     asp_system_utils.executeCommand(cmd, thumbOutput, suppressOutput, redo)
-    #os.remove(hillOutput) # Remove this file to keep down the file count
+    os.remove(hillOutput) # Remove this file to keep down the file count
 
     ## COLORMAP
     #colorOutput = outputPrefix + '-DEM_CMAP.tif'
     #cmd = ('colormap  %s -o %s' % (allDemPath, colorOutput))
     #asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
 
-    #if options.cleanup and os.path.exists(demSymlinkPath):
+    if options.cleanup and os.path.exists(demSymlinkPath):
         # Delete large files that we don't need going forwards.
-    #    clean_batch(options.outputFolder, prefixes, interDiffPaths, fireballDiffPaths, smallFiles=True)
+        clean_batch(options.outputFolder, prefixes, interDiffPaths, fireballDiffPaths, smallFiles=True)
 
     logger.info('Finished script process_icebridge_batch!')
 
