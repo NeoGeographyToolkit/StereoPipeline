@@ -452,6 +452,45 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
             
     return parsedIndexPath
 
+def lidarFilesInRange(lidarDict, lidarFolder, startFrame, stopFrame):
+    '''Fetch only lidar files for the given frame range. Do that as follows.   '''
+    '''For each ortho frame in [startFrame, stopFrame], find the lidar         '''
+    '''file with the closest timestamp. Collect them all.                      '''
+    '''Add the two neighboring ones, to help with finding lidar pairs later.   '''
+    
+    lidarList = []
+    for frame in sorted(lidarDict.keys()):
+        lidarList.append(lidarDict[frame])
+
+    orthoFolder = icebridge_common.getOrthoFolder(os.path.dirname(lidarFolder))
+    orthoIndexPath = icebridge_common.csvIndexFile(orthoFolder)
+    (orthoFrameDict, orthoUrlDict) = icebridge_common.readIndexFile(orthoIndexPath)
+    minLidarIndex = len(lidarList)
+    maxLidarIndex = 0
+    for frame in sorted(orthoFrameDict.keys()):
+        if ((frame < startFrame) or (frame > stopFrame) ): continue
+        orthoFrame = orthoFrameDict[frame]
+        matchingLidar = icebridge_common.findMatchingLidarFileFromList(orthoFrame, lidarList)
+
+        for index in range(len(lidarList)):
+            if lidarList[index] == matchingLidar:
+                if minLidarIndex > index:
+                    minLidarIndex = index
+                if maxLidarIndex < index:
+                    maxLidarIndex = index
+
+    # We will fetch neighboring lidar files as well
+    if minLidarIndex > 0:
+        minLidarIndex = minLidarIndex -1
+    if maxLidarIndex + 1 < len(lidarList):
+        maxLidarIndex = maxLidarIndex + 1
+
+    lidarsToFetch = set()
+    for index in range(minLidarIndex, maxLidarIndex+1):
+        lidarsToFetch.add(lidarList[index])
+
+    return lidarsToFetch
+    
 def doFetch(options, outputFolder):
     
     # Verify that required files exist
@@ -492,21 +531,29 @@ def doFetch(options, outputFolder):
     if options.stopAfterIndexFetch:
         return 0
     
-    allFrames  = sorted(frameDict.keys())
-    firstFrame = icebridge_common.getLargestFrame()    # start big
-    lastFrame  = icebridge_common.getSmallestFrame()   # start small
-    for frameNumber in allFrames:
-        if frameNumber < firstFrame:
-            firstFrame = frameNumber
-        if frameNumber > lastFrame:
-            lastFrame = frameNumber
-            
-    if options.allFrames:
-        options.startFrame = firstFrame
-        options.stopFrame  = lastFrame
-
     isLidar = (options.type in LIDAR_TYPES)
+
+    allFrames  = sorted(frameDict.keys())
     
+    if not isLidar:
+        # The lidar frames use a totally different numbering than the image/ortho/dem frames
+        firstFrame = icebridge_common.getLargestFrame()    # start big
+        lastFrame  = icebridge_common.getSmallestFrame()   # start small
+        for frameNumber in allFrames:
+            if frameNumber < firstFrame:
+                firstFrame = frameNumber
+            if frameNumber > lastFrame:
+                lastFrame = frameNumber
+
+        if options.allFrames:
+            options.startFrame = firstFrame
+            options.stopFrame  = lastFrame
+
+    if isLidar:
+        # Based on image frames, determine which lidar frames to fetch
+        lidarsToFetch = lidarFilesInRange(frameDict, outputFolder,
+                                          options.startFrame, options.stopFrame)
+        
     # There is always a chance that not all requested frames are available.
     # That is particularly true for Fireball DEMs. Instead of failing,
     # just download what is present and give a warning. 
@@ -532,8 +579,14 @@ def doFetch(options, outputFolder):
     numFetched = 0
     skipCount  = 0
     for frame in allFrames:
-        if ((frame < options.startFrame) or (frame > options.stopFrame) ) and not isLidar:
-            continue # Skip frames outside the range
+
+        # Skip frame outside of range
+        if isLidar:
+            if frameDict[frame] not in lidarsToFetch:
+                continue
+        else:
+            if ((frame < options.startFrame) or (frame > options.stopFrame) ):
+                continue
 
         # Handle the frame skip option
         if options.frameSkip > 0: 

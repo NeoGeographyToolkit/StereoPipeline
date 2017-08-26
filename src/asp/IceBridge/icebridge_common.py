@@ -685,12 +685,20 @@ def pairFiles(pairedFolder):
         
     return pairs
 
-    
 def findMatchingLidarFile(imageFile, lidarFolder):
     '''Given an image file, find the best lidar file to use for alignment.'''
     
     # Look in the paired lidar folder, not the original lidar folder.
     pairedFolder = os.path.join(lidarFolder, 'paired')
+    lidarFiles    = pairFiles(pairedFolder)
+
+    if len(lidarFiles) <= 0:
+        raise Exception("Empty directory of pairs in " + pairedFolder)
+
+    return findMatchingLidarFileFromList(imageFile, lidarFiles)
+
+def findMatchingLidarFileFromList(imageFile, lidarFiles):
+    '''Find the best matching lidar file from a list.'''
     
     vals = parseTimeStamps(imageFile)
     if len(vals) < 2:
@@ -706,12 +714,8 @@ def findMatchingLidarFile(imageFile, lidarFolder):
     # - It is possible for an image to span lidar files, we will address that if we need to!
     bestTimeDelta = datetime.timedelta.max
     bestLidarFile = 'NA'
-    lidarFiles    = pairFiles(pairedFolder)
     zeroDelta     = datetime.timedelta()
 
-    if len(lidarFiles) <= 0:
-        raise Exception("Empty directory of pairs in " + pairedFolder)
-    
     # First see if we need correction for sometimes seconds going from 1 to 60.
     minSec = 60
     maxSec = 0

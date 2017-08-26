@@ -555,7 +555,7 @@ def doWork(options, args, logger):
         lidarFile = icebridge_common.findMatchingLidarFile(inputPairs[0][0], options.lidarFolder)
         logger.info('Found matching lidar file ' + lidarFile)
         lidarCsvFormatString = icebridge_common.getLidarCsvFormat(lidarFile)
-   
+
     outputPrefix  = os.path.join(options.outputFolder, 'out')
 
     # Check the last output products from this script.  If they exist,
