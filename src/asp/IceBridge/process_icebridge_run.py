@@ -284,6 +284,10 @@ def getImageCameraPairs(imageFolder, cameraFolder, startFrame, stopFrame):
     logger.info('Of %d input images in range, using %d with camera files.' 
                 % (len(goodImages), len(imageFiles)))
 
+    if len(goodImages) < 2:
+        logger.error('Not enough input pairs exist to continue, quitting!')
+        return -1
+
     # Get full paths
     imageFiles  = [os.path.join(imageFolder, f) for f in imageFiles ]
     cameraFiles = [os.path.join(cameraFolder,f) for f in cameraFiles]
@@ -380,7 +384,7 @@ def main(argsIn):
     # Check the inputs
     for f in [imageFolder, cameraFolder, lidarFolder]:
         if not os.path.exists(f):
-            logger.error('Input file '+ f +' does not exist!')
+            logger.error('Input folder '+ f +' does not exist!')
             return 0
 
     asp_system_utils.mkdir_p(outputFolder)

@@ -103,7 +103,69 @@ def robust_pc_align(options, lidarFile, demPath, threadText, suppressOutput, red
     if not os.path.exists(alignOutput):
         raise Exception('pc_align call failed!')
     return alignOutput
-            
+
+         
+def robustBundleAdjust(options, inputPairs, imageCameraString, 
+                       suppressOutput, redo,
+                       threadText, heightLimitString, logger):
+    '''Perform bundle adjustment with multiple retries in case things fail.'''
+
+    # - Bundle adjust all of the input images in the batch at the same time.
+    # - An overlap number less than 2 is prone to very bad bundle adjust results so
+    #   don't use less than that.  If there is really only enough overlap for one we
+    #   will have to examine the results very carefully!
+    MIN_BA_OVERLAP = 2
+    CAMERA_WEIGHT  = 0.1   # TODO: Find the best value here
+    ROBUST_THRESHOLD = 2.0 # TODO: Find the best value here
+    OVERLAP_EXPONENT = 0   # TODO: Find the best value here
+    bundlePrefix   = os.path.join(options.outputFolder, 'bundle/out')
+    baOverlapLimit = options.stereoImageInterval + 3
+    if baOverlapLimit < MIN_BA_OVERLAP:
+        baOverlapLimit = MIN_BA_OVERLAP
+
+    # Try several attempts
+    ipMethod  = [1,   0,   2,   1,    0,    2]
+    ipPerTile = [500, 500, 500, 2000, 2000, 2000]
+
+    # Replace the cameras in imageCameraString with the new cameras to be created
+    for pair in inputPairs:
+        newCamera = bundlePrefix +'-'+ os.path.basename(pair[1])
+        pair[1] = newCamera
+        imageCameraString.replace(pair[1], newCamera)
+    
+    for attempt in range(len(ipPerTile)):
+        
+        cmd = (('bundle_adjust %s -o %s %s %s --datum wgs84 ' +
+                '--camera-weight %0.16g -t nadirpinhole ' +
+                '--local-pinhole --overlap-limit %d --robust-threshold %0.16g ' +
+                '--ip-detect-method %d --ip-per-tile %d ' + 
+                '--overlap-exponent %0.16g --epipolar-threshold 50')  \
+               % (imageCameraString, bundlePrefix, threadText, heightLimitString, 
+                  CAMERA_WEIGHT, baOverlapLimit, ROBUST_THRESHOLD, ipMethod[attempt],
+                  ipPerTile[attempt], OVERLAP_EXPONENT))
+        
+        if options.solve_intr:
+            cmd += ' --solve-intrinsics'
+    
+        # Run the BA command and log errors
+        logger.info(cmd) # to make it go to the log, not just on screen
+        (out, err, status) = asp_system_utils.executeCommand(cmd, newCamera, True, redo,
+                                                             noThrow=True)
+        logger.info(out + '\n' + err)
+        
+        if status == 0:
+            logger.info("Bundle adjustment succeded.")
+            break
+        
+        if attempt + 1 == len(ipPerTile):
+            # Even the last attempt failed
+            raise Exception('Bundle adjustment failed!\n')
+
+        # Try again. Carefully wipe only relevant files
+        logger.info("Trying bundle adjustment again.")
+        for f in glob.glob(bundlePrefix + '*'):
+            logger.info("Wipe: " + f)
+            os.remove(f)
 
 
 def consolidateGeodiffResults(inputFiles, outputPath=None):
@@ -220,8 +282,13 @@ def lidarCsvToDem(lidarFile, projBounds, projString, outputFolder, threadText,
                   LIDAR_DEM_RESOLUTION, projString, lidarFile, threadText, 
                   lidarCsvFormatString, lidarDemPrefix))
         lidarDemOutput = lidarDemPrefix+'-DEM.tif'
-        asp_system_utils.executeCommand(cmd, lidarDemOutput, suppressOutput, redo)
-            
+        (out, err, status) = asp_system_utils.executeCommand(cmd, lidarDemOutput, suppressOutput, redo, noThrow=True)
+        if suppressOutput:
+            logger.info(out + '\n' + err)
+        if status != 0:
+            raise Exception('Did not generate any lidar DEM!')
+
+
         #colorOutput = lidarDemPrefix+'-DEM_CMAP.tif'
         #cmd = ('colormap  %s -o %s' % ( lidarDemOutput, colorOutput))
         #asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
@@ -306,7 +373,11 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     cmd = ('point2dem --max-output-size 10000 10000 --tr %lf --t_srs %s %s %s --errorimage' 
            % (options.demResolution, projString, triOutput, threadText))
     p2dOutput = demFiles[i]
-    asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput, redo)
+    (out, err, status) =  asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput, redo, noThrow=True)
+    if suppressOutput:
+        logger.info(out + '\n' + err)
+    if status != 0:
+        raise Exception('point2dem call on stereo pair failed!')
 
     # COLORMAP
     #colorOutput = thisPairPrefix+'-DEM_CMAP.tif'
@@ -522,63 +593,9 @@ def doWork(options, args, logger):
             #raise Exception('DEBUG')
        
     # BUNDLE_ADJUST
-    # - Bundle adjust all of the input images in the batch at the same time.
-    # - An overlap number less than 2 is prone to very bad bundle adjust results so
-    #   don't use less than that.  If there is really only enough overlap for one we
-    #   will have to examine the results very carefully!
-    MIN_BA_OVERLAP = 2
-    CAMERA_WEIGHT  = 0.1   # TODO: Find the best value here
-    ROBUST_THRESHOLD = 2.0 # TODO: Find the best value here
-    OVERLAP_EXPONENT = 0   # TODO: Find the best value here
-    bundlePrefix   = os.path.join(options.outputFolder, 'bundle/out')
-    baOverlapLimit = options.stereoImageInterval + 3
-    if baOverlapLimit < MIN_BA_OVERLAP:
-        baOverlapLimit = MIN_BA_OVERLAP
-
-    # Try several attempts
-    ipMethod  = [1,   0,   2,   1,    0,    2]
-    ipPerTile = [500, 500, 500, 2000, 2000, 2000]
-
-    # The name of one of the camera models to be created
-    for pair in inputPairs:       
-        newCamera = bundlePrefix +'-'+ os.path.basename(pair[1])
-        pair[1] = newCamera
-        imageCameraString.replace(pair[1], newCamera)
-    
-    for attempt in range(len(ipPerTile)):
-        
-        cmd = (('bundle_adjust %s -o %s %s %s --datum wgs84 ' +
-                '--camera-weight %0.16g -t nadirpinhole ' +
-                '--local-pinhole --overlap-limit %d --robust-threshold %0.16g ' +
-                '--ip-detect-method %d --ip-per-tile %d ' + 
-                '--overlap-exponent %0.16g --epipolar-threshold 50')  \
-               % (imageCameraString, bundlePrefix, threadText, heightLimitString, 
-                  CAMERA_WEIGHT, baOverlapLimit, ROBUST_THRESHOLD, ipMethod[attempt],
-                  ipPerTile[attempt], OVERLAP_EXPONENT))
-        
-        if options.solve_intr:
-            cmd += ' --solve-intrinsics'
-    
-
-        # Run the BA command and log errors
-        logger.info(cmd) # to make it go to the log, not just on screen
-        (out, err, status) = asp_system_utils.executeCommand(cmd, newCamera, True, redo,
-                                                             noThrow=True)
-        logger.info(out + '\n' + err)
-        
-        if status == 0:
-            logger.info("Bundle adjustment succeded.")
-            break
-        
-        if attempt + 1 == len(ipPerTile):
-            # Even the last attempt failed
-            raise Exception('Bundle adjustment failed!\n')
-
-        # Try again. Carefully wipe only relevant files
-        logger.info("Trying bundle adjustment again.")
-        for f in glob.glob(bundlePrefix + '*'):
-            logger.info("Wipe: " + f)
-            os.remove(f)
+    robustBundleAdjust(options, inputPairs, imageCameraString, 
+                       suppressOutput, redo,
+                       threadText, heightLimitString, logger)
         
     # Generate a map of post-bundle camera positions
     orbitvizAfter = os.path.join(options.outputFolder, 'cameras_out.kml')

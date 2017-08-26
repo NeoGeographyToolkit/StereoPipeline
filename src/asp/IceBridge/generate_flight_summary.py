@@ -84,26 +84,39 @@ def getFailureCause(batchFolder):
     UNKNOWN       = -1
     SUCCESS       = 0
     FAIL_FILE_MISSING = 1
-    FAIL_LIDAR    = 2
-    FAIL_BUNDLE   = 3
-    FAIL_STEREO   = 4
-    FAIL_PC_ALIGN = 5
+    FAIL_CAMERA_MISSING = 2
+    FAIL_LIDAR_DEM_TOO_LARGE = 3
+    FAIL_LIDAR    = 4
+    FAIL_BUNDLE   = 5
+    FAIL_STEREO_NO_POINTS = 6
+    FAIL_STEREO   = 7
+    FAIL_STEREO_POINT2DEM = 8
+    FAIL_PC_ALIGN = 9
     
     errorSummaries = {} # Human readable error codes
     errorSummaries[UNKNOWN      ] = 'Unknown failure'
     errorSummaries[SUCCESS      ] = 'Success'
     errorSummaries[FAIL_FILE_MISSING] = 'Missing argument file'
+    errorSummaries[FAIL_CAMERA_MISSING] = 'Failed to generate camera file'
+    errorSummaries[FAIL_LIDAR_DEM_TOO_LARGE] = 'LIDAR DEM would be too large'
     errorSummaries[FAIL_LIDAR   ] = 'Failed to generate lidar DEM'
     errorSummaries[FAIL_BUNDLE  ] = 'Bundle adjust failed'
+    errorSummaries[FAIL_STEREO_NO_POINTS] = 'Generated empty stereo point cloud'
     errorSummaries[FAIL_STEREO  ] = 'Stereo failed'
+    errorSummaries[FAIL_STEREO_POINT2DEM] = 'Other stereo point2dem failure'
     errorSummaries[FAIL_PC_ALIGN] = 'pc_align failed'
+    
     
     errorLogText = {} # Text in the log file that indicates an error occurred
     errorLogText[SUCCESS      ] = 'Finished script process_icebridge_batch!'
-    errorLogText[FAIL_FILE_MISSING] = 'Arg parsing error: Input file'  
+    errorLogText[FAIL_FILE_MISSING] = 'Arg parsing error: Input file'
+    errorLogText[FAIL_CAMERA_MISSING] = 'Not enough input pairs exist to continue, quitting!'
+    errorLogText[FAIL_LIDAR_DEM_TOO_LARGE] = 'Requested DEM size is too large'
     errorLogText[FAIL_LIDAR   ] = 'Failed to generate lidar DEM to estimate height range!'
     errorLogText[FAIL_BUNDLE  ] = 'Bundle adjustment failed!'
+    errorLogText[FAIL_STEREO_NO_POINTS] = 'OrthoRasterize: Input point cloud is empty!'
     errorLogText[FAIL_STEREO  ] = 'Stereo call failed!'
+    errorLogText[FAIL_STEREO_POINT2DEM] = 'point2dem call on stereo pair failed!'
     errorLogText[FAIL_PC_ALIGN] = 'Unable to find a good value for max-displacement in pc_align.'
 
     logPrefix = os.path.join(batchFolder, 'icebridge_batch_log_')
@@ -233,8 +246,12 @@ def generateFlightSummary(run, options):
             parts = statsText.split(',')
             if (float(parts[0]) == 0) and (float(parts[1]) == 0) and (float(parts[2]) == -999):
             
-                batchFolder = os.path.dirname(dem)
-                (errorCode, errorText) = getFailureCause(batchFolder)
+                if os.path.exists(dem): # Handle the case where the statistics are bad for some reason
+                    errorCode = 0
+                    errorText = 'Success but statistics are bad'
+                else: # A real failure, figure out the cause
+                    batchFolder = os.path.dirname(dem)
+                    (errorCode, errorText) = getFailureCause(batchFolder)
 
                 failureLog.write('%d, %d, %d, %s\n' %  (frames[0], frames[1], errorCode, errorText))
                 
