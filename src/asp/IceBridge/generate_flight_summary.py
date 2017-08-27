@@ -167,8 +167,8 @@ def generateFlightSummary(run, options):
         camKmlFiles = textOutput.replace('\n', ' ')
         
         outputKml = os.path.join(options.outputFolder, 'cameras_out.kml')
-        scriptPath = asp_system_utils.which('merge_orbitviz.py')
-        cmd = scriptPath +' '+ outputKml +' '+ camKmlFiles
+        scriptPath = fullPath('merge_orbitviz.py')
+        cmd = 'python ' + scriptPath + ' ' + outputKml + ' ' + camKmlFiles
         print cmd
         os.system(cmd)
         

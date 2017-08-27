@@ -83,7 +83,8 @@ def processBatch(imageCameraPairs, lidarFolder, referenceDem, outputFolder, extr
         # - Setting this option limits to one process so there will be only one 
         #   simultaneous file writer.
         with open(batchLogPath, 'a') as f:
-            f.write('process_icebridge_batch.py ' + cmd +'"'+ stereoArgs +'"\n')
+            f.write('python ' + icebridge_common.fullPath('process_icebridge_batch.py') + ' ' + \
+                    cmd +'"'+ stereoArgs +'"\n')
         return
     
     try:

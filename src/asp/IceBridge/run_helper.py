@@ -90,6 +90,7 @@ class RunHelper():
         '''Returns a folder relative to getFolder()'''
         return os.path.join(self.getFolder(), path)
 
+    # TODO: Merge these with corresponding functions in icebridge_common.
     def getJpegFolder(self):
         return self._internalLoc('jpeg')
     def getImageFolder(self):
@@ -97,7 +98,7 @@ class RunHelper():
     def getLidarFolder(self):
         return self._internalLoc('lidar')
     def getLidarPairFolder(self):
-        return os.path.join(self.getLidarFolder(), 'paired')
+        return icebridge_common.getPairedLidarFolder(self.getLidarFolder())
     def getCameraFolder(self):
         return self._internalLoc('camera')
     def getOrthoFolder(self):
@@ -132,7 +133,7 @@ class RunHelper():
            This does not return converted csv files.'''
         lidarFolder = self.getLidarFolder()
         if paired:
-            lidarFolder = os.path.join(lidarFolder, 'paired')
+            lidarFolder = icebridge_common.getPairedLidarFolder(lidarFolder)
         files = icebridge_common.getLidar(lidarFolder)
         if prependFolder:
             files = [os.path.join(lidarFolder, x) for x in files]

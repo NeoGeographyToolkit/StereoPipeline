@@ -65,7 +65,6 @@ GROUP_ID = 's1827'
 # Wait this long between checking for job completion
 SLEEP_TIME = 60
 
-
 #=========================================================================
 
 # 'wes' = Westmere = 12 cores/24 processors, 48 GB mem, SBU 1.0, Launch from mfe1 only!
@@ -165,7 +164,7 @@ def runFetch(run, options):
     archive_functions.retrieveRunData(run, options.unpackDir)
     
     # Go ahead and refetch the indices since it helps to have these up-to-date.
-    cmd = ('full_processing_script.py --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --refetch-index --stop-after-index-fetch' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder()))
+    cmd = ('python ' + icebridge_common.fullPath('full_processing_script.py') + ' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --output-folder %s --refetch-index --stop-after-index-fetch' % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, run.getFolder()))
     logger.info(cmd)
     os.system(cmd)
     
@@ -206,9 +205,9 @@ def runConversion(run, options):
     
     outputFolder = run.getFolder()
     
-    scriptPath = asp_system_utils.which('full_processing_script.py')
-    args       = ('--camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --stop-after-convert --num-threads %d --num-processes %d --output-folder %s --skip-validate' 
-                  % (options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder))
+    scriptPath = icebridge_common.fullPath('full_processing_script.py')
+    args       = ('%s --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --stop-after-convert --num-threads %d --num-processes %d --output-folder %s --skip-validate' 
+                  % (scriptPath, options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder))
     
     baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
 
@@ -229,7 +228,7 @@ def runConversion(run, options):
             thisArgs += ' --no-lidar-convert'
         logPrefix = os.path.join(pbsLogFolder, 'convert_' + jobName)
         logger.info('Submitting conversion job with args: '+thisArgs)
-        pbs_functions.submitJob(jobName, ORTHO_PBS_QUEUE, MAX_ORTHO_HOURS, GROUP_ID, options.nodeType, scriptPath, thisArgs, logPrefix)
+        pbs_functions.submitJob(jobName, ORTHO_PBS_QUEUE, MAX_ORTHO_HOURS, GROUP_ID, options.nodeType, 'python', thisArgs, logPrefix)
         
         currentFrame += tasksPerJob
 
@@ -260,8 +259,8 @@ def generateBatchList(run, options, listPath):
 
     # No actual processing is being done here so it can run on the PFE
     # - This is very fast so we can re-run it every time. (Maybe not...)
-    scriptPath = asp_system_utils.which('full_processing_script.py')
-    cmd       = ('%s --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --skip-fetch --skip-convert --num-threads %d --num-processes %d --output-folder %s --bundle-length %d --log-batches' 
+    scriptPath = icebridge_common.fullPath('full_processing_script.py')
+    cmd       = ('python %s --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --skip-fetch --skip-convert --num-threads %d --num-processes %d --output-folder %s --bundle-length %d --log-batches' 
                   % (scriptPath, options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, numThreads, numProcesses, run.getFolder(), options.bundleLength))
 
 
@@ -319,7 +318,7 @@ def submitBatchJobs(run, options, batchListPath):
     baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
 
     # Call the tool which just executes commands from a file
-    scriptPath = asp_system_utils.which('multi_process_command_runner.py')
+    scriptPath = icebridge_common.fullPath('multi_process_command_runner.py')
 
     outputFolder = run.getFolder()
     pbsLogFolder = run.getPbsLogFolder()
@@ -333,11 +332,11 @@ def submitBatchJobs(run, options, batchListPath):
             stopBatch = numBatches-1 # Make sure nothing is lost at the end
 
         # Specify the range of lines in the file we want this node to execute
-        args = ('%s %d %d %d' % (batchListPath, numProcesses, startBatch, stopBatch))
+        args = ('%s %s %d %d %d' % (scriptPath, batchListPath, numProcesses, startBatch, stopBatch))
 
         logPrefix = os.path.join(pbsLogFolder, 'batch_' + jobName)
         logger.info('Submitting batch job with args: '+args)
-        pbs_functions.submitJob(jobName, BATCH_PBS_QUEUE, MAX_BATCH_HOURS, GROUP_ID, options.nodeType, scriptPath, args, logPrefix)
+        pbs_functions.submitJob(jobName, BATCH_PBS_QUEUE, MAX_BATCH_HOURS, GROUP_ID, options.nodeType, 'python', args, logPrefix)
         
         currentBatch += tasksPerJob
 
@@ -366,8 +365,8 @@ def runBlending(run, options):
     outputFolder = run.getFolder()
     
     scriptPath = asp_system_utils.which('blend_dems.py')
-    args       = ('--site %s --yyyymmdd %s --num-threads %d --num-processes %d --output-folder %s --bundle-length %d ' 
-                  % (run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder, options.bundleLength))
+    args       = ('%s --site %s --yyyymmdd %s --num-threads %d --num-processes %d --output-folder %s --bundle-length %d ' 
+                  % (scriptPath, run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder, options.bundleLength))
     
     baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
 
@@ -385,7 +384,7 @@ def runBlending(run, options):
         thisArgs = (args + ' --start-frame ' + str(startFrame) + ' --stop-frame ' + str(stopFrame) )
         logPrefix = os.path.join(pbsLogFolder, 'blend_' + jobName)
         logger.info('Submitting blend job with args: '+thisArgs)
-        pbs_functions.submitJob(jobName, ORTHO_PBS_QUEUE, MAX_ORTHO_HOURS, GROUP_ID, options.nodeType, scriptPath, thisArgs, logPrefix)
+        pbs_functions.submitJob(jobName, ORTHO_PBS_QUEUE, MAX_ORTHO_HOURS, GROUP_ID, options.nodeType, 'python', thisArgs, logPrefix)
         
         currentFrame += tasksPerJob
 
@@ -472,19 +471,22 @@ def checkResults(run, batchListPath):
 def checkRequiredTools():
     '''Verify that we have all the tools we will be calling during the script.'''
 
-    tools = ['full_processing_script.py',
-             'multi_process_command_runner.py',
-             'merge_orbitviz.py',
-             'process_icebridge_run.py',
-             'process_icebridge_batch.py',
-             'lvis2kml.py',
-             'ortho2pinhole',
-             'camera_footprint'
-            ]
-
+    scripts = ['full_processing_script.py',
+               'multi_process_command_runner.py',
+               'merge_orbitviz.py',
+               'process_icebridge_run.py',
+               'process_icebridge_batch.py',
+               'lvis2kml.py']
+    tools  = ['ortho2pinhole',
+              'camera_footprint']
+    
     for tool in tools:
         asp_system_utils.checkIfToolExists(tool)
 
+    for script in scripts:
+        if not os.path.exists(icebridge_common.fullPath(script)):
+            raise Exception("Could not find: " + script)
+        
 def main(argsIn):
 
     try:
@@ -586,7 +588,6 @@ def main(argsIn):
         if not options.skipConvert:                   
             # Run conversion and archive results if not already done        
             runConversion(run, options)
-
         
         if os.path.exists(fullBatchListPath) and not options.recomputeBatches:
             logger.info('Re-using existing batch list file.')
@@ -598,7 +599,7 @@ def main(argsIn):
         if options.failedBatchesOnly:
             logger.info('Assembling batch file with only failed batches...')
             batchListPath = filterBatchJobFile(run, batchListPath)
-        
+
         if not options.skipProcess:
         
             # Divide up batches into jobs and submit them to machines.

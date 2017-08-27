@@ -63,6 +63,12 @@ def retrieveRunData(run, unpackFolder):
     logger.info('Retrieving data for run ' + str(run))
 
     fileName = run.getInputTarName()
+
+    unpackedDir = os.path.join(unpackFolder, os.path.splitext(fileName)[0])
+    if os.path.exists(unpackFolder) and os.path.isdir(unpackFolder):
+        logger.info("Directory exists, won't fetch: " + unpackedDir)
+        return
+
     lfePath  = os.path.join(REMOTE_INPUT_FOLDER, fileName)
 
     cmd = 'shiftc --wait --verify --extract-tar ' + lfePath + ' ' + unpackFolder

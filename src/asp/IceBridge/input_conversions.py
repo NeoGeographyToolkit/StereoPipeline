@@ -454,7 +454,7 @@ def pairLidarFiles(lidarFolder, skipValidate, logger):
     logger.info('Generating lidar pairs...')
 
     # Create the output folder
-    pairedFolder = os.path.join(lidarFolder, 'paired')
+    pairedFolder = icebridge_common.getPairedLidarFolder(lidarFolder)
     os.system('mkdir -p ' + pairedFolder)
 
     convLidarFile = icebridge_common.getConvertedLidarIndexFile(lidarFolder)

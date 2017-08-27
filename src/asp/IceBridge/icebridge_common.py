@@ -33,6 +33,11 @@ sys.path.insert(0, libexecpath)
 import asp_system_utils, asp_alg_utils, asp_geo_utils, asp_image_utils
 asp_system_utils.verify_python_version_is_supported()
 
+def fullPath(script):
+    '''The full path to a script on the icebridge folder.'''
+    basepath = os.path.dirname(os.path.realpath(__file__))
+    return os.path.join(basepath, script)
+
 def outputFolder(site, yyyymmdd):
     '''The output folder name.'''
     return site + '_' + yyyymmdd
@@ -94,6 +99,9 @@ def getLidarFolder(outputFolder):
 
 def getProcessedFolder(outputFolder):
     return os.path.join(outputFolder, 'processed')
+
+def getPairedLidarFolder(lidarFolder):
+    return  os.path.join(lidarFolder, 'paired')
 
 def getConvertedLidarIndexFile(lidarFolder):
     return os.path.join(lidarFolder, 'converted_lidar_index.csv')
@@ -689,7 +697,7 @@ def findMatchingLidarFile(imageFile, lidarFolder):
     '''Given an image file, find the best lidar file to use for alignment.'''
     
     # Look in the paired lidar folder, not the original lidar folder.
-    pairedFolder = os.path.join(lidarFolder, 'paired')
+    pairedFolder = getPairedLidarFolder(lidarFolder)
     lidarFiles    = pairFiles(pairedFolder)
 
     if len(lidarFiles) <= 0:
