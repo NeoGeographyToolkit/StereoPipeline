@@ -1301,6 +1301,58 @@ int do_ba_ceres_one_pass(ModelT                          & ba_model,
                       opt, num_cameras, num_camera_params, num_point_params, cam_residual_counts,  
                       num_gcp_residuals, problem);
 
+
+  // Create a match file with clean points.
+  // TODO: Make this a function.
+  // TODO: Create this for every pair of images.
+  if (opt.num_ba_passes > 1 && num_cameras == 2 && (num_new_outliers == 0 || last_pass) ) {
+
+    std::vector<vw::ip::InterestPoint> left_ip, right_ip;
+    std::vector<int> left_pt, right_pt; // these are used for bookkeeping
+
+    for ( int icam = 0; icam < num_cameras; icam++ ) {
+      for ( crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++ ){
+        
+        // The index of the 3D point
+        int ipt = (**fiter).m_point_id;
+        if (outlier_xyz.find(ipt) != outlier_xyz.end()) continue; // skip outliers
+        
+        // Skip gcp
+        if (cnet[ipt].type() == ControlPoint::GroundControlPoint) continue;
+        
+        VW_ASSERT(int(icam) < num_cameras,
+                  ArgumentErr() << "Out of bounds in the number of cameras");
+        VW_ASSERT(int(ipt)  < num_points,
+                  ArgumentErr() << "Out of bounds in the number of points");
+        
+        Vector2 observation = (**fiter).m_location; // pixel value
+        ip::InterestPoint P;
+        P.x = observation.x();
+        P.y = observation.y();
+        if (icam == 0) {
+          left_ip.push_back(P);
+          left_pt.push_back(ipt);
+        }else if (icam == 1){
+          right_ip.push_back(P);
+          right_pt.push_back(ipt);
+        }
+      }
+    }
+
+    // Book-keeping, a given left ip and right ip must correspond to same xyz
+    if (left_pt.size() != right_pt.size()) 
+      vw_throw(ArgumentErr() << "Book-keeping error 1 in bundle adjustment.\n");
+
+    for (size_t pcount = 0; pcount < left_pt.size(); pcount++) {
+      if (left_pt[pcount] != right_pt[pcount]) 
+        vw_throw(ArgumentErr() << "Book-keeping error 2 in bundle adjustment.\n");
+    }
+
+    std::string match_file = opt.out_prefix  + "-clean.match";
+    vw_out() << "Writing: " << match_file << std::endl;
+    ip::write_binary_match_file(match_file, left_ip, right_ip);
+  }
+      
   return num_new_outliers;
 }
 
