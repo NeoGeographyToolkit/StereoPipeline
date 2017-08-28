@@ -167,7 +167,7 @@ def generateFlightSummary(run, options):
         camKmlFiles = textOutput.replace('\n', ' ')
         
         outputKml = os.path.join(options.outputFolder, 'cameras_out.kml')
-        scriptPath = fullPath('merge_orbitviz.py')
+        scriptPath = icebridge_common.fullPath('merge_orbitviz.py')
         cmd = 'python ' + scriptPath + ' ' + outputKml + ' ' + camKmlFiles
         print cmd
         os.system(cmd)
