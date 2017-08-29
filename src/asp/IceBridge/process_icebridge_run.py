@@ -95,7 +95,7 @@ def processBatch(imageCameraPairs, lidarFolder, referenceDem, outputFolder, extr
         logger.error('Batch processing failed!\n' + str(e) +
                      traceback.print_exc())
 
-def getImageSpacing(orthoFolder, startFrame, stopFrame):
+def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame):
     '''Find a good image stereo spacing interval that gives us a good
        balance between coverage and baseline width.
        Also detect all frames where this is a large break after the current frame.'''
@@ -120,9 +120,13 @@ def getImageSpacing(orthoFolder, startFrame, stopFrame):
 
         # Only process frames within the range
         frame = icebridge_common.getFrameNumberFromFilename(orthoPath)
-        if not ( (frame >= startFrame) and (frame <= stopFrame) ):  continue
+        if not ( (frame >= startFrame) and (frame <= stopFrame) ):
+            continue
+        if frame not in availableFrames: # Skip frames we did not compute a camera for
+            continue
         
         orthoFiles.append(orthoPath)
+        
     orthoFiles.sort()
     numOrthos = len(orthoFiles)
 
@@ -130,7 +134,7 @@ def getImageSpacing(orthoFolder, startFrame, stopFrame):
     logger.info('Loading bounding boxes...')
     bboxes = []
     frames = []
-    for i in range(0, numOrthos):
+    for i in range(0, numOrthos):    
         imageGeoInfo = asp_geo_utils.getImageGeoInfo(orthoFiles[i], getStats=False)
         thisBox      = imageGeoInfo['projection_bounds']
         thisFrame    = icebridge_common.getFrameNumberFromFilename(orthoFiles[i])
@@ -139,8 +143,7 @@ def getImageSpacing(orthoFolder, startFrame, stopFrame):
 
     # Since we are only comparing the image bounding boxes, not their exact corners,
     #  these ratios are only estimates.
-    #MAX_RATIO = 0.8 # Increase skip until we get below this...
-    MAX_RATIO = 1.0 # Increase skip until we get below this...
+    MAX_RATIO = 0.8 # Increase skip until we get below this...
     MIN_RATIO = 0.4 # ... but don't go below this value!
 
     def getBboxArea(bbox):
@@ -161,7 +164,7 @@ def getImageSpacing(orthoFolder, startFrame, stopFrame):
         logger.info('Trying stereo image interval ' + str(interval))
 
         if numOrthos <= interval:
-            raise Exception('Error: There are too few images and they overlap too much. ' + \
+            raise Exception('Error: There are too few images and they overlap too much. ' +
                             'Consider processing more images in the given batch.')       
 
         for i in range(0, numOrthos-interval):
@@ -401,8 +404,10 @@ def main(argsIn):
     numFiles = len(imageCameraPairs)
     
     # Check that the files are properly aligned
+    availableFrames = []
     for (image, camera) in imageCameraPairs: 
         frameNumber = icebridge_common.getFrameNumberFromFilename(image)
+        availableFrames.append(frameNumber)
         if (icebridge_common.getFrameNumberFromFilename(camera) != frameNumber):
           logger.error('Error: input files do not align!\n' + str((image, camera)))
           return -1
@@ -448,7 +453,7 @@ def main(argsIn):
     if options.cleanup:
         extraOptions += ' --cleanup '
 
-    (autoStereoInterval, breaks) = getImageSpacing(options.orthoFolder,
+    (autoStereoInterval, breaks) = getImageSpacing(options.orthoFolder, availableFrames,
                                                    options.startFrame, options.stopFrame)
     if options.imageStereoInterval: 
         logger.info('Using manually specified image stereo interval: ' +
@@ -503,12 +508,6 @@ def main(argsIn):
         if ((numPairs < options.bundleLength) and (frameNumber < options.stopFrame) and 
                (not hitBreakFrame)):
             continue
-
-        # Check if the output file already exists.
-        #thisDemFile      = os.path.join(thisOutputFolder, 'DEM.tif')
-        #if os.path.exists(thisDemFile):
-        #    print("Skipping frame as file exists: " + thisDemFile)
-        #    continue
           
         # The output folder is named after the first and last frame in the batch.
         # We count on this convention in blend_dems.py.
