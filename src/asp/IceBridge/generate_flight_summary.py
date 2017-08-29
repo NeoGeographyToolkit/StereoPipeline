@@ -133,6 +133,7 @@ def getFailureCause(batchFolder):
     for code in errorLogText.iterkeys():
         if code in (UNKNOWN, SUCCESS): #Skip these codes
             continue
+
         if errorLogText[code] in logText:
             foundError = code
             break # Stop at the first error we find
@@ -199,9 +200,13 @@ def generateFlightSummary(run, options):
         demList = run.getOutputDemList()
         for (dem, frames) in demList:
 
+            demFolder = os.path.dirname(dem)
+
             # Handle frame range option
-            if (frames[0] < options.startFrame) or (frames[1] > options.stopFrame):
+            if (frames[0] < options.startFrame):
                 continue
+            if (frames[1] > options.stopFrame):
+                break
 
             # Progress indication
             if frames[0] % 100 == 0:
@@ -210,14 +215,14 @@ def generateFlightSummary(run, options):
                 failureLog.flush()
                 
             # Read in blend results which are not part of the consolidated stats file
-            blendDiffPath = dem.replace('out-align-DEM.tif', 'out-blend-DEM-diff.csv')
+            blendDiffPath = os.path.join(demFolder, 'out-blend-DEM-diff.csv')
             try:
                 blendDiffResults = icebridge_common.readGeodiffOutput(blendDiffPath)
             except:
                 blendDiffResults = {'Mean':-999}
             
             # All of the other results should be in a consolidated stats file
-            consolidatedStatsPath = dem.replace('out-align-DEM.tif', 'out-consolidated_stats.txt')
+            consolidatedStatsPath = os.path.join(demFolder, 'out-consolidated_stats.txt')
 
             if not os.path.exists(consolidatedStatsPath):
                 # Stats file not present, recreate it.
@@ -225,10 +230,10 @@ def generateFlightSummary(run, options):
                 print 'Recreating missing stats file: ' + consolidatedStatsPath
 
                 # Get paths to the files of interest
-                lidarDiffPath     = dem.replace('out-align-DEM.tif', 'out-diff.csv')
-                interDiffPath     = dem.replace('out-align-DEM.tif', 'out_inter_diff_summary.csv')
-                fireDiffPath      = dem.replace('out-align-DEM.tif', 'out_fireball_diff_summary.csv')
-                fireLidarDiffPath = dem.replace('out-align-DEM.tif', 'out_fireLidar_diff_summary.csv')
+                lidarDiffPath     = os.path.join(demFolder, 'out-diff.csv')
+                interDiffPath     = os.path.join(demFolder, 'out_inter_diff_summary.csv')
+                fireDiffPath      = os.path.join(demFolder, 'out_fireball_diff_summary.csv')
+                fireLidarDiffPath = os.path.join(demFolder, 'out_fireLidar_diff_summary.csv')
                 process_icebridge_batch.consolidateStats(lidarDiffPath, interDiffPath, fireDiffPath,
                                                          fireLidarDiffPath, dem,
                                                          consolidatedStatsPath,
@@ -252,12 +257,17 @@ def generateFlightSummary(run, options):
                 else: # A real failure, figure out the cause
                     batchFolder = os.path.dirname(dem)
                     (errorCode, errorText) = getFailureCause(batchFolder)
-
+                    #print str((errorCode, errorText))
+                #if errorCode < 0: # Debug code for unknown errors
+                    #print str((errorCode, errorText))
+                    #print statsText
+                    #print batchFolder
+                    #raise Exception('DEBUG')
                 failureLog.write('%d, %d, %d, %s\n' %  (frames[0], frames[1], errorCode, errorText))
                 
             
             # Make a link to the thumbnail file in our summary folder
-            hillshadePath = dem.replace('out-align-DEM.tif', 'out-DEM_HILLSHADE_browse.tif')
+            hillshadePath = os.path.join(demFolder, 'out-DEM_HILLSHADE_browse.tif')
             if os.path.exists(hillshadePath):
                 thumbName = ('dem_%05d_%05d_browse.tif' % (frames[0], frames[1]))
                 thumbPath = os.path.join(options.outputFolder, thumbName)

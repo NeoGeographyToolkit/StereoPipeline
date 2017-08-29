@@ -185,33 +185,35 @@ def packAndSendCompletedRun(run):
     # Use symlinks to assemble a fake file structure to tar up
     assemblyFolder = run.getAssemblyFolder()
     batchFolders   = run.getBatchFolderList()
+    os.system('mkdir -p ' + assemblyFolder)
     
     # For each batch folder, start adding links to files that we want in the tarball
     for batch in batchFolders:
-        alignDemFile = os.path.join(batch,'out-align-DEM.tif')
+        # Skip folders where we did not produce final output
+        finalDemFile = os.path.join(batch,'out-blend-DEM.tif')
+        if not os.path.exists(finalDemFile):
+            continue
         
         # Need to change the name of these files when they go in the output folder
-        (startFrame, stopFrame) = getFrameRangeFromBatchFolder(batch)
-        prefix = ('F_%d_%d' % (startFrame, stopFrame))
+        (startFrame, stopFrame) = icebridge_common.getFrameRangeFromBatchFolder(batch)
+        prefix = ('F_%05d_%05d' % (startFrame, stopFrame))
         prefix = os.path.join(assemblyFolder, prefix)
-        
-        os.symlink(alignDemFile, prefix+'_aligned_DEM.tif')
-    
+        os.symlink(finalDemFile, prefix+'_DEM.tif')
     
     # Tar up the assembled files and send them at the same time using the shiftc command
     # - No need to use a compression algorithm here
     fileName = run.getOutputTarName()
     lfePath  = os.path.join(REMOTE_OUTPUT_FOLDER, fileName)
 
-    # TODO: Don't use the wait command here, and clean up after this transfer is finished!
+    # TODO: Keep track of this transfer!
 
     logger.info('Sending run to lfe...')
     cmd = 'shiftc --dereference --create-tar ' + assemblyFolder + ' ' + lfePath
     logger.info(cmd)
-    #status = os.system(cmd)
-    if status != 0:
-        raise Exception('Failed to pack/send results for run ' + str(run))
-    logger.info('Finished sending run to lfe.')
+    status = os.system(cmd)
+    #if status != 0:
+    #    raise Exception('Failed to pack/send results for run ' + str(run))
+    #logger.info('Finished sending run to lfe.')
     
     
     

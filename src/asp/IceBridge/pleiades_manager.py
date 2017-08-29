@@ -57,8 +57,10 @@ STEREO_ALGORITHM = 2 # 1 = SGM, 2 = MGM
 
 ORTHO_PBS_QUEUE = 'normal'
 BATCH_PBS_QUEUE = 'normal'
+BLEND_PBS_QUEUE = 'normal'
 MAX_ORTHO_HOURS = 8
 MAX_BATCH_HOURS = 8 # devel limit is 2, long limit is 120, normal is 8
+MAX_BLEND_HOURS = 2 # These jobs go pretty fast
 
 GROUP_ID = 's1827'
 
@@ -87,8 +89,8 @@ def getParallelParams(nodeType, task):
         if nodeType == 'bro': return (4, 8, 100)
     
     if task == 'blend':
-        if nodeType == 'ivy': return (10, 2, 160)
-        if nodeType == 'bro': return (14, 2, 200)
+        if nodeType == 'ivy': return (10, 2, 1000)
+        if nodeType == 'bro': return (14, 4, 1400) # 200 seems to finish in 10 minutes
     
     raise Exception('No params defined for node type ' + nodeType + ', task = ' + task)
 
@@ -271,6 +273,12 @@ def generateBatchList(run, options, listPath):
     os.system(cmd)
 
 
+def getOutputFolderFromBatchCommand(batchCommand):
+    '''Extract the output folder from a line in the batch file'''
+    parts        = batchCommand.split()
+    outputFolder = parts[9] # This needs to be kept up to date with the file format!
+    return outputFolder
+
 # TODO: Share code with the other function
 def filterBatchJobFile(run, batchListPath):
     '''Make a copy of the batch list file which only contains incomplete batches.'''
@@ -287,8 +295,7 @@ def filterBatchJobFile(run, batchListPath):
     
     with open(batchListPath, 'r') as fIn, open(newBatchPath, 'w') as fOut:
         for line in fIn:
-            parts        = line.split()
-            outputFolder = parts[10] # This needs to be kept up to date with the file format!
+            outputFolder = getOutputFolderFromBatchCommand(line)
             targetPath   = os.path.join(outputFolder, batchOutputName)
             if not os.path.exists(targetPath):
                 fOut.write(line)
@@ -378,13 +385,13 @@ def runBlending(run, options):
     for i in range(0, numBlendJobs):
         jobName    = str(currentFrame) + baseName
         startFrame = currentFrame
-        stopFrame  = currentFrame+tasksPerJob-1
+        stopFrame  = currentFrame+tasksPerJob # Last frame passed to the tool is not processed
         if (i == numBlendJobs - 1):
             stopFrame = maxFrame+1 # Make sure nothing is lost at the end
         thisArgs = (args + ' --start-frame ' + str(startFrame) + ' --stop-frame ' + str(stopFrame) )
         logPrefix = os.path.join(pbsLogFolder, 'blend_' + jobName)
         logger.info('Submitting blend job with args: '+thisArgs)
-        pbs_functions.submitJob(jobName, ORTHO_PBS_QUEUE, MAX_ORTHO_HOURS, GROUP_ID, options.nodeType, 'python', thisArgs, logPrefix)
+        pbs_functions.submitJob(jobName, BLEND_PBS_QUEUE, MAX_BLEND_HOURS, GROUP_ID, options.nodeType, 'python', thisArgs, logPrefix)
         
         currentFrame += tasksPerJob
 
@@ -448,15 +455,14 @@ def checkResults(run, batchListPath):
     logger.info('Counted ' + str(errorCount) + ' errors in log files!')
     
     # Make sure each batch produced the aligned DEM file
-    #batchOutputName = 'out-blend-DEM.tif'
-    batchOutputName = 'out-align-DEM.tif'
+    batchOutputName = 'out-blend-DEM.tif'
+    #batchOutputName = 'out-align-DEM.tif'
     
     numOutputs  = 0
     numProduced = 0
     with open(batchListPath, 'r') as f:
         for line in f:
-            parts        = line.split()
-            outputFolder = parts[10] # This needs to be kept up to date with the file format!
+            outputFolder = getOutputFolderFromBatchCommand(line)
             targetPath   = os.path.join(outputFolder, batchOutputName)
             numOutputs += 1
             if os.path.exists(targetPath):
@@ -532,6 +538,8 @@ def main(argsIn):
                             help="Don't process the batches.")
         parser.add_argument("--skip-blend", action="store_true", dest="skipBlend", default=False, 
                             help="Skip blending.")
+        parser.add_argument("--skip-report", action="store_true", dest="skipReport", default=False, 
+                            help="Skip summary report step.")
                           
         options = parser.parse_args(argsIn)
 
@@ -622,20 +630,29 @@ def main(argsIn):
         ## - If the run was not processed correctly it will have to be looked at manually
         #addToRunList(COMPLETED_RUN_LIST, run)
 
-        # Generate a simple report of the results
-        (numOutputs, numProduced, errorCount) = checkResults(run, fullBatchListPath)
-        resultText = ('"Created %d out of %d output targets with %d errors."' % 
-                      (numProduced, numOutputs, errorCount))
-        logger.info(resultText)
+        if not options.skipReport:
+            # Generate a simple report of the results
+            (numOutputs, numProduced, errorCount) = checkResults(run, fullBatchListPath)
+            resultText = ('"Created %d out of %d output targets with %d errors."' % 
+                          (numProduced, numOutputs, errorCount))
+            logger.info(resultText)
 
-        # Generate a summary folder and send a copy to Lou
-        # - Currently the summary folders need to be deleted manually, but they should not
-        #   take up much space due to the large amount of compression used.
-        summaryFolder = os.path.join(options.summaryFolder, run.name())
-        generate_flight_summary.generateFlightSummary(run, summaryFolder)
-        archive_functions.packAndSendSummaryFolder(run, summaryFolder) # Sends data to Lunokhod2 location
+            # Generate a summary folder and send a copy to Lou
+            # - Currently the summary folders need to be deleted manually, but they should not
+            #   take up much space due to the large amount of compression used.
+            summaryFolder = os.path.join(options.summaryFolder, run.name())
+            genCmd = ['--yyyymmdd', run.yyyymmdd, '--site', run.site, 
+                      '--output-folder', summaryFolder, '--parent-folder', run.parentFolder]
+            generate_flight_summary.main(genCmd)
+            archive_functions.packAndSendSummaryFolder(run, summaryFolder) # Sends data to Lunokhod2 location
+        else:
+            resultText = 'Summary skipped'
+            errorCount  = 0 # Flag values to let the next condition pass
+            numOutputs  = 1
+            numProduced = 1
 
         # Don't pack or clean up the run if it did not generate all the output files.
+        # - TODO: Will never produce 100% of outputs
         if (numProduced == numOutputs) and (errorCount == 0):
             print 'TODO: Automatically send the completed files to lou and clean up the run!'
 

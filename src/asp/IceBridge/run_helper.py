@@ -51,7 +51,7 @@ class RunHelper():
            If optional parent folder is provided, it will be prependend to all returned paths.'''
         self.site          = site
         self.yyyymmdd      = yyyymmdd
-        self._parentFolder = parentFolder
+        self.parentFolder = parentFolder
         
     def __str__(self):
         '''Define string autoconversion'''
@@ -84,7 +84,7 @@ class RunHelper():
 
     def getFolder(self):
         '''Returns the folder where this run will be stored'''
-        return os.path.join(self._parentFolder, str(self))
+        return os.path.join(self.parentFolder, str(self))
 
     def _internalLoc(self, path):
         '''Returns a folder relative to getFolder()'''
@@ -162,7 +162,8 @@ class RunHelper():
         
         batchList = self.getBatchFolderList()
 
-        demName = 'out-align-DEM.tif'
+        #demName = 'out-align-DEM.tif'
+        demName = 'out-blend-DEM.tif'
         output = []
         for batch in batchList:
             frames = icebridge_common.getFrameRangeFromBatchFolder(batch)
