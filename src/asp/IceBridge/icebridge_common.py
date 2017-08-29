@@ -550,7 +550,7 @@ def getMatchingFrames(inputFiles, candidateFiles):
     return outputList
             
 
-def parseDateTimeStrings(dateString, timeString, secondFix, returnSecondOnly):
+def parseDateTimeStrings(dateString, timeString, useTimeFix, returnMinAndSecOnly):
     '''Parse strings in the format 20110323_17433900.'''
 
     MILLISECOND_TO_MICROSECOND = 10000
@@ -562,10 +562,11 @@ def parseDateTimeStrings(dateString, timeString, secondFix, returnSecondOnly):
     minute  = int(timeString[2:4])
     second  = int(timeString[4:6])
 
-    if returnSecondOnly:
-        return second
+    if returnMinAndSecOnly:
+        return (minute, second)
     
-    if secondFix: # Some files number the seconds from 1-60!
+    if useTimeFix: # Some files number the minutes and seconds from 1-60!
+        minute  = minute - 1
         second  = second - 1
     usecond = 0
     if len(timeString) > 6:
@@ -711,9 +712,9 @@ def findMatchingLidarFileFromList(imageFile, lidarFiles):
     vals = parseTimeStamps(imageFile)
     if len(vals) < 2:
         raise Exception('Failed to parse the date and time from: ' + imageFile)
-    secondFix = False
-    returnSecondOnly = False
-    imageDateTime = parseDateTimeStrings(vals[0], vals[1], secondFix, returnSecondOnly)
+    useTimeFix = False
+    returnMinAndSecOnly = False
+    imageDateTime = parseDateTimeStrings(vals[0], vals[1], useTimeFix, returnMinAndSecOnly)
     
     #print 'INPUT = ' + str(imageDateTime)
     
@@ -725,30 +726,31 @@ def findMatchingLidarFileFromList(imageFile, lidarFiles):
     zeroDelta     = datetime.timedelta()
 
     # First see if we need correction for sometimes seconds going from 1 to 60.
-    minSec = 60
-    maxSec = 0
+    minMinSec = 60
+    maxMinSec = 0
     for lidarPath in lidarFiles:
         
         vals = parseTimeStamps(lidarPath)
         if len(vals) < 2: continue # ignore bad files
 
-        secondFix = False
-        returnSecondOnly = True
-        second = parseDateTimeStrings(vals[0], vals[1], secondFix, returnSecondOnly)
-        if second < minSec:
-            minSec = second
-        if second > maxSec:
-            maxSec = second
+        useTimeFix = False
+        returnMinAndSecOnly = True
+        (minute, second) = parseDateTimeStrings(vals[0], vals[1], useTimeFix, returnMinAndSecOnly)
+        if second < minMinSec: minMinSec = second
+        if second > maxMinSec: maxMinSec = second
+        if minute < minMinSec: minMinSec = minute
+        if minute > maxMinSec: maxMinSec = minute
 
-    if minSec > maxSec:
+    if minMinSec > maxMinSec:
         raise Exception("Failure parsing " + pairedFolder)
 
-    if minSec <= 0 and maxSec >= 60:
-        raise Exception("The second range goes from  " + str(minSec) + " to " + str(maxSec))
+    if minMinSec <= 0 and maxMinSec >= 60:
+        raise Exception("The minute/second range goes from  " + str(minMinSec) +
+                        " to " + str(maxMinSec))
 
-    secondFix = False
-    if maxSec >= 60:
-        secondFix = True
+    useTimeFix = False
+    if maxMinSec >= 60:
+        useTimeFix = True
         
     for lidarPath in lidarFiles:
 
@@ -757,8 +759,8 @@ def findMatchingLidarFileFromList(imageFile, lidarFiles):
             continue # ignore bad files
 
         try:
-            returnSecondOnly = False
-            lidarDateTime = parseDateTimeStrings(vals[0], vals[1], secondFix, returnSecondOnly)
+            returnMinAndSecOnly = False
+            lidarDateTime = parseDateTimeStrings(vals[0], vals[1], useTimeFix, returnMinAndSecOnly)
         except Exception as e:
             raise Exception('Failed to parse datetime for lidar file: ' + lidarPath + '\n' +
                             'Error is: ' + str(e))
