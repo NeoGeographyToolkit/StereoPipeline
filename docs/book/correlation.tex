@@ -363,9 +363,11 @@ resolution hierarchical search combined with a compressed memory scheme similar
 to what is used in the SGM algorithm \citep{rothermel2012sure_isgm}.  With
 these two features the SGM algorithm can be used for unrectified, larger images.
 ASP also supports a mode using the MGM algorithm \citep{facciolo2015mgm}, 
-referred to
-in some places in the documentation as Smooth SGM.  This algorithm reduces the amount
-of high frequency artifacts in textureless regions at the cost of a longer run time.
+referred to in some places in the documentation as Smooth SGM.  This algorithm 
+reduces the amount of high frequency artifacts in textureless regions at the 
+cost of a longer run time.  ASP also offers the option of a hybrid SGM/MGM mode
+where MGM is used only for the final resolution level which obtains results
+somewhere between the pure SGM and MGM options.
 
 The greatest advantage of the SGM algorithm over the normal ASP correlation algorithm
 is an improved ability to find disparity matches in areas of repetitive or low texture.

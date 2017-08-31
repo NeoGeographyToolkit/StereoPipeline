@@ -1101,10 +1101,17 @@ void stereo_correlation( ASPGlobalOptions& opt ) {
   vw_out() << "Writing: " << d_file << "\n";
   if (stereo_settings().stereo_algorithm > vw::stereo::CORRELATION_WINDOW) {
     // SGM performs subpixel correlation in this step, so write out floats.
-    vw::cartography::block_write_gdal_image(d_file, fullres_disparity,
+    
+    // Rasterize the image first as one block, then write it out using multiple blocks.
+    // - If we don't do this, the output image file is not tiled and handles very slowly.
+    // - This is possible because with SGM the image must be small enough to fit in memory.
+    ImageView<PixelMask<Vector2f> > result = fullres_disparity;
+    opt.raster_tile_size = Vector2i(ASPGlobalOptions::rfne_tile_size(),ASPGlobalOptions::rfne_tile_size());
+    vw::cartography::block_write_gdal_image(d_file, result,
 			        has_left_georef, left_georef,
 			        has_nodata, nodata, opt,
 			        TerminalProgressCallback("asp", "\t--> Correlation :") );
+			        
   } else {
     // Otherwise cast back to integer results to save on storage space.
     vw::cartography::block_write_gdal_image(d_file, 

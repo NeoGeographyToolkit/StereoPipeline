@@ -354,6 +354,10 @@ should be sufficient in most cases.
     \item[2 - Smooth Semi-Global Matching] - Uses the MGM variant of the SGM algorithm 
     \citep{facciolo2015mgm} to reduce high frequency artifacts in the output image at the cost 
     of increased run time. See section \ref{sec:sgm} for important details on using this algorithm.
+    
+    \item[3 - MGM Final] - Use MGM on the final resolution level and SGM on preceding resolution levels.
+    This produces a result somewhere in between the pure SGM and MGM options.
+    
   \end{description}
 
 \item[corr-blob-filter \textnormal{\small{(\emph{integer})}} (default = 0)]\hfill \\

@@ -194,7 +194,7 @@ namespace asp {
       ("corr-timeout",           po::value(&global.corr_timeout)->default_value(900),
                      "Correlation timeout for a tile, in seconds.")
       ("stereo-algorithm",       po::value(&global.stereo_algorithm)->default_value(0),
-                     "Stereo algorithm to use [0=local window, 1=SGM, 2=Smooth SGM].")
+                     "Stereo algorithm to use [0=local window, 1=SGM, 2=MGM, 3=MGM Final].")
       ("corr-blob-filter",       po::value(&global.corr_blob_filter_area)->default_value(0),
                      "Filter blobs this size or less in correlation pyramid step.")
       ("corr-tile-size",         po::value(&global.corr_tile_size_ovr)->default_value(ASPGlobalOptions::corr_tile_size()),
