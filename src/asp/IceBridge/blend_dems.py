@@ -170,6 +170,7 @@ def runBlend(frame, processFolder, lidarFile, bundleLength, threadText, redo, su
             logFiles = glob.glob(outputPrefix + "*" + "-log-" + "*")
             filesToWipe += logFiles
         
+        # Update the filenames of the output files
         print("Best mean error to lidar is " + str(bestMean) + " when blending " + bestVals)
         cmd = "mv " + bestBlend + " " + finalBlend
         print(cmd)
@@ -179,6 +180,19 @@ def runBlend(frame, processFolder, lidarFile, bundleLength, threadText, redo, su
         print(cmd)
         asp_system_utils.executeCommand(cmd, finalDiff, suppressOutput, redo)
         
+        # Generate a thumbnail of the final DEM
+        hillOutput = finalOutputPrefix+'-DEM_HILLSHADE.tif'
+        cmd = 'hillshade ' + finalBlend +' -o ' + hillOutput
+        asp_system_utils.executeCommand(cmd, hillOutput, suppressOutput, redo)
+
+        # Generate a low resolution compressed thumbnail of the hillshade for debugging
+        thumbOutput = finalOutputPrefix + '-DEM_HILLSHADE_browse.tif'
+        cmd = 'gdal_translate '+hillOutput+' '+thumbOutput+' -of GTiff -outsize 40% 40% -b 1 -co "COMPRESS=JPEG"'
+        asp_system_utils.executeCommand(cmd, thumbOutput, suppressOutput, redo)
+        os.remove(hillOutput) # Remove this file to keep down the file count
+
+
+        # Clean up extra files
         for fileName in filesToWipe:
             if os.path.exists(fileName):
                 print("Removing: " + fileName)

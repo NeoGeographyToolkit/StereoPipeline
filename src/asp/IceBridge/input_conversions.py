@@ -246,7 +246,7 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile,
     #  if we can get it to work.
     IP_OPTIONS = ['1', '0', '2']
    
-    MIN_IP     = 10  # Require more IP to make sure we don't get bogus camera models
+    MIN_IP     = 15  # Require more IP to make sure we don't get bogus camera models
     DESIRED_IP = 100 # If we don't hit this number, try other methods before taking the best one.
 
     bestIpCount = 0
@@ -289,7 +289,7 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile,
     # I saw this being recommended, to dump all print statements in the current task
     sys.stdout.flush()
                 
-    # TODO: Clean up the .gcp file?
+    # TODO: Clean up the .gcp file!
 
 
 def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
