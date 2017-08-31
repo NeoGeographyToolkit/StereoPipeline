@@ -130,17 +130,27 @@ def robust_pc_align(options, outputPrefix, lidarFile, demPath,
     
     return alignedDem, lidarDiffPath, results['Mean']
 
+
+def blurImage(inputPath, outputPath, suppressOutput, redo):
+    '''Create a blurred copy of an image'''
+
+    # Blurring the input image can help reduce the negative impact of jpeg artifacts.
+    cmd = 'convert ' +inputPath+' -compress LZW -blur 2 '+outputPath
+    asp_system_utils.executeCommand(cmd, outputPath, suppressOutput, redo)
+
+
 def robustBundleAdjust(options, inputPairs, imageCameraString, 
                        suppressOutput, redo,
                        threadText, heightLimitString, logger):
-    '''Perform bundle adjustment with multiple retries in case things fail.'''
+    '''Perform bundle adjustment with multiple retries in case things fail.
+       Returns inputPairs with the updated camera models swapped in.'''
 
     # - Bundle adjust all of the input images in the batch at the same time.
     # - An overlap number less than 2 is prone to very bad bundle adjust results so
     #   don't use less than that.  If there is really only enough overlap for one we
     #   will have to examine the results very carefully!
-    MIN_BA_OVERLAP = 2
-    CAMERA_WEIGHT  = 1.0
+    MIN_BA_OVERLAP   = 2
+    CAMERA_WEIGHT    = 1.0
     ROBUST_THRESHOLD = 2.0
     OVERLAP_EXPONENT = 0
     bundlePrefix   = os.path.join(options.outputFolder, 'bundle/out')
@@ -150,22 +160,38 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
 
     # Try several attempts
     ipMethod  = [1,   0,   2,   1,    0,    2]
-    ipPerTile = [500, 500, 500, 2000, 2000, 2000]
-
-    # Replace the cameras in imageCameraString with the new cameras to be created
+    #ipPerTile = [500, 500, 500, 2000, 2000, 2000]
+    ipPerTile = [500, 500, 500, 500, 500, 500]
+    useBlur  = [0,   0,   0,   1,    1,    1]
+   
+    # Generate a new string with the blurred image files paths
+    # - Don't actually generate blurred files unless they are needed
+    # - Blurred images will be deleted when the final batch cleanup function is called.
+    blurredImageCameraString = imageCameraString
+    blurPairs = []
+    i = 0
     for pair in inputPairs:
-        newCamera = bundlePrefix +'-'+ os.path.basename(pair[1])
-        pair[1] = newCamera
-        imageCameraString.replace(pair[1], newCamera)
-    
+        imagePath   = pair[0]
+        blurredPath = bundlePrefix + '_' + str(i)+ '_blurred.tif'
+        blurredImageCameraString = blurredImageCameraString.replace(imagePath, blurredPath)
+        blurPairs.append((imagePath, blurredPath))
+        i = i + 1
+
+    # Loop through all our parameter settings, quit as soon as one works.
     for attempt in range(len(ipPerTile)):
         
+        argString = imageCameraString
+        if useBlur[attempt]: # Make sure blurred images are created
+            for pair in blurPairs:
+                blurImage(pair[0], pair[1], True, False)
+            argString = blurredImageCameraString                     
+
         cmd = (('bundle_adjust %s -o %s %s %s --datum wgs84 ' +
                 '--camera-weight %0.16g -t nadirpinhole ' +
                 '--local-pinhole --overlap-limit %d --robust-threshold %0.16g ' +
                 '--ip-detect-method %d --ip-per-tile %d ' + 
                 '--overlap-exponent %0.16g --epipolar-threshold 50')  \
-               % (imageCameraString, bundlePrefix, threadText, heightLimitString, 
+               % (argString, bundlePrefix, threadText, heightLimitString, 
                   CAMERA_WEIGHT, baOverlapLimit, ROBUST_THRESHOLD, ipMethod[attempt],
                   ipPerTile[attempt], OVERLAP_EXPONENT))
         
@@ -191,7 +217,10 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
         for f in glob.glob(bundlePrefix + '*'):
             logger.info("Wipe: " + f)
             os.remove(f)
-            
+
+    # Return image/camera pairs with the camera files replaced with the bundle_adjust output files.
+    for pair in inputPairs:
+        pair[1] = bundlePrefix +'-'+ os.path.basename(pair[1])
     return inputPairs
 
 def consolidateGeodiffResults(inputFiles, outputPath=None):

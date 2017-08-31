@@ -511,10 +511,10 @@ def main(argsIn):
           
         # The output folder is named after the first and last frame in the batch.
         # We count on this convention in blend_dems.py.
-        thisOutputFolder = os.path.join(outputFolder,
-                                        'batch_'+str(frameNumbers[0]) + \
-                                        '_' + str(frameNumbers[-1])   +
-                                        '_' + str(options.bundleLength))
+        #batchFolderName  = ('batch_%05d_%05d_%d' % (frameNumbers[0], frameNumbers[-1], options.bundleLength)) # TODO: Make this change!
+        batchFolderName  = ('batch_%d_%d_%d' % (frameNumbers[0], frameNumbers[-1], options.bundleLength))
+        thisOutputFolder = os.path.join(outputFolder, batchFolderName)
+                                        
 
         if not options.logBatches:
             logger.info('Running processing batch in output folder: ' + thisOutputFolder + '\n' + 
