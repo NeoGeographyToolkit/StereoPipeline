@@ -57,6 +57,12 @@ namespace asp {
                             boost::shared_ptr<vw::camera::CameraModel> &right_cam,
                             vw::Vector2i &left_out_size, vw::Vector2i &right_out_size);
 
+    /// Return the input camera models with no alignment applied.
+    /// - This only matters in the epipolar alignment case, where the normal camera model
+    ///   functions return the aligned camera models.
+    void get_unaligned_camera_models(boost::shared_ptr<vw::camera::CameraModel> &left_cam,
+                                     boost::shared_ptr<vw::camera::CameraModel> &right_cam);
+
     /// Transforms from pixel coordinates on disk to original unwarped image coordinates.
     /// - For reversing our arithmetic applied in preprocessing.
     typedef vw::HomographyTransform tx_type;

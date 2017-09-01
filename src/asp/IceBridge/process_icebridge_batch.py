@@ -164,6 +164,10 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
     ipPerTile = [500, 500, 500, 500, 500, 500]
     useBlur  = [0,   0,   0,   1,    1,    1]
    
+    # Fill inputPairs with output camera names
+    for pair in inputPairs:
+        pair[1] = bundlePrefix +'-'+ os.path.basename(pair[1])
+   
     # Generate a new string with the blurred image files paths
     # - Don't actually generate blurred files unless they are needed
     # - Blurred images will be deleted when the final batch cleanup function is called.
@@ -200,12 +204,13 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
     
         # Run the BA command and log errors
         logger.info(cmd) # to make it go to the log, not just on screen
-        (out, err, status) = asp_system_utils.executeCommand(cmd, newCamera, True, redo,
+        outputCamera = inputPairs[0][1]
+        (out, err, status) = asp_system_utils.executeCommand(cmd, outputCamera, True, redo,
                                                              noThrow=True)
         logger.info(out + '\n' + err)
         
         if status == 0:
-            logger.info("Bundle adjustment succeded.")
+            logger.info("Bundle adjustment succeded on attempt " + str(attempt))
             break
         
         if attempt + 1 == len(ipPerTile):
@@ -219,8 +224,6 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
             os.remove(f)
 
     # Return image/camera pairs with the camera files replaced with the bundle_adjust output files.
-    for pair in inputPairs:
-        pair[1] = bundlePrefix +'-'+ os.path.basename(pair[1])
     return inputPairs
 
 def consolidateGeodiffResults(inputFiles, outputPath=None):

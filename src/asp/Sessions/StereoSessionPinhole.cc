@@ -235,6 +235,24 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(bool adjust_left_image_si
 namespace asp {
 
 
+void asp::StereoSessionPinhole::get_unaligned_camera_models(
+                                 boost::shared_ptr<vw::camera::CameraModel> &left_cam,
+                                 boost::shared_ptr<vw::camera::CameraModel> &right_cam) {
+                                 
+  // Retrieve the pixel offset (if any) to cropped images
+  vw::Vector2 left_pixel_offset  = camera_pixel_offset(m_input_dem, m_left_image_file,
+                                                       m_right_image_file, m_left_image_file);
+  vw::Vector2 right_pixel_offset = camera_pixel_offset(m_input_dem, m_left_image_file,
+                                                       m_right_image_file, m_right_image_file);
+
+  // Load the camera models adjusted for cropping
+  left_cam  = load_adjusted_model(vw::camera::load_pinhole_camera_model(m_left_camera_file),
+                                  m_left_image_file, m_left_camera_file, left_pixel_offset);
+  right_cam = load_adjusted_model(vw::camera::load_pinhole_camera_model(m_right_camera_file),
+                                  m_right_image_file, m_right_camera_file, right_pixel_offset);                                 
+}
+
+
 boost::shared_ptr<vw::camera::CameraModel>
 load_adj_pinhole_model(std::string const& image_file,       std::string const& camera_file,
                        std::string const& left_image_file,  std::string const& right_image_file,

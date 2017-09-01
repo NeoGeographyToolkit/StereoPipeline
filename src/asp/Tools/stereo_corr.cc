@@ -19,7 +19,10 @@
 /// \file stereo_corr.cc
 ///
 
+#include <boost/core/null_deleter.hpp>
 #include <vw/InterestPoint.h>
+#include <vw/Camera/CameraTransform.h>
+#include <vw/Camera/PinholeModel.h>
 #include <boost/accumulators/accumulators.hpp>
 #include <boost/accumulators/statistics.hpp>
 #include <vw/Stereo/CorrelationView.h>
@@ -29,6 +32,7 @@
 #include <asp/Core/DemDisparity.h>
 #include <asp/Core/LocalHomography.h>
 #include <asp/Sessions/StereoSession.h>
+#include <asp/Sessions/StereoSessionPinhole.h>
 #include <xercesc/util/PlatformUtils.hpp>
 
 #include <asp/Core/InterestPointMatching.h>
@@ -278,22 +282,79 @@ double adjust_ip_for_align_matrix(std::string               const& out_prefix,
 	      
 } // End adjust_ip_for_align_matrix
 
-  // TODO: Duplicate of hidden function in vw/src/InterestPoint/Matcher.cc!
-  std::string strip_path(std::string out_prefix, std::string filename){
 
-    // If filename starts with out_prefix followed by dash, strip both.
-    // Also strip filename extension.
+/// Adjust IP lists if epipolar alignment was applied after the IP were created.
+/// - Currently this condition can only happen if an IP file is inserted into the run
+///   folder from another source such as bundle adjust!
+/// - Returns true if any change was made to the interest points.
+bool adjust_ip_for_epipolar_transform(ASPGlobalOptions          const& opt,
+                                      std::string               const& match_file,
+                                      vector<ip::InterestPoint>      & ip_left,
+                                      vector<ip::InterestPoint>      & ip_right) {
 
-    std::string ss = out_prefix + "-";
-    size_t found = filename.find(ss);
+  std::cout << "Checking file: " << match_file << std::endl;
+  std::cout << stereo_settings().alignment_method << std::endl;
 
-    if (found != std::string::npos)
-      filename.erase(found, ss.length());
+  // This function does nothing if we are not using epipolar alignment,
+  //  or if the IP were found using one of the aligned images.
+  const std::string sub_match_file     = opt.out_prefix + "-L_sub__R_sub.match";
+  const std::string aligned_match_file = opt.out_prefix + "-L__R.match";
+  if ( (stereo_settings().alignment_method != "epipolar") ||
+       (match_file == sub_match_file) || (match_file == aligned_match_file) )
+    return false;
 
-    filename = fs::path(filename).stem().string();
+  // Load the epipolar aligned camera models
+  boost::shared_ptr<camera::CameraModel> left_aligned_model, right_aligned_model;
+  opt.session->camera_models(left_aligned_model, right_aligned_model);
+  
+  // Need to cast the session pointer to Pinhole type to access the function we need.
+  boost::shared_ptr<camera::CameraModel> left_input_model, right_input_model;
+  StereoSessionPinhole* pinPtr = dynamic_cast<StereoSessionPinhole*>(opt.session.get());
+  boost::shared_ptr<StereoSessionPinhole> pin_session(pinPtr, boost::null_deleter());
+  pin_session->get_unaligned_camera_models(left_input_model, right_input_model);
 
-    return filename;
+  // Set up transform objects
+  typedef vw::camera::PinholeModel PinModel;
+  typedef vw::camera::CameraTransform<PinModel, PinModel> CamTrans;
+  CamTrans trans_left (*dynamic_cast<PinModel*>(&(*left_input_model )), *dynamic_cast<PinModel*>(&(*left_aligned_model )));
+  CamTrans trans_right(*dynamic_cast<PinModel*>(&(*right_input_model)), *dynamic_cast<PinModel*>(&(*right_aligned_model)));
+
+  // Apply the transforms to all the IP we found
+  for ( size_t i = 0; i < ip_left.size(); i++ ) {
+
+    Vector2 ip_in_left (ip_left [i].x, ip_left [i].y);
+    Vector2 ip_in_right(ip_right[i].x, ip_right[i].y);
+
+    Vector2 ip_out_left = trans_left.forward(ip_in_left);
+    Vector2 ip_out_right = trans_right.forward(ip_in_right);
+
+    ip_left [i].x = ip_out_left [0]; // Store transformed points
+    ip_left [i].y = ip_out_left [1];
+    ip_right[i].x = ip_out_right[0];
+    ip_right[i].y = ip_out_right[1];
   }
+
+  return true;
+} // End adjust_ip_for_epipolar_transform
+
+
+
+// TODO: Duplicate of hidden function in vw/src/InterestPoint/Matcher.cc!
+std::string strip_path(std::string out_prefix, std::string filename){
+
+  // If filename starts with out_prefix followed by dash, strip both.
+  // Also strip filename extension.
+
+  std::string ss = out_prefix + "-";
+  size_t found = filename.find(ss);
+
+  if (found != std::string::npos)
+    filename.erase(found, ss.length());
+
+  filename = fs::path(filename).stem().string();
+
+  return filename;
+}
 
 /// Detect IP in the _sub images or the original images if they are not too large.
 /// - Usually an IP file is written in stereo_pprc, but for some input scenarios
@@ -513,11 +574,16 @@ BBox2i approximate_search_range(ASPGlobalOptions & opt,
   vw_out() << "\t    * Loading match file: " << match_filename << "\n";
   ip::read_binary_match_file(match_filename, in_ip1, in_ip2);
 
+  // TODO: Consolidate IP adjustment
+
   // Handle alignment matrices if they are present
   // - Scale is reset to 1.0 if alignment matrices are present.
   ip_scale = adjust_ip_for_align_matrix(opt.out_prefix, in_ip1, in_ip2, ip_scale);
   vw_out() << "\t    * IP computed at scale: " << ip_scale << "\n";
   float i_scale = 1.0/ip_scale;
+
+  ///// Adjust the IP if they came from input images and these images are epipolar aligned
+  //adjust_ip_for_epipolar_transform(opt, match_filename, in_ip1, in_ip2);
 
   // Filter out IPs which fall outside the specified elevation range
   boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
