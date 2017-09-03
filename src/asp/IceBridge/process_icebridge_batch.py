@@ -150,7 +150,7 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
     #   don't use less than that.  If there is really only enough overlap for one we
     #   will have to examine the results very carefully!
     MIN_BA_OVERLAP   = 2
-    CAMERA_WEIGHT    = 1.0
+    CAMERA_WEIGHT    = 2.0
     ROBUST_THRESHOLD = 2.0
     OVERLAP_EXPONENT = 0
     bundlePrefix   = os.path.join(options.outputFolder, 'bundle/out')
@@ -319,7 +319,7 @@ def consolidateStats(lidarDiffPath, interDiffPath, fireDiffPath, fireLidarDiffPa
 
 
 def lidarCsvToDem(lidarFile, projBounds, projString, outputFolder, threadText, 
-                  suppressOutput, redo):
+                  suppressOutput, redo, logger):
         '''Generate a DEM from a lidar file in the given region (plus a buffer)'''
 
         LIDAR_DEM_RESOLUTION     = 5 # TODO: Vary this
@@ -353,15 +353,18 @@ def lidarCsvToDem(lidarFile, projBounds, projString, outputFolder, threadText,
         return lidarDemOutput
             
 def estimateHeightRange(projBounds, projString, lidarFile, options, threadText, 
-                        suppressOutput, redo):
+                        suppressOutput, redo, logger):
     '''Estimate the valid height range in a region based on input height info.'''
     
     # Expand the estimate by this much in either direction
-    HEIGHT_BUFFER = 120
+    # - If the input cameras are good then this can be fairly small, at least for flat
+    #   regions.  Bad cameras are much farther off.
+    HEIGHT_BUFFER = 20
     
     # Create a lidar DEM at the region
     lidarDemPath = lidarCsvToDem(lidarFile, projBounds, projString, 
-                                 options.outputFolder, threadText, suppressOutput, redo)
+                                 options.outputFolder, threadText, 
+                                 suppressOutput, redo, logger)
     
     # Get the min and max height of the lidar file
     try:
@@ -654,7 +657,7 @@ def doWork(options, args, logger):
             #   to keep these in projected coordinate space.
             heightLimitString = estimateHeightRange(totalBounds, projString, lidarFile,
                                                     options, threadText, 
-                                                    suppressOutput, redo)
+                                                    suppressOutput, redo, logger)
             #raise Exception('DEBUG')
        
     # BUNDLE_ADJUST
@@ -791,7 +794,7 @@ def doWork(options, args, logger):
 
         # Generate a DEM from the lidar point cloud in this region
         lidarDemOutput = lidarCsvToDem(lidarFile, projBounds, projString, options.outputFolder, 
-                                       threadText, suppressOutput, redo)
+                                       threadText, suppressOutput, redo, logger)
 
     # Compare to Fireball DEMs if available
     fireballDiffPaths     = []
