@@ -460,8 +460,8 @@ def clean_batch(batchFolder, alignPrefix, stereoPrefixes, interDiffPaths, fireba
         os.system('rm -rf ' + os.path.join(batchFolder, 'bundle'))
         
         # Clean out the pc_align folder
-        alignFiles = ['beg_errors.csv', 'end_errors.csv', 'inverse_transform.txt',
-                      'iterationInfo.csv', 'transform.txt']
+        alignFiles = ['-beg_errors.csv', '-end_errors.csv', '-inverse_transform.txt',
+                      '-iterationInfo.csv', '-transform.txt']
         for currFile in alignFiles:
             os.system('rm -f ' + alignPrefix + currFile)
         
@@ -554,10 +554,21 @@ def main(argsIn):
     # Run the rest of the code and log any unhandled exceptions.
     try:
         doWork(options, args, logger)
-        return 0
+        return 0 # Success!
+        
     except Exception, e:
-        logger.exception(e)
-        return -1
+        logger.exception(e) # Failed to generate output file
+        
+        try: # When we failed to generate the output DEM, 
+             #  generate a thumbnail of the first input image to help diagnose problems.
+            thumbOutput = os.path.join(options.outputFolder, 'first_image_browse.tif')
+            cmd = 'gdal_translate '+args[0]+' '+thumbOutput+' -of GTiff -outsize 40% 40% -b 1 -co "COMPRESS=JPEG"'
+            asp_system_utils.executeCommand(cmd, thumbOutput, True, False)
+            logger.info('Created browse image ' + thumbOutput)
+        except:
+            logger.exception('Failed to generate debug input image thumbnail.')
+        
+        return -1 # Failure!
     
 
 def doWork(options, args, logger):

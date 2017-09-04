@@ -146,9 +146,12 @@ def generateFlightSummary(run, options):
     
     # Copy logs to the output folder
     print 'Copying log files...'
+    badImageFolder = os.path.join(options.outputFolder, 'badImages')
+    runFolder      = run.getFolder()
+    procFolder     = run.getProcessFolder()
     os.system('mkdir -p ' + options.outputFolder)
-    runFolder  = run.getFolder()
-    procFolder = run.getProcessFolder()
+    os.system('mkdir -p ' + badImageFolder)
+    
     packedErrorLog = os.path.join(runFolder, 'packedErrors.log')
     if os.path.exists(packedErrorLog):
         shutil.copy(packedErrorLog, options.outputFolder)
@@ -267,11 +270,17 @@ def generateFlightSummary(run, options):
                 
             
             # Make a link to the thumbnail file in our summary folder
-            hillshadePath = os.path.join(demFolder, 'out-DEM_HILLSHADE_browse.tif')
+            hillshadePath = os.path.join(demFolder, 'out-blend-DEM_HILLSHADE_browse.tif')
             if os.path.exists(hillshadePath):
                 thumbName = ('dem_%05d_%05d_browse.tif' % (frames[0], frames[1]))
                 thumbPath = os.path.join(options.outputFolder, thumbName)
                 icebridge_common.makeSymLink(hillshadePath, thumbPath, verbose=False)
+            else:
+                # If the DEM thumbnail does not exist, look for the input frame thumbnail.
+                inPath    = os.path.join(options.demFolder, 'first_image_browse.tif')
+                thumbName = ('input_%05d_browse.tif' % (frames[0]))
+                thumbPath = os.path.join(badImageFolder, thumbName)
+                icebridge_common.makeSymLink(hillshadePath, thumbPath, verbose=False)                
                 
     # End loop through expected DEMs
     

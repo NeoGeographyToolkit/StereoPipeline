@@ -181,12 +181,12 @@ def runBlend(frame, processFolder, lidarFile, bundleLength, threadText, redo, su
         asp_system_utils.executeCommand(cmd, finalDiff, suppressOutput, redo)
         
         # Generate a thumbnail of the final DEM
-        hillOutput = finalOutputPrefix+'-DEM_HILLSHADE.tif'
+        hillOutput = finalOutputPrefix+'_HILLSHADE.tif'
         cmd = 'hillshade ' + finalBlend +' -o ' + hillOutput
         asp_system_utils.executeCommand(cmd, hillOutput, suppressOutput, redo)
 
         # Generate a low resolution compressed thumbnail of the hillshade for debugging
-        thumbOutput = finalOutputPrefix + '-DEM_HILLSHADE_browse.tif'
+        thumbOutput = finalOutputPrefix + '_HILLSHADE_browse.tif'
         cmd = 'gdal_translate '+hillOutput+' '+thumbOutput+' -of GTiff -outsize 40% 40% -b 1 -co "COMPRESS=JPEG"'
         asp_system_utils.executeCommand(cmd, thumbOutput, suppressOutput, redo)
         os.remove(hillOutput) # Remove this file to keep down the file count
