@@ -277,10 +277,11 @@ def generateFlightSummary(run, options):
                 icebridge_common.makeSymLink(hillshadePath, thumbPath, verbose=False)
             else:
                 # If the DEM thumbnail does not exist, look for the input frame thumbnail.
-                inPath    = os.path.join(options.demFolder, 'first_image_browse.tif')
+                inPath    = os.path.join(demFolder, 'first_image_browse.tif')
                 thumbName = ('input_%05d_browse.tif' % (frames[0]))
                 thumbPath = os.path.join(badImageFolder, thumbName)
-                icebridge_common.makeSymLink(hillshadePath, thumbPath, verbose=False)                
+                if os.path.exists(inPath):
+                    icebridge_common.makeSymLink(inPath, thumbPath, verbose=False)                
                 
     # End loop through expected DEMs
     

@@ -153,6 +153,7 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
     CAMERA_WEIGHT    = 2.0
     ROBUST_THRESHOLD = 2.0
     OVERLAP_EXPONENT = 0
+    MIN_IP_MATCHES   = 22
     bundlePrefix   = os.path.join(options.outputFolder, 'bundle/out')
     baOverlapLimit = options.stereoImageInterval + 3
     if baOverlapLimit < MIN_BA_OVERLAP:
@@ -193,11 +194,11 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
         cmd = (('bundle_adjust %s -o %s %s %s --datum wgs84 ' +
                 '--camera-weight %0.16g -t nadirpinhole ' +
                 '--local-pinhole --overlap-limit %d --robust-threshold %0.16g ' +
-                '--ip-detect-method %d --ip-per-tile %d ' + 
-                '--overlap-exponent %0.16g --epipolar-threshold 50')  \
+                '--ip-detect-method %d --ip-per-tile %d --min-matches %d ' + 
+                '--overlap-exponent %0.16g --epipolar-threshold 50')
                % (argString, bundlePrefix, threadText, heightLimitString, 
                   CAMERA_WEIGHT, baOverlapLimit, ROBUST_THRESHOLD, ipMethod[attempt],
-                  ipPerTile[attempt], OVERLAP_EXPONENT))
+                  ipPerTile[attempt], MIN_IP_MATCHES, OVERLAP_EXPONENT))
         
         if options.solve_intr:
             cmd += ' --solve-intrinsics'
