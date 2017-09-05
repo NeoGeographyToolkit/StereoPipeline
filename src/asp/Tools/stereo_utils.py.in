@@ -31,7 +31,7 @@ sys.path.insert(0, libexecpath)
 from asp_system_utils import *
 from asp_alg_utils import *
 
-import asp_system_utils
+import asp_system_utils, asp_string_utils
 asp_system_utils.verify_python_version_is_supported()
 
 def get_asp_version():
@@ -84,11 +84,10 @@ class PassThroughOptionParser(optparse.OptionParser):
 # TODO: Move this to asp_system_utils
 # A very simple wrapper around subprocess
 def generic_run(cmd, verbose):
-
-    cmd_str = " ".join(cmd)
+    cmd_str = asp_string_utils.argListToString(cmd)
     if verbose:
         print(cmd_str)
-
+        
     try:
         code = subprocess.call(cmd)
     except OSError as e:
@@ -225,7 +224,7 @@ def run_multiview(prog_name, args, extra_args, entry_point, stop_point,
         m = re.match('multiview_command', s)
         if not m: continue
 
-        local_args    = settings[s][:]
+        local_args    = settings[s][:] # the current two-image stereo command
         local_args[0] = prog_name
         local_entry   = entry_point
         local_stop    = stop_point
