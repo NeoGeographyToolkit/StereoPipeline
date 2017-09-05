@@ -52,7 +52,7 @@ def robust_pc_align(options, outputPrefix, lidarFile, demPath,
        with enough lidar points used in the comparison'''
     
     STARTING_DISPLACEMENT  = 20
-    MAX_DISPLACEMENT       = 100
+    MAX_DISPLACEMENT       = 20
     DISPLACEMENT_INCREMENT = 20
     ERR_HEADER_SIZE        = 3
     MIN_LIDAR_POINTS       = 300  
@@ -130,19 +130,30 @@ def robust_pc_align(options, outputPrefix, lidarFile, demPath,
     
     return alignedDem, lidarDiffPath, results['Mean']
 
+
+def blurImage(inputPath, outputPath, suppressOutput, redo):
+    '''Create a blurred copy of an image'''
+
+    # Blurring the input image can help reduce the negative impact of jpeg artifacts.
+    cmd = 'convert ' +inputPath+' -compress LZW -blur 2 '+outputPath
+    asp_system_utils.executeCommand(cmd, outputPath, suppressOutput, redo)
+
+
 def robustBundleAdjust(options, inputPairs, imageCameraString, 
                        suppressOutput, redo,
                        threadText, heightLimitString, logger):
-    '''Perform bundle adjustment with multiple retries in case things fail.'''
+    '''Perform bundle adjustment with multiple retries in case things fail.
+       Returns inputPairs with the updated camera models swapped in.'''
 
     # - Bundle adjust all of the input images in the batch at the same time.
     # - An overlap number less than 2 is prone to very bad bundle adjust results so
     #   don't use less than that.  If there is really only enough overlap for one we
     #   will have to examine the results very carefully!
-    MIN_BA_OVERLAP = 2
-    CAMERA_WEIGHT  = 0.1   # TODO: Find the best value here
-    ROBUST_THRESHOLD = 2.0 # TODO: Find the best value here
-    OVERLAP_EXPONENT = 0   # TODO: Find the best value here
+    MIN_BA_OVERLAP   = 2
+    CAMERA_WEIGHT    = 2.0
+    ROBUST_THRESHOLD = 2.0
+    OVERLAP_EXPONENT = 0
+    MIN_IP_MATCHES   = 22
     bundlePrefix   = os.path.join(options.outputFolder, 'bundle/out')
     baOverlapLimit = options.stereoImageInterval + 3
     if baOverlapLimit < MIN_BA_OVERLAP:
@@ -150,36 +161,57 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
 
     # Try several attempts
     ipMethod  = [1,   0,   2,   1,    0,    2]
-    ipPerTile = [500, 500, 500, 2000, 2000, 2000]
-
-    # Replace the cameras in imageCameraString with the new cameras to be created
+    #ipPerTile = [500, 500, 500, 2000, 2000, 2000]
+    ipPerTile = [500, 500, 500, 500, 500, 500]
+    useBlur  = [0,   0,   0,   1,    1,    1]
+   
+    # Fill inputPairs with output camera names
     for pair in inputPairs:
-        newCamera = bundlePrefix +'-'+ os.path.basename(pair[1])
-        pair[1] = newCamera
-        imageCameraString.replace(pair[1], newCamera)
-    
+        pair[1] = bundlePrefix +'-'+ os.path.basename(pair[1])
+   
+    # Generate a new string with the blurred image files paths
+    # - Don't actually generate blurred files unless they are needed
+    # - Blurred images will be deleted when the final batch cleanup function is called.
+    blurredImageCameraString = imageCameraString
+    blurPairs = []
+    i = 0
+    for pair in inputPairs:
+        imagePath   = pair[0]
+        blurredPath = bundlePrefix + '_' + str(i)+ '_blurred.tif'
+        blurredImageCameraString = blurredImageCameraString.replace(imagePath, blurredPath)
+        blurPairs.append((imagePath, blurredPath))
+        i = i + 1
+
+    # Loop through all our parameter settings, quit as soon as one works.
     for attempt in range(len(ipPerTile)):
         
+        argString = imageCameraString
+        if useBlur[attempt]: # Make sure blurred images are created
+            for pair in blurPairs:
+                blurImage(pair[0], pair[1], True, False)
+            argString = blurredImageCameraString                     
+
         cmd = (('bundle_adjust %s -o %s %s %s --datum wgs84 ' +
                 '--camera-weight %0.16g -t nadirpinhole ' +
                 '--local-pinhole --overlap-limit %d --robust-threshold %0.16g ' +
-                '--ip-detect-method %d --ip-per-tile %d ' + 
-                '--overlap-exponent %0.16g --epipolar-threshold 50')  \
-               % (imageCameraString, bundlePrefix, threadText, heightLimitString, 
+                '--ip-detect-method %d --ip-per-tile %d --min-matches %d ' + 
+                '--overlap-exponent %0.16g --epipolar-threshold 50')
+               % (argString, bundlePrefix, threadText, heightLimitString, 
                   CAMERA_WEIGHT, baOverlapLimit, ROBUST_THRESHOLD, ipMethod[attempt],
-                  ipPerTile[attempt], OVERLAP_EXPONENT))
+                  ipPerTile[attempt], MIN_IP_MATCHES, OVERLAP_EXPONENT))
         
         if options.solve_intr:
             cmd += ' --solve-intrinsics'
     
         # Run the BA command and log errors
         logger.info(cmd) # to make it go to the log, not just on screen
-        (out, err, status) = asp_system_utils.executeCommand(cmd, newCamera, True, redo,
+        outputCamera = inputPairs[0][1]
+        (out, err, status) = asp_system_utils.executeCommand(cmd, outputCamera, True, redo,
                                                              noThrow=True)
         logger.info(out + '\n' + err)
         
         if status == 0:
-            logger.info("Bundle adjustment succeded.")
+            logger.info("Bundle adjustment succeded on attempt " + str(attempt))
             break
         
         if attempt + 1 == len(ipPerTile):
@@ -191,6 +223,9 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
         for f in glob.glob(bundlePrefix + '*'):
             logger.info("Wipe: " + f)
             os.remove(f)
+
+    # Return image/camera pairs with the camera files replaced with the bundle_adjust output files.
+    return inputPairs
 
 def consolidateGeodiffResults(inputFiles, outputPath=None):
     '''Create a summary file of multiple geodiff csv output files'''
@@ -285,7 +320,7 @@ def consolidateStats(lidarDiffPath, interDiffPath, fireDiffPath, fireLidarDiffPa
 
 
 def lidarCsvToDem(lidarFile, projBounds, projString, outputFolder, threadText, 
-                  suppressOutput, redo):
+                  suppressOutput, redo, logger):
         '''Generate a DEM from a lidar file in the given region (plus a buffer)'''
 
         LIDAR_DEM_RESOLUTION     = 5 # TODO: Vary this
@@ -307,9 +342,8 @@ def lidarCsvToDem(lidarFile, projBounds, projString, outputFolder, threadText,
                   lidarCsvFormatString, lidarDemPrefix))
         lidarDemOutput = lidarDemPrefix+'-DEM.tif'
         (out, err, status) = asp_system_utils.executeCommand(cmd, lidarDemOutput, suppressOutput, redo, noThrow=True)
-        if suppressOutput:
-            logger.info(out + '\n' + err)
         if status != 0:
+            logger.info(out + '\n' + err)
             raise Exception('Did not generate any lidar DEM!')
 
 
@@ -320,15 +354,18 @@ def lidarCsvToDem(lidarFile, projBounds, projString, outputFolder, threadText,
         return lidarDemOutput
             
 def estimateHeightRange(projBounds, projString, lidarFile, options, threadText, 
-                        suppressOutput, redo):
+                        suppressOutput, redo, logger):
     '''Estimate the valid height range in a region based on input height info.'''
     
     # Expand the estimate by this much in either direction
-    HEIGHT_BUFFER = 120
+    # - If the input cameras are good then this can be fairly small, at least for flat
+    #   regions.  Bad cameras are much farther off.
+    HEIGHT_BUFFER = 20
     
     # Create a lidar DEM at the region
     lidarDemPath = lidarCsvToDem(lidarFile, projBounds, projString, 
-                                 options.outputFolder, threadText, suppressOutput, redo)
+                                 options.outputFolder, threadText, 
+                                 suppressOutput, redo, logger)
     
     # Get the min and max height of the lidar file
     try:
@@ -384,11 +421,10 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     
     # Call and check status
     triOutput = thisPairPrefix + '-PC.tif'
-    suppressOutput = False
-    icebridge_common.logger_print(logger, stereoCmd)
+    suppressOutput = (logger != None)
     (out, err, status) = asp_system_utils.executeCommand(stereoCmd, triOutput, suppressOutput, redo, noThrow=True)
-    icebridge_common.logger_print(logger, out + '\n' + err)
     if status != 0:
+        logger.info(out + '\n' + err)
         raise Exception('Stereo call failed!')
 
     # point2dem on the result of ASP
@@ -397,10 +433,9 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     cmd = ('point2dem --max-output-size 10000 10000 --tr %lf --t_srs %s %s %s --errorimage' 
            % (options.demResolution, projString, triOutput, threadText))
     p2dOutput = demFiles[i]
-    icebridge_common.logger_print(logger, cmd)
-    (out, err, status) = asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput, redo, noThrow=True)
-    icebridge_common.logger_print(logger, out + '\n' + err)
+    (out, err, status) =  asp_system_utils.executeCommand(cmd, p2dOutput, suppressOutput, redo, noThrow=True)
     if status != 0:
+        logger.info(out + '\n' + err)
         raise Exception('point2dem call on stereo pair failed!')
 
     # COLORMAP
@@ -409,7 +444,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     #asp_system_utils.executeCommand(cmd, colorOutput, suppressOutput, redo)
 
 
-def clean_batch(batchFolder, stereoPrefixes, interDiffPaths, fireballDiffPaths, smallFiles=False):
+def clean_batch(batchFolder, alignPrefix, stereoPrefixes, interDiffPaths, fireballDiffPaths, smallFiles=False):
     '''Clean up all non-output files to conserve space.
        Setting smallFiles will remove additional low size files.'''
     
@@ -422,8 +457,16 @@ def clean_batch(batchFolder, stereoPrefixes, interDiffPaths, fireballDiffPaths, 
             os.system('rm -rf ' + s + '*.tif')
     
     if smallFiles:
-        # Delete bundle folder
+        # Delete bundle_adjust folder
         os.system('rm -rf ' + os.path.join(batchFolder, 'bundle'))
+        
+        # Clean out the pc_align folder
+        alignFiles = ['-beg_errors.csv', '-end_errors.csv', '-inverse_transform.txt',
+                      '-iterationInfo.csv', '-transform.txt']
+        for currFile in alignFiles:
+            os.system('rm -f ' + alignPrefix + currFile)
+        
+        
     
     # Delete the diff images
     for f in (interDiffPaths + fireballDiffPaths):
@@ -507,13 +550,26 @@ def main(argsIn):
     asp_system_utils.mkdir_p(options.outputFolder)
     logger = icebridge_common.setUpLogger(options.outputFolder, logLevel, 'icebridge_batch_log')
 
+    logger.info('Input arguments: ' + str(argsIn))
+
     # Run the rest of the code and log any unhandled exceptions.
     try:
         doWork(options, args, logger)
-        return 0
+        return 0 # Success!
+        
     except Exception, e:
-        logger.exception(e)
-        return -1
+        logger.exception(e) # Failed to generate output file
+        
+        try: # When we failed to generate the output DEM, 
+             #  generate a thumbnail of the first input image to help diagnose problems.
+            thumbOutput = os.path.join(options.outputFolder, 'first_image_browse.tif')
+            cmd = 'gdal_translate '+args[0]+' '+thumbOutput+' -of GTiff -outsize 40% 40% -b 1 -co "COMPRESS=JPEG"'
+            asp_system_utils.executeCommand(cmd, thumbOutput, True, False)
+            logger.info('Created browse image ' + thumbOutput)
+        except:
+            logger.exception('Failed to generate debug input image thumbnail.')
+        
+        return -1 # Failure!
     
 
 def doWork(options, args, logger):
@@ -613,13 +669,13 @@ def doWork(options, args, logger):
             #   to keep these in projected coordinate space.
             heightLimitString = estimateHeightRange(totalBounds, projString, lidarFile,
                                                     options, threadText, 
-                                                    suppressOutput, redo)
+                                                    suppressOutput, redo, logger)
             #raise Exception('DEBUG')
        
     # BUNDLE_ADJUST
-    robustBundleAdjust(options, inputPairs, imageCameraString, 
-                       suppressOutput, redo,
-                       threadText, heightLimitString, logger)
+    inputPairs = robustBundleAdjust(options, inputPairs, imageCameraString, 
+                                    suppressOutput, redo,
+                                    threadText, heightLimitString, logger)
         
     # Generate a map of post-bundle camera positions
     orbitvizAfter = os.path.join(options.outputFolder, 'cameras_out.kml')
@@ -750,7 +806,7 @@ def doWork(options, args, logger):
 
         # Generate a DEM from the lidar point cloud in this region
         lidarDemOutput = lidarCsvToDem(lidarFile, projBounds, projString, options.outputFolder, 
-                                       threadText, suppressOutput, redo)
+                                       threadText, suppressOutput, redo, logger)
 
     # Compare to Fireball DEMs if available
     fireballDiffPaths     = []
@@ -823,16 +879,16 @@ def doWork(options, args, logger):
                      allDemPath, consolidatedStatsPath)
 
 
-    # HILLSHADE
-    hillOutput = outputPrefix+'-DEM_HILLSHADE.tif'
-    cmd = 'hillshade ' + allDemPath +' -o ' + hillOutput
-    asp_system_utils.executeCommand(cmd, hillOutput, suppressOutput, redo)
+    ## HILLSHADE
+    #hillOutput = outputPrefix+'-DEM_HILLSHADE.tif'
+    #cmd = 'hillshade ' + allDemPath +' -o ' + hillOutput
+    #asp_system_utils.executeCommand(cmd, hillOutput, suppressOutput, redo)
 
-    # Generate a low resolution compressed thumbnail of the hillshade for debugging
-    thumbOutput = outputPrefix + '-DEM_HILLSHADE_browse.tif'
-    cmd = 'gdal_translate '+hillOutput+' '+thumbOutput+' -of GTiff -outsize 40% 40% -b 1 -co "COMPRESS=JPEG"'
-    asp_system_utils.executeCommand(cmd, thumbOutput, suppressOutput, redo)
-    os.remove(hillOutput) # Remove this file to keep down the file count
+    ## Generate a low resolution compressed thumbnail of the hillshade for debugging
+    #thumbOutput = outputPrefix + '-DEM_HILLSHADE_browse.tif'
+    #cmd = 'gdal_translate '+hillOutput+' '+thumbOutput+' -of GTiff -outsize 40% 40% -b 1 -co "COMPRESS=JPEG"'
+    #asp_system_utils.executeCommand(cmd, thumbOutput, suppressOutput, redo)
+    #os.remove(hillOutput) # Remove this file to keep down the file count
 
     ## COLORMAP
     #colorOutput = outputPrefix + '-DEM_CMAP.tif'
@@ -841,7 +897,8 @@ def doWork(options, args, logger):
 
     if options.cleanup and os.path.exists(demSymlinkPath):
         # Delete large files that we don't need going forwards.
-        clean_batch(options.outputFolder, prefixes, interDiffPaths, fireballDiffPaths,
+        alignPrefix = os.path.join(options.outputFolder, 'align/out')
+        clean_batch(options.outputFolder, alignPrefix, prefixes, interDiffPaths, fireballDiffPaths,
                     smallFiles=True)
 
     logger.info('Finished script process_icebridge_batch!')
