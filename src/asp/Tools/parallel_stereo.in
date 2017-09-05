@@ -717,7 +717,7 @@ if __name__ == '__main__':
         wipe_option(self_args, '-e', 1)
         wipe_option(self_args, '--entry-point', 1)
         wipe_option(self_args, '--stop-point', 1)
-
+        
         num_pairs = int(settings['num_stereo_pairs'][0])
         if num_pairs > 1:
 
@@ -725,13 +725,53 @@ if __name__ == '__main__':
             wipe_option(self_args, '-s', 1)
             self_args.extend(['--stereo-file', opt.stereo_file])
 
+            # Map from option, say --job-size-w, to the variable name, say, job_size_w.
+            opt2var = {}
+            for x in p._get_all_options()[1:]:
+                opt2var[x.get_opt_string()] = x.dest
+            
             # Find the options used by parallel_stereo which are not
-            # passed to the stereo executables.
+            # passed to the stereo executables. This is a bit fragile.
             extra_args = []
-            for arg in self_args[1:]:
-                if arg not in args: extra_args.append(arg)
+            option_dict = vars(opt) # Each option understood by python, and its parsed value
 
-            # Invoke itself for multivew
+            for arg in self_args[1:]:
+
+                if arg in args:
+                    # This is an option passed to stereo
+                    continue
+
+                if len(arg) >= 2 and arg[0] == '-' and arg[1] != '-':
+                    # We expect two dashes
+                    raise Exception('Not implemented, failed to parse: ' + arg)
+                
+                if not arg in opt2var.keys():
+                    # Does not start with dash
+                    continue 
+
+                var = opt2var[arg]
+                
+                if option_dict[var] is None:
+                    # This option was not specified
+                    continue
+                
+                if isinstance(option_dict[var], bool):
+                    # This is a bool flag, append it with no value
+                    extra_args.append(arg)
+                    continue
+
+                if     isinstance(option_dict[var], int)         or \
+                       isinstance(option_dict[var], float)       or \
+                       isinstance(option_dict[var], basestring):
+                    # For int, float, and string, append together with value
+                    extra_args.append(arg)
+                    extra_args.append(str(option_dict[var]))
+                    continue
+
+                # We cannot currently parse other options than int, string, float, and bool.
+                # Should be simple to fix if need be. 
+                raise Exception('Could not parse: ' + arg)
+
             if opt.entry_point < Step.tri:
                 run_multiview(__file__, args, extra_args, opt.entry_point,
                               opt.stop_point, opt.verbose, settings)
