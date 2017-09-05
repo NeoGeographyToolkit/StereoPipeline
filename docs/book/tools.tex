@@ -1963,6 +1963,8 @@ and Northing fields.  \\ \hline
 \texttt{ -\/-save-inv-transformed-reference-points} & Apply the inverse of the obtained transform to the reference points so they match the source points and save them.
 \\ \hline
 
+\texttt{-\/-initial-ned-translation} \textit{string} &  Initialize the alignment transform based on a translation with this vector in the local North-East-Down coordinate system. Specify it in quotes, separated by spaces or commas. \\ \hline
+
 \texttt{-\/-no-dem-distances} & For reference point clouds that are DEMs, don't take advantage of the fact that it is possible to interpolate into this DEM when finding the closest distance to it from a point in the source cloud (the text above has more detailed information). \\ \hline
 
 \texttt{-\/-match-file} & Compute a translation + rotation + scale transform from the source to the reference point cloud using manually selected point correspondences (obtained for example using stereo\_gui). \\ \hline
@@ -1972,9 +1974,6 @@ option. Read the alignment parameters from a configuration file, in the
 format expected by libpointmatcher, over-riding the command-line options.\\ \hline
 
 \end{longtable}
-
-
-
 
 \section{pc\_merge}
 \label{pcmerge}

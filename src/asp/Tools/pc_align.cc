@@ -171,7 +171,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("no-dem-distances",         po::bool_switch(&opt.dont_use_dem_distances)->default_value(false)->implicit_value(true),
                                  "For reference point clouds that are DEMs, don't take advantage of the fact that it is possible to interpolate into this DEM when finding the closest distance to it from a point in the source cloud and hence the error metrics.")
     ("initial-ned-translation", po::value(&opt.initial_ned_translation)->default_value(""),
-                                 "Initialize the alignment transform based on a translation with this vector in the North-East-Down coordinate system. Specify it in quotes, separated by spaces or commas.")
+                                 "Initialize the alignment transform based on a translation with this vector in the local North-East-Down coordinate system. Specify it in quotes, separated by spaces or commas.")
 
     ("match-file", po::value(&opt.match_file)->default_value(""),
      "Compute a translation + rotation + scale transform from the source to the reference point cloud using manually selected point correspondences (obtained for example using stereo_gui).")
