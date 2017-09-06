@@ -1797,7 +1797,8 @@ bool init_pinhole_model_with_camera_positions(Options &opt,
   
   const int MIN_NUM_MATCHES = 3;
   if (num_matches_found < MIN_NUM_MATCHES)
-    vw_throw( ArgumentErr() << "Not enough camera position matches to initialize sensor models!\n" );
+    vw_throw( ArgumentErr() << "At least " << MIN_NUM_MATCHES 
+                            << " camera position matches are required to initialize sensor models!\n" );
   
   // Populate matrices containing the current and known camera positions.
   vw::Matrix<double> points_in(3, num_matches_found), points_out(3, num_matches_found);
