@@ -303,7 +303,8 @@ def consolidateStats(lidarDiffPath, interDiffPath, fireDiffPath, fireLidarDiffPa
             projString = icebridge_common.getEpsgCode(isSouth, asString=True)
             PROJ_STR_WGS84 = 'EPSG:4326'
             centerLon, centerLat = asp_geo_utils.convertCoords(centerX, centerY, projString, PROJ_STR_WGS84)
-        except:
+        except Exception, e:
+            logger.exception('Caught exception getting DEM center coordinates:\n' + e)
             success = False
 
     if not success:

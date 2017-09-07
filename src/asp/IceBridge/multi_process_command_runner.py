@@ -68,7 +68,7 @@ def main(argsIn):
 
     # TODO: Write to a log?
 
-    print 'Starting ortho processing pool with ' + str(numProcesses) +' processes.'
+    print 'Starting processing pool with ' + str(numProcesses) +' processes.'
     pool = multiprocessing.Pool(numProcesses)
     taskHandles = []
 

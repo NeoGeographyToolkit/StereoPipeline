@@ -85,8 +85,8 @@ def getParallelParams(nodeType, task):
         if nodeType == 'bro': return (14, 2, 500)
     
     if task == 'batch':
-        if nodeType == 'ivy': return (3, 8, 80)
-        if nodeType == 'bro': return (4, 8, 100)
+        if nodeType == 'ivy': return (4, 8, 80)
+        if nodeType == 'bro': return (6, 8, 100)
     
     if task == 'blend':
         if nodeType == 'ivy': return (10, 2, 1000)
@@ -262,7 +262,7 @@ def generateBatchList(run, options, listPath):
     # No actual processing is being done here so it can run on the PFE
     # - This is very fast so we can re-run it every time. (Maybe not...)
     scriptPath = icebridge_common.fullPath('full_processing_script.py')
-    cmd       = ('python %s --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --skip-fetch --skip-convert --num-threads %d --num-processes %d --output-folder %s --bundle-length %d --log-batches' 
+    cmd       = ('python %s --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --skip-fetch --skip-convert --num-threads %d --num-processes %d --output-folder %s --bundle-length %d --cleanup --log-batches' 
                   % (scriptPath, options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, numThreads, numProcesses, run.getFolder(), options.bundleLength))
 
 
@@ -276,7 +276,7 @@ def generateBatchList(run, options, listPath):
 def getOutputFolderFromBatchCommand(batchCommand):
     '''Extract the output folder from a line in the batch file'''
     parts        = batchCommand.split()
-    outputFolder = parts[9] # This needs to be kept up to date with the file format!
+    outputFolder = parts[10] # This needs to be kept up to date with the file format!
     return outputFolder
 
 # TODO: Share code with the other function
@@ -339,11 +339,11 @@ def submitBatchJobs(run, options, batchListPath):
             stopBatch = numBatches-1 # Make sure nothing is lost at the end
 
         # Specify the range of lines in the file we want this node to execute
-        args = ('%s %s %d %d %d' % (scriptPath, batchListPath, numProcesses, startBatch, stopBatch))
+        args = ('%s %d %d %d' % (batchListPath, numProcesses, startBatch, stopBatch))
 
         logPrefix = os.path.join(pbsLogFolder, 'batch_' + jobName)
         logger.info('Submitting batch job with args: '+args)
-        pbs_functions.submitJob(jobName, BATCH_PBS_QUEUE, MAX_BATCH_HOURS, GROUP_ID, options.nodeType, 'python', args, logPrefix)
+        pbs_functions.submitJob(jobName, BATCH_PBS_QUEUE, MAX_BATCH_HOURS, GROUP_ID, options.nodeType, scriptPath, args, logPrefix)
         
         currentBatch += tasksPerJob
 
@@ -372,8 +372,8 @@ def runBlending(run, options):
     outputFolder = run.getFolder()
     
     scriptPath = asp_system_utils.which('blend_dems.py')
-    args       = ('%s --site %s --yyyymmdd %s --num-threads %d --num-processes %d --output-folder %s --bundle-length %d ' 
-                  % (scriptPath, run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder, options.bundleLength))
+    args       = ('--site %s --yyyymmdd %s --num-threads %d --num-processes %d --output-folder %s --bundle-length %d ' 
+                  % (run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder, options.bundleLength))
     
     baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
 
@@ -391,7 +391,7 @@ def runBlending(run, options):
         thisArgs = (args + ' --start-frame ' + str(startFrame) + ' --stop-frame ' + str(stopFrame) )
         logPrefix = os.path.join(pbsLogFolder, 'blend_' + jobName)
         logger.info('Submitting blend job with args: '+thisArgs)
-        pbs_functions.submitJob(jobName, BLEND_PBS_QUEUE, MAX_BLEND_HOURS, GROUP_ID, options.nodeType, 'python', thisArgs, logPrefix)
+        pbs_functions.submitJob(jobName, BLEND_PBS_QUEUE, MAX_BLEND_HOURS, GROUP_ID, options.nodeType, scriptPath, thisArgs, logPrefix)
         
         currentFrame += tasksPerJob
 
@@ -620,10 +620,7 @@ def main(argsIn):
             logger.info('All jobs finished for run '+str(run))
         
         if not options.skipBlend:
-            try:
-                runBlending(run, options)
-            except:
-                logger.error('Exception in blend step!')
+            runBlending(run, options)
         
         # TODO: Uncomment when processing multiple runs.
         ## Log the run as completed
@@ -658,7 +655,7 @@ def main(argsIn):
 
             # TODO: Uncomment this once our outputs are good.
             # Pack up all the files to lou, then delete the local copies.          
-            #archive_functions.packAndSendCompletedRun(run)
+            archive_functions.packAndSendCompletedRun(run)
             #cleanupRun(run) # <-- Should this always be manual??
             
             # TODO: Don't wait on the pack/send operation to finish!

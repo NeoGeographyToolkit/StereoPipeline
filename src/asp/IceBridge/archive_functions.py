@@ -210,7 +210,7 @@ def packAndSendCompletedRun(run):
     logger.info('Sending run to lfe...')
     cmd = 'shiftc --dereference --create-tar ' + assemblyFolder + ' ' + lfePath
     logger.info(cmd)
-    status = os.system(cmd)
+    #status = os.system(cmd)
     #if status != 0:
     #    raise Exception('Failed to pack/send results for run ' + str(run))
     #logger.info('Finished sending run to lfe.')
