@@ -489,13 +489,13 @@ double compute_ip(ASPGlobalOptions & opt, std::string & match_filename) {
       epipolar_threshold = stereo_settings().epipolar_threshold;
 
     const bool single_threaded_camera = false;
-    success = ip_matching(single_threaded_camera,
-                          left_camera_model.get(), right_camera_model.get(),
-                          left_image, right_image,
-                          stereo_settings().ip_per_tile,
-                          datum, match_filename, epipolar_threshold,
-                          stereo_settings().ip_uniqueness_thresh,
-                          left_nodata_value, right_nodata_value);
+    success = ip_matching_no_align(single_threaded_camera,
+                                   left_camera_model.get(), right_camera_model.get(),
+                                   left_image, right_image,
+                                   stereo_settings().ip_per_tile,
+                                   datum, match_filename, epipolar_threshold,
+                                   stereo_settings().ip_uniqueness_thresh,
+                                   left_nodata_value, right_nodata_value);
   } // End nadir epipolar full image case
   else {
     // In all other cases, run a more general IP matcher.

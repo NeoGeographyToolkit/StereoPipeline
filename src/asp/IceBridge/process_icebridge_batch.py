@@ -192,7 +192,7 @@ def robustBundleAdjust(options, inputPairs, imageCameraString,
             argString = blurredImageCameraString                     
 
         cmd = (('bundle_adjust %s -o %s %s %s --datum wgs84 ' +
-                '--camera-weight %0.16g -t nadirpinhole ' +
+                '--camera-weight %0.16g -t nadirpinhole --skip-rough-homography '+
                 '--local-pinhole --overlap-limit %d --robust-threshold %0.16g ' +
                 '--ip-detect-method %d --ip-per-tile %d --min-matches %d ' + 
                 '--overlap-exponent %0.16g --epipolar-threshold 50')
@@ -400,7 +400,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     # Testing: Is there any performance hit from using --corr-seed-mode 0 ??
     #          This skips D_sub creation and saves processing time.
     # - This epipolar threshold is post camera model based alignment so it can be quite restrictive.
-    stereoCmd = ('stereo %s %s %s %s -t nadirpinhole --alignment-method epipolar --corr-blob-filter 50 --corr-seed-mode 0 --epipolar-threshold 10' %
+    stereoCmd = ('stereo %s %s %s %s -t nadirpinhole --alignment-method epipolar --skip-rough-homography --corr-blob-filter 50 --corr-seed-mode 0 --epipolar-threshold 10' %
                  (argString, thisPairPrefix, threadText, extraArgs))
     searchLimitString = (' --corr-search-limit -9999 -' + str(VERTICAL_SEARCH_LIMIT) +
                          ' 9999 ' + str(VERTICAL_SEARCH_LIMIT) )

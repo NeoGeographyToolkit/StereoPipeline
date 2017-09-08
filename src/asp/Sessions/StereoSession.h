@@ -71,11 +71,11 @@ namespace asp {
   /// Normalize the intensity of two grayscale images based on input statistics
   template<class ImageT>
   void normalize_images(bool force_use_entire_range,
-			bool individually_normalize,
-			bool use_percentile_stretch,
-			Vector6f const& left_stats,
-			Vector6f const& right_stats,
-			ImageT & Limg, ImageT & Rimg){
+                        bool individually_normalize,
+                        bool use_percentile_stretch,
+                        Vector6f const& left_stats,
+                        Vector6f const& right_stats,
+                        ImageT & Limg, ImageT & Rimg){
 
     // These arguments must contain: (min, max, mean, std)
     VW_ASSERT(left_stats.size() == 6 && right_stats.size() == 6,
@@ -149,12 +149,12 @@ namespace asp {
     std::string m_out_prefix, m_input_dem;
 
     virtual void initialize (vw::cartography::GdalWriteOptions const& options,
-			     std::string const& left_image_file,
-			     std::string const& right_image_file,
-			     std::string const& left_camera_file,
-			     std::string const& right_camera_file,
-			     std::string const& out_prefix,
-			     std::string const& input_dem);
+                             std::string const& left_image_file,
+                             std::string const& right_image_file,
+                             std::string const& left_camera_file,
+                             std::string const& right_camera_file,
+                             std::string const& out_prefix,
+                             std::string const& input_dem);
 
   public:
     virtual ~StereoSession() {}
@@ -223,34 +223,34 @@ namespace asp {
     /// Pre  file is a pair of images.   ( ImageView<PixelT> )
     /// Post file is a grayscale images. ( ImageView<PixelGray<float> > )
     virtual void pre_preprocessing_hook( bool adjust_left_image_size,
-					 std::string const& input_file1,
-					 std::string const& input_file2,
-					 std::string      & output_file1,
-					 std::string      & output_file2);
+                                         std::string const& input_file1,
+                                         std::string const& input_file2,
+                                         std::string      & output_file1,
+                                         std::string      & output_file2);
     virtual void post_preprocessing_hook(std::string const& input_file1,    // CURRENTLY NEVER USED!
-					 std::string const& input_file2,
-					 std::string      & output_file1,
-					 std::string      & output_file2);
+                                         std::string const& input_file2,
+                                         std::string      & output_file1,
+                                         std::string      & output_file2);
 
     /// Stage 2: Correlation
     ///
     /// Pre  file is a pair of grayscale images. ( ImageView<PixelGray<float> > )
     /// Post file is a disparity map.            ( ImageView<PixelDisparity> )
     virtual void pre_correlation_hook( std::string const& input_file1,    // CURRENTLY NEVER USED!
-				       std::string const& input_file2,
-				       std::string      & output_file1,
-				       std::string      & output_file2);
+                                       std::string const& input_file2,
+                                       std::string      & output_file1,
+                                       std::string      & output_file2);
     virtual void post_correlation_hook(std::string const& input_file,    // CURRENTLY NEVER USED!
-				       std::string      & output_file);
+                                       std::string      & output_file);
 
     /// Stage 3: Filtering
     ///
     /// Pre  file is a disparity map. ( ImageView<PixelDisparity<float> > )
     /// Post file is a disparity map. ( ImageView<PixelDisparity<float> > )
     virtual void pre_filtering_hook( std::string const& input_file,
-				     std::string      & output_file);
+                                     std::string      & output_file);
     virtual void post_filtering_hook(std::string const& input_file,    // CURRENTLY NEVER USED!
-				     std::string      & output_file);
+                                     std::string      & output_file);
 
     /// Stage 4: Point cloud generation
     ///
@@ -259,30 +259,30 @@ namespace asp {
     virtual vw::ImageViewRef<vw::PixelMask<vw::Vector2f> >
 		 pre_pointcloud_hook (std::string const& input_file);
     virtual void post_pointcloud_hook(std::string const& input_file,      // CURRENTLY NEVER USED!
-				      std::string      & output_file);
+                                      std::string      & output_file);
 
     /// Returns the correct nodata value from the input images or the input options.
     void get_nodata_values(boost::shared_ptr<vw::DiskImageResource> left_rsrc,
-			   boost::shared_ptr<vw::DiskImageResource> right_rsrc,
-			   float & left_nodata_value,
-			   float & right_nodata_value);
+                           boost::shared_ptr<vw::DiskImageResource> right_rsrc,
+                           float & left_nodata_value,
+                           float & right_nodata_value);
 
     // Factor out here all functionality shared among the preprocessing hooks
     // for various sessions. Return 'true' if we encounter cached images
     // and don't need to go through the motions again.
-    bool shared_preprocessing_hook(vw::cartography::GdalWriteOptions              & options,
-				   std::string const             & left_input_file,
-				   std::string const             & right_input_file,
-				   std::string                   & left_output_file,
-				   std::string                   & right_output_file,
-				   std::string                   & left_cropped_file,
-				   std::string                   & right_cropped_file,
-				   float                         & left_nodata_value,
-				   float                         & right_nodata_value,
-				   bool                          & has_left_georef,
-				   bool                          & has_right_georef,
-				   vw::cartography::GeoReference & left_georef,
-				   vw::cartography::GeoReference & right_georef);
+    bool shared_preprocessing_hook(vw::cartography::GdalWriteOptions & options,
+                                   std::string const                 & left_input_file,
+                                   std::string const                 & right_input_file,
+                                   std::string                       & left_output_file,
+                                   std::string                       & right_output_file,
+                                   std::string                       & left_cropped_file,
+                                   std::string                       & right_cropped_file,
+                                   float                             & left_nodata_value,
+                                   float                             & right_nodata_value,
+                                   bool                              & has_left_georef,
+                                   bool                              & has_right_georef,
+                                   vw::cartography::GeoReference     & left_georef,
+                                   vw::cartography::GeoReference     & right_georef);
   };
 
 // TODO: Move this function!
@@ -290,18 +290,18 @@ namespace asp {
 // we crop the images to these boxes, and hence the need to keep
 // the upper-left corners of the crop windows to handle the cameras correctly.
 vw::Vector2 camera_pixel_offset(std::string const& input_dem,
-				std::string const& left_image_file,
-				std::string const& right_image_file,
-				std::string const& curr_image_file);
+                                std::string const& left_image_file,
+                                std::string const& right_image_file,
+                                std::string const& curr_image_file);
 
 // TODO: Move this function!
 // If we have adjusted camera models, load them. The adjustment
 // may be in the rotation matrix, camera center, or pixel offset.
 boost::shared_ptr<vw::camera::CameraModel>
 load_adjusted_model(boost::shared_ptr<vw::camera::CameraModel> cam,
-		    std::string const& image_file,
-		    std::string const& camera_file,
-		    vw::Vector2 const& pixel_offset);
+                    std::string const& image_file,
+                    std::string const& camera_file,
+                    vw::Vector2 const& pixel_offset);
 
 } // end namespace asp
 

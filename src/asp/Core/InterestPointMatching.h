@@ -293,7 +293,7 @@ namespace asp {
   /// Left and Right TX define transforms that have been performed on
   /// the images that that camera data doesn't know about. (ie scaling).
   template <class Image1T, class Image2T>
-  bool ip_matching( bool single_threaded_camera,
+  bool ip_matching_no_align( bool single_threaded_camera,
 		    vw::camera::CameraModel* cam1,
 		    vw::camera::CameraModel* cam2,
 		    vw::ImageViewBase<Image1T> const& image1,
@@ -634,7 +634,7 @@ namespace asp {
   // Left and Right TX define transforms that have been performed on
   // the images that that camera data doesn't know about. (ie scaling).
   template <class Image1T, class Image2T>
-  bool ip_matching( bool single_threaded_camera,
+  bool ip_matching_no_align( bool single_threaded_camera,
                     vw::camera::CameraModel* cam1,
                     vw::camera::CameraModel* cam2,
                     vw::ImageViewBase<Image1T> const& image1,
@@ -826,7 +826,7 @@ namespace asp {
     try {
       // Homography is defined in the original camera coordinates
       rough_homography =  rough_homography_fit( cam1, cam2, left_tx.reverse_bbox(box1),
-						right_tx.reverse_bbox(box2), datum );
+                                                right_tx.reverse_bbox(box2), datum );
     } catch(...) {
       VW_OUT( DebugMessage, "asp" ) << "Rough homography fit failed, trying with identity transform. " << std::endl;
       rough_homography.set_identity(3);
@@ -857,7 +857,7 @@ namespace asp {
     //   next step. Using anything else will interpolate nodata values
     //   and stop them from being masked out.
     bool inlier =
-      ip_matching( single_threaded_camera,
+      ip_matching_no_align( single_threaded_camera,
 		   cam1, cam2, image1.impl(),
 		   crop(transform(image2.impl(), compose(tx, inverse(right_tx)),
 				  ValueEdgeExtension<typename Image2T::pixel_type>(boost::math::isnan(nodata2) ? 0 : nodata2),
@@ -878,8 +878,8 @@ namespace asp {
     bool adjust_left_image_size = true;
     Matrix<double> matrix1, matrix2;
     homography_rectification( adjust_left_image_size,
-			      raster_box.size(), raster_box.size(),
-			      ip1_copy, ip2_copy, matrix1, matrix2 );
+                              raster_box.size(), raster_box.size(),
+                              ip1_copy, ip2_copy, matrix1, matrix2 );
     if ( sum(abs(submatrix(rough_homography,0,0,2,2) - submatrix(matrix2,0,0,2,2))) > 4 ) {
       vw_out() << "Post homography has largely different scale and skew from rough fit. Post solution is " 
                << matrix2 << ". Examine your images, or consider using the option --skip-rough-homography.\n";
