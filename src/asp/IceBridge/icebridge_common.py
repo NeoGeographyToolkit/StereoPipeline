@@ -949,9 +949,6 @@ def getProjString(isSouth, addQuotes=False):
     #PROJ_STRING_NORTH = '+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs'
     # EPSG 3031 - WGS 84 / Antarctic Polar Stereographic
     #PROJ_STRING_SOUTH = '+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs'
-    #s = PROJ_STRING_NORTH
-    #if isSouth:
-    #    s = PROJ_STRING_SOUTH
     s = getEpsgCode(isSouth, asString=True)
     if addQuotes:
         return '"'+s+'"'

@@ -220,7 +220,7 @@ def runConversion(run, options):
     # Submit all the jobs
     currentFrame = minFrame
     for i in range(0, numOrthoJobs):
-        jobName    = str(currentFrame) + baseName
+        jobName    = ('%06d_%s' % (currentFrame, baseName) )
         startFrame = currentFrame
         stopFrame  = currentFrame+tasksPerJob-1
         if (i == numOrthoJobs - 1):
@@ -332,7 +332,7 @@ def submitBatchJobs(run, options, batchListPath):
 
     currentBatch = 0
     for i in range(0, numBatchJobs):
-        jobName    = str(currentBatch) + baseName
+        jobName    = ('%06d_%s' % (currentFrame, baseName) )
         startBatch = currentBatch
         stopBatch  = currentBatch+tasksPerJob
         if (i == numBatchJobs-1):
@@ -383,7 +383,7 @@ def runBlending(run, options):
     # Submit all the jobs
     currentFrame = minFrame
     for i in range(0, numBlendJobs):
-        jobName    = str(currentFrame) + baseName
+        jobName    = ('%06d_%s' % (currentFrame, baseName) )
         startFrame = currentFrame
         stopFrame  = currentFrame+tasksPerJob # Last frame passed to the tool is not processed
         if (i == numBlendJobs - 1):

@@ -111,6 +111,10 @@ namespace asp {
                       std::string & usage_comment,
                       bool allow_unregistered, std::vector<std::string> & unregistered);
 
+  /// Load multiple user options into a georef object.
+  /// - This call supports more srs_string options than are possible
+  ///   by loading a proj4 string into a GeoReference object, including
+  ///   EPSG codes and URLs like http://spatialreference.org/ref/iau2000/49900/
   void set_srs_string(std::string srs_string, bool have_user_datum,
                       vw::cartography::Datum const& user_datum,
                       vw::cartography::GeoReference & georef);

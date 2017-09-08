@@ -650,7 +650,7 @@ namespace asp{
 
   template<class ImageT>
   void save_image(Options& opt, ImageT img, GeoReference const& georef,
-		  int hole_fill_len, std::string const& imgName){
+                  int hole_fill_len, std::string const& imgName){
 
 
     // When hole-filling is used, we need to look hole_fill_len beyond
@@ -671,7 +671,7 @@ namespace asp{
       asp::save_with_temp_big_blocks(block_size, output_file, img, georef, opt.nodata_value, opt, tpc);
     else
       vw::cartography::write_gdal_image(output_file, img, georef, opt, tpc);
-  }
+  } // End function save_image
 
   // A class for combining the three channels of errors and finding
   // their absolute values.
@@ -1124,9 +1124,7 @@ int main( int argc, char *argv[] ) {
     // See if the user specified the datum outside of the srs string
     cartography::Datum user_datum;
     bool have_user_datum = asp::read_user_datum(opt.semi_major, opt.semi_minor,
-						opt.datum,
-						user_datum);
-
+                                                opt.datum, user_datum);
 
     // If the data was left in cartesian coordinates, we need to give
     // the DEM a projection that uses some physical units (meters),

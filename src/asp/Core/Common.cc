@@ -498,14 +498,18 @@ void asp::set_srs_string(std::string srs_string, bool have_user_datum,
                          vw::cartography::Datum const& user_datum,
                          vw::cartography::GeoReference & georef){
 
+// Should we even build ASP if this is disabled?
+#if defined(VW_HAVE_PKG_GDAL) && VW_HAVE_PKG_GDAL==1
+
+  // When an EPSG code is provided, store the name so that
+  //  it shows up when the GeoReference object is written
+  //  out to disk.
+  if (srs_string.find("EPSG") != std::string::npos)
+    georef.set_projcs_name(srs_string);
+
   // Set srs_string into given georef. Note that this may leave the
   // georef's affine transform inconsistent.
 
-  // The srs string can also be an URL, e.g.,
-  // http://spatialreference.org/ref/iau2000/49900/
-  
-  // Use the target_srs_string
-#if defined(VW_HAVE_PKG_GDAL) && VW_HAVE_PKG_GDAL==1
 
   // TODO: The line below is fishy. A better choice would be
   // srs_string = georef.overall_proj4_str() but this needs testing.
