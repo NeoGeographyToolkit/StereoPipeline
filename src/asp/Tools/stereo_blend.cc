@@ -124,15 +124,19 @@ bool get_roi_from_tile(std::string const& tile_path, Position pos,
   
   // Initialize the output
   output_roi = BBox2i();
-  
+
   // Get the ROI of this tile and of the entire processing job
   // The unbuffered roi is before we expand it with buffer on the sides.
   BBox2i unbuffered_roi = bbox_from_folder(tile_path); // extract from 2048_5120_1024_394
-  
+
   Vector2i image_size = file_image_size(tile_path);
-  if (buffers_stripped)
+  if (buffers_stripped) {
     image_size = Vector2i(unbuffered_roi.width(), unbuffered_roi.height());
 
+    // No buffer to remove
+    buffer_size = 0;
+  }
+  
   // Adjust the size of the output ROI according to the available buffer area
   int roi_width    = unbuffered_roi.width();   // Size with no buffers
   int roi_height   = unbuffered_roi.height();
@@ -147,7 +151,7 @@ bool get_roi_from_tile(std::string const& tile_path, Position pos,
   if (buffers_stripped) {
     left_edge = top_edge = false; 
   }
-  
+
   // Get the size of the buffers/padding  on each edge (no buffer if on the edge)
   int left_offset  = (left_edge ) ? 0 : buffer_size;
   int top_offset   = (top_edge  ) ? 0 : buffer_size;
@@ -398,18 +402,15 @@ tile_blend( DispImageType const& input_image,
       continue;
 
     try {
-
       // Get the ROI from the cropped input image
       bool ans1 = get_roi_from_tile(opt.main_path, Position(i),
                                     buff_size, NOT_BUFFER, input_rois[i],
                                     BUFFERS_GONE);
-      
       // Get the ROI from the neighboring tile
       bool ans2 = get_roi_from_tile(opt.tile_paths[i], get_opposed_position(Position(i)), 
                                     buff_size, GET_BUFFER, tile_rois[i]);
-      
       if (!ans1 || !ans2) continue; // nothing to blend
-      
+
       check_roi_bounds(input_rois[i], tile_rois[i], bounding_box(output_image));
       load_image_and_weights(opt.tile_paths[i], tile_rois[i], images[i], weights[i]);
       
@@ -418,7 +419,8 @@ tile_blend( DispImageType const& input_image,
         write_image("tile_weights_"+position_string(i)+".tif", weights[i]);
       }
       
-    } catch(...) {
+    } catch(std::exception const& e) {
+      vw_out(WarningMessage) << e.what() << std::endl;
       vw_out(WarningMessage) << "Error loading tile " << opt.tile_paths[i] 
                              << " but will proceed with the available tiles.\n";
       opt.tile_paths[i] = ""; // Mark this tile as invalid
@@ -466,6 +468,8 @@ void fill_blend_options(ASPGlobalOptions const& opt, BlendOptions & blend_option
   // Get the top level output folder for parallel_stereo
   boost::filesystem::path parallel_stereo_folder(opt.out_prefix);
 
+  // This wrong, as it assumes that out_prefix always looks like path1/path2.
+  // What if it is path1/path2/path3. 
   parallel_stereo_folder = parallel_stereo_folder.parent_path().parent_path();
 
   // This must be sync-ed up with parallel_stereo. Read the list of
@@ -490,12 +494,15 @@ void fill_blend_options(ASPGlobalOptions const& opt, BlendOptions & blend_option
   // Figure out where each folder goes
   for (size_t i=0; i<folder_list.size(); ++i) {
     BBox2i bbox = bbox_from_folder(folder_list[i]);
-    
+
     std::string bbox_string = extract_process_folder_bbox_string(folder_list[i]);
     
-    const std::string abs_path = parallel_stereo_folder.string() + 
-        "/" + folder_list[i] + "/" + bbox_string + "-Dnosym.tif";
-      
+    const std::string abs_path =
+      // parallel_stereo_folder.string() + "/" +
+      // Note that folder_list[i] already has the output prefix relative to the
+      // directory parallel_stereo runs in.
+      folder_list[i] + "/" + bbox_string + "-Dnosym.tif";
+
     if (bbox.max().x() == main_bbox.min().x()) { // Tiles one column to left
       if (bbox.max().y() == main_bbox.min().y()) { // Top left
         blend_options.tile_paths[TL] = abs_path;
