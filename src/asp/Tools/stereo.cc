@@ -411,7 +411,7 @@ namespace asp {
     right_resource = vw::DiskImageResourcePtr(opt.in_file2);
     DiskImageView<float> left_image(left_resource);
     DiskImageView<float> right_image(right_resource);
-    stereo_settings().left_image_crop_win.crop(bounding_box(left_image));
+    stereo_settings().left_image_crop_win.crop (bounding_box(left_image));
     stereo_settings().right_image_crop_win.crop(bounding_box(right_image));
 
     bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));

@@ -70,9 +70,9 @@ typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
 
 struct Options : public vw::cartography::GdalWriteOptions {
   std::string raw_image, ortho_image, input_cam, output_cam, reference_dem;
-  double camera_height, orthoimage_height;
-  int ip_per_tile, ip_detect_method, min_ip;
-  bool individually_normalize, keep_match_file;
+  double camera_height, orthoimage_height, ip_inlier_factor;
+  int    ip_per_tile, ip_detect_method, min_ip;
+  bool   individually_normalize, keep_match_file, write_gcp_file, skip_image_normalization, show_error;
 
   // Make sure all values are initialized, even though they will be
   // over-written later.
@@ -142,8 +142,8 @@ public:
 
 
     // Set up the camera with the proposed rotation/translation
-    Vector3   translation;
-    Quat rotation;
+    Vector3 translation;
+    Quat    rotation;
     //unpack_parameters(C, translation, rotation);
     translation = Vector3(C[3], C[4], C[5]);
     Vector3 angles(C[0], C[1], C[2]);
@@ -231,21 +231,104 @@ int solve_for_cam_adjust(boost::shared_ptr<PinholeModel> camera_model,
     
 
 void ortho2pinhole(Options const& opt){
-  std::string out_prefix = "tmp-prefix";
-  std::string match_filename = ip::match_filename(out_prefix, opt.raw_image, opt.ortho_image);
-  
+
+  // Input image handles
   boost::shared_ptr<DiskImageResource>
-    rsrc1(vw::DiskImageResourcePtr(opt.raw_image)),
-    rsrc2(vw::DiskImageResourcePtr(opt.ortho_image));
-  if ( (rsrc1->channels() > 1) || (rsrc2->channels() > 1) )
+    rsrc_raw(vw::DiskImageResourcePtr(opt.raw_image)),
+    rsrc_ortho(vw::DiskImageResourcePtr(opt.ortho_image));
+  if ( (rsrc_raw->channels() > 1) || (rsrc_ortho->channels() > 1) )
     vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n");
+
+  // Load GeoRef from the ortho image
+  vw::cartography::GeoReference ortho_georef;
+  bool is_good = vw::cartography::read_georeference(ortho_georef, opt.ortho_image);
+  if (!is_good) {
+    vw_throw(ArgumentErr() << "Error: Cannot read georeference from: "
+                           << opt.ortho_image << ".\n");
+  }
+
+
+  // Set up the DEM if it was provided.
+  bool elevation_change_present = false;
+  bool has_ref_dem = (opt.reference_dem != "");
+  vw::cartography::GeoReference dem_georef;
+  ImageViewRef< PixelMask<float> > dem;
+  float dem_nodata = -std::numeric_limits<float>::max();
+  if (has_ref_dem) {
+    bool is_good = vw::cartography::read_georeference(dem_georef, opt.reference_dem);
+    if (!is_good) {
+      vw_throw(ArgumentErr() << "Error: Cannot read georeference from: "
+                             << opt.reference_dem << ".\n");
+    }
+
+    {
+      // Read the no-data
+      DiskImageResourceGDAL rsrc(opt.reference_dem);
+      if (rsrc.has_nodata_read()) dem_nodata = rsrc.nodata_read();
+    }
+    
+    dem = create_mask(DiskImageView<float>(opt.reference_dem), dem_nodata);
+    
+    // Get an estimate of the elevation range in the input image
+    const int HEIGHT_SKIP = 500; // The DEM is very low resolution
+    
+    InterpolationView<EdgeExtensionView< ImageViewRef< PixelMask<float> >, 
+                                         ConstantEdgeExtension >, 
+                      BilinearInterpolation> interp_dem = 
+        interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
+    double max_height = -9999, min_height = 9999999;
+    for (int r=0; r<rsrc_ortho->rows(); r+=HEIGHT_SKIP) {
+      for (int c=0; c<rsrc_ortho->cols(); c+=HEIGHT_SKIP) {
+        // Ortho pixel to DEM pixel
+        Vector2 ortho_pix(c, r);
+        Vector2 ll      = ortho_georef.pixel_to_lonlat(ortho_pix);
+        Vector2 dem_pix = dem_georef.lonlat_to_pixel(ll);
+        double x = dem_pix.x(), y = dem_pix.y();
+        if (0 <= x && x <= dem.cols() - 1 && 0 <= y && y <= dem.rows() - 1 ) {
+          PixelMask<float> dem_val = interp_dem(x, y);
+          if (is_valid(dem_val)) {
+            // Accumulate the valid height range
+            double height = dem_val.child();
+            if (height < min_height) min_height = height;
+            if (height > max_height) max_height = height;
+          }
+        } // End boundary check
+      } // End col loop
+    } // End row loop
+    
+    // Set a flag if we detect there is a significant amount of elevation change in the image
+    const double ELEVATION_CHANGE_THRESHOLD = 40; // Meters
+    double elevation_change = max_height - min_height;
+    vw_out() << "Estimated elevation change of " << elevation_change << std::endl;
+    if (elevation_change > ELEVATION_CHANGE_THRESHOLD)
+      elevation_change_present = true;
+    
+    
+  } // End DEM provided case
+
+  // When significant elevation change is present, the homography IP filter is not
+  //  accurate and we need to compensate by relaxing our inlier threshold.
+  const double ELEVATION_INLIER_SCALE = 10;
+  if (elevation_change_present) {
+    // TODO: Decouple threshold from other params!
+    asp::stereo_settings().epipolar_threshold = 150*asp::stereo_settings().ip_inlier_factor * ELEVATION_INLIER_SCALE;
+    //asp::stereo_settings().ip_inlier_factor *= ELEVATION_INLIER_SCALE;
+    
+    vw_out() << "Due to elevation change, increasing ip_inlier_factor to " 
+             << asp::stereo_settings().ip_inlier_factor << std::endl;
+  }
+    
+    
+  std::string out_prefix     = "tmp-prefix";
+  std::string match_filename = opt.output_cam + ".match";
+
   std::string stereo_session_string = "pinhole";
   float nodata1, nodata2;
   SessionPtr session(asp::StereoSessionFactory::create(stereo_session_string, opt,
                                                        opt.raw_image, opt.ortho_image,
                                                        opt.input_cam, opt.input_cam,
                                                        out_prefix));
-  session->get_nodata_values(rsrc1, rsrc2, nodata1, nodata2);
+  session->get_nodata_values(rsrc_raw, rsrc_ortho, nodata1, nodata2);
   
   boost::shared_ptr<CameraModel> cam = session->camera_model(opt.raw_image, opt.input_cam);
   
@@ -253,7 +336,7 @@ void ortho2pinhole(Options const& opt){
     // IP matching may not succeed for all pairs
     
     // Get masked views of the images to get statistics from
-    DiskImageView<float> image1_view(rsrc1), image2_view(rsrc2);
+    DiskImageView<float> image1_view(rsrc_raw), image2_view(rsrc_ortho);
     ImageViewRef< PixelMask<float> > masked_image1
       = create_mask_less_or_equal(image1_view,  nodata1);
     ImageViewRef< PixelMask<float> > masked_image2
@@ -267,43 +350,17 @@ void ortho2pinhole(Options const& opt){
                          image2_stats,
                          opt.ip_per_tile,
                          nodata1, nodata2, match_filename, cam.get(), cam.get()
-                         );
+                        );
   } catch ( const std::exception& e ){
     vw_throw( ArgumentErr()
               << "Could not find interest points between images "
               << opt.raw_image << " and " << opt.ortho_image << "\n" << e.what() << "\n");
   } //End try/catch
 
-  bool has_ref_dem = (opt.reference_dem != "");
-  vw::cartography::GeoReference dem_georef;
-  ImageViewRef< PixelMask<float> > dem;
-  float dem_nodata = -std::numeric_limits<float>::max();
-  if (has_ref_dem) {
-    bool is_good = vw::cartography::read_georeference(dem_georef, opt.reference_dem);
-    if (!is_good) {
-      vw_throw(ArgumentErr() << "Error: Cannot read georeference from: "
-               << opt.reference_dem << ".\n");
-    }
-
-    {
-      // Read the no-data
-      DiskImageResourceGDAL rsrc(opt.reference_dem);
-      if (rsrc.has_nodata_read()) dem_nodata = rsrc.nodata_read();
-    }
-    
-    dem = create_mask(DiskImageView<float>(opt.reference_dem), dem_nodata);
-  }
-  
-  vw::cartography::GeoReference ortho_georef;
-  bool is_good = vw::cartography::read_georeference(ortho_georef, opt.ortho_image);
-  if (!is_good) {
-    vw_throw(ArgumentErr() << "Error: Cannot read georeference from: "
-	     << opt.ortho_image << ".\n");
-  }
-
   // The ortho image file must have the height of the camera above the ground.
   // This can be over-written from the command line.
   double cam_height = get_cam_height_estimate(opt);
+  vw_out() << "Using estimated cam height: " << cam_height << std::endl;
 
   std::vector<vw::ip::InterestPoint> raw_ip, ortho_ip;
   ip::read_binary_match_file(match_filename, raw_ip, ortho_ip);
@@ -313,8 +370,7 @@ void ortho2pinhole(Options const& opt){
   }
 
   if ( !(pcam->camera_pose() == Quaternion<double>(1, 0, 0, 0)) ) {
-    // We like to start with a camera pointing along the z axis. That makes
-    // the lfie easy.
+    // We like to start with a camera pointing along the z axis. That makes life easy.
     vw_throw(ArgumentErr() << "Expecting the input camera to have identity rotation.\n");
   }
 
@@ -340,7 +396,7 @@ void ortho2pinhole(Options const& opt){
       // with the plane z = cam_height.
       Vector3 point_in = ctr + (cam_height/dir[2])*dir;
       
-      // Get lonlan location for this IP IP.
+      // Get lonlat location for this IP IP.
       Vector2 ortho_pix(ortho_ip[ip_iter].x, ortho_ip[ip_iter].y);
       Vector2 ll = ortho_georef.pixel_to_lonlat(ortho_pix);
       
@@ -406,10 +462,6 @@ void ortho2pinhole(Options const& opt){
                << "and using the constant height: " << opt.orthoimage_height << "\n";
     }else{ // Use the DEM points
       use_dem_points = true;
-      raw_flat_xyz   = raw_flat_xyz2;
-      ortho_flat_xyz = ortho_dem_xyz;
-      ortho_flat_llh = ortho_dem_llh;
-      raw_pixels     = raw_pixels2;
     }
   }
   // Pack the in/out point pairs into two matrices.
@@ -484,42 +536,55 @@ void ortho2pinhole(Options const& opt){
       llh_cam = ortho_georef.datum().cartesian_to_geodetic(center);
       vw_out() << "Cam center 3 located at " << llh_cam << std::endl;
       
+      // Check error
+      if (opt.show_error) {
+        const size_t num_points = raw_pixels2.size();
+        for (size_t i=0; i<num_points; ++i) {
+          Vector2 pixel = pcam->point_to_pixel(ortho_dem_xyz[i]);
+          double diff = norm_2(pixel - raw_pixels2[i]);
+          std::cout << "Error " << i << " = " << diff << std::endl;
+        }
+      }
+      
+      
     }
   } // End of LM optimization attempt
 
   vw_out() << "Writing: " << opt.output_cam << std::endl;
   pcam->write(opt.output_cam);
 
-  // Save a gcp file, later bundle_adjust can use it to improve upon this camera model
-  std::string gcp_file = opt.output_cam + ".gcp";
-  vw_out() << "Writing: " << gcp_file << std::endl;
-  std::ofstream output_handle(gcp_file.c_str());
-  int pts_count = 0;
-  for (int pt_iter = 0; pt_iter < num_pts; pt_iter++) { // Loop through IPs
+  if (opt.write_gcp_file) {
+    // Save a gcp file, later bundle_adjust can use it to improve upon this camera model
+    std::string gcp_file = opt.output_cam + ".gcp";
+    vw_out() << "Writing: " << gcp_file << std::endl;
+    std::ofstream output_handle(gcp_file.c_str());
+    int pts_count = 0;
+    for (int pt_iter = 0; pt_iter < num_pts; pt_iter++) { // Loop through IPs
 
-    Vector3 llh = ortho_flat_llh[pt_iter];
-    Vector2 pix = raw_pixels[pt_iter];
-    Vector2 lonlat = subvector(llh, 0, 2);
-    double height = llh[2];
+      Vector3 llh = ortho_flat_llh[pt_iter];
+      Vector2 pix = raw_pixels[pt_iter];
+      Vector2 lonlat = subvector(llh, 0, 2);
+      double height = llh[2];
 
-    // The ground control point ID
-    output_handle << pts_count;
-    
-    // Lat, lon, height
-    output_handle << ", " << lonlat[1] << ", " << lonlat[0] << ", " << height;
+      // The ground control point ID
+      output_handle << pts_count;
+      
+      // Lat, lon, height
+      output_handle << ", " << lonlat[1] << ", " << lonlat[0] << ", " << height;
 
-    // Sigma values
-    output_handle << ", " << 1 << ", " << 1 << ", " << 1;
+      // Sigma values
+      output_handle << ", " << 1 << ", " << 1 << ", " << 1;
 
-    // Pixel value
-    output_handle << ", " <<  opt.raw_image;
-    output_handle << ", " << pix.x() << ", " << pix.y(); // IP location in image
-    output_handle << ", " << 1 << ", " << 1; // Sigma values
-    output_handle << std::endl; // Finish the line
-    pts_count++;
-    
-  } // End loop through IPs
-  output_handle.close();
+      // Pixel value
+      output_handle << ", " <<  opt.raw_image;
+      output_handle << ", " << pix.x() << ", " << pix.y(); // IP location in image
+      output_handle << ", " << 1 << ", " << 1; // Sigma values
+      output_handle << std::endl; // Finish the line
+      pts_count++;
+      
+    } // End loop through IPs
+    output_handle.close();
+  }
 
   if (!opt.keep_match_file) {
     vw_out() << "Removing: " << match_filename << std::endl;
@@ -570,10 +635,18 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Interest point detection algorithm (0: Integral OBALoG, 1: OpenCV SIFT (default), 2: OpenCV ORB.")
     ("minimum-ip",             po::value(&opt.min_ip)->default_value(5),
      "Don't create camera if fewer than this many IP match.")
+    ("ip-inlier-factor",   po::value(&opt.ip_inlier_factor)->default_value(1.0/15.0),
+     "IP inlier factor.")
     ("individually-normalize",   po::bool_switch(&opt.individually_normalize)->default_value(false)->implicit_value(true),
      "Individually normalize the input images instead of using common values.")
+    ("skip-image-normalization", po::bool_switch(&opt.skip_image_normalization)->default_value(false)->implicit_value(true),
+     "Skip the step of normalizing the values of input images.")
+    ("show-error",   po::bool_switch(&opt.show_error)->default_value(false)->implicit_value(true),
+     "Print point error.")
     ("keep-match-file",   po::bool_switch(&opt.keep_match_file)->default_value(false)->implicit_value(true),
      "Don't delete the .match file after running.")
+    ("write-gcp-file",   po::bool_switch(&opt.write_gcp_file)->default_value(false)->implicit_value(true),
+     "Write a bundle_adjust compatible gcp file.")
     ("reference-dem",             po::value(&opt.reference_dem)->default_value(""),
      "If provided, extract from this DEM the heights above the ground rather than assuming the value in --orthoimage-height.");
 
@@ -601,8 +674,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                             allow_unregistered, unregistered);
 
   // Copy the IP settings to the global stereosettings() object
-  asp::stereo_settings().ip_matching_method     = opt.ip_detect_method;
-  asp::stereo_settings().individually_normalize = opt.individually_normalize;
+  asp::stereo_settings().ip_matching_method       = opt.ip_detect_method;
+  asp::stereo_settings().individually_normalize   = opt.individually_normalize;
+  asp::stereo_settings().skip_image_normalization = opt.skip_image_normalization;
+  asp::stereo_settings().ip_inlier_factor         = opt.ip_inlier_factor;
   
   if ( opt.raw_image.empty() )
     vw_throw( ArgumentErr() << "Missing input raw image.\n" << usage << general_options );

@@ -242,24 +242,35 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile,
                            refDemPath, numThreads):
     '''Generate a camera model from a single ortho file'''
 
-    # If the call fails, try it again with different IP algorithm options to see
-    #  if we can get it to work.
-    IP_OPTIONS = ['1', '0', '2']
+    # Make multiple calls with different options until we get one that works well
+    IP_METHOD   = [1, 0, 2, 1, 2] # IP method
+    LOCAL_NORM  = [False, False, False, True, True] # If true, image tiles are individually normalized with method 1 and 2
+    numAttempts = len(IP_METHOD)
    
     MIN_IP     = 15  # Require more IP to make sure we don't get bogus camera models
-    DESIRED_IP = 100 # If we don't hit this number, try other methods before taking the best one.
+    DESIRED_IP = 200 # If we don't hit this number, try other methods before taking the best one.
 
     bestIpCount = 0
-    tempFilePath = outputCamFile + '_temp' # Used to hold the current best result
-    for ip_option in IP_OPTIONS:
+    tempFilePath  = outputCamFile + '_temp' # Used to hold the current best result
+    matchPath     = outputCamFile + '.match' # Used to hold the match file if it exists
+    tempMatchPath = matchPath + '_temp'
+
+    for i in range(0,numAttempts):
+
+        # Get parameters for this attempt
+        ipMethod  = IP_METHOD[i]
+        localNorm = LOCAL_NORM[i]
 
         # Call ortho2pinhole command
         ortho2pinhole = asp_system_utils.which("ortho2pinhole")
-        cmd = (('%s %s %s %s %s --reference-dem %s --threads %d --ip-detect-method %s --minimum-ip %d') % (ortho2pinhole, inputPath, orthoPath, inputCamFile, outputCamFile, refDemPath, numThreads, ip_option, MIN_IP))
+        cmd = (('%s %s %s %s %s --reference-dem %s --threads %d --ip-detect-method %d --minimum-ip %d') % (ortho2pinhole, inputPath, orthoPath, inputCamFile, outputCamFile, refDemPath, numThreads, ipMethod, MIN_IP))
+        if localNorm:
+            cmd += ' --skip-image-normalization'
 
         # Use a print statement as the logger fails from multiple processes
         print(cmd)
 
+        os.system('rm -f ' + matchPath) # Needs to be gone
         p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
         textOutput, err = p.communicate()
         p.wait()
@@ -267,7 +278,7 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile,
         
         if not os.path.exists(outputCamFile): # Keep trying if no output file produced
             continue
-        
+                
         # Check the number of IP used
         m = re.findall(r"Init model with (\d+) points", textOutput)
         if len(m) != 1: # An unknown error occurred, move on.
@@ -278,9 +289,14 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile,
         if numPoints > bestIpCount: # Got some points but not many, try other options 
             bestIpCount = numPoints #  to see if we can beat this result.
             shutil.move(outputCamFile, tempFilePath)
+            
+            if os.path.exists(matchPath):
+                shutil.move(matchPath, tempMatchPath)
 
     if numPoints < DESIRED_IP: # If we never got the desired # of points
         shutil.move(tempFilePath, outputCamFile) # Use the camera file with the most points found
+        if os.path.exists(tempMatchPath):
+            shutil.move(tempMatchPath, matchPath)
     
     if not os.path.exists(outputCamFile):
         # This function is getting called from a pool, so just log the failure.
@@ -288,9 +304,6 @@ def cameraFromOrthoWrapper(inputPath, orthoPath, inputCamFile, outputCamFile,
 
     # I saw this being recommended, to dump all print statements in the current task
     sys.stdout.flush()
-                
-    # TODO: Clean up the .gcp file!
-
 
 def getCameraModelsFromOrtho(imageFolder, orthoFolder, inputCalFolder,
                              cameraLookupPath, yyyymmdd, site,

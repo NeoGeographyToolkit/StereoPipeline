@@ -190,6 +190,12 @@ namespace asp {
       // Run a simpler purely image based matching function
       double ip_inlier_factor = stereo_settings().ip_inlier_factor;
       int    inlier_threshold = round(ip_inlier_factor*150.0); // by default this is 10.
+      
+      // HACK: If the otherwise unused epipolar threshold is set, use it as
+      //       the inlier threshold.
+      if (stereo_settings().epipolar_threshold > 0)
+        inlier_threshold = stereo_settings().epipolar_threshold;
+
       inlier = homography_ip_matching( image1_norm, image2_norm,
                                        ip_per_tile,
                                        match_filename,
