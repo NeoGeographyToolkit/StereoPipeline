@@ -240,7 +240,7 @@ def generateFlightSummary(run, options):
                 process_icebridge_batch.consolidateStats(lidarDiffPath, interDiffPath, fireDiffPath,
                                                          fireLidarDiffPath, dem,
                                                          consolidatedStatsPath,
-                                                         options.skipGeo)
+                                                         None, options.skipGeo)
             # Now the consolidated file should always be present
 
             with open(consolidatedStatsPath, 'r') as f:

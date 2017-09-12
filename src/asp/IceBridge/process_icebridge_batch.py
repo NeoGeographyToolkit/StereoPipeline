@@ -266,7 +266,7 @@ def consolidateGeodiffResults(inputFiles, outputPath=None):
 
 
 def consolidateStats(lidarDiffPath, interDiffPath, fireDiffPath, fireLidarDiffPath,  
-                     demPath, outputPath, skipGeo = False):
+                     demPath, outputPath, logger, skipGeo = False):
     '''Consolidate statistics into a single file'''
 
     # Read in the diff results            
@@ -304,7 +304,10 @@ def consolidateStats(lidarDiffPath, interDiffPath, fireDiffPath, fireLidarDiffPa
             PROJ_STR_WGS84 = 'EPSG:4326'
             centerLon, centerLat = asp_geo_utils.convertCoords(centerX, centerY, projString, PROJ_STR_WGS84)
         except Exception, e:
-            logger.exception('Caught exception getting DEM center coordinates:\n' + e)
+            if logger:
+                logger.exception('Caught exception getting DEM center coordinates:\n' + e)
+            else:
+                print 'Caught exception getting DEM center coordinates:'
             success = False
 
     if not success:
@@ -877,7 +880,7 @@ def doWork(options, args, logger):
     # Consolidate statistics into a one line summary file
     consolidateStats(lidarDiffPath, interDiffSummaryPath, 
                      fireballDiffSummaryPath, fireLidarDiffSummaryPath,  
-                     allDemPath, consolidatedStatsPath)
+                     allDemPath, consolidatedStatsPath, logger)
 
 
     ## HILLSHADE

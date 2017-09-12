@@ -65,7 +65,7 @@ def retrieveRunData(run, unpackFolder):
     fileName = run.getInputTarName()
 
     unpackedDir = os.path.join(unpackFolder, os.path.splitext(fileName)[0])
-    if os.path.exists(unpackFolder) and os.path.isdir(unpackFolder):
+    if os.path.exists(unpackedDir) and os.path.isdir(unpackedDir):
         logger.info("Directory exists, won't fetch: " + unpackedDir)
         return
 
@@ -97,11 +97,12 @@ def fetchCameraFolder(run):
     cmd = 'shiftc --wait --extract-tar ' + lfePath + ' ' + cameraFolder
     logger.info(cmd)
     status = os.system(cmd)
+    print status
     if status != 0:
         logger.info('Did not find camera file for run.')
         return False
     else:
-        logger.info('Finished sending cameras to lfe.')
+        logger.info('Finished retrieving cameras from lfe.')
         return True
 
 
@@ -125,6 +126,7 @@ def packAndSendCameraFolder(run):
     cmd = 'shiftc --wait --create-tar ' + cameraFolder + ' ' + lfePath
     logger.info(cmd)
     status = os.system(cmd)
+    print status
     if status != 0:
         raise Exception('Failed to pack/send cameras for run ' + str(run))
     logger.info('Finished sending cameras to lfe.')

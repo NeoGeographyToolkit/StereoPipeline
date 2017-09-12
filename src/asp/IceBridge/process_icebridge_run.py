@@ -106,6 +106,10 @@ def getImageSpacing(orthoFolder, availableFrames, startFrame, stopFrame):
    
     logger.info('Computing optimal image stereo interval...')
 
+    # With very few cameras this is the only possible way to process them
+    if len(availableFrames) < 3:
+        return (1, []) # No skip, no breaks
+
     breaks = []
    
     # Generate a list of valid, full path ortho files
@@ -288,7 +292,7 @@ def getImageCameraPairs(imageFolder, cameraFolder, startFrame, stopFrame):
     logger.info('Of %d input images in range, using %d with camera files.' 
                 % (len(goodImages), len(imageFiles)))
 
-    if len(goodImages) < 2:
+    if len(imageFiles) < 2:
         logger.error('Not enough input pairs exist to continue, quitting!')
         return -1
 
@@ -432,7 +436,7 @@ def main(argsIn):
         vizString += image +' ' + camera+' '
     cmd = 'orbitviz --hide-labels -t nadirpinhole -r wgs84 -o '+ orbitvizBefore +' '+ vizString
     logger.info('Running orbitviz on input files...')
-    redo=True
+
     asp_system_utils.executeCommand(cmd, orbitvizBefore, True, redo) # Suppress (potentially long) output
     #raise Exception('DEBUG')
 

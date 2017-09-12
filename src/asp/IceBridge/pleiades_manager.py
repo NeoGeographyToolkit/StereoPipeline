@@ -58,7 +58,7 @@ STEREO_ALGORITHM = 2 # 1 = SGM, 2 = MGM
 ORTHO_PBS_QUEUE = 'normal'
 BATCH_PBS_QUEUE = 'normal'
 BLEND_PBS_QUEUE = 'normal'
-MAX_ORTHO_HOURS = 8
+MAX_ORTHO_HOURS = 3 # Limit is 8 but these seem to complete fast.
 MAX_BATCH_HOURS = 8 # devel limit is 2, long limit is 120, normal is 8
 MAX_BLEND_HOURS = 2 # These jobs go pretty fast
 
@@ -82,7 +82,7 @@ def getParallelParams(nodeType, task):
 
     if task == 'ortho':
         if nodeType == 'ivy': return (10, 2, 400)
-        if nodeType == 'bro': return (14, 2, 500)
+        if nodeType == 'bro': return (14, 4, 500)
     
     if task == 'batch':
         if nodeType == 'ivy': return (4, 8, 80)
@@ -208,8 +208,8 @@ def runConversion(run, options):
     outputFolder = run.getFolder()
     
     scriptPath = icebridge_common.fullPath('full_processing_script.py')
-    args       = ('%s --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --stop-after-convert --num-threads %d --num-processes %d --output-folder %s --skip-validate' 
-                  % (scriptPath, options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder))
+    args       = (' --camera-calibration-folder %s --reference-dem-folder %s --site %s --yyyymmdd %s --stop-after-convert --num-threads %d --num-processes %d --output-folder %s --skip-validate' 
+                  % ( options.inputCalFolder, options.refDemFolder, run.site, run.yyyymmdd, numThreads, numProcesses, outputFolder))
     
     baseName = run.shortName() # SITE + YYMMDD = 8 chars, leaves seven for frame digits.
 
@@ -228,9 +228,10 @@ def runConversion(run, options):
         thisArgs = (args + ' --start-frame ' + str(startFrame) + ' --stop-frame ' + str(stopFrame) )
         if i != 0: # Only the first job will convert lidar files
             thisArgs += ' --no-lidar-convert'
+
         logPrefix = os.path.join(pbsLogFolder, 'convert_' + jobName)
         logger.info('Submitting conversion job with args: '+thisArgs)
-        pbs_functions.submitJob(jobName, ORTHO_PBS_QUEUE, MAX_ORTHO_HOURS, GROUP_ID, options.nodeType, 'python', thisArgs, logPrefix)
+        pbs_functions.submitJob(jobName, ORTHO_PBS_QUEUE, MAX_ORTHO_HOURS, GROUP_ID, options.nodeType, scriptPath, thisArgs, logPrefix)
         
         currentFrame += tasksPerJob
 
@@ -246,7 +247,12 @@ def runConversion(run, options):
     run.setFlag('conversion_complete')
 
     # Pack up camera folder and store it for later
-    gotCameras = archive_functions.packAndSendCameraFolder(run)
+    try:
+        archive_functions.packAndSendCameraFolder(run)
+    except Exception,e:
+        print 'Caught exception sending camera folder'
+        logger.exception(e)
+
 
 def generateBatchList(run, options, listPath):
     '''Generate a list of all the processing batches required for a run'''
@@ -332,7 +338,7 @@ def submitBatchJobs(run, options, batchListPath):
 
     currentBatch = 0
     for i in range(0, numBatchJobs):
-        jobName    = ('%06d_%s' % (currentFrame, baseName) )
+        jobName    = ('%06d_%s' % (currentBatch, baseName) )
         startBatch = currentBatch
         stopBatch  = currentBatch+tasksPerJob
         if (i == numBatchJobs-1):

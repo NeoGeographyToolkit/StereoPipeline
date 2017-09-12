@@ -35,7 +35,7 @@ sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 sys.path.insert(0, icebridgepath)
 
-import icebridge_common
+import icebridge_common, asp_file_utils
 
 # Prepend to system PATH
 os.environ["PATH"] = basepath       + os.pathsep + os.environ["PATH"]
@@ -220,13 +220,20 @@ class RunHelper():
                 return False
         
         # Do a simple check of the lidar files
-        lidarFiles       = self.getLidarList(paired=False)
-        pairedLidarFiles = self.getLidarList(paired=True )
+        lidarFiles       = self.getLidarList(paired=False, prependFolder=True)
+        pairedLidarFiles = self.getLidarList(paired=True,  prependFolder=True)
         if len(lidarFiles) != (len(pairedLidarFiles)+1):
             logger.error('Not enough paired lidar files found')
-            return False       
+            return False
+        # Make sure the lidar files are not empty
+        success = True
+        for f in (lidarFiles + pairedLidarFiles):
+            if not asp_file_utils.fileIsNonZero(f):
+                logger.error('lidar file ' + f + ' is empty!')
+                os.system('rm -f ' + f) # Remove bad files
+                success = False
 
-        return True # Success!
+        return success
     
 
     def getFrameRange(self):

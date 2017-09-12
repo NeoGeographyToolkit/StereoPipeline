@@ -594,10 +594,10 @@ def doFetch(options, outputFolder):
         if isLidar:
             if frameDict[frame] not in lidarsToFetch:
                 continue
-        else:
+        else:       
             if ((frame < options.startFrame) or (frame > options.stopFrame) ):
                 continue
-
+                
         # Handle the frame skip option
         if options.frameSkip > 0: 
             if skipCount < options.frameSkip:
@@ -730,11 +730,14 @@ def main(argsIn):
                           help="Specify the year, month, and day in one YYYYMMDD string.")
         parser.add_option("--site",  dest="site", default=None,
                           help="Name of the location of the images (AN or GR)")
-        parser.add_option("--start-frame",  dest="startFrame", type='int', default=None,
+        parser.add_option("--start-frame",  dest="startFrame", type='int', 
+                          default=icebridge_common.getSmallestFrame(),
                           help="Frame number or start of frame sequence")
-        parser.add_option("--stop-frame",  dest="stopFrame", type='int', default=None,
+        parser.add_option("--stop-frame",  dest="stopFrame", type='int', 
+                          default=icebridge_common.getLargestFrame(),
                           help="End of frame sequence to download.")
-        parser.add_option("--all-frames", action="store_true", dest="allFrames", default=False,
+        parser.add_option("--all-frames", action="store_true", dest="allFrames", 
+                          default=False,
                           help="Fetch all frames for this flight.")
         parser.add_option("--skip-validate", action="store_true", dest="skipValidate",
                           default=False,
@@ -770,6 +773,7 @@ def main(argsIn):
         options.type = icebridge_common.folderToType(outputFolder)
         if options.type == 'lidar':
             options.type = LIDAR_TYPES[0]
+        print 'Detected type: ' + options.type
             
         # Handle unified date option
         if options.yyyymmdd:
