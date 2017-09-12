@@ -421,8 +421,13 @@ def fetchAndParseIndexFile(options, isSouth, baseCurlCmd, outputFolder):
                         break
 
                 if not isGood:
-                    raise Exception("None of these URLs are good: " + " ".join(folderUrls))
-                
+                    if options.type in LIDAR_TYPES and options.ignoreMissingLidar:
+                        logger.info("No lidar. None of these URLs are good: " +
+                                    " ".join(folderUrls))
+                    else:
+                        raise Exception("None of these URLs are good: " +
+                                        " ".join(folderUrls))
+                    
         else: # Other cases are simpler
             folderUrl = getFolderUrl(options.yyyymmdd, options.year, options.month,
                                      options.day, dayVal, # note here the dayVal
@@ -550,9 +555,14 @@ def doFetch(options, outputFolder):
             options.stopFrame  = lastFrame
 
     if isLidar:
-        # Based on image frames, determine which lidar frames to fetch
-        lidarsToFetch = lidarFilesInRange(frameDict, outputFolder,
-                                          options.startFrame, options.stopFrame)
+        # Based on image frames, determine which lidar frames to fetch.
+        if options.ignoreMissingLidar and len(frameDict.keys()) == 0:
+            # Nothing we can do if this run has no lidar and we are told to continue
+            logger.info("Warning: missing lidar, but continuing.")
+            lidarsToFetch = set()
+        else:
+            lidarsToFetch = lidarFilesInRange(frameDict, outputFolder,
+                                              options.startFrame, options.stopFrame)
         
     # There is always a chance that not all requested frames are available.
     # That is particularly true for Fireball DEMs. Instead of failing,
@@ -729,6 +739,9 @@ def main(argsIn):
         parser.add_option("--skip-validate", action="store_true", dest="skipValidate",
                           default=False,
                           help="Skip input data validation.")
+        parser.add_option("--ignore-missing-lidar", action="store_true", dest="ignoreMissingLidar",
+                          default=False,
+                          help="Keep going if the lidar is missing.")
         parser.add_option("--frame-skip",  dest="frameSkip", type='int', default=0,
                           help="Skip this many frames between downloads.")
         parser.add_option("--dry-run", action="store_true", dest="dryRun",

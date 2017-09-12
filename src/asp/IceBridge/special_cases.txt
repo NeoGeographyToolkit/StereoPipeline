@@ -44,7 +44,7 @@ AN 20091109
 AN 20091112
 AN 20101026
 AN 20101110
-GR 20120317 # Need to resume here. Refetch index for all!
+GR 20120317
 AN 20121107
 AN 20131120
 AN 20131127
@@ -117,7 +117,7 @@ https://n5eil01u.ecs.nsidc.org/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/2015_AN_NASA/1020
 The software is able to fetch the right LIDAR for the GR run, and
 should not be invoked for the AN run.
 
-5. Some AN test flights are in fact over California, or en
+5. Some AN test flights are in fact over California, East Coast, or en
 route. Those should be ignored, as they have no LIDAR.
 
 AN 20111004 (https://asapdata.arc.nasa.gov/dms/flight_html/1281702.html)
@@ -128,7 +128,7 @@ GR 20100423
 GR 20130314
 GR_20100430
 GR_20100317
-
+GR_20150313
 
 This has LIDAR though but it is en-route:
 

@@ -157,6 +157,12 @@ def main(argsIn):
         parser.add_option("--skip-validate", action="store_true", dest="skipValidate",
                           default=False,
                           help="Skip input data validation.")
+        parser.add_option("--ignore-missing-lidar", action="store_true", dest="ignoreMissingLidar",
+                          default=False,
+                          help="Keep going if the lidar is missing.")
+        parser.add_option("--no-lidar-convert", action="store_true", dest="noLidarConvert",
+                          default=False,
+                          help="Skip lidar files in the conversion step.")
 
         parser.add_option("--refetch-index", action="store_true", dest="refetchIndex",
                           default=False,
@@ -213,7 +219,11 @@ def main(argsIn):
         cmd += ' --stop-after-index-fetch' 
     if options.skipValidate:
         cmd += ' --skip-validate'
-        
+    if options.ignoreMissingLidar:
+        cmd += ' --ignore-missing-lidar'
+    if options.noLidarConvert:
+        cmd += ' --no-lidar-convert'
+                   
     logger.info("full_processing_script.py " + cmd)
     
     if full_processing_script.main(cmd.split()) < 0:

@@ -71,6 +71,8 @@ def fetchAllRunData(options, startFrame, stopFrame,
         baseCommand += ' --stop-after-index-fetch' 
     if options.skipValidate:
         baseCommand += ' --skip-validate'
+    if options.ignoreMissingLidar:
+        baseCommand += ' --ignore-missing-lidar'
     if options.dryRun:
         baseCommand += ' --dry-run'
 
@@ -239,6 +241,9 @@ def main(argsIn):
         parser.add_argument("--skip-validate", action="store_true", dest="skipValidate",
                           default=False,
                           help="Skip input data validation.")
+        parser.add_argument("--ignore-missing-lidar", action="store_true", dest="ignoreMissingLidar",
+                            default=False,
+                            help="Keep going if the lidar is missing.")
         parser.add_argument("--log-batches", action="store_true", dest="logBatches", default=False,
                           help="Log the required batch commands without running them.")
         parser.add_argument('--cleanup', action='store_true', default=False, dest='cleanup',  

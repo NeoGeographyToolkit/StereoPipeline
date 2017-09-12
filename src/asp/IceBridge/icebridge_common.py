@@ -741,9 +741,6 @@ def findMatchingLidarFileFromList(imageFile, lidarFiles):
         if minute < minMinSec: minMinSec = minute
         if minute > maxMinSec: maxMinSec = minute
 
-    if minMinSec > maxMinSec:
-        raise Exception("Failure parsing " + pairedFolder)
-
     if minMinSec <= 0 and maxMinSec >= 60:
         raise Exception("The minute/second range goes from  " + str(minMinSec) +
                         " to " + str(maxMinSec))
